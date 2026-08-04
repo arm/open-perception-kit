@@ -9,13 +9,26 @@ set -euo pipefail
 : "${HOST_UID:=}"
 : "${HOST_GID:=}"
 
+# If the user of the container has a zsh config then use that configuration inside the container, otherwise keep using the default one.
+if [[ -f "/home/${USERNAME}/configs/zshrc" ]]; then
+    ln -sfn "/home/${USERNAME}/configs/zshrc" "/home/${USERNAME}/.zshrc"
+fi
+
 seed_development_artifacts() {
     local artifacts_root="/opt/pek-app"
 
     [[ -d "${artifacts_root}" ]] || return 0
     [[ -w /work ]] || return 0
 
-    mkdir -p /work/data/videos /work/development/build/meson-out /work/tools
+    mkdir -p \
+        /work/config/models \
+        /work/data/videos \
+        /work/development/build/meson-out \
+        /work/tools
+
+    if [[ -d "${artifacts_root}/config/models" ]]; then
+        cp -R --no-clobber "${artifacts_root}/config/models/." /work/config/models/
+    fi
 
     if [[ -d "${artifacts_root}/data/videos" ]]; then
         cp -a --no-clobber "${artifacts_root}/data/videos/." /work/data/videos/

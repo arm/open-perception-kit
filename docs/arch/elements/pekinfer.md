@@ -16,7 +16,7 @@ micropipeline.
 - Processing mode: in-place `transform_ip`
 - Supported caps: `video/x-raw, format=BGRA`
 - Main property: `opchain-path`, the JSON descriptor to execute
-- Control property: `active`, which enables or disables OpChain execution
+- Control property: `active`, which enables or disables per-frame OpChain execution
 - Metadata output: `PerceptionMeta`
 
 The implementation currently assumes tightly packed BGRA memory with stride equal
@@ -25,9 +25,10 @@ explicit `GstVideoFrame`/plane-stride handling.
 
 ## Lifecycle
 
-On `start()`, the element allocates internal state, loads the OpChain from JSON,
-and emits a downstream `pek-model-register` event with model name, element name,
-and active state.
+On `start()`, the element allocates internal state and loads the OpChain from
+JSON regardless of `active`. Setup failure prevents the element from starting.
+After successful setup, it emits a downstream `pek-model-register` event with
+model name, element name, and active state.
 
 On `set_caps()`, it validates BGRA caps and stores frame dimensions.
 
@@ -49,8 +50,10 @@ transient and discarded after the execution step.
 
 ## Error Handling And Observability
 
-Current setup and execution failures are logged and may abort execution. Product
-paths should replace abort behavior with proper GStreamer error reporting.
+Current setup failures are logged and reported as a GStreamer element error;
+they prevent startup. Execution failures are also reported and stop the
+affected flow. Other runtime paths still contain abort behavior that should be
+replaced with graceful error reporting.
 
 The element participates in global performance tracing. Ops and backends can emit
 timing keys that `pekperformance` later publishes.

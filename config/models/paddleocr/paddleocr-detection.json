@@ -2,6 +2,11 @@
 	"name": "paddleocr",
 	"modelFamily": "paddleocr",
 	"modelFile": "detection.onnx",
+	"hfDownload": {
+		"repo_id": "Arm/PaddleOCR",
+		"revision": "49d3beebca12cb9ad0ce6a0ee3ff99c896b9ea6d",
+		"filename": "models/onnx/detection.onnx"
+	},
 	"dynamicOutput": true,
 	"maxDetectionCount": 16,
 	"confidenceThreshold": 0.7,

@@ -19,15 +19,23 @@ current Dockerfile `FROM` and artifact-copy relationships.
 ```text
 External bases
   debian:trixie-slim
-  python:3.12-slim-trixie
   python:3.13-slim-trixie
 
-Development tooling lane
+Shared base and artifact stages
   debian:trixie-slim
+    -> pek-demo-media
     -> pek-build-base
+       -> pek-cross-build-base
+  python:3.13-slim-trixie
+    -> pek-models
+
+Development tooling lane
+  pek-build-base
     -> pek-dev-base
     -> pek-dev-tools
     -> pek-dev
+  pek-models
+    --copy model artifacts--> pek-dev
 
 Documentation lane
   pek-dev-base
@@ -39,23 +47,29 @@ CI lane
 
 Deployment lane
   pek-build-base
+    -> pek-cross-build-base
     -> pek-deployment-build
-       --copy selected /opt/pek-app and ONNX Runtime outputs-->
+  pek-models
+    --copy resolved config and model artifacts--> pek-deployment-build
+  pek-demo-media
+    --copy demo videos--> pek-deployment-build
+  pek-deployment-build
+    --copy selected /opt/pek-app and ONNX Runtime outputs-->
   debian:trixie-slim
     -> pek-deployment-base
 
 Helper lane
-  python:3.12-slim-trixie
-    -> pek-pre-commit-runtime
-
   python:3.13-slim-trixie
+    -> pek-pre-commit-runtime
     -> pek-playwright-pages
 ```
 
-The main `Dockerfile` owns the cross-lane stage graph where stages inherit from
-`pek-build-base` or `pek-dev-base`. Helper runtimes are intentionally separate
-top-level Dockerfiles because they start from Python images and do not share the
-core Debian build graph.
+The main `Dockerfile` owns the cross-lane stage graph where tool stages inherit
+from `pek-build-base`, `pek-cross-build-base`, or `pek-dev-base`. The same file
+also contains narrow artifact stages for model downloads and demo media so
+development and deployment can consume the same resolved inputs without
+inheriting artifact-stage tools. Helper runtimes are intentionally separate
+top-level Dockerfiles because they do not share the core Debian build graph.
 
 The CI service mapping uses these image lanes without creating new image
 contracts for each job. `pek-release-with-ut`, `pek-valgrind-check`,
@@ -80,6 +94,8 @@ The intended contract is:
 
 - Tool images provide repeatable environments for building, checking, and
 generating artifacts from the current checkout.
+- Artifact stages resolve shared inputs such as model files and demo media once,
+then copy them into the images that need them.
 - Deployment build stages compile and package PEK during image creation.
 - Deployment runtime images copy only selected runtime outputs from deployment
 build stages.
@@ -94,9 +110,19 @@ stages inherit everything from their parent unless noted otherwise.
 - `pek-build-base`: `ca-certificates`, `curl`, `git`, `build-essential`,
   `meson`, `ninja-build`, `pkg-config`, `cmake`, `unzip`, `python3`, OpenSSL,
   fmt, FFTW, libsoup, JSON-GLib, Cairo, and GStreamer development headers.
+- `pek-cross-build-base`: currently inherits `pek-build-base` and gives the
+  deployment build lane a named cross-build root.
+- `pek-demo-media`: starts from `debian:trixie-slim`, adds `ca-certificates`,
+  `curl`, and `bash`, then runs `scripts/download-data.sh` unless
+  `NO_EXAMPLE_CONTENT=true`, producing `data/videos` for deployment.
+- `pek-models`: starts from `python:3.13-slim-trixie`, adds
+  `huggingface_hub==1.18.0`, then runs `scripts/download-models.py` with the
+  optional Hugging Face build secret to resolve model artifacts under
+  `config/models`.
 - `pek-dev-base`: adds `wget`, `sudo`, `gnupg`, `shfmt`, `zip`, `python3-pip`,
   `pre-commit`, `lldb-17`, `valgrind`, `file`, GStreamer runtime plugins,
-  `actionlint`, ONNX Runtime, `uv`, the `expkits-ci` tool, and `plumber`.
+  `actionlint`, ONNX Runtime, `uv`, the `expkits-ci` tool, `plumber`, and
+  `huggingface_hub==1.18.0` in the devtools venv.
 - `pek-dev-tools`: adds Executorch packages, locale support, shell/editor tools
   such as `zsh`, Vim, Neovim, Nano, tmux, bash completion, `mc`, debugging and
   language tools such as `gdb` and `clangd`, browser and device tools such as
@@ -105,21 +131,24 @@ stages inherit everything from their parent unless noted otherwise.
   diagnostics such as `iproute2`, `ping`, `traceroute`, `arping`, DNS tools,
   `tcpdump`, and `nmap`, plus VS Code C++ tools and Oh My Zsh setup.
 - `pek-dev`: adds optional Raspberry Pi camera packages when `PEK_PICAMERA` is
-  enabled and ensures an ARM64 ONNX Runtime path is available. It does not copy
-  the repository or prebuilt PEK outputs into the image.
+  enabled, ensures an ARM64 ONNX Runtime path is available, and copies resolved
+  model artifacts from `pek-models` into `/opt/pek-app/config/models`. It does
+  not copy the repository or prebuilt PEK binaries into the image.
 - `pek-docs`: adds `openjdk-25-jdk`, Graphviz, Pandoc, Doxygen, and the
   PlantUML JAR.
 - `pek-ci`: adds the docs toolchain plus `gcovr`, Python development and venv
   packages, Python GObject/GStreamer bindings, compression/database development
   libraries, the PlantUML JAR, and Sonar Scanner.
-- `pek-deployment-build`: adds the target sysroot when cross-building, installs
-  target ONNX Runtime, downloads Meson subprojects, builds PEK release outputs,
-  and collects `/opt/pek-app`.
+- `pek-deployment-build`: inherits `pek-cross-build-base`, adds the target
+  sysroot when cross-building, installs target ONNX Runtime, downloads Meson
+  subprojects, consumes resolved model artifacts from `pek-models` and demo
+  videos from `pek-demo-media`, builds PEK release outputs, and collects
+  `/opt/pek-app`.
 - `pek-deployment-base`: contains runtime packages only: OpenSSL, fmt, FFTW,
   libsoup, JSON-GLib, Cairo, GStreamer runtime/tools/plugins, optional Raspberry
   Pi camera runtime packages, ONNX Runtime libraries, and the selected PEK app
   outputs copied from `pek-deployment-build`.
-- `pek-pre-commit-runtime`: starts from `python:3.12-slim-trixie` and adds
+- `pek-pre-commit-runtime`: starts from `python:3.13-slim-trixie` and adds
   `ca-certificates`, `curl`, `git`, `shfmt`, `actionlint`, and `expkits-ci`.
 - `pek-playwright-pages`: starts from `python:3.13-slim-trixie` and adds
   `ca-certificates`, GitHub CLI `gh`, and `git`.
@@ -128,8 +157,9 @@ stages inherit everything from their parent unless noted otherwise.
 
 The development lane starts from shared native build tooling and adds the normal
 interactive development environment. The final `pek-dev` image is for working in
-a mounted checkout. It should contain tools and dependency libraries, not a
-prebuilt copy of PEK from the repository.
+a mounted checkout. It may carry resolved model artifacts for first-run setup,
+but it should contain tools and dependency libraries, not a prebuilt copy of PEK
+from the repository.
 
 The CI lane reuses the development base and adds broad verification tools. CI
 jobs build and test the checked-out source at job runtime instead of depending
@@ -139,9 +169,10 @@ The documentation lane is separate from general CI. The `pek-docs` image reuses
 the development base and adds documentation tools such as Doxygen, Pandoc,
 Graphviz, and PlantUML.
 
-The deployment lane has two roles. `pek-deployment-build` is the builder stage
-that compiles PEK and collects `/opt/pek-app`. `pek-deployment-base` is the slim
-runtime image that receives selected outputs from the builder stage.
+The deployment lane has two roles plus shared artifact inputs.
+`pek-deployment-build` inherits the cross-build base, consumes model artifacts
+and demo media, compiles PEK, and collects `/opt/pek-app`. `pek-deployment-base`
+is the slim runtime image that receives selected outputs from the builder stage.
 
 The helper lane contains small workflow-specific images. `pek-pre-commit-runtime`
 runs local repository checks from the host Git hook, and `pek-playwright-pages`
@@ -159,8 +190,9 @@ Use the documentation image when generating public docs, Doxygen output, and
 PlantUML diagrams.
 
 Use the deployment build and runtime images when producing a runnable deployment
-image. This is the only lane where PEK binaries should be built into an image as
-part of the image creation process.
+image. This lane combines downloaded model artifacts, demo media, compiled PEK
+outputs, and runtime libraries. It is the only lane where PEK binaries should be
+built into an image as part of the image creation process.
 
 Use helper images for narrow automation that does not need the full development
 or CI environment. The pre-commit runtime is one example: the host hook invokes a

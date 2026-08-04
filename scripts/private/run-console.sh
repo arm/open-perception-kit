@@ -34,9 +34,11 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 DC_KIND="rich"
 CONTAINER_NAME="${PEK_RICH_CONTAINER_NAME:-pek-dev-rich}"
 
-export HOST_UID="$(id -u)"
-export HOST_GID="$(id -g)"
+HOST_UID="$(id -u)"
+HOST_GID="$(id -g)"
+export HOST_UID HOST_GID
 export HF_TOKEN="${HF_TOKEN-}"
+export HF_DOWNLOAD_CACHEBUST="${HF_DOWNLOAD_CACHEBUST:-$(date +%s)-$$}"
 
 cd "${REPO_ROOT}"
 

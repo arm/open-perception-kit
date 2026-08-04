@@ -37,6 +37,48 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev; \
   update-ca-certificates
 
+
+FROM pek-build-base AS pek-cross-build-base
+
+# Downloadable demo media is isolated so development and deployment images can
+# reuse it without coupling it to source or tool layers.
+FROM --platform=${BUILDPLATFORM} debian:trixie-slim AS pek-demo-media
+
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+  --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+  set -eux; \
+  apt-get update; \
+  apt-get install -y --no-install-recommends ca-certificates curl bash; \
+  update-ca-certificates
+
+ARG NO_EXAMPLE_CONTENT=false
+
+WORKDIR /work
+COPY --chmod=0755 scripts/download-data.sh scripts/download-data.sh
+RUN if [ "${NO_EXAMPLE_CONTENT}" != "true" ]; then \
+      ./scripts/download-data.sh; \
+    else \
+      mkdir -p data/videos; \
+    fi
+
+# Model artifacts are resolved in a dedicated stage so Hugging Face tokens stay
+# scoped to build-time model download.
+FROM --platform=${BUILDPLATFORM} python:3.13-slim-trixie AS pek-models
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+  PYTHONDONTWRITEBYTECODE=1
+
+RUN python3 -m pip install --no-cache-dir huggingface_hub==1.18.0
+
+WORKDIR /work
+COPY config config
+COPY --chmod=0755 scripts/download-models.py scripts/download-models.py
+ARG HF_DOWNLOAD_CACHEBUST
+RUN --mount=type=cache,target=/root/.cache/huggingface \
+  --mount=type=secret,id=huggingface_token,env=HF_TOKEN \
+  HF_DOWNLOAD_CACHEBUST="${HF_DOWNLOAD_CACHEBUST}" \
+  ./scripts/download-models.py --models-dir config/models --token "${HF_TOKEN:-}"
+
 # Development base extends the shared native build tooling. PEK source and build
 # outputs come from the mounted checkout, not from this image.
 FROM pek-build-base AS pek-dev-base
@@ -117,7 +159,8 @@ RUN set -eux; \
   uv venv --system-site-packages /opt/pek-venvs/devtools; \
   uv pip install --python /opt/pek-venvs/devtools/bin/python \
   /tmp/pek-tools/expkits-ci \
-  /tmp/pek-tools/plumber; \
+  /tmp/pek-tools/plumber \
+  huggingface_hub==1.18.0; \
   rm -rf /tmp/pek-tools
 
 EXPOSE 8000 8001 9999 8080 2222
@@ -257,6 +300,8 @@ RUN set -eux; \
 
 USER ${USERNAME}
 WORKDIR /work
+COPY --from=pek-models \
+  /work/config/models /opt/pek-app/config/models
 
 # ==============================================================================
 # Documentation Image Lane
@@ -328,7 +373,7 @@ WORKDIR /work
 # Deployment Build and Runtime Images
 # ==============================================================================
 
-FROM pek-build-base AS pek-deployment-build
+FROM pek-cross-build-base AS pek-deployment-build
 
 ARG TARGETARCH
 ARG NO_EXAMPLE_CONTENT=false
@@ -357,17 +402,12 @@ COPY development/subprojects/packagefiles development/subprojects/packagefiles
 RUN meson subprojects download --sourcedir /work/development
 
 COPY scripts/build-elements.sh scripts/build-elements.sh
-COPY scripts/download-data.sh scripts/download-data.sh
 COPY scripts/private/shtools.sh scripts/private/shtools.sh
 COPY scripts/private/deployment-runtime.sh scripts/private/deployment-runtime.sh
 COPY development development
-COPY config config
+COPY --from=pek-models /work/config config
 COPY data data
-RUN if [ "${NO_EXAMPLE_CONTENT}" != "true" ]; then \
-      ./scripts/download-data.sh; \
-    else \
-      mkdir -p data/videos; \
-    fi
+COPY --from=pek-demo-media /work/data/videos /work/data/videos
 
 RUN set -eux; \
   native_arch="$(dpkg --print-architecture)"; \
@@ -394,7 +434,7 @@ FROM debian:trixie-slim AS pek-deployment-base
 ARG USERNAME=pek
 ARG USER_UID=1000
 ARG USER_GID=1000
-ARG PEK_PIPELINE=config/pipelines/debug/onnx.json
+ARG PEK_PIPELINE=yolov11-onnx
 ARG PEK_PICAMERA=disabled
 
 ENV DEBIAN_FRONTEND=noninteractive \

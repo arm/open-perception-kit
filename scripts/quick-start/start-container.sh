@@ -75,9 +75,11 @@ eval "$detect_output"
 export PEK_DEV_CONTAINER_NAME PEK_DEV_RPI5_H8_CONTAINER_NAME
 export PEK_DEV_RPI5_H10_CONTAINER_NAME PEK_PICAMERA
 export HF_TOKEN="${HF_TOKEN-}"
+export HF_DOWNLOAD_CACHEBUST="${HF_DOWNLOAD_CACHEBUST:-$(date +%s)-$$}"
 
 COMPOSE_FILES=(
     -f .devcontainer/compose.devcont.yaml
+    -f .devcontainer/docker-compose.ssh-agent.yaml
     -f .devcontainer/docker-compose.devcont.video.yaml
     -f .devcontainer/docker-compose.devcont.audio.yaml
     -f .devcontainer/docker-compose.devcont.npu.yaml
@@ -140,8 +142,9 @@ print_enter_hint() {
 
 cd "${REPO_ROOT}"
 
-export HOST_UID="$(id -u)"
-export HOST_GID="$(id -g)"
+HOST_UID="$(id -u)"
+HOST_GID="$(id -g)"
+export HOST_UID HOST_GID
 
 require_docker
 
@@ -152,15 +155,12 @@ bash .devcontainer/platform_init.sh \
 
 if container_running && [[ "$RECREATE" != "true" ]]; then
     if container_workdir_writable; then
-        echo "Recreating the running container with the current Compose environment..."
-        "${COMPOSE_COMMAND[@]}" "${COMPOSE_FILES[@]}" \
-            up -d --no-build --force-recreate --remove-orphans "${PEK_CONTAINER_SERVICE}"
         print_enter_hint
         exit 0
     fi
 
     echo "Container is running, but /work is not writable as dev."
-    echo "Recreating it with the current host configuration..."
+    echo "Recreating it with the host UID/GID mapping..."
     RECREATE="true"
 fi
 

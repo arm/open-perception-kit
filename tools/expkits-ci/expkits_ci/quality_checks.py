@@ -69,6 +69,7 @@ class QualityChecks:
         ".github/workflows/agent-stabilize-pr",
     )
     AGENT_RUNTIME_STATIC_TRIGGER_FILES = (
+        "scripts/download-models.py",
         "tools/expkits-ci/agent-workflows-mypy.ini",
         "tools/expkits-ci/expkits_ci/agent_static_analysis.py",
         "tools/expkits-ci/tests/test_agent_static_analysis.py",
