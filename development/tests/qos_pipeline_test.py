@@ -3,7 +3,7 @@
 # Copyright (C) 2026 Arm Limited. All rights reserved.
 ################################################################
 
-"""Verify QoS event handling and message delivery across the PEK video chain."""
+"""Verify opt-in QoS feedback, inference skipping, recovery, and state reset."""
 
 from __future__ import annotations
 
@@ -15,6 +15,8 @@ import threading
 import unittest
 from typing import Any
 
+# Meson passes the test-only Delay Op first. OpChain loads that shared module through
+# its plugin ABI; it is not a GStreamer plugin and must not be given to load_file().
 GST_PLUGIN_PATHS = [Path(argument).resolve() for argument in sys.argv[2:]]
 
 
@@ -26,10 +28,14 @@ class QosPipelineTest(unittest.TestCase):
         from gi.repository import GObject, Gst
 
         Gst.init(None)
+        # Load only the GStreamer elements used by the pipeline. This avoids relying
+        # on a machine-wide plugin installation during the test.
         for plugin_path in GST_PLUGIN_PATHS:
             Gst.Plugin.load_file(str(plugin_path))
 
         with tempfile.TemporaryDirectory(prefix="pek-qos-") as directory:
+            # Both pekinfer instances use a deterministic 50 ms Op instead of a model.
+            # At 30 FPS this exceeds one frame budget and schedules one proactive skip.
             descriptor = Path(directory) / "opchain.json"
             descriptor.write_text(
                 json.dumps(
@@ -46,6 +52,8 @@ class QosPipelineTest(unittest.TestCase):
                 encoding="utf-8",
             )
             pipeline = Gst.parse_launch(
+                # The inactive instance verifies that QoS reaches the next active
+                # inference element instead of being consumed unconditionally.
                 "appsrc name=source is-live=true format=time "
                 "caps=video/x-raw,format=BGRA,width=16,height=16 ! "
                 f'pekinfer name=inactive opchain-path="{descriptor}" active=false ! '
@@ -63,6 +71,9 @@ class QosPipelineTest(unittest.TestCase):
             video_converter = output.get_by_name("vconv")
             self.assertIsNotNone(source)
             self.assertIsNotNone(drain)
+
+            # The experimental path must preserve origin/develop behavior unless
+            # explicitly enabled on both the inference policy and feedback source.
             self.assertFalse(infer.get_property("qos-enabled"))
             self.assertFalse(output.get_property("qos-enabled"))
             self.assertFalse(drain.get_property("sync"))
@@ -72,6 +83,8 @@ class QosPipelineTest(unittest.TestCase):
             infer.set_property("qos-enabled", True)
             output.set_property("qos-enabled", True)
 
+            # Enabling peksink only activates its drain's native clocked QoS. It must
+            # not reconfigure the converter or other downstream processing elements.
             self.assertTrue(drain.get_property("sync"))
             self.assertTrue(drain.get_property("qos"))
             self.assertTrue(
@@ -89,7 +102,8 @@ class QosPipelineTest(unittest.TestCase):
             )
 
             # The rest of this test injects exact QoS values, so disable automatic
-            # feedback after verifying peksink's production configuration.
+            # feedback after verifying peksink's production configuration. Otherwise
+            # converter messages and drops would make the policy assertions nondeterministic.
             drain.set_property("sync", False)
             drain.set_property("qos", False)
             video_converter.set_property("qos", False)
@@ -108,6 +122,8 @@ class QosPipelineTest(unittest.TestCase):
                 return Gst.PadProbeReturn.OK
 
             source_pad = source.get_static_pad("src")
+            # Events counted here escaped every pekinfer instance. An enabled, active
+            # instance should consume QoS before it reaches this upstream source pad.
             source_pad.add_probe(
                 Gst.PadProbeType.EVENT_UPSTREAM, observe_upstream_event, None
             )
@@ -125,6 +141,8 @@ class QosPipelineTest(unittest.TestCase):
                 return Gst.PadProbeReturn.OK
 
             pipeline.get_by_name("infer").get_static_pad("src").add_probe(
+                # Observe pekinfer directly: downstream elements retain their default
+                # QoS behavior and may legitimately drop the buffer later.
                 Gst.PadProbeType.BUFFER,
                 observe_infer_buffer,
                 None,
@@ -176,6 +194,8 @@ class QosPipelineTest(unittest.TestCase):
                     "active pekinfer forwarded QoS to an upstream video element",
                 )
 
+                # The 5 ms lateness has already recovered by the next 30 FPS frame,
+                # so this frame executes the 50 ms Delay Op rather than being skipped.
                 frame_duration = Gst.SECOND // 30
                 push_buffer(frame_duration)
                 self.assertIsNone(
@@ -186,6 +206,8 @@ class QosPipelineTest(unittest.TestCase):
                     "a recoverable timing spike incorrectly skipped inference",
                 )
 
+                # That 50 ms execution crossed one later frame deadline. The next
+                # buffer is forwarded without running the Delay Op and reports QoS.
                 push_buffer(frame_duration + 1)
                 proactive_message = pipeline.get_bus().timed_pop_filtered(
                     Gst.SECOND, Gst.MessageType.QOS | Gst.MessageType.ERROR
@@ -202,6 +224,7 @@ class QosPipelineTest(unittest.TestCase):
                 self.assertEqual(proactive_values.jitter, 0)
                 self.assertEqual(proactive_values.proportion, 1.0)
 
+                # Only one following frame was stale; the subsequent buffer executes.
                 push_buffer(frame_duration + 2)
                 self.assertIsNone(
                     pipeline.get_bus().timed_pop_filtered(
@@ -212,6 +235,8 @@ class QosPipelineTest(unittest.TestCase):
                 )
 
                 event_timestamp = frame_duration
+                # Recovery point is timestamp + lateness (~73 ms). A frame at ~66 ms
+                # must skip inference, while the following ~99 ms frame must resume.
                 sent = drain_pad.push_event(
                     Gst.Event.new_qos(
                         Gst.QOSType.UNDERFLOW,
@@ -264,6 +289,7 @@ class QosPipelineTest(unittest.TestCase):
                         )
                     )
                 )
+                # Disabling the policy clears pending QoS and proactive-skip state.
                 infer.set_property("qos-enabled", False)
                 infer.set_property("qos-enabled", True)
                 push_buffer(event_timestamp + 3 * frame_duration)

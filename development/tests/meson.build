@@ -21,6 +21,7 @@ performance_tracer_tests = executable(
   link_with : [common],
 )
 
+# Test-only OpChain plugin that simulates inference exceeding one frame budget.
 qos_delay_op = shared_module(
   'pek-test-qos-delay',
   ['qos_delay_op.cpp'],

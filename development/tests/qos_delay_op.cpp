@@ -11,6 +11,8 @@
 
 namespace {
 
+// A 30 FPS frame has a roughly 33 ms budget. Sleeping for 50 ms makes one following
+// frame become stale, exercising pekinfer's proactive skip policy without loading a model.
 class DelayOp final : public pek::op::Op {
   public:
     pek::Result<void> configure(const pek::AttributeMap &) override {
