@@ -299,7 +299,12 @@ def publish(site_dir: Path, storage_branch: str = STORAGE_BRANCH) -> bool:
     else:
         status_path = status_dir / "prs" / f'{status["pull_request_number"]}.json'
     status_path.parent.mkdir(parents=True, exist_ok=True)
-    if run_order(read_status(status_path)) > run_order(status):
+    existing = read_status(status_path)
+    if status["event"] == "schedule":
+        legacy = read_status(site_dir / WORKFLOW_STATUS_DIRECTORY / f"{source}.json")
+        if run_order(legacy) > run_order(existing):
+            existing = legacy
+    if run_order(existing) > run_order(status):
         print(f"Ignoring stale {status['workflow']} run {status['run_id']} attempt {status['run_attempt']}.")
         set_output("deploy", "false")
         return False

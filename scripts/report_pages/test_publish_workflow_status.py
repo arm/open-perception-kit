@@ -189,6 +189,34 @@ class TestPublishWorkflowStatus(unittest.TestCase):
             self.assertIn('href="nightly/index.html"', playwright_index)
             self.assertTrue((site_dir / "nightly-ci" / "index.html").is_file())
 
+    def test_status_publish_rejects_stale_run_against_legacy_status(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            site_dir = Path(tmpdir) / "site"
+            legacy = site_dir / "workflow-status" / "python-audit.json"
+            legacy.parent.mkdir(parents=True)
+            legacy.write_text(json.dumps({"run_id": "124", "run_attempt": "1"}))
+            environment = {
+                "GITHUB_OUTPUT": str(Path(tmpdir) / "output.txt"),
+                "GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge",
+                "UPSTREAM_CONCLUSION": "success",
+                "UPSTREAM_EVENT": "schedule",
+                "UPSTREAM_HEAD_BRANCH": "develop",
+                "UPSTREAM_HEAD_REPOSITORY": "Arm-Debug/amp-dev-forge",
+                "UPSTREAM_HEAD_SHA": SHA,
+                "UPSTREAM_RUN_ATTEMPT": "1",
+                "UPSTREAM_RUN_ID": "123",
+                "UPSTREAM_UPDATED_AT": "2026-08-03T10:00:00Z",
+                "UPSTREAM_WORKFLOW_NAME": "Python Dependency Audit",
+            }
+            with patch.dict(os.environ, environment, clear=True), \
+                    patch.object(publisher, "checkout_site_branch"), \
+                    patch.object(publisher, "workflow_jobs", return_value=[]), \
+                    patch.object(publisher, "push_site_branch") as push:
+                self.assertFalse(publisher.publish(site_dir))
+
+            push.assert_not_called()
+            self.assertFalse((legacy.parent / "python-audit" / "nightly.json").exists())
+
     def test_nightly_overview_links_runs_and_lists_unavailable_sources(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             site_dir = Path(tmpdir)
