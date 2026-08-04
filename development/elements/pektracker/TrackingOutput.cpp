@@ -173,6 +173,10 @@ void appendTrackingPayloads(perception::FrameResults &frameResults,
         frameResults.add(std::move(tracksPayload));
     }
 
+    if (!config.emitTrace) {
+        return;
+    }
+
     perception::metadata::TrackTracesT tracesPayload;
     tracesPayload.layer = makeTrackerLayerInfo(config, TRACE_TAG, "trackTrace");
 

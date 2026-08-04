@@ -161,6 +161,16 @@ pektracker_matching_tests = executable(
   link_with : [common],
 )
 
+pektracker_tracking_output_tests = executable(
+  'pektracker_tracking_output_tests',
+  ['pektracker_tracking_output_test.cpp',
+   '../elements/pektracker/TrackingOutput.cpp'],
+  include_directories : [common_include, include_directories('../elements/pektracker')],
+  cpp_args: ['-DFMT_HEADER_ONLY'],
+  dependencies : [gtest_main_dep, gtest_dep, pek_deps],
+  link_with : [common],
+)
+
 webrtc_session_tests = executable(
   'webrtc_session_tests',
   ['webrtc_session_test.cpp',
@@ -271,6 +281,7 @@ test(
 )
 test('performance_metrics_tests', performance_metrics_tests)
 test('pektracker_matching_tests', pektracker_matching_tests)
+test('pektracker_tracking_output_tests', pektracker_tracking_output_tests)
 test('webrtc_session_tests', webrtc_session_tests)
 test('runtime_pipeline_tests', runtime_pipeline_tests)
 test('image_conversion_oracle_test', image_conversion_oracle_test)
