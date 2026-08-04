@@ -190,7 +190,17 @@ class TestValgrindBaselineArtifact(unittest.TestCase):
         self.assertIn("valgrind-baseline-artifact.py publish", workflow)
         self.assertIn("valgrind-baseline-artifact.py locate", workflow)
         self.assertIn("valgrind-baseline-artifact.py wait", workflow)
-        self.assertIn("auto-publish is only enabled for main/develop targets", workflow)
+        self.assertEqual(
+            workflow.count("VALGRIND_BASELINE_BRANCH: ${{ github.event.pull_request.base.ref }}"),
+            3,
+        )
+        self.assertIn("github.event.pull_request.stack != null", workflow)
+        self.assertIn("github.event.pull_request.stack.base.ref == 'main'", workflow)
+        self.assertIn("github.event.pull_request.stack.base.ref == 'develop'", workflow)
+        self.assertIn("steps.waited_valgrind_baseline.outcome == 'skipped'", workflow)
+        self.assertIn("Require existing Valgrind baseline artifact", workflow)
+        self.assertIn("no automatic publisher is available", workflow)
+        self.assertIn("always() && steps.valgrind_checks.outcome != 'skipped'", workflow)
         self.assertIn("steps.valgrind_baseline.outputs.run-id || steps.waited_valgrind_baseline.outputs.run-id", workflow)
 
 
