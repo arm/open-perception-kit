@@ -388,15 +388,23 @@ def status_summary(status: dict[str, object]) -> str:
     )
 
 
-def status_link(status: dict[str, object], title: str, now: dt.datetime,
+def status_link(status: dict[str, object] | None, title: str, now: dt.datetime,
                 href: str | None = None) -> str:
+    if status is None:
+        return (
+            '<div class="report-link"><span>'
+            f'<span class="report-title"><a href="{html_escape(href or "#")}">'
+            f'{html_escape(title)}</a></span><span class="report-meta">No status published yet.</span>'
+            f'</span>{verdict_html("neutral", "Unavailable")}</div>'
+        )
     tone, label = workflow_status_badge(status, now)
     run_url = f'https://github.com/{status["repository"]}/actions/runs/{status["run_id"]}'
     return (
-        f'<a class="report-link" href="{html_escape(href or run_url)}"><span>'
-        f'<span class="report-title">{html_escape(title)}</span>'
-        f'<span class="report-meta">{html_escape(status_meta(status))}</span>'
-        f'{status_summary(status)}</span>{verdict_html(tone, label)}</a>'
+        '<div class="report-link"><span>'
+        f'<span class="report-title"><a href="{html_escape(href or run_url)}">'
+        f'{html_escape(title)}</a></span><span class="report-meta">'
+        f'{html_escape(status_meta(status))} · <a href="{html_escape(run_url)}">Run</a></span>'
+        f'{status_summary(status)}</span>{verdict_html(tone, label)}</div>'
     )
 
 
@@ -451,8 +459,7 @@ def write_status_indexes(site_dir: Path, now: dt.datetime) -> None:
         if source == "valgrind":
             continue
         status = read_workflow_status(site_dir, source)
-        if status is not None:
-            links.append(status_link(status, title, now, f"../{href}"))
+        links.append(status_link(status, title, now, f"../{href}"))
     nightly = "".join(links) if links else '<div class="empty">No nightly results published yet.</div>'
     (target / INDEX_HTML).write_text(
         report_index_page("Nightly CI report", "Nightly CI report", "Nightly", nightly),

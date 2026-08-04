@@ -155,6 +155,48 @@ class TestPublishWorkflowStatus(unittest.TestCase):
             )
             self.assertTrue(valgrind_status.is_file())
 
+    def test_status_publish_migrates_legacy_playwright_root(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            site_dir = Path(tmpdir) / "site"
+            legacy = site_dir / "nightly" / "index.html"
+            legacy.parent.mkdir(parents=True)
+            legacy.write_text("legacy Playwright", encoding="utf-8")
+            environment = {
+                "GITHUB_OUTPUT": str(Path(tmpdir) / "output.txt"),
+                "GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge",
+                "UPSTREAM_CONCLUSION": "success",
+                "UPSTREAM_EVENT": "schedule",
+                "UPSTREAM_HEAD_BRANCH": "develop",
+                "UPSTREAM_HEAD_REPOSITORY": "Arm-Debug/amp-dev-forge",
+                "UPSTREAM_HEAD_SHA": SHA,
+                "UPSTREAM_RUN_ATTEMPT": "1",
+                "UPSTREAM_RUN_ID": "123",
+                "UPSTREAM_UPDATED_AT": "2026-08-03T10:00:00Z",
+                "UPSTREAM_WORKFLOW_NAME": "Python Dependency Audit",
+            }
+            with patch.dict(os.environ, environment, clear=True), \
+                    patch.object(publisher, "checkout_site_branch"), \
+                    patch.object(publisher, "push_site_branch", return_value=True), \
+                    patch.object(publisher, "workflow_jobs", return_value=[]):
+                self.assertTrue(publisher.publish(site_dir))
+
+            self.assertEqual(
+                (site_dir / "playwright" / "nightly" / "index.html").read_text(),
+                "legacy Playwright",
+            )
+
+    def test_nightly_overview_links_runs_and_lists_unavailable_sources(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            site_dir = Path(tmpdir)
+            report_pages.write_root_index(site_dir, now=NOW)
+            nightly = (site_dir / "nightly" / "index.html").read_text(encoding="utf-8")
+
+        self.assertIn("PEK CI", nightly)
+        self.assertIn("Unavailable", nightly)
+        rendered = report_pages.status_link(status("failure"), "PEK CI", NOW, "../playwright/")
+        self.assertIn("/actions/runs/123", rendered)
+        self.assertIn('href="../playwright/"', rendered)
+
     def test_run_order_handles_missing_and_invalid_status(self):
         self.assertEqual(publisher.run_order(None), (0, 0))
         self.assertEqual(publisher.run_order({"run_id": "12", "run_attempt": "3"}), (12, 3))

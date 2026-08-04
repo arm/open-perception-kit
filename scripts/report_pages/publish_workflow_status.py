@@ -23,6 +23,7 @@ from scripts.report_pages.publish import (  # noqa: E402
     checkout_site_branch,
     env,
     push_site_branch,
+    remove_legacy_root_site,
     require_env,
     set_output,
     write_root_index,
@@ -285,6 +286,7 @@ def publish(site_dir: Path, storage_branch: str = STORAGE_BRANCH) -> bool:
     source, status = selected
 
     checkout_site_branch(site_dir, storage_branch, DRY_RUN_ENV, "local-report-status-pages")
+    remove_legacy_root_site(site_dir)
     status_dir = site_dir / WORKFLOW_STATUS_DIRECTORY / source
     if status["event"] == "schedule":
         status_path = status_dir / "nightly.json"
