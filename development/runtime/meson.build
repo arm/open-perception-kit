@@ -4,6 +4,7 @@ pek_runtime = shared_library(
   'pek-runtime',
   sources: [
     'OpChain.cpp',
+    'PerformanceMetrics.cpp',
     'Pipeline.cpp',
     'Result.cpp',
     'Tools.cpp',

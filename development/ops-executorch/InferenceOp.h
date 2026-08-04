@@ -29,7 +29,6 @@ class InferenceOp : public pek::op::Op, public pek::op::OpInterfaceInference {
 
   private:
     std::unique_ptr<pek::extrch::Inference> inference;
-    std::string modelFamily;
 };
 
 } // namespace pek::extrch

@@ -53,7 +53,6 @@ Model::createOutputTensorView(size_t index, const uint8_t *data, const pek::Shap
 pek::Result<void> Model::applyModelFromDescriptor(const ModelDescriptor &modelDescriptor) {
 
     this->name = modelDescriptor.name;
-    this->modelFamily = modelDescriptor.modelFamily;
     this->contentType = modelDescriptor.contentType;
 
     // INPUT tensors
@@ -213,7 +212,7 @@ pek::Result<void> Model::applyModelFromDescriptor(const ModelDescriptor &modelDe
 std::string Model::toString() const {
     std::string ret;
 
-    ret += fmt::format("Model: [{}]\n", modelFamily);
+    ret += fmt::format("Model: [{}]\n", name);
     ret += fmt::format("Engine: [{}]\n", engine);
     ret += fmt::format("Input count: {}\n", inputs.size());
     ret += fmt::format("Output count: {}\n", outputs.size());

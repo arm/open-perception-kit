@@ -88,7 +88,7 @@ The descriptor defines things such as:
 - data layout such as `ImageRgbChw` or `ImageRgbHwc`
 - normalization
 - output behavior
-- model family and content type
+- model name and content type
 
 `modelFile` is always a local path relative to its descriptor. The standard
 container images try to download published PEK model artifacts from pinned

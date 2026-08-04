@@ -1,6 +1,5 @@
 {
     "name": "repvgg_a0_person_reid_512",
-    "modelFamily": "reid",
     "contentType": "genericObject",
     "modelFile": "repvgg_a0_person_reid_512.hef",
     "hfDownload": {

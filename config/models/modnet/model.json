@@ -1,6 +1,5 @@
 {
-  "name": "modnet",
-  "modelFamily": "segmentation",
+  "name": "modnet-seg",
   "modelFile": "model.onnx",
   "hfDownload": {
     "repo_id": "onnx-community/modnet-webnn",

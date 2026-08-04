@@ -132,7 +132,6 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc) {
     this->modelDescriptor = modelDesc;
     this->model = pek::Model();
     this->model.engine = "hailort";
-    this->model.modelFamily = this->modelDescriptor.modelFamily;
     this->setupReady = false;
 
     try {

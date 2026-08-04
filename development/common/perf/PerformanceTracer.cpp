@@ -472,7 +472,9 @@ void PerformanceMonitor::clearScreen() const {
 // ============================================================================
 
 PerformanceTracer *getGlobalTracer() {
-    static PerformanceTracer global_tracer;
+    // Function-local storage preserves lazy initialization. S6018 applies to global variables
+    // declared in headers, not to this local singleton.
+    static PerformanceTracer global_tracer; // NOSONAR
     return &global_tracer;
 }
 

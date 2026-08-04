@@ -1,6 +1,5 @@
 {
-	"name": "paddleocr",
-	"modelFamily": "paddleocr",
+	"name": "paddleocr-detection",
 	"modelFile": "detection.onnx",
 	"hfDownload": {
 		"repo_id": "Arm/PaddleOCR",

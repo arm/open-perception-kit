@@ -1,6 +1,5 @@
 {
     "name": "arcface_mobilefacenet",
-    "modelFamily": "reid",
     "contentType": "humanFace",
     "modelFile": "arcface_mobilefacenet.hef",
     "hfDownload": {

@@ -1,6 +1,5 @@
 {
-	"name": "imagenet",
-	"modelFamily": "classification",
+	"name": "mobilenet-imagenet",
 	"modelFile": "mobilenet_v2_1.4_224.onnx",
 	"hfDownload": {
 		"repo_id": "onnx-community/mobilenet_v2_1.4_224-ONNX",

@@ -218,7 +218,6 @@ pek::Result<pek::Model> Inference::buildModelFromDescriptor(const pek::ModelDesc
 
     pek::Model model;
     model.engine = "ncnn";
-    model.modelFamily = desc.modelFamily;
     model.contentType = desc.contentType;
     model.inputs.resize(desc.inputTensors.size());
     model.outputs.resize(desc.outputTensors.size());

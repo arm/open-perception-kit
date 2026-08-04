@@ -1,6 +1,5 @@
 {
-    "name": "osnet_x0_25_msmt17",
-    "modelFamily": "reid",
+    "name": "osnet-reid",
     "contentType": "genericObject",
     "modelFile": "osnet_x0_25_msmt17_opset21.onnx",
     "hfDownload": {

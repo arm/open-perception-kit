@@ -1,6 +1,5 @@
 {
 	"name": "yolo-hailo",
-	"modelFamily": "yolo-obj",
 	"modelFile": "yolo11n-fp32-320_nms.hef",
 	"hfDownload": {
 		"repo_id": "Arm/Yolo-v11",

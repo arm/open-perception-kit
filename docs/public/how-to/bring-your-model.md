@@ -76,7 +76,6 @@ new checked-in binary.
 
 Typical fields are:
 - `name`
-- `modelFamily`
 - `modelFile`
 - `dynamicOutput`
 - `contentType` when applicable
