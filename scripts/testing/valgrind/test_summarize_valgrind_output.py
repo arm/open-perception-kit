@@ -208,10 +208,14 @@ class TestSummarizeValgrindOutput(unittest.TestCase):
           <error><stack><frame><obj>/work/development/build/meson-out/libcommon.so</obj></frame></stack></error>
           <error><stack><frame><dir>/work/development/elements</dir></frame></stack></error>
           <error><stack><frame><dir>/work/development/subprojects/vendor</dir></frame></stack></error>
+          <error><stack><frame><obj>/work/development/build/meson-out/subprojects/libvendor.so</obj></frame></stack></error>
         </valgrindoutput>""")
         errors = root.findall("error")
 
-        self.assertEqual(list(map(summary.is_repo_owned_error, errors)), [False, True, True, False])
+        self.assertEqual(
+            list(map(summary.is_repo_owned_error, errors)),
+            [False, True, True, False, False],
+        )
         markdown = summary.repo_owned_markdown(root)
         self.assertIn("2 baseline record(s)", markdown)
         self.assertIn("meson-out/libcommon.so", markdown)

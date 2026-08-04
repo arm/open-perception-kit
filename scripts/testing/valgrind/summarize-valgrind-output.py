@@ -133,7 +133,7 @@ def is_repo_owned_error(error: ET.Element) -> bool:
     for frame in error.findall(".//frame"):
         directory = frame.findtext("dir") or ""
         obj = frame.findtext("obj") or ""
-        if obj.startswith(REPO_BUILD_PREFIX):
+        if obj.startswith(REPO_BUILD_PREFIX) and "/subprojects/" not in obj:
             return True
         if directory.startswith(REPO_SOURCE_PREFIX) and "/subprojects/" not in directory:
             return True
