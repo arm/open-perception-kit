@@ -185,6 +185,8 @@ class TestPublishWorkflowStatus(unittest.TestCase):
                 "legacy Playwright",
             )
             self.assertFalse((site_dir / "nightly").exists())
+            playwright_index = (site_dir / "playwright" / "index.html").read_text()
+            self.assertIn('href="nightly/index.html"', playwright_index)
             self.assertTrue((site_dir / "nightly-ci" / "index.html").is_file())
 
     def test_nightly_overview_links_runs_and_lists_unavailable_sources(self):

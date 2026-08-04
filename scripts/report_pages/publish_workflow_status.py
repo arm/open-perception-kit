@@ -28,6 +28,9 @@ from scripts.report_pages.publish import (  # noqa: E402
     set_output,
     write_root_index,
 )
+from scripts.playwright.pages.publish_playwright_pages import (  # noqa: E402
+    write_site_index as write_playwright_index,
+)
 
 
 DRY_RUN_ENV = "REPORT_STATUS_PAGES_DRY_RUN"
@@ -287,6 +290,7 @@ def publish(site_dir: Path, storage_branch: str = STORAGE_BRANCH) -> bool:
 
     checkout_site_branch(site_dir, storage_branch, DRY_RUN_ENV, "local-report-status-pages")
     remove_legacy_root_site(site_dir)
+    write_playwright_index(site_dir, str(status["repository"]))
     status_dir = site_dir / WORKFLOW_STATUS_DIRECTORY / source
     if status["event"] == "schedule":
         status_path = status_dir / "nightly.json"
