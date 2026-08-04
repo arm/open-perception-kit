@@ -59,8 +59,12 @@ class TestPublishWorkflowStatus(unittest.TestCase):
                 "metric": "18 repo-owned baseline",
             })
             for source, payload in fixtures.items():
-                target = status_dir / source / ("develop.json" if source == "valgrind" else "nightly.json")
-                target.parent.mkdir()
+                target = (
+                    status_dir / f"{source}.json"
+                    if source == "workflow-freshness"
+                    else status_dir / source / ("develop.json" if source == "valgrind" else "nightly.json")
+                )
+                target.parent.mkdir(exist_ok=True)
                 target.write_text(json.dumps(payload), encoding="utf-8")
 
             report_pages.write_root_index(site_dir, now=NOW)

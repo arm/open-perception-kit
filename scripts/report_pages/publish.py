@@ -300,6 +300,8 @@ def root_card_icon(name: str) -> str:
 def read_workflow_status(site_dir: Path, source: str,
                          relative_path: str = "nightly.json") -> dict[str, object] | None:
     path = site_dir / WORKFLOW_STATUS_DIRECTORY / source / relative_path
+    if relative_path == "nightly.json" and not path.exists():
+        path = site_dir / WORKFLOW_STATUS_DIRECTORY / f"{source}.json"
     try:
         status = json.loads(path.read_text(encoding="utf-8"))
         required = ("conclusion", "head_sha", "repository", "run_id", "updated_at")
