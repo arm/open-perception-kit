@@ -225,6 +225,12 @@ class AgentWorkflowContractTests(unittest.TestCase):
         review_gate_job = workflow["jobs"]["review-gate"]
         auto_stabilize_job = workflow["jobs"]["auto-stabilize-pr"]
         review_steps = step_map(review_job)
+        selected_base_ref = (
+            "${{ github.event_name == 'workflow_dispatch' && "
+            "github.event.inputs.base_ref || "
+            "format('origin/{0}', github.event.pull_request.base.ref) }}"
+        )
+        pull_request_base_ref = "${{ format('origin/{0}', github.event.pull_request.base.ref) }}"
 
         self.assertNotIn("labeled", pull_request_trigger["types"])
         self.assertIn("edited", pull_request_trigger["types"])
@@ -327,7 +333,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
         fetch_step = review_steps["Fetch Agent review base ref"]
         self.assertEqual(fetch_step["shell"], "bash")
         self.assertEqual(fetch_step["env"]["GITHUB_TOKEN"], "${{ github.token }}")
-        self.assertIn("REVIEW_BASE_REF", fetch_step["env"])
+        self.assertEqual(fetch_step["env"]["REVIEW_BASE_REF"], selected_base_ref)
         self.assertIn('if [[ "${REVIEW_BASE_REF}" == origin/* ]]; then', fetch_step["run"])
         self.assertIn(
             'auth_header="$(printf \'x-access-token:%s\' "${GITHUB_TOKEN}" | base64 -w 0)"',
@@ -342,6 +348,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
             fetch_step["run"],
         )
         context_step = review_steps["Build Agent review context"]
+        self.assertEqual(context_step["env"]["REVIEW_BASE_REF"], selected_base_ref)
         self.assertEqual(context_step["env"]["REVIEW_HEAD_REF"], selected_head_ref)
         self.assertNotIn("REVIEW_PR_BODY", context_step["env"])
         self.assertIn(
@@ -393,15 +400,14 @@ class AgentWorkflowContractTests(unittest.TestCase):
         publish_step = review_steps["Publish review summary comment"]
         render_summary_step = review_steps["Render review summary"]
         self.assertEqual(render_summary_step["id"], "render")
-        self.assertEqual(
-            render_summary_step["env"]["REVIEW_BASE_REF"],
-            "${{ github.event_name == 'workflow_dispatch' && github.event.inputs.base_ref || format('origin/{0}', github.base_ref) }}",
-        )
+        self.assertEqual(static_step["env"]["REVIEW_BASE_REF"], selected_base_ref)
+        self.assertEqual(render_summary_step["env"]["REVIEW_BASE_REF"], selected_base_ref)
         self.assertIn('--github-output "${GITHUB_OUTPUT}"', render_summary_step["run"])
         self.assertEqual(
             publish_step["env"]["REVIEW_BASE_REF"],
-            "${{ format('origin/{0}', github.base_ref) }}",
+            pull_request_base_ref,
         )
+        self.assertNotIn("github.base_ref", workflow_source)
         self.assertIn(
             ".agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/review/publish.py",
             publish_step["run"],

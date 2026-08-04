@@ -49,7 +49,7 @@ jobs:
         shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          REVIEW_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.base_ref || format('origin/{0}', github.base_ref) }}
+          REVIEW_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.base_ref || format('origin/{0}', github.event.pull_request.base.ref) }}
         run: |
           set -euo pipefail
           if [[ "${REVIEW_BASE_REF}" == origin/* ]]; then
@@ -67,7 +67,7 @@ jobs:
       - name: Build Agent review context
         shell: bash
         env:
-          REVIEW_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.base_ref || format('origin/{0}', github.base_ref) }}
+          REVIEW_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.base_ref || format('origin/{0}', github.event.pull_request.base.ref) }}
           REVIEW_HEAD_REF: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.head_ref || github.sha) || github.event.pull_request.head.sha || github.sha }}
           REVIEW_REPOSITORY: ${{ github.repository }}
           REVIEW_PR_NUMBER: ${{ github.event.pull_request.number || '' }}
@@ -97,7 +97,7 @@ jobs:
       - name: Run Agent workflow static analysis
         shell: bash
         env:
-          REVIEW_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.base_ref || format('origin/{0}', github.base_ref) }}
+          REVIEW_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.base_ref || format('origin/{0}', github.event.pull_request.base.ref) }}
         run: |
           PYTHONPATH="${GITHUB_WORKSPACE}/tools/expkits-ci${PYTHONPATH:+:${PYTHONPATH}}" \
             .agent-runtime/openai-agent-venv/bin/python -m expkits_ci.agent_static_analysis --base-ref "${REVIEW_BASE_REF}"
@@ -132,7 +132,7 @@ jobs:
         if: ${{ steps.review.outcome == 'success' }}
         shell: bash
         env:
-          REVIEW_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.base_ref || format('origin/{0}', github.base_ref) }}
+          REVIEW_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.base_ref || format('origin/{0}', github.event.pull_request.base.ref) }}
         run: |
           .agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/review/publish.py \
             --input .github/agent-runtime/review/out/review.json \
@@ -148,7 +148,7 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          REVIEW_BASE_REF: ${{ format('origin/{0}', github.base_ref) }}
+          REVIEW_BASE_REF: ${{ format('origin/{0}', github.event.pull_request.base.ref) }}
         run: |
           .agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/review/publish.py \
             --input .github/agent-runtime/review/out/review.json \
