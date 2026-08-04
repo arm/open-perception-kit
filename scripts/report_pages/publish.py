@@ -368,7 +368,7 @@ def nightly_status_verdict(site_dir: Path, now: dt.datetime) -> tuple[str, str]:
 
 
 def status_meta(status: dict[str, object]) -> str:
-    updated_at = dt.datetime.fromisoformat(str(status["updated_at"]))
+    updated_at = dt.datetime.fromisoformat(str(status["updated_at"]).replace("Z", "+00:00"))
     branch = status.get("head_branch") or ("develop" if status.get("event") == "schedule" else "")
     attempt = status.get("run_attempt", "1")
     return (
