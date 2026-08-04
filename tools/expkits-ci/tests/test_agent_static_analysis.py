@@ -46,6 +46,17 @@ class AgentStaticAnalysisTests(unittest.TestCase):
             {"scripts/private/old-helper.py", "scripts/private/old-helper"},
         )
 
+    def test_reference_tokens_do_not_alias_existing_suffixless_path(self):
+        removed_path = "Dockerfile" + ".dev"
+
+        self.assertEqual(
+            agent_static_analysis.reference_tokens_for_removed_path(
+                removed_path,
+                repo_root=Path(__file__).resolve().parents[3],
+            ),
+            {removed_path},
+        )
+
     def test_ignore_rules_are_not_source_references(self):
         self.assertNotIn(".gitignore", agent_static_analysis.AGENT_STATIC_REFERENCE_PATHS)
 
