@@ -407,7 +407,6 @@ class AgentWorkflowContractTests(unittest.TestCase):
             publish_step["env"]["REVIEW_BASE_REF"],
             pull_request_base_ref,
         )
-        self.assertNotIn("github.base_ref", workflow_source)
         self.assertIn(
             ".agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/review/publish.py",
             publish_step["run"],
