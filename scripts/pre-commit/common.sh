@@ -184,7 +184,7 @@ repo_checks_build_image() {
     local dockerfile_path=""
 
     image_name="$(repo_checks_image_name "${repo_root}")"
-    dockerfile_path="${repo_root}/scripts/pre-commit/runtime/Dockerfile"
+    dockerfile_path="${repo_root}/Dockerfile.pre-commit"
 
     [ -f "${dockerfile_path}" ] || repo_checks_die "Dockerfile not found: ${dockerfile_path}"
 

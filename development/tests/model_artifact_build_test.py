@@ -59,10 +59,13 @@ class ModelArtifactBuildTest(unittest.TestCase):
             ).is_file()
         )
 
-    def test_dev_container_supports_manual_model_downloads(self) -> None:
-        dockerfile = (REPO_ROOT / "Dockerfile.dev").read_text()
-        runtime_stage = dockerfile.split(" AS pek-base", 1)[1].split(
-            "FROM pek-base AS pek-docs", 1
+    def test_dev_container_seeds_downloaded_artifacts(self) -> None:
+        dockerfile = (REPO_ROOT / "Dockerfile").read_text()
+        entrypoint = (
+            REPO_ROOT / "scripts/private/development-entrypoint.sh"
+        ).read_text()
+        runtime_stage = dockerfile.split(" AS pek-dev-base", 1)[1].split(
+            "FROM pek-dev-base AS pek-dev-tools", 1
         )[0]
         self.assertIn("huggingface_hub==1.18.0", runtime_stage)
         self.assertIn(
@@ -73,11 +76,21 @@ class ModelArtifactBuildTest(unittest.TestCase):
         self.assertIn(
             'cp -R --no-clobber "${artifacts_root}/config/models/." '
             "/work/config/models/",
-            (REPO_ROOT / "scripts/private/development-entrypoint.sh").read_text(),
+            entrypoint,
+        )
+        self.assertIn(
+            "COPY --from=pek-demo-media \\\n"
+            "  /work/data/videos /opt/pek-app/data/videos",
+            dockerfile,
+        )
+        self.assertIn(
+            'cp -a --no-clobber "${artifacts_root}/data/videos/." '
+            "/work/data/videos/",
+            entrypoint,
         )
 
     def test_model_download_cache_bust_is_consumed(self) -> None:
-        for name in ("Dockerfile", "Dockerfile.dev"):
+        for name in ("Dockerfile",):
             dockerfile = (REPO_ROOT / name).read_text()
             download_step = dockerfile.split("ARG HF_DOWNLOAD_CACHEBUST", 1)[1].split(
                 "\n\n", 1

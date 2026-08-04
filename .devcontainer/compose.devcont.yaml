@@ -1,11 +1,9 @@
-x-pek-dev-build: &pek-dev-build
+x-pek-dev-image-build: &pek-dev-image-build
   context: ..
-  dockerfile: Dockerfile.dev
+  dockerfile: Dockerfile
   network: ${BUILD_NETWORK_MODE:-default}
   secrets:
     - huggingface_token
-  additional_contexts:
-    pek-build-base: docker-image://${PEK_BUILD_BASE_IMAGE:-perception-experience-kit-build-base}
 
 x-pek-hailo-build: &pek-hailo-build
   context: ..
@@ -29,7 +27,7 @@ services:
     hostname: ${PEK_DEV_CONTAINER_NAME:-perception-experience-kit}
     command: sleep infinity
     build:
-      <<: *pek-dev-build
+      <<: *pek-dev-image-build
       target: pek-dev
       args:
         HF_DOWNLOAD_CACHEBUST: ${HF_DOWNLOAD_CACHEBUST:-${HF_TOKEN:+${GITHUB_RUN_ID:?Set HF_DOWNLOAD_CACHEBUST when HF_TOKEN is set}-${GITHUB_RUN_ATTEMPT:-0}}}

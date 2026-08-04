@@ -43,6 +43,9 @@ jobs:
           - service: pek-docs
             runner: self-hosted-ubuntu-latest-x64
             scout-asset: docker-scout-action_linux_amd64
+          - service: pek-ci
+            runner: self-hosted-ubuntu-latest-x64
+            scout-asset: docker-scout-action_linux_amd64
           - service: pek-dev
             runner: self-hosted-ubuntu-latest-x64
             scout-asset: docker-scout-action_linux_amd64

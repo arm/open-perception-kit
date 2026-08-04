@@ -151,11 +151,17 @@ def removed_or_renamed_paths(repo_root: Path, *, base_ref: str, staged: bool) ->
     return parse_removed_or_renamed_paths(git_output(repo_root, command))
 
 
-def reference_tokens_for_removed_path(path_value: str) -> set[str]:
+def reference_tokens_for_removed_path(
+    path_value: str,
+    *,
+    repo_root: Path | None = None,
+) -> set[str]:
     path = Path(path_value)
     tokens = {path_value}
     if path.suffix:
-        tokens.add(path_value[: -len(path.suffix)])
+        suffixless_path = path_value[: -len(path.suffix)]
+        if repo_root is None or not repo_path(repo_root, suffixless_path).exists():
+            tokens.add(suffixless_path)
     return {token for token in tokens if token}
 
 
@@ -172,7 +178,7 @@ def find_removed_reference_violations(
         {
             token
             for path in removed_paths
-            for token in reference_tokens_for_removed_path(path)
+            for token in reference_tokens_for_removed_path(path, repo_root=repo_root)
         },
         key=lambda token: (-len(token), token),
     )

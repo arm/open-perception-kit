@@ -296,8 +296,8 @@ jobs:
               ]
               target = entry.get("target")
               dockerfile_name = pathlib.Path(entry["dockerfile"]).name
-              uses_huggingface_models = target == "pek-dev" or (
-                  target is None and dockerfile_name in {"Dockerfile", "Dockerfile.dev"}
+              uses_huggingface_models = target in {"pek-dev", "pek-deployment-base"} or (
+                  target is None and dockerfile_name == "Dockerfile"
               )
               build_env = scrubbed_env.copy()
               if uses_huggingface_models:
@@ -306,11 +306,6 @@ jobs:
                       "--secret", "id=huggingface_token,env=HF_TOKEN",
                       "--build-arg",
                       f"HF_DOWNLOAD_CACHEBUST={os.environ['GITHUB_RUN_ID']}-{os.environ['GITHUB_RUN_ATTEMPT']}",
-                  ]
-              if pathlib.Path(entry["dockerfile"]).name == "Dockerfile.dev":
-                  cmd += [
-                      "--build-context",
-                      f"pek-build-base=docker-image://{os.environ['PEK_BUILD_BASE_IMAGE']}",
                   ]
               if entry.get("target"):
                   cmd += ["--target", entry["target"]]
@@ -347,8 +342,7 @@ jobs:
           dev_image="perception-experience-kit-bd:${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           docker build \
             -t "${dev_image}" \
-            -f "${WORKSPACE_ROOT}/Dockerfile.dev" \
-            --build-context "pek-build-base=docker-image://${PEK_BUILD_BASE_IMAGE}" \
+            -f "${WORKSPACE_ROOT}/Dockerfile" \
             --secret "id=huggingface_token,env=HF_TOKEN" \
             --build-arg "HF_DOWNLOAD_CACHEBUST=${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
             --target pek-dev \
