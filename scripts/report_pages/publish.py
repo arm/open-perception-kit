@@ -322,7 +322,7 @@ def workflow_status_verdict(status: dict[str, object] | None,
                             now: dt.datetime) -> tuple[str, str]:
     if status is None:
         return "neutral", "Unavailable"
-    updated_at = dt.datetime.fromisoformat(str(status["updated_at"]))
+    updated_at = dt.datetime.fromisoformat(str(status["updated_at"]).replace("Z", "+00:00"))
     max_age = (
         VALGRIND_STATUS_MAX_AGE
         if status.get("event") == "push" and status.get("workflow") == "Valgrind Baseline Artifact"
