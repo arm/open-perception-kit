@@ -81,6 +81,66 @@ contracts for each job. `pek-release-with-ut`, `pek-valgrind-check`,
 report-page jobs use their helper images. Deployment build/audit jobs use
 `pek-build-base` and `pek-deployment-base`.
 
+## Runtime Contracts
+
+The image graph describes what each image contains. The runtime environment is
+completed by Compose service selection and host-generated overrides, which are
+part of the container contract as well.
+
+### Device Passthrough
+
+Before a development or quick-start container is created,
+`.devcontainer/platform_init.sh` runs on the Docker host and calls
+`scripts/private/dev-init.sh`. The initialization flow discovers cameras, audio
+devices, Hailo devices, shared memory, and DMA-related resources, then generates
+the matching `.devcontainer/docker-compose.<kind>.*.yaml` overrides and
+`devices.env` entries.
+
+The selected Compose service, generated overrides, and `devices.env` together
+define which host resources enter the container. Device discovery must stay on
+the host because the container cannot discover resources that have not yet been
+passed through.
+
+### Hailo Host And Container Boundary
+
+Hailo 8/Hailo 8L and Hailo 10 use separate services:
+`pek-dev-rpi5-h8` and `pek-dev-rpi5-h10`. Use the service, compiled model
+variant, and pipeline preset that match the attached accelerator generation;
+their model files and user-space runtime packages are not interchangeable.
+
+The Raspberry Pi host owns the generation-specific Hailo software stack and
+kernel/device integration (`hailo-all` for Hailo 8/Hailo 8L or
+`hailo-h10-all` for Hailo 10). The matching container installs user-space
+HailoRT and TAPPAS packages from `.devcontainer/Dockerfile.hailo`, while the
+generated NPU override passes `/dev/hailo*` devices and, when present, the
+HailoRT Unix socket into the container. Kernel-driver packages stay on the host
+because they are coupled to the host kernel and device lifecycle.
+
+### Host And Bridge Networking
+
+Linux and remote Raspberry Pi development normally inherit host networking from
+`compose.base.yaml`, so services such as the PEK web UI and documentation server
+bind directly on the Docker host. WSL and macOS enable the checked-in TURN
+override: the PEK and coturn services use bridge networking, required ports are
+published, and WebRTC traffic can use the advertised host address and relay
+port range. CI and narrow helper services also use bridge networking because
+they do not need the development runtime's direct host service exposure.
+
+Build networking is a separate setting from runtime `network_mode`; changing
+one does not change the other.
+
+### Browser Media Output
+
+Direct display and audio forwarding from a container varies across Linux,
+remote hosts, WSL, and macOS. Runtime presets therefore normally terminate in
+`peksink`, which encodes the media and exposes browser playback and control over
+WebRTC and HTTP. This keeps the normal headless and remote workflow independent
+of host display forwarding and avoids a separate UDP media-output contract.
+
+See [peksink](elements/peksink.md) for the element's media, signaling, control,
+and lifecycle details. Its current application-boundary limitations are tracked
+in [Known Limitations](known-limitations.md).
+
 ## Motivation
 
 Development and CI containers need broad tooling: compilers, build systems,
