@@ -72,8 +72,10 @@ struct _GstPekInfer {
     GstClockTime qosEarliestTime;
     guint64 processingSkipFrames;
     gdouble qosProportion;
-    GstClockTimeDiff qosDiff;
     GstClockTime qosTimestamp;
+    guint64 qosProcessed;
+    guint64 qosDropped;
+    guint64 qosGeneration;
 
     // a safe place for c++ stuff
     GstPekInferMembers *m;
@@ -107,8 +109,10 @@ static void gst_pekinfer_reset_qos_unlocked(GstPekInfer *self) {
     self->qosEarliestTime = GST_CLOCK_TIME_NONE;
     self->processingSkipFrames = 0;
     self->qosProportion = 1.0;
-    self->qosDiff = 0;
     self->qosTimestamp = GST_CLOCK_TIME_NONE;
+    self->qosProcessed = 0;
+    self->qosDropped = 0;
+    ++self->qosGeneration;
 }
 
 static void gst_pekinfer_reset_qos(GstPekInfer *self) {
@@ -238,7 +242,6 @@ static gboolean gst_pekinfer_src_event(GstBaseTransform *trans, GstEvent *event)
         GST_OBJECT_LOCK(self);
         self->qosEarliestTime = qosEarliestTime;
         self->qosProportion = proportion;
-        self->qosDiff = diff;
         self->qosTimestamp = timestamp;
         GST_OBJECT_UNLOCK(self);
 
@@ -278,8 +281,9 @@ struct GstPekInferFramePolicy {
     gboolean qosEnabled;
     gboolean skipInference;
     gdouble qosProportion;
-    GstClockTimeDiff qosDiff;
+    GstClockTimeDiff qosJitter;
     GstClockTime qosTimestamp;
+    guint64 qosGeneration;
 };
 
 static GstPekInferFramePolicy gst_pekinfer_get_frame_policy(GstPekInfer *self,
@@ -288,19 +292,21 @@ static GstPekInferFramePolicy gst_pekinfer_get_frame_policy(GstPekInfer *self,
     const gboolean qosEnabled = self->qosEnabled;
     const gboolean qosSkip = GST_CLOCK_TIME_IS_VALID(runningTime) && qosEnabled &&
                              GST_CLOCK_TIME_IS_VALID(self->qosEarliestTime) &&
-                             runningTime < self->qosEarliestTime;
+                             runningTime <= self->qosEarliestTime;
     const gboolean processingSkip = qosEnabled && self->processingSkipFrames > 0;
     if (processingSkip)
         --self->processingSkipFrames;
     if (GST_CLOCK_TIME_IS_VALID(runningTime) && GST_CLOCK_TIME_IS_VALID(self->qosEarliestTime) &&
-        runningTime >= self->qosEarliestTime) {
+        runningTime > self->qosEarliestTime) {
         self->qosEarliestTime = GST_CLOCK_TIME_NONE;
     }
     const GstPekInferFramePolicy policy{qosEnabled,
                                         qosSkip || processingSkip,
                                         qosSkip ? self->qosProportion : 1.0,
-                                        qosSkip ? self->qosDiff : 0,
-                                        self->qosTimestamp};
+                                        qosSkip ? GST_CLOCK_DIFF(runningTime, self->qosEarliestTime)
+                                                : 0,
+                                        self->qosTimestamp,
+                                        self->qosGeneration};
     GST_OBJECT_UNLOCK(self);
     return policy;
 }
@@ -328,6 +334,15 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
     const auto framePolicy = gst_pekinfer_get_frame_policy(self, runningTime);
 
     if (framePolicy.skipInference) {
+        GST_OBJECT_LOCK(self);
+        if (framePolicy.qosGeneration != self->qosGeneration) {
+            GST_OBJECT_UNLOCK(self);
+            return GST_FLOW_OK;
+        }
+        const guint64 processed = self->qosProcessed;
+        const guint64 dropped = ++self->qosDropped;
+        GST_OBJECT_UNLOCK(self);
+
         // Report the QoS action while returning OK so the video buffer still flows.
         GstMessage *message = gst_message_new_qos(
             GST_OBJECT(self),
@@ -336,7 +351,9 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
             gst_segment_to_stream_time(&b->segment, GST_FORMAT_TIME, GST_BUFFER_PTS(buf)),
             GST_BUFFER_PTS_IS_VALID(buf) ? GST_BUFFER_PTS(buf) : framePolicy.qosTimestamp,
             GST_BUFFER_DURATION(buf));
-        gst_message_set_qos_values(message, framePolicy.qosDiff, framePolicy.qosProportion, 0);
+        gst_message_set_qos_values(
+            message, framePolicy.qosJitter, framePolicy.qosProportion, GST_FORMAT_PERCENT_MAX);
+        gst_message_set_qos_stats(message, GST_FORMAT_BUFFERS, processed, dropped);
         gst_element_post_message(GST_ELEMENT(self), message);
         return GST_FLOW_OK;
     }
@@ -416,15 +433,19 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
         frameDuration = gst_util_uint64_scale(
             GST_SECOND, GST_VIDEO_INFO_FPS_D(&self->vinfo), GST_VIDEO_INFO_FPS_N(&self->vinfo));
     }
-    if (GST_CLOCK_TIME_IS_VALID(frameDuration) && frameDuration > 0 &&
-        processingLatency > frameDuration) {
-        // Integer division already rounds down for nonmultiples. Subtracting one nanosecond
-        // only changes exact multiples, treating a frame due exactly at completion as on time.
-        const guint64 processingSkipFrames = (processingLatency - 1) / frameDuration;
-        GST_OBJECT_LOCK(self);
-        self->processingSkipFrames = processingSkipFrames;
-        GST_OBJECT_UNLOCK(self);
+    GST_OBJECT_LOCK(self);
+    const gboolean publishProcessing = framePolicy.qosEnabled && self->qosEnabled && self->active &&
+                                       framePolicy.qosGeneration == self->qosGeneration;
+    if (publishProcessing) {
+        ++self->qosProcessed;
+        if (GST_CLOCK_TIME_IS_VALID(frameDuration) && frameDuration > 0 &&
+            processingLatency > frameDuration) {
+            // Integer division already rounds down for nonmultiples. Subtracting one nanosecond
+            // only changes exact multiples, treating a frame due exactly at completion as on time.
+            self->processingSkipFrames = (processingLatency - 1) / frameDuration;
+        }
     }
+    GST_OBJECT_UNLOCK(self);
 
     return GST_FLOW_OK;
 }
@@ -591,8 +612,10 @@ static void gst_pekinfer_init(GstPekInfer *self) {
     self->qosEarliestTime = GST_CLOCK_TIME_NONE;
     self->processingSkipFrames = 0;
     self->qosProportion = 1.0;
-    self->qosDiff = 0;
     self->qosTimestamp = GST_CLOCK_TIME_NONE;
+    self->qosProcessed = 0;
+    self->qosDropped = 0;
+    self->qosGeneration = 0;
 
     gst_video_info_init(&self->vinfo);
 

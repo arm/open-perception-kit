@@ -14,6 +14,7 @@ from pathlib import Path
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from typing import Any
 
@@ -324,12 +325,21 @@ class QosPipelineTest(unittest.TestCase):
         # unrelated QoS messages to the same pipeline bus.
         self.elements["vconv"].set_property("qos", False)
 
+    def establish_segment(self) -> None:
+        # appsrc sends its initial SEGMENT with the first buffer, and pekinfer
+        # correctly clears QoS state on that event. Prime it before exact events,
+        # then reset counters so each test still begins from zero.
+        self.delay_op.set_delay(0)
+        self.flow_monitor.push_buffer(0)
+        self.elements["infer"].set_property("qos-enabled", False)
+        self.elements["infer"].set_property("qos-enabled", True)
+
     def push_qos_event(
         self, lateness: int, timestamp: int, proportion: float = 0.75
     ) -> None:
-        drain_pad = self.elements["drain_fakesink"].get_static_pad("sink")
+        infer_src_pad = self.elements["infer"].get_static_pad("src")
         self.assertTrue(
-            drain_pad.push_event(
+            infer_src_pad.send_event(
                 self.Gst.Event.new_qos(
                     self.Gst.QOSType.UNDERFLOW,
                     proportion,
@@ -337,19 +347,24 @@ class QosPipelineTest(unittest.TestCase):
                     timestamp,
                 )
             ),
-            "the downstream QoS event was not accepted",
+            "the controlled QoS event was not accepted",
         )
 
     def pop_qos_message(self, failure_message: str) -> Any:
-        message = self.pipeline.get_bus().timed_pop_filtered(
-            self.Gst.SECOND,
-            self.Gst.MessageType.QOS | self.Gst.MessageType.ERROR,
-        )
-        self.assertIsNotNone(message, failure_message)
-        if message.type == self.Gst.MessageType.ERROR:
-            error, debug = message.parse_error()
-            self.fail(f"pipeline error: {error.message}: {debug}")
-        return message
+        deadline = time.monotonic_ns() + self.Gst.SECOND
+        while (remaining := deadline - time.monotonic_ns()) > 0:
+            message = self.pipeline.get_bus().timed_pop_filtered(
+                remaining,
+                self.Gst.MessageType.QOS | self.Gst.MessageType.ERROR,
+            )
+            if message is None:
+                break
+            if message.type == self.Gst.MessageType.ERROR:
+                error, debug = message.parse_error()
+                self.fail(f"pipeline error: {error.message}: {debug}")
+            if message.src.get_name() == "infer":
+                return message
+        self.fail(failure_message)
 
     def assert_no_qos_message(self, failure_message: str) -> None:
         self.assertIsNone(
@@ -390,12 +405,16 @@ class QosPipelineTest(unittest.TestCase):
         self.elements["output"].set_property("qos-enabled", True)
         self.start_pipeline()
 
-        # Force the drain to treat a buffer as late without a wall-clock sleep.
+        # Force the drain to treat buffers as late without a wall-clock sleep. The
+        # first buffer establishes GstBaseSink's timing history; the second produces
+        # native QoS feedback.
         self.elements["drain_fakesink"].set_property(
             "ts-offset", -self.Gst.SECOND
         )
         self.elements["drain_fakesink"].set_property("max-lateness", 0)
-        self.flow_monitor.push_buffer(self.Gst.SECOND)
+        feedback_start = 100 * self.Gst.MSECOND
+        self.flow_monitor.push_buffer(feedback_start)
+        self.flow_monitor.push_buffer(feedback_start + self.frame_duration)
         self.assertTrue(
             self.flow_monitor.wait_for_qos_event(),
             "the enabled peksink drain did not generate upstream QoS",
@@ -403,7 +422,7 @@ class QosPipelineTest(unittest.TestCase):
         self.assertGreaterEqual(self.flow_monitor.received_qos_events, 1)
         self.assertEqual(self.flow_monitor.forwarded_qos_events, 0)
 
-        self.flow_monitor.push_buffer(self.Gst.SECOND + 1)
+        self.flow_monitor.push_buffer(feedback_start + 2 * self.frame_duration)
         message = self.pop_qos_message(
             "real peksink feedback did not produce a pekinfer QoS message"
         )
@@ -430,7 +449,9 @@ class QosPipelineTest(unittest.TestCase):
 
     def test_processing_latency_skips_only_the_next_stale_frame(self) -> None:
         self.enable_controlled_inference_qos()
-        self.start_pipeline(delay_milliseconds=50)
+        self.start_pipeline()
+        self.establish_segment()
+        self.delay_op.set_delay(50)
         proactive_start = 2 * self.Gst.SECOND
         self.push_qos_event(5 * self.Gst.MSECOND, proactive_start)
         self.assertEqual(
@@ -494,6 +515,7 @@ class QosPipelineTest(unittest.TestCase):
     def test_event_skip_reports_standard_qos_fields_and_recovers(self) -> None:
         self.enable_controlled_inference_qos()
         self.start_pipeline()
+        self.establish_segment()
         event_timestamp = 4 * self.Gst.SECOND
         self.push_qos_event(40 * self.Gst.MSECOND, event_timestamp)
 
@@ -513,7 +535,7 @@ class QosPipelineTest(unittest.TestCase):
             values.jitter,
             event_timestamp + 40 * self.Gst.MSECOND - skipped_frame_pts,
         )
-        self.assertEqual(values.quality, 1_000_000)
+        self.assertEqual(values.quality, self.Gst.FORMAT_PERCENT_MAX)
         self.assertEqual(timing.timestamp, skipped_frame_pts)
         self.assertEqual(stats.format, self.Gst.Format.BUFFERS)
         self.assertEqual(stats.processed, 0)
@@ -525,6 +547,7 @@ class QosPipelineTest(unittest.TestCase):
     def test_recovery_boundary_is_inclusive(self) -> None:
         self.enable_controlled_inference_qos()
         self.start_pipeline()
+        self.establish_segment()
         boundary_timestamp = 5 * self.Gst.SECOND
         self.push_qos_event(
             self.frame_duration, boundary_timestamp, proportion=1.0
@@ -539,6 +562,7 @@ class QosPipelineTest(unittest.TestCase):
     def test_disabling_qos_clears_pending_state(self) -> None:
         self.enable_controlled_inference_qos()
         self.start_pipeline()
+        self.establish_segment()
         self.push_qos_event(self.Gst.SECOND, 6 * self.Gst.SECOND)
 
         self.elements["infer"].set_property("qos-enabled", False)
