@@ -570,6 +570,17 @@ class QosPipelineTest(unittest.TestCase):
         self.flow_monitor.push_buffer(6 * self.Gst.SECOND + self.frame_duration)
         self.assert_no_qos_message("QoS state survived disable and re-enable")
 
+    def test_disabling_inference_clears_pending_qos_event(self) -> None:
+        self.enable_controlled_inference_qos()
+        self.start_pipeline()
+        self.establish_segment()
+        self.push_qos_event(self.Gst.SECOND, 7 * self.Gst.SECOND)
+
+        self.elements["infer"].set_property("active", False)
+        self.elements["infer"].set_property("active", True)
+        self.flow_monitor.push_buffer(7 * self.Gst.SECOND + self.frame_duration)
+        self.assert_no_qos_message("QoS event survived inference disable and re-enable")
+
 
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

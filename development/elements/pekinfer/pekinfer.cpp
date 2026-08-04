@@ -222,11 +222,15 @@ static gboolean gst_pekinfer_src_event(GstBaseTransform *trans, GstEvent *event)
     auto *self = GST_PEKINFER(trans);
     const auto eventType = GST_EVENT_TYPE(event);
 
-    GST_OBJECT_LOCK(self);
-    const gboolean handleQos = self->qosEnabled && self->active;
-    GST_OBJECT_UNLOCK(self);
+    if (eventType == GST_EVENT_QOS) {
+        GST_OBJECT_LOCK(self);
+        const gboolean handleQos = self->qosEnabled && self->active;
+        const guint64 qosGeneration = self->qosGeneration;
+        GST_OBJECT_UNLOCK(self);
 
-    if (handleQos && eventType == GST_EVENT_QOS) {
+        if (!handleQos)
+            return GST_BASE_TRANSFORM_CLASS(gst_pekinfer_parent_class)->src_event(trans, event);
+
         GstQOSType type = GST_QOS_TYPE_UNDERFLOW;
         gdouble proportion = 1.0;
         GstClockTimeDiff diff = 0;
@@ -240,10 +244,17 @@ static gboolean gst_pekinfer_src_event(GstBaseTransform *trans, GstEvent *event)
         }
 
         GST_OBJECT_LOCK(self);
-        self->qosEarliestTime = qosEarliestTime;
-        self->qosProportion = proportion;
-        self->qosTimestamp = timestamp;
+        const gboolean publishQos =
+            self->qosEnabled && self->active && qosGeneration == self->qosGeneration;
+        if (publishQos) {
+            self->qosEarliestTime = qosEarliestTime;
+            self->qosProportion = proportion;
+            self->qosTimestamp = timestamp;
+        }
         GST_OBJECT_UNLOCK(self);
+
+        if (!publishQos)
+            return GST_BASE_TRANSFORM_CLASS(gst_pekinfer_parent_class)->src_event(trans, event);
 
         GST_DEBUG_OBJECT(self,
                          "Received QoS event: type=%d proportion=%f diff=%" G_GINT64_FORMAT
@@ -259,7 +270,7 @@ static gboolean gst_pekinfer_src_event(GstBaseTransform *trans, GstEvent *event)
         return TRUE;
     }
 
-    // Inactive inference elements and unrelated events keep the native path.
+    // Unrelated events keep the native path.
     return GST_BASE_TRANSFORM_CLASS(gst_pekinfer_parent_class)->src_event(trans, event);
 }
 
