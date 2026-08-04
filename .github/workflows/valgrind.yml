@@ -53,9 +53,8 @@ jobs:
     env:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
       # <agent-review:suppress-begin>
-      # PRs compare against their target branch baseline. When no reusable
-      # artifact exists for that exact target branch head, a pull_request_target
-      # job publishes it from trusted main/develop code while this PR job waits.
+      # PRs compare against their exact target branch. Native stacks targeting
+      # main/develop can publish a missing feature-branch baseline while this job waits.
       # <agent-review:suppress-end>
     steps:
       - uses: actions/checkout@v7
@@ -80,7 +79,20 @@ jobs:
         run: python3 scripts/testing/valgrind/valgrind-baseline-artifact.py locate
 
       - name: Wait for missing Valgrind baseline artifact
-        if: github.event_name == 'pull_request' && steps.valgrind_baseline.outcome != 'success' && (github.event.pull_request.base.ref == 'main' || github.event.pull_request.base.ref == 'develop')
+        if: >-
+          github.event_name == 'pull_request' &&
+          steps.valgrind_baseline.outcome != 'success' &&
+          (
+            github.event.pull_request.base.ref == 'main' ||
+            github.event.pull_request.base.ref == 'develop' ||
+            (
+              github.event.pull_request.stack != null &&
+              (
+                github.event.pull_request.stack.base.ref == 'main' ||
+                github.event.pull_request.stack.base.ref == 'develop'
+              )
+            )
+          )
         id: waited_valgrind_baseline
         env:
           GH_TOKEN: ${{ github.token }}
@@ -88,9 +100,12 @@ jobs:
         run: python3 scripts/testing/valgrind/valgrind-baseline-artifact.py wait
 
       - name: Require existing Valgrind baseline artifact
-        if: github.event_name == 'pull_request' && steps.valgrind_baseline.outcome != 'success' && github.event.pull_request.base.ref != 'main' && github.event.pull_request.base.ref != 'develop'
+        if: >-
+          github.event_name == 'pull_request' &&
+          steps.valgrind_baseline.outcome != 'success' &&
+          steps.waited_valgrind_baseline.outcome == 'skipped'
         run: |
-          echo "Missing Valgrind baseline artifact; auto-publish is only enabled for main/develop targets." >&2
+          echo "Missing Valgrind baseline artifact and no automatic publisher is available." >&2
           exit 1
 
       - name: Download Valgrind baseline artifact
@@ -117,7 +132,7 @@ jobs:
 
       - name: Generate Valgrind error summary
         id: valgrind_summary
-        if: always()
+        if: always() && steps.valgrind_checks.outcome != 'skipped'
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-generate-valgrind-summary
 
       - name: Compare Valgrind results to baseline
