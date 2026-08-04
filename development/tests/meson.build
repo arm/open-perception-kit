@@ -13,6 +13,14 @@ model_descriptor_tests = executable(
   link_with : [common],
 )
 
+performance_tracer_tests = executable(
+  'performance_tracer_tests',
+  ['performance_tracer_test.cpp'],
+  include_directories : [common_include],
+  dependencies : [gtest_main_dep, gtest_dep],
+  link_with : [common],
+)
+
 matrix_operations_tests = executable(
   'matrix_operations_tests',
   ['matrix_operations_test.cpp'],
@@ -120,6 +128,7 @@ test(
   args : [files('model_artifact_build_test.py')],
 )
 test('model_descriptor_tests', model_descriptor_tests)
+test('performance_tracer_tests', performance_tracer_tests)
 test('matrix_operations_tests', matrix_operations_tests)
 test('kalman_filter_tests', kalman_filter_tests)
 test('hungarian_tests', hungarian_tests)

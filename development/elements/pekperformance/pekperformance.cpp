@@ -69,6 +69,8 @@ struct _GstPekPerformance {
     guint cache_width;
     guint cache_height;
     gboolean cache_dirty;
+    gboolean started;
+    gboolean collects_measurements;
 
     // Track maximum height to prevent vertical flickering when metric count changes
     guint max_height;
@@ -120,8 +122,24 @@ gst_pek_performance_get_property(GObject *object, guint prop_id, GValue *value, 
 static void gst_pek_performance_finalize(GObject *object);
 static GstFlowReturn gst_pek_performance_transform_frame_ip(GstVideoFilter *filter,
                                                             GstVideoFrame *frame);
+static gboolean gst_pek_performance_start(GstBaseTransform *trans);
+static gboolean gst_pek_performance_stop(GstBaseTransform *trans);
 static gboolean gst_pek_performance_sink_event(GstBaseTransform *trans, GstEvent *event);
 static gboolean gst_pek_performance_src_event(GstBaseTransform *trans, GstEvent *event);
+
+static void gst_pek_performance_set_collection_enabled(GstPekPerformance *self, gboolean enabled) {
+    if (self->collects_measurements == enabled) {
+        return;
+    }
+
+    auto *tracer = pek::perf::getGlobalTracer();
+    if (enabled) {
+        tracer->registerCurrentCycleConsumer();
+    } else {
+        tracer->unregisterCurrentCycleConsumer();
+    }
+    self->collects_measurements = enabled;
+}
 
 // Helper function to parse hex color
 static void parse_hex_color(const char *hex, double *r, double *g, double *b) {
@@ -148,6 +166,8 @@ static void gst_pek_performance_class_init(GstPekPerformanceClass *klass) {
     gobject_class->finalize = gst_pek_performance_finalize;
 
     vfilter_class->transform_frame_ip = gst_pek_performance_transform_frame_ip;
+    trans_class->start = gst_pek_performance_start;
+    trans_class->stop = gst_pek_performance_stop;
     trans_class->sink_event = gst_pek_performance_sink_event;
     trans_class->src_event = gst_pek_performance_src_event;
 
@@ -278,12 +298,15 @@ static void gst_pek_performance_init(GstPekPerformance *self) {
     self->cache_width = 0;
     self->cache_height = 0;
     self->cache_dirty = true;
+    self->started = false;
+    self->collects_measurements = false;
     self->max_height = 0;
 }
 
 static void gst_pek_performance_finalize(GObject *object) {
     GstPekPerformance *self = GST_PEK_PERFORMANCE(object);
 
+    gst_pek_performance_set_collection_enabled(self, false);
     self->cached_lines.clear();
     g_free(self->background_color);
     g_free(self->text_color);
@@ -327,6 +350,7 @@ static void gst_pek_performance_set_property(GObject *object,
         break;
     case PROP_ENABLED:
         self->enabled = g_value_get_boolean(value);
+        gst_pek_performance_set_collection_enabled(self, self->started && self->enabled);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -370,6 +394,20 @@ gst_pek_performance_get_property(GObject *object, guint prop_id, GValue *value, 
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
     }
+}
+
+static gboolean gst_pek_performance_start(GstBaseTransform *trans) {
+    GstPekPerformance *self = GST_PEK_PERFORMANCE(trans);
+    self->started = true;
+    gst_pek_performance_set_collection_enabled(self, self->enabled);
+    return TRUE;
+}
+
+static gboolean gst_pek_performance_stop(GstBaseTransform *trans) {
+    GstPekPerformance *self = GST_PEK_PERFORMANCE(trans);
+    self->started = false;
+    gst_pek_performance_set_collection_enabled(self, false);
+    return TRUE;
 }
 
 // Helper function to render overlay to cached surface
@@ -604,6 +642,7 @@ static gboolean gst_pek_performance_src_event(GstBaseTransform *trans, GstEvent 
             if (gst_structure_get_boolean(structure, "enabled", &enabled)) {
                 GST_INFO_OBJECT(self, "Received upstream event: enabled=%d", enabled);
                 self->enabled = enabled;
+                gst_pek_performance_set_collection_enabled(self, self->started && self->enabled);
             } else {
                 GST_WARNING_OBJECT(self, "Received pekperformance event without 'enabled' field");
             }

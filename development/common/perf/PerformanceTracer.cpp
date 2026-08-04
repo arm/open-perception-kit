@@ -53,7 +53,9 @@ std::chrono::nanoseconds PerformanceTracer::end(const std::string &key) {
     // Add to current cycle
     {
         std::lock_guard<std::mutex> lock(current_cycle_mutex_);
-        current_cycle_measurements_.push_back(m);
+        if (current_cycle_consumer_count_ > 0) {
+            current_cycle_measurements_.push_back(m);
+        }
     }
 
     // Add to history
@@ -104,6 +106,18 @@ void PerformanceTracer::endCycle() {
 std::vector<TimingMeasurement> PerformanceTracer::getCurrentCycleMeasurements() const {
     std::lock_guard<std::mutex> lock(current_cycle_mutex_);
     return current_cycle_measurements_;
+}
+
+void PerformanceTracer::registerCurrentCycleConsumer() {
+    std::lock_guard<std::mutex> lock(current_cycle_mutex_);
+    current_cycle_consumer_count_++;
+}
+
+void PerformanceTracer::unregisterCurrentCycleConsumer() {
+    std::lock_guard<std::mutex> lock(current_cycle_mutex_);
+    if (current_cycle_consumer_count_ > 0 && --current_cycle_consumer_count_ == 0) {
+        current_cycle_measurements_.clear();
+    }
 }
 
 TimingStats PerformanceTracer::getStats(const std::string &key) const {
@@ -456,15 +470,9 @@ void PerformanceMonitor::clearScreen() const {
 // Global Instance
 // ============================================================================
 
-static PerformanceTracer *g_global_tracer = nullptr;
-static std::mutex g_global_mutex;
-
 PerformanceTracer *getGlobalTracer() {
-    std::lock_guard<std::mutex> lock(g_global_mutex);
-    if (!g_global_tracer) {
-        g_global_tracer = new PerformanceTracer();
-    }
-    return g_global_tracer;
+    static PerformanceTracer global_tracer;
+    return &global_tracer;
 }
 
 } // namespace pek::perf
