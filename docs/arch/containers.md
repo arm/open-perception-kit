@@ -32,10 +32,12 @@ Shared base and artifact stages
 Development tooling lane
   pek-build-base
     -> pek-dev-base
-    -> pek-dev-tools
-    -> pek-dev
+       -> pek-dev-tools
+       -> pek-dev
   pek-models
     --copy model artifacts--> pek-dev
+  pek-demo-media
+    --copy demo videos--> pek-dev
 
 Documentation lane
   pek-dev-base
@@ -132,8 +134,8 @@ stages inherit everything from their parent unless noted otherwise.
   `tcpdump`, and `nmap`, plus VS Code C++ tools and Oh My Zsh setup.
 - `pek-dev`: adds optional Raspberry Pi camera packages when `PEK_PICAMERA` is
   enabled, ensures an ARM64 ONNX Runtime path is available, and copies resolved
-  model artifacts from `pek-models` into `/opt/pek-app/config/models`. It does
-  not copy the repository or prebuilt PEK binaries into the image.
+  model artifacts and demo videos into `/opt/pek-app` for first-run seeding. It
+  does not copy the repository or prebuilt PEK binaries into the image.
 - `pek-docs`: adds `openjdk-25-jdk`, Graphviz, Pandoc, Doxygen, and the
   PlantUML JAR.
 - `pek-ci`: adds the docs toolchain plus `gcovr`, Python development and venv

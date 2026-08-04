@@ -60,6 +60,7 @@ package "Dockerfile\ncore cross-lane stage graph" {
     dev_base --> dev_tools : FROM
     dev_tools --> dev_image : FROM
     models ..> dev_image : COPY model artifacts\n/opt/pek-app/config/models
+    demo_media ..> dev_image : COPY demo videos\n/opt/pek-app/data/videos
   }
 
   package "Documentation Image Lane" {
@@ -126,7 +127,7 @@ package "CI Service Mapping" {
 
 note right of dev_image
   Contract: tools and dependency libraries plus
-  optional downloaded model artifacts only. The
+  optional downloaded model and demo media artifacts. The
   repository is mounted at /work; PEK binaries are
   built from that checkout, not copied into this image.
 end note

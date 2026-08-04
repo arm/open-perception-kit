@@ -299,6 +299,8 @@ RUN set -eux; \
 
 USER ${USERNAME}
 WORKDIR /work
+COPY --from=pek-demo-media \
+  /work/data/videos /opt/pek-app/data/videos
 COPY --from=pek-models \
   /work/config/models /opt/pek-app/config/models
 

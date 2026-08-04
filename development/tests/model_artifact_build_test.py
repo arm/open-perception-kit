@@ -59,8 +59,11 @@ class ModelArtifactBuildTest(unittest.TestCase):
             ).is_file()
         )
 
-    def test_dev_container_supports_manual_model_downloads(self) -> None:
+    def test_dev_container_seeds_downloaded_artifacts(self) -> None:
         dockerfile = (REPO_ROOT / "Dockerfile").read_text()
+        entrypoint = (
+            REPO_ROOT / "scripts/private/development-entrypoint.sh"
+        ).read_text()
         runtime_stage = dockerfile.split(" AS pek-dev-base", 1)[1].split(
             "FROM pek-dev-base AS pek-dev-tools", 1
         )[0]
@@ -73,7 +76,17 @@ class ModelArtifactBuildTest(unittest.TestCase):
         self.assertIn(
             'cp -R --no-clobber "${artifacts_root}/config/models/." '
             "/work/config/models/",
-            (REPO_ROOT / "scripts/private/development-entrypoint.sh").read_text(),
+            entrypoint,
+        )
+        self.assertIn(
+            "COPY --from=pek-demo-media \\\n"
+            "  /work/data/videos /opt/pek-app/data/videos",
+            dockerfile,
+        )
+        self.assertIn(
+            'cp -a --no-clobber "${artifacts_root}/data/videos/." '
+            "/work/data/videos/",
+            entrypoint,
         )
 
     def test_model_download_cache_bust_is_consumed(self) -> None:
