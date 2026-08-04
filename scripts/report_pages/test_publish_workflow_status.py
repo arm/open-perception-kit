@@ -70,6 +70,7 @@ class TestPublishWorkflowStatus(unittest.TestCase):
             report_pages.write_root_index(site_dir, now=NOW)
             index = (site_dir / "index.html").read_text(encoding="utf-8")
             nightly = (site_dir / "nightly" / "index.html").read_text(encoding="utf-8")
+            nightly_css = (site_dir / "nightly" / "report-index.css").read_text(encoding="utf-8")
             python_audit = (site_dir / "python-audit" / "index.html").read_text(encoding="utf-8")
             valgrind = (site_dir / "valgrind" / "index.html").read_text(encoding="utf-8")
 
@@ -77,6 +78,7 @@ class TestPublishWorkflowStatus(unittest.TestCase):
             self.assertIn(f">{label}<", nightly)
         self.assertIn('href="nightly/index.html"', index)
         self.assertIn('href="python-audit/index.html"', index)
+        self.assertIn(".verdict-slow", nightly_css)
         self.assertNotIn("<h2>Nightly CI</h2>", index)
         self.assertEqual(index.count('<section class="nightly-status">'), 2)
         self.assertIn("3 need attention", index)

@@ -87,13 +87,13 @@ The workflow entrypoints run the publisher inside a small Docker image:
 `cleanup` is intended for scheduled or manual cleanup of closed PR reports after
 the retention window.
 
-The `Publish Nightly CI Status` workflow records completed `develop` schedule
+The `Publish CI Report Status` workflow records completed `develop` schedule
 runs for PEK CI, Python and container audits, workflow dependency freshness,
-and both YOLO benchmarks. The Reports homepage shows their status, timestamp,
-commit, report, artifact, and workflow-run links. Failed and cancelled runs show
-at most three failed job or step names; full logs and diagnostic payloads remain
-in GitHub Actions. A scheduled run can be backfilled with the workflow's
-`upstream_run_id` input.
+and both YOLO benchmarks. The Reports homepage shows summary cards; each report
+page shows its timestamp, commit, report, and workflow-run links. Failed and
+cancelled runs show at most three failed job or step names; full logs, artifacts,
+and diagnostic payloads remain in GitHub Actions. A run can be backfilled with
+the workflow's `upstream_run_id` input.
 
 ### Report persistence
 
