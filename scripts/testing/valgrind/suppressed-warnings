@@ -172,6 +172,24 @@
    fun:dlopen_doit
 }
 
+# Audiovisualizers registers enum properties through the GLib/GObject type
+# system during GStreamer plugin discovery. This is third-party plugin
+# process-lifetime registration state, not PEK-owned memory.
+{
+   gstreamer_audiovisualizers_plugin_property_registration_definite
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:malloc
+   fun:g_malloc
+   fun:g_intern_static_string
+   fun:g_param_spec_internal
+   fun:g_param_spec_enum
+   obj:*/gstreamer-1.0/libgstaudiovisualizers.so*
+   ...
+   fun:gst_element_register
+   obj:*/gstreamer-1.0/libgstaudiovisualizers.so*
+}
+
 {
    gstreamer_rtpmanager_plugin_signal_registration_definite
    Memcheck:Leak
