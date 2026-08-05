@@ -38,6 +38,7 @@ class TestPublishWorkflowStatus(unittest.TestCase):
             workflow = (publisher.REPO_ROOT / ".github" / "workflows" / name).read_text()
             maintenance = workflow.split("  cleanup-closed-pr-reports:", 1)[1]
             self.assertIn("gh workflow run report-status-pages.yml", maintenance)
+            self.assertIn("github.event.repository.default_branch", maintenance)
             self.assertNotIn("actions/deploy-pages", maintenance)
 
     def test_storage_branch_update_retries_from_scratch(self):
