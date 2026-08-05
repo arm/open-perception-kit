@@ -43,6 +43,10 @@ the generator. Regeneration drift remains an explicit
 All SDK operations use `./scripts/perception-sdk.sh` as their single command
 surface.
 
+See `schemas/perception/README.md` for schema versioning, FlatBuffers
+compatibility rules, new payload creation, and the required validation
+workflow.
+
 ![Inference Data Collection (Perception)](../public/static/img/perception.png)
 
 The model supports multi-stage inference, branching pipelines, UUID-based

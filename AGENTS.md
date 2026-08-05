@@ -92,10 +92,14 @@ Useful checked-in examples:
 - `development/ops-std/postproc/ImageNetClassificationParser.cpp`
 
 ### Add a new structured runtime result
+Use the repository skill `$evolve-perception-schema` for compatibility
+classification, implementation, regeneration, and validation.
+
 Start in:
 
 - `tools/perception/sdk.json` for the authoritative schema and output paths
 - the descriptor's `schema_dir`
+- `schemas/perception/README.md` for schema evolution and compatibility rules
 - `docs/arch/perception.md`
 - `scripts/perception-sdk.sh`
 
