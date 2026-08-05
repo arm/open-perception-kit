@@ -26,6 +26,7 @@ from scripts.report_pages.publish import (  # noqa: E402
     push_site_branch,
     remove_legacy_root_site,
     require_env,
+    retry_storage_branch_update,
     set_output,
     write_root_index,
 )
@@ -425,7 +426,8 @@ def main(argv: list[str]) -> int:
     if len(argv) > 2:
         print("Usage: publish_workflow_status.py [site-dir]", file=sys.stderr)
         return 2
-    publish(Path(argv[1]) if len(argv) == 2 else Path("_report_status_pages_site"))
+    site_dir = Path(argv[1]) if len(argv) == 2 else Path("_report_status_pages_site")
+    retry_storage_branch_update(lambda: publish(site_dir))
     return 0
 
 

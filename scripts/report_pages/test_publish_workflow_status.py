@@ -33,6 +33,19 @@ def status(conclusion: str, updated_at: str = "2026-08-03T10:00:00Z") -> dict[st
 
 
 class TestPublishWorkflowStatus(unittest.TestCase):
+    def test_storage_branch_update_retries_from_scratch(self):
+        attempts = 0
+
+        def update():
+            nonlocal attempts
+            attempts += 1
+            if attempts < 3:
+                raise report_pages.StorageBranchPushError("concurrent push")
+            return "published"
+
+        self.assertEqual(report_pages.retry_storage_branch_update(update), "published")
+        self.assertEqual(attempts, 3)
+
     def test_workflow_path_identifies_dynamic_run_name(self):
         with patch.object(publisher, "freshness_metric", return_value=("Up to date", "fast")):
             selected = publisher.status_from_run("Arm-Debug/amp-dev-forge", {

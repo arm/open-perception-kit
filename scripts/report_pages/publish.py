@@ -14,6 +14,7 @@ import re
 import shutil
 import subprocess
 import zipfile
+from collections.abc import Callable
 from pathlib import Path
 
 
@@ -99,6 +100,21 @@ PLAYWRIGHT_REPORT_ARCHIVE_RE = re.compile(
 
 class PublishError(RuntimeError):
     pass
+
+
+class StorageBranchPushError(PublishError):
+    pass
+
+
+def retry_storage_branch_update(update: Callable[[], object]) -> object:
+    for attempt in range(1, 4):
+        try:
+            return update()
+        except StorageBranchPushError:
+            if attempt == 3:
+                raise
+            print(f"Storage branch changed during publish (attempt {attempt}/3); retrying.")
+    raise AssertionError("unreachable")
 
 
 def env(name: str, default: str = "") -> str:
@@ -204,7 +220,10 @@ def push_site_branch(site_dir: Path, storage_branch: str, dry_run_env: str,
         return True
 
     auth_header = git_auth_header()
-    git(site_dir, ["push", "origin", f"HEAD:{storage_branch}"], auth_header)
+    try:
+        git(site_dir, ["push", "origin", f"HEAD:{storage_branch}"], auth_header)
+    except subprocess.CalledProcessError as error:
+        raise StorageBranchPushError(f"Failed to update {storage_branch}.") from error
     return True
 
 
