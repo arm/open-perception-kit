@@ -215,4 +215,4 @@ jobs:
         run: |
           upstream_run_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/pek-ci.yml/runs?event=schedule&branch=develop&status=completed&per_page=1" --jq '.workflow_runs[0].id')"
           gh workflow run report-status-pages.yml --ref "${PUBLISHER_REF}" \
-            -f "upstream_run_id=${upstream_run_id}"
+            -f "upstream_run_id=${upstream_run_id}" -f force_deploy=true

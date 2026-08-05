@@ -39,7 +39,23 @@ class TestPublishWorkflowStatus(unittest.TestCase):
             maintenance = workflow.split("  cleanup-closed-pr-reports:", 1)[1]
             self.assertIn("gh workflow run report-status-pages.yml", maintenance)
             self.assertIn("github.event.repository.default_branch", maintenance)
+            self.assertIn("force_deploy=true", maintenance)
             self.assertNotIn("actions/deploy-pages", maintenance)
+
+    def test_force_deploy_does_not_require_another_storage_commit(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            environment = {
+                "GITHUB_OUTPUT": str(Path(tmpdir) / "output.txt"),
+                "REPORT_STATUS_FORCE_DEPLOY": "1",
+            }
+            with patch.dict(os.environ, environment, clear=True), patch.object(
+                    publisher, "upstream_status", return_value=("python-audit", status("success"))
+            ), patch.object(publisher, "checkout_site_branch"), patch.object(
+                    publisher, "push_site_branch", return_value=False
+            ):
+                self.assertTrue(publisher.publish(Path(tmpdir) / "site"))
+
+            self.assertIn("deploy=true", Path(environment["GITHUB_OUTPUT"]).read_text())
 
     def test_storage_branch_update_retries_from_scratch(self):
         attempts = 0

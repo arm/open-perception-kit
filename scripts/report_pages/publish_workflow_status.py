@@ -375,6 +375,7 @@ def publish(site_dir: Path, storage_branch: str = STORAGE_BRANCH) -> bool:
     if selected is None:
         set_output("deploy", "false")
         return False
+    force_deploy = env("REPORT_STATUS_FORCE_DEPLOY") == "1"
     selections = {selected[0]: selected[1]}
     if selected[1]["event"] == "schedule" and env("REPORT_STATUS_RECONCILE_SCHEDULED") == "1":
         for source, status in latest_scheduled_statuses(str(selected[1]["repository"])):
@@ -403,8 +404,8 @@ def publish(site_dir: Path, storage_branch: str = STORAGE_BRANCH) -> bool:
         published.append(str(status["workflow"]))
 
     if not published:
-        set_output("deploy", "false")
-        return False
+        set_output("deploy", "true" if force_deploy else "false")
+        return force_deploy
 
     write_root_index(site_dir)
     changed = push_site_branch(
@@ -415,8 +416,9 @@ def publish(site_dir: Path, storage_branch: str = STORAGE_BRANCH) -> bool:
          else "Reconcile nightly report status"),
         "report status Pages",
     )
-    set_output("deploy", "true" if changed else "false")
-    return changed
+    deploy = changed or force_deploy
+    set_output("deploy", "true" if deploy else "false")
+    return deploy
 
 
 def main(argv: list[str]) -> int:
