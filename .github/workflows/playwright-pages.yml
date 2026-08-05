@@ -111,9 +111,10 @@ jobs:
     name: Reconcile nightly and clean closed PR reports
     if: github.event_name != 'workflow_run'
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: read
     steps:
       - name: Checkout publisher
         uses: actions/checkout@v7
@@ -122,7 +123,6 @@ jobs:
         run: python3 -m unittest scripts/playwright/pages/test_publish_playwright_pages.py
 
       - name: Resolve latest scheduled PEK CI run
-        if: github.event_name == 'schedule'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -174,41 +174,10 @@ jobs:
             echo "deploy=false" >> "${GITHUB_OUTPUT}"
           fi
 
-      - name: Cache YOLO performance dataset
-        if: steps.pages.outputs.deploy == 'true'
-        uses: actions/cache@v6
-        with:
-          path: _yolo_performance_dataset_cache
-          key: yolo-performance-datasets-coco-val2017-4f7e2ccb2866ec5041993c9cf2a952bbed69647b115d0f74da7ce8f4bef82f05
-
-      - name: Restore YOLO dataset overlay
-        if: steps.pages.outputs.deploy == 'true'
-        run: |
-          python3 examples/yolo-benchmark/pages/restore_dataset_overlay.py \
-            --site-dir _playwright_pages_site \
-            --cache-dir _yolo_performance_dataset_cache
-
-      - name: Restore deploy-only report videos
+      - name: Queue serialized Pages deployment
         if: steps.pages.outputs.deploy == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          python3 examples/yolo-benchmark/pages/publish_yolo_benchmark_pages.py \
-            restore-latest _playwright_pages_site
-          python3 scripts/playwright/pages/publish_playwright_pages.py \
-            restore-videos _playwright_pages_site
-
-      - name: Configure Pages
-        if: steps.pages.outputs.deploy == 'true'
-        uses: actions/configure-pages@v6
-
-      - name: Upload Pages artifact
-        if: steps.pages.outputs.deploy == 'true'
-        uses: actions/upload-pages-artifact@v5
-        with:
-          path: _playwright_pages_site
-
-      - name: Deploy Pages
-        if: steps.pages.outputs.deploy == 'true'
-        id: deployment
-        uses: actions/deploy-pages@v5
+        run: >-
+          gh workflow run report-status-pages.yml --ref "${GITHUB_REF_NAME}"
+          -f "upstream_run_id=${UPSTREAM_RUN_ID}"
