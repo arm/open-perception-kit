@@ -89,6 +89,8 @@ WebRtcSockerError WebRtcWebSocket::setup() {
     ws = std::make_shared<ws_server>();
 
     ws->init_asio();
+    ws->clear_error_channels(websocketpp::log::elevel::all);
+    ws->set_error_channels(websocketpp::log::elevel::fatal);
 
     ws->set_open_handler([this](const connection_hdl &hdl) { on_open(hdl); });
     ws->set_close_handler([this](const connection_hdl &hdl) { on_close(hdl); });
@@ -387,6 +389,15 @@ void WebRtcWebSocket::on_open(const connection_hdl &hdl) {
         pek::log::debug("Failed to create per-client webrtcbin");
         return;
     }
+
+    auto rtpbin = gst_bin_get_by_name(GST_BIN(ctx->webrtcbin), "rtpbin");
+    if (!rtpbin) {
+        pek::log::debug("Failed to configure per-client rtpbin");
+        ctx->cleanup();
+        return;
+    }
+    g_object_set(rtpbin, "rtcp-sync-send-time", FALSE, nullptr);
+    gst_object_unref(rtpbin);
 
     g_object_set(ctx->webrtcbin, "latency", 200u, "reuse-source-pads", FALSE, nullptr);
     if (self_->webrtc_stun_server && self_->webrtc_stun_server[0] != '\0') {
