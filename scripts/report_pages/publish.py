@@ -387,8 +387,19 @@ def status_summary(status: dict[str, object]) -> str:
     )
 
 
+def status_details(status: dict[str, object]) -> str:
+    messages = status.get("details")
+    if not isinstance(messages, list):
+        return ""
+    return "".join(
+        f'<span class="report-meta">{html_escape(message[:240])}</span>'
+        for message in messages
+        if isinstance(message, str) and message
+    )
+
+
 def status_link(status: dict[str, object] | None, title: str, now: dt.datetime,
-                href: str | None = None) -> str:
+                href: str | None = None, include_details: bool = False) -> str:
     if status is None:
         return (
             '<div class="report-link"><span>'
@@ -405,7 +416,8 @@ def status_link(status: dict[str, object] | None, title: str, now: dt.datetime,
         f'{html_escape(title)}</a></span><span class="report-meta">'
         f'{html_escape(status_meta(status))} · <a href="{html_escape(run_url)}">'
         f'{run_label}</a></span>'
-        f'{status_summary(status)}</span>{verdict_html(tone, label)}</div>'
+        f'{status_summary(status)}{status_details(status) if include_details else ""}'
+        f'</span>{verdict_html(tone, label)}</div>'
     )
 
 
@@ -433,14 +445,14 @@ def write_status_indexes(site_dir: Path, now: dt.datetime) -> None:
         primary_title = "Nightly"
         primary_status = read_workflow_status(site_dir, source)
         primary = (
-            status_link(primary_status, f"Latest {primary_title.lower()}", now)
+            status_link(primary_status, f"Latest {primary_title.lower()}", now, include_details=True)
             if primary_status else f'<div class="empty">No {primary_title.lower()} report published yet.</div>'
         )
         pr_links = []
         for path in sorted((status_root / source / "prs").glob("*.json"), reverse=True):
             status = read_workflow_status(site_dir, source, f"prs/{path.name}")
             if status is not None:
-                pr_links.append(status_link(status, f"PR #{path.stem}", now))
+                pr_links.append(status_link(status, f"PR #{path.stem}", now, include_details=True))
         prs = (
             '<section><h2>Pull Requests</h2><div class="report-list">'
             + ("".join(pr_links) if pr_links else '<div class="empty">No PR report published yet.</div>')

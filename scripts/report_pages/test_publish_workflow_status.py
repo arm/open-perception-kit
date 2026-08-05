@@ -105,6 +105,10 @@ class TestPublishWorkflowStatus(unittest.TestCase):
             fixtures["docker-scout"].update({
                 "metric": "10 critical · 160 high",
                 "metric_tone": "slow",
+                "details": [
+                    "pek-ci: 3 critical · 56 high",
+                    "pek-dev: 3 critical · 59 high",
+                ],
             })
             fixtures["workflow-freshness"].update({"metric": "1 behind", "metric_tone": "neutral"})
             fixtures["valgrind"].update({
@@ -125,6 +129,7 @@ class TestPublishWorkflowStatus(unittest.TestCase):
             nightly = (site_dir / "nightly-ci" / "index.html").read_text(encoding="utf-8")
             nightly_css = (site_dir / "nightly-ci" / "report-index.css").read_text(encoding="utf-8")
             python_audit = (site_dir / "python-audit" / "index.html").read_text(encoding="utf-8")
+            docker_scout = (site_dir / "docker-scout" / "index.html").read_text(encoding="utf-8")
             valgrind = (site_dir / "valgrind" / "index.html").read_text(encoding="utf-8")
 
         for label in ("Passed", "1/2 failed", "10 critical · 160 high", "Stale"):
@@ -141,6 +146,8 @@ class TestPublishWorkflowStatus(unittest.TestCase):
         self.assertIn("Aug 03, 2026 10:00 UTC", python_audit)
         self.assertIn("/actions/runs/123", python_audit)
         self.assertIn("pip-audit &lt;expkits-ci&gt;: Run pip-audit", python_audit)
+        self.assertIn("pek-ci: 3 critical · 56 high", docker_scout)
+        self.assertNotIn("pek-ci: 3 critical · 56 high", nightly)
         self.assertIn("<h2>Nightly</h2>", valgrind)
         self.assertIn(">Job summary</a>", valgrind)
         self.assertNotIn("Repository-owned Valgrind baseline", valgrind)
@@ -329,25 +336,25 @@ class TestPublishWorkflowStatus(unittest.TestCase):
         jobs = [{"conclusion": "failure"}, {"conclusion": "success"}]
         self.assertEqual(
             publisher.workflow_metric("python-audit", "schedule", "failure", jobs, "repo", "1"),
-            ("1/2 failed", ""),
+            ("1/2 failed", "", []),
         )
-        with patch.object(publisher, "docker_scout_metric", return_value=("", "")):
+        with patch.object(publisher, "docker_scout_metric", return_value=("", "", [])):
             self.assertEqual(
                 publisher.workflow_metric(
                     "docker-scout", "schedule", "failure", jobs, "repo", "1"
                 ),
-                ("1/2 incomplete", ""),
+                ("1/2 incomplete", "", []),
             )
         self.assertEqual(
             publisher.workflow_metric("valgrind", "pull_request", "success", [], "repo", "1"),
-            ("0 new errors", "fast"),
+            ("0 new errors", "fast", []),
         )
         for source in ("python-audit", "docker-scout"):
             self.assertEqual(
                 publisher.workflow_metric(
                     source, "schedule", "cancelled", [{"conclusion": "cancelled"}], "repo", "1"
                 ),
-                ("", ""),
+                ("", "", []),
             )
 
     def test_docker_scout_metric_aggregates_explicit_producer_counts(self):
@@ -359,6 +366,7 @@ class TestPublishWorkflowStatus(unittest.TestCase):
             )):
                 path = Path(tmpdir) / f"report-{index}.json"
                 path.write_text(json.dumps({
+                    "service": f"image-{index}",
                     "sarif_present": True,
                     "severity_counts": counts,
                 }), encoding="utf-8")
@@ -366,11 +374,15 @@ class TestPublishWorkflowStatus(unittest.TestCase):
 
             self.assertEqual(
                 publisher.docker_scout_report_metric(reports, expected_reports=2),
-                ("3 critical · 66 high", "slow"),
+                (
+                    "3 critical · 66 high",
+                    "slow",
+                    ["image-0: 1 critical · 14 high", "image-1: 2 critical · 52 high"],
+                ),
             )
             self.assertEqual(
                 publisher.docker_scout_report_metric(reports, expected_reports=3),
-                ("", ""),
+                ("", "", []),
             )
 
     def test_valgrind_metric_reads_explicit_producer_value(self):

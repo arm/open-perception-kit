@@ -89,11 +89,11 @@ the retention window.
 
 The `Publish CI Report Status` workflow records completed `develop` schedule
 runs for PEK CI, Python and container audits, workflow dependency freshness,
-and both YOLO benchmarks. The Reports homepage shows summary cards; each report
-page shows its timestamp, commit, report, and workflow-run links. Failed and
-cancelled runs show at most three failed job or step names; full logs, artifacts,
-and diagnostic payloads remain in GitHub Actions. A run can be backfilled with
-the workflow's `upstream_run_id` input.
+both YOLO benchmarks, and Valgrind. The Reports homepage shows summary cards;
+each report page shows its timestamp, commit, report, and workflow-run links.
+Failed and cancelled runs show at most three failed job or step names; full logs,
+artifacts, and diagnostic payloads remain in GitHub Actions. A run can be
+backfilled with the workflow's `upstream_run_id` input.
 
 ### Report persistence
 
@@ -123,9 +123,11 @@ available, but without the embedded video.
 
 Concurrency:
 
-- The workflow uses the shared `report-pages` concurrency group.
+- Event-driven publishers use the shared `report-pages` concurrency group.
+- Scheduled maintenance uses `report-pages-maintenance`, then republishes the
+  latest scheduled report and reconciles scheduled status cards.
 - `cancel-in-progress: false` lets the running index update finish.
-- The shared group avoids racing two pushes to the same storage branch.
+- Storage-branch pushes retry after concurrent updates.
 
 Why this is better than manual artifact handling:
 

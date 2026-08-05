@@ -135,34 +135,44 @@ def freshness_metric(repository: str, run_id: str) -> tuple[str, str]:
     return "Up to date", "fast"
 
 
-def docker_scout_report_metric(paths: list[Path], expected_reports: int) -> tuple[str, str]:
+def docker_scout_report_metric(
+        paths: list[Path], expected_reports: int) -> tuple[str, str, list[str]]:
     severities = ("critical", "high", "medium", "low", "unspecified")
     totals = dict.fromkeys(severities, 0)
+    details = []
     if len(paths) != expected_reports:
-        return "", ""
+        return "", "", []
     for path in paths:
         try:
             report = json.loads(path.read_text(encoding="utf-8"))
             counts = report["severity_counts"]
-            if report["sarif_present"] is not True or not isinstance(counts, dict):
-                return "", ""
+            service = report["service"]
+            if (
+                report["sarif_present"] is not True
+                or not isinstance(counts, dict)
+                or not isinstance(service, str)
+                or not service
+            ):
+                return "", "", []
             for severity in severities:
                 count = counts[severity]
                 if not isinstance(count, int) or isinstance(count, bool) or count < 0:
-                    return "", ""
+                    return "", "", []
                 totals[severity] += count
+            details.append(f'{service}: {counts["critical"]} critical · {counts["high"]} high')
         except (KeyError, TypeError, json.JSONDecodeError, OSError):
-            return "", ""
+            return "", "", []
 
     visible = [(severity, totals[severity]) for severity in severities if totals[severity]][:2]
     if not visible:
-        return "No vulnerabilities", "fast"
+        return "No vulnerabilities", "fast", sorted(details)
     metric = " · ".join(f"{count} {severity}" for severity, count in visible)
-    return metric, "slow" if totals["critical"] or totals["high"] else "neutral"
+    tone = "slow" if totals["critical"] or totals["high"] else "neutral"
+    return metric, tone, sorted(details)
 
 
 def docker_scout_metric(repository: str, run_id: str,
-                        expected_reports: int) -> tuple[str, str]:
+                        expected_reports: int) -> tuple[str, str, list[str]]:
     with tempfile.TemporaryDirectory() as tmpdir:
         result = subprocess.run(
             ["gh", "run", "download", run_id, "--repo", repository,
@@ -174,7 +184,7 @@ def docker_scout_metric(repository: str, run_id: str,
         )
         paths = list(Path(tmpdir).rglob("component-report.json"))
         if result.returncode != 0:
-            return "", ""
+            return "", "", []
         return docker_scout_report_metric(paths, expected_reports)
 
 
@@ -209,10 +219,10 @@ def valgrind_metric(repository: str, run_id: str) -> tuple[str, str]:
 
 def workflow_metric(source: str, event: str, conclusion: str,
                     jobs: list[dict[str, object]], repository: str,
-                    run_id: str) -> tuple[str, str]:
+                    run_id: str) -> tuple[str, str, list[str]]:
     if source in {"python-audit", "docker-scout"}:
         if conclusion == "cancelled":
-            return "", ""
+            return "", "", []
         active = [job for job in jobs if job.get("conclusion") != "skipped"]
         failed = sum(job.get("conclusion") in FAILURE_CONCLUSIONS for job in active)
         if active:
@@ -220,14 +230,18 @@ def workflow_metric(source: str, event: str, conclusion: str,
                 metric = docker_scout_metric(repository, run_id, len(active))
                 if metric[0]:
                     return metric
-                return (f"{failed}/{len(active)} incomplete" if failed
-                        else f"{len(active)}/{len(active)} audited"), ""
-            return (f"{failed}/{len(active)} failed" if failed else f"{len(active)}/{len(active)} clean"), ""
+                label = (f"{failed}/{len(active)} incomplete" if failed
+                         else f"{len(active)}/{len(active)} audited")
+                return label, "", []
+            label = (f"{failed}/{len(active)} failed" if failed
+                     else f"{len(active)}/{len(active)} clean")
+            return label, "", []
     if source == "workflow-freshness":
-        return freshness_metric(repository, run_id)
+        metric, tone = freshness_metric(repository, run_id)
+        return metric, tone, []
     if source == "valgrind" and event == "pull_request" and conclusion == "success":
-        return "0 new errors", "fast"
-    return "", ""
+        return "0 new errors", "fast", []
+    return "", "", []
 
 
 def workflow_identity(workflow_path: str, workflow_name: str) -> tuple[str, str]:
@@ -282,10 +296,14 @@ def status_from_run(repository: str, run: dict[str, object]) -> tuple[str, dict[
     )
     if source == "valgrind" and event in {"push", "schedule"} and conclusion == "success":
         metric, metric_tone = valgrind_metric(repository, run_id)
+        details = []
     else:
-        metric, metric_tone = workflow_metric(source, event, conclusion, jobs, repository, run_id)
+        metric, metric_tone, details = workflow_metric(
+            source, event, conclusion, jobs, repository, run_id
+        )
     return source, {
         "conclusion": conclusion,
+        "details": details,
         "event": event,
         "head_branch": branch,
         "head_sha": head_sha,
