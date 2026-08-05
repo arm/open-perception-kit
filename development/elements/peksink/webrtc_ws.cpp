@@ -33,7 +33,6 @@ using namespace nlohmann;
 static void on_negotiation_needed(GstElement *webrtc, gpointer user_data);
 static void
 on_ice_candidate(GstElement *webrtc, guint mlineindex, gchar *candidate, gpointer user_data);
-static void on_set_remote_description(GstPromise *promise, gpointer user_data);
 
 // Leave enough room for SRTP, UDP and IP headers on VPN and TURN paths whose
 // MTU can be lower than Ethernet's 1500 bytes (for example WSL mirrored mode).
@@ -434,7 +433,7 @@ void WebRtcWebSocket::on_close(const connection_hdl &hdl) {
 
 /*
  * IMPORTANT:
- * Do NOT connect tee → (per-client elements) before payload types are set from the offer.
+ * Do NOT connect tee → (per-client elements) before payload types are set and the answer is sent.
  * webrtcbin snapshots RTP properties on first buffer.
  */
 // this method links the per-client (both the audio and video) elements to the main graph
@@ -521,12 +520,6 @@ void WebRtcWebSocket::process_offer(const std::shared_ptr<SessionContext> &ctx, 
     set_video_pt(ctx.get());
     set_audio_pt(ctx.get());
 
-    if (!link_per_client_elements(ctx.get())) {
-        gst_sdp_message_free(sdp_message);
-        cleanup_session(ctx->hdl, "per-client link failed");
-        return;
-    }
-
     if (!gst_element_sync_state_with_parent(ctx->webrtcbin)) {
         gst_sdp_message_free(sdp_message);
         cleanup_session(ctx->hdl, "webrtcbin state sync failed");
@@ -552,6 +545,12 @@ void WebRtcWebSocket::process_canditate(const std::shared_ptr<SessionContext> &c
     auto ice = jsn["ice"];
     auto candidate = ice["candidate"].get<std::string>();
     auto sdpMLineIndex = static_cast<guint>(ice["sdpMLineIndex"].get<int>());
+
+    if (candidate.find(".local ") != std::string::npos &&
+        candidate.find(" typ host") != std::string::npos) {
+        pek::log::debug("Ignoring unsupported browser mDNS ICE candidate: {}", candidate);
+        return;
+    }
 
     g_signal_emit_by_name(ctx->webrtcbin, "add-ice-candidate", sdpMLineIndex, candidate.c_str());
 
@@ -714,7 +713,7 @@ on_ice_candidate(GstElement *webrtc, guint mlineindex, gchar *candidate, gpointe
     send_ice_candidate_message(ctx, mlineindex, candidate);
 }
 
-static void on_answer_created(GstPromise *promise, gpointer user_data) {
+void WebRtcWebSocket::on_answer_created(GstPromise *promise, gpointer user_data) {
     pek::log::debug("on_answer_created");
 
     auto ctx = lock_session_callback_data(user_data);
@@ -756,12 +755,17 @@ static void on_answer_created(GstPromise *promise, gpointer user_data) {
     gst_webrtc_session_description_free(answer);
     gst_promise_unref(promise);
 
-    if (!sent && owner) {
+    if (!owner) {
+        return;
+    }
+    if (!sent) {
         owner->cleanup_session(hdl, "answer send failure");
+    } else if (!ctx->cleaned_up() && !owner->link_per_client_elements(ctx.get())) {
+        owner->cleanup_session(hdl, "per-client link failed");
     }
 }
 
-static void on_set_remote_description(GstPromise *promise, gpointer user_data) {
+void WebRtcWebSocket::on_set_remote_description(GstPromise *promise, gpointer user_data) {
     pek::log::debug("on_set_remote_description");
 
     auto ctx = lock_session_callback_data(user_data);
