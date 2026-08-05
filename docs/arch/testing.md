@@ -27,8 +27,8 @@ clean builds, verbose output, third-party suppression control, and generated
 suppression candidates. Run `--help` for the current option set.
 
 Current CI runs Valgrind nightly, uploads raw logs as artifacts, and publishes
-the repository-owned error count and its Markdown summary. These checks are not
-yet a hard quality gate because existing issues still need to be addressed.
+the collected baseline record count. These checks are not yet a hard quality
+gate because existing issues still need to be addressed.
 
 ## Debugging Failures
 
