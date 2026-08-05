@@ -10,7 +10,6 @@ Usage:
 
 import argparse
 import logging
-import posixpath
 import re
 import xml.etree.ElementTree as ET
 from copy import deepcopy
@@ -38,9 +37,6 @@ FRAME_SYMBOL_TAGS = {
     "file",
     "line",
 }
-REPO_BUILD_PREFIX = "/work/development/build/meson-out/"
-REPO_SOURCE_PREFIX = "/work/development/"
-REPO_OWNED_REPORT = "valgrind-repo-owned.md"
 
 
 def iter_xml_files(logs_dir: Path) -> list[Path]:
@@ -128,56 +124,6 @@ def require_complete_valgrind_xml(root: ET.Element, xml_path: Path) -> None:
         )
 
 
-def is_repo_owned_error(error: ET.Element) -> bool:
-    """Return whether an error stack includes repository-owned code."""
-    for frame in error.findall(".//frame"):
-        directory = frame.findtext("dir") or ""
-        obj = frame.findtext("obj") or ""
-        if obj.startswith(REPO_BUILD_PREFIX) and "/subprojects/" not in obj:
-            return True
-        if directory.startswith(REPO_SOURCE_PREFIX) and "/subprojects/" not in directory:
-            return True
-    return False
-
-
-def repo_owned_markdown(root: ET.Element) -> str:
-    """Render repository-owned baseline records as human-readable Markdown."""
-    errors = [error for error in root.findall("error") if is_repo_owned_error(error)]
-    lines = [
-        "# Repository-owned Valgrind baseline",
-        "",
-        f"{len(errors)} baseline record(s) include repository-owned code. "
-        "Third-party-only records are excluded.",
-        "",
-    ]
-    for index, error in enumerate(errors, start=1):
-        kind = error.findtext("kind", default="Unknown")
-        description = error.findtext("xwhat/text") or error.findtext("what") or "No description"
-        lines.extend((f"## {index}. {kind}", "", description, ""))
-        frames = [
-            frame for frame in error.findall(".//frame")
-            if (frame.findtext("dir") or "").startswith(REPO_SOURCE_PREFIX)
-            and "/subprojects/" not in (frame.findtext("dir") or "")
-        ]
-        if frames:
-            for frame in frames:
-                location = posixpath.normpath(posixpath.join(
-                    frame.findtext("dir") or "", frame.findtext("file") or ""
-                )).removeprefix("/work/")
-                if frame.findtext("line"):
-                    location += f':{frame.findtext("line")}'
-                lines.append(f'- `{location}` — `{frame.findtext("fn") or "<unknown function>"}`')
-        else:
-            objects = sorted({
-                (frame.findtext("obj") or "").removeprefix("/work/development/build/")
-                for frame in error.findall(".//frame")
-                if (frame.findtext("obj") or "").startswith(REPO_BUILD_PREFIX)
-            })
-            lines.extend(f"- `{obj}` — source location unavailable" for obj in objects)
-        lines.append("")
-    return "\n".join(lines)
-
-
 def collect_errors(logs_dir: Path, output: Path) -> ET.Element:
     """Collect unique normalized Valgrind <error> elements from XML logs."""
     root = ET.Element("valgrindoutput")
@@ -218,7 +164,6 @@ def collect_errors(logs_dir: Path, output: Path) -> ET.Element:
     root.set("raw_errors", str(total_errors))
     root.set("duplicate_errors", str(duplicate_errors))
     root.set("collected_errors", str(len(root)))
-    root.set("repo_owned_errors", str(sum(map(is_repo_owned_error, root))))
     return root
 
 
@@ -228,10 +173,6 @@ def write_xml(root: ET.Element, output: Path) -> None:
     ET.indent(tree, space="  ")
     output.parent.mkdir(parents=True, exist_ok=True)
     tree.write(output, encoding="utf-8", xml_declaration=True)
-
-
-def write_markdown(root: ET.Element, output: Path) -> None:
-    output.write_text(repo_owned_markdown(root), encoding="utf-8")
 
 
 def main() -> int:
@@ -269,7 +210,6 @@ def main() -> int:
         return 2
 
     write_xml(root, output)
-    write_markdown(root, output.with_name(REPO_OWNED_REPORT))
     return 0
 
 

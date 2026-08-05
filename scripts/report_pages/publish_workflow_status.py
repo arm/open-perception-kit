@@ -193,10 +193,10 @@ def valgrind_report_metric(path: Path) -> tuple[str, str]:
     root = ET.parse(path).getroot()
     if root.tag != "valgrindoutput":
         raise ValueError(f"unexpected Valgrind report root: {root.tag}")
-    count = int(root.attrib["repo_owned_errors"])
-    if count < 0:
-        raise ValueError("repo_owned_errors must not be negative")
-    return f"{count} repo-owned baseline", "neutral" if count else "fast"
+    total = int(root.attrib["collected_errors"])
+    if total < 0:
+        raise ValueError("collected_errors must not be negative")
+    return f"{total} baseline records", "neutral" if total else "fast"
 
 
 def valgrind_metric(repository: str, run_id: str) -> tuple[str, str]:

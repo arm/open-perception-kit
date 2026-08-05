@@ -149,7 +149,7 @@ class TestPublishWorkflowStatus(unittest.TestCase):
             })
             fixtures["workflow-freshness"].update({"metric": "1 behind", "metric_tone": "neutral"})
             fixtures["valgrind"].update({
-                "metric": "18 repo-owned baseline",
+                "metric": "140 baseline records",
                 "workflow": "Valgrind Baseline Artifact",
             })
             for source, payload in fixtures.items():
@@ -178,7 +178,7 @@ class TestPublishWorkflowStatus(unittest.TestCase):
         self.assertEqual(index.count('<section class="nightly-status">'), 2)
         self.assertIn("3 need attention", index)
         for metric in ("1/2 failed", "10 critical · 160 high", "1 behind",
-                       "18 repo-owned baseline"):
+                       "140 baseline records"):
             self.assertIn(metric, index)
         self.assertIn("Aug 03, 2026 10:00 UTC", python_audit)
         self.assertIn("/actions/runs/123", python_audit)
@@ -187,7 +187,6 @@ class TestPublishWorkflowStatus(unittest.TestCase):
         self.assertNotIn("pek-ci: 3 critical · 56 high", nightly)
         self.assertIn("<h2>Nightly</h2>", valgrind)
         self.assertIn(">Job summary</a>", valgrind)
-        self.assertNotIn("Repository-owned Valgrind baseline", valgrind)
 
     def test_publish_persists_develop_schedule_and_pull_request(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -401,12 +400,12 @@ class TestPublishWorkflowStatus(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             report = Path(tmpdir) / "report.xml"
             report.write_text(
-                '<valgrindoutput repo_owned_errors="18"/>', encoding="utf-8"
+                '<valgrindoutput collected_errors="140"/>', encoding="utf-8"
             )
 
             self.assertEqual(
                 publisher.valgrind_report_metric(report),
-                ("18 repo-owned baseline", "neutral"),
+                ("140 baseline records", "neutral"),
             )
 
 
