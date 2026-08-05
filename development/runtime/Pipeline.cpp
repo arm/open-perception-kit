@@ -4,6 +4,7 @@
 
 #include "runtime/Pipeline.h"
 
+#include "Log.h"
 #include "gst/PerceptionMeta.h"
 #include "pek/PerceptionSerializer.h"
 
@@ -47,6 +48,48 @@ std::string gstErrorMessage(GError *error, const gchar *debugInfo) {
         message += fmt::format(" ({})", debugInfo);
     }
     return message;
+}
+
+std::string qosValue(guint64 value) {
+    return value == G_MAXUINT64 ? "unknown" : fmt::format("{}", value);
+}
+
+void logQosMessage(GstMessage *message) {
+    gboolean live = FALSE;
+    guint64 runningTime = GST_CLOCK_TIME_NONE;
+    guint64 streamTime = GST_CLOCK_TIME_NONE;
+    guint64 timestamp = GST_CLOCK_TIME_NONE;
+    guint64 duration = GST_CLOCK_TIME_NONE;
+    gst_message_parse_qos(message, &live, &runningTime, &streamTime, &timestamp, &duration);
+
+    gint64 jitter = 0;
+    gdouble proportion = 1.0;
+    gint quality = 1'000'000;
+    gst_message_parse_qos_values(message, &jitter, &proportion, &quality);
+
+    GstFormat format = GST_FORMAT_UNDEFINED;
+    guint64 processed = G_MAXUINT64;
+    guint64 dropped = G_MAXUINT64;
+    gst_message_parse_qos_stats(message, &format, &processed, &dropped);
+
+    const auto *source = GST_MESSAGE_SRC(message);
+    const char *sourceName = source ? GST_OBJECT_NAME(source) : "unknown";
+    const char *formatName = gst_format_get_name(format);
+    pek::log::debug("GStreamer QoS: source={}, live={}, running_time_ns={}, stream_time_ns={}, "
+                    "timestamp_ns={}, duration_ns={}, jitter_ns={}, proportion={}, quality={}, "
+                    "format={}, processed={}, dropped={}",
+                    sourceName,
+                    live != FALSE,
+                    qosValue(runningTime),
+                    qosValue(streamTime),
+                    qosValue(timestamp),
+                    qosValue(duration),
+                    jitter,
+                    proportion,
+                    quality,
+                    formatName ? formatName : "unknown",
+                    qosValue(processed),
+                    qosValue(dropped));
 }
 
 bool isVarStart(char c) {
@@ -552,7 +595,7 @@ class Pipeline::Impl {
             GstMessage *message = gst_bus_timed_pop_filtered(
                 bus,
                 100 * GST_MSECOND,
-                static_cast<GstMessageType>(GST_MESSAGE_ERROR | GST_MESSAGE_EOS));
+                static_cast<GstMessageType>(GST_MESSAGE_ERROR | GST_MESSAGE_EOS | GST_MESSAGE_QOS));
 
             if (!message) {
                 continue;
@@ -586,6 +629,10 @@ class Pipeline::Impl {
                 gst_message_unref(message);
                 finishWithError(runtimeError);
                 break;
+            }
+
+            if (GST_MESSAGE_TYPE(message) == GST_MESSAGE_QOS) {
+                logQosMessage(message);
             }
 
             gst_message_unref(message);

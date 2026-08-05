@@ -56,6 +56,7 @@ enum {
     PROP_STATIC_FILES,
     PROP_WEBRTC_STUN_SERVER,
     PROP_WEBRTC_TURN_SERVER,
+    PROP_QOS_ENABLED,
 };
 
 static std::string env_or_empty(const char *name) {
@@ -173,6 +174,12 @@ gst_pek_sink_set_property(GObject *object, guint prop_id, const GValue *value, G
         g_free(self->webrtc_turn_server);
         self->webrtc_turn_server = g_value_dup_string(value);
         break;
+    case PROP_QOS_ENABLED:
+        self->qos_enabled = g_value_get_boolean(value);
+        if (self->drain_fakesink)
+            g_object_set(
+                self->drain_fakesink, "sync", self->qos_enabled, "qos", self->qos_enabled, nullptr);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         return;
@@ -203,6 +210,9 @@ gst_pek_sink_get_property(GObject *object, guint prop_id, GValue *value, GParamS
         break;
     case PROP_WEBRTC_TURN_SERVER:
         g_value_set_string(value, self->webrtc_turn_server);
+        break;
+    case PROP_QOS_ENABLED:
+        g_value_set_boolean(value, self->qos_enabled);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -449,8 +459,14 @@ static void init_video(GstPekSink *self) {
 
     g_return_if_fail(self->drain_queue && self->drain_fakesink);
 
-    // fakesink should not block or sync to clock
-    g_object_set(self->drain_fakesink, "sync", FALSE, "async", FALSE, nullptr);
+    g_object_set(self->drain_fakesink,
+                 "sync",
+                 self->qos_enabled,
+                 "async",
+                 FALSE,
+                 "qos",
+                 self->qos_enabled,
+                 nullptr);
 
     gst_bin_add_many(GST_BIN(self), self->drain_queue, self->drain_fakesink, nullptr);
 
@@ -616,6 +632,7 @@ static void gst_pek_sink_init(GstPekSink *self) {
     self->http_port = 9999;
     self->ws_port = 8000;
     self->ctrl_port = 8001;
+    self->qos_enabled = false;
 
     init_video(self);
     init_audio(self);
@@ -694,6 +711,14 @@ static void gst_pek_sink_class_init(GstPekSinkClass *klass) {
                                                         "TURN server URL advertised to browsers",
                                                         nullptr,
                                                         kRW));
+    g_object_class_install_property(
+        gobject_class,
+        PROP_QOS_ENABLED,
+        g_param_spec_boolean("qos-enabled",
+                             "QoS enabled",
+                             "Enable experimental QoS feedback from the video drain",
+                             false,
+                             kRW));
 
     /* pads */
     gst_element_class_add_static_pad_template(element_class, &v_sink_template);

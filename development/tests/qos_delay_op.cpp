@@ -1,0 +1,162 @@
+/*************************************************************
+ * Copyright (C) 2026 Arm Limited. All rights reserved.
+ *************************************************************/
+
+#include "op/Op.h"
+
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <cstdint>
+#include <cstring>
+#include <memory>
+#include <mutex>
+#include <thread>
+
+namespace {
+
+class DelayOp;
+
+struct DelayOpHandle {
+    std::atomic<DelayOp *> instance{nullptr};
+    std::atomic<unsigned int> references{1};
+};
+
+void releaseHandle(DelayOpHandle *handle) {
+    if (handle->references.fetch_sub(1) == 1)
+        delete handle;
+}
+
+// A 30 FPS frame has a roughly 33 ms budget. Sleeping for 50 ms makes one following
+// frame become stale, exercising pekinfer's proactive skip policy without loading a model.
+class DelayOp final : public pek::op::Op {
+  public:
+    ~DelayOp() override {
+        if (handle_ != nullptr) {
+            auto *instance = this;
+            handle_->instance.compare_exchange_strong(instance, nullptr);
+            releaseHandle(handle_);
+        }
+    }
+
+    pek::Result<void> configure(const pek::AttributeMap &attributes) override {
+        if (attributes.contains("control-handle")) {
+            handle_ = reinterpret_cast<DelayOpHandle *>(
+                static_cast<std::uintptr_t>(attributes.getInt("control-handle")));
+            handle_->references.fetch_add(1);
+            handle_->instance.store(this);
+        }
+        return {};
+    }
+
+    pek::Result<void> bind(size_t, const std::vector<pek::op::Op *> &) override {
+        return {};
+    }
+
+    pek::Result<pek::op::OpSignal> process(pek::op::OpChainContext &) override {
+        {
+            std::unique_lock lock(gateMutex_);
+            if (blockNextProcess_) {
+                blockNextProcess_ = false;
+                processingBlocked_ = true;
+                gateCondition_.notify_all();
+                gateCondition_.wait(lock, [this] { return releaseProcessing_; });
+                processingBlocked_ = false;
+                releaseProcessing_ = false;
+            }
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(delayMilliseconds_.load()));
+        return pek::op::OpSignal::Continue;
+    }
+
+    void setDelay(std::uint64_t milliseconds) {
+        delayMilliseconds_.store(milliseconds);
+    }
+
+    void blockNextProcess() {
+        std::lock_guard lock(gateMutex_);
+        blockNextProcess_ = true;
+        processingBlocked_ = false;
+        releaseProcessing_ = false;
+    }
+
+    bool waitUntilBlocked(std::uint64_t timeoutMilliseconds) {
+        std::unique_lock lock(gateMutex_);
+        return gateCondition_.wait_for(lock,
+                                       std::chrono::milliseconds(timeoutMilliseconds),
+                                       [this] { return processingBlocked_; });
+    }
+
+    void releaseProcess() {
+        std::lock_guard lock(gateMutex_);
+        releaseProcessing_ = true;
+        gateCondition_.notify_all();
+    }
+
+  private:
+    DelayOpHandle *handle_ = nullptr;
+    std::atomic<std::uint64_t> delayMilliseconds_{50};
+    std::mutex gateMutex_;
+    std::condition_variable gateCondition_;
+    bool blockNextProcess_ = false;
+    bool processingBlocked_ = false;
+    bool releaseProcessing_ = false;
+};
+
+DelayOp *getInstance(void *opaqueHandle) {
+    if (opaqueHandle == nullptr)
+        return nullptr;
+    return static_cast<DelayOpHandle *>(opaqueHandle)->instance.load();
+}
+
+} // namespace
+
+extern "C" void pek_delete_op_instance(void *instance) {
+    std::unique_ptr<pek::op::Op> owner( // NOSONAR: adopt the instance returned by the plugin ABI.
+        static_cast<pek::op::Op *>(instance));
+}
+
+extern "C" void *pek_create_op_instance(const char *opName) {
+    if (opName == nullptr || std::strcmp(opName, "Delay") != 0)
+        return nullptr;
+    return std::make_unique<DelayOp>().release();
+}
+
+// Test-only controls used by qos_pipeline_test.py to make lifecycle races deterministic.
+extern "C" void *pek_test_qos_delay_create_handle() {
+    return new DelayOpHandle;
+}
+
+extern "C" void pek_test_qos_delay_destroy_handle(void *handle) {
+    releaseHandle(static_cast<DelayOpHandle *>(handle));
+}
+
+extern "C" bool pek_test_qos_delay_set_milliseconds(void *handle, std::uint64_t milliseconds) {
+    auto *instance = getInstance(handle);
+    if (instance == nullptr)
+        return false;
+    instance->setDelay(milliseconds);
+    return true;
+}
+
+extern "C" bool pek_test_qos_delay_block_next_process(void *handle) {
+    auto *instance = getInstance(handle);
+    if (instance == nullptr)
+        return false;
+    instance->blockNextProcess();
+    return true;
+}
+
+extern "C" bool pek_test_qos_delay_wait_until_blocked(void *handle,
+                                                      std::uint64_t timeoutMilliseconds) {
+    auto *instance = getInstance(handle);
+    return instance != nullptr && instance->waitUntilBlocked(timeoutMilliseconds);
+}
+
+extern "C" bool pek_test_qos_delay_release_process(void *handle) {
+    auto *instance = getInstance(handle);
+    if (instance == nullptr)
+        return false;
+    instance->releaseProcess();
+    return true;
+}

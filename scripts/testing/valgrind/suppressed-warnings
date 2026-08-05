@@ -191,6 +191,22 @@
 }
 
 {
+   gstreamer_audiovisualizers_plugin_enum_registration_definite
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:malloc
+   fun:g_malloc
+   fun:g_quark_from_string
+   ...
+   fun:g_type_register_static
+   fun:g_enum_register_static
+   obj:*/gstreamer-1.0/libgstaudiovisualizers.so*
+   ...
+   fun:gst_element_register
+   obj:*/gstreamer-1.0/libgstaudiovisualizers.so*
+}
+
+{
    gstreamer_rtpmanager_plugin_signal_registration_definite
    Memcheck:Leak
    match-leak-kinds: definite

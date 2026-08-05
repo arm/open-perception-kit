@@ -21,6 +21,18 @@ performance_tracer_tests = executable(
   link_with : [common],
 )
 
+# Test-only OpChain plugin that simulates inference exceeding one frame budget.
+qos_delay_op = shared_module(
+  'pek-test-qos-delay',
+  ['qos_delay_op.cpp'],
+  include_directories : [common_include],
+  dependencies : [pek_deps],
+  link_with : [common],
+  name_prefix : '',
+  gnu_symbol_visibility : 'default',
+  install : false,
+)
+
 matrix_operations_tests = executable(
   'matrix_operations_tests',
   ['matrix_operations_test.cpp'],
@@ -134,6 +146,27 @@ test(
   'model_artifact_build_tests',
   python,
   args : [files('model_artifact_build_test.py')],
+)
+test(
+  'qos_pipeline_tests',
+  python,
+  args : [
+    files('qos_pipeline_test.py'),
+    qos_delay_op.full_path(),
+    gstpekinfer.full_path(),
+    gstpektracker.full_path(),
+    gstpekperformance.full_path(),
+    gstpekosd.full_path(),
+    pekinferpre.full_path(),
+  ],
+  depends : [
+    gstpekinfer,
+    qos_delay_op,
+    gstpektracker,
+    gstpekperformance,
+    gstpekosd,
+    pekinferpre,
+  ],
 )
 test('model_descriptor_tests', model_descriptor_tests)
 test('performance_tracer_tests', performance_tracer_tests)
