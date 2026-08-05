@@ -43,7 +43,7 @@ ROOT_QUALITY_LINKS = (
     ("python-audit/index.html", "Python audit", "Dependency vulnerabilities", "shield", "Nightly"),
     ("docker-scout/index.html", "Docker Scout", "Container vulnerabilities", "binoculars", "Nightly"),
     ("workflow-freshness/index.html", "Workflow freshness", "GitHub Actions dependencies", "refresh", "Nightly"),
-    ("valgrind/index.html", "Valgrind", "Memory regression baseline", "memory", "Develop"),
+    ("valgrind/index.html", "Valgrind", "Memory regression baseline", "memory", "Nightly"),
 )
 ROOT_NIGHTLY_LINKS = (
     ("nightly-ci/index.html", "Nightly CI", "Scheduled checks at a glance", "moon", "Overview"),
@@ -281,8 +281,7 @@ def root_card_badge(site_dir: Path, href: str, dataset_count: int | None,
         return playwright_nightly_badge(site_dir)
     source = href.removesuffix("/index.html")
     if source in WORKFLOW_PR_REPORTS:
-        path = "develop.json" if source == "valgrind" else "nightly.json"
-        return workflow_status_badge(read_workflow_status(site_dir, source, path), now)
+        return workflow_status_badge(read_workflow_status(site_dir, source), now)
     if href == "nightly-ci/index.html":
         return nightly_status_verdict(site_dir, now)
     if dataset_count:
@@ -399,11 +398,13 @@ def status_link(status: dict[str, object] | None, title: str, now: dt.datetime,
         )
     tone, label = workflow_status_badge(status, now)
     run_url = f'https://github.com/{status["repository"]}/actions/runs/{status["run_id"]}'
+    run_label = "Job summary" if status.get("workflow") == "Valgrind Baseline Artifact" else "Run"
     return (
         '<div class="report-link"><span>'
         f'<span class="report-title"><a href="{html_escape(href or run_url)}">'
         f'{html_escape(title)}</a></span><span class="report-meta">'
-        f'{html_escape(status_meta(status))} · <a href="{html_escape(run_url)}">Run</a></span>'
+        f'{html_escape(status_meta(status))} · <a href="{html_escape(run_url)}">'
+        f'{run_label}</a></span>'
         f'{status_summary(status)}</span>{verdict_html(tone, label)}</div>'
     )
 
@@ -429,9 +430,8 @@ def write_status_indexes(site_dir: Path, now: dt.datetime) -> None:
         target = site_dir / source
         target.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(css_source, target / "report-index.css")
-        primary_path = "develop.json" if source == "valgrind" else "nightly.json"
-        primary_title = "Develop" if source == "valgrind" else "Nightly"
-        primary_status = read_workflow_status(site_dir, source, primary_path)
+        primary_title = "Nightly"
+        primary_status = read_workflow_status(site_dir, source)
         primary = (
             status_link(primary_status, f"Latest {primary_title.lower()}", now)
             if primary_status else f'<div class="empty">No {primary_title.lower()} report published yet.</div>'

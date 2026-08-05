@@ -10,6 +10,8 @@ name: Valgrind Baseline Artifact
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *"
   push:
     branches: [main, develop]
   pull_request:

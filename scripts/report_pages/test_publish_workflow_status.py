@@ -108,14 +108,14 @@ class TestPublishWorkflowStatus(unittest.TestCase):
             })
             fixtures["workflow-freshness"].update({"metric": "1 behind", "metric_tone": "neutral"})
             fixtures["valgrind"].update({
-                "event": "push",
                 "metric": "18 repo-owned baseline",
+                "workflow": "Valgrind Baseline Artifact",
             })
             for source, payload in fixtures.items():
                 target = (
                     status_dir / f"{source}.json"
                     if source == "workflow-freshness"
-                    else status_dir / source / ("develop.json" if source == "valgrind" else "nightly.json")
+                    else status_dir / source / "nightly.json"
                 )
                 target.parent.mkdir(exist_ok=True)
                 target.write_text(json.dumps(payload), encoding="utf-8")
@@ -141,7 +141,8 @@ class TestPublishWorkflowStatus(unittest.TestCase):
         self.assertIn("Aug 03, 2026 10:00 UTC", python_audit)
         self.assertIn("/actions/runs/123", python_audit)
         self.assertIn("pip-audit &lt;expkits-ci&gt;: Run pip-audit", python_audit)
-        self.assertIn("<h2>Develop</h2>", valgrind)
+        self.assertIn("<h2>Nightly</h2>", valgrind)
+        self.assertIn(">Job summary</a>", valgrind)
         self.assertNotIn("Repository-owned Valgrind baseline", valgrind)
 
     def test_publish_persists_develop_schedule_and_pull_request(self):
