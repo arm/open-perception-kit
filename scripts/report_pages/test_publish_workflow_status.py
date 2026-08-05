@@ -217,17 +217,10 @@ class TestPublishWorkflowStatus(unittest.TestCase):
                 "UPSTREAM_WORKFLOW_NAME": "Valgrind Baseline Artifact",
             })
             with patch.dict(os.environ, environment, clear=True), \
-                    patch.object(publisher, "workflow_jobs", return_value=[]), \
-                    patch.object(
-                        publisher,
-                        "valgrind_metric",
-                        return_value=("18 repo-owned baseline", "neutral"),
-            ):
-                self.assertTrue(publisher.publish(root / "valgrind-site"))
-            valgrind_status = (
-                root / "valgrind-site" / "workflow-status" / "valgrind" / "develop.json"
-            )
-            self.assertTrue(valgrind_status.is_file())
+                    patch.object(publisher, "valgrind_metric") as valgrind_metric:
+                self.assertFalse(publisher.publish(root / "valgrind-site"))
+            valgrind_metric.assert_not_called()
+            self.assertFalse((root / "valgrind-site").exists())
 
     def test_status_publish_migrates_legacy_playwright_root(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -326,24 +319,6 @@ class TestPublishWorkflowStatus(unittest.TestCase):
     def test_job_summary_handles_cancelled_or_unavailable_jobs(self):
         summary = publisher.job_summary([], "cancelled")
         self.assertEqual(summary, ["Run cancelled before all jobs completed."])
-
-    def test_valgrind_develop_status_uses_baseline_artifact_lifetime(self):
-        valgrind = status("success", "2026-08-01T00:00:00Z")
-        valgrind.update({
-            "event": "push",
-            "workflow": "Valgrind Baseline Artifact",
-            "metric": "18 repo-owned baseline",
-            "metric_tone": "neutral",
-        })
-
-        self.assertEqual(
-            report_pages.workflow_status_badge(status("success", "2026-08-01T00:00:00Z"), NOW),
-            ("neutral", "Stale"),
-        )
-        self.assertEqual(
-            report_pages.workflow_status_badge(valgrind, NOW),
-            ("neutral", "18 repo-owned baseline"),
-        )
 
     def test_workflow_metrics_use_job_counts_and_valgrind_comparison(self):
         jobs = [{"conclusion": "failure"}, {"conclusion": "success"}]

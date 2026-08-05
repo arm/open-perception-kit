@@ -272,8 +272,7 @@ def status_from_run(repository: str, run: dict[str, object]) -> tuple[str, dict[
     pull_request_number = str(first_pull_request.get("number", ""))
     scheduled = event == "schedule" and branch == "develop"
     pull_request = event == "pull_request" and source in WORKFLOW_PR_REPORTS
-    develop_push = event == "push" and branch == "develop" and source == "valgrind"
-    if head_repository != repository or not (scheduled or pull_request or develop_push):
+    if head_repository != repository or not (scheduled or pull_request):
         print(f"Ignoring upstream run: event={event}, branch={branch}, repo={head_repository}")
         return None
     if pull_request and not pull_request_number.isdigit():
@@ -295,7 +294,7 @@ def status_from_run(repository: str, run: dict[str, object]) -> tuple[str, dict[
         workflow_jobs(repository, run_id)
         if source in {"python-audit", "docker-scout"} or conclusion != "success" else []
     )
-    if source == "valgrind" and event in {"push", "schedule"} and conclusion == "success":
+    if source == "valgrind" and event == "schedule" and conclusion == "success":
         metric, metric_tone = valgrind_metric(repository, run_id)
         details = []
     else:
@@ -368,8 +367,6 @@ def status_path(site_dir: Path, source: str, status: dict[str, object]) -> Path:
     status_dir = site_dir / WORKFLOW_STATUS_DIRECTORY / source
     if status["event"] == "schedule":
         return status_dir / "nightly.json"
-    if status["event"] == "push":
-        return status_dir / "develop.json"
     return status_dir / "prs" / f'{status["pull_request_number"]}.json'
 
 
