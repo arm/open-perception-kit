@@ -6,7 +6,7 @@ sidebar_label: Inference Process
 # Inference Execution Flow
 
 OPK separates engine-specific model loading and inference execution from generic
-preprocessing, tensor handling, postprocessing, and `Perception` output.
+preprocessing, tensor handling, postprocessing, and `FrameResults` output.
 Backend-specific code lives in separate shared libraries so SDK dependencies stay
 isolated from the core runtime.
 
@@ -23,7 +23,7 @@ isolated from the core runtime.
 4. The backend-specific inference Op calls the runtime and writes raw output
    tensors.
 5. Generic postprocessing wraps those outputs in `TensorView`, parses them, and
-   writes structured results into `Perception`.
+   appends structured schema payloads to `FrameResults`.
 
 ```text
 engine-specific load

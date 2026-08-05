@@ -5,9 +5,14 @@ sidebar_label: Perception
 
 # Perception
 
-`Perception` is the persistent metadata container that travels downstream with a
-media buffer. It aggregates structured results from inference, postprocessing,
-tracking, and performance elements.
+Perception is the schema and SDK domain for structured runtime results.
+`perception::FrameResults` is the concrete C++ runtime container: a generated,
+typed envelope that travels downstream with a media buffer and accumulates
+payloads from postprocessing, tracking, and performance elements.
+
+The naming boundary is intentional. **Perception** identifies the schema set,
+generated SDK, package, and namespace; **FrameResults** identifies one frame's
+runtime result envelope.
 
 ## Generated SDKs
 
@@ -52,57 +57,58 @@ See `schemas/perception/README.md` for schema versioning, FlatBuffers
 compatibility rules, new payload creation, and the required validation
 workflow.
 
-![Inference Data Collection (Perception)](../public/static/img/perception.png)
+## Runtime Envelope
 
-The model supports multi-stage inference, branching pipelines, UUID-based
-cross-stage references, and backend-agnostic result representation.
+`FrameResults` can contain multiple independent typed payloads. Producers append
+payloads with the generated `add()` API, and consumers select known payload
+families with `for_each<T>()`. This allows a frame to accumulate results across
+cascades and independent elements without relying on layer ordering or a
+hand-written variant container.
 
-## Object Base
+The currently generated payload roots are:
 
-`Perception::Object` is the common base for stored entities. It provides:
+- `FrameContext` for video or audio frame geometry and crop/letterbox context
+- `BoxDetections` for localized detections
+- `Classifications` for classification candidates and person-presence output
+- `PoseEstimations` for yaw and pitch estimates
+- `SegmentationMasks` for bitmap-backed masks
+- `ObjectEmbeddings` for embedding vectors
+- `ObjectTracks` for tracker output and predicted detections
+- `TrackTraces` for tracker history points
+- `PerformanceOverlay` for displayable performance lines
 
-- `uuid` for stable entity identity
-- `parentUuid` for relationships such as frame -> detection -> derived result
-- `creationTsNs` for correlation and ordering
+Each payload family is versioned and identified independently. A consumer SDK
+can preserve an unknown payload while forwarding or reserializing the envelope,
+but typed access requires an SDK generated from a schema set that knows that
+payload identity.
 
-These fields allow pipeline stages to link results without relying on array
-positions.
+## Shared Metadata
 
-## Frame Anchors
+Payloads that represent inference or processing output carry `LayerInfo`. It
+records interpretation and provenance fields such as engine, model, tags,
+producer element ID, label family, content type, and compositing mode. Consumers
+must select payloads by type and semantic fields such as `content_type`, not by
+their position in the envelope.
 
-`VideoFrame` describes a video frame and its geometry. It acts as the root object
-for vision detections and stores dimensions and crop/letterbox data needed for
-coordinate mapping.
+Result items use `ObjectMeta` where identity or parent relationships are needed:
 
-`AudioFrame` describes an audio chunk and acts as the root object for audio
-results when audio inference is present.
+- `id` identifies an item within the producer's result model
+- `parent_id` links derived output to its source item
+- `creation_ts_ns` records the producer-provided creation timestamp
 
-## Detection Types
+Frame geometry is represented by the `FrameContext` payload. Its video and audio
+tables contain the original dimensions and the crop, letterbox, or sample-range
+context needed to interpret downstream results.
 
-`Perception` provides normalized result types for common outputs:
+## Runtime Transport
 
-- `Rect` for localized detections
-- `Classification` for top-k candidates
-- `YawPitch` for angular or regression outputs
-- `LocalizedText` for OCR-style text payloads
-- `SegmentationMap` for dense pixel outputs
-- `TrackTrace` for tracker history
-- `ObjectEmbedding` for embedding or ReID vectors
+Inside GStreamer, `FrameResultsMeta` attaches a shared `FrameResults` instance to
+the corresponding `GstBuffer`. `pekinfer` creates the metadata before OpChain
+execution; postprocessors add generated payloads through
+`OpChainContext::frameResults`; `pektracker` and `pekperformance` can append more
+payloads; and `pekosd` reads supported payload types for visualization.
 
-Detections are stored as a tagged variant, so a layer can contain heterogeneous
-result types while remaining type-safe.
-
-## Layer
-
-`Perception::Layer` represents the result of one inference or processing step.
-Layer metadata records provenance and interpretation context, including engine,
-model, tags, producer element ID, label family, and content type.
-
-`detections` contains the structured outputs produced by that step. Multiple
-layers can accumulate as a buffer moves through cascades, parallel branches, or
-postprocessing elements.
-
-## Performance Data
-
-`perfdata` stores lightweight performance strings. `pekperformance` writes these
-values and `pekosd` can render them as an overlay.
+At application boundaries, the generated wire envelope is serialized as bytes.
+`pekcomm` publishes those bytes in the `frame_results_packet_b64` field with the
+`perception-frame-results+base64` encoding marker. External consumers must use a
+compatible released Perception SDK to decode and access the typed payloads.

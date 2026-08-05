@@ -1,0 +1,4 @@
+interface:
+  display_name: "Integrate Perception SDK Consumer"
+  short_description: "Integrate external FrameResults consumers safely"
+  default_prompt: "Use $integrate-perception-sdk-consumer to integrate a C++ or Python application with a released Perception SDK and FrameResults packets."

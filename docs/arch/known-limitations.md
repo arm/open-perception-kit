@@ -15,8 +15,8 @@ runtime. Treat these as constraints when extending the system.
   and pipeline state control in one GStreamer element.
 - Browser UI hosting should move out of `peksink`; the runtime should publish
   media and perception results through a stable contract.
-- `pekcomm` can publish serialized `Perception`, but there is no standard,
-  versioned application endpoint for perception results yet.
+- `pekcomm` can publish serialized `FrameResults` packets, but there is no
+  standard, versioned application endpoint for perception results yet.
 
 ## Security And Lifecycle
 
@@ -27,8 +27,9 @@ runtime. Treat these as constraints when extending the system.
 
 ## Perception And Postprocessing Contracts
 
-- New `Perception` result structures still require coordinated C++ changes across
-  the common model, serializer, parser, and visualization code.
+- New persistent result shapes require a Perception schema update and regenerated
+  SDK. Parser, tracker, publishing, or visualization changes are still required
+  when those components need to produce or consume the new payload semantics.
 - Custom postprocessing is C++-only today and registered through
   `GenericPostprocessOp`.
 - `pekosd` rendering is hardcoded around known content types, so it is best

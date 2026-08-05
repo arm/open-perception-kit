@@ -7,13 +7,13 @@ sidebar_label: Architectural overview
 
 OPK uses GStreamer as the media pipeline host while keeping
 its inference execution model organized around reusable OpChains and structured
-`Perception` metadata. GStreamer delivers media buffers and schedules elements;
+`FrameResults` metadata. GStreamer delivers media buffers and schedules elements;
 OPK elements process those buffers, enrich metadata, and expose results for
 rendering, streaming, or application use.
 
 ## Component View
 
-The runtime is built around `Perception` as the shared data contract. `pekinfer`
+The runtime is built around `FrameResults` as the shared data contract. `pekinfer`
 creates and enriches it through OpChain execution, `pektracker` and
 `pekperformance` can append runtime data, `pekosd` consumes it for overlays, and
 application-facing boundaries can serialize it for external consumers.
@@ -42,10 +42,11 @@ rebuild for common changes.
 
 ## Perception Data Model
 
-`Perception` is the persistent runtime result container. It travels downstream
-with the media buffer and aggregates structured layers produced by inference,
-postprocessing, tracking, and performance elements. This supports cascades,
-parallel branches, and incremental enrichment across the pipeline. See
+Perception is the schema and SDK domain; `FrameResults` is its persistent runtime
+result envelope. It travels downstream with the media buffer and aggregates
+typed payloads produced by postprocessing, tracking, and performance elements.
+This supports cascades, parallel branches, and incremental enrichment across the
+pipeline. See
 [Perception](perception.md).
 
 ## End-to-End Flow
@@ -54,10 +55,10 @@ A typical execution flow:
 
 1. GStreamer delivers an audio or video buffer into the pipeline.
 2. `pekinfer` executes an OpChain for preprocessing, inference, and postprocessing.
-3. Results are written into `Perception` as one or more layers.
+3. Results are appended to `FrameResults` as typed schema payloads.
 4. `pektracker` can stabilize detections across frames and append tracking output.
 5. `pekperformance` records runtime performance information.
-6. `pekosd` can draw `Perception` results onto video frames.
+6. `pekosd` can draw supported `FrameResults` payloads onto video frames.
 7. `peksink` can stream the output to a browser through WebRTC.
 
 This keeps the pipeline modular while allowing the core inference execution model

@@ -75,7 +75,8 @@ order.
 
 `pek::OpChainContext` is transient state for one execution step. It carries the
 shared runtime data needed by Ops, including tensor references and intermediate
-values. Persistent output belongs in `Perception`, not in the context. See
+values. Persistent output is appended to the `FrameResults` instance referenced
+by the context rather than stored as transient context state. See
 [OpChain Context](op-chain-context.md).
 
 ### OpChainDescriptor

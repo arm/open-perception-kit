@@ -7,7 +7,8 @@ sidebar_label: OpChain Context
 
 `OpChainContext` stores transient data for one OpChain execution. Data in the
 context is discarded when the chain completes. Anything that must survive
-downstream must be copied into `Perception`.
+downstream must be appended to the `FrameResults` instance referenced by
+`frameResults`.
 
 ## Lifetime Rules
 
@@ -15,7 +16,8 @@ downstream must be copied into `Perception`.
 - Pointers stored in the context must reference buffers that remain valid for the
   whole execution.
 - Producers own referenced memory and are responsible for lifetime management.
-- Persistent results belong in `Perception`, not in the context.
+- Persistent results belong in typed `FrameResults` payloads, not in context-owned
+  temporary state.
 
 ## Named Bitmap Views
 

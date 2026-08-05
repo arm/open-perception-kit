@@ -20,7 +20,7 @@ using `loopId`:
 4. `GenericPostprocess`
 
 Each Op reads transient state from `OpChainContext` and writes persistent results
-into `Perception` when needed.
+into typed `FrameResults` payloads when needed.
 
 ## Loop Semantics
 
