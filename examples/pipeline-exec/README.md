@@ -5,11 +5,13 @@ pipeline through the public C++ `pek::runtime::Pipeline` wrapper.
 
 It accepts one PEK pipeline JSON file, loads the `pipeline` definition from that
 file, starts the pipeline, prints a small summary for every serialized Perception JSON callback,
-and uses its own condition variable to react to EOS or error callbacks.
+and uses its own condition variable to react to EOS or error callbacks. It can
+also enable PEK historical performance capture and write completed spans to CSV
+through the public runtime `PerformanceMetrics` facade.
 
-The source intentionally includes only `runtime/Pipeline.h` from the runtime API.
-GStreamer types and the C++ `pek::Perception` type stay hidden behind the wrapper,
-and the example keeps control of its own thread instead of calling `Pipeline::wait()`.
+The source intentionally uses only the public runtime API. GStreamer types and
+the C++ `pek::Perception` type stay hidden behind the wrapper, and the example
+keeps control of its own thread instead of calling `Pipeline::wait()`.
 
 ## Build
 
@@ -25,6 +27,18 @@ and copies the binary to `examples/bin/pipeline-exec`.
 ```sh
 ./examples/bin/pipeline-exec /work/config/pipelines/debug/video.json
 ```
+
+To collect performance spans:
+
+```sh
+./examples/bin/pipeline-exec \
+  --perf-csv /work/var/pipeline-perf.csv \
+  /work/config/pipelines/debug/video.json
+```
+
+The CSV is written by `pek::runtime::PerformanceMetrics::writeCsv()`. It
+contains completed historical spans only; scopes still open when the process
+finishes are omitted rather than assigned a fabricated end time.
 
 If PEK plugins are not installed globally, the example scans
 `/work/development/build/meson-out` by default. Override that with

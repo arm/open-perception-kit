@@ -1,8 +1,6 @@
-x-pek-dev-build: &pek-dev-build
+x-pek-tool-build: &pek-tool-build
   context: ..
-  dockerfile: Dockerfile.dev
-  additional_contexts:
-    pek-build-base: service:pek-build-base
+  dockerfile: Dockerfile
 
 services:
   pek-build-base:
@@ -17,6 +15,10 @@ services:
       context: ..
       dockerfile: Dockerfile
       target: pek-deployment-base
+      secrets:
+        - huggingface_token
+      args:
+        HF_DOWNLOAD_CACHEBUST: ${HF_DOWNLOAD_CACHEBUST:-${HF_TOKEN:+${GITHUB_RUN_ID:?Set HF_DOWNLOAD_CACHEBUST when HF_TOKEN is set}-${GITHUB_RUN_ATTEMPT:-0}}}
 
   pek-docs: &pek-docs
     extends:
@@ -26,8 +28,19 @@ services:
     network_mode: bridge
     hostname: pek-docs
     build:
-      <<: *pek-dev-build
+      <<: *pek-tool-build
       target: pek-docs
+
+  pek-ci: &pek-ci
+    extends:
+      file: ../compose.base.yaml
+      service: pek-common-dev
+
+    network_mode: bridge
+    hostname: pek-ci
+    build:
+      <<: *pek-tool-build
+      target: pek-ci
 
   pek-dev: &pek-dev
     extends:
@@ -37,25 +50,29 @@ services:
     network_mode: bridge
     hostname: pek-dev
     build:
-      <<: *pek-dev-build
+      <<: *pek-tool-build
       target: pek-dev
+      secrets:
+        - huggingface_token
+      args:
+        HF_DOWNLOAD_CACHEBUST: ${HF_DOWNLOAD_CACHEBUST:-${HF_TOKEN:+${GITHUB_RUN_ID:?Set HF_DOWNLOAD_CACHEBUST when HF_TOKEN is set}-${GITHUB_RUN_ATTEMPT:-0}}}
 
   pek-pre-commit-runtime:
     network_mode: bridge
     hostname: pek-pre-commit-runtime
     build:
       context: ..
-      dockerfile: scripts/pre-commit/runtime/Dockerfile
+      dockerfile: Dockerfile.pre-commit
 
   pek-playwright-pages:
     network_mode: bridge
     hostname: pek-playwright-pages
     build:
       context: ..
-      dockerfile: scripts/report_pages/Dockerfile
+      dockerfile: Dockerfile.pages
 
   pek-release-with-ut:
-    <<: *pek-docs
+    <<: *pek-ci
     hostname: pek-release-with-ut
     command: |
       bash -c '
@@ -66,7 +83,7 @@ services:
       '
 
   pek-clang-tidy-baseline-check:
-    <<: *pek-dev
+    <<: *pek-ci
     hostname: pek-clang-tidy-baseline-check
     command: |
       bash -c '
@@ -98,7 +115,7 @@ services:
       '
 
   pek-valgrind-check:
-    <<: *pek-docs
+    <<: *pek-ci
     hostname: pek-valgrind-check
     command: |
       bash -c '
@@ -108,7 +125,7 @@ services:
       '
 
   pek-generate-valgrind-summary:
-    <<: *pek-docs
+    <<: *pek-ci
     hostname: pek-generate-valgrind-summary
     command: |
       bash -c '
@@ -123,7 +140,8 @@ services:
       '
 
   pek-quality-check-pull-request:
-    <<: *pek-dev
+    <<: *pek-ci
+    hostname: pek-quality-check-pull-request
     command: |
       bash -c '
         .devcontainer/devsetup.sh &&
@@ -135,7 +153,8 @@ services:
       '
 
   pek-quality-check-full:
-    <<: *pek-docs
+    <<: *pek-ci
+    hostname: pek-quality-check-full
     command: |
       bash -c '
         .devcontainer/devsetup.sh &&
@@ -148,14 +167,8 @@ services:
       '
 
   pek-sonar-check:
-    extends: 
-      file: ../compose.base.yaml
-      service: pek-common-dev
+    <<: *pek-ci
     hostname: pek-sonar-check
-    network_mode: bridge
-    build:
-      <<: *pek-dev-build
-      target: pek-docs
     environment:
       PROJECT_ROOT: /work/development
       BUILD_DIR: /work/development/build
@@ -187,14 +200,8 @@ services:
       '
 
   pek-sonar-check-release:
-    extends: 
-      file: ../compose.base.yaml
-      service: pek-common-dev
+    <<: *pek-ci
     hostname: pek-sonar-check-release
-    network_mode: bridge
-    build:
-      <<: *pek-dev-build
-      target: pek-docs
     environment:
       PROJECT_ROOT: /work/development
       BUILD_DIR: /work/development/build
@@ -217,3 +224,7 @@ services:
           -Dsonar.projectVersion="$$SONAR_PROJECT_VERSION" \
           -Dsonar.buildString="$$BUILD_STRING"
       '
+
+secrets:
+  huggingface_token:
+    environment: HF_TOKEN

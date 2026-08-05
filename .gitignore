@@ -102,6 +102,15 @@ gstshark*/
 
 config/pipelines/.last_selected_pipeline_id
 
+# Model artifacts; keep the checked-in local models.
+config/models/**/*.hef
+config/models/**/*.onnx
+config/models/**/*.pte
+!config/models/paddleocr/classification.onnx
+!config/models/paddleocr/recognition.onnx
+!config/models/yolov11/yolo11n-fp32-320.onnx
+!config/models/yolox/yolox_nano.pte
+
 docs/html
 todo.md
 

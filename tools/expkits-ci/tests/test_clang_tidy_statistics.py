@@ -19,7 +19,11 @@ sys.path.insert(0, str(PACKAGE_ROOT))
 
 CLANG_TIDY_LOG = """\
 ../common/pek/Shape.h:33:9: warning: do not declare C-style arrays [modernize-avoid-c-arrays]
+   33 |     int temporary[] = {1, 2};
+      |     ^
 ../common/pek/Shape.h:98:5: warning: do not declare C-style arrays [modernize-avoid-c-arrays]
+   98 |     int dims[8] = {0};
+      |     ^
 [DEBUG] ../common/pek/Types.h:52:5: warning: switch has identical branches [bugprone-branch-clone]
 ../common/pek/File.h:10:1: error: example hard error [clang-diagnostic-error]
 ../common/pek/File.h:11:1: note: notes should not be counted [clang-diagnostic-note]
@@ -81,7 +85,27 @@ class ClangTidyStatisticsTests(unittest.TestCase):
         self.assertEqual(severity_counts["warning"], 3)
         self.assertEqual(severity_counts["error"], 1)
 
+    def test_parse_clang_tidy_diagnostics_preserves_source_location_and_context(self):
+        log_file = self.work_path / "clang-tidy.log"
+        log_file.write_text(CLANG_TIDY_LOG, encoding="utf-8")
+
+        diagnostics = self.quality_checks.parse_clang_tidy_diagnostics(str(log_file))
+
+        first_diagnostic = diagnostics[0]
+        self.assertEqual(first_diagnostic["path"], "../common/pek/Shape.h")
+        self.assertEqual(first_diagnostic["line"], 33)
+        self.assertEqual(first_diagnostic["column"], 9)
+        self.assertEqual(first_diagnostic["severity"], "warning")
+        self.assertEqual(first_diagnostic["message"], "do not declare C-style arrays")
+        self.assertEqual(first_diagnostic["check"], "modernize-avoid-c-arrays")
+        self.assertEqual(first_diagnostic["source_context"], [
+            "   33 |     int temporary[] = {1, 2};",
+            "      |     ^",
+        ])
+
     def test_enforce_baseline_fails_when_any_check_regresses(self):
+        log_file = self.work_path / "clang-tidy.log"
+        log_file.write_text(CLANG_TIDY_LOG, encoding="utf-8")
         baseline_file = self.write_json("baseline.json", {
             "checks": {
                 "modernize-avoid-c-arrays": 1,
@@ -94,11 +118,44 @@ class ClangTidyStatisticsTests(unittest.TestCase):
                 "bugprone-branch-clone": 1,
             }
         }
+        diagnostics = self.quality_checks.parse_clang_tidy_diagnostics(str(log_file))
 
-        result = self.quality_checks.compare_clang_tidy_statistics_to_baseline(
-            stats, str(baseline_file), mode="enforce")
+        with self.assertLogs("expkits_ci", level="ERROR") as logs:
+            result = self.quality_checks.compare_clang_tidy_statistics_to_baseline(
+                stats, str(baseline_file), mode="enforce", diagnostics=diagnostics)
 
         self.assertFalse(result)
+        output = "\n".join(logs.output)
+        self.assertIn(
+            "baseline stores counts only, so it cannot identify which +1 diagnostic(s) are new",
+            output,
+        )
+        self.assertIn(
+            "../common/pek/Shape.h:33:9: warning: do not declare C-style arrays "
+            "[modernize-avoid-c-arrays]",
+            output,
+        )
+        self.assertIn("33 |     int temporary[] = {1, 2};", output)
+
+    def test_zero_baseline_regression_connects_diff_to_exact_diagnostic(self):
+        log_file = self.work_path / "clang-tidy.log"
+        log_file.write_text(CLANG_TIDY_LOG, encoding="utf-8")
+        baseline_file = self.write_json("baseline.json", {"checks": {}})
+
+        with self.assertLogs("expkits_ci", level="ERROR") as logs:
+            result = self.quality_checks.report_clang_tidy_statistics(
+                str(log_file),
+                baseline_file=str(baseline_file),
+                baseline_mode="enforce",
+            )
+
+        self.assertFalse(result)
+        output = "\n".join(logs.output)
+        self.assertIn(
+            "modernize-avoid-c-arrays: the following 2 diagnostic(s) account for the +2 regression",
+            output,
+        )
+        self.assertIn("98 |     int dims[8] = {0};", output)
 
     def test_update_baseline_refuses_regressions_and_leaves_file_unchanged(self):
         log_file = self.work_path / "clang-tidy.log"

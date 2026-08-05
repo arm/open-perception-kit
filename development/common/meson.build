@@ -25,6 +25,7 @@ common = shared_library(
     'op/OpChainDescriptor.cpp',
 
     'perf/PerformanceTracer.cpp',
+    'perf/PerformanceMetrics.cpp',
 
     'mediaio/Common.cpp',
     'mediaio/VideoFrame.cpp',

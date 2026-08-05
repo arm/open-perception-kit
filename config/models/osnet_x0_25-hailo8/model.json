@@ -1,8 +1,12 @@
 {
     "name": "osnet_x0_25_msmt17",
-    "modelFamily": "reid",
     "contentType": "genericObject",
     "modelFile": "osnet_x0_25_msmt17_opset21_patched.hef",
+    "hfDownload": {
+        "repo_id": "Arm/OSNet-x0-25",
+        "revision": "84ecc9c3b5bfdef639bdb5f93dc7d55828a7e00b",
+        "filename": "models/hailo8/osnet_x0_25_msmt17_opset21_patched.hef"
+    },
     "dynamicOutput": true,
     "inputTensors": [
         {

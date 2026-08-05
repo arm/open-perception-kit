@@ -9,7 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
 REPO_ROOT="$(repo_checks_resolve_repo_root "${SCRIPT_DIR}")"
-RUNTIME_DOCKERFILE="${REPO_ROOT}/scripts/pre-commit/runtime/Dockerfile"
+RUNTIME_DOCKERFILE="${REPO_ROOT}/Dockerfile.pre-commit"
 REPO_CHECKS_COMMAND=()
 
 usage() {

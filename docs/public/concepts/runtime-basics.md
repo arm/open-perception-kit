@@ -48,6 +48,9 @@ If you want to change which image, video, or camera is used, this is usually the
 
 Some checked-in presets intentionally set `pekinfer active=false`.
 That lets the PEK web UI register the model first and then enable it from the **AI Models** panel when you are ready.
+`active=false` disables per-frame OpChain execution; it does not defer setup.
+`pekinfer` still loads the OpChain and its model during startup, so every
+referenced model artifact must already exist.
 
 At the moment, pipeline execution is synchronous end to end. An asynchronous inference execution flow is planned for a later update, but it is not available yet.
 
@@ -85,7 +88,16 @@ The descriptor defines things such as:
 - data layout such as `ImageRgbChw` or `ImageRgbHwc`
 - normalization
 - output behavior
-- model family and content type
+- model name and content type
+
+`modelFile` is always a local path relative to its descriptor. The standard
+container images try to download published PEK model artifacts from pinned
+Hugging Face revisions into those paths. When `HF_TOKEN` is unset, accessible
+public artifacts download anonymously. Each failed download is logged and
+skipped, so the container build can succeed with an incomplete model set.
+Runtime containers do not download models and need no Hugging Face network
+access or credentials. A pipeline that references a missing artifact fails
+during OpChain setup, including when its `pekinfer` starts with `active=false`.
 
 If you are only adding your own model, you usually only need to copy and adapt an existing `model.json`.
 
@@ -151,7 +163,8 @@ For ready-to-run live camera presets, use `05-full-onnx-raspicam` for a Raspberr
 The normal user path is:
 
 1. add a new folder under `config/models/`
-2. place the model file there
+2. place the model file there for local development, or add an `hfDownload`
+   object when the container build must include it
 3. copy and adapt `model.json`
 4. copy and adapt `opchain.json`
 5. point a pipeline preset to that model or OpChain

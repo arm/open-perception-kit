@@ -5,13 +5,14 @@ on:
   workflow_dispatch:
     inputs:
       operation:
-        description: Read outlet state, reset an RPi, or ensure its outlet is on.
+        description: Read outlet state, reset an RPi, or set its outlet power.
         required: true
         default: status
         type: choice
         options:
           - status
           - reset
+          - power-off
           - power-on
       target:
         description: Status supports all; power operations require one RPi.
@@ -100,6 +101,14 @@ jobs:
         uses: Szendvics/energenie-eg-pms2-action@v1.0.2
         with:
           operation: on
+          outlet: ${{ env.OUTLET }}
+          serial: ${{ vars.EG_PMS2_SERIAL }}
+
+      - name: Ensure selected RPi power is off
+        if: inputs.operation == 'power-off'
+        uses: Szendvics/energenie-eg-pms2-action@v1.0.2
+        with:
+          operation: off
           outlet: ${{ env.OUTLET }}
           serial: ${{ vars.EG_PMS2_SERIAL }}
 

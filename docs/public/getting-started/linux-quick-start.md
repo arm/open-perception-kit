@@ -70,17 +70,19 @@ Run in the **host shell**, from the `pek` folder:
 code .
 ```
 
-The checked-in models need no Hugging Face credential. To make a token available
-to model integrations, export `HF_TOKEN` before opening VS Code; the Dev
-Container mounts it read-only at `/run/secrets/huggingface_token`:
+If the build needs private or gated models, export a read-only `HF_TOKEN`
+before opening VS Code:
 
 ```bash
 export HF_TOKEN="hf_your_token_here"
 code .
 ```
 
-The token is not added to the container environment. After changing or
-unsetting a token, run **Dev Containers: Rebuild Container**.
+Docker supplies the token only to the pinned model-download build step; it is
+not added to the runtime container environment. Failed downloads are logged and
+skipped, so the image can build without every configured model. After
+correcting a token, run **Dev Containers: Rebuild Container**; initialization
+refreshes the model-download cache key.
 
 In VS Code:
 
@@ -122,10 +124,10 @@ Expected result: the build finishes without errors and `tools/pek-menu` exists.
 Run in the **Docker shell**:
 
 ```bash
-./tools/pek-menu 01-full-onnx
+./tools/pek-menu yolov11-onnx
 ```
 
-You can also use the VS Code task **00 Run project and select pipeline** and choose `01-full-onnx`.
+You can also use the VS Code task **00 Run project and select pipeline** and choose `yolov11-onnx`.
 On Linux with a USB camera exposed as `/dev/video0`, choose `06-full-onnx-usb-cam` for a live camera source enabled by default.
 
 ![PEK pipeline selection view](/img/09-select-pipeline.png)

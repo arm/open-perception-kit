@@ -53,7 +53,9 @@ std::chrono::nanoseconds PerformanceTracer::end(const std::string &key) {
     // Add to current cycle
     {
         std::lock_guard<std::mutex> lock(current_cycle_mutex_);
-        current_cycle_measurements_.push_back(m);
+        if (current_cycle_consumer_count_ > 0 || has_cycle_end_callbacks_.load()) {
+            current_cycle_measurements_.push_back(m);
+        }
     }
 
     // Add to history
@@ -106,6 +108,18 @@ std::vector<TimingMeasurement> PerformanceTracer::getCurrentCycleMeasurements() 
     return current_cycle_measurements_;
 }
 
+void PerformanceTracer::registerCurrentCycleConsumer() {
+    std::lock_guard<std::mutex> lock(current_cycle_mutex_);
+    current_cycle_consumer_count_++;
+}
+
+void PerformanceTracer::unregisterCurrentCycleConsumer() {
+    std::lock_guard<std::mutex> lock(current_cycle_mutex_);
+    if (current_cycle_consumer_count_ > 0 && --current_cycle_consumer_count_ == 0) {
+        current_cycle_measurements_.clear();
+    }
+}
+
 TimingStats PerformanceTracer::getStats(const std::string &key) const {
     std::lock_guard<std::mutex> lock(stats_mutex_);
     const auto it = stats_cache_.find(key);
@@ -132,6 +146,7 @@ std::vector<TimingMeasurement> PerformanceTracer::getMeasurements(const std::str
 void PerformanceTracer::registerCycleEndCallback(CycleEndCallback callback) {
     std::lock_guard<std::mutex> lock(callback_mutex_);
     cycle_end_callbacks_.push_back(std::move(callback));
+    has_cycle_end_callbacks_.store(true);
 }
 
 void PerformanceTracer::reset() {
@@ -456,15 +471,11 @@ void PerformanceMonitor::clearScreen() const {
 // Global Instance
 // ============================================================================
 
-static PerformanceTracer *g_global_tracer = nullptr;
-static std::mutex g_global_mutex;
-
 PerformanceTracer *getGlobalTracer() {
-    std::lock_guard<std::mutex> lock(g_global_mutex);
-    if (!g_global_tracer) {
-        g_global_tracer = new PerformanceTracer();
-    }
-    return g_global_tracer;
+    // Function-local storage preserves lazy initialization. S6018 applies to global variables
+    // declared in headers, not to this local singleton.
+    static PerformanceTracer global_tracer; // NOSONAR
+    return &global_tracer;
 }
 
 } // namespace pek::perf

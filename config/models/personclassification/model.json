@@ -1,7 +1,11 @@
 {
-	"name": "personclassification",
-	"modelFamily": "personclass",
+	"name": "person-class",
 	"modelFile": "tf_mobilenetv1_float_model.onnx",
+	"hfDownload": {
+		"repo_id": "Arm/PersonClassification",
+		"revision": "274b98c0419ecaf7c665cc2a03e8f792632bad08",
+		"filename": "tf_mobilenetv1_float_model.onnx"
+	},
 	"dynamicOutput": true,
 	"inputTensors": [
 		{

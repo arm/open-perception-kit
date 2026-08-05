@@ -1,6 +1,5 @@
 {
-	"name": "yolo-onnx",
-	"modelFamily": "yolo-obj",
+	"name": "yolo-objdet",
 	"modelFile": "yolo11n-fp32-320.onnx",
 	"dynamicOutput": true,
 	"maxDetectionCount": 16,

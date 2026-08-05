@@ -34,6 +34,7 @@ from test_support.agent_workflow import (  # noqa: E402
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+BLACKDUCK_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/blackduck-scan.yml"
 
 
 class AgentWorkflowContractTests(unittest.TestCase):
@@ -224,6 +225,11 @@ class AgentWorkflowContractTests(unittest.TestCase):
         review_gate_job = workflow["jobs"]["review-gate"]
         auto_stabilize_job = workflow["jobs"]["auto-stabilize-pr"]
         review_steps = step_map(review_job)
+        selected_base_ref = (
+            "${{ github.event_name == 'workflow_dispatch' && "
+            "github.event.inputs.base_ref || "
+            "format('origin/{0}', github.event.pull_request.base.ref) }}"
+        )
 
         self.assertNotIn("labeled", pull_request_trigger["types"])
         self.assertIn("edited", pull_request_trigger["types"])
@@ -231,6 +237,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertEqual(workflow["permissions"]["contents"], "read")
         self.assertEqual(workflow["permissions"]["pull-requests"], "write")
         self.assertEqual(review_job["runs-on"], OPENAI_AGENT_RUNNER_LABEL)
+        self.assertEqual(review_job["env"]["REVIEW_BASE_REF"], selected_base_ref)
         self.assertEqual(review_job["outputs"]["recommendation"], "${{ steps.render.outputs.recommendation }}")
         self.assertEqual(review_job["outputs"]["finding_count"], "${{ steps.render.outputs.finding_count }}")
         self.assertEqual(review_gate_job["needs"], "review")
@@ -326,7 +333,6 @@ class AgentWorkflowContractTests(unittest.TestCase):
         fetch_step = review_steps["Fetch Agent review base ref"]
         self.assertEqual(fetch_step["shell"], "bash")
         self.assertEqual(fetch_step["env"]["GITHUB_TOKEN"], "${{ github.token }}")
-        self.assertIn("REVIEW_BASE_REF", fetch_step["env"])
         self.assertIn('if [[ "${REVIEW_BASE_REF}" == origin/* ]]; then', fetch_step["run"])
         self.assertIn(
             'auth_header="$(printf \'x-access-token:%s\' "${GITHUB_TOKEN}" | base64 -w 0)"',
@@ -392,15 +398,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
         publish_step = review_steps["Publish review summary comment"]
         render_summary_step = review_steps["Render review summary"]
         self.assertEqual(render_summary_step["id"], "render")
-        self.assertEqual(
-            render_summary_step["env"]["REVIEW_BASE_REF"],
-            "${{ github.event_name == 'workflow_dispatch' && github.event.inputs.base_ref || format('origin/{0}', github.base_ref) }}",
-        )
         self.assertIn('--github-output "${GITHUB_OUTPUT}"', render_summary_step["run"])
-        self.assertEqual(
-            publish_step["env"]["REVIEW_BASE_REF"],
-            "${{ format('origin/{0}', github.base_ref) }}",
-        )
         self.assertIn(
             ".agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/review/publish.py",
             publish_step["run"],
@@ -487,6 +485,15 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertFalse(
             quality_checks.QualityChecks.should_run_agent_runtime_static_analysis(
                 ["scripts/private/unrelated_helper.py"],
+            )
+        )
+
+    def test_download_models_triggers_mypy_gate(self):
+        quality_checks = load_quality_checks_module()
+
+        self.assertTrue(
+            quality_checks.QualityChecks.should_run_agent_runtime_static_analysis(
+                ["scripts/download-models.py"],
             )
         )
 
@@ -739,30 +746,27 @@ class AgentWorkflowContractTests(unittest.TestCase):
         )
         self.assertIn("CI_HELPER_PATH", macos_job["env"])
 
-    def test_quick_start_compose_steps_use_the_repository_huggingface_secret_directly(self):
+    def test_container_build_steps_use_the_repository_huggingface_secret_directly(self):
         workflow = load_yaml(PEK_CI_WORKFLOW_FILE)
-        quick_start_jobs = {
-            "linux-quick-start-build-test",
-            "rpi5-quick-start-build-test",
+        secret_steps = {
+            "linux-quick-start-build-test": "Build and start quick-start container",
+            "rpi5-quick-start-build-test": "Build and start quick-start container",
+            "quality-checks": "Build Docker images for checks",
         }
         jobs_with_huggingface_secret = {
             name
             for name, job in workflow["jobs"].items()
             if "${{ secrets.HF_TOKEN }}" in json.dumps(job)
         }
-        self.assertEqual(jobs_with_huggingface_secret, quick_start_jobs)
+        self.assertEqual(jobs_with_huggingface_secret, set(secret_steps))
 
-        for job_name in quick_start_jobs:
+        for job_name, secret_step in secret_steps.items():
             job = workflow["jobs"][job_name]
-            steps = step_map(job)
-            expected_secret_steps = {"Build and start quick-start container"}
-            if job_name == "linux-quick-start-build-test":
-                expected_secret_steps.add("Reconcile running quick-start container")
             with self.subTest(job=job_name):
                 self.assertNotIn("HF_TOKEN", job.get("env", {}))
                 for step in job["steps"]:
                     self.assertNotIn("HF_TOKEN", step.get("run", ""))
-                    if step.get("name") in expected_secret_steps:
+                    if step.get("name") == secret_step:
                         self.assertEqual(
                             step["env"]["HF_TOKEN"],
                             "${{ secrets.HF_TOKEN }}",
@@ -770,11 +774,41 @@ class AgentWorkflowContractTests(unittest.TestCase):
                     else:
                         self.assertNotIn("HF_TOKEN", step.get("env", {}))
 
-                if job_name == "linux-quick-start-build-test":
-                    self.assertEqual(
-                        steps["Reconcile running quick-start container"]["run"],
-                        "./scripts/quick-start/start-container.sh",
-                    )
+        linux_steps = step_map(workflow["jobs"]["linux-quick-start-build-test"])
+        self.assertEqual(
+            linux_steps["Reconcile running quick-start container"]["run"],
+            "./scripts/quick-start/start-container.sh",
+        )
+
+    def test_blackduck_limits_huggingface_token_to_model_build_children(self):
+        workflow = load_yaml(BLACKDUCK_WORKFLOW_FILE)
+        job = workflow["jobs"]["blackduck"]
+        steps = step_map(job)
+        build_step = steps["Build discovered container images"]
+
+        self.assertNotIn("HF_TOKEN", job.get("env", {}))
+        secret_steps = {
+            name
+            for name, step in steps.items()
+            if "${{ secrets.HF_TOKEN }}" in json.dumps(step)
+        }
+        self.assertEqual(
+            secret_steps,
+            {
+                "Build discovered container images",
+                "Build Meson wrap dependency image",
+            },
+        )
+        self.assertEqual(build_step["env"]["HF_TOKEN"], "${{ secrets.HF_TOKEN }}")
+
+        run = build_step["run"]
+        # Security boundary: non-model child processes must not inherit HF_TOKEN.
+        self.assertIn('hf_token = os.environ.pop("HF_TOKEN", "")', run)
+        self.assertIn("scrubbed_env = os.environ.copy()", run)
+        self.assertIn("build_env = scrubbed_env.copy()", run)
+        self.assertIn('build_env["HF_TOKEN"] = hf_token', run)
+        self.assertIn("result = subprocess.run(cmd, env=build_env)", run)
+        self.assertEqual(run.count("env=scrubbed_env"), 1)
 
     def test_stabilizer_workflow_uses_canonical_agent_review_shape(self):
         workflow = load_yaml(AGENT_STABILIZE_PR_WORKER_FILE)

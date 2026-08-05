@@ -57,12 +57,18 @@ config/models/<your-model>/
 ```
 
 At minimum, that folder should contain:
-- the model file
+- a model file at the descriptor's `modelFile` path when the runtime starts
 - `model.json`
 - usually `opchain.json`
 - `index.md`
 
 For most users, these files are the main integration interface of the system. The default path is to describe the model with `model.json`, connect it with `opchain.json`, and let the existing runtime elements do the rest.
+
+For local development, the model file can live in the bind-mounted checkout.
+New `.onnx`, `.hef`, and `.pte` files are ignored by Git and the Docker build
+context unless the repository explicitly allowlists them. To include a new
+published model in a container image, use `hfDownload` instead of relying on a
+new checked-in binary.
 
 ## Required descriptor metadata
 
@@ -70,12 +76,23 @@ For most users, these files are the main integration interface of the system. Th
 
 Typical fields are:
 - `name`
-- `modelFamily`
 - `modelFile`
 - `dynamicOutput`
 - `contentType` when applicable
 - `inputTensors`
 - `outputTensors` when outputs are static
+
+`modelFile` is always a descriptor-relative local path. For a published,
+single-file model, add an `hfDownload` object containing the Hugging Face API's
+`repo_id`, full commit `revision`, and `filename` arguments. The container build
+tries to download that one artifact; the runtime does not interpret remote
+locators or hold Hub credentials. Download failures are logged and skipped, so
+verify that every model required by the selected pipeline is present in the
+built image.
+
+`hfDownload` currently downloads one file. Companion artifacts, such as an
+NCNN `.param` plus `.bin`, must already be present locally in the Docker build
+context; `hfDownload` cannot fetch both.
 
 Important input metadata includes:
 - shape
@@ -199,12 +216,18 @@ Before considering the integration complete, verify that:
 
 The normal workflow is:
 
-1. place the model and descriptors in `config/models/<your-model>/`
-2. create or update an `opchain.json`
-3. optionally add a top-level pipeline preset under `config/pipelines/`
-4. build inside the container
-5. run the pipeline with the VS Code run task "00 Run project and select pipeline" or `tools/pek-menu`
-6. update the model and opchain `index.md` files
+1. create `config/models/<your-model>/` and its descriptors
+2. for local development, place the artifact at `modelFile` in the bind-mounted
+   checkout; for a container image, add pinned `hfDownload` arguments unless
+   the repository explicitly allowlists the local binary
+3. keep `modelFile` as the descriptor-relative runtime filename
+4. create or update an `opchain.json`
+5. optionally add a top-level pipeline preset under `config/pipelines/`
+6. rebuild the container when the model is published; export a valid
+   `HF_TOKEN` only when the artifact is private or gated
+7. confirm the built image contains every artifact referenced by that pipeline
+8. run the pipeline with the VS Code run task "00 Run project and select pipeline" or `tools/pek-menu`
+9. update the model and opchain `index.md` files
 
 ## What you should try not to change first
 

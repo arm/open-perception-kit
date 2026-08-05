@@ -7,6 +7,8 @@ on:
         required: true
       DOCKER_TOKEN:
         required: true
+      HF_TOKEN:
+        required: false
   workflow_dispatch:
   pull_request:
     branches: [ main, develop, "feature/**", "sandbox/**" ]
@@ -20,7 +22,7 @@ permissions:
 jobs:
   docker-scout:
     name: docker-scout (${{ matrix.image.service }})
-    runs-on: self-hosted-ubuntu-latest-x64
+    runs-on: ${{ matrix.image.runner }}
     if: |
       github.event_name != 'pull_request' ||
       (
@@ -36,10 +38,23 @@ jobs:
       matrix:
         image:
           - service: pek-deployment-base
+            runner: self-hosted-ubuntu-latest-arm64
+            scout-asset: docker-scout-action_linux_arm64
           - service: pek-docs
+            runner: self-hosted-ubuntu-latest-x64
+            scout-asset: docker-scout-action_linux_amd64
+          - service: pek-ci
+            runner: self-hosted-ubuntu-latest-x64
+            scout-asset: docker-scout-action_linux_amd64
           - service: pek-dev
+            runner: self-hosted-ubuntu-latest-x64
+            scout-asset: docker-scout-action_linux_amd64
           - service: pek-pre-commit-runtime
+            runner: self-hosted-ubuntu-latest-x64
+            scout-asset: docker-scout-action_linux_amd64
           - service: pek-playwright-pages
+            runner: self-hosted-ubuntu-latest-x64
+            scout-asset: docker-scout-action_linux_amd64
 
     env:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
@@ -86,6 +101,8 @@ jobs:
 
       - name: Build docker image
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          HF_TOKEN: ${{ contains(fromJSON('["pek-deployment-base","pek-dev"]'), matrix.image.service) && secrets.HF_TOKEN || '' }}
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build ${{ matrix.image.service }}
 
       - name: Resolve built image reference
@@ -101,227 +118,36 @@ jobs:
           mkdir -p ".github/artifacts/docker-scout/${{ matrix.image.service }}"
           echo "image_ref=${image_ref}" >> "$GITHUB_OUTPUT"
 
-      # Self-hosted runners do not keep Docker Scout preinstalled, so fetch the
-      # official action binary up front and let docker/scout-action reuse it.
-      - name: Prepare Docker Scout action binary
-        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+      - name: Download Docker Scout action binary with authentication
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          artifact_dir=".github/artifacts/docker-scout/${{ matrix.image.service }}"
-          mkdir -p "$artifact_dir"
-          actions_root=""
-          for candidate in \
-            "$RUNNER_WORKSPACE/_actions/docker/scout-action" \
-            "$(dirname "$RUNNER_WORKSPACE")/_actions/docker/scout-action"
-          do
-            if [ -d "$candidate" ]; then
-              actions_root="$candidate"
-              break
-            fi
-          done
-          if [ -z "$actions_root" ]; then
-            cat <<EOF > "$artifact_dir/scout-prepare.txt"
-          note=self-hosted runner image does not ship Docker Scout preinstalled
-          prepared=false
-          reason=action-root-not-found
-          actions_root=$actions_root
-          runner_workspace=$RUNNER_WORKSPACE
-          EOF
-            exit 0
-          fi
-          action_dir="$actions_root/v1"
-          if [ ! -d "$action_dir" ]; then
-            action_dir="$(find "$actions_root" -mindepth 1 -maxdepth 1 -type d | sort | head -n 1)"
-          fi
-          if [ -z "${action_dir:-}" ] || [ ! -d "$action_dir" ]; then
-            cat <<EOF > "$artifact_dir/scout-prepare.txt"
-          note=self-hosted runner image does not ship Docker Scout preinstalled
-          prepared=false
-          reason=action-checkout-not-found
-          actions_root=$actions_root
-          EOF
-            exit 0
-          fi
-          python3 - "$action_dir" <<'PY' > "$artifact_dir/scout-prepare.txt"
-          import json
-          import os
-          import platform
-          import re
-          import stat
-          import sys
-          import urllib.request
-          from pathlib import Path
+          action_dir="$(dirname "$RUNNER_WORKSPACE")/_actions/docker/scout-action/v1.24.0"
+          mkdir -p "$action_dir/dist"
+          gh release download v1.24.0 \
+            --repo docker/scout-action \
+            --pattern ${{ matrix.image.scout-asset }} \
+            --dir "$action_dir/dist" \
+            --clobber
 
-          def emit(**values):
-              for key, value in values.items():
-                  print(f"{key}={value}")
-
-          action_dir = Path(sys.argv[1]).resolve()
-          try:
-              index_js = (action_dir / "index.js").read_text(encoding="utf-8")
-              match = re.search(r'const version = "([^"]+)"', index_js)
-              if not match:
-                  raise RuntimeError(
-                      f"Unable to resolve Docker Scout action version from {action_dir / 'index.js'}"
-                  )
-
-              version = match.group(1)
-              if version == "__VERSION__":
-                  raise RuntimeError("Docker Scout action version placeholder was not resolved")
-
-              system = platform.system().lower()
-              machine = platform.machine().lower()
-              binary_names = {
-                  ("linux", "x86_64"): "docker-scout-action_linux_amd64",
-                  ("linux", "amd64"): "docker-scout-action_linux_amd64",
-                  ("linux", "aarch64"): "docker-scout-action_linux_arm64",
-                  ("linux", "arm64"): "docker-scout-action_linux_arm64",
-                  ("darwin", "x86_64"): "docker-scout-action_darwin_amd64",
-                  ("darwin", "amd64"): "docker-scout-action_darwin_amd64",
-                  ("darwin", "arm64"): "docker-scout-action_darwin_arm64",
-                  ("windows", "x86_64"): "docker-scout-action_windows_amd64.exe",
-                  ("windows", "amd64"): "docker-scout-action_windows_amd64.exe",
-                  ("windows", "arm64"): "docker-scout-action_windows_arm64.exe",
-              }
-              binary_name = binary_names.get((system, machine))
-              if not binary_name:
-                  raise RuntimeError(f"Unsupported runner platform for Docker Scout: {(system, machine)}")
-
-              binary_dir = action_dir / "dist"
-              binary_dir.mkdir(parents=True, exist_ok=True)
-              binary_path = binary_dir / binary_name
-              if binary_path.exists():
-                  emit(
-                      note="self-hosted runner image does not ship Docker Scout preinstalled",
-                      action_dir=action_dir,
-                      release_tag=version,
-                      binary_name=binary_name,
-                      binary_path=binary_path,
-                      prepared=False,
-                      reason="already-present",
-                  )
-                  sys.exit(0)
-
-              api_headers = {
-                  "Accept": "application/vnd.github+json",
-                  "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}",
-                  "User-Agent": "amp-dev-forge-docker-scout-audit",
-                  "X-GitHub-Api-Version": "2022-11-28",
-              }
-              release_url = f"https://api.github.com/repos/docker/scout-action/releases/tags/{version}"
-              release_request = urllib.request.Request(release_url, headers=api_headers)
-              with urllib.request.urlopen(release_request) as response:
-                  release = json.load(response)
-
-              assets = release.get("assets") or []
-              asset = next((item for item in assets if item.get("name") == binary_name), None)
-              if not asset:
-                  emit(
-                      note="self-hosted runner image does not ship Docker Scout preinstalled",
-                      action_dir=action_dir,
-                      release_tag=release.get("tag_name", version),
-                      binary_name=binary_name,
-                      prepared=False,
-                      reason="release-asset-not-found",
-                  )
-                  sys.exit(0)
-
-              asset_headers = {
-                  "Accept": "application/octet-stream",
-                  "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}",
-                  "User-Agent": "amp-dev-forge-docker-scout-audit",
-                  "X-GitHub-Api-Version": "2022-11-28",
-              }
-              asset_request = urllib.request.Request(asset["url"], headers=asset_headers)
-              with urllib.request.urlopen(asset_request) as response:
-                  final_url = response.geturl()
-                  payload = response.read()
-                  status = response.status
-
-              binary_path.write_bytes(payload)
-              current_mode = binary_path.stat().st_mode
-              binary_path.chmod(current_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-
-              emit(
-                  note="self-hosted runner image does not ship Docker Scout preinstalled",
-                  action_dir=action_dir,
-                  release_tag=release.get("tag_name", version),
-                  binary_name=binary_name,
-                  binary_path=binary_path,
-                  asset_api_url=asset["url"],
-                  asset_browser_download_url=asset.get("browser_download_url", ""),
-                  download_status=status,
-                  bytes_read=len(payload),
-                  final_url=final_url,
-                  prepared=True,
-              )
-          except Exception as exc:
-              emit(
-                  note="self-hosted runner image does not ship Docker Scout preinstalled",
-                  action_dir=action_dir,
-                  prepared=False,
-                  reason="prepare-failed",
-                  error=str(exc),
-                  error_type=type(exc).__name__,
-              )
-          PY
-
-      - name: Export Docker Scout cache settings
-        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        run: |
-          set -euo pipefail
-          {
-            echo "TRIVY_CACHE_DIR=${PWD}/.cache/trivy"
-            echo "DOCKER_SCOUT_CACHE_DIR=${PWD}/.cache/docker-scout"
-            echo "TRIVY_JAVA_DB_REPOSITORY=mirror.gcr.io/aquasec/trivy-java-db:1"
-          } >> "$GITHUB_ENV"
-
-      - name: Prewarm Trivy Java DB cache
-        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        run: |
-          set -euo pipefail
-          artifact_dir=".github/artifacts/docker-scout/${{ matrix.image.service }}"
-          log_file="$artifact_dir/trivy-java-db-prewarm.txt"
-          mkdir -p "$artifact_dir" "$TRIVY_CACHE_DIR" "$DOCKER_SCOUT_CACHE_DIR"
-          : > "$log_file"
-          for attempt in 1 2 3; do
-            {
-              echo "attempt=$attempt"
-              echo "cache_dir=$TRIVY_CACHE_DIR"
-              echo "java_db_repository=$TRIVY_JAVA_DB_REPOSITORY"
-            } >> "$log_file"
-            if docker run --rm \
-              --user "$(id -u):$(id -g)" \
-              -e TRIVY_JAVA_DB_REPOSITORY="$TRIVY_JAVA_DB_REPOSITORY" \
-              -e TRIVY_CACHE_DIR=/tmp/trivy-cache \
-              -v "$TRIVY_CACHE_DIR:/tmp/trivy-cache" \
-              aquasec/trivy:0.71.0 \
-              image --download-java-db-only \
-              >> "$log_file" 2>&1; then
-              echo "status=success" >> "$log_file"
-              break
-            fi
-            if [ "$attempt" -eq 3 ]; then
-              echo "status=failure" >> "$log_file"
-              cat "$log_file"
-              exit 1
-            fi
-            echo "retry_in_seconds=$((attempt * 5))" >> "$log_file"
-            sleep $((attempt * 5))
-          done
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@v0.24.0
+        env:
+          SYFT_PARALLELISM: "1"
+        with:
+          image: ${{ steps.resolve-image.outputs.image_ref }}
+          format: spdx-json
+          output-file: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/.github/artifacts/docker-scout/${{ matrix.image.service }}/image.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
 
       - name: Run Docker Scout CVE audit
         id: docker-scout
-        uses: docker/scout-action@v1
-        env:
-          TRIVY_CACHE_DIR: ${{ env.TRIVY_CACHE_DIR }}
-          DOCKER_SCOUT_CACHE_DIR: ${{ env.DOCKER_SCOUT_CACHE_DIR }}
-          TRIVY_JAVA_DB_REPOSITORY: ${{ env.TRIVY_JAVA_DB_REPOSITORY }}
+        uses: docker/scout-action@v1.24.0
         with:
           command: cves
-          image: local://${{ steps.resolve-image.outputs.image_ref }}
+          image: sbom://${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/.github/artifacts/docker-scout/${{ matrix.image.service }}/image.spdx.json
           dockerhub-user: ${{ secrets.DOCKER_USER }}
           dockerhub-password: ${{ secrets.DOCKER_TOKEN }}
           github-token: ${{ github.token }}
@@ -366,9 +192,8 @@ jobs:
           credentials_available=${{ steps.validate-docker-credentials.outcome == 'success' }}
           scout_outcome=${{ steps.docker-scout.outcome }}
           scout_summary=github-job-summary
+          sbom_file=image.spdx.json
           sarif_file=cves.sarif.json
-          scout_prepare=scout-prepare.txt
-          trivy_java_db_prewarm=trivy-java-db-prewarm.txt
           component_report_markdown=component-report.md
           component_report_json=component-report.json
           EOF

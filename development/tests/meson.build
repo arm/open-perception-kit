@@ -26,6 +26,11 @@ model_registry_tests = executable(
   ['model_registry_test.cpp', '../elements/peksink/model_reg.cpp'],
   include_directories : [common_include, include_directories('../elements/peksink')],
   dependencies : [gtest_main_dep, gtest_dep, pek_deps],
+performance_tracer_tests = executable(
+  'performance_tracer_tests',
+  ['performance_tracer_test.cpp'],
+  include_directories : [common_include],
+  dependencies : [gtest_main_dep, gtest_dep],
   link_with : [common],
 )
 
@@ -90,6 +95,14 @@ logging_environment_probe = executable(
   link_with : [common],
 )
 
+performance_metrics_tests = executable(
+  'performance_metrics_tests',
+  ['performance_metrics_test.cpp'],
+  include_directories : [common_include],
+  dependencies : [gtest_main_dep, gtest_dep, pek_deps],
+  link_with : [common],
+)
+
 pektracker_matching_tests = executable(
   'pektracker_matching_tests',
   ['pektracker_matching_test.cpp',
@@ -131,9 +144,9 @@ test(
   depends : pek_menu,
 )
 test(
-  'huggingface_auth_compose_tests',
+  'model_artifact_build_tests',
   python,
-  args : [files('huggingface_auth_compose_test.py')],
+  args : [files('model_artifact_build_test.py')],
 )
 test('model_descriptor_tests', model_descriptor_tests)
 test('opchain_descriptor_tests', opchain_descriptor_tests)
@@ -143,6 +156,7 @@ test(
   python,
   args : [files('opchain_display_metadata_test.py'), meson.project_source_root() / '..'],
 )
+test('performance_tracer_tests', performance_tracer_tests)
 test('matrix_operations_tests', matrix_operations_tests)
 test('kalman_filter_tests', kalman_filter_tests)
 test('hungarian_tests', hungarian_tests)
@@ -156,6 +170,7 @@ test(
   args : [files('logging_environment_test.py'), logging_environment_probe.full_path()],
   depends : logging_environment_probe,
 )
+test('performance_metrics_tests', performance_metrics_tests)
 test('pektracker_matching_tests', pektracker_matching_tests)
 test('webrtc_session_tests', webrtc_session_tests)
 test('runtime_pipeline_tests', runtime_pipeline_tests)

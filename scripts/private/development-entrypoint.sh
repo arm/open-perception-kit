@@ -20,7 +20,15 @@ seed_development_artifacts() {
     [[ -d "${artifacts_root}" ]] || return 0
     [[ -w /work ]] || return 0
 
-    mkdir -p /work/data/videos /work/development/build/meson-out /work/tools
+    mkdir -p \
+        /work/config/models \
+        /work/data/videos \
+        /work/development/build/meson-out \
+        /work/tools
+
+    if [[ -d "${artifacts_root}/config/models" ]]; then
+        cp -R --no-clobber "${artifacts_root}/config/models/." /work/config/models/
+    fi
 
     if [[ -d "${artifacts_root}/data/videos" ]]; then
         cp -a --no-clobber "${artifacts_root}/data/videos/." /work/data/videos/

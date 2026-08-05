@@ -1,6 +1,5 @@
 {
-	"name": "paddleocr",
-	"modelFamily": "paddleocr-recognition",
+	"name": "paddleocr-recognition",
 	"modelFile": "recognition.onnx",
 	"dynamicOutput": true,
 	"maxDetectionCount": 16,

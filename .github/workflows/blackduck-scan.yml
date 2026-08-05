@@ -269,6 +269,8 @@ jobs:
           echo "PEK_BUILD_BASE_IMAGE=${base_image}" >> "${GITHUB_ENV}"
 
       - name: Build discovered container images
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -279,6 +281,8 @@ jobs:
           import subprocess
           import sys
 
+          hf_token = os.environ.pop("HF_TOKEN", "")
+          scrubbed_env = os.environ.copy()
           manifest_path = pathlib.Path(os.environ["RUNNER_TEMP"]) / "bd-container-manifest.json"
           entries = json.loads(manifest_path.read_text())
 
@@ -290,20 +294,32 @@ jobs:
                   "-t", entry["image"],
                   "-f", entry["dockerfile"],
               ]
-              if pathlib.Path(entry["dockerfile"]).name == "Dockerfile.dev":
+              target = entry.get("target")
+              dockerfile_name = pathlib.Path(entry["dockerfile"]).name
+              uses_huggingface_models = target in {"pek-dev", "pek-deployment-base"} or (
+                  target is None and dockerfile_name == "Dockerfile"
+              )
+              build_env = scrubbed_env.copy()
+              if uses_huggingface_models:
+                  build_env["HF_TOKEN"] = hf_token
                   cmd += [
-                      "--build-context",
-                      f"pek-build-base=docker-image://{os.environ['PEK_BUILD_BASE_IMAGE']}",
+                      "--secret", "id=huggingface_token,env=HF_TOKEN",
+                      "--build-arg",
+                      f"HF_DOWNLOAD_CACHEBUST={os.environ['GITHUB_RUN_ID']}-{os.environ['GITHUB_RUN_ATTEMPT']}",
                   ]
               if entry.get("target"):
                   cmd += ["--target", entry["target"]]
               cmd += [entry["context"]]
 
               print(f"Building {entry['name']} from {entry['origin']}")
-              result = subprocess.run(cmd)
+              result = subprocess.run(cmd, env=build_env)
 
               if result.returncode == 0:
-                  subprocess.run(["docker", "image", "inspect", entry["image"]], check=True)
+                  subprocess.run(
+                      ["docker", "image", "inspect", entry["image"]],
+                      check=True,
+                      env=scrubbed_env,
+                  )
                   entry["build_ok"] = True
                   built_any = True
               else:
@@ -318,14 +334,17 @@ jobs:
               sys.exit(1)
           PY
 
-      - name: Prepare Meson wrap dependencies
+      - name: Build Meson wrap dependency image
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           set -euo pipefail
           dev_image="perception-experience-kit-bd:${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           docker build \
             -t "${dev_image}" \
-            -f "${WORKSPACE_ROOT}/Dockerfile.dev" \
-            --build-context "pek-build-base=docker-image://${PEK_BUILD_BASE_IMAGE}" \
+            -f "${WORKSPACE_ROOT}/Dockerfile" \
+            --secret "id=huggingface_token,env=HF_TOKEN" \
+            --build-arg "HF_DOWNLOAD_CACHEBUST=${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
             --target pek-dev \
             "${WORKSPACE_ROOT}"
 
