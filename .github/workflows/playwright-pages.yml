@@ -16,7 +16,7 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: report-pages
+  group: ${{ github.event_name == 'workflow_run' && 'report-pages' || 'report-pages-maintenance' }}
   cancel-in-progress: false
 
 jobs:
@@ -108,7 +108,7 @@ jobs:
         uses: actions/deploy-pages@v5
 
   cleanup-closed-pr-reports:
-    name: Clean closed PR reports
+    name: Reconcile nightly and clean closed PR reports
     if: github.event_name != 'workflow_run'
     runs-on: ubuntu-latest
     environment:
@@ -121,11 +121,58 @@ jobs:
       - name: Run publisher unit tests
         run: python3 -m unittest scripts/playwright/pages/test_publish_playwright_pages.py
 
+      - name: Resolve latest scheduled PEK CI run
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/pek-ci.yml/runs?event=schedule&branch=develop&status=completed&per_page=1" \
+            --jq '.workflow_runs[0] | [
+              "UPSTREAM_CONCLUSION=" + (.conclusion // ""),
+              "UPSTREAM_EVENT=" + (.event // ""),
+              "UPSTREAM_HEAD_BRANCH=" + (.head_branch // ""),
+              "UPSTREAM_HEAD_REPOSITORY=" + (.head_repository.full_name // ""),
+              "UPSTREAM_HEAD_SHA=" + (.head_sha // ""),
+              "UPSTREAM_PR_NUMBER=",
+              "UPSTREAM_RUN_ATTEMPT=" + (.run_attempt | tostring),
+              "UPSTREAM_RUN_ID=" + (.id | tostring)
+            ] | .[]' >> "${GITHUB_ENV}"
+
+      - name: Reconcile General nightly Pages content
+        id: nightly_general
+        if: github.event_name == 'schedule'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: scripts/playwright/pages/run.sh publish
+
+      - name: Reconcile macOS nightly Pages content
+        id: nightly_macos
+        if: github.event_name == 'schedule'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PLAYWRIGHT_PAGES_ARTIFACT_PREFIX: macos-browser-smoke
+          PLAYWRIGHT_PAGES_NIGHTLY_DIRECTORY: nightly-macos
+          PLAYWRIGHT_PAGES_REPORT_TITLE: Arm Perception kit - macOS
+        run: scripts/playwright/pages/run.sh publish
+
       - name: Remove old closed PR reports
-        id: pages
+        id: cleanup
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: scripts/playwright/pages/run.sh cleanup
+
+      - name: Select Pages deployment
+        id: pages
+        env:
+          CLEANUP_CHANGED: ${{ steps.cleanup.outputs.deploy }}
+          GENERAL_CHANGED: ${{ steps.nightly_general.outputs.deploy }}
+          MACOS_CHANGED: ${{ steps.nightly_macos.outputs.deploy }}
+        run: |
+          if [[ "${CLEANUP_CHANGED}" == "true" || "${GENERAL_CHANGED}" == "true" || "${MACOS_CHANGED}" == "true" ]]; then
+            echo "deploy=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "deploy=false" >> "${GITHUB_OUTPUT}"
+          fi
 
       - name: Cache YOLO performance dataset
         if: steps.pages.outputs.deploy == 'true'

@@ -23,10 +23,12 @@ permissions:
 concurrency:
   group: >-
     report-pages${{
-      github.event_name == 'workflow_run' &&
-      !contains(fromJSON('["success", "failure"]'), github.event.workflow_run.conclusion) &&
-      format('-{0}', github.run_id) ||
-      ''
+      github.event_name != 'workflow_run' && '-maintenance' ||
+      (
+        !contains(fromJSON('["success", "failure"]'), github.event.workflow_run.conclusion) &&
+        format('-{0}', github.run_id) ||
+        ''
+      )
     }}
   cancel-in-progress: false
 
@@ -139,7 +141,7 @@ jobs:
         uses: actions/deploy-pages@v5
 
   cleanup-closed-pr-reports:
-    name: Clean closed YOLO benchmark PR reports
+    name: Reconcile nightly and clean closed YOLO benchmark PR reports
     if: |
       github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' && inputs.upstream_run_id == '')
@@ -154,11 +156,55 @@ jobs:
       - name: Run publisher unit tests
         run: python3 -m unittest examples/yolo-benchmark/pages/test_publish_yolo_benchmark_pages.py
 
+      - name: Reconcile latest scheduled YOLO reports
+        id: nightly
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          changed=false
+          for workflow in yolo-benchmark.yml yolo-imageset-benchmark.yml; do
+            metadata="${RUNNER_TEMP}/${workflow}.env"
+            output="${RUNNER_TEMP}/${workflow}.out"
+            gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow}/runs?event=schedule&branch=develop&status=completed&per_page=1" \
+              --jq '.workflow_runs[0] | [
+                "UPSTREAM_CONCLUSION=" + (.conclusion // ""),
+                "UPSTREAM_EVENT=" + (.event // ""),
+                "UPSTREAM_HEAD_BRANCH=" + (.head_branch // ""),
+                "UPSTREAM_HEAD_REPOSITORY=" + (.head_repository.full_name // ""),
+                "UPSTREAM_HEAD_SHA=" + (.head_sha // ""),
+                "UPSTREAM_PR_NUMBER=",
+                "UPSTREAM_RUN_ATTEMPT=" + (.run_attempt | tostring),
+                "UPSTREAM_RUN_ID=" + (.id | tostring)
+              ] | .[]' > "${metadata}"
+            set -a
+            source "${metadata}"
+            set +a
+            GITHUB_OUTPUT="${output}" examples/yolo-benchmark/pages/run.sh publish
+            if grep -qx 'deploy=true' "${output}"; then
+              changed=true
+            fi
+          done
+          echo "deploy=${changed}" >> "${GITHUB_OUTPUT}"
+
       - name: Remove old closed PR reports
-        id: pages
+        id: cleanup
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: examples/yolo-benchmark/pages/run.sh cleanup
+
+      - name: Select Pages deployment
+        id: pages
+        env:
+          CLEANUP_CHANGED: ${{ steps.cleanup.outputs.deploy }}
+          NIGHTLY_CHANGED: ${{ steps.nightly.outputs.deploy }}
+        run: |
+          if [[ "${CLEANUP_CHANGED}" == "true" || "${NIGHTLY_CHANGED}" == "true" ]]; then
+            echo "deploy=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "deploy=false" >> "${GITHUB_OUTPUT}"
+          fi
 
       - name: Cache YOLO performance dataset
         if: steps.pages.outputs.deploy == 'true'

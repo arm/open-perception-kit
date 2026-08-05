@@ -43,12 +43,12 @@ jobs:
           (
             github.event.workflow_run.event == 'pull_request' &&
             github.event.workflow_run.pull_requests[0].number &&
-            contains(fromJSON('["Python Dependency Audit","Docker Scout Image Audit","Workflow Dependency Freshness","Valgrind Baseline Artifact"]'), github.event.workflow_run.name)
+            contains(fromJSON('[".github/workflows/python-dependency-audit.yml",".github/workflows/docker-scout-image-audit.yml",".github/workflows/workflow-audit.yml",".github/workflows/valgrind.yml"]'), github.event.workflow_run.path)
           ) ||
           (
             github.event.workflow_run.event == 'push' &&
             github.event.workflow_run.head_branch == 'develop' &&
-            github.event.workflow_run.name == 'Valgrind Baseline Artifact'
+            github.event.workflow_run.path == '.github/workflows/valgrind.yml'
           )
         )
       )
@@ -73,6 +73,7 @@ jobs:
           EVENT_UPSTREAM_RUN_ID: ${{ github.event.workflow_run.id }}
           EVENT_UPSTREAM_UPDATED_AT: ${{ github.event.workflow_run.updated_at }}
           EVENT_UPSTREAM_WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          EVENT_UPSTREAM_WORKFLOW_PATH: ${{ github.event.workflow_run.path }}
         run: |
           {
             printf 'UPSTREAM_CONCLUSION=%s\n' "${EVENT_UPSTREAM_CONCLUSION}"
@@ -85,6 +86,7 @@ jobs:
             printf 'UPSTREAM_RUN_ID=%s\n' "${EVENT_UPSTREAM_RUN_ID}"
             printf 'UPSTREAM_UPDATED_AT=%s\n' "${EVENT_UPSTREAM_UPDATED_AT}"
             printf 'UPSTREAM_WORKFLOW_NAME=%s\n' "${EVENT_UPSTREAM_WORKFLOW_NAME}"
+            printf 'UPSTREAM_WORKFLOW_PATH=%s\n' "${EVENT_UPSTREAM_WORKFLOW_PATH}"
           } >> "${GITHUB_ENV}"
 
       - name: Resolve selected workflow run metadata
@@ -104,7 +106,8 @@ jobs:
             "UPSTREAM_RUN_ATTEMPT=" + (.run_attempt | tostring),
             "UPSTREAM_RUN_ID=" + (.id | tostring),
             "UPSTREAM_UPDATED_AT=" + (.updated_at // ""),
-            "UPSTREAM_WORKFLOW_NAME=" + (.name // "")
+            "UPSTREAM_WORKFLOW_NAME=" + (.name // ""),
+            "UPSTREAM_WORKFLOW_PATH=" + (.path // "")
           ] | .[]' >> "${GITHUB_ENV}"
 
       - name: Run publisher unit tests
@@ -114,6 +117,7 @@ jobs:
         id: pages
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          REPORT_STATUS_RECONCILE_SCHEDULED: "1"
         run: python3 scripts/report_pages/publish_workflow_status.py
 
       - name: Cache YOLO performance dataset

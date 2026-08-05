@@ -11,6 +11,7 @@ import sys
 import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from urllib import parse
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parents[1]
@@ -36,14 +37,15 @@ from scripts.playwright.pages.publish_playwright_pages import (  # noqa: E402
 DRY_RUN_ENV = "REPORT_STATUS_PAGES_DRY_RUN"
 STORAGE_BRANCH = "playwright-pages"
 WORKFLOW_SOURCES = {
-    "Perception Experience Kit CI Pipeline": "pek-ci",
-    "Python Dependency Audit": "python-audit",
-    "Docker Scout Image Audit": "docker-scout",
-    "Workflow Dependency Freshness": "workflow-freshness",
-    "YOLO Video Benchmark": "yolo-video",
-    "YOLO Imageset Benchmark": "yolo-imageset",
-    "Valgrind Baseline Artifact": "valgrind",
+    ".github/workflows/pek-ci.yml": ("pek-ci", "Perception Experience Kit CI Pipeline"),
+    ".github/workflows/python-dependency-audit.yml": ("python-audit", "Python Dependency Audit"),
+    ".github/workflows/docker-scout-image-audit.yml": ("docker-scout", "Docker Scout Image Audit"),
+    ".github/workflows/workflow-audit.yml": ("workflow-freshness", "Workflow Dependency Freshness"),
+    ".github/workflows/yolo-benchmark.yml": ("yolo-video", "YOLO Video Benchmark"),
+    ".github/workflows/yolo-imageset-benchmark.yml": ("yolo-imageset", "YOLO Imageset Benchmark"),
+    ".github/workflows/valgrind.yml": ("valgrind", "Valgrind Baseline Artifact"),
 }
+WORKFLOW_NAMES = {name: (source, name) for source, name in WORKFLOW_SOURCES.values()}
 FAILURE_CONCLUSIONS = {"action_required", "failure", "startup_failure", "timed_out"}
 
 
@@ -228,16 +230,31 @@ def workflow_metric(source: str, event: str, conclusion: str,
     return "", ""
 
 
-def upstream_status() -> tuple[str, dict[str, object]] | None:
-    event = require_env("UPSTREAM_EVENT")
-    branch = require_env("UPSTREAM_HEAD_BRANCH")
-    repository = require_env("GITHUB_REPOSITORY")
-    head_repository = require_env("UPSTREAM_HEAD_REPOSITORY")
-    workflow_name = require_env("UPSTREAM_WORKFLOW_NAME")
-    source = WORKFLOW_SOURCES.get(workflow_name)
-    if source is None:
-        raise PublishError(f"Unsupported upstream workflow: {workflow_name}")
-    pull_request_number = env("UPSTREAM_PULL_REQUEST_NUMBER")
+def workflow_identity(workflow_path: str, workflow_name: str) -> tuple[str, str]:
+    identity = WORKFLOW_SOURCES.get(workflow_path) or WORKFLOW_NAMES.get(workflow_name)
+    if identity is None:
+        raise PublishError(f"Unsupported upstream workflow: {workflow_path or workflow_name}")
+    return identity
+
+
+def status_from_run(repository: str, run: dict[str, object]) -> tuple[str, dict[str, object]] | None:
+    event = str(run.get("event", ""))
+    branch = str(run.get("head_branch", ""))
+    head_repository_value = run.get("head_repository")
+    head_repository = (
+        str(head_repository_value.get("full_name", ""))
+        if isinstance(head_repository_value, dict) else str(head_repository_value or "")
+    )
+    source, workflow_name = workflow_identity(
+        str(run.get("path", "")), str(run.get("name", ""))
+    )
+    pull_requests = run.get("pull_requests")
+    first_pull_request = (
+        pull_requests[0]
+        if isinstance(pull_requests, list) and pull_requests and isinstance(pull_requests[0], dict)
+        else {}
+    )
+    pull_request_number = str(first_pull_request.get("number", ""))
     scheduled = event == "schedule" and branch == "develop"
     pull_request = event == "pull_request" and source in WORKFLOW_PR_REPORTS
     develop_push = event == "push" and branch == "develop" and source == "valgrind"
@@ -247,20 +264,23 @@ def upstream_status() -> tuple[str, dict[str, object]] | None:
     if pull_request and not pull_request_number.isdigit():
         raise PublishError("UPSTREAM_PULL_REQUEST_NUMBER must be numeric for pull requests.")
 
-    run_id = require_env("UPSTREAM_RUN_ID")
-    run_attempt = require_env("UPSTREAM_RUN_ATTEMPT")
-    head_sha = require_env("UPSTREAM_HEAD_SHA")
+    run_id = str(run.get("id", ""))
+    run_attempt = str(run.get("run_attempt", ""))
+    head_sha = str(run.get("head_sha", ""))
     if not run_id.isdigit() or not run_attempt.isdigit():
         raise PublishError("UPSTREAM_RUN_ID and UPSTREAM_RUN_ATTEMPT must be numeric.")
     if not re.fullmatch(r"[0-9a-f]{40}", head_sha):
         raise PublishError("UPSTREAM_HEAD_SHA must be a full lowercase Git SHA.")
 
-    conclusion = require_env("UPSTREAM_CONCLUSION")
+    conclusion = str(run.get("conclusion", ""))
     if pull_request and conclusion == "skipped":
         print(f"Ignoring skipped pull request run: workflow={workflow_name}, pr={pull_request_number}")
         return None
-    jobs = workflow_jobs(repository, run_id)
-    if source == "valgrind" and event == "push" and conclusion == "success":
+    jobs = (
+        workflow_jobs(repository, run_id)
+        if source in {"python-audit", "docker-scout"} or conclusion != "success" else []
+    )
+    if source == "valgrind" and event in {"push", "schedule"} and conclusion == "success":
         metric, metric_tone = valgrind_metric(repository, run_id)
     else:
         metric, metric_tone = workflow_metric(source, event, conclusion, jobs, repository, run_id)
@@ -275,10 +295,63 @@ def upstream_status() -> tuple[str, dict[str, object]] | None:
         "repository": repository,
         "run_attempt": run_attempt,
         "run_id": run_id,
-        "updated_at": require_env("UPSTREAM_UPDATED_AT"),
+        "updated_at": str(run.get("updated_at", "")),
         "workflow": workflow_name,
         "summary": job_summary(jobs, conclusion),
     }
+
+
+def upstream_status() -> tuple[str, dict[str, object]] | None:
+    repository = require_env("GITHUB_REPOSITORY")
+    pull_request_number = env("UPSTREAM_PULL_REQUEST_NUMBER")
+    return status_from_run(repository, {
+        "conclusion": require_env("UPSTREAM_CONCLUSION"),
+        "event": require_env("UPSTREAM_EVENT"),
+        "head_branch": require_env("UPSTREAM_HEAD_BRANCH"),
+        "head_repository": require_env("UPSTREAM_HEAD_REPOSITORY"),
+        "head_sha": require_env("UPSTREAM_HEAD_SHA"),
+        "id": require_env("UPSTREAM_RUN_ID"),
+        "name": env("UPSTREAM_WORKFLOW_NAME"),
+        "path": env("UPSTREAM_WORKFLOW_PATH"),
+        "pull_requests": ([{"number": pull_request_number}] if pull_request_number else []),
+        "run_attempt": require_env("UPSTREAM_RUN_ATTEMPT"),
+        "updated_at": require_env("UPSTREAM_UPDATED_AT"),
+    })
+
+
+def latest_scheduled_statuses(repository: str) -> list[tuple[str, dict[str, object]]]:
+    statuses = []
+    for workflow_path in WORKFLOW_SOURCES:
+        encoded_path = parse.quote(workflow_path, safe="")
+        result = subprocess.run(
+            ["gh", "api", f"repos/{repository}/actions/workflows/{encoded_path}/runs"
+             "?event=schedule&branch=develop&status=completed&per_page=1"],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+        try:
+            runs = json.loads(result.stdout).get("workflow_runs", []) if result.returncode == 0 else []
+            run = runs[0] if runs and isinstance(runs[0], dict) else None
+        except (AttributeError, json.JSONDecodeError):
+            run = None
+        if run is None:
+            continue
+        run["path"] = workflow_path
+        selected = status_from_run(repository, run)
+        if selected is not None:
+            statuses.append(selected)
+    return statuses
+
+
+def status_path(site_dir: Path, source: str, status: dict[str, object]) -> Path:
+    status_dir = site_dir / WORKFLOW_STATUS_DIRECTORY / source
+    if status["event"] == "schedule":
+        return status_dir / "nightly.json"
+    if status["event"] == "push":
+        return status_dir / "develop.json"
+    return status_dir / "prs" / f'{status["pull_request_number"]}.json'
 
 
 def publish(site_dir: Path, storage_branch: str = STORAGE_BRANCH) -> bool:
@@ -286,36 +359,44 @@ def publish(site_dir: Path, storage_branch: str = STORAGE_BRANCH) -> bool:
     if selected is None:
         set_output("deploy", "false")
         return False
-    source, status = selected
+    selections = {selected[0]: selected[1]}
+    if selected[1]["event"] == "schedule" and env("REPORT_STATUS_RECONCILE_SCHEDULED") == "1":
+        for source, status in latest_scheduled_statuses(str(selected[1]["repository"])):
+            if run_order(status) >= run_order(selections.get(source)):
+                selections[source] = status
 
     checkout_site_branch(site_dir, storage_branch, DRY_RUN_ENV, "local-report-status-pages")
     remove_legacy_root_site(site_dir)
-    write_playwright_index(site_dir, str(status["repository"]))
-    status_dir = site_dir / WORKFLOW_STATUS_DIRECTORY / source
-    if status["event"] == "schedule":
-        status_path = status_dir / "nightly.json"
-    elif status["event"] == "push":
-        status_path = status_dir / "develop.json"
-    else:
-        status_path = status_dir / "prs" / f'{status["pull_request_number"]}.json'
-    status_path.parent.mkdir(parents=True, exist_ok=True)
-    existing = read_status(status_path)
-    if status["event"] == "schedule":
-        legacy = read_status(site_dir / WORKFLOW_STATUS_DIRECTORY / f"{source}.json")
-        if run_order(legacy) > run_order(existing):
-            existing = legacy
-    if run_order(existing) > run_order(status):
-        print(f"Ignoring stale {status['workflow']} run {status['run_id']} attempt {status['run_attempt']}.")
+    write_playwright_index(site_dir, str(selected[1]["repository"]))
+    published = []
+    for source, status in selections.items():
+        path = status_path(site_dir, source, status)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        existing = read_status(path)
+        if status["event"] == "schedule":
+            legacy = read_status(site_dir / WORKFLOW_STATUS_DIRECTORY / f"{source}.json")
+            if run_order(legacy) > run_order(existing):
+                existing = legacy
+        if run_order(existing) > run_order(status):
+            print(
+                f"Ignoring stale {status['workflow']} run {status['run_id']} "
+                f"attempt {status['run_attempt']}."
+            )
+            continue
+        path.write_text(json.dumps(status, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        published.append(str(status["workflow"]))
+
+    if not published:
         set_output("deploy", "false")
         return False
 
-    status_path.write_text(json.dumps(status, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     write_root_index(site_dir)
     changed = push_site_branch(
         site_dir,
         storage_branch,
         DRY_RUN_ENV,
-        f"Update {status['workflow']} report status",
+        (f"Update {published[0]} report status" if len(published) == 1
+         else "Reconcile nightly report status"),
         "report status Pages",
     )
     set_output("deploy", "true" if changed else "false")

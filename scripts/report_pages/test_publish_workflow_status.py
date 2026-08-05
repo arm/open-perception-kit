@@ -33,6 +33,59 @@ def status(conclusion: str, updated_at: str = "2026-08-03T10:00:00Z") -> dict[st
 
 
 class TestPublishWorkflowStatus(unittest.TestCase):
+    def test_workflow_path_identifies_dynamic_run_name(self):
+        with patch.object(publisher, "freshness_metric", return_value=("Up to date", "fast")):
+            selected = publisher.status_from_run("Arm-Debug/amp-dev-forge", {
+                "conclusion": "success",
+                "event": "schedule",
+                "head_branch": "develop",
+                "head_repository": {"full_name": "Arm-Debug/amp-dev-forge"},
+                "head_sha": SHA,
+                "id": 123,
+                "name": "Workflow dependency freshness for develop",
+                "path": ".github/workflows/workflow-audit.yml",
+                "pull_requests": [],
+                "run_attempt": 1,
+                "updated_at": "2026-08-03T10:00:00Z",
+            })
+
+        self.assertIsNotNone(selected)
+        source, saved = selected
+        self.assertEqual(source, "workflow-freshness")
+        self.assertEqual(saved["workflow"], "Workflow Dependency Freshness")
+
+    def test_scheduled_publish_reconciles_latest_source_statuses(self):
+        python_status = status("success")
+        python_status["workflow"] = "Python Dependency Audit"
+        freshness_status = status("success")
+        freshness_status.update({
+            "run_id": "124",
+            "workflow": "Workflow Dependency Freshness",
+        })
+        with tempfile.TemporaryDirectory() as tmpdir:
+            site_dir = Path(tmpdir) / "site"
+            environment = {
+                "GITHUB_OUTPUT": str(Path(tmpdir) / "output.txt"),
+                "REPORT_STATUS_PAGES_DRY_RUN": "1",
+                "REPORT_STATUS_RECONCILE_SCHEDULED": "1",
+            }
+            with patch.dict(os.environ, environment, clear=True):
+                with patch.object(
+                        publisher, "upstream_status",
+                        return_value=("python-audit", python_status)), patch.object(
+                        publisher,
+                        "latest_scheduled_statuses",
+                        return_value=[("workflow-freshness", freshness_status)],
+                ):
+                    self.assertTrue(publisher.publish(site_dir))
+
+            self.assertTrue((
+                site_dir / "workflow-status" / "python-audit" / "nightly.json"
+            ).is_file())
+            self.assertTrue((
+                site_dir / "workflow-status" / "workflow-freshness" / "nightly.json"
+            ).is_file())
+
     def test_root_and_report_indexes_render_status_without_homepage_duplication(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             site_dir = Path(tmpdir)
