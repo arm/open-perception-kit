@@ -40,7 +40,10 @@ struct OpChainDescriptor {
             attributes; ///< Configuration attributes passed to the operation's configure() method.
     };
 
-    std::string name; ///< Name of the operation chain.
+    std::string name;        ///< Internal name of the operation chain.
+    std::string displayName; ///< Optional user-facing model name.
+    std::string task;        ///< Optional user-facing task description.
+    std::string runtime;     ///< Optional user-facing inference runtime.
 
     std::vector<Op> ops; ///< List of operations in the chain, in execution order.
 
@@ -90,6 +93,12 @@ inline void from_json(const nlohmann::json &j, OpChainDescriptor::Op &op) {
 
 inline void to_json(nlohmann::json &j, const OpChainDescriptor &desc) {
     j = nlohmann::json{{"name", desc.name}, {"ops", desc.ops}};
+    if (!desc.displayName.empty())
+        j["displayName"] = desc.displayName;
+    if (!desc.task.empty())
+        j["task"] = desc.task;
+    if (!desc.runtime.empty())
+        j["runtime"] = desc.runtime;
 }
 
 inline void from_json(const nlohmann::json &j, OpChainDescriptor &desc) {
@@ -99,6 +108,12 @@ inline void from_json(const nlohmann::json &j, OpChainDescriptor &desc) {
         desc.name = "unknown";
     }
     j.at("ops").get_to(desc.ops);
+    if (j.contains("displayName"))
+        j.at("displayName").get_to(desc.displayName);
+    if (j.contains("task"))
+        j.at("task").get_to(desc.task);
+    if (j.contains("runtime"))
+        j.at("runtime").get_to(desc.runtime);
 }
 
 } // namespace pek::op

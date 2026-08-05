@@ -1,5 +1,8 @@
 {
 	"name": "ImageNet",
+	"displayName": "MobileNetV2",
+	"task": "Image classification",
+	"runtime": "ONNX",
 	"description": "Whole-frame ImageNet classifier.",
 	"ops": [
 		{

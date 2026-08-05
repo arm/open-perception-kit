@@ -1,5 +1,8 @@
 {
   "name": "Modnet",
+  "displayName": "MODNet",
+  "task": "Foreground segmentation",
+  "runtime": "ONNX",
   "description": "Modnet real time background matting model.",
   "ops": [
     {

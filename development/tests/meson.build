@@ -13,6 +13,22 @@ model_descriptor_tests = executable(
   link_with : [common],
 )
 
+opchain_descriptor_tests = executable(
+  'opchain_descriptor_tests',
+  ['opchain_descriptor_test.cpp'],
+  include_directories : [common_include],
+  dependencies : [gtest_main_dep, gtest_dep, pek_deps],
+  link_with : [common],
+)
+
+model_registry_tests = executable(
+  'model_registry_tests',
+  ['model_registry_test.cpp', '../elements/peksink/model_reg.cpp'],
+  include_directories : [common_include, include_directories('../elements/peksink')],
+  dependencies : [gtest_main_dep, gtest_dep, pek_deps],
+  link_with : [common],
+)
+
 matrix_operations_tests = executable(
   'matrix_operations_tests',
   ['matrix_operations_test.cpp'],
@@ -120,6 +136,13 @@ test(
   args : [files('huggingface_auth_compose_test.py')],
 )
 test('model_descriptor_tests', model_descriptor_tests)
+test('opchain_descriptor_tests', opchain_descriptor_tests)
+test('model_registry_tests', model_registry_tests)
+test(
+  'opchain_display_metadata_tests',
+  python,
+  args : [files('opchain_display_metadata_test.py'), meson.project_source_root() / '..'],
+)
 test('matrix_operations_tests', matrix_operations_tests)
 test('kalman_filter_tests', kalman_filter_tests)
 test('hungarian_tests', hungarian_tests)
@@ -139,11 +162,10 @@ test('runtime_pipeline_tests', runtime_pipeline_tests)
 
 if node.found()
   test(
-    'model_label_tests',
+    'model_ui_tests',
     node,
     args : [
       '--test',
-      meson.project_source_root() / 'web/content/model-labels.test.mjs',
       meson.project_source_root() / 'web/content/models.test.mjs',
     ],
   )

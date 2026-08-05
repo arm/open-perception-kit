@@ -160,25 +160,29 @@ globalThis.WebSocket = class {
 
 const {modelsManager} = await import("./models.js");
 
-test("selector renders model/task and runtime on separate lines", () => {
+test("selector renders task and model details from descriptor metadata", () => {
   const model = {
     active: false,
+    displayName: "YOLOv11n",
     element_name: "pekinfer1",
     name: "YoloV11",
+    runtime: "ONNX",
+    task: "Object detection",
   };
 
   modelsManager.render([model]);
 
   const item = modelsContainer.children[0];
-  const primaryLabel = item.querySelector(".model-name");
-  const runtime = item.querySelector(".model-runtime");
+  const task = item.querySelector(".model-task");
+  const details = item.querySelector(".model-details");
   const toggleLabel = item.querySelector("label");
   const toggle = item.querySelector("input");
 
   assert.equal(item.getAttribute("data-model-name"), "YoloV11");
-  assert.equal(primaryLabel.textContent, "YOLOv11n - Object detection");
-  assert.equal(runtime.textContent, "ONNX");
-  assert.equal(toggleLabel.getAttribute("aria-label"), "Toggle YOLOv11n - Object detection (ONNX)");
+  assert.equal(task.textContent, "Object detection");
+  assert.equal(details.textContent, "YOLOv11n (ONNX)");
+  assert.equal(item.querySelector(".model-copy").title, "Object detection - YOLOv11n (ONNX)");
+  assert.equal(toggleLabel.getAttribute("aria-label"), "Toggle Object detection - YOLOv11n (ONNX)");
 
   toggle.checked = true;
   toggle.dispatchEvent({type: "change"});
@@ -189,7 +193,26 @@ test("selector renders model/task and runtime on separate lines", () => {
   });
 });
 
-test("unknown model names render without an empty runtime line", () => {
+test("partial metadata remains readable", () => {
+  modelsManager.render([
+    {
+      active: false,
+      displayName: "Custom Accelerator Model",
+      element_name: "custom-runtime",
+      name: "CustomInternalName",
+      runtime: "CustomRT",
+    },
+  ]);
+
+  const item = modelsContainer.children[0];
+
+  assert.equal(item.querySelector(".model-task").textContent, "Custom Accelerator Model");
+  assert.equal(item.querySelector(".model-details").textContent, "CustomRT");
+  assert.equal(item.querySelector("label").getAttribute("aria-label"),
+    "Toggle Custom Accelerator Model - CustomRT");
+});
+
+test("unknown model names render on one line without invented metadata", () => {
   modelsManager.render([
     {
       active: false,
@@ -200,6 +223,16 @@ test("unknown model names render without an empty runtime line", () => {
 
   const item = modelsContainer.children[0];
 
-  assert.equal(item.querySelector(".model-name").textContent, "My Custom Chain");
-  assert.equal(item.querySelector(".model-runtime"), null);
+  assert.equal(item.querySelector(".model-task").textContent, "My Custom Chain");
+  assert.equal(item.querySelector(".model-details"), null);
+  assert.equal(item.querySelector("label").getAttribute("aria-label"),
+    "Toggle My Custom Chain");
+});
+
+test("missing model names use an explicit fallback", () => {
+  modelsManager.render([{active: false, element_name: "missing-name"}]);
+
+  const item = modelsContainer.children[0];
+  assert.equal(item.querySelector(".model-task").textContent, "Unknown model");
+  assert.equal(item.querySelector(".model-details"), null);
 });

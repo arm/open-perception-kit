@@ -20,8 +20,23 @@ const std::string &OpChain::getName() {
     return this->name;
 }
 
+const std::string &OpChain::getDisplayName() {
+    return this->displayName;
+}
+
+const std::string &OpChain::getTask() {
+    return this->task;
+}
+
+const std::string &OpChain::getRuntime() {
+    return this->runtime;
+}
+
 pek::Result<void> OpChain::setupFromDescriptor(const pek::op::OpChainDescriptor &descriptor) {
     name = descriptor.name;
+    displayName = descriptor.displayName;
+    task = descriptor.task;
+    runtime = descriptor.runtime;
 
     for (const auto &op : descriptor.ops) {
 

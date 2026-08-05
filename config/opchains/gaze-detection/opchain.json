@@ -1,5 +1,8 @@
 {
     "name": "GazeDetectionWithUltraface",
+    "displayName": "UltraFace + L2CS MobileGaze",
+    "task": "Gaze estimation",
+    "runtime": "ONNX",
     "description": "Two-stage gaze-detection micropipeline: first detect faces with ultraface, then run gaze-detection.",
     "ops": [
         {

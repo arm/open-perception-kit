@@ -1,5 +1,8 @@
 {
 	"name": "PadleOCR",
+	"displayName": "PaddleOCR",
+	"task": "Text detection",
+	"runtime": "ONNX",
 	"description": "Optical Character Recognition (OCR) model for text detection, based on the PaddleOCR framework.",
 	"ops": [
 		{

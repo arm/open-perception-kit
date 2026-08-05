@@ -1,5 +1,8 @@
 {
 	"name": "Ultraface",
+	"displayName": "UltraFace",
+	"task": "Face detection",
+	"runtime": "ONNX",
 	"description": "Ultraface face detection model.",
 	"ops": [
 		{

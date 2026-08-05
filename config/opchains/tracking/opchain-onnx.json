@@ -1,5 +1,8 @@
 {
     "name": "FullTrackingOnnx",
+    "displayName": "YOLOv11n + OSNet x0.25",
+    "task": "Object tracking",
+    "runtime": "ONNX",
     "description": "Detector + ReID micropipeline for `pektracker`.",
     "ops": [
         {

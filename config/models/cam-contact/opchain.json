@@ -1,5 +1,8 @@
 {
 	"name": "CameraContact",
+	"displayName": "Nitec RS18",
+	"task": "Camera contact",
+	"runtime": "ONNX",
 	"description": "Model to detect if a person is looking into the camera or not.",
 	"ops": [
 		{

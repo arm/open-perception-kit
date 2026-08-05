@@ -54,6 +54,67 @@ async function registeredModelNames(page) {
   return names;
 }
 
+async function expectModelLabelsDoNotOverflow(page) {
+  const measurements = await page.locator(`${MODELS_CONTAINER} ${MODEL_ITEM}`)
+    .evaluateAll((items, nameAttribute) => items.map((item) => {
+      const copy = item.querySelector('.model-copy');
+      const task = item.querySelector('.model-task');
+      const details = item.querySelector('.model-details');
+      const actions = item.querySelector('.model-actions');
+      const rowRect = item.getBoundingClientRect();
+      const copyRect = copy?.getBoundingClientRect();
+      const actionsRect = actions?.getBoundingClientRect();
+      const detailsStyle = details ? getComputedStyle(details) : null;
+
+      return {
+        name: item.getAttribute(nameAttribute) || '<unknown>',
+        row: {
+          clientWidth: item.clientWidth,
+          scrollWidth: item.scrollWidth,
+          left: rowRect.left,
+          right: rowRect.right,
+        },
+        copy: copyRect ? {left: copyRect.left, right: copyRect.right} : null,
+        actions: actionsRect ? {left: actionsRect.left, right: actionsRect.right} : null,
+        task: task ? {clientWidth: task.clientWidth, scrollWidth: task.scrollWidth} : null,
+        details: details ? {
+          clientWidth: details.clientWidth,
+          scrollWidth: details.scrollWidth,
+          overflowX: detailsStyle.overflowX,
+          textOverflow: detailsStyle.textOverflow,
+        } : null,
+      };
+    }), MODEL_NAME_ATTRIBUTE);
+
+  const epsilon = 0.5;
+  const failures = [];
+  for (const measurement of measurements) {
+    const problems = [];
+    if (measurement.row.scrollWidth > measurement.row.clientWidth)
+      problems.push('row has horizontal overflow');
+    if (!measurement.copy || measurement.copy.left < measurement.row.left - epsilon ||
+        measurement.copy.right > measurement.row.right + epsilon)
+      problems.push('label container extends outside row');
+    if (!measurement.actions || measurement.actions.right > measurement.row.right + epsilon)
+      problems.push('toggle controls extend outside row');
+    if (measurement.copy && measurement.actions &&
+        measurement.copy.right > measurement.actions.left + epsilon)
+      problems.push('label content overlaps toggle controls');
+    if (!measurement.task || measurement.task.scrollWidth > measurement.task.clientWidth)
+      problems.push('task label overflows');
+    if (measurement.details && measurement.details.scrollWidth > measurement.details.clientWidth &&
+        (measurement.details.overflowX !== 'hidden' ||
+         measurement.details.textOverflow !== 'ellipsis'))
+      problems.push('long model details are not contained by ellipsis');
+
+    if (problems.length > 0)
+      failures.push({...measurement, problems});
+  }
+
+  expect(failures, `Model label overflow diagnostics:\n${JSON.stringify(failures, null, 2)}`)
+    .toEqual([]);
+}
+
 async function expectSinkOnlyData(page) {
   await expect(page.locator(MODELS_CONTAINER)).toContainText(NO_MODELS_TEXT, {
     timeout: 30000,
@@ -342,6 +403,7 @@ function readBackendModelState(modelName) {
 }
 
 module.exports = {
+  expectModelLabelsDoNotOverflow,
   expectSinkOnlyData,
   expectVideoKeepsPlaying,
   expectVideoSurvivesLoops,

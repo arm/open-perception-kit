@@ -1476,6 +1476,7 @@ body.is-resizing-bottom-column * {
   flex-direction: column;
   gap: 1px;
   min-width: 0;
+  overflow: hidden;
 }
 
 .model-info::after {
@@ -1606,16 +1607,14 @@ body.is-resizing-bottom-column * {
   cursor: wait;
 }
 
-.model-name {
+.model-task {
   font-size: 0.82rem;
   font-weight: 500;
   color: var(--text);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.model-runtime {
+.model-details {
   color: var(--text-muted);
   font-size: 0.7rem;
   line-height: 1.2;

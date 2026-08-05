@@ -4,7 +4,6 @@
  */
 
 import { ctrlSend } from "./ctrlws.js"
-import { resolveModelLabel } from "./model-labels.js"
 
 const PREFERRED_MODEL_ORDER = [
     'YoloV11',
@@ -33,6 +32,28 @@ function orderModels(models) {
     });
 }
 
+function readableText(value) {
+    return String(value ?? '').trim();
+}
+
+function resolveModelPresentation(model) {
+    const rawName = readableText(model.name) || 'Unknown model';
+    const displayName = readableText(model.displayName) || rawName;
+    const task = readableText(model.task);
+    const runtime = readableText(model.runtime);
+    const primaryLabel = task || displayName;
+    let secondaryLabel = '';
+
+    if (task) {
+        secondaryLabel = runtime ? `${displayName} (${runtime})` : displayName;
+    } else if (runtime) {
+        secondaryLabel = runtime;
+    }
+
+    const fullLabel = secondaryLabel ? `${primaryLabel} - ${secondaryLabel}` : primaryLabel;
+    return {primaryLabel, secondaryLabel, fullLabel};
+}
+
 class ModelsManager {
     constructor() {
         this.container = document.getElementById('models-container');
@@ -47,6 +68,9 @@ class ModelsManager {
             active: Boolean(model.active),
             element_name: model.element_name || '',
             name: model.name || '',
+            displayName: model.displayName || '',
+            task: model.task || '',
+            runtime: model.runtime || '',
         })));
         if (nextSignature === this._lastModelsSignature) {
             return;
@@ -76,7 +100,7 @@ class ModelsManager {
         item.setAttribute('data-model-name', model.name || '');
         item.classList.toggle('model-active', Boolean(model.active));
 
-        const presentation = resolveModelLabel(model.name);
+        const presentation = resolveModelPresentation(model);
         const modelInfo = document.createElement('div');
         modelInfo.className = 'model-info';
 
@@ -84,16 +108,16 @@ class ModelsManager {
         modelCopy.className = 'model-copy';
         modelCopy.title = presentation.fullLabel;
 
-        const modelName = document.createElement('div');
-        modelName.className = 'model-name';
-        modelName.textContent = presentation.primaryLabel;
-        modelCopy.appendChild(modelName);
+        const modelTask = document.createElement('div');
+        modelTask.className = 'model-task';
+        modelTask.textContent = presentation.primaryLabel;
+        modelCopy.appendChild(modelTask);
 
-        if (presentation.runtime) {
-            const modelRuntime = document.createElement('div');
-            modelRuntime.className = 'model-runtime';
-            modelRuntime.textContent = presentation.runtime;
-            modelCopy.appendChild(modelRuntime);
+        if (presentation.secondaryLabel) {
+            const modelDetails = document.createElement('div');
+            modelDetails.className = 'model-details';
+            modelDetails.textContent = presentation.secondaryLabel;
+            modelCopy.appendChild(modelDetails);
         }
         modelInfo.appendChild(modelCopy);
 

@@ -3,15 +3,12 @@
  *************************************************************/
 #include "gst/gstelement.h"
 #include "gst/gstpad.h"
-#include <filesystem>
 #include <gst/base/gstbasetransform.h>
 #include <gst/gst.h>
 #include <gst/video/video.h>
 
-#include <filesystem>
 #include <fmt/core.h>
 #include <memory>
-#include <optional>
 #include <variant>
 
 #include "glib-object.h"
@@ -78,8 +75,6 @@ G_DEFINE_TYPE(GstPekInfer, gst_pekinfer, GST_TYPE_BASE_TRANSFORM)
 
 // ---------------- GstBaseTransform virtuals ----------------
 //
-namespace fs = std::filesystem;
-
 static const gchar *gst_pekinfer_get_effective_inferId(GstPekInfer *self) {
     /* If user provided infer-id property, prefer it */
     if (self->inferId && self->inferId[0] != '\0')
@@ -94,19 +89,6 @@ static gboolean gst_pekinfer_is_active(GstPekInfer *self) {
     const gboolean active = self->active;
     GST_OBJECT_UNLOCK(self);
     return active;
-}
-
-static std::optional<fs::path> parent_dir_name(const fs::path &p) {
-    if (!p.has_filename()) {
-        return std::nullopt;
-    }
-
-    fs::path parent = p.parent_path();
-    if (parent.empty()) {
-        return std::nullopt;
-    }
-
-    return parent.filename();
 }
 
 static gboolean gst_pekinfer_start(GstBaseTransform *b) {
@@ -136,11 +118,6 @@ static gboolean gst_pekinfer_start(GstBaseTransform *b) {
     // Send model registration event downstream
     GstPad *srcpad = gst_element_get_static_pad(GST_ELEMENT(self), "src");
     if (srcpad) {
-        std::string name = "unknown";
-        if (auto dir = parent_dir_name(self->opChainPath); dir.has_value()) {
-            name = dir->string();
-        }
-
         GstStructure *structure = gst_structure_new("pek-model-register",
                                                     "model-name",
                                                     G_TYPE_STRING,
@@ -152,6 +129,21 @@ static gboolean gst_pekinfer_start(GstBaseTransform *b) {
                                                     G_TYPE_BOOLEAN,
                                                     gst_pekinfer_is_active(self),
                                                     NULL);
+        if (!self->m->opChain.getDisplayName().empty()) {
+            gst_structure_set(structure,
+                              "display-name",
+                              G_TYPE_STRING,
+                              self->m->opChain.getDisplayName().c_str(),
+                              NULL);
+        }
+        if (!self->m->opChain.getTask().empty()) {
+            gst_structure_set(
+                structure, "task", G_TYPE_STRING, self->m->opChain.getTask().c_str(), NULL);
+        }
+        if (!self->m->opChain.getRuntime().empty()) {
+            gst_structure_set(
+                structure, "runtime", G_TYPE_STRING, self->m->opChain.getRuntime().c_str(), NULL);
+        }
         GstEvent *event = gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM, structure);
         gst_pad_push_event(srcpad, event);
         gst_object_unref(srcpad);

@@ -10,13 +10,19 @@
 
 void ModelRegistry::add_model(const std::string &model_name,
                               const std::string &element_name,
-                              bool active) {
+                              bool active,
+                              const std::string &display_name,
+                              const std::string &task,
+                              const std::string &runtime) {
 
     {
         ModelStatus status;
         status.name = model_name;
         status.active = active;
         status.element_name = element_name;
+        status.display_name = display_name;
+        status.task = task;
+        status.runtime = runtime;
         std::lock_guard<std::mutex> lock(model_registry_mutex);
         model_registry[element_name] = status;
     }
@@ -60,11 +66,18 @@ nlohmann::json ModelRegistry::report() const {
     std::lock_guard<std::mutex> lock(model_registry_mutex);
 
     for (auto &[name, status] : model_registry) {
-        ret.push_back(json::object({
+        json model = json::object({
             {"name", status.name},
             {"active", status.active},
             {"element_name", status.element_name},
-        }));
+        });
+        if (!status.display_name.empty())
+            model["displayName"] = status.display_name;
+        if (!status.task.empty())
+            model["task"] = status.task;
+        if (!status.runtime.empty())
+            model["runtime"] = status.runtime;
+        ret.push_back(std::move(model));
     }
 
     return ret;

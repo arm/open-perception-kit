@@ -3,6 +3,7 @@ const { test } = require('@playwright/test');
 const {
   exerciseModelsOneAtATime,
   holdAllModelsOff,
+  expectModelLabelsDoNotOverflow,
   expectVideoKeepsPlaying,
   openPekUi,
   registeredModelNames,
@@ -19,6 +20,7 @@ test('PEK browser UI toggles ONNX models', async ({ page }) => {
   await openPekUi(page);
 
   const modelNames = await registeredModelNames(page);
+  await expectModelLabelsDoNotOverflow(page);
   await waitForVideo(page);
   await holdAllModelsOff(page, modelNames);
   await exerciseModelsOneAtATime(page, modelNames);

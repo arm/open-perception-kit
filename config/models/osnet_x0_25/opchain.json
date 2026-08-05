@@ -1,5 +1,8 @@
 {
     "name": "OsnetX025Reid",
+    "displayName": "OSNet x0.25",
+    "task": "Object re-identification",
+    "runtime": "ONNX",
     "description": "Opchain for OsnetX0.25 Re-identification model.",
     "ops": [
         {
