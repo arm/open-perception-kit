@@ -18,6 +18,22 @@ versions, evaluate compatibility, regenerate the SDKs, and validate a change.
 Do not edit generated files, generated build integrations, or manifests by
 hand. Change the schemas or `tools/perception/sdk.json`, then regenerate them.
 
+## Workflow Boundaries
+
+Perception SDK work has three separate concerns:
+
+1. Use `$evolve-perception-schema` to design or change authored schemas, assess
+   compatibility, choose the SDK version, and update runtime semantics.
+2. Use `$regenerate-perception-sdk` during implementation to materialize and
+   validate the tracked C++ and Python SDK snapshot. Commit these generated
+   files normally with their authored inputs.
+3. Use `$package-perception-sdk-release` only from a committed release snapshot
+   to create and verify the distributable ZIP and sidecars. Packaging never
+   regenerates checked-in files.
+
+Do not use release packaging to obtain generated sources, and do not create a
+release bundle merely to validate implementation drift.
+
 ## Compatibility Model
 
 Compatibility has three distinct layers:
@@ -117,7 +133,8 @@ and test it as a schema-set-wide change.
    `file_identifier`.
 6. Increment the SDK version in `tools/perception/sdk.json`. A new payload is
    normally a MINOR release.
-7. Regenerate all configured SDK outputs:
+7. Hand off to `$regenerate-perception-sdk` and regenerate all configured SDK
+   outputs:
 
    ```bash
    ./scripts/perception-sdk.sh generate
@@ -198,8 +215,8 @@ For runtime-facing changes, build the elements with tests and run Meson tests:
 meson test -C /work/development/build --print-errorlogs
 ```
 
-Before publishing a candidate, create and verify the release bundle from a
-clean tracked tree:
+After the complete authored and generated snapshot is committed, hand off to
+`$package-perception-sdk-release` to create and verify the release bundle:
 
 ```bash
 ./scripts/perception-sdk.sh package \

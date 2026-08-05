@@ -10,6 +10,11 @@ The release bundle contains the generated C++ SDK, an installable Perception
 Python wheel, the matching FlatBuffers Python wheel, the source schemas, and a
 manifest describing every file and compatibility requirement.
 
+This is the release-packaging workflow. During implementation, use
+`$regenerate-perception-sdk` or `./scripts/perception-sdk.sh generate` to update
+the tracked generated SDK snapshot and commit it normally. Use
+`$package-perception-sdk-release` only after that snapshot is committed.
+
 ## Build the bundle
 
 Start the PEK development container, then run from the repository root:
@@ -20,7 +25,7 @@ Start the PEK development container, then run from the repository root:
 
 The unified command surface is `./scripts/perception-sdk.sh`; it provides
 `generate`, `check`, `package`, `verify`, and `install-dev` subcommands. The
-It is the only supported SDK command surface.
+script is the only supported SDK command surface.
 
 The command verifies `tools/perception/sdk.json`, the checked-in generated SDK,
 internal Meson adapter, and generation receipt without invoking flowdata-sdk,

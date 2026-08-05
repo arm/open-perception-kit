@@ -16,13 +16,18 @@ The canonical schema and generated output directories are declared in
 regenerate the checked-in C++ and Python SDKs; use
 `./scripts/perception-sdk.sh check` in CI to detect drift.
 
+Development generation and release packaging are intentionally separate.
+`$regenerate-perception-sdk` updates tracked generated sources during
+implementation. `$package-perception-sdk-release` consumes an already committed
+snapshot and creates distributable artifacts without regenerating it.
+
 `tools/perception/sdk.json` is the only hand-edited SDK release descriptor. It
 defines the SDK identity, canonical schema and generated directories,
 flowdata-sdk location, generated project integrations, and checksum-locked
 FlatBuffers and Python wheel-build artifacts. `tools/perception/sdk_config.py` is the shared loader
 used by generation, packaging, tests, and development installation. Generation first verifies the raw
 flowdata manifests, then applies AMP-owned copyright and formatting decoration. The final
-The generated SDK manifest embeds the raw generator manifests and records the
+generated SDK manifest embeds the raw generator manifests and records the
 descriptor hash, decorated file hashes, and derived project integrations.
 
 The generated Python package exposes endpoint ownership through

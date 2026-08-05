@@ -93,7 +93,9 @@ Useful checked-in examples:
 
 ### Add a new structured runtime result
 Use the repository skill `$evolve-perception-schema` for compatibility
-classification, implementation, regeneration, and validation.
+classification, authored schema changes, and runtime integration. Then use
+`$regenerate-perception-sdk` to update and validate the checked-in generated
+C++ and Python SDK snapshot.
 
 Start in:
 
@@ -114,6 +116,17 @@ wheel lock are owned only by `tools/perception/sdk.json`. All scripts load that
 descriptor through `tools/perception/sdk_config.py`; generated integrations and
 manifests are derived outputs and must not be edited independently. Raw flowdata
 manifests are verified before AMP-specific copyright and formatting decoration.
+
+### Regenerate the Perception SDK snapshot
+Use `$regenerate-perception-sdk` during implementation when authored SDK inputs
+change or `./scripts/perception-sdk.sh check` reports drift. This workflow
+updates tracked generated sources and prepares them for a normal source commit.
+It does not create release ZIPs.
+
+### Package a Perception SDK release
+Use `$package-perception-sdk-release` only after the authored and generated SDK
+snapshot is committed. This workflow creates and verifies the deterministic ZIP,
+checksum, and provenance sidecar without regenerating checked-in sources.
 
 ### Add or modify overlay rendering
 Start in:
