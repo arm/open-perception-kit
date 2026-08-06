@@ -40,6 +40,9 @@ class SdkConfig:
     flatbuffers_wheel: LockedArtifact
     flatbuffers_source: LockedArtifact
     python_build_tools: tuple[LockedArtifact, ...]
+    typescript_runtime: LockedArtifact
+    typescript_compiler: LockedArtifact
+    node_minimum_major: int
     flowdata_root: Path
     flowdata_generator: Path
     internal_meson_path: Path
@@ -82,6 +85,7 @@ def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
         "flowdata_sdk",
         "project_generated_files",
         "python_build",
+        "typescript_build",
     }
     if not isinstance(raw, dict) or set(raw) != expected:
         raise RuntimeError(f"SDK descriptor fields must be exactly: {sorted(expected)}")
@@ -155,6 +159,51 @@ def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
     if [tool.name for tool in build_tools] != ["pip", "setuptools", "wheel"]:
         raise RuntimeError("python_build.tools must contain pip, setuptools, and wheel in order")
 
+    typescript_build = raw["typescript_build"]
+    if not isinstance(typescript_build, dict) or set(typescript_build) != {
+        "flatbuffers_runtime", "node_minimum_major", "typescript"
+    }:
+        raise RuntimeError(
+            "typescript_build fields must be exactly: "
+            "['flatbuffers_runtime', 'node_minimum_major', 'typescript']"
+        )
+    node_minimum_major = typescript_build["node_minimum_major"]
+    if not isinstance(node_minimum_major, int) or node_minimum_major < 20:
+        raise RuntimeError("typescript_build.node_minimum_major must be at least 20")
+
+    def npm_artifact(value: object, field: str, expected_name: str) -> LockedArtifact:
+        if not isinstance(value, dict) or set(value) != {
+            "name", "version", "filename", "url", "sha256"
+        }:
+            raise RuntimeError(f"{field} has invalid fields")
+        name_value = value["name"]
+        version_value = value["version"]
+        if name_value != expected_name:
+            raise RuntimeError(f"{field}.name must be {expected_name}")
+        if not isinstance(version_value, str) or not SEMVER.fullmatch(version_value):
+            raise RuntimeError(f"{field}.version must be semantic")
+        return artifact(
+            {key: value[key] for key in ("filename", "url", "sha256")},
+            field,
+            name_value,
+            version_value,
+        )
+
+    typescript_runtime = npm_artifact(
+        typescript_build["flatbuffers_runtime"],
+        "typescript_build.flatbuffers_runtime",
+        "flatbuffers",
+    )
+    if typescript_runtime.version != flatbuffers_version:
+        raise RuntimeError(
+            "TypeScript FlatBuffers runtime must match the compiler version"
+        )
+    typescript_compiler = npm_artifact(
+        typescript_build["typescript"],
+        "typescript_build.typescript",
+        "typescript",
+    )
+
     flowdata = raw["flowdata_sdk"]
     if not isinstance(flowdata, dict) or set(flowdata) != {"submodule", "generator"}:
         raise RuntimeError("flowdata_sdk fields must be exactly: ['generator', 'submodule']")
@@ -184,6 +233,9 @@ def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
         flatbuffers_wheel=wheel,
         flatbuffers_source=source,
         python_build_tools=tuple(build_tools),
+        typescript_runtime=typescript_runtime,
+        typescript_compiler=typescript_compiler,
+        node_minimum_major=node_minimum_major,
         flowdata_root=flowdata_root,
         flowdata_generator=flowdata_generator,
         internal_meson_path=internal_meson_path,

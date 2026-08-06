@@ -34,6 +34,7 @@ PY_LICENSE_HEADER = """\
 ################################################################
 """
 CMAKE_LICENSE_HEADER = PY_LICENSE_HEADER
+TS_LICENSE_HEADER = "// Copyright (C) 2025 Arm Limited. All rights reserved.\n"
 CMAKE_FORMAT = "cmake-format"
 
 
@@ -73,12 +74,13 @@ def generate_sdk(config: SdkConfig, generated_root: Path, flatc: str, python: st
         *common, "--sdk", "cpp", "--cpp-python-bridge", "--cmake", "--meson",
     ])
     run([*common, "--sdk", "python"])
+    run([*common, "--sdk", "ts"])
 
 
 def verify_flowdata_manifests(
     config: SdkConfig, generated_root: Path, python: str
 ) -> None:
-    for sdk in ("cpp", "python"):
+    for sdk in ("cpp", "python", "ts"):
         command = [
             python, str(config.flowdata_generator), "verify-manifest",
             str(generated_root / sdk / FLOWDATA_MANIFEST_FILENAME),
@@ -89,7 +91,7 @@ def verify_flowdata_manifests(
 
 def read_flowdata_manifests(generated_root: Path) -> dict[str, object]:
     manifests: dict[str, object] = {}
-    for sdk in ("cpp", "python"):
+    for sdk in ("cpp", "python", "ts"):
         path = generated_root / sdk / FLOWDATA_MANIFEST_FILENAME
         manifests[sdk] = json.loads(path.read_text(encoding="utf-8"))
         path.unlink()
@@ -114,6 +116,67 @@ def add_license_headers(generated_root: Path) -> None:
         text = integration.read_text(encoding="utf-8")
         if not text.startswith(CMAKE_LICENSE_HEADER):
             integration.write_text(f"{CMAKE_LICENSE_HEADER}{text}", encoding="utf-8")
+    for module in sorted((generated_root / "ts").rglob("*.ts")):
+        text = module.read_text(encoding="utf-8")
+        if not text.startswith(TS_LICENSE_HEADER):
+            module.write_text(f"{TS_LICENSE_HEADER}{text}", encoding="utf-8")
+
+
+def prepare_typescript_package(config: SdkConfig, generated_root: Path) -> None:
+    package_path = generated_root / "ts" / "package.json"
+    package = json.loads(package_path.read_text(encoding="utf-8"))
+    package["dependencies"] = {"flatbuffers": config.typescript_runtime.version}
+    package["devDependencies"] = {"typescript": config.typescript_compiler.version}
+    package["engines"] = {"node": f">={config.node_minimum_major}"}
+    package["files"] = ["dist", "src"]
+    package_path.write_text(
+        json.dumps(package, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+
+def build_typescript_package(
+    config: SdkConfig,
+    generated_root: Path,
+    node: str,
+    node_modules: Path,
+) -> None:
+    project = generated_root / "ts"
+    transient_modules = project / "node_modules"
+    required = {
+        "flatbuffers": config.typescript_runtime.version,
+        "typescript": config.typescript_compiler.version,
+    }
+    node_version = command_version([node, "--version"])
+    match = __import__("re").fullmatch(r"v(\d+)\.\d+\.\d+", node_version)
+    if match is None or int(match.group(1)) < config.node_minimum_major:
+        raise RuntimeError(
+            f"Node.js >={config.node_minimum_major} is required, got {node_version}"
+        )
+    for package_name, expected_version in required.items():
+        package_path = node_modules / package_name / "package.json"
+        if not package_path.is_file():
+            raise RuntimeError(
+                f"missing {package_name} in TypeScript modules directory: {node_modules}"
+            )
+        actual_version = json.loads(package_path.read_text(encoding="utf-8")).get("version")
+        if actual_version != expected_version:
+            raise RuntimeError(
+                f"{package_name} version mismatch: expected {expected_version}, got {actual_version}"
+            )
+    transient_modules.mkdir()
+    try:
+        for package_name in required:
+            (transient_modules / package_name).symlink_to(
+                node_modules / package_name, target_is_directory=True
+            )
+        run([
+            node,
+            str(node_modules / "typescript" / "bin" / "tsc"),
+            "-p",
+            str(project / "tsconfig.json"),
+        ])
+    finally:
+        shutil.rmtree(transient_modules)
 
 
 def format_cpp_sources(generated_root: Path, clang_format: str) -> None:
@@ -167,14 +230,15 @@ def validate_flowdata_manifests(
 ) -> None:
     cpp = manifests.get("cpp")
     python_manifest = manifests.get("python")
-    if not isinstance(cpp, dict) or not isinstance(python_manifest, dict):
-        raise RuntimeError("flowdata generation did not produce C++ and Python manifests")
+    typescript_manifest = manifests.get("ts")
+    if not all(isinstance(value, dict) for value in (cpp, python_manifest, typescript_manifest)):
+        raise RuntimeError("flowdata generation did not produce C++, Python, and TypeScript manifests")
     shared_fields = (
         "sdk", "generator", "flatc", "schema_files", "schema_set_sha256", "payloads",
     )
     for field in shared_fields:
-        if cpp.get(field) != python_manifest.get(field):
-            raise RuntimeError(f"C++ and Python flowdata manifests disagree on {field}")
+        if not all(cpp.get(field) == manifest.get(field) for manifest in (python_manifest, typescript_manifest)):
+            raise RuntimeError(f"flowdata manifests disagree on {field}")
     expected_sdk = {"name": config.name, "version": config.version}
     if cpp.get("sdk") != expected_sdk:
         raise RuntimeError("flowdata manifest SDK identity does not match sdk.json")
@@ -196,6 +260,12 @@ def validate_flowdata_manifests(
         "sdk": "python",
     }:
         raise RuntimeError("flowdata Python outputs do not match the Perception SDK contract")
+    if typescript_manifest.get("outputs") != {
+        "cpp_python_bridge": False,
+        "integrations": [],
+        "sdk": "ts",
+    }:
+        raise RuntimeError("flowdata TypeScript outputs do not match the Perception SDK contract")
 
 
 def normalize_integration_files(config: SdkConfig, generated_root: Path) -> None:
@@ -237,6 +307,7 @@ def is_transient_generated_path(path: Path, root: Path) -> bool:
         "__pycache__" in relative.parts
         or any(part.endswith(".egg-info") for part in relative.parts)
         or relative.parts[:2] == ("python", "build")
+        or "node_modules" in relative.parts
         or path.suffix == ".pyc"
     )
 
@@ -293,6 +364,7 @@ def write_perception_manifest(
     flowdata_manifests: dict[str, object],
     clang_format: str,
     formatter_python: str,
+    node: str,
 ) -> None:
     manifest_path = generated_root / PERCEPTION_MANIFEST_FILENAME
     manifest = {
@@ -315,6 +387,11 @@ def write_perception_manifest(
             "cmake_formatter": command_version([CMAKE_FORMAT, "--version"]),
             "cpp_formatter": command_version([clang_format, "--version"]),
             "python_formatter": command_version([formatter_python, "-m", "autopep8", "--version"]),
+            "typescript": {
+                "compiler": config.typescript_compiler.version,
+                "flatbuffers_runtime": config.typescript_runtime.version,
+                "node": f">={config.node_minimum_major}",
+            },
         },
         "project_files": [{
             "path": config.internal_meson_path.relative_to(REPO_ROOT).as_posix(),
@@ -368,9 +445,9 @@ def verify_perception_manifest(
     if flowdata_identity.get("commit") != git_commit(config.flowdata_root):
         raise RuntimeError("flowdata-sdk changed; regenerate the Perception SDK")
     flowdata = manifest.get("upstream_receipts")
-    if not isinstance(flowdata, dict) or set(flowdata) != {"cpp", "python"}:
+    if not isinstance(flowdata, dict) or set(flowdata) != {"cpp", "python", "ts"}:
         raise RuntimeError("Perception SDK manifest has incomplete flowdata metadata")
-    for sdk in ("cpp", "python"):
+    for sdk in ("cpp", "python", "ts"):
         sdk_manifest = flowdata[sdk]
         if sdk_manifest.get("sdk", {}).get("name") != config.name:
             raise RuntimeError(f"{sdk} manifest SDK name does not match sdk.json")
@@ -392,19 +469,23 @@ def prepare_sdk(
     clang_format: str,
     formatter_python: str,
     python: str,
+    node: str,
+    node_modules: Path,
 ) -> None:
     verify_flowdata_manifests(config, generated_root, python)
     flowdata_manifests = read_flowdata_manifests(generated_root)
     add_license_headers(generated_root)
+    prepare_typescript_package(config, generated_root)
     format_cpp_sources(generated_root, clang_format)
     format_python_modules(generated_root, formatter_python)
+    build_typescript_package(config, generated_root, node, node_modules)
     validate_flowdata_manifests(config, flowdata_manifests)
     normalize_integration_files(config, generated_root)
     format_cmake_integrations(generated_root)
     write_internal_meson(config, generated_root, internal_meson)
     write_perception_manifest(
         config, generated_root, internal_meson, flowdata_manifests,
-        clang_format, formatter_python,
+        clang_format, formatter_python, node,
     )
     verify_perception_manifest(config, generated_root, internal_meson)
 
@@ -444,11 +525,16 @@ def generate_candidate(
     python: str,
     clang_format: str,
     formatter_python: str,
+    node: str,
+    node_modules: Path,
 ) -> tuple[Path, Path]:
     generated = workspace / "generated"
     internal = workspace / "development" / "perception" / "meson.build"
     generate_sdk(config, generated, flatc, python)
-    prepare_sdk(config, generated, internal, clang_format, formatter_python, python)
+    prepare_sdk(
+        config, generated, internal, clang_format, formatter_python, python,
+        node, node_modules,
+    )
     return generated, internal
 
 
@@ -458,10 +544,13 @@ def check_generated(
     python: str,
     clang_format: str,
     formatter_python: str,
+    node: str,
+    node_modules: Path,
 ) -> bool:
     with tempfile.TemporaryDirectory(prefix=".perception-check-", dir=REPO_ROOT) as tmp:
         candidate, internal = generate_candidate(
             config, Path(tmp), flatc, python, clang_format, formatter_python,
+            node, node_modules,
         )
         differences = _tree_diff(candidate, config.generated_root)
         if (
@@ -563,6 +652,19 @@ def parse_args() -> argparse.Namespace:
         metavar="EXECUTABLE",
         help="Python interpreter whose autopep8 module formats generated Python files",
     )
+    parser.add_argument(
+        "--node",
+        default="node",
+        metavar="EXECUTABLE",
+        help="Node.js executable used to compile the generated TypeScript SDK",
+    )
+    parser.add_argument(
+        "--node-modules",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help="directory containing the locked flatbuffers and typescript npm packages",
+    )
     return parser.parse_args()
 
 
@@ -570,15 +672,19 @@ def main() -> int:
     args = parse_args()
     try:
         config = load_sdk_config()
+        node_modules = args.node_modules
+        if node_modules is None:
+            node_modules = Path(command_version(["npm", "root", "--global"]))
         if args.check:
             return 0 if check_generated(
                 config, args.flatc, args.python, args.clang_format, args.formatter_python,
+                args.node, node_modules,
             ) else 1
         with tempfile.TemporaryDirectory(prefix=".perception-generate-", dir=REPO_ROOT) as tmp:
             workspace = Path(tmp)
             generated, internal = generate_candidate(
                 config, workspace, args.flatc, args.python,
-                args.clang_format, args.formatter_python,
+                args.clang_format, args.formatter_python, args.node, node_modules,
             )
             install_candidate(config, generated, internal, workspace)
         verify_perception_manifest(config)

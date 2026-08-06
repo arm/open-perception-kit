@@ -46,6 +46,23 @@
       }
     ]
   },
+  "typescript_build": {
+    "flatbuffers_runtime": {
+      "filename": "flatbuffers-25.9.23.tgz",
+      "name": "flatbuffers",
+      "sha256": "484129ef89da43decec3d004810863a70fad9b2aa6df6246602e58d9ba207d26",
+      "url": "https://artifactory.arm.com:443/artifactory/api/npm/mirrors.npmjs_org/flatbuffers/-/flatbuffers-25.9.23.tgz",
+      "version": "25.9.23"
+    },
+    "node_minimum_major": 20,
+    "typescript": {
+      "filename": "typescript-5.9.2.tgz",
+      "name": "typescript",
+      "sha256": "67a3bc82e822b8f45f653a80fc3a9730d23214d36c83ba85dd7f5abebee82062",
+      "url": "https://artifactory.arm.com:443/artifactory/api/npm/mirrors.npmjs_org/typescript/-/typescript-5.9.2.tgz",
+      "version": "5.9.2"
+    }
+  },
   "schema_dir": "schemas/perception/metadata",
   "version": "0.1.0"
 }

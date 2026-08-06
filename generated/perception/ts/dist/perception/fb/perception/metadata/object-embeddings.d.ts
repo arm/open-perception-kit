@@ -1,0 +1,36 @@
+import * as flatbuffers from 'flatbuffers';
+import { LayerInfo, LayerInfoT } from '../../perception/metadata/layer-info.js';
+import { ObjectEmbedding, ObjectEmbeddingT } from '../../perception/metadata/object-embedding.js';
+export declare class ObjectEmbeddings implements flatbuffers.IUnpackableObject<ObjectEmbeddingsT> {
+    bb: flatbuffers.ByteBuffer | null;
+    bb_pos: number;
+    __init(i: number, bb: flatbuffers.ByteBuffer): ObjectEmbeddings;
+    static getRootAsObjectEmbeddings(bb: flatbuffers.ByteBuffer, obj?: ObjectEmbeddings): ObjectEmbeddings;
+    static getSizePrefixedRootAsObjectEmbeddings(bb: flatbuffers.ByteBuffer, obj?: ObjectEmbeddings): ObjectEmbeddings;
+    static bufferHasIdentifier(bb: flatbuffers.ByteBuffer): boolean;
+    schemaMajor(): number;
+    schemaMinor(): number;
+    layer(obj?: LayerInfo): LayerInfo | null;
+    embeddings(index: number, obj?: ObjectEmbedding): ObjectEmbedding | null;
+    embeddingsLength(): number;
+    static startObjectEmbeddings(builder: flatbuffers.Builder): void;
+    static addSchemaMajor(builder: flatbuffers.Builder, schemaMajor: number): void;
+    static addSchemaMinor(builder: flatbuffers.Builder, schemaMinor: number): void;
+    static addLayer(builder: flatbuffers.Builder, layerOffset: flatbuffers.Offset): void;
+    static addEmbeddings(builder: flatbuffers.Builder, embeddingsOffset: flatbuffers.Offset): void;
+    static createEmbeddingsVector(builder: flatbuffers.Builder, data: flatbuffers.Offset[]): flatbuffers.Offset;
+    static startEmbeddingsVector(builder: flatbuffers.Builder, numElems: number): void;
+    static endObjectEmbeddings(builder: flatbuffers.Builder): flatbuffers.Offset;
+    static finishObjectEmbeddingsBuffer(builder: flatbuffers.Builder, offset: flatbuffers.Offset): void;
+    static finishSizePrefixedObjectEmbeddingsBuffer(builder: flatbuffers.Builder, offset: flatbuffers.Offset): void;
+    unpack(): ObjectEmbeddingsT;
+    unpackTo(_o: ObjectEmbeddingsT): void;
+}
+export declare class ObjectEmbeddingsT implements flatbuffers.IGeneratedObject {
+    schemaMajor: number;
+    schemaMinor: number;
+    layer: LayerInfoT | null;
+    embeddings: (ObjectEmbeddingT)[];
+    constructor(schemaMajor?: number, schemaMinor?: number, layer?: LayerInfoT | null, embeddings?: (ObjectEmbeddingT)[]);
+    pack(builder: flatbuffers.Builder): flatbuffers.Offset;
+}

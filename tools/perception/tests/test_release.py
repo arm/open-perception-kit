@@ -106,10 +106,16 @@ class SdkDescriptorTests(unittest.TestCase):
             [tool.name for tool in config.python_build_tools],
             ["pip", "setuptools", "wheel"],
         )
+        self.assertEqual(config.typescript_runtime.name, "flatbuffers")
+        self.assertEqual(config.typescript_runtime.version, config.flatbuffers_version)
+        self.assertEqual(config.typescript_compiler.name, "typescript")
+        self.assertGreaterEqual(config.node_minimum_major, 20)
         for artifact in (
             config.flatbuffers_wheel,
             config.flatbuffers_source,
             *config.python_build_tools,
+            config.typescript_runtime,
+            config.typescript_compiler,
         ):
             self.assertTrue(artifact.url.startswith("https://"))
             self.assertTrue(artifact.url.endswith(artifact.filename))
@@ -412,6 +418,9 @@ class GeneratedSdkTests(unittest.TestCase):
         self.assertTrue((generated / "cpp" / "meson" / "perception" / "meson.build").is_file())
         self.assertTrue((generated / "python" / "src" / "perception" / "guest.pyi").is_file())
         self.assertTrue((generated / "python" / "src" / "perception" / "py.typed").is_file())
+        self.assertTrue((generated / "ts" / "src" / "perception" / "index.ts").is_file())
+        self.assertTrue((generated / "ts" / "dist" / "perception" / "index.js").is_file())
+        self.assertTrue((generated / "ts" / "dist" / "perception" / "index.d.ts").is_file())
 
         manifest = json.loads(
             (generated / "perception-sdk-manifest.json").read_text(encoding="utf-8")
@@ -427,6 +436,12 @@ class GeneratedSdkTests(unittest.TestCase):
         )
         self.assertNotIn("manifest_version", manifest["upstream_receipts"]["cpp"])
         self.assertNotIn("manifest_version", manifest["upstream_receipts"]["python"])
+        self.assertNotIn("manifest_version", manifest["upstream_receipts"]["ts"])
+        self.assertEqual(manifest["upstream_receipts"]["ts"]["outputs"]["sdk"], "ts")
+        self.assertEqual(
+            manifest["postprocessing"]["typescript"]["flatbuffers_runtime"],
+            config.typescript_runtime.version,
+        )
         self.assertTrue(
             (generated / "cpp" / "meson" / "perception" / "python_bridge" / "meson.build").is_file()
         )

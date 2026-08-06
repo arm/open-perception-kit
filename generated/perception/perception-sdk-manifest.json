@@ -5,7 +5,7 @@
   },
   "descriptor": {
     "path": "tools/perception/sdk.json",
-    "sha256": "6e75b1624b6cab8d02e4fdf35b84c850b323a801e56f6401ba4803643ccedc4e"
+    "sha256": "8c321816b23aa2a9e7ad07d95721d37d4fe1afa39650d18325b6d4cb4e3db484"
   },
   "files": [
     {
@@ -287,6 +287,496 @@
       "path": "python/src/perception/sdk.py",
       "sha256": "b4dae53c2a95d3b85294bbeadc1fe9eef767bef83707597d55cc7801811b1109",
       "size": 15472
+    },
+    {
+      "path": "ts/dist/perception/envelope.d.ts",
+      "sha256": "5bacc08f42e82ef906aaf5a86529ee8876c588a4a26b6a9e78b3328ca835129a",
+      "size": 2142
+    },
+    {
+      "path": "ts/dist/perception/envelope.js",
+      "sha256": "0fb5e1c9c88110138f5908fd8c953558be3db95c767ab8dae836bc792a42f5f4",
+      "size": 13723
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/internalfb/wire-envelope.d.ts",
+      "sha256": "99339945434cb482871a28475e955b2c6d211054eb9eba4bba49f434c3cb0d0b",
+      "size": 2977
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/internalfb/wire-envelope.js",
+      "sha256": "6632f15fc68b648efc036b69137ebf4bd889b5e05542056f12403bbb855b3e7b",
+      "size": 5376
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/internalfb/wire-payload.d.ts",
+      "sha256": "f914fe05a42cb104949d56e42530d8b00e10458af6e010a4bc9de173f3249d14",
+      "size": 1478
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/internalfb/wire-payload.js",
+      "sha256": "ff521e02712fbdfb2a7420ed5234c327a729eb1b290753625f0f4e6c2d4b2286",
+      "size": 3157
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/internalfb.d.ts",
+      "sha256": "0870480294014a59a6fbb1b10efc26f3899bcd4bd517cbef7c8d72bc6a897bec",
+      "size": 151
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/internalfb.js",
+      "sha256": "20df2ccb992b217307dacf553612ade4db86e3be16fe44dbe883e8bc1353fdba",
+      "size": 410
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/audio-frame-context.d.ts",
+      "sha256": "d752d557d1afa1c1225a82551b83c10ed637408964403d9adcdaaa3506383bcf",
+      "size": 2409
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/audio-frame-context.js",
+      "sha256": "d9220c9c29778a06aad8a8dbcbb7459e3ae09b56d2adc955d67b532c48fea36a",
+      "size": 5246
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/bitmap-data.d.ts",
+      "sha256": "997d9ef8d4ea4ef877e4343447b57820bf03e4e92a17f170ce8d9f06c970c00b",
+      "size": 1983
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/bitmap-data.js",
+      "sha256": "9f0b1e8175e7a1f34a4a6c40e20c9776c062c61b8d780bef1431c0119c873604",
+      "size": 4193
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/bounding-box.d.ts",
+      "sha256": "226e16c485cce52635efd81f5cfcb64069349848a260dd4da87743f282250550",
+      "size": 1430
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/bounding-box.js",
+      "sha256": "c6b8ca61d32a4952c92bc1f536bf88c1e59d307863aa60f7ddfe5b4abfd35f25",
+      "size": 2910
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/box-detection.d.ts",
+      "sha256": "86c7193a4be3d2cc487463309bdfa5ac08e79a5c45fe554128d96df061469ffe",
+      "size": 1955
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/box-detection.js",
+      "sha256": "c5ec2b94c2759362a973a1bc3099f16c1bc2832d8bafa65b73e1845e075db938",
+      "size": 3984
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/box-detections.d.ts",
+      "sha256": "c2935284a811a1b5fc03584fe507e498792c7f29d16ad0e4d4d5862e12ed4118",
+      "size": 2285
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/box-detections.js",
+      "sha256": "a05567504f39627b820b0ea71c5cc4c38e21085b72334cb6cf83dcc7a0fa23d5",
+      "size": 4569
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/classification-candidate.d.ts",
+      "sha256": "ad8e1e747ed0c65d09101b1d433648d09d890f004d39a6c20472f5370796f7c9",
+      "size": 2182
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/classification-candidate.js",
+      "sha256": "6d299420eeeed8cd01aa315a535ef60c011d4d1cc4d43dc062f207bac5b0e3aa",
+      "size": 4455
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/classification.d.ts",
+      "sha256": "1069c6cf17b77211a2ceb74b03318e125d43305ad5f023cb8a87c389a5d4d1d2",
+      "size": 1942
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/classification.js",
+      "sha256": "237ee5417507ca14f42152ad373808ca5ab52e1c54635fce2cd2fcdc473029bb",
+      "size": 3609
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/classifications.d.ts",
+      "sha256": "f7094674371cefe4b77707431754c94fab2113d4c67f34adea7326e7c9ed056a",
+      "size": 2978
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/classifications.js",
+      "sha256": "6553b4874c638d48173a65affd0665013a08f868568cb0fa68007fa091c48c85",
+      "size": 6158
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/frame-context.d.ts",
+      "sha256": "945a347bf58f189eaaf4266d2f3f0bc5c63d6b4abd594d88b8bcfadc41b7b03e",
+      "size": 2369
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/frame-context.js",
+      "sha256": "7ff0282b73552c42d3bde47b1601b581216638a1f73397319f1f586601a211a3",
+      "size": 4571
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/layer-info.d.ts",
+      "sha256": "c75a793744b2c1da6b194323fccb1d0edce863d3d15b2f0dce2f3247c5964c02",
+      "size": 3222
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/layer-info.js",
+      "sha256": "74ab2577efa023fd61a884a81f818968215bdf0e22fa8e705ecca4f60035a292",
+      "size": 5608
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/object-embedding.d.ts",
+      "sha256": "9f55cb4c78a7d185d5da051c347ecf149480793d0d30fe0ea53ee8cf64412513",
+      "size": 1958
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/object-embedding.js",
+      "sha256": "6a916096540f768f42bfdbacd6479b3bff8894d319512578a434d2c94fedd7e5",
+      "size": 3624
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/object-embeddings.d.ts",
+      "sha256": "36ad8742d4074a29be90b117430badf97230504f1161d394068f057847ca8a79",
+      "size": 2354
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/object-embeddings.js",
+      "sha256": "014959acb56b9330ac4584baebe1e602b0dae6c907d48f030af0f9c9dbb8b6f8",
+      "size": 4638
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/object-meta.d.ts",
+      "sha256": "3d0e904ec3d5839cc1b2f921746f6c552aec5237703325cfd08a332efa72868a",
+      "size": 1356
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/object-meta.js",
+      "sha256": "58809e7f04165637cb38c38d3d953ba895a6abfe86547caef2a64e525e18c54d",
+      "size": 2754
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/object-track.d.ts",
+      "sha256": "09b69e0e1ac5f903b3daa9038622dda3a6f15e8b97f6ee963d65338bdcf89b1f",
+      "size": 2696
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/object-track.js",
+      "sha256": "1f0e0183c16e367ed267f08b384919a79d3ee6610f0a94bbcd5e1d763aeb9d3d",
+      "size": 5892
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/object-tracks.d.ts",
+      "sha256": "451019e500251ecf195d44e0540a3753ac6b9526a5324da41fef21b1a48c7870",
+      "size": 2230
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/object-tracks.js",
+      "sha256": "252712ee705ca2e12c212be2765bde08cb6efa4404ca7f2f9bb33187216d762b",
+      "size": 4466
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/performance-overlay.d.ts",
+      "sha256": "d27410f40db30db82e4b9e75308e7c0891c2b26a4a487c1bc4bc013cc73d5f07",
+      "size": 2163
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/performance-overlay.js",
+      "sha256": "f17bf1c956469c29b9bd9f2020204fca3fa45722511110847cf431d7b8b0dcc9",
+      "size": 4015
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/person-presence.d.ts",
+      "sha256": "cefc8c87b65c7da68989ff8a0c0df88de980db66e16d515911f5905f05d2d778",
+      "size": 1641
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/person-presence.js",
+      "sha256": "afeed706e0961c3a6e005c2ae8d0e562b434aefdd5d430f6d5fe943670e33f99",
+      "size": 3192
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/point2f.d.ts",
+      "sha256": "0e712d0513a90cdf54023dec8bacf0273ab38196e3a9e69698759a2ac3b27075",
+      "size": 1078
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/point2f.js",
+      "sha256": "ee080adbb12afdfbb651b26d6088205de3ff1b18af9ebb4dc9b8c7e96709e4ae",
+      "size": 2033
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/pose-estimation.d.ts",
+      "sha256": "4c33457d8a8938d01f48cb87f3970e8ed2918b3d886022215cbbccfb89383eba",
+      "size": 1712
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/pose-estimation.js",
+      "sha256": "bed316516f238952e6150806ad068ac4d2bf96e11b4cdbded3ec06041418a8a3",
+      "size": 3423
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/pose-estimations.d.ts",
+      "sha256": "08dffc9f71fc2778f073125eadd44a21752cc258d394d95db1e88f2099e4247a",
+      "size": 2291
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/pose-estimations.js",
+      "sha256": "e218dafa25f4cf334971e718c738bc19e8feae3f5c736888edb283411b070780",
+      "size": 4515
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/segmentation-mask.d.ts",
+      "sha256": "c996a68bd92ec2649ef75ede8e064a6fc663c936b8d40828dd933d46b1a4ca71",
+      "size": 1462
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/segmentation-mask.js",
+      "sha256": "6c145436467204779e0a171d3a55e7e238900b46823f724642cd2b55b2a4ec4f",
+      "size": 2761
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/segmentation-masks.d.ts",
+      "sha256": "0388da140cf70263832654dd09ab997d5836f5e4617296e4715e718452cb0025",
+      "size": 2337
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/segmentation-masks.js",
+      "sha256": "fc561ceda8c6c6ac420723b9b5a078efc5c383111f12a0884ab19207e43eb57f",
+      "size": 4561
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/track-trace.d.ts",
+      "sha256": "ea6148491bfec4d0629ee87dce6d30dd2fe7738716ab9df62a54edf05c5b300f",
+      "size": 1888
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/track-trace.js",
+      "sha256": "0defe54171e4926d7456a513e5a89dfaa5c91b41cbc55e69b5e378538c0d3630",
+      "size": 3839
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/track-traces.d.ts",
+      "sha256": "6de8b8e11ec86805ea721213dbf7fbf25a3f012a156345fe69a15270d1caaf65",
+      "size": 2207
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/track-traces.js",
+      "sha256": "150bf1abdd71b2908f26cf3c226efd2448cbbb353ebaff28c34a0deabe9369dd",
+      "size": 4443
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/video-frame-context.d.ts",
+      "sha256": "df3357517958b1ffbe48222b3f8be9eebbebd2f2ad724a77b35d1ea27859d5a2",
+      "size": 3274
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/video-frame-context.js",
+      "sha256": "164a2bb1611b102d8428ef9fdc3a2d11dd623b16733a122455e047897ad7acaa",
+      "size": 7713
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata.d.ts",
+      "sha256": "45f6f122a05e0739996e3841d73aa28feb621bddf3a3c6fa3ca28e95ab608402",
+      "size": 476
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata.js",
+      "sha256": "6e1dc3dfba82007ddf01c2241ab958277fe342e4f4c17da318345d76d04beeec",
+      "size": 735
+    },
+    {
+      "path": "ts/dist/perception/index.d.ts",
+      "sha256": "13cc04edbdce3e35efa26fddaae865711cae39b79d34b37aabf9e4522b336dbb",
+      "size": 418
+    },
+    {
+      "path": "ts/dist/perception/index.js",
+      "sha256": "c0c84aeba2b15be092fc6d39601f5f6b8ec7b5894094a33d7f864b7bcdc92455",
+      "size": 551
+    },
+    {
+      "path": "ts/dist/perception/registry.d.ts",
+      "sha256": "2352f9f3508d389a75342a4b21841256dea1a6c54afa2fd762f7655c7399e677",
+      "size": 423
+    },
+    {
+      "path": "ts/dist/perception/registry.js",
+      "sha256": "2adff4d4edc77901ff86a1ad95ba8963dcff7e471359712f66d70b9a192a4d9c",
+      "size": 7877
+    },
+    {
+      "path": "ts/package.json",
+      "sha256": "cf970175d4cf25a403c04c3c66f09670285dc391b3f506bed92db65cf4aa288c",
+      "size": 746
+    },
+    {
+      "path": "ts/src/perception/envelope.ts",
+      "sha256": "e6573930760c045bc6d44d556d8a255eebe94de8650d93a2965a147197b3de1d",
+      "size": 12350
+    },
+    {
+      "path": "ts/src/perception/fb/perception/internalfb/wire-envelope.ts",
+      "sha256": "e2c41ba9b7635e3859acb0610e77a89ad1fa04dc756226254f22ee4f91f470c9",
+      "size": 6275
+    },
+    {
+      "path": "ts/src/perception/fb/perception/internalfb/wire-payload.ts",
+      "sha256": "7d250c63171f77c01b52c007be62c59500fa938595e91904c7999381157f4bd7",
+      "size": 3492
+    },
+    {
+      "path": "ts/src/perception/fb/perception/internalfb.ts",
+      "sha256": "7e975858f3fd7491f416868a894ec6058588541f3408f92e06fc90e816770a85",
+      "size": 412
+    },
+    {
+      "path": "ts/src/perception/fb/perception/metadata/audio-frame-context.ts",
+      "sha256": "73b1afc8d1ff5f9947151d3f078112c4845bb1868fa39996e349c2abf2ccbbf8",
+      "size": 5460
+    },
+    {
+      "path": "ts/src/perception/fb/perception/metadata/bitmap-data.ts",
+      "sha256": "f9116b9d1fa2cc16c46334bdb129b75b7774d333024e7b0f874f7c6cdc482e92",
+      "size": 4644
+    },
+    {
+      "path": "ts/src/perception/fb/perception/metadata/bounding-box.ts",
+      "sha256": "8e98bb524514fb34414d49300c26a9211d4bc52bcdb5247958ab75a124a9bd24",
+      "size": 3161
+    },
+    {
+      "path": "ts/src/perception/fb/perception/metadata/box-detection.ts",
+      "sha256": "74bf57161f6bebb0ccdf0080430baf4d9b6d1c3094bc62de86de0c09bcdb3f9b",
+      "size": 4376
+    },
+    {
+      "path": "ts/src/perception/fb/perception/metadata/box-detections.ts",
+      "sha256": "ffee83d622a990ea7f337537d0ea529e69dfe8a5e5bdae51369b34495a79d275",
+      "size": 4991
+    },
+    {
+      "path": "ts/src/perception/fb/perception/metadata/classification-candidate.ts",
+      "sha256": "5b10e5be144b5aa6d69b86911b289645be717a7a094614e754443b80e1ce486b",
+      "size": 4939
+    },
+    {
+      "path": "ts/src/perception/fb/perception/metadata/classification.ts",
+      "sha256": "8411de86b116e22ef57bb3cae14d0e5086e21ec14dad3fb5d8523d0a7b1451a4",
+      "size": 4186
+    },
+    {
+      "path": "ts/src/perception/fb/perception/metadata/classifications.ts",
+      "sha256": "4959e1f78f405d90135ff9cf199b1220b354c58d2aac686c147f07c5b1b1d07c",
+      "size": 6738
+    },
+    {
+      "path": "ts/src/perception/fb/perception/metadata/frame-context.ts",
+      "sha256": "1b2fe74825972c21d6601804c2ce734175f338d2b6be896c8293135b85b14e2a",
+      "size": 4991
+    },
+    {
+      "path": "ts/src/perception/fb/perception/metadata/layer-info.ts",
+      "sha256": "ea23609a74a06c22404c128f1123dbfbc39e4947fa81310cd7d2070a6c17dc0e",
+      "size": 6826
+    },
+    {
+      "path": "ts/src/perception/fb/perception/metadata/object-embedding.ts",
+      "sha256": "c98dc6ef14cf1184d370eaaa1e20bedae8f3fed7e264c58881aad384ac4b4882",
+      "size": 4343
+    },
+    {
+      "path": "ts/src/perception/fb/perception/metadata/object-embeddings.ts",
+      "sha256": "d1de44f0e9c068e451b83e7afeda1f76921054f409532a0cda82628e2b28abb8",
+      "size": 5108
+    },
+    {
+      "path": "ts/src/perception/fb/perception/metadata/object-meta.ts",
+      "sha256": "53e56202e12e2b8840e0fa780f8923df6ec471e50798bda5c1e7011b78714a28",
+      "size": 2973
+    },
+    {
+      "path": "ts/src/perception/fb/perception/metadata/object-track.ts",
+      "sha256": "2e96e1830195802ee932ce3a772110233a2b73e449c207278a5c3fdcfd956af4",
+      "size": 6325
+    },
+    {
+      "path": "ts/src/perception/fb/perception/metadata/object-tracks.ts",
+      "sha256": "d5265fcda01eca0d1dd414109e9694aec9e5c5bb49d20d8e09b6e71cf02dcb27",
+      "size": 4880
+    },
+    {
+      "path": "ts/src/perception/fb/perception/metadata/performance-overlay.ts",
+      "sha256": "d0e4ac4418e71044bb15dcd094ddee3d5134721cd7fe92fbd0582459e32d01a4",
+      "size": 4559
+    },
+    {
+      "path": "ts/src/perception/fb/perception/metadata/person-presence.ts",
+      "sha256": "f1616a2a45aa437214065d51ec4f535f4c8f0560e1eb373fc28bb395928453ed",
+      "size": 3492
+    },
+    {
+      "path": "ts/src/perception/fb/perception/metadata/point2f.ts",
+      "sha256": "aff78a9fc2a6aa6dfcc0ee8ee3e1fff9326e861009d2c333b8f65072da268a98",
+      "size": 2262
+    },
+    {
+      "path": "ts/src/perception/fb/perception/metadata/pose-estimation.ts",
+      "sha256": "620c4c0a12664b6e70fac6f3f555cdada31ced0d7743b8f56edfca6a8bd7fd3c",
+      "size": 3743
+    },
+    {
+      "path": "ts/src/perception/fb/perception/metadata/pose-estimations.ts",
+      "sha256": "06f62107f152c86cbb0f0dc0f68de36996b79c5c8a0c52de05d39736acd3db03",
+      "size": 4979
+    },
+    {
+      "path": "ts/src/perception/fb/perception/metadata/segmentation-mask.ts",
+      "sha256": "d9201e7a7a3ac1503cb0734f12b6afe48b327284c85c7a9bae65fbecf46b9fbd",
+      "size": 3102
+    },
+    {
+      "path": "ts/src/perception/fb/perception/metadata/segmentation-masks.ts",
+      "sha256": "f2874e374b88d8f11ada92300ee059dc3090bf6335d505aec66c8b686a9c280c",
+      "size": 5057
+    },
+    {
+      "path": "ts/src/perception/fb/perception/metadata/track-trace.ts",
+      "sha256": "10ed8e2620878b12f9cbf41d2f5c4b792cbaadd6f56ef349252245b537056435",
+      "size": 4256
+    },
+    {
+      "path": "ts/src/perception/fb/perception/metadata/track-traces.ts",
+      "sha256": "fadb68f3e68bc3eb4e634cd2596d447f265fd3c9968781604fbe9a30e63c0615",
+      "size": 4841
+    },
+    {
+      "path": "ts/src/perception/fb/perception/metadata/video-frame-context.ts",
+      "sha256": "3e365d933fcf80a5c0faf092ea7f039b2ca7408c4d88f1d57218bf377cfc23bc",
+      "size": 7857
+    },
+    {
+      "path": "ts/src/perception/fb/perception/metadata.ts",
+      "sha256": "81283b0e8d356ce8810b251ca8a1563b6bab01de0e708feae4c43670fa21023c",
+      "size": 737
+    },
+    {
+      "path": "ts/src/perception/index.ts",
+      "sha256": "cf4f0908dd1061e978b5ba3fe60583b1367ee49f61e2d9f0d3d1461508f08e49",
+      "size": 564
+    },
+    {
+      "path": "ts/src/perception/registry.ts",
+      "sha256": "2d43749a09daced326f8de7116e407bdb4811b6220ba5033fda47672ae212139",
+      "size": 8051
+    },
+    {
+      "path": "ts/tsconfig.json",
+      "sha256": "bff82dfa6a098456d3546a8d13bd54bf5de2da197123c1bdaa1bf04f295ce600",
+      "size": 304
     }
   ],
   "generation": {
@@ -300,8 +790,8 @@
     "tools": [
       {
         "path": "tools/perception/generate.py",
-        "sha256": "35746ee26fb01b89c6753a1cd7856dfbbcece0ca8ed871edf7f8a0e079b87c5b",
-        "size": 23815
+        "sha256": "c1aa75499b68dcdab12d69584e536f24a582dad7a3115a099122e91d4c6fbab9",
+        "size": 28101
       },
       {
         "path": "tools/perception/release_common.py",
@@ -310,8 +800,8 @@
       },
       {
         "path": "tools/perception/sdk_config.py",
-        "sha256": "ba37780836c634e1aa1a3245617f7f951f795a2b8e2552c0c638918e695498e9",
-        "size": 7808
+        "sha256": "ae10230ba926bc5f2cb0337d9d6dc11d0c83315be70857a0d6c24ac2f06a356d",
+        "size": 9959
       },
       {
         "path": ".clang-format",
@@ -329,7 +819,12 @@
     "cmake_formatter": "0.6.13",
     "copyright_headers": "Arm Limited 2025",
     "cpp_formatter": "clang-format version 20.1.8",
-    "python_formatter": "autopep8 2.3.1 (pycodestyle: 2.12.1)"
+    "python_formatter": "autopep8 2.3.1 (pycodestyle: 2.12.1)",
+    "typescript": {
+      "compiler": "5.9.2",
+      "flatbuffers_runtime": "25.9.23",
+      "node": ">=20"
+    }
   },
   "project_files": [
     {
@@ -869,6 +1364,314 @@
         "version": "0.1.0",
         "wheel_tag": "py3-none-any"
       },
+      "schema_files": [
+        {
+          "path": "box_detections.fbs",
+          "sha256": "fef9b1a679c99977c10410ef0ac18889a50ddaf7392f5deff3e42b0cd086c57e",
+          "size": 431
+        },
+        {
+          "path": "classifications.fbs",
+          "sha256": "dfcc8380bc7bb68ad35db6b8ab9b08f0827792abb4bf74762833e4d49e2d740e",
+          "size": 714
+        },
+        {
+          "path": "common.fbs",
+          "sha256": "5c0897a7f77fb2f59827c110412469f13a94b2bb4cb552c18a903789b20e10b8",
+          "size": 484
+        },
+        {
+          "path": "frame_context.fbs",
+          "sha256": "331fc0b70017804976253f3cbd130cb41ef313ceaba591f88035cf314cc7060b",
+          "size": 856
+        },
+        {
+          "path": "object_embeddings.fbs",
+          "sha256": "9c6fa19199b16fbded3b50d1c0510e9a107972544b60ce7e6ec7ed62bbeec604",
+          "size": 366
+        },
+        {
+          "path": "object_tracks.fbs",
+          "sha256": "83529d0043559e9033b7080d66d6e4d2fc4b7a90e438e77da7915f7020f76e6d",
+          "size": 504
+        },
+        {
+          "path": "performance_overlay.fbs",
+          "sha256": "9f83a45af191752dbbde5a680798d642836a6a5a6bb5ec939fdf42a21be393a6",
+          "size": 188
+        },
+        {
+          "path": "pose_estimations.fbs",
+          "sha256": "e2224e5f114c45059ee3562a6169e4cdaa0cad4247d3f676e1ccfa8e8f7e2137",
+          "size": 387
+        },
+        {
+          "path": "segmentation_masks.fbs",
+          "sha256": "1474553d40ca6ae27cffd54bcc4befd232e2b7610d1e25af6fa1c0ec817437e7",
+          "size": 388
+        },
+        {
+          "path": "track_traces.fbs",
+          "sha256": "85a90ebf6eb8b3c2a7f5c1613a4fa0bcf00a0f51b0514e186650ae0bb751f923",
+          "size": 382
+        }
+      ],
+      "schema_set_sha256": "0ba6dfe959e1453ce12c7a8707623bc15d94d52c9235c26f7e27f31dda0775c5",
+      "sdk": {
+        "name": "perception",
+        "version": "0.1.0"
+      }
+    },
+    "ts": {
+      "files": [
+        {
+          "path": "package.json",
+          "sha256": "6f1b584833e201562bd84d38275c1b4e1f33248202657c187befd0c48f3f4654",
+          "size": 678
+        },
+        {
+          "path": "src/perception/envelope.ts",
+          "sha256": "85ddd0e58bbf7f1df083ca7add3fe4212373e5ba1646fcc0943543e6d7781853",
+          "size": 12294
+        },
+        {
+          "path": "src/perception/fb/perception/internalfb.ts",
+          "sha256": "a16073343bf4aead1be6dd8727c093d82a6b9b4efd5061ecc040083f5cb16053",
+          "size": 356
+        },
+        {
+          "path": "src/perception/fb/perception/internalfb/wire-envelope.ts",
+          "sha256": "b86d1736b5d17b5e8633faab1d1c7ed9d519ff9ada1628fe79bae57f927c5145",
+          "size": 6219
+        },
+        {
+          "path": "src/perception/fb/perception/internalfb/wire-payload.ts",
+          "sha256": "ef0ae0af7a01479063117ac251a8b066302da50e608c3ec0a06cdb1075d98992",
+          "size": 3436
+        },
+        {
+          "path": "src/perception/fb/perception/metadata.ts",
+          "sha256": "0b562c917d241e16d08abe09e8fe162eaa2f3330fee5005a73ca86e7b9f45f0c",
+          "size": 681
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/audio-frame-context.ts",
+          "sha256": "4e53806f14e96a95af80736e6fb773bd42c0634db911f12961ad4ae3752a7883",
+          "size": 5404
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/bitmap-data.ts",
+          "sha256": "e9c586c2eabc2f3b5c184114d4714feae8ad6107a71f0005de8ce7cee08c8673",
+          "size": 4588
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/bounding-box.ts",
+          "sha256": "528b7a9f4b2bdc21056eadb66932ea8cb3e294c3749f8be5cfe82be33237efdd",
+          "size": 3105
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/box-detection.ts",
+          "sha256": "fe708e1b6aafa240ab1c3f8d29aa30e2fb72a09dd4cc7fcb85c6426f017d9e82",
+          "size": 4320
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/box-detections.ts",
+          "sha256": "ec1ca87705bdab2621b9781a5f6ba01da955e7b9b0565d9a793009ee46b3db55",
+          "size": 4935
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/classification-candidate.ts",
+          "sha256": "1d8c2f42b09fe43b581d5f9887cc163e3166975fd3accf0f956539eed98bc0f2",
+          "size": 4883
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/classification.ts",
+          "sha256": "918f6408f89b839a3330c7978f14615a6eb6885c6ff57fb0f2892a93b56f8a0a",
+          "size": 4130
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/classifications.ts",
+          "sha256": "99a27d012572ff6bc461790f6d5adecc9ceeade1deae9c189e7e18013dec764a",
+          "size": 6682
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/frame-context.ts",
+          "sha256": "e9f70a5daf4f3e8debc480a0aa7bcc9559197540d5dfa000a54d8d45276aa2ff",
+          "size": 4935
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/layer-info.ts",
+          "sha256": "1944dfa46177c4266091b09d2ada6cdc74a194b421482fcd4b124ebd6c009796",
+          "size": 6770
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/object-embedding.ts",
+          "sha256": "e7f1f5fccd26fc3c800d358b021844902c80b0f1c61ba320de7252a4f6bc56c9",
+          "size": 4287
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/object-embeddings.ts",
+          "sha256": "6d4050328692747a79f26e6afef6d3b8c18c86d904812877fc55b7b153ecab01",
+          "size": 5052
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/object-meta.ts",
+          "sha256": "7d180dd8fbfc5f308a97ceef82a7e21f5561d5f75513b05ef8fb01cc42ec0055",
+          "size": 2917
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/object-track.ts",
+          "sha256": "fa4bfc082d42776a37f0435ff96ad74ae21c8c836d416db39ed46337f7236e6e",
+          "size": 6269
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/object-tracks.ts",
+          "sha256": "ffab4d17aee2efce265219f6124f3837982269612c4d8240a23db309613feaa2",
+          "size": 4824
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/performance-overlay.ts",
+          "sha256": "42a727a362a86afd91ca9e6f22b70840d20423565551787ec377190f76a3897c",
+          "size": 4503
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/person-presence.ts",
+          "sha256": "861ef4de250714d2eecb3a351f501e512d63f9b954603584f95b27f1fea3e5e7",
+          "size": 3436
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/point2f.ts",
+          "sha256": "838c60d2e4fcddcd8e972f881edc6feb51dba0b18f9134856cae505952f3e508",
+          "size": 2206
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/pose-estimation.ts",
+          "sha256": "0bc61a7757d95e89f1b066a2dd91ff37484e073a419e4a460324937c17f05a18",
+          "size": 3687
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/pose-estimations.ts",
+          "sha256": "26841ef54ce99ee616bc289d717a57a643827411cd577052ea278adf2ed93888",
+          "size": 4923
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/segmentation-mask.ts",
+          "sha256": "f627972d56a5daa21e7c2e31b835cd1ada466d9f7f1384c45b7b38f45f8b13ad",
+          "size": 3046
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/segmentation-masks.ts",
+          "sha256": "afec8f9fd258a9d4421395d709782fffc6e7a45bab319c948c124a3fc5eba11e",
+          "size": 5001
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/track-trace.ts",
+          "sha256": "3859059be008304d3f4fedbe1ca09c42c7d70b92058ef67f90078eca01f5f727",
+          "size": 4200
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/track-traces.ts",
+          "sha256": "e92679823b5a5cf2c94b7297eb31cb79ee45549cf7ea40a71342c907f51414f1",
+          "size": 4785
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/video-frame-context.ts",
+          "sha256": "d4616810abc880a1d7f0794e389a05678987cb8e2af2492a8bfd30eb8b28dca2",
+          "size": 7801
+        },
+        {
+          "path": "src/perception/index.ts",
+          "sha256": "ef7a36c2d9d74525ba970cb572139dc40ca64a42b39e46e2d6dc3a6996cdc91b",
+          "size": 508
+        },
+        {
+          "path": "src/perception/registry.ts",
+          "sha256": "d9ab716e8bd947828f3d3055d31dc4b36bbfee5abe62efcf0674545c21602500",
+          "size": 7995
+        },
+        {
+          "path": "tsconfig.json",
+          "sha256": "bff82dfa6a098456d3546a8d13bd54bf5de2da197123c1bdaa1bf04f295ce600",
+          "size": 304
+        }
+      ],
+      "flatbuffers_runtimes": [
+        {
+          "language": "typescript",
+          "package": "flatbuffers",
+          "version_requirement": ">=24.3.25,<26.0.0"
+        }
+      ],
+      "flatc": {
+        "semantic_version": "25.9.23",
+        "version": "flatc version 25.9.23",
+        "version_requirement": ">=24.3.25,<26.0.0"
+      },
+      "generator": {
+        "name": "flowdata-sdk",
+        "version": "0.5.0"
+      },
+      "outputs": {
+        "cpp_python_bridge": false,
+        "integrations": [],
+        "sdk": "ts"
+      },
+      "payloads": [
+        {
+          "file_identifier": "BDET",
+          "payload_id": "0x01c3894e2878ac7c",
+          "qualified_root_type": "perception.metadata.BoxDetections",
+          "schema": "box_detections.fbs"
+        },
+        {
+          "file_identifier": "CLSF",
+          "payload_id": "0x7f6abc2009042491",
+          "qualified_root_type": "perception.metadata.Classifications",
+          "schema": "classifications.fbs"
+        },
+        {
+          "file_identifier": "FCTX",
+          "payload_id": "0x5e32d827978c7f10",
+          "qualified_root_type": "perception.metadata.FrameContext",
+          "schema": "frame_context.fbs"
+        },
+        {
+          "file_identifier": "EMBE",
+          "payload_id": "0x31f9831d97cd5dd4",
+          "qualified_root_type": "perception.metadata.ObjectEmbeddings",
+          "schema": "object_embeddings.fbs"
+        },
+        {
+          "file_identifier": "TRKS",
+          "payload_id": "0x10b6adabb985ad72",
+          "qualified_root_type": "perception.metadata.ObjectTracks",
+          "schema": "object_tracks.fbs"
+        },
+        {
+          "file_identifier": "PERF",
+          "payload_id": "0x3a016f29e2dedcff",
+          "qualified_root_type": "perception.metadata.PerformanceOverlay",
+          "schema": "performance_overlay.fbs"
+        },
+        {
+          "file_identifier": "POSE",
+          "payload_id": "0x548388c28bb71b08",
+          "qualified_root_type": "perception.metadata.PoseEstimations",
+          "schema": "pose_estimations.fbs"
+        },
+        {
+          "file_identifier": "SGMS",
+          "payload_id": "0x344a75354d0384ae",
+          "qualified_root_type": "perception.metadata.SegmentationMasks",
+          "schema": "segmentation_masks.fbs"
+        },
+        {
+          "file_identifier": "TRCE",
+          "payload_id": "0x4485ef4530c94214",
+          "qualified_root_type": "perception.metadata.TrackTraces",
+          "schema": "track_traces.fbs"
+        }
+      ],
       "schema_files": [
         {
           "path": "box_detections.fbs",

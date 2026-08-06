@@ -105,9 +105,13 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   file gnupg gstreamer1.0-gl gstreamer1.0-nice gstreamer1.0-pipewire \
   gstreamer1.0-plugins-bad gstreamer1.0-plugins-base \
   gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
-  gstreamer1.0-tools gstreamer1.0-x lldb-17 pre-commit python3-pip python3-venv \
+  gstreamer1.0-tools gstreamer1.0-x lldb-17 nodejs npm pre-commit python3-pip python3-venv \
   shellcheck shfmt sudo valgrind wget zip; \
   update-ca-certificates
+
+RUN npm install --global --ignore-scripts \
+  flatbuffers@25.9.23 \
+  typescript@5.9.2
 
 RUN ln -sf /usr/bin/lldb-17 /usr/local/bin/lldb && \
   ln -sf /usr/bin/lldb-server-17 /usr/local/bin/lldb-server
