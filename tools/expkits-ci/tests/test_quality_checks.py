@@ -80,8 +80,12 @@ class TestQualityChecks(unittest.TestCase):
             side_effect=lambda files, _: files)
 
     def require_actionlint(self):
-        if shutil.which("actionlint") is None:
-            self.skipTest("actionlint binary is unavailable")
+        missing = [
+            tool for tool in ("actionlint", "shellcheck", "pyflakes")
+            if shutil.which(tool) is None
+        ]
+        if missing:
+            self.skipTest(f"actionlint toolchain is unavailable: {', '.join(missing)}")
 
     def write_actionlint_fixture(self, temp_dir, fixture_name, workflow_name):
         workflow = Path(temp_dir) / ".github" / "workflows" / workflow_name
@@ -196,7 +200,11 @@ class TestQualityChecks(unittest.TestCase):
     def test_check_github_actions_runs_actionlint_on_workflow_files(self):
         self.quality_checks.file_utils.get_project_root = Mock(return_value="/work")
 
-        with patch.object(quality_checks_module.shutil, "which", return_value="/usr/bin/actionlint"):
+        with patch.object(
+            quality_checks_module.shutil,
+            "which",
+            side_effect=lambda tool: f"/usr/bin/{tool}",
+        ):
             with patch.object(quality_checks_module.os.path, "isfile", return_value=True):
                 with patch.object(
                     quality_checks_module.subprocess,
@@ -215,6 +223,10 @@ class TestQualityChecks(unittest.TestCase):
             subprocess_run.call_args.args[0],
             [
                 "/usr/bin/actionlint",
+                "-shellcheck",
+                "/usr/bin/shellcheck",
+                "-pyflakes",
+                "/usr/bin/pyflakes",
                 "-config-file",
                 ".github/actionlint.yaml",
                 ".github/workflows/pek-ci.yml",
@@ -245,7 +257,11 @@ class TestQualityChecks(unittest.TestCase):
     def test_check_github_actions_lints_all_workflows_when_config_changes(self):
         self.quality_checks.file_utils.get_project_root = Mock(return_value="/work")
 
-        with patch.object(quality_checks_module.shutil, "which", return_value="/usr/bin/actionlint"):
+        with patch.object(
+            quality_checks_module.shutil,
+            "which",
+            side_effect=lambda tool: f"/usr/bin/{tool}",
+        ):
             with patch.object(quality_checks_module.os.path, "isfile", return_value=True):
                 with patch.object(
                     quality_checks_module.glob,
@@ -269,6 +285,10 @@ class TestQualityChecks(unittest.TestCase):
             subprocess_run.call_args.args[0],
             [
                 "/usr/bin/actionlint",
+                "-shellcheck",
+                "/usr/bin/shellcheck",
+                "-pyflakes",
+                "/usr/bin/pyflakes",
                 "-config-file",
                 ".github/actionlint.yaml",
                 ".github/workflows/ci.yml",
@@ -276,22 +296,32 @@ class TestQualityChecks(unittest.TestCase):
             ],
         )
 
-    def test_check_github_actions_fails_when_actionlint_is_missing(self):
+    def test_check_github_actions_fails_when_toolchain_is_incomplete(self):
         self.quality_checks.file_utils.get_project_root = Mock(return_value="/work")
 
-        with patch.object(quality_checks_module.shutil, "which", return_value=None):
-            with self.assertLogs("expkits_ci", level="ERROR") as logs:
-                result = self.quality_checks.check_github_actions([
-                    ".github/workflows/ci.yml",
-                ])
+        for missing in ("actionlint", "shellcheck", "pyflakes"):
+            with self.subTest(missing=missing):
+                with patch.object(
+                    quality_checks_module.shutil,
+                    "which",
+                    side_effect=lambda tool: None if tool == missing else f"/usr/bin/{tool}",
+                ):
+                    with self.assertLogs("expkits_ci", level="ERROR") as logs:
+                        result = self.quality_checks.check_github_actions([
+                            ".github/workflows/ci.yml",
+                        ])
 
-        self.assertFalse(result)
-        self.assertIn("actionlint is not available on PATH.", "\n".join(logs.output))
+                self.assertFalse(result)
+                self.assertIn(f"{missing} is not available on PATH.", "\n".join(logs.output))
 
     def test_check_github_actions_fails_when_actionlint_finds_errors(self):
         self.quality_checks.file_utils.get_project_root = Mock(return_value="/work")
 
-        with patch.object(quality_checks_module.shutil, "which", return_value="/usr/bin/actionlint"):
+        with patch.object(
+            quality_checks_module.shutil,
+            "which",
+            side_effect=lambda tool: f"/usr/bin/{tool}",
+        ):
             with patch.object(quality_checks_module.os.path, "isfile", return_value=True):
                 with patch.object(
                     quality_checks_module.subprocess,

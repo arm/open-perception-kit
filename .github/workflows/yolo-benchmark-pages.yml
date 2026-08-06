@@ -180,6 +180,7 @@ jobs:
                 "UPSTREAM_RUN_ID=" + (.id | tostring)
               ] | .[]' > "${metadata}"
             set -a
+            # shellcheck disable=SC1090
             source "${metadata}"
             set +a
             GITHUB_OUTPUT="${output}" examples/yolo-benchmark/pages/run.sh publish

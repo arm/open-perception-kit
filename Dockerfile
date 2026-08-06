@@ -99,7 +99,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   gstreamer1.0-plugins-bad gstreamer1.0-plugins-base \
   gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
   gstreamer1.0-tools gstreamer1.0-x lldb-17 pre-commit python3-pip \
-  shfmt sudo valgrind wget zip; \
+  shellcheck shfmt sudo valgrind wget zip; \
   update-ca-certificates
 
 RUN ln -sf /usr/bin/lldb-17 /usr/local/bin/lldb && \
@@ -127,7 +127,8 @@ RUN set -eux; \
   install -m 0755 actionlint /usr/local/bin/actionlint; \
   cd /; \
   rm -rf "${tmp_dir}"; \
-  actionlint -version
+  actionlint -version; \
+  shellcheck --version
 
 COPY --chmod=0755 scripts/private/install-onnxruntime.sh /usr/local/bin/install-onnxruntime
 RUN install-onnxruntime "${ONNXRUNTIME_VERSION:-}"
