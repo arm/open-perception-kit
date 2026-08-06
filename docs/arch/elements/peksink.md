@@ -67,6 +67,12 @@ threads can otherwise retain references longer than expected.
 - `static-files`: static content directory
 - `qos-enabled`: enable experimental QoS feedback from the video drain; defaults to `false`
 
+An unset `static-files` property resolves to
+`<plugin-directory>/../../web/content`. This is the same plugin-relative
+location in development and release builds. An explicit property value
+overrides the default. Element setup reports an error when the selected web
+root cannot be served.
+
 ## Architectural Caveat
 
 `peksink` currently combines media delivery, UI hosting, control, model registry,

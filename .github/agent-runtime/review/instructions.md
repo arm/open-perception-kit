@@ -43,6 +43,12 @@ Do not report:
 - pre-existing issues unless this change makes them worse, depends on them in a new way, or makes them newly user-visible
 - issues that are not actionable from the changed code
 
+Apply the repository's temporary Hugging Face credential contract from `.github/CI-README.md`: step-scoped use of the dedicated read-only `HF_TOKEN` repository secret is accepted for same-repository model-resolution and model-image build steps. Do not report the mere fact that same-repository pull-request code can use that model-read credential when the workflow still excludes forks, limits the secret to those build-time steps, and does not pass it to package publication or runtime containers. Still report broader permissions, personal-token use, missing fork guards, job-wide or runtime exposure, logging, publication-credential crossover, or any other widening of that boundary.
+
+Pull requests targeting `main` are release changes in this repository. Before the first public release, treat continued repository-workflow dependence on `secrets.HF_TOKEN` as a release blocker: the checked-in model sources must be anonymously readable and the Actions secret references removed. Do not flag optional local BuildKit-secret support for developers' own private or gated models. Git submodule deploy keys are a separate credential path and do not satisfy Hugging Face model access.
+
+Only pull requests targeting the main are expected to update the `CHANGELOG.md`, because the `scripts/release/ReleaseTool.py` only expects matching release logs for releases created automatically from main commits. In case of snapshots triggered manually for any branches this is not checked by the release tool.
+
 Use the bounded title and body returned by `get_review_context` only to help decide whether a changed behavior is intentional. Do not report a finding solely because new behavior differs from old behavior when the pull request clearly describes that behavior as intended. Intent never waives bugs, security problems, CI or release risks, broken repository contracts, regressions outside the stated scope, or missing validation for risky behavior. When the description is ambiguous or conflicts with the implementation, rely on inspected repository evidence and state only concrete, supported findings.
 
 Return only the configured structured review result. Base every finding on the repository diff, commit range, files, or workflow evidence you inspected.

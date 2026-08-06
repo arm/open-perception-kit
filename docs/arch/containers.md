@@ -81,6 +81,10 @@ contracts for each job. `pek-release-with-ut`, `pek-valgrind-check`,
 report-page jobs use their helper images. Deployment build/audit jobs use
 `pek-build-base` and `pek-deployment-base`.
 
+Containers remain the development and source deployment environment. The
+binary release archives are a separate surface: users extract the matching
+architecture package and set only its plugin directory in `GST_PLUGIN_PATH`.
+
 ## Runtime Contracts
 
 The image graph describes what each image contains. The runtime environment is

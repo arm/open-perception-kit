@@ -79,6 +79,3 @@ runtime. Treat these as constraints when extending the system.
 
 - Development and deployment still assume containers, source-tree layout, and many
   hardcoded `/work` paths.
-- Binary distribution of runtime components, model descriptors, and OpChains is
-  not ready.
-- Release-ready container images and deterministic artifacts are still needed.

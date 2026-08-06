@@ -79,6 +79,8 @@ playwright-report/
 test-results/
 
 uv.lock
+# The exact version of the tools used by the repo during the creation of the release is needed for reproducability
+!scripts/private/release-publisher/uv.lock
 # -------------------------
 # External dependencies
 # -------------------------
@@ -94,7 +96,7 @@ onnxruntime-linux-x64-*
 graphs/
 
 tools/pek-menu
-tools/libcommon.so
+tools/libpek-common.so
 
 core.*
 

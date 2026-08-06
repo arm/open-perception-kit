@@ -33,15 +33,13 @@ g++ -fPIC -shared -o libgstpeksink.so peksink.cpp \
 #include <nlohmann/json.hpp>
 
 #include <cstdlib>
+#include <dlfcn.h>
+#include <filesystem>
 #include <memory>
 #include <string>
 
 #ifndef PACKAGE
 #define PACKAGE "peksink"
-#endif
-
-#ifndef PEK_DEFAULT_STATIC_FILES_LOCATION
-#define PEK_DEFAULT_STATIC_FILES_LOCATION "./development/web/content"
 #endif
 
 /* =============================== PekSink ============================== */
@@ -99,6 +97,21 @@ static std::string default_turn_server() {
     g_free(esc_user);
     g_free(esc_cred);
     return url;
+}
+
+static gchar *default_static_files_location() {
+    static constexpr char libraryAnchor = '\0';
+    Dl_info libraryInfo{};
+    if (dladdr(&libraryAnchor, &libraryInfo) == 0 || libraryInfo.dli_fname == nullptr) {
+        return nullptr;
+    }
+
+    // Both flat development builds and release packages keep web/content two levels above the
+    // plugin.
+    const auto path = (std::filesystem::absolute(libraryInfo.dli_fname).parent_path() / ".." /
+                       ".." / "web" / "content")
+                          .lexically_normal();
+    return g_strdup(path.c_str());
 }
 
 nlohmann::json PipelineStateReporter::report() const {
@@ -626,7 +639,7 @@ static void gst_pek_sink_init(GstPekSink *self) {
 
     /* defaults */
     self->host = g_strdup("0.0.0.0");
-    self->static_files_location = g_strdup(PEK_DEFAULT_STATIC_FILES_LOCATION);
+    self->static_files_location = default_static_files_location();
     self->webrtc_stun_server = g_strdup(default_stun_server().c_str());
     self->webrtc_turn_server = g_strdup(default_turn_server().c_str());
     self->http_port = 9999;
@@ -647,7 +660,14 @@ static void gst_pek_sink_init(GstPekSink *self) {
     self->private_data->ctrl_websocket->start();
 
     self->private_data->http_server = std::make_unique<PekSinkHttpServer>(self);
-    self->private_data->http_server->start();
+    if (self->private_data->http_server->start() != PekSinkHttpServerError::OK) {
+        GST_ELEMENT_ERROR(self,
+                          RESOURCE,
+                          NOT_FOUND,
+                          ("Unable to start the HTTP server with static files from '%s'",
+                           self->static_files_location ? self->static_files_location : "(null)"),
+                          (nullptr));
+    }
 
     self->private_data->pipeline_state_reporter = std::make_shared<PipelineStateReporter>(self);
 
@@ -694,7 +714,7 @@ static void gst_pek_sink_class_init(GstPekSinkClass *klass) {
         g_param_spec_string("static-files",
                             "Static Files Location",
                             "Location of the static files for HTTP Server",
-                            PEK_DEFAULT_STATIC_FILES_LOCATION,
+                            nullptr,
                             kRW));
     g_object_class_install_property(
         gobject_class,

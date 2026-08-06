@@ -14,7 +14,7 @@ ARG TARGETARCH
 
 FROM --platform=${BUILDPLATFORM} debian:trixie-slim AS pek-build-base
 
-ARG ONNXRUNTIME_VERSION
+ARG ONNXRUNTIME_VERSION=1.24.4
 
 ENV DEBIAN_FRONTEND=noninteractive \
   LANG=C.UTF-8 \
@@ -130,7 +130,7 @@ RUN set -eux; \
   actionlint -version
 
 COPY --chmod=0755 scripts/private/install-onnxruntime.sh /usr/local/bin/install-onnxruntime
-RUN install-onnxruntime "${ONNXRUNTIME_VERSION:-}"
+RUN install-onnxruntime "${ONNXRUNTIME_VERSION}"
 
 RUN set -eux; \
   getent group "${USER_GID}" >/dev/null || groupadd --gid "${USER_GID}" "${USERNAME}"; \
@@ -294,7 +294,7 @@ RUN set -eux; \
   if [ "$(dpkg --print-architecture)" = arm64 ]; then \
     ln -s onnxruntime /opt/pek-deps/onnxruntime-arm64; \
   else \
-    install-onnxruntime "${ONNXRUNTIME_VERSION:-}" arm64 /opt/pek-deps/onnxruntime-arm64; \
+    install-onnxruntime "${ONNXRUNTIME_VERSION}" arm64 /opt/pek-deps/onnxruntime-arm64; \
   fi
 
 USER ${USERNAME}
@@ -394,7 +394,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 COPY --chmod=0755 scripts/private/install-onnxruntime.sh /usr/local/bin/install-onnxruntime
 RUN install-onnxruntime \
-  "${ONNXRUNTIME_VERSION:-}" "${TARGETARCH}" "/opt/pek-deps/onnxruntime-${TARGETARCH}"
+  "${ONNXRUNTIME_VERSION}" "${TARGETARCH}" "/opt/pek-deps/onnxruntime-${TARGETARCH}"
 
 WORKDIR /work
 COPY development/meson.build development/meson.options development/

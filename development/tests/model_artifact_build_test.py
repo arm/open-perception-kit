@@ -139,6 +139,59 @@ class ModelArtifactBuildTest(unittest.TestCase):
             ]
             self.assertEqual(rules, expected)
 
+    def test_release_workflows_resolve_models_once(self) -> None:
+        for workflow_name in ("release-tests.yml", "release-packages.yml"):
+            workflow = (
+                REPO_ROOT / ".github/workflows" / workflow_name
+            ).read_text()
+            self.assertEqual(workflow.count("Resolve pinned model artifacts"), 1)
+            self.assertEqual(workflow.count("Upload resolved models"), 1)
+            self.assertEqual(workflow.count("Download resolved models"), 2)
+            self.assertIn("HF_TOKEN: ${{ secrets.HF_TOKEN }}", workflow)
+            self.assertIn(
+                "scripts/download-models.py \\\n"
+                '            --models-dir config/models --token "$HF_TOKEN"',
+                workflow,
+            )
+
+    def test_manual_release_accepts_selected_source(self) -> None:
+        workflow = (
+            REPO_ROOT / ".github/workflows/release-packages.yml"
+        ).read_text()
+        self.assertNotIn(
+            "if: github.event_name == 'push' || github.ref == 'refs/heads/main'",
+            workflow,
+        )
+        self.assertLess(
+            workflow.index("Checkout release tooling"),
+            workflow.index("Checkout selected source"),
+        )
+        self.assertIn("path: source", workflow)
+        self.assertIn(
+            "python3 scripts/release/ReleaseTool.py prepare \\\n"
+            "            --repo-root source",
+            workflow,
+        )
+        artifactory = workflow.split("\n  artifactory:\n", 1)[1]
+        self.assertIn(
+            "needs: [prepare, smoke-x86, smoke-arm, build-docs, "
+            "github-release]",
+            artifactory,
+        )
+        for dependency in ("prepare", "smoke-x86", "smoke-arm", "build-docs"):
+            self.assertIn(
+                f"needs.{dependency}.result == 'success'", artifactory
+            )
+        self.assertIn("github.event_name == 'workflow_dispatch'", artifactory)
+        self.assertIn(
+            "needs.github-release.result == 'success'", artifactory
+        )
+        self.assertNotIn("needs.prepare.outputs.x86_archive", artifactory)
+        self.assertIn(
+            "BUILD_ID: ${{ needs.prepare.outputs.build_id }}", artifactory
+        )
+        self.assertNotIn("=~", artifactory)
+
     def test_download_cli_contract(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)

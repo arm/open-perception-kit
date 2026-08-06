@@ -13,8 +13,8 @@ BUILD_DIR="$PROJECT_ROOT/build"
 TESTS_BUILD_DIR="$PROJECT_ROOT/build-test"
 PEK_MENU=$PROJECT_ROOT/build/meson-out/pek-menu
 PEK_MENU_OUT=/work/tools/pek-menu
-COMMON_LIBRARY=$PROJECT_ROOT/build/meson-out/libcommon.so
-COMMON_LIBRARY_OUT=/work/tools/libcommon.so
+COMMON_LIBRARY=$PROJECT_ROOT/build/meson-out/libpek-common.so
+COMMON_LIBRARY_OUT=/work/tools/libpek-common.so
 EXTRA_SETUP_ARGS=()
 MESON_SETUP_ARGS=()
 MESON_CONFIGURE_ARGS=()
@@ -158,7 +158,7 @@ debug() {
         meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat -Dtests="$enable_tests" "${MESON_SETUP_ARGS[@]}"
     else
         msg "Meson configure (keeping existing build dir)…"
-        meson configure "$BUILD_DIR" "${MESON_CONFIGURE_ARGS[@]}" > /dev/null
+        meson configure "$BUILD_DIR" -Dtests="$enable_tests" "${MESON_CONFIGURE_ARGS[@]}" > /dev/null
     fi
 
     msg "Compiling.."
@@ -190,7 +190,7 @@ release() {
             "${MESON_SETUP_ARGS[@]}"
     else
         msg "Meson configure (keeping existing build dir)…"
-        meson configure "$BUILD_DIR" "${MESON_CONFIGURE_ARGS[@]}" > /dev/null
+        meson configure "$BUILD_DIR" -Dtests="$enable_tests" "${MESON_CONFIGURE_ARGS[@]}" > /dev/null
     fi
 
     msg "Compiling…"

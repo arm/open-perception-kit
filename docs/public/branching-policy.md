@@ -43,6 +43,11 @@ Use each branch type for a specific kind of work.
 
 - Changes reach `main` through pull requests only.
 - `main` should always represent the current release line.
+- Each pull request targeting `main` sets a new stable version in
+  `development/meson.build` and adds its `CHANGELOG.md` section.
+- A push to `main` publishes the x86_64, Arm, and documentation archives to one
+  immutable `v<MAJOR.MINOR.PATCH>` GitHub Release and Artifactory's `releases`
+  folder.
 
 ### `develop`
 

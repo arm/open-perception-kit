@@ -15,7 +15,7 @@ pek_menu_parser_dep = declare_dependency(
 pek_menu = executable(
   'pek-menu',
   sources: ['pek-menu.cpp'],
-  # build-elements.sh stages this executable beside libcommon.so in /work/tools.
+  # build-elements.sh stages this executable beside libpek-common.so in /work/tools.
   build_rpath: '$ORIGIN/',
   include_directories: [common_include],
   install: false,
