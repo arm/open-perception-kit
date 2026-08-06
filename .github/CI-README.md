@@ -108,13 +108,10 @@ release:
 Optional local BuildKit-secret support remains available for developers who add
 their own private or gated models; it is not a release credential dependency.
 
-The Artifactory job installs the shared `Arm-Debug/publisher` package from the
-commit pinned in `scripts/private/release-publisher/uv.lock`. PEK does not copy,
-fork, or modify the remoteproc publisher workflow.
-This lockfile is intentionally tracked so rebuilding the same PEK commit uses
-the same publisher and transitive dependency versions. After changing
-`scripts/private/release-publisher/pyproject.toml`, regenerate `uv.lock` and
-commit both files.
+The Artifactory job checks out the shared `Arm-Debug/publisher` package at the
+exact commit pinned in `release-packages.yml`, then installs it from the
+publisher repository's own tracked `uv.lock`. Update that workflow ref when a
+reviewed publisher change is adopted; PEK does not copy or fork the package.
 
 ## What does `.github/workflows/agent-review.yml` do?
 

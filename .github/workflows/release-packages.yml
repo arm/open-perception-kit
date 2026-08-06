@@ -403,21 +403,16 @@ jobs:
            needs.github-release.result == 'success') }}
     runs-on: self-hosted-ubuntu-latest-x64
     steps:
-      - name: Checkout publisher configuration
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
-
       - name: Download release packages
         uses: actions/download-artifact@v8
         with:
           pattern: pek-release-*-${{ github.run_id }}-${{ github.run_attempt }}
-          path: artifacts
+          path: ${{ runner.temp }}/pek-release-artifacts
           merge-multiple: true
 
       - name: Accept exactly three archives
         env:
+          ARTIFACTS_DIR: ${{ runner.temp }}/pek-release-artifacts
           BUILD_ID: ${{ needs.prepare.outputs.build_id }}
         run: |
           set -euo pipefail
@@ -426,9 +421,9 @@ jobs:
             "pek-$BUILD_ID-linux-aarch64.tar.gz"
             "pek-docs-$BUILD_ID.tar.gz"
           )
-          test -z "$(find artifacts -type l -print -quit)"
+          test -z "$(find "$ARTIFACTS_DIR" -type l -print -quit)"
           mapfile -d '' -t files < <(
-            find artifacts -mindepth 1 -maxdepth 1 -type f -print0 | sort -z
+            find "$ARTIFACTS_DIR" -mindepth 1 -maxdepth 1 -type f -print0 | sort -z
           )
           mapfile -d '' -t expected < <(printf '%s\0' "${expected[@]}" | sort -z)
           test "${#files[@]}" -eq 3
@@ -452,21 +447,22 @@ jobs:
           repositories: publisher
           permission-contents: read
 
+      - name: Checkout publisher
+        uses: actions/checkout@v7
+        with:
+          repository: Arm-Debug/publisher
+          ref: 4da067cbc538e72f2a76ce4473563c27aa4a8146 # pragma: allowlist secret
+          token: ${{ steps.publisher-token.outputs.token }}
+          path: publisher
+          persist-credentials: false
+
       - name: Install locked publisher
-        env:
-          PUBLISHER_TOKEN: ${{ steps.publisher-token.outputs.token }}
-          GIT_CONFIG_GLOBAL: ${{ runner.temp }}/pek-publisher.gitconfig
-        working-directory: scripts/private/release-publisher
-        run: |
-          set -euo pipefail
-          trap 'rm -f "$GIT_CONFIG_GLOBAL"' EXIT
-          git config --global url."https://x-access-token:${PUBLISHER_TOKEN}@github.com/".insteadOf \
-            "https://github.com/"
-          uv sync --frozen --no-dev
+        working-directory: publisher
+        run: uv sync --frozen --no-dev
 
       - name: Publish to Artifactory
         id: publish
-        working-directory: scripts/private/release-publisher
+        working-directory: ${{ runner.temp }}
         env:
           ARTIFACTORY_HOST: https://artifactory.arm.com
           ARTIFACTORY_USER: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
@@ -476,11 +472,13 @@ jobs:
           RELEASE_VERSION: ${{ github.event_name == 'workflow_dispatch' && 'snapshots' || format('releases/{0}', needs.prepare.outputs.version) }}
           DOWNLOAD_BASE: https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci
           SUBDIR_PATH: ${{ github.event_name == 'workflow_dispatch' && format('{0}/{1}-{2}-{3}', github.event.inputs.build_label, needs.prepare.outputs.commit, github.run_id, github.run_attempt) || '' }}
-        run: uv run --frozen --offline python -m publisher.actions.publish_to_artifactory_action "../../../artifacts/*.tar.gz"
+          TIMEOUT_SECONDS: 300
+        run: uv run --project "$GITHUB_WORKSPACE/publisher" --frozen --offline python -m publisher.actions.publish_to_artifactory_action "pek-release-artifacts/*.tar.gz"
 
       # This step is only here to make the created package easier to access
       - name: Print links and hashes
         env:
+          ARTIFACTS_DIR: ${{ runner.temp }}/pek-release-artifacts
           EVENT_NAME: ${{ github.event_name }}
           VERSION: ${{ needs.prepare.outputs.version }}
           LABEL: ${{ github.event.inputs.build_label }}
@@ -501,7 +499,7 @@ jobs:
             echo
             echo "Folder: \`$folder\`"
             echo
-            for archive in artifacts/*.tar.gz; do
+            for archive in "$ARTIFACTS_DIR"/*.tar.gz; do
               name="$(basename "$archive")"
               hash="$(sha256sum "$archive" | cut -d' ' -f1)"
               url="$base/$name"
