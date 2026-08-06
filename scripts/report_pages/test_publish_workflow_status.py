@@ -33,6 +33,96 @@ def status(conclusion: str, updated_at: str = "2026-08-03T10:00:00Z") -> dict[st
 
 
 class TestPublishWorkflowStatus(unittest.TestCase):
+    def test_maintenance_publishers_queue_serialized_deployment(self):
+        for name in ("playwright-pages.yml", "yolo-benchmark-pages.yml"):
+            workflow = (publisher.REPO_ROOT / ".github" / "workflows" / name).read_text()
+            maintenance = workflow.split("  cleanup-closed-pr-reports:", 1)[1]
+            self.assertIn("gh workflow run report-status-pages.yml", maintenance)
+            self.assertIn("github.event.repository.default_branch", maintenance)
+            self.assertIn("force_deploy=true", maintenance)
+            self.assertNotIn("actions/deploy-pages", maintenance)
+
+    def test_force_deploy_does_not_require_another_storage_commit(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            environment = {
+                "GITHUB_OUTPUT": str(Path(tmpdir) / "output.txt"),
+                "REPORT_STATUS_FORCE_DEPLOY": "1",
+            }
+            with patch.dict(os.environ, environment, clear=True), patch.object(
+                    publisher, "upstream_status", return_value=("python-audit", status("success"))
+            ), patch.object(publisher, "checkout_site_branch"), patch.object(
+                    publisher, "push_site_branch", return_value=False
+            ):
+                self.assertTrue(publisher.publish(Path(tmpdir) / "site"))
+
+            self.assertIn("deploy=true", Path(environment["GITHUB_OUTPUT"]).read_text())
+
+    def test_storage_branch_update_retries_from_scratch(self):
+        attempts = 0
+
+        def update():
+            nonlocal attempts
+            attempts += 1
+            if attempts < 3:
+                raise report_pages.StorageBranchPushError("concurrent push")
+            return "published"
+
+        self.assertEqual(report_pages.retry_storage_branch_update(update), "published")
+        self.assertEqual(attempts, 3)
+
+    def test_workflow_path_identifies_dynamic_run_name(self):
+        with patch.object(publisher, "freshness_metric", return_value=("Up to date", "fast")):
+            selected = publisher.status_from_run("Arm-Debug/amp-dev-forge", {
+                "conclusion": "success",
+                "event": "schedule",
+                "head_branch": "develop",
+                "head_repository": {"full_name": "Arm-Debug/amp-dev-forge"},
+                "head_sha": SHA,
+                "id": 123,
+                "name": "Workflow dependency freshness for develop",
+                "path": ".github/workflows/workflow-audit.yml",
+                "pull_requests": [],
+                "run_attempt": 1,
+                "updated_at": "2026-08-03T10:00:00Z",
+            })
+
+        self.assertIsNotNone(selected)
+        source, saved = selected
+        self.assertEqual(source, "workflow-freshness")
+        self.assertEqual(saved["workflow"], "Workflow Dependency Freshness")
+
+    def test_scheduled_publish_reconciles_latest_source_statuses(self):
+        python_status = status("success")
+        python_status["workflow"] = "Python Dependency Audit"
+        freshness_status = status("success")
+        freshness_status.update({
+            "run_id": "124",
+            "workflow": "Workflow Dependency Freshness",
+        })
+        with tempfile.TemporaryDirectory() as tmpdir:
+            site_dir = Path(tmpdir) / "site"
+            environment = {
+                "GITHUB_OUTPUT": str(Path(tmpdir) / "output.txt"),
+                "REPORT_STATUS_PAGES_DRY_RUN": "1",
+                "REPORT_STATUS_RECONCILE_SCHEDULED": "1",
+            }
+            with patch.dict(os.environ, environment, clear=True):
+                with patch.object(
+                        publisher, "upstream_status",
+                        return_value=("python-audit", python_status)), patch.object(
+                        publisher,
+                        "latest_scheduled_statuses",
+                        return_value=[("workflow-freshness", freshness_status)],
+                ):
+                    self.assertTrue(publisher.publish(site_dir))
+
+            self.assertTrue((
+                site_dir / "workflow-status" / "python-audit" / "nightly.json"
+            ).is_file())
+            self.assertTrue((
+                site_dir / "workflow-status" / "workflow-freshness" / "nightly.json"
+            ).is_file())
+
     def test_root_and_report_indexes_render_status_without_homepage_duplication(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             site_dir = Path(tmpdir)
@@ -52,17 +142,21 @@ class TestPublishWorkflowStatus(unittest.TestCase):
             fixtures["docker-scout"].update({
                 "metric": "10 critical · 160 high",
                 "metric_tone": "slow",
+                "details": [
+                    "pek-ci: 3 critical · 56 high",
+                    "pek-dev: 3 critical · 59 high",
+                ],
             })
             fixtures["workflow-freshness"].update({"metric": "1 behind", "metric_tone": "neutral"})
             fixtures["valgrind"].update({
-                "event": "push",
-                "metric": "18 repo-owned baseline",
+                "metric": "140 baseline records",
+                "workflow": "Valgrind Baseline Artifact",
             })
             for source, payload in fixtures.items():
                 target = (
                     status_dir / f"{source}.json"
                     if source == "workflow-freshness"
-                    else status_dir / source / ("develop.json" if source == "valgrind" else "nightly.json")
+                    else status_dir / source / "nightly.json"
                 )
                 target.parent.mkdir(exist_ok=True)
                 target.write_text(json.dumps(payload), encoding="utf-8")
@@ -72,6 +166,7 @@ class TestPublishWorkflowStatus(unittest.TestCase):
             nightly = (site_dir / "nightly-ci" / "index.html").read_text(encoding="utf-8")
             nightly_css = (site_dir / "nightly-ci" / "report-index.css").read_text(encoding="utf-8")
             python_audit = (site_dir / "python-audit" / "index.html").read_text(encoding="utf-8")
+            docker_scout = (site_dir / "docker-scout" / "index.html").read_text(encoding="utf-8")
             valgrind = (site_dir / "valgrind" / "index.html").read_text(encoding="utf-8")
 
         for label in ("Passed", "1/2 failed", "10 critical · 160 high", "Stale"):
@@ -83,13 +178,15 @@ class TestPublishWorkflowStatus(unittest.TestCase):
         self.assertEqual(index.count('<section class="nightly-status">'), 2)
         self.assertIn("3 need attention", index)
         for metric in ("1/2 failed", "10 critical · 160 high", "1 behind",
-                       "18 repo-owned baseline"):
+                       "140 baseline records"):
             self.assertIn(metric, index)
         self.assertIn("Aug 03, 2026 10:00 UTC", python_audit)
         self.assertIn("/actions/runs/123", python_audit)
         self.assertIn("pip-audit &lt;expkits-ci&gt;: Run pip-audit", python_audit)
-        self.assertIn("<h2>Develop</h2>", valgrind)
-        self.assertNotIn("Repository-owned Valgrind baseline", valgrind)
+        self.assertIn("pek-ci: 3 critical · 56 high", docker_scout)
+        self.assertNotIn("pek-ci: 3 critical · 56 high", nightly)
+        self.assertIn("<h2>Nightly</h2>", valgrind)
+        self.assertIn(">Job summary</a>", valgrind)
 
     def test_publish_persists_develop_schedule_and_pull_request(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -143,17 +240,10 @@ class TestPublishWorkflowStatus(unittest.TestCase):
                 "UPSTREAM_WORKFLOW_NAME": "Valgrind Baseline Artifact",
             })
             with patch.dict(os.environ, environment, clear=True), \
-                    patch.object(publisher, "workflow_jobs", return_value=[]), \
-                    patch.object(
-                        publisher,
-                        "valgrind_metric",
-                        return_value=("18 repo-owned baseline", "neutral"),
-            ):
-                self.assertTrue(publisher.publish(root / "valgrind-site"))
-            valgrind_status = (
-                root / "valgrind-site" / "workflow-status" / "valgrind" / "develop.json"
-            )
-            self.assertTrue(valgrind_status.is_file())
+                    patch.object(publisher, "valgrind_metric") as valgrind_metric:
+                self.assertFalse(publisher.publish(root / "valgrind-site"))
+            valgrind_metric.assert_not_called()
+            self.assertFalse((root / "valgrind-site").exists())
 
     def test_status_publish_migrates_legacy_playwright_root(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -253,47 +343,29 @@ class TestPublishWorkflowStatus(unittest.TestCase):
         summary = publisher.job_summary([], "cancelled")
         self.assertEqual(summary, ["Run cancelled before all jobs completed."])
 
-    def test_valgrind_develop_status_uses_baseline_artifact_lifetime(self):
-        valgrind = status("success", "2026-08-01T00:00:00Z")
-        valgrind.update({
-            "event": "push",
-            "workflow": "Valgrind Baseline Artifact",
-            "metric": "18 repo-owned baseline",
-            "metric_tone": "neutral",
-        })
-
-        self.assertEqual(
-            report_pages.workflow_status_badge(status("success", "2026-08-01T00:00:00Z"), NOW),
-            ("neutral", "Stale"),
-        )
-        self.assertEqual(
-            report_pages.workflow_status_badge(valgrind, NOW),
-            ("neutral", "18 repo-owned baseline"),
-        )
-
     def test_workflow_metrics_use_job_counts_and_valgrind_comparison(self):
         jobs = [{"conclusion": "failure"}, {"conclusion": "success"}]
         self.assertEqual(
             publisher.workflow_metric("python-audit", "schedule", "failure", jobs, "repo", "1"),
-            ("1/2 failed", ""),
+            ("1/2 failed", "", []),
         )
-        with patch.object(publisher, "docker_scout_metric", return_value=("", "")):
+        with patch.object(publisher, "docker_scout_metric", return_value=("", "", [])):
             self.assertEqual(
                 publisher.workflow_metric(
                     "docker-scout", "schedule", "failure", jobs, "repo", "1"
                 ),
-                ("1/2 incomplete", ""),
+                ("1/2 incomplete", "", []),
             )
         self.assertEqual(
             publisher.workflow_metric("valgrind", "pull_request", "success", [], "repo", "1"),
-            ("0 new errors", "fast"),
+            ("0 new errors", "fast", []),
         )
         for source in ("python-audit", "docker-scout"):
             self.assertEqual(
                 publisher.workflow_metric(
                     source, "schedule", "cancelled", [{"conclusion": "cancelled"}], "repo", "1"
                 ),
-                ("", ""),
+                ("", "", []),
             )
 
     def test_docker_scout_metric_aggregates_explicit_producer_counts(self):
@@ -305,6 +377,7 @@ class TestPublishWorkflowStatus(unittest.TestCase):
             )):
                 path = Path(tmpdir) / f"report-{index}.json"
                 path.write_text(json.dumps({
+                    "service": f"image-{index}",
                     "sarif_present": True,
                     "severity_counts": counts,
                 }), encoding="utf-8")
@@ -312,23 +385,27 @@ class TestPublishWorkflowStatus(unittest.TestCase):
 
             self.assertEqual(
                 publisher.docker_scout_report_metric(reports, expected_reports=2),
-                ("3 critical · 66 high", "slow"),
+                (
+                    "3 critical · 66 high",
+                    "slow",
+                    ["image-0: 1 critical · 14 high", "image-1: 2 critical · 52 high"],
+                ),
             )
             self.assertEqual(
                 publisher.docker_scout_report_metric(reports, expected_reports=3),
-                ("", ""),
+                ("", "", []),
             )
 
     def test_valgrind_metric_reads_explicit_producer_value(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             report = Path(tmpdir) / "report.xml"
             report.write_text(
-                '<valgrindoutput repo_owned_errors="18"/>', encoding="utf-8"
+                '<valgrindoutput collected_errors="140"/>', encoding="utf-8"
             )
 
             self.assertEqual(
                 publisher.valgrind_report_metric(report),
-                ("18 repo-owned baseline", "neutral"),
+                ("140 baseline records", "neutral"),
             )
 
 

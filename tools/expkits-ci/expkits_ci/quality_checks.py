@@ -205,7 +205,17 @@ class QualityChecks:
             logger.error("actionlint is not available on PATH.")
             return False
 
-        cmd = [actionlint]
+        shellcheck = shutil.which("shellcheck")
+        if not shellcheck:
+            logger.error("shellcheck is not available on PATH.")
+            return False
+
+        pyflakes = shutil.which("pyflakes")
+        if not pyflakes:
+            logger.error("pyflakes is not available on PATH.")
+            return False
+
+        cmd = [actionlint, "-shellcheck", shellcheck, "-pyflakes", pyflakes]
         config_file = ".github/actionlint.yaml"
         if os.path.isfile(os.path.join(project_root, config_file)):
             cmd.extend(["-config-file", config_file])

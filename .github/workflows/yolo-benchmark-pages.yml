@@ -23,10 +23,12 @@ permissions:
 concurrency:
   group: >-
     report-pages${{
-      github.event_name == 'workflow_run' &&
-      !contains(fromJSON('["success", "failure"]'), github.event.workflow_run.conclusion) &&
-      format('-{0}', github.run_id) ||
-      ''
+      github.event_name != 'workflow_run' && '-maintenance' ||
+      (
+        !contains(fromJSON('["success", "failure"]'), github.event.workflow_run.conclusion) &&
+        format('-{0}', github.run_id) ||
+        ''
+      )
     }}
   cancel-in-progress: false
 
@@ -139,14 +141,15 @@ jobs:
         uses: actions/deploy-pages@v5
 
   cleanup-closed-pr-reports:
-    name: Clean closed YOLO benchmark PR reports
+    name: Reconcile nightly and clean closed YOLO benchmark PR reports
     if: |
       github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' && inputs.upstream_run_id == '')
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: read
     steps:
       - name: Checkout publisher
         uses: actions/checkout@v7
@@ -154,47 +157,63 @@ jobs:
       - name: Run publisher unit tests
         run: python3 -m unittest examples/yolo-benchmark/pages/test_publish_yolo_benchmark_pages.py
 
+      - name: Reconcile latest scheduled YOLO reports
+        id: nightly
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          changed=false
+          for workflow in yolo-benchmark.yml yolo-imageset-benchmark.yml; do
+            metadata="${RUNNER_TEMP}/${workflow}.env"
+            output="${RUNNER_TEMP}/${workflow}.out"
+            gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow}/runs?event=schedule&branch=develop&status=completed&per_page=1" \
+              --jq '.workflow_runs[0] | [
+                "UPSTREAM_CONCLUSION=" + (.conclusion // ""),
+                "UPSTREAM_EVENT=" + (.event // ""),
+                "UPSTREAM_HEAD_BRANCH=" + (.head_branch // ""),
+                "UPSTREAM_HEAD_REPOSITORY=" + (.head_repository.full_name // ""),
+                "UPSTREAM_HEAD_SHA=" + (.head_sha // ""),
+                "UPSTREAM_PR_NUMBER=",
+                "UPSTREAM_RUN_ATTEMPT=" + (.run_attempt | tostring),
+                "UPSTREAM_RUN_ID=" + (.id | tostring)
+              ] | .[]' > "${metadata}"
+            set -a
+            # shellcheck disable=SC1090
+            source "${metadata}"
+            set +a
+            GITHUB_OUTPUT="${output}" examples/yolo-benchmark/pages/run.sh publish
+            if grep -qx 'deploy=true' "${output}"; then
+              changed=true
+            fi
+          done
+          echo "deploy=${changed}" >> "${GITHUB_OUTPUT}"
+
       - name: Remove old closed PR reports
-        id: pages
+        id: cleanup
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: examples/yolo-benchmark/pages/run.sh cleanup
 
-      - name: Cache YOLO performance dataset
-        if: steps.pages.outputs.deploy == 'true'
-        uses: actions/cache@v6
-        with:
-          path: _yolo_performance_dataset_cache
-          key: yolo-performance-datasets-coco-val2017-4f7e2ccb2866ec5041993c9cf2a952bbed69647b115d0f74da7ce8f4bef82f05
-
-      - name: Restore YOLO dataset overlay
-        if: steps.pages.outputs.deploy == 'true'
+      - name: Select Pages deployment
+        id: pages
+        env:
+          CLEANUP_CHANGED: ${{ steps.cleanup.outputs.deploy }}
+          NIGHTLY_CHANGED: ${{ steps.nightly.outputs.deploy }}
         run: |
-          python3 examples/yolo-benchmark/pages/restore_dataset_overlay.py \
-            --site-dir _yolo_benchmark_pages_site \
-            --cache-dir _yolo_performance_dataset_cache
+          if [[ "${CLEANUP_CHANGED}" == "true" || "${NIGHTLY_CHANGED}" == "true" ]]; then
+            echo "deploy=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "deploy=false" >> "${GITHUB_OUTPUT}"
+          fi
 
-      - name: Restore deploy-only report videos
+      - name: Queue serialized Pages deployment
         if: steps.pages.outputs.deploy == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          PUBLISHER_REF: ${{ github.event.repository.default_branch }}
         run: |
-          python3 examples/yolo-benchmark/pages/publish_yolo_benchmark_pages.py \
-            restore-latest _yolo_benchmark_pages_site
-          python3 scripts/playwright/pages/publish_playwright_pages.py \
-            restore-videos _yolo_benchmark_pages_site
-
-      - name: Configure Pages
-        if: steps.pages.outputs.deploy == 'true'
-        uses: actions/configure-pages@v6
-
-      - name: Upload Pages artifact
-        if: steps.pages.outputs.deploy == 'true'
-        uses: actions/upload-pages-artifact@v5
-        with:
-          path: _yolo_benchmark_pages_site
-
-      - name: Deploy Pages
-        if: steps.pages.outputs.deploy == 'true'
-        id: deployment
-        uses: actions/deploy-pages@v5
+          upstream_run_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/pek-ci.yml/runs?event=schedule&branch=develop&status=completed&per_page=1" --jq '.workflow_runs[0].id')"
+          gh workflow run report-status-pages.yml --ref "${PUBLISHER_REF}" \
+            -f "upstream_run_id=${upstream_run_id}" -f force_deploy=true

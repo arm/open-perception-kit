@@ -73,6 +73,9 @@ class WebRtcWebSocket {
 
     bool link_per_client_elements(SessionContext *ctx);
 
+    static void on_answer_created(GstPromise *promise, gpointer user_data);
+    static void on_set_remote_description(GstPromise *promise, gpointer user_data);
+
     void process_offer(const std::shared_ptr<SessionContext> &ctx, const nlohmann::json &jsn);
     void process_canditate(const std::shared_ptr<SessionContext> &ctx, const nlohmann::json &jsn);
 
