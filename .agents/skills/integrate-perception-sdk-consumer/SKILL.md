@@ -1,6 +1,6 @@
 ---
 name: integrate-perception-sdk-consumer
-description: Integrate external C++ or Python applications with a released Perception SDK and serialized FrameResults packets. Use for consumer-side proof of concepts, Plumber-like decoders, Cairn adapters, CMake or Meson integration, Python installation, producer identity and compatibility checks, payload routing, or SDK upgrade work. Do not use this skill to modify schemas, regenerate checked-in SDK sources, or create release bundles.
+description: Integrate external C++, Python, or TypeScript applications with a released Perception SDK and serialized FrameResults packets. Use for consumer-side proof of concepts, Plumber-like decoders, browser clients, Cairn adapters, build integration, package installation, producer identity and compatibility checks, payload routing, or SDK upgrade work. Do not use this skill to modify schemas, regenerate checked-in SDK sources, or create release bundles.
 ---
 
 # Integrate Perception SDK Consumer
@@ -88,6 +88,14 @@ Construct `perception::container::envelope` from packet bytes, require
 generated payload types. The `perception::FrameResults` name used inside OPK is
 an internal convenience alias and is not the external SDK contract.
 
+## Integrate TypeScript Consumers
+
+Install the Perception and FlatBuffers npm-compatible tarballs from the release
+bundle. Import `Envelope` and generated payload classes from `perception`,
+require a valid envelope and exact producer identity, then iterate typed payloads
+with `for_each(TypeT)`. Browser applications should bundle the SDK and runtime
+rather than serving unresolved npm imports directly.
+
 ## Apply Compatibility Policy
 
 Use producer identity as the default typed-access gate:
@@ -144,6 +152,7 @@ Add focused tests for:
 - unknown-payload preservation when the application acts as a relay
 - CMake or Meson configuration against the extracted C++ tree
 - Python installation from the bundle without network access
+- TypeScript installation from the bundle without registry access
 
 Use captured packets or deterministic fixtures from the producer release. Do
 not generate test packets with a different SDK version and call them compatible.

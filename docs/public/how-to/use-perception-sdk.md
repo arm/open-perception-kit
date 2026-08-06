@@ -1,13 +1,13 @@
 ---
 title: Build and use the Perception SDK bundle
 sidebar_label: Perception SDK bundle
-description: Build a reproducible Perception C++ and Python SDK archive and integrate it into an application.
+description: Build a reproducible Perception C++, Python, and TypeScript SDK archive and integrate it into an application.
 ---
 
 # Build and use the Perception SDK bundle
 
-The release bundle contains the generated C++ SDK, an installable Perception
-Python wheel, the matching FlatBuffers Python wheel, the source schemas, and a
+The release bundle contains the generated C++ SDK, installable Python and
+TypeScript packages, matching FlatBuffers runtimes, the source schemas, and a
 manifest describing every file and compatibility requirement.
 
 This is the release-packaging workflow. During implementation, use
@@ -42,8 +42,8 @@ with `--expect-version MAJOR.MINOR.PATCH`.
 Repository paths are also defined only in `tools/perception/sdk.json`; all SDK
 tools consume them through `tools/perception/sdk_config.py`.
 
-For an offline build, place the locked FlatBuffers and Python build-tool wheels
-in one directory:
+For an offline build, place the locked FlatBuffers runtime packages and Python
+build-tool wheels in one directory:
 
 ```bash
 ./scripts/perception-sdk.sh package \
@@ -71,6 +71,25 @@ information for guest scripts without importing the live bridge.
 `perception.guest` intentionally raises an import error in a normal Python
 process. It becomes available only when a C++ host registers the generated
 `perception_bridge` module before starting Python.
+
+## Install the TypeScript SDK
+
+Install both npm-compatible tarballs directly from the extracted bundle:
+
+```bash
+npm install \
+  ./typescript/flatbuffers-25.9.23.tgz \
+  ./typescript/perception-<sdk-version>.tgz
+```
+
+Import `Envelope`, `ProducerIdentityStatus`, and generated payload classes from
+the `perception` package. Require `Envelope.valid()` and an `exact_match`
+producer identity before typed access. The package contains compiled ES modules,
+TypeScript declarations, and generated sources; consumers do not regenerate it.
+
+The embedded `peksink` WebUI bundles this same generated SDK with its authored
+browser modules. Use `./scripts/peksink-web.sh check` to verify the committed
+browser asset after SDK or WebUI changes.
 
 ## Integrate the C++ SDK
 

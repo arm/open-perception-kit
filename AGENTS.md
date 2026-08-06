@@ -95,7 +95,7 @@ Useful checked-in examples:
 Use the repository skill `$evolve-perception-schema` for compatibility
 classification, authored schema changes, and runtime integration. Then use
 `$regenerate-perception-sdk` to update and validate the checked-in generated
-C++ and Python SDK snapshot.
+C++, Python, and TypeScript SDK snapshot.
 
 Start in:
 
@@ -106,7 +106,8 @@ Start in:
 - `scripts/perception-sdk.sh`
 
 Add persistent result shapes to the Perception schema, then regenerate the checked-in
-C++ and Python SDKs through the container workflow with `./scripts/perception-sdk.sh generate`.
+C++, Python, and TypeScript SDKs through the container workflow with
+`./scripts/perception-sdk.sh generate`.
 Do not recreate hand-written `Perception` containers or serializers. Continue into
 parser, visualization, tracking, or publishing code only if the new schema payload
 needs runtime support.

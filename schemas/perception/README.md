@@ -1,7 +1,7 @@
 # Perception Schema Evolution Workflow
 
 This directory contains the FlatBuffers schemas used to generate the Perception
-C++ and Python SDKs. This document defines how to add or evolve schemas, choose
+C++, Python, and TypeScript SDKs. This document defines how to add or evolve schemas, choose
 versions, evaluate compatibility, regenerate the SDKs, and validate a change.
 
 ## Sources of Truth
@@ -10,7 +10,7 @@ versions, evaluate compatibility, regenerate the SDKs, and validate a change.
 - `tools/perception/sdk.json` owns the SDK name, SDK semantic version, schema and
   output paths, FlowData generator location, exact FlatBuffers version, and
   release-tool checksums.
-- `generated/perception/` contains derived C++ and Python SDK output.
+- `generated/perception/` contains derived C++, Python, and TypeScript SDK output.
 - `generated/perception/perception-sdk-manifest.json` is the generation receipt.
 - `scripts/perception-sdk.sh` is the supported command surface for generation,
   drift checking, packaging, verification, and development installation.
@@ -25,7 +25,7 @@ Perception SDK work has three separate concerns:
 1. Use `$evolve-perception-schema` to design or change authored schemas, assess
    compatibility, choose the SDK version, and update runtime semantics.
 2. Use `$regenerate-perception-sdk` during implementation to materialize and
-   validate the tracked C++ and Python SDK snapshot. Commit these generated
+   validate the tracked C++, Python, and TypeScript SDK snapshot. Commit these generated
    files normally with their authored inputs.
 3. Use `$package-perception-sdk-release` only from a committed release snapshot
    to create and verify the distributable ZIP and sidecars. Packaging never
@@ -45,7 +45,7 @@ Compatibility has three distinct layers:
    ID from the qualified root type, four-character file identifier, and the
    content of the root schema and all its dependencies. Any relevant schema
    change therefore produces a new numeric payload ID.
-3. **SDK API compatibility** covers generated C++ and Python names, fields,
+3. **SDK API compatibility** covers generated C++, Python, and TypeScript names, fields,
    types, build requirements, and runtime semantics.
 
 An additive FlatBuffers change may be wire-compatible while still producing a
@@ -140,7 +140,7 @@ and test it as a schema-set-wide change.
    ./scripts/perception-sdk.sh generate
    ```
 
-8. Review the generated C++ and Python API, payload IDs, schema-set digest, and
+8. Review the generated C++, Python, and TypeScript API, payload IDs, schema-set digest, and
    manifest diff. Do not review only the `.fbs` file.
 9. Add the required producer and consumer support. Common integration points are
    `development/ops-std/postproc/`, `development/elements/pekosd/`, tracker or
@@ -229,9 +229,10 @@ After the complete authored and generated snapshot is committed, hand off to
 ```
 
 The package must contain the schemas, generated C++ SDK, generated Python wheel,
-FlatBuffers Python wheel, build integrations, release manifest, provenance, and
-checksum sidecars. Use the project's pre-release package repository or release
-channel for review candidates; do not weaken manifest or checksum validation.
+generated TypeScript npm package, matching FlatBuffers Python and TypeScript
+runtimes, build integrations, release manifest, provenance, and checksum
+sidecars. Use the project's pre-release package repository or release channel
+for review candidates; do not weaken manifest or checksum validation.
 
 ## Review Checklist
 
@@ -239,7 +240,7 @@ channel for review candidates; do not weaken manifest or checksum validation.
 - The SDK version matches the API and semantic impact.
 - Every root has one unique `file_identifier` and stable root identity.
 - Shared-schema impact has been reviewed across all dependent roots.
-- Generated C++ and Python outputs and manifests were regenerated, not edited.
+- Generated C++, Python, and TypeScript outputs and manifests were regenerated, not edited.
 - Runtime producers and consumers use the generated types.
 - Compatibility expectations and migration behavior are covered by tests.
 - `check`, release tests, affected builds, and affected runtime tests pass from

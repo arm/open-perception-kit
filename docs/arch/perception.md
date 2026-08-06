@@ -18,7 +18,7 @@ runtime result envelope.
 
 The canonical schema and generated output directories are declared in
 `tools/perception/sdk.json`. Run `./scripts/perception-sdk.sh generate` to
-regenerate the checked-in C++ and Python SDKs; use
+regenerate the checked-in C++, Python, and TypeScript SDKs; use
 `./scripts/perception-sdk.sh check` in CI to detect drift.
 
 Development generation and release packaging are intentionally separate.
@@ -112,3 +112,6 @@ At application boundaries, the generated wire envelope is serialized as bytes.
 `pekcomm` publishes those bytes in the `frame_results_packet_b64` field with the
 `perception-frame-results+base64` encoding marker. External consumers must use a
 compatible released Perception SDK to decode and access the typed payloads.
+The embedded `peksink` WebUI uses the generated TypeScript SDK at this boundary;
+it validates producer identity and converts typed payloads into its established
+OSD and output-panel presentation model.
