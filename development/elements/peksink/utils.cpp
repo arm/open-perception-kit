@@ -193,8 +193,7 @@ void remove_pad_if_present(GstElement *elem, GstPad **ppad) {
     *ppad = nullptr;
 }
 
-bool set_state_elements_many(GstState state,
-                             std::initializer_list<GstElement *> elems) noexcept {
+bool set_state_elements_many(GstState state, std::initializer_list<GstElement *> elems) noexcept {
     bool ok = true;
     for (GstElement *e : elems) {
         if (!e)

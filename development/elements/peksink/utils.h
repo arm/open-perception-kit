@@ -20,7 +20,6 @@ void dump_pipeline_graph(GstElement *element, const std::string &file_name);
 void release_request_pad_and_unref(GstElement *elem, GstPad **ppad) noexcept;
 void remove_pad_if_present(GstElement *elem, GstPad **ppad);
 
-bool set_state_elements_many(GstState state,
-                             std::initializer_list<GstElement *> elems) noexcept;
+bool set_state_elements_many(GstState state, std::initializer_list<GstElement *> elems) noexcept;
 
 #endif // !__UTILS_H__

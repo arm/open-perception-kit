@@ -255,12 +255,10 @@ class QualityChecks:
             logger.error(f"Could not get current branch name. {e}")
             return False
 
-        jira_pattern = r"^feature/(%s)-\d+(?:/.+)?$" % "|".join(
+        jira_pattern = r"^(?:feature|bugfix|hotfix|release)/(%s)-\d+(?:[-/].+)?$" % "|".join(
             QualityChecks.JIRA_PROJECTS)
         result = False
-        # main branch -> should not be used for development
-        # feature branch: feature/PROJECT-1234[/something-something]
-        if re.match(jira_pattern, branch) or (branch == "main"):
+        if re.match(jira_pattern, branch) or branch in ("main", "develop"):
             result = True
         # automated and sandbox branches
         elif branch.startswith(("dependabot/", "sandbox/")):
@@ -270,8 +268,7 @@ class QualityChecks:
             logger.error(f"Invalid branch name: \"{branch}\"")
             logger.info("Valid formats:")
             for proj in QualityChecks.JIRA_PROJECTS:
-                logger.info(f"  feature/{proj}-1234")
-                logger.info(f"  feature/{proj}-1234/ticket-description")
+                logger.info(f"  <feature|bugfix|hotfix|release>/{proj}-1234[/ticket-description]")
             logger.info("  sandbox/whatever")
             logger.info(
                 "In case of different JIRA project, please update the JIRA_PROJECTS array.")
@@ -490,9 +487,9 @@ class QualityChecks:
     def check_commit_messages_on_ci(files=None, target_branch=None) -> bool:
         """Check all commit messages on the current branch that are not on target_branch.
 
-        When target_branch is provided the set of commits checked is
-        those reachable from HEAD but not from the merge-base with target_branch,
-        i.e. exactly the commits introduced by the current branch/PR.
+        When target_branch is provided the set of commits checked is those
+        introduced after its merge base. Main-bound release branches exclude
+        commits already accepted on develop.
         When target_branch is omitted, only HEAD is checked.
         """
         logger.info("Checking commit message format...")
@@ -518,12 +515,24 @@ class QualityChecks:
                     target_commit = repo.commit(target_branch)
                     logger.info(f"Resolved target branch as '{target_branch}'")
 
+                validation_ref = remote_ref
+                if target_branch == "main":
+                    try:
+                        develop_commit = repo.commit("origin/develop")
+                        develop_base = repo.merge_base(repo.head.commit, develop_commit)
+                        if develop_base and develop_base[0].hexsha == develop_commit.hexsha:
+                            target_commit = develop_commit
+                            validation_ref = "origin/develop"
+                    except (GitCommandError, Exception):
+                        pass
+
                 merge_base_list = repo.merge_base(repo.head.commit, target_commit)
                 if not merge_base_list:
-                    logger.error(f"Could not find merge base between HEAD and '{target_branch}'.")
+                    logger.error(f"Could not find merge base between HEAD and '{validation_ref}'.")
                     return False
                 merge_base = merge_base_list[0]
-                logger.info(f"Checking commits between merge base {merge_base.hexsha[:8]} and HEAD")
+                logger.info(
+                    f"Checking commits after {validation_ref} merge base {merge_base.hexsha[:8]}")
                 for commit in repo.iter_commits(f"{merge_base.hexsha}..HEAD"):
                     commits.append(commit)
             except GitCommandError as e:
