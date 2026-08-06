@@ -150,6 +150,7 @@ test(
   python,
   args : [files('pek_menu_cli_test.py'), pek_menu.full_path()],
   depends : pek_menu,
+  is_parallel : false,
 )
 test(
   'model_artifact_build_tests',
