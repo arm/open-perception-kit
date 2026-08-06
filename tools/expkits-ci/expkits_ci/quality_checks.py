@@ -488,8 +488,9 @@ class QualityChecks:
         """Check all commit messages on the current branch that are not on target_branch.
 
         When target_branch is provided the set of commits checked is those
-        introduced after its merge base. Main-bound release branches exclude
-        commits already accepted on develop.
+        introduced after its merge base. For main and develop targets, prefer
+        the other protected branch only when its merge base is newer; otherwise
+        use the target branch.
         When target_branch is omitted, only HEAD is checked.
         """
         logger.info("Checking commit message format...")
@@ -516,21 +517,33 @@ class QualityChecks:
                     logger.info(f"Resolved target branch as '{target_branch}'")
 
                 validation_ref = remote_ref
-                if target_branch == "main":
-                    try:
-                        develop_commit = repo.commit("origin/develop")
-                        develop_base = repo.merge_base(repo.head.commit, develop_commit)
-                        if develop_base and develop_base[0].hexsha == develop_commit.hexsha:
-                            target_commit = develop_commit
-                            validation_ref = "origin/develop"
-                    except (GitCommandError, Exception):
-                        pass
-
                 merge_base_list = repo.merge_base(repo.head.commit, target_commit)
                 if not merge_base_list:
                     logger.error(f"Could not find merge base between HEAD and '{validation_ref}'.")
                     return False
                 merge_base = merge_base_list[0]
+
+                if target_branch in ("main", "develop"):
+                    alternate_branch = "develop" if target_branch == "main" else "main"
+                    alternate_ref = f"origin/{alternate_branch}"
+                    try:
+                        repo.git.fetch(
+                            "origin",
+                            f"+refs/heads/{alternate_branch}:refs/remotes/{alternate_ref}",
+                        )
+                        alternate_commit = repo.commit(alternate_ref)
+                        alternate_base_list = repo.merge_base(repo.head.commit, alternate_commit)
+                        if not alternate_base_list:
+                            logger.warning(
+                                f"No merge base found for {alternate_ref}; using {validation_ref}")
+                        elif (alternate_base_list[0].hexsha != merge_base.hexsha
+                              and repo.is_ancestor(merge_base, alternate_base_list[0])):
+                            merge_base = alternate_base_list[0]
+                            validation_ref = alternate_ref
+                    except Exception as exc:
+                        logger.warning(
+                            f"Could not compare against {alternate_ref}; using {validation_ref}: {exc}")
+
                 logger.info(
                     f"Checking commits after {validation_ref} merge base {merge_base.hexsha[:8]}")
                 for commit in repo.iter_commits(f"{merge_base.hexsha}..HEAD"):
