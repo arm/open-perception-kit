@@ -110,6 +110,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   update-ca-certificates
 
 RUN npm install --global --ignore-scripts \
+  esbuild-wasm@0.25.8 \
   flatbuffers@25.9.23 \
   typescript@5.9.2
 

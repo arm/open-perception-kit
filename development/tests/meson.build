@@ -300,8 +300,9 @@ if node.found()
     node,
     args : [
       '--test',
-      meson.project_source_root() / 'web/content/webrtc_client.test.mjs',
-      meson.project_source_root() / 'web/content/webrtc_config.test.mjs',
+      meson.project_source_root() / 'web/tests/osd-renderer.test.mjs',
+      meson.project_source_root() / 'web/tests/webrtc_client.test.mjs',
+      meson.project_source_root() / 'web/tests/webrtc_config.test.mjs',
     ],
   )
 endif

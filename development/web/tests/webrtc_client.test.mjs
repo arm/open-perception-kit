@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {createWebRtcClient} from './webrtc_client.js';
+import {createWebRtcClient} from '../src/webrtc_client.js';
 
 test('frame heartbeat keeps the session alive', async () => {
     const env = createEnv();

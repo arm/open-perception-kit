@@ -202,12 +202,6 @@ if release_package
     'web/content',
     install_dir : 'web/content',
     strip_directory : true,
-    exclude_files : [
-      'package.json',
-      'osd-renderer.test.mjs',
-      'webrtc_client.test.mjs',
-      'webrtc_config.test.mjs',
-    ],
   )
   install_data(
     meson.project_source_root() / '../metadata/api/perception.schema.json',

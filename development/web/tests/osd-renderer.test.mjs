@@ -7,7 +7,7 @@ import {
   createCoordinateMapper,
   findParentRect,
   findVideoFrame,
-} from "./osd-renderer.js";
+} from "../src/osd-renderer.js";
 
 test("video frame metadata is preferred when present", () => {
   const perception = {

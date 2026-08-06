@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {resolveWebRtcIceConfig, resolveWebRtcTimingConfig} from './webrtc_config.js';
+import {resolveWebRtcIceConfig, resolveWebRtcTimingConfig} from '../src/webrtc_config.js';
 
 test('explicit zero timing config is preserved', () => {
     assert.deepEqual(resolveWebRtcTimingConfig({
