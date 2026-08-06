@@ -451,7 +451,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: Arm-Debug/publisher
-          ref: 4da067cbc538e72f2a76ce4473563c27aa4a8146 # pragma: allowlist secret
+          ref: cd16aa5aa6771b32d62466c974f0f2526d000013 # pragma: allowlist secret
           token: ${{ steps.publisher-token.outputs.token }}
           path: publisher
           persist-credentials: false
