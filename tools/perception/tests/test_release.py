@@ -222,6 +222,29 @@ class SingleSourceContractTests(unittest.TestCase):
 
 
 class BundleVerificationTests(unittest.TestCase):
+    def create_npm_package(
+        self,
+        root: Path,
+        destination: Path,
+        name: str,
+        version: str,
+        dependencies: dict[str, str] | None = None,
+    ) -> None:
+        source = root / f"{name}-npm-source"
+        (source / "dist" / name).mkdir(parents=True)
+        (source / "src" / name).mkdir(parents=True)
+        (source / "dist" / name / "index.js").write_text("export {};\n", encoding="utf-8")
+        (source / "src" / name / "index.ts").write_text("export {};\n", encoding="utf-8")
+        (source / "package.json").write_text(
+            json.dumps({
+                "name": name,
+                "version": version,
+                "dependencies": dependencies or {},
+            }),
+            encoding="utf-8",
+        )
+        release_package.write_deterministic_npm_package(source, destination)
+
     def create_wheel(
         self,
         path: Path,
@@ -266,9 +289,24 @@ class BundleVerificationTests(unittest.TestCase):
             "1.2.3",
             ["flatbuffers>=24.3.25,<26.0.0"],
         )
+        self.create_npm_package(
+            root,
+            bundle / "typescript/flatbuffers-25.9.23.tgz",
+            "flatbuffers",
+            "25.9.23",
+        )
+        self.create_npm_package(
+            root,
+            bundle / "typescript/perception-1.2.3.tgz",
+            "perception",
+            "1.2.3",
+            {"flatbuffers": "25.9.23"},
+        )
         files.update({
             "python/flatbuffers.whl": b"",
             "python/perception.whl": b"",
+            "typescript/flatbuffers-25.9.23.tgz": b"",
+            "typescript/perception-1.2.3.tgz": b"",
         })
         schema_root = bundle / "schemas"
         schema_files = release_package.perception_generate._schema_records(schema_root)
@@ -313,7 +351,15 @@ class BundleVerificationTests(unittest.TestCase):
                     "sha256": digest(bundle / "python/flatbuffers.whl"),
                     "url": "https://example.invalid/flatbuffers.whl",
                     "version": "25.9.23",
-                }
+                },
+                "typescript_package": {
+                    "filename": "flatbuffers-25.9.23.tgz",
+                    "name": "flatbuffers",
+                    "path": "typescript/flatbuffers-25.9.23.tgz",
+                    "sha256": digest(bundle / "typescript/flatbuffers-25.9.23.tgz"),
+                    "url": "https://example.invalid/flatbuffers-25.9.23.tgz",
+                    "version": "25.9.23",
+                },
             },
             "outputs": {
                 "cpp": {
@@ -322,6 +368,7 @@ class BundleVerificationTests(unittest.TestCase):
                     "sdk": "cpp",
                 },
                 "python": {"sdk": "python"},
+                "typescript": {"sdk": "ts"},
                 "python_bridge": {},
                 "python_package": {},
                 "schemas": True,
@@ -330,6 +377,10 @@ class BundleVerificationTests(unittest.TestCase):
             "perception_wheel": {
                 "path": "python/perception.whl",
                 "sha256": digest(bundle / "python/perception.whl"),
+            },
+            "perception_npm_package": {
+                "path": "typescript/perception-1.2.3.tgz",
+                "sha256": digest(bundle / "typescript/perception-1.2.3.tgz"),
             },
             "postprocessing": {},
             "schemas": {
@@ -384,6 +435,19 @@ class BundleVerificationTests(unittest.TestCase):
             )
             release_package.verify_release_sidecars(first)
             self.assertEqual(first.read_bytes(), second.read_bytes())
+
+    def test_npm_package_is_deterministic(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            first = root / "first.tgz"
+            second = root / "second.tgz"
+            self.create_npm_package(root, first, "perception", "1.2.3")
+            shutil.rmtree(root / "perception-npm-source")
+            self.create_npm_package(root, second, "perception", "1.2.3")
+            self.assertEqual(first.read_bytes(), second.read_bytes())
+            self.assertEqual(
+                release_package.npm_package_metadata(first)["name"], "perception"
+            )
 
     def test_rejects_modified_content(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

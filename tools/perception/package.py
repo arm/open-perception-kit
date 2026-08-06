@@ -8,7 +8,9 @@
 from __future__ import annotations
 
 import argparse
+import gzip
 import hashlib
+import io
 import json
 import os
 import re
@@ -16,6 +18,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tarfile
 import zipfile
 from dataclasses import asdict
 from email.parser import Parser
@@ -152,8 +155,8 @@ def write_readme(bundle_root: Path, config: perception_config.SdkConfig) -> None
     (bundle_root / "README.md").write_text(
         f"""# Perception SDK {config.version}
 
-This archive contains the generated C++ SDK, Python SDK wheel, matching
-FlatBuffers Python wheel, source schemas, and release metadata.
+This archive contains the generated C++ SDK, Python SDK wheel, TypeScript SDK
+package, matching FlatBuffers runtimes, source schemas, and release metadata.
 
 ## Python
 
@@ -168,9 +171,61 @@ only inside a C++ host that registers the generated live-envelope bridge.
 
 Use `cpp/cmake/perception.cmake` directly. For Meson, vendor the complete `cpp/`
 directory and call `subdir('path/to/cpp/meson/perception')`.
+
+## TypeScript
+
+```bash
+npm install ./typescript/flatbuffers-{config.typescript_runtime.version}.tgz \\
+  ./typescript/{config.name}-{config.version}.tgz
+```
+
+Import `Envelope` and generated payload classes from `{config.name}`. Require an
+exact producer identity match before typed payload access.
 """,
         encoding="utf-8",
     )
+
+
+def write_deterministic_npm_package(source: Path, destination: Path) -> None:
+    files = [source / "package.json"]
+    for directory in ("dist", "src"):
+        files.extend(path for path in sorted((source / directory).rglob("*")) if path.is_file())
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w", format=tarfile.PAX_FORMAT) as archive:
+        for path in files:
+            relative = Path("package") / path.relative_to(source)
+            info = tarfile.TarInfo(relative.as_posix())
+            content = path.read_bytes()
+            info.size = len(content)
+            info.mode = 0o644
+            info.mtime = 0
+            info.uid = 0
+            info.gid = 0
+            info.uname = ""
+            info.gname = ""
+            archive.addfile(info, io.BytesIO(content))
+    with destination.open("wb") as output:
+        with gzip.GzipFile(filename="", mode="wb", fileobj=output, mtime=0) as compressed:
+            compressed.write(buffer.getvalue())
+
+
+def npm_package_metadata(path: Path) -> dict[str, object]:
+    with tarfile.open(path, "r:gz") as archive:
+        members = archive.getmembers()
+        names = {member.name for member in members}
+        if any(
+            member.name.startswith("/") or ".." in Path(member.name).parts
+            for member in members
+        ):
+            raise RuntimeError(f"npm package contains an unsafe path: {path.name}")
+        if "package/package.json" not in names:
+            raise RuntimeError(f"npm package has no package.json: {path.name}")
+        package_file = archive.extractfile("package/package.json")
+        if package_file is None:
+            raise RuntimeError(f"npm package metadata is unreadable: {path.name}")
+        package = json.loads(package_file.read().decode("utf-8"))
+    return package
 
 
 def git_commit(repository: Path = REPO_ROOT) -> str:
@@ -205,9 +260,12 @@ def write_bundle_manifest(
     generated_manifest_path: Path,
     perception_wheel: Path,
     flatbuffers_wheel: Path,
+    perception_npm_package: Path,
+    flatbuffers_npm_package: Path,
 ) -> None:
     cpp_manifest = generated_manifest["upstream_receipts"]["cpp"]
     python_manifest = generated_manifest["upstream_receipts"]["python"]
+    typescript_manifest = generated_manifest["upstream_receipts"]["ts"]
     manifest = {
         "archive": {
             "compression": "stored", "file_mode": "0644",
@@ -221,11 +279,16 @@ def write_bundle_manifest(
                 **asdict(config.flatbuffers_wheel),
                 "path": f"python/{flatbuffers_wheel.name}",
             },
+            "typescript_package": {
+                **asdict(config.typescript_runtime),
+                "path": f"typescript/{flatbuffers_npm_package.name}",
+            },
             "runtimes": cpp_manifest["flatbuffers_runtimes"],
         },
         "generator": generated_manifest["generation"]["flowdata_sdk"],
         "outputs": {
             "cpp": cpp_manifest["outputs"], "python": python_manifest["outputs"],
+            "typescript": typescript_manifest["outputs"],
             "python_bridge": cpp_manifest["python_bridge"],
             "python_package": python_manifest["python_package"], "schemas": True,
         },
@@ -233,6 +296,11 @@ def write_bundle_manifest(
         "perception_wheel": {
             "filename": perception_wheel.name,
             "path": f"python/{perception_wheel.name}", "sha256": sha256(perception_wheel),
+        },
+        "perception_npm_package": {
+            "filename": perception_npm_package.name,
+            "path": f"typescript/{perception_npm_package.name}",
+            "sha256": sha256(perception_npm_package),
         },
         "postprocessing": generated_manifest["postprocessing"],
         "schemas": {
@@ -283,7 +351,7 @@ def verify_bundle(bundle_root: Path) -> None:
     manifest = load_json(manifest_path)
     expected_fields = {
         "archive", "artifact", "files", "flatbuffers", "generator", "outputs",
-        "payloads", "perception_wheel", "postprocessing", "schemas",
+        "payloads", "perception_npm_package", "perception_wheel", "postprocessing", "schemas",
         "schema_set_sha256", "source", "tools",
     }
     if set(manifest) != expected_fields:
@@ -324,7 +392,7 @@ def verify_bundle(bundle_root: Path) -> None:
         path = bundle_root / validate_relative_path(identity.get("path"))
         if not path.is_file() or sha256(path) != identity["sha256"]:
             raise RuntimeError(f"release manifest {key} hash does not match bundled metadata")
-    for section in ("perception_wheel",):
+    for section in ("perception_wheel", "perception_npm_package"):
         record = manifest.get(section)
         if not isinstance(record, dict):
             raise RuntimeError(f"release manifest {section} is malformed")
@@ -432,6 +500,31 @@ def verify_manifest_semantics(
             requirement.lower().startswith("flatbuffers") for requirement in requirements
         ):
             raise RuntimeError("Perception wheel does not declare FlatBuffers")
+
+    perception_npm = manifest.get("perception_npm_package")
+    flatbuffers_npm = flatbuffers.get("typescript_package")
+    if not isinstance(perception_npm, dict) or not isinstance(flatbuffers_npm, dict):
+        raise RuntimeError("release TypeScript package metadata is missing")
+    for label, record in (
+        ("Perception TypeScript", perception_npm),
+        ("FlatBuffers TypeScript", flatbuffers_npm),
+    ):
+        relative = validate_relative_path(record.get("path"))
+        entry = file_entries.get(relative.as_posix())
+        if entry is None or entry.get("sha256") != record.get("sha256"):
+            raise RuntimeError(f"release {label} package is inconsistent with files")
+    perception_package = npm_package_metadata(
+        bundle_root / validate_relative_path(perception_npm["path"])
+    )
+    if perception_package.get("name") != "perception" or perception_package.get("version") != artifact["version"]:
+        raise RuntimeError("Perception TypeScript package identity is invalid")
+    if perception_package.get("dependencies", {}).get("flatbuffers") != flatbuffers_npm.get("version"):
+        raise RuntimeError("Perception TypeScript package does not declare locked FlatBuffers")
+    flatbuffers_package = npm_package_metadata(
+        bundle_root / validate_relative_path(flatbuffers_npm["path"])
+    )
+    if flatbuffers_package.get("name") != "flatbuffers" or flatbuffers_package.get("version") != flatbuffers_npm.get("version"):
+        raise RuntimeError("FlatBuffers TypeScript package identity is invalid")
 
 
 def write_deterministic_zip(bundle_root: Path, destination: Path) -> None:
@@ -617,12 +710,22 @@ def build_bundle(args: argparse.Namespace) -> Path:
             supplied_wheel=args.flatbuffers_wheel, config=config,
             artifact_dir=args.artifact_dir,
         )
+        typescript_dir = bundle_root / "typescript"
+        perception_npm_package = typescript_dir / f"{config.name}-{config.version}.tgz"
+        write_deterministic_npm_package(config.generated_root / "ts", perception_npm_package)
+        flatbuffers_npm_package = acquire_artifact(
+            config.typescript_runtime,
+            typescript_dir,
+            cache_dir=args.artifact_dir,
+        )
         write_requirements(python_dir, config)
         write_readme(bundle_root, config)
         write_bundle_manifest(
             bundle_root=bundle_root, config=config, generated_manifest=generated_manifest,
             generated_manifest_path=generated_manifest_path,
             perception_wheel=perception_wheel, flatbuffers_wheel=flatbuffers_wheel,
+            perception_npm_package=perception_npm_package,
+            flatbuffers_npm_package=flatbuffers_npm_package,
         )
         verify_bundle(bundle_root)
         write_deterministic_zip(bundle_root, archive_path)
