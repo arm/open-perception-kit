@@ -69,9 +69,8 @@ pek::Result<void> PersonClassificationParser::parse(const pek::TensorParser::Inp
     result->no_confidence = noConfidence;
 
     perception::metadata::ClassificationsT payload;
-    payload.layer = perception::makeLayerInfo(input.inferenceInfo.modelName,
-                                              input.inferenceInfo.inferElementId,
-                                              "personClassification");
+    payload.layer = perception::makeLayerInfo(
+        input.inferenceInfo.modelName, input.inferenceInfo.inferElementId, "personClassification");
     payload.person_presence.push_back(std::move(result));
     results.add(std::move(payload));
 

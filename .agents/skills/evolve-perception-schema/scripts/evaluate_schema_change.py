@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+################################################################
+# Copyright (C) 2026 Arm Limited. All rights reserved.
+################################################################
 """Evaluate Perception FlatBuffers schema compatibility against a Git base."""
 
 from __future__ import annotations
@@ -251,10 +254,10 @@ def compare_fields(path: str, table: str, old: tuple[Field, ...], new: tuple[Fie
                 )
             )
     if len(new) < len(old):
-        removed = ", ".join(field.name for field in old[len(new) :])
+        removed = ", ".join(field.name for field in old[len(new):])
         findings.append(Finding("breaking", path, f"{table} removed trailing fields: {removed}"))
     elif len(new) > len(old):
-        added = ", ".join(field.name for field in new[len(old) :])
+        added = ", ".join(field.name for field in new[len(old):])
         findings.append(Finding("additive", path, f"{table} appended fields: {added}"))
     return findings
 
