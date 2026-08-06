@@ -202,6 +202,8 @@ image_conversion_oracle_test = executable(
 )
 
 node = find_program('node', required : false)
+npm = find_program('npm', required : false)
+peksink_web = find_program(meson.project_source_root() / '../scripts/peksink-web.sh')
 python = import('python').find_installation()
 
 test('pek_menu_tests', pek_menu_tests)
@@ -286,7 +288,7 @@ test('webrtc_session_tests', webrtc_session_tests)
 test('runtime_pipeline_tests', runtime_pipeline_tests)
 test('image_conversion_oracle_test', image_conversion_oracle_test)
 
-if node.found()
+if node.found() and npm.found()
   test(
     'model_ui_tests',
     node,
@@ -296,13 +298,9 @@ if node.found()
     ],
   )
   test(
-    'webrtc_client_tests',
-    node,
-    args : [
-      '--test',
-      meson.project_source_root() / 'web/tests/osd-renderer.test.mjs',
-      meson.project_source_root() / 'web/tests/webrtc_client.test.mjs',
-      meson.project_source_root() / 'web/tests/webrtc_config.test.mjs',
-    ],
+    'peksink_web_tests',
+    peksink_web,
+    args : ['test'],
+    workdir : meson.project_source_root() / '..',
   )
 endif

@@ -6,7 +6,7 @@ const toggleButton = document.getElementById('clientOsdControlsBtn');
 const controlsPanel = document.getElementById('clientOsdControlsPanel');
 
 const latest = {
-    perception: null,
+    frameResults: null,
 };
 
 const controlIds = {
@@ -31,7 +31,7 @@ const colorIds = {
 
 if (canvas && video) {
     window.addEventListener('metadata-message', (event) => {
-        latest.perception = event.detail?.perception || null;
+        latest.frameResults = event.detail?.frame_results || null;
     });
 
     window.addEventListener('resize', () => resizeCanvasToDisplaySize(canvas));
@@ -66,7 +66,7 @@ if (toggleButton && controlsPanel) {
 }
 
 function renderFrame() {
-    renderOsd(canvas, video, latest.perception, readRenderOptions());
+    renderOsd(canvas, video, latest.frameResults, readRenderOptions());
     requestAnimationFrame(renderFrame);
 }
 

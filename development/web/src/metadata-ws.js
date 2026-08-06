@@ -1,3 +1,5 @@
+import {decodeFrameResultsMessage} from './frame-results.js';
+
 const WS_PROTO = location.protocol === 'https:' ? 'wss' : 'ws';
 const WS_HOST = location.hostname;
 const DEFAULT_METADATA_PORT = 8002;
@@ -16,8 +18,8 @@ function metadataUrl() {
     return `${WS_PROTO}://${WS_HOST}:${port}${endpoint}`;
 }
 
-function normaliseInferenceOutput(perception) {
-    const layers = Array.isArray(perception?.layers) ? perception.layers : [];
+function normaliseInferenceOutput(frameResults) {
+    const layers = Array.isArray(frameResults?.layers) ? frameResults.layers : [];
     return {
         layers: layers.map((layer) => {
             const detections = Array.isArray(layer?.detections) ? layer.detections : [];
@@ -29,38 +31,9 @@ function normaliseInferenceOutput(perception) {
     };
 }
 
-function normalisePerformance(perception) {
+function normalisePerformance(frameResults) {
     return {
-        lines: Array.isArray(perception?.perfdata) ? perception.perfdata : [],
-    };
-}
-
-function normaliseMetadataMessage(message) {
-    if (
-        message
-        && typeof message === 'object'
-        && Object.hasOwn(message, 'perception')
-    ) {
-        return {
-            frame_counter: message.frame_counter,
-            perception: message.perception && typeof message.perception === 'object'
-                ? message.perception
-                : null,
-        };
-    }
-
-    if (message && typeof message === 'object' && (
-        Array.isArray(message.layers) || Array.isArray(message.perfdata)
-    )) {
-        return {
-            frame_counter: message.frame_counter,
-            perception: message,
-        };
-    }
-
-    return {
-        frame_counter: message?.frame_counter,
-        perception: null,
+        lines: Array.isArray(frameResults?.perfdata) ? frameResults.perfdata : [],
     };
 }
 
@@ -73,28 +46,46 @@ function handleMetadataMessage(raw) {
         return;
     }
 
-    const { frame_counter, perception } = normaliseMetadataMessage(message);
-    if (!perception) {
+    if (message?.frame_results_encoding == null && message?.frame_results_packet_b64 == null) {
         window.dispatchEvent(new CustomEvent('metadata-message', {
             detail: {
-                frame_counter,
-                perception: null,
-                inference_output: { layers: [] },
-                performance: { lines: [] },
+                frame_counter: Number.isInteger(message?.frame_counter) ? message.frame_counter : undefined,
+                frame_results: null,
+                inference_output: {layers: []},
+                performance: {lines: []},
+                decode_error: null,
             },
         }));
         return;
     }
 
-    const inference_output = normaliseInferenceOutput(perception);
-    const performance = normalisePerformance(perception);
+    let decoded;
+    try {
+        decoded = decodeFrameResultsMessage(message);
+    } catch (error) {
+        console.warn('Invalid FrameResults metadata message', error);
+        window.dispatchEvent(new CustomEvent('metadata-message', {
+            detail: {
+                frame_counter: Number.isInteger(message?.frame_counter) ? message.frame_counter : undefined,
+                frame_results: null,
+                inference_output: { layers: [] },
+                performance: { lines: [] },
+                decode_error: error instanceof Error ? error.message : String(error),
+            },
+        }));
+        return;
+    }
+
+    const inference_output = normaliseInferenceOutput(decoded.frame_results);
+    const performance = normalisePerformance(decoded.frame_results);
 
     window.dispatchEvent(new CustomEvent('metadata-message', {
         detail: {
-            frame_counter,
-            perception,
+            frame_counter: decoded.frame_counter,
+            frame_results: decoded.frame_results,
             inference_output,
             performance,
+            decode_error: null,
         },
     }));
 }
