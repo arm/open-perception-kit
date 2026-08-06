@@ -188,6 +188,7 @@ class TestValgrindBaselineArtifact(unittest.TestCase):
         self.assertIn("actions: write", workflow)
         self.assertIn("ref: ${{ github.event.pull_request.base.sha || github.sha }}", workflow)
         self.assertIn("valgrind-baseline-artifact.py publish", workflow)
+        self.assertIn('gh workflow run valgrind.yml --ref "$VALGRIND_BASELINE_BRANCH"', workflow)
         self.assertIn("valgrind-baseline-artifact.py locate", workflow)
         self.assertIn("valgrind-baseline-artifact.py wait", workflow)
         self.assertEqual(

@@ -40,7 +40,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VALGRIND_BASELINE_BRANCH: ${{ github.event.pull_request.base.ref }}
-        run: python3 scripts/testing/valgrind/valgrind-baseline-artifact.py publish
+        run: |
+          if [[ -f scripts/testing/valgrind/valgrind-baseline-artifact.py ]]; then
+            python3 scripts/testing/valgrind/valgrind-baseline-artifact.py publish
+          else
+            # ponytail: may dispatch one redundant baseline; remove once every protected base contains the helper.
+            gh workflow run valgrind.yml --ref "$VALGRIND_BASELINE_BRANCH"
+          fi
 
   valgrind-workflow:
     name: Valgrind related workflow
