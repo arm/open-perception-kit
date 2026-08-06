@@ -17,9 +17,10 @@ void dump_sink_pads(GstElement *element);
 // set this environment variable to get this to work: GST_DEBUG_DUMP_DOT_DIR
 void dump_pipeline_graph(GstElement *element, const std::string &file_name);
 
-void release_request_pad_and_unref(GstElement *elem, GstPad **ppad);
+void release_request_pad_and_unref(GstElement *elem, GstPad **ppad) noexcept;
 void remove_pad_if_present(GstElement *elem, GstPad **ppad);
 
-bool set_state_elements_many(GstState state, std::initializer_list<GstElement *> elems);
+bool set_state_elements_many(GstState state,
+                             std::initializer_list<GstElement *> elems) noexcept;
 
 #endif // !__UTILS_H__

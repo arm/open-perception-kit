@@ -163,7 +163,7 @@ void dump_pipeline_graph(GstElement *element, const std::string &file_name) {
     gst_object_unref(pipeline);
 #endif // !NDEBUG
 }
-void release_request_pad_and_unref(GstElement *elem, GstPad **ppad) {
+void release_request_pad_and_unref(GstElement *elem, GstPad **ppad) noexcept {
     if (!ppad || !*ppad)
         return;
 
@@ -193,7 +193,8 @@ void remove_pad_if_present(GstElement *elem, GstPad **ppad) {
     *ppad = nullptr;
 }
 
-bool set_state_elements_many(GstState state, std::initializer_list<GstElement *> elems) {
+bool set_state_elements_many(GstState state,
+                             std::initializer_list<GstElement *> elems) noexcept {
     bool ok = true;
     for (GstElement *e : elems) {
         if (!e)
@@ -203,7 +204,7 @@ bool set_state_elements_many(GstState state, std::initializer_list<GstElement *>
         // For teardown, ASYNC is usually fine; FAILURE is not.
         if (r == GST_STATE_CHANGE_FAILURE) {
             ok = false;
-            pek::log::debug("Failed to set state on {}", GST_ELEMENT_NAME(e));
+            g_debug("Failed to set state on %s", GST_ELEMENT_NAME(e));
         }
     }
 

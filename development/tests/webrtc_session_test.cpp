@@ -8,6 +8,7 @@
 #include <memory>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include <gst/gst.h>
@@ -15,6 +16,8 @@
 #include "webrtc_session.h"
 
 namespace {
+
+static_assert(noexcept(std::declval<PekSinkWebRtcSession &>().cleanup()));
 
 void ensure_gstreamer() {
     static bool initialized = false;
