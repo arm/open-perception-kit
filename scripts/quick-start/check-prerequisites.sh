@@ -186,7 +186,7 @@ append_unique_requirement() {
     local requirement_id="${requirement%%|*}"
     local existing
 
-    for existing in "${REQUIRED_PREREQS[@]}"; do
+    for existing in "${REQUIRED_PREREQS[@]+"${REQUIRED_PREREQS[@]}"}"; do
         if [[ "${existing%%|*}" == "$requirement_id" ]]; then
             return
         fi
@@ -201,7 +201,7 @@ append_unique_missing_package() {
 
     [[ -z "$pkg" ]] && return
 
-    for existing in "${MISSING_PACKAGES[@]}"; do
+    for existing in "${MISSING_PACKAGES[@]+"${MISSING_PACKAGES[@]}"}"; do
         if [[ "$existing" == "$pkg" ]]; then
             return
         fi
