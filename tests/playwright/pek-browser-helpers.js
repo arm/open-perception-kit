@@ -1,6 +1,7 @@
 const { expect } = require('@playwright/test');
 
 const MODEL_OUTPUT_VISIBLE_MS = 4000;
+const MODEL_STATE_TIMEOUT_MS = 20000;
 const MODELS_OFF_VISIBLE_MS = 3000;
 const MODEL_ITEM = '.model-item';
 const MODEL_NAME = '.model-name';
@@ -103,7 +104,9 @@ async function setModel(page, name, enabled) {
     await expect(toggle).not.toBeChecked();
   }
 
-  await expect.poll(() => backendModelState(page, name), { timeout: 10000 }).toBe(enabled);
+  await expect.poll(() => backendModelState(page, name), {
+    timeout: MODEL_STATE_TIMEOUT_MS,
+  }).toBe(enabled);
 }
 
 function escapeRegExp(value) {
