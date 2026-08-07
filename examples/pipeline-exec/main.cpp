@@ -6,7 +6,6 @@
 #include "runtime/Pipeline.h"
 
 #include <fmt/core.h>
-#include <fmt/ranges.h>
 
 #include <atomic>
 #include <condition_variable>
@@ -15,7 +14,6 @@
 #include <mutex>
 #include <string>
 #include <utility>
-#include <vector>
 
 #include <nlohmann/json.hpp>
 
@@ -136,37 +134,30 @@ int main(int argc, char **argv) {
     };
 
     // onFrameResults() is the main reason this example exists. The runtime wrapper installs
-    // internal probes that read FrameResults metadata from GStreamer buffers and
-    // call this C++ callback with serialized JSON. No internal FrameResults
-    // type and no GstBuffer/GstMeta type is visible to the application.
+    // internal probes that read FrameResults metadata from GStreamer buffers and call this C++
+    // callback with a JSON transport wrapper. No internal FrameResults type and no
+    // GstBuffer/GstMeta type is visible to the application.
     pipeline.onFrameResults([&frameResultsCount](const std::string &frameResultsJson) {
         const size_t currentFrameResults = ++frameResultsCount;
 
-        // A pipeline can contain several inference stages. Each stage typically
-        // appends one or more generated payloads. The runtime wrapper gives us JSON, so the example
-        // parses only the small part it wants to print: layers[].contentType.
-        std::vector<std::string> layerNames;
         try {
             const auto document = nlohmann::json::parse(frameResultsJson);
-            const auto layers = document.find("layers");
-            if (layers != document.end() && layers->is_array()) {
-                layerNames.reserve(layers->size());
-                for (const auto &layer : *layers) {
-                    const auto contentType = layer.find("contentType");
-                    if (contentType != layer.end() && contentType->is_string() &&
-                        !contentType->get_ref<const std::string &>().empty()) {
-                        layerNames.push_back(contentType->get<std::string>());
-                    } else {
-                        layerNames.push_back("<unknown>");
-                    }
-                }
+            const auto encoding = document.at("frame_results_encoding").get<std::string>();
+            const auto packetBase64 = document.at("frame_results_packet_b64").get<std::string>();
+            if (encoding != "perception-frame-results+base64") {
+                fmt::print(
+                    stderr, "pipeline-exec: unsupported FrameResults encoding: {}\n", encoding);
+                return;
             }
-        } catch (const nlohmann::json::exception &e) {
-            fmt::print(stderr, "pipeline-exec: failed to parse FrameResults JSON: {}\n", e.what());
-        }
 
-        fmt::print(
-            "FrameResults {}: layers=[{}]\n", currentFrameResults, fmt::join(layerNames, ", "));
+            fmt::print("FrameResults {}: encoding={}, packet-base64-bytes={}\n",
+                       currentFrameResults,
+                       encoding,
+                       packetBase64.size());
+        } catch (const nlohmann::json::exception &e) {
+            fmt::print(
+                stderr, "pipeline-exec: invalid FrameResults transport wrapper: {}\n", e.what());
+        }
     });
 
     // Errors observed by Pipeline's internal bus watcher are reported through
