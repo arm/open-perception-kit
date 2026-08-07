@@ -162,10 +162,10 @@ authored value for canonical validation and serialization. `OpChainDescriptor::f
 relative values from the OpChain descriptor directory before Op configuration and leaves absolute
 values rooted independently. It does not lexically normalize or canonicalize the result, preserving
 filesystem component order and symlink-aware parent traversal. URI-like values are rejected; no
-process-working-directory or deployment-root meaning remains. Plugin/factory loading, interface
-conformance, artifacts, and backend compatibility remain runtime checks. An Op with a different
-contract must not use the reserved `Inference` operation name; names such as `InferenceLike` remain
-ordinary custom Ops.
+process-working-directory meaning remains for relative values, while absolute values retain their
+authored root. Plugin/factory loading, interface conformance, artifacts, and backend compatibility
+remain runtime checks. An Op with a different contract must not use the reserved `Inference`
+operation name; names such as `InferenceLike` remain ordinary custom Ops.
 
 ## Architecture
 
@@ -264,8 +264,6 @@ failure.
 ## Supported Configuration Migration
 
 - Add `version` and remove the redundant type marker from every supported descriptor.
-- Rename duplicate Model and OpChain display names by backend while retaining type-scoped
-  model/opchain name overlap.
 - Apply the Model tensor matrix, remove ignored `zeroPoint`, `scale`, `outputDtype`, and Uint8
   mean/std values, and add canonical feedback mode.
 - Retain develop's removal of `modelFamily`; identity is the canonical descriptor `name`.
@@ -273,9 +271,9 @@ failure.
   recognition descriptors to canonical `model-<variant>.json` filenames without adding models.
 - Remove Op `group`, omit `loopId` for non-loop Ops, remove unused built-in attributes, and put every
   non-empty-content built-in stage under one nonzero loop.
-- Replace built-in model-descriptor references with paths relative to each OpChain descriptor;
-  colocated model OpChains use `model.json` or `model-<variant>.json`, while reusable OpChains
-  traverse to `config/models/`.
+- Preserve valid authored relative and absolute `modelDescriptor` references. Update only the
+  PaddleOCR detection reference because its descriptor filename must become canonical
+  `model-detection.json`.
 - Keep PaddleOCR detection on the same `model-<variant>.json`/`opchain.json` routing, schema,
   semantic, and production-loading paths as every other supported model.
 - Do not add a descriptor or placeholder OpChain for PaddleOCR classification; recognition remains
@@ -312,7 +310,7 @@ scale.
 ## Migration Plan
 
 1. Land the validator library/CLI and tests while retaining current supported behavior.
-2. Tighten schemas and projections, then migrate all supported descriptors in one change.
+2. Tighten schemas and projections, then minimally migrate all supported descriptors to v1.
 3. Route production entry points through validation and move the late loop checks before binding.
 4. Replace Python validation with the CLI adapter and build the CLI into the CI dev image.
 5. Internalize repository traversal without changing CLI behavior or adding a new abstraction.

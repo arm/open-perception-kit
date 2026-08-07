@@ -20,8 +20,9 @@ first supported contract to reject invalid configuration before plugin or model-
 - Keep reliably schema-expressible rules in the schemas; add only cross-value, cross-item, sequence,
   overflow, and C-string safety rules as per-document C++ semantics.
 - **BREAKING**: close supported Model objects and built-in Op attributes, remove unused descriptor
-  fields and attributes, remove Op `group`, canonicalize supported names and loop declarations, and
-  make built-in model-descriptor references relative to their OpChain source or absolute.
+  fields and attributes, remove Op `group`, and add only required loop declarations. Preserve
+  existing display names and valid local `modelDescriptor` values; references may be relative to
+  their OpChain source or absolute.
 - Validate optional build-time `hfDownload` metadata, require its `modelFile` to be a safe relative
   destination, and make the model downloader consume the same live Model v1 schema before network
   access while keeping non-downloaded runtime `modelFile` values relative or absolute.
@@ -49,8 +50,9 @@ None.
 - Adds one pinned header-only JSON Schema dependency.
 - Updates Model and OpChain projections, production load entry points, and the late OpChain loop
   check.
-- Migrates supported descriptors under `config/models/` and `config/opchains/` without changing
-  model artifacts or parser thresholds.
+- Migrates supported descriptors under `config/models/` and `config/opchains/` only as required by
+  v1, preserving display names, valid existing absolute references, model artifacts, and parser
+  thresholds.
 - Replaces the repository-wide Python schema implementation with a subprocess adapter to the C++
   CLI; the build-only downloader remains a narrow consumer of the same Model v1 schema resource.
 - Adds a pinned Python Draft 2020-12 implementation only to the model-build and developer images.

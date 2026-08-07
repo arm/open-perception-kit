@@ -32,9 +32,9 @@
 
 ## 4. Supported descriptors and consumers
 
-- [ ] 4.1 Add descriptor versions, remove the redundant type field, and apply canonical names, feedback
-  mode, and Model field cleanup across the complete
-  supported descriptor set.
+- [ ] 4.1 Add descriptor versions, remove the redundant type field, and apply feedback mode and
+  Model field cleanup across the complete supported descriptor set while preserving valid display
+  names.
 - [ ] 4.2 Remove unused built-in Op attributes and add only the loops required by non-empty-content
   built-in stages.
 - [ ] 4.3 Verify PaddleOCR detection uses the same discovery, routing, schema, semantics, and loader
@@ -63,9 +63,9 @@
 
 ## 7. Delivery
 
-- [ ] 7.1 Commit and push the scoped changes under repository contribution rules.
-- [ ] 7.2 Update the existing draft PR, trigger relevant CI, and address only failures caused by
-  this change.
+- [ ] 7.1 Commit and push each scoped stack layer under repository contribution rules.
+- [ ] 7.2 Open or update the three stacked PRs against their direct bases, trigger relevant CI for
+  each exact head, and address only failures caused by that layer.
 
 ## 8. Responsibility-boundary corrections
 
@@ -73,8 +73,8 @@
   source path, then resolve `modelFile` relative to its descriptor directory for runtime use.
 - [ ] 8.2 Represent descriptor `loopId` omission with `std::optional`, reject a manually constructed
   explicit zero, and convert to the scheduler's zero sentinel only at the runtime handoff.
-- [ ] 8.3 Remove the `/work/config` exception from the Inference schema and migrate every
-  supported model-descriptor reference and example to a local filesystem path.
+- [ ] 8.3 Remove the `/work/config` exception from the Inference schema and accept authored local
+  relative or absolute model-descriptor references without rewriting valid checked-in values.
 - [ ] 8.4 Review the corrected spec and diff with Ponytail, then run strict OpenSpec validation,
   descriptor validation, the relevant build/tests, and static checks in the dev container without
   committing.
@@ -109,8 +109,8 @@
 
 - [ ] 11.1 Accept only relative or absolute filesystem paths for Model `modelFile` and built-in
   Inference `modelDescriptor`; reject URI-like values.
-- [ ] 11.2 Resolve relative file-backed references from the descriptor that contains them, preserve
-  authored in-memory JSON values, and migrate checked-in OpChains to descriptor-relative paths.
+- [ ] 11.2 Resolve relative file-backed references from the descriptor that contains them and
+  preserve authored in-memory JSON plus valid checked-in relative or absolute values.
 - [ ] 11.3 Run the focused loader/schema tests, complete descriptor gate, strict OpenSpec validation,
   build, full tests, and static checks.
 - [ ] 11.4 Preserve filesystem component order in both file-backed loaders and cover symlink plus
@@ -127,8 +127,8 @@
 
 ## 13. Integrated-develop reconciliation
 
-- [ ] 13.1 Preserve the integrated removal of `modelFamily` and the canonical replacement model
-  names while adding the v1 contract.
+- [ ] 13.1 Preserve the integrated removal of schema-invalid `modelFamily` while retaining existing
+  descriptor display names under the v1 contract.
 - [ ] 13.2 Support non-empty `model-<variant>.json` filenames so PaddleOCR's existing colocated
   descriptors remain ordinary Model descriptors without a special-case validator path.
 - [ ] 13.3 Move the quality-gate build of `pek-config-check` to the consolidated CI container flow,

@@ -492,7 +492,7 @@ JSON reports are the machine-readable diagnostic interface and SHALL NOT be dupl
 logger.
 
 #### Scenario: Complete supported repository
-- **WHEN** the CLI validates the migrated checkout
+- **WHEN** the CLI validates the supported checkout
 - **THEN** the live schema bundle and every discovered supported descriptor pass their applicable
   schema and per-document validation
 
