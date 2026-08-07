@@ -1,4 +1,5 @@
 {
+    "version": 1,
     "name": "CameraContactWithUltraface",
     "description": "Two-stage camera-contact micropipeline: Ultraface face crop detection followed by camera-contact classification.",
     "ops": [

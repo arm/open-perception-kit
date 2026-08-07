@@ -1,4 +1,5 @@
 {
+    "version": 1,
     "name": "GazeDetectionWithUltraface",
     "description": "Two-stage gaze-detection micropipeline: first detect faces with ultraface, then run gaze-detection.",
     "ops": [
@@ -54,10 +55,7 @@
             "id": "pek-std-ops/GenericPostprocess",
             "loopId": 2,
             "attributes": {
-                "parser": "GazeDetectionParser",
-                "normalizeOutputCoordinates": false,
-                "confidenceThreshold": 0.5,
-                "iouThreshold": 0.3
+                "parser": "GazeDetectionParser"
             }
         }
     ]

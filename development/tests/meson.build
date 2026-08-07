@@ -20,6 +20,22 @@ config_schema_resources_tests = executable(
   dependencies : [gtest_main_dep, gtest_dep, jsoncons_dep],
 )
 
+config_validator_tests = executable(
+  'config_validator_tests',
+  [
+    'config_validator_model_v1_test.cpp',
+    'config_validator_opchain_v1_test.cpp',
+    '../config-validator/RepositoryValidator.cpp',
+    'config_validator_repository_test.cpp',
+    'config_validator_report_test.cpp',
+    'config_validator_test.cpp',
+  ],
+  cpp_args : [
+    '-DPEK_REPOSITORY_ROOT="@0@"'.format(meson.project_source_root() / '..'),
+  ],
+  dependencies : [gtest_main_dep, gtest_dep, config_validator_dep, jsoncons_dep],
+)
+
 model_descriptor_tests = executable(
   'model_descriptor_tests',
   ['model_descriptor_test.cpp'],
@@ -36,6 +52,14 @@ performance_tracer_tests = executable(
   link_with : [common],
 )
 
+opchain_descriptor_tests = executable(
+  'opchain_descriptor_tests',
+  ['opchain_descriptor_test.cpp'],
+  include_directories : [common_include],
+  dependencies : [gtest_main_dep, gtest_dep, pek_deps],
+  link_with : [common],
+)
+
 # Test-only OpChain plugin that simulates inference exceeding one frame budget.
 qos_delay_op = shared_module(
   'pek-test-qos-delay',
@@ -46,14 +70,6 @@ qos_delay_op = shared_module(
   name_prefix : '',
   gnu_symbol_visibility : 'default',
   install : false,
-)
-
-opchain_descriptor_tests = executable(
-  'opchain_descriptor_tests',
-  ['OpChainDescriptorTest.cpp'],
-  include_directories : [common_include],
-  dependencies : [gtest_main_dep, gtest_dep, pek_deps],
-  link_with : [common],
 )
 
 matrix_operations_tests = executable(
@@ -172,6 +188,7 @@ python = import('python').find_installation()
 
 test('pek_menu_tests', pek_menu_tests)
 test('config_schema_resources_tests', config_schema_resources_tests)
+test('config_validator_tests', config_validator_tests)
 test('opchain_descriptor_tests', opchain_descriptor_tests)
 test(
   'pek_menu_cli_tests',

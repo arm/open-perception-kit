@@ -1,4 +1,5 @@
 {
+	"version": 1,
 	"name": "yolox",
 	"description": "yolox object detection model.",
 	"ops": [

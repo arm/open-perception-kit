@@ -1,4 +1,5 @@
 {
+	"version": 1,
 	"name": "person-class",
 	"modelFile": "tf_mobilenetv1_float_model.onnx",
 	"hfDownload": {

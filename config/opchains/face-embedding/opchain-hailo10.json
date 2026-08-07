@@ -1,4 +1,5 @@
 {
+    "version": 1,
     "name": "FaceEmbeddingWithScrfdHailo10",
     "description": "Two-stage Hailo 10 micropipeline: SCRFD face detection followed by ArcFace MobileFaceNet embedding extraction.",
     "ops": [

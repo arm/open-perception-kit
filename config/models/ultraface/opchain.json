@@ -1,4 +1,5 @@
 {
+	"version": 1,
 	"name": "Ultraface",
 	"description": "Ultraface face detection model.",
 	"ops": [

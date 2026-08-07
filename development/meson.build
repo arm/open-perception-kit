@@ -52,6 +52,12 @@ nlohmann_dep = dependency('nlohmann_json',
                       required : true,
                       fallback : ['nlohmann_json', 'nlohmann_json_dep'])
 
+jsoncons_dep = dependency(
+  'jsoncons',
+  required : true,
+  fallback : ['jsoncons', 'jsoncons_dep'],
+)
+
 magic_enum_dep = dependency(
   'magic_enum',
   required : true,
@@ -169,6 +175,7 @@ gtest_dep      = gtest_cmake.dependency('gtest')
 gtest_main_dep = gtest_cmake.dependency('gtest_main')
 
 # Subdirs
+subdir('config-validator')
 subdir('common')
 subdir('runtime')
 subdir('elements/pekinfer')

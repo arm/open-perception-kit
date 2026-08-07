@@ -33,7 +33,7 @@ common = shared_library(
     'mediaio/PixelBufferVideoFrame.cpp',
   ],
   include_directories: [ common_include ],
-  dependencies: [ pek_deps ],
+  dependencies: [ pek_deps, config_validator_dep ],
   link_whole: [logging],
   gnu_symbol_visibility: 'default',
   install: release_package,

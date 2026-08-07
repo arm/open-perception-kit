@@ -1,10 +1,8 @@
 {
+	"version": 1,
 	"name": "paddleocr-recognition",
 	"modelFile": "recognition.onnx",
 	"dynamicOutput": true,
-	"maxDetectionCount": 16,
-	"confidenceThreshold": 0.7,
-	"iouThreshold": 0.5,
 	"inputTensors": [
 		{
 			"shape": [

@@ -1,15 +1,18 @@
 {
+    "version": 1,
     "name": "ArcFaceMobileFaceNet HAILO",
     "description": "Hailo 10-compiled ArcFace MobileFaceNet face embedding model.",
     "ops": [
         {
             "id": "pek-std-ops/InferenceController",
+            "loopId": 1,
             "attributes": {
                 "contentType": "humanFace"
             }
         },
         {
             "id": "pek-std-ops/GenericImagePreprocess",
+            "loopId": 1,
             "attributes": {
                 "inputImageTensorIndex": 0,
                 "inputImageSourceName": "pipelineVideoFrame"
@@ -17,12 +20,14 @@
         },
         {
             "id": "pek-hailort-ops/Inference",
+            "loopId": 1,
             "attributes": {
                 "modelDescriptor": "/work/config/models/arcface_mobilefacenet_hailo10/model.json"
             }
         },
         {
             "id": "pek-std-ops/GenericPostprocess",
+            "loopId": 1,
             "attributes": {
                 "parser": "ObjectEmbeddingParser"
             }

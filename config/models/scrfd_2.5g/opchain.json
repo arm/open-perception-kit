@@ -1,4 +1,5 @@
 {
+    "version": 1,
     "name": "SCRFD 2.5G HAILO",
     "description": "Hailo 10-compiled SCRFD 2.5G face detector.",
     "ops": [

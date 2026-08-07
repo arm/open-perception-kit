@@ -3,27 +3,23 @@
  *************************************************************/
 
 #include "pek/ModelDescriptor.h"
+#include "Validator.h"
 #include "fmt/color.h"
-#include "tl/expected.hpp"
-
 #include "pek/File.h"
 #include "pek/Result.h"
-
-#include "pek/AttributeMap.h"
+#include "tl/expected.hpp"
 
 #include <filesystem>
+#include <utility>
 
 using namespace pek;
 
-pek::Result<ModelDescriptor> ModelDescriptor::fromJson(const std::string &jsonString) {
-    try {
-        json json = json::parse(jsonString);
-        return json.get<ModelDescriptor>();
-    } catch (const json::exception &e) {
-        return tl::unexpected(PEK_ERROR(
-            pek::ErrorFlag::InvalidData,
-            fmt::format("Error occured while parsing ModelDescriptor json: {}", e.what())));
-    }
+pek::Result<ModelDescriptor> ModelDescriptor::fromJson(const std::string &jsonString,
+                                                       const std::string &source) {
+    auto result = pek::config::validateModelJson(jsonString, source);
+    if (!result.has_value())
+        return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData, result.error().toText()));
+    return std::move(*result).intoValue();
 }
 
 pek::Result<ModelDescriptor> ModelDescriptor::fromFile(const std::string &path) {
@@ -35,8 +31,8 @@ pek::Result<ModelDescriptor> ModelDescriptor::fromFile(const std::string &path) 
                       fmt::format("ModelDescriptor file [{}] not found or empty", path)));
     }
 
-    auto descriptor = fromJson(content);
-    if (descriptor) {
+    auto descriptor = fromJson(content, path);
+    if (descriptor.has_value()) {
         descriptor->modelFile =
             (std::filesystem::path(path).parent_path() / descriptor->modelFile).string();
     }

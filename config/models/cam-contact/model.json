@@ -1,4 +1,5 @@
 {
+	"version": 1,
 	"name": "cam-contact",
 	"modelFile": "cam_contact_nitec_rs18-a8w8-ort-quantized.onnx",
 	"hfDownload": {

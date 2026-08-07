@@ -1,4 +1,5 @@
 {
+  "version": 1,
   "name": "modnet-seg",
   "modelFile": "model.onnx",
   "hfDownload": {

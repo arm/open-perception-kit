@@ -1,4 +1,5 @@
 {
+  "version": 1,
   "name": "Modnet",
   "description": "Modnet real time background matting model.",
   "ops": [

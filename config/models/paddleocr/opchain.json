@@ -1,4 +1,5 @@
 {
+	"version": 1,
 	"name": "PadleOCR",
 	"description": "Optical Character Recognition (OCR) model for text detection, based on the PaddleOCR framework.",
 	"ops": [
@@ -16,7 +17,7 @@
 		{
 			"id": "pek-onnx-ops/Inference",
 			"attributes": {
-				"modelDescriptor": "/work/config/models/paddleocr/paddleocr-detection.json"
+				"modelDescriptor": "model-detection.json"
 			}
 		},
 		{

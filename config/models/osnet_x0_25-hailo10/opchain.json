@@ -1,15 +1,18 @@
 {
+    "version": 1,
     "name": "OsnetX025Reid HAILO",
     "description": "Hailo 10-compiled variant of the OsnetX0.25 Re-identification model.",
     "ops": [
         {
             "id": "pek-std-ops/InferenceController",
+            "loopId": 1,
             "attributes": {
                 "contentType": "genericObject"
             }
         },
         {
             "id": "pek-std-ops/GenericImagePreprocess",
+            "loopId": 1,
             "attributes": {
                 "inputImageTensorIndex": 0,
                 "inputImageSourceName": "pipelineVideoFrame"
@@ -17,12 +20,14 @@
         },
         {
             "id": "pek-hailort-ops/Inference",
+            "loopId": 1,
             "attributes": {
                 "modelDescriptor": "/work/config/models/osnet_x0_25-hailo10/model.json"
             }
         },
         {
             "id": "pek-std-ops/GenericPostprocess",
+            "loopId": 1,
             "attributes": {
                 "parser": "ObjectEmbeddingParser"
             }
