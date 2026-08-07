@@ -1,4 +1,10 @@
 
+jsoncons_dep = dependency(
+  'jsoncons',
+  required : true,
+  fallback : ['jsoncons', 'jsoncons_dep'],
+)
+
 pek_menu_tests = executable(
   'pek_menu_tests',
   ['pek_menu_parser_test.cpp'],
