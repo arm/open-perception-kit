@@ -203,11 +203,6 @@ if release_package
     install_dir : 'web/content',
     strip_directory : true,
   )
-  install_data(
-    meson.project_source_root() / '../metadata/api/perception.schema.json',
-    meson.project_source_root() / '../metadata/api/perception-message.schema.json',
-    install_dir : 'share/pek/schemas/json',
-  )
 endif
 
 if get_option('tests')
