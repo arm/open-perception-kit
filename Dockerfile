@@ -95,6 +95,9 @@ ARG USERNAME=dev
 ARG USER_UID=1000
 ARG USER_GID=1000
 
+COPY tools/perception/sdk.json /tmp/perception-sdk.json
+COPY development/web/package-lock.json /tmp/pek-web-package-lock.json
+
 RUN set -eux; uname -a; cat /etc/os-release; dpkg --print-architecture
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -105,14 +108,19 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   file gnupg gstreamer1.0-gl gstreamer1.0-nice gstreamer1.0-pipewire \
   gstreamer1.0-plugins-bad gstreamer1.0-plugins-base \
   gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
-  gstreamer1.0-tools gstreamer1.0-x lldb-17 nodejs npm pre-commit python3-pip python3-venv \
+  gstreamer1.0-tools gstreamer1.0-x lldb-17 nodejs npm pre-commit python3-gi python3-pip python3-venv \
   shellcheck shfmt sudo valgrind wget zip; \
   update-ca-certificates
 
-RUN npm install --global --ignore-scripts \
-  esbuild-wasm@0.25.8 \
-  flatbuffers@25.9.23 \
-  typescript@5.9.2
+RUN set -eux; \
+  esbuild_url="$(node -e 'const lock=require("/tmp/pek-web-package-lock.json"); console.log(lock.packages["node_modules/esbuild-wasm"].resolved)')"; \
+  flatbuffers_url="$(node -e 'const config=require("/tmp/perception-sdk.json"); console.log(config.typescript_build.flatbuffers_runtime.url)')"; \
+  typescript_url="$(node -e 'const config=require("/tmp/perception-sdk.json"); console.log(config.typescript_build.typescript.url)')"; \
+  npm install --global --ignore-scripts --no-audit --no-fund \
+    "${esbuild_url}" \
+    "${flatbuffers_url}" \
+    "${typescript_url}"; \
+  rm -f /tmp/pek-web-package-lock.json
 
 RUN ln -sf /usr/bin/lldb-17 /usr/local/bin/lldb && \
   ln -sf /usr/bin/lldb-server-17 /usr/local/bin/lldb-server
@@ -169,13 +177,15 @@ COPY tools/expkits-ci /tmp/pek-tools/expkits-ci
 COPY tools/plumber /tmp/pek-tools/plumber
 RUN set -eux; \
   uv pip install --system --break-system-packages jsonschema==4.26.0; \
+  flatbuffers_wheel="$(python3 -c 'import json; wheel=json.load(open("/tmp/perception-sdk.json"))["flatbuffers"]["python_wheel"]; print(wheel["url"] + "#sha256=" + wheel["sha256"])')"; \
   uv venv --system-site-packages /opt/pek-venvs/devtools; \
   uv pip install --python /opt/pek-venvs/devtools/bin/python \
   /tmp/pek-tools/expkits-ci \
   /tmp/pek-tools/plumber \
-  huggingface_hub==1.18.0; \
+  huggingface_hub==1.18.0 \
+  "${flatbuffers_wheel}"; \
   chown -R "${USER_UID}:${USER_GID}" /opt/pek-venvs/devtools; \
-  rm -rf /tmp/pek-tools
+  rm -rf /tmp/pek-tools /tmp/perception-sdk.json
 
 EXPOSE 8000 8001 9999 8080 2222
 
