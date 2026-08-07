@@ -201,6 +201,12 @@ class EventFlowMonitor:
 
 
 class QosPipelineTest(unittest.TestCase):
+    PEKSINK_TESTS = {
+        "test_qos_is_disabled_by_default",
+        "test_enabling_peksink_uses_only_drain_native_qos",
+        "test_peksink_feedback_reaches_pekinfer",
+    }
+
     @classmethod
     def setUpClass(cls) -> None:
         import gi
@@ -215,6 +221,7 @@ class QosPipelineTest(unittest.TestCase):
         cls.Gst = Gst
 
     def setUp(self) -> None:
+        self.uses_peksink = self._testMethodName in self.PEKSINK_TESTS
         self.delay_op = DelayOpController(DELAY_OP_PATH)
         self.addCleanup(self.delay_op.close)
         self.directory = tempfile.TemporaryDirectory(prefix="pek-qos-")
@@ -243,6 +250,11 @@ class QosPipelineTest(unittest.TestCase):
             )
             descriptors[control_id] = descriptor
 
+        output = (
+            "peksink name=output"
+            if self.uses_peksink
+            else "fakesink name=output async=false sync=false qos=false"
+        )
         self.pipeline = self.Gst.parse_launch(
             # The inactive instance verifies that QoS reaches the next active
             # inference element instead of being consumed unconditionally.
@@ -255,7 +267,7 @@ class QosPipelineTest(unittest.TestCase):
             "pektracker name=tracker max-missed-frames=15 qos=false ! "
             "pekperformance name=performance enabled=false qos=false ! "
             "pekosd name=osd enabled=false qos=false ! "
-            "peksink name=output"
+            f"{output}"
         )
         self.addCleanup(self.stop_pipeline)
 
@@ -271,12 +283,13 @@ class QosPipelineTest(unittest.TestCase):
         self.elements = {
             name: self.pipeline.get_by_name(name) for name in element_names
         }
-        self.elements["drain_fakesink"] = self.elements["output"].get_by_name(
-            "drain_fakesink"
-        )
-        self.elements["vconv"] = self.elements["output"].get_by_name("vconv")
         self.assertIsNotNone(self.elements["source"])
-        self.assertIsNotNone(self.elements["drain_fakesink"])
+        if self.uses_peksink:
+            self.elements["drain_fakesink"] = self.elements["output"].get_by_name(
+                "drain_fakesink"
+            )
+            self.elements["vconv"] = self.elements["output"].get_by_name("vconv")
+            self.assertIsNotNone(self.elements["drain_fakesink"])
         self.flow_monitor = EventFlowMonitor(
             self.elements["source"], self.elements["infer"], self.Gst, self.GObject
         )
@@ -292,7 +305,7 @@ class QosPipelineTest(unittest.TestCase):
         self.elements.clear()
         self.pipeline = None
         # Pad probes and PyGObject wrappers can form cycles. Collect them before the
-        # next test constructs a peksink using the same fixed network endpoints.
+        # next test creates another pipeline.
         gc.collect()
 
     def start_pipeline(self, delay_milliseconds: int = 0) -> None:
@@ -321,9 +334,10 @@ class QosPipelineTest(unittest.TestCase):
 
     def enable_controlled_inference_qos(self) -> None:
         self.enable_inference_qos()
-        # These tests inject exact events. Native converter feedback would add
-        # unrelated QoS messages to the same pipeline bus.
-        self.elements["vconv"].set_property("qos", False)
+        if self.uses_peksink:
+            # These tests inject exact events. Native converter feedback would add
+            # unrelated QoS messages to the same pipeline bus.
+            self.elements["vconv"].set_property("qos", False)
 
     def establish_segment(self) -> None:
         # appsrc sends its initial SEGMENT with the first buffer, and pekinfer
