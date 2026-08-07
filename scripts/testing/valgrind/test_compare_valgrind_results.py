@@ -212,6 +212,70 @@ class TestCompareValgrindResults(unittest.TestCase):
             result.stderr,
         )
 
+    def test_cli_ignores_third_party_only_errors_and_keeps_mixed_errors(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            baseline = tmp / "baseline.xml"
+            current = tmp / "current.xml"
+            self.write_summary(
+                baseline,
+                """
+                <error>
+                  <kind>Leak_PossiblyLost</kind>
+                  <xwhat><text>16 bytes possibly lost</text></xwhat>
+                  <stack>
+                    <frame><obj>/usr/lib/libglib-2.0.so.0</obj></frame>
+                  </stack>
+                </error>
+                """,
+            )
+            current_error = """
+                <error>
+                  <kind>Leak_DefinitelyLost</kind>
+                  <xwhat><text>32768 bytes lost</text></xwhat>
+                  <stack>
+                    <frame><obj>/usr/bin/valgrind</obj></frame>
+                    <frame><obj>/usr/lib/libglib-2.0.so.0</obj></frame>
+                    <frame><obj>/usr/lib/libgobject-2.0.so.0</obj></frame>
+                    <frame><obj>/usr/lib/libgstreamer-1.0.so.0</obj></frame>
+                    <frame><obj>/workspace/development/libexample.so</obj></frame>
+                  </stack>
+                </error>
+            """
+            self.write_summary(current, current_error)
+
+            result = self.run_cli(baseline, current)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Baseline errors : 0", result.stderr)
+            self.assertIn("Current errors  : 0", result.stderr)
+            self.assertIn("New errors      : 0", result.stderr)
+            self.assertIn("Fixed errors    : 0", result.stderr)
+            self.assertNotIn("New errors (absent in baseline, present in current):", result.stderr)
+
+            repository_stack = """
+                  <stack>
+                    <frame><obj>/usr/lib/libc.so.6</obj></frame>
+                    <frame><file>/work/development/example.cpp</file></frame>
+                  </stack>
+            """
+            self.write_summary(
+                current,
+                current_error.replace("</error>", f"{repository_stack}</error>"),
+            )
+
+            result = self.run_cli(baseline, current)
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("Baseline errors : 0", result.stderr)
+        self.assertIn("Current errors  : 1", result.stderr)
+        self.assertIn("New errors      : 1", result.stderr)
+        self.assertIn("Fixed errors    : 0", result.stderr)
+        self.assertIn(
+            "FAILED: 1 new Valgrind error(s) introduced compared to the baseline.",
+            result.stderr,
+        )
+
     def test_cli_exits_two_for_invalid_input(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir)
