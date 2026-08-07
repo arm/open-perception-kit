@@ -175,15 +175,19 @@ RUN set -eux; \
 
 COPY tools/expkits-ci /tmp/pek-tools/expkits-ci
 COPY tools/plumber /tmp/pek-tools/plumber
+COPY generated/perception/python /tmp/pek-tools/perception
 RUN set -eux; \
   uv pip install --system --break-system-packages jsonschema==4.26.0; \
   flatbuffers_wheel="$(python3 -c 'import json; wheel=json.load(open("/tmp/perception-sdk.json"))["flatbuffers"]["python_wheel"]; print(wheel["url"] + "#sha256=" + wheel["sha256"])')"; \
   uv venv --system-site-packages /opt/pek-venvs/devtools; \
   uv pip install --python /opt/pek-venvs/devtools/bin/python \
   /tmp/pek-tools/expkits-ci \
+  /tmp/pek-tools/perception \
   /tmp/pek-tools/plumber \
   huggingface_hub==1.18.0 \
   "${flatbuffers_wheel}"; \
+  cd /tmp; \
+  /opt/pek-venvs/devtools/bin/python -c 'import perception, plumber'; \
   chown -R "${USER_UID}:${USER_GID}" /opt/pek-venvs/devtools; \
   rm -rf /tmp/pek-tools /tmp/perception-sdk.json
 

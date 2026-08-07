@@ -201,6 +201,12 @@ class SingleSourceContractTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertNotIn('"flatbuffers==', plumber)
+        self.assertIn('"perception==0.1.0"', plumber)
+        self.assertIn(
+            "COPY generated/perception/python /tmp/pek-tools/perception", dockerfile
+        )
+        self.assertIn("/tmp/pek-tools/perception", dockerfile)
+        self.assertIn("import perception, plumber", dockerfile)
 
         devsetup = (repository / ".devcontainer" / "devsetup.sh").read_text(
             encoding="utf-8"
