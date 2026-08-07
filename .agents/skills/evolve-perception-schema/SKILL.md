@@ -19,7 +19,7 @@ change, and define its runtime semantics before regenerating derived SDK files.
 5. Run the bundled evaluator before editing:
 
    ```bash
-   python3 .agents/skills/evolve-perception-schema/scripts/evaluate_schema_change.py \
+   python3 tools/perception/evaluate_schema_change.py \
      --base origin/develop
    ```
 
@@ -70,7 +70,7 @@ is committed and explicitly selected for release, apply
 Re-run the evaluator after editing and resolve every error:
 
 ```bash
-python3 .agents/skills/evolve-perception-schema/scripts/evaluate_schema_change.py \
+python3 tools/perception/evaluate_schema_change.py \
   --base origin/develop
 ```
 

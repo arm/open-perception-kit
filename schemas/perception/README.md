@@ -14,6 +14,8 @@ versions, evaluate compatibility, regenerate the SDKs, and validate a change.
 - `generated/perception/perception-sdk-manifest.json` is the generation receipt.
 - `scripts/perception-sdk.sh` is the supported command surface for generation,
   drift checking, packaging, verification, and development installation.
+- `tools/perception/evaluate_schema_change.py` evaluates schema compatibility
+  and required SDK version changes against a Git revision.
 
 Do not edit generated files, generated build integrations, or manifests by
 hand. Change the schemas or `tools/perception/sdk.json`, then regenerate them.
@@ -181,17 +183,19 @@ Before editing a published schema:
 
 1. Classify the proposed change as additive, API-breaking, wire-breaking, or a
    semantic change.
-2. Identify all roots that include the changed file. Changes to `common.fbs`
+2. Run `python3 tools/perception/evaluate_schema_change.py --base <revision>`
+   to establish the current compatibility baseline.
+3. Identify all roots that include the changed file. Changes to `common.fbs`
    have wider impact than changes local to one root.
-3. Decide whether consumers can upgrade together. The content-derived payload
+4. Decide whether consumers can upgrade together. The content-derived payload
    ID means mixed SDK versions do not provide typed access to both revisions
    automatically.
-4. Prefer appending an optional table field for an additive change.
-5. For an incompatible or meaning-changing redesign, consider a new root and
+5. Prefer appending an optional table field for an additive change.
+6. For an incompatible or meaning-changing redesign, consider a new root and
    file identifier so both contracts can coexist during migration.
-6. Increment the SDK version according to the public API and semantic impact.
-7. Regenerate and inspect all payload and manifest changes.
-8. Add old/new fixture tests when mixed-version behavior matters. Test old
+7. Increment the SDK version according to the public API and semantic impact.
+8. Regenerate and inspect all payload and manifest changes.
+9. Add old/new fixture tests when mixed-version behavior matters. Test old
    payload bytes with the new schema and new payload bytes with the old schema,
    and state which direction is supported.
 
