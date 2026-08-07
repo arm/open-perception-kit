@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -38,6 +39,8 @@ AGENT_STATIC_REFERENCE_PATHS = (
     "tools/expkits-ci/tests/test_agent_static_analysis.py",
     "tools/expkits-ci/tests/test_agent_workflow_contracts.py",
 )
+EXECUTABLE_SOURCE_SUFFIXES = {".py", ".sh"}
+GENERATED_PATH_MARKER = "agent-static-analysis: allow-generated-path"
 
 
 def repo_path(repo_root: Path, path_value: str) -> Path:
@@ -158,11 +161,20 @@ def reference_tokens_for_removed_path(
 ) -> set[str]:
     path = Path(path_value)
     tokens = {path_value}
-    if path.suffix:
+    if path.suffix in EXECUTABLE_SOURCE_SUFFIXES:
         suffixless_path = path_value[: -len(path.suffix)]
         if repo_root is None or not repo_path(repo_root, suffixless_path).exists():
             tokens.add(suffixless_path)
     return {token for token in tokens if token}
+
+
+def line_references_path(line: str, token: str) -> bool:
+    if GENERATED_PATH_MARKER in line:
+        return False
+    return re.search(
+        rf"(?<![A-Za-z0-9_.-]){re.escape(token)}(?![A-Za-z0-9_./-])",
+        line,
+    ) is not None
 
 
 def tracked_reference_files(repo_root: Path) -> list[str]:
@@ -194,7 +206,7 @@ def find_removed_reference_violations(
             continue
         for line_number, line in enumerate(lines, start=1):
             for token in tokens:
-                if token in line:
+                if line_references_path(line, token):
                     violations.append(f"{path}:{line_number}: removed path reference '{token}'")
     return violations
 

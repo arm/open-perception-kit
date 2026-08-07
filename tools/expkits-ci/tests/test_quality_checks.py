@@ -170,8 +170,12 @@ class TestQualityChecks(unittest.TestCase):
 
     def test_check_branch_naming_accepts_supported_branches(self):
         valid_branches = [
+            "develop",
             "feature/EXPKITS-4242",
             "feature/EXPKITS-4242/ticket-description",  # pragma: allowlist secret
+            "bugfix/EXPKITS-4242/fix-timeout",
+            "hotfix/EXPKITS-4242/fix-release",
+            "release/EXPKITS-4242-create-release-1.2.3",
             "dependabot/github_actions/actions-checkout-7",
         ]
 
@@ -693,6 +697,93 @@ class TestQualityChecks(unittest.TestCase):
             result = self.quality_checks.check_commit_messages_on_ci()
 
         self.assertFalse(result)
+
+    def test_check_commit_messages_on_ci_excludes_commits_already_on_develop(self):
+        head = types.SimpleNamespace(hexsha="c" * 40)
+        main = types.SimpleNamespace(hexsha="a" * 40)
+        develop = types.SimpleNamespace(hexsha="b" * 40)
+        main_base = types.SimpleNamespace(hexsha="e" * 40)
+        develop_base = types.SimpleNamespace(hexsha="f" * 40)
+        commit = types.SimpleNamespace(
+            message="Prepare release\n\nTask: EXPKITS-1191\n",
+            hexsha="d" * 40,
+        )
+        repo = Mock()
+        repo.head.commit = head
+        repo.commit.side_effect = lambda ref: {
+            "origin/main": main,
+            "origin/develop": develop,
+        }[ref]
+        repo.merge_base.side_effect = [[main_base], [develop_base]]
+        repo.is_ancestor.return_value = True
+        repo.iter_commits.return_value = [commit]
+
+        with patch("expkits_ci.quality_checks.Repo", return_value=repo):
+            result = self.quality_checks.check_commit_messages_on_ci(target_branch="main")
+
+        self.assertTrue(result)
+        repo.git.fetch.assert_called_once_with(
+            "origin",
+            "+refs/heads/develop:refs/remotes/origin/develop",
+        )
+        repo.is_ancestor.assert_called_once_with(main_base, develop_base)
+        repo.iter_commits.assert_called_once_with(f"{develop_base.hexsha}..HEAD")
+
+    def test_check_commit_messages_on_ci_keeps_main_base_for_hotfix(self):
+        head = types.SimpleNamespace(hexsha="c" * 40)
+        main = types.SimpleNamespace(hexsha="a" * 40)
+        develop = types.SimpleNamespace(hexsha="b" * 40)
+        main_base = types.SimpleNamespace(hexsha="f" * 40)
+        develop_base = types.SimpleNamespace(hexsha="e" * 40)
+        commit = types.SimpleNamespace(
+            message="Prepare hotfix\n\nTask: EXPKITS-1191\n",
+            hexsha="d" * 40,
+        )
+        repo = Mock()
+        repo.head.commit = head
+        repo.commit.side_effect = lambda ref: {
+            "origin/main": main,
+            "origin/develop": develop,
+        }[ref]
+        repo.merge_base.side_effect = [[main_base], [develop_base]]
+        repo.is_ancestor.return_value = False
+        repo.iter_commits.return_value = [commit]
+
+        with patch("expkits_ci.quality_checks.Repo", return_value=repo):
+            result = self.quality_checks.check_commit_messages_on_ci(target_branch="main")
+
+        self.assertTrue(result)
+        repo.is_ancestor.assert_called_once_with(main_base, develop_base)
+        repo.iter_commits.assert_called_once_with(f"{main_base.hexsha}..HEAD")
+
+    def test_check_commit_messages_on_ci_uses_target_for_equal_merge_bases(self):
+        head = types.SimpleNamespace(hexsha="c" * 40)
+        main = types.SimpleNamespace(hexsha="a" * 40)
+        develop = types.SimpleNamespace(hexsha="b" * 40)
+        shared_base = types.SimpleNamespace(hexsha="e" * 40)
+        commit = types.SimpleNamespace(
+            message="Prepare change\n\nTask: EXPKITS-1191\n",
+            hexsha="d" * 40,
+        )
+        repo = Mock()
+        repo.head.commit = head
+        repo.commit.side_effect = lambda ref: {
+            "origin/develop": develop,
+            "origin/main": main,
+        }[ref]
+        repo.merge_base.side_effect = [[shared_base], [shared_base]]
+        repo.iter_commits.return_value = [commit]
+
+        with patch("expkits_ci.quality_checks.Repo", return_value=repo):
+            result = self.quality_checks.check_commit_messages_on_ci(target_branch="develop")
+
+        self.assertTrue(result)
+        repo.git.fetch.assert_called_once_with(
+            "origin",
+            "+refs/heads/main:refs/remotes/origin/main",
+        )
+        repo.is_ancestor.assert_not_called()
+        repo.iter_commits.assert_called_once_with(f"{shared_base.hexsha}..HEAD")
 
     def test_render_commit_message_for_log_falls_back_to_raw_message(self):
         rendered = self.quality_checks.render_commit_message_for_log(

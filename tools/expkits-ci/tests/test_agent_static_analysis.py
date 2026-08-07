@@ -57,6 +57,52 @@ class AgentStaticAnalysisTests(unittest.TestCase):
             {removed_path},
         )
 
+    def test_reference_tokens_keep_non_executable_suffix(self):
+        removed_path = "devices" + ".env"
+
+        self.assertEqual(
+            agent_static_analysis.reference_tokens_for_removed_path(removed_path),
+            {removed_path},
+        )
+
+    def test_reference_matching_requires_path_boundaries(self):
+        removed_path = "scripts/playwright/pages/" + "publish"
+
+        self.assertTrue(
+            agent_static_analysis.line_references_path(
+                f"python3 {removed_path} --help",
+                removed_path,
+            )
+        )
+        for prefix in (
+            "./",
+            "${GITHUB_WORKSPACE}/",
+            "$GITHUB_WORKSPACE/",
+            ".agent-runtime/agent-stabilization-helper/",
+        ):
+            self.assertTrue(
+                agent_static_analysis.line_references_path(
+                    f"python3 {prefix}{removed_path} --help",
+                    removed_path,
+                )
+            )
+        self.assertFalse(
+            agent_static_analysis.line_references_path(
+                "python3 scripts/playwright/pages/publish_playwright_pages.py",
+                removed_path,
+            )
+        )
+
+    def test_reference_matching_allows_generated_path_marker(self):
+        generated_path = "devices" + ".env"
+
+        self.assertFalse(
+            agent_static_analysis.line_references_path(
+                'DEV_ENV_FILE="devices.env" # agent-static-analysis: allow-generated-path',
+                generated_path,
+            )
+        )
+
     def test_ignore_rules_are_not_source_references(self):
         self.assertNotIn(".gitignore", agent_static_analysis.AGENT_STATIC_REFERENCE_PATHS)
 

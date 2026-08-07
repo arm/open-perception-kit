@@ -255,12 +255,10 @@ class QualityChecks:
             logger.error(f"Could not get current branch name. {e}")
             return False
 
-        jira_pattern = r"^feature/(%s)-\d+(?:/.+)?$" % "|".join(
+        jira_pattern = r"^(?:feature|bugfix|hotfix|release)/(%s)-\d+(?:[-/].+)?$" % "|".join(
             QualityChecks.JIRA_PROJECTS)
         result = False
-        # main branch -> should not be used for development
-        # feature branch: feature/PROJECT-1234[/something-something]
-        if re.match(jira_pattern, branch) or (branch == "main"):
+        if re.match(jira_pattern, branch) or branch in ("main", "develop"):
             result = True
         # automated and sandbox branches
         elif branch.startswith(("dependabot/", "sandbox/")):
@@ -270,8 +268,7 @@ class QualityChecks:
             logger.error(f"Invalid branch name: \"{branch}\"")
             logger.info("Valid formats:")
             for proj in QualityChecks.JIRA_PROJECTS:
-                logger.info(f"  feature/{proj}-1234")
-                logger.info(f"  feature/{proj}-1234/ticket-description")
+                logger.info(f"  <feature|bugfix|hotfix|release>/{proj}-1234[/ticket-description]")
             logger.info("  sandbox/whatever")
             logger.info(
                 "In case of different JIRA project, please update the JIRA_PROJECTS array.")
@@ -490,9 +487,10 @@ class QualityChecks:
     def check_commit_messages_on_ci(files=None, target_branch=None) -> bool:
         """Check all commit messages on the current branch that are not on target_branch.
 
-        When target_branch is provided the set of commits checked is
-        those reachable from HEAD but not from the merge-base with target_branch,
-        i.e. exactly the commits introduced by the current branch/PR.
+        When target_branch is provided the set of commits checked is those
+        introduced after its merge base. For main and develop targets, prefer
+        the other protected branch only when its merge base is newer; otherwise
+        use the target branch.
         When target_branch is omitted, only HEAD is checked.
         """
         logger.info("Checking commit message format...")
@@ -518,12 +516,36 @@ class QualityChecks:
                     target_commit = repo.commit(target_branch)
                     logger.info(f"Resolved target branch as '{target_branch}'")
 
+                validation_ref = remote_ref
                 merge_base_list = repo.merge_base(repo.head.commit, target_commit)
                 if not merge_base_list:
-                    logger.error(f"Could not find merge base between HEAD and '{target_branch}'.")
+                    logger.error(f"Could not find merge base between HEAD and '{validation_ref}'.")
                     return False
                 merge_base = merge_base_list[0]
-                logger.info(f"Checking commits between merge base {merge_base.hexsha[:8]} and HEAD")
+
+                if target_branch in ("main", "develop"):
+                    alternate_branch = "develop" if target_branch == "main" else "main"
+                    alternate_ref = f"origin/{alternate_branch}"
+                    try:
+                        repo.git.fetch(
+                            "origin",
+                            f"+refs/heads/{alternate_branch}:refs/remotes/{alternate_ref}",
+                        )
+                        alternate_commit = repo.commit(alternate_ref)
+                        alternate_base_list = repo.merge_base(repo.head.commit, alternate_commit)
+                        if not alternate_base_list:
+                            logger.warning(
+                                f"No merge base found for {alternate_ref}; using {validation_ref}")
+                        elif (alternate_base_list[0].hexsha != merge_base.hexsha
+                              and repo.is_ancestor(merge_base, alternate_base_list[0])):
+                            merge_base = alternate_base_list[0]
+                            validation_ref = alternate_ref
+                    except Exception as exc:
+                        logger.warning(
+                            f"Could not compare against {alternate_ref}; using {validation_ref}: {exc}")
+
+                logger.info(
+                    f"Checking commits after {validation_ref} merge base {merge_base.hexsha[:8]}")
                 for commit in repo.iter_commits(f"{merge_base.hexsha}..HEAD"):
                     commits.append(commit)
             except GitCommandError as e:

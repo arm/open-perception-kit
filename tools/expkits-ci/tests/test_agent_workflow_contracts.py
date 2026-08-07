@@ -35,6 +35,9 @@ from test_support.agent_workflow import (  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 BLACKDUCK_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/blackduck-scan.yml"
+PYTHON_DEPENDENCY_AUDIT_WORKFLOW_FILE = (
+    REPO_ROOT / ".github/workflows/python-dependency-audit.yml"
+)
 
 
 class AgentWorkflowContractTests(unittest.TestCase):
@@ -50,6 +53,14 @@ class AgentWorkflowContractTests(unittest.TestCase):
             "--max-review-changed-lines",
         ):
             self.assertNotIn(flag, run)
+
+    def test_python_dependency_audit_rejects_fork_pull_requests(self):
+        workflow = load_yaml(PYTHON_DEPENDENCY_AUDIT_WORKFLOW_FILE)
+
+        self.assertIn(
+            "github.event.pull_request.head.repo.full_name == github.repository",
+            workflow["jobs"]["pip-audit"]["if"],
+        )
 
     def test_manual_repair_wrapper_calls_repair_worker_with_minimal_inputs(self):
         workflow = load_yaml(AGENT_REPAIR_SOURCE_RUN_WORKFLOW_FILE)

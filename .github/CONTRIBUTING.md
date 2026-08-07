@@ -3,7 +3,8 @@
 ## Contribution rules
 
 - Format code according to the repository configuration. Use `expkits-ci --pre-commit-check` to run the shared pre-commit checks manually.
-- Name branches as `feature/EXPKITS-1234` or `feature/EXPKITS-1234/short-description`.
+- Name branches with a ticketed `feature/`, `bugfix/`, `hotfix/`, or `release/`
+  prefix, for example `release/EXPKITS-1234-create-release-1.2.3`.
 - Use this commit message structure:
   - first line: short description
   - second line: `Task: EXPKITS-1234`
