@@ -4,11 +4,14 @@
 
 #include "GenericImagePreprocessOp.h"
 
+#include <algorithm>
+#include <cassert>
 #include <cstdint>
 #include <fmt/core.h>
 #include <memory>
 
 #include "Log.h"
+#include "mediaio/Common.h"
 #include "pek/ImageOpDesc.h"
 #include "pek/Perception.h"
 #include "pek/Result.h"
@@ -21,6 +24,79 @@
 #include <perf/PerformanceTracer.h>
 
 using namespace pek::stdop;
+
+namespace {
+
+size_t expectedPlaneCount(pek::RawImagePixelFormat format) noexcept {
+    using enum pek::RawImagePixelFormat;
+
+    switch (format) {
+    case Bgra:
+    case Rgb:
+    case Gray:
+    case Yuy2:
+        return 1;
+    case I420:
+        return 3;
+    case Nv12:
+        return 2;
+    case Unknown:
+        return 0;
+    }
+    return 0;
+}
+
+bool isYuvPixelFormat(pek::RawImagePixelFormat format) noexcept {
+    using enum pek::RawImagePixelFormat;
+
+    switch (format) {
+    case I420:
+    case Nv12:
+    case Yuy2:
+        return true;
+    default:
+        return false;
+    }
+}
+
+pek::ImagePlaneDesc makePlaneDesc(const pek::mediaio::DataView &plane,
+                                  pek::RawImagePixelFormat format,
+                                  size_t planeIndex,
+                                  size_t surfaceWidth,
+                                  size_t surfaceHeight) {
+    size_t planeWidth = surfaceWidth;
+    size_t planeHeight = surfaceHeight;
+
+    using enum pek::RawImagePixelFormat;
+
+    switch (format) {
+    case I420:
+        if (planeIndex > 0) {
+            planeWidth = (surfaceWidth + 1) / 2;
+            planeHeight = (surfaceHeight + 1) / 2;
+        }
+        break;
+    case Nv12:
+        if (planeIndex == 1) {
+            planeWidth = ((surfaceWidth + 1) / 2) * 2;
+            planeHeight = (surfaceHeight + 1) / 2;
+        }
+        break;
+    default:
+        break;
+    }
+
+    return {
+        static_cast<const uint8_t *>(plane.data()),
+        nullptr,
+        plane.byteSize(),
+        plane.strideBytes(),
+        planeWidth,
+        planeHeight,
+    };
+}
+
+} // namespace
 
 GenericImagePreprocessOp::GenericImagePreprocessOp() = default;
 GenericImagePreprocessOp::~GenericImagePreprocessOp() = default;
@@ -79,8 +155,9 @@ pek::Result<void> GenericImagePreprocessOp::configure(const pek::AttributeMap &a
     return {};
 }
 
-pek::Result<pek::op::OpSignal>
-GenericImagePreprocessOp::process(pek::op::OpChainContext &opChainContext) {
+pek::Result<pek::op::OpSignal> GenericImagePreprocessOp::process(
+    pek::op::OpChainContext &opChainContext) { // NOSONAR - preprocessing setup is intentionally
+                                               // linear to keep frame/tensor state explicit.
     PEK_TRACE_SCOPE(fmt::format("std/GenImgPre/{}", upcomingInferenceModel.name));
     PEK_PERF_SCOPE(fmt::format("std/GenImgPre/{}", upcomingInferenceModel.name));
 
@@ -112,8 +189,14 @@ GenericImagePreprocessOp::process(pek::op::OpChainContext &opChainContext) {
     const pek::mediaio::VideoFrame *readableVideoFrame = pipelineVideoFrame;
     std::unique_ptr<pek::mediaio::VideoFrame> mappedPipelineVideoFrame;
     auto readablePlanes = readableVideoFrame->planes();
-    if (readablePlanes.empty() || !readablePlanes.front().hasHostData() ||
-        !readablePlanes.front().canRead()) {
+    auto hasReadableHostPlanes = [](auto planes) {
+        if (planes.empty()) {
+            return false;
+        }
+        return std::ranges::all_of(
+            planes, [](const auto &plane) { return plane.hasHostData() && plane.canRead(); });
+    };
+    if (!hasReadableHostPlanes(readablePlanes)) {
         mappedPipelineVideoFrame = pipelineVideoFrame->map(pek::AccessMode::Read);
         if (!mappedPipelineVideoFrame) {
             return tl::make_unexpected(
@@ -123,28 +206,52 @@ GenericImagePreprocessOp::process(pek::op::OpChainContext &opChainContext) {
 
         readableVideoFrame = mappedPipelineVideoFrame.get();
         readablePlanes = readableVideoFrame->planes();
-        if (readablePlanes.empty() || !readablePlanes.front().hasHostData() ||
-            !readablePlanes.front().canRead()) {
+        if (!hasReadableHostPlanes(readablePlanes)) {
             return tl::make_unexpected(
                 PEK_ERROR(pek::ErrorFlag::InvalidData,
-                          "GenericImagePreprocessOp VideoFrame has no readable host plane"));
+                          "GenericImagePreprocessOp VideoFrame has no readable host planes"));
         }
     }
-    const auto &pipelineVideoPlane = readablePlanes.front();
+
+    const auto sourceFormat = readableVideoFrame->format();
+    const size_t sourcePlaneCount = expectedPlaneCount(sourceFormat);
+    if (sourcePlaneCount == 0 || sourcePlaneCount > pek::MaxImagePlaneCount ||
+        readablePlanes.size() < sourcePlaneCount) {
+        return tl::make_unexpected(
+            PEK_ERROR(pek::ErrorFlag::InvalidData,
+                      "GenericImagePreprocessOp unsupported or incomplete VideoFrame format"));
+    }
 
     // setup tensor data source
     pek::TensorBuilder::Setup setup;
-    setup.imageSourceDesc.data =
-        const_cast<uint8_t *>(static_cast<const uint8_t *>(pipelineVideoPlane.data()));
     setup.imageSourceDesc.surfaceWidth = readableVideoFrame->width();
     setup.imageSourceDesc.surfaceHeight = readableVideoFrame->height();
-    setup.imageSourceDesc.surfaceStride = pipelineVideoPlane.strideBytes();
     setup.imageSourceDesc.rect = cropRect;
-    setup.imageSourceDesc.byteCount = pipelineVideoPlane.byteSize();
-    setup.imageSourceDesc.kind = readableVideoFrame->format();
+    setup.imageSourceDesc.planeCount = sourcePlaneCount;
+    for (size_t planeIndex = 0; planeIndex < sourcePlaneCount; ++planeIndex) {
+        setup.imageSourceDesc.planes[planeIndex] =
+            makePlaneDesc(readablePlanes[planeIndex],
+                          sourceFormat,
+                          planeIndex,
+                          setup.imageSourceDesc.surfaceWidth,
+                          setup.imageSourceDesc.surfaceHeight);
+        assert(setup.imageSourceDesc.planes[planeIndex].data != nullptr);
+        assert(setup.imageSourceDesc.planes[planeIndex].mutableData == nullptr);
+    }
+    setup.imageSourceDesc.format = sourceFormat;
     setup.imageSourceDesc.type = pek::Dtype::Uint8;
     setup.imageSourceDesc.mean = inputTensor.mean;
     setup.imageSourceDesc.std = inputTensor.std;
+    if (isYuvPixelFormat(sourceFormat)) {
+        setup.imageSourceDesc.yuvMatrix = readableVideoFrame->yuvColorMatrix();
+        setup.imageSourceDesc.yuvRange = readableVideoFrame->yuvRange();
+        if (setup.imageSourceDesc.yuvMatrix == pek::YuvColorMatrix::Unknown ||
+            setup.imageSourceDesc.yuvRange == pek::YuvRange::Unknown) {
+            return tl::make_unexpected(PEK_ERROR(
+                pek::ErrorFlag::InvalidData,
+                "GenericImagePreprocessOp YUV VideoFrame has unknown colorimetry or range"));
+        }
+    }
 
     // debug
     if (false) {
@@ -165,7 +272,7 @@ GenericImagePreprocessOp::process(pek::op::OpChainContext &opChainContext) {
                                             setup.imageSourceDesc.rect.width,
                                             setup.imageSourceDesc.rect.height);
         pek::Tools::savePngCropFromBgra(debugFile,
-                                        setup.imageSourceDesc.data,
+                                        setup.imageSourceDesc.planes[0].data,
                                         setup.imageSourceDesc.surfaceWidth,
                                         setup.imageSourceDesc.surfaceHeight,
                                         setup.imageSourceDesc.rect.x,
@@ -180,9 +287,17 @@ GenericImagePreprocessOp::process(pek::op::OpChainContext &opChainContext) {
     setup.imageDestinationDesc.surfaceHeight = modelHeight;
     setup.imageDestinationDesc.rect = {0, 0, modelWidth, modelHeight};
     setup.imageDestinationDesc.kind = inputTensor.dataKind;
-    setup.imageDestinationDesc.byteCount =
-        inputTensor.shape.getFullValueCount() * pek::getValueTypeByteSize(inputTensor.valueType);
-    setup.imageDestinationDesc.data = upcomingTensorAddresses[inputImageTensorIndex];
+    setup.imageDestinationDesc.planeCount = 1;
+    setup.imageDestinationDesc.planes[0] = {
+        nullptr,
+        upcomingTensorAddresses[inputImageTensorIndex],
+        inputTensor.shape.getFullValueCount() * pek::getValueTypeByteSize(inputTensor.valueType),
+        0,
+        modelWidth,
+        modelHeight,
+    };
+    assert(setup.imageDestinationDesc.planes[0].data == nullptr);
+    assert(setup.imageDestinationDesc.planes[0].mutableData != nullptr);
     setup.imageDestinationDesc.keepAspectRatio = inputTensor.keepAspectRatio;
     setup.imageDestinationDesc.letterboxRed = inputTensor.letterboxRed;
     setup.imageDestinationDesc.letterboxGreen = inputTensor.letterboxGreen;

@@ -81,27 +81,28 @@ class DmaBufSync {
  * @brief Generic non-owning view over host or DMA-BUF backed data.
  *
  * DataView is intentionally not video-specific. It describes a single readable
- * or writable data plane for image, audio, or raw payloads using pek::DataKind.
+ * or writable data plane for image, audio, or raw payloads. For image/video
+ * planes, format identifies the raw frame pixel layout.
  * The pointed-to memory or descriptor must remain valid for the owner object's
  * lifetime.
  */
 class DataView {
   public:
-    /// Creates an empty view with unknown memory, access, and data kind.
+    /// Creates an empty view with unknown memory, access, and raw image format.
     DataView() = default;
 
     /**
      * @brief Creates a view over CPU-addressable memory.
      * @param data Pointer to the first byte of the data plane.
      * @param byteSize Number of bytes available from data.
-     * @param kind Semantic content and layout of the data.
+     * @param format Raw image/video pixel layout for image planes.
      * @param strideBytes Row stride in bytes for image data, or 0 when not applicable.
      * @param accessMode Permitted read/write access for the memory.
      * @param offsetBytes Byte offset of this plane inside the backing allocation.
      */
     static DataView host(void *data,
                          size_t byteSize,
-                         pek::DataKind kind,
+                         pek::RawImagePixelFormat format,
                          uint32_t strideBytes = 0,
                          pek::AccessMode accessMode = pek::AccessMode::ReadWrite,
                          size_t offsetBytes = 0) noexcept;
@@ -110,7 +111,7 @@ class DataView {
      * @brief Creates a view over DMA-BUF backed memory.
      * @param fd Borrowed DMA-BUF file descriptor.
      * @param byteSize Number of bytes in this plane.
-     * @param kind Semantic content and layout of the data.
+     * @param format Raw image/video pixel layout for image planes.
      * @param strideBytes Row stride in bytes for image data, or 0 when not applicable.
      * @param offsetBytes Byte offset of this plane inside the DMA-BUF allocation.
      * @param accessMode Permitted read/write access for the memory.
@@ -118,7 +119,7 @@ class DataView {
      */
     static DataView dmaBuf(int fd,
                            size_t byteSize,
-                           pek::DataKind kind,
+                           pek::RawImagePixelFormat format,
                            uint32_t strideBytes = 0,
                            size_t offsetBytes = 0,
                            pek::AccessMode accessMode = pek::AccessMode::ReadWrite,
@@ -130,8 +131,8 @@ class DataView {
     /** @brief Returns the permitted access mode for this view. */
     pek::AccessMode accessMode() const noexcept;
 
-    /** @brief Returns the semantic kind and layout of the data. */
-    pek::DataKind kind() const noexcept;
+    /** @brief Returns the raw image/video pixel layout for image planes. */
+    pek::RawImagePixelFormat kind() const noexcept;
 
     /**
      * @brief Returns a read pointer for host-backed data.
@@ -180,8 +181,8 @@ class DataView {
     pek::MemoryType memory = pek::MemoryType::Unknown;
     /// Permitted access mode for this view.
     pek::AccessMode access = pek::AccessMode::Unknown;
-    /// Semantic data kind and layout of this view.
-    pek::DataKind dataKind = pek::DataKind::Unknown;
+    /// Raw image/video pixel layout for image planes.
+    pek::RawImagePixelFormat rawImageFormat = pek::RawImagePixelFormat::Unknown;
 
     /// CPU-addressable pointer for host-backed views.
     void *hostData = nullptr;

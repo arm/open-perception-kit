@@ -32,14 +32,14 @@ bool DmaBufSync::hasReleaseFence() const noexcept {
 
 DataView DataView::host(void *data,
                         size_t byteSize,
-                        pek::DataKind kind,
+                        pek::RawImagePixelFormat format,
                         uint32_t strideBytes,
                         pek::AccessMode accessMode,
                         size_t offsetBytes) noexcept {
     DataView view;
     view.memory = pek::MemoryType::Host;
     view.access = accessMode;
-    view.dataKind = kind;
+    view.rawImageFormat = format;
     view.hostData = data;
     view.dataByteSize = byteSize;
     view.dataStrideBytes = strideBytes;
@@ -49,7 +49,7 @@ DataView DataView::host(void *data,
 
 DataView DataView::dmaBuf(int fd,
                           size_t byteSize,
-                          pek::DataKind kind,
+                          pek::RawImagePixelFormat format,
                           uint32_t strideBytes,
                           size_t offsetBytes,
                           pek::AccessMode accessMode,
@@ -57,7 +57,7 @@ DataView DataView::dmaBuf(int fd,
     DataView view;
     view.memory = pek::MemoryType::DmaBuf;
     view.access = accessMode;
-    view.dataKind = kind;
+    view.rawImageFormat = format;
     view.dmaBufFd = fd;
     view.dataByteSize = byteSize;
     view.dataStrideBytes = strideBytes;
@@ -74,8 +74,8 @@ pek::AccessMode DataView::accessMode() const noexcept {
     return access;
 }
 
-pek::DataKind DataView::kind() const noexcept {
-    return dataKind;
+pek::RawImagePixelFormat DataView::kind() const noexcept {
+    return rawImageFormat;
 }
 
 const void *DataView::data() const noexcept {

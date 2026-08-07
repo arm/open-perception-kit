@@ -59,7 +59,9 @@ inline size_t getValueTypeByteSize(Dtype type) {
     case Dtype::Int64:
         return 8;
     }
-    throw std::runtime_error("Unknown Dtype in getValueTypeByteSize()");
+    throw std::runtime_error(
+        "Unknown Dtype in getValueTypeByteSize()"); // NOSONAR - PEK does not expose a typed
+                                                    // exception hierarchy here.
 }
 
 /**
@@ -84,7 +86,9 @@ inline size_t getAudioSampleByteSize(AudioSampleType t) {
     case AudioSampleType::F32:
         return 4;
     }
-    throw std::runtime_error("Unknown AudioSampleType in getAudioSampleByteSize()");
+    throw std::runtime_error(
+        "Unknown AudioSampleType in getAudioSampleByteSize()"); // NOSONAR - PEK does not expose a
+                                                                // typed exception hierarchy here.
 }
 
 /**
@@ -121,6 +125,19 @@ struct MeanStd {
 };
 
 /**
+ * @brief Raw image/video buffer pixel layout before tensor preprocessing.
+ */
+enum class RawImagePixelFormat {
+    Unknown, ///< Unspecified or unsupported raw image format.
+    Bgra,    ///< Interleaved 8-bit BGRA pixels.
+    Rgb,     ///< Interleaved 8-bit RGB pixels.
+    Gray,    ///< Single-plane 8-bit grayscale pixels.
+    I420,    ///< Planar 8-bit YUV 4:2:0 with separate Y, U, and V planes.
+    Nv12,    ///< Semi-planar 8-bit YUV 4:2:0 with Y plane and interleaved UV plane.
+    Yuy2,    ///< Packed 8-bit YUY2/YUV 4:2:2 pixels in Y0 U0 Y1 V0 byte order.
+};
+
+/**
  * @brief Indicates whether a tensor is used as model input or output.
  */
 enum class TensorInOut { In, Out };
@@ -145,6 +162,57 @@ enum class DataKind {
     Vector3, ///< Three scalar values.
     Vector4  ///< Four scalar values.
 };
+
+/**
+ * @brief YUV-to-RGB conversion matrix family.
+ */
+enum class YuvColorMatrix {
+    Unknown, ///< Unspecified or unsupported matrix.
+    Bt601,   ///< ITU-R BT.601 matrix, commonly used for SD video.
+    Bt709,   ///< ITU-R BT.709 matrix, commonly used for HD video.
+    Bt2020,  ///< ITU-R BT.2020 matrix, commonly used for UHD video.
+};
+
+/**
+ * @brief Encoded numeric range used by YUV samples.
+ */
+enum class YuvRange {
+    Unknown, ///< Unspecified or unsupported range.
+    Full,    ///< Full-range samples, usually Y/U/V 0..255 for 8-bit formats.
+    Limited, ///< Video-range samples, usually Y 16..235 and U/V 16..240 for 8-bit formats.
+};
+
+/**
+ * @brief Luma coefficients used to derive YUV-to-RGB conversion constants.
+ */
+struct YuvToRgbCoefficients {
+    float kr = 0.0f; ///< Red luma coefficient.
+    float kb = 0.0f; ///< Blue luma coefficient.
+};
+
+/**
+ * @brief Returns the luma coefficients for a supported YUV color matrix.
+ * @param matrix Matrix family.
+ * @return Red and blue luma coefficients for the requested matrix.
+ * @throws std::runtime_error if @p matrix is unknown or unsupported.
+ */
+inline YuvToRgbCoefficients getYuvToRgbCoefficients(YuvColorMatrix matrix) {
+    using enum YuvColorMatrix;
+
+    switch (matrix) {
+    case Bt601:
+        return {0.299f, 0.114f};
+    case Bt709:
+        return {0.2126f, 0.0722f};
+    case Bt2020:
+        return {0.2627f, 0.0593f};
+    default:
+        throw std::runtime_error(
+            "Unknown YUV color matrix in getYuvToRgbCoefficients()"); // NOSONAR - PEK does not
+                                                                      // expose a typed exception
+                                                                      // hierarchy here.
+    }
+}
 
 /**
  * @brief Returns true if @p kind represents a scalar or small vector data kind.

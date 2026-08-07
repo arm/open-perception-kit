@@ -67,20 +67,28 @@ bool needsWrite(pek::AccessMode mode) noexcept {
 }
 
 /**
- * @brief Returns the PEK data kind represented by a GStreamer video format.
+ * @brief Returns the PEK raw image pixel format represented by a GStreamer video format.
  * @param format GStreamer video format.
- * @return Matching PEK image kind, or Unknown when unsupported.
+ * @return Matching PEK raw image pixel format, or Unknown when unsupported.
  */
-pek::DataKind dataKindFromGstVideoFormat(GstVideoFormat format) noexcept {
+pek::RawImagePixelFormat rawImagePixelFormatFromGstVideoFormat(GstVideoFormat format) noexcept {
+    using enum pek::RawImagePixelFormat;
+
     switch (format) {
     case GST_VIDEO_FORMAT_BGRA:
-        return pek::DataKind::ImageBgraHwc;
+        return Bgra;
     case GST_VIDEO_FORMAT_RGB:
-        return pek::DataKind::ImageRgbHwc;
+        return Rgb;
     case GST_VIDEO_FORMAT_GRAY8:
-        return pek::DataKind::ImageGray;
+        return Gray;
+    case GST_VIDEO_FORMAT_I420:
+        return I420;
+    case GST_VIDEO_FORMAT_NV12:
+        return Nv12;
+    case GST_VIDEO_FORMAT_YUY2:
+        return Yuy2;
     default:
-        return pek::DataKind::Unknown;
+        return Unknown;
     }
 }
 
@@ -88,18 +96,111 @@ pek::DataKind dataKindFromGstVideoFormat(GstVideoFormat format) noexcept {
  * @brief Returns true when @p info describes a video layout this wrapper can expose.
  */
 bool supportedVideoInfo(const GstVideoInfo &info) noexcept {
+    using enum pek::RawImagePixelFormat;
+
     return info.finfo != nullptr &&
-           dataKindFromGstVideoFormat(GST_VIDEO_INFO_FORMAT(&info)) != pek::DataKind::Unknown &&
+           rawImagePixelFormatFromGstVideoFormat(GST_VIDEO_INFO_FORMAT(&info)) != Unknown &&
            GST_VIDEO_INFO_WIDTH(&info) > 0 && GST_VIDEO_INFO_HEIGHT(&info) > 0 &&
            GST_VIDEO_INFO_N_PLANES(&info) > 0;
 }
 
+bool isYuvFormat(pek::RawImagePixelFormat format) noexcept {
+    using enum pek::RawImagePixelFormat;
+
+    switch (format) {
+    case I420:
+    case Nv12:
+    case Yuy2:
+        return true;
+    default:
+        return false;
+    }
+}
+
+pek::YuvColorMatrix defaultYuvColorMatrix(uint32_t height) noexcept {
+    using enum pek::YuvColorMatrix;
+
+    return height <= 576 ? Bt601 : Bt709;
+}
+
+pek::YuvColorMatrix yuvColorMatrixFromGst(GstVideoColorimetry colorimetry,
+                                          uint32_t height) noexcept {
+    using enum pek::YuvColorMatrix;
+
+    switch (colorimetry.matrix) {
+    case GST_VIDEO_COLOR_MATRIX_BT601:
+        return Bt601;
+    case GST_VIDEO_COLOR_MATRIX_BT709:
+        return Bt709;
+    case GST_VIDEO_COLOR_MATRIX_BT2020:
+        return Bt2020;
+    case GST_VIDEO_COLOR_MATRIX_UNKNOWN:
+        return defaultYuvColorMatrix(height);
+    default:
+        return Unknown;
+    }
+}
+
+pek::YuvRange yuvRangeFromGst(GstVideoColorimetry colorimetry) noexcept {
+    using enum pek::YuvRange;
+
+    switch (colorimetry.range) {
+    case GST_VIDEO_COLOR_RANGE_0_255:
+        return Full;
+    case GST_VIDEO_COLOR_RANGE_16_235:
+        return Limited;
+    case GST_VIDEO_COLOR_RANGE_UNKNOWN:
+        return Limited;
+    default:
+        return Unknown;
+    }
+}
+
+pek::YuvColorMatrix yuvColorMatrixFromGstVideoInfo(const GstVideoInfo &info) noexcept {
+    using enum pek::YuvColorMatrix;
+
+    if (const auto format = rawImagePixelFormatFromGstVideoFormat(GST_VIDEO_INFO_FORMAT(&info));
+        !isYuvFormat(format)) {
+        return Unknown;
+    }
+    return yuvColorMatrixFromGst(GST_VIDEO_INFO_COLORIMETRY(&info),
+                                 static_cast<uint32_t>(GST_VIDEO_INFO_HEIGHT(&info)));
+}
+
+pek::YuvRange yuvRangeFromGstVideoInfo(const GstVideoInfo &info) noexcept {
+    using enum pek::YuvRange;
+
+    if (const auto format = rawImagePixelFormatFromGstVideoFormat(GST_VIDEO_INFO_FORMAT(&info));
+        !isYuvFormat(format)) {
+        return Unknown;
+    }
+    return yuvRangeFromGst(GST_VIDEO_INFO_COLORIMETRY(&info));
+}
+
 /**
- * @brief Returns the byte range needed to expose the first mapped video plane.
+ * @brief Returns the expected plane height for a supported mapped video plane.
  */
-size_t mappedFirstPlaneByteSize(const GstVideoInfo &info, const ::GstVideoFrame &frame) noexcept {
-    const gint stride = GST_VIDEO_FRAME_PLANE_STRIDE(&frame, 0);
+guint mappedPlaneHeight(const GstVideoInfo &info, guint plane) noexcept {
+    using enum pek::RawImagePixelFormat;
+
+    const auto format = rawImagePixelFormatFromGstVideoFormat(GST_VIDEO_INFO_FORMAT(&info));
     const guint height = GST_VIDEO_INFO_HEIGHT(&info);
+    switch (format) {
+    case I420:
+    case Nv12:
+        return plane == 0 ? height : (height + 1U) / 2U;
+    default:
+        return height;
+    }
+}
+
+/**
+ * @brief Returns the byte range needed to expose a mapped video plane.
+ */
+size_t
+mappedPlaneByteSize(const GstVideoInfo &info, const ::GstVideoFrame &frame, guint plane) noexcept {
+    const gint stride = GST_VIDEO_FRAME_PLANE_STRIDE(&frame, plane);
+    const guint height = mappedPlaneHeight(info, plane);
     if (stride <= 0 || height == 0) {
         return 0;
     }
@@ -202,7 +303,9 @@ GstVideoFrame::GstVideoFrame(GstBuffer *buffer,
                              ::GstVideoFrame frameMap,
                              GstVideoInfo videoInfo,
                              pek::MemoryType memoryType,
-                             pek::DataKind format,
+                             pek::RawImagePixelFormat format,
+                             pek::YuvColorMatrix yuvMatrix,
+                             pek::YuvRange yuvRange,
                              uint32_t width,
                              uint32_t height,
                              TimestampNs timestampNs,
@@ -210,8 +313,9 @@ GstVideoFrame::GstVideoFrame(GstBuffer *buffer,
                              pek::AccessMode mappedAccessMode) noexcept
     : buffer(buffer != nullptr ? gst_buffer_ref(buffer) : nullptr), videoFrameMap(frameMap),
       frameVideoInfo(videoInfo), frameMemoryType(memoryType), frameFormat(format),
-      frameWidth(width), frameHeight(height), frameTimestampNs(timestampNs),
-      framePlanes(std::move(planes)), mappedAccess(mappedAccessMode) {}
+      frameYuvMatrix(yuvMatrix), frameYuvRange(yuvRange), frameWidth(width), frameHeight(height),
+      frameTimestampNs(timestampNs), framePlanes(std::move(planes)),
+      mappedAccess(mappedAccessMode) {}
 
 GstVideoFrame::~GstVideoFrame() {
     gst_video_frame_unmap(&videoFrameMap);
@@ -249,28 +353,40 @@ std::unique_ptr<GstVideoFrame> GstVideoFrame::mapGstBufferUnique(GstBuffer *buff
         return nullptr;
     }
 
-    auto *data = GST_VIDEO_FRAME_PLANE_DATA(&frameMap, 0);
-    const gint stride = GST_VIDEO_FRAME_PLANE_STRIDE(&frameMap, 0);
-    const size_t byteSize = mappedFirstPlaneByteSize(videoInfo, frameMap);
-    if (data == nullptr || stride <= 0 || byteSize == 0) {
+    const auto format = rawImagePixelFormatFromGstVideoFormat(GST_VIDEO_INFO_FORMAT(&videoInfo));
+    const auto planeCount = GST_VIDEO_INFO_N_PLANES(&videoInfo);
+    std::vector<DataView> planes;
+    planes.reserve(planeCount);
+    for (guint plane = 0; plane < planeCount; ++plane) {
+        auto *data = GST_VIDEO_FRAME_PLANE_DATA(&frameMap, plane);
+        const gint stride = GST_VIDEO_FRAME_PLANE_STRIDE(&frameMap, plane);
+        const size_t byteSize = mappedPlaneByteSize(videoInfo, frameMap, plane);
+        if (data == nullptr || stride <= 0 || byteSize == 0) {
+            gst_video_frame_unmap(&frameMap);
+            return nullptr;
+        }
+
+        planes.push_back(
+            DataView::host(data, byteSize, format, static_cast<uint32_t>(stride), accessMode, 0));
+    }
+
+    if (planes.empty()) {
         gst_video_frame_unmap(&frameMap);
         return nullptr;
     }
 
-    const auto format = dataKindFromGstVideoFormat(GST_VIDEO_INFO_FORMAT(&videoInfo));
     const auto mapCount = gMapCount.fetch_add(1, std::memory_order_relaxed) + 1;
     maybePrintLifetimeCounters("maps", mapCount);
 
-    std::vector<DataView> planes;
-    planes.push_back(
-        DataView::host(data, byteSize, format, static_cast<uint32_t>(stride), accessMode, 0));
-
-    return std::unique_ptr<GstVideoFrame>(
+    return std::unique_ptr<GstVideoFrame>( // NOSONAR - constructor is private; make_unique cannot
+                                           // access it.
         new GstVideoFrame(buffer,
                           frameMap,
                           videoInfo,
                           pek::MemoryType::Host,
                           format,
+                          yuvColorMatrixFromGstVideoInfo(videoInfo),
+                          yuvRangeFromGstVideoInfo(videoInfo),
                           static_cast<uint32_t>(GST_VIDEO_INFO_WIDTH(&videoInfo)),
                           static_cast<uint32_t>(GST_VIDEO_INFO_HEIGHT(&videoInfo)),
                           timestampNsFromGstBuffer(buffer),
@@ -284,8 +400,16 @@ std::shared_ptr<GstVideoFrame> GstVideoFrame::mapGstBuffer(GstBuffer *buffer,
     return std::shared_ptr<GstVideoFrame>(mapGstBufferUnique(buffer, videoInfo, accessMode));
 }
 
-pek::DataKind GstVideoFrame::format() const noexcept {
+pek::RawImagePixelFormat GstVideoFrame::format() const noexcept {
     return frameFormat;
+}
+
+pek::YuvColorMatrix GstVideoFrame::yuvColorMatrix() const noexcept {
+    return frameYuvMatrix;
+}
+
+pek::YuvRange GstVideoFrame::yuvRange() const noexcept {
+    return frameYuvRange;
 }
 
 uint32_t GstVideoFrame::width() const noexcept {

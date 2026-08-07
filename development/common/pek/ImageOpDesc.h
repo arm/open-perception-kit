@@ -7,25 +7,61 @@
 #include "pek/Types.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <type_traits>
 
 namespace pek {
 
+/// @brief Maximum number of image planes supported by preprocessing descriptors.
+constexpr size_t MaxImagePlaneCount = 4;
+
 /**
- * @brief Describes the layout and normalisation parameters of an image tensor buffer.
+ * @brief Describes one image data plane.
+ */
+struct ImagePlaneDesc {
+    const uint8_t *data = nullptr;  ///< Read-only pointer to the first byte of the plane.
+    uint8_t *mutableData = nullptr; ///< Writable pointer to the first byte of the plane.
+    size_t byteCount = 0;           ///< Number of bytes available from the plane pointer.
+    size_t strideBytes = 0;         ///< Row stride in bytes.
+    size_t width = 0;               ///< Logical plane width in samples.
+    size_t height = 0;              ///< Logical plane height in rows.
+};
+
+/**
+ * @brief Returns the writable plane pointer viewed as elements of type T.
+ */
+template <typename T> T *mutablePlaneData(const ImagePlaneDesc &plane) noexcept {
+    static_assert(!std::is_const_v<T>, "mutablePlaneData requires a mutable element type");
+    if constexpr (std::is_same_v<T, uint8_t>) {
+        return plane.mutableData;
+    } else {
+        return reinterpret_cast<T *>(
+            plane.mutableData); // NOSONAR - tensor buffers are byte-addressed and reinterpreted by
+                                // declared value type.
+    }
+}
+
+/**
+ * @brief Describes the buffers and preprocessing parameters used by image tensor conversion.
  */
 struct ImageOpDesc {
-    uint8_t *data = nullptr; ///< Pointer to the image data buffer.
-    size_t byteCount = 0;    ///< Total size of the buffer in bytes.
-
     size_t surfaceWidth = 0;  ///< Surface width in pixels.
     size_t surfaceHeight = 0; ///< Surface height in pixels.
-    size_t surfaceStride = 0; ///< Row stride in bytes; reserved, currently assumed tightly packed.
 
     PixelRect rect; ///< Region of interest within the surface.
 
-    DataKind kind = DataKind::Unknown;     ///< Semantic content of the buffer.
+    std::array<ImagePlaneDesc, MaxImagePlaneCount> planes{}; ///< Image data planes.
+    size_t planeCount = 0;                                   ///< Number of valid entries in planes.
+
+    RawImagePixelFormat format = RawImagePixelFormat::Unknown; ///< Raw source image pixel format.
+    DataKind kind = DataKind::Unknown;     ///< Tensor/image semantic content and layout.
     pek::Dtype type = pek::Dtype::Float32; ///< Element data type of the buffer.
+
+    YuvColorMatrix yuvMatrix = YuvColorMatrix::Unknown; ///< YUV-to-RGB matrix for YUV sources.
+    YuvRange yuvRange = YuvRange::Unknown;              ///< Encoded numeric range for YUV sources.
 
     pek::Colorf mean = {0.0f, 0.0f, 0.0f, 0.0f}; ///< Per-channel normalisation mean.
     pek::Colorf std = {1.0f, 1.0f, 1.0f, 1.0f};  ///< Per-channel normalisation std.

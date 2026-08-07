@@ -65,7 +65,7 @@ class PixelBufferVideoFrame final : public VideoFrame {
            size_t byteSize,
            uint32_t width,
            uint32_t height,
-           pek::DataKind format = pek::DataKind::ImageRgbHwc,
+           pek::RawImagePixelFormat format = pek::RawImagePixelFormat::Rgb,
            uint32_t strideBytes = 0,
            pek::AccessMode accessMode = pek::AccessMode::ReadWrite,
            TimestampNs timestampNs = InvalidTimestampNs,
@@ -92,7 +92,7 @@ class PixelBufferVideoFrame final : public VideoFrame {
                    size_t byteSize,
                    uint32_t width,
                    uint32_t height,
-                   pek::DataKind format = pek::DataKind::ImageRgbHwc,
+                   pek::RawImagePixelFormat format = pek::RawImagePixelFormat::Rgb,
                    uint32_t strideBytes = 0,
                    TimestampNs timestampNs = InvalidTimestampNs,
                    std::shared_ptr<const void> lifetimeAnchor = {});
@@ -116,7 +116,7 @@ class PixelBufferVideoFrame final : public VideoFrame {
     take(std::vector<uint8_t> buffer,
          uint32_t width,
          uint32_t height,
-         pek::DataKind format = pek::DataKind::ImageRgbHwc,
+         pek::RawImagePixelFormat format = pek::RawImagePixelFormat::Rgb,
          uint32_t strideBytes = 0,
          pek::AccessMode accessMode = pek::AccessMode::ReadWrite,
          TimestampNs timestampNs = InvalidTimestampNs);
@@ -138,13 +138,19 @@ class PixelBufferVideoFrame final : public VideoFrame {
          size_t byteSize,
          uint32_t width,
          uint32_t height,
-         pek::DataKind format = pek::DataKind::ImageRgbHwc,
+         pek::RawImagePixelFormat format = pek::RawImagePixelFormat::Rgb,
          uint32_t strideBytes = 0,
          pek::AccessMode accessMode = pek::AccessMode::ReadWrite,
          TimestampNs timestampNs = InvalidTimestampNs);
 
     /** @copydoc pek::mediaio::VideoFrame::format() */
-    pek::DataKind format() const noexcept override;
+    pek::RawImagePixelFormat format() const noexcept override;
+
+    /** @copydoc pek::mediaio::VideoFrame::yuvColorMatrix() */
+    pek::YuvColorMatrix yuvColorMatrix() const noexcept override;
+
+    /** @copydoc pek::mediaio::VideoFrame::yuvRange() */
+    pek::YuvRange yuvRange() const noexcept override;
 
     /** @copydoc pek::mediaio::VideoFrame::width() */
     uint32_t width() const noexcept override;
@@ -184,7 +190,7 @@ class PixelBufferVideoFrame final : public VideoFrame {
                           size_t byteSize,
                           uint32_t width,
                           uint32_t height,
-                          pek::DataKind format,
+                          pek::RawImagePixelFormat format,
                           uint32_t strideBytes,
                           pek::AccessMode accessMode,
                           TimestampNs timestampNs,
@@ -199,7 +205,7 @@ class PixelBufferVideoFrame final : public VideoFrame {
     /// Frame height in pixels.
     uint32_t frameHeight = 0;
     /// Pixel layout represented by this frame.
-    pek::DataKind frameFormat = pek::DataKind::Unknown;
+    pek::RawImagePixelFormat frameFormat = pek::RawImagePixelFormat::Unknown;
     /// Row stride in bytes.
     uint32_t frameStrideBytes = 0;
     /// Permitted access mode for frameData.
@@ -230,7 +236,7 @@ makePixelBufferVideoFrame(void *data,
                           size_t byteSize,
                           uint32_t width,
                           uint32_t height,
-                          pek::DataKind format = pek::DataKind::ImageRgbHwc,
+                          pek::RawImagePixelFormat format = pek::RawImagePixelFormat::Rgb,
                           uint32_t strideBytes = 0,
                           pek::AccessMode accessMode = pek::AccessMode::ReadWrite,
                           TimestampNs timestampNs = InvalidTimestampNs,
@@ -253,7 +259,7 @@ makeReadOnlyPixelBufferVideoFrame(const void *data,
                                   size_t byteSize,
                                   uint32_t width,
                                   uint32_t height,
-                                  pek::DataKind format = pek::DataKind::ImageRgbHwc,
+                                  pek::RawImagePixelFormat format = pek::RawImagePixelFormat::Rgb,
                                   uint32_t strideBytes = 0,
                                   TimestampNs timestampNs = InvalidTimestampNs,
                                   std::shared_ptr<const void> lifetimeAnchor = {});
@@ -273,7 +279,7 @@ std::unique_ptr<VideoFrame>
 makeOwnedPixelBufferVideoFrame(std::vector<uint8_t> buffer,
                                uint32_t width,
                                uint32_t height,
-                               pek::DataKind format = pek::DataKind::ImageRgbHwc,
+                               pek::RawImagePixelFormat format = pek::RawImagePixelFormat::Rgb,
                                uint32_t strideBytes = 0,
                                pek::AccessMode accessMode = pek::AccessMode::ReadWrite,
                                TimestampNs timestampNs = InvalidTimestampNs);
@@ -295,7 +301,7 @@ copyPixelBufferVideoFrame(const void *data,
                           size_t byteSize,
                           uint32_t width,
                           uint32_t height,
-                          pek::DataKind format = pek::DataKind::ImageRgbHwc,
+                          pek::RawImagePixelFormat format = pek::RawImagePixelFormat::Rgb,
                           uint32_t strideBytes = 0,
                           pek::AccessMode accessMode = pek::AccessMode::ReadWrite,
                           TimestampNs timestampNs = InvalidTimestampNs);
