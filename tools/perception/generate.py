@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 ################################################################
-# Copyright (C) 2025 Arm Limited. All rights reserved.
+# Copyright (C) 2026 Arm Limited. All rights reserved.
 ################################################################
 
 """Generate the canonical checked-in Perception SDK snapshot."""
@@ -25,16 +25,16 @@ FLOWDATA_MANIFEST_FILENAME = "flowdata-manifest.json"
 PERCEPTION_MANIFEST_FILENAME = "perception-sdk-manifest.json"
 CPP_LICENSE_HEADER = """\
 /*************************************************************
- * Copyright (C) 2025 Arm Limited. All rights reserved.
+ * Copyright (C) 2026 Arm Limited. All rights reserved.
  *************************************************************/
 """
 PY_LICENSE_HEADER = """\
 ################################################################
-# Copyright (C) 2025 Arm Limited. All rights reserved.
+# Copyright (C) 2026 Arm Limited. All rights reserved.
 ################################################################
 """
 CMAKE_LICENSE_HEADER = PY_LICENSE_HEADER
-TS_LICENSE_HEADER = "// Copyright (C) 2025 Arm Limited. All rights reserved.\n"
+TS_LICENSE_HEADER = "// Copyright (C) 2026 Arm Limited. All rights reserved.\n"
 CMAKE_FORMAT = "cmake-format"
 
 

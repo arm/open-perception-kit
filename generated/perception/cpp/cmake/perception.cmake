@@ -1,5 +1,5 @@
 ################################################################
-# Copyright (C) 2025 Arm Limited. All rights reserved.
+# Copyright (C) 2026 Arm Limited. All rights reserved.
 ################################################################
 # Generated file. Do not edit.
 # SDK users: change schemas or generator inputs, then regenerate this file.
