@@ -689,7 +689,7 @@ static void gst_pektracker_init(GstPekTracker *self) {
     gst_base_transform_set_qos_enabled(GST_BASE_TRANSFORM(self), FALSE);
 }
 
-static gboolean plugin_init(GstPlugin *plugin) {
+static gboolean pektracker_plugin_init(GstPlugin *plugin) {
     return gst_element_register(plugin, "pektracker", GST_RANK_NONE, GST_TYPE_PEKTRACKER);
 }
 
@@ -697,7 +697,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   GST_VERSION_MINOR,
                   pektracker,
                   "PEK tracker based on Perception metadata",
-                  plugin_init,
+                  pektracker_plugin_init,
                   "1.0",
                   "LGPL",
                   PACKAGE,

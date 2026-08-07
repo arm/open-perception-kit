@@ -780,7 +780,7 @@ static GstFlowReturn gst_pek_osd_transform_frame_ip(GstVideoFilter *filter, GstV
     return GST_FLOW_OK;
 }
 
-static gboolean plugin_init(GstPlugin *plugin) {
+static gboolean pekosd_plugin_init(GstPlugin *plugin) {
     GST_DEBUG_CATEGORY_INIT(gst_pek_osd_debug, "pekosd", 0, "PEK OSD Overlay");
 
     return gst_element_register(plugin, "pekosd", GST_RANK_NONE, GST_TYPE_PEK_OSD);
@@ -790,7 +790,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   GST_VERSION_MINOR,
                   pekosd,
                   "PEK OSD Overlay - On-Screen Display for BGRA video frames",
-                  plugin_init,
+                  pekosd_plugin_init,
                   "1.0",
                   "LGPL",
                   PACKAGE,

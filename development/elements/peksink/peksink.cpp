@@ -758,7 +758,7 @@ static void gst_pek_sink_class_init(GstPekSinkClass *klass) {
 }
 
 /* ===== Plugin boilerplate ===== */
-static gboolean plugin_init(GstPlugin *plugin) {
+static gboolean peksink_plugin_init(GstPlugin *plugin) {
     return gst_element_register(plugin, "peksink", GST_RANK_NONE, GST_TYPE_PEK_SINK);
 }
 
@@ -766,7 +766,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   GST_VERSION_MINOR,
                   peksink,
                   "PekSink bin: raw video+audio -> VP8 -> WebRTC ",
-                  plugin_init,
+                  peksink_plugin_init,
                   "1.0",
                   "LGPL",
                   PACKAGE,

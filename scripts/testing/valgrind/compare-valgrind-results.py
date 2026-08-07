@@ -22,6 +22,18 @@ from pathlib import Path
 
 
 LOGGER = logging.getLogger(__name__)
+CI_REPOSITORY_ROOT = "/work"
+
+
+def _is_repository_error(error: ET.Element) -> bool:
+    """Return whether any frame in any stack refers to the CI repository."""
+    repository_prefix = f"{CI_REPOSITORY_ROOT}/"
+    for frame in error.findall(".//stack/frame"):
+        for tag in ("obj", "dir", "file"):
+            value = frame.findtext(tag)
+            if value == CI_REPOSITORY_ROOT or (value and value.startswith(repository_prefix)):
+                return True
+    return False
 
 
 def _frame_fingerprint(frame: ET.Element, frame_index: int) -> str:
@@ -186,6 +198,8 @@ def main() -> None:
 
     baseline_errors = _load_errors(args.baseline)
     current_errors = _load_errors(args.current)
+    baseline_errors = [error for error in baseline_errors if _is_repository_error(error)]
+    current_errors = [error for error in current_errors if _is_repository_error(error)]
     baseline_records = _group_errors(baseline_errors)
     current_records = _group_errors(current_errors)
     baseline = collections.Counter(map(_error_fingerprint, baseline_errors))
