@@ -14,6 +14,7 @@ __pycache__/
 .uv-lock/
 *.lock
 .codex
+.agent-runtime/
 
 # -------------------------
 # Meson / Ninja / CMake / Make
@@ -66,6 +67,7 @@ devices.env
 .devcontainer/*.audio.yaml
 .devcontainer/*.npu.yaml
 .devcontainer/*.shared_memory.yaml
+.devcontainer/*.network.yaml
 .devcontainer/pc/devcontainer-lock.json
 
 
@@ -92,12 +94,22 @@ onnxruntime-linux-x64-*
 graphs/
 
 tools/pek-menu
+tools/libpek-common.so
 
 core.*
 
 gstshark*/
 
 config/pipelines/.last_selected_pipeline_id
+
+# Model artifacts; keep the checked-in local models.
+config/models/**/*.hef
+config/models/**/*.onnx
+config/models/**/*.pte
+!config/models/paddleocr/classification.onnx
+!config/models/paddleocr/recognition.onnx
+!config/models/yolov11/yolo11n-fp32-320.onnx
+!config/models/yolox/yolox_nano.pte
 
 docs/html
 todo.md
@@ -123,3 +135,6 @@ scripts/testing/valgrind/logs/*.xml
 
 # Example build outputs
 examples/bin/
+artifacts/
+_yolo_benchmark_pages_site/
+datasets/

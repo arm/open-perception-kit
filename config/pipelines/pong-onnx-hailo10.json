@@ -1,6 +1,6 @@
 {
   "description": "Every available ONNX and Hailo model with the default video source and peksink video and audio sink.",
-  "codexReviewSuppressionFacePongInactiveModelBegin": "<codex-review:suppress-begin> Face Pong intentionally registers the Hailo 10 face embedding model with active=false; users enable it from the PEK web viewer AI Models panel, and manual model enablement is acceptable for this demo.",
+  "agentReviewSuppressionFacePongInactiveModelBegin": "<agent-review:suppress-begin> Face Pong intentionally registers the Hailo 10 face embedding model with active=false; users enable it from the PEK web viewer AI Models panel, and manual model enablement is acceptable for this demo.",
   "pipeline": [
     "v4l2src device=/dev/video0 ! \"image/jpeg,width=800,height=600,framerate=30/1\"  !",
     "jpegdec !",
@@ -8,11 +8,11 @@
     "pekinfer opchain-path=/work/config/opchains/face-embedding/opchain-hailo10.json active=false !",
     "pektracker content-type=humanFace use-embeddings=true association-mode=embedding use-kalman=false emit-predicted-detections=false emit-trace=false !",
     "pekperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
-    "pekcomm method=websocket ws-port=7001 !",
-    "pekosd enabled=true bg-image=\"/work/data/images/GettyImages-1298072556-thumbnail.jpg\" !",
+    "pekcomm method=websocket !",
+    "pekosd enabled=false bg-image=\"/work/data/images/GettyImages-1298072556-thumbnail.jpg\" !",
     "peksink name=sink"
   ],
-  "codexReviewSuppressionFacePongInactiveModelEnd": "<codex-review:suppress-end>",
+  "agentReviewSuppressionFacePongInactiveModelEnd": "<agent-review:suppress-end>",
   "alternative-source-image": [
     "filesrc location=/work/data/images/GettyImages-1140581459-thumbnail.jpg !",
     "jpegdec !",

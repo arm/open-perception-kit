@@ -19,21 +19,20 @@ For anything beyond a tiny local edit:
 Read these first before making substantial changes:
 
 - [Contribution rules](.github/CONTRIBUTING.md)
-- [Engineering starting point](docs/public/how-to/deep-dives/engineering.md)
-- [Structural basics](docs/public/how-to/deep-dives/structural-basics.md)
-- [Runtime basics](docs/public/how-to/deep-dives/runtime.md)
-- [Bring your model](docs/public/how-to/deep-dives/bring-your-model.md)
-- [Custom postprocessing](docs/public/how-to/deep-dives/custom-postprocessing.md)
-- [Known limitations](docs/public/arch/known-limitations.md)
+- [Structural basics](docs/public/concepts/structural-basics.md)
+- [Runtime basics](docs/public/concepts/runtime-basics.md)
+- [Bring your model](docs/public/how-to/bring-your-model.md)
+- [Custom postprocessing](docs/public/how-to/custom-postprocessing.md)
+- [Known limitations](docs/arch/known-limitations.md)
 
 For implementation detail and background, continue with:
 
-- [Architectural overview](docs/public/arch/architectural-overview.md)
-- [Op system](docs/public/arch/op-system.md)
-- [Perception](docs/public/arch/perception.md)
-- [pekinfer](docs/public/arch/elements/pekinfer.md)
-- [pekosd](docs/public/arch/elements/pekosd.md)
-- [peksink](docs/public/arch/elements/peksink.md)
+- [Architectural overview](docs/arch/architectural-overview.md)
+- [Op system](docs/arch/op-system.md)
+- [Perception](docs/arch/perception.md)
+- [pekinfer](docs/arch/elements/pekinfer.md)
+- [pekosd](docs/arch/elements/pekosd.md)
+- [peksink](docs/arch/elements/peksink.md)
 
 ## Default extension surfaces
 
@@ -46,11 +45,18 @@ Do not start by changing core runtime code unless the task clearly requires it.
 
 ## Task routing
 
+### Prepare or troubleshoot a release
+
+Use the repository-local `$opk-release` skill for every release task, including
+version selection, changelog preparation, release PRs, and release CI failures.
+Read and follow [its instructions](.agents/skills/opk-release/SKILL.md) before
+taking release actions.
+
 ### Add or modify a runnable pipeline
 Start in:
 
 - `config/pipelines/`
-- `docs/public/how-to/quick-guides/exercise.md` for a concrete walkthrough.
+- `docs/public/how-to/media-input.md` for a concrete walkthrough.
 
 ### Bring a new model into the system
 Start in:
@@ -60,8 +66,8 @@ Start in:
 
 Read first:
 
-- [Pipeline customisation guide](docs/public/how-to/quick-guides/exercise.md)
-- [Bring your model](docs/public/how-to/deep-dives/bring-your-model.md)
+- [Media input guide](docs/public/how-to/media-input.md)
+- [Bring your model](docs/public/how-to/bring-your-model.md)
 
 Useful checked-in examples:
 
@@ -77,7 +83,7 @@ Start in:
 
 Read first:
 
-- [Custom postprocessing](docs/public/how-to/deep-dives/custom-postprocessing.md)
+- [Custom postprocessing](docs/public/how-to/custom-postprocessing.md)
 
 Useful checked-in examples:
 
@@ -123,9 +129,9 @@ For browser apps that consume metadata:
 Ground doc changes in checked-in code and config.
 
 - `docs/public/index.md`
-- `docs/public/how-to/deep-dives/engineering.md`
-- `docs/public/how-to/deep-dives/bring-your-model.md`
-- `docs/public/how-to/deep-dives/custom-postprocessing.md`
+- `docs/public/concepts/structural-basics.md`
+- `docs/public/how-to/bring-your-model.md`
+- `docs/public/how-to/custom-postprocessing.md`
 
 ## Important repository facts
 
@@ -158,5 +164,8 @@ Incomplete verification step available:
 
 - Reuse checked-in patterns before inventing new ones.
 - Keep docs aligned with `config/` and `development/`.
+- When replacing behavior, delete obsolete code, stale tests, old docs, and
+  legacy entrypoints in the same change. Do not keep compatibility shims unless
+  the current supported contract explicitly requires them.
 - Prefer the container workflow.
-- If a task is actually blocked by current architecture, say so and cross-check [Known limitations](docs/public/arch/known-limitations.md).
+- If a task is actually blocked by current architecture, say so and cross-check [Known limitations](docs/arch/known-limitations.md).

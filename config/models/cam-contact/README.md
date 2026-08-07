@@ -37,4 +37,3 @@ The main build entry point is #file:meson.build
 
 #### Documentation
 Architectural and tutorial documentations are under #file:docs folder
-

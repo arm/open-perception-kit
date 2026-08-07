@@ -3,13 +3,14 @@
  *************************************************************/
 
 #include "perf/PerformanceTracer.h"
+#include "Log.h"
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
-#include <iostream>
 #include <numeric>
 #include <sstream>
 #include <thread>
+#include <utility>
 
 namespace pek::perf {
 
@@ -52,7 +53,9 @@ std::chrono::nanoseconds PerformanceTracer::end(const std::string &key) {
     // Add to current cycle
     {
         std::lock_guard<std::mutex> lock(current_cycle_mutex_);
-        current_cycle_measurements_.push_back(m);
+        if (current_cycle_consumer_count_ > 0 || has_cycle_end_callbacks_.load()) {
+            current_cycle_measurements_.push_back(m);
+        }
     }
 
     // Add to history
@@ -105,6 +108,18 @@ std::vector<TimingMeasurement> PerformanceTracer::getCurrentCycleMeasurements() 
     return current_cycle_measurements_;
 }
 
+void PerformanceTracer::registerCurrentCycleConsumer() {
+    std::lock_guard<std::mutex> lock(current_cycle_mutex_);
+    current_cycle_consumer_count_++;
+}
+
+void PerformanceTracer::unregisterCurrentCycleConsumer() {
+    std::lock_guard<std::mutex> lock(current_cycle_mutex_);
+    if (current_cycle_consumer_count_ > 0 && --current_cycle_consumer_count_ == 0) {
+        current_cycle_measurements_.clear();
+    }
+}
+
 TimingStats PerformanceTracer::getStats(const std::string &key) const {
     std::lock_guard<std::mutex> lock(stats_mutex_);
     const auto it = stats_cache_.find(key);
@@ -130,7 +145,8 @@ std::vector<TimingMeasurement> PerformanceTracer::getMeasurements(const std::str
 
 void PerformanceTracer::registerCycleEndCallback(CycleEndCallback callback) {
     std::lock_guard<std::mutex> lock(callback_mutex_);
-    cycle_end_callbacks_.push_back(callback);
+    cycle_end_callbacks_.push_back(std::move(callback));
+    has_cycle_end_callbacks_.store(true);
 }
 
 void PerformanceTracer::reset() {
@@ -275,36 +291,34 @@ std::string PerformanceTracer::toJSON() const {
 void PerformanceTracer::printSummary() const {
     auto stats = getAllStats();
 
-    std::cout
-        << "\n╔═══════════════════════════════════════════════════════════════════════════╗\n";
-    std::cout << "║                     Performance Tracer Summary                            ║\n";
-    std::cout << "╠═══════════════════════════════════════════════════════════════════════════╣\n";
-    std::cout << "║ Cycle: " << std::setw(4) << cycle_count_ << " | Active Timers: " << std::setw(3)
-              << getActiveTimerCount() << " | Total Keys: " << std::setw(3) << stats.size()
-              << "                        ║\n";
-    std::cout << "╠═══════════════════════════════════════════════════════════════════════════╣\n";
+    std::ostringstream oss;
+    oss << "\n╔═══════════════════════════════════════════════════════════════════════════╗\n";
+    oss << "║                     Performance Tracer Summary                            ║\n";
+    oss << "╠═══════════════════════════════════════════════════════════════════════════╣\n";
+    oss << "║ Cycle: " << std::setw(4) << cycle_count_ << " | Active Timers: " << std::setw(3)
+        << getActiveTimerCount() << " | Total Keys: " << std::setw(3) << stats.size()
+        << "                        ║\n";
+    oss << "╠═══════════════════════════════════════════════════════════════════════════╣\n";
 
     if (stats.empty()) {
-        std::cout
-            << "║                          No measurements yet                              ║\n";
+        oss << "║                          No measurements yet                              ║\n";
     } else {
-        std::cout
-            << "║ Key                  │ Count │  Avg(ms) │  P50(ms) │  P95(ms) │  P99(ms) ║\n";
-        std::cout
-            << "╠══════════════════════╪═══════╪══════════╪══════════╪══════════╪══════════╣\n";
+        oss << "║ Key                  │ Count │  Avg(ms) │  P50(ms) │  P95(ms) │  P99(ms) ║\n";
+        oss << "╠══════════════════════╪═══════╪══════════╪══════════╪══════════╪══════════╣\n";
 
         for (const auto &pair : stats) {
             const auto &s = pair.second;
-            std::cout << "║ " << std::left << std::setw(20) << s.key.substr(0, 20) << " │ "
-                      << std::right << std::setw(5) << s.count << " │ " << std::setw(8)
-                      << std::fixed << std::setprecision(2) << s.avg_ms() << " │ " << std::setw(8)
-                      << std::fixed << std::setprecision(2) << s.p50_ms() << " │ " << std::setw(8)
-                      << std::fixed << std::setprecision(2) << s.p95_ms() << " │ " << std::setw(8)
-                      << std::fixed << std::setprecision(2) << s.p99_ms() << " ║\n";
+            oss << "║ " << std::left << std::setw(20) << s.key.substr(0, 20) << " │ " << std::right
+                << std::setw(5) << s.count << " │ " << std::setw(8) << std::fixed
+                << std::setprecision(2) << s.avg_ms() << " │ " << std::setw(8) << std::fixed
+                << std::setprecision(2) << s.p50_ms() << " │ " << std::setw(8) << std::fixed
+                << std::setprecision(2) << s.p95_ms() << " │ " << std::setw(8) << std::fixed
+                << std::setprecision(2) << s.p99_ms() << " ║\n";
         }
     }
 
-    std::cout << "╚═══════════════════════════════════════════════════════════════════════════╝\n";
+    oss << "╚═══════════════════════════════════════════════════════════════════════════╝\n";
+    pek::log::info("{}", oss.str());
 }
 
 // ============================================================================
@@ -316,20 +330,20 @@ PerformanceMonitor::PerformanceMonitor(PerformanceTracer *tracer) : tracer_(trac
 PerformanceMonitor::~PerformanceMonitor() = default;
 
 void PerformanceMonitor::print() const {
-    std::cout << format() << std::endl;
+    pek::log::info("{}\n", format());
 }
 
 void PerformanceMonitor::printCycle(size_t cycle_number) const {
-    std::cout << "\n=== Cycle " << cycle_number << " ===" << std::endl;
+    pek::log::info("\n=== Cycle {} ===\n", cycle_number);
     print();
 }
 
 void PerformanceMonitor::startLiveMonitoring() {
-    std::cout << "Starting live monitoring (Ctrl+C to stop)...\n" << std::endl;
+    pek::log::info("Starting live monitoring (Ctrl+C to stop)...\n\n");
 
     while (true) {
         clearScreen();
-        std::cout << format() << std::endl;
+        pek::log::info("{}\n", format());
         std::this_thread::sleep_for(refresh_interval_);
     }
 }
@@ -449,22 +463,19 @@ std::string PerformanceMonitor::formatDetailed() const {
 
 void PerformanceMonitor::clearScreen() const {
     // ANSI escape code to clear screen and move cursor to top
-    std::cout << "\033[2J\033[H" << std::flush;
+    pek::log::info("\033[2J\033[H");
+    pek::log::flush();
 }
 
 // ============================================================================
 // Global Instance
 // ============================================================================
 
-static PerformanceTracer *g_global_tracer = nullptr;
-static std::mutex g_global_mutex;
-
 PerformanceTracer *getGlobalTracer() {
-    std::lock_guard<std::mutex> lock(g_global_mutex);
-    if (!g_global_tracer) {
-        g_global_tracer = new PerformanceTracer();
-    }
-    return g_global_tracer;
+    // Function-local storage preserves lazy initialization. S6018 applies to global variables
+    // declared in headers, not to this local singleton.
+    static PerformanceTracer global_tracer; // NOSONAR
+    return &global_tracer;
 }
 
 } // namespace pek::perf

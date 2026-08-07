@@ -1,7 +1,11 @@
 {
-  "name": "modnet",
-  "modelFamily": "segmentation",
+  "name": "modnet-seg",
   "modelFile": "model.onnx",
+  "hfDownload": {
+    "repo_id": "onnx-community/modnet-webnn",
+    "revision": "6af52070d14deafc5e55ce6cc4d752a322cdff76",
+    "filename": "onnx/model.onnx"
+  },
   "dynamicOutput": true,
   "inputTensors": [
     {

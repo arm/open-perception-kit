@@ -11,11 +11,13 @@
 #include <filesystem>
 #include <fmt/core.h>
 #include <memory>
+#include <optional>
 #include <variant>
 
 #include "glib-object.h"
 #include "glib.h"
 
+#include "Log.h"
 #include "pek/Perception.h"
 #include "pek/Result.h"
 #include "pek/Tools.h"
@@ -66,6 +68,15 @@ struct _GstPekInfer {
     gchar *format;
     gchar *inferId;
 
+    gboolean qosEnabled;
+    GstClockTime qosEarliestTime;
+    guint64 processingSkipFrames;
+    gdouble qosProportion;
+    GstClockTime qosTimestamp;
+    guint64 qosProcessed;
+    guint64 qosDropped;
+    guint64 qosGeneration;
+
     // a safe place for c++ stuff
     GstPekInferMembers *m;
 };
@@ -87,6 +98,29 @@ static const gchar *gst_pekinfer_get_effective_inferId(GstPekInfer *self) {
     return GST_OBJECT_NAME(GST_ELEMENT(self));
 }
 
+static gboolean gst_pekinfer_is_active(GstPekInfer *self) {
+    GST_OBJECT_LOCK(self);
+    const gboolean active = self->active;
+    GST_OBJECT_UNLOCK(self);
+    return active;
+}
+
+static void gst_pekinfer_reset_qos_unlocked(GstPekInfer *self) {
+    self->qosEarliestTime = GST_CLOCK_TIME_NONE;
+    self->processingSkipFrames = 0;
+    self->qosProportion = 1.0;
+    self->qosTimestamp = GST_CLOCK_TIME_NONE;
+    self->qosProcessed = 0;
+    self->qosDropped = 0;
+    ++self->qosGeneration;
+}
+
+static void gst_pekinfer_reset_qos(GstPekInfer *self) {
+    GST_OBJECT_LOCK(self);
+    gst_pekinfer_reset_qos_unlocked(self);
+    GST_OBJECT_UNLOCK(self);
+}
+
 static std::optional<fs::path> parent_dir_name(const fs::path &p) {
     if (!p.has_filename()) {
         return std::nullopt;
@@ -105,6 +139,8 @@ static gboolean gst_pekinfer_start(GstBaseTransform *b) {
     static pek::perf::PerformanceTracer *tracer = pek::perf::getGlobalTracer();
     (void)tracer;
 
+    gst_pekinfer_reset_qos(self);
+
     self->m = new GstPekInferMembers();
 
     if (!self->opChainPath || !self->opChainPath[0]) {
@@ -114,9 +150,9 @@ static gboolean gst_pekinfer_start(GstBaseTransform *b) {
 
     auto setupResult = self->m->setupOpChainFromJson(self->opChainPath);
     if (!setupResult) {
-        fmt::print("Error while setting up op-chain [{}]: {}\n",
-                   self->opChainPath,
-                   setupResult.error().toString());
+        pek::log::error("Error while setting up op-chain [{}]: {}\n",
+                        self->opChainPath,
+                        setupResult.error().toString());
 
         GST_ELEMENT_ERROR(
             self, RESOURCE, FAILED, ("Failed to setup op-chain."), ("%s", self->opChainPath));
@@ -141,7 +177,7 @@ static gboolean gst_pekinfer_start(GstBaseTransform *b) {
                                                     GST_OBJECT_NAME(self),
                                                     "active",
                                                     G_TYPE_BOOLEAN,
-                                                    self->active,
+                                                    gst_pekinfer_is_active(self),
                                                     NULL);
         GstEvent *event = gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM, structure);
         gst_pad_push_event(srcpad, event);
@@ -153,6 +189,7 @@ static gboolean gst_pekinfer_start(GstBaseTransform *b) {
 
 static gboolean gst_pekinfer_stop(GstBaseTransform *b) {
     auto *self = (GstPekInfer *)b;
+    gst_pekinfer_reset_qos(self);
     delete self->m;
     self->m = nullptr;
     return TRUE;
@@ -176,17 +213,122 @@ static gboolean gst_pekinfer_set_caps(GstBaseTransform *b, GstCaps *incaps, GstC
     return TRUE;
 }
 
+static GstClockTime gst_pekinfer_saturating_add(GstClockTime timestamp, GstClockTime duration) {
+    return duration >= GST_CLOCK_TIME_NONE - timestamp ? GST_CLOCK_TIME_NONE - 1
+                                                       : timestamp + duration;
+}
+
+static gboolean gst_pekinfer_src_event(GstBaseTransform *trans, GstEvent *event) {
+    auto *self = GST_PEKINFER(trans);
+    const auto eventType = GST_EVENT_TYPE(event);
+
+    if (eventType == GST_EVENT_QOS) {
+        GST_OBJECT_LOCK(self);
+        const gboolean handleQos = self->qosEnabled && self->active;
+        const guint64 qosGeneration = self->qosGeneration;
+        GST_OBJECT_UNLOCK(self);
+
+        if (!handleQos)
+            return GST_BASE_TRANSFORM_CLASS(gst_pekinfer_parent_class)->src_event(trans, event);
+
+        GstQOSType type = GST_QOS_TYPE_UNDERFLOW;
+        gdouble proportion = 1.0;
+        GstClockTimeDiff diff = 0;
+        GstClockTime timestamp = GST_CLOCK_TIME_NONE;
+        gst_event_parse_qos(event, &type, &proportion, &diff, &timestamp);
+
+        GstClockTime qosEarliestTime = GST_CLOCK_TIME_NONE;
+        if (type == GST_QOS_TYPE_UNDERFLOW && diff > 0 && GST_CLOCK_TIME_IS_VALID(timestamp)) {
+            const auto lateness = static_cast<GstClockTime>(diff);
+            qosEarliestTime = gst_pekinfer_saturating_add(timestamp, lateness);
+        }
+
+        GST_OBJECT_LOCK(self);
+        const gboolean publishQos =
+            self->qosEnabled && self->active && qosGeneration == self->qosGeneration;
+        if (publishQos) {
+            self->qosEarliestTime = qosEarliestTime;
+            self->qosProportion = proportion;
+            self->qosTimestamp = timestamp;
+        }
+        GST_OBJECT_UNLOCK(self);
+
+        if (!publishQos)
+            return GST_BASE_TRANSFORM_CLASS(gst_pekinfer_parent_class)->src_event(trans, event);
+
+        GST_DEBUG_OBJECT(self,
+                         "Received QoS event: type=%d proportion=%f diff=%" G_GINT64_FORMAT
+                         " timestamp=%" G_GUINT64_FORMAT,
+                         type,
+                         proportion,
+                         diff,
+                         timestamp);
+
+        // This element owns the QoS policy for inference. Consuming the event
+        // prevents upstream decoders from dropping the video buffer itself.
+        gst_event_unref(event);
+        return TRUE;
+    }
+
+    // Unrelated events keep the native path.
+    return GST_BASE_TRANSFORM_CLASS(gst_pekinfer_parent_class)->src_event(trans, event);
+}
+
+static gboolean gst_pekinfer_sink_event(GstBaseTransform *trans, GstEvent *event) {
+    const auto eventType = GST_EVENT_TYPE(event);
+    switch (eventType) {
+    case GST_EVENT_SEGMENT:
+    case GST_EVENT_FLUSH_START:
+    case GST_EVENT_FLUSH_STOP:
+        gst_pekinfer_reset_qos(GST_PEKINFER(trans));
+        break;
+    default:
+        break;
+    }
+    return GST_BASE_TRANSFORM_CLASS(gst_pekinfer_parent_class)->sink_event(trans, event);
+}
+
+struct GstPekInferFramePolicy {
+    gboolean qosEnabled;
+    gboolean skipInference;
+    gdouble qosProportion;
+    GstClockTimeDiff qosJitter;
+    GstClockTime qosTimestamp;
+    guint64 qosGeneration;
+};
+
+static GstPekInferFramePolicy gst_pekinfer_get_frame_policy(GstPekInfer *self,
+                                                            GstClockTime runningTime) {
+    GST_OBJECT_LOCK(self);
+    const gboolean qosEnabled = self->qosEnabled;
+    const gboolean qosSkip = GST_CLOCK_TIME_IS_VALID(runningTime) && qosEnabled &&
+                             GST_CLOCK_TIME_IS_VALID(self->qosEarliestTime) &&
+                             runningTime <= self->qosEarliestTime;
+    const gboolean processingSkip = qosEnabled && self->processingSkipFrames > 0;
+    if (processingSkip)
+        --self->processingSkipFrames;
+    if (GST_CLOCK_TIME_IS_VALID(runningTime) && GST_CLOCK_TIME_IS_VALID(self->qosEarliestTime) &&
+        runningTime > self->qosEarliestTime) {
+        self->qosEarliestTime = GST_CLOCK_TIME_NONE;
+    }
+    const GstPekInferFramePolicy policy{qosEnabled,
+                                        qosSkip || processingSkip,
+                                        qosSkip ? self->qosProportion : 1.0,
+                                        qosSkip ? GST_CLOCK_DIFF(runningTime, self->qosEarliestTime)
+                                                : 0,
+                                        self->qosTimestamp,
+                                        self->qosGeneration};
+    GST_OBJECT_UNLOCK(self);
+    return policy;
+}
+
 static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *buf) {
     auto *self = (GstPekInfer *)b;
 
-    if (!self->active)
+    if (!gst_pekinfer_is_active(self))
         return GST_FLOW_OK;
 
-    if (!self->m)
-        return GST_FLOW_OK;
-
-    // Try to get the perception meta
-    // it does not added yet -> add it
+    // Keep the downstream metadata contract even when QoS skips inference.
     if (auto perceptionMeta = pek::PerceptionMeta::get(buf); !perceptionMeta) {
         auto perception = std::make_shared<pek::Perception>();
         if (!pek::PerceptionMeta::add(buf, perception)) {
@@ -194,6 +336,44 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
             return GST_FLOW_OK;
         }
     }
+
+    const GstClockTime runningTime =
+        GST_BUFFER_PTS_IS_VALID(buf)
+            ? gst_segment_to_running_time(&b->segment, GST_FORMAT_TIME, GST_BUFFER_PTS(buf))
+            : GST_CLOCK_TIME_NONE;
+
+    const auto framePolicy = gst_pekinfer_get_frame_policy(self, runningTime);
+
+    if (framePolicy.skipInference) {
+        GST_OBJECT_LOCK(self);
+        if (framePolicy.qosGeneration != self->qosGeneration) {
+            GST_OBJECT_UNLOCK(self);
+            return GST_FLOW_OK;
+        }
+        const guint64 processed = self->qosProcessed;
+        const guint64 dropped = ++self->qosDropped;
+        GST_OBJECT_UNLOCK(self);
+
+        // Report the QoS action while returning OK so the video buffer still flows.
+        GstMessage *message = gst_message_new_qos(
+            GST_OBJECT(self),
+            FALSE,
+            runningTime,
+            gst_segment_to_stream_time(&b->segment, GST_FORMAT_TIME, GST_BUFFER_PTS(buf)),
+            GST_BUFFER_PTS_IS_VALID(buf) ? GST_BUFFER_PTS(buf) : framePolicy.qosTimestamp,
+            GST_BUFFER_DURATION(buf));
+        gst_message_set_qos_values(
+            message, framePolicy.qosJitter, framePolicy.qosProportion, GST_FORMAT_PERCENT_MAX);
+        gst_message_set_qos_stats(message, GST_FORMAT_BUFFERS, processed, dropped);
+        gst_element_post_message(GST_ELEMENT(self), message);
+        return GST_FLOW_OK;
+    }
+
+    if (!self->m)
+        return GST_FLOW_OK;
+
+    const GstClockTime processingStartedAt =
+        framePolicy.qosEnabled ? gst_util_get_timestamp() : GST_CLOCK_TIME_NONE;
 
     // Build the pipeline VideoFrame only from CPU-direct buffers for now. DMA-BUF-backed
     // buffers are detected explicitly so future DMA-BUF support can be added without
@@ -238,7 +418,7 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
 
             auto executeResult = self->m->executeOpChain(opChainContext);
             if (!executeResult) {
-                fmt::print("{}\n", executeResult.error().toString());
+                pek::log::error("{}\n", executeResult.error().toString());
                 return GST_FLOW_CUSTOM_ERROR;
             }
 
@@ -257,12 +437,33 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
         return GST_FLOW_ERROR;
     }
 
+    const GstClockTime processingLatency =
+        framePolicy.qosEnabled ? gst_util_get_timestamp() - processingStartedAt : 0;
+    GstClockTime frameDuration = GST_BUFFER_DURATION(buf);
+    if (GST_VIDEO_INFO_FPS_N(&self->vinfo) > 0 && GST_VIDEO_INFO_FPS_D(&self->vinfo) > 0) {
+        frameDuration = gst_util_uint64_scale(
+            GST_SECOND, GST_VIDEO_INFO_FPS_D(&self->vinfo), GST_VIDEO_INFO_FPS_N(&self->vinfo));
+    }
+    GST_OBJECT_LOCK(self);
+    const gboolean publishProcessing = framePolicy.qosEnabled && self->qosEnabled && self->active &&
+                                       framePolicy.qosGeneration == self->qosGeneration;
+    if (publishProcessing) {
+        ++self->qosProcessed;
+        if (GST_CLOCK_TIME_IS_VALID(frameDuration) && frameDuration > 0 &&
+            processingLatency > frameDuration) {
+            // Integer division already rounds down for nonmultiples. Subtracting one nanosecond
+            // only changes exact multiples, treating a frame due exactly at completion as on time.
+            self->processingSkipFrames = (processingLatency - 1) / frameDuration;
+        }
+    }
+    GST_OBJECT_UNLOCK(self);
+
     return GST_FLOW_OK;
 }
 
 // ---------------- properties & class init ----------------
 
-enum { PROP_0, PROP_OPCHAIN_PATH, PROP_MODEL_ACTIVE, PROP_FORMAT, PROP_INFER_ID };
+enum { PROP_0, PROP_OPCHAIN_PATH, PROP_MODEL_ACTIVE, PROP_FORMAT, PROP_INFER_ID, PROP_QOS_ENABLED };
 
 static void gst_pekinfer_set_property(GObject *o, guint id, const GValue *v, GParamSpec *ps) {
     auto *self = (GstPekInfer *)o;
@@ -272,7 +473,11 @@ static void gst_pekinfer_set_property(GObject *o, guint id, const GValue *v, GPa
         self->opChainPath = g_value_dup_string(v);
         break;
     case PROP_MODEL_ACTIVE: {
+        GST_OBJECT_LOCK(self);
         self->active = g_value_get_boolean(v);
+        if (!self->active)
+            gst_pekinfer_reset_qos_unlocked(self);
+        GST_OBJECT_UNLOCK(self);
         break;
     }
     case PROP_FORMAT:
@@ -282,6 +487,13 @@ static void gst_pekinfer_set_property(GObject *o, guint id, const GValue *v, GPa
     case PROP_INFER_ID:
         g_free(self->inferId);
         self->inferId = g_value_dup_string(v);
+        break;
+    case PROP_QOS_ENABLED:
+        GST_OBJECT_LOCK(self);
+        self->qosEnabled = g_value_get_boolean(v);
+        if (!self->qosEnabled)
+            gst_pekinfer_reset_qos_unlocked(self);
+        GST_OBJECT_UNLOCK(self);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(o, id, ps);
@@ -295,13 +507,18 @@ static void gst_pekinfer_get_property(GObject *o, guint id, GValue *v, GParamSpe
         g_value_set_string(v, self->opChainPath);
         break;
     case PROP_MODEL_ACTIVE:
-        g_value_set_boolean(v, self->active);
+        g_value_set_boolean(v, gst_pekinfer_is_active(self));
         break;
     case PROP_FORMAT:
         g_value_set_string(v, self->format);
         break;
     case PROP_INFER_ID:
         g_value_set_string(v, gst_pekinfer_get_effective_inferId(self));
+        break;
+    case PROP_QOS_ENABLED:
+        GST_OBJECT_LOCK(self);
+        g_value_set_boolean(v, self->qosEnabled);
+        GST_OBJECT_UNLOCK(self);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(o, id, ps);
@@ -311,8 +528,11 @@ static void gst_pekinfer_get_property(GObject *o, guint id, GValue *v, GParamSpe
 static void gst_pekinfer_finalize(GObject *object) {
     auto *self = reinterpret_cast<GstPekInfer *>(object);
 
-    g_free(self->inferId);
-    self->inferId = nullptr;
+    delete self->m;
+    self->m = nullptr;
+    g_clear_pointer(&self->opChainPath, g_free);
+    g_clear_pointer(&self->format, g_free);
+    g_clear_pointer(&self->inferId, g_free);
 
     G_OBJECT_CLASS(gst_pekinfer_parent_class)->finalize(object);
 }
@@ -363,6 +583,15 @@ static void gst_pekinfer_class_init(GstPekInferClass *klass) {
                             "",
                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
+    g_object_class_install_property(
+        gobj,
+        PROP_QOS_ENABLED,
+        g_param_spec_boolean("qos-enabled",
+                             "QoS enabled",
+                             "Enable experimental inference skipping from QoS feedback",
+                             false,
+                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
     // Static pad templates (portable across GStreamer-1.0 versions)
     static GstStaticPadTemplate sink_t = GST_STATIC_PAD_TEMPLATE(
         "sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS("video/x-raw, format={BGRA}"));
@@ -380,6 +609,8 @@ static void gst_pekinfer_class_init(GstPekInferClass *klass) {
     bcls->start = gst_pekinfer_start;
     bcls->stop = gst_pekinfer_stop;
     bcls->set_caps = gst_pekinfer_set_caps;
+    bcls->sink_event = gst_pekinfer_sink_event;
+    bcls->src_event = gst_pekinfer_src_event;
     bcls->transform_ip = gst_pekinfer_transform_ip;
 }
 
@@ -388,6 +619,14 @@ static void gst_pekinfer_init(GstPekInfer *self) {
     self->active = true;
     self->m = nullptr;
     self->inferId = nullptr;
+    self->qosEnabled = false;
+    self->qosEarliestTime = GST_CLOCK_TIME_NONE;
+    self->processingSkipFrames = 0;
+    self->qosProportion = 1.0;
+    self->qosTimestamp = GST_CLOCK_TIME_NONE;
+    self->qosProcessed = 0;
+    self->qosDropped = 0;
+    self->qosGeneration = 0;
 
     gst_video_info_init(&self->vinfo);
 
@@ -397,7 +636,7 @@ static void gst_pekinfer_init(GstPekInfer *self) {
     gst_base_transform_set_qos_enabled(GST_BASE_TRANSFORM(self), FALSE);
 }
 
-static gboolean plugin_init(GstPlugin *plugin) {
+static gboolean pekinfer_plugin_init(GstPlugin *plugin) {
     return gst_element_register(plugin, "pekinfer", GST_RANK_NONE, GST_TYPE_PEKINFER);
 }
 
@@ -405,7 +644,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   GST_VERSION_MINOR,
                   pekinfer,
                   "PEK inference (YOLO + ONNX Runtime)",
-                  plugin_init,
+                  pekinfer_plugin_init,
                   "1.0",
                   "LGPL",
                   "pek-elements",

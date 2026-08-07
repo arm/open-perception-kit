@@ -15,7 +15,18 @@ concurrency:
 
 jobs:
   blackduck:
-    runs-on: self-hosted-ubuntu-latest-x64
+    name: Black Duck (${{ matrix.architecture }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: x86
+            runner: self-hosted-ubuntu-latest-x64
+            onnxruntime_architecture: x64
+          - architecture: arm
+            runner: self-hosted-ubuntu-latest-arm64
+            onnxruntime_architecture: aarch64
+    runs-on: ${{ matrix.runner }}
     defaults:
       run:
         shell: bash
@@ -23,10 +34,11 @@ jobs:
       BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
       BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }}
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      ONNXRUNTIME_ARCHITECTURE: ${{ matrix.onnxruntime_architecture }}
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: ${{ env.CI_CHECKOUT_PATH }}
           submodules: recursive
@@ -41,7 +53,7 @@ jobs:
           password: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -82,8 +94,8 @@ jobs:
 
           {
             echo "PROJECT_NAME=${project_name}"
-            echo "SOURCE_VERSION=${safe_base_version}--source"
-            echo "CONTAINER_VERSION_PREFIX=${safe_base_version}--container"
+            echo "SOURCE_VERSION=${safe_base_version}--source--${{ matrix.architecture }}"
+            echo "CONTAINER_VERSION_PREFIX=${safe_base_version}--container--${{ matrix.architecture }}"
           } >> "$GITHUB_ENV"
 
       - name: Discover buildable containers
@@ -245,7 +257,20 @@ jobs:
           print(json.dumps(entries, indent=2))
           PY
 
+      - name: Build shared development base
+        run: |
+          set -euo pipefail
+          base_image="perception-experience-kit-build-base:${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          docker build \
+            -t "${base_image}" \
+            -f "${WORKSPACE_ROOT}/Dockerfile" \
+            --target pek-build-base \
+            "${WORKSPACE_ROOT}"
+          echo "PEK_BUILD_BASE_IMAGE=${base_image}" >> "${GITHUB_ENV}"
+
       - name: Build discovered container images
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -256,6 +281,8 @@ jobs:
           import subprocess
           import sys
 
+          hf_token = os.environ.pop("HF_TOKEN", "")
+          scrubbed_env = os.environ.copy()
           manifest_path = pathlib.Path(os.environ["RUNNER_TEMP"]) / "bd-container-manifest.json"
           entries = json.loads(manifest_path.read_text())
 
@@ -267,15 +294,32 @@ jobs:
                   "-t", entry["image"],
                   "-f", entry["dockerfile"],
               ]
+              target = entry.get("target")
+              dockerfile_name = pathlib.Path(entry["dockerfile"]).name
+              uses_huggingface_models = target in {"pek-dev", "pek-deployment-base"} or (
+                  target is None and dockerfile_name == "Dockerfile"
+              )
+              build_env = scrubbed_env.copy()
+              if uses_huggingface_models:
+                  build_env["HF_TOKEN"] = hf_token
+                  cmd += [
+                      "--secret", "id=huggingface_token,env=HF_TOKEN",
+                      "--build-arg",
+                      f"HF_DOWNLOAD_CACHEBUST={os.environ['GITHUB_RUN_ID']}-{os.environ['GITHUB_RUN_ATTEMPT']}",
+                  ]
               if entry.get("target"):
                   cmd += ["--target", entry["target"]]
               cmd += [entry["context"]]
 
               print(f"Building {entry['name']} from {entry['origin']}")
-              result = subprocess.run(cmd)
+              result = subprocess.run(cmd, env=build_env)
 
               if result.returncode == 0:
-                  subprocess.run(["docker", "image", "inspect", entry["image"]], check=True)
+                  subprocess.run(
+                      ["docker", "image", "inspect", entry["image"]],
+                      check=True,
+                      env=scrubbed_env,
+                  )
                   entry["build_ok"] = True
                   built_any = True
               else:
@@ -290,14 +334,23 @@ jobs:
               sys.exit(1)
           PY
 
-      - name: Prepare Meson wrap dependencies
+      - name: Build Meson wrap dependency image
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           set -euo pipefail
           dev_image="perception-experience-kit-bd:${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          docker build -t "${dev_image}" --target pek-dev-base "${WORKSPACE_ROOT}"
+          docker build \
+            -t "${dev_image}" \
+            -f "${WORKSPACE_ROOT}/Dockerfile" \
+            --secret "id=huggingface_token,env=HF_TOKEN" \
+            --build-arg "HF_DOWNLOAD_CACHEBUST=${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --target pek-dev \
+            "${WORKSPACE_ROOT}"
 
           docker run --rm \
             -u "$(id -u):$(id -g)" \
+            -e "ONNXRUNTIME_ARCHITECTURE=${ONNXRUNTIME_ARCHITECTURE}" \
             -v "${WORKSPACE_ROOT}:/work" \
             -w /work \
             "${dev_image}" \
@@ -305,7 +358,8 @@ jobs:
               set -euo pipefail
               if [[ ! -d /work/deps/onnxruntime/include || ! -d /work/deps/onnxruntime/lib ]]; then
                 tmp_dir="$(mktemp -d)"
-                curl -fsSL "https://github.com/microsoft/onnxruntime/releases/download/v1.24.4/onnxruntime-linux-x64-1.24.4.tgz" \
+                onnxruntime_dir="onnxruntime-linux-${ONNXRUNTIME_ARCHITECTURE}-1.24.4"
+                curl -fsSL "https://github.com/microsoft/onnxruntime/releases/download/v1.24.4/${onnxruntime_dir}.tgz" \
                   | tar -xzf - -C "$tmp_dir"
                 mkdir -p /work/deps/onnxruntime
                 for stale_path in /work/deps/onnxruntime/include /work/deps/onnxruntime/lib; do
@@ -319,8 +373,8 @@ jobs:
                       ;;
                   esac
                 done
-                cp -r "$tmp_dir/onnxruntime-linux-x64-1.24.4/include" /work/deps/onnxruntime/
-                cp -r "$tmp_dir/onnxruntime-linux-x64-1.24.4/lib" /work/deps/onnxruntime/
+                cp -r "$tmp_dir/${onnxruntime_dir}/include" /work/deps/onnxruntime/
+                cp -r "$tmp_dir/${onnxruntime_dir}/lib" /work/deps/onnxruntime/
                 case "$tmp_dir" in
                   /tmp/*)
                     rm -rf "$tmp_dir"
@@ -503,36 +557,36 @@ jobs:
 
       - name: Upload discovered container manifest
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
-          name: blackduck-container-manifest
+          name: blackduck-${{ matrix.architecture }}-container-manifest
           path: ${{ runner.temp }}/bd-container-manifest.json
           if-no-files-found: warn
           retention-days: 10
 
       - name: Upload Black Duck status files
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
-          name: blackduck-status
+          name: blackduck-${{ matrix.architecture }}-status
           path: ${{ runner.temp }}/bd-output/**/status/status.json
           if-no-files-found: warn
           retention-days: 10
 
       - name: Upload Black Duck container outputs
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
-          name: blackduck-container-outputs
+          name: blackduck-${{ matrix.architecture }}-container-outputs
           path: ${{ runner.temp }}/bd-output/containers
           if-no-files-found: warn
           retention-days: 10
 
       - name: Upload Black Duck Detect logs
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
-          name: blackduck-detect-logs
+          name: blackduck-${{ matrix.architecture }}-detect-logs
           path: |
             ${{ runner.temp }}/bd-output/**/*.log
             ${{ runner.temp }}/bd-output/**/*.txt

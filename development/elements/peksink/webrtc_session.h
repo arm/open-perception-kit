@@ -47,16 +47,16 @@ class PekSinkWebRtcSession {
     PekSinkWebRtcSession(PekSinkWebRtcSession &&rhs) = delete;
     PekSinkWebRtcSession &operator=(PekSinkWebRtcSession &&) = delete;
 
-    ~PekSinkWebRtcSession();
+    ~PekSinkWebRtcSession() noexcept;
 
-    void cleanup();
+    void cleanup() noexcept;
     bool cleaned_up() const;
     std::size_t active_resource_count() const;
 
   private:
     std::atomic_bool cleaned_up_{false};
 
-    void disconnect_signals();
+    void disconnect_signals() noexcept;
 };
 
 #endif // !__WEBRTC_SESSION_H__

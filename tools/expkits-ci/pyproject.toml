@@ -9,13 +9,17 @@ dependencies = [
     "autopep8==2.3.1",
     "pycodestyle==2.12.1",
     "pre-commit==3.5.0",
-    "GitPython==3.1.50",
+    "GitPython==3.1.57",
     "requests==2.33.0",
     "argcomplete==3.6.2",
     "cmake-format==0.6.13",
     "clang-format==20.1.8",
     "clang-tidy==20.1.0",
     "detect-secrets==1.5.0",
+    "mypy==1.16.1",
+    "pyflakes==3.3.2",
+    "types-PyYAML==6.0.12.20250516",
+    "vulture==2.14",
 ]
 
 [tool.setuptools.packages.find]

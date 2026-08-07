@@ -39,6 +39,28 @@ code --version
 
 If `docker` does not work, open Docker Desktop and confirm that WSL integration is enabled for your Ubuntu distribution.
 
+### Configure mirrored WSL networking for WebRTC
+
+Open `%UserProfile%\.wslconfig` from Windows and ensure it contains:
+
+```ini
+[wsl2]
+networkingMode=mirrored
+
+[experimental]
+hostAddressLoopback=true
+```
+
+Apply the change from Windows PowerShell:
+
+```powershell
+wsl --shutdown
+```
+
+Then reopen Ubuntu/WSL before continuing. PEK's container initialization checks
+this requirement and reports the same remediation if mirrored networking is
+missing host-address loopback.
+
 ## 2. Get The Repository
 
 The easiest path is HTTPS cloning. It does not require an SSH key.
@@ -61,6 +83,20 @@ Run in the **WSL shell**, from the `pek` folder:
 ```bash
 code .
 ```
+
+If the build needs private or gated models, export a read-only `HF_TOKEN` in
+this WSL shell before opening VS Code:
+
+```bash
+export HF_TOKEN="hf_your_token_here"
+code .
+```
+
+Docker supplies the token only to the pinned model-download build step; it is
+not added to the runtime container environment. Failed downloads are logged and
+skipped, so the image can build without every configured model. After
+correcting a token, run **Dev Containers: Rebuild Container**; initialization
+refreshes the model-download cache key.
 
 VS Code should open the folder through WSL. In VS Code:
 
@@ -106,10 +142,10 @@ Expected result: the build finishes without errors and `tools/pek-menu` exists.
 Run in the **Docker shell**:
 
 ```bash
-./tools/pek-menu 01-full-onnx
+./tools/pek-menu yolov11-onnx
 ```
 
-You can also use the VS Code task **00 Run project and select pipeline** and choose `01-full-onnx`.
+You can also use the VS Code task **00 Run project and select pipeline** and choose `yolov11-onnx`.
 
 ![PEK pipeline selection view](/img/09-select-pipeline.png)
 
@@ -143,6 +179,9 @@ To run the last selected pipeline again, run in the **Docker shell**:
 
 ## If Something Fails
 
+- If container initialization reports that host-address loopback is required,
+  update `%UserProfile%\.wslconfig`, run **wsl --shutdown** from Windows
+  PowerShell, and reopen WSL.
 - If VS Code says the container cannot start, make sure Docker Desktop is open.
 - If Docker commands fail in WSL, check Docker Desktop WSL integration.
 - If the browser opens but no result appears, enable a model in the **AI Models** panel.

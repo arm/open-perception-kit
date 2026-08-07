@@ -1,5 +1,5 @@
 project('pek_elements', ['c', 'cpp'],
-  version: '0.1.0',
+  version: '0.1.6',
   default_options: [
     'c_std=c11',
     'cpp_std=c++20',
@@ -12,6 +12,9 @@ add_project_arguments('-Wno-unused-variable', language: ['c', 'cpp'])
 add_project_arguments('-Wno-unused-parameter', language: ['c', 'cpp'])
 add_project_arguments('-Wno-unused-function', language: ['c', 'cpp'])
 add_project_arguments('-Wno-unused-but-set-variable', language: ['c', 'cpp'])
+add_project_arguments('-DFMT_HEADER_ONLY', language: 'cpp')
+
+release_package = get_option('release_package')
 
 # -------- Core deps (always)
 stb_dep = dependency('stb', fallback: ['stb', 'stb_dep'])
@@ -39,7 +42,11 @@ if not soup_dep.found()
 endif
 json_dep = dependency('json-glib-1.0', required: false)
 
-fmt_dep = dependency('fmt', fallback : ['fmt', 'fmt_dep'], required : true)
+fmt_dep = dependency('fmt',
+  version: ['>=12.0.0', '<13.0.0'],
+  fallback : ['fmt', 'fmt_dep'],
+  required : true)
+threads_dep = dependency('threads')
 
 nlohmann_dep = dependency('nlohmann_json',
                       required : true,
@@ -61,6 +68,10 @@ tl_expected_dep = dependency('tl-expected', required : true)
 
 web_server_enabled = soup_dep.found() and json_dep.found()
 
+if release_package and not web_server_enabled
+  error('Release packages require libsoup and json-glib for HTTP-enabled peksink.')
+endif
+
 # -------- ONNX
 fs = import('fs')
 
@@ -70,6 +81,11 @@ onnx_candidates = []
 onnx_root_env = run_command('sh', '-c', 'printf %s "$PEK_ONNXRUNTIME_ROOT"', check: false).stdout().strip()
 if onnx_root_env != ''
   onnx_candidates += [onnx_root_env]
+endif
+
+onnx_root_cross = meson.get_external_property('pek_onnxruntime_root', '')
+if onnx_root_cross != ''
+  onnx_candidates += [onnx_root_cross]
 endif
 
 onnx_candidates += [
@@ -96,6 +112,17 @@ onnx_dep = declare_dependency(
   compile_args: ['-I' + (onnx_root / 'include')],
   link_args: ['-L' + onnx_libdir, '-lonnxruntime', '-Wl,--no-undefined']
 )
+
+if release_package
+  if not get_option('ncnn').disabled()
+    error('Release packages require -Dncnn=disabled.')
+  endif
+  if host_machine.cpu_family() != 'x86_64' and host_machine.cpu_family() != 'aarch64'
+    error('Release packages support only x86_64 and aarch64.')
+  elif not get_option('hailort').disabled()
+    error('Release packages require -Dhailort=disabled.')
+  endif
+endif
 
 # -------- Exported defs + deps for subdirs
 pek_defs = ['-DPEK_WEB_MODE=1']  # Web mode always compiled
@@ -125,7 +152,7 @@ if web_server_enabled
 endif
 
 # Common include(s)
-common_include = include_directories('common')
+common_include = include_directories('common', 'common/logging/include')
 
 # gtest dependencies
 cmake = import('cmake')
@@ -158,6 +185,25 @@ subdir('pek-menu')
 subdir('ops-hailort')
 subdir('ops-executorch')
 subdir('ops-ncnn')
+
+if release_package
+  install_subdir(
+    'web/content',
+    install_dir : 'web/content',
+    strip_directory : true,
+    exclude_files : [
+      'package.json',
+      'osd-renderer.test.mjs',
+      'webrtc_client.test.mjs',
+      'webrtc_config.test.mjs',
+    ],
+  )
+  install_data(
+    meson.project_source_root() / '../metadata/api/perception.schema.json',
+    meson.project_source_root() / '../metadata/api/perception-message.schema.json',
+    install_dir : 'share/pek/schemas/json',
+  )
+endif
 
 if get_option('tests')
   subdir('tests')

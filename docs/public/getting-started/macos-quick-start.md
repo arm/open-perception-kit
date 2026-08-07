@@ -56,6 +56,20 @@ Run in the **host shell**, from the `pek` folder:
 code .
 ```
 
+If the build needs private or gated models, export a read-only `HF_TOKEN`
+before opening VS Code:
+
+```bash
+export HF_TOKEN="hf_your_token_here"
+code .
+```
+
+Docker supplies the token only to the pinned model-download build step; it is
+not added to the runtime container environment. Failed downloads are logged and
+skipped, so the image can build without every configured model. After
+correcting a token, run **Dev Containers: Rebuild Container**; initialization
+refreshes the model-download cache key.
+
 In VS Code:
 
 ![VS Code opened in the PEK repository](/img/04-starting-point-vscode.png)
@@ -96,10 +110,10 @@ Expected result: the build finishes without errors and `tools/pek-menu` exists.
 Run in the **Docker shell**:
 
 ```bash
-./tools/pek-menu 01-full-onnx
+./tools/pek-menu yolov11-onnx
 ```
 
-You can also use the VS Code task **00 Run project and select pipeline** and choose `01-full-onnx`.
+You can also use the VS Code task **00 Run project and select pipeline** and choose `yolov11-onnx`.
 
 ![PEK pipeline selection view](/img/09-select-pipeline.png)
 

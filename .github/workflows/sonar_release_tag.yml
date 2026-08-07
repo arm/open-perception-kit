@@ -22,7 +22,7 @@ jobs:
           password: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
 
       - name: Checkout tagged commit
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -35,9 +35,11 @@ jobs:
       - name: Derive tag metadata
         shell: bash
         run: |
-          echo "TAG_NAME=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
-          echo "SONAR_RELEASE_BRANCH=tags/${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
-          echo "SONAR_PROJECT_VERSION=${GITHUB_REF_NAME#release/}" >> "$GITHUB_ENV"
+          {
+            echo "TAG_NAME=${GITHUB_REF_NAME}"
+            echo "SONAR_RELEASE_BRANCH=tags/${GITHUB_REF_NAME}"
+            echo "SONAR_PROJECT_VERSION=${GITHUB_REF_NAME#release/}"
+          } >> "$GITHUB_ENV"
 
       - name: Build docker image 
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}

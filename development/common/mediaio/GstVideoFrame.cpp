@@ -9,11 +9,12 @@
 
 #include "mediaio/GstVideoFrame.h"
 
+#include "Log.h"
+
 #include <gst/allocators/gstdmabuf.h>
 
 #include <atomic>
 #include <cinttypes>
-#include <cstdio>
 #include <cstdlib>
 #include <limits>
 #include <utility>
@@ -36,12 +37,16 @@ void maybePrintLifetimeCounters(const char *event, uint64_t eventCount) noexcept
         return;
     }
 
-    std::fprintf(stderr,
-                 "[GstVideoFrame] %s=%" PRIu64 " maps=%" PRIu64 " unmaps=%" PRIu64 "\n",
-                 event,
-                 eventCount,
-                 gMapCount.load(std::memory_order_relaxed),
-                 gUnmapCount.load(std::memory_order_relaxed));
+    try {
+        pek::log::error("[GstVideoFrame] {}={} maps={} unmaps={}\n",
+                        event,
+                        eventCount,
+                        gMapCount.load(std::memory_order_relaxed),
+                        gUnmapCount.load(std::memory_order_relaxed));
+    } catch (...) {
+        // Lifetime diagnostics are best-effort and must not affect frame mapping or cleanup.
+        return;
+    }
 }
 
 /**

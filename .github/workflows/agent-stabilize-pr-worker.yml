@@ -1,0 +1,217 @@
+name: Agent Stabilize PR Worker
+run-name: Agent stabilize PR #${{ inputs.pr_number }} ${{ inputs.dispatch_nonce || github.run_id }}
+
+on:
+  workflow_call:
+    inputs:
+      pr_number:
+        description: Pull request number to stabilize.
+        required: true
+        type: string
+      head_sha:
+        description: Optional PR head SHA to pin the stabilization attempt to.
+        required: false
+        default: ""
+        type: string
+      source_run_id:
+        description: Optional source run ID for prompt context.
+        required: false
+        default: ""
+        type: string
+      task_ref:
+        description: Optional task reference used for follow-up commit metadata. If omitted, the helper resolves it from PR metadata.
+        required: false
+        default: ""
+        type: string
+      profile_path:
+        description: Stabilization profile JSON path relative to the repository root.
+        required: false
+        default: .github/agent-runtime/pr-stabilization/profiles/profile.json
+        type: string
+      context_root:
+        description: Context root where runtime markdown and artifacts live.
+        required: false
+        default: .agent-runtime/pr-stabilization
+        type: string
+      dispatch_nonce:
+        description: Optional unique nonce for dispatch correlation.
+        required: false
+        default: ""
+        type: string
+    secrets:
+      EXPKITS_AGENT_TOKEN:
+        required: false
+
+permissions: {}
+
+concurrency:
+  group: agent-stabilize-pr-${{ inputs.pr_number }}
+  cancel-in-progress: false
+
+jobs:
+  stabilize:
+    runs-on: self-hosted-ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Resolve helper checkout ref
+        id: helper_ref
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
+        run: |
+          set -euo pipefail
+          if [ -n "${{ inputs.head_sha }}" ]; then
+            echo "head_sha=${{ inputs.head_sha }}" >> "$GITHUB_OUTPUT"
+          else
+            gh pr view "${{ inputs.pr_number }}" \
+              --repo "${{ github.repository }}" \
+              --json headRefOid \
+              --jq '"head_sha=" + .headRefOid' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout workflow helpers
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          ref: ${{ steps.helper_ref.outputs.head_sha }}
+          persist-credentials: false
+
+      - name: Snapshot workflow helper bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH="${GITHUB_WORKSPACE}/scripts/private${PYTHONPATH:+:${PYTHONPATH}}" \
+            python3 -m agent_stabilization_orchestrator snapshot-helper-bundle \
+            --bundle-root "${RUNNER_TEMP}/agent-stabilization-helper"
+
+      - name: Resolve PR details
+        id: pr
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
+        run: |
+          set -euo pipefail
+          PYTHONPATH="${GITHUB_WORKSPACE}/scripts/private${PYTHONPATH:+:${PYTHONPATH}}" \
+            python3 -m agent_stabilization_orchestrator resolve-pr-details \
+            --pr-number "${{ inputs.pr_number }}" \
+            --github-output "${GITHUB_OUTPUT}"
+
+      - name: Checkout PR head
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          ref: ${{ inputs.head_sha || steps.pr.outputs.head_sha }}
+          token: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
+          persist-credentials: false
+
+      - name: Restore workflow helper bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 "${RUNNER_TEMP}/agent-stabilization-helper/scripts/private/agent_stabilization_orchestrator/cli.py" \
+            restore-helper-bundle \
+            --bundle-root "${RUNNER_TEMP}/agent-stabilization-helper" \
+            --helper-root ".agent-runtime/agent-stabilization-helper"
+
+      - name: Prepare stabilization context
+        id: context
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
+        run: |
+          set -euo pipefail
+          PYTHONPATH="${GITHUB_WORKSPACE}/.agent-runtime/agent-stabilization-helper/scripts/private${PYTHONPATH:+:${PYTHONPATH}}" \
+            python3 -m agent_stabilization_orchestrator prepare-stabilization-context \
+            --profile-path ".agent-runtime/agent-stabilization-helper/${{ inputs.profile_path }}" \
+            --pr-number "${{ inputs.pr_number }}" \
+            --head-sha "${{ inputs.head_sha || steps.pr.outputs.head_sha }}" \
+            --source-run-id "${{ inputs.source_run_id }}" \
+            --context-root "${{ inputs.context_root }}" \
+            --github-output "${GITHUB_OUTPUT}"
+
+      - name: Set up Agent Python
+        if: ${{ steps.context.outputs.review_recommendation != 'approve' }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.10"
+
+      - name: Install OpenAI agent runtime
+        if: ${{ steps.context.outputs.review_recommendation != 'approve' }}
+        shell: bash
+        run: |
+          python3 .agent-runtime/agent-stabilization-helper/scripts/private/agent_runtime/setup_runtime.py \
+            --requirements-file .agent-runtime/agent-stabilization-helper/.github/agent-runtime/runtime/requirements-openai-agents.txt
+
+      - name: Fetch OpenAI proxy token
+        if: ${{ steps.context.outputs.review_recommendation != 'approve' }}
+        id: openai-token
+        uses: Arm-Debug/devops-actions/fetch-openai-proxy-token@v1.8.0
+
+      - name: Run OpenAI SDK stabilization agent
+        if: ${{ steps.context.outputs.review_recommendation != 'approve' }}
+        shell: bash
+        env:
+          OPENAI_PROXY_TOKEN: ${{ steps.openai-token.outputs.openai_token }}
+        run: |
+          .agent-runtime/openai-agent-venv/bin/python .agent-runtime/agent-stabilization-helper/scripts/private/agent_runtime/openai_agent_runner.py run-stabilization \
+            --model-config-file "${{ steps.context.outputs.agent_model_config_file }}" \
+            --task-config-file "${{ steps.context.outputs.agent_task_config_file }}" \
+            --prompt-file "${{ inputs.context_root }}/stabilize-goal.md" \
+            --output-file "${{ runner.temp }}/agent-stabilize-pr-output.md"
+
+      - if: ${{ steps.context.outputs.review_recommendation != 'approve' }}
+        name: Run stabilization validation
+        shell: bash
+        env:
+          GH_TOKEN: ""
+          GITHUB_TOKEN: ""
+          OPENAI_PROXY_TOKEN: ""
+          OPENAI_API_KEY: ""
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
+          ACTIONS_ID_TOKEN_REQUEST_URL: ""
+        run: |
+          PYTHONPATH="${RUNNER_TEMP}/agent-stabilization-helper/scripts/private" \
+            python3 -m agent_stabilization_orchestrator run-validation \
+            --profile-path "${RUNNER_TEMP}/agent-stabilization-helper/${{ inputs.profile_path }}"
+
+      - if: ${{ steps.context.outputs.review_recommendation != 'approve' }}
+        name: Commit stabilization fix
+        # <agent-review:suppress-begin> Stabilization pushes intentionally require
+        # the agent token so follow-up commits retrigger PR workflows.
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN }}
+        run: |
+          PYTHONPATH="${RUNNER_TEMP}/agent-stabilization-helper/scripts/private" \
+            python3 -m agent_stabilization_orchestrator commit-review-fix \
+            --context-root "${{ inputs.context_root }}" \
+            --pr-number "${{ inputs.pr_number }}" \
+            --head-branch "${{ steps.pr.outputs.head_branch }}" \
+            --task-ref "${{ inputs.task_ref }}"
+        # <agent-review:suppress-end>
+
+      - name: Write stabilization skip artifact
+        if: ${{ steps.context.outputs.review_recommendation == 'approve' }}
+        shell: bash
+        run: |
+          mkdir -p "${{ runner.temp }}"
+          printf '%s\n' \
+            "No stabilization agent run was needed because Agent Review approved the PR head." \
+            >"${{ runner.temp }}/agent-stabilize-pr-output.md"
+
+      - name: Upload stabilization artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: agent-stabilize-pr-${{ inputs.pr_number }}
+          path: |
+            ${{ runner.temp }}/agent-stabilize-pr-output.md
+            ${{ inputs.context_root }}
+          if-no-files-found: warn
+          retention-days: 10

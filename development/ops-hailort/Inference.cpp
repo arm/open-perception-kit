@@ -18,8 +18,8 @@
 
 #include <sys/mman.h>
 
+#include "Log.h"
 #include "pek/Result.h"
-#include "pek/String.h"
 
 using namespace pek::hailo;
 
@@ -121,36 +121,17 @@ pek::Result<pek::Shape> Inference::hailoVstreamToPekSize(const hailo_vstream_inf
 }
 
 pek::Result<void> Inference::setupFromJson(const std::string &filePath) {
-
     auto descResult = pek::ModelDescriptor::fromFile(filePath);
     if (!descResult) {
         return tl::unexpected{descResult.error()};
     }
-
-    { // setup model file name
-        std::string modelRoot = filePath;
-        if (pek::utf8::contains(modelRoot, '/')) {
-            size_t lastSlashAt = pek::utf8::lastIndexOf(modelRoot, '/');
-            modelRoot = pek::utf8::left(modelRoot, lastSlashAt + 1);
-        } else {
-            modelRoot = "";
-        }
-        (*descResult).modelFile = modelRoot + (*descResult).modelFile;
-    }
-
-    auto setupResult = setup(*descResult);
-    if (!setupResult) {
-        return tl::unexpected{setupResult.error()};
-    }
-
-    return {};
+    return setup(*descResult);
 }
 
 pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc) {
     this->modelDescriptor = modelDesc;
     this->model = pek::Model();
     this->model.engine = "hailort";
-    this->model.modelFamily = this->modelDescriptor.modelFamily;
     this->setupReady = false;
 
     try {
@@ -405,7 +386,7 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc) {
         }
 
         this->setupReady = true;
-        fmt::print("HailoRT inference setup ready for model [{}]\n", modelDesc.modelFile);
+        pek::log::info("HailoRT inference setup ready for model [{}]\n", modelDesc.modelFile);
     } catch (const std::exception &e) {
         return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
                                              fmt::format("HailoRT setup exception: {}", e.what())));

@@ -4,6 +4,7 @@ pek_runtime = shared_library(
   'pek-runtime',
   sources: [
     'OpChain.cpp',
+    'PerformanceMetrics.cpp',
     'Pipeline.cpp',
     'Result.cpp',
     'Tools.cpp',
@@ -15,5 +16,7 @@ pek_runtime = shared_library(
   cpp_args: ['-DFMT_HEADER_ONLY'],
   gnu_symbol_visibility: 'default',
   name_prefix: '',
-  install: false,
+  install: release_package,
+  install_dir: 'lib/pek',
+  install_rpath: '$ORIGIN',
 )

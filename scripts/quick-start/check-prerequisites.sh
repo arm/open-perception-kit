@@ -123,7 +123,11 @@ PREREQS_RPI5_HAILO10=(
     "docker-access|check_docker_access||Docker daemon reachable by the current user"
     "hailo10-stack|check_hailo10_package|hailo-h10-all|Hailo 10 software stack"
 )
-PREREQS_MACOS=()
+PREREQS_MACOS=(
+    "docker-cli|check_docker_cli||Docker CLI from Docker Desktop"
+    "docker-compose|check_docker_compose||Docker Compose plugin from Docker Desktop"
+    "docker-access|check_docker_access||Docker Desktop engine reachable by the current user"
+)
 PREREQS_LINUX_X86=()
 
 PACKAGE_MANAGER=""
@@ -161,12 +165,12 @@ select_prereq_arrays() {
                 SELECTED_PREREQ_ARRAYS=(PREREQS_LINUX_X86)
             fi
             ;;
-        rpi5 | rpi5-h10)
+        rpi5 | rpi5-h8 | rpi5-h10)
             PACKAGE_MANAGER="apt"
             SELECTED_PREREQ_ARRAYS=(PREREQS_RPI5)
             if [[ "$PEK_PLATFORM_ID" == "rpi5-h10" ]]; then
                 SELECTED_PREREQ_ARRAYS+=(PREREQS_RPI5_HAILO10)
-            elif [[ "$PEK_HAILO_ARCH" == "hailo8" || "$PEK_HAILO_ARCH" == "hailo8l" || "$PEK_HAILO_ARCH" == "hailo-unknown" ]]; then
+            elif [[ "$PEK_PLATFORM_ID" == "rpi5-h8" ]]; then
                 SELECTED_PREREQ_ARRAYS+=(PREREQS_RPI5_HAILO8)
             fi
             ;;

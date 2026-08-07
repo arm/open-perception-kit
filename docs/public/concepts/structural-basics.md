@@ -20,7 +20,13 @@ At the end of this page, you should be able to place new files in the right fold
 ### `config/`
 This is the most important folder for normal usage.
 
-- `config/models/` stores model folders. Put your model file, `model.json`, basic and minimal `opchain.json`, and `index.md` here. Runtime-specific compiled variants also live here, for example `mobilenetv2-hailo8/` and `mobilenetv2-hailo10/`.
+- `config/models/` stores model folders. Put `model.json`, a basic and minimal
+  `opchain.json`, and `index.md` here. A local development model can sit beside
+  its descriptor in the bind-mounted checkout. Published artifacts included in
+  container images use descriptor `hfDownload` metadata; only explicitly
+  allowlisted repository-local binaries enter the Docker build context.
+  Runtime-specific compiled variants also live here, for example
+  `mobilenetv2-hailo8/` and `mobilenetv2-hailo10/`.
 - `config/opchains/` stores reusable multi-stage pipelines, for example detector + secondary model chains.
 - `config/pipelines/` stores the top-level presets shown by `pek-menu`.
 
@@ -37,8 +43,12 @@ These contain the project documentation.
 - `docs/public/getting-started/` contains setup and quick-start pages.
 - `docs/public/how-to/` contains practical task guides.
 - `docs/public/concepts/` contains conceptual background pages.
+- `docs/public/getting-started/binary-release.md` documents direct integration
+  of the three release archives.
 - `docs/public/docs-config.json` defines the docs site label, navigation, and sidebar grouping.
 - `docs/public/static/` contains shared images and other static assets used by the docs site.
+- `docs/arch/` contains developer-facing architecture notes.
+- `docs/plantuml/` contains shared PlantUML diagram sources.
 
 ### `scripts/`
 This contains the main helper scripts you are expected to run.
@@ -117,6 +127,17 @@ pre-commit run --all-files
 ```
 
 `pre-commit run` checks only staged files by default. Use `--all-files` when you want to check the whole working tree.
+
+For the same checks through `expkits-ci`, use:
+
+```bash
+expkits-ci --pre-commit-check
+```
+
+Use `expkits-ci --pre-commit-fix --list-of-files <path>...` when you want the
+pre-commit formatter and license checks to update files in place. CI uses
+`expkits-ci --ci-pr-checks --pr-target-branch <branch>` for pull requests and
+`expkits-ci --ci-full-checks` for the full/nightly quality gate.
 
 ## What should you have at the end of this document?
 

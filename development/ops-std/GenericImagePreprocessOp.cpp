@@ -8,6 +8,8 @@
 #include <fmt/core.h>
 #include <memory>
 
+#include "Log.h"
+#include "pek/ImageOpDesc.h"
 #include "pek/Perception.h"
 #include "pek/Result.h"
 #include "pek/TensorView.h"
@@ -15,6 +17,7 @@
 #include "pek/Types.h"
 #include "tl/expected.hpp"
 
+#include <perf/PerformanceMetrics.h>
 #include <perf/PerformanceTracer.h>
 
 using namespace pek::stdop;
@@ -78,7 +81,8 @@ pek::Result<void> GenericImagePreprocessOp::configure(const pek::AttributeMap &a
 
 pek::Result<pek::op::OpSignal>
 GenericImagePreprocessOp::process(pek::op::OpChainContext &opChainContext) {
-    PEK_TRACE_SCOPE(fmt::format("std/GenImgPre/{}", upcomingInferenceModel.modelFamily));
+    PEK_TRACE_SCOPE(fmt::format("std/GenImgPre/{}", upcomingInferenceModel.name));
+    PEK_PERF_SCOPE(fmt::format("std/GenImgPre/{}", upcomingInferenceModel.name));
 
     if (opChainContext.inferenceImageCrops.size() == 0) {
         return pek::op::OpSignal::BreakLoop;
@@ -99,8 +103,8 @@ GenericImagePreprocessOp::process(pek::op::OpChainContext &opChainContext) {
     }
 
     size_t modelWidth, modelHeight;
-    if (false == upcomingInferenceModel.inputs[inputImageTensorIndex].tryGetImageTensorSize(
-                     modelWidth, modelHeight)) {
+    const auto &inputTensor = upcomingInferenceModel.inputs[inputImageTensorIndex];
+    if (false == inputTensor.tryGetImageTensorSize(modelWidth, modelHeight)) {
         return tl::make_unexpected(
             PEK_ERROR(pek::ErrorFlag::InvalidData, "tensor seems not to be an image"));
     }
@@ -139,16 +143,16 @@ GenericImagePreprocessOp::process(pek::op::OpChainContext &opChainContext) {
     setup.imageSourceDesc.byteCount = pipelineVideoPlane.byteSize();
     setup.imageSourceDesc.kind = readableVideoFrame->format();
     setup.imageSourceDesc.type = pek::Dtype::Uint8;
-    setup.imageSourceDesc.mean = upcomingInferenceModel.inputs[inputImageTensorIndex].mean;
-    setup.imageSourceDesc.std = upcomingInferenceModel.inputs[inputImageTensorIndex].std;
+    setup.imageSourceDesc.mean = inputTensor.mean;
+    setup.imageSourceDesc.std = inputTensor.std;
 
     // debug
     if (false) {
-        fmt::print("crop: {} {} {} {}\n",
-                   setup.imageSourceDesc.rect.x,
-                   setup.imageSourceDesc.rect.y,
-                   setup.imageSourceDesc.rect.width,
-                   setup.imageSourceDesc.rect.height);
+        pek::log::info("crop: {} {} {} {}\n",
+                       setup.imageSourceDesc.rect.x,
+                       setup.imageSourceDesc.rect.y,
+                       setup.imageSourceDesc.rect.width,
+                       setup.imageSourceDesc.rect.height);
     }
 
     // debug
@@ -171,16 +175,24 @@ GenericImagePreprocessOp::process(pek::op::OpChainContext &opChainContext) {
     }
 
     // setup preprocessed tensor data
-    setup.imageDestinationDesc.type =
-        upcomingInferenceModel.inputs[inputImageTensorIndex].valueType;
+    setup.imageDestinationDesc.type = inputTensor.valueType;
     setup.imageDestinationDesc.surfaceWidth = modelWidth;
     setup.imageDestinationDesc.surfaceHeight = modelHeight;
     setup.imageDestinationDesc.rect = {0, 0, modelWidth, modelHeight};
-    setup.imageDestinationDesc.kind = upcomingInferenceModel.inputs[inputImageTensorIndex].dataKind;
+    setup.imageDestinationDesc.kind = inputTensor.dataKind;
     setup.imageDestinationDesc.byteCount =
-        upcomingInferenceModel.inputs[inputImageTensorIndex].shape.getFullValueCount() *
-        pek::getValueTypeByteSize(upcomingInferenceModel.inputs[inputImageTensorIndex].valueType);
+        inputTensor.shape.getFullValueCount() * pek::getValueTypeByteSize(inputTensor.valueType);
     setup.imageDestinationDesc.data = upcomingTensorAddresses[inputImageTensorIndex];
+    setup.imageDestinationDesc.keepAspectRatio = inputTensor.keepAspectRatio;
+    setup.imageDestinationDesc.letterboxRed = inputTensor.letterboxRed;
+    setup.imageDestinationDesc.letterboxGreen = inputTensor.letterboxGreen;
+    setup.imageDestinationDesc.letterboxBlue = inputTensor.letterboxBlue;
+
+    pek::PixelRect letterboxInnerRect = setup.imageDestinationDesc.rect;
+    if (inputTensor.keepAspectRatio) {
+        letterboxInnerRect =
+            pek::computeLetterboxInnerRect(cropRect, setup.imageDestinationDesc.rect);
+    }
 
     // call tensor building
     pek::Result<void> result = genericImageInputTensorBuilder.build(setup);
@@ -207,7 +219,17 @@ GenericImagePreprocessOp::process(pek::op::OpChainContext &opChainContext) {
     opChainContext.inferenceInfo.image.height = cropRect.height;
     opChainContext.inferenceInfo.image.modelWidth = modelWidth;
     opChainContext.inferenceInfo.image.modelHeight = modelHeight;
-    opChainContext.inferenceInfo.modelFamily = upcomingInferenceModel.modelFamily;
+    opChainContext.inferenceInfo.image.letterboxLeft =
+        letterboxInnerRect.x - setup.imageDestinationDesc.rect.x;
+    opChainContext.inferenceInfo.image.letterboxRight =
+        setup.imageDestinationDesc.rect.width - letterboxInnerRect.width -
+        opChainContext.inferenceInfo.image.letterboxLeft;
+    opChainContext.inferenceInfo.image.letterboxTop =
+        letterboxInnerRect.y - setup.imageDestinationDesc.rect.y;
+    opChainContext.inferenceInfo.image.letterboxBottom =
+        setup.imageDestinationDesc.rect.height - letterboxInnerRect.height -
+        opChainContext.inferenceInfo.image.letterboxTop;
+    opChainContext.inferenceInfo.modelName = upcomingInferenceModel.name;
     opChainContext.inferenceInfo.contentType = upcomingInferenceModel.contentType;
     opChainContext.inferenceInfo.parentUuid = sourceUuid;
 

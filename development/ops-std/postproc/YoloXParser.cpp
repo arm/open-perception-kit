@@ -47,6 +47,10 @@ struct ImageGeometry {
     size_t frameHeight = 0;
     size_t modelWidth = 0;
     size_t modelHeight = 0;
+    size_t letterboxLeft = 0;
+    size_t letterboxRight = 0;
+    size_t letterboxTop = 0;
+    size_t letterboxBottom = 0;
 };
 
 struct ParserSettings {
@@ -127,6 +131,10 @@ ImageGeometry makeImageGeometry(const pek::TensorParser::Input &input) {
         input.inferenceInfo.image.height,
         input.inferenceInfo.image.modelWidth,
         input.inferenceInfo.image.modelHeight,
+        input.inferenceInfo.image.letterboxLeft,
+        input.inferenceInfo.image.letterboxRight,
+        input.inferenceInfo.image.letterboxTop,
+        input.inferenceInfo.image.letterboxBottom,
     };
 }
 
@@ -261,19 +269,41 @@ ClassScore findBestClass(const CandidateReader &reader,
     return best;
 }
 
+size_t activeModelWidth(const ImageGeometry &geometry) {
+    const size_t horizontalPadding = geometry.letterboxLeft + geometry.letterboxRight;
+    if (horizontalPadding >= geometry.modelWidth) {
+        return geometry.modelWidth;
+    }
+    return geometry.modelWidth - horizontalPadding;
+}
+
+size_t activeModelHeight(const ImageGeometry &geometry) {
+    const size_t verticalPadding = geometry.letterboxTop + geometry.letterboxBottom;
+    if (verticalPadding >= geometry.modelHeight) {
+        return geometry.modelHeight;
+    }
+    return geometry.modelHeight - verticalPadding;
+}
+
+float modelToFrameX(float x, const ImageGeometry &geometry) {
+    return (x - static_cast<float>(geometry.letterboxLeft)) *
+           static_cast<float>(geometry.frameWidth) / static_cast<float>(activeModelWidth(geometry));
+}
+
+float modelToFrameY(float y, const ImageGeometry &geometry) {
+    return (y - static_cast<float>(geometry.letterboxTop)) *
+           static_cast<float>(geometry.frameHeight) /
+           static_cast<float>(activeModelHeight(geometry));
+}
+
 Det makeDetection(const CandidateBox &box,
                   float confidence,
                   int classId,
                   const ImageGeometry &geometry) {
-    const auto scaleX =
-        static_cast<float>(geometry.frameWidth) / static_cast<float>(geometry.modelWidth);
-    const auto scaleY =
-        static_cast<float>(geometry.frameHeight) / static_cast<float>(geometry.modelHeight);
-
-    auto x1 = (box.cx - box.width * 0.5f) * scaleX;
-    auto y1 = (box.cy - box.height * 0.5f) * scaleY;
-    auto x2 = (box.cx + box.width * 0.5f) * scaleX;
-    auto y2 = (box.cy + box.height * 0.5f) * scaleY;
+    auto x1 = modelToFrameX(box.cx - box.width * 0.5f, geometry);
+    auto y1 = modelToFrameY(box.cy - box.height * 0.5f, geometry);
+    auto x2 = modelToFrameX(box.cx + box.width * 0.5f, geometry);
+    auto y2 = modelToFrameY(box.cy + box.height * 0.5f, geometry);
 
     x1 = clampf(x1, 0.0f, static_cast<float>(geometry.frameWidth - 1));
     x2 = clampf(x2, 0.0f, static_cast<float>(geometry.frameWidth - 1));

@@ -58,6 +58,9 @@ NUM_FRAMES=45000 \
 ./scripts/playwright/browser-smoke/run.sh
 ```
 
+Use `--sink-only` to run only the basic visible-video smoke test for each
+selected browser.
+
 Outputs:
 
 - `playwright-report/`
@@ -69,8 +72,9 @@ browser phases into one Playwright HTML report.
 
 ## Pages publisher
 
-The Pages publisher consumes the `rpi-browser-smoke-<run-id>-<attempt>` artifact
-from GitHub Actions and updates the persistent Pages site.
+The Pages publisher consumes the `rpi-browser-smoke-<run-id>-<attempt>` and
+`macos-browser-smoke-<run-id>-<attempt>` artifacts from GitHub Actions and
+updates the persistent Pages site.
 
 The workflow entrypoints run the publisher inside a small Docker image:
 
@@ -83,6 +87,14 @@ The workflow entrypoints run the publisher inside a small Docker image:
 `cleanup` is intended for scheduled or manual cleanup of closed PR reports after
 the retention window.
 
+The `Publish CI Report Status` workflow records completed `develop` schedule
+runs for PEK CI, Python and container audits, workflow dependency freshness,
+both YOLO benchmarks, and Valgrind. The Reports homepage shows summary cards;
+each report page shows its timestamp, commit, report, and workflow-run links.
+Failed and cancelled runs show at most three failed job or step names; full logs,
+artifacts, and diagnostic payloads remain in GitHub Actions. A run can be
+backfilled with the workflow's `upstream_run_id` input.
+
 ### Report persistence
 
 GitHub Pages deployments are immutable artifacts, so the publisher stores the
@@ -90,21 +102,32 @@ current report index in the `playwright-pages` storage branch.
 
 Publish flow:
 
-- Download the `rpi-browser-smoke-<run-id>-<attempt>` artifact.
+- Download the platform's browser-smoke artifact.
 - Check out `playwright-pages` into `_playwright_pages_site`.
 - Update only the affected report path:
   - `prs/<number>/` for PR reports.
-  - `nightly/` for scheduled `main` reports.
+  - `nightly/` for scheduled RPI `develop` reports and `nightly-macos/` for macOS.
+- Aggregate General and macOS results in the top-level Playwright nightly badge.
+- Store nightly workflow status snapshots under `workflow-status/` and rebuild
+  the homepage without allowing pull-request runs to overwrite nightly state.
 - Rebuild the top-level `index.html`.
+- Store the pruned report in `playwright-pages`; Playwright videos remain in
+  their GitHub Actions artifacts.
 - Commit and push `playwright-pages`.
+- Restore deploy-only Playwright videos for retained reports, the latest YOLO
+  detection videos, and referenced YOLO dataset files.
 - Deploy `_playwright_pages_site` as the GitHub Pages artifact.
+
+Expired GitHub Actions artifacts leave the report and its Actions run link
+available, but without the embedded video.
 
 Concurrency:
 
-- The workflow uses the `playwright-pages` concurrency group.
-- `cancel-in-progress: false` keeps publish jobs queued instead of canceling
-  one that is already updating the index.
-- This avoids racing two pushes to the same storage branch.
+- Event-driven publishers use the shared `report-pages` concurrency group.
+- Scheduled maintenance uses `report-pages-maintenance`, then republishes the
+  latest scheduled report and reconciles scheduled status cards.
+- `cancel-in-progress: false` lets the running index update finish.
+- Storage-branch pushes retry after concurrent updates.
 
 Why this is better than manual artifact handling:
 
@@ -127,8 +150,8 @@ UPSTREAM_HEAD_BRANCH="$(git branch --show-current)" \
 UPSTREAM_HEAD_REPOSITORY=Arm-Debug/amp-dev-forge \
 UPSTREAM_HEAD_SHA="$(git rev-parse HEAD)" \
 UPSTREAM_PR_NUMBER=181 \
-UPSTREAM_RUN_ATTEMPT=local \
-UPSTREAM_RUN_ID=local \
+UPSTREAM_RUN_ATTEMPT=1 \
+UPSTREAM_RUN_ID=1 \
 ./scripts/playwright/pages/run.sh publish
 ```
 

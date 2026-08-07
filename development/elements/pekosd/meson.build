@@ -8,5 +8,7 @@ gstpekosd = shared_module(
   dependencies: pek_deps + [dependency('cairo')],
   link_with: [ common ],
   gnu_symbol_visibility: 'hidden',
-  install: false
+  install: release_package,
+  install_dir: 'lib/gstreamer-1.0',
+  install_rpath: '$ORIGIN/../pek',
 )

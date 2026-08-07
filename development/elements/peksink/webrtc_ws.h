@@ -73,14 +73,17 @@ class WebRtcWebSocket {
 
     bool link_per_client_elements(SessionContext *ctx);
 
-    void process_offer(std::shared_ptr<SessionContext> ctx, const nlohmann::json &jsn);
-    void process_canditate(std::shared_ptr<SessionContext> ctx, const nlohmann::json &jsn);
+    static void on_answer_created(GstPromise *promise, gpointer user_data);
+    static void on_set_remote_description(GstPromise *promise, gpointer user_data);
 
-    void on_open(connection_hdl hdl);
-    void on_close(connection_hdl hdl);
-    void on_message(connection_hdl hdl, ws_server::message_ptr msg);
+    void process_offer(const std::shared_ptr<SessionContext> &ctx, const nlohmann::json &jsn);
+    void process_canditate(const std::shared_ptr<SessionContext> &ctx, const nlohmann::json &jsn);
 
-    std::shared_ptr<SessionContext> get_session(connection_hdl hdl);
+    void on_open(const connection_hdl &hdl);
+    void on_close(const connection_hdl &hdl);
+    void on_message(const connection_hdl &hdl, const ws_server::message_ptr &msg);
+
+    std::shared_ptr<SessionContext> get_session(const connection_hdl &hdl);
 
     WebRtcSockerError setup();
 
@@ -91,7 +94,7 @@ class WebRtcWebSocket {
     WebRtcSockerError start();
     WebRtcSockerError stop();
 
-    bool cleanup_session(connection_hdl hdl, const char *reason);
+    bool cleanup_session(const connection_hdl &hdl, const char *reason);
     std::size_t active_session_count() const;
 };
 

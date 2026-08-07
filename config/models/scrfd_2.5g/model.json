@@ -1,8 +1,12 @@
 {
-    "name": "scrfd_2_5g",
-    "modelFamily": "scrfd",
+    "name": "scrfd-face",
     "contentType": "humanFace",
     "modelFile": "scrfd_2.5g.hef",
+    "hfDownload": {
+        "repo_id": "Arm/SCRFD-2.5G",
+        "revision": "3d5d29f1ef35352edada6cdb9a6905a6052ebc40",
+        "filename": "models/hailo10h/scrfd_2.5g.hef"
+    },
     "dynamicOutput": true,
     "inputTensors": [
         {

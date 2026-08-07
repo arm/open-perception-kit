@@ -42,6 +42,14 @@ struct ModelInput {
     /// Optional normalization mean/std values.
     pek::Colorf mean = {0.0f, 0.0f, 0.0f, 0.0f}, std = {1.0f, 1.0f, 1.0f, 1.0f};
 
+    /// Preserve image aspect ratio during image tensor resize by letterboxing.
+    bool keepAspectRatio = false;
+
+    /// Letterbox padding color in normalized RGB channel values.
+    float letterboxRed = DefaultLetterboxColor;
+    float letterboxGreen = DefaultLetterboxColor;
+    float letterboxBlue = DefaultLetterboxColor;
+
     /// Optional scalar/vector input values for non-image tensor kinds.
     std::vector<float> valueInputs;
 
@@ -59,7 +67,7 @@ struct ModelInput {
      * @param outHeight Output height.
      * @return True when the shape looks like a 1/3-channel image tensor.
      */
-    bool tryGetImageTensorSize(size_t &outWidth, size_t &outHeight);
+    bool tryGetImageTensorSize(size_t &outWidth, size_t &outHeight) const;
 };
 
 /**
@@ -90,10 +98,14 @@ struct Model {
     /// True when NMS is already applied by the model.
     bool nmsAppliedByModel = false;
 
-    /// Model family identifier.
+    /// Human-readable model name.
+    std::string name;
+
     /// Runtime engine identifier.
+    std::string engine;
+
     /// Optional semantic content type.
-    std::string modelFamily, engine, contentType;
+    std::string contentType;
 
     /// Runtime input tensors.
     std::vector<ModelInput> inputs;

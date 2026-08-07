@@ -4,6 +4,7 @@
 
 #include "Tools.h"
 
+#include "Log.h"
 #include "fmt/core.h"
 #include "pek/String.h"
 
@@ -43,7 +44,7 @@ Result<DynamicLibraryHandle> Tools::DynamicLibraryOpen(const std::string &name) 
     for (const auto &n : names) {
         dlerror(); // NOLINT(concurrency-mt-unsafe)
 
-        handle = dlopen(n.c_str(), RTLD_NOW); // NOLINT(concurrency-mt-unsafe)
+        handle = dlopen(n.c_str(), RTLD_NOW | RTLD_NODELETE); // NOLINT(concurrency-mt-unsafe)
 
         if (handle) {
             break;
@@ -57,7 +58,7 @@ Result<DynamicLibraryHandle> Tools::DynamicLibraryOpen(const std::string &name) 
     }
 
     if (!handle) {
-        fmt::print("{}", loadErrors);
+        pek::log::error("{}", loadErrors);
         return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::SystemFailure, loadErrors));
     }
 

@@ -49,15 +49,6 @@ class PipelineStateReporter : public StatusReporter {
     nlohmann::json report() const override;
 };
 
-class PerformanceOverlayStateReporter : public StatusReporter {
-    GstPekSink *self_ = nullptr;
-
-  public:
-    explicit PerformanceOverlayStateReporter(GstPekSink *self) : self_(self) {}
-
-    nlohmann::json report() const override;
-};
-
 struct GstPekPrivate {
     std::unique_ptr<PekSinkHttpServer> http_server;
 
@@ -66,7 +57,6 @@ struct GstPekPrivate {
 
     std::shared_ptr<ModelRegistry> model_registry;
     std::shared_ptr<PipelineStateReporter> pipeline_state_reporter;
-    std::shared_ptr<PerformanceOverlayStateReporter> performance_overlay_state_reporter;
 };
 
 struct _GstPekSink {
@@ -112,6 +102,7 @@ struct _GstPekSink {
     gint http_port;
     gint ctrl_port;
     gint ws_port;
+    gboolean qos_enabled;
 
     GstPekPrivate *private_data;
 };

@@ -13,6 +13,8 @@ BUILD_DIR="$PROJECT_ROOT/build"
 TESTS_BUILD_DIR="$PROJECT_ROOT/build-test"
 PEK_MENU=$PROJECT_ROOT/build/meson-out/pek-menu
 PEK_MENU_OUT=/work/tools/pek-menu
+COMMON_LIBRARY=$PROJECT_ROOT/build/meson-out/libpek-common.so
+COMMON_LIBRARY_OUT=/work/tools/libpek-common.so
 EXTRA_SETUP_ARGS=()
 MESON_SETUP_ARGS=()
 MESON_CONFIGURE_ARGS=()
@@ -22,6 +24,11 @@ mkdir -p "$BUILD_DIR"
 meson_build_is_configured() {
     local build_dir="$1"
     [[ -d "$build_dir/meson-private" ]]
+}
+
+stage_runtime_artifacts() {
+    cp "$PEK_MENU" "$PEK_MENU_OUT"
+    cp "$COMMON_LIBRARY" "$COMMON_LIBRARY_OUT"
 }
 
 parse_extra_setup_args() {
@@ -101,6 +108,7 @@ normalize_feature_value() {
 add_feature_option_from_env() {
     local option_name="$1"
     local env_name="$2"
+    local default_value="${3:-}"
     local raw_value="${!env_name:-}"
     local short_value="${!option_name:-}"
     local normalized_value
@@ -110,20 +118,28 @@ add_feature_option_from_env() {
     fi
 
     if [[ -z "$raw_value" ]]; then
-        return
+        local arg
+        for arg in "${EXTRA_SETUP_ARGS[@]}"; do
+            case "$arg" in
+                "-D${option_name}="*) return 0 ;;
+            esac
+        done
     fi
+
+    raw_value="${raw_value:-$default_value}"
+    [[ -n "$raw_value" ]] || return 0
 
     normalized_value="$(normalize_feature_value "$env_name/$option_name" "$raw_value")"
     MESON_SETUP_ARGS+=("-D${option_name}=${normalized_value}")
     MESON_CONFIGURE_ARGS+=("-D${option_name}=${normalized_value}")
-    msg "Meson feature from environment: ${option_name}=${normalized_value}"
+    msg "Meson feature selection: ${option_name}=${normalized_value}"
 }
 
 collect_meson_args() {
     MESON_SETUP_ARGS=("${EXTRA_SETUP_ARGS[@]}")
     MESON_CONFIGURE_ARGS=("${EXTRA_SETUP_ARGS[@]}")
 
-    add_feature_option_from_env "executorch" "PEK_EXECUTORCH"
+    add_feature_option_from_env "executorch" "PEK_EXECUTORCH" "auto"
     add_feature_option_from_env "hailort" "PEK_HAILORT"
     add_feature_option_from_env "ncnn" "PEK_NCNN"
 }
@@ -142,13 +158,13 @@ debug() {
         meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat -Dtests="$enable_tests" "${MESON_SETUP_ARGS[@]}"
     else
         msg "Meson configure (keeping existing build dir)…"
-        meson configure "$BUILD_DIR" "${MESON_CONFIGURE_ARGS[@]}" > /dev/null
+        meson configure "$BUILD_DIR" -Dtests="$enable_tests" "${MESON_CONFIGURE_ARGS[@]}" > /dev/null
     fi
 
     msg "Compiling.."
     meson compile -C "$BUILD_DIR"
 
-    cp "$PEK_MENU" "$PEK_MENU_OUT"
+    stage_runtime_artifacts
 
     msg_end "DEBUG compilation DONE → $BUILD_DIR"
 }
@@ -174,13 +190,13 @@ release() {
             "${MESON_SETUP_ARGS[@]}"
     else
         msg "Meson configure (keeping existing build dir)…"
-        meson configure "$BUILD_DIR" "${MESON_CONFIGURE_ARGS[@]}" > /dev/null
+        meson configure "$BUILD_DIR" -Dtests="$enable_tests" "${MESON_CONFIGURE_ARGS[@]}" > /dev/null
     fi
 
     msg "Compiling…"
     meson compile -C "$BUILD_DIR"
 
-    cp "$PEK_MENU" "$PEK_MENU_OUT"
+    stage_runtime_artifacts
 
     msg_end "Release build done → $BUILD_DIR"
 }

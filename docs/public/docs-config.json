@@ -20,10 +20,20 @@
       "position": "left"
     }
   ],
-  "sidebarIDs": ["getting-started", "how-to", "concepts"],
+  "sidebarIDs": [
+    "getting-started",
+    "how-to",
+    "concepts"
+  ],
   "sidebarDirectoryMap": {
-    "getting-started": ["getting-started"],
-    "how-to": ["how-to"],
-    "concepts": ["concepts"]
+    "getting-started": [
+      "getting-started"
+    ],
+    "how-to": [
+      "how-to"
+    ],
+    "concepts": [
+      "concepts"
+    ]
   }
 }

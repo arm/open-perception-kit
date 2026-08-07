@@ -38,7 +38,7 @@ InferenceControllerOp::process(pek::op::OpChainContext &opChainContext) {
                       "InferenceControllerOp needs pipelineVideoFrame VideoFrame"));
     }
 
-    opChainContext.inferenceInfo.modelFamily.clear();
+    opChainContext.inferenceInfo.modelName.clear();
     opChainContext.rootLayer.inferElementId =
         "rootLayer_" + opChainContext.inferenceInfo.inferElementId;
     opChainContext.rootLayer.contentType = "videoFrame";
@@ -62,8 +62,6 @@ InferenceControllerOp::process(pek::op::OpChainContext &opChainContext) {
     } else {
         pek::PerceptionTools perception(*opChainContext.perception);
         auto rects = perception.getAllRectsWithContentType(contentType);
-
-        opChainContext.inferenceInfo.modelFamily = contentType;
 
         for (const auto &r : rects) {
             pek::PixelRect rect;

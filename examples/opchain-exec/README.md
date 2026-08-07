@@ -10,7 +10,7 @@ The source intentionally avoids direct `op/`, `mediaio/`, and `pek/Perception` h
 
 ## Build
 
-Build the main PEK development tree first so `pek-runtime.so`, `libcommon.so`, and the
+Build the main PEK development tree first so `pek-runtime.so`, `libpek-common.so`, and the
 Op plugins exist:
 
 ```sh

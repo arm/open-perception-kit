@@ -4,12 +4,15 @@
 
 #include "op/OpChain.h"
 
-#include "pek/Log.h"
+#include "Log.h"
 #include "pek/String.h"
+#include "tools.h"
 
 #include "op/Op.h"
 #include "op/OpChainDescriptor.h"
+#include "perf/PerformanceMetrics.h"
 
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -58,7 +61,7 @@ pek::Result<void> OpChain::setupFromDescriptor(const pek::op::OpChainDescriptor 
         return tl::unexpected(std::move(chainBindResult.error()));
     }
 
-    pek::log("{}", pek::LogTools::enframe(this->toString(), "OpChain"));
+    pek::log::info("{}", pek::log::tools::enframe(this->toString(), "OpChain"));
 
     // validation
     auto validateResult = validate();
@@ -66,7 +69,7 @@ pek::Result<void> OpChain::setupFromDescriptor(const pek::op::OpChainDescriptor 
         return tl::unexpected(std::move(validateResult.error()));
     }
 
-    pek::logn("OpChain is valid\n");
+    pek::log::notice("OpChain is valid\n");
 
     return {};
 }
@@ -139,7 +142,7 @@ pek::Result<void> OpChain::validate() {
 }
 
 pek::Result<void> OpChain::setupFromFile(const std::string &filePath) {
-    pek::log("Loading OpChain from file: [{}]\n", filePath);
+    pek::log::info("Loading OpChain from file: [{}]\n", filePath);
     auto descResult = pek::op::OpChainDescriptor::fromFile(filePath);
     if (!descResult) {
         return tl::unexpected(std::move(descResult.error()));
@@ -169,6 +172,9 @@ pek::Result<void> OpChain::bind() {
 }
 
 pek::Result<void> OpChain::execute(pek::op::OpChainContext &opChainContext) {
+    const auto metricName = name.empty() ? std::string("opchain") : fmt::format("opchain/{}", name);
+    PEK_PERF_SCOPE(metricName);
+
     size_t currentIndex = 0;
 
     auto firstWorkerIndexForLoop = [this](size_t index, size_t loopId) {

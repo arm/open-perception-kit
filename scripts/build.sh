@@ -70,10 +70,14 @@ if ! docker inspect -f '{{.State.Running}}' "${PEK_CONTAINER_NAME}" 2> /dev/null
     exit 1
 fi
 
-if ! docker exec -u devgoblin "${PEK_CONTAINER_NAME}" bash -lc 'test -w /work' > /dev/null 2>&1; then
-    echo "Container /work is not writable as devgoblin."
+if ! docker exec -u dev "${PEK_CONTAINER_NAME}" bash -lc 'test -w /work' > /dev/null 2>&1; then
+    echo "Container /work is not writable as dev."
     echo "Recreating it with the host UID/GID mapping..."
     "${START_CONTAINER_SCRIPT}" --recreate
 fi
 
-docker exec -u devgoblin --env-file devices.env "${PEK_CONTAINER_NAME}" bash -lc "${BUILD_COMMAND}"
+DOCKER_EXEC_ARGS=(-u dev)
+if [ -f "${REPO_ROOT}/devices.env" ]; then
+    DOCKER_EXEC_ARGS+=(--env-file "${REPO_ROOT}/devices.env")
+fi
+docker exec "${DOCKER_EXEC_ARGS[@]}" "${PEK_CONTAINER_NAME}" bash -lc "${BUILD_COMMAND}"

@@ -1,0 +1,260 @@
+name: Agent Repair Source Run Worker
+
+on:
+  workflow_call:
+    inputs:
+      source_run_id:
+        description: GitHub Actions run ID to repair. The source run must belong to a PR with the repair authorization label.
+        required: false
+        default: ""
+        type: string
+      target_branch:
+        description: Optional branch to open the repair PR against. Defaults to the authorized source PR head branch.
+        required: false
+        default: ""
+        type: string
+      task_ref:
+        description: Optional task reference used for repair branch and commit metadata. If omitted, the helper resolves it from branch metadata when a repair actually runs.
+        required: false
+        default: ""
+        type: string
+      profile_path:
+        description: Repair profile JSON path relative to the repository root.
+        required: false
+        default: .github/agent-runtime/source-run-repair/profiles/profile.json
+        type: string
+    secrets:
+      EXPKITS_AGENT_TOKEN:
+        required: false
+
+permissions: {}
+
+concurrency:
+  group: agent-repair-source-run-${{ inputs.source_run_id || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Resolve repair inputs
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      issues: read
+      pull-requests: read
+    outputs:
+      should_run: ${{ steps.resolve.outputs.should_run }}
+      skip_reason: ${{ steps.resolve.outputs.skip_reason }}
+      source_run_id: ${{ steps.resolve.outputs.source_run_id }}
+      source_pr_number: ${{ steps.resolve.outputs.source_pr_number }}
+      source_run_url: ${{ steps.resolve.outputs.source_run_url }}
+      source_workflow_name: ${{ steps.resolve.outputs.source_workflow_name }}
+      target_branch: ${{ steps.resolve.outputs.target_branch }}
+      task_ref: ${{ steps.resolve.outputs.task_ref }}
+      repair_branch: ${{ steps.resolve.outputs.repair_branch }}
+      agent_model_config_file: ${{ steps.resolve.outputs.agent_model_config_file }}
+      agent_task_config_file: ${{ steps.resolve.outputs.agent_task_config_file }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - id: resolve
+        name: Resolve repair inputs
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CURRENT_REF_NAME: ${{ github.head_ref || github.ref_name }}
+        run: |
+          set -euo pipefail
+          PYTHONPATH="${GITHUB_WORKSPACE}/scripts/private${PYTHONPATH:+:${PYTHONPATH}}" \
+            python3 -m agent_repair_orchestrator resolve-inputs \
+            --profile-path "${{ inputs.profile_path || '.github/agent-runtime/source-run-repair/profiles/profile.json' }}" \
+            --source-run-id "${{ inputs.source_run_id || '' }}" \
+            --target-branch "${{ inputs.target_branch || '' }}" \
+            --task-ref "${{ inputs.task_ref || '' }}" \
+            --current-ref-name "${CURRENT_REF_NAME}" \
+            --github-output "${GITHUB_OUTPUT}"
+
+      - name: Summarize skipped run
+        if: steps.resolve.outputs.should_run != 'true'
+        run: |
+          {
+            echo "### Agent Repair Source Run"
+            echo
+            echo "Skipped: ${{ steps.resolve.outputs.skip_reason }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  agent-fix:
+    name: Generate repair patch with OpenAI SDK agent
+    needs: prepare
+    if: needs.prepare.outputs.should_run == 'true'
+    runs-on: self-hosted-ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      has_changes: ${{ steps.patch.outputs.has_changes }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          ref: ${{ needs.prepare.outputs.target_branch }}
+          persist-credentials: false
+
+      - name: Collect source run context
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          PYTHONPATH="${GITHUB_WORKSPACE}/scripts/private${PYTHONPATH:+:${PYTHONPATH}}" \
+            python3 -m agent_repair_orchestrator collect-context \
+            --source-run-id "${{ needs.prepare.outputs.source_run_id }}" \
+            --source-run-url "${{ needs.prepare.outputs.source_run_url }}" \
+            --source-workflow-name "${{ needs.prepare.outputs.source_workflow_name }}"
+
+      - name: Build repair prompt inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH="${GITHUB_WORKSPACE}/scripts/private${PYTHONPATH:+:${PYTHONPATH}}" \
+            python3 -m agent_repair_orchestrator build-markdown \
+            --profile-path "${{ inputs.profile_path || '.github/agent-runtime/source-run-repair/profiles/profile.json' }}" \
+            --source-run-id "${{ needs.prepare.outputs.source_run_id }}" \
+            --source-pr-number "${{ needs.prepare.outputs.source_pr_number }}" \
+            --source-run-url "${{ needs.prepare.outputs.source_run_url }}" \
+            --source-workflow-name "${{ needs.prepare.outputs.source_workflow_name }}" \
+            --target-branch "${{ needs.prepare.outputs.target_branch }}" \
+            --repair-branch "${{ needs.prepare.outputs.repair_branch }}" \
+            --task-ref "${{ needs.prepare.outputs.task_ref }}"
+
+      - name: Set up Agent Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.10"
+
+      - name: Install OpenAI agent runtime
+        shell: bash
+        run: |
+          python3 scripts/private/agent_runtime/setup_runtime.py \
+            --install-package ./tools/expkits-ci
+
+      - name: Run static regression tests
+        run: |
+          set -euo pipefail
+          PYTHONPATH="${GITHUB_WORKSPACE}/tools/expkits-ci${PYTHONPATH:+:${PYTHONPATH}}" \
+            .agent-runtime/openai-agent-venv/bin/python -m expkits_ci.agent_static_analysis
+          PATH="${GITHUB_WORKSPACE}/.agent-runtime/openai-agent-venv/bin:${PATH}" \
+            PYTHONPATH="${GITHUB_WORKSPACE}/scripts/private:${GITHUB_WORKSPACE}/tools/expkits-ci${PYTHONPATH:+:${PYTHONPATH}}" \
+            python3 -m agent_repair_orchestrator run-validation \
+            --profile-path "${{ inputs.profile_path || '.github/agent-runtime/source-run-repair/profiles/profile.json' }}"
+
+      - name: Fetch OpenAI proxy token
+        id: openai-token
+        uses: Arm-Debug/devops-actions/fetch-openai-proxy-token@v1.8.0
+
+      - name: Run OpenAI SDK repair agent
+        shell: bash
+        env:
+          OPENAI_PROXY_TOKEN: ${{ steps.openai-token.outputs.openai_token }}
+        run: |
+          .agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/openai_agent_runner.py run-repair \
+            --model-config-file "${{ needs.prepare.outputs.agent_model_config_file }}" \
+            --task-config-file "${{ needs.prepare.outputs.agent_task_config_file }}" \
+            --prompt-file .agent-runtime/source-run-repair/goal.md \
+            --output-file "${{ runner.temp }}/agent-repair-source-run-agent-output.md"
+
+      - id: patch
+        name: Package repository changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH="${GITHUB_WORKSPACE}/scripts/private${PYTHONPATH:+:${PYTHONPATH}}" \
+            python3 -m agent_repair_orchestrator package-repository-changes \
+            --patch-file "${{ runner.temp }}/agent-repair-source-run.patch" \
+            --diffstat-file "${{ runner.temp }}/agent-repair-source-run.diffstat.txt" \
+            --github-output "${GITHUB_OUTPUT}"
+
+      - name: Upload repair artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: agent-repair-source-run
+          path: |
+            ${{ runner.temp }}/agent-repair-source-run.patch
+            ${{ runner.temp }}/agent-repair-source-run.diffstat.txt
+            ${{ runner.temp }}/agent-repair-source-run-agent-output.md
+            .agent-runtime/source-run-repair
+          if-no-files-found: warn
+          retention-days: 10
+
+      - if: steps.patch.outputs.has_changes != 'true'
+        name: Require generated changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH="${GITHUB_WORKSPACE}/scripts/private${PYTHONPATH:+:${PYTHONPATH}}" \
+            python3 -m agent_repair_orchestrator require-generated-changes \
+            --source-run-id "${{ needs.prepare.outputs.source_run_id }}"
+
+  open-pr:
+    name: Open repair PR
+    needs: [prepare, agent-fix]
+    if: needs.prepare.outputs.should_run == 'true' && needs['agent-fix'].outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          ref: ${{ needs.prepare.outputs.target_branch }}
+          token: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: agent-repair-source-run
+          path: ${{ runner.temp }}/agent-repair-source-run
+
+      - id: branch
+        name: Apply repair changes and push branch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
+        run: |
+          set -euo pipefail
+          PYTHONPATH="${GITHUB_WORKSPACE}/scripts/private${PYTHONPATH:+:${PYTHONPATH}}" \
+            python3 -m agent_repair_orchestrator apply-repair-changes-and-push \
+            --profile-path "${{ inputs.profile_path || '.github/agent-runtime/source-run-repair/profiles/profile.json' }}" \
+            --patch-root "${{ runner.temp }}/agent-repair-source-run" \
+            --repair-branch "${{ needs.prepare.outputs.repair_branch }}" \
+            --target-branch "${{ needs.prepare.outputs.target_branch }}" \
+            --source-run-id "${{ needs.prepare.outputs.source_run_id }}" \
+            --source-pr-number "${{ needs.prepare.outputs.source_pr_number }}" \
+            --source-run-url "${{ needs.prepare.outputs.source_run_url }}" \
+            --source-workflow-name "${{ needs.prepare.outputs.source_workflow_name }}" \
+            --task-ref "${{ needs.prepare.outputs.task_ref }}" \
+            --body-file "${{ runner.temp }}/agent-repair-source-run-pr-body.md" \
+            --pr-title-file "${{ runner.temp }}/agent-repair-source-run-pr-title.txt" \
+            --commit-subject-file "${{ runner.temp }}/agent-repair-source-run-commit-subject.txt" \
+            --commit-notes-file "${{ runner.temp }}/agent-repair-source-run-commit-notes.txt" \
+            --github-output "${GITHUB_OUTPUT}"
+
+      - id: pr
+        name: Create draft repair PR
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
+        run: |
+          set -euo pipefail
+          PYTHONPATH="${GITHUB_WORKSPACE}/scripts/private${PYTHONPATH:+:${PYTHONPATH}}" \
+            python3 -m agent_repair_orchestrator create-draft-pr \
+            --profile-path "${{ inputs.profile_path || '.github/agent-runtime/source-run-repair/profiles/profile.json' }}" \
+            --body-file "${{ runner.temp }}/agent-repair-source-run-pr-body.md" \
+            --pr-title-file "${{ runner.temp }}/agent-repair-source-run-pr-title.txt" \
+            --target-branch "${{ needs.prepare.outputs.target_branch }}" \
+            --repair-branch "${{ needs.prepare.outputs.repair_branch }}" \
+            --github-output "${GITHUB_OUTPUT}"

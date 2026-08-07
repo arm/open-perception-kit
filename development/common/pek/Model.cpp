@@ -6,7 +6,7 @@
 
 namespace pek {
 
-bool ModelInput::tryGetImageTensorSize(size_t &outWidth, size_t &outHeight) {
+bool ModelInput::tryGetImageTensorSize(size_t &outWidth, size_t &outHeight) const {
     if (shape.rank == 4) {
         if (shape.dims[1] == 1 || shape.dims[1] == 3) {
             outWidth = shape.dims[3];
@@ -52,7 +52,7 @@ Model::createOutputTensorView(size_t index, const uint8_t *data, const pek::Shap
 
 pek::Result<void> Model::applyModelFromDescriptor(const ModelDescriptor &modelDescriptor) {
 
-    this->modelFamily = modelDescriptor.modelFamily;
+    this->name = modelDescriptor.name;
     this->contentType = modelDescriptor.contentType;
 
     // INPUT tensors
@@ -126,12 +126,15 @@ pek::Result<void> Model::applyModelFromDescriptor(const ModelDescriptor &modelDe
             }
         }
 
-        // set mean and std
-        this->inputs[i].mean = modelDescriptor.inputTensors[i].mean;
-        this->inputs[i].std = modelDescriptor.inputTensors[i].std;
-        this->inputs[i].valueInputs = modelDescriptor.inputTensors[i].valueInputs;
-        this->inputs[i].matchShapeOutputIndex =
-            modelDescriptor.inputTensors[i].matchShapeOutputIndex;
+        // set descriptor-provided preprocessing/input options
+        this->inputs[i].mean = descTensor.mean;
+        this->inputs[i].std = descTensor.std;
+        this->inputs[i].keepAspectRatio = descTensor.keepAspectRatio;
+        this->inputs[i].letterboxRed = descTensor.letterboxRed;
+        this->inputs[i].letterboxGreen = descTensor.letterboxGreen;
+        this->inputs[i].letterboxBlue = descTensor.letterboxBlue;
+        this->inputs[i].valueInputs = descTensor.valueInputs;
+        this->inputs[i].matchShapeOutputIndex = descTensor.matchShapeOutputIndex;
     }
 
     // OUTPUT tensors
@@ -209,7 +212,7 @@ pek::Result<void> Model::applyModelFromDescriptor(const ModelDescriptor &modelDe
 std::string Model::toString() const {
     std::string ret;
 
-    ret += fmt::format("Model: [{}]\n", modelFamily);
+    ret += fmt::format("Model: [{}]\n", name);
     ret += fmt::format("Engine: [{}]\n", engine);
     ret += fmt::format("Input count: {}\n", inputs.size());
     ret += fmt::format("Output count: {}\n", outputs.size());
@@ -221,6 +224,13 @@ std::string Model::toString() const {
         ret += fmt::format(" ValueType: {}\n", magic_enum::enum_name(inputs[i].valueType));
         ret += fmt::format(" Shape: {}\n", inputs[i].shape.toString());
         ret += fmt::format(" DataKind: {}\n", magic_enum::enum_name(inputs[i].dataKind));
+        if (inputs[i].keepAspectRatio) {
+            ret += " KeepAspectRatio: true\n";
+            ret += fmt::format(" LetterboxRGB: [{:.6f},{:.6f},{:.6f}]\n",
+                               inputs[i].letterboxRed,
+                               inputs[i].letterboxGreen,
+                               inputs[i].letterboxBlue);
+        }
     }
     ret += "\n";
 

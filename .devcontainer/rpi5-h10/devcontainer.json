@@ -1,5 +1,5 @@
 {
-    "name": "RPI5 (H10 optional) perception-experience-kit",
+    "name": "RPI5 H10 perception-experience-kit",
     "dockerComposeFile": [
         "${localWorkspaceFolder}/.devcontainer/compose.devcont.yaml",
         "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.video.yaml",
@@ -11,9 +11,9 @@
     "runServices": [
         "pek-dev-rpi5-h10"
     ],
-    "remoteUser": "devgoblin",
-    "workspaceFolder": "/work",
-    "initializeCommand": "bash .devcontainer/platform_init.sh pek-dev-rpi5-h10",
+        "remoteUser": "dev",
+        "workspaceFolder": "/work",
+        "initializeCommand": "bash .devcontainer/platform_init.sh pek-dev-rpi5-h10 enabled && bash scripts/private/build-dev-base.sh",
     "containerEnv": {
         "CONTAINER_TYPE": "default",
         "HOST_OS": "${localEnv:OSTYPE}",

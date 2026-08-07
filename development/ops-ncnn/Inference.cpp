@@ -12,10 +12,10 @@
 #include <thread>
 #include <vector>
 
-#include "pek/Log.h"
+#include "Log.h"
 #include "pek/Result.h"
-#include "pek/String.h"
 #include "pek/Types.h"
+#include "tools.h"
 
 using namespace pek::ncnnrt;
 
@@ -175,29 +175,11 @@ std::string Inference::deriveBinPath(const std::string &paramPath) {
 }
 
 pek::Result<void> Inference::setupFromJson(const std::string &filePath) {
-
     auto descResult = pek::ModelDescriptor::fromFile(filePath);
     if (!descResult) {
         return tl::unexpected{descResult.error()};
     }
-
-    { // setup model file name
-        std::string modelRoot = filePath;
-        if (pek::utf8::contains(modelRoot, '/')) {
-            size_t lastSlashAt = pek::utf8::lastIndexOf(modelRoot, '/');
-            modelRoot = pek::utf8::left(modelRoot, lastSlashAt + 1);
-        } else {
-            modelRoot = "";
-        }
-        (*descResult).modelFile = modelRoot + (*descResult).modelFile;
-    }
-
-    auto setupResult = setup(*descResult);
-    if (!setupResult) {
-        return tl::unexpected{setupResult.error()};
-    }
-
-    return {};
+    return setup(*descResult);
 }
 
 pek::Result<pek::Model> Inference::buildModelFromDescriptor(const pek::ModelDescriptor &desc,
@@ -236,7 +218,6 @@ pek::Result<pek::Model> Inference::buildModelFromDescriptor(const pek::ModelDesc
 
     pek::Model model;
     model.engine = "ncnn";
-    model.modelFamily = desc.modelFamily;
     model.contentType = desc.contentType;
     model.inputs.resize(desc.inputTensors.size());
     model.outputs.resize(desc.outputTensors.size());
@@ -310,7 +291,7 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc) {
 
     model = *modelResult;
 
-    pek::log("{}", pek::LogTools::enframe(model.toString(), "NCNN Model"));
+    pek::log::info("{}", pek::log::tools::enframe(model.toString(), "NCNN Model"));
 
     auto cmResult = model.applyModelFromDescriptor(modelDescriptor);
     if (!cmResult) {
@@ -329,8 +310,8 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc) {
 
     setupReady = true;
 
-    pek::log("{}", pek::LogTools::enframe(model.toString(), "Final Model"));
-    pek::log("{}", "NCNN: Model loaded\n");
+    pek::log::info("{}", pek::log::tools::enframe(model.toString(), "Final Model"));
+    pek::log::info("{}", "NCNN: Model loaded\n");
 
     return {};
 }
@@ -349,7 +330,7 @@ pek::Result<void> Inference::setTensorSizes() {
         const size_t byteCount = valueCount * sizeof(float);
         inputTensors[i].resize(byteCount);
         std::fill(inputTensors[i].begin(), inputTensors[i].end(), 0);
-        fmt::print("NCNN input tensor prepared: {} bytes\n", byteCount);
+        pek::log::info("NCNN input tensor prepared: {} bytes\n", byteCount);
     }
 
     for (size_t i = 0; i < model.outputs.size(); i++) {
@@ -367,7 +348,7 @@ pek::Result<void> Inference::setTensorSizes() {
         const size_t byteCount = model.outputs[i].shape.getFullValueCount() * sizeof(float);
         outputTensors[i].resize(byteCount);
         std::fill(outputTensors[i].begin(), outputTensors[i].end(), 0);
-        fmt::print("NCNN output tensor prepared: {} bytes\n", byteCount);
+        pek::log::info("NCNN output tensor prepared: {} bytes\n", byteCount);
     }
 
     return {};

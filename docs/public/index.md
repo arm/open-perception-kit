@@ -65,6 +65,8 @@ Use this target Pi setup before you start:
 - Permission to run `sudo` on the target Pi.
 - Internet access from the target Pi to GitHub, package repositories, and
   container or source locations used during the first container build.
+- An optional read-only Hugging Face `HF_TOKEN` for private or gated PEK
+  models.
 
 ### 1. Connect to the target Pi
 
@@ -101,12 +103,39 @@ Enter the `amp-dev-forge` folder in the terminal and run:
 ./scripts/quick_start.sh
 ```
 
+When `HF_TOKEN` is unset, accessible public models download anonymously. Export
+`HF_TOKEN` before the quick-start when the build also needs private or gated
+models:
+
+```bash
+export HF_TOKEN="hf_your_token_here"
+./scripts/quick_start.sh
+```
+
+Compose exposes the value only to the Docker model-download build step. The
+image contains each successfully downloaded model file, but neither the token
+nor a runtime Hugging Face credential. Failed downloads are logged and skipped,
+so the image build still succeeds. A pipeline that references a missing model
+fails while its OpChain starts, even when that `pekinfer` has `active=false`.
+
+For a direct deployment build, export the same token before invoking Compose:
+
+```bash
+export HF_TOKEN="hf_your_token_here"
+export HF_DOWNLOAD_CACHEBUST="$(date +%s)-$$"
+docker compose up --build
+```
+
+Generate a fresh cache key before every authenticated direct Compose build.
+Such builds fail during interpolation when the key is omitted, preventing a
+cached model layer from another token from being reused silently.
+
 ### 3. Enter the container command line
 
 ```bash
 ./scripts/enter_cli.sh
 ```
-> **Expected outcome:** The prompt shows `devgoblin` 
+> **Expected outcome:** The prompt shows `dev`
 
 #### 3.1 Download the stock videos
 
@@ -189,9 +218,9 @@ Pick your next step.
 | --- | --- |
 | [Use your own input or output path](how-to/media-input.md) | Keep the known pipeline and change the input or output. |
 | [Use live camera input](how-to/camera-input.md) | Move from packaged media to a USB or Raspberry Pi camera. |
+| [Use a binary release](getting-started/binary-release.md) | Integrate the six packaged GStreamer plugins without a PEK loader wrapper. |
 | [Add or adapt a model and OpChain](how-to/bring-your-model.md) | Change the model after the source and output path work. |
 | [**Coming Soon:** Feed inference into an application](how-to/use-output-in-app.md) | Capture inference output for downstream logic. |
-| [Use Hailo acceleration](how-to/run-hailo-inference.md) | Add accelerator hardware. |
 | [Understanding the repository structure](concepts/structural-basics.md) | How to get started with new components |
 | [Pipeline basics](concepts/runtime-basics.md) | Learn about inference pipeline principles  |
 | [Custom postprocessing](how-to/custom-postprocessing.md) | Inference result postprocessing  |
@@ -205,8 +234,8 @@ Pick your next step.
 | --- | --- |
 | SSH fails from the host machine | Check the target Pi hostname or IP address, then retry with the IP address. |
 | `docker info` fails | Confirm Docker Engine is installed and running from Docker's Debian installation guide. If it reports a permissions error, run `sudo usermod -aG docker "$USER"`, reconnect, and try again. |
-| Docker Compose cannot find the service | Rerun `bash .devcontainer/platform_init.sh pek-dev-rpi5-h8`, then rerun the container start command. |
+| Docker Compose cannot find the service | Rerun `bash .devcontainer/platform_init.sh pek-dev enabled`, then rerun the container start command. |
 | Build fails | Fix the first missing package, permission, or container error shown in the build output. |
-| Pipeline exits immediately | Rerun `docker exec -it perception-experience-kit-rpi5 bash -lc 'cd /work && /work/tools/pek-menu 01-full-onnx'` and inspect the first missing plugin, model, or file. |
+| Pipeline exits immediately | Rerun `./scripts/run.sh yolov11-onnx` and inspect the first missing plugin, model, or file. |
 | Viewer does not load | Keep the pipeline terminal running, use the target Pi IP address, and check port `9999`. |
 | A model produces no overlay | Confirm the model and any upstream dependencies are enabled, then check the debug log or model state in the viewer. |

@@ -7,10 +7,12 @@
 #include <fmt/core.h>
 #include <memory>
 
+#include "Log.h"
 #include "op/OpChainContext.h"
 #include "pek/AttributeMap.h"
 #include "pek/TensorView.h"
 
+#include <perf/PerformanceMetrics.h>
 #include <perf/PerformanceTracer.h>
 
 using namespace pek::hailo;
@@ -43,17 +45,16 @@ pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes) {
                                         fmt::format("HailoRT startup error: {}", e.what())));
     }
 
-    modelFamily = inference->getModel().modelFamily;
-
     return {};
 }
 
 pek::Result<pek::op::OpSignal> InferenceOp::process(pek::op::OpChainContext &opChainContext) {
-    PEK_TRACE_SCOPE(fmt::format("hailort/Infer/{}", opChainContext.inferenceInfo.modelFamily));
+    PEK_TRACE_SCOPE(fmt::format("hailort/Infer/{}", opChainContext.inferenceInfo.modelName));
+    PEK_PERF_SCOPE(fmt::format("hailort/Infer/{}", opChainContext.inferenceInfo.modelName));
 
     auto inferenceResult = inference->inference();
     if (!inferenceResult) {
-        fmt::print("HailoRT inference error: {}\n", inferenceResult.error().toString());
+        pek::log::error("HailoRT inference error: {}\n", inferenceResult.error().toString());
         return tl::unexpected(inferenceResult.error());
     }
 

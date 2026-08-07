@@ -62,7 +62,7 @@ chmod 600 ~/.ssh/authorized_keys
 Test the SSH connection from the host:
 
 ```bash
-ssh -i ~/.ssh/performance_key_rsa devgoblin@127.0.0.1 -p 2222
+ssh -i ~/.ssh/performance_key_rsa dev@127.0.0.1 -p 2222
 ```
 
 It should let you in without a password. Use different IP for remote target devices.
@@ -93,7 +93,7 @@ After clicking 'Add Target' you have to populate the form with information:
 - Host: 127.0.0.1 or the IP address of the target device
 - Name: An arbitrary name for the target
 - Port: SSH port (2222)
-- User: User name on target (devgoblin)
+- User: User name on target (`dev`)
 - Key selection: `Select key manually` works with the generated key above
 
 You can also use `Test Connection` here.

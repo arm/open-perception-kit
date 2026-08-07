@@ -17,5 +17,7 @@ pekcomm = shared_module(
   dependencies: [pek_deps, dependency('zlib'), asio_dep, websocketpp_dep], 
   gnu_symbol_visibility: 'hidden', 
   link_with: [ common ],
-  install: false
+  install: release_package,
+  install_dir: 'lib/gstreamer-1.0',
+  install_rpath: '$ORIGIN/../pek',
 )

@@ -1,0 +1,29 @@
+{
+	"name": "yolo26-onnx",
+	"modelFamily": "yolo26-obj",
+	"modelFile": "yolo26n.onnx",
+	"hfDownload": {
+		"repo_id": "Arm/Yolo26",
+		"revision": "d8b50c174331009ffa28c930a2d8d953efe05823",
+		"filename": "yolo26n.onnx"
+	},
+	"dynamicOutput": true,
+	"maxDetectionCount": 16,
+	"confidenceThreshold": 0.7,
+	"iouThreshold": 0.5,
+	"inputTensors": [
+		{
+			"shape": [
+				1,
+				3,
+				320,
+				320
+			],
+			"dataKind": "ImageRgbChw",
+			"keepAspectRatio": true,
+			"letterboxRed": 0.44705883,
+			"letterboxGreen": 0.44705883,
+			"letterboxBlue": 0.44705883
+		}
+	]
+}

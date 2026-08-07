@@ -7,4 +7,4 @@ Binary person / non-person classifier.
 - Output: logits `[1, 2]` (first is the person prob)
 - Post processor: `PersonClassificationParser`
 - Supported Perception result: PersonClassification
-- Current status: `PersonClassificationParser` validates the tensor and emits a Perception result 
+- Current status: `PersonClassificationParser` validates the tensor and emits a Perception result

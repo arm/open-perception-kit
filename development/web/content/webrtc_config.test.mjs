@@ -28,6 +28,10 @@ test('legacy frame timeout and defaults are used when WebRTC config is absent', 
     });
 });
 
+test('default frame timeout tolerates slow inference pipelines', () => {
+    assert.equal(resolveWebRtcTimingConfig({}).frameTimeoutMs, 30000);
+});
+
 test('configured ICE servers are used when present', () => {
     const iceServers = [
         {urls: 'stun:192.168.2.192:3478'},

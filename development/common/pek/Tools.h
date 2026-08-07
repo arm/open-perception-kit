@@ -25,12 +25,14 @@ struct Tools {
     /**
      * @brief Opens a shared library by name.
      * @param name Library file name or path. If no .so suffix is provided, .so is also tried.
+     * The library remains resident until process exit so C++ plugin globals cannot be unloaded
+     * while references to them may still exist.
      * @return Loaded dynamic library handle on success, error details on failure.
      */
     static Result<DynamicLibraryHandle> DynamicLibraryOpen(const std::string &name);
 
     /**
-     * @brief Closes a previously opened shared library handle.
+     * @brief Closes a previously opened shared library handle without unloading the library.
      * @param handle Dynamic library handle returned by DynamicLibraryOpen.
      */
     static void DynamicLibraryClose(void *handle);

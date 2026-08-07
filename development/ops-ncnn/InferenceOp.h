@@ -28,7 +28,6 @@ class InferenceOp : public pek::op::Op, public pek::op::OpInterfaceInference {
 
   private:
     std::unique_ptr<pek::ncnnrt::Inference> inference;
-    std::string modelFamily;
 };
 
 } // namespace pek::ncnnrt

@@ -50,6 +50,7 @@ struct _GstPekOsd {
 
     // Properties
     gboolean enabled;
+    gboolean performanceOverlayEnabled;
     gchar *bgImagePath;
 
     // Internal state
@@ -69,11 +70,17 @@ GST_DEBUG_CATEGORY_STATIC(gst_pek_osd_debug);
 #define GST_CAT_DEFAULT gst_pek_osd_debug
 
 // Default values
-#define DEFAULT_ENABLED TRUE
+#define DEFAULT_ENABLED FALSE
+#define DEFAULT_PERFORMANCE_OVERLAY_ENABLED TRUE
 #define DEFAULT_BG_IMAGE ""
 
 // Property IDs
-enum { PROP_0, PROP_ENABLED, PROP_BG_IMAGE };
+enum class PropertyId : guint {
+    Reserved = 0,
+    Enabled,
+    PerformanceOverlayEnabled,
+    BgImage,
+};
 
 // Function prototypes
 static void
@@ -106,7 +113,7 @@ static void gst_pek_osd_class_init(GstPekOsdClass *klass) {
     // Install properties
     g_object_class_install_property(
         gobject_class,
-        PROP_ENABLED,
+        static_cast<guint>(PropertyId::Enabled),
         g_param_spec_boolean("enabled",
                              "Enabled",
                              "Enable or disable OSD overlay",
@@ -115,7 +122,16 @@ static void gst_pek_osd_class_init(GstPekOsdClass *klass) {
 
     g_object_class_install_property(
         gobject_class,
-        PROP_BG_IMAGE,
+        static_cast<guint>(PropertyId::PerformanceOverlayEnabled),
+        g_param_spec_boolean("performance-overlay-enabled",
+                             "Performance Overlay Enabled",
+                             "Enable or disable drawing performance metadata",
+                             DEFAULT_PERFORMANCE_OVERLAY_ENABLED,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(
+        gobject_class,
+        static_cast<guint>(PropertyId::BgImage),
         g_param_spec_string(
             "bg-image",
             "Background Image",
@@ -144,6 +160,7 @@ static void gst_pek_osd_class_init(GstPekOsdClass *klass) {
 static void gst_pek_osd_init(GstPekOsd *self) {
     // Initialize properties
     self->enabled = DEFAULT_ENABLED;
+    self->performanceOverlayEnabled = DEFAULT_PERFORMANCE_OVERLAY_ENABLED;
     self->bgImagePath = g_strdup(DEFAULT_BG_IMAGE);
     self->frameCount = 0;
     self->bgImage.reset();
@@ -220,13 +237,19 @@ static void
 gst_pek_osd_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec) {
     auto *self = GST_PEK_OSD(object);
 
-    switch (prop_id) {
-    case PROP_ENABLED:
+    switch (static_cast<PropertyId>(prop_id)) {
+    case PropertyId::Enabled:
         self->enabled = g_value_get_boolean(value);
         GST_INFO_OBJECT(self, "Enabled set to: %d", self->enabled);
         break;
 
-    case PROP_BG_IMAGE:
+    case PropertyId::PerformanceOverlayEnabled:
+        self->performanceOverlayEnabled = g_value_get_boolean(value);
+        GST_INFO_OBJECT(
+            self, "Performance overlay enabled set to: %d", self->performanceOverlayEnabled);
+        break;
+
+    case PropertyId::BgImage:
         g_free(self->bgImagePath);
         self->bgImagePath = g_value_dup_string(value);
         gst_pek_osd_load_bg_image(self);
@@ -242,12 +265,16 @@ static void
 gst_pek_osd_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec) {
     auto *self = GST_PEK_OSD(object);
 
-    switch (prop_id) {
-    case PROP_ENABLED:
+    switch (static_cast<PropertyId>(prop_id)) {
+    case PropertyId::Enabled:
         g_value_set_boolean(value, self->enabled);
         break;
 
-    case PROP_BG_IMAGE:
+    case PropertyId::PerformanceOverlayEnabled:
+        g_value_set_boolean(value, self->performanceOverlayEnabled);
+        break;
+
+    case PropertyId::BgImage:
         g_value_set_string(value, self->bgImagePath);
         break;
 
@@ -742,7 +769,9 @@ static GstFlowReturn gst_pek_osd_transform_frame_ip(GstVideoFilter *filter, GstV
         }
 
         layers.push_back(drawPerceptionLayer(self, imgWidth, imgHeight, *perception));
-        layers.push_back(drawPerformanceLayer(self, imgWidth, imgHeight, *perception));
+        if (self->performanceOverlayEnabled) {
+            layers.push_back(drawPerformanceLayer(self, imgWidth, imgHeight, *perception));
+        }
 
         pek::osd::Canvas(imgData, imgWidth, imgHeight).paint(layers);
     }
@@ -751,7 +780,7 @@ static GstFlowReturn gst_pek_osd_transform_frame_ip(GstVideoFilter *filter, GstV
     return GST_FLOW_OK;
 }
 
-static gboolean plugin_init(GstPlugin *plugin) {
+static gboolean pekosd_plugin_init(GstPlugin *plugin) {
     GST_DEBUG_CATEGORY_INIT(gst_pek_osd_debug, "pekosd", 0, "PEK OSD Overlay");
 
     return gst_element_register(plugin, "pekosd", GST_RANK_NONE, GST_TYPE_PEK_OSD);
@@ -761,7 +790,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   GST_VERSION_MINOR,
                   pekosd,
                   "PEK OSD Overlay - On-Screen Display for BGRA video frames",
-                  plugin_init,
+                  pekosd_plugin_init,
                   "1.0",
                   "LGPL",
                   PACKAGE,

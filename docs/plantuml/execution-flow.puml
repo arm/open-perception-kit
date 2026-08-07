@@ -1,0 +1,68 @@
+@startuml
+!include pek-style.puml
+
+title Perception Experience Kit Engineer Execution Flow Example
+
+start
+
+partition "Launcher and preset loading" {
+  :Run `tools/pek-menu`;
+  :Enumerate `/work/config/pipelines/*.json`\nand parse the selected preset with `nlohmann::json`;
+  :Validate `description` and `pipeline`,\nthen join the `pipeline` array into one\nGStreamer launch string;
+  :Call `gst_parse_launch()` to build an example graph:\nsource -> decode -> videoconvert(BGRA)\n-> pekinfer -> pektracker -> pekperformance -> pekosd -> peksink;
+}
+
+partition "Startup and module setup" {
+  fork
+    :`pekinfer::start()` allocates members\nand reads `opchain-path`;
+    :`OpChain::setupFromFile(opchain.json)`\nparses `OpChainDescriptor` JSON;
+    :For each `library/op` entry,\n`OpRef::bind()` loads the shared library,\nresolves factory symbols,\ncreates the Op instance,\nand runs `configure(attributes)`;
+    :Inference Op `configure()` loads\n`model.json` and backend runtime state;
+    :`OpChain::bind()` wires dependencies,\nvalidates grouped `loopId`;
+    :Emit `pek-model-register` downstream;
+  fork again
+    :`pektracker::start()`, `pekperformance`,\nand `pekosd::start()` prepare\ntracker, tracing, and filter state;
+  fork again
+    :`peksink::init()` builds the internal\nvideo/audio branches,\nsilence fallback, and drain branches;
+    :Create `ModelRegistry`, start;
+    :WebRTC signaling, control WebSocket;
+    :Start embedded HTTP server;
+    :Register status reporters\n(`models`, `pipeline_state`, `perf_overlay`);
+  end fork
+  :`peksink` receives `pek-model-register`\nand exposes the registered model;
+  :Pipeline reaches PLAYING state;
+}
+
+while ("Next buffer arrives?") is (yes)
+  partition "" {
+    :Source / decode / `videoconvert`\ndeliver a BGRA buffer;
+    if ("`pekinfer active`?") then (yes)
+      :Map `GstBuffer`, ensure `PerceptionMeta`\n(create `Perception` on first touch),\nand create `OpChainContext`;
+      :Insert `BitmapView` as `pipelineVideoFrame`\nand attach `Perception*` + `inferElementId`;
+      :Call `OpChain::execute()`;
+    else (no)
+      :Skip inference work and pass the buffer through;
+    endif
+  }
+
+  partition "OpChain execution inside pekinfer" {
+    if ("Inference executed for this buffer?") then (yes)
+      :`InferenceControllerOp`\ncreates the root `VideoFrame`,\ncollects crops or cascade sources,\nand sets `loopId`;
+      while ("More crops or loop-group work?") is (yes)
+        :`GenericImagePreprocessOp`\nreads the upcoming model metadata,\nfinds the input tensor,\nand builds the preprocessed tensor;
+        :Runtime-specific `InferenceOp`\nand wraps outputs as `TensorView`s;
+        :`GenericPostprocessOp`\nselects the configured parser,\nturns tensors into a `Perception::Layer`,\nlinks `parentUuid`, and appends the layer;
+      endwhile (no)
+    endif
+  }
+
+  partition "Downstream Perception Experience Kit processing and output\nafter inference and opchain execution" {
+    :`pektracker` optionally mutates\n`Perception` with IDs and traces;
+    :`pekperformance` refreshes metrics,\ncalls `endCycle()`, and writes `perfdata`;
+    :`pekosd` reads `PerceptionMeta`,\nbuilds Cairo layers,\nand composites overlays onto the frame;
+    :`peksink` encodes VP8/Opus,\nkeeps drain branches alive,\nserves HTTP + WebRTC + control WS,\nand streams the result to the browser;
+  }
+endwhile (no)
+
+stop
+@enduml

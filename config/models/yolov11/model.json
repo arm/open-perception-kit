@@ -1,6 +1,5 @@
 {
-	"name": "yolo-onnx",
-	"modelFamily": "yolo-obj",
+	"name": "yolo-objdet",
 	"modelFile": "yolo11n-fp32-320.onnx",
 	"dynamicOutput": true,
 	"maxDetectionCount": 16,
@@ -14,7 +13,11 @@
 				320,
 				320
 			],
-			"dataKind": "ImageRgbChw"
+			"dataKind": "ImageRgbChw",
+			"keepAspectRatio": true,
+			"letterboxRed": 0.44705883,
+			"letterboxGreen": 0.44705883,
+			"letterboxBlue": 0.44705883
 		}
 	]
 }

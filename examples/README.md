@@ -13,3 +13,9 @@ If an example becomes stable and generally useful, it can be promoted later into
   OpChain through `pek::runtime::OpChain`, and prints the serialized result.
 - `pipeline-exec`: C++ application facade proof of concept for loading a PEK
   pipeline JSON through `pek::runtime::Pipeline` and receiving serialized perception JSON callbacks.
+- `yolo-benchmark`: YOLO benchmark comparing bare Ultralytics with PEK using
+  either a preloaded COCO image list or a pinned video. Each mode emits matching
+  Bare/PEK `benchmark_summary.json` artifacts.
+- `smart-doorway`: Python application sketch that launches an OPK pipeline,
+  watches metadata, gates face and gaze stages from a person detector, and shows
+  the pipeline shape in a small browser UI.

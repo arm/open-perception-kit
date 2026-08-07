@@ -9,7 +9,12 @@ project(
 )
 
 fs = import('fs')
-fmt_dep = dependency('fmt')
+fmt_dep = dependency(
+  'fmt',
+  version: ['>=12.0.0', '<13.0.0'],
+  fallback: ['fmt', 'fmt_dep'],
+  required: true,
+)
 
 repo_root = meson.project_source_root() / '../..'
 development_include = include_directories(
@@ -20,10 +25,10 @@ development_include = include_directories(
 )
 runtime_build_dir = repo_root / 'development/build/meson-out'
 runtime_library = runtime_build_dir / 'pek-runtime.so'
-common_library = runtime_build_dir / 'libcommon.so'
+common_library = runtime_build_dir / 'libpek-common.so'
 
 if not fs.exists(runtime_library) or not fs.exists(common_library)
-  warning('pek-runtime.so or libcommon.so was not found. Build the main PEK tree first, e.g. ./scripts/build-elements.sh debug true')
+  warning('pek-runtime.so or libpek-common.so was not found. Build the main PEK tree first, e.g. ./scripts/build-elements.sh debug true')
 endif
 
 runtime_dep = declare_dependency(
@@ -31,7 +36,7 @@ runtime_dep = declare_dependency(
   link_args: [
     '-L' + runtime_build_dir,
     '-l:pek-runtime.so',
-    '-lcommon',
+    '-l:libpek-common.so',
     '-Wl,-rpath,' + runtime_build_dir,
   ],
 )

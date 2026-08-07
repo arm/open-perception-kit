@@ -2,6 +2,68 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.6] - 2026-08-06
+
+### Packaging and deployment
+
+- Add validated Linux x86_64, Linux AArch64, and offline-site release archives, with automated GitHub and Artifactory publication ([#265](https://github.com/Arm-Debug/amp-dev-forge/pull/265)).
+- Reorganize development and deployment containers, add AArch64 cross-compilation, and slim the runtime images ([#215](https://github.com/Arm-Debug/amp-dev-forge/pull/215), [#275](https://github.com/Arm-Debug/amp-dev-forge/pull/275)).
+- Resolve pinned model artifacts from Hugging Face during builds so release packages run offline ([#257](https://github.com/Arm-Debug/amp-dev-forge/pull/257)).
+
+### Runtime and inference
+
+- Add C++ runtime APIs for asynchronous Pipeline and OpChain execution, foreign-backed video frames, an experimental NCNN backend, and expanded ExecuTorch deployment support ([#132](https://github.com/Arm-Debug/amp-dev-forge/pull/132), [#222](https://github.com/Arm-Debug/amp-dev-forge/pull/222)).
+- Add opt-in GStreamer QoS-aware inference scheduling while preserving video flow and tracker continuity ([#286](https://github.com/Arm-Debug/amp-dev-forge/pull/286)).
+- Add grayscale preprocessing.
+- Add aspect-ratio-preserving letterbox resize support ([#185](https://github.com/Arm-Debug/amp-dev-forge/pull/185)).
+- Replace the performance tracing path with structured metrics and CSV export, including reliable cycle-end measurement retention ([#213](https://github.com/Arm-Debug/amp-dev-forge/pull/213), [#285](https://github.com/Arm-Debug/amp-dev-forge/pull/285)).
+- Introduce shared asynchronous logging with console and file output ([#186](https://github.com/Arm-Debug/amp-dev-forge/pull/186), [#220](https://github.com/Arm-Debug/amp-dev-forge/pull/220)).
+
+### Web UI, streaming, and examples
+
+- Expand the Web UI with supervisor and model-dependency controls, client-side overlays, ROI crop and scale controls, resizable output panels, and fullscreen metrics ([#218](https://github.com/Arm-Debug/amp-dev-forge/pull/218)).
+- Improve WebRTC reliability with TURN support, deterministic reconnect handling, media startup after answer delivery, and MTU-safe streaming for VPN and WSL environments ([#101](https://github.com/Arm-Debug/amp-dev-forge/pull/101), [#146](https://github.com/Arm-Debug/amp-dev-forge/pull/146), [#193](https://github.com/Arm-Debug/amp-dev-forge/pull/193), [#288](https://github.com/Arm-Debug/amp-dev-forge/pull/288)).
+- Add schema-backed perception metadata streaming over WebSocket and TCP, Hailo 10 face-recognition and tracking configurations, and crowd-count pipelines ([#161](https://github.com/Arm-Debug/amp-dev-forge/pull/161)).
+- Add reproducible YOLO image and video benchmarks with per-image timing, FPS metrics, and regression reports ([#182](https://github.com/Arm-Debug/amp-dev-forge/pull/182), [#235](https://github.com/Arm-Debug/amp-dev-forge/pull/235), [#242](https://github.com/Arm-Debug/amp-dev-forge/pull/242)).
+
+## [0.1.5-alpha.2] - 2026-05-18
+
+### Raspberry Pi setup
+
+- Clarify the Raspberry Pi 5 Dev Container profiles so Hailo 8 and Hailo 10 are explicitly optional ([#105](https://github.com/Arm-Debug/amp-dev-forge/pull/105)).
+
+## [0.1.5-alpha.1] - 2026-05-18
+
+### Models, pipelines, and UI
+
+- Add an advanced background-replacement demo using segmentation output ([#72](https://github.com/Arm-Debug/amp-dev-forge/pull/72)).
+- Add HWC tensor input support, broader tensor and parser handling, and updated person-classification configuration.
+- Add full ONNX presets for Raspberry Pi and USB camera inputs.
+- Apply the PEK naming across the project and refresh the browser model controls and streaming UI.
+
+## [0.1.4-alpha.1] - 2026-04-30
+
+### Web UI and streaming
+
+- Rework the browser model controls, performance overlay, and model information endpoint.
+- Improve WebRTC video quality and stream configuration.
+
+## [0.1.3-alpha.1] - 2026-04-30
+
+### CI regression checks
+
+- Compare Valgrind results against the development baseline and consolidate the runtime test pipelines ([#76](https://github.com/Arm-Debug/amp-dev-forge/pull/76)).
+
+## [0.1.2-alpha.1] - 2026-04-24
+
+### Models, metadata, and validation
+
+- Add the Camera Contact model, postprocessor, pipeline, and overlay rendering.
+- Add Hailo OSNet model support for tracking pipelines.
+- Introduce perception serialization, the metadata communication element, and the Plumber result-comparison tool ([#46](https://github.com/Arm-Debug/amp-dev-forge/pull/46)).
+- Add Valgrind-based element checks and dedicated test pipeline presets ([#53](https://github.com/Arm-Debug/amp-dev-forge/pull/53)).
+- Fix the tracker pipeline video source and add a WSL WebRTC development workaround ([#55](https://github.com/Arm-Debug/amp-dev-forge/pull/55)).
+
 ## [0.1.1-alpha.1] - 2026-03-18
 
 ### Minimal tracking, Topo support and container fixes

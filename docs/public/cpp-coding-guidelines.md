@@ -270,11 +270,38 @@ Default rules:
 - Use the existing `fmt`-based helpers and PEK logging wrappers where
   available.
 - Prefer compile-time checked format strings for normal log messages.
-- Use runtime formatting only when the format string is not known at compile
-  time.
 - Prefer `std::string_view` for read-only string inputs when ownership is not
   needed.
 - Keep log messages actionable and avoid noisy repeated logs in hot paths.
+
+Use `pek::log::debug()`, `pek::log::info()`, `pek::log::notice()`,
+`pek::log::warning()`, or `pek::log::error()` for normal severity-filtered
+logging. These compile-time-check their format strings and enqueue messages
+for the logging worker. `debug()` also adds the source file and line plus a
+trailing newline.
+
+Use `pek::log::instantInfo()` and `pek::log::instantError()` only when output
+must be synchronous, unconditional, and directed explicitly to stdout or
+stderr. Typical cases are terminal interaction and exceptional diagnostics
+inside a log target. These functions bypass severity filtering and configured
+targets, so they are not a replacement for normal logging.
+
+Log target implementations must not call the asynchronous logging functions,
+`pek::log::flush()`, or the target-state API. Doing so can recurse into
+the logger or deadlock. A target may use `pek::log::instantInfo()` or
+`pek::log::instantError()` for an exceptional internal diagnostic, but not to
+deliver ordinary records.
+
+Select the raw file target with `OPK_LOG_TARGETS=file` and configure its path
+with `OPK_LOG_FILE`. Setting the path alone does not enable file logging. File
+messages are appended exactly as supplied, so include any required line ending
+in non-Debug messages. Debug messages already include one.
+
+Avoid large messages and repeated per-frame or per-object messages in hot
+paths. The logging queue is deliberately bounded and drops the oldest queued
+record during overload. Do not add hidden unbounded queues in log targets.
+See [Logging](concepts/logging.md) for the public API, configuration, and
+target extension rules.
 
 ## Concurrency and lifetime
 

@@ -4,9 +4,9 @@
 
 #include "model_reg.h"
 
-#include <nlohmann/json_fwd.hpp>
+#include "Log.h"
 
-#include <iostream>
+#include <nlohmann/json_fwd.hpp>
 
 void ModelRegistry::add_model(const std::string &model_name,
                               const std::string &element_name,
@@ -21,8 +21,10 @@ void ModelRegistry::add_model(const std::string &model_name,
         model_registry[element_name] = status;
     }
 
-    std::cout << "[peksink] Registered model: " << model_name << " from element: " << element_name
-              << " (active: " << (active ? "yes" : "no") << ")" << std::endl;
+    pek::log::info("[peksink] Registered model: {} from element: {} (active: {})\n",
+                   model_name,
+                   element_name,
+                   active ? "yes" : "no");
 
     trigger_reporting();
 }
@@ -33,8 +35,9 @@ void ModelRegistry::del_model(const std::string &element_name) {
         std::lock_guard<std::mutex> lock(model_registry_mutex);
         auto it = model_registry.find(element_name);
         if (it != model_registry.end()) {
-            std::cout << "[peksink] Unregistered model: " << it->second.name
-                      << " from element: " << element_name << std::endl;
+            pek::log::info("[peksink] Unregistered model: {} from element: {}\n",
+                           it->second.name,
+                           element_name);
             model_registry.erase(it);
         }
     }

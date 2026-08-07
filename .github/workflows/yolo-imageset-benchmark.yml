@@ -1,0 +1,92 @@
+name: YOLO Imageset Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_limit:
+        description: "Optional COCO val2017 image limit. Leave empty for the full dataset."
+        required: false
+        default: ""
+        type: string
+      benchmark_runs:
+        description: "Optional benchmark repetition override."
+        required: false
+        default: ""
+        type: string
+  pull_request:
+    branches: [ main, develop, "feature/**", "sandbox/**" ]
+    types: [ labeled, synchronize, reopened ]
+  schedule:
+    - cron: "30 1 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: yolo-imageset-benchmark-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.event.pull_request.number || github.ref }}-${{ github.event.action == 'labeled' && github.event.label.name != 'run-yolo-imageset-benchmark' && github.run_id || 'validation' }}
+  cancel-in-progress: true
+
+jobs:
+  yolo-imageset-benchmark:
+    name: YOLO imageset benchmark
+    runs-on: [self-hosted, Linux, ARM64, amp-dev-forge-runner-rpi5]
+    timeout-minutes: 240
+    if: |
+      github.event_name != 'pull_request' ||
+      (
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        (
+          (github.event.action == 'labeled' && github.event.label.name == 'run-yolo-imageset-benchmark') ||
+          ((github.event.action == 'synchronize' || github.event.action == 'reopened') &&
+            contains(github.event.pull_request.labels.*.name, 'run-yolo-imageset-benchmark'))
+        )
+      )
+    env:
+      CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      COMPOSE_PROJECT_NAME: yolo-imageset-benchmark-${{ github.run_id }}-${{ github.run_attempt }}
+      YOLO_BENCHMARK_IMAGE_NAME: amp-dev-forge-yolo-imageset-benchmark:${{ github.run_id }}-${{ github.run_attempt }}
+      YOLO_BENCHMARK_KIND: images
+      YOLO_BENCHMARK_LIMIT: ${{ inputs.image_limit }}
+      YOLO_BENCHMARK_RUNS: ${{ github.event_name == 'pull_request' && '1' || inputs.benchmark_runs }}
+
+    steps:
+      - name: Checkout ref
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.ref }}
+          fetch-depth: 1
+          path: ${{ env.CI_CHECKOUT_PATH }}
+
+      - name: Set up YOLO benchmark cache
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: ./examples/yolo-benchmark/docker/run.sh setup
+
+      - name: Run benchmark unit tests
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: |
+          docker compose -f examples/yolo-benchmark/docker/compose.yaml run --rm \
+            yolo-benchmark \
+            python3 -m unittest discover -s examples/yolo-benchmark/tests
+
+      - name: Run YOLO benchmark
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: ./examples/yolo-benchmark/docker/run.sh benchmark
+
+      - name: Write benchmark summary
+        if: always()
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: ./examples/yolo-benchmark/docker/run.sh summary
+
+      - name: Upload YOLO benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: yolo-benchmark-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/artifacts/yolo-benchmark
+          if-no-files-found: warn
+          retention-days: 10
+
+      - name: Clean YOLO benchmark workspace and image
+        if: always()
+        run: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/examples/yolo-benchmark/docker/run.sh cleanup-ci

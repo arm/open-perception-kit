@@ -1,0 +1,4 @@
+ultralytics==8.4.90
+onnxruntime==1.23.2
+onnx==1.22.0
+pillow==12.3.0

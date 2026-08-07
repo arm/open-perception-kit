@@ -1,6 +1,8 @@
 
+subdir('logging')
+
 common = shared_library(
-  'common',
+  'pek-common',
   sources: [
 
     'gst/Tools.cpp',
@@ -23,6 +25,7 @@ common = shared_library(
     'op/OpChainDescriptor.cpp',
 
     'perf/PerformanceTracer.cpp',
+    'perf/PerformanceMetrics.cpp',
 
     'mediaio/Common.cpp',
     'mediaio/VideoFrame.cpp',
@@ -30,8 +33,10 @@ common = shared_library(
     'mediaio/PixelBufferVideoFrame.cpp',
   ],
   include_directories: [ common_include ],
-  cpp_args: ['-DFMT_HEADER_ONLY'],
   dependencies: [ pek_deps ],
+  link_whole: [logging],
   gnu_symbol_visibility: 'default',
-  install: false
+  install: release_package,
+  install_dir: 'lib/pek',
+  install_rpath: '$ORIGIN',
 )

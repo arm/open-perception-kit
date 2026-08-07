@@ -1,5 +1,5 @@
 /*************************************************************
- * Copyright (C) 2025 Arm Limited. All rights reserved.
+ * Copyright (C) 2026 Arm Limited. All rights reserved.
  *************************************************************/
 
 #include "glib.h"
@@ -9,11 +9,12 @@
 
 #include <mutex>
 #include <unordered_map>
+#include <utility>
 
 // WebRTC in GST is unstable: this macro disables the warning
 #define GST_USE_UNSTABLE_API
 
-#include "auxiliary.h"
+#include "Log.h"
 #include "ctrl_ws.h"
 #include "peksink.h"
 #include "utils.h"
@@ -25,7 +26,6 @@ CtrlWebSocket::CtrlWebSocket(_GstPekSink *self) : self_(self) {
 
     message_types = {
         {"play_pause", std::bind(&CtrlWebSocket::play_pause, this, _1)},
-        {"perf_overlay", std::bind(&CtrlWebSocket::enable_perf_overlay, this, _1)},
         {"model_toggle", std::bind(&CtrlWebSocket::model_toggle, this, _1)},
     };
 }
@@ -34,17 +34,20 @@ CtrlSockerError CtrlWebSocket::setup() {
     ws = std::make_shared<ws_server>();
 
     ws->init_asio();
+    ws->clear_error_channels(websocketpp::log::elevel::all);
+    ws->set_error_channels(websocketpp::log::elevel::fatal);
 
-    ws->set_open_handler([this](connection_hdl hdl) { on_open(hdl); });
-    ws->set_close_handler([this](connection_hdl hdl) { on_close(hdl); });
-    ws->set_message_handler(
-        [this](connection_hdl hdl, ws_server::message_ptr msg) { on_message(hdl, msg); });
+    ws->set_open_handler([this](const connection_hdl &hdl) { on_open(hdl); });
+    ws->set_close_handler([this](const connection_hdl &hdl) { on_close(hdl); });
+    ws->set_message_handler([this](const connection_hdl &hdl, const ws_server::message_ptr &msg) {
+        on_message(hdl, msg);
+    });
 
     ws->set_reuse_addr(true);
     ws->listen(self_->ctrl_port);
     ws->start_accept();
 
-    DBG("WebSocket server started");
+    pek::log::debug("WebSocket server started");
 
     return CtrlSockerError::OK;
 }
@@ -55,7 +58,7 @@ CtrlSockerError CtrlWebSocket::start() {
     if (auto error = setup(); error != CtrlSockerError::OK) {
         return error;
     }
-    DBG("WebSocket++ server listening on port {}", self_->ctrl_port);
+    pek::log::debug("WebSocket++ server listening on port {}", self_->ctrl_port);
 
     ws_server_thread = std::thread(&ws_server::run, ws);
     while (!ws->is_listening()) {
@@ -91,7 +94,7 @@ void CtrlWebSocket::send_to_all(const std::string &text) {
     }
 }
 
-void CtrlWebSocket::on_open(connection_hdl hdl) {
+void CtrlWebSocket::on_open(const connection_hdl &hdl) {
     {
         std::lock_guard<std::mutex> g(hdl_lock);
         hdls.insert(hdl);
@@ -100,15 +103,15 @@ void CtrlWebSocket::on_open(connection_hdl hdl) {
     report();
 }
 
-void CtrlWebSocket::on_close(connection_hdl hdl) {
-    DBG("on_close");
+void CtrlWebSocket::on_close(const connection_hdl &hdl) {
+    pek::log::debug("on_close");
 
     std::lock_guard<std::mutex> g(hdl_lock);
     hdls.erase(hdl);
 }
 
-void CtrlWebSocket::on_message(connection_hdl hdl, ws_server::message_ptr msg) {
-    DBG("on_message");
+void CtrlWebSocket::on_message(const connection_hdl &hdl, const ws_server::message_ptr &msg) {
+    pek::log::debug("on_message");
     auto payload = msg->get_payload();
     auto jsn = json::parse(payload);
     auto type = jsn["type"].get<std::string>();
@@ -122,13 +125,13 @@ void CtrlWebSocket::register_status_reporter(const std::string &name,
                                              std::shared_ptr<StatusReporter> status_reporter) {
     std::lock_guard<std::mutex> g(reporter_lock);
 
-    status_reporters[name] = status_reporter;
     status_reporter->trigger_reporting = std::bind(&CtrlWebSocket::report, this);
+    status_reporters[name] = std::move(status_reporter);
 }
 
 void CtrlWebSocket::report() {
     nlohmann::json rep;
-    DBG("reporting");
+    pek::log::debug("reporting");
 
     std::lock_guard<std::mutex> g(reporter_lock);
 
@@ -139,7 +142,7 @@ void CtrlWebSocket::report() {
     }
 
     send_to_all(rep.dump());
-    DBG("reported: {}", rep.dump());
+    pek::log::debug("reported: {}", rep.dump());
 }
 
 struct ToggleStateRequest {
@@ -158,7 +161,7 @@ struct ToggleInvokeBox {
 
 gboolean toggle_on_main(gpointer user_data) {
 
-    std::cout << "invoked\n";
+    pek::log::info("invoked\n");
     auto *box = static_cast<ToggleInvokeBox *>(user_data);
     auto tsr = box->req; // copy shared_ptr
 
@@ -183,11 +186,11 @@ gboolean toggle_on_main(gpointer user_data) {
     }
     tsr->cv.notify_one();
 
-    std::cout << "check is_pipeline\n";
+    pek::log::info("check is_pipeline\n");
 
     // GST_IS_PIPELINE() is a macro performing a type check with no side effects
     if (tsr->element && GST_IS_PIPELINE(tsr->element)) { // NOSONAR
-        std::cout << "is_pipeline\n";
+        pek::log::info("is_pipeline\n");
         gst_object_unref(tsr->element);
         tsr->element = nullptr;
     }
@@ -201,7 +204,7 @@ void destroy_box(gpointer user_data) {
 
 // handle the play button presses on the html frontend
 void CtrlWebSocket::play_pause(const json &jsn) {
-    DBG("play-pause: {}", jsn.dump());
+    pek::log::debug("play-pause: {}", jsn.dump());
 
     auto tsr = std::make_shared<ToggleStateRequest>();
 
@@ -220,55 +223,8 @@ void CtrlWebSocket::play_pause(const json &jsn) {
     report();
 }
 
-// handle to "enable/disable performance overlay" button presses on the html frontend
-void CtrlWebSocket::enable_perf_overlay(const json &jsn) {
-    DBG("enable_perf_overlay: {}", jsn.dump());
-
-    auto top = get_top_pipeline(GST_ELEMENT(self_));
-    auto perf_ovr = get_element_by_type(top, "pekperformance");
-    gst_object_unref(top);
-
-    // GST_IS_ELEMENT() is a macro performing a type check with no side effects
-    if (perf_ovr && GST_IS_ELEMENT(perf_ovr)) { // NOSONAR
-
-        gboolean enabled;
-        g_object_get(perf_ovr, "enabled", &enabled, NULL);
-        gst_object_unref(perf_ovr);
-
-        GstStructure *structure =
-            gst_structure_new("pekperformance", "enabled", G_TYPE_BOOLEAN, !enabled, NULL);
-        GstEvent *event = gst_event_new_custom(GST_EVENT_CUSTOM_UPSTREAM, structure);
-
-        // Get the peer pad (source pad of upstream element connected to our sink)
-        GstPad *sink_pad = gst_element_get_static_pad(GST_ELEMENT(self_), "sink");
-        if (sink_pad) {
-            GstPad *peer_pad = gst_pad_get_peer(sink_pad);
-
-            if (peer_pad) {
-                GstElement *peer_elem = GST_ELEMENT(gst_pad_get_parent(peer_pad));
-                GST_INFO_OBJECT(self_,
-                                "Sending event to peer element: %s",
-                                peer_elem ? GST_ELEMENT_NAME(peer_elem) : "unknown");
-
-                gboolean result = gst_pad_send_event(peer_pad, event);
-
-                if (peer_elem) {
-                    gst_object_unref(peer_elem);
-                }
-
-                gst_object_unref(peer_pad);
-            }
-
-            gst_object_unref(sink_pad);
-        }
-    }
-
-    // send the current pipeline state back to browser
-    report();
-}
-
 void CtrlWebSocket::model_toggle(const json &jsn) {
-    DBG("model_toggle: {}", jsn.dump());
+    pek::log::debug("model_toggle: {}", jsn.dump());
 
     try {
         std::string element_name = jsn["name"];

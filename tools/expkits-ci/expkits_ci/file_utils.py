@@ -77,12 +77,28 @@ class FileUtils:
         return repo.git.ls_files().splitlines()
 
     @staticmethod
+    def normalize_repo_path(file_path):
+        normalized = file_path.replace(os.sep, "/").rstrip("/")
+        while normalized.startswith("./"):
+            normalized = normalized[2:]
+        return normalized
+
+    @staticmethod
+    def is_ignored_file(file_path, ignore_folder):
+        normalized = FileUtils.normalize_repo_path(file_path)
+        return any(
+            normalized == skip or normalized.startswith(f"{skip}/")
+            for skip in (FileUtils.normalize_repo_path(folder) for folder in ignore_folder)
+            if skip
+        )
+
+    @staticmethod
     def filter_existing_files(files, ignore_folder):
         return [
             f for f in files
             if os.path.exists(f) and (
                 f.endswith(".git/COMMIT_EDITMSG")
-                or not any(f.startswith(skip) for skip in ignore_folder)
+                or not FileUtils.is_ignored_file(f, ignore_folder)
             )
         ]
 

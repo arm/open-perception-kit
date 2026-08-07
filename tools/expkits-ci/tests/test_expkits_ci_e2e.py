@@ -142,6 +142,14 @@ class TestExpkitsCiE2E(unittest.TestCase):
     def run_expkits_ci(self, *args):
         return self.run_cmd([self.test_python, "-m", "expkits_ci", *args], check=False)
 
+    def require_actionlint(self):
+        missing = [
+            tool for tool in ("actionlint", "shellcheck", "pyflakes")
+            if shutil.which(tool, path=self.runtime_path) is None
+        ]
+        if missing:
+            self.skipTest(f"actionlint toolchain is unavailable: {', '.join(missing)}")
+
     def read_fixture(self, relative_path: str) -> str:
         return (FIXTURE_ROOT / relative_path).read_text(encoding="utf-8")
 
@@ -216,6 +224,105 @@ class TestExpkitsCiE2E(unittest.TestCase):
         self.assertIn("Secret Type: Private Key", result.stdout)
         self.assertIn("Location:    secrets/bad.pem:1", result.stdout)
         self.assertIn("[INFO]   NOK  secrets", result.stdout)
+
+    def test_actionlint_scope_ignores_non_workflow_yaml(self):
+        self.require_actionlint()
+        bad_workflow = self.read_fixture("actionlint/bad-workflow.yml")
+        generic_yaml = self.repo_root / "config" / "not-workflow.yaml"
+        generic_yaml.parent.mkdir(parents=True, exist_ok=True)
+        generic_yaml.write_text(bad_workflow, encoding="utf-8")
+
+        result = self.run_expkits_ci(
+            "--verbose",
+            "--actionlint",
+            "--list-of-files",
+            "config/not-workflow.yaml",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("No GitHub Actions workflow files found to check.", result.stdout)
+        self.assertIn("[INFO]   OK   actionlint", result.stdout)
+
+    def test_actionlint_config_change_lints_existing_workflows(self):
+        self.require_actionlint()
+        bad_workflow = self.read_fixture("actionlint/bad-workflow.yml")
+        workflow = self.repo_root / ".github" / "workflows" / "bad.yml"
+        workflow.parent.mkdir(parents=True, exist_ok=True)
+        workflow.write_text(bad_workflow, encoding="utf-8")
+        actionlint_config = self.repo_root / ".github" / "actionlint.yaml"
+        actionlint_config.write_text("self-hosted-runner:\n  labels: []\n", encoding="utf-8")
+
+        result = self.run_expkits_ci(
+            "--actionlint",
+            "--list-of-files",
+            ".github/actionlint.yaml",
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn(".github/workflows/bad.yml", result.stdout)
+        self.assertIn("[INFO]   NOK  actionlint", result.stdout)
+
+    def test_actionlint_scope_lints_changed_workflow_only(self):
+        self.require_actionlint()
+        bad_workflow = self.read_fixture("actionlint/bad-workflow.yml")
+        workflow = self.repo_root / ".github" / "workflows" / "bad.yml"
+        workflow.parent.mkdir(parents=True, exist_ok=True)
+        workflow.write_text(bad_workflow, encoding="utf-8")
+        generic_yaml = self.repo_root / "config" / "not-workflow.yaml"
+        generic_yaml.parent.mkdir(parents=True, exist_ok=True)
+        generic_yaml.write_text(bad_workflow, encoding="utf-8")
+
+        result = self.run_expkits_ci(
+            "--actionlint",
+            "--list-of-files",
+            ".github/workflows/bad.yml",
+            "config/not-workflow.yaml",
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn(".github/workflows/bad.yml", result.stdout)
+        self.assertNotIn("config/not-workflow.yaml", result.stdout)
+        self.assertIn("[INFO]   NOK  actionlint", result.stdout)
+
+    def run_actionlint_fixture(self, fixture_name):
+        self.require_actionlint()
+        workflow = self.repo_root / ".github" / "workflows" / fixture_name
+        workflow.parent.mkdir(parents=True, exist_ok=True)
+        workflow.write_text(
+            self.read_fixture(f"actionlint/{fixture_name}"),
+            encoding="utf-8",
+        )
+        return self.run_expkits_ci(
+            "--actionlint",
+            "--list-of-files",
+            f".github/workflows/{fixture_name}",
+        )
+
+    def test_actionlint_accepts_inline_shell_fixture(self):
+        result = self.run_actionlint_fixture("inline-shell-good.yml")
+
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("[INFO]   OK   actionlint", result.stdout)
+
+    def test_actionlint_rejects_inline_shell_fixture(self):
+        result = self.run_actionlint_fixture("inline-shell-bad.yml")
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("SC2086", result.stdout)
+        self.assertIn("[INFO]   NOK  actionlint", result.stdout)
+
+    def test_actionlint_accepts_inline_python_fixture(self):
+        result = self.run_actionlint_fixture("inline-python-good.yml")
+
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("[INFO]   OK   actionlint", result.stdout)
+
+    def test_actionlint_rejects_inline_python_fixture(self):
+        result = self.run_actionlint_fixture("inline-python-bad.yml")
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("undefined name 'missing_value'", result.stdout)
+        self.assertIn("[INFO]   NOK  actionlint", result.stdout)
 
 
 if __name__ == "__main__":

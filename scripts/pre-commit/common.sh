@@ -184,7 +184,7 @@ repo_checks_build_image() {
     local dockerfile_path=""
 
     image_name="$(repo_checks_image_name "${repo_root}")"
-    dockerfile_path="${repo_root}/scripts/pre-commit/runtime/Dockerfile"
+    dockerfile_path="${repo_root}/Dockerfile.pre-commit"
 
     [ -f "${dockerfile_path}" ] || repo_checks_die "Dockerfile not found: ${dockerfile_path}"
 
@@ -225,6 +225,9 @@ repo_checks_run_image() {
     docker run --rm \
         --user "$(id -u):$(id -g)" \
         -e HOME=/tmp \
+        -e GIT_CONFIG_COUNT=1 \
+        -e GIT_CONFIG_KEY_0=safe.directory \
+        -e GIT_CONFIG_VALUE_0="${repo_root}" \
         -w "${repo_root}" \
         "${mount_args[@]}" \
         "${image_name}" \

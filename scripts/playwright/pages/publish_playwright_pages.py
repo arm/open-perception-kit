@@ -5,11 +5,8 @@
 # Updates the persisted Playwright report site used by GitHub Pages.
 ################################################################
 
-import base64
 import datetime as dt
-import html
 import json
-import os
 import re
 import shutil
 import subprocess
@@ -18,13 +15,38 @@ import tempfile
 from pathlib import Path
 from urllib.parse import quote
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPT_DIR.parents[2]
+sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.report_pages.publish import (  # noqa: E402
+    PublishError,
+    capture,
+    checkout_site_branch as common_checkout_site_branch,
+    env,
+    html_anchor,
+    html_escape,
+    remove_legacy_root_site,
+    require_env,
+    retry_storage_branch_update,
+    run,
+    run_maybe,
+    set_output,
+    push_site_branch as common_push_site_branch,
+    write_root_index,
+)
+
 
 PRODUCT_TITLE = "Arm Perception kit"
+REPORT_ROOT = "playwright"
 INDEX_HTML = "index.html"
 REPORT_INDEX_META = "report-index-meta.txt"
+VIDEO_ARTIFACT_META = "video-artifact.json"
+ARTIFACT_PREFIX_META = "artifact-prefix.txt"
+DEFAULT_ARTIFACT_PREFIX = "rpi-browser-smoke"
 MAX_REPORT_BYTES = 500 * 1024 * 1024
 PRUNED_REPORT_DATA_SUFFIXES = {".webm", ".zip"}
-SCRIPT_DIR = Path(__file__).resolve().parent
+DRY_RUN_ENV = "PLAYWRIGHT_PAGES_DRY_RUN"
 ASSET_DIR = SCRIPT_DIR / "assets"
 SOURCE_EXTENSIONS = {
     ".c",
@@ -52,165 +74,35 @@ SOURCE_EXTENSIONS = {
 }
 
 
-class PublishError(RuntimeError):
-    pass
-
-
 def usage() -> None:
-    print("Usage: scripts/playwright/pages/publish.sh publish|cleanup", file=sys.stderr)
+    print("Usage: publish_playwright_pages.py publish|cleanup|restore-videos [site-dir]", file=sys.stderr)
 
 
-def env(name: str, default: str = "") -> str:
-    return os.environ.get(name, default)
-
-
-def require_env(name: str) -> str:
-    value = env(name)
-    if not value:
-        raise PublishError(f"{name} is required.")
-    return value
-
-
-def dry_run_enabled() -> bool:
-    return env("PLAYWRIGHT_PAGES_DRY_RUN") == "1"
-
-
-def set_output(name: str, value: str) -> None:
-    output = env("GITHUB_OUTPUT")
-    if output:
-        with open(output, "a", encoding="utf-8") as handle:
-            handle.write(f"{name}={value}\n")
-
-
-def run(args: list[str], cwd: Path | None = None, quiet: bool = False) -> subprocess.CompletedProcess:
-    stdout = subprocess.DEVNULL if quiet else None
-    stderr = subprocess.DEVNULL if quiet else None
-    return subprocess.run(args, cwd=cwd, check=True, stdout=stdout, stderr=stderr, text=True)
-
-
-def run_maybe(args: list[str], cwd: Path | None = None, quiet: bool = False) -> subprocess.CompletedProcess:
-    stdout = subprocess.DEVNULL if quiet else None
-    stderr = subprocess.DEVNULL if quiet else None
-    return subprocess.run(args, cwd=cwd, check=False, stdout=stdout, stderr=stderr, text=True)
-
-
-def capture(args: list[str], cwd: Path | None = None) -> str:
-    result = subprocess.run(args, cwd=cwd, check=True, stdout=subprocess.PIPE, text=True)
-    return result.stdout
-
-
-def git_auth_header() -> str:
-    token = require_env("GITHUB_TOKEN")
-    return base64.b64encode(f"x-access-token:{token}".encode("utf-8")).decode("ascii")
-
-
-def git_with_auth(args: list[str], site_dir: Path, auth_header: str, quiet: bool = False) -> subprocess.CompletedProcess:
-    return run(
-        [
-            "git",
-            "-C",
-            str(site_dir),
-            "-c",
-            f"http.https://github.com/.extraheader=AUTHORIZATION: basic {auth_header}",
-            *args,
-        ],
-        quiet=quiet,
-    )
-
-
-def git_with_auth_maybe(args: list[str], site_dir: Path, auth_header: str,
-                        quiet: bool = False) -> subprocess.CompletedProcess:
-    stdout = subprocess.DEVNULL if quiet else None
-    stderr = subprocess.DEVNULL if quiet else None
-    return subprocess.run(
-        [
-            "git",
-            "-C",
-            str(site_dir),
-            "-c",
-            f"http.https://github.com/.extraheader=AUTHORIZATION: basic {auth_header}",
-            *args,
-        ],
-        check=False,
-        stdout=stdout,
-        stderr=stderr,
-        text=True,
+def push_site_branch(site_dir: Path, storage_branch: str) -> bool:
+    return common_push_site_branch(
+        site_dir,
+        storage_branch,
+        DRY_RUN_ENV,
+        "Update Playwright report pages",
+        "Playwright Pages",
     )
 
 
 def checkout_site_branch(site_dir: Path, storage_branch: str) -> None:
-    if dry_run_enabled():
-        if site_dir.exists():
-            shutil.rmtree(site_dir)
-        site_dir.mkdir(parents=True)
-        run(["git", "-C", str(site_dir), "init", "-b", storage_branch], quiet=True)
-        run(["git", "-C", str(site_dir), "config", "user.name", "local-playwright-pages"])
-        run(["git", "-C", str(site_dir), "config", "user.email", "local@example.invalid"])
-        return
-
-    repository = require_env("GITHUB_REPOSITORY")
-    auth_header = git_auth_header()
-    print(f"::add-mask::{auth_header}")
-
-    if site_dir.exists():
-        shutil.rmtree(site_dir)
-    site_dir.mkdir(parents=True)
-
-    run(["git", "-C", str(site_dir), "init"])
-    run(["git", "-C", str(site_dir), "remote", "add", "origin", f"https://github.com/{repository}.git"])
-    fetched = git_with_auth_maybe(["fetch", "--depth=1", "origin", storage_branch], site_dir, auth_header, quiet=True)
-    if fetched.returncode == 0:
-        run(["git", "-C", str(site_dir), "checkout", "-B", storage_branch, "FETCH_HEAD"])
-    else:
-        run(["git", "-C", str(site_dir), "checkout", "--orphan", storage_branch])
-        run_maybe(["git", "-C", str(site_dir), "rm", "-rf", "."], quiet=True)
-
-    run(["git", "-C", str(site_dir), "config", "user.name", "github-actions[bot]"])
-    run(
-        [
-            "git",
-            "-C",
-            str(site_dir),
-            "config",
-            "user.email",
-            "41898282+github-actions[bot]@users.noreply.github.com",
-        ]
-    )
-
-
-def push_site_branch(site_dir: Path, storage_branch: str) -> bool:
-    run(["git", "-C", str(site_dir), "add", "-A", "."])
-    diff = run_maybe(["git", "-C", str(site_dir), "diff", "--cached", "--quiet"])
-    if diff.returncode == 0:
-        return False
-
-    run(["git", "-C", str(site_dir), "commit", "-m", "Update Playwright report pages"])
-    if dry_run_enabled():
-        print(f"Dry-run: generated Playwright Pages site at {site_dir}")
-        return True
-
-    auth_header = git_auth_header()
-    git_with_auth(["push", "origin", f"HEAD:{storage_branch}"], site_dir, auth_header)
-    return True
-
-
-def html_escape(value: str) -> str:
-    return html.escape(str(value), quote=True)
+    common_checkout_site_branch(site_dir, storage_branch, DRY_RUN_ENV, "local-playwright-pages")
 
 
 def script_json(value: str) -> str:
     return value.replace("</", "<\\/")
 
 
-def html_anchor(href: str, text: str) -> str:
-    return f'<a href="{html_escape(href)}">{html_escape(text)}</a>'
-
-
 def copy_asset(site_dir: Path, name: str) -> None:
     source = ASSET_DIR / name
     if not source.is_file():
         raise PublishError(f"Missing Playwright Pages asset: {source}")
-    shutil.copyfile(source, site_dir / name)
+    destination = site_dir / REPORT_ROOT / name
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(source, destination)
 
 
 def write_index_assets(site_dir: Path) -> None:
@@ -347,6 +239,8 @@ def read_first_line(path: Path, default: str) -> str:
 
 
 def write_site_index(site_dir: Path, repository: str) -> None:
+    root = site_dir / REPORT_ROOT
+    root.mkdir(parents=True, exist_ok=True)
     parts = [
         write_index_head(f"{PRODUCT_TITLE} - Playwright reports", "report-index.css"),
         """      <header>
@@ -358,15 +252,19 @@ def write_site_index(site_dir: Path, repository: str) -> None:
         <div class="report-list">
 """,
     ]
-    nightly = site_dir / "nightly"
-    if (nightly / INDEX_HTML).is_file():
-        meta = read_first_line(nightly / REPORT_INDEX_META, "Scheduled main run")
+    nightly_found = False
+    for directory, title in (("nightly", "General"), ("nightly-macos", "macOS")):
+        nightly = root / directory
+        if not (nightly / INDEX_HTML).is_file():
+            continue
+        nightly_found = True
+        meta = read_first_line(nightly / REPORT_INDEX_META, "Scheduled develop run")
         parts.append(
-            f'          <a class="report-link" href="nightly/{INDEX_HTML}"><span><span class="report-title">'
-            f'Latest nightly</span><span class="report-meta">{html_escape(meta)}</span></span>'
-            '<span class="badge">Open</span></a>\n'
+            f'          <a class="report-link" href="{directory}/{INDEX_HTML}"><span>'
+            f'<span class="report-title">{title}</span><span class="report-meta">'
+            f'{html_escape(meta)}</span></span><span class="badge">Open</span></a>\n'
         )
-    else:
+    if not nightly_found:
         parts.append('          <div class="empty">No nightly report published yet.</div>\n')
 
     parts.append(
@@ -377,7 +275,7 @@ def write_site_index(site_dir: Path, repository: str) -> None:
         <div class="report-list">
 """
     )
-    prs_dir = site_dir / "prs"
+    prs_dir = root / "prs"
     if prs_dir.is_dir():
         pr_dirs = [path for path in prs_dir.iterdir() if path.is_dir() and path.name.isdigit()]
         for pr_dir in sorted(pr_dirs, key=lambda path: int(path.name)):
@@ -399,7 +297,7 @@ def write_site_index(site_dir: Path, repository: str) -> None:
             write_index_footer(),
         ]
     )
-    (site_dir / INDEX_HTML).write_text("".join(parts), encoding="utf-8")
+    (root / INDEX_HTML).write_text("".join(parts), encoding="utf-8")
 
 
 def inject_once(pattern: str, replacement, content: str, label: str) -> str:
@@ -488,7 +386,13 @@ def build_report_index_meta_text(branch: str, head_sha: str, run_id: str, run_at
     return f"{build_source_meta_text(branch, head_sha, run_id, run_attempt)} | {now.strftime('%b %d, %Y %H:%M UTC')}"
 
 
-def download_report_artifact(artifact_dir: Path, repository: str, run_id: str, run_attempt: str) -> bool:
+def download_report_artifact(
+    artifact_dir: Path,
+    repository: str,
+    run_id: str,
+    run_attempt: str,
+    artifact_prefix: str = DEFAULT_ARTIFACT_PREFIX,
+) -> bool:
     local_report_dir = env("PLAYWRIGHT_PAGES_LOCAL_REPORT_DIR")
     if local_report_dir:
         source = Path(local_report_dir)
@@ -498,7 +402,7 @@ def download_report_artifact(artifact_dir: Path, repository: str, run_id: str, r
         shutil.copytree(source, target)
         return True
 
-    artifact_name = f"rpi-browser-smoke-{run_id}-{run_attempt}"
+    artifact_name = f"{artifact_prefix}-{run_id}-{run_attempt}"
     result = subprocess.run(
         ["gh", "run", "download", run_id, "--repo", repository, "--name", artifact_name, "--dir", str(artifact_dir)],
         check=False,
@@ -534,12 +438,114 @@ def copy_pruned_report_for_pages(report_dir: Path, target: Path) -> None:
     prune_report_for_pages(target)
 
 
-def restore_report_videos_for_deploy(report_dir: Path, target: Path) -> None:
-    for source in report_dir.rglob("data/*.webm"):
+def report_video_files(report_dir: Path) -> list[str]:
+    return sorted(
+        path.relative_to(report_dir).as_posix()
+        for path in report_dir.rglob("data/*.webm")
+        if path.is_file()
+    )
+
+
+def write_video_artifact_meta(target: Path, run_id: str, run_attempt: str, files: list[str]) -> None:
+    (target / VIDEO_ARTIFACT_META).write_text(
+        json.dumps({"files": files, "run_attempt": run_attempt, "run_id": run_id}, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def read_video_artifact_meta(path: Path) -> tuple[int, int, list[str]] | None:
+    if not path.is_file():
+        return None
+    try:
+        metadata = json.loads(path.read_text(encoding="utf-8"))
+        run_id = metadata["run_id"]
+        run_attempt = metadata["run_attempt"]
+        files = metadata["files"]
+        if not isinstance(run_id, str) or not run_id.isdigit():
+            raise ValueError("invalid run ID")
+        if not isinstance(run_attempt, str) or not run_attempt.isdigit():
+            raise ValueError("invalid run attempt")
+        if not isinstance(files, list) or len(files) != len(set(files)):
+            raise ValueError("invalid video file list")
+        for filename in files:
+            video_path = Path(filename) if isinstance(filename, str) else Path()
+            if (not isinstance(filename, str) or video_path.is_absolute() or ".." in video_path.parts
+                    or video_path.parent.name != "data" or video_path.suffix != ".webm"):
+                raise ValueError("invalid video file path")
+    except (KeyError, OSError, TypeError, ValueError, json.JSONDecodeError) as error:
+        print(f"Ignoring invalid Playwright video metadata at {path}: {error}")
+        return None
+    return int(run_id), int(run_attempt), files
+
+
+def read_published_report_meta(target: Path) -> tuple[int, int, list[str] | None] | None:
+    metadata = read_video_artifact_meta(target / VIDEO_ARTIFACT_META)
+    if metadata is not None:
+        return metadata
+    match = re.search(
+        r"\| run (\d+) attempt (\d+)(?: \||$)",
+        read_first_line(target / REPORT_INDEX_META, ""),
+    )
+    return (int(match.group(1)), int(match.group(2)), None) if match else None
+
+
+def is_stale_report(target: Path, run_id: str, run_attempt: str) -> bool:
+    published = read_published_report_meta(target)
+    return published is not None and (int(run_id), int(run_attempt)) < published[:2]
+
+
+def restore_report_videos_for_deploy(
+    report_dir: Path,
+    target: Path,
+    files: list[str] | None = None,
+) -> int:
+    count = 0
+    sources = report_dir.rglob("data/*.webm") if files is None else (report_dir / filename for filename in files)
+    for source in sources:
         if source.is_file():
             destination = target / source.relative_to(report_dir)
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, destination)
+            count += 1
+    return count
+
+
+def restore_published_report_videos(site_dir: Path) -> int:
+    repository = require_env("GITHUB_REPOSITORY")
+    targets = sorted(path.parent for path in (site_dir / REPORT_ROOT).glob(f"**/{REPORT_INDEX_META}"))
+    restored = 0
+    with tempfile.TemporaryDirectory() as tmpdir:
+        for index, target in enumerate(targets):
+            metadata = read_published_report_meta(target)
+            if metadata is None:
+                continue
+            run_id, run_attempt, files = metadata
+            if files is not None and (not files or all((target / filename).is_file() for filename in files)):
+                continue
+
+            artifact_dir = Path(tmpdir) / str(index)
+            artifact_prefix = read_first_line(target / ARTIFACT_PREFIX_META, DEFAULT_ARTIFACT_PREFIX)
+            if not download_report_artifact(
+                artifact_dir, repository, str(run_id), str(run_attempt), artifact_prefix
+            ):
+                print(f"Could not restore Playwright videos from run {run_id}; keeping the run link.")
+                continue
+            report_dir = find_playwright_report(artifact_dir)
+            if report_dir is None:
+                print(f"Run {run_id} artifact did not contain playwright-report; keeping the run link.")
+                continue
+            try:
+                validate_report_for_pages(report_dir)
+            except PublishError as error:
+                print(f"Could not restore Playwright videos from run {run_id}: {error}")
+                continue
+            if files is None:
+                files = report_video_files(report_dir)
+            if any(not (report_dir / filename).is_file() for filename in files):
+                print(f"Run {run_id} artifact is missing a Playwright video; keeping the run link.")
+                continue
+            restored += restore_report_videos_for_deploy(report_dir, target, files)
+    return restored
 
 
 def validate_report_for_pages(report_dir: Path) -> None:
@@ -570,6 +576,13 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
     conclusion = require_env("UPSTREAM_CONCLUSION")
     run_id = require_env("UPSTREAM_RUN_ID")
     run_attempt = require_env("UPSTREAM_RUN_ATTEMPT")
+    artifact_prefix = env("PLAYWRIGHT_PAGES_ARTIFACT_PREFIX", DEFAULT_ARTIFACT_PREFIX)
+    report_title = env("PLAYWRIGHT_PAGES_REPORT_TITLE", PRODUCT_TITLE)
+
+    if not run_id.isdigit() or not run_attempt.isdigit():
+        raise PublishError("UPSTREAM_RUN_ID and UPSTREAM_RUN_ATTEMPT must be numeric.")
+    if not re.fullmatch(r"[A-Za-z0-9._-]+", artifact_prefix):
+        raise PublishError(f"Invalid Playwright artifact prefix: {artifact_prefix}")
 
     if conclusion not in {"success", "failure"}:
         print(f"Skipping Playwright report from {conclusion} upstream run.")
@@ -587,24 +600,35 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
             print("No PR number found for upstream run; skipping Pages publish.")
             set_output("deploy", "false")
             return
-        target = site_dir / "prs" / pr_number
+        root = site_dir / REPORT_ROOT
+        target = root / "prs" / pr_number
         back_href = "../../"
     else:
-        if event != "schedule" or branch != "main":
+        if event != "schedule" or branch != "develop":
             print(f"Skipping non-PR Playwright report from {event} on {branch}.")
             set_output("deploy", "false")
             return
+        nightly_directory = env("PLAYWRIGHT_PAGES_NIGHTLY_DIRECTORY", "nightly")
+        if not re.fullmatch(r"[a-z0-9-]+", nightly_directory):
+            raise PublishError(f"Invalid Playwright nightly directory: {nightly_directory}")
         pr_number = ""
-        target = site_dir / "nightly"
+        root = site_dir / REPORT_ROOT
+        target = root / nightly_directory
         back_href = "../"
 
     index_meta_text = build_report_index_meta_text(branch, head_sha, run_id, run_attempt)
     meta_html = build_report_meta_html(repository, event, pr_number, branch, head_sha, run_id, run_attempt)
     source_meta_html = build_source_meta_html(repository, branch, head_sha, run_id, run_attempt)
 
+    checkout_site_branch(site_dir, storage_branch)
+    if is_stale_report(target, run_id, run_attempt):
+        print(f"Skipping stale Playwright report from run {run_id} attempt {run_attempt}.")
+        set_output("deploy", "false")
+        return
+
     with tempfile.TemporaryDirectory() as tmpdir:
         artifact_dir = Path(tmpdir)
-        if not download_report_artifact(artifact_dir, repository, run_id, run_attempt):
+        if not download_report_artifact(artifact_dir, repository, run_id, run_attempt, artifact_prefix):
             set_output("deploy", "false")
             return
 
@@ -615,18 +639,21 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
             return
 
         validate_report_for_pages(report_dir)
-        checkout_site_branch(site_dir, storage_branch)
+        video_files = report_video_files(report_dir)
+        remove_legacy_root_site(site_dir)
         copy_pruned_report_for_pages(report_dir, target)
+        write_video_artifact_meta(target, run_id, run_attempt, video_files)
+        (target / ARTIFACT_PREFIX_META).write_text(f"{artifact_prefix}\n", encoding="utf-8")
         (target / REPORT_INDEX_META).write_text(f"{index_meta_text}\n", encoding="utf-8")
         (target / "report-meta.html").write_text(f"{meta_html}\n", encoding="utf-8")
         (target / "report-source-meta.html").write_text(f"{source_meta_html}\n", encoding="utf-8")
         write_report_shell_assets(site_dir)
         if not (target / INDEX_HTML).is_file():
-            write_report_index(target, PRODUCT_TITLE, back_href)
+            write_report_index(target, report_title, back_href)
         else:
             decorate_playwright_report(
                 target,
-                PRODUCT_TITLE,
+                report_title,
                 back_href,
                 meta_html,
                 repository,
@@ -635,12 +662,13 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
             )
         (target / "commit.txt").write_text(f"{head_sha}\n", encoding="utf-8")
         (site_dir / ".nojekyll").touch()
+        write_root_index(site_dir)
         write_index_assets(site_dir)
         write_site_index(site_dir, repository)
 
         changed = push_site_branch(site_dir, storage_branch)
-        set_output("deploy", "true" if changed else "false")
-        restore_report_videos_for_deploy(report_dir, target)
+        restored_videos = restore_report_videos_for_deploy(report_dir, target, video_files)
+        set_output("deploy", "true" if changed or restored_videos else "false")
 
 
 def parse_github_time(value: str) -> dt.datetime:
@@ -670,9 +698,9 @@ def cleanup_closed_pr_reports(site_dir: Path, storage_branch: str, retention_day
     repository = require_env("GITHUB_REPOSITORY")
     checkout_site_branch(site_dir, storage_branch)
     cutoff = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=retention_days)
-    changed = False
+    changed = remove_legacy_root_site(site_dir)
 
-    prs_dir = site_dir / "prs"
+    prs_dir = site_dir / REPORT_ROOT / "prs"
     if prs_dir.is_dir():
         for pr_dir in prs_dir.iterdir():
             if not pr_dir.is_dir() or not pr_dir.name.isdigit():
@@ -685,6 +713,7 @@ def cleanup_closed_pr_reports(site_dir: Path, storage_branch: str, retention_day
                 changed = True
 
     if changed:
+        write_root_index(site_dir)
         write_index_assets(site_dir)
         write_site_index(site_dir, repository)
         pushed = push_site_branch(site_dir, storage_branch)
@@ -704,6 +733,13 @@ def parse_retention_days(value: str) -> int:
 
 
 def main(argv: list[str]) -> int:
+    if len(argv) == 3 and argv[1] == "restore-videos":
+        try:
+            restore_published_report_videos(Path(argv[2]))
+        except PublishError as error:
+            print(f"Error: {error}", file=sys.stderr)
+            return 1
+        return 0
     if len(argv) != 2 or argv[1] not in {"publish", "cleanup"}:
         usage()
         return 2
@@ -714,9 +750,11 @@ def main(argv: list[str]) -> int:
 
     try:
         if argv[1] == "publish":
-            publish_report(site_dir, storage_branch)
+            retry_storage_branch_update(lambda: publish_report(site_dir, storage_branch))
         else:
-            cleanup_closed_pr_reports(site_dir, storage_branch, retention_days)
+            retry_storage_branch_update(
+                lambda: cleanup_closed_pr_reports(site_dir, storage_branch, retention_days)
+            )
     except PublishError as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1

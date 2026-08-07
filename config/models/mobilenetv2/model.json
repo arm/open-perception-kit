@@ -1,7 +1,11 @@
 {
-	"name": "imagenet",
-	"modelFamily": "classification",
+	"name": "mobilenet-imagenet",
 	"modelFile": "mobilenet_v2_1.4_224.onnx",
+	"hfDownload": {
+		"repo_id": "onnx-community/mobilenet_v2_1.4_224-ONNX",
+		"revision": "275aac9f310d51f12df3e6b0232d32f4b9dca20e",
+		"filename": "onnx/model.onnx"
+	},
 	"dynamicOutput": true,
 	"inputTensors": [
 		{

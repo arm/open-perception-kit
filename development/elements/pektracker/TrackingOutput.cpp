@@ -6,6 +6,8 @@
 
 #include <fmt/core.h>
 
+#include <utility>
+
 namespace pek::tracker::trackingoutput {
 
 namespace {
@@ -92,7 +94,7 @@ void appendTrackTraceDetection(pek::Perception::Layer &traceLayer,
     trace.trackId = trackId;
     trace.parentUuid = track.lastDetection.parentUuid;
     trace.points.assign(track.traceHistoryPoints.begin(), track.traceHistoryPoints.end());
-    traceLayer.detections.push_back(trace);
+    traceLayer.detections.emplace_back(std::move(trace));
 }
 
 pek::Perception::Layer *ensurePredictionOutputLayer(pek::Perception &perception,
@@ -150,7 +152,7 @@ void appendPredictedDetectionsFromTrackingResult(const WriterContext &context,
         auto predictedRect = track->lastDetection;
         appendTrackTextIfEnabled(predictedRect, trackId, *track, context.config);
 
-        predictionLayer->detections.push_back(predictedRect);
+        predictionLayer->detections.emplace_back(std::move(predictedRect));
     }
 }
 

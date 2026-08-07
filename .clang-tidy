@@ -36,7 +36,7 @@ Checks: >
   -performance-enum-size,
   -performance-no-int-to-ptr
 WarningsAsErrors: ''
-HeaderFilterRegex: '^\.\./(common|elements|ops-std|ops-onnx|ops-hailort|ops-executorch|pek-menu|tests|web)/'
+HeaderFilterRegex: '^\.\./(common|elements|ops-[^/]+|pek-menu|runtime|tests|web)/'
 FormatStyle: file
 CheckOptions:
   # Team style prefers conventional leading return types and does not yet

@@ -3,6 +3,7 @@
 ################################################################
 
 import os
+import glob
 import re
 import sys
 import json
@@ -28,7 +29,11 @@ class QualityChecks:
     # Constants
     JIRA_PROJECTS = ["EXPKITS"]
     CLANG_TIDY_DIAGNOSTIC_RE = re.compile(
-        r"^(?:\[[A-Z]+\]\s*)?.+?:\d+:\d+:\s+(warning|error):\s+.+\s+\[([A-Za-z0-9_.-]+)\]\s*$")
+        r"^(?:\[[A-Z]+\]\s*)?"
+        r"(?P<path>.+?):(?P<line>\d+):(?P<column>\d+):\s+"
+        r"(?P<severity>warning|error):\s+"
+        r"(?P<message>.+?)\s+\[(?P<check>[A-Za-z0-9_.-]+)\]\s*$")
+    CLANG_TIDY_SOURCE_CONTEXT_RE = re.compile(r"^\s*(?:\d+\s*)?\|")
     # TODO: known issue also described here:
     # https://github.com/llvm/llvm-project/pull/111453
     # For future use other zephyr supported static code analysis should be used
@@ -38,6 +43,9 @@ class QualityChecks:
         "-mfp16-format=ieee",
         "-fno-defer-pop"
     ]
+    CLANG_TIDY_PROJECT_FILE_FILTER = (
+        r"(^|.*/)(common|elements|ops-[^/]+|pek-menu|runtime|tests|web)/.*"
+    )
     MERGE_COMMIT_HEADLINE_RE = re.compile(
         r"^Merge (?:(?:(?:remote-tracking )?branch|tag) '[^']+'(?: into .+)?|pull request #\d+\b.*)$",
         re.IGNORECASE,
@@ -45,6 +53,32 @@ class QualityChecks:
     COPILOT_AUTOFIX_TRAILER_RE = re.compile(
         r"^Co-authored-by:\s+Copilot Autofix powered by AI <.+@users\.noreply\.github\.com>$",
         re.IGNORECASE,
+    )
+    JIRA_SUBJECT_PREFIX_RE = re.compile(
+        r"^(%s)-\d+\b.+" % "|".join(JIRA_PROJECTS),
+        re.IGNORECASE,
+    )
+    AGENT_RUNTIME_STATIC_TRIGGER_PREFIXES = (
+        ".github/agent-runtime/",
+        "scripts/private/github_actions.py",
+        "scripts/private/github_api.py",
+        "scripts/private/agent_runtime/",
+        "scripts/private/agent_repair_orchestrator/",
+        "scripts/private/agent_stabilization_orchestrator/",
+        "scripts/private/agent_workflow_common/",
+        "scripts/private/test_support/",
+        "scripts/private/tests/",
+        ".github/workflows/agent-review.yml",
+        ".github/workflows/agent-repair-source-run",
+        ".github/workflows/agent-stabilize-pr",
+    )
+    AGENT_RUNTIME_STATIC_TRIGGER_FILES = (
+        "scripts/download-models.py",
+        "tools/expkits-ci/agent-workflows-mypy.ini",
+        "tools/expkits-ci/expkits_ci/agent_static_analysis.py",
+        "tools/expkits-ci/tests/test_agent_static_analysis.py",
+        "tools/expkits-ci/tests/test_agent_workflow_contracts.py",
+        "tools/expkits-ci/pyproject.toml",
     )
 
     def __init__(self):
@@ -106,6 +140,102 @@ class QualityChecks:
         return [sys.executable, "-m", "detect_secrets.pre_commit_hook"]
 
     @staticmethod
+    def normalize_github_actions_path(filename, project_root):
+        if os.path.isabs(filename):
+            try:
+                filename = os.path.relpath(filename, project_root)
+            except ValueError:
+                return None
+
+        normalized = filename.replace(os.sep, "/")
+        if normalized.startswith("./"):
+            normalized = normalized[2:]
+
+        return normalized
+
+    @classmethod
+    def normalize_github_actions_workflow(cls, filename, project_root):
+        normalized = cls.normalize_github_actions_path(filename, project_root)
+        if (
+            normalized
+            and
+            normalized.startswith(".github/workflows/")
+            and normalized.endswith((".yml", ".yaml"))
+        ):
+            return normalized
+
+        return None
+
+    @classmethod
+    def is_actionlint_config(cls, filename, project_root):
+        return cls.normalize_github_actions_path(filename, project_root) == ".github/actionlint.yaml"
+
+    @staticmethod
+    def discover_github_actions_workflows(project_root):
+        workflows_dir = os.path.join(project_root, ".github", "workflows")
+        workflows = []
+        for pattern in ("*.yml", "*.yaml"):
+            workflows.extend(
+                os.path.relpath(path, project_root).replace(os.sep, "/")
+                for path in glob.glob(os.path.join(workflows_dir, pattern))
+                if os.path.isfile(path)
+            )
+        return sorted(workflows)
+
+    def check_github_actions(self, files=None) -> bool:
+        """Run actionlint on changed GitHub Actions workflows."""
+        logger.info("Checking GitHub Actions workflows with actionlint...")
+
+        files = files or []
+        project_root = self.file_utils.get_project_root()
+        if any(self.is_actionlint_config(file, project_root) for file in files):
+            workflows = self.discover_github_actions_workflows(project_root)
+        else:
+            workflows = list(dict.fromkeys(
+                workflow
+                for file in files
+                if (workflow := self.normalize_github_actions_workflow(file, project_root))
+            ))
+        if not workflows:
+            logger.info("No GitHub Actions workflow files found to check.")
+            return True
+
+        actionlint = shutil.which("actionlint")
+        if not actionlint:
+            logger.error("actionlint is not available on PATH.")
+            return False
+
+        shellcheck = shutil.which("shellcheck")
+        if not shellcheck:
+            logger.error("shellcheck is not available on PATH.")
+            return False
+
+        pyflakes = shutil.which("pyflakes")
+        if not pyflakes:
+            logger.error("pyflakes is not available on PATH.")
+            return False
+
+        cmd = [actionlint, "-shellcheck", shellcheck, "-pyflakes", pyflakes]
+        config_file = ".github/actionlint.yaml"
+        if os.path.isfile(os.path.join(project_root, config_file)):
+            cmd.extend(["-config-file", config_file])
+        cmd.extend(workflows)
+
+        proc = subprocess.run(
+            cmd,
+            cwd=project_root,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            encoding="utf-8",
+        )
+        if proc.returncode != 0:
+            self.log_captured_tool_output(proc.stdout)
+            return False
+
+        logger.info("GitHub Actions workflows passed actionlint.")
+        return True
+
+    @staticmethod
     def iter_file_batches(files, batch_size=50):
         """Yield deterministic file batches to keep secret scans reasonably fast."""
         for start in range(0, len(files), batch_size):
@@ -125,23 +255,20 @@ class QualityChecks:
             logger.error(f"Could not get current branch name. {e}")
             return False
 
-        jira_pattern = r"^feature/(%s)-\d+(?:/.+)?$" % "|".join(
+        jira_pattern = r"^(?:feature|bugfix|hotfix|release)/(%s)-\d+(?:[-/].+)?$" % "|".join(
             QualityChecks.JIRA_PROJECTS)
         result = False
-        # main branch -> should not be used for development
-        # feature branch: feature/PROJECT-1234[/something-something]
-        if re.match(jira_pattern, branch) or (branch == "main"):
+        if re.match(jira_pattern, branch) or branch in ("main", "develop"):
             result = True
-        # sandbox branch: sandbox/whatever
-        elif branch.startswith("sandbox/"):
+        # automated and sandbox branches
+        elif branch.startswith(("dependabot/", "sandbox/")):
             result = True
 
         if not result:
             logger.error(f"Invalid branch name: \"{branch}\"")
             logger.info("Valid formats:")
             for proj in QualityChecks.JIRA_PROJECTS:
-                logger.info(f"  feature/{proj}-1234")
-                logger.info(f"  feature/{proj}-1234/ticket-description")
+                logger.info(f"  <feature|bugfix|hotfix|release>/{proj}-1234[/ticket-description]")
             logger.info("  sandbox/whatever")
             logger.info(
                 "In case of different JIRA project, please update the JIRA_PROJECTS array.")
@@ -248,7 +375,7 @@ class QualityChecks:
                 logger.error(
                     "Commit message must have at least two lines: a description and a reference to a JIRA ticket.")
                 logger.info("Example:")
-                logger.info("  Add new feature for X\n  Task: EXPKITS-1234")
+                logger.info("  Add new feature for X\n  Task: EXPKITS-4242")
                 logger.info(
                     "The current commit message is:\n"
                     + QualityChecks.render_commit_message_for_log(commit_msg, filtered_lines))
@@ -263,7 +390,7 @@ class QualityChecks:
             logger.error(
                 "Commit message must have at least two lines: a description and a reference to a JIRA ticket.")
             logger.info("Example:")
-            logger.info("  Add new feature for X\n  Task: EXPKITS-1234")
+            logger.info("  Add new feature for X\n  Task: EXPKITS-4242")
             logger.info(
                 "The current commit message is:\n"
                 + QualityChecks.render_commit_message_for_log(commit_msg, filtered_lines))
@@ -299,12 +426,71 @@ class QualityChecks:
         return True
 
     @staticmethod
+    def _check_commit_message_on_ci(commit, jira_pattern) -> bool:
+        sha = commit.hexsha[:8]
+        filtered_lines = QualityChecks.filter_comment_lines(commit.message)
+
+        if filtered_lines and QualityChecks.JIRA_SUBJECT_PREFIX_RE.match(filtered_lines[0]):
+            logger.info(f"[{sha}] Commit message format is valid.")
+            return True
+
+        if len(filtered_lines) < 2:
+            if not filtered_lines:
+                logger.error(
+                    f"[{sha}] Commit message must have at least two lines: "
+                    "a description and a reference to a JIRA ticket.")
+                logger.error("Example:")
+                logger.error("  Add new feature for X\n  Task: EXPKITS-4242")
+                logger.error(
+                    "The current commit message is:\n"
+                    + QualityChecks.render_commit_message_for_log(commit.message, filtered_lines))
+                return False
+
+            if QualityChecks.allows_missing_jira_reference(filtered_lines):
+                logger.info(f"[{sha}] Commit message format is valid.")
+                return True
+            logger.error(
+                f"[{sha}] Commit message must have at least two lines: "
+                "a description and a reference to a JIRA ticket.")
+            logger.error("Example:")
+            logger.error("  Add new feature for X\n  Task: EXPKITS-4242")
+            logger.error(
+                "The current commit message is:\n"
+                + QualityChecks.render_commit_message_for_log(commit.message, filtered_lines))
+            return False
+
+        if not filtered_lines[0]:
+            logger.error(f"[{sha}] First line of commit message must be a non-empty description.")
+            logger.error(
+                "The current commit message is:\n"
+                + QualityChecks.render_commit_message_for_log(commit.message, filtered_lines))
+            return False
+
+        if QualityChecks.allows_missing_jira_reference(filtered_lines):
+            logger.info(f"[{sha}] Commit message format is valid.")
+            return True
+
+        if not re.match(jira_pattern, filtered_lines[1], re.IGNORECASE):
+            logger.error(
+                f"[{sha}] Second line must match \"<Bug|Task>: JIRA-XXXX\" with a valid JIRA project.")
+            logger.error("Example:")
+            logger.error(f"  Task: {QualityChecks.JIRA_PROJECTS[0]}-1234")
+            logger.error(
+                "The current commit message is:\n"
+                + QualityChecks.render_commit_message_for_log(commit.message, filtered_lines))
+            return False
+
+        logger.info(f"[{sha}] Commit message format is valid.")
+        return True
+
+    @staticmethod
     def check_commit_messages_on_ci(files=None, target_branch=None) -> bool:
         """Check all commit messages on the current branch that are not on target_branch.
 
-        When target_branch is provided the set of commits checked is
-        those reachable from HEAD but not from the merge-base with target_branch,
-        i.e. exactly the commits introduced by the current branch/PR.
+        When target_branch is provided the set of commits checked is those
+        introduced after its merge base. For main and develop targets, prefer
+        the other protected branch only when its merge base is newer; otherwise
+        use the target branch.
         When target_branch is omitted, only HEAD is checked.
         """
         logger.info("Checking commit message format...")
@@ -330,12 +516,36 @@ class QualityChecks:
                     target_commit = repo.commit(target_branch)
                     logger.info(f"Resolved target branch as '{target_branch}'")
 
+                validation_ref = remote_ref
                 merge_base_list = repo.merge_base(repo.head.commit, target_commit)
                 if not merge_base_list:
-                    logger.error(f"Could not find merge base between HEAD and '{target_branch}'.")
+                    logger.error(f"Could not find merge base between HEAD and '{validation_ref}'.")
                     return False
                 merge_base = merge_base_list[0]
-                logger.info(f"Checking commits between merge base {merge_base.hexsha[:8]} and HEAD")
+
+                if target_branch in ("main", "develop"):
+                    alternate_branch = "develop" if target_branch == "main" else "main"
+                    alternate_ref = f"origin/{alternate_branch}"
+                    try:
+                        repo.git.fetch(
+                            "origin",
+                            f"+refs/heads/{alternate_branch}:refs/remotes/{alternate_ref}",
+                        )
+                        alternate_commit = repo.commit(alternate_ref)
+                        alternate_base_list = repo.merge_base(repo.head.commit, alternate_commit)
+                        if not alternate_base_list:
+                            logger.warning(
+                                f"No merge base found for {alternate_ref}; using {validation_ref}")
+                        elif (alternate_base_list[0].hexsha != merge_base.hexsha
+                              and repo.is_ancestor(merge_base, alternate_base_list[0])):
+                            merge_base = alternate_base_list[0]
+                            validation_ref = alternate_ref
+                    except Exception as exc:
+                        logger.warning(
+                            f"Could not compare against {alternate_ref}; using {validation_ref}: {exc}")
+
+                logger.info(
+                    f"Checking commits after {validation_ref} merge base {merge_base.hexsha[:8]}")
                 for commit in repo.iter_commits(f"{merge_base.hexsha}..HEAD"):
                     commits.append(commit)
             except GitCommandError as e:
@@ -358,66 +568,11 @@ class QualityChecks:
         logger.info(f"Checking {len(commits)} commit(s)...")
 
         jira_pattern = r"^(Bug|Task): (%s)-\d+$" % "|".join(QualityChecks.JIRA_PROJECTS)
-        result = True
-
-        for commit in commits:
-            sha = commit.hexsha[:8]
-            filtered_lines = QualityChecks.filter_comment_lines(commit.message)
-
-            if len(filtered_lines) < 2:
-                if not filtered_lines:
-                    logger.error(
-                        f"[{sha}] Commit message must have at least two lines: "
-                        "a description and a reference to a JIRA ticket.")
-                    logger.error("Example:")
-                    logger.error("  Add new feature for X\n  Task: EXPKITS-1234")
-                    logger.error(
-                        "The current commit message is:\n"
-                        + QualityChecks.render_commit_message_for_log(commit.message, filtered_lines))
-                    result = False
-                    continue
-
-                if QualityChecks.allows_missing_jira_reference(filtered_lines):
-                    logger.info(f"[{sha}] Commit message format is valid.")
-                    continue
-
-                logger.error(
-                    f"[{sha}] Commit message must have at least two lines: "
-                    "a description and a reference to a JIRA ticket.")
-                logger.error("Example:")
-                logger.error("  Add new feature for X\n  Task: EXPKITS-1234")
-                logger.error(
-                    "The current commit message is:\n"
-                    + QualityChecks.render_commit_message_for_log(commit.message, filtered_lines))
-                result = False
-                continue
-
-            if not filtered_lines[0]:
-                logger.error(f"[{sha}] First line of commit message must be a non-empty description.")
-                logger.error(
-                    "The current commit message is:\n"
-                    + QualityChecks.render_commit_message_for_log(commit.message, filtered_lines))
-                result = False
-                continue
-
-            if QualityChecks.allows_missing_jira_reference(filtered_lines):
-                logger.info(f"[{sha}] Commit message format is valid.")
-                continue
-
-            if not re.match(jira_pattern, filtered_lines[1], re.IGNORECASE):
-                logger.error(
-                    f"[{sha}] Second line must match \"<Bug|Task>: JIRA-XXXX\" with a valid JIRA project.")
-                logger.error("Example:")
-                logger.error(f"  Task: {QualityChecks.JIRA_PROJECTS[0]}-1234")
-                logger.error(
-                    "The current commit message is:\n"
-                    + QualityChecks.render_commit_message_for_log(commit.message, filtered_lines))
-                result = False
-                continue
-
-            logger.info(f"[{sha}] Commit message format is valid.")
-
-        return result
+        results = [
+            QualityChecks._check_commit_message_on_ci(commit, jira_pattern)
+            for commit in commits
+        ]
+        return all(results)
 
     @staticmethod
     def get_http_response(url, timeout=10):
@@ -501,6 +656,104 @@ class QualityChecks:
         if result:
             logger.info("No secrets detected.")
         return result
+
+    @classmethod
+    def is_agent_runtime_static_file(cls, filename):
+        normalized = filename.replace(os.sep, "/")
+        return normalized in cls.AGENT_RUNTIME_STATIC_TRIGGER_FILES or any(
+            normalized.startswith(prefix)
+            for prefix in cls.AGENT_RUNTIME_STATIC_TRIGGER_PREFIXES
+        )
+
+    @classmethod
+    def should_run_agent_runtime_static_analysis(cls, files):
+        return any(cls.is_agent_runtime_static_file(filename) for filename in files or [])
+
+    @staticmethod
+    def name_status_paths(name_status_output):
+        tokens = [token for token in name_status_output.split("\0") if token]
+        paths = []
+        index = 0
+        while index < len(tokens):
+            status = tokens[index]
+            index += 1
+            if status.startswith("R") or status.startswith("C"):
+                if index + 1 >= len(tokens):
+                    break
+                paths.extend([tokens[index], tokens[index + 1]])
+                index += 2
+                continue
+            if index >= len(tokens):
+                break
+            paths.append(tokens[index])
+            index += 1
+        return paths
+
+    @classmethod
+    def should_run_agent_runtime_static_analysis_for_name_status_command(cls, command, failure_message):
+        proc = subprocess.run(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            encoding="utf-8",
+        )
+        if proc.returncode != 0:
+            if proc.stdout:
+                cls.log_captured_tool_output(proc.stdout)
+            logger.error(failure_message)
+            return True
+        return cls.should_run_agent_runtime_static_analysis(cls.name_status_paths(proc.stdout))
+
+    @classmethod
+    def should_run_agent_runtime_static_analysis_for_base_ref(cls, pr_target_branch):
+        return cls.should_run_agent_runtime_static_analysis_for_name_status_command(
+            ["git", "diff", "--name-status", "-z", f"origin/{pr_target_branch}...HEAD"],
+            "Could not inspect PR diff for Agent runtime static analysis.",
+        )
+
+    @staticmethod
+    def check_agent_runtime_static_analysis(files=None, pr_target_branch=None) -> bool:
+        """Run the shared Agent runtime static analysis gate when relevant files changed."""
+        files = files or []
+        should_run = QualityChecks.should_run_agent_runtime_static_analysis(files)
+        if not should_run and pr_target_branch:
+            should_run = QualityChecks.should_run_agent_runtime_static_analysis_for_base_ref(pr_target_branch)
+        if not should_run:
+            logger.info("No Agent runtime files found for static analysis.")
+            return True
+
+        logger.info("Running Agent workflow static analysis...")
+        project_root = FileUtils.get_project_root()
+        command = [sys.executable, "-m", "expkits_ci.agent_static_analysis"]
+        if pr_target_branch:
+            command.extend(["--base-ref", f"origin/{pr_target_branch}"])
+
+        environment = os.environ.copy()
+        expkits_ci_root = os.path.join(project_root, "tools", "expkits-ci")
+        environment["PYTHONPATH"] = (
+            expkits_ci_root
+            if not environment.get("PYTHONPATH")
+            else os.pathsep.join([expkits_ci_root, environment["PYTHONPATH"]])
+        )
+        proc = subprocess.run(
+            command,
+            cwd=project_root,
+            env=environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            encoding="utf-8",
+        )
+        if proc.returncode != 0:
+            if proc.stdout:
+                QualityChecks.log_captured_tool_output(proc.stdout)
+            logger.error("Agent workflow static analysis failed.")
+            return False
+        if proc.stdout:
+            for output_line in proc.stdout.rstrip().splitlines():
+                logger.info(output_line)
+
+        logger.info("Agent workflow static analysis passed.")
+        return True
 
     def check_clang_format(self, files, format, verbose=False) -> bool:
         """Check clang-format validity to files under folder using clang-format."""
@@ -726,6 +979,14 @@ class QualityChecks:
                     "No .clang-tidy config file found at project root; "
                     "HeaderFilterRegex may not apply.")
 
+            # Static-analyzer diagnostics can originate in a third-party header
+            # but remain visible when their path contains a note in the main
+            # source file. Filter on diagnostic locations as well as headers so
+            # only project-owned development sources are reported.
+            line_filter_arg = "--line-filter=" + json.dumps([
+                {"name": self.CLANG_TIDY_PROJECT_FILE_FILTER}
+            ])
+
             for f in files:
                 try:
                     cmd = [
@@ -734,6 +995,7 @@ class QualityChecks:
                         "-p",
                         filtered_compile_config_path,
                         *config_file_args,
+                        line_filter_arg,
                         "--extra-arg=-DFMT_CONSTEVAL="
                     ]
 
@@ -757,22 +1019,56 @@ class QualityChecks:
         return result
 
     @staticmethod
-    def parse_clang_tidy_statistics(log_file):
-        """Parse clang-tidy diagnostics from a log file and count them by check name."""
+    def _count_clang_tidy_diagnostics(diagnostics):
+        """Count parsed clang-tidy diagnostics by check name and severity."""
         check_counts = Counter()
         severity_counts = Counter()
 
-        with open(log_file, 'r', encoding='utf-8') as f:
-            for line in f:
-                match = QualityChecks.CLANG_TIDY_DIAGNOSTIC_RE.match(line.rstrip())
-                if not match:
-                    continue
-
-                severity, check_name = match.groups()
-                severity_counts[severity] += 1
-                check_counts[check_name] += 1
+        for diagnostic in diagnostics:
+            severity_counts[diagnostic["severity"]] += 1
+            check_counts[diagnostic["check"]] += 1
 
         return check_counts, severity_counts
+
+    @classmethod
+    def parse_clang_tidy_diagnostics(cls, log_file):
+        """Parse clang-tidy diagnostics (currently for errors and warnings) with their locations and source excerpts."""
+        diagnostics = []
+
+        with open(log_file, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+
+        for line_index, raw_line in enumerate(lines):
+            match = cls.CLANG_TIDY_DIAGNOSTIC_RE.match(raw_line.rstrip())
+            if not match:
+                continue
+
+            source_context = []
+            for context_line in lines[line_index + 1:]:
+                context_line = context_line.rstrip()
+                if cls.CLANG_TIDY_SOURCE_CONTEXT_RE.match(context_line):
+                    source_context.append(context_line)
+                    continue
+                break
+
+            diagnostics.append({
+                "path": match.group("path"),
+                "line": int(match.group("line")),
+                "column": int(match.group("column")),
+                "severity": match.group("severity"),
+                "message": match.group("message"),
+                "check": match.group("check"),
+                "source_context": source_context,
+            })
+
+        return diagnostics
+
+    @classmethod
+    def parse_clang_tidy_statistics(cls, log_file):
+        """Parse clang-tidy diagnostics from a log file and count them by check name."""
+        diagnostics = cls.parse_clang_tidy_diagnostics(log_file)
+
+        return cls._count_clang_tidy_diagnostics(diagnostics)
 
     @staticmethod
     def clang_tidy_statistics_to_dict(log_file, check_counts, severity_counts):
@@ -840,7 +1136,48 @@ class QualityChecks:
         return regressions, improvements, unchanged
 
     @staticmethod
-    def _log_clang_tidy_baseline_comparison(baseline_file, mode, regressions, improvements):
+    def _log_clang_tidy_regression_diagnostics(regressions, diagnostics):
+        """Connect each regressed check count to the diagnostics that produced it."""
+        logger.error("")
+        logger.error("Source diagnostics for regressed checks:")
+
+        for item in regressions:
+            matching_diagnostics = [
+                diagnostic for diagnostic in diagnostics
+                if diagnostic["check"] == item["check"]
+            ]
+            if not matching_diagnostics:
+                logger.error(
+                    "  %s: no matching source diagnostics were parsed from the clang-tidy log.",
+                    item["check"])
+                continue
+
+            if item["accepted"] == 0:
+                logger.error(
+                    "  %s: the following %d diagnostic(s) account for the %+d regression:",
+                    item["check"], len(matching_diagnostics), item["delta"])
+            else:
+                logger.error(
+                    "  %s: the baseline stores counts only, so it cannot identify which %+d "
+                    "diagnostic(s) are new; showing all %d current diagnostic(s):",
+                    item["check"], item["delta"], len(matching_diagnostics))
+
+            for diagnostic in matching_diagnostics:
+                logger.error(
+                    "    %s:%d:%d: %s: %s [%s]",
+                    diagnostic["path"],
+                    diagnostic["line"],
+                    diagnostic["column"],
+                    diagnostic["severity"],
+                    diagnostic["message"],
+                    diagnostic["check"],
+                )
+                for context_line in diagnostic["source_context"]:
+                    logger.error("    %s", context_line)
+
+    @staticmethod
+    def _log_clang_tidy_baseline_comparison(
+            baseline_file, mode, regressions, improvements, diagnostics=None):
         """Log clang-tidy baseline comparison results."""
         logger.info("clang-tidy baseline comparison:")
         logger.info("  baseline: %s", baseline_file)
@@ -852,6 +1189,8 @@ class QualityChecks:
             for item in regressions:
                 logger.error("%-55s %8d %8d %+8d",
                              item["check"], item["accepted"], item["current"], item["delta"])
+            QualityChecks._log_clang_tidy_regression_diagnostics(
+                regressions, diagnostics or [])
         else:
             logger.info("  result: PASSED")
 
@@ -859,7 +1198,8 @@ class QualityChecks:
             logger.info("  improvements: %d check(s) below accepted baseline", len(improvements))
 
     @staticmethod
-    def compare_clang_tidy_statistics_to_baseline(stats, baseline_file, mode="advisory"):
+    def compare_clang_tidy_statistics_to_baseline(
+            stats, baseline_file, mode="advisory", diagnostics=None):
         """Compare current clang-tidy per-check counts to an accepted baseline."""
         if not os.path.isfile(baseline_file):
             logger.error("Could not find clang-tidy baseline file: %s", baseline_file)
@@ -873,7 +1213,8 @@ class QualityChecks:
 
         current_checks = {check: int(count) for check, count in stats.get("checks", {}).items()}
         regressions, improvements, _ = QualityChecks._compare_clang_tidy_checks(current_checks, baseline_checks)
-        QualityChecks._log_clang_tidy_baseline_comparison(baseline_file, mode, regressions, improvements)
+        QualityChecks._log_clang_tidy_baseline_comparison(
+            baseline_file, mode, regressions, improvements, diagnostics)
 
         if mode == "enforce" and regressions:
             return False
@@ -881,7 +1222,7 @@ class QualityChecks:
         return True
 
     @staticmethod
-    def update_clang_tidy_baseline(stats, baseline_file):
+    def update_clang_tidy_baseline(stats, baseline_file, diagnostics=None):
         """Update baseline to current counts only when no per-check count regresses."""
         if not os.path.isfile(baseline_file):
             logger.error("Could not find clang-tidy baseline file: %s", baseline_file)
@@ -896,7 +1237,7 @@ class QualityChecks:
         current_checks = {check: int(count) for check, count in stats.get("checks", {}).items() if int(count) > 0}
         regressions, improvements, _ = QualityChecks._compare_clang_tidy_checks(current_checks, baseline_checks)
         QualityChecks._log_clang_tidy_baseline_comparison(
-            baseline_file, "update-baseline", regressions, improvements)
+            baseline_file, "update-baseline", regressions, improvements, diagnostics)
 
         if regressions:
             logger.error("Refusing to update clang-tidy baseline because current counts exceed the existing baseline.")
@@ -924,7 +1265,8 @@ class QualityChecks:
             return False
 
         try:
-            check_counts, severity_counts = QualityChecks.parse_clang_tidy_statistics(log_file)
+            diagnostics = QualityChecks.parse_clang_tidy_diagnostics(log_file)
+            check_counts, severity_counts = QualityChecks._count_clang_tidy_diagnostics(diagnostics)
         except Exception as e:
             logger.error("Failed to parse clang-tidy log file: %s", e)
             return False
@@ -956,11 +1298,12 @@ class QualityChecks:
             if not baseline_file:
                 logger.error("--clang-tidy-update-baseline requires --clang-tidy-baseline.")
                 return False
-            return QualityChecks.update_clang_tidy_baseline(stats, baseline_file)
+            return QualityChecks.update_clang_tidy_baseline(
+                stats, baseline_file, diagnostics=diagnostics)
 
         if baseline_file:
             return QualityChecks.compare_clang_tidy_statistics_to_baseline(
-                stats, baseline_file, mode=baseline_mode)
+                stats, baseline_file, mode=baseline_mode, diagnostics=diagnostics)
 
         return True
 

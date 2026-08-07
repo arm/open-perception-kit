@@ -1,0 +1,53 @@
+name: Agent Repair Source Run
+run-name: Agent repair source run ${{ inputs.dispatch_nonce || inputs.source_run_id || github.run_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: GitHub Actions run ID to repair. The source run must belong to a PR with the repair authorization label.
+        required: false
+        default: ""
+        type: string
+      target_branch:
+        description: Optional branch to open the repair PR against. Defaults to the authorized source PR head branch.
+        required: false
+        default: ""
+        type: string
+      task_ref:
+        description: Optional task reference used for repair branch and commit metadata. If omitted, the helper resolves it from branch or PR metadata.
+        required: false
+        default: ""
+        type: string
+      profile_path:
+        description: Repair profile JSON path relative to the repository root.
+        required: false
+        default: .github/agent-runtime/source-run-repair/profiles/profile.json
+        type: string
+      dispatch_nonce:
+        description: Optional unique nonce for dispatch correlation.
+        required: false
+        default: ""
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: agent-repair-source-run-dispatch-${{ inputs.source_run_id || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  run-agent-repair-source-run:
+    name: Run agent source-run repair
+    permissions:
+      actions: write
+      contents: write
+      issues: read
+      pull-requests: write
+    uses: ./.github/workflows/agent-repair-source-run-worker.yml
+    with:
+      source_run_id: ${{ inputs.source_run_id || '' }}
+      target_branch: ${{ inputs.target_branch || '' }}
+      task_ref: ${{ inputs.task_ref || '' }}
+      profile_path: ${{ inputs.profile_path || '.github/agent-runtime/source-run-repair/profiles/profile.json' }}
+    secrets: inherit # pragma: allowlist secret

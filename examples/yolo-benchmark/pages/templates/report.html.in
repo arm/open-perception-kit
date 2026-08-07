@@ -1,0 +1,34 @@
+      <header>
+        <div class="report-header-row"><div>
+          <div class="eyebrow">YOLO benchmark</div>
+          <h1>${title}</h1>
+        </div><a class="back-link top-back-link" href="${back_href}index.html">Back to YOLO report index</a></div>
+        <div class="report-meta-row"><p>${meta_html}</p>${overall_result}</div>
+        <p>${timed_region} | ${image_count} images | imgsz ${imgsz} | ${device} | ${run_count} runs</p>
+      </header>
+${information_section}
+      <section class="report-section" id="summary">
+        <div class="report-section-heading"><h2><button class="section-toggle report-section-toggle" type="button" aria-expanded="true" aria-controls="section-summary"><span>10-run Summary</span></button></h2></div>
+        <div id="section-summary">
+          <section class="section-card">
+            <div class="benchmark-layout"><div class="chart-panel">
+${summary_chart}
+            </div><div class="table-panel">
+${summary_table}
+            </div></div>
+          </section>
+${stability_section}        </div>
+      </section>
+      <section class="report-section" id="runs">
+        <div class="report-section-heading"><h2><button class="section-toggle report-section-toggle" type="button" aria-expanded="true" aria-controls="section-runs"><span>Runs</span></button></h2></div>
+        <div id="section-runs">
+${run_sections}        </div>
+      </section>
+      <section class="report-section" id="dataset-analysis">
+        <div class="report-section-heading"><h2><button class="section-toggle report-section-toggle" type="button" aria-expanded="true" aria-controls="section-dataset-analysis"><span>Dataset Analysis</span></button></h2></div>
+        <div id="section-dataset-analysis">
+${dataset_links}
+${image_profile_section}        </div>
+      </section>
+      <a class="back-link" href="${back_href}index.html">Back to YOLO report index</a>
+${chart_tooltip}

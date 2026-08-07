@@ -1,14 +1,20 @@
 const { expect } = require('@playwright/test');
 
 const MODEL_OUTPUT_VISIBLE_MS = 4000;
+const MODEL_STATE_TIMEOUT_MS = 20000;
 const MODELS_OFF_VISIBLE_MS = 3000;
 const MODEL_ITEM = '.model-item';
 const MODEL_NAME = '.model-name';
 const MODELS_CONTAINER = '#models-container';
 const NO_MODELS_TEXT = 'No models registered yet';
 const STATUS_LINE = '#status-line';
+const VIDEO_PROGRESS_TIMEOUT_MS = 30000;
+const VIDEO_SAMPLE_INTERVAL_MS = 1000;
+const VIDEO_SAMPLE_COUNT = 8;
 
 async function openPekUi(page) {
+  await page.addInitScript(capturePeerConnections);
+
   await expect.poll(async () => {
     try {
       const response = await page.request.get('/pek-config.js');
@@ -30,14 +36,12 @@ async function openPekUi(page) {
   }));
 }
 
-async function waitForVideo(page) {
+async function waitForVideo(page, timeout = 60000) {
   await expect(page.locator(STATUS_LINE)).toContainText(/connected|video/i, {
-    timeout: 60000,
+    timeout,
   });
 
-  await page.waitForFunction(videoTrackIsLive, undefined, { timeout: 60000 });
-
-  await page.waitForTimeout(1000);
+  await waitForHealthyVideoState(page, null, timeout);
 }
 
 async function registeredModelNames(page) {
@@ -56,6 +60,7 @@ async function expectSinkOnlyData(page) {
     timeout: 30000,
   });
   await waitForVideo(page);
+  await expectVideoKeepsPlaying(page);
 }
 
 async function holdAllModelsOff(page, modelNames) {
@@ -99,7 +104,9 @@ async function setModel(page, name, enabled) {
     await expect(toggle).not.toBeChecked();
   }
 
-  await expect.poll(() => backendModelState(page, name), { timeout: 10000 }).toBe(enabled);
+  await expect.poll(() => backendModelState(page, name), {
+    timeout: MODEL_STATE_TIMEOUT_MS,
+  }).toBe(enabled);
 }
 
 function escapeRegExp(value) {
@@ -110,10 +117,198 @@ async function backendModelState(page, name) {
   return page.evaluate(readBackendModelState, name);
 }
 
-function videoTrackIsLive() {
+async function expectVideoKeepsPlaying(page, sampleCount = VIDEO_SAMPLE_COUNT) {
+  let previousState = await page.evaluate(readVideoState);
+  expectVideoStateToBeHealthy(previousState);
+
+  for (let index = 0; index < sampleCount; index += 1) {
+    await page.waitForTimeout(VIDEO_SAMPLE_INTERVAL_MS);
+    previousState = await waitForHealthyVideoState(
+      page, previousState, VIDEO_PROGRESS_TIMEOUT_MS);
+  }
+}
+
+async function expectVideoSurvivesLoops(page, loopCount, loopTimeoutMs) {
+  const state = await waitForVideoLoops(page, loopCount, loopTimeoutMs);
+  await waitForHealthyVideoState(page, state, 10000);
+  await expectVideoKeepsPlaying(page);
+}
+
+async function waitForVideoLoops(page, loopCount, loopTimeoutMs) {
+  let state = await page.evaluate(readVideoState);
+  expectVideoStateToBeHealthy(state);
+
+  for (let loop = 0; loop < loopCount; loop += 1) {
+    const previousStreamId = state.streamId;
+
+    try {
+      await expect.poll(async () => {
+        state = await page.evaluate(readVideoState);
+        return state.streamId !== previousStreamId && videoStreamStateIsHealthy(state);
+      }, { timeout: loopTimeoutMs }).toBe(true);
+    } catch (error) {
+      throw new Error(`${error.message}\nLast video state after loop ${loop + 1}: ${JSON.stringify(state)}`);
+    }
+  }
+
+  return state;
+}
+
+async function waitForHealthyVideoState(page, previousState, timeout) {
+  let state;
+
+  try {
+    await expect.poll(async () => {
+      state = await page.evaluate(readVideoState);
+      return videoStateIsHealthy(state) && videoStateHasProgressed(state, previousState);
+    }, { timeout }).toBe(true);
+  } catch (error) {
+    throw new Error(`${error.message}\nLast video state: ${JSON.stringify(state)}`);
+  }
+
+  return state;
+}
+
+function expectVideoStateToBeHealthy(state) {
+  expect(state.trackState).toBe('live');
+  expect(state.trackMuted).toBe(false);
+  expect(state.paused).toBe(false);
+  expect(state.readyState).toBeGreaterThanOrEqual(2);
+  expect(state.currentTime).toBeGreaterThan(0);
+  expect(state.framesDecoded).toBeGreaterThan(0);
+  expect(state.frameWidth).toBeGreaterThan(0);
+  expect(state.frameHeight).toBeGreaterThan(0);
+  expect(state.feedPaused).toBe(false);
+  expect(state.freezeFrameVisible).toBe(false);
+  expect(state.videoFeedHidden).toBe(false);
+  expect(state.videoOpacity).toBeGreaterThan(0);
+
+  if (state.videoWidth > 0 && state.videoHeight > 0) {
+    expect(state.nonBlackRatio).toBeGreaterThan(0.2);
+    expect(state.lumaVariance).toBeGreaterThan(20);
+  }
+}
+
+function videoStateIsHealthy(state) {
+  return videoStreamStateIsHealthy(state) &&
+    state.feedPaused === false &&
+    state.freezeFrameVisible === false &&
+    state.videoFeedHidden === false &&
+    state.videoOpacity > 0;
+}
+
+function videoStreamStateIsHealthy(state) {
+  const videoElementIsHealthy = state.videoWidth === 0 || state.videoHeight === 0 ||
+    (state.nonBlackRatio > 0.2 && state.lumaVariance > 20);
+
+  return state.trackState === 'live' &&
+    state.trackMuted === false &&
+    state.paused === false &&
+    state.readyState >= 2 &&
+    state.currentTime > 0 &&
+    state.framesDecoded > 0 &&
+    state.frameWidth > 0 &&
+    state.frameHeight > 0 &&
+    videoElementIsHealthy;
+}
+
+function videoStateHasProgressed(state, previousState) {
+  if (!previousState)
+    return true;
+
+  if (state.streamId !== previousState.streamId)
+    return state.framesDecoded > 0 && state.currentTime > 0.25;
+
+  return state.framesDecoded > previousState.framesDecoded &&
+    state.currentTime > previousState.currentTime + 0.25;
+}
+
+function capturePeerConnections() {
+  if (window.__pekPeerConnections)
+    return;
+
+  const NativePeerConnection = window.RTCPeerConnection;
+  window.__pekPeerConnections = [];
+  window.RTCPeerConnection = class extends NativePeerConnection {
+    constructor(configuration) {
+      super(configuration);
+      window.__pekPeerConnections.push(this);
+    }
+  };
+}
+
+async function readVideoState() {
   const video = document.querySelector('#video');
+  const freezeFrame = document.querySelector('#videoFreezeFrame');
   const track = video?.srcObject?.getVideoTracks?.()[0];
-  return track?.readyState === 'live' && !track.muted && video.currentTime > 0;
+  const peerConnections = window.__pekPeerConnections ?? [];
+  const peerConnection = peerConnections[peerConnections.length - 1];
+  let inboundVideo;
+
+  if (peerConnection) {
+    const reports = await peerConnection.getStats();
+    reports.forEach((report) => {
+      if (report.type === 'inbound-rtp' &&
+          (report.kind === 'video' || report.mediaType === 'video')) {
+        inboundVideo = report;
+      }
+    });
+  }
+
+  const state = {
+    currentTime: video?.currentTime ?? 0,
+    paused: video?.paused ?? true,
+    readyState: video?.readyState ?? 0,
+    videoWidth: video?.videoWidth ?? 0,
+    videoHeight: video?.videoHeight ?? 0,
+    streamId: video?.srcObject?.id ?? null,
+    trackState: track?.readyState ?? null,
+    trackMuted: track?.muted ?? null,
+    framesDecoded: inboundVideo?.framesDecoded ?? 0,
+    frameWidth: inboundVideo?.frameWidth ?? 0,
+    frameHeight: inboundVideo?.frameHeight ?? 0,
+    feedPaused: Boolean(window.PEK_FEED_PAUSED),
+    freezeFrameVisible: Boolean(freezeFrame?.classList.contains('is-visible')),
+    videoFeedHidden: document.body.classList.contains('video-feed-hidden'),
+    videoOpacity: Number.parseFloat(video ? getComputedStyle(video).opacity : '0'),
+    nonBlackRatio: 0,
+    lumaVariance: 0,
+  };
+
+  if (!video || video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0)
+    return state;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 32;
+  canvas.height = 18;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+
+  try {
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    let nonBlackPixels = 0;
+    let lumaTotal = 0;
+    let squaredLumaTotal = 0;
+
+    for (let offset = 0; offset < pixels.length; offset += 4) {
+      const luma = 0.2126 * pixels[offset] +
+        0.7152 * pixels[offset + 1] +
+        0.0722 * pixels[offset + 2];
+      lumaTotal += luma;
+      squaredLumaTotal += luma * luma;
+      if (luma > 8)
+        nonBlackPixels += 1;
+    }
+
+    const pixelCount = pixels.length / 4;
+    const meanLuma = lumaTotal / pixelCount;
+    state.nonBlackRatio = nonBlackPixels / pixelCount;
+    state.lumaVariance = squaredLumaTotal / pixelCount - meanLuma * meanLuma;
+  } catch {
+    return state;
+  }
+
+  return state;
 }
 
 function readBackendModelState(modelName) {
@@ -152,9 +347,12 @@ function readBackendModelState(modelName) {
 
 module.exports = {
   expectSinkOnlyData,
+  expectVideoKeepsPlaying,
+  expectVideoSurvivesLoops,
   exerciseModelsOneAtATime,
   holdAllModelsOff,
   openPekUi,
   registeredModelNames,
   waitForVideo,
+  waitForVideoLoops,
 };

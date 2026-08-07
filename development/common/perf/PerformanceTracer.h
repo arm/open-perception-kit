@@ -146,6 +146,12 @@ class PerformanceTracer {
     std::vector<TimingMeasurement> getCurrentCycleMeasurements() const;
 
     /**
+     * Retain current-cycle measurements while at least one consumer is registered
+     */
+    void registerCurrentCycleConsumer();
+    void unregisterCurrentCycleConsumer();
+
+    /**
      * Get statistics for a specific key across all cycles
      */
     TimingStats getStats(const std::string &key) const;
@@ -227,6 +233,7 @@ class PerformanceTracer {
     // Current cycle measurements
     mutable std::mutex current_cycle_mutex_;
     std::vector<TimingMeasurement> current_cycle_measurements_;
+    size_t current_cycle_consumer_count_ = 0;
 
     // Historical data (key -> list of measurements)
     mutable std::mutex history_mutex_;
@@ -244,6 +251,7 @@ class PerformanceTracer {
     // Callbacks
     mutable std::mutex callback_mutex_;
     std::vector<CycleEndCallback> cycle_end_callbacks_;
+    std::atomic_bool has_cycle_end_callbacks_{false};
 };
 class PerformanceMonitor {
   public:

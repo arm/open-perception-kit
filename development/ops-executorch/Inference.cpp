@@ -2,25 +2,22 @@
  * Copyright (C) 2025 Arm Limited. All rights reserved.
  *************************************************************/
 
-#include "Inference.h"
-
-#define EXECUTORCH_ENABLE_LOGGING 1
-
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
-#include <cstdio>
 #include <executorch/extension/module/module.h>
 #include <executorch/extension/tensor/tensor_ptr_maker.h>
 #include <memory>
 #include <vector>
 
+#include "Log.h"
 #include "executorch/runtime/core/error.h"
 #include "fmt/base.h"
 #include "pek/Model.h"
 #include "pek/Result.h"
-#include "pek/String.h"
 #include "pek/Types.h"
+
+#include "Inference.h"
 
 static bool to_pek_dtype(executorch::aten::ScalarType t, pek::Dtype &outType) {
     using executorch::aten::ScalarType;
@@ -105,29 +102,11 @@ Inference::Inference() = default;
 Inference::~Inference() = default;
 
 pek::Result<void> Inference::setupFromJson(const std::string &filePath) {
-
     auto descResult = pek::ModelDescriptor::fromFile(filePath);
     if (!descResult) {
         return tl::unexpected{descResult.error()};
     }
-
-    { // setup model file name
-        std::string modelRoot = filePath;
-        if (pek::utf8::contains(modelRoot, '/')) {
-            size_t lastSlashAt = pek::utf8::lastIndexOf(modelRoot, '/');
-            modelRoot = pek::utf8::left(modelRoot, lastSlashAt + 1);
-        } else {
-            modelRoot = "";
-        }
-        (*descResult).modelFile = modelRoot + (*descResult).modelFile;
-    }
-
-    auto setupResult = setup(*descResult);
-    if (!setupResult) {
-        return tl::unexpected{setupResult.error()};
-    }
-
-    return {};
+    return setup(*descResult);
 }
 
 pek::Result<pek::Model> Inference::inspectModel(executorch::extension::Module &module) {
@@ -137,7 +116,8 @@ pek::Result<pek::Model> Inference::inspectModel(executorch::extension::Module &m
     // method_names() forces program load on first call.
     const auto names = module.method_names();
     if (!names.ok()) {
-        std::printf("Failed to query method names: error=%d\n", (int)names.error());
+        pek::log::error("Failed to query method names: error={}\n",
+                        static_cast<int>(names.error()));
 
         return tl::unexpected{
             PEK_ERROR(pek::ErrorFlag::InferenceRtGenericError,
@@ -241,14 +221,13 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc_) {
         return tl::unexpected{modelResult.error()};
     }
     model = *modelResult;
-    model.modelFamily = modelDesc_.modelFamily;
 
     // --- build up model
 
     std::string modelLog = model.toString();
-    printf("========= Original executorch model ========\n");
-    printf("%s", modelLog.c_str());
-    printf("========= ======== ==== ========== =========\n");
+    pek::log::info("========= Original executorch model ========\n");
+    pek::log::info("{}", modelLog);
+    pek::log::info("========= ======== ==== ========== =========\n");
 
     auto cmResult = model.applyModelFromDescriptor(modelDescriptor);
     if (!cmResult) {
@@ -268,9 +247,9 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc_) {
     // ---
 
     modelLog = model.toString();
-    printf("======= Model updated with json ======\n");
-    printf("%s", modelLog.c_str());
-    printf("========= ================== =========\n");
+    pek::log::info("======= Model updated with json ======\n");
+    pek::log::info("{}", modelLog);
+    pek::log::info("========= ================== =========\n");
 
     return {};
 }
@@ -285,7 +264,7 @@ void Inference::setTensorSizes() {
         size_t tensorByteCount =
             tensorValueCount * pek::getValueTypeByteSize(model.inputs[i].valueType);
         inputTensors[i].resize(tensorByteCount);
-        fmt::print("Executorch input tensor prepared: {} bytes\n", tensorByteCount);
+        pek::log::info("Executorch input tensor prepared: {} bytes\n", tensorByteCount);
     }
 }
 

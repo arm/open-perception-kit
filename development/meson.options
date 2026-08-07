@@ -1,9 +1,14 @@
 option('enable_asserts', type: 'boolean', value: true, description: 'Enable internal asserts')
 option('tests', type: 'boolean', value: false, description: 'Build unit tests')
+option('release_package',
+  type : 'boolean',
+  value : false,
+  description : 'Install only the redistributable PEK release surface'
+)
 
 option('executorch',
   type : 'feature',
-  value : 'disabled',
+  value : 'auto',
   description : 'Enable ExecuTorch integration'
 )
 
