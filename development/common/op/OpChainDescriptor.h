@@ -93,7 +93,10 @@ inline void from_json(const nlohmann::json &j, OpChainDescriptor::Op &op) {
         op.loopId = j.at("loopId").get<std::size_t>();
     else
         op.loopId.reset();
-    j.at("attributes").get_to(op.attributes);
+    if (j.contains("attributes"))
+        j.at("attributes").get_to(op.attributes);
+    else
+        op.attributes.clear();
 }
 
 // ---- OpChainDescriptor ----

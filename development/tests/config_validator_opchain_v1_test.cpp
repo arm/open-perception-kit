@@ -56,6 +56,39 @@ TEST(ConfigValidator, OpChainModelDescriptorAcceptsFilesystemPathsOnly) {
     EXPECT_TRUE(custom) << (custom ? "" : custom.error().toText());
 }
 
+TEST(ConfigValidator, OpChainAttributesAreOptionalExceptForDataBearingOps) {
+    nlohmann::json document{
+        {"version", 1},
+        {"name", "optional-attributes"},
+        {"description", "Validate optional empty operation attributes."},
+        {"ops",
+         {{{"id", "pek-std-ops/InferenceController"}},
+          {{"id", "pek-std-ops/GenericImagePreprocess"}},
+          {{"id", "pek-future-ops/Inference"}, {"attributes", {{"modelDescriptor", "model.json"}}}},
+          {{"id", "custom/Operation"}},
+          {{"id", "pek-std-ops/GenericPostprocess"}, {"attributes", {{"parser", "DummyParser"}}}}}},
+    };
+
+    const auto result = pek::config::validateOpChainJson(document.dump());
+    ASSERT_TRUE(result) << (result ? "" : result.error().toText());
+    for (const auto index : {0U, 1U, 3U})
+        EXPECT_TRUE(result->value().ops[index].attributes.raw().empty());
+
+    for (const auto *id : {"pek-future-ops/Inference", "pek-std-ops/GenericPostprocess"}) {
+        document["ops"] = {{{"id", id}}};
+        const auto missing = pek::config::validateOpChainJson(document.dump());
+        ASSERT_FALSE(missing) << id;
+        EXPECT_TRUE(hasRule(missing.error(), "schema.validation")) << id;
+    }
+}
+
+TEST(ConfigValidator, OpChainProjectionClearsOmittedAttributes) {
+    pek::op::OpChainDescriptor::Op reused;
+    reused.attributes.set("stale", true);
+    nlohmann::json{{"id", "custom/Operation"}}.get_to(reused);
+    EXPECT_TRUE(reused.attributes.raw().empty());
+}
+
 TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {
     nlohmann::json document{
         {"version", 1},

@@ -16,6 +16,7 @@
 
 TEST(YoloParser, StoresBestClassIdOnRectOutput) {
     pek::AttributeMap attrs;
+    attrs.set("outputFormat", "UltralyticsYolo");
     attrs.set("normalizeOutputCoordinates", false);
     attrs.set("applyNms", false);
 

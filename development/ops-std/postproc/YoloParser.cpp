@@ -21,7 +21,7 @@ struct Det {
 };
 
 enum class OutputFormat {
-    UltraliticsYolo,
+    UltralyticsYolo,
     HailoYoloNMS,
 };
 
@@ -32,10 +32,10 @@ enum class CoordOrder {
 };
 
 static OutputFormat parseOutputFormat(const pek::AttributeMap &attrs) {
-    const std::string fmt = attrs.getStringOrDefault("outputFormat", "UltraliticsYolo");
+    const std::string fmt = attrs.getStringOrDefault("outputFormat", "UltralyticsYolo");
 
-    if (fmt == "UltraliticsYolo") {
-        return OutputFormat::UltraliticsYolo;
+    if (fmt == "UltralyticsYolo") {
+        return OutputFormat::UltralyticsYolo;
     }
 
     if (fmt == "HailoYoloNMS") {
@@ -43,7 +43,7 @@ static OutputFormat parseOutputFormat(const pek::AttributeMap &attrs) {
     }
 
     // Unknown: keep behavior predictable.
-    return OutputFormat::UltraliticsYolo;
+    return OutputFormat::UltralyticsYolo;
 }
 
 static float iou(const Det &a, const Det &b) {
@@ -288,7 +288,7 @@ Result<void> YoloParser::parse(const pek::TensorParser::Input &input,
                           [](const Det &a, const Det &b) { return a.conf > b.conf; });
 
         dets.resize(numResults);
-    } else if (outputFormat == OutputFormat::UltraliticsYolo) {
+    } else if (outputFormat == OutputFormat::UltralyticsYolo) {
         // Assume tensor is [*, C, N] or [*, N, C] and the smaller one is C
         bool colFirst = true;
         size_t C = shape.dims[1];
