@@ -182,13 +182,14 @@ stages inherit everything from their parent unless noted otherwise.
   `curl`, and `bash`, then runs `scripts/download-data.sh` unless
   `NO_EXAMPLE_CONTENT=true`, producing `data/videos` for deployment.
 - `pek-models`: starts from `python:3.13-slim-trixie`, adds
-  `huggingface_hub==1.18.0`, then runs `scripts/download-models.py` with the
-  optional Hugging Face build secret to resolve model artifacts under
-  `config/models`.
+  `huggingface_hub==1.18.0` and `jsonschema==4.26.0`, then runs
+  `scripts/download-models.py` with the optional Hugging Face build secret to
+  resolve model artifacts under `config/models`.
 - `pek-dev-base`: adds `wget`, `sudo`, `gnupg`, `shfmt`, `zip`, `python3-pip`,
   `pre-commit`, `lldb-17`, `valgrind`, `file`, GStreamer runtime plugins,
   `actionlint`, ONNX Runtime, `uv`, the `expkits-ci` tool, `plumber`, and
-  `huggingface_hub==1.18.0` in the devtools venv.
+  `huggingface_hub==1.18.0` in the devtools venv, with
+  `jsonschema==4.26.0` inherited from its system-site packages.
 - `pek-dev-tools`: adds Executorch packages, locale support, shell/editor tools
   such as `zsh`, Vim, Neovim, Nano, tmux, bash completion, `mc`, debugging and
   language tools such as `gdb` and `clangd`, browser and device tools such as

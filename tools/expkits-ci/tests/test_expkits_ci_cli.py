@@ -96,6 +96,7 @@ class TestExpkitsCiCli(unittest.TestCase):
         self.assertTrue(parsed_args.check_secrets)
         self.assertTrue(parsed_args.actionlint)
         self.assertTrue(parsed_args.agent_runtime_static_analysis)
+        self.assertTrue(parsed_args.config_schema_check)
         self.assertTrue(parsed_args.commit_diff)
 
     def test_pre_commit_fix_preset_enables_shared_autofix_bundle(self):
@@ -120,6 +121,7 @@ class TestExpkitsCiCli(unittest.TestCase):
         self.assertTrue(parsed_args.license_header)
         self.assertTrue(parsed_args.check_secrets)
         self.assertTrue(parsed_args.actionlint)
+        self.assertFalse(parsed_args.config_schema_check)
         self.assertFalse(parsed_args.clang_format_check)
         self.assertFalse(parsed_args.agent_runtime_static_analysis)
 
@@ -147,6 +149,7 @@ class TestExpkitsCiCli(unittest.TestCase):
         self.assertTrue(parsed_args.actionlint)
         self.assertFalse(parsed_args.clang_format)
         self.assertFalse(parsed_args.agent_runtime_static_analysis)
+        self.assertFalse(parsed_args.config_schema_check)
 
     def test_ci_pr_checks_preset_enables_pr_gate(self):
         checker = Mock()
@@ -169,6 +172,7 @@ class TestExpkitsCiCli(unittest.TestCase):
         self.assertTrue(parsed_args.clang_format_check)
         self.assertTrue(parsed_args.check_secrets)
         self.assertTrue(parsed_args.actionlint)
+        self.assertTrue(parsed_args.config_schema_check)
 
     def test_ci_full_checks_preset_enables_full_gate(self):
         checker = Mock()
@@ -191,6 +195,7 @@ class TestExpkitsCiCli(unittest.TestCase):
         self.assertTrue(parsed_args.actionlint)
         self.assertFalse(parsed_args.branch_naming)
         self.assertFalse(parsed_args.commit_msg_ci)
+        self.assertTrue(parsed_args.config_schema_check)
 
     def test_perform_checks_records_actionlint_result(self):
         checker = Mock()
@@ -214,6 +219,7 @@ class TestExpkitsCiCli(unittest.TestCase):
             shell_format_check=False,
             actionlint=True,
             agent_runtime_static_analysis=False,
+            config_schema_check=False,
         )
         report = expkits_ci_module.ExecutionReport("custom selection", "explicit", 1, ["--actionlint"])
 
@@ -230,6 +236,44 @@ class TestExpkitsCiCli(unittest.TestCase):
             "README.md",
         ])
         self.assertEqual(report.check_results[0].name, "actionlint")
+        self.assertFalse(report.check_results[0].passed)
+
+    def test_perform_checks_records_config_schema_result(self):
+        checker = Mock()
+        checker.check_config_schema.return_value = False
+        args = Mock(
+            check_secrets=False,
+            branch_naming=False,
+            commit_msg=False,
+            commit_msg_ci=False,
+            clang_format=False,
+            clang_format_check=False,
+            clang_tidy=False,
+            clang_tidy_stats=False,
+            python_format=False,
+            python_format_check=False,
+            cmake_format=False,
+            cmake_format_check=False,
+            license_header=False,
+            license_header_check=False,
+            shell_format=False,
+            shell_format_check=False,
+            actionlint=False,
+            agent_runtime_static_analysis=False,
+            config_schema_check=True,
+        )
+        report = expkits_ci_module.ExecutionReport(
+            "custom selection",
+            "all tracked git files",
+            0,
+            ["--config-schema-check"],
+        )
+
+        result = expkits_ci_module.perform_checks(checker, args, [], report)
+
+        self.assertFalse(result)
+        checker.check_config_schema.assert_called_once_with()
+        self.assertEqual(report.check_results[0].name, "config descriptor validation")
         self.assertFalse(report.check_results[0].passed)
 
     def test_main_returns_one_when_checks_fail_without_autofixes(self):

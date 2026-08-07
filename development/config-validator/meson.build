@@ -69,3 +69,12 @@ config_validator_dep = declare_dependency(
   dependencies : config_validator_public_deps,
   link_with : config_validator,
 )
+
+pek_config_check = executable(
+  'pek-config-check',
+  ['pek-config-check.cpp', 'RepositoryValidator.cpp'],
+  cpp_args : ['-DFMT_HEADER_ONLY'],
+  dependencies : [config_validator_dep, jsoncons_dep],
+  link_whole : [logging],
+  install : false,
+)

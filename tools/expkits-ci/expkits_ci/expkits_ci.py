@@ -74,6 +74,8 @@ def setup_argument_parser(parser):
                              action="store_true", help="Run actionlint on GitHub Actions workflows.")
     check_group.add_argument("--agent-runtime-static-analysis", default=False,
                              action="store_true", help="Run Agent workflow mypy, pyflakes, vulture, and stale-reference checks.")
+    check_group.add_argument("--config-schema-check", default=False,
+                             action="store_true", help="Run Model and OpChain descriptor validation.")
     check_group.add_argument("--ci-pr-checks", default=False,
                              action="store_true", help="Run the synchronized CI pull request quality gate.")
     check_group.add_argument("--ci-full-checks", default=False,
@@ -152,12 +154,14 @@ def setup_ci_pr_checks(args):
     args.jira_ticket = True
     setup_pre_commit_checks(args, format=False)
     args.agent_runtime_static_analysis = True
+    args.config_schema_check = True
 
 
 def setup_ci_full_checks(args):
     """Enable the CI full quality gate."""
     setup_pre_commit_checks(args, format=False)
     args.agent_runtime_static_analysis = True
+    args.config_schema_check = True
 
 
 def enable_implicit_verbose_logging(args):
@@ -178,6 +182,8 @@ def get_enabled_check_flags(args):
         enabled_checks.append("--actionlint")
     if args.agent_runtime_static_analysis:
         enabled_checks.append("--agent-runtime-static-analysis")
+    if args.config_schema_check:
+        enabled_checks.append("--config-schema-check")
     if args.branch_naming:
         enabled_checks.append("--branch-naming")
     if args.commit_msg:
@@ -450,6 +456,12 @@ def perform_checks(checker, args, files, report):
                 files,
                 pr_target_branch=args.pr_target_branch,
             ),
+        ) and result
+    if args.config_schema_check:
+        result = run_check(
+            report,
+            "config descriptor validation",
+            checker.check_config_schema,
         ) and result
 
     return result

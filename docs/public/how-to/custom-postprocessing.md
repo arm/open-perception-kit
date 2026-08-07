@@ -75,7 +75,12 @@ The shortest practical path is:
 5. add the new parser source file under `development/ops-std/postproc/`
 6. add that source file to `development/ops-std/meson.build`
 7. register the parser name in `GenericPostprocessOp.cpp`
-8. reference that parser name from the relevant `opchain.json`
+8. add its closed attribute schema under
+   `config/schemas/v1/opchain/ops/generic-postprocess/`
+9. add that schema's `$ref` to `generic-postprocess.schema.json`
+10. add its `$id` and path to the schema manifest in `development/config-validator/meson.build`
+11. reference that parser name from the relevant `opchain.json`
+12. run `expkits-ci --config-schema-check` in the development container
 
 This keeps the change local to the inference chain and avoids touching `pekinfer` or the outer GStreamer pipeline.
 
@@ -128,7 +133,9 @@ If you can reuse an existing `Perception` structure such as `Rect`, `Classificat
 2. create a new parser implementation under `development/ops-std/postproc/<YourParser>.cpp`
 3. add that `.cpp` file to `development/ops-std/meson.build`
 4. include and register the parser in `development/ops-std/GenericPostprocessOp.cpp`
-5. reference the parser name from the model's `opchain.json`
+5. add the parser's closed schema resource, parent dispatcher `$ref`, and schema manifest entry
+6. reference the parser name from the model's `opchain.json`
+7. run the descriptor gate
 
 That is the normal path when the output tensor meaning is new, but the result still fits an existing `Perception` type.
 
@@ -152,8 +159,11 @@ If you need a genuinely new `Perception` structure because none of the existing 
 7. `development/ops-std/GenericPostprocessOp.cpp`
 	- include the parser header
 	- instantiate it from the `parser` attribute string
-8. the relevant `config/models/<model>/opchain.json` or `config/opchains/.../opchain.json`
+8. the parser's closed schema resource, parent dispatcher `$ref`, and schema manifest entry
+9. the relevant `config/models/<model>/opchain.json` or `config/opchains/.../opchain.json`
 	- route inference output into that parser by name
+10. `expkits-ci --config-schema-check`
+	- verify the new contract and every checked-in descriptor
 
 If another downstream element needs to understand the new `contentType`, you may also need to update that element. The common example is `development/elements/pekosd/pekosd.cpp` for overlay rendering.
 
@@ -227,14 +237,15 @@ The usual chain shape is still:
 
 ```json
 {
+	"version": 1,
 	"name": "CameraContact",
+	"description": "Estimate camera contact for each detected face.",
 	"ops": [
 		{
 			"id": "pek-std-ops/InferenceController",
 			"loopId": 1,
 			"attributes": {
-				"contentType": "humanFace",
-				"inferenceSource": "inferenceImageCrops"
+				"contentType": "humanFace"
 			}
 		},
 		{
@@ -245,13 +256,13 @@ The usual chain shape is still:
 				"inputImageSourceName": "pipelineVideoFrame"
 			}
 		},
-			{
-				"id": "pek-onnx-ops/Inference",
-				"loopId": 1,
-				"attributes": {
-					"modelDescriptor": "/work/config/models/cam-contact/model.json"
-				}
-			},
+		{
+			"id": "pek-onnx-ops/Inference",
+			"loopId": 1,
+			"attributes": {
+				"modelDescriptor": "model.json"
+			}
+		},
 		{
 			"id": "pek-std-ops/GenericPostprocess",
 			"loopId": 1,
@@ -282,7 +293,9 @@ By the end of this page, you should have:
 - a clear reason why the built-in parsers are not sufficient
 - a concrete parser implementation or a precise parser-generation prompt
 - the parser registered in `GenericPostprocessOp`
+- the parser's schema resource registered in the parent dispatcher and schema bundle
 - an `opchain.json` that references the new parser name
+- a successful `expkits-ci --config-schema-check`
 
 Success looks like this: your model outputs are translated into the right `Perception` structure, and the runtime can consume those results without guessing.
 

@@ -12,8 +12,14 @@ from pathlib import Path
 
 from huggingface_hub import hf_hub_download
 from huggingface_hub.constants import HF_HUB_CACHE
+from jsonschema import Draft202012Validator
+from jsonschema.exceptions import SchemaError, ValidationError
+from referencing.exceptions import Unresolvable
 
 LOGGER = logging.getLogger(__name__)
+MODEL_SCHEMA = (
+    Path(__file__).resolve().parents[1] / "config/schemas/v1/model.schema.json"
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -53,22 +59,52 @@ def main(models_dir: Path, token: str | None) -> None:
         )
 
     credential_cache = _cache_dir(token)
+    try:
+        schema = json.loads(MODEL_SCHEMA.read_text())
+        Draft202012Validator.check_schema(schema)
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise ValueError(f"Invalid model schema {MODEL_SCHEMA}: {error}") from error
+    except SchemaError as error:
+        raise ValueError(
+            f"Invalid model schema {MODEL_SCHEMA}: {error.message}"
+        ) from error
+    validator = Draft202012Validator(schema)
+    downloads = []
 
     for descriptor in sorted(models_dir.rglob("*.json")):
-        model = json.loads(descriptor.read_text())
-        if "modelFile" not in model:
+        try:
+            model = json.loads(descriptor.read_text())
+        except (OSError, UnicodeError, json.JSONDecodeError) as error:
+            raise ValueError(f"Invalid model descriptor {descriptor}: {error}") from error
+        if not isinstance(model, dict) or not {"modelFile", "hfDownload"} & model.keys():
+            continue
+
+        try:
+            validator.validate(model)
+        except ValidationError as error:
+            raise ValueError(
+                f"Invalid model descriptor {descriptor}: {error.message}"
+            ) from error
+        except Unresolvable as error:
+            raise ValueError(
+                f"Invalid model schema {MODEL_SCHEMA}: unresolved reference {error.ref}"
+            ) from error
+
+        source = model.get("hfDownload")
+        if source is None:
             continue
 
         model_file = descriptor.parent / model["modelFile"]
         model_dir = descriptor.parent.resolve()
         destination = (model_dir / model["modelFile"]).resolve()
         if not destination.is_relative_to(model_dir):
-            raise ValueError(f"modelFile escapes its model directory: {descriptor}")
+            raise ValueError(
+                f"modelFile resolves outside its model directory: {descriptor}"
+            )
 
-        source = model.get("hfDownload")
-        if source is None:
-            continue
+        downloads.append((model_file, destination, source))
 
+    for model_file, destination, source in downloads:
         source_extension = Path(source["filename"]).suffix.lower()
         destination_extension = destination.suffix.lower()
         if source_extension != destination_extension:
@@ -105,4 +141,8 @@ def main(models_dir: Path, token: str | None) -> None:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     arguments = parse_args()
-    main(arguments.models_dir, arguments.token)
+    try:
+        main(arguments.models_dir, arguments.token)
+    except (OSError, ValueError) as error:
+        LOGGER.error("%s", error)
+        raise SystemExit(1) from None

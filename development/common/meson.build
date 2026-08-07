@@ -1,6 +1,4 @@
 
-subdir('logging')
-
 common = shared_library(
   'pek-common',
   sources: [

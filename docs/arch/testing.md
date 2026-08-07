@@ -47,5 +47,4 @@ inside framework or system libraries may belong in suppression tuning.
 
 Known gaps are tracked in [Known Limitations](known-limitations.md). The main
 areas needing stronger coverage are parser behavior against known tensors,
-JSON/schema validation, GStreamer element lifecycle behavior, and expected
-`Perception` output contracts.
+GStreamer element lifecycle behavior, and expected `Perception` output contracts.

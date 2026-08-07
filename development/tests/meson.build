@@ -189,6 +189,15 @@ python = import('python').find_installation()
 test('pek_menu_tests', pek_menu_tests)
 test('config_schema_resources_tests', config_schema_resources_tests)
 test('config_validator_tests', config_validator_tests)
+test(
+  'pek_config_check_cli_tests',
+  python,
+  args : [
+    files('pek_config_check_cli_test.py'),
+    pek_config_check.full_path(),
+    meson.project_source_root() / '..',
+  ],
+)
 test('opchain_descriptor_tests', opchain_descriptor_tests)
 test(
   'pek_menu_cli_tests',
@@ -201,6 +210,7 @@ test(
   'model_artifact_build_tests',
   python,
   args : [files('model_artifact_build_test.py')],
+  timeout : 120,
 )
 test(
   'qos_pipeline_tests',

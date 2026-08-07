@@ -37,9 +37,7 @@ def add_model(
                 "ops": [
                     {
                         "id": op_id,
-                        "attributes": {
-                            "modelDescriptor": f"/work/config/models/{model_id}/model.json"
-                        },
+                        "attributes": {"modelDescriptor": "model.json"},
                     }
                 ]
             }
@@ -236,7 +234,7 @@ class ReleaseToolTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             repo_root = root / "source"
-            shared_root = repo_root / "config/opchains"
+            shared_root = repo_root / "config/opchains/tracking"
             shared_root.mkdir(parents=True)
 
             add_release_models(repo_root)
@@ -248,7 +246,15 @@ class ReleaseToolTests(unittest.TestCase):
                                 "id": "pek-onnx-ops/Inference",
                                 "attributes": {
                                     "modelDescriptor": (
-                                        "/work/config/models/yolov11/model.json"
+                                        "../../models/yolov11/model.json"
+                                    )
+                                },
+                            },
+                            {
+                                "id": "pek-onnx-ops/Inference",
+                                "attributes": {
+                                    "modelDescriptor": (
+                                        "/work/config/models/osnet_x0_25/model.json"
                                     )
                                 },
                             }
@@ -265,6 +271,21 @@ class ReleaseToolTests(unittest.TestCase):
                     stage_root=str(package_root),
                 )
             )
+            staged_opchain = json.loads(
+                (
+                    package_root / "share/pek/opchains/tracking/demo.json"
+                ).read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                [
+                    op["attributes"]["modelDescriptor"]
+                    for op in staged_opchain["ops"]
+                ],
+                [
+                    "../../models/yolov11/model.json",
+                    "../../models/osnet_x0_25/model.json",
+                ],
+            )
             release_tool.validate_release_payload(package_root, repo_root)
 
             model_path = package_root / "share/pek/models/yolov11/model.onnx"
@@ -274,7 +295,7 @@ class ReleaseToolTests(unittest.TestCase):
                 release_tool.validate_release_payload(package_root, repo_root)
             model_path.write_bytes(model)
 
-            opchain_path = package_root / "share/pek/opchains/demo.json"
+            opchain_path = package_root / "share/pek/opchains/tracking/demo.json"
             opchain = opchain_path.read_bytes()
             opchain_path.unlink()
             with self.assertRaisesRegex(RuntimeError, "opchains payload"):
@@ -332,11 +353,7 @@ class ReleaseToolTests(unittest.TestCase):
                         "ops": [
                             {
                                 "id": "pek-onnx-ops/Inference",
-                                "attributes": {
-                                    "modelDescriptor": (
-                                        "/work/config/models/cam-contact/model.json"
-                                    )
-                                },
+                                "attributes": {"modelDescriptor": "model.json"},
                             }
                         ]
                     }

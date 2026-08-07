@@ -68,7 +68,9 @@ FROM --platform=${BUILDPLATFORM} python:3.13-slim-trixie AS pek-models
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
   PYTHONDONTWRITEBYTECODE=1
 
-RUN python3 -m pip install --no-cache-dir huggingface_hub==1.18.0
+RUN python3 -m pip install --no-cache-dir \
+  huggingface_hub==1.18.0 \
+  jsonschema==4.26.0
 
 WORKDIR /work
 COPY config config
@@ -156,6 +158,7 @@ RUN set -eux; \
 COPY tools/expkits-ci /tmp/pek-tools/expkits-ci
 COPY tools/plumber /tmp/pek-tools/plumber
 RUN set -eux; \
+  uv pip install --system --break-system-packages jsonschema==4.26.0; \
   uv venv --system-site-packages /opt/pek-venvs/devtools; \
   uv pip install --python /opt/pek-venvs/devtools/bin/python \
   /tmp/pek-tools/expkits-ci \

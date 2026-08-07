@@ -84,12 +84,25 @@ values. Persistent output belongs in `Perception`, not in the context. See
 Op entry can provide:
 
 - `id`: library and Op identifier used for dynamic loading.
-- `group`: optional grouping label copied onto the runtime Op.
 - `loopId`: optional repeated-execution group identifier.
 - `attributes`: Op-specific configuration.
 
+The exact `<library>/Inference` operation name is the OpChain v1 inference
+extension contract. Its only attribute is the required filesystem path
+`modelDescriptor`. Relative paths resolve from the OpChain descriptor directory;
+absolute paths are used unchanged. The loader preserves path components rather
+than lexically normalizing them, so filesystem symlink and parent-traversal
+semantics remain intact. Differently named Ops remain custom and keep open
+attributes.
+
 This keeps composition and model changes in configuration instead of requiring a
-rebuild.
+rebuild. A non-zero `loopId` forms one contiguous group of at least two Ops and
+may not reappear later in the chain. The scheduler executes the group's first Op
+once, then repeats the remaining Ops until one of them breaks the loop. A built-in
+stage is either entirely unlooped or assigns the same non-zero `loopId` to its
+controller, preprocess, inference, optional custom Ops, and final postprocess. In
+the looped form, InferenceController starts the group. A non-empty controller
+`contentType` requires the looped form.
 
 ## Inference and Postprocessing Interfaces
 
@@ -100,6 +113,12 @@ Some Ops expose narrower contracts used by inference and postprocessing code:
 
 These interfaces keep backend execution and result interpretation separate from
 concrete Op implementations.
+
+A new inference library that uses `<library>/Inference` must implement
+`OpInterfaceInference` and consume the shared `modelDescriptor` contract. The
+descriptor validator intentionally does not enumerate backend libraries or load
+plugins; missing factories, interface mismatches, artifacts, and backend
+compatibility are runtime errors.
 
 ## Loading and Extension
 

@@ -46,6 +46,9 @@ detected face.
 
 ```json
 {
+  "version": 1,
+  "name": "FaceAndGaze",
+  "description": "Detect faces, then estimate gaze for each face.",
   "ops": [
     {
       "id": "pek-std-ops/InferenceController",
@@ -61,7 +64,7 @@ detected face.
     {
       "id": "pek-onnx-ops/Inference",
       "attributes": {
-        "modelDescriptor": "/work/config/models/ultraface/model.json"
+        "modelDescriptor": "../../models/ultraface/model.json"
       }
     },
     {
@@ -92,17 +95,14 @@ detected face.
       "id": "pek-onnx-ops/Inference",
       "loopId": 1,
       "attributes": {
-        "modelDescriptor": "/work/config/models/gaze-detection/model.json"
+        "modelDescriptor": "../../models/gaze-detection/model.json"
       }
     },
     {
       "id": "pek-std-ops/GenericPostprocess",
       "loopId": 1,
       "attributes": {
-        "parser": "GazeDetectionParser",
-        "normalizeOutputCoordinates": false,
-        "confidenceThreshold": 0.5,
-        "iouThreshold": 0.3
+        "parser": "GazeDetectionParser"
       }
     }
   ]
@@ -110,4 +110,5 @@ detected face.
 ```
 
 The same pattern applies to other runtimes by swapping the inference Op and model
-descriptor.
+descriptor. Each `modelDescriptor` path is relative to this OpChain descriptor; an
+absolute filesystem path is also valid.

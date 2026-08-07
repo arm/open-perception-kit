@@ -20,8 +20,9 @@ At the end of this page, you should be able to place new files in the right fold
 ### `config/`
 This is the most important folder for normal usage.
 
-- `config/models/` stores model folders. Put `model.json`, a basic and minimal
-  `opchain.json`, and `index.md` here. A local development model can sit beside
+- `config/models/` stores model folders. Put `model.json` (or non-empty
+  `model-<variant>.json` files for colocated multi-stage models), usually a basic and
+  minimal `opchain.json`, and `index.md` here. A local development model can sit beside
   its descriptor in the bind-mounted checkout. Published artifacts included in
   container images use descriptor `hfDownload` metadata; only explicitly
   allowlisted repository-local binaries enter the Docker build context.

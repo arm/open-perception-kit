@@ -13,6 +13,8 @@ BUILD_DIR="$PROJECT_ROOT/build"
 TESTS_BUILD_DIR="$PROJECT_ROOT/build-test"
 PEK_MENU=$PROJECT_ROOT/build/meson-out/pek-menu
 PEK_MENU_OUT=/work/tools/pek-menu
+PEK_CONFIG_CHECK=$PROJECT_ROOT/build/meson-out/pek-config-check
+PEK_CONFIG_CHECK_OUT=/work/tools/pek-config-check
 COMMON_LIBRARY=$PROJECT_ROOT/build/meson-out/libpek-common.so
 COMMON_LIBRARY_OUT=/work/tools/libpek-common.so
 EXTRA_SETUP_ARGS=()
@@ -28,6 +30,7 @@ meson_build_is_configured() {
 
 stage_runtime_artifacts() {
     cp "$PEK_MENU" "$PEK_MENU_OUT"
+    cp "$PEK_CONFIG_CHECK" "$PEK_CONFIG_CHECK_OUT"
     cp "$COMMON_LIBRARY" "$COMMON_LIBRARY_OUT"
 }
 

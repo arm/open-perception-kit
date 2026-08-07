@@ -25,6 +25,7 @@ class AgentWorkflowBehaviorTests(unittest.TestCase):
             "scripts/private/github_actions.py",
             "scripts/private/tests/test_github_api.py",
             "scripts/private/test_support/agent_workflow.py",
+            "tools/expkits-ci/expkits_ci/config_schema.py",
             "tools/expkits-ci/tests/test_agent_static_analysis.py",
         ):
             with self.subTest(path=path):

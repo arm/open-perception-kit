@@ -44,8 +44,10 @@ Adding a parser normally means:
 
 1. Add a parser class implementing the `TensorParser` contract.
 2. Register it with `GenericPostprocessOp`.
-3. Reference it from the model or OpChain configuration.
-4. Add focused tests using known output tensors and expected `Perception` layers.
+3. Add its closed attribute schema resource, parent dispatcher `$ref`, and schema manifest entry.
+4. Reference it from the model or OpChain configuration.
+5. Add focused tests using known output tensors and expected `Perception` layers.
+6. Run `expkits-ci --config-schema-check` in the development container.
 
 Python-based postprocessing is not part of the current runtime. See
 [Known Limitations](known-limitations.md).

@@ -30,7 +30,7 @@ contains resolved input and output tensor definitions, including:
 - tensor layout or semantic kind (`DataKind`)
 - quantization parameters
 - normalization parameters for inputs
-- model family and content type
+- model name and content type
 - static or dynamic output behavior
 
 Once constructed, the object is treated as resolved runtime configuration for the
@@ -43,8 +43,8 @@ from the backend model file. A minimal image model descriptor looks like this:
 
 ```json
 {
+  "version": 1,
   "name": "yolo",
-  "modelFamily": "yolo-obj",
   "contentType": "genericObject",
   "modelFile": "yolo11n-fp32-320.onnx",
   "dynamicOutput": true,
@@ -57,8 +57,9 @@ from the backend model file. A minimal image model descriptor looks like this:
 }
 ```
 
-Descriptors can define tensor shapes, data kinds, value types, quantization
-values, normalization values, and scalar/vector input metadata.
+Descriptors can define tensor shapes, data kinds, value types, normalization
+values, and scalar/vector input metadata. Quantization values come from backend
+model inspection rather than descriptor fields.
 
 ## Loading Lifecycle
 
