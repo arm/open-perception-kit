@@ -7,13 +7,15 @@ first supported contract to reject invalid configuration before plugin or model-
 ## What Changes
 
 - Add a Draft 2020-12 schema for Model v1 and a versioned local schema bundle for OpChain v1.
-- Keep `GenericPostprocess` validation closed while moving each registered parser's attribute
-  contract into its own local schema resource and dispatching those resources from the parent Op.
+- Keep `GenericPostprocess` validation closed while dispatching each distinct registered-parser
+  attribute shape through a local schema resource; the four no-config parsers share one resource.
 - Reserve the exact `<library>/Inference` Op ID shape for the shared v1 inference contract so a new
   runtime backend does not require a central schema or semantic-validator allowlist.
 - Require `version` in every supported descriptor and route by the descriptor filename and
   version, with exact non-empty `model-<variant>.json` and `opchain-<variant>.json` forms.
 - Add one C++ validation pipeline used by production loaders and the `pek-config-check` CLI.
+- Add a repository-native schema-resource check for Draft 2020-12 validity, unique `$id` values,
+  and offline local-reference resolution.
 - Reject control characters in descriptor values that cross GLib, filesystem, or plugin C-string
   boundaries, and reject JSON numbers that cannot be represented by their typed `float` consumers,
   so every published validated value remains safe and canonically serializable.

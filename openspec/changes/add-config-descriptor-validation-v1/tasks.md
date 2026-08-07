@@ -19,8 +19,8 @@
 ## 3. OpChain v1
 
 - [x] 3.1 Complete the OpChain v1 schema, split shared Op structure and built-in Op contracts into
-  local versioned resources, and keep closed built-in Op/parser attributes with open custom Op
-  attributes.
+  local versioned resources by distinct attribute shape, keep common Op attributes optional, and
+  retain closed built-in contracts with open custom Op attributes.
 - [ ] 3.2 Add loop, built-in stage, and low/high threshold semantic rules before any Op binding.
 - [ ] 3.3 Route OpChain production parsing through the common validator; add description/version
   round-trip, remove group, and omit the internal loop sentinel from JSON.
@@ -29,6 +29,8 @@
 - [ ] 3.5 Require a controller-led built-in stage to be entirely unlooped or share one controller-
   first loop, and cover the valid boundary, partial-loop, and empty/non-empty-content invalid
   combinations with one semantic regression test.
+- [x] 3.6 Add a repository-native static test that meta-validates every v1 schema resource, rejects
+  duplicate `$id` values, and resolves every local `$ref` offline.
 
 ## 4. Supported descriptors and consumers
 
@@ -191,7 +193,7 @@
 
 - [x] 18.1 Define subordinate parser schema ownership and the exact `<library>/Inference` extension
   contract in proposal, design, and specification; pass strict OpenSpec validation.
-- [ ] 18.2 Move all 13 registered parser attribute contracts into separate local resources and
+- [ ] 18.2 Cover all 13 registered parsers with one local resource per distinct attribute shape and
   generate the embedded/live schema inventory from one explicit Meson manifest.
 - [ ] 18.3 Replace the four-backend inference allowlists with the shared exact-name predicate in
   schema validation, semantic validation, and file-backed path resolution.

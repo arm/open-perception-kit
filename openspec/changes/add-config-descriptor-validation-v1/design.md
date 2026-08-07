@@ -62,6 +62,11 @@ enums, ranges, cardinality, closed objects, exact tensor layouts, field applicab
 same-document conditionals, built-in Op/parser attribute matrices, canonical loop syntax, and exact
 duplicate feedback entries. Semantic C++ does not repeat these checks.
 
+The common Op shape requires only `id`; `attributes` is optional and projects as an empty object
+when omitted. Exact `<library>/Inference` and `GenericPostprocess` Ops require an attribute object
+because they require `modelDescriptor` and `parser`, respectively. Existing authored empty objects
+remain valid and need no catalog cleanup.
+
 Every JSON number projected or cast to `float` is bounded to the finite `float` range in schema;
 probability and letterbox fields already have narrower bounds. This keeps schema-valid typed values
 finite and canonically serializable without a second C++ numeric-validation pass.
@@ -186,6 +191,7 @@ config/schemas/v1/
         ├── generic-postprocess.schema.json
         └── generic-postprocess/
             ├── camera-contact.schema.json
+            ├── no-config.schema.json
             ├── ...
             └── yolo-x.schema.json
 ```
@@ -194,8 +200,10 @@ config/schemas/v1/
 composes the built-in Op resources. The Inference resource selects the reserved exact
 `<library>/Inference` shape and owns its shared closed attribute contract, independent of the
 currently available backend libraries. `GenericPostprocess` remains the owning Op and dispatches
-its closed `attributes` object through one local subordinate resource per registered parser. These
-resources are not standalone Ops. Adding a parser requires its resource, one parent dispatcher
+its closed `attributes` object through one local subordinate resource per distinct contract shape.
+`GazeDetectionParser`, `ObjectEmbeddingParser`, `PersonClassificationParser`, and `RvmParser` share
+one no-config resource; parser-specific shapes remain separate. These resources are not standalone
+Ops. Adding a parser reuses a compatible resource or adds one resource, one parent dispatcher
 reference, and one schema-bundle manifest entry; no registry framework or plugin introspection is
 introduced.
 
@@ -249,6 +257,10 @@ generates the embedded `{id, path, text}` array. Production resolves `$ref` only
 bundle. The CLI uses the same array to read and meta-validate the checkout's current schema files,
 then passes them to the same offline resolver and engine so a running dev container does not
 validate edits against stale embedded content.
+
+A separate test-only Meson target scans the checked-in v1 resource tree, meta-validates every
+resource, rejects duplicate `$id` values, and compiles each resource with an offline resolver. It
+lands with the schema bundle so contract-only changes cannot depend on an ad-hoc validation run.
 
 ## Diagnostics
 

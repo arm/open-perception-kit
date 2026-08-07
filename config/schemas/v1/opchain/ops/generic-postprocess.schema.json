@@ -13,6 +13,9 @@
     ]
   },
   "then": {
+    "required": [
+      "attributes"
+    ],
     "properties": {
       "attributes": {
         "oneOf": [
@@ -23,7 +26,7 @@
             "$ref": "urn:arm:pek:schema:generic-postprocess-parser-dummy:v1"
           },
           {
-            "$ref": "urn:arm:pek:schema:generic-postprocess-parser-gaze-detection:v1"
+            "$ref": "urn:arm:pek:schema:generic-postprocess-parser-no-config:v1"
           },
           {
             "$ref": "urn:arm:pek:schema:generic-postprocess-parser-imagenet-classification:v1"
@@ -32,16 +35,7 @@
             "$ref": "urn:arm:pek:schema:generic-postprocess-parser-modnet-segmentation:v1"
           },
           {
-            "$ref": "urn:arm:pek:schema:generic-postprocess-parser-object-embedding:v1"
-          },
-          {
             "$ref": "urn:arm:pek:schema:generic-postprocess-parser-paddle-ocr-detection:v1"
-          },
-          {
-            "$ref": "urn:arm:pek:schema:generic-postprocess-parser-person-classification:v1"
-          },
-          {
-            "$ref": "urn:arm:pek:schema:generic-postprocess-parser-rvm:v1"
           },
           {
             "$ref": "urn:arm:pek:schema:generic-postprocess-parser-scrfd:v1"

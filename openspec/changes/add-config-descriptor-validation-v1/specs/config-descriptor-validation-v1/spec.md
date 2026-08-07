@@ -2,29 +2,19 @@
 
 ### Requirement: One versioned validation pipeline
 
-The system SHALL validate every supported Model and OpChain descriptor through one C++
-per-document pipeline: duplicate-aware JSON parse, filename/version dispatch, offline Draft 2020-12
-schema, private typed projection, and the applicable Model v1 or OpChain v1 semantics. Production loaders and
-`pek-config-check` SHALL call the same implementation. Validation SHALL finish before runtime
-model-file use or Op-library binding. `pek-config-check` SHALL privately orchestrate live-schema
-validation, descriptor discovery, repeated per-document validation, and report aggregation. This
-repository orchestration SHALL NOT be part of the production validator API and SHALL NOT add a
-cross-descriptor semantic layer.
-
-Reusable C++ validation functions SHALL return structured reports or errors without logging. The
-outer executable or runtime owner SHALL log a failed operation once through its standard logging
-API; validation helpers SHALL NOT duplicate that side effect.
+Every supported Model and OpChain descriptor SHALL pass duplicate-aware JSON parsing,
+filename/version routing, offline Draft 2020-12 schema validation, and its applicable v1 semantic
+rules before model-file use or Op binding. Production loading and repository validation SHALL
+produce the same per-document result, and a failed operation SHALL be reported once.
 
 Every supported descriptor SHALL contain `version` equal to 1. `model.json` and
 `model-<variant>.json` filenames SHALL select Model validation; `opchain.json` and
 `opchain-<variant>.json` filenames SHALL select OpChain validation, where `<variant>` contains at
 least one character. The basename SHALL end exactly in `.json`; `model-.json` and
 `opchain-.json` are unsupported. Schema selection SHALL use only this filename convention
-and `version`, without a model-specific exception. File-backed production entry points SHALL route
-their actual path. Typed in-memory entry points SHALL default their source path to `model.json` or
-`opchain.json`; an explicitly supplied source SHALL be treated as a routing path. An expected typed
-return value MAY reject a mismatched route but SHALL NOT select the schema. The supported schemas
-SHALL be:
+and `version`, without a model-specific exception. File-backed validation SHALL route the actual
+path. In-memory Model and OpChain validation SHALL route as `model.json` and `opchain.json`
+respectively unless an explicit source path is supplied. The supported schemas SHALL be:
 
 - `config/schemas/v1/model.schema.json`,
   `$id: urn:arm:pek:schema:model-descriptor:v1`;
@@ -32,15 +22,14 @@ SHALL be:
   `$id: urn:arm:pek:schema:opchain-descriptor:v1`.
 
 The OpChain root schema SHALL reference local versioned resources under
-`config/schemas/v1/opchain/`. Those resources SHALL encapsulate the shared Op structure and each
-supported built-in Op's ID selection and attribute contract. The `GenericPostprocess` resource SHALL
-dispatch `attributes` through one subordinate local resource per registered parser; each parser
-resource SHALL own that parser's closed attribute object. The exact `<library>/Inference` ID shape
-SHALL select one shared Inference resource without enumerating backend libraries.
+`config/schemas/v1/opchain/`. Those resources SHALL describe the shared Op structure and each
+supported built-in Op's ID selection and attribute contract. `GenericPostprocess` parser variants
+with the same closed attribute shape MAY share one subordinate resource; variants with different
+shapes SHALL use distinct resources. The exact `<library>/Inference` ID shape SHALL select one
+shared Inference resource without enumerating backend libraries.
 
-Every schema resource SHALL use the same duplicate-aware parser and SHALL compile against the
-built-in Draft 2020-12 meta-schema. Only IDs declared by the local schema bundle and the built-in
-meta-schema may resolve; network resolution SHALL never occur.
+Every schema resource SHALL be valid against the built-in Draft 2020-12 meta-schema, declare a
+unique `$id`, and resolve every local reference from the checked-in bundle without network access.
 
 #### Scenario: Model v1 routing
 - **WHEN** `model.json` or `model-<variant>.json` declares `version: 1`
@@ -52,11 +41,11 @@ meta-schema may resolve; network resolution SHALL never occur.
 
 #### Scenario: Unsupported filename or version
 - **WHEN** the descriptor filename is unsupported or `version` is missing or unsupported
-- **THEN** validation fails before typed projection or setup
+- **THEN** validation fails before descriptor use or setup
 
 #### Scenario: Production filename determines type
-- **WHEN** a Model payload is loaded through `ModelDescriptor::fromFile` from a filename outside
-  `model.json` and `model-<variant>.json`
+- **WHEN** a Model payload is loaded from a filename outside `model.json` and
+  `model-<variant>.json`
 - **THEN** dispatch fails before runtime path resolution even when the payload satisfies Model v1
 
 #### Scenario: Empty OpChain variant
@@ -71,29 +60,10 @@ meta-schema may resolve; network resolution SHALL never occur.
 - **WHEN** an object repeats a key at any nesting depth
 - **THEN** parse validation reports the duplicate and the document does not reach schema validation
 
-#### Scenario: Repository orchestration stays internal
-- **WHEN** production code consumes the validator dependency
-- **THEN** it can invoke descriptor validation without exposing or linking the CLI's repository
-  traversal helper
-
-### Requirement: Exact rule ownership
-
-Standard Draft 2020-12 schemas SHALL own JSON types, required members, enums, ranges, cardinality,
-closed objects, exact layouts, field applicability, same-document conditionals, and exact
-`uniqueItems`. C++ semantic rules SHALL NOT repeat schema checks. They SHALL own only overflow,
-cross-value/cross-index comparison and sequence/grouping for which the standard schema has no
-direct relational keyword, plus complete control-character checks for
-values that cross C-string boundaries because the selected implementation's regex engine cannot
-enforce them for embedded U+0000. Bounded
-cross-index rules SHALL NOT be duplicated into hand-unrolled schema branches.
-
-#### Scenario: Schema-expressible failure
-- **WHEN** a descriptor violates a type, range, field matrix, layout, or conditional
-- **THEN** a schema issue is reported and no equivalent descriptor-phase issue is emitted
-
-#### Scenario: Cross-value failure
-- **WHEN** a structurally valid descriptor violates an applicable cross-value invariant
-- **THEN** exactly the applicable version-specific semantic rule reports it
+#### Scenario: Broken schema resource
+- **WHEN** a v1 schema is meta-invalid, duplicates another resource's `$id`, or references an
+  unavailable local target
+- **THEN** the repository-native schema-resource check fails without network resolution
 
 ### Requirement: Common descriptor semantics
 
@@ -128,8 +98,8 @@ absolute paths and parent traversal, whenever `hfDownload` is present. Descripto
 not access the network or require the artifact to exist. Descriptors without `hfDownload` SHALL not
 be subjected to this staging-only lexical rule.
 
-After schema projection, `model.v1.model-file-control` SHALL reject C0, DEL, and C1 control
-characters in `modelFile` before filesystem or model-library use.
+Model validation SHALL reject C0, DEL, and C1 control characters in `modelFile` before filesystem
+or model-library use.
 
 #### Scenario: Control character in a model artifact locator
 - **WHEN** `modelFile` contains a C0, DEL, or C1 control character
@@ -151,7 +121,7 @@ The schema SHALL express the supported input kind/dtype/field matrix:
 - dynamic output has no declared output tensors;
 - feedback contains `mode: "Copy"` and 0–15 source/destination indices, with at most 16 entries.
 
-Every JSON number stored in or cast to a C++ `float` SHALL lie in the inclusive finite range
+Every JSON number consumed as a runtime `float` SHALL lie in the inclusive finite range
 `[-3.4028234663852886e38, 3.4028234663852886e38]`. This applies to mean/std components and
 Value/Vector input values; their narrower positivity or cardinality rules remain in force.
 
@@ -187,7 +157,7 @@ input dtype means Float32. Unknown root, tensor, color, and feedback fields SHAL
 #### Scenario: Model number exceeds finite float range
 - **WHEN** a mean/std component or Value/Vector input number cannot be represented as finite
   `float`
-- **THEN** Model schema validation fails before typed projection
+- **THEN** Model schema validation fails before runtime use
 
 ### Requirement: Model download schema gate
 
@@ -195,9 +165,8 @@ Before making any remote request, the model downloader SHALL load the checked-in
 `config/schemas/v1/model.schema.json`. A JSON object containing either a root `modelFile` or
 `hfDownload` member SHALL be identified for Model consumption and validated before the downloader
 inspects either field. It SHALL prepare and validate all download destinations before starting the
-first download. The downloader SHALL NOT duplicate schema-expressible lexical path rules in Python.
-Expected schema, JSON, and filesystem failures SHALL be emitted once through Python's standard
-logger at the executable boundary, followed by a nonzero exit without a traceback.
+first download. Expected schema, JSON, and filesystem failures SHALL produce one concise
+diagnostic, a nonzero exit, and no traceback.
 
 After schema success, the downloader SHALL resolve each `hfDownload` destination and reject it if
 filesystem state places it outside the descriptor directory. This resolved containment check SHALL
@@ -232,8 +201,8 @@ SHALL be ignored by artifact staging even when its runtime `modelFile` is absolu
 
 After schema success and without artifacts, Model v1 SHALL run these stable rules:
 
-- `model.v1.tensor-size`: checked `size_t` multiplication of every declared shape SHALL not
-  overflow, followed by checked multiplication by the effective dtype byte width;
+- `model.v1.tensor-size`: every declared shape and its effective dtype byte width SHALL produce a
+  representable total byte size;
 - `model.v1.feedback-destination`: destination index SHALL exist, target RawTensorData, and occur at
   most once; source fan-out is allowed;
 - `model.v1.feedback-source`: for static output, source index SHALL exist;
@@ -257,10 +226,12 @@ Dynamic-output source existence and compatibility SHALL be deferred rather than 
 ### Requirement: OpChain descriptor v1 schema
 
 OpChain v1 SHALL require `version: 1`, canonical trim-nonempty `name` and
-`description`, and a non-empty `ops` array. Each Op SHALL contain only `id`, `attributes`, and an
+`description`, and a non-empty `ops` array. Each Op SHALL contain `id`, optional `attributes`, and
 optional positive `loopId`; zero SHALL be represented by omission. `id` SHALL be exactly one
 `library/op` pair with at least one non-whitespace character in each component. The removed `group`
-field SHALL not be part of v1.
+field SHALL not be part of v1. Exact `<library>/Inference` and
+`pek-std-ops/GenericPostprocess` Ops SHALL require `attributes`; built-in controller and preprocess
+Ops and custom Ops MAY omit it, with omission equivalent to an empty object.
 
 Known built-in Op attributes SHALL be closed:
 
@@ -286,7 +257,7 @@ GenericPostprocess parser attributes SHALL be:
 | `YoloParser` | Yolo v1 matrix below |
 | `YoloXParser` | YoloX v1 matrix below |
 
-Yolo v1 SHALL allow `outputFormat="UltraliticsYolo"` (`UltraliticsYolo` or `HailoYoloNMS`),
+Yolo v1 SHALL allow `outputFormat="UltralyticsYolo"` (`UltralyticsYolo` or `HailoYoloNMS`),
 `confidenceThreshold=0.25` and `iouThreshold=0.45` in `[0,1]`,
 `coordinatesAreNormalized=false`, `normalizeOutputCoordinates=true`, and `applyNms=true`.
 Explicit `applyNms=false` SHALL prohibit `iouThreshold`. Only `HailoYoloNMS` SHALL allow positive
@@ -299,24 +270,32 @@ YoloX v1 SHALL allow positive `classCount=80`, `confidenceThreshold=0.25` and
 `scoreMode="objectnessClass"` (`objectnessClass` or `classOnly`). Explicit `applyNms=false` SHALL
 prohibit `iouThreshold`.
 
-Schema `default` values are annotations; the C++ consumers SHALL implement these effective
-defaults and SHALL reject present wrong types rather than defaulting them. Custom Op attributes
-SHALL remain open recursive JSON objects. Parser type/range rules, CameraContact class pairing,
-Yolo/YoloX conditionals, and unused-key rejection SHALL be schema-owned.
+Omitted fields SHALL use the listed effective defaults. Present fields with unsupported types
+SHALL be rejected instead of replaced by defaults. Custom Op attributes SHALL remain open
+recursive JSON objects. Parser type/range rules, CameraContact class pairing, Yolo/YoloX
+conditionals, and unused-key rejection SHALL be enforced during schema validation.
 
 The exact operation name `Inference` SHALL be reserved for the shared v1 inference extension
-contract: its attributes SHALL be closed to `modelDescriptor`, and its runtime implementation SHALL
-provide `OpInterfaceInference`. A new backend using that contract SHALL require no central backend
-allowlist change. Plugin/factory loading, interface conformance, artifact validity, and backend
-compatibility SHALL remain runtime checks. A differently named Op such as `InferenceLike` SHALL
-remain a custom Op with open attributes.
+contract: its attributes SHALL be closed to `modelDescriptor` regardless of library prefix. A new
+backend using that contract SHALL be accepted without changing the descriptor contract. Plugin
+loading, interface conformance, artifact validity, and backend compatibility SHALL remain runtime
+checks. A differently named Op such as `InferenceLike` SHALL remain a custom Op with open
+attributes.
 
 #### Scenario: Known built-in attributes
 - **WHEN** a built-in Op uses only its v1 attributes
 - **THEN** it passes OpChain schema validation
 
+#### Scenario: Op without configuration
+- **WHEN** a controller, preprocess, or custom Op omits `attributes`
+- **THEN** OpChain schema validation treats the Op as having an empty attribute object
+
+#### Scenario: Configured Op requires attributes
+- **WHEN** an exact `<library>/Inference` or `pek-std-ops/GenericPostprocess` Op omits `attributes`
+- **THEN** OpChain schema validation rejects the Op
+
 #### Scenario: Unknown built-in attribute
-- **WHEN** a built-in Op contains an attribute not consumed by its v1 implementation
+- **WHEN** a built-in Op contains an attribute not declared by the v1 contract
 - **THEN** OpChain schema validation fails at that attribute
 
 #### Scenario: Custom Op attributes
@@ -398,47 +377,34 @@ the next Op after that group; `AbortChain` SHALL stop the chain successfully.
 - **THEN** the scheduler skips the remaining loop workers and resumes with the next Op after the
   group without re-running the group's first Op
 
-### Requirement: Canonical typed projections
+### Requirement: Validated descriptor values and path resolution
 
-Model and OpChain typed projection SHALL occur within validation and no typed value SHALL be
-published before parse, schema, and applicable descriptor semantics succeed. Projection failures
-SHALL become structured validation issues rather than escaping exceptions. The public validation
-result SHALL be an immutable typed validated value, not a mutable DOM. Serializers SHALL emit only
-v1-valid fields, including `version`, without a redundant type field.
+No Model or OpChain descriptor value SHALL be exposed before parsing, schema validation, and all
+applicable descriptor semantics succeed. A conversion failure SHALL be reported as a validation
+issue. Serialization SHALL emit only v1 fields, including `version` and no redundant type field,
+and the serialized result SHALL validate again as the same descriptor type.
 
-Every schema-valid number projected to or consumed as `float` SHALL remain finite after projection,
-and canonical serialization of a validated typed descriptor SHALL validate again as the same v1
-descriptor type before any file-backed runtime path resolution.
+Every schema-valid number consumed as a runtime `float` SHALL remain finite. A serialized OpChain
+SHALL include `description`, omit the removed `group` field, and omit `loopId` when no loop is
+authored. An explicitly present zero loop SHALL fail validation.
 
-The OpChain projection SHALL include description and contain neither a group field nor a zero loop
-sentinel. Its optional `loopId` SHALL project omission as no value, not as zero. Only the
-descriptor-to-runtime handoff SHALL convert no value to the scheduler's private zero sentinel, and
-a manually constructed descriptor containing an explicit zero SHALL fail typed semantic validation.
+Build-only `hfDownload` SHALL not be exposed to runtime consumers or emitted by canonical
+serialization. In-memory validation SHALL preserve authored `modelFile` and `modelDescriptor`
+values. File-backed loading SHALL resolve relative references from the containing descriptor's
+directory before runtime use and preserve absolute references.
 
-Build-only `hfDownload` SHALL be omitted from the validated JSON projection and its canonical
-serialization. `ModelDescriptor::fromJson` SHALL expose the validated authored `modelFile` value.
-`ModelDescriptor::fromFile` SHALL keep its existing return type and resolve a relative `modelFile`
-from the descriptor directory in the returned runtime value while preserving an absolute path.
-Backends SHALL continue using that resolved `modelFile` directly; no second loaded wrapper or
-backend interface SHALL be introduced.
-
-`OpChainDescriptor::fromJson` SHALL preserve authored `modelDescriptor` values for canonical
-serialization. `OpChainDescriptor::fromFile` SHALL resolve relative exact `<library>/Inference` references
-from the OpChain descriptor directory and preserve absolute references before configuring Ops.
-Neither file-backed loader SHALL lexically normalize or canonicalize the joined path. Filesystem
-components SHALL retain their authored order so the operating system resolves symlinks followed by
-parent traversal without silently selecting a different target. Target canonicalization and
-symlink-policy validation remain resolved/runtime concerns.
+File-backed path resolution SHALL preserve authored components instead of lexically normalizing or
+canonicalizing the joined path. The operating system therefore remains responsible for resolving a
+symlink followed by parent traversal; target canonicalization and symlink policy remain runtime
+concerns.
 
 #### Scenario: Canonical OpChain round trip
 - **WHEN** a valid OpChain without a loop is serialized
-- **THEN** the typed descriptor contains no loop value and the result contains version/description
-  and omits `loopId`
+- **THEN** the result contains version and description, omits `loopId`, and validates as OpChain v1
 
 #### Scenario: File-backed Model uses a local artifact
 - **WHEN** a valid Model descriptor is loaded from `config/models/example/model.json`
-- **THEN** the returned `ModelDescriptor::modelFile` resolves below that descriptor directory and
-  backends consume it through the existing interface
+- **THEN** its relative `modelFile` resolves below that descriptor directory before backend use
 
 #### Scenario: File-backed OpChain resolves a model descriptor
 - **WHEN** an OpChain descriptor contains `../../models/example/model.json`
@@ -458,13 +424,13 @@ symlink-policy validation remain resolved/runtime concerns.
 - **WHEN** either filesystem reference contains an `hf:`, `file:`, or other URI-like value
 - **THEN** schema validation rejects it before runtime path resolution
 
-#### Scenario: Direct typed OpChain setup
-- **WHEN** a caller supplies a manually constructed OpChain descriptor to `setupFromDescriptor`
-- **THEN** the shared typed OpChain semantics run before any Op is bound or configured
+#### Scenario: Direct in-memory OpChain setup
+- **WHEN** a caller supplies an in-memory OpChain descriptor for setup
+- **THEN** OpChain semantics run before any Op is bound or configured
 
-#### Scenario: Explicit typed zero loop is rejected
-- **WHEN** a manually constructed OpChain descriptor contains an engaged `loopId` equal to zero
-- **THEN** typed OpChain semantics reject it before conversion to the runtime representation
+#### Scenario: Explicit zero loop is rejected
+- **WHEN** an in-memory OpChain descriptor contains `loopId` equal to zero
+- **THEN** validation rejects it before runtime scheduling
 
 ### Requirement: Repository CLI and CI
 
@@ -472,18 +438,16 @@ symlink-policy validation remain resolved/runtime concerns.
 meta-validate the complete current checked-in schema bundle, discover every JSON descriptor below
 `config/models/` and `config/opchains/`, exclude `config/experimental/`, validate the complete set,
 and report all independently readable failures deterministically. Repository discovery SHALL
-inspect routing filenames rather than descriptor content. Traversal, live-schema loading, and
-aggregation SHALL be private CLI implementation details and SHALL add no cross-descriptor semantic
-rules.
+inspect routing filenames rather than descriptor content and SHALL add no cross-descriptor
+semantic rules.
 
 JSON output SHALL contain `diagnosticFormatVersion: 1` and the shared issue fields. Exit SHALL be 0
 for valid, 1 for validation failure, and 2 for invocation/internal failure.
 `expkits-ci --config-schema-check` SHALL only invoke this CLI, and PR/full presets SHALL include it.
 Help, successful reports, and every JSON report SHALL be written to stdout without logger prefixes.
-Human-readable validation failures and invocation/internal diagnostics SHALL use
-`pek::log::error()` and SHALL be flushed before exit so they reach the configured PEK log targets.
-JSON reports are the machine-readable diagnostic interface and SHALL NOT be duplicated into the
-logger.
+Human-readable validation failures and invocation/internal diagnostics SHALL be emitted once and
+made visible before exit. JSON reports are the machine-readable diagnostic interface and SHALL NOT
+be duplicated as another diagnostic.
 
 #### Scenario: Complete supported repository
 - **WHEN** the CLI validates the supported checkout
@@ -498,7 +462,7 @@ logger.
 
 #### Scenario: Live schema edit in a running container
 - **WHEN** a contributor edits a checked-in schema and runs `pek-config-check`
-- **THEN** the current schema is meta-validated and used by the same C++ engine
+- **THEN** the current schema is meta-validated and used for descriptor validation
 
 #### Scenario: Stable machine-readable diagnostics
 - **WHEN** validation fails in JSON format
@@ -509,9 +473,9 @@ logger.
 - **WHEN** a valid or invalid repository is requested in JSON format
 - **THEN** stdout contains one parseable report without logger prefixes or a duplicate log record
 
-#### Scenario: Human-readable validation failure uses standard logging
+#### Scenario: Human-readable validation failure
 - **WHEN** repository validation fails in text format
-- **THEN** the CLI emits the report once through `pek::log::error()`, flushes it, and exits 1
+- **THEN** the CLI emits the report once and exits 1
 
 ### Requirement: Contributor documentation
 

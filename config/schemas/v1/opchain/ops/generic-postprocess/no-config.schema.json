@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:arm:pek:schema:generic-postprocess-parser-no-config:v1",
+  "title": "No-config GenericPostprocess parser attributes v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "parser"
+  ],
+  "properties": {
+    "parser": {
+      "enum": [
+        "GazeDetectionParser",
+        "ObjectEmbeddingParser",
+        "PersonClassificationParser",
+        "RvmParser"
+      ]
+    }
+  }
+}

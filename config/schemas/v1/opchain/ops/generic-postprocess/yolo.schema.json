@@ -13,10 +13,10 @@
     },
     "outputFormat": {
       "enum": [
-        "UltraliticsYolo",
+        "UltralyticsYolo",
         "HailoYoloNMS"
       ],
-      "default": "UltraliticsYolo"
+      "default": "UltralyticsYolo"
     },
     "confidenceThreshold": {
       "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/probability",

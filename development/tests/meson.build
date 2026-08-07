@@ -5,6 +5,15 @@ pek_menu_tests = executable(
   dependencies : [gtest_main_dep, gtest_dep, pek_menu_parser_dep],
 )
 
+config_schema_resources_tests = executable(
+  'config_schema_resources_tests',
+  ['config_schema_resources_test.cpp'],
+  cpp_args : [
+    '-DPEK_REPOSITORY_ROOT="@0@"'.format(meson.project_source_root() / '..'),
+  ],
+  dependencies : [gtest_main_dep, gtest_dep, jsoncons_dep],
+)
+
 model_descriptor_tests = executable(
   'model_descriptor_tests',
   ['model_descriptor_test.cpp'],
@@ -156,6 +165,7 @@ node = find_program('node', required : false)
 python = import('python').find_installation()
 
 test('pek_menu_tests', pek_menu_tests)
+test('config_schema_resources_tests', config_schema_resources_tests)
 test('opchain_descriptor_tests', opchain_descriptor_tests)
 test(
   'pek_menu_cli_tests',
