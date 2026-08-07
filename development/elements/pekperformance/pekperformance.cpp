@@ -656,7 +656,7 @@ static gboolean gst_pek_performance_src_event(GstBaseTransform *trans, GstEvent 
 }
 
 // Plugin initialization
-static gboolean plugin_init(GstPlugin *plugin) {
+static gboolean pekperformance_plugin_init(GstPlugin *plugin) {
     GST_DEBUG_CATEGORY_INIT(
         gst_pek_performance_debug, "pekperformance", 0, "PEK Performance Overlay");
 
@@ -667,7 +667,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   GST_VERSION_MINOR,
                   pekperformance,
                   "PEK Performance Overlay - displays real-time performance metrics",
-                  plugin_init,
+                  pekperformance_plugin_init,
                   "1.0",
                   "LGPL",
                   PACKAGE,

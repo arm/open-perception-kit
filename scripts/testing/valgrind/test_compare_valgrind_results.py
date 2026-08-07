@@ -3,6 +3,7 @@
 # Copyright (C) 2026 Arm Limited. All rights reserved.
 ################################################################
 
+import hashlib
 import importlib.util
 import subprocess
 import sys
@@ -12,6 +13,52 @@ from pathlib import Path
 
 
 SCRIPT_PATH = Path(__file__).with_name("compare-valgrind-results.py")
+VALGRIND_DRIVER_PATH = Path(__file__).with_name("test-elements-with-valgrind.sh")
+EXPECTED_SUPPRESSION_MANIFEST_SHA256 = (
+    "38649edbb8e72237c286d43162439d19a7b576e934d0831c90b8533c675981c1"  # pragma: allowlist secret
+)
+PEK_SUPPRESSION_FUNCTIONS = {
+    "_Z21gst_pek_comm_get_typev",
+    "_Z21gst_pek_sink_get_typev",
+    "_ZL18pekosd_plugin_initP10_GstPlugin",
+    "_ZL19pekcomm_plugin_initP10_GstPlugin",
+    "_ZL19peksink_plugin_initP10_GstPlugin",
+    "_ZL20pekinfer_plugin_initP10_GstPlugin",
+    "_ZL22gst_pek_osd_class_initP15_GstPekOsdClass",
+    "_ZL22pektracker_plugin_initP10_GstPlugin",
+    "_ZL23gst_pek_comm_class_initP15GstPekCommClass",
+    "_ZL23gst_pek_sink_class_initP16_GstPekSinkClass",
+    "_ZL23gst_pekinfer_class_initP16GstPekInferClass",
+    "_ZL25gst_pekinfer_transform_ipP17_GstBaseTransformP10_GstBuffer",
+    "_ZL25gst_pek_osd_get_type_oncev",
+    "_ZL25gst_pektracker_class_initP18GstPekTrackerClass",
+    "_ZL26gst_pek_comm_get_type_oncev",
+    "_ZL26gst_pek_sink_get_type_oncev",
+    "_ZL26gst_pekinfer_get_type_oncev",
+    "_ZL26pekperformance_plugin_initP10_GstPlugin",
+    "_ZL28gst_pek_comm_method_get_typev",
+    "_ZL28gst_pektracker_get_type_oncev",
+    "_ZL29gst_pek_osd_class_intern_initPv",
+    "_ZL30gst_pek_comm_class_intern_initPv",
+    "_ZL30gst_pek_performance_class_initP23_GstPekPerformanceClass",
+    "_ZL30gst_pek_sink_class_intern_initPv",
+    "_ZL30gst_pekinfer_class_intern_initPv",
+    "_ZL32gst_pektracker_class_intern_initPv",
+    "_ZL33gst_pek_performance_get_type_oncev",
+    "_ZL37gst_pek_performance_class_intern_initPv",
+    "_ZN3pek4MetaINS_20PerceptionMetaTraitsEE3addEP10_GstBufferSt10shared_ptrINS_10PerceptionEE",  # pragma: allowlist secret
+    "_ZN3pek4MetaINS_20PerceptionMetaTraitsEE3getEP10_GstBuffer",  # pragma: allowlist secret
+    "_ZN3pek4MetaINS_20PerceptionMetaTraitsEE4infoEv",  # pragma: allowlist secret
+    "_ZN3pek4MetaINS_20PerceptionMetaTraitsEE8api_typeEv",  # pragma: allowlist secret
+    "_ZN3pek4onnx11InferenceOp9configureERKNS_12AttributeMapE",  # pragma: allowlist secret
+    "_ZN3pek4onnx9Inference13setupFromJsonERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE",  # pragma: allowlist secret
+    "_ZN3pek4onnx9Inference5setupERKNS_15ModelDescriptorE",  # pragma: allowlist secret
+    "_ZN3pek5Tools18DynamicLibraryOpenERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE",  # pragma: allowlist secret
+    "gst_pek_osd_get_type",
+    "gst_pek_performance_get_type",
+    "gst_pekinfer_get_type",
+    "gst_pektracker_get_type",
+}
 
 
 def import_compare_module():
@@ -162,12 +209,97 @@ class TestCompareValgrindResults(unittest.TestCase):
 
             self.assertFalse(compare.load_summary(current) - compare.load_summary(baseline))
 
-    def test_suppressions_do_not_pin_shared_library_versions(self):
-        suppressions = SCRIPT_PATH.with_name("suppressed-warnings").read_text(encoding="utf-8")
+    def test_suppressions_match_only_the_approved_full_stack_manifest(self):
+        driver = VALGRIND_DRIVER_PATH.read_text(encoding="utf-8")
+        self.assertEqual(
+            [line.strip() for line in driver.splitlines() if "--num-callers=" in line],
+            ["--num-callers=64"],
+        )
 
+        suppressions = SCRIPT_PATH.with_name("suppressed-warnings").read_text(encoding="utf-8")
+        blocks = []
+        block = None
         for line in suppressions.splitlines():
-            if line.strip().startswith("obj:"):
-                self.assertNotIn(".so.", line)
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line == "{":
+                self.assertIsNone(block)
+                block = []
+            elif line == "}":
+                self.assertIsNotNone(block)
+                blocks.append(tuple(block))
+                block = None
+            else:
+                self.assertIsNotNone(block)
+                block.append(line)
+        self.assertIsNone(block)
+
+        self.assertEqual(len(blocks), 260)
+        self.assertTrue(
+            {
+                "gstreamer_registry_or_plugin_loader_reachable",
+                "onnxruntime_pthread_once_small_definite",
+                "ld_loader_dlopen_reachable_generic_ld",
+            }.isdisjoint(block[0] for block in blocks)
+        )
+        manifest = "\n\n".join("\n".join(block) for block in sorted(blocks))
+        self.assertEqual(
+            hashlib.sha256(manifest.encode()).hexdigest(),
+            EXPECTED_SUPPRESSION_MANIFEST_SHA256,
+        )
+
+        sequences = set()
+        repository_functions = set()
+        for name, tool, leak_kinds, *frames in blocks:
+            self.assertTrue(name.startswith("pek_reachable_"))
+            self.assertRegex(name, r"\A[a-z_]+\Z")
+            self.assertEqual(tool, "Memcheck:Leak")
+            self.assertEqual(leak_kinds, "match-leak-kinds: reachable")
+            self.assertTrue(frames)
+            self.assertLess(len(frames), 64)
+            self.assertNotIn("...", frames)
+            self.assertIn(frames[-1], {"fun:(below main)", "fun:clone"})
+            if frames[-1] == "fun:clone":
+                self.assertEqual(frames[-2], "fun:start_thread")
+
+            sequence = tuple(frames)
+            self.assertNotIn(sequence, sequences)
+            sequences.add(sequence)
+
+            anchors = {
+                frame.removeprefix("fun:")
+                for frame in frames
+                if frame.startswith("fun:")
+                and frame.removeprefix("fun:") in PEK_SUPPRESSION_FUNCTIONS
+            }
+            self.assertTrue(anchors)
+            repository_functions.update(anchors)
+            self.assertTrue(
+                any(
+                    frame.startswith("obj:/usr/")
+                    or frame.startswith("obj:/opt/")
+                    or (
+                        frame.startswith("fun:")
+                        and frame.removeprefix("fun:") not in PEK_SUPPRESSION_FUNCTIONS
+                    )
+                    for frame in frames
+                )
+            )
+
+            for frame in frames:
+                self.assertTrue(frame.startswith(("fun:", "obj:")))
+                self.assertFalse(frame.startswith("src:"))
+                if frame.startswith("fun:"):
+                    self.assertNotIn("*", frame)
+                    self.assertNotIn("?", frame)
+                elif "*" in frame or "?" in frame:
+                    self.assertNotIn("obj:/work/", frame)
+                    self.assertTrue(frame.endswith(".so.*"))
+                    self.assertEqual(frame.count("*"), 1)
+                    self.assertNotIn("?", frame)
+
+        self.assertEqual(repository_functions, PEK_SUPPRESSION_FUNCTIONS)
 
     def test_non_valgrind_xml_exits_with_input_error(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -275,6 +407,25 @@ class TestCompareValgrindResults(unittest.TestCase):
             "FAILED: 1 new Valgrind error(s) introduced compared to the baseline.",
             result.stderr,
         )
+
+    def test_cli_reports_repository_owned_still_reachable_errors(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            baseline = tmp / "baseline.xml"
+            current = tmp / "current.xml"
+            self.write_summary(baseline, "")
+            reachable_error = self.error_xml().replace(
+                "Leak_DefinitelyLost",
+                "Leak_StillReachable",
+            )
+            self.write_summary(current, reachable_error)
+
+            result = self.run_cli(baseline, current)
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("Current errors  : 1", result.stderr)
+        self.assertIn("New errors      : 1", result.stderr)
+        self.assertIn("[NEW] Leak_StillReachable", result.stderr)
 
     def test_cli_exits_two_for_invalid_input(self):
         with tempfile.TemporaryDirectory() as tmpdir:
