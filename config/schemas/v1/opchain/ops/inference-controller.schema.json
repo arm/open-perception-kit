@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:arm:pek:schema:inference-controller-op:v1",
+  "title": "InferenceController Op v1",
+  "if": {
+    "properties": {
+      "id": {
+        "const": "pek-std-ops/InferenceController"
+      }
+    },
+    "required": [
+      "id"
+    ]
+  },
+  "then": {
+    "properties": {
+      "attributes": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "contentType": {
+            "type": "string",
+            "default": ""
+          }
+        }
+      }
+    }
+  }
+}

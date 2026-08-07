@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:arm:pek:schema:generic-postprocess-parser-modnet-segmentation:v1",
+  "title": "ModNetSegmentationParser attributes v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "parser"
+  ],
+  "properties": {
+    "parser": {
+      "const": "ModNetSegmentationParser"
+    },
+    "thresholdLow": {
+      "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/probability",
+      "default": 0.2
+    },
+    "thresholdHigh": {
+      "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/probability",
+      "default": 0.8
+    }
+  }
+}
