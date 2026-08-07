@@ -1,4 +1,10 @@
 config_validator_fs = import('fs')
+jsoncons_dep = dependency(
+  'jsoncons',
+  required : true,
+  fallback : ['jsoncons', 'jsoncons_dep'],
+)
+
 config_validator_schema_manifest = [
   ['urn:arm:pek:schema:model-descriptor:v1', 'config/schemas/v1/model.schema.json'],
   ['urn:arm:pek:schema:opchain-descriptor:v1', 'config/schemas/v1/opchain.schema.json'],
