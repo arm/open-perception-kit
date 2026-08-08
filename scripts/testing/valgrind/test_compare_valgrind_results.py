@@ -15,7 +15,7 @@ from pathlib import Path
 SCRIPT_PATH = Path(__file__).with_name("compare-valgrind-results.py")
 VALGRIND_DRIVER_PATH = Path(__file__).with_name("test-elements-with-valgrind.sh")
 EXPECTED_SUPPRESSION_MANIFEST_SHA256 = (
-    "38649edbb8e72237c286d43162439d19a7b576e934d0831c90b8533c675981c1"  # pragma: allowlist secret
+    "99c091d409c4388e68b41bc20cd9c129505c34b0e5208aefddd74e3543970fc4"  # pragma: allowlist secret
 )
 PEK_SUPPRESSION_FUNCTIONS = {
     "_Z21gst_pek_comm_get_typev",
@@ -235,7 +235,7 @@ class TestCompareValgrindResults(unittest.TestCase):
                 block.append(line)
         self.assertIsNone(block)
 
-        self.assertEqual(len(blocks), 260)
+        self.assertEqual(len(blocks), 262)
         self.assertTrue(
             {
                 "gstreamer_registry_or_plugin_loader_reachable",
