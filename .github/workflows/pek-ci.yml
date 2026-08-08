@@ -1067,6 +1067,7 @@ jobs:
           password: ${{ github.token }}
 
       - name: Run Valgrind Python unit tests
+        working-directory: ${{ github.event.inputs.valgrind_baseline_sha != '' && 'valgrind-publisher' || '.' }}
         run: |
           python3 -m unittest \
             scripts/testing/valgrind/test_valgrind_baseline_artifact.py \
@@ -1193,7 +1194,7 @@ jobs:
       - name: Checkout trusted cleanup helper
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.repository.default_branch }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.repository.default_branch }}
           persist-credentials: false
 
       - name: Delete CI image
