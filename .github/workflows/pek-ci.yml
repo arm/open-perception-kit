@@ -155,6 +155,8 @@ jobs:
       - name: Build and push image
         uses: docker/build-push-action@v7
         with:
+          cache-from: type=registry,ref=ghcr.io/arm-debug/amp-dev-forge-ci:buildcache
+          cache-to: type=registry,ref=ghcr.io/arm-debug/amp-dev-forge-ci:buildcache,mode=max
           context: .
           file: Dockerfile
           labels: |
