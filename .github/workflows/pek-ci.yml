@@ -123,6 +123,15 @@ jobs:
           ref: ${{ github.event.inputs.valgrind_baseline_sha || steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
+      - name: Checkout Valgrind backfill anchor
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.valgrind_baseline_sha != '' }}
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: workflow-helpers
+          persist-credentials: false
+          sparse-checkout: .github/Dockerfile.ci-anchor
+
       - name: Set image metadata
         id: context
         env:
@@ -160,7 +169,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: .github/Dockerfile.ci-anchor
+          file: ${{ github.event.inputs.valgrind_baseline_sha != '' && 'workflow-helpers/.github/Dockerfile.ci-anchor' || '.github/Dockerfile.ci-anchor' }}
           labels: |
             org.opencontainers.image.ref.name=retention-anchor
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
