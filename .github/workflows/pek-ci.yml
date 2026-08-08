@@ -43,7 +43,7 @@ on:
     tags: ["release/*"]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.inputs.pr_number || github.ref || github.run_id }}-${{ github.event.action == 'labeled' && (!contains(github.event.label.name, 'run-pek-ci') || contains(github.event.pull_request.labels.*.name, 'run-macos-ci')) && github.run_id || 'validation' }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.inputs.pr_number || format('{0}-{1}-{2}', github.event_name, github.ref, github.event.inputs.checks || 'all') }}-${{ github.event.action == 'labeled' && (!contains(github.event.label.name, 'run-pek-ci') || contains(github.event.pull_request.labels.*.name, 'run-macos-ci')) && github.run_id || 'validation' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -551,15 +551,18 @@ jobs:
     needs: build-ci-image
     runs-on: ubuntu-latest
     if: |
-      github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && contains(fromJSON('["all","quality"]'), inputs.checks)) ||
+      always() &&
       (
-        github.event_name == 'pull_request' &&
-        github.event.pull_request.head.repo.full_name == github.repository &&
-        (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
+        github.event_name == 'schedule' ||
+        (github.event_name == 'workflow_dispatch' && contains(fromJSON('["all","quality"]'), inputs.checks)) ||
         (
-          github.event.pull_request.draft == false ||
-          (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
+          (
+            github.event.pull_request.draft == false ||
+            (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
+          )
         )
       )
     permissions:
@@ -572,6 +575,11 @@ jobs:
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CCACHE_PATH: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}/.cache/ccache
     steps:
+      - name: Require shared CI image
+        env:
+          IMAGE_JOB_RESULT: ${{ needs.build-ci-image.result }}
+        run: test "$IMAGE_JOB_RESULT" = success
+
       - name: Checkout
         uses: actions/checkout@v7
         with:
@@ -723,13 +731,17 @@ jobs:
     needs: build-ci-image
     runs-on: self-hosted-ubuntu-latest-x64
     if: |
-      (github.event_name == 'workflow_dispatch' && contains(fromJSON('["all","sonar"]'), inputs.checks)) ||
+      always() &&
       (
-        github.event_name == 'pull_request' &&
-        (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
+        (github.event_name == 'workflow_dispatch' && contains(fromJSON('["all","sonar"]'), inputs.checks)) ||
         (
-          github.event.pull_request.draft == false ||
-          (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
+          (
+            github.event.pull_request.draft == false ||
+            (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
+          )
         )
       )
     permissions:
@@ -741,6 +753,11 @@ jobs:
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CCACHE_PATH: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}/.cache/ccache
     steps:
+      - name: Require shared CI image
+        env:
+          IMAGE_JOB_RESULT: ${{ needs.build-ci-image.result }}
+        run: test "$IMAGE_JOB_RESULT" = success
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
         with:
@@ -756,7 +773,8 @@ jobs:
           path: ${{ env.CI_CHECKOUT_PATH }}
 
       - name: Restore compiler cache
-        uses: actions/cache@v6
+        id: compiler-cache
+        uses: actions/cache/restore@v6
         with:
           path: ${{ env.CCACHE_PATH }}
           key: pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-sonar-${{ needs.build-ci-image.outputs.head_sha }}
@@ -833,6 +851,13 @@ jobs:
           if-no-files-found: warn
           retention-days: 10
 
+      - name: Save compiler cache
+        if: ${{ success() && steps.compiler-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ env.CCACHE_PATH }}
+          key: ${{ steps.compiler-cache.outputs.cache-primary-key }}
+
       - name: Cleanup isolated workspace
         if: always()
         shell: bash
@@ -888,7 +913,8 @@ jobs:
           path: ${{ env.CI_CHECKOUT_PATH }}
 
       - name: Restore compiler cache
-        uses: actions/cache@v6
+        id: compiler-cache
+        uses: actions/cache/restore@v6
         with:
           path: ${{ env.CCACHE_PATH }}
           key: pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-sonar-${{ needs.build-ci-image.outputs.head_sha }}
@@ -927,6 +953,13 @@ jobs:
           SONAR_PROJECT_VERSION="${SONAR_PROJECT_VERSION#release/}"
           export SONAR_PROJECT_VERSION
           docker compose -f "$DOCKER_COMPOSE_FILE" run --rm pek-sonar-check-release
+
+      - name: Save compiler cache
+        if: ${{ success() && steps.compiler-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ env.CCACHE_PATH }}
+          key: ${{ steps.compiler-cache.outputs.cache-primary-key }}
 
       - name: Cleanup isolated workspace
         if: always()
