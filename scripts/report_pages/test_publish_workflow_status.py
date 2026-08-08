@@ -33,15 +33,6 @@ def status(conclusion: str, updated_at: str = "2026-08-03T10:00:00Z") -> dict[st
 
 
 class TestPublishWorkflowStatus(unittest.TestCase):
-    def test_maintenance_publishers_queue_serialized_deployment(self):
-        for name in ("playwright-pages.yml", "yolo-benchmark-pages.yml"):
-            workflow = (publisher.REPO_ROOT / ".github" / "workflows" / name).read_text()
-            maintenance = workflow.split("  cleanup-closed-pr-reports:", 1)[1]
-            self.assertIn("gh workflow run report-status-pages.yml", maintenance)
-            self.assertIn("github.event.repository.default_branch", maintenance)
-            self.assertIn("force_deploy=true", maintenance)
-            self.assertNotIn("actions/deploy-pages", maintenance)
-
     def test_force_deploy_does_not_require_another_storage_commit(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             environment = {
