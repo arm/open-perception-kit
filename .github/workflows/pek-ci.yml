@@ -33,6 +33,11 @@ on:
         required: false
         default: ""
         type: string
+      valgrind_baseline_sha:
+        description: Internal exact source SHA for a Valgrind baseline backfill.
+        required: false
+        default: ""
+        type: string
   pull_request:
     branches: [main, develop, "feature/**", "sandbox/**" ]
     types: [ opened, synchronize, reopened, ready_for_review, labeled ]
@@ -43,7 +48,7 @@ on:
     tags: ["release/*"]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.inputs.pr_number || format('{0}-{1}-{2}', github.event_name, github.ref, github.event.inputs.checks || 'all') }}-${{ github.event.action == 'labeled' && (!contains(github.event.label.name, 'run-pek-ci') || contains(github.event.pull_request.labels.*.name, 'run-macos-ci')) && github.run_id || 'validation' }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.inputs.pr_number || format('{0}-{1}-{2}-{3}', github.event_name, github.ref, github.event.inputs.checks || 'all', github.event.inputs.valgrind_baseline_sha || 'current') }}-${{ github.event.action == 'labeled' && (!contains(github.event.label.name, 'run-pek-ci') || contains(github.event.pull_request.labels.*.name, 'run-macos-ci')) && github.run_id || 'validation' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -78,6 +83,13 @@ jobs:
       pr_context: ${{ steps.context.outputs.pr_context }}
       pr_number: ${{ steps.context.outputs.pr_number }}
     steps:
+      - name: Validate Valgrind baseline backfill
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.valgrind_baseline_sha != '' }}
+        env:
+          CHECKS: ${{ github.event.inputs.checks }}
+          PR_NUMBER: ${{ github.event.inputs.pr_number }}
+        run: test "$CHECKS" = valgrind && test -z "$PR_NUMBER"
+
       - name: Checkout manual-run helper
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
         uses: actions/checkout@v7
@@ -108,7 +120,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-          ref: ${{ steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.event.inputs.valgrind_baseline_sha || steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
       - name: Set image metadata
@@ -1010,7 +1022,7 @@ jobs:
       actions: read
       contents: read
       artifact-metadata: write
-      packages: read
+      packages: write
     env:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
       VALGRIND_BASELINE_WORKFLOW: pek-ci.yml
@@ -1021,6 +1033,14 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
           ref: ${{ needs.build-ci-image.outputs.head_sha }}
+
+      - name: Checkout Valgrind workflow helpers
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.valgrind_baseline_sha != '' }}
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: valgrind-publisher
+          persist-credentials: false
 
       - name: Restore compiler cache
         uses: actions/cache@v6
@@ -1044,16 +1064,20 @@ jobs:
             scripts/testing/valgrind/test_compare_valgrind_results.py \
             scripts/testing/valgrind/test_summarize_valgrind_output.py
 
-      - name: Locate latest Valgrind baseline artifact
+      - name: Download Valgrind baseline from GHCR
         if: needs.build-ci-image.outputs.pr_context == 'true'
         id: valgrind_baseline
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           VALGRIND_BASELINE_BRANCH: ${{ needs.build-ci-image.outputs.base_ref }}
-        run: python3 scripts/testing/valgrind/valgrind-baseline-artifact.py locate
+          VALGRIND_BASELINE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+        run: |
+          python3 scripts/testing/valgrind/valgrind-baseline-artifact.py download \
+            --sha "$VALGRIND_BASELINE_SHA" \
+            --output-dir scripts/testing/valgrind/baseline
 
-      - name: Wait for missing Valgrind baseline artifact
+      - name: Wait for missing Valgrind baseline in GHCR
         if: >-
           needs.build-ci-image.outputs.pr_context == 'true' &&
           steps.valgrind_baseline.outcome != 'success' &&
@@ -1062,32 +1086,32 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VALGRIND_BASELINE_BRANCH: ${{ needs.build-ci-image.outputs.base_ref }}
-        run: python3 scripts/testing/valgrind/valgrind-baseline-artifact.py wait
+          VALGRIND_BASELINE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+        run: |
+          python3 scripts/testing/valgrind/valgrind-baseline-artifact.py wait \
+            --sha "$VALGRIND_BASELINE_SHA" \
+            --output-dir scripts/testing/valgrind/baseline
 
-      - name: Require existing Valgrind baseline artifact
+      - name: Require existing Valgrind baseline
         if: >-
           needs.build-ci-image.outputs.pr_context == 'true' &&
           steps.valgrind_baseline.outcome != 'success' &&
           steps.waited_valgrind_baseline.outcome == 'skipped'
         run: |
-          echo "Missing Valgrind baseline artifact and no automatic publisher is available." >&2
+          echo "Missing Valgrind baseline in GHCR and no automatic publisher is available." >&2
           exit 1
-
-      - name: Download Valgrind baseline artifact
-        if: needs.build-ci-image.outputs.pr_context == 'true' && (steps.valgrind_baseline.outcome == 'success' || steps.waited_valgrind_baseline.outcome == 'success')
-        uses: actions/download-artifact@v8
-        with:
-          name: valgrind-baseline
-          path: scripts/testing/valgrind/baseline
-          github-token: ${{ github.token }}
-          run-id: ${{ steps.valgrind_baseline.outputs.run-id || steps.waited_valgrind_baseline.outputs.run-id }}
 
       - name: Prepare shared CI image
         env:
           CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
           CI_IMAGE_TAG: ${{ needs.build-ci-image.outputs.image_tag }}
+          VALGRIND_BASELINE_SHA: ${{ github.event.inputs.valgrind_baseline_sha }}
         run: |
-          python3 scripts/private/ci_image.py prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" \
+          helper_root=.
+          if [ -n "$VALGRIND_BASELINE_SHA" ]; then
+            helper_root=valgrind-publisher
+          fi
+          python3 "$helper_root/scripts/private/ci_image.py" prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" \
             pek-valgrind-check \
             pek-generate-valgrind-summary
 
@@ -1102,6 +1126,20 @@ jobs:
         id: valgrind_summary
         if: always() && steps.valgrind_checks.outcome != 'skipped'
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-generate-valgrind-summary
+
+      - name: Publish Valgrind baseline to GHCR
+        if: ${{ needs.build-ci-image.outputs.pr_context != 'true' && startsWith(github.ref, 'refs/heads/') && (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && steps.valgrind_checks.outcome == 'success' && steps.valgrind_summary.outcome == 'success' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VALGRIND_BASELINE_SHA: ${{ github.event.inputs.valgrind_baseline_sha }}
+        run: |
+          helper_root=.
+          if [ -n "$VALGRIND_BASELINE_SHA" ]; then
+            helper_root=valgrind-publisher
+          fi
+          python3 "$helper_root/scripts/testing/valgrind/valgrind-baseline-artifact.py" upload \
+            --sha "${{ needs.build-ci-image.outputs.head_sha }}" \
+            --input scripts/testing/valgrind/valgrind-error-summary.xml
 
       - name: Compare Valgrind results to baseline
         if: ${{ needs.build-ci-image.outputs.pr_context == 'true' && steps.valgrind_checks.outcome == 'success' && steps.valgrind_summary.outcome == 'success' }}
@@ -1120,13 +1158,13 @@ jobs:
           if-no-files-found: warn
           retention-days: 5
 
-      - name: Upload Valgrind baseline
+      - name: Upload Valgrind report artifact
         if: ${{ needs.build-ci-image.outputs.pr_context != 'true' && startsWith(github.ref, 'refs/heads/') && (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && steps.valgrind_checks.outcome == 'success' && steps.valgrind_summary.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
           name: valgrind-baseline
           path: scripts/testing/valgrind/valgrind-error-summary.xml
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 60
 
   cleanup-ci-image:

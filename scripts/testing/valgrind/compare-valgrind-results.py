@@ -109,6 +109,15 @@ def load_summary(path: Path) -> collections.Counter[str]:
     )
 
 
+def load_repository_summary(path: Path) -> collections.Counter[str]:
+    """Load the repository-error fingerprint counts used for comparison."""
+    return collections.Counter(
+        _error_fingerprint(error)
+        for error in _load_errors(path)
+        if _is_repository_error(error)
+    )
+
+
 def _group_errors(errors: Iterable[ET.Element]) -> dict[str, list[ET.Element]]:
     """Group error records by the stable fingerprint used for comparison."""
     grouped: dict[str, list[ET.Element]] = collections.defaultdict(list)
