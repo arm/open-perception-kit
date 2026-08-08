@@ -1,0 +1,144 @@
+name: Publish Cairn integration image
+
+run-name: Cairn integration image ${{ inputs.source_sha || github.sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Full 40-character amp-dev-forge commit SHA
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cairn-integration-image-${{ inputs.source_sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: Resolve pinned source
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      commit: ${{ steps.source.outputs.commit }}
+      exists: ${{ steps.image.outputs.exists }}
+    steps:
+      - name: Require an exact commit pin
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha || github.sha }}
+        run: |
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "source_sha must be a full lowercase commit SHA" >&2
+            exit 1
+          }
+
+      - name: Checkout pinned source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ inputs.source_sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify pinned source
+        id: source
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha || github.sha }}
+        run: |
+          commit="$(git rev-parse HEAD)"
+          test "$commit" = "$SOURCE_SHA"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Reuse an existing image
+        id: image
+        env:
+          IMAGE: ghcr.io/arm-debug/amp-dev-forge-cairn-python:${{ steps.source.outputs.commit }}
+          SOURCE_SHA: ${{ steps.source.outputs.commit }}
+        run: |
+          if output="$(docker pull --platform linux/arm64 "$IMAGE" 2>&1)"; then
+            test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$IMAGE")" = linux/arm64
+            test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$IMAGE")" = "$SOURCE_SHA"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Using existing image: $IMAGE"
+          elif grep -Eqi 'manifest unknown|no such manifest|not found' <<< "$output"; then
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "No image exists for $IMAGE"
+          else
+            echo "$output" >&2
+            exit 1
+          fi
+
+  build:
+    name: Build ARM64 image
+    if: needs.resolve.outputs.exists == 'false'
+    needs: resolve
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout pinned source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ needs.resolve.outputs.commit }}
+          persist-credentials: false
+
+      - name: Build immutable image
+        env:
+          DOCKER_BUILDKIT: 1
+          IMAGE: ghcr.io/arm-debug/amp-dev-forge-cairn-python:${{ needs.resolve.outputs.commit }}
+          SOURCE_SHA: ${{ needs.resolve.outputs.commit }}
+        run: |
+          docker build \
+            --platform linux/arm64 \
+            --target pek-cairn-runtime \
+            --label "org.opencontainers.image.revision=$SOURCE_SHA" \
+            --label "org.opencontainers.image.source=https://github.com/Arm-Debug/amp-dev-forge" \
+            --tag "$IMAGE" \
+            .
+
+      - name: Smoke runtime contract
+        env:
+          IMAGE: ghcr.io/arm-debug/amp-dev-forge-cairn-python:${{ needs.resolve.outputs.commit }}
+        run: |
+          docker run --rm --network none --entrypoint sh "$IMAGE" -euxc '
+            test "$(id -u)" -ne 0
+            test -f /work/runtime/libpekinfer.so
+            test -f /work/config/models/yolov11/opchain.json
+            test -f /work/data/images/GettyImages-1140581459-thumbnail.jpg
+            test -f /usr/lib/*-linux-gnu/girepository-1.0/GLib-2.0.typelib
+            test -f /usr/lib/*-linux-gnu/girepository-1.0/Gst-1.0.typelib
+            test -e /usr/lib/*-linux-gnu/libgirepository-2.0.so.0
+            python3 -c "import gi; gi.require_version(\"Gst\", \"1.0\"); from gi.repository import Gst; Gst.init(None)"
+            gst-inspect-1.0 pekinfer >/dev/null
+            gst-launch-1.0 -q \
+              videotestsrc num-buffers=1 ! \
+              video/x-raw,format=BGRA,width=320,height=320 ! \
+              pekinfer opchain-path=/work/config/models/yolov11/opchain.json ! \
+              fakesink
+          '
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish immutable image
+        env:
+          IMAGE: ghcr.io/arm-debug/amp-dev-forge-cairn-python:${{ needs.resolve.outputs.commit }}
+        run: |
+          docker push "$IMAGE"
+          echo "Published $IMAGE"
+          echo "Image: \`$IMAGE\`" >> "$GITHUB_STEP_SUMMARY"

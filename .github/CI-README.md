@@ -113,6 +113,26 @@ exact commit pinned in `release-packages.yml`, then installs it from the
 publisher repository's own tracked `uv.lock`. Update that workflow ref when a
 reviewed publisher change is adopted; PEK does not copy or fork the package.
 
+## What does `.github/workflows/cairn-integration-snapshot.yml` do?
+
+- Accepts one exact 40-character amp-dev-forge commit SHA.
+- Reuses `ghcr.io/arm-debug/amp-dev-forge-cairn-python:<commit>` when its
+  platform and source revision match the requested commit.
+- Fails when an existing tag does not match that contract.
+- Builds, smoke-tests, and publishes one native arm64 runtime image only when
+  the commit tag is missing.
+- Includes the PEK and GStreamer runtimes, Python GI bindings and introspection
+  metadata, the YOLOv11 model configuration, and the image used by Cairn's
+  current pipeline.
+- Runs as the existing `pek` user (`1000:1000`) by default. A child image may
+  switch to root for setup, but must select its non-root service user before
+  defining the final runtime command.
+- Does not create a GitHub Release or publish separate archives.
+
+The workflow serializes runs for the same commit. Cairn can use the commit SHA as
+its only integration pin: probe the deterministic image tag, dispatch this
+workflow if it is missing, then wait until the image manifest is available.
+
 ## What does `.github/workflows/agent-review.yml` do?
 
 - Runs Agent review on a self-hosted runner through the shared Python OpenAI Agents SDK runner
