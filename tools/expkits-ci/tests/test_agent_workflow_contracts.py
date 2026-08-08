@@ -775,10 +775,11 @@ class AgentWorkflowContractTests(unittest.TestCase):
 
     def test_workflow_audit_reports_freshness_only(self):
         workflow = load_yaml(WORKFLOW_AUDIT_FILE)
+        pek_ci = load_yaml(PEK_CI_WORKFLOW_FILE)
         dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
-        pull_request_paths = workflow["on"]["pull_request"]["paths"]
         report_job = workflow["jobs"]["workflow-dependency-freshness"]
         report_steps = step_map(report_job)
+        pr_job = pek_ci["jobs"]["workflow-dependency-freshness"]
 
         self.assertEqual(
             set(workflow["jobs"].keys()),
@@ -788,8 +789,15 @@ class AgentWorkflowContractTests(unittest.TestCase):
             set(dispatch_inputs.keys()),
             {"summary_limit"},
         )
+        self.assertIn("workflow_call", workflow["on"])
+        self.assertNotIn("pull_request", workflow["on"])
         self.assertNotIn("outputs", report_job)
-        self.assertIn("scripts/private/github_api.py", pull_request_paths)
+        self.assertEqual(pr_job["uses"], "./.github/workflows/workflow-audit.yml")
+        self.assertIn("run-workflow-audit", pr_job["if"])
+        self.assertIn(
+            "github.event.pull_request.head.repo.full_name == github.repository",
+            pr_job["if"],
+        )
         self.assertIn("--summary-limit", report_steps["Render workflow dependency freshness report"]["run"])
         self.assertNotIn("--github-output", report_steps["Render workflow dependency freshness report"]["run"])
 
