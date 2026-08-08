@@ -41,6 +41,8 @@ services:
     environment:
       CCACHE_DIR: /work/.cache/ccache
       CCACHE_MAXSIZE: 2G
+    volumes:
+      - ${CCACHE_PATH:-../.cache/ccache}:/work/.cache/ccache
     build:
       <<: *pek-tool-build
       target: pek-ci
