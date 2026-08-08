@@ -115,3 +115,38 @@ compatible released Perception SDK to decode and access the typed payloads.
 The embedded `peksink` WebUI uses the generated TypeScript SDK at this boundary;
 it validates producer identity and converts typed payloads into its established
 OSD and output-panel presentation model.
+
+## Testing Python Guest Scripts
+
+When the development build enables tests, it provides the non-installed
+`python_guest_script_executor` binary for testing trusted Python transformations
+against a live C++ `FrameResults` envelope. The executor accepts an ordered list
+of scripts and calls `process(env)` from each script against the same envelope:
+
+```bash
+./development/build/tests/python_guest_script_executor \
+  --output /tmp/results.bin \
+  seed_boxes.py \
+  custom_postprocessor.py
+```
+
+Scripts import the generated guest type for annotations and append results with
+the generated Python object API:
+
+```python
+from perception.guest import Envelope
+
+
+def process(env: Envelope) -> None:
+    ...
+```
+
+Existing payloads are read-only through the bridge. A transformation therefore
+reads its input payloads and appends new payloads rather than mutating entries in
+place. After all scripts return successfully, the executor writes a raw
+Perception packet that tests can decode with `perception.packet.decode`.
+`--python-path` can be repeated to add script dependencies to the embedded
+interpreter's module search path.
+
+The executor runs CPython in-process and is not a security sandbox. It is test
+tooling only and does not add Python postprocessors to production OpChains.

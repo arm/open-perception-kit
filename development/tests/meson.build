@@ -201,6 +201,19 @@ image_conversion_oracle_test = executable(
   include_directories : [common_include, include_directories('../ops-std')],
 )
 
+perception_python_sdk_path = meson.project_source_root() / '../generated/perception/python/src'
+python_guest_script_test_env = environment()
+python_guest_script_test_env.prepend('PYTHONPATH', perception_python_sdk_path)
+python_guest_script_executor = executable(
+  'python_guest_script_executor',
+  ['python_guest_script_executor.cpp'],
+  cpp_args : [
+    '-DPERCEPTION_PYTHON_SDK_PATH="' + perception_python_sdk_path + '"',
+  ],
+  dependencies : [perception_python_bridge_dep],
+  install : false,
+)
+
 node = find_program('node', required : false)
 npm = find_program('npm', required : false)
 peksink_web = find_program(meson.project_source_root() / '../scripts/peksink-web.sh')
@@ -287,6 +300,18 @@ test('pektracker_tracking_output_tests', pektracker_tracking_output_tests)
 test('webrtc_session_tests', webrtc_session_tests)
 test('runtime_pipeline_tests', runtime_pipeline_tests)
 test('image_conversion_oracle_test', image_conversion_oracle_test)
+test(
+  'python_guest_script_executor_tests',
+  python,
+  args : [
+    files('python_guest_script_executor_test.py'),
+    python_guest_script_executor.full_path(),
+    files('python_guest/seed_boxes.py'),
+    files('python_guest/scale_boxes.py'),
+  ],
+  depends : python_guest_script_executor,
+  env : python_guest_script_test_env,
+)
 
 if node.found() and npm.found()
   test(

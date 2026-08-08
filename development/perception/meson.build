@@ -16,3 +16,21 @@ perception_dep = declare_dependency(
   compile_args : ['-std=c++20'],
   dependencies : [_perception_flatbuffers_dep],
 )
+
+if get_option('tests')
+  _perception_python = import('python').find_installation()
+  _perception_python_embed_dep = _perception_python.dependency(
+    embed : true,
+    required : true,
+  )
+  _perception_python_bridge_sources = files(
+    '../../generated/perception/cpp/python_bridge/perception_python_bridge.cpp',
+  )
+
+  perception_python_bridge_dep = declare_dependency(
+    include_directories : [_perception_inc],
+    compile_args : ['-std=c++20'],
+    dependencies : [perception_dep, _perception_python_embed_dep],
+    sources : _perception_python_bridge_sources,
+  )
+endif

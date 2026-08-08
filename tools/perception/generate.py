@@ -296,6 +296,23 @@ def write_internal_meson(config: SdkConfig, generated_root: Path, target: Path) 
         "  compile_args : ['-std=c++20'],\n"
         f"  dependencies : [_{config.name}_flatbuffers_dep],\n"
         ")\n"
+        "\n"
+        "if get_option('tests')\n"
+        f"  _{config.name}_python = import('python').find_installation()\n"
+        f"  _{config.name}_python_embed_dep = _{config.name}_python.dependency(\n"
+        "    embed : true,\n"
+        "    required : true,\n"
+        "  )\n"
+        f"  _{config.name}_python_bridge_sources = files(\n"
+        f"    '{cpp_root}/python_bridge/{config.name}_python_bridge.cpp',\n"
+        "  )\n\n"
+        f"  {config.name}_python_bridge_dep = declare_dependency(\n"
+        f"    include_directories : [_{config.name}_inc],\n"
+        "    compile_args : ['-std=c++20'],\n"
+        f"    dependencies : [{config.name}_dep, _{config.name}_python_embed_dep],\n"
+        f"    sources : _{config.name}_python_bridge_sources,\n"
+        "  )\n"
+        "endif\n"
     )
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(content, encoding="utf-8")
