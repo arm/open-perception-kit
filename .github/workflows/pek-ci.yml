@@ -585,7 +585,7 @@ jobs:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-      CCACHE_PATH: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}/.cache/ccache
+      CCACHE_PATH: ${{ github.workspace }}/.cache/ccache-quality
     steps:
       - name: Require shared CI image
         env:
@@ -763,7 +763,7 @@ jobs:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-      CCACHE_PATH: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}/.cache/ccache
+      CCACHE_PATH: ${{ github.workspace }}/.cache/ccache-sonar
     steps:
       - name: Require shared CI image
         env:
@@ -914,7 +914,7 @@ jobs:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-      CCACHE_PATH: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}/.cache/ccache
+      CCACHE_PATH: ${{ github.workspace }}/.cache/ccache-sonar
     steps:
       - name: Checkout tagged commit
         uses: actions/checkout@v7
