@@ -76,7 +76,7 @@ struct _GstPekInfer {
     guint64 qosProcessed;
     guint64 qosDropped;
     guint64 qosGeneration;
-    guint64 qosAcceptedEvents;
+    guint64 qosAcceptedEventsDebug;
 
     // a safe place for c++ stuff
     GstPekInferMembers *m;
@@ -251,14 +251,14 @@ static gboolean gst_pekinfer_src_event(GstBaseTransform *trans, GstEvent *event)
             self->qosEarliestTime = qosEarliestTime;
             self->qosProportion = proportion;
             self->qosTimestamp = timestamp;
-            ++self->qosAcceptedEvents;
+            ++self->qosAcceptedEventsDebug;
         }
         GST_OBJECT_UNLOCK(self);
 
         if (!publishQos)
             return GST_BASE_TRANSFORM_CLASS(gst_pekinfer_parent_class)->src_event(trans, event);
 
-        g_object_notify(G_OBJECT(self), "qos-accepted-events");
+        g_object_notify(G_OBJECT(self), "qos-accepted-events-debug");
 
         GST_DEBUG_OBJECT(self,
                          "Received QoS event: type=%d proportion=%f diff=%" G_GINT64_FORMAT
@@ -474,7 +474,7 @@ enum {
     PROP_FORMAT,
     PROP_INFER_ID,
     PROP_QOS_ENABLED,
-    PROP_QOS_ACCEPTED_EVENTS,
+    PROP_QOS_ACCEPTED_EVENTS_DEBUG,
 };
 
 static void gst_pekinfer_set_property(GObject *o, guint id, const GValue *v, GParamSpec *ps) {
@@ -532,9 +532,9 @@ static void gst_pekinfer_get_property(GObject *o, guint id, GValue *v, GParamSpe
         g_value_set_boolean(v, self->qosEnabled);
         GST_OBJECT_UNLOCK(self);
         break;
-    case PROP_QOS_ACCEPTED_EVENTS:
+    case PROP_QOS_ACCEPTED_EVENTS_DEBUG:
         GST_OBJECT_LOCK(self);
-        g_value_set_uint64(v, self->qosAcceptedEvents);
+        g_value_set_uint64(v, self->qosAcceptedEventsDebug);
         GST_OBJECT_UNLOCK(self);
         break;
     default:
@@ -610,10 +610,10 @@ static void gst_pekinfer_class_init(GstPekInferClass *klass) {
                              (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
     g_object_class_install_property(
         gobj,
-        PROP_QOS_ACCEPTED_EVENTS,
-        g_param_spec_uint64("qos-accepted-events",
-                            "QoS accepted events",
-                            "Number of QoS events committed by pekinfer",
+        PROP_QOS_ACCEPTED_EVENTS_DEBUG,
+        g_param_spec_uint64("qos-accepted-events-debug",
+                            "QoS accepted events debug",
+                            "Debug-only count of QoS events committed by pekinfer",
                             0,
                             G_MAXUINT64,
                             0,
@@ -647,7 +647,7 @@ static void gst_pekinfer_init(GstPekInfer *self) {
     self->m = nullptr;
     self->inferId = nullptr;
     self->qosEnabled = false;
-    self->qosAcceptedEvents = 0;
+    self->qosAcceptedEventsDebug = 0;
     self->qosEarliestTime = GST_CLOCK_TIME_NONE;
     self->processingSkipFrames = 0;
     self->qosProportion = 1.0;

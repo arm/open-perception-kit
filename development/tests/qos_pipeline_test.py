@@ -295,7 +295,7 @@ class QosPipelineTest(unittest.TestCase):
         )
         self.qos_accepted = threading.Event()
         self.elements["infer"].connect(
-            "notify::qos-accepted-events", self._on_qos_accepted
+            "notify::qos-accepted-events-debug", self._on_qos_accepted
         )
         self.frame_duration = self.Gst.SECOND // 30
 
@@ -434,7 +434,9 @@ class QosPipelineTest(unittest.TestCase):
         )
         self.elements["drain_fakesink"].set_property("max-lateness", 0)
         feedback_start = 100 * self.Gst.MSECOND
-        accepted_events = self.elements["infer"].get_property("qos-accepted-events")
+        accepted_events = self.elements["infer"].get_property(
+            "qos-accepted-events-debug"
+        )
         self.qos_accepted.clear()
         self.flow_monitor.push_buffer(feedback_start)
         self.flow_monitor.push_buffer(feedback_start + self.frame_duration)
@@ -449,7 +451,8 @@ class QosPipelineTest(unittest.TestCase):
             "pekinfer did not commit the native QoS event",
         )
         self.assertGreater(
-            self.elements["infer"].get_property("qos-accepted-events"), accepted_events
+            self.elements["infer"].get_property("qos-accepted-events-debug"),
+            accepted_events,
         )
 
         self.flow_monitor.push_buffer(feedback_start + 2 * self.frame_duration)
