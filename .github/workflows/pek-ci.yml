@@ -182,6 +182,23 @@ jobs:
       contents: read
     uses: ./.github/workflows/python-dependency-audit.yml
 
+  workflow-dependency-freshness:
+    name: Workflow Dependency Freshness
+    if: |
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (
+        (github.event.action == 'labeled' && github.event.label.name == 'run-workflow-audit') ||
+        (
+          contains(fromJSON('["synchronize","reopened"]'), github.event.action) &&
+          contains(github.event.pull_request.labels.*.name, 'run-workflow-audit')
+        )
+      )
+    permissions:
+      actions: read
+      contents: read
+    uses: ./.github/workflows/workflow-audit.yml
+
   docker-scout:
     name: Docker Scout Image Audit
     needs: build-ci-image
