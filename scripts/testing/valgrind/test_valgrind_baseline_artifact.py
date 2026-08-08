@@ -14,7 +14,6 @@ from unittest import mock
 
 
 SCRIPT_PATH = Path(__file__).with_name("valgrind-baseline-artifact.py")
-VALGRIND_WORKFLOW = Path(__file__).resolve().parents[3] / ".github/workflows/valgrind.yml"
 
 
 def load_helper():
@@ -51,12 +50,22 @@ class TestValgrindBaselineArtifact(unittest.TestCase):
             def gh_json(*args):
                 nonlocal attempts
                 if args[:2] == ("run", "list"):
-                    if "--status" in args and success_runs_after_attempts is not None:
-                        attempts += 1
-                        return [] if attempts < 3 else success_runs_after_attempts
                     return runs
-                run_id = int(args[1].split("/")[-2])
-                artifacts = [{"name": "valgrind-baseline", "expired": False}] if run_id in artifact_runs else []
+                attempts += 1
+                available_runs = artifact_runs
+                if success_runs_after_attempts is not None:
+                    available_runs = () if attempts < 3 else {
+                        int(run["databaseId"]) for run in success_runs_after_attempts
+                    }
+                artifacts = [{
+                    "name": "valgrind-baseline",
+                    "expired": False,
+                    "workflow_run": {
+                        "id": run_id,
+                        "head_branch": "develop",
+                        "head_sha": "current-develop-sha",
+                    },
+                } for run_id in available_runs]
                 return {"artifacts": artifacts}
 
             targets = {
@@ -112,6 +121,26 @@ class TestValgrindBaselineArtifact(unittest.TestCase):
             )
             self.assertFalse(output_path.exists())
 
+    def test_find_artifact_run_requires_exact_branch_and_sha(self):
+        with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": "example/repo"}):
+            helper = load_helper()
+        artifacts = [
+            {"expired": True, "workflow_run": {
+                "id": 101, "head_branch": "develop", "head_sha": "expected",
+            }},
+            {"expired": False, "workflow_run": {
+                "id": 202, "head_branch": "main", "head_sha": "expected",
+            }},
+            {"expired": False, "workflow_run": {
+                "id": 303, "head_branch": "develop", "head_sha": "other",
+            }},
+            {"expired": False, "workflow_run": {
+                "id": 404, "head_branch": "develop", "head_sha": "expected",
+            }},
+        ]
+        with mock.patch.object(helper, "list_artifacts", return_value=artifacts):
+            self.assertEqual(helper.find_artifact_run("expected"), 404)
+
     def test_publish_skips_when_current_head_artifact_exists(self):
         code, stdout, _, subprocess_run = self.run_helper(
             "publish",
@@ -122,19 +151,6 @@ class TestValgrindBaselineArtifact(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("Baseline artifact already exists in run 202.", stdout)
         subprocess_run.assert_not_called()
-
-    def test_publish_ignores_pull_request_target_artifact_candidates(self):
-        code, stdout, _, _ = self.run_helper(
-            "publish",
-            runs=[
-                {"databaseId": 303, "event": "pull_request_target", "status": "completed"},
-                {"databaseId": 202, "event": "workflow_dispatch", "status": "completed"},
-            ],
-            artifact_runs={202},
-        )
-
-        self.assertEqual(code, 0)
-        self.assertIn("Baseline artifact already exists in run 202.", stdout)
 
     def test_publish_skips_when_current_head_run_is_active(self):
         code, stdout, _, subprocess_run = self.run_helper(
@@ -151,7 +167,10 @@ class TestValgrindBaselineArtifact(unittest.TestCase):
 
         self.assertEqual(code, 0)
         subprocess_run.assert_called_once_with(
-            ["gh", "workflow", "run", "valgrind.yml", "--ref", "develop"],
+            [
+                "gh", "workflow", "run", "pek-ci.yml",
+                "--ref", "develop", "-f", "checks=valgrind",
+            ],
             check=True,
         )
 
@@ -179,31 +198,6 @@ class TestValgrindBaselineArtifact(unittest.TestCase):
             )
             self.assertNotIn("No available valgrind-baseline artifact", stderr)
             self.assertEqual(output_path.read_text(encoding="utf-8"), "run-id=202\n")
-
-    def test_workflow_uses_python_baseline_helper(self):
-        workflow = VALGRIND_WORKFLOW.read_text(encoding="utf-8")
-
-        self.assertIn("pull_request_target:", workflow)
-        self.assertIn("pull_request_target:\n    branches: [main, develop]", workflow)
-        self.assertIn("actions: write", workflow)
-        self.assertIn("ref: ${{ github.event.pull_request.base.sha || github.sha }}", workflow)
-        self.assertIn("valgrind-baseline-artifact.py publish", workflow)
-        self.assertIn('gh workflow run valgrind.yml --ref "$VALGRIND_BASELINE_BRANCH"', workflow)
-        self.assertIn("valgrind-baseline-artifact.py locate", workflow)
-        self.assertIn("valgrind-baseline-artifact.py wait", workflow)
-        self.assertEqual(
-            workflow.count("VALGRIND_BASELINE_BRANCH: ${{ github.event.pull_request.base.ref }}"),
-            3,
-        )
-        self.assertIn("github.event.pull_request.stack != null", workflow)
-        self.assertIn("github.event.pull_request.stack.base.ref == 'main'", workflow)
-        self.assertIn("github.event.pull_request.stack.base.ref == 'develop'", workflow)
-        self.assertIn("steps.waited_valgrind_baseline.outcome == 'skipped'", workflow)
-        self.assertIn("Require existing Valgrind baseline artifact", workflow)
-        self.assertIn("no automatic publisher is available", workflow)
-        self.assertIn("always() && steps.valgrind_checks.outcome != 'skipped'", workflow)
-        self.assertNotIn("valgrind-repo-owned.md", workflow)
-        self.assertIn("steps.valgrind_baseline.outputs.run-id || steps.waited_valgrind_baseline.outputs.run-id", workflow)
 
 
 if __name__ == "__main__":

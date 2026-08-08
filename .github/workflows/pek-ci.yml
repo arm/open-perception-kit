@@ -1,8 +1,18 @@
-name: Perception Experience Kit CI Pipeline
+name: PEK CI
 
 on:
   workflow_dispatch:
     inputs:
+      checks:
+        description: Checks to run after preparing the shared CI image.
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - quality
+          - sonar
+          - valgrind
       pr_number:
         description: Optional PR number to run the PR validation path manually.
         required: false
@@ -28,43 +38,55 @@ on:
     types: [ opened, synchronize, reopened, ready_for_review, labeled ]
   schedule:
     - cron: "0 2 * * *" # Every day at 2 AM UTC'
+  push:
+    branches: [main, develop]
+    tags: ["release/*"]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.event.inputs.pr_number || github.ref || github.run_id }}-${{ github.event.action == 'labeled' && (!contains(github.event.label.name, 'run-pek-ci') || contains(github.event.pull_request.labels.*.name, 'run-macos-ci')) && github.run_id || 'validation' }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.inputs.pr_number || github.ref || github.run_id }}-${{ github.event.action == 'labeled' && (!contains(github.event.label.name, 'run-pek-ci') || contains(github.event.pull_request.labels.*.name, 'run-macos-ci')) && github.run_id || 'validation' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  linux-quick-start-build-test:
-    name: Linux x86_64 quick-start build test
+  build-ci-image:
+    name: Build Docker image
     runs-on: ubuntu-latest
-    timeout-minutes: 240
     if: |
       github.event_name != 'pull_request' ||
       (
         github.event.pull_request.head.repo.full_name == github.repository &&
-        (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
+        (
+          github.event.action != 'labeled' ||
+          contains(fromJSON('["run-pek-ci","run-docker-scout"]'), github.event.label.name)
+        ) &&
         (
           github.event.pull_request.draft == false ||
-          (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
+          github.event.action == 'labeled'
         )
       )
-    env:
-      PEK_QUICK_START_CI_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-      CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-      COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      base_ref: ${{ steps.context.outputs.base_ref }}
+      head_ref: ${{ steps.context.outputs.head_ref }}
+      head_sha: ${{ steps.context.outputs.head_sha }}
+      image_tag: ${{ steps.context.outputs.image_tag }}
+      pr_context: ${{ steps.context.outputs.pr_context }}
+      pr_number: ${{ steps.context.outputs.pr_number }}
     steps:
-      - name: Checkout workflow helpers
+      - name: Checkout manual-run helper
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
         uses: actions/checkout@v7
         with:
           fetch-depth: 1
-          path: workflow-helpers-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+          ref: ${{ github.event.repository.default_branch }}
+          path: workflow-helpers
           persist-credentials: false
 
-      - name: Resolve manual PR context
+      - name: Resolve manual PR
         id: manual_pr
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
-        working-directory: ${{ github.workspace }}/workflow-helpers-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+        working-directory: ${{ github.workspace }}/workflow-helpers
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -77,12 +99,139 @@ jobs:
             --head-sha-override "${{ github.event.inputs.pr_head_sha }}" \
             --github-output "${GITHUB_OUTPUT}"
 
+      - name: Checkout source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          ref: ${{ steps.manual_pr.outputs.head_sha || github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Set image metadata
+        id: context
+        env:
+          BASE_REF: ${{ steps.manual_pr.outputs.base_ref || github.base_ref }}
+          HEAD_REF: ${{ steps.manual_pr.outputs.head_ref || github.head_ref || github.ref_name }}
+          PR_CONTEXT: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '') }}
+          PR_NUMBER: ${{ steps.manual_pr.outputs.pr_number || github.event.pull_request.number || '' }}
+        run: |
+          set -euo pipefail
+          head_sha="$(git rev-parse HEAD)"
+          image_tag="$head_sha"
+          if [ "$PR_CONTEXT" != "true" ]; then
+            image_tag="${head_sha}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          fi
+          {
+            printf 'base_ref=%s\n' "$BASE_REF"
+            printf 'head_ref=%s\n' "$HEAD_REF"
+            printf 'head_sha=%s\n' "$head_sha"
+            printf 'image_tag=%s\n' "$image_tag"
+            printf 'pr_context=%s\n' "$PR_CONTEXT"
+            printf 'pr_number=%s\n' "$PR_NUMBER"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Set up Docker builder
+        uses: docker/setup-buildx-action@v4
+
+      - name: Push retention anchor
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: .github/Dockerfile.ci-anchor
+          labels: |
+            org.opencontainers.image.ref.name=retention-anchor
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          provenance: false
+          push: true
+          tags: ghcr.io/arm-debug/amp-dev-forge-ci:retention-anchor
+
+      - name: Build and push image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile
+          labels: |
+            org.opencontainers.image.revision=${{ steps.context.outputs.head_sha }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          provenance: false
+          pull: true
+          push: true
+          tags: ghcr.io/arm-debug/amp-dev-forge-ci:${{ steps.context.outputs.image_tag }}
+          target: pek-ci
+
+  python-dependency-audit:
+    name: Python Dependency Audit
+    if: |
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (
+        (github.event.action == 'labeled' && github.event.label.name == 'run-python-audit') ||
+        (
+          contains(fromJSON('["synchronize","reopened"]'), github.event.action) &&
+          contains(github.event.pull_request.labels.*.name, 'run-python-audit')
+        )
+      )
+    permissions:
+      contents: read
+    uses: ./.github/workflows/python-dependency-audit.yml
+
+  docker-scout:
+    name: Docker Scout Image Audit
+    needs: build-ci-image
+    if: |
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (
+        (github.event.action == 'labeled' && github.event.label.name == 'run-docker-scout') ||
+        (
+          contains(fromJSON('["synchronize","reopened"]'), github.event.action) &&
+          contains(github.event.pull_request.labels.*.name, 'run-docker-scout')
+        )
+      )
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+    uses: ./.github/workflows/docker-scout-image-audit.yml
+    with:
+      ci_image_sha: ${{ needs.build-ci-image.outputs.head_sha }}
+      ci_image_tag: ${{ needs.build-ci-image.outputs.image_tag }}
+    secrets: inherit # pragma: allowlist secret
+
+  linux-quick-start-build-test:
+    name: Quick-start on Linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    if: |
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && inputs.checks == 'all') ||
+      (
+        github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
+        (
+          github.event.pull_request.draft == false ||
+          (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
+        )
+      )
+    env:
+      PEK_QUICK_START_CI_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+    steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
-          ref: ${{ steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.head_ref || github.ref }}
+          ref: ${{ github.event.pull_request.head.sha || github.event.inputs.pr_head_sha || (github.event.inputs.pr_number != '' && format('refs/pull/{0}/head', github.event.inputs.pr_number)) || github.sha }}
           path: ${{ env.CI_CHECKOUT_PATH }}
 
       - name: Show detected quick-start platform
@@ -118,15 +267,17 @@ jobs:
           exit "$cleanup_status"
 
   rpi5-quick-start-build-test:
-    name: Raspberry Pi 5 quick-start build test
+    name: Quick-start and Playwright on Raspberry Pi 5
     runs-on: [self-hosted, Linux, ARM64, amp-dev-forge-runner-rpi5]
     timeout-minutes: 240
     # Fork PR code must not run on the self-hosted RPI runner. Same-repo PRs intentionally
     # follow the normal CI gate so RPI runs whenever the Linux quick-start build runs.
     if: |
-      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) &&
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && inputs.checks == 'all') ||
       (
-        github.event_name != 'pull_request' ||
+        github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
         (
           (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
           (
@@ -138,49 +289,14 @@ jobs:
     env:
       PEK_QUICK_START_CI_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-      CI_HELPER_PATH: workflow-helpers-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
-      - name: Checkout workflow helpers
-        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 1
-          path: ${{ env.CI_HELPER_PATH }}
-          persist-credentials: false
-
-      - name: Resolve manual PR context
-        id: manual_pr
-        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
-        working-directory: ${{ github.workspace }}/${{ env.CI_HELPER_PATH }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          output_dir="$(dirname "${GITHUB_OUTPUT}")"
-          docker run --rm \
-            --user "$(id -u):$(id -g)" \
-            --mount "type=bind,source=${PWD},target=${PWD},readonly" \
-            --mount "type=bind,source=${output_dir},target=${output_dir}" \
-            --workdir "${PWD}" \
-            --env GH_TOKEN \
-            --env GITHUB_API_URL \
-            --env PYTHONDONTWRITEBYTECODE=1 \
-            python:3.12-slim-trixie@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de \
-            python3 scripts/private/github_pr_context.py \
-            --pr-number "${{ github.event.inputs.pr_number }}" \
-            --repo "${{ github.repository }}" \
-            --base-ref-override "${{ github.event.inputs.pr_base_ref }}" \
-            --head-ref-override "${{ github.event.inputs.pr_head_ref }}" \
-            --head-sha-override "${{ github.event.inputs.pr_head_sha }}" \
-            --github-output "${GITHUB_OUTPUT}"
-
       - name: Checkout
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
-          ref: ${{ steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.head_ref || github.ref }}
+          ref: ${{ github.event.pull_request.head.sha || github.event.inputs.pr_head_sha || (github.event.inputs.pr_number != '' && format('refs/pull/{0}/head', github.event.inputs.pr_number)) || github.sha }}
           path: ${{ env.CI_CHECKOUT_PATH }}
 
       - name: Clean stale browser smoke containers
@@ -227,7 +343,6 @@ jobs:
           COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
         run: |
           checkout_path="${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}"
-          helper_path="${{ github.workspace }}/${{ env.CI_HELPER_PATH }}"
           cleanup_status=0
           if [ -x "$checkout_path/scripts/playwright/browser-smoke/run.sh" ]; then
             "$checkout_path/scripts/playwright/browser-smoke/run.sh" --cleanup-stale || cleanup_status=$?
@@ -235,16 +350,18 @@ jobs:
           if [ -x "$checkout_path/scripts/quick-start/cleanup-container.sh" ]; then
             "$checkout_path/scripts/quick-start/cleanup-container.sh" || cleanup_status=$?
           fi
-          rm -rf -- "$checkout_path" "$helper_path"
+          rm -rf -- "$checkout_path"
           exit "$cleanup_status"
 
   macos-nightly-test:
-    name: macOS ARM64 quick-start and Playwright test
+    name: Quick-start and Playwright on macOS
     runs-on: self-hosted-macos-arm64-latest
     timeout-minutes: 240
     if: |
-      github.event_name != 'pull_request' ||
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && inputs.checks == 'all') ||
       (
+        github.event_name == 'pull_request' &&
         github.event.pull_request.head.repo.full_name == github.repository &&
         (
           (github.event.action == 'labeled' && github.event.label.name == 'run-macos-ci') ||
@@ -255,45 +372,20 @@ jobs:
     env:
       PEK_QUICK_START_CI_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-      CI_HELPER_PATH: workflow-helpers-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
-      - name: Checkout workflow helpers
-        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 1
-          path: ${{ env.CI_HELPER_PATH }}
-          persist-credentials: false
-
-      - name: Resolve manual PR context
-        id: manual_pr
-        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
-        working-directory: ${{ github.workspace }}/${{ env.CI_HELPER_PATH }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          python3 scripts/private/github_pr_context.py \
-            --pr-number "${{ github.event.inputs.pr_number }}" \
-            --repo "${{ github.repository }}" \
-            --base-ref-override "${{ github.event.inputs.pr_base_ref }}" \
-            --head-ref-override "${{ github.event.inputs.pr_head_ref }}" \
-            --head-sha-override "${{ github.event.inputs.pr_head_sha }}" \
-            --github-output "${GITHUB_OUTPUT}"
-
       - name: Checkout
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
-          ref: ${{ steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.head_ref || github.ref }}
+          ref: ${{ github.event.pull_request.head.sha || github.event.inputs.pr_head_sha || (github.event.inputs.pr_number != '' && format('refs/pull/{0}/head', github.event.inputs.pr_number)) || github.sha }}
           path: ${{ env.CI_CHECKOUT_PATH }}
 
       - name: Start Colima and check macOS Docker integration
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: |
-          brew install docker colima docker-compose docker-buildx qemu gh
+          brew install docker colima docker-compose docker-buildx qemu
           mkdir -p ~/.docker/cli-plugins
           ln -sf "$(brew --prefix)/opt/docker-compose/bin/docker-compose" ~/.docker/cli-plugins/docker-compose
           ln -sf "$(brew --prefix)/opt/docker-buildx/bin/docker-buildx" ~/.docker/cli-plugins/docker-buildx
@@ -334,12 +426,11 @@ jobs:
         if: always()
         run: |
           checkout_path="${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}"
-          helper_path="${{ github.workspace }}/${{ env.CI_HELPER_PATH }}"
           cleanup_status=0
           if [ -x "$checkout_path/scripts/quick-start/cleanup-container.sh" ]; then
             "$checkout_path/scripts/quick-start/cleanup-container.sh" || cleanup_status=$?
           fi
-          rm -rf -- "$checkout_path" "$helper_path"
+          rm -rf -- "$checkout_path"
           if command -v colima >/dev/null; then
             colima delete --force || cleanup_status=$?
           fi
@@ -347,10 +438,13 @@ jobs:
 
   quality-checks:
     name: Run quality checks in Docker
+    needs: build-ci-image
     runs-on: ubuntu-latest
     if: |
-      github.event_name != 'pull_request' ||
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && contains(fromJSON('["all","quality"]'), inputs.checks)) ||
       (
+        github.event_name == 'pull_request' &&
         github.event.pull_request.head.repo.full_name == github.repository &&
         (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
         (
@@ -358,50 +452,29 @@ jobs:
           (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
         )
       )
+    permissions:
+      contents: read
+      packages: read
     env:
       python_ver: "3.12.1"
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
-      - name: Checkout workflow helpers
-        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 1
-          path: workflow-helpers-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-          persist-credentials: false
-
-      - name: Resolve manual PR context
-        id: manual_pr
-        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
-        working-directory: ${{ github.workspace }}/workflow-helpers-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          python3 scripts/private/github_pr_context.py \
-            --pr-number "${{ github.event.inputs.pr_number }}" \
-            --repo "${{ github.repository }}" \
-            --base-ref-override "${{ github.event.inputs.pr_base_ref }}" \
-            --head-ref-override "${{ github.event.inputs.pr_head_ref }}" \
-            --head-sha-override "${{ github.event.inputs.pr_head_sha }}" \
-            --github-output "${GITHUB_OUTPUT}"
-
       - name: Checkout
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
-          ref: ${{ steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.head_ref || github.ref }}
+          ref: ${{ needs.build-ci-image.outputs.head_sha }}
           path: ${{ env.CI_CHECKOUT_PATH }}
 
       - name: Attach validated PR head branch
         if: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '') }}
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
-          PR_HEAD_REF: ${{ steps.manual_pr.outputs.head_ref || github.head_ref }}
-          PR_HEAD_SHA: ${{ steps.manual_pr.outputs.head_sha || github.event.pull_request.head.sha }}
+          PR_HEAD_REF: ${{ needs.build-ci-image.outputs.head_ref }}
+          PR_HEAD_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
         run: |
           set -euo pipefail
           test -n "$PR_HEAD_REF"
@@ -416,16 +489,23 @@ jobs:
           test "$(git rev-parse HEAD)" = "$PR_HEAD_SHA"
           test "$(git branch --show-current)" = "$PR_HEAD_REF"
 
-      - name: Build Docker images for checks
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Prepare shared CI image
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
+          CI_IMAGE_TAG: ${{ needs.build-ci-image.outputs.image_tag }}
         run: |
-          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build \
+          python3 scripts/private/ci_image.py prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" \
             pek-quality-check-full \
-            pek-release-with-ut \
-            pek-valgrind-check \
             pek-quality-check-pull-request \
+            pek-release-with-ut \
             pek-clang-tidy-baseline-check
 
       - name: Check Repo Quality gate (nightly)
@@ -458,7 +538,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          export PULL_REQUEST_TARGET_BRANCH="${{ steps.manual_pr.outputs.base_ref || github.base_ref }}"
+          export PULL_REQUEST_TARGET_BRANCH="${{ needs.build-ci-image.outputs.base_ref }}"
           source scripts/private/ci_git_auth_env.sh
           configure_github_git_auth_env "$GITHUB_TOKEN"
           docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm \
@@ -493,7 +573,7 @@ jobs:
           PR_CONTEXT_RUN: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '') }}
         run: |
           if [ "${PR_CONTEXT_RUN}" = "true" ]; then
-            export PULL_REQUEST_TARGET_BRANCH="${{ steps.manual_pr.outputs.base_ref || github.base_ref }}"
+            export PULL_REQUEST_TARGET_BRANCH="${{ needs.build-ci-image.outputs.base_ref }}"
             source scripts/private/ci_git_auth_env.sh
             configure_github_git_auth_env "$GITHUB_TOKEN"
             docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm \
@@ -518,3 +598,383 @@ jobs:
             ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/clang-tidy-stats.json
           if-no-files-found: warn
           retention-days: 10
+
+  sonar:
+    name: Run Sonar analysis in Docker
+    needs: build-ci-image
+    runs-on: self-hosted-ubuntu-latest-x64
+    if: |
+      (github.event_name == 'workflow_dispatch' && contains(fromJSON('["all","sonar"]'), inputs.checks)) ||
+      (
+        github.event_name == 'pull_request' &&
+        (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
+        (
+          github.event.pull_request.draft == false ||
+          (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
+        )
+      )
+    permissions:
+      contents: read
+      packages: read
+    env:
+      DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
+      CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+    steps:
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          ref: ${{ needs.build-ci-image.outputs.head_sha }}
+          path: ${{ env.CI_CHECKOUT_PATH }}
+
+      - name: Export isolated workspace root
+        shell: bash
+        run: echo "WORKSPACE_ROOT=${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}" >> "$GITHUB_ENV"
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Prepare shared CI image
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
+          CI_IMAGE_TAG: ${{ needs.build-ci-image.outputs.image_tag }}
+        run: python3 scripts/private/ci_image.py prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" pek-sonar-check
+
+      - name: SonarQube analysis
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-sonar-check
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_BRANCH: ${{ needs.build-ci-image.outputs.head_ref }}
+          SONAR_QUALITYGATE_WAIT: "false"
+          PR_KEY: ${{ needs.build-ci-image.outputs.pr_number }}
+          PR_BRANCH: ${{ needs.build-ci-image.outputs.pr_context == 'true' && needs.build-ci-image.outputs.head_ref || '' }}
+          PR_BASE: ${{ needs.build-ci-image.outputs.base_ref }}
+
+      - name: Probe Sonar API access
+        if: always()
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_BRANCH: ${{ needs.build-ci-image.outputs.head_ref }}
+          PR_KEY: ${{ needs.build-ci-image.outputs.pr_number }}
+          PR_BRANCH: ${{ needs.build-ci-image.outputs.pr_context == 'true' && needs.build-ci-image.outputs.head_ref || '' }}
+          PR_BASE: ${{ needs.build-ci-image.outputs.base_ref }}
+        run: |
+          set -euo pipefail
+          python3 scripts/private/sonar_quality_gate_workflow.py probe-api-access || \
+            echo "Sonar API access probe exited with status $?" >&2
+
+      - name: Report Sonar quality gate details
+        if: always()
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_BRANCH: ${{ needs.build-ci-image.outputs.head_ref }}
+          PR_KEY: ${{ needs.build-ci-image.outputs.pr_number }}
+          PR_BRANCH: ${{ needs.build-ci-image.outputs.pr_context == 'true' && needs.build-ci-image.outputs.head_ref || '' }}
+          PR_BASE: ${{ needs.build-ci-image.outputs.base_ref }}
+        run: |
+          set -euo pipefail
+          python3 scripts/private/sonar_quality_gate_workflow.py report-quality-gate
+
+      - name: Upload Sonar quality gate report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: sonar-quality-gate-report
+          path: |
+            ${{ runner.temp }}/sonar-quality-gate-report.txt
+            ${{ runner.temp }}/sonar-api-access-probe.txt
+          if-no-files-found: warn
+          retention-days: 10
+
+      - name: Cleanup isolated workspace
+        if: always()
+        shell: bash
+        run: |
+          workspace_root="${WORKSPACE_ROOT:-}"
+          expected_workspace_prefix="${GITHUB_WORKSPACE:-}/repo-"
+
+          case "${workspace_root}" in
+            "${expected_workspace_prefix}"*) ;;
+            *)
+              echo "Skipping cleanup for unexpected WORKSPACE_ROOT='${workspace_root}'" >&2
+              exit 0
+              ;;
+          esac
+
+          if [ -d "${workspace_root}" ]; then
+            if [ -f "${workspace_root}/${DOCKER_COMPOSE_FILE}" ]; then
+              (
+                cd "${workspace_root}"
+                docker compose -f "${DOCKER_COMPOSE_FILE}" down --remove-orphans --rmi local || true
+              )
+            fi
+
+            sudo chown -R "$(id -u):$(id -g)" "${workspace_root}" || true
+            chmod -R u+rwX "${workspace_root}" || true
+            rm -rf "${workspace_root}" || sudo rm -rf "${workspace_root}" || true
+          fi
+
+          if [ -n "${PEK_CI_IMAGE:-}" ]; then
+            docker image rm "${PEK_CI_IMAGE}" || true
+          fi
+
+  sonar-release:
+    name: Run Sonar analysis when Release tag is pushed
+    needs: build-ci-image
+    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/release/') }}
+    runs-on: self-hosted-ubuntu-latest-x64
+    permissions:
+      contents: read
+      packages: read
+    env:
+      DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
+      CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+    steps:
+      - name: Checkout tagged commit
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          ref: ${{ needs.build-ci-image.outputs.head_sha }}
+          path: ${{ env.CI_CHECKOUT_PATH }}
+
+      - name: Export isolated workspace root
+        run: echo "WORKSPACE_ROOT=${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}" >> "$GITHUB_ENV"
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Prepare shared CI image
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
+          CI_IMAGE_TAG: ${{ needs.build-ci-image.outputs.image_tag }}
+        run: |
+          python3 scripts/private/ci_image.py prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" \
+            pek-sonar-check-release
+
+      - name: Run SonarQube release analysis
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_BRANCH: tags/${{ github.ref_name }}
+          SONAR_PROJECT_VERSION: ${{ github.ref_name }}
+          SONAR_QUALITYGATE_WAIT: "true"
+          BUILD_STRING: ${{ needs.build-ci-image.outputs.head_sha }}
+        run: |
+          SONAR_PROJECT_VERSION="${SONAR_PROJECT_VERSION#release/}"
+          export SONAR_PROJECT_VERSION
+          docker compose -f "$DOCKER_COMPOSE_FILE" run --rm pek-sonar-check-release
+
+      - name: Cleanup isolated workspace
+        if: always()
+        run: |
+          workspace_root="${WORKSPACE_ROOT:-}"
+          expected_workspace_prefix="${GITHUB_WORKSPACE:-}/repo-"
+
+          case "$workspace_root" in
+            "${expected_workspace_prefix}"*) ;;
+            *)
+              echo "Skipping cleanup for unexpected WORKSPACE_ROOT='$workspace_root'" >&2
+              exit 0
+              ;;
+          esac
+
+          if [ -d "$workspace_root" ]; then
+            if [ -f "$workspace_root/$DOCKER_COMPOSE_FILE" ]; then
+              (
+                cd "$workspace_root"
+                docker compose -f "$DOCKER_COMPOSE_FILE" down --remove-orphans --rmi local || true
+              )
+            fi
+            sudo chown -R "$(id -u):$(id -g)" "$workspace_root" || true
+            chmod -R u+rwX "$workspace_root" || true
+            rm -rf "$workspace_root" || sudo rm -rf "$workspace_root" || true
+          fi
+          if [ -n "${PEK_CI_IMAGE:-}" ]; then
+            docker image rm "$PEK_CI_IMAGE" || true
+          fi
+
+  valgrind:
+    name: Run Valgrind checks in Docker
+    needs: build-ci-image
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'schedule' ||
+      (github.event_name == 'push' && github.ref_type == 'branch') ||
+      (github.event_name == 'workflow_dispatch' && contains(fromJSON('["all","valgrind"]'), inputs.checks)) ||
+      (
+        github.event_name == 'pull_request' &&
+        (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
+        (
+          github.event.pull_request.draft == false ||
+          (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
+        )
+      )
+    permissions:
+      actions: read
+      contents: read
+      artifact-metadata: write
+      packages: read
+    env:
+      DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
+      VALGRIND_BASELINE_WORKFLOW: pek-ci.yml
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          ref: ${{ needs.build-ci-image.outputs.head_sha }}
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Run Valgrind Python unit tests
+        run: |
+          python3 -m unittest \
+            scripts/testing/valgrind/test_valgrind_baseline_artifact.py \
+            scripts/testing/valgrind/test_compare_valgrind_results.py \
+            scripts/testing/valgrind/test_summarize_valgrind_output.py
+
+      - name: Locate latest Valgrind baseline artifact
+        if: needs.build-ci-image.outputs.pr_context == 'true'
+        id: valgrind_baseline
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VALGRIND_BASELINE_BRANCH: ${{ needs.build-ci-image.outputs.base_ref }}
+        run: python3 scripts/testing/valgrind/valgrind-baseline-artifact.py locate
+
+      - name: Wait for missing Valgrind baseline artifact
+        if: >-
+          needs.build-ci-image.outputs.pr_context == 'true' &&
+          steps.valgrind_baseline.outcome != 'success' &&
+          github.event_name == 'pull_request'
+        id: waited_valgrind_baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VALGRIND_BASELINE_BRANCH: ${{ needs.build-ci-image.outputs.base_ref }}
+        run: python3 scripts/testing/valgrind/valgrind-baseline-artifact.py wait
+
+      - name: Require existing Valgrind baseline artifact
+        if: >-
+          needs.build-ci-image.outputs.pr_context == 'true' &&
+          steps.valgrind_baseline.outcome != 'success' &&
+          steps.waited_valgrind_baseline.outcome == 'skipped'
+        run: |
+          echo "Missing Valgrind baseline artifact and no automatic publisher is available." >&2
+          exit 1
+
+      - name: Download Valgrind baseline artifact
+        if: needs.build-ci-image.outputs.pr_context == 'true' && (steps.valgrind_baseline.outcome == 'success' || steps.waited_valgrind_baseline.outcome == 'success')
+        uses: actions/download-artifact@v8
+        with:
+          name: valgrind-baseline
+          path: scripts/testing/valgrind/baseline
+          github-token: ${{ github.token }}
+          run-id: ${{ steps.valgrind_baseline.outputs.run-id || steps.waited_valgrind_baseline.outputs.run-id }}
+
+      - name: Prepare shared CI image
+        env:
+          CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
+          CI_IMAGE_TAG: ${{ needs.build-ci-image.outputs.image_tag }}
+        run: |
+          python3 scripts/private/ci_image.py prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" \
+            pek-valgrind-check \
+            pek-generate-valgrind-summary
+
+      - name: Clear stale Valgrind logs
+        run: find scripts/testing/valgrind/logs -name "*.valgrind.*.xml" -delete 2>/dev/null || true
+
+      - name: Run Valgrind checks
+        id: valgrind_checks
+        run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-valgrind-check
+
+      - name: Generate Valgrind error summary
+        id: valgrind_summary
+        if: always() && steps.valgrind_checks.outcome != 'skipped'
+        run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-generate-valgrind-summary
+
+      - name: Compare Valgrind results to baseline
+        if: ${{ needs.build-ci-image.outputs.pr_context == 'true' && steps.valgrind_checks.outcome == 'success' && steps.valgrind_summary.outcome == 'success' }}
+        id: valgrind_compare
+        run: |
+          python3 scripts/testing/valgrind/compare-valgrind-results.py \
+            --baseline scripts/testing/valgrind/baseline/valgrind-error-summary.xml \
+            --current scripts/testing/valgrind/valgrind-error-summary.xml
+
+      - name: Upload Valgrind raw logs
+        if: ${{ always() && !cancelled() && (steps.valgrind_checks.outcome == 'failure' || steps.valgrind_summary.outcome == 'failure' || steps.valgrind_compare.outcome == 'failure') }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: valgrind-baseline-logs
+          path: scripts/testing/valgrind/logs
+          if-no-files-found: warn
+          retention-days: 5
+
+      - name: Upload Valgrind baseline
+        if: ${{ needs.build-ci-image.outputs.pr_context != 'true' && startsWith(github.ref, 'refs/heads/') && (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && steps.valgrind_checks.outcome == 'success' && steps.valgrind_summary.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: valgrind-baseline
+          path: scripts/testing/valgrind/valgrind-error-summary.xml
+          if-no-files-found: warn
+          retention-days: 60
+
+  cleanup-ci-image:
+    name: Clean shared PEK CI image
+    needs:
+      - build-ci-image
+      - linux-quick-start-build-test
+      - rpi5-quick-start-build-test
+      - macos-nightly-test
+      - quality-checks
+      - sonar
+      - sonar-release
+      - valgrind
+    if: ${{ always() && needs.build-ci-image.result == 'success' && needs.build-ci-image.outputs.pr_context != 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout trusted cleanup helper
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Delete CI image
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_IMAGE_TAG: ${{ needs.build-ci-image.outputs.image_tag }}
+        run: python3 scripts/private/ci_image.py cleanup "$CI_IMAGE_TAG"

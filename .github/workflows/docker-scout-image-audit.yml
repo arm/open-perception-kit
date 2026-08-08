@@ -2,6 +2,17 @@ name: Docker Scout Image Audit
 
 on:
   workflow_call:
+    inputs:
+      ci_image_sha:
+        description: Exact source SHA of a prepared PEK CI image.
+        required: false
+        default: ""
+        type: string
+      ci_image_tag:
+        description: GHCR tag of a prepared PEK CI image.
+        required: false
+        default: ""
+        type: string
     secrets:
       DOCKER_USER:
         required: true
@@ -10,14 +21,12 @@ on:
       HF_TOKEN:
         required: false
   workflow_dispatch:
-  pull_request:
-    branches: [ main, develop, "feature/**", "sandbox/**" ]
-    types: [ labeled, synchronize, reopened ]
   schedule:
     - cron: "0 4 * * *"
 
 permissions:
   contents: read
+  packages: read
 
 jobs:
   docker-scout:
@@ -99,11 +108,28 @@ jobs:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
 
+      - name: Log in to GitHub Container Registry
+        if: matrix.image.service == 'pek-ci' && inputs.ci_image_sha != ''
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
       - name: Build docker image
+        if: matrix.image.service != 'pek-ci' || inputs.ci_image_sha == ''
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
           HF_TOKEN: ${{ contains(fromJSON('["pek-deployment-base","pek-dev"]'), matrix.image.service) && secrets.HF_TOKEN || '' }}
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build ${{ matrix.image.service }}
+
+      - name: Prepare shared CI image
+        if: matrix.image.service == 'pek-ci' && inputs.ci_image_sha != ''
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          CI_IMAGE_SHA: ${{ inputs.ci_image_sha }}
+          CI_IMAGE_TAG: ${{ inputs.ci_image_tag }}
+        run: python3 scripts/private/ci_image.py prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" pek-ci
 
       - name: Resolve built image reference
         id: resolve-image
@@ -224,5 +250,8 @@ jobs:
           esac
           if [ -n "$image_ref" ]; then
             docker image rm -f "$image_ref" || true
+          fi
+          if [ -n "${PEK_CI_IMAGE:-}" ]; then
+            docker image rm -f "$PEK_CI_IMAGE" || true
           fi
           rm -rf "$checkout_path"

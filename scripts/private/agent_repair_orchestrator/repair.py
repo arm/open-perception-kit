@@ -64,7 +64,7 @@ from .templates import (
 
 def render_repair_ci_badge(repair_branch: str) -> str:
     return (
-        "[![Perception Experience Kit CI Pipeline]"
+        "[![PEK CI]"
         "(https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/pek-ci.yml/badge.svg"
         f"?branch={repair_branch})]"
         "(https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/pek-ci.yml)"

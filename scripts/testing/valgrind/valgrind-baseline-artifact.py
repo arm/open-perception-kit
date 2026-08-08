@@ -16,7 +16,7 @@ ARTIFACT_NAME = os.environ.get("VALGRIND_BASELINE_ARTIFACT", "valgrind-baseline"
 BASELINE_BRANCH = os.environ.get("VALGRIND_BASELINE_BRANCH", "develop")
 BASELINE_RUN_EVENTS = {"push", "workflow_dispatch"}
 REPOSITORY = os.environ["GITHUB_REPOSITORY"]
-WORKFLOW_NAME = os.environ.get("VALGRIND_BASELINE_WORKFLOW", "valgrind.yml")
+WORKFLOW_NAME = os.environ.get("VALGRIND_BASELINE_WORKFLOW", "pek-ci.yml")
 
 
 def gh(*args: str) -> str:
@@ -64,24 +64,30 @@ def list_runs(baseline_sha: str, status=None):
     return gh_json(*args)
 
 
-def run_has_artifact(run_id: int) -> bool:
-    payload = gh_json(
-        "api",
-        f"repos/{REPOSITORY}/actions/runs/{run_id}/artifacts",
-    )
-    return any(
-        artifact.get("name") == ARTIFACT_NAME and not artifact.get("expired", False)
-        for artifact in payload.get("artifacts", [])
-    )
+def list_artifacts():
+    artifacts = []
+    for page in range(1, 1000):
+        payload = gh_json(
+            "api",
+            f"repos/{REPOSITORY}/actions/artifacts"
+            f"?name={ARTIFACT_NAME}&per_page=100&page={page}",
+        )
+        page_artifacts = payload.get("artifacts", [])
+        artifacts.extend(page_artifacts)
+        if len(page_artifacts) < 100:
+            return artifacts
+    raise RuntimeError("GitHub Actions artifact pagination limit exceeded.")
 
 
 def find_artifact_run(baseline_sha: str):
-    for run in list_runs(baseline_sha, status="success"):
-        if run.get("event") not in BASELINE_RUN_EVENTS:
+    for artifact in list_artifacts():
+        workflow_run = artifact.get("workflow_run") or {}
+        if artifact.get("expired", False):
             continue
-        run_id = int(run["databaseId"])
-        if run_has_artifact(run_id):
-            return run_id
+        if workflow_run.get("head_branch") != BASELINE_BRANCH:
+            continue
+        if workflow_run.get("head_sha") == baseline_sha:
+            return int(workflow_run["id"])
     return None
 
 
@@ -116,7 +122,10 @@ def publish_missing_baseline() -> int:
         return 0
 
     subprocess.run(
-        ["gh", "workflow", "run", WORKFLOW_NAME, "--ref", BASELINE_BRANCH],
+        [
+            "gh", "workflow", "run", WORKFLOW_NAME,
+            "--ref", BASELINE_BRANCH, "-f", "checks=valgrind",
+        ],
         check=True,
     )
     return 0

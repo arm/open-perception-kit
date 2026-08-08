@@ -122,7 +122,7 @@ class AgentSourceRunRepairTests(unittest.TestCase):
             )
             run_payload = {
                 "html_url": "https://github.com/Arm-Debug/amp-dev-forge/actions/runs/12345",
-                "name": "Perception Experience Kit CI Pipeline",
+                "name": "PEK CI",
                 "conclusion": "failure",
                 "head_branch": f"feature/{SAMPLE_TASK_REF}/topic",
                 "head_repository": {"full_name": "Arm-Debug/amp-dev-forge"},
@@ -223,7 +223,7 @@ class AgentSourceRunRepairTests(unittest.TestCase):
             )
             run_payload = {
                 "html_url": "https://github.com/Arm-Debug/amp-dev-forge/actions/runs/12345",
-                "name": "Perception Experience Kit CI Pipeline",
+                "name": "PEK CI",
                 "conclusion": "failure",
                 "head_branch": "feature/no-task-ref",
                 "head_repository": {"full_name": "Arm-Debug/amp-dev-forge"},
@@ -255,7 +255,7 @@ class AgentSourceRunRepairTests(unittest.TestCase):
             )
             run_payload = {
                 "html_url": "https://github.com/Arm-Debug/amp-dev-forge/actions/runs/12345",
-                "name": "Perception Experience Kit CI Pipeline",
+                "name": "PEK CI",
                 "conclusion": "failure",
                 "head_branch": "feature/example/topic",
                 "head_repository": {"full_name": "Arm-Debug/amp-dev-forge"},
@@ -297,7 +297,7 @@ class AgentSourceRunRepairTests(unittest.TestCase):
             )
             run_payload = {
                 "html_url": "https://github.com/Arm-Debug/amp-dev-forge/actions/runs/12345",
-                "name": "Perception Experience Kit CI Pipeline",
+                "name": "PEK CI",
                 "conclusion": "failure",
                 "head_branch": "feature/example/topic",
                 "head_repository": {"full_name": "Arm-Debug/amp-dev-forge"},
@@ -334,7 +334,7 @@ class AgentSourceRunRepairTests(unittest.TestCase):
                 source_run_id="12345",
                 source_pr_number="169",
                 source_run_url="https://github.com/Arm-Debug/amp-dev-forge/actions/runs/12345",
-                source_workflow_name="Perception Experience Kit CI Pipeline",
+                source_workflow_name="PEK CI",
                 target_branch="main",
                 repair_branch=REPAIR_BRANCH,
                 task_ref="TASK-1",
@@ -389,7 +389,7 @@ class AgentSourceRunRepairTests(unittest.TestCase):
             source_run_id="12345",
             source_pr_number="169",
             source_run_url="https://github.com/Arm-Debug/amp-dev-forge/actions/runs/12345",
-            source_workflow_name="Perception Experience Kit CI Pipeline",
+            source_workflow_name="PEK CI",
             repair_branch=REPAIR_BRANCH,
             target_branch="main",
             task_ref="TASK-1",
@@ -412,14 +412,14 @@ class AgentSourceRunRepairTests(unittest.TestCase):
         self.assertIn(REPAIR_TEMPLATES.PR_DESCRIPTION_START, body)
         self.assertEqual(
             REPAIR_ORCHESTRATOR.render_repair_ci_badge(REPAIR_BRANCH),
-            "[![Perception Experience Kit CI Pipeline]"
+            "[![PEK CI]"
             "(https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/pek-ci.yml/badge.svg"
             f"?branch={REPAIR_BRANCH})]"
             "(https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/pek-ci.yml)",
         )
         self.assertEqual(title.strip(), "[bot] Repair workflow failures from run 12345")
         self.assertEqual(subject.strip(), "[bot] Repair workflow failures from run 12345")
-        self.assertIn("Source workflow: Perception Experience Kit CI Pipeline", notes)
+        self.assertIn("Source workflow: PEK CI", notes)
 
     def test_apply_repair_changes_passes_target_branch_to_metadata_renderer(self):
         with tempfile.TemporaryDirectory() as temp_dir:

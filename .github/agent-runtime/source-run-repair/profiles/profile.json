@@ -26,7 +26,6 @@
     ".github/workflows/agent-repair-source-run-worker.yml",
     ".github/workflows/agent-review.yml",
     ".github/workflows/pek-ci.yml",
-    ".github/workflows/sonar.yml",
     ".github/compose.ci.yaml"
   ],
   "validation_command_set": "agent-workflow-python"

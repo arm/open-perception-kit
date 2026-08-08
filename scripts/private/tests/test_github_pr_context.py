@@ -65,6 +65,19 @@ class GithubPrContextTests(unittest.TestCase):
             },
         )
 
+    def test_resolve_pr_context_preserves_stacked_pr_parent(self):
+        with mock.patch.object(
+            github_pr_context,
+            "read_pr_details",
+            return_value=self.pr_details(target_branch="feature/parent"),
+        ):
+            context = github_pr_context.resolve_pr_context(
+                pr_number="102",
+                repo="Arm-Debug/amp-dev-forge",
+            )
+
+        self.assertEqual(context["base_ref"], "feature/parent")
+
     def test_resolve_pr_context_applies_explicit_manual_overrides(self):
         with mock.patch.object(
             github_pr_context,

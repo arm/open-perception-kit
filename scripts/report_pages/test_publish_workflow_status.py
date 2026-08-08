@@ -91,6 +91,80 @@ class TestPublishWorkflowStatus(unittest.TestCase):
         self.assertEqual(source, "workflow-freshness")
         self.assertEqual(saved["workflow"], "Workflow Dependency Freshness")
 
+    def test_pek_ci_run_publishes_valgrind_status_from_its_job(self):
+        run = {
+            "conclusion": "success",
+            "event": "schedule",
+            "head_branch": "develop",
+            "head_repository": {"full_name": "Arm-Debug/amp-dev-forge"},
+            "head_sha": SHA,
+            "id": 123,
+            "name": "PEK CI",
+            "path": ".github/workflows/pek-ci.yml",
+            "pull_requests": [],
+            "run_attempt": 1,
+            "updated_at": "2026-08-03T10:00:00Z",
+        }
+        jobs = [{"name": "Run Valgrind checks in Docker", "conclusion": "success", "steps": []}]
+        with patch.object(publisher, "workflow_jobs", return_value=jobs), patch.object(
+                publisher, "valgrind_metric", return_value=("140 baseline records", "neutral")
+        ):
+            statuses = dict(publisher.statuses_from_run("Arm-Debug/amp-dev-forge", run))
+
+        self.assertEqual(set(statuses), {"pek-ci", "valgrind"})
+        self.assertEqual(statuses["valgrind"]["metric"], "140 baseline records")
+        self.assertEqual(statuses["valgrind"]["workflow"], "Valgrind Baseline Artifact")
+
+        run.update({
+            "event": "pull_request",
+            "head_branch": "feature/example",
+            "pull_requests": [{"number": 303}],
+        })
+        with patch.object(publisher, "workflow_jobs", return_value=jobs):
+            statuses = publisher.statuses_from_run("Arm-Debug/amp-dev-forge", run)
+
+        self.assertEqual([source for source, _ in statuses], ["valgrind"])
+        self.assertEqual(statuses[0][1]["metric"], "0 new errors")
+
+    def test_pek_ci_pr_run_publishes_embedded_audit_statuses(self):
+        run = {
+            "conclusion": "success",
+            "event": "pull_request",
+            "head_branch": "feature/example",
+            "head_repository": {"full_name": "Arm-Debug/amp-dev-forge"},
+            "head_sha": SHA,
+            "id": 123,
+            "name": "PEK CI",
+            "path": ".github/workflows/pek-ci.yml",
+            "pull_requests": [{"number": 305}],
+            "run_attempt": 1,
+            "updated_at": "2026-08-03T10:00:00Z",
+        }
+        jobs = [
+            {"name": "Python Dependency Audit / pip-audit (expkits-ci)",
+             "conclusion": "success", "steps": []},
+            {"name": "Python Dependency Audit / pip-audit (plumber)",
+             "conclusion": "success", "steps": []},
+            {"name": "Docker Scout Image Audit / docker-scout (pek-ci)",
+             "conclusion": "failure", "steps": []},
+            {"name": "Workflow Dependency Freshness / workflow dependency freshness",
+             "conclusion": "success", "steps": []},
+        ]
+        with patch.object(publisher, "workflow_jobs", return_value=jobs), patch.object(
+                publisher, "docker_scout_metric", return_value=("1 critical", "slow", [])
+        ), patch.object(
+                publisher, "freshness_metric", return_value=("Up to date", "fast")
+        ):
+            statuses = dict(publisher.statuses_from_run("Arm-Debug/amp-dev-forge", run))
+
+        self.assertEqual(
+            set(statuses), {"python-audit", "docker-scout", "workflow-freshness"}
+        )
+        self.assertEqual(statuses["python-audit"]["metric"], "2/2 clean")
+        self.assertEqual(statuses["docker-scout"]["conclusion"], "failure")
+        self.assertEqual(statuses["docker-scout"]["metric"], "1 critical")
+        self.assertEqual(statuses["workflow-freshness"]["metric"], "Up to date")
+
     def test_scheduled_publish_reconciles_latest_source_statuses(self):
         python_status = status("success")
         python_status["workflow"] = "Python Dependency Audit"
@@ -326,17 +400,17 @@ class TestPublishWorkflowStatus(unittest.TestCase):
 
     def test_job_summary_names_failed_jobs_and_steps(self):
         jobs = [{
-            "name": "Raspberry Pi 5 quick-start build test",
+            "name": "Quick-start and Playwright on Raspberry Pi 5",
             "conclusion": "failure",
             "steps": [
                 {"name": "Build", "conclusion": "success"},
                 {"name": "Browser smoke test with local data", "conclusion": "failure"},
             ],
-        }, {"name": "Linux x86_64 quick-start build test", "conclusion": "success", "steps": []}]
+        }, {"name": "Quick-start on Linux", "conclusion": "success", "steps": []}]
         summary = publisher.job_summary(jobs, "failure")
         self.assertEqual(
             summary,
-            ["Raspberry Pi 5 quick-start build test: Browser smoke test with local data"],
+            ["Quick-start and Playwright on Raspberry Pi 5: Browser smoke test with local data"],
         )
 
     def test_job_summary_handles_cancelled_or_unavailable_jobs(self):
