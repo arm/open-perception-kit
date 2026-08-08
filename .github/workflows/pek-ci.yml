@@ -1031,7 +1031,7 @@ jobs:
       actions: read
       contents: read
       artifact-metadata: write
-      packages: write
+      packages: read
     env:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
       VALGRIND_BASELINE_WORKFLOW: pek-ci.yml
@@ -1137,20 +1137,6 @@ jobs:
         if: always() && steps.valgrind_checks.outcome != 'skipped'
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-generate-valgrind-summary
 
-      - name: Publish Valgrind baseline to GHCR
-        if: ${{ needs.build-ci-image.outputs.pr_context != 'true' && startsWith(github.ref, 'refs/heads/') && (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && steps.valgrind_checks.outcome == 'success' && steps.valgrind_summary.outcome == 'success' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VALGRIND_BASELINE_SHA: ${{ github.event.inputs.valgrind_baseline_sha }}
-        run: |
-          helper_root=.
-          if [ -n "$VALGRIND_BASELINE_SHA" ]; then
-            helper_root=valgrind-publisher
-          fi
-          python3 "$helper_root/scripts/testing/valgrind/valgrind-baseline-artifact.py" upload \
-            --sha "${{ needs.build-ci-image.outputs.head_sha }}" \
-            --input scripts/testing/valgrind/valgrind-error-summary.xml
-
       - name: Compare Valgrind results to baseline
         if: ${{ needs.build-ci-image.outputs.pr_context == 'true' && steps.valgrind_checks.outcome == 'success' && steps.valgrind_summary.outcome == 'success' }}
         id: valgrind_compare
@@ -1176,6 +1162,45 @@ jobs:
           path: scripts/testing/valgrind/valgrind-error-summary.xml
           if-no-files-found: error
           retention-days: 60
+
+  publish-valgrind-baseline:
+    name: Publish Valgrind baseline
+    needs:
+      - build-ci-image
+      - valgrind
+    if: ${{ needs.valgrind.result == 'success' && needs.build-ci-image.outputs.pr_context != 'true' && startsWith(github.ref, 'refs/heads/') && (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout trusted baseline publisher
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.valgrind_baseline_sha != '' && github.sha || github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Download Valgrind report
+        uses: actions/download-artifact@v8
+        with:
+          name: valgrind-baseline
+          path: valgrind-baseline
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Publish baseline to GHCR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/testing/valgrind/valgrind-baseline-artifact.py upload \
+            --sha "${{ needs.build-ci-image.outputs.head_sha }}" \
+            --input valgrind-baseline/valgrind-error-summary.xml
 
   cleanup-ci-image:
     name: Clean shared PEK CI image
