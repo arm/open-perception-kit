@@ -69,6 +69,7 @@ Reporting requirements:
 - Set `diff_side` to `LEFT` for deleted or removed old-side content.
 - Set `diff_side` to `null` when the finding does not map cleanly to one diff side.
 - Do not report stale references that appear only on deleted `LEFT`-side lines in rename or move diffs when corresponding `RIGHT`-side code already uses the new path or name.
+- Before reporting a GitHub Actions permission key as unsupported, verify it against the current GitHub workflow syntax or an exact-head workflow run. `artifact-metadata` is a supported permission.
 - Before reporting a GitHub Action ref as unavailable, verify the ref from current workflow logs or action repository tags. Do not claim an action ref is missing when the current job has already downloaded that ref successfully.
 - Set `suggestion` to `null` unless you can provide a small, directly applicable replacement at the reported location.
 - Use `suggestion` only for replacements that touch at most 10 lines. For larger changes, describe the fix in `body` and leave `suggestion` as `null`.
