@@ -1100,9 +1100,6 @@ jobs:
     name: Clean shared PEK CI image
     needs:
       - build-ci-image
-      - linux-quick-start-build-test
-      - rpi5-quick-start-build-test
-      - macos-nightly-test
       - quality-checks
       - sonar
       - sonar-release
