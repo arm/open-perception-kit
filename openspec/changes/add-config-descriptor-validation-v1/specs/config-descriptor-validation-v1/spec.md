@@ -380,19 +380,21 @@ the next Op after that group; `AbortChain` SHALL stop the chain successfully.
 
 ### Requirement: Validated descriptor values and path resolution
 
-No Model or OpChain descriptor value SHALL be exposed before parsing, schema validation, and all
-applicable descriptor semantics succeed. A conversion failure SHALL be reported as a validation
-issue. Serialization SHALL emit only v1 fields, including `version` and no redundant type field,
-and the serialized result SHALL validate again as the same descriptor type.
+`ModelDescriptor` and `OpChainDescriptor` runtime projection entry points SHALL return typed values
+only after parsing, schema validation, all applicable descriptor semantics, and conversion succeed.
+This covers their `fromJson` and `fromFile` entry points. A conversion failure SHALL be reported as
+a validation issue. Canonical serialization of those projections SHALL emit only v1 fields,
+including `version` and no redundant type field, and the serialized result SHALL validate again as
+the same descriptor type.
 
 Every schema-valid number consumed as a runtime `float` SHALL remain finite. A serialized OpChain
 SHALL include `description`, omit the removed `group` field, and omit `loopId` when no loop is
 authored. An explicitly present zero loop SHALL fail validation.
 
-Build-only `hfDownload` SHALL not be exposed to runtime consumers or emitted by canonical
-serialization. In-memory validation SHALL preserve authored `modelFile` and `modelDescriptor`
-values. File-backed loading SHALL resolve relative references from the containing descriptor's
-directory before runtime use and preserve absolute references.
+Build-only `hfDownload` SHALL not be present in the typed `ModelDescriptor` runtime projection or
+emitted by its canonical serialization. In-memory validation SHALL preserve authored `modelFile`
+and `modelDescriptor` values. File-backed loading SHALL resolve relative references from the
+containing descriptor's directory before runtime use and preserve absolute references.
 
 File-backed path resolution SHALL preserve authored components instead of lexically normalizing or
 canonicalizing the joined path. The operating system therefore remains responsible for resolving a

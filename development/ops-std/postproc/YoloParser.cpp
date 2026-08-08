@@ -186,12 +186,9 @@ Result<void> YoloParser::parse(const pek::TensorParser::Input &input,
         (float)input.attributes.getBoolOrDefault("normalizeOutputCoordinates", true);
     const bool applyNms = (float)input.attributes.getBoolOrDefault("applyNms", true);
 
-    const bool debug = input.attributes.getBoolOrDefault("debug", false);
-
-    const int classCount = static_cast<int>(input.attributes.getIntOrDefault(
-        "classCount", input.attributes.getIntOrDefault("classes", 80)));
-    const int maxBboxesPerClass = static_cast<int>(input.attributes.getIntOrDefault(
-        "maxBboxesPerClass", input.attributes.getIntOrDefault("max_bboxes_per_class", 100)));
+    const int classCount = static_cast<int>(input.attributes.getIntOrDefault("classCount", 80));
+    const int maxBboxesPerClass =
+        static_cast<int>(input.attributes.getIntOrDefault("maxBboxesPerClass", 100));
     const int64_t maxDetections = input.attributes.getIntOrDefault("maxDetections", 5);
     const CoordOrder coordOrder = coordOrderCode(input.attributes);
 
