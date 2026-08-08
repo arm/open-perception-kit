@@ -11,9 +11,33 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 
 ## What does `.github/workflows/pek-ci.yml` do?
 
-- Runs the actual checks
+- Builds and publishes one exact-SHA PEK CI image through versioned Docker actions,
+  then runs
+  Quality, Sonar, release Sonar, Valgrind, and the `pek-ci` Docker Scout scan
+  from that image.
+- Starts the Linux, Raspberry Pi, and macOS quick-start checks independently
+  because they build their own platform images.
+- Routes `run-python-audit` and `run-docker-scout` PR labels through this
+  workflow so label-triggered checks do not create duplicate PR workflows.
+- Runs workflow dependency freshness as a callable PR job; its scheduled and
+  manual entry points remain in `workflow-audit.yml`.
+- Supports manual `all`, `quality`, `sonar`, and `valgrind` selections.
+- Uses each pull request's immediate base branch, including stacked pull requests.
+- Owns the nightly Quality and Valgrind run and the Valgrind baseline artifact.
+- Owns release-tag Sonar analysis; the required PR Sonar check keeps the exact
+  `Run Sonar analysis in Docker` name.
 - Runs pull request quality checks through `expkits-ci --ci-pr-checks`.
 - Runs full/nightly quality checks through `expkits-ci --ci-full-checks`.
+
+The Python dependency, Docker Scout, and workflow dependency workflows remain
+reusable and keep their independent schedule/manual triggers. Their direct PR
+triggers are disabled; `pek-ci.yml` owns PR orchestration. Scheduled report
+sources and artifact names therefore stay unchanged.
+
+`.github/workflows/valgrind.yml` is only the trusted `pull_request_target`
+publisher that requests a missing baseline from `pek-ci.yml`; it never runs PR
+code. Its trusted helper also covers feature-branch bases used by stacked pull
+requests.
 
 ## What does `.github/workflows/release-tests.yml` do?
 
@@ -159,7 +183,8 @@ reviewed publisher change is adopted; PEK does not copy or fork the package.
 - Runs a minimal dependency freshness report for external GitHub Actions used by repository workflows
 - Compares the current `uses:` refs against the latest GitHub release/tag for each action repository
 - Publishes one simple Markdown report and a lightweight JSON snapshot in the `workflow-dependency-freshness` artifact
-- On pull requests, reruns only the report job so workflow changes can validate the same dependency evidence without opening repair PRs
+- On pull requests, is called by `pek-ci.yml` and runs only the report job; it
+  does not open repair PRs
 
 ## What does `.github/workflows/agent-repair-source-run.yml` do?
 
@@ -232,10 +257,16 @@ reviewed publisher change is adopted; PEK does not copy or fork the package.
 
 ## Functionalities
 
-- **Triggers:** Runs on pull requests, manual dispatch, and nightly schedule.
-- **Branch and PR logic:** Only runs on non-draft PRs, or when the `run-pek-ci` label is added to a draft PR.
-- **init-workspace:** Prepares the workspace and environment.
-- **build-changed-applications:** Builds only the applications changed in a PR.
-- **build-all-applications:** Builds all applications (nightly or manual trigger).
+- **Triggers:** Runs on pull requests, `main`/`develop` pushes, `release/*`
+  tags, manual dispatch, and the nightly schedule.
+- **Branch and PR logic:** Standard checks run on non-draft PRs;
+  `run-pek-ci`, `run-macos-ci`, `run-python-audit`, and `run-docker-scout`
+  route their selected work through the same PR workflow.
+- **Context:** The shared-image job resolves the exact source SHA and immediate
+  PR base; platform quick-start jobs checkout the event source directly.
+- **Shared image:** Publishes `pek-ci` once and attaches each compatible Docker
+  Compose service to it.
+- **Platform checks:** Linux, Raspberry Pi, and macOS quick-start checks build
+  their native images independently from the shared x86_64 CI image.
 - **Agent Review:** A separate advisory workflow runs Agent Review, uploads the generated artifacts for the PR, posts a fresh comment-only summary review for each successful run, and publishes inline review comments for the current findings.
 - **Ruleset sync:** A separate workflow applies the checked-in repository ruleset drafts to GitHub after they are merged to `develop`.
