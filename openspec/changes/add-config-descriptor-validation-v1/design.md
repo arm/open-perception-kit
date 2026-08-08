@@ -301,6 +301,12 @@ under `tools/`. Pin Python `jsonschema` 4.26.0 only in the build/developer layer
 the model downloader. Full scanning is intentionally simpler than reverse-dependency logic at this
 scale.
 
+The existing pre-commit and CI presets also invoke `--descriptor-evolution-advice`. The advisory
+receives their already-resolved file list, performs no second repository scan, emits the three
+post-v1 choices in one record, and never changes the preset exit status. The integration layer owns
+this wiring; it needs no separate hook, workflow, module, or framework. This change is the initial
+v1 baseline rather than a post-v1 evolution classification.
+
 ## Risks / Trade-offs
 
 - [Schema and typed projections drift] → production and the CLI use the same schema resources and

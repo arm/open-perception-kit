@@ -31,9 +31,17 @@ first supported contract to reject invalid configuration before plugin or model-
 - Represent an omitted descriptor `loopId` without a numeric sentinel.
 - Make `expkits-ci --config-schema-check` a thin launcher of `pek-config-check`; keep checkout
   discovery, live-schema loading, and report aggregation internal to that CLI.
+- Require the existing `expkits-ci` pre-commit and CI presets to give one non-blocking descriptor
+  evolution advisory from their already-resolved file scope.
 - Route human-readable validation failures through the standard Python or PEK logger at each CLI
   boundary while keeping reusable validators side-effect-free and JSON reports machine-readable.
 - Update contributor documentation with minimal v1 descriptors and the validation boundary.
+
+## Descriptor Evolution Classification
+
+This change establishes the initial v1 baseline. The post-v1 advisory classifications therefore do
+not apply to this contract-introduction layer. After this baseline lands, descriptor-affecting pull
+requests must record exactly one of `no schema change`, `extend v1`, or `introduce v2`.
 
 ## Capabilities
 

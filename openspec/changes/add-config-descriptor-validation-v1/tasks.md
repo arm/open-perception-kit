@@ -52,6 +52,11 @@
   boundary.
 - [ ] 5.3 Make `AttributeMap` float/double getters accept JSON integer or double numbers and make
   `OrDefault` return defaults only for absent keys, never present type mismatches.
+- [x] 5.4 Define the post-v1 descriptor-evolution classifications and document this change as the
+  initial v1 baseline.
+- [ ] 5.5 In the integration layer, add the non-blocking `--descriptor-evolution-advice` check to
+  the existing pre-commit and CI presets using their resolved file scope, with focused CLI tests
+  and documentation but no separate hook or framework.
 
 ## 6. Permanent verification
 
