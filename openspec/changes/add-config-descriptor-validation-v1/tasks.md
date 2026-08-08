@@ -1,210 +1,110 @@
 ## 1. Shared validator
 
-- [ ] 1.1 Add the pinned jsoncons dependency, embedded/live schema bundle support, and one-pass
-  duplicate-key-aware parser.
-- [ ] 1.2 Add filename/version dispatch, stable issues/reports, deterministic ordering, and the thin
-  `pek-config-check` CLI.
-- [ ] 1.3 Allow backend-specific descriptors to share canonical model names while validating each
-  descriptor independently.
+- [ ] 1.1 Add the pinned jsoncons dependency, one-pass duplicate-key-aware parsing, and one explicit
+  Meson manifest that generates embedded and live schema bundles with offline `$ref` resolution.
+- [ ] 1.2 Dispatch only from exact source basename and version, supporting non-empty Model and
+  OpChain variants, using canonical source names for typed in-memory calls, and treating the
+  caller's expected descriptor type as an assertion rather than another routing input.
+- [ ] 1.3 Return `tl::expected<T, ValidationReport>` directly from the small typed facades, with
+  stable issue fields and deterministic ordering; add no `Validated<T>`, rule registry, or public
+  validation framework.
+- [ ] 1.4 Keep schema loading, document validation, reporting, and repository traversal in cohesive
+  private units; expose no repository validator or descriptor count from `Validator.h`, compile the
+  repository helper only into the CLI and its focused test, enforce common C0/DEL/C1 descriptor-name
+  safety, and allow repeated canonical names.
+- [ ] 1.5 Add the thin text-only `pek-config-check` CLI with live-schema meta-validation, recursive
+  supported-descriptor discovery, deterministic aggregation, side-effect-free reusable validators,
+  logged and flushed CLI failures, and exit codes 0/1/2.
 
 ## 2. Model v1
 
-- [x] 2.1 Complete the Model v1 schema, keeping every schema-expressible matrix and conditional out
-  of semantic C++.
-- [ ] 2.2 Add the four Model v1 semantic rules: tensor size, feedback destination, static source,
-  and static compatibility.
-- [ ] 2.3 Route Model production parsing through the common validator and remove unsupported
-  projection fields.
+- [x] 2.1 Complete the closed Model v1 schema, including all schema-expressible matrices and
+  conditionals, finite-float projection bounds, local relative or absolute runtime `modelFile`
+  paths, and the safe-relative `modelFile` requirement for optional closed `hfDownload` metadata.
+- [ ] 2.2 Add the Model v1 semantic rules for control-free `modelFile`, checked tensor size,
+  feedback destination, static source, and static dtype/shape compatibility without duplicating
+  schema-owned rules.
+- [ ] 2.3 Route Model production parsing through the common validator; retain the existing
+  `fromFile` and backend interfaces, preserve authored in-memory paths, resolve relative file-backed
+  paths from the descriptor directory without normalization, and omit build-only or unsupported
+  fields from runtime projection and canonical JSON.
+- [ ] 2.4 Make the downloader treat either `modelFile` or `hfDownload` as a Model candidate, validate
+  every candidate with the live Model schema, prepare every schema-valid symlink-contained
+  destination before network access, and report expected JSON, schema-reference, and filesystem
+  failures once without a traceback.
 
 ## 3. OpChain v1
 
-- [x] 3.1 Complete the OpChain v1 schema, split shared Op structure and built-in Op contracts into
-  local versioned resources by distinct attribute shape, keep common Op attributes optional, and
-  retain closed built-in contracts with open custom Op attributes.
-- [ ] 3.2 Add loop, built-in stage, and low/high threshold semantic rules before any Op binding.
-- [ ] 3.3 Route OpChain production parsing through the common validator; add description/version
-  round-trip, remove group, and omit the internal loop sentinel from JSON.
+- [x] 3.1 Complete the OpChain root, shared Op, and built-in contracts: keep common attributes
+  optional, require attributes only for exact `<library>/Inference` and `GenericPostprocess`, reserve
+  exact `Inference` without backend allowlists, keep custom attributes open, and encode all 13
+  registered parser contracts as local `$defs` in `GenericPostprocess`, sharing one definition for
+  the four no-config parsers while bounding every parser value projected to `float`.
+- [ ] 3.2 Add control-free Op-ID and Inference-path semantics plus loop grouping, controller-first
+  ownership, built-in stage order and loop coverage, and low/high threshold rules using the shared
+  exact-Inference-name predicate.
+- [ ] 3.3 Route OpChain projection through the common validator, round-trip version and description,
+  remove `group`, represent descriptor `loopId` with `std::optional`, omit it from JSON when absent,
+  reject explicit zero, and convert omission to the scheduler sentinel only at runtime handoff.
 - [ ] 3.4 Run the same typed OpChain semantics at the start of direct
-  `OpChain::setupFromDescriptor`, before any Op binding, and remove the later duplicate loop owner.
-- [ ] 3.5 Require a controller-led built-in stage to be entirely unlooped or share one controller-
-  first loop, and cover the valid boundary, partial-loop, and empty/non-empty-content invalid
-  combinations with one semantic regression test.
-- [x] 3.6 Add a repository-native static test that meta-validates every v1 schema resource, rejects
-  duplicate `$id` values, and resolves every local `$ref` offline.
+  `OpChain::setupFromDescriptor`, before Op binding, and remove the later duplicate loop owner.
+- [ ] 3.5 Preserve authored Inference references in memory; resolve relative file-backed references
+  from the containing OpChain, leave absolute paths independently rooted, preserve filesystem
+  component order through symlink-plus-parent traversal, and reject URI-like values.
 
 ## 4. Supported descriptors and consumers
 
-- [ ] 4.1 Add descriptor versions, remove the redundant type field, and apply feedback mode and
-  Model field cleanup across the complete supported descriptor set while preserving valid display
-  names.
-- [ ] 4.2 Remove unused built-in Op attributes and add only the loops required by non-empty-content
-  built-in stages.
-- [ ] 4.3 Verify PaddleOCR detection uses the same discovery, routing, schema, semantics, and loader
-  path as every other supported Model/OpChain pair.
+- [ ] 4.1 Add descriptor versions, remove redundant type, `modelFamily`, and unsupported Model
+  projection fields, apply the tensor/feedback cleanup, and preserve existing display names.
+- [ ] 4.2 Remove Op `group` and unused built-in attributes, omit loop IDs from unlooped Ops, and put
+  each non-empty-content built-in stage under one controller-first nonzero loop.
+- [ ] 4.3 Rename the existing PaddleOCR detection and recognition descriptors to ordinary canonical
+  Model variants, update only the affected detection reference, exercise the normal
+  discovery/routing/schema/semantics/loader path, and add no model, routing exception, placeholder
+  OpChain, or unsupported classification path.
 
 ## 5. Tooling and documentation
 
-- [ ] 5.1 Remove Python `jsonschema`, replace validation with a subprocess adapter that prefers the
-  local Meson CLI then `PATH`, copy schemas before the Docker Meson build, and copy the built CLI
-  onto the final dev/CI image `PATH`.
-- [ ] 5.2 Update contributor and architecture docs with minimal v1 examples, validation commands,
-  semantic ownership, the scheduler's first-loop-element behavior, and the resolved/runtime
-  boundary.
-- [ ] 5.3 Make `AttributeMap` float/double getters accept JSON integer or double numbers and make
-  `OrDefault` return defaults only for absent keys, never present type mismatches.
-- [x] 5.4 Define the post-v1 descriptor-evolution classifications and document this change as the
-  initial v1 baseline.
-- [ ] 5.5 In the integration layer, add the non-blocking `--descriptor-evolution-advice` check to
-  the existing pre-commit and CI presets using their resolved file scope, with focused CLI tests
-  and documentation but no separate hook or framework.
+- [ ] 5.1 Replace the general Python `jsonschema` validation adapter with a subprocess call that
+  prefers the local Meson CLI then `PATH`; copy schemas before the Docker Meson build, build the CLI
+  from the checkout in the consolidated CI flow, and stage it in local tools plus final dev/CI
+  images without prebuilt checkout artifacts.
+- [ ] 5.2 Pin Python Draft 2020-12 validation only in build/developer layers that run or test the
+  downloader; keep it out of runtime images.
+- [ ] 5.3 Update contributor, architecture, downloader, and extension docs with minimal v1 examples,
+  validation commands, rule ownership, the private repository boundary, scheduler first-loop
+  behavior, and authored-versus-resolved path handling.
+- [ ] 5.4 Make `AttributeMap` float/double getters accept JSON integer or double values and make
+  `OrDefault` return a default only for an absent key, never a present type mismatch.
+- [x] 5.5 Define the three post-v1 descriptor-evolution classifications and record this change as
+  the initial v1 baseline.
+- [ ] 5.6 Add the non-blocking `--descriptor-evolution-advice` invocation to existing pre-commit and
+  CI presets using their already-resolved scope, emitting one record without changing exit status
+  or adding another hook, scan, module, or framework.
 
 ## 6. Permanent verification
 
-- [ ] 6.1 Add table-driven C++ tests for parse/routing/report/common/Model/OpChain rule IDs and
-  positive/negative behavior.
-- [ ] 6.2 Update existing descriptor and runtime-loader tests for the supported v1 contract; add
-  only a thin CLI/wrapper boundary test.
-- [ ] 6.3 Review the spec and diff with Ponytail, then run strict OpenSpec validation, full descriptor
-  validation, formatting/static checks, debug build, relevant Meson tests, and minimal pipeline
-  smoke tests in the dev container.
+- [x] 6.1 Keep one repository-native test that meta-validates every current v1 schema resource,
+  rejects duplicate `$id` values, and resolves every local `$ref` offline.
+- [ ] 6.2 Add positive and negative table-driven C++ coverage for every applicable
+  common/Model/OpChain rule ID plus parse, routing, reports, empty variants, control-free runtime
+  strings, finite projections, canonical round trips, repeated names, parser/Inference contracts,
+  loop boundaries, and source-relative paths including symlink-plus-parent traversal, without fake
+  plugins or legacy tombstone assertions.
+- [ ] 6.3 Test repository discovery, live-schema loading, aggregation, exit codes, text logging, and
+  the subprocess adapter only at the private CLI boundary; do not assert repository-count or other
+  removed implementation details.
+- [ ] 6.4 Add downloader regressions for the `hfDownload` path conditional, missing `modelFile`,
+  dangling `$ref`, destination containment before network access, concise errors, and traceback-free
+  exits.
+- [ ] 6.5 Update supported-descriptor, runtime-loader, and pipeline tests for the v1 contract,
+  including descriptor-only PaddleOCR recognition, then run the minimal supported pipeline smokes.
+- [ ] 6.6 Review the complete task-owned diff with Ponytail and run formatting/static checks, strict
+  OpenSpec validation, the complete descriptor gate, relevant debug builds, full Meson regression,
+  downloader/adapter tests, documentation generation, and Jira/OpenSpec/implementation consistency.
 
 ## 7. Delivery
 
 - [ ] 7.1 Commit and push each scoped stack layer under repository contribution rules.
-- [ ] 7.2 Open or update the three stacked PRs against their direct bases, trigger relevant CI for
-  each exact head, and address only failures caused by that layer.
-
-## 8. Responsibility-boundary corrections
-
-- [ ] 8.1 Keep the existing `ModelDescriptor::fromFile` and backend interfaces: validate the local
-  source path, then resolve `modelFile` relative to its descriptor directory for runtime use.
-- [ ] 8.2 Represent descriptor `loopId` omission with `std::optional`, reject a manually constructed
-  explicit zero, and convert to the scheduler's zero sentinel only at the runtime handoff.
-- [ ] 8.3 Remove the `/work/config` exception from the Inference schema and accept authored local
-  relative or absolute model-descriptor references without rewriting valid checked-in values.
-- [ ] 8.4 Review the corrected spec and diff with Ponytail, then run strict OpenSpec validation,
-  descriptor validation, the relevant build/tests, and static checks in the dev container without
-  committing.
-
-## 9. Review follow-up corrections
-
-- [ ] 9.1 Make the shared per-document pipeline select schema only from the exact source basename
-  and version; keep typed expectations as assertions, use canonical default source filenames for
-  in-memory calls, and reject empty OpChain variants.
-- [ ] 9.2 Make descriptor names, Model `modelFile`, Op IDs, and exact `<library>/Inference` paths
-  control-free in their common/Model-v1/OpChain-v1 semantic owners before C-string use; do not
-  retain a partial schema pattern that misses embedded U+0000.
-- [x] 9.3 Bound every schema field projected or cast to `float` to the finite `float` range while
-  retaining narrower existing bounds.
-- [ ] 9.4 Add minimal permanent regressions for production filename routing, empty variants,
-  control-free names, finite numeric projection, and canonical round-trip validation.
-- [ ] 9.5 Review the spec and implementation with Ponytail, then run strict OpenSpec validation,
-  the complete descriptor/pipeline test matrix, builds, and static checks in the dev container
-  without committing.
-
-## 10. Fresh-develop rebase corrections
-
-- [ ] 10.1 Align Model v1 with descriptor-relative `modelFile` and optional closed build-time
-  `hfDownload`; reject legacy runtime locators and keep build metadata out of runtime projection.
-- [ ] 10.2 Migrate the existing PaddleOCR detection and recognition files to normally discovered
-  Model v1 descriptors; add no new model descriptor, routing exception, or unsupported placeholder
-  OpChain.
-- [ ] 10.3 Revalidate OpenSpec, review the complete rebased diff, and rerun the descriptor gate,
-  builds, tests, static checks, and minimal pipeline smoke tests in the current dev container.
-
-## 11. Descriptor-source-relative path contract
-
-- [ ] 11.1 Accept only relative or absolute filesystem paths for Model `modelFile` and built-in
-  Inference `modelDescriptor`; reject URI-like values.
-- [ ] 11.2 Resolve relative file-backed references from the descriptor that contains them and
-  preserve authored in-memory JSON plus valid checked-in relative or absolute values.
-- [ ] 11.3 Run the focused loader/schema tests, complete descriptor gate, strict OpenSpec validation,
-  build, full tests, and static checks.
-- [ ] 11.4 Preserve filesystem component order in both file-backed loaders and cover symlink plus
-  parent traversal without introducing lexical normalization or premature canonicalization.
-
-## 12. Validator cohesion and permanent rule coverage
-
-- [ ] 12.1 Split schema loading, document validation, reporting, repository validation, and the
-  typed facade into coherent implementation units without adding a public framework.
-- [ ] 12.2 Split tests along those boundaries and cover every artifact-free Model/OpChain semantic
-  rule with supported positive and negative behavior.
-- [ ] 12.3 Review the complete diff and run formatting, static analysis, full Meson regression,
-  repository validation, CI adapter tests, and final Jira/OpenSpec/implementation consistency.
-
-## 13. Integrated-develop reconciliation
-
-- [ ] 13.1 Preserve the integrated removal of schema-invalid `modelFamily` while retaining existing
-  descriptor display names under the v1 contract.
-- [ ] 13.2 Support non-empty `model-<variant>.json` filenames so PaddleOCR's existing colocated
-  descriptors remain ordinary Model descriptors without a special-case validator path.
-- [ ] 13.3 Move the quality-gate build of `pek-config-check` to the consolidated CI container flow,
-  keeping tool images free of prebuilt checkout artifacts.
-- [ ] 13.4 Re-run strict OpenSpec validation, code review, containerized static analysis, complete
-  regression tests, and exact-head ready-equivalent CI after the rebase.
-
-## 14. Internal repository-validation boundary
-
-- [ ] 14.1 Remove `validateRepository` and the repository-only, externally unused
-  `descriptorCount` field from `Validator.h`; declare the helper in
-  `RepositoryValidatorInternal.h` under `pek::config::detail`, included only by its implementation,
-  `pek-config-check`, and its focused repository test. Correct the Python adapter documentation to
-  distinguish CLI orchestration from the shared production per-document validator.
-- [ ] 14.2 Remove `RepositoryValidator.cpp` from the static validator library linked by
-  `pek-common`; compile it directly into the CLI and repository-test targets without adding another
-  library, interface, or class hierarchy.
-- [ ] 14.3 Keep repository discovery, live-schema, aggregation, and CLI behavior tests at the
-  private CLI boundary; keep Model/OpChain parse, schema, and semantic tests at the shared public
-  boundary, including acceptance of repeated canonical names without a catalog-only rule. Remove
-  the repository-count implementation-detail assertion rather than replacing it with an absence
-  test.
-- [ ] 14.4 Review the focused diff, verify the production validator no longer exposes or links the
-  repository helper, then run strict OpenSpec validation, config-validator and CLI tests, the
-  complete descriptor gate, static checks, and the relevant debug build/regression suite.
-
-## 15. Model-download schema convergence
-
-- [x] 15.1 Make the Model v1 schema conditionally require a safe relative `modelFile` when
-  `hfDownload` is present while retaining absolute and parent-traversing runtime paths otherwise.
-- [ ] 15.2 Make the model downloader validate every consumed Model JSON with the same live schema and
-  prepare all schema-valid, symlink-contained destinations before starting network access.
-- [ ] 15.3 Pin the build/developer-only Draft 2020-12 dependency, update the user-facing contract, and
-  add permanent C++ schema plus Python downloader regressions.
-- [ ] 15.4 Run strict OpenSpec validation, focused tests, the descriptor gate, static checks, debug
-  build and complete Meson regression; review the diff and stop before commit.
-
-## 16. Validation error logging
-
-- [ ] 16.1 Catch expected downloader schema, JSON, and filesystem failures at the executable
-  boundary, log one concise error through Python logging, and exit nonzero without a traceback.
-- [ ] 16.2 Keep reusable C++ validators side-effect-free; route human-readable `pek-config-check`
-  failures through `pek::log::error()` with a flush while preserving clean JSON reports.
-- [ ] 16.3 Add CLI regressions for logged text failures, traceback-free downloader errors, and clean
-  failing JSON output.
-- [ ] 16.4 Run strict OpenSpec validation and all focused/full checks, review every task-owned diff,
-  and stop before commit.
-
-## 17. Downloader schema-gate review fixes
-
-- [ ] 17.1 Treat objects with either `modelFile` or `hfDownload` as Model candidates so incomplete
-  download declarations cannot bypass schema validation.
-- [ ] 17.2 Convert public schema-reference resolution failures into one concise logged schema error
-  without a traceback or network request.
-- [ ] 17.3 Add permanent downloader regressions for missing `modelFile` and dangling `$ref` cases.
-- [ ] 17.4 Run strict OpenSpec validation, existing-container build/tests and static gates, and
-  review all local changes before delivery.
-
-## 18. Extensible parser and inference contracts
-
-- [x] 18.1 Define subordinate parser schema ownership and the exact `<library>/Inference` extension
-  contract in proposal, design, and specification; pass strict OpenSpec validation.
-- [ ] 18.2 Cover all 13 registered parsers with one local resource per distinct attribute shape and
-  generate the embedded/live schema inventory from one explicit Meson manifest.
-- [ ] 18.3 Replace the four-backend inference allowlists with the shared exact-name predicate in
-  schema validation, semantic validation, and file-backed path resolution.
-- [ ] 18.4 Align extension documentation and add permanent parser/inference schema, semantics, and
-  loader regressions without a fake runtime plugin or legacy tombstone tests.
-- [ ] 18.5 Review the complete task-owned diff and pass formatting, strict OpenSpec, descriptor,
-  build, focused static-analysis, documentation, and full Meson gates in the development container.
-- [ ] 18.6 Verify the exact pushed implementation head through required quality, release/test, and
-  clang-tidy CI, then record that verification in this task list to trigger final exact-head CI.
+- [ ] 7.2 Update the three stacked PRs against their direct bases, run required exact-head CI, record
+  final verification, and address only failures introduced by the owning layer.

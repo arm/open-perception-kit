@@ -115,12 +115,11 @@ report type, library, interface, or class hierarchy for this separation. The Pyt
 continues to invoke the CLI as a subprocess and describes the shared boundary accurately:
 production and CI reuse the per-document validator, not the repository helper.
 
-The CLI owns the human-readable output boundary. Text validation failures and
-invocation/internal failures use `pek::log::error()` and flush before exit, so configured PEK log
-targets receive them. Help and successful reports remain direct terminal output. JSON reports,
-including failing reports, remain clean stdout data and are not duplicated into the logger.
-Build the existing `common/logging` target before the validator and link it only into the CLI; the
-reusable validator library retains no logging dependency.
+The CLI owns the output boundary. Validation failures and invocation/internal failures use
+`pek::log::error()` and flush before exit, so configured PEK log targets receive one deterministic
+text report. Help and successful reports remain direct terminal output. Build the existing
+`common/logging` target before the validator and link it only into the CLI; the reusable validator
+library retains no logging dependency.
 
 ### Resolved/runtime
 
@@ -188,24 +187,19 @@ config/schemas/v1/
         ├── inference-controller.schema.json
         ├── generic-image-preprocess.schema.json
         ├── inference.schema.json
-        ├── generic-postprocess.schema.json
-        └── generic-postprocess/
-            ├── camera-contact.schema.json
-            ├── no-config.schema.json
-            ├── ...
-            └── yolo-x.schema.json
+        └── generic-postprocess.schema.json
 ```
 
 `opchain.schema.json` owns only the descriptor root. `op.schema.json` owns the common Op shape and
 composes the built-in Op resources. The Inference resource selects the reserved exact
 `<library>/Inference` shape and owns its shared closed attribute contract, independent of the
 currently available backend libraries. `GenericPostprocess` remains the owning Op and dispatches
-its closed `attributes` object through one local subordinate resource per distinct contract shape.
-`GazeDetectionParser`, `ObjectEmbeddingParser`, `PersonClassificationParser`, and `RvmParser` share
-one no-config resource; parser-specific shapes remain separate. These resources are not standalone
-Ops. Adding a parser reuses a compatible resource or adds one resource, one parent dispatcher
-reference, and one schema-bundle manifest entry; no registry framework or plugin introspection is
-introduced.
+its closed `attributes` object through local `$defs`. `GazeDetectionParser`,
+`ObjectEmbeddingParser`, `PersonClassificationParser`, and `RvmParser` share one no-config
+definition; parser-specific shapes remain separate definitions. Adding a parser reuses a
+compatible definition or adds one local definition and one dispatcher reference. Extract a
+definition into a standalone resource only when a second schema consumer appears; no registry
+framework or plugin introspection is introduced.
 
 The model downloader reads `model.schema.json` from this same tree rather than copying path rules
 into Python. The model-build and developer images pin the standard Python Draft 2020-12 validator;
@@ -238,25 +232,29 @@ polymorphic boundary.
 The runtime validator library depends on jsoncons, GLib, and the existing header-only descriptor
 projections, but not on `pek-common` or GStreamer. `pek-common` links that library. Production
 descriptor entry points validate first and adapt a failed report to `pek::Result`; the CLI links the
-same per-document validator and privately adds repository traversal before serializing its report.
+same per-document validator and privately adds repository traversal before rendering its report.
 
 The validator surface consumed by production contains only descriptor validation, typed OpChain
-semantic validation for direct setup, `ValidationIssue`, `ValidationReport`, and immutable typed
-`Validated<ModelDescriptor>` / `Validated<OpChainDescriptor>` results. Repository traversal, both
+semantic validation for direct setup, `ValidationIssue`, `ValidationReport`, and direct
+`tl::expected<pek::ModelDescriptor, ValidationReport>` /
+`tl::expected<pek::op::OpChainDescriptor, ValidationReport>` results. Repository traversal, both
 DOM representations, rule functions, and schema-bundle details remain private. After jsoncons has
 checked syntax, duplicate keys, routing, and schema conformance, the existing nlohmann parser and
-typed projection create the private typed candidate; no custom cross-DOM converter is maintained.
-No typed value is published before its applicable semantics succeed.
+typed projection create the private typed candidate; no custom cross-DOM converter or marker
+wrapper is maintained. No parsed candidate is returned before its applicable semantics succeed.
+Direct setup from a publicly constructible OpChain descriptor re-runs typed semantics before
+binding instead of relying on a wrapper type to imply validation.
 
 The typed JSON entry points use `model.json` and `opchain.json` as their default source paths.
 Callers that supply a source provide a path whose basename participates in routing; file-backed
 production callers therefore cannot bypass filename dispatch by choosing a typed facade.
 
-One explicit Meson manifest lists every schema resource ID and repository-relative path and
-generates the embedded `{id, path, text}` array. Production resolves `$ref` only from that local
-bundle. The CLI uses the same array to read and meta-validate the checkout's current schema files,
-then passes them to the same offline resolver and engine so a running dev container does not
-validate edits against stale embedded content.
+One explicit Meson manifest lists every standalone schema resource ID and repository-relative path
+and generates the embedded `{id, path, text}` array. Local `$defs` remain inside their owning
+resource and add no manifest entries. Production resolves `$ref` only from that local bundle. The
+CLI uses the same array to read and meta-validate the checkout's current schema files, then passes
+them to the same offline resolver and engine so a running dev container does not validate edits
+against stale embedded content.
 
 A separate test-only Meson target scans the checked-in v1 resource tree, meta-validates every
 resource, rejects duplicate `$id` values, and compiles each resource with an offline resolver. It
@@ -267,11 +265,9 @@ lands with the schema bundle so contract-only changes cannot depend on an ad-hoc
 Each issue contains stable `rule`, `phase`, `file`, `instanceLocation`, optional
 `relatedInstanceLocation`, and `message`. A parser may include a source line/column in the message.
 Reports sort by file, phase (`parse`, `dispatch`, `schema`, `descriptor`), instance location, and
-rule. CLI JSON has `diagnosticFormatVersion: 1`. Help, successful reports, and every JSON report use
-direct stdout without logger prefixes. Human-readable validation failures and invocation/internal
-diagnostics use `pek::log::error()` and are flushed before exit; their console form may carry the
-configured logger prefix. Exit codes are 0 valid, 1 validation failure, and 2 invocation/internal
-failure.
+rule. Help and successful reports use direct stdout. Validation failures and invocation/internal
+diagnostics use `pek::log::error()` and are flushed before exit. Exit codes are 0 valid, 1
+validation failure, and 2 invocation/internal failure.
 
 ## Supported Configuration Migration
 

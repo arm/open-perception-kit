@@ -2,6 +2,428 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:arm:pek:schema:generic-postprocess-op:v1",
   "title": "GenericPostprocess Op v1",
+  "$defs": {
+    "cameraContact": {
+      "title": "CameraContactParser attributes v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser"
+      ],
+      "properties": {
+        "parser": {
+          "const": "CameraContactParser"
+        },
+        "contactClassIndex": {
+          "enum": [
+            0,
+            1
+          ],
+          "default": 1
+        },
+        "noContactClassIndex": {
+          "enum": [
+            0,
+            1
+          ],
+          "default": 0
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "contactClassIndex": {
+                "const": 0
+              }
+            },
+            "required": [
+              "contactClassIndex"
+            ]
+          },
+          "then": {
+            "properties": {
+              "noContactClassIndex": {
+                "const": 1
+              }
+            },
+            "required": [
+              "noContactClassIndex"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "noContactClassIndex": {
+                "const": 1
+              }
+            },
+            "required": [
+              "noContactClassIndex"
+            ]
+          },
+          "then": {
+            "properties": {
+              "contactClassIndex": {
+                "const": 0
+              }
+            },
+            "required": [
+              "contactClassIndex"
+            ]
+          }
+        }
+      ]
+    },
+    "dummy": {
+      "title": "DummyParser attributes v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser"
+      ],
+      "properties": {
+        "parser": {
+          "const": "DummyParser"
+        },
+        "log": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "noConfig": {
+      "title": "No-config GenericPostprocess parser attributes v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser"
+      ],
+      "properties": {
+        "parser": {
+          "enum": [
+            "GazeDetectionParser",
+            "ObjectEmbeddingParser",
+            "PersonClassificationParser",
+            "RvmParser"
+          ]
+        }
+      }
+    },
+    "imagenetClassification": {
+      "title": "ImageNetClassificationParser attributes v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser"
+      ],
+      "properties": {
+        "parser": {
+          "const": "ImageNetClassificationParser"
+        },
+        "topK": {
+          "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/positiveCount",
+          "default": 5
+        },
+        "confidenceThreshold": {
+          "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/probability",
+          "default": 0.01
+        }
+      }
+    },
+    "modnetSegmentation": {
+      "title": "ModNetSegmentationParser attributes v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser"
+      ],
+      "properties": {
+        "parser": {
+          "const": "ModNetSegmentationParser"
+        },
+        "thresholdLow": {
+          "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/probability",
+          "default": 0.2
+        },
+        "thresholdHigh": {
+          "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/probability",
+          "default": 0.8
+        }
+      }
+    },
+    "paddleOcrDetection": {
+      "title": "PaddleOcrDetectionParser attributes v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser"
+      ],
+      "properties": {
+        "parser": {
+          "const": "PaddleOcrDetectionParser"
+        },
+        "thresholdLow": {
+          "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/probability",
+          "default": 0.6
+        },
+        "thresholdHigh": {
+          "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/probability",
+          "default": 0.8
+        },
+        "gamma": {
+          "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/positiveFiniteFloat",
+          "default": 0.5
+        }
+      }
+    },
+    "scrfd": {
+      "title": "ScrfdParser attributes v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser"
+      ],
+      "properties": {
+        "parser": {
+          "const": "ScrfdParser"
+        },
+        "confidenceThreshold": {
+          "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/probability",
+          "default": 0.5
+        },
+        "iouThreshold": {
+          "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/probability",
+          "default": 0.4
+        },
+        "normalizeOutputCoordinates": {
+          "type": "boolean",
+          "default": false
+        },
+        "maxDetections": {
+          "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/positiveCount",
+          "default": 100
+        }
+      }
+    },
+    "ultraface": {
+      "title": "UltrafaceParser attributes v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser"
+      ],
+      "properties": {
+        "parser": {
+          "const": "UltrafaceParser"
+        },
+        "confidenceThreshold": {
+          "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/probability",
+          "default": 0.5
+        },
+        "iouThreshold": {
+          "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/probability",
+          "default": 0.3
+        },
+        "normalizeOutputCoordinates": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "yolo": {
+      "title": "YoloParser attributes v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser"
+      ],
+      "properties": {
+        "parser": {
+          "const": "YoloParser"
+        },
+        "outputFormat": {
+          "enum": [
+            "UltralyticsYolo",
+            "HailoYoloNMS"
+          ],
+          "default": "UltralyticsYolo"
+        },
+        "confidenceThreshold": {
+          "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/probability",
+          "default": 0.25
+        },
+        "iouThreshold": {
+          "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/probability",
+          "default": 0.45
+        },
+        "coordinatesAreNormalized": {
+          "type": "boolean",
+          "default": false
+        },
+        "normalizeOutputCoordinates": {
+          "type": "boolean",
+          "default": true
+        },
+        "applyNms": {
+          "type": "boolean",
+          "default": true
+        },
+        "maxDetections": {
+          "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/positiveCount",
+          "default": 5
+        },
+        "classCount": {
+          "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/positiveCount",
+          "default": 80
+        },
+        "maxBboxesPerClass": {
+          "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/positiveCount",
+          "default": 100
+        },
+        "coordOrder": {
+          "enum": [
+            "yxyx",
+            "xyxy"
+          ],
+          "default": "yxyx"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "applyNms": {
+                "const": false
+              }
+            },
+            "required": [
+              "applyNms"
+            ]
+          },
+          "then": {
+            "not": {
+              "required": [
+                "iouThreshold"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "outputFormat": {
+                "const": "HailoYoloNMS"
+              }
+            },
+            "required": [
+              "outputFormat"
+            ]
+          },
+          "else": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "classCount"
+                  ]
+                },
+                {
+                  "required": [
+                    "maxDetections"
+                  ]
+                },
+                {
+                  "required": [
+                    "maxBboxesPerClass"
+                  ]
+                },
+                {
+                  "required": [
+                    "coordOrder"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "yoloX": {
+      "title": "YoloXParser attributes v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser"
+      ],
+      "properties": {
+        "parser": {
+          "const": "YoloXParser"
+        },
+        "classCount": {
+          "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/positiveCount",
+          "default": 80
+        },
+        "confidenceThreshold": {
+          "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/probability",
+          "default": 0.25
+        },
+        "iouThreshold": {
+          "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/probability",
+          "default": 0.45
+        },
+        "maxDetections": {
+          "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/positiveCount",
+          "default": 100
+        },
+        "applyNms": {
+          "type": "boolean",
+          "default": true
+        },
+        "decoded": {
+          "type": "boolean",
+          "default": false
+        },
+        "scoresAreLogits": {
+          "type": "boolean",
+          "default": false
+        },
+        "normalizeOutputCoordinates": {
+          "type": "boolean",
+          "default": true
+        },
+        "scoreMode": {
+          "enum": [
+            "objectnessClass",
+            "classOnly"
+          ],
+          "default": "objectnessClass"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "applyNms": {
+                "const": false
+              }
+            },
+            "required": [
+              "applyNms"
+            ]
+          },
+          "then": {
+            "not": {
+              "required": [
+                "iouThreshold"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  },
   "if": {
     "properties": {
       "id": {
@@ -20,34 +442,34 @@
       "attributes": {
         "oneOf": [
           {
-            "$ref": "urn:arm:pek:schema:generic-postprocess-parser-camera-contact:v1"
+            "$ref": "#/$defs/cameraContact"
           },
           {
-            "$ref": "urn:arm:pek:schema:generic-postprocess-parser-dummy:v1"
+            "$ref": "#/$defs/dummy"
           },
           {
-            "$ref": "urn:arm:pek:schema:generic-postprocess-parser-no-config:v1"
+            "$ref": "#/$defs/noConfig"
           },
           {
-            "$ref": "urn:arm:pek:schema:generic-postprocess-parser-imagenet-classification:v1"
+            "$ref": "#/$defs/imagenetClassification"
           },
           {
-            "$ref": "urn:arm:pek:schema:generic-postprocess-parser-modnet-segmentation:v1"
+            "$ref": "#/$defs/modnetSegmentation"
           },
           {
-            "$ref": "urn:arm:pek:schema:generic-postprocess-parser-paddle-ocr-detection:v1"
+            "$ref": "#/$defs/paddleOcrDetection"
           },
           {
-            "$ref": "urn:arm:pek:schema:generic-postprocess-parser-scrfd:v1"
+            "$ref": "#/$defs/scrfd"
           },
           {
-            "$ref": "urn:arm:pek:schema:generic-postprocess-parser-ultraface:v1"
+            "$ref": "#/$defs/ultraface"
           },
           {
-            "$ref": "urn:arm:pek:schema:generic-postprocess-parser-yolo:v1"
+            "$ref": "#/$defs/yolo"
           },
           {
-            "$ref": "urn:arm:pek:schema:generic-postprocess-parser-yolo-x:v1"
+            "$ref": "#/$defs/yoloX"
           }
         ]
       }

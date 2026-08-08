@@ -23,10 +23,11 @@ respectively unless an explicit source path is supplied. The supported schemas S
 
 The OpChain root schema SHALL reference local versioned resources under
 `config/schemas/v1/opchain/`. Those resources SHALL describe the shared Op structure and each
-supported built-in Op's ID selection and attribute contract. `GenericPostprocess` parser variants
-with the same closed attribute shape MAY share one subordinate resource; variants with different
-shapes SHALL use distinct resources. The exact `<library>/Inference` ID shape SHALL select one
-shared Inference resource without enumerating backend libraries.
+supported built-in Op's ID selection and attribute contract. The `GenericPostprocess` resource
+SHALL own parser variants as local `$defs`; variants with the same closed attribute shape MAY share
+one definition. A parser definition SHALL become a standalone resource only when a second schema
+consumer requires it. The exact `<library>/Inference` ID shape SHALL select one shared Inference
+resource without enumerating backend libraries.
 
 Every schema resource SHALL be valid against the built-in Draft 2020-12 meta-schema, declare a
 unique `$id`, and resolve every local reference from the checked-in bundle without network access.
@@ -434,20 +435,19 @@ concerns.
 
 ### Requirement: Repository CLI and CI
 
-`pek-config-check --root <repo-root> --format text|json` SHALL parse with duplicate detection and
+`pek-config-check --root <repo-root>` SHALL parse with duplicate detection and
 meta-validate the complete current checked-in schema bundle, discover every JSON descriptor below
 `config/models/` and `config/opchains/`, exclude `config/experimental/`, validate the complete set,
 and report all independently readable failures deterministically. Repository discovery SHALL
 inspect routing filenames rather than descriptor content and SHALL add no cross-descriptor
 semantic rules.
 
-JSON output SHALL contain `diagnosticFormatVersion: 1` and the shared issue fields. Exit SHALL be 0
-for valid, 1 for validation failure, and 2 for invocation/internal failure.
+Validation failures SHALL be emitted once in a human-readable report ordered by file, phase
+(`parse`, `dispatch`, `schema`, `descriptor`), instance location, and rule. Exit SHALL be 0 for
+valid, 1 for validation failure, and 2 for invocation/internal failure.
 `expkits-ci --config-schema-check` SHALL only invoke this CLI, and PR/full presets SHALL include it.
-Help, successful reports, and every JSON report SHALL be written to stdout without logger prefixes.
-Human-readable validation failures and invocation/internal diagnostics SHALL be emitted once and
-made visible before exit. JSON reports are the machine-readable diagnostic interface and SHALL NOT
-be duplicated as another diagnostic.
+Help and successful reports SHALL be written to stdout; every failure SHALL be made visible before
+exit.
 
 The existing `expkits-ci` pre-commit and PR/full CI presets SHALL invoke
 `--descriptor-evolution-advice`. The advisory SHALL receive the preset's already-resolved file
@@ -477,17 +477,8 @@ one classification in that pull request or its active OpenSpec change:
 - **WHEN** a contributor edits a checked-in schema and runs `pek-config-check`
 - **THEN** the current schema is meta-validated and used for descriptor validation
 
-#### Scenario: Stable machine-readable diagnostics
-- **WHEN** validation fails in JSON format
-- **THEN** output version 1 orders issues by file, phase (`parse`, `dispatch`, `schema`,
-  `descriptor`), instance location, and rule
-
-#### Scenario: Machine-readable output remains clean
-- **WHEN** a valid or invalid repository is requested in JSON format
-- **THEN** stdout contains one parseable report without logger prefixes or a duplicate log record
-
 #### Scenario: Human-readable validation failure
-- **WHEN** repository validation fails in text format
+- **WHEN** repository validation fails
 - **THEN** the CLI emits the report once and exits 1
 
 #### Scenario: Evolution advice reuses preset scope
