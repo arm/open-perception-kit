@@ -337,7 +337,12 @@ def related_statuses(
     valgrind_status = None
     if valgrind_job is not None:
         conclusion = str(valgrind_job.get("conclusion", ""))
-        if conclusion != "skipped" or status["conclusion"] in FAILURE_CONCLUSIONS | {"cancelled"}:
+        image_build_failed = any(
+            job.get("name") == "Build Docker image"
+            and job.get("conclusion") in FAILURE_CONCLUSIONS | {"cancelled"}
+            for job in jobs
+        )
+        if conclusion != "skipped" or image_build_failed:
             valgrind_status = dict(status)
             valgrind_status.update({
                 "conclusion": status["conclusion"] if conclusion == "skipped" else conclusion,

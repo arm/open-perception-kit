@@ -165,6 +165,43 @@ class TestPublishWorkflowStatus(unittest.TestCase):
         self.assertEqual(statuses["docker-scout"]["metric"], "1 critical")
         self.assertEqual(statuses["workflow-freshness"]["metric"], "Up to date")
 
+    def test_skipped_valgrind_reports_only_shared_image_failures(self):
+        run = {
+            "conclusion": "failure",
+            "event": "pull_request",
+            "head_branch": "feature/example",
+            "head_repository": {"full_name": "Arm-Debug/amp-dev-forge"},
+            "head_sha": SHA,
+            "id": 123,
+            "name": "PEK CI",
+            "path": ".github/workflows/pek-ci.yml",
+            "pull_requests": [{"number": 305}],
+            "run_attempt": 1,
+            "updated_at": "2026-08-03T10:00:00Z",
+        }
+        valgrind = {"name": "Run Valgrind checks in Docker", "conclusion": "skipped", "steps": []}
+
+        jobs = [
+            {"name": "Build Docker image", "conclusion": "success", "steps": []},
+            valgrind,
+            {"name": "Docker Scout Image Audit / docker-scout (pek-ci)",
+             "conclusion": "failure", "steps": []},
+        ]
+        with patch.object(publisher, "workflow_jobs", return_value=jobs), patch.object(
+                publisher, "docker_scout_metric", return_value=("1 critical", "slow", [])
+        ):
+            statuses = dict(publisher.statuses_from_run("Arm-Debug/amp-dev-forge", run))
+        self.assertNotIn("valgrind", statuses)
+        self.assertEqual(statuses["docker-scout"]["conclusion"], "failure")
+
+        jobs = [
+            {"name": "Build Docker image", "conclusion": "failure", "steps": []},
+            valgrind,
+        ]
+        with patch.object(publisher, "workflow_jobs", return_value=jobs):
+            statuses = dict(publisher.statuses_from_run("Arm-Debug/amp-dev-forge", run))
+        self.assertEqual(statuses["valgrind"]["conclusion"], "failure")
+
     def test_scheduled_publish_reconciles_latest_source_statuses(self):
         python_status = status("success")
         python_status["workflow"] = "Python Dependency Audit"
