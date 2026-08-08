@@ -46,6 +46,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.inputs.pr_number || github.ref || github.run_id }}-${{ github.event.action == 'labeled' && (!contains(github.event.label.name, 'run-pek-ci') || contains(github.event.pull_request.labels.*.name, 'run-macos-ci')) && github.run_id || 'validation' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+env:
+  CCACHE_SCHEMA_VERSION: v1
+
 jobs:
   build-ci-image:
     name: Build Docker image
@@ -567,6 +570,7 @@ jobs:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      CCACHE_PATH: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}/.cache/ccache
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -595,6 +599,14 @@ jobs:
           git switch --force-create "$PR_HEAD_REF" "$PR_HEAD_SHA"
           test "$(git rev-parse HEAD)" = "$PR_HEAD_SHA"
           test "$(git branch --show-current)" = "$PR_HEAD_REF"
+
+      - name: Restore compiler cache
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.CCACHE_PATH }}
+          key: pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-quality-${{ needs.build-ci-image.outputs.head_sha }}
+          restore-keys: |
+            pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-quality-
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4
@@ -727,6 +739,7 @@ jobs:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      CCACHE_PATH: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}/.cache/ccache
     steps:
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
@@ -741,6 +754,14 @@ jobs:
           fetch-tags: true
           ref: ${{ needs.build-ci-image.outputs.head_sha }}
           path: ${{ env.CI_CHECKOUT_PATH }}
+
+      - name: Restore compiler cache
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.CCACHE_PATH }}
+          key: pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-sonar-${{ needs.build-ci-image.outputs.head_sha }}
+          restore-keys: |
+            pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-sonar-
 
       - name: Export isolated workspace root
         shell: bash
@@ -856,6 +877,7 @@ jobs:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      CCACHE_PATH: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}/.cache/ccache
     steps:
       - name: Checkout tagged commit
         uses: actions/checkout@v7
@@ -864,6 +886,14 @@ jobs:
           fetch-tags: true
           ref: ${{ needs.build-ci-image.outputs.head_sha }}
           path: ${{ env.CI_CHECKOUT_PATH }}
+
+      - name: Restore compiler cache
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.CCACHE_PATH }}
+          key: pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-sonar-${{ needs.build-ci-image.outputs.head_sha }}
+          restore-keys: |
+            pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-sonar-
 
       - name: Export isolated workspace root
         run: echo "WORKSPACE_ROOT=${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}" >> "$GITHUB_ENV"
@@ -951,12 +981,21 @@ jobs:
     env:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
       VALGRIND_BASELINE_WORKFLOW: pek-ci.yml
+      CCACHE_PATH: ${{ github.workspace }}/.cache/ccache
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
           ref: ${{ needs.build-ci-image.outputs.head_sha }}
+
+      - name: Restore compiler cache
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.CCACHE_PATH }}
+          key: pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-valgrind-${{ needs.build-ci-image.outputs.head_sha }}
+          restore-keys: |
+            pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-valgrind-
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4

@@ -38,6 +38,9 @@ services:
 
     network_mode: bridge
     hostname: pek-ci
+    environment:
+      CCACHE_DIR: /work/.cache/ccache
+      CCACHE_MAXSIZE: 2G
     build:
       <<: *pek-tool-build
       target: pek-ci
@@ -78,8 +81,10 @@ services:
       bash -c '
         .devcontainer/setup.sh &&
         .devcontainer/platform_init.sh pek-dev disabled &&
+        ccache --zero-stats &&
         ./scripts/build-elements.sh release true &&
-        meson test -C development/build --print-errorlogs
+        meson test -C development/build --print-errorlogs &&
+        ccache --show-stats
       '
 
   pek-clang-tidy-baseline-check:
@@ -121,7 +126,9 @@ services:
       bash -c '
         .devcontainer/setup.sh &&
         .devcontainer/platform_init.sh pek-dev disabled &&
-        ./scripts/testing/valgrind/test-elements-with-valgrind.sh clean --pipeline only-onnx-yolo
+        ccache --zero-stats &&
+        ./scripts/testing/valgrind/test-elements-with-valgrind.sh clean --pipeline only-onnx-yolo &&
+        ccache --show-stats
       '
 
   pek-generate-valgrind-summary:
@@ -184,6 +191,7 @@ services:
         .devcontainer/devsetup.sh &&
         .devcontainer/platform_init.sh pek-dev disabled &&
         source /work/tools/.venv/bin/activate &&
+        ccache --zero-stats &&
         ./scripts/build-elements.sh debug true --extra-setup-args=-Db_coverage=true,--wipe &&
         meson test -C "$$BUILD_DIR" --print-errorlogs &&
         gcovr -r . --sonarqube coverage.xml &&
@@ -196,7 +204,8 @@ services:
         else
           sonar_scope_args=(-Dsonar.branch.name="$$SONAR_BRANCH")
         fi &&
-        sonar-scanner -Dsonar.qualitygate.wait="$${SONAR_QUALITYGATE_WAIT}" "$${sonar_scope_args[@]}"
+        sonar-scanner -Dsonar.qualitygate.wait="$${SONAR_QUALITYGATE_WAIT}" "$${sonar_scope_args[@]}" &&
+        ccache --show-stats
       '
 
   pek-sonar-check-release:
@@ -216,13 +225,15 @@ services:
         .devcontainer/devsetup.sh &&
         .devcontainer/platform_init.sh pek-dev disabled &&
         source /work/tools/.venv/bin/activate &&
+        ccache --zero-stats &&
         ./scripts/build-elements.sh debug true --extra-setup-args=-Db_coverage=true,--wipe &&
         meson test -C "$$BUILD_DIR" --print-errorlogs &&
         gcovr -r . --sonarqube coverage.xml &&
         sonar-scanner -Dsonar.qualitygate.wait="$${SONAR_QUALITYGATE_WAIT}" \
           -Dsonar.branch.name="$$SONAR_BRANCH" \
           -Dsonar.projectVersion="$$SONAR_PROJECT_VERSION" \
-          -Dsonar.buildString="$$BUILD_STRING"
+          -Dsonar.buildString="$$BUILD_STRING" &&
+        ccache --show-stats
       '
 
 secrets:
