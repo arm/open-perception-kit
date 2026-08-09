@@ -142,9 +142,13 @@ jobs:
           HEAD_REF: ${{ steps.manual_pr.outputs.head_ref || github.head_ref || github.ref_name }}
           PR_CONTEXT: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '') }}
           PR_NUMBER: ${{ steps.manual_pr.outputs.pr_number || github.event.pull_request.number || '' }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           head_sha="$(git rev-parse HEAD)"
+          if [ "$PR_CONTEXT" = "true" ] && [ -z "$BASE_SHA" ]; then
+            BASE_SHA="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq .base.sha)"
+          fi
           image_tag="$head_sha"
           if [ "$PR_CONTEXT" != "true" ]; then
             image_tag="${head_sha}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
