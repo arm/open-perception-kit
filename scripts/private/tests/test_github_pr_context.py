@@ -34,6 +34,7 @@ class GithubPrContextTests(unittest.TestCase):
     def pr_details(**overrides):
         details = {
             "target_branch": "main",
+            "base_sha": "cafebabe",
             "head_branch": "feature/test",
             "head_sha": "deadbeef",
         }
@@ -60,6 +61,7 @@ class GithubPrContextTests(unittest.TestCase):
             {
                 "pr_number": "101",
                 "base_ref": "main",
+                "base_sha": "cafebabe",
                 "head_ref": "feature/test",
                 "head_sha": "deadbeef",
             },
@@ -97,6 +99,7 @@ class GithubPrContextTests(unittest.TestCase):
             {
                 "pr_number": "101",
                 "base_ref": "release/next",
+                "base_sha": "cafebabe",
                 "head_ref": "repair/pr-sample",
                 "head_sha": "feedface",
             },
@@ -131,7 +134,7 @@ class GithubPrContextTests(unittest.TestCase):
                 )
 
     def test_resolve_pr_context_rejects_missing_or_empty_refs(self):
-        for field in ("target_branch", "head_branch", "head_sha"):
+        for field in ("target_branch", "base_sha", "head_branch", "head_sha"):
             for replacement in (None, ""):
                 details = self.pr_details()
                 if replacement is None:

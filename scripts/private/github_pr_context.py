@@ -64,6 +64,7 @@ def resolve_pr_context(
     context = {
         "pr_number": pr_number,
         "base_ref": _required_ref(details.get("target_branch"), pr_number),
+        "base_sha": _required_ref(details.get("base_sha"), pr_number),
         "head_ref": _required_ref(details.get("head_branch"), pr_number),
         "head_sha": _required_ref(details.get("head_sha"), pr_number),
     }

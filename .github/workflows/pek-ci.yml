@@ -77,6 +77,7 @@ jobs:
       pull-requests: read
     outputs:
       base_ref: ${{ steps.context.outputs.base_ref }}
+      base_sha: ${{ steps.context.outputs.base_sha }}
       head_ref: ${{ steps.context.outputs.head_ref }}
       head_sha: ${{ steps.context.outputs.head_sha }}
       image_tag: ${{ steps.context.outputs.image_tag }}
@@ -136,6 +137,7 @@ jobs:
         id: context
         env:
           BASE_REF: ${{ steps.manual_pr.outputs.base_ref || github.base_ref }}
+          BASE_SHA: ${{ steps.manual_pr.outputs.base_sha || github.event.pull_request.base.sha || '' }}
           HEAD_REF: ${{ steps.manual_pr.outputs.head_ref || github.head_ref || github.ref_name }}
           PR_CONTEXT: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '') }}
           PR_NUMBER: ${{ steps.manual_pr.outputs.pr_number || github.event.pull_request.number || '' }}
@@ -148,6 +150,7 @@ jobs:
           fi
           {
             printf 'base_ref=%s\n' "$BASE_REF"
+            printf 'base_sha=%s\n' "$BASE_SHA"
             printf 'head_ref=%s\n' "$HEAD_REF"
             printf 'head_sha=%s\n' "$head_sha"
             printf 'image_tag=%s\n' "$image_tag"
@@ -1081,7 +1084,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VALGRIND_BASELINE_BRANCH: ${{ needs.build-ci-image.outputs.base_ref }}
-          VALGRIND_BASELINE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+          VALGRIND_BASELINE_SHA: ${{ needs.build-ci-image.outputs.base_sha }}
         run: |
           python3 scripts/testing/valgrind/valgrind-baseline-artifact.py download \
             --sha "$VALGRIND_BASELINE_SHA" \
@@ -1096,7 +1099,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VALGRIND_BASELINE_BRANCH: ${{ needs.build-ci-image.outputs.base_ref }}
-          VALGRIND_BASELINE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+          VALGRIND_BASELINE_SHA: ${{ needs.build-ci-image.outputs.base_sha }}
         run: |
           python3 scripts/testing/valgrind/valgrind-baseline-artifact.py wait \
             --sha "$VALGRIND_BASELINE_SHA" \
@@ -1210,7 +1213,7 @@ jobs:
       - sonar
       - sonar-release
       - valgrind
-    if: ${{ always() && needs.build-ci-image.result == 'success' && needs.build-ci-image.outputs.pr_context != 'true' && (github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') }}
+    if: ${{ always() && needs.build-ci-image.result == 'success' && needs.build-ci-image.outputs.pr_context != 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

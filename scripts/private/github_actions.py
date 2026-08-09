@@ -55,6 +55,7 @@ def read_pr_details(pr_number: str, *, repository: str | None = None) -> dict[st
         )
     return {
         "title": str(payload.get("title") or ""),
+        "base_sha": str(base.get("sha") or ""),
         "head_branch": str(head.get("ref") or ""),
         "head_sha": str(head.get("sha") or ""),
         "target_branch": target_branch,
