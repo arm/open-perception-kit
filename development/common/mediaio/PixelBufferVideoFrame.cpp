@@ -120,8 +120,10 @@ bool validPixelBuffer(const void *data,
                       pek::RawImagePixelFormat format,
                       uint32_t strideBytes,
                       pek::AccessMode accessMode) noexcept {
-    if (data == nullptr || byteSize == 0 || defaultStride(width, format) == 0 ||
-        !validAccessMode(accessMode) || !validDimensions(width, height, strideBytes)) {
+    const uint32_t minimumStrideBytes = defaultStride(width, format);
+    if (data == nullptr || byteSize == 0 || minimumStrideBytes == 0 ||
+        strideBytes < minimumStrideBytes || !validAccessMode(accessMode) ||
+        !validDimensions(width, height, strideBytes)) {
         return false;
     }
 
@@ -145,7 +147,7 @@ PixelBufferVideoFrame::PixelBufferVideoFrame(
       frameFormat(format), frameStrideBytes(strideBytes), frameAccess(accessMode),
       frameTimestampNs(timestampNs), lifetimeAnchor(std::move(lifetimeAnchorValue)) {
     framePlanes.push_back(
-        DataView::host(frameData, frameByteSize, frameFormat, frameStrideBytes, frameAccess, 0));
+        DataView::host(frameData, frameByteSize, frameStrideBytes, frameAccess, 0));
 }
 
 std::unique_ptr<PixelBufferVideoFrame>

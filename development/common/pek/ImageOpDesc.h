@@ -26,8 +26,6 @@ struct ImagePlaneDesc {
     uint8_t *mutableData = nullptr; ///< Writable pointer to the first byte of the plane.
     size_t byteCount = 0;           ///< Number of bytes available from the plane pointer.
     size_t strideBytes = 0;         ///< Row stride in bytes.
-    size_t width = 0;               ///< Logical plane width in samples.
-    size_t height = 0;              ///< Logical plane height in rows.
 };
 
 /**

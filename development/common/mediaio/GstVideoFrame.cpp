@@ -178,29 +178,13 @@ pek::YuvRange yuvRangeFromGstVideoInfo(const GstVideoInfo &info) noexcept {
 }
 
 /**
- * @brief Returns the expected plane height for a supported mapped video plane.
- */
-guint mappedPlaneHeight(const GstVideoInfo &info, guint plane) noexcept {
-    using enum pek::RawImagePixelFormat;
-
-    const auto format = rawImagePixelFormatFromGstVideoFormat(GST_VIDEO_INFO_FORMAT(&info));
-    const guint height = GST_VIDEO_INFO_HEIGHT(&info);
-    switch (format) {
-    case I420:
-    case Nv12:
-        return plane == 0 ? height : (height + 1U) / 2U;
-    default:
-        return height;
-    }
-}
-
-/**
  * @brief Returns the byte range needed to expose a mapped video plane.
  */
 size_t
 mappedPlaneByteSize(const GstVideoInfo &info, const ::GstVideoFrame &frame, guint plane) noexcept {
     const gint stride = GST_VIDEO_FRAME_PLANE_STRIDE(&frame, plane);
-    const guint height = mappedPlaneHeight(info, plane);
+    const guint height =
+        GST_VIDEO_FORMAT_INFO_SCALE_HEIGHT(info.finfo, plane, GST_VIDEO_INFO_HEIGHT(&info));
     if (stride <= 0 || height == 0) {
         return 0;
     }
@@ -367,7 +351,7 @@ std::unique_ptr<GstVideoFrame> GstVideoFrame::mapGstBufferUnique(GstBuffer *buff
         }
 
         planes.push_back(
-            DataView::host(data, byteSize, format, static_cast<uint32_t>(stride), accessMode, 0));
+            DataView::host(data, byteSize, static_cast<uint32_t>(stride), accessMode, 0));
     }
 
     if (planes.empty()) {

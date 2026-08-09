@@ -27,25 +27,6 @@ using namespace pek::stdop;
 
 namespace {
 
-size_t expectedPlaneCount(pek::RawImagePixelFormat format) noexcept {
-    using enum pek::RawImagePixelFormat;
-
-    switch (format) {
-    case Bgra:
-    case Rgb:
-    case Gray:
-    case Yuy2:
-        return 1;
-    case I420:
-        return 3;
-    case Nv12:
-        return 2;
-    case Unknown:
-        return 0;
-    }
-    return 0;
-}
-
 bool isYuvPixelFormat(pek::RawImagePixelFormat format) noexcept {
     using enum pek::RawImagePixelFormat;
 
@@ -59,40 +40,12 @@ bool isYuvPixelFormat(pek::RawImagePixelFormat format) noexcept {
     }
 }
 
-pek::ImagePlaneDesc makePlaneDesc(const pek::mediaio::DataView &plane,
-                                  pek::RawImagePixelFormat format,
-                                  size_t planeIndex,
-                                  size_t surfaceWidth,
-                                  size_t surfaceHeight) {
-    size_t planeWidth = surfaceWidth;
-    size_t planeHeight = surfaceHeight;
-
-    using enum pek::RawImagePixelFormat;
-
-    switch (format) {
-    case I420:
-        if (planeIndex > 0) {
-            planeWidth = (surfaceWidth + 1) / 2;
-            planeHeight = (surfaceHeight + 1) / 2;
-        }
-        break;
-    case Nv12:
-        if (planeIndex == 1) {
-            planeWidth = ((surfaceWidth + 1) / 2) * 2;
-            planeHeight = (surfaceHeight + 1) / 2;
-        }
-        break;
-    default:
-        break;
-    }
-
+pek::ImagePlaneDesc makePlaneDesc(const pek::mediaio::DataView &plane) {
     return {
         static_cast<const uint8_t *>(plane.data()),
         nullptr,
         plane.byteSize(),
         plane.strideBytes(),
-        planeWidth,
-        planeHeight,
     };
 }
 
@@ -214,12 +167,11 @@ pek::Result<pek::op::OpSignal> GenericImagePreprocessOp::process(
     }
 
     const auto sourceFormat = readableVideoFrame->format();
-    const size_t sourcePlaneCount = expectedPlaneCount(sourceFormat);
-    if (sourcePlaneCount == 0 || sourcePlaneCount > pek::MaxImagePlaneCount ||
-        readablePlanes.size() < sourcePlaneCount) {
+    const size_t sourcePlaneCount = readablePlanes.size();
+    if (sourcePlaneCount == 0 || sourcePlaneCount > pek::MaxImagePlaneCount) {
         return tl::make_unexpected(
             PEK_ERROR(pek::ErrorFlag::InvalidData,
-                      "GenericImagePreprocessOp unsupported or incomplete VideoFrame format"));
+                      "GenericImagePreprocessOp VideoFrame has invalid plane count"));
     }
 
     // setup tensor data source
@@ -229,12 +181,7 @@ pek::Result<pek::op::OpSignal> GenericImagePreprocessOp::process(
     setup.imageSourceDesc.rect = cropRect;
     setup.imageSourceDesc.planeCount = sourcePlaneCount;
     for (size_t planeIndex = 0; planeIndex < sourcePlaneCount; ++planeIndex) {
-        setup.imageSourceDesc.planes[planeIndex] =
-            makePlaneDesc(readablePlanes[planeIndex],
-                          sourceFormat,
-                          planeIndex,
-                          setup.imageSourceDesc.surfaceWidth,
-                          setup.imageSourceDesc.surfaceHeight);
+        setup.imageSourceDesc.planes[planeIndex] = makePlaneDesc(readablePlanes[planeIndex]);
         assert(setup.imageSourceDesc.planes[planeIndex].data != nullptr);
         assert(setup.imageSourceDesc.planes[planeIndex].mutableData == nullptr);
     }
@@ -293,8 +240,6 @@ pek::Result<pek::op::OpSignal> GenericImagePreprocessOp::process(
         upcomingTensorAddresses[inputImageTensorIndex],
         inputTensor.shape.getFullValueCount() * pek::getValueTypeByteSize(inputTensor.valueType),
         0,
-        modelWidth,
-        modelHeight,
     };
     assert(setup.imageDestinationDesc.planes[0].data == nullptr);
     assert(setup.imageDestinationDesc.planes[0].mutableData != nullptr);

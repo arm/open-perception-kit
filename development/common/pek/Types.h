@@ -230,22 +230,6 @@ inline bool isScalarDataKind(DataKind kind) {
     }
 }
 
-/**
- * @brief Returns true if @p kind represents an image data kind.
- * @param kind DataKind to test.
- */
-inline bool isImageDataKind(DataKind kind) {
-    switch (kind) {
-    case DataKind::ImageRgbChw:
-    case DataKind::ImageRgbHwc:
-    case DataKind::ImageBgraHwc:
-    case DataKind::ImageGray:
-        return true;
-    default:
-        return false;
-    }
-}
-
 /// @brief Maximum number of input or output tensors per inference op.
 constexpr size_t MaxTensorCount = 16;
 /// @brief Sentinel value for an uninitialised or invalid tensor index.
