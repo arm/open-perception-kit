@@ -179,6 +179,8 @@ services:
     <<: *pek-ci
     hostname: pek-sonar-check
     environment:
+      CCACHE_DIR: /work/.cache/ccache
+      CCACHE_MAXSIZE: 2G
       PROJECT_ROOT: /work/development
       BUILD_DIR: /work/development/build
       SONAR_HOST_URL: ${SONAR_HOST_URL}
@@ -214,6 +216,8 @@ services:
     <<: *pek-ci
     hostname: pek-sonar-check-release
     environment:
+      CCACHE_DIR: /work/.cache/ccache
+      CCACHE_MAXSIZE: 2G
       PROJECT_ROOT: /work/development
       BUILD_DIR: /work/development/build
       SONAR_HOST_URL: ${SONAR_HOST_URL}
