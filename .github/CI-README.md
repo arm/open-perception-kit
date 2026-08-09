@@ -39,6 +39,33 @@ publisher that requests a missing baseline from `pek-ci.yml`; it never runs PR
 code. Its trusted helper also covers feature-branch bases used by stacked pull
 requests.
 
+### Measured PR cache timings
+
+These single-run measurements use sterile x64 runners. Queue time is excluded;
+job time includes setup and cleanup. `Before` is a cold/seed run and `After` is
+a cache-backed run.
+
+| Job | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| Docker image | [2:00](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31254225641/job/93095100954) | [0:53](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31327095403/job/93279095277) | 55.8% shorter |
+| Quality | [9:07, 2/113 hits](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31256175990/job/93100275186) | [4:47, 112/113 hits](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31327095403/job/93279198844) | 47.5% shorter |
+| Sonar | [19:01, 2/113 hits](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31327095403/job/93279198834) | [14:22, 112/113 hits](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31327095403/job/93284269234) | 24.5% shorter |
+| Valgrind | [9:48, 2/88 hits](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31254225641/job/93095302887) | [5:29, 87/88 hits](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31327095403/job/93279198866) | 44.0% shorter |
+
+Sonar step detail from the same seed and warm jobs:
+
+| Step | Before | After |
+| --- | ---: | ---: |
+| Restore compiler cache | 0:01, 207 B miss | 0:04, 84,459,835 B hit |
+| Prepare shared CI image | 2:55 | 1:09 |
+| SonarQube analysis | 14:42 | 11:57 |
+| Save compiler cache | 0:08, 88,459,835 B | skipped on exact hit |
+
+GitHub scopes pull-request caches to the PR merge ref, so the warm Sonar
+measurement uses a rerun of the original PR job. A branch `workflow_dispatch`
+cannot restore that PR-scoped cache. See GitHub's
+[cache access restrictions](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching#restrictions-for-accessing-a-cache).
+
 ## What does `.github/workflows/release-tests.yml` do?
 
 - Runs directly only for pull requests targeting `main`.
