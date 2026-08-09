@@ -104,6 +104,18 @@ class CiImageTests(unittest.TestCase):
 
         request.assert_not_called()
 
+    def test_cleanup_refuses_to_delete_a_version_with_other_tags(self):
+        versions = [version(10, SHA, RUN_TAG), version(30, ci_image.ANCHOR_TAG)]
+        with (
+            mock.patch.dict("os.environ", REPOSITORY_ENV, clear=True),
+            mock.patch.object(ci_image, "package_versions", return_value=versions),
+            mock.patch.object(ci_image, "github_api_request") as request,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "also contains other tags"):
+                ci_image.cleanup(SHA)
+
+        request.assert_not_called()
+
     def test_cleanup_is_idempotent_when_tag_is_missing(self):
         with (
             mock.patch.dict("os.environ", REPOSITORY_ENV, clear=True),

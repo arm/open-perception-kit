@@ -160,6 +160,25 @@ class TestValgrindBaselineArtifact(unittest.TestCase):
             check=True,
         )
 
+    def test_find_active_run_matches_the_baseline_sha_in_the_run_name(self):
+        with mock.patch.object(
+            self.helper,
+            "list_backfill_runs",
+            return_value=[
+                {
+                    "databaseId": 123,
+                    "displayTitle": f"Valgrind baseline {BASE_SHA}",
+                    "status": "in_progress",
+                },
+                {
+                    "databaseId": 456,
+                    "displayTitle": f"Valgrind baseline {'b' * 40}",
+                    "status": "in_progress",
+                },
+            ],
+        ):
+            self.assertEqual(self.helper.find_active_run(BASE_SHA), 123)
+
     def test_wait_downloads_the_published_baseline(self):
         with tempfile.TemporaryDirectory() as tmpdir, \
                 mock.patch.object(self.helper, "download_baseline", side_effect=[1, 0]) as download, \

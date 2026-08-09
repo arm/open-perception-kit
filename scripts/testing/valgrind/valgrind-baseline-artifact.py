@@ -20,7 +20,6 @@ from pathlib import Path
 
 ACTIVE_STATUSES = {"queued", "in_progress", "requested", "waiting", "pending"}
 BASELINE_BRANCH = os.environ.get("VALGRIND_BASELINE_BRANCH", "develop")
-BASELINE_RUN_EVENTS = {"push", "workflow_dispatch"}
 OWNER, REPOSITORY_NAME = os.environ["GITHUB_REPOSITORY"].split("/", 1)
 REPOSITORY = f"{OWNER}/{REPOSITORY_NAME}"
 WORKFLOW_NAME = os.environ.get("VALGRIND_BASELINE_WORKFLOW", "pek-ci.yml")
@@ -73,7 +72,7 @@ def baseline_sha(explicit_sha: str = "") -> str:
     return sha
 
 
-def list_runs(sha: str):
+def list_backfill_runs():
     return gh_json(
         "run",
         "list",
@@ -82,19 +81,20 @@ def list_runs(sha: str):
         "--workflow",
         WORKFLOW_NAME,
         "--branch",
-        BASELINE_BRANCH,
-        "--commit",
-        sha,
+        WORKFLOW_REF,
+        "--event",
+        "workflow_dispatch",
         "--limit",
         "20",
         "--json",
-        "databaseId,event,status",
+        "databaseId,displayTitle,status",
     )
 
 
 def find_active_run(sha: str):
-    for run in list_runs(sha):
-        if run.get("event") in BASELINE_RUN_EVENTS and run.get("status") in ACTIVE_STATUSES:
+    title = f"Valgrind baseline {sha}"
+    for run in list_backfill_runs():
+        if run.get("displayTitle") == title and run.get("status") in ACTIVE_STATUSES:
             return int(run["databaseId"])
     return None
 

@@ -170,6 +170,11 @@ def cleanup(tag: str) -> None:
         raise RuntimeError("CI image retention anchor is missing; refusing package-wide cleanup.")
     if ANCHOR_TAG in version_tags(matches[0]):
         raise RuntimeError("CI image tag and retention anchor unexpectedly share one version.")
+    other_tags = sorted(set(version_tags(matches[0])) - {tag})
+    if other_tags:
+        raise RuntimeError(
+            f"CI image version for {tag} also contains other tags; refusing to delete: {', '.join(other_tags)}"
+        )
 
     version_id = str(matches[0].get("id") or "")
     if not version_id.isdigit():

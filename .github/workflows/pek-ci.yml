@@ -1,4 +1,5 @@
 name: PEK CI
+run-name: ${{ inputs.valgrind_baseline_sha != '' && format('Valgrind baseline {0}', inputs.valgrind_baseline_sha) || 'PEK CI' }}
 
 on:
   workflow_dispatch:
@@ -190,6 +191,7 @@ jobs:
           labels: |
             org.opencontainers.image.revision=${{ steps.context.outputs.head_sha }}
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.context.outputs.image_tag }}
           provenance: false
           pull: true
           push: true
