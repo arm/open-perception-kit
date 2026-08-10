@@ -21,6 +21,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      pull-requests: read
     steps:
       - name: Checkout trusted workflow helper
         uses: actions/checkout@v7
@@ -31,8 +32,17 @@ jobs:
       - name: Delete superseded PR image
         env:
           GH_TOKEN: ${{ github.token }}
+          PR_ACTION: ${{ github.event.action }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           CI_IMAGE_TAG: ${{ github.event.action == 'closed' && github.event.pull_request.head.sha || github.event.before }}
-        run: python3 scripts/private/ci_image.py cleanup "$CI_IMAGE_TAG"
+        run: |
+          if [ "$PR_ACTION" != closed ]; then
+            python3 scripts/private/ci_image.py cleanup "$CI_IMAGE_TAG"
+            exit
+          fi
+          while IFS= read -r commit_sha; do
+            python3 scripts/private/ci_image.py cleanup "$commit_sha"
+          done < <(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/commits" --jq '.[].sha')
 
   cleanup-run-image:
     name: Delete completed run CI image
