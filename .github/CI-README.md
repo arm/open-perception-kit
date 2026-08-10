@@ -64,6 +64,7 @@ writes only its own merge ref.
 | --- | --- | --- |
 | Buildx `pek-ci` cache | Reuse Docker layers between runs | Branch/PR ref; deleted when the PR closes or GitHub evicts it |
 | Quality, Sonar, and Valgrind ccache | Reuse compiled objects for the same check | PR ref; deleted when the PR closes or GitHub evicts it |
+| Sonar CFamily server cache | Reuse target-branch or main fallback analysis in pull requests | Updated by `main` and `develop` push analysis |
 | Run image cache | Pass the image from `Build PEK CI image` to its dependent jobs | Exact run; retained after failure for rerun, deleted after success/cancel or PR close |
 | PR image artifact | Pass the verified image to the trusted GHCR publisher | One day |
 | `pek-ci-pr-<number>` image in GHCR | Pull the latest successful PEK CI image locally | Replaced after the next successful run; deleted when the PR closes |
@@ -76,33 +77,41 @@ the trusted `PEK CI Image` workflow publishes the verified image:
 docker pull ghcr.io/arm-debug/amp-dev-forge-ci:pek-ci-pr-<number>
 ```
 
-References: GitHub [cache access restrictions](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching#restrictions-for-accessing-a-cache)
-and Docker [Buildx `gha` cache scope](https://docs.docker.com/build/cache/backends/gha/#scope).
+References: GitHub [cache access restrictions](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching#restrictions-for-accessing-a-cache),
+Docker [Buildx `gha` cache scope](https://docs.docker.com/build/cache/backends/gha/#scope),
+and Sonar [incremental analysis](https://docs.sonarsource.com/sonarqube-server/2025.4/analyzing-source-code/incremental-analysis/introduction/).
 
 ### Measured PR cache timings
 
-These single-run measurements use sterile x64 runners. Queue time is excluded;
-job time includes setup and cleanup. `Before` is a cold/seed run and `After` is
-a cache-backed run.
+Queue time is excluded; job time includes setup and cleanup. The cold run
+followed deletion of all PR caches; the warm run reran the same SHA.
 
-| Job | Before | After | Change |
+| Job | Artifact baseline | Cold ref cache | Warm rerun |
 | --- | ---: | ---: | ---: |
-| Docker image | [2:00](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31254225641/job/93095100954) | [0:53](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31327095403/job/93279095277) | 55.8% shorter |
-| Quality | [9:07, 2/113 hits](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31256175990/job/93100275186) | [4:47, 112/113 hits](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31327095403/job/93279198844) | 47.5% shorter |
-| Sonar | [19:01, 2/113 hits](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31327095403/job/93279198834) | [14:22, 112/113 hits](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31327095403/job/93284269234) | 24.5% shorter |
-| Valgrind | [9:48, 2/88 hits](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31254225641/job/93095302887) | [5:29, 87/88 hits](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31327095403/job/93279198866) | 44.0% shorter |
+| CI image | [1:37](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31381880114/job/93433659544) | [5:33](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93442576791) | [1:27](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93447199213) |
+| Quality | [5:07](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31381880114/job/93434036295) | [9:12](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93443869967) | [5:01](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93447548498) |
+| Valgrind | [6:55](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31381880114/job/93434036310) | [8:30](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93443869925) | [5:55](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93447548536) |
+| Sonar | [20:21](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31381880114/job/93434036354) | [14:01](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93443869962) | [14:02](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93447548602) |
+| Quick-start | [8:42](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31381880114/job/93433659560) | [7:52](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93442576778) | [8:34](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93447199214) |
+| Pi 5 and Playwright | [16:49](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31381880114/job/93433659508) | [16:05](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93442576787) | [16:34](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93447199187) |
+| CI image to Sonar | 21:58 | 19:34 | 15:29 |
 
-Sonar step detail from the same seed and warm jobs:
-
-| Step | Before | After |
+| Cache-sensitive step | Cold | Warm |
 | --- | ---: | ---: |
-| Restore compiler cache | 0:01, 207 B miss | 0:04, 84,459,835 B hit |
-| Prepare shared CI image | 2:55 | 1:09 |
-| SonarQube analysis | 14:42 | 11:57 |
-| Save compiler cache | 0:08, 88,459,835 B | skipped on exact hit |
+| Build CI image | 4:48 | 0:42, all 17 layers cached |
+| Quality build and unit tests | 7:01, 2/113 hits | 2:53, 112/113 hits |
+| Valgrind checks | 5:52, 2/88 hits | 3:34, 87/88 hits |
+| Sonar analysis | 11:48, 0/96 server hits | 11:45, 0/96 server hits |
 
-The warm Sonar measurement uses a rerun of the same PR job. A branch
-`workflow_dispatch` run cannot restore a PR merge-ref cache.
+The warm compiler and layer-cache critical path is 6:29 shorter than the
+artifact baseline. After a `develop` branch analysis seeded Sonar's server
+cache, the same PR Sonar job reran in [8:30](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31387622127/job/93458223381):
+the analysis step fell from 11:46 to 6:07, with 54/96 CFamily cache hits and an
+81% symbolic-execution hit rate. The same-head CI image-to-Sonar path is 9:50,
+12:08 (55.2%) shorter than the artifact baseline.
+
+Storing the PR image for trusted publication adds [0:38](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31387622127/job/93452334704)
+in parallel and does not block Quality, Sonar, or Valgrind.
 
 ## What does `.github/workflows/release-tests.yml` do?
 
