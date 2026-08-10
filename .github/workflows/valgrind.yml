@@ -3,7 +3,7 @@ name: Publish missing Valgrind baseline
 on:
   pull_request_target:
     branches: [main, develop, "feature/**", "sandbox/**"]
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
@@ -13,7 +13,12 @@ jobs:
   publish-pr-baseline:
     name: Publish missing Valgrind baseline
     runs-on: ubuntu-latest
-    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (
+        (github.event.action != 'labeled' && github.event.pull_request.draft == false) ||
+        (github.event.action == 'labeled' && github.event.label.name == 'run-pek-ci')
+      )
     permissions:
       actions: write
       contents: read

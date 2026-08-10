@@ -256,7 +256,10 @@ jobs:
     with:
       ci_image_sha: ${{ needs.build-ci-image.outputs.head_sha }}
       ci_image_tag: ${{ needs.build-ci-image.outputs.image_tag }}
-    secrets: inherit # pragma: allowlist secret
+    secrets:
+      DOCKER_USER: ${{ secrets.DOCKER_USER }}
+      DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
+      HF_TOKEN: ${{ secrets.HF_TOKEN }} # pragma: allowlist secret
 
   linux-quick-start-build-test:
     name: Quick-start on Linux
