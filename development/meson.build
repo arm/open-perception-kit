@@ -160,6 +160,20 @@ endif
 # Common include(s)
 common_include = include_directories('common', 'common/logging/include')
 
+if get_option('tests')
+  pek_python_path = run_command(
+    'sh',
+    '-c',
+    'if [ -n "$PEK_DEVTOOLS_VENV" ]; then printf %s "$PEK_DEVTOOLS_VENV/bin/python"; fi',
+    check : false,
+  ).stdout().strip()
+  if pek_python_path != ''
+    pek_python = import('python').find_installation(pek_python_path)
+  else
+    pek_python = import('python').find_installation()
+  endif
+endif
+
 subdir('perception')
 pek_deps += [perception_dep]
 

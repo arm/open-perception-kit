@@ -18,7 +18,7 @@ perception_dep = declare_dependency(
 )
 
 if get_option('tests')
-  _perception_python = import('python').find_installation()
+  _perception_python = pek_python
   _perception_python_embed_dep = _perception_python.dependency(
     embed : true,
     required : true,

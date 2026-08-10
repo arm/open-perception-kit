@@ -146,7 +146,9 @@ reads its input payloads and appends new payloads rather than mutating entries i
 place. After all scripts return successfully, the executor writes a raw
 Perception packet that tests can decode with `perception.packet.decode`.
 `--python-path` can be repeated to add script dependencies to the embedded
-interpreter's module search path.
+interpreter's module search path. The embedded runtime uses the same Python
+installation selected by Meson, including that installation's virtualenv
+packages such as the generated SDK's FlatBuffers dependency.
 
 The executor runs CPython in-process and is not a security sandbox. It is test
 tooling only and does not add Python postprocessors to production OpChains.

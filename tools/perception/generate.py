@@ -298,7 +298,7 @@ def write_internal_meson(config: SdkConfig, generated_root: Path, target: Path) 
         ")\n"
         "\n"
         "if get_option('tests')\n"
-        f"  _{config.name}_python = import('python').find_installation()\n"
+        f"  _{config.name}_python = pek_python\n"
         f"  _{config.name}_python_embed_dep = _{config.name}_python.dependency(\n"
         "    embed : true,\n"
         "    required : true,\n"

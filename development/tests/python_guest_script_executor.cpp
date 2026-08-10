@@ -21,6 +21,10 @@
 #define PERCEPTION_PYTHON_SDK_PATH ""
 #endif
 
+#ifndef PERCEPTION_PYTHON_EXECUTABLE
+#define PERCEPTION_PYTHON_EXECUTABLE ""
+#endif
+
 namespace {
 
 constexpr int EXIT_USAGE = 2;
@@ -64,9 +68,19 @@ class PythonRuntime {
   public:
     PythonRuntime() {
         perception::python_bridge::append_inittab();
-        Py_Initialize();
-        if (!Py_IsInitialized()) {
-            throw std::runtime_error("failed to initialize embedded Python");
+
+        PyConfig config;
+        PyConfig_InitPythonConfig(&config);
+        PyStatus status =
+            PyConfig_SetBytesString(&config, &config.program_name, PERCEPTION_PYTHON_EXECUTABLE);
+        if (!PyStatus_Exception(status)) {
+            status = Py_InitializeFromConfig(&config);
+        }
+
+        const std::string error = status.err_msg != nullptr ? status.err_msg : "unknown error";
+        PyConfig_Clear(&config);
+        if (PyStatus_Exception(status) || !Py_IsInitialized()) {
+            throw std::runtime_error("failed to initialize embedded Python: " + error);
         }
     }
 

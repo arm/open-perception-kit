@@ -201,6 +201,7 @@ image_conversion_oracle_test = executable(
   include_directories : [common_include, include_directories('../ops-std')],
 )
 
+python = pek_python
 perception_python_sdk_path = meson.project_source_root() / '../generated/perception/python/src'
 python_guest_script_test_env = environment()
 python_guest_script_test_env.prepend('PYTHONPATH', perception_python_sdk_path)
@@ -208,6 +209,7 @@ python_guest_script_executor = executable(
   'python_guest_script_executor',
   ['python_guest_script_executor.cpp'],
   cpp_args : [
+    '-DPERCEPTION_PYTHON_EXECUTABLE="' + python.full_path() + '"',
     '-DPERCEPTION_PYTHON_SDK_PATH="' + perception_python_sdk_path + '"',
   ],
   dependencies : [perception_python_bridge_dep],
@@ -217,7 +219,6 @@ python_guest_script_executor = executable(
 node = find_program('node', required : false)
 npm = find_program('npm', required : false)
 peksink_web = find_program(meson.project_source_root() / '../scripts/peksink-web.sh')
-python = import('python').find_installation()
 
 test('pek_menu_tests', pek_menu_tests)
 test('config_schema_resources_tests', config_schema_resources_tests)
