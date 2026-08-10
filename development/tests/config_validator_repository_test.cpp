@@ -81,6 +81,18 @@ TEST(ConfigValidator, RepositoryRejectsEmptyModelVariant) {
     EXPECT_FALSE(hasRule(report, "dispatch.version"));
 }
 
+TEST(ConfigValidator, RepositoryAcceptsPaddleRecognitionDescriptorVariant) {
+    const auto path = std::filesystem::path(PEK_REPOSITORY_ROOT) /
+                      "config/models/paddleocr/model-recognition.json";
+    std::ifstream input(path);
+    std::ostringstream content;
+    content << input.rdbuf();
+
+    const auto descriptor = pek::config::validateModelJson(content.str(), path.string());
+
+    EXPECT_TRUE(descriptor) << (descriptor ? "" : descriptor.error().toText());
+}
+
 TEST(ConfigValidator, CheckedInRepositoryIsValidAndCanonicalRoundTrips) {
     const auto report = pek::config::detail::validateRepository(PEK_REPOSITORY_ROOT);
 
@@ -100,7 +112,7 @@ TEST(ConfigValidator, CheckedInRepositoryIsValidAndCanonicalRoundTrips) {
                     pek::config::validateModelJson(content.str(), path.string());
                 ASSERT_TRUE(descriptor) << path << '\n' << descriptor.error().toText();
                 const auto roundTrip = pek::config::validateModelJson(
-                    nlohmann::json(descriptor->value()).dump(), path.string());
+                    nlohmann::json(*descriptor).dump(), path.string());
                 EXPECT_TRUE(roundTrip) << path << '\n'
                                        << (roundTrip ? "" : roundTrip.error().toText());
             } else {
@@ -108,7 +120,7 @@ TEST(ConfigValidator, CheckedInRepositoryIsValidAndCanonicalRoundTrips) {
                     pek::config::validateOpChainJson(content.str(), path.string());
                 ASSERT_TRUE(descriptor) << path << '\n' << descriptor.error().toText();
                 const auto roundTrip = pek::config::validateOpChainJson(
-                    nlohmann::json(descriptor->value()).dump(), path.string());
+                    nlohmann::json(*descriptor).dump(), path.string());
                 EXPECT_TRUE(roundTrip) << path << '\n'
                                        << (roundTrip ? "" : roundTrip.error().toText());
             }

@@ -8,6 +8,7 @@
 #include <fstream>
 #include <utility>
 
+#include "op/OpChain.h"
 #include "op/OpChainDescriptor.h"
 
 namespace {
@@ -91,4 +92,19 @@ TEST(OpChainDescriptor, RejectsUriModelDescriptor) {
 
     ASSERT_FALSE(result.has_value());
     EXPECT_NE(result.error().info.find("schema.validation"), std::string::npos);
+}
+
+TEST(OpChainDescriptor, SetupRejectsInvalidSemanticsBeforePluginBinding) {
+    pek::op::OpChainDescriptor invalid{
+        .name = "invalid loop",
+        .description = "Must fail before plugin lookup.",
+        .ops = {{.id = "missing/CustomOp", .loopId = 1, .attributes = {}}},
+    };
+    pek::op::OpChain chain;
+
+    const auto result = chain.setupFromDescriptor(invalid);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().flag, pek::ErrorFlag::InvalidOpChain);
+    EXPECT_NE(result.error().info.find("opchain.v1.loop-group"), std::string::npos);
 }

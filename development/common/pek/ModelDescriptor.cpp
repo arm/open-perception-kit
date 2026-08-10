@@ -19,7 +19,7 @@ pek::Result<ModelDescriptor> ModelDescriptor::fromJson(const std::string &jsonSt
     auto result = pek::config::validateModelJson(jsonString, source);
     if (!result.has_value())
         return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData, result.error().toText()));
-    return std::move(*result).intoValue();
+    return std::move(*result);
 }
 
 pek::Result<ModelDescriptor> ModelDescriptor::fromFile(const std::string &path) {

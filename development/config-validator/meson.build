@@ -14,19 +14,6 @@ config_validator_schema_manifest = [
   ['urn:arm:pek:schema:generic-image-preprocess-op:v1', 'config/schemas/v1/opchain/ops/generic-image-preprocess.schema.json'],
   ['urn:arm:pek:schema:inference-op:v1', 'config/schemas/v1/opchain/ops/inference.schema.json'],
   ['urn:arm:pek:schema:generic-postprocess-op:v1', 'config/schemas/v1/opchain/ops/generic-postprocess.schema.json'],
-  ['urn:arm:pek:schema:generic-postprocess-parser-camera-contact:v1', 'config/schemas/v1/opchain/ops/generic-postprocess/camera-contact.schema.json'],
-  ['urn:arm:pek:schema:generic-postprocess-parser-dummy:v1', 'config/schemas/v1/opchain/ops/generic-postprocess/dummy.schema.json'],
-  ['urn:arm:pek:schema:generic-postprocess-parser-gaze-detection:v1', 'config/schemas/v1/opchain/ops/generic-postprocess/gaze-detection.schema.json'],
-  ['urn:arm:pek:schema:generic-postprocess-parser-imagenet-classification:v1', 'config/schemas/v1/opchain/ops/generic-postprocess/imagenet-classification.schema.json'],
-  ['urn:arm:pek:schema:generic-postprocess-parser-modnet-segmentation:v1', 'config/schemas/v1/opchain/ops/generic-postprocess/modnet-segmentation.schema.json'],
-  ['urn:arm:pek:schema:generic-postprocess-parser-object-embedding:v1', 'config/schemas/v1/opchain/ops/generic-postprocess/object-embedding.schema.json'],
-  ['urn:arm:pek:schema:generic-postprocess-parser-paddle-ocr-detection:v1', 'config/schemas/v1/opchain/ops/generic-postprocess/paddle-ocr-detection.schema.json'],
-  ['urn:arm:pek:schema:generic-postprocess-parser-person-classification:v1', 'config/schemas/v1/opchain/ops/generic-postprocess/person-classification.schema.json'],
-  ['urn:arm:pek:schema:generic-postprocess-parser-rvm:v1', 'config/schemas/v1/opchain/ops/generic-postprocess/rvm.schema.json'],
-  ['urn:arm:pek:schema:generic-postprocess-parser-scrfd:v1', 'config/schemas/v1/opchain/ops/generic-postprocess/scrfd.schema.json'],
-  ['urn:arm:pek:schema:generic-postprocess-parser-ultraface:v1', 'config/schemas/v1/opchain/ops/generic-postprocess/ultraface.schema.json'],
-  ['urn:arm:pek:schema:generic-postprocess-parser-yolo:v1', 'config/schemas/v1/opchain/ops/generic-postprocess/yolo.schema.json'],
-  ['urn:arm:pek:schema:generic-postprocess-parser-yolo-x:v1', 'config/schemas/v1/opchain/ops/generic-postprocess/yolo-x.schema.json'],
 ]
 
 config_validator_embedded_schemas = ''

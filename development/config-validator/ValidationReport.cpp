@@ -5,7 +5,6 @@
 #include "ValidatorInternal.h"
 
 #include <glib.h>
-#include <nlohmann/json.hpp>
 
 #include <algorithm>
 #include <iterator>
@@ -102,21 +101,6 @@ std::string ValidationReport::toText() const {
                << '\n';
     }
     return output.str();
-}
-
-std::string ValidationReport::toJson() const {
-    nlohmann::json output{{"diagnosticFormatVersion", 1}, {"issues", nlohmann::json::array()}};
-    for (const auto &issue : issues) {
-        nlohmann::json serialized{{"rule", issue.rule},
-                                  {"phase", phaseName(issue.phase)},
-                                  {"file", issue.file},
-                                  {"instanceLocation", issue.instanceLocation},
-                                  {"message", issue.message}};
-        if (issue.relatedInstanceLocation.has_value())
-            serialized["relatedInstanceLocation"] = *issue.relatedInstanceLocation;
-        output["issues"].push_back(std::move(serialized));
-    }
-    return output.dump(2) + '\n';
 }
 
 } // namespace pek::config

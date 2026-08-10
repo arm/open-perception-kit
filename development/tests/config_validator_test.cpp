@@ -3,6 +3,7 @@
  *************************************************************/
 
 #include "config_validator_test_support.h"
+#include "pek/AttributeMap.h"
 
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
@@ -15,6 +16,16 @@
 namespace {
 
 using pek::config::test::hasRule;
+
+TEST(AttributeMap, NumericGettersAndMissingDefaultsRemainStrict) {
+    pek::AttributeMap attributes;
+    attributes.set("integer", std::int64_t{3}).set("text", "wrong type");
+
+    EXPECT_FLOAT_EQ(attributes.getFloat("integer"), 3.0F);
+    EXPECT_DOUBLE_EQ(attributes.getDouble("integer"), 3.0);
+    EXPECT_FLOAT_EQ(attributes.getFloatOrDefault("missing", 1.5F), 1.5F);
+    EXPECT_THROW(attributes.getFloatOrDefault("text", 1.5F), std::bad_variant_access);
+}
 
 TEST(ConfigValidator, RejectsNestedDuplicateBeforeSchema) {
     const auto result =
@@ -86,7 +97,7 @@ TEST(ConfigValidator, ModelSchemaSeparatesBuildDownloadFromLocalRuntimePath) {
     const auto valid = pek::config::validateModelJson(document.dump());
 
     ASSERT_TRUE(valid) << valid.error().toText();
-    EXPECT_FALSE(nlohmann::json(valid->value()).contains("hfDownload"));
+    EXPECT_FALSE(nlohmann::json(*valid).contains("hfDownload"));
 
     for (const auto *modelFile : {"../other/model.onnx", "/opt/models/external.onnx"}) {
         document["modelFile"] = modelFile;
@@ -222,12 +233,11 @@ TEST(ConfigValidator, CanonicalModelAndOpChainSerializationRevalidates) {
 
     ASSERT_TRUE(model) << model.error().toText();
     ASSERT_TRUE(opchain) << opchain.error().toText();
-    ASSERT_EQ(opchain->value().ops.size(), 1U);
-    EXPECT_FALSE(opchain->value().ops[0].loopId.has_value());
+    ASSERT_EQ(opchain->ops.size(), 1U);
+    EXPECT_FALSE(opchain->ops[0].loopId.has_value());
 
-    const auto revalidatedModel =
-        pek::config::validateModelJson(nlohmann::json(model->value()).dump());
-    const nlohmann::json serializedOpChain = opchain->value();
+    const auto revalidatedModel = pek::config::validateModelJson(nlohmann::json(*model).dump());
+    const nlohmann::json serializedOpChain = *opchain;
     EXPECT_FALSE(serializedOpChain["ops"][0].contains("loopId"));
     const auto revalidatedOpChain = pek::config::validateOpChainJson(serializedOpChain.dump());
 

@@ -12,7 +12,6 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <utility>
 #include <vector>
 
 namespace pek::config {
@@ -37,37 +36,12 @@ struct ValidationReport {
 
     void sort();
     [[nodiscard]] std::string toText() const;
-    [[nodiscard]] std::string toJson() const;
 };
 
-namespace detail {
-class ValidatedAccess;
-}
-
-template <typename T> class Validated {
-  public:
-    [[nodiscard]] const T &value() const noexcept {
-        return value_;
-    }
-
-    [[nodiscard]] T intoValue() && {
-        return std::move(value_);
-    }
-
-  private:
-    friend class detail::ValidatedAccess;
-
-    explicit Validated(T value) : value_(std::move(value)) {}
-
-    T value_;
-};
-
-template <typename T> using ValidationResult = tl::expected<Validated<T>, ValidationReport>;
-
-[[nodiscard]] ValidationResult<pek::ModelDescriptor>
+[[nodiscard]] tl::expected<pek::ModelDescriptor, ValidationReport>
 validateModelJson(std::string_view json, std::string_view source = "model.json");
 
-[[nodiscard]] ValidationResult<pek::op::OpChainDescriptor>
+[[nodiscard]] tl::expected<pek::op::OpChainDescriptor, ValidationReport>
 validateOpChainJson(std::string_view json, std::string_view source = "opchain.json");
 
 [[nodiscard]] ValidationReport

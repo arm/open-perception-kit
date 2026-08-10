@@ -30,7 +30,7 @@ pek::Result<OpChainDescriptor> OpChainDescriptor::fromJson(const std::string &js
     auto result = pek::config::validateOpChainJson(jsonString, source);
     if (!result.has_value())
         return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData, result.error().toText()));
-    return std::move(*result).intoValue();
+    return std::move(*result);
 }
 
 pek::Result<OpChainDescriptor> OpChainDescriptor::fromFile(const std::string &path) {
