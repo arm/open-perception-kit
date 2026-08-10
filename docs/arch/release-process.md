@@ -41,13 +41,26 @@ operation modules, SDKs, and runtimes are excluded.
 
 ## Event routing
 
-Release validation and publication use two workflows:
+Release validation and publication use three workflows:
 
-| Event | `release-tests.yml` | `release-packages.yml` |
-| --- | --- | --- |
-| Pull request to `main` | Builds temporary x86_64 and Arm candidates and runs both offline package smoke tests | Not run |
-| Push to `main` | Not run | Builds all three archives, runs both offline package smoke tests, and publishes them to one `v<version>` GitHub release and Artifactory |
-| Manual dispatch | Not run | Resolves `source_ref`, builds all three archives, runs both offline package smoke tests, and publishes to Artifactory only |
+| Event | `release-tests.yml` | `release-publication-tests.yml` | `release-packages.yml` |
+| --- | --- | --- | --- |
+| Pull request to `main` | Builds temporary x86_64 and Arm candidates, runs both offline package smoke tests, and emits the tested archives | Uploads the tested archives to disposable Artifactory and draft GitHub Release locations, verifies them, and deletes them | Not run |
+| Push to `main` | Not run | Not run | Builds all three archives, runs both offline package smoke tests, and publishes them to one `v<version>` GitHub release and Artifactory |
+| Manual dispatch | Not run | Not run | Resolves `source_ref`, builds all three archives, runs both offline package smoke tests, and publishes to Artifactory only |
+
+Credentialed publication probes run only after the unprivileged pull-request
+workflow succeeds. The trusted `workflow_run` workflow does not check out or
+execute pull-request code; it accepts only the two smoke-tested architecture
+archives. It uploads them with Publisher below
+`ci/pr-<number>/<commit>/<run>-<attempt>/`, verifies and always deletes that
+folder. It also creates a draft prerelease titled
+`[TEST ONLY - DO NOT USE]`, uploads and verifies both assets, then always
+deletes the release and tag.
+
+GitHub loads `workflow_run` definitions from the default `develop` branch.
+After a hotfix adds or changes this probe on `main`, back-merge it to `develop`
+before relying on the new validation for later release pull requests.
 
 Each workflow resolves one immutable commit and uses it for every dependency,
 build, and smoke job. Push and manual publication cannot start unless both
@@ -62,8 +75,9 @@ archives are stored under
 `snapshots/<label>/<full-sha>-<run-id>-<attempt>/` below
 `https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci`. The same
 URL is used for uploads and generated download links. The publisher job uses
-the locked `Arm-Debug/publisher` package, prints all three final URLs, and adds
-links and SHA-256 values to the workflow summary for both paths. Once this
+the locked `Arm-Debug/publisher` package from its synchronized runtime-only
+environment, prints all three final URLs, and adds links and SHA-256 values to
+the workflow summary for both paths. Once this
 workflow exists on the default `develop` branch, a manual run may select a
 feature branch while the release process is being tested. GitHub does not
 dispatch a new workflow before it has been registered on the default branch.

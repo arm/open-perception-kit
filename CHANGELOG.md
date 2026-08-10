@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.7] - 2026-08-10
+
+### Packaging and deployment
+
+- Hotfix: Fix artifactory upload failure in the release-packages workflow and add publication tests to catch similar issues before release in the future.
+
 ## [0.1.6] - 2026-08-06
 
 ### Packaging and deployment
