@@ -56,7 +56,9 @@ archives. It uploads them with Publisher below
 `ci/pr-<number>/<commit>/<run>-<attempt>/`, verifies and always deletes that
 folder. It also creates a draft prerelease titled
 `[TEST ONLY - DO NOT USE]`, uploads and verifies both assets, then always
-deletes the release and tag.
+deletes the release and tag. The workflow reports a
+`Release publication validation` status on the pull-request commit; it passes
+only when both publication probes pass.
 
 GitHub loads `workflow_run` definitions from the default `develop` branch.
 After a hotfix adds or changes this probe on `main`, back-merge it to `develop`
