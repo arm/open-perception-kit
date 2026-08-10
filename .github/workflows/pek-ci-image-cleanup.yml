@@ -89,7 +89,24 @@ jobs:
       actions: read
       packages: write
     steps:
+      - name: Find PEK CI image
+        id: image
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          count="$(gh api --method GET \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts" \
+            -f name=pek-ci-image --jq '.artifacts | length')"
+          test "$count" -le 1
+          if [ "$count" -eq 1 ]; then
+            echo 'exists=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'exists=false' >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Download PEK CI image
+        if: ${{ steps.image.outputs.exists == 'true' }}
         uses: actions/download-artifact@v8
         with:
           name: pek-ci-image
@@ -99,6 +116,7 @@ jobs:
           github-token: ${{ github.token }}
 
       - name: Log in to GitHub Container Registry
+        if: ${{ steps.image.outputs.exists == 'true' }}
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -106,6 +124,7 @@ jobs:
           password: ${{ github.token }}
 
       - name: Publish PEK CI PR image
+        if: ${{ steps.image.outputs.exists == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
           EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
@@ -136,4 +155,6 @@ jobs:
             gh api --method DELETE \
               "orgs/${GITHUB_REPOSITORY_OWNER}/packages/container/amp-dev-forge-ci/versions/${previous_version_id}"
           fi
+          # Markdown code fences must remain literal.
+          # shellcheck disable=SC2016
           printf 'Pull the latest successful PR image:\n\n```console\ndocker pull %s\n```\n' "$published_image" >> "$GITHUB_STEP_SUMMARY"
