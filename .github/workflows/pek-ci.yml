@@ -586,7 +586,7 @@ jobs:
     needs: build-ci-image
     runs-on: ubuntu-latest
     if: |
-      !cancelled() &&
+      success() &&
       (
         github.event_name == 'schedule' ||
         (github.event_name == 'workflow_dispatch' && contains(fromJSON('["all","quality"]'), inputs.checks)) ||
@@ -610,12 +610,27 @@ jobs:
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CCACHE_PATH: ${{ github.workspace }}/.cache/ccache-quality
     steps:
-      - name: Prepare CI prerequisites
+      - name: Restore PEK CI image
+        uses: actions/cache/restore@v6
+        with:
+          path: .cache/pek-ci-image
+          key: ${{ env.CI_IMAGE_CACHE_KEY }}
+          fail-on-cache-miss: true
+
+      - name: Load PEK CI image
         env:
-          IMAGE_JOB_RESULT: ${{ needs.build-ci-image.result }}
+          CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
         run: |
-          test "$IMAGE_JOB_RESULT" = success
-          install -d -m 0777 "$CCACHE_PATH"
+          tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
+          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
+            --archive "$tools_dir/pek-ci-image.tar" \
+            pek-quality-check-full \
+            pek-quality-check-pull-request \
+            pek-release-with-ut \
+            pek-clang-tidy-baseline-check
+
+      - name: Prepare compiler cache
+        run: install -d -m 0777 "$CCACHE_PATH"
 
       - name: Checkout
         uses: actions/checkout@v7
@@ -653,26 +668,6 @@ jobs:
           key: pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-quality-${{ needs.build-ci-image.outputs.head_sha }}
           restore-keys: |
             pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-quality-
-
-      - name: Restore PEK CI image
-        uses: actions/cache/restore@v6
-        with:
-          path: .cache/pek-ci-image
-          key: ${{ env.CI_IMAGE_CACHE_KEY }}
-          fail-on-cache-miss: true
-
-      - name: Load PEK CI image
-        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        env:
-          CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
-        run: |
-          tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
-          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
-            --archive "$tools_dir/pek-ci-image.tar" \
-            pek-quality-check-full \
-            pek-quality-check-pull-request \
-            pek-release-with-ut \
-            pek-clang-tidy-baseline-check
 
       - name: Check Repo Quality gate (nightly)
         if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number == '') }}
@@ -770,7 +765,7 @@ jobs:
     needs: build-ci-image
     runs-on: self-hosted-ubuntu-latest-x64
     if: |
-      !cancelled() &&
+      success() &&
       (
         (github.event_name == 'push' && github.ref_type == 'branch') ||
         (github.event_name == 'workflow_dispatch' && contains(fromJSON('["all","sonar"]'), inputs.checks)) ||
@@ -793,11 +788,24 @@ jobs:
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CCACHE_PATH: ${{ github.workspace }}/.cache/ccache-sonar
     steps:
-      - name: Prepare CI prerequisites
+      - name: Restore PEK CI image
+        uses: actions/cache/restore@v6
+        with:
+          path: .cache/pek-ci-image
+          key: ${{ env.CI_IMAGE_CACHE_KEY }}
+          fail-on-cache-miss: true
+
+      - name: Load PEK CI image
         env:
-          IMAGE_JOB_RESULT: ${{ needs.build-ci-image.result }}
+          CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
         run: |
-          test "$IMAGE_JOB_RESULT" = success
+          tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
+          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
+            --archive "$tools_dir/pek-ci-image.tar" pek-sonar-check
+
+      - name: Prepare workspace
+        run: |
+          echo "WORKSPACE_ROOT=${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}" >> "$GITHUB_ENV"
           install -d -m 0777 "$CCACHE_PATH"
 
       - name: Log in to Docker Hub
@@ -823,26 +831,6 @@ jobs:
           key: pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-sonar-${{ needs.build-ci-image.outputs.head_sha }}
           restore-keys: |
             pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-sonar-
-
-      - name: Export isolated workspace root
-        shell: bash
-        run: echo "WORKSPACE_ROOT=${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}" >> "$GITHUB_ENV"
-
-      - name: Restore PEK CI image
-        uses: actions/cache/restore@v6
-        with:
-          path: .cache/pek-ci-image
-          key: ${{ env.CI_IMAGE_CACHE_KEY }}
-          fail-on-cache-miss: true
-
-      - name: Load PEK CI image
-        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        env:
-          CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
-        run: |
-          tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
-          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
-            --archive "$tools_dir/pek-ci-image.tar" pek-sonar-check
 
       - name: SonarQube analysis
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -932,6 +920,27 @@ jobs:
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CCACHE_PATH: ${{ github.workspace }}/.cache/ccache-sonar
     steps:
+      - name: Restore PEK CI image
+        uses: actions/cache/restore@v6
+        with:
+          path: .cache/pek-ci-image
+          key: ${{ env.CI_IMAGE_CACHE_KEY }}
+          fail-on-cache-miss: true
+
+      - name: Load PEK CI image
+        env:
+          CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
+        run: |
+          tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
+          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
+            --archive "$tools_dir/pek-ci-image.tar" \
+            pek-sonar-check-release
+
+      - name: Prepare workspace
+        run: |
+          echo "WORKSPACE_ROOT=${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}" >> "$GITHUB_ENV"
+          install -d -m 0777 "$CCACHE_PATH"
+
       - name: Checkout tagged commit
         uses: actions/checkout@v7
         with:
@@ -941,11 +950,6 @@ jobs:
           path: ${{ env.CI_CHECKOUT_PATH }}
           persist-credentials: false
 
-      - name: Prepare CI workspace
-        run: |
-          echo "WORKSPACE_ROOT=${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}" >> "$GITHUB_ENV"
-          install -d -m 0777 "$CCACHE_PATH"
-
       - name: Restore compiler cache
         id: compiler-cache
         uses: actions/cache/restore@v6
@@ -954,23 +958,6 @@ jobs:
           key: pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-sonar-${{ needs.build-ci-image.outputs.head_sha }}
           restore-keys: |
             pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-sonar-
-
-      - name: Restore PEK CI image
-        uses: actions/cache/restore@v6
-        with:
-          path: .cache/pek-ci-image
-          key: ${{ env.CI_IMAGE_CACHE_KEY }}
-          fail-on-cache-miss: true
-
-      - name: Load PEK CI image
-        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        env:
-          CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
-        run: |
-          tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
-          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
-            --archive "$tools_dir/pek-ci-image.tar" \
-            pek-sonar-check-release
 
       - name: Run SonarQube release analysis
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -1027,7 +1014,7 @@ jobs:
     needs: build-ci-image
     runs-on: ubuntu-latest
     if: |
-      !cancelled() &&
+      success() &&
       (
         github.event_name == 'schedule' ||
         (github.event_name == 'push' && github.ref_type == 'branch') ||
@@ -1052,12 +1039,26 @@ jobs:
       VALGRIND_BASELINE_WORKFLOW: pek-ci.yml
       CCACHE_PATH: ${{ github.workspace }}/.cache/ccache
     steps:
-      - name: Prepare CI prerequisites
+      - name: Restore PEK CI image
+        uses: actions/cache/restore@v6
+        with:
+          path: .cache/pek-ci-image
+          key: ${{ env.CI_IMAGE_CACHE_KEY }}
+          fail-on-cache-miss: true
+
+      - name: Load PEK CI image
         env:
-          IMAGE_JOB_RESULT: ${{ needs.build-ci-image.result }}
+          CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
         run: |
-          test "$IMAGE_JOB_RESULT" = success
-          install -d -m 0777 "$CCACHE_PATH"
+          tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
+          echo "CI_IMAGE_TOOLS=$tools_dir" >> "$GITHUB_ENV"
+          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
+            --archive "$tools_dir/pek-ci-image.tar" \
+            pek-valgrind-check \
+            pek-generate-valgrind-summary
+
+      - name: Prepare compiler cache
+        run: install -d -m 0777 "$CCACHE_PATH"
 
       - uses: actions/checkout@v7
         with:
@@ -1081,18 +1082,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      - name: Restore PEK CI image
-        uses: actions/cache/restore@v6
-        with:
-          path: .cache/pek-ci-image
-          key: ${{ env.CI_IMAGE_CACHE_KEY }}
-          fail-on-cache-miss: true
-
       - name: Run Valgrind Python unit tests
         run: |
-          tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
-          echo "CI_IMAGE_TOOLS=$tools_dir" >> "$GITHUB_ENV"
-          cd "$tools_dir/valgrind"
+          cd "$CI_IMAGE_TOOLS/valgrind"
           python3 -m unittest \
             test_valgrind_baseline_artifact.py \
             test_compare_valgrind_results.py \
@@ -1134,15 +1126,6 @@ jobs:
         run: |
           echo "Missing Valgrind baseline in GHCR and no automatic publisher is available." >&2
           exit 1
-
-      - name: Load PEK CI image
-        env:
-          CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
-        run: |
-          python3 "$CI_IMAGE_TOOLS/ci_image.py" prepare "$CI_IMAGE_SHA" \
-            --archive "$CI_IMAGE_TOOLS/pek-ci-image.tar" \
-            pek-valgrind-check \
-            pek-generate-valgrind-summary
 
       - name: Clear stale Valgrind logs
         run: find scripts/testing/valgrind/logs -name "*.valgrind.*.xml" -delete 2>/dev/null || true

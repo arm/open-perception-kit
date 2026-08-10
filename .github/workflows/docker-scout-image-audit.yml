@@ -69,6 +69,23 @@ jobs:
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
 
     steps:
+      - name: Restore PEK CI image
+        if: matrix.image.service == 'pek-ci' && inputs.ci_image_sha != ''
+        uses: actions/cache/restore@v6
+        with:
+          path: .cache/pek-ci-image
+          key: ${{ env.CI_IMAGE_CACHE_KEY }}
+          fail-on-cache-miss: true
+
+      - name: Load PEK CI image
+        if: matrix.image.service == 'pek-ci' && inputs.ci_image_sha != ''
+        env:
+          CI_IMAGE_SHA: ${{ inputs.ci_image_sha }}
+        run: |
+          tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
+          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
+            --archive "$tools_dir/pek-ci-image.tar" pek-ci
+
       - name: Checkout current ref
         id: checkout-current-ref
         if: github.event_name != 'pull_request'
@@ -112,24 +129,6 @@ jobs:
         env:
           HF_TOKEN: ${{ contains(fromJSON('["pek-deployment-base","pek-dev"]'), matrix.image.service) && secrets.HF_TOKEN || '' }}
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build ${{ matrix.image.service }}
-
-      - name: Restore PEK CI image
-        if: matrix.image.service == 'pek-ci' && inputs.ci_image_sha != ''
-        uses: actions/cache/restore@v6
-        with:
-          path: .cache/pek-ci-image
-          key: ${{ env.CI_IMAGE_CACHE_KEY }}
-          fail-on-cache-miss: true
-
-      - name: Load PEK CI image
-        if: matrix.image.service == 'pek-ci' && inputs.ci_image_sha != ''
-        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        env:
-          CI_IMAGE_SHA: ${{ inputs.ci_image_sha }}
-        run: |
-          tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
-          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
-            --archive "$tools_dir/pek-ci-image.tar" pek-ci
 
       - name: Resolve built image reference
         id: resolve-image
