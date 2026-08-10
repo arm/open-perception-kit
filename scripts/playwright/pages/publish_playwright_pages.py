@@ -28,6 +28,7 @@ from scripts.report_pages.publish import (  # noqa: E402
     html_escape,
     remove_legacy_root_site,
     require_env,
+    retry_storage_branch_update,
     run,
     run_maybe,
     set_output,
@@ -749,9 +750,11 @@ def main(argv: list[str]) -> int:
 
     try:
         if argv[1] == "publish":
-            publish_report(site_dir, storage_branch)
+            retry_storage_branch_update(lambda: publish_report(site_dir, storage_branch))
         else:
-            cleanup_closed_pr_reports(site_dir, storage_branch, retention_days)
+            retry_storage_branch_update(
+                lambda: cleanup_closed_pr_reports(site_dir, storage_branch, retention_days)
+            )
     except PublishError as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1

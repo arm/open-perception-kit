@@ -99,6 +99,7 @@ run_valgrind_all() {
 
     local valgrind_args=(
         --leak-check=full
+        --num-callers=64
         --show-leak-kinds=all
         --track-origins=yes
         --trace-children=yes

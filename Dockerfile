@@ -14,7 +14,7 @@ ARG TARGETARCH
 
 FROM --platform=${BUILDPLATFORM} debian:trixie-slim AS pek-build-base
 
-ARG ONNXRUNTIME_VERSION
+ARG ONNXRUNTIME_VERSION=1.24.4
 
 ENV DEBIAN_FRONTEND=noninteractive \
   LANG=C.UTF-8 \
@@ -99,7 +99,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   gstreamer1.0-plugins-bad gstreamer1.0-plugins-base \
   gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
   gstreamer1.0-tools gstreamer1.0-x lldb-17 pre-commit python3-pip \
-  shfmt sudo valgrind wget zip; \
+  shellcheck shfmt sudo valgrind wget zip; \
   update-ca-certificates
 
 RUN ln -sf /usr/bin/lldb-17 /usr/local/bin/lldb && \
@@ -127,10 +127,11 @@ RUN set -eux; \
   install -m 0755 actionlint /usr/local/bin/actionlint; \
   cd /; \
   rm -rf "${tmp_dir}"; \
-  actionlint -version
+  actionlint -version; \
+  shellcheck --version
 
 COPY --chmod=0755 scripts/private/install-onnxruntime.sh /usr/local/bin/install-onnxruntime
-RUN install-onnxruntime "${ONNXRUNTIME_VERSION:-}"
+RUN install-onnxruntime "${ONNXRUNTIME_VERSION}"
 
 RUN set -eux; \
   getent group "${USER_GID}" >/dev/null || groupadd --gid "${USER_GID}" "${USERNAME}"; \
@@ -294,7 +295,7 @@ RUN set -eux; \
   if [ "$(dpkg --print-architecture)" = arm64 ]; then \
     ln -s onnxruntime /opt/pek-deps/onnxruntime-arm64; \
   else \
-    install-onnxruntime "${ONNXRUNTIME_VERSION:-}" arm64 /opt/pek-deps/onnxruntime-arm64; \
+    install-onnxruntime "${ONNXRUNTIME_VERSION}" arm64 /opt/pek-deps/onnxruntime-arm64; \
   fi
 
 USER ${USERNAME}
@@ -374,6 +375,24 @@ WORKDIR /work
 # Deployment Build and Runtime Images
 # ==============================================================================
 
+FROM debian:trixie-slim AS pek-gstreamer-runtime-base
+
+ENV DEBIAN_FRONTEND=noninteractive \
+  LANG=C.UTF-8 \
+  LC_ALL=C.UTF-8
+
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+  --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+  set -eux; \
+  apt-get update; \
+  apt-get install -y --no-install-recommends \
+  ca-certificates \
+  gstreamer1.0-plugins-base \
+  gstreamer1.0-tools \
+  libgstreamer1.0-0; \
+  update-ca-certificates; \
+  rm -rf /var/lib/apt/lists/*
+
 FROM pek-cross-build-base AS pek-deployment-build
 
 ARG TARGETARCH
@@ -394,7 +413,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 COPY --chmod=0755 scripts/private/install-onnxruntime.sh /usr/local/bin/install-onnxruntime
 RUN install-onnxruntime \
-  "${ONNXRUNTIME_VERSION:-}" "${TARGETARCH}" "/opt/pek-deps/onnxruntime-${TARGETARCH}"
+  "${ONNXRUNTIME_VERSION}" "${TARGETARCH}" "/opt/pek-deps/onnxruntime-${TARGETARCH}"
 
 WORKDIR /work
 COPY development/meson.build development/meson.options development/
@@ -430,7 +449,7 @@ RUN set -eux; \
   cp -r /work/data /opt/pek-app/; \
   cp -r /work/development/web /opt/pek-app/development/
 
-FROM debian:trixie-slim AS pek-deployment-base
+FROM pek-gstreamer-runtime-base AS pek-deployment-base
 
 ARG USERNAME=pek
 ARG USER_UID=1000
@@ -453,12 +472,16 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-  ca-certificates \
-  libssl3t64 libfmt10 libfftw3-single3 libsoup-3.0-0 libjson-glib-1.0-0 libcairo2 \
-  libgstreamer1.0-0 gstreamer1.0-tools \
-  gstreamer1.0-plugins-base gstreamer1.0-plugins-bad \
+  gstreamer1.0-nice \
+  gstreamer1.0-pipewire \
+  gstreamer1.0-plugins-bad \
   gstreamer1.0-plugins-good \
-  gstreamer1.0-nice gstreamer1.0-pipewire; \
+  libcairo2 \
+  libfftw3-single3 \
+  libfmt10 \
+  libjson-glib-1.0-0 \
+  libsoup-3.0-0 \
+  libssl3t64; \
   if [ "${PEK_PICAMERA}" = enabled ]; then \
     test "$(dpkg --print-architecture)" = arm64; \
     echo "deb [arch=arm64 trusted=yes] https://archive.raspberrypi.com/debian trixie main" \
@@ -496,3 +519,76 @@ USER ${USERNAME}
 WORKDIR /work
 
 ENTRYPOINT ["/work/scripts/private/deployment-runtime.sh"]
+
+# ==============================================================================
+# Cairn Integration Runtime
+# ==============================================================================
+
+FROM pek-build-base AS pek-cairn-build
+
+ARG TARGETARCH
+ARG ONNXRUNTIME_VERSION
+
+WORKDIR /work
+COPY development development
+COPY config/models/yolov11 config/models/yolov11
+COPY data/images/GettyImages-1140581459-thumbnail.jpg data/images/GettyImages-1140581459-thumbnail.jpg
+COPY --chmod=0755 scripts/build-elements.sh scripts/build-elements.sh
+COPY --chmod=0755 scripts/private/install-onnxruntime.sh scripts/private/install-onnxruntime.sh
+COPY scripts/private/shtools.sh scripts/private/shtools.sh
+
+RUN set -eux; \
+  mkdir -p tools; \
+  scripts/private/install-onnxruntime.sh \
+    "${ONNXRUNTIME_VERSION}" "${TARGETARCH}" /opt/pek-deps/onnxruntime; \
+  PEK_EXECUTORCH=disabled \
+  PEK_HAILORT=disabled \
+  PEK_NCNN=disabled \
+  PEK_ONNXRUNTIME_ROOT=/opt/pek-deps/onnxruntime \
+    scripts/build-elements.sh release false
+
+FROM pek-gstreamer-runtime-base AS pek-cairn-runtime
+
+ARG USERNAME=pek
+ARG USER_UID=1000
+ARG USER_GID=1000
+
+ENV DEBIAN_FRONTEND=noninteractive \
+  LANG=C.UTF-8 \
+  LC_ALL=C.UTF-8 \
+  GST_PLUGIN_PATH=/work/runtime \
+  LD_LIBRARY_PATH=/work/runtime
+
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+  --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+  set -eux; \
+  apt-get update; \
+  apt-get install -y --no-install-recommends \
+  gir1.2-glib-2.0 \
+  gir1.2-gstreamer-1.0 \
+  libgirepository-2.0-0 \
+  python3 \
+  python3-gi \
+  python3-gst-1.0; \
+  rm -rf /var/lib/apt/lists/*
+
+RUN set -eux; \
+  getent group "${USER_GID}" >/dev/null || groupadd --gid "${USER_GID}" "${USERNAME}"; \
+  id -u "${USERNAME}" >/dev/null 2>&1 || useradd -m -u "${USER_UID}" -g "${USER_GID}" -s /bin/bash "${USERNAME}"
+
+WORKDIR /work
+COPY --from=pek-cairn-build /opt/pek-deps/onnxruntime/lib/ runtime/
+COPY --from=pek-cairn-build \
+  /work/development/build/meson-out/libfmt.so \
+  /work/development/build/meson-out/libpek-common.so \
+  /work/development/build/meson-out/libpekinfer.so \
+  /work/development/build/meson-out/pek-onnx-ops.so \
+  /work/development/build/meson-out/pek-runtime.so \
+  /work/development/build/meson-out/pek-std-ops.so \
+  runtime/
+COPY --from=pek-cairn-build /work/config/models/yolov11/ config/models/yolov11/
+COPY --from=pek-cairn-build \
+  /work/data/images/GettyImages-1140581459-thumbnail.jpg \
+  data/images/GettyImages-1140581459-thumbnail.jpg
+
+USER ${USERNAME}

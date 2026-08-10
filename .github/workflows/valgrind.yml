@@ -10,6 +10,8 @@ name: Valgrind Baseline Artifact
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *"
   push:
     branches: [main, develop]
   pull_request:
@@ -40,7 +42,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VALGRIND_BASELINE_BRANCH: ${{ github.event.pull_request.base.ref }}
-        run: python3 scripts/testing/valgrind/valgrind-baseline-artifact.py publish
+        run: |
+          if [[ -f scripts/testing/valgrind/valgrind-baseline-artifact.py ]]; then
+            python3 scripts/testing/valgrind/valgrind-baseline-artifact.py publish
+          else
+            # ponytail: may dispatch one redundant baseline; remove once every protected base contains the helper.
+            gh workflow run valgrind.yml --ref "$VALGRIND_BASELINE_BRANCH"
+          fi
 
   valgrind-workflow:
     name: Valgrind related workflow
@@ -135,7 +143,6 @@ jobs:
         if: always() && steps.valgrind_checks.outcome != 'skipped'
         run: |
           docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-generate-valgrind-summary
-          cat scripts/testing/valgrind/valgrind-repo-owned.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Compare Valgrind results to baseline
         if: ${{ github.event_name == 'pull_request' && steps.valgrind_checks.outcome == 'success' && steps.valgrind_summary.outcome == 'success' }}

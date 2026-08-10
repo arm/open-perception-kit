@@ -45,6 +45,13 @@ Do not start by changing core runtime code unless the task clearly requires it.
 
 ## Task routing
 
+### Prepare or troubleshoot a release
+
+Use the repository-local `$opk-release` skill for every release task, including
+version selection, changelog preparation, release PRs, and release CI failures.
+Read and follow [its instructions](.agents/skills/opk-release/SKILL.md) before
+taking release actions.
+
 ### Add or modify a runnable pipeline
 Start in:
 

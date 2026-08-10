@@ -1,0 +1,12 @@
+name: inline python good
+
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - shell: python
+        run: |
+          message = "ok"
+          print(message)

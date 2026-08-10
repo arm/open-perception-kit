@@ -143,8 +143,12 @@ class TestExpkitsCiE2E(unittest.TestCase):
         return self.run_cmd([self.test_python, "-m", "expkits_ci", *args], check=False)
 
     def require_actionlint(self):
-        if shutil.which("actionlint", path=self.runtime_path) is None:
-            self.skipTest("actionlint binary is unavailable")
+        missing = [
+            tool for tool in ("actionlint", "shellcheck", "pyflakes")
+            if shutil.which(tool, path=self.runtime_path) is None
+        ]
+        if missing:
+            self.skipTest(f"actionlint toolchain is unavailable: {', '.join(missing)}")
 
     def read_fixture(self, relative_path: str) -> str:
         return (FIXTURE_ROOT / relative_path).read_text(encoding="utf-8")
@@ -278,6 +282,46 @@ class TestExpkitsCiE2E(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0, result.stdout)
         self.assertIn(".github/workflows/bad.yml", result.stdout)
         self.assertNotIn("config/not-workflow.yaml", result.stdout)
+        self.assertIn("[INFO]   NOK  actionlint", result.stdout)
+
+    def run_actionlint_fixture(self, fixture_name):
+        self.require_actionlint()
+        workflow = self.repo_root / ".github" / "workflows" / fixture_name
+        workflow.parent.mkdir(parents=True, exist_ok=True)
+        workflow.write_text(
+            self.read_fixture(f"actionlint/{fixture_name}"),
+            encoding="utf-8",
+        )
+        return self.run_expkits_ci(
+            "--actionlint",
+            "--list-of-files",
+            f".github/workflows/{fixture_name}",
+        )
+
+    def test_actionlint_accepts_inline_shell_fixture(self):
+        result = self.run_actionlint_fixture("inline-shell-good.yml")
+
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("[INFO]   OK   actionlint", result.stdout)
+
+    def test_actionlint_rejects_inline_shell_fixture(self):
+        result = self.run_actionlint_fixture("inline-shell-bad.yml")
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("SC2086", result.stdout)
+        self.assertIn("[INFO]   NOK  actionlint", result.stdout)
+
+    def test_actionlint_accepts_inline_python_fixture(self):
+        result = self.run_actionlint_fixture("inline-python-good.yml")
+
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("[INFO]   OK   actionlint", result.stdout)
+
+    def test_actionlint_rejects_inline_python_fixture(self):
+        result = self.run_actionlint_fixture("inline-python-bad.yml")
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("undefined name 'missing_value'", result.stdout)
         self.assertIn("[INFO]   NOK  actionlint", result.stdout)
 
 

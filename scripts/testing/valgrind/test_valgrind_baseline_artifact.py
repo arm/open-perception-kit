@@ -188,6 +188,7 @@ class TestValgrindBaselineArtifact(unittest.TestCase):
         self.assertIn("actions: write", workflow)
         self.assertIn("ref: ${{ github.event.pull_request.base.sha || github.sha }}", workflow)
         self.assertIn("valgrind-baseline-artifact.py publish", workflow)
+        self.assertIn('gh workflow run valgrind.yml --ref "$VALGRIND_BASELINE_BRANCH"', workflow)
         self.assertIn("valgrind-baseline-artifact.py locate", workflow)
         self.assertIn("valgrind-baseline-artifact.py wait", workflow)
         self.assertEqual(
@@ -201,10 +202,7 @@ class TestValgrindBaselineArtifact(unittest.TestCase):
         self.assertIn("Require existing Valgrind baseline artifact", workflow)
         self.assertIn("no automatic publisher is available", workflow)
         self.assertIn("always() && steps.valgrind_checks.outcome != 'skipped'", workflow)
-        self.assertIn(
-            'cat scripts/testing/valgrind/valgrind-repo-owned.md >> "$GITHUB_STEP_SUMMARY"',
-            workflow,
-        )
+        self.assertNotIn("valgrind-repo-owned.md", workflow)
         self.assertIn("steps.valgrind_baseline.outputs.run-id || steps.waited_valgrind_baseline.outputs.run-id", workflow)
 
 

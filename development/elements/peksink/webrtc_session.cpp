@@ -11,12 +11,11 @@
 #include <gst/gstobject.h>
 #include <gst/gstpad.h>
 
-#include "Log.h"
 #include "utils.h"
 
 namespace {
 
-void unlink_peer(GstPad *pad) {
+void unlink_peer(GstPad *pad) noexcept {
     if (!pad || !GST_IS_PAD(pad)) { // NOSONAR
         return;
     }
@@ -34,7 +33,7 @@ void unlink_peer(GstPad *pad) {
     gst_object_unref(peer);
 }
 
-void remove_or_unref_element(GstElement *owner_bin, GstElement **element) {
+void remove_or_unref_element(GstElement *owner_bin, GstElement **element) noexcept {
     if (!element || !*element) {
         return;
     }
@@ -46,8 +45,7 @@ void remove_or_unref_element(GstElement *owner_bin, GstElement **element) {
         if (GST_IS_BIN(parent)) { // NOSONAR
             gst_bin_remove(GST_BIN(parent), *element);
         } else {
-            pek::log::debug("Per-client element parent is not a bin: {}",
-                            GST_ELEMENT_NAME(*element));
+            g_debug("Per-client element parent is not a bin: %s", GST_ELEMENT_NAME(*element));
             gst_object_unref(*element);
         }
         gst_object_unref(parent);
@@ -76,11 +74,11 @@ PekSinkWebRtcSession::PekSinkWebRtcSession(GstElement *owner_bin_,
                                            GstElement *audio_tee_)
     : owner_bin(owner_bin_), video_tee(video_tee_), audio_tee(audio_tee_) {}
 
-PekSinkWebRtcSession::~PekSinkWebRtcSession() {
+PekSinkWebRtcSession::~PekSinkWebRtcSession() noexcept {
     cleanup();
 }
 
-void PekSinkWebRtcSession::cleanup() {
+void PekSinkWebRtcSession::cleanup() noexcept {
     if (cleaned_up_.exchange(true)) {
         return;
     }
@@ -129,7 +127,7 @@ std::size_t PekSinkWebRtcSession::active_resource_count() const {
                            a_pay});
 }
 
-void PekSinkWebRtcSession::disconnect_signals() {
+void PekSinkWebRtcSession::disconnect_signals() noexcept {
     if (!webrtcbin) {
         onn_id = 0;
         oic_id = 0;

@@ -33,15 +33,13 @@ g++ -fPIC -shared -o libgstpeksink.so peksink.cpp \
 #include <nlohmann/json.hpp>
 
 #include <cstdlib>
+#include <dlfcn.h>
+#include <filesystem>
 #include <memory>
 #include <string>
 
 #ifndef PACKAGE
 #define PACKAGE "peksink"
-#endif
-
-#ifndef PEK_DEFAULT_STATIC_FILES_LOCATION
-#define PEK_DEFAULT_STATIC_FILES_LOCATION "./development/web/content"
 #endif
 
 /* =============================== PekSink ============================== */
@@ -56,6 +54,7 @@ enum {
     PROP_STATIC_FILES,
     PROP_WEBRTC_STUN_SERVER,
     PROP_WEBRTC_TURN_SERVER,
+    PROP_QOS_ENABLED,
 };
 
 static std::string env_or_empty(const char *name) {
@@ -98,6 +97,21 @@ static std::string default_turn_server() {
     g_free(esc_user);
     g_free(esc_cred);
     return url;
+}
+
+static gchar *default_static_files_location() {
+    static constexpr char libraryAnchor = '\0';
+    Dl_info libraryInfo{};
+    if (dladdr(&libraryAnchor, &libraryInfo) == 0 || libraryInfo.dli_fname == nullptr) {
+        return nullptr;
+    }
+
+    // Both flat development builds and release packages keep web/content two levels above the
+    // plugin.
+    const auto path = (std::filesystem::absolute(libraryInfo.dli_fname).parent_path() / ".." /
+                       ".." / "web" / "content")
+                          .lexically_normal();
+    return g_strdup(path.c_str());
 }
 
 nlohmann::json PipelineStateReporter::report() const {
@@ -173,6 +187,12 @@ gst_pek_sink_set_property(GObject *object, guint prop_id, const GValue *value, G
         g_free(self->webrtc_turn_server);
         self->webrtc_turn_server = g_value_dup_string(value);
         break;
+    case PROP_QOS_ENABLED:
+        self->qos_enabled = g_value_get_boolean(value);
+        if (self->drain_fakesink)
+            g_object_set(
+                self->drain_fakesink, "sync", self->qos_enabled, "qos", self->qos_enabled, nullptr);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         return;
@@ -203,6 +223,9 @@ gst_pek_sink_get_property(GObject *object, guint prop_id, GValue *value, GParamS
         break;
     case PROP_WEBRTC_TURN_SERVER:
         g_value_set_string(value, self->webrtc_turn_server);
+        break;
+    case PROP_QOS_ENABLED:
+        g_value_set_boolean(value, self->qos_enabled);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -457,8 +480,14 @@ static void init_video(GstPekSink *self) {
 
     g_return_if_fail(self->drain_queue && self->drain_fakesink);
 
-    // fakesink should not block or sync to clock
-    g_object_set(self->drain_fakesink, "sync", FALSE, "async", FALSE, nullptr);
+    g_object_set(self->drain_fakesink,
+                 "sync",
+                 self->qos_enabled,
+                 "async",
+                 FALSE,
+                 "qos",
+                 self->qos_enabled,
+                 nullptr);
 
     gst_bin_add_many(GST_BIN(self), self->drain_queue, self->drain_fakesink, nullptr);
 
@@ -618,12 +647,13 @@ static void gst_pek_sink_init(GstPekSink *self) {
 
     /* defaults */
     self->host = g_strdup("0.0.0.0");
-    self->static_files_location = g_strdup(PEK_DEFAULT_STATIC_FILES_LOCATION);
+    self->static_files_location = default_static_files_location();
     self->webrtc_stun_server = g_strdup(default_stun_server().c_str());
     self->webrtc_turn_server = g_strdup(default_turn_server().c_str());
     self->http_port = 9999;
     self->ws_port = 8000;
     self->ctrl_port = 8001;
+    self->qos_enabled = false;
 
     init_video(self);
     init_audio(self);
@@ -638,7 +668,14 @@ static void gst_pek_sink_init(GstPekSink *self) {
     self->private_data->ctrl_websocket->start();
 
     self->private_data->http_server = std::make_unique<PekSinkHttpServer>(self);
-    self->private_data->http_server->start();
+    if (self->private_data->http_server->start() != PekSinkHttpServerError::OK) {
+        GST_ELEMENT_ERROR(self,
+                          RESOURCE,
+                          NOT_FOUND,
+                          ("Unable to start the HTTP server with static files from '%s'",
+                           self->static_files_location ? self->static_files_location : "(null)"),
+                          (nullptr));
+    }
 
     self->private_data->pipeline_state_reporter = std::make_shared<PipelineStateReporter>(self);
 
@@ -685,7 +722,7 @@ static void gst_pek_sink_class_init(GstPekSinkClass *klass) {
         g_param_spec_string("static-files",
                             "Static Files Location",
                             "Location of the static files for HTTP Server",
-                            PEK_DEFAULT_STATIC_FILES_LOCATION,
+                            nullptr,
                             kRW));
     g_object_class_install_property(
         gobject_class,
@@ -702,6 +739,14 @@ static void gst_pek_sink_class_init(GstPekSinkClass *klass) {
                                                         "TURN server URL advertised to browsers",
                                                         nullptr,
                                                         kRW));
+    g_object_class_install_property(
+        gobject_class,
+        PROP_QOS_ENABLED,
+        g_param_spec_boolean("qos-enabled",
+                             "QoS enabled",
+                             "Enable experimental QoS feedback from the video drain",
+                             false,
+                             kRW));
 
     /* pads */
     gst_element_class_add_static_pad_template(element_class, &v_sink_template);
@@ -721,7 +766,7 @@ static void gst_pek_sink_class_init(GstPekSinkClass *klass) {
 }
 
 /* ===== Plugin boilerplate ===== */
-static gboolean plugin_init(GstPlugin *plugin) {
+static gboolean peksink_plugin_init(GstPlugin *plugin) {
     return gst_element_register(plugin, "peksink", GST_RANK_NONE, GST_TYPE_PEK_SINK);
 }
 
@@ -729,7 +774,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   GST_VERSION_MINOR,
                   peksink,
                   "PekSink bin: raw video+audio -> VP8 -> WebRTC ",
-                  plugin_init,
+                  peksink_plugin_init,
                   "1.0",
                   "LGPL",
                   PACKAGE,

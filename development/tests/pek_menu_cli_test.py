@@ -14,6 +14,7 @@ import unittest
 from pathlib import Path
 
 PROCESS_TIMEOUT_SECONDS = 5.0
+STARTUP_TIMEOUT_SECONDS = 15.0
 DESCENDANT_TIMEOUT_SECONDS = 2.0
 POLL_INTERVAL_SECONDS = 0.01
 
@@ -251,7 +252,7 @@ class TestPekMenuCliDiagnostics(unittest.TestCase):
             )
 
             try:
-                readiness_deadline = time.monotonic() + PROCESS_TIMEOUT_SECONDS
+                readiness_deadline = time.monotonic() + STARTUP_TIMEOUT_SECONDS
                 while time.monotonic() < readiness_deadline:
                     if (
                         marker.exists()

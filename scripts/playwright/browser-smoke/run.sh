@@ -22,6 +22,7 @@ Prerequisites:
 Environment:
   PLAYWRIGHT_BASE_URL  PEK browser URL. Default: http://127.0.0.1:9999
   BROWSER_SMOKE_BROWSERS  Comma-separated browser list. Default: chromium
+  BROWSER_SMOKE_MAX_FAILURES  Stop a phase after this many failures. Default: 2
   BROWSER_SMOKE_IMAGE_NAME  Runtime image tag override.
   BROWSER_SMOKE_REBUILD=1  Force rebuild of the Playwright runtime image.
   NUM_FRAMES           Frames served by the local-data pipelines. Default: 12000
@@ -56,6 +57,7 @@ RUNTIME_DOCKERFILE="${SCRIPT_DIR}/Dockerfile"
 PLAYWRIGHT_VERSION="1.61.0"
 PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL:-http://127.0.0.1:9999}"
 BROWSER_SMOKE_BROWSERS="${BROWSER_SMOKE_BROWSERS:-chromium}"
+BROWSER_SMOKE_MAX_FAILURES="${BROWSER_SMOKE_MAX_FAILURES:-2}"
 NUM_FRAMES="${NUM_FRAMES:-12000}"
 STOCK_VIDEO_LOOP_TIMEOUT_MS="${STOCK_VIDEO_LOOP_TIMEOUT_MS:-900000}"
 ACTIVE_PID_FILE=""
@@ -250,6 +252,7 @@ run_phase() {
         -e PWTEST_BLOB_DO_NOT_REMOVE=1 \
         "${image_name}" \
         playwright test -c tests/playwright/pek-browser-smoke.config.js \
+        --max-failures="${BROWSER_SMOKE_MAX_FAILURES}" \
         --reporter=line,blob \
         --output="test-results/playwright/${phase}" \
         "${spec}" &
@@ -386,28 +389,30 @@ while IFS= read -r browser; do
     esac
 done <<< "${browser_smoke_browsers}"
 
-if [ "${TEST_SET}" = "full" ]; then
-    run_phase "stock-video-loop-chromium" \
-        "config/pipelines/01-full-onnx.json" \
-        "tests/playwright/pek-browser-loop.spec.js" \
-        "chromium" || browser_smoke_status=$?
-fi
-
-while IFS= read -r browser; do
-    run_phase "sink-only-${browser}" \
-        "config/pipelines/testing/only-peksink.json" \
-        "tests/playwright/pek-browser-sink.spec.js" \
-        "${browser}" || browser_smoke_status=$?
-done <<< "${browser_smoke_browsers}"
-
-if [ "${TEST_SET}" = "full" ]; then
+run_smoke_phases() {
     while IFS= read -r browser; do
-        run_phase "onnx-full-${browser}" \
-            "config/pipelines/testing/onnx-full.json" \
-            "tests/playwright/pek-browser-models.spec.js" \
-            "${browser}" || browser_smoke_status=$?
+        run_phase "sink-only-${browser}" \
+            "config/pipelines/testing/only-peksink.json" \
+            "tests/playwright/pek-browser-sink.spec.js" \
+            "${browser}" || return
     done <<< "${browser_smoke_browsers}"
-fi
+
+    if [ "${TEST_SET}" = "full" ]; then
+        while IFS= read -r browser; do
+            run_phase "onnx-full-${browser}" \
+                "config/pipelines/testing/onnx-full.json" \
+                "tests/playwright/pek-browser-models.spec.js" \
+                "${browser}" || return
+        done <<< "${browser_smoke_browsers}"
+
+        run_phase "stock-video-loop-chromium" \
+            "config/pipelines/01-full-onnx.json" \
+            "tests/playwright/pek-browser-loop.spec.js" \
+            "chromium" || return
+    fi
+}
+
+run_smoke_phases || browser_smoke_status=$?
 
 merge_reports || browser_smoke_status=$?
 

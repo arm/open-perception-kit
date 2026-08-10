@@ -26,9 +26,10 @@ stdops = shared_module(
   ],
   include_directories: common_include,
   dependencies: pek_deps ,
-  cpp_args: ['-DFMT_HEADER_ONLY'],
   link_with: [ common ],
   name_prefix: '',
   gnu_symbol_visibility: 'default',
-  install: false
+  install: release_package,
+  install_dir: 'lib/pek',
+  install_rpath: '$ORIGIN',
 )

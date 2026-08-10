@@ -14,6 +14,7 @@ import re
 import shutil
 import subprocess
 import zipfile
+from collections.abc import Callable
 from pathlib import Path
 
 
@@ -22,7 +23,6 @@ LEGACY_ROOT_PATHS = (INDEX_HTML, "report-index.css", "report-shell.css", "report
 LEGACY_PLAYWRIGHT_REPORT_ROOTS = ("nightly", "prs")
 WORKFLOW_STATUS_DIRECTORY = "workflow-status"
 WORKFLOW_STATUS_MAX_AGE = dt.timedelta(hours=36)
-VALGRIND_STATUS_MAX_AGE = dt.timedelta(days=60)
 WORKFLOW_STATUS_REPORTS = (
     ("pek-ci", "PEK CI", "Build, browser and quality", "playwright/index.html"),
     ("python-audit", "Python audit", "Python dependency vulnerabilities", "python-audit/index.html"),
@@ -43,7 +43,7 @@ ROOT_QUALITY_LINKS = (
     ("python-audit/index.html", "Python audit", "Dependency vulnerabilities", "shield", "Nightly"),
     ("docker-scout/index.html", "Docker Scout", "Container vulnerabilities", "binoculars", "Nightly"),
     ("workflow-freshness/index.html", "Workflow freshness", "GitHub Actions dependencies", "refresh", "Nightly"),
-    ("valgrind/index.html", "Valgrind", "Memory regression baseline", "memory", "Develop"),
+    ("valgrind/index.html", "Valgrind", "Memory regression baseline", "memory", "Nightly"),
 )
 ROOT_NIGHTLY_LINKS = (
     ("nightly-ci/index.html", "Nightly CI", "Scheduled checks at a glance", "moon", "Overview"),
@@ -99,6 +99,21 @@ PLAYWRIGHT_REPORT_ARCHIVE_RE = re.compile(
 
 class PublishError(RuntimeError):
     pass
+
+
+class StorageBranchPushError(PublishError):
+    pass
+
+
+def retry_storage_branch_update(update: Callable[[], object]) -> object:
+    for attempt in range(1, 4):
+        try:
+            return update()
+        except StorageBranchPushError:
+            if attempt == 3:
+                raise
+            print(f"Storage branch changed during publish (attempt {attempt}/3); retrying.")
+    raise AssertionError("unreachable")
 
 
 def env(name: str, default: str = "") -> str:
@@ -204,7 +219,10 @@ def push_site_branch(site_dir: Path, storage_branch: str, dry_run_env: str,
         return True
 
     auth_header = git_auth_header()
-    git(site_dir, ["push", "origin", f"HEAD:{storage_branch}"], auth_header)
+    try:
+        git(site_dir, ["push", "origin", f"HEAD:{storage_branch}"], auth_header)
+    except subprocess.CalledProcessError as error:
+        raise StorageBranchPushError(f"Failed to update {storage_branch}.") from error
     return True
 
 
@@ -281,8 +299,7 @@ def root_card_badge(site_dir: Path, href: str, dataset_count: int | None,
         return playwright_nightly_badge(site_dir)
     source = href.removesuffix("/index.html")
     if source in WORKFLOW_PR_REPORTS:
-        path = "develop.json" if source == "valgrind" else "nightly.json"
-        return workflow_status_badge(read_workflow_status(site_dir, source, path), now)
+        return workflow_status_badge(read_workflow_status(site_dir, source), now)
     if href == "nightly-ci/index.html":
         return nightly_status_verdict(site_dir, now)
     if dataset_count:
@@ -325,12 +342,7 @@ def workflow_status_verdict(status: dict[str, object] | None,
     if status is None:
         return "neutral", "Unavailable"
     updated_at = dt.datetime.fromisoformat(str(status["updated_at"]).replace("Z", "+00:00"))
-    max_age = (
-        VALGRIND_STATUS_MAX_AGE
-        if status.get("event") == "push" and status.get("workflow") == "Valgrind Baseline Artifact"
-        else WORKFLOW_STATUS_MAX_AGE
-    )
-    if now.astimezone(dt.timezone.utc) - updated_at > max_age:
+    if now.astimezone(dt.timezone.utc) - updated_at > WORKFLOW_STATUS_MAX_AGE:
         return "neutral", "Stale"
     conclusion = str(status["conclusion"])
     if conclusion == "success":
@@ -388,8 +400,19 @@ def status_summary(status: dict[str, object]) -> str:
     )
 
 
+def status_details(status: dict[str, object]) -> str:
+    messages = status.get("details")
+    if not isinstance(messages, list):
+        return ""
+    return "".join(
+        f'<span class="report-meta">{html_escape(message[:240])}</span>'
+        for message in messages
+        if isinstance(message, str) and message
+    )
+
+
 def status_link(status: dict[str, object] | None, title: str, now: dt.datetime,
-                href: str | None = None) -> str:
+                href: str | None = None, include_details: bool = False) -> str:
     if status is None:
         return (
             '<div class="report-link"><span>'
@@ -399,12 +422,15 @@ def status_link(status: dict[str, object] | None, title: str, now: dt.datetime,
         )
     tone, label = workflow_status_badge(status, now)
     run_url = f'https://github.com/{status["repository"]}/actions/runs/{status["run_id"]}'
+    run_label = "Job summary" if status.get("workflow") == "Valgrind Baseline Artifact" else "Run"
     return (
         '<div class="report-link"><span>'
         f'<span class="report-title"><a href="{html_escape(href or run_url)}">'
         f'{html_escape(title)}</a></span><span class="report-meta">'
-        f'{html_escape(status_meta(status))} · <a href="{html_escape(run_url)}">Run</a></span>'
-        f'{status_summary(status)}</span>{verdict_html(tone, label)}</div>'
+        f'{html_escape(status_meta(status))} · <a href="{html_escape(run_url)}">'
+        f'{run_label}</a></span>'
+        f'{status_summary(status)}{status_details(status) if include_details else ""}'
+        f'</span>{verdict_html(tone, label)}</div>'
     )
 
 
@@ -429,18 +455,17 @@ def write_status_indexes(site_dir: Path, now: dt.datetime) -> None:
         target = site_dir / source
         target.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(css_source, target / "report-index.css")
-        primary_path = "develop.json" if source == "valgrind" else "nightly.json"
-        primary_title = "Develop" if source == "valgrind" else "Nightly"
-        primary_status = read_workflow_status(site_dir, source, primary_path)
+        primary_title = "Nightly"
+        primary_status = read_workflow_status(site_dir, source)
         primary = (
-            status_link(primary_status, f"Latest {primary_title.lower()}", now)
+            status_link(primary_status, f"Latest {primary_title.lower()}", now, include_details=True)
             if primary_status else f'<div class="empty">No {primary_title.lower()} report published yet.</div>'
         )
         pr_links = []
         for path in sorted((status_root / source / "prs").glob("*.json"), reverse=True):
             status = read_workflow_status(site_dir, source, f"prs/{path.name}")
             if status is not None:
-                pr_links.append(status_link(status, f"PR #{path.stem}", now))
+                pr_links.append(status_link(status, f"PR #{path.stem}", now, include_details=True))
         prs = (
             '<section><h2>Pull Requests</h2><div class="report-list">'
             + ("".join(pr_links) if pr_links else '<div class="empty">No PR report published yet.</div>')

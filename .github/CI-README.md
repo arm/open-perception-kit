@@ -15,6 +15,124 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Runs pull request quality checks through `expkits-ci --ci-pr-checks`.
 - Runs full/nightly quality checks through `expkits-ci --ci-full-checks`.
 
+## What does `.github/workflows/release-tests.yml` do?
+
+- Runs directly only for pull requests targeting `main`.
+- Builds temporary x86_64 and Arm candidate archives and runs the native
+  package smoke test for each architecture. It does not build documentation or
+  publish a release.
+
+## What does `.github/workflows/release-packages.yml` do?
+
+| Event | Validation workflow | Package workflow outcome |
+| --- | --- | --- |
+| Pull request targeting `main` | Builds and smoke-tests the two architecture candidates | Not run |
+| Push to `main` | Not run | Builds all three archives, smoke-tests both architecture archives, and publishes one GitHub Release plus one Artifactory folder |
+| Manual dispatch | Not run | Resolves `source_ref`, builds all three archives, smoke-tests both architecture archives, and publishes one Artifactory folder |
+
+Both workflows execute `SmokePackage.py` against their exact x86_64 and Arm
+archives. Each smoke uses PyGObject to load the packaged private runtime,
+discover the plugins through `GST_PLUGIN_PATH`, run inference to EOS, and
+verify the packaged `peksink` web content.
+Push and manual publication jobs cannot start unless both package smokes pass.
+For pushes to `main`, Artifactory publication also waits for the GitHub Release
+job to succeed. An existing `v<version>` therefore prevents publication to both
+release destinations. Manual snapshots do not create or depend on a GitHub
+Release.
+
+Automatic `main` publication writes to `releases/<version>/`; manual
+publication writes to
+`snapshots/<label>/<full-sha>-<run-id>-<attempt>/` below
+`https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci`.
+The same URL is used for uploads and generated download links.
+The final Artifactory workflow log and `$GITHUB_STEP_SUMMARY` expose the folder,
+all three links, and SHA-256 values for both paths.
+If GitHub Release publication succeeds but Artifactory later fails, repair or
+remove the partial GitHub Release before rerunning the workflow.
+
+Each workflow resolves the selected commit's pinned `hfDownload` descriptors
+once with `scripts/download-models.py` and transfers that model tree to both
+architecture builds as a short-lived Actions artifact. Both archives receive
+exactly the same six ONNX model directories: `cam-contact`, `gaze-detection`,
+`osnet_x0_25`, `ultraface`, `yolo26`, and `yolov11`. Published packages contain
+the model bytes and need neither Hugging Face access nor a token at runtime.
+
+Build inputs reuse the repository's ONNX Runtime installer. The downloaded
+ONNX Runtime package is checksum-verified. Hailo models, operation modules,
+SDKs, and runtimes are excluded from both release architectures.
+
+Release dependency preparation gets its model and runtime inputs from these
+sources:
+
+| Variables | Set or referenced in |
+| --- | --- |
+| `ONNXRUNTIME_VERSION` | Defaulted in `Dockerfile`; read and passed explicitly by both release workflows |
+| `HF_TOKEN` | Temporary read-only repository secret; exposed only to each workflow's model-resolution step while checked-in models require authentication |
+
+`Dockerfile` remains the version authority; release workflows use the value
+from the selected source.
+Dependency preparation uses the selected source's checked-in installers and
+does not receive GitHub secrets. Only model resolution receives `HF_TOKEN`;
+package build jobs receive the resolved files and no credentials.
+
+Configured GitHub Actions secrets supply `HF_TOKEN`, `PEK_ARTIFACTORY_USERNAME`,
+and `PEK_ARTIFACTORY_API_KEY`. Once the workflow is registered on the default `develop`
+branch, a manual run may select a feature branch for release testing. GitHub
+cannot manually dispatch a new workflow before it exists on the default branch.
+
+### Hugging Face credential boundary
+
+`HF_TOKEN` must be a dedicated, read-only CI credential rather than a
+developer's personal token. Its use in same-repository workflows is an accepted
+temporary trust boundary: everyone who can push a branch and trigger those
+workflows is assumed to be authorized for the same model-read access. Fork pull
+requests do not receive it. Workflows must keep it in the model-resolution or
+model-image build step, pass it to container builds only as a BuildKit secret,
+and never expose it to package builds, published artifacts, or runtime
+containers.
+
+`Arm/*` values in `hfDownload.repo_id` identify Hugging Face Hub model
+repositories, not Git submodules. Private Git submodules use separate read-only
+deploy keys such as `DEPLOY_KEY_FLOWDATA_SDK`; that authentication path is
+unrelated to `HF_TOKEN`.
+
+This CI credential is a pre-release bridge only. Before the first public
+release:
+
+- make every checked-in `hfDownload` source anonymously readable;
+- remove every `${{ secrets.HF_TOKEN }}` reference from repository workflows;
+- delete the repository Actions secret after no workflow references it; and
+- run model resolution plus the x86_64 and Arm package smokes with `HF_TOKEN`
+  unset.
+
+Optional local BuildKit-secret support remains available for developers who add
+their own private or gated models; it is not a release credential dependency.
+
+The Artifactory job checks out the shared `Arm-Debug/publisher` package at the
+exact commit pinned in `release-packages.yml`, then installs it from the
+publisher repository's own tracked `uv.lock`. Update that workflow ref when a
+reviewed publisher change is adopted; PEK does not copy or fork the package.
+
+## What does `.github/workflows/cairn-integration-snapshot.yml` do?
+
+- Accepts one exact 40-character amp-dev-forge commit SHA.
+- Reuses `ghcr.io/arm-debug/amp-dev-forge-cairn-python:<commit>` when its
+  platform and source revision match the requested commit.
+- Fails when an existing tag does not match that contract.
+- Builds, smoke-tests, and publishes one native arm64 runtime image only when
+  the commit tag is missing.
+- Includes the PEK and GStreamer runtimes, Python GI bindings and introspection
+  metadata, the YOLOv11 model configuration, and the image used by Cairn's
+  current pipeline.
+- Runs as the existing `pek` user (`1000:1000`) by default. A child image may
+  switch to root for setup, but must select its non-root service user before
+  defining the final runtime command.
+- Does not create a GitHub Release or publish separate archives.
+
+The workflow serializes runs for the same commit. Cairn can use the commit SHA as
+its only integration pin: probe the deterministic image tag, dispatch this
+workflow if it is missing, then wait until the image manifest is available.
+
 ## What does `.github/workflows/agent-review.yml` do?
 
 - Runs Agent review on a self-hosted runner through the shared Python OpenAI Agents SDK runner

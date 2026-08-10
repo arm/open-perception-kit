@@ -37,6 +37,26 @@ performance_tracer_tests = executable(
   link_with : [common],
 )
 
+# Test-only OpChain plugin that simulates inference exceeding one frame budget.
+qos_delay_op = shared_module(
+  'pek-test-qos-delay',
+  ['qos_delay_op.cpp'],
+  include_directories : [common_include],
+  dependencies : [pek_deps],
+  link_with : [common],
+  name_prefix : '',
+  gnu_symbol_visibility : 'default',
+  install : false,
+)
+
+opchain_descriptor_tests = executable(
+  'opchain_descriptor_tests',
+  ['OpChainDescriptorTest.cpp'],
+  include_directories : [common_include],
+  dependencies : [gtest_main_dep, gtest_dep, pek_deps],
+  link_with : [common],
+)
+
 matrix_operations_tests = executable(
   'matrix_operations_tests',
   ['matrix_operations_test.cpp'],
@@ -140,16 +160,39 @@ node = find_program('node', required : false)
 python = import('python').find_installation()
 
 test('pek_menu_tests', pek_menu_tests)
+test('opchain_descriptor_tests', opchain_descriptor_tests)
 test(
   'pek_menu_cli_tests',
   python,
   args : [files('pek_menu_cli_test.py'), pek_menu.full_path()],
   depends : pek_menu,
+  is_parallel : false,
 )
 test(
   'model_artifact_build_tests',
   python,
   args : [files('model_artifact_build_test.py')],
+)
+test(
+  'qos_pipeline_tests',
+  python,
+  args : [
+    files('qos_pipeline_test.py'),
+    qos_delay_op.full_path(),
+    gstpekinfer.full_path(),
+    gstpektracker.full_path(),
+    gstpekperformance.full_path(),
+    gstpekosd.full_path(),
+    pekinferpre.full_path(),
+  ],
+  depends : [
+    gstpekinfer,
+    qos_delay_op,
+    gstpektracker,
+    gstpekperformance,
+    gstpekosd,
+    pekinferpre,
+  ],
 )
 test('model_descriptor_tests', model_descriptor_tests)
 test('opchain_descriptor_tests', opchain_descriptor_tests)
@@ -160,6 +203,13 @@ test(
   args : [files('opchain_display_metadata_test.py'), meson.project_source_root() / '..'],
 )
 test('performance_tracer_tests', performance_tracer_tests)
+test(
+  'release_tool_tests',
+  python,
+  args : [
+    meson.project_source_root() / '../scripts/release/TestReleaseTool.py',
+  ],
+)
 test('matrix_operations_tests', matrix_operations_tests)
 test('kalman_filter_tests', kalman_filter_tests)
 test('hungarian_tests', hungarian_tests)
