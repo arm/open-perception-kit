@@ -55,8 +55,6 @@ class TestConfigSchemaCheck(unittest.TestCase):
                 "/work/tools/pek-config-check",
                 "--root",
                 "/work",
-                "--format",
-                "text",
             ],
             cwd=root,
             stdout=subprocess.PIPE,

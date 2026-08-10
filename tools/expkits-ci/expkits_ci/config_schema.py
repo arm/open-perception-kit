@@ -33,8 +33,6 @@ def run_config_validator(project_root):
             find_config_validator(project_root),
             "--root",
             str(project_root),
-            "--format",
-            "text",
         ],
         cwd=project_root,
         stdout=subprocess.PIPE,
