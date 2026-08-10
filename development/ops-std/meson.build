@@ -21,7 +21,10 @@ stdops = shared_module(
     'postproc/ScrfdParser.cpp',
 
     'preproc/GenericImageTensorBuilder.cpp',
-    'preproc/CpuImageKernels.cpp'
+    'preproc/CpuImageKernels.cpp',
+    'preproc/CpuImageKernelsI420.cpp',
+    'preproc/CpuImageKernelsNv12.cpp',
+    'preproc/CpuImageKernelsYuy2.cpp'
 
   ],
   include_directories: common_include,

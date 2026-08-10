@@ -143,7 +143,7 @@ Result<VideoFrame> VideoFrame::borrowBgra(const std::uint8_t *data,
         byteCount,
         static_cast<std::uint32_t>(width),
         static_cast<std::uint32_t>(height),
-        pek::DataKind::ImageBgraHwc,
+        pek::RawImagePixelFormat::Bgra,
         static_cast<std::uint32_t>(*normalizedStride));
 
     if (!internalFrame) {
@@ -184,7 +184,7 @@ Result<VideoFrame> VideoFrame::moveBgra(std::vector<std::uint8_t> &&pixels,
         pek::mediaio::makeOwnedPixelBufferVideoFrame(std::move(pixels),
                                                      static_cast<std::uint32_t>(width),
                                                      static_cast<std::uint32_t>(height),
-                                                     pek::DataKind::ImageBgraHwc,
+                                                     pek::RawImagePixelFormat::Bgra,
                                                      static_cast<std::uint32_t>(*normalizedStride),
                                                      pek::AccessMode::Read);
 

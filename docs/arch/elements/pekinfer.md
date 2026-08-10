@@ -14,15 +14,15 @@ micropipeline.
 
 - Base class: `GstBaseTransform`
 - Processing mode: in-place `transform_ip`
-- Supported caps: `video/x-raw, format=BGRA`
+- Supported caps: `video/x-raw, format={BGRA,RGB,I420,NV12,YUY2}`
 - Main property: `opchain-path`, the JSON descriptor to execute
 - Control property: `active`, which enables or disables per-frame OpChain execution
 - Experimental property: `qos-enabled`, disabled by default
 - Metadata output: `PerceptionMeta`
 
-The implementation currently assumes tightly packed BGRA memory with stride equal
-to `width * 4`. Padded stride, multi-planar formats, and zero-copy paths require
-explicit `GstVideoFrame`/plane-stride handling.
+The implementation currently maps CPU-addressable `GstVideoFrame` buffers and
+passes per-plane data and stride into preprocessing. DMA-BUF-backed frames are
+detected but rejected until explicit zero-copy support is added.
 
 ## Lifecycle
 
@@ -31,7 +31,7 @@ JSON regardless of `active`. Setup failure prevents the element from starting.
 After successful setup, it emits a downstream `pek-model-register` event with
 model name, element name, and active state.
 
-On `set_caps()`, it validates BGRA caps and stores frame dimensions.
+On `set_caps()`, it validates the supported raw video caps and stores frame dimensions.
 
 On `stop()`, it releases OpChain state and resources.
 
@@ -42,7 +42,7 @@ For each active frame:
 1. Map the buffer for read/write access.
 2. Ensure `PerceptionMeta` is attached.
 3. Construct an `OpChainContext`.
-4. Add the BGRA frame as `bitmapViews["pipelineVideoFrame"]`.
+4. Add the mapped video frame as `videoFrames["pipelineVideoFrame"]`.
 5. Expose the frame's `Perception` object to Ops.
 6. Execute the OpChain.
 

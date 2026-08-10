@@ -31,7 +31,17 @@ class VideoFrame {
     virtual ~VideoFrame() = default;
 
     /** @brief Returns the frame pixel layout. */
-    virtual pek::DataKind format() const noexcept = 0;
+    virtual pek::RawImagePixelFormat format() const noexcept = 0;
+
+    /** @brief Returns the YUV-to-RGB matrix for YUV frames, or Unknown when not applicable. */
+    virtual pek::YuvColorMatrix yuvColorMatrix() const noexcept {
+        return pek::YuvColorMatrix::Unknown;
+    }
+
+    /** @brief Returns the encoded YUV sample range, or Unknown when not applicable. */
+    virtual pek::YuvRange yuvRange() const noexcept {
+        return pek::YuvRange::Unknown;
+    }
 
     /** @brief Returns the frame width in pixels. */
     virtual uint32_t width() const noexcept = 0;
