@@ -12,7 +12,6 @@ import subprocess
 import sys
 
 
-PROBE_REPORT = "sonar-api-access-probe.txt"
 QUALITY_REPORT = "sonar-quality-gate-report.txt"
 REPORT_TASK_FILE = "/work/.scannerwork/report-task.txt"
 
@@ -33,7 +32,7 @@ def step_summary_path() -> Path | None:
     return Path(value) if value else None
 
 
-def quality_gate_report_command(*, probe_api_access: bool) -> list[str]:
+def quality_gate_report_command() -> list[str]:
     command = [
         "docker",
         "compose",
@@ -68,8 +67,6 @@ def quality_gate_report_command(*, probe_api_access: bool) -> list[str]:
         "--pull-request-base",
         os.environ.get("PR_BASE", ""),
     ]
-    if probe_api_access:
-        command.append("--probe-api-access")
     return command
 
 
@@ -89,17 +86,11 @@ def append_summary(*, title: str, report_file: Path, summary_lines: int) -> None
         summary.write("```\n")
 
 
-def run_report(*, report_file: Path, title: str, summary_lines: int, probe_api_access: bool) -> int:
+def run_report(*, report_file: Path, title: str, summary_lines: int) -> int:
     report_file.parent.mkdir(parents=True, exist_ok=True)
-    if probe_api_access:
-        report_file.write_text("=== Sonar API access probe ===\n", encoding="utf-8")
-        mode = "ab"
-    else:
-        mode = "wb"
-
-    with report_file.open(mode) as output:
+    with report_file.open("wb") as output:
         completed = run_command(
-            quality_gate_report_command(probe_api_access=probe_api_access),
+            quality_gate_report_command(),
             stdout=output,
             stderr=subprocess.STDOUT,
             check=False,
@@ -112,33 +103,17 @@ def run_report(*, report_file: Path, title: str, summary_lines: int, probe_api_a
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run Sonar quality-gate workflow report helpers.")
-    subparsers = parser.add_subparsers(dest="command", required=True)
-
-    probe = subparsers.add_parser("probe-api-access")
-    probe.add_argument("--summary-lines", type=int, default=80)
-
-    report = subparsers.add_parser("report-quality-gate")
-    report.add_argument("--summary-lines", type=int, default=160)
+    parser.add_argument("--summary-lines", type=int, default=160)
     return parser
 
 
 def main() -> int:
     args = build_parser().parse_args()
-    if args.command == "probe-api-access":
-        return run_report(
-            report_file=report_path(PROBE_REPORT),
-            title="Sonar API access probe",
-            summary_lines=args.summary_lines,
-            probe_api_access=True,
-        )
-    if args.command == "report-quality-gate":
-        return run_report(
-            report_file=report_path(QUALITY_REPORT),
-            title="Sonar quality gate report",
-            summary_lines=args.summary_lines,
-            probe_api_access=False,
-        )
-    raise RuntimeError(f"Unsupported command: {args.command}")
+    return run_report(
+        report_file=report_path(QUALITY_REPORT),
+        title="Sonar quality gate report",
+        summary_lines=args.summary_lines,
+    )
 
 
 if __name__ == "__main__":

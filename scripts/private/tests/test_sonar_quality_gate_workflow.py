@@ -53,7 +53,7 @@ class SonarQualityGateWorkflowTests(unittest.TestCase):
             },
             clear=False,
         ):
-            command = sonar_quality_gate_workflow.quality_gate_report_command(probe_api_access=True)
+            command = sonar_quality_gate_workflow.quality_gate_report_command()
 
         self.assertEqual(command[:4], ["docker", "compose", "-f", ".github/compose.ci.yaml"])
         self.assertIn("--entrypoint", command)
@@ -69,12 +69,11 @@ class SonarQualityGateWorkflowTests(unittest.TestCase):
         self.assertEqual(command[command.index("--pull-request-key") + 1], "101")
         self.assertEqual(command[command.index("--pull-request-branch") + 1], "feature/test")
         self.assertEqual(command[command.index("--pull-request-base") + 1], "main")
-        self.assertIn("--probe-api-access", command)
 
     def test_container_report_task_path_matches_compose_work_bind_mount(self):
         compose_base = (REPO_ROOT / "compose.base.yaml").read_text(encoding="utf-8")
 
-        command = sonar_quality_gate_workflow.quality_gate_report_command(probe_api_access=False)
+        command = sonar_quality_gate_workflow.quality_gate_report_command()
 
         self.assertIn("- .:/work", compose_base)
         self.assertEqual(command[command.index("--report-task-file") + 1], "/work/.scannerwork/report-task.txt")

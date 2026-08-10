@@ -41,8 +41,8 @@ behaviour entirely:
   unique checkout path
 - each Docker Compose based self-hosted job gets a unique `COMPOSE_PROJECT_NAME`
 - fixed `container_name` entries are avoided in the CI compose file
-- the self-hosted Sonar workflows tear down their workflow-scoped Compose
-  resources and delete their isolated checkout directory in an `if: always()`
+- the self-hosted Sonar job tears down its workflow-scoped Compose
+  resources and deletes its isolated checkout directory in an `if: always()`
   cleanup step
 - the self-hosted Black Duck workflow bind-mounts only its isolated checkout
   directory and removes its workflow-scoped images before deleting that

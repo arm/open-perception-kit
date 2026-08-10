@@ -11,9 +11,109 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 
 ## What does `.github/workflows/pek-ci.yml` do?
 
-- Runs the actual checks
+- Builds one exact-SHA PEK CI image, shares it within the workflow run, then runs
+  Quality, Sonar, release Sonar, Valgrind, and the `pek-ci` Docker Scout scan
+  from that image.
+- Uploads the PR image for the trusted GHCR publisher in the same build job, so
+  every consumer waits for one complete image handoff.
+- Reuses Docker layers through the ref-scoped cache flow below.
+- Starts the Linux, Raspberry Pi, and macOS quick-start checks independently
+  because they build their own platform images.
+- Routes `run-python-audit`, `run-docker-scout`, and `run-workflow-audit` PR
+  labels through this workflow so label-triggered checks do not create duplicate
+  PR workflows. Workflow dependency freshness keeps its scheduled and manual
+  entry points in `workflow-audit.yml`.
+- Supports manual `all`, `quality`, `sonar`, and `valgrind` selections.
+- Uses each pull request's immediate base branch, including stacked pull requests.
+- Owns the nightly Quality and Valgrind run and the Valgrind baseline artifact.
+- Owns release-tag Sonar analysis; the required PR Sonar check keeps the exact
+  `Run Sonar analysis in Docker` name.
 - Runs pull request quality checks through `expkits-ci --ci-pr-checks`.
 - Runs full/nightly quality checks through `expkits-ci --ci-full-checks`.
+- Lets `pek-ci-image-cleanup.yml` delete successful/cancelled run handoffs and
+  all remaining PR caches when the pull request closes. Failed-run handoffs stay
+  available for failed-job reruns.
+
+The Python dependency, Docker Scout, and workflow dependency workflows remain
+reusable and keep their independent schedule/manual triggers. Their direct PR
+triggers are disabled; `pek-ci.yml` owns PR orchestration. Scheduled report
+sources and artifact names therefore stay unchanged.
+
+`.github/workflows/valgrind.yml` is only the trusted `pull_request_target`
+publisher that requests a missing baseline from `pek-ci.yml`; it never runs PR
+code. Its trusted helper also covers feature-branch bases used by stacked pull
+requests.
+
+### Cache flow
+
+GHCR stores published outputs, not build caches: the latest successful image
+for each PR and exact-SHA Valgrind baselines. Docker layers and compiler outputs
+use the GitHub Actions cache.
+
+| Run | Docker layers read from | Docker layers written to |
+| --- | --- | --- |
+| `main` or `develop` | Current branch cache | Current branch baseline |
+| First PR run | Available base/default branch baseline | `refs/pull/<number>/merge` |
+| Later PR commit or rerun | The PR cache, with base/default as fallback | The same PR cache |
+
+The Buildx scope is always `pek-ci`. GitHub applies the branch and PR isolation;
+the workflow does not build its own cache-key hierarchy. A PR cannot overwrite
+the `main` or `develop` baseline. The same rule applies to stacked PRs: each PR
+writes only its own merge ref.
+
+| Stored data | Purpose | Lifetime |
+| --- | --- | --- |
+| Buildx `pek-ci` cache | Reuse Docker layers between runs | Branch/PR ref; deleted when the PR closes or GitHub evicts it |
+| Quality, Sonar, and Valgrind ccache | Reuse compiled objects for the same check | PR ref; deleted when the PR closes or GitHub evicts it |
+| Sonar CFamily server cache | Reuse target-branch or main fallback analysis in pull requests | Updated by `main` and `develop` push analysis |
+| Run image cache | Pass the image from `Build PEK CI image` to its dependent jobs | Exact run; retained after failure for rerun, deleted after success/cancel or PR close |
+| PR image artifact | Pass the verified image to the trusted GHCR publisher | One day |
+| `pek-ci-pr-<number>` image in GHCR | Pull the latest successful PEK CI image locally | Replaced after the next successful run; deleted when the PR closes |
+| Valgrind baseline in GHCR | Compare against the exact base SHA | Managed by the trusted baseline publisher |
+
+The pull-request workflow has no package-write permission. After successful CI,
+the trusted `PEK CI Image` workflow publishes the verified image:
+
+```console
+docker pull ghcr.io/arm-debug/amp-dev-forge-ci:pek-ci-pr-<number>
+```
+
+References: GitHub [cache access restrictions](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching#restrictions-for-accessing-a-cache),
+Docker [Buildx `gha` cache scope](https://docs.docker.com/build/cache/backends/gha/#scope),
+and Sonar [incremental analysis](https://docs.sonarsource.com/sonarqube-server/2025.4/analyzing-source-code/incremental-analysis/introduction/).
+
+### Measured PR timings
+
+Queue time is excluded; job time includes setup and cleanup. The legacy
+baseline built the same CI image independently in each job. Cold and warm paths
+include the shared producer once; warm reran the same SHA with populated image
+and compiler caches. Quick-start jobs are excluded because they remain
+independent of this x86_64 image.
+
+| Path | Legacy baseline | Cold ref cache | Warm rerun | Warm reduction |
+| --- | ---: | ---: | ---: | ---: |
+| CI image | built in every job | [5:33](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93442576791) | [1:27](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93447199213) | n/a |
+| Quality E2E | [10:07](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31254094969/job/93094753719) | 5:33 + [9:12](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93443869967) = 14:45 | 1:27 + [5:01](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93447548498) = 6:28 | 36.1% |
+| Sonar E2E | [20:00](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31254094986/job/93094753758) | 5:33 + [14:01](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93443869962) = 19:34 | 1:27 + [14:02](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93447548602) = 15:29 | 22.6% |
+| Valgrind E2E | [11:52](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31254094974/job/93094753670) | 5:33 + [8:30](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93443869925) = 14:03 | 1:27 + [5:55](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93447548536) = 7:22 | 37.9% |
+| Critical path | 20:00 | 19:34 | 15:29 | 22.6% |
+| Runner time | 41:59 | 37:16 | 26:25 | 37.1% |
+
+The cold run followed deletion of every PR cache; the warm run reran the same
+SHA. Their cache-sensitive steps show where the warm reduction comes from:
+
+| Cache-sensitive step | Cold | Warm |
+| --- | ---: | ---: |
+| Build CI image | 4:48 | 0:42, all 17 layers cached |
+| Quality build and unit tests | 7:01, 2/113 hits | 2:53, 112/113 hits |
+| Valgrind checks | 5:52, 2/88 hits | 3:34, 87/88 hits |
+| Sonar analysis | 11:48, 0/96 server hits | 11:45, 0/96 server hits |
+
+After a `develop` branch analysis seeded Sonar's server cache, the same PR Sonar
+job reran in [8:30](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31387622127/job/93458223381):
+the analysis step fell from 11:46 to 6:07, with 54/96 CFamily cache hits and an
+81% symbolic-execution hit rate. The same-head CI image-to-Sonar path is 9:50,
+10:10 (50.8%) shorter than the legacy baseline.
 
 ## What does `.github/workflows/release-tests.yml` do?
 
@@ -178,7 +278,8 @@ workflow if it is missing, then wait until the image manifest is available.
 - Runs a minimal dependency freshness report for external GitHub Actions used by repository workflows
 - Compares the current `uses:` refs against the latest GitHub release/tag for each action repository
 - Publishes one simple Markdown report and a lightweight JSON snapshot in the `workflow-dependency-freshness` artifact
-- On pull requests, reruns only the report job so workflow changes can validate the same dependency evidence without opening repair PRs
+- On pull requests, is called by `pek-ci.yml` and runs only the report job; it
+  does not open repair PRs
 
 ## What does `.github/workflows/agent-repair-source-run.yml` do?
 
@@ -251,10 +352,16 @@ workflow if it is missing, then wait until the image manifest is available.
 
 ## Functionalities
 
-- **Triggers:** Runs on pull requests, manual dispatch, and nightly schedule.
-- **Branch and PR logic:** Only runs on non-draft PRs, or when the `run-pek-ci` label is added to a draft PR.
-- **init-workspace:** Prepares the workspace and environment.
-- **build-changed-applications:** Builds only the applications changed in a PR.
-- **build-all-applications:** Builds all applications (nightly or manual trigger).
+- **Triggers:** Runs on pull requests, `main`/`develop` pushes, `release/*`
+  tags, manual dispatch, and the nightly schedule.
+- **Branch and PR logic:** Standard checks run on non-draft PRs;
+  `run-pek-ci`, `run-macos-ci`, `run-python-audit`, `run-docker-scout`, and
+  `run-workflow-audit` route their selected work through the same PR workflow.
+- **Context:** The shared-image job resolves the exact source SHA and immediate
+  PR base; platform quick-start jobs checkout the event source directly.
+- **Shared image:** Publishes `pek-ci` once and attaches each compatible Docker
+  Compose service to it.
+- **Platform checks:** Linux, Raspberry Pi, and macOS quick-start checks build
+  their native images independently from the shared x86_64 CI image.
 - **Agent Review:** A separate advisory workflow runs Agent Review, uploads the generated artifacts for the PR, posts a fresh comment-only summary review for each successful run, and publishes inline review comments for the current findings.
 - **Ruleset sync:** A separate workflow applies the checked-in repository ruleset drafts to GitHub after they are merged to `develop`.

@@ -2,6 +2,12 @@ name: Docker Scout Image Audit
 
 on:
   workflow_call:
+    inputs:
+      ci_image_sha:
+        description: Exact source SHA of a prepared PEK CI image.
+        required: false
+        default: ""
+        type: string
     secrets:
       DOCKER_USER:
         required: true
@@ -10,14 +16,15 @@ on:
       HF_TOKEN:
         required: false
   workflow_dispatch:
-  pull_request:
-    branches: [ main, develop, "feature/**", "sandbox/**" ]
-    types: [ labeled, synchronize, reopened ]
   schedule:
     - cron: "0 4 * * *"
 
 permissions:
+  actions: read
   contents: read
+
+env:
+  CI_IMAGE_CACHE_KEY: pek-ci-image-${{ github.run_id }}
 
 jobs:
   docker-scout:
@@ -62,6 +69,23 @@ jobs:
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
 
     steps:
+      - name: Restore PEK CI image
+        if: matrix.image.service == 'pek-ci' && inputs.ci_image_sha != ''
+        uses: actions/cache/restore@v6
+        with:
+          path: .cache/pek-ci-image
+          key: ${{ env.CI_IMAGE_CACHE_KEY }}
+          fail-on-cache-miss: true
+
+      - name: Load PEK CI image
+        if: matrix.image.service == 'pek-ci' && inputs.ci_image_sha != ''
+        env:
+          CI_IMAGE_SHA: ${{ inputs.ci_image_sha }}
+        run: |
+          tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
+          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
+            --archive "$tools_dir/pek-ci-image.tar" pek-ci
+
       - name: Checkout current ref
         id: checkout-current-ref
         if: github.event_name != 'pull_request'
@@ -100,6 +124,7 @@ jobs:
           password: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
 
       - name: Build docker image
+        if: matrix.image.service != 'pek-ci' || inputs.ci_image_sha == ''
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
           HF_TOKEN: ${{ contains(fromJSON('["pek-deployment-base","pek-dev"]'), matrix.image.service) && secrets.HF_TOKEN || '' }}
@@ -224,5 +249,8 @@ jobs:
           esac
           if [ -n "$image_ref" ]; then
             docker image rm -f "$image_ref" || true
+          fi
+          if [ -n "${PEK_CI_IMAGE:-}" ]; then
+            docker image rm -f "$PEK_CI_IMAGE" || true
           fi
           rm -rf "$checkout_path"

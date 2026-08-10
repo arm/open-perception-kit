@@ -37,7 +37,6 @@ def load_profile(profile_path: str = "") -> dict[str, object]:
             "repair_branch_template",
             "repair_branch_guard_regex",
             "repair_authorization_label",
-            "pr_trigger_label",
             "pr_title_template",
             "commit_subject_template",
             "commit_notes_template",
@@ -49,6 +48,7 @@ def load_profile(profile_path: str = "") -> dict[str, object]:
         required_list_keys=(
             "prompt_context_files",
             "repair_definition_of_done",
+            "pr_trigger_labels",
         ),
         optional_bool_keys=("require_failure_conclusion",),
     )

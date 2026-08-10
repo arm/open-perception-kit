@@ -2,35 +2,64 @@
 ################################################################
 # Copyright (C) 2026 Arm Limited. All rights reserved.
 ################################################################
+"""Store exact-SHA Valgrind summaries in GHCR."""
 
 import argparse
+import base64
+import hashlib
 import json
 import os
+import re
+import runpy
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from pathlib import Path
 
 
 ACTIVE_STATUSES = {"queued", "in_progress", "requested", "waiting", "pending"}
-ARTIFACT_NAME = os.environ.get("VALGRIND_BASELINE_ARTIFACT", "valgrind-baseline")
 BASELINE_BRANCH = os.environ.get("VALGRIND_BASELINE_BRANCH", "develop")
-BASELINE_RUN_EVENTS = {"push", "workflow_dispatch"}
-REPOSITORY = os.environ["GITHUB_REPOSITORY"]
-WORKFLOW_NAME = os.environ.get("VALGRIND_BASELINE_WORKFLOW", "valgrind.yml")
+OWNER, REPOSITORY_NAME = os.environ["GITHUB_REPOSITORY"].split("/", 1)
+REPOSITORY = f"{OWNER}/{REPOSITORY_NAME}"
+WORKFLOW_NAME = os.environ.get("VALGRIND_BASELINE_WORKFLOW", "pek-ci.yml")
+WORKFLOW_REF = os.environ.get("VALGRIND_BASELINE_WORKFLOW_REF", "develop")
+PACKAGE = f"{REPOSITORY_NAME.lower()}-valgrind-baseline"
+IMAGE = f"ghcr.io/{OWNER.lower()}/{PACKAGE}"
+REGISTRY_REPOSITORY = f"{OWNER.lower()}/{PACKAGE}"
+SUMMARY_NAME = "valgrind-error-summary.xml"
 
 
 def gh(*args: str) -> str:
-    result = subprocess.run(
+    return subprocess.run(
         ["gh", *args],
         check=True,
         capture_output=True,
         text=True,
-    )
-    return result.stdout.strip()
+    ).stdout.strip()
 
 
 def gh_json(*args: str):
     return json.loads(gh(*args))
+
+
+def docker(*args: str, capture_output: bool = False) -> str:
+    result = subprocess.run(
+        ["docker", *args],
+        check=True,
+        capture_output=capture_output,
+        text=capture_output,
+    )
+    return result.stdout.strip() if capture_output else ""
+
+
+def validate_sha(sha: str) -> None:
+    if not re.fullmatch(r"[0-9a-f]{40}", sha):
+        raise ValueError(f"Invalid Git commit SHA: {sha}")
 
 
 def current_branch_sha() -> str:
@@ -42,8 +71,14 @@ def current_branch_sha() -> str:
     )
 
 
-def list_runs(baseline_sha: str, status=None):
-    args = [
+def baseline_sha(explicit_sha: str = "") -> str:
+    sha = explicit_sha or os.environ.get("VALGRIND_BASELINE_SHA", "") or current_branch_sha()
+    validate_sha(sha)
+    return sha
+
+
+def list_backfill_runs():
+    return gh_json(
         "run",
         "list",
         "--repo",
@@ -51,127 +86,208 @@ def list_runs(baseline_sha: str, status=None):
         "--workflow",
         WORKFLOW_NAME,
         "--branch",
-        BASELINE_BRANCH,
-        "--commit",
-        baseline_sha,
+        WORKFLOW_REF,
+        "--event",
+        "workflow_dispatch",
         "--limit",
         "20",
         "--json",
-        "databaseId,event,status",
-    ]
-    if status:
-        args.extend(["--status", status])
-    return gh_json(*args)
-
-
-def run_has_artifact(run_id: int) -> bool:
-    payload = gh_json(
-        "api",
-        f"repos/{REPOSITORY}/actions/runs/{run_id}/artifacts",
-    )
-    return any(
-        artifact.get("name") == ARTIFACT_NAME and not artifact.get("expired", False)
-        for artifact in payload.get("artifacts", [])
+        "databaseId,displayTitle,status",
     )
 
 
-def find_artifact_run(baseline_sha: str):
-    for run in list_runs(baseline_sha, status="success"):
-        if run.get("event") not in BASELINE_RUN_EVENTS:
-            continue
-        run_id = int(run["databaseId"])
-        if run_has_artifact(run_id):
-            return run_id
-    return None
-
-
-def find_active_run(baseline_sha: str):
-    for run in list_runs(baseline_sha):
-        if run.get("event") not in BASELINE_RUN_EVENTS:
-            continue
-        if run.get("status") in ACTIVE_STATUSES:
+def find_active_run(sha: str):
+    title = f"Valgrind baseline {sha}"
+    for run in list_backfill_runs():
+        if run.get("displayTitle") == title and run.get("status") in ACTIVE_STATUSES:
             return int(run["databaseId"])
     return None
 
 
-def use_artifact(run_id: int, baseline_sha: str) -> int:
-    print(f"Using {ARTIFACT_NAME} artifact from run {run_id} at {BASELINE_BRANCH} {baseline_sha}.")
-    output_path = os.environ.get("GITHUB_OUTPUT")
-    if output_path:
-        with open(output_path, "a", encoding="utf-8") as output:
-            output.write(f"run-id={run_id}\n")
+def summary_digest(path: Path) -> str:
+    compare = runpy.run_path(
+        str(Path(__file__).with_name("compare-valgrind-results.py"))
+    )
+    summary = compare["load_repository_summary"](path)
+    payload = json.dumps(sorted(summary.items()), separators=(",", ":"))
+    return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def commit_tags(sha: str) -> list[str]:
+    prefix = f"v2-sha-{sha}-"
+    actor = os.environ.get("GITHUB_ACTOR") or gh("api", "user", "--jq", ".login")
+    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN") or gh("auth", "token")
+    credentials = base64.b64encode(f"{actor}:{token}".encode()).decode()
+    query = urllib.parse.urlencode(
+        {"service": "ghcr.io", "scope": f"repository:{REGISTRY_REPOSITORY}:pull"}
+    )
+    request = urllib.request.Request(f"https://ghcr.io/token?{query}")
+    request.add_header("Authorization", f"Basic {credentials}")
+    with urllib.request.urlopen(request, timeout=30) as response:
+        registry_token = json.load(response)["token"]
+
+    tags = []
+    url = f"https://ghcr.io/v2/{REGISTRY_REPOSITORY}/tags/list?n=100"
+    while url:
+        request = urllib.request.Request(url)
+        request.add_header("Authorization", f"Bearer {registry_token}")
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                tags.extend(json.load(response).get("tags") or [])
+                link = response.headers.get("Link", "")
+        except urllib.error.HTTPError as error:
+            if error.code == 404:
+                return []
+            raise
+        next_page = re.search(r'<([^>]+)>;\s*rel="next"', link)
+        url = urllib.parse.urljoin(url, next_page.group(1)) if next_page else ""
+    return sorted(tag for tag in tags if tag.startswith(prefix))
+
+
+def download_baseline(sha: str, output_dir: Path, *, quiet: bool = False) -> int:
+    validate_sha(sha)
+    tags = commit_tags(sha)
+    if len(tags) != 1:
+        if not quiet:
+            reason = "not found" if not tags else f"ambiguous ({len(tags)} versions)"
+            print(f"GHCR Valgrind baseline {reason} for {sha}.", file=sys.stderr)
+        return 1
+
+    tag = tags[0]
+    expected_digest = tag.removeprefix(f"v2-sha-{sha}-")
+    if not re.fullmatch(r"[0-9a-f]{64}", expected_digest):
+        print(f"Ignoring malformed GHCR Valgrind baseline tag: {tag}", file=sys.stderr)
+        return 1
+
+    image = f"{IMAGE}:{tag}"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    summary = output_dir / SUMMARY_NAME
+    summary.unlink(missing_ok=True)
+    docker("pull", image)
+    container = docker("create", image, capture_output=True)
+    try:
+        docker("cp", f"{container}:/{SUMMARY_NAME}", str(summary))
+    finally:
+        docker("rm", "-f", container)
+
+    if summary_digest(summary) != expected_digest:
+        summary.unlink(missing_ok=True)
+        print(f"Ignoring corrupt GHCR Valgrind baseline for {sha}.", file=sys.stderr)
+        return 1
+
+    print(f"Downloaded GHCR Valgrind baseline for {sha}.")
     return 0
 
 
-def publish_missing_baseline() -> int:
-    baseline_sha = current_branch_sha()
-    artifact_run = find_artifact_run(baseline_sha)
-    if artifact_run is not None:
-        print(f"Baseline artifact already exists in run {artifact_run}.")
+def upload_baseline(sha: str, summary: Path) -> int:
+    validate_sha(sha)
+    checksum = summary_digest(summary)
+    tag = f"v2-sha-{sha}-{checksum}"
+    existing_tags = commit_tags(sha)
+    if tag in existing_tags:
+        print(f"GHCR Valgrind baseline already exists for {sha}.")
         return 0
+    if existing_tags:
+        raise RuntimeError(f"Conflicting GHCR Valgrind baseline already exists for {sha}.")
 
-    active_run = find_active_run(baseline_sha)
+    image = f"{IMAGE}:{tag}"
+    with tempfile.TemporaryDirectory() as tmpdir:
+        context = Path(tmpdir)
+        shutil.copy2(summary, context / SUMMARY_NAME)
+        (context / "Dockerfile").write_text(
+            "FROM scratch\n"
+            f'LABEL org.opencontainers.image.source="https://github.com/{REPOSITORY}"\n'
+            f"COPY {SUMMARY_NAME} /{SUMMARY_NAME}\n"
+            f'CMD ["/{SUMMARY_NAME}"]\n',
+            encoding="utf-8",
+        )
+        docker("build", "--tag", image, str(context))
+
+    for attempt in range(3):
+        try:
+            docker("push", image)
+            print(f"Published GHCR Valgrind baseline for {sha}.")
+            return 0
+        except subprocess.CalledProcessError:
+            if attempt == 2:
+                raise
+            time.sleep(2**attempt)
+    return 1
+
+
+def publish_missing_baseline() -> int:
+    sha = baseline_sha()
+    tags = commit_tags(sha)
+    if len(tags) == 1:
+        print(f"GHCR Valgrind baseline already exists for {sha}.")
+        return 0
+    if len(tags) > 1:
+        raise RuntimeError(f"Ambiguous GHCR Valgrind baseline for {sha}.")
+
+    active_run = find_active_run(sha)
     if active_run is not None:
-        print(f"Baseline run {active_run} is already active.")
+        print(f"Valgrind baseline run {active_run} is already active.")
         return 0
 
     subprocess.run(
-        ["gh", "workflow", "run", WORKFLOW_NAME, "--ref", BASELINE_BRANCH],
+        [
+            "gh", "workflow", "run", WORKFLOW_NAME,
+            "--ref", WORKFLOW_REF,
+            "-f", "checks=valgrind",
+            "-f", f"valgrind_baseline_sha={sha}",
+        ],
         check=True,
     )
     return 0
 
 
-def locate_baseline() -> int:
-    baseline_sha = current_branch_sha()
-    artifact_run = find_artifact_run(baseline_sha)
-    if artifact_run is not None:
-        return use_artifact(artifact_run, baseline_sha)
-
-    print(
-        f"No available {ARTIFACT_NAME} artifact found on {BASELINE_BRANCH} at {baseline_sha}.",
-        file=sys.stderr,
-    )
-    print(
-        f"Publish {WORKFLOW_NAME} on the current {BASELINE_BRANCH} tip to create a new baseline artifact.",
-        file=sys.stderr,
-    )
-    return 1
-
-
-def wait_for_baseline() -> int:
-    baseline_sha = current_branch_sha()
+def wait_for_baseline(sha: str, output_dir: Path) -> int:
     poll_seconds = int(os.environ.get("VALGRIND_BASELINE_POLL_SECONDS", "30"))
     timeout_seconds = int(os.environ.get("VALGRIND_BASELINE_TIMEOUT_SECONDS", "5400"))
-
     deadline = time.monotonic() + timeout_seconds
     attempt = 0
 
     while True:
-        artifact_run = find_artifact_run(baseline_sha)
-        if artifact_run is not None:
-            return use_artifact(artifact_run, baseline_sha)
-
+        if download_baseline(sha, output_dir, quiet=True) == 0:
+            return 0
         if time.monotonic() >= deadline:
-            print(f"Timed out waiting for {ARTIFACT_NAME} on {BASELINE_BRANCH}.", file=sys.stderr)
+            print(f"Timed out waiting for GHCR Valgrind baseline {sha}.", file=sys.stderr)
             return 1
-
         attempt += 1
         if attempt % 4 == 1:
-            print(f"Waiting for {ARTIFACT_NAME} artifact on {BASELINE_BRANCH} {baseline_sha}.")
+            print(f"Waiting for GHCR Valgrind baseline {sha}.")
         time.sleep(poll_seconds)
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["locate", "publish", "wait"])
-    args = parser.parse_args()
+    parser = argparse.ArgumentParser(description=__doc__)
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers.add_parser("publish")
 
-    if args.command == "locate":
-        return locate_baseline()
-    if args.command == "publish":
-        return publish_missing_baseline()
-    return wait_for_baseline()
+    download = subparsers.add_parser("download")
+    download.add_argument("--sha", default="")
+    download.add_argument("--output-dir", required=True, type=Path)
+
+    wait = subparsers.add_parser("wait")
+    wait.add_argument("--sha", default="")
+    wait.add_argument("--output-dir", required=True, type=Path)
+
+    upload = subparsers.add_parser("upload")
+    upload.add_argument("--sha", required=True)
+    upload.add_argument("--input", required=True, type=Path)
+
+    args = parser.parse_args()
+    try:
+        if args.command == "publish":
+            return publish_missing_baseline()
+        if args.command == "download":
+            return download_baseline(baseline_sha(args.sha), args.output_dir)
+        if args.command == "wait":
+            return wait_for_baseline(baseline_sha(args.sha), args.output_dir)
+        return upload_baseline(args.sha, args.input)
+    except (OSError, RuntimeError, subprocess.CalledProcessError, ValueError) as error:
+        print(f"GHCR Valgrind baseline unavailable: {error}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

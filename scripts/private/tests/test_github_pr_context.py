@@ -34,6 +34,7 @@ class GithubPrContextTests(unittest.TestCase):
     def pr_details(**overrides):
         details = {
             "target_branch": "main",
+            "base_sha": "cafebabe",
             "head_branch": "feature/test",
             "head_sha": "deadbeef",
         }
@@ -60,16 +61,37 @@ class GithubPrContextTests(unittest.TestCase):
             {
                 "pr_number": "101",
                 "base_ref": "main",
+                "base_sha": "cafebabe",
                 "head_ref": "feature/test",
                 "head_sha": "deadbeef",
             },
         )
 
-    def test_resolve_pr_context_applies_explicit_manual_overrides(self):
+    def test_resolve_pr_context_preserves_stacked_pr_parent(self):
         with mock.patch.object(
             github_pr_context,
             "read_pr_details",
-            return_value=self.pr_details(),
+            return_value=self.pr_details(target_branch="feature/parent"),
+        ):
+            context = github_pr_context.resolve_pr_context(
+                pr_number="102",
+                repo="Arm-Debug/amp-dev-forge",
+            )
+
+        self.assertEqual(context["base_ref"], "feature/parent")
+
+    def test_resolve_pr_context_applies_explicit_manual_overrides(self):
+        with (
+            mock.patch.object(
+                github_pr_context,
+                "read_pr_details",
+                return_value=self.pr_details(),
+            ),
+            mock.patch.object(
+                github_pr_context,
+                "github_api_json",
+                return_value={"sha": "decafbad"},
+            ) as github_api_json,
         ):
             context = github_pr_context.resolve_pr_context(
                 pr_number="101",
@@ -84,9 +106,13 @@ class GithubPrContextTests(unittest.TestCase):
             {
                 "pr_number": "101",
                 "base_ref": "release/next",
+                "base_sha": "decafbad",
                 "head_ref": "repair/pr-sample",
                 "head_sha": "feedface",
             },
+        )
+        github_api_json.assert_called_once_with(
+            "repos/Arm-Debug/amp-dev-forge/commits/release%2Fnext"
         )
 
     def test_resolve_pr_context_prefers_a_head_ref_override_without_a_sha(self):
@@ -118,7 +144,7 @@ class GithubPrContextTests(unittest.TestCase):
                 )
 
     def test_resolve_pr_context_rejects_missing_or_empty_refs(self):
-        for field in ("target_branch", "head_branch", "head_sha"):
+        for field in ("target_branch", "base_sha", "head_branch", "head_sha"):
             for replacement in (None, ""):
                 details = self.pr_details()
                 if replacement is None:

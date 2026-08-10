@@ -349,7 +349,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-  doxygen gcovr graphviz libbz2-dev libffi-dev liblzma-dev libsqlite3-dev \
+  ccache doxygen gcovr graphviz libbz2-dev libffi-dev liblzma-dev libsqlite3-dev \
   openjdk-25-jdk pandoc python3-dev python3-gi python3-gst-1.0 \
   python3-venv zlib1g-dev
 

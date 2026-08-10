@@ -26,7 +26,6 @@ AGENT_STABILIZE_PR_LABEL_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/agent-st
 WORKFLOW_AUDIT_FILE = REPO_ROOT / ".github/workflows/workflow-audit.yml"
 AGENT_REVIEW_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/agent-review.yml"
 PEK_CI_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/pek-ci.yml"
-SONAR_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/sonar.yml"
 WORKFLOW_AUDIT_REPORT_SCRIPT = REPO_ROOT / "scripts/private/workflow_audit_report.py"
 QUALITY_CHECKS_SCRIPT = REPO_ROOT / "tools/expkits-ci/expkits_ci/quality_checks.py"
 AGENT_REVIEW_ROOT = REPO_ROOT / ".github/agent-runtime/review"
@@ -92,7 +91,7 @@ SAMPLE_SOURCE_RUN_ID = "12345"
 REPAIR_BRANCH = f"feature/{SAMPLE_TASK_REF}/bot-agent-repair-source-run-{SAMPLE_SOURCE_RUN_ID}"
 HEAD_BRANCH = REPAIR_BRANCH
 OPENAI_AGENT_RUNNER_LABEL = "self-hosted-ubuntu-latest"
-OPENAI_REVIEW_MAX_TURNS = 90
+OPENAI_REVIEW_MAX_TURNS = 60
 OPENAI_PATCH_MAX_TURNS = 30
 
 

@@ -2,7 +2,7 @@ name: Publish Playwright Reports
 
 on:
   workflow_run:
-    workflows: ["Perception Experience Kit CI Pipeline"]
+    workflows: ["PEK CI"]
     types: [completed]
   schedule:
     - cron: "30 6 * * *"

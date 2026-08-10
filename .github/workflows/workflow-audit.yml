@@ -10,15 +10,6 @@ on:
         required: false
         default: "10"
         type: number
-  pull_request:
-    branches: [ main, develop, "feature/**", "sandbox/**" ]
-    paths:
-      - ".github/workflows/**"
-      - "scripts/private/workflow_audit_report.py"
-      - "scripts/private/github_api.py"
-      - ".github/agent-runtime/source-run-repair/**"
-      - ".github/agent-runtime/workflow-policy/**"
-    types: [ opened, synchronize, reopened, ready_for_review ]
   schedule:
     - cron: "0 5 * * *"
 
