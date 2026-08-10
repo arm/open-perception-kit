@@ -16,8 +16,7 @@ jobs:
       ${{ github.event.workflow_run.event == 'pull_request' &&
           github.event.workflow_run.path == '.github/workflows/release-tests.yml' &&
           github.event.workflow_run.head_repository.full_name == github.repository &&
-          github.event.workflow_run.pull_requests[0].base.ref == 'main' &&
-          github.event.workflow_run.pull_requests[0].number != null }}
+          contains(github.event.workflow_run.pull_requests.*.base.ref, 'main') }}
     runs-on: ubuntu-24.04
     permissions:
       statuses: write
@@ -41,8 +40,7 @@ jobs:
           github.event.workflow_run.event == 'pull_request' &&
           github.event.workflow_run.path == '.github/workflows/release-tests.yml' &&
           github.event.workflow_run.head_repository.full_name == github.repository &&
-          github.event.workflow_run.pull_requests[0].base.ref == 'main' &&
-          github.event.workflow_run.pull_requests[0].number != null }}
+          contains(github.event.workflow_run.pull_requests.*.base.ref, 'main') }}
     runs-on: self-hosted-ubuntu-latest-x64
     steps:
       - name: Download tested publication candidates
@@ -114,7 +112,7 @@ jobs:
           ARTIFACTORY_ARTIFACTS_NAME: ai-expkits-internal.opk-ci
           ARTIFACTS_DIR: ${{ runner.temp }}/pek-release-publication-candidates
           RELEASE_VERSION: ci
-          SUBDIR_PATH: pr-${{ github.event.workflow_run.pull_requests[0].number }}/${{ github.event.workflow_run.head_sha }}/${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+          SUBDIR_PATH: run-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}/${{ github.event.workflow_run.head_sha }}
           DOWNLOAD_BASE: https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci
           TIMEOUT_SECONDS: 300
         run: |
@@ -135,7 +133,7 @@ jobs:
           ARTIFACTORY_USER: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
           ARTIFACTORY_TOKEN: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
           ARTIFACTORY_ARTIFACTS_NAME: ai-expkits-internal.opk-ci
-          TEST_PATH: ci/pr-${{ github.event.workflow_run.pull_requests[0].number }}/${{ github.event.workflow_run.head_sha }}/${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+          TEST_PATH: ci/run-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}/${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
           status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
@@ -154,8 +152,7 @@ jobs:
           github.event.workflow_run.event == 'pull_request' &&
           github.event.workflow_run.path == '.github/workflows/release-tests.yml' &&
           github.event.workflow_run.head_repository.full_name == github.repository &&
-          github.event.workflow_run.pull_requests[0].base.ref == 'main' &&
-          github.event.workflow_run.pull_requests[0].number != null }}
+          contains(github.event.workflow_run.pull_requests.*.base.ref, 'main') }}
     runs-on: ubuntu-24.04
     permissions:
       actions: read
@@ -198,14 +195,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
         run: |
           set -euo pipefail
           mapfile -d '' -t archives < <(
             find "$ARTIFACTS_DIR" -mindepth 1 -maxdepth 1 -type f -name '*.tar.gz' -print0 | sort -z
           )
           gh release create "$TEST_TAG" --draft --prerelease --target "$HEAD_SHA" \
-            --title "[TEST ONLY - DO NOT USE] PEK PR #$PR_NUMBER upload validation" \
+            --title "[TEST ONLY - DO NOT USE] PEK run $SOURCE_RUN_ID upload validation" \
             --notes "Temporary release upload validation. Do not use."
           gh release upload "$TEST_TAG" "${archives[@]}"
           expected="$(printf '%s\n' "${archives[@]##*/}" | sort)"
