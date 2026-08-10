@@ -98,13 +98,13 @@ jobs:
         with:
           fetch-depth: 1
           ref: ${{ github.event.repository.default_branch }}
-          path: workflow-helpers
+          path: manual-helpers
           persist-credentials: false
 
       - name: Resolve manual PR
         id: manual_pr
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
-        working-directory: ${{ github.workspace }}/workflow-helpers
+        working-directory: ${{ github.workspace }}/manual-helpers
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -125,14 +125,18 @@ jobs:
           ref: ${{ github.event.inputs.valgrind_baseline_sha || steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
-      - name: Checkout Valgrind backfill anchor
-        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.valgrind_baseline_sha != '' }}
+      - name: Checkout CI workflow helpers
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.repository.default_branch }}
           path: workflow-helpers
           persist-credentials: false
-          sparse-checkout: .github/Dockerfile.ci-anchor
+          sparse-checkout: |
+            .github/Dockerfile.ci-anchor
+            scripts/private/ci_image.py
+            scripts/private/github_api.py
+            scripts/testing/valgrind
+          sparse-checkout-cone-mode: false
 
       - name: Set image metadata
         id: context
@@ -152,6 +156,25 @@ jobs:
           if [ "$PR_CONTEXT" != "true" ]; then
             image_tag="${head_sha}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           fi
+          helper_root=workflow-helpers
+          if [ ! -f "$helper_root/scripts/private/ci_image.py" ]; then
+            helper_root=.
+          fi
+          test -f "$helper_root/.github/Dockerfile.ci-anchor"
+          tools_dir="${RUNNER_TEMP}/pek-ci-image-tools"
+          mkdir -p "$tools_dir/valgrind"
+          cp "$helper_root/scripts/private/ci_image.py" "$tools_dir/ci_image.py"
+          cp "$helper_root/scripts/private/github_api.py" "$tools_dir/github_api.py"
+          cp \
+            "$helper_root/scripts/testing/valgrind/compare-valgrind-results.py" \
+            "$helper_root/scripts/testing/valgrind/summarize-valgrind-output.py" \
+            "$helper_root/scripts/testing/valgrind/suppressed-warnings" \
+            "$helper_root/scripts/testing/valgrind/test-elements-with-valgrind.sh" \
+            "$helper_root/scripts/testing/valgrind/test_compare_valgrind_results.py" \
+            "$helper_root/scripts/testing/valgrind/test_summarize_valgrind_output.py" \
+            "$helper_root/scripts/testing/valgrind/test_valgrind_baseline_artifact.py" \
+            "$helper_root/scripts/testing/valgrind/valgrind-baseline-artifact.py" \
+            "$tools_dir/valgrind/"
           {
             printf 'base_ref=%s\n' "$BASE_REF"
             printf 'base_sha=%s\n' "$BASE_SHA"
@@ -160,11 +183,12 @@ jobs:
             printf 'image_tag=%s\n' "$image_tag"
             printf 'pr_context=%s\n' "$PR_CONTEXT"
             printf 'pr_number=%s\n' "$PR_NUMBER"
+            printf 'anchor_file=%s\n' "$helper_root/.github/Dockerfile.ci-anchor"
           } >> "$GITHUB_OUTPUT"
-          python3 scripts/private/ci_image.py metadata \
+          python3 "$tools_dir/ci_image.py" metadata \
             "$image_tag" \
             "$PR_CONTEXT" \
-            "${RUNNER_TEMP}/pek-ci-image.json"
+            "$tools_dir/pek-ci-image.json"
 
       - name: Log in to GHCR
         uses: docker/login-action@v4
@@ -180,7 +204,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: ${{ github.event.inputs.valgrind_baseline_sha != '' && 'workflow-helpers/.github/Dockerfile.ci-anchor' || '.github/Dockerfile.ci-anchor' }}
+          file: ${{ steps.context.outputs.anchor_file }}
           labels: |
             org.opencontainers.image.ref.name=retention-anchor
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
@@ -209,7 +233,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: pek-ci-image-metadata
-          path: ${{ runner.temp }}/pek-ci-image.json
+          path: ${{ runner.temp }}/pek-ci-image-tools
           retention-days: 1
 
   python-dependency-audit:
@@ -609,6 +633,7 @@ jobs:
         )
       )
     permissions:
+      actions: read
       contents: read
       packages: read
     env:
@@ -671,8 +696,12 @@ jobs:
         env:
           CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
           CI_IMAGE_TAG: ${{ needs.build-ci-image.outputs.image_tag }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          python3 scripts/private/ci_image.py prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" \
+          tools_dir="${RUNNER_TEMP}/pek-ci-image-tools-${GITHUB_RUN_ID}-${GITHUB_JOB}"
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name pek-ci-image-metadata --dir "$tools_dir"
+          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" \
             pek-quality-check-full \
             pek-quality-check-pull-request \
             pek-release-with-ut \
@@ -788,6 +817,7 @@ jobs:
         )
       )
     permissions:
+      actions: read
       contents: read
       packages: read
     env:
@@ -840,7 +870,12 @@ jobs:
         env:
           CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
           CI_IMAGE_TAG: ${{ needs.build-ci-image.outputs.image_tag }}
-        run: python3 scripts/private/ci_image.py prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" pek-sonar-check
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tools_dir="${RUNNER_TEMP}/pek-ci-image-tools-${GITHUB_RUN_ID}-${GITHUB_JOB}"
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name pek-ci-image-metadata --dir "$tools_dir"
+          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" pek-sonar-check
 
       - name: SonarQube analysis
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -939,6 +974,7 @@ jobs:
     if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/release/') }}
     runs-on: self-hosted-ubuntu-latest-x64
     permissions:
+      actions: read
       contents: read
       packages: read
     env:
@@ -979,8 +1015,12 @@ jobs:
         env:
           CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
           CI_IMAGE_TAG: ${{ needs.build-ci-image.outputs.image_tag }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          python3 scripts/private/ci_image.py prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" \
+          tools_dir="${RUNNER_TEMP}/pek-ci-image-tools-${GITHUB_RUN_ID}-${GITHUB_JOB}"
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name pek-ci-image-metadata --dir "$tools_dir"
+          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" \
             pek-sonar-check-release
 
       - name: Run SonarQube release analysis
@@ -1074,14 +1114,6 @@ jobs:
           fetch-tags: true
           ref: ${{ needs.build-ci-image.outputs.head_sha }}
 
-      - name: Checkout Valgrind workflow helpers
-        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.valgrind_baseline_sha != '' }}
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.sha }}
-          path: valgrind-publisher
-          persist-credentials: false
-
       - name: Restore compiler cache
         uses: actions/cache@v6
         with:
@@ -1098,12 +1130,18 @@ jobs:
           password: ${{ github.token }}
 
       - name: Run Valgrind Python unit tests
-        working-directory: ${{ github.event.inputs.valgrind_baseline_sha != '' && 'valgrind-publisher' || '.' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
+          tools_dir="${RUNNER_TEMP}/pek-ci-image-tools-${GITHUB_RUN_ID}-${GITHUB_JOB}"
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name pek-ci-image-metadata --dir "$tools_dir"
+          echo "CI_IMAGE_TOOLS=$tools_dir" >> "$GITHUB_ENV"
+          cd "$tools_dir/valgrind"
           python3 -m unittest \
-            scripts/testing/valgrind/test_valgrind_baseline_artifact.py \
-            scripts/testing/valgrind/test_compare_valgrind_results.py \
-            scripts/testing/valgrind/test_summarize_valgrind_output.py
+            test_valgrind_baseline_artifact.py \
+            test_compare_valgrind_results.py \
+            test_summarize_valgrind_output.py
 
       - name: Download Valgrind baseline from GHCR
         if: needs.build-ci-image.outputs.pr_context == 'true'
@@ -1114,7 +1152,7 @@ jobs:
           VALGRIND_BASELINE_BRANCH: ${{ needs.build-ci-image.outputs.base_ref }}
           VALGRIND_BASELINE_SHA: ${{ needs.build-ci-image.outputs.base_sha }}
         run: |
-          python3 scripts/testing/valgrind/valgrind-baseline-artifact.py download \
+          python3 "$CI_IMAGE_TOOLS/valgrind/valgrind-baseline-artifact.py" download \
             --sha "$VALGRIND_BASELINE_SHA" \
             --output-dir scripts/testing/valgrind/baseline
 
@@ -1129,7 +1167,7 @@ jobs:
           VALGRIND_BASELINE_BRANCH: ${{ needs.build-ci-image.outputs.base_ref }}
           VALGRIND_BASELINE_SHA: ${{ needs.build-ci-image.outputs.base_sha }}
         run: |
-          python3 scripts/testing/valgrind/valgrind-baseline-artifact.py wait \
+          python3 "$CI_IMAGE_TOOLS/valgrind/valgrind-baseline-artifact.py" wait \
             --sha "$VALGRIND_BASELINE_SHA" \
             --output-dir scripts/testing/valgrind/baseline
 
@@ -1146,13 +1184,8 @@ jobs:
         env:
           CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
           CI_IMAGE_TAG: ${{ needs.build-ci-image.outputs.image_tag }}
-          VALGRIND_BASELINE_SHA: ${{ github.event.inputs.valgrind_baseline_sha }}
         run: |
-          helper_root=.
-          if [ -n "$VALGRIND_BASELINE_SHA" ]; then
-            helper_root=valgrind-publisher
-          fi
-          python3 "$helper_root/scripts/private/ci_image.py" prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" \
+          python3 "$CI_IMAGE_TOOLS/ci_image.py" prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" \
             pek-valgrind-check \
             pek-generate-valgrind-summary
 
@@ -1172,7 +1205,7 @@ jobs:
         if: ${{ needs.build-ci-image.outputs.pr_context == 'true' && steps.valgrind_checks.outcome == 'success' && steps.valgrind_summary.outcome == 'success' }}
         id: valgrind_compare
         run: |
-          python3 scripts/testing/valgrind/compare-valgrind-results.py \
+          python3 "$CI_IMAGE_TOOLS/valgrind/compare-valgrind-results.py" \
             --baseline scripts/testing/valgrind/baseline/valgrind-error-summary.xml \
             --current scripts/testing/valgrind/valgrind-error-summary.xml
 

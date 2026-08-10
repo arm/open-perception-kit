@@ -25,6 +25,7 @@ on:
     - cron: "0 4 * * *"
 
 permissions:
+  actions: read
   contents: read
   packages: read
 
@@ -129,7 +130,12 @@ jobs:
         env:
           CI_IMAGE_SHA: ${{ inputs.ci_image_sha }}
           CI_IMAGE_TAG: ${{ inputs.ci_image_tag }}
-        run: python3 scripts/private/ci_image.py prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" pek-ci
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tools_dir="${RUNNER_TEMP}/pek-ci-image-tools-${GITHUB_RUN_ID}-${GITHUB_JOB}"
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name pek-ci-image-metadata --dir "$tools_dir"
+          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" pek-ci
 
       - name: Resolve built image reference
         id: resolve-image
