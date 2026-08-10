@@ -101,6 +101,12 @@ def main(models_dir: Path, token: str | None) -> None:
             raise ValueError(
                 f"modelFile resolves outside its model directory: {descriptor}"
             )
+        try:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+        except OSError as error:
+            raise ValueError(
+                f"Cannot prepare modelFile destination for {descriptor}: {error}"
+            ) from error
 
         downloads.append((model_file, destination, source))
 
@@ -130,7 +136,6 @@ def main(models_dir: Path, token: str | None) -> None:
                 token=token or False,
                 cache_dir=credential_cache,
             )
-            destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(downloaded, destination)
             destination.chmod(0o644)
         except Exception as error:
