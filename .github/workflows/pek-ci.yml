@@ -75,14 +75,12 @@ jobs:
       )
     permissions:
       contents: read
-      packages: read
       pull-requests: read
     outputs:
       base_ref: ${{ steps.context.outputs.base_ref }}
       base_sha: ${{ steps.context.outputs.base_sha }}
       head_ref: ${{ steps.context.outputs.head_ref }}
       head_sha: ${{ steps.context.outputs.head_sha }}
-      image_tag: ${{ steps.context.outputs.image_tag }}
       pr_context: ${{ steps.context.outputs.pr_context }}
       pr_number: ${{ steps.context.outputs.pr_number }}
     steps:
@@ -126,7 +124,7 @@ jobs:
           ref: ${{ github.event.inputs.valgrind_baseline_sha || steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
-      - name: Set image metadata
+      - name: Prepare Docker build
         id: context
         env:
           BASE_REF: ${{ steps.manual_pr.outputs.base_ref || github.base_ref }}
@@ -140,14 +138,9 @@ jobs:
           if [ "$PR_CONTEXT" = "true" ]; then
             test -n "$BASE_SHA"
           fi
-          image_tag="$head_sha"
-          if [ "$PR_CONTEXT" != "true" ]; then
-            image_tag="${head_sha}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          fi
           tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
           mkdir -p "$tools_dir/valgrind"
           cp scripts/private/ci_image.py "$tools_dir/ci_image.py"
-          cp scripts/private/github_api.py "$tools_dir/github_api.py"
           cp \
             scripts/testing/valgrind/compare-valgrind-results.py \
             scripts/testing/valgrind/summarize-valgrind-output.py \
@@ -163,21 +156,9 @@ jobs:
             printf 'base_sha=%s\n' "$BASE_SHA"
             printf 'head_ref=%s\n' "$HEAD_REF"
             printf 'head_sha=%s\n' "$head_sha"
-            printf 'image_tag=%s\n' "$image_tag"
             printf 'pr_context=%s\n' "$PR_CONTEXT"
             printf 'pr_number=%s\n' "$PR_NUMBER"
           } >> "$GITHUB_OUTPUT"
-          python3 "$tools_dir/ci_image.py" metadata \
-            "$image_tag" \
-            "$PR_CONTEXT" \
-            "$tools_dir/pek-ci-image.json"
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
 
       - name: Set up Docker builder
         uses: docker/setup-buildx-action@v4
@@ -185,19 +166,19 @@ jobs:
       - name: Build Docker image
         uses: docker/build-push-action@v7
         with:
-          cache-from: type=registry,ref=ghcr.io/arm-debug/amp-dev-forge-ci:buildcache
-          cache-to: type=inline
+          cache-from: type=gha,scope=pek-ci
+          cache-to: type=gha,mode=max,scope=pek-ci
           context: .
           file: Dockerfile
           labels: |
             org.opencontainers.image.revision=${{ steps.context.outputs.head_sha }}
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
-            org.opencontainers.image.version=${{ steps.context.outputs.image_tag }}
+            org.opencontainers.image.version=${{ steps.context.outputs.head_sha }}
           outputs: type=docker,dest=${{ github.workspace }}/.cache/pek-ci-image/pek-ci-image.tar
           provenance: false
           pull: true
           push: false
-          tags: ghcr.io/arm-debug/amp-dev-forge-ci:${{ steps.context.outputs.image_tag }}
+          tags: pek-ci:${{ steps.context.outputs.head_sha }}
           target: pek-ci
 
       - name: Share Docker image
@@ -205,15 +186,6 @@ jobs:
         with:
           path: .cache/pek-ci-image
           key: ${{ env.CI_IMAGE_CACHE_KEY }}
-
-      - name: Upload trusted CI image
-        if: ${{ github.event_name != 'pull_request' }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: pek-ci-image
-          path: .cache/pek-ci-image
-          compression-level: 0
-          retention-days: 1
 
   python-dependency-audit:
     name: Python Dependency Audit
@@ -267,7 +239,6 @@ jobs:
     uses: ./.github/workflows/docker-scout-image-audit.yml
     with:
       ci_image_sha: ${{ needs.build-ci-image.outputs.head_sha }}
-      ci_image_tag: ${{ needs.build-ci-image.outputs.image_tag }}
     secrets:
       DOCKER_USER: ${{ secrets.DOCKER_USER }}
       DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
@@ -674,10 +645,9 @@ jobs:
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
           CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
-          CI_IMAGE_TAG: ${{ needs.build-ci-image.outputs.image_tag }}
         run: |
           tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
-          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" \
+          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
             --archive "$tools_dir/pek-ci-image.tar" \
             pek-quality-check-full \
             pek-quality-check-pull-request \
@@ -847,10 +817,9 @@ jobs:
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
           CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
-          CI_IMAGE_TAG: ${{ needs.build-ci-image.outputs.image_tag }}
         run: |
           tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
-          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" \
+          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
             --archive "$tools_dir/pek-ci-image.tar" pek-sonar-check
 
       - name: SonarQube analysis
@@ -991,10 +960,9 @@ jobs:
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
           CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
-          CI_IMAGE_TAG: ${{ needs.build-ci-image.outputs.image_tag }}
         run: |
           tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
-          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" \
+          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
             --archive "$tools_dir/pek-ci-image.tar" \
             pek-sonar-check-release
 
@@ -1163,9 +1131,8 @@ jobs:
       - name: Load Docker image
         env:
           CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
-          CI_IMAGE_TAG: ${{ needs.build-ci-image.outputs.image_tag }}
         run: |
-          python3 "$CI_IMAGE_TOOLS/ci_image.py" prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" \
+          python3 "$CI_IMAGE_TOOLS/ci_image.py" prepare "$CI_IMAGE_SHA" \
             --archive "$CI_IMAGE_TOOLS/pek-ci-image.tar" \
             pek-valgrind-check \
             pek-generate-valgrind-summary

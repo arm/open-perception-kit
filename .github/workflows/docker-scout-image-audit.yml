@@ -8,11 +8,6 @@ on:
         required: false
         default: ""
         type: string
-      ci_image_tag:
-        description: GHCR tag of a prepared PEK CI image.
-        required: false
-        default: ""
-        type: string
     secrets:
       DOCKER_USER:
         required: true
@@ -131,10 +126,9 @@ jobs:
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
           CI_IMAGE_SHA: ${{ inputs.ci_image_sha }}
-          CI_IMAGE_TAG: ${{ inputs.ci_image_tag }}
         run: |
           tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
-          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" \
+          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
             --archive "$tools_dir/pek-ci-image.tar" pek-ci
 
       - name: Resolve built image reference

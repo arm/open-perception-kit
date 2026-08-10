@@ -3,7 +3,7 @@ name: PEK CI Image
 on:
   pull_request_target:
     branches: [main, develop, "feature/**", "sandbox/**"]
-    types: [closed, synchronize]
+    types: [closed]
   workflow_run:
     workflows: [PEK CI]
     types: [completed]
@@ -30,79 +30,21 @@ jobs:
             gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/caches/${cache_id}"
           fi
 
-  cleanup-pr-image:
-    name: Delete superseded PR CI image
-    if: >-
-      github.event_name == 'pull_request_target' &&
-      github.event.pull_request.head.repo.full_name == github.repository
+  cleanup-pr-caches:
+    name: Delete PR caches
+    if: ${{ github.event_name == 'pull_request_target' }}
     runs-on: ubuntu-latest
     permissions:
+      actions: write
       contents: read
-      packages: write
-      pull-requests: read
     steps:
-      - name: Checkout trusted workflow helper
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-          persist-credentials: false
-
-      - name: Delete superseded PR image
+      - name: Delete PR caches
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_ACTION: ${{ github.event.action }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          CI_IMAGE_TAG: ${{ github.event.action == 'closed' && github.event.pull_request.head.sha || github.event.before }}
+          PR_REF: refs/pull/${{ github.event.pull_request.number }}/merge
         run: |
-          if [ "$PR_ACTION" != closed ]; then
-            python3 scripts/private/ci_image.py cleanup "$CI_IMAGE_TAG"
-            exit
-          fi
-          while IFS= read -r commit_sha; do
-            python3 scripts/private/ci_image.py cleanup "$commit_sha"
-          done < <(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/commits" --jq '.[].sha')
-
-  publish-build-cache:
-    name: Publish Docker cache
-    if: >-
-      github.event_name == 'workflow_run' &&
-      github.event.workflow_run.conclusion == 'success' &&
-      contains(fromJSON('["push","schedule"]'), github.event.workflow_run.event) &&
-      contains(fromJSON('["main","develop"]'), github.event.workflow_run.head_branch) &&
-      github.event.workflow_run.head_repository.full_name == github.repository
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout trusted workflow helper
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-          persist-credentials: false
-
-      - name: Download CI image
-        uses: actions/download-artifact@v8
-        with:
-          name: pek-ci-image
-          path: ${{ runner.temp }}/pek-ci-image
-          repository: ${{ github.repository }}
-          run-id: ${{ github.event.workflow_run.id }}
-          github-token: ${{ github.token }}
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
-
-      - name: Publish trusted Docker cache
-        env:
-          EXPECTED_IMAGE_TAG: ${{ format('{0}-{1}-{2}', github.event.workflow_run.head_sha, github.event.workflow_run.id, github.event.workflow_run.run_attempt) }}
-        run: |
-          python3 scripts/private/ci_image.py publish-cache \
-            "${RUNNER_TEMP}/pek-ci-image/pek-ci-image.tar" \
-            "${RUNNER_TEMP}/pek-ci-image/pek-ci-image.json" \
-            "$EXPECTED_IMAGE_TAG"
+          gh api --paginate --method GET "repos/${GITHUB_REPOSITORY}/actions/caches" \
+            -f ref="$PR_REF" -f per_page=100 --jq '.actions_caches[].id' |
+            while IFS= read -r cache_id; do
+              gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/caches/${cache_id}"
+            done
