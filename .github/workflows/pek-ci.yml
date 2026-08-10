@@ -124,6 +124,14 @@ jobs:
           ref: ${{ github.event.inputs.valgrind_baseline_sha || steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
+      - name: Checkout workflow helpers
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.workflow_sha }}
+          path: .cache/workflow-helpers
+          persist-credentials: false
+
       - name: Prepare Docker build
         id: context
         env:
@@ -139,17 +147,18 @@ jobs:
             test -n "$BASE_SHA"
           fi
           tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
+          helpers_dir="${GITHUB_WORKSPACE}/.cache/workflow-helpers"
           mkdir -p "$tools_dir/valgrind"
-          cp scripts/private/ci_image.py "$tools_dir/ci_image.py"
+          cp "$helpers_dir/scripts/private/ci_image.py" "$tools_dir/ci_image.py"
           cp \
-            scripts/testing/valgrind/compare-valgrind-results.py \
-            scripts/testing/valgrind/summarize-valgrind-output.py \
-            scripts/testing/valgrind/suppressed-warnings \
-            scripts/testing/valgrind/test-elements-with-valgrind.sh \
-            scripts/testing/valgrind/test_compare_valgrind_results.py \
-            scripts/testing/valgrind/test_summarize_valgrind_output.py \
-            scripts/testing/valgrind/test_valgrind_baseline_artifact.py \
-            scripts/testing/valgrind/valgrind-baseline-artifact.py \
+            "$helpers_dir/scripts/testing/valgrind/compare-valgrind-results.py" \
+            "$helpers_dir/scripts/testing/valgrind/summarize-valgrind-output.py" \
+            "$helpers_dir/scripts/testing/valgrind/suppressed-warnings" \
+            "$helpers_dir/scripts/testing/valgrind/test-elements-with-valgrind.sh" \
+            "$helpers_dir/scripts/testing/valgrind/test_compare_valgrind_results.py" \
+            "$helpers_dir/scripts/testing/valgrind/test_summarize_valgrind_output.py" \
+            "$helpers_dir/scripts/testing/valgrind/test_valgrind_baseline_artifact.py" \
+            "$helpers_dir/scripts/testing/valgrind/valgrind-baseline-artifact.py" \
             "$tools_dir/valgrind/"
           {
             printf 'base_ref=%s\n' "$BASE_REF"

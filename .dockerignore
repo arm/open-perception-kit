@@ -69,6 +69,7 @@ config/models/**/*.pte
 **/build/**
 __pycache__/
 **/__pycache__/
+.cache/
 *.log
 *.tmp
 .DS_Store
