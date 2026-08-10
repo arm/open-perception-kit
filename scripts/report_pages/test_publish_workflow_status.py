@@ -185,13 +185,17 @@ class TestPublishWorkflowStatus(unittest.TestCase):
         self.assertNotIn("valgrind", statuses)
         self.assertEqual(statuses["docker-scout"]["conclusion"], "failure")
 
-        jobs = [
-            {"name": "Build Docker image", "conclusion": "failure", "steps": []},
-            valgrind,
-        ]
-        with patch.object(publisher, "workflow_jobs", return_value=jobs):
-            statuses = dict(publisher.statuses_from_run("Arm-Debug/amp-dev-forge", run))
-        self.assertEqual(statuses["valgrind"]["conclusion"], "failure")
+        for build_job_name in ("Build PEK CI image", "Build Docker image"):
+            with self.subTest(build_job_name=build_job_name):
+                jobs = [
+                    {"name": build_job_name, "conclusion": "failure", "steps": []},
+                    valgrind,
+                ]
+                with patch.object(publisher, "workflow_jobs", return_value=jobs):
+                    statuses = dict(
+                        publisher.statuses_from_run("Arm-Debug/amp-dev-forge", run)
+                    )
+                self.assertEqual(statuses["valgrind"]["conclusion"], "failure")
 
     def test_scheduled_publish_reconciles_latest_source_statuses(self):
         python_status = status("success")

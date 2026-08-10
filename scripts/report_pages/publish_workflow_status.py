@@ -338,7 +338,7 @@ def related_statuses(
     if valgrind_job is not None:
         conclusion = str(valgrind_job.get("conclusion", ""))
         image_build_failed = any(
-            job.get("name") == "Build Docker image"
+            job.get("name") in {"Build PEK CI image", "Build Docker image"}
             and job.get("conclusion") in FAILURE_CONCLUSIONS | {"cancelled"}
             for job in jobs
         )
