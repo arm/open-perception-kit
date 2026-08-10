@@ -135,6 +135,34 @@ static std::optional<fs::path> parent_dir_name(const fs::path &p) {
     return parent.filename();
 }
 
+static bool gst_pekinfer_is_yuv_format(GstVideoFormat format) {
+    return format == GST_VIDEO_FORMAT_I420 || format == GST_VIDEO_FORMAT_NV12 ||
+           format == GST_VIDEO_FORMAT_YUY2;
+}
+
+static bool gst_pekinfer_has_supported_or_defaultable_yuv_colorimetry(const GstVideoInfo &info) {
+    const GstVideoColorimetry colorimetry = GST_VIDEO_INFO_COLORIMETRY(&info);
+
+    switch (colorimetry.matrix) {
+    case GST_VIDEO_COLOR_MATRIX_UNKNOWN:
+    case GST_VIDEO_COLOR_MATRIX_BT601:
+    case GST_VIDEO_COLOR_MATRIX_BT709:
+    case GST_VIDEO_COLOR_MATRIX_BT2020:
+        break;
+    default:
+        return false;
+    }
+
+    switch (colorimetry.range) {
+    case GST_VIDEO_COLOR_RANGE_UNKNOWN:
+    case GST_VIDEO_COLOR_RANGE_0_255:
+    case GST_VIDEO_COLOR_RANGE_16_235:
+        return true;
+    default:
+        return false;
+    }
+}
+
 static gboolean gst_pekinfer_start(GstBaseTransform *b) {
     auto *self = (GstPekInfer *)b;
     static pek::perf::PerformanceTracer *tracer = pek::perf::getGlobalTracer();
@@ -205,9 +233,21 @@ static gboolean gst_pekinfer_set_caps(GstBaseTransform *b, GstCaps *incaps, GstC
         return FALSE;
     }
 
-    // Keep original assumption: RGB only
-    if (GST_VIDEO_INFO_FORMAT(&self->vinfo) != GST_VIDEO_FORMAT_BGRA) {
-        GST_ERROR_OBJECT(self, "Unsupported format (expected BGRA)");
+    const auto format = GST_VIDEO_INFO_FORMAT(&self->vinfo);
+    if (format != GST_VIDEO_FORMAT_BGRA && format != GST_VIDEO_FORMAT_RGB &&
+        format != GST_VIDEO_FORMAT_I420 && format != GST_VIDEO_FORMAT_NV12 &&
+        format != GST_VIDEO_FORMAT_YUY2) {
+        GST_ERROR_OBJECT(self, "Unsupported format (expected BGRA, RGB, I420, NV12, or YUY2)");
+        return FALSE;
+    }
+
+    if (gst_pekinfer_is_yuv_format(format) &&
+        !gst_pekinfer_has_supported_or_defaultable_yuv_colorimetry(self->vinfo)) {
+        const GstVideoColorimetry colorimetry = GST_VIDEO_INFO_COLORIMETRY(&self->vinfo);
+        GST_ERROR_OBJECT(self,
+                         "Unsupported YUV colorimetry/range (matrix=%d, range=%d)",
+                         static_cast<int>(colorimetry.matrix),
+                         static_cast<int>(colorimetry.range));
         return FALSE;
     }
 
@@ -586,7 +626,7 @@ static void gst_pekinfer_class_init(GstPekInferClass *klass) {
         PROP_FORMAT,
         g_param_spec_string("format",
                             "Video format",
-                            "Video format (BGRA)",
+                            "Video format (BGRA, RGB, I420, NV12, or YUY2)",
                             "BGRA",
                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
@@ -620,10 +660,16 @@ static void gst_pekinfer_class_init(GstPekInferClass *klass) {
                             (GParamFlags)(G_PARAM_READABLE | G_PARAM_STATIC_STRINGS)));
 
     // Static pad templates (portable across GStreamer-1.0 versions)
-    static GstStaticPadTemplate sink_t = GST_STATIC_PAD_TEMPLATE(
-        "sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS("video/x-raw, format={BGRA}"));
-    static GstStaticPadTemplate src_t = GST_STATIC_PAD_TEMPLATE(
-        "src", GST_PAD_SRC, GST_PAD_ALWAYS, GST_STATIC_CAPS("video/x-raw, format={BGRA}"));
+    static GstStaticPadTemplate sink_t =
+        GST_STATIC_PAD_TEMPLATE("sink",
+                                GST_PAD_SINK,
+                                GST_PAD_ALWAYS,
+                                GST_STATIC_CAPS("video/x-raw, format={BGRA,RGB,I420,NV12,YUY2}"));
+    static GstStaticPadTemplate src_t =
+        GST_STATIC_PAD_TEMPLATE("src",
+                                GST_PAD_SRC,
+                                GST_PAD_ALWAYS,
+                                GST_STATIC_CAPS("video/x-raw, format={BGRA,RGB,I420,NV12,YUY2}"));
     gst_element_class_add_static_pad_template(ecls, &sink_t);
     gst_element_class_add_static_pad_template(ecls, &src_t);
 

@@ -140,6 +140,18 @@ runtime_pipeline_tests = executable(
   link_with : [pek_runtime, common],
 )
 
+image_conversion_oracle_test = executable(
+  'image_conversion_oracle_test',
+  [
+    'image_conversion_oracle_test.cpp',
+    '../ops-std/preproc/CpuImageKernels.cpp',
+    '../ops-std/preproc/CpuImageKernelsI420.cpp',
+    '../ops-std/preproc/CpuImageKernelsNv12.cpp',
+    '../ops-std/preproc/CpuImageKernelsYuy2.cpp',
+  ],
+  include_directories : [common_include, include_directories('../ops-std')],
+)
+
 node = find_program('node', required : false)
 python = import('python').find_installation()
 
@@ -204,6 +216,7 @@ test('performance_metrics_tests', performance_metrics_tests)
 test('pektracker_matching_tests', pektracker_matching_tests)
 test('webrtc_session_tests', webrtc_session_tests)
 test('runtime_pipeline_tests', runtime_pipeline_tests)
+test('image_conversion_oracle_test', image_conversion_oracle_test)
 
 if node.found()
   test(
