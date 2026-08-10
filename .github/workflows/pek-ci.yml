@@ -860,21 +860,6 @@ jobs:
           PR_BRANCH: ${{ needs.build-ci-image.outputs.pr_context == 'true' && needs.build-ci-image.outputs.head_ref || '' }}
           PR_BASE: ${{ needs.build-ci-image.outputs.base_ref }}
 
-      - name: Probe Sonar API access
-        if: always()
-        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-          SONAR_BRANCH: ${{ needs.build-ci-image.outputs.head_ref }}
-          PR_KEY: ${{ needs.build-ci-image.outputs.pr_number }}
-          PR_BRANCH: ${{ needs.build-ci-image.outputs.pr_context == 'true' && needs.build-ci-image.outputs.head_ref || '' }}
-          PR_BASE: ${{ needs.build-ci-image.outputs.base_ref }}
-        run: |
-          set -euo pipefail
-          python3 scripts/private/sonar_quality_gate_workflow.py probe-api-access || \
-            echo "Sonar API access probe exited with status $?" >&2
-
       - name: Report Sonar quality gate details
         if: always()
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -887,16 +872,14 @@ jobs:
           PR_BASE: ${{ needs.build-ci-image.outputs.base_ref }}
         run: |
           set -euo pipefail
-          python3 scripts/private/sonar_quality_gate_workflow.py report-quality-gate
+          python3 scripts/private/sonar_quality_gate_workflow.py
 
       - name: Upload Sonar quality gate report
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: sonar-quality-gate-report
-          path: |
-            ${{ runner.temp }}/sonar-quality-gate-report.txt
-            ${{ runner.temp }}/sonar-api-access-probe.txt
+          path: ${{ runner.temp }}/sonar-quality-gate-report.txt
           if-no-files-found: warn
           retention-days: 10
 
