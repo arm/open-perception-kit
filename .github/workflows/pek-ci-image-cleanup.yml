@@ -42,6 +42,7 @@ jobs:
       github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
       packages: write
     steps:
@@ -51,8 +52,21 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
 
+      - name: Download image cleanup metadata
+        id: metadata
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: pek-ci-image-metadata
+          path: ${{ runner.temp }}/pek-ci-image-metadata
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
       - name: Delete completed run image
+        if: steps.metadata.outcome == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
-          CI_IMAGE_TAG: ${{ github.event.workflow_run.head_sha }}-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
-        run: python3 scripts/private/ci_image.py cleanup "$CI_IMAGE_TAG"
+        run: >-
+          python3 scripts/private/ci_image.py cleanup-metadata
+          "${RUNNER_TEMP}/pek-ci-image-metadata/pek-ci-image.json"

@@ -187,6 +187,28 @@ def cleanup(tag: str) -> None:
     print(f"Deleted {PACKAGE_NAME}:{tag}.")
 
 
+def write_metadata(tag: str, pr_context: str, path: str) -> None:
+    if pr_context not in {"true", "false"}:
+        raise ValueError("PR context must be true or false.")
+    Path(path).write_text(
+        json.dumps({"image_tag": validate_tag(tag), "pr_context": pr_context == "true"}) + "\n",
+        encoding="utf-8",
+    )
+
+
+def cleanup_metadata(path: str) -> None:
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(payload, dict) or set(payload) != {"image_tag", "pr_context"}:
+        raise ValueError("Invalid CI image metadata.")
+    if not isinstance(payload["image_tag"], str) or not isinstance(payload["pr_context"], bool):
+        raise ValueError("Invalid CI image metadata values.")
+    tag = validate_tag(payload["image_tag"])
+    if payload["pr_context"]:
+        print(f"PR CI image {tag} remains owned by the pull request lifecycle.")
+        return
+    cleanup(tag)
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Consume and clean the shared PEK CI image.")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -197,6 +219,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     prepare_parser.add_argument("sha")
     prepare_parser.add_argument("--tag")
     prepare_parser.add_argument("services", nargs="+")
+    metadata_parser = subparsers.add_parser("metadata")
+    metadata_parser.add_argument("tag")
+    metadata_parser.add_argument("pr_context", choices=("true", "false"))
+    metadata_parser.add_argument("path")
+    cleanup_metadata_parser = subparsers.add_parser("cleanup-metadata")
+    cleanup_metadata_parser.add_argument("path")
     return parser.parse_args(argv)
 
 
@@ -206,6 +234,10 @@ def main(argv: list[str]) -> int:
         prepare(args.sha, args.services, args.tag)
     elif args.command == "cleanup":
         cleanup(args.tag)
+    elif args.command == "metadata":
+        write_metadata(args.tag, args.pr_context, args.path)
+    elif args.command == "cleanup-metadata":
+        cleanup_metadata(args.path)
     else:
         print(image_ref(args.tag))
     return 0

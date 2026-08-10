@@ -126,6 +126,22 @@ class CiImageTests(unittest.TestCase):
 
         request.assert_not_called()
 
+    def test_cleanup_metadata_uses_the_recorded_run_tag(self):
+        with tempfile.NamedTemporaryFile(mode="w+", encoding="utf-8") as metadata_file:
+            ci_image.write_metadata(RUN_TAG, "false", metadata_file.name)
+            with mock.patch.object(ci_image, "cleanup") as cleanup:
+                ci_image.cleanup_metadata(metadata_file.name)
+
+        cleanup.assert_called_once_with(RUN_TAG)
+
+    def test_cleanup_metadata_keeps_pr_images_for_pr_lifecycle_cleanup(self):
+        with tempfile.NamedTemporaryFile(mode="w+", encoding="utf-8") as metadata_file:
+            ci_image.write_metadata(SHA, "true", metadata_file.name)
+            with mock.patch.object(ci_image, "cleanup") as cleanup:
+                ci_image.cleanup_metadata(metadata_file.name)
+
+        cleanup.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
