@@ -116,7 +116,9 @@ def build_profile_context(
         "target_branch": target_branch,
         "task_ref": task_ref,
         "repair_authorization_label": profile_string(profile, "repair_authorization_label"),
-        "pr_trigger_label": profile_string(profile, "pr_trigger_label"),
+        "pr_trigger_labels": ", ".join(
+            f"`{label}`" for label in profile_string_list(profile, "pr_trigger_labels")
+        ),
     }
     context["repair_definition_of_done"] = "\n".join(
         f"- {format_profile_template(item, context)}"
@@ -589,8 +591,7 @@ def command_create_draft_pr(args: argparse.Namespace) -> int:
         if not pr_number:
             raise RuntimeError(f"Created repair PR for {args.repair_branch}, but could not resolve its number.")
 
-    label = profile_string(profile, "pr_trigger_label")
-    if label:
+    for label in profile_string_list(profile, "pr_trigger_labels"):
         run_command(["gh", "pr", "edit", pr_number, "--add-label", label])
 
     write_outputs({"pr_number": pr_number}, args.github_output)

@@ -23,6 +23,7 @@ from test_support.agent_workflow import (  # noqa: E402
     REPAIR_TEMPLATES,
     GITHUB_ACTIONS,
     SOURCE_RUN_REPAIR_PROFILE_FILE,
+    WORKFLOW_DEPENDENCY_FRESHNESS_PROFILE_FILE,
     REPAIR_BRANCH,
     SAMPLE_TASK_REF,
     build_zip_archive,
@@ -517,7 +518,7 @@ class AgentSourceRunRepairTests(unittest.TestCase):
             body_file.write_text("body\n", encoding="utf-8")
             title_file.write_text("Repair title\n", encoding="utf-8")
             args = argparse.Namespace(
-                profile_path=str(SOURCE_RUN_REPAIR_PROFILE_FILE),
+                profile_path=str(WORKFLOW_DEPENDENCY_FRESHNESS_PROFILE_FILE),
                 body_file=str(body_file),
                 pr_title_file=str(title_file),
                 target_branch="main",
@@ -553,6 +554,7 @@ class AgentSourceRunRepairTests(unittest.TestCase):
                 commands,
             )
             self.assertIn(["gh", "pr", "edit", "42", "--add-label", "run-pek-ci"], commands)
+            self.assertIn(["gh", "pr", "edit", "42", "--add-label", "run-workflow-audit"], commands)
             outputs = dict(
                 line.split("=", 1)
                 for line in output_file.read_text(encoding="utf-8").splitlines()
