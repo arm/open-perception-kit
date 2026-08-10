@@ -6,7 +6,7 @@ const {
   expectModelLabelsDoNotOverflow,
   expectVideoKeepsPlaying,
   openPekUi,
-  registeredModelNames,
+  registeredModels,
   waitForVideo,
 } = require('./pek-browser-helpers');
 
@@ -19,9 +19,9 @@ test('PEK browser UI keeps displaying decoded video', async ({ page }) => {
 test('PEK browser UI toggles ONNX models', async ({ page }) => {
   await openPekUi(page);
 
-  const modelNames = await registeredModelNames(page);
+  const models = await registeredModels(page);
   await expectModelLabelsDoNotOverflow(page);
   await waitForVideo(page);
-  await holdAllModelsOff(page, modelNames);
-  await exerciseModelsOneAtATime(page, modelNames);
+  await holdAllModelsOff(page, models);
+  await exerciseModelsOneAtATime(page, models);
 });

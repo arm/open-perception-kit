@@ -117,19 +117,6 @@ static void gst_pekinfer_reset_qos(GstPekInfer *self) {
     GST_OBJECT_UNLOCK(self);
 }
 
-static std::optional<fs::path> parent_dir_name(const fs::path &p) {
-    if (!p.has_filename()) {
-        return std::nullopt;
-    }
-
-    fs::path parent = p.parent_path();
-    if (parent.empty()) {
-        return std::nullopt;
-    }
-
-    return parent.filename();
-}
-
 static gboolean gst_pekinfer_start(GstBaseTransform *b) {
     auto *self = (GstPekInfer *)b;
     static pek::perf::PerformanceTracer *tracer = pek::perf::getGlobalTracer();

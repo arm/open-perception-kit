@@ -162,7 +162,7 @@ To run the last selected pipeline again, run in the **Docker shell**:
 
 - If the container cannot start, check that `docker info` works in the host shell.
 - If the build command is not found, confirm that you are in the Docker shell and in `/work`.
-- If the browser opens but no result appears, enable a model in the **AI Models** panel.
+- If the browser opens but no result appears, enable a model in the **Model Selector** panel.
 - If you see a path error, confirm that VS Code opened the repository folder, not its parent folder.
 
 [Back to Get Started](/getting-started)

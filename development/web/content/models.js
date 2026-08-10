@@ -98,6 +98,7 @@ class ModelsManager {
         const item = document.createElement('div');
         item.className = 'model-item';
         item.setAttribute('data-model-name', model.name || '');
+        item.setAttribute('data-model-element-name', model.element_name || '');
         item.classList.toggle('model-active', Boolean(model.active));
 
         const presentation = resolveModelPresentation(model);

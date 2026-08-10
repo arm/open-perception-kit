@@ -147,7 +147,7 @@ To run the last selected pipeline again, run in the **Docker shell**:
 
 - If the container cannot start, check that Docker Desktop is running.
 - If the browser cannot connect, confirm the pipeline is still running in the Docker shell.
-- If the browser opens but no result appears, enable a model in the **AI Models** panel.
+- If the browser opens but no result appears, enable a model in the **Model Selector** panel.
 - If you connect from this Mac to a Raspberry Pi later, allow VS Code local network access in macOS **Settings > Privacy & Security > Local Network**.
 
 [Back to Get Started](/getting-started)

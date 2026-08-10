@@ -179,6 +179,7 @@ test("selector renders task and model details from descriptor metadata", () => {
   const toggle = item.querySelector("input");
 
   assert.equal(item.getAttribute("data-model-name"), "YoloV11");
+  assert.equal(item.getAttribute("data-model-element-name"), "pekinfer1");
   assert.equal(task.textContent, "Object detection");
   assert.equal(details.textContent, "YOLOv11n (ONNX)");
   assert.equal(item.querySelector(".model-copy").title, "Object detection - YOLOv11n (ONNX)");
@@ -190,6 +191,46 @@ test("selector renders task and model details from descriptor metadata", () => {
   assert.deepEqual(sentMessages.at(-1), {
     type: "model_toggle",
     name: "pekinfer1",
+  });
+});
+
+test("duplicate descriptor names retain unique element identities", () => {
+  modelsManager.render([
+    {
+      active: false,
+      displayName: "MobileNetV2",
+      element_name: "pekinfer8",
+      name: "ImageNet Hailo",
+      runtime: "Hailo 8",
+      task: "Image classification",
+    },
+    {
+      active: false,
+      displayName: "MobileNetV2",
+      element_name: "pekinfer10",
+      name: "ImageNet Hailo",
+      runtime: "Hailo 10",
+      task: "Image classification",
+    },
+  ]);
+
+  assert.equal(modelsContainer.children.length, 2);
+  assert.equal(modelsContainer.children[0].getAttribute("data-model-name"), "ImageNet Hailo");
+  assert.equal(modelsContainer.children[1].getAttribute("data-model-name"), "ImageNet Hailo");
+  assert.equal(modelsContainer.children[0].getAttribute("data-model-element-name"), "pekinfer8");
+  assert.equal(modelsContainer.children[1].getAttribute("data-model-element-name"), "pekinfer10");
+  assert.equal(modelsContainer.children[0].querySelector(".model-details").textContent,
+    "MobileNetV2 (Hailo 8)");
+  assert.equal(modelsContainer.children[1].querySelector(".model-details").textContent,
+    "MobileNetV2 (Hailo 10)");
+
+  const secondToggle = modelsContainer.children[1].querySelector("input");
+  secondToggle.checked = true;
+  secondToggle.dispatchEvent({type: "change"});
+
+  assert.deepEqual(sentMessages.at(-1), {
+    type: "model_toggle",
+    name: "pekinfer10",
   });
 });
 
