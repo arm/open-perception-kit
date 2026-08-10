@@ -26,6 +26,9 @@ model_registry_tests = executable(
   ['model_registry_test.cpp', '../elements/peksink/model_reg.cpp'],
   include_directories : [common_include, include_directories('../elements/peksink')],
   dependencies : [gtest_main_dep, gtest_dep, pek_deps],
+  link_with : [common],
+)
+
 performance_tracer_tests = executable(
   'performance_tracer_tests',
   ['performance_tracer_test.cpp'],
