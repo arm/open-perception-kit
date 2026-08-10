@@ -1013,6 +1013,9 @@ jobs:
     name: Run Valgrind checks in Docker
     needs: build-ci-image
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./valgrind-source
     if: |
       success() &&
       (
@@ -1047,6 +1050,7 @@ jobs:
           fail-on-cache-miss: true
 
       - name: Load PEK CI image
+        working-directory: ${{ github.workspace }}
         env:
           CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
         run: |
@@ -1058,13 +1062,16 @@ jobs:
             pek-generate-valgrind-summary
 
       - name: Prepare compiler cache
+        working-directory: ${{ github.workspace }}
         run: install -d -m 0777 "$CCACHE_PATH"
 
-      - uses: actions/checkout@v7
+      - name: Checkout
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
           ref: ${{ needs.build-ci-image.outputs.head_sha }}
+          path: valgrind-source
           persist-credentials: false
 
       - name: Restore compiler cache
@@ -1152,7 +1159,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: valgrind-baseline-logs
-          path: scripts/testing/valgrind/logs
+          path: valgrind-source/scripts/testing/valgrind/logs
           if-no-files-found: warn
           retention-days: 5
 
@@ -1161,7 +1168,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: valgrind-baseline
-          path: scripts/testing/valgrind/valgrind-error-summary.xml
+          path: valgrind-source/scripts/testing/valgrind/valgrind-error-summary.xml
           if-no-files-found: error
           retention-days: 60
 
