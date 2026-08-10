@@ -48,6 +48,7 @@ mkdir -p "$OutputDir" "$PackageRoot"
 PEK_ONNXRUNTIME_ROOT="$OnnxRoot" \
     meson setup "$BuildRoot" "$RepoRoot/development" \
     --buildtype=release \
+    --layout=flat \
     --prefix=/ \
     --libdir=lib \
     -Dstrip=true \

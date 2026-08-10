@@ -144,6 +144,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
         build_package = (
             REPO_ROOT / "scripts/release/BuildPackage.sh"
         ).read_text()
+        self.assertIn("--layout=flat", build_package)
         self.assertLess(
             build_package.index('"$BuildRoot/meson-out/pek-config-check"'),
             build_package.index('ReleaseTool.py" stage-models'),
