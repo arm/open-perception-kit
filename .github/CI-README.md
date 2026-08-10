@@ -82,20 +82,25 @@ References: GitHub [cache access restrictions](https://docs.github.com/en/action
 Docker [Buildx `gha` cache scope](https://docs.docker.com/build/cache/backends/gha/#scope),
 and Sonar [incremental analysis](https://docs.sonarsource.com/sonarqube-server/2025.4/analyzing-source-code/incremental-analysis/introduction/).
 
-### Measured PR cache timings
+### Measured PR timings
 
-Queue time is excluded; job time includes setup and cleanup. The cold run
-followed deletion of all PR caches; the warm run reran the same SHA.
+Queue time is excluded; job time includes setup and cleanup. The legacy
+baseline built the same CI image independently in each job. Cold and warm paths
+include the shared producer once; warm reran the same SHA with populated image
+and compiler caches. Quick-start jobs are excluded because they remain
+independent of this x86_64 image.
 
-| Job | Artifact baseline | Cold ref cache | Warm rerun |
-| --- | ---: | ---: | ---: |
-| CI image | [1:37](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31381880114/job/93433659544) | [5:33](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93442576791) | [1:27](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93447199213) |
-| Quality | [5:07](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31381880114/job/93434036295) | [9:12](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93443869967) | [5:01](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93447548498) |
-| Valgrind | [6:55](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31381880114/job/93434036310) | [8:30](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93443869925) | [5:55](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93447548536) |
-| Sonar | [20:21](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31381880114/job/93434036354) | [14:01](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93443869962) | [14:02](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93447548602) |
-| Quick-start | [8:42](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31381880114/job/93433659560) | [7:52](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93442576778) | [8:34](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93447199214) |
-| Pi 5 and Playwright | [16:49](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31381880114/job/93433659508) | [16:05](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93442576787) | [16:34](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93447199187) |
-| CI image to Sonar | 21:58 | 19:34 | 15:29 |
+| Path | Legacy baseline | Cold ref cache | Warm rerun | Warm reduction |
+| --- | ---: | ---: | ---: | ---: |
+| CI image | built in every job | [5:33](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93442576791) | [1:27](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93447199213) | n/a |
+| Quality E2E | [10:07](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31254094969/job/93094753719) | 5:33 + [9:12](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93443869967) = 14:45 | 1:27 + [5:01](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93447548498) = 6:28 | 36.1% |
+| Sonar E2E | [20:00](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31254094986/job/93094753758) | 5:33 + [14:01](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93443869962) = 19:34 | 1:27 + [14:02](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93447548602) = 15:29 | 22.6% |
+| Valgrind E2E | [11:52](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31254094974/job/93094753670) | 5:33 + [8:30](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93443869925) = 14:03 | 1:27 + [5:55](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93447548536) = 7:22 | 37.9% |
+| Critical path | 20:00 | 19:34 | 15:29 | 22.6% |
+| Runner time | 41:59 | 37:16 | 26:25 | 37.1% |
+
+The cold run followed deletion of every PR cache; the warm run reran the same
+SHA. Their cache-sensitive steps show where the warm reduction comes from:
 
 | Cache-sensitive step | Cold | Warm |
 | --- | ---: | ---: |
@@ -104,12 +109,11 @@ followed deletion of all PR caches; the warm run reran the same SHA.
 | Valgrind checks | 5:52, 2/88 hits | 3:34, 87/88 hits |
 | Sonar analysis | 11:48, 0/96 server hits | 11:45, 0/96 server hits |
 
-The warm compiler and layer-cache critical path is 6:29 shorter than the
-artifact baseline. After a `develop` branch analysis seeded Sonar's server
-cache, the same PR Sonar job reran in [8:30](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31387622127/job/93458223381):
+After a `develop` branch analysis seeded Sonar's server cache, the same PR Sonar
+job reran in [8:30](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31387622127/job/93458223381):
 the analysis step fell from 11:46 to 6:07, with 54/96 CFamily cache hits and an
 81% symbolic-execution hit rate. The same-head CI image-to-Sonar path is 9:50,
-12:08 (55.2%) shorter than the artifact baseline.
+10:10 (50.8%) shorter than the legacy baseline.
 
 ## What does `.github/workflows/release-tests.yml` do?
 
