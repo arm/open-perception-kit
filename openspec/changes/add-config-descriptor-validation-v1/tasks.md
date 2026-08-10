@@ -59,9 +59,10 @@
 - [ ] 4.2 Remove Op `group` and unused built-in attributes, omit loop IDs from unlooped Ops, and put
   each non-empty-content built-in stage under one controller-first nonzero loop.
 - [ ] 4.3 Rename the existing PaddleOCR detection and recognition descriptors to ordinary canonical
-  Model variants, update only the affected detection reference, exercise the normal
-  discovery/routing/schema/semantics/loader path, and add no model, routing exception, placeholder
-  OpChain, or unsupported classification path.
+  Model variants, correct recognition to the minimal ONNX-compatible `[1,3,48,640]` input, update
+  only the affected detection reference, exercise the normal discovery/routing/schema/semantics/
+  loader path, and add no model, routing exception, placeholder OpChain, or unsupported
+  classification path.
 
 ## 5. Tooling and documentation
 

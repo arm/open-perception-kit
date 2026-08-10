@@ -457,7 +457,9 @@ exit.
 #### Scenario: Supported models without runnable OpChains
 - **WHEN** PaddleOCR recognition has a canonical `model-<variant>.json` descriptor but no runnable
   OpChain
-- **THEN** `pek-config-check` treats it exactly like every other supported Model descriptor without
+- **THEN** its concrete input is `[1,3,48,640]`, matching the ONNX input's fixed height and a valid
+  dynamic width
+- **AND** `pek-config-check` treats it exactly like every other supported Model descriptor without
   requiring a placeholder OpChain or a discovery exception
 
 #### Scenario: Live schema edit in a running container

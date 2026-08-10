@@ -277,6 +277,9 @@ validation failure, and 2 invocation/internal failure.
 - Retain develop's removal of `modelFamily`; identity is the canonical descriptor `name`.
 - Validate optional build-time `hfDownload` objects. Rename the existing PaddleOCR detection and
   recognition descriptors to canonical `model-<variant>.json` filenames without adding models.
+- Correct PaddleOCR recognition from `[1,3,640,640]` to `[1,3,48,640]`: the model input fixes
+  height at 48 and accepts dynamic width, so retaining the existing concrete width is the minimal
+  compatible migration.
 - Remove Op `group`, omit `loopId` for non-loop Ops, remove unused built-in attributes, and put every
   non-empty-content built-in stage under one nonzero loop.
 - Preserve valid authored relative and absolute `modelDescriptor` references. Update only the

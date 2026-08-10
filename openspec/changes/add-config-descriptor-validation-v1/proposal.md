@@ -31,8 +31,8 @@ first supported contract to reject invalid configuration before plugin or model-
 - Represent an omitted descriptor `loopId` without a numeric sentinel.
 - Make `expkits-ci --config-schema-check` a thin launcher of `pek-config-check`; keep checkout
   discovery, live-schema loading, and report aggregation internal to that CLI.
-- Require the existing `expkits-ci` pre-commit and CI presets to give one non-blocking descriptor
-  evolution advisory from their already-resolved file scope.
+- Correct the existing PaddleOCR recognition descriptor to `[1,3,48,640]`, preserving its concrete
+  width while matching the ONNX input's fixed height and dynamic-width contract.
 - Route validation failures through the standard Python or PEK logger at each CLI boundary while
   keeping reusable validators side-effect-free and text reports deterministic.
 - Update contributor documentation with minimal v1 descriptors and the validation boundary.
