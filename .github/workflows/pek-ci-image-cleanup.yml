@@ -4,14 +4,19 @@ on:
   pull_request_target:
     branches: [main, develop, "feature/**", "sandbox/**"]
     types: [closed, synchronize]
+  workflow_run:
+    workflows: [PEK CI]
+    types: [completed]
 
 permissions:
   contents: read
 
 jobs:
-  cleanup:
+  cleanup-pr-image:
     name: Delete superseded PR CI image
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -27,4 +32,27 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           CI_IMAGE_TAG: ${{ github.event.action == 'closed' && github.event.pull_request.head.sha || github.event.before }}
+        run: python3 scripts/private/ci_image.py cleanup "$CI_IMAGE_TAG"
+
+  cleanup-run-image:
+    name: Delete completed run CI image
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.event != 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout trusted workflow helper
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Delete completed run image
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_IMAGE_TAG: ${{ github.event.workflow_run.head_sha }}-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
         run: python3 scripts/private/ci_image.py cleanup "$CI_IMAGE_TAG"

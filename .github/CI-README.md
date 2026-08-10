@@ -28,6 +28,8 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
   `Run Sonar analysis in Docker` name.
 - Runs pull request quality checks through `expkits-ci --ci-pr-checks`.
 - Runs full/nightly quality checks through `expkits-ci --ci-full-checks`.
+- Lets the trusted `pek-ci-image-cleanup.yml` workflow delete completed non-PR
+  run images after every PEK CI run.
 
 The Python dependency, Docker Scout, and workflow dependency workflows remain
 reusable and keep their independent schedule/manual triggers. Their direct PR
