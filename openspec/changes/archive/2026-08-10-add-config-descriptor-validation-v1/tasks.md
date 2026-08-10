@@ -94,12 +94,12 @@
   exits.
 - [x] 6.5 Update supported-descriptor, runtime-loader, and pipeline tests for the v1 contract,
   including descriptor-only PaddleOCR recognition, then run the minimal supported pipeline smokes.
-- [ ] 6.6 Review the complete task-owned diff with Ponytail and run formatting/static checks, strict
+- [x] 6.6 Review the complete task-owned diff with Ponytail and run formatting/static checks, strict
   OpenSpec validation, the complete descriptor gate, relevant debug builds, full Meson regression,
   downloader/adapter tests, documentation generation, and Jira/OpenSpec/implementation consistency.
 
 ## 7. Delivery
 
-- [ ] 7.1 Commit and push each scoped stack layer under repository contribution rules.
-- [ ] 7.2 Update the three stacked PRs against their direct bases, run required exact-head CI, record
+- [x] 7.1 Commit and push each scoped stack layer under repository contribution rules.
+- [x] 7.2 Update the three stacked PRs against their direct bases, run required exact-head CI, record
   final verification, and address only failures introduced by the owning layer.
