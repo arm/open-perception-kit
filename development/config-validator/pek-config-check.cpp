@@ -16,12 +16,10 @@ namespace {
 
 struct Arguments {
     std::filesystem::path root;
-    std::string format = "text";
     bool help = false;
 };
 
-constexpr std::string_view Usage =
-    "Usage: pek-config-check --root <repo-root> [--format text|json]\n";
+constexpr std::string_view Usage = "Usage: pek-config-check --root <repo-root>\n";
 
 tl::expected<Arguments, std::string> parseArguments(int argc, char **argv) {
     Arguments arguments;
@@ -36,16 +34,10 @@ tl::expected<Arguments, std::string> parseArguments(int argc, char **argv) {
             arguments.root = argv[index++];
             continue;
         }
-        if (option == "--format" && index < argc) {
-            arguments.format = argv[index++];
-            continue;
-        }
         return tl::unexpected{std::format("unknown or incomplete argument: {}", option)};
     }
     if (arguments.root.empty())
         return tl::unexpected{std::string("--root is required")};
-    if (arguments.format != "text" && arguments.format != "json")
-        return tl::unexpected{std::string("--format must be text or json")};
     return arguments;
 }
 
@@ -70,11 +62,10 @@ int main(int argc, char **argv) {
 
     const pek::config::ValidationReport report =
         pek::config::detail::validateRepository(arguments->root);
-    const std::string output = arguments->format == "json" ? report.toJson() : report.toText();
-    if (report.ok() || arguments->format == "json") {
-        pek::log::instantInfo("{}", output);
+    if (report.ok()) {
+        pek::log::instantInfo("{}", report.toText());
     } else {
-        pek::log::error("{}", output);
+        pek::log::error("{}", report.toText());
         pek::log::flush();
     }
     return report.ok() ? 0 : 1;

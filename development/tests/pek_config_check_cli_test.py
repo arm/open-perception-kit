@@ -3,7 +3,6 @@
 # Copyright (C) 2026 Arm Limited. All rights reserved.
 ################################################################
 
-import json
 import os
 import shutil
 import subprocess
@@ -51,16 +50,7 @@ class PekConfigCheckCliTest(unittest.TestCase):
         self.assertIn("--root is required", result.stderr)
         self.assertIn("Usage:", result.stderr)
 
-    def test_json_report_is_clean_stdout(self) -> None:
-        result = self.run_cli(
-            "--root", str(self.repository_root), "--format", "json"
-        )
-
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(result.stderr, "")
-        self.assertEqual(json.loads(result.stdout)["diagnosticFormatVersion"], 1)
-
-    def test_validation_failure_uses_logger_and_json_stays_clean(self) -> None:
+    def test_validation_failure_is_written_to_stderr(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             shutil.copytree(
@@ -72,20 +62,14 @@ class PekConfigCheckCliTest(unittest.TestCase):
             (root / "config/opchains").mkdir(parents=True)
             (model_dir / "model.json").write_text("{}")
 
-            text_result = self.run_cli("--root", str(root))
-            self.assertEqual(text_result.returncode, 1)
-            self.assertEqual(text_result.stdout, "")
+            result = self.run_cli("--root", str(root))
+
+            self.assertEqual(result.returncode, 1)
+            self.assertEqual(result.stdout, "")
             self.assertIn(
                 "E: config/models/invalid/model.json",
-                text_result.stderr,
+                result.stderr,
             )
-
-            json_result = self.run_cli(
-                "--root", str(root), "--format", "json"
-            )
-            self.assertEqual(json_result.returncode, 1)
-            self.assertEqual(json_result.stderr, "")
-            self.assertTrue(json.loads(json_result.stdout)["issues"])
 
 
 if __name__ == "__main__":
