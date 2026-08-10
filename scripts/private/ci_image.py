@@ -96,6 +96,7 @@ def prepare(sha: str, archive: str, services: list[str]) -> str:
     for service in services:
         run(["docker", "tag", image, f"{project}-{service}"])
     append_github_env("COMPOSE_PROJECT_NAME", project)
+    append_github_env("PEK_CI_IMAGE", image)
     print(f"Prepared {image} for {', '.join(services)}")
     return image
 

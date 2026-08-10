@@ -11,10 +11,11 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 
 ## What does `.github/workflows/pek-ci.yml` do?
 
-- Builds and publishes one exact-SHA PEK CI image through versioned Docker actions,
-  then runs
+- Builds one exact-SHA PEK CI image, shares it within the workflow run, then runs
   Quality, Sonar, release Sonar, Valgrind, and the `pek-ci` Docker Scout scan
   from that image.
+- Stores the PR image for the trusted GHCR publisher in parallel with validation.
+- Reuses Docker layers through the ref-scoped cache flow below.
 - Starts the Linux, Raspberry Pi, and macOS quick-start checks independently
   because they build their own platform images.
 - Routes `run-python-audit`, `run-docker-scout`, and `run-workflow-audit` PR
@@ -28,8 +29,9 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
   `Run Sonar analysis in Docker` name.
 - Runs pull request quality checks through `expkits-ci --ci-pr-checks`.
 - Runs full/nightly quality checks through `expkits-ci --ci-full-checks`.
-- Lets the trusted `pek-ci-image-cleanup.yml` workflow delete completed non-PR
-  run images after every PEK CI run.
+- Lets `pek-ci-image-cleanup.yml` delete successful/cancelled run handoffs and
+  all remaining PR caches when the pull request closes. Failed-run handoffs stay
+  available for failed-job reruns.
 
 The Python dependency, Docker Scout, and workflow dependency workflows remain
 reusable and keep their independent schedule/manual triggers. Their direct PR
@@ -40,6 +42,42 @@ sources and artifact names therefore stay unchanged.
 publisher that requests a missing baseline from `pek-ci.yml`; it never runs PR
 code. Its trusted helper also covers feature-branch bases used by stacked pull
 requests.
+
+### Cache flow
+
+GHCR stores published outputs, not build caches: the latest successful image
+for each PR and exact-SHA Valgrind baselines. Docker layers and compiler outputs
+use the GitHub Actions cache.
+
+| Run | Docker layers read from | Docker layers written to |
+| --- | --- | --- |
+| `main` or `develop` | Current branch cache | Current branch baseline |
+| First PR run | Available base/default branch baseline | `refs/pull/<number>/merge` |
+| Later PR commit or rerun | The PR cache, with base/default as fallback | The same PR cache |
+
+The Buildx scope is always `pek-ci`. GitHub applies the branch and PR isolation;
+the workflow does not build its own cache-key hierarchy. A PR cannot overwrite
+the `main` or `develop` baseline. The same rule applies to stacked PRs: each PR
+writes only its own merge ref.
+
+| Stored data | Purpose | Lifetime |
+| --- | --- | --- |
+| Buildx `pek-ci` cache | Reuse Docker layers between runs | Branch/PR ref; deleted when the PR closes or GitHub evicts it |
+| Quality, Sonar, and Valgrind ccache | Reuse compiled objects for the same check | PR ref; deleted when the PR closes or GitHub evicts it |
+| Run image cache | Pass the image from `Build PEK CI image` to its dependent jobs | Exact run; retained after failure for rerun, deleted after success/cancel or PR close |
+| PR image artifact | Pass the verified image to the trusted GHCR publisher | One day |
+| `pek-ci-pr-<number>` image in GHCR | Pull the latest successful PEK CI image locally | Replaced after the next successful run; deleted when the PR closes |
+| Valgrind baseline in GHCR | Compare against the exact base SHA | Managed by the trusted baseline publisher |
+
+The pull-request workflow has no package-write permission. After successful CI,
+the trusted `PEK CI Image` workflow publishes the verified image:
+
+```console
+docker pull ghcr.io/arm-debug/amp-dev-forge-ci:pek-ci-pr-<number>
+```
+
+References: GitHub [cache access restrictions](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching#restrictions-for-accessing-a-cache)
+and Docker [Buildx `gha` cache scope](https://docs.docker.com/build/cache/backends/gha/#scope).
 
 ### Measured PR cache timings
 
@@ -63,10 +101,8 @@ Sonar step detail from the same seed and warm jobs:
 | SonarQube analysis | 14:42 | 11:57 |
 | Save compiler cache | 0:08, 88,459,835 B | skipped on exact hit |
 
-GitHub scopes pull-request caches to the PR merge ref, so the warm Sonar
-measurement uses a rerun of the original PR job. A branch `workflow_dispatch`
-cannot restore that PR-scoped cache. See GitHub's
-[cache access restrictions](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching#restrictions-for-accessing-a-cache).
+The warm Sonar measurement uses a rerun of the same PR job. A branch
+`workflow_dispatch` run cannot restore a PR merge-ref cache.
 
 ## What does `.github/workflows/release-tests.yml` do?
 

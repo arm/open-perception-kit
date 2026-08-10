@@ -24,7 +24,7 @@ permissions:
   contents: read
 
 env:
-  CI_IMAGE_CACHE_KEY: pek-ci-image-${{ github.run_id }}-${{ github.run_attempt }}
+  CI_IMAGE_CACHE_KEY: pek-ci-image-${{ github.run_id }}
 
 jobs:
   docker-scout:
@@ -113,7 +113,7 @@ jobs:
           HF_TOKEN: ${{ contains(fromJSON('["pek-deployment-base","pek-dev"]'), matrix.image.service) && secrets.HF_TOKEN || '' }}
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build ${{ matrix.image.service }}
 
-      - name: Restore Docker image
+      - name: Restore PEK CI image
         if: matrix.image.service == 'pek-ci' && inputs.ci_image_sha != ''
         uses: actions/cache/restore@v6
         with:
@@ -121,7 +121,7 @@ jobs:
           key: ${{ env.CI_IMAGE_CACHE_KEY }}
           fail-on-cache-miss: true
 
-      - name: Load Docker image
+      - name: Load PEK CI image
         if: matrix.image.service == 'pek-ci' && inputs.ci_image_sha != ''
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:

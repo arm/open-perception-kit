@@ -31,7 +31,10 @@ class CiImageTests(unittest.TestCase):
             tempfile.TemporaryDirectory() as tmpdir,
             mock.patch.dict(
                 "os.environ",
-                {"COMPOSE_PROJECT_NAME": "pek-test"},
+                {
+                    "COMPOSE_PROJECT_NAME": "pek-test",
+                    "GITHUB_ENV": str(Path(tmpdir) / "github-env"),
+                },
                 clear=True,
             ),
             mock.patch.object(ci_image, "run", return_value=command_result) as run,
@@ -41,6 +44,10 @@ class CiImageTests(unittest.TestCase):
             archive.touch()
             ci_image.prepare(SHA, str(archive), ["pek-sonar-check", "pek-valgrind-check"])
             self.assertFalse(archive.exists())
+            self.assertEqual(
+                (Path(tmpdir) / "github-env").read_text(encoding="utf-8").splitlines(),
+                ["COMPOSE_PROJECT_NAME=pek-test", f"PEK_CI_IMAGE={IMAGE}"],
+            )
 
         verify.assert_called_once_with(IMAGE, SHA)
         self.assertEqual(

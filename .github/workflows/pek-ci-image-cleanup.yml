@@ -13,17 +13,18 @@ permissions:
 
 jobs:
   cleanup-run-cache:
-    name: Delete CI image cache
-    if: ${{ github.event_name == 'workflow_run' }}
+    name: Delete PEK CI image cache
+    if: >-
+      github.event_name == 'workflow_run' &&
+      contains(fromJSON('["success","cancelled"]'), github.event.workflow_run.conclusion)
     runs-on: ubuntu-latest
     permissions:
       actions: write
-      contents: read
     steps:
       - name: Delete run-scoped cache
         env:
           GH_TOKEN: ${{ github.token }}
-          CACHE_KEY: pek-ci-image-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+          CACHE_KEY: pek-ci-image-${{ github.event.workflow_run.id }}
         run: |
           cache_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/caches?key=${CACHE_KEY}" --jq '.actions_caches[0].id // empty')"
           if [ -n "$cache_id" ]; then
@@ -32,11 +33,10 @@ jobs:
 
   cleanup-pr-caches:
     name: Delete PR caches
-    if: ${{ github.event_name == 'pull_request_target' }}
+    if: ${{ github.event_name == 'pull_request_target' && github.event.action == 'closed' }}
     runs-on: ubuntu-latest
     permissions:
       actions: write
-      contents: read
     steps:
       - name: Delete PR caches
         env:
@@ -48,3 +48,92 @@ jobs:
             while IFS= read -r cache_id; do
               gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/caches/${cache_id}"
             done
+
+  cleanup-pr-images:
+    name: Delete PEK CI PR image
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Delete PEK CI PR image
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_TAG: pek-ci-pr-${{ github.event.pull_request.number }}
+        run: |
+          versions="$(gh api --paginate \
+            "orgs/${GITHUB_REPOSITORY_OWNER}/packages/container/amp-dev-forge-ci/versions?per_page=100" |
+            jq -s 'add')"
+          mapfile -t version_ids < <(
+            jq -r --arg tag "$PR_TAG" \
+              '.[] | select(.metadata.container.tags == [$tag]) | .id' <<< "$versions"
+          )
+          test "${#version_ids[@]}" -le 1
+          if [ "${#version_ids[@]}" -eq 1 ]; then
+            gh api --method DELETE \
+              "orgs/${GITHUB_REPOSITORY_OWNER}/packages/container/amp-dev-forge-ci/versions/${version_ids[0]}"
+          fi
+
+  publish-pr-image:
+    name: Publish PEK CI PR image
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.pull_requests[0].number &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      packages: write
+    steps:
+      - name: Download PEK CI image
+        uses: actions/download-artifact@v8
+        with:
+          name: pek-ci-image
+          path: ${{ runner.temp }}/pek-ci-image
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Publish PEK CI PR image
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
+          PR_TAG: pek-ci-pr-${{ github.event.workflow_run.pull_requests[0].number }}
+        run: |
+          local_image="pek-ci:${EXPECTED_SHA}"
+          published_image="ghcr.io/${GITHUB_REPOSITORY,,}-ci:${PR_TAG}"
+          docker image load --input "${RUNNER_TEMP}/pek-ci-image/pek-ci-image.tar"
+          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$local_image")" = "$EXPECTED_SHA"
+          versions="$(gh api --paginate \
+            "orgs/${GITHUB_REPOSITORY_OWNER}/packages/container/amp-dev-forge-ci/versions?per_page=100" |
+            jq -s 'add')"
+          mapfile -t version_ids < <(
+            jq -r --arg tag "$PR_TAG" \
+              '.[] | select(.metadata.container.tags == [$tag]) | .id' <<< "$versions"
+          )
+          test "${#version_ids[@]}" -le 1
+          previous_version_id="${version_ids[0]:-}"
+          docker tag "$local_image" "$published_image"
+          docker push "$published_image"
+          if [ -n "$previous_version_id" ]; then
+            current_version_id="$(gh api --paginate \
+              "orgs/${GITHUB_REPOSITORY_OWNER}/packages/container/amp-dev-forge-ci/versions?per_page=100" |
+              jq -sr --arg tag "$PR_TAG" \
+                'add | [.[] | select(.metadata.container.tags | index($tag)) | .id] | if length == 1 then .[0] else error("Expected one current PR image") end')"
+          fi
+          if [ -n "$previous_version_id" ] && [ "$previous_version_id" != "$current_version_id" ]; then
+            gh api --method DELETE \
+              "orgs/${GITHUB_REPOSITORY_OWNER}/packages/container/amp-dev-forge-ci/versions/${previous_version_id}"
+          fi
+          printf 'Pull the latest successful PR image:\n\n```console\ndocker pull %s\n```\n' "$published_image" >> "$GITHUB_STEP_SUMMARY"
