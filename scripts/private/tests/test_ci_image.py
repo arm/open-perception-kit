@@ -23,6 +23,7 @@ REPOSITORY_ENV = {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge"}
 IMAGE = f"ghcr.io/arm-debug/amp-dev-forge-ci:{SHA}"
 RUN_TAG = f"{SHA}-123-2"
 RUN_IMAGE = f"ghcr.io/arm-debug/amp-dev-forge-ci:{RUN_TAG}"
+CACHE_IMAGE = "ghcr.io/arm-debug/amp-dev-forge-ci:buildcache"
 
 
 def version(version_id: int, *tags: str) -> dict[str, object]:
@@ -75,6 +76,46 @@ class CiImageTests(unittest.TestCase):
             [
                 mock.call(["docker", "tag", IMAGE, "pek-test-pek-sonar-check"]),
                 mock.call(["docker", "tag", IMAGE, "pek-test-pek-valgrind-check"]),
+            ],
+        )
+
+    def test_prepare_loads_a_read_only_pr_archive_instead_of_pulling(self):
+        command_result: subprocess.CompletedProcess[str] = subprocess.CompletedProcess(
+            [], 0
+        )
+        with (
+            tempfile.TemporaryDirectory() as tmpdir,
+            mock.patch.dict(
+                "os.environ",
+                {**REPOSITORY_ENV, "COMPOSE_PROJECT_NAME": "pek-test"},
+                clear=True,
+            ),
+            mock.patch.object(
+                ci_image,
+                "run",
+                side_effect=[command_result, command_result],
+            ) as run,
+            mock.patch.object(ci_image, "verify_revision") as verify,
+        ):
+            archive = Path(tmpdir) / "pek-ci-image.tar"
+            archive.touch()
+            ci_image.prepare(SHA, ["pek-sonar-check"], archive=str(archive))
+            self.assertFalse(archive.exists())
+
+        verify.assert_called_once_with(IMAGE, SHA)
+        self.assertEqual(
+            run.call_args_list,
+            [
+                mock.call(
+                    [
+                        "docker",
+                        "image",
+                        "load",
+                        "--input",
+                        str(archive),
+                    ]
+                ),
+                mock.call(["docker", "tag", IMAGE, "pek-test-pek-sonar-check"]),
             ],
         )
 
@@ -141,6 +182,46 @@ class CiImageTests(unittest.TestCase):
                 ci_image.cleanup_metadata(metadata_file.name)
 
         cleanup.assert_not_called()
+
+    def test_publish_cache_accepts_only_the_exact_trusted_run_artifact(self):
+        with (
+            tempfile.NamedTemporaryFile(mode="w+", encoding="utf-8") as metadata_file,
+            mock.patch.dict("os.environ", REPOSITORY_ENV, clear=True),
+            mock.patch.object(ci_image, "run") as run,
+            mock.patch.object(ci_image, "verify_revision") as verify,
+        ):
+            ci_image.write_metadata(RUN_TAG, "false", metadata_file.name)
+            ci_image.publish_cache("pek-ci-image.tar", metadata_file.name, RUN_TAG)
+
+        verify.assert_called_once_with(RUN_IMAGE, SHA)
+        self.assertEqual(
+            run.call_args_list,
+            [
+                mock.call(
+                    [
+                        "docker",
+                        "image",
+                        "load",
+                        "--input",
+                        "pek-ci-image.tar",
+                    ]
+                ),
+                mock.call(["docker", "tag", RUN_IMAGE, CACHE_IMAGE]),
+                mock.call(["docker", "push", CACHE_IMAGE]),
+            ],
+        )
+
+    def test_publish_cache_rejects_pr_or_mismatched_metadata_before_loading(self):
+        with (
+            tempfile.NamedTemporaryFile(mode="w+", encoding="utf-8") as metadata_file,
+            mock.patch.dict("os.environ", REPOSITORY_ENV, clear=True),
+            mock.patch.object(ci_image, "run") as run,
+        ):
+            ci_image.write_metadata(SHA, "true", metadata_file.name)
+            with self.assertRaisesRegex(ValueError, "trusted workflow run"):
+                ci_image.publish_cache("pek-ci-image.tar", metadata_file.name, RUN_TAG)
+
+        run.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -74,7 +74,7 @@ jobs:
       )
     permissions:
       contents: read
-      packages: write
+      packages: read
       pull-requests: read
     outputs:
       base_ref: ${{ steps.context.outputs.base_ref }}
@@ -132,7 +132,6 @@ jobs:
           path: workflow-helpers
           persist-credentials: false
           sparse-checkout: |
-            .github/Dockerfile.ci-anchor
             scripts/private/ci_image.py
             scripts/private/github_api.py
             scripts/testing/valgrind
@@ -160,7 +159,6 @@ jobs:
           if [ ! -f "$helper_root/scripts/private/ci_image.py" ]; then
             helper_root=.
           fi
-          test -f "$helper_root/.github/Dockerfile.ci-anchor"
           tools_dir="${RUNNER_TEMP}/pek-ci-image-tools"
           mkdir -p "$tools_dir/valgrind"
           cp "$helper_root/scripts/private/ci_image.py" "$tools_dir/ci_image.py"
@@ -183,7 +181,6 @@ jobs:
             printf 'image_tag=%s\n' "$image_tag"
             printf 'pr_context=%s\n' "$PR_CONTEXT"
             printf 'pr_number=%s\n' "$PR_NUMBER"
-            printf 'anchor_file=%s\n' "$helper_root/.github/Dockerfile.ci-anchor"
           } >> "$GITHUB_OUTPUT"
           python3 "$tools_dir/ci_image.py" metadata \
             "$image_tag" \
@@ -200,40 +197,30 @@ jobs:
       - name: Set up Docker builder
         uses: docker/setup-buildx-action@v4
 
-      - name: Push retention anchor
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: ${{ steps.context.outputs.anchor_file }}
-          labels: |
-            org.opencontainers.image.ref.name=retention-anchor
-            org.opencontainers.image.source=https://github.com/${{ github.repository }}
-          provenance: false
-          push: true
-          tags: ghcr.io/arm-debug/amp-dev-forge-ci:retention-anchor
-
-      - name: Build and push image
+      - name: Build Docker image
         uses: docker/build-push-action@v7
         with:
           cache-from: type=registry,ref=ghcr.io/arm-debug/amp-dev-forge-ci:buildcache
-          cache-to: type=registry,ref=ghcr.io/arm-debug/amp-dev-forge-ci:buildcache,mode=max
+          cache-to: type=inline
           context: .
           file: Dockerfile
           labels: |
             org.opencontainers.image.revision=${{ steps.context.outputs.head_sha }}
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.version=${{ steps.context.outputs.image_tag }}
+          outputs: type=docker,dest=${{ runner.temp }}/pek-ci-image-tools/pek-ci-image.tar
           provenance: false
           pull: true
-          push: true
+          push: false
           tags: ghcr.io/arm-debug/amp-dev-forge-ci:${{ steps.context.outputs.image_tag }}
           target: pek-ci
 
-      - name: Upload image cleanup metadata
+      - name: Upload CI image
         uses: actions/upload-artifact@v7
         with:
-          name: pek-ci-image-metadata
+          name: pek-ci-image
           path: ${{ runner.temp }}/pek-ci-image-tools
+          compression-level: 0
           retention-days: 1
 
   python-dependency-audit:
@@ -700,8 +687,9 @@ jobs:
         run: |
           tools_dir="${RUNNER_TEMP}/pek-ci-image-tools-${GITHUB_RUN_ID}-${GITHUB_JOB}"
           gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" \
-            --name pek-ci-image-metadata --dir "$tools_dir"
+            --name pek-ci-image --dir "$tools_dir"
           python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" \
+            --archive "$tools_dir/pek-ci-image.tar" \
             pek-quality-check-full \
             pek-quality-check-pull-request \
             pek-release-with-ut \
@@ -874,8 +862,9 @@ jobs:
         run: |
           tools_dir="${RUNNER_TEMP}/pek-ci-image-tools-${GITHUB_RUN_ID}-${GITHUB_JOB}"
           gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" \
-            --name pek-ci-image-metadata --dir "$tools_dir"
-          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" pek-sonar-check
+            --name pek-ci-image --dir "$tools_dir"
+          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" \
+            --archive "$tools_dir/pek-ci-image.tar" pek-sonar-check
 
       - name: SonarQube analysis
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -1019,8 +1008,9 @@ jobs:
         run: |
           tools_dir="${RUNNER_TEMP}/pek-ci-image-tools-${GITHUB_RUN_ID}-${GITHUB_JOB}"
           gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" \
-            --name pek-ci-image-metadata --dir "$tools_dir"
+            --name pek-ci-image --dir "$tools_dir"
           python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" \
+            --archive "$tools_dir/pek-ci-image.tar" \
             pek-sonar-check-release
 
       - name: Run SonarQube release analysis
@@ -1135,7 +1125,7 @@ jobs:
         run: |
           tools_dir="${RUNNER_TEMP}/pek-ci-image-tools-${GITHUB_RUN_ID}-${GITHUB_JOB}"
           gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" \
-            --name pek-ci-image-metadata --dir "$tools_dir"
+            --name pek-ci-image --dir "$tools_dir"
           echo "CI_IMAGE_TOOLS=$tools_dir" >> "$GITHUB_ENV"
           cd "$tools_dir/valgrind"
           python3 -m unittest \
@@ -1186,6 +1176,7 @@ jobs:
           CI_IMAGE_TAG: ${{ needs.build-ci-image.outputs.image_tag }}
         run: |
           python3 "$CI_IMAGE_TOOLS/ci_image.py" prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" \
+            --archive "$CI_IMAGE_TOOLS/pek-ci-image.tar" \
             pek-valgrind-check \
             pek-generate-valgrind-summary
 

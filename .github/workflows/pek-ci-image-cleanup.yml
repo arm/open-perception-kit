@@ -1,4 +1,4 @@
-name: PEK CI Image Cleanup
+name: PEK CI Image
 
 on:
   pull_request_target:
@@ -44,11 +44,13 @@ jobs:
             python3 scripts/private/ci_image.py cleanup "$commit_sha"
           done < <(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/commits" --jq '.[].sha')
 
-  cleanup-run-image:
-    name: Delete completed run CI image
+  publish-build-cache:
+    name: Publish Docker cache
     if: >-
       github.event_name == 'workflow_run' &&
-      github.event.workflow_run.event != 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      contains(fromJSON('["push","schedule"]'), github.event.workflow_run.event) &&
+      contains(fromJSON('["main","develop"]'), github.event.workflow_run.head_branch) &&
       github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
@@ -62,21 +64,27 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
 
-      - name: Download image cleanup metadata
-        id: metadata
-        continue-on-error: true
+      - name: Download CI image
         uses: actions/download-artifact@v8
         with:
-          name: pek-ci-image-metadata
-          path: ${{ runner.temp }}/pek-ci-image-metadata
+          name: pek-ci-image
+          path: ${{ runner.temp }}/pek-ci-image
           repository: ${{ github.repository }}
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ github.token }}
 
-      - name: Delete completed run image
-        if: steps.metadata.outcome == 'success'
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Publish trusted Docker cache
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: >-
-          python3 scripts/private/ci_image.py cleanup-metadata
-          "${RUNNER_TEMP}/pek-ci-image-metadata/pek-ci-image.json"
+          EXPECTED_IMAGE_TAG: ${{ format('{0}-{1}-{2}', github.event.workflow_run.head_sha, github.event.workflow_run.id, github.event.workflow_run.run_attempt) }}
+        run: |
+          python3 scripts/private/ci_image.py publish-cache \
+            "${RUNNER_TEMP}/pek-ci-image/pek-ci-image.tar" \
+            "${RUNNER_TEMP}/pek-ci-image/pek-ci-image.json" \
+            "$EXPECTED_IMAGE_TAG"

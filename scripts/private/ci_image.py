@@ -20,6 +20,7 @@ from github_api import github_api_query_endpoint, github_api_request
 EXPECTED_REPOSITORY = "Arm-Debug/amp-dev-forge"
 PACKAGE_NAME = "amp-dev-forge-ci"
 ANCHOR_TAG = "retention-anchor"
+CACHE_TAG = "buildcache"
 SHA_PATTERN = re.compile(r"[0-9a-f]{40}")
 TAG_PATTERN = re.compile(r"[0-9a-f]{40}(?:-[0-9]+-[0-9]+)?")
 SERVICE_PATTERN = re.compile(r"[a-z0-9][a-z0-9_-]*")
@@ -46,6 +47,10 @@ def validate_tag(value: str) -> str:
 
 def image_ref(tag: str) -> str:
     return f"ghcr.io/{repository().lower()}-ci:{validate_tag(tag)}"
+
+
+def cache_ref() -> str:
+    return f"ghcr.io/{repository().lower()}-ci:{CACHE_TAG}"
 
 
 def run(command: list[str], *, check: bool = True, capture_output: bool = False) -> subprocess.CompletedProcess[str]:
@@ -103,13 +108,22 @@ def append_github_env(name: str, value: str) -> None:
         env_file.write(f"{name}={value}\n")
 
 
-def prepare(sha: str, services: list[str], tag: str | None = None) -> str:
+def prepare(
+    sha: str,
+    services: list[str],
+    tag: str | None = None,
+    archive: str | None = None,
+) -> str:
     sha = validate_sha(sha)
     if not services or any(not SERVICE_PATTERN.fullmatch(service) for service in services):
         raise ValueError("At least one valid Compose service is required.")
 
     image = image_ref(tag or sha)
-    run(["docker", "pull", image])
+    if archive:
+        run(["docker", "image", "load", "--input", archive])
+        Path(archive).unlink()
+    else:
+        run(["docker", "pull", image])
     verify_revision(image, sha)
     project = compose_project_name()
     for service in services:
@@ -196,17 +210,37 @@ def write_metadata(tag: str, pr_context: str, path: str) -> None:
     )
 
 
-def cleanup_metadata(path: str) -> None:
+def read_metadata(path: str) -> dict[str, object]:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     if not isinstance(payload, dict) or set(payload) != {"image_tag", "pr_context"}:
         raise ValueError("Invalid CI image metadata.")
     if not isinstance(payload["image_tag"], str) or not isinstance(payload["pr_context"], bool):
         raise ValueError("Invalid CI image metadata values.")
+    validate_tag(payload["image_tag"])
+    return payload
+
+
+def cleanup_metadata(path: str) -> None:
+    payload = read_metadata(path)
     tag = validate_tag(payload["image_tag"])
     if payload["pr_context"]:
         print(f"PR CI image {tag} remains owned by the pull request lifecycle.")
         return
     cleanup(tag)
+
+
+def publish_cache(archive: str, metadata_path: str, expected_tag: str) -> None:
+    expected_tag = validate_tag(expected_tag)
+    payload = read_metadata(metadata_path)
+    if payload != {"image_tag": expected_tag, "pr_context": False}:
+        raise ValueError("CI image metadata does not match the trusted workflow run.")
+
+    image = image_ref(expected_tag)
+    sha = expected_tag.split("-", 1)[0]
+    run(["docker", "image", "load", "--input", archive])
+    verify_revision(image, sha)
+    run(["docker", "tag", image, cache_ref()])
+    run(["docker", "push", cache_ref()])
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -218,6 +252,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     prepare_parser = subparsers.add_parser("prepare")
     prepare_parser.add_argument("sha")
     prepare_parser.add_argument("--tag")
+    prepare_parser.add_argument("--archive")
     prepare_parser.add_argument("services", nargs="+")
     metadata_parser = subparsers.add_parser("metadata")
     metadata_parser.add_argument("tag")
@@ -225,19 +260,25 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     metadata_parser.add_argument("path")
     cleanup_metadata_parser = subparsers.add_parser("cleanup-metadata")
     cleanup_metadata_parser.add_argument("path")
+    publish_cache_parser = subparsers.add_parser("publish-cache")
+    publish_cache_parser.add_argument("archive")
+    publish_cache_parser.add_argument("metadata")
+    publish_cache_parser.add_argument("expected_tag")
     return parser.parse_args(argv)
 
 
 def main(argv: list[str]) -> int:
     args = parse_args(argv)
     if args.command == "prepare":
-        prepare(args.sha, args.services, args.tag)
+        prepare(args.sha, args.services, args.tag, args.archive)
     elif args.command == "cleanup":
         cleanup(args.tag)
     elif args.command == "metadata":
         write_metadata(args.tag, args.pr_context, args.path)
     elif args.command == "cleanup-metadata":
         cleanup_metadata(args.path)
+    elif args.command == "publish-cache":
+        publish_cache(args.archive, args.metadata, args.expected_tag)
     else:
         print(image_ref(args.tag))
     return 0

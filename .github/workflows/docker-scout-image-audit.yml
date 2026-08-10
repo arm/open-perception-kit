@@ -134,8 +134,9 @@ jobs:
         run: |
           tools_dir="${RUNNER_TEMP}/pek-ci-image-tools-${GITHUB_RUN_ID}-${GITHUB_JOB}"
           gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" \
-            --name pek-ci-image-metadata --dir "$tools_dir"
-          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" pek-ci
+            --name pek-ci-image --dir "$tools_dir"
+          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" \
+            --archive "$tools_dir/pek-ci-image.tar" pek-ci
 
       - name: Resolve built image reference
         id: resolve-image
