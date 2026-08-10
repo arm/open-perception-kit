@@ -53,7 +53,8 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  CCACHE_SCHEMA_VERSION: v1
+  CCACHE_SCHEMA_VERSION: v2
+  CI_IMAGE_CACHE_KEY: pek-ci-image-${{ github.run_id }}-${{ github.run_attempt }}
 
 jobs:
   build-ci-image:
@@ -125,18 +126,6 @@ jobs:
           ref: ${{ github.event.inputs.valgrind_baseline_sha || steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
-      - name: Checkout CI workflow helpers
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-          path: workflow-helpers
-          persist-credentials: false
-          sparse-checkout: |
-            scripts/private/ci_image.py
-            scripts/private/github_api.py
-            scripts/testing/valgrind
-          sparse-checkout-cone-mode: false
-
       - name: Set image metadata
         id: context
         env:
@@ -155,23 +144,19 @@ jobs:
           if [ "$PR_CONTEXT" != "true" ]; then
             image_tag="${head_sha}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           fi
-          helper_root=workflow-helpers
-          if [ ! -f "$helper_root/scripts/private/ci_image.py" ]; then
-            helper_root=.
-          fi
-          tools_dir="${RUNNER_TEMP}/pek-ci-image-tools"
+          tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
           mkdir -p "$tools_dir/valgrind"
-          cp "$helper_root/scripts/private/ci_image.py" "$tools_dir/ci_image.py"
-          cp "$helper_root/scripts/private/github_api.py" "$tools_dir/github_api.py"
+          cp scripts/private/ci_image.py "$tools_dir/ci_image.py"
+          cp scripts/private/github_api.py "$tools_dir/github_api.py"
           cp \
-            "$helper_root/scripts/testing/valgrind/compare-valgrind-results.py" \
-            "$helper_root/scripts/testing/valgrind/summarize-valgrind-output.py" \
-            "$helper_root/scripts/testing/valgrind/suppressed-warnings" \
-            "$helper_root/scripts/testing/valgrind/test-elements-with-valgrind.sh" \
-            "$helper_root/scripts/testing/valgrind/test_compare_valgrind_results.py" \
-            "$helper_root/scripts/testing/valgrind/test_summarize_valgrind_output.py" \
-            "$helper_root/scripts/testing/valgrind/test_valgrind_baseline_artifact.py" \
-            "$helper_root/scripts/testing/valgrind/valgrind-baseline-artifact.py" \
+            scripts/testing/valgrind/compare-valgrind-results.py \
+            scripts/testing/valgrind/summarize-valgrind-output.py \
+            scripts/testing/valgrind/suppressed-warnings \
+            scripts/testing/valgrind/test-elements-with-valgrind.sh \
+            scripts/testing/valgrind/test_compare_valgrind_results.py \
+            scripts/testing/valgrind/test_summarize_valgrind_output.py \
+            scripts/testing/valgrind/test_valgrind_baseline_artifact.py \
+            scripts/testing/valgrind/valgrind-baseline-artifact.py \
             "$tools_dir/valgrind/"
           {
             printf 'base_ref=%s\n' "$BASE_REF"
@@ -208,18 +193,25 @@ jobs:
             org.opencontainers.image.revision=${{ steps.context.outputs.head_sha }}
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.version=${{ steps.context.outputs.image_tag }}
-          outputs: type=docker,dest=${{ runner.temp }}/pek-ci-image-tools/pek-ci-image.tar
+          outputs: type=docker,dest=${{ github.workspace }}/.cache/pek-ci-image/pek-ci-image.tar
           provenance: false
           pull: true
           push: false
           tags: ghcr.io/arm-debug/amp-dev-forge-ci:${{ steps.context.outputs.image_tag }}
           target: pek-ci
 
-      - name: Upload CI image
+      - name: Share Docker image
+        uses: actions/cache/save@v6
+        with:
+          path: .cache/pek-ci-image
+          key: ${{ env.CI_IMAGE_CACHE_KEY }}
+
+      - name: Upload trusted CI image
+        if: ${{ github.event_name != 'pull_request' }}
         uses: actions/upload-artifact@v7
         with:
           name: pek-ci-image
-          path: ${{ runner.temp }}/pek-ci-image-tools
+          path: .cache/pek-ci-image
           compression-level: 0
           retention-days: 1
 
@@ -272,7 +264,6 @@ jobs:
     permissions:
       actions: read
       contents: read
-      packages: read
     uses: ./.github/workflows/docker-scout-image-audit.yml
     with:
       ci_image_sha: ${{ needs.build-ci-image.outputs.head_sha }}
@@ -622,7 +613,6 @@ jobs:
     permissions:
       actions: read
       contents: read
-      packages: read
     env:
       python_ver: "3.12.1"
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
@@ -630,10 +620,12 @@ jobs:
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CCACHE_PATH: ${{ github.workspace }}/.cache/ccache-quality
     steps:
-      - name: Require shared CI image
+      - name: Prepare CI prerequisites
         env:
           IMAGE_JOB_RESULT: ${{ needs.build-ci-image.result }}
-        run: test "$IMAGE_JOB_RESULT" = success
+        run: |
+          test "$IMAGE_JOB_RESULT" = success
+          install -d -m 0777 "$CCACHE_PATH"
 
       - name: Checkout
         uses: actions/checkout@v7
@@ -671,23 +663,20 @@ jobs:
           restore-keys: |
             pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-quality-
 
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v4
+      - name: Restore Docker image
+        uses: actions/cache/restore@v6
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
+          path: .cache/pek-ci-image
+          key: ${{ env.CI_IMAGE_CACHE_KEY }}
+          fail-on-cache-miss: true
 
-      - name: Prepare shared CI image
+      - name: Load Docker image
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
           CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
           CI_IMAGE_TAG: ${{ needs.build-ci-image.outputs.image_tag }}
-          GH_TOKEN: ${{ github.token }}
         run: |
-          tools_dir="${RUNNER_TEMP}/pek-ci-image-tools-${GITHUB_RUN_ID}-${GITHUB_JOB}"
-          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" \
-            --name pek-ci-image --dir "$tools_dir"
+          tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
           python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" \
             --archive "$tools_dir/pek-ci-image.tar" \
             pek-quality-check-full \
@@ -807,17 +796,18 @@ jobs:
     permissions:
       actions: read
       contents: read
-      packages: read
     env:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CCACHE_PATH: ${{ github.workspace }}/.cache/ccache-sonar
     steps:
-      - name: Require shared CI image
+      - name: Prepare CI prerequisites
         env:
           IMAGE_JOB_RESULT: ${{ needs.build-ci-image.result }}
-        run: test "$IMAGE_JOB_RESULT" = success
+        run: |
+          test "$IMAGE_JOB_RESULT" = success
+          install -d -m 0777 "$CCACHE_PATH"
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
@@ -846,23 +836,20 @@ jobs:
         shell: bash
         run: echo "WORKSPACE_ROOT=${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}" >> "$GITHUB_ENV"
 
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v4
+      - name: Restore Docker image
+        uses: actions/cache/restore@v6
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
+          path: .cache/pek-ci-image
+          key: ${{ env.CI_IMAGE_CACHE_KEY }}
+          fail-on-cache-miss: true
 
-      - name: Prepare shared CI image
+      - name: Load Docker image
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
           CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
           CI_IMAGE_TAG: ${{ needs.build-ci-image.outputs.image_tag }}
-          GH_TOKEN: ${{ github.token }}
         run: |
-          tools_dir="${RUNNER_TEMP}/pek-ci-image-tools-${GITHUB_RUN_ID}-${GITHUB_JOB}"
-          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" \
-            --name pek-ci-image --dir "$tools_dir"
+          tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
           python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" \
             --archive "$tools_dir/pek-ci-image.tar" pek-sonar-check
 
@@ -965,7 +952,6 @@ jobs:
     permissions:
       actions: read
       contents: read
-      packages: read
     env:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
@@ -980,6 +966,11 @@ jobs:
           ref: ${{ needs.build-ci-image.outputs.head_sha }}
           path: ${{ env.CI_CHECKOUT_PATH }}
 
+      - name: Prepare CI workspace
+        run: |
+          echo "WORKSPACE_ROOT=${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}" >> "$GITHUB_ENV"
+          install -d -m 0777 "$CCACHE_PATH"
+
       - name: Restore compiler cache
         id: compiler-cache
         uses: actions/cache/restore@v6
@@ -989,26 +980,20 @@ jobs:
           restore-keys: |
             pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-sonar-
 
-      - name: Export isolated workspace root
-        run: echo "WORKSPACE_ROOT=${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}" >> "$GITHUB_ENV"
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v4
+      - name: Restore Docker image
+        uses: actions/cache/restore@v6
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
+          path: .cache/pek-ci-image
+          key: ${{ env.CI_IMAGE_CACHE_KEY }}
+          fail-on-cache-miss: true
 
-      - name: Prepare shared CI image
+      - name: Load Docker image
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
           CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
           CI_IMAGE_TAG: ${{ needs.build-ci-image.outputs.image_tag }}
-          GH_TOKEN: ${{ github.token }}
         run: |
-          tools_dir="${RUNNER_TEMP}/pek-ci-image-tools-${GITHUB_RUN_ID}-${GITHUB_JOB}"
-          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" \
-            --name pek-ci-image --dir "$tools_dir"
+          tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
           python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" \
             --archive "$tools_dir/pek-ci-image.tar" \
             pek-sonar-check-release
@@ -1093,10 +1078,12 @@ jobs:
       VALGRIND_BASELINE_WORKFLOW: pek-ci.yml
       CCACHE_PATH: ${{ github.workspace }}/.cache/ccache
     steps:
-      - name: Require shared CI image
+      - name: Prepare CI prerequisites
         env:
           IMAGE_JOB_RESULT: ${{ needs.build-ci-image.result }}
-        run: test "$IMAGE_JOB_RESULT" = success
+        run: |
+          test "$IMAGE_JOB_RESULT" = success
+          install -d -m 0777 "$CCACHE_PATH"
 
       - uses: actions/checkout@v7
         with:
@@ -1119,13 +1106,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
+      - name: Restore Docker image
+        uses: actions/cache/restore@v6
+        with:
+          path: .cache/pek-ci-image
+          key: ${{ env.CI_IMAGE_CACHE_KEY }}
+          fail-on-cache-miss: true
+
       - name: Run Valgrind Python unit tests
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          tools_dir="${RUNNER_TEMP}/pek-ci-image-tools-${GITHUB_RUN_ID}-${GITHUB_JOB}"
-          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" \
-            --name pek-ci-image --dir "$tools_dir"
+          tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
           echo "CI_IMAGE_TOOLS=$tools_dir" >> "$GITHUB_ENV"
           cd "$tools_dir/valgrind"
           python3 -m unittest \
@@ -1170,7 +1160,7 @@ jobs:
           echo "Missing Valgrind baseline in GHCR and no automatic publisher is available." >&2
           exit 1
 
-      - name: Prepare shared CI image
+      - name: Load Docker image
         env:
           CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
           CI_IMAGE_TAG: ${{ needs.build-ci-image.outputs.image_tag }}

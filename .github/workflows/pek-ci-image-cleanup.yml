@@ -12,6 +12,24 @@ permissions:
   contents: read
 
 jobs:
+  cleanup-run-cache:
+    name: Delete CI image cache
+    if: ${{ github.event_name == 'workflow_run' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Delete run-scoped cache
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CACHE_KEY: pek-ci-image-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+        run: |
+          cache_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/caches?key=${CACHE_KEY}" --jq '.actions_caches[0].id // empty')"
+          if [ -n "$cache_id" ]; then
+            gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/caches/${cache_id}"
+          fi
+
   cleanup-pr-image:
     name: Delete superseded PR CI image
     if: >-

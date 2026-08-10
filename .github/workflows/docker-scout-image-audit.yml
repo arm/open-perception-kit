@@ -27,7 +27,9 @@ on:
 permissions:
   actions: read
   contents: read
-  packages: read
+
+env:
+  CI_IMAGE_CACHE_KEY: pek-ci-image-${{ github.run_id }}-${{ github.run_attempt }}
 
 jobs:
   docker-scout:
@@ -109,14 +111,6 @@ jobs:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
 
-      - name: Log in to GitHub Container Registry
-        if: matrix.image.service == 'pek-ci' && inputs.ci_image_sha != ''
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
-
       - name: Build docker image
         if: matrix.image.service != 'pek-ci' || inputs.ci_image_sha == ''
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -124,17 +118,22 @@ jobs:
           HF_TOKEN: ${{ contains(fromJSON('["pek-deployment-base","pek-dev"]'), matrix.image.service) && secrets.HF_TOKEN || '' }}
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build ${{ matrix.image.service }}
 
-      - name: Prepare shared CI image
+      - name: Restore Docker image
+        if: matrix.image.service == 'pek-ci' && inputs.ci_image_sha != ''
+        uses: actions/cache/restore@v6
+        with:
+          path: .cache/pek-ci-image
+          key: ${{ env.CI_IMAGE_CACHE_KEY }}
+          fail-on-cache-miss: true
+
+      - name: Load Docker image
         if: matrix.image.service == 'pek-ci' && inputs.ci_image_sha != ''
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
           CI_IMAGE_SHA: ${{ inputs.ci_image_sha }}
           CI_IMAGE_TAG: ${{ inputs.ci_image_tag }}
-          GH_TOKEN: ${{ github.token }}
         run: |
-          tools_dir="${RUNNER_TEMP}/pek-ci-image-tools-${GITHUB_RUN_ID}-${GITHUB_JOB}"
-          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" \
-            --name pek-ci-image --dir "$tools_dir"
+          tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
           python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" --tag "$CI_IMAGE_TAG" \
             --archive "$tools_dir/pek-ci-image.tar" pek-ci
 
