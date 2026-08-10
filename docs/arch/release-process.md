@@ -59,7 +59,7 @@ Credentialed publication probes run only after the unprivileged pull-request
 workflow succeeds. The trusted `workflow_run` workflow does not check out or
 execute pull-request code; it accepts only the two smoke-tested architecture
 archives. It uploads them with Publisher below
-`ci/pr-<number>/<commit>/<run>-<attempt>/`, verifies and always deletes that
+`ci/run-<source-run-id>-<attempt>/<commit>/`, verifies and always deletes that
 folder. It also creates a draft prerelease titled
 `[TEST ONLY - DO NOT USE]`, uploads and verifies both assets, then always
 deletes the release and tag. The workflow reports a
