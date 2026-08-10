@@ -117,19 +117,6 @@ static void gst_pekinfer_reset_qos(GstPekInfer *self) {
     GST_OBJECT_UNLOCK(self);
 }
 
-static std::optional<fs::path> parent_dir_name(const fs::path &p) {
-    if (!p.has_filename()) {
-        return std::nullopt;
-    }
-
-    fs::path parent = p.parent_path();
-    if (parent.empty()) {
-        return std::nullopt;
-    }
-
-    return parent.filename();
-}
-
 static bool gst_pekinfer_is_yuv_format(GstVideoFormat format) {
     return format == GST_VIDEO_FORMAT_I420 || format == GST_VIDEO_FORMAT_NV12 ||
            format == GST_VIDEO_FORMAT_YUY2;
