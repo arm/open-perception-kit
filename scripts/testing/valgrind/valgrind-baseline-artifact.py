@@ -5,6 +5,7 @@
 """Store exact-SHA Valgrind summaries in GHCR."""
 
 import argparse
+import base64
 import hashlib
 import json
 import os
@@ -15,6 +16,9 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from pathlib import Path
 
 
@@ -26,6 +30,7 @@ WORKFLOW_NAME = os.environ.get("VALGRIND_BASELINE_WORKFLOW", "pek-ci.yml")
 WORKFLOW_REF = os.environ.get("VALGRIND_BASELINE_WORKFLOW_REF", "develop")
 PACKAGE = f"{REPOSITORY_NAME.lower()}-valgrind-baseline"
 IMAGE = f"ghcr.io/{OWNER.lower()}/{PACKAGE}"
+REGISTRY_REPOSITORY = f"{OWNER.lower()}/{PACKAGE}"
 SUMMARY_NAME = "valgrind-error-summary.xml"
 
 
@@ -110,17 +115,33 @@ def summary_digest(path: Path) -> str:
 
 def commit_tags(sha: str) -> list[str]:
     prefix = f"v2-sha-{sha}-"
-    try:
-        tags = gh(
-            "api",
-            "--paginate",
-            f"/orgs/{OWNER}/packages/container/{PACKAGE}/versions?per_page=100",
-            "--jq",
-            ".[].metadata.container.tags[]?",
-        )
-    except subprocess.CalledProcessError:
-        return []
-    return sorted(tag for tag in tags.splitlines() if tag.startswith(prefix))
+    actor = os.environ.get("GITHUB_ACTOR") or gh("api", "user", "--jq", ".login")
+    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN") or gh("auth", "token")
+    credentials = base64.b64encode(f"{actor}:{token}".encode()).decode()
+    query = urllib.parse.urlencode(
+        {"service": "ghcr.io", "scope": f"repository:{REGISTRY_REPOSITORY}:pull"}
+    )
+    request = urllib.request.Request(f"https://ghcr.io/token?{query}")
+    request.add_header("Authorization", f"Basic {credentials}")
+    with urllib.request.urlopen(request, timeout=30) as response:
+        registry_token = json.load(response)["token"]
+
+    tags = []
+    url = f"https://ghcr.io/v2/{REGISTRY_REPOSITORY}/tags/list?n=100"
+    while url:
+        request = urllib.request.Request(url)
+        request.add_header("Authorization", f"Bearer {registry_token}")
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                tags.extend(json.load(response).get("tags") or [])
+                link = response.headers.get("Link", "")
+        except urllib.error.HTTPError as error:
+            if error.code == 404:
+                return []
+            raise
+        next_page = re.search(r'<([^>]+)>;\s*rel="next"', link)
+        url = urllib.parse.urljoin(url, next_page.group(1)) if next_page else ""
+    return sorted(tag for tag in tags if tag.startswith(prefix))
 
 
 def download_baseline(sha: str, output_dir: Path, *, quiet: bool = False) -> int:

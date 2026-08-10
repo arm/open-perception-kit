@@ -8,6 +8,7 @@ import os
 import subprocess
 import tempfile
 import unittest
+import urllib.error
 from pathlib import Path
 from unittest import mock
 
@@ -55,7 +56,7 @@ class TestValgrindBaselineArtifact(unittest.TestCase):
                     Path(args[2]).write_bytes(content)
                 return ""
 
-            with mock.patch.object(self.helper, "gh", return_value=tag), \
+            with mock.patch.object(self.helper, "commit_tags", return_value=[tag]), \
                     mock.patch.object(self.helper, "docker", side_effect=docker) as run:
                 code = self.helper.download_baseline(BASE_SHA, output)
 
@@ -64,14 +65,12 @@ class TestValgrindBaselineArtifact(unittest.TestCase):
             self.assertEqual(run.call_args_list[-1], mock.call("rm", "-f", "container-id"))
 
     def test_ambiguous_sha_does_not_pull(self):
-        tags = "\n".join(
-            [
-                f"v2-sha-{BASE_SHA}-{'1' * 64}",
-                f"v2-sha-{BASE_SHA}-{'2' * 64}",
-            ]
-        )
+        tags = [
+            f"v2-sha-{BASE_SHA}-{'1' * 64}",
+            f"v2-sha-{BASE_SHA}-{'2' * 64}",
+        ]
         with tempfile.TemporaryDirectory() as tmpdir, \
-                mock.patch.object(self.helper, "gh", return_value=tags), \
+                mock.patch.object(self.helper, "commit_tags", return_value=tags), \
                 mock.patch.object(self.helper, "docker") as docker:
             code = self.helper.download_baseline(BASE_SHA, Path(tmpdir))
 
@@ -83,7 +82,7 @@ class TestValgrindBaselineArtifact(unittest.TestCase):
             summary = Path(tmpdir) / self.helper.SUMMARY_NAME
             self.summary(summary)
             tag = f"v2-sha-{BASE_SHA}-{self.helper.summary_digest(summary)}"
-            with mock.patch.object(self.helper, "gh", return_value=tag), \
+            with mock.patch.object(self.helper, "commit_tags", return_value=[tag]), \
                     mock.patch.object(self.helper, "docker") as docker:
                 code = self.helper.upload_baseline(BASE_SHA, summary)
 
@@ -96,8 +95,8 @@ class TestValgrindBaselineArtifact(unittest.TestCase):
             self.summary(summary)
             with mock.patch.object(
                 self.helper,
-                "gh",
-                return_value=f"v2-sha-{BASE_SHA}-{'1' * 64}",
+                "commit_tags",
+                return_value=[f"v2-sha-{BASE_SHA}-{'1' * 64}"],
             ):
                 with self.assertRaisesRegex(RuntimeError, "Conflicting"):
                     self.helper.upload_baseline(BASE_SHA, summary)
@@ -116,13 +115,61 @@ class TestValgrindBaselineArtifact(unittest.TestCase):
                         raise subprocess.CalledProcessError(1, args)
                 return ""
 
-            with mock.patch.object(self.helper, "gh", return_value=""), \
+            with mock.patch.object(self.helper, "commit_tags", return_value=[]), \
                     mock.patch.object(self.helper, "docker", side_effect=docker), \
                     mock.patch.object(self.helper.time, "sleep"):
                 code = self.helper.upload_baseline(BASE_SHA, summary)
 
         self.assertEqual(code, 0)
         self.assertEqual(pushes, 2)
+
+    def test_commit_tags_uses_registry_pull_credentials(self):
+        digest_tag = f"v2-sha-{BASE_SHA}-{'1' * 64}"
+        responses = [
+            mock.MagicMock(
+                __enter__=lambda response: response,
+                __exit__=mock.Mock(return_value=False),
+                read=mock.Mock(return_value=b'{"token":"registry-token"}'),
+            ),
+            mock.MagicMock(
+                __enter__=lambda response: response,
+                __exit__=mock.Mock(return_value=False),
+                read=mock.Mock(return_value=(f'{{"tags":["other","{digest_tag}"]}}').encode()),
+                headers={},
+            ),
+        ]
+        with mock.patch.dict(
+            os.environ,
+            {"GITHUB_ACTOR": "ci-user", "GH_TOKEN": "ci-token"},
+        ), mock.patch.object(
+            self.helper.urllib.request,
+            "urlopen",
+            side_effect=responses,
+        ) as urlopen:
+            tags = self.helper.commit_tags(BASE_SHA)
+
+        self.assertEqual(tags, [digest_tag])
+        self.assertEqual(urlopen.call_count, 2)
+        self.assertTrue(
+            urlopen.call_args_list[1].args[0].get_header("Authorization").startswith("Bearer ")
+        )
+
+    def test_commit_tags_treats_missing_registry_package_as_empty(self):
+        token_response = mock.MagicMock(
+            __enter__=lambda response: response,
+            __exit__=mock.Mock(return_value=False),
+            read=mock.Mock(return_value=b'{"token":"registry-token"}'),
+        )
+        missing = urllib.error.HTTPError("url", 404, "missing", {}, None)
+        with mock.patch.dict(
+            os.environ,
+            {"GITHUB_ACTOR": "ci-user", "GH_TOKEN": "ci-token"},
+        ), mock.patch.object(
+            self.helper.urllib.request,
+            "urlopen",
+            side_effect=[token_response, missing],
+        ):
+            self.assertEqual(self.helper.commit_tags(BASE_SHA), [])
 
     def test_digest_ignores_non_repository_errors(self):
         with tempfile.TemporaryDirectory() as tmpdir:
