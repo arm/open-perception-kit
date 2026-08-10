@@ -1,6 +1,0 @@
-# Copyright (C) 2026 Arm Limited. All rights reserved.
-
-FROM scratch
-
-LABEL org.opencontainers.image.description="Retention anchor for disposable PEK CI images"
-LABEL org.opencontainers.image.title="PEK CI image retention anchor"

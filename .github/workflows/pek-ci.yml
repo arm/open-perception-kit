@@ -586,7 +586,7 @@ jobs:
     needs: build-ci-image
     runs-on: ubuntu-latest
     if: |
-      success() &&
+      !cancelled() &&
       (
         github.event_name == 'schedule' ||
         (github.event_name == 'workflow_dispatch' && contains(fromJSON('["all","quality"]'), inputs.checks)) ||
@@ -620,7 +620,9 @@ jobs:
       - name: Load PEK CI image
         env:
           CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
+          IMAGE_JOB_RESULT: ${{ needs.build-ci-image.result }}
         run: |
+          test "$IMAGE_JOB_RESULT" = success
           tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
           python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
             --archive "$tools_dir/pek-ci-image.tar" \
@@ -765,7 +767,7 @@ jobs:
     needs: build-ci-image
     runs-on: self-hosted-ubuntu-latest-x64
     if: |
-      success() &&
+      !cancelled() &&
       (
         (github.event_name == 'push' && github.ref_type == 'branch') ||
         (github.event_name == 'workflow_dispatch' && contains(fromJSON('["all","sonar"]'), inputs.checks)) ||
@@ -798,7 +800,9 @@ jobs:
       - name: Load PEK CI image
         env:
           CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
+          IMAGE_JOB_RESULT: ${{ needs.build-ci-image.result }}
         run: |
+          test "$IMAGE_JOB_RESULT" = success
           tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
           python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
             --archive "$tools_dir/pek-ci-image.tar" pek-sonar-check
@@ -1017,7 +1021,7 @@ jobs:
       run:
         working-directory: ./valgrind-source
     if: |
-      success() &&
+      !cancelled() &&
       (
         github.event_name == 'schedule' ||
         (github.event_name == 'push' && github.ref_type == 'branch') ||
@@ -1053,7 +1057,9 @@ jobs:
         working-directory: ${{ github.workspace }}
         env:
           CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
+          IMAGE_JOB_RESULT: ${{ needs.build-ci-image.result }}
         run: |
+          test "$IMAGE_JOB_RESULT" = success
           tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
           echo "CI_IMAGE_TOOLS=$tools_dir" >> "$GITHUB_ENV"
           python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
