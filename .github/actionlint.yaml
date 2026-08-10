@@ -6,8 +6,3 @@ self-hosted-runner:
     - self-hosted-macos-arm64-latest
     - amp-dev-forge-runner-ubuntu-x64
     - amp-dev-forge-runner-rpi5
-paths:
-  .github/workflows/pek-ci-image-cleanup.yml:
-    # GitHub supports concurrency.queue before actionlint v1.7.12.
-    ignore:
-      - 'unexpected key "queue" for "concurrency" section'
