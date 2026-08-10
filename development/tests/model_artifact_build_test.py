@@ -141,6 +141,13 @@ class ModelArtifactBuildTest(unittest.TestCase):
             self.assertEqual(rules, expected)
 
     def test_release_workflows_resolve_models_once(self) -> None:
+        build_package = (
+            REPO_ROOT / "scripts/release/BuildPackage.sh"
+        ).read_text()
+        self.assertLess(
+            build_package.index('"$BuildRoot/meson-out/pek-config-check"'),
+            build_package.index('ReleaseTool.py" stage-models'),
+        )
         for workflow_name in ("release-tests.yml", "release-packages.yml"):
             workflow = (
                 REPO_ROOT / ".github/workflows" / workflow_name

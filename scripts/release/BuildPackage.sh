@@ -59,6 +59,7 @@ PEK_ONNXRUNTIME_ROOT="$OnnxRoot" \
     -Dhailort=disabled \
     -Dncnn=disabled
 meson compile -C "$BuildRoot"
+"$BuildRoot/meson-out/pek-config-check" --root "$RepoRoot"
 DESTDIR="$PackageRoot" meson install -C "$BuildRoot" --skip-subprojects
 
 mkdir -p "$PackageRoot/lib/pek" "$PackageRoot/share/pek/licenses"
