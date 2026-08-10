@@ -67,7 +67,7 @@ sources:
 | Variables | Set or referenced in |
 | --- | --- |
 | `ONNXRUNTIME_VERSION` | Defaulted in `Dockerfile`; read and passed explicitly by both release workflows |
-| `HF_TOKEN` | Temporary read-only repository secret; exposed only to each workflow's model-resolution step while checked-in models require authentication |
+| `HF_TOKEN` | Read-only repository secret; exposed only to each workflow's model-resolution step while checked-in models require authentication |
 
 `Dockerfile` remains the version authority; release workflows use the value
 from the selected source.
@@ -84,20 +84,19 @@ cannot manually dispatch a new workflow before it exists on the default branch.
 
 `HF_TOKEN` must be a dedicated, read-only CI credential rather than a
 developer's personal token. Its use in same-repository workflows is an accepted
-temporary trust boundary: everyone who can push a branch and trigger those
-workflows is assumed to be authorized for the same model-read access. Fork pull
-requests do not receive it. Workflows must keep it in the model-resolution or
-model-image build step, pass it to container builds only as a BuildKit secret,
-and never expose it to package builds, published artifacts, or runtime
-containers.
+trust boundary while this repository and required model sources remain private:
+everyone who can push a branch and trigger those workflows is assumed to be
+authorized for the same model-read access. Fork pull requests do not receive
+it. Workflows must keep it in the model-resolution or model-image build step,
+pass it to container builds only as a BuildKit secret, and never expose it to
+package builds, published artifacts, or runtime containers.
 
 `Arm/*` values in `hfDownload.repo_id` identify Hugging Face Hub model
 repositories, not Git submodules. Private Git submodules use separate read-only
 deploy keys such as `DEPLOY_KEY_FLOWDATA_SDK`; that authentication path is
 unrelated to `HF_TOKEN`.
 
-This CI credential is a pre-release bridge only. Before the first public
-release:
+Before making the repository or its release pipeline public:
 
 - make every checked-in `hfDownload` source anonymously readable;
 - remove every `${{ secrets.HF_TOKEN }}` reference from repository workflows;
@@ -106,7 +105,7 @@ release:
   unset.
 
 Optional local BuildKit-secret support remains available for developers who add
-their own private or gated models; it is not a release credential dependency.
+their own private or gated models.
 
 The Artifactory job checks out the shared `Arm-Debug/publisher` package at the
 exact commit pinned in `release-packages.yml`, then installs it from the

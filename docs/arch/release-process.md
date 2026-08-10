@@ -19,6 +19,12 @@ builds as a short-lived Actions artifact. Both packages include exactly
 `cam-contact`, `gaze-detection`, `osnet_x0_25`, `ultraface`, `yolo26`, and
 `yolov11`. All six use ONNX Runtime.
 
+The dedicated read-only `HF_TOKEN` is an accepted release-CI dependency while
+this repository and required model sources remain private. It is confined to
+model resolution and is not passed to package builds or included in release
+artifacts. A future public transition requires anonymously readable model
+sources and removal of the workflow secret references.
+
 Dependency preparation reuses the selected source's ONNX Runtime installer.
 This keeps manual builds aligned with the source revision being packaged.
 It deliberately does not reuse `deps/` or a development-container filesystem:
