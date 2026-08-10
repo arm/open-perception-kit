@@ -81,7 +81,7 @@ TEST(ConfigValidator, RepositoryRejectsEmptyModelVariant) {
     EXPECT_FALSE(hasRule(report, "dispatch.version"));
 }
 
-TEST(ConfigValidator, RepositoryAcceptsPaddleRecognitionDescriptorVariant) {
+TEST(ConfigValidator, RepositoryLoadsPaddleRecognitionWithOnnxCompatibleInput) {
     const auto path = std::filesystem::path(PEK_REPOSITORY_ROOT) /
                       "config/models/paddleocr/model-recognition.json";
     std::ifstream input(path);
@@ -90,7 +90,9 @@ TEST(ConfigValidator, RepositoryAcceptsPaddleRecognitionDescriptorVariant) {
 
     const auto descriptor = pek::config::validateModelJson(content.str(), path.string());
 
-    EXPECT_TRUE(descriptor) << (descriptor ? "" : descriptor.error().toText());
+    ASSERT_TRUE(descriptor) << (descriptor ? "" : descriptor.error().toText());
+    ASSERT_EQ(descriptor->inputTensors.size(), 1U);
+    EXPECT_EQ(descriptor->inputTensors.front().shape, pek::Shape(1, 3, 48, 640));
 }
 
 TEST(ConfigValidator, CheckedInRepositoryIsValidAndCanonicalRoundTrips) {
