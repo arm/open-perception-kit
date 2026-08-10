@@ -591,7 +591,7 @@ jobs:
     needs: build-ci-image
     runs-on: ubuntu-latest
     if: |
-      always() &&
+      !cancelled() &&
       (
         github.event_name == 'schedule' ||
         (github.event_name == 'workflow_dispatch' && contains(fromJSON('["all","quality"]'), inputs.checks)) ||
@@ -629,6 +629,7 @@ jobs:
           fetch-tags: true
           ref: ${{ needs.build-ci-image.outputs.head_sha }}
           path: ${{ env.CI_CHECKOUT_PATH }}
+          persist-credentials: false
 
       - name: Attach validated PR head branch
         if: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '') }}
@@ -774,7 +775,7 @@ jobs:
     needs: build-ci-image
     runs-on: self-hosted-ubuntu-latest-x64
     if: |
-      always() &&
+      !cancelled() &&
       (
         (github.event_name == 'workflow_dispatch' && contains(fromJSON('["all","sonar"]'), inputs.checks)) ||
         (
@@ -816,6 +817,7 @@ jobs:
           fetch-tags: true
           ref: ${{ needs.build-ci-image.outputs.head_sha }}
           path: ${{ env.CI_CHECKOUT_PATH }}
+          persist-credentials: false
 
       - name: Restore compiler cache
         id: compiler-cache
@@ -958,6 +960,7 @@ jobs:
           fetch-tags: true
           ref: ${{ needs.build-ci-image.outputs.head_sha }}
           path: ${{ env.CI_CHECKOUT_PATH }}
+          persist-credentials: false
 
       - name: Prepare CI workspace
         run: |
@@ -1045,7 +1048,7 @@ jobs:
     needs: build-ci-image
     runs-on: ubuntu-latest
     if: |
-      always() &&
+      !cancelled() &&
       (
         github.event_name == 'schedule' ||
         (github.event_name == 'push' && github.ref_type == 'branch') ||
@@ -1082,6 +1085,7 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
           ref: ${{ needs.build-ci-image.outputs.head_sha }}
+          persist-credentials: false
 
       - name: Restore compiler cache
         uses: actions/cache@v6
