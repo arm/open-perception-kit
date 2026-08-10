@@ -76,12 +76,6 @@
   behavior, and authored-versus-resolved path handling.
 - [ ] 5.4 Make `AttributeMap` float/double getters accept JSON integer or double values and make
   `OrDefault` return a default only for an absent key, never a present type mismatch.
-- [x] 5.5 Define the three post-v1 descriptor-evolution classifications and record this change as
-  the initial v1 baseline.
-- [ ] 5.6 Add the non-blocking `--descriptor-evolution-advice` invocation to existing pre-commit and
-  CI presets using their already-resolved scope, emitting one record without changing exit status
-  or adding another hook, scan, module, or framework.
-
 ## 6. Permanent verification
 
 - [x] 6.1 Keep one repository-native test that meta-validates every current v1 schema resource,

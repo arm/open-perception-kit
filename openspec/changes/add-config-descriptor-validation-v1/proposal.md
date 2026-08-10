@@ -37,12 +37,6 @@ first supported contract to reject invalid configuration before plugin or model-
   keeping reusable validators side-effect-free and text reports deterministic.
 - Update contributor documentation with minimal v1 descriptors and the validation boundary.
 
-## Descriptor Evolution Classification
-
-This change establishes the initial v1 baseline. The post-v1 advisory classifications therefore do
-not apply to this contract-introduction layer. After this baseline lands, descriptor-affecting pull
-requests must record exactly one of `no schema change`, `extend v1`, or `introduce v2`.
-
 ## Capabilities
 
 ### New Capabilities

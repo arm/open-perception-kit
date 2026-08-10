@@ -449,19 +449,6 @@ valid, 1 for validation failure, and 2 for invocation/internal failure.
 Help and successful reports SHALL be written to stdout; every failure SHALL be made visible before
 exit.
 
-The existing `expkits-ci` pre-commit and PR/full CI presets SHALL invoke
-`--descriptor-evolution-advice`. The advisory SHALL receive the preset's already-resolved file
-scope without performing another repository scan, emit exactly one record listing `no schema
-change`, `extend v1`, and `introduce v2`, and leave the preset exit status unchanged. After the
-initial v1 baseline is established, the owner of a descriptor-affecting pull request SHALL record
-one classification in that pull request or its active OpenSpec change:
-
-- `no schema change`: the accepted descriptor set and its validation meaning are unchanged;
-- `extend v1`: the v1 contract expands while every previously valid descriptor remains valid with
-  the same meaning;
-- `introduce v2`: a previously valid v1 descriptor can be rejected or reinterpreted, or requires
-  migration.
-
 #### Scenario: Complete supported repository
 - **WHEN** the CLI validates the supported checkout
 - **THEN** the live schema bundle and every discovered supported descriptor pass their applicable
@@ -480,16 +467,6 @@ one classification in that pull request or its active OpenSpec change:
 #### Scenario: Human-readable validation failure
 - **WHEN** repository validation fails
 - **THEN** the CLI emits the report once and exits 1
-
-#### Scenario: Evolution advice reuses preset scope
-- **WHEN** a pre-commit or CI preset resolves its file scope
-- **THEN** it passes that scope to one non-blocking descriptor-evolution advisory without another
-  repository scan
-
-#### Scenario: Post-v1 descriptor change is classified
-- **WHEN** a pull request changes the descriptor contract after the initial v1 baseline
-- **THEN** its owner records `no schema change`, `extend v1`, or `introduce v2` according to the
-  compatibility effect
 
 ### Requirement: Contributor documentation
 
