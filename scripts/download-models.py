@@ -101,6 +101,10 @@ def main(models_dir: Path, token: str | None) -> None:
             raise ValueError(
                 f"modelFile resolves outside its model directory: {descriptor}"
             )
+        if destination.exists() and not destination.is_file():
+            raise ValueError(
+                f"modelFile destination is not a file: {descriptor}"
+            )
         try:
             destination.parent.mkdir(parents=True, exist_ok=True)
         except OSError as error:

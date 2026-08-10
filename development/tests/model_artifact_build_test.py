@@ -441,6 +441,19 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
             self.assertNotIn("Traceback", destination_failure.stderr)
             self.assertFalse((root / "captured-token").exists())
 
+            (unsafe / "directory.onnx").mkdir()
+            unsafe_model["modelFile"] = "directory.onnx"
+            (unsafe / "model.json").write_text(json.dumps(unsafe_model))
+
+            destination_type_failure = run_download()
+            self.assertEqual(destination_type_failure.returncode, 1)
+            self.assertIn(
+                "modelFile destination is not a file",
+                destination_type_failure.stderr,
+            )
+            self.assertNotIn("Traceback", destination_type_failure.stderr)
+            self.assertFalse((root / "captured-token").exists())
+
             (unsafe / "model.json").write_text("{")
             json_failure = run_download()
             self.assertEqual(json_failure.returncode, 1)
