@@ -1025,15 +1025,19 @@ jobs:
     needs: build-ci-image
     runs-on: ubuntu-latest
     if: |
-      github.event_name == 'schedule' ||
-      (github.event_name == 'push' && github.ref_type == 'branch') ||
-      (github.event_name == 'workflow_dispatch' && contains(fromJSON('["all","valgrind"]'), inputs.checks)) ||
+      always() &&
       (
-        github.event_name == 'pull_request' &&
-        (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
+        github.event_name == 'schedule' ||
+        (github.event_name == 'push' && github.ref_type == 'branch') ||
+        (github.event_name == 'workflow_dispatch' && contains(fromJSON('["all","valgrind"]'), inputs.checks)) ||
         (
-          github.event.pull_request.draft == false ||
-          (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
+          (
+            github.event.pull_request.draft == false ||
+            (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
+          )
         )
       )
     permissions:
@@ -1046,6 +1050,11 @@ jobs:
       VALGRIND_BASELINE_WORKFLOW: pek-ci.yml
       CCACHE_PATH: ${{ github.workspace }}/.cache/ccache
     steps:
+      - name: Require shared CI image
+        env:
+          IMAGE_JOB_RESULT: ${{ needs.build-ci-image.result }}
+        run: test "$IMAGE_JOB_RESULT" = success
+
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
