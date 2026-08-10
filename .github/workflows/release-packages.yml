@@ -473,7 +473,10 @@ jobs:
           DOWNLOAD_BASE: https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci
           SUBDIR_PATH: ${{ github.event_name == 'workflow_dispatch' && format('{0}/{1}-{2}-{3}', github.event.inputs.build_label, needs.prepare.outputs.commit, github.run_id, github.run_attempt) || '' }}
           TIMEOUT_SECONDS: 300
-        run: uv run --project "$GITHUB_WORKSPACE/publisher" --frozen --offline python -m publisher.actions.publish_to_artifactory_action "pek-release-artifacts/*.tar.gz"
+        run: >-
+          "$GITHUB_WORKSPACE/publisher/.venv/bin/python"
+          -m publisher.actions.publish_to_artifactory_action
+          "pek-release-artifacts/*.tar.gz"
 
       # This step is only here to make the created package easier to access
       - name: Print links and hashes
