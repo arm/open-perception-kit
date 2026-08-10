@@ -14,7 +14,8 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Builds one exact-SHA PEK CI image, shares it within the workflow run, then runs
   Quality, Sonar, release Sonar, Valgrind, and the `pek-ci` Docker Scout scan
   from that image.
-- Stores the PR image for the trusted GHCR publisher in parallel with validation.
+- Uploads the PR image for the trusted GHCR publisher in the same build job, so
+  every consumer waits for one complete image handoff.
 - Reuses Docker layers through the ref-scoped cache flow below.
 - Starts the Linux, Raspberry Pi, and macOS quick-start checks independently
   because they build their own platform images.
@@ -109,9 +110,6 @@ cache, the same PR Sonar job reran in [8:30](https://github.com/Arm-Debug/amp-de
 the analysis step fell from 11:46 to 6:07, with 54/96 CFamily cache hits and an
 81% symbolic-execution hit rate. The same-head CI image-to-Sonar path is 9:50,
 12:08 (55.2%) shorter than the artifact baseline.
-
-Storing the PR image for trusted publication adds [0:38](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31387622127/job/93452334704)
-in parallel and does not block Quality, Sonar, or Valgrind.
 
 ## What does `.github/workflows/release-tests.yml` do?
 

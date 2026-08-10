@@ -188,22 +188,8 @@ jobs:
           path: .cache/pek-ci-image
           key: ${{ env.CI_IMAGE_CACHE_KEY }}
 
-  store-pr-image:
-    name: Store PEK CI PR image
-    needs: build-ci-image
-    if: ${{ github.event_name == 'pull_request' }}
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-    steps:
-      - name: Restore PEK CI image
-        uses: actions/cache/restore@v6
-        with:
-          path: .cache/pek-ci-image
-          key: ${{ env.CI_IMAGE_CACHE_KEY }}
-          fail-on-cache-miss: true
-
-      - name: Store PEK CI image for publishing
+      - name: Upload PEK CI image for publishing
+        if: ${{ github.event_name == 'pull_request' }}
         uses: actions/upload-artifact@v7
         with:
           name: pek-ci-image
