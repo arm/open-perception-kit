@@ -81,10 +81,17 @@ class GithubPrContextTests(unittest.TestCase):
         self.assertEqual(context["base_ref"], "feature/parent")
 
     def test_resolve_pr_context_applies_explicit_manual_overrides(self):
-        with mock.patch.object(
-            github_pr_context,
-            "read_pr_details",
-            return_value=self.pr_details(),
+        with (
+            mock.patch.object(
+                github_pr_context,
+                "read_pr_details",
+                return_value=self.pr_details(),
+            ),
+            mock.patch.object(
+                github_pr_context,
+                "github_api_json",
+                return_value={"sha": "decafbad"},
+            ) as github_api_json,
         ):
             context = github_pr_context.resolve_pr_context(
                 pr_number="101",
@@ -99,10 +106,13 @@ class GithubPrContextTests(unittest.TestCase):
             {
                 "pr_number": "101",
                 "base_ref": "release/next",
-                "base_sha": "cafebabe",
+                "base_sha": "decafbad",
                 "head_ref": "repair/pr-sample",
                 "head_sha": "feedface",
             },
+        )
+        github_api_json.assert_called_once_with(
+            "repos/Arm-Debug/amp-dev-forge/commits/release%2Fnext"
         )
 
     def test_resolve_pr_context_prefers_a_head_ref_override_without_a_sha(self):

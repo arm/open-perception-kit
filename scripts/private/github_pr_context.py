@@ -8,8 +8,10 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
+import urllib.parse
 
 from github_actions import read_pr_details
+from github_api import github_api_json
 
 
 def write_outputs(values: dict[str, str], output_path: str | None = None) -> None:
@@ -25,6 +27,14 @@ def _required_ref(value: object, pr_number: str) -> str:
     if not isinstance(value, str) or not value:
         raise RuntimeError(f"Incomplete pull request refs for PR #{pr_number}.")
     return value
+
+
+def _resolve_ref_sha(repo: str, ref: str) -> str:
+    payload = github_api_json(f"repos/{repo}/commits/{urllib.parse.quote(ref, safe='')}")
+    sha = payload.get("sha") if isinstance(payload, dict) else None
+    if not isinstance(sha, str) or not sha:
+        raise RuntimeError(f"Unable to resolve base ref '{ref}'.")
+    return sha
 
 
 def _apply_manual_overrides(
@@ -68,12 +78,15 @@ def resolve_pr_context(
         "head_ref": _required_ref(details.get("head_branch"), pr_number),
         "head_sha": _required_ref(details.get("head_sha"), pr_number),
     }
-    return _apply_manual_overrides(
+    resolved = _apply_manual_overrides(
         context,
         base_ref_override=base_ref_override,
         head_ref_override=head_ref_override,
         head_sha_override=head_sha_override,
     )
+    if base_ref_override:
+        resolved["base_sha"] = _resolve_ref_sha(repo, resolved["base_ref"])
+    return resolved
 
 
 def build_parser() -> argparse.ArgumentParser:
