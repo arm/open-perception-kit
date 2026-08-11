@@ -1,0 +1,9 @@
+[wrap-file]
+directory = jsoncons-cb54cdc3134a62634466bf7bcd24f1a906f4ef25
+source_url = https://github.com/danielaparker/jsoncons/archive/cb54cdc3134a62634466bf7bcd24f1a906f4ef25.tar.gz
+source_filename = jsoncons-cb54cdc3134a62634466bf7bcd24f1a906f4ef25.tar.gz
+source_hash = 5b24c82df11ac8fe4a0eaa55c9f991ba076ea6c6ceb6ecb7d841e36a7eacf3cb
+patch_directory = jsoncons
+
+[provide]
+jsoncons = jsoncons_dep

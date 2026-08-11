@@ -1,0 +1,720 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:arm:pek:schema:model-descriptor:v1",
+  "title": "PEK Model descriptor v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "name",
+    "modelFile",
+    "dynamicOutput",
+    "inputTensors"
+  ],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "name": {
+      "$ref": "#/$defs/trimNonEmptyString"
+    },
+    "legal": {
+      "type": "string"
+    },
+    "modelFile": {
+      "$ref": "#/$defs/localPath"
+    },
+    "hfDownload": {
+      "$ref": "#/$defs/hfDownload"
+    },
+    "contentType": {
+      "type": "string"
+    },
+    "inputTensors": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "$ref": "#/$defs/inputTensor"
+      }
+    },
+    "outputTensors": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "$ref": "#/$defs/outputTensor"
+      }
+    },
+    "tensorFeedbacks": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/tensorFeedback"
+      }
+    },
+    "dynamicOutput": {
+      "type": "boolean"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "dynamicOutput": {
+            "const": true
+          }
+        },
+        "required": [
+          "dynamicOutput"
+        ]
+      },
+      "then": {
+        "properties": {
+          "outputTensors": {
+            "maxItems": 0
+          }
+        }
+      },
+      "else": {
+        "required": [
+          "outputTensors"
+        ],
+        "properties": {
+          "outputTensors": {
+            "minItems": 1
+          },
+          "inputTensors": {
+            "items": {
+              "not": {
+                "required": [
+                  "matchShapeOutputIndex"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "hfDownload"
+        ]
+      },
+      "then": {
+        "properties": {
+          "modelFile": {
+            "$ref": "#/$defs/safeRelativePath"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "trimNonEmptyString": {
+      "type": "string",
+      "pattern": "^[^\\t\\n\\r ](?:[\\s\\S]*[^\\t\\n\\r ])?$"
+    },
+    "finiteFloat": {
+      "type": "number",
+      "minimum": -3.4028234663852886e+38,
+      "maximum": 3.4028234663852886e+38
+    },
+    "localPath": {
+      "$ref": "#/$defs/trimNonEmptyString",
+      "pattern": "^(?![A-Za-z][A-Za-z0-9+.-]*:)(?!(?:\\./)*(?:\\.)?/?$).+$"
+    },
+    "safeRelativePath": {
+      "$ref": "#/$defs/trimNonEmptyString",
+      "pattern": "^(?!/)(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*(?:^|/)\\.\\.(?:/|$))(?!(?:\\./)*(?:\\.)?/?$).+$"
+    },
+    "hfDownload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repo_id",
+        "revision",
+        "filename"
+      ],
+      "properties": {
+        "repo_id": {
+          "type": "string",
+          "pattern": "^[^\\s/@#]+/[^\\s/@#]+$"
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "filename": {
+          "$ref": "#/$defs/safeRelativePath"
+        }
+      }
+    },
+    "canonicalDtype": {
+      "enum": [
+        "Uint8",
+        "Int8",
+        "Float16",
+        "Float32",
+        "Int64"
+      ]
+    },
+    "positiveDimension": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "shape": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "$ref": "#/$defs/positiveDimension"
+      }
+    },
+    "rgbChwShape": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "prefixItems": [
+        {
+          "const": 1
+        },
+        {
+          "const": 3
+        },
+        {
+          "$ref": "#/$defs/positiveDimension"
+        },
+        {
+          "$ref": "#/$defs/positiveDimension"
+        }
+      ],
+      "items": false
+    },
+    "rgbHwcShape": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "prefixItems": [
+        {
+          "const": 1
+        },
+        {
+          "$ref": "#/$defs/positiveDimension"
+        },
+        {
+          "$ref": "#/$defs/positiveDimension"
+        },
+        {
+          "const": 3
+        }
+      ],
+      "items": false
+    },
+    "grayShape": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "anyOf": [
+        {
+          "prefixItems": [
+            {
+              "const": 1
+            },
+            {
+              "const": 1
+            },
+            {
+              "$ref": "#/$defs/positiveDimension"
+            },
+            {
+              "$ref": "#/$defs/positiveDimension"
+            }
+          ],
+          "items": false
+        },
+        {
+          "prefixItems": [
+            {
+              "const": 1
+            },
+            {
+              "$ref": "#/$defs/positiveDimension"
+            },
+            {
+              "$ref": "#/$defs/positiveDimension"
+            },
+            {
+              "const": 1
+            }
+          ],
+          "items": false
+        }
+      ]
+    },
+    "color": {
+      "oneOf": [
+        {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 4,
+          "items": {
+            "$ref": "#/$defs/finiteFloat"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "r",
+            "g",
+            "b"
+          ],
+          "properties": {
+            "r": {
+              "$ref": "#/$defs/finiteFloat"
+            },
+            "g": {
+              "$ref": "#/$defs/finiteFloat"
+            },
+            "b": {
+              "$ref": "#/$defs/finiteFloat"
+            },
+            "a": {
+              "$ref": "#/$defs/finiteFloat"
+            }
+          }
+        }
+      ]
+    },
+    "positiveStd": {
+      "oneOf": [
+        {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 4,
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/finiteFloat",
+              "exclusiveMinimum": 0
+            },
+            {
+              "$ref": "#/$defs/finiteFloat",
+              "exclusiveMinimum": 0
+            },
+            {
+              "$ref": "#/$defs/finiteFloat",
+              "exclusiveMinimum": 0
+            },
+            {
+              "$ref": "#/$defs/finiteFloat"
+            }
+          ],
+          "items": false
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "r",
+            "g",
+            "b"
+          ],
+          "properties": {
+            "r": {
+              "$ref": "#/$defs/finiteFloat",
+              "exclusiveMinimum": 0
+            },
+            "g": {
+              "$ref": "#/$defs/finiteFloat",
+              "exclusiveMinimum": 0
+            },
+            "b": {
+              "$ref": "#/$defs/finiteFloat",
+              "exclusiveMinimum": 0
+            },
+            "a": {
+              "$ref": "#/$defs/finiteFloat"
+            }
+          }
+        }
+      ]
+    },
+    "imageInputBase": {
+      "type": "object",
+      "required": [
+        "shape",
+        "dataKind"
+      ],
+      "properties": {
+        "shape": {
+          "type": "array"
+        },
+        "dataKind": {
+          "type": "string"
+        },
+        "valueType": {
+          "$ref": "#/$defs/canonicalDtype",
+          "default": "Float32"
+        },
+        "keepAspectRatio": {
+          "type": "boolean"
+        },
+        "letterboxRed": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "letterboxGreen": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "letterboxBlue": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "anyOf": [
+              {
+                "required": [
+                  "letterboxRed"
+                ]
+              },
+              {
+                "required": [
+                  "letterboxGreen"
+                ]
+              },
+              {
+                "required": [
+                  "letterboxBlue"
+                ]
+              }
+            ]
+          },
+          "then": {
+            "required": [
+              "keepAspectRatio"
+            ],
+            "properties": {
+              "keepAspectRatio": {
+                "const": true
+              }
+            }
+          }
+        }
+      ]
+    },
+    "floatingImageInputBase": {
+      "$ref": "#/$defs/imageInputBase",
+      "properties": {
+        "mean": {
+          "$ref": "#/$defs/color"
+        },
+        "std": {
+          "$ref": "#/$defs/positiveStd"
+        }
+      }
+    },
+    "rgbChwInput": {
+      "$ref": "#/$defs/floatingImageInputBase",
+      "properties": {
+        "shape": {
+          "$ref": "#/$defs/rgbChwShape"
+        },
+        "dataKind": {
+          "const": "ImageRgbChw"
+        },
+        "valueType": {
+          "enum": [
+            "Float16",
+            "Float32"
+          ],
+          "default": "Float32"
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "rgbHwcUint8Input": {
+      "$ref": "#/$defs/imageInputBase",
+      "required": [
+        "valueType"
+      ],
+      "properties": {
+        "shape": {
+          "$ref": "#/$defs/rgbHwcShape"
+        },
+        "dataKind": {
+          "const": "ImageRgbHwc"
+        },
+        "valueType": {
+          "const": "Uint8"
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "rgbHwcFloatingInput": {
+      "$ref": "#/$defs/floatingImageInputBase",
+      "properties": {
+        "shape": {
+          "$ref": "#/$defs/rgbHwcShape"
+        },
+        "dataKind": {
+          "const": "ImageRgbHwc"
+        },
+        "valueType": {
+          "enum": [
+            "Float16",
+            "Float32"
+          ],
+          "default": "Float32"
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "grayUint8Input": {
+      "$ref": "#/$defs/imageInputBase",
+      "required": [
+        "valueType"
+      ],
+      "properties": {
+        "shape": {
+          "$ref": "#/$defs/grayShape"
+        },
+        "dataKind": {
+          "const": "ImageGray"
+        },
+        "valueType": {
+          "const": "Uint8"
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "grayFloat32Input": {
+      "$ref": "#/$defs/floatingImageInputBase",
+      "properties": {
+        "shape": {
+          "$ref": "#/$defs/grayShape"
+        },
+        "dataKind": {
+          "const": "ImageGray"
+        },
+        "valueType": {
+          "const": "Float32",
+          "default": "Float32"
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "rawTensorInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "shape",
+        "dataKind"
+      ],
+      "properties": {
+        "shape": {
+          "$ref": "#/$defs/shape"
+        },
+        "dataKind": {
+          "const": "RawTensorData"
+        },
+        "valueType": {
+          "$ref": "#/$defs/canonicalDtype",
+          "default": "Float32"
+        },
+        "matchShapeOutputIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15
+        }
+      }
+    },
+    "valueInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dataKind",
+        "valueInputs"
+      ],
+      "properties": {
+        "dataKind": {
+          "const": "Value"
+        },
+        "valueType": {
+          "const": "Float32",
+          "default": "Float32"
+        },
+        "valueInputs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "$ref": "#/$defs/finiteFloat"
+          }
+        }
+      }
+    },
+    "vector2Input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dataKind",
+        "valueInputs"
+      ],
+      "properties": {
+        "dataKind": {
+          "const": "Vector2"
+        },
+        "valueType": {
+          "const": "Float32",
+          "default": "Float32"
+        },
+        "valueInputs": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "$ref": "#/$defs/finiteFloat"
+          }
+        }
+      }
+    },
+    "vector3Input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dataKind",
+        "valueInputs"
+      ],
+      "properties": {
+        "dataKind": {
+          "const": "Vector3"
+        },
+        "valueType": {
+          "const": "Float32",
+          "default": "Float32"
+        },
+        "valueInputs": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "$ref": "#/$defs/finiteFloat"
+          }
+        }
+      }
+    },
+    "vector4Input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dataKind",
+        "valueInputs"
+      ],
+      "properties": {
+        "dataKind": {
+          "const": "Vector4"
+        },
+        "valueType": {
+          "const": "Float32",
+          "default": "Float32"
+        },
+        "valueInputs": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "$ref": "#/$defs/finiteFloat"
+          }
+        }
+      }
+    },
+    "inputTensor": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/rgbChwInput"
+        },
+        {
+          "$ref": "#/$defs/rgbHwcUint8Input"
+        },
+        {
+          "$ref": "#/$defs/rgbHwcFloatingInput"
+        },
+        {
+          "$ref": "#/$defs/grayUint8Input"
+        },
+        {
+          "$ref": "#/$defs/grayFloat32Input"
+        },
+        {
+          "$ref": "#/$defs/rawTensorInput"
+        },
+        {
+          "$ref": "#/$defs/valueInput"
+        },
+        {
+          "$ref": "#/$defs/vector2Input"
+        },
+        {
+          "$ref": "#/$defs/vector3Input"
+        },
+        {
+          "$ref": "#/$defs/vector4Input"
+        }
+      ]
+    },
+    "outputTensor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "shape",
+        "dataKind",
+        "valueType"
+      ],
+      "properties": {
+        "shape": {
+          "$ref": "#/$defs/shape"
+        },
+        "dataKind": {
+          "const": "RawTensorData"
+        },
+        "valueType": {
+          "$ref": "#/$defs/canonicalDtype"
+        }
+      }
+    },
+    "tensorFeedback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "fromOutputTensorIndex",
+        "toInputTensorIndex"
+      ],
+      "properties": {
+        "mode": {
+          "const": "Copy"
+        },
+        "fromOutputTensorIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15
+        },
+        "toInputTensorIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15
+        }
+      }
+    }
+  }
+}
