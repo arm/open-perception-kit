@@ -127,7 +127,7 @@ Open Safari, Microsoft Edge, or Firefox:
 http://localhost:9999
 ```
 
-In the **AI Models** panel, enable one model first. For example, enable `yolov11` or `mobilenetv2`.
+In the **Model Selector** panel, enable a model to start inference.
 
 ![PEK browser UI after opening the web view](/img/10-browser-ui.png)
 
@@ -147,7 +147,7 @@ To run the last selected pipeline again, run in the **Docker shell**:
 
 - If the container cannot start, check that Docker Desktop is running.
 - If the browser cannot connect, confirm the pipeline is still running in the Docker shell.
-- If the browser opens but no result appears, enable a model in the **AI Models** panel.
+- If the browser opens but no result appears, enable a model in the **Model Selector** panel.
 - If you connect from this Mac to a Raspberry Pi later, allow VS Code local network access in macOS **Settings > Privacy & Security > Local Network**.
 
 [Back to Get Started](/getting-started)

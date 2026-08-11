@@ -1,5 +1,8 @@
 {
 	"name": "PersonClassification",
+	"displayName": "MobileNetV1",
+	"task": "Person classification",
+	"runtime": "ONNX",
 	"description": "Person classification model.",
 	"ops": [
 		{

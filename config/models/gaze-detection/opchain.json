@@ -1,5 +1,8 @@
 {
 	"name": "GazeDetection",
+	"displayName": "L2CS MobileGaze",
+	"task": "Gaze estimation",
+	"runtime": "ONNX",
 	"description": "Detects gaze direction from human face images.",
 	"ops": [
 		{

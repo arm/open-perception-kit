@@ -1,5 +1,8 @@
 {
 	"name": "yolox",
+	"displayName": "YOLOX Nano",
+	"task": "Object detection",
+	"runtime": "ExecuTorch",
 	"description": "yolox object detection model.",
 	"ops": [
 		{

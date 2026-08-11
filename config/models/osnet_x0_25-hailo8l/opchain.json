@@ -1,5 +1,8 @@
 {
     "name": "OsnetX025Reid HAILO",
+    "displayName": "OSNet x0.25",
+    "task": "Object re-identification",
+    "runtime": "Hailo 8L",
     "description": "Hailo 8L-compiled variant of the OsnetX0.25 Re-identification model.",
     "ops": [
         {

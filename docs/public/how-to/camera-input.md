@@ -116,7 +116,7 @@ For Raspberry Pi:
 http://raspberrypi.local:9999
 ```
 
-Enable one model in the **AI Models** panel.
+Enable one model in the **Model Selector** panel.
 
 Expected result: the browser shows camera input instead of the checked-in sample media.
 

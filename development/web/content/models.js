@@ -32,6 +32,28 @@ function orderModels(models) {
     });
 }
 
+function readableText(value) {
+    return String(value ?? '').trim();
+}
+
+function resolveModelPresentation(model) {
+    const rawName = readableText(model.name) || 'Unknown model';
+    const displayName = readableText(model.displayName) || rawName;
+    const task = readableText(model.task);
+    const runtime = readableText(model.runtime);
+    const primaryLabel = task || displayName;
+    let secondaryLabel = '';
+
+    if (task) {
+        secondaryLabel = runtime ? `${displayName} (${runtime})` : displayName;
+    } else if (runtime) {
+        secondaryLabel = runtime;
+    }
+
+    const fullLabel = secondaryLabel ? `${primaryLabel} - ${secondaryLabel}` : primaryLabel;
+    return {primaryLabel, secondaryLabel, fullLabel};
+}
+
 class ModelsManager {
     constructor() {
         this.container = document.getElementById('models-container');
@@ -46,6 +68,9 @@ class ModelsManager {
             active: Boolean(model.active),
             element_name: model.element_name || '',
             name: model.name || '',
+            displayName: model.displayName || '',
+            task: model.task || '',
+            runtime: model.runtime || '',
         })));
         if (nextSignature === this._lastModelsSignature) {
             return;
@@ -72,23 +97,54 @@ class ModelsManager {
     createModelItem(model) {
         const item = document.createElement('div');
         item.className = 'model-item';
+        item.setAttribute('data-model-name', model.name || '');
+        item.setAttribute('data-model-element-name', model.element_name || '');
         item.classList.toggle('model-active', Boolean(model.active));
 
-        item.innerHTML = `
-            <div class="model-info">
-                <div class="model-name">${model.name}</div>
-            </div>
-            <div class="model-actions">
-                <label class="model-toggle-switch" aria-label="Toggle ${model.name}">
-                    <input type="checkbox" role="switch" ${model.active ? 'checked' : ''}>
-                    <span class="model-toggle-track" aria-hidden="true">
-                        <span class="model-toggle-thumb"></span>
-                    </span>
-                </label>
-            </div>
-        `;
+        const presentation = resolveModelPresentation(model);
+        const modelInfo = document.createElement('div');
+        modelInfo.className = 'model-info';
 
-        const toggle = item.querySelector('input[type="checkbox"]');
+        const modelCopy = document.createElement('div');
+        modelCopy.className = 'model-copy';
+        modelCopy.title = presentation.fullLabel;
+
+        const modelTask = document.createElement('div');
+        modelTask.className = 'model-task';
+        modelTask.textContent = presentation.primaryLabel;
+        modelCopy.appendChild(modelTask);
+
+        if (presentation.secondaryLabel) {
+            const modelDetails = document.createElement('div');
+            modelDetails.className = 'model-details';
+            modelDetails.textContent = presentation.secondaryLabel;
+            modelCopy.appendChild(modelDetails);
+        }
+        modelInfo.appendChild(modelCopy);
+
+        const modelActions = document.createElement('div');
+        modelActions.className = 'model-actions';
+
+        const toggleLabel = document.createElement('label');
+        toggleLabel.className = 'model-toggle-switch';
+        toggleLabel.setAttribute('aria-label', `Toggle ${presentation.fullLabel}`);
+
+        const toggle = document.createElement('input');
+        toggle.type = 'checkbox';
+        toggle.setAttribute('role', 'switch');
+        toggle.checked = Boolean(model.active);
+
+        const toggleTrack = document.createElement('span');
+        toggleTrack.className = 'model-toggle-track';
+        toggleTrack.setAttribute('aria-hidden', 'true');
+
+        const toggleThumb = document.createElement('span');
+        toggleThumb.className = 'model-toggle-thumb';
+        toggleTrack.appendChild(toggleThumb);
+        toggleLabel.append(toggle, toggleTrack);
+        modelActions.appendChild(toggleLabel);
+        item.append(modelInfo, modelActions);
+
         toggle.addEventListener('change', () => {
             const shouldBeActive = toggle.checked;
             this.handleToggle(model, shouldBeActive, item, toggle);

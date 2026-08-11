@@ -28,6 +28,14 @@ model_descriptor_tests = executable(
   link_with : [common],
 )
 
+model_registry_tests = executable(
+  'model_registry_tests',
+  ['model_registry_test.cpp', '../elements/peksink/model_reg.cpp'],
+  include_directories : [common_include, include_directories('../elements/peksink')],
+  dependencies : [gtest_main_dep, gtest_dep, pek_deps],
+  link_with : [common],
+)
+
 performance_tracer_tests = executable(
   'performance_tracer_tests',
   ['performance_tracer_test.cpp'],
@@ -207,6 +215,12 @@ test(
   ],
 )
 test('model_descriptor_tests', model_descriptor_tests)
+test('model_registry_tests', model_registry_tests)
+test(
+  'opchain_display_metadata_tests',
+  python,
+  args : [files('opchain_display_metadata_test.py'), meson.project_source_root() / '..'],
+)
 test('performance_tracer_tests', performance_tracer_tests)
 test(
   'release_tool_tests',
@@ -235,6 +249,14 @@ test('runtime_pipeline_tests', runtime_pipeline_tests)
 test('image_conversion_oracle_test', image_conversion_oracle_test)
 
 if node.found()
+  test(
+    'model_ui_tests',
+    node,
+    args : [
+      '--test',
+      meson.project_source_root() / 'web/content/models.test.mjs',
+    ],
+  )
   test(
     'webrtc_client_tests',
     node,

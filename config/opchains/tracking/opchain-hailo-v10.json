@@ -1,5 +1,8 @@
 {
     "name": "FullTrackingHailo10",
+    "displayName": "YOLOv11n + RepVGG A0 512",
+    "task": "Object tracking",
+    "runtime": "Hailo 10",
     "description": "Detector + ReID micropipeline for `pektracker` using official Hailo 10-compiled YOLOv11n and RepVGG A0 person ReID models.",
     "ops": [
         {
