@@ -151,8 +151,8 @@ def main(models_dir: Path, token: str | None) -> None:
             downloads.append(download)
 
     credential_cache = _cache_dir(token)
-    for download in downloads:
-        _download_model(*download, token, credential_cache)
+    for model_file, destination, source in downloads:
+        _download_model(model_file, destination, source, token, credential_cache)
 
 
 if __name__ == "__main__":
