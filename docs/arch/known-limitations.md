@@ -51,9 +51,9 @@ runtime. Treat these as constraints when extending the system.
 
 ## Configuration And OpChain Contracts
 
-- JSON model, OpChain, and pipeline schemas need stronger documentation,
-  validation, and tests.
-- Descriptor versioning and migration rules are not defined.
+- Top-level pipeline JSON is not covered by a versioned schema or semantic validator.
+- Model and OpChain v1 are versioned, but migration policy for future descriptor versions is not
+  defined.
 - OpChain execution is ordered and supports grouped loops, but richer scheduling
   such as startup-only stages is not represented cleanly.
 
@@ -72,8 +72,8 @@ runtime. Treat these as constraints when extending the system.
   or memory consumption.
 - `PerformanceTracer` and `pekperformance` exist, but measurement checkpoints are
   not yet a user-facing contract.
-- Coverage is thin for parser behavior, known inference outputs, JSON/schema
-  validation, and GStreamer element lifecycle behavior.
+- Coverage is thin for parser behavior, known inference outputs, and GStreamer
+  element lifecycle behavior.
 
 ## Packaging And Deployment
 

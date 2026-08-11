@@ -215,9 +215,35 @@ def rewrite_model_opchain(opchain: object, model_id: str, source_root: Path) -> 
     return opchain
 
 
+def resolve_shared_model_descriptor(
+    value: object, source_path: Path, models_root: Path
+) -> tuple[str, str] | None:
+    if not isinstance(value, str):
+        return None
+    descriptor_path = Path(value)
+    if descriptor_path.is_absolute():
+        try:
+            descriptor_path = models_root / descriptor_path.relative_to(
+                "/work/config/models"
+            )
+        except ValueError:
+            return None
+    else:
+        descriptor_path = source_path.parent / descriptor_path
+    try:
+        model_id, descriptor_name = descriptor_path.resolve().relative_to(
+            models_root.resolve()
+        ).parts
+    except ValueError:
+        return None
+    return model_id, descriptor_name
+
+
 def rewrite_shared_opchain(
     opchain: object,
+    source_path: Path,
     destination_path: Path,
+    models_root: Path,
     selected: dict[str, dict[str, object]],
     stage_root: Path,
 ) -> object | None:
@@ -229,11 +255,18 @@ def rewrite_shared_opchain(
         attributes = op.get("attributes")
         if not isinstance(attributes, dict) or "modelDescriptor" not in attributes:
             continue
-        descriptor_value = str(attributes["modelDescriptor"])
-        match = re.search(r"(?:^|/)config/models/([^/]+)/([^/]+)$", descriptor_value)
-        if not match or match.group(1) not in selected:
+        resolved = resolve_shared_model_descriptor(
+            attributes["modelDescriptor"], source_path, models_root
+        )
+        if resolved is None:
             return None
-        model_id, descriptor_name = match.groups()
+        model_id, descriptor_name = resolved
+        descriptor_path = models_root / model_id / descriptor_name
+        if (
+            model_id not in selected
+            or descriptor_path not in selected[model_id]["config_paths"]
+        ):
+            return None
         target_descriptor = stage_root / "share/pek/models" / model_id / descriptor_name
         attributes["modelDescriptor"] = os.path.relpath(
             target_descriptor, destination_path.parent
@@ -276,7 +309,12 @@ def stage_models(args: argparse.Namespace) -> None:
     for source_path in source_root.rglob(JSON_GLOB):
         destination_path = target_root / source_path.relative_to(source_root)
         rewritten = rewrite_shared_opchain(
-            load_json(source_path), destination_path, selected, stage_root
+            load_json(source_path),
+            source_path,
+            destination_path,
+            repo_root / "config/models",
+            selected,
+            stage_root,
         )
         if rewritten is not None:
             write_json(destination_path, rewritten)

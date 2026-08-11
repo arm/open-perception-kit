@@ -64,7 +64,9 @@ jobs:
           set -euo pipefail
           python3 -m venv "$RUNNER_TEMP/pek-model-download"
           "$RUNNER_TEMP/pek-model-download/bin/python" -m pip install \
-            --disable-pip-version-check huggingface_hub==1.18.0
+            --disable-pip-version-check \
+            huggingface_hub==1.18.0 \
+            jsonschema==4.26.0
           "$RUNNER_TEMP/pek-model-download/bin/python" scripts/download-models.py \
             --models-dir config/models --token "$HF_TOKEN"
 

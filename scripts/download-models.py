@@ -12,8 +12,14 @@ from pathlib import Path
 
 from huggingface_hub import hf_hub_download
 from huggingface_hub.constants import HF_HUB_CACHE
+from jsonschema import Draft202012Validator
+from jsonschema.exceptions import SchemaError, ValidationError
+from referencing.exceptions import Unresolvable
 
 LOGGER = logging.getLogger(__name__)
+MODEL_SCHEMA = (
+    Path(__file__).resolve().parents[1] / "config/schemas/v1/model.schema.json"
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -46,63 +52,114 @@ def _cache_dir(token: str | None) -> Path:
     return Path(HF_HUB_CACHE) / namespace
 
 
+def _load_validator() -> Draft202012Validator:
+    try:
+        schema = json.loads(MODEL_SCHEMA.read_text())
+        Draft202012Validator.check_schema(schema)
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise ValueError(f"Invalid model schema {MODEL_SCHEMA}: {error}") from error
+    except SchemaError as error:
+        raise ValueError(
+            f"Invalid model schema {MODEL_SCHEMA}: {error.message}"
+        ) from error
+    return Draft202012Validator(schema)
+
+
+def _prepare_download(descriptor: Path, validator: Draft202012Validator):
+    try:
+        model = json.loads(descriptor.read_text())
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise ValueError(f"Invalid model descriptor {descriptor}: {error}") from error
+    if not isinstance(model, dict) or not {"modelFile", "hfDownload"} & model.keys():
+        return None
+
+    try:
+        validator.validate(model)
+    except ValidationError as error:
+        raise ValueError(
+            f"Invalid model descriptor {descriptor}: {error.message}"
+        ) from error
+    except Unresolvable as error:
+        raise ValueError(
+            f"Invalid model schema {MODEL_SCHEMA}: unresolved reference {error.ref}"
+        ) from error
+
+    source = model.get("hfDownload")
+    if source is None:
+        return None
+
+    model_file = descriptor.parent / model["modelFile"]
+    model_dir = descriptor.parent.resolve()
+    destination = (model_dir / model["modelFile"]).resolve()
+    if not destination.is_relative_to(model_dir):
+        raise ValueError(
+            f"modelFile resolves outside its model directory: {descriptor}"
+        )
+    if destination.exists() and not destination.is_file():
+        raise ValueError(f"modelFile destination is not a file: {descriptor}")
+    try:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as error:
+        raise ValueError(
+            f"Cannot prepare modelFile destination for {descriptor}: {error}"
+        ) from error
+    return model_file, destination, source
+
+
+def _download_model(model_file, destination, source, token, credential_cache) -> None:
+    source_extension = Path(source["filename"]).suffix.lower()
+    destination_extension = destination.suffix.lower()
+    if source_extension != destination_extension:
+        LOGGER.warning(
+            "WARNING: %s uses %s, but %s uses %s; saving as configured.",
+            source["filename"],
+            source_extension or "no extension",
+            model_file,
+            destination_extension or "no extension",
+        )
+
+    LOGGER.info(
+        "Downloading %s/%s to %s.",
+        source["repo_id"],
+        source["filename"],
+        model_file,
+    )
+    try:
+        downloaded = hf_hub_download(
+            repo_id=source["repo_id"],
+            revision=source["revision"],
+            filename=source["filename"],
+            token=token or False,
+            cache_dir=credential_cache,
+        )
+        shutil.copyfile(downloaded, destination)
+        destination.chmod(0o644)
+    except Exception as error:
+        LOGGER.warning("Skipping %s: %s", model_file, error)
+
+
 def main(models_dir: Path, token: str | None) -> None:
     if not token:
         LOGGER.info(
             "No Hugging Face token supplied; downloading public models anonymously."
         )
 
-    credential_cache = _cache_dir(token)
-
+    validator = _load_validator()
+    downloads = []
     for descriptor in sorted(models_dir.rglob("*.json")):
-        model = json.loads(descriptor.read_text())
-        if "modelFile" not in model:
-            continue
+        if download := _prepare_download(descriptor, validator):
+            downloads.append(download)
 
-        model_file = descriptor.parent / model["modelFile"]
-        model_dir = descriptor.parent.resolve()
-        destination = (model_dir / model["modelFile"]).resolve()
-        if not destination.is_relative_to(model_dir):
-            raise ValueError(f"modelFile escapes its model directory: {descriptor}")
-
-        source = model.get("hfDownload")
-        if source is None:
-            continue
-
-        source_extension = Path(source["filename"]).suffix.lower()
-        destination_extension = destination.suffix.lower()
-        if source_extension != destination_extension:
-            LOGGER.warning(
-                "WARNING: %s uses %s, but %s uses %s; saving as configured.",
-                source["filename"],
-                source_extension or "no extension",
-                model_file,
-                destination_extension or "no extension",
-            )
-
-        LOGGER.info(
-            "Downloading %s/%s to %s.",
-            source["repo_id"],
-            source["filename"],
-            model_file,
-        )
-        try:
-            downloaded = hf_hub_download(
-                repo_id=source["repo_id"],
-                revision=source["revision"],
-                filename=source["filename"],
-                token=token or False,
-                cache_dir=credential_cache,
-            )
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(downloaded, destination)
-            destination.chmod(0o644)
-        except Exception as error:
-            LOGGER.warning("Skipping %s: %s", model_file, error)
-            continue
+    credential_cache = _cache_dir(token)
+    for model_file, destination, source in downloads:
+        _download_model(model_file, destination, source, token, credential_cache)
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     arguments = parse_args()
-    main(arguments.models_dir, arguments.token)
+    try:
+        main(arguments.models_dir, arguments.token)
+    except (OSError, ValueError) as error:
+        LOGGER.error("%s", error)
+        raise SystemExit(1) from None

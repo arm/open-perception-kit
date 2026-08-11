@@ -323,7 +323,8 @@ scale.
 1. Land the validator library/CLI and tests while retaining current supported behavior.
 2. Tighten schemas and projections, then minimally migrate all supported descriptors to v1.
 3. Route production entry points through validation and move the late loop checks before binding.
-4. Replace Python validation with the CLI adapter and build the CLI into the CI dev image.
+4. Replace repository-wide Python validation with the CLI adapter, build and inject the CLI in CI,
+   and stage it from normal development builds.
 5. Internalize repository traversal without changing CLI behavior or adding a new abstraction.
 6. Update docs, run the complete descriptor gate, build, relevant runtime tests, and PR CI.
 

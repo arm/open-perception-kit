@@ -28,11 +28,11 @@ copying frame memory.
 
 ## Loop Control
 
-`loopId` identifies the active repeated OpChain section. `InferenceController`
-sets it, and the OpChain executor uses it to repeat grouped Ops.
+`loopId` on each Op identifies a contiguous repeated section. The OpChain
+executor runs the group's first Op once, then repeats its remaining Ops.
 
-`breakLoop` lets an Op stop the active loop early. `GenericImagePreprocess`, for
-example, can set it when there are no more crops to process.
+`OpSignal::BreakLoop` lets an Op stop the active loop early. `GenericImagePreprocess`,
+for example, returns it when there are no more crops to process.
 
 ## Inference Crops
 

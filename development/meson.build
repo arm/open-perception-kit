@@ -175,6 +175,7 @@ gtest_dep      = gtest_cmake.dependency('gtest')
 gtest_main_dep = gtest_cmake.dependency('gtest_main')
 
 # Subdirs
+subdir('common/logging')
 subdir('config-validator')
 subdir('common')
 subdir('runtime')

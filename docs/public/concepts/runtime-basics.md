@@ -90,7 +90,11 @@ The descriptor defines things such as:
 - output behavior
 - model name and content type
 
-`modelFile` is always a local path relative to its descriptor. The standard
+`modelFile` is a local filesystem path. Relative paths are resolved from the
+directory containing its Model descriptor; absolute paths are used unchanged. Relative
+and absolute paths retain their components so the filesystem resolves symlinks
+and parent traversal in the normal order. Relative paths are preferred so model
+folders remain portable. The standard
 container images try to download published PEK model artifacts from pinned
 Hugging Face revisions into those paths. When `HF_TOKEN` is unset, accessible
 public artifacts download anonymously. Each failed download is logged and
@@ -98,6 +102,9 @@ skipped, so the container build can succeed with an incomplete model set.
 Runtime containers do not download models and need no Hugging Face network
 access or credentials. A pipeline that references a missing artifact fails
 during OpChain setup, including when its `pekinfer` starts with `active=false`.
+Build-time `hfDownload` staging requires a descriptor-relative `modelFile`
+inside the model folder; absolute paths remain available for externally managed
+runtime artifacts.
 
 If you are only adding your own model, you usually only need to copy and adapt an existing `model.json`.
 
