@@ -11,6 +11,8 @@ import {ClassificationCandidateT} from '../../../generated/perception/ts/dist/pe
 import {ClassificationT} from '../../../generated/perception/ts/dist/perception/fb/perception/metadata/classification.js';
 import {ClassificationsT} from '../../../generated/perception/ts/dist/perception/fb/perception/metadata/classifications.js';
 import {FrameContextT} from '../../../generated/perception/ts/dist/perception/fb/perception/metadata/frame-context.js';
+import {ObjectTrackT} from '../../../generated/perception/ts/dist/perception/fb/perception/metadata/object-track.js';
+import {ObjectTracksT} from '../../../generated/perception/ts/dist/perception/fb/perception/metadata/object-tracks.js';
 import {PerformanceOverlayT} from '../../../generated/perception/ts/dist/perception/fb/perception/metadata/performance-overlay.js';
 import {PoseEstimationT} from '../../../generated/perception/ts/dist/perception/fb/perception/metadata/pose-estimation.js';
 import {PoseEstimationsT} from '../../../generated/perception/ts/dist/perception/fb/perception/metadata/pose-estimations.js';
@@ -69,6 +71,46 @@ function encodedFixture() {
     return Buffer.from(envelope.serialize()).toString('base64');
 }
 
+function trackedFixture() {
+    const envelope = new Envelope();
+    envelope.add(new BoxDetectionsT(
+        1,
+        0,
+        layer('humanFace'),
+        [
+            new BoxDetectionT(
+                new ObjectMetaT(20n),
+                new BoundingBoxT(10, 20, 30, 40),
+                0.9,
+                1,
+                'tracked source',
+            ),
+            new BoxDetectionT(
+                new ObjectMetaT(21n),
+                new BoundingBoxT(50, 60, 20, 20),
+                0.8,
+                1,
+                'untracked',
+            ),
+        ],
+    ));
+    envelope.add(new ObjectTracksT(
+        1,
+        0,
+        layer('humanFace'),
+        [new ObjectTrackT(
+            new ObjectMetaT(30n),
+            20n,
+            7n,
+            new BoundingBoxT(12, 22, 30, 40),
+            0.95,
+            1,
+            'tracked',
+        )],
+    ));
+    return Buffer.from(envelope.serialize()).toString('base64');
+}
+
 test('decodes typed FrameResults into the established WebUI view model', () => {
     const decoded = decodeFrameResultsMessage({
         frame_counter: 42,
@@ -97,6 +139,24 @@ test('decodes typed FrameResults into the established WebUI view model', () => {
     assert.equal(gaze.detections[0].data.parentUuid, '20');
     assert.equal(findVideoFrame(decoded.frame_results).originalHeight, 480);
     assert.equal(findParentRect(decoded.frame_results, 'humanFace', '20').text, 'face');
+});
+
+test('suppresses detector boxes replaced by tracker output', () => {
+    const decoded = decodeFrameResultsMessage({
+        frame_results_encoding: FRAME_RESULTS_ENCODING,
+        frame_results_packet_b64: trackedFixture(),
+    });
+
+    const rects = decoded.frame_results.layers
+        .filter((item) => item.contentType === 'humanFace')
+        .flatMap((item) => item.detections)
+        .filter((item) => item.type === 'Rect')
+        .map((item) => item.data);
+
+    assert.deepEqual(rects.map((item) => item.uuid), ['21', '30']);
+    assert.equal(rects[0].text, 'untracked');
+    assert.equal(rects[1].sourceId, '20');
+    assert.equal(rects[1].trackId, '7');
 });
 
 test('rejects a packet from an incompatible producer identity', () => {

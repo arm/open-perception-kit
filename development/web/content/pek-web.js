@@ -735,6 +735,24 @@ function orderModels(models) {
     return String(a.name || "").localeCompare(String(b.name || ""));
   });
 }
+function readableText(value) {
+  return String(value ?? "").trim();
+}
+function resolveModelPresentation(model) {
+  const rawName = readableText(model.name) || "Unknown model";
+  const displayName = readableText(model.displayName) || rawName;
+  const task = readableText(model.task);
+  const runtime = readableText(model.runtime);
+  const primaryLabel = task || displayName;
+  let secondaryLabel = "";
+  if (task) {
+    secondaryLabel = runtime ? `${displayName} (${runtime})` : displayName;
+  } else if (runtime) {
+    secondaryLabel = runtime;
+  }
+  const fullLabel = secondaryLabel ? `${primaryLabel} - ${secondaryLabel}` : primaryLabel;
+  return { primaryLabel, secondaryLabel, fullLabel };
+}
 var ModelsManager = class {
   constructor() {
     this.container = document.getElementById("models-container");
@@ -746,7 +764,10 @@ var ModelsManager = class {
     const nextSignature = JSON.stringify(models.map((model) => ({
       active: Boolean(model.active),
       element_name: model.element_name || "",
-      name: model.name || ""
+      name: model.name || "",
+      displayName: model.displayName || "",
+      task: model.task || "",
+      runtime: model.runtime || ""
     })));
     if (nextSignature === this._lastModelsSignature) {
       return;
@@ -769,21 +790,44 @@ var ModelsManager = class {
   createModelItem(model) {
     const item = document.createElement("div");
     item.className = "model-item";
+    item.setAttribute("data-model-name", model.name || "");
+    item.setAttribute("data-model-element-name", model.element_name || "");
     item.classList.toggle("model-active", Boolean(model.active));
-    item.innerHTML = `
-            <div class="model-info">
-                <div class="model-name">${model.name}</div>
-            </div>
-            <div class="model-actions">
-                <label class="model-toggle-switch" aria-label="Toggle ${model.name}">
-                    <input type="checkbox" role="switch" ${model.active ? "checked" : ""}>
-                    <span class="model-toggle-track" aria-hidden="true">
-                        <span class="model-toggle-thumb"></span>
-                    </span>
-                </label>
-            </div>
-        `;
-    const toggle = item.querySelector('input[type="checkbox"]');
+    const presentation = resolveModelPresentation(model);
+    const modelInfo = document.createElement("div");
+    modelInfo.className = "model-info";
+    const modelCopy = document.createElement("div");
+    modelCopy.className = "model-copy";
+    modelCopy.title = presentation.fullLabel;
+    const modelTask = document.createElement("div");
+    modelTask.className = "model-task";
+    modelTask.textContent = presentation.primaryLabel;
+    modelCopy.appendChild(modelTask);
+    if (presentation.secondaryLabel) {
+      const modelDetails = document.createElement("div");
+      modelDetails.className = "model-details";
+      modelDetails.textContent = presentation.secondaryLabel;
+      modelCopy.appendChild(modelDetails);
+    }
+    modelInfo.appendChild(modelCopy);
+    const modelActions = document.createElement("div");
+    modelActions.className = "model-actions";
+    const toggleLabel = document.createElement("label");
+    toggleLabel.className = "model-toggle-switch";
+    toggleLabel.setAttribute("aria-label", `Toggle ${presentation.fullLabel}`);
+    const toggle = document.createElement("input");
+    toggle.type = "checkbox";
+    toggle.setAttribute("role", "switch");
+    toggle.checked = Boolean(model.active);
+    const toggleTrack = document.createElement("span");
+    toggleTrack.className = "model-toggle-track";
+    toggleTrack.setAttribute("aria-hidden", "true");
+    const toggleThumb = document.createElement("span");
+    toggleThumb.className = "model-toggle-thumb";
+    toggleTrack.appendChild(toggleThumb);
+    toggleLabel.append(toggle, toggleTrack);
+    modelActions.appendChild(toggleLabel);
+    item.append(modelInfo, modelActions);
     toggle.addEventListener("change", () => {
       const shouldBeActive = toggle.checked;
       this.handleToggle(model, shouldBeActive, item, toggle);
@@ -5899,6 +5943,23 @@ function addPayloadLayers(envelope, payloadType, mapper, layers) {
     layers.push(layer(payload, mapper(payload)));
   }
 }
+function collectTrackedSourceIds(envelope) {
+  const result = /* @__PURE__ */ new Map();
+  for (const payload of envelope.for_each(ObjectTracksT)) {
+    const contentType = text(payload.layer?.contentType);
+    if (!contentType) continue;
+    let sourceIds = result.get(contentType);
+    if (!sourceIds) {
+      sourceIds = /* @__PURE__ */ new Set();
+      result.set(contentType, sourceIds);
+    }
+    for (const item of payload.tracks) {
+      const sourceId = identifier(item.sourceId);
+      if (sourceId !== "0") sourceIds.add(sourceId);
+    }
+  }
+  return result;
+}
 function decodeBase64(value) {
   if (typeof value !== "string" || !value || value.length % 4 !== 0) {
     throw new FrameResultsDecodeError("missing or invalid frame_results_packet_b64");
@@ -5934,6 +5995,7 @@ function decodeFrameResultsMessage(message) {
   }
   const layers = [];
   const perfdata = [];
+  const trackedSourceIds = collectTrackedSourceIds(envelope);
   addPayloadLayers(envelope, FrameContextT, (payload) => {
     const detections = [];
     if (payload.video) {
@@ -5956,7 +6018,10 @@ function decodeFrameResultsMessage(message) {
     }
     return detections;
   }, layers);
-  addPayloadLayers(envelope, BoxDetectionsT, (payload) => payload.detections.map((item) => ({ type: "Rect", data: boxData(item) })), layers);
+  addPayloadLayers(envelope, BoxDetectionsT, (payload) => {
+    const sourceIds = trackedSourceIds.get(text(payload.layer?.contentType));
+    return payload.detections.filter((item) => !sourceIds?.has(identifier(item.object?.id))).map((item) => ({ type: "Rect", data: boxData(item) }));
+  }, layers);
   addPayloadLayers(envelope, ObjectTracksT, (payload) => payload.tracks.map((item) => ({
     type: "Rect",
     data: {

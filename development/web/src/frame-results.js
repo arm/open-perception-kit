@@ -82,6 +82,25 @@ function addPayloadLayers(envelope, payloadType, mapper, layers) {
     }
 }
 
+function collectTrackedSourceIds(envelope) {
+    const result = new Map();
+    for (const payload of envelope.for_each(ObjectTracksT)) {
+        const contentType = text(payload.layer?.contentType);
+        if (!contentType) continue;
+
+        let sourceIds = result.get(contentType);
+        if (!sourceIds) {
+            sourceIds = new Set();
+            result.set(contentType, sourceIds);
+        }
+        for (const item of payload.tracks) {
+            const sourceId = identifier(item.sourceId);
+            if (sourceId !== '0') sourceIds.add(sourceId);
+        }
+    }
+    return result;
+}
+
 function decodeBase64(value) {
     if (typeof value !== 'string' || !value || value.length % 4 !== 0) {
         throw new FrameResultsDecodeError('missing or invalid frame_results_packet_b64');
@@ -120,6 +139,7 @@ export function decodeFrameResultsMessage(message) {
 
     const layers = [];
     const perfdata = [];
+    const trackedSourceIds = collectTrackedSourceIds(envelope);
 
     addPayloadLayers(envelope, FrameContextT, (payload) => {
         const detections = [];
@@ -144,8 +164,12 @@ export function decodeFrameResultsMessage(message) {
         return detections;
     }, layers);
 
-    addPayloadLayers(envelope, BoxDetectionsT, (payload) =>
-        payload.detections.map((item) => ({type: 'Rect', data: boxData(item)})), layers);
+    addPayloadLayers(envelope, BoxDetectionsT, (payload) => {
+        const sourceIds = trackedSourceIds.get(text(payload.layer?.contentType));
+        return payload.detections
+            .filter((item) => !sourceIds?.has(identifier(item.object?.id)))
+            .map((item) => ({type: 'Rect', data: boxData(item)}));
+    }, layers);
 
     addPayloadLayers(envelope, ObjectTracksT, (payload) =>
         payload.tracks.map((item) => ({
