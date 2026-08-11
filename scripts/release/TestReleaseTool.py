@@ -21,6 +21,7 @@ from scripts.release import ReleaseTool as release_tool  # noqa: E402
 TOOL = Path(__file__).with_name("ReleaseTool.py")
 REPO_ROOT = TOOL.parents[2]
 MODEL_DESCRIPTOR = "model.json"
+ONNX_MODEL_FILE = "model.onnx"
 ONNX_INFERENCE_OP = "pek-onnx-ops/Inference"
 
 
@@ -50,7 +51,7 @@ def add_model(
 
 def add_release_models(repo_root: Path) -> None:
     for model_id in release_tool.RELEASE_MODEL_NAMES:
-        add_model(repo_root, model_id, "model.onnx", ONNX_INFERENCE_OP)
+        add_model(repo_root, model_id, ONNX_MODEL_FILE, ONNX_INFERENCE_OP)
 
 
 class ReleaseToolTests(unittest.TestCase):
@@ -93,7 +94,7 @@ class ReleaseToolTests(unittest.TestCase):
                     encoding="utf-8"
                 )
             )
-            self.assertEqual(descriptor["modelFile"], "model.onnx")
+            self.assertEqual(descriptor["modelFile"], ONNX_MODEL_FILE)
             self.assertEqual(
                 opchain["ops"][0]["attributes"]["modelDescriptor"], MODEL_DESCRIPTOR
             )
@@ -114,7 +115,7 @@ class ReleaseToolTests(unittest.TestCase):
             root = Path(temporary)
             (root / "config/opchains").mkdir(parents=True)
             add_release_models(root)
-            add_model(root, "not-released", "model.onnx", ONNX_INFERENCE_OP)
+            add_model(root, "not-released", ONNX_MODEL_FILE, ONNX_INFERENCE_OP)
             stage_root = root / "stage"
             completed = self.run_tool(
                 "stage-models",
@@ -290,7 +291,7 @@ class ReleaseToolTests(unittest.TestCase):
             )
             release_tool.validate_release_payload(package_root, repo_root)
 
-            model_path = package_root / "share/pek/models/yolov11/model.onnx"
+            model_path = package_root / "share/pek/models/yolov11" / ONNX_MODEL_FILE
             model = model_path.read_bytes()
             model_path.unlink()
             with self.assertRaisesRegex(RuntimeError, "models payload"):
