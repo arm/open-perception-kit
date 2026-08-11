@@ -30,7 +30,7 @@ services:
       <<: *pek-dev-image-build
       target: pek-dev
       args:
-        HF_DOWNLOAD_CACHEBUST: ${HF_DOWNLOAD_CACHEBUST:-${HF_TOKEN:+${GITHUB_RUN_ID:?Set HF_DOWNLOAD_CACHEBUST when HF_TOKEN is set}-${GITHUB_RUN_ATTEMPT:-0}}}
+        HF_DOWNLOAD_CACHEBUST: ${HF_DOWNLOAD_CACHEBUST:-${HF_TOKEN:+${HF_DOWNLOAD_CACHEBUST:?Set HF_DOWNLOAD_CACHEBUST when HF_TOKEN is set}}}
         USER_UID: ${HOST_UID:-1000}
         USER_GID: ${HOST_GID:-1000}
         PEK_PICAMERA: ${PEK_PICAMERA:-disabled}
