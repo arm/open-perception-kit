@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cmath>
 #include <fmt/core.h>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -162,6 +163,37 @@ static void processDetection(const pek::TensorParser::Input &input,
     d.y2 = clampf(d.y2, 0.0f, static_cast<float>(image.height - 1));
 }
 
+static std::optional<Det> parsePackedHailoDetection(const pek::TensorParser::Input &input,
+                                                    const TensorView &tensor,
+                                                    int classId,
+                                                    size_t &offset,
+                                                    float confThreshold,
+                                                    CoordOrder coordOrder) {
+    const float a0 = tensor.get(offset);
+    const float a1 = tensor.get(offset + 1);
+    const float a2 = tensor.get(offset + 2);
+    const float a3 = tensor.get(offset + 3);
+    const float score = tensor.get(offset + 4);
+    offset += 5;
+
+    if (!std::isfinite(score) || score <= 0.0f || score < confThreshold)
+        return std::nullopt;
+
+    const bool yxyx = coordOrder == CoordOrder::yxyx;
+    Det detection{yxyx ? a1 : a0, yxyx ? a0 : a1, yxyx ? a3 : a2, yxyx ? a2 : a3, score, classId};
+    if (!(std::isfinite(detection.x1) && std::isfinite(detection.y1) &&
+          std::isfinite(detection.x2) && std::isfinite(detection.y2)))
+        return std::nullopt;
+    if (!isFinitePositive(std::fabs(detection.x2 - detection.x1)) ||
+        !isFinitePositive(std::fabs(detection.y2 - detection.y1)))
+        return std::nullopt;
+
+    processDetection(input, detection, input.inferenceInfo.image);
+    if (detection.x2 <= detection.x1 || detection.y2 <= detection.y1)
+        return std::nullopt;
+    return detection;
+}
+
 static Result<std::vector<Det>> parseHailoDetections(const pek::TensorParser::Input &input,
                                                      const TensorView &tensor,
                                                      const pek::Shape &shape) {
@@ -187,43 +219,26 @@ static Result<std::vector<Det>> parseHailoDetections(const pek::TensorParser::In
     detections.reserve(static_cast<size_t>(classCount) * static_cast<size_t>(maxBboxesPerClass));
 
     size_t offset = 0;
-    for (int classId = 0; classId < classCount && offset < tensor.getCount(); ++classId) {
-        int count = static_cast<int>(tensor.get(offset));
-        count = count < 0 ? 0 : std::min(count, maxBboxesPerClass);
+    for (int classId = 0; classId < classCount; ++classId) {
+        if (offset >= tensor.getCount())
+            break;
+        const auto count = std::clamp(static_cast<int>(tensor.get(offset)), 0, maxBboxesPerClass);
         ++offset;
 
-        for (int index = 0; index < count && offset + 4 < tensor.getCount(); ++index) {
-            const float a0 = tensor.get(offset);
-            const float a1 = tensor.get(offset + 1);
-            const float a2 = tensor.get(offset + 2);
-            const float a3 = tensor.get(offset + 3);
-            const float score = tensor.get(offset + 4);
-            offset += 5;
-
-            if (!std::isfinite(score) || score <= 0.0f || score < confThreshold)
-                continue;
-
-            const bool yxyx = coordOrder == CoordOrder::yxyx;
-            Det detection{
-                yxyx ? a1 : a0, yxyx ? a0 : a1, yxyx ? a3 : a2, yxyx ? a2 : a3, score, classId};
-            if (!(std::isfinite(detection.x1) && std::isfinite(detection.y1) &&
-                  std::isfinite(detection.x2) && std::isfinite(detection.y2)))
-                continue;
-            if (!isFinitePositive(std::fabs(detection.x2 - detection.x1)) ||
-                !isFinitePositive(std::fabs(detection.y2 - detection.y1)))
-                continue;
-
-            processDetection(input, detection, input.inferenceInfo.image);
-            if (detection.x2 > detection.x1 && detection.y2 > detection.y1)
-                detections.push_back(detection);
+        for (int index = 0; index < count; ++index) {
+            if (offset + 4 >= tensor.getCount())
+                break;
+            if (auto detection = parsePackedHailoDetection(
+                    input, tensor, classId, offset, confThreshold, coordOrder))
+                detections.push_back(*detection);
         }
     }
 
     const auto resultCount = std::min(static_cast<size_t>(maxDetections), detections.size());
-    std::partial_sort(detections.begin(),
-                      detections.begin() + resultCount,
-                      detections.end(),
-                      [](const Det &left, const Det &right) { return left.conf > right.conf; });
+    std::ranges::partial_sort(
+        detections, detections.begin() + resultCount, [](const Det &left, const Det &right) {
+            return left.conf > right.conf;
+        });
     detections.resize(resultCount);
     return detections;
 }
@@ -305,9 +320,8 @@ Result<void> YoloParser::parse(const pek::TensorParser::Input &input,
                       : Result<std::vector<Det>>{parseUltralyticsDetections(input, tensor, shape)};
     if (!parsed)
         return tl::unexpected(parsed.error());
-    auto dets = std::move(*parsed);
 
-    if (!dets.empty()) {
+    if (auto dets = std::move(*parsed); !dets.empty()) {
         if (applyNms)
             nms(dets, iouThreshold);
         fillDetection(dets, input, detectionResult, normalizeOutputCoordinates);
