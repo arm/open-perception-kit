@@ -6,23 +6,21 @@
 
 #include "Log.h"
 #include "gst/FrameResultsMeta.h"
+#include "pek/Base64.h"
 #include "pek/FrameResults.h"
 
 #include <fmt/core.h>
 
 #include <gst/gst.h>
 
-#include <array>
 #include <cctype>
 #include <condition_variable>
-#include <cstdint>
 #include <cstdlib>
 #include <exception>
 #include <filesystem>
 #include <fstream>
 #include <mutex>
 #include <source_location>
-#include <span>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -95,46 +93,11 @@ void logQosMessage(GstMessage *message) {
                     qosValue(dropped));
 }
 
-std::string base64Encode(std::span<const uint8_t> data) {
-    static constexpr std::array<char, 65> table =
-        std::to_array("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/");
-    std::string out;
-    out.reserve(((data.size() + 2U) / 3U) * 4U);
-
-    size_t i = 0;
-    while (i + 3U <= data.size()) {
-        const uint32_t v =
-            (uint32_t(data[i]) << 16U) | (uint32_t(data[i + 1U]) << 8U) | uint32_t(data[i + 2U]);
-        out.push_back(table[(v >> 18U) & 0x3FU]);
-        out.push_back(table[(v >> 12U) & 0x3FU]);
-        out.push_back(table[(v >> 6U) & 0x3FU]);
-        out.push_back(table[v & 0x3FU]);
-        i += 3U;
-    }
-
-    const size_t rem = data.size() - i;
-    if (rem == 1U) {
-        const uint32_t v = uint32_t(data[i]) << 16U;
-        out.push_back(table[(v >> 18U) & 0x3FU]);
-        out.push_back(table[(v >> 12U) & 0x3FU]);
-        out.push_back('=');
-        out.push_back('=');
-    } else if (rem == 2U) {
-        const uint32_t v = (uint32_t(data[i]) << 16U) | (uint32_t(data[i + 1U]) << 8U);
-        out.push_back(table[(v >> 18U) & 0x3FU]);
-        out.push_back(table[(v >> 12U) & 0x3FU]);
-        out.push_back(table[(v >> 6U) & 0x3FU]);
-        out.push_back('=');
-    }
-
-    return out;
-}
-
 std::string serializeFrameResultsJson(const perception::FrameResults &frameResults) {
     const auto packet = perception::serialize(frameResults);
     nlohmann::json wrapper;
     wrapper["frame_results_encoding"] = "perception-frame-results+base64";
-    wrapper["frame_results_packet_b64"] = base64Encode(packet);
+    wrapper["frame_results_packet_b64"] = pek::base64Encode(packet);
     return wrapper.dump();
 }
 
