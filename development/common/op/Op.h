@@ -109,7 +109,6 @@ struct Op {
 
     std::string libName; ///< Name of the shared library providing this operation.
     std::string opName;  ///< Name of the operation class within the library.
-    std::string group;   ///< Group identifier for loop-based grouping of operations.
     size_t loopId = 0;   ///< Loop group ID; ops with the same loopId execute in a loop.
 
     /**

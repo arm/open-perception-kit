@@ -1,4 +1,5 @@
 {
+    "version": 1,
     "name": "FullTrackingExecutorch",
     "displayName": "YOLOX Nano + OSNet x0.25",
     "task": "Object tracking",
@@ -38,12 +39,14 @@
         },
         {
             "id": "pek-std-ops/InferenceController",
+            "loopId": 2,
             "attributes": {
                 "contentType": "genericObject"
             }
         },
         {
             "id": "pek-std-ops/GenericImagePreprocess",
+            "loopId": 2,
             "attributes": {
                 "inputImageTensorIndex": 0,
                 "inputImageSourceName": "pipelineVideoFrame"
@@ -51,12 +54,14 @@
         },
         {
             "id": "pek-onnx-ops/Inference",
+            "loopId": 2,
             "attributes": {
                 "modelDescriptor": "/work/config/models/osnet_x0_25/model.json"
             }
         },
         {
             "id": "pek-std-ops/GenericPostprocess",
+            "loopId": 2,
             "attributes": {
                 "parser": "ObjectEmbeddingParser"
             }

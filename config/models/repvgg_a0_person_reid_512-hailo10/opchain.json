@@ -1,4 +1,5 @@
 {
+    "version": 1,
     "name": "RepVGGA0PersonReID512 HAILO10",
     "displayName": "RepVGG A0 512",
     "task": "Person re-identification",
@@ -7,12 +8,14 @@
     "ops": [
         {
             "id": "pek-std-ops/InferenceController",
+            "loopId": 1,
             "attributes": {
                 "contentType": "genericObject"
             }
         },
         {
             "id": "pek-std-ops/GenericImagePreprocess",
+            "loopId": 1,
             "attributes": {
                 "inputImageTensorIndex": 0,
                 "inputImageSourceName": "pipelineVideoFrame"
@@ -20,12 +23,14 @@
         },
         {
             "id": "pek-hailort-ops/Inference",
+            "loopId": 1,
             "attributes": {
                 "modelDescriptor": "/work/config/models/repvgg_a0_person_reid_512-hailo10/model.json"
             }
         },
         {
             "id": "pek-std-ops/GenericPostprocess",
+            "loopId": 1,
             "attributes": {
                 "parser": "ObjectEmbeddingParser"
             }

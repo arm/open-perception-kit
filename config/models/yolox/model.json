@@ -1,11 +1,8 @@
 {
+	"version": 1,
 	"name": "yolox",
-	"modelFamily": "yolox-od",
 	"modelFile": "yolox_nano.pte",
 	"dynamicOutput": true,
-	"maxDetectionCount": 16,
-	"confidenceThreshold": 0.7,
-	"iouThreshold": 0.5,
 	"inputTensors": [
 		{
 			"shape": [

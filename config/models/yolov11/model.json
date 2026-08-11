@@ -1,10 +1,8 @@
 {
+	"version": 1,
 	"name": "yolo-objdet",
 	"modelFile": "yolo11n-fp32-320.onnx",
 	"dynamicOutput": true,
-	"maxDetectionCount": 16,
-	"confidenceThreshold": 0.7,
-	"iouThreshold": 0.5,
 	"inputTensors": [
 		{
 			"shape": [

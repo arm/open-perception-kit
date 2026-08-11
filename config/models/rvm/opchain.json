@@ -1,4 +1,5 @@
 {
+	"version": 1,
 	"name": "MobileNetV3RVM",
 	"displayName": "RVM MobileNetV3",
 	"task": "Video matting",

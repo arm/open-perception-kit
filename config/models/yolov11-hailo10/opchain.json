@@ -1,4 +1,5 @@
 {
+	"version": 1,
 	"name": "YoloV11n HAILO10",
 	"displayName": "YOLOv11n",
 	"task": "Object detection",
@@ -34,8 +35,7 @@
 				"maxDetections": 50,
 				"classCount": 80,
 				"maxBboxesPerClass": 100,
-				"coordOrder": "yxyx",
-				"debug": false
+				"coordOrder": "yxyx"
 			}
 		}
 	]

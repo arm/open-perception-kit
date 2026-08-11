@@ -1,4 +1,5 @@
 {
+	"version": 1,
 	"name": "ImageNet Hailo",
 	"displayName": "MobileNetV2",
 	"task": "Image classification",

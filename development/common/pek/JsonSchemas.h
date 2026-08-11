@@ -7,10 +7,8 @@
 #include "pek/Shape.h"
 #include "pek/Types.h"
 
-#include "magic_enum/magic_enum.hpp"
 #include <nlohmann/json.hpp>
 
-#include <algorithm>
 #include <limits>
 #include <string>
 #include <vector>
@@ -123,37 +121,29 @@ inline void to_json(json &j, const pek::Dtype &t) {
 }
 
 inline void from_json(const json &j, pek::Dtype &t) {
-    if (j.is_number_integer()) {
-        t = static_cast<pek::Dtype>(j.get<int>());
-        return;
-    }
-
     if (!j.is_string()) {
-        throw std::runtime_error("Dtype must be a JSON string or integer");
+        throw json::type_error::create(302, "Dtype must be a canonical JSON string", &j);
     }
 
-    std::string s = j.get<std::string>();
-    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) {
-        return static_cast<char>(std::tolower(c));
-    });
+    const std::string s = j.get<std::string>();
 
-    if (s == "uint8" || s == "u8") {
+    if (s == "Uint8") {
         t = pek::Dtype::Uint8;
         return;
     }
-    if (s == "int8" || s == "i8") {
+    if (s == "Int8") {
         t = pek::Dtype::Int8;
         return;
     }
-    if (s == "float16" || s == "f16") {
+    if (s == "Float16") {
         t = pek::Dtype::Float16;
         return;
     }
-    if (s == "float32" || s == "f32" || s == "float") {
+    if (s == "Float32") {
         t = pek::Dtype::Float32;
         return;
     }
-    if (s == "int64" || s == "i64") {
+    if (s == "Int64") {
         t = pek::Dtype::Int64;
         return;
     }
@@ -167,30 +157,18 @@ inline void from_json(const json &j, pek::Dtype &t) {
 namespace pek {
 
 inline void to_json(nlohmann::json &j, const TensorFeedback &v) {
-    // compact + explicit
     j = nlohmann::json{
-        {"mode", std::string(magic_enum::enum_name(TensorFeedback::Mode::Copy))},
+        {"mode", "Copy"},
         {"fromOutputTensorIndex", v.fromOutputTensorIndex},
         {"toInputTensorIndex", v.toInputTensorIndex},
     };
 }
 
 inline void from_json(const nlohmann::json &j, TensorFeedback &v) {
-    // mode is optional today (since only Copy exists), but we validate if present
-    if (auto it = j.find("mode"); it != j.end() && !it->is_null()) {
-        const std::string s = it->get<std::string>();
-        const auto mode = magic_enum::enum_cast<TensorFeedback::Mode>(s);
-        if (!mode) {
-            throw std::runtime_error("ModelTensorFeedback.mode: unknown value '" + s + "'");
-        }
-        if (*mode != TensorFeedback::Mode::Copy) {
-            throw std::runtime_error("ModelTensorFeedback.mode: unsupported value '" + s + "'");
-        }
-        v.mode = *mode;
-    }
-
-    if (!j.contains("fromOutputTensorIndex") || !j.contains("toInputTensorIndex")) {
-        throw std::runtime_error("ModelTensorFeedback: missing required fields");
+    if (j.value("mode", std::string{}) != "Copy" || !j.contains("fromOutputTensorIndex") ||
+        !j.contains("toInputTensorIndex")) {
+        throw nlohmann::json::type_error::create(
+            302, "ModelTensorFeedback requires mode Copy and both tensor indices", &j);
     }
 
     v.fromOutputTensorIndex = j.at("fromOutputTensorIndex").get<size_t>();

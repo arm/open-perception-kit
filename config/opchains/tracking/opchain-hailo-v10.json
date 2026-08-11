@@ -1,4 +1,5 @@
 {
+    "version": 1,
     "name": "FullTrackingHailo10",
     "displayName": "YOLOv11n + RepVGG A0 512",
     "task": "Object tracking",
@@ -34,18 +35,19 @@
                 "maxDetections": 50,
                 "classCount": 80,
                 "maxBboxesPerClass": 100,
-                "coordOrder": "yxyx",
-                "debug": false
+                "coordOrder": "yxyx"
             }
         },
         {
             "id": "pek-std-ops/InferenceController",
+            "loopId": 2,
             "attributes": {
                 "contentType": "genericObject"
             }
         },
         {
             "id": "pek-std-ops/GenericImagePreprocess",
+            "loopId": 2,
             "attributes": {
                 "inputImageTensorIndex": 0,
                 "inputImageSourceName": "pipelineVideoFrame"
@@ -53,12 +55,14 @@
         },
         {
             "id": "pek-hailort-ops/Inference",
+            "loopId": 2,
             "attributes": {
                 "modelDescriptor": "/work/config/models/repvgg_a0_person_reid_512-hailo10/model.json"
             }
         },
         {
             "id": "pek-std-ops/GenericPostprocess",
+            "loopId": 2,
             "attributes": {
                 "parser": "ObjectEmbeddingParser"
             }

@@ -1,0 +1,21 @@
+/*************************************************************
+ * Copyright (C) 2026 Arm Limited. All rights reserved.
+ *************************************************************/
+
+#pragma once
+
+#include <array>
+#include <string_view>
+
+namespace pek::config::detail {
+
+struct EmbeddedSchema {
+    std::string_view id;
+    std::string_view path;
+    std::string_view text;
+};
+
+inline constexpr std::array EmbeddedSchemas{
+@EMBEDDED_SCHEMAS@};
+
+} // namespace pek::config::detail

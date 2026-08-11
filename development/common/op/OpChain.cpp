@@ -5,6 +5,7 @@
 #include "op/OpChain.h"
 
 #include "Log.h"
+#include "Validator.h"
 #include "pek/String.h"
 #include "tools.h"
 
@@ -13,9 +14,6 @@
 #include "perf/PerformanceMetrics.h"
 
 #include <string>
-#include <unordered_map>
-#include <unordered_set>
-
 using namespace pek::op;
 
 const std::string &OpChain::getName() {
@@ -35,6 +33,9 @@ const std::string &OpChain::getRuntime() {
 }
 
 pek::Result<void> OpChain::setupFromDescriptor(const pek::op::OpChainDescriptor &descriptor) {
+    if (const auto validation = pek::config::validateOpChainSemantics(descriptor); !validation.ok())
+        return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InvalidOpChain, validation.toText()));
+
     name = descriptor.name;
     displayName = descriptor.displayName;
     task = descriptor.task;
@@ -60,8 +61,7 @@ pek::Result<void> OpChain::setupFromDescriptor(const pek::op::OpChainDescriptor 
         opRef->libName = libName;
         opRef->opName = opName;
 
-        opRef->group = op.group;
-        opRef->loopId = op.loopId;
+        opRef->loopId = op.loopId.value_or(0);
 
         auto configureResult = opRef->configure(op.attributes);
         if (!configureResult) {
@@ -77,82 +77,8 @@ pek::Result<void> OpChain::setupFromDescriptor(const pek::op::OpChainDescriptor 
     }
 
     pek::log::info("{}", pek::log::tools::enframe(this->toString(), "OpChain"));
-
-    // validation
-    auto validateResult = validate();
-    if (!validateResult) {
-        return tl::unexpected(std::move(validateResult.error()));
-    }
-
     pek::log::notice("OpChain is valid\n");
 
-    return {};
-}
-
-pek::Result<void> OpChain::validateGroupedLoopIds() {
-    std::unordered_set<size_t> closed;
-
-    bool havePrev = false;
-    size_t prevId{};
-
-    for (size_t i = 0; i < opPtrs.size(); ++i) {
-        Op *p = opPtrs[i];
-        const size_t id = p->loopId;
-
-        if (!havePrev) {
-            havePrev = true;
-            prevId = id;
-            continue;
-        }
-
-        if (id == prevId) {
-            continue; // still in same run
-        }
-
-        // we are leaving prevId's run
-        if (prevId != 0) { // 0 is the non-group id
-            closed.insert(prevId);
-        }
-
-        // if id is non-zero and already closed, it's invalid
-        if (id != 0 && closed.contains(id)) {
-            return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::InvalidOpChain,
-                                                 "OpChain loopId values must be grouped together"));
-        }
-
-        prevId = id;
-    }
-
-    return {};
-}
-
-pek::Result<void> OpChain::validateLoopGroupSizes() {
-    std::unordered_map<size_t, size_t> groupOpCount;
-    for (Op *p : opPtrs) {
-        if (p->loopId != 0)
-            groupOpCount[p->loopId]++;
-    }
-    for (const auto &[id, count] : groupOpCount) {
-        if (count < 2)
-            return tl::make_unexpected(
-                PEK_ERROR(pek::ErrorFlag::InvalidOpChain,
-                          fmt::format("Loop group {} must contain at least 2 ops (controller + "
-                                      "one worker), but has {}",
-                                      id,
-                                      count)));
-    }
-    return {};
-}
-
-pek::Result<void> OpChain::validate() {
-    auto validateLoopIdsResult = validateGroupedLoopIds();
-    if (!validateLoopIdsResult) {
-        return validateLoopIdsResult;
-    }
-    auto validateLoopGroupSizesResult = validateLoopGroupSizes();
-    if (!validateLoopGroupSizesResult) {
-        return validateLoopGroupSizesResult;
-    }
     return {};
 }
 

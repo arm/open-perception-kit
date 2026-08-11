@@ -1,4 +1,5 @@
 {
+	"version": 1,
 	"name": "Ultraface",
 	"displayName": "UltraFace",
 	"task": "Face detection",

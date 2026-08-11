@@ -20,6 +20,15 @@
     "description": {
       "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/trimNonEmptyString"
     },
+    "displayName": {
+      "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/trimNonEmptyString"
+    },
+    "task": {
+      "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/trimNonEmptyString"
+    },
+    "runtime": {
+      "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/trimNonEmptyString"
+    },
     "ops": {
       "type": "array",
       "minItems": 1,

@@ -1,4 +1,5 @@
 {
+    "version": 1,
     "name": "OsnetX025Reid HAILO",
     "displayName": "OSNet x0.25",
     "task": "Object re-identification",
@@ -7,12 +8,14 @@
     "ops": [
         {
             "id": "pek-std-ops/InferenceController",
+            "loopId": 1,
             "attributes": {
                 "contentType": "genericObject"
             }
         },
         {
             "id": "pek-std-ops/GenericImagePreprocess",
+            "loopId": 1,
             "attributes": {
                 "inputImageTensorIndex": 0,
                 "inputImageSourceName": "pipelineVideoFrame"
@@ -20,12 +23,14 @@
         },
         {
             "id": "pek-hailort-ops/Inference",
+            "loopId": 1,
             "attributes": {
                 "modelDescriptor": "/work/config/models/osnet_x0_25-hailo8l/model.json"
             }
         },
         {
             "id": "pek-std-ops/GenericPostprocess",
+            "loopId": 1,
             "attributes": {
                 "parser": "ObjectEmbeddingParser"
             }

@@ -28,22 +28,6 @@ class OpChain {
     std::vector<pek::op::OpRef> opRefs;
     std::vector<pek::op::Op *> opPtrs;
 
-    /**
-     * @brief Validates that operations with the same loopId are contiguous.
-     * @return Result indicating success or failure of validation.
-     */
-    pek::Result<void> validateGroupedLoopIds();
-    /**
-     * @brief Validates that all loop groups have consistent sizes.
-     * @return Result indicating success or failure of validation.
-     */
-    pek::Result<void> validateLoopGroupSizes();
-    /**
-     * @brief Performs full chain validation including group IDs and loop sizes.
-     * @return Result indicating success or failure of validation.
-     */
-    pek::Result<void> validate();
-
   public:
     /**
      * @brief Initializes the chain from an OpChainDescriptor.

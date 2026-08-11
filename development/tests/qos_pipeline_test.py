@@ -229,11 +229,13 @@ class QosPipelineTest(unittest.TestCase):
 
         descriptors = {}
         for control_id in ("inactive", "infer"):
-            descriptor = Path(self.directory.name) / f"{control_id}-opchain.json"
+            descriptor = Path(self.directory.name) / f"opchain-{control_id}.json"
             descriptor.write_text(
                 json.dumps(
                     {
+                        "version": 1,
                         "name": f"qos-test-{control_id}",
+                        "description": "QoS integration test opchain",
                         "ops": [
                             {
                                 "id": "pek-test-qos-delay/Delay",

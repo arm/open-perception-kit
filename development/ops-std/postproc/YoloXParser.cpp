@@ -415,8 +415,7 @@ Result<void> YoloXParser::parse(const pek::TensorParser::Input &input,
     const auto &tensor = *input.tensors[0];
     const auto shape = tensor.getShape();
 
-    const auto classCount = static_cast<int>(input.attributes.getIntOrDefault(
-        "classCount", input.attributes.getIntOrDefault("classes", 80)));
+    const auto classCount = static_cast<int>(input.attributes.getIntOrDefault("classCount", 80));
     if (classCount <= 0) {
         return tl::unexpected(
             PEK_ERROR(pek::ErrorFlag::InvalidData, "YoloXParser: classCount must be positive"));

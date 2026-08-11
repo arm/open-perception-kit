@@ -1,4 +1,5 @@
 {
+	"version": 1,
 	"name": "yolov11n-hailo10",
 	"modelFile": "yolov11n-hailo10h.hef",
 	"hfDownload": {
@@ -7,9 +8,6 @@
 		"filename": "models/hailo10h/yolov11n-hailo10h.hef"
 	},
 	"dynamicOutput": true,
-	"maxDetectionCount": 16,
-	"confidenceThreshold": 0.7,
-	"iouThreshold": 0.5,
 	"inputTensors": [
 		{
 			"shape": [
