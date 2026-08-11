@@ -116,6 +116,10 @@ RUN set -eux; \
   esbuild_url="$(node -e 'const lock=require("/tmp/pek-web-package-lock.json"); console.log(lock.packages["node_modules/esbuild-wasm"].resolved)')"; \
   flatbuffers_url="$(node -e 'const config=require("/tmp/perception-sdk.json"); console.log(config.typescript_build.flatbuffers_runtime.url)')"; \
   typescript_url="$(node -e 'const config=require("/tmp/perception-sdk.json"); console.log(config.typescript_build.typescript.url)')"; \
+  npm_config_fetch_retries=5 \
+  npm_config_fetch_retry_factor=2 \
+  npm_config_fetch_retry_mintimeout=1000 \
+  npm_config_fetch_retry_maxtimeout=20000 \
   npm install --global --ignore-scripts --no-audit --no-fund \
     "${esbuild_url}" \
     "${flatbuffers_url}" \
