@@ -228,6 +228,9 @@ TEST(ConfigValidator, CanonicalModelAndOpChainSerializationRevalidates) {
         "version": 1,
         "name": "roundtrip-opchain",
         "description": "Round-trip a custom operation.",
+        "displayName": "Round-trip model",
+        "task": "Contract validation",
+        "runtime": "CustomRT",
         "ops": [{"id": "custom/Operation", "attributes": {"nested": [1, true, null]}}]
     })");
 
@@ -235,6 +238,9 @@ TEST(ConfigValidator, CanonicalModelAndOpChainSerializationRevalidates) {
     ASSERT_TRUE(opchain) << opchain.error().toText();
     ASSERT_EQ(opchain->ops.size(), 1U);
     EXPECT_FALSE(opchain->ops[0].loopId.has_value());
+    EXPECT_EQ(opchain->displayName, "Round-trip model");
+    EXPECT_EQ(opchain->task, "Contract validation");
+    EXPECT_EQ(opchain->runtime, "CustomRT");
 
     const auto revalidatedModel = pek::config::validateModelJson(nlohmann::json(*model).dump());
     const nlohmann::json serializedOpChain = *opchain;
@@ -244,6 +250,27 @@ TEST(ConfigValidator, CanonicalModelAndOpChainSerializationRevalidates) {
     EXPECT_TRUE(revalidatedModel) << (revalidatedModel ? "" : revalidatedModel.error().toText());
     EXPECT_TRUE(revalidatedOpChain)
         << (revalidatedOpChain ? "" : revalidatedOpChain.error().toText());
+}
+
+TEST(ConfigValidator, OpChainDisplayMetadataUsesNonEmptyStrings) {
+    nlohmann::json opchain{
+        {"version", 1},
+        {"name", "display-metadata"},
+        {"description", "Validate optional display metadata."},
+        {"displayName", "Display name"},
+        {"task", "Object detection"},
+        {"runtime", "ONNX"},
+        {"ops", {{{"id", "custom/Operation"}, {"attributes", nlohmann::json::object()}}}}};
+
+    EXPECT_TRUE(pek::config::validateOpChainJson(opchain.dump()));
+
+    for (const auto *field : {"displayName", "task", "runtime"}) {
+        opchain[field] = "";
+        const auto result = pek::config::validateOpChainJson(opchain.dump());
+        ASSERT_FALSE(result);
+        EXPECT_TRUE(hasRule(result.error(), "schema.validation"));
+        opchain[field] = "valid";
+    }
 }
 
 TEST(ConfigValidator, SemanticsRejectEmbeddedNullAtRuntimeStringBoundaries) {

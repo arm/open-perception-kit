@@ -1,6 +1,9 @@
 {
     "version": 1,
     "name": "FaceEmbeddingWithScrfdHailo10",
+    "displayName": "SCRFD 2.5G + ArcFace MobileFaceNet",
+    "task": "Face embedding",
+    "runtime": "Hailo 10",
     "description": "Two-stage Hailo 10 micropipeline: SCRFD face detection followed by ArcFace MobileFaceNet embedding extraction.",
     "ops": [
         {

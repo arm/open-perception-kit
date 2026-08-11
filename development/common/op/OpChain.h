@@ -22,6 +22,9 @@ namespace pek::op {
  */
 class OpChain {
     std::string name;
+    std::string displayName;
+    std::string task;
+    std::string runtime;
     std::vector<pek::op::OpRef> opRefs;
     std::vector<pek::op::Op *> opPtrs;
 
@@ -51,6 +54,9 @@ class OpChain {
      * @return Const reference to the chain name string.
      */
     const std::string &getName();
+    const std::string &getDisplayName();
+    const std::string &getTask();
+    const std::string &getRuntime();
     /**
      * @brief Adds an operation reference to the chain.
      *

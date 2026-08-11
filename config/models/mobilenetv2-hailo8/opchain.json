@@ -1,6 +1,9 @@
 {
 	"version": 1,
 	"name": "ImageNet Hailo",
+	"displayName": "MobileNetV2",
+	"task": "Image classification",
+	"runtime": "Hailo 8",
 	"description": "Hailo 8-compiled variant of the MobileNetV2 ImageNet classifier.",
 	"ops": [
 		{

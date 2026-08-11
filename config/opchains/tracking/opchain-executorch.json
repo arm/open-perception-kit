@@ -1,6 +1,9 @@
 {
     "version": 1,
     "name": "FullTrackingExecutorch",
+    "displayName": "YOLOX Nano + OSNet x0.25",
+    "task": "Object tracking",
+    "runtime": "ExecuTorch + ONNX",
     "description": "Detector + ReID micropipeline for `pektracker`.",
     "ops": [
         {

@@ -170,6 +170,17 @@ checks, ordered stages and loops, and comparisons between sibling values.
 
 The micropipeline is the `opchain.json` consumed by `pekinfer`.
 
+An OpChain can provide optional display metadata for model selectors:
+
+- `displayName` is the user-facing model or model-chain name.
+- `task` describes what the model does.
+- `runtime` identifies the exact inference runtime or accelerator variant.
+
+The loaded OpChain is the source of truth for these values. Use specific runtime names such as
+`Hailo 8`, `Hailo 8L`, or `Hailo 10` when compiled models are not interchangeable. If this
+metadata is omitted, the browser falls back to the internal `name` without guessing missing
+details.
+
 This is the main runtime interface you should use by default when onboarding a model. In the normal path, you do not start by changing `pekinfer` or adding a new Op. You start by describing the chain with `opchain.json` and by selecting the parser that turns model outputs into structured runtime results.
 
 A minimal model opchain typically looks like this:
@@ -177,8 +188,11 @@ A minimal model opchain typically looks like this:
 ```json
 {
 	"version": 1,
-	"name": "example-onnx",
+	"name": "YourModel",
 	"description": "Run the example model on each video frame.",
+	"displayName": "Your model",
+	"task": "Object detection",
+	"runtime": "ONNX",
 	"ops": [
 		{
 			"id": "pek-std-ops/InferenceController",

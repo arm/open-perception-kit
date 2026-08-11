@@ -98,6 +98,9 @@ TEST(OpChainDescriptor, SetupRejectsInvalidSemanticsBeforePluginBinding) {
     pek::op::OpChainDescriptor invalid{
         .name = "invalid loop",
         .description = "Must fail before plugin lookup.",
+        .displayName = {},
+        .task = {},
+        .runtime = {},
         .ops = {{.id = "missing/CustomOp", .loopId = 1, .attributes = {}}},
     };
     pek::op::OpChain chain;

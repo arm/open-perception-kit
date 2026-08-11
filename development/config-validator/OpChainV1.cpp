@@ -176,10 +176,9 @@ bool validateStageShape(ValidationReport &report,
 
     const auto first = ops.begin() + static_cast<std::ptrdiff_t>(controller + 1);
     const auto last = ops.begin() + static_cast<std::ptrdiff_t>(end);
-    const auto count = [first, last](const auto &predicate) {
-        return std::count_if(first, last, predicate);
-    };
-    if (count([](const auto &op) { return op.id == Preprocess; }) != 1 ||
+    if (const auto count =
+            [first, last](const auto &predicate) { return std::count_if(first, last, predicate); };
+        count([](const auto &op) { return op.id == Preprocess; }) != 1 ||
         count([](const auto &op) { return pek::op::isInferenceOpId(op.id); }) != 1 ||
         count([](const auto &op) { return op.id == Postprocess; }) != 1) {
         addStageIssue(report,
@@ -196,11 +195,11 @@ void validateStageLoop(ValidationReport &report,
                        std::size_t controller,
                        std::size_t end,
                        std::string_view source) {
-    const bool stageUsesLoop =
-        std::any_of(ops.begin() + static_cast<std::ptrdiff_t>(controller),
-                    ops.begin() + static_cast<std::ptrdiff_t>(end),
-                    [](const auto &op) { return op.loopId.value_or(0) != 0; });
-    if (!stageUsesLoop &&
+    if (const bool stageUsesLoop =
+            std::any_of(ops.begin() + static_cast<std::ptrdiff_t>(controller),
+                        ops.begin() + static_cast<std::ptrdiff_t>(end),
+                        [](const auto &op) { return op.loopId.value_or(0) != 0; });
+        !stageUsesLoop &&
         stringAttribute(ops[controller].attributes, "contentType").value_or("").empty()) {
         return;
     }

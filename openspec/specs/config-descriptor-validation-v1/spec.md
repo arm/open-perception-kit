@@ -234,10 +234,11 @@ Dynamic-output source existence and compatibility SHALL be deferred rather than 
 ### Requirement: OpChain descriptor v1 schema
 
 OpChain v1 SHALL require `version: 1`, canonical trim-nonempty `name` and
-`description`, and a non-empty `ops` array. Each Op SHALL contain `id`, optional `attributes`, and
-optional positive `loopId`; zero SHALL be represented by omission. `id` SHALL be exactly one
-`library/op` pair with at least one non-whitespace character in each component. The removed `group`
-field SHALL not be part of v1. Exact `<library>/Inference` and
+`description`, and a non-empty `ops` array. Optional user-facing `displayName`, `task`, and
+`runtime` metadata SHALL also be canonical trim-nonempty strings when present. Each Op SHALL
+contain `id`, optional `attributes`, and optional positive `loopId`; zero SHALL be represented by
+omission. `id` SHALL be exactly one `library/op` pair with at least one non-whitespace character in
+each component. The removed `group` field SHALL not be part of v1. Exact `<library>/Inference` and
 `pek-std-ops/GenericPostprocess` Ops SHALL require `attributes`; built-in controller and preprocess
 Ops and custom Ops MAY omit it, with omission equivalent to an empty object.
 
@@ -395,8 +396,9 @@ including `version` and no redundant type field, and the serialized result SHALL
 the same descriptor type.
 
 Every schema-valid number consumed as a runtime `float` SHALL remain finite. A serialized OpChain
-SHALL include `description`, omit the removed `group` field, and omit `loopId` when no loop is
-authored. An explicitly present zero loop SHALL fail validation.
+SHALL include `description`, preserve authored `displayName`, `task`, and `runtime` metadata, omit
+the removed `group` field, and omit `loopId` when no loop is authored. An explicitly present zero
+loop SHALL fail validation.
 
 Build-only `hfDownload` SHALL not be present in the typed `ModelDescriptor` runtime projection or
 emitted by its canonical serialization. In-memory validation SHALL preserve authored `modelFile`

@@ -20,6 +20,8 @@ from scripts.release import ReleaseTool as release_tool  # noqa: E402
 
 TOOL = Path(__file__).with_name("ReleaseTool.py")
 REPO_ROOT = TOOL.parents[2]
+MODEL_DESCRIPTOR = "model.json"
+ONNX_INFERENCE_OP = "pek-onnx-ops/Inference"
 
 
 def add_model(
@@ -28,7 +30,7 @@ def add_model(
     model_root = repo_root / "config/models" / model_id
     model_root.mkdir(parents=True)
     (model_root / filename).write_bytes(content)
-    (model_root / "model.json").write_text(
+    (model_root / MODEL_DESCRIPTOR).write_text(
         json.dumps({"modelFile": filename}), encoding="utf-8"
     )
     (model_root / "opchain.json").write_text(
@@ -37,7 +39,7 @@ def add_model(
                 "ops": [
                     {
                         "id": op_id,
-                        "attributes": {"modelDescriptor": "model.json"},
+                        "attributes": {"modelDescriptor": MODEL_DESCRIPTOR},
                     }
                 ]
             }
@@ -48,7 +50,7 @@ def add_model(
 
 def add_release_models(repo_root: Path) -> None:
     for model_id in release_tool.RELEASE_MODEL_NAMES:
-        add_model(repo_root, model_id, "model.onnx", "pek-onnx-ops/Inference")
+        add_model(repo_root, model_id, "model.onnx", ONNX_INFERENCE_OP)
 
 
 class ReleaseToolTests(unittest.TestCase):
@@ -93,7 +95,7 @@ class ReleaseToolTests(unittest.TestCase):
             )
             self.assertEqual(descriptor["modelFile"], "model.onnx")
             self.assertEqual(
-                opchain["ops"][0]["attributes"]["modelDescriptor"], "model.json"
+                opchain["ops"][0]["attributes"]["modelDescriptor"], MODEL_DESCRIPTOR
             )
             self.assertTrue(
                 (stage_root / "share/pek/models/cam-contact/secondary.json").is_file()
@@ -112,7 +114,7 @@ class ReleaseToolTests(unittest.TestCase):
             root = Path(temporary)
             (root / "config/opchains").mkdir(parents=True)
             add_release_models(root)
-            add_model(root, "not-released", "model.onnx", "pek-onnx-ops/Inference")
+            add_model(root, "not-released", "model.onnx", ONNX_INFERENCE_OP)
             stage_root = root / "stage"
             completed = self.run_tool(
                 "stage-models",
@@ -243,7 +245,7 @@ class ReleaseToolTests(unittest.TestCase):
                     {
                         "ops": [
                             {
-                                "id": "pek-onnx-ops/Inference",
+                                "id": ONNX_INFERENCE_OP,
                                 "attributes": {
                                     "modelDescriptor": (
                                         "../../models/yolov11/model.json"
@@ -251,7 +253,7 @@ class ReleaseToolTests(unittest.TestCase):
                                 },
                             },
                             {
-                                "id": "pek-onnx-ops/Inference",
+                                "id": ONNX_INFERENCE_OP,
                                 "attributes": {
                                     "modelDescriptor": (
                                         "/work/config/models/osnet_x0_25/model.json"
@@ -344,7 +346,7 @@ class ReleaseToolTests(unittest.TestCase):
             model_root.mkdir(parents=True)
             (root / "config/opchains").mkdir(parents=True)
             (root / "config/models/escape.onnx").write_bytes(b"model")
-            (model_root / "model.json").write_text(
+            (model_root / MODEL_DESCRIPTOR).write_text(
                 json.dumps({"modelFile": "../escape.onnx"}), encoding="utf-8"
             )
             (model_root / "opchain.json").write_text(
@@ -352,8 +354,8 @@ class ReleaseToolTests(unittest.TestCase):
                     {
                         "ops": [
                             {
-                                "id": "pek-onnx-ops/Inference",
-                                "attributes": {"modelDescriptor": "model.json"},
+                                "id": ONNX_INFERENCE_OP,
+                                "attributes": {"modelDescriptor": MODEL_DESCRIPTOR},
                             }
                         ]
                     }

@@ -15,6 +15,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DOWNLOAD_SCRIPT = REPO_ROOT / "scripts" / "download-models.py"
 MODELS_DIR = "config/models"
+MODEL_DESCRIPTOR = "model.json"
+MODEL_SCHEMA = Path("config/schemas/v1/model.schema.json")
 
 
 class ModelArtifactBuildTest(unittest.TestCase):
@@ -144,9 +146,10 @@ class ModelArtifactBuildTest(unittest.TestCase):
         build_package = (
             REPO_ROOT / "scripts/release/BuildPackage.sh"
         ).read_text()
-        self.assertIn("--layout=flat", build_package)
+        # Meson's flat layout is explicitly unsupported; release packaging uses the normal target path.
+        self.assertNotIn("--layout=flat", build_package)
         self.assertLess(
-            build_package.index('"$BuildRoot/meson-out/pek-config-check"'),
+            build_package.index('"$BuildRoot/config-validator/pek-config-check"'),
             build_package.index('ReleaseTool.py" stage-models'),
         )
         for workflow_name in ("release-tests.yml", "release-packages.yml"):
@@ -223,7 +226,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
             ):
                 model_dir = root / "config" / "models" / name
                 model_dir.mkdir(parents=True)
-                (model_dir / "model.json").write_text(
+                (model_dir / MODEL_DESCRIPTOR).write_text(
                     json.dumps(
                         {
                             "version": 1,
@@ -248,7 +251,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
 
             externally_managed = root / "config" / "models" / "external"
             externally_managed.mkdir(parents=True)
-            (externally_managed / "model.json").write_text(
+            (externally_managed / MODEL_DESCRIPTOR).write_text(
                 json.dumps(
                     {
                         "version": 1,
@@ -311,7 +314,8 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
                     text=True,
                 )
 
-            result = run_download(check=True)
+            result = run_download()
+            self.assertEqual(result.returncode, 0, result.stderr)
 
             self.assertFalse((root / "config/models/first/missing.onnx").exists())
             self.assertEqual(
@@ -401,7 +405,7 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
             )
             unsafe_model["name"] = "unsafe"
             del unsafe_model["modelFile"]
-            (unsafe / "model.json").write_text(json.dumps(unsafe_model))
+            (unsafe / MODEL_DESCRIPTOR).write_text(json.dumps(unsafe_model))
             (root / "captured-token").unlink(missing_ok=True)
 
             missing_destination_failure = run_download()
@@ -412,7 +416,7 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
             self.assertFalse((root / "captured-token").exists())
 
             unsafe_model["modelFile"] = "../escape.onnx"
-            (unsafe / "model.json").write_text(json.dumps(unsafe_model))
+            (unsafe / MODEL_DESCRIPTOR).write_text(json.dumps(unsafe_model))
 
             schema_failure = run_download()
             self.assertNotEqual(schema_failure.returncode, 0)
@@ -425,7 +429,7 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
             outside.mkdir()
             (unsafe / "linked").symlink_to(outside, target_is_directory=True)
             unsafe_model["modelFile"] = "linked/escape.onnx"
-            (unsafe / "model.json").write_text(json.dumps(unsafe_model))
+            (unsafe / MODEL_DESCRIPTOR).write_text(json.dumps(unsafe_model))
 
             containment_failure = run_download()
             self.assertNotEqual(containment_failure.returncode, 0)
@@ -438,7 +442,7 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
 
             (unsafe / "blocked").write_text("not a directory")
             unsafe_model["modelFile"] = "blocked/model.onnx"
-            (unsafe / "model.json").write_text(json.dumps(unsafe_model))
+            (unsafe / MODEL_DESCRIPTOR).write_text(json.dumps(unsafe_model))
 
             destination_failure = run_download()
             self.assertEqual(destination_failure.returncode, 1)
@@ -451,7 +455,7 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
 
             (unsafe / "directory.onnx").mkdir()
             unsafe_model["modelFile"] = "directory.onnx"
-            (unsafe / "model.json").write_text(json.dumps(unsafe_model))
+            (unsafe / MODEL_DESCRIPTOR).write_text(json.dumps(unsafe_model))
 
             destination_type_failure = run_download()
             self.assertEqual(destination_type_failure.returncode, 1)
@@ -462,7 +466,7 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
             self.assertNotIn("Traceback", destination_type_failure.stderr)
             self.assertFalse((root / "captured-token").exists())
 
-            (unsafe / "model.json").write_text("{")
+            (unsafe / MODEL_DESCRIPTOR).write_text("{")
             json_failure = run_download()
             self.assertEqual(json_failure.returncode, 1)
             self.assertIn(
@@ -472,7 +476,7 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
             self.assertNotIn("Traceback", json_failure.stderr)
             self.assertFalse((root / "captured-token").exists())
 
-            (root / "config/schemas/v1/model.schema.json").write_text(
+            (root / MODEL_SCHEMA).write_text(
                 json.dumps({"type": 7})
             )
             schema_definition_failure = run_download()
@@ -482,10 +486,10 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
             self.assertFalse((root / "captured-token").exists())
 
             schema = json.loads(
-                (REPO_ROOT / "config/schemas/v1/model.schema.json").read_text()
+                (REPO_ROOT / MODEL_SCHEMA).read_text()
             )
             del schema["$defs"]["safeRelativePath"]
-            (root / "config/schemas/v1/model.schema.json").write_text(
+            (root / MODEL_SCHEMA).write_text(
                 json.dumps(schema)
             )
             unresolved_reference_failure = run_download()

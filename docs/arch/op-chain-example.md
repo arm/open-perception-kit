@@ -47,8 +47,11 @@ detected face.
 ```json
 {
   "version": 1,
-  "name": "FaceAndGaze",
+  "name": "GazeDetectionWithUltraface",
   "description": "Detect faces, then estimate gaze for each face.",
+  "displayName": "UltraFace + L2CS MobileGaze",
+  "task": "Gaze estimation",
+  "runtime": "ONNX",
   "ops": [
     {
       "id": "pek-std-ops/InferenceController",

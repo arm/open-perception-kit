@@ -176,44 +176,31 @@ def get_enabled_check_flags(args):
     """Return the effective check flags that will run in this invocation."""
     enabled_checks = []
 
-    if args.check_secrets:
-        enabled_checks.append("--check-secrets")
-    if args.actionlint:
-        enabled_checks.append("--actionlint")
-    if args.agent_runtime_static_analysis:
-        enabled_checks.append("--agent-runtime-static-analysis")
-    if args.config_schema_check:
-        enabled_checks.append("--config-schema-check")
-    if args.branch_naming:
-        enabled_checks.append("--branch-naming")
-    if args.commit_msg:
-        enabled_checks.append("--commit-msg")
-    if args.commit_msg_ci:
-        enabled_checks.append("--commit-msg-ci")
-    if args.clang_format:
-        enabled_checks.append("--clang-format")
-    elif args.clang_format_check:
-        enabled_checks.append("--clang-format-check")
-    if args.clang_tidy:
-        enabled_checks.append("--clang-tidy")
-    if args.clang_tidy_stats:
-        enabled_checks.append("--clang-tidy-stats")
-    if args.python_format:
-        enabled_checks.append("--python-format")
-    elif args.python_format_check:
-        enabled_checks.append("--python-format-check")
-    if args.cmake_format:
-        enabled_checks.append("--cmake-format")
-    elif args.cmake_format_check:
-        enabled_checks.append("--cmake-format-check")
-    if args.license_header:
-        enabled_checks.append("--license-header")
-    elif args.license_header_check:
-        enabled_checks.append("--license-header-check")
-    if args.shell_format:
-        enabled_checks.append("--shell-format")
-    elif args.shell_format_check:
-        enabled_checks.append("--shell-format-check")
+    for enabled, flag, fallback, fallback_flag in (
+        ("check_secrets", "--check-secrets", None, None),
+        ("actionlint", "--actionlint", None, None),
+        (
+            "agent_runtime_static_analysis",
+            "--agent-runtime-static-analysis",
+            None,
+            None,
+        ),
+        ("config_schema_check", "--config-schema-check", None, None),
+        ("branch_naming", "--branch-naming", None, None),
+        ("commit_msg", "--commit-msg", None, None),
+        ("commit_msg_ci", "--commit-msg-ci", None, None),
+        ("clang_format", "--clang-format", "clang_format_check", "--clang-format-check"),
+        ("clang_tidy", "--clang-tidy", None, None),
+        ("clang_tidy_stats", "--clang-tidy-stats", None, None),
+        ("python_format", "--python-format", "python_format_check", "--python-format-check"),
+        ("cmake_format", "--cmake-format", "cmake_format_check", "--cmake-format-check"),
+        ("license_header", "--license-header", "license_header_check", "--license-header-check"),
+        ("shell_format", "--shell-format", "shell_format_check", "--shell-format-check"),
+    ):
+        if getattr(args, enabled):
+            enabled_checks.append(flag)
+        elif fallback and getattr(args, fallback):
+            enabled_checks.append(fallback_flag)
 
     return enabled_checks
 
@@ -382,87 +369,85 @@ def perform_checks(checker, args, files, report):
     """Perform the specified checks based on the command line arguments."""
     result = True
 
-    if args.check_secrets:
-        result = run_check(report, "secrets", lambda: checker.check_secrets(files)) and result
-    if args.branch_naming:
-        result = run_check(report, "branch naming", checker.check_branch_naming) and result
-    if args.commit_msg:
-        result = run_check(report, "commit message", lambda: checker.check_commit_message(files)) and result
-    if args.commit_msg_ci:
-        result = run_check(
-            report,
+    checks = (
+        (args.check_secrets, "secrets", lambda: checker.check_secrets(files)),
+        (args.branch_naming, "branch naming", checker.check_branch_naming),
+        (args.commit_msg, "commit message", lambda: checker.check_commit_message(files)),
+        (
+            args.commit_msg_ci,
             "commit message (CI)",
-            lambda: checker.check_commit_messages_on_ci(files, target_branch=args.pr_target_branch),
-        ) and result
-    # if args.jira_ticket:
-    #     result = checker.check_jira_ticket() and result
-    if args.clang_format or args.clang_format_check:
-        result = run_check(
-            report,
+            lambda: checker.check_commit_messages_on_ci(
+                files, target_branch=args.pr_target_branch
+            ),
+        ),
+        (
+            args.clang_format or args.clang_format_check,
             "clang-format",
-            lambda: checker.check_clang_format(files, format=args.clang_format, verbose=args.verbose),
-        ) and result
-    if args.clang_tidy:
-        result = run_check(
-            report,
+            lambda: checker.check_clang_format(
+                files, format=args.clang_format, verbose=args.verbose
+            ),
+        ),
+        (
+            args.clang_tidy,
             "clang-tidy",
             lambda: checker.check_clang_tidy(
                 files,
                 compile_commands_dir=args.compile_commands_dir,
-                clang_tidy_binary=args.clang_tidy_binary),
-        ) and result
-    if args.clang_tidy_stats:
-        result = run_check(
-            report,
+                clang_tidy_binary=args.clang_tidy_binary,
+            ),
+        ),
+        (
+            args.clang_tidy_stats,
             "clang-tidy stats",
             lambda: checker.report_clang_tidy_statistics(
                 args.clang_tidy_stats,
                 stats_output=args.clang_tidy_stats_output,
                 baseline_file=args.clang_tidy_baseline,
                 baseline_mode=args.clang_tidy_baseline_mode,
-                update_baseline=args.clang_tidy_update_baseline),
-        ) and result
-    if args.python_format or args.python_format_check:
-        result = run_check(
-            report,
+                update_baseline=args.clang_tidy_update_baseline,
+            ),
+        ),
+        (
+            args.python_format or args.python_format_check,
             "python format",
-            lambda: checker.check_python_format(files, format=args.python_format, verbose=args.verbose),
-        ) and result
-    if args.cmake_format or args.cmake_format_check:
-        result = run_check(
-            report,
+            lambda: checker.check_python_format(
+                files, format=args.python_format, verbose=args.verbose
+            ),
+        ),
+        (
+            args.cmake_format or args.cmake_format_check,
             "cmake format",
-            lambda: checker.check_cmake_format(files, format=args.cmake_format, verbose=args.verbose),
-        ) and result
-    if args.license_header or args.license_header_check:
-        result = run_check(
-            report,
+            lambda: checker.check_cmake_format(
+                files, format=args.cmake_format, verbose=args.verbose
+            ),
+        ),
+        (
+            args.license_header or args.license_header_check,
             "license header",
             lambda: checker.check_license_header(files, format=args.license_header),
-        ) and result
-    if args.shell_format or args.shell_format_check:
-        result = run_check(
-            report,
+        ),
+        (
+            args.shell_format or args.shell_format_check,
             "shell format",
             lambda: checker.check_shell_format(files, format=args.shell_format),
-        ) and result
-    if args.actionlint:
-        result = run_check(report, "actionlint", lambda: checker.check_github_actions(files)) and result
-    if args.agent_runtime_static_analysis:
-        result = run_check(
-            report,
+        ),
+        (args.actionlint, "actionlint", lambda: checker.check_github_actions(files)),
+        (
+            args.agent_runtime_static_analysis,
             "Agent workflow static analysis",
             lambda: checker.check_agent_runtime_static_analysis(
-                files,
-                pr_target_branch=args.pr_target_branch,
+                files, pr_target_branch=args.pr_target_branch
             ),
-        ) and result
-    if args.config_schema_check:
-        result = run_check(
-            report,
+        ),
+        (
+            args.config_schema_check,
             "config descriptor validation",
             checker.check_config_schema,
-        ) and result
+        ),
+    )
+    for enabled, name, check in checks:
+        if enabled:
+            result = run_check(report, name, check) and result
 
     return result
 

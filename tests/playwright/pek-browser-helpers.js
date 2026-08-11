@@ -4,7 +4,8 @@ const MODEL_OUTPUT_VISIBLE_MS = 4000;
 const MODEL_STATE_TIMEOUT_MS = 20000;
 const MODELS_OFF_VISIBLE_MS = 3000;
 const MODEL_ITEM = '.model-item';
-const MODEL_NAME = '.model-name';
+const MODEL_NAME_ATTRIBUTE = 'data-model-name';
+const MODEL_ELEMENT_NAME_ATTRIBUTE = 'data-model-element-name';
 const MODELS_CONTAINER = '#models-container';
 const NO_MODELS_TEXT = 'No models registered yet';
 const STATUS_LINE = '#status-line';
@@ -44,15 +45,87 @@ async function waitForVideo(page, timeout = 60000) {
   await waitForHealthyVideoState(page, null, timeout);
 }
 
-async function registeredModelNames(page) {
+async function registeredModels(page) {
   const modelItems = page.locator(`${MODELS_CONTAINER} ${MODEL_ITEM}`);
   await expect(modelItems.first()).toBeVisible({ timeout: 90000 });
 
-  const names = (await page.locator(`${MODELS_CONTAINER} ${MODEL_NAME}`).allTextContents())
-    .map((name) => name.trim())
-    .filter(Boolean);
-  expect(names.length).toBeGreaterThan(0);
-  return names;
+  const models = await modelItems.evaluateAll((items, attributes) => items.map((item) => ({
+    name: item.getAttribute(attributes.name)?.trim() || '<unknown>',
+    elementName: item.getAttribute(attributes.elementName)?.trim() || '',
+  })), {
+    name: MODEL_NAME_ATTRIBUTE,
+    elementName: MODEL_ELEMENT_NAME_ATTRIBUTE,
+  });
+  expect(models.length).toBeGreaterThan(0);
+  for (const model of models) {
+    expect(model.elementName, `Missing element identity for model ${model.name}`).not.toBe('');
+  }
+  return models;
+}
+
+async function expectModelLabelsDoNotOverflow(page) {
+  const measurements = await page.locator(`${MODELS_CONTAINER} ${MODEL_ITEM}`)
+    .evaluateAll((items, attributes) => items.map((item) => {
+      const copy = item.querySelector('.model-copy');
+      const task = item.querySelector('.model-task');
+      const details = item.querySelector('.model-details');
+      const actions = item.querySelector('.model-actions');
+      const rowRect = item.getBoundingClientRect();
+      const copyRect = copy?.getBoundingClientRect();
+      const actionsRect = actions?.getBoundingClientRect();
+      const detailsStyle = details ? getComputedStyle(details) : null;
+
+      return {
+        name: item.getAttribute(attributes.name) || '<unknown>',
+        elementName: item.getAttribute(attributes.elementName) || '<unknown>',
+        row: {
+          clientWidth: item.clientWidth,
+          scrollWidth: item.scrollWidth,
+          left: rowRect.left,
+          right: rowRect.right,
+        },
+        copy: copyRect ? {left: copyRect.left, right: copyRect.right} : null,
+        actions: actionsRect ? {left: actionsRect.left, right: actionsRect.right} : null,
+        task: task ? {clientWidth: task.clientWidth, scrollWidth: task.scrollWidth} : null,
+        details: details ? {
+          clientWidth: details.clientWidth,
+          scrollWidth: details.scrollWidth,
+          overflowX: detailsStyle.overflowX,
+          textOverflow: detailsStyle.textOverflow,
+        } : null,
+      };
+    }), {
+      name: MODEL_NAME_ATTRIBUTE,
+      elementName: MODEL_ELEMENT_NAME_ATTRIBUTE,
+    });
+
+  const epsilon = 0.5;
+  const failures = [];
+  for (const measurement of measurements) {
+    const problems = [];
+    if (measurement.row.scrollWidth > measurement.row.clientWidth)
+      problems.push('row has horizontal overflow');
+    if (!measurement.copy || measurement.copy.left < measurement.row.left - epsilon ||
+        measurement.copy.right > measurement.row.right + epsilon)
+      problems.push('label container extends outside row');
+    if (!measurement.actions || measurement.actions.right > measurement.row.right + epsilon)
+      problems.push('toggle controls extend outside row');
+    if (measurement.copy && measurement.actions &&
+        measurement.copy.right > measurement.actions.left + epsilon)
+      problems.push('label content overlaps toggle controls');
+    if (!measurement.task || measurement.task.scrollWidth > measurement.task.clientWidth)
+      problems.push('task label overflows');
+    if (measurement.details && measurement.details.scrollWidth > measurement.details.clientWidth &&
+        (measurement.details.overflowX !== 'hidden' ||
+         measurement.details.textOverflow !== 'ellipsis'))
+      problems.push('long model details are not contained by ellipsis');
+
+    if (problems.length > 0)
+      failures.push({...measurement, problems});
+  }
+
+  expect(failures, `Model label overflow diagnostics:\n${JSON.stringify(failures, null, 2)}`)
+    .toEqual([]);
 }
 
 async function expectSinkOnlyData(page) {
@@ -63,31 +136,30 @@ async function expectSinkOnlyData(page) {
   await expectVideoKeepsPlaying(page);
 }
 
-async function holdAllModelsOff(page, modelNames) {
-  await setModels(page, modelNames, false);
+async function holdAllModelsOff(page, models) {
+  await setModels(page, models, false);
   await page.waitForTimeout(MODELS_OFF_VISIBLE_MS);
 }
 
-async function exerciseModelsOneAtATime(page, modelNames) {
-  for (const name of modelNames) {
+async function exerciseModelsOneAtATime(page, models) {
+  for (const model of models) {
     await waitForVideo(page);
-    await setModel(page, name, true);
+    await setModel(page, model, true);
     await waitForVideo(page);
     await page.waitForTimeout(MODEL_OUTPUT_VISIBLE_MS);
-    await setModel(page, name, false);
+    await setModel(page, model, false);
   }
 }
 
-async function setModels(page, modelNames, enabled) {
-  for (const name of modelNames) {
-    await setModel(page, name, enabled);
+async function setModels(page, models, enabled) {
+  for (const model of models) {
+    await setModel(page, model, enabled);
   }
 }
 
-async function setModel(page, name, enabled) {
-  const model = page.locator(MODEL_ITEM).filter({
-    has: page.locator(MODEL_NAME, { hasText: new RegExp(`^${escapeRegExp(name)}$`) }),
-  });
+async function setModel(page, modelState, enabled) {
+  const model = page.locator(
+    `${MODEL_ITEM}[${MODEL_ELEMENT_NAME_ATTRIBUTE}="${escapeCssAttribute(modelState.elementName)}"]`);
   const toggle = model.getByRole('switch');
   const toggleControl = model.locator('.model-toggle-switch');
 
@@ -104,17 +176,17 @@ async function setModel(page, name, enabled) {
     await expect(toggle).not.toBeChecked();
   }
 
-  await expect.poll(() => backendModelState(page, name), {
+  await expect.poll(() => backendModelState(page, modelState.elementName), {
     timeout: MODEL_STATE_TIMEOUT_MS,
   }).toBe(enabled);
 }
 
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function escapeCssAttribute(value) {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
-async function backendModelState(page, name) {
-  return page.evaluate(readBackendModelState, name);
+async function backendModelState(page, elementName) {
+  return page.evaluate(readBackendModelState, elementName);
 }
 
 async function expectVideoKeepsPlaying(page, sampleCount = VIDEO_SAMPLE_COUNT) {
@@ -311,7 +383,7 @@ async function readVideoState() {
   return state;
 }
 
-function readBackendModelState(modelName) {
+function readBackendModelState(elementName) {
   return new Promise((resolve) => {
     const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
     const port = window.PEK_CONFIG?.ctrlPort ??
@@ -332,7 +404,7 @@ function readBackendModelState(modelName) {
       try {
         const data = JSON.parse(event.data);
         for (const model of data.models ?? []) {
-          if (model.name === modelName) {
+          if (model.element_name === elementName) {
             finish(model.active);
             return;
           }
@@ -346,13 +418,14 @@ function readBackendModelState(modelName) {
 }
 
 module.exports = {
+  expectModelLabelsDoNotOverflow,
   expectSinkOnlyData,
   expectVideoKeepsPlaying,
   expectVideoSurvivesLoops,
   exerciseModelsOneAtATime,
   holdAllModelsOff,
   openPekUi,
-  registeredModelNames,
+  registeredModels,
   waitForVideo,
   waitForVideoLoops,
 };

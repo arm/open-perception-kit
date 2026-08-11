@@ -197,9 +197,10 @@ class TestExpkitsCiCli(unittest.TestCase):
         self.assertFalse(parsed_args.commit_msg_ci)
         self.assertTrue(parsed_args.config_schema_check)
 
-    def test_perform_checks_records_actionlint_result(self):
+    def test_perform_checks_runs_remaining_checks_after_failure(self):
         checker = Mock()
         checker.check_github_actions.return_value = False
+        checker.check_config_schema.return_value = True
         args = Mock(
             check_secrets=False,
             branch_naming=False,
@@ -219,7 +220,7 @@ class TestExpkitsCiCli(unittest.TestCase):
             shell_format_check=False,
             actionlint=True,
             agent_runtime_static_analysis=False,
-            config_schema_check=False,
+            config_schema_check=True,
         )
         report = expkits_ci_module.ExecutionReport("custom selection", "explicit", 1, ["--actionlint"])
 
@@ -235,8 +236,11 @@ class TestExpkitsCiCli(unittest.TestCase):
             ".github/workflows/pek-ci.yml",
             "README.md",
         ])
+        checker.check_config_schema.assert_called_once_with()
         self.assertEqual(report.check_results[0].name, "actionlint")
         self.assertFalse(report.check_results[0].passed)
+        self.assertEqual(report.check_results[1].name, "config descriptor validation")
+        self.assertTrue(report.check_results[1].passed)
 
     def test_perform_checks_records_config_schema_result(self):
         checker = Mock()

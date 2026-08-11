@@ -47,7 +47,7 @@ The launcher `tools/pek-menu` reads these presets and runs them. For normal use,
 If you want to change which image, video, or camera is used, this is usually the first place to edit.
 
 Some checked-in presets intentionally set `pekinfer active=false`.
-That lets the PEK web UI register the model first and then enable it from the **AI Models** panel when you are ready.
+That lets the PEK web UI register the model first and then enable it from the **Model Selector** panel when you are ready.
 `active=false` disables per-frame OpChain execution; it does not defer setup.
 `pekinfer` still loads the OpChain and its model during startup, so every
 referenced model artifact must already exist.
