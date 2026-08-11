@@ -1,6 +1,9 @@
 {
     "version": 1,
     "name": "RepVGGA0PersonReID512 HAILO10",
+    "displayName": "RepVGG A0 512",
+    "task": "Person re-identification",
+    "runtime": "Hailo 10",
     "description": "Official Hailo 10H-compiled RepVGG A0 person ReID model.",
     "ops": [
         {

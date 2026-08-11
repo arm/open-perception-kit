@@ -1,6 +1,9 @@
 {
     "version": 1,
     "name": "FullTrackingHailo8",
+    "displayName": "YOLOv11n + OSNet x0.25",
+    "task": "Object tracking",
+    "runtime": "Hailo 8",
     "description": "Detector + ReID micropipeline for `pektracker` using Hailo 8-compiled models.",
     "ops": [
         {

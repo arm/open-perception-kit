@@ -1,6 +1,9 @@
 {
 	"version": 1,
 	"name": "YoloV11n HAILO10",
+	"displayName": "YOLOv11n",
+	"task": "Object detection",
+	"runtime": "Hailo 10",
 	"description": "Official Hailo 10H-compiled YoloV11n object detection model.",
 	"ops": [
 		{

@@ -11,10 +11,11 @@
 #include <algorithm>
 #include <chrono>
 #include <filesystem>
+#include <format>
 #include <fstream>
-#include <stdexcept>
 #include <string>
 #include <string_view>
+#include <system_error>
 
 namespace pek::config::test {
 
@@ -27,10 +28,11 @@ class TemporaryRepository {
   public:
     TemporaryRepository() {
         const auto suffix = std::chrono::steady_clock::now().time_since_epoch().count();
-        root_ =
-            std::filesystem::current_path() / ("pek-config-validator-" + std::to_string(suffix));
+        root_ = std::filesystem::current_path() / std::format("pek-config-validator-{}", suffix);
         if (!std::filesystem::create_directory(root_))
-            throw std::runtime_error("temporary repository path already exists");
+            throw std::filesystem::filesystem_error("temporary repository path already exists",
+                                                    root_,
+                                                    std::make_error_code(std::errc::file_exists));
 
         std::filesystem::create_directories(root_ / "config/schemas/v1");
         std::filesystem::create_directories(root_ / "config/models/first");

@@ -1,6 +1,9 @@
 {
     "version": 1,
     "name": "ArcFaceMobileFaceNet HAILO",
+    "displayName": "ArcFace MobileFaceNet",
+    "task": "Face embedding",
+    "runtime": "Hailo 10",
     "description": "Hailo 10-compiled ArcFace MobileFaceNet face embedding model.",
     "ops": [
         {
