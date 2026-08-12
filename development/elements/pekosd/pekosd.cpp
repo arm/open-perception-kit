@@ -15,17 +15,15 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
-#include <iomanip>
+#include <format>
 #include <limits>
 #include <memory>
 #include <optional>
 #include <set>
 #include <span>
-#include <sstream>
 #include <string>
 #include <vector>
 
-#include <fmt/core.h>
 #include <gst/gst.h>
 #include <gst/video/gstvideofilter.h>
 #include <gst/video/video.h>
@@ -599,6 +597,31 @@ findOnlyHumanFaceDetection(const perception::FrameResults &frameResults, uint64_
     return parentCount == 1U ? parent : nullptr;
 }
 
+static void drawGazeVector(Osd::Layer &layer,
+                           const perception::FrameResults &frameResults,
+                           const perception::metadata::PoseEstimationT &pose) {
+    if (!pose.object) {
+        return;
+    }
+
+    const auto *parent = findOnlyHumanFaceDetection(frameResults, pose.object->parent_id);
+    if (parent == nullptr || !parent->box) {
+        return;
+    }
+
+    const auto &parentBox = *parent->box;
+    const float x = parentBox.x + parentBox.width / 2.0f;
+    const float y = parentBox.y + parentBox.height / 2.0f;
+    if (pose.yaw < 0.1f && pose.pitch < 0.1f && pose.yaw > -0.1f && pose.pitch > -0.1f) {
+        return;
+    }
+
+    float xEnd = x;
+    float yEnd = y;
+    gazeEndpoint(x, y, pose.yaw, pose.pitch, 120.0f, xEnd, yEnd);
+    Osd::Arrow::draw(layer, {x, y}, {xEnd, yEnd}, pek::Colors::lightGoldenrodYellow);
+}
+
 static void drawGazeVectors(Osd::Layer *layer, const perception::FrameResults &frameResults) {
     frameResults.for_each<perception::metadata::PoseEstimationsT>([&](const auto &payload) {
         if (!isEyeYawPitchLayer(payload.layer.get())) {
@@ -606,35 +629,46 @@ static void drawGazeVectors(Osd::Layer *layer, const perception::FrameResults &f
         }
 
         for (const auto &pose : payload.poses) {
-            if (!pose || !pose->object) {
-                continue;
+            if (pose) {
+                drawGazeVector(*layer, frameResults, *pose);
             }
-
-            const auto *parent = findOnlyHumanFaceDetection(frameResults, pose->object->parent_id);
-            if (parent == nullptr) {
-                continue;
-            }
-
-            const auto *parentBox = parent->box.get();
-            if (parentBox == nullptr) {
-                continue;
-            }
-
-            const float x = parentBox->x + parentBox->width / 2.0f;
-            const float y = parentBox->y + parentBox->height / 2.0f;
-            const float yaw = pose->yaw;
-            const float pitch = pose->pitch;
-
-            if (yaw < 0.1f && pitch < 0.1f && yaw > -0.1f && pitch > -0.1f) {
-                continue;
-            }
-
-            float xEnd = x;
-            float yEnd = y;
-            gazeEndpoint(x, y, yaw, pitch, 120.0f, xEnd, yEnd);
-            Osd::Arrow::draw(*layer, {x, y}, {xEnd, yEnd}, pek::Colors::lightGoldenrodYellow);
         }
     });
+}
+
+static void drawCameraContactMarker(Osd::Layer &layer,
+                                    const perception::FrameResults &frameResults,
+                                    const perception::metadata::ClassificationT &classification) {
+    if (!classification.object || classification.candidates.empty() ||
+        !classification.candidates.front()) {
+        return;
+    }
+
+    const auto &candidate = *classification.candidates.front();
+    if (candidate.class_id < 0) {
+        return;
+    }
+
+    const auto *parent =
+        findFirstHumanFaceDetection(frameResults, classification.object->parent_id);
+    if (parent == nullptr || !parent->box) {
+        return;
+    }
+
+    const auto &face = *parent->box;
+    const float x = face.x + face.width * 0.5f;
+    const float y = face.y + face.height * 0.5f;
+    const bool hasCameraContact = candidate.class_id == 1;
+    const pek::Color markerColor = hasCameraContact ? pek::Colors::lime : pek::Colors::red;
+    const float baseRadius = std::min(face.width, face.height) * 0.5f;
+    const float markerRadius = hasCameraContact ? std::clamp(baseRadius * 0.65f, 18.0f, 80.0f)
+                                                : std::clamp(baseRadius * 1.15f, 28.0f, 140.0f);
+    const float markerThickness = hasCameraContact ? 5.0f : 8.0f;
+    const float centerPointSize = hasCameraContact ? 10.0f : 14.0f;
+
+    pek::osd::Circle::draw(
+        layer, pek::osd::Coordinate{x, y}, markerRadius, markerColor, markerThickness);
+    pek::osd::Point::draw(layer, pek::osd::Coordinate{x, y}, markerColor, centerPointSize);
 }
 
 static void drawCameraContactMarkers(Osd::Layer *layer,
@@ -645,41 +679,9 @@ static void drawCameraContactMarkers(Osd::Layer *layer,
         }
 
         for (const auto &classification : payload.classifications) {
-            if (!classification || !classification->object || classification->candidates.empty() ||
-                !classification->candidates.front()) {
-                continue;
+            if (classification) {
+                drawCameraContactMarker(*layer, frameResults, *classification);
             }
-
-            const auto &candidate = *classification->candidates.front();
-            if (candidate.class_id < 0) {
-                continue;
-            }
-
-            const auto *parent =
-                findFirstHumanFaceDetection(frameResults, classification->object->parent_id);
-            if (parent == nullptr) {
-                continue;
-            }
-
-            const auto *face = parent->box.get();
-            if (face == nullptr) {
-                continue;
-            }
-
-            const float x = face->x + face->width * 0.5f;
-            const float y = face->y + face->height * 0.5f;
-            const bool hasCameraContact = candidate.class_id == 1;
-            const pek::Color markerColor = hasCameraContact ? pek::Colors::lime : pek::Colors::red;
-            const float baseRadius = std::min(face->width, face->height) * 0.5f;
-            const float markerRadius = hasCameraContact
-                                           ? std::clamp(baseRadius * 0.65f, 18.0f, 80.0f)
-                                           : std::clamp(baseRadius * 1.15f, 28.0f, 140.0f);
-            const float markerThickness = hasCameraContact ? 5.0f : 8.0f;
-            const float centerPointSize = hasCameraContact ? 10.0f : 14.0f;
-
-            pek::osd::Circle::draw(
-                *layer, pek::osd::Coordinate{x, y}, markerRadius, markerColor, markerThickness);
-            pek::osd::Point::draw(*layer, pek::osd::Coordinate{x, y}, markerColor, centerPointSize);
         }
     });
 }
@@ -860,16 +862,15 @@ static void drawClassificationList(Osd::Layer &layer,
             continue;
         }
 
-        std::ostringstream oss;
-        oss << "#" << (i + 1U) << ": " << result->text << " (" << std::fixed << std::setprecision(1)
-            << (result->confidence * 100.0f) << "%)";
+        const auto text =
+            std::format("#{}: {} ({:.1f}%)", i + 1U, result->text, result->confidence * 100.0f);
 
         const float textX = startX;
         const float textY = startY + static_cast<float>(i) * lineHeight;
 
         Osd::Text::draw(layer,
                         Osd::Coordinate(textX, textY),
-                        oss.str(),
+                        text,
                         pek::Colors::fromStringOrDefault("#ffffffff"),
                         pek::Colors::fromStringOrDefault("#000000ff"),
                         "monospace",
@@ -1008,6 +1009,38 @@ static std::unique_ptr<Osd::Layer> drawFrameResultsLayer(
     return layer;
 }
 
+static void processSegmentationPayload(GstPekOsd *self,
+                                       guint8 *imgData,
+                                       gint imgStride,
+                                       float imgWidth,
+                                       float imgHeight,
+                                       Osd::Layers_t &layers,
+                                       const perception::metadata::SegmentationMasksT &payload) {
+    if (!isSegmentationLayer(payload.layer.get())) {
+        return;
+    }
+
+    const bool useBackgroundReplacement = usesBackgroundReplacement(payload.layer.get());
+    for (const auto &mask : payload.masks) {
+        if (!mask || !mask->bitmap || mask->bitmap->pixels.empty() || mask->bitmap->width == 0U ||
+            mask->bitmap->height == 0U) {
+            continue;
+        }
+
+        const auto bitmap = makeSegmentationBitmapView(*mask->bitmap);
+        if (useBackgroundReplacement) {
+            replaceBackground(imgData,
+                              static_cast<gint>(imgWidth),
+                              static_cast<gint>(imgHeight),
+                              imgStride,
+                              bitmap,
+                              self->bgImage);
+        } else {
+            layers.push_back(drawSegmentationLayer(imgWidth, imgHeight, bitmap));
+        }
+    }
+}
+
 static void gst_pek_osd_process_segmentation(GstPekOsd *self,
                                              guint8 *imgData,
                                              gint imgStride,
@@ -1016,30 +1049,7 @@ static void gst_pek_osd_process_segmentation(GstPekOsd *self,
                                              Osd::Layers_t &layers,
                                              const perception::FrameResults &frameResults) {
     frameResults.for_each<perception::metadata::SegmentationMasksT>([&](const auto &payload) {
-        if (!isSegmentationLayer(payload.layer.get())) {
-            return;
-        }
-
-        const bool useBackgroundReplacement = usesBackgroundReplacement(payload.layer.get());
-
-        for (const auto &mask : payload.masks) {
-            if (!mask || !mask->bitmap || mask->bitmap->pixels.empty() ||
-                mask->bitmap->width == 0U || mask->bitmap->height == 0U) {
-                continue;
-            }
-
-            const auto bitmap = makeSegmentationBitmapView(*mask->bitmap);
-            if (useBackgroundReplacement) {
-                replaceBackground(imgData,
-                                  static_cast<gint>(imgWidth),
-                                  static_cast<gint>(imgHeight),
-                                  imgStride,
-                                  bitmap,
-                                  self->bgImage);
-            } else {
-                layers.push_back(drawSegmentationLayer(imgWidth, imgHeight, bitmap));
-            }
-        }
+        processSegmentationPayload(self, imgData, imgStride, imgWidth, imgHeight, layers, payload);
     });
 }
 

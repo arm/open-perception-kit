@@ -278,7 +278,7 @@ def normalize_integration_files(config: SdkConfig, generated_root: Path) -> None
         path.write_text(path.read_text(encoding="utf-8").rstrip() + "\n", encoding="utf-8")
 
 
-def write_internal_meson(config: SdkConfig, generated_root: Path, target: Path) -> None:
+def write_internal_meson(config: SdkConfig, target: Path) -> None:
     cpp_root = os.path.relpath(config.generated_root / "cpp", config.internal_meson_path.parent)
     content = (
         "# Generated project adapter. Do not edit.\n"
@@ -499,7 +499,7 @@ def prepare_sdk(
     validate_flowdata_manifests(config, flowdata_manifests)
     normalize_integration_files(config, generated_root)
     format_cmake_integrations(generated_root)
-    write_internal_meson(config, generated_root, internal_meson)
+    write_internal_meson(config, internal_meson)
     write_perception_manifest(
         config, generated_root, internal_meson, flowdata_manifests,
         clang_format, formatter_python, node,

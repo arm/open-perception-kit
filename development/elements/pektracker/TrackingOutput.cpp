@@ -34,12 +34,12 @@ const perception::metadata::BoxDetectionT &detectionAt(const DetectionBatch &det
 }
 
 std::unique_ptr<perception::metadata::ObjectMetaT>
-copyObjectMeta(const std::unique_ptr<perception::metadata::ObjectMetaT> &object) {
+copyObjectMeta(const perception::metadata::ObjectMetaT *object) {
     return object ? std::make_unique<perception::metadata::ObjectMetaT>(*object) : nullptr;
 }
 
 std::unique_ptr<perception::metadata::BoundingBoxT>
-copyBoundingBox(const std::unique_ptr<perception::metadata::BoundingBoxT> &box) {
+copyBoundingBox(const perception::metadata::BoundingBoxT *box) {
     return box ? std::make_unique<perception::metadata::BoundingBoxT>(*box) : nullptr;
 }
 
@@ -115,7 +115,7 @@ makeTrackPayload(const perception::metadata::BoxDetectionT &detection,
     item->object = perception::makeObjectMeta(0U, sourceId);
     item->source_id = sourceId;
     item->track_id = trackId;
-    item->box = copyBoundingBox(renderedDetection.box);
+    item->box = copyBoundingBox(renderedDetection.box.get());
     item->confidence = renderedDetection.confidence;
     item->class_id = renderedDetection.class_id;
     item->text = renderedDetection.text;
@@ -129,7 +129,7 @@ perception::metadata::BoxDetectionT detectionForAssignedTrack(const DetectionBat
                                                               const TrackState &track) {
     const auto &currentDetection = detectionAt(detections, detectionIndex);
     auto detection = track.lastDetection;
-    detection.object = copyObjectMeta(currentDetection.object);
+    detection.object = copyObjectMeta(currentDetection.object.get());
     detection.text = currentDetection.text;
     return detection;
 }

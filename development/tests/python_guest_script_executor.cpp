@@ -5,6 +5,7 @@
 #include <Python.h>
 
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -32,6 +33,16 @@ constexpr int EXIT_USAGE = 2;
 constexpr int EXIT_PYTHON_SETUP = 3;
 constexpr int EXIT_SCRIPT = 4;
 constexpr int EXIT_OUTPUT = 5;
+
+class PythonInitializationError final : public std::runtime_error {
+  public:
+    using std::runtime_error::runtime_error;
+};
+
+class ScriptReadError final : public std::runtime_error {
+  public:
+    using std::runtime_error::runtime_error;
+};
 
 class PyObjectPtr {
   public:
@@ -81,7 +92,7 @@ class PythonRuntime {
         const std::string error = status.err_msg != nullptr ? status.err_msg : "unknown error";
         PyConfig_Clear(&config);
         if (PyStatus_Exception(status) || !Py_IsInitialized()) {
-            throw std::runtime_error("failed to initialize embedded Python: " + error);
+            throw PythonInitializationError("failed to initialize embedded Python: " + error);
         }
     }
 
@@ -149,7 +160,7 @@ bool parseOptions(std::span<char *> arguments, Options &options) {
 std::string readScript(const std::filesystem::path &path) {
     std::ifstream input(path, std::ios::binary);
     if (!input) {
-        throw std::runtime_error("failed to open guest script: " + path.string());
+        throw ScriptReadError("failed to open guest script: " + path.string());
     }
 
     return std::string(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>());
@@ -196,12 +207,12 @@ bool executeScript(const std::filesystem::path &path, size_t index, PyObject *en
     std::string source;
     try {
         source = readScript(path);
-    } catch (const std::runtime_error &error) {
+    } catch (const ScriptReadError &error) {
         std::cerr << error.what() << '\n';
         return false;
     }
     const auto absolutePath = std::filesystem::absolute(path);
-    const auto moduleName = "_pek_guest_script_" + std::to_string(index);
+    const auto moduleName = std::format("_pek_guest_script_{}", index);
 
     PyObjectPtr pythonModule(PyModule_New(moduleName.c_str()));
     if (!pythonModule) {

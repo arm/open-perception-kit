@@ -23,6 +23,12 @@ namespace {
 using CostMatrix = std::vector<std::vector<float>>;
 using SimilarityMatrix = std::vector<std::vector<std::optional<float>>>;
 
+struct AssociationMatrices {
+    CostMatrix iou;
+    CostMatrix cost;
+    SimilarityMatrix similarity;
+};
+
 const perception::metadata::BoxDetectionT &detectionAt(const DetectionBatch &detections,
                                                        size_t index) {
     assert(index < detections.size());
@@ -156,33 +162,34 @@ bool isAssignmentAccepted(float iou, const std::optional<float> &similarity, con
     return false;
 }
 
-void buildAssociationMatrices(
-    const DetectionBatch &detections,
-    const TrackIdList &trackIds,
-    const std::vector<perception::metadata::BoundingBoxT> &predictedTrackBoxes,
-    const EmbeddingBatch &embeddings,
-    const ActiveTrackMap &activeTracks,
-    const Config &config,
-    CostMatrix &iouMatrix,
-    CostMatrix &costMatrix,
-    SimilarityMatrix &similarityMatrix) {
-    iouMatrix.assign(detections.size(), std::vector<float>(trackIds.size(), 0.0f));
-    costMatrix.assign(detections.size(), std::vector<float>(trackIds.size(), 1.0f));
-    similarityMatrix.assign(detections.size(),
-                            std::vector<std::optional<float>>(trackIds.size(), std::nullopt));
+AssociationMatrices
+buildAssociationMatrices(const DetectionBatch &detections,
+                         const TrackIdList &trackIds,
+                         const std::vector<perception::metadata::BoundingBoxT> &predictedTrackBoxes,
+                         const EmbeddingBatch &embeddings,
+                         const ActiveTrackMap &activeTracks,
+                         const Config &config) {
+    AssociationMatrices matrices{
+        .iou = CostMatrix(detections.size(), std::vector<float>(trackIds.size(), 0.0f)),
+        .cost = CostMatrix(detections.size(), std::vector<float>(trackIds.size(), 1.0f)),
+        .similarity = SimilarityMatrix(
+            detections.size(), std::vector<std::optional<float>>(trackIds.size(), std::nullopt)),
+    };
 
     for (size_t detIdx = 0; detIdx < detections.size(); ++detIdx) {
         const auto &det = detectionAt(detections, detIdx);
         assert(det.box);
         for (size_t trackIdx = 0; trackIdx < trackIds.size(); ++trackIdx) {
             const float iou = pek::algo::computeIoU(*det.box, predictedTrackBoxes[trackIdx]);
-            iouMatrix[detIdx][trackIdx] = iou;
+            matrices.iou[detIdx][trackIdx] = iou;
             const auto similarity = computeValidSimilarity(
                 detIdx, detections, trackIds[trackIdx], embeddings, activeTracks, config);
-            similarityMatrix[detIdx][trackIdx] = similarity;
-            costMatrix[detIdx][trackIdx] = computeAssociationCost(iou, similarity, config);
+            matrices.similarity[detIdx][trackIdx] = similarity;
+            matrices.cost[detIdx][trackIdx] = computeAssociationCost(iou, similarity, config);
         }
     }
+
+    return matrices;
 }
 
 void collectMatchesFromAssignment(const DetectionBatch &detections,
@@ -245,23 +252,13 @@ AssociationResult associateDetectionsToActiveTracks(const DetectionBatch &detect
 
     const auto trackIds = collectActiveTrackIds(activeTracks);
     const auto predictedTrackBoxes = predictTrackBoxes(activeTracks, config);
-    CostMatrix iouMatrix;
-    CostMatrix costMatrix;
-    SimilarityMatrix similarityMatrix;
-    buildAssociationMatrices(detections,
-                             trackIds,
-                             predictedTrackBoxes,
-                             embeddings,
-                             activeTracks,
-                             config,
-                             iouMatrix,
-                             costMatrix,
-                             similarityMatrix);
+    const auto matrices = buildAssociationMatrices(
+        detections, trackIds, predictedTrackBoxes, embeddings, activeTracks, config);
 
-    const auto assignment = pek::algo::solveHungarian(costMatrix);
+    const auto assignment = pek::algo::solveHungarian(matrices.cost);
 
     collectMatchesFromAssignment(
-        detections, assignment, trackIds, iouMatrix, similarityMatrix, config, result);
+        detections, assignment, trackIds, matrices.iou, matrices.similarity, config, result);
 
     return result;
 }
