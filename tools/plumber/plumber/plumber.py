@@ -151,6 +151,31 @@ def run_save_mode(args) -> int:
     return 0
 
 
+def check_output_frame(args, index: int, ground_frame: FrameResultsFrame, out_record: dict) -> bool:
+    try:
+        out_frame = decode_frame_results_record(out_record)
+    except FrameResultsDecodeError as exc:
+        print(f"[FAIL] idx={index}: output FrameResults decode failed: {exc}")
+        if args.verbose:
+            print("  output:", json.dumps(out_record, indent=2, ensure_ascii=False))
+        return True
+
+    ok, message = compare_frame_results_frame(args, ground_frame, out_frame)
+    if ok:
+        if args.verbose:
+            print(f"[OK] idx={index}: {message}")
+        return False
+
+    print(f"[FAIL] idx={index}: {message}")
+    if args.verbose:
+        print(
+            "  ground:",
+            json.dumps(ground_frame.ndjson_record, indent=2, ensure_ascii=False),
+        )
+        print("  output:", json.dumps(out_record, indent=2, ensure_ascii=False))
+    return True
+
+
 def run_check_mode(args) -> int:
     # Ensure FIFO exists
     fifo = Path(args.fifo)
@@ -185,34 +210,11 @@ def run_check_mode(args) -> int:
                     print("Skipping bad JSON line")
                 continue
 
-            try:
-                out_frame = decode_frame_results_record(out_record)
-            except FrameResultsDecodeError as exc:
-                failures += 1
-                compared += 1
-                print(f"[FAIL] idx={index}: output FrameResults decode failed: {exc}")
-                if args.verbose:
-                    print("  output:", json.dumps(out_record, indent=2, ensure_ascii=False))
-                if args.fail_fast:
-                    break
-                continue
-
-            ok, msg = compare_frame_results_frame(args, gt_frame, out_frame)
+            failed = check_output_frame(args, index, gt_frame, out_record)
             compared += 1
-            if not ok:
-                failures += 1
-                print(f"[FAIL] idx={index}: {msg}")
-                if args.verbose:
-                    print(
-                        "  ground:",
-                        json.dumps(gt_frame.ndjson_record, indent=2, ensure_ascii=False),
-                    )
-                    print("  output:", json.dumps(out_record, indent=2, ensure_ascii=False))
-                if args.fail_fast:
-                    break
-            else:
-                if args.verbose:
-                    print(f"[OK] idx={index}: {msg}")
+            failures += int(failed)
+            if failed and args.fail_fast:
+                break
 
             if args.limit and compared >= args.limit:
                 break
@@ -225,9 +227,8 @@ def run_check_mode(args) -> int:
     if failures == 0:
         print(f"PASS: compared={compared} failures=0")
         return 0
-    else:
-        print(f"FAIL: compared={compared} failures={failures}")
-        return 1
+    print(f"FAIL: compared={compared} failures={failures}")
+    return 1
 
 
 # ---------- CLI ----------

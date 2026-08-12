@@ -330,13 +330,7 @@ def _normalize_audio_frame(audio: Any) -> dict[str, Any]:
     }
 
 
-def normalize_frame_results(frame_results: FrameResults, frame_counter: int | None = None) -> FrameResultsSnapshot:
-    snapshot = FrameResultsSnapshot(
-        frame_counter=frame_counter,
-        payloads={},
-        object_index={},
-    )
-
+def _normalize_frame_contexts(frame_results: FrameResults, snapshot: FrameResultsSnapshot) -> None:
     for payload in frame_results.for_each(FrameContextT):
         items = []
         if payload.video is not None:
@@ -350,18 +344,8 @@ def normalize_frame_results(frame_results: FrameResults, frame_counter: int | No
             items,
         )
 
-    for payload in frame_results.for_each(BoxDetectionsT):
-        _add_payload_items(
-            snapshot,
-            _payload_key("perception.metadata.BoxDetections", payload.layer),
-            payload.layer,
-            [
-                _normalize_box_detection(item)
-                for item in payload.detections or []
-                if item is not None
-            ],
-        )
 
+def _normalize_classifications(frame_results: FrameResults, snapshot: FrameResultsSnapshot) -> None:
     for payload in frame_results.for_each(ClassificationsT):
         items = [
             _normalize_classification(item)
@@ -380,64 +364,55 @@ def normalize_frame_results(frame_results: FrameResults, frame_counter: int | No
             items,
         )
 
-    for payload in frame_results.for_each(PoseEstimationsT):
+
+def _normalize_payload_collection(
+    frame_results: FrameResults,
+    snapshot: FrameResultsSnapshot,
+    payload_class: type,
+    payload_type: str,
+    collection_name: str,
+    normalize_item,
+) -> None:
+    for payload in frame_results.for_each(payload_class):
+        collection = getattr(payload, collection_name) or []
         _add_payload_items(
             snapshot,
-            _payload_key("perception.metadata.PoseEstimations", payload.layer),
+            _payload_key(payload_type, payload.layer),
             payload.layer,
-            [
-                _normalize_pose_estimation(item)
-                for item in payload.poses or []
-                if item is not None
-            ],
+            [normalize_item(item) for item in collection if item is not None],
         )
 
-    for payload in frame_results.for_each(SegmentationMasksT):
-        _add_payload_items(
-            snapshot,
-            _payload_key("perception.metadata.SegmentationMasks", payload.layer),
-            payload.layer,
-            [
-                _normalize_segmentation_mask(item)
-                for item in payload.masks or []
-                if item is not None
-            ],
-        )
 
-    for payload in frame_results.for_each(ObjectEmbeddingsT):
-        _add_payload_items(
-            snapshot,
-            _payload_key("perception.metadata.ObjectEmbeddings", payload.layer),
-            payload.layer,
-            [
-                _normalize_object_embedding(item)
-                for item in payload.embeddings or []
-                if item is not None
-            ],
-        )
-
-    for payload in frame_results.for_each(ObjectTracksT):
-        _add_payload_items(
-            snapshot,
-            _payload_key("perception.metadata.ObjectTracks", payload.layer),
-            payload.layer,
-            [
-                _normalize_object_track(item)
-                for item in payload.tracks or []
-                if item is not None
-            ],
-        )
-
-    for payload in frame_results.for_each(TrackTracesT):
-        _add_payload_items(
-            snapshot,
-            _payload_key("perception.metadata.TrackTraces", payload.layer),
-            payload.layer,
-            [
-                _normalize_track_trace(item)
-                for item in payload.traces or []
-                if item is not None
-            ],
-        )
-
+def normalize_frame_results(frame_results: FrameResults, frame_counter: int | None = None) -> FrameResultsSnapshot:
+    snapshot = FrameResultsSnapshot(
+        frame_counter=frame_counter,
+        payloads={},
+        object_index={},
+    )
+    _normalize_frame_contexts(frame_results, snapshot)
+    _normalize_payload_collection(
+        frame_results, snapshot, BoxDetectionsT,
+        "perception.metadata.BoxDetections", "detections", _normalize_box_detection,
+    )
+    _normalize_classifications(frame_results, snapshot)
+    _normalize_payload_collection(
+        frame_results, snapshot, PoseEstimationsT,
+        "perception.metadata.PoseEstimations", "poses", _normalize_pose_estimation,
+    )
+    _normalize_payload_collection(
+        frame_results, snapshot, SegmentationMasksT,
+        "perception.metadata.SegmentationMasks", "masks", _normalize_segmentation_mask,
+    )
+    _normalize_payload_collection(
+        frame_results, snapshot, ObjectEmbeddingsT,
+        "perception.metadata.ObjectEmbeddings", "embeddings", _normalize_object_embedding,
+    )
+    _normalize_payload_collection(
+        frame_results, snapshot, ObjectTracksT,
+        "perception.metadata.ObjectTracks", "tracks", _normalize_object_track,
+    )
+    _normalize_payload_collection(
+        frame_results, snapshot, TrackTracesT,
+        "perception.metadata.TrackTraces", "traces", _normalize_track_trace,
+    )
     return snapshot

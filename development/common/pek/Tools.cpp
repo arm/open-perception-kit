@@ -19,10 +19,6 @@
 
 using namespace pek;
 
-namespace {
-std::atomic<uint64_t> object_id_counter{1};
-} // namespace
-
 std::string Tools::getLocalIp() {
     // HTTP server must bind to 0.0.0.0 (all interfaces) to accept connections
     // from host machine through Docker port mapping
@@ -101,7 +97,8 @@ Result<void *> Tools::DynamicLibraryGetSymbolRaw(DynamicLibraryHandle handle,
 }
 
 uint64_t pek::nextObjectId() noexcept {
-    return object_id_counter.fetch_add(1, std::memory_order_relaxed);
+    static std::atomic<uint64_t> objectIdCounter{1};
+    return objectIdCounter.fetch_add(1, std::memory_order_relaxed);
 }
 
 namespace {

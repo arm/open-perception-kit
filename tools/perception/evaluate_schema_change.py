@@ -171,6 +171,36 @@ def format_version(version: Optional[tuple[int, int, int]]) -> Optional[str]:
     return ".".join(str(component) for component in version) if version else None
 
 
+def validate_file_identifier(path: str, identifier: str) -> list[Finding]:
+    findings: list[Finding] = []
+    try:
+        identifier.encode("ascii")
+    except UnicodeEncodeError:
+        findings.append(Finding("error", path, "file_identifier must be ASCII"))
+    if len(identifier) != 4:
+        findings.append(Finding("error", path, "file_identifier must contain four characters"))
+    return findings
+
+
+def validate_root_table(path: str, schema: Schema) -> list[Finding]:
+    root_fields = schema.tables.get(schema.root_type or "")
+    if root_fields is None:
+        return [Finding("error", path, "root_type must name a table in the same schema")]
+    expected_versions = (
+        Field("schema_major", "ushort", "1"),
+        Field("schema_minor", "ushort", "0"),
+    )
+    if root_fields[:2] != expected_versions:
+        return [
+            Finding(
+                "error",
+                path,
+                "root table must begin with schema_major:ushort = 1 and schema_minor:ushort = 0",
+            )
+        ]
+    return []
+
+
 def validate_current_schemas(schemas: dict[str, Schema]) -> list[Finding]:
     findings: list[Finding] = []
     roots: dict[str, str] = {}
@@ -191,34 +221,14 @@ def validate_current_schemas(schemas: dict[str, Schema]) -> list[Finding]:
         roots[schema.root_type] = path
 
         identifier = schema.file_identifier or ""
-        try:
-            identifier.encode("ascii")
-        except UnicodeEncodeError:
-            findings.append(Finding("error", path, "file_identifier must be ASCII"))
-        if len(identifier) != 4:
-            findings.append(Finding("error", path, "file_identifier must contain four characters"))
+        findings.extend(validate_file_identifier(path, identifier))
         if identifier in identifiers:
             findings.append(
                 Finding("error", path, f"duplicate file_identifier also used by {identifiers[identifier]}")
             )
         identifiers[identifier] = path
 
-        root_fields = schema.tables.get(schema.root_type)
-        if root_fields is None:
-            findings.append(Finding("error", path, "root_type must name a table in the same schema"))
-            continue
-        expected_versions = (
-            Field("schema_major", "ushort", "1"),
-            Field("schema_minor", "ushort", "0"),
-        )
-        if root_fields[:2] != expected_versions:
-            findings.append(
-                Finding(
-                    "error",
-                    path,
-                    "root table must begin with schema_major:ushort = 1 and schema_minor:ushort = 0",
-                )
-            )
+        findings.extend(validate_root_table(path, schema))
     return findings
 
 

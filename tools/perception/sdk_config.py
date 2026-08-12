@@ -74,6 +74,83 @@ def _submodule_path(name: object) -> Path:
     return _relative_path(modules[section]["path"], f".gitmodules {section}.path")
 
 
+def _artifact(value: object, field: str, name: str, version: str) -> LockedArtifact:
+    expected = {"filename", "sha256", "url"}
+    if not isinstance(value, dict) or set(value) != expected:
+        raise RuntimeError(f"{field} fields must be exactly: {sorted(expected)}")
+    filename = value["filename"]
+    url = value["url"]
+    digest = value["sha256"]
+    if not isinstance(filename, str) or not filename or "/" in filename or "\\" in filename:
+        raise RuntimeError(f"{field}.filename must be a plain filename")
+    if not isinstance(url, str) or not url.startswith("https://") or not url.endswith(filename):
+        raise RuntimeError(f"{field}.url must be HTTPS and end with its filename")
+    if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+        raise RuntimeError(f"{field}.sha256 must be lowercase hexadecimal")
+    return LockedArtifact(name, version, filename, url, digest)
+
+
+def _named_artifact(value: object, field: str, expected_name: str) -> LockedArtifact:
+    expected = {"name", "version", "filename", "url", "sha256"}
+    if not isinstance(value, dict) or set(value) != expected:
+        raise RuntimeError(f"{field} has invalid fields")
+    name = value["name"]
+    version = value["version"]
+    if name != expected_name:
+        raise RuntimeError(f"{field}.name must be {expected_name}")
+    if not isinstance(version, str) or not SEMVER.fullmatch(version):
+        raise RuntimeError(f"{field}.version must be semantic")
+    return _artifact(
+        {key: value[key] for key in ("filename", "url", "sha256")},
+        field,
+        name,
+        version,
+    )
+
+
+def _python_build_tools(value: object) -> tuple[LockedArtifact, ...]:
+    if not isinstance(value, dict) or set(value) != {"tools"}:
+        raise RuntimeError("python_build must contain only tools")
+    tools = value["tools"]
+    if not isinstance(tools, list) or not tools:
+        raise RuntimeError("python_build.tools must be a non-empty list")
+    artifacts: list[LockedArtifact] = []
+    for index, tool in enumerate(tools):
+        field = f"python_build.tools[{index}]"
+        if not isinstance(tool, dict):
+            raise RuntimeError(f"{field} has invalid fields")
+        name = tool.get("name")
+        if not isinstance(name, str) or not re.fullmatch(r"[a-z][a-z0-9_-]*", name):
+            raise RuntimeError(f"{field}.name is invalid")
+        artifacts.append(_named_artifact(tool, field, name))
+    if [artifact.name for artifact in artifacts] != ["pip", "setuptools", "wheel"]:
+        raise RuntimeError("python_build.tools must contain pip, setuptools, and wheel in order")
+    return tuple(artifacts)
+
+
+def _typescript_build(
+    value: object, flatbuffers_version: str
+) -> tuple[LockedArtifact, LockedArtifact, int]:
+    expected = {"flatbuffers_runtime", "node_minimum_major", "typescript"}
+    if not isinstance(value, dict) or set(value) != expected:
+        raise RuntimeError(
+            "typescript_build fields must be exactly: "
+            "['flatbuffers_runtime', 'node_minimum_major', 'typescript']"
+        )
+    node_minimum_major = value["node_minimum_major"]
+    if not isinstance(node_minimum_major, int) or node_minimum_major < 20:
+        raise RuntimeError("typescript_build.node_minimum_major must be at least 20")
+    runtime = _named_artifact(
+        value["flatbuffers_runtime"], "typescript_build.flatbuffers_runtime", "flatbuffers"
+    )
+    if runtime.version != flatbuffers_version:
+        raise RuntimeError("TypeScript FlatBuffers runtime must match the compiler version")
+    compiler = _named_artifact(
+        value["typescript"], "typescript_build.typescript", "typescript"
+    )
+    return runtime, compiler, node_minimum_major
+
+
 def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
     raw = json.loads(path.read_text(encoding="utf-8"))
     expected = {
@@ -109,99 +186,18 @@ def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
     if not isinstance(flatbuffers_version, str) or not SEMVER.fullmatch(flatbuffers_version):
         raise RuntimeError("FlatBuffers wheel version must be semantic")
 
-    def artifact(value: object, field: str, name: str, version_value: str) -> LockedArtifact:
-        expected_artifact = {"filename", "sha256", "url"}
-        if not isinstance(value, dict) or set(value) != expected_artifact:
-            raise RuntimeError(f"{field} fields must be exactly: {sorted(expected_artifact)}")
-        filename = value["filename"]
-        url = value["url"]
-        digest = value["sha256"]
-        if not isinstance(filename, str) or not filename or "/" in filename or "\\" in filename:
-            raise RuntimeError(f"{field}.filename must be a plain filename")
-        if not isinstance(url, str) or not url.startswith("https://") or not url.endswith(filename):
-            raise RuntimeError(f"{field}.url must be HTTPS and end with its filename")
-        if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
-            raise RuntimeError(f"{field}.sha256 must be lowercase hexadecimal")
-        return LockedArtifact(name, version_value, filename, url, digest)
-
-    wheel = artifact(
+    wheel = _artifact(
         flatbuffers["python_wheel"], "flatbuffers.python_wheel",
         "flatbuffers", flatbuffers_version,
     )
-    source = artifact(
+    source = _artifact(
         flatbuffers["source_archive"], "flatbuffers.source_archive",
         "flatbuffers", flatbuffers_version,
     )
 
-    python_build = raw["python_build"]
-    if not isinstance(python_build, dict) or set(python_build) != {"tools"}:
-        raise RuntimeError("python_build must contain only tools")
-    tools = python_build["tools"]
-    if not isinstance(tools, list) or not tools:
-        raise RuntimeError("python_build.tools must be a non-empty list")
-    build_tools: list[LockedArtifact] = []
-    for index, value in enumerate(tools):
-        field = f"python_build.tools[{index}]"
-        if not isinstance(value, dict) or set(value) != {
-            "name", "version", "filename", "url", "sha256"
-        }:
-            raise RuntimeError(f"{field} has invalid fields")
-        name_value = value["name"]
-        version_value = value["version"]
-        if not isinstance(name_value, str) or not re.fullmatch(r"[a-z][a-z0-9_-]*", name_value):
-            raise RuntimeError(f"{field}.name is invalid")
-        if not isinstance(version_value, str) or not SEMVER.fullmatch(version_value):
-            raise RuntimeError(f"{field}.version must be semantic")
-        build_tools.append(artifact(
-            {key: value[key] for key in ("filename", "url", "sha256")},
-            field, name_value, version_value,
-        ))
-    if [tool.name for tool in build_tools] != ["pip", "setuptools", "wheel"]:
-        raise RuntimeError("python_build.tools must contain pip, setuptools, and wheel in order")
-
-    typescript_build = raw["typescript_build"]
-    if not isinstance(typescript_build, dict) or set(typescript_build) != {
-        "flatbuffers_runtime", "node_minimum_major", "typescript"
-    }:
-        raise RuntimeError(
-            "typescript_build fields must be exactly: "
-            "['flatbuffers_runtime', 'node_minimum_major', 'typescript']"
-        )
-    node_minimum_major = typescript_build["node_minimum_major"]
-    if not isinstance(node_minimum_major, int) or node_minimum_major < 20:
-        raise RuntimeError("typescript_build.node_minimum_major must be at least 20")
-
-    def npm_artifact(value: object, field: str, expected_name: str) -> LockedArtifact:
-        if not isinstance(value, dict) or set(value) != {
-            "name", "version", "filename", "url", "sha256"
-        }:
-            raise RuntimeError(f"{field} has invalid fields")
-        name_value = value["name"]
-        version_value = value["version"]
-        if name_value != expected_name:
-            raise RuntimeError(f"{field}.name must be {expected_name}")
-        if not isinstance(version_value, str) or not SEMVER.fullmatch(version_value):
-            raise RuntimeError(f"{field}.version must be semantic")
-        return artifact(
-            {key: value[key] for key in ("filename", "url", "sha256")},
-            field,
-            name_value,
-            version_value,
-        )
-
-    typescript_runtime = npm_artifact(
-        typescript_build["flatbuffers_runtime"],
-        "typescript_build.flatbuffers_runtime",
-        "flatbuffers",
-    )
-    if typescript_runtime.version != flatbuffers_version:
-        raise RuntimeError(
-            "TypeScript FlatBuffers runtime must match the compiler version"
-        )
-    typescript_compiler = npm_artifact(
-        typescript_build["typescript"],
-        "typescript_build.typescript",
-        "typescript",
+    build_tools = _python_build_tools(raw["python_build"])
+    typescript_runtime, typescript_compiler, node_minimum_major = _typescript_build(
+        raw["typescript_build"], flatbuffers_version
     )
 
     flowdata = raw["flowdata_sdk"]
@@ -232,7 +228,7 @@ def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
         flatbuffers_version=flatbuffers_version,
         flatbuffers_wheel=wheel,
         flatbuffers_source=source,
-        python_build_tools=tuple(build_tools),
+        python_build_tools=build_tools,
         typescript_runtime=typescript_runtime,
         typescript_compiler=typescript_compiler,
         node_minimum_major=node_minimum_major,

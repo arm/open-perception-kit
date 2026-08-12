@@ -65,7 +65,7 @@ InferenceControllerOp::process(pek::op::OpChainContext &opChainContext) {
         opChainContext.inferenceImageCropIds.push_back(frameId);
     } else {
         perception::forEachBoxDetectionWithContentType(
-            *opChainContext.frameResults, contentType, [&](const auto &r) {
+            *opChainContext.frameResults, contentType, [&opChainContext](const auto &r) {
                 if (!r.box || !r.object) {
                     return;
                 }

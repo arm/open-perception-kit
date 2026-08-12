@@ -36,6 +36,7 @@ PY_LICENSE_HEADER = """\
 CMAKE_LICENSE_HEADER = PY_LICENSE_HEADER
 TS_LICENSE_HEADER = "// Copyright (C) 2026 Arm Limited. All rights reserved.\n"
 CMAKE_FORMAT = "cmake-format"
+MESON_BUILD_FILENAME = "meson.build"
 
 
 def run(cmd: list[str]) -> None:
@@ -271,8 +272,8 @@ def validate_flowdata_manifests(
 def normalize_integration_files(config: SdkConfig, generated_root: Path) -> None:
     paths = (
         generated_root / "cpp" / "cmake" / f"{config.name}.cmake",
-        generated_root / "cpp" / "meson" / config.name / "meson.build",
-        generated_root / "cpp" / "meson" / config.name / "python_bridge" / "meson.build",
+        generated_root / "cpp" / "meson" / config.name / MESON_BUILD_FILENAME,
+        generated_root / "cpp" / "meson" / config.name / "python_bridge" / MESON_BUILD_FILENAME,
     )
     for path in paths:
         path.write_text(path.read_text(encoding="utf-8").rstrip() + "\n", encoding="utf-8")
@@ -419,15 +420,13 @@ def write_perception_manifest(
     manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def verify_perception_manifest(
+def _verify_manifest_identity(
     config: SdkConfig,
-    generated_root: Path | None = None,
-    internal_meson: Path | None = None,
-) -> dict[str, object]:
-    generated_root = generated_root or config.generated_root
-    internal_meson = internal_meson or config.internal_meson_path
-    path = generated_root / PERCEPTION_MANIFEST_FILENAME
-    manifest = json.loads(path.read_text(encoding="utf-8"))
+    generated_root: Path,
+    internal_meson: Path,
+    path: Path,
+    manifest: dict[str, object],
+) -> None:
     expected_fields = {
         "artifact", "descriptor", "files", "generation", "postprocessing",
         "project_files", "upstream_receipts",
@@ -451,6 +450,9 @@ def verify_perception_manifest(
     }]
     if manifest.get("project_files") != expected_project:
         raise RuntimeError("Perception SDK project integration is stale")
+
+
+def _verify_generation_identity(config: SdkConfig, manifest: dict[str, object]) -> dict[str, object]:
     generation = manifest.get("generation")
     if not isinstance(generation, dict):
         raise RuntimeError("Perception SDK generation identity is missing")
@@ -461,11 +463,21 @@ def verify_perception_manifest(
         raise RuntimeError("Perception SDK flowdata identity is missing")
     if flowdata_identity.get("commit") != git_commit(config.flowdata_root):
         raise RuntimeError("flowdata-sdk changed; regenerate the Perception SDK")
+    return flowdata_identity
+
+
+def _verify_upstream_receipts(
+    config: SdkConfig,
+    manifest: dict[str, object],
+    flowdata_identity: dict[str, object],
+) -> None:
     flowdata = manifest.get("upstream_receipts")
     if not isinstance(flowdata, dict) or set(flowdata) != {"cpp", "python", "ts"}:
         raise RuntimeError("Perception SDK manifest has incomplete flowdata metadata")
     for sdk in ("cpp", "python", "ts"):
         sdk_manifest = flowdata[sdk]
+        if not isinstance(sdk_manifest, dict):
+            raise RuntimeError(f"{sdk} manifest metadata is malformed")
         if sdk_manifest.get("sdk", {}).get("name") != config.name:
             raise RuntimeError(f"{sdk} manifest SDK name does not match sdk.json")
         if sdk_manifest.get("sdk", {}).get("version") != config.version:
@@ -476,6 +488,20 @@ def verify_perception_manifest(
             raise RuntimeError(f"{sdk} schema inputs are stale")
         if sdk_manifest.get("schema_set_sha256") != _schema_set_sha256(config.schema_dir):
             raise RuntimeError(f"{sdk} schema-set digest is stale")
+
+
+def verify_perception_manifest(
+    config: SdkConfig,
+    generated_root: Path | None = None,
+    internal_meson: Path | None = None,
+) -> dict[str, object]:
+    generated_root = generated_root or config.generated_root
+    internal_meson = internal_meson or config.internal_meson_path
+    path = generated_root / PERCEPTION_MANIFEST_FILENAME
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    _verify_manifest_identity(config, generated_root, internal_meson, path, manifest)
+    flowdata_identity = _verify_generation_identity(config, manifest)
+    _verify_upstream_receipts(config, manifest, flowdata_identity)
     return manifest
 
 
@@ -524,7 +550,7 @@ def _tree_diff(expected: Path, actual: Path) -> str:
         elif not right.exists():
             lines.append(f"missing from checked-in SDK: {relative}")
         elif left.read_bytes() != right.read_bytes():
-            if left.suffix in {".json", ".py", ".pyi", ".h", ".cpp", ".txt", ".md"} or left.name in {"meson.build", "pyproject.toml"}:
+            if left.suffix in {".json", ".py", ".pyi", ".h", ".cpp", ".txt", ".md"} or left.name in {MESON_BUILD_FILENAME, "pyproject.toml"}:
                 lines.extend(difflib.unified_diff(
                     right.read_text(encoding="utf-8").splitlines(),
                     left.read_text(encoding="utf-8").splitlines(),
@@ -546,7 +572,7 @@ def generate_candidate(
     node_modules: Path,
 ) -> tuple[Path, Path]:
     generated = workspace / "generated"
-    internal = workspace / "development" / "perception" / "meson.build"
+    internal = workspace / "development" / "perception" / MESON_BUILD_FILENAME
     generate_sdk(config, generated, flatc, python)
     prepare_sdk(
         config, generated, internal, clang_format, formatter_python, python,

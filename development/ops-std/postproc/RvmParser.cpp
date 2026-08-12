@@ -46,7 +46,7 @@ pek::Result<void> RvmParser::parse(const pek::TensorParser::Input &input,
 
     pek::Bitmap bitmap(pek::Bitmap::Type::Uint8, maskWidth, maskHeight);
 
-    auto *dst = const_cast<uint8_t *>(bitmap.getData());
+    auto *dst = bitmap.getMutableData();
 
     // size_t planeSize = maskHeight * maskWidth;
 

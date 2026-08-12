@@ -40,6 +40,8 @@ SEMANTIC_VERSION_RE = re.compile(
 )
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 GIT_COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
+CHECKSUM_SUFFIX = ".sha256"
+PROVENANCE_SUFFIX = ".provenance.json"
 
 
 def run(
@@ -348,21 +350,9 @@ def write_bundle_manifest(
     )
 
 
-def verify_bundle(bundle_root: Path) -> None:
-    manifest_path = bundle_root / MANIFEST_FILENAME
-    manifest = load_json(manifest_path)
-    expected_fields = {
-        "archive", "artifact", "files", "flatbuffers", "generator", "outputs",
-        "payloads", "perception_npm_package", "perception_wheel", "postprocessing", "schemas",
-        "schema_set_sha256", "source", "tools",
-    }
-    if set(manifest) != expected_fields:
-        raise RuntimeError("Perception release manifest fields are stale")
-    artifact = manifest.get("artifact")
-    if not isinstance(artifact, dict) or not isinstance(artifact.get("version"), str):
-        raise RuntimeError("release manifest artifact identity is malformed")
-    require_semantic_version(artifact["version"])
-    files = manifest.get("files")
+def _verify_manifest_files(
+    bundle_root: Path, manifest_path: Path, files: object
+) -> dict[str, dict[str, object]]:
     if not isinstance(files, list):
         raise RuntimeError("release manifest files must be a list")
     expected_paths: set[str] = set()
@@ -382,7 +372,10 @@ def verify_bundle(bundle_root: Path) -> None:
     }
     if actual_paths != expected_paths:
         raise RuntimeError("release bundle contains unmanifested or missing files")
-    source = manifest.get("source")
+    return file_entries
+
+
+def _verify_source_identities(bundle_root: Path, source: object) -> None:
     if not isinstance(source, dict):
         raise RuntimeError("release manifest source metadata is malformed")
     if not SHA256_RE.fullmatch(str(source.get("input_tree_sha256", ""))):
@@ -394,6 +387,13 @@ def verify_bundle(bundle_root: Path) -> None:
         path = bundle_root / validate_relative_path(identity.get("path"))
         if not path.is_file() or sha256(path) != identity["sha256"]:
             raise RuntimeError(f"release manifest {key} hash does not match bundled metadata")
+
+
+def _verify_packaged_artifact_records(
+    bundle_root: Path,
+    manifest: dict[str, object],
+    file_entries: dict[str, dict[str, object]],
+) -> None:
     for section in ("perception_wheel", "perception_npm_package"):
         record = manifest.get(section)
         if not isinstance(record, dict):
@@ -403,6 +403,25 @@ def verify_bundle(bundle_root: Path) -> None:
             raise RuntimeError(f"release manifest {section} checksum mismatch")
         if validate_relative_path(record.get("path")).as_posix() not in file_entries:
             raise RuntimeError(f"release manifest {section} is not listed in files")
+
+
+def verify_bundle(bundle_root: Path) -> None:
+    manifest_path = bundle_root / MANIFEST_FILENAME
+    manifest = load_json(manifest_path)
+    expected_fields = {
+        "archive", "artifact", "files", "flatbuffers", "generator", "outputs",
+        "payloads", "perception_npm_package", "perception_wheel", "postprocessing", "schemas",
+        "schema_set_sha256", "source", "tools",
+    }
+    if set(manifest) != expected_fields:
+        raise RuntimeError("Perception release manifest fields are stale")
+    artifact = manifest.get("artifact")
+    if not isinstance(artifact, dict) or not isinstance(artifact.get("version"), str):
+        raise RuntimeError("release manifest artifact identity is malformed")
+    require_semantic_version(artifact["version"])
+    file_entries = _verify_manifest_files(bundle_root, manifest_path, manifest.get("files"))
+    _verify_source_identities(bundle_root, manifest.get("source"))
+    _verify_packaged_artifact_records(bundle_root, manifest, file_entries)
 
     verify_manifest_semantics(bundle_root, manifest, file_entries)
 
@@ -422,15 +441,7 @@ def wheel_metadata(path: Path) -> tuple[dict[str, str], list[str], list[str]]:
     return identity, metadata.get_all("Requires-Dist", []), wheel_record.get_all("Tag", [])
 
 
-def verify_manifest_semantics(
-    bundle_root: Path,
-    manifest: dict[str, object],
-    file_entries: dict[str, dict[str, object]],
-) -> None:
-    artifact = manifest["artifact"]
-    if artifact.get("name") != "perception-sdk":
-        raise RuntimeError("release manifest artifact name is invalid")
-    source = manifest["source"]
+def _verify_release_tools(source: dict[str, object]) -> None:
     release_tools = source.get("release_tools")
     if not isinstance(release_tools, list) or not release_tools:
         raise RuntimeError("release manifest release tool identity is missing")
@@ -442,6 +453,10 @@ def verify_manifest_semantics(
         ):
             raise RuntimeError("release manifest release tool identity is malformed")
 
+
+def _verify_schema_semantics(
+    bundle_root: Path, manifest: dict[str, object]
+) -> tuple[list[object], str]:
     schemas = manifest.get("schemas")
     if not isinstance(schemas, dict):
         raise RuntimeError("release schema metadata is missing")
@@ -476,7 +491,15 @@ def verify_manifest_semantics(
         or cpp_receipt.get("schema_set_sha256") != schema_digest
     ):
         raise RuntimeError("release schemas do not match the generated SDK receipt")
+    return schema_files, schema_digest
 
+
+def _verify_python_packages(
+    bundle_root: Path,
+    artifact: dict[str, object],
+    manifest: dict[str, object],
+    file_entries: dict[str, dict[str, object]],
+) -> dict[str, object]:
     perception = manifest.get("perception_wheel")
     flatbuffers = manifest.get("flatbuffers")
     if not isinstance(perception, dict) or not isinstance(flatbuffers, dict):
@@ -502,7 +525,16 @@ def verify_manifest_semantics(
             requirement.lower().startswith("flatbuffers") for requirement in requirements
         ):
             raise RuntimeError("Perception wheel does not declare FlatBuffers")
+    return flatbuffers
 
+
+def _verify_typescript_packages(
+    bundle_root: Path,
+    artifact: dict[str, object],
+    manifest: dict[str, object],
+    flatbuffers: dict[str, object],
+    file_entries: dict[str, dict[str, object]],
+) -> None:
     perception_npm = manifest.get("perception_npm_package")
     flatbuffers_npm = flatbuffers.get("typescript_package")
     if not isinstance(perception_npm, dict) or not isinstance(flatbuffers_npm, dict):
@@ -527,6 +559,23 @@ def verify_manifest_semantics(
     )
     if flatbuffers_package.get("name") != "flatbuffers" or flatbuffers_package.get("version") != flatbuffers_npm.get("version"):
         raise RuntimeError("FlatBuffers TypeScript package identity is invalid")
+
+
+def verify_manifest_semantics(
+    bundle_root: Path,
+    manifest: dict[str, object],
+    file_entries: dict[str, dict[str, object]],
+) -> None:
+    artifact = manifest["artifact"]
+    if not isinstance(artifact, dict) or artifact.get("name") != "perception-sdk":
+        raise RuntimeError("release manifest artifact name is invalid")
+    source = manifest["source"]
+    if not isinstance(source, dict):
+        raise RuntimeError("release manifest source metadata is malformed")
+    _verify_release_tools(source)
+    _verify_schema_semantics(bundle_root, manifest)
+    flatbuffers = _verify_python_packages(bundle_root, artifact, manifest, file_entries)
+    _verify_typescript_packages(bundle_root, artifact, manifest, flatbuffers, file_entries)
 
 
 def write_deterministic_zip(bundle_root: Path, destination: Path) -> None:
@@ -576,7 +625,7 @@ def write_provenance(
     generated_manifest_path: Path,
     dirty: bool,
 ) -> Path:
-    provenance_path = archive_path.with_suffix(archive_path.suffix + ".provenance.json")
+    provenance_path = archive_path.with_suffix(archive_path.suffix + PROVENANCE_SUFFIX)
     provenance = {
         "archive": {"path": archive_path.name, "sha256": sha256(archive_path)},
         "descriptor_sha256": config.descriptor_sha256,
@@ -592,7 +641,7 @@ def write_provenance(
 
 
 def write_checksum(archive_path: Path) -> Path:
-    checksum_path = archive_path.with_suffix(archive_path.suffix + ".sha256")
+    checksum_path = archive_path.with_suffix(archive_path.suffix + CHECKSUM_SUFFIX)
     checksum_path.write_text(
         f"{sha256(archive_path)}  {archive_path.name}\n",
         encoding="utf-8",
@@ -630,11 +679,11 @@ def verify_release_archive(archive_path: Path) -> None:
 
 
 def verify_release_sidecars(archive_path: Path) -> None:
-    checksum_path = archive_path.with_suffix(archive_path.suffix + ".sha256")
+    checksum_path = archive_path.with_suffix(archive_path.suffix + CHECKSUM_SUFFIX)
     expected_checksum = f"{sha256(archive_path)}  {archive_path.name}\n"
     if checksum_path.read_text(encoding="utf-8") != expected_checksum:
         raise RuntimeError("release checksum sidecar does not match archive")
-    provenance_path = archive_path.with_suffix(archive_path.suffix + ".provenance.json")
+    provenance_path = archive_path.with_suffix(archive_path.suffix + PROVENANCE_SUFFIX)
     provenance = load_json(provenance_path)
     if provenance.get("archive") != {
         "path": archive_path.name,
@@ -743,8 +792,8 @@ def verify_release_path(path: Path, require_sidecars: bool = False) -> None:
         verify_bundle(path)
         return
     verify_release_archive(path)
-    checksum = path.with_suffix(path.suffix + ".sha256")
-    provenance = path.with_suffix(path.suffix + ".provenance.json")
+    checksum = path.with_suffix(path.suffix + CHECKSUM_SUFFIX)
+    provenance = path.with_suffix(path.suffix + PROVENANCE_SUFFIX)
     sidecars = (checksum.exists(), provenance.exists())
     if require_sidecars and not all(sidecars):
         raise RuntimeError("release checksum and provenance sidecars are required")

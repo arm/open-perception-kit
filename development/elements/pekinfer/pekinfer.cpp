@@ -357,6 +357,34 @@ static GstPekInferFramePolicy gst_pekinfer_get_frame_policy(GstPekInfer *self,
     return policy;
 }
 
+static std::shared_ptr<pek::mediaio::VideoFrame> gst_pekinfer_map_video_frame(GstPekInfer *self,
+                                                                              GstBuffer *buffer) {
+    if (pek::mediaio::gst::GstVideoFrame::hasDirectCpuAddress(buffer)) {
+        auto frame = pek::mediaio::gst::GstVideoFrame::mapGstBuffer(
+            buffer, self->vinfo, pek::AccessMode::Read);
+        if (!frame) {
+            GST_ELEMENT_ERROR(
+                self, RESOURCE, FAILED, ("Failed to map video buffer."), ("%s", self->opChainPath));
+        }
+        return frame;
+    }
+
+    if (pek::mediaio::gst::GstVideoFrame::hasDmaBufContent(buffer)) {
+        GST_ELEMENT_ERROR(self,
+                          RESOURCE,
+                          FAILED,
+                          ("DMA-BUF video buffers are not supported by pekinfer yet."),
+                          ("%s", self->opChainPath));
+    } else {
+        GST_ELEMENT_ERROR(self,
+                          RESOURCE,
+                          FAILED,
+                          ("Unsupported GstBuffer memory type."),
+                          ("%s", self->opChainPath));
+    }
+    return nullptr;
+}
+
 static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *buf) {
     auto *self = (GstPekInfer *)b;
 
@@ -415,28 +443,8 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
     // accidentally taking a slow or invalid CPU mapping path. Keep this after attaching
     // FrameResultsMeta: GstVideoFrame holds its own GstBuffer ref, which makes adding
     // new metadata fail because the buffer is no longer considered writable.
-    std::shared_ptr<pek::mediaio::VideoFrame> sharedMediaFrame;
-    if (pek::mediaio::gst::GstVideoFrame::hasDirectCpuAddress(buf)) {
-        sharedMediaFrame =
-            pek::mediaio::gst::GstVideoFrame::mapGstBuffer(buf, self->vinfo, pek::AccessMode::Read);
-        if (!sharedMediaFrame) {
-            GST_ELEMENT_ERROR(
-                self, RESOURCE, FAILED, ("Failed to map video buffer."), ("%s", self->opChainPath));
-            return GST_FLOW_ERROR;
-        }
-    } else if (pek::mediaio::gst::GstVideoFrame::hasDmaBufContent(buf)) {
-        GST_ELEMENT_ERROR(self,
-                          RESOURCE,
-                          FAILED,
-                          ("DMA-BUF video buffers are not supported by pekinfer yet."),
-                          ("%s", self->opChainPath));
-        return GST_FLOW_ERROR;
-    } else {
-        GST_ELEMENT_ERROR(self,
-                          RESOURCE,
-                          FAILED,
-                          ("Unsupported GstBuffer memory type."),
-                          ("%s", self->opChainPath));
+    auto sharedMediaFrame = gst_pekinfer_map_video_frame(self, buf);
+    if (!sharedMediaFrame) {
         return GST_FLOW_ERROR;
     }
 

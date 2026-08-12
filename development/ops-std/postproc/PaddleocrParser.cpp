@@ -43,7 +43,7 @@ pek::Result<void> PaddleOcrDetectionParser::parse(const pek::TensorParser::Input
 
     pek::Bitmap bitmap(pek::Bitmap::Type::Uint8, maskWidth, maskHeight);
 
-    auto *dst = const_cast<uint8_t *>(bitmap.getData());
+    auto *dst = bitmap.getMutableData();
 
     auto smoothstep = [](float e0, float e1, float x) {
         x = std::clamp((x - e0) / (e1 - e0), 0.0f, 1.0f);
