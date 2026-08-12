@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import base64
-import binascii
 from dataclasses import dataclass
 from typing import Any, Mapping
 
@@ -31,7 +30,7 @@ def _decode_base64_packet(encoded_packet: Any) -> bytes:
 
     try:
         return base64.b64decode(encoded_packet, validate=True)
-    except (binascii.Error, ValueError) as exc:
+    except ValueError as exc:
         raise FrameResultsDecodeError("invalid frame_results_packet_b64") from exc
 
 

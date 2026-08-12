@@ -111,8 +111,8 @@ void applyMatchedDetection(DetectionIndex detectionIndex,
             ? diagnosticIt->second
             : "IOU:N/A";
 
-    const auto embedding = findDetectionEmbedding(detectionIndex, frameTrackingContext);
-    if (embedding != nullptr && isValidEmbedding(*embedding)) {
+    if (const auto embedding = findDetectionEmbedding(detectionIndex, frameTrackingContext);
+        embedding != nullptr && isValidEmbedding(*embedding)) {
         track.lastEmbedding = *embedding;
         track.hasEmbedding = true;
     }
@@ -206,8 +206,8 @@ void createTrackFromDetection(DetectionIndex detectionIndex,
     newTrack.hitStreak = 1;
     newTrack.lastUpdateFrame = frameTrackingContext.currentFrameIndex;
 
-    const auto embedding = findDetectionEmbedding(detectionIndex, frameTrackingContext);
-    if (embedding != nullptr && isValidEmbedding(*embedding)) {
+    if (const auto embedding = findDetectionEmbedding(detectionIndex, frameTrackingContext);
+        embedding != nullptr && isValidEmbedding(*embedding)) {
         newTrack.lastEmbedding = *embedding;
         newTrack.hasEmbedding = true;
     }

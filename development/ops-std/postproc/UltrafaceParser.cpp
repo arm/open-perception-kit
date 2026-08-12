@@ -68,10 +68,9 @@ inline std::vector<FaceDetection> nonMaxSuppression(const std::vector<FaceDetect
         return {};
 
     // 2) Sort by confidence descending
-    std::sort(
-        candidates.begin(), candidates.end(), [](const FaceDetection &a, const FaceDetection &b) {
-            return a.confidence > b.confidence;
-        });
+    std::ranges::sort(candidates, [](const FaceDetection &a, const FaceDetection &b) {
+        return a.confidence > b.confidence;
+    });
 
     // 3) Greedy NMS
     std::vector<FaceDetection> result;

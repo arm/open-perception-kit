@@ -25,8 +25,7 @@ std::string base64Encode(std::span<const uint8_t> data) {
         index += 3U;
     }
 
-    const size_t remaining = data.size() - index;
-    if (remaining == 1U) {
+    if (const size_t remaining = data.size() - index; remaining == 1U) {
         const uint32_t value = uint32_t(data[index]) << 16U;
         out.push_back(table[(value >> 18U) & 0x3FU]);
         out.push_back(table[(value >> 12U) & 0x3FU]);

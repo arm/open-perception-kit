@@ -16,6 +16,7 @@ from perception.packet import decode
 EXECUTOR = Path(sys.argv.pop(1)).resolve()
 SEED_SCRIPT = Path(sys.argv.pop(1)).resolve()
 PROCESSOR_SCRIPT = Path(sys.argv.pop(1)).resolve()
+OUTPUT_FILENAME = "results.bin"
 
 
 def text(value: bytes | str) -> str:
@@ -51,7 +52,7 @@ class PythonGuestScriptExecutorTest(unittest.TestCase):
 
     def test_executes_ordered_chain_and_serializes_packet(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            output = Path(temporary_directory) / "results.bin"
+            output = Path(temporary_directory) / OUTPUT_FILENAME
             result = self.run_executor(output, SEED_SCRIPT, PROCESSOR_SCRIPT)
 
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -80,7 +81,7 @@ class PythonGuestScriptExecutorTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             directory = Path(temporary_directory)
             script = self.write_script(directory, "missing_process.py", "VALUE = 1\n")
-            output = directory / "results.bin"
+            output = directory / OUTPUT_FILENAME
 
             result = self.run_executor(output, script)
 
@@ -92,7 +93,7 @@ class PythonGuestScriptExecutorTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             directory = Path(temporary_directory)
             script = self.write_script(directory, "non_callable.py", "process = 42\n")
-            output = directory / "results.bin"
+            output = directory / OUTPUT_FILENAME
 
             result = self.run_executor(output, script)
 
@@ -104,7 +105,7 @@ class PythonGuestScriptExecutorTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             directory = Path(temporary_directory)
             script = self.write_script(directory, "syntax_error.py", "def process(env)\n")
-            output = directory / "results.bin"
+            output = directory / OUTPUT_FILENAME
 
             result = self.run_executor(output, script)
 
@@ -124,7 +125,7 @@ class PythonGuestScriptExecutorTest(unittest.TestCase):
                     raise ValueError("expected failure")
                 """,
             )
-            output = directory / "results.bin"
+            output = directory / OUTPUT_FILENAME
 
             result = self.run_executor(output, script)
 
@@ -144,7 +145,7 @@ class PythonGuestScriptExecutorTest(unittest.TestCase):
                     return 42
                 """,
             )
-            output = directory / "results.bin"
+            output = directory / OUTPUT_FILENAME
 
             result = self.run_executor(output, script)
 
@@ -155,7 +156,7 @@ class PythonGuestScriptExecutorTest(unittest.TestCase):
     def test_rejects_missing_script(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             directory = Path(temporary_directory)
-            output = directory / "results.bin"
+            output = directory / OUTPUT_FILENAME
             missing = directory / "missing.py"
 
             result = self.run_executor(output, missing)
@@ -189,7 +190,7 @@ class PythonGuestScriptExecutorTest(unittest.TestCase):
                         raise AssertionError(VALUE)
                 """,
             )
-            output = directory / "results.bin"
+            output = directory / OUTPUT_FILENAME
 
             result = self.run_executor(output, script, python_paths=(module_directory,))
 
@@ -209,7 +210,7 @@ class PythonGuestScriptExecutorTest(unittest.TestCase):
 
     def test_requires_at_least_one_script(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            output = Path(temporary_directory) / "results.bin"
+            output = Path(temporary_directory) / OUTPUT_FILENAME
             result = self.run_executor(output)
 
             self.assertEqual(result.returncode, 2)
@@ -218,7 +219,7 @@ class PythonGuestScriptExecutorTest(unittest.TestCase):
     def test_rejects_invalid_python_path(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             directory = Path(temporary_directory)
-            output = directory / "results.bin"
+            output = directory / OUTPUT_FILENAME
             result = self.run_executor(
                 output,
                 SEED_SCRIPT,

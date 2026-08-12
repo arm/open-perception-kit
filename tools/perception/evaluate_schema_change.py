@@ -429,7 +429,7 @@ def main() -> int:
 
     try:
         report = evaluate(repository_root(arguments.repo_root), arguments.base)
-    except (OSError, RuntimeError, ValueError, json.JSONDecodeError) as error:
+    except (OSError, RuntimeError, ValueError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 2
 

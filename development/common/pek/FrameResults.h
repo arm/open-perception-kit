@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace perception {
@@ -39,7 +40,7 @@ void forEachBoxDetectionWithContentType(const FrameResults &frameResults,
                                         const std::string &contentType,
                                         uint64_t id,
                                         Fn &&fn) {
-    frameResults.for_each<metadata::BoxDetectionsT>([&](const auto &payload) {
+    frameResults.for_each<metadata::BoxDetectionsT>([&contentType, id, &fn](const auto &payload) {
         if (!payload.layer || payload.layer->content_type != contentType) {
             return;
         }
@@ -60,7 +61,7 @@ template <typename Fn>
 void forEachBoxDetectionWithContentType(const FrameResults &frameResults,
                                         const std::string &contentType,
                                         Fn &&fn) {
-    forEachBoxDetectionWithContentType(frameResults, contentType, 0U, fn);
+    forEachBoxDetectionWithContentType(frameResults, contentType, 0U, std::forward<Fn>(fn));
 }
 
 std::vector<uint8_t> serialize(const FrameResults &frameResults);

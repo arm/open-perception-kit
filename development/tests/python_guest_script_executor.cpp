@@ -201,22 +201,23 @@ bool executeScript(const std::filesystem::path &path, size_t index, PyObject *en
     const auto absolutePath = std::filesystem::absolute(path);
     const auto moduleName = "_pek_guest_script_" + std::to_string(index);
 
-    PyObjectPtr module(PyModule_New(moduleName.c_str()));
-    if (!module) {
+    PyObjectPtr pythonModule(PyModule_New(moduleName.c_str()));
+    if (!pythonModule) {
         std::cerr << "failed to create module for guest script: " << absolutePath << '\n';
         PyErr_Print();
         return false;
     }
-    if (PyDict_SetItemString(PyImport_GetModuleDict(), moduleName.c_str(), module.get()) < 0) {
+    if (PyDict_SetItemString(PyImport_GetModuleDict(), moduleName.c_str(), pythonModule.get()) <
+        0) {
         std::cerr << "failed to register guest script module: " << absolutePath << '\n';
         PyErr_Print();
         return false;
     }
 
-    PyObject *globals = PyModule_GetDict(module.get());
+    PyObject *globals = PyModule_GetDict(pythonModule.get());
     PyObject *builtins = PyEval_GetBuiltins();
-    PyObjectPtr fileName(PyUnicode_FromString(absolutePath.string().c_str()));
-    if (globals == nullptr || builtins == nullptr || !fileName ||
+    if (PyObjectPtr fileName(PyUnicode_FromString(absolutePath.string().c_str()));
+        globals == nullptr || builtins == nullptr || !fileName ||
         PyDict_SetItemString(globals, "__builtins__", builtins) < 0 ||
         PyDict_SetItemString(globals, "__file__", fileName.get()) < 0) {
         std::cerr << "failed to initialize guest script globals: " << absolutePath << '\n';
@@ -232,14 +233,13 @@ bool executeScript(const std::filesystem::path &path, size_t index, PyObject *en
         return false;
     }
 
-    PyObjectPtr evaluation(PyEval_EvalCode(code.get(), globals, globals));
-    if (!evaluation) {
+    if (PyObjectPtr evaluation(PyEval_EvalCode(code.get(), globals, globals)); !evaluation) {
         std::cerr << "failed to load guest script: " << absolutePath << '\n';
         PyErr_Print();
         return false;
     }
 
-    PyObjectPtr process(PyObject_GetAttrString(module.get(), "process"));
+    PyObjectPtr process(PyObject_GetAttrString(pythonModule.get(), "process"));
     if (!process || !PyCallable_Check(process.get())) {
         PyErr_Clear();
         PyErr_Format(

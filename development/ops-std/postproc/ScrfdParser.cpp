@@ -45,10 +45,10 @@ inline float iou(const FaceDetection &a, const FaceDetection &b) {
     return interArea / unionArea;
 }
 
-static std::vector<FaceDetection> nonMaxSuppression(const std::vector<FaceDetection> &detections,
-                                                    float scoreThreshold,
-                                                    float iouThreshold,
-                                                    size_t maxDetections) {
+std::vector<FaceDetection> nonMaxSuppression(const std::vector<FaceDetection> &detections,
+                                             float scoreThreshold,
+                                             float iouThreshold,
+                                             size_t maxDetections) {
     std::vector<FaceDetection> candidates;
     candidates.reserve(detections.size());
     for (const auto &det : detections) {
@@ -57,11 +57,9 @@ static std::vector<FaceDetection> nonMaxSuppression(const std::vector<FaceDetect
         }
     }
 
-    std::sort(candidates.begin(),
-              candidates.end(),
-              [](const FaceDetection &lhs, const FaceDetection &rhs) {
-                  return lhs.confidence > rhs.confidence;
-              });
+    std::ranges::sort(candidates, [](const FaceDetection &lhs, const FaceDetection &rhs) {
+        return lhs.confidence > rhs.confidence;
+    });
 
     std::vector<FaceDetection> result;
     std::vector<bool> suppressed(candidates.size(), false);

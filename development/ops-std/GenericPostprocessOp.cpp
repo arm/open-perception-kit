@@ -112,8 +112,8 @@ GenericPostprocessOp::process(pek::op::OpChainContext &opChainContext) {
     // copy active inference info
     tensorParserInput.inferenceInfo = opChainContext.inferenceInfo;
 
-    auto parseResult = parser->parse(tensorParserInput, *opChainContext.frameResults);
-    if (!parseResult) {
+    if (auto parseResult = parser->parse(tensorParserInput, *opChainContext.frameResults);
+        !parseResult) {
         return tl::unexpected(parseResult.error());
     }
 

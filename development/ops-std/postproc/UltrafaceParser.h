@@ -18,8 +18,8 @@ namespace pek::stdop::postproc {
  */
 struct UltraFaceParser : public pek::TensorParser {
 
-    virtual pek::Result<void> parse(const pek::TensorParser::Input &input,
-                                    perception::FrameResults &results) override;
+    pek::Result<void> parse(const pek::TensorParser::Input &input,
+                            perception::FrameResults &results) override;
 };
 
 } // namespace pek::stdop::postproc

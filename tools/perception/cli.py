@@ -29,13 +29,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    commands = dict((
-        ("generate", "regenerate the canonical SDK snapshot"),
-        ("check", "regenerate in a temporary directory and check for drift"),
-        ("package", "build the reproducible SDK release bundle"),
-        ("verify", "verify a bundle directory or release ZIP"),
-        ("install-dev", "install the generated Python SDK for development"),
-    ))
+    commands = {
+        "generate": "regenerate the canonical SDK snapshot",
+        "check": "regenerate in a temporary directory and check for drift",
+        "package": "build the reproducible SDK release bundle",
+        "verify": "verify a bundle directory or release ZIP",
+        "install-dev": "install the generated Python SDK for development",
+    }
     parser.add_argument("command", nargs="?", choices=commands, help="SDK command")
     if not argv or argv[0] in {"-h", "--help"}:
         parser.epilog = (

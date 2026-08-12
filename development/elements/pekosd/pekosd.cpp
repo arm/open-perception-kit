@@ -779,7 +779,7 @@ static bool isTrackedSourceDetection(const perception::metadata::BoxDetectionT &
         return false;
     }
 
-    return trackedSourceIds.find(box.object->id) != trackedSourceIds.end();
+    return trackedSourceIds.contains(box.object->id);
 }
 
 static void drawHumanFaceDetection(Osd::Layer &layer,
