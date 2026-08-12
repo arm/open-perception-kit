@@ -117,18 +117,22 @@ the analysis step fell from 11:46 to 6:07, with 54/96 CFamily cache hits and an
 
 ## What does `.github/workflows/release-tests.yml` do?
 
-- Runs directly only for pull requests targeting `main`.
+- Runs for pull requests targeting `main`, or manually for a selected
+  `source_ref`.
 - Builds temporary x86_64 and Arm candidate archives and runs the native
-  package smoke test for each architecture. It does not build documentation or
-  publish a release.
+  package smoke test for each architecture. A successful run is followed by
+  disposable Artifactory and draft GitHub Release publication probes; both
+  probes delete their uploads. It does not build documentation or retain a
+  published release.
 
 ## What does `.github/workflows/release-packages.yml` do?
 
-| Event | Validation workflow | Package workflow outcome |
-| --- | --- | --- |
-| Pull request targeting `main` | Builds and smoke-tests the two architecture candidates | Not run |
-| Push to `main` | Not run | Builds all three archives, smoke-tests both architecture archives, and publishes one GitHub Release plus one Artifactory folder |
-| Manual dispatch | Not run | Resolves `source_ref`, builds all three archives, smoke-tests both architecture archives, and publishes one Artifactory folder |
+| Event | Candidate validation | Publication validation | Package publication |
+| --- | --- | --- | --- |
+| Pull request targeting `main` | Builds and smoke-tests the two architecture candidates | Uploads, verifies, and deletes both disposable publication targets | Not run |
+| Push to `main` | Not run | Not run | Builds all three archives, smoke-tests both architecture archives, and publishes one GitHub Release plus one Artifactory folder |
+| Manual release validation | Resolves `source_ref`, builds and smoke-tests the two temporary architecture candidates | Uploads, verifies, and deletes both disposable publication targets | Not run |
+| Manual package publication | Not run | Not run | Resolves `source_ref`, builds all three archives, smoke-tests both architecture archives, and publishes one Artifactory folder |
 
 Both workflows execute `SmokePackage.py` against their exact x86_64 and Arm
 archives. Each smoke uses PyGObject to load the packaged private runtime,

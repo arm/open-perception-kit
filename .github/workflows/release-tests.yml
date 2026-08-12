@@ -4,6 +4,12 @@ on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Commit, tag, or branch to validate
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -12,7 +18,9 @@ jobs:
   prepare:
     name: Resolve and validate release
     runs-on: ubuntu-24.04
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     outputs:
       version: ${{ steps.release.outputs.version }}
       commit: ${{ steps.release.outputs.commit }}
@@ -29,16 +37,22 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
           persist-credentials: false
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ inputs.source_ref || github.event.pull_request.head.sha }}
 
       - name: Prepare release identity
         id: release
         run: |
           set -euo pipefail
           commit="$(git rev-parse HEAD)"
-          python3 scripts/release/ReleaseTool.py prepare --commit "$commit"
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            python3 scripts/release/ReleaseTool.py prepare \
+              --commit "$commit" --build-label validation
+          else
+            python3 scripts/release/ReleaseTool.py prepare --commit "$commit"
+          fi
 
       - name: Require a new main release version
+        if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.release.outputs.version }}
@@ -80,7 +94,7 @@ jobs:
   dependencies-x86:
     name: Prepare x86_64 candidate dependencies
     needs: prepare
-    runs-on: ubuntu-24.04
+    runs-on: self-hosted-ubuntu-latest-x64
     container: python:3.12-slim-trixie@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de
     env:
       ONNXRUNTIME_VERSION: ${{ needs.prepare.outputs.onnxruntime_version }}

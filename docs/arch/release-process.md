@@ -56,12 +56,13 @@ Release validation and publication use three workflows:
 | --- | --- | --- | --- |
 | Pull request to `main` | Builds temporary x86_64 and Arm candidates, runs both offline package smoke tests, and emits the tested archives | Uploads the tested archives to disposable Artifactory and draft GitHub Release locations, verifies them, and deletes them | Not run |
 | Push to `main` | Not run | Not run | Builds all three archives, runs both offline package smoke tests, and publishes them to one `v<version>` GitHub release and Artifactory |
-| Manual dispatch | Not run | Not run | Resolves `source_ref`, builds all three archives, runs both offline package smoke tests, and publishes to Artifactory only |
+| Manual release validation | Resolves `source_ref`, builds temporary x86_64 and Arm candidates, runs both offline package smoke tests, and emits the tested archives | Uploads the tested archives to disposable Artifactory and draft GitHub Release locations, verifies them, and deletes them | Not run |
+| Manual package publication | Not run | Not run | Resolves `source_ref`, builds all three archives, runs both offline package smoke tests, and publishes to Artifactory only |
 
-Credentialed publication probes run only after the unprivileged pull-request
-workflow succeeds. The trusted `workflow_run` workflow does not check out or
-execute pull-request code; it accepts only the two smoke-tested architecture
-archives. It uploads them with Publisher below
+Credentialed publication probes run only after an unprivileged pull-request or
+manual validation workflow succeeds. The trusted `workflow_run` workflow does
+not check out or execute the selected source; it accepts only the two
+smoke-tested architecture archives. It uploads them with Publisher below
 `ci/run-<source-run-id>-<attempt>/<commit>/`, verifies and always deletes that
 folder. It also creates a draft prerelease titled
 `[TEST ONLY - DO NOT USE]`, uploads and verifies both assets, then always
@@ -76,6 +77,9 @@ before relying on the new validation for later release pull requests.
 Each workflow resolves one immutable commit and uses it for every dependency,
 build, and smoke job. Push and manual publication cannot start unless both
 architecture archives pass the same package smoke test used for pull requests.
+Manual release validation emits only temporary Actions artifacts and activates
+the same disposable publication probes; no uploaded package, release, or tag is
+retained.
 For a push, Artifactory additionally depends on successful GitHub Release
 publication, so the existing-version guard protects both release destinations.
 Manual snapshots bypass the skipped GitHub Release job and continue to publish

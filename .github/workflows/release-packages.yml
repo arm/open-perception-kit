@@ -84,7 +84,7 @@ jobs:
   dependencies-x86:
     name: Prepare x86_64 dependencies
     needs: prepare
-    runs-on: ubuntu-24.04
+    runs-on: self-hosted-ubuntu-latest-x64
     container: python:3.12-slim-trixie@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de
     env:
       ONNXRUNTIME_VERSION: ${{ needs.prepare.outputs.onnxruntime_version }}
