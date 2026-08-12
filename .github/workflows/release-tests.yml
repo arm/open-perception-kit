@@ -4,6 +4,12 @@ on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Commit, tag, or branch to validate
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -12,7 +18,9 @@ jobs:
   prepare:
     name: Resolve and validate release
     runs-on: ubuntu-24.04
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     outputs:
       version: ${{ steps.release.outputs.version }}
       commit: ${{ steps.release.outputs.commit }}
@@ -20,6 +28,8 @@ jobs:
       x86_archive: ${{ steps.release.outputs.x86_archive }}
       arm_archive: ${{ steps.release.outputs.arm_archive }}
       onnxruntime_version: ${{ steps.release.outputs.onnxruntime_version }}
+      executorch_version: ${{ steps.release.outputs.executorch_version }}
+      executorch_revision: ${{ steps.release.outputs.executorch_revision }}
     steps:
       - name: Checkout selected source
         uses: actions/checkout@v7
@@ -27,19 +37,22 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
           persist-credentials: false
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ inputs.source_ref || github.event.pull_request.head.sha }}
 
       - name: Prepare release identity
         id: release
         run: |
           set -euo pipefail
           commit="$(git rev-parse HEAD)"
-          python3 scripts/release/ReleaseTool.py prepare --commit "$commit"
-          onnxruntime_version="$(sed -n 's/^ARG ONNXRUNTIME_VERSION=//p' Dockerfile)"
-          test -n "$onnxruntime_version"
-          echo "onnxruntime_version=$onnxruntime_version" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            python3 scripts/release/ReleaseTool.py prepare \
+              --commit "$commit" --build-label validation
+          else
+            python3 scripts/release/ReleaseTool.py prepare --commit "$commit"
+          fi
 
       - name: Require a new main release version
+        if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.release.outputs.version }}
@@ -81,10 +94,12 @@ jobs:
   dependencies-x86:
     name: Prepare x86_64 candidate dependencies
     needs: prepare
-    runs-on: ubuntu-24.04
+    runs-on: self-hosted-ubuntu-latest-x64
     container: python:3.12-slim-trixie@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de
     env:
       ONNXRUNTIME_VERSION: ${{ needs.prepare.outputs.onnxruntime_version }}
+      EXECUTORCH_VERSION: ${{ needs.prepare.outputs.executorch_version }}
+      EXECUTORCH_DEB_REVISION: ${{ needs.prepare.outputs.executorch_revision }}
     steps:
       - name: Install dependency tools
         run: apt-get update && apt-get install -y --no-install-recommends ca-certificates curl
@@ -96,13 +111,16 @@ jobs:
           persist-credentials: false
 
       - name: Prepare repository-pinned dependencies
-        run: scripts/release/PrepareDependencies.sh x86_64 prepared
+        env:
+          EXECUTORCH_ARTIFACTORY_USERNAME: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
+          EXECUTORCH_ARTIFACTORY_PASSWORD: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
+        run: scripts/release/PrepareDependencies.sh x86_64 release-dependencies
 
       - name: Upload x86_64 dependencies
         uses: actions/upload-artifact@v7
         with:
           name: pek-test-dependencies-x86-${{ github.run_id }}-${{ github.run_attempt }}
-          path: prepared
+          path: release-dependencies
           if-no-files-found: error
           retention-days: 2
 
@@ -138,14 +156,12 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: pek-test-dependencies-x86-${{ github.run_id }}-${{ github.run_attempt }}
-          path: prepared
+          path: release-dependencies
 
       - name: Build candidate package
         run: |
           scripts/release/BuildPackage.sh \
-            x86_64 "${{ needs.prepare.outputs.build_id }}" dist \
-            prepared/notices \
-            prepared/onnxruntime
+            x86_64 "${{ needs.prepare.outputs.build_id }}" dist release-dependencies
 
       - name: Upload x86_64 candidate package
         uses: actions/upload-artifact@v7
@@ -162,6 +178,8 @@ jobs:
     container: python:3.12-slim-trixie@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de
     env:
       ONNXRUNTIME_VERSION: ${{ needs.prepare.outputs.onnxruntime_version }}
+      EXECUTORCH_VERSION: ${{ needs.prepare.outputs.executorch_version }}
+      EXECUTORCH_DEB_REVISION: ${{ needs.prepare.outputs.executorch_revision }}
     steps:
       - name: Install dependency tools
         run: apt-get update && apt-get install -y --no-install-recommends ca-certificates curl
@@ -174,14 +192,17 @@ jobs:
           persist-credentials: false
 
       - name: Prepare repository-pinned dependencies
+        env:
+          EXECUTORCH_ARTIFACTORY_USERNAME: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
+          EXECUTORCH_ARTIFACTORY_PASSWORD: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
         working-directory: candidate-dependencies-${{ github.run_id }}-${{ github.run_attempt }}
-        run: scripts/release/PrepareDependencies.sh aarch64 prepared
+        run: scripts/release/PrepareDependencies.sh aarch64 release-dependencies
 
       - name: Upload aarch64 dependencies
         uses: actions/upload-artifact@v7
         with:
           name: pek-test-dependencies-arm-${{ github.run_id }}-${{ github.run_attempt }}
-          path: candidate-dependencies-${{ github.run_id }}-${{ github.run_attempt }}/prepared
+          path: candidate-dependencies-${{ github.run_id }}-${{ github.run_attempt }}/release-dependencies
           if-no-files-found: error
           retention-days: 2
 
@@ -222,15 +243,13 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: pek-test-dependencies-arm-${{ github.run_id }}-${{ github.run_attempt }}
-          path: candidate-source-${{ github.run_id }}-${{ github.run_attempt }}/prepared
+          path: candidate-source-${{ github.run_id }}-${{ github.run_attempt }}/release-dependencies
 
       - name: Build candidate package
         working-directory: candidate-source-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           scripts/release/BuildPackage.sh \
-            aarch64 "${{ needs.prepare.outputs.build_id }}" dist \
-            prepared/notices \
-            prepared/onnxruntime
+            aarch64 "${{ needs.prepare.outputs.build_id }}" dist release-dependencies
 
       - name: Upload aarch64 candidate package
         uses: actions/upload-artifact@v7

@@ -26,7 +26,7 @@ Options:
   --executorch-sha256 SHA Expected SHA-256 of the source archive. Optional.
   --jobs N                Build parallelism. Default: 1
   --deb-output-dir DIR    Debian package output directory. Default: /work/var
-  --deb-revision REV      Debian package revision. Default: 1
+  --deb-revision REV      Debian package revision. Default: 2
   --skip-deb              Stage files without creating a Debian package.
   --keep-work-dir         Reuse the existing work directory instead of deleting it.
   --keep-build            Reuse the existing CMake build directory.
@@ -59,6 +59,8 @@ Environment:
   EXECUTORCH_DEB_REVISION Same as --deb-revision.
   EXECUTORCH_DEB_MAINTAINER
                           Debian Maintainer field. Default: Arm Limited
+  EXECUTORCH_LEGAL_DOCUMENTATION_DIR
+                          Default: $DEPS_DIR/executorch-legal-documentation
   LIBTORCH_URL            Optional libtorch zip URL. If unset, torch headers are
                           copied from the ExecuTorch Python venv when available.
 
@@ -66,6 +68,7 @@ Output:
   $DEPS_DIR/executorch/include
   $DEPS_DIR/executorch/lib
   $DEPS_DIR/libtorch/include
+  $DEPS_DIR/executorch-legal-documentation
   /work/var/libexecutorch-dev-1.3.1-<revision>-<architecture>.deb
 
 The top-level ExecuTorch source is downloaded from the fixed archive. Git is
@@ -194,7 +197,7 @@ ARM_AR="${EXECUTORCH_ARM_AR:-aarch64-linux-gnu-ar}"
 ARM_RANLIB="${EXECUTORCH_ARM_RANLIB:-aarch64-linux-gnu-ranlib}"
 ARM_STRIP="${EXECUTORCH_ARM_STRIP:-aarch64-linux-gnu-strip}"
 DEB_OUTPUT_DIR="${EXECUTORCH_DEB_OUTPUT_DIR:-/work/var}"
-DEB_REVISION="${EXECUTORCH_DEB_REVISION:-1}"
+DEB_REVISION="${EXECUTORCH_DEB_REVISION:-2}"
 BUILD_DEB=1
 CLEAN_BUILD=1
 CLEAN_WORK_DIR=1
@@ -296,6 +299,7 @@ BUILD_DIR="${BUILD_DIR:-${EXECUTORCH_DIR}/build}"
 VENV_DIR="${VENV_DIR:-${WORK_DIR}/.venv}"
 EXECUTORCH_INSTALL_DIR="${EXECUTORCH_INSTALL_DIR:-${DEPS_DIR}/executorch}"
 LIBTORCH_INSTALL_DIR="${LIBTORCH_INSTALL_DIR:-${DEPS_DIR}/libtorch}"
+LEGAL_DOCUMENTATION_DIR="${EXECUTORCH_LEGAL_DOCUMENTATION_DIR:-${DEPS_DIR}/executorch-legal-documentation}"
 DOWNLOAD_DIR="${DOWNLOAD_DIR:-${WORK_DIR}/downloads}"
 LIBTORCH_URL="${LIBTORCH_URL:-}"
 
@@ -304,6 +308,7 @@ BUILD_DIR="$(resolve_path "${BUILD_DIR}")"
 VENV_DIR="$(resolve_path "${VENV_DIR}")"
 EXECUTORCH_INSTALL_DIR="$(resolve_path "${EXECUTORCH_INSTALL_DIR}")"
 LIBTORCH_INSTALL_DIR="$(resolve_path "${LIBTORCH_INSTALL_DIR}")"
+LEGAL_DOCUMENTATION_DIR="$(resolve_path "${LEGAL_DOCUMENTATION_DIR}")"
 DOWNLOAD_DIR="$(resolve_path "${DOWNLOAD_DIR}")"
 DEB_OUTPUT_DIR="$(resolve_path "${DEB_OUTPUT_DIR}")"
 
@@ -658,6 +663,29 @@ stage_libtorch_headers() {
     mkdir -p "${LIBTORCH_INSTALL_DIR}/include" "${LIBTORCH_INSTALL_DIR}/lib"
 }
 
+stage_legal_documentation() {
+    log "Staging ExecuTorch and third-party licenses/copyright notices to ${LEGAL_DOCUMENTATION_DIR}"
+    safe_rm_rf "${LEGAL_DOCUMENTATION_DIR}"
+    mkdir -p "${LEGAL_DOCUMENTATION_DIR}"
+
+    local source_path
+    local relative_path
+    while IFS= read -r -d '' source_path; do
+        relative_path="${source_path#"${EXECUTORCH_DIR}/"}"
+        mkdir -p "${LEGAL_DOCUMENTATION_DIR}/$(dirname -- "${relative_path}")"
+        cp "${source_path}" "${LEGAL_DOCUMENTATION_DIR}/${relative_path}"
+    done < <(
+        find "${EXECUTORCH_DIR}" \
+            \( -path "${EXECUTORCH_DIR}/.git" -o -path "${BUILD_DIR}" \) -prune -o \
+            -type f \
+            \( -iname 'LICENSE*' -o -iname 'COPYING*' -o -iname 'NOTICE*' -o -iname 'COPYRIGHT*' \) \
+            -print0
+    )
+
+    [[ -n "$(find "${LEGAL_DOCUMENTATION_DIR}" -type f -print -quit)" ]] ||
+        die "ExecuTorch source contains no packageable licenses/copyright notices"
+}
+
 validate_staged_files() {
     log "Validating staged files for PEK"
 
@@ -730,6 +758,7 @@ build_debian_package() {
     "${SCRIPT_DIR}/package-executorch-1.3.1-deb.sh" \
         --executorch-dir "${EXECUTORCH_INSTALL_DIR}" \
         --libtorch-dir "${LIBTORCH_INSTALL_DIR}" \
+        --legal-documentation-dir "${LEGAL_DOCUMENTATION_DIR}" \
         --output-dir "${DEB_OUTPUT_DIR}" \
         --revision "${DEB_REVISION}"
 }
@@ -747,6 +776,9 @@ Target architecture:
 
 libtorch compatibility headers:
   ${LIBTORCH_INSTALL_DIR}
+
+ExecuTorch and third-party licenses/copyright notices:
+  ${LEGAL_DOCUMENTATION_DIR}
 EOF
 
     if [[ "${BUILD_DEB}" -eq 1 ]]; then
@@ -788,6 +820,7 @@ install_executorch_python_deps
 configure_and_build_executorch
 copy_built_libraries
 stage_libtorch_headers
+stage_legal_documentation
 validate_staged_files
 build_debian_package
 print_summary

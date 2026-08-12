@@ -5,16 +5,15 @@
 
 set -euo pipefail
 
-if [[ $# -ne 5 ]]; then
-    echo "Usage: BuildPackage.sh ARCH BUILD_ID OUTPUT_DIR NOTICES_DIR ONNX_ROOT" >&2
+if [[ $# -ne 4 ]]; then
+    echo "Usage: BuildPackage.sh ARCH BUILD_ID OUTPUT_DIR RELEASE_DEPENDENCIES_DIR" >&2
     exit 2
 fi
 
 Architecture="$1"
 BuildId="$2"
 OutputDir="$(realpath -m "$3")"
-NoticesDir="$(realpath -m "$4")"
-OnnxRoot="$(realpath -m "$5")"
+ReleaseDependenciesDir="$(realpath -m "$4")"
 RepoRoot="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 case "$Architecture" in
@@ -25,16 +24,26 @@ case "$Architecture" in
         ;;
 esac
 
-[[ -d "$NoticesDir" && -d "$OnnxRoot" ]] || {
-    echo "Release notice or ONNX Runtime input is missing" >&2
+[[ -d "$ReleaseDependenciesDir" && ! -L "$ReleaseDependenciesDir" ]] || {
+    echo "Release dependencies directory is missing or invalid" >&2
     exit 1
 }
-[[ -n "$(find "$NoticesDir" -maxdepth 1 -type f -print -quit)" ]] || {
-    echo "Approved release notices are missing" >&2
+OnnxRoot="$ReleaseDependenciesDir/onnxruntime"
+ExecutorchRoot="$ReleaseDependenciesDir/executorch"
+LibtorchRoot="$ReleaseDependenciesDir/libtorch"
+LegalDocumentationRoot="$ReleaseDependenciesDir/legal-documentation"
+for RequiredInput in "$OnnxRoot" "$ExecutorchRoot" "$LibtorchRoot" "$LegalDocumentationRoot"; do
+    [[ -d "$RequiredInput" && ! -L "$RequiredInput" ]] || {
+        echo "Prepared dependency input is missing or invalid: $RequiredInput" >&2
+        exit 1
+    }
+done
+[[ -n "$(find "$LegalDocumentationRoot" -type f -print -quit)" ]] || {
+    echo "Approved release legal documentation is missing" >&2
     exit 1
 }
-[[ -z "$(find "$NoticesDir" -type l -print -quit)" ]] || {
-    echo "Release notices must not contain symlinks" >&2
+[[ -z "$(find "$LegalDocumentationRoot" -type l -print -quit)" ]] || {
+    echo "Release legal documentation must not contain symlinks" >&2
     exit 1
 }
 
@@ -46,6 +55,8 @@ PackageRoot="$TemporaryRoot/$PackageName"
 mkdir -p "$OutputDir" "$PackageRoot"
 
 PEK_ONNXRUNTIME_ROOT="$OnnxRoot" \
+    PEK_EXECUTORCH_ROOT="$ExecutorchRoot" \
+    PEK_LIBTORCH_ROOT="$LibtorchRoot" \
     meson setup "$BuildRoot" "$RepoRoot/development" \
     --buildtype=release \
     --prefix=/ \
@@ -55,7 +66,7 @@ PEK_ONNXRUNTIME_ROOT="$OnnxRoot" \
     -Doptimization=3 \
     -Dtests=false \
     -Drelease_package=true \
-    -Dexecutorch=disabled \
+    -Dexecutorch=enabled \
     -Dhailort=disabled \
     -Dncnn=disabled
 meson compile -C "$BuildRoot"
@@ -76,7 +87,7 @@ cp "$OnnxLibrary" "$PackageRoot/lib/pek/"
 # Keep the upstream SONAME link: pek-onnx-ops.so needs libonnxruntime.so.1.
 ln -s libonnxruntime.so.1.24.4 "$PackageRoot/lib/pek/libonnxruntime.so.1"
 
-cp "$NoticesDir"/* "$PackageRoot/share/pek/licenses/"
+cp -a "$LegalDocumentationRoot/." "$PackageRoot/share/pek/licenses/"
 python3 "$RepoRoot/scripts/release/ReleaseTool.py" stage-models \
     --repo-root "$RepoRoot" \
     --stage-root "$PackageRoot"

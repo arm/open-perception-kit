@@ -19,14 +19,16 @@ import tempfile
 from pathlib import Path
 
 ARCHITECTURES = {"x86_64", "aarch64"}
-RELEASE_MODEL_NAMES = {
-    "cam-contact",
-    "gaze-detection",
-    "osnet_x0_25",
-    "ultraface",
-    "yolo26",
-    "yolov11",
+RELEASE_MODELS = {
+    "cam-contact": ("pek-onnx-ops/Inference", ".onnx"),
+    "gaze-detection": ("pek-onnx-ops/Inference", ".onnx"),
+    "osnet_x0_25": ("pek-onnx-ops/Inference", ".onnx"),
+    "ultraface": ("pek-onnx-ops/Inference", ".onnx"),
+    "yolo26": ("pek-onnx-ops/Inference", ".onnx"),
+    "yolov11": ("pek-onnx-ops/Inference", ".onnx"),
+    "yolox": ("pek-executorch-ops/Inference", ".pte"),
 }
+RELEASE_MODEL_NAMES = set(RELEASE_MODELS)
 PLUGIN_NAMES = {
     "libpekcomm.so",
     "libpekinfer.so",
@@ -36,6 +38,7 @@ PLUGIN_NAMES = {
     "libpektracker.so",
 }
 OP_MODULE_NAMES = {
+    "pek-executorch-ops.so",
     "pek-onnx-ops.so",
     "pek-std-ops.so",
 }
@@ -81,6 +84,7 @@ SYSTEM_LIBRARY_PREFIXES = (
 )
 BUILD_LABEL_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$")
 VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+$", re.ASCII)
+DEBIAN_REVISION_PATTERN = re.compile(r"^[0-9A-Za-z][0-9A-Za-z.+~]*$", re.ASCII)
 JSON_GLOB = "*.json"
 
 
@@ -133,14 +137,17 @@ def find_primary_descriptor(model_root: Path, model_id: str) -> Path:
     if not isinstance(opchain, dict) or not isinstance(opchain.get("ops"), list):
         fail(f"{model_id}: invalid model opchain")
 
+    expected_backend = RELEASE_MODELS[model_id][0]
     inference_ops = []
     for op in opchain["ops"]:
         if not isinstance(op, dict):
             fail(f"{model_id}: invalid op entry")
-        if str(op.get("id", "")).startswith("pek-onnx-ops/"):
+        if op.get("id") == expected_backend:
             inference_ops.append(op)
     if len(inference_ops) != 1:
-        fail(f"{model_id}: model opchain must contain exactly one ONNX inference op")
+        fail(
+            f"{model_id}: model opchain must contain exactly one {expected_backend} op"
+        )
     attributes = inference_ops[0].get("attributes")
     if not isinstance(attributes, dict) or "modelDescriptor" not in attributes:
         fail(f"{model_id}: inference op has no modelDescriptor")
@@ -153,12 +160,13 @@ def collect_model_files(
     model_root: Path, model_id: str, primary_descriptor: Path
 ) -> tuple[list[Path], list[Path]]:
     config_paths = sorted(model_root.rglob(JSON_GLOB))
+    model_suffix = RELEASE_MODELS[model_id][1]
     model_paths = {
         resolve_model_path(
             model_root, str(path.relative_to(model_root)), f"{model_id}.{path.name}"
         )
         for path in model_root.rglob("*")
-        if path.is_file() and path.suffix == ".onnx"
+        if path.is_file() and path.suffix == model_suffix
     }
     for config_path in config_paths:
         config = load_json(config_path)
@@ -339,6 +347,14 @@ def payload_files(root: Path) -> set[Path]:
     return files
 
 
+def validate_legal_documentation(package_root: Path) -> None:
+    legal_root = package_root / "share/pek/licenses"
+    if not payload_files(legal_root):
+        fail("Packaged legal documentation is missing or empty")
+    if not payload_files(legal_root / "libexecutorch-dev"):
+        fail("Packaged ExecuTorch legal documentation is missing or empty")
+
+
 def validate_release_payload(package_root: Path, repo_root: Path) -> None:
     with tempfile.TemporaryDirectory() as temporary:
         expected_root = Path(temporary) / "expected"
@@ -410,8 +426,11 @@ def validate_runtime_files(package_root: Path) -> Path:
         "src",
         "include",
     }
+    legal_root = package_root / "share/pek/licenses"
     for path in package_root.rglob("*"):
         relative = path.relative_to(package_root)
+        if legal_root in path.parents:
+            continue
         if forbidden_parts & set(relative.parts):
             fail(f"Forbidden release path: {relative}")
         if any("hailo" in part.lower() for part in relative.parts):
@@ -420,6 +439,8 @@ def validate_runtime_files(package_root: Path) -> Path:
             ("libfmt.so", "pek-ncnn-ops.so")
         ):
             fail(f"Forbidden release file: {relative}")
+        if path.is_file() and path.suffix.lower() in {".a", ".h", ".hh", ".hpp"}:
+            fail(f"Forbidden SDK file: {relative}")
 
     model_root = package_root / "share/pek/models"
     if not model_root.is_dir() or model_root.is_symlink():
@@ -454,6 +475,7 @@ def validate_package(args: argparse.Namespace) -> None:
     package_root = Path(args.package_root).resolve()
     architecture = args.architecture
     private_root = validate_runtime_files(package_root)
+    validate_legal_documentation(package_root)
 
     if repo_root_value := getattr(args, "repo_root", None):
         validate_release_payload(package_root, Path(repo_root_value).resolve())
@@ -529,6 +551,29 @@ def read_version(repo_root: Path) -> str:
     return match.group(1)
 
 
+def read_docker_argument(repo_root: Path, name: str, pattern: re.Pattern[str]) -> str:
+    content = (repo_root / "Dockerfile").read_text(encoding="utf-8")
+    values = re.findall(rf"^ARG {re.escape(name)}=([^\s#]+)\s*$", content, re.MULTILINE)
+    if len(values) != 1 or not pattern.fullmatch(values[0]):
+        fail(f"Dockerfile must contain exactly one valid ARG {name}=value")
+    return values[0]
+
+
+def source_identity(repo_root: Path) -> dict[str, str]:
+    return {
+        "version": read_version(repo_root),
+        "onnxruntime_version": read_docker_argument(
+            repo_root, "ONNXRUNTIME_VERSION", VERSION_PATTERN
+        ),
+        "executorch_version": read_docker_argument(
+            repo_root, "EXECUTORCH_VERSION", VERSION_PATTERN
+        ),
+        "executorch_revision": read_docker_argument(
+            repo_root, "EXECUTORCH_DEB_REVISION", DEBIAN_REVISION_PATTERN
+        ),
+    }
+
+
 def changelog_section(repo_root: Path, version: str) -> str:
     content = (repo_root / "CHANGELOG.md").read_text(encoding="utf-8")
     match = re.search(
@@ -554,7 +599,8 @@ def write_github_output(values: dict[str, str]) -> None:
 
 def prepare(args: argparse.Namespace) -> None:
     repo_root = Path(args.repo_root).resolve()
-    version = read_version(repo_root)
+    identity = source_identity(repo_root)
+    version = identity["version"]
     if not args.build_label:
         changelog_section(repo_root, version)
     commit = args.commit
@@ -567,8 +613,8 @@ def prepare(args: argparse.Namespace) -> None:
     else:
         build_id = version
     write_github_output(
-        {
-            "version": version,
+        identity
+        | {
             "commit": commit,
             "build_id": build_id,
             "x86_archive": f"pek-{build_id}-linux-x86_64.tar.gz",
