@@ -86,12 +86,6 @@ class PythonRuntime {
 
     PythonRuntime(const PythonRuntime &) = delete;
     PythonRuntime &operator=(const PythonRuntime &) = delete;
-
-    ~PythonRuntime() {
-        if (Py_IsInitialized()) {
-            Py_FinalizeEx();
-        }
-    }
 };
 
 struct Options {
