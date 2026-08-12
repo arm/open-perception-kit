@@ -76,10 +76,12 @@ WORKDIR /work
 COPY config config
 COPY --chmod=0755 scripts/download-models.py scripts/download-models.py
 ARG HF_DOWNLOAD_CACHEBUST
+# BuildKit excludes secret values from cache keys, so anonymous builds must use
+# an explicit key too or an authenticated build could reuse their model layer.
 RUN --mount=type=cache,target=/root/.cache/huggingface \
   --mount=type=secret,id=huggingface_token,env=HF_TOKEN \
-  if [ -n "${HF_TOKEN:-}" ] && [ -z "${HF_DOWNLOAD_CACHEBUST}" ]; then \
-    echo "HF_DOWNLOAD_CACHEBUST is required when HF_TOKEN is set" >&2; \
+  if [ -z "${HF_DOWNLOAD_CACHEBUST}" ]; then \
+    echo "HF_DOWNLOAD_CACHEBUST is required for model image builds" >&2; \
     exit 1; \
   fi; \
   HF_DOWNLOAD_CACHEBUST="${HF_DOWNLOAD_CACHEBUST}" \
