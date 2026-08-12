@@ -15,7 +15,7 @@ from pathlib import Path
 SCRIPT_PATH = Path(__file__).with_name("compare-valgrind-results.py")
 VALGRIND_DRIVER_PATH = Path(__file__).with_name("test-elements-with-valgrind.sh")
 EXPECTED_SUPPRESSION_MANIFEST_SHA256 = (
-    "99c091d409c4388e68b41bc20cd9c129505c34b0e5208aefddd74e3543970fc4"  # pragma: allowlist secret
+    "4cb667a432c8c3b7e6d53013e1fc8d919e034306ddd8ce21bc455cc55aefc1ec"  # pragma: allowlist secret
 )
 PEK_SUPPRESSION_FUNCTIONS = {
     "_Z21gst_pek_comm_get_typev",
@@ -46,10 +46,10 @@ PEK_SUPPRESSION_FUNCTIONS = {
     "_ZL32gst_pektracker_class_intern_initPv",
     "_ZL33gst_pek_performance_get_type_oncev",
     "_ZL37gst_pek_performance_class_intern_initPv",
-    "_ZN3pek4MetaINS_20PerceptionMetaTraitsEE3addEP10_GstBufferSt10shared_ptrINS_10PerceptionEE",  # pragma: allowlist secret
-    "_ZN3pek4MetaINS_20PerceptionMetaTraitsEE3getEP10_GstBuffer",  # pragma: allowlist secret
-    "_ZN3pek4MetaINS_20PerceptionMetaTraitsEE4infoEv",  # pragma: allowlist secret
-    "_ZN3pek4MetaINS_20PerceptionMetaTraitsEE8api_typeEv",  # pragma: allowlist secret
+    "_ZN3pek4MetaINS_22FrameResultsMetaTraitsEE3addEP10_GstBufferSt10shared_ptrIN10perception9container8envelopeEE",  # pragma: allowlist secret
+    "_ZN3pek4MetaINS_22FrameResultsMetaTraitsEE3getEP10_GstBuffer",  # pragma: allowlist secret
+    "_ZN3pek4MetaINS_22FrameResultsMetaTraitsEE4infoEv",  # pragma: allowlist secret
+    "_ZN3pek4MetaINS_22FrameResultsMetaTraitsEE8api_typeEv",  # pragma: allowlist secret
     "_ZN3pek4onnx11InferenceOp9configureERKNS_12AttributeMapE",  # pragma: allowlist secret
     "_ZN3pek4onnx9Inference13setupFromJsonERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE",  # pragma: allowlist secret
     "_ZN3pek4onnx9Inference5setupERKNS_15ModelDescriptorE",  # pragma: allowlist secret

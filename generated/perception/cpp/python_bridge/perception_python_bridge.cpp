@@ -702,7 +702,8 @@ std::optional<known_payload_kind> known_payload_kind_from_value(PyObject *value)
 template <container::native_payload T>
 PyObject *proxy_from_payload_ref(container::payload_ref<T> ref, PyTypeObject &type) {
     auto anchor = std::make_shared<payload_anchor<T>>(std::move(ref));
-    return make_native_proxy<T>(type, anchor->ref.get(), std::move(anchor));
+    const auto *value = anchor->ref.get();
+    return make_native_proxy<T>(type, value, std::move(anchor));
 }
 
 template <container::native_payload T>
