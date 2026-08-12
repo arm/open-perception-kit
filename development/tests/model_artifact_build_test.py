@@ -154,6 +154,19 @@ class ModelArtifactBuildTest(unittest.TestCase):
         ):
             self.assertIn(workflow_step, (REPO_ROOT / name).read_text())
 
+        pek_ci = (REPO_ROOT / ".github/workflows/pek-ci.yml").read_text()
+        self.assertEqual(pek_ci.count(workflow_step), 3)
+        self.assertIn(
+            "      - name: Generate Hugging Face download cache key\n"
+            "        run: |\n"
+            "          set -euo pipefail\n"
+            "          cache_key=\"$(scripts/private/"
+            "generate-hf-download-cachebust.sh)\"\n"
+            "          echo \"HF_DOWNLOAD_CACHEBUST=${cache_key}\" "
+            ">> \"$GITHUB_ENV\"",
+            pek_ci,
+        )
+
     def test_model_download_cache_bust_generator(self) -> None:
         generator = REPO_ROOT / "scripts/private/generate-hf-download-cachebust.sh"
         local_env = os.environ.copy()

@@ -643,6 +643,13 @@ jobs:
           path: ${{ env.CI_CHECKOUT_PATH }}
           persist-credentials: false
 
+      - name: Generate Hugging Face download cache key
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: |
+          set -euo pipefail
+          cache_key="$(scripts/private/generate-hf-download-cachebust.sh)"
+          echo "HF_DOWNLOAD_CACHEBUST=${cache_key}" >> "$GITHUB_ENV"
+
       - name: Attach validated PR head branch
         if: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '') }}
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -827,6 +834,13 @@ jobs:
           path: ${{ env.CI_CHECKOUT_PATH }}
           persist-credentials: false
 
+      - name: Generate Hugging Face download cache key
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: |
+          set -euo pipefail
+          cache_key="$(scripts/private/generate-hf-download-cachebust.sh)"
+          echo "HF_DOWNLOAD_CACHEBUST=${cache_key}" >> "$GITHUB_ENV"
+
       - name: Restore compiler cache
         id: compiler-cache
         uses: actions/cache/restore@v6
@@ -954,6 +968,13 @@ jobs:
           path: ${{ env.CI_CHECKOUT_PATH }}
           persist-credentials: false
 
+      - name: Generate Hugging Face download cache key
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: |
+          set -euo pipefail
+          cache_key="$(scripts/private/generate-hf-download-cachebust.sh)"
+          echo "HF_DOWNLOAD_CACHEBUST=${cache_key}" >> "$GITHUB_ENV"
+
       - name: Restore compiler cache
         id: compiler-cache
         uses: actions/cache/restore@v6
@@ -1079,6 +1100,12 @@ jobs:
           ref: ${{ needs.build-ci-image.outputs.head_sha }}
           path: valgrind-source
           persist-credentials: false
+
+      - name: Generate Hugging Face download cache key
+        run: |
+          set -euo pipefail
+          cache_key="$(scripts/private/generate-hf-download-cachebust.sh)"
+          echo "HF_DOWNLOAD_CACHEBUST=${cache_key}" >> "$GITHUB_ENV"
 
       - name: Restore compiler cache
         uses: actions/cache@v6
