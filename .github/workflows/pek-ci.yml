@@ -360,14 +360,15 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
-    # Fork PR code must not run on the self-hosted RPI runner. Same-repo PRs intentionally
-    # follow the normal CI gate so RPI runs whenever the Linux quick-start build runs.
+    # Fork PR code must not run on the self-hosted RPI runner. Dependabot PRs only need
+    # host CI; other same-repo PRs run RPI whenever the Linux quick-start build runs.
     if: |
       github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' && inputs.checks == 'all') ||
       (
         github.event_name == 'pull_request' &&
         github.event.pull_request.head.repo.full_name == github.repository &&
+        github.event.pull_request.user.login != 'dependabot[bot]' &&
         (
           (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
           (
