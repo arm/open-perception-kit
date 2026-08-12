@@ -19,13 +19,13 @@ makeObjectMeta(uint64_t id, uint64_t parentId, uint64_t creationTsNs) {
     return object;
 }
 
-std::unique_ptr<metadata::LayerInfoT> makeLayerInfo(const std::string &model,
-                                                    const std::string &inferElementId,
-                                                    const std::string &contentType,
-                                                    const std::string &engine,
-                                                    const std::string &tags,
-                                                    const std::string &labelFamily,
-                                                    const std::string &compositingMode) {
+std::unique_ptr<metadata::LayerInfoT> makeLayerInfo(std::string_view model,
+                                                    std::string_view inferElementId,
+                                                    std::string_view contentType,
+                                                    std::string_view engine,
+                                                    std::string_view tags,
+                                                    std::string_view labelFamily,
+                                                    std::string_view compositingMode) {
     auto info = std::make_unique<metadata::LayerInfoT>();
     info->engine = engine;
     info->model = model;

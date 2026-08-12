@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -20,13 +21,13 @@ using FrameResults = container::envelope;
 std::unique_ptr<metadata::ObjectMetaT>
 makeObjectMeta(uint64_t id = 0, uint64_t parentId = 0, uint64_t creationTsNs = 0);
 
-std::unique_ptr<metadata::LayerInfoT> makeLayerInfo(const std::string &model,
-                                                    const std::string &inferElementId,
-                                                    const std::string &contentType,
-                                                    const std::string &engine = "",
-                                                    const std::string &tags = "",
-                                                    const std::string &labelFamily = "",
-                                                    const std::string &compositingMode = "");
+std::unique_ptr<metadata::LayerInfoT> makeLayerInfo(std::string_view model,
+                                                    std::string_view inferElementId,
+                                                    std::string_view contentType,
+                                                    std::string_view engine = "",
+                                                    std::string_view tags = "",
+                                                    std::string_view labelFamily = "",
+                                                    std::string_view compositingMode = "");
 
 std::unique_ptr<metadata::BoundingBoxT>
 makeBoundingBox(float x, float y, float width, float height);

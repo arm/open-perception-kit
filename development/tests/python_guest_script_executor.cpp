@@ -8,6 +8,7 @@
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -106,25 +107,26 @@ void printUsage(std::ostream &stream, std::string_view executable) {
               "<script.py> [<script.py> ...]\n";
 }
 
-bool parseOptions(int argc, char **argv, Options &options) {
+bool parseOptions(std::span<char *> arguments, Options &options) {
     bool positionalOnly = false;
+    size_t index = 1;
 
-    for (int index = 1; index < argc; ++index) {
-        const std::string_view argument(argv[index]);
+    while (index < arguments.size()) {
+        const std::string_view argument(arguments[index++]);
         if (!positionalOnly && argument == "--") {
             positionalOnly = true;
         } else if (!positionalOnly && argument == "--output") {
-            if (++index >= argc) {
+            if (index >= arguments.size()) {
                 std::cerr << "--output requires a path\n";
                 return false;
             }
-            options.output = argv[index];
+            options.output = arguments[index++];
         } else if (!positionalOnly && argument == "--python-path") {
-            if (++index >= argc) {
+            if (index >= arguments.size()) {
                 std::cerr << "--python-path requires a directory\n";
                 return false;
             }
-            options.pythonPaths.emplace_back(argv[index]);
+            options.pythonPaths.emplace_back(arguments[index++]);
         } else if (!positionalOnly && !argument.empty() && argument.front() == '-') {
             std::cerr << "unknown option: " << argument << '\n';
             return false;
@@ -311,7 +313,7 @@ int main(int argc, char **argv) {
     }
 
     Options options;
-    if (!parseOptions(argc, argv, options)) {
+    if (!parseOptions(std::span(argv, static_cast<size_t>(argc)), options)) {
         printUsage(std::cerr, argv[0]);
         return EXIT_USAGE;
     }

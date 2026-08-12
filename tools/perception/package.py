@@ -35,7 +35,9 @@ DEFAULT_OUTPUT_DIR = REPO_ROOT / "artifacts"
 MANIFEST_FILENAME = "perception-sdk-release-manifest.json"
 SOURCE_DATE_EPOCH = "315532800"
 ZIP_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
-SEMANTIC_VERSION_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
+SEMANTIC_VERSION_RE = re.compile(
+    r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$", re.ASCII
+)
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 GIT_COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 

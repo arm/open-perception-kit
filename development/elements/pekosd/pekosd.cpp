@@ -317,11 +317,8 @@ static gboolean gst_pek_osd_stop(GstBaseTransform *trans) {
     return TRUE;
 }
 
-static std::unique_ptr<Osd::Layer>
-drawPerformanceLayer([[maybe_unused]] GstPekOsd *self,
-                     float imgWidth,
-                     float imgHeight,
-                     const perception::FrameResults &frameResults) {
+static std::unique_ptr<Osd::Layer> drawPerformanceLayer(
+    float imgWidth, float imgHeight, const perception::FrameResults &frameResults) {
     constexpr float line_height = 16.0f;
     constexpr float x_offset = 10.0f;
     constexpr float y_offset = 10.0f;
@@ -362,10 +359,8 @@ makeSegmentationBitmapView(const perception::metadata::BitmapDataT &data) {
     };
 }
 
-static std::unique_ptr<Osd::Layer> drawSegmentationLayer([[maybe_unused]] GstPekOsd *self,
-                                                         float imgWidth,
-                                                         float imgHeight,
-                                                         const SegmentationBitmapView &segMap) {
+static std::unique_ptr<Osd::Layer>
+drawSegmentationLayer(float imgWidth, float imgHeight, const SegmentationBitmapView &segMap) {
     auto layer = std::make_unique<Osd::Layer>(imgWidth, imgHeight);
 
     cairo_surface_flush(layer->surface);
@@ -448,10 +443,8 @@ static void replaceBackground(guint8 *imgData,
 
         for (gint x = 0; x < imgWidth; ++x) {
             const auto segX = std::min(static_cast<size_t>(x / segScaleX), segWidth - 1U);
-            const auto maskValue = segMap.data[segY * segWidth + segX];
-
             // RVM mask values are inverted here: high values map to background.
-            if (maskValue < threshold) {
+            if (segMap.data[segY * segWidth + segX] < threshold) {
                 continue;
             }
 
@@ -993,11 +986,8 @@ static void drawClassifications(Osd::Layer &layer,
     });
 }
 
-static std::unique_ptr<Osd::Layer>
-drawFrameResultsLayer([[maybe_unused]] GstPekOsd *self,
-                      float imgWidth,
-                      float imgHeight,
-                      const perception::FrameResults &frameResults) {
+static std::unique_ptr<Osd::Layer> drawFrameResultsLayer(
+    float imgWidth, float imgHeight, const perception::FrameResults &frameResults) {
     auto layer = std::make_unique<Osd::Layer>(imgWidth, imgHeight);
     const auto trackedSourceIds = collectTrackedSourceIds(frameResults);
 
@@ -1047,7 +1037,7 @@ static void gst_pek_osd_process_segmentation(GstPekOsd *self,
                                   bitmap,
                                   self->bgImage);
             } else {
-                layers.push_back(drawSegmentationLayer(self, imgWidth, imgHeight, bitmap));
+                layers.push_back(drawSegmentationLayer(imgWidth, imgHeight, bitmap));
             }
         }
     });
@@ -1070,9 +1060,9 @@ static GstFlowReturn gst_pek_osd_transform_frame_ip(GstVideoFilter *filter, GstV
     if (auto frameResults = pek::FrameResultsMeta::read(frame->buffer); frameResults != nullptr) {
         gst_pek_osd_process_segmentation(
             self, imgData, imgStride, imgWidth, imgHeight, layers, *frameResults);
-        layers.push_back(drawFrameResultsLayer(self, imgWidth, imgHeight, *frameResults));
+        layers.push_back(drawFrameResultsLayer(imgWidth, imgHeight, *frameResults));
         if (self->performanceOverlayEnabled) {
-            layers.push_back(drawPerformanceLayer(self, imgWidth, imgHeight, *frameResults));
+            layers.push_back(drawPerformanceLayer(imgWidth, imgHeight, *frameResults));
         }
 
         pek::osd::Canvas(imgData, imgWidth, imgHeight).paint(layers);
