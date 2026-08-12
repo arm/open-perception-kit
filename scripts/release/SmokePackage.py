@@ -134,8 +134,7 @@ def validate_pekcomm_output(output: Path) -> None:
     fail(f"pekcomm produced no valid output within {PEKCOMM_TIMEOUT_SECONDS} seconds")
 
 
-def run_inference(package_root: Path, temporary_root: Path) -> None:
-    comm_output = temporary_root / "pekcomm.jsonl"
+def run_inference(opchain: Path, comm_output: Path) -> None:
     pipeline = Gst.parse_launch(
         "videotestsrc pattern=ball num-buffers=5 ! "
         "video/x-raw,format=BGRA,width=320,height=320,framerate=5/1 ! "
@@ -149,7 +148,7 @@ def run_inference(package_root: Path, temporary_root: Path) -> None:
         fail("Inference smoke pipeline has no pekinfer element")
     infer.set_property(
         "opchain-path",
-        str(package_root / "share/pek/models/yolov11/opchain.json"),
+        str(opchain),
     )
     comm = pipeline.get_by_name("smoke_comm")
     if comm is None:
@@ -224,7 +223,14 @@ def main() -> int:
         validate_package(package_root, args.architecture)
         initialise_gstreamer(package_root, temporary_root)
         validate_elements()
-        run_inference(package_root, temporary_root)
+        run_inference(
+            package_root / "share/pek/models/yolov11/opchain.json",
+            temporary_root / "pekcomm-onnx.jsonl",
+        )
+        run_inference(
+            package_root / "share/pek/models/yolox/opchain.json",
+            temporary_root / "pekcomm-executorch.jsonl",
+        )
         validate_web_content()
     return 0
 

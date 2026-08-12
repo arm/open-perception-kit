@@ -50,8 +50,22 @@ def add_model(
 
 
 def add_release_models(repo_root: Path) -> None:
-    for model_id in release_tool.RELEASE_MODEL_NAMES:
-        add_model(repo_root, model_id, ONNX_MODEL_FILE, ONNX_INFERENCE_OP)
+    for model_id, (backend, suffix) in release_tool.RELEASE_MODELS.items():
+        add_model(repo_root, model_id, f"model{suffix}", backend)
+
+
+def add_release_identity(repo_root: Path) -> None:
+    development_root = repo_root / "development"
+    development_root.mkdir()
+    (development_root / "meson.build").write_text(
+        "project('demo', version: '0.1.0')\n", encoding="utf-8"
+    )
+    (repo_root / "Dockerfile").write_text(
+        "ARG ONNXRUNTIME_VERSION=1.24.4\n"
+        "ARG EXECUTORCH_VERSION=1.3.1\n"
+        "ARG EXECUTORCH_DEB_REVISION=2\n",
+        encoding="utf-8",
+    )
 
 
 class ReleaseToolTests(unittest.TestCase):
@@ -133,6 +147,48 @@ class ReleaseToolTests(unittest.TestCase):
                 release_tool.RELEASE_MODEL_NAMES,
             )
 
+    def test_stages_executorch_model_bytes_and_backend(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "config/opchains").mkdir(parents=True)
+            add_release_models(root)
+            source_model = root / "config/models/yolox/model.pte"
+            source_model.write_bytes(b"pte\x00payload")
+
+            stage_root = root / "stage"
+            release_tool.stage_models(
+                SimpleNamespace(repo_root=str(root), stage_root=str(stage_root))
+            )
+
+            staged_model = stage_root / "share/pek/models/yolox/model.pte"
+            self.assertEqual(staged_model.read_bytes(), b"pte\x00payload")
+            opchain = json.loads(
+                (stage_root / "share/pek/models/yolox/opchain.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(opchain["ops"][0]["id"], "pek-executorch-ops/Inference")
+
+    def test_rejects_wrong_release_model_backend_or_suffix(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "config/opchains").mkdir(parents=True)
+            add_release_models(root)
+            yolox_opchain = root / "config/models/yolox/opchain.json"
+            opchain = json.loads(yolox_opchain.read_text(encoding="utf-8"))
+            opchain["ops"][0]["id"] = "pek-onnx-ops/Inference"
+            yolox_opchain.write_text(json.dumps(opchain), encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, "pek-executorch-ops/Inference"):
+                release_tool.discover_models(root)
+
+            opchain["ops"][0]["id"] = "pek-executorch-ops/Inference"
+            yolox_opchain.write_text(json.dumps(opchain), encoding="utf-8")
+            descriptor = root / "config/models/yolox/model.json"
+            descriptor.write_text(json.dumps({"modelFile": "model.onnx"}), encoding="utf-8")
+            (root / "config/models/yolox/model.onnx").write_bytes(b"onnx")
+            with self.assertRaisesRegex(RuntimeError, "unsupported model file"):
+                release_tool.discover_models(root)
+
     def test_rejects_hailo_release_content(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             package_root = Path(temporary)
@@ -150,6 +206,27 @@ class ReleaseToolTests(unittest.TestCase):
                     side_effect=lambda path: path.name in release_tool.PLUGIN_NAMES,
                 ),
                 self.assertRaisesRegex(RuntimeError, "Forbidden Hailo release path"),
+            ):
+                release_tool.validate_runtime_files(package_root)
+
+    def test_allows_source_named_legal_documentation_directories(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            package_root = Path(temporary)
+            plugin_root = package_root / "lib/gstreamer-1.0"
+            plugin_root.mkdir(parents=True)
+            for plugin_name in release_tool.PLUGIN_NAMES:
+                (plugin_root / plugin_name).touch()
+            legal_root = package_root / "share/pek/licenses/libexecutorch-dev/examples"
+            legal_root.mkdir(parents=True)
+            (legal_root / "LICENSE").write_text("ExecuTorch", encoding="utf-8")
+
+            with (
+                patch.object(
+                    release_tool,
+                    "is_elf",
+                    side_effect=lambda path: path.name in release_tool.PLUGIN_NAMES,
+                ),
+                self.assertRaisesRegex(RuntimeError, "Packaged model directory"),
             ):
                 release_tool.validate_runtime_files(package_root)
 
@@ -232,6 +309,23 @@ class ReleaseToolTests(unittest.TestCase):
                 self.assertRaisesRegex(RuntimeError, "runtime library"),
             ):
                 release_tool.validate_package(arguments)
+
+    def test_requires_executorch_legal_documentation(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            package_root = Path(temporary)
+            legal_root = package_root / "share/pek/licenses"
+            legal_root.mkdir(parents=True)
+            (legal_root / "LICENSE").write_text("ONNX Runtime", encoding="utf-8")
+
+            with self.assertRaisesRegex(RuntimeError, "ExecuTorch legal documentation"):
+                release_tool.validate_legal_documentation(package_root)
+
+            executorch_legal_root = legal_root / "libexecutorch-dev"
+            executorch_legal_root.mkdir()
+            (executorch_legal_root / "LICENSE").write_text(
+                "ExecuTorch", encoding="utf-8"
+            )
+            release_tool.validate_legal_documentation(package_root)
 
     def test_validates_selected_model_and_opchain_payload(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -318,11 +412,7 @@ class ReleaseToolTests(unittest.TestCase):
     def test_only_final_preparation_requires_matching_changelog(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            development_root = root / "development"
-            development_root.mkdir()
-            (development_root / "meson.build").write_text(
-                "project('demo', version: '0.1.0')\n", encoding="utf-8"
-            )
+            add_release_identity(root)
             (root / "CHANGELOG.md").write_text("# Changelog\n", encoding="utf-8")
             arguments = (
                 "prepare",
@@ -335,6 +425,9 @@ class ReleaseToolTests(unittest.TestCase):
             manual = self.run_tool(*arguments, "--build-label", "test")
             self.assertEqual(manual.returncode, 0, manual.stderr)
             self.assertIn("build_id=0.1.0-test-aaaaaaaaaaaa", manual.stdout)
+            self.assertIn("onnxruntime_version=1.24.4", manual.stdout)
+            self.assertIn("executorch_version=1.3.1", manual.stdout)
+            self.assertIn("executorch_revision=2", manual.stdout)
 
             final = self.run_tool(*arguments)
             self.assertNotEqual(final.returncode, 0)
