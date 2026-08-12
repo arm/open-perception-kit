@@ -7,6 +7,7 @@
 
 #include "perception_python_bridge.h"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -50,12 +51,18 @@ using native_proxy_anchor_ptr = std::shared_ptr<const native_proxy_anchor>;
 
 template <typename T> struct native_proxy_object {
     PyObject_HEAD const T *value;
-    alignas(native_proxy_anchor_ptr) std::byte anchor_storage[sizeof(native_proxy_anchor_ptr)];
+    alignas(native_proxy_anchor_ptr)
+        std::array<std::byte, sizeof(native_proxy_anchor_ptr)> anchor_storage;
 };
 
 template <typename T>
 native_proxy_anchor_ptr *proxy_anchor_storage(native_proxy_object<T> *proxy) noexcept {
-    return reinterpret_cast<native_proxy_anchor_ptr *>(proxy->anchor_storage);
+    return reinterpret_cast<native_proxy_anchor_ptr *>(proxy->anchor_storage.data());
+}
+
+template <typename T>
+const native_proxy_anchor_ptr *proxy_anchor_storage(const native_proxy_object<T> *proxy) noexcept {
+    return reinterpret_cast<const native_proxy_anchor_ptr *>(proxy->anchor_storage.data());
 }
 
 template <typename T>
@@ -63,8 +70,13 @@ native_proxy_anchor_ptr *proxy_anchor_ptr(native_proxy_object<T> *proxy) noexcep
     return std::launder(proxy_anchor_storage(proxy));
 }
 
+template <typename T>
+const native_proxy_anchor_ptr *proxy_anchor_ptr(const native_proxy_object<T> *proxy) noexcept {
+    return std::launder(proxy_anchor_storage(proxy));
+}
+
 template <typename T> native_proxy_anchor_ptr proxy_anchor(PyObject *self) {
-    auto *proxy = reinterpret_cast<native_proxy_object<T> *>(self);
+    const auto *proxy = reinterpret_cast<const native_proxy_object<T> *>(self);
     return *proxy_anchor_ptr(proxy);
 }
 
@@ -578,10 +590,10 @@ std::optional<container::external_key_t> external_key_from_python(PyObject *obje
     }
 
     auto is_key = is_external_key_python(object);
-    if (!is_key) {
+    if (!is_key.has_value()) {
         return std::nullopt;
     }
-    if (!*is_key) {
+    if (!is_key.value()) {
         PyErr_SetString(PyExc_TypeError, "perception external key must be an ExternalKey");
         return std::nullopt;
     }
@@ -1318,9 +1330,8 @@ PyObject *live_envelope_add(PyObject *self, PyObject *args) {
 }
 
 Py_ssize_t len_perception_metadata_BoxDetections_detections_vector(PyObject *self) {
-    auto *proxy = reinterpret_cast<
-        native_proxy_object<std::vector<std::unique_ptr<perception::metadata::BoxDetectionT>>> *>(
-        self);
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
+        std::vector<std::unique_ptr<perception::metadata::BoxDetectionT>>> *>(self);
     const auto *vector = proxy->value;
     if (vector == nullptr) {
         return 0;
@@ -1330,9 +1341,8 @@ Py_ssize_t len_perception_metadata_BoxDetections_detections_vector(PyObject *sel
 
 PyObject *item_perception_metadata_BoxDetections_detections_vector(PyObject *self,
                                                                    Py_ssize_t index) {
-    auto *proxy = reinterpret_cast<
-        native_proxy_object<std::vector<std::unique_ptr<perception::metadata::BoxDetectionT>>> *>(
-        self);
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
+        std::vector<std::unique_ptr<perception::metadata::BoxDetectionT>>> *>(self);
     const auto *vector = proxy->value;
     if (vector == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception vector proxy is invalid");
@@ -1377,7 +1387,7 @@ bool ensure_perception_metadata_BoxDetections_detections_vector_type() {
 }
 
 Py_ssize_t len_perception_metadata_Classification_candidates_vector(PyObject *self) {
-    auto *proxy = reinterpret_cast<native_proxy_object<
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
         std::vector<std::unique_ptr<perception::metadata::ClassificationCandidateT>>> *>(self);
     const auto *vector = proxy->value;
     if (vector == nullptr) {
@@ -1388,7 +1398,7 @@ Py_ssize_t len_perception_metadata_Classification_candidates_vector(PyObject *se
 
 PyObject *item_perception_metadata_Classification_candidates_vector(PyObject *self,
                                                                     Py_ssize_t index) {
-    auto *proxy = reinterpret_cast<native_proxy_object<
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
         std::vector<std::unique_ptr<perception::metadata::ClassificationCandidateT>>> *>(self);
     const auto *vector = proxy->value;
     if (vector == nullptr) {
@@ -1436,9 +1446,8 @@ bool ensure_perception_metadata_Classification_candidates_vector_type() {
 }
 
 Py_ssize_t len_perception_metadata_Classifications_classifications_vector(PyObject *self) {
-    auto *proxy = reinterpret_cast<
-        native_proxy_object<std::vector<std::unique_ptr<perception::metadata::ClassificationT>>> *>(
-        self);
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
+        std::vector<std::unique_ptr<perception::metadata::ClassificationT>>> *>(self);
     const auto *vector = proxy->value;
     if (vector == nullptr) {
         return 0;
@@ -1448,9 +1457,8 @@ Py_ssize_t len_perception_metadata_Classifications_classifications_vector(PyObje
 
 PyObject *item_perception_metadata_Classifications_classifications_vector(PyObject *self,
                                                                           Py_ssize_t index) {
-    auto *proxy = reinterpret_cast<
-        native_proxy_object<std::vector<std::unique_ptr<perception::metadata::ClassificationT>>> *>(
-        self);
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
+        std::vector<std::unique_ptr<perception::metadata::ClassificationT>>> *>(self);
     const auto *vector = proxy->value;
     if (vector == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception vector proxy is invalid");
@@ -1497,9 +1505,8 @@ bool ensure_perception_metadata_Classifications_classifications_vector_type() {
 }
 
 Py_ssize_t len_perception_metadata_Classifications_person_presence_vector(PyObject *self) {
-    auto *proxy = reinterpret_cast<
-        native_proxy_object<std::vector<std::unique_ptr<perception::metadata::PersonPresenceT>>> *>(
-        self);
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
+        std::vector<std::unique_ptr<perception::metadata::PersonPresenceT>>> *>(self);
     const auto *vector = proxy->value;
     if (vector == nullptr) {
         return 0;
@@ -1509,9 +1516,8 @@ Py_ssize_t len_perception_metadata_Classifications_person_presence_vector(PyObje
 
 PyObject *item_perception_metadata_Classifications_person_presence_vector(PyObject *self,
                                                                           Py_ssize_t index) {
-    auto *proxy = reinterpret_cast<
-        native_proxy_object<std::vector<std::unique_ptr<perception::metadata::PersonPresenceT>>> *>(
-        self);
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
+        std::vector<std::unique_ptr<perception::metadata::PersonPresenceT>>> *>(self);
     const auto *vector = proxy->value;
     if (vector == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception vector proxy is invalid");
@@ -1558,7 +1564,8 @@ bool ensure_perception_metadata_Classifications_person_presence_vector_type() {
 }
 
 Py_ssize_t len_perception_metadata_BitmapData_pixels_vector(PyObject *self) {
-    auto *proxy = reinterpret_cast<native_proxy_object<std::vector<std::uint8_t>> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<std::vector<std::uint8_t>> *>(self);
     const auto *vector = proxy->value;
     if (vector == nullptr) {
         return 0;
@@ -1567,7 +1574,8 @@ Py_ssize_t len_perception_metadata_BitmapData_pixels_vector(PyObject *self) {
 }
 
 PyObject *item_perception_metadata_BitmapData_pixels_vector(PyObject *self, Py_ssize_t index) {
-    auto *proxy = reinterpret_cast<native_proxy_object<std::vector<std::uint8_t>> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<std::vector<std::uint8_t>> *>(self);
     const auto *vector = proxy->value;
     if (vector == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception vector proxy is invalid");
@@ -1604,7 +1612,7 @@ bool ensure_perception_metadata_BitmapData_pixels_vector_type() {
 }
 
 Py_ssize_t len_perception_metadata_ObjectEmbedding_values_vector(PyObject *self) {
-    auto *proxy = reinterpret_cast<native_proxy_object<std::vector<float>> *>(self);
+    const auto *proxy = reinterpret_cast<const native_proxy_object<std::vector<float>> *>(self);
     const auto *vector = proxy->value;
     if (vector == nullptr) {
         return 0;
@@ -1613,7 +1621,7 @@ Py_ssize_t len_perception_metadata_ObjectEmbedding_values_vector(PyObject *self)
 }
 
 PyObject *item_perception_metadata_ObjectEmbedding_values_vector(PyObject *self, Py_ssize_t index) {
-    auto *proxy = reinterpret_cast<native_proxy_object<std::vector<float>> *>(self);
+    const auto *proxy = reinterpret_cast<const native_proxy_object<std::vector<float>> *>(self);
     const auto *vector = proxy->value;
     if (vector == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception vector proxy is invalid");
@@ -1650,7 +1658,7 @@ bool ensure_perception_metadata_ObjectEmbedding_values_vector_type() {
 }
 
 Py_ssize_t len_perception_metadata_ObjectEmbeddings_embeddings_vector(PyObject *self) {
-    auto *proxy = reinterpret_cast<native_proxy_object<
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
         std::vector<std::unique_ptr<perception::metadata::ObjectEmbeddingT>>> *>(self);
     const auto *vector = proxy->value;
     if (vector == nullptr) {
@@ -1661,7 +1669,7 @@ Py_ssize_t len_perception_metadata_ObjectEmbeddings_embeddings_vector(PyObject *
 
 PyObject *item_perception_metadata_ObjectEmbeddings_embeddings_vector(PyObject *self,
                                                                       Py_ssize_t index) {
-    auto *proxy = reinterpret_cast<native_proxy_object<
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
         std::vector<std::unique_ptr<perception::metadata::ObjectEmbeddingT>>> *>(self);
     const auto *vector = proxy->value;
     if (vector == nullptr) {
@@ -1708,9 +1716,8 @@ bool ensure_perception_metadata_ObjectEmbeddings_embeddings_vector_type() {
 }
 
 Py_ssize_t len_perception_metadata_ObjectTracks_tracks_vector(PyObject *self) {
-    auto *proxy = reinterpret_cast<
-        native_proxy_object<std::vector<std::unique_ptr<perception::metadata::ObjectTrackT>>> *>(
-        self);
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
+        std::vector<std::unique_ptr<perception::metadata::ObjectTrackT>>> *>(self);
     const auto *vector = proxy->value;
     if (vector == nullptr) {
         return 0;
@@ -1719,9 +1726,8 @@ Py_ssize_t len_perception_metadata_ObjectTracks_tracks_vector(PyObject *self) {
 }
 
 PyObject *item_perception_metadata_ObjectTracks_tracks_vector(PyObject *self, Py_ssize_t index) {
-    auto *proxy = reinterpret_cast<
-        native_proxy_object<std::vector<std::unique_ptr<perception::metadata::ObjectTrackT>>> *>(
-        self);
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
+        std::vector<std::unique_ptr<perception::metadata::ObjectTrackT>>> *>(self);
     const auto *vector = proxy->value;
     if (vector == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception vector proxy is invalid");
@@ -1766,7 +1772,8 @@ bool ensure_perception_metadata_ObjectTracks_tracks_vector_type() {
 }
 
 Py_ssize_t len_perception_metadata_PerformanceOverlay_lines_vector(PyObject *self) {
-    auto *proxy = reinterpret_cast<native_proxy_object<std::vector<std::string>> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<std::vector<std::string>> *>(self);
     const auto *vector = proxy->value;
     if (vector == nullptr) {
         return 0;
@@ -1776,7 +1783,8 @@ Py_ssize_t len_perception_metadata_PerformanceOverlay_lines_vector(PyObject *sel
 
 PyObject *item_perception_metadata_PerformanceOverlay_lines_vector(PyObject *self,
                                                                    Py_ssize_t index) {
-    auto *proxy = reinterpret_cast<native_proxy_object<std::vector<std::string>> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<std::vector<std::string>> *>(self);
     const auto *vector = proxy->value;
     if (vector == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception vector proxy is invalid");
@@ -1813,9 +1821,8 @@ bool ensure_perception_metadata_PerformanceOverlay_lines_vector_type() {
 }
 
 Py_ssize_t len_perception_metadata_PoseEstimations_poses_vector(PyObject *self) {
-    auto *proxy = reinterpret_cast<
-        native_proxy_object<std::vector<std::unique_ptr<perception::metadata::PoseEstimationT>>> *>(
-        self);
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
+        std::vector<std::unique_ptr<perception::metadata::PoseEstimationT>>> *>(self);
     const auto *vector = proxy->value;
     if (vector == nullptr) {
         return 0;
@@ -1824,9 +1831,8 @@ Py_ssize_t len_perception_metadata_PoseEstimations_poses_vector(PyObject *self) 
 }
 
 PyObject *item_perception_metadata_PoseEstimations_poses_vector(PyObject *self, Py_ssize_t index) {
-    auto *proxy = reinterpret_cast<
-        native_proxy_object<std::vector<std::unique_ptr<perception::metadata::PoseEstimationT>>> *>(
-        self);
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
+        std::vector<std::unique_ptr<perception::metadata::PoseEstimationT>>> *>(self);
     const auto *vector = proxy->value;
     if (vector == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception vector proxy is invalid");
@@ -1872,7 +1878,7 @@ bool ensure_perception_metadata_PoseEstimations_poses_vector_type() {
 }
 
 Py_ssize_t len_perception_metadata_SegmentationMasks_masks_vector(PyObject *self) {
-    auto *proxy = reinterpret_cast<native_proxy_object<
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
         std::vector<std::unique_ptr<perception::metadata::SegmentationMaskT>>> *>(self);
     const auto *vector = proxy->value;
     if (vector == nullptr) {
@@ -1883,7 +1889,7 @@ Py_ssize_t len_perception_metadata_SegmentationMasks_masks_vector(PyObject *self
 
 PyObject *item_perception_metadata_SegmentationMasks_masks_vector(PyObject *self,
                                                                   Py_ssize_t index) {
-    auto *proxy = reinterpret_cast<native_proxy_object<
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
         std::vector<std::unique_ptr<perception::metadata::SegmentationMaskT>>> *>(self);
     const auto *vector = proxy->value;
     if (vector == nullptr) {
@@ -1930,8 +1936,9 @@ bool ensure_perception_metadata_SegmentationMasks_masks_vector_type() {
 }
 
 Py_ssize_t len_perception_metadata_TrackTrace_points_vector(PyObject *self) {
-    auto *proxy = reinterpret_cast<
-        native_proxy_object<std::vector<std::unique_ptr<perception::metadata::Point2fT>>> *>(self);
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<std::vector<std::unique_ptr<perception::metadata::Point2fT>>> *>(
+        self);
     const auto *vector = proxy->value;
     if (vector == nullptr) {
         return 0;
@@ -1940,8 +1947,9 @@ Py_ssize_t len_perception_metadata_TrackTrace_points_vector(PyObject *self) {
 }
 
 PyObject *item_perception_metadata_TrackTrace_points_vector(PyObject *self, Py_ssize_t index) {
-    auto *proxy = reinterpret_cast<
-        native_proxy_object<std::vector<std::unique_ptr<perception::metadata::Point2fT>>> *>(self);
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<std::vector<std::unique_ptr<perception::metadata::Point2fT>>> *>(
+        self);
     const auto *vector = proxy->value;
     if (vector == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception vector proxy is invalid");
@@ -1986,9 +1994,8 @@ bool ensure_perception_metadata_TrackTrace_points_vector_type() {
 }
 
 Py_ssize_t len_perception_metadata_TrackTraces_traces_vector(PyObject *self) {
-    auto *proxy = reinterpret_cast<
-        native_proxy_object<std::vector<std::unique_ptr<perception::metadata::TrackTraceT>>> *>(
-        self);
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
+        std::vector<std::unique_ptr<perception::metadata::TrackTraceT>>> *>(self);
     const auto *vector = proxy->value;
     if (vector == nullptr) {
         return 0;
@@ -1997,9 +2004,8 @@ Py_ssize_t len_perception_metadata_TrackTraces_traces_vector(PyObject *self) {
 }
 
 PyObject *item_perception_metadata_TrackTraces_traces_vector(PyObject *self, Py_ssize_t index) {
-    auto *proxy = reinterpret_cast<
-        native_proxy_object<std::vector<std::unique_ptr<perception::metadata::TrackTraceT>>> *>(
-        self);
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
+        std::vector<std::unique_ptr<perception::metadata::TrackTraceT>>> *>(self);
     const auto *vector = proxy->value;
     if (vector == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception vector proxy is invalid");
@@ -2044,8 +2050,8 @@ bool ensure_perception_metadata_TrackTraces_traces_vector_type() {
 }
 
 extern "C" PyObject *get_perception_metadata_BoxDetection_object(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::BoxDetectionT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::BoxDetectionT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2060,8 +2066,8 @@ extern "C" PyObject *get_perception_metadata_BoxDetection_object(PyObject *self,
 }
 
 extern "C" PyObject *get_perception_metadata_BoxDetection_box(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::BoxDetectionT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::BoxDetectionT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2076,8 +2082,8 @@ extern "C" PyObject *get_perception_metadata_BoxDetection_box(PyObject *self, vo
 }
 
 extern "C" PyObject *get_perception_metadata_BoxDetection_confidence(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::BoxDetectionT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::BoxDetectionT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2087,8 +2093,8 @@ extern "C" PyObject *get_perception_metadata_BoxDetection_confidence(PyObject *s
 }
 
 extern "C" PyObject *get_perception_metadata_BoxDetection_class_id(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::BoxDetectionT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::BoxDetectionT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2098,8 +2104,8 @@ extern "C" PyObject *get_perception_metadata_BoxDetection_class_id(PyObject *sel
 }
 
 extern "C" PyObject *get_perception_metadata_BoxDetection_text(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::BoxDetectionT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::BoxDetectionT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2168,8 +2174,8 @@ make_perception_metadata_BoxDetection_proxy(const perception::metadata::BoxDetec
 }
 
 extern "C" PyObject *get_perception_metadata_BoxDetections_schema_major(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::BoxDetectionsT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::BoxDetectionsT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2179,8 +2185,8 @@ extern "C" PyObject *get_perception_metadata_BoxDetections_schema_major(PyObject
 }
 
 extern "C" PyObject *get_perception_metadata_BoxDetections_schema_minor(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::BoxDetectionsT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::BoxDetectionsT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2190,8 +2196,8 @@ extern "C" PyObject *get_perception_metadata_BoxDetections_schema_minor(PyObject
 }
 
 extern "C" PyObject *get_perception_metadata_BoxDetections_layer(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::BoxDetectionsT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::BoxDetectionsT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2206,8 +2212,8 @@ extern "C" PyObject *get_perception_metadata_BoxDetections_layer(PyObject *self,
 }
 
 extern "C" PyObject *get_perception_metadata_BoxDetections_detections(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::BoxDetectionsT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::BoxDetectionsT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2276,9 +2282,8 @@ make_perception_metadata_BoxDetections_proxy(const perception::metadata::BoxDete
 
 extern "C" PyObject *get_perception_metadata_ClassificationCandidate_confidence(PyObject *self,
                                                                                 void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::ClassificationCandidateT> *>(
-            self);
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<perception::metadata::ClassificationCandidateT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2289,9 +2294,8 @@ extern "C" PyObject *get_perception_metadata_ClassificationCandidate_confidence(
 
 extern "C" PyObject *get_perception_metadata_ClassificationCandidate_class_id(PyObject *self,
                                                                               void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::ClassificationCandidateT> *>(
-            self);
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<perception::metadata::ClassificationCandidateT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2301,9 +2305,8 @@ extern "C" PyObject *get_perception_metadata_ClassificationCandidate_class_id(Py
 }
 
 extern "C" PyObject *get_perception_metadata_ClassificationCandidate_text(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::ClassificationCandidateT> *>(
-            self);
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<perception::metadata::ClassificationCandidateT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2313,9 +2316,8 @@ extern "C" PyObject *get_perception_metadata_ClassificationCandidate_text(PyObje
 }
 
 extern "C" PyObject *get_perception_metadata_ClassificationCandidate_x(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::ClassificationCandidateT> *>(
-            self);
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<perception::metadata::ClassificationCandidateT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2325,9 +2327,8 @@ extern "C" PyObject *get_perception_metadata_ClassificationCandidate_x(PyObject 
 }
 
 extern "C" PyObject *get_perception_metadata_ClassificationCandidate_y(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::ClassificationCandidateT> *>(
-            self);
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<perception::metadata::ClassificationCandidateT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2337,9 +2338,8 @@ extern "C" PyObject *get_perception_metadata_ClassificationCandidate_y(PyObject 
 }
 
 extern "C" PyObject *get_perception_metadata_ClassificationCandidate_w(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::ClassificationCandidateT> *>(
-            self);
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<perception::metadata::ClassificationCandidateT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2349,9 +2349,8 @@ extern "C" PyObject *get_perception_metadata_ClassificationCandidate_w(PyObject 
 }
 
 extern "C" PyObject *get_perception_metadata_ClassificationCandidate_h(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::ClassificationCandidateT> *>(
-            self);
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<perception::metadata::ClassificationCandidateT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2431,8 +2430,8 @@ PyObject *make_perception_metadata_ClassificationCandidate_proxy(
 }
 
 extern "C" PyObject *get_perception_metadata_Classification_object(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::ClassificationT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ClassificationT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2447,8 +2446,8 @@ extern "C" PyObject *get_perception_metadata_Classification_object(PyObject *sel
 }
 
 extern "C" PyObject *get_perception_metadata_Classification_candidates(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::ClassificationT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ClassificationT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2506,8 +2505,8 @@ make_perception_metadata_Classification_proxy(const perception::metadata::Classi
 }
 
 extern "C" PyObject *get_perception_metadata_PersonPresence_object(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::PersonPresenceT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::PersonPresenceT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2522,8 +2521,8 @@ extern "C" PyObject *get_perception_metadata_PersonPresence_object(PyObject *sel
 }
 
 extern "C" PyObject *get_perception_metadata_PersonPresence_yes_confidence(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::PersonPresenceT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::PersonPresenceT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2533,8 +2532,8 @@ extern "C" PyObject *get_perception_metadata_PersonPresence_yes_confidence(PyObj
 }
 
 extern "C" PyObject *get_perception_metadata_PersonPresence_no_confidence(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::PersonPresenceT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::PersonPresenceT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2593,8 +2592,8 @@ make_perception_metadata_PersonPresence_proxy(const perception::metadata::Person
 }
 
 extern "C" PyObject *get_perception_metadata_Classifications_schema_major(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::ClassificationsT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ClassificationsT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2604,8 +2603,8 @@ extern "C" PyObject *get_perception_metadata_Classifications_schema_major(PyObje
 }
 
 extern "C" PyObject *get_perception_metadata_Classifications_schema_minor(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::ClassificationsT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ClassificationsT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2615,8 +2614,8 @@ extern "C" PyObject *get_perception_metadata_Classifications_schema_minor(PyObje
 }
 
 extern "C" PyObject *get_perception_metadata_Classifications_layer(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::ClassificationsT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ClassificationsT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2632,8 +2631,8 @@ extern "C" PyObject *get_perception_metadata_Classifications_layer(PyObject *sel
 
 extern "C" PyObject *get_perception_metadata_Classifications_classifications(PyObject *self,
                                                                              void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::ClassificationsT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ClassificationsT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2648,8 +2647,8 @@ extern "C" PyObject *get_perception_metadata_Classifications_classifications(PyO
 
 extern "C" PyObject *get_perception_metadata_Classifications_person_presence(PyObject *self,
                                                                              void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::ClassificationsT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ClassificationsT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2722,7 +2721,8 @@ make_perception_metadata_Classifications_proxy(const perception::metadata::Class
 }
 
 extern "C" PyObject *get_perception_metadata_ObjectMeta_id(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::ObjectMetaT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ObjectMetaT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2732,7 +2732,8 @@ extern "C" PyObject *get_perception_metadata_ObjectMeta_id(PyObject *self, void 
 }
 
 extern "C" PyObject *get_perception_metadata_ObjectMeta_parent_id(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::ObjectMetaT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ObjectMetaT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2742,7 +2743,8 @@ extern "C" PyObject *get_perception_metadata_ObjectMeta_parent_id(PyObject *self
 }
 
 extern "C" PyObject *get_perception_metadata_ObjectMeta_creation_ts_ns(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::ObjectMetaT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ObjectMetaT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2801,7 +2803,8 @@ make_perception_metadata_ObjectMeta_proxy(const perception::metadata::ObjectMeta
 }
 
 extern "C" PyObject *get_perception_metadata_LayerInfo_engine(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::LayerInfoT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::LayerInfoT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2811,7 +2814,8 @@ extern "C" PyObject *get_perception_metadata_LayerInfo_engine(PyObject *self, vo
 }
 
 extern "C" PyObject *get_perception_metadata_LayerInfo_model(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::LayerInfoT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::LayerInfoT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2821,7 +2825,8 @@ extern "C" PyObject *get_perception_metadata_LayerInfo_model(PyObject *self, voi
 }
 
 extern "C" PyObject *get_perception_metadata_LayerInfo_tags(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::LayerInfoT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::LayerInfoT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2831,7 +2836,8 @@ extern "C" PyObject *get_perception_metadata_LayerInfo_tags(PyObject *self, void
 }
 
 extern "C" PyObject *get_perception_metadata_LayerInfo_infer_element_id(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::LayerInfoT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::LayerInfoT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2841,7 +2847,8 @@ extern "C" PyObject *get_perception_metadata_LayerInfo_infer_element_id(PyObject
 }
 
 extern "C" PyObject *get_perception_metadata_LayerInfo_label_family(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::LayerInfoT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::LayerInfoT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2851,7 +2858,8 @@ extern "C" PyObject *get_perception_metadata_LayerInfo_label_family(PyObject *se
 }
 
 extern "C" PyObject *get_perception_metadata_LayerInfo_content_type(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::LayerInfoT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::LayerInfoT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2861,7 +2869,8 @@ extern "C" PyObject *get_perception_metadata_LayerInfo_content_type(PyObject *se
 }
 
 extern "C" PyObject *get_perception_metadata_LayerInfo_compositing_mode(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::LayerInfoT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::LayerInfoT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2940,7 +2949,8 @@ make_perception_metadata_LayerInfo_proxy(const perception::metadata::LayerInfoT 
 }
 
 extern "C" PyObject *get_perception_metadata_BoundingBox_x(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::BoundingBoxT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::BoundingBoxT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2950,7 +2960,8 @@ extern "C" PyObject *get_perception_metadata_BoundingBox_x(PyObject *self, void 
 }
 
 extern "C" PyObject *get_perception_metadata_BoundingBox_y(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::BoundingBoxT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::BoundingBoxT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2960,7 +2971,8 @@ extern "C" PyObject *get_perception_metadata_BoundingBox_y(PyObject *self, void 
 }
 
 extern "C" PyObject *get_perception_metadata_BoundingBox_width(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::BoundingBoxT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::BoundingBoxT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -2970,7 +2982,8 @@ extern "C" PyObject *get_perception_metadata_BoundingBox_width(PyObject *self, v
 }
 
 extern "C" PyObject *get_perception_metadata_BoundingBox_height(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::BoundingBoxT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::BoundingBoxT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3034,7 +3047,8 @@ make_perception_metadata_BoundingBox_proxy(const perception::metadata::BoundingB
 }
 
 extern "C" PyObject *get_perception_metadata_Point2f_x(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::Point2fT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::Point2fT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3044,7 +3058,8 @@ extern "C" PyObject *get_perception_metadata_Point2f_x(PyObject *self, void *) {
 }
 
 extern "C" PyObject *get_perception_metadata_Point2f_y(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::Point2fT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::Point2fT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3098,7 +3113,8 @@ make_perception_metadata_Point2f_proxy(const perception::metadata::Point2fT *val
 }
 
 extern "C" PyObject *get_perception_metadata_BitmapData_width(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::BitmapDataT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::BitmapDataT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3108,7 +3124,8 @@ extern "C" PyObject *get_perception_metadata_BitmapData_width(PyObject *self, vo
 }
 
 extern "C" PyObject *get_perception_metadata_BitmapData_height(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::BitmapDataT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::BitmapDataT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3118,7 +3135,8 @@ extern "C" PyObject *get_perception_metadata_BitmapData_height(PyObject *self, v
 }
 
 extern "C" PyObject *get_perception_metadata_BitmapData_value_type(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::BitmapDataT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::BitmapDataT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3128,7 +3146,8 @@ extern "C" PyObject *get_perception_metadata_BitmapData_value_type(PyObject *sel
 }
 
 extern "C" PyObject *get_perception_metadata_BitmapData_pixels(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::BitmapDataT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::BitmapDataT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3195,8 +3214,9 @@ make_perception_metadata_BitmapData_proxy(const perception::metadata::BitmapData
 }
 
 extern "C" PyObject *get_perception_metadata_VideoFrameContext_object(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::VideoFrameContextT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::VideoFrameContextT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3212,8 +3232,9 @@ extern "C" PyObject *get_perception_metadata_VideoFrameContext_object(PyObject *
 
 extern "C" PyObject *get_perception_metadata_VideoFrameContext_original_width(PyObject *self,
                                                                               void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::VideoFrameContextT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::VideoFrameContextT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3224,8 +3245,9 @@ extern "C" PyObject *get_perception_metadata_VideoFrameContext_original_width(Py
 
 extern "C" PyObject *get_perception_metadata_VideoFrameContext_original_height(PyObject *self,
                                                                                void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::VideoFrameContextT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::VideoFrameContextT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3236,8 +3258,9 @@ extern "C" PyObject *get_perception_metadata_VideoFrameContext_original_height(P
 
 extern "C" PyObject *get_perception_metadata_VideoFrameContext_source_crop_left(PyObject *self,
                                                                                 void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::VideoFrameContextT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::VideoFrameContextT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3248,8 +3271,9 @@ extern "C" PyObject *get_perception_metadata_VideoFrameContext_source_crop_left(
 
 extern "C" PyObject *get_perception_metadata_VideoFrameContext_source_crop_right(PyObject *self,
                                                                                  void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::VideoFrameContextT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::VideoFrameContextT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3260,8 +3284,9 @@ extern "C" PyObject *get_perception_metadata_VideoFrameContext_source_crop_right
 
 extern "C" PyObject *get_perception_metadata_VideoFrameContext_source_crop_top(PyObject *self,
                                                                                void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::VideoFrameContextT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::VideoFrameContextT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3272,8 +3297,9 @@ extern "C" PyObject *get_perception_metadata_VideoFrameContext_source_crop_top(P
 
 extern "C" PyObject *get_perception_metadata_VideoFrameContext_source_crop_bottom(PyObject *self,
                                                                                   void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::VideoFrameContextT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::VideoFrameContextT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3284,8 +3310,9 @@ extern "C" PyObject *get_perception_metadata_VideoFrameContext_source_crop_botto
 
 extern "C" PyObject *get_perception_metadata_VideoFrameContext_letterbox_left(PyObject *self,
                                                                               void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::VideoFrameContextT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::VideoFrameContextT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3296,8 +3323,9 @@ extern "C" PyObject *get_perception_metadata_VideoFrameContext_letterbox_left(Py
 
 extern "C" PyObject *get_perception_metadata_VideoFrameContext_letterbox_right(PyObject *self,
                                                                                void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::VideoFrameContextT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::VideoFrameContextT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3308,8 +3336,9 @@ extern "C" PyObject *get_perception_metadata_VideoFrameContext_letterbox_right(P
 
 extern "C" PyObject *get_perception_metadata_VideoFrameContext_letterbox_top(PyObject *self,
                                                                              void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::VideoFrameContextT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::VideoFrameContextT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3320,8 +3349,9 @@ extern "C" PyObject *get_perception_metadata_VideoFrameContext_letterbox_top(PyO
 
 extern "C" PyObject *get_perception_metadata_VideoFrameContext_letterbox_bottom(PyObject *self,
                                                                                 void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::VideoFrameContextT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::VideoFrameContextT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3420,8 +3450,9 @@ PyObject *make_perception_metadata_VideoFrameContext_proxy(
 }
 
 extern "C" PyObject *get_perception_metadata_AudioFrameContext_object(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::AudioFrameContextT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::AudioFrameContextT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3437,8 +3468,9 @@ extern "C" PyObject *get_perception_metadata_AudioFrameContext_object(PyObject *
 
 extern "C" PyObject *get_perception_metadata_AudioFrameContext_original_channels(PyObject *self,
                                                                                  void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::AudioFrameContextT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::AudioFrameContextT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3449,8 +3481,9 @@ extern "C" PyObject *get_perception_metadata_AudioFrameContext_original_channels
 
 extern "C" PyObject *get_perception_metadata_AudioFrameContext_original_frequency(PyObject *self,
                                                                                   void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::AudioFrameContextT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::AudioFrameContextT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3461,8 +3494,9 @@ extern "C" PyObject *get_perception_metadata_AudioFrameContext_original_frequenc
 
 extern "C" PyObject *get_perception_metadata_AudioFrameContext_original_sample_count(PyObject *self,
                                                                                      void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::AudioFrameContextT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::AudioFrameContextT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3473,8 +3507,9 @@ extern "C" PyObject *get_perception_metadata_AudioFrameContext_original_sample_c
 
 extern "C" PyObject *get_perception_metadata_AudioFrameContext_cut_left_sample_count(PyObject *self,
                                                                                      void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::AudioFrameContextT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::AudioFrameContextT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3485,8 +3520,9 @@ extern "C" PyObject *get_perception_metadata_AudioFrameContext_cut_left_sample_c
 
 extern "C" PyObject *
 get_perception_metadata_AudioFrameContext_cut_right_sample_count(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::AudioFrameContextT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::AudioFrameContextT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3560,8 +3596,8 @@ PyObject *make_perception_metadata_AudioFrameContext_proxy(
 }
 
 extern "C" PyObject *get_perception_metadata_FrameContext_schema_major(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::FrameContextT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::FrameContextT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3571,8 +3607,8 @@ extern "C" PyObject *get_perception_metadata_FrameContext_schema_major(PyObject 
 }
 
 extern "C" PyObject *get_perception_metadata_FrameContext_schema_minor(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::FrameContextT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::FrameContextT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3582,8 +3618,8 @@ extern "C" PyObject *get_perception_metadata_FrameContext_schema_minor(PyObject 
 }
 
 extern "C" PyObject *get_perception_metadata_FrameContext_layer(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::FrameContextT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::FrameContextT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3598,8 +3634,8 @@ extern "C" PyObject *get_perception_metadata_FrameContext_layer(PyObject *self, 
 }
 
 extern "C" PyObject *get_perception_metadata_FrameContext_video(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::FrameContextT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::FrameContextT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3614,8 +3650,8 @@ extern "C" PyObject *get_perception_metadata_FrameContext_video(PyObject *self, 
 }
 
 extern "C" PyObject *get_perception_metadata_FrameContext_audio(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::FrameContextT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::FrameContextT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3689,8 +3725,8 @@ make_perception_metadata_FrameContext_proxy(const perception::metadata::FrameCon
 }
 
 extern "C" PyObject *get_perception_metadata_ObjectEmbedding_object(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::ObjectEmbeddingT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ObjectEmbeddingT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3705,8 +3741,8 @@ extern "C" PyObject *get_perception_metadata_ObjectEmbedding_object(PyObject *se
 }
 
 extern "C" PyObject *get_perception_metadata_ObjectEmbedding_values(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::ObjectEmbeddingT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ObjectEmbeddingT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3763,8 +3799,9 @@ make_perception_metadata_ObjectEmbedding_proxy(const perception::metadata::Objec
 }
 
 extern "C" PyObject *get_perception_metadata_ObjectEmbeddings_schema_major(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::ObjectEmbeddingsT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ObjectEmbeddingsT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3774,8 +3811,9 @@ extern "C" PyObject *get_perception_metadata_ObjectEmbeddings_schema_major(PyObj
 }
 
 extern "C" PyObject *get_perception_metadata_ObjectEmbeddings_schema_minor(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::ObjectEmbeddingsT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ObjectEmbeddingsT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3785,8 +3823,9 @@ extern "C" PyObject *get_perception_metadata_ObjectEmbeddings_schema_minor(PyObj
 }
 
 extern "C" PyObject *get_perception_metadata_ObjectEmbeddings_layer(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::ObjectEmbeddingsT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ObjectEmbeddingsT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3801,8 +3840,9 @@ extern "C" PyObject *get_perception_metadata_ObjectEmbeddings_layer(PyObject *se
 }
 
 extern "C" PyObject *get_perception_metadata_ObjectEmbeddings_embeddings(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::ObjectEmbeddingsT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ObjectEmbeddingsT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3870,7 +3910,8 @@ PyObject *make_perception_metadata_ObjectEmbeddings_proxy(
 }
 
 extern "C" PyObject *get_perception_metadata_ObjectTrack_object(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::ObjectTrackT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ObjectTrackT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3885,7 +3926,8 @@ extern "C" PyObject *get_perception_metadata_ObjectTrack_object(PyObject *self, 
 }
 
 extern "C" PyObject *get_perception_metadata_ObjectTrack_source_id(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::ObjectTrackT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ObjectTrackT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3895,7 +3937,8 @@ extern "C" PyObject *get_perception_metadata_ObjectTrack_source_id(PyObject *sel
 }
 
 extern "C" PyObject *get_perception_metadata_ObjectTrack_track_id(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::ObjectTrackT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ObjectTrackT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3905,7 +3948,8 @@ extern "C" PyObject *get_perception_metadata_ObjectTrack_track_id(PyObject *self
 }
 
 extern "C" PyObject *get_perception_metadata_ObjectTrack_box(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::ObjectTrackT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ObjectTrackT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3920,7 +3964,8 @@ extern "C" PyObject *get_perception_metadata_ObjectTrack_box(PyObject *self, voi
 }
 
 extern "C" PyObject *get_perception_metadata_ObjectTrack_confidence(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::ObjectTrackT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ObjectTrackT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3930,7 +3975,8 @@ extern "C" PyObject *get_perception_metadata_ObjectTrack_confidence(PyObject *se
 }
 
 extern "C" PyObject *get_perception_metadata_ObjectTrack_class_id(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::ObjectTrackT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ObjectTrackT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3940,7 +3986,8 @@ extern "C" PyObject *get_perception_metadata_ObjectTrack_class_id(PyObject *self
 }
 
 extern "C" PyObject *get_perception_metadata_ObjectTrack_text(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::ObjectTrackT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ObjectTrackT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3950,7 +3997,8 @@ extern "C" PyObject *get_perception_metadata_ObjectTrack_text(PyObject *self, vo
 }
 
 extern "C" PyObject *get_perception_metadata_ObjectTrack_diagnostic(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::ObjectTrackT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ObjectTrackT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -3960,7 +4008,8 @@ extern "C" PyObject *get_perception_metadata_ObjectTrack_diagnostic(PyObject *se
 }
 
 extern "C" PyObject *get_perception_metadata_ObjectTrack_predicted_only(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::ObjectTrackT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ObjectTrackT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -4052,8 +4101,8 @@ make_perception_metadata_ObjectTrack_proxy(const perception::metadata::ObjectTra
 }
 
 extern "C" PyObject *get_perception_metadata_ObjectTracks_schema_major(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::ObjectTracksT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ObjectTracksT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -4063,8 +4112,8 @@ extern "C" PyObject *get_perception_metadata_ObjectTracks_schema_major(PyObject 
 }
 
 extern "C" PyObject *get_perception_metadata_ObjectTracks_schema_minor(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::ObjectTracksT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ObjectTracksT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -4074,8 +4123,8 @@ extern "C" PyObject *get_perception_metadata_ObjectTracks_schema_minor(PyObject 
 }
 
 extern "C" PyObject *get_perception_metadata_ObjectTracks_layer(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::ObjectTracksT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ObjectTracksT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -4090,8 +4139,8 @@ extern "C" PyObject *get_perception_metadata_ObjectTracks_layer(PyObject *self, 
 }
 
 extern "C" PyObject *get_perception_metadata_ObjectTracks_tracks(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::ObjectTracksT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ObjectTracksT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -4160,8 +4209,9 @@ make_perception_metadata_ObjectTracks_proxy(const perception::metadata::ObjectTr
 
 extern "C" PyObject *get_perception_metadata_PerformanceOverlay_schema_major(PyObject *self,
                                                                              void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::PerformanceOverlayT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::PerformanceOverlayT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -4172,8 +4222,9 @@ extern "C" PyObject *get_perception_metadata_PerformanceOverlay_schema_major(PyO
 
 extern "C" PyObject *get_perception_metadata_PerformanceOverlay_schema_minor(PyObject *self,
                                                                              void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::PerformanceOverlayT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::PerformanceOverlayT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -4183,8 +4234,9 @@ extern "C" PyObject *get_perception_metadata_PerformanceOverlay_schema_minor(PyO
 }
 
 extern "C" PyObject *get_perception_metadata_PerformanceOverlay_lines(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::PerformanceOverlayT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::PerformanceOverlayT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -4246,8 +4298,8 @@ PyObject *make_perception_metadata_PerformanceOverlay_proxy(
 }
 
 extern "C" PyObject *get_perception_metadata_PoseEstimation_object(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::PoseEstimationT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::PoseEstimationT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -4262,8 +4314,8 @@ extern "C" PyObject *get_perception_metadata_PoseEstimation_object(PyObject *sel
 }
 
 extern "C" PyObject *get_perception_metadata_PoseEstimation_confidence(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::PoseEstimationT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::PoseEstimationT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -4273,8 +4325,8 @@ extern "C" PyObject *get_perception_metadata_PoseEstimation_confidence(PyObject 
 }
 
 extern "C" PyObject *get_perception_metadata_PoseEstimation_yaw(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::PoseEstimationT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::PoseEstimationT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -4284,8 +4336,8 @@ extern "C" PyObject *get_perception_metadata_PoseEstimation_yaw(PyObject *self, 
 }
 
 extern "C" PyObject *get_perception_metadata_PoseEstimation_pitch(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::PoseEstimationT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::PoseEstimationT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -4349,8 +4401,8 @@ make_perception_metadata_PoseEstimation_proxy(const perception::metadata::PoseEs
 }
 
 extern "C" PyObject *get_perception_metadata_PoseEstimations_schema_major(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::PoseEstimationsT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::PoseEstimationsT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -4360,8 +4412,8 @@ extern "C" PyObject *get_perception_metadata_PoseEstimations_schema_major(PyObje
 }
 
 extern "C" PyObject *get_perception_metadata_PoseEstimations_schema_minor(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::PoseEstimationsT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::PoseEstimationsT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -4371,8 +4423,8 @@ extern "C" PyObject *get_perception_metadata_PoseEstimations_schema_minor(PyObje
 }
 
 extern "C" PyObject *get_perception_metadata_PoseEstimations_layer(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::PoseEstimationsT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::PoseEstimationsT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -4387,8 +4439,8 @@ extern "C" PyObject *get_perception_metadata_PoseEstimations_layer(PyObject *sel
 }
 
 extern "C" PyObject *get_perception_metadata_PoseEstimations_poses(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::PoseEstimationsT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::PoseEstimationsT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -4456,8 +4508,9 @@ make_perception_metadata_PoseEstimations_proxy(const perception::metadata::PoseE
 }
 
 extern "C" PyObject *get_perception_metadata_SegmentationMask_object(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::SegmentationMaskT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::SegmentationMaskT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -4472,8 +4525,9 @@ extern "C" PyObject *get_perception_metadata_SegmentationMask_object(PyObject *s
 }
 
 extern "C" PyObject *get_perception_metadata_SegmentationMask_bitmap(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::SegmentationMaskT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::SegmentationMaskT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -4533,8 +4587,9 @@ PyObject *make_perception_metadata_SegmentationMask_proxy(
 
 extern "C" PyObject *get_perception_metadata_SegmentationMasks_schema_major(PyObject *self,
                                                                             void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::SegmentationMasksT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::SegmentationMasksT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -4545,8 +4600,9 @@ extern "C" PyObject *get_perception_metadata_SegmentationMasks_schema_major(PyOb
 
 extern "C" PyObject *get_perception_metadata_SegmentationMasks_schema_minor(PyObject *self,
                                                                             void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::SegmentationMasksT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::SegmentationMasksT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -4556,8 +4612,9 @@ extern "C" PyObject *get_perception_metadata_SegmentationMasks_schema_minor(PyOb
 }
 
 extern "C" PyObject *get_perception_metadata_SegmentationMasks_layer(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::SegmentationMasksT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::SegmentationMasksT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -4572,8 +4629,9 @@ extern "C" PyObject *get_perception_metadata_SegmentationMasks_layer(PyObject *s
 }
 
 extern "C" PyObject *get_perception_metadata_SegmentationMasks_masks(PyObject *self, void *) {
-    auto *proxy =
-        reinterpret_cast<native_proxy_object<perception::metadata::SegmentationMasksT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::SegmentationMasksT> *>(
+            self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -4641,7 +4699,8 @@ PyObject *make_perception_metadata_SegmentationMasks_proxy(
 }
 
 extern "C" PyObject *get_perception_metadata_TrackTrace_object(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::TrackTraceT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::TrackTraceT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -4656,7 +4715,8 @@ extern "C" PyObject *get_perception_metadata_TrackTrace_object(PyObject *self, v
 }
 
 extern "C" PyObject *get_perception_metadata_TrackTrace_track_id(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::TrackTraceT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::TrackTraceT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -4666,7 +4726,8 @@ extern "C" PyObject *get_perception_metadata_TrackTrace_track_id(PyObject *self,
 }
 
 extern "C" PyObject *get_perception_metadata_TrackTrace_points(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::TrackTraceT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::TrackTraceT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -4728,7 +4789,8 @@ make_perception_metadata_TrackTrace_proxy(const perception::metadata::TrackTrace
 }
 
 extern "C" PyObject *get_perception_metadata_TrackTraces_schema_major(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::TrackTracesT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::TrackTracesT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -4738,7 +4800,8 @@ extern "C" PyObject *get_perception_metadata_TrackTraces_schema_major(PyObject *
 }
 
 extern "C" PyObject *get_perception_metadata_TrackTraces_schema_minor(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::TrackTracesT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::TrackTracesT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -4748,7 +4811,8 @@ extern "C" PyObject *get_perception_metadata_TrackTraces_schema_minor(PyObject *
 }
 
 extern "C" PyObject *get_perception_metadata_TrackTraces_layer(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::TrackTracesT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::TrackTracesT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
@@ -4763,7 +4827,8 @@ extern "C" PyObject *get_perception_metadata_TrackTraces_layer(PyObject *self, v
 }
 
 extern "C" PyObject *get_perception_metadata_TrackTraces_traces(PyObject *self, void *) {
-    auto *proxy = reinterpret_cast<native_proxy_object<perception::metadata::TrackTracesT> *>(self);
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::TrackTracesT> *>(self);
     const auto *value = proxy->value;
     if (value == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");

@@ -441,9 +441,10 @@ static void replaceBackground(guint8 *imgData,
         const auto segY = std::min(static_cast<size_t>(y / segScaleY), segHeight - 1U);
 
         for (gint x = 0; x < imgWidth; ++x) {
-            const auto segX = std::min(static_cast<size_t>(x / segScaleX), segWidth - 1U);
             // RVM mask values are inverted here: high values map to background.
-            if (segMap.data[segY * segWidth + segX] < threshold) {
+            if (const auto segX =
+                    std::min(static_cast<size_t>(x / segScaleX), segWidth - 1U);
+                segMap.data[segY * segWidth + segX] < threshold) {
                 continue;
             }
 

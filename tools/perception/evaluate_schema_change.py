@@ -21,7 +21,6 @@ SDK_DESCRIPTOR = Path("tools/perception/sdk.json")
 SEMVER_PATTERN = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 TABLE_PATTERN = re.compile(r"\btable\s+(\w+)\s*\{(.*?)\}", re.DOTALL)
 ENUM_PATTERN = re.compile(r"\b(enum|union)\s+(\w+)(?:\s*:\s*\w+)?\s*\{(.*?)\}", re.DOTALL)
-FIELD_PATTERN = re.compile(r"^\s*(\w+)\s*:\s*([^=;]+?)(?:\s*=\s*([^;]+?))?\s*;\s*$")
 INCLUDE_PATTERN = re.compile(r'^\s*include\s+"([^"]+)"\s*;', re.MULTILINE)
 ROOT_PATTERN = re.compile(r"\broot_type\s+(\w+)\s*;")
 FILE_IDENTIFIER_PATTERN = re.compile(r'\bfile_identifier\s+"([^"]+)"\s*;')
@@ -73,14 +72,31 @@ def strip_comments(source: str) -> str:
 def parse_fields(body: str) -> tuple[Field, ...]:
     fields: list[Field] = []
     for statement in body.splitlines():
-        match = FIELD_PATTERN.match(statement)
-        if not match:
+        declaration = statement.strip()
+        if not declaration.endswith(";"):
             continue
+
+        declaration = declaration[:-1].strip()
+        if ";" in declaration:
+            continue
+        name, separator, value = declaration.partition(":")
+        name = name.strip()
+        if not separator or not name or not all(
+            character == "_" or character.isalnum() for character in name
+        ):
+            continue
+
+        type_name, default_separator, default = value.partition("=")
+        normalized_type = " ".join(type_name.split())
+        normalized_default = " ".join(default.split()) if default_separator else None
+        if not normalized_type or (default_separator and not normalized_default):
+            continue
+
         fields.append(
             Field(
-                name=match.group(1),
-                type_name=" ".join(match.group(2).split()),
-                default=" ".join(match.group(3).split()) if match.group(3) else None,
+                name=name,
+                type_name=normalized_type,
+                default=normalized_default,
             )
         )
     return tuple(fields)

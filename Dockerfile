@@ -33,11 +33,26 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-  ca-certificates curl git \
-  build-essential meson ninja-build pkg-config cmake unzip \
-  python3 python3-dev \
-  libssl-dev libfmt-dev libfftw3-dev libsoup-3.0-dev libjson-glib-dev libcairo2-dev \
-  libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev; \
+  build-essential \
+  ca-certificates \
+  cmake \
+  curl \
+  git \
+  libcairo2-dev \
+  libfftw3-dev \
+  libfmt-dev \
+  libgstreamer-plugins-bad1.0-dev \
+  libgstreamer-plugins-base1.0-dev \
+  libgstreamer1.0-dev \
+  libjson-glib-dev \
+  libsoup-3.0-dev \
+  libssl-dev \
+  meson \
+  ninja-build \
+  pkg-config \
+  python3 \
+  python3-dev \
+  unzip; \
   update-ca-certificates; \
   install-perception-flatbuffers /tmp/perception-sdk.json; \
   rm -f /tmp/perception-sdk.json

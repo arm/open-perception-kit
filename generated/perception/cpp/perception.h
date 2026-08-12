@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -51,7 +52,7 @@ template <> struct native_traits<perception::metadata::BoxDetectionsT> {
     using table_type = perception::metadata::BoxDetections;
     using native_type = perception::metadata::BoxDetectionsT;
 
-    static constexpr id_t id = 127096183275957372ull;
+    static constexpr id_t id = 127096183275957372ULL;
     static constexpr std::string_view qualified_root_type = "perception.metadata.BoxDetections";
 
     static constexpr const char *file_identifier() {
@@ -67,7 +68,7 @@ template <> struct native_traits<perception::metadata::ClassificationsT> {
     using table_type = perception::metadata::Classifications;
     using native_type = perception::metadata::ClassificationsT;
 
-    static constexpr id_t id = 9181357636124419217ull;
+    static constexpr id_t id = 9181357636124419217ULL;
     static constexpr std::string_view qualified_root_type = "perception.metadata.Classifications";
 
     static constexpr const char *file_identifier() {
@@ -83,7 +84,7 @@ template <> struct native_traits<perception::metadata::FrameContextT> {
     using table_type = perception::metadata::FrameContext;
     using native_type = perception::metadata::FrameContextT;
 
-    static constexpr id_t id = 6787725252958650128ull;
+    static constexpr id_t id = 6787725252958650128ULL;
     static constexpr std::string_view qualified_root_type = "perception.metadata.FrameContext";
 
     static constexpr const char *file_identifier() {
@@ -99,7 +100,7 @@ template <> struct native_traits<perception::metadata::ObjectEmbeddingsT> {
     using table_type = perception::metadata::ObjectEmbeddings;
     using native_type = perception::metadata::ObjectEmbeddingsT;
 
-    static constexpr id_t id = 3601053540183530964ull;
+    static constexpr id_t id = 3601053540183530964ULL;
     static constexpr std::string_view qualified_root_type = "perception.metadata.ObjectEmbeddings";
 
     static constexpr const char *file_identifier() {
@@ -115,7 +116,7 @@ template <> struct native_traits<perception::metadata::ObjectTracksT> {
     using table_type = perception::metadata::ObjectTracks;
     using native_type = perception::metadata::ObjectTracksT;
 
-    static constexpr id_t id = 1204340903431744882ull;
+    static constexpr id_t id = 1204340903431744882ULL;
     static constexpr std::string_view qualified_root_type = "perception.metadata.ObjectTracks";
 
     static constexpr const char *file_identifier() {
@@ -131,7 +132,7 @@ template <> struct native_traits<perception::metadata::PerformanceOverlayT> {
     using table_type = perception::metadata::PerformanceOverlay;
     using native_type = perception::metadata::PerformanceOverlayT;
 
-    static constexpr id_t id = 4179744154867129599ull;
+    static constexpr id_t id = 4179744154867129599ULL;
     static constexpr std::string_view qualified_root_type =
         "perception.metadata.PerformanceOverlay";
 
@@ -148,7 +149,7 @@ template <> struct native_traits<perception::metadata::PoseEstimationsT> {
     using table_type = perception::metadata::PoseEstimations;
     using native_type = perception::metadata::PoseEstimationsT;
 
-    static constexpr id_t id = 6089861490284108552ull;
+    static constexpr id_t id = 6089861490284108552ULL;
     static constexpr std::string_view qualified_root_type = "perception.metadata.PoseEstimations";
 
     static constexpr const char *file_identifier() {
@@ -164,7 +165,7 @@ template <> struct native_traits<perception::metadata::SegmentationMasksT> {
     using table_type = perception::metadata::SegmentationMasks;
     using native_type = perception::metadata::SegmentationMasksT;
 
-    static constexpr id_t id = 3767952910034633902ull;
+    static constexpr id_t id = 3767952910034633902ULL;
     static constexpr std::string_view qualified_root_type = "perception.metadata.SegmentationMasks";
 
     static constexpr const char *file_identifier() {
@@ -180,7 +181,7 @@ template <> struct native_traits<perception::metadata::TrackTracesT> {
     using table_type = perception::metadata::TrackTraces;
     using native_type = perception::metadata::TrackTracesT;
 
-    static constexpr id_t id = 4937615646931894804ull;
+    static constexpr id_t id = 4937615646931894804ULL;
     static constexpr std::string_view qualified_root_type = "perception.metadata.TrackTraces";
 
     static constexpr const char *file_identifier() {
@@ -235,10 +236,10 @@ enum class producer_identity_status {
 class external_payload_ref;
 class envelope;
 
-inline constexpr perception::detail::id_t external_key_min = 9223372036854775808ull;
-inline constexpr perception::detail::id_t external_key_mask = external_key_min - 1ull;
-inline constexpr perception::detail::id_t external_hash_offset = 14695981039346656037ull;
-inline constexpr perception::detail::id_t external_hash_prime = 1099511628211ull;
+inline constexpr perception::detail::id_t external_key_min = 9223372036854775808ULL;
+inline constexpr perception::detail::id_t external_key_mask = external_key_min - 1ULL;
+inline constexpr perception::detail::id_t external_hash_offset = 14695981039346656037ULL;
+inline constexpr perception::detail::id_t external_hash_prime = 1099511628211ULL;
 
 class external_key_t {
   public:
@@ -354,6 +355,7 @@ class external_payload_ref {
 class envelope {
   public:
     envelope() = default;
+    ~envelope() = default;
 
     envelope(const envelope &other) {
         std::scoped_lock lock(other.mutex());
@@ -405,8 +407,8 @@ class envelope {
         producer_sdk_name_.clear();
         producer_sdk_version_.clear();
         producer_schema_set_sha256_.clear();
-        flatbuffers::Verifier verifier(packet.data(), packet.size());
-        if (!verifier.VerifyBuffer<perception::internalfb::WireEnvelope>("FLWD")) {
+        if (flatbuffers::Verifier verifier(packet.data(), packet.size());
+            !verifier.VerifyBuffer<perception::internalfb::WireEnvelope>("FLWD")) {
             error_ = "invalid perception envelope";
             return;
         }
@@ -538,7 +540,7 @@ class envelope {
         }
 
         std::size_t matches = 0;
-        for (auto &entry : payloads_) {
+        for (const auto &entry : payloads_) {
             if (entry && entry->id == traits::id && ensure_native<native_type>(*entry)) {
                 ++matches;
             }
@@ -674,13 +676,10 @@ class envelope {
         if (value.empty() || value.front() < 'a' || value.front() > 'z') {
             return false;
         }
-        for (const char character : value) {
-            if (!((character >= 'a' && character <= 'z') ||
-                  (character >= '0' && character <= '9') || character == '_')) {
-                return false;
-            }
-        }
-        return true;
+        return std::ranges::all_of(value, [](const char character) {
+            return (character >= 'a' && character <= 'z') ||
+                   (character >= '0' && character <= '9') || character == '_';
+        });
     }
 
     [[nodiscard]] static bool valid_semantic_version(std::string_view value) {
@@ -693,8 +692,8 @@ class envelope {
                 }
                 continue;
             }
-            const auto length = index - component_start;
-            if (length == 0 || (length > 1 && value[component_start] == '0')) {
+            if (const auto length = index - component_start;
+                length == 0 || (length > 1 && value[component_start] == '0')) {
                 return false;
             }
             ++component_count;
@@ -707,13 +706,9 @@ class envelope {
         if (value.size() != 64) {
             return false;
         }
-        for (const char character : value) {
-            if (!((character >= '0' && character <= '9') ||
-                  (character >= 'a' && character <= 'f'))) {
-                return false;
-            }
-        }
-        return true;
+        return std::ranges::all_of(value, [](const char character) {
+            return (character >= '0' && character <= '9') || (character >= 'a' && character <= 'f');
+        });
     }
 
     void add_keyed_blob_entry(perception::detail::id_t key, std::vector<std::uint8_t> blob) {
@@ -835,8 +830,8 @@ class envelope {
     decode_blob(const std::vector<std::uint8_t> &blob) {
         using native_type = std::remove_cvref_t<T>;
         using traits = perception::detail::native_traits<native_type>;
-        flatbuffers::Verifier verifier(blob.data(), blob.size());
-        if (!verifier.VerifyBuffer<typename traits::table_type>(traits::file_identifier())) {
+        if (flatbuffers::Verifier verifier(blob.data(), blob.size());
+            !verifier.VerifyBuffer<typename traits::table_type>(traits::file_identifier())) {
             return {};
         }
 

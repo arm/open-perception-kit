@@ -123,7 +123,8 @@ bool parseOptions(std::span<char *> arguments, Options &options) {
     size_t index = 1;
 
     while (index < arguments.size()) {
-        const std::string_view argument(arguments[index++]);
+        const std::string_view argument(arguments[index]);
+        ++index;
         if (!positionalOnly && argument == "--") {
             positionalOnly = true;
         } else if (!positionalOnly && argument == "--output") {
@@ -131,13 +132,15 @@ bool parseOptions(std::span<char *> arguments, Options &options) {
                 std::cerr << "--output requires a path\n";
                 return false;
             }
-            options.output = arguments[index++];
+            options.output = arguments[index];
+            ++index;
         } else if (!positionalOnly && argument == "--python-path") {
             if (index >= arguments.size()) {
                 std::cerr << "--python-path requires a directory\n";
                 return false;
             }
-            options.pythonPaths.emplace_back(arguments[index++]);
+            options.pythonPaths.emplace_back(arguments[index]);
+            ++index;
         } else if (!positionalOnly && !argument.empty() && argument.front() == '-') {
             std::cerr << "unknown option: " << argument << '\n';
             return false;

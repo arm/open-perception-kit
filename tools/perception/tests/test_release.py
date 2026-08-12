@@ -20,6 +20,7 @@ from dataclasses import replace
 PACKAGE_MODULE_PATH = Path(__file__).resolve().parents[1] / "package.py"
 sys.path.insert(0, str(PACKAGE_MODULE_PATH.parent))
 release_artifacts = importlib.import_module("artifacts")
+schema_change = importlib.import_module("evaluate_schema_change")
 
 SPEC = importlib.util.spec_from_file_location("perception_release_package", PACKAGE_MODULE_PATH)
 assert SPEC is not None and SPEC.loader is not None
@@ -29,6 +30,34 @@ SPEC.loader.exec_module(release_package)
 
 def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+class SchemaChangeParserTests(unittest.TestCase):
+    def test_field_parser_handles_types_and_defaults(self) -> None:
+        fields = schema_change.parse_fields(
+            """
+            label: string;
+            values: [float];
+            threshold: float = 0.5;
+            """
+        )
+
+        self.assertEqual(
+            fields,
+            (
+                schema_change.Field("label", "string", None),
+                schema_change.Field("values", "[float]", None),
+                schema_change.Field("threshold", "float", "0.5"),
+            ),
+        )
+
+    def test_field_parser_ignores_malformed_declarations(self) -> None:
+        self.assertEqual(
+            schema_change.parse_fields(
+                "missing_type: ;\nmissing_colon;\nvalue:int = ;\nextra:int;;"
+            ),
+            (),
+        )
 
 
 class CommandHelpTests(unittest.TestCase):
