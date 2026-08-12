@@ -99,7 +99,8 @@ class ModelArtifactBuildTest(unittest.TestCase):
                 "\n\n", 1
             )[0]
             self.assertIn(
-                'HF_DOWNLOAD_CACHEBUST="${HF_DOWNLOAD_CACHEBUST}"',
+                'HF_HOME="/root/.cache/huggingface/'
+                '${HF_DOWNLOAD_CACHEBUST:-anonymous}"',
                 download_step,
             )
             self.assertIn(
@@ -107,28 +108,71 @@ class ModelArtifactBuildTest(unittest.TestCase):
                 download_step,
             )
 
-        local_cache_bust = (
+        cache_bust = (
             "${HF_DOWNLOAD_CACHEBUST:-${HF_TOKEN:+${HF_DOWNLOAD_CACHEBUST:?Set "
             "HF_DOWNLOAD_CACHEBUST when HF_TOKEN is set}}}"
         )
-        for name in ("compose.yaml", ".devcontainer/compose.devcont.yaml"):
-            self.assertEqual(
-                (REPO_ROOT / name).read_text().count(
-                    f"HF_DOWNLOAD_CACHEBUST: {local_cache_bust}"
-                ),
-                1,
+        self.assertEqual(
+            (REPO_ROOT / "compose.base.yaml").read_text().count(
+                f"HF_DOWNLOAD_CACHEBUST: {cache_bust}"
+            ),
+            1,
+        )
+        for name, service in (
+            ("compose.yaml", "pek-model-image"),
+            (".devcontainer/compose.devcont.yaml", "pek-common-dev-model-image"),
+            (".github/compose.ci.yaml", "pek-model-image"),
+            (".github/compose.ci.yaml", "pek-common-dev-model-image"),
+        ):
+            self.assertIn(
+                f"service: {service}",
+                (REPO_ROOT / name).read_text(),
+            )
+        for name in (
+            ".devcontainer/platform_init.sh",
+            "scripts/quick-start/start-container.sh",
+            "scripts/private/run-console.sh",
+            ".github/workflows/blackduck-scan.yml",
+            ".github/workflows/docker-scout-image-audit.yml",
+        ):
+            self.assertIn(
+                "scripts/private/generate-hf-download-cachebust.sh",
+                (REPO_ROOT / name).read_text(),
             )
 
-        ci_cache_bust = (
-            "${HF_DOWNLOAD_CACHEBUST:-${HF_TOKEN:+${GITHUB_RUN_ID:?Set "
-            "HF_DOWNLOAD_CACHEBUST when HF_TOKEN is set}-"
-            "${GITHUB_RUN_ATTEMPT:-0}}}"
+    def test_model_download_cache_bust_generator(self) -> None:
+        generator = REPO_ROOT / "scripts/private/generate-hf-download-cachebust.sh"
+        local_env = os.environ.copy()
+        for name in ("GITHUB_ACTIONS", "GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT"):
+            local_env.pop(name, None)
+
+        first = subprocess.check_output([generator], env=local_env, text=True).strip()
+        second = subprocess.check_output([generator], env=local_env, text=True).strip()
+        self.assertRegex(
+            first,
+            r"^local-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{32}$",
         )
+        self.assertNotEqual(first, second)
+
+        github_env = local_env | {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_RUN_ID": "123456",
+            "GITHUB_RUN_ATTEMPT": "7",
+        }
         self.assertEqual(
-            (REPO_ROOT / ".github/compose.ci.yaml").read_text().count(
-                f"HF_DOWNLOAD_CACHEBUST: {ci_cache_bust}"
-            ),
-            2,
+            subprocess.check_output([generator], env=github_env, text=True).strip(),
+            "github-123456-7",
+        )
+        github_env.pop("GITHUB_RUN_ID")
+        self.assertNotEqual(
+            subprocess.run(
+                [generator],
+                env=github_env,
+                text=True,
+                capture_output=True,
+                check=False,
+            ).returncode,
+            0,
         )
 
     def test_model_artifacts_are_ignored_except_checked_in_models(self) -> None:

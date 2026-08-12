@@ -10,15 +10,12 @@ services:
       target: pek-build-base
 
   pek-deployment-base:
+    extends:
+      file: ../compose.base.yaml
+      service: pek-model-image
     platform: linux/arm64
     build:
-      context: ..
-      dockerfile: Dockerfile
       target: pek-deployment-base
-      secrets:
-        - huggingface_token
-      args:
-        HF_DOWNLOAD_CACHEBUST: ${HF_DOWNLOAD_CACHEBUST:-${HF_TOKEN:+${GITHUB_RUN_ID:?Set HF_DOWNLOAD_CACHEBUST when HF_TOKEN is set}-${GITHUB_RUN_ATTEMPT:-0}}}
 
   pek-docs: &pek-docs
     extends:
@@ -51,17 +48,13 @@ services:
   pek-dev: &pek-dev
     extends:
       file: ../compose.base.yaml
-      service: pek-common-dev
+      service: pek-common-dev-model-image
 
     network_mode: bridge
     hostname: pek-dev
     build:
       <<: *pek-tool-build
       target: pek-dev
-      secrets:
-        - huggingface_token
-      args:
-        HF_DOWNLOAD_CACHEBUST: ${HF_DOWNLOAD_CACHEBUST:-${HF_TOKEN:+${GITHUB_RUN_ID:?Set HF_DOWNLOAD_CACHEBUST when HF_TOKEN is set}-${GITHUB_RUN_ATTEMPT:-0}}}
 
   pek-pre-commit-runtime:
     network_mode: bridge

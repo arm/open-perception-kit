@@ -116,7 +116,7 @@ For a direct deployment build, export the same token before invoking Compose:
 
 ```bash
 export HF_TOKEN="hf_your_token_here"
-export HF_DOWNLOAD_CACHEBUST="$(date +%s)-$$"
+export HF_DOWNLOAD_CACHEBUST="$(./scripts/private/generate-hf-download-cachebust.sh)"
 docker compose up --build
 ```
 
@@ -253,7 +253,7 @@ For a private or gated model, export your Hugging Face token instead:
 
 ```bash
 export HF_TOKEN="hf_your_token_here"
-export HF_DOWNLOAD_CACHEBUST="$(date +%s)-$$"
+export HF_DOWNLOAD_CACHEBUST="$(./scripts/private/generate-hf-download-cachebust.sh)"
 topo deploy --target <raspberry-pi-ip-address>
 ```
 

@@ -78,7 +78,7 @@ COPY --chmod=0755 scripts/download-models.py scripts/download-models.py
 ARG HF_DOWNLOAD_CACHEBUST
 RUN --mount=type=cache,target=/root/.cache/huggingface \
   --mount=type=secret,id=huggingface_token,env=HF_TOKEN \
-  HF_DOWNLOAD_CACHEBUST="${HF_DOWNLOAD_CACHEBUST}" \
+  HF_HOME="/root/.cache/huggingface/${HF_DOWNLOAD_CACHEBUST:-anonymous}" \
   ./scripts/download-models.py --models-dir config/models --token "${HF_TOKEN:-}"
 
 # Development base extends the shared native build tooling. PEK source and build

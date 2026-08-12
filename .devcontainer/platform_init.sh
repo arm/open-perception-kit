@@ -88,8 +88,9 @@ upsert_env_value devices.env PEK_BUILD_BASE_IMAGE "$PEK_BUILD_BASE_IMAGE"
 # interpolation fallback on disk; an exported host HF_TOKEN overrides it.
 upsert_env_value .env HF_TOKEN ""
 upsert_env_value .devcontainer/.env HF_TOKEN ""
-upsert_env_value .env HF_DOWNLOAD_CACHEBUST "$(date +%s)-$$"
-upsert_env_value .devcontainer/.env HF_DOWNLOAD_CACHEBUST "$(date +%s)-$$"
+HF_DOWNLOAD_CACHEBUST="${HF_DOWNLOAD_CACHEBUST:-$(scripts/private/generate-hf-download-cachebust.sh)}"
+upsert_env_value .env HF_DOWNLOAD_CACHEBUST "$HF_DOWNLOAD_CACHEBUST"
+upsert_env_value .devcontainer/.env HF_DOWNLOAD_CACHEBUST "$HF_DOWNLOAD_CACHEBUST"
 
 if [[ "${PEK_WEBRTC_TURN}" = enabled ]]; then
     chmod +x scripts/private/detect-webrtc-host-ip.sh || true

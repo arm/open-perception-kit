@@ -38,7 +38,8 @@ HOST_UID="$(id -u)"
 HOST_GID="$(id -g)"
 export HOST_UID HOST_GID
 export HF_TOKEN="${HF_TOKEN-}"
-export HF_DOWNLOAD_CACHEBUST="${HF_DOWNLOAD_CACHEBUST:-$(date +%s)-$$}"
+export HF_DOWNLOAD_CACHEBUST
+HF_DOWNLOAD_CACHEBUST="$("${REPO_ROOT}/scripts/private/generate-hf-download-cachebust.sh")"
 
 cd "${REPO_ROOT}"
 

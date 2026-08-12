@@ -5,6 +5,14 @@ x-pek-development-environment: &pek-development-environment
   WAYLAND_DISPLAY: wayland-0
   DISPLAY: ${DISPLAY:-}
 
+x-pek-model-image-build: &pek-model-image-build
+  context: .
+  dockerfile: Dockerfile
+  secrets:
+    - huggingface_token
+  args:
+    HF_DOWNLOAD_CACHEBUST: ${HF_DOWNLOAD_CACHEBUST:-${HF_TOKEN:+${HF_DOWNLOAD_CACHEBUST:?Set HF_DOWNLOAD_CACHEBUST when HF_TOKEN is set}}}
+
 services:
   pek-common: &pek-common
     cap_add:
@@ -42,3 +50,10 @@ services:
       <<:
         - *pek-runtime-environment
         - *pek-development-environment
+
+  pek-model-image:
+    build: *pek-model-image-build
+
+  pek-common-dev-model-image:
+    <<: *pek-common-dev
+    build: *pek-model-image-build

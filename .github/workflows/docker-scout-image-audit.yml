@@ -123,6 +123,10 @@ jobs:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
 
+      - name: Generate Hugging Face download cache key
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: echo "HF_DOWNLOAD_CACHEBUST=$(scripts/private/generate-hf-download-cachebust.sh)" >> "$GITHUB_ENV"
+
       - name: Build docker image
         if: matrix.image.service != 'pek-ci' || inputs.ci_image_sha == ''
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
