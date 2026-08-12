@@ -27,12 +27,14 @@ sha256sum pek-<version>-linux-<architecture>.tar.gz
 Architecture packages contain the six PEK plugins, the private
 `lib/pek/pek-runtime.so` and common libraries, compatible model binaries and
 OpChains, JSON schemas, `peksink` web assets, approved notices, and ONNX
-Runtime.
+Runtime. They also contain the experimental ExecuTorch operation module and
+the YOLOX ExecuTorch model.
 
 They deliberately exclude `pek-menu`, pipeline presets, examples, sample
 media, documentation, source, tests, debug files, NCNN, public C++ headers,
 unused ONNX provider libraries, Hailo models and operation modules, and
-accelerator drivers or firmware.
+accelerator drivers or firmware. ExecuTorch SDK headers and static libraries
+are build inputs and are not exposed by the archive.
 
 ## Host prerequisites
 
@@ -67,6 +69,9 @@ runtime. The link is required because the runtime's upstream SONAME is recorded
 as `DT_NEEDED=libonnxruntime.so.1` in `pek-onnx-ops.so`; the dynamic loader
 looks up that exact name.
 
+ExecuTorch is statically linked into `lib/pek/pek-executorch-ops.so`. It remains
+experimental and does not add a public SDK surface to the binary release.
+
 The plugin directory contains the six supported plugins:
 
 - `libpekcomm.so`
@@ -100,6 +105,7 @@ a Hugging Face token.
 | Package | Backend | Model directories |
 | --- | --- | --- |
 | x86_64 and Arm | ONNX | `cam-contact`, `gaze-detection`, `osnet_x0_25`, `ultraface`, `yolo26`, `yolov11` |
+| x86_64 and Arm | ExecuTorch (experimental) | `yolox` |
 
 ## Run packaged inference
 

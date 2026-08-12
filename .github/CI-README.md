@@ -153,13 +153,15 @@ remove the partial GitHub Release before rerunning the workflow.
 Each workflow resolves the selected commit's pinned `hfDownload` descriptors
 once with `scripts/download-models.py` and transfers that model tree to both
 architecture builds as a short-lived Actions artifact. Both archives receive
-exactly the same six ONNX model directories: `cam-contact`, `gaze-detection`,
-`osnet_x0_25`, `ultraface`, `yolo26`, and `yolov11`. Published packages contain
-the model bytes and need neither Hugging Face access nor a token at runtime.
+the six ONNX model directories `cam-contact`, `gaze-detection`, `osnet_x0_25`,
+`ultraface`, `yolo26`, and `yolov11`, plus the checked-in ExecuTorch `yolox`
+model. Published packages contain the model bytes and need neither Hugging Face
+access nor a token at runtime.
 
-Build inputs reuse the repository's ONNX Runtime installer. The downloaded
-ONNX Runtime package is checksum-verified. Hailo models, operation modules,
-SDKs, and runtimes are excluded from both release architectures.
+Build inputs reuse the repository's ONNX Runtime and ExecuTorch Debian
+installers. The release archives contain the standard, ONNX, and experimental
+ExecuTorch operation modules, but no SDK headers or static libraries. Hailo
+models, operation modules, SDKs, and runtimes remain excluded.
 
 Release dependency preparation gets its model and runtime inputs from these
 sources:
@@ -167,13 +169,15 @@ sources:
 | Variables | Set or referenced in |
 | --- | --- |
 | `ONNXRUNTIME_VERSION` | Defaulted in `Dockerfile`; read and passed explicitly by both release workflows |
+| `EXECUTORCH_VERSION`, `EXECUTORCH_DEB_REVISION` | Defaulted in `Dockerfile`; read and passed explicitly by both release workflows |
 | `HF_TOKEN` | Read-only repository secret; exposed only to each workflow's model-resolution step while checked-in models require authentication |
+| `PEK_ARTIFACTORY_USERNAME`, `PEK_ARTIFACTORY_API_KEY` | Existing repository secrets used to read the ExecuTorch Debian package and publish release archives |
 
 `Dockerfile` remains the version authority; release workflows use the value
 from the selected source.
 Dependency preparation uses the selected source's checked-in installers and
-does not receive GitHub secrets. Only model resolution receives `HF_TOKEN`;
-package build jobs receive the resolved files and no credentials.
+package build jobs receive only the prepared dependencies and resolved model
+files.
 
 Configured GitHub Actions secrets supply `HF_TOKEN`, `PEK_ARTIFACTORY_USERNAME`,
 and `PEK_ARTIFACTORY_API_KEY`. Once the workflow is registered on the default `develop`

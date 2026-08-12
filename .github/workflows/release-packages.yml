@@ -29,6 +29,8 @@ jobs:
       arm_archive: ${{ steps.release.outputs.arm_archive }}
       docs_archive: ${{ steps.release.outputs.docs_archive }}
       onnxruntime_version: ${{ steps.release.outputs.onnxruntime_version }}
+      executorch_version: ${{ steps.release.outputs.executorch_version }}
+      executorch_revision: ${{ steps.release.outputs.executorch_revision }}
     steps:
       - name: Checkout release tooling
         uses: actions/checkout@v7
@@ -56,9 +58,6 @@ jobs:
             --repo-root source \
             --commit "$commit" \
             --build-label "${BUILD_LABEL:-}"
-          onnxruntime_version="$(sed -n 's/^ARG ONNXRUNTIME_VERSION=//p' source/Dockerfile)"
-          test -n "$onnxruntime_version"
-          echo "onnxruntime_version=$onnxruntime_version" >> "$GITHUB_OUTPUT"
 
       - name: Resolve pinned model artifacts
         working-directory: source
@@ -89,6 +88,8 @@ jobs:
     container: python:3.12-slim-trixie@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de
     env:
       ONNXRUNTIME_VERSION: ${{ needs.prepare.outputs.onnxruntime_version }}
+      EXECUTORCH_VERSION: ${{ needs.prepare.outputs.executorch_version }}
+      EXECUTORCH_DEB_REVISION: ${{ needs.prepare.outputs.executorch_revision }}
     steps:
       - name: Install dependency tools
         run: apt-get update && apt-get install -y --no-install-recommends ca-certificates curl
@@ -100,13 +101,16 @@ jobs:
           persist-credentials: false
 
       - name: Prepare repository-pinned dependencies
-        run: scripts/release/PrepareDependencies.sh x86_64 prepared
+        env:
+          EXECUTORCH_ARTIFACTORY_USERNAME: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
+          EXECUTORCH_ARTIFACTORY_PASSWORD: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
+        run: scripts/release/PrepareDependencies.sh x86_64 release-dependencies
 
       - name: Upload x86_64 dependencies
         uses: actions/upload-artifact@v7
         with:
           name: pek-dependencies-x86-${{ github.run_id }}-${{ github.run_attempt }}
-          path: prepared
+          path: release-dependencies
           if-no-files-found: error
           retention-days: 2
 
@@ -142,14 +146,12 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: pek-dependencies-x86-${{ github.run_id }}-${{ github.run_attempt }}
-          path: prepared
+          path: release-dependencies
 
       - name: Build package
         run: |
           scripts/release/BuildPackage.sh \
-            x86_64 "${{ needs.prepare.outputs.build_id }}" dist \
-            prepared/notices \
-            prepared/onnxruntime
+            x86_64 "${{ needs.prepare.outputs.build_id }}" dist release-dependencies
 
       - name: Upload x86_64 package
         uses: actions/upload-artifact@v7
@@ -166,6 +168,8 @@ jobs:
     container: python:3.12-slim-trixie@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de
     env:
       ONNXRUNTIME_VERSION: ${{ needs.prepare.outputs.onnxruntime_version }}
+      EXECUTORCH_VERSION: ${{ needs.prepare.outputs.executorch_version }}
+      EXECUTORCH_DEB_REVISION: ${{ needs.prepare.outputs.executorch_revision }}
     steps:
       - name: Install dependency tools
         run: apt-get update && apt-get install -y --no-install-recommends ca-certificates curl
@@ -178,14 +182,17 @@ jobs:
           persist-credentials: false
 
       - name: Prepare repository-pinned dependencies
+        env:
+          EXECUTORCH_ARTIFACTORY_USERNAME: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
+          EXECUTORCH_ARTIFACTORY_PASSWORD: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
         working-directory: dependencies-${{ github.run_id }}-${{ github.run_attempt }}
-        run: scripts/release/PrepareDependencies.sh aarch64 prepared
+        run: scripts/release/PrepareDependencies.sh aarch64 release-dependencies
 
       - name: Upload aarch64 dependencies
         uses: actions/upload-artifact@v7
         with:
           name: pek-dependencies-arm-${{ github.run_id }}-${{ github.run_attempt }}
-          path: dependencies-${{ github.run_id }}-${{ github.run_attempt }}/prepared
+          path: dependencies-${{ github.run_id }}-${{ github.run_attempt }}/release-dependencies
           if-no-files-found: error
           retention-days: 2
 
@@ -226,15 +233,13 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: pek-dependencies-arm-${{ github.run_id }}-${{ github.run_attempt }}
-          path: source-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}/prepared
+          path: source-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}/release-dependencies
 
       - name: Build package
         working-directory: source-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
         run: |
           scripts/release/BuildPackage.sh \
-            aarch64 "${{ needs.prepare.outputs.build_id }}" dist \
-            prepared/notices \
-            prepared/onnxruntime
+            aarch64 "${{ needs.prepare.outputs.build_id }}" dist release-dependencies
 
       - name: Upload aarch64 package
         uses: actions/upload-artifact@v7

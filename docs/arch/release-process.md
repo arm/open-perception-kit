@@ -15,9 +15,9 @@ Packaging discovers model directories directly under `config/models/`. Each
 workflow runs `scripts/download-models.py` once in its prepare job with the
 repository `HF_TOKEN`; descriptor `hfDownload` entries pin the repository,
 revision, and filename. The resolved model tree is passed to both architecture
-builds as a short-lived Actions artifact. Both packages include exactly
-`cam-contact`, `gaze-detection`, `osnet_x0_25`, `ultraface`, `yolo26`, and
-`yolov11`. All six use ONNX Runtime.
+builds as a short-lived Actions artifact. Both packages include the six ONNX
+models `cam-contact`, `gaze-detection`, `osnet_x0_25`, `ultraface`, `yolo26`,
+and `yolov11`, plus the checked-in ExecuTorch `yolox` model.
 
 The dedicated read-only `HF_TOKEN` is an accepted release-CI dependency while
 this repository and required model sources remain private. It is confined to
@@ -25,23 +25,26 @@ model resolution and is not passed to package builds or included in release
 artifacts. A future public transition requires anonymously readable model
 sources and removal of the workflow secret references.
 
-Dependency preparation reuses the selected source's ONNX Runtime installer.
+Dependency preparation reuses the selected source's ONNX Runtime and
+ExecuTorch Debian installers.
 This keeps manual builds aligned with the source revision being packaged.
 It deliberately does not reuse `deps/` or a development-container filesystem:
 those inputs are architecture/profile-specific, may be stale, and may not
 contain the runtime required by the release. Clean release jobs prepare the
-selected commit's verified inputs independently for each architecture. Both
-release workflows read the ONNX Runtime version from the selected source's
-`Dockerfile` and pass it explicitly to dependency preparation.
-Preparation fails immediately if the workflow does not pass the value; the
-preparation script has no implicit default. The downloaded ONNX Runtime package
-is checksum-verified, and its notices are collected from the package. Package
-build jobs receive the prepared runtime and resolved model
+selected commit's inputs independently for each architecture. Both release
+workflows read the ONNX Runtime version and ExecuTorch version/revision from
+the selected source's `Dockerfile` and pass them explicitly to dependency
+preparation. APT resolves the native ExecuTorch package from those values, so
+maintainers do not enter architecture identifiers, filenames, URLs, or hashes.
+Preparation validates the installed ExecuTorch package and SDK, and collects
+both dependencies' legal documentation. Package build jobs receive the
+prepared runtimes and resolved model
 files as isolated inputs with no Hugging Face, dependency, or publishing
-credentials. Release builds omit NCNN, package ONNX Runtime 1.24.4 with its
-required SONAME link, and disable HailoRT.
+credentials. Release builds omit NCNN and HailoRT, package ONNX Runtime 1.24.4
+with its required SONAME link, and statically link ExecuTorch into its operation
+module without shipping SDK files.
 
-Each workflow resolves models once; both builds package the same six-model
+Each workflow resolves models once; both builds package the same seven-model
 allowlist from that resolved tree. Other ONNX models and all Hailo models,
 operation modules, SDKs, and runtimes are excluded.
 
@@ -98,7 +101,7 @@ guard rejects the rerun.
 ## Package validation
 
 `scripts/release/BuildPackage.sh` installs only Meson's release surface into a
-clean staging root, adds the resolved models and pinned ONNX Runtime,
+clean staging root, adds the resolved models and pinned runtimes,
 validates every ELF, then creates the archive with system `tar` and `gzip`.
 The architecture archives expose only the GStreamer plugin integration
 surface; neither Meson nor release scripts install PEK source headers.
@@ -112,7 +115,9 @@ The validator checks:
 - complete classified `DT_NEEDED` resolution;
 - no fmt DSO, NCNN, source, tests, examples, or pipeline presets;
 - one ONNX Runtime binary and its `libonnxruntime.so.1` link;
-- exactly the six release model directories and no Hailo content;
+- the standard, ONNX, and experimental ExecuTorch operation modules;
+- exactly the seven release model directories and no Hailo content;
+- ExecuTorch and third-party legal documentation, with no SDK files;
 - local relative model and OpChain references.
 
 The documentation archive is generated separately, so architecture packages
@@ -123,6 +128,7 @@ For every event path, the native x86_64 and Arm jobs run
 workflow. Each smoke uses PyGObject rather than GStreamer command-line tools:
 it unsets `LD_LIBRARY_PATH`, loads the packaged private runtime, discovers
 plugins through `GST_PLUGIN_PATH`, controls inference through EOS, and verifies
-the packaged `peksink` web content.
+the packaged `peksink` web content. Separate inference runs cover YOLov11 with
+ONNX Runtime and YOLOX with experimental ExecuTorch.
 Push and manual workflows publish those same tested archives without rebuilding
 them.
