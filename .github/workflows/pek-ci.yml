@@ -665,7 +665,8 @@ jobs:
           test "$(git branch --show-current)" = "$PR_HEAD_REF"
 
       - name: Restore compiler cache
-        uses: actions/cache@v6
+        id: compiler-cache
+        uses: actions/cache/restore@v6
         with:
           path: ${{ env.CCACHE_PATH }}
           key: pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-quality-${{ needs.build-ci-image.outputs.head_sha }}
@@ -722,6 +723,7 @@ jobs:
           retention-days: 10
 
       - name: Perception Experience Kit release build and unit test run
+        id: release_build
         if: ${{ !cancelled() && (github.event_name == 'pull_request' || github.event_name == 'schedule' ||
           github.event_name == 'workflow_dispatch') }}
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -762,6 +764,13 @@ jobs:
             ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/clang-tidy-stats.json
           if-no-files-found: warn
           retention-days: 10
+
+      - name: Save compiler cache
+        if: ${{ !cancelled() && steps.release_build.outcome == 'success' && steps.compiler-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ env.CCACHE_PATH }}
+          key: ${{ steps.compiler-cache.outputs.cache-primary-key }}
 
   sonar:
     name: Run Sonar analysis in Docker
@@ -838,6 +847,7 @@ jobs:
             pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-sonar-
 
       - name: SonarQube analysis
+        id: sonar_analysis
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-sonar-check
         env:
@@ -873,7 +883,7 @@ jobs:
           retention-days: 10
 
       - name: Save compiler cache
-        if: ${{ success() && steps.compiler-cache.outputs.cache-hit != 'true' }}
+        if: ${{ !cancelled() && steps.sonar_analysis.outcome == 'success' && steps.compiler-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v6
         with:
           path: ${{ env.CCACHE_PATH }}
@@ -1082,7 +1092,8 @@ jobs:
           persist-credentials: false
 
       - name: Restore compiler cache
-        uses: actions/cache@v6
+        id: compiler-cache
+        uses: actions/cache/restore@v6
         with:
           path: ${{ env.CCACHE_PATH }}
           key: pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-valgrind-${{ needs.build-ci-image.outputs.head_sha }}
@@ -1178,6 +1189,13 @@ jobs:
           path: valgrind-source/scripts/testing/valgrind/valgrind-error-summary.xml
           if-no-files-found: error
           retention-days: 60
+
+      - name: Save compiler cache
+        if: ${{ !cancelled() && steps.valgrind_checks.outcome == 'success' && steps.valgrind_summary.outcome == 'success' && steps.compiler-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ env.CCACHE_PATH }}
+          key: ${{ steps.compiler-cache.outputs.cache-primary-key }}
 
   publish-valgrind-baseline:
     name: Publish Valgrind baseline
