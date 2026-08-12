@@ -91,6 +91,7 @@ RUN --mount=type=cache,target=/root/.cache/huggingface \
 FROM pek-build-base AS pek-dev-base
 
 ARG ONNXRUNTIME_VERSION
+ARG NPM_FALLBACK_REGISTRY=https://artifactory.arm.com:443/artifactory/api/npm/mirrors.npmjs_org
 ARG USERNAME=dev
 ARG USER_UID=1000
 ARG USER_GID=1000
@@ -116,14 +117,15 @@ RUN set -eux; \
   esbuild_url="$(node -e 'const lock=require("/tmp/pek-web-package-lock.json"); console.log(lock.packages["node_modules/esbuild-wasm"].resolved)')"; \
   flatbuffers_url="$(node -e 'const config=require("/tmp/perception-sdk.json"); console.log(config.typescript_build.flatbuffers_runtime.url)')"; \
   typescript_url="$(node -e 'const config=require("/tmp/perception-sdk.json"); console.log(config.typescript_build.typescript.url)')"; \
-  npm_config_fetch_retries=5 \
-  npm_config_fetch_retry_factor=2 \
-  npm_config_fetch_retry_mintimeout=1000 \
-  npm_config_fetch_retry_maxtimeout=20000 \
-  npm install --global --ignore-scripts --no-audit --no-fund \
-    "${esbuild_url}" \
-    "${flatbuffers_url}" \
-    "${typescript_url}"; \
+  npm_args=(--global --ignore-scripts --no-audit --no-fund); \
+  if ! timeout 180s env npm_config_fetch_retries=1 npm install "${npm_args[@]}" \
+      "${esbuild_url}" "${flatbuffers_url}" "${typescript_url}"; then \
+    esbuild_url="${NPM_FALLBACK_REGISTRY}/${esbuild_url#https://registry.npmjs.org/}"; \
+    flatbuffers_url="${NPM_FALLBACK_REGISTRY}/${flatbuffers_url#https://registry.npmjs.org/}"; \
+    typescript_url="${NPM_FALLBACK_REGISTRY}/${typescript_url#https://registry.npmjs.org/}"; \
+    env npm_config_fetch_retries=3 npm install "${npm_args[@]}" \
+      "${esbuild_url}" "${flatbuffers_url}" "${typescript_url}"; \
+  fi; \
   rm -f /tmp/pek-web-package-lock.json
 
 RUN ln -sf /usr/bin/lldb-17 /usr/local/bin/lldb && \
