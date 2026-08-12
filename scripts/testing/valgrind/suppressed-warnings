@@ -531,12 +531,12 @@
    fun:_ZN3pek4onnx11InferenceOp7processERNS_2op14OpChainContextE
    fun:_ZN3pek2op7OpChain7executeERNS0_14OpChainContextE
    fun:_ZN18GstPekInferMembers14executeOpChainERN3pek2op14OpChainContextE
-   fun:_ZZL25gst_pekinfer_transform_ipP17_GstBaseTransformP10_GstBufferENKUlRT_E_clIN3pek10PerceptionEEEDaS4_
-   fun:_ZSt13__invoke_implI13GstFlowReturnRZL25gst_pekinfer_transform_ipP17_GstBaseTransformP10_GstBufferEUlRT_E_JRN3pek10PerceptionEEES5_St14__invoke_otherOT0_DpOT1_
-   fun:_ZSt10__invoke_rI13GstFlowReturnRZL25gst_pekinfer_transform_ipP17_GstBaseTransformP10_GstBufferEUlRT_E_JRN3pek10PerceptionEEENSt9enable_ifIX16is_invocable_r_vIS5_T0_JDpT1_EEES5_E4typeEOSD_DpOSE_
-   fun:_ZNSt17_Function_handlerIF13GstFlowReturnRN3pek10PerceptionEEZL25gst_pekinfer_transform_ipP17_GstBaseTransformP10_GstBufferEUlRT_E_E9_M_invokeERKSt9_Any_dataS3_
-   fun:_ZNKSt8functionIF13GstFlowReturnRN3pek10PerceptionEEEclES3_
-   fun:_ZN3pek4MetaINS_20PerceptionMetaTraitsEE6mutateI13GstFlowReturnEESt7variantIJT_NS_9MetaErrorEEEP10_GstBufferOSt8functionIFS6_RNS_10PerceptionEEE
+   fun:_ZZL25gst_pekinfer_transform_ipP17_GstBaseTransformP10_GstBufferENKUlRT_E_clIN10perception9container8envelopeEEEDaS4_
+   fun:_ZSt13__invoke_implI13GstFlowReturnRZL25gst_pekinfer_transform_ipP17_GstBaseTransformP10_GstBufferEUlRT_E_JRN10perception9container8envelopeEEES5_St14__invoke_otherOT0_DpOT1_
+   fun:_ZSt10__invoke_rI13GstFlowReturnRZL25gst_pekinfer_transform_ipP17_GstBaseTransformP10_GstBufferEUlRT_E_JRN10perception9container8envelopeEEENSt9enable_ifIX16is_invocable_r_vIS5_T0_JDpT1_EEES5_E4typeEOSE_DpOSF_
+   fun:_ZNSt17_Function_handlerIF13GstFlowReturnRN10perception9container8envelopeEEZL25gst_pekinfer_transform_ipP17_GstBaseTransformP10_GstBufferEUlRT_E_E9_M_invokeERKSt9_Any_dataS4_
+   fun:_ZNKSt8functionIF13GstFlowReturnRN10perception9container8envelopeEEEclES4_
+   fun:_ZN3pek4MetaINS_22FrameResultsMetaTraitsEE6mutateI13GstFlowReturnEESt7variantIJT_NS_9MetaErrorEEEP10_GstBufferOSt8functionIFS6_RN10perception9container8envelopeEEE
    fun:_ZL25gst_pekinfer_transform_ipP17_GstBaseTransformP10_GstBuffer
    obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
@@ -585,12 +585,12 @@
    fun:_ZN3pek4onnx11InferenceOp7processERNS_2op14OpChainContextE
    fun:_ZN3pek2op7OpChain7executeERNS0_14OpChainContextE
    fun:_ZN18GstPekInferMembers14executeOpChainERN3pek2op14OpChainContextE
-   fun:_ZZL25gst_pekinfer_transform_ipP17_GstBaseTransformP10_GstBufferENKUlRT_E_clIN3pek10PerceptionEEEDaS4_
-   fun:_ZSt13__invoke_implI13GstFlowReturnRZL25gst_pekinfer_transform_ipP17_GstBaseTransformP10_GstBufferEUlRT_E_JRN3pek10PerceptionEEES5_St14__invoke_otherOT0_DpOT1_
-   fun:_ZSt10__invoke_rI13GstFlowReturnRZL25gst_pekinfer_transform_ipP17_GstBaseTransformP10_GstBufferEUlRT_E_JRN3pek10PerceptionEEENSt9enable_ifIX16is_invocable_r_vIS5_T0_JDpT1_EEES5_E4typeEOSD_DpOSE_
-   fun:_ZNSt17_Function_handlerIF13GstFlowReturnRN3pek10PerceptionEEZL25gst_pekinfer_transform_ipP17_GstBaseTransformP10_GstBufferEUlRT_E_E9_M_invokeERKSt9_Any_dataS3_
-   fun:_ZNKSt8functionIF13GstFlowReturnRN3pek10PerceptionEEEclES3_
-   fun:_ZN3pek4MetaINS_20PerceptionMetaTraitsEE6mutateI13GstFlowReturnEESt7variantIJT_NS_9MetaErrorEEEP10_GstBufferOSt8functionIFS6_RNS_10PerceptionEEE
+   fun:_ZZL25gst_pekinfer_transform_ipP17_GstBaseTransformP10_GstBufferENKUlRT_E_clIN10perception9container8envelopeEEEDaS4_
+   fun:_ZSt13__invoke_implI13GstFlowReturnRZL25gst_pekinfer_transform_ipP17_GstBaseTransformP10_GstBufferEUlRT_E_JRN10perception9container8envelopeEEES5_St14__invoke_otherOT0_DpOT1_
+   fun:_ZSt10__invoke_rI13GstFlowReturnRZL25gst_pekinfer_transform_ipP17_GstBaseTransformP10_GstBufferEUlRT_E_JRN10perception9container8envelopeEEENSt9enable_ifIX16is_invocable_r_vIS5_T0_JDpT1_EEES5_E4typeEOSE_DpOSF_
+   fun:_ZNSt17_Function_handlerIF13GstFlowReturnRN10perception9container8envelopeEEZL25gst_pekinfer_transform_ipP17_GstBaseTransformP10_GstBufferEUlRT_E_E9_M_invokeERKSt9_Any_dataS4_
+   fun:_ZNKSt8functionIF13GstFlowReturnRN10perception9container8envelopeEEEclES4_
+   fun:_ZN3pek4MetaINS_22FrameResultsMetaTraitsEE6mutateI13GstFlowReturnEESt7variantIJT_NS_9MetaErrorEEEP10_GstBufferOSt8functionIFS6_RN10perception9container8envelopeEEE
    fun:_ZL25gst_pekinfer_transform_ipP17_GstBaseTransformP10_GstBuffer
    obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
@@ -1380,8 +1380,8 @@
    fun:g_type_register_static
    fun:g_pointer_type_register_static
    fun:gst_meta_api_type_register
-   fun:_ZN3pek4MetaINS_20PerceptionMetaTraitsEE8api_typeEv
-   fun:_ZN3pek4MetaINS_20PerceptionMetaTraitsEE3getEP10_GstBuffer
+   fun:_ZN3pek4MetaINS_22FrameResultsMetaTraitsEE8api_typeEv
+   fun:_ZN3pek4MetaINS_22FrameResultsMetaTraitsEE3getEP10_GstBuffer
    fun:_ZL25gst_pekinfer_transform_ipP17_GstBaseTransformP10_GstBuffer
    obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
@@ -1912,8 +1912,8 @@
    fun:g_pointer_type_register_static
    fun:gst_meta_info_new
    fun:gst_meta_register
-   fun:_ZN3pek4MetaINS_20PerceptionMetaTraitsEE4infoEv
-   fun:_ZN3pek4MetaINS_20PerceptionMetaTraitsEE3addEP10_GstBufferSt10shared_ptrINS_10PerceptionEE
+   fun:_ZN3pek4MetaINS_22FrameResultsMetaTraitsEE4infoEv
+   fun:_ZN3pek4MetaINS_22FrameResultsMetaTraitsEE3addEP10_GstBufferSt10shared_ptrIN10perception9container8envelopeEE
    fun:_ZL25gst_pekinfer_transform_ipP17_GstBaseTransformP10_GstBuffer
    obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
@@ -2088,8 +2088,8 @@
    fun:g_strdup
    fun:g_strdupv
    fun:gst_meta_api_type_register
-   fun:_ZN3pek4MetaINS_20PerceptionMetaTraitsEE8api_typeEv
-   fun:_ZN3pek4MetaINS_20PerceptionMetaTraitsEE3getEP10_GstBuffer
+   fun:_ZN3pek4MetaINS_22FrameResultsMetaTraitsEE8api_typeEv
+   fun:_ZN3pek4MetaINS_22FrameResultsMetaTraitsEE3getEP10_GstBuffer
    fun:_ZL25gst_pekinfer_transform_ipP17_GstBaseTransformP10_GstBuffer
    obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
@@ -2238,8 +2238,8 @@
    fun:g_malloc
    fun:g_strdupv
    fun:gst_meta_api_type_register
-   fun:_ZN3pek4MetaINS_20PerceptionMetaTraitsEE8api_typeEv
-   fun:_ZN3pek4MetaINS_20PerceptionMetaTraitsEE3getEP10_GstBuffer
+   fun:_ZN3pek4MetaINS_22FrameResultsMetaTraitsEE8api_typeEv
+   fun:_ZN3pek4MetaINS_22FrameResultsMetaTraitsEE3getEP10_GstBuffer
    fun:_ZL25gst_pekinfer_transform_ipP17_GstBaseTransformP10_GstBuffer
    obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
@@ -2584,8 +2584,8 @@
    fun:g_pointer_type_register_static
    fun:gst_meta_info_new
    fun:gst_meta_register
-   fun:_ZN3pek4MetaINS_20PerceptionMetaTraitsEE4infoEv
-   fun:_ZN3pek4MetaINS_20PerceptionMetaTraitsEE3addEP10_GstBufferSt10shared_ptrINS_10PerceptionEE
+   fun:_ZN3pek4MetaINS_22FrameResultsMetaTraitsEE4infoEv
+   fun:_ZN3pek4MetaINS_22FrameResultsMetaTraitsEE3addEP10_GstBufferSt10shared_ptrIN10perception9container8envelopeEE
    fun:_ZL25gst_pekinfer_transform_ipP17_GstBaseTransformP10_GstBuffer
    obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
@@ -2696,8 +2696,8 @@
    fun:g_realloc
    fun:g_type_set_qdata
    fun:gst_meta_api_type_register
-   fun:_ZN3pek4MetaINS_20PerceptionMetaTraitsEE8api_typeEv
-   fun:_ZN3pek4MetaINS_20PerceptionMetaTraitsEE3getEP10_GstBuffer
+   fun:_ZN3pek4MetaINS_22FrameResultsMetaTraitsEE8api_typeEv
+   fun:_ZN3pek4MetaINS_22FrameResultsMetaTraitsEE3getEP10_GstBuffer
    fun:_ZL25gst_pekinfer_transform_ipP17_GstBaseTransformP10_GstBuffer
    obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
