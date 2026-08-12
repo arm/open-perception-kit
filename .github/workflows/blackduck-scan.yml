@@ -46,6 +46,13 @@ jobs:
       - name: Export isolated workspace root
         run: echo "WORKSPACE_ROOT=${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}" >> "$GITHUB_ENV"
 
+      - name: Generate Hugging Face download cache key
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: |
+          set -euo pipefail
+          cache_key="$(scripts/private/generate-hf-download-cachebust.sh)"
+          echo "HF_DOWNLOAD_CACHEBUST=${cache_key}" >> "$GITHUB_ENV"
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
         with:
@@ -267,13 +274,6 @@ jobs:
             --target pek-build-base \
             "${WORKSPACE_ROOT}"
           echo "PEK_BUILD_BASE_IMAGE=${base_image}" >> "${GITHUB_ENV}"
-
-      - name: Generate Hugging Face download cache key
-        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        run: |
-          set -euo pipefail
-          cache_key="$(scripts/private/generate-hf-download-cachebust.sh)"
-          echo "HF_DOWNLOAD_CACHEBUST=${cache_key}" >> "$GITHUB_ENV"
 
       - name: Build discovered container images
         env:

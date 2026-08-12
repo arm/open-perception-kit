@@ -76,9 +76,14 @@ WORKDIR /work
 COPY config config
 COPY --chmod=0755 scripts/download-models.py scripts/download-models.py
 ARG HF_DOWNLOAD_CACHEBUST
+ARG MODEL_DOWNLOAD_AUTHENTICATED
 RUN --mount=type=cache,target=/root/.cache/huggingface \
   --mount=type=secret,id=huggingface_token,env=HF_TOKEN \
-  HF_HOME="/root/.cache/huggingface/${HF_DOWNLOAD_CACHEBUST:-anonymous}" \
+  if [ "${MODEL_DOWNLOAD_AUTHENTICATED}" = "true" ] && [ -z "${HF_DOWNLOAD_CACHEBUST}" ]; then \
+    echo "HF_DOWNLOAD_CACHEBUST is required when HF_TOKEN is set" >&2; \
+    exit 1; \
+  fi; \
+  HF_DOWNLOAD_CACHEBUST="${HF_DOWNLOAD_CACHEBUST}" \
   ./scripts/download-models.py --models-dir config/models --token "${HF_TOKEN:-}"
 
 # Development base extends the shared native build tooling. PEK source and build

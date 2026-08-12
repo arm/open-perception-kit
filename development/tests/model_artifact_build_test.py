@@ -99,8 +99,12 @@ class ModelArtifactBuildTest(unittest.TestCase):
                 "\n\n", 1
             )[0]
             self.assertIn(
-                'HF_HOME="/root/.cache/huggingface/'
-                '${HF_DOWNLOAD_CACHEBUST:-anonymous}"',
+                'HF_DOWNLOAD_CACHEBUST="${HF_DOWNLOAD_CACHEBUST}"',
+                download_step,
+            )
+            self.assertIn(
+                'if [ "${MODEL_DOWNLOAD_AUTHENTICATED}" = "true" ] '
+                '&& [ -z "${HF_DOWNLOAD_CACHEBUST}" ]',
                 download_step,
             )
             self.assertIn(
@@ -108,15 +112,15 @@ class ModelArtifactBuildTest(unittest.TestCase):
                 download_step,
             )
 
-        cache_bust = (
-            "${HF_DOWNLOAD_CACHEBUST:-${HF_TOKEN:+${HF_DOWNLOAD_CACHEBUST:?Set "
-            "HF_DOWNLOAD_CACHEBUST when HF_TOKEN is set}}}"
-        )
         self.assertEqual(
             (REPO_ROOT / "compose.base.yaml").read_text().count(
-                f"HF_DOWNLOAD_CACHEBUST: {cache_bust}"
+                "HF_DOWNLOAD_CACHEBUST: ${HF_DOWNLOAD_CACHEBUST:-}"
             ),
             1,
+        )
+        self.assertIn(
+            'MODEL_DOWNLOAD_AUTHENTICATED: "${HF_TOKEN:+true}"',
+            (REPO_ROOT / "compose.base.yaml").read_text(),
         )
         for name, service in (
             ("compose.yaml", "pek-model-image"),
@@ -154,7 +158,20 @@ class ModelArtifactBuildTest(unittest.TestCase):
         ):
             self.assertIn(workflow_step, (REPO_ROOT / name).read_text())
 
+        blackduck = (
+            REPO_ROOT / ".github/workflows/blackduck-scan.yml"
+        ).read_text()
+        self.assertLess(
+            blackduck.index("      - name: Generate Hugging Face download cache key"),
+            blackduck.index("      - name: Discover buildable containers"),
+        )
+
         pek_ci = (REPO_ROOT / ".github/workflows/pek-ci.yml").read_text()
+        self.assertIn(
+            "env -u HF_TOKEN -u HF_DOWNLOAD_CACHEBUST docker compose "
+            "-f compose.yaml config --quiet",
+            pek_ci,
+        )
         self.assertEqual(pek_ci.count(workflow_step), 3)
         self.assertIn(
             "      - name: Generate Hugging Face download cache key\n"
@@ -166,6 +183,51 @@ class ModelArtifactBuildTest(unittest.TestCase):
             ">> \"$GITHUB_ENV\"",
             pek_ci,
         )
+
+    def test_tokenless_compose_config(self) -> None:
+        docker = shutil.which("docker")
+        if docker is None:
+            self.skipTest("Docker CLI is not installed")
+        if subprocess.run(
+            [docker, "compose", "version"],
+            capture_output=True,
+            check=False,
+        ).returncode:
+            self.skipTest("Docker Compose is not installed")
+
+        env = os.environ.copy()
+        env.pop("HF_TOKEN", None)
+        env.pop("HF_DOWNLOAD_CACHEBUST", None)
+        config = subprocess.run(
+            [docker, "compose", "-f", "compose.yaml", "config", "--format", "json"],
+            cwd=REPO_ROOT,
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(config.returncode, 0, config.stderr)
+        build_args = json.loads(config.stdout)["services"]["pek-dev"]["build"][
+            "args"
+        ]
+        self.assertEqual(build_args["HF_DOWNLOAD_CACHEBUST"], "")
+        self.assertEqual(build_args["MODEL_DOWNLOAD_AUTHENTICATED"], "")
+
+        env["HF_TOKEN"] = "test-token"
+        authenticated_config = subprocess.run(
+            [docker, "compose", "-f", "compose.yaml", "config", "--format", "json"],
+            cwd=REPO_ROOT,
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(authenticated_config.returncode, 0, authenticated_config.stderr)
+        authenticated_args = json.loads(authenticated_config.stdout)["services"][
+            "pek-dev"
+        ]["build"]["args"]
+        self.assertEqual(authenticated_args["HF_DOWNLOAD_CACHEBUST"], "")
+        self.assertEqual(authenticated_args["MODEL_DOWNLOAD_AUTHENTICATED"], "true")
 
     def test_model_download_cache_bust_generator(self) -> None:
         generator = REPO_ROOT / "scripts/private/generate-hf-download-cachebust.sh"

@@ -121,8 +121,8 @@ docker compose up --build
 ```
 
 Generate a fresh cache key before every authenticated direct Compose build.
-Such builds fail during interpolation when the key is omitted, preventing a
-cached model layer from another token from being reused silently.
+The model stage rejects authenticated builds when the key is omitted,
+preventing a cached model layer from another token from being reused silently.
 
 ### 3. Enter the container command line
 

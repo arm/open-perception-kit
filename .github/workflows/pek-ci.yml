@@ -172,6 +172,9 @@ jobs:
       - name: Set up Docker builder
         uses: docker/setup-buildx-action@v4
 
+      - name: Validate tokenless Compose config
+        run: env -u HF_TOKEN -u HF_DOWNLOAD_CACHEBUST docker compose -f compose.yaml config --quiet
+
       - name: Build PEK CI image
         uses: docker/build-push-action@v7
         with:
