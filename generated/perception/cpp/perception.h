@@ -356,7 +356,7 @@ class envelope {
     envelope() = default;
 
     envelope(const envelope &other) {
-        std::scoped_lock lock(other.mutex_);
+        std::scoped_lock lock(other.mutex());
         payloads_ = clone_payloads(other.payloads_);
         valid_ = other.valid_;
         error_ = other.error_;
@@ -365,22 +365,18 @@ class envelope {
         producer_schema_set_sha256_ = other.producer_schema_set_sha256_;
     }
 
-    envelope(envelope &&other) {
-        std::scoped_lock lock(other.mutex_);
-        payloads_ = std::move(other.payloads_);
-        valid_ = other.valid_;
-        error_ = std::move(other.error_);
-        producer_sdk_name_ = std::move(other.producer_sdk_name_);
-        producer_sdk_version_ = std::move(other.producer_sdk_version_);
-        producer_schema_set_sha256_ = std::move(other.producer_schema_set_sha256_);
-    }
+    envelope(envelope &&other) noexcept
+        : mutex_(other.mutex_), payloads_(std::move(other.payloads_)), valid_(other.valid_),
+          error_(std::move(other.error_)), producer_sdk_name_(std::move(other.producer_sdk_name_)),
+          producer_sdk_version_(std::move(other.producer_sdk_version_)),
+          producer_schema_set_sha256_(std::move(other.producer_schema_set_sha256_)) {}
 
     envelope &operator=(const envelope &other) {
         if (this == &other) {
             return *this;
         }
 
-        std::scoped_lock lock(mutex_, other.mutex_);
+        std::scoped_lock lock(mutex(), other.mutex());
         payloads_ = clone_payloads(other.payloads_);
         valid_ = other.valid_;
         error_ = other.error_;
@@ -390,18 +386,17 @@ class envelope {
         return *this;
     }
 
-    envelope &operator=(envelope &&other) {
+    envelope &operator=(envelope &&other) noexcept {
         if (this == &other) {
             return *this;
         }
 
-        std::scoped_lock lock(mutex_, other.mutex_);
-        payloads_ = std::move(other.payloads_);
-        valid_ = other.valid_;
-        error_ = std::move(other.error_);
-        producer_sdk_name_ = std::move(other.producer_sdk_name_);
-        producer_sdk_version_ = std::move(other.producer_sdk_version_);
-        producer_schema_set_sha256_ = std::move(other.producer_schema_set_sha256_);
+        payloads_.swap(other.payloads_);
+        std::swap(valid_, other.valid_);
+        error_.swap(other.error_);
+        producer_sdk_name_.swap(other.producer_sdk_name_);
+        producer_sdk_version_.swap(other.producer_sdk_version_);
+        producer_schema_set_sha256_.swap(other.producer_schema_set_sha256_);
         return *this;
     }
 
@@ -460,22 +455,22 @@ class envelope {
     }
 
     [[nodiscard]] std::string producer_sdk_name() const {
-        std::scoped_lock lock(mutex_);
+        std::scoped_lock lock(mutex());
         return producer_sdk_name_;
     }
 
     [[nodiscard]] std::string producer_sdk_version() const {
-        std::scoped_lock lock(mutex_);
+        std::scoped_lock lock(mutex());
         return producer_sdk_version_;
     }
 
     [[nodiscard]] std::string producer_schema_set_sha256() const {
-        std::scoped_lock lock(mutex_);
+        std::scoped_lock lock(mutex());
         return producer_schema_set_sha256_;
     }
 
     [[nodiscard]] producer_identity_status producer_identity() const {
-        std::scoped_lock lock(mutex_);
+        std::scoped_lock lock(mutex());
         if (producer_sdk_name_.empty() || producer_sdk_version_.empty() ||
             producer_schema_set_sha256_.empty()) {
             return producer_identity_status::missing;
@@ -501,12 +496,12 @@ class envelope {
     }
 
     [[nodiscard]] std::size_t size() const noexcept {
-        std::scoped_lock lock(mutex_);
+        std::scoped_lock lock(mutex());
         return valid_ ? payloads_.size() : 0;
     }
 
     void reserve(std::size_t payload_count) {
-        std::scoped_lock lock(mutex_);
+        std::scoped_lock lock(mutex());
         if (!valid_) {
             throw std::logic_error("cannot reserve invalid perception envelope");
         }
@@ -517,7 +512,7 @@ class envelope {
         using native_type = std::remove_cvref_t<T>;
         using traits = perception::detail::native_traits<native_type>;
 
-        std::scoped_lock lock(mutex_);
+        std::scoped_lock lock(mutex());
         if (!valid_) {
             throw std::logic_error("cannot add to invalid perception envelope");
         }
@@ -537,7 +532,7 @@ class envelope {
     template <native_payload T> [[nodiscard]] std::size_t count() const {
         using native_type = std::remove_cvref_t<T>;
         using traits = perception::detail::native_traits<native_type>;
-        std::scoped_lock lock(mutex_);
+        std::scoped_lock lock(mutex());
         if (!valid_) {
             return 0;
         }
@@ -556,7 +551,7 @@ class envelope {
     }
 
     [[nodiscard]] std::size_t count(external_key_t key) const {
-        std::scoped_lock lock(mutex_);
+        std::scoped_lock lock(mutex());
         if (!valid_) {
             return 0;
         }
@@ -578,13 +573,13 @@ class envelope {
     [[nodiscard]] std::optional<payload_ref<std::remove_cvref_t<T>>>
     get(std::size_t index = 0) const {
         using native_type = std::remove_cvref_t<T>;
-        std::scoped_lock lock(mutex_);
+        std::scoped_lock lock(mutex());
         return ref_at<native_type>(index);
     }
 
     [[nodiscard]] std::optional<external_payload_ref> get(external_key_t key,
                                                           std::size_t index = 0) const {
-        std::scoped_lock lock(mutex_);
+        std::scoped_lock lock(mutex());
         return external_ref_at(key, index);
     }
 
@@ -594,7 +589,7 @@ class envelope {
         std::vector<payload_ref<native_type>> refs;
 
         {
-            std::scoped_lock lock(mutex_);
+            std::scoped_lock lock(mutex());
             if (valid_) {
                 refs.reserve(payloads_.size());
                 for (const auto &entry : payloads_) {
@@ -618,7 +613,7 @@ class envelope {
         std::vector<external_payload_ref> refs;
 
         {
-            std::scoped_lock lock(mutex_);
+            std::scoped_lock lock(mutex());
             if (valid_) {
                 refs.reserve(payloads_.size());
                 for (const auto &entry : payloads_) {
@@ -639,7 +634,7 @@ class envelope {
     }
 
     [[nodiscard]] flatbuffers::DetachedBuffer serialize() const {
-        std::scoped_lock lock(mutex_);
+        std::scoped_lock lock(mutex());
         if (!valid_) {
             throw std::logic_error("cannot serialize invalid perception envelope");
         }
@@ -722,7 +717,7 @@ class envelope {
     }
 
     void add_keyed_blob_entry(perception::detail::id_t key, std::vector<std::uint8_t> blob) {
-        std::scoped_lock lock(mutex_);
+        std::scoped_lock lock(mutex());
         if (!valid_) {
             throw std::logic_error("cannot add to invalid perception envelope");
         }
@@ -859,7 +854,11 @@ class envelope {
         return cloned;
     }
 
-    mutable std::mutex mutex_;
+    [[nodiscard]] std::mutex &mutex() const noexcept {
+        return *mutex_;
+    }
+
+    std::shared_ptr<std::mutex> mutex_ = std::make_shared<std::mutex>();
     mutable entry_list payloads_;
     bool valid_ = true;
     std::string error_;
