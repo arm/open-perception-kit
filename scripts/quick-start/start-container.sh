@@ -75,7 +75,8 @@ eval "$detect_output"
 export PEK_DEV_CONTAINER_NAME PEK_DEV_RPI5_H8_CONTAINER_NAME
 export PEK_DEV_RPI5_H10_CONTAINER_NAME PEK_PICAMERA
 export HF_TOKEN="${HF_TOKEN-}"
-export HF_DOWNLOAD_CACHEBUST="${HF_DOWNLOAD_CACHEBUST:-$(date +%s)-$$}"
+export HF_DOWNLOAD_CACHEBUST
+HF_DOWNLOAD_CACHEBUST="$("${REPO_ROOT}/scripts/private/generate-hf-download-cachebust.sh")"
 
 COMPOSE_FILES=(
     -f .devcontainer/compose.devcont.yaml

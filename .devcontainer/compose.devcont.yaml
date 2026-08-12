@@ -1,10 +1,3 @@
-x-pek-dev-image-build: &pek-dev-image-build
-  context: ..
-  dockerfile: Dockerfile
-  network: ${BUILD_NETWORK_MODE:-default}
-  secrets:
-    - huggingface_token
-
 x-pek-hailo-build: &pek-hailo-build
   context: ..
   dockerfile: .devcontainer/Dockerfile.hailo
@@ -22,15 +15,14 @@ services:
   pek-dev:
     extends:
       file: ../compose.base.yaml
-      service: pek-common-dev
+      service: pek-common-dev-model-image
     container_name: ${PEK_DEV_CONTAINER_NAME:-perception-experience-kit}
     hostname: ${PEK_DEV_CONTAINER_NAME:-perception-experience-kit}
     command: sleep infinity
     build:
-      <<: *pek-dev-image-build
+      network: ${BUILD_NETWORK_MODE:-default}
       target: pek-dev
       args:
-        HF_DOWNLOAD_CACHEBUST: ${HF_DOWNLOAD_CACHEBUST:-${HF_TOKEN:+${HF_DOWNLOAD_CACHEBUST:?Set HF_DOWNLOAD_CACHEBUST when HF_TOKEN is set}}}
         USER_UID: ${HOST_UID:-1000}
         USER_GID: ${HOST_GID:-1000}
         PEK_PICAMERA: ${PEK_PICAMERA:-disabled}

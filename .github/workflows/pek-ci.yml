@@ -172,6 +172,17 @@ jobs:
       - name: Set up Docker builder
         uses: docker/setup-buildx-action@v4
 
+      - name: Validate model cache key guard
+        env:
+          PEK_REQUIRE_DOCKER_BUILD_TEST: "1"
+        run: >-
+          python3 development/tests/model_artifact_build_test.py
+          ModelArtifactBuildTest.test_raw_model_build_requires_cache_key
+          ModelArtifactBuildTest.test_main_compose_uses_model_bearing_target
+
+      - name: Validate tokenless Compose config
+        run: env -u HF_TOKEN -u HF_DOWNLOAD_CACHEBUST docker compose -f compose.yaml config --quiet
+
       - name: Build PEK CI image
         uses: docker/build-push-action@v7
         with:
@@ -644,6 +655,13 @@ jobs:
           path: ${{ env.CI_CHECKOUT_PATH }}
           persist-credentials: false
 
+      - name: Generate Hugging Face download cache key
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: |
+          set -euo pipefail
+          cache_key="$(scripts/private/generate-hf-download-cachebust.sh)"
+          echo "HF_DOWNLOAD_CACHEBUST=${cache_key}" >> "$GITHUB_ENV"
+
       - name: Attach validated PR head branch
         if: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '') }}
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -837,6 +855,13 @@ jobs:
           path: ${{ env.CI_CHECKOUT_PATH }}
           persist-credentials: false
 
+      - name: Generate Hugging Face download cache key
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: |
+          set -euo pipefail
+          cache_key="$(scripts/private/generate-hf-download-cachebust.sh)"
+          echo "HF_DOWNLOAD_CACHEBUST=${cache_key}" >> "$GITHUB_ENV"
+
       - name: Restore compiler cache
         id: compiler-cache
         uses: actions/cache/restore@v6
@@ -965,6 +990,13 @@ jobs:
           path: ${{ env.CI_CHECKOUT_PATH }}
           persist-credentials: false
 
+      - name: Generate Hugging Face download cache key
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: |
+          set -euo pipefail
+          cache_key="$(scripts/private/generate-hf-download-cachebust.sh)"
+          echo "HF_DOWNLOAD_CACHEBUST=${cache_key}" >> "$GITHUB_ENV"
+
       - name: Restore compiler cache
         id: compiler-cache
         uses: actions/cache/restore@v6
@@ -1090,6 +1122,12 @@ jobs:
           ref: ${{ needs.build-ci-image.outputs.head_sha }}
           path: valgrind-source
           persist-credentials: false
+
+      - name: Generate Hugging Face download cache key
+        run: |
+          set -euo pipefail
+          cache_key="$(scripts/private/generate-hf-download-cachebust.sh)"
+          echo "HF_DOWNLOAD_CACHEBUST=${cache_key}" >> "$GITHUB_ENV"
 
       - name: Restore compiler cache
         id: compiler-cache

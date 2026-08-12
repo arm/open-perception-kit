@@ -4,6 +4,9 @@ name: pek-dev
 
 services:
   pek-dev:
+    extends:
+      file: compose.base.yaml
+      service: pek-model-image
     platform: linux/arm64
     container_name: perception-experience-kit
     hostname: perception-experience-kit
@@ -22,12 +25,8 @@ services:
     environment:
       PEK_PIPELINE: ${PEK_PIPELINE:-yolov11-onnx}
     build:
-      context: .
-      dockerfile: Dockerfile
-      secrets:
-        - huggingface_token
+      target: pek-deployment-base
       args:
-        HF_DOWNLOAD_CACHEBUST: ${HF_DOWNLOAD_CACHEBUST:-${HF_TOKEN:+${HF_DOWNLOAD_CACHEBUST:?Set HF_DOWNLOAD_CACHEBUST when HF_TOKEN is set}}}
         PEK_PICAMERA: ${PEK_PICAMERA:-disabled}
         NO_EXAMPLE_CONTENT: ${NO_EXAMPLE_CONTENT:-false}
 
