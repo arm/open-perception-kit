@@ -269,7 +269,11 @@ jobs:
           echo "PEK_BUILD_BASE_IMAGE=${base_image}" >> "${GITHUB_ENV}"
 
       - name: Generate Hugging Face download cache key
-        run: echo "HF_DOWNLOAD_CACHEBUST=$(scripts/private/generate-hf-download-cachebust.sh)" >> "$GITHUB_ENV"
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: |
+          set -euo pipefail
+          cache_key="$(scripts/private/generate-hf-download-cachebust.sh)"
+          echo "HF_DOWNLOAD_CACHEBUST=${cache_key}" >> "$GITHUB_ENV"
 
       - name: Build discovered container images
         env:

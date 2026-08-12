@@ -132,13 +132,27 @@ class ModelArtifactBuildTest(unittest.TestCase):
             ".devcontainer/platform_init.sh",
             "scripts/quick-start/start-container.sh",
             "scripts/private/run-console.sh",
-            ".github/workflows/blackduck-scan.yml",
-            ".github/workflows/docker-scout-image-audit.yml",
         ):
             self.assertIn(
                 "scripts/private/generate-hf-download-cachebust.sh",
                 (REPO_ROOT / name).read_text(),
             )
+        workflow_step = (
+            "      - name: Generate Hugging Face download cache key\n"
+            "        working-directory: ${{ github.workspace }}/"
+            "${{ env.CI_CHECKOUT_PATH }}\n"
+            "        run: |\n"
+            "          set -euo pipefail\n"
+            "          cache_key=\"$(scripts/private/"
+            "generate-hf-download-cachebust.sh)\"\n"
+            "          echo \"HF_DOWNLOAD_CACHEBUST=${cache_key}\" "
+            ">> \"$GITHUB_ENV\""
+        )
+        for name in (
+            ".github/workflows/blackduck-scan.yml",
+            ".github/workflows/docker-scout-image-audit.yml",
+        ):
+            self.assertIn(workflow_step, (REPO_ROOT / name).read_text())
 
     def test_model_download_cache_bust_generator(self) -> None:
         generator = REPO_ROOT / "scripts/private/generate-hf-download-cachebust.sh"
