@@ -12,7 +12,6 @@ x-pek-model-image-build: &pek-model-image-build
     - huggingface_token
   args:
     HF_DOWNLOAD_CACHEBUST: ${HF_DOWNLOAD_CACHEBUST:-}
-    MODEL_DOWNLOAD_AUTHENTICATED: "${HF_TOKEN:+true}"
 
 services:
   pek-common: &pek-common

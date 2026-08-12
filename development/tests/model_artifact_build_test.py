@@ -103,7 +103,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
                 download_step,
             )
             self.assertIn(
-                'if [ "${MODEL_DOWNLOAD_AUTHENTICATED}" = "true" ] '
+                'if [ -n "${HF_TOKEN:-}" ] '
                 '&& [ -z "${HF_DOWNLOAD_CACHEBUST}" ]',
                 download_step,
             )
@@ -117,10 +117,6 @@ class ModelArtifactBuildTest(unittest.TestCase):
                 "HF_DOWNLOAD_CACHEBUST: ${HF_DOWNLOAD_CACHEBUST:-}"
             ),
             1,
-        )
-        self.assertIn(
-            'MODEL_DOWNLOAD_AUTHENTICATED: "${HF_TOKEN:+true}"',
-            (REPO_ROOT / "compose.base.yaml").read_text(),
         )
         for name, service in (
             ("compose.yaml", "pek-model-image"),
@@ -168,6 +164,16 @@ class ModelArtifactBuildTest(unittest.TestCase):
 
         pek_ci = (REPO_ROOT / ".github/workflows/pek-ci.yml").read_text()
         self.assertIn(
+            "      - name: Validate authenticated model cache key guard\n"
+            "        env:\n"
+            '          PEK_REQUIRE_DOCKER_BUILD_TEST: "1"\n'
+            "        run: >-\n"
+            "          python3 development/tests/model_artifact_build_test.py\n"
+            "          ModelArtifactBuildTest."
+            "test_authenticated_raw_build_requires_cache_key",
+            pek_ci,
+        )
+        self.assertIn(
             "env -u HF_TOKEN -u HF_DOWNLOAD_CACHEBUST docker compose "
             "-f compose.yaml config --quiet",
             pek_ci,
@@ -211,7 +217,6 @@ class ModelArtifactBuildTest(unittest.TestCase):
             "args"
         ]
         self.assertEqual(build_args["HF_DOWNLOAD_CACHEBUST"], "")
-        self.assertEqual(build_args["MODEL_DOWNLOAD_AUTHENTICATED"], "")
 
         env["HF_TOKEN"] = "test-token"
         authenticated_config = subprocess.run(
@@ -227,7 +232,64 @@ class ModelArtifactBuildTest(unittest.TestCase):
             "pek-dev"
         ]["build"]["args"]
         self.assertEqual(authenticated_args["HF_DOWNLOAD_CACHEBUST"], "")
-        self.assertEqual(authenticated_args["MODEL_DOWNLOAD_AUTHENTICATED"], "true")
+
+    def test_authenticated_raw_build_requires_cache_key(self) -> None:
+        docker = shutil.which("docker")
+        docker_required = os.environ.get("PEK_REQUIRE_DOCKER_BUILD_TEST") == "1"
+        if docker is None:
+            if docker_required:
+                self.fail("Docker CLI is required")
+            self.skipTest("Docker CLI is not installed")
+        if subprocess.run(
+            [docker, "info"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        ).returncode:
+            if docker_required:
+                self.fail("Docker daemon is required")
+            self.skipTest("Docker daemon is not available")
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            context = Path(temporary_directory)
+            shutil.copy2(REPO_ROOT / "Dockerfile", context / "Dockerfile")
+            shutil.copytree(
+                REPO_ROOT / "config/schemas",
+                context / "config/schemas",
+            )
+            models = context / "config/models"
+            models.mkdir()
+            (models / "README").write_text("No model downloads needed.\n")
+            scripts = context / "scripts"
+            scripts.mkdir()
+            shutil.copy2(DOWNLOAD_SCRIPT, scripts / DOWNLOAD_SCRIPT.name)
+
+            env = os.environ.copy()
+            env["HF_TOKEN"] = "cache-key-contract-test"
+            env.pop("HF_DOWNLOAD_CACHEBUST", None)
+            result = subprocess.run(
+                [
+                    docker,
+                    "build",
+                    "--target",
+                    "pek-models",
+                    "--secret",
+                    "id=huggingface_token,env=HF_TOKEN",
+                    "--progress=plain",
+                    ".",
+                ],
+                cwd=context,
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            output = result.stdout + result.stderr
+            self.assertNotEqual(result.returncode, 0, output)
+            self.assertIn(
+                "HF_DOWNLOAD_CACHEBUST is required when HF_TOKEN is set",
+                output,
+            )
 
     def test_model_download_cache_bust_generator(self) -> None:
         generator = REPO_ROOT / "scripts/private/generate-hf-download-cachebust.sh"

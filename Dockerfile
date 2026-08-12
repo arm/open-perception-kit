@@ -76,10 +76,9 @@ WORKDIR /work
 COPY config config
 COPY --chmod=0755 scripts/download-models.py scripts/download-models.py
 ARG HF_DOWNLOAD_CACHEBUST
-ARG MODEL_DOWNLOAD_AUTHENTICATED
 RUN --mount=type=cache,target=/root/.cache/huggingface \
   --mount=type=secret,id=huggingface_token,env=HF_TOKEN \
-  if [ "${MODEL_DOWNLOAD_AUTHENTICATED}" = "true" ] && [ -z "${HF_DOWNLOAD_CACHEBUST}" ]; then \
+  if [ -n "${HF_TOKEN:-}" ] && [ -z "${HF_DOWNLOAD_CACHEBUST}" ]; then \
     echo "HF_DOWNLOAD_CACHEBUST is required when HF_TOKEN is set" >&2; \
     exit 1; \
   fi; \
