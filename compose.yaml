@@ -25,6 +25,7 @@ services:
     environment:
       PEK_PIPELINE: ${PEK_PIPELINE:-yolov11-onnx}
     build:
+      target: pek-deployment-base
       args:
         PEK_PICAMERA: ${PEK_PICAMERA:-disabled}
         NO_EXAMPLE_CONTENT: ${NO_EXAMPLE_CONTENT:-false}

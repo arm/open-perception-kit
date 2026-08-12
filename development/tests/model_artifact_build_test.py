@@ -169,7 +169,9 @@ class ModelArtifactBuildTest(unittest.TestCase):
             "        run: >-\n"
             "          python3 development/tests/model_artifact_build_test.py\n"
             "          ModelArtifactBuildTest."
-            "test_raw_model_build_requires_cache_key",
+            "test_raw_model_build_requires_cache_key\n"
+            "          ModelArtifactBuildTest."
+            "test_main_compose_uses_model_bearing_target",
             pek_ci,
         )
         self.assertIn(
@@ -231,6 +233,56 @@ class ModelArtifactBuildTest(unittest.TestCase):
             "pek-dev"
         ]["build"]["args"]
         self.assertEqual(authenticated_args["HF_DOWNLOAD_CACHEBUST"], "")
+
+    def test_main_compose_uses_model_bearing_target(self) -> None:
+        docker = shutil.which("docker")
+        docker_required = os.environ.get("PEK_REQUIRE_DOCKER_BUILD_TEST") == "1"
+        if docker is None:
+            if docker_required:
+                self.fail("Docker CLI is required")
+            self.skipTest("Docker CLI is not installed")
+        if subprocess.run(
+            [docker, "buildx", "version"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        ).returncode:
+            if docker_required:
+                self.fail("Docker Buildx is required")
+            self.skipTest("Docker Buildx is not installed")
+
+        env = os.environ.copy()
+        env["HF_TOKEN"] = ""
+        env["HF_DOWNLOAD_CACHEBUST"] = "outline-key"
+        outline = subprocess.run(
+            [
+                docker,
+                "buildx",
+                "bake",
+                "-f",
+                "compose.yaml",
+                "--call=outline",
+                "pek-dev",
+            ],
+            cwd=REPO_ROOT,
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        output = outline.stdout + outline.stderr
+        self.assertEqual(outline.returncode, 0, output)
+        self.assertRegex(output, r"(?m)^TARGET:\s+pek-deployment-base$")
+        self.assertRegex(
+            output,
+            r"(?m)^HF_DOWNLOAD_CACHEBUST\s+outline-key\s+",
+        )
+
+        dockerfile = (REPO_ROOT / "Dockerfile").read_text()
+        deployment_build = dockerfile.split(
+            " AS pek-deployment-build", 1
+        )[1].split(" AS pek-deployment-base", 1)[0]
+        self.assertIn("COPY --from=pek-models /work/config config", deployment_build)
 
     def test_raw_model_build_requires_cache_key(self) -> None:
         docker = shutil.which("docker")
