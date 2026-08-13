@@ -51,6 +51,15 @@ class AgentWorkflowBehaviorTests(unittest.TestCase):
         )[0]
         self.assertIn("github.event.inputs.pr_number == ''", macos_condition)
 
+    def test_manual_pr_rpi_sets_up_python_for_context_resolver(self):
+        pek_ci = (REPO_ROOT / ".github/workflows/pek-ci.yml").read_text()
+        rpi_job = pek_ci.split("  rpi5-quick-start-build-test:", 1)[1].split(
+            "  macos-nightly-test:", 1
+        )[0]
+        setup = rpi_job.index("uses: actions/setup-python@v7")
+        resolve = rpi_job.index("- name: Resolve manual PR")
+        self.assertLess(setup, resolve)
+
     def test_agent_runtime_static_analysis_trigger_paths(self):
         quality_checks = load_quality_checks_module()
 

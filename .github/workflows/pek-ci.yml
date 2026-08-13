@@ -402,6 +402,12 @@ jobs:
           path: ${{ env.CI_CHECKOUT_PATH }}
           persist-credentials: false
 
+      - name: Set up manual-run Python
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.x"
+
       - name: Resolve manual PR
         id: manual_pr
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
