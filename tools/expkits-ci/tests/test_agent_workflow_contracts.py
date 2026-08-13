@@ -44,6 +44,13 @@ class AgentWorkflowBehaviorTests(unittest.TestCase):
         self.assertIn("needs.build-ci-image.outputs.pr_context == 'true'", wait_condition)
         self.assertNotIn("github.event_name == 'pull_request'", wait_condition)
 
+    def test_manual_pr_all_checks_preserves_macos_label_gate(self):
+        pek_ci = (REPO_ROOT / ".github/workflows/pek-ci.yml").read_text()
+        macos_condition = pek_ci.split("  macos-nightly-test:", 1)[1].split(
+            "    env:", 1
+        )[0]
+        self.assertIn("github.event.inputs.pr_number == ''", macos_condition)
+
     def test_agent_runtime_static_analysis_trigger_paths(self):
         quality_checks = load_quality_checks_module()
 
