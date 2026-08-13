@@ -1,0 +1,21 @@
+include "common.fbs";
+
+namespace perception.metadata;
+
+table BoxDetection {
+  object:perception.metadata.ObjectMeta;
+  box:perception.metadata.BoundingBox;
+  confidence:float;
+  class_id:int = -1;
+  text:string;
+}
+
+table BoxDetections {
+  schema_major:ushort = 1;
+  schema_minor:ushort = 0;
+  layer:perception.metadata.LayerInfo;
+  detections:[perception.metadata.BoxDetection];
+}
+
+root_type BoxDetections;
+file_identifier "BDET";

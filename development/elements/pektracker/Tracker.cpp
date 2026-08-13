@@ -18,14 +18,14 @@ void Tracker::reset() {
     currentFrameIndex = 0;
 }
 
-void Tracker::process(pek::Perception &perception, const Config &config) {
+void Tracker::process(perception::FrameResults &frameResults, const Config &config) {
     // Advance the internal frame counter for the current processing step.
     currentFrameIndex++;
 
-    // Gather embedding vectors (non-owning references) for this frame.
-    const auto embeddings = frameinputs::collectEmbeddings(perception, config);
+    // Gather embedding vectors for this frame.
+    const auto embeddings = frameinputs::collectEmbeddings(frameResults, config);
     // Gather trackable detections for this frame in stable processing order.
-    auto detections = frameinputs::collectDetections(perception, config);
+    auto detections = frameinputs::collectDetections(frameResults, config);
 
     // Reset per-frame prediction flags before running association.
     matching::clearTrackPredictionFlags(activeTracks);
@@ -48,24 +48,13 @@ void Tracker::process(pek::Perception &perception, const Config &config) {
     // Update track lifecycle for this frame.
     const auto lifecycleUpdate =
         tracklifecycle::updateTrackLifecycle(frameTrackingContext, mutableTrackState);
-    // Bundle shared output-writing inputs.
-    const auto writerContext = trackingoutput::WriterContext{perception, activeTracks, config};
     // Bundle lifecycle output needed by output writers.
     const auto resolvedTrackingAssignments = trackingoutput::TrackingResult{
         lifecycleUpdate.assignedTrackByDetection, lifecycleUpdate.predictedOnlyTrackIds};
 
-    // Write resolved track assignments back onto detection outputs.
-    trackingoutput::updateExistingDetectionsWithTrackingResult(writerContext,
-                                                               resolvedTrackingAssignments);
-    // Add predicted-only tracks into the prediction output layer.
-    if (config.emitPredictedDetections) {
-        trackingoutput::appendPredictedDetectionsFromTrackingResult(writerContext,
-                                                                    resolvedTrackingAssignments);
-    }
-    // Add track trace for each active track.
-    if (config.emitTrace) {
-        trackingoutput::appendTraceLayerForActiveTracks(writerContext);
-    }
+    // Emit tracker-owned records instead of mutating detector-owned records.
+    trackingoutput::appendTrackingPayloads(
+        frameResults, detections, activeTracks, config, resolvedTrackingAssignments);
 }
 
 } // namespace pek::tracker

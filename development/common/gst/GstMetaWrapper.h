@@ -128,7 +128,7 @@ template <class Traits> class Meta {
         }
 
         // Copy-on-write: if shared, clone before modifying.
-        if (!m->payload.unique()) {
+        if (m->payload.use_count() != 1) {
             auto cloned = std::make_shared<Payload>(Traits::clone(*m->payload));
             m->payload = std::move(cloned);
         }

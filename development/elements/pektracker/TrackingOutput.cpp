@@ -4,8 +4,9 @@
 
 #include "TrackingOutput.h"
 
+#include <cassert>
 #include <fmt/core.h>
-
+#include <memory>
 #include <utility>
 
 namespace pek::tracker::trackingoutput {
@@ -17,8 +18,29 @@ constexpr const char *TRACKER_ENGINE = "std";
 constexpr const char *PREDICTION_TAG = "tracking-prediction";
 constexpr const char *TRACE_TAG = "tracking";
 
-bool isTargetLayer(const pek::Perception::Layer &layer, const Config &config) {
-    return layer.contentType == config.contentType;
+uint64_t idOf(const perception::metadata::BoxDetectionT &detection) {
+    return detection.object ? detection.object->id : 0U;
+}
+
+uint64_t parentIdOf(const perception::metadata::BoxDetectionT &detection) {
+    return detection.object ? detection.object->parent_id : 0U;
+}
+
+const perception::metadata::BoxDetectionT &detectionAt(const DetectionBatch &detections,
+                                                       DetectionIndex detectionIndex) {
+    assert(detectionIndex < detections.size());
+    assert(detections[detectionIndex] != nullptr);
+    return *detections[detectionIndex];
+}
+
+std::unique_ptr<perception::metadata::ObjectMetaT>
+copyObjectMeta(const perception::metadata::ObjectMetaT *object) {
+    return object ? std::make_unique<perception::metadata::ObjectMetaT>(*object) : nullptr;
+}
+
+std::unique_ptr<perception::metadata::BoundingBoxT>
+copyBoundingBox(const perception::metadata::BoundingBoxT *box) {
+    return box ? std::make_unique<perception::metadata::BoundingBoxT>(*box) : nullptr;
 }
 
 std::string
@@ -29,7 +51,7 @@ formatTrackText(const std::string &existingText, TrackId trackId, const std::str
     return fmt::format("{} [ID:{} {}]", existingText, trackId, diagnostic);
 }
 
-void appendTrackTextIfEnabled(pek::Perception::Rect &rect,
+void appendTrackTextIfEnabled(perception::metadata::BoxDetectionT &detection,
                               TrackId trackId,
                               const TrackState &track,
                               const Config &config) {
@@ -37,7 +59,7 @@ void appendTrackTextIfEnabled(pek::Perception::Rect &rect,
         return;
     }
 
-    rect.text = formatTrackText(rect.text, trackId, track.lastMatchDiagnostic);
+    detection.text = formatTrackText(detection.text, trackId, track.lastMatchDiagnostic);
 }
 
 TrackId lookupAssignedTrackId(DetectionIndex detectionIndex,
@@ -50,130 +72,130 @@ TrackId lookupAssignedTrackId(DetectionIndex detectionIndex,
     return assignmentIt->second;
 }
 
-const TrackState *findConfirmedTrack(TrackId trackId, const WriterContext &context) {
+const TrackState *
+findConfirmedTrack(TrackId trackId, const ActiveTrackMap &activeTracks, const Config &config) {
     if (trackId == 0) {
         return nullptr;
     }
 
-    const auto trackIt = context.activeTracks.find(trackId);
-    if (trackIt == context.activeTracks.end()) {
+    const auto trackIt = activeTracks.find(trackId);
+    if (trackIt == activeTracks.end()) {
         return nullptr;
     }
 
-    if (trackIt->second.hitStreak < context.config.minHitsToConfirm) {
+    if (trackIt->second.hitStreak < config.minHitsToConfirm) {
         return nullptr;
     }
 
     return &trackIt->second;
 }
 
-void applyAssignedTrackToDetection(pek::Perception::Rect &rect,
-                                   DetectionIndex detectionIndex,
-                                   const WriterContext &context,
-                                   const TrackingResult &trackingResult) {
-    const TrackId trackId = lookupAssignedTrackId(detectionIndex, trackingResult);
-    const auto *track = findConfirmedTrack(trackId, context);
-    if (track == nullptr) {
-        return;
-    }
-
-    rect.x = track->lastDetection.x;
-    rect.y = track->lastDetection.y;
-    rect.attributes["trackId"] = std::to_string(trackId);
-    appendTrackTextIfEnabled(rect, trackId, *track, context.config);
-}
-
 bool shouldEmitTrace(const TrackState &track, const Config &config) {
     return track.hitStreak >= config.minHitsToConfirm && track.traceHistoryPoints.size() >= 2;
 }
 
-void appendTrackTraceDetection(pek::Perception::Layer &traceLayer,
-                               TrackId trackId,
-                               const TrackState &track) {
-    pek::Perception::TrackTrace trace;
-    trace.trackId = trackId;
-    trace.parentUuid = track.lastDetection.parentUuid;
-    trace.points.assign(track.traceHistoryPoints.begin(), track.traceHistoryPoints.end());
-    traceLayer.detections.emplace_back(std::move(trace));
+std::unique_ptr<perception::metadata::LayerInfoT>
+makeTrackerLayerInfo(const Config &config, const char *tags, const char *contentType) {
+    return perception::makeLayerInfo(
+        TRACKER_MODEL, config.inferId, contentType, TRACKER_ENGINE, tags);
 }
 
-pek::Perception::Layer *ensurePredictionOutputLayer(pek::Perception &perception,
-                                                    const Config &config) {
-    for (auto &layer : perception.layers) {
-        if (layer.model == TRACKER_MODEL && layer.tags.find(PREDICTION_TAG) != std::string::npos &&
-            isTargetLayer(layer, config)) {
-            return &layer;
-        }
-    }
+std::unique_ptr<perception::metadata::ObjectTrackT>
+makeTrackPayload(const perception::metadata::BoxDetectionT &detection,
+                 TrackId trackId,
+                 const TrackState &track,
+                 const Config &config,
+                 bool predictedOnly) {
+    auto renderedDetection = detection;
+    appendTrackTextIfEnabled(renderedDetection, trackId, track, config);
 
-    pek::Perception::Layer predictedLayer;
-    predictedLayer.model = TRACKER_MODEL;
-    predictedLayer.engine = TRACKER_ENGINE;
-    predictedLayer.tags = PREDICTION_TAG;
-    predictedLayer.contentType = config.contentType;
-    predictedLayer.inferElementId = config.inferId + "_pl";
-    perception.layers.push_back(std::move(predictedLayer));
-    return &perception.layers.back();
+    const uint64_t sourceId = idOf(renderedDetection);
+
+    auto item = std::make_unique<perception::metadata::ObjectTrackT>();
+    item->object = perception::makeObjectMeta(0U, sourceId);
+    item->source_id = sourceId;
+    item->track_id = trackId;
+    item->box = copyBoundingBox(renderedDetection.box.get());
+    item->confidence = renderedDetection.confidence;
+    item->class_id = renderedDetection.class_id;
+    item->text = renderedDetection.text;
+    item->diagnostic = track.lastMatchDiagnostic;
+    item->predicted_only = predictedOnly;
+    return item;
+}
+
+perception::metadata::BoxDetectionT detectionForAssignedTrack(const DetectionBatch &detections,
+                                                              DetectionIndex detectionIndex,
+                                                              const TrackState &track) {
+    const auto &currentDetection = detectionAt(detections, detectionIndex);
+    auto detection = track.lastDetection;
+    detection.object = copyObjectMeta(currentDetection.object.get());
+    detection.text = currentDetection.text;
+    return detection;
 }
 
 } // namespace
 
-void updateExistingDetectionsWithTrackingResult(const WriterContext &context,
-                                                const TrackingResult &trackingResult) {
-    DetectionIndex detectionIndex = 0;
-    for (auto &layer : context.perception.layers) {
-        if (!isTargetLayer(layer, context.config)) {
-            continue;
-        }
+void appendTrackingPayloads(perception::FrameResults &frameResults,
+                            const DetectionBatch &detections,
+                            const ActiveTrackMap &activeTracks,
+                            const Config &config,
+                            const TrackingResult &trackingResult) {
+    perception::metadata::ObjectTracksT tracksPayload;
+    tracksPayload.layer = makeTrackerLayerInfo(config, PREDICTION_TAG, config.contentType.c_str());
 
-        for (auto &det : layer.detections) {
-            auto *rect = std::get_if<pek::Perception::Rect>(&det);
-            if (!rect) {
-                continue;
-            }
-
-            applyAssignedTrackToDetection(*rect, detectionIndex, context, trackingResult);
-
-            detectionIndex++;
-        }
-    }
-}
-
-void appendPredictedDetectionsFromTrackingResult(const WriterContext &context,
-                                                 const TrackingResult &trackingResult) {
-    auto *predictionLayer = ensurePredictionOutputLayer(context.perception, context.config);
-
-    for (const TrackId trackId : trackingResult.predictedOnlyTrackIds) {
-        const auto *track = findConfirmedTrack(trackId, context);
+    for (DetectionIndex detectionIndex = 0; detectionIndex < detections.size(); ++detectionIndex) {
+        const TrackId trackId = lookupAssignedTrackId(detectionIndex, trackingResult);
+        const auto *track = findConfirmedTrack(trackId, activeTracks, config);
         if (track == nullptr) {
             continue;
         }
 
-        auto predictedRect = track->lastDetection;
-        appendTrackTextIfEnabled(predictedRect, trackId, *track, context.config);
-
-        predictionLayer->detections.emplace_back(std::move(predictedRect));
+        tracksPayload.tracks.push_back(
+            makeTrackPayload(detectionForAssignedTrack(detections, detectionIndex, *track),
+                             trackId,
+                             *track,
+                             config,
+                             false));
     }
-}
 
-void appendTraceLayerForActiveTracks(const WriterContext &context) {
-    pek::Perception::Layer traceLayer;
-    traceLayer.model = TRACKER_MODEL;
-    traceLayer.engine = TRACKER_ENGINE;
-    traceLayer.tags = TRACE_TAG;
-    traceLayer.contentType = "trackTrace";
-    traceLayer.inferElementId = context.config.inferId + "_tl";
-
-    for (const auto &[trackId, track] : context.activeTracks) {
-        if (!shouldEmitTrace(track, context.config)) {
+    for (const TrackId trackId : trackingResult.predictedOnlyTrackIds) {
+        const auto *track = findConfirmedTrack(trackId, activeTracks, config);
+        if (track == nullptr) {
             continue;
         }
 
-        appendTrackTraceDetection(traceLayer, trackId, track);
+        tracksPayload.tracks.push_back(
+            makeTrackPayload(track->lastDetection, trackId, *track, config, true));
     }
 
-    if (!traceLayer.detections.empty()) {
-        context.perception.layers.push_back(std::move(traceLayer));
+    if (!tracksPayload.tracks.empty()) {
+        frameResults.add(std::move(tracksPayload));
+    }
+
+    if (!config.emitTrace) {
+        return;
+    }
+
+    perception::metadata::TrackTracesT tracesPayload;
+    tracesPayload.layer = makeTrackerLayerInfo(config, TRACE_TAG, "trackTrace");
+
+    for (const auto &[trackId, track] : activeTracks) {
+        if (!shouldEmitTrace(track, config)) {
+            continue;
+        }
+
+        auto trace = std::make_unique<perception::metadata::TrackTraceT>();
+        trace->object = perception::makeObjectMeta(0U, parentIdOf(track.lastDetection));
+        trace->track_id = trackId;
+        for (const auto &point : track.traceHistoryPoints) {
+            trace->points.push_back(std::make_unique<perception::metadata::Point2fT>(point));
+        }
+        tracesPayload.traces.push_back(std::move(trace));
+    }
+
+    if (!tracesPayload.traces.empty()) {
+        frameResults.add(std::move(tracesPayload));
     }
 }
 

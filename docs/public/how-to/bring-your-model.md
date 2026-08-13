@@ -231,7 +231,7 @@ If your model runs on the full frame, a structure like this is usually enough.
 
 If your model runs on crops produced by another stage, reuse an existing multi-stage example instead of inventing a new structure from scratch.
 
-What matters here is not only that the model runs, but that the last stage produces results in the format the rest of PEK already understands. The normal app-consumable result format in PEK is `Perception`, carried downstream as `PerceptionMeta`, so the parser choice is part of the model integration contract, not an optional extra.
+What matters here is not only that the model runs, but that the last stage produces results in the format the rest of Perception Experience Kit already understands. The normal app-consumable result format is the FrameResults, carried downstream as `FrameResultsMeta`, so the parser choice is part of the model integration contract, not an optional extra.
 
 ## Reuse an existing postprocessor if possible
 
@@ -257,13 +257,13 @@ If none of them matches, then your model is not plug-and-play in the current sys
 
 The easiest models to integrate without code changes are models that fit one of these result types:
 
-- `Perception::Rect` for detections such as faces and generic objects
-- `Perception::Classification` for top-k or binary classification
-- `Perception::YawPitch` for gaze estimation
-- `Perception::SegmentationMap` for segmentation or mask outputs
-- `Perception::ObjectEmbedding` for ReID / embedding outputs
+- `BoxDetectionsT` for detections such as faces and generic objects
+- `ClassificationsT` for top-k or binary classification
+- `PoseEstimationsT` for gaze estimation
+- `SegmentationMasksT` for segmentation or mask outputs
+- `ObjectEmbeddingsT` for ReID / embedding outputs
 
-These are the structured result shapes that downstream PEK code already consumes. In other words, when bringing a model into PEK, you are usually trying to map raw tensors into one of these `Perception` forms rather than inventing a model-specific application contract.
+These are the structured result shapes that downstream Perception Experience Kit code already consumes. In other words, when bringing a model into Perception Experience Kit, you are usually trying to map raw tensors into one of these generated FrameResults payloads rather than inventing a model-specific application contract.
 
 If your output shape and meaning already match one of the existing parsers, integration is usually straightforward.
 

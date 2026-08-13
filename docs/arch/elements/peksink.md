@@ -49,6 +49,17 @@ serves the same non-blocking role as the video path.
 state for browser-side visibility. It also handles unregister events if an
 upstream component emits them.
 
+The browser receives serialized FrameResults records on the metadata WebSocket.
+Its committed `pek-web.js` bundle contains the generated TypeScript Perception
+SDK and FlatBuffers runtime. The client requires the
+`perception-frame-results+base64` encoding marker, validates exact producer
+identity, and maps typed payloads into the existing OSD, inference-output, and
+performance views. This migration does not change WebUI rendering or controls.
+
+Authored modules live under `development/web/src`; deployable files live under
+`development/web/content`. Regenerate, verify, and test the committed bundle
+with `./scripts/peksink-web.sh generate`, `check`, and `test` respectively.
+
 ## Lifecycle
 
 Initialization constructs the media chains, starts WebRTC/control/HTTP services,

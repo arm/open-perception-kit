@@ -8,9 +8,8 @@
 #include <unistd.h>
 #include <utility>
 
-#include <gst/PerceptionMeta.h>
-#include <pek/Perception.h>
-#include <pek/PerceptionSerializer.h>
+#include <pek/Base64.h>
+#include <pek/FrameResults.h>
 
 #include <nlohmann/json.hpp>
 
@@ -98,10 +97,13 @@ void Writer::run() {
         json j;
 
         j["frame_counter"] = job.frame_counter;
-        if (job.perception) {
-            j["perception"] = *job.perception; // calls your to_json overloads
+        if (job.frameResults) {
+            const auto packet = perception::serialize(*job.frameResults);
+            j["frame_results_encoding"] = "perception-frame-results+base64";
+            j["frame_results_packet_b64"] = pek::base64Encode(packet);
         } else {
-            j["perception"] = nullptr;
+            j["frame_results_encoding"] = nullptr;
+            j["frame_results_packet_b64"] = nullptr;
         }
 
         std::string line = j.dump();

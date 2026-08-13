@@ -22,7 +22,7 @@ void clearTrackPredictionFlags(ActiveTrackMap &activeTracks);
  * unmatched detections, and diagnostics for lifecycle reconciliation.
  *
  * @param detections Ordered detections for the current frame.
- * @param embeddings Embedding lookup keyed by detection UUID.
+ * @param embeddings Embedding lookup keyed by detection ID.
  * @param activeTracks Active track state map.
  * @param config Tracker configuration controlling association behavior.
  * @return AssociationResult Matched pairs, diagnostics, and unmatched detections.

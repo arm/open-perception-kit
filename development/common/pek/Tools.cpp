@@ -9,6 +9,7 @@
 #include "pek/String.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstdint>
 #include <dlfcn.h>
@@ -18,7 +19,11 @@
 
 using namespace pek;
 
-// ---
+std::string Tools::getLocalIp() {
+    // HTTP server must bind to 0.0.0.0 (all interfaces) to accept connections
+    // from host machine through Docker port mapping
+    return "0.0.0.0";
+}
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
@@ -89,6 +94,11 @@ Result<void *> Tools::DynamicLibraryGetSymbolRaw(DynamicLibraryHandle handle,
     }
 
     return sym;
+}
+
+uint64_t pek::nextObjectId() noexcept {
+    static std::atomic<uint64_t> objectIdCounter{1};
+    return objectIdCounter.fetch_add(1, std::memory_order_relaxed);
 }
 
 namespace {
@@ -191,8 +201,6 @@ Tools::loadImageFileBgra(const std::string &path, size_t &outWidth, size_t &outH
 
     return rgbaPixels;
 }
-
-std::atomic<uint64_t> pek::Uuid::counter{1};
 
 bool Tools::savePngFromBgra(const std::string &path, const uint8_t *bgra, int width, int height) {
     if (!bgra || width <= 0 || height <= 0)

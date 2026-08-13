@@ -1,0 +1,19 @@
+include "common.fbs";
+
+namespace perception.metadata;
+
+table TrackTrace {
+  object:perception.metadata.ObjectMeta;
+  track_id:ulong;
+  points:[perception.metadata.Point2f];
+}
+
+table TrackTraces {
+  schema_major:ushort = 1;
+  schema_minor:ushort = 0;
+  layer:perception.metadata.LayerInfo;
+  traces:[perception.metadata.TrackTrace];
+}
+
+root_type TrackTraces;
+file_identifier "TRCE";

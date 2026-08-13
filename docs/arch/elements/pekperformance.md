@@ -6,8 +6,8 @@ sidebar_label: pekperformance
 # Performance Tracing And Overlay
 
 OPK has a shared timing infrastructure (`PerformanceTracer`) and a GStreamer
-element (`pekperformance`) that publishes aggregated metrics into
-`Perception::perfdata` for downstream display or inspection.
+element (`pekperformance`) that appends generated `PerformanceOverlayT` payloads
+to `FrameResults` for downstream display or inspection.
 
 ## PerformanceTracer
 
@@ -31,13 +31,13 @@ It is intended for debugging outside overlay rendering.
 
 ## pekperformance Element
 
-`pekperformance` is a `GstVideoFilter` that writes formatted performance lines
-into `Perception::perfdata`. It does not draw overlays; `pekosd` renders the text
-if present.
+`pekperformance` is a `GstVideoFilter` that appends a generated
+`PerformanceOverlayT` payload. It does not draw overlays; `pekosd` renders the
+payload when present.
 
 During `transform_frame_ip`, the element updates FPS estimation, refreshes cached
-metric lines on the configured interval, mutates `PerceptionMeta` when present,
-and writes the cached lines into `perception.perfdata`.
+metric lines on the configured interval, ensures `FrameResultsMeta` exists, and
+replaces the current performance overlay payload with the cached lines.
 
 ## Properties And Control
 

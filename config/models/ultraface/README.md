@@ -6,5 +6,5 @@ Full-frame face detector.
 - Input: NCHW image, `[1, 3, 240, 320]`
 - Output: score and box tensors
 - Post processor: `UltrafaceParser`
-- Supported Perception result: `Perception::Rect` in a `humanFace` layer
+- Supported FrameResults payload: `BoxDetectionsT` with `content_type` set to `humanFace`
 - Typical use: first stage for face-based pipelines and face detection

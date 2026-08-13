@@ -158,7 +158,7 @@ globalThis.WebSocket = class {
   }
 };
 
-const {modelsManager} = await import("./models.js");
+const {modelsManager} = await import("../src/models.js");
 
 test("selector renders task and model details from descriptor metadata", () => {
   const model = {

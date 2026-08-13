@@ -104,7 +104,7 @@ class EventFlowMonitor:
         self._qos_event_received = threading.Event()
         self.forwarded_qos_events = 0
         self.received_qos_events = 0
-        self.infer_has_perception_meta = False
+        self.infer_has_frame_results_meta = False
         self._probes = []
 
         # Events counted here escaped every pekinfer instance. An enabled, active
@@ -159,16 +159,16 @@ class EventFlowMonitor:
     def _observe_infer_buffer(
         self, _pad: Any, info: Any, _data: Any
     ) -> Any:
-        # PerceptionMeta is registered when the pipeline starts processing, so its
+        # FrameResultsMeta is registered when the pipeline starts processing, so its
         # GObject type cannot be resolved when this monitor is constructed.
-        perception_meta_api = self._gobject.type_from_name(
-            "com_arm_pek_meta_PerceptionAPI_v1"
+        frame_results_meta_api = self._gobject.type_from_name(
+            "com_arm_pek_meta_FrameResultsAPI_v1"
         )
         buffer = info.get_buffer()
-        self.infer_has_perception_meta = bool(
-            perception_meta_api
+        self.infer_has_frame_results_meta = bool(
+            frame_results_meta_api
             and buffer is not None
-            and buffer.get_meta(perception_meta_api) is not None
+            and buffer.get_meta(frame_results_meta_api) is not None
         )
         self._buffer_forwarded.set()
         return self._gst.PadProbeReturn.OK
@@ -187,7 +187,7 @@ class EventFlowMonitor:
 
     def push_buffer(self, pts: int) -> None:
         self._buffer_forwarded.clear()
-        self.infer_has_perception_meta = False
+        self.infer_has_frame_results_meta = False
         buffer = self._gst.Buffer.new_allocate(None, 16 * 16 * 4, None)
         buffer.pts = pts
         buffer.duration = self._gst.SECOND // 30
@@ -557,8 +557,8 @@ class QosPipelineTest(unittest.TestCase):
         skipped_frame_pts = event_timestamp + self.frame_duration
         self.flow_monitor.push_buffer(skipped_frame_pts)
         self.assertTrue(
-            self.flow_monitor.infer_has_perception_meta,
-            "a QoS-skipped frame did not carry PerceptionMeta",
+            self.flow_monitor.infer_has_frame_results_meta,
+            "a QoS-skipped frame did not carry FrameResultsMeta",
         )
         message = self.pop_qos_message("pekinfer did not post a QoS message")
         self.assertEqual(message.src.get_name(), "infer")

@@ -1,0 +1,18 @@
+include "common.fbs";
+
+namespace perception.metadata;
+
+table ObjectEmbedding {
+  object:perception.metadata.ObjectMeta;
+  values:[float];
+}
+
+table ObjectEmbeddings {
+  schema_major:ushort = 1;
+  schema_minor:ushort = 0;
+  layer:perception.metadata.LayerInfo;
+  embeddings:[perception.metadata.ObjectEmbedding];
+}
+
+root_type ObjectEmbeddings;
+file_identifier "EMBE";

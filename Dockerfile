@@ -25,17 +25,37 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+COPY tools/perception/sdk.json /tmp/perception-sdk.json
+COPY --chmod=0755 scripts/private/install-perception-flatbuffers.sh /usr/local/bin/install-perception-flatbuffers
+
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
   set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-  ca-certificates curl git \
-  build-essential meson ninja-build pkg-config cmake unzip \
+  build-essential \
+  ca-certificates \
+  cmake \
+  curl \
+  git \
+  libcairo2-dev \
+  libfftw3-dev \
+  libfmt-dev \
+  libgstreamer-plugins-bad1.0-dev \
+  libgstreamer-plugins-base1.0-dev \
+  libgstreamer1.0-dev \
+  libjson-glib-dev \
+  libsoup-3.0-dev \
+  libssl-dev \
+  meson \
+  ninja-build \
+  pkg-config \
   python3 \
-  libssl-dev libfmt-dev libfftw3-dev libsoup-3.0-dev libjson-glib-dev libcairo2-dev \
-  libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev; \
-  update-ca-certificates
+  python3-dev \
+  unzip; \
+  update-ca-certificates; \
+  install-perception-flatbuffers /tmp/perception-sdk.json; \
+  rm -f /tmp/perception-sdk.json
 
 
 FROM pek-build-base AS pek-cross-build-base
@@ -92,9 +112,13 @@ RUN --mount=type=cache,target=/root/.cache/huggingface \
 FROM pek-build-base AS pek-dev-base
 
 ARG ONNXRUNTIME_VERSION
+ARG NPM_FALLBACK_REGISTRY=https://artifactory.arm.com:443/artifactory/api/npm/mirrors.npmjs_org
 ARG USERNAME=dev
 ARG USER_UID=1000
 ARG USER_GID=1000
+
+COPY tools/perception/sdk.json /tmp/perception-sdk.json
+COPY development/web/package-lock.json /tmp/pek-web-package-lock.json
 
 RUN set -eux; uname -a; cat /etc/os-release; dpkg --print-architecture
 
@@ -106,9 +130,38 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   file gnupg gstreamer1.0-gl gstreamer1.0-nice gstreamer1.0-pipewire \
   gstreamer1.0-plugins-bad gstreamer1.0-plugins-base \
   gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
-  gstreamer1.0-tools gstreamer1.0-x lldb-17 pre-commit python3-pip \
+  gstreamer1.0-tools gstreamer1.0-x lldb-17 nodejs npm pre-commit python3-gi python3-pip python3-venv \
   shellcheck shfmt sudo valgrind wget zip; \
   update-ca-certificates
+
+RUN set -eux; \
+  esbuild_url="$(node -e 'const lock=require("/tmp/pek-web-package-lock.json"); console.log(lock.packages["node_modules/esbuild-wasm"].resolved)')"; \
+  esbuild_integrity="$(node -e 'const lock=require("/tmp/pek-web-package-lock.json"); console.log(lock.packages["node_modules/esbuild-wasm"].integrity)')"; \
+  flatbuffers_url="$(node -e 'const config=require("/tmp/perception-sdk.json"); console.log(config.typescript_build.flatbuffers_runtime.url)')"; \
+  flatbuffers_sha256="$(node -e 'const config=require("/tmp/perception-sdk.json"); console.log(config.typescript_build.flatbuffers_runtime.sha256)')"; \
+  typescript_url="$(node -e 'const config=require("/tmp/perception-sdk.json"); console.log(config.typescript_build.typescript.url)')"; \
+  typescript_sha256="$(node -e 'const config=require("/tmp/perception-sdk.json"); console.log(config.typescript_build.typescript.sha256)')"; \
+  download() { \
+    local url="$1"; local destination="$2"; \
+    timeout 180s curl \
+      --fail --location --proto '=https' --proto-redir '=https' \
+      --retry 1 --output "${destination}" "${url}" || \
+      curl \
+        --fail --location --proto '=https' --proto-redir '=https' \
+        --retry 3 --output "${destination}" \
+        "${NPM_FALLBACK_REGISTRY}/${url#https://registry.npmjs.org/}"; \
+  }; \
+  download "${esbuild_url}" /tmp/esbuild-wasm.tgz; \
+  download "${flatbuffers_url}" /tmp/flatbuffers.tgz; \
+  download "${typescript_url}" /tmp/typescript.tgz; \
+  ESBUILD_INTEGRITY="${esbuild_integrity}" node -e 'const crypto=require("crypto"); const fs=require("fs"); const [algorithm, expected]=process.env.ESBUILD_INTEGRITY.split("-", 2); const actual=crypto.createHash(algorithm).update(fs.readFileSync("/tmp/esbuild-wasm.tgz")).digest("base64"); if (actual !== expected) throw new Error("esbuild-wasm integrity mismatch")'; \
+  echo "${flatbuffers_sha256}  /tmp/flatbuffers.tgz" | sha256sum --check --strict; \
+  echo "${typescript_sha256}  /tmp/typescript.tgz" | sha256sum --check --strict; \
+  npm_args=(--global --ignore-scripts --no-audit --no-fund); \
+  npm install "${npm_args[@]}" \
+    /tmp/esbuild-wasm.tgz /tmp/flatbuffers.tgz /tmp/typescript.tgz; \
+  rm -f /tmp/esbuild-wasm.tgz /tmp/flatbuffers.tgz /tmp/typescript.tgz \
+    /tmp/pek-web-package-lock.json
 
 RUN ln -sf /usr/bin/lldb-17 /usr/local/bin/lldb && \
   ln -sf /usr/bin/lldb-server-17 /usr/local/bin/lldb-server
@@ -163,14 +216,21 @@ RUN set -eux; \
 
 COPY tools/expkits-ci /tmp/pek-tools/expkits-ci
 COPY tools/plumber /tmp/pek-tools/plumber
+COPY generated/perception/python /tmp/pek-tools/perception
 RUN set -eux; \
   uv pip install --system --break-system-packages jsonschema==4.26.0; \
+  flatbuffers_wheel="$(python3 -c 'import json; wheel=json.load(open("/tmp/perception-sdk.json"))["flatbuffers"]["python_wheel"]; print(wheel["url"] + "#sha256=" + wheel["sha256"])')"; \
   uv venv --system-site-packages /opt/pek-venvs/devtools; \
   uv pip install --python /opt/pek-venvs/devtools/bin/python \
   /tmp/pek-tools/expkits-ci \
+  /tmp/pek-tools/perception \
   /tmp/pek-tools/plumber \
-  huggingface_hub==1.18.0; \
-  rm -rf /tmp/pek-tools
+  huggingface_hub==1.18.0 \
+  "${flatbuffers_wheel}"; \
+  cd /tmp; \
+  /opt/pek-venvs/devtools/bin/python -c 'import perception, plumber'; \
+  chown -R "${USER_UID}:${USER_GID}" /opt/pek-venvs/devtools; \
+  rm -rf /tmp/pek-tools /tmp/perception-sdk.json
 
 EXPOSE 8000 8001 9999 8080 2222
 
@@ -434,6 +494,7 @@ COPY scripts/build-elements.sh scripts/build-elements.sh
 COPY scripts/private/shtools.sh scripts/private/shtools.sh
 COPY scripts/private/deployment-runtime.sh scripts/private/deployment-runtime.sh
 COPY development development
+COPY generated generated
 COPY --from=pek-models /work/config config
 COPY data data
 COPY --from=pek-demo-media /work/data/videos /work/data/videos

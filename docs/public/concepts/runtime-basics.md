@@ -2,7 +2,7 @@
 title: Runtime Basics
 sidebar_position: 2
 sidebar_label: Runtime Basics
-description: Understand how GStreamer pipelines, OpChains, model descriptors, and Perception results fit together at runtime.
+description: Understand how GStreamer pipelines, OpChains, model descriptors, and FrameResults fit together at runtime.
 ---
 
 # Runtime Basics

@@ -4,7 +4,6 @@
 
 #include "postproc/DummyParser.h"
 #include "Log.h"
-#include "pek/Perception.h"
 #include "pek/TensorParser.h"
 #include "pek/Types.h"
 
@@ -14,8 +13,9 @@
 using namespace pek;
 using namespace pek::stdop::postproc;
 
-Result<void> DummyParser::parse(const pek::TensorParser::Input &input,
-                                pek::Perception::Layer &detectionResult) {
+pek::Result<void> DummyParser::parse(const pek::TensorParser::Input &input,
+                                     perception::FrameResults &results) {
+    (void)results;
 
     bool log = input.attributes.getBoolOrDefault("log", false);
 

@@ -13,7 +13,6 @@
 #include "Log.h"
 #include "mediaio/Common.h"
 #include "pek/ImageOpDesc.h"
-#include "pek/Perception.h"
 #include "pek/Result.h"
 #include "pek/TensorView.h"
 #include "pek/Tools.h"
@@ -120,9 +119,8 @@ pek::Result<pek::op::OpSignal> GenericImagePreprocessOp::process(
 
     pek::PixelRect cropRect = opChainContext.inferenceImageCrops.back();
     opChainContext.inferenceImageCrops.pop_back();
-    uint64_t sourceUuid = opChainContext.inferenceImageCropUuids.back();
-    opChainContext.inferenceSourceUuid = opChainContext.inferenceImageCropUuids.back();
-    opChainContext.inferenceImageCropUuids.pop_back();
+    uint64_t sourceId = opChainContext.inferenceImageCropIds.back();
+    opChainContext.inferenceImageCropIds.pop_back();
 
     auto *pipelineVideoFrame = opChainContext.getVideoFrame(inputImageSourceName);
 
@@ -213,7 +211,7 @@ pek::Result<pek::op::OpSignal> GenericImagePreprocessOp::process(
     if (false) {
         std::string debugFile = fmt::format("/work/var/crop_[{}]_{}_{}x{}x{}x{}.png",
                                             upcomingInferenceModel.contentType,
-                                            pek::Uuid::next(),
+                                            pek::nextObjectId(),
                                             setup.imageSourceDesc.rect.x,
                                             setup.imageSourceDesc.rect.y,
                                             setup.imageSourceDesc.rect.width,
@@ -264,7 +262,7 @@ pek::Result<pek::op::OpSignal> GenericImagePreprocessOp::process(
     if (false) {
         std::string debugFile = fmt::format("/work/var/tensor_[{}][{}]_{}x{}.png",
                                             upcomingInferenceModel.contentType,
-                                            pek::Uuid::next(),
+                                            pek::nextObjectId(),
                                             modelWidth,
                                             modelHeight);
 
@@ -291,7 +289,7 @@ pek::Result<pek::op::OpSignal> GenericImagePreprocessOp::process(
         opChainContext.inferenceInfo.image.letterboxTop;
     opChainContext.inferenceInfo.modelName = upcomingInferenceModel.name;
     opChainContext.inferenceInfo.contentType = upcomingInferenceModel.contentType;
-    opChainContext.inferenceInfo.parentUuid = sourceUuid;
+    opChainContext.inferenceInfo.parentId = sourceId;
 
     return pek::op::OpSignal::Continue;
 }

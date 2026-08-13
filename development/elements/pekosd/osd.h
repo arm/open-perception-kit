@@ -5,10 +5,11 @@
 #pragma once
 
 #include "pek/Color.h"
-#include "pek/Perception.h"
+#include "pek/FrameResults.h"
 
 #include <cairo.h>
 
+#include <cmath>
 #include <deque>
 #include <memory>
 #include <numbers>
@@ -164,22 +165,21 @@ class ObjectBox {
   public:
     static constexpr auto fontsize = 16.0f;
     static void draw(Layer &layer,
-                     const pek::Perception::Rect &objectBox,
+                     const perception::metadata::BoxDetectionT &objectBox,
                      const pek::Color &color,
                      float thickness = 2.0f) {
+        if (!objectBox.box) {
+            return;
+        }
+        const auto &box = *objectBox.box;
         Text::draw(layer,
-                   Coordinate{objectBox.x, objectBox.y},
+                   Coordinate{box.x, box.y},
                    objectBox.text,
                    pek::Colors::fromStringOrDefault("#ffffffff"),
                    pek::Colors::fromStringOrDefault("#000000ff"),
                    "monospace",
                    fontsize);
-        Rectangle::draw(layer,
-                        Coordinate{objectBox.x, objectBox.y},
-                        objectBox.width,
-                        objectBox.height,
-                        color,
-                        thickness);
+        Rectangle::draw(layer, Coordinate{box.x, box.y}, box.width, box.height, color, thickness);
     }
 };
 

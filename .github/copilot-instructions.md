@@ -10,6 +10,8 @@ Follow the repository root `AGENTS.md` first.
   - `config/pipelines/`
   - `development/ops-std/postproc/`
 - Shared types: `development/common/pek/`
+- Perception SDK descriptor: `tools/perception/sdk.json`
+- Perception schemas and generated SDKs: use the paths declared by the descriptor
 - Op system: `development/common/op/`
 - GStreamer metadata: `development/common/gst/`
 - Launcher: `development/pek-menu/`
@@ -18,11 +20,12 @@ Follow the repository root `AGENTS.md` first.
 
 ## Preserve current contracts
 - Video-processing elements expect `BGRA` unless the task changes the contract.
-- Buffer metadata is `PerceptionMeta`.
+- Runtime result metadata is `FrameResultsMeta`.
 - OpChain loops use `loopId`.
-- `pekinfer` executes OpChains and writes `PerceptionMeta`.
-- `pekperformance` writes text into `Perception.perfdata`.
-- `pekosd` renders overlays.
+- `pekinfer` executes OpChains and appends generated FrameResults payloads.
+- `pekperformance` appends `PerformanceOverlayT` FrameResults payloads.
+- `pekosd` renders supported FrameResults overlays.
+- `pekcomm` publishes serialized FrameResults packets for file/stdout output.
 - `peksink` owns the WebRTC, HTTP, and control WebSocket stack.
 
 ## Working style

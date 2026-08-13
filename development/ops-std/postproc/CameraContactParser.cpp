@@ -8,6 +8,8 @@
 #include <array>
 #include <cmath>
 #include <fmt/core.h>
+#include <memory>
+#include <utility>
 
 using namespace pek;
 using namespace pek::stdop::postproc;
@@ -29,8 +31,8 @@ std::array<float, 2> softmax2(const pek::TensorView &tensor) {
 
 } // namespace
 
-Result<void> CameraContactParser::parse(const pek::TensorParser::Input &input,
-                                        pek::Perception::Layer &detectionResult) {
+pek::Result<void> CameraContactParser::parse(const pek::TensorParser::Input &input,
+                                             perception::FrameResults &results) {
     if (!input.tensors[0]) {
         return tl::unexpected(
             PEK_ERROR(pek::ErrorFlag::InvalidData, "CameraContactParser: input tensor is null"));
@@ -64,17 +66,21 @@ Result<void> CameraContactParser::parse(const pek::TensorParser::Input &input,
     const bool isContact = probabilities[static_cast<size_t>(contactClassIndex)] >=
                            probabilities[static_cast<size_t>(noContactClassIndex)];
 
-    pek::Perception::Classification classification;
-    pek::Perception::Classification::Candidate candidate;
-    candidate.classId = isContact ? contactClassIndex : noContactClassIndex;
-    candidate.confidence = isContact ? probabilities[static_cast<size_t>(contactClassIndex)]
-                                     : probabilities[static_cast<size_t>(noContactClassIndex)];
-    candidate.text = isContact ? "contact" : "no contact";
+    auto classification = std::make_unique<perception::metadata::ClassificationT>();
+    classification->object = perception::makeObjectMeta(0U, input.inferenceInfo.parentId);
 
-    classification.candidates.push_back(candidate);
+    auto candidate = std::make_unique<perception::metadata::ClassificationCandidateT>();
+    candidate->class_id = isContact ? contactClassIndex : noContactClassIndex;
+    candidate->confidence = isContact ? probabilities[static_cast<size_t>(contactClassIndex)]
+                                      : probabilities[static_cast<size_t>(noContactClassIndex)];
+    candidate->text = isContact ? "contact" : "no contact";
+    classification->candidates.push_back(std::move(candidate));
 
-    detectionResult.contentType = "cameraContact";
-    detectionResult.detections.push_back(classification);
+    perception::metadata::ClassificationsT payload;
+    payload.layer = perception::makeLayerInfo(
+        input.inferenceInfo.modelName, input.inferenceInfo.inferElementId, "cameraContact");
+    payload.classifications.push_back(std::move(classification));
+    results.add(std::move(payload));
 
     return {};
 }

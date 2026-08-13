@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include "pek/Perception.h"
 #include "pek/Result.h"
 #include "pek/TensorParser.h"
 #include "pek/TensorView.h"
@@ -14,7 +13,7 @@ namespace pek::stdop::postproc {
 struct ScrfdParser : public pek::TensorParser {
 
     virtual pek::Result<void> parse(const pek::TensorParser::Input &input,
-                                    pek::Perception::Layer &output) override;
+                                    perception::FrameResults &results) override;
 };
 
 } // namespace pek::stdop::postproc

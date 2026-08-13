@@ -17,7 +17,7 @@ Official Hailo 10H-compiled RepVGG A0 person ReID model from Hailo Model Zoo.
 - OPS: 1.78G
 - Output size: 512
 - Post processor: `ObjectEmbeddingParser`
-- Supported Perception result: `Perception::ObjectEmbedding` in an `objectEmbedding` layer
+- Supported FrameResults payload: `ObjectEmbeddingsT` with `content_type` set to `objectEmbedding`
 - Typical pairing: `config/pipelines/tracker-rpi-hailo10.json` and `config/opchains/tracking/opchain-hailo-v10.json`
 
 This model was selected from the official HAILO10H person ReID table for high-throughput embedding generation.

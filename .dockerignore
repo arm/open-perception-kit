@@ -26,6 +26,9 @@
 !development/
 !development/**
 
+!generated/
+!generated/**
+
 !config/
 !config/**
 !data/
@@ -45,6 +48,8 @@ config/models/**/*.pte
 !tools/expkits-ci/**
 !tools/plumber/
 !tools/plumber/**
+!tools/perception/
+!tools/perception/sdk.json
 
 !.devcontainer/
 !.devcontainer/**

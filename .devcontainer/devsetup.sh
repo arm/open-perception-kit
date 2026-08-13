@@ -24,6 +24,7 @@ TOOLS_DIR="/work/tools"
 VENV_DIR="$TOOLS_DIR/.venv"
 BASHRC="$HOME/.bashrc"
 IMAGE_DEVTOOLS_VENV="${PEK_DEVTOOLS_VENV:-/opt/pek-venvs/devtools}"
+REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
 log "Executing ./.devcontainer/devsetup.sh (dev extras)"
 
@@ -38,7 +39,7 @@ append_once "$PROMPT_EXPORT" "$PROMPT_EXPORT"
 # ---------- sanity checks ----------
 [ -d "$TOOLS_DIR" ] || die "tools directory not found: $TOOLS_DIR"
 
-# ---------- venv wiring (no installs) ----------
+# ---------- venv wiring ----------
 if [[ -d "$IMAGE_DEVTOOLS_VENV" ]]; then
     log "Using image-provided devtools venv: $IMAGE_DEVTOOLS_VENV"
     if [[ -L "$VENV_DIR" ]]; then
@@ -56,6 +57,10 @@ if [[ -d "$IMAGE_DEVTOOLS_VENV" ]]; then
 else
     die "Image devtools venv not found at $IMAGE_DEVTOOLS_VENV. Install it via Dockerfile."
 fi
+
+log "Installing the canonical Perception Python SDK in editable mode"
+"$REPO_ROOT/scripts/perception-sdk.sh" install-dev \
+    --python "$VENV_DIR/bin/python"
 
 # ---------- auto-activation for interactive shells ----------
 log "Configuring auto-activation in $BASHRC"

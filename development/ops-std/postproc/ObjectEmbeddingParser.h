@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include "pek/Perception.h"
 #include "pek/Result.h"
 #include "pek/TensorParser.h"
 #include "pek/TensorView.h"
@@ -19,14 +18,8 @@ namespace pek::stdop::postproc {
  */
 struct ObjectEmbeddingParser : public TensorParser {
 
-    /**
-     * @brief Parses object embedding output tensor.
-     *
-     * @param input Input tensor containing embedding vectors.
-     * @param output Perception layer populated with embedding data.
-     * @return Result indicating success or parsing error.
-     */
-    Result<void> parse(const TensorParser::Input &input, Perception::Layer &output) override;
+    Result<void> parse(const TensorParser::Input &input,
+                       perception::FrameResults &results) override;
 };
 
 } // namespace pek::stdop::postproc

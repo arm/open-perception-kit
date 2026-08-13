@@ -1,0 +1,3 @@
+# Meson Wrap downloads and extracted dependencies.
+packagecache/
+fmt-*/

@@ -8,5 +8,5 @@ Full-frame object detector.
 - Output: same tensor contract as the checked-in YOLOv11 ONNX model
 - Post processor: `YoloParser`
 - Labels: COCO class order
-- Supported Perception result: `Perception::Rect` in a `genericObject` layer
+- Supported FrameResults payload: `BoxDetectionsT` with `content_type` set to `genericObject`
 - Typical use: active object detector in the `yolo26-onnx` viewer pipeline

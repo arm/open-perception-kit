@@ -6,7 +6,7 @@ Hailo 10-compiled variant of the ArcFace MobileFaceNet face embedding model.
 - Input: NHWC face crop, `[1, 112, 112, 3]`, `Uint8`
 - Output: dynamic embedding tensor, typically `[1, 512]`
 - Post processor: `ObjectEmbeddingParser`
-- Supported Perception result: `Perception::ObjectEmbedding` in an `objectEmbedding` layer
+- Supported FrameResults payload: `ObjectEmbeddingsT` with `content_type` set to `objectEmbedding`
 - Typical use: run on detected `humanFace` crops after a face detector such as UltraFace
 
 ## Verified HEF contract

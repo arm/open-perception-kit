@@ -3,11 +3,12 @@
  *************************************************************/
 
 #include "postproc/GazeDetectionParser.h"
-#include "pek/Perception.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <memory>
+#include <utility>
 
 using namespace pek;
 using namespace pek::stdop::postproc;
@@ -65,8 +66,8 @@ inline void logitsToAngleDegAndConfidence(const pek::TensorView *logits,
 
 } // namespace
 
-Result<void> GazeDetectionParser::parse(const pek::TensorParser::Input &input,
-                                        pek::Perception::Layer &detectionResult) {
+pek::Result<void> GazeDetectionParser::parse(const pek::TensorParser::Input &input,
+                                             perception::FrameResults &results) {
     // Validate tensor pointers.
     if (!input.tensors[0] || !input.tensors[1]) {
         return tl::unexpected(
@@ -99,16 +100,20 @@ Result<void> GazeDetectionParser::parse(const pek::TensorParser::Input &input,
     logitsToAngleDegAndConfidence(input.tensors[0], yaw, yawConf);
     logitsToAngleDegAndConfidence(input.tensors[1], pitch, pitchConf);
 
-    detectionResult.contentType = "eyeYawPitch";
-    Perception::YawPitch result;
-    result.yaw = yaw;
-    result.pitch = pitch;
+    auto result = std::make_unique<perception::metadata::PoseEstimationT>();
+    result->object = perception::makeObjectMeta(0U, input.inferenceInfo.parentId);
+    result->yaw = yaw;
+    result->pitch = pitch;
 
     // Store a single confidence for the pair.
     // Common choices: min (conservative), average, or max.
     // Using min makes it "both yaw and pitch must be confident".
-    result.confidence = std::min(yawConf, pitchConf);
+    result->confidence = std::min(yawConf, pitchConf);
 
-    detectionResult.detections.push_back(result);
+    perception::metadata::PoseEstimationsT payload;
+    payload.layer = perception::makeLayerInfo(
+        input.inferenceInfo.modelName, input.inferenceInfo.inferElementId, "eyeYawPitch");
+    payload.poses.push_back(std::move(result));
+    results.add(std::move(payload));
     return {};
 }

@@ -6,11 +6,10 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <variant>
 #include <vector>
 
 #include "pek/AttributeMap.h"
-#include "pek/Perception.h"
+#include "pek/FrameResults.h"
 #include "pek/TensorParser.h"
 #include "pek/TensorView.h"
 #include "postproc/YoloParser.h"
@@ -47,18 +46,24 @@ TEST(YoloParser, StoresBestClassIdOnRectOutput) {
     input.inferenceInfo.image.modelWidth = 100;
     input.inferenceInfo.image.modelHeight = 100;
 
-    pek::Perception::Layer output;
+    perception::FrameResults output;
     pek::stdop::postproc::YoloParser parser;
 
     const auto result = parser.parse(input, output);
 
     ASSERT_TRUE(result.has_value()) << result.error().toString();
-    ASSERT_EQ(output.detections.size(), 1U);
+    ASSERT_EQ(output.count<perception::metadata::BoxDetectionsT>(), 1U);
 
-    const auto *rect = std::get_if<pek::Perception::Rect>(&output.detections[0]);
-    ASSERT_NE(rect, nullptr);
-    EXPECT_EQ(rect->classId, 1);
-    EXPECT_FLOAT_EQ(rect->confidence, 0.9f);
+    const auto detectionsRef = output.get<perception::metadata::BoxDetectionsT>();
+    if (!detectionsRef.has_value()) {
+        ADD_FAILURE() << "missing BoxDetections payload";
+        return;
+    }
+    const auto &detections = detectionsRef.value().value().detections;
+    ASSERT_EQ(detections.size(), 1U);
+    ASSERT_NE(detections[0], nullptr);
+    EXPECT_EQ(detections[0]->class_id, 1);
+    EXPECT_FLOAT_EQ(detections[0]->confidence, 0.9f);
 }
 
 TEST(YoloParser, ParsesPackedHailoOutput) {
@@ -84,18 +89,23 @@ TEST(YoloParser, ParsesPackedHailoOutput) {
     input.inferenceInfo.image.modelWidth = 100;
     input.inferenceInfo.image.modelHeight = 100;
 
-    pek::Perception::Layer output;
+    perception::FrameResults output;
     pek::stdop::postproc::YoloParser parser;
     const auto result = parser.parse(input, output);
 
     ASSERT_TRUE(result.has_value()) << result.error().toString();
-    ASSERT_EQ(output.detections.size(), 1U);
-    const auto *rect = std::get_if<pek::Perception::Rect>(&output.detections[0]);
-    ASSERT_NE(rect, nullptr);
-    EXPECT_EQ(rect->classId, 1);
-    EXPECT_FLOAT_EQ(rect->x, 20.0f);
-    EXPECT_FLOAT_EQ(rect->y, 10.0f);
-    EXPECT_FLOAT_EQ(rect->width, 30.0f);
-    EXPECT_FLOAT_EQ(rect->height, 20.0f);
-    EXPECT_FLOAT_EQ(rect->confidence, 0.9f);
+    ASSERT_EQ(output.count<perception::metadata::BoxDetectionsT>(), 1U);
+
+    const auto detectionsRef = output.get<perception::metadata::BoxDetectionsT>();
+    ASSERT_TRUE(detectionsRef.has_value());
+    const auto &detections = detectionsRef.value().value().detections;
+    ASSERT_EQ(detections.size(), 1U);
+    ASSERT_NE(detections[0], nullptr);
+    ASSERT_NE(detections[0]->box, nullptr);
+    EXPECT_EQ(detections[0]->class_id, 1);
+    EXPECT_FLOAT_EQ(detections[0]->box->x, 20.0f);
+    EXPECT_FLOAT_EQ(detections[0]->box->y, 10.0f);
+    EXPECT_FLOAT_EQ(detections[0]->box->width, 30.0f);
+    EXPECT_FLOAT_EQ(detections[0]->box->height, 20.0f);
+    EXPECT_FLOAT_EQ(detections[0]->confidence, 0.9f);
 }

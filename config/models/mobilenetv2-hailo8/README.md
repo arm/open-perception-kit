@@ -6,7 +6,7 @@ Hailo 8-compiled variant of the MobileNetV2 ImageNet classifier.
 - Input: NCHW image, `[1, 3, 224, 224]`
 - Output: ImageNet classification handled like the ONNX variant
 - Post processor: `ImageNetClassificationParser`
-- Supported Perception result: `Perception::Classification` in a `classification` layer
+- Supported FrameResults payload: `ClassificationsT` with `content_type` set to `classification`
 - Note: this `.hef` is the compiled Hailo version of the original ONNX model
 - Typical pairing: `config/pipelines/02-full-onnx-hailo8.json`
 

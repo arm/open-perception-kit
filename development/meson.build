@@ -160,6 +160,23 @@ endif
 # Common include(s)
 common_include = include_directories('common', 'common/logging/include')
 
+if get_option('tests')
+  pek_python_path = run_command(
+    'sh',
+    '-c',
+    'if [ -n "$PEK_DEVTOOLS_VENV" ]; then printf %s "$PEK_DEVTOOLS_VENV/bin/python"; fi',
+    check : false,
+  ).stdout().strip()
+  if pek_python_path != ''
+    pek_python = import('python').find_installation(pek_python_path)
+  else
+    pek_python = import('python').find_installation()
+  endif
+endif
+
+subdir('perception')
+pek_deps += [perception_dep]
+
 # gtest dependencies
 cmake = import('cmake')
 
@@ -199,17 +216,6 @@ if release_package
     'web/content',
     install_dir : 'web/content',
     strip_directory : true,
-    exclude_files : [
-      'package.json',
-      'osd-renderer.test.mjs',
-      'webrtc_client.test.mjs',
-      'webrtc_config.test.mjs',
-    ],
-  )
-  install_data(
-    meson.project_source_root() / '../metadata/api/perception.schema.json',
-    meson.project_source_root() / '../metadata/api/perception-message.schema.json',
-    install_dir : 'share/pek/schemas/json',
   )
 endif
 

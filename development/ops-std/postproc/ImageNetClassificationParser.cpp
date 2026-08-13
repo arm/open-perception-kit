@@ -9,7 +9,9 @@
 #include <cmath>
 #include <cstdint>
 #include <fmt/core.h>
+#include <memory>
 #include <span>
+#include <utility>
 #include <vector>
 
 using namespace pek;
@@ -39,8 +41,8 @@ static void softmax(const std::span<float> input, std::span<float> output) {
     }
 }
 
-Result<void> ImageNetClassificationParser::parse(const pek::TensorParser::Input &input,
-                                                 pek::Perception::Layer &detectionResult) {
+pek::Result<void> ImageNetClassificationParser::parse(const pek::TensorParser::Input &input,
+                                                      perception::FrameResults &results) {
 
     if (!input.tensors[0]) {
         return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
@@ -100,30 +102,35 @@ Result<void> ImageNetClassificationParser::parse(const pek::TensorParser::Input 
                           scoredIndices.end(),
                           std::greater<>());
 
-        pek::Perception::Classification classification;
+        perception::metadata::ClassificationsT payload;
+        payload.layer = perception::makeLayerInfo(
+            input.inferenceInfo.modelName, input.inferenceInfo.inferElementId, "classification");
 
-        detectionResult.contentType = "classification";
+        auto classification = std::make_unique<perception::metadata::ClassificationT>();
+        classification->object = perception::makeObjectMeta(0U, input.inferenceInfo.parentId);
 
-        classification.candidates.reserve(numResults);
+        classification->candidates.reserve(numResults);
         for (int i = 0; i < numResults; ++i) {
             const auto &[confidence, classIdx] = scoredIndices[i];
 
             // Store classification result as DetectionRect
             // x,y will be used to position the label in lower-right corner
             // w,h are not used for classification (no actual bounding box)
-            pek::Perception::Classification::Candidate candidate;
-            candidate.x = 0.0f;                  // Position will be calculated by renderer
-            candidate.y = static_cast<float>(i); // Store index for rendering
-            candidate.w = 0.0f;                  // Not used
-            candidate.h = 0.0f;                  // Not used
-            candidate.confidence = confidence;
-            candidate.text =
+            auto candidate = std::make_unique<perception::metadata::ClassificationCandidateT>();
+            candidate->x = 0.0f;                  // Position will be calculated by renderer
+            candidate->y = static_cast<float>(i); // Store index for rendering
+            candidate->w = 0.0f;                  // Not used
+            candidate->h = 0.0f;                  // Not used
+            candidate->confidence = confidence;
+            candidate->class_id = classIdx;
+            candidate->text =
                 pek::resources::Labels::getLabel(pek::resources::LabelType::ImageNet, classIdx);
 
-            classification.candidates.push_back(candidate);
+            classification->candidates.push_back(std::move(candidate));
         }
 
-        detectionResult.detections.push_back(classification);
+        payload.classifications.push_back(std::move(classification));
+        results.add(std::move(payload));
     }
 
     return {};
