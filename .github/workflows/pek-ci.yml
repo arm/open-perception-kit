@@ -63,6 +63,29 @@ env:
   CI_IMAGE_CACHE_KEY: pek-ci-image-${{ github.run_id }}
 
 jobs:
+  validate-label-dispatch:
+    name: Validate label dispatch
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_label != '' }}
+    permissions: {}
+    steps:
+      - name: Validate selected label checks
+        env:
+          CHECKS: ${{ inputs.checks }}
+          PR_LABEL: ${{ inputs.pr_label }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: |
+          test -n "$PR_NUMBER"
+          if [ "$PR_LABEL" = run-pek-ci ]; then
+            test "$CHECKS" = all
+          else
+            test "$CHECKS" = label
+            case "$PR_LABEL" in
+              run-macos-ci|run-python-audit|run-docker-scout|run-workflow-audit) ;;
+              *) exit 1 ;;
+            esac
+          fi
+
   build-ci-image:
     name: Build PEK CI image
     runs-on: ubuntu-latest
@@ -401,6 +424,7 @@ jobs:
 
   rpi5-quick-start-build-test:
     name: Quick-start and Playwright on Raspberry Pi 5
+    needs: build-ci-image
     runs-on: [self-hosted, Linux, ARM64, amp-dev-forge-runner-rpi5]
     timeout-minutes: 240
     permissions:
@@ -433,7 +457,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-          ref: ${{ github.event.inputs.pr_head_sha || github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ needs.build-ci-image.outputs.head_sha }}
           path: ${{ env.CI_CHECKOUT_PATH }}
           persist-credentials: false
 

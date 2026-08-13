@@ -80,12 +80,13 @@ class AgentWorkflowBehaviorTests(unittest.TestCase):
                 self.assertIn("inputs.checks == 'label'", job_text)
                 self.assertIn(f"inputs.pr_label == '{label}'", job_text)
 
-    def test_manual_pr_rpi_uses_the_validated_head_sha_without_host_python(self):
+    def test_manual_pr_rpi_uses_the_centrally_validated_head_sha(self):
         pek_ci = (REPO_ROOT / ".github/workflows/pek-ci.yml").read_text()
         rpi_job = pek_ci.split("  rpi5-quick-start-build-test:", 1)[1].split(
             "  macos-nightly-test:", 1
         )[0]
-        self.assertIn("github.event.inputs.pr_head_sha", rpi_job)
+        self.assertIn("needs: build-ci-image", rpi_job)
+        self.assertIn("needs.build-ci-image.outputs.head_sha", rpi_job)
         self.assertNotIn("python3 scripts/private/github_pr_context.py", rpi_job)
 
     def test_agent_runtime_static_analysis_trigger_paths(self):
