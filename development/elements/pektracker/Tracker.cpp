@@ -16,11 +16,20 @@ void Tracker::reset() {
     inactiveTracks.clear();
     nextTrackId = 1;
     currentFrameIndex = 0;
+    kalmanDeltaTime.reset();
 }
 
-void Tracker::process(perception::FrameResults &frameResults, const Config &config) {
+const KalmanDeltaTimeTracking &Tracker::kalmanDeltaTimeTracking() const {
+    return kalmanDeltaTime;
+}
+
+void Tracker::process(perception::FrameResults &frameResults,
+                      const Config &config,
+                      std::optional<uint64_t> runningTimeMs) {
     // Advance the internal frame counter for the current processing step.
     currentFrameIndex++;
+    kalmanDeltaTime.update(runningTimeMs, config);
+    const float kalmanDt = kalmanDeltaTime.effectiveKalmanDt();
 
     // Gather embedding vectors for this frame.
     const auto embeddings = frameinputs::collectEmbeddings(frameResults, config);
@@ -31,12 +40,12 @@ void Tracker::process(perception::FrameResults &frameResults, const Config &conf
     matching::clearTrackPredictionFlags(activeTracks);
 
     // Associate detections with currently active tracks using IoU/ReID cost.
-    const auto detectionMatches =
-        matching::associateDetectionsToActiveTracks(detections, embeddings, activeTracks, config);
+    const auto detectionMatches = matching::associateDetectionsToActiveTracks(
+        detections, embeddings, activeTracks, kalmanDt, config);
 
     // Build lifecycle inputs for this frame.
     auto frameTrackingContext = tracklifecycle::FrameTrackingContext{
-        detections, embeddings, detectionMatches, currentFrameIndex, config};
+        detections, embeddings, detectionMatches, currentFrameIndex, kalmanDt, config};
 
     // Build mutable lifecycle state references (active/dormant tracks and next ID).
     auto mutableTrackState =

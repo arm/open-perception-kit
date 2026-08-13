@@ -25,11 +25,13 @@ void clearTrackPredictionFlags(ActiveTrackMap &activeTracks);
  * @param embeddings Embedding lookup keyed by detection ID.
  * @param activeTracks Active track state map.
  * @param config Tracker configuration controlling association behavior.
+ * @param kalmanDt Effective Kalman time step for the current frame.
  * @return AssociationResult Matched pairs, diagnostics, and unmatched detections.
  */
 AssociationResult associateDetectionsToActiveTracks(const DetectionBatch &detections,
                                                     const EmbeddingBatch &embeddings,
                                                     ActiveTrackMap &activeTracks,
+                                                    float kalmanDt,
                                                     const Config &config);
 
 } // namespace pek::tracker::matching

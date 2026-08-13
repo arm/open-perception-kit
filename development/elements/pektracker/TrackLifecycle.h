@@ -18,6 +18,7 @@ struct FrameTrackingContext {
     const EmbeddingBatch &embeddings;
     const AssociationResult &association;
     uint64_t currentFrameIndex;
+    float kalmanDt;
     const Config &config;
 };
 

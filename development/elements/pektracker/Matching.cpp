@@ -57,6 +57,7 @@ TrackIdList collectActiveTrackIds(const ActiveTrackMap &activeTracks) {
 }
 
 std::vector<perception::metadata::BoundingBoxT> predictTrackBoxes(ActiveTrackMap &activeTracks,
+                                                                  float kalmanDt,
                                                                   const Config &config) {
     std::vector<perception::metadata::BoundingBoxT> predictedTrackBoxes;
     predictedTrackBoxes.reserve(activeTracks.size());
@@ -66,7 +67,7 @@ std::vector<perception::metadata::BoundingBoxT> predictTrackBoxes(ActiveTrackMap
         assert(track.lastDetection.box);
         auto predictedBox = *track.lastDetection.box;
         if (config.useKalman) {
-            const auto predictedPoint = trackstate::predictCenter(track, config);
+            const auto predictedPoint = trackstate::predictCenter(track, kalmanDt, config);
             track.predictedThisFrame = true;
             predictedBox.x = predictedPoint.x - (predictedBox.width * 0.5f);
             predictedBox.y = predictedPoint.y - (predictedBox.height * 0.5f);
@@ -238,6 +239,7 @@ void clearTrackPredictionFlags(ActiveTrackMap &activeTracks) {
 AssociationResult associateDetectionsToActiveTracks(const DetectionBatch &detections,
                                                     const EmbeddingBatch &embeddings,
                                                     ActiveTrackMap &activeTracks,
+                                                    float kalmanDt,
                                                     const Config &config) {
     AssociationResult result;
 
@@ -251,7 +253,7 @@ AssociationResult associateDetectionsToActiveTracks(const DetectionBatch &detect
     }
 
     const auto trackIds = collectActiveTrackIds(activeTracks);
-    const auto predictedTrackBoxes = predictTrackBoxes(activeTracks, config);
+    const auto predictedTrackBoxes = predictTrackBoxes(activeTracks, kalmanDt, config);
     const auto matrices = buildAssociationMatrices(
         detections, trackIds, predictedTrackBoxes, embeddings, activeTracks, config);
 

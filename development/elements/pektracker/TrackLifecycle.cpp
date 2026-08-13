@@ -23,7 +23,7 @@ void expireInactiveTracks(const FrameTrackingContext &frameTrackingContext,
         return;
     }
 
-    const float dt = std::max(frameTrackingContext.config.kalmanDt, 1e-4f);
+    const float dt = std::max(frameTrackingContext.kalmanDt, 1e-4f);
     const uint64_t maxDormantFrames = static_cast<uint64_t>(std::max(
         1.0f,
         std::ceil(std::max(frameTrackingContext.config.dormantTrackHistorySeconds, 0.0f) / dt)));
@@ -95,14 +95,15 @@ void applyMatchedDetection(DetectionIndex detectionIndex,
     Point2f resolvedPoint;
     if (frameTrackingContext.config.useKalman) {
         resolvedPoint = trackstate::correctCenterWithMeasurement(
-            track, track.lastDetection, frameTrackingContext.config);
+            track, track.lastDetection, frameTrackingContext.kalmanDt, frameTrackingContext.config);
     } else {
         const auto &lastBox = ensureBox(track.lastDetection);
         resolvedPoint =
             makePoint(lastBox.x + (lastBox.width * 0.5f), lastBox.y + (lastBox.height * 0.5f));
         track.predictedThisFrame = false;
     }
-    trackstate::appendTracePoint(track, resolvedPoint, frameTrackingContext.config);
+    trackstate::appendTracePoint(
+        track, resolvedPoint, frameTrackingContext.kalmanDt, frameTrackingContext.config);
 
     const auto diagnosticIt =
         frameTrackingContext.association.diagnosticsByDetection.find(detectionIndex);
@@ -174,7 +175,8 @@ bool tryRestoreDormantTrack(DetectionIndex detectionIndex,
 
     Point2f initPoint;
     if (frameTrackingContext.config.useKalman) {
-        initPoint = trackstate::predictCenter(restoredTrack, frameTrackingContext.config);
+        initPoint = trackstate::predictCenter(
+            restoredTrack, frameTrackingContext.kalmanDt, frameTrackingContext.config);
         restoredTrack.predictedThisFrame = true;
     } else {
         const auto &restoredBox = ensureBox(restoredTrack.lastDetection);
@@ -182,7 +184,8 @@ bool tryRestoreDormantTrack(DetectionIndex detectionIndex,
                               restoredBox.y + (restoredBox.height * 0.5f));
         restoredTrack.predictedThisFrame = false;
     }
-    trackstate::appendTracePoint(restoredTrack, initPoint, frameTrackingContext.config);
+    trackstate::appendTracePoint(
+        restoredTrack, initPoint, frameTrackingContext.kalmanDt, frameTrackingContext.config);
     auto &restoredBox = ensureBox(restoredTrack.lastDetection);
     restoredBox.x = initPoint.x - (restoredBox.width * 0.5f);
     restoredBox.y = initPoint.y - (restoredBox.height * 0.5f);
@@ -214,14 +217,16 @@ void createTrackFromDetection(DetectionIndex detectionIndex,
 
     Point2f initPoint;
     if (frameTrackingContext.config.useKalman) {
-        initPoint = trackstate::predictCenter(newTrack, frameTrackingContext.config);
+        initPoint = trackstate::predictCenter(
+            newTrack, frameTrackingContext.kalmanDt, frameTrackingContext.config);
         newTrack.predictedThisFrame = true;
     } else {
         const auto &newBox = ensureBox(newTrack.lastDetection);
         initPoint = makePoint(newBox.x + (newBox.width * 0.5f), newBox.y + (newBox.height * 0.5f));
         newTrack.predictedThisFrame = false;
     }
-    trackstate::appendTracePoint(newTrack, initPoint, frameTrackingContext.config);
+    trackstate::appendTracePoint(
+        newTrack, initPoint, frameTrackingContext.kalmanDt, frameTrackingContext.config);
 
     auto &newBox = ensureBox(newTrack.lastDetection);
     newBox.x = initPoint.x - (newBox.width * 0.5f);
@@ -267,13 +272,15 @@ void updatePredictedOnlyTracks(const FrameTrackingContext &frameTrackingContext,
                 const auto &state = track.kalman.state();
                 predictedPoint = makePoint(state[0][0], state[1][0]);
             } else {
-                predictedPoint = trackstate::predictCenter(track, frameTrackingContext.config);
+                predictedPoint = trackstate::predictCenter(
+                    track, frameTrackingContext.kalmanDt, frameTrackingContext.config);
             }
         }
 
         lastBox.x = predictedPoint.x - (lastBox.width * 0.5f);
         lastBox.y = predictedPoint.y - (lastBox.height * 0.5f);
-        trackstate::appendTracePoint(track, predictedPoint, frameTrackingContext.config);
+        trackstate::appendTracePoint(
+            track, predictedPoint, frameTrackingContext.kalmanDt, frameTrackingContext.config);
 
         track.missedFrames++;
         if (track.missedFrames <= frameTrackingContext.config.maxMissedFrames &&

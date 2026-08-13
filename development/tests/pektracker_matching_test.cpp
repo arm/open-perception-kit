@@ -57,6 +57,7 @@ TEST(PekTrackerMatching, HybridRejectsNonOverlappingEmbeddingOnlyAssignment) {
         detections,
         embeddings,
         activeTracks,
+        1.0f / 30.0f,
         matchingConfig(pek::tracker::AssociationMode::Hybrid));
 
     EXPECT_TRUE(result.matches.empty());
@@ -79,6 +80,7 @@ TEST(PekTrackerMatching, HybridAcceptsAssignmentWhenIoUPassesThreshold) {
         detections,
         embeddings,
         activeTracks,
+        1.0f / 30.0f,
         matchingConfig(pek::tracker::AssociationMode::Hybrid));
 
     ASSERT_EQ(result.matches.size(), 1U);
@@ -102,10 +104,30 @@ TEST(PekTrackerMatching, EmbeddingModeAcceptsNonOverlappingEmbeddingAssignment) 
         detections,
         embeddings,
         activeTracks,
+        1.0f / 30.0f,
         matchingConfig(pek::tracker::AssociationMode::Embedding));
 
     ASSERT_EQ(result.matches.size(), 1U);
     EXPECT_EQ(result.matches[0].first, 0U);
     EXPECT_EQ(result.matches[0].second, 42U);
     EXPECT_TRUE(result.unmatchedDetections.empty());
+}
+
+TEST(PekTrackerTiming, KalmanDtUsesRunningTimeDeltaUnlessFallbackIsForced) {
+    pek::tracker::Config config;
+    pek::tracker::KalmanDeltaTimeTracking timing;
+
+    timing.update(1'000ULL, config);
+    EXPECT_TRUE(timing.usesFallback());
+
+    timing.update(1'250ULL, config);
+    EXPECT_FLOAT_EQ(timing.effectiveKalmanDt(), 0.25f);
+    EXPECT_FALSE(timing.usesFallback());
+
+    config.kalmanDtFallback = 0.1f;
+    config.kalmanDtForceFallback = true;
+    timing.update(2'000ULL, config);
+    EXPECT_FLOAT_EQ(timing.effectiveKalmanDt(), 0.1f);
+    EXPECT_TRUE(timing.usesFallback());
+    EXPECT_TRUE(timing.fallbackForced());
 }
