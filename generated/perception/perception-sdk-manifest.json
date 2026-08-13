@@ -80,13 +80,13 @@
     },
     {
       "path": "cpp/perception.h",
-      "sha256": "f6ba4410e7aa6fd9a5896650fd124ac110e169db63ea9b51f86cc6c007a4e39e",
-      "size": 31232
+      "sha256": "8eaf5220543e70702a6c5b4ab2c3d5ded3eaa7100a7d76ccd4b630d0e3f0267c",
+      "size": 31218
     },
     {
       "path": "cpp/python_bridge/perception_python_bridge.cpp",
-      "sha256": "7e2f0db11923927dd5dcc22149a57966b6eacd169d2e31df8ac194523e84ffbc",
-      "size": 208512
+      "sha256": "4bd5c0ca57dcd701a019b1ecffb0483bca68456ee61198fd633aee3c628cf2e5",
+      "size": 205677
     },
     {
       "path": "cpp/python_bridge/perception_python_bridge.h",
@@ -781,7 +781,7 @@
   ],
   "generation": {
     "flowdata_sdk": {
-      "commit": "da2583502acb329d3f907022921fd6523912b20f",
+      "commit": "a4852a2fe023b58d3924080ffd5aaa01e0047d08",
       "generator": {
         "name": "flowdata-sdk",
         "version": "0.5.0"
@@ -908,13 +908,13 @@
         },
         {
           "path": "perception.h",
-          "sha256": "df9bb3aac438bec3611a0c7b2b22f612fa9944a05291a03a7db616b5b18a45e7",
-          "size": 30874
+          "sha256": "4a5a674428d4d1148e17cc63450a2b91a4aab0182a015319919fcce7fd5d9395",
+          "size": 30843
         },
         {
           "path": "python_bridge/perception_python_bridge.cpp",
-          "sha256": "e2befca8fe0270188fe766788a0451ff7851829e187fd1e32a9d46c2a1d8021e",
-          "size": 200842
+          "sha256": "19def95e92a8496bb94920ca718c40755cd1f92123f8eb8e443359f880c58ffa",
+          "size": 199771
         },
         {
           "path": "python_bridge/perception_python_bridge.h",

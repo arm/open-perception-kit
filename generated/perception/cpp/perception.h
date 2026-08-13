@@ -253,9 +253,7 @@ class external_key_t {
     }
 
     [[nodiscard]] friend constexpr bool operator==(external_key_t lhs,
-                                                   external_key_t rhs) noexcept {
-        return lhs.value_ == rhs.value_;
-    }
+                                                   external_key_t rhs) noexcept = default;
 
   private:
     friend class external_payload_ref;
@@ -806,8 +804,9 @@ class envelope {
     make_payload_blob(flatbuffers::FlatBufferBuilder &builder,
                       const perception::detail::payload_data &data) {
         return std::visit(
-            [&](const auto &value) -> flatbuffers::Offset<flatbuffers::Vector<std::uint8_t>> {
-                using value_type = std::remove_cvref_t<decltype(value)>;
+            [&]<typename Value>(
+                const Value &value) -> flatbuffers::Offset<flatbuffers::Vector<std::uint8_t>> {
+                using value_type = std::remove_cvref_t<Value>;
                 if constexpr (std::is_same_v<value_type, perception::detail::encoded_payload>) {
                     return builder.CreateVector(value.blob);
                 } else {

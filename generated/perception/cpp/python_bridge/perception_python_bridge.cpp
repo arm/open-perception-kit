@@ -108,7 +108,7 @@ PyObject *make_native_vector_proxy(PyTypeObject &type,
     return make_native_proxy<VectorT>(type, value, std::move(anchor));
 }
 
-PyObject *py_string_from_std(const std::string &value) {
+PyObject *py_string_from_std(std::string_view value) {
     return PyUnicode_FromStringAndSize(value.data(), static_cast<Py_ssize_t>(value.size()));
 }
 
@@ -516,24 +516,24 @@ live_envelope_object *require_live_envelope(PyObject *self) {
     return live;
 }
 
-extern "C" PyObject *live_envelope_producer_sdk_name(PyObject *self, void *) {
-    auto *live = require_live_envelope(self);
+PyObject *live_envelope_producer_sdk_name(PyObject *self, void *) {
+    const auto *live = require_live_envelope(self);
     if (live == nullptr) {
         return nullptr;
     }
     return py_string_from_std(live->envelope->producer_sdk_name());
 }
 
-extern "C" PyObject *live_envelope_producer_sdk_version(PyObject *self, void *) {
-    auto *live = require_live_envelope(self);
+PyObject *live_envelope_producer_sdk_version(PyObject *self, void *) {
+    const auto *live = require_live_envelope(self);
     if (live == nullptr) {
         return nullptr;
     }
     return py_string_from_std(live->envelope->producer_sdk_version());
 }
 
-extern "C" PyObject *live_envelope_producer_schema_set_sha256(PyObject *self, void *) {
-    auto *live = require_live_envelope(self);
+PyObject *live_envelope_producer_schema_set_sha256(PyObject *self, void *) {
+    const auto *live = require_live_envelope(self);
     if (live == nullptr) {
         return nullptr;
     }
@@ -910,9 +910,9 @@ std::optional<T> python_payload_to_native(PyObject *value, const char *file_iden
         return std::nullopt;
     }
 
-    py_object_handle finish_result(
-        PyObject_CallMethod(builder.get(), "Finish", "OO", offset.get(), identifier.get()));
-    if (!finish_result) {
+    if (py_object_handle finish_result(
+            PyObject_CallMethod(builder.get(), "Finish", "OO", offset.get(), identifier.get()));
+        !finish_result) {
         return std::nullopt;
     }
 
@@ -934,8 +934,8 @@ std::optional<T> python_payload_to_native(PyObject *value, const char *file_iden
     PyBuffer_Release(&view);
 
     using traits = detail::native_traits<T>;
-    flatbuffers::Verifier verifier(blob.data(), blob.size());
-    if (!verifier.VerifyBuffer<typename traits::table_type>(traits::file_identifier())) {
+    if (flatbuffers::Verifier verifier(blob.data(), blob.size());
+        !verifier.VerifyBuffer<typename traits::table_type>(traits::file_identifier())) {
         PyErr_SetString(
             PyExc_ValueError,
             "perception payload object did not pack into the expected FlatBuffers root type");
@@ -1020,6 +1020,14 @@ PyObject *live_envelope_count(PyObject *self, PyObject *args) {
     Py_UNREACHABLE();
 }
 
+PyObject *live_envelope_contains_external(const container::envelope &envelope, PyObject *selector) {
+    auto key = external_key_from_python(selector);
+    if (!key) {
+        return nullptr;
+    }
+    return PyBool_FromLong(envelope.contains(*key));
+}
+
 PyObject *live_envelope_contains(PyObject *self, PyObject *args) {
     PyObject *selector = nullptr;
     if (!PyArg_ParseTuple(args, "O:contains", &selector)) {
@@ -1031,14 +1039,7 @@ PyObject *live_envelope_contains(PyObject *self, PyObject *args) {
     }
 
     if (!PyType_Check(selector)) {
-        auto key = external_key_from_python(selector);
-        if (!key) {
-            return nullptr;
-        }
-        if (live->envelope->contains(*key)) {
-            Py_RETURN_TRUE;
-        }
-        Py_RETURN_FALSE;
+        return live_envelope_contains_external(*live->envelope, selector);
     }
 
     auto kind = known_payload_kind_from_type(selector);
@@ -1185,7 +1186,7 @@ PyObject *live_envelope_for_each(PyObject *self, PyObject *args) {
             return nullptr;
         }
         bool ok = true;
-        live->envelope->for_each(*key, [&](std::span<const std::uint8_t> bytes) {
+        live->envelope->for_each(*key, [&ok, result](std::span<const std::uint8_t> bytes) {
             if (!ok) {
                 return;
             }
@@ -1283,10 +1284,10 @@ PyObject *live_envelope_add(PyObject *self, PyObject *args) {
     }
 
     auto is_key = is_external_key_python(value);
-    if (!is_key) {
+    if (!is_key.has_value()) {
         return nullptr;
     }
-    if (*is_key) {
+    if (is_key.value()) {
         PyErr_SetString(PyExc_TypeError, "perception external add requires a bytes-like blob");
         return nullptr;
     }
@@ -2049,7 +2050,7 @@ bool ensure_perception_metadata_TrackTraces_traces_vector_type() {
     return PyType_Ready(&type) >= 0;
 }
 
-extern "C" PyObject *get_perception_metadata_BoxDetection_object(PyObject *self, void *) {
+PyObject *get_perception_metadata_BoxDetection_object(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::BoxDetectionT> *>(self);
     const auto *value = proxy->value;
@@ -2065,7 +2066,7 @@ extern "C" PyObject *get_perception_metadata_BoxDetection_object(PyObject *self,
         nested, proxy_anchor<perception::metadata::BoxDetectionT>(self));
 }
 
-extern "C" PyObject *get_perception_metadata_BoxDetection_box(PyObject *self, void *) {
+PyObject *get_perception_metadata_BoxDetection_box(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::BoxDetectionT> *>(self);
     const auto *value = proxy->value;
@@ -2081,7 +2082,7 @@ extern "C" PyObject *get_perception_metadata_BoxDetection_box(PyObject *self, vo
         nested, proxy_anchor<perception::metadata::BoxDetectionT>(self));
 }
 
-extern "C" PyObject *get_perception_metadata_BoxDetection_confidence(PyObject *self, void *) {
+PyObject *get_perception_metadata_BoxDetection_confidence(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::BoxDetectionT> *>(self);
     const auto *value = proxy->value;
@@ -2092,7 +2093,7 @@ extern "C" PyObject *get_perception_metadata_BoxDetection_confidence(PyObject *s
     return PyFloat_FromDouble(static_cast<double>(value->confidence));
 }
 
-extern "C" PyObject *get_perception_metadata_BoxDetection_class_id(PyObject *self, void *) {
+PyObject *get_perception_metadata_BoxDetection_class_id(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::BoxDetectionT> *>(self);
     const auto *value = proxy->value;
@@ -2103,7 +2104,7 @@ extern "C" PyObject *get_perception_metadata_BoxDetection_class_id(PyObject *sel
     return py_long_from_signed(value->class_id);
 }
 
-extern "C" PyObject *get_perception_metadata_BoxDetection_text(PyObject *self, void *) {
+PyObject *get_perception_metadata_BoxDetection_text(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::BoxDetectionT> *>(self);
     const auto *value = proxy->value;
@@ -2173,7 +2174,7 @@ make_perception_metadata_BoxDetection_proxy(const perception::metadata::BoxDetec
         pytype_perception_metadata_BoxDetection(), value, std::move(anchor));
 }
 
-extern "C" PyObject *get_perception_metadata_BoxDetections_schema_major(PyObject *self, void *) {
+PyObject *get_perception_metadata_BoxDetections_schema_major(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::BoxDetectionsT> *>(self);
     const auto *value = proxy->value;
@@ -2184,7 +2185,7 @@ extern "C" PyObject *get_perception_metadata_BoxDetections_schema_major(PyObject
     return py_long_from_unsigned(value->schema_major);
 }
 
-extern "C" PyObject *get_perception_metadata_BoxDetections_schema_minor(PyObject *self, void *) {
+PyObject *get_perception_metadata_BoxDetections_schema_minor(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::BoxDetectionsT> *>(self);
     const auto *value = proxy->value;
@@ -2195,7 +2196,7 @@ extern "C" PyObject *get_perception_metadata_BoxDetections_schema_minor(PyObject
     return py_long_from_unsigned(value->schema_minor);
 }
 
-extern "C" PyObject *get_perception_metadata_BoxDetections_layer(PyObject *self, void *) {
+PyObject *get_perception_metadata_BoxDetections_layer(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::BoxDetectionsT> *>(self);
     const auto *value = proxy->value;
@@ -2211,7 +2212,7 @@ extern "C" PyObject *get_perception_metadata_BoxDetections_layer(PyObject *self,
         nested, proxy_anchor<perception::metadata::BoxDetectionsT>(self));
 }
 
-extern "C" PyObject *get_perception_metadata_BoxDetections_detections(PyObject *self, void *) {
+PyObject *get_perception_metadata_BoxDetections_detections(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::BoxDetectionsT> *>(self);
     const auto *value = proxy->value;
@@ -2280,8 +2281,7 @@ make_perception_metadata_BoxDetections_proxy(const perception::metadata::BoxDete
         pytype_perception_metadata_BoxDetections(), value, std::move(anchor));
 }
 
-extern "C" PyObject *get_perception_metadata_ClassificationCandidate_confidence(PyObject *self,
-                                                                                void *) {
+PyObject *get_perception_metadata_ClassificationCandidate_confidence(PyObject *self, void *) {
     const auto *proxy = reinterpret_cast<
         const native_proxy_object<perception::metadata::ClassificationCandidateT> *>(self);
     const auto *value = proxy->value;
@@ -2292,8 +2292,7 @@ extern "C" PyObject *get_perception_metadata_ClassificationCandidate_confidence(
     return PyFloat_FromDouble(static_cast<double>(value->confidence));
 }
 
-extern "C" PyObject *get_perception_metadata_ClassificationCandidate_class_id(PyObject *self,
-                                                                              void *) {
+PyObject *get_perception_metadata_ClassificationCandidate_class_id(PyObject *self, void *) {
     const auto *proxy = reinterpret_cast<
         const native_proxy_object<perception::metadata::ClassificationCandidateT> *>(self);
     const auto *value = proxy->value;
@@ -2304,7 +2303,7 @@ extern "C" PyObject *get_perception_metadata_ClassificationCandidate_class_id(Py
     return py_long_from_signed(value->class_id);
 }
 
-extern "C" PyObject *get_perception_metadata_ClassificationCandidate_text(PyObject *self, void *) {
+PyObject *get_perception_metadata_ClassificationCandidate_text(PyObject *self, void *) {
     const auto *proxy = reinterpret_cast<
         const native_proxy_object<perception::metadata::ClassificationCandidateT> *>(self);
     const auto *value = proxy->value;
@@ -2315,7 +2314,7 @@ extern "C" PyObject *get_perception_metadata_ClassificationCandidate_text(PyObje
     return py_string_from_std(value->text);
 }
 
-extern "C" PyObject *get_perception_metadata_ClassificationCandidate_x(PyObject *self, void *) {
+PyObject *get_perception_metadata_ClassificationCandidate_x(PyObject *self, void *) {
     const auto *proxy = reinterpret_cast<
         const native_proxy_object<perception::metadata::ClassificationCandidateT> *>(self);
     const auto *value = proxy->value;
@@ -2326,7 +2325,7 @@ extern "C" PyObject *get_perception_metadata_ClassificationCandidate_x(PyObject 
     return PyFloat_FromDouble(static_cast<double>(value->x));
 }
 
-extern "C" PyObject *get_perception_metadata_ClassificationCandidate_y(PyObject *self, void *) {
+PyObject *get_perception_metadata_ClassificationCandidate_y(PyObject *self, void *) {
     const auto *proxy = reinterpret_cast<
         const native_proxy_object<perception::metadata::ClassificationCandidateT> *>(self);
     const auto *value = proxy->value;
@@ -2337,7 +2336,7 @@ extern "C" PyObject *get_perception_metadata_ClassificationCandidate_y(PyObject 
     return PyFloat_FromDouble(static_cast<double>(value->y));
 }
 
-extern "C" PyObject *get_perception_metadata_ClassificationCandidate_w(PyObject *self, void *) {
+PyObject *get_perception_metadata_ClassificationCandidate_w(PyObject *self, void *) {
     const auto *proxy = reinterpret_cast<
         const native_proxy_object<perception::metadata::ClassificationCandidateT> *>(self);
     const auto *value = proxy->value;
@@ -2348,7 +2347,7 @@ extern "C" PyObject *get_perception_metadata_ClassificationCandidate_w(PyObject 
     return PyFloat_FromDouble(static_cast<double>(value->w));
 }
 
-extern "C" PyObject *get_perception_metadata_ClassificationCandidate_h(PyObject *self, void *) {
+PyObject *get_perception_metadata_ClassificationCandidate_h(PyObject *self, void *) {
     const auto *proxy = reinterpret_cast<
         const native_proxy_object<perception::metadata::ClassificationCandidateT> *>(self);
     const auto *value = proxy->value;
@@ -2429,7 +2428,7 @@ PyObject *make_perception_metadata_ClassificationCandidate_proxy(
         pytype_perception_metadata_ClassificationCandidate(), value, std::move(anchor));
 }
 
-extern "C" PyObject *get_perception_metadata_Classification_object(PyObject *self, void *) {
+PyObject *get_perception_metadata_Classification_object(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::ClassificationT> *>(self);
     const auto *value = proxy->value;
@@ -2445,7 +2444,7 @@ extern "C" PyObject *get_perception_metadata_Classification_object(PyObject *sel
         nested, proxy_anchor<perception::metadata::ClassificationT>(self));
 }
 
-extern "C" PyObject *get_perception_metadata_Classification_candidates(PyObject *self, void *) {
+PyObject *get_perception_metadata_Classification_candidates(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::ClassificationT> *>(self);
     const auto *value = proxy->value;
@@ -2504,7 +2503,7 @@ make_perception_metadata_Classification_proxy(const perception::metadata::Classi
         pytype_perception_metadata_Classification(), value, std::move(anchor));
 }
 
-extern "C" PyObject *get_perception_metadata_PersonPresence_object(PyObject *self, void *) {
+PyObject *get_perception_metadata_PersonPresence_object(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::PersonPresenceT> *>(self);
     const auto *value = proxy->value;
@@ -2520,7 +2519,7 @@ extern "C" PyObject *get_perception_metadata_PersonPresence_object(PyObject *sel
         nested, proxy_anchor<perception::metadata::PersonPresenceT>(self));
 }
 
-extern "C" PyObject *get_perception_metadata_PersonPresence_yes_confidence(PyObject *self, void *) {
+PyObject *get_perception_metadata_PersonPresence_yes_confidence(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::PersonPresenceT> *>(self);
     const auto *value = proxy->value;
@@ -2531,7 +2530,7 @@ extern "C" PyObject *get_perception_metadata_PersonPresence_yes_confidence(PyObj
     return PyFloat_FromDouble(static_cast<double>(value->yes_confidence));
 }
 
-extern "C" PyObject *get_perception_metadata_PersonPresence_no_confidence(PyObject *self, void *) {
+PyObject *get_perception_metadata_PersonPresence_no_confidence(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::PersonPresenceT> *>(self);
     const auto *value = proxy->value;
@@ -2591,7 +2590,7 @@ make_perception_metadata_PersonPresence_proxy(const perception::metadata::Person
         pytype_perception_metadata_PersonPresence(), value, std::move(anchor));
 }
 
-extern "C" PyObject *get_perception_metadata_Classifications_schema_major(PyObject *self, void *) {
+PyObject *get_perception_metadata_Classifications_schema_major(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::ClassificationsT> *>(self);
     const auto *value = proxy->value;
@@ -2602,7 +2601,7 @@ extern "C" PyObject *get_perception_metadata_Classifications_schema_major(PyObje
     return py_long_from_unsigned(value->schema_major);
 }
 
-extern "C" PyObject *get_perception_metadata_Classifications_schema_minor(PyObject *self, void *) {
+PyObject *get_perception_metadata_Classifications_schema_minor(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::ClassificationsT> *>(self);
     const auto *value = proxy->value;
@@ -2613,7 +2612,7 @@ extern "C" PyObject *get_perception_metadata_Classifications_schema_minor(PyObje
     return py_long_from_unsigned(value->schema_minor);
 }
 
-extern "C" PyObject *get_perception_metadata_Classifications_layer(PyObject *self, void *) {
+PyObject *get_perception_metadata_Classifications_layer(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::ClassificationsT> *>(self);
     const auto *value = proxy->value;
@@ -2629,8 +2628,7 @@ extern "C" PyObject *get_perception_metadata_Classifications_layer(PyObject *sel
         nested, proxy_anchor<perception::metadata::ClassificationsT>(self));
 }
 
-extern "C" PyObject *get_perception_metadata_Classifications_classifications(PyObject *self,
-                                                                             void *) {
+PyObject *get_perception_metadata_Classifications_classifications(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::ClassificationsT> *>(self);
     const auto *value = proxy->value;
@@ -2645,8 +2643,7 @@ extern "C" PyObject *get_perception_metadata_Classifications_classifications(PyO
         proxy_anchor<perception::metadata::ClassificationsT>(self));
 }
 
-extern "C" PyObject *get_perception_metadata_Classifications_person_presence(PyObject *self,
-                                                                             void *) {
+PyObject *get_perception_metadata_Classifications_person_presence(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::ClassificationsT> *>(self);
     const auto *value = proxy->value;
@@ -2720,7 +2717,7 @@ make_perception_metadata_Classifications_proxy(const perception::metadata::Class
         pytype_perception_metadata_Classifications(), value, std::move(anchor));
 }
 
-extern "C" PyObject *get_perception_metadata_ObjectMeta_id(PyObject *self, void *) {
+PyObject *get_perception_metadata_ObjectMeta_id(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::ObjectMetaT> *>(self);
     const auto *value = proxy->value;
@@ -2731,7 +2728,7 @@ extern "C" PyObject *get_perception_metadata_ObjectMeta_id(PyObject *self, void 
     return py_long_from_unsigned(value->id);
 }
 
-extern "C" PyObject *get_perception_metadata_ObjectMeta_parent_id(PyObject *self, void *) {
+PyObject *get_perception_metadata_ObjectMeta_parent_id(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::ObjectMetaT> *>(self);
     const auto *value = proxy->value;
@@ -2742,7 +2739,7 @@ extern "C" PyObject *get_perception_metadata_ObjectMeta_parent_id(PyObject *self
     return py_long_from_unsigned(value->parent_id);
 }
 
-extern "C" PyObject *get_perception_metadata_ObjectMeta_creation_ts_ns(PyObject *self, void *) {
+PyObject *get_perception_metadata_ObjectMeta_creation_ts_ns(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::ObjectMetaT> *>(self);
     const auto *value = proxy->value;
@@ -2802,7 +2799,7 @@ make_perception_metadata_ObjectMeta_proxy(const perception::metadata::ObjectMeta
         pytype_perception_metadata_ObjectMeta(), value, std::move(anchor));
 }
 
-extern "C" PyObject *get_perception_metadata_LayerInfo_engine(PyObject *self, void *) {
+PyObject *get_perception_metadata_LayerInfo_engine(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::LayerInfoT> *>(self);
     const auto *value = proxy->value;
@@ -2813,7 +2810,7 @@ extern "C" PyObject *get_perception_metadata_LayerInfo_engine(PyObject *self, vo
     return py_string_from_std(value->engine);
 }
 
-extern "C" PyObject *get_perception_metadata_LayerInfo_model(PyObject *self, void *) {
+PyObject *get_perception_metadata_LayerInfo_model(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::LayerInfoT> *>(self);
     const auto *value = proxy->value;
@@ -2824,7 +2821,7 @@ extern "C" PyObject *get_perception_metadata_LayerInfo_model(PyObject *self, voi
     return py_string_from_std(value->model);
 }
 
-extern "C" PyObject *get_perception_metadata_LayerInfo_tags(PyObject *self, void *) {
+PyObject *get_perception_metadata_LayerInfo_tags(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::LayerInfoT> *>(self);
     const auto *value = proxy->value;
@@ -2835,7 +2832,7 @@ extern "C" PyObject *get_perception_metadata_LayerInfo_tags(PyObject *self, void
     return py_string_from_std(value->tags);
 }
 
-extern "C" PyObject *get_perception_metadata_LayerInfo_infer_element_id(PyObject *self, void *) {
+PyObject *get_perception_metadata_LayerInfo_infer_element_id(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::LayerInfoT> *>(self);
     const auto *value = proxy->value;
@@ -2846,7 +2843,7 @@ extern "C" PyObject *get_perception_metadata_LayerInfo_infer_element_id(PyObject
     return py_string_from_std(value->infer_element_id);
 }
 
-extern "C" PyObject *get_perception_metadata_LayerInfo_label_family(PyObject *self, void *) {
+PyObject *get_perception_metadata_LayerInfo_label_family(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::LayerInfoT> *>(self);
     const auto *value = proxy->value;
@@ -2857,7 +2854,7 @@ extern "C" PyObject *get_perception_metadata_LayerInfo_label_family(PyObject *se
     return py_string_from_std(value->label_family);
 }
 
-extern "C" PyObject *get_perception_metadata_LayerInfo_content_type(PyObject *self, void *) {
+PyObject *get_perception_metadata_LayerInfo_content_type(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::LayerInfoT> *>(self);
     const auto *value = proxy->value;
@@ -2868,7 +2865,7 @@ extern "C" PyObject *get_perception_metadata_LayerInfo_content_type(PyObject *se
     return py_string_from_std(value->content_type);
 }
 
-extern "C" PyObject *get_perception_metadata_LayerInfo_compositing_mode(PyObject *self, void *) {
+PyObject *get_perception_metadata_LayerInfo_compositing_mode(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::LayerInfoT> *>(self);
     const auto *value = proxy->value;
@@ -2948,7 +2945,7 @@ make_perception_metadata_LayerInfo_proxy(const perception::metadata::LayerInfoT 
         pytype_perception_metadata_LayerInfo(), value, std::move(anchor));
 }
 
-extern "C" PyObject *get_perception_metadata_BoundingBox_x(PyObject *self, void *) {
+PyObject *get_perception_metadata_BoundingBox_x(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::BoundingBoxT> *>(self);
     const auto *value = proxy->value;
@@ -2959,7 +2956,7 @@ extern "C" PyObject *get_perception_metadata_BoundingBox_x(PyObject *self, void 
     return PyFloat_FromDouble(static_cast<double>(value->x));
 }
 
-extern "C" PyObject *get_perception_metadata_BoundingBox_y(PyObject *self, void *) {
+PyObject *get_perception_metadata_BoundingBox_y(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::BoundingBoxT> *>(self);
     const auto *value = proxy->value;
@@ -2970,7 +2967,7 @@ extern "C" PyObject *get_perception_metadata_BoundingBox_y(PyObject *self, void 
     return PyFloat_FromDouble(static_cast<double>(value->y));
 }
 
-extern "C" PyObject *get_perception_metadata_BoundingBox_width(PyObject *self, void *) {
+PyObject *get_perception_metadata_BoundingBox_width(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::BoundingBoxT> *>(self);
     const auto *value = proxy->value;
@@ -2981,7 +2978,7 @@ extern "C" PyObject *get_perception_metadata_BoundingBox_width(PyObject *self, v
     return PyFloat_FromDouble(static_cast<double>(value->width));
 }
 
-extern "C" PyObject *get_perception_metadata_BoundingBox_height(PyObject *self, void *) {
+PyObject *get_perception_metadata_BoundingBox_height(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::BoundingBoxT> *>(self);
     const auto *value = proxy->value;
@@ -3046,7 +3043,7 @@ make_perception_metadata_BoundingBox_proxy(const perception::metadata::BoundingB
         pytype_perception_metadata_BoundingBox(), value, std::move(anchor));
 }
 
-extern "C" PyObject *get_perception_metadata_Point2f_x(PyObject *self, void *) {
+PyObject *get_perception_metadata_Point2f_x(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::Point2fT> *>(self);
     const auto *value = proxy->value;
@@ -3057,7 +3054,7 @@ extern "C" PyObject *get_perception_metadata_Point2f_x(PyObject *self, void *) {
     return PyFloat_FromDouble(static_cast<double>(value->x));
 }
 
-extern "C" PyObject *get_perception_metadata_Point2f_y(PyObject *self, void *) {
+PyObject *get_perception_metadata_Point2f_y(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::Point2fT> *>(self);
     const auto *value = proxy->value;
@@ -3112,7 +3109,7 @@ make_perception_metadata_Point2f_proxy(const perception::metadata::Point2fT *val
         pytype_perception_metadata_Point2f(), value, std::move(anchor));
 }
 
-extern "C" PyObject *get_perception_metadata_BitmapData_width(PyObject *self, void *) {
+PyObject *get_perception_metadata_BitmapData_width(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::BitmapDataT> *>(self);
     const auto *value = proxy->value;
@@ -3123,7 +3120,7 @@ extern "C" PyObject *get_perception_metadata_BitmapData_width(PyObject *self, vo
     return py_long_from_unsigned(value->width);
 }
 
-extern "C" PyObject *get_perception_metadata_BitmapData_height(PyObject *self, void *) {
+PyObject *get_perception_metadata_BitmapData_height(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::BitmapDataT> *>(self);
     const auto *value = proxy->value;
@@ -3134,7 +3131,7 @@ extern "C" PyObject *get_perception_metadata_BitmapData_height(PyObject *self, v
     return py_long_from_unsigned(value->height);
 }
 
-extern "C" PyObject *get_perception_metadata_BitmapData_value_type(PyObject *self, void *) {
+PyObject *get_perception_metadata_BitmapData_value_type(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::BitmapDataT> *>(self);
     const auto *value = proxy->value;
@@ -3145,7 +3142,7 @@ extern "C" PyObject *get_perception_metadata_BitmapData_value_type(PyObject *sel
     return py_string_from_std(value->value_type);
 }
 
-extern "C" PyObject *get_perception_metadata_BitmapData_pixels(PyObject *self, void *) {
+PyObject *get_perception_metadata_BitmapData_pixels(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::BitmapDataT> *>(self);
     const auto *value = proxy->value;
@@ -3213,7 +3210,7 @@ make_perception_metadata_BitmapData_proxy(const perception::metadata::BitmapData
         pytype_perception_metadata_BitmapData(), value, std::move(anchor));
 }
 
-extern "C" PyObject *get_perception_metadata_VideoFrameContext_object(PyObject *self, void *) {
+PyObject *get_perception_metadata_VideoFrameContext_object(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::VideoFrameContextT> *>(
             self);
@@ -3230,8 +3227,7 @@ extern "C" PyObject *get_perception_metadata_VideoFrameContext_object(PyObject *
         nested, proxy_anchor<perception::metadata::VideoFrameContextT>(self));
 }
 
-extern "C" PyObject *get_perception_metadata_VideoFrameContext_original_width(PyObject *self,
-                                                                              void *) {
+PyObject *get_perception_metadata_VideoFrameContext_original_width(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::VideoFrameContextT> *>(
             self);
@@ -3243,8 +3239,7 @@ extern "C" PyObject *get_perception_metadata_VideoFrameContext_original_width(Py
     return py_long_from_unsigned(value->original_width);
 }
 
-extern "C" PyObject *get_perception_metadata_VideoFrameContext_original_height(PyObject *self,
-                                                                               void *) {
+PyObject *get_perception_metadata_VideoFrameContext_original_height(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::VideoFrameContextT> *>(
             self);
@@ -3256,8 +3251,7 @@ extern "C" PyObject *get_perception_metadata_VideoFrameContext_original_height(P
     return py_long_from_unsigned(value->original_height);
 }
 
-extern "C" PyObject *get_perception_metadata_VideoFrameContext_source_crop_left(PyObject *self,
-                                                                                void *) {
+PyObject *get_perception_metadata_VideoFrameContext_source_crop_left(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::VideoFrameContextT> *>(
             self);
@@ -3269,8 +3263,7 @@ extern "C" PyObject *get_perception_metadata_VideoFrameContext_source_crop_left(
     return py_long_from_unsigned(value->source_crop_left);
 }
 
-extern "C" PyObject *get_perception_metadata_VideoFrameContext_source_crop_right(PyObject *self,
-                                                                                 void *) {
+PyObject *get_perception_metadata_VideoFrameContext_source_crop_right(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::VideoFrameContextT> *>(
             self);
@@ -3282,8 +3275,7 @@ extern "C" PyObject *get_perception_metadata_VideoFrameContext_source_crop_right
     return py_long_from_unsigned(value->source_crop_right);
 }
 
-extern "C" PyObject *get_perception_metadata_VideoFrameContext_source_crop_top(PyObject *self,
-                                                                               void *) {
+PyObject *get_perception_metadata_VideoFrameContext_source_crop_top(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::VideoFrameContextT> *>(
             self);
@@ -3295,8 +3287,7 @@ extern "C" PyObject *get_perception_metadata_VideoFrameContext_source_crop_top(P
     return py_long_from_unsigned(value->source_crop_top);
 }
 
-extern "C" PyObject *get_perception_metadata_VideoFrameContext_source_crop_bottom(PyObject *self,
-                                                                                  void *) {
+PyObject *get_perception_metadata_VideoFrameContext_source_crop_bottom(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::VideoFrameContextT> *>(
             self);
@@ -3308,8 +3299,7 @@ extern "C" PyObject *get_perception_metadata_VideoFrameContext_source_crop_botto
     return py_long_from_unsigned(value->source_crop_bottom);
 }
 
-extern "C" PyObject *get_perception_metadata_VideoFrameContext_letterbox_left(PyObject *self,
-                                                                              void *) {
+PyObject *get_perception_metadata_VideoFrameContext_letterbox_left(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::VideoFrameContextT> *>(
             self);
@@ -3321,8 +3311,7 @@ extern "C" PyObject *get_perception_metadata_VideoFrameContext_letterbox_left(Py
     return py_long_from_unsigned(value->letterbox_left);
 }
 
-extern "C" PyObject *get_perception_metadata_VideoFrameContext_letterbox_right(PyObject *self,
-                                                                               void *) {
+PyObject *get_perception_metadata_VideoFrameContext_letterbox_right(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::VideoFrameContextT> *>(
             self);
@@ -3334,8 +3323,7 @@ extern "C" PyObject *get_perception_metadata_VideoFrameContext_letterbox_right(P
     return py_long_from_unsigned(value->letterbox_right);
 }
 
-extern "C" PyObject *get_perception_metadata_VideoFrameContext_letterbox_top(PyObject *self,
-                                                                             void *) {
+PyObject *get_perception_metadata_VideoFrameContext_letterbox_top(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::VideoFrameContextT> *>(
             self);
@@ -3347,8 +3335,7 @@ extern "C" PyObject *get_perception_metadata_VideoFrameContext_letterbox_top(PyO
     return py_long_from_unsigned(value->letterbox_top);
 }
 
-extern "C" PyObject *get_perception_metadata_VideoFrameContext_letterbox_bottom(PyObject *self,
-                                                                                void *) {
+PyObject *get_perception_metadata_VideoFrameContext_letterbox_bottom(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::VideoFrameContextT> *>(
             self);
@@ -3449,7 +3436,7 @@ PyObject *make_perception_metadata_VideoFrameContext_proxy(
         pytype_perception_metadata_VideoFrameContext(), value, std::move(anchor));
 }
 
-extern "C" PyObject *get_perception_metadata_AudioFrameContext_object(PyObject *self, void *) {
+PyObject *get_perception_metadata_AudioFrameContext_object(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::AudioFrameContextT> *>(
             self);
@@ -3466,8 +3453,7 @@ extern "C" PyObject *get_perception_metadata_AudioFrameContext_object(PyObject *
         nested, proxy_anchor<perception::metadata::AudioFrameContextT>(self));
 }
 
-extern "C" PyObject *get_perception_metadata_AudioFrameContext_original_channels(PyObject *self,
-                                                                                 void *) {
+PyObject *get_perception_metadata_AudioFrameContext_original_channels(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::AudioFrameContextT> *>(
             self);
@@ -3479,8 +3465,7 @@ extern "C" PyObject *get_perception_metadata_AudioFrameContext_original_channels
     return py_long_from_unsigned(value->original_channels);
 }
 
-extern "C" PyObject *get_perception_metadata_AudioFrameContext_original_frequency(PyObject *self,
-                                                                                  void *) {
+PyObject *get_perception_metadata_AudioFrameContext_original_frequency(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::AudioFrameContextT> *>(
             self);
@@ -3492,8 +3477,7 @@ extern "C" PyObject *get_perception_metadata_AudioFrameContext_original_frequenc
     return py_long_from_unsigned(value->original_frequency);
 }
 
-extern "C" PyObject *get_perception_metadata_AudioFrameContext_original_sample_count(PyObject *self,
-                                                                                     void *) {
+PyObject *get_perception_metadata_AudioFrameContext_original_sample_count(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::AudioFrameContextT> *>(
             self);
@@ -3505,8 +3489,7 @@ extern "C" PyObject *get_perception_metadata_AudioFrameContext_original_sample_c
     return py_long_from_unsigned(value->original_sample_count);
 }
 
-extern "C" PyObject *get_perception_metadata_AudioFrameContext_cut_left_sample_count(PyObject *self,
-                                                                                     void *) {
+PyObject *get_perception_metadata_AudioFrameContext_cut_left_sample_count(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::AudioFrameContextT> *>(
             self);
@@ -3518,8 +3501,7 @@ extern "C" PyObject *get_perception_metadata_AudioFrameContext_cut_left_sample_c
     return py_long_from_unsigned(value->cut_left_sample_count);
 }
 
-extern "C" PyObject *
-get_perception_metadata_AudioFrameContext_cut_right_sample_count(PyObject *self, void *) {
+PyObject *get_perception_metadata_AudioFrameContext_cut_right_sample_count(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::AudioFrameContextT> *>(
             self);
@@ -3595,7 +3577,7 @@ PyObject *make_perception_metadata_AudioFrameContext_proxy(
         pytype_perception_metadata_AudioFrameContext(), value, std::move(anchor));
 }
 
-extern "C" PyObject *get_perception_metadata_FrameContext_schema_major(PyObject *self, void *) {
+PyObject *get_perception_metadata_FrameContext_schema_major(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::FrameContextT> *>(self);
     const auto *value = proxy->value;
@@ -3606,7 +3588,7 @@ extern "C" PyObject *get_perception_metadata_FrameContext_schema_major(PyObject 
     return py_long_from_unsigned(value->schema_major);
 }
 
-extern "C" PyObject *get_perception_metadata_FrameContext_schema_minor(PyObject *self, void *) {
+PyObject *get_perception_metadata_FrameContext_schema_minor(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::FrameContextT> *>(self);
     const auto *value = proxy->value;
@@ -3617,7 +3599,7 @@ extern "C" PyObject *get_perception_metadata_FrameContext_schema_minor(PyObject 
     return py_long_from_unsigned(value->schema_minor);
 }
 
-extern "C" PyObject *get_perception_metadata_FrameContext_layer(PyObject *self, void *) {
+PyObject *get_perception_metadata_FrameContext_layer(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::FrameContextT> *>(self);
     const auto *value = proxy->value;
@@ -3633,7 +3615,7 @@ extern "C" PyObject *get_perception_metadata_FrameContext_layer(PyObject *self, 
         nested, proxy_anchor<perception::metadata::FrameContextT>(self));
 }
 
-extern "C" PyObject *get_perception_metadata_FrameContext_video(PyObject *self, void *) {
+PyObject *get_perception_metadata_FrameContext_video(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::FrameContextT> *>(self);
     const auto *value = proxy->value;
@@ -3649,7 +3631,7 @@ extern "C" PyObject *get_perception_metadata_FrameContext_video(PyObject *self, 
         nested, proxy_anchor<perception::metadata::FrameContextT>(self));
 }
 
-extern "C" PyObject *get_perception_metadata_FrameContext_audio(PyObject *self, void *) {
+PyObject *get_perception_metadata_FrameContext_audio(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::FrameContextT> *>(self);
     const auto *value = proxy->value;
@@ -3724,7 +3706,7 @@ make_perception_metadata_FrameContext_proxy(const perception::metadata::FrameCon
         pytype_perception_metadata_FrameContext(), value, std::move(anchor));
 }
 
-extern "C" PyObject *get_perception_metadata_ObjectEmbedding_object(PyObject *self, void *) {
+PyObject *get_perception_metadata_ObjectEmbedding_object(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::ObjectEmbeddingT> *>(self);
     const auto *value = proxy->value;
@@ -3740,7 +3722,7 @@ extern "C" PyObject *get_perception_metadata_ObjectEmbedding_object(PyObject *se
         nested, proxy_anchor<perception::metadata::ObjectEmbeddingT>(self));
 }
 
-extern "C" PyObject *get_perception_metadata_ObjectEmbedding_values(PyObject *self, void *) {
+PyObject *get_perception_metadata_ObjectEmbedding_values(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::ObjectEmbeddingT> *>(self);
     const auto *value = proxy->value;
@@ -3798,7 +3780,7 @@ make_perception_metadata_ObjectEmbedding_proxy(const perception::metadata::Objec
         pytype_perception_metadata_ObjectEmbedding(), value, std::move(anchor));
 }
 
-extern "C" PyObject *get_perception_metadata_ObjectEmbeddings_schema_major(PyObject *self, void *) {
+PyObject *get_perception_metadata_ObjectEmbeddings_schema_major(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::ObjectEmbeddingsT> *>(
             self);
@@ -3810,7 +3792,7 @@ extern "C" PyObject *get_perception_metadata_ObjectEmbeddings_schema_major(PyObj
     return py_long_from_unsigned(value->schema_major);
 }
 
-extern "C" PyObject *get_perception_metadata_ObjectEmbeddings_schema_minor(PyObject *self, void *) {
+PyObject *get_perception_metadata_ObjectEmbeddings_schema_minor(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::ObjectEmbeddingsT> *>(
             self);
@@ -3822,7 +3804,7 @@ extern "C" PyObject *get_perception_metadata_ObjectEmbeddings_schema_minor(PyObj
     return py_long_from_unsigned(value->schema_minor);
 }
 
-extern "C" PyObject *get_perception_metadata_ObjectEmbeddings_layer(PyObject *self, void *) {
+PyObject *get_perception_metadata_ObjectEmbeddings_layer(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::ObjectEmbeddingsT> *>(
             self);
@@ -3839,7 +3821,7 @@ extern "C" PyObject *get_perception_metadata_ObjectEmbeddings_layer(PyObject *se
         nested, proxy_anchor<perception::metadata::ObjectEmbeddingsT>(self));
 }
 
-extern "C" PyObject *get_perception_metadata_ObjectEmbeddings_embeddings(PyObject *self, void *) {
+PyObject *get_perception_metadata_ObjectEmbeddings_embeddings(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::ObjectEmbeddingsT> *>(
             self);
@@ -3909,7 +3891,7 @@ PyObject *make_perception_metadata_ObjectEmbeddings_proxy(
         pytype_perception_metadata_ObjectEmbeddings(), value, std::move(anchor));
 }
 
-extern "C" PyObject *get_perception_metadata_ObjectTrack_object(PyObject *self, void *) {
+PyObject *get_perception_metadata_ObjectTrack_object(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::ObjectTrackT> *>(self);
     const auto *value = proxy->value;
@@ -3925,7 +3907,7 @@ extern "C" PyObject *get_perception_metadata_ObjectTrack_object(PyObject *self, 
         nested, proxy_anchor<perception::metadata::ObjectTrackT>(self));
 }
 
-extern "C" PyObject *get_perception_metadata_ObjectTrack_source_id(PyObject *self, void *) {
+PyObject *get_perception_metadata_ObjectTrack_source_id(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::ObjectTrackT> *>(self);
     const auto *value = proxy->value;
@@ -3936,7 +3918,7 @@ extern "C" PyObject *get_perception_metadata_ObjectTrack_source_id(PyObject *sel
     return py_long_from_unsigned(value->source_id);
 }
 
-extern "C" PyObject *get_perception_metadata_ObjectTrack_track_id(PyObject *self, void *) {
+PyObject *get_perception_metadata_ObjectTrack_track_id(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::ObjectTrackT> *>(self);
     const auto *value = proxy->value;
@@ -3947,7 +3929,7 @@ extern "C" PyObject *get_perception_metadata_ObjectTrack_track_id(PyObject *self
     return py_long_from_unsigned(value->track_id);
 }
 
-extern "C" PyObject *get_perception_metadata_ObjectTrack_box(PyObject *self, void *) {
+PyObject *get_perception_metadata_ObjectTrack_box(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::ObjectTrackT> *>(self);
     const auto *value = proxy->value;
@@ -3963,7 +3945,7 @@ extern "C" PyObject *get_perception_metadata_ObjectTrack_box(PyObject *self, voi
         nested, proxy_anchor<perception::metadata::ObjectTrackT>(self));
 }
 
-extern "C" PyObject *get_perception_metadata_ObjectTrack_confidence(PyObject *self, void *) {
+PyObject *get_perception_metadata_ObjectTrack_confidence(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::ObjectTrackT> *>(self);
     const auto *value = proxy->value;
@@ -3974,7 +3956,7 @@ extern "C" PyObject *get_perception_metadata_ObjectTrack_confidence(PyObject *se
     return PyFloat_FromDouble(static_cast<double>(value->confidence));
 }
 
-extern "C" PyObject *get_perception_metadata_ObjectTrack_class_id(PyObject *self, void *) {
+PyObject *get_perception_metadata_ObjectTrack_class_id(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::ObjectTrackT> *>(self);
     const auto *value = proxy->value;
@@ -3985,7 +3967,7 @@ extern "C" PyObject *get_perception_metadata_ObjectTrack_class_id(PyObject *self
     return py_long_from_signed(value->class_id);
 }
 
-extern "C" PyObject *get_perception_metadata_ObjectTrack_text(PyObject *self, void *) {
+PyObject *get_perception_metadata_ObjectTrack_text(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::ObjectTrackT> *>(self);
     const auto *value = proxy->value;
@@ -3996,7 +3978,7 @@ extern "C" PyObject *get_perception_metadata_ObjectTrack_text(PyObject *self, vo
     return py_string_from_std(value->text);
 }
 
-extern "C" PyObject *get_perception_metadata_ObjectTrack_diagnostic(PyObject *self, void *) {
+PyObject *get_perception_metadata_ObjectTrack_diagnostic(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::ObjectTrackT> *>(self);
     const auto *value = proxy->value;
@@ -4007,7 +3989,7 @@ extern "C" PyObject *get_perception_metadata_ObjectTrack_diagnostic(PyObject *se
     return py_string_from_std(value->diagnostic);
 }
 
-extern "C" PyObject *get_perception_metadata_ObjectTrack_predicted_only(PyObject *self, void *) {
+PyObject *get_perception_metadata_ObjectTrack_predicted_only(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::ObjectTrackT> *>(self);
     const auto *value = proxy->value;
@@ -4100,7 +4082,7 @@ make_perception_metadata_ObjectTrack_proxy(const perception::metadata::ObjectTra
         pytype_perception_metadata_ObjectTrack(), value, std::move(anchor));
 }
 
-extern "C" PyObject *get_perception_metadata_ObjectTracks_schema_major(PyObject *self, void *) {
+PyObject *get_perception_metadata_ObjectTracks_schema_major(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::ObjectTracksT> *>(self);
     const auto *value = proxy->value;
@@ -4111,7 +4093,7 @@ extern "C" PyObject *get_perception_metadata_ObjectTracks_schema_major(PyObject 
     return py_long_from_unsigned(value->schema_major);
 }
 
-extern "C" PyObject *get_perception_metadata_ObjectTracks_schema_minor(PyObject *self, void *) {
+PyObject *get_perception_metadata_ObjectTracks_schema_minor(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::ObjectTracksT> *>(self);
     const auto *value = proxy->value;
@@ -4122,7 +4104,7 @@ extern "C" PyObject *get_perception_metadata_ObjectTracks_schema_minor(PyObject 
     return py_long_from_unsigned(value->schema_minor);
 }
 
-extern "C" PyObject *get_perception_metadata_ObjectTracks_layer(PyObject *self, void *) {
+PyObject *get_perception_metadata_ObjectTracks_layer(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::ObjectTracksT> *>(self);
     const auto *value = proxy->value;
@@ -4138,7 +4120,7 @@ extern "C" PyObject *get_perception_metadata_ObjectTracks_layer(PyObject *self, 
         nested, proxy_anchor<perception::metadata::ObjectTracksT>(self));
 }
 
-extern "C" PyObject *get_perception_metadata_ObjectTracks_tracks(PyObject *self, void *) {
+PyObject *get_perception_metadata_ObjectTracks_tracks(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::ObjectTracksT> *>(self);
     const auto *value = proxy->value;
@@ -4207,8 +4189,7 @@ make_perception_metadata_ObjectTracks_proxy(const perception::metadata::ObjectTr
         pytype_perception_metadata_ObjectTracks(), value, std::move(anchor));
 }
 
-extern "C" PyObject *get_perception_metadata_PerformanceOverlay_schema_major(PyObject *self,
-                                                                             void *) {
+PyObject *get_perception_metadata_PerformanceOverlay_schema_major(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::PerformanceOverlayT> *>(
             self);
@@ -4220,8 +4201,7 @@ extern "C" PyObject *get_perception_metadata_PerformanceOverlay_schema_major(PyO
     return py_long_from_unsigned(value->schema_major);
 }
 
-extern "C" PyObject *get_perception_metadata_PerformanceOverlay_schema_minor(PyObject *self,
-                                                                             void *) {
+PyObject *get_perception_metadata_PerformanceOverlay_schema_minor(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::PerformanceOverlayT> *>(
             self);
@@ -4233,7 +4213,7 @@ extern "C" PyObject *get_perception_metadata_PerformanceOverlay_schema_minor(PyO
     return py_long_from_unsigned(value->schema_minor);
 }
 
-extern "C" PyObject *get_perception_metadata_PerformanceOverlay_lines(PyObject *self, void *) {
+PyObject *get_perception_metadata_PerformanceOverlay_lines(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::PerformanceOverlayT> *>(
             self);
@@ -4297,7 +4277,7 @@ PyObject *make_perception_metadata_PerformanceOverlay_proxy(
         pytype_perception_metadata_PerformanceOverlay(), value, std::move(anchor));
 }
 
-extern "C" PyObject *get_perception_metadata_PoseEstimation_object(PyObject *self, void *) {
+PyObject *get_perception_metadata_PoseEstimation_object(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::PoseEstimationT> *>(self);
     const auto *value = proxy->value;
@@ -4313,7 +4293,7 @@ extern "C" PyObject *get_perception_metadata_PoseEstimation_object(PyObject *sel
         nested, proxy_anchor<perception::metadata::PoseEstimationT>(self));
 }
 
-extern "C" PyObject *get_perception_metadata_PoseEstimation_confidence(PyObject *self, void *) {
+PyObject *get_perception_metadata_PoseEstimation_confidence(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::PoseEstimationT> *>(self);
     const auto *value = proxy->value;
@@ -4324,7 +4304,7 @@ extern "C" PyObject *get_perception_metadata_PoseEstimation_confidence(PyObject 
     return PyFloat_FromDouble(static_cast<double>(value->confidence));
 }
 
-extern "C" PyObject *get_perception_metadata_PoseEstimation_yaw(PyObject *self, void *) {
+PyObject *get_perception_metadata_PoseEstimation_yaw(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::PoseEstimationT> *>(self);
     const auto *value = proxy->value;
@@ -4335,7 +4315,7 @@ extern "C" PyObject *get_perception_metadata_PoseEstimation_yaw(PyObject *self, 
     return PyFloat_FromDouble(static_cast<double>(value->yaw));
 }
 
-extern "C" PyObject *get_perception_metadata_PoseEstimation_pitch(PyObject *self, void *) {
+PyObject *get_perception_metadata_PoseEstimation_pitch(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::PoseEstimationT> *>(self);
     const auto *value = proxy->value;
@@ -4400,7 +4380,7 @@ make_perception_metadata_PoseEstimation_proxy(const perception::metadata::PoseEs
         pytype_perception_metadata_PoseEstimation(), value, std::move(anchor));
 }
 
-extern "C" PyObject *get_perception_metadata_PoseEstimations_schema_major(PyObject *self, void *) {
+PyObject *get_perception_metadata_PoseEstimations_schema_major(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::PoseEstimationsT> *>(self);
     const auto *value = proxy->value;
@@ -4411,7 +4391,7 @@ extern "C" PyObject *get_perception_metadata_PoseEstimations_schema_major(PyObje
     return py_long_from_unsigned(value->schema_major);
 }
 
-extern "C" PyObject *get_perception_metadata_PoseEstimations_schema_minor(PyObject *self, void *) {
+PyObject *get_perception_metadata_PoseEstimations_schema_minor(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::PoseEstimationsT> *>(self);
     const auto *value = proxy->value;
@@ -4422,7 +4402,7 @@ extern "C" PyObject *get_perception_metadata_PoseEstimations_schema_minor(PyObje
     return py_long_from_unsigned(value->schema_minor);
 }
 
-extern "C" PyObject *get_perception_metadata_PoseEstimations_layer(PyObject *self, void *) {
+PyObject *get_perception_metadata_PoseEstimations_layer(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::PoseEstimationsT> *>(self);
     const auto *value = proxy->value;
@@ -4438,7 +4418,7 @@ extern "C" PyObject *get_perception_metadata_PoseEstimations_layer(PyObject *sel
         nested, proxy_anchor<perception::metadata::PoseEstimationsT>(self));
 }
 
-extern "C" PyObject *get_perception_metadata_PoseEstimations_poses(PyObject *self, void *) {
+PyObject *get_perception_metadata_PoseEstimations_poses(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::PoseEstimationsT> *>(self);
     const auto *value = proxy->value;
@@ -4507,7 +4487,7 @@ make_perception_metadata_PoseEstimations_proxy(const perception::metadata::PoseE
         pytype_perception_metadata_PoseEstimations(), value, std::move(anchor));
 }
 
-extern "C" PyObject *get_perception_metadata_SegmentationMask_object(PyObject *self, void *) {
+PyObject *get_perception_metadata_SegmentationMask_object(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::SegmentationMaskT> *>(
             self);
@@ -4524,7 +4504,7 @@ extern "C" PyObject *get_perception_metadata_SegmentationMask_object(PyObject *s
         nested, proxy_anchor<perception::metadata::SegmentationMaskT>(self));
 }
 
-extern "C" PyObject *get_perception_metadata_SegmentationMask_bitmap(PyObject *self, void *) {
+PyObject *get_perception_metadata_SegmentationMask_bitmap(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::SegmentationMaskT> *>(
             self);
@@ -4585,8 +4565,7 @@ PyObject *make_perception_metadata_SegmentationMask_proxy(
         pytype_perception_metadata_SegmentationMask(), value, std::move(anchor));
 }
 
-extern "C" PyObject *get_perception_metadata_SegmentationMasks_schema_major(PyObject *self,
-                                                                            void *) {
+PyObject *get_perception_metadata_SegmentationMasks_schema_major(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::SegmentationMasksT> *>(
             self);
@@ -4598,8 +4577,7 @@ extern "C" PyObject *get_perception_metadata_SegmentationMasks_schema_major(PyOb
     return py_long_from_unsigned(value->schema_major);
 }
 
-extern "C" PyObject *get_perception_metadata_SegmentationMasks_schema_minor(PyObject *self,
-                                                                            void *) {
+PyObject *get_perception_metadata_SegmentationMasks_schema_minor(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::SegmentationMasksT> *>(
             self);
@@ -4611,7 +4589,7 @@ extern "C" PyObject *get_perception_metadata_SegmentationMasks_schema_minor(PyOb
     return py_long_from_unsigned(value->schema_minor);
 }
 
-extern "C" PyObject *get_perception_metadata_SegmentationMasks_layer(PyObject *self, void *) {
+PyObject *get_perception_metadata_SegmentationMasks_layer(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::SegmentationMasksT> *>(
             self);
@@ -4628,7 +4606,7 @@ extern "C" PyObject *get_perception_metadata_SegmentationMasks_layer(PyObject *s
         nested, proxy_anchor<perception::metadata::SegmentationMasksT>(self));
 }
 
-extern "C" PyObject *get_perception_metadata_SegmentationMasks_masks(PyObject *self, void *) {
+PyObject *get_perception_metadata_SegmentationMasks_masks(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::SegmentationMasksT> *>(
             self);
@@ -4698,7 +4676,7 @@ PyObject *make_perception_metadata_SegmentationMasks_proxy(
         pytype_perception_metadata_SegmentationMasks(), value, std::move(anchor));
 }
 
-extern "C" PyObject *get_perception_metadata_TrackTrace_object(PyObject *self, void *) {
+PyObject *get_perception_metadata_TrackTrace_object(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::TrackTraceT> *>(self);
     const auto *value = proxy->value;
@@ -4714,7 +4692,7 @@ extern "C" PyObject *get_perception_metadata_TrackTrace_object(PyObject *self, v
         nested, proxy_anchor<perception::metadata::TrackTraceT>(self));
 }
 
-extern "C" PyObject *get_perception_metadata_TrackTrace_track_id(PyObject *self, void *) {
+PyObject *get_perception_metadata_TrackTrace_track_id(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::TrackTraceT> *>(self);
     const auto *value = proxy->value;
@@ -4725,7 +4703,7 @@ extern "C" PyObject *get_perception_metadata_TrackTrace_track_id(PyObject *self,
     return py_long_from_unsigned(value->track_id);
 }
 
-extern "C" PyObject *get_perception_metadata_TrackTrace_points(PyObject *self, void *) {
+PyObject *get_perception_metadata_TrackTrace_points(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::TrackTraceT> *>(self);
     const auto *value = proxy->value;
@@ -4788,7 +4766,7 @@ make_perception_metadata_TrackTrace_proxy(const perception::metadata::TrackTrace
         pytype_perception_metadata_TrackTrace(), value, std::move(anchor));
 }
 
-extern "C" PyObject *get_perception_metadata_TrackTraces_schema_major(PyObject *self, void *) {
+PyObject *get_perception_metadata_TrackTraces_schema_major(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::TrackTracesT> *>(self);
     const auto *value = proxy->value;
@@ -4799,7 +4777,7 @@ extern "C" PyObject *get_perception_metadata_TrackTraces_schema_major(PyObject *
     return py_long_from_unsigned(value->schema_major);
 }
 
-extern "C" PyObject *get_perception_metadata_TrackTraces_schema_minor(PyObject *self, void *) {
+PyObject *get_perception_metadata_TrackTraces_schema_minor(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::TrackTracesT> *>(self);
     const auto *value = proxy->value;
@@ -4810,7 +4788,7 @@ extern "C" PyObject *get_perception_metadata_TrackTraces_schema_minor(PyObject *
     return py_long_from_unsigned(value->schema_minor);
 }
 
-extern "C" PyObject *get_perception_metadata_TrackTraces_layer(PyObject *self, void *) {
+PyObject *get_perception_metadata_TrackTraces_layer(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::TrackTracesT> *>(self);
     const auto *value = proxy->value;
@@ -4826,7 +4804,7 @@ extern "C" PyObject *get_perception_metadata_TrackTraces_layer(PyObject *self, v
         nested, proxy_anchor<perception::metadata::TrackTracesT>(self));
 }
 
-extern "C" PyObject *get_perception_metadata_TrackTraces_traces(PyObject *self, void *) {
+PyObject *get_perception_metadata_TrackTraces_traces(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::TrackTracesT> *>(self);
     const auto *value = proxy->value;

@@ -176,8 +176,7 @@ def check_output_frame(args, index: int, ground_frame: FrameResultsFrame, out_re
     return True
 
 
-def run_check_mode(args) -> int:
-    # Ensure FIFO exists
+def prepare_ground_truth(args) -> Optional[List[FrameResultsFrame]]:
     fifo = Path(args.fifo)
     if not fifo.exists():
         os.mkfifo(args.fifo)
@@ -188,39 +187,43 @@ def run_check_mode(args) -> int:
         return 2
 
     try:
-        ground_frames = decode_ground_truth(ground_records, args.file)
+        return decode_ground_truth(ground_records, args.file)
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
+        return None
+
+
+def compare_pipeline_output(args, ground_frames: List[FrameResultsFrame]) -> tuple[int, int]:
+    failures = 0
+    compared = 0
+    fifo_iter = read_fifo_lines(args.fifo)
+    for index, ground_frame in enumerate(ground_frames):
+        try:
+            out_record = json.loads(next(fifo_iter))
+        except json.JSONDecodeError:
+            if args.verbose:
+                print("Skipping bad JSON line")
+            continue
+
+        failed = check_output_frame(args, index, ground_frame, out_record)
+        compared += 1
+        failures += int(failed)
+        if (failed and args.fail_fast) or (args.limit and compared >= args.limit):
+            break
+    return failures, compared
+
+
+def run_check_mode(args) -> int:
+    ground_frames = prepare_ground_truth(args)
+    if ground_frames is None:
         return 2
 
     proc = start_pipeline(args.pek_menu, args.pipeline, args.pek_menu_args, args.fifo)
-
-    failures = 0
-    compared = 0
-
     try:
-        fifo_iter = read_fifo_lines(args.fifo)
-        for index, gt_frame in enumerate(ground_frames):
-            # Read next output JSON from FIFO
-            line = next(fifo_iter)
-            try:
-                out_record = json.loads(line)
-            except json.JSONDecodeError:
-                if args.verbose:
-                    print("Skipping bad JSON line")
-                continue
-
-            failed = check_output_frame(args, index, gt_frame, out_record)
-            compared += 1
-            failures += int(failed)
-            if failed and args.fail_fast:
-                break
-
-            if args.limit and compared >= args.limit:
-                break
-
+        failures, compared = compare_pipeline_output(args, ground_frames)
     except KeyboardInterrupt:
         print("Interrupted.")
+        failures, compared = 0, 0
     finally:
         stop_process(proc)
 

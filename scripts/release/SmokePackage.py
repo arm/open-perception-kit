@@ -126,29 +126,39 @@ def load_perception_sdk():
     return Envelope, PerformanceOverlayT
 
 
+def decode_pekcomm_envelope(line: bytes, envelope_type):
+    try:
+        payload = json.loads(line)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return None
+    if not isinstance(payload, dict) or not isinstance(payload.get("frame_counter"), int):
+        return None
+    if payload.get("frame_results_encoding") != "perception-frame-results+base64":
+        return None
+
+    encoded_packet = payload.get("frame_results_packet_b64")
+    if not isinstance(encoded_packet, str) or not encoded_packet:
+        return None
+    try:
+        return envelope_type(base64.b64decode(encoded_packet, validate=True))
+    except (ValueError, TypeError):
+        return None
+
+
+def contains_performance_overlay(line: bytes, envelope_type, performance_overlay_type) -> bool:
+    envelope = decode_pekcomm_envelope(line, envelope_type)
+    return envelope is not None and envelope.valid() and envelope.contains(performance_overlay_type)
+
+
 def validate_pekcomm_output(output: Path) -> None:
     envelope_type, performance_overlay_type = load_perception_sdk()
     deadline = time.monotonic() + PEKCOMM_TIMEOUT_SECONDS
     while time.monotonic() < deadline:
-        if output.is_file():
-            for line in output.read_bytes().splitlines():
-                try:
-                    payload = json.loads(line)
-                except (json.JSONDecodeError, UnicodeDecodeError):
-                    continue
-                if not isinstance(payload, dict) or not isinstance(payload.get("frame_counter"), int):
-                    continue
-                if payload.get("frame_results_encoding") != "perception-frame-results+base64":
-                    continue
-                encoded_packet = payload.get("frame_results_packet_b64")
-                if not isinstance(encoded_packet, str) or not encoded_packet:
-                    continue
-                try:
-                    envelope = envelope_type(base64.b64decode(encoded_packet, validate=True))
-                except (ValueError, TypeError):
-                    continue
-                if envelope.valid() and envelope.contains(performance_overlay_type):
-                    return
+        if output.is_file() and any(
+            contains_performance_overlay(line, envelope_type, performance_overlay_type)
+            for line in output.read_bytes().splitlines()
+        ):
+            return
         time.sleep(0.1)
     fail(f"pekcomm produced no valid output within {PEKCOMM_TIMEOUT_SECONDS} seconds")
 

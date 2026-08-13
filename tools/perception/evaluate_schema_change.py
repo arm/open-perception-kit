@@ -79,52 +79,52 @@ def strip_comments(source: str) -> str:
     return re.sub(r"//.*$", "", without_blocks, flags=re.MULTILINE)
 
 
-def parse_fields(body: str) -> tuple[Field, ...]:
-    fields: list[Field] = []
-    for statement in body.splitlines():
-        declaration = statement.strip()
-        if not declaration.endswith(";"):
-            continue
-
-        declaration = declaration[:-1].strip()
-        if ";" in declaration:
-            continue
-        name, separator, value = declaration.partition(":")
-        name = name.strip()
-        if not separator or not name or not all(
-            character == "_" or character.isalnum() for character in name
-        ):
-            continue
-
-        attributes: tuple[str, ...] = ()
-        if value.rstrip().endswith(")"):
-            attribute_start = value.rfind("(")
-            if attribute_start >= 0:
-                raw_attributes = value[attribute_start + 1:].rstrip()[:-1]
-                attributes = tuple(
-                    sorted(
-                        " ".join(attribute.split())
-                        for attribute in raw_attributes.split(",")
-                        if attribute.strip()
-                    )
-                )
-                value = value[:attribute_start]
-
-        type_name, default_separator, default = value.partition("=")
-        normalized_type = " ".join(type_name.split())
-        normalized_default = " ".join(default.split()) if default_separator else None
-        if not normalized_type or (default_separator and not normalized_default):
-            continue
-
-        fields.append(
-            Field(
-                name=name,
-                type_name=normalized_type,
-                default=normalized_default,
-                attributes=attributes,
-            )
+def parse_field_attributes(value: str) -> tuple[str, tuple[str, ...]]:
+    if not value.rstrip().endswith(")"):
+        return value, ()
+    attribute_start = value.rfind("(")
+    if attribute_start < 0:
+        return value, ()
+    raw_attributes = value[attribute_start + 1:].rstrip()[:-1]
+    attributes = tuple(
+        sorted(
+            " ".join(attribute.split())
+            for attribute in raw_attributes.split(",")
+            if attribute.strip()
         )
-    return tuple(fields)
+    )
+    return value[:attribute_start], attributes
+
+
+def parse_field(statement: str) -> Optional[Field]:
+    declaration = statement.strip()
+    if not declaration.endswith(";"):
+        return None
+    declaration = declaration[:-1].strip()
+    if ";" in declaration:
+        return None
+
+    name, separator, value = declaration.partition(":")
+    name = name.strip()
+    valid_name = name and all(character == "_" or character.isalnum() for character in name)
+    if not separator or not valid_name:
+        return None
+
+    value, attributes = parse_field_attributes(value)
+    type_name, default_separator, default = value.partition("=")
+    normalized_type = " ".join(type_name.split())
+    normalized_default = " ".join(default.split()) if default_separator else None
+    if not normalized_type or (default_separator and not normalized_default):
+        return None
+    return Field(name, normalized_type, normalized_default, attributes)
+
+
+def parse_fields(body: str) -> tuple[Field, ...]:
+    return tuple(
+        field
+        for statement in body.splitlines()
+        if (field := parse_field(statement)) is not None
+    )
 
 
 def parse_sequence(body: str) -> tuple[str, ...]:
@@ -345,7 +345,7 @@ def compare_fields(
     return findings
 
 
-def compare_schema(old: Schema, new: Schema) -> list[Finding]:
+def compare_schema_identity(old: Schema, new: Schema) -> list[Finding]:
     findings: list[Finding] = []
     if old.root_type != new.root_type:
         findings.append(
@@ -359,44 +359,58 @@ def compare_schema(old: Schema, new: Schema) -> list[Finding]:
                 f"file_identifier changed: {old.file_identifier!r} -> {new.file_identifier!r}",
             )
         )
+    return findings
 
-    for table in sorted(set(old.tables) | set(new.tables)):
-        if table not in new.tables:
-            findings.append(Finding("breaking", new.path, f"removed table {table}"))
-        elif table not in old.tables:
-            findings.append(Finding("additive", new.path, f"added table {table}"))
-        else:
-            findings.extend(compare_fields(new.path, table, old.tables[table], new.tables[table]))
 
-    for struct in sorted(set(old.structs) | set(new.structs)):
-        if struct not in new.structs:
-            findings.append(Finding("breaking", new.path, f"removed struct {struct}"))
-        elif struct not in old.structs:
-            findings.append(Finding("additive", new.path, f"added struct {struct}"))
+def compare_records(old: Schema, new: Schema, kind: str) -> list[Finding]:
+    findings: list[Finding] = []
+    old_records = getattr(old, kind)
+    new_records = getattr(new, kind)
+    fixed_layout = kind == "structs"
+    record_name = kind[:-1]
+    for record in sorted(set(old_records) | set(new_records)):
+        if record not in new_records:
+            findings.append(Finding("breaking", new.path, f"removed {record_name} {record}"))
+        elif record not in old_records:
+            findings.append(Finding("additive", new.path, f"added {record_name} {record}"))
         else:
             findings.extend(
                 compare_fields(
                     new.path,
-                    struct,
-                    old.structs[struct],
-                    new.structs[struct],
-                    fixed_layout=True,
+                    record,
+                    old_records[record],
+                    new_records[record],
+                    fixed_layout=fixed_layout,
                 )
             )
+    return findings
 
+
+def compare_sequences(old: Schema, new: Schema) -> list[Finding]:
+    findings: list[Finding] = []
     for sequence in sorted(set(old.sequences) | set(new.sequences)):
-        if sequence not in new.sequences:
+        old_sequence = old.sequences.get(sequence)
+        new_sequence = new.sequences.get(sequence)
+        if new_sequence is None:
             findings.append(Finding("breaking", new.path, f"removed {sequence}"))
-        elif sequence not in old.sequences:
+        elif old_sequence is None:
             findings.append(Finding("additive", new.path, f"added {sequence}"))
-        elif new.sequences[sequence].underlying_type != old.sequences[sequence].underlying_type:
+        elif new_sequence.underlying_type != old_sequence.underlying_type:
             findings.append(
                 Finding("breaking", new.path, f"changed underlying type of {sequence}")
             )
-        elif new.sequences[sequence].members[: len(old.sequences[sequence].members)] != old.sequences[sequence].members:
+        elif new_sequence.members[: len(old_sequence.members)] != old_sequence.members:
             findings.append(Finding("breaking", new.path, f"reordered, removed, or changed {sequence}"))
-        elif len(new.sequences[sequence].members) > len(old.sequences[sequence].members):
+        elif len(new_sequence.members) > len(old_sequence.members):
             findings.append(Finding("additive", new.path, f"appended values to {sequence}"))
+    return findings
+
+
+def compare_schema(old: Schema, new: Schema) -> list[Finding]:
+    findings = compare_schema_identity(old, new)
+    findings.extend(compare_records(old, new, "tables"))
+    findings.extend(compare_records(old, new, "structs"))
+    findings.extend(compare_sequences(old, new))
 
     if old.source != new.source and not findings:
         findings.append(
