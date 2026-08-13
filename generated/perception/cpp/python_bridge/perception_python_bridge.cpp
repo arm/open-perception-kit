@@ -453,8 +453,8 @@ void live_envelope_dealloc(PyObject *self) {
 }
 
 PyObject *live_envelope_is_valid(PyObject *self, PyObject *) {
-    const auto *live = reinterpret_cast<const live_envelope_object *>(self);
-    if (live->valid && live->envelope != nullptr) {
+    if (const auto *live = reinterpret_cast<const live_envelope_object *>(self);
+        live->valid && live->envelope != nullptr) {
         Py_RETURN_TRUE;
     }
     Py_RETURN_FALSE;
@@ -541,7 +541,7 @@ PyObject *live_envelope_producer_schema_set_sha256(PyObject *self, void *) {
 }
 
 PyObject *live_envelope_producer_identity(PyObject *self, PyObject *) {
-    auto *live = require_live_envelope(self);
+    const auto *live = require_live_envelope(self);
     if (live == nullptr) {
         return nullptr;
     }
@@ -977,7 +977,7 @@ PyObject *live_envelope_count(PyObject *self, PyObject *args) {
     if (!PyArg_ParseTuple(args, "O:count", &selector)) {
         return nullptr;
     }
-    auto *live = require_live_envelope(self);
+    const auto *live = require_live_envelope(self);
     if (live == nullptr) {
         return nullptr;
     }
@@ -1033,7 +1033,7 @@ PyObject *live_envelope_contains(PyObject *self, PyObject *args) {
     if (!PyArg_ParseTuple(args, "O:contains", &selector)) {
         return nullptr;
     }
-    auto *live = require_live_envelope(self);
+    const auto *live = require_live_envelope(self);
     if (live == nullptr) {
         return nullptr;
     }

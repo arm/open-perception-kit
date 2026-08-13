@@ -184,7 +184,7 @@ def prepare_ground_truth(args) -> Optional[List[FrameResultsFrame]]:
     ground_records = load_ndjson(args.file)
     if not ground_records:
         print(f"Ground truth file is empty: {args.file}", file=sys.stderr)
-        return 2
+        return None
 
     try:
         return decode_ground_truth(ground_records, args.file)
