@@ -43,6 +43,7 @@ jobs:
             checks=all
           fi
           gh workflow run pek-ci.yml \
+            --repo "$GITHUB_REPOSITORY" \
             --ref "$WORKFLOW_REF" \
             -f checks="$checks" \
             -f pr_number="$PR_NUMBER" \
