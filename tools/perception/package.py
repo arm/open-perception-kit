@@ -375,11 +375,15 @@ def _verify_manifest_files(
     return file_entries
 
 
-def _verify_source_identities(bundle_root: Path, source: object) -> None:
+def _verify_source_identities(
+    bundle_root: Path,
+    source: object,
+    artifact: dict[str, object],
+    schema_set_sha256: object,
+) -> None:
     if not isinstance(source, dict):
         raise RuntimeError("release manifest source metadata is malformed")
-    if not SHA256_RE.fullmatch(str(source.get("input_tree_sha256", ""))):
-        raise RuntimeError("release manifest input tree identity is malformed")
+    metadata: dict[str, dict[str, object]] = {}
     for key in ("descriptor", "generated_manifest"):
         identity = source.get(key)
         if not isinstance(identity, dict) or not SHA256_RE.fullmatch(str(identity.get("sha256", ""))):
@@ -387,6 +391,30 @@ def _verify_source_identities(bundle_root: Path, source: object) -> None:
         path = bundle_root / validate_relative_path(identity.get("path"))
         if not path.is_file() or sha256(path) != identity["sha256"]:
             raise RuntimeError(f"release manifest {key} hash does not match bundled metadata")
+        metadata[key] = load_json(path)
+
+    expected_input_tree = content_digest({
+        "descriptor": source["descriptor"]["sha256"],
+        "generated_manifest": source["generated_manifest"]["sha256"],
+        "schema_set": schema_set_sha256,
+    })
+    if source.get("input_tree_sha256") != expected_input_tree:
+        raise RuntimeError("release manifest input tree identity does not match bundled inputs")
+
+    descriptor = metadata["descriptor"]
+    generated_manifest = metadata["generated_manifest"]
+    expected_artifact = {
+        "name": f"{descriptor.get('name')}-sdk",
+        "version": descriptor.get("version"),
+    }
+    if artifact != expected_artifact or generated_manifest.get("artifact") != artifact:
+        raise RuntimeError("release descriptor, generated manifest, and artifact identities differ")
+    generated_descriptor = generated_manifest.get("descriptor")
+    if (
+        not isinstance(generated_descriptor, dict)
+        or generated_descriptor.get("sha256") != source["descriptor"]["sha256"]
+    ):
+        raise RuntimeError("generated SDK manifest does not identify the bundled descriptor")
 
 
 def _verify_packaged_artifact_records(
@@ -420,7 +448,12 @@ def verify_bundle(bundle_root: Path) -> None:
         raise RuntimeError("release manifest artifact identity is malformed")
     require_semantic_version(artifact["version"])
     file_entries = _verify_manifest_files(bundle_root, manifest_path, manifest.get("files"))
-    _verify_source_identities(bundle_root, manifest.get("source"))
+    _verify_source_identities(
+        bundle_root,
+        manifest.get("source"),
+        artifact,
+        manifest.get("schema_set_sha256"),
+    )
     _verify_packaged_artifact_records(bundle_root, manifest, file_entries)
 
     verify_manifest_semantics(bundle_root, manifest, file_entries)

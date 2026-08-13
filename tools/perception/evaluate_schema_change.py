@@ -19,8 +19,10 @@ from typing import Optional
 SCHEMA_DIRECTORY = Path("schemas/perception/metadata")
 SDK_DESCRIPTOR = Path("tools/perception/sdk.json")
 SEMVER_PATTERN = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
-TABLE_PATTERN = re.compile(r"\btable\s+(\w+)\s*\{(.*?)\}", re.DOTALL)
-ENUM_PATTERN = re.compile(r"\b(enum|union)\s+(\w+)(?:\s*:\s*\w+)?\s*\{(.*?)\}", re.DOTALL)
+RECORD_PATTERN = re.compile(r"\b(table|struct)\s+(\w+)\s*\{(.*?)\}", re.DOTALL)
+ENUM_PATTERN = re.compile(
+    r"\b(enum|union)\s+(\w+)(?:\s*:\s*(\w+))?\s*\{(.*?)\}", re.DOTALL
+)
 INCLUDE_PATTERN = re.compile(r'^\s*include\s+"([^"]+)"\s*;', re.MULTILINE)
 ROOT_PATTERN = re.compile(r"\broot_type\s+(\w+)\s*;")
 FILE_IDENTIFIER_PATTERN = re.compile(r'\bfile_identifier\s+"([^"]+)"\s*;')
@@ -31,6 +33,13 @@ class Field:
     name: str
     type_name: str
     default: Optional[str]
+    attributes: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class Sequence:
+    underlying_type: Optional[str]
+    members: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -38,7 +47,8 @@ class Schema:
     path: str
     source: str
     tables: dict[str, tuple[Field, ...]]
-    sequences: dict[str, tuple[str, ...]]
+    structs: dict[str, tuple[Field, ...]]
+    sequences: dict[str, Sequence]
     includes: tuple[str, ...]
     root_type: Optional[str]
     file_identifier: Optional[str]
@@ -86,6 +96,20 @@ def parse_fields(body: str) -> tuple[Field, ...]:
         ):
             continue
 
+        attributes: tuple[str, ...] = ()
+        if value.rstrip().endswith(")"):
+            attribute_start = value.rfind("(")
+            if attribute_start >= 0:
+                raw_attributes = value[attribute_start + 1:].rstrip()[:-1]
+                attributes = tuple(
+                    sorted(
+                        " ".join(attribute.split())
+                        for attribute in raw_attributes.split(",")
+                        if attribute.strip()
+                    )
+                )
+                value = value[:attribute_start]
+
         type_name, default_separator, default = value.partition("=")
         normalized_type = " ".join(type_name.split())
         normalized_default = " ".join(default.split()) if default_separator else None
@@ -97,6 +121,7 @@ def parse_fields(body: str) -> tuple[Field, ...]:
                 name=name,
                 type_name=normalized_type,
                 default=normalized_default,
+                attributes=attributes,
             )
         )
     return tuple(fields)
@@ -113,12 +138,21 @@ def parse_sequence(body: str) -> tuple[str, ...]:
 
 def parse_schema(path: str, source: str) -> Schema:
     clean_source = strip_comments(source)
+    records = list(RECORD_PATTERN.finditer(clean_source))
     tables = {
-        match.group(1): parse_fields(match.group(2))
-        for match in TABLE_PATTERN.finditer(clean_source)
+        match.group(2): parse_fields(match.group(3))
+        for match in records
+        if match.group(1) == "table"
+    }
+    structs = {
+        match.group(2): parse_fields(match.group(3))
+        for match in records
+        if match.group(1) == "struct"
     }
     sequences = {
-        f"{match.group(1)}:{match.group(2)}": parse_sequence(match.group(3))
+        f"{match.group(1)}:{match.group(2)}": Sequence(
+            underlying_type=match.group(3), members=parse_sequence(match.group(4))
+        )
         for match in ENUM_PATTERN.finditer(clean_source)
     }
     root_match = ROOT_PATTERN.search(clean_source)
@@ -127,6 +161,7 @@ def parse_schema(path: str, source: str) -> Schema:
         path=path,
         source=source,
         tables=tables,
+        structs=structs,
         sequences=sequences,
         includes=tuple(INCLUDE_PATTERN.findall(clean_source)),
         root_type=root_match.group(1) if root_match else None,
@@ -248,7 +283,14 @@ def validate_current_schemas(schemas: dict[str, Schema]) -> list[Finding]:
     return findings
 
 
-def compare_fields(path: str, table: str, old: tuple[Field, ...], new: tuple[Field, ...]) -> list[Finding]:
+def compare_fields(
+    path: str,
+    record: str,
+    old: tuple[Field, ...],
+    new: tuple[Field, ...],
+    *,
+    fixed_layout: bool = False,
+) -> list[Finding]:
     findings: list[Finding] = []
     shared_count = min(len(old), len(new))
     for index in range(shared_count):
@@ -259,7 +301,7 @@ def compare_fields(path: str, table: str, old: tuple[Field, ...], new: tuple[Fie
                 Finding(
                     "breaking",
                     path,
-                    f"{table} field {index} renamed or reordered: {old_field.name} -> {new_field.name}",
+                    f"{record} field {index} renamed or reordered: {old_field.name} -> {new_field.name}",
                 )
             )
             continue
@@ -268,7 +310,7 @@ def compare_fields(path: str, table: str, old: tuple[Field, ...], new: tuple[Fie
                 Finding(
                     "breaking",
                     path,
-                    f"{table}.{old_field.name} type changed: {old_field.type_name} -> {new_field.type_name}",
+                    f"{record}.{old_field.name} type changed: {old_field.type_name} -> {new_field.type_name}",
                 )
             )
         if old_field.default != new_field.default:
@@ -276,15 +318,30 @@ def compare_fields(path: str, table: str, old: tuple[Field, ...], new: tuple[Fie
                 Finding(
                     "breaking",
                     path,
-                    f"{table}.{old_field.name} default changed: {old_field.default!r} -> {new_field.default!r}",
+                    f"{record}.{old_field.name} default changed: {old_field.default!r} -> {new_field.default!r}",
+                )
+            )
+        if old_field.attributes != new_field.attributes:
+            findings.append(
+                Finding(
+                    "breaking",
+                    path,
+                    f"{record}.{old_field.name} attributes changed: "
+                    f"{old_field.attributes!r} -> {new_field.attributes!r}",
                 )
             )
     if len(new) < len(old):
         removed = ", ".join(field.name for field in old[len(new):])
-        findings.append(Finding("breaking", path, f"{table} removed trailing fields: {removed}"))
+        findings.append(Finding("breaking", path, f"{record} removed trailing fields: {removed}"))
     elif len(new) > len(old):
-        added = ", ".join(field.name for field in new[len(old):])
-        findings.append(Finding("additive", path, f"{table} appended fields: {added}"))
+        added_fields = new[len(old):]
+        added = ", ".join(field.name for field in added_fields)
+        has_required_field = any(
+            any(attribute.split(":", 1)[0].strip() == "required" for attribute in field.attributes)
+            for field in added_fields
+        )
+        severity = "breaking" if fixed_layout or has_required_field else "additive"
+        findings.append(Finding(severity, path, f"{record} appended fields: {added}"))
     return findings
 
 
@@ -311,14 +368,34 @@ def compare_schema(old: Schema, new: Schema) -> list[Finding]:
         else:
             findings.extend(compare_fields(new.path, table, old.tables[table], new.tables[table]))
 
+    for struct in sorted(set(old.structs) | set(new.structs)):
+        if struct not in new.structs:
+            findings.append(Finding("breaking", new.path, f"removed struct {struct}"))
+        elif struct not in old.structs:
+            findings.append(Finding("additive", new.path, f"added struct {struct}"))
+        else:
+            findings.extend(
+                compare_fields(
+                    new.path,
+                    struct,
+                    old.structs[struct],
+                    new.structs[struct],
+                    fixed_layout=True,
+                )
+            )
+
     for sequence in sorted(set(old.sequences) | set(new.sequences)):
         if sequence not in new.sequences:
             findings.append(Finding("breaking", new.path, f"removed {sequence}"))
         elif sequence not in old.sequences:
             findings.append(Finding("additive", new.path, f"added {sequence}"))
-        elif new.sequences[sequence][: len(old.sequences[sequence])] != old.sequences[sequence]:
+        elif new.sequences[sequence].underlying_type != old.sequences[sequence].underlying_type:
+            findings.append(
+                Finding("breaking", new.path, f"changed underlying type of {sequence}")
+            )
+        elif new.sequences[sequence].members[: len(old.sequences[sequence].members)] != old.sequences[sequence].members:
             findings.append(Finding("breaking", new.path, f"reordered, removed, or changed {sequence}"))
-        elif len(new.sequences[sequence]) > len(old.sequences[sequence]):
+        elif len(new.sequences[sequence].members) > len(old.sequences[sequence].members):
             findings.append(Finding("additive", new.path, f"appended values to {sequence}"))
 
     if old.source != new.source and not findings:

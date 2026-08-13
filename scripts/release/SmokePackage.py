@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import ctypes
 import json
 import os
@@ -113,7 +114,20 @@ def stop_pipeline(pipeline) -> None:
     pipeline.set_state(Gst.State.NULL)
 
 
+def load_perception_sdk():
+    sdk_source = Path(__file__).resolve().parents[2] / "generated/perception/python/src"
+    sys.path.insert(0, str(sdk_source))
+
+    from perception.packet import Envelope  # noqa: PLC0415
+    from perception.fb.perception.metadata.PerformanceOverlay import (  # noqa: PLC0415
+        PerformanceOverlayT,
+    )
+
+    return Envelope, PerformanceOverlayT
+
+
 def validate_pekcomm_output(output: Path) -> None:
+    envelope_type, performance_overlay_type = load_perception_sdk()
     deadline = time.monotonic() + PEKCOMM_TIMEOUT_SECONDS
     while time.monotonic() < deadline:
         if output.is_file():
@@ -122,13 +136,18 @@ def validate_pekcomm_output(output: Path) -> None:
                     payload = json.loads(line)
                 except (json.JSONDecodeError, UnicodeDecodeError):
                     continue
-                perception = payload.get("perception") if isinstance(payload, dict) else None
-                if (
-                    isinstance(payload, dict)
-                    and "frame_counter" in payload
-                    and isinstance(perception, dict)
-                    and perception.get("perfdata")
-                ):
+                if not isinstance(payload, dict) or not isinstance(payload.get("frame_counter"), int):
+                    continue
+                if payload.get("frame_results_encoding") != "perception-frame-results+base64":
+                    continue
+                encoded_packet = payload.get("frame_results_packet_b64")
+                if not isinstance(encoded_packet, str) or not encoded_packet:
+                    continue
+                try:
+                    envelope = envelope_type(base64.b64decode(encoded_packet, validate=True))
+                except (ValueError, TypeError):
+                    continue
+                if envelope.valid() and envelope.contains(performance_overlay_type):
                     return
         time.sleep(0.1)
     fail(f"pekcomm produced no valid output within {PEKCOMM_TIMEOUT_SECONDS} seconds")

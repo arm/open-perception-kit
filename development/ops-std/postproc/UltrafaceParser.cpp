@@ -355,6 +355,7 @@ pek::Result<void> UltraFaceParser::parse(const pek::TensorParser::Input &input,
         FaceDetection detection;
         detection.object = perception::makeObjectMeta(0U, input.inferenceInfo.parentId);
         detection.box = perception::makeBoundingBox(x1, y1, x2 - x1, y2 - y1);
+        detection.class_id = 0;
         detection.confidence = face;
         detection.text = "";
         detections.push_back(std::move(detection));

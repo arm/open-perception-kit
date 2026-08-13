@@ -442,8 +442,7 @@ static void replaceBackground(guint8 *imgData,
 
         for (gint x = 0; x < imgWidth; ++x) {
             // RVM mask values are inverted here: high values map to background.
-            if (const auto segX =
-                    std::min(static_cast<size_t>(x / segScaleX), segWidth - 1U);
+            if (const auto segX = std::min(static_cast<size_t>(x / segScaleX), segWidth - 1U);
                 segMap.data[segY * segWidth + segX] < threshold) {
                 continue;
             }
@@ -550,6 +549,9 @@ static bool usesBackgroundReplacement(const perception::metadata::LayerInfoT *la
 
 static const perception::metadata::BoxDetectionT *
 findFirstHumanFaceDetection(const perception::FrameResults &frameResults, uint64_t id) {
+    if (id == 0U) {
+        return nullptr;
+    }
     const perception::metadata::BoxDetectionT *parent = nullptr;
 
     frameResults.for_each<perception::metadata::BoxDetectionsT>([&parent, id](const auto &payload) {
@@ -561,7 +563,7 @@ findFirstHumanFaceDetection(const perception::FrameResults &frameResults, uint64
             if (!det || !det->object || !det->box) {
                 continue;
             }
-            if (id != 0U && det->object->id != id) {
+            if (det->object->id != id) {
                 continue;
             }
 
@@ -575,6 +577,9 @@ findFirstHumanFaceDetection(const perception::FrameResults &frameResults, uint64
 
 static const perception::metadata::BoxDetectionT *
 findOnlyHumanFaceDetection(const perception::FrameResults &frameResults, uint64_t id) {
+    if (id == 0U) {
+        return nullptr;
+    }
     const perception::metadata::BoxDetectionT *parent = nullptr;
     size_t parentCount = 0U;
 
@@ -588,7 +593,7 @@ findOnlyHumanFaceDetection(const perception::FrameResults &frameResults, uint64_
                 if (!det || !det->object || !det->box) {
                     continue;
                 }
-                if (id != 0U && det->object->id != id) {
+                if (det->object->id != id) {
                     continue;
                 }
 

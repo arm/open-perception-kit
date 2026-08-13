@@ -130,18 +130,28 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 RUN set -eux; \
   esbuild_url="$(node -e 'const lock=require("/tmp/pek-web-package-lock.json"); console.log(lock.packages["node_modules/esbuild-wasm"].resolved)')"; \
+  esbuild_integrity="$(node -e 'const lock=require("/tmp/pek-web-package-lock.json"); console.log(lock.packages["node_modules/esbuild-wasm"].integrity)')"; \
   flatbuffers_url="$(node -e 'const config=require("/tmp/perception-sdk.json"); console.log(config.typescript_build.flatbuffers_runtime.url)')"; \
+  flatbuffers_sha256="$(node -e 'const config=require("/tmp/perception-sdk.json"); console.log(config.typescript_build.flatbuffers_runtime.sha256)')"; \
   typescript_url="$(node -e 'const config=require("/tmp/perception-sdk.json"); console.log(config.typescript_build.typescript.url)')"; \
+  typescript_sha256="$(node -e 'const config=require("/tmp/perception-sdk.json"); console.log(config.typescript_build.typescript.sha256)')"; \
+  download() { \
+    local url="$1"; local destination="$2"; \
+    timeout 180s curl --fail --location --retry 1 --output "${destination}" "${url}" || \
+      curl --fail --location --retry 3 --output "${destination}" \
+        "${NPM_FALLBACK_REGISTRY}/${url#https://registry.npmjs.org/}"; \
+  }; \
+  download "${esbuild_url}" /tmp/esbuild-wasm.tgz; \
+  download "${flatbuffers_url}" /tmp/flatbuffers.tgz; \
+  download "${typescript_url}" /tmp/typescript.tgz; \
+  ESBUILD_INTEGRITY="${esbuild_integrity}" node -e 'const crypto=require("crypto"); const fs=require("fs"); const [algorithm, expected]=process.env.ESBUILD_INTEGRITY.split("-", 2); const actual=crypto.createHash(algorithm).update(fs.readFileSync("/tmp/esbuild-wasm.tgz")).digest("base64"); if (actual !== expected) throw new Error("esbuild-wasm integrity mismatch")'; \
+  echo "${flatbuffers_sha256}  /tmp/flatbuffers.tgz" | sha256sum --check --strict; \
+  echo "${typescript_sha256}  /tmp/typescript.tgz" | sha256sum --check --strict; \
   npm_args=(--global --ignore-scripts --no-audit --no-fund); \
-  if ! timeout 180s env npm_config_fetch_retries=1 npm install "${npm_args[@]}" \
-      "${esbuild_url}" "${flatbuffers_url}" "${typescript_url}"; then \
-    esbuild_url="${NPM_FALLBACK_REGISTRY}/${esbuild_url#https://registry.npmjs.org/}"; \
-    flatbuffers_url="${NPM_FALLBACK_REGISTRY}/${flatbuffers_url#https://registry.npmjs.org/}"; \
-    typescript_url="${NPM_FALLBACK_REGISTRY}/${typescript_url#https://registry.npmjs.org/}"; \
-    env npm_config_fetch_retries=3 npm install "${npm_args[@]}" \
-      "${esbuild_url}" "${flatbuffers_url}" "${typescript_url}"; \
-  fi; \
-  rm -f /tmp/pek-web-package-lock.json
+  npm install "${npm_args[@]}" \
+    /tmp/esbuild-wasm.tgz /tmp/flatbuffers.tgz /tmp/typescript.tgz; \
+  rm -f /tmp/esbuild-wasm.tgz /tmp/flatbuffers.tgz /tmp/typescript.tgz \
+    /tmp/pek-web-package-lock.json
 
 RUN ln -sf /usr/bin/lldb-17 /usr/local/bin/lldb && \
   ln -sf /usr/bin/lldb-server-17 /usr/local/bin/lldb-server

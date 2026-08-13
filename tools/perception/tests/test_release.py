@@ -59,6 +59,70 @@ class SchemaChangeParserTests(unittest.TestCase):
             (),
         )
 
+    def test_schema_parser_preserves_layout_and_wire_attributes(self) -> None:
+        schema = schema_change.parse_schema(
+            "metadata.fbs",
+            """
+            struct Point {
+                x:float;
+                y:float;
+            }
+            enum State : byte { UNKNOWN = 0, READY = 1 }
+            table Payload {
+                point:Point (required, id: 0);
+            }
+            """,
+        )
+
+        self.assertEqual(
+            schema.structs["Point"],
+            (
+                schema_change.Field("x", "float", None),
+                schema_change.Field("y", "float", None),
+            ),
+        )
+        self.assertEqual(
+            schema.tables["Payload"][0].attributes,
+            ("id: 0", "required"),
+        )
+        self.assertEqual(schema.sequences["enum:State"].underlying_type, "byte")
+
+    def test_schema_comparison_rejects_wire_breaks(self) -> None:
+        old = schema_change.parse_schema(
+            "metadata.fbs",
+            """
+            struct Point {
+                x:float;
+                y:float;
+            }
+            enum State : byte { UNKNOWN = 0 }
+            table Payload {
+                label:string;
+            }
+            """,
+        )
+        new = schema_change.parse_schema(
+            "metadata.fbs",
+            """
+            struct Point {
+                x:float;
+                y:float;
+                z:float;
+            }
+            enum State : int { UNKNOWN = 0 }
+            table Payload {
+                label:string;
+                value:string (required);
+            }
+            """,
+        )
+
+        findings = schema_change.compare_schema(old, new)
+        messages = {finding.message: finding.severity for finding in findings}
+        self.assertEqual(messages["Point appended fields: z"], "breaking")
+        self.assertEqual(messages["changed underlying type of enum:State"], "breaking")
+        self.assertEqual(messages["Payload appended fields: value"], "breaking")
+
 
 class CommandHelpTests(unittest.TestCase):
     def run_help(self, *arguments: str) -> str:
@@ -224,6 +288,9 @@ class SingleSourceContractTests(unittest.TestCase):
         dockerfile = (repository / "Dockerfile").read_text(encoding="utf-8")
         self.assertNotIn("ARG FLATBUFFERS_VERSION", dockerfile)
         self.assertIn("install-perception-flatbuffers", dockerfile)
+        self.assertIn("ESBUILD_INTEGRITY", dockerfile)
+        self.assertIn("sha256sum --check --strict", dockerfile)
+        self.assertIn("/tmp/esbuild-wasm.tgz /tmp/flatbuffers.tgz /tmp/typescript.tgz", dockerfile)
         self.assertFalse((repository / "Dockerfile.dev").exists())
 
         plumber = (repository / "tools" / "plumber" / "pyproject.toml").read_text(
@@ -310,7 +377,7 @@ class BundleVerificationTests(unittest.TestCase):
         files = {
             "cpp/perception.h": b"header\n",
             "metadata/perception-sdk-manifest.json": b"{}\n",
-            "metadata/sdk.json": b"{}\n",
+            "metadata/sdk.json": json.dumps({"name": "perception", "version": "1.2.3"}).encode(),
             "schemas/payload.fbs": b"namespace perception.metadata;\n",
         }
         for relative_path, content in files.items():
@@ -346,8 +413,14 @@ class BundleVerificationTests(unittest.TestCase):
         schema_root = bundle / "schemas"
         schema_files = release_package.perception_generate._schema_records(schema_root)
         schema_digest = release_package.perception_generate._schema_set_sha256(schema_root)
+        descriptor_sha256 = digest(bundle / "metadata/sdk.json")
         (bundle / "metadata/perception-sdk-manifest.json").write_text(
             json.dumps({
+                "artifact": {"name": "perception-sdk", "version": "1.2.3"},
+                "descriptor": {
+                    "path": "tools/perception/sdk.json",
+                    "sha256": descriptor_sha256,
+                },
                 "upstream_receipts": {
                     "cpp": {
                         "schema_files": schema_files,
@@ -427,14 +500,20 @@ class BundleVerificationTests(unittest.TestCase):
             "source": {
                 "descriptor": {
                     "path": "metadata/sdk.json",
-                    "sha256": digest(bundle / "metadata/sdk.json"),
+                    "sha256": descriptor_sha256,
                 },
                 "dirty": False,
                 "generated_manifest": {
                     "path": "metadata/perception-sdk-manifest.json",
                     "sha256": digest(bundle / "metadata/perception-sdk-manifest.json"),
                 },
-                "input_tree_sha256": "0" * 64,
+                "input_tree_sha256": release_package.content_digest({
+                    "descriptor": descriptor_sha256,
+                    "generated_manifest": digest(
+                        bundle / "metadata/perception-sdk-manifest.json"
+                    ),
+                    "schema_set": schema_digest,
+                }),
                 "release_tools": [{"path": "tools/package.py", "sha256": "0" * 64}],
             },
             "tools": {},
@@ -489,6 +568,44 @@ class BundleVerificationTests(unittest.TestCase):
             bundle = self.create_bundle(Path(tmp))
             (bundle / "cpp" / "perception.h").write_text("changed\n", encoding="utf-8")
             with self.assertRaises(RuntimeError):
+                release_package.verify_bundle(bundle)
+
+    def test_rejects_self_declared_input_tree_digest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle = self.create_bundle(Path(tmp))
+            manifest_path = bundle / release_package.MANIFEST_FILENAME
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["source"]["input_tree_sha256"] = "1" * 64
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, "input tree identity"):
+                release_package.verify_bundle(bundle)
+
+    def test_rejects_descriptor_artifact_identity_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle = self.create_bundle(Path(tmp))
+            descriptor_path = bundle / "metadata/sdk.json"
+            descriptor = json.loads(descriptor_path.read_text(encoding="utf-8"))
+            descriptor["version"] = "2.0.0"
+            descriptor_path.write_text(json.dumps(descriptor), encoding="utf-8")
+
+            manifest_path = bundle / release_package.MANIFEST_FILENAME
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            descriptor_sha256 = digest(descriptor_path)
+            manifest["source"]["descriptor"]["sha256"] = descriptor_sha256
+            manifest["source"]["input_tree_sha256"] = release_package.content_digest({
+                "descriptor": descriptor_sha256,
+                "generated_manifest": manifest["source"]["generated_manifest"]["sha256"],
+                "schema_set": manifest["schema_set_sha256"],
+            })
+            descriptor_record = next(
+                record for record in manifest["files"]
+                if record["path"] == "metadata/sdk.json"
+            )
+            descriptor_record["sha256"] = descriptor_sha256
+            descriptor_record["size"] = descriptor_path.stat().st_size
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            with self.assertRaisesRegex(RuntimeError, "artifact identities differ"):
                 release_package.verify_bundle(bundle)
 
     def test_rejects_unsafe_manifest_path(self) -> None:
