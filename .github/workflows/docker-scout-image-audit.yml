@@ -8,6 +8,11 @@ on:
         required: false
         default: ""
         type: string
+      checkout_ref:
+        description: Optional exact source ref for a caller-managed PR run.
+        required: false
+        default: ""
+        type: string
     secrets:
       DOCKER_USER:
         required: true
@@ -93,7 +98,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-          ref: ${{ github.ref }}
+          ref: ${{ inputs.checkout_ref || github.ref }}
           path: ${{ env.CI_CHECKOUT_PATH }}
 
       - name: Checkout pull request head
