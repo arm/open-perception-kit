@@ -374,17 +374,18 @@ class BundleVerificationTests(unittest.TestCase):
 
     def create_bundle(self, root: Path) -> Path:
         bundle = root / "perception-sdk-1.2.3"
+        flatbuffers_wheel_path = bundle / "python/flatbuffers.whl"
+        flatbuffers_typescript_path = bundle / "typescript/flatbuffers-25.9.23.tgz"
         files = {
             "cpp/perception.h": b"header\n",
             "metadata/perception-sdk-manifest.json": b"{}\n",
-            "metadata/sdk.json": json.dumps({"name": "perception", "version": "1.2.3"}).encode(),
             "schemas/payload.fbs": b"namespace perception.metadata;\n",
         }
         for relative_path, content in files.items():
             path = bundle / relative_path
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(content)
-        self.create_wheel(bundle / "python/flatbuffers.whl", "flatbuffers", "25.9.23")
+        self.create_wheel(flatbuffers_wheel_path, "flatbuffers", "25.9.23")
         self.create_wheel(
             bundle / "python/perception.whl",
             "perception",
@@ -393,7 +394,7 @@ class BundleVerificationTests(unittest.TestCase):
         )
         self.create_npm_package(
             root,
-            bundle / "typescript/flatbuffers-25.9.23.tgz",
+            flatbuffers_typescript_path,
             "flatbuffers",
             "25.9.23",
         )
@@ -404,6 +405,36 @@ class BundleVerificationTests(unittest.TestCase):
             "1.2.3",
             {"flatbuffers": "25.9.23"},
         )
+        (bundle / "metadata/sdk.json").write_text(
+            json.dumps({
+                "flatbuffers": {
+                    "python_wheel": {
+                        "filename": flatbuffers_wheel_path.name,
+                        "sha256": digest(flatbuffers_wheel_path),
+                        "url": f"https://example.invalid/{flatbuffers_wheel_path.name}",
+                    },
+                    "source_archive": {
+                        "filename": "v25.9.23.tar.gz",
+                        "sha256": "1" * 64,
+                        "url": "https://example.invalid/v25.9.23.tar.gz",
+                    },
+                    "version": "25.9.23",
+                },
+                "name": "perception",
+                "typescript_build": {
+                    "flatbuffers_runtime": {
+                        "filename": flatbuffers_typescript_path.name,
+                        "name": "flatbuffers",
+                        "sha256": digest(flatbuffers_typescript_path),
+                        "url": f"https://example.invalid/{flatbuffers_typescript_path.name}",
+                        "version": "25.9.23",
+                    }
+                },
+                "version": "1.2.3",
+            }),
+            encoding="utf-8",
+        )
+        files["metadata/sdk.json"] = b""
         files.update({
             "python/flatbuffers.whl": b"",
             "python/perception.whl": b"",
@@ -452,12 +483,23 @@ class BundleVerificationTests(unittest.TestCase):
                 for relative_path in sorted(files)
             ],
             "flatbuffers": {
+                "compiler": {
+                    "semantic_version": "25.9.23",
+                    "version": "flatc version 25.9.23",
+                },
                 "python_wheel": {
                     "filename": "flatbuffers.whl",
                     "name": "flatbuffers",
                     "path": "python/flatbuffers.whl",
                     "sha256": digest(bundle / "python/flatbuffers.whl"),
                     "url": "https://example.invalid/flatbuffers.whl",
+                    "version": "25.9.23",
+                },
+                "source_archive": {
+                    "filename": "v25.9.23.tar.gz",
+                    "name": "flatbuffers",
+                    "sha256": "1" * 64,
+                    "url": "https://example.invalid/v25.9.23.tar.gz",
                     "version": "25.9.23",
                 },
                 "typescript_package": {
@@ -522,6 +564,39 @@ class BundleVerificationTests(unittest.TestCase):
             json.dumps(manifest), encoding="utf-8"
         )
         return bundle
+
+    def rewrite_descriptor_identity(
+        self, bundle: Path, descriptor: dict[str, object]
+    ) -> None:
+        descriptor_path = bundle / "metadata/sdk.json"
+        descriptor_path.write_text(json.dumps(descriptor), encoding="utf-8")
+        descriptor_sha256 = digest(descriptor_path)
+
+        generated_path = bundle / "metadata/perception-sdk-manifest.json"
+        generated = json.loads(generated_path.read_text(encoding="utf-8"))
+        generated["descriptor"]["sha256"] = descriptor_sha256
+        generated_path.write_text(json.dumps(generated), encoding="utf-8")
+        generated_sha256 = digest(generated_path)
+
+        manifest_path = bundle / release_package.MANIFEST_FILENAME
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["source"]["descriptor"]["sha256"] = descriptor_sha256
+        manifest["source"]["generated_manifest"]["sha256"] = generated_sha256
+        manifest["source"]["input_tree_sha256"] = release_package.content_digest({
+            "descriptor": descriptor_sha256,
+            "generated_manifest": generated_sha256,
+            "schema_set": manifest["schema_set_sha256"],
+        })
+        for relative, digest_value in (
+            ("metadata/sdk.json", descriptor_sha256),
+            ("metadata/perception-sdk-manifest.json", generated_sha256),
+        ):
+            record = next(
+                entry for entry in manifest["files"] if entry["path"] == relative
+            )
+            record["sha256"] = digest_value
+            record["size"] = (bundle / relative).stat().st_size
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
     def test_verifies_manifest_and_archive(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -607,6 +682,64 @@ class BundleVerificationTests(unittest.TestCase):
 
             with self.assertRaisesRegex(RuntimeError, "artifact identities differ"):
                 release_package.verify_bundle(bundle)
+
+    def test_rejects_descriptor_flatbuffers_version_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle = self.create_bundle(Path(tmp))
+            descriptor_path = bundle / "metadata/sdk.json"
+            descriptor = json.loads(descriptor_path.read_text(encoding="utf-8"))
+            descriptor["flatbuffers"]["version"] = "9.9.9"
+            descriptor["typescript_build"]["flatbuffers_runtime"]["version"] = "9.9.9"
+            self.rewrite_descriptor_identity(bundle, descriptor)
+
+            with self.assertRaisesRegex(RuntimeError, "version does not match compiler"):
+                release_package.verify_bundle(bundle)
+
+    def test_rejects_descriptor_flatbuffers_package_lock_mismatch(self) -> None:
+        mutations = (
+            ("python_wheel", "flatbuffers", "python_wheel", "filename", "other.whl"),
+            ("python_wheel", "flatbuffers", "python_wheel", "sha256", "2" * 64),
+            (
+                "source_archive",
+                "flatbuffers",
+                "source_archive",
+                "filename",
+                "other.tar.gz",
+            ),
+            ("source_archive", "flatbuffers", "source_archive", "sha256", "2" * 64),
+            (
+                "typescript_package",
+                "typescript_build",
+                "flatbuffers_runtime",
+                "filename",
+                "other.tgz",
+            ),
+            (
+                "typescript_package",
+                "typescript_build",
+                "flatbuffers_runtime",
+                "sha256",
+                "2" * 64,
+            ),
+        )
+        for manifest_key, section_key, descriptor_key, field, value in mutations:
+            with self.subTest(manifest_key=manifest_key, field=field):
+                with tempfile.TemporaryDirectory() as tmp:
+                    bundle = self.create_bundle(Path(tmp))
+                    descriptor_path = bundle / "metadata/sdk.json"
+                    descriptor = json.loads(
+                        descriptor_path.read_text(encoding="utf-8")
+                    )
+                    descriptor_lock = descriptor[section_key][descriptor_key]
+                    descriptor_lock[field] = value
+                    if field == "filename":
+                        descriptor_lock["url"] = f"https://example.invalid/{value}"
+                    self.rewrite_descriptor_identity(bundle, descriptor)
+
+                    with self.assertRaisesRegex(
+                        RuntimeError, f"{manifest_key} lock does not match manifest"
+                    ):
+                        release_package.verify_bundle(bundle)
 
     def test_rejects_unsafe_manifest_path(self) -> None:
         with self.assertRaises(RuntimeError):

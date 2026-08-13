@@ -283,6 +283,7 @@ def write_bundle_manifest(
                 **asdict(config.flatbuffers_wheel),
                 "path": f"python/{flatbuffers_wheel.name}",
             },
+            "source_archive": asdict(config.flatbuffers_source),
             "typescript_package": {
                 **asdict(config.typescript_runtime),
                 "path": f"typescript/{flatbuffers_npm_package.name}",
@@ -380,6 +381,7 @@ def _verify_source_identities(
     source: object,
     artifact: dict[str, object],
     schema_set_sha256: object,
+    manifest_flatbuffers: object,
 ) -> None:
     if not isinstance(source, dict):
         raise RuntimeError("release manifest source metadata is malformed")
@@ -415,6 +417,76 @@ def _verify_source_identities(
         or generated_descriptor.get("sha256") != source["descriptor"]["sha256"]
     ):
         raise RuntimeError("generated SDK manifest does not identify the bundled descriptor")
+
+    _verify_descriptor_flatbuffers_locks(
+        descriptor, manifest_flatbuffers, bundle_root
+    )
+
+
+def _verify_descriptor_flatbuffers_locks(
+    descriptor: dict[str, object],
+    manifest_flatbuffers: object,
+    bundle_root: Path,
+) -> None:
+    descriptor_flatbuffers = descriptor.get("flatbuffers")
+    descriptor_typescript = descriptor.get("typescript_build")
+    if (
+        not isinstance(descriptor_flatbuffers, dict)
+        or not isinstance(descriptor_typescript, dict)
+        or not isinstance(manifest_flatbuffers, dict)
+    ):
+        raise RuntimeError("release descriptor FlatBuffers metadata is malformed")
+
+    version = descriptor_flatbuffers.get("version")
+    python_lock = descriptor_flatbuffers.get("python_wheel")
+    source_lock = descriptor_flatbuffers.get("source_archive")
+    typescript_lock = descriptor_typescript.get("flatbuffers_runtime")
+    if (
+        not isinstance(version, str)
+        or not isinstance(python_lock, dict)
+        or not isinstance(source_lock, dict)
+        or not isinstance(typescript_lock, dict)
+    ):
+        raise RuntimeError("release descriptor FlatBuffers locks are malformed")
+
+    compiler = manifest_flatbuffers.get("compiler")
+    if not isinstance(compiler, dict) or compiler.get("semantic_version") != version:
+        raise RuntimeError("release descriptor FlatBuffers version does not match compiler")
+
+    expected_records = {
+        "python_wheel": {
+            "filename": python_lock.get("filename"),
+            "name": "flatbuffers",
+            "sha256": python_lock.get("sha256"),
+            "url": python_lock.get("url"),
+            "version": version,
+        },
+        "source_archive": {
+            "filename": source_lock.get("filename"),
+            "name": "flatbuffers",
+            "sha256": source_lock.get("sha256"),
+            "url": source_lock.get("url"),
+            "version": version,
+        },
+        "typescript_package": {
+            key: typescript_lock.get(key)
+            for key in ("filename", "name", "sha256", "url", "version")
+        },
+    }
+    for key, expected in expected_records.items():
+        record = manifest_flatbuffers.get(key)
+        if not isinstance(record, dict) or any(
+            record.get(field) != value for field, value in expected.items()
+        ):
+            raise RuntimeError(
+                f"release descriptor FlatBuffers {key} lock does not match manifest"
+            )
+        if key != "source_archive":
+            path = validate_relative_path(record.get("path"))
+            if path.name != expected["filename"] or not (bundle_root / path).is_file():
+                raise RuntimeError(
+                    f"release descriptor FlatBuffers {key} filename does not match package"
+                )
 
 
 def _verify_packaged_artifact_records(
@@ -453,6 +525,7 @@ def verify_bundle(bundle_root: Path) -> None:
         manifest.get("source"),
         artifact,
         manifest.get("schema_set_sha256"),
+        manifest.get("flatbuffers"),
     )
     _verify_packaged_artifact_records(bundle_root, manifest, file_entries)
 
