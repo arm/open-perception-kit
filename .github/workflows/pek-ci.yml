@@ -428,43 +428,12 @@ jobs:
       CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
-      - name: Checkout manual-run helper
-        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 1
-          ref: ${{ github.event.repository.default_branch }}
-          path: ${{ env.CI_CHECKOUT_PATH }}
-          persist-credentials: false
-
-      - name: Set up manual-run Python
-        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
-        uses: actions/setup-python@v7
-        with:
-          python-version: "3.x"
-
-      - name: Resolve manual PR
-        id: manual_pr
-        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
-        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          python3 scripts/private/github_pr_context.py \
-            --pr-number "${{ github.event.inputs.pr_number }}" \
-            --repo "${{ github.repository }}" \
-            --base-ref-override "${{ github.event.inputs.pr_base_ref }}" \
-            --head-ref-override "${{ github.event.inputs.pr_head_ref }}" \
-            --head-sha-override "${{ github.event.inputs.pr_head_sha }}" \
-            --github-output "${GITHUB_OUTPUT}"
-
       - name: Checkout
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
-          ref: ${{ steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.event.inputs.pr_head_sha || github.event.pull_request.head.sha || github.sha }}
           path: ${{ env.CI_CHECKOUT_PATH }}
           persist-credentials: false
 
