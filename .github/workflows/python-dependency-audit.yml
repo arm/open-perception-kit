@@ -2,6 +2,12 @@ name: Python Dependency Audit
 
 on:
   workflow_call:
+    inputs:
+      checkout_ref:
+        description: Optional exact source ref for a caller-managed PR run.
+        required: false
+        default: ""
+        type: string
   workflow_dispatch:
   schedule:
     - cron: "0 3 * * *"
@@ -36,6 +42,8 @@ jobs:
       - name: Checkout current ref
         if: github.event_name != 'pull_request'
         uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.checkout_ref || github.sha }}
 
       - name: Checkout pull request head
         if: github.event_name == 'pull_request'

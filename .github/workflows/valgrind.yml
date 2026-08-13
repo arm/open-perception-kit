@@ -5,6 +5,8 @@ on:
     branches: [main, develop, "feature/**", "sandbox/**"]
     types: [opened, synchronize, reopened, ready_for_review, labeled]
 
+permissions: {}
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}-${{ github.event.action == 'labeled' && github.event.label.name != 'run-pek-ci' && github.run_id || 'baseline' }}
   cancel-in-progress: true

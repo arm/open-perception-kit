@@ -1,0 +1,58 @@
+name: PEK CI label rerun
+
+on:
+  pull_request_target:
+    branches: [main, develop, "feature/**", "sandbox/**"]
+    types: [labeled]
+
+permissions: {}
+
+jobs:
+  dispatch-conflicted-pr:
+    name: Dispatch PEK CI for conflicted head
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      contains(fromJSON('["run-pek-ci","run-macos-ci","run-python-audit","run-docker-scout","run-workflow-audit"]'), github.event.label.name) &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login != 'dependabot[bot]'
+    permissions:
+      actions: write
+      pull-requests: read
+      statuses: write
+    steps:
+      - name: Dispatch exact PR head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_LABEL: ${{ github.event.label.name }}
+          WORKFLOW_REF: ${{ github.event.repository.default_branch }}
+        run: |
+          read -r mergeable base_ref head_ref head_sha < <(
+            gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
+              --jq '[(.mergeable | tostring), .base.ref, .head.ref, .head.sha] | @tsv'
+          )
+          if [ "$mergeable" = true ]; then
+            echo "The native pull_request workflow handles this PR."
+            exit 0
+          fi
+
+          # ponytail: an unknown mergeability result dispatches too; duplication is safer than dropping the label request.
+          checks=label
+          if [ "$PR_LABEL" = run-pek-ci ]; then
+            checks=all
+          fi
+          gh workflow run pek-ci.yml \
+            --ref "$WORKFLOW_REF" \
+            -f checks="$checks" \
+            -f pr_number="$PR_NUMBER" \
+            -f pr_base_ref="$base_ref" \
+            -f pr_head_ref="$head_ref" \
+            -f pr_head_sha="$head_sha" \
+            -f pr_label="$PR_LABEL"
+
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/statuses/${head_sha}" \
+            -f state=pending \
+            -f context="PEK CI (head): ${PR_LABEL}" \
+            -f description="${PR_LABEL} head validation is running" \
+            -f target_url="https://github.com/${GITHUB_REPOSITORY}/actions/workflows/pek-ci.yml"
