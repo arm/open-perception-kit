@@ -15,14 +15,19 @@ Usage:
 Options:
   --executorch-dir DIR  Staged ExecuTorch SDK. Default: /work/deps/executorch
   --libtorch-dir DIR    Staged libtorch compatibility headers. Default: /work/deps/libtorch
+  --legal-documentation-dir DIR
+                        ExecuTorch and third-party licenses/copyright notices.
+                        Default: /work/deps/executorch-legal-documentation
   --output-dir DIR      Debian package output directory. Default: /work/var
   --install-root DIR    Package installation root. Default: /opt/pek-deps
-  --revision REV        Debian package revision. Default: 1
+  --revision REV        Debian package revision. Default: 2
   --help                Show this help.
 
 Environment:
   EXECUTORCH_SDK_DIR          Same as --executorch-dir.
   LIBTORCH_SDK_DIR            Same as --libtorch-dir.
+  EXECUTORCH_LEGAL_DOCUMENTATION_DIR
+                              Same as --legal-documentation-dir.
   EXECUTORCH_DEB_OUTPUT_DIR   Same as --output-dir.
   EXECUTORCH_DEB_INSTALL_ROOT Same as --install-root.
   EXECUTORCH_DEB_REVISION     Same as --revision.
@@ -94,9 +99,10 @@ PACKAGE_NAME="libexecutorch-dev"
 PACKAGE_VERSION="1.3.1"
 EXECUTORCH_DIR="${EXECUTORCH_SDK_DIR:-/work/deps/executorch}"
 LIBTORCH_DIR="${LIBTORCH_SDK_DIR:-/work/deps/libtorch}"
+LEGAL_DOCUMENTATION_DIR="${EXECUTORCH_LEGAL_DOCUMENTATION_DIR:-/work/deps/executorch-legal-documentation}"
 OUTPUT_DIR="${EXECUTORCH_DEB_OUTPUT_DIR:-/work/var}"
 INSTALL_ROOT="${EXECUTORCH_DEB_INSTALL_ROOT:-/opt/pek-deps}"
-PACKAGE_REVISION="${EXECUTORCH_DEB_REVISION:-1}"
+PACKAGE_REVISION="${EXECUTORCH_DEB_REVISION:-2}"
 PACKAGE_MAINTAINER="${EXECUTORCH_DEB_MAINTAINER:-Arm Limited}"
 
 while [[ $# -gt 0 ]]; do
@@ -109,6 +115,11 @@ while [[ $# -gt 0 ]]; do
         --libtorch-dir)
             [[ $# -ge 2 ]] || die "--libtorch-dir requires a value"
             LIBTORCH_DIR="$2"
+            shift 2
+            ;;
+        --legal-documentation-dir)
+            [[ $# -ge 2 ]] || die "--legal-documentation-dir requires a value"
+            LEGAL_DOCUMENTATION_DIR="$2"
             shift 2
             ;;
         --output-dir)
@@ -145,6 +156,7 @@ INSTALL_ROOT="${INSTALL_ROOT%/}"
 
 EXECUTORCH_DIR="$(resolve_path "${EXECUTORCH_DIR}")"
 LIBTORCH_DIR="$(resolve_path "${LIBTORCH_DIR}")"
+LEGAL_DOCUMENTATION_DIR="$(resolve_path "${LEGAL_DOCUMENTATION_DIR}")"
 OUTPUT_DIR="$(resolve_path "${OUTPUT_DIR}")"
 
 need_cmd ar
@@ -159,11 +171,17 @@ required_paths=(
     "${EXECUTORCH_DIR}/include/executorch/runtime/core/error.h"
     "${EXECUTORCH_DIR}/lib/libexecutorch.a"
     "${LIBTORCH_DIR}/include"
+    "${LEGAL_DOCUMENTATION_DIR}"
 )
 
 for path in "${required_paths[@]}"; do
     [[ -e "${path}" ]] || die "missing required SDK path: ${path}"
 done
+
+[[ -n "$(find "${LEGAL_DOCUMENTATION_DIR}" -type f -print -quit)" ]] ||
+    die "ExecuTorch and third-party licenses/copyright notices are missing: ${LEGAL_DOCUMENTATION_DIR}"
+[[ -z "$(find "${LEGAL_DOCUMENTATION_DIR}" -type l -print -quit)" ]] ||
+    die "ExecuTorch legal documentation must not contain symlinks: ${LEGAL_DOCUMENTATION_DIR}"
 
 required_libs=(
     libextension_module.a
@@ -201,12 +219,15 @@ rm -rf "${PACKAGE_ROOT}"
 mkdir -p \
     "${PACKAGE_ROOT}/DEBIAN" \
     "${PAYLOAD_ROOT}/executorch" \
-    "${PAYLOAD_ROOT}/libtorch"
+    "${PAYLOAD_ROOT}/libtorch" \
+    "${PAYLOAD_ROOT}/executorch-legal-documentation"
 
 log "Copying ExecuTorch SDK into ${INSTALL_ROOT}/executorch"
 cp -a "${EXECUTORCH_DIR}/." "${PAYLOAD_ROOT}/executorch/"
 log "Copying libtorch compatibility headers into ${INSTALL_ROOT}/libtorch"
 cp -a "${LIBTORCH_DIR}/include" "${PAYLOAD_ROOT}/libtorch/"
+log "Copying ExecuTorch and third-party licenses/copyright notices into ${INSTALL_ROOT}/executorch-legal-documentation"
+cp -a "${LEGAL_DOCUMENTATION_DIR}/." "${PAYLOAD_ROOT}/executorch-legal-documentation/"
 
 find "${PACKAGE_ROOT}" -type d -exec chmod 0755 {} +
 find "${PAYLOAD_ROOT}" -type f -exec chmod 0644 {} +

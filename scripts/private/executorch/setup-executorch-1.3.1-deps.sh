@@ -24,12 +24,12 @@ Options:
   --executorch-git-url URL
                           Git URL used only to recover pinned submodule commits.
   --executorch-sha256 SHA Expected SHA-256 of the source archive. Optional.
-  --jobs N                Build parallelism. Default: 1
+  --jobs N                Build parallelism. Default: calculated from available CPU and memory.
   --deb-output-dir DIR    Debian package output directory. Default: /work/var
-  --deb-revision REV      Debian package revision. Default: 1
+  --deb-revision REV      Debian package revision. Default: 2
   --skip-deb              Stage files without creating a Debian package.
-  --keep-work-dir         Reuse the existing work directory instead of deleting it.
-  --keep-build            Reuse the existing CMake build directory.
+  --clean-build           Delete and recreate the CMake build directory.
+  --clean-work-dir        Delete and recreate the entire work directory.
   --help                  Show this help.
 
 Environment:
@@ -44,6 +44,7 @@ Environment:
   VENV_DIR                Default: $WORK_DIR/.venv
   PYTHON_VERSION          Default: 3.11
   JOBS                    Same as --jobs.
+  CCACHE_DIR              Compiler cache directory. Default: $WORK_DIR/cache/ccache
   EXECUTORCH_X86_64_CC     x86_64 C compiler. Default: x86_64-linux-gnu-gcc-14
   EXECUTORCH_X86_64_CXX    x86_64 C++ compiler. Default: x86_64-linux-gnu-g++-14
   EXECUTORCH_X86_64_AR     x86_64 archiver. Default: x86_64-linux-gnu-ar
@@ -59,6 +60,8 @@ Environment:
   EXECUTORCH_DEB_REVISION Same as --deb-revision.
   EXECUTORCH_DEB_MAINTAINER
                           Debian Maintainer field. Default: Arm Limited
+  EXECUTORCH_LEGAL_DOCUMENTATION_DIR
+                          Default: $DEPS_DIR/executorch-legal-documentation
   LIBTORCH_URL            Optional libtorch zip URL. If unset, torch headers are
                           copied from the ExecuTorch Python venv when available.
 
@@ -66,6 +69,7 @@ Output:
   $DEPS_DIR/executorch/include
   $DEPS_DIR/executorch/lib
   $DEPS_DIR/libtorch/include
+  $DEPS_DIR/executorch-legal-documentation
   /work/var/libexecutorch-dev-1.3.1-<revision>-<architecture>.deb
 
 The top-level ExecuTorch source is downloaded from the fixed archive. Git is
@@ -131,21 +135,71 @@ normalize_target_architecture() {
     esac
 }
 
+calculate_default_jobs() {
+    local cpu_jobs
+    local memory_jobs
+    local available_kib
+    local available_bytes
+    local cgroup_available
+    local quota
+    local period
+    local quota_jobs
+
+    cpu_jobs="$(nproc 2> /dev/null || getconf _NPROCESSORS_ONLN 2> /dev/null || printf '1\n')"
+    [[ "${cpu_jobs}" =~ ^[1-9][0-9]*$ ]] || cpu_jobs=1
+
+    if read -r quota period < /sys/fs/cgroup/cpu.max 2> /dev/null &&
+        [[ "${quota}" =~ ^[0-9]+$ ]] && [[ "${period}" =~ ^[1-9][0-9]*$ ]]; then
+        quota_jobs=$(((quota + period - 1) / period))
+        if ((quota_jobs < cpu_jobs)); then
+            cpu_jobs="${quota_jobs}"
+        fi
+    fi
+
+    available_kib="$(awk '/^MemAvailable:/ {print $2; exit}' /proc/meminfo 2> /dev/null || true)"
+    if [[ "${available_kib}" =~ ^[0-9]+$ ]]; then
+        available_bytes=$((available_kib * 1024))
+    else
+        available_bytes=$((2 * 1024 * 1024 * 1024))
+    fi
+
+    if [[ -r /sys/fs/cgroup/memory.max && -r /sys/fs/cgroup/memory.current ]]; then
+        local memory_max
+        local memory_current
+        memory_max="$(< /sys/fs/cgroup/memory.max)"
+        memory_current="$(< /sys/fs/cgroup/memory.current)"
+        if [[ "${memory_max}" =~ ^[0-9]+$ ]] && [[ "${memory_current}" =~ ^[0-9]+$ ]] &&
+            ((memory_max > memory_current)); then
+            cgroup_available=$((memory_max - memory_current))
+            if ((cgroup_available < available_bytes)); then
+                available_bytes="${cgroup_available}"
+            fi
+        fi
+    fi
+
+    # ExecuTorch's generated C++ kernels are memory-heavy. Budget 2 GiB per
+    # compiler process to avoid trading parallelism for swapping or OOM kills.
+    memory_jobs=$((available_bytes / (2 * 1024 * 1024 * 1024)))
+    if ((memory_jobs < 1)); then
+        memory_jobs=1
+    fi
+    if ((memory_jobs < cpu_jobs)); then
+        printf '%s\n' "${memory_jobs}"
+    else
+        printf '%s\n' "${cpu_jobs}"
+    fi
+}
+
 resolve_path() {
     local path="$1"
-    local parent
-    local base
 
     case "${path}" in
         /*) ;;
         *) path="${ORIGINAL_CWD}/${path}" ;;
     esac
 
-    parent="$(dirname -- "${path}")"
-    base="$(basename -- "${path}")"
-    mkdir -p "${parent}"
-    parent="$(cd -- "${parent}" && pwd -P)"
-    printf '%s/%s\n' "${parent}" "${base}"
+    command -v realpath > /dev/null 2>&1 || die "missing required command: realpath"
+    realpath -m -- "${path}"
 }
 
 safe_rm_rf() {
@@ -181,7 +235,12 @@ EXECUTORCH_ARCHIVE_URL="${EXECUTORCH_ARCHIVE_URL:-https://github.com/pytorch/exe
 EXECUTORCH_GIT_URL="${EXECUTORCH_GIT_URL:-https://github.com/pytorch/executorch.git}"
 EXECUTORCH_ARCHIVE_SHA256="${EXECUTORCH_ARCHIVE_SHA256:-}"
 PYTHON_VERSION="${PYTHON_VERSION:-3.11}"
-JOBS="${JOBS:-1}"
+JOBS="${JOBS:-}"
+if [[ -n "${JOBS}" ]]; then
+    JOBS_SOURCE="environment"
+else
+    JOBS_SOURCE="automatic"
+fi
 TARGET_ARCH="${EXECUTORCH_TARGET_ARCH:-x86_64}"
 X86_64_C_COMPILER="${EXECUTORCH_X86_64_CC:-x86_64-linux-gnu-gcc-14}"
 X86_64_CXX_COMPILER="${EXECUTORCH_X86_64_CXX:-x86_64-linux-gnu-g++-14}"
@@ -194,10 +253,10 @@ ARM_AR="${EXECUTORCH_ARM_AR:-aarch64-linux-gnu-ar}"
 ARM_RANLIB="${EXECUTORCH_ARM_RANLIB:-aarch64-linux-gnu-ranlib}"
 ARM_STRIP="${EXECUTORCH_ARM_STRIP:-aarch64-linux-gnu-strip}"
 DEB_OUTPUT_DIR="${EXECUTORCH_DEB_OUTPUT_DIR:-/work/var}"
-DEB_REVISION="${EXECUTORCH_DEB_REVISION:-1}"
+DEB_REVISION="${EXECUTORCH_DEB_REVISION:-2}"
 BUILD_DEB=1
-CLEAN_BUILD=1
-CLEAN_WORK_DIR=1
+CLEAN_BUILD=0
+CLEAN_WORK_DIR=0
 WORK_DIR_ARG_PROVIDED=0
 
 while [[ $# -gt 0 ]]; do
@@ -237,6 +296,7 @@ while [[ $# -gt 0 ]]; do
         --jobs)
             [[ $# -ge 2 ]] || die "--jobs requires a value"
             JOBS="$2"
+            JOBS_SOURCE="command line"
             shift 2
             ;;
         --deb-output-dir)
@@ -253,12 +313,12 @@ while [[ $# -gt 0 ]]; do
             BUILD_DEB=0
             shift
             ;;
-        --keep-work-dir)
-            CLEAN_WORK_DIR=0
+        --clean-build)
+            CLEAN_BUILD=1
             shift
             ;;
-        --keep-build)
-            CLEAN_BUILD=0
+        --clean-work-dir)
+            CLEAN_WORK_DIR=1
             shift
             ;;
         --help | -h)
@@ -283,6 +343,10 @@ if [[ "${WORK_DIR_ARG_PROVIDED}" -eq 0 || -z "${WORK_DIR}" ]]; then
 fi
 
 TARGET_ARCH="$(normalize_target_architecture "${TARGET_ARCH}")"
+if [[ -z "${JOBS}" ]]; then
+    JOBS="$(calculate_default_jobs)"
+fi
+[[ "${JOBS}" =~ ^[1-9][0-9]*$ ]] || die "jobs must be a positive integer: ${JOBS}"
 if [[ "${BUILD_DEB}" -eq 1 ]]; then
     [[ "${DEB_REVISION}" =~ ^[0-9A-Za-z.+~]+$ ]] ||
         die "invalid Debian package revision: ${DEB_REVISION}"
@@ -296,6 +360,7 @@ BUILD_DIR="${BUILD_DIR:-${EXECUTORCH_DIR}/build}"
 VENV_DIR="${VENV_DIR:-${WORK_DIR}/.venv}"
 EXECUTORCH_INSTALL_DIR="${EXECUTORCH_INSTALL_DIR:-${DEPS_DIR}/executorch}"
 LIBTORCH_INSTALL_DIR="${LIBTORCH_INSTALL_DIR:-${DEPS_DIR}/libtorch}"
+LEGAL_DOCUMENTATION_DIR="${EXECUTORCH_LEGAL_DOCUMENTATION_DIR:-${DEPS_DIR}/executorch-legal-documentation}"
 DOWNLOAD_DIR="${DOWNLOAD_DIR:-${WORK_DIR}/downloads}"
 LIBTORCH_URL="${LIBTORCH_URL:-}"
 
@@ -304,6 +369,7 @@ BUILD_DIR="$(resolve_path "${BUILD_DIR}")"
 VENV_DIR="$(resolve_path "${VENV_DIR}")"
 EXECUTORCH_INSTALL_DIR="$(resolve_path "${EXECUTORCH_INSTALL_DIR}")"
 LIBTORCH_INSTALL_DIR="$(resolve_path "${LIBTORCH_INSTALL_DIR}")"
+LEGAL_DOCUMENTATION_DIR="$(resolve_path "${LEGAL_DOCUMENTATION_DIR}")"
 DOWNLOAD_DIR="$(resolve_path "${DOWNLOAD_DIR}")"
 DEB_OUTPUT_DIR="$(resolve_path "${DEB_OUTPUT_DIR}")"
 
@@ -311,6 +377,7 @@ export TMPDIR="${WORK_DIR}/tmp"
 export UV_CACHE_DIR="${WORK_DIR}/cache/uv"
 export PIP_CACHE_DIR="${WORK_DIR}/cache/pip"
 export XDG_CACHE_HOME="${WORK_DIR}/cache/xdg"
+export CCACHE_DIR="${CCACHE_DIR:-${WORK_DIR}/cache/ccache}"
 export MAX_JOBS="${JOBS}"
 export CMAKE_BUILD_PARALLEL_LEVEL="${JOBS}"
 export USE_KINETO="${USE_KINETO:-0}"
@@ -384,11 +451,27 @@ else
     CMAKE_GENERATOR_ARGS=()
 fi
 
+CCACHE_EXECUTABLE="$(command -v ccache || true)"
+CMAKE_LAUNCHER_ARGS=()
+if [[ -n "${CCACHE_EXECUTABLE}" ]]; then
+    CMAKE_LAUNCHER_ARGS=(
+        "-DCMAKE_C_COMPILER_LAUNCHER=${CCACHE_EXECUTABLE}"
+        "-DCMAKE_CXX_COMPILER_LAUNCHER=${CCACHE_EXECUTABLE}"
+    )
+fi
+
 create_venv() {
     log "Preparing Python ${PYTHON_VERSION} venv: ${VENV_DIR}"
     mkdir -p "${WORK_DIR}"
 
-    if command -v uv > /dev/null 2>&1; then
+    if [[ -x "${VENV_DIR}/bin/python" ]] &&
+        "${VENV_DIR}/bin/python" -c \
+            'import sys; expected = tuple(map(int, sys.argv[1].split("."))); raise SystemExit(sys.version_info[:2] != expected)' \
+            "${PYTHON_VERSION}"; then
+        log "Reusing existing Python ${PYTHON_VERSION} venv"
+    elif [[ -e "${VENV_DIR}" ]]; then
+        die "${VENV_DIR} exists but is not a Python ${PYTHON_VERSION} venv; rerun with --clean-work-dir or remove it"
+    elif command -v uv > /dev/null 2>&1; then
         (cd "${WORK_DIR}" && uv venv --no-project --python "${PYTHON_VERSION}" --seed "${VENV_DIR}")
     else
         local pybin
@@ -537,10 +620,29 @@ populate_executorch_submodules() {
 }
 
 install_executorch_python_deps() {
-    log "Installing ExecuTorch Python/build dependencies"
     # shellcheck disable=SC1091
     source "${VENV_DIR}/bin/activate"
+
+    local state_file="${VENV_DIR}/.executorch-install-state"
+    local expected_state
+    expected_state="$(
+        "${VENV_DIR}/bin/python" \
+            "${SCRIPT_DIR}/executorch-python-install-state.py" \
+            "${EXECUTORCH_DIR}" "${EXECUTORCH_VERSION}"
+    )"
+
+    if [[ -f "${state_file}" ]] &&
+        [[ "$(tr -d '[:space:]' < "${state_file}")" == "${expected_state}" ]] &&
+        "${VENV_DIR}/bin/python" \
+            "${SCRIPT_DIR}/validate-executorch-python-install.py" \
+            "${EXECUTORCH_VERSION}"; then
+        log "Reusing installed ExecuTorch Python/build dependencies"
+        return 0
+    fi
+
+    log "Installing ExecuTorch Python/build dependencies"
     (cd "${EXECUTORCH_DIR}" && ./install_executorch.sh)
+    printf '%s\n' "${expected_state}" > "${state_file}"
 }
 
 configure_and_build_executorch() {
@@ -551,6 +653,7 @@ configure_and_build_executorch() {
 
     cmake -S "${EXECUTORCH_DIR}" -B "${BUILD_DIR}" "${CMAKE_GENERATOR_ARGS[@]}" \
         "${CMAKE_TARGET_ARGS[@]}" \
+        "${CMAKE_LAUNCHER_ARGS[@]}" \
         -DCMAKE_BUILD_TYPE=Release \
         -DEXECUTORCH_BUILD_PYTHON=OFF \
         -DEXECUTORCH_BUILD_TESTS=OFF \
@@ -658,6 +761,29 @@ stage_libtorch_headers() {
     mkdir -p "${LIBTORCH_INSTALL_DIR}/include" "${LIBTORCH_INSTALL_DIR}/lib"
 }
 
+stage_legal_documentation() {
+    log "Staging ExecuTorch and third-party licenses/copyright notices to ${LEGAL_DOCUMENTATION_DIR}"
+    safe_rm_rf "${LEGAL_DOCUMENTATION_DIR}"
+    mkdir -p "${LEGAL_DOCUMENTATION_DIR}"
+
+    local source_path
+    local relative_path
+    while IFS= read -r -d '' source_path; do
+        relative_path="${source_path#"${EXECUTORCH_DIR}/"}"
+        mkdir -p "${LEGAL_DOCUMENTATION_DIR}/$(dirname -- "${relative_path}")"
+        cp "${source_path}" "${LEGAL_DOCUMENTATION_DIR}/${relative_path}"
+    done < <(
+        find "${EXECUTORCH_DIR}" \
+            \( -path "${EXECUTORCH_DIR}/.git" -o -path "${BUILD_DIR}" \) -prune -o \
+            -type f \
+            \( -iname 'LICENSE*' -o -iname 'COPYING*' -o -iname 'NOTICE*' -o -iname 'COPYRIGHT*' \) \
+            -print0
+    )
+
+    [[ -n "$(find "${LEGAL_DOCUMENTATION_DIR}" -type f -print -quit)" ]] ||
+        die "ExecuTorch source contains no packageable licenses/copyright notices"
+}
+
 validate_staged_files() {
     log "Validating staged files for PEK"
 
@@ -730,6 +856,7 @@ build_debian_package() {
     "${SCRIPT_DIR}/package-executorch-1.3.1-deb.sh" \
         --executorch-dir "${EXECUTORCH_INSTALL_DIR}" \
         --libtorch-dir "${LIBTORCH_INSTALL_DIR}" \
+        --legal-documentation-dir "${LEGAL_DOCUMENTATION_DIR}" \
         --output-dir "${DEB_OUTPUT_DIR}" \
         --revision "${DEB_REVISION}"
 }
@@ -747,6 +874,9 @@ Target architecture:
 
 libtorch compatibility headers:
   ${LIBTORCH_INSTALL_DIR}
+
+ExecuTorch and third-party licenses/copyright notices:
+  ${LEGAL_DOCUMENTATION_DIR}
 EOF
 
     if [[ "${BUILD_DEB}" -eq 1 ]]; then
@@ -771,6 +901,12 @@ log "Target architecture: ${TARGET_ARCH}"
 log "ExecuTorch version: ${EXECUTORCH_VERSION}"
 log "ExecuTorch archive URL: ${EXECUTORCH_ARCHIVE_URL}"
 log "ExecuTorch git URL for submodules: ${EXECUTORCH_GIT_URL}"
+log "Build parallelism: ${JOBS} job(s) (${JOBS_SOURCE})"
+if [[ -n "${CCACHE_EXECUTABLE}" ]]; then
+    log "Compiler cache: ${CCACHE_EXECUTABLE} (${CCACHE_DIR})"
+else
+    log "Compiler cache: disabled (ccache not found)"
+fi
 
 if [[ "${CLEAN_WORK_DIR}" -eq 1 ]]; then
     log "Deleting work dir before starting: ${WORK_DIR}"
@@ -779,6 +915,9 @@ fi
 
 mkdir -p "${WORK_DIR}"
 mkdir -p "${TMPDIR}" "${UV_CACHE_DIR}" "${PIP_CACHE_DIR}" "${XDG_CACHE_HOME}"
+if [[ -n "${CCACHE_EXECUTABLE}" ]]; then
+    mkdir -p "${CCACHE_DIR}"
+fi
 cd "${WORK_DIR}"
 
 create_venv
@@ -788,6 +927,7 @@ install_executorch_python_deps
 configure_and_build_executorch
 copy_built_libraries
 stage_libtorch_headers
+stage_legal_documentation
 validate_staged_files
 build_debian_package
 print_summary

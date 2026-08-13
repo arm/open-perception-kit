@@ -103,26 +103,329 @@ class ModelArtifactBuildTest(unittest.TestCase):
                 download_step,
             )
             self.assertIn(
+                'if [ -z "${HF_DOWNLOAD_CACHEBUST}" ]',
+                download_step,
+            )
+            self.assertIn(
                 "--mount=type=cache,target=/root/.cache/huggingface",
                 download_step,
             )
 
-        cache_bust = (
-            "${HF_DOWNLOAD_CACHEBUST:-${HF_TOKEN:+${GITHUB_RUN_ID:?Set "
-            "HF_DOWNLOAD_CACHEBUST when HF_TOKEN is set}-"
-            "${GITHUB_RUN_ATTEMPT:-0}}}"
+        self.assertEqual(
+            (REPO_ROOT / "compose.base.yaml").read_text().count(
+                "HF_DOWNLOAD_CACHEBUST: ${HF_DOWNLOAD_CACHEBUST:-}"
+            ),
+            1,
         )
-        for name, count in (
-            ("compose.yaml", 1),
-            (".devcontainer/compose.devcont.yaml", 1),
-            (".github/compose.ci.yaml", 2),
+        for name, service in (
+            ("compose.yaml", "pek-model-image"),
+            (".devcontainer/compose.devcont.yaml", "pek-common-dev-model-image"),
+            (".github/compose.ci.yaml", "pek-model-image"),
+            (".github/compose.ci.yaml", "pek-common-dev-model-image"),
         ):
-            self.assertEqual(
-                (REPO_ROOT / name).read_text().count(
-                    f"HF_DOWNLOAD_CACHEBUST: {cache_bust}"
-                ),
-                count,
+            self.assertIn(
+                f"service: {service}",
+                (REPO_ROOT / name).read_text(),
             )
+        for name in (
+            ".devcontainer/platform_init.sh",
+            "scripts/quick-start/start-container.sh",
+            "scripts/private/run-console.sh",
+        ):
+            self.assertIn(
+                "scripts/private/generate-hf-download-cachebust.sh",
+                (REPO_ROOT / name).read_text(),
+            )
+        workflow_step = (
+            "      - name: Generate Hugging Face download cache key\n"
+            "        working-directory: ${{ github.workspace }}/"
+            "${{ env.CI_CHECKOUT_PATH }}\n"
+            "        run: |\n"
+            "          set -euo pipefail\n"
+            "          cache_key=\"$(scripts/private/"
+            "generate-hf-download-cachebust.sh)\"\n"
+            "          echo \"HF_DOWNLOAD_CACHEBUST=${cache_key}\" "
+            ">> \"$GITHUB_ENV\""
+        )
+        for name in (
+            ".github/workflows/blackduck-scan.yml",
+            ".github/workflows/docker-scout-image-audit.yml",
+        ):
+            self.assertIn(workflow_step, (REPO_ROOT / name).read_text())
+
+        blackduck = (
+            REPO_ROOT / ".github/workflows/blackduck-scan.yml"
+        ).read_text()
+        self.assertLess(
+            blackduck.index("      - name: Generate Hugging Face download cache key"),
+            blackduck.index("      - name: Discover buildable containers"),
+        )
+
+        pek_ci = (REPO_ROOT / ".github/workflows/pek-ci.yml").read_text()
+        self.assertIn(
+            "      - name: Validate model cache key guard\n"
+            "        env:\n"
+            '          PEK_REQUIRE_DOCKER_BUILD_TEST: "1"\n'
+            "        run: >-\n"
+            "          python3 development/tests/model_artifact_build_test.py\n"
+            "          ModelArtifactBuildTest."
+            "test_raw_model_build_requires_cache_key\n"
+            "          ModelArtifactBuildTest."
+            "test_main_compose_uses_model_bearing_target",
+            pek_ci,
+        )
+        self.assertIn(
+            "env -u HF_TOKEN -u HF_DOWNLOAD_CACHEBUST docker compose "
+            "-f compose.yaml config --quiet",
+            pek_ci,
+        )
+        self.assertEqual(pek_ci.count(workflow_step), 3)
+        self.assertIn(
+            "      - name: Generate Hugging Face download cache key\n"
+            "        run: |\n"
+            "          set -euo pipefail\n"
+            "          cache_key=\"$(scripts/private/"
+            "generate-hf-download-cachebust.sh)\"\n"
+            "          echo \"HF_DOWNLOAD_CACHEBUST=${cache_key}\" "
+            ">> \"$GITHUB_ENV\"",
+            pek_ci,
+        )
+
+    def test_tokenless_compose_config(self) -> None:
+        docker = shutil.which("docker")
+        if docker is None:
+            self.skipTest("Docker CLI is not installed")
+        if subprocess.run(
+            [docker, "compose", "version"],
+            capture_output=True,
+            check=False,
+        ).returncode:
+            self.skipTest("Docker Compose is not installed")
+
+        env = os.environ.copy()
+        env.pop("HF_TOKEN", None)
+        env.pop("HF_DOWNLOAD_CACHEBUST", None)
+        config = subprocess.run(
+            [docker, "compose", "-f", "compose.yaml", "config", "--format", "json"],
+            cwd=REPO_ROOT,
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(config.returncode, 0, config.stderr)
+        build_args = json.loads(config.stdout)["services"]["pek-dev"]["build"][
+            "args"
+        ]
+        self.assertEqual(build_args["HF_DOWNLOAD_CACHEBUST"], "")
+
+        env["HF_TOKEN"] = "test-token"
+        authenticated_config = subprocess.run(
+            [docker, "compose", "-f", "compose.yaml", "config", "--format", "json"],
+            cwd=REPO_ROOT,
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(authenticated_config.returncode, 0, authenticated_config.stderr)
+        authenticated_args = json.loads(authenticated_config.stdout)["services"][
+            "pek-dev"
+        ]["build"]["args"]
+        self.assertEqual(authenticated_args["HF_DOWNLOAD_CACHEBUST"], "")
+
+    def test_main_compose_uses_model_bearing_target(self) -> None:
+        docker = shutil.which("docker")
+        docker_required = os.environ.get("PEK_REQUIRE_DOCKER_BUILD_TEST") == "1"
+        if docker is None:
+            if docker_required:
+                self.fail("Docker CLI is required")
+            self.skipTest("Docker CLI is not installed")
+        if subprocess.run(
+            [docker, "buildx", "version"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        ).returncode:
+            if docker_required:
+                self.fail("Docker Buildx is required")
+            self.skipTest("Docker Buildx is not installed")
+
+        env = os.environ.copy()
+        env["HF_TOKEN"] = ""
+        env["HF_DOWNLOAD_CACHEBUST"] = "outline-key"
+        outline = subprocess.run(
+            [
+                docker,
+                "buildx",
+                "bake",
+                "-f",
+                "compose.yaml",
+                "--call=outline",
+                "pek-dev",
+            ],
+            cwd=REPO_ROOT,
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        output = outline.stdout + outline.stderr
+        self.assertEqual(outline.returncode, 0, output)
+        self.assertRegex(output, r"(?m)^TARGET:\s+pek-deployment-base$")
+        self.assertRegex(
+            output,
+            r"(?m)^HF_DOWNLOAD_CACHEBUST\s+outline-key\s+",
+        )
+
+        dockerfile = (REPO_ROOT / "Dockerfile").read_text()
+        deployment_build = dockerfile.split(
+            " AS pek-deployment-build", 1
+        )[1].split(" AS pek-deployment-base", 1)[0]
+        self.assertIn("COPY --from=pek-models /work/config config", deployment_build)
+
+    def test_raw_model_build_requires_cache_key(self) -> None:
+        docker = shutil.which("docker")
+        docker_required = os.environ.get("PEK_REQUIRE_DOCKER_BUILD_TEST") == "1"
+        if docker is None:
+            if docker_required:
+                self.fail("Docker CLI is required")
+            self.skipTest("Docker CLI is not installed")
+        if subprocess.run(
+            [docker, "info"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        ).returncode:
+            if docker_required:
+                self.fail("Docker daemon is required")
+            self.skipTest("Docker daemon is not available")
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            context = Path(temporary_directory)
+            shutil.copy2(REPO_ROOT / "Dockerfile", context / "Dockerfile")
+            shutil.copytree(
+                REPO_ROOT / "config/schemas",
+                context / "config/schemas",
+            )
+            models = context / "config/models"
+            models.mkdir()
+            (models / "README").write_text("No model downloads needed.\n")
+            scripts = context / "scripts"
+            scripts.mkdir()
+            shutil.copy2(DOWNLOAD_SCRIPT, scripts / DOWNLOAD_SCRIPT.name)
+
+            env = os.environ.copy()
+            env.pop("HF_TOKEN", None)
+            env.pop("HF_DOWNLOAD_CACHEBUST", None)
+            cachebust_arg = "HF_DOWNLOAD_CACHEBUST="
+
+            def build(*arguments: str) -> subprocess.CompletedProcess[str]:
+                return subprocess.run(
+                    [
+                        docker,
+                        "build",
+                        "--target",
+                        "pek-models",
+                        *arguments,
+                        "--progress=plain",
+                        ".",
+                    ],
+                    cwd=context,
+                    env=env,
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
+
+            anonymous = build(
+                "--build-arg",
+                cachebust_arg + "anon",
+            )
+            self.assertEqual(
+                anonymous.returncode,
+                0,
+                anonymous.stdout + anonymous.stderr,
+            )
+
+            missing_anonymous = build()
+            missing_anonymous_output = (
+                missing_anonymous.stdout + missing_anonymous.stderr
+            )
+            self.assertNotEqual(
+                missing_anonymous.returncode,
+                0,
+                missing_anonymous_output,
+            )
+            self.assertIn(
+                "HF_DOWNLOAD_CACHEBUST is required for model image builds",
+                missing_anonymous_output,
+            )
+
+            env["HF_TOKEN"] = "cache-key-contract-test"
+            missing_authenticated = build(
+                "--secret",
+                "id=huggingface_token,env=HF_TOKEN",
+            )
+            missing_authenticated_output = (
+                missing_authenticated.stdout + missing_authenticated.stderr
+            )
+            self.assertNotEqual(
+                missing_authenticated.returncode,
+                0,
+                missing_authenticated_output,
+            )
+            self.assertIn(
+                "HF_DOWNLOAD_CACHEBUST is required for model image builds",
+                missing_authenticated_output,
+            )
+
+            authenticated = build(
+                "--secret",
+                "id=huggingface_token,env=HF_TOKEN",
+                "--build-arg",
+                cachebust_arg + "auth",
+            )
+            self.assertEqual(
+                authenticated.returncode,
+                0,
+                authenticated.stdout + authenticated.stderr,
+            )
+
+    def test_model_download_cache_bust_generator(self) -> None:
+        generator = REPO_ROOT / "scripts/private/generate-hf-download-cachebust.sh"
+        local_env = os.environ.copy()
+        for name in ("GITHUB_ACTIONS", "GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT"):
+            local_env.pop(name, None)
+
+        first = subprocess.check_output([generator], env=local_env, text=True).strip()
+        second = subprocess.check_output([generator], env=local_env, text=True).strip()
+        self.assertRegex(
+            first,
+            r"^local-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{32}$",
+        )
+        self.assertNotEqual(first, second)
+
+        github_env = local_env | {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_RUN_ID": "123456",
+            "GITHUB_RUN_ATTEMPT": "7",
+        }
+        self.assertEqual(
+            subprocess.check_output([generator], env=github_env, text=True).strip(),
+            "github-123456-7",
+        )
+        github_env.pop("GITHUB_RUN_ID")
+        self.assertNotEqual(
+            subprocess.run(
+                [generator],
+                env=github_env,
+                text=True,
+                capture_output=True,
+                check=False,
+            ).returncode,
+            0,
+        )
 
     def test_model_artifacts_are_ignored_except_checked_in_models(self) -> None:
         expected = [

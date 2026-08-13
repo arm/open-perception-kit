@@ -96,8 +96,14 @@ WORKDIR /work
 COPY config config
 COPY --chmod=0755 scripts/download-models.py scripts/download-models.py
 ARG HF_DOWNLOAD_CACHEBUST
+# BuildKit excludes secret values from cache keys, so anonymous builds must use
+# an explicit key too or an authenticated build could reuse their model layer.
 RUN --mount=type=cache,target=/root/.cache/huggingface \
   --mount=type=secret,id=huggingface_token,env=HF_TOKEN \
+  if [ -z "${HF_DOWNLOAD_CACHEBUST}" ]; then \
+    echo "HF_DOWNLOAD_CACHEBUST is required for model image builds" >&2; \
+    exit 1; \
+  fi; \
   HF_DOWNLOAD_CACHEBUST="${HF_DOWNLOAD_CACHEBUST}" \
   ./scripts/download-models.py --models-dir config/models --token "${HF_TOKEN:-}"
 
@@ -248,7 +254,7 @@ ARG NVIM_VERSION=v0.12.1
 ARG CPP_TOOLS_VERSION=v1.29.3
 ARG TARGETARCH
 ARG EXECUTORCH_VERSION=1.3.1
-ARG EXECUTORCH_DEB_REVISION=1
+ARG EXECUTORCH_DEB_REVISION=2
 ARG EXECUTORCH_ARTIFACTORY_SERVER=https://artifactory.arm.com:443
 ARG EXECUTORCH_ARTIFACTORY_REPOSITORY=ai-expkits-internal.opk-deb
 ARG EXECUTORCH_ARTIFACTORY_DISTRIBUTION=trixie

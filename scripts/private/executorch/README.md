@@ -12,6 +12,8 @@ work directory you pass on the command line, then stage the usable SDK files int
 - `/work/deps/executorch/include`
 - `/work/deps/executorch/lib`
 - `/work/deps/libtorch/include`
+- `/work/deps/executorch-legal-documentation` for ExecuTorch and third-party
+  licenses/copyright notices
 
 The default ExecuTorch ref is `release/1.0`. You can override the repo, ref,
 deps directory, and build parallelism with the script options or environment
@@ -43,6 +45,31 @@ scripts/private/executorch/setup-executorch-deps.sh /work/var/executorch-build
 scripts/private/executorch/setup-executorch-1.3.1-deps.sh /work/var/executorch-1.3.1-build
 ```
 
+The ExecuTorch 1.3.1 setup reuses its work directory and CMake build directory
+by default. This preserves the source checkout, Python virtual environment,
+downloads, package caches, and incremental build state. Use `--clean-build` to
+recreate only the CMake build directory, or `--clean-work-dir` for a completely
+pristine build. The latter removes all cached state below the selected work
+directory before rebuilding.
+
+The setup also records a successful ExecuTorch Python installation in the
+virtual environment. Later runs skip the upstream `install_executorch.sh` when
+the Python interpreter, installer inputs, dependency manifests, and relevant
+pinned submodule revisions are unchanged and the installed packages still
+import successfully. No files in the downloaded ExecuTorch source are modified
+to provide this cache.
+
+Build parallelism defaults to the smaller of the available CPU capacity and
+one job per 2 GiB of available memory. The calculation accounts for Linux
+cgroup v2 CPU and memory limits when present. Set `JOBS=N` or pass `--jobs N` to
+override it; the command-line option takes precedence over the environment.
+
+When `ccache` is installed, the setup automatically uses it as the C and C++
+compiler launcher. Its default cache directory is `$WORK_DIR/cache/ccache`, so
+`--clean-build` retains cached compiler results while `--clean-work-dir` removes
+them. Set the standard `CCACHE_DIR` environment variable to use a shared or
+external cache instead. Builds continue normally when `ccache` is unavailable.
+
 Use a separate work directory per target architecture or ExecuTorch version.
 Reusing binaries across incompatible architectures is not supported.
 
@@ -69,6 +96,7 @@ silicon host, install:
 
 ```sh
 sudo apt install \
+  ccache \
   gcc-14-x86-64-linux-gnu \
   g++-14-x86-64-linux-gnu \
   binutils-x86-64-linux-gnu
@@ -83,6 +111,7 @@ requires:
 
 ```sh
 sudo apt install \
+  ccache \
   gcc-14-aarch64-linux-gnu \
   g++-14-aarch64-linux-gnu \
   binutils-aarch64-linux-gnu
@@ -100,8 +129,8 @@ The ExecuTorch 1.3.1 setup script creates a Debian development package after
 staging and validating the SDK. Packages are written to `/work/var` by default
 and use the `name-version-revision-arch.deb` layout, for example:
 
-- `libexecutorch-dev-1.3.1-1-amd64.deb`
-- `libexecutorch-dev-1.3.1-1-arm64.deb`
+- `libexecutorch-dev-1.3.1-2-amd64.deb`
+- `libexecutorch-dev-1.3.1-2-arm64.deb`
 
 The `aarch64-linux-gnu` target maps to Debian's `arm64` architecture. Installing
 the package creates:
@@ -109,12 +138,13 @@ the package creates:
 - `/opt/pek-deps/executorch/include`
 - `/opt/pek-deps/executorch/lib`
 - `/opt/pek-deps/libtorch/include`
+- `/opt/pek-deps/executorch-legal-documentation`
 
 PEK discovers this installed layout automatically. Install a generated package
 with:
 
 ```sh
-sudo apt install /work/var/libexecutorch-dev-1.3.1-1-amd64.deb
+sudo apt install /work/var/libexecutorch-dev-1.3.1-2-amd64.deb
 ```
 
 Automatic detection only uses the installed `/opt/pek-deps/executorch` SDK. To
@@ -136,8 +166,9 @@ An already-staged SDK can be packaged again without rebuilding ExecuTorch:
 scripts/private/executorch/package-executorch-1.3.1-deb.sh \
   --executorch-dir /work/deps/executorch \
   --libtorch-dir /work/deps/libtorch \
+  --legal-documentation-dir /work/deps/executorch-legal-documentation \
   --output-dir /work/var \
-  --revision 1
+  --revision 2
 ```
 
 ## Docker image installation
@@ -152,7 +183,7 @@ The Dockerfile accepts these build arguments:
 | Argument | Default | Purpose |
 | --- | --- | --- |
 | `EXECUTORCH_VERSION` | `1.3.1` | Package version to install. |
-| `EXECUTORCH_DEB_REVISION` | `1` | Debian package revision to install. |
+| `EXECUTORCH_DEB_REVISION` | `2` | Debian package revision to install. |
 | `EXECUTORCH_ARTIFACTORY_SERVER` | `https://artifactory.arm.com:443` | Artifactory server URL. |
 | `EXECUTORCH_ARTIFACTORY_REPOSITORY` | `ai-expkits-internal.opk-deb` | Artifactory Debian repository. |
 | `EXECUTORCH_ARTIFACTORY_DISTRIBUTION` | `trixie` | Debian distribution. |
@@ -222,7 +253,7 @@ export EXECUTORCH_ARTIFACTORY_USERNAME='<username>'
 export EXECUTORCH_ARTIFACTORY_PASSWORD='<access-token>'
 
 scripts/private/executorch/upload-executorch-1.3.1-deb.sh \
-  /work/var/libexecutorch-dev-1.3.1-1-amd64.deb
+  /work/var/libexecutorch-dev-1.3.1-2-amd64.deb
 ```
 
 The defaults upload to the `ai-expkits-internal.opk-deb` repository under the

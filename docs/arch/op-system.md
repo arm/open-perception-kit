@@ -133,9 +133,10 @@ new Ops be added without recompiling the core framework.
 
 Release packages install Op modules beside PEK's private libraries in
 `lib/pek`; the private library RUNPATH lets the existing bare module names
-resolve without `LD_LIBRARY_PATH`. Both architecture packages contain only the
-standard and ONNX operation modules. Hailo operation modules remain available
-in development environments but are not part of the binary release.
+resolve without `LD_LIBRARY_PATH`. Both architecture packages contain the
+standard and ONNX operation modules plus the experimental ExecuTorch operation
+module. Hailo operation modules remain available in development environments
+but are not part of the binary release.
 
 Checked-in Op implementations live under `development/ops-*`, including standard
 orchestration Ops and backend-specific inference Ops. Treat that tree as the
