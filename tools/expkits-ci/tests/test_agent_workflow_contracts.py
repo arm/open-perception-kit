@@ -15,22 +15,35 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 class AgentWorkflowBehaviorTests(unittest.TestCase):
-    def test_run_pek_ci_label_dispatches_conflicted_pr_head(self):
+    def test_ci_labels_dispatch_conflicted_pr_head(self):
         workflow = (REPO_ROOT / ".github/workflows/pek-ci-label.yml").read_text()
+
+        for label in (
+            "run-pek-ci",
+            "run-macos-ci",
+            "run-python-audit",
+            "run-docker-scout",
+            "run-workflow-audit",
+        ):
+            with self.subTest(label=label):
+                self.assertIn(label, workflow)
 
         for contract in (
             "pull_request_target:",
             "workflow_run:",
             "permissions: {}",
-            "github.event.label.name == 'run-pek-ci'",
             "github.event.pull_request.head.repo.full_name == github.repository",
             'if [ "$mergeable" = true ]; then',
             "gh workflow run pek-ci.yml",
             '--ref "$head_ref"',
             '-f pr_head_sha="$head_sha"',
+            '-f pr_label="$PR_LABEL"',
+            "checks=label",
+            'if [ "$PR_LABEL" = run-pek-ci ]; then',
             "statuses/${head_sha}",
             "statuses/${HEAD_SHA}",
             "PEK CI (head)",
+            'context="$DISPLAY_TITLE"',
             'target_url="$RUN_URL"',
         ):
             with self.subTest(contract=contract):
@@ -50,6 +63,22 @@ class AgentWorkflowBehaviorTests(unittest.TestCase):
             "    env:", 1
         )[0]
         self.assertIn("github.event.inputs.pr_number == ''", macos_condition)
+        self.assertIn("inputs.pr_label == 'run-macos-ci'", macos_condition)
+
+    def test_manual_pr_labels_route_only_their_selected_jobs(self):
+        pek_ci = (REPO_ROOT / ".github/workflows/pek-ci.yml").read_text()
+        jobs = (
+            ("python-dependency-audit", "workflow-dependency-freshness", "run-python-audit"),
+            ("workflow-dependency-freshness", "docker-scout", "run-workflow-audit"),
+            ("docker-scout", "linux-quick-start-build-test", "run-docker-scout"),
+        )
+        for job, next_job, label in jobs:
+            with self.subTest(job=job):
+                job_text = pek_ci.split(f"  {job}:", 1)[1].split(
+                    f"  {next_job}:", 1
+                )[0]
+                self.assertIn("inputs.checks == 'label'", job_text)
+                self.assertIn(f"inputs.pr_label == '{label}'", job_text)
 
     def test_manual_pr_rpi_sets_up_python_for_context_resolver(self):
         pek_ci = (REPO_ROOT / ".github/workflows/pek-ci.yml").read_text()

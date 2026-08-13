@@ -1,5 +1,5 @@
 name: PEK CI
-run-name: ${{ inputs.valgrind_baseline_sha != '' && format('Valgrind baseline {0}', inputs.valgrind_baseline_sha) || 'PEK CI' }}
+run-name: "${{ inputs.valgrind_baseline_sha != '' && format('Valgrind baseline {0}', inputs.valgrind_baseline_sha) || inputs.pr_label != '' && format('PEK CI (head): {0}', inputs.pr_label) || 'PEK CI' }}"
 
 on:
   workflow_dispatch:
@@ -14,6 +14,7 @@ on:
           - quality
           - sonar
           - valgrind
+          - label
       pr_number:
         description: Optional PR number to run the PR validation path manually.
         required: false
@@ -34,6 +35,11 @@ on:
         required: false
         default: ""
         type: string
+      pr_label:
+        description: Optional PR label whose selected checks are being replayed.
+        required: false
+        default: ""
+        type: string
       valgrind_baseline_sha:
         description: Internal exact source SHA for a Valgrind baseline backfill.
         required: false
@@ -49,7 +55,7 @@ on:
     tags: ["release/*"]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.inputs.pr_number || format('{0}-{1}-{2}-{3}', github.event_name, github.ref, github.event.inputs.checks || 'all', github.event.inputs.valgrind_baseline_sha || 'current') }}-${{ github.event.action == 'labeled' && (!contains(github.event.label.name, 'run-pek-ci') || contains(github.event.pull_request.labels.*.name, 'run-macos-ci')) && github.run_id || 'validation' }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.inputs.pr_number || format('{0}-{1}-{2}-{3}', github.event_name, github.ref, github.event.inputs.checks || 'all', github.event.inputs.valgrind_baseline_sha || 'current') }}-${{ github.event.inputs.pr_label || (github.event.action == 'labeled' && (!contains(github.event.label.name, 'run-pek-ci') || contains(github.event.pull_request.labels.*.name, 'run-macos-ci')) && github.run_id || 'validation') }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -61,8 +67,16 @@ jobs:
     name: Build PEK CI image
     runs-on: ubuntu-latest
     if: |
-      github.event_name != 'pull_request' ||
       (
+        github.event_name == 'workflow_dispatch' &&
+        (inputs.checks != 'label' || inputs.pr_label == 'run-docker-scout')
+      ) ||
+      (
+        github.event_name != 'workflow_dispatch' &&
+        github.event_name != 'pull_request'
+      ) ||
+      (
+        github.event_name == 'pull_request' &&
         github.event.pull_request.head.repo.full_name == github.repository &&
         (
           github.event.action != 'labeled' ||
@@ -220,13 +234,20 @@ jobs:
   python-dependency-audit:
     name: Python Dependency Audit
     if: |
-      github.event_name == 'pull_request' &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
       (
-        (github.event.action == 'labeled' && github.event.label.name == 'run-python-audit') ||
+        github.event_name == 'workflow_dispatch' &&
+        inputs.checks == 'label' &&
+        inputs.pr_label == 'run-python-audit'
+      ) ||
+      (
+        github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
         (
-          contains(fromJSON('["synchronize","reopened"]'), github.event.action) &&
-          contains(github.event.pull_request.labels.*.name, 'run-python-audit')
+          (github.event.action == 'labeled' && github.event.label.name == 'run-python-audit') ||
+          (
+            contains(fromJSON('["synchronize","reopened"]'), github.event.action) &&
+            contains(github.event.pull_request.labels.*.name, 'run-python-audit')
+          )
         )
       )
     permissions:
@@ -236,13 +257,20 @@ jobs:
   workflow-dependency-freshness:
     name: Workflow Dependency Freshness
     if: |
-      github.event_name == 'pull_request' &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
       (
-        (github.event.action == 'labeled' && github.event.label.name == 'run-workflow-audit') ||
+        github.event_name == 'workflow_dispatch' &&
+        inputs.checks == 'label' &&
+        inputs.pr_label == 'run-workflow-audit'
+      ) ||
+      (
+        github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
         (
-          contains(fromJSON('["synchronize","reopened"]'), github.event.action) &&
-          contains(github.event.pull_request.labels.*.name, 'run-workflow-audit')
+          (github.event.action == 'labeled' && github.event.label.name == 'run-workflow-audit') ||
+          (
+            contains(fromJSON('["synchronize","reopened"]'), github.event.action) &&
+            contains(github.event.pull_request.labels.*.name, 'run-workflow-audit')
+          )
         )
       )
     permissions:
@@ -254,13 +282,20 @@ jobs:
     name: Docker Scout Image Audit
     needs: build-ci-image
     if: |
-      github.event_name == 'pull_request' &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
       (
-        (github.event.action == 'labeled' && github.event.label.name == 'run-docker-scout') ||
+        github.event_name == 'workflow_dispatch' &&
+        inputs.checks == 'label' &&
+        inputs.pr_label == 'run-docker-scout'
+      ) ||
+      (
+        github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
         (
-          contains(fromJSON('["synchronize","reopened"]'), github.event.action) &&
-          contains(github.event.pull_request.labels.*.name, 'run-docker-scout')
+          (github.event.action == 'labeled' && github.event.label.name == 'run-docker-scout') ||
+          (
+            contains(fromJSON('["synchronize","reopened"]'), github.event.action) &&
+            contains(github.event.pull_request.labels.*.name, 'run-docker-scout')
+          )
         )
       )
     permissions:
@@ -497,6 +532,7 @@ jobs:
     if: |
       github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' && inputs.checks == 'all' && github.event.inputs.pr_number == '') ||
+      (github.event_name == 'workflow_dispatch' && inputs.checks == 'label' && inputs.pr_label == 'run-macos-ci') ||
       (
         github.event_name == 'pull_request' &&
         github.event.pull_request.head.repo.full_name == github.repository &&
