@@ -33,6 +33,7 @@ class AgentWorkflowBehaviorTests(unittest.TestCase):
             "workflow_run:",
             "permissions: {}",
             "github.event.pull_request.head.repo.full_name == github.repository",
+            "github.event.pull_request.user.login != 'dependabot[bot]'",
             'if [ "$mergeable" = true ]; then',
             "gh workflow run pek-ci.yml",
             '--ref "$head_ref"',
