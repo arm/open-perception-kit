@@ -16,10 +16,11 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 
 class AgentWorkflowBehaviorTests(unittest.TestCase):
     def test_run_pek_ci_label_dispatches_conflicted_pr_head(self):
-        workflow = (REPO_ROOT / ".github/workflows/valgrind.yml").read_text()
+        workflow = (REPO_ROOT / ".github/workflows/pek-ci-label.yml").read_text()
 
         for contract in (
             "pull_request_target:",
+            "workflow_run:",
             "permissions: {}",
             "github.event.label.name == 'run-pek-ci'",
             "github.event.pull_request.head.repo.full_name == github.repository",
@@ -27,10 +28,15 @@ class AgentWorkflowBehaviorTests(unittest.TestCase):
             "gh workflow run pek-ci.yml",
             '--ref "$head_ref"',
             '-f pr_head_sha="$head_sha"',
+            "statuses/${head_sha}",
+            "statuses/${HEAD_SHA}",
+            "PEK CI (head)",
+            'target_url="$RUN_URL"',
         ):
             with self.subTest(contract=contract):
                 self.assertIn(contract, workflow)
 
+    def test_manual_pr_valgrind_waits_for_missing_baseline(self):
         pek_ci = (REPO_ROOT / ".github/workflows/pek-ci.yml").read_text()
         wait_condition = pek_ci.split(
             "- name: Wait for missing Valgrind baseline in GHCR", 1
