@@ -45,6 +45,31 @@ scripts/private/executorch/setup-executorch-deps.sh /work/var/executorch-build
 scripts/private/executorch/setup-executorch-1.3.1-deps.sh /work/var/executorch-1.3.1-build
 ```
 
+The ExecuTorch 1.3.1 setup reuses its work directory and CMake build directory
+by default. This preserves the source checkout, Python virtual environment,
+downloads, package caches, and incremental build state. Use `--clean-build` to
+recreate only the CMake build directory, or `--clean-work-dir` for a completely
+pristine build. The latter removes all cached state below the selected work
+directory before rebuilding.
+
+The setup also records a successful ExecuTorch Python installation in the
+virtual environment. Later runs skip the upstream `install_executorch.sh` when
+the Python interpreter, installer inputs, dependency manifests, and relevant
+pinned submodule revisions are unchanged and the installed packages still
+import successfully. No files in the downloaded ExecuTorch source are modified
+to provide this cache.
+
+Build parallelism defaults to the smaller of the available CPU capacity and
+one job per 2 GiB of available memory. The calculation accounts for Linux
+cgroup v2 CPU and memory limits when present. Set `JOBS=N` or pass `--jobs N` to
+override it; the command-line option takes precedence over the environment.
+
+When `ccache` is installed, the setup automatically uses it as the C and C++
+compiler launcher. Its default cache directory is `$WORK_DIR/cache/ccache`, so
+`--clean-build` retains cached compiler results while `--clean-work-dir` removes
+them. Set the standard `CCACHE_DIR` environment variable to use a shared or
+external cache instead. Builds continue normally when `ccache` is unavailable.
+
 Use a separate work directory per target architecture or ExecuTorch version.
 Reusing binaries across incompatible architectures is not supported.
 
@@ -71,6 +96,7 @@ silicon host, install:
 
 ```sh
 sudo apt install \
+  ccache \
   gcc-14-x86-64-linux-gnu \
   g++-14-x86-64-linux-gnu \
   binutils-x86-64-linux-gnu
@@ -85,6 +111,7 @@ requires:
 
 ```sh
 sudo apt install \
+  ccache \
   gcc-14-aarch64-linux-gnu \
   g++-14-aarch64-linux-gnu \
   binutils-aarch64-linux-gnu
