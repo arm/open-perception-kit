@@ -536,7 +536,7 @@ jobs:
       pull-requests: read
     if: |
       github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && inputs.checks == 'all' && github.event.inputs.pr_number == '') ||
+      (github.event_name == 'workflow_dispatch' && inputs.checks == 'all' && inputs.pr_label == '') ||
       (github.event_name == 'workflow_dispatch' && inputs.checks == 'label' && inputs.pr_label == 'run-macos-ci') ||
       (
         github.event_name == 'pull_request' &&
