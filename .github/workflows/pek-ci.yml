@@ -1169,8 +1169,7 @@ jobs:
       - name: Wait for missing Valgrind baseline in GHCR
         if: >-
           needs.build-ci-image.outputs.pr_context == 'true' &&
-          steps.valgrind_baseline.outcome != 'success' &&
-          github.event_name == 'pull_request'
+          steps.valgrind_baseline.outcome != 'success'
         id: waited_valgrind_baseline
         env:
           GH_TOKEN: ${{ github.token }}

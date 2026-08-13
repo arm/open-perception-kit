@@ -11,8 +11,33 @@ import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts/private"))
 from test_support.agent_workflow import load_quality_checks_module  # noqa: E402
 
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
 
 class AgentWorkflowBehaviorTests(unittest.TestCase):
+    def test_run_pek_ci_label_dispatches_conflicted_pr_head(self):
+        workflow = (REPO_ROOT / ".github/workflows/valgrind.yml").read_text()
+
+        for contract in (
+            "pull_request_target:",
+            "permissions: {}",
+            "github.event.label.name == 'run-pek-ci'",
+            "github.event.pull_request.head.repo.full_name == github.repository",
+            'if [ "$mergeable" = true ]; then',
+            "gh workflow run pek-ci.yml",
+            '--ref "$head_ref"',
+            '-f pr_head_sha="$head_sha"',
+        ):
+            with self.subTest(contract=contract):
+                self.assertIn(contract, workflow)
+
+        pek_ci = (REPO_ROOT / ".github/workflows/pek-ci.yml").read_text()
+        wait_condition = pek_ci.split(
+            "- name: Wait for missing Valgrind baseline in GHCR", 1
+        )[1].split("id: waited_valgrind_baseline", 1)[0]
+        self.assertIn("needs.build-ci-image.outputs.pr_context == 'true'", wait_condition)
+        self.assertNotIn("github.event_name == 'pull_request'", wait_condition)
+
     def test_agent_runtime_static_analysis_trigger_paths(self):
         quality_checks = load_quality_checks_module()
 

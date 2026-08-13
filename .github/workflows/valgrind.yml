@@ -5,11 +5,47 @@ on:
     branches: [main, develop, "feature/**", "sandbox/**"]
     types: [opened, synchronize, reopened, ready_for_review, labeled]
 
+permissions: {}
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}-${{ github.event.action == 'labeled' && github.event.label.name != 'run-pek-ci' && github.run_id || 'baseline' }}
   cancel-in-progress: true
 
 jobs:
+  dispatch-conflicted-pr:
+    name: Dispatch PEK CI when the merge ref is unavailable
+    runs-on: ubuntu-latest
+    if: >-
+      github.event.action == 'labeled' &&
+      github.event.label.name == 'run-pek-ci' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      actions: write
+      pull-requests: read
+    steps:
+      - name: Dispatch exact PR head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          read -r mergeable base_ref head_ref head_sha < <(
+            gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
+              --jq '[(.mergeable | tostring), .base.ref, .head.ref, .head.sha] | @tsv'
+          )
+          if [ "$mergeable" = true ]; then
+            echo "The native pull_request workflow handles this PR."
+            exit 0
+          fi
+
+          # ponytail: an unknown mergeability result dispatches too; duplication is safer than dropping the label request.
+          gh workflow run pek-ci.yml \
+            --ref "$head_ref" \
+            -f checks=all \
+            -f pr_number="$PR_NUMBER" \
+            -f pr_base_ref="$base_ref" \
+            -f pr_head_ref="$head_ref" \
+            -f pr_head_sha="$head_sha"
+
   publish-pr-baseline:
     name: Publish missing Valgrind baseline
     runs-on: ubuntu-latest
