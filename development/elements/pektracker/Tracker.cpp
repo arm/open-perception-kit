@@ -44,8 +44,13 @@ void Tracker::process(perception::FrameResults &frameResults,
         detections, embeddings, activeTracks, kalmanDt, config);
 
     // Build lifecycle inputs for this frame.
-    auto frameTrackingContext = tracklifecycle::FrameTrackingContext{
-        detections, embeddings, detectionMatches, currentFrameIndex, kalmanDt, config};
+    auto frameTrackingContext = tracklifecycle::FrameTrackingContext{detections,
+                                                                     embeddings,
+                                                                     detectionMatches,
+                                                                     currentFrameIndex,
+                                                                     runningTimeMs,
+                                                                     kalmanDt,
+                                                                     config};
 
     // Build mutable lifecycle state references (active/dormant tracks and next ID).
     auto mutableTrackState =

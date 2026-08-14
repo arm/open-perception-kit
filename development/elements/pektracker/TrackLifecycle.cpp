@@ -23,16 +23,39 @@ void expireInactiveTracks(const FrameTrackingContext &frameTrackingContext,
         return;
     }
 
-    const float dt = std::max(frameTrackingContext.kalmanDt, 1e-4f);
+    const float dt = std::max(frameTrackingContext.config.kalmanDtFallback, 1e-4f);
     const uint64_t maxDormantFrames = static_cast<uint64_t>(std::max(
         1.0f,
         std::ceil(std::max(frameTrackingContext.config.dormantTrackHistorySeconds, 0.0f) / dt)));
+    const float maxDormantTimeMs =
+        std::max(frameTrackingContext.config.dormantTrackHistorySeconds, 0.0f) * 1'000.0f;
 
     std::vector<uint64_t> toErase;
     toErase.reserve(mutableTrackState.inactiveTracks.size());
     for (const auto &[trackId, dormant] : mutableTrackState.inactiveTracks) {
-        if ((frameTrackingContext.currentFrameIndex - dormant.storedAtFrame) > maxDormantFrames) {
-            toErase.push_back(trackId);
+        bool hasComparableRunningTime = false;
+        if (frameTrackingContext.runningTimeMs && dormant.storedAtRunningTimeMs) {
+            hasComparableRunningTime =
+                *frameTrackingContext.runningTimeMs >= *dormant.storedAtRunningTimeMs;
+        }
+
+        if (hasComparableRunningTime) {
+            // Segment-adjusted running time is authoritative. Expire only after the elapsed
+            // presentation time exceeds the configured dormant-history window.
+            const uint64_t dormantTimeMs =
+                *frameTrackingContext.runningTimeMs - *dormant.storedAtRunningTimeMs;
+            if (static_cast<float>(dormantTimeMs) > maxDormantTimeMs) {
+                toErase.push_back(trackId);
+            }
+        } else {
+            // Fall back to processed frame indexes when either timestamp is unavailable or
+            // cannot be compared. The configured fallback dt converts the seconds limit into a
+            // stable frame limit so dormant tracks still expire without timing metadata.
+            const uint64_t dormantFrames =
+                frameTrackingContext.currentFrameIndex - dormant.storedAtFrame;
+            if (dormantFrames > maxDormantFrames) {
+                toErase.push_back(trackId);
+            }
         }
     }
 
@@ -240,7 +263,8 @@ void createTrackFromDetection(DetectionIndex detectionIndex,
 void archiveTrackToDormant(TrackId trackId,
                            const ActiveTrackMap &activeTracks,
                            DormantTrackMap &inactiveTracks,
-                           uint64_t currentFrameIndex) {
+                           uint64_t currentFrameIndex,
+                           std::optional<uint64_t> runningTimeMs) {
     const auto trackIt = activeTracks.find(trackId);
     if (trackIt == activeTracks.end()) {
         return;
@@ -252,6 +276,7 @@ void archiveTrackToDormant(TrackId trackId,
         dormant.lastDetection = trackIt->second.lastDetection;
         dormant.lastEmbedding = trackIt->second.lastEmbedding;
         dormant.storedAtFrame = currentFrameIndex;
+        dormant.storedAtRunningTimeMs = runningTimeMs;
         inactiveTracks[trackId] = std::move(dormant);
     }
 }
@@ -321,7 +346,8 @@ void archiveAndRemoveExpiredTracks(const FrameTrackingContext &frameTrackingCont
         archiveTrackToDormant(trackId,
                               mutableTrackState.activeTracks,
                               mutableTrackState.inactiveTracks,
-                              frameTrackingContext.currentFrameIndex);
+                              frameTrackingContext.currentFrameIndex,
+                              frameTrackingContext.runningTimeMs);
         mutableTrackState.activeTracks.erase(trackId);
     }
 }

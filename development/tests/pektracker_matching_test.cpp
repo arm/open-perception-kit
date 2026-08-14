@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 
 #include "Matching.h"
+#include "TrackLifecycle.h"
 #include "pek/FrameResults.h"
 
 #include <vector>
@@ -145,4 +146,30 @@ TEST(PekTrackerTiming, KalmanDtResynchronizesAfterMissingRunningTime) {
     timing.update(99ULL, config);
     EXPECT_FLOAT_EQ(timing.effectiveKalmanDt(), 0.033f);
     EXPECT_FALSE(timing.usesFallback());
+}
+
+TEST(PekTrackerTiming, DormantTrackExpiresUsingRunningTime) {
+    pek::tracker::DetectionBatch detections;
+    pek::tracker::EmbeddingBatch embeddings;
+    pek::tracker::AssociationResult association;
+    pek::tracker::Config config;
+    config.dormantTrackHistorySeconds = 8.0f;
+
+    pek::tracker::ActiveTrackMap activeTracks;
+    pek::tracker::DormantTrackMap inactiveTracks;
+    pek::tracker::DormantTrackState dormantTrack;
+    dormantTrack.trackId = 1;
+    dormantTrack.storedAtFrame = 10;
+    dormantTrack.storedAtRunningTimeMs = 1'000ULL;
+    inactiveTracks.emplace(dormantTrack.trackId, std::move(dormantTrack));
+    pek::tracker::TrackId nextTrackId = 2;
+
+    const auto frameTrackingContext = pek::tracker::tracklifecycle::FrameTrackingContext{
+        detections, embeddings, association, 11, 11'000ULL, 10.0f, config};
+    auto mutableTrackState =
+        pek::tracker::tracklifecycle::MutableTrackState{activeTracks, inactiveTracks, nextTrackId};
+
+    pek::tracker::tracklifecycle::expireInactiveTracks(frameTrackingContext, mutableTrackState);
+
+    EXPECT_TRUE(inactiveTracks.empty());
 }
