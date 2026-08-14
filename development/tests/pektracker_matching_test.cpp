@@ -131,3 +131,18 @@ TEST(PekTrackerTiming, KalmanDtUsesRunningTimeDeltaUnlessFallbackIsForced) {
     EXPECT_TRUE(timing.usesFallback());
     EXPECT_TRUE(timing.fallbackForced());
 }
+
+TEST(PekTrackerTiming, KalmanDtResynchronizesAfterMissingRunningTime) {
+    pek::tracker::Config config;
+    pek::tracker::KalmanDeltaTimeTracking timing;
+
+    timing.update(0ULL, config);
+    timing.update(std::nullopt, config);
+    timing.update(66ULL, config);
+    EXPECT_FLOAT_EQ(timing.effectiveKalmanDt(), config.kalmanDtFallback);
+    EXPECT_TRUE(timing.usesFallback());
+
+    timing.update(99ULL, config);
+    EXPECT_FLOAT_EQ(timing.effectiveKalmanDt(), 0.033f);
+    EXPECT_FALSE(timing.usesFallback());
+}

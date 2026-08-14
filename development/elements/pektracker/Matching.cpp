@@ -56,9 +56,8 @@ TrackIdList collectActiveTrackIds(const ActiveTrackMap &activeTracks) {
     return trackIds;
 }
 
-std::vector<perception::metadata::BoundingBoxT> predictTrackBoxes(ActiveTrackMap &activeTracks,
-                                                                  float kalmanDt,
-                                                                  const Config &config) {
+std::vector<perception::metadata::BoundingBoxT>
+predictTrackBoxes(ActiveTrackMap &activeTracks, float kalmanDt, const Config &config) {
     std::vector<perception::metadata::BoundingBoxT> predictedTrackBoxes;
     predictedTrackBoxes.reserve(activeTracks.size());
 

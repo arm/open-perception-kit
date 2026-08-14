@@ -24,8 +24,7 @@ void clearPredictionFlag(TrackState &track) {
     track.predictedThisFrame = false;
 }
 
-Point2f
-predictCenter(TrackState &track, float kalmanDt, const Config &config) {
+Point2f predictCenter(TrackState &track, float kalmanDt, const Config &config) {
     using StateVector = TrackState::Kalman::StateVector;
     using StateMatrix = TrackState::Kalman::StateMatrix;
 

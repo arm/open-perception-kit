@@ -92,6 +92,8 @@ class KalmanDeltaTimeTracking {
                 : static_cast<float>(*runningTimeMs - *lastFrameRunningTimeMs) / 1'000.0f;
         if (runningTimeMs) {
             lastFrameRunningTimeMs = runningTimeMs;
+        } else {
+            lastFrameRunningTimeMs.reset();
         }
     }
 
