@@ -316,11 +316,7 @@ RUN set -eux; \
   update-alternatives --set vi /usr/local/bin/nvim; \
   chmod +x "/home/${USERNAME}/bin/cpptools/extension/debugAdapters/bin/OpenDebugAD7"; \
   ln -sf "/home/${USERNAME}/bin/cpptools/extension/debugAdapters/bin/OpenDebugAD7" /usr/local/bin/OpenDebugAD7; \
-  curl --proto "=https" -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh \
-  -o /tmp/install-ohmyzsh.sh; \
-  chmod +x /tmp/install-ohmyzsh.sh; \
-  su - "${USERNAME}" -c "env RUNZSH=no CHSH=no KEEP_ZSHRC=yes /tmp/install-ohmyzsh.sh"; \
-  rm -f /tmp/install-ohmyzsh.sh; \
+  su - "${USERNAME}" -c 'git clone --quiet --depth 1 https://github.com/ohmyzsh/ohmyzsh.git "$HOME/.oh-my-zsh"'; \
   mkdir -p "/home/${USERNAME}/.config" "/home/${USERNAME}/configs"; \
   ln -sfn "/home/${USERNAME}/configs/zshrc" "/home/${USERNAME}/.zshrc"; \
   ln -sfn "/home/${USERNAME}/configs/nvchad_2026_04" "/home/${USERNAME}/.config/nvim"; \
