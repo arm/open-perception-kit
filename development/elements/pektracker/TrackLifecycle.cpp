@@ -10,10 +10,8 @@
 
 #include <algorithm>
 #include <cassert>
-#include <cmath>
 #include <fmt/core.h>
 #include <memory>
-#include <optional>
 
 namespace pek::tracker::tracklifecycle {
 
@@ -23,40 +21,18 @@ void expireInactiveTracks(const FrameTrackingContext &frameTrackingContext,
         return;
     }
 
-    const float dt = std::max(frameTrackingContext.config.kalmanDtFallback, 1e-4f);
-    const uint64_t maxDormantFrames = static_cast<uint64_t>(std::max(
-        1.0f,
-        std::ceil(std::max(frameTrackingContext.config.dormantTrackHistorySeconds, 0.0f) / dt)));
-    const float maxDormantTimeMs =
-        std::max(frameTrackingContext.config.dormantTrackHistorySeconds, 0.0f) * 1'000.0f;
+    const double maxDormantTimeMs =
+        static_cast<double>(
+            std::max(frameTrackingContext.config.dormantTrackHistorySeconds, 0.0f)) *
+        1'000.0;
 
     std::vector<uint64_t> toErase;
     toErase.reserve(mutableTrackState.inactiveTracks.size());
     for (const auto &[trackId, dormant] : mutableTrackState.inactiveTracks) {
-        bool hasComparableRunningTime = false;
-        if (frameTrackingContext.runningTimeMs.has_value() &&
-            dormant.storedAtRunningTimeMs.has_value()) {
-            hasComparableRunningTime =
-                *frameTrackingContext.runningTimeMs >= *dormant.storedAtRunningTimeMs;
-        }
-
-        if (hasComparableRunningTime) {
-            // Segment-adjusted running time is authoritative. Expire only after the elapsed
-            // presentation time exceeds the configured dormant-history window.
-            const uint64_t dormantTimeMs =
-                *frameTrackingContext.runningTimeMs - *dormant.storedAtRunningTimeMs;
-            if (static_cast<float>(dormantTimeMs) > maxDormantTimeMs) {
-                toErase.push_back(trackId);
-            }
-        } else {
-            // Fall back to processed frame indexes when either timestamp is unavailable or
-            // cannot be compared. The configured fallback dt converts the seconds limit into a
-            // stable frame limit so dormant tracks still expire without timing metadata.
-            const uint64_t dormantFrames =
-                frameTrackingContext.currentFrameIndex - dormant.storedAtFrame;
-            if (dormantFrames > maxDormantFrames) {
-                toErase.push_back(trackId);
-            }
+        const double dormantTimeMs =
+            frameTrackingContext.trackerTimeMs - dormant.storedAtTrackerTimeMs;
+        if (dormantTimeMs > maxDormantTimeMs) {
+            toErase.push_back(trackId);
         }
     }
 
@@ -264,8 +240,7 @@ void createTrackFromDetection(DetectionIndex detectionIndex,
 void archiveTrackToDormant(TrackId trackId,
                            const ActiveTrackMap &activeTracks,
                            DormantTrackMap &inactiveTracks,
-                           uint64_t currentFrameIndex,
-                           std::optional<uint64_t> runningTimeMs) {
+                           double trackerTimeMs) {
     const auto trackIt = activeTracks.find(trackId);
     if (trackIt == activeTracks.end()) {
         return;
@@ -276,8 +251,7 @@ void archiveTrackToDormant(TrackId trackId,
         dormant.trackId = trackId;
         dormant.lastDetection = trackIt->second.lastDetection;
         dormant.lastEmbedding = trackIt->second.lastEmbedding;
-        dormant.storedAtFrame = currentFrameIndex;
-        dormant.storedAtRunningTimeMs = runningTimeMs;
+        dormant.storedAtTrackerTimeMs = trackerTimeMs;
         inactiveTracks[trackId] = std::move(dormant);
     }
 }
@@ -347,8 +321,7 @@ void archiveAndRemoveExpiredTracks(const FrameTrackingContext &frameTrackingCont
         archiveTrackToDormant(trackId,
                               mutableTrackState.activeTracks,
                               mutableTrackState.inactiveTracks,
-                              frameTrackingContext.currentFrameIndex,
-                              frameTrackingContext.runningTimeMs);
+                              frameTrackingContext.trackerTimeMs);
         mutableTrackState.activeTracks.erase(trackId);
     }
 }

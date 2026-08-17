@@ -18,8 +18,7 @@ struct FrameTrackingContext {
     const EmbeddingBatch &embeddings;
     const AssociationResult &association;
     uint64_t currentFrameIndex;
-    // Segment-adjusted buffer PTS; absent when the input has no usable timing metadata.
-    std::optional<uint64_t> runningTimeMs;
+    double trackerTimeMs;
     float kalmanDt;
     const Config &config;
 };

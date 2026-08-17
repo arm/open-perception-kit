@@ -123,12 +123,17 @@ TEST(PekTrackerTiming, KalmanDtUsesRunningTimeDeltaUnlessFallbackIsForced) {
 
     timing.update(1'250ULL, config);
     EXPECT_FLOAT_EQ(timing.effectiveKalmanDt(), 0.25f);
+    EXPECT_DOUBLE_EQ(timing.trackerTimeMs(),
+                     static_cast<double>(config.kalmanDtFallback) * 1'000.0 + 250.0);
     EXPECT_FALSE(timing.usesFallback());
 
     config.kalmanDtFallback = 0.1f;
     config.kalmanDtForceFallback = true;
     timing.update(2'000ULL, config);
     EXPECT_FLOAT_EQ(timing.effectiveKalmanDt(), 0.1f);
+    EXPECT_DOUBLE_EQ(timing.trackerTimeMs(),
+                     static_cast<double>(pek::tracker::Defaults::kalmanDtFallback) * 1'000.0 +
+                         1'000.0);
     EXPECT_TRUE(timing.usesFallback());
     EXPECT_TRUE(timing.fallbackForced());
 }
@@ -141,14 +146,18 @@ TEST(PekTrackerTiming, KalmanDtResynchronizesAfterMissingRunningTime) {
     timing.update(std::nullopt, config);
     timing.update(66ULL, config);
     EXPECT_FLOAT_EQ(timing.effectiveKalmanDt(), config.kalmanDtFallback);
+    EXPECT_DOUBLE_EQ(timing.trackerTimeMs(),
+                     static_cast<double>(config.kalmanDtFallback) * 3'000.0);
     EXPECT_TRUE(timing.usesFallback());
 
     timing.update(99ULL, config);
     EXPECT_FLOAT_EQ(timing.effectiveKalmanDt(), 0.033f);
+    EXPECT_DOUBLE_EQ(timing.trackerTimeMs(),
+                     static_cast<double>(config.kalmanDtFallback) * 3'000.0 + 33.0);
     EXPECT_FALSE(timing.usesFallback());
 }
 
-TEST(PekTrackerTiming, DormantTrackExpiresUsingRunningTime) {
+TEST(PekTrackerTiming, DormantTrackExpiresUsingTrackerTime) {
     pek::tracker::DetectionBatch detections;
     pek::tracker::EmbeddingBatch embeddings;
     pek::tracker::AssociationResult association;
@@ -159,8 +168,7 @@ TEST(PekTrackerTiming, DormantTrackExpiresUsingRunningTime) {
     pek::tracker::DormantTrackMap inactiveTracks;
     pek::tracker::DormantTrackState dormantTrack;
     dormantTrack.trackId = 1;
-    dormantTrack.storedAtFrame = 10;
-    dormantTrack.storedAtRunningTimeMs = 1'000ULL;
+    dormantTrack.storedAtTrackerTimeMs = 1'000.0;
     const bool inserted =
         inactiveTracks.try_emplace(dormantTrack.trackId, std::move(dormantTrack)).second;
     ASSERT_TRUE(inserted);

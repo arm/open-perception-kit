@@ -30,6 +30,7 @@ void Tracker::process(perception::FrameResults &frameResults,
     currentFrameIndex++;
     kalmanDeltaTime.update(runningTimeMs, config);
     const float kalmanDt = kalmanDeltaTime.effectiveKalmanDt();
+    const double trackerTimeMs = kalmanDeltaTime.trackerTimeMs();
 
     // Gather embedding vectors for this frame.
     const auto embeddings = frameinputs::collectEmbeddings(frameResults, config);
@@ -48,7 +49,7 @@ void Tracker::process(perception::FrameResults &frameResults,
                                                                      embeddings,
                                                                      detectionMatches,
                                                                      currentFrameIndex,
-                                                                     runningTimeMs,
+                                                                     trackerTimeMs,
                                                                      kalmanDt,
                                                                      config};
 

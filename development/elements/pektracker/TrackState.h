@@ -10,7 +10,6 @@
 #include <cstdint>
 #include <deque>
 #include <map>
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -43,10 +42,7 @@ struct DormantTrackState {
     uint64_t trackId = 0;
     perception::metadata::BoxDetectionT lastDetection;
     std::vector<float> lastEmbedding;
-    // Fallback expiration baseline used only when comparable running times are unavailable.
-    uint64_t storedAtFrame = 0;
-    // Preferred expiration baseline derived from the buffer PTS and current GstSegment.
-    std::optional<uint64_t> storedAtRunningTimeMs;
+    double storedAtTrackerTimeMs = 0.0;
 };
 
 } // namespace pek::tracker

@@ -78,19 +78,27 @@ class KalmanDeltaTimeTracking {
     void reset() {
         lastFrameRunningTimeMs.reset();
         resolvedKalmanDt = Defaults::kalmanDtFallback;
+        elapsedTrackerTimeMs = 0.0;
         usingKalmanDtFallback = false;
         forcedKalmanDtFallback = false;
     }
 
     void update(std::optional<uint64_t> runningTimeMs, const Config &config) {
+        const bool hasPreviousFrameTimestamp = lastFrameRunningTimeMs.has_value();
+        const bool hasCurrentFrameTimestamp = runningTimeMs.has_value();
+        const bool hasRunningTimeDelta = hasPreviousFrameTimestamp && hasCurrentFrameTimestamp &&
+                                         *runningTimeMs > *lastFrameRunningTimeMs;
+        const double runningTimeDeltaMs =
+            hasRunningTimeDelta ? static_cast<double>(*runningTimeMs - *lastFrameRunningTimeMs)
+                                : static_cast<double>(config.kalmanDtFallback) * 1'000.0;
+        // Lifecycle time follows valid media timing even when Kalman fallback is forced.
+        elapsedTrackerTimeMs += runningTimeDeltaMs;
+
         forcedKalmanDtFallback = config.kalmanDtForceFallback;
-        usingKalmanDtFallback = forcedKalmanDtFallback || !lastFrameRunningTimeMs.has_value() ||
-                                !runningTimeMs.has_value() ||
-                                *runningTimeMs <= *lastFrameRunningTimeMs;
-        resolvedKalmanDt =
-            usingKalmanDtFallback
-                ? config.kalmanDtFallback
-                : static_cast<float>(*runningTimeMs - *lastFrameRunningTimeMs) / 1'000.0f;
+        usingKalmanDtFallback = forcedKalmanDtFallback || !hasRunningTimeDelta;
+        resolvedKalmanDt = usingKalmanDtFallback
+                               ? config.kalmanDtFallback
+                               : static_cast<float>(runningTimeDeltaMs) / 1'000.0f;
         if (runningTimeMs.has_value()) {
             lastFrameRunningTimeMs = runningTimeMs;
         } else {
@@ -100,6 +108,10 @@ class KalmanDeltaTimeTracking {
 
     float effectiveKalmanDt() const {
         return resolvedKalmanDt;
+    }
+
+    double trackerTimeMs() const {
+        return elapsedTrackerTimeMs;
     }
 
     bool usesFallback() const {
@@ -113,6 +125,7 @@ class KalmanDeltaTimeTracking {
   private:
     std::optional<uint64_t> lastFrameRunningTimeMs;
     float resolvedKalmanDt = Defaults::kalmanDtFallback;
+    double elapsedTrackerTimeMs = 0.0;
     bool usingKalmanDtFallback = false;
     bool forcedKalmanDtFallback = false;
 };
