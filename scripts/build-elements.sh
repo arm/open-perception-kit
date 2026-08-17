@@ -4,24 +4,56 @@
 ################################################################
 
 # ---- include ----
-SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/private/shtools.sh"
 
 # ---- config ----
-PROJECT_ROOT=/work/development
-BUILD_DIR="$PROJECT_ROOT/build"
-TESTS_BUILD_DIR="$PROJECT_ROOT/build-test"
-PEK_MENU=$PROJECT_ROOT/build/meson-out/pek-menu
-PEK_MENU_OUT=/work/tools/pek-menu
-PEK_CONFIG_CHECK=$PROJECT_ROOT/build/meson-out/pek-config-check
-PEK_CONFIG_CHECK_OUT=/work/tools/pek-config-check
-COMMON_LIBRARY=$PROJECT_ROOT/build/meson-out/libpek-common.so
-COMMON_LIBRARY_OUT=/work/tools/libpek-common.so
+resolve_project_root() {
+    local requested_root="${PEK_PROJECT_ROOT:-$SCRIPT_DIR/..}"
+
+    if [[ "$requested_root" != /* ]]; then
+        echo "PEK_PROJECT_ROOT must be an absolute path: $requested_root" >&2
+        return 2
+    fi
+
+    if [[ ! -d "$requested_root" ]]; then
+        echo "PEK project root does not exist: $requested_root" >&2
+        return 2
+    fi
+
+    local resolved_root
+    resolved_root="$(cd -- "$requested_root" && pwd -P)"
+    if [[ ! -f "$resolved_root/development/meson.build" ]]; then
+        echo "PEK project root has no development/meson.build: $resolved_root" >&2
+        return 2
+    fi
+
+    printf '%s\n' "$resolved_root"
+}
+
+PEK_PROJECT_ROOT="$(resolve_project_root)"
+export PEK_PROJECT_ROOT
+
+MESON_SOURCE_ROOT="$PEK_PROJECT_ROOT/development"
+if [[ "$PEK_PROJECT_ROOT" == "/work" ]]; then
+    BUILD_DIR="$MESON_SOURCE_ROOT/build"
+    TESTS_BUILD_DIR="$MESON_SOURCE_ROOT/build-test"
+else
+    # Meson build directories record absolute source paths and cannot be shared
+    # between the /work container mount and a native host checkout.
+    BUILD_DIR="$MESON_SOURCE_ROOT/build-native"
+    TESTS_BUILD_DIR="$MESON_SOURCE_ROOT/build-native-test"
+fi
+TOOLS_DIR="$PEK_PROJECT_ROOT/tools"
+PEK_MENU="$BUILD_DIR/meson-out/pek-menu"
+PEK_MENU_OUT="$TOOLS_DIR/pek-menu"
+PEK_CONFIG_CHECK="$BUILD_DIR/meson-out/pek-config-check"
+PEK_CONFIG_CHECK_OUT="$TOOLS_DIR/pek-config-check"
+COMMON_LIBRARY="$BUILD_DIR/meson-out/libpek-common.so"
+COMMON_LIBRARY_OUT="$TOOLS_DIR/libpek-common.so"
 EXTRA_SETUP_ARGS=()
 MESON_SETUP_ARGS=()
 MESON_CONFIGURE_ARGS=()
-
-mkdir -p "$BUILD_DIR"
 
 meson_build_is_configured() {
     local build_dir="$1"
@@ -29,9 +61,14 @@ meson_build_is_configured() {
 }
 
 stage_runtime_artifacts() {
+    mkdir -p "$TOOLS_DIR"
     cp "$PEK_MENU" "$PEK_MENU_OUT"
     cp "$PEK_CONFIG_CHECK" "$PEK_CONFIG_CHECK_OUT"
     cp "$COMMON_LIBRARY" "$COMMON_LIBRARY_OUT"
+}
+
+prepare_build_directory() {
+    mkdir -p "$BUILD_DIR"
 }
 
 parse_extra_setup_args() {
@@ -142,7 +179,9 @@ collect_meson_args() {
     MESON_SETUP_ARGS=("${EXTRA_SETUP_ARGS[@]}")
     MESON_CONFIGURE_ARGS=("${EXTRA_SETUP_ARGS[@]}")
 
-    add_feature_option_from_env "executorch" "PEK_EXECUTORCH" "auto"
+    # Meson owns the default (auto) for optional backends. Only pass a feature
+    # option when the caller explicitly overrides it.
+    add_feature_option_from_env "executorch" "PEK_EXECUTORCH"
     add_feature_option_from_env "hailort" "PEK_HAILORT"
     add_feature_option_from_env "ncnn" "PEK_NCNN"
 }
@@ -151,14 +190,17 @@ collect_meson_args() {
 debug() {
     need meson
     need ninja
+    collect_meson_args
 
     local enable_tests="${1:-false}"
 
-    msg_begin "Starting DEBUG build in directory: $PROJECT_ROOT (tests=$enable_tests)"
+    prepare_build_directory
+    msg "PEK project root: $PEK_PROJECT_ROOT"
+    msg_begin "Starting DEBUG build in directory: $MESON_SOURCE_ROOT (tests=$enable_tests)"
 
     if ! meson_build_is_configured "$BUILD_DIR"; then
         msg "Meson setup.."
-        meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat -Dtests="$enable_tests" "${MESON_SETUP_ARGS[@]}"
+        meson setup "$BUILD_DIR" "$MESON_SOURCE_ROOT" --buildtype=debug --layout=flat -Dtests="$enable_tests" "${MESON_SETUP_ARGS[@]}"
     else
         msg "Meson configure (keeping existing build dir)…"
         meson configure "$BUILD_DIR" -Dtests="$enable_tests" "${MESON_CONFIGURE_ARGS[@]}" > /dev/null
@@ -175,14 +217,17 @@ debug() {
 release() {
     need meson
     need ninja
+    collect_meson_args
 
     local enable_tests="${1:-false}"
 
-    msg_begin "Starting RELEASE build in directory: $PROJECT_ROOT (tests=$enable_tests)"
+    prepare_build_directory
+    msg "PEK project root: $PEK_PROJECT_ROOT"
+    msg_begin "Starting RELEASE build in directory: $MESON_SOURCE_ROOT (tests=$enable_tests)"
 
     if ! meson_build_is_configured "$BUILD_DIR"; then
         msg "Meson setup (release)…"
-        meson setup "$BUILD_DIR" "$PROJECT_ROOT" \
+        meson setup "$BUILD_DIR" "$MESON_SOURCE_ROOT" \
             --buildtype=release \
             -Ddebug=false \
             -Dstrip=true \
@@ -205,21 +250,28 @@ release() {
 }
 # ---- clean ----
 clean() {
+    local allowed_build_dir
+
     msg_begin "Executing CLEAN on $BUILD_DIR and $TESTS_BUILD_DIR"
-    if [[ -d "$BUILD_DIR" ]]; then
-        msg "REMOVING $BUILD_DIR…"
-        rm -rf "$BUILD_DIR"
-        msg_end "Done."
-    else
-        msg_end_err "no $BUILD_DIR to clean.."
-    fi
-    if [[ -d "$TESTS_BUILD_DIR" ]]; then
-        msg "REMOVING $TESTS_BUILD_DIR"
-        rm -rf "$TESTS_BUILD_DIR"
-        msg_end "Done."
-    else
-        msg_end_err "no $TESTS_BUILD_DIR to clean.."
-    fi
+    for allowed_build_dir in "$BUILD_DIR" "$TESTS_BUILD_DIR"; do
+        case "$allowed_build_dir" in
+            "$MESON_SOURCE_ROOT/build" | "$MESON_SOURCE_ROOT/build-test" | \
+                "$MESON_SOURCE_ROOT/build-native" | \
+                "$MESON_SOURCE_ROOT/build-native-test") ;;
+            *)
+                echo "Refusing to remove unexpected build directory: $allowed_build_dir" >&2
+                exit 2
+                ;;
+        esac
+
+        if [[ -d "$allowed_build_dir" ]]; then
+            msg "REMOVING $allowed_build_dir…"
+            rm -rf -- "$allowed_build_dir"
+            msg_end "Done."
+        else
+            msg_end_err "no $allowed_build_dir to clean.."
+        fi
+    done
 }
 
 # ---- help ----
@@ -236,6 +288,13 @@ Optional backend feature environment variables:
   PEK_HAILORT=enabled|disabled|auto     or  hailort=enabled|disabled|auto
   PEK_NCNN=enabled|disabled|auto        or  ncnn=enabled|disabled|auto
 
+Project location:
+  PEK_PROJECT_ROOT=/absolute/path/to/amp-dev-forge
+      Defaults to the repository containing this script. Inside the development
+      container that remains /work.
+      Docker builds use development/build; native builds use
+      development/build-native so Meson's absolute source paths do not collide.
+
 EOF
 }
 
@@ -247,12 +306,10 @@ fi
 case "$cmd" in
     debug)
         parse_args true "$@"
-        collect_meson_args
         debug "${POSITIONAL_ARGS[0]:-false}"
         ;;
     release)
         parse_args true "$@"
-        collect_meson_args
         release "${POSITIONAL_ARGS[0]:-false}"
         ;;
     clean)

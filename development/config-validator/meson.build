@@ -22,7 +22,7 @@ config_validator_raw_string_terminator = ')' + config_validator_raw_string_delim
 foreach schema : config_validator_schema_manifest
   schema_id = schema[0]
   schema_path = schema[1]
-  schema_text = config_validator_fs.read(meson.project_source_root() / '..' / schema_path)
+  schema_text = config_validator_fs.read(pek_repository_root / schema_path)
   if schema_text.contains(config_validator_raw_string_terminator)
     error(schema_path + ' contains the embedded schema raw-string terminator')
   endif

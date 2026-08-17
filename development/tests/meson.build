@@ -15,7 +15,7 @@ config_schema_resources_tests = executable(
   'config_schema_resources_tests',
   ['config_schema_resources_test.cpp'],
   cpp_args : [
-    '-DPEK_REPOSITORY_ROOT="@0@"'.format(meson.project_source_root() / '..'),
+    '-DPEK_REPOSITORY_ROOT="@0@"'.format(pek_repository_root),
   ],
   dependencies : [gtest_main_dep, gtest_dep, jsoncons_dep],
 )
@@ -31,7 +31,7 @@ config_validator_tests = executable(
     'config_validator_test.cpp',
   ],
   cpp_args : [
-    '-DPEK_REPOSITORY_ROOT="@0@"'.format(meson.project_source_root() / '..'),
+    '-DPEK_REPOSITORY_ROOT="@0@"'.format(pek_repository_root),
   ],
   dependencies : [gtest_main_dep, gtest_dep, config_validator_dep, jsoncons_dep],
 )
@@ -237,7 +237,7 @@ test(
   args : [
     files('pek_config_check_cli_test.py'),
     pek_config_check.full_path(),
-    meson.project_source_root() / '..',
+    pek_repository_root,
   ],
 )
 test('opchain_descriptor_tests', opchain_descriptor_tests)
@@ -253,6 +253,11 @@ test(
   python,
   args : [files('model_artifact_build_test.py')],
   timeout : 120,
+)
+test(
+  'build_elements_script_tests',
+  python,
+  args : [files('build_elements_script_test.py'), pek_repository_root],
 )
 test(
   'qos_pipeline_tests',
@@ -281,14 +286,14 @@ test('model_registry_tests', model_registry_tests)
 test(
   'opchain_display_metadata_tests',
   python,
-  args : [files('opchain_display_metadata_test.py'), meson.project_source_root() / '..'],
+  args : [files('opchain_display_metadata_test.py'), pek_repository_root],
 )
 test('performance_tracer_tests', performance_tracer_tests)
 test(
   'release_tool_tests',
   python,
   args : [
-    meson.project_source_root() / '../scripts/release/TestReleaseTool.py',
+    pek_repository_root / 'scripts/release/TestReleaseTool.py',
   ],
 )
 test('matrix_operations_tests', matrix_operations_tests)
