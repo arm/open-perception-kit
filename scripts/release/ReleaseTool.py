@@ -86,6 +86,11 @@ BUILD_LABEL_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$")
 VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+$", re.ASCII)
 DEBIAN_REVISION_PATTERN = re.compile(r"^[0-9A-Za-z][0-9A-Za-z.+~]*$", re.ASCII)
 JSON_GLOB = "*.json"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+GIT_COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$", re.ASCII)
+PERCEPTION_SDK_ARCHIVE_PATTERN = re.compile(
+    r"^perception-sdk-(\d+\.\d+\.\d+)\.zip$", re.ASCII
+)
 
 
 def fail(message: str) -> None:
@@ -327,6 +332,10 @@ def stage_models(args: argparse.Namespace) -> None:
         if rewritten is not None:
             write_json(destination_path, rewritten)
 
+    source_root = repo_root / "config/schemas/v1"
+    validate_schema_tree(source_root)
+    shutil.copytree(source_root, stage_root / "share/pek/schemas/json/v1")
+
     for json_path in (stage_root / "share/pek").rglob(JSON_GLOB):
         content = json_path.read_text(encoding="utf-8")
         if "/work/" in content:
@@ -347,6 +356,18 @@ def payload_files(root: Path) -> set[Path]:
     return files
 
 
+def validate_schema_tree(root: Path) -> set[Path]:
+    files = payload_files(root)
+    if not files:
+        fail(f"Descriptor schema directory is missing or empty: {root}")
+    for relative in files:
+        path = root / relative
+        if path.suffix != ".json":
+            fail(f"Descriptor schema is not JSON: {path}")
+        load_json(path)
+    return files
+
+
 def validate_legal_documentation(package_root: Path) -> None:
     legal_root = package_root / "share/pek/licenses"
     if not payload_files(legal_root):
@@ -355,7 +376,12 @@ def validate_legal_documentation(package_root: Path) -> None:
         fail("Packaged ExecuTorch legal documentation is missing or empty")
 
 
-def validate_release_payload(package_root: Path, repo_root: Path) -> None:
+def validate_release_payload(package_root: Path, repo_root: Path | None) -> None:
+    packaged_schema_root = package_root / "share/pek/schemas/json/v1"
+    validate_schema_tree(packaged_schema_root)
+    if repo_root is None:
+        return
+
     with tempfile.TemporaryDirectory() as temporary:
         expected_root = Path(temporary) / "expected"
         stage_models(
@@ -364,7 +390,7 @@ def validate_release_payload(package_root: Path, repo_root: Path) -> None:
                 stage_root=str(expected_root),
             )
         )
-        for payload in ("models", "opchains"):
+        for payload in ("models", "opchains", "schemas/json/v1"):
             expected = expected_root / "share/pek" / payload
             packaged = package_root / "share/pek" / payload
             expected_files = payload_files(expected)
@@ -379,6 +405,80 @@ def validate_release_payload(package_root: Path, repo_root: Path) -> None:
                     fail(f"Build-machine path remains in {packaged_path}")
                 if not filecmp.cmp(expected / relative, packaged_path, shallow=False):
                     fail(f"Packaged payload differs from the selected source: {packaged_path}")
+
+
+def repository_commit(repo_root: Path) -> str:
+    completed = subprocess.run(
+        [
+            "git",
+            "-c",
+            f"safe.directory={repo_root}",
+            "-C",
+            str(repo_root),
+            "rev-parse",
+            "HEAD",
+        ],
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    commit = completed.stdout.strip()
+    if not GIT_COMMIT_PATTERN.fullmatch(commit):
+        fail("Selected source commit is invalid")
+    return commit
+
+
+def validate_perception_sdk(
+    perception_sdk_root: Path, repo_root: Path | None = None
+) -> None:
+    if perception_sdk_root.is_symlink() or not perception_sdk_root.is_dir():
+        fail(f"Perception SDK directory is missing or invalid: {perception_sdk_root}")
+    entries = list(perception_sdk_root.iterdir())
+    if any(path.is_symlink() or not path.is_file() for path in entries):
+        fail("Perception SDK directory must contain only regular files")
+
+    archives = [
+        path
+        for path in entries
+        if PERCEPTION_SDK_ARCHIVE_PATTERN.fullmatch(path.name)
+    ]
+    if len(archives) != 1:
+        fail("Perception SDK directory must contain exactly one versioned ZIP")
+    archive = archives[0]
+    version = archive.name.removeprefix("perception-sdk-").removesuffix(".zip")
+    expected_names = {
+        archive.name,
+        f"{archive.name}.sha256",
+        f"{archive.name}.provenance.json",
+    }
+    if {path.name for path in entries} != expected_names:
+        fail("Perception SDK directory must contain exactly the matching triplet")
+
+    verification_root = repo_root or REPO_ROOT
+    if repo_root is not None:
+        descriptor = load_json(repo_root / "tools/perception/sdk.json")
+        if not isinstance(descriptor, dict) or descriptor.get("version") != version:
+            fail("Perception SDK version does not match the selected source")
+    subprocess.run(
+        [
+            str(verification_root / "scripts/perception-sdk.sh"),
+            "verify",
+            str(archive),
+            "--require-sidecars",
+        ],
+        check=True,
+        cwd=verification_root,
+    )
+
+    provenance = load_json(perception_sdk_root / f"{archive.name}.provenance.json")
+    if not isinstance(provenance, dict) or provenance.get("dirty") is not False:
+        fail("Perception SDK provenance must record dirty=false")
+    commit = provenance.get("repository_commit")
+    if not isinstance(commit, str) or not GIT_COMMIT_PATTERN.fullmatch(commit):
+        fail("Perception SDK provenance commit is invalid")
+    if repo_root is not None and commit != repository_commit(repo_root):
+        fail("Perception SDK provenance commit does not match the selected source")
 
 
 def read_elf(path: Path, *arguments: str) -> str:
@@ -474,11 +574,12 @@ def validate_runtime_files(package_root: Path) -> Path:
 def validate_package(args: argparse.Namespace) -> None:
     package_root = Path(args.package_root).resolve()
     architecture = args.architecture
+    repo_root_value = getattr(args, "repo_root", None)
+    repo_root = Path(repo_root_value).resolve() if repo_root_value else None
     private_root = validate_runtime_files(package_root)
     validate_legal_documentation(package_root)
-
-    if repo_root_value := getattr(args, "repo_root", None):
-        validate_release_payload(package_root, Path(repo_root_value).resolve())
+    validate_release_payload(package_root, repo_root)
+    validate_perception_sdk(package_root / "share/pek/perception-sdk", repo_root)
 
     regular_onnx = [
         path
@@ -637,6 +738,10 @@ def main() -> int:
     validate_package_parser.add_argument("--package-root", required=True)
     validate_package_parser.add_argument("--repo-root")
 
+    validate_sdk_parser = subparsers.add_parser("validate-perception-sdk")
+    validate_sdk_parser.add_argument("--perception-sdk-root", required=True)
+    validate_sdk_parser.add_argument("--repo-root")
+
     prepare_parser = subparsers.add_parser("prepare")
     prepare_parser.add_argument("--repo-root", default=".")
     prepare_parser.add_argument("--commit", required=True)
@@ -648,6 +753,11 @@ def main() -> int:
             stage_models(args)
         elif args.command == "validate-package":
             validate_package(args)
+        elif args.command == "validate-perception-sdk":
+            validate_perception_sdk(
+                Path(args.perception_sdk_root).resolve(),
+                Path(args.repo_root).resolve() if args.repo_root else None,
+            )
         elif args.command == "prepare":
             prepare(args)
         return 0

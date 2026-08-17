@@ -22,6 +22,7 @@ if [[ -n "${RUNNER_TEMP:-}" ]]; then
 fi
 
 mkdir -p "$HOME/.ssh/keys"
+git config --global --add safe.directory "${GITHUB_WORKSPACE:?}"
 chmod 700 "$HOME/.ssh" "$HOME/.ssh/keys"
 
 write_key() {

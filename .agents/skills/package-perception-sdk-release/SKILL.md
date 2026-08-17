@@ -1,6 +1,6 @@
 ---
 name: package-perception-sdk-release
-description: Build and verify the deterministic Perception SDK release ZIP, checksum, and provenance sidecar from an already committed canonical generated snapshot. Use for release candidates, pre-release deployment artifacts, reproducibility checks, offline bundle creation, or verification of an existing Perception SDK bundle. Do not use this skill to modify schemas or regenerate checked-in SDK sources.
+description: Build and verify the deterministic Perception SDK release ZIP, checksum, and provenance sidecar from an already committed canonical generated snapshot. Use for release candidates, pre-release deployment artifacts, reproducibility checks, offline bundle creation, verification of an existing Perception SDK bundle, or handoff into PEK product package assembly. Do not use this skill to modify schemas or regenerate checked-in SDK sources.
 ---
 
 # Package Perception SDK Release
@@ -98,10 +98,18 @@ two ZIP SHA-256 values.
 
 ## Publish or Hand Off
 
-Upload all three files together to the chosen pre-release or release channel.
+Choose one handoff mode:
+
+- **Standalone Perception SDK handoff:** When the Perception SDK itself is the requested deliverable,
+  upload the Perception ZIP file with the SHA and provenance to the chosen artifactory location.
+- **PEK product release handoff:** Pass the verified triplet only to the existing
+  PEK package assembly. Require the same bytes under
+  `share/pek/perception-sdk/` in both architecture archives. Do not publish the
+  triplet as separate top-level PEK release assets.
+
 Do not commit release ZIPs or sidecars unless repository policy explicitly
-requires it. Record the SDK version, repository commit, archive SHA-256, and
-destination in the release task.
+requires it. Record the SDK version, repository commit, archive SHA-256,
+handoff mode, and destination in the release task.
 
 ## Verify an Existing Artifact
 
@@ -119,6 +127,7 @@ Verification requires adjacent checksum and provenance files when
 ## Report
 
 State the SDK version, source commit, clean-tree status, output paths, archive
-SHA-256, verification result, artifact-cache mode, and publication destination.
-Do not call the bundle release-ready if source drift exists, provenance is
-dirty, sidecars are missing, or verification fails.
+SHA-256, verification result, artifact-cache mode, handoff mode, and
+publication destination. For a PEK product release, identify both enclosing
+architecture archives. Do not call the bundle release-ready if source drift
+exists, provenance is dirty, sidecars are missing, or verification fails.

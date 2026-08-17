@@ -469,6 +469,60 @@ class ModelArtifactBuildTest(unittest.TestCase):
                 '            --models-dir config/models --token "$HF_TOKEN"',
                 workflow,
             )
+            self.assertEqual(workflow.count("\n  build-perception-sdk:\n"), 1)
+            self.assertEqual(workflow.count("Upload Perception SDK input"), 1)
+            self.assertEqual(workflow.count("Download Perception SDK input"), 2)
+            self.assertIn("- name: Prepare flowdata-sdk\n        shell: bash", workflow)
+            self.assertEqual(
+                workflow.count(
+                    "          DEPLOY_KEY_FLOWDATA_SDK: "
+                    "${{ secrets.DEPLOY_KEY_FLOWDATA_SDK }}"
+                ),
+                1,
+            )
+            self.assertIn(
+                "source .github/scripts/configure_workspace_ssh.sh\n"
+                "          git submodule update --init tools/flowdata-sdk",
+                workflow,
+            )
+            self.assertEqual(
+                workflow.count("scripts/perception-sdk.sh package"), 1
+            )
+            self.assertEqual(
+                workflow.count("ReleaseTool.py validate-perception-sdk"), 1
+            )
+            self.assertEqual(
+                workflow.count("install-perception-flatbuffers.sh"), 2
+            )
+            self.assertEqual(
+                workflow.count("release-dependencies perception-sdk-input"), 2
+            )
+
+        validation_workflow = (
+            REPO_ROOT / ".github/workflows/release-tests.yml"
+        ).read_text()
+        self.assertIn(
+            "pek-test-perception-sdk-input-${{ github.run_id }}-"
+            "${{ github.run_attempt }}",
+            validation_workflow,
+        )
+        release_workflow = (
+            REPO_ROOT / ".github/workflows/release-packages.yml"
+        ).read_text()
+        self.assertIn(
+            "pek-perception-sdk-input-${{ github.run_id }}-"
+            "${{ github.run_attempt }}",
+            release_workflow,
+        )
+        self.assertEqual(
+            release_workflow.count(
+                "pattern: pek-release-*-${{ github.run_id }}-"
+                "${{ github.run_attempt }}"
+            ),
+            2,
+        )
+        self.assertIn('test "${#archives[@]}" -eq 3', release_workflow)
+        self.assertIn('test "${#files[@]}" -eq 3', release_workflow)
 
     def test_manual_release_accepts_selected_source(self) -> None:
         workflow = (

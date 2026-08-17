@@ -46,7 +46,19 @@ module without shipping SDK files.
 
 Each workflow resolves models once; both builds package the same seven-model
 allowlist from that resolved tree. Other ONNX models and all Hailo models,
-operation modules, SDKs, and runtimes are excluded.
+operation modules, backend SDKs, and runtimes are excluded.
+
+Each workflow also builds the architecture-neutral Perception SDK triplet once
+from the selected commit. The build initializes only the private
+`tools/flowdata-sdk` submodule with the existing deploy key, verifies the ZIP
+and both sidecars, and passes the same short-lived input artifact to both
+architecture builds. The key is not available to package, smoke, or publication
+jobs. Both packages embed the unchanged files under
+`share/pek/perception-sdk/`; the triplet is not a top-level PEK release asset.
+
+Product descriptor schemas are a separate outer-package input. Packaging copies
+`config/schemas/v1` recursively to `share/pek/schemas/json/v1`, preserving file
+paths and bytes. These JSON schemas are not added to the Perception SDK ZIP.
 
 ## Event routing
 
@@ -121,6 +133,10 @@ The validator checks:
 - one ONNX Runtime binary and its `libonnxruntime.so.1` link;
 - the standard, ONNX, and experimental ExecuTorch operation modules;
 - exactly the seven release model directories and no Hailo content;
+- an exact, clean, verified Perception SDK ZIP and sidecar triplet under
+  `share/pek/perception-sdk/`;
+- a safe, non-empty, parseable descriptor schema tree under
+  `share/pek/schemas/json/v1`, matching the selected source before archiving;
 - ExecuTorch and third-party legal documentation, with no SDK files;
 - local relative model and OpChain references.
 
@@ -134,5 +150,8 @@ it unsets `LD_LIBRARY_PATH`, loads the packaged private runtime, discovers
 plugins through `GST_PLUGIN_PATH`, controls inference through EOS, and verifies
 the packaged `peksink` web content. Separate inference runs cover YOLov11 with
 ONNX Runtime and YOLOX with experimental ExecuTorch.
+The extracted-package validation also verifies the embedded SDK triplet and
+checks the direct schema tree structurally. Selected-source byte and commit
+comparisons happen before archiving, when that source checkout is available.
 Push and manual workflows publish those same tested archives without rebuilding
 them.
