@@ -25,7 +25,7 @@
             "id": "pek-hailort-ops/Inference",
             "loopId": 1,
             "attributes": {
-                "modelDescriptor": "/work/config/models/arcface_mobilefacenet_hailo10/model.json"
+                "modelDescriptor": "model.json"
             }
         },
         {

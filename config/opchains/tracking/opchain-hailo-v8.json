@@ -20,7 +20,7 @@
         {
             "id": "pek-hailort-ops/Inference",
             "attributes": {
-                "modelDescriptor": "/work/config/models/yolov11-hailo8/model.json"
+                "modelDescriptor": "../../models/yolov11-hailo8/model.json"
             }
         },
         {
@@ -57,7 +57,7 @@
             "id": "pek-hailort-ops/Inference",
             "loopId": 2,
             "attributes": {
-                "modelDescriptor": "/work/config/models/osnet_x0_25-hailo8/model.json"
+                "modelDescriptor": "../../models/osnet_x0_25-hailo8/model.json"
             }
         },
         {

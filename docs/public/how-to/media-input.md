@@ -17,6 +17,15 @@ Most video-oriented PEK pipelines expect `BGRA` frames before inference and
 overlay stages, so keep the conversion to `video/x-raw,format=BGRA` unless you
 are intentionally changing that runtime contract.
 
+Checked-in pipeline paths use `${PEK_PROJECT_ROOT:-/work}`. `pek-menu`
+substitutes the environment variable before launching GStreamer and uses
+`/work` when the variable is unset or empty. When running directly from a host
+checkout, set it to the repository root:
+
+```bash
+export PEK_PROJECT_ROOT="$(pwd -P)"
+```
+
 ## Use an image file
 
 Put your image under `data/images/`, then edit a pipeline under
@@ -25,7 +34,7 @@ Put your image under `data/images/`, then edit a pipeline under
 For a JPEG image, use this pattern:
 
 ```text
-filesrc location=/work/data/images/my-image.jpg !
+filesrc location=${PEK_PROJECT_ROOT:-/work}/data/images/my-image.jpg !
 jpegdec !
 imagefreeze !
 videoconvert ! video/x-raw,format=BGRA !
@@ -41,7 +50,7 @@ Put your video under `data/videos/`, then edit a pipeline under
 For a local video file, use this pattern:
 
 ```text
-filesrc location=/work/data/videos/my-video.mp4 !
+filesrc location=${PEK_PROJECT_ROOT:-/work}/data/videos/my-video.mp4 !
 decodebin name=dec
 dec. ! queue ! videoconvert ! videoscale ! video/x-raw,format=BGRA !
 ```

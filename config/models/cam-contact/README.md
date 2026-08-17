@@ -9,8 +9,6 @@ Binary camera-contact classifier for face crops.
 - Supported FrameResults payload: `ClassificationsT` with `content_type` set to `cameraContact`
 - Typical use: run on detected face crops after a face detector and visualize the result in `pekosd`
 
-Note: the checked-in opchain still uses the legacy path `/work/config/models/cam_contact/model.json`.
-
 # Integration prompt
 
 ##  Camera Contact prompt used for integration

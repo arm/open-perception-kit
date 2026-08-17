@@ -20,7 +20,7 @@
 		{
 			"id": "pek-hailort-ops/Inference",
 			"attributes": {
-				"modelDescriptor": "/work/config/models/yolov11-hailo8l/model.json"
+				"modelDescriptor": "model.json"
 			}
 		},
 		{

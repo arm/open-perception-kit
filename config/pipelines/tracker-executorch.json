@@ -1,18 +1,18 @@
 {
   "description": "Object tracking pipeline using the Executorch opchain with the default video file source and peksink video sink.",
   "pipeline": [
-    "filesrc location=/work/data/videos/GettyImages-1465682313.mov !",
+    "filesrc location=${PEK_PROJECT_ROOT:-/work}/data/videos/GettyImages-1465682313.mov !",
     "decodebin !",
     "videoconvert !",
     "video/x-raw,format=BGRA !",
-    "pekinfer opchain-path=/work/config/opchains/tracking/opchain-executorch.json active=true !",
+    "pekinfer opchain-path=${PEK_PROJECT_ROOT:-/work}/config/opchains/tracking/opchain-executorch.json active=true !",
     "pektracker content-type=genericObject !",
     "pekperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
     "pekosd enabled=true !",
     "peksink name=sink"
   ],
   "alternative-source-image": [
-    "filesrc location=/work/data/images/GettyImages-1465682313-thumbnail.jpg !",
+    "filesrc location=${PEK_PROJECT_ROOT:-/work}/data/images/GettyImages-1465682313-thumbnail.jpg !",
     "jpegdec !",
     "imagefreeze !",
     "videoconvert ! video/x-raw,format=BGRA !"
@@ -28,13 +28,13 @@
     "videoconvert ! video/x-raw,format=BGRA !"
   ],
   "alternative-source-video": [
-    "filesrc location=/work/data/videos/GettyImages-1140581459.mov !",
+    "filesrc location=${PEK_PROJECT_ROOT:-/work}/data/videos/GettyImages-1140581459.mov !",
     "decodebin !",
     "videoconvert !",
     "video/x-raw,format=BGRA !"
   ],
   "alternative-sink": [
-    "filesink location=/work/data/output/full-dev.mp4"
+    "filesink location=${PEK_PROJECT_ROOT:-/work}/data/output/full-dev.mp4"
   ],
   "alternative-sink-peksink-with-audio": [
     "peksink name=sink",

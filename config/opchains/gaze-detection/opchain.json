@@ -20,7 +20,7 @@
         {
             "id": "pek-onnx-ops/Inference",
             "attributes": {
-                "modelDescriptor": "/work/config/models/ultraface/model.json"
+                "modelDescriptor": "../../models/ultraface/model.json"
             }
         },
         {
@@ -51,7 +51,7 @@
             "id": "pek-onnx-ops/Inference",
             "loopId": 2,
             "attributes": {
-                "modelDescriptor": "/work/config/models/gaze-detection/model.json"
+                "modelDescriptor": "../../models/gaze-detection/model.json"
             }
         },
         {

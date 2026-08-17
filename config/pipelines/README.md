@@ -2,6 +2,12 @@
 
 Top-level pipeline presets used by `pek-menu`.
 
+`pek-menu` reads this directory from
+`${PEK_PROJECT_ROOT}/config/pipelines`. When `PEK_PROJECT_ROOT` is unset or
+empty, it defaults to `/work`. Pipeline strings use the equivalent
+`${PEK_PROJECT_ROOT:-/work}` expansion for repository-relative model, media,
+and output paths.
+
 The main demo presets typically register their `pekinfer` elements with `active=false`.
 This is intentional: open the Perception Experience Kit web UI and enable the models you want from the **AI Models** panel.
 `active=false` skips per-frame inference only. Each `pekinfer` still loads its

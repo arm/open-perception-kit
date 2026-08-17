@@ -20,7 +20,7 @@
         {
             "id": "pek-hailort-ops/Inference",
             "attributes": {
-                "modelDescriptor": "/work/config/models/scrfd_2.5g/model.json"
+                "modelDescriptor": "model.json"
             }
         },
         {

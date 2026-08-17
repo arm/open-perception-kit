@@ -20,7 +20,7 @@
         {
             "id": "pek-hailort-ops/Inference",
             "attributes": {
-                "modelDescriptor": "/work/config/models/scrfd_2.5g/model.json"
+                "modelDescriptor": "../../models/scrfd_2.5g/model.json"
             }
         },
         {
@@ -52,7 +52,7 @@
             "id": "pek-hailort-ops/Inference",
             "loopId": 2,
             "attributes": {
-                "modelDescriptor": "/work/config/models/arcface_mobilefacenet_hailo10/model.json"
+                "modelDescriptor": "../../models/arcface_mobilefacenet_hailo10/model.json"
             }
         },
         {

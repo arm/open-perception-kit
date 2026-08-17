@@ -40,7 +40,7 @@ At the top of the `pipeline` array, the source section defines the input.
 In sample-media presets, it usually looks like this:
 
 ```json
-"filesrc location=/work/data/videos/GettyImages-1140581459.mov !",
+"filesrc location=${PEK_PROJECT_ROOT:-/work}/data/videos/GettyImages-1140581459.mov !",
 "decodebin !",
 "videoconvert !",
 "video/x-raw,format=BGRA !",

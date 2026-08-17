@@ -20,7 +20,7 @@
         {
             "id": "pek-hailort-ops/Inference",
             "attributes": {
-                "modelDescriptor": "/work/config/models/yolov11-hailo10/model.json"
+                "modelDescriptor": "../../models/yolov11-hailo10/model.json"
             }
         },
         {
@@ -57,7 +57,7 @@
             "id": "pek-hailort-ops/Inference",
             "loopId": 2,
             "attributes": {
-                "modelDescriptor": "/work/config/models/repvgg_a0_person_reid_512-hailo10/model.json"
+                "modelDescriptor": "../../models/repvgg_a0_person_reid_512-hailo10/model.json"
             }
         },
         {
