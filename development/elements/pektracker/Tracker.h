@@ -84,13 +84,14 @@ class KalmanDeltaTimeTracking {
 
     void update(std::optional<uint64_t> runningTimeMs, const Config &config) {
         forcedKalmanDtFallback = config.kalmanDtForceFallback;
-        usingKalmanDtFallback = forcedKalmanDtFallback || !lastFrameRunningTimeMs ||
-                                !runningTimeMs || *runningTimeMs <= *lastFrameRunningTimeMs;
+        usingKalmanDtFallback = forcedKalmanDtFallback || !lastFrameRunningTimeMs.has_value() ||
+                                !runningTimeMs.has_value() ||
+                                *runningTimeMs <= *lastFrameRunningTimeMs;
         resolvedKalmanDt =
             usingKalmanDtFallback
                 ? config.kalmanDtFallback
                 : static_cast<float>(*runningTimeMs - *lastFrameRunningTimeMs) / 1'000.0f;
-        if (runningTimeMs) {
+        if (runningTimeMs.has_value()) {
             lastFrameRunningTimeMs = runningTimeMs;
         } else {
             lastFrameRunningTimeMs.reset();

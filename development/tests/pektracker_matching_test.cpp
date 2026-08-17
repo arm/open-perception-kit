@@ -161,7 +161,9 @@ TEST(PekTrackerTiming, DormantTrackExpiresUsingRunningTime) {
     dormantTrack.trackId = 1;
     dormantTrack.storedAtFrame = 10;
     dormantTrack.storedAtRunningTimeMs = 1'000ULL;
-    inactiveTracks.emplace(dormantTrack.trackId, std::move(dormantTrack));
+    const bool inserted =
+        inactiveTracks.try_emplace(dormantTrack.trackId, std::move(dormantTrack)).second;
+    ASSERT_TRUE(inserted);
     pek::tracker::TrackId nextTrackId = 2;
 
     const auto frameTrackingContext = pek::tracker::tracklifecycle::FrameTrackingContext{

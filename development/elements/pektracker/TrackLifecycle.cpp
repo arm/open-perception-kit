@@ -34,7 +34,8 @@ void expireInactiveTracks(const FrameTrackingContext &frameTrackingContext,
     toErase.reserve(mutableTrackState.inactiveTracks.size());
     for (const auto &[trackId, dormant] : mutableTrackState.inactiveTracks) {
         bool hasComparableRunningTime = false;
-        if (frameTrackingContext.runningTimeMs && dormant.storedAtRunningTimeMs) {
+        if (frameTrackingContext.runningTimeMs.has_value() &&
+            dormant.storedAtRunningTimeMs.has_value()) {
             hasComparableRunningTime =
                 *frameTrackingContext.runningTimeMs >= *dormant.storedAtRunningTimeMs;
         }
