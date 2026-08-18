@@ -64,6 +64,20 @@ For implementation detail and background, continue with:
 
 Do not start by changing core runtime code unless the task clearly requires it.
 
+## Artifact download ownership
+
+Each external artifact has one download owner. Consumers must reuse the
+owner's output instead of downloading the same artifact from setup scripts,
+entrypoints, workflows, release scripts, or convenience wrappers.
+
+- Models: `pek-models` and `scripts/download-models.py`.
+- Demo videos: `pek-demo-media` and
+  `scripts/private/download-demo-videos.sh`.
+
+Extend the existing owner when adding an artifact in the same domain. If a new
+domain needs a downloader, define one owner and remove any overlapping path in
+the same change.
+
 ## Task routing
 
 ### Prepare or troubleshoot a release

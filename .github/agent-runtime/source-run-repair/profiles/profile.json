@@ -19,6 +19,7 @@
   "agent_model_config": ".github/agent-runtime/runtime/agent-models.json",
   "agent_task_config": ".github/agent-runtime/runtime/agent-tasks.json",
   "prompt_context_files": [
+    "AGENTS.md",
     ".github/agent-runtime/source-run-repair/prompts/context.md",
     ".github/agent-runtime/workflow-policy/minimal-change-policy.md",
     ".github/agent-runtime/workflow-policy/constraints.md",
