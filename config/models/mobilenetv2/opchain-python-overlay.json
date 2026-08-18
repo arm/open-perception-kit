@@ -1,0 +1,41 @@
+{
+	"version": 1,
+	"name": "ImageNet Python",
+	"displayName": "MobileNetV2 with Python",
+	"task": "Image classification",
+	"runtime": "ONNX + Python",
+	"description": "MobileNetV2 classification with a stateful Python tensor inspection overlay.",
+	"ops": [
+		{
+			"id": "pek-std-ops/InferenceController",
+			"attributes": {}
+		},
+		{
+			"id": "pek-std-ops/GenericImagePreprocess",
+			"attributes": {
+				"inputImageTensorIndex": 0,
+				"inputImageSourceName": "pipelineVideoFrame"
+			}
+		},
+		{
+			"id": "pek-onnx-ops/Inference",
+			"attributes": {
+				"modelDescriptor": "/work/config/models/mobilenetv2/model.json"
+			}
+		},
+		{
+			"id": "pek-python-ops/PythonScript",
+			"attributes": {
+				"script": "scripts/tensor_metrics_overlay.py"
+			}
+		},
+		{
+			"id": "pek-std-ops/GenericPostprocess",
+			"attributes": {
+				"parser": "ImageNetClassificationParser",
+				"topK": 5,
+				"confidenceThreshold": 0.0
+			}
+		}
+	]
+}

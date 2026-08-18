@@ -179,7 +179,7 @@ function drawConfiguredLayer(layer, renderer) {
     return;
   }
 
-  drawLayerDetections(layer, renderer.detectionType, renderer.draw);
+  drawLayerDetections(layer, renderer.detectionType, (data) => renderer.draw(data, layer));
 }
 
 function drawLayers(ctx, perception, mapper, renderOptions, now) {
@@ -206,7 +206,13 @@ function drawLayers(ctx, perception, mapper, renderOptions, now) {
       enabled: renderOptions.classification,
       contentType: "classification",
       detectionType: "Classification",
-      draw: (data) => drawClassification(ctx, data, mapper.display, renderOptions.colors),
+      draw: (data, layer) => drawClassification(
+        ctx,
+        data,
+        mapper.display,
+        renderOptions.colors,
+        layer.compositingMode === "bottomRight",
+      ),
     },
     {
       enabled: renderOptions.personStatus,
@@ -254,7 +260,7 @@ function drawFace(ctx, rect, mapper, colors) {
   ctx.restore();
 }
 
-function drawClassification(ctx, classification, display, colors) {
+function drawClassification(ctx, classification, display, colors, alignRight = false) {
   const candidates = Array.isArray(classification?.candidates) ? classification.candidates : [];
   if (candidates.length === 0) {
     return;
@@ -265,10 +271,30 @@ function drawClassification(ctx, classification, display, colors) {
   const padding = 10;
   const startX = display.x + padding;
   const startY = display.y + display.height - candidates.length * lineHeight - padding;
+  const textX = classificationTextX(display, padding, alignRight);
+  if (alignRight) {
+    drawTextChip(
+      ctx,
+      "Python classification",
+      textX,
+      Math.max(display.y + padding, startY - lineHeight),
+      fontSize,
+      colors.classification,
+    );
+  }
   candidates.forEach((candidate, index) => {
     const text = `#${index + 1}: ${candidate.text || candidate.classId} (${((candidate.confidence || 0) * 100).toFixed(1)}%)`;
-    drawTextChip(ctx, text, startX, startY + index * lineHeight, fontSize, colors.classification);
+    drawTextChip(ctx, text, textX, startY + index * lineHeight, fontSize, colors.classification);
   });
+}
+
+export function classificationTextX(display, padding, alignRight) {
+  if (!alignRight) {
+    return display.x + padding;
+  }
+
+  const panelWidth = Math.min(600, Math.max(0, display.width - 2 * padding));
+  return Math.max(display.x + padding, display.x + display.width - padding - panelWidth);
 }
 
 function drawPersonClassification(ctx, personClassification, display, now, colors) {

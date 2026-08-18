@@ -8,3 +8,16 @@ Whole-frame ImageNet classifier.
 - Post processor: `ImageNetClassificationParser`
 - Supported FrameResults payload: `ClassificationsT` with `content_type` set to `classification`
 - Typical use: scene/image classification without detection boxes
+
+The optional `opchain-python-overlay.json` variant runs
+`scripts/tensor_metrics_overlay.py` between inference and the standard
+postprocessor. The script independently calculates the top five ImageNet
+classes from the raw output tensor, tracks how many consecutive frames keep the
+same top class, and renders the results in the lower-right corner. The standard
+postprocessor continues to render its top classifications in the lower-left
+corner. Both sides use the same five-row rank, label, and confidence format;
+the stable-frame count remains available in the Python layer metadata.
+
+The Python demo uses the model-local `scripts/imagenet_labels.txt` table so it
+can produce a human-readable label before the C++ postprocessor executes. Keep
+that table aligned with the built-in ImageNet labels when they change.

@@ -95,6 +95,7 @@ if python_ops_enabled
     ],
     dependencies : [gtest_main_dep, gtest_dep, python_ops_test_dep],
   )
+  test('python_script_demo_tests', pek_python, args : [files('python_script_demo_test.py')])
 endif
 
 # Test-only OpChain plugin that simulates inference exceeding one frame budget.

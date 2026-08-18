@@ -83,6 +83,40 @@ saved_output = tensors[0].array.copy()
 Python cannot invalidate a retained NumPy view after the call. Such a view may
 observe memory reused by the next inference and eventually become unsafe.
 
+## Run the MobileNet demonstration
+
+The checked-in MobileNet example places a Python operation between inference
+and the standard ImageNet postprocessor. Python reads the output tensor and
+independently calculates its top five classifications while tracking how many
+consecutive frames retain the same top class. The Python results appear in the
+lower-right corner, while the standard C++ top classifications remain in the
+lower-left for comparison. Both lists use the same five-row rank, label, and
+confidence format and align vertically. The stable-frame count is retained in
+the Python layer's `tags` metadata instead of changing the visible label. The
+model-local Python demo bundles the same 1,001 ImageNet labels used by the C++
+parser because it runs before postprocessing.
+
+The pipeline also includes `pekperformance` and `pekcomm`. The performance
+overlay reports the average and p95 duration of the complete Python operation,
+including tensor wrapping, the Python call, and FrameResults updates. Its video
+is capped at 720p and 20 FPS to keep the embedded Python demonstration
+responsive and visually smooth. An infinite live moving-ball source avoids
+end-of-stream pipeline restarts, so Python state persists until the user stops
+the pipeline.
+
+Build with Python operations enabled and run the pipeline:
+
+```bash
+PEK_PYTHON_OPS=enabled ./scripts/build-elements.sh debug true
+./tools/pek-menu mobilenet-python-op
+```
+
+The implementation is in
+`config/models/mobilenetv2/scripts/tensor_metrics_overlay.py`, and its operation
+order is documented by
+`config/models/mobilenetv2/opchain-python-overlay.json`. The stable-frame count
+resets when the predicted class changes or the pipeline is recreated.
+
 ## State, errors, and deployment
 
 - Module globals persist for the lifetime of the OpChain and reset when the

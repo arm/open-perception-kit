@@ -510,6 +510,7 @@ static constexpr const char *EYE_YAW_PITCH_CONTENT_TYPE = "eyeYawPitch";
 static constexpr const char *CAMERA_CONTACT_CONTENT_TYPE = "cameraContact";
 static constexpr const char *SEGMENTATION_CONTENT_TYPE = "segmentation";
 static constexpr const char *BACKGROUND_REPLACEMENT_COMPOSITING_MODE = "backgroundReplacement";
+static constexpr const char *BOTTOM_RIGHT_COMPOSITING_MODE = "bottomRight";
 
 static bool hasContentType(const perception::metadata::LayerInfoT *layer, const char *contentType) {
     return layer != nullptr && layer->content_type == contentType;
@@ -856,15 +857,29 @@ static void drawPersonPresence(Osd::Layer &layer,
 }
 
 static void drawClassificationList(Osd::Layer &layer,
+                                   float imgWidth,
                                    float imgHeight,
+                                   bool alignRight,
                                    const perception::metadata::ClassificationT &classification) {
     const float fontSize = 14.0f;
     const float lineHeight = fontSize * 1.5f;
     const auto numResults = classification.candidates.size();
     const float padding = 10.0f;
+    const float panelWidth = std::min(600.0f, std::max(0.0f, imgWidth - 2.0f * padding));
     const float startX = padding;
+    const float rightColumnX = std::max(padding, imgWidth - padding - panelWidth);
     const float startY =
         imgHeight - (static_cast<float>(numResults) * lineHeight) - (2.0f * padding);
+
+    if (alignRight) {
+        Osd::Text::draw(layer,
+                        Osd::Coordinate(rightColumnX, std::max(padding, startY - lineHeight)),
+                        "Python classification",
+                        pek::Colors::fromStringOrDefault("#ffffffff"),
+                        pek::Colors::fromStringOrDefault("#000000ff"),
+                        "monospace",
+                        fontSize);
+    }
 
     for (size_t i = 0U; i < classification.candidates.size(); ++i) {
         const auto &result = classification.candidates[i];
@@ -875,7 +890,7 @@ static void drawClassificationList(Osd::Layer &layer,
         const auto text =
             std::format("#{}: {} ({:.1f}%)", i + 1U, result->text, result->confidence * 100.0f);
 
-        const float textX = startX;
+        const float textX = alignRight ? rightColumnX : startX;
         const float textY = startY + static_cast<float>(i) * lineHeight;
 
         Osd::Text::draw(layer,
@@ -975,15 +990,18 @@ static void drawPersonClassifications(Osd::Layer &layer,
 }
 
 static void drawImageClassifications(Osd::Layer &layer,
+                                     float imgWidth,
                                      float imgHeight,
                                      const perception::metadata::ClassificationsT &payload) {
     if (!isClassificationLayer(payload.layer.get())) {
         return;
     }
 
+    const bool alignRight = payload.layer != nullptr &&
+                            payload.layer->compositing_mode == BOTTOM_RIGHT_COMPOSITING_MODE;
     for (const auto &classification : payload.classifications) {
         if (classification) {
-            drawClassificationList(layer, imgHeight, *classification);
+            drawClassificationList(layer, imgWidth, imgHeight, alignRight, *classification);
         }
     }
 }
@@ -995,7 +1013,7 @@ static void drawClassifications(Osd::Layer &layer,
     frameResults.for_each<perception::metadata::ClassificationsT>(
         [&layer, imgWidth, imgHeight](const auto &payload) {
             drawPersonClassifications(layer, imgWidth, imgHeight, payload);
-            drawImageClassifications(layer, imgHeight, payload);
+            drawImageClassifications(layer, imgWidth, imgHeight, payload);
         });
 }
 

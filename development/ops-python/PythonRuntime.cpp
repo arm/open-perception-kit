@@ -26,8 +26,26 @@ namespace pek::python {
 namespace {
 
 std::once_flag initializationFlag;
+void *pythonLibraryHandle = nullptr;
+
+void exposePythonSymbols() {
+    Dl_info info{};
+    if (dladdr(reinterpret_cast<const void *>(&Py_InitializeFromConfig), &info) == 0 ||
+        info.dli_fname == nullptr) {
+        throw std::runtime_error("Failed to locate the embedded Python library");
+    }
+
+    pythonLibraryHandle = dlopen(
+        info.dli_fname, RTLD_NOW | RTLD_GLOBAL | RTLD_NODELETE); // NOLINT(concurrency-mt-unsafe)
+    if (pythonLibraryHandle == nullptr) {
+        const char *error = dlerror();
+        throw std::runtime_error(std::string("Failed to expose embedded Python symbols: ") +
+                                 (error == nullptr ? "unknown error" : error));
+    }
+}
 
 void initializeRuntime() {
+    exposePythonSymbols();
     perception::python_bridge::append_inittab();
     appendTensorModuleInittab();
 

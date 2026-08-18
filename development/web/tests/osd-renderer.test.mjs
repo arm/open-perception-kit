@@ -3,11 +3,19 @@ import test from "node:test";
 
 import {
   calculateContainedRect,
+  classificationTextX,
   collectRectsByContentType,
   createCoordinateMapper,
   findParentRect,
   findVideoFrame,
 } from "../src/osd-renderer.js";
+
+test("classification text supports explicit lower-right alignment", () => {
+  const display = {x: 20, y: 0, width: 1000, height: 300};
+
+  assert.equal(classificationTextX(display, 10, false), 30);
+  assert.equal(classificationTextX(display, 10, true), 410);
+});
 
 test("video frame metadata is preferred when present", () => {
   const perception = {

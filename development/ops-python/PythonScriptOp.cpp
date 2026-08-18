@@ -15,6 +15,8 @@
 
 #include "PythonRuntime.h"
 #include "TensorBridge.h"
+#include "perf/PerformanceMetrics.h"
+#include "perf/PerformanceTracer.h"
 #include "python_bridge/perception_python_bridge.h"
 
 #ifndef PEK_DEVELOPMENT_PYTHON_PATH
@@ -165,6 +167,10 @@ pek::Result<void> PythonScriptOp::bind(size_t index, const std::vector<pek::op::
 }
 
 pek::Result<pek::op::OpSignal> PythonScriptOp::process(pek::op::OpChainContext &context) {
+    const auto metricName = fmt::format("python/Script/{}", context.inferenceInfo.modelName);
+    PEK_TRACE_SCOPE(metricName);
+    PEK_PERF_SCOPE(metricName);
+
     if (module == nullptr || processFunction == nullptr) {
         return tl::unexpected(
             PEK_ERROR(pek::ErrorFlag::SystemFailure, "Python script Op is not configured"));

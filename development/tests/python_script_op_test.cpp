@@ -11,6 +11,7 @@
 #include "PythonScriptOp.h"
 #include "op/Op.h"
 #include "pek/FrameResults.h"
+#include "perf/PerformanceTracer.h"
 
 #ifndef PYTHON_SCRIPT_OP_FIXTURES
 #define PYTHON_SCRIPT_OP_FIXTURES ""
@@ -89,6 +90,28 @@ TEST(PythonScriptOp, AllowsPlacementWithoutInferenceOutputs) {
     context.frameResults = &results;
 
     EXPECT_TRUE(script.process(context));
+}
+
+TEST(PythonScriptOp, RecordsWholeOperationTiming) {
+    auto *tracer = pek::perf::getGlobalTracer();
+    tracer->reset();
+
+    pek::python::PythonScriptOp script;
+    std::vector<pek::op::Op *> ops = {&script};
+    ASSERT_TRUE(script.configure(attributes("empty_tensors.py")));
+    ASSERT_TRUE(script.bind(0, ops));
+
+    perception::FrameResults results;
+    pek::op::OpChainContext context;
+    context.frameResults = &results;
+    context.inferenceInfo.modelName = "test-model";
+
+    ASSERT_TRUE(script.process(context));
+    tracer->endCycle();
+
+    const auto stats = tracer->getStats("python/Script/test-model");
+    EXPECT_EQ(stats.count, 1U);
+    tracer->reset();
 }
 
 TEST(PythonScriptOp, ReturnsPythonTracebackAsRuntimeError) {
