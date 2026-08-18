@@ -154,6 +154,9 @@ class BuildElementsScriptTests(unittest.TestCase):
             self.assertTrue((checkout / "tools/pek-menu").is_file())
             self.assertTrue((checkout / "tools/pek-config-check").is_file())
             self.assertTrue((checkout / "tools/libpek-common.so").is_file())
+            active_build_dir = checkout / "development/build-active"
+            self.assertTrue(active_build_dir.is_symlink())
+            self.assertEqual(os.readlink(active_build_dir), "build-native")
             self.assertTrue(
                 all(item["project_root"] == str(checkout) for item in invocations)
             )
@@ -233,6 +236,8 @@ class BuildElementsScriptTests(unittest.TestCase):
             test_build_dir.mkdir()
             container_build_dir.mkdir()
             (container_build_dir / "container-artifact").touch()
+            active_build_dir = checkout / "development/build-active"
+            active_build_dir.symlink_to("build-native", target_is_directory=True)
 
             completed = self.run_build(
                 checkout,
@@ -244,9 +249,29 @@ class BuildElementsScriptTests(unittest.TestCase):
             self.assertEqual(completed.returncode, 0, completed.stderr)
             self.assertFalse(build_dir.exists())
             self.assertFalse(test_build_dir.exists())
+            self.assertFalse(active_build_dir.exists())
+            self.assertFalse(active_build_dir.is_symlink())
             self.assertTrue((container_build_dir / "container-artifact").is_file())
             self.assertTrue(checkout.is_dir())
             self.assertFalse(log_path.exists())
+
+    def test_vscode_configs_use_workspace_root_and_active_build(self) -> None:
+        vscode_dir = REPOSITORY_ROOT / ".vscode"
+        launch_config = (vscode_dir / "launch.json").read_text(encoding="utf-8")
+        tasks_config = (vscode_dir / "tasks.json").read_text(encoding="utf-8")
+        settings_config = (vscode_dir / "settings.json").read_text(encoding="utf-8")
+
+        for config in (launch_config, tasks_config, settings_config):
+            self.assertNotIn("/work", config)
+            self.assertIn("${workspaceFolder}", config)
+
+        active_output = "development/build-active/meson-out"
+        self.assertIn(active_output, launch_config)
+        self.assertIn(active_output, tasks_config)
+        self.assertIn(
+            "development/build-active/compile_commands.json",
+            settings_config,
+        )
 
 
 if __name__ == "__main__":

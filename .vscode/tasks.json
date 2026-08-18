@@ -8,13 +8,15 @@
             "args": [
                 "debug"
             ],
-            "dependsOn": "99 Make build dir",
             "group": {
                 "kind": "build",
                 "isDefault": true
             },
             "options": {
-                "cwd": "${workspaceFolder}/development/build"
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "PEK_PROJECT_ROOT": "${workspaceFolder}"
+                }
             },
             "presentation": {
                 "reveal": "always",
@@ -26,7 +28,7 @@
                     "base": "$gcc",
                     "fileLocation": [
                         "relative",
-                        "${workspaceFolder}/development/build"
+                        "${workspaceFolder}/development/build-active"
                     ]
                 }
             ]
@@ -34,9 +36,13 @@
         {
             "label": "00 Run project with menu",
             "type": "shell",
-            "command": "/work/tools/pek-menu",
+            "command": "${workspaceFolder}/tools/pek-menu",
             "options": {
-                "cwd": "${workspaceFolder}"
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "GST_PLUGIN_PATH": "${workspaceFolder}/development/build-active/meson-out",
+                    "PEK_PROJECT_ROOT": "${workspaceFolder}"
+                }
             },
             "args": [],
             "problemMatcher": []
@@ -44,9 +50,13 @@
         {
             "label": "00 Run project with latest pipeline",
             "type": "shell",
-            "command": "/work/tools/pek-menu",
+            "command": "${workspaceFolder}/tools/pek-menu",
             "options": {
-                "cwd": "${workspaceFolder}"
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "GST_PLUGIN_PATH": "${workspaceFolder}/development/build-active/meson-out",
+                    "PEK_PROJECT_ROOT": "${workspaceFolder}"
+                }
             },
             "args": [
                 "-l"
@@ -56,9 +66,13 @@
         {
             "label": "00 Run project and select pipeline",
             "type": "shell",
-            "command": "/work/tools/pek-menu",
+            "command": "${workspaceFolder}/tools/pek-menu",
             "options": {
-                "cwd": "${workspaceFolder}"
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "GST_PLUGIN_PATH": "${workspaceFolder}/development/build-active/meson-out",
+                    "PEK_PROJECT_ROOT": "${workspaceFolder}"
+                }
             },
             "args": [
                 "${input:selectedPipeline}"
@@ -72,10 +86,12 @@
             "args": [
                 "clean"
             ],
-            "dependsOn": "99 Make build dir",
             "group": "build",
             "options": {
-                "cwd": "${workspaceFolder}/development/build"
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "PEK_PROJECT_ROOT": "${workspaceFolder}"
+                }
             },
             "presentation": {
                 "reveal": "always",
@@ -94,13 +110,15 @@
                 "debug",
                 "true"
             ],
-            "dependsOn": "99 Make build dir",
             "group": {
                 "kind": "build",
                 "isDefault": true
             },
             "options": {
-                "cwd": "${workspaceFolder}/development/build"
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "PEK_PROJECT_ROOT": "${workspaceFolder}"
+                }
             },
             "presentation": {
                 "reveal": "always",
@@ -112,7 +130,7 @@
                     "base": "$gcc",
                     "fileLocation": [
                         "relative",
-                        "${workspaceFolder}/development/build"
+                        "${workspaceFolder}/development/build-active"
                     ]
                 }
             ]
@@ -124,13 +142,15 @@
             "args": [
                 "test",
                 "-C",
-                "${workspaceFolder}/development/build",
+                "${workspaceFolder}/development/build-active",
                 "--print-errorlogs"
             ],
-            "dependsOn": "99 Make build dir",
             "group": "test",
             "options": {
-                "cwd": "${workspaceFolder}"
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "PEK_PROJECT_ROOT": "${workspaceFolder}"
+                }
             },
             "presentation": {
                 "reveal": "always",
@@ -138,16 +158,7 @@
                 "clear": true
             },
             "problemMatcher": []
-        },
-        {
-            "label": "99 Make build dir",
-            "type": "shell",
-            "command": "mkdir",
-            "args": [
-                "-p",
-                "${workspaceFolder}/development/build"
-            ]
-        },
+        }
     ],
     "inputs": [
         {

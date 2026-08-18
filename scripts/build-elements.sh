@@ -44,6 +44,7 @@ else
     BUILD_DIR="$MESON_SOURCE_ROOT/build-native"
     TESTS_BUILD_DIR="$MESON_SOURCE_ROOT/build-native-test"
 fi
+ACTIVE_BUILD_DIR="$MESON_SOURCE_ROOT/build-active"
 TOOLS_DIR="$PEK_PROJECT_ROOT/tools"
 PEK_MENU="$BUILD_DIR/meson-out/pek-menu"
 PEK_MENU_OUT="$TOOLS_DIR/pek-menu"
@@ -69,6 +70,15 @@ stage_runtime_artifacts() {
 
 prepare_build_directory() {
     mkdir -p "$BUILD_DIR"
+}
+
+select_active_build_directory() {
+    if [[ -e "$ACTIVE_BUILD_DIR" && ! -L "$ACTIVE_BUILD_DIR" ]]; then
+        echo "Refusing to replace non-symlink active build path: $ACTIVE_BUILD_DIR" >&2
+        return 2
+    fi
+
+    ln -sfn -- "$(basename -- "$BUILD_DIR")" "$ACTIVE_BUILD_DIR"
 }
 
 parse_extra_setup_args() {
@@ -210,6 +220,7 @@ debug() {
     meson compile -C "$BUILD_DIR"
 
     stage_runtime_artifacts
+    select_active_build_directory
 
     msg_end "DEBUG compilation DONE → $BUILD_DIR"
 }
@@ -245,12 +256,14 @@ release() {
     meson compile -C "$BUILD_DIR"
 
     stage_runtime_artifacts
+    select_active_build_directory
 
     msg_end "Release build done → $BUILD_DIR"
 }
 # ---- clean ----
 clean() {
     local allowed_build_dir
+    local active_build_target=""
 
     msg_begin "Executing CLEAN on $BUILD_DIR and $TESTS_BUILD_DIR"
     for allowed_build_dir in "$BUILD_DIR" "$TESTS_BUILD_DIR"; do
@@ -272,6 +285,14 @@ clean() {
             msg_end_err "no $allowed_build_dir to clean.."
         fi
     done
+
+    if [[ -L "$ACTIVE_BUILD_DIR" ]]; then
+        active_build_target="$(readlink "$ACTIVE_BUILD_DIR")"
+        if [[ "$active_build_target" == "$(basename -- "$BUILD_DIR")" ||
+              "$active_build_target" == "$(basename -- "$TESTS_BUILD_DIR")" ]]; then
+            rm -f -- "$ACTIVE_BUILD_DIR"
+        fi
+    fi
 }
 
 # ---- help ----
@@ -294,6 +315,7 @@ Project location:
       container that remains /work.
       Docker builds use development/build; native builds use
       development/build-native so Meson's absolute source paths do not collide.
+      Successful builds update development/build-active for editor tooling.
 
 EOF
 }

@@ -3,6 +3,7 @@
 # ------------------------------------------------------------
 
 build/
+build-active
 build-native/
 build-native-test/
 
