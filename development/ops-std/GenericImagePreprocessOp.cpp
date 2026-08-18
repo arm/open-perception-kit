@@ -7,8 +7,11 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
+#include <cstdlib>
+#include <filesystem>
 #include <fmt/core.h>
 #include <memory>
+#include <string>
 
 #include "Log.h"
 #include "mediaio/Common.h"
@@ -46,6 +49,13 @@ pek::ImagePlaneDesc makePlaneDesc(const pek::mediaio::DataView &plane) {
         plane.byteSize(),
         plane.strideBytes(),
     };
+}
+
+std::filesystem::path debugOutputDirectory() {
+    const char *projectRoot = std::getenv("PEK_PROJECT_ROOT");
+    const std::filesystem::path root =
+        projectRoot != nullptr && projectRoot[0] != '\0' ? projectRoot : "/work";
+    return root / "var";
 }
 
 } // namespace
@@ -209,13 +219,15 @@ pek::Result<pek::op::OpSignal> GenericImagePreprocessOp::process(
 
     // debug
     if (false) {
-        std::string debugFile = fmt::format("/work/var/crop_[{}]_{}_{}x{}x{}x{}.png",
-                                            upcomingInferenceModel.contentType,
-                                            pek::nextObjectId(),
-                                            setup.imageSourceDesc.rect.x,
-                                            setup.imageSourceDesc.rect.y,
-                                            setup.imageSourceDesc.rect.width,
-                                            setup.imageSourceDesc.rect.height);
+        std::string debugFile =
+            (debugOutputDirectory() / fmt::format("crop_[{}]_{}_{}x{}x{}x{}.png",
+                                                  upcomingInferenceModel.contentType,
+                                                  pek::nextObjectId(),
+                                                  setup.imageSourceDesc.rect.x,
+                                                  setup.imageSourceDesc.rect.y,
+                                                  setup.imageSourceDesc.rect.width,
+                                                  setup.imageSourceDesc.rect.height))
+                .string();
         pek::Tools::savePngCropFromBgra(debugFile,
                                         setup.imageSourceDesc.planes[0].data,
                                         setup.imageSourceDesc.surfaceWidth,
@@ -260,11 +272,13 @@ pek::Result<pek::op::OpSignal> GenericImagePreprocessOp::process(
 
     // debug
     if (false) {
-        std::string debugFile = fmt::format("/work/var/tensor_[{}][{}]_{}x{}.png",
-                                            upcomingInferenceModel.contentType,
-                                            pek::nextObjectId(),
-                                            modelWidth,
-                                            modelHeight);
+        std::string debugFile =
+            (debugOutputDirectory() / fmt::format("tensor_[{}][{}]_{}x{}.png",
+                                                  upcomingInferenceModel.contentType,
+                                                  pek::nextObjectId(),
+                                                  modelWidth,
+                                                  modelHeight))
+                .string();
 
         pek::Tools::savePngFromRgbChwF32(debugFile,
                                          (float *)upcomingTensorAddresses[inputImageTensorIndex],
