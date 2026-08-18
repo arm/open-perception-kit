@@ -136,10 +136,12 @@ the analysis step fell from 11:46 to 6:07, with 54/96 CFamily cache hits and an
 | Manual package publication | Not run | Not run | Resolves `source_ref`, builds all three archives, smoke-tests and publishes one multi-architecture GHCR snapshot, then publishes one Artifactory folder |
 
 For release builds, `pek-deployment-base` runs its smoke inside the existing
-Dockerfile with networking disabled. The non-root runtime executes YOLov11 with
-ONNX Runtime and YOLOX with ExecuTorch, then requires non-empty output from
-`pekcomm`. No separate smoke image or Dockerfile is built. Push and manual
-publication jobs cannot start unless both native image builds pass.
+Dockerfile with networking disabled. The non-root runtime extracts the generated
+archive, discovers its installed plugins, executes YOLov11 with ONNX Runtime and
+YOLOX with ExecuTorch, requires non-empty output from `pekcomm`, and starts the
+packaged `peksink` web surface. No separate smoke image or Dockerfile is built.
+Push and manual publication jobs cannot start unless both native image builds
+pass.
 The native jobs push the existing `pek-deployment-base` outputs by digest and a
 small merge job publishes those exact amd64 and arm64 digests as
 `ghcr.io/arm-debug/amp-dev-forge-deployment:<tag>` without rebuilding. Stable

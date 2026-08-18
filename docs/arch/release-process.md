@@ -147,8 +147,9 @@ The documentation archive is generated separately, so architecture packages
 do not duplicate raw or generated documentation.
 
 For every event path, the native x86_64 and Arm `pek-deployment-base` builds run
-the same offline, non-root integration smoke inside the existing Dockerfile.
-Separate pipelines cover YOLov11 with ONNX Runtime and YOLOX with experimental
-ExecuTorch. Both must reach EOS and emit non-empty output through `pekcomm`. The
-release archive is created and validated in the same image build, then push and
-manual workflows publish it without rebuilding.
+the same offline, non-root integration smoke inside the existing Dockerfile. It
+extracts the generated archive and discovers its installed elements before
+separate pipelines cover YOLov11 with ONNX Runtime and YOLOX with experimental
+ExecuTorch. Both must reach EOS and emit non-empty output through `pekcomm`; a
+final pipeline starts `peksink` from the package and its installed web root. The
+validated archive is then published without rebuilding.

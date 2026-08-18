@@ -513,7 +513,7 @@ RUN --mount=type=bind,source=var,target=/tmp/pek-executorch-packages,ro \
     --mount=type=bind,source=scripts/private/executorch/install-executorch-deb.sh,target=/tmp/install-executorch-deb.sh,ro \
     --mount=type=secret,id=executorch_artifactory_username \
     --mount=type=secret,id=executorch_artifactory_password \
-  set -eux; \
+  set -eu; \
   if [ -n "${PEK_RELEASE_BUILD_ID}" ]; then \
     test "${TARGETARCH}" = "$(dpkg --print-architecture)"; \
     export EXECUTORCH_ARTIFACTORY_USERNAME="$(cat /run/secrets/executorch_artifactory_username)"; \
@@ -703,25 +703,46 @@ EXPOSE 2222
 USER ${USERNAME}
 WORKDIR /work
 
+ARG TARGETARCH
 ARG PEK_RELEASE_BUILD_ID=""
 RUN --network=none set -eux; \
   if [ -z "${PEK_RELEASE_BUILD_ID}" ]; then \
     exit 0; \
   fi; \
-  registry=/tmp/pek-release-smoke-registry.bin; \
+  case "${TARGETARCH}" in \
+    amd64) architecture=x86_64 ;; \
+    arm64) architecture=aarch64 ;; \
+    *) exit 1 ;; \
+  esac; \
+  package_name="pek-${PEK_RELEASE_BUILD_ID}-linux-${architecture}"; \
+  smoke_root=/tmp/pek-release-smoke; \
+  package_root="${smoke_root}/${package_name}"; \
+  mkdir -p "${smoke_root}"; \
+  tar -C "${smoke_root}" -xzf \
+    "/opt/pek-release-artifacts/${package_name}.tar.gz"; \
+  export GST_PLUGIN_PATH="${package_root}/lib/gstreamer-1.0"; \
+  export LD_LIBRARY_PATH="${package_root}/lib/pek"; \
+  registry="${smoke_root}/gstreamer-registry.bin"; \
+  for element in fakesink opusenc pekcomm pekinfer pekosd pekperformance \
+      peksink pektracker videoconvert videotestsrc vp8enc webrtcbin; do \
+    GST_REGISTRY="${registry}" gst-inspect-1.0 "${element}" >/dev/null; \
+  done; \
   for model in yolov11 yolox; do \
-    output="/tmp/pek-release-smoke-${model}.jsonl"; \
+    output="${smoke_root}/${model}.jsonl"; \
     GST_REGISTRY="${registry}" timeout 120s gst-launch-1.0 -q \
       videotestsrc pattern=ball num-buffers=5 ! \
       video/x-raw,format=BGRA,width=320,height=320,framerate=5/1 ! \
-      pekinfer opchain-path="/work/config/models/${model}/opchain.json" ! \
+      pekinfer opchain-path="${package_root}/share/pek/models/${model}/opchain.json" ! \
       pekperformance show-all-metrics=true update-interval=1 ! \
       pekcomm method=file file-name="${output}" ! \
       pekosd enabled=true ! fakesink sync=false; \
     test -s "${output}"; \
-    rm -f "${output}"; \
   done; \
-  rm -f "${registry}"
+  GST_REGISTRY="${registry}" timeout 120s gst-launch-1.0 -q \
+    videotestsrc pattern=ball num-buffers=5 ! \
+    video/x-raw,format=BGRA,width=320,height=320,framerate=5/1 ! \
+    peksink; \
+  rm -rf "${smoke_root}"
 
 ENTRYPOINT ["/work/scripts/private/deployment-runtime.sh"]
 
