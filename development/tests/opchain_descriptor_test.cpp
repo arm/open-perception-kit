@@ -94,6 +94,35 @@ TEST(OpChainDescriptor, RejectsUriModelDescriptor) {
     EXPECT_NE(result.error().info.find("schema.validation"), std::string::npos);
 }
 
+TEST(OpChainDescriptor, ResolvesPythonScriptPathsRelativeToSource) {
+    const auto directory = std::filesystem::path("pek_opchain_descriptor_test") / "python";
+    std::filesystem::remove_all(directory.parent_path());
+    std::filesystem::create_directories(directory);
+    const auto descriptorPath = directory / "opchain.json";
+    nlohmann::json value = {
+        {"version", 1},
+        {"name", "python"},
+        {"description", "Python path resolution test."},
+        {"ops",
+         {{{"id", "pek-python-ops/PythonScript"},
+           {"attributes",
+            {{"script", "scripts/process.py"},
+             {"pythonPaths", {"modules", std::filesystem::absolute("shared").string()}}}}}}},
+    };
+    std::ofstream(descriptorPath) << value;
+
+    const auto result = pek::op::OpChainDescriptor::fromFile(descriptorPath.string());
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->ops[0].attributes.getString("script"),
+              (directory / "scripts/process.py").string());
+    const auto &paths = result->ops[0].attributes.getArray("pythonPaths");
+    ASSERT_EQ(paths.size(), 2U);
+    EXPECT_EQ(paths[0].asString(), (directory / "modules").string());
+    EXPECT_EQ(paths[1].asString(), std::filesystem::absolute("shared").string());
+    std::filesystem::remove_all(directory.parent_path());
+}
+
 TEST(OpChainDescriptor, SetupRejectsInvalidSemanticsBeforePluginBinding) {
     pek::op::OpChainDescriptor invalid{
         .name = "invalid loop",

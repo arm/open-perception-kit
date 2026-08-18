@@ -34,6 +34,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 COPY tools/perception/sdk.json /tmp/perception-sdk.json
+COPY development/ops-python/runtime.json /tmp/python-ops-runtime.json
 COPY --chmod=0755 scripts/private/install-perception-flatbuffers.sh /usr/local/bin/install-perception-flatbuffers
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -84,7 +85,16 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         --retry 3 --output "${destination}" "${fallback_url}"; \
     echo "${sha256}  ${destination}" | sha256sum --check --strict; \
   done; \
-  rm -f /tmp/perception-sdk.json
+  runtime_arch="$(dpkg --print-architecture)"; \
+  case "${runtime_arch}" in amd64) runtime_arch=x86_64 ;; arm64) runtime_arch=aarch64 ;; *) exit 1 ;; esac; \
+  numpy_wheel="$(python3 -c 'import json, sys; wheel=json.load(open(sys.argv[1]))["numpy"]["wheels"][sys.argv[2]]; print(wheel["url"] + "#sha256=" + wheel["sha256"])' /tmp/python-ops-runtime.json "${runtime_arch}")"; \
+  flatbuffers_wheel="$(python3 -c 'import json; wheel=json.load(open("/tmp/perception-sdk.json"))["flatbuffers"]["python_wheel"]; print(wheel["url"] + "#sha256=" + wheel["sha256"])')"; \
+  python3 -m venv /opt/pek-venvs/python-ops-runtime; \
+  /opt/pek-venvs/python-ops-runtime/bin/pip install --no-cache-dir \
+    "${numpy_wheel}" \
+    "${flatbuffers_wheel}"; \
+  /opt/pek-venvs/python-ops-runtime/bin/python -c 'import flatbuffers, numpy; print(flatbuffers.__version__, numpy.__version__)'; \
+  rm -f /tmp/perception-sdk.json /tmp/python-ops-runtime.json
 
 
 FROM pek-build-base AS pek-cross-build-base
@@ -169,6 +179,7 @@ ARG USER_UID=1000
 ARG USER_GID=1000
 
 COPY tools/perception/sdk.json /tmp/perception-sdk.json
+COPY development/ops-python/runtime.json /tmp/python-ops-runtime.json
 COPY development/web/package-lock.json /tmp/pek-web-package-lock.json
 
 RUN set -eux; uname -a; cat /etc/os-release; dpkg --print-architecture
@@ -272,6 +283,9 @@ COPY tools/plumber /tmp/pek-tools/plumber
 COPY generated/perception/python /tmp/pek-tools/perception
 RUN set -eux; \
   uv pip install --system --break-system-packages jsonschema==4.26.0; \
+  runtime_arch="$(dpkg --print-architecture)"; \
+  case "${runtime_arch}" in amd64) runtime_arch=x86_64 ;; arm64) runtime_arch=aarch64 ;; *) exit 1 ;; esac; \
+  numpy_wheel="$(python3 -c 'import json, sys; wheel=json.load(open(sys.argv[1]))["numpy"]["wheels"][sys.argv[2]]; print(wheel["url"] + "#sha256=" + wheel["sha256"])' /tmp/python-ops-runtime.json "${runtime_arch}")"; \
   flatbuffers_wheel="$(python3 -c 'import json; wheel=json.load(open("/tmp/perception-sdk.json"))["flatbuffers"]["python_wheel"]; print(wheel["url"] + "#sha256=" + wheel["sha256"])')"; \
   uv venv --system-site-packages /opt/pek-venvs/devtools; \
   uv pip install --python /opt/pek-venvs/devtools/bin/python \
@@ -279,11 +293,12 @@ RUN set -eux; \
   /tmp/pek-tools/perception \
   /tmp/pek-tools/plumber \
   huggingface_hub==1.18.0 \
+  "${numpy_wheel}" \
   "${flatbuffers_wheel}"; \
   cd /tmp; \
   /opt/pek-venvs/devtools/bin/python -c 'import perception, plumber'; \
   chown -R "${USER_UID}:${USER_GID}" /opt/pek-venvs/devtools; \
-  rm -rf /tmp/pek-tools /tmp/perception-sdk.json
+  rm -rf /tmp/pek-tools /tmp/perception-sdk.json /tmp/python-ops-runtime.json
 
 EXPOSE 8000 8001 9999 8080 2222
 
@@ -598,6 +613,8 @@ RUN --mount=type=cache,id=pek-deployment-ccache,target=/work/.cache/ccache,shari
     executorch=enabled; \
   fi; \
   PEK_EXECUTORCH="${executorch}" \
+  PEK_PYTHON_OPS=enabled \
+  PEK_PYTHON_RUNTIME_VENV=/opt/pek-venvs/python-ops-runtime \
   PEK_ONNXRUNTIME_ROOT=/opt/pek-deps/onnxruntime \
   NINJAFLAGS=-j2 \
   ./scripts/build.sh release false "${extra_setup_args[@]}"; \
@@ -630,6 +647,29 @@ RUN --mount=type=cache,id=pek-deployment-ccache,target=/work/.cache/ccache,shari
     /work/tools/pek-config-check --root /work; \
     DESTDIR="${package_root}" meson install \
       -C /work/development/build --skip-subprojects; \
+    python_runtime=/opt/pek-venvs/python-ops-runtime/bin/python; \
+    test -x "${python_runtime}"; \
+    python_runtime_root="${package_root}/share/pek/python"; \
+    python_runtime_site="$("${python_runtime}" -c 'import site; print(site.getsitepackages()[0])')"; \
+    numpy_version="$(python3 -c 'import json; print(json.load(open("/work/development/ops-python/runtime.json"))["numpy"]["version"])')"; \
+    flatbuffers_version="$(python3 -c 'import json; print(json.load(open("/work/tools/perception/sdk.json"))["flatbuffers"]["version"])')"; \
+    "${python_runtime}" -c 'import flatbuffers, numpy, sys; expected_numpy, expected_flatbuffers = sys.argv[1:]; assert numpy.__version__ == expected_numpy; assert flatbuffers.__version__ == expected_flatbuffers' \
+      "${numpy_version}" "${flatbuffers_version}"; \
+    mkdir -p "${python_runtime_root}" "${package_root}/share/pek/licenses/python-runtime"; \
+    for runtime_entry in \
+      numpy \
+      numpy.libs \
+      "numpy-${numpy_version}.dist-info" \
+      flatbuffers \
+      "flatbuffers-${flatbuffers_version}.dist-info"; do \
+      test -e "${python_runtime_site}/${runtime_entry}"; \
+      test ! -L "${python_runtime_site}/${runtime_entry}"; \
+      cp -a "${python_runtime_site}/${runtime_entry}" "${python_runtime_root}/"; \
+    done; \
+    cp "${python_runtime_site}/numpy-${numpy_version}.dist-info/licenses/LICENSE.txt" \
+      "${package_root}/share/pek/licenses/python-runtime/NUMPY-LICENSE.txt"; \
+    cp "${python_runtime_site}/flatbuffers-${flatbuffers_version}.dist-info/LICENSE" \
+      "${package_root}/share/pek/licenses/python-runtime/FLATBUFFERS-LICENSE.txt"; \
     cp /opt/pek-deps/onnxruntime/lib/libonnxruntime.so.1.24.4 \
       "${package_root}/lib/pek/"; \
     ln -s libonnxruntime.so.1.24.4 \

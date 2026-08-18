@@ -85,6 +85,18 @@ standard_content_type_tests = executable(
   link_with : [common],
 )
 
+if python_ops_enabled
+  python_script_op_tests = executable(
+    'python_script_op_tests',
+    ['python_script_op_test.cpp'],
+    include_directories : [common_include, include_directories('../ops-python')],
+    cpp_args : [
+      '-DPYTHON_SCRIPT_OP_FIXTURES="' + meson.current_source_dir() / 'python_script_op' + '"',
+    ],
+    dependencies : [gtest_main_dep, gtest_dep, python_ops_test_dep],
+  )
+endif
+
 # Test-only OpChain plugin that simulates inference exceeding one frame budget.
 qos_delay_op = shared_module(
   'pek-test-qos-delay',
@@ -252,6 +264,9 @@ test(
 )
 test('opchain_descriptor_tests', opchain_descriptor_tests)
 test('standard_content_type_tests', standard_content_type_tests, depends : stdops)
+if python_ops_enabled
+  test('python_script_op_tests', python_script_op_tests)
+endif
 test(
   'pek_menu_cli_tests',
   python,

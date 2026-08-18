@@ -30,8 +30,10 @@ runtime. Treat these as constraints when extending the system.
 - New persistent result shapes require a Perception schema update and regenerated
   SDK. Parser, tracker, publishing, or visualization changes are still required
   when those components need to produce or consume the new payload semantics.
-- Custom postprocessing is C++-only today and registered through
-  `GenericPostprocessOp`.
+- Native custom postprocessing is registered through `GenericPostprocessOp`.
+  The Python script Op can inspect inference outputs and append FrameResults,
+  but it executes trusted code in process and its zero-copy tensor arrays are
+  valid only during the current call.
 - `pekosd` rendering is hardcoded around known content types, so it is best
   treated as a debugging overlay rather than the long-term visualization layer.
 

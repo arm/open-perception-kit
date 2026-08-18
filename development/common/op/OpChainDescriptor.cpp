@@ -23,6 +23,32 @@ void resolveModelDescriptors(OpChainDescriptor &descriptor, const std::filesyste
     }
 }
 
+void resolvePythonScriptPaths(OpChainDescriptor &descriptor, const std::filesystem::path &source) {
+    for (auto &op : descriptor.ops) {
+        if (op.id != "pek-python-ops/PythonScript")
+            continue;
+
+        if (op.attributes.contains("script")) {
+            auto reference = std::filesystem::path(op.attributes.getString("script"));
+            if (!reference.is_absolute())
+                reference = source.parent_path() / reference;
+            op.attributes.set("script", reference.string());
+        }
+
+        if (!op.attributes.contains("pythonPaths"))
+            continue;
+
+        pek::AttributeValue::Array resolved;
+        for (const auto &value : op.attributes.getArray("pythonPaths")) {
+            auto reference = std::filesystem::path(value.asString());
+            if (!reference.is_absolute())
+                reference = source.parent_path() / reference;
+            resolved.emplace_back(reference.string());
+        }
+        op.attributes.setArray("pythonPaths", std::move(resolved));
+    }
+}
+
 } // namespace
 
 pek::Result<OpChainDescriptor> OpChainDescriptor::fromJson(const std::string &jsonString,
@@ -36,7 +62,9 @@ pek::Result<OpChainDescriptor> OpChainDescriptor::fromJson(const std::string &js
 pek::Result<OpChainDescriptor> OpChainDescriptor::fromFile(const std::string &path) {
     std::string content = pek::fs::loadTextOrDefault(path, "");
     auto descriptor = fromJson(content, path);
-    if (descriptor.has_value())
+    if (descriptor.has_value()) {
         resolveModelDescriptors(*descriptor, path);
+        resolvePythonScriptPaths(*descriptor, path);
+    }
     return descriptor;
 }

@@ -105,6 +105,13 @@ controller, preprocess, inference, optional custom Ops, and final postprocess. I
 the looped form, InferenceController starts the group. A non-empty controller
 `contentType` requires the looped form.
 
+The optional `pek-python-ops/PythonScript` operation loads a Python module once
+and calls `process(env, tensors)` on each execution. Its `script` and
+`pythonPaths` attributes use the same descriptor-relative path policy as model
+descriptors. It is a generic hook: before inference it receives an empty tensor
+tuple, while after inference it receives the latest output tensors as read-only
+NumPy views.
+
 ## Inference and Postprocessing Interfaces
 
 Some Ops expose narrower contracts used by inference and postprocessing code:

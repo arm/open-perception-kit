@@ -315,6 +315,7 @@ collect_meson_args() {
     MESON_SETUP_ARGS=("${EXTRA_SETUP_ARGS[@]}")
 
     add_feature_option_from_env "executorch" "PEK_EXECUTORCH" "auto"
+    add_feature_option_from_env "python_ops" "PEK_PYTHON_OPS" "auto"
 }
 
 # ---- build ----

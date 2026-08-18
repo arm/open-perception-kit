@@ -42,6 +42,7 @@ PLUGIN_NAMES = {
 OP_MODULE_NAMES = {
     "pek-executorch-ops.so",
     "pek-onnx-ops.so",
+    "pek-python-ops.so",
     "pek-std-ops.so",
 }
 RUNTIME_LIBRARY_NAME = "pek-runtime.so"
@@ -76,6 +77,7 @@ SYSTEM_LIBRARY_PREFIXES = (
     "liborc-0.4.so.",
     "libpcre2-8.so.",
     "libpthread.so.",
+    "libpython3.",
     "libresolv.so.",
     "librt.so.",
     "libselinux.so.",
@@ -506,11 +508,13 @@ def validate_release_tree(package_root: Path) -> None:
         "include",
     }
     legal_root = package_root / "share/pek/licenses"
+    python_runtime_root = package_root / "share/pek/python"
     for path in package_root.rglob("*"):
         relative = path.relative_to(package_root)
         if legal_root in path.parents:
             continue
-        if forbidden_parts & set(relative.parts):
+        in_python_runtime = path == python_runtime_root or python_runtime_root in path.parents
+        if not in_python_runtime and forbidden_parts & set(relative.parts):
             fail(f"Forbidden release path: {relative}")
         if path.suffix.casefold() in RETIRED_RELEASE_SUFFIXES or any(
             marker in part.casefold()
@@ -520,7 +524,11 @@ def validate_release_tree(package_root: Path) -> None:
             fail(f"Forbidden retired release path: {relative}")
         if path.name == "pek-menu" or path.name.startswith("libfmt.so"):
             fail(f"Forbidden release file: {relative}")
-        if path.is_file() and path.suffix.lower() in {".a", ".h", ".hh", ".hpp"}:
+        if (
+            not in_python_runtime
+            and path.is_file()
+            and path.suffix.lower() in {".a", ".h", ".hh", ".hpp"}
+        ):
             fail(f"Forbidden SDK file: {relative}")
 
 
@@ -616,10 +624,11 @@ def validate_elf(
     if machine != expected_machine:
         fail(f"Wrong ELF architecture: {path}")
     runpaths = dynamic_values(path, "RUNPATH")
+    runtime_search_paths = runpaths + dynamic_values(path, "RPATH")
     internal_search_directories = {
         (path.parent / entry.replace("$ORIGIN", str(path.parent))).resolve()
-        for runpath in runpaths
-        for entry in runpath.split(":")
+        for runtime_search_path in runtime_search_paths
+        for entry in runtime_search_path.split(":")
         if entry
     }
     for library in dynamic_values(path, "NEEDED"):
