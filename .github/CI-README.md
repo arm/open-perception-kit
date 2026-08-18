@@ -119,8 +119,9 @@ the analysis step fell from 11:46 to 6:07, with 54/96 CFamily cache hits and an
 
 - Runs for pull requests targeting `main`, or manually for a selected
   `source_ref`.
-- Builds temporary x86_64 and Arm candidate archives and runs the native
-  package smoke test for each architecture. A successful run is followed by
+- Builds temporary x86_64 and Arm release snapshot images. Each image runs its
+  native offline Perception integration smoke during the Docker build and
+  exports its validated archive. A successful run is followed by
   disposable Artifactory and draft GitHub Release publication probes; both
   probes delete their uploads. It does not build documentation or retain a
   published release.
@@ -129,16 +130,21 @@ the analysis step fell from 11:46 to 6:07, with 54/96 CFamily cache hits and an
 
 | Event | Candidate validation | Publication validation | Package publication |
 | --- | --- | --- | --- |
-| Pull request targeting `main` | Builds and smoke-tests the two architecture candidates | Uploads, verifies, and deletes both disposable publication targets | Not run |
-| Push to `main` | Not run | Not run | Builds all three archives, smoke-tests both architecture archives, and publishes one GitHub Release plus one Artifactory folder |
-| Manual release validation | Resolves `source_ref`, builds and smoke-tests the two temporary architecture candidates | Uploads, verifies, and deletes both disposable publication targets | Not run |
-| Manual package publication | Not run | Not run | Resolves `source_ref`, builds all three archives, smoke-tests both architecture archives, and publishes one Artifactory folder |
+| Pull request targeting `main` | Builds and smoke-tests the two architecture snapshot images | Uploads, verifies, and deletes both disposable publication targets | Not run |
+| Push to `main` | Not run | Not run | Builds all three archives, smoke-tests and publishes one multi-architecture GHCR image, then publishes one GitHub Release plus one Artifactory folder |
+| Manual release validation | Resolves `source_ref`, builds and smoke-tests the two temporary architecture images | Uploads, verifies, and deletes both disposable publication targets | Not run |
+| Manual package publication | Not run | Not run | Resolves `source_ref`, builds all three archives, smoke-tests and publishes one multi-architecture GHCR snapshot, then publishes one Artifactory folder |
 
-Both workflows execute `SmokePackage.py` against their exact x86_64 and Arm
-archives. Each smoke uses PyGObject to load the packaged private runtime,
-discover the plugins through `GST_PLUGIN_PATH`, run inference to EOS, and
-verify the packaged `peksink` web content.
-Push and manual publication jobs cannot start unless both package smokes pass.
+For release builds, `pek-deployment-base` runs its smoke inside the existing
+Dockerfile with networking disabled. The non-root runtime executes YOLov11 with
+ONNX Runtime and YOLOX with ExecuTorch, then requires non-empty output from
+`pekcomm`. No separate smoke image or Dockerfile is built. Push and manual
+publication jobs cannot start unless both native image builds pass.
+The native jobs push the existing `pek-deployment-base` outputs by digest and a
+small merge job publishes those exact amd64 and arm64 digests as
+`ghcr.io/arm-debug/amp-dev-forge-deployment:<tag>` without rebuilding. Stable
+tags are the product version; manual tags also include the run ID and attempt.
+The summary records the immutable multi-architecture digest.
 For pushes to `main`, Artifactory publication also waits for the GitHub Release
 job to succeed. An existing `v<version>` therefore prevents publication to both
 release destinations. Manual snapshots do not create or depend on a GitHub
@@ -151,37 +157,50 @@ publication writes to
 The same URL is used for uploads and generated download links.
 The final Artifactory workflow log and `$GITHUB_STEP_SUMMARY` expose the folder,
 all three links, and SHA-256 values for both paths.
-If GitHub Release publication succeeds but Artifactory later fails, repair or
-remove the partial GitHub Release before rerunning the workflow.
+If GHCR or GitHub Release publication succeeds but a later publication fails,
+repair or remove the partial publication before rerunning the workflow.
 
-Each workflow resolves the selected commit's pinned `hfDownload` descriptors
-once with `scripts/download-models.py` and transfers that model tree to both
-architecture builds as a short-lived Actions artifact. Both archives receive
-the six ONNX model directories `cam-contact`, `gaze-detection`, `osnet_x0_25`,
-`ultraface`, `yolo26`, and `yolov11`, plus the checked-in ExecuTorch `yolox`
-model. Published packages contain the model bytes and need neither Hugging Face
-access nor a token at runtime.
+Each native architecture build uses the existing `pek-models` Docker artifact
+stage to resolve the selected commit's pinned `hfDownload` descriptors. Both
+archives receive the six ONNX model directories `cam-contact`,
+`gaze-detection`, `osnet_x0_25`, `ultraface`, `yolo26`, and `yolov11`, plus the
+checked-in ExecuTorch `yolox` model. Published packages contain the model bytes
+and need neither Hugging Face access nor a token at runtime.
 
-Build inputs reuse the repository's ONNX Runtime and ExecuTorch Debian
-installers. The release archives contain the standard, ONNX, and experimental
-ExecuTorch operation modules, but no SDK headers or static libraries. Hailo
-models, operation modules, SDKs, and runtimes remain excluded.
+Build inputs reuse `pek-deployment-build`, which owns the repository build
+toolchain and the ONNX Runtime and ExecuTorch Debian installers. The runnable
+`pek-deployment-base` snapshot contains the prebuilt app and the validated
+release archive. It retains the deployment lane's resolved configuration,
+models, pipelines, and demo media. Release archives remain the narrow
+seven-model integration surface and contain the standard, ONNX, and
+experimental ExecuTorch operation modules, but no SDK headers or static
+libraries. The release image does not install Hailo operation modules, SDKs, or
+runtimes.
 
-Release dependency preparation gets its model and runtime inputs from these
-sources:
+The same Docker stage packages the checked-in Perception SDK snapshot. The
+workflow passes only the selected source and flowdata-sdk gitlink SHAs; it does
+not initialize the private submodule or transfer a separate SDK input artifact.
+
+Release image builds get their model and runtime inputs from these sources:
 
 | Variables | Set or referenced in |
 | --- | --- |
-| `ONNXRUNTIME_VERSION` | Defaulted in `Dockerfile`; read and passed explicitly by both release workflows |
-| `EXECUTORCH_VERSION`, `EXECUTORCH_DEB_REVISION` | Defaulted in `Dockerfile`; read and passed explicitly by both release workflows |
-| `HF_TOKEN` | Read-only repository secret; exposed only to each workflow's model-resolution step while checked-in models require authentication |
+| `ONNXRUNTIME_VERSION` | Defaulted and consumed by `pek-deployment-build` |
+| `EXECUTORCH_VERSION`, `EXECUTORCH_DEB_REVISION` | Defaulted and consumed by `pek-deployment-build` |
+| `HF_TOKEN` | Read-only repository secret; exposed to `pek-models` only as a BuildKit secret while checked-in models require authentication |
 | `PEK_ARTIFACTORY_USERNAME`, `PEK_ARTIFACTORY_API_KEY` | Existing repository secrets used to read the ExecuTorch Debian package and publish release archives |
 
-`Dockerfile` remains the version authority; release workflows use the value
-from the selected source.
-Dependency preparation uses the selected source's checked-in installers and
-package build jobs receive only the prepared dependencies and resolved model
-files.
+`Dockerfile` remains the version authority. Release jobs build its existing
+`pek-deployment-base` target for the native architecture and copy the archive
+from `/opt/pek-release-artifacts`. The same image digest is the corresponding
+GHCR manifest input. The native jobs reuse both Buildx layers and the shared
+architecture-specific ccache flow. No prepared dependency or model tree is
+transferred between jobs.
+
+The documentation release job likewise builds the existing `pek-docs` target,
+runs `scripts/gen-doc.sh` in that container, and archives the generated HTML
+with system `tar`. There is no separate release documentation image or package
+script.
 
 Configured GitHub Actions secrets supply `HF_TOKEN`, `PEK_ARTIFACTORY_USERNAME`,
 and `PEK_ARTIFACTORY_API_KEY`. Once the workflow is registered on the default `develop`
@@ -209,7 +228,7 @@ Before making the repository or its release pipeline public:
 - make every checked-in `hfDownload` source anonymously readable;
 - remove every `${{ secrets.HF_TOKEN }}` reference from repository workflows;
 - delete the repository Actions secret after no workflow references it; and
-- run model resolution plus the x86_64 and Arm package smokes with `HF_TOKEN`
+- run model resolution plus the x86_64 and Arm image smokes with `HF_TOKEN`
   unset.
 
 Optional local BuildKit-secret support remains available for developers who add

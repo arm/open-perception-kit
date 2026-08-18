@@ -78,15 +78,15 @@ package "Dockerfile\ncore cross-lane stage graph" {
 
   package "Deployment Build and Runtime Images" {
     component "pek-cross-build-base\ncross-build root" as cross_base #bfdbfe
-    component "pek-deployment-build\nrelease builder stage\ncollects /opt/pek-app" as deployment_build #fed7aa
-    component "pek-deployment-base\nslim runtime target\nprebuilt PEK release" as deployment_image #bbf7d0
+    component "pek-deployment-build\nrelease toolchain and builder\ncollects app + SDK + tarball" as deployment_build #fed7aa
+    component "pek-deployment-base\nrunnable release snapshot\nprebuilt PEK + tarball" as deployment_image #bbf7d0
 
     build_base --> cross_base : FROM
     cross_base --> deployment_build : FROM
     models ..> deployment_build : COPY resolved config\nand model artifacts
     demo_media ..> deployment_build : COPY demo videos
     debian --> deployment_image : FROM
-    deployment_build ..> deployment_image : COPY selected outputs\n/opt/pek-app, ONNX Runtime libs
+    deployment_build ..> deployment_image : COPY selected outputs\n/opt/pek-app, release tarball, ONNX Runtime libs
   }
 }
 
@@ -136,8 +136,23 @@ end note
 note bottom of deployment_build
   Deployment is the only core lane that builds PEK
   during image creation. It consumes model and demo
-  media artifact stages, then the runtime target copies
-  selected outputs, not compilers or build scratch state.
+  media artifact stages. Native release builds also package
+  the checked-in Perception SDK snapshot and create the
+  validated architecture tarball. The runtime target
+  copies selected outputs, not compilers or build scratch state.
+end note
+
+note bottom of deployment_image
+  Native release builds publish the existing amd64
+  and arm64 outputs by digest, then combine them as
+  one GHCR multi-architecture snapshot. The tarball
+  remains available inside each image and separately.
+end note
+
+note bottom of docs_image
+  Release documentation uses this existing tool image
+  directly, then archives generated HTML with system tar.
+  No release-specific docs image or entrypoint exists.
 end note
 
 note bottom of pre_commit

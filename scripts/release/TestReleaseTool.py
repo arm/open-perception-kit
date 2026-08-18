@@ -79,12 +79,6 @@ def add_release_identity(repo_root: Path) -> None:
     (development_root / "meson.build").write_text(
         "project('demo', version: '0.1.0')\n", encoding="utf-8"
     )
-    (repo_root / "Dockerfile").write_text(
-        "ARG ONNXRUNTIME_VERSION=1.24.4\n"
-        "ARG EXECUTORCH_VERSION=1.3.1\n"
-        "ARG EXECUTORCH_DEB_REVISION=2\n",
-        encoding="utf-8",
-    )
 
 
 class ReleaseToolTests(unittest.TestCase):
@@ -516,6 +510,13 @@ class ReleaseToolTests(unittest.TestCase):
             with patch.object(release_tool.subprocess, "run"):
                 release_tool.validate_perception_sdk(sdk_root)
 
+            with (
+                patch.object(release_tool.subprocess, "run"),
+                patch.object(release_tool, "repository_commit") as repository_commit,
+            ):
+                release_tool.validate_perception_sdk(sdk_root, repo_root, "a" * 40)
+            repository_commit.assert_not_called()
+
             (sdk_root / "extra").write_text("extra", encoding="utf-8")
             with self.assertRaisesRegex(RuntimeError, "matching triplet"):
                 release_tool.validate_perception_sdk(sdk_root)
@@ -599,9 +600,6 @@ class ReleaseToolTests(unittest.TestCase):
             manual = self.run_tool(*arguments, "--build-label", "test")
             self.assertEqual(manual.returncode, 0, manual.stderr)
             self.assertIn("build_id=0.1.0-test-aaaaaaaaaaaa", manual.stdout)
-            self.assertIn("onnxruntime_version=1.24.4", manual.stdout)
-            self.assertIn("executorch_version=1.3.1", manual.stdout)
-            self.assertIn("executorch_revision=2", manual.stdout)
 
             final = self.run_tool(*arguments)
             self.assertNotEqual(final.returncode, 0)

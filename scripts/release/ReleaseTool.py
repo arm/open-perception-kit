@@ -84,7 +84,6 @@ SYSTEM_LIBRARY_PREFIXES = (
 )
 BUILD_LABEL_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$")
 VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+$", re.ASCII)
-DEBIAN_REVISION_PATTERN = re.compile(r"^[0-9A-Za-z][0-9A-Za-z.+~]*$", re.ASCII)
 JSON_GLOB = "*.json"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GIT_COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$", re.ASCII)
@@ -430,7 +429,9 @@ def repository_commit(repo_root: Path) -> str:
 
 
 def validate_perception_sdk(
-    perception_sdk_root: Path, repo_root: Path | None = None
+    perception_sdk_root: Path,
+    repo_root: Path | None = None,
+    expected_commit: str | None = None,
 ) -> None:
     if perception_sdk_root.is_symlink() or not perception_sdk_root.is_dir():
         fail(f"Perception SDK directory is missing or invalid: {perception_sdk_root}")
@@ -477,7 +478,12 @@ def validate_perception_sdk(
     commit = provenance.get("repository_commit")
     if not isinstance(commit, str) or not GIT_COMMIT_PATTERN.fullmatch(commit):
         fail("Perception SDK provenance commit is invalid")
-    if repo_root is not None and commit != repository_commit(repo_root):
+    if expected_commit is not None and not GIT_COMMIT_PATTERN.fullmatch(expected_commit):
+        fail("Expected Perception SDK commit is invalid")
+    selected_commit = expected_commit
+    if selected_commit is None and repo_root is not None:
+        selected_commit = repository_commit(repo_root)
+    if selected_commit is not None and commit != selected_commit:
         fail("Perception SDK provenance commit does not match the selected source")
 
 
@@ -579,7 +585,11 @@ def validate_package(args: argparse.Namespace) -> None:
     private_root = validate_runtime_files(package_root)
     validate_legal_documentation(package_root)
     validate_release_payload(package_root, repo_root)
-    validate_perception_sdk(package_root / "share/pek/perception-sdk", repo_root)
+    validate_perception_sdk(
+        package_root / "share/pek/perception-sdk",
+        repo_root,
+        getattr(args, "expected_commit", None),
+    )
 
     regular_onnx = [
         path
@@ -591,6 +601,8 @@ def validate_package(args: argparse.Namespace) -> None:
         fail("Package must contain exactly ONNX Runtime 1.24.4")
     if not soname_link.is_symlink() or os.readlink(soname_link) != regular_onnx[0].name:
         fail("ONNX Runtime SONAME link is missing or incorrect")
+    if dynamic_values(regular_onnx[0], "SONAME") != ["libonnxruntime.so.1"]:
+        fail("Pinned ONNX Runtime has an unexpected SONAME")
 
     elf_paths = [path for path in package_root.rglob("*") if is_elf(path)]
     if not elf_paths:
@@ -652,29 +664,6 @@ def read_version(repo_root: Path) -> str:
     return match.group(1)
 
 
-def read_docker_argument(repo_root: Path, name: str, pattern: re.Pattern[str]) -> str:
-    content = (repo_root / "Dockerfile").read_text(encoding="utf-8")
-    values = re.findall(rf"^ARG {re.escape(name)}=([^\s#]+)\s*$", content, re.MULTILINE)
-    if len(values) != 1 or not pattern.fullmatch(values[0]):
-        fail(f"Dockerfile must contain exactly one valid ARG {name}=value")
-    return values[0]
-
-
-def source_identity(repo_root: Path) -> dict[str, str]:
-    return {
-        "version": read_version(repo_root),
-        "onnxruntime_version": read_docker_argument(
-            repo_root, "ONNXRUNTIME_VERSION", VERSION_PATTERN
-        ),
-        "executorch_version": read_docker_argument(
-            repo_root, "EXECUTORCH_VERSION", VERSION_PATTERN
-        ),
-        "executorch_revision": read_docker_argument(
-            repo_root, "EXECUTORCH_DEB_REVISION", DEBIAN_REVISION_PATTERN
-        ),
-    }
-
-
 def changelog_section(repo_root: Path, version: str) -> str:
     content = (repo_root / "CHANGELOG.md").read_text(encoding="utf-8")
     match = re.search(
@@ -700,8 +689,7 @@ def write_github_output(values: dict[str, str]) -> None:
 
 def prepare(args: argparse.Namespace) -> None:
     repo_root = Path(args.repo_root).resolve()
-    identity = source_identity(repo_root)
-    version = identity["version"]
+    version = read_version(repo_root)
     if not args.build_label:
         changelog_section(repo_root, version)
     commit = args.commit
@@ -714,8 +702,8 @@ def prepare(args: argparse.Namespace) -> None:
     else:
         build_id = version
     write_github_output(
-        identity
-        | {
+        {
+            "version": version,
             "commit": commit,
             "build_id": build_id,
             "x86_archive": f"pek-{build_id}-linux-x86_64.tar.gz",
@@ -737,10 +725,12 @@ def main() -> int:
     validate_package_parser.add_argument("--architecture", choices=sorted(ARCHITECTURES), required=True)
     validate_package_parser.add_argument("--package-root", required=True)
     validate_package_parser.add_argument("--repo-root")
+    validate_package_parser.add_argument("--expected-commit")
 
     validate_sdk_parser = subparsers.add_parser("validate-perception-sdk")
     validate_sdk_parser.add_argument("--perception-sdk-root", required=True)
     validate_sdk_parser.add_argument("--repo-root")
+    validate_sdk_parser.add_argument("--expected-commit")
 
     prepare_parser = subparsers.add_parser("prepare")
     prepare_parser.add_argument("--repo-root", default=".")
@@ -757,6 +747,7 @@ def main() -> int:
             validate_perception_sdk(
                 Path(args.perception_sdk_root).resolve(),
                 Path(args.repo_root).resolve() if args.repo_root else None,
+                args.expected_commit,
             )
         elif args.command == "prepare":
             prepare(args)
