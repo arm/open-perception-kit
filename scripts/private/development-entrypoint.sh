@@ -47,6 +47,15 @@ seed_development_artifacts() {
     fi
 }
 
+if [[ "${1:-}" == "--seed-artifacts" ]]; then
+    if [[ -d /opt/pek-app && ! -w /work ]]; then
+        echo "ERROR: cannot seed development artifacts into /work" >&2
+        exit 1
+    fi
+    seed_development_artifacts
+    exit 0
+fi
+
 # If no remap requested, just run as current user
 if [[ -z "${HOST_UID}" || -z "${HOST_GID}" ]]; then
     seed_development_artifacts
