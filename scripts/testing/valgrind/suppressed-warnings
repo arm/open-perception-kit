@@ -1089,32 +1089,6 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_g_closure_new_simple
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:g_closure_new_simple
-   fun:g_signal_type_cclosure_new
-   fun:g_signal_new
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:g_type_class_get
-   fun:g_object_new_valist
-   fun:g_object_new
-   fun:gst_static_pad_template_get
-   fun:gst_element_class_add_static_pad_template
-   fun:_ZL23gst_pekinfer_class_initP16GstPekInferClass
-   fun:_ZL30gst_pekinfer_class_intern_initPv
-   fun:g_type_class_get
-   fun:gst_element_register
-   fun:_ZL20pekinfer_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
    pek_reachable_gst_pekinfer_get_type_once_calloc_g_type_register_static_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
@@ -1296,26 +1270,6 @@
 }
 
 {
-   pek_reachable_pekinfer_plugin_init_malloc_gst_debug_category_new_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:g_malloc
-   fun:_gst_debug_category_new
-   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
-   fun:g_type_class_get
-   fun:g_type_class_get
-   fun:gst_element_register
-   fun:_ZL20pekinfer_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
    pek_reachable_pekinfer_plugin_init_malloc_g_strdup_gst_structure_copy_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
@@ -1377,64 +1331,12 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_g_type_create_instance_g_param_spec_gtype_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:g_type_create_instance
-   fun:g_param_spec_internal
-   fun:g_param_spec_gtype
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:g_type_class_get
-   fun:g_object_new_valist
-   fun:g_object_new
-   fun:gst_static_pad_template_get
-   fun:gst_element_class_add_static_pad_template
-   fun:_ZL23gst_pekinfer_class_initP16GstPekInferClass
-   fun:_ZL30gst_pekinfer_class_intern_initPv
-   fun:g_type_class_get
-   fun:gst_element_register
-   fun:_ZL20pekinfer_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
    pek_reachable_gst_pekinfer_class_init_g_type_create_instance_g_param_spec_uint64_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:g_type_create_instance
    fun:g_param_spec_internal
    fun:g_param_spec_uint64
-   fun:_ZL23gst_pekinfer_class_initP16GstPekInferClass
-   fun:_ZL30gst_pekinfer_class_intern_initPv
-   fun:g_type_class_get
-   fun:gst_element_register
-   fun:_ZL20pekinfer_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
-   pek_reachable_gst_pekinfer_class_init_g_type_create_instance_g_param_spec_string_pad_template_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:g_type_create_instance
-   fun:g_param_spec_internal
-   fun:g_param_spec_string
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:g_type_class_get
-   fun:g_object_new_valist
-   fun:g_object_new
-   fun:gst_static_pad_template_get
-   fun:gst_element_class_add_static_pad_template
    fun:_ZL23gst_pekinfer_class_initP16GstPekInferClass
    fun:_ZL30gst_pekinfer_class_intern_initPv
    fun:g_type_class_get
@@ -1522,53 +1424,6 @@
 }
 
 {
-   pek_reachable_pekinfer_plugin_init_calloc_gstreamer_registry_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:calloc
-   fun:g_malloc0
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:gst_element_register
-   fun:_ZL20pekinfer_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
-   pek_reachable_gst_pekinfer_class_init_malloc_g_slist_append_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:g_malloc
-   fun:g_slist_append
-   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:g_type_class_get
-   fun:g_object_new_valist
-   fun:g_object_new
-   fun:gst_static_pad_template_get
-   fun:gst_element_class_add_static_pad_template
-   fun:_ZL23gst_pekinfer_class_initP16GstPekInferClass
-   fun:_ZL30gst_pekinfer_class_intern_initPv
-   fun:g_type_class_get
-   fun:gst_element_register
-   fun:_ZL20pekinfer_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
    pek_reachable_gst_pekinfer_class_init_malloc_g_strdup_g_param_spec_string_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
@@ -1584,27 +1439,6 @@
    fun:gst_parse_launch_full
    fun:gst_parse_launchv_full
    obj:/usr/bin/gst-launch-1.0
-   fun:(below main)
-}
-
-{
-   pek_reachable_pekinfer_plugin_init_malloc_g_strdup_gst_debug_category_new_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:g_malloc
-   fun:g_strdup
-   fun:_gst_debug_category_new
-   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
-   fun:g_type_class_get
-   fun:g_type_class_get
-   fun:gst_element_register
-   fun:_ZL20pekinfer_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
    fun:(below main)
 }
 
@@ -1681,24 +1515,6 @@
 }
 
 {
-   pek_reachable_pekinfer_plugin_init_calloc_g_type_class_get_nested_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:calloc
-   fun:g_malloc0
-   fun:g_type_class_get
-   fun:g_type_class_get
-   fun:gst_element_register
-   fun:_ZL20pekinfer_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
    pek_reachable_gst_pekinfer_class_init_calloc_g_type_create_instance_pad_template_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
@@ -1760,27 +1576,6 @@
    fun:gst_element_class_add_static_pad_template
    fun:_ZL23gst_pekinfer_class_initP16GstPekInferClass
    fun:_ZL30gst_pekinfer_class_intern_initPv
-   fun:g_type_class_get
-   fun:gst_element_register
-   fun:_ZL20pekinfer_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
-   pek_reachable_pekinfer_plugin_init_malloc_g_slist_prepend_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:g_malloc
-   fun:g_slist_prepend
-   fun:_gst_debug_category_new
-   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
-   fun:g_type_class_get
    fun:g_type_class_get
    fun:gst_element_register
    fun:_ZL20pekinfer_plugin_initP10_GstPlugin
@@ -1897,80 +1692,6 @@
 }
 
 {
-   pek_reachable_pekinfer_plugin_init_calloc_gst_structure_copy_g_type_class_get_nested_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:calloc
-   fun:g_malloc0
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:gst_structure_copy
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:g_type_class_get
-   fun:g_type_class_get
-   fun:gst_element_register
-   fun:_ZL20pekinfer_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
-   pek_reachable_gst_pekinfer_class_init_calloc_g_type_class_get_pad_template_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:calloc
-   fun:g_malloc0
-   fun:g_type_class_get
-   fun:g_object_new_valist
-   fun:g_object_new
-   fun:gst_static_pad_template_get
-   fun:gst_element_class_add_static_pad_template
-   fun:_ZL23gst_pekinfer_class_initP16GstPekInferClass
-   fun:_ZL30gst_pekinfer_class_intern_initPv
-   fun:g_type_class_get
-   fun:gst_element_register
-   fun:_ZL20pekinfer_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
-   pek_reachable_gst_pekinfer_class_init_malloc_g_memdup2_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:g_malloc
-   fun:g_memdup2
-   fun:g_signal_newv
-   fun:g_signal_new_valist
-   fun:g_signal_new
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:g_type_class_get
-   fun:g_object_new_valist
-   fun:g_object_new
-   fun:gst_static_pad_template_get
-   fun:gst_element_class_add_static_pad_template
-   fun:_ZL23gst_pekinfer_class_initP16GstPekInferClass
-   fun:_ZL30gst_pekinfer_class_intern_initPv
-   fun:g_type_class_get
-   fun:gst_element_register
-   fun:_ZL20pekinfer_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
    pek_reachable_meta_api_type_malloc_g_strdup_thread
    Memcheck:Leak
    match-leak-kinds: reachable
@@ -2025,26 +1746,6 @@
 }
 
 {
-   pek_reachable_pekinfer_plugin_init_g_type_create_instance
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:g_type_create_instance
-   fun:g_param_spec_internal
-   fun:g_param_spec_boolean
-   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
-   fun:g_type_class_get
-   fun:g_type_class_get
-   fun:gst_element_register
-   fun:_ZL20pekinfer_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
    pek_reachable_gst_pekinfer_class_init_malloc_gst_caps_new_empty_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
@@ -2078,36 +1779,6 @@
    obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
    fun:gst_structure_set_value_static_str
    fun:gst_element_class_set_static_metadata
-   fun:_ZL23gst_pekinfer_class_initP16GstPekInferClass
-   fun:_ZL30gst_pekinfer_class_intern_initPv
-   fun:g_type_class_get
-   fun:gst_element_register
-   fun:_ZL20pekinfer_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
-   pek_reachable_gst_pekinfer_class_init_realloc_g_signal_newv_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:realloc
-   fun:g_realloc
-   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
-   fun:g_signal_newv
-   fun:g_signal_new_valist
-   fun:g_signal_new
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:g_type_class_get
-   fun:g_object_new_valist
-   fun:g_object_new
-   fun:gst_static_pad_template_get
-   fun:gst_element_class_add_static_pad_template
    fun:_ZL23gst_pekinfer_class_initP16GstPekInferClass
    fun:_ZL30gst_pekinfer_class_intern_initPv
    fun:g_type_class_get
@@ -2179,26 +1850,6 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_get_type_once_calloc_g_type_register_static_gst_base_transform_get_type_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:calloc
-   fun:g_malloc0
-   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
-   fun:g_type_register_static
-   fun:gst_base_transform_get_type
-   fun:_ZL26gst_pekinfer_get_type_oncev
-   fun:gst_pekinfer_get_type
-   fun:_ZL20pekinfer_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
    pek_reachable_gst_pekinfer_class_init_malloc_g_strdup_gst_structure_set_value_static_str_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
@@ -2216,26 +1867,6 @@
    fun:gst_parse_launch_full
    fun:gst_parse_launchv_full
    obj:/usr/bin/gst-launch-1.0
-   fun:(below main)
-}
-
-{
-   pek_reachable_gst_pekinfer_get_type_once_realloc_g_type_register_static_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:realloc
-   fun:g_realloc
-   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
-   fun:g_type_register_static
-   fun:gst_base_transform_get_type
-   fun:_ZL26gst_pekinfer_get_type_oncev
-   fun:gst_pekinfer_get_type
-   fun:_ZL20pekinfer_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
    fun:(below main)
 }
 
@@ -2305,32 +1936,6 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_malloc_g_slist_copy_deep_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:g_malloc
-   fun:g_slist_copy_deep
-   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
-   fun:g_type_class_get
-   fun:g_object_new_valist
-   fun:g_object_new
-   fun:gst_static_pad_template_get
-   fun:gst_element_class_add_static_pad_template
-   fun:_ZL23gst_pekinfer_class_initP16GstPekInferClass
-   fun:_ZL30gst_pekinfer_class_intern_initPv
-   fun:g_type_class_get
-   fun:gst_element_register
-   fun:_ZL20pekinfer_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
    pek_reachable_gst_pekinfer_class_init_malloc_g_array_sized_new_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
@@ -2350,34 +1955,6 @@
    fun:gst_parse_launch_full
    fun:gst_parse_launchv_full
    obj:/usr/bin/gst-launch-1.0
-   fun:(below main)
-}
-
-{
-   pek_reachable_gst_pekinfer_class_init_malloc_g_signal_newv_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:g_malloc
-   fun:g_signal_newv
-   fun:g_signal_new_valist
-   fun:g_signal_new
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:g_type_class_get
-   fun:g_object_new_valist
-   fun:g_object_new
-   fun:gst_static_pad_template_get
-   fun:gst_element_class_add_static_pad_template
-   fun:_ZL23gst_pekinfer_class_initP16GstPekInferClass
-   fun:_ZL30gst_pekinfer_class_intern_initPv
-   fun:g_type_class_get
-   fun:gst_element_register
-   fun:_ZL20pekinfer_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
    fun:(below main)
 }
 
@@ -2411,32 +1988,6 @@
    obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
    fun:g_object_new_with_properties
    fun:g_object_new
-   fun:gst_element_register
-   fun:_ZL20pekinfer_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
-   pek_reachable_gst_pekinfer_class_init_g_type_create_instance_g_param_spec_boxed_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:g_type_create_instance
-   fun:g_param_spec_internal
-   fun:g_param_spec_boxed
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:g_type_class_get
-   fun:g_object_new_valist
-   fun:g_object_new
-   fun:gst_static_pad_template_get
-   fun:gst_element_class_add_static_pad_template
-   fun:_ZL23gst_pekinfer_class_initP16GstPekInferClass
-   fun:_ZL30gst_pekinfer_class_intern_initPv
-   fun:g_type_class_get
    fun:gst_element_register
    fun:_ZL20pekinfer_plugin_initP10_GstPlugin
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
@@ -2507,32 +2058,6 @@
    fun:g_malloc
    fun:g_slist_copy_deep
    obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
-   fun:g_type_class_get
-   fun:gst_element_register
-   fun:_ZL20pekinfer_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
-   pek_reachable_gst_pekinfer_class_init_g_type_create_instance_g_param_spec_enum_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:g_type_create_instance
-   fun:g_param_spec_internal
-   fun:g_param_spec_enum
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:g_type_class_get
-   fun:g_object_new_valist
-   fun:g_object_new
-   fun:gst_static_pad_template_get
-   fun:gst_element_class_add_static_pad_template
-   fun:_ZL23gst_pekinfer_class_initP16GstPekInferClass
-   fun:_ZL30gst_pekinfer_class_intern_initPv
    fun:g_type_class_get
    fun:gst_element_register
    fun:_ZL20pekinfer_plugin_initP10_GstPlugin
@@ -2639,26 +2164,6 @@
    fun:g_malloc
    fun:g_list_prepend
    fun:gst_registry_add_feature
-   fun:gst_element_register
-   fun:_ZL20pekinfer_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
-   pek_reachable_pekinfer_plugin_init_malloc_g_slist_copy_deep_g_type_class_get_nested_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:g_malloc
-   fun:g_slist_copy_deep
-   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
-   fun:g_type_class_get
-   fun:g_type_class_get
    fun:gst_element_register
    fun:_ZL20pekinfer_plugin_initP10_GstPlugin
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
