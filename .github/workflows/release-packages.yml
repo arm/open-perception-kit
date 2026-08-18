@@ -502,7 +502,7 @@ jobs:
           done
 
       - name: Set up locked uv and Python
-        uses: astral-sh/setup-uv@v9.0.0
+        uses: astral-sh/setup-uv@v10.0.1
         with:
           version: '0.8.13'
           python-version: '3.14'
