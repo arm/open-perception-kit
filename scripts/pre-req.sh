@@ -162,7 +162,7 @@ check_demo_videos() {
     repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
     if ! "${repo_root}/scripts/private/download-demo-videos.sh" --check; then
-        echo "WARNING: demo videos are missing or corrupt; quick-start will restore them from the container image."
+        echo "WARNING: missing demo videos will be seeded from the container image; remove corrupt files before starting."
     fi
 }
 

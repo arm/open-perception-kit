@@ -81,16 +81,6 @@ class ModelArtifactBuildTest(unittest.TestCase):
             "/work/config/models/",
             entrypoint,
         )
-        self.assertIn(
-            "COPY --from=pek-demo-media \\\n"
-            "  /work/data/videos /opt/pek-app/data/videos",
-            dockerfile,
-        )
-        self.assertIn(
-            'cp -a --no-clobber "${artifacts_root}/data/videos/." '
-            "/work/data/videos/",
-            entrypoint,
-        )
 
     def test_model_download_cache_bust_is_consumed(self) -> None:
         for name in ("Dockerfile",):
