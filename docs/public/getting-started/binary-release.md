@@ -26,9 +26,17 @@ sha256sum pek-<version>-linux-<architecture>.tar.gz
 
 Architecture packages contain the six PEK plugins, the private
 `lib/pek/pek-runtime.so` and common libraries, compatible model binaries and
-OpChains, JSON schemas, `peksink` web assets, approved notices, and ONNX
-Runtime. They also contain the experimental ExecuTorch operation module and
-the YOLOX ExecuTorch model.
+OpChains, `peksink` web assets, approved notices, and ONNX Runtime. They also
+contain the experimental ExecuTorch operation module and the YOLOX ExecuTorch
+model, plus these two distinct payloads:
+
+- `share/pek/perception-sdk/` contains the Perception SDK ZIP, checksum, and
+  provenance sidecar;
+- `share/pek/schemas/json/v1/` contains the model and OpChain descriptor JSON
+  schemas copied from the released source.
+
+The descriptor schemas are direct PEK package content, not files in the SDK
+ZIP. Retired `metadata/api` schemas are not included.
 
 They deliberately exclude `pek-menu`, pipeline presets, examples, sample
 media, documentation, source, tests, debug files, NCNN, public C++ headers,
@@ -92,6 +100,20 @@ The package exposes no PEK C++ headers and Cairn does not link directly to
 `pek-runtime.so`. The `pekperformance` element remains available as a normal
 GStreamer element, but the PEK C++ performance-metrics API is not part of the
 binary release.
+
+To consume serialized `FrameResults`, Cairn can verify and extract the nested
+Perception SDK with the matching release tooling:
+
+```bash
+sdk_root="$PEK_PACKAGE_ROOT/share/pek/perception-sdk"
+./scripts/perception-sdk.sh verify \
+  "$sdk_root/perception-sdk-<sdk-version>.zip" \
+  --require-sidecars
+unzip "$sdk_root/perception-sdk-<sdk-version>.zip" -d perception-sdk
+```
+
+Use the C++, Python, or TypeScript package from that extracted SDK. The SDK
+version is independent of the PEK product version.
 
 ## Packaged models
 

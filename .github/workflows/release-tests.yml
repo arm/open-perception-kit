@@ -91,6 +91,48 @@ jobs:
           if-no-files-found: error
           retention-days: 2
 
+  build-perception-sdk:
+    name: Build Perception SDK input
+    needs: prepare
+    runs-on: ubuntu-24.04
+    container: python:3.12-slim-trixie@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de
+    steps:
+      - name: Install Perception SDK prerequisites
+        run: apt-get update && apt-get install -y --no-install-recommends ca-certificates git openssh-client
+
+      - name: Checkout validated source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          persist-credentials: false
+
+      - name: Prepare flowdata-sdk
+        shell: bash
+        env:
+          DEPLOY_KEY_FLOWDATA_SDK: ${{ secrets.DEPLOY_KEY_FLOWDATA_SDK }}
+        run: |
+          source .github/scripts/configure_workspace_ssh.sh
+          git submodule update --init tools/flowdata-sdk
+
+      - name: Build and validate Perception SDK input
+        run: |
+          sdk_version="$(python3 -c \
+            'import json; print(json.load(open("tools/perception/sdk.json"))["version"])')"
+          scripts/perception-sdk.sh package \
+            --output-dir perception-sdk-input \
+            --expect-version "$sdk_version"
+          python3 scripts/release/ReleaseTool.py validate-perception-sdk \
+            --repo-root . \
+            --perception-sdk-root perception-sdk-input
+
+      - name: Upload Perception SDK input
+        uses: actions/upload-artifact@v7
+        with:
+          name: pek-test-perception-sdk-input-${{ github.run_id }}-${{ github.run_attempt }}
+          path: perception-sdk-input/perception-sdk-*
+          if-no-files-found: error
+          retention-days: 2
+
   dependencies-x86:
     name: Prepare x86_64 candidate dependencies
     needs: prepare
@@ -126,7 +168,7 @@ jobs:
 
   build-x86:
     name: Build x86_64 candidate package
-    needs: [prepare, dependencies-x86]
+    needs: [prepare, dependencies-x86, build-perception-sdk]
     runs-on: ubuntu-24.04
     container: python:3.12-slim-trixie@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de
     steps:
@@ -134,7 +176,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends \
-            build-essential binutils cmake git meson ninja-build pkg-config \
+            build-essential binutils ca-certificates cmake curl git meson ninja-build pkg-config \
             libssl-dev libsoup-3.0-dev libjson-glib-dev libcairo2-dev \
             zlib1g-dev \
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
@@ -145,6 +187,9 @@ jobs:
         with:
           ref: ${{ needs.prepare.outputs.commit }}
           persist-credentials: false
+
+      - name: Install pinned FlatBuffers
+        run: scripts/private/install-perception-flatbuffers.sh tools/perception/sdk.json
 
       - name: Download resolved models
         uses: actions/download-artifact@v8
@@ -158,10 +203,17 @@ jobs:
           name: pek-test-dependencies-x86-${{ github.run_id }}-${{ github.run_attempt }}
           path: release-dependencies
 
+      - name: Download Perception SDK input
+        uses: actions/download-artifact@v8
+        with:
+          name: pek-test-perception-sdk-input-${{ github.run_id }}-${{ github.run_attempt }}
+          path: perception-sdk-input
+
       - name: Build candidate package
         run: |
           scripts/release/BuildPackage.sh \
-            x86_64 "${{ needs.prepare.outputs.build_id }}" dist release-dependencies
+            x86_64 "${{ needs.prepare.outputs.build_id }}" dist \
+            release-dependencies perception-sdk-input
 
       - name: Upload x86_64 candidate package
         uses: actions/upload-artifact@v7
@@ -212,7 +264,7 @@ jobs:
 
   build-arm:
     name: Build aarch64 candidate package
-    needs: [prepare, dependencies-arm]
+    needs: [prepare, dependencies-arm, build-perception-sdk]
     runs-on: self-hosted-ubuntu-latest-arm64
     container: python:3.12-slim-trixie@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de
     steps:
@@ -220,7 +272,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends \
-            build-essential binutils cmake git meson ninja-build pkg-config \
+            build-essential binutils ca-certificates cmake curl git meson ninja-build pkg-config \
             libssl-dev libsoup-3.0-dev libjson-glib-dev libcairo2-dev \
             libusb-1.0-0-dev zlib1g-dev \
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
@@ -232,6 +284,10 @@ jobs:
           ref: ${{ needs.prepare.outputs.commit }}
           path: candidate-source-${{ github.run_id }}-${{ github.run_attempt }}
           persist-credentials: false
+
+      - name: Install pinned FlatBuffers
+        working-directory: candidate-source-${{ github.run_id }}-${{ github.run_attempt }}
+        run: scripts/private/install-perception-flatbuffers.sh tools/perception/sdk.json
 
       - name: Download resolved models
         uses: actions/download-artifact@v8
@@ -245,11 +301,18 @@ jobs:
           name: pek-test-dependencies-arm-${{ github.run_id }}-${{ github.run_attempt }}
           path: candidate-source-${{ github.run_id }}-${{ github.run_attempt }}/release-dependencies
 
+      - name: Download Perception SDK input
+        uses: actions/download-artifact@v8
+        with:
+          name: pek-test-perception-sdk-input-${{ github.run_id }}-${{ github.run_attempt }}
+          path: candidate-source-${{ github.run_id }}-${{ github.run_attempt }}/perception-sdk-input
+
       - name: Build candidate package
         working-directory: candidate-source-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           scripts/release/BuildPackage.sh \
-            aarch64 "${{ needs.prepare.outputs.build_id }}" dist release-dependencies
+            aarch64 "${{ needs.prepare.outputs.build_id }}" dist \
+            release-dependencies perception-sdk-input
 
       - name: Upload aarch64 candidate package
         uses: actions/upload-artifact@v7

@@ -52,6 +52,25 @@ def add_model(
 def add_release_models(repo_root: Path) -> None:
     for model_id, (backend, suffix) in release_tool.RELEASE_MODELS.items():
         add_model(repo_root, model_id, f"model{suffix}", backend)
+    schema_root = repo_root / "config/schemas/v1"
+    schema_root.mkdir(parents=True)
+    (schema_root / "model.schema.json").write_text("{}\n", encoding="utf-8")
+
+
+def add_perception_sdk(
+    root: Path,
+    version: str = "0.1.0",
+    commit: str = "a" * 40,
+    dirty: bool = False,
+) -> Path:
+    root.mkdir(parents=True)
+    archive = root / f"perception-sdk-{version}.zip"
+    archive.write_bytes(b"sdk")
+    (root / f"{archive.name}.sha256").write_text("checksum\n", encoding="utf-8")
+    (root / f"{archive.name}.provenance.json").write_text(
+        json.dumps({"dirty": dirty, "repository_commit": commit}), encoding="utf-8"
+    )
+    return archive
 
 
 def add_release_identity(repo_root: Path) -> None:
@@ -408,6 +427,161 @@ class ReleaseToolTests(unittest.TestCase):
             )
             with self.assertRaisesRegex(RuntimeError, "Build-machine path"):
                 release_tool.validate_release_payload(package_root, repo_root)
+
+    def test_stages_and_validates_descriptor_schemas(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            repo_root = root / "source"
+            (repo_root / "config/opchains").mkdir(parents=True)
+            add_release_models(repo_root)
+            nested_schema = repo_root / "config/schemas/v1/opchain/common.schema.json"
+            nested_schema.parent.mkdir()
+            nested_schema.write_bytes(b'{"title": "common"}\n')
+            legacy_schema = repo_root / "metadata/api/perception.schema.json"
+            legacy_schema.parent.mkdir(parents=True)
+            legacy_schema.write_text("{}\n", encoding="utf-8")
+
+            package_root = root / "package"
+            release_tool.stage_models(
+                SimpleNamespace(repo_root=str(repo_root), stage_root=str(package_root))
+            )
+            packaged_schema = (
+                package_root / "share/pek/schemas/json/v1/opchain/common.schema.json"
+            )
+            self.assertEqual(packaged_schema.read_bytes(), nested_schema.read_bytes())
+            self.assertFalse(
+                (package_root / "share/pek/schemas/json/perception.schema.json").exists()
+            )
+            release_tool.validate_release_payload(package_root, repo_root)
+
+            packaged_schema.write_text("{}\n", encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, "differs from the selected source"):
+                release_tool.validate_release_payload(package_root, repo_root)
+            packaged_schema.write_bytes(nested_schema.read_bytes())
+            (packaged_schema.parent / "extra.json").write_text("{}\n", encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, "schemas/json/v1 payload"):
+                release_tool.validate_release_payload(package_root, repo_root)
+            (packaged_schema.parent / "extra.json").unlink()
+            packaged_schema.unlink()
+            with self.assertRaisesRegex(RuntimeError, "schemas/json/v1 payload"):
+                release_tool.validate_release_payload(package_root, repo_root)
+
+    def test_rejects_unsafe_descriptor_schema_trees(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            schema_root = root / "schemas"
+            schema_root.mkdir()
+            schema = schema_root / "model.schema.json"
+            schema.write_text("{}\n", encoding="utf-8")
+            release_tool.validate_schema_tree(schema_root)
+
+            schema.write_text("{", encoding="utf-8")
+            with self.assertRaises(json.JSONDecodeError):
+                release_tool.validate_schema_tree(schema_root)
+            schema.write_text("{}\n", encoding="utf-8")
+            (schema_root / "README").write_text("not JSON", encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, "not JSON"):
+                release_tool.validate_schema_tree(schema_root)
+            (schema_root / "README").unlink()
+            (schema_root / "linked.json").symlink_to(schema)
+            with self.assertRaisesRegex(RuntimeError, "non-regular entry"):
+                release_tool.validate_schema_tree(schema_root)
+
+    def test_validates_perception_sdk_triplet(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            sdk_root = root / "perception-sdk"
+            archive = add_perception_sdk(sdk_root)
+            repo_root = root / "source"
+            descriptor = repo_root / "tools/perception/sdk.json"
+            descriptor.parent.mkdir(parents=True)
+            descriptor.write_text('{"version": "0.1.0"}\n', encoding="utf-8")
+
+            with (
+                patch.object(release_tool.subprocess, "run") as verifier,
+                patch.object(release_tool, "repository_commit", return_value="a" * 40),
+            ):
+                release_tool.validate_perception_sdk(sdk_root, repo_root)
+            verifier.assert_called_once_with(
+                [
+                    str(repo_root / "scripts/perception-sdk.sh"),
+                    "verify",
+                    str(archive),
+                    "--require-sidecars",
+                ],
+                check=True,
+                cwd=repo_root,
+            )
+
+            with patch.object(release_tool.subprocess, "run"):
+                release_tool.validate_perception_sdk(sdk_root)
+
+            (sdk_root / "extra").write_text("extra", encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, "matching triplet"):
+                release_tool.validate_perception_sdk(sdk_root)
+            (sdk_root / "extra").unlink()
+            (sdk_root / f"{archive.name}.sha256").unlink()
+            with self.assertRaisesRegex(RuntimeError, "matching triplet"):
+                release_tool.validate_perception_sdk(sdk_root)
+
+    def test_rejects_invalid_perception_sdk_provenance_and_entries(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            sdk_root = root / "perception-sdk"
+            archive = add_perception_sdk(sdk_root, dirty=True)
+            provenance = sdk_root / f"{archive.name}.provenance.json"
+
+            with (
+                patch.object(release_tool.subprocess, "run"),
+                self.assertRaisesRegex(RuntimeError, "dirty=false"),
+            ):
+                release_tool.validate_perception_sdk(sdk_root)
+
+            provenance.write_text(
+                json.dumps({"dirty": False, "repository_commit": "invalid"}),
+                encoding="utf-8",
+            )
+            with (
+                patch.object(release_tool.subprocess, "run"),
+                self.assertRaisesRegex(RuntimeError, "commit is invalid"),
+            ):
+                release_tool.validate_perception_sdk(sdk_root)
+
+            provenance.unlink()
+            provenance.symlink_to(archive)
+            with self.assertRaisesRegex(RuntimeError, "regular files"):
+                release_tool.validate_perception_sdk(sdk_root)
+
+    def test_rejects_perception_sdk_selected_source_mismatch_and_verify_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            sdk_root = root / "perception-sdk"
+            add_perception_sdk(sdk_root)
+            repo_root = root / "source"
+            descriptor = repo_root / "tools/perception/sdk.json"
+            descriptor.parent.mkdir(parents=True)
+            descriptor.write_text('{"version": "1.0.0"}\n', encoding="utf-8")
+
+            with self.assertRaisesRegex(RuntimeError, "version does not match"):
+                release_tool.validate_perception_sdk(sdk_root, repo_root)
+
+            descriptor.write_text('{"version": "0.1.0"}\n', encoding="utf-8")
+            with (
+                patch.object(release_tool.subprocess, "run"),
+                patch.object(release_tool, "repository_commit", return_value="b" * 40),
+                self.assertRaisesRegex(RuntimeError, "commit does not match"),
+            ):
+                release_tool.validate_perception_sdk(sdk_root, repo_root)
+
+            with (
+                patch.object(
+                    release_tool.subprocess,
+                    "run",
+                    side_effect=subprocess.CalledProcessError(1, "verify"),
+                ),
+                self.assertRaises(subprocess.CalledProcessError),
+            ):
+                release_tool.validate_perception_sdk(sdk_root)
 
     def test_only_final_preparation_requires_matching_changelog(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
