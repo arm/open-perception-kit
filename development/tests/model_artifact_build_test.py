@@ -30,7 +30,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
         self.assertEqual(
             inference_steps,
             [
-                "pekinfer opchain-path=/work/config/models/yolov11/opchain.json "
+                "pekinfer opchain-path=${PEK_PROJECT_ROOT:-/work}/config/models/yolov11/opchain.json "
                 "active=true !"
             ],
         )

@@ -49,6 +49,12 @@ serves the same non-blocking role as the video path.
 state for browser-side visibility. It also handles unregister events if an
 upstream component emits them.
 
+The `/api/model-info` endpoint searches for model and OpChain descriptors under
+`${PEK_PROJECT_ROOT:-/work}/config`. Explicitly setting `PEK_PROJECT_ROOT`
+therefore keeps the browser's model information lookup aligned with pipelines
+launched from a host checkout. Working-directory-relative locations remain as
+fallbacks.
+
 The browser receives serialized FrameResults records on the metadata WebSocket.
 Its committed `pek-web.js` bundle contains the generated TypeScript Perception
 SDK and FlatBuffers runtime. The client requires the
