@@ -161,6 +161,7 @@ pektracker_matching_tests = executable(
   'pektracker_matching_tests',
   ['pektracker_matching_test.cpp',
    '../elements/pektracker/Matching.cpp',
+   '../elements/pektracker/TrackLifecycle.cpp',
    '../elements/pektracker/TrackState.cpp',
    '../elements/pektracker/Utils.cpp'],
   include_directories : [common_include, include_directories('../elements/pektracker')],
