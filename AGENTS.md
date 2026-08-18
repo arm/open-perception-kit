@@ -14,6 +14,9 @@ For anything beyond a tiny local edit:
 4. implement only the changes the task needs
 5. report what was verified and what was not
 
+Update feature branches by rebasing onto their target branch. Do not merge the
+target branch into a feature branch.
+
 ## Start here
 
 Read these first before making substantial changes:
