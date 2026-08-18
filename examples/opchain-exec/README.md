@@ -17,6 +17,9 @@ Op plugins exist:
 ./scripts/build-elements.sh debug true
 ```
 
+The build script selects that build through `development/build-active`, whether
+the main tree was built in Docker or natively.
+
 Then build the example:
 
 ```sh
@@ -34,13 +37,17 @@ To rebuild the main development tree, rebuild `opchain-exec`, and copy the binar
 ## Run
 
 ```sh
-/tmp/opchain-exec-build/opchain-exec /work/config/models/ultraface/opchain.json /work/data/images/my-image.jpg
+/tmp/opchain-exec-build/opchain-exec \
+  config/models/ultraface/opchain.json \
+  data/images/my-image.jpg
 ```
 
 Or, after running the build script:
 
 ```sh
-./examples/bin/opchain-exec /work/config/models/ultraface/opchain.json /work/data/images/my-image.jpg
+./examples/bin/opchain-exec \
+  config/models/ultraface/opchain.json \
+  data/images/my-image.jpg
 ```
 
 The first argument is the OpChain JSON file. The second argument is the input
