@@ -21,17 +21,13 @@ seed_development_artifacts() {
     [[ -d "${artifacts_root}" ]] || return 0
     [[ -w /work ]] || return 0
 
-    mkdir -p \
-        /work/config/models \
-        /work/data/videos \
-        /work/development/build/meson-out \
-        /work/tools
-
     if [[ -d "${artifacts_root}/config/models" ]]; then
+        mkdir -p /work/config/models
         cp -R --no-clobber "${artifacts_root}/config/models/." /work/config/models/
     fi
 
     if [[ -d "${video_artifacts}" ]]; then
+        mkdir -p /work/data/videos
         cp -a --no-clobber "${video_artifacts}/." /work/data/videos/
         if [[ -f "${video_artifacts}/SHA256SUMS" ]]; then
             (cd /work/data/videos && sha256sum --check --strict --quiet "${video_artifacts}/SHA256SUMS")
@@ -39,12 +35,14 @@ seed_development_artifacts() {
     fi
 
     if [[ -d "${artifacts_root}/development/build/meson-out" ]]; then
+        mkdir -p /work/development/build/meson-out
         cp -a --no-clobber \
             "${artifacts_root}/development/build/meson-out/." \
             /work/development/build/meson-out/
     fi
 
     if [[ ! -e /work/tools/pek-menu && -f "${artifacts_root}/tools/pek-menu" ]]; then
+        mkdir -p /work/tools
         cp -a "${artifacts_root}/tools/pek-menu" /work/tools/pek-menu
     fi
 }
