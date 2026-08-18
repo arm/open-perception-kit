@@ -4,6 +4,7 @@
 ################################################################
 
 import importlib.util
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -324,6 +325,97 @@ class TestSummarizeValgrindOutput(unittest.TestCase):
         self.assertEqual(root.get("duplicate_errors"), "1")
         self.assertEqual(root.get("collected_errors"), "1")
         self.assertEqual(root.findtext("error/stack/frame/ip"), "0xADDR")
+
+    def test_cli_fails_when_a_suppression_is_unused_by_every_log(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            logs_dir = Path(tmpdir)
+            output = logs_dir / "summary.xml"
+            suppressions = logs_dir / "suppressions"
+            suppressions.write_text(
+                """
+                {
+                  used_by_parent
+                  Memcheck:Leak
+                  fun:parent
+                }
+                {
+                  used_by_child
+                  Memcheck:Leak
+                  fun:child
+                }
+                {
+                  unused
+                  Memcheck:Leak
+                  fun:unused
+                }
+                """,
+                encoding="utf-8",
+            )
+            self.write_log(
+                logs_dir / "pipeline.valgrind.1.xml",
+                """
+                <valgrindoutput>
+                  <status><state>FINISHED</state></status>
+                  <suppcounts>
+                    <pair><count>1</count><name>used_by_parent</name></pair>
+                    <pair><count>0</count><name>unused</name></pair>
+                  </suppcounts>
+                </valgrindoutput>
+                """,
+            )
+            self.write_log(
+                logs_dir / "pipeline.valgrind.2.xml",
+                """
+                <valgrindoutput>
+                  <status><state>FINISHED</state></status>
+                  <suppcounts><pair><count>2</count><name>used_by_child</name></pair></suppcounts>
+                </valgrindoutput>
+                """,
+            )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    SCRIPT_PATH,
+                    "--logs-dir",
+                    logs_dir,
+                    "--output",
+                    output,
+                    "--suppressions-file",
+                    suppressions,
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("FAILED: 1 unused Valgrind suppression(s):", result.stderr)
+        self.assertIn("  unused", result.stderr)
+        self.assertNotIn("  used_by_parent", result.stderr)
+        self.assertNotIn("  used_by_child", result.stderr)
+
+    def test_duplicate_suppression_names_are_rejected(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            suppressions = Path(tmpdir) / "suppressions"
+            suppressions.write_text(
+                """
+                {
+                  duplicate
+                  Memcheck:Leak
+                  fun:first
+                }
+                {
+                  duplicate
+                  Memcheck:Leak
+                  fun:second
+                }
+                """,
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "duplicate suppression name"):
+                summary.read_suppression_names(suppressions)
 
     @staticmethod
     def write_log(path: Path, content: str) -> None:

@@ -2,7 +2,7 @@
 # Each block preserves one complete stack observed with --num-callers=64.
 
 {
-   pek_reachable_tools_dynamic_library_open_calloc
+   pek_reachable_tools_dynamic_library_open_calloc_dl_new_object_dl_map_object_from_fd_dl_map_object_dl_open_worker_begin_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -47,7 +47,7 @@
 }
 
 {
-   pek_reachable_tools_dynamic_library_open_malloc
+   pek_reachable_tools_dynamic_library_open_malloc_resize_scopes_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -90,7 +90,7 @@
 }
 
 {
-   pek_reachable_tools_dynamic_library_open_malloc
+   pek_reachable_tools_dynamic_library_open_malloc_dl_new_object_dl_map_object_from_fd_dl_map_object_dl_open_worker_begin_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -135,7 +135,7 @@
 }
 
 {
-   pek_reachable_tools_dynamic_library_open_malloc
+   pek_reachable_tools_dynamic_library_open_malloc_strdup_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -183,7 +183,7 @@
 }
 
 {
-   pek_reachable_tools_dynamic_library_open_malloc
+   pek_reachable_tools_dynamic_library_open_malloc_dl_new_object_dl_map_object_from_fd_dl_map_object_openaux_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -231,7 +231,7 @@
 }
 
 {
-   pek_reachable_tools_dynamic_library_open_malloc
+   pek_reachable_tools_dynamic_library_open_malloc_open_path_dl_map_object_openaux_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -278,7 +278,7 @@
 }
 
 {
-   pek_reachable_tools_dynamic_library_open_malloc
+   pek_reachable_tools_dynamic_library_open_malloc_open_path_dl_map_object_dl_open_worker_begin_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -367,7 +367,7 @@
 }
 
 {
-   pek_reachable_tools_dynamic_library_open_malloc
+   pek_reachable_tools_dynamic_library_open_malloc_decompose_rpath_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -414,7 +414,7 @@
 }
 
 {
-   pek_reachable_tools_dynamic_library_open_calloc
+   pek_reachable_tools_dynamic_library_open_calloc_dl_check_map_versions_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -457,7 +457,7 @@
 }
 
 {
-   pek_reachable_tools_dynamic_library_open_calloc
+   pek_reachable_tools_dynamic_library_open_calloc_dl_new_object_dl_map_object_from_fd_dl_map_object_openaux_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -544,7 +544,7 @@
 }
 
 {
-   pek_reachable_gst_pek_comm_class_init_malloc
+   pek_reachable_gst_pek_comm_class_init_malloc_g_strdup_g_param_spec_string_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -565,7 +565,7 @@
 }
 
 {
-   pek_reachable_pekcomm_plugin_init_malloc
+   pek_reachable_pekcomm_plugin_init_malloc_g_list_append_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -582,7 +582,7 @@
 }
 
 {
-   pek_reachable_pekcomm_plugin_init_malloc
+   pek_reachable_pekcomm_plugin_init_malloc_g_strdup_gst_object_set_name_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -601,7 +601,7 @@
 }
 
 {
-   pek_reachable_gst_pek_comm_class_init_malloc
+   pek_reachable_gst_pek_comm_class_init_malloc_g_array_sized_new_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -625,7 +625,7 @@
 }
 
 {
-   pek_reachable_pekcomm_plugin_init_malloc
+   pek_reachable_pekcomm_plugin_init_malloc_g_strdup_gst_structure_copy_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -644,7 +644,7 @@
 }
 
 {
-   pek_reachable_gst_pek_comm_class_init_malloc
+   pek_reachable_gst_pek_comm_class_init_malloc_g_strdup_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -670,7 +670,7 @@
 }
 
 {
-   pek_reachable_gst_pek_comm_class_init_g_type_create_instance
+   pek_reachable_gst_pek_comm_class_init_g_type_create_instance_g_param_spec_uint_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:g_type_create_instance
@@ -690,7 +690,7 @@
 }
 
 {
-   pek_reachable_gst_pek_comm_class_init_calloc
+   pek_reachable_gst_pek_comm_class_init_calloc_direct_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -714,7 +714,7 @@
 }
 
 {
-   pek_reachable_pekcomm_plugin_init_realloc
+   pek_reachable_pekcomm_plugin_init_realloc_g_type_set_qdata_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:realloc
@@ -731,7 +731,7 @@
 }
 
 {
-   pek_reachable_gst_pek_comm_class_init_g_type_create_instance
+   pek_reachable_gst_pek_comm_class_init_g_type_create_instance_g_param_spec_string_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:g_type_create_instance
@@ -751,7 +751,7 @@
 }
 
 {
-   pek_reachable_pekcomm_plugin_init_calloc
+   pek_reachable_pekcomm_plugin_init_calloc_g_object_new_with_properties_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -771,7 +771,7 @@
 }
 
 {
-   pek_reachable_gst_pek_comm_class_init_g_type_create_instance
+   pek_reachable_gst_pek_comm_class_init_g_type_create_instance_g_param_spec_enum_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:g_type_create_instance
@@ -791,7 +791,7 @@
 }
 
 {
-   pek_reachable_gst_pek_comm_class_init_malloc
+   pek_reachable_gst_pek_comm_class_init_malloc_gst_caps_new_empty_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -814,7 +814,7 @@
 }
 
 {
-   pek_reachable_pekcomm_plugin_init_malloc
+   pek_reachable_pekcomm_plugin_init_malloc_direct_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -830,7 +830,7 @@
 }
 
 {
-   pek_reachable_pekcomm_plugin_init_calloc
+   pek_reachable_pekcomm_plugin_init_calloc_direct_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -847,7 +847,7 @@
 }
 
 {
-   pek_reachable_pekcomm_plugin_init_realloc
+   pek_reachable_pekcomm_plugin_init_realloc_g_object_weak_ref_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:realloc
@@ -887,7 +887,7 @@
 }
 
 {
-   pek_reachable_pekcomm_plugin_init_malloc
+   pek_reachable_pekcomm_plugin_init_malloc_g_object_weak_ref_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -906,7 +906,7 @@
 }
 
 {
-   pek_reachable_pekcomm_plugin_init_calloc
+   pek_reachable_pekcomm_plugin_init_calloc_gst_structure_copy_direct_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -924,7 +924,7 @@
 }
 
 {
-   pek_reachable_gst_pek_comm_class_init_malloc
+   pek_reachable_gst_pek_comm_class_init_malloc_g_list_append_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -945,7 +945,7 @@
 }
 
 {
-   pek_reachable_pekcomm_plugin_init_malloc
+   pek_reachable_pekcomm_plugin_init_malloc_g_slist_copy_deep_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -964,7 +964,7 @@
 }
 
 {
-   pek_reachable_gst_pek_comm_class_init_malloc
+   pek_reachable_gst_pek_comm_class_init_malloc_g_strdup_gst_structure_set_value_static_str_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -987,7 +987,7 @@
 }
 
 {
-   pek_reachable_pekcomm_plugin_init_calloc
+   pek_reachable_pekcomm_plugin_init_calloc_gst_structure_copy_g_type_class_get_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -1050,7 +1050,7 @@
 }
 
 {
-   pek_reachable_gst_pek_comm_class_init_calloc
+   pek_reachable_gst_pek_comm_class_init_calloc_g_param_spec_enum_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -1071,7 +1071,7 @@
 }
 
 {
-   pek_reachable_pekcomm_plugin_init_malloc
+   pek_reachable_pekcomm_plugin_init_malloc_g_list_prepend_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -1115,7 +1115,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_get_type_once_calloc
+   pek_reachable_gst_pekinfer_get_type_once_calloc_g_type_register_static_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -1139,7 +1139,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_malloc
+   pek_reachable_gst_pekinfer_class_init_malloc_g_strdup_g_param_spec_string_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -1160,7 +1160,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_malloc
+   pek_reachable_gst_pekinfer_class_init_malloc_g_strdup_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -1185,7 +1185,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_malloc
+   pek_reachable_gst_pekinfer_class_init_malloc_g_list_append_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -1204,7 +1204,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_malloc
+   pek_reachable_gst_pekinfer_class_init_malloc_gst_caps_new_empty_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -1226,7 +1226,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_g_type_create_instance
+   pek_reachable_gst_pekinfer_class_init_g_type_create_instance_g_param_spec_boolean_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:g_type_create_instance
@@ -1244,7 +1244,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_g_type_create_instance
+   pek_reachable_gst_pekinfer_class_init_g_type_create_instance_g_param_spec_uint64_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:g_type_create_instance
@@ -1296,7 +1296,7 @@
 }
 
 {
-   pek_reachable_pekinfer_plugin_init_malloc
+   pek_reachable_pekinfer_plugin_init_malloc_gst_debug_category_new_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -1316,7 +1316,7 @@
 }
 
 {
-   pek_reachable_pekinfer_plugin_init_malloc
+   pek_reachable_pekinfer_plugin_init_malloc_g_strdup_gst_structure_copy_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -1335,7 +1335,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_realloc
+   pek_reachable_gst_pekinfer_class_init_realloc_g_hash_table_add_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:realloc
@@ -1358,7 +1358,7 @@
 }
 
 {
-   pek_reachable_pekinfer_plugin_init_malloc
+   pek_reachable_pekinfer_plugin_init_malloc_g_strdup_gst_object_set_name_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -1377,7 +1377,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_g_type_create_instance
+   pek_reachable_gst_pekinfer_class_init_g_type_create_instance_g_param_spec_gtype_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:g_type_create_instance
@@ -1403,7 +1403,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_g_type_create_instance
+   pek_reachable_gst_pekinfer_class_init_g_type_create_instance_g_param_spec_uint64_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:g_type_create_instance
@@ -1423,7 +1423,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_g_type_create_instance
+   pek_reachable_gst_pekinfer_class_init_g_type_create_instance_g_param_spec_string_pad_template_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:g_type_create_instance
@@ -1449,7 +1449,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_malloc
+   pek_reachable_gst_pekinfer_class_init_malloc_g_array_sized_new_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -1474,7 +1474,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_g_type_create_instance
+   pek_reachable_gst_pekinfer_class_init_g_type_create_instance_g_param_spec_string_direct_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:g_type_create_instance
@@ -1494,7 +1494,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_malloc
+   pek_reachable_gst_pekinfer_class_init_malloc_g_strdup_g_value_set_string_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -1522,7 +1522,7 @@
 }
 
 {
-   pek_reachable_pekinfer_plugin_init_calloc
+   pek_reachable_pekinfer_plugin_init_calloc_gstreamer_registry_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -1542,7 +1542,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_malloc
+   pek_reachable_gst_pekinfer_class_init_malloc_g_slist_append_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -1569,7 +1569,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_malloc
+   pek_reachable_gst_pekinfer_class_init_malloc_g_strdup_g_param_spec_string_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -1588,7 +1588,7 @@
 }
 
 {
-   pek_reachable_pekinfer_plugin_init_malloc
+   pek_reachable_pekinfer_plugin_init_malloc_g_strdup_gst_debug_category_new_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -1609,7 +1609,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_realloc
+   pek_reachable_gst_pekinfer_class_init_realloc_g_array_append_vals_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:realloc
@@ -1632,7 +1632,7 @@
 }
 
 {
-   pek_reachable_pekinfer_plugin_init_malloc
+   pek_reachable_pekinfer_plugin_init_malloc_g_object_weak_ref_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -1651,7 +1651,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_malloc
+   pek_reachable_gst_pekinfer_class_init_malloc_g_strdup_g_value_set_string_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -1681,7 +1681,7 @@
 }
 
 {
-   pek_reachable_pekinfer_plugin_init_calloc
+   pek_reachable_pekinfer_plugin_init_calloc_g_type_class_get_nested_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -1699,7 +1699,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_calloc
+   pek_reachable_gst_pekinfer_class_init_calloc_g_type_create_instance_pad_template_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -1724,7 +1724,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_malloc
+   pek_reachable_gst_pekinfer_class_init_malloc_g_list_append_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -1745,7 +1745,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_malloc
+   pek_reachable_gst_pekinfer_class_init_malloc_g_strdup_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -1772,7 +1772,7 @@
 }
 
 {
-   pek_reachable_pekinfer_plugin_init_malloc
+   pek_reachable_pekinfer_plugin_init_malloc_g_slist_prepend_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -1828,7 +1828,7 @@
 }
 
 {
-   pek_reachable_pekinfer_plugin_init_malloc
+   pek_reachable_pekinfer_plugin_init_malloc_g_list_append_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -1845,7 +1845,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_realloc
+   pek_reachable_gst_pekinfer_class_init_realloc_g_array_append_vals_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:realloc
@@ -1870,7 +1870,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_calloc
+   pek_reachable_gst_pekinfer_class_init_calloc_g_value_init_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -1897,7 +1897,7 @@
 }
 
 {
-   pek_reachable_pekinfer_plugin_init_calloc
+   pek_reachable_pekinfer_plugin_init_calloc_gst_structure_copy_g_type_class_get_nested_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -1918,7 +1918,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_calloc
+   pek_reachable_gst_pekinfer_class_init_calloc_g_type_class_get_pad_template_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -1942,7 +1942,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_malloc
+   pek_reachable_gst_pekinfer_class_init_malloc_g_memdup2_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -1971,7 +1971,7 @@
 }
 
 {
-   pek_reachable_meta_api_type_malloc
+   pek_reachable_meta_api_type_malloc_g_strdup_thread
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -2004,7 +2004,7 @@
 }
 
 {
-   pek_reachable_pekinfer_plugin_init_realloc
+   pek_reachable_pekinfer_plugin_init_realloc_g_type_set_qdata_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:realloc
@@ -2045,7 +2045,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_malloc
+   pek_reachable_gst_pekinfer_class_init_malloc_gst_caps_new_empty_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -2069,7 +2069,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_malloc
+   pek_reachable_gst_pekinfer_class_init_malloc_g_strdup_gst_structure_set_value_static_str_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -2092,7 +2092,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_realloc
+   pek_reachable_gst_pekinfer_class_init_realloc_g_signal_newv_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:realloc
@@ -2122,7 +2122,7 @@
 }
 
 {
-   pek_reachable_meta_api_type_malloc
+   pek_reachable_meta_api_type_malloc_g_strdupv_thread
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -2154,7 +2154,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_calloc
+   pek_reachable_gst_pekinfer_class_init_calloc_g_value_init_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -2179,7 +2179,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_get_type_once_calloc
+   pek_reachable_gst_pekinfer_get_type_once_calloc_g_type_register_static_gst_base_transform_get_type_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -2199,7 +2199,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_malloc
+   pek_reachable_gst_pekinfer_class_init_malloc_g_strdup_gst_structure_set_value_static_str_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -2220,7 +2220,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_get_type_once_realloc
+   pek_reachable_gst_pekinfer_get_type_once_realloc_g_type_register_static_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:realloc
@@ -2240,7 +2240,7 @@
 }
 
 {
-   pek_reachable_pekinfer_plugin_init_realloc
+   pek_reachable_pekinfer_plugin_init_realloc_g_type_set_qdata_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:realloc
@@ -2257,7 +2257,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_calloc
+   pek_reachable_gst_pekinfer_class_init_calloc_gst_structure_new_empty_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -2282,7 +2282,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_calloc
+   pek_reachable_gst_pekinfer_class_init_calloc_gst_structure_new_empty_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -2305,7 +2305,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_malloc
+   pek_reachable_gst_pekinfer_class_init_malloc_g_slist_copy_deep_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -2331,7 +2331,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_malloc
+   pek_reachable_gst_pekinfer_class_init_malloc_g_array_sized_new_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -2354,7 +2354,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_malloc
+   pek_reachable_gst_pekinfer_class_init_malloc_g_signal_newv_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -2382,7 +2382,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_get_type_once_calloc
+   pek_reachable_gst_pekinfer_get_type_once_calloc_g_type_register_static_g_type_register_static_simple_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -2402,7 +2402,7 @@
 }
 
 {
-   pek_reachable_pekinfer_plugin_init_calloc
+   pek_reachable_pekinfer_plugin_init_calloc_g_object_new_with_properties_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -2422,7 +2422,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_g_type_create_instance
+   pek_reachable_gst_pekinfer_class_init_g_type_create_instance_g_param_spec_boxed_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:g_type_create_instance
@@ -2448,7 +2448,7 @@
 }
 
 {
-   pek_reachable_pekinfer_plugin_init_realloc
+   pek_reachable_pekinfer_plugin_init_realloc_g_object_weak_ref_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:realloc
@@ -2500,7 +2500,7 @@
 }
 
 {
-   pek_reachable_pekinfer_plugin_init_malloc
+   pek_reachable_pekinfer_plugin_init_malloc_g_slist_copy_deep_g_type_class_get_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -2519,7 +2519,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_g_type_create_instance
+   pek_reachable_gst_pekinfer_class_init_g_type_create_instance_g_param_spec_enum_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:g_type_create_instance
@@ -2545,7 +2545,7 @@
 }
 
 {
-   pek_reachable_pekinfer_plugin_init_calloc
+   pek_reachable_pekinfer_plugin_init_calloc_gst_structure_copy_direct_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -2563,7 +2563,7 @@
 }
 
 {
-   pek_reachable_pekinfer_plugin_init_calloc
+   pek_reachable_pekinfer_plugin_init_calloc_g_type_class_get_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -2612,7 +2612,7 @@
 }
 
 {
-   pek_reachable_pekinfer_plugin_init_calloc
+   pek_reachable_pekinfer_plugin_init_calloc_gst_structure_copy_g_type_class_get_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -2632,7 +2632,7 @@
 }
 
 {
-   pek_reachable_pekinfer_plugin_init_malloc
+   pek_reachable_pekinfer_plugin_init_malloc_g_list_prepend_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -2650,7 +2650,7 @@
 }
 
 {
-   pek_reachable_pekinfer_plugin_init_malloc
+   pek_reachable_pekinfer_plugin_init_malloc_g_slist_copy_deep_g_type_class_get_nested_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -2670,7 +2670,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_get_type_once_realloc
+   pek_reachable_gst_pekinfer_get_type_once_realloc_g_type_register_static_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:realloc
@@ -2694,7 +2694,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_g_type_create_instance
+   pek_reachable_gst_pekinfer_class_init_g_type_create_instance_g_param_spec_boolean_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:g_type_create_instance
@@ -2714,7 +2714,7 @@
 }
 
 {
-   pek_reachable_pekinfer_plugin_init_malloc
+   pek_reachable_pekinfer_plugin_init_malloc_direct_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -2730,7 +2730,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_calloc
+   pek_reachable_gst_pekinfer_class_init_calloc_direct_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -2753,7 +2753,7 @@
 }
 
 {
-   pek_reachable_gst_pekinfer_class_init_g_type_create_instance
+   pek_reachable_gst_pekinfer_class_init_g_type_create_instance_g_param_spec_string_launcher
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:g_type_create_instance
@@ -2771,7 +2771,7 @@
 }
 
 {
-   pek_reachable_gst_pek_osd_class_init_calloc
+   pek_reachable_gst_pek_osd_class_init_calloc_gst_pad_template_new_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -2795,7 +2795,7 @@
 }
 
 {
-   pek_reachable_pekosd_plugin_init_malloc
+   pek_reachable_pekosd_plugin_init_malloc_gst_debug_category_new_g_type_class_get_nested_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -2815,7 +2815,7 @@
 }
 
 {
-   pek_reachable_pekosd_plugin_init_malloc
+   pek_reachable_pekosd_plugin_init_malloc_g_slist_copy_deep_g_type_class_get_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -2834,7 +2834,7 @@
 }
 
 {
-   pek_reachable_pekosd_plugin_init_calloc
+   pek_reachable_pekosd_plugin_init_calloc_g_object_new_with_properties_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -2854,7 +2854,7 @@
 }
 
 {
-   pek_reachable_gst_pek_osd_class_init_malloc
+   pek_reachable_gst_pek_osd_class_init_malloc_g_strdup_g_param_spec_string_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -2875,7 +2875,7 @@
 }
 
 {
-   pek_reachable_gst_pek_osd_class_init_malloc
+   pek_reachable_gst_pek_osd_class_init_malloc_g_array_sized_new_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -2897,7 +2897,7 @@
 }
 
 {
-   pek_reachable_pekosd_plugin_init_malloc
+   pek_reachable_pekosd_plugin_init_malloc_g_strdup_gst_debug_category_new_direct_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -2936,7 +2936,7 @@
 }
 
 {
-   pek_reachable_pekosd_plugin_init_malloc
+   pek_reachable_pekosd_plugin_init_malloc_g_object_weak_ref_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -2955,7 +2955,7 @@
 }
 
 {
-   pek_reachable_pekosd_plugin_init_calloc
+   pek_reachable_pekosd_plugin_init_calloc_g_type_class_get_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -2972,7 +2972,7 @@
 }
 
 {
-   pek_reachable_pekosd_plugin_init_calloc
+   pek_reachable_pekosd_plugin_init_calloc_g_type_class_get_nested_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -2990,7 +2990,7 @@
 }
 
 {
-   pek_reachable_pekosd_plugin_init_malloc
+   pek_reachable_pekosd_plugin_init_malloc_gst_debug_category_new_direct_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -3006,7 +3006,7 @@
 }
 
 {
-   pek_reachable_pekosd_plugin_init_malloc
+   pek_reachable_pekosd_plugin_init_malloc_g_strdup_gst_object_set_name_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -3025,7 +3025,7 @@
 }
 
 {
-   pek_reachable_gst_pek_osd_class_init_malloc
+   pek_reachable_gst_pek_osd_class_init_malloc_gst_caps_new_empty_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -3046,7 +3046,7 @@
 }
 
 {
-   pek_reachable_pekosd_plugin_init_calloc
+   pek_reachable_pekosd_plugin_init_calloc_gst_structure_copy_g_type_class_get_nested_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -3089,7 +3089,7 @@
 }
 
 {
-   pek_reachable_pekosd_plugin_init_calloc
+   pek_reachable_pekosd_plugin_init_calloc_gst_structure_copy_direct_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -3107,7 +3107,7 @@
 }
 
 {
-   pek_reachable_gst_pek_osd_class_init_g_type_create_instance
+   pek_reachable_gst_pek_osd_class_init_g_type_create_instance_g_param_spec_boolean_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:g_type_create_instance
@@ -3127,7 +3127,7 @@
 }
 
 {
-   pek_reachable_pekosd_plugin_init_malloc
+   pek_reachable_pekosd_plugin_init_malloc_g_slist_copy_deep_g_type_class_get_nested_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -3147,7 +3147,7 @@
 }
 
 {
-   pek_reachable_pekosd_plugin_init_malloc
+   pek_reachable_pekosd_plugin_init_malloc_g_slist_prepend_gst_debug_category_new_g_type_class_get_nested_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -3168,7 +3168,7 @@
 }
 
 {
-   pek_reachable_gst_pek_osd_class_init_malloc
+   pek_reachable_gst_pek_osd_class_init_malloc_g_strdup_g_value_set_string_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -3195,7 +3195,7 @@
 }
 
 {
-   pek_reachable_pekosd_plugin_init_malloc
+   pek_reachable_pekosd_plugin_init_malloc_g_list_append_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -3212,7 +3212,7 @@
 }
 
 {
-   pek_reachable_gst_pek_osd_class_init_calloc
+   pek_reachable_gst_pek_osd_class_init_calloc_gst_structure_new_empty_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -3234,7 +3234,7 @@
 }
 
 {
-   pek_reachable_pekosd_plugin_init_malloc
+   pek_reachable_pekosd_plugin_init_malloc_g_strdup_gst_structure_copy_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -3253,7 +3253,7 @@
 }
 
 {
-   pek_reachable_gst_pek_osd_class_init_malloc
+   pek_reachable_gst_pek_osd_class_init_malloc_g_strdup_gst_structure_set_value_static_str_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -3276,7 +3276,7 @@
 }
 
 {
-   pek_reachable_pekosd_plugin_init_malloc
+   pek_reachable_pekosd_plugin_init_malloc_g_list_prepend_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -3294,7 +3294,7 @@
 }
 
 {
-   pek_reachable_gst_pek_osd_class_init_g_type_create_instance
+   pek_reachable_gst_pek_osd_class_init_g_type_create_instance_g_param_spec_string_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:g_type_create_instance
@@ -3314,7 +3314,7 @@
 }
 
 {
-   pek_reachable_pekosd_plugin_init_malloc
+   pek_reachable_pekosd_plugin_init_malloc_g_strdup_gst_debug_category_new_g_type_class_get_nested_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -3335,7 +3335,7 @@
 }
 
 {
-   pek_reachable_pekosd_plugin_init_malloc
+   pek_reachable_pekosd_plugin_init_malloc_g_slist_prepend_gst_debug_category_new_direct_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -3352,7 +3352,7 @@
 }
 
 {
-   pek_reachable_pekosd_plugin_init_realloc
+   pek_reachable_pekosd_plugin_init_realloc_g_type_set_qdata_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:realloc
@@ -3369,7 +3369,7 @@
 }
 
 {
-   pek_reachable_pekosd_plugin_init_malloc
+   pek_reachable_pekosd_plugin_init_malloc_direct_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -3385,7 +3385,7 @@
 }
 
 {
-   pek_reachable_gst_pek_osd_class_init_malloc
+   pek_reachable_gst_pek_osd_class_init_malloc_g_list_append_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -3406,7 +3406,7 @@
 }
 
 {
-   pek_reachable_gst_pek_osd_class_init_malloc
+   pek_reachable_gst_pek_osd_class_init_malloc_g_strdup_gst_pad_template_new_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -3432,7 +3432,7 @@
 }
 
 {
-   pek_reachable_pekosd_plugin_init_realloc
+   pek_reachable_pekosd_plugin_init_realloc_g_object_weak_ref_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:realloc
@@ -3449,7 +3449,7 @@
 }
 
 {
-   pek_reachable_gst_pek_osd_get_type_once_calloc
+   pek_reachable_gst_pek_osd_get_type_once_calloc_g_type_register_static_g_type_register_static_simple_gst_pek_osd_get_type_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -3469,7 +3469,7 @@
 }
 
 {
-   pek_reachable_pekosd_plugin_init_calloc
+   pek_reachable_pekosd_plugin_init_calloc_gst_structure_copy_g_type_class_get_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -3489,7 +3489,7 @@
 }
 
 {
-   pek_reachable_gst_pek_osd_class_init_calloc
+   pek_reachable_gst_pek_osd_class_init_calloc_g_value_init_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -3513,7 +3513,7 @@
 }
 
 {
-   pek_reachable_gst_pek_osd_get_type_once_calloc
+   pek_reachable_gst_pek_osd_get_type_once_calloc_g_type_register_static_g_type_register_static_simple_gst_video_filter_get_type_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -3535,7 +3535,7 @@
 }
 
 {
-   pek_reachable_pekperformance_plugin_init_calloc
+   pek_reachable_pekperformance_plugin_init_calloc_direct_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -3552,7 +3552,7 @@
 }
 
 {
-   pek_reachable_pekperformance_plugin_init_malloc
+   pek_reachable_pekperformance_plugin_init_malloc_g_strdup_gst_object_set_name_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -3571,7 +3571,7 @@
 }
 
 {
-   pek_reachable_gst_pek_performance_class_init_malloc
+   pek_reachable_gst_pek_performance_class_init_malloc_g_strdup_g_value_set_string_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -3598,7 +3598,7 @@
 }
 
 {
-   pek_reachable_pekperformance_plugin_init_realloc
+   pek_reachable_pekperformance_plugin_init_realloc_g_object_weak_ref_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:realloc
@@ -3615,7 +3615,7 @@
 }
 
 {
-   pek_reachable_pekperformance_plugin_init_realloc
+   pek_reachable_pekperformance_plugin_init_realloc_g_type_set_qdata_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:realloc
@@ -3632,7 +3632,7 @@
 }
 
 {
-   pek_reachable_pekperformance_plugin_init_malloc
+   pek_reachable_pekperformance_plugin_init_malloc_g_slist_prepend_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -3649,7 +3649,7 @@
 }
 
 {
-   pek_reachable_pekperformance_plugin_init_malloc
+   pek_reachable_pekperformance_plugin_init_malloc_g_slist_copy_deep_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -3668,7 +3668,7 @@
 }
 
 {
-   pek_reachable_pekperformance_plugin_init_malloc
+   pek_reachable_pekperformance_plugin_init_malloc_g_strdup_gst_debug_category_new_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -3685,7 +3685,7 @@
 }
 
 {
-   pek_reachable_pekperformance_plugin_init_malloc
+   pek_reachable_pekperformance_plugin_init_malloc_g_list_prepend_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -3703,7 +3703,7 @@
 }
 
 {
-   pek_reachable_pekperformance_plugin_init_malloc
+   pek_reachable_pekperformance_plugin_init_malloc_direct_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -3719,7 +3719,7 @@
 }
 
 {
-   pek_reachable_gst_pek_performance_class_init_malloc
+   pek_reachable_gst_pek_performance_class_init_malloc_g_strdup_gst_pad_template_new_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -3745,7 +3745,7 @@
 }
 
 {
-   pek_reachable_gst_pek_performance_class_init_g_type_create_instance
+   pek_reachable_gst_pek_performance_class_init_g_type_create_instance_g_param_spec_boolean_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:g_type_create_instance
@@ -3765,7 +3765,7 @@
 }
 
 {
-   pek_reachable_gst_pek_performance_class_init_calloc
+   pek_reachable_gst_pek_performance_class_init_calloc_gst_pad_template_new_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -3789,7 +3789,7 @@
 }
 
 {
-   pek_reachable_gst_pek_performance_class_init_g_type_create_instance
+   pek_reachable_gst_pek_performance_class_init_g_type_create_instance_g_param_spec_int_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:g_type_create_instance
@@ -3809,7 +3809,7 @@
 }
 
 {
-   pek_reachable_gst_pek_performance_class_init_g_type_create_instance
+   pek_reachable_gst_pek_performance_class_init_g_type_create_instance_g_param_spec_uint_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:g_type_create_instance
@@ -3829,7 +3829,7 @@
 }
 
 {
-   pek_reachable_pekperformance_plugin_init_malloc
+   pek_reachable_pekperformance_plugin_init_malloc_g_strdup_gst_structure_copy_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -3848,7 +3848,7 @@
 }
 
 {
-   pek_reachable_gst_pek_performance_class_init_malloc
+   pek_reachable_gst_pek_performance_class_init_malloc_gst_caps_new_empty_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -3869,7 +3869,7 @@
 }
 
 {
-   pek_reachable_pekperformance_plugin_init_calloc
+   pek_reachable_pekperformance_plugin_init_calloc_gst_structure_copy_direct_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -3887,7 +3887,7 @@
 }
 
 {
-   pek_reachable_gst_pek_performance_class_init_malloc
+   pek_reachable_gst_pek_performance_class_init_malloc_g_strdup_g_param_spec_string_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -3908,7 +3908,7 @@
 }
 
 {
-   pek_reachable_gst_pek_performance_class_init_malloc
+   pek_reachable_gst_pek_performance_class_init_malloc_g_strdup_gst_structure_set_value_static_str_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -3931,7 +3931,7 @@
 }
 
 {
-   pek_reachable_pekperformance_plugin_init_malloc
+   pek_reachable_pekperformance_plugin_init_malloc_gst_debug_category_new_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -3947,7 +3947,7 @@
 }
 
 {
-   pek_reachable_pekperformance_plugin_init_calloc
+   pek_reachable_pekperformance_plugin_init_calloc_gst_structure_copy_g_type_class_get_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -3967,7 +3967,7 @@
 }
 
 {
-   pek_reachable_pekperformance_plugin_init_calloc
+   pek_reachable_pekperformance_plugin_init_calloc_g_object_new_with_properties_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -3987,7 +3987,7 @@
 }
 
 {
-   pek_reachable_gst_pek_performance_class_init_malloc
+   pek_reachable_gst_pek_performance_class_init_malloc_g_list_append_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -4008,7 +4008,7 @@
 }
 
 {
-   pek_reachable_pekperformance_plugin_init_malloc
+   pek_reachable_pekperformance_plugin_init_malloc_g_object_weak_ref_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -4027,7 +4027,7 @@
 }
 
 {
-   pek_reachable_gst_pek_performance_class_init_g_type_create_instance
+   pek_reachable_gst_pek_performance_class_init_g_type_create_instance_g_param_spec_string_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:g_type_create_instance
@@ -4047,7 +4047,7 @@
 }
 
 {
-   pek_reachable_gst_pek_performance_class_init_malloc
+   pek_reachable_gst_pek_performance_class_init_malloc_g_array_sized_new_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -4069,7 +4069,7 @@
 }
 
 {
-   pek_reachable_gst_pek_performance_class_init_calloc
+   pek_reachable_gst_pek_performance_class_init_calloc_g_value_init_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -4093,7 +4093,7 @@
 }
 
 {
-   pek_reachable_pekperformance_plugin_init_malloc
+   pek_reachable_pekperformance_plugin_init_malloc_g_list_append_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -4110,7 +4110,7 @@
 }
 
 {
-   pek_reachable_gst_pek_performance_class_init_calloc
+   pek_reachable_gst_pek_performance_class_init_calloc_gst_structure_new_empty_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -4174,7 +4174,7 @@
 }
 
 {
-   pek_reachable_gst_pek_performance_class_init_g_type_create_instance
+   pek_reachable_gst_pek_performance_class_init_g_type_create_instance_g_param_spec_double_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:g_type_create_instance
@@ -4194,7 +4194,7 @@
 }
 
 {
-   pek_reachable_peksink_plugin_init_calloc
+   pek_reachable_peksink_plugin_init_calloc_gst_structure_copy_g_type_class_get_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -4214,7 +4214,7 @@
 }
 
 {
-   pek_reachable_peksink_plugin_init_calloc
+   pek_reachable_peksink_plugin_init_calloc_g_object_new_with_properties_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -4234,7 +4234,7 @@
 }
 
 {
-   pek_reachable_peksink_plugin_init_malloc
+   pek_reachable_peksink_plugin_init_malloc_g_slist_copy_deep_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -4253,7 +4253,7 @@
 }
 
 {
-   pek_reachable_gst_pek_sink_class_init_malloc
+   pek_reachable_gst_pek_sink_class_init_malloc_g_strdup_gst_structure_set_value_static_str_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -4276,7 +4276,7 @@
 }
 
 {
-   pek_reachable_peksink_plugin_init_calloc
+   pek_reachable_peksink_plugin_init_calloc_direct_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -4318,7 +4318,7 @@
 }
 
 {
-   pek_reachable_peksink_plugin_init_calloc
+   pek_reachable_peksink_plugin_init_calloc_gst_structure_copy_direct_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -4336,7 +4336,7 @@
 }
 
 {
-   pek_reachable_gst_pek_sink_class_init_calloc
+   pek_reachable_gst_pek_sink_class_init_calloc_gst_structure_new_empty_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -4361,7 +4361,7 @@
 }
 
 {
-   pek_reachable_peksink_plugin_init_malloc
+   pek_reachable_peksink_plugin_init_malloc_g_strdup_gst_object_set_name_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -4380,7 +4380,7 @@
 }
 
 {
-   pek_reachable_peksink_plugin_init_realloc
+   pek_reachable_peksink_plugin_init_realloc_g_type_set_qdata_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:realloc
@@ -4397,7 +4397,7 @@
 }
 
 {
-   pek_reachable_gst_pek_sink_class_init_g_type_create_instance
+   pek_reachable_gst_pek_sink_class_init_g_type_create_instance_g_param_spec_boolean_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:g_type_create_instance
@@ -4417,7 +4417,7 @@
 }
 
 {
-   pek_reachable_peksink_plugin_init_malloc
+   pek_reachable_peksink_plugin_init_malloc_g_list_prepend_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -4435,7 +4435,7 @@
 }
 
 {
-   pek_reachable_gst_pek_sink_class_init_g_type_create_instance
+   pek_reachable_gst_pek_sink_class_init_g_type_create_instance_g_param_spec_int_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:g_type_create_instance
@@ -4455,7 +4455,7 @@
 }
 
 {
-   pek_reachable_gst_pek_sink_class_init_malloc
+   pek_reachable_gst_pek_sink_class_init_malloc_g_strdup_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -4482,7 +4482,7 @@
 }
 
 {
-   pek_reachable_peksink_plugin_init_malloc
+   pek_reachable_peksink_plugin_init_malloc_g_object_weak_ref_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -4501,7 +4501,7 @@
 }
 
 {
-   pek_reachable_gst_pek_sink_class_init_g_type_create_instance
+   pek_reachable_gst_pek_sink_class_init_g_type_create_instance_g_param_spec_string_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:g_type_create_instance
@@ -4521,7 +4521,7 @@
 }
 
 {
-   pek_reachable_gst_pek_sink_class_init_malloc
+   pek_reachable_gst_pek_sink_class_init_malloc_gst_caps_new_empty_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -4565,7 +4565,7 @@
 }
 
 {
-   pek_reachable_peksink_plugin_init_malloc
+   pek_reachable_peksink_plugin_init_malloc_g_strdup_gst_structure_copy_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -4584,7 +4584,7 @@
 }
 
 {
-   pek_reachable_gst_pek_sink_class_init_malloc
+   pek_reachable_gst_pek_sink_class_init_malloc_g_list_append_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -4605,7 +4605,7 @@
 }
 
 {
-   pek_reachable_peksink_plugin_init_malloc
+   pek_reachable_peksink_plugin_init_malloc_direct_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -4621,7 +4621,7 @@
 }
 
 {
-   pek_reachable_peksink_plugin_init_realloc
+   pek_reachable_peksink_plugin_init_realloc_g_object_weak_ref_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:realloc
@@ -4638,7 +4638,7 @@
 }
 
 {
-   pek_reachable_gst_pek_sink_class_init_malloc
+   pek_reachable_gst_pek_sink_class_init_malloc_g_array_sized_new_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -4663,7 +4663,7 @@
 }
 
 {
-   pek_reachable_gst_pek_sink_class_init_malloc
+   pek_reachable_gst_pek_sink_class_init_malloc_g_strdup_g_param_spec_string_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -4684,7 +4684,7 @@
 }
 
 {
-   pek_reachable_gst_pek_sink_class_init_calloc
+   pek_reachable_gst_pek_sink_class_init_calloc_direct_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -4709,7 +4709,7 @@
 }
 
 {
-   pek_reachable_peksink_plugin_init_malloc
+   pek_reachable_peksink_plugin_init_malloc_g_list_append_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -4746,7 +4746,7 @@
 }
 
 {
-   pek_reachable_gst_pektracker_class_init_g_type_create_instance
+   pek_reachable_gst_pektracker_class_init_g_type_create_instance_g_param_spec_float_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:g_type_create_instance
@@ -4766,7 +4766,7 @@
 }
 
 {
-   pek_reachable_gst_pektracker_class_init_calloc
+   pek_reachable_gst_pektracker_class_init_calloc_g_value_init_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -4793,7 +4793,7 @@
 }
 
 {
-   pek_reachable_gst_pektracker_class_init_calloc
+   pek_reachable_gst_pektracker_class_init_calloc_gst_structure_new_empty_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -4818,7 +4818,7 @@
 }
 
 {
-   pek_reachable_pektracker_plugin_init_calloc
+   pek_reachable_pektracker_plugin_init_calloc_gst_structure_copy_g_type_class_get_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -4838,7 +4838,7 @@
 }
 
 {
-   pek_reachable_pektracker_plugin_init_calloc
+   pek_reachable_pektracker_plugin_init_calloc_direct_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -4855,7 +4855,7 @@
 }
 
 {
-   pek_reachable_gst_pektracker_class_init_calloc
+   pek_reachable_gst_pektracker_class_init_calloc_direct_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -4880,7 +4880,7 @@
 }
 
 {
-   pek_reachable_gst_pektracker_class_init_malloc
+   pek_reachable_gst_pektracker_class_init_malloc_gst_caps_new_empty_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -4904,7 +4904,7 @@
 }
 
 {
-   pek_reachable_gst_pektracker_class_init_malloc
+   pek_reachable_gst_pektracker_class_init_malloc_g_strdup_g_param_spec_string_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -4925,7 +4925,7 @@
 }
 
 {
-   pek_reachable_pektracker_plugin_init_malloc
+   pek_reachable_pektracker_plugin_init_malloc_g_list_prepend_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -4943,7 +4943,7 @@
 }
 
 {
-   pek_reachable_gst_pektracker_class_init_g_type_create_instance
+   pek_reachable_gst_pektracker_class_init_g_type_create_instance_g_param_spec_int_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:g_type_create_instance
@@ -4963,7 +4963,7 @@
 }
 
 {
-   pek_reachable_gst_pektracker_class_init_malloc
+   pek_reachable_gst_pektracker_class_init_malloc_g_array_sized_new_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -4988,7 +4988,7 @@
 }
 
 {
-   pek_reachable_pektracker_plugin_init_malloc
+   pek_reachable_pektracker_plugin_init_malloc_g_list_append_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -5030,7 +5030,7 @@
 }
 
 {
-   pek_reachable_pektracker_plugin_init_malloc
+   pek_reachable_pektracker_plugin_init_malloc_direct_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -5046,7 +5046,7 @@
 }
 
 {
-   pek_reachable_pektracker_plugin_init_malloc
+   pek_reachable_pektracker_plugin_init_malloc_g_strdup_gst_structure_copy_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -5065,7 +5065,7 @@
 }
 
 {
-   pek_reachable_pektracker_plugin_init_malloc
+   pek_reachable_pektracker_plugin_init_malloc_g_strdup_gst_object_set_name_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -5084,7 +5084,7 @@
 }
 
 {
-   pek_reachable_gst_pektracker_class_init_malloc
+   pek_reachable_gst_pektracker_class_init_malloc_g_strdup_gst_structure_set_value_static_str_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -5107,7 +5107,7 @@
 }
 
 {
-   pek_reachable_pektracker_plugin_init_malloc
+   pek_reachable_pektracker_plugin_init_malloc_g_slist_copy_deep_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -5126,7 +5126,7 @@
 }
 
 {
-   pek_reachable_gst_pektracker_class_init_malloc
+   pek_reachable_gst_pektracker_class_init_malloc_g_strdup_g_value_set_string_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -5156,7 +5156,7 @@
 }
 
 {
-   pek_reachable_pektracker_plugin_init_calloc
+   pek_reachable_pektracker_plugin_init_calloc_gst_structure_copy_direct_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -5174,7 +5174,7 @@
 }
 
 {
-   pek_reachable_pektracker_plugin_init_calloc
+   pek_reachable_pektracker_plugin_init_calloc_g_object_new_with_properties_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:calloc
@@ -5194,7 +5194,7 @@
 }
 
 {
-   pek_reachable_gst_pektracker_class_init_malloc
+   pek_reachable_gst_pektracker_class_init_malloc_g_list_append_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -5215,7 +5215,7 @@
 }
 
 {
-   pek_reachable_pektracker_plugin_init_realloc
+   pek_reachable_pektracker_plugin_init_realloc_g_type_set_qdata_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:realloc
@@ -5232,7 +5232,7 @@
 }
 
 {
-   pek_reachable_pektracker_plugin_init_malloc
+   pek_reachable_pektracker_plugin_init_malloc_g_object_weak_ref_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -5271,7 +5271,7 @@
 }
 
 {
-   pek_reachable_gst_pektracker_class_init_g_type_create_instance
+   pek_reachable_gst_pektracker_class_init_g_type_create_instance_g_param_spec_boolean_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:g_type_create_instance
@@ -5291,7 +5291,7 @@
 }
 
 {
-   pek_reachable_pektracker_plugin_init_realloc
+   pek_reachable_pektracker_plugin_init_realloc_g_object_weak_ref_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:realloc
@@ -5308,7 +5308,7 @@
 }
 
 {
-   pek_reachable_gst_pektracker_class_init_malloc
+   pek_reachable_gst_pektracker_class_init_malloc_g_strdup_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
@@ -5335,7 +5335,7 @@
 }
 
 {
-   pek_reachable_gst_pektracker_class_init_g_type_create_instance
+   pek_reachable_gst_pektracker_class_init_g_type_create_instance_g_param_spec_string_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:g_type_create_instance
