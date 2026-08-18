@@ -68,7 +68,11 @@ std::string pluginPath() {
         if (fromEnv[0] != '\0')
             return fromEnv;
     }
-    return "/work/development/build/meson-out";
+
+    const char *projectRoot = std::getenv("PEK_PROJECT_ROOT");
+    const std::filesystem::path root =
+        projectRoot != nullptr && projectRoot[0] != '\0' ? projectRoot : "/work";
+    return (root / "development/build-active/meson-out").string();
 }
 
 } // namespace
