@@ -7,7 +7,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
 WORK_ROOT="$(cd -- "$SCRIPT_DIR/../../.." && pwd)"
-BUILD_SCRIPT="$WORK_ROOT/scripts/build-elements.sh"
+BUILD_SCRIPT="$WORK_ROOT/scripts/build.sh"
 SHTOOLS_SCRIPT="$WORK_ROOT/scripts/private/shtools.sh"
 PEK_MENU="$WORK_ROOT/tools/pek-menu"
 PEKINFER_RETRY_TEST="$WORK_ROOT/development/build/meson-out/pekinfer-retry-valgrind-test"
@@ -58,11 +58,11 @@ run_build() {
     local do_clean="$1"
 
     if [[ "$do_clean" == "true" ]]; then
-        msg "Cleaning build directory via build-elements.sh clean"
+        msg "Cleaning build directory via scripts/build.sh clean"
         "$BUILD_SCRIPT" clean
     fi
 
-    msg "Building debug artifacts via build-elements.sh debug"
+    msg "Building debug artifacts via scripts/build.sh debug"
     "$BUILD_SCRIPT" debug
     meson compile -C "$WORK_ROOT/development/build" pekinfer-retry-valgrind-test
 }

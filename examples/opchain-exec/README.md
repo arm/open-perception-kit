@@ -14,7 +14,7 @@ Build the main PEK development tree first so `pek-runtime.so`, `libpek-common.so
 Op plugins exist:
 
 ```sh
-./scripts/build-elements.sh debug true
+./scripts/build.sh debug true
 ```
 
 Then build the example:

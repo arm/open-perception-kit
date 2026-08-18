@@ -4,7 +4,7 @@
         {
             "label": "00 Build Project",
             "type": "shell",
-            "command": "${workspaceFolder}/scripts/build-elements.sh",
+            "command": "${workspaceFolder}/scripts/build.sh",
             "args": [
                 "debug"
             ],
@@ -68,7 +68,7 @@
         {
             "label": "01 Clean Project",
             "type": "shell",
-            "command": "${workspaceFolder}/scripts/build-elements.sh",
+            "command": "${workspaceFolder}/scripts/build.sh",
             "args": [
                 "clean"
             ],
@@ -89,7 +89,7 @@
         {
             "label": "02 Build Tests",
             "type": "shell",
-            "command": "${workspaceFolder}/scripts/build-elements.sh",
+            "command": "${workspaceFolder}/scripts/build.sh",
             "args": [
                 "debug",
                 "true"

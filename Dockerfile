@@ -527,7 +527,7 @@ COPY development/subprojects/*.wrap development/subprojects/
 COPY development/subprojects/packagefiles development/subprojects/packagefiles
 RUN meson subprojects download --sourcedir /work/development
 
-COPY scripts/build-elements.sh scripts/build-elements.sh
+COPY scripts/build.sh scripts/build.sh
 COPY scripts/private/shtools.sh scripts/private/shtools.sh
 COPY scripts/private/deployment-runtime.sh scripts/private/deployment-runtime.sh
 COPY --chmod=0755 scripts/perception-sdk.sh scripts/perception-sdk.sh
@@ -566,7 +566,7 @@ RUN --mount=type=cache,id=pek-deployment-ccache,target=/work/.cache/ccache,shari
   PEK_NCNN="${ncnn}" \
   PEK_ONNXRUNTIME_ROOT=/opt/pek-deps/onnxruntime \
   NINJAFLAGS=-j2 \
-  ./scripts/build-elements.sh release false "${extra_setup_args[@]}"; \
+  ./scripts/build.sh release false "${extra_setup_args[@]}"; \
   ccache --show-stats; \
   mkdir -p /opt/pek-app/development/build/meson-out /opt/pek-app/tools /opt/pek-app/scripts/private; \
   find /work/development/build \
@@ -773,7 +773,7 @@ WORKDIR /work
 COPY development development
 COPY config/models/yolov11 config/models/yolov11
 COPY data/images/GettyImages-1140581459-thumbnail.jpg data/images/GettyImages-1140581459-thumbnail.jpg
-COPY --chmod=0755 scripts/build-elements.sh scripts/build-elements.sh
+COPY --chmod=0755 scripts/build.sh scripts/build.sh
 COPY --chmod=0755 scripts/private/install-onnxruntime.sh scripts/private/install-onnxruntime.sh
 COPY scripts/private/shtools.sh scripts/private/shtools.sh
 
@@ -785,7 +785,7 @@ RUN set -eux; \
   PEK_HAILORT=disabled \
   PEK_NCNN=disabled \
   PEK_ONNXRUNTIME_ROOT=/opt/pek-deps/onnxruntime \
-    scripts/build-elements.sh release false
+    scripts/build.sh release false
 
 FROM pek-gstreamer-runtime-base AS pek-cairn-runtime
 

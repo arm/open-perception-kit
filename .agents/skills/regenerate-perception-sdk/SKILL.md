@@ -97,7 +97,7 @@ Run affected runtime tests and builds when generated APIs are consumed by
 runtime code:
 
 ```bash
-./scripts/build-elements.sh debug true
+./scripts/build.sh debug true
 meson test -C /work/development/build --print-errorlogs
 ```
 

@@ -54,7 +54,7 @@ These contain the project documentation.
 ### `scripts/`
 This contains the main helper scripts you are expected to run.
 
-- `scripts/build-elements.sh` builds the runtime.
+- `scripts/build.sh` builds the runtime.
 - `scripts/serve-docs.sh` and `scripts/serve-docs-plain.sh` serve the docs.
 - `scripts/gen-doc.sh` refreshes generated documentation.
 - `scripts/docker-nuke.sh` stops and removes Docker containers created by the project.

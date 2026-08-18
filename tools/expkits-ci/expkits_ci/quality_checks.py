@@ -857,7 +857,7 @@ class QualityChecks:
 
         logger.error("Could not find compile_commands.json for clang-tidy.")
         logger.error(f"Checked path: {compile_commands_path}")
-        logger.error("Build the project first, for example with: ./scripts/build-elements.sh debug true")
+        logger.error("Build the project first, for example with: ./scripts/build.sh debug true")
         return None
 
     @staticmethod
