@@ -149,7 +149,7 @@ jobs:
             PEK_RELEASE_SOURCE_COMMIT=${{ needs.prepare.outputs.commit }}
             PEK_FLOWDATA_SDK_COMMIT=${{ needs.prepare.outputs.flowdata_commit }}
           cache-from: type=gha,scope=${{ matrix.cache_scope }}
-          cache-to: type=gha,mode=min,scope=${{ matrix.cache_scope }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.cache_scope }}
           context: ${{ env.SOURCE_DIR }}
           labels: |
             org.opencontainers.image.revision=${{ needs.prepare.outputs.commit }}
