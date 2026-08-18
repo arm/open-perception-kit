@@ -23,6 +23,7 @@ REPO_ROOT = TOOL.parents[2]
 MODEL_DESCRIPTOR = "model.json"
 ONNX_MODEL_FILE = "model.onnx"
 ONNX_INFERENCE_OP = "pek-onnx-ops/Inference"
+SOURCE_COMMIT = "a" * 40
 
 
 def add_model(
@@ -491,11 +492,10 @@ class ReleaseToolTests(unittest.TestCase):
             descriptor.parent.mkdir(parents=True)
             descriptor.write_text('{"version": "0.1.0"}\n', encoding="utf-8")
 
-            with (
-                patch.object(release_tool.subprocess, "run") as verifier,
-                patch.object(release_tool, "repository_commit", return_value="a" * 40),
-            ):
-                release_tool.validate_perception_sdk(sdk_root, repo_root)
+            with patch.object(release_tool.subprocess, "run") as verifier:
+                release_tool.validate_perception_sdk(
+                    sdk_root, SOURCE_COMMIT, repo_root
+                )
             verifier.assert_called_once_with(
                 [
                     str(repo_root / "scripts/perception-sdk.sh"),
@@ -508,22 +508,15 @@ class ReleaseToolTests(unittest.TestCase):
             )
 
             with patch.object(release_tool.subprocess, "run"):
-                release_tool.validate_perception_sdk(sdk_root)
-
-            with (
-                patch.object(release_tool.subprocess, "run"),
-                patch.object(release_tool, "repository_commit") as repository_commit,
-            ):
-                release_tool.validate_perception_sdk(sdk_root, repo_root, "a" * 40)
-            repository_commit.assert_not_called()
+                release_tool.validate_perception_sdk(sdk_root, SOURCE_COMMIT)
 
             (sdk_root / "extra").write_text("extra", encoding="utf-8")
             with self.assertRaisesRegex(RuntimeError, "matching triplet"):
-                release_tool.validate_perception_sdk(sdk_root)
+                release_tool.validate_perception_sdk(sdk_root, SOURCE_COMMIT)
             (sdk_root / "extra").unlink()
             (sdk_root / f"{archive.name}.sha256").unlink()
             with self.assertRaisesRegex(RuntimeError, "matching triplet"):
-                release_tool.validate_perception_sdk(sdk_root)
+                release_tool.validate_perception_sdk(sdk_root, SOURCE_COMMIT)
 
     def test_rejects_invalid_perception_sdk_provenance_and_entries(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -536,7 +529,7 @@ class ReleaseToolTests(unittest.TestCase):
                 patch.object(release_tool.subprocess, "run"),
                 self.assertRaisesRegex(RuntimeError, "dirty=false"),
             ):
-                release_tool.validate_perception_sdk(sdk_root)
+                release_tool.validate_perception_sdk(sdk_root, SOURCE_COMMIT)
 
             provenance.write_text(
                 json.dumps({"dirty": False, "repository_commit": "invalid"}),
@@ -546,12 +539,12 @@ class ReleaseToolTests(unittest.TestCase):
                 patch.object(release_tool.subprocess, "run"),
                 self.assertRaisesRegex(RuntimeError, "commit is invalid"),
             ):
-                release_tool.validate_perception_sdk(sdk_root)
+                release_tool.validate_perception_sdk(sdk_root, SOURCE_COMMIT)
 
             provenance.unlink()
             provenance.symlink_to(archive)
             with self.assertRaisesRegex(RuntimeError, "regular files"):
-                release_tool.validate_perception_sdk(sdk_root)
+                release_tool.validate_perception_sdk(sdk_root, SOURCE_COMMIT)
 
     def test_rejects_perception_sdk_selected_source_mismatch_and_verify_failure(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -564,15 +557,16 @@ class ReleaseToolTests(unittest.TestCase):
             descriptor.write_text('{"version": "1.0.0"}\n', encoding="utf-8")
 
             with self.assertRaisesRegex(RuntimeError, "version does not match"):
-                release_tool.validate_perception_sdk(sdk_root, repo_root)
+                release_tool.validate_perception_sdk(
+                    sdk_root, SOURCE_COMMIT, repo_root
+                )
 
             descriptor.write_text('{"version": "0.1.0"}\n', encoding="utf-8")
             with (
                 patch.object(release_tool.subprocess, "run"),
-                patch.object(release_tool, "repository_commit", return_value="b" * 40),
                 self.assertRaisesRegex(RuntimeError, "commit does not match"),
             ):
-                release_tool.validate_perception_sdk(sdk_root, repo_root)
+                release_tool.validate_perception_sdk(sdk_root, "b" * 40, repo_root)
 
             with (
                 patch.object(
@@ -582,7 +576,7 @@ class ReleaseToolTests(unittest.TestCase):
                 ),
                 self.assertRaises(subprocess.CalledProcessError),
             ):
-                release_tool.validate_perception_sdk(sdk_root)
+                release_tool.validate_perception_sdk(sdk_root, SOURCE_COMMIT)
 
     def test_only_final_preparation_requires_matching_changelog(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

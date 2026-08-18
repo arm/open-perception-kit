@@ -406,28 +406,6 @@ def validate_release_payload(package_root: Path, repo_root: Path | None) -> None
                     fail(f"Packaged payload differs from the selected source: {packaged_path}")
 
 
-def repository_commit(repo_root: Path) -> str:
-    completed = subprocess.run(
-        [
-            "git",
-            "-c",
-            f"safe.directory={repo_root}",
-            "-C",
-            str(repo_root),
-            "rev-parse",
-            "HEAD",
-        ],
-        check=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    commit = completed.stdout.strip()
-    if not GIT_COMMIT_PATTERN.fullmatch(commit):
-        fail("Selected source commit is invalid")
-    return commit
-
-
 def perception_sdk_archive(perception_sdk_root: Path) -> Path:
     if perception_sdk_root.is_symlink() or not perception_sdk_root.is_dir():
         fail(f"Perception SDK directory is missing or invalid: {perception_sdk_root}")
@@ -455,8 +433,8 @@ def perception_sdk_archive(perception_sdk_root: Path) -> Path:
 
 def validate_perception_sdk(
     perception_sdk_root: Path,
+    expected_commit: str,
     repo_root: Path | None = None,
-    expected_commit: str | None = None,
 ) -> None:
     archive = perception_sdk_archive(perception_sdk_root)
     version = archive.name.removeprefix("perception-sdk-").removesuffix(".zip")
@@ -483,12 +461,9 @@ def validate_perception_sdk(
     commit = provenance.get("repository_commit")
     if not isinstance(commit, str) or not GIT_COMMIT_PATTERN.fullmatch(commit):
         fail("Perception SDK provenance commit is invalid")
-    if expected_commit is not None and not GIT_COMMIT_PATTERN.fullmatch(expected_commit):
+    if not GIT_COMMIT_PATTERN.fullmatch(expected_commit):
         fail("Expected Perception SDK commit is invalid")
-    selected_commit = expected_commit
-    if selected_commit is None and repo_root is not None:
-        selected_commit = repository_commit(repo_root)
-    if selected_commit is not None and commit != selected_commit:
+    if commit != expected_commit:
         fail("Perception SDK provenance commit does not match the selected source")
 
 
@@ -665,8 +640,8 @@ def validate_package(args: argparse.Namespace) -> None:
     validate_release_payload(package_root, repo_root)
     validate_perception_sdk(
         package_root / "share/pek/perception-sdk",
+        args.expected_commit,
         repo_root,
-        getattr(args, "expected_commit", None),
     )
     validate_onnx_runtime(private_root)
 
@@ -753,12 +728,7 @@ def main() -> int:
     validate_package_parser.add_argument("--architecture", choices=sorted(ARCHITECTURES), required=True)
     validate_package_parser.add_argument("--package-root", required=True)
     validate_package_parser.add_argument("--repo-root")
-    validate_package_parser.add_argument("--expected-commit")
-
-    validate_sdk_parser = subparsers.add_parser("validate-perception-sdk")
-    validate_sdk_parser.add_argument("--perception-sdk-root", required=True)
-    validate_sdk_parser.add_argument("--repo-root")
-    validate_sdk_parser.add_argument("--expected-commit")
+    validate_package_parser.add_argument("--expected-commit", required=True)
 
     prepare_parser = subparsers.add_parser("prepare")
     prepare_parser.add_argument("--repo-root", default=".")
@@ -771,12 +741,6 @@ def main() -> int:
             stage_models(args)
         elif args.command == "validate-package":
             validate_package(args)
-        elif args.command == "validate-perception-sdk":
-            validate_perception_sdk(
-                Path(args.perception_sdk_root).resolve(),
-                Path(args.repo_root).resolve() if args.repo_root else None,
-                args.expected_commit,
-            )
         elif args.command == "prepare":
             prepare(args)
         return 0
