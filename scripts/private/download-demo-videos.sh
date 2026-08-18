@@ -2,73 +2,133 @@
 ################################################################
 # Copyright (C) 2025 Arm Limited. All rights reserved.
 ################################################################
-# Downloads demo video assets from the PEK public Box folder
-# into data/videos/. Skips files that already exist.
+# Downloads checksum-locked demo video assets from the PEK public Box folder
+# into data/videos/. Existing valid files are reused.
 #
-# Usage: ./scripts/private/download-demo-videos.sh
+# Usage: ./scripts/private/download-demo-videos.sh [--check]
 ################################################################
 
 set -euo pipefail
 
-VIDEOS_DIR="$(cd "$(dirname "$0")/../.." && pwd)/data/videos"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VIDEOS_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)/data/videos"
+LOCK_FILE="${SCRIPT_DIR}/demo-videos.manifest"
+CHECKSUMS_FILE="${VIDEOS_DIR}/SHA256SUMS"
 BOX_SHARED_TOKEN="yk3v2zpd10s9skbmlrv1lbn82hinga5u"
 
-# Format: "filename:file_id"
-declare -a VIDEO_FILES=(
-    "GettyImages-1129703310.mov:f_2208931731793"
-    "GettyImages-1140581459.mov:f_2219383132316"
-    "GettyImages-1298072556.mov:f_2219375639006"
-    "GettyImages-1465682313.mov:f_2219385842023"
-    "GettyImages-2165518864.mov:f_2208923252936"
-    "GettyImages-2174094355.mov:f_2219380024458"
-    "GettyImages-2205397623.mov:f_2219387317230"
-    "GettyImages-2220092613.mov:f_2220528008798"
-    "GettyImages-2222093886.mov:f_2220530132752"
-    "GettyImages-2259414639.mov:f_2219376743441"
-    "GettyImages-2264926445.mov:f_2220535341493"
-)
+mode="download"
+case "${1:-}" in
+    "") ;;
+    --check) mode="check" ;;
+    *)
+        echo "Usage: $0 [--check]" >&2
+        exit 2
+        ;;
+esac
 
 box_download_url() {
     local file_id="$1"
     echo "https://arm.app.box.com/index.php?rm=box_download_shared_file&shared_link=${BOX_SHARED_TOKEN}&shared_name=${BOX_SHARED_TOKEN}&file_id=${file_id}"
 }
 
-mkdir -p "$VIDEOS_DIR"
+sha256_file() {
+    local path="$1"
 
-echo "Downloading demo videos to: $VIDEOS_DIR"
+    if command -v sha256sum > /dev/null 2>&1; then
+        sha256sum "$path" | awk '{print $1}'
+    elif command -v shasum > /dev/null 2>&1; then
+        shasum -a 256 "$path" | awk '{print $1}'
+    else
+        echo "ERROR: sha256sum or shasum is required" >&2
+        return 2
+    fi
+}
+
+verify_file() {
+    local path="$1"
+    local expected="$2"
+    [[ -f "$path" ]] && [[ "$(sha256_file "$path")" == "$expected" ]]
+}
+
+validate_entry() {
+    local expected="$1"
+    local file_id="$2"
+    local filename="$3"
+
+    if [[ ! "$expected" =~ ^[0-9a-f]{64}$ ]] ||
+        [[ ! "$file_id" =~ ^f_[0-9]+$ ]] ||
+        [[ ! "$filename" =~ ^GettyImages-[0-9]+\.mov$ ]]; then
+        echo "ERROR: invalid demo video lock entry: $expected $file_id $filename" >&2
+        return 2
+    fi
+}
+
+checksum_tmp=""
+temporary=""
+cleanup() {
+    [[ -z "$checksum_tmp" ]] || rm -f "$checksum_tmp"
+    [[ -z "$temporary" ]] || rm -f "$temporary"
+}
+trap cleanup EXIT
+
+if [[ "$mode" == "download" ]]; then
+    mkdir -p "$VIDEOS_DIR"
+    checksum_tmp="$(mktemp "${VIDEOS_DIR}/.SHA256SUMS.XXXXXX")"
+    echo "Downloading demo videos to: $VIDEOS_DIR"
+else
+    echo "Checking demo videos in: $VIDEOS_DIR"
+fi
 echo
 
-skipped=0
-downloaded=0
+count=0
 failed=0
-
-for entry in "${VIDEO_FILES[@]}"; do
-    filename="${entry%%:*}"
-    file_id="${entry##*:}"
-    dest="$VIDEOS_DIR/$filename"
-
-    if [[ -f "$dest" ]]; then
-        echo "SKIP: $filename (already exists)"
-        skipped=$((skipped + 1))
+while read -r expected file_id filename; do
+    if [[ -z "$expected" || "$expected" == \#* ]]; then
         continue
     fi
+    validate_entry "$expected" "$file_id" "$filename"
+    count=$((count + 1))
+    destination="${VIDEOS_DIR}/${filename}"
 
-    echo "Downloading: $filename ..."
-    url="$(box_download_url "$file_id")"
-
-    if curl -fsSL --retry 3 --retry-delay 2 -o "$dest" "$url"; then
+    if verify_file "$destination" "$expected"; then
         echo "OK:   $filename"
-        downloaded=$((downloaded + 1))
     else
-        echo "ERROR: Failed to download $filename"
-        rm -f "$dest"
-        failed=$((failed + 1))
+        if [[ "$mode" == "check" ]]; then
+            echo "FAIL: $filename is missing or has the wrong SHA-256" >&2
+            failed=$((failed + 1))
+            continue
+        fi
+
+        temporary="${destination}.part"
+        rm -f "$temporary"
+        echo "GET:  $filename"
+        if curl -fsSL --retry 3 --retry-delay 2 \
+            -o "$temporary" "$(box_download_url "$file_id")" &&
+            verify_file "$temporary" "$expected"; then
+            mv -f "$temporary" "$destination"
+            temporary=""
+        else
+            echo "FAIL: $filename download or SHA-256 verification failed" >&2
+            rm -f "$temporary"
+            failed=$((failed + 1))
+            continue
+        fi
     fi
-done
+
+    if [[ "$mode" == "download" ]]; then
+        printf '%s  %s\n' "$expected" "$filename" >> "$checksum_tmp"
+    fi
+done < "$LOCK_FILE"
 
 echo
-echo "Done. downloaded=$downloaded skipped=$skipped failed=$failed"
-
-if [[ "$failed" -gt 0 ]]; then
+if [[ "$count" -eq 0 || "$failed" -gt 0 ]]; then
+    echo "Demo video verification failed: checked=$count failed=$failed" >&2
     exit 1
 fi
+
+if [[ "$mode" == "download" ]]; then
+    mv -f "$checksum_tmp" "$CHECKSUMS_FILE"
+    checksum_tmp=""
+    chmod 0444 "$CHECKSUMS_FILE"
+fi
+echo "Verified $count demo videos."

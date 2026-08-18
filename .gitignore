@@ -120,6 +120,7 @@ todo.md
 # -------------------------
 data/videos/*.mov
 data/videos/*.mp4
+data/videos/SHA256SUMS
 
 
 # -------------------------

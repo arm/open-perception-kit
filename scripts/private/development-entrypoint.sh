@@ -16,6 +16,7 @@ fi
 
 seed_development_artifacts() {
     local artifacts_root="/opt/pek-app"
+    local video_artifacts="${artifacts_root}/data/videos"
 
     [[ -d "${artifacts_root}" ]] || return 0
     [[ -w /work ]] || return 0
@@ -30,8 +31,11 @@ seed_development_artifacts() {
         cp -R --no-clobber "${artifacts_root}/config/models/." /work/config/models/
     fi
 
-    if [[ -d "${artifacts_root}/data/videos" ]]; then
-        cp -a --no-clobber "${artifacts_root}/data/videos/." /work/data/videos/
+    if [[ -d "${video_artifacts}" ]]; then
+        cp -a --no-clobber "${video_artifacts}/." /work/data/videos/
+        if [[ -f "${video_artifacts}/SHA256SUMS" ]]; then
+            (cd /work/data/videos && sha256sum --check --strict --quiet "${video_artifacts}/SHA256SUMS")
+        fi
     fi
 
     if [[ -d "${artifacts_root}/development/build/meson-out" ]]; then

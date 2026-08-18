@@ -74,6 +74,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 ARG NO_EXAMPLE_CONTENT=false
 
 WORKDIR /work
+COPY --chmod=0444 scripts/private/demo-videos.manifest scripts/private/demo-videos.manifest
 COPY --chmod=0755 scripts/private/download-demo-videos.sh scripts/private/download-demo-videos.sh
 RUN if [ "${NO_EXAMPLE_CONTENT}" != "true" ]; then \
       ./scripts/private/download-demo-videos.sh; \
@@ -131,7 +132,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   gstreamer1.0-plugins-bad gstreamer1.0-plugins-base \
   gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
   gstreamer1.0-tools gstreamer1.0-x lldb-17 nodejs npm pre-commit python3-gi python3-pip python3-venv \
-  shellcheck shfmt sudo valgrind wget zip; \
+  gosu shellcheck shfmt sudo valgrind wget zip; \
   update-ca-certificates
 
 RUN set -eux; \
@@ -244,6 +245,9 @@ ENV GST_DEBUG=2 \
 USER ${USERNAME}
 WORKDIR /work
 
+COPY --chmod=0755 scripts/private/development-entrypoint.sh /usr/local/bin/development-entrypoint
+ENTRYPOINT ["/usr/local/bin/development-entrypoint"]
+
 # Developer shell, editor, debugger, and network tooling.
 FROM pek-dev-base AS pek-dev-tools
 
@@ -274,7 +278,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   apt-get update; \
   apt-get install -y --no-install-recommends \
   bash-completion bat clangd dnsutils eza fd-find firefox-esr fonts-powerline \
-  gdb gosu iproute2 iputils-arping iputils-ping less locales lua5.1 \
+  gdb iproute2 iputils-arping iputils-ping less locales lua5.1 \
   luarocks mc nano neovim net-tools nmap openssh-client powerline ripgrep \
   tcpdump tmux traceroute tree-sitter-cli v4l-utils vim wl-clipboard \
   xz-utils zsh; \
@@ -324,14 +328,10 @@ RUN set -eux; \
 
 COPY --chmod=0444 .devcontainer/configs/zshrc /home/${USERNAME}/configs/zshrc
 
-COPY --chmod=0755 scripts/private/development-entrypoint.sh /usr/local/bin/development-entrypoint
-
 ENV LANG=en_US.UTF-8 \
   LC_ALL=en_US.UTF-8 \
   SHELL=/bin/zsh \
   SSH_AUTH_SOCK=/ssh-agent
-
-ENTRYPOINT ["/usr/local/bin/development-entrypoint"]
 
 # Final devcontainer image. Contract: tools and dependency libraries only. The
 # repository is mounted at /work; PEK binaries are built from that checkout.

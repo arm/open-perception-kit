@@ -256,6 +256,11 @@ test(
   timeout : 120,
 )
 test(
+  'demo_video_download_tests',
+  python,
+  args : [files('demo_video_download_test.py')],
+)
+test(
   'qos_pipeline_tests',
   python,
   args : [

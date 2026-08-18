@@ -51,7 +51,7 @@ package "Dockerfile\ncore cross-lane stage graph" {
 
   package "Development Tooling Images\n(no PEK binaries built into pek-dev)" {
     component "pek-build-base\nshared native build tools" as build_base #bfdbfe
-    component "pek-dev-base\ninteractive build/runtime base" as dev_base #bfdbfe
+    component "pek-dev-base\nshared build/runtime + checkout entrypoint" as dev_base #bfdbfe
     component "pek-dev-tools\nshell, editor, debugger, network tools" as dev_tools #bfdbfe
     component "pek-dev\ndevcontainer target\nrepo mounted at /work" as dev_image #bbf7d0
 

@@ -157,6 +157,15 @@ check_rpi_packages() {
     fi
 }
 
+check_demo_videos() {
+    local repo_root
+    repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+    if ! "${repo_root}/scripts/private/download-demo-videos.sh" --check; then
+        echo "WARNING: demo videos are missing or corrupt; quick-start will restore them from the container image."
+    fi
+}
+
 echo "Checking prerequisites..."
 echo
 
@@ -168,6 +177,7 @@ check_github_ssh_auth
 check_rpi_supported_model
 check_debian_trixie_on_rpi5
 check_rpi_packages
+check_demo_videos
 
 echo
 if [[ "$failures" -eq 0 ]]; then
