@@ -74,9 +74,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 ARG NO_EXAMPLE_CONTENT=false
 
 WORKDIR /work
-COPY --chmod=0755 scripts/download-data.sh scripts/download-data.sh
+COPY --chmod=0755 scripts/private/download-demo-videos.sh scripts/private/download-demo-videos.sh
 RUN if [ "${NO_EXAMPLE_CONTENT}" != "true" ]; then \
-      ./scripts/download-data.sh; \
+      ./scripts/private/download-demo-videos.sh; \
     else \
       mkdir -p data/videos; \
     fi
@@ -430,6 +430,8 @@ RUN set -eux; \
   "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_SCANNER_VERSION}.zip"; \
   unzip -q /tmp/sonar-scanner.zip -d /opt/sonar; \
   rm -f /tmp/sonar-scanner.zip
+
+COPY --from=pek-demo-media /work/data/videos /opt/pek-app/data/videos
 
 ENV PATH=/opt/sonar/sonar-scanner-${SONAR_SCANNER_VERSION}/bin:${PATH}
 

@@ -132,14 +132,6 @@ silently reusing a cached anonymous model layer.
 ```
 > **Expected outcome:** The prompt shows `dev`
 
-#### 3.1 Download the stock videos
-
-From the container shell, run:
-
-```bash
-./scripts/download_videos.sh
-```
-
 ### 4. Build PEK inside the Container
 
 From the container shell, run:

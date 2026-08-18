@@ -5,12 +5,12 @@
 # Downloads demo video assets from the PEK public Box folder
 # into data/videos/. Skips files that already exist.
 #
-# Usage: ./scripts/download-data.sh
+# Usage: ./scripts/private/download-demo-videos.sh
 ################################################################
 
 set -euo pipefail
 
-VIDEOS_DIR="$(cd "$(dirname "$0")/.." && pwd)/data/videos"
+VIDEOS_DIR="$(cd "$(dirname "$0")/../.." && pwd)/data/videos"
 BOX_SHARED_TOKEN="yk3v2zpd10s9skbmlrv1lbn82hinga5u"
 
 # Format: "filename:file_id"

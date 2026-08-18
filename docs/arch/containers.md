@@ -46,6 +46,8 @@ Documentation lane
 CI lane
   pek-dev-base
     -> pek-ci
+  pek-demo-media
+    --copy demo videos--> pek-ci
 
 Deployment lane
   pek-build-base
@@ -179,7 +181,7 @@ stages inherit everything from their parent unless noted otherwise.
 - `pek-cross-build-base`: currently inherits `pek-build-base` and gives the
   deployment build lane a named cross-build root.
 - `pek-demo-media`: starts from `debian:trixie-slim`, adds `ca-certificates`,
-  `curl`, and `bash`, then runs `scripts/download-data.sh` unless
+  `curl`, and `bash`, then runs `scripts/private/download-demo-videos.sh` unless
   `NO_EXAMPLE_CONTENT=true`, producing `data/videos` for deployment.
 - `pek-models`: starts from `python:3.13-slim-trixie`, adds
   `huggingface_hub==1.18.0` and `jsonschema==4.26.0`, then runs
@@ -205,7 +207,8 @@ stages inherit everything from their parent unless noted otherwise.
   PlantUML JAR.
 - `pek-ci`: adds the docs toolchain plus `gcovr`, Python development and venv
   packages, Python GObject/GStreamer bindings, compression/database development
-  libraries, the PlantUML JAR, and Sonar Scanner.
+  libraries, the PlantUML JAR, and Sonar Scanner. It copies demo videos from
+  `pek-demo-media` for checkout seeding.
 - `pek-deployment-build`: inherits `pek-cross-build-base`, adds the target
   sysroot when cross-building, installs target ONNX Runtime, downloads Meson
   subprojects, consumes resolved model artifacts from `pek-models` and demo

@@ -157,40 +157,6 @@ check_rpi_packages() {
     fi
 }
 
-check_demo_videos() {
-    local videos_dir
-    videos_dir="$(cd "$(dirname "$0")/.." && pwd)/data/videos"
-
-    local required_videos=(
-        "GettyImages-1129703310.mov"
-        "GettyImages-1140581459.mov"
-        "GettyImages-1298072556.mov"
-        "GettyImages-1465682313.mov"
-        "GettyImages-2165518864.mov"
-        "GettyImages-2174094355.mov"
-        "GettyImages-2205397623.mov"
-        "GettyImages-2220092613.mov"
-        "GettyImages-2222093886.mov"
-        "GettyImages-2259414639.mov"
-        "GettyImages-2264926445.mov"
-    )
-
-    local missing=()
-    for video in "${required_videos[@]}"; do
-        if [[ ! -f "$videos_dir/$video" ]]; then
-            missing+=("$video")
-        fi
-    done
-
-    if [[ "${#missing[@]}" -eq 0 ]]; then
-        echo "OK: demo videos present in data/videos/"
-    else
-        echo "WARNING: ${#missing[@]} demo video(s) missing from data/videos/"
-        printf '  %s\n' "${missing[@]}"
-        echo "  Run ./scripts/download-data.sh to download them."
-    fi
-}
-
 echo "Checking prerequisites..."
 echo
 
@@ -202,7 +168,6 @@ check_github_ssh_auth
 check_rpi_supported_model
 check_debian_trixie_on_rpi5
 check_rpi_packages
-check_demo_videos
 
 echo
 if [[ "$failures" -eq 0 ]]; then

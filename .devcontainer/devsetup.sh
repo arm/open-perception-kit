@@ -88,9 +88,4 @@ append_once "$EXPKITS_ARG_EVAL" "$EXPKITS_ARG_EVAL"
 log "Installing pre-commit hooks"
 cd /work && pre-commit install && pre-commit install -t commit-msg
 
-# -------- Demo video assets --------
-log "Downloading demo video assets (skips files already present)..."
-/work/scripts/download-data.sh || log "WARNING: some demo videos failed to download. Re-run scripts/download-data.sh manually."
-
-# -------- PLUMBER ---------
 log "Done. Open a NEW terminal to see the prompt & venv activation."

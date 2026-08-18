@@ -73,6 +73,7 @@ package "Dockerfile\ncore cross-lane stage graph" {
     component "pek-ci\nbroad verification target" as ci_image #bbf7d0
 
     dev_base --> ci_image : FROM
+    demo_media ..> ci_image : COPY demo videos\n/opt/pek-app/data/videos
   }
 
   package "Deployment Build and Runtime Images" {
