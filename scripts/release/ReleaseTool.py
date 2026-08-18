@@ -428,11 +428,7 @@ def repository_commit(repo_root: Path) -> str:
     return commit
 
 
-def validate_perception_sdk(
-    perception_sdk_root: Path,
-    repo_root: Path | None = None,
-    expected_commit: str | None = None,
-) -> None:
+def perception_sdk_archive(perception_sdk_root: Path) -> Path:
     if perception_sdk_root.is_symlink() or not perception_sdk_root.is_dir():
         fail(f"Perception SDK directory is missing or invalid: {perception_sdk_root}")
     entries = list(perception_sdk_root.iterdir())
@@ -447,7 +443,6 @@ def validate_perception_sdk(
     if len(archives) != 1:
         fail("Perception SDK directory must contain exactly one versioned ZIP")
     archive = archives[0]
-    version = archive.name.removeprefix("perception-sdk-").removesuffix(".zip")
     expected_names = {
         archive.name,
         f"{archive.name}.sha256",
@@ -455,6 +450,16 @@ def validate_perception_sdk(
     }
     if {path.name for path in entries} != expected_names:
         fail("Perception SDK directory must contain exactly the matching triplet")
+    return archive
+
+
+def validate_perception_sdk(
+    perception_sdk_root: Path,
+    repo_root: Path | None = None,
+    expected_commit: str | None = None,
+) -> None:
+    archive = perception_sdk_archive(perception_sdk_root)
+    version = archive.name.removeprefix("perception-sdk-").removesuffix(".zip")
 
     verification_root = repo_root or REPO_ROOT
     if repo_root is not None:
@@ -577,20 +582,7 @@ def validate_runtime_files(package_root: Path) -> Path:
     return private_root
 
 
-def validate_package(args: argparse.Namespace) -> None:
-    package_root = Path(args.package_root).resolve()
-    architecture = args.architecture
-    repo_root_value = getattr(args, "repo_root", None)
-    repo_root = Path(repo_root_value).resolve() if repo_root_value else None
-    private_root = validate_runtime_files(package_root)
-    validate_legal_documentation(package_root)
-    validate_release_payload(package_root, repo_root)
-    validate_perception_sdk(
-        package_root / "share/pek/perception-sdk",
-        repo_root,
-        getattr(args, "expected_commit", None),
-    )
-
+def validate_onnx_runtime(private_root: Path) -> None:
     regular_onnx = [
         path
         for path in private_root.glob("libonnxruntime.so.*")
@@ -604,6 +596,80 @@ def validate_package(args: argparse.Namespace) -> None:
     if dynamic_values(regular_onnx[0], "SONAME") != ["libonnxruntime.so.1"]:
         fail("Pinned ONNX Runtime has an unexpected SONAME")
 
+
+def validate_elf_dependency(
+    path: Path,
+    library: str,
+    packaged_library_paths: dict[str, list[Path]],
+    internal_search_directories: set[Path],
+) -> None:
+    if library == "libfmt.so" or library.startswith("libfmt.so."):
+        fail(f"{path} has forbidden dependency {library}")
+    if library not in packaged_library_paths and not library.startswith(
+        SYSTEM_LIBRARY_PREFIXES
+    ):
+        fail(f"{path} has unresolved or unclassified dependency {library}")
+    if library in packaged_library_paths and not any(
+        (directory / library).is_file() for directory in internal_search_directories
+    ):
+        fail(f"{path} cannot resolve packaged dependency {library} through its RUNPATH")
+
+
+def validate_elf(
+    path: Path,
+    package_root: Path,
+    expected_machine: str,
+    packaged_library_paths: dict[str, list[Path]],
+) -> None:
+    header = read_elf(path, "-hW")
+    machine = next(
+        (
+            line.partition(":")[2].strip()
+            for line in header.splitlines()
+            if line.strip().startswith("Machine:")
+        ),
+        "",
+    )
+    if machine != expected_machine:
+        fail(f"Wrong ELF architecture: {path}")
+    runpaths = dynamic_values(path, "RUNPATH")
+    internal_search_directories = {
+        (path.parent / entry.replace("$ORIGIN", str(path.parent))).resolve()
+        for runpath in runpaths
+        for entry in runpath.split(":")
+        if entry
+    }
+    for library in dynamic_values(path, "NEEDED"):
+        validate_elf_dependency(
+            path, library, packaged_library_paths, internal_search_directories
+        )
+
+    relative = path.relative_to(package_root)
+    if relative.parts[:2] == ("lib", "gstreamer-1.0"):
+        expected_runpath = "$ORIGIN/../pek"
+    elif relative.parts[:2] == ("lib", "pek") and len(relative.parts) == 3:
+        expected_runpath = "$ORIGIN"
+    else:
+        expected_runpath = ""
+    if expected_runpath and expected_runpath not in runpaths:
+        fail(f"{path} has RUNPATH {runpaths}, expected {expected_runpath}")
+
+
+def validate_package(args: argparse.Namespace) -> None:
+    package_root = Path(args.package_root).resolve()
+    architecture = args.architecture
+    repo_root_value = getattr(args, "repo_root", None)
+    repo_root = Path(repo_root_value).resolve() if repo_root_value else None
+    private_root = validate_runtime_files(package_root)
+    validate_legal_documentation(package_root)
+    validate_release_payload(package_root, repo_root)
+    validate_perception_sdk(
+        package_root / "share/pek/perception-sdk",
+        repo_root,
+        getattr(args, "expected_commit", None),
+    )
+    validate_onnx_runtime(private_root)
+
     elf_paths = [path for path in package_root.rglob("*") if is_elf(path)]
     if not elf_paths:
         fail("Package contains no ELF objects")
@@ -611,49 +677,11 @@ def validate_package(args: argparse.Namespace) -> None:
     for packaged_path in package_root.rglob("*"):
         if packaged_path.is_file():
             packaged_library_paths.setdefault(packaged_path.name, []).append(packaged_path)
-    expected_machine = "Advanced Micro Devices X86-64" if architecture == "x86_64" else "AArch64"
+    expected_machine = (
+        "Advanced Micro Devices X86-64" if architecture == "x86_64" else "AArch64"
+    )
     for path in elf_paths:
-        header = read_elf(path, "-hW")
-        machine = next(
-            (
-                line.partition(":")[2].strip()
-                for line in header.splitlines()
-                if line.strip().startswith("Machine:")
-            ),
-            "",
-        )
-        if machine != expected_machine:
-            fail(f"Wrong ELF architecture: {path}")
-        needed = dynamic_values(path, "NEEDED")
-        runpaths = dynamic_values(path, "RUNPATH")
-        internal_search_directories = {
-            (path.parent / entry.replace("$ORIGIN", str(path.parent))).resolve()
-            for runpath in runpaths
-            for entry in runpath.split(":")
-            if entry
-        }
-        for library in needed:
-            if library == "libfmt.so" or library.startswith("libfmt.so."):
-                fail(f"{path} has forbidden dependency {library}")
-            if (
-                library not in packaged_library_paths
-                and not library.startswith(SYSTEM_LIBRARY_PREFIXES)
-            ):
-                fail(f"{path} has unresolved or unclassified dependency {library}")
-            if library in packaged_library_paths and not any(
-                (directory / library).is_file() for directory in internal_search_directories
-            ):
-                fail(f"{path} cannot resolve packaged dependency {library} through its RUNPATH")
-
-        relative = path.relative_to(package_root)
-        if relative.parts[:2] == ("lib", "gstreamer-1.0"):
-            expected_runpath = "$ORIGIN/../pek"
-        elif relative.parts[:2] == ("lib", "pek") and len(relative.parts) == 3:
-            expected_runpath = "$ORIGIN"
-        else:
-            expected_runpath = ""
-        if expected_runpath and expected_runpath not in runpaths:
-            fail(f"{path} has RUNPATH {runpaths}, expected {expected_runpath}")
+        validate_elf(path, package_root, expected_machine, packaged_library_paths)
 
 
 def read_version(repo_root: Path) -> str:

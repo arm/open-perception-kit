@@ -264,8 +264,6 @@ def verify_detached_manifest(
 ) -> dict[str, object]:
     path = config.generated_root / perception_generate.PERCEPTION_MANIFEST_FILENAME
     manifest = load_json(path)
-    if not isinstance(manifest, dict):
-        raise RuntimeError("Perception SDK manifest is malformed")
     perception_generate._verify_manifest_identity(
         config, config.generated_root, config.internal_meson_path, path, manifest
     )
