@@ -157,7 +157,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-  file gnupg gstreamer1.0-gl gstreamer1.0-nice gstreamer1.0-pipewire \
+  ccache file gnupg gstreamer1.0-gl gstreamer1.0-nice gstreamer1.0-pipewire \
   gstreamer1.0-plugins-bad gstreamer1.0-plugins-base \
   gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
   gstreamer1.0-tools gstreamer1.0-x lldb-17 nodejs npm pre-commit python3-gi python3-pip \
@@ -392,6 +392,23 @@ COPY --from=pek-demo-media \
   /work/data/videos /opt/pek-app/data/videos
 COPY --from=pek-models \
   /work/config/models /opt/pek-app/config/models
+
+# Prewarm the macOS CI compiler cache on the native Arm64 image publisher.
+FROM pek-dev AS pek-dev-macos-cache-build
+
+ENV CCACHE_DIR=/work/.cache/ccache \
+  CCACHE_MAXSIZE=2G \
+  CCACHE_UMASK=000
+
+COPY --chown=dev . /work
+RUN ./scripts/build.sh && ccache --show-stats
+
+FROM pek-dev AS pek-dev-macos-ci
+
+USER root
+COPY --from=pek-dev-macos-cache-build --chown=dev \
+  /work/.cache/ccache /opt/pek-ccache
+USER dev
 
 # ==============================================================================
 # Documentation Image Lane

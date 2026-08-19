@@ -196,7 +196,7 @@ stages inherit everything from their parent unless noted otherwise.
   `scripts/download-models.py` with the optional Hugging Face build secret to
   resolve model artifacts under `config/models`.
 - `pek-dev-base`: adds `wget`, `sudo`, `gnupg`, `shfmt`, `zip`, `python3-pip`,
-  `pre-commit`, `lldb-17`, `valgrind`, `file`, GStreamer runtime plugins,
+  `pre-commit`, `lldb-17`, `valgrind`, `ccache`, `file`, GStreamer runtime plugins,
   `actionlint`, ONNX Runtime, `uv`, the `expkits-ci` tool, `plumber`, and
   `huggingface_hub==1.18.0` in the devtools venv, with
   `jsonschema==4.26.0` inherited from its system-site packages. It also owns
@@ -236,6 +236,13 @@ stages inherit everything from their parent unless noted otherwise.
   `ca-certificates`, `curl`, `git`, `shfmt`, `actionlint`, and `expkits-ci`.
 - `pek-playwright-pages`: starts from `python:3.13-slim-trixie` and adds
   `ca-certificates`, GitHub CLI `gh`, and `git`.
+
+Quick-start builds mount a compiler cache at `/work/.cache/ccache`. The native
+Arm64 publisher prewarms this cache in the macOS CI image. The container
+entrypoint maps the runner's UID/GID at runtime and copies the seed into
+temporary, project-scoped compiler-cache and build-output volumes. macOS CI then
+deletes Colima. Publisher build layers are reused through the current GHCR
+`buildcache` tag; only the newest 20 exact-SHA images are kept.
 
 ## Image Lanes
 
