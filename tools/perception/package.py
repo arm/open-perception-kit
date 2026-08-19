@@ -34,6 +34,8 @@ import sdk_config as perception_config
 REPO_ROOT = perception_config.REPO_ROOT
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "artifacts"
 MANIFEST_FILENAME = "perception-sdk-release-manifest.json"
+PYTHON_DISTRIBUTION_NAME = "opk-perception-sdk"
+PYTHON_WHEEL_NAME = "opk_perception_sdk"
 SOURCE_DATE_EPOCH = "315532800"
 ZIP_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 SEMANTIC_VERSION_RE = re.compile(
@@ -152,9 +154,19 @@ def build_perception_wheel(
     return wheels[0]
 
 
+def set_python_distribution_name(python_project: Path, source_name: str) -> None:
+    pyproject = python_project / "pyproject.toml"
+    text = pyproject.read_text(encoding="utf-8")
+    source = f'[project]\nname = "{source_name}"\n'
+    target = f'[project]\nname = "{PYTHON_DISTRIBUTION_NAME}"\n'
+    if text.count(source) != 1:
+        raise RuntimeError("generated Python project name is unexpected")
+    pyproject.write_text(text.replace(source, target), encoding="utf-8")
+
+
 def write_requirements(python_dir: Path, config: perception_config.SdkConfig) -> None:
     (python_dir / "requirements.txt").write_text(
-        f"{config.name}=={config.version}\n"
+        f"{PYTHON_DISTRIBUTION_NAME}=={config.version}\n"
         f"flatbuffers=={config.flatbuffers_wheel.version}\n",
         encoding="utf-8",
     )
@@ -693,7 +705,7 @@ def _verify_python_packages(
     if not isinstance(flatbuffers_wheel, dict):
         raise RuntimeError("release FlatBuffers wheel metadata is malformed")
     for label, record, expected_name, expected_version in (
-        ("Perception", perception, "perception", artifact["version"]),
+        ("Perception", perception, PYTHON_DISTRIBUTION_NAME, artifact["version"]),
         ("FlatBuffers", flatbuffers_wheel, "flatbuffers", flatbuffers_wheel.get("version")),
     ):
         path_value = record.get("path")
@@ -946,9 +958,10 @@ def build_bundle(args: argparse.Namespace) -> Path:
             python_project,
             ignore=shutil.ignore_patterns("build", "*.egg-info", "__pycache__", "*.pyc"),
         )
+        set_python_distribution_name(python_project, config.name)
         perception_wheel = build_perception_wheel(
             python=build_python, python_project=python_project, wheel_dir=python_dir,
-            name=config.name, version=config.version,
+            name=PYTHON_WHEEL_NAME, version=config.version,
         )
         flatbuffers_wheel = acquire_flatbuffers_wheel(
             generated_manifest=generated_manifest, wheel_dir=python_dir,

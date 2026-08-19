@@ -104,8 +104,10 @@ Choose one handoff mode:
   upload the Perception ZIP file with the SHA and provenance to the chosen artifactory location.
 - **PEK product release handoff:** Pass the verified triplet only to the existing
   PEK package assembly. Require the same bytes under
-  `share/pek/perception-sdk/` in both architecture archives. Do not publish the
-  triplet as separate top-level PEK release assets.
+  `share/pek/perception-sdk/` in both architecture archives. The existing PEK
+  publication workflow may publish the verified Python wheel unchanged beside
+  the PEK release archives in the same generic Artifactory folder; do not
+  publish the rest of the triplet as separate top-level PEK release assets.
 
 Do not commit release ZIPs or sidecars unless repository policy explicitly
 requires it. Record the SDK version, repository commit, archive SHA-256,

@@ -407,8 +407,8 @@ class BundleVerificationTests(unittest.TestCase):
             path.write_bytes(content)
         self.create_wheel(flatbuffers_wheel_path, "flatbuffers", "25.9.23")
         self.create_wheel(
-            bundle / "python/perception.whl",
-            "perception",
+            bundle / "python/opk_perception_sdk.whl",
+            "opk-perception-sdk",
             "1.2.3",
             ["flatbuffers>=24.3.25,<26.0.0"],
         )
@@ -457,7 +457,7 @@ class BundleVerificationTests(unittest.TestCase):
         files["metadata/sdk.json"] = b""
         files.update({
             "python/flatbuffers.whl": b"",
-            "python/perception.whl": b"",
+            "python/opk_perception_sdk.whl": b"",
             "typescript/flatbuffers-25.9.23.tgz": b"",
             "typescript/perception-1.2.3.tgz": b"",
         })
@@ -545,8 +545,8 @@ class BundleVerificationTests(unittest.TestCase):
             },
             "payloads": [],
             "perception_wheel": {
-                "path": "python/perception.whl",
-                "sha256": digest(bundle / "python/perception.whl"),
+                "path": "python/opk_perception_sdk.whl",
+                "sha256": digest(bundle / "python/opk_perception_sdk.whl"),
             },
             "perception_npm_package": {
                 "path": "typescript/perception-1.2.3.tgz",

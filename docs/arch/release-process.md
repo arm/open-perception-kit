@@ -45,7 +45,10 @@ SDK build input. The stage embeds the triplet under `share/pek/perception-sdk`
 and checks its provenance against the release commit. The Arm snapshot job also
 uploads that exact embedded triplet as the existing temporary
 `pek-perception-sdk-input-*` or `pek-test-perception-sdk-input-*` Actions
-artifact; it does not rebuild it.
+artifact; it does not rebuild it. For PEK publication, the Artifactory job
+extracts the verified Python wheel from that exact triplet and publishes it
+unchanged beside the three PEK archives. GitHub Release assets remain the three
+archives.
 
 The architecture tarballs keep their seven-model allowlist. The image is the
 full existing deployment snapshot, including the resolved configuration, model,
@@ -60,9 +63,9 @@ Release validation and publication use three workflows:
 | Event | `release-tests.yml` | `release-publication-tests.yml` | `release-packages.yml` |
 | --- | --- | --- | --- |
 | Pull request to `main` | Builds temporary x86_64 and Arm snapshot images, runs their native offline integration smokes, and emits the validated archives | Uploads the validated archives to disposable Artifactory and draft GitHub Release locations, verifies them, and deletes them | Not run |
-| Push to `main` | Not run | Not run | Builds all three archives, smoke-tests both architecture images, publishes their multi-architecture GHCR image, then publishes the archives to one `v<version>` GitHub release and Artifactory |
+| Push to `main` | Not run | Not run | Builds all three archives, smoke-tests both architecture images, publishes their multi-architecture GHCR image, then publishes the archives to one `v<version>` GitHub release and the archives plus Perception wheel to Artifactory |
 | Manual release validation | Resolves `source_ref`, builds temporary x86_64 and Arm snapshot images, runs their native offline integration smokes, and emits the validated archives | Uploads the validated archives to disposable Artifactory and draft GitHub Release locations, verifies them, and deletes them | Not run |
-| Manual package publication | Not run | Not run | Resolves `source_ref`, builds all three archives, smoke-tests both architecture images, publishes their multi-architecture GHCR snapshot, and publishes the archives to Artifactory only |
+| Manual package publication | Not run | Not run | Resolves `source_ref`, builds all three archives, smoke-tests both architecture images, publishes their multi-architecture GHCR snapshot, and publishes the archives plus Perception wheel to Artifactory only |
 
 Credentialed publication probes run only after an unprivileged pull-request or
 manual validation workflow succeeds. The trusted `workflow_run` workflow does
@@ -98,13 +101,13 @@ publication, so the existing-version guard protects both release destinations.
 Manual snapshots bypass the skipped GitHub Release job and continue to publish
 only to Artifactory.
 
-Automatic `main` archives are stored under `releases/<version>/`; manual
-archives are stored under
+Automatic `main` artifacts are stored under `releases/<version>/`; manual
+artifacts are stored under
 `snapshots/<label>/<full-sha>-<run-id>-<attempt>/` below
 `https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci`. The same
 URL is used for uploads and generated download links. The publisher job uses
 the locked `Arm-Debug/publisher` package from its synchronized runtime-only
-environment, prints all three final URLs, and adds links and SHA-256 values to
+environment, prints all four final URLs, and adds links and SHA-256 values to
 the workflow summary for both paths. Once this
 workflow exists on the default `develop` branch, a manual run may select a
 feature branch while the release process is being tested. GitHub does not

@@ -59,7 +59,31 @@ descriptor also locks the C++ source archive used by the Docker images.
 
 ## Install the Python SDK
 
-Extract the archive and run:
+PEK publication exposes the same verified Perception wheel that is embedded in
+the SDK ZIP beside the PEK archives in the generic Artifactory release folder.
+Python-only consumers can lock that immutable URL directly.
+
+Declare the SDK version and map it to the wheel URL printed by the release job:
+
+```toml
+[project]
+dependencies = ["opk-perception-sdk==0.1.0"]
+
+[tool.uv.sources]
+opk-perception-sdk = { url = "https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci/releases/<pek-version>/opk_perception_sdk-0.1.0-py3-none-any.whl" }
+```
+
+Authenticate uv with the existing Artifactory credentials, then lock and sync:
+
+```bash
+printf '%s' "${ARTIFACTORY_TOKEN:?required}" | uv auth login artifactory.arm.com \
+  --username "${ARTIFACTORY_USERNAME:?required}" \
+  --password -
+uv lock
+uv sync --locked
+```
+
+For an offline bundle installation, extract the archive and run:
 
 ```bash
 python3 -m pip install \
