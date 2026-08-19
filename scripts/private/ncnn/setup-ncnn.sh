@@ -8,7 +8,6 @@ set -euo pipefail
 REPO_URL="${REPO_URL:-https://github.com/Tencent/ncnn.git}"
 BRANCH="${BRANCH:-master}"
 WORK_DIR=""
-DEPS_DIR="${DEPS_DIR:-/work/deps}"
 BUILD_TYPE="${BUILD_TYPE:-Release}"
 JOBS="${JOBS:-$(getconf _NPROCESSORS_ONLN 2> /dev/null || echo 1)}"
 NCNN_VULKAN="${NCNN_VULKAN:-OFF}"
@@ -23,15 +22,16 @@ Usage:
   scripts/private/ncnn/setup-ncnn.sh <work-dir> [options]
 
 Example:
-  scripts/private/ncnn/setup-ncnn.sh /work/var/ncnn-dev
+  scripts/private/ncnn/setup-ncnn.sh var/ncnn-dev
 
 Options:
   --work-dir DIR    Directory used for clone, build, temp, and staging state.
-  --deps-dir DIR    Root dependency staging directory. Default: /work/deps.
+  --deps-dir DIR    Root dependency staging directory. Default: $PEK_PROJECT_ROOT/deps.
   --jobs N          Build parallelism. Default: CPU count.
   --help            Show this help.
 
 Environment:
+  PEK_PROJECT_ROOT  PEK checkout root. Default: checkout containing this script.
   DEPS_DIR          Same as --deps-dir.
   REPO_URL          NCNN repository URL. Default: https://github.com/Tencent/ncnn.git.
   BRANCH            NCNN branch/tag to fetch. Default: master.
@@ -50,6 +50,19 @@ EOF
 die() {
     echo "[ERROR] $*" >&2
     exit 1
+}
+
+resolve_project_root() {
+    local requested_root="${PEK_PROJECT_ROOT:-$SCRIPT_DIR/../../..}"
+
+    [[ "$requested_root" == /* ]] || die "PEK_PROJECT_ROOT must be an absolute path: $requested_root"
+    [[ -d "$requested_root" ]] || die "PEK project root does not exist: $requested_root"
+
+    local resolved_root
+    resolved_root="$(cd -- "$requested_root" && pwd -P)"
+    [[ -f "$resolved_root/development/meson.build" ]] ||
+        die "PEK_PROJECT_ROOT is not a PEK checkout: $resolved_root"
+    printf '%s\n' "$resolved_root"
 }
 
 resolve_path() {
@@ -75,6 +88,10 @@ need_cmd() {
     fi
 }
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+PEK_PROJECT_ROOT="$(resolve_project_root)"
+export PEK_PROJECT_ROOT
+DEPS_DIR="${DEPS_DIR:-$PEK_PROJECT_ROOT/deps}"
 ORIGINAL_CWD="$(pwd -P)"
 WORK_DIR_ARG_PROVIDED=0
 

@@ -7,8 +7,6 @@ set -euo pipefail
 
 REPO_URL="https://github.com/airockchip/rknn-toolkit2.git"
 BRANCH="${BRANCH:-master}"
-WORK_DIR="${WORK_DIR:-/work/var/rknn-dev}"
-DEPS_DIR="${DEPS_DIR:-/work/deps}"
 
 usage() {
     cat << 'EOF'
@@ -18,14 +16,15 @@ Usage:
   scripts/private/setup-rknn.sh [work-dir]
 
 Default:
-  scripts/private/setup-rknn.sh /work/var/rknn-dev
+  scripts/private/setup-rknn.sh var/rknn-dev
 
 Options:
   --work-dir DIR    Directory used for clone, temp, and sparse checkout state.
-  --deps-dir DIR    Root dependency staging directory. Default: /work/deps.
+  --deps-dir DIR    Root dependency staging directory. Default: $PEK_PROJECT_ROOT/deps.
   --help            Show this help.
 
 Environment:
+  PEK_PROJECT_ROOT  PEK checkout root. Default: checkout containing this script.
   WORK_DIR    Same as the positional work-dir argument.
   DEPS_DIR    Same as --deps-dir.
   BRANCH      rknn-toolkit2 branch to fetch. Default: master.
@@ -41,6 +40,19 @@ EOF
 die() {
     echo "[ERROR] $*" >&2
     exit 1
+}
+
+resolve_project_root() {
+    local requested_root="${PEK_PROJECT_ROOT:-$SCRIPT_DIR/../..}"
+
+    [[ "$requested_root" == /* ]] || die "PEK_PROJECT_ROOT must be an absolute path: $requested_root"
+    [[ -d "$requested_root" ]] || die "PEK project root does not exist: $requested_root"
+
+    local resolved_root
+    resolved_root="$(cd -- "$requested_root" && pwd -P)"
+    [[ -f "$resolved_root/development/meson.build" ]] ||
+        die "PEK_PROJECT_ROOT is not a PEK checkout: $resolved_root"
+    printf '%s\n' "$resolved_root"
 }
 
 resolve_path() {
@@ -83,6 +95,11 @@ need_cmd() {
     fi
 }
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+PEK_PROJECT_ROOT="$(resolve_project_root)"
+export PEK_PROJECT_ROOT
+WORK_DIR="${WORK_DIR:-$PEK_PROJECT_ROOT/var/rknn-dev}"
+DEPS_DIR="${DEPS_DIR:-$PEK_PROJECT_ROOT/deps}"
 ORIGINAL_CWD="$(pwd -P)"
 
 while [[ $# -gt 0 ]]; do
