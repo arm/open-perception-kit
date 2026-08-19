@@ -10,6 +10,7 @@ WORK_ROOT="$(cd -- "$SCRIPT_DIR/../../.." && pwd)"
 BUILD_SCRIPT="$WORK_ROOT/scripts/build-elements.sh"
 SHTOOLS_SCRIPT="$WORK_ROOT/scripts/private/shtools.sh"
 PEK_MENU="$WORK_ROOT/tools/pek-menu"
+PEKINFER_RETRY_TEST="$WORK_ROOT/development/build/meson-out/pekinfer-retry-valgrind-test"
 TEST_PIPELINES_DIR="$WORK_ROOT/config/pipelines/testing"
 LOG_DIR="$SCRIPT_DIR/logs"
 DEFAULT_SUPPRESSIONS_FILE="$SCRIPT_DIR/suppressed-warnings"
@@ -63,6 +64,7 @@ run_build() {
 
     msg "Building debug artifacts via build-elements.sh debug"
     "$BUILD_SCRIPT" debug
+    meson compile -C "$WORK_ROOT/development/build" pekinfer-retry-valgrind-test
 }
 
 run_valgrind_all() {
@@ -199,9 +201,27 @@ run_valgrind_all() {
         fi
     done
 
+    local retry_log_file="$LOG_DIR/pekinfer-retry.valgrind.%p.xml"
+    local retry_log_glob="${retry_log_file//%p/*}"
+    local retry_rc=0
+
+    msg "Running PEKinfer failed-start/retry regression under valgrind"
+    if valgrind \
+        "${valgrind_args[@]}" \
+        --show-leak-kinds=definite \
+        --errors-for-leak-kinds=definite \
+        --xml-file="$retry_log_file" \
+        "$PEKINFER_RETRY_TEST" "$WORK_ROOT/config/models/yolov11/opchain.json"; then
+        msg "PASSED: PEKinfer failed-start/retry regression"
+    else
+        retry_rc=$?
+        msg "FAILED ($retry_rc): PEKinfer failed-start/retry regression"
+        msg "Logs: $retry_log_glob"
+    fi
+
     msg "Completed $total_count pipeline(s), failures: $fail_count, valgrind error reports: $valgrind_error_count"
 
-    if ((fail_count > 0)); then
+    if ((fail_count > 0 || retry_rc > 0)); then
         return 1
     fi
 

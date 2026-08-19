@@ -151,14 +151,14 @@ static gboolean gst_pekinfer_start(GstBaseTransform *b) {
 
     gst_pekinfer_reset_qos(self);
 
-    self->m = new GstPekInferMembers();
+    auto members = std::make_unique<GstPekInferMembers>();
 
     if (!self->opChainPath || !self->opChainPath[0]) {
         GST_ERROR_OBJECT(self, "opchain property is mandatory but not set");
         return FALSE;
     }
 
-    auto setupResult = self->m->setupOpChainFromJson(self->opChainPath);
+    auto setupResult = members->setupOpChainFromJson(self->opChainPath);
     if (!setupResult) {
         pek::log::error("Error while setting up op-chain [{}]: {}\n",
                         self->opChainPath,
@@ -169,6 +169,8 @@ static gboolean gst_pekinfer_start(GstBaseTransform *b) {
 
         return FALSE;
     }
+
+    self->m = members.release();
 
     // Send model registration event downstream
     GstPad *srcpad = gst_element_get_static_pad(GST_ELEMENT(self), "src");
