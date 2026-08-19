@@ -486,7 +486,7 @@ static void print_pipeline_menu(const fs::path &configured_pipelines_directory,
                                 const std::vector<PipelineEntry> &entries,
                                 const std::optional<size_t> &last_pipeline_idx) {
     pek::log::instantInfo("Pipelines in: {}\n", configured_pipelines_directory.string());
-    if (last_pipeline_idx) {
+    if (last_pipeline_idx.has_value()) {
         const auto &pipeline_entry = entries[*last_pipeline_idx];
         pek::log::instantInfo(
             "0 -> {} [LAST: {}]\n", pipeline_entry.id, pipeline_entry.description);
@@ -508,7 +508,7 @@ static int run_pipeline_menu(const fs::path &configured_pipelines_directory,
     const auto last_pipeline_idx = find_last_pipeline_index(id_to_idx);
     print_pipeline_menu(configured_pipelines_directory, entries, last_pipeline_idx);
 
-    const int max_choice = static_cast<int>(entries.size());
+    const auto max_choice = static_cast<int>(entries.size());
     while (true) {
         pek::log::instantInfo("\nSelect (0..{}): ", max_choice);
         std::fflush(stdout);
@@ -519,7 +519,7 @@ static int run_pipeline_menu(const fs::path &configured_pipelines_directory,
         }
 
         if (*choice == 0) {
-            if (!last_pipeline_idx) {
+            if (!last_pipeline_idx.has_value()) {
                 pek::log::instantInfo("No previous selection stored. Choose 1..{}.\n", max_choice);
                 continue;
             }
@@ -528,7 +528,7 @@ static int run_pipeline_menu(const fs::path &configured_pipelines_directory,
             return run_gst_launch(pipeline_entry.pipeline, dry_run, pipeline_entry.loop);
         }
 
-        const size_t idx = static_cast<size_t>(*choice - 1);
+        const auto idx = static_cast<size_t>(*choice - 1);
         const auto &pipeline_entry = entries[idx];
         if (!save_last_selected_pipeline(pipeline_entry.id)) {
             pek::log::instantInfo("Warning: failed to save last selected pipeline to {}\n",
