@@ -98,8 +98,6 @@ Expected result: Docker Engine and Docker Compose both print version information
 
 If these checks fail, fix them before opening the project in VS Code. The Dev Container depends on the Pi host setup.
 
-After PEK is cloned in the next step, the repository also contains `./scripts/pre-req.sh`. Treat it as an extra helper check, not as a replacement for the checks above.
-
 ## 6. Clone PEK On The Raspberry Pi
 
 Run in the **Raspberry Pi shell**:
