@@ -13,5 +13,6 @@ namespace pek::python {
 
 void appendTensorModuleInittab();
 PyObject *wrapTensors(const pek::op::OpChainContext &context, const pek::Model *model);
+PyObject *wrapContext(PyObject *producerInfo);
 
 } // namespace pek::python

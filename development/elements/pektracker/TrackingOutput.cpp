@@ -101,8 +101,12 @@ makeTrackerLayerInfo(const Config &config, const char *tags, const char *content
         config.producerInstanceId.empty() ? "pektracker" : config.producerInstanceId;
     const auto producer = perception::makeProducerInfo(
         config.inferId + "/" + producerInstanceId, TRACKER_COMPONENT, "Tracker");
-    return perception::makeLayerInfo(
-        TRACKER_MODEL, config.inferId, contentType, TRACKER_ENGINE, tags, "", "", producer.get());
+    return perception::makeLayerInfo({.model = TRACKER_MODEL,
+                                      .inferElementId = config.inferId,
+                                      .contentType = contentType,
+                                      .engine = TRACKER_ENGINE,
+                                      .tags = tags,
+                                      .producer = producer.get()});
 }
 
 std::unique_ptr<perception::metadata::ObjectTrackT>

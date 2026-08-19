@@ -10,12 +10,13 @@ import flatbuffers
 import numpy
 
 from perception.guest import Envelope
-from pek_python_ops import Tensor
+from pek_python_ops import Context, Tensor
 
 
-def process(env: Envelope, tensors: tuple[Tensor, ...]) -> None:
+def process(env: Envelope, tensors: tuple[Tensor, ...], context: Context) -> None:
     assert env is not None
     assert tensors == ()
+    assert context.producer_info.implementation == "runtime_environment.py"
     assert flatbuffers.__version__
     assert numpy.__version__
     assert Path(sys.executable).is_file()

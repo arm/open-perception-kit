@@ -49,7 +49,7 @@ class PythonScriptPipelineTest(unittest.TestCase):
                 "video/x-raw,format=BGRA,width=320,height=240,framerate=5/1",
                 "!",
                 "pekinfer",
-                f"opchain-path={repository / 'config/models/mobilenetv2/opchain-python-overlay.json'}",
+                f"opchain-path={repository / 'config/models/mobilenetv2/opchain-python-classification.json'}",
                 "active=true",
                 "!",
                 "pekcomm",
@@ -83,7 +83,7 @@ class PythonScriptPipelineTest(unittest.TestCase):
                 }
                 self.assertEqual(
                     implementations,
-                    {"ImageNetClassificationParser", "tensor_metrics_overlay.py"},
+                    {"ImageNetClassificationParser", "python_classification.py"},
                 )
 
 

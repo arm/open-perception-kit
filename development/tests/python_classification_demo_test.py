@@ -16,7 +16,7 @@ import numpy
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = (
     REPOSITORY_ROOT
-    / "config/models/mobilenetv2/scripts/tensor_metrics_overlay.py"
+    / "config/models/mobilenetv2/scripts/python_classification.py"
 )
 LABEL_PATH = SCRIPT_PATH.with_name("imagenet_labels.txt")
 CPP_LABEL_PATH = REPOSITORY_ROOT / "development/common/pek/Labels.cpp"
@@ -25,9 +25,12 @@ sys.path.insert(
     0, str(REPOSITORY_ROOT / "generated/perception/python/src")
 )
 
-from perception.fb.perception.metadata.ProducerInfo import ProducerInfoT
+ProducerInfoT = importlib.import_module(
+    "perception.fb.perception.metadata.ProducerInfo"
+).ProducerInfoT
 
 tensor_module = types.ModuleType("pek_python_ops")
+tensor_module.Context = object
 tensor_module.Tensor = object
 sys.modules["pek_python_ops"] = tensor_module
 
@@ -35,7 +38,7 @@ guest_module = types.ModuleType("perception.guest")
 guest_module.Envelope = object
 sys.modules["perception.guest"] = guest_module
 
-spec = importlib.util.spec_from_file_location("tensor_metrics_overlay", SCRIPT_PATH)
+spec = importlib.util.spec_from_file_location("python_classification", SCRIPT_PATH)
 demo = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(demo)
 
@@ -58,6 +61,11 @@ class FakeEnvelope:
         self.payloads.append(payload)
 
 
+class FakeContext:
+    def __init__(self, producer_info):
+        self.producer_info = producer_info
+
+
 def cpp_imagenet_labels():
     source = CPP_LABEL_PATH.read_text(encoding="utf-8")
     start = source.index("imageNetLabels = {")
@@ -70,10 +78,12 @@ class PythonScriptDemoTest(unittest.TestCase):
     def setUp(self):
         demo.previous_class_id = None
         demo.stable_frame_count = 0
-        demo.producer_info = ProducerInfoT(
-            instanceId="pekinfer0/python-classifier",
-            component="pek-python-ops/PythonScript",
-            implementation=SCRIPT_PATH.name,
+        self.context = FakeContext(
+            ProducerInfoT(
+                instanceId="pekinfer0/python-classifier",
+                component="pek-python-ops/PythonScript",
+                implementation=SCRIPT_PATH.name,
+            )
         )
 
     def test_bundled_labels_match_cpp_table(self):
@@ -86,8 +96,8 @@ class PythonScriptDemoTest(unittest.TestCase):
         envelope = FakeEnvelope()
         tensor = FakeTensor(logits)
 
-        demo.process(envelope, (tensor,))
-        demo.process(envelope, (tensor,))
+        demo.process(envelope, (tensor,), self.context)
+        demo.process(envelope, (tensor,), self.context)
 
         payload = envelope.payloads[-1]
         candidates = payload.classifications[0].candidates
@@ -103,7 +113,7 @@ class PythonScriptDemoTest(unittest.TestCase):
 
         logits[0, 2] = 0.0
         logits[0, 3] = 5.0
-        demo.process(envelope, (tensor,))
+        demo.process(envelope, (tensor,), self.context)
         candidates = envelope.payloads[-1].classifications[0].candidates
         self.assertEqual(candidates[0].classId, 3)
         self.assertEqual(candidates[0].text, "great white shark")

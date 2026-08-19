@@ -7,6 +7,7 @@
 #include <Python.h>
 
 #include <filesystem>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -14,9 +15,11 @@
 
 namespace pek::python {
 
+class LoadedScript;
+
 class PythonScriptOp final : public pek::op::Op {
   public:
-    PythonScriptOp() = default;
+    PythonScriptOp();
     ~PythonScriptOp() override;
 
     pek::Result<void> configure(const pek::AttributeMap &attributes) override;
@@ -24,14 +27,9 @@ class PythonScriptOp final : public pek::op::Op {
     pek::Result<pek::op::OpSignal> process(pek::op::OpChainContext &context) override;
 
   private:
-    pek::Result<void> loadScript();
-    void releaseScript() noexcept;
-
     std::filesystem::path scriptPath;
     std::vector<std::filesystem::path> pythonPaths;
-    std::string moduleName;
-    PyObject *module = nullptr;
-    PyObject *processFunction = nullptr;
+    std::unique_ptr<LoadedScript> loadedScript;
     const pek::Model *model = nullptr;
 };
 

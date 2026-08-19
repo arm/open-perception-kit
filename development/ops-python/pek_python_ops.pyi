@@ -1,6 +1,17 @@
+################################################################
+# Copyright (C) 2026 Arm Limited. All rights reserved.
+################################################################
+
 from typing import Final
 
 import numpy
+from perception.fb.perception.metadata.ProducerInfo import ProducerInfoT
+
+
+class Context:
+    """Call-scoped metadata for one Python operation invocation."""
+
+    producer_info: Final[ProducerInfoT]
 
 
 class Tensor:

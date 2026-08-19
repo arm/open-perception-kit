@@ -24,6 +24,12 @@ struct TensorObject {
 
 PyTypeObject *tensorType = nullptr;
 
+struct ContextObject {
+    PyObject_HEAD PyObject *producerInfo;
+};
+
+PyTypeObject *contextType = nullptr;
+
 void tensorDealloc(PyObject *self) {
     auto *tensor = reinterpret_cast<TensorObject *>(self);
     Py_XDECREF(tensor->name);
@@ -104,6 +110,45 @@ PyType_Spec tensorSpec = {
     .itemsize = 0,
     .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
     .slots = tensorSlots,
+};
+
+void contextDealloc(PyObject *self) {
+    auto *context = reinterpret_cast<ContextObject *>(self);
+    Py_XDECREF(context->producerInfo);
+    Py_TYPE(self)->tp_free(self);
+}
+
+PyObject *contextRepr(PyObject *self) {
+    const auto *context = reinterpret_cast<ContextObject *>(self);
+    return PyUnicode_FromFormat("Context(producer_info=%R)", context->producerInfo);
+}
+
+PyObject *getProducerInfo(PyObject *self, void *) {
+    return Py_NewRef(reinterpret_cast<ContextObject *>(self)->producerInfo);
+}
+
+PyGetSetDef contextGetSet[] = {
+    {const_cast<char *>("producer_info"),
+     getProducerInfo,
+     nullptr,
+     const_cast<char *>("Producer identity for payloads created by this operation."),
+     nullptr},
+    {nullptr, nullptr, nullptr, nullptr, nullptr},
+};
+
+PyType_Slot contextSlots[] = {
+    {Py_tp_dealloc, reinterpret_cast<void *>(contextDealloc)},
+    {Py_tp_repr, reinterpret_cast<void *>(contextRepr)},
+    {Py_tp_getset, contextGetSet},
+    {0, nullptr},
+};
+
+PyType_Spec contextSpec = {
+    .name = "pek_python_ops.Context",
+    .basicsize = sizeof(ContextObject),
+    .itemsize = 0,
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
+    .slots = contextSlots,
 };
 
 int numpyType(pek::Dtype type) {
@@ -213,6 +258,15 @@ PyObject *initializeModule() {
     }
     tensorType = reinterpret_cast<PyTypeObject *>(type);
     Py_DECREF(type);
+
+    PyObject *context = PyType_FromSpec(&contextSpec);
+    if (context == nullptr || PyModule_AddObjectRef(module, "Context", context) < 0) {
+        Py_XDECREF(context);
+        Py_DECREF(module);
+        return nullptr;
+    }
+    contextType = reinterpret_cast<PyTypeObject *>(context);
+    Py_DECREF(context);
     return module;
 }
 
@@ -252,6 +306,23 @@ PyObject *wrapTensors(const pek::op::OpChainContext &context, const pek::Model *
         PyTuple_SET_ITEM(result, static_cast<Py_ssize_t>(index), tensor);
     }
     return result;
+}
+
+PyObject *wrapContext(PyObject *producerInfo) {
+    if (producerInfo == nullptr) {
+        PyErr_SetString(PyExc_ValueError, "producer_info is required");
+        return nullptr;
+    }
+    if (contextType == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "pek_python_ops.Context is not initialized");
+        return nullptr;
+    }
+
+    auto *context = reinterpret_cast<ContextObject *>(contextType->tp_alloc(contextType, 0));
+    if (context == nullptr)
+        return nullptr;
+    context->producerInfo = Py_NewRef(producerInfo);
+    return reinterpret_cast<PyObject *>(context);
 }
 
 } // namespace pek::python

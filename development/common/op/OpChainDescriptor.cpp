@@ -14,38 +14,43 @@ using namespace pek::op;
 
 namespace {
 
-void resolveModelDescriptors(OpChainDescriptor &descriptor, const std::filesystem::path &source) {
-    for (auto &op : descriptor.ops) {
-        if (!isInferenceOpId(op.id))
-            continue;
-        const auto reference = std::filesystem::path(op.attributes.getString("modelDescriptor"));
-        op.attributes.set("modelDescriptor", (source.parent_path() / reference).string());
-    }
+std::filesystem::path resolvePath(const std::filesystem::path &directory,
+                                  std::filesystem::path reference) {
+    return reference.is_absolute() ? std::move(reference) : directory / reference;
 }
 
-void resolvePythonScriptPaths(OpChainDescriptor &descriptor, const std::filesystem::path &source) {
+void resolvePathAttribute(OpChainDescriptor::Op &op,
+                          std::string_view attribute,
+                          const std::filesystem::path &directory) {
+    const std::string key(attribute);
+    if (!op.attributes.contains(key))
+        return;
+    op.attributes.set(key, resolvePath(directory, op.attributes.getString(key)).string());
+}
+
+void resolvePathArrayAttribute(OpChainDescriptor::Op &op,
+                               std::string_view attribute,
+                               const std::filesystem::path &directory) {
+    const std::string key(attribute);
+    if (!op.attributes.contains(key))
+        return;
+
+    pek::AttributeValue::Array resolved;
+    for (const auto &value : op.attributes.getArray(key)) {
+        resolved.emplace_back(resolvePath(directory, value.asString()).string());
+    }
+    op.attributes.setArray(key, std::move(resolved));
+}
+
+void resolveDescriptorPaths(OpChainDescriptor &descriptor, const std::filesystem::path &source) {
+    const auto directory = source.parent_path();
     for (auto &op : descriptor.ops) {
-        if (op.id != "pek-python-ops/PythonScript")
-            continue;
-
-        if (op.attributes.contains("script")) {
-            auto reference = std::filesystem::path(op.attributes.getString("script"));
-            if (!reference.is_absolute())
-                reference = source.parent_path() / reference;
-            op.attributes.set("script", reference.string());
+        if (isInferenceOpId(op.id))
+            resolvePathAttribute(op, "modelDescriptor", directory);
+        if (op.id == "pek-python-ops/PythonScript") {
+            resolvePathAttribute(op, "script", directory);
+            resolvePathArrayAttribute(op, "pythonPaths", directory);
         }
-
-        if (!op.attributes.contains("pythonPaths"))
-            continue;
-
-        pek::AttributeValue::Array resolved;
-        for (const auto &value : op.attributes.getArray("pythonPaths")) {
-            auto reference = std::filesystem::path(value.asString());
-            if (!reference.is_absolute())
-                reference = source.parent_path() / reference;
-            resolved.emplace_back(reference.string());
-        }
-        op.attributes.setArray("pythonPaths", std::move(resolved));
     }
 }
 
@@ -62,9 +67,7 @@ pek::Result<OpChainDescriptor> OpChainDescriptor::fromJson(const std::string &js
 pek::Result<OpChainDescriptor> OpChainDescriptor::fromFile(const std::string &path) {
     std::string content = pek::fs::loadTextOrDefault(path, "");
     auto descriptor = fromJson(content, path);
-    if (descriptor.has_value()) {
-        resolveModelDescriptors(*descriptor, path);
-        resolvePythonScriptPaths(*descriptor, path);
-    }
+    if (descriptor.has_value())
+        resolveDescriptorPaths(*descriptor, path);
     return descriptor;
 }

@@ -6,8 +6,10 @@
 
 #include <array>
 #include <filesystem>
+#include <string_view>
 #include <vector>
 
+#include "PythonRuntime.h"
 #include "PythonScriptOp.h"
 #include "op/Op.h"
 #include "pek/FrameResults.h"
@@ -23,8 +25,14 @@ class FakeInferenceOp final : public pek::op::Op, public pek::op::OpInterfaceInf
   public:
     FakeInferenceOp() {
         model.outputs = {
-            {.name = "scores", .valueType = pek::Dtype::Float32, .shape = pek::Shape(2, 2)},
-            {.name = "classes", .valueType = pek::Dtype::Int8, .shape = pek::Shape(2)},
+            {.name = "scores",
+             .valueType = pek::Dtype::Float32,
+             .shape = pek::Shape(2, 2),
+             .quantArguments = {}},
+            {.name = "classes",
+             .valueType = pek::Dtype::Int8,
+             .shape = pek::Shape(2),
+             .quantArguments = {}},
         };
     }
 
@@ -52,6 +60,22 @@ pek::AttributeMap attributes(std::string_view script) {
     pek::AttributeMap result;
     result.set("script", (std::filesystem::path(PYTHON_SCRIPT_OP_FIXTURES) / script).string());
     return result;
+}
+
+size_t loadedScriptModuleCount() {
+    pek::python::ensureRuntime();
+    pek::python::GILGuard gil;
+    PyObject *modules = PyImport_GetModuleDict();
+    PyObject *key = nullptr;
+    PyObject *value = nullptr;
+    Py_ssize_t position = 0;
+    size_t count = 0;
+    while (PyDict_Next(modules, &position, &key, &value) != 0) {
+        const char *name = PyUnicode_Check(key) ? PyUnicode_AsUTF8(key) : nullptr;
+        if (name != nullptr && std::string_view(name).starts_with("_pek_python_script_"))
+            ++count;
+    }
+    return count;
 }
 
 } // namespace
@@ -90,6 +114,32 @@ TEST(PythonScriptOp, AllowsPlacementWithoutInferenceOutputs) {
     context.frameResults = &results;
 
     EXPECT_TRUE(script.process(context));
+}
+
+TEST(PythonScriptOp, FailedReconfigurationKeepsLoadedScript) {
+    pek::python::PythonScriptOp script;
+    std::vector<pek::op::Op *> ops = {&script};
+    ASSERT_TRUE(script.configure(attributes("empty_tensors.py")));
+    ASSERT_TRUE(script.bind(0, ops));
+
+    perception::FrameResults results;
+    pek::op::OpChainContext context;
+    context.frameResults = &results;
+    ASSERT_TRUE(script.process(context));
+
+    const auto reconfigure = script.configure(attributes("missing.py"));
+    ASSERT_FALSE(reconfigure);
+    EXPECT_TRUE(script.process(context));
+}
+
+TEST(PythonScriptOp, RemovesLoadedModuleOnDestruction) {
+    const auto initialCount = loadedScriptModuleCount();
+    {
+        pek::python::PythonScriptOp script;
+        ASSERT_TRUE(script.configure(attributes("empty_tensors.py")));
+        EXPECT_EQ(loadedScriptModuleCount(), initialCount + 1U);
+    }
+    EXPECT_EQ(loadedScriptModuleCount(), initialCount);
 }
 
 TEST(PythonScriptOp, RestoresSysPathAfterScriptMutation) {
@@ -140,8 +190,7 @@ TEST(PythonScriptOp, RecordsWholeOperationTiming) {
     ASSERT_TRUE(script.process(context));
     tracer->endCycle();
 
-    const auto stats =
-        tracer->getStats("python/Script/test-model/pek-python-ops-PythonScript-0");
+    const auto stats = tracer->getStats("python/Script/test-model/pek-python-ops-PythonScript-0");
     EXPECT_EQ(stats.count, 1U);
     tracer->reset();
 }

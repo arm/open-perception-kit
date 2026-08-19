@@ -17,8 +17,8 @@ test("classification heading identifies the payload producer implementation", ()
     producer: {implementation: "ImageNetClassificationParser"},
   }), "ImageNetClassificationParser");
   assert.equal(classificationHeading({
-    producer: {implementation: "tensor_metrics_overlay.py"},
-  }), "tensor_metrics_overlay.py");
+    producer: {implementation: "python_classification.py"},
+  }), "python_classification.py");
   assert.equal(classificationHeading({}), "");
 });
 

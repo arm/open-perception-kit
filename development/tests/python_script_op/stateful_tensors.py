@@ -5,17 +5,18 @@
 import numpy
 
 from perception.guest import Envelope
-from pek_python_ops import Tensor
+from pek_python_ops import Context, Tensor
 
 
 call_count = 0
 
 
-def process(env: Envelope, tensors: tuple[Tensor, ...]) -> None:
+def process(env: Envelope, tensors: tuple[Tensor, ...], context: Context) -> None:
     global call_count
     call_count += 1
 
     assert env is not None
+    assert context.producer_info.implementation == "stateful_tensors.py"
     assert len(tensors) == 2
     assert tensors[0].index == 0
     assert tensors[0].name == "scores"

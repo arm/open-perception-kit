@@ -4,7 +4,7 @@
 	"displayName": "MobileNetV2 with Python",
 	"task": "Image classification",
 	"runtime": "ONNX + Python",
-	"description": "MobileNetV2 classification with a stateful Python tensor inspection overlay.",
+	"description": "MobileNetV2 classification with comparable stateful Python and C++ postprocessing.",
 	"ops": [
 		{
 			"id": "pek-std-ops/InferenceController",
@@ -27,7 +27,7 @@
 			"id": "pek-python-ops/PythonScript",
 			"instanceId": "python-classifier",
 			"attributes": {
-				"script": "scripts/tensor_metrics_overlay.py"
+				"script": "scripts/python_classification.py"
 			}
 		},
 		{

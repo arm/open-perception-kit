@@ -26,8 +26,7 @@ inline bool isInferenceOpId(std::string_view id) {
 
 inline std::string makeDefaultInstanceId(std::string_view opId, std::size_t occurrence) {
     const auto isAsciiAlphaNumeric = [](char character) {
-        return (character >= 'a' && character <= 'z') ||
-               (character >= 'A' && character <= 'Z') ||
+        return (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
                (character >= '0' && character <= '9');
     };
     std::string result(opId);
@@ -61,7 +60,7 @@ struct OpChainDescriptor {
             loopId; ///< Optional loop group ID; operations with equal IDs form a loop.
         AttributeMap
             attributes; ///< Configuration attributes passed to the operation's configure() method.
-        std::string instanceId; ///< Optional stable identity for this operation instance.
+        std::string instanceId{}; ///< Optional stable identity for this operation instance.
     };
 
     std::string name;        ///< Internal name of the operation chain.

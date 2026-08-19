@@ -50,15 +50,10 @@ Result<void> ObjectEmbeddingParser::parse(const TensorParser::Input &input,
     }
 
     perception::metadata::ObjectEmbeddingsT payload;
-    payload.layer = perception::makeLayerInfo(
-        input.inferenceInfo.modelName,
-        input.inferenceInfo.inferElementId,
-        k_content_type,
-        "",
-        "",
-        "",
-        "",
-        &input.producerInfo);
+    payload.layer = perception::makeLayerInfo({.model = input.inferenceInfo.modelName,
+                                               .inferElementId = input.inferenceInfo.inferElementId,
+                                               .contentType = k_content_type,
+                                               .producer = &input.producerInfo});
     payload.embeddings.push_back(std::move(embedding));
     results.add(std::move(payload));
 

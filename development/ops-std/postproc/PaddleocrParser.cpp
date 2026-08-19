@@ -80,14 +80,11 @@ pek::Result<void> PaddleOcrDetectionParser::parse(const pek::TensorParser::Input
     mask->bitmap = perception::makeBitmapData(bitmap);
 
     perception::metadata::SegmentationMasksT payload;
-    payload.layer = perception::makeLayerInfo(input.inferenceInfo.modelName,
-                                              input.inferenceInfo.inferElementId,
-                                              k_content_type,
-                                              "",
-                                              "",
-                                              "",
-                                              "overlay",
-                                              &input.producerInfo);
+    payload.layer = perception::makeLayerInfo({.model = input.inferenceInfo.modelName,
+                                               .inferElementId = input.inferenceInfo.inferElementId,
+                                               .contentType = k_content_type,
+                                               .compositingMode = "overlay",
+                                               .producer = &input.producerInfo});
     payload.masks.push_back(std::move(mask));
     results.add(std::move(payload));
     return {};

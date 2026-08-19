@@ -44,6 +44,13 @@ void appendUniquePath(std::vector<std::filesystem::path> &paths,
         paths.push_back(path);
 }
 
+void removeModule(const std::string &moduleName) noexcept {
+    if (!moduleName.empty() &&
+        PyDict_DelItemString(PyImport_GetModuleDict(), moduleName.c_str()) < 0) {
+        PyErr_Clear();
+    }
+}
+
 PyObjectPtr makePythonProducerInfo(const std::string &instanceId,
                                    const std::string &component,
                                    const std::string &implementation) {
@@ -53,33 +60,140 @@ PyObjectPtr makePythonProducerInfo(const std::string &instanceId,
         producerModule ? PyObject_GetAttrString(producerModule.get(), "ProducerInfoT") : nullptr);
     if (!producerType || !PyCallable_Check(producerType.get()))
         return PyObjectPtr();
-    return PyObjectPtr(PyObject_CallFunction(producerType.get(),
-                                            "sss",
-                                            instanceId.c_str(),
-                                            component.c_str(),
-                                            implementation.c_str()));
+    return PyObjectPtr(PyObject_CallFunction(
+        producerType.get(), "sss", instanceId.c_str(), component.c_str(), implementation.c_str()));
 }
 
 } // namespace
 
-PythonScriptOp::~PythonScriptOp() {
-    releaseScript();
-}
+class LoadedScript {
+  public:
+    static pek::Result<std::unique_ptr<LoadedScript>>
+    load(const std::filesystem::path &scriptPath,
+         const std::vector<std::filesystem::path> &pythonPaths,
+         std::string moduleName) {
+        try {
+            const std::string source = readScript(scriptPath);
+            const auto absolutePath = std::filesystem::absolute(scriptPath);
+            GILGuard gil;
+            PythonPathGuard pathGuard(pythonPaths);
 
-pek::Result<void> PythonScriptOp::configure(const pek::AttributeMap &attributes) {
-    releaseScript();
-    model = nullptr;
+            PyObjectPtr runtimeModule(PyImport_ImportModule("pek_python_ops"));
+            if (!runtimeModule) {
+                return tl::unexpected(PEK_ERROR(pek::ErrorFlag::SystemFailure,
+                                                "Failed to initialize Python operation support:\n" +
+                                                    formatPythonError()));
+            }
 
-    try {
-        scriptPath = attributes.getString("script");
-        if (!std::filesystem::is_regular_file(scriptPath)) {
-            return tl::unexpected(
-                PEK_ERROR(pek::ErrorFlag::FileNotFound,
-                          fmt::format("Python script does not exist: {}", scriptPath.string())));
+            PyObjectPtr module(PyModule_New(moduleName.c_str()));
+            if (!module)
+                return tl::unexpected(
+                    PEK_ERROR(pek::ErrorFlag::SystemFailure, formatPythonError()));
+
+            PyObject *globals = PyModule_GetDict(module.get());
+            PyObjectPtr fileName(PyUnicode_FromString(absolutePath.string().c_str()));
+            PyObjectPtr packageName(PyUnicode_FromString(""));
+            if (globals == nullptr || !fileName || !packageName ||
+                PyDict_SetItemString(globals, "__builtins__", PyEval_GetBuiltins()) < 0 ||
+                PyDict_SetItemString(globals, "__file__", fileName.get()) < 0 ||
+                PyDict_SetItemString(globals, "__package__", packageName.get()) < 0 ||
+                PyDict_SetItemString(PyImport_GetModuleDict(), moduleName.c_str(), module.get()) <
+                    0) {
+                return tl::unexpected(
+                    PEK_ERROR(pek::ErrorFlag::SystemFailure, formatPythonError()));
+            }
+
+            PyObjectPtr code(
+                Py_CompileString(source.c_str(), absolutePath.string().c_str(), Py_file_input));
+            if (!code) {
+                removeModule(moduleName);
+                return tl::unexpected(PEK_ERROR(pek::ErrorFlag::ParseError,
+                                                fmt::format("Failed to compile {}:\n{}",
+                                                            scriptPath.string(),
+                                                            formatPythonError())));
+            }
+
+            PyObjectPtr evaluation(PyEval_EvalCode(code.get(), globals, globals));
+            if (!evaluation) {
+                removeModule(moduleName);
+                return tl::unexpected(PEK_ERROR(pek::ErrorFlag::ParseError,
+                                                fmt::format("Failed to load {}:\n{}",
+                                                            scriptPath.string(),
+                                                            formatPythonError())));
+            }
+
+            PyObjectPtr processFunction(PyObject_GetAttrString(module.get(), "process"));
+            if (!processFunction || !PyCallable_Check(processFunction.get())) {
+                PyErr_Clear();
+                removeModule(moduleName);
+                return tl::unexpected(
+                    PEK_ERROR(pek::ErrorFlag::InvalidData,
+                              fmt::format("{} must define callable process(env, tensors, context)",
+                                          scriptPath.string())));
+            }
+
+            return std::unique_ptr<LoadedScript>(new LoadedScript(
+                std::move(moduleName), std::move(module), std::move(processFunction)));
+        } catch (const std::exception &error) {
+            return tl::unexpected(PEK_ERROR(pek::ErrorFlag::SystemFailure, error.what()));
+        }
+    }
+
+    LoadedScript(const LoadedScript &) = delete;
+    LoadedScript &operator=(const LoadedScript &) = delete;
+
+    ~LoadedScript() {
+        reset();
+    }
+
+    [[nodiscard]] PyObject *module() const noexcept {
+        return moduleObject.get();
+    }
+
+    [[nodiscard]] PyObject *processFunction() const noexcept {
+        return callable.get();
+    }
+
+  private:
+    LoadedScript(std::string moduleName, PyObjectPtr moduleObject, PyObjectPtr callable)
+        : moduleName(std::move(moduleName)), moduleObject(std::move(moduleObject)),
+          callable(std::move(callable)) {}
+
+    void reset() noexcept {
+        if (!moduleObject && !callable)
+            return;
+        if (!Py_IsInitialized()) {
+            static_cast<void>(moduleObject.release());
+            static_cast<void>(callable.release());
+            return;
         }
 
-        pythonPaths.clear();
-        appendUniquePath(pythonPaths, std::filesystem::absolute(scriptPath).parent_path());
+        GILGuard gil;
+        removeModule(moduleName);
+        callable = PyObjectPtr();
+        moduleObject = PyObjectPtr();
+    }
+
+    std::string moduleName;
+    PyObjectPtr moduleObject;
+    PyObjectPtr callable;
+};
+
+PythonScriptOp::PythonScriptOp() = default;
+PythonScriptOp::~PythonScriptOp() = default;
+
+pek::Result<void> PythonScriptOp::configure(const pek::AttributeMap &attributes) {
+    try {
+        const std::filesystem::path candidateScriptPath = attributes.getString("script");
+        if (!std::filesystem::is_regular_file(candidateScriptPath)) {
+            return tl::unexpected(PEK_ERROR(
+                pek::ErrorFlag::FileNotFound,
+                fmt::format("Python script does not exist: {}", candidateScriptPath.string())));
+        }
+
+        std::vector<std::filesystem::path> candidatePythonPaths;
+        appendUniquePath(candidatePythonPaths,
+                         std::filesystem::absolute(candidateScriptPath).parent_path());
         if (attributes.contains("pythonPaths")) {
             for (const auto &value : attributes.getArray("pythonPaths")) {
                 const std::filesystem::path path(value.asString());
@@ -88,15 +202,26 @@ pek::Result<void> PythonScriptOp::configure(const pek::AttributeMap &attributes)
                         pek::ErrorFlag::FileNotFound,
                         fmt::format("Python import path does not exist: {}", path.string())));
                 }
-                appendUniquePath(pythonPaths, path);
+                appendUniquePath(candidatePythonPaths, path);
             }
         }
-        appendUniquePath(pythonPaths, packagedPythonPath());
-        appendUniquePath(pythonPaths, PEK_DEVELOPMENT_PYTHON_PATH);
+        appendUniquePath(candidatePythonPaths, packagedPythonPath());
+        appendUniquePath(candidatePythonPaths, PEK_DEVELOPMENT_PYTHON_PATH);
         if (instanceId.empty())
             instanceId = pek::op::makeDefaultInstanceId("pek-python-ops/PythonScript", 0);
-        moduleName = fmt::format("_pek_python_script_{}", nextModuleId.fetch_add(1));
+
         ensureRuntime();
+        auto candidateScript =
+            LoadedScript::load(candidateScriptPath,
+                               candidatePythonPaths,
+                               fmt::format("_pek_python_script_{}", nextModuleId.fetch_add(1)));
+        if (!candidateScript)
+            return tl::unexpected(candidateScript.error());
+
+        scriptPath = candidateScriptPath;
+        pythonPaths = std::move(candidatePythonPaths);
+        loadedScript = std::move(*candidateScript);
+        model = nullptr;
     } catch (const pek::AttributeError &error) {
         return tl::unexpected(
             PEK_ERROR(pek::ErrorFlag::InvalidOpChain,
@@ -105,72 +230,7 @@ pek::Result<void> PythonScriptOp::configure(const pek::AttributeMap &attributes)
         return tl::unexpected(PEK_ERROR(pek::ErrorFlag::SystemFailure, error.what()));
     }
 
-    return loadScript();
-}
-
-pek::Result<void> PythonScriptOp::loadScript() {
-    try {
-        const std::string source = readScript(scriptPath);
-        const auto absolutePath = std::filesystem::absolute(scriptPath);
-        GILGuard gil;
-        PythonPathGuard pathGuard(pythonPaths);
-
-        PyObjectPtr runtimeModule(PyImport_ImportModule("pek_python_ops"));
-        if (!runtimeModule) {
-            return tl::unexpected(
-                PEK_ERROR(pek::ErrorFlag::SystemFailure,
-                          "Failed to initialize Python tensor support:\n" + formatPythonError()));
-        }
-
-        PyObjectPtr newModule(PyModule_New(moduleName.c_str()));
-        if (!newModule)
-            return tl::unexpected(PEK_ERROR(pek::ErrorFlag::SystemFailure, formatPythonError()));
-
-        PyObject *globals = PyModule_GetDict(newModule.get());
-        PyObjectPtr fileName(PyUnicode_FromString(absolutePath.string().c_str()));
-        PyObjectPtr packageName(PyUnicode_FromString(""));
-        if (globals == nullptr || !fileName || !packageName ||
-            PyDict_SetItemString(globals, "__builtins__", PyEval_GetBuiltins()) < 0 ||
-            PyDict_SetItemString(globals, "__file__", fileName.get()) < 0 ||
-            PyDict_SetItemString(globals, "__package__", packageName.get()) < 0 ||
-            PyDict_SetItemString(PyImport_GetModuleDict(), moduleName.c_str(), newModule.get()) <
-                0) {
-            return tl::unexpected(PEK_ERROR(pek::ErrorFlag::SystemFailure, formatPythonError()));
-        }
-
-        PyObjectPtr code(
-            Py_CompileString(source.c_str(), absolutePath.string().c_str(), Py_file_input));
-        if (!code) {
-            PyDict_DelItemString(PyImport_GetModuleDict(), moduleName.c_str());
-            return tl::unexpected(PEK_ERROR(pek::ErrorFlag::ParseError,
-                                            fmt::format("Failed to compile {}:\n{}",
-                                                        scriptPath.string(),
-                                                        formatPythonError())));
-        }
-
-        PyObjectPtr evaluation(PyEval_EvalCode(code.get(), globals, globals));
-        if (!evaluation) {
-            PyDict_DelItemString(PyImport_GetModuleDict(), moduleName.c_str());
-            return tl::unexpected(PEK_ERROR(
-                pek::ErrorFlag::ParseError,
-                fmt::format("Failed to load {}:\n{}", scriptPath.string(), formatPythonError())));
-        }
-
-        PyObjectPtr callable(PyObject_GetAttrString(newModule.get(), "process"));
-        if (!callable || !PyCallable_Check(callable.get())) {
-            PyErr_Clear();
-            PyDict_DelItemString(PyImport_GetModuleDict(), moduleName.c_str());
-            return tl::unexpected(PEK_ERROR(
-                pek::ErrorFlag::InvalidData,
-                fmt::format("{} must define callable process(env, tensors)", scriptPath.string())));
-        }
-
-        module = newModule.release();
-        processFunction = callable.release();
-        return {};
-    } catch (const std::exception &error) {
-        return tl::unexpected(PEK_ERROR(pek::ErrorFlag::SystemFailure, error.what()));
-    }
+    return {};
 }
 
 pek::Result<void> PythonScriptOp::bind(size_t index, const std::vector<pek::op::Op *> &ops) {
@@ -191,7 +251,7 @@ pek::Result<pek::op::OpSignal> PythonScriptOp::process(pek::op::OpChainContext &
     PEK_TRACE_SCOPE(metricName);
     PEK_PERF_SCOPE(metricName);
 
-    if (module == nullptr || processFunction == nullptr) {
+    if (!loadedScript) {
         return tl::unexpected(
             PEK_ERROR(pek::ErrorFlag::SystemFailure, "Python script Op is not configured"));
     }
@@ -204,15 +264,17 @@ pek::Result<pek::op::OpSignal> PythonScriptOp::process(pek::op::OpChainContext &
         GILGuard gil;
         PythonPathGuard pathGuard(pythonPaths);
         perception::python_bridge::scoped_envelope envelope(*context.frameResults);
-        PyObjectPtr producerInfo(makePythonProducerInfo(
-            fmt::format("{}/{}", context.inferenceInfo.inferElementId, instanceId),
-            libName.empty() || opName.empty() ? "pek-python-ops/PythonScript"
-                                              : fmt::format("{}/{}", libName, opName),
-            scriptPath.filename().string()));
-        if (!producerInfo || PyObject_SetAttrString(module, "producer_info", producerInfo.get()) < 0) {
-            return tl::unexpected(PEK_ERROR(
-                pek::ErrorFlag::SystemFailure,
-                "Failed to expose Python producer metadata:\n" + formatPythonError()));
+        const auto producer = producerInfo(context.inferenceInfo.inferElementId,
+                                           scriptPath.filename().string(),
+                                           "pek-python-ops/PythonScript");
+        PyObjectPtr pythonProducerInfo(makePythonProducerInfo(
+            producer.instance_id, producer.component, producer.implementation));
+        PyObjectPtr scriptContext(pythonProducerInfo ? wrapContext(pythonProducerInfo.get())
+                                                     : nullptr);
+        if (!scriptContext) {
+            return tl::unexpected(
+                PEK_ERROR(pek::ErrorFlag::SystemFailure,
+                          "Failed to expose Python operation context:\n" + formatPythonError()));
         }
         PyObjectPtr tensors(wrapTensors(context, model));
         if (!tensors) {
@@ -221,8 +283,11 @@ pek::Result<pek::op::OpSignal> PythonScriptOp::process(pek::op::OpChainContext &
                           "Failed to expose inference tensors:\n" + formatPythonError()));
         }
 
-        PyObjectPtr result(PyObject_CallFunctionObjArgs(
-            processFunction, envelope.py_object(), tensors.get(), nullptr));
+        PyObjectPtr result(PyObject_CallFunctionObjArgs(loadedScript->processFunction(),
+                                                        envelope.py_object(),
+                                                        tensors.get(),
+                                                        scriptContext.get(),
+                                                        nullptr));
         if (!result) {
             return tl::unexpected(PEK_ERROR(pek::ErrorFlag::GenericError,
                                             fmt::format("Python script failed: {}\n{}",
@@ -230,33 +295,16 @@ pek::Result<pek::op::OpSignal> PythonScriptOp::process(pek::op::OpChainContext &
                                                         formatPythonError())));
         }
         if (result.get() != Py_None) {
-            return tl::unexpected(PEK_ERROR(
-                pek::ErrorFlag::InvalidData,
-                fmt::format("{} process(env, tensors) must return None", scriptPath.string())));
+            return tl::unexpected(
+                PEK_ERROR(pek::ErrorFlag::InvalidData,
+                          fmt::format("{} process(env, tensors, context) must return None",
+                                      scriptPath.string())));
         }
     } catch (const std::exception &error) {
         return tl::unexpected(PEK_ERROR(pek::ErrorFlag::SystemFailure, error.what()));
     }
 
     return pek::op::OpSignal::Continue;
-}
-
-void PythonScriptOp::releaseScript() noexcept {
-    if (module == nullptr && processFunction == nullptr)
-        return;
-    if (!Py_IsInitialized()) {
-        module = nullptr;
-        processFunction = nullptr;
-        return;
-    }
-
-    GILGuard gil;
-    if (!moduleName.empty() &&
-        PyDict_DelItemString(PyImport_GetModuleDict(), moduleName.c_str()) < 0) {
-        PyErr_Clear();
-    }
-    Py_CLEAR(processFunction);
-    Py_CLEAR(module);
 }
 
 } // namespace pek::python

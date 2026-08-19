@@ -364,15 +364,10 @@ pek::Result<void> UltraFaceParser::parse(const pek::TensorParser::Input &input,
     detections = nonMaxSuppression(detections, confThreshold, iouThreshold);
 
     perception::metadata::BoxDetectionsT payload;
-    payload.layer = perception::makeLayerInfo(
-        input.inferenceInfo.modelName,
-        input.inferenceInfo.inferElementId,
-        k_content_type,
-        "",
-        "",
-        "",
-        "",
-        &input.producerInfo);
+    payload.layer = perception::makeLayerInfo({.model = input.inferenceInfo.modelName,
+                                               .inferElementId = input.inferenceInfo.inferElementId,
+                                               .contentType = k_content_type,
+                                               .producer = &input.producerInfo});
     for (auto &detection : detections) {
         payload.detections.push_back(std::make_unique<FaceDetection>(std::move(detection)));
     }

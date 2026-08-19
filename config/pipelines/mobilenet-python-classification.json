@@ -7,7 +7,7 @@
     "videoconvert !",
     "videoscale !",
     "video/x-raw,format=BGRA,width=1280,height=720,framerate=20/1 !",
-    "pekinfer opchain-path=/work/config/models/mobilenetv2/opchain-python-overlay.json active=true !",
+    "pekinfer opchain-path=/work/config/models/mobilenetv2/opchain-python-classification.json active=true !",
     "pekperformance show-all-metrics=true update-interval=1 !",
     "pekcomm method=websocket endpoint=/ws !",
     "pekosd enabled=false performance-overlay-enabled=false !",

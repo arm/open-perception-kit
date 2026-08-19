@@ -9,11 +9,11 @@ Whole-frame ImageNet classifier.
 - Supported FrameResults payload: `ClassificationsT` with `content_type` set to `classification`
 - Typical use: scene/image classification without detection boxes
 
-The optional `opchain-python-overlay.json` variant runs
-`scripts/tensor_metrics_overlay.py` between inference and the standard
+The optional `opchain-python-classification.json` variant runs
+`scripts/python_classification.py` between inference and the standard
 postprocessor. The script independently calculates the top five ImageNet
 classes from the raw output tensor and tracks how many consecutive frames keep
-the same top class. The `mobilenet-python-op` pipeline continuously classifies a
+the same top class. The `mobilenet-python-classification` pipeline continuously classifies a
 bundled real sample image and uses the WebUI as the single overlay renderer. The
 Python list appears in the lower-right corner and the standard postprocessor
 list appears in the lower-left. Both sides use the same five-row rank, label,

@@ -776,7 +776,7 @@ RUN set -eux; \
     videoconvert ! videoscale ! \
     video/x-raw,format=BGRA,width=320,height=240,framerate=5/1 ! \
     pekinfer \
-      opchain-path=/work/config/models/mobilenetv2/opchain-python-overlay.json \
+      opchain-path=/work/config/models/mobilenetv2/opchain-python-classification.json \
       active=true ! \
     fakesink
 

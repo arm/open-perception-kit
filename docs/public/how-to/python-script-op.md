@@ -45,13 +45,13 @@ outputs are available.
 import numpy
 
 from perception.guest import Envelope
-from pek_python_ops import Tensor
+from pek_python_ops import Context, Tensor
 
 
 frame_count = 0
 
 
-def process(env: Envelope, tensors: tuple[Tensor, ...]) -> None:
+def process(env: Envelope, tensors: tuple[Tensor, ...], context: Context) -> None:
     global frame_count
     frame_count += 1
 
@@ -64,27 +64,26 @@ def process(env: Envelope, tensors: tuple[Tensor, ...]) -> None:
         print(frame_count, output.index, output.name, values.shape, values.dtype)
 ```
 
-`process` must accept the envelope and tensor tuple and return `None`. Existing
-FrameResults payloads are read-only bridge proxies. Use `env.add(...)` with the
-generated object API to append new payloads, following the same pattern as a
-generated Perception SDK consumer.
+`process` must accept the envelope, tensor tuple, and call-scoped context and
+return `None`. Existing FrameResults payloads are read-only bridge proxies. Use
+`env.add(...)` with the generated object API to append new payloads, following
+the same pattern as a generated Perception SDK consumer.
 
-During `process`, the module global `producer_info` contains the generated
-`ProducerInfoT` for the current Python Op. Attach it to the `LayerInfoT` of
-payloads created by the script:
+`context.producer_info` contains the generated `ProducerInfoT` for the current
+Python Op. Attach it to the `LayerInfoT` of payloads created by the script:
 
 ```python
 layer = LayerInfoT(
     model="example-model",
     contentType="classification",
-    producer=producer_info,
+    producer=context.producer_info,
 )
 ```
 
 The producer records the runtime instance ID, the
-`pek-python-ops/PythonScript` component, and the script filename. Do not retain
-or mutate `producer_info`; use it only while constructing payloads for the
-current invocation.
+`pek-python-ops/PythonScript` component, and the script filename. The context
+property is read-only. Do not mutate its producer object; use it while
+constructing payloads for the current invocation.
 
 ## Tensor contract
 
@@ -139,13 +138,13 @@ Build with Python operations enabled and run the pipeline:
 
 ```bash
 PEK_PYTHON_OPS=enabled ./scripts/build-elements.sh debug true
-./tools/pek-menu mobilenet-python-op
+./tools/pek-menu mobilenet-python-classification
 ```
 
 The implementation is in
-`config/models/mobilenetv2/scripts/tensor_metrics_overlay.py`, and its operation
+`config/models/mobilenetv2/scripts/python_classification.py`, and its operation
 order is documented by
-`config/models/mobilenetv2/opchain-python-overlay.json`. The stable-frame count
+`config/models/mobilenetv2/opchain-python-classification.json`. The stable-frame count
 resets when the predicted class changes or the pipeline is recreated.
 
 ## State, errors, and deployment

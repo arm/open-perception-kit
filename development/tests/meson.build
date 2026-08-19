@@ -95,21 +95,25 @@ if python_ops_enabled
     ],
     dependencies : [gtest_main_dep, gtest_dep, python_ops_test_dep],
   )
-  test('python_script_demo_tests', pek_python, args : [files('python_script_demo_test.py')])
-  python_script_pipeline_test_env = environment()
-  python_script_pipeline_test_env.prepend(
+  test(
+    'python_classification_demo_tests',
+    pek_python,
+    args : [files('python_classification_demo_test.py')],
+  )
+  python_classification_pipeline_test_env = environment()
+  python_classification_pipeline_test_env.prepend(
     'PYTHONPATH',
     meson.project_source_root() / '../generated/perception/python/src',
   )
   test(
-    'python_script_pipeline_tests',
+    'python_classification_pipeline_tests',
     pek_python,
     args : [
-      files('python_script_pipeline_test.py'),
+      files('python_classification_pipeline_test.py'),
       meson.project_source_root() / '..',
       meson.project_build_root() / 'meson-out',
     ],
-    env : python_script_pipeline_test_env,
+    env : python_classification_pipeline_test_env,
     depends : [gstpekinfer, pekcomm, onnxops, stdops, python_ops],
     timeout : 90,
     is_parallel : false,

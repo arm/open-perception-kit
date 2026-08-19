@@ -87,8 +87,9 @@ pek::Result<void> GenericPostprocessOp::configure(const pek::AttributeMap &attri
     const auto &registry = getParserRegistry();
     auto it = registry.find(parserName);
     if (it == registry.end()) {
-        return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
-                                        fmt::format("No tensor parser with name: [{}]", parserName)));
+        return tl::unexpected(
+            PEK_ERROR(pek::ErrorFlag::InvalidData,
+                      fmt::format("No tensor parser with name: [{}]", parserName)));
     }
 
     this->parser = it->second();
@@ -117,12 +118,8 @@ GenericPostprocessOp::process(pek::op::OpChainContext &opChainContext) {
 
     // copy active inference info
     tensorParserInput.inferenceInfo = opChainContext.inferenceInfo;
-    tensorParserInput.producerInfo.instance_id =
-        fmt::format("{}/{}", opChainContext.inferenceInfo.inferElementId, instanceId);
-    tensorParserInput.producerInfo.component =
-        libName.empty() || opName.empty() ? "pek-std-ops/GenericPostprocess"
-                                          : fmt::format("{}/{}", libName, opName);
-    tensorParserInput.producerInfo.implementation = parserName;
+    tensorParserInput.producerInfo = producerInfo(
+        opChainContext.inferenceInfo.inferElementId, parserName, "pek-std-ops/GenericPostprocess");
 
     if (auto parseResult = parser->parse(tensorParserInput, *opChainContext.frameResults);
         !parseResult) {
