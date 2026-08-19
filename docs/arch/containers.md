@@ -46,6 +46,8 @@ Documentation lane
 CI lane
   pek-dev-base
     -> pek-ci
+  pek-demo-media
+    --copy demo videos--> pek-ci
 
 Deployment lane
   pek-build-base
@@ -179,8 +181,10 @@ stages inherit everything from their parent unless noted otherwise.
 - `pek-cross-build-base`: currently inherits `pek-build-base` and gives the
   deployment build lane a named cross-build root.
 - `pek-demo-media`: starts from `debian:trixie-slim`, adds `ca-certificates`,
-  `curl`, and `bash`, then runs `scripts/download-data.sh` unless
-  `NO_EXAMPLE_CONTENT=true`, producing `data/videos` for deployment.
+  `curl`, and `bash`, then runs `scripts/private/download-demo-videos.sh` unless
+  `NO_EXAMPLE_CONTENT=true`. The checked-in manifest locks each Box file by
+  SHA-256, and the stage emits `data/videos/SHA256SUMS` beside the verified
+  media.
 - `pek-models`: starts from `python:3.13-slim-trixie`, adds
   `huggingface_hub==1.18.0` and `jsonschema==4.26.0`, then runs
   `scripts/download-models.py` with the optional Hugging Face build secret to
@@ -189,7 +193,8 @@ stages inherit everything from their parent unless noted otherwise.
   `pre-commit`, `lldb-17`, `valgrind`, `file`, GStreamer runtime plugins,
   `actionlint`, ONNX Runtime, `uv`, the `expkits-ci` tool, `plumber`, and
   `huggingface_hub==1.18.0` in the devtools venv, with
-  `jsonschema==4.26.0` inherited from its system-site packages.
+  `jsonschema==4.26.0` inherited from its system-site packages. It also owns
+  the shared mounted-checkout entrypoint used by development and CI targets.
 - `pek-dev-tools`: adds Executorch packages, locale support, shell/editor tools
   such as `zsh`, Vim, Neovim, Nano, tmux, bash completion, `mc`, debugging and
   language tools such as `gdb` and `clangd`, browser and device tools such as
@@ -205,7 +210,9 @@ stages inherit everything from their parent unless noted otherwise.
   PlantUML JAR.
 - `pek-ci`: adds the docs toolchain plus `gcovr`, Python development and venv
   packages, Python GObject/GStreamer bindings, compression/database development
-  libraries, the PlantUML JAR, and Sonar Scanner.
+  libraries, the PlantUML JAR, and Sonar Scanner. It copies demo videos from
+  `pek-demo-media`; the inherited entrypoint verifies and seeds them into the
+  mounted checkout.
 - `pek-deployment-build`: inherits `pek-cross-build-base`, adds the target
   sysroot when cross-building, installs target ONNX Runtime, downloads Meson
   subprojects, consumes resolved model artifacts from `pek-models` and demo

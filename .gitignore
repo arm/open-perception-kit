@@ -116,10 +116,11 @@ docs/html
 todo.md
 
 # -------------------------
-# Demo video assets (download with scripts/download-data.sh)
+# Demo video assets (provided by the pek-demo-media stage)
 # -------------------------
 data/videos/*.mov
 data/videos/*.mp4
+data/videos/SHA256SUMS
 
 
 # -------------------------

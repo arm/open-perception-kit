@@ -31,6 +31,8 @@ Focus on:
 - regressions introduced by this change
 - merge or release risk
 - configuration or CI regressions
+- duplicate artifact download paths that bypass the owners documented in
+  `AGENTS.md`
 - security-sensitive changes
 - mismatches between changed code, config, tests, and documentation
 - missing tests or validation when the changed behavior is risky or user-visible
