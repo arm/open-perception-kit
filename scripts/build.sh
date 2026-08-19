@@ -48,13 +48,13 @@ case "$1" in
         ;;
 esac
 
-in_container=false
-if [[ -f /.dockerenv ]] || grep -qaE '/docker/|/containers/' /proc/1/cgroup 2> /dev/null; then
-    in_container=true
-fi
-
 SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+
+in_container=false
+if [[ "$REPO_ROOT" == /work || -f /.dockerenv ]] || grep -qaE '/docker/|/containers/' /proc/1/cgroup 2> /dev/null; then
+    in_container=true
+fi
 
 if [[ "$in_container" == false ]]; then
     detect_script="$REPO_ROOT/scripts/quick-start/detect-environment.sh"
