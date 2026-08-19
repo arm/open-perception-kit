@@ -19,8 +19,11 @@ REPOSITORY_ROOT = (
     if REPOSITORY_ARGUMENT is not None and REPOSITORY_ARGUMENT.is_dir()
     else Path(__file__).resolve().parents[2]
 )
-BUILD_SCRIPT = REPOSITORY_ROOT / "scripts/build-elements.sh"
+BUILD_ELEMENTS_PATH = "scripts/build-elements.sh"
+BUILD_SCRIPT = REPOSITORY_ROOT / BUILD_ELEMENTS_PATH
 SHTOOLS_SCRIPT = REPOSITORY_ROOT / "scripts/private/shtools.sh"
+PEK_MENU_PATH = "tools/pek-menu"
+NATIVE_BUILD_PATH = "development/build-native"
 
 
 class BuildElementsScriptTests(unittest.TestCase):
@@ -32,7 +35,7 @@ class BuildElementsScriptTests(unittest.TestCase):
             "project('build-elements-test')\n",
             encoding="utf-8",
         )
-        shutil.copy2(BUILD_SCRIPT, checkout / "scripts/build-elements.sh")
+        shutil.copy2(BUILD_SCRIPT, checkout / BUILD_ELEMENTS_PATH)
         shutil.copy2(SHTOOLS_SCRIPT, checkout / "scripts/private/shtools.sh")
         return checkout
 
@@ -106,7 +109,7 @@ class BuildElementsScriptTests(unittest.TestCase):
             environment.update(environment_overrides)
 
         return subprocess.run(
-            [str(checkout / "scripts/build-elements.sh"), *arguments],
+            [str(checkout / BUILD_ELEMENTS_PATH), *arguments],
             cwd=checkout.parent,
             env=environment,
             check=False,
@@ -140,7 +143,7 @@ class BuildElementsScriptTests(unittest.TestCase):
                 invocations[0]["argv"],
                 [
                     "setup",
-                    str(checkout / "development/build-native"),
+                    str(checkout / NATIVE_BUILD_PATH),
                     str(checkout / "development"),
                     "--buildtype=debug",
                     "--layout=flat",
@@ -149,9 +152,9 @@ class BuildElementsScriptTests(unittest.TestCase):
             )
             self.assertEqual(
                 invocations[1]["argv"],
-                ["compile", "-C", str(checkout / "development/build-native")],
+                ["compile", "-C", str(checkout / NATIVE_BUILD_PATH)],
             )
-            self.assertTrue((checkout / "tools/pek-menu").is_file())
+            self.assertTrue((checkout / PEK_MENU_PATH).is_file())
             self.assertTrue((checkout / "tools/pek-config-check").is_file())
             self.assertTrue((checkout / "tools/libpek-common.so").is_file())
             active_build_dir = checkout / "development/build-active"
@@ -203,8 +206,8 @@ class BuildElementsScriptTests(unittest.TestCase):
             invocations = self.read_invocations(log_path)
             self.assertEqual(invocations[0]["project_root"], str(target))
             self.assertEqual(invocations[0]["argv"][2], str(target / "development"))
-            self.assertTrue((target / "tools/pek-menu").is_file())
-            self.assertFalse((driver / "tools/pek-menu").exists())
+            self.assertTrue((target / PEK_MENU_PATH).is_file())
+            self.assertFalse((driver / PEK_MENU_PATH).exists())
 
     def test_relative_environment_override_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -229,7 +232,7 @@ class BuildElementsScriptTests(unittest.TestCase):
             temporary_root = Path(temporary)
             checkout = self.make_checkout(temporary_root, "checkout")
             bin_dir, log_path = self.make_fake_tools(temporary_root)
-            build_dir = checkout / "development/build-native"
+            build_dir = checkout / NATIVE_BUILD_PATH
             test_build_dir = checkout / "development/build-native-test"
             container_build_dir = checkout / "development/build"
             build_dir.mkdir()
