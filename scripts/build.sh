@@ -93,7 +93,7 @@ if [[ "$in_container" == false ]]; then
         docker_exec_args+=(--env-file "$REPO_ROOT/devices.env")
     fi
     for env_name in PEK_EXECUTORCH PEK_HAILORT PEK_NCNN executorch hailort ncnn; do
-        if [[ -v "$env_name" ]]; then
+        if [[ "${!env_name+x}" == x ]]; then
             docker_exec_args+=(--env "$env_name=${!env_name}")
         fi
     done
