@@ -116,6 +116,40 @@ TEST(PythonScriptOp, AllowsPlacementWithoutInferenceOutputs) {
     EXPECT_TRUE(script.process(context));
 }
 
+TEST(PythonScriptOp, RejectsIncompatibleProcessSignaturesDuringConfiguration) {
+    const auto initialCount = loadedScriptModuleCount();
+
+    pek::python::PythonScriptOp script;
+    const auto missingContext = script.configure(attributes("invalid_signature.py"));
+    ASSERT_FALSE(missingContext);
+    EXPECT_EQ(missingContext.error().flag, pek::ErrorFlag::InvalidData);
+    EXPECT_NE(missingContext.error().info.find("must accept three positional arguments"),
+              std::string::npos);
+    EXPECT_NE(missingContext.error().info.find("context"), std::string::npos);
+    EXPECT_EQ(loadedScriptModuleCount(), initialCount);
+
+    const auto keywordOnlyContext =
+        script.configure(attributes("invalid_keyword_only_signature.py"));
+    ASSERT_FALSE(keywordOnlyContext);
+    EXPECT_EQ(keywordOnlyContext.error().flag, pek::ErrorFlag::InvalidData);
+    EXPECT_NE(keywordOnlyContext.error().info.find("must accept three positional arguments"),
+              std::string::npos);
+    EXPECT_EQ(loadedScriptModuleCount(), initialCount);
+}
+
+TEST(PythonScriptOp, AcceptsCompatibleVariadicProcessSignature) {
+    pek::python::PythonScriptOp script;
+    std::vector<pek::op::Op *> ops = {&script};
+    ASSERT_TRUE(script.configure(attributes("variadic_signature.py")));
+    ASSERT_TRUE(script.bind(0, ops));
+
+    perception::FrameResults results;
+    pek::op::OpChainContext context;
+    context.frameResults = &results;
+
+    EXPECT_TRUE(script.process(context));
+}
+
 TEST(PythonScriptOp, FailedReconfigurationKeepsLoadedScript) {
     pek::python::PythonScriptOp script;
     std::vector<pek::op::Op *> ops = {&script};
@@ -127,8 +161,9 @@ TEST(PythonScriptOp, FailedReconfigurationKeepsLoadedScript) {
     context.frameResults = &results;
     ASSERT_TRUE(script.process(context));
 
-    const auto reconfigure = script.configure(attributes("missing.py"));
+    const auto reconfigure = script.configure(attributes("invalid_signature.py"));
     ASSERT_FALSE(reconfigure);
+    EXPECT_EQ(reconfigure.error().flag, pek::ErrorFlag::InvalidData);
     EXPECT_TRUE(script.process(context));
 }
 

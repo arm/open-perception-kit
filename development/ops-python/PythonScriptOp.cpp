@@ -64,6 +64,43 @@ PyObjectPtr makePythonProducerInfo(const std::string &instanceId,
         producerType.get(), "sss", instanceId.c_str(), component.c_str(), implementation.c_str()));
 }
 
+pek::Result<void> validateProcessSignature(PyObject *processFunction,
+                                           const std::filesystem::path &scriptPath) {
+    PyObjectPtr inspectModule(PyImport_ImportModule("inspect"));
+    PyObjectPtr signatureFunction(
+        inspectModule ? PyObject_GetAttrString(inspectModule.get(), "signature") : nullptr);
+    if (!signatureFunction || !PyCallable_Check(signatureFunction.get())) {
+        return tl::unexpected(
+            PEK_ERROR(pek::ErrorFlag::SystemFailure,
+                      "Failed to initialize Python signature validation:\n" + formatPythonError()));
+    }
+
+    PyObjectPtr signature(
+        PyObject_CallFunctionObjArgs(signatureFunction.get(), processFunction, nullptr));
+    if (!signature) {
+        return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
+                                        fmt::format("Cannot inspect {} process signature:\n{}",
+                                                    scriptPath.string(),
+                                                    formatPythonError())));
+    }
+
+    PyObjectPtr bindFunction(PyObject_GetAttrString(signature.get(), "bind"));
+    PyObjectPtr boundArguments(
+        bindFunction
+            ? PyObject_CallFunctionObjArgs(bindFunction.get(), Py_None, Py_None, Py_None, nullptr)
+            : nullptr);
+    if (!boundArguments) {
+        return tl::unexpected(
+            PEK_ERROR(pek::ErrorFlag::InvalidData,
+                      fmt::format("{} process must accept three positional arguments "
+                                  "(env, tensors, context):\n{}",
+                                  scriptPath.string(),
+                                  formatPythonError())));
+    }
+
+    return {};
+}
+
 } // namespace
 
 class LoadedScript {
@@ -130,6 +167,13 @@ class LoadedScript {
                     PEK_ERROR(pek::ErrorFlag::InvalidData,
                               fmt::format("{} must define callable process(env, tensors, context)",
                                           scriptPath.string())));
+            }
+
+            if (const auto signatureResult =
+                    validateProcessSignature(processFunction.get(), scriptPath);
+                !signatureResult) {
+                removeModule(moduleName);
+                return tl::unexpected(signatureResult.error());
             }
 
             return std::unique_ptr<LoadedScript>(new LoadedScript(
