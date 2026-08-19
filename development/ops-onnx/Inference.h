@@ -132,10 +132,10 @@ struct Inference {
     getTensorShape(const Ort::Session &session, pek::TensorInOut tensorInOut, int tensorIndex);
     static pek::Result<pek::Model> inspectModel(const Ort::Session &session);
 
-    Ort::Env *environment = nullptr;
-    Ort::SessionOptions *sessionOptions = nullptr;
-    Ort::MemoryInfo *memoryInfo = nullptr;
-    Ort::Session *session = nullptr;
+    std::unique_ptr<Ort::Env> environment;
+    std::unique_ptr<Ort::SessionOptions> sessionOptions;
+    std::unique_ptr<Ort::MemoryInfo> memoryInfo;
+    std::unique_ptr<Ort::Session> session;
 
     Result<void> setupTensorsForModel();
     void recreateInputTensor(size_t index, const pek::Shape &shape, pek::Dtype valueType);
