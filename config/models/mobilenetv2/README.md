@@ -12,11 +12,13 @@ Whole-frame ImageNet classifier.
 The optional `opchain-python-overlay.json` variant runs
 `scripts/tensor_metrics_overlay.py` between inference and the standard
 postprocessor. The script independently calculates the top five ImageNet
-classes from the raw output tensor, tracks how many consecutive frames keep the
-same top class, and renders the results in the lower-right corner. The standard
-postprocessor continues to render its top classifications in the lower-left
-corner. Both sides use the same five-row rank, label, and confidence format;
-the stable-frame count remains available in the Python layer metadata.
+classes from the raw output tensor and tracks how many consecutive frames keep
+the same top class. The `mobilenet-python-op` pipeline continuously classifies a
+bundled real sample image and uses the WebUI as the single overlay renderer. The
+Python list appears in the lower-right corner and the standard postprocessor
+list appears in the lower-left. Both sides use the same five-row rank, label,
+and confidence format; the stable-frame count remains available in the Python
+layer metadata.
 
 The Python demo uses the model-local `scripts/imagenet_labels.txt` table so it
 can produce a human-readable label before the C++ postprocessor executes. Keep

@@ -305,6 +305,7 @@ EXPOSE 8000 8001 9999 8080 2222
 ENV GST_DEBUG=2 \
   GST_PLUGIN_PATH=/work/development/build/meson-out \
   LD_LIBRARY_PATH=/opt/pek-deps/onnxruntime/lib:/work/development/build/meson-out \
+  PEK_PYTHON_RUNTIME_VENV=/opt/pek-venvs/python-ops-runtime \
   PEK_DEVTOOLS_VENV=/opt/pek-venvs/devtools \
   PATH=/opt/pek-venvs/devtools/bin:${PATH}
 
@@ -600,6 +601,10 @@ RUN --mount=type=cache,id=pek-deployment-ccache,target=/work/.cache/ccache,shari
   export CCACHE_MAXSIZE=2G; \
   export CCACHE_UMASK=000; \
   ccache --zero-stats; \
+  /opt/pek-venvs/python-ops-runtime/bin/pip install --no-cache-dir --no-deps \
+    /work/generated/perception/python; \
+  /opt/pek-venvs/python-ops-runtime/bin/python -c \
+    'import flatbuffers, numpy, perception'; \
   native_arch="$(dpkg --print-architecture)"; \
   extra_setup_args=(); \
   if [ "${PEK_RELEASE_BUILD}" = true ]; then \
@@ -647,29 +652,6 @@ RUN --mount=type=cache,id=pek-deployment-ccache,target=/work/.cache/ccache,shari
     /work/tools/pek-config-check --root /work; \
     DESTDIR="${package_root}" meson install \
       -C /work/development/build --skip-subprojects; \
-    python_runtime=/opt/pek-venvs/python-ops-runtime/bin/python; \
-    test -x "${python_runtime}"; \
-    python_runtime_root="${package_root}/share/pek/python"; \
-    python_runtime_site="$("${python_runtime}" -c 'import site; print(site.getsitepackages()[0])')"; \
-    numpy_version="$(python3 -c 'import json; print(json.load(open("/work/development/ops-python/runtime.json"))["numpy"]["version"])')"; \
-    flatbuffers_version="$(python3 -c 'import json; print(json.load(open("/work/tools/perception/sdk.json"))["flatbuffers"]["version"])')"; \
-    "${python_runtime}" -c 'import flatbuffers, numpy, sys; expected_numpy, expected_flatbuffers = sys.argv[1:]; assert numpy.__version__ == expected_numpy; assert flatbuffers.__version__ == expected_flatbuffers' \
-      "${numpy_version}" "${flatbuffers_version}"; \
-    mkdir -p "${python_runtime_root}" "${package_root}/share/pek/licenses/python-runtime"; \
-    for runtime_entry in \
-      numpy \
-      numpy.libs \
-      "numpy-${numpy_version}.dist-info" \
-      flatbuffers \
-      "flatbuffers-${flatbuffers_version}.dist-info"; do \
-      test -e "${python_runtime_site}/${runtime_entry}"; \
-      test ! -L "${python_runtime_site}/${runtime_entry}"; \
-      cp -a "${python_runtime_site}/${runtime_entry}" "${python_runtime_root}/"; \
-    done; \
-    cp "${python_runtime_site}/numpy-${numpy_version}.dist-info/licenses/LICENSE.txt" \
-      "${package_root}/share/pek/licenses/python-runtime/NUMPY-LICENSE.txt"; \
-    cp "${python_runtime_site}/flatbuffers-${flatbuffers_version}.dist-info/LICENSE" \
-      "${package_root}/share/pek/licenses/python-runtime/FLATBUFFERS-LICENSE.txt"; \
     cp /opt/pek-deps/onnxruntime/lib/libonnxruntime.so.1.24.4 \
       "${package_root}/lib/pek/"; \
     ln -s libonnxruntime.so.1.24.4 \
@@ -722,6 +704,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
   GST_DEBUG=2 \
   GST_PLUGIN_PATH=/work/development/build/meson-out \
   LD_LIBRARY_PATH=/opt/pek-deps/onnxruntime/lib:/work/development/build/meson-out \
+  PEK_PYTHON_RUNTIME_VENV=/opt/pek-venvs/python-ops-runtime \
   PEK_PIPELINE=${PEK_PIPELINE}
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -739,6 +722,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   libfftw3-single3 \
   libfmt10 \
   libjson-glib-1.0-0 \
+  libpython3.13 \
+  python3 \
   libsoup-3.0-0 \
   libssl3t64 \
   libusb-1.0-0 \
@@ -770,6 +755,7 @@ RUN set -eux; \
   chown -R "${USER_UID}:${USER_GID}" /work /tmp/pekcomm
 
 COPY --from=pek-deployment-build /opt/pek-deps/onnxruntime/lib /opt/pek-deps/onnxruntime/lib
+COPY --from=pek-deployment-build /opt/pek-venvs/python-ops-runtime /opt/pek-venvs/python-ops-runtime
 COPY --from=pek-deployment-build /work/config /work/config
 COPY data /work/data
 COPY --from=pek-demo-media /work/data/videos /work/data/videos
@@ -778,6 +764,21 @@ COPY --from=pek-deployment-build /opt/pek-app/development/build /work/developmen
 COPY --from=pek-deployment-build /opt/pek-app/tools /work/tools
 COPY --from=pek-deployment-build /opt/pek-app/scripts /work/scripts
 COPY --from=pek-deployment-build /opt/pek-release-artifacts /opt/pek-release-artifacts
+
+RUN set -eux; \
+  /opt/pek-venvs/python-ops-runtime/bin/python -c \
+    'import flatbuffers, numpy, perception'; \
+  if ldd /work/development/build/meson-out/pek-python-ops.so | grep -q 'not found'; then \
+    exit 1; \
+  fi; \
+  gst-launch-1.0 -q \
+    videotestsrc num-buffers=1 pattern=ball ! \
+    videoconvert ! videoscale ! \
+    video/x-raw,format=BGRA,width=320,height=240,framerate=5/1 ! \
+    pekinfer \
+      opchain-path=/work/config/models/mobilenetv2/opchain-python-overlay.json \
+      active=true ! \
+    fakesink
 
 EXPOSE 8000
 EXPOSE 8001

@@ -810,8 +810,8 @@
     "tools": [
       {
         "path": "tools/perception/generate.py",
-        "sha256": "26909c082f8056f22edd475f996328d766d445fa1d145da72b70dc609e1a3336",
-        "size": 31747
+        "sha256": "396f0d2f81d87a36c7a1b6883d91771edb375d4b55d8053f2bf92156ee7dce94",
+        "size": 31769
       },
       {
         "path": "tools/perception/release_common.py",
@@ -849,8 +849,8 @@
   "project_files": [
     {
       "path": "development/perception/meson.build",
-      "sha256": "1693a73a356b449d6e3fb21afe1b522cb04c50e32c3284841f8f87e750e6a6cc",
-      "size": 1113
+      "sha256": "8fc60debc51e061a441ada55a1bd7101a296626ee17aa47648577c54b8651548",
+      "size": 1135
     }
   ],
   "upstream_receipts": {

@@ -158,6 +158,7 @@ static pek::tracker::Config trackerConfigFromElement(const GstPekTracker *self) 
     config.emitTrace = self->emitTrace;
     config.associationMode = associationModeFromString(self->associationMode);
     config.inferId = gst_pektracker_get_effective_inferId(self);
+    config.producerInstanceId = GST_OBJECT_NAME(GST_ELEMENT(self));
     return config;
 }
 

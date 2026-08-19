@@ -110,7 +110,9 @@ and calls `process(env, tensors)` on each execution. Its `script` and
 `pythonPaths` attributes use the same descriptor-relative path policy as model
 descriptors. It is a generic hook: before inference it receives an empty tensor
 tuple, while after inference it receives the latest output tensors as read-only
-NumPy views.
+NumPy views. The views are zero-copy and valid only for the duration of the
+call. The operation is supported by native pipelines in the official PEK
+containers and uses their pinned embedded Python runtime.
 
 ## Inference and Postprocessing Interfaces
 

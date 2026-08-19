@@ -15,6 +15,7 @@
 
 #include "PythonRuntime.h"
 #include "TensorBridge.h"
+#include "op/OpChainDescriptor.h"
 #include "perf/PerformanceMetrics.h"
 #include "perf/PerformanceTracer.h"
 #include "python_bridge/perception_python_bridge.h"
@@ -93,7 +94,7 @@ pek::Result<void> PythonScriptOp::configure(const pek::AttributeMap &attributes)
         appendUniquePath(pythonPaths, packagedPythonPath());
         appendUniquePath(pythonPaths, PEK_DEVELOPMENT_PYTHON_PATH);
         if (instanceId.empty())
-            instanceId = fmt::format("PythonScript-{}", index);
+            instanceId = pek::op::makeDefaultInstanceId("pek-python-ops/PythonScript", 0);
         moduleName = fmt::format("_pek_python_script_{}", nextModuleId.fetch_add(1));
         ensureRuntime();
     } catch (const pek::AttributeError &error) {
@@ -185,7 +186,8 @@ pek::Result<void> PythonScriptOp::bind(size_t index, const std::vector<pek::op::
 }
 
 pek::Result<pek::op::OpSignal> PythonScriptOp::process(pek::op::OpChainContext &context) {
-    const auto metricName = fmt::format("python/Script/{}", context.inferenceInfo.modelName);
+    const auto metricName =
+        fmt::format("python/Script/{}/{}", context.inferenceInfo.modelName, instanceId);
     PEK_TRACE_SCOPE(metricName);
     PEK_PERF_SCOPE(metricName);
 

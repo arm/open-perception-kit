@@ -51,8 +51,9 @@ class PythonPathGuard {
     ~PythonPathGuard();
 
   private:
-    PyObjectPtr sysPath;
-    size_t insertedCount = 0;
+    PyObjectPtr sysModule;
+    PyObjectPtr originalPathObject;
+    PyObjectPtr originalPathSnapshot;
 };
 
 std::filesystem::path packagedPythonPath();

@@ -183,6 +183,7 @@ function drawConfiguredLayer(layer, renderer) {
 }
 
 function drawLayers(ctx, perception, mapper, renderOptions, now) {
+  const classificationBottomOffsets = {left: 0, right: 0};
   const renderers = [
     {
       enabled: renderOptions.trackTraces,
@@ -206,14 +207,19 @@ function drawLayers(ctx, perception, mapper, renderOptions, now) {
       enabled: renderOptions.classification,
       contentType: "classification",
       detectionType: "Classification",
-      draw: (data, layer) => drawClassification(
-        ctx,
-        data,
-        mapper.display,
-        renderOptions.colors,
-        classificationHeading(layer),
-        layer.compositingMode === "bottomRight",
-      ),
+      draw: (data, layer) => {
+        const alignRight = layer.compositingMode === "bottomRight";
+        const side = alignRight ? "right" : "left";
+        classificationBottomOffsets[side] += drawClassification(
+          ctx,
+          data,
+          mapper.display,
+          renderOptions.colors,
+          classificationHeading(layer),
+          alignRight,
+          classificationBottomOffsets[side],
+        );
+      },
     },
     {
       enabled: renderOptions.personStatus,
@@ -261,17 +267,25 @@ function drawFace(ctx, rect, mapper, colors) {
   ctx.restore();
 }
 
-function drawClassification(ctx, classification, display, colors, heading, alignRight = false) {
+function drawClassification(
+  ctx,
+  classification,
+  display,
+  colors,
+  heading,
+  alignRight = false,
+  bottomOffset = 0,
+) {
   const candidates = Array.isArray(classification?.candidates) ? classification.candidates : [];
   if (candidates.length === 0) {
-    return;
+    return 0;
   }
 
   const fontSize = 14;
   const lineHeight = fontSize * 1.5;
   const padding = 10;
   const startX = display.x + padding;
-  const startY = display.y + display.height - candidates.length * lineHeight - padding;
+  const startY = display.y + display.height - bottomOffset - candidates.length * lineHeight - 2 * padding;
   const textX = classificationTextX(display, padding, alignRight);
   if (heading) {
     drawTextChip(
@@ -287,6 +301,7 @@ function drawClassification(ctx, classification, display, colors, heading, align
     const text = `#${index + 1}: ${candidate.text || candidate.classId} (${((candidate.confidence || 0) * 100).toFixed(1)}%)`;
     drawTextChip(ctx, text, textX, startY + index * lineHeight, fontSize, colors.classification);
   });
+  return classificationPanelHeight(candidates.length, heading);
 }
 
 export function classificationHeading(layer) {
@@ -300,6 +315,13 @@ export function classificationTextX(display, padding, alignRight) {
 
   const panelWidth = Math.min(600, Math.max(0, display.width - 2 * padding));
   return Math.max(display.x + padding, display.x + display.width - padding - panelWidth);
+}
+
+export function classificationPanelHeight(candidateCount, heading) {
+  const fontSize = 14;
+  const lineHeight = fontSize * 1.5;
+  const padding = 10;
+  return candidateCount * lineHeight + (heading ? lineHeight : 0) + 2 * padding;
 }
 
 function drawPersonClassification(ctx, personClassification, display, now, colors) {

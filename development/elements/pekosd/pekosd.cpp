@@ -856,12 +856,14 @@ static void drawPersonPresence(Osd::Layer &layer,
     }
 }
 
-static void drawClassificationList(Osd::Layer &layer,
-                                   float imgWidth,
-                                   float imgHeight,
-                                   bool alignRight,
-                                   const std::string &heading,
-                                   const perception::metadata::ClassificationT &classification) {
+static float drawClassificationList(
+    Osd::Layer &layer,
+    float imgWidth,
+    float imgHeight,
+    bool alignRight,
+    float bottomOffset,
+    const std::string &heading,
+    const perception::metadata::ClassificationT &classification) {
     const float fontSize = 14.0f;
     const float lineHeight = fontSize * 1.5f;
     const auto numResults = classification.candidates.size();
@@ -869,8 +871,8 @@ static void drawClassificationList(Osd::Layer &layer,
     const float panelWidth = std::min(600.0f, std::max(0.0f, imgWidth - 2.0f * padding));
     const float startX = padding;
     const float rightColumnX = std::max(padding, imgWidth - padding - panelWidth);
-    const float startY =
-        imgHeight - (static_cast<float>(numResults) * lineHeight) - (2.0f * padding);
+    const float startY = imgHeight - bottomOffset -
+                         (static_cast<float>(numResults) * lineHeight) - (2.0f * padding);
 
     if (!heading.empty()) {
         Osd::Text::draw(layer,
@@ -903,6 +905,9 @@ static void drawClassificationList(Osd::Layer &layer,
                         "monospace",
                         fontSize);
     }
+
+    return static_cast<float>(numResults) * lineHeight +
+           (heading.empty() ? 0.0f : lineHeight) + (2.0f * padding);
 }
 
 static void drawHumanFaceDetections(Osd::Layer &layer,
@@ -994,6 +999,8 @@ static void drawPersonClassifications(Osd::Layer &layer,
 static void drawImageClassifications(Osd::Layer &layer,
                                      float imgWidth,
                                      float imgHeight,
+                                     float &leftBottomOffset,
+                                     float &rightBottomOffset,
                                      const perception::metadata::ClassificationsT &payload) {
     if (!isClassificationLayer(payload.layer.get())) {
         return;
@@ -1004,10 +1011,11 @@ static void drawImageClassifications(Osd::Layer &layer,
     const std::string heading = payload.layer != nullptr && payload.layer->producer != nullptr
                                     ? payload.layer->producer->implementation
                                     : std::string{};
+    float &bottomOffset = alignRight ? rightBottomOffset : leftBottomOffset;
     for (const auto &classification : payload.classifications) {
         if (classification) {
-            drawClassificationList(
-                layer, imgWidth, imgHeight, alignRight, heading, *classification);
+            bottomOffset += drawClassificationList(
+                layer, imgWidth, imgHeight, alignRight, bottomOffset, heading, *classification);
         }
     }
 }
@@ -1016,10 +1024,13 @@ static void drawClassifications(Osd::Layer &layer,
                                 float imgWidth,
                                 float imgHeight,
                                 const perception::FrameResults &frameResults) {
+    float leftBottomOffset = 0.0f;
+    float rightBottomOffset = 0.0f;
     frameResults.for_each<perception::metadata::ClassificationsT>(
-        [&layer, imgWidth, imgHeight](const auto &payload) {
+        [&layer, imgWidth, imgHeight, &leftBottomOffset, &rightBottomOffset](const auto &payload) {
             drawPersonClassifications(layer, imgWidth, imgHeight, payload);
-            drawImageClassifications(layer, imgWidth, imgHeight, payload);
+            drawImageClassifications(
+                layer, imgWidth, imgHeight, leftBottomOffset, rightBottomOffset, payload);
         });
 }
 

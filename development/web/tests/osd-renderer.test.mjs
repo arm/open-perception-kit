@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   calculateContainedRect,
   classificationHeading,
+  classificationPanelHeight,
   classificationTextX,
   collectRectsByContentType,
   createCoordinateMapper,
@@ -26,6 +27,11 @@ test("classification text supports explicit lower-right alignment", () => {
 
   assert.equal(classificationTextX(display, 10, false), 30);
   assert.equal(classificationTextX(display, 10, true), 410);
+});
+
+test("classification panels reserve deterministic vertical space", () => {
+  assert.equal(classificationPanelHeight(5, "producer"), 146);
+  assert.equal(classificationPanelHeight(5, ""), 125);
 });
 
 test("video frame metadata is preferred when present", () => {

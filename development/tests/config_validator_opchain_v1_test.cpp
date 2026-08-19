@@ -106,6 +106,27 @@ TEST(ConfigValidator, OpChainAcceptsStableInstanceIds) {
     EXPECT_TRUE(hasRule(duplicate.error(), "opchain.v1.instance-id"));
 }
 
+TEST(ConfigValidator, OpChainValidatesPythonScriptAttributes) {
+    nlohmann::json document{
+        {"version", 1},
+        {"name", "python-script"},
+        {"description", "Validate PythonScript attributes."},
+        {"ops",
+         {{{"id", "pek-python-ops/PythonScript"},
+           {"attributes",
+            {{"script", "scripts/process.py"}, {"pythonPaths", {"scripts/modules"}}}}}}},
+    };
+
+    EXPECT_TRUE(pek::config::validateOpChainJson(document.dump()));
+
+    document["ops"][0]["attributes"].erase("script");
+    EXPECT_FALSE(pek::config::validateOpChainJson(document.dump()));
+
+    document["ops"][0]["attributes"] = {{"script", "scripts/process.py"},
+                                           {"pythonPaths", "scripts/modules"}};
+    EXPECT_FALSE(pek::config::validateOpChainJson(document.dump()));
+}
+
 TEST(ConfigValidator, OpChainProjectionClearsOmittedAttributes) {
     pek::op::OpChainDescriptor::Op reused;
     reused.attributes.set("stale", true);

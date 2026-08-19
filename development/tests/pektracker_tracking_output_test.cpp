@@ -35,6 +35,8 @@ void appendTrackingOutput(perception::FrameResults &frameResults, bool emitTrace
     pek::tracker::Config config;
     config.emitTrace = emitTrace;
     config.minHitsToConfirm = 1;
+    config.inferId = "pekinfer0";
+    config.producerInstanceId = "tracker-secondary";
     const pek::tracker::DetectionTrackAssignments assignments;
     const pek::tracker::TrackIdList predictedOnlyTrackIds;
     const pek::tracker::trackingoutput::TrackingResult trackingResult{
@@ -65,6 +67,7 @@ TEST(PekTrackerTrackingOutput, EmitsTracePayloadWhenEnabled) {
     frameResults.for_each<perception::metadata::TrackTracesT>([](const auto &payload) {
         ASSERT_NE(payload.layer, nullptr);
         ASSERT_NE(payload.layer->producer, nullptr);
+        EXPECT_EQ(payload.layer->producer->instance_id, "pekinfer0/tracker-secondary");
         EXPECT_EQ(payload.layer->producer->component, "gstreamer/pektracker");
         EXPECT_EQ(payload.layer->producer->implementation, "Tracker");
     });

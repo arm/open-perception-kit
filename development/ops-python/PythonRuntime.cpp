@@ -108,30 +108,40 @@ PyObjectPtr::operator bool() const noexcept {
 }
 
 PythonPathGuard::PythonPathGuard(const std::vector<std::filesystem::path> &paths) {
-    PyObjectPtr sys(PyImport_ImportModule("sys"));
-    sysPath = PyObjectPtr(sys ? PyObject_GetAttrString(sys.get(), "path") : nullptr);
-    if (!sysPath || !PyList_Check(sysPath.get()))
+    sysModule = PyObjectPtr(PyImport_ImportModule("sys"));
+    originalPathObject =
+        PyObjectPtr(sysModule ? PyObject_GetAttrString(sysModule.get(), "path") : nullptr);
+    originalPathSnapshot =
+        PyObjectPtr(originalPathObject ? PySequence_List(originalPathObject.get()) : nullptr);
+    if (!originalPathObject || !PyList_Check(originalPathObject.get()) || !originalPathSnapshot)
         throw std::runtime_error("Failed to access Python sys.path: " + formatPythonError());
 
     for (auto iterator = paths.rbegin(); iterator != paths.rend(); ++iterator) {
         PyObjectPtr value(PyUnicode_FromString(iterator->string().c_str()));
-        if (!value || PyList_Insert(sysPath.get(), 0, value.get()) < 0) {
-            for (size_t index = 0; index < insertedCount; ++index) {
-                if (PySequence_DelItem(sysPath.get(), 0) < 0)
-                    PyErr_Clear();
-            }
-            insertedCount = 0;
-            throw std::runtime_error("Failed to update Python sys.path: " + formatPythonError());
+        if (!value || PyList_Insert(originalPathObject.get(), 0, value.get()) < 0) {
+            const std::string error = formatPythonError();
+            if (PyList_SetSlice(originalPathObject.get(),
+                                0,
+                                PyList_Size(originalPathObject.get()),
+                                originalPathSnapshot.get()) < 0)
+                PyErr_Clear();
+            if (PyObject_SetAttrString(sysModule.get(), "path", originalPathObject.get()) < 0)
+                PyErr_Clear();
+            throw std::runtime_error("Failed to update Python sys.path: " + error);
         }
-        ++insertedCount;
     }
 }
 
 PythonPathGuard::~PythonPathGuard() {
-    for (size_t index = 0; index < insertedCount; ++index) {
-        if (PySequence_DelItem(sysPath.get(), 0) < 0)
-            PyErr_Clear();
-    }
+    if (!sysModule || !originalPathObject || !originalPathSnapshot)
+        return;
+    if (PyList_SetSlice(originalPathObject.get(),
+                        0,
+                        PyList_Size(originalPathObject.get()),
+                        originalPathSnapshot.get()) < 0)
+        PyErr_Clear();
+    if (PyObject_SetAttrString(sysModule.get(), "path", originalPathObject.get()) < 0)
+        PyErr_Clear();
 }
 
 std::string formatPythonError() {

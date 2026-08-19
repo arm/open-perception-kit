@@ -92,6 +92,37 @@ TEST(PythonScriptOp, AllowsPlacementWithoutInferenceOutputs) {
     EXPECT_TRUE(script.process(context));
 }
 
+TEST(PythonScriptOp, RestoresSysPathAfterScriptMutation) {
+    perception::FrameResults results;
+    pek::op::OpChainContext context;
+    context.frameResults = &results;
+
+    pek::python::PythonScriptOp mutatingScript;
+    std::vector<pek::op::Op *> mutatingOps = {&mutatingScript};
+    ASSERT_TRUE(mutatingScript.configure(attributes("mutate_sys_path.py")));
+    ASSERT_TRUE(mutatingScript.bind(0, mutatingOps));
+    ASSERT_TRUE(mutatingScript.process(context));
+
+    pek::python::PythonScriptOp checkingScript;
+    std::vector<pek::op::Op *> checkingOps = {&checkingScript};
+    ASSERT_TRUE(checkingScript.configure(attributes("assert_sys_path_restored.py")));
+    ASSERT_TRUE(checkingScript.bind(0, checkingOps));
+    EXPECT_TRUE(checkingScript.process(context));
+}
+
+TEST(PythonScriptOp, UsesConfiguredContainerRuntime) {
+    pek::python::PythonScriptOp script;
+    std::vector<pek::op::Op *> ops = {&script};
+    ASSERT_TRUE(script.configure(attributes("runtime_environment.py")));
+    ASSERT_TRUE(script.bind(0, ops));
+
+    perception::FrameResults results;
+    pek::op::OpChainContext context;
+    context.frameResults = &results;
+
+    EXPECT_TRUE(script.process(context));
+}
+
 TEST(PythonScriptOp, RecordsWholeOperationTiming) {
     auto *tracer = pek::perf::getGlobalTracer();
     tracer->reset();
@@ -109,7 +140,8 @@ TEST(PythonScriptOp, RecordsWholeOperationTiming) {
     ASSERT_TRUE(script.process(context));
     tracer->endCycle();
 
-    const auto stats = tracer->getStats("python/Script/test-model");
+    const auto stats =
+        tracer->getStats("python/Script/test-model/pek-python-ops-PythonScript-0");
     EXPECT_EQ(stats.count, 1U);
     tracer->reset();
 }

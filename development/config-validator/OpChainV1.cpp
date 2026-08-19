@@ -129,10 +129,13 @@ void validateInstanceIds(ValidationReport &report,
                          const pek::op::OpChainDescriptor &descriptor,
                          std::string_view source) {
     std::unordered_map<std::string, std::size_t> firstById;
+    std::unordered_map<std::string, std::size_t> occurrences;
     for (std::size_t index = 0; index < descriptor.ops.size(); ++index) {
-        const auto &instanceId = descriptor.ops[index].instanceId;
-        if (instanceId.empty())
-            continue;
+        const auto &op = descriptor.ops[index];
+        const std::size_t occurrence = occurrences[op.id]++;
+        const std::string instanceId = op.instanceId.empty()
+                                           ? pek::op::makeDefaultInstanceId(op.id, occurrence)
+                                           : op.instanceId;
         const auto [iterator, inserted] = firstById.emplace(instanceId, index);
         if (inserted)
             continue;

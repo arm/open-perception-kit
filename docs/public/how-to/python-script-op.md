@@ -10,6 +10,11 @@ inference output tensors or append schema-defined data to `FrameResults`. The
 script runs inside the pipeline process and is loaded once for each Op instance,
 so module globals persist between calls.
 
+Python postprocessors are supported when a native PEK pipeline runs inside the
+official quick-start or deployment container. Both images supply the compatible
+CPython interpreter, NumPy, FlatBuffers runtime, and generated Perception guest
+bridge; no Python installation from the host system is used.
+
 ## Configure the Op
 
 Add the operation at the required position in an OpChain:
@@ -92,9 +97,10 @@ Each `pek_python_ops.Tensor` provides:
 - `quantized`: whether integer dequantization applies
 
 The arrays support `uint8`, `int8`, `float16`, `float32`, and `int64` outputs.
-They are zero-copy views valid only while `process` is running. Never retain the
-array, the envelope, or bridge-backed payload proxies in module state. Retain a
-tensor value only by making an explicit copy:
+They are zero-copy views valid only while `process` is running. This is a hard
+lifetime boundary, not a recommendation: never retain the array, the envelope,
+or bridge-backed payload proxies in module state. Retain a tensor value only by
+making an explicit copy:
 
 ```python
 saved_output = tensors[0].array.copy()
@@ -105,16 +111,19 @@ observe memory reused by the next inference and eventually become unsafe.
 
 ## Run the MobileNet demonstration
 
-The checked-in MobileNet example places a Python operation between inference
-and the standard ImageNet postprocessor. Python reads the output tensor and
+The checked-in MobileNet example continuously classifies a bundled real sample
+image and places a Python operation between inference and the standard ImageNet
+postprocessor. Python reads the output tensor and
 independently calculates its top five classifications while tracking how many
 consecutive frames retain the same top class. The Python results appear in the
 lower-right corner, while the standard C++ top classifications remain in the
 lower-left for comparison. Both lists use the same five-row rank, label, and
-confidence format and align vertically. `pekosd` labels each list with its
+confidence format and align vertically. The WebUI labels each list with its
 recorded producer implementation: the C++ parser name on the left and the
-Python script filename on the right. The stable-frame count is retained in
-the Python layer's `tags` metadata instead of changing the visible label. The
+Python script filename on the right. Native `pekosd` drawing is disabled in this
+pipeline so the browser does not render metadata on top of labels already burned
+into the video. The stable-frame count is retained in the Python layer's `tags`
+metadata instead of changing the visible label. The
 model-local Python demo bundles the same 1,001 ImageNet labels used by the C++
 parser because it runs before postprocessing.
 
@@ -122,7 +131,7 @@ The pipeline also includes `pekperformance` and `pekcomm`. The performance
 overlay reports the average and p95 duration of the complete Python operation,
 including tensor wrapping, the Python call, and FrameResults updates. Its video
 is capped at 720p and 20 FPS to keep the embedded Python demonstration
-responsive and visually smooth. An infinite live moving-ball source avoids
+responsive and visually smooth. `imagefreeze` keeps the real sample live without
 end-of-stream pipeline restarts, so Python state persists until the user stops
 the pipeline.
 
@@ -151,6 +160,7 @@ resets when the predicted class changes or the pipeline is recreated.
 - Scripts are not sandboxed. They can access the process, filesystem, network,
   and imported native modules. A slow script blocks the streaming thread.
 - Build with `-Dpython_ops=enabled`, or set `PEK_PYTHON_OPS=enabled` when using
-  `scripts/build-elements.sh`. Runtime installations require a compatible
-  CPython ABI. PEK release packages include pinned NumPy and FlatBuffers Python
-  runtimes together with the generated `perception` package.
+  `scripts/build-elements.sh`. Run the resulting pipeline through a native PEK
+  launcher inside an official PEK container. Python-hosted GStreamer
+  applications, standalone binary archives, and deployments outside those
+  containers are not part of the current support contract.

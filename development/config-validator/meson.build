@@ -14,6 +14,7 @@ config_validator_schema_manifest = [
   ['urn:arm:pek:schema:generic-image-preprocess-op:v1', 'config/schemas/v1/opchain/ops/generic-image-preprocess.schema.json'],
   ['urn:arm:pek:schema:inference-op:v1', 'config/schemas/v1/opchain/ops/inference.schema.json'],
   ['urn:arm:pek:schema:generic-postprocess-op:v1', 'config/schemas/v1/opchain/ops/generic-postprocess.schema.json'],
+  ['urn:arm:pek:schema:python-script-op:v1', 'config/schemas/v1/opchain/ops/python-script.schema.json'],
 ]
 
 config_validator_embedded_schemas = ''

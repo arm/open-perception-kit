@@ -37,6 +37,9 @@
     },
     {
       "$ref": "urn:arm:pek:schema:generic-postprocess-op:v1"
+    },
+    {
+      "$ref": "urn:arm:pek:schema:python-script-op:v1"
     }
   ]
 }

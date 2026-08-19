@@ -322,7 +322,7 @@ def write_internal_meson(config: SdkConfig, target: Path) -> None:
         f"  dependencies : [_{config.name}_flatbuffers_dep],\n"
         ")\n"
         "\n"
-        "if get_option('tests')\n"
+        "if get_option('tests') or python_ops_enabled\n"
         f"  _{config.name}_python = pek_python\n"
         f"  _{config.name}_python_embed_dep = _{config.name}_python.dependency(\n"
         "    embed : true,\n"

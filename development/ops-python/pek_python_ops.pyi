@@ -4,6 +4,8 @@ import numpy
 
 
 class Tensor:
+    """Call-scoped tensor metadata with a zero-copy, read-only NumPy view."""
+
     index: Final[int]
     name: Final[str | None]
     array: Final[numpy.ndarray]

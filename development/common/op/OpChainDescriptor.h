@@ -24,6 +24,23 @@ inline bool isInferenceOpId(std::string_view id) {
            id.find('/') == id.size() - Suffix.size();
 }
 
+inline std::string makeDefaultInstanceId(std::string_view opId, std::size_t occurrence) {
+    const auto isAsciiAlphaNumeric = [](char character) {
+        return (character >= 'a' && character <= 'z') ||
+               (character >= 'A' && character <= 'Z') ||
+               (character >= '0' && character <= '9');
+    };
+    std::string result(opId);
+    for (char &character : result) {
+        if (!isAsciiAlphaNumeric(character) && character != '.' && character != '_' &&
+            character != '-')
+            character = '-';
+    }
+    if (result.empty() || !isAsciiAlphaNumeric(result.front()))
+        result.insert(0, "op-");
+    return result + "-" + std::to_string(occurrence);
+}
+
 /**
  * @brief Descriptor for a chain of operations loaded from JSON.
  *

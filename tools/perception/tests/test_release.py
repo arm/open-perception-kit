@@ -392,7 +392,6 @@ class PythonPackagingTests(unittest.TestCase):
                     project, "perception"
                 )
 
-
 class BundleVerificationTests(unittest.TestCase):
     def create_npm_package(
         self,

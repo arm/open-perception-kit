@@ -97,8 +97,10 @@ bool shouldEmitTrace(const TrackState &track, const Config &config) {
 
 std::unique_ptr<perception::metadata::LayerInfoT>
 makeTrackerLayerInfo(const Config &config, const char *tags, const char *contentType) {
+    const std::string producerInstanceId =
+        config.producerInstanceId.empty() ? "pektracker" : config.producerInstanceId;
     const auto producer = perception::makeProducerInfo(
-        config.inferId + "/pektracker", TRACKER_COMPONENT, "Tracker");
+        config.inferId + "/" + producerInstanceId, TRACKER_COMPONENT, "Tracker");
     return perception::makeLayerInfo(
         TRACKER_MODEL, config.inferId, contentType, TRACKER_ENGINE, tags, "", "", producer.get());
 }

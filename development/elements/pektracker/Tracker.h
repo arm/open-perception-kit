@@ -67,6 +67,7 @@ struct Config {
     float kalmanProcessNoiseVel = Defaults::kalmanProcessNoiseVel;
     float kalmanMeasurementNoisePos = Defaults::kalmanMeasurementNoisePos;
     std::string inferId = Defaults::inferId;
+    std::string producerInstanceId;
     bool useKalman = Defaults::useKalman;
     bool emitPredictedDetections = Defaults::emitPredictedDetections;
     bool emitTrace = Defaults::emitTrace;
