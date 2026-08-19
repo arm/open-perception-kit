@@ -489,7 +489,6 @@ ARG TARGETARCH
 ARG NO_EXAMPLE_CONTENT=false
 ARG ONNXRUNTIME_VERSION
 ARG PEK_RELEASE_BUILD=false
-ARG PEK_RELEASE_BUILD_ID=""
 ARG PEK_RELEASE_SOURCE_COMMIT=""
 ARG PEK_FLOWDATA_SDK_COMMIT=""
 
@@ -620,6 +619,7 @@ RUN --mount=type=cache,id=pek-deployment-ccache,target=/work/.cache/ccache,shari
   fi; \
   rm -rf /work/development/build
 
+ARG PEK_RELEASE_BUILD_ID=""
 RUN set -eux; \
   if [ -n "${PEK_RELEASE_BUILD_ID}" ]; then \
     test "${PEK_RELEASE_BUILD}" = true; \
