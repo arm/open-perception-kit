@@ -268,8 +268,8 @@ jobs:
           compression-level: 0
           retention-days: 1
 
-  build-deployment-images:
-    name: Build deployment image (${{ matrix.architecture }})
+  build-nightly-deployment-images:
+    name: Build nightly deployment image (${{ matrix.architecture }})
     if: ${{ github.event_name == 'schedule' }}
     strategy:
       matrix:
