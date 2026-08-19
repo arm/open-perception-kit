@@ -30,7 +30,12 @@ seed_development_artifacts() {
         mkdir -p /work/data/videos
         cp -a --no-clobber "${video_artifacts}/." /work/data/videos/
         if [[ -f "${video_artifacts}/SHA256SUMS" ]]; then
-            (cd /work/data/videos && sha256sum --check --strict --quiet "${video_artifacts}/SHA256SUMS")
+            if ! (cd /work/data/videos && sha256sum --check --strict --quiet "${video_artifacts}/SHA256SUMS"); then
+                echo "ERROR: existing demo videos failed checksum validation." >&2
+                echo "Remove them and retry the quick start:" >&2
+                echo "  rm -rf data/videos && ./scripts/quick_start.sh" >&2
+                exit 1
+            fi
         fi
     fi
 

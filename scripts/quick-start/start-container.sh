@@ -185,6 +185,12 @@ if [[ "$RECREATE" == "true" ]]; then
 fi
 "${COMPOSE_COMMAND[@]}" "${COMPOSE_FILES[@]}" "${UP_ARGS[@]}" "${PEK_CONTAINER_SERVICE}"
 
+if ! container_running; then
+    echo "Error: quick-start container exited during startup: ${PEK_CONTAINER_NAME}" >&2
+    docker logs "${PEK_CONTAINER_NAME}" >&2 || true
+    exit 1
+fi
+
 echo
 docker ps --filter "name=${PEK_CONTAINER_NAME}" --format 'table {{.Names}} {{.Status}}'
 
