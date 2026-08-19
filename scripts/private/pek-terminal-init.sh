@@ -61,7 +61,7 @@ if [[ -z "${PEK_TERMINAL_WELCOME_SHOWN:-}" ]]; then
     frame_mid
     frame_line "Build cmd       ./scripts/build-elements.sh debug"
     frame_line "Build task      00 Build Project"
-    frame_line "Launch cmd      /work/tools/pek-menu -l"
+    frame_line "Launch cmd      ./tools/pek-menu -l"
     frame_line "Launch task     00 Run project with latest pipeline"
     frame_line "Docs gen        ./scripts/gen-doc.sh"
     frame_line "Docs serve      ./scripts/serve-docs.sh"
@@ -69,7 +69,7 @@ if [[ -z "${PEK_TERMINAL_WELCOME_SHOWN:-}" ]]; then
     frame_line "Web UI          http://${primary_host}:9999"
     frame_line "Docs            http://${primary_host}:8080/index.html"
     frame_sep
-    frame_line "Ref             /work/docs/public/index.md"
+    frame_line "Ref             ./docs/public/index.md"
     frame_bottom
     echo
 fi
