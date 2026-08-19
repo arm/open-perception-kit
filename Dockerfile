@@ -541,7 +541,7 @@ COPY development development
 COPY generated generated
 COPY --from=pek-models /work/config config
 
-RUN --mount=type=cache,id=pek-release-ccache,target=/work/.cache/ccache,sharing=locked \
+RUN --mount=type=cache,id=pek-deployment-ccache,target=/work/.cache/ccache,sharing=locked \
   set -eux; \
   export CCACHE_DIR=/work/.cache/ccache; \
   export CCACHE_MAXSIZE=2G; \

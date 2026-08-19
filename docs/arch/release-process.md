@@ -82,6 +82,9 @@ before relying on the new validation for later release pull requests.
 Each workflow resolves one immutable commit and uses it for every image build.
 Push and manual publication cannot start unless both native snapshot images
 pass the same embedded integration smoke used for pull requests.
+The native jobs import the nightly deployment lane's architecture-specific
+BuildKit registry graph and fall back to its shared compiler cache. Release
+builds do not export a second full BuildKit graph.
 The native jobs push their existing image outputs by digest; one final manifest
 combines those exact amd64 and arm64 digests without rebuilding. Stable releases
 use the product version as the GHCR tag. Manual snapshots append the workflow

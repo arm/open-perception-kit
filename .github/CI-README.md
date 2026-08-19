@@ -195,9 +195,10 @@ Release image builds get their model and runtime inputs from these sources:
 `Dockerfile` remains the version authority. Release jobs build its existing
 `pek-deployment-base` target for the native architecture and copy the archive
 from `/opt/pek-release-artifacts`. The same image digest is the corresponding
-GHCR manifest input. The native jobs reuse both Buildx layers and the shared
-architecture-specific ccache flow. No prepared dependency or model tree is
-transferred between jobs.
+GHCR manifest input. The native jobs import the nightly deployment lane's
+architecture-specific BuildKit registry cache and fall back to its shared
+ccache. They do not upload another full BuildKit graph after every release.
+No prepared dependency or model tree is transferred between jobs.
 
 The documentation release job likewise builds the existing `pek-docs` target,
 runs `scripts/gen-doc.sh` in that container, and archives the generated HTML

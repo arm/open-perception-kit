@@ -81,16 +81,20 @@ jobs:
         include:
           - architecture: x86_64
             artifact_label: x86
-            cache_scope: pek-release-build-amd64
+            cache_tag: amd64
             platform: linux/amd64
             runner: self-hosted-ubuntu-latest-x64
           - architecture: aarch64
             artifact_label: arm
-            cache_scope: pek-release-build-arm64
+            cache_tag: arm64
             platform: linux/arm64
             runner: self-hosted-ubuntu-latest-arm64
     runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: read
     env:
+      DEPLOYMENT_IMAGE: ghcr.io/arm-debug/amp-dev-forge-deployment
       RELEASE_BUILD_IMAGE: pek-deployment-base:${{ needs.prepare.outputs.commit }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.artifact_label }}
       SOURCE_DIR: candidate-source-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-${{ matrix.artifact_label }}
     steps:
@@ -113,6 +117,7 @@ jobs:
           key: pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-release-${{ needs.prepare.outputs.commit }}
           restore-keys: |
             pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-release-
+            pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-deployment-
 
       - name: Attach compiler cache to Docker builder
         uses: reproducible-containers/buildkit-cache-dance@5422eac04292c961a382e0f584ea0f03ad9da723 # v3.4.0
@@ -122,11 +127,18 @@ jobs:
             {
               ".cache/ccache-release": {
                 "target": "/work/.cache/ccache",
-                "id": "pek-release-ccache",
+                "id": "pek-deployment-ccache",
                 "sharing": "locked"
               }
             }
           skip-extraction: ${{ steps.compiler-cache.outputs.cache-hit }}
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
 
       - name: Build release snapshot image
         uses: docker/build-push-action@v7
@@ -136,8 +148,7 @@ jobs:
             PEK_RELEASE_BUILD_ID=${{ needs.prepare.outputs.build_id }}
             PEK_RELEASE_SOURCE_COMMIT=${{ needs.prepare.outputs.commit }}
             PEK_FLOWDATA_SDK_COMMIT=${{ needs.prepare.outputs.flowdata_commit }}
-          cache-from: type=gha,scope=${{ matrix.cache_scope }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.cache_scope }}
+          cache-from: type=registry,ref=${{ env.DEPLOYMENT_IMAGE }}:buildcache-${{ matrix.cache_tag }}
           context: ${{ env.SOURCE_DIR }}
           labels: org.opencontainers.image.revision=${{ needs.prepare.outputs.commit }}
           load: true

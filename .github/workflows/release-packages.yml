@@ -82,12 +82,12 @@ jobs:
         include:
           - architecture: x86_64
             artifact_label: x86
-            cache_scope: pek-release-build-amd64
+            cache_tag: amd64
             platform: linux/amd64
             runner: self-hosted-ubuntu-latest-x64
           - architecture: aarch64
             artifact_label: arm
-            cache_scope: pek-release-build-arm64
+            cache_tag: arm64
             platform: linux/arm64
             runner: self-hosted-ubuntu-latest-arm64
     runs-on: ${{ matrix.runner }}
@@ -117,6 +117,7 @@ jobs:
           key: pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-release-${{ needs.prepare.outputs.commit }}
           restore-keys: |
             pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-release-
+            pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-deployment-
 
       - name: Attach compiler cache to Docker builder
         uses: reproducible-containers/buildkit-cache-dance@5422eac04292c961a382e0f584ea0f03ad9da723 # v3.4.0
@@ -126,7 +127,7 @@ jobs:
             {
               ".cache/ccache-release": {
                 "target": "/work/.cache/ccache",
-                "id": "pek-release-ccache",
+                "id": "pek-deployment-ccache",
                 "sharing": "locked"
               }
             }
@@ -148,8 +149,7 @@ jobs:
             PEK_RELEASE_BUILD_ID=${{ needs.prepare.outputs.build_id }}
             PEK_RELEASE_SOURCE_COMMIT=${{ needs.prepare.outputs.commit }}
             PEK_FLOWDATA_SDK_COMMIT=${{ needs.prepare.outputs.flowdata_commit }}
-          cache-from: type=gha,scope=${{ matrix.cache_scope }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.cache_scope }}
+          cache-from: type=registry,ref=${{ env.RELEASE_IMAGE }}:buildcache-${{ matrix.cache_tag }}
           context: ${{ env.SOURCE_DIR }}
           labels: |
             org.opencontainers.image.revision=${{ needs.prepare.outputs.commit }}
