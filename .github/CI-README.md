@@ -25,7 +25,8 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
   entry points in `workflow-audit.yml`.
 - Supports manual `all`, `quality`, `sonar`, and `valgrind` selections.
 - Uses each pull request's immediate base branch, including stacked pull requests.
-- Owns the nightly Quality and Valgrind run and the Valgrind baseline artifact.
+- Owns the nightly Quality and Valgrind run, the native deployment image
+  caches, and the Valgrind baseline artifact.
 - Owns release-tag Sonar analysis; the required PR Sonar check keeps the exact
   `Run Sonar analysis in Docker` name.
 - Runs pull request quality checks through `expkits-ci --ci-pr-checks`.
@@ -46,9 +47,11 @@ requests.
 
 ### Cache flow
 
-GHCR stores published outputs, not build caches: the latest successful image
-for each PR and exact-SHA Valgrind baselines. Docker layers and compiler outputs
-use the GitHub Actions cache.
+GHCR stores the latest successful image for each PR, exact-SHA Valgrind
+baselines, and the nightly amd64/arm64 deployment images. Those deployment
+builds export their complete BuildKit graphs to architecture-specific registry
+cache tags. Other Docker layers and compiler outputs use the GitHub Actions
+cache.
 
 | Run | Docker layers read from | Docker layers written to |
 | --- | --- | --- |
@@ -69,6 +72,8 @@ writes only its own merge ref.
 | Run image cache | Pass the image from `Build PEK CI image` to its dependent jobs | Exact run; retained after failure for rerun, deleted after success/cancel or PR close |
 | PR image artifact | Pass the verified image to the trusted GHCR publisher | One day |
 | `pek-ci-pr-<number>` image in GHCR | Pull the latest successful PEK CI image locally | Replaced after the next successful run; deleted when the PR closes |
+| `nightly-amd64` and `nightly-arm64` deployment images in GHCR | Seed native release runtime layers | Replaced by the next nightly run |
+| `buildcache-amd64` and `buildcache-arm64` in GHCR | Seed the complete native deployment build graph | Replaced by the next nightly run |
 | Valgrind baseline in GHCR | Compare against the exact base SHA | Managed by the trusted baseline publisher |
 
 The pull-request workflow has no package-write permission. After successful CI,

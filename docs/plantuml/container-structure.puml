@@ -100,7 +100,7 @@ package "Helper Dockerfiles\nindependent workflow runtimes" {
 
 package "CI Service Mapping" {
   component "CI: pek-build-base" as ci_build_base #fef3c7
-  component "CI: pek-deployment-base" as ci_deploy #fef3c7
+  component "Nightly: pek-deployment-base\namd64 + arm64 image and full cache" as ci_deploy #fef3c7
   component "CI: pek-release-with-ut" as ci_release #fef3c7
   component "CI: pek-valgrind-check" as ci_valgrind #fef3c7
   component "CI: pek-generate-valgrind-summary" as ci_valgrind_summary #fef3c7

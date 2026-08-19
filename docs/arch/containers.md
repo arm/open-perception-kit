@@ -76,7 +76,9 @@ inheriting artifact-stage tools. Helper runtimes are intentionally separate
 top-level Dockerfiles because they do not share the core Debian build graph.
 
 The CI service mapping uses these image lanes without creating new image
-contracts for each job. `pek-release-with-ut`, `pek-valgrind-check`,
+contracts for each job. The nightly PEK CI schedule publishes native amd64 and
+arm64 `pek-deployment-base` images and their full BuildKit registry caches.
+`pek-release-with-ut`, `pek-valgrind-check`,
 `pek-generate-valgrind-summary`, `pek-quality-check-full`, `pek-sonar-check`,
 `pek-sonar-check-release`, `pek-quality-check-pull-request`, and
 `pek-clang-tidy-baseline-check` run in the `pek-ci` image. Repository-check and
