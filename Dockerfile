@@ -488,6 +488,7 @@ FROM pek-cross-build-base AS pek-deployment-build
 ARG TARGETARCH
 ARG NO_EXAMPLE_CONTENT=false
 ARG ONNXRUNTIME_VERSION
+ARG PEK_RELEASE_BUILD=false
 ARG PEK_RELEASE_BUILD_ID=""
 ARG PEK_RELEASE_SOURCE_COMMIT=""
 ARG PEK_FLOWDATA_SDK_COMMIT=""
@@ -500,7 +501,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   if [ "${TARGETARCH}" != "$(dpkg --print-architecture)" ]; then \
     test "${TARGETARCH}" = arm64; \
     install-target-sysroot "${TARGETARCH}"; \
-  elif [ -n "${PEK_RELEASE_BUILD_ID}" ]; then \
+  elif [ "${PEK_RELEASE_BUILD}" = true ]; then \
     apt-get update; \
     apt-get install -y --no-install-recommends binutils libusb-1.0-0-dev zlib1g-dev; \
   fi
@@ -514,7 +515,7 @@ RUN --mount=type=bind,source=var,target=/tmp/pek-executorch-packages,ro \
     --mount=type=secret,id=executorch_artifactory_username \
     --mount=type=secret,id=executorch_artifactory_password \
   set -eu; \
-  if [ -n "${PEK_RELEASE_BUILD_ID}" ]; then \
+  if [ "${PEK_RELEASE_BUILD}" = true ]; then \
     test "${TARGETARCH}" = "$(dpkg --print-architecture)"; \
     export EXECUTORCH_ARTIFACTORY_USERNAME="$(cat /run/secrets/executorch_artifactory_username)"; \
     export EXECUTORCH_ARTIFACTORY_PASSWORD="$(cat /run/secrets/executorch_artifactory_password)"; \
@@ -549,7 +550,7 @@ RUN --mount=type=cache,id=pek-deployment-ccache,target=/work/.cache/ccache,shari
   ccache --zero-stats; \
   native_arch="$(dpkg --print-architecture)"; \
   extra_setup_args=(); \
-  if [ -n "${PEK_RELEASE_BUILD_ID}" ]; then \
+  if [ "${PEK_RELEASE_BUILD}" = true ]; then \
     extra_setup_args=("--extra-setup-args=-Drelease_package=true,-Dprefix=/,-Dlibdir=lib"); \
   elif [ "${TARGETARCH}" != "${native_arch}" ]; then \
     extra_setup_args=("--extra-setup-args=--cross-file=/work/development/cross/aarch64-linux-gnu.ini"); \
@@ -557,7 +558,7 @@ RUN --mount=type=cache,id=pek-deployment-ccache,target=/work/.cache/ccache,shari
   mkdir -p /work/tools; \
   executorch=auto; \
   ncnn=auto; \
-  if [ -n "${PEK_RELEASE_BUILD_ID}" ]; then \
+  if [ "${PEK_RELEASE_BUILD}" = true ]; then \
     executorch=enabled; \
     ncnn=disabled; \
   fi; \
@@ -576,13 +577,12 @@ RUN --mount=type=cache,id=pek-deployment-ccache,target=/work/.cache/ccache,shari
   cp /work/scripts/private/deployment-runtime.sh /opt/pek-app/scripts/private/; \
   chmod +x /opt/pek-app/tools/pek-menu /opt/pek-app/scripts/private/deployment-runtime.sh; \
   mkdir -p /opt/pek-release-artifacts; \
-  if [ -n "${PEK_RELEASE_BUILD_ID}" ]; then \
+  if [ "${PEK_RELEASE_BUILD}" = true ]; then \
     case "${TARGETARCH}" in \
       amd64) architecture=x86_64 ;; \
       arm64) architecture=aarch64 ;; \
     esac; \
-    package_name="pek-${PEK_RELEASE_BUILD_ID}-linux-${architecture}"; \
-    package_root="/tmp/pek-release/${package_name}"; \
+    package_root=/opt/pek-release-root; \
     test -n "${PEK_RELEASE_SOURCE_COMMIT}"; \
     test -n "${PEK_FLOWDATA_SDK_COMMIT}"; \
     sdk_version="$(python3 -c \
@@ -616,12 +616,26 @@ RUN --mount=type=cache,id=pek-deployment-ccache,target=/work/.cache/ccache,shari
       --architecture "${architecture}" \
       --expected-commit "${PEK_RELEASE_SOURCE_COMMIT}" \
       --repo-root /work --package-root "${package_root}"; \
+    rm -rf /tmp/perception-sdk-input; \
+  fi; \
+  rm -rf /work/development/build
+
+RUN set -eux; \
+  if [ -n "${PEK_RELEASE_BUILD_ID}" ]; then \
+    test "${PEK_RELEASE_BUILD}" = true; \
+    case "${TARGETARCH}" in \
+      amd64) architecture=x86_64 ;; \
+      arm64) architecture=aarch64 ;; \
+    esac; \
+    package_name="pek-${PEK_RELEASE_BUILD_ID}-linux-${architecture}"; \
+    package_root="/tmp/pek-release/${package_name}"; \
+    mkdir -p /tmp/pek-release; \
+    cp -a /opt/pek-release-root "${package_root}"; \
     archive="/opt/pek-release-artifacts/${package_name}.tar.gz"; \
     tar -C /tmp/pek-release -czf "${archive}" "${package_name}"; \
     sha256sum "${archive}"; \
-    rm -rf /tmp/pek-release /tmp/perception-sdk-input; \
-  fi; \
-  rm -rf /work/development/build
+    rm -rf /tmp/pek-release; \
+  fi
 
 FROM pek-gstreamer-runtime-base AS pek-deployment-base
 

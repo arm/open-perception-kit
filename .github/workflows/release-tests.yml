@@ -145,6 +145,7 @@ jobs:
         with:
           build-args: |
             HF_DOWNLOAD_CACHEBUST=github-${{ github.run_id }}-${{ github.run_attempt }}
+            PEK_RELEASE_BUILD=true
             PEK_RELEASE_BUILD_ID=${{ needs.prepare.outputs.build_id }}
             PEK_RELEASE_SOURCE_COMMIT=${{ needs.prepare.outputs.commit }}
             PEK_FLOWDATA_SDK_COMMIT=${{ needs.prepare.outputs.flowdata_commit }}

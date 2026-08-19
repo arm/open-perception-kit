@@ -119,9 +119,10 @@ replacement.
 
 Inside `pek-deployment-build`, the existing `build-elements.sh` release build
 enables Meson's package install surface. The same Docker stage installs that
-build into a clean staging root, adds the resolved models and pinned runtimes,
-validates every ELF, then creates the archive with system `tar` and `gzip`; it
-does not call a release-build wrapper or configure a second build tree.
+build into a cacheable staging root, adds the resolved models and pinned
+runtimes, and validates every ELF. A final identity-only layer names and archives
+that payload with system `tar` and `gzip`; it does not call a release-build
+wrapper or configure a second build tree.
 The architecture archives expose only the GStreamer plugin integration
 surface; neither Meson nor release scripts install PEK source headers.
 
