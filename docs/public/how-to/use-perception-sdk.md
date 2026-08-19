@@ -10,6 +10,10 @@ The release bundle contains the generated C++ SDK, installable Python and
 TypeScript packages, matching FlatBuffers runtimes, the source schemas, and a
 manifest describing every file and compatibility requirement.
 
+Released PEK architecture packages carry the unchanged ZIP, checksum, and
+provenance sidecar under `share/pek/perception-sdk/`. The SDK version remains
+independent of the PEK product version.
+
 This is the release-packaging workflow. During implementation, use
 `$regenerate-perception-sdk` or `./scripts/perception-sdk.sh generate` to update
 the tracked generated SDK snapshot and commit it normally. Use
@@ -128,5 +132,6 @@ The artifact directory is a checksum-verified read-write cache: missing locked
 artifacts are downloaded atomically and reused by later builds.
 
 Use the `check`, `package`, and `verify` commands directly when validating a
-release locally. CI integration can be added later when the release workflow is
-ready to become a required project gate.
+release locally. Release CI builds the triplet once from the selected immutable
+commit, embeds the same bytes in both architecture packages, and verifies it
+again after each package is extracted for smoke testing.

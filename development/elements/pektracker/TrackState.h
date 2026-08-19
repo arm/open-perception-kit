@@ -42,7 +42,7 @@ struct DormantTrackState {
     uint64_t trackId = 0;
     perception::metadata::BoxDetectionT lastDetection;
     std::vector<float> lastEmbedding;
-    uint64_t storedAtFrame = 0;
+    double storedAtTrackerTimeMs = 0.0;
 };
 
 } // namespace pek::tracker
@@ -62,7 +62,7 @@ void clearPredictionFlag(TrackState &track);
  * @param config Tracker configuration used by prediction logic.
  * @return Predicted center point of the track.
  */
-Point2f predictCenter(TrackState &track, const Config &config);
+Point2f predictCenter(TrackState &track, float kalmanDt, const Config &config);
 
 /**
  * @brief Correct track state using the latest detection measurement.
@@ -73,6 +73,7 @@ Point2f predictCenter(TrackState &track, const Config &config);
  */
 Point2f correctCenterWithMeasurement(TrackState &track,
                                      const perception::metadata::BoxDetectionT &detection,
+                                     float kalmanDt,
                                      const Config &config);
 
 /**
@@ -82,6 +83,9 @@ Point2f correctCenterWithMeasurement(TrackState &track,
  * @param config Tracker configuration defining history constraints.
  * @return None.
  */
-void appendTracePoint(TrackState &track, const Point2f &point, const Config &config);
+void appendTracePoint(TrackState &track,
+                      const Point2f &point,
+                      float kalmanDt,
+                      const Config &config);
 
 } // namespace pek::tracker::trackstate

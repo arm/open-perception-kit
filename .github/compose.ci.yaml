@@ -135,7 +135,8 @@ services:
         if find scripts/testing/valgrind/logs -name "*.valgrind.*.xml" -print -quit 2>/dev/null | grep -q .; then
           python3 scripts/testing/valgrind/summarize-valgrind-output.py \
             --logs-dir scripts/testing/valgrind/logs \
-            --output scripts/testing/valgrind/valgrind-error-summary.xml;
+            --output scripts/testing/valgrind/valgrind-error-summary.xml \
+            --suppressions-file scripts/testing/valgrind/suppressed-warnings;
         else
           echo "No valgrind log files found; refusing to publish a new baseline." >&2;
           exit 1;

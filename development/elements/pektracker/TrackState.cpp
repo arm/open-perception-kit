@@ -24,7 +24,7 @@ void clearPredictionFlag(TrackState &track) {
     track.predictedThisFrame = false;
 }
 
-Point2f predictCenter(TrackState &track, const Config &config) {
+Point2f predictCenter(TrackState &track, float kalmanDt, const Config &config) {
     using StateVector = TrackState::Kalman::StateVector;
     using StateMatrix = TrackState::Kalman::StateMatrix;
 
@@ -54,9 +54,9 @@ Point2f predictCenter(TrackState &track, const Config &config) {
 
     StateMatrix transition{};
     transition[0][0] = 1.0f;
-    transition[0][2] = config.kalmanDt;
+    transition[0][2] = kalmanDt;
     transition[1][1] = 1.0f;
-    transition[1][3] = config.kalmanDt;
+    transition[1][3] = kalmanDt;
     transition[2][2] = 1.0f;
     transition[3][3] = 1.0f;
 
@@ -74,13 +74,14 @@ Point2f predictCenter(TrackState &track, const Config &config) {
 
 Point2f correctCenterWithMeasurement(TrackState &track,
                                      const perception::metadata::BoxDetectionT &detection,
+                                     float kalmanDt,
                                      const Config &config) {
     using MeasurementVector = TrackState::Kalman::MeasurementVector;
     using MeasurementMatrix = TrackState::Kalman::MeasurementMatrix;
     using ObservationMatrix = TrackState::Kalman::ObservationMatrix;
 
     if (!track.predictedThisFrame) {
-        predictCenter(track, config);
+        predictCenter(track, kalmanDt, config);
         track.predictedThisFrame = true;
     }
 
@@ -107,14 +108,17 @@ Point2f correctCenterWithMeasurement(TrackState &track,
     return makePoint(state[0][0], state[1][0]);
 }
 
-void appendTracePoint(TrackState &track, const Point2f &point, const Config &config) {
+void appendTracePoint(TrackState &track,
+                      const Point2f &point,
+                      float kalmanDt,
+                      const Config &config) {
     auto &tracePoint = track.traceHistoryPoints.emplace_back();
     tracePoint.x = point.x;
     tracePoint.y = point.y;
 
     int historyPoints = 1;
-    if (config.traceHistorySeconds > 0.0f && config.kalmanDt > 0.0f) {
-        historyPoints = static_cast<int>(std::ceil(config.traceHistorySeconds / config.kalmanDt));
+    if (config.traceHistorySeconds > 0.0f && kalmanDt > 0.0f) {
+        historyPoints = static_cast<int>(std::ceil(config.traceHistorySeconds / kalmanDt));
     }
 
     const auto maxHistorySize = static_cast<size_t>(std::max(1, historyPoints));

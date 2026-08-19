@@ -9,6 +9,8 @@
 #include <gst/gst.h>
 #include <gst/video/video.h>
 
+#include "Log.h"
+
 #ifndef PACKAGE
 #define PACKAGE "pek-elements"
 #endif
@@ -35,7 +37,9 @@ struct _GstPekTracker {
     gint minHitsToConfirm;
     gboolean appendIdentityIdToText;
     gfloat traceHistorySeconds;
-    gfloat kalmanDt;
+    gfloat kalmanDtFallback;
+    gboolean kalmanDtForceFallback;
+    gboolean kalmanDtFallbackActive;
     gfloat kalmanInitialCovariancePos;
     gfloat kalmanInitialCovarianceVel;
     gfloat kalmanProcessNoisePos;
@@ -74,7 +78,8 @@ enum {
     PROP_MIN_HITS_TO_CONFIRM,
     PROP_APPEND_TRACK_ID_TO_TEXT,
     PROP_TRACE_HISTORY_SECONDS,
-    PROP_KALMAN_DT,
+    PROP_KALMAN_DT_FALLBACK,
+    PROP_KALMAN_DT_FORCE_FALLBACK,
     PROP_KALMAN_INITIAL_COVARIANCE_POS,
     PROP_KALMAN_INITIAL_COVARIANCE_VEL,
     PROP_KALMAN_PROCESS_NOISE_POS,
@@ -141,7 +146,8 @@ static pek::tracker::Config trackerConfigFromElement(const GstPekTracker *self) 
     config.minHitsToConfirm = self->minHitsToConfirm;
     config.appendIdentityIdToText = self->appendIdentityIdToText;
     config.traceHistorySeconds = self->traceHistorySeconds;
-    config.kalmanDt = self->kalmanDt;
+    config.kalmanDtFallback = self->kalmanDtFallback;
+    config.kalmanDtForceFallback = self->kalmanDtForceFallback;
     config.kalmanInitialCovariancePos = self->kalmanInitialCovariancePos;
     config.kalmanInitialCovarianceVel = self->kalmanInitialCovarianceVel;
     config.kalmanProcessNoisePos = self->kalmanProcessNoisePos;
@@ -162,6 +168,7 @@ static gboolean gst_pektracker_start(GstBaseTransform *b) {
         self->m = new GstPekTracker::Members();
     }
     self->m->tracker.reset();
+    self->kalmanDtFallbackActive = FALSE;
 
     return TRUE;
 }
@@ -202,11 +209,30 @@ static GstFlowReturn gst_pektracker_transform_ip(GstBaseTransform *b, GstBuffer 
         return GST_FLOW_OK;
     }
 
-    pek::FrameResultsMeta::mutate<GstFlowReturn>(buf, [self](auto &frameResults) {
-        self->m->tracker.process(frameResults, trackerConfigFromElement(self));
+    const GstClockTime runningTime =
+        GST_BUFFER_PTS_IS_VALID(buf)
+            ? gst_segment_to_running_time(&b->segment, GST_FORMAT_TIME, GST_BUFFER_PTS(buf))
+            : GST_CLOCK_TIME_NONE;
+    const auto runningTimeMs = GST_CLOCK_TIME_IS_VALID(runningTime)
+                                   ? std::optional<uint64_t>{GST_TIME_AS_MSECONDS(runningTime)}
+                                   : std::nullopt;
+    pek::FrameResultsMeta::mutate<GstFlowReturn>(buf, [self, runningTimeMs](auto &frameResults) {
+        self->m->tracker.process(frameResults, trackerConfigFromElement(self), runningTimeMs);
         return GST_FLOW_OK;
     });
-
+    const auto &kalmanDeltaTime = self->m->tracker.kalmanDeltaTimeTracking();
+    if (kalmanDeltaTime.usesFallback() && !self->kalmanDtFallbackActive) {
+        GST_DEBUG_OBJECT(self,
+                         "Using fallback Kalman dt %.6f seconds (%s)",
+                         kalmanDeltaTime.effectiveKalmanDt(),
+                         kalmanDeltaTime.fallbackForced() ? "forced"
+                                                          : "missing or invalid running time");
+        pek::log::warning("[pektracker] Using fallback Kalman dt={} seconds ({})\n",
+                          kalmanDeltaTime.effectiveKalmanDt(),
+                          kalmanDeltaTime.fallbackForced() ? "forced"
+                                                           : "missing or invalid running time");
+    }
+    self->kalmanDtFallbackActive = kalmanDeltaTime.usesFallback();
     return GST_FLOW_OK;
 }
 
@@ -251,8 +277,11 @@ static void gst_pektracker_set_property(GObject *o, guint id, const GValue *v, G
     case PROP_TRACE_HISTORY_SECONDS:
         self->traceHistorySeconds = g_value_get_float(v);
         break;
-    case PROP_KALMAN_DT:
-        self->kalmanDt = g_value_get_float(v);
+    case PROP_KALMAN_DT_FALLBACK:
+        self->kalmanDtFallback = g_value_get_float(v);
+        break;
+    case PROP_KALMAN_DT_FORCE_FALLBACK:
+        self->kalmanDtForceFallback = g_value_get_boolean(v);
         break;
     case PROP_KALMAN_INITIAL_COVARIANCE_POS:
         self->kalmanInitialCovariancePos = g_value_get_float(v);
@@ -330,8 +359,11 @@ static void gst_pektracker_get_property(GObject *o, guint id, GValue *v, GParamS
     case PROP_TRACE_HISTORY_SECONDS:
         g_value_set_float(v, self->traceHistorySeconds);
         break;
-    case PROP_KALMAN_DT:
-        g_value_set_float(v, self->kalmanDt);
+    case PROP_KALMAN_DT_FALLBACK:
+        g_value_set_float(v, self->kalmanDtFallback);
+        break;
+    case PROP_KALMAN_DT_FORCE_FALLBACK:
+        g_value_set_boolean(v, self->kalmanDtForceFallback);
         break;
     case PROP_KALMAN_INITIAL_COVARIANCE_POS:
         g_value_set_float(v, self->kalmanInitialCovariancePos);
@@ -517,7 +549,7 @@ static void gst_pektracker_class_init(GstPekTrackerClass *klass) {
         g_param_spec_float(
             "trace-history-seconds",
             "Trace history seconds",
-            "Time-window for trace history (stored points: ceil(seconds / kalman-dt))",
+            "Time-window for trace history (stored points use the current Kalman time step)",
             0.0f,
             G_MAXFLOAT,
             pek::tracker::Defaults::traceHistorySeconds,
@@ -525,14 +557,23 @@ static void gst_pektracker_class_init(GstPekTrackerClass *klass) {
 
     g_object_class_install_property(
         gobj,
-        PROP_KALMAN_DT,
-        g_param_spec_float("kalman-dt",
-                           "Kalman dt",
-                           "Kalman time step",
+        PROP_KALMAN_DT_FALLBACK,
+        g_param_spec_float("kalman-dt-fallback",
+                           "Kalman dt fallback",
+                           "Kalman time step used when timestamps are unavailable or forced",
                            0.0001f,
                            G_MAXFLOAT,
-                           pek::tracker::Defaults::kalmanDt,
+                           pek::tracker::Defaults::kalmanDtFallback,
                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(
+        gobj,
+        PROP_KALMAN_DT_FORCE_FALLBACK,
+        g_param_spec_boolean("kalman-dt-force-fallback",
+                             "Force Kalman dt fallback",
+                             "Use kalman-dt-fallback instead of buffer timestamps",
+                             pek::tracker::Defaults::kalmanDtForceFallback,
+                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(
         gobj,
@@ -670,7 +711,9 @@ static void gst_pektracker_init(GstPekTracker *self) {
     self->minHitsToConfirm = pek::tracker::Defaults::minHitsToConfirm;
     self->appendIdentityIdToText = pek::tracker::Defaults::appendIdentityIdToText;
     self->traceHistorySeconds = pek::tracker::Defaults::traceHistorySeconds;
-    self->kalmanDt = pek::tracker::Defaults::kalmanDt;
+    self->kalmanDtFallback = pek::tracker::Defaults::kalmanDtFallback;
+    self->kalmanDtForceFallback = pek::tracker::Defaults::kalmanDtForceFallback;
+    self->kalmanDtFallbackActive = FALSE;
     self->kalmanInitialCovariancePos = pek::tracker::Defaults::kalmanInitialCovariancePos;
     self->kalmanInitialCovarianceVel = pek::tracker::Defaults::kalmanInitialCovarianceVel;
     self->kalmanProcessNoisePos = pek::tracker::Defaults::kalmanProcessNoisePos;
