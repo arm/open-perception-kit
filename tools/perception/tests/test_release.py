@@ -178,6 +178,14 @@ class SemanticVersionTests(unittest.TestCase):
             with self.subTest(version=version), self.assertRaises(RuntimeError):
                 release_package.require_semantic_version(version)
 
+    def test_detached_source_commits_require_a_valid_pair(self) -> None:
+        self.assertEqual(
+            release_package.detached_source_commits("a" * 40, "b" * 40),
+            ("a" * 40, "b" * 40),
+        )
+        with self.assertRaisesRegex(RuntimeError, "must be supplied together"):
+            release_package.detached_source_commits("a" * 40, None)
+
 
 class SdkDescriptorTests(unittest.TestCase):
     def test_descriptor_is_the_authoritative_release_configuration(self) -> None:
@@ -269,6 +277,18 @@ class ArtifactCacheTests(unittest.TestCase):
 
 
 class GenerationReceiptTests(unittest.TestCase):
+    def test_validates_detached_flowdata_identity(self) -> None:
+        config = release_package.perception_config.load_sdk_config()
+        manifest = json.loads(
+            (config.generated_root / "perception-sdk-manifest.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        commit = manifest["generation"]["flowdata_sdk"]["commit"]
+        release_package.verify_detached_manifest(config, commit)
+        with self.assertRaisesRegex(RuntimeError, "flowdata-sdk changed"):
+            release_package.verify_detached_manifest(config, "0" * 40)
+
     def test_rejects_schema_changes_without_regeneration(self) -> None:
         config = release_package.perception_config.load_sdk_config()
         with tempfile.TemporaryDirectory() as tmp:

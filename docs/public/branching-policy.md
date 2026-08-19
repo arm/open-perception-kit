@@ -49,7 +49,7 @@ Use each branch type for a specific kind of work.
   `development/meson.build` and adds its `CHANGELOG.md` section.
 - A push to `main` publishes the x86_64, Arm, and documentation archives to one
   immutable `v<MAJOR.MINOR.PATCH>` GitHub Release and Artifactory's `releases`
-  folder.
+  folder, plus the matching multi-architecture deployment image in GHCR.
 
 ### `develop`
 

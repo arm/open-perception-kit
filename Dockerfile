@@ -15,6 +15,14 @@ ARG TARGETARCH
 FROM --platform=${BUILDPLATFORM} debian:trixie-slim AS pek-build-base
 
 ARG ONNXRUNTIME_VERSION=1.24.4
+ARG EXECUTORCH_VERSION=1.3.1
+ARG EXECUTORCH_DEB_REVISION=2
+ARG EXECUTORCH_ARTIFACTORY_SERVER=https://artifactory.arm.com:443
+ARG EXECUTORCH_ARTIFACTORY_REPOSITORY=ai-expkits-internal.opk-deb
+ARG EXECUTORCH_ARTIFACTORY_DISTRIBUTION=trixie
+ARG EXECUTORCH_ARTIFACTORY_COMPONENT=main
+ARG NPM_FALLBACK_REGISTRY=https://artifactory.arm.com:443/artifactory/api/npm/mirrors.npmjs_org
+ARG PYPI_FALLBACK_REPOSITORY=https://artifactory.arm.com:443/artifactory/api/pypi/ml-xpk.pypi
 
 ENV DEBIAN_FRONTEND=noninteractive \
   LANG=C.UTF-8 \
@@ -35,6 +43,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   apt-get install -y --no-install-recommends \
   build-essential \
   ca-certificates \
+  ccache \
   cmake \
   curl \
   git \
@@ -52,9 +61,29 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   pkg-config \
   python3 \
   python3-dev \
+  python3-venv \
   unzip; \
   update-ca-certificates; \
   install-perception-flatbuffers /tmp/perception-sdk.json; \
+  mkdir -p /opt/pek-deps/perception-sdk-artifacts; \
+  python3 -c 'import json; d=json.load(open("/tmp/perception-sdk.json")); artifacts=[*d["python_build"]["tools"], d["flatbuffers"]["python_wheel"], d["typescript_build"]["flatbuffers_runtime"]]; [print(a["filename"], a["url"], a["sha256"], sep="\t") for a in artifacts]' | \
+  while IFS=$'\t' read -r filename url sha256; do \
+    case "${url}" in \
+      https://files.pythonhosted.org/*) \
+        fallback_url="${PYPI_FALLBACK_REPOSITORY}/${url#https://files.pythonhosted.org/}" ;; \
+      https://registry.npmjs.org/*) \
+        fallback_url="${NPM_FALLBACK_REGISTRY}/${url#https://registry.npmjs.org/}" ;; \
+      *) echo "Unsupported Perception SDK artifact URL: ${url}" >&2; exit 1 ;; \
+    esac; \
+    destination="/opt/pek-deps/perception-sdk-artifacts/${filename}"; \
+    timeout 30s curl \
+      --fail --location --proto '=https' --proto-redir '=https' \
+      --retry 1 --output "${destination}" "${url}" || \
+      curl \
+        --fail --location --proto '=https' --proto-redir '=https' \
+        --retry 3 --output "${destination}" "${fallback_url}"; \
+    echo "${sha256}  ${destination}" | sha256sum --check --strict; \
+  done; \
   rm -f /tmp/perception-sdk.json
 
 
@@ -131,7 +160,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   file gnupg gstreamer1.0-gl gstreamer1.0-nice gstreamer1.0-pipewire \
   gstreamer1.0-plugins-bad gstreamer1.0-plugins-base \
   gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
-  gstreamer1.0-tools gstreamer1.0-x lldb-17 nodejs npm pre-commit python3-gi python3-pip python3-venv \
+  gstreamer1.0-tools gstreamer1.0-x lldb-17 nodejs npm pre-commit python3-gi python3-pip \
   gosu shellcheck shfmt sudo valgrind wget zip; \
   update-ca-certificates
 
@@ -257,12 +286,6 @@ ARG USER_GID=1000
 ARG NVIM_VERSION=v0.12.1
 ARG CPP_TOOLS_VERSION=v1.29.3
 ARG TARGETARCH
-ARG EXECUTORCH_VERSION=1.3.1
-ARG EXECUTORCH_DEB_REVISION=2
-ARG EXECUTORCH_ARTIFACTORY_SERVER=https://artifactory.arm.com:443
-ARG EXECUTORCH_ARTIFACTORY_REPOSITORY=ai-expkits-internal.opk-deb
-ARG EXECUTORCH_ARTIFACTORY_DISTRIBUTION=trixie
-ARG EXECUTORCH_ARTIFACTORY_COMPONENT=main
 ARG EXECUTORCH_ARTIFACTORY_USERNAME=""
 ARG EXECUTORCH_ARTIFACTORY_PASSWORD=""
 
@@ -414,9 +437,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-  ccache doxygen gcovr graphviz libbz2-dev libffi-dev liblzma-dev libsqlite3-dev \
+  doxygen gcovr graphviz libbz2-dev libffi-dev liblzma-dev libsqlite3-dev \
   openjdk-25-jdk pandoc python3-dev python3-gi python3-gst-1.0 \
-  python3-venv zlib1g-dev
+  zlib1g-dev
 
 RUN set -eux; \
   mkdir -p /opt/pek-deps; \
@@ -465,22 +488,38 @@ FROM pek-cross-build-base AS pek-deployment-build
 ARG TARGETARCH
 ARG NO_EXAMPLE_CONTENT=false
 ARG ONNXRUNTIME_VERSION
+ARG PEK_RELEASE_BUILD=false
+ARG PEK_RELEASE_SOURCE_COMMIT=""
+ARG PEK_FLOWDATA_SDK_COMMIT=""
 
 COPY --chmod=0755 scripts/private/install-target-sysroot.sh /usr/local/bin/install-target-sysroot
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
   set -eux; \
-  if [ "${TARGETARCH}" != arm64 ]; then \
-    echo "Unsupported deployment architecture: ${TARGETARCH}. Expected arm64." >&2; \
-    exit 1; \
-  fi; \
+  case "${TARGETARCH}" in amd64 | arm64) ;; *) exit 1 ;; esac; \
   if [ "${TARGETARCH}" != "$(dpkg --print-architecture)" ]; then \
+    test "${TARGETARCH}" = arm64; \
     install-target-sysroot "${TARGETARCH}"; \
+  elif [ "${PEK_RELEASE_BUILD}" = true ]; then \
+    apt-get update; \
+    apt-get install -y --no-install-recommends binutils libusb-1.0-0-dev zlib1g-dev; \
   fi
 
 COPY --chmod=0755 scripts/private/install-onnxruntime.sh /usr/local/bin/install-onnxruntime
 RUN install-onnxruntime \
-  "${ONNXRUNTIME_VERSION}" "${TARGETARCH}" "/opt/pek-deps/onnxruntime-${TARGETARCH}"
+  "${ONNXRUNTIME_VERSION}" "${TARGETARCH}" /opt/pek-deps/onnxruntime
+
+RUN --mount=type=bind,source=var,target=/tmp/pek-executorch-packages,ro \
+    --mount=type=bind,source=scripts/private/executorch/install-executorch-deb.sh,target=/tmp/install-executorch-deb.sh,ro \
+    --mount=type=secret,id=executorch_artifactory_username \
+    --mount=type=secret,id=executorch_artifactory_password \
+  set -eu; \
+  if [ "${PEK_RELEASE_BUILD}" = true ]; then \
+    test "${TARGETARCH}" = "$(dpkg --print-architecture)"; \
+    export EXECUTORCH_ARTIFACTORY_USERNAME="$(cat /run/secrets/executorch_artifactory_username)"; \
+    export EXECUTORCH_ARTIFACTORY_PASSWORD="$(cat /run/secrets/executorch_artifactory_password)"; \
+    bash /tmp/install-executorch-deb.sh; \
+  fi
 
 WORKDIR /work
 COPY development/meson.build development/meson.options development/
@@ -491,31 +530,112 @@ RUN meson subprojects download --sourcedir /work/development
 COPY scripts/build-elements.sh scripts/build-elements.sh
 COPY scripts/private/shtools.sh scripts/private/shtools.sh
 COPY scripts/private/deployment-runtime.sh scripts/private/deployment-runtime.sh
+COPY --chmod=0755 scripts/perception-sdk.sh scripts/perception-sdk.sh
+COPY --chmod=0755 scripts/private/run-perception-sdk.sh scripts/private/run-perception-sdk.sh
+COPY scripts/release/ReleaseTool.py scripts/release/ReleaseTool.py
+COPY .clang-format .cmake-format.yaml ./
+COPY .gitmodules .gitmodules
+COPY tools/perception tools/perception
+COPY schemas/perception/metadata schemas/perception/metadata
 COPY development development
 COPY generated generated
 COPY --from=pek-models /work/config config
-COPY data data
-COPY --from=pek-demo-media /work/data/videos /work/data/videos
 
-RUN set -eux; \
+RUN --mount=type=cache,id=pek-deployment-ccache,target=/work/.cache/ccache,sharing=locked \
+  set -eux; \
+  export CCACHE_DIR=/work/.cache/ccache; \
+  export CCACHE_MAXSIZE=2G; \
+  export CCACHE_UMASK=000; \
+  ccache --zero-stats; \
   native_arch="$(dpkg --print-architecture)"; \
   extra_setup_args=(); \
-  if [ "${TARGETARCH}" != "${native_arch}" ]; then \
+  if [ "${PEK_RELEASE_BUILD}" = true ]; then \
+    extra_setup_args=("--extra-setup-args=-Drelease_package=true,-Dprefix=/,-Dlibdir=lib"); \
+  elif [ "${TARGETARCH}" != "${native_arch}" ]; then \
     extra_setup_args=("--extra-setup-args=--cross-file=/work/development/cross/aarch64-linux-gnu.ini"); \
   fi; \
   mkdir -p /work/tools; \
+  executorch=auto; \
+  ncnn=auto; \
+  if [ "${PEK_RELEASE_BUILD}" = true ]; then \
+    executorch=enabled; \
+    ncnn=disabled; \
+  fi; \
+  PEK_EXECUTORCH="${executorch}" \
   PEK_HAILORT=disabled \
-  PEK_ONNXRUNTIME_ROOT="/opt/pek-deps/onnxruntime-${TARGETARCH}" \
+  PEK_NCNN="${ncnn}" \
+  PEK_ONNXRUNTIME_ROOT=/opt/pek-deps/onnxruntime \
   NINJAFLAGS=-j2 \
   ./scripts/build-elements.sh release false "${extra_setup_args[@]}"; \
+  ccache --show-stats; \
   mkdir -p /opt/pek-app/development/build/meson-out /opt/pek-app/tools /opt/pek-app/scripts/private; \
-  find /work/development/build/meson-out -maxdepth 1 -type f -name "*.so" -exec cp {} /opt/pek-app/development/build/meson-out/ \; ; \
+  find /work/development/build \
+    -path /work/development/build/subprojects -prune -o \
+    -type f -name "*.so" -exec cp {} /opt/pek-app/development/build/meson-out/ \; ; \
   cp /work/tools/pek-menu /opt/pek-app/tools/; \
   cp /work/scripts/private/deployment-runtime.sh /opt/pek-app/scripts/private/; \
   chmod +x /opt/pek-app/tools/pek-menu /opt/pek-app/scripts/private/deployment-runtime.sh; \
-  cp -r /work/config /opt/pek-app/; \
-  cp -r /work/data /opt/pek-app/; \
-  cp -r /work/development/web /opt/pek-app/development/
+  mkdir -p /opt/pek-release-artifacts; \
+  if [ "${PEK_RELEASE_BUILD}" = true ]; then \
+    case "${TARGETARCH}" in \
+      amd64) architecture=x86_64 ;; \
+      arm64) architecture=aarch64 ;; \
+    esac; \
+    package_root=/opt/pek-release-root; \
+    test -n "${PEK_RELEASE_SOURCE_COMMIT}"; \
+    test -n "${PEK_FLOWDATA_SDK_COMMIT}"; \
+    sdk_version="$(python3 -c \
+      'import json; print(json.load(open("tools/perception/sdk.json"))["version"])')"; \
+    /work/scripts/perception-sdk.sh package \
+      --output-dir /tmp/perception-sdk-input \
+      --artifact-dir /opt/pek-deps/perception-sdk-artifacts \
+      --expect-version "${sdk_version}" \
+      --repository-commit "${PEK_RELEASE_SOURCE_COMMIT}" \
+      --flowdata-commit "${PEK_FLOWDATA_SDK_COMMIT}"; \
+    mkdir -p \
+      "${package_root}/lib/pek" \
+      "${package_root}/share/pek/licenses/libexecutorch-dev" \
+      "${package_root}/share/pek/perception-sdk"; \
+    /work/tools/pek-config-check --root /work; \
+    DESTDIR="${package_root}" meson install \
+      -C /work/development/build --skip-subprojects; \
+    cp /opt/pek-deps/onnxruntime/lib/libonnxruntime.so.1.24.4 \
+      "${package_root}/lib/pek/"; \
+    ln -s libonnxruntime.so.1.24.4 \
+      "${package_root}/lib/pek/libonnxruntime.so.1"; \
+    cp -a /opt/pek-deps/onnxruntime/share/doc/onnxruntime/. \
+      "${package_root}/share/pek/licenses/"; \
+    cp -a /opt/pek-deps/executorch-legal-documentation/. \
+      "${package_root}/share/pek/licenses/libexecutorch-dev/"; \
+    cp -a /tmp/perception-sdk-input/. \
+      "${package_root}/share/pek/perception-sdk/"; \
+    python3 /work/scripts/release/ReleaseTool.py stage-models \
+      --repo-root /work --stage-root "${package_root}"; \
+    python3 /work/scripts/release/ReleaseTool.py validate-package \
+      --architecture "${architecture}" \
+      --expected-commit "${PEK_RELEASE_SOURCE_COMMIT}" \
+      --repo-root /work --package-root "${package_root}"; \
+    rm -rf /tmp/perception-sdk-input; \
+  fi; \
+  rm -rf /work/development/build
+
+ARG PEK_RELEASE_BUILD_ID=""
+RUN set -eux; \
+  if [ -n "${PEK_RELEASE_BUILD_ID}" ]; then \
+    test "${PEK_RELEASE_BUILD}" = true; \
+    case "${TARGETARCH}" in \
+      amd64) architecture=x86_64 ;; \
+      arm64) architecture=aarch64 ;; \
+    esac; \
+    package_name="pek-${PEK_RELEASE_BUILD_ID}-linux-${architecture}"; \
+    package_root="/tmp/pek-release/${package_name}"; \
+    mkdir -p /tmp/pek-release; \
+    cp -a /opt/pek-release-root "${package_root}"; \
+    archive="/opt/pek-release-artifacts/${package_name}.tar.gz"; \
+    tar -C /tmp/pek-release -czf "${archive}" "${package_name}"; \
+    sha256sum "${archive}"; \
+    rm -rf /tmp/pek-release; \
+  fi
 
 FROM pek-gstreamer-runtime-base AS pek-deployment-base
 
@@ -549,7 +669,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   libfmt10 \
   libjson-glib-1.0-0 \
   libsoup-3.0-0 \
-  libssl3t64; \
+  libssl3t64 \
+  libusb-1.0-0 \
+  zlib1g; \
   if [ "${PEK_PICAMERA}" = enabled ]; then \
     test "$(dpkg --print-architecture)" = arm64; \
     echo "deb [arch=arm64 trusted=yes] https://archive.raspberrypi.com/debian trixie main" \
@@ -558,8 +680,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get install -y --no-install-recommends \
     gstreamer1.0-libcamera libcamera-ipa; \
   fi; \
-  install -m 0755 /usr/lib/aarch64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-ptp-helper /tmp/gst-ptp-helper; \
-  mv /tmp/gst-ptp-helper /usr/lib/aarch64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-ptp-helper; \
+  ptp_helpers=(/usr/lib/*-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-ptp-helper); \
+  test "${#ptp_helpers[@]}" -eq 1; \
+  install -m 0755 "${ptp_helpers[0]}" /tmp/gst-ptp-helper; \
+  mv /tmp/gst-ptp-helper "${ptp_helpers[0]}"; \
   update-ca-certificates; \
   rm -rf /var/lib/apt/lists/*
 
@@ -574,8 +698,15 @@ RUN set -eux; \
   test -p /tmp/pekcomm || mkfifo --mode=640 /tmp/pekcomm; \
   chown -R "${USER_UID}:${USER_GID}" /work /tmp/pekcomm
 
-COPY --from=pek-deployment-build /opt/pek-deps/onnxruntime-arm64/lib /opt/pek-deps/onnxruntime/lib
-COPY --from=pek-deployment-build /opt/pek-app /work
+COPY --from=pek-deployment-build /opt/pek-deps/onnxruntime/lib /opt/pek-deps/onnxruntime/lib
+COPY --from=pek-deployment-build /work/config /work/config
+COPY data /work/data
+COPY --from=pek-demo-media /work/data/videos /work/data/videos
+COPY development/web /work/development/web
+COPY --from=pek-deployment-build /opt/pek-app/development/build /work/development/build
+COPY --from=pek-deployment-build /opt/pek-app/tools /work/tools
+COPY --from=pek-deployment-build /opt/pek-app/scripts /work/scripts
+COPY --from=pek-deployment-build /opt/pek-release-artifacts /opt/pek-release-artifacts
 
 EXPOSE 8000
 EXPOSE 8001
@@ -585,6 +716,47 @@ EXPOSE 2222
 
 USER ${USERNAME}
 WORKDIR /work
+
+ARG TARGETARCH
+ARG PEK_RELEASE_BUILD_ID=""
+RUN --network=none set -eux; \
+  if [ -z "${PEK_RELEASE_BUILD_ID}" ]; then \
+    exit 0; \
+  fi; \
+  case "${TARGETARCH}" in \
+    amd64) architecture=x86_64 ;; \
+    arm64) architecture=aarch64 ;; \
+    *) exit 1 ;; \
+  esac; \
+  package_name="pek-${PEK_RELEASE_BUILD_ID}-linux-${architecture}"; \
+  smoke_root=/tmp/pek-release-smoke; \
+  package_root="${smoke_root}/${package_name}"; \
+  mkdir -p "${smoke_root}"; \
+  tar -C "${smoke_root}" -xzf \
+    "/opt/pek-release-artifacts/${package_name}.tar.gz"; \
+  export GST_PLUGIN_PATH="${package_root}/lib/gstreamer-1.0"; \
+  export LD_LIBRARY_PATH="${package_root}/lib/pek"; \
+  registry="${smoke_root}/gstreamer-registry.bin"; \
+  for element in fakesink opusenc pekcomm pekinfer pekosd pekperformance \
+      peksink pektracker videoconvert videotestsrc vp8enc webrtcbin; do \
+    GST_REGISTRY="${registry}" gst-inspect-1.0 "${element}" >/dev/null; \
+  done; \
+  for model in yolov11 yolox; do \
+    output="${smoke_root}/${model}.jsonl"; \
+    GST_REGISTRY="${registry}" timeout 120s gst-launch-1.0 -q \
+      videotestsrc pattern=ball num-buffers=5 ! \
+      video/x-raw,format=BGRA,width=320,height=320,framerate=5/1 ! \
+      pekinfer opchain-path="${package_root}/share/pek/models/${model}/opchain.json" ! \
+      pekperformance show-all-metrics=true update-interval=1 ! \
+      pekcomm method=file file-name="${output}" ! \
+      pekosd enabled=true ! fakesink sync=false; \
+    test -s "${output}"; \
+  done; \
+  GST_REGISTRY="${registry}" timeout 120s gst-launch-1.0 -q \
+    videotestsrc pattern=ball num-buffers=5 ! \
+    video/x-raw,format=BGRA,width=320,height=320,framerate=5/1 ! \
+    peksink; \
+  rm -rf "${smoke_root}"
 
 ENTRYPOINT ["/work/scripts/private/deployment-runtime.sh"]
 
