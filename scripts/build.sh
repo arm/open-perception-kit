@@ -92,6 +92,11 @@ if [[ "$in_container" == false ]]; then
     if [[ -f "$REPO_ROOT/devices.env" ]]; then
         docker_exec_args+=(--env-file "$REPO_ROOT/devices.env")
     fi
+    for env_name in PEK_EXECUTORCH PEK_HAILORT PEK_NCNN executorch hailort ncnn; do
+        if [[ -v "$env_name" ]]; then
+            docker_exec_args+=(--env "$env_name=${!env_name}")
+        fi
+    done
     docker exec "${docker_exec_args[@]}" "$PEK_CONTAINER_NAME" \
         bash -lc 'cd /work && ./scripts/build.sh "$@"' bash "$@"
 
@@ -245,6 +250,7 @@ collect_meson_args() {
     add_feature_option_from_env "ncnn" "PEK_NCNN"
 }
 
+# TODO: Give debug and release separate build directories, then remove the mode resets below.
 # ---- build ----
 debug() {
     need meson
@@ -259,7 +265,14 @@ debug() {
         meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat -Dtests="$enable_tests" "${MESON_SETUP_ARGS[@]}"
     else
         msg "Meson configure (keeping existing build dir)…"
-        meson configure "$BUILD_DIR" -Dtests="$enable_tests" "${MESON_CONFIGURE_ARGS[@]}" > /dev/null
+        meson configure "$BUILD_DIR" \
+            --buildtype=debug \
+            -Ddebug=true \
+            -Dstrip=false \
+            -Db_lto=false \
+            -Doptimization=0 \
+            -Dtests="$enable_tests" \
+            "${MESON_CONFIGURE_ARGS[@]}" > /dev/null
     fi
 
     msg "Compiling.."
@@ -291,7 +304,14 @@ release() {
             "${MESON_SETUP_ARGS[@]}"
     else
         msg "Meson configure (keeping existing build dir)…"
-        meson configure "$BUILD_DIR" -Dtests="$enable_tests" "${MESON_CONFIGURE_ARGS[@]}" > /dev/null
+        meson configure "$BUILD_DIR" \
+            --buildtype=release \
+            -Ddebug=false \
+            -Dstrip=true \
+            -Db_lto=true \
+            -Doptimization=3 \
+            -Dtests="$enable_tests" \
+            "${MESON_CONFIGURE_ARGS[@]}" > /dev/null
     fi
 
     msg "Compiling…"
