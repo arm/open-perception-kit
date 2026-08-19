@@ -132,6 +132,7 @@ coverage.xml
 # Valgrind output xml files and error summary xml file
 # -------------------------
 scripts/testing/valgrind/logs/*.xml
+scripts/testing/valgrind/logs/.gstreamer-registry.bin
 **/valgrind-error-summary*.xml
 
 # Example build outputs

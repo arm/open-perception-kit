@@ -92,9 +92,12 @@ run_valgrind_all() {
         exit 1
     fi
 
-    # Ensure freshly built plugins are discoverable and pipeline templates can
-    # resolve the configured frame count from the process environment.
+    # Ensure freshly built plugins are discoverable and scanned under Valgrind.
     export GST_PLUGIN_PATH="$WORK_ROOT/development/build/meson-out${GST_PLUGIN_PATH:+:$GST_PLUGIN_PATH}"
+    export GST_REGISTRY="$LOG_DIR/.gstreamer-registry.bin"
+    rm -f "$GST_REGISTRY"
+
+    # Let pipeline templates resolve the configured frame count.
     export NUM_FRAMES="${NUM_FRAMES:-30}"
 
     local valgrind_args=(

@@ -14,6 +14,27 @@ For anything beyond a tiny local edit:
 4. implement only the changes the task needs
 5. report what was verified and what was not
 
+Update feature branches by rebasing onto their target branch. Do not merge the
+target branch into a feature branch.
+
+### Stacked pull requests
+
+When asked to stack pull requests, use GitHub's native
+[stacked pull requests](https://docs.github.com/en/pull-requests/how-tos/stacked-pull-requests)
+feature:
+
+1. keep the bottom pull request targeted at the trunk branch
+2. rebase each upper branch onto the head of the pull request below it
+3. target each upper pull request at the branch of the pull request below it
+4. link the pull requests with the GitHub website or the Stacks REST API,
+   listing pull request numbers from bottom to top
+5. verify the stack membership and that each pull request shows only its layer's
+   focused diff
+
+Keep the stack linear by cascading rebases after a lower branch changes, and
+merge the pull requests from bottom to top. A textual dependency between pull
+requests that all target the trunk is not a native GitHub stack.
+
 ## Start here
 
 Read these first before making substantial changes:
