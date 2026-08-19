@@ -211,7 +211,9 @@ run_valgrind_all() {
         --show-leak-kinds=definite \
         --errors-for-leak-kinds=definite \
         --xml-file="$retry_log_file" \
-        "$PEKINFER_RETRY_TEST" "$WORK_ROOT/config/models/yolov11/opchain.json"; then
+        "$PEKINFER_RETRY_TEST" \
+        "$WORK_ROOT/config/models/yolov11/opchain.json" \
+        "$WORK_ROOT/config/models/yolov11/model.json"; then
         msg "PASSED: PEKinfer failed-start/retry regression"
     else
         retry_rc=$?
