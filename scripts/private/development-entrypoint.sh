@@ -9,6 +9,9 @@ set -euo pipefail
 : "${HOST_UID:=}"
 : "${HOST_GID:=}"
 
+ENTRYPOINT_READY_FILE="/tmp/pek-development-entrypoint-ready"
+rm -f "${ENTRYPOINT_READY_FILE}"
+
 # If the user of the container has a zsh config then use that configuration inside the container, otherwise keep using the default one.
 if [[ -f "/home/${USERNAME}/configs/zshrc" ]]; then
     ln -sfn "/home/${USERNAME}/configs/zshrc" "/home/${USERNAME}/.zshrc"
@@ -58,12 +61,14 @@ if [[ "${1:-}" == "--seed-artifacts" ]]; then
         exit 1
     fi
     seed_development_artifacts
+    touch "${ENTRYPOINT_READY_FILE}"
     exit 0
 fi
 
 # If no remap requested, just run as current user
 if [[ -z "${HOST_UID}" || -z "${HOST_GID}" ]]; then
     seed_development_artifacts
+    touch "${ENTRYPOINT_READY_FILE}"
     exec "$@"
 fi
 
@@ -97,4 +102,5 @@ chown -R "${HOST_UID}:${HOST_GID}" /work || true
 chown -R "${HOST_UID}:${HOST_GID}" /tmp/pekcomm || true
 
 # Drop privileges
+touch "${ENTRYPOINT_READY_FILE}"
 exec gosu "${HOST_UID}:${HOST_GID}" "$@"
