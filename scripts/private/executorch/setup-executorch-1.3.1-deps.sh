@@ -13,19 +13,19 @@ Usage:
   scripts/private/executorch/setup-executorch-1.3.1-deps.sh <work-dir> [options]
 
 Example:
-  scripts/private/executorch/setup-executorch-1.3.1-deps.sh /work/var/executorch-1.3.1-build
-  scripts/private/executorch/setup-executorch-1.3.1-deps.sh /work/var/executorch-1.3.1-arm-build --target-arch arm
+  scripts/private/executorch/setup-executorch-1.3.1-deps.sh var/executorch-1.3.1-build
+  scripts/private/executorch/setup-executorch-1.3.1-deps.sh var/executorch-1.3.1-arm-build --target-arch arm
 
 Options:
   --work-dir DIR          Directory used for source, venv, downloads, build, temp, and caches.
-  --deps-dir DIR          Root dependency staging directory. Default: /work/deps
+  --deps-dir DIR          Root dependency staging directory. Default: $PEK_PROJECT_ROOT/deps
   --target-arch ARCH      Build target: x86_64 (default) or arm (AArch64 Linux GNU).
   --executorch-url URL    ExecuTorch source archive URL. Default: official v1.3.1 tarball.
   --executorch-git-url URL
                           Git URL used only to recover pinned submodule commits.
   --executorch-sha256 SHA Expected SHA-256 of the source archive. Optional.
   --jobs N                Build parallelism. Default: calculated from available CPU and memory.
-  --deb-output-dir DIR    Debian package output directory. Default: /work/var
+  --deb-output-dir DIR    Debian package output directory. Default: $PEK_PROJECT_ROOT/var
   --deb-revision REV      Debian package revision. Default: 2
   --skip-deb              Stage files without creating a Debian package.
   --clean-build           Delete and recreate the CMake build directory.
@@ -33,6 +33,7 @@ Options:
   --help                  Show this help.
 
 Environment:
+  PEK_PROJECT_ROOT        PEK checkout root. Default: checkout containing this script.
   DEPS_DIR                Same as --deps-dir.
   EXECUTORCH_TARGET_ARCH  Same as --target-arch.
   EXECUTORCH_ARCHIVE_URL  Same as --executorch-url.
@@ -70,7 +71,7 @@ Output:
   $DEPS_DIR/executorch/lib
   $DEPS_DIR/libtorch/include
   $DEPS_DIR/executorch-legal-documentation
-  /work/var/libexecutorch-dev-1.3.1-<revision>-<architecture>.deb
+  $PEK_PROJECT_ROOT/var/libexecutorch-dev-1.3.1-<revision>-<architecture>.deb
 
 The top-level ExecuTorch source is downloaded from the fixed archive. Git is
 used only after extraction to recover pinned submodule commits from the v1.3.1
@@ -225,11 +226,20 @@ safe_rm_rf() {
 }
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd -- "${SCRIPT_DIR}/../../.." && pwd)"
+requested_project_root="${PEK_PROJECT_ROOT:-${SCRIPT_DIR}/../../..}"
+[[ "${requested_project_root}" == /* ]] ||
+    die "PEK_PROJECT_ROOT must be an absolute path: ${requested_project_root}"
+[[ -d "${requested_project_root}" ]] ||
+    die "PEK project root does not exist: ${requested_project_root}"
+PROJECT_ROOT="$(cd -- "${requested_project_root}" && pwd -P)"
+[[ -f "${PROJECT_ROOT}/development/meson.build" ]] ||
+    die "PEK_PROJECT_ROOT is not a PEK checkout: ${PROJECT_ROOT}"
+PEK_PROJECT_ROOT="${PROJECT_ROOT}"
+export PEK_PROJECT_ROOT
 ORIGINAL_CWD="$(pwd -P)"
 
 WORK_DIR=""
-DEPS_DIR="${DEPS_DIR:-/work/deps}"
+DEPS_DIR="${DEPS_DIR:-${PEK_PROJECT_ROOT}/deps}"
 EXECUTORCH_VERSION="1.3.1"
 EXECUTORCH_ARCHIVE_URL="${EXECUTORCH_ARCHIVE_URL:-https://github.com/pytorch/executorch/archive/refs/tags/v1.3.1.tar.gz}"
 EXECUTORCH_GIT_URL="${EXECUTORCH_GIT_URL:-https://github.com/pytorch/executorch.git}"
@@ -252,7 +262,7 @@ ARM_CXX_COMPILER="${EXECUTORCH_ARM_CXX:-aarch64-linux-gnu-g++-14}"
 ARM_AR="${EXECUTORCH_ARM_AR:-aarch64-linux-gnu-ar}"
 ARM_RANLIB="${EXECUTORCH_ARM_RANLIB:-aarch64-linux-gnu-ranlib}"
 ARM_STRIP="${EXECUTORCH_ARM_STRIP:-aarch64-linux-gnu-strip}"
-DEB_OUTPUT_DIR="${EXECUTORCH_DEB_OUTPUT_DIR:-/work/var}"
+DEB_OUTPUT_DIR="${EXECUTORCH_DEB_OUTPUT_DIR:-${PEK_PROJECT_ROOT}/var}"
 DEB_REVISION="${EXECUTORCH_DEB_REVISION:-2}"
 BUILD_DEB=1
 CLEAN_BUILD=0
