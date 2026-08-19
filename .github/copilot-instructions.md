@@ -42,7 +42,7 @@ Follow the repository root `AGENTS.md` first.
 ## Validation
 - Build: `./scripts/build-elements.sh debug [true|false]` or `./scripts/build-elements.sh release [true|false]`
 - Clean: `./scripts/build-elements.sh clean`
-- Tests: `./scripts/build-elements.sh debug true` then `meson test -C /work/development/build --print-errorlogs`
+- Tests: `./scripts/build-elements.sh debug true` then `meson test -C ./development/build-active --print-errorlogs`
 - Pipeline dry-run: `./tools/pek-menu -p <pipeline-id-or-path>` if available
 - Docs and diagrams: `./scripts/gen-doc.sh`
 - Docs preview: `./scripts/serve-docs-plain.sh` or `./scripts/serve-docs.sh`
