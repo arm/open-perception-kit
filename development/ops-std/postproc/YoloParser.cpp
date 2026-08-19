@@ -209,7 +209,9 @@ pek::Result<void> YoloParser::parse(const pek::TensorParser::Input &input,
                                                   k_content_type,
                                                   "",
                                                   "",
-                                                  "coco");
+                                                  "coco",
+                                                  "",
+                                                  &input.producerInfo);
         fillDetection(dets, input, payload, normalizeOutputCoordinates);
         if (!payload.detections.empty()) {
             results.add(std::move(payload));

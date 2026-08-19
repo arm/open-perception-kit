@@ -82,6 +82,30 @@ TEST(ConfigValidator, OpChainAttributesAreOptionalExceptForDataBearingOps) {
     }
 }
 
+TEST(ConfigValidator, OpChainAcceptsStableInstanceIds) {
+    nlohmann::json document{
+        {"version", 1},
+        {"name", "instance-id"},
+        {"description", "Validate operation producer identities."},
+        {"ops", {{{"id", "custom/Operation"}, {"instanceId", "python-classifier"}}}},
+    };
+
+    const auto result = pek::config::validateOpChainJson(document.dump());
+    ASSERT_TRUE(result) << (result ? "" : result.error().toText());
+    EXPECT_EQ(result->ops[0].instanceId, "python-classifier");
+
+    document["ops"][0]["instanceId"] = "invalid instance";
+    EXPECT_FALSE(pek::config::validateOpChainJson(document.dump()));
+
+    document["ops"] = {
+        {{"id", "custom/First"}, {"instanceId", "duplicate"}},
+        {{"id", "custom/Second"}, {"instanceId", "duplicate"}},
+    };
+    const auto duplicate = pek::config::validateOpChainJson(document.dump());
+    ASSERT_FALSE(duplicate);
+    EXPECT_TRUE(hasRule(duplicate.error(), "opchain.v1.instance-id"));
+}
+
 TEST(ConfigValidator, OpChainProjectionClearsOmittedAttributes) {
     pek::op::OpChainDescriptor::Op reused;
     reused.attributes.set("stale", true);

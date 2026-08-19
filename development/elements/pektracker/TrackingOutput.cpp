@@ -15,6 +15,7 @@ namespace {
 
 constexpr const char *TRACKER_MODEL = "Tracker";
 constexpr const char *TRACKER_ENGINE = "std";
+constexpr const char *TRACKER_COMPONENT = "gstreamer/pektracker";
 constexpr const char *PREDICTION_TAG = "tracking-prediction";
 constexpr const char *TRACE_TAG = "tracking";
 
@@ -96,8 +97,10 @@ bool shouldEmitTrace(const TrackState &track, const Config &config) {
 
 std::unique_ptr<perception::metadata::LayerInfoT>
 makeTrackerLayerInfo(const Config &config, const char *tags, const char *contentType) {
+    const auto producer = perception::makeProducerInfo(
+        config.inferId + "/pektracker", TRACKER_COMPONENT, "Tracker");
     return perception::makeLayerInfo(
-        TRACKER_MODEL, config.inferId, contentType, TRACKER_ENGINE, tags);
+        TRACKER_MODEL, config.inferId, contentType, TRACKER_ENGINE, tags, "", "", producer.get());
 }
 
 std::unique_ptr<perception::metadata::ObjectTrackT>

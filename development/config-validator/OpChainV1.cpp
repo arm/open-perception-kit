@@ -125,6 +125,27 @@ void validateLoopGroups(ValidationReport &report,
     }
 }
 
+void validateInstanceIds(ValidationReport &report,
+                         const pek::op::OpChainDescriptor &descriptor,
+                         std::string_view source) {
+    std::unordered_map<std::string, std::size_t> firstById;
+    for (std::size_t index = 0; index < descriptor.ops.size(); ++index) {
+        const auto &instanceId = descriptor.ops[index].instanceId;
+        if (instanceId.empty())
+            continue;
+        const auto [iterator, inserted] = firstById.emplace(instanceId, index);
+        if (inserted)
+            continue;
+        report.issues.push_back(makeIssue("opchain.v1.instance-id",
+                                          ValidationPhase::Descriptor,
+                                          source,
+                                          std::format("/ops/{}/instanceId", index),
+                                          std::format("operation instance ID '{}' is duplicated",
+                                                      instanceId),
+                                          std::format("/ops/{}/instanceId", iterator->second)));
+    }
+}
+
 void validateStageStart(ValidationReport &report,
                         const Ops &ops,
                         std::size_t controller,
@@ -290,6 +311,7 @@ ValidationReport validateOpChainV1(const pek::op::OpChainDescriptor &descriptor,
                                    std::string_view source) {
     ValidationReport report;
     validateControlCharacters(report, descriptor, source);
+    validateInstanceIds(report, descriptor, source);
     validateLoopGroups(report, descriptor, source);
     validateStages(report, descriptor, source);
     validateThresholds(report, descriptor, source);

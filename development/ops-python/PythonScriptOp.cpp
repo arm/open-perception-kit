@@ -43,6 +43,22 @@ void appendUniquePath(std::vector<std::filesystem::path> &paths,
         paths.push_back(path);
 }
 
+PyObjectPtr makePythonProducerInfo(const std::string &instanceId,
+                                   const std::string &component,
+                                   const std::string &implementation) {
+    PyObjectPtr producerModule(
+        PyImport_ImportModule("perception.fb.perception.metadata.ProducerInfo"));
+    PyObjectPtr producerType(
+        producerModule ? PyObject_GetAttrString(producerModule.get(), "ProducerInfoT") : nullptr);
+    if (!producerType || !PyCallable_Check(producerType.get()))
+        return PyObjectPtr();
+    return PyObjectPtr(PyObject_CallFunction(producerType.get(),
+                                            "sss",
+                                            instanceId.c_str(),
+                                            component.c_str(),
+                                            implementation.c_str()));
+}
+
 } // namespace
 
 PythonScriptOp::~PythonScriptOp() {
@@ -76,6 +92,8 @@ pek::Result<void> PythonScriptOp::configure(const pek::AttributeMap &attributes)
         }
         appendUniquePath(pythonPaths, packagedPythonPath());
         appendUniquePath(pythonPaths, PEK_DEVELOPMENT_PYTHON_PATH);
+        if (instanceId.empty())
+            instanceId = fmt::format("PythonScript-{}", index);
         moduleName = fmt::format("_pek_python_script_{}", nextModuleId.fetch_add(1));
         ensureRuntime();
     } catch (const pek::AttributeError &error) {
@@ -184,6 +202,16 @@ pek::Result<pek::op::OpSignal> PythonScriptOp::process(pek::op::OpChainContext &
         GILGuard gil;
         PythonPathGuard pathGuard(pythonPaths);
         perception::python_bridge::scoped_envelope envelope(*context.frameResults);
+        PyObjectPtr producerInfo(makePythonProducerInfo(
+            fmt::format("{}/{}", context.inferenceInfo.inferElementId, instanceId),
+            libName.empty() || opName.empty() ? "pek-python-ops/PythonScript"
+                                              : fmt::format("{}/{}", libName, opName),
+            scriptPath.filename().string()));
+        if (!producerInfo || PyObject_SetAttrString(module, "producer_info", producerInfo.get()) < 0) {
+            return tl::unexpected(PEK_ERROR(
+                pek::ErrorFlag::SystemFailure,
+                "Failed to expose Python producer metadata:\n" + formatPythonError()));
+        }
         PyObjectPtr tensors(wrapTensors(context, model));
         if (!tensors) {
             return tl::unexpected(

@@ -73,7 +73,8 @@ pek::Result<void> RvmParser::parse(const pek::TensorParser::Input &input,
                                               "",
                                               "",
                                               "",
-                                              "backgroundReplacement");
+                                              "backgroundReplacement",
+                                              &input.producerInfo);
     payload.masks.push_back(std::move(mask));
     results.add(std::move(payload));
 

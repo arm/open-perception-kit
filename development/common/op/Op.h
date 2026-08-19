@@ -114,6 +114,8 @@ struct Op {
 
     std::string libName; ///< Name of the shared library providing this operation.
     std::string opName;  ///< Name of the operation class within the library.
+    std::string instanceId; ///< Stable descriptor identity or deterministic fallback.
+    size_t index = 0;       ///< Position of this operation in the OpChain.
     size_t loopId = 0;   ///< Loop group ID; ops with the same loopId execute in a loop.
 
     /**

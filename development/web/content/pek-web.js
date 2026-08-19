@@ -3152,6 +3152,82 @@ var BoxDetectionT = class {
   }
 };
 
+// generated/perception/ts/dist/perception/fb/perception/metadata/producer-info.js
+var ProducerInfo = class _ProducerInfo {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsProducerInfo(bb, obj) {
+    return (obj || new _ProducerInfo()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsProducerInfo(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _ProducerInfo()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  instanceId(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  component(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  implementation(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  static startProducerInfo(builder) {
+    builder.startObject(3);
+  }
+  static addInstanceId(builder, instanceIdOffset) {
+    builder.addFieldOffset(0, instanceIdOffset, 0);
+  }
+  static addComponent(builder, componentOffset) {
+    builder.addFieldOffset(1, componentOffset, 0);
+  }
+  static addImplementation(builder, implementationOffset) {
+    builder.addFieldOffset(2, implementationOffset, 0);
+  }
+  static endProducerInfo(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createProducerInfo(builder, instanceIdOffset, componentOffset, implementationOffset) {
+    _ProducerInfo.startProducerInfo(builder);
+    _ProducerInfo.addInstanceId(builder, instanceIdOffset);
+    _ProducerInfo.addComponent(builder, componentOffset);
+    _ProducerInfo.addImplementation(builder, implementationOffset);
+    return _ProducerInfo.endProducerInfo(builder);
+  }
+  unpack() {
+    return new ProducerInfoT(this.instanceId(), this.component(), this.implementation());
+  }
+  unpackTo(_o) {
+    _o.instanceId = this.instanceId();
+    _o.component = this.component();
+    _o.implementation = this.implementation();
+  }
+};
+var ProducerInfoT = class {
+  constructor(instanceId = null, component = null, implementation = null) {
+    this.instanceId = instanceId;
+    this.component = component;
+    this.implementation = implementation;
+  }
+  pack(builder) {
+    const instanceId = this.instanceId !== null ? builder.createString(this.instanceId) : 0;
+    const component = this.component !== null ? builder.createString(this.component) : 0;
+    const implementation = this.implementation !== null ? builder.createString(this.implementation) : 0;
+    return ProducerInfo.createProducerInfo(builder, instanceId, component, implementation);
+  }
+};
+
 // generated/perception/ts/dist/perception/fb/perception/metadata/layer-info.js
 var LayerInfo = class _LayerInfo {
   constructor() {
@@ -3198,8 +3274,12 @@ var LayerInfo = class _LayerInfo {
     const offset = this.bb.__offset(this.bb_pos, 16);
     return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
   }
+  producer(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 18);
+    return offset ? (obj || new ProducerInfo()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
   static startLayerInfo(builder) {
-    builder.startObject(7);
+    builder.startObject(8);
   }
   static addEngine(builder, engineOffset) {
     builder.addFieldOffset(0, engineOffset, 0);
@@ -3222,23 +3302,15 @@ var LayerInfo = class _LayerInfo {
   static addCompositingMode(builder, compositingModeOffset) {
     builder.addFieldOffset(6, compositingModeOffset, 0);
   }
+  static addProducer(builder, producerOffset) {
+    builder.addFieldOffset(7, producerOffset, 0);
+  }
   static endLayerInfo(builder) {
     const offset = builder.endObject();
     return offset;
   }
-  static createLayerInfo(builder, engineOffset, modelOffset, tagsOffset, inferElementIdOffset, labelFamilyOffset, contentTypeOffset, compositingModeOffset) {
-    _LayerInfo.startLayerInfo(builder);
-    _LayerInfo.addEngine(builder, engineOffset);
-    _LayerInfo.addModel(builder, modelOffset);
-    _LayerInfo.addTags(builder, tagsOffset);
-    _LayerInfo.addInferElementId(builder, inferElementIdOffset);
-    _LayerInfo.addLabelFamily(builder, labelFamilyOffset);
-    _LayerInfo.addContentType(builder, contentTypeOffset);
-    _LayerInfo.addCompositingMode(builder, compositingModeOffset);
-    return _LayerInfo.endLayerInfo(builder);
-  }
   unpack() {
-    return new LayerInfoT(this.engine(), this.model(), this.tags(), this.inferElementId(), this.labelFamily(), this.contentType(), this.compositingMode());
+    return new LayerInfoT(this.engine(), this.model(), this.tags(), this.inferElementId(), this.labelFamily(), this.contentType(), this.compositingMode(), this.producer() !== null ? this.producer().unpack() : null);
   }
   unpackTo(_o) {
     _o.engine = this.engine();
@@ -3248,10 +3320,11 @@ var LayerInfo = class _LayerInfo {
     _o.labelFamily = this.labelFamily();
     _o.contentType = this.contentType();
     _o.compositingMode = this.compositingMode();
+    _o.producer = this.producer() !== null ? this.producer().unpack() : null;
   }
 };
 var LayerInfoT = class {
-  constructor(engine = null, model = null, tags = null, inferElementId = null, labelFamily = null, contentType = null, compositingMode = null) {
+  constructor(engine = null, model = null, tags = null, inferElementId = null, labelFamily = null, contentType = null, compositingMode = null, producer = null) {
     this.engine = engine;
     this.model = model;
     this.tags = tags;
@@ -3259,6 +3332,7 @@ var LayerInfoT = class {
     this.labelFamily = labelFamily;
     this.contentType = contentType;
     this.compositingMode = compositingMode;
+    this.producer = producer;
   }
   pack(builder) {
     const engine = this.engine !== null ? builder.createString(this.engine) : 0;
@@ -3268,7 +3342,17 @@ var LayerInfoT = class {
     const labelFamily = this.labelFamily !== null ? builder.createString(this.labelFamily) : 0;
     const contentType = this.contentType !== null ? builder.createString(this.contentType) : 0;
     const compositingMode = this.compositingMode !== null ? builder.createString(this.compositingMode) : 0;
-    return LayerInfo.createLayerInfo(builder, engine, model, tags, inferElementId, labelFamily, contentType, compositingMode);
+    const producer = this.producer !== null ? this.producer.pack(builder) : 0;
+    LayerInfo.startLayerInfo(builder);
+    LayerInfo.addEngine(builder, engine);
+    LayerInfo.addModel(builder, model);
+    LayerInfo.addTags(builder, tags);
+    LayerInfo.addInferElementId(builder, inferElementId);
+    LayerInfo.addLabelFamily(builder, labelFamily);
+    LayerInfo.addContentType(builder, contentType);
+    LayerInfo.addCompositingMode(builder, compositingMode);
+    LayerInfo.addProducer(builder, producer);
+    return LayerInfo.endLayerInfo(builder);
   }
 };
 
@@ -5375,64 +5459,64 @@ var TrackTracesT = class {
 };
 
 // generated/perception/ts/dist/perception/registry.js
-var decode_127096183275957372 = (blob) => BoxDetections.getRootAsBoxDetections(new ByteBuffer(blob)).unpack();
-var verify_127096183275957372 = (blob) => BoxDetections.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_9181357636124419217 = (blob) => Classifications.getRootAsClassifications(new ByteBuffer(blob)).unpack();
-var verify_9181357636124419217 = (blob) => Classifications.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_6787725252958650128 = (blob) => FrameContext.getRootAsFrameContext(new ByteBuffer(blob)).unpack();
-var verify_6787725252958650128 = (blob) => FrameContext.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_3601053540183530964 = (blob) => ObjectEmbeddings.getRootAsObjectEmbeddings(new ByteBuffer(blob)).unpack();
-var verify_3601053540183530964 = (blob) => ObjectEmbeddings.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_1204340903431744882 = (blob) => ObjectTracks.getRootAsObjectTracks(new ByteBuffer(blob)).unpack();
-var verify_1204340903431744882 = (blob) => ObjectTracks.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_928609632921539799 = (blob) => BoxDetections.getRootAsBoxDetections(new ByteBuffer(blob)).unpack();
+var verify_928609632921539799 = (blob) => BoxDetections.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_94127366257443529 = (blob) => Classifications.getRootAsClassifications(new ByteBuffer(blob)).unpack();
+var verify_94127366257443529 = (blob) => Classifications.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_6405170853304169454 = (blob) => FrameContext.getRootAsFrameContext(new ByteBuffer(blob)).unpack();
+var verify_6405170853304169454 = (blob) => FrameContext.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_3474598619102273931 = (blob) => ObjectEmbeddings.getRootAsObjectEmbeddings(new ByteBuffer(blob)).unpack();
+var verify_3474598619102273931 = (blob) => ObjectEmbeddings.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_930392077708082693 = (blob) => ObjectTracks.getRootAsObjectTracks(new ByteBuffer(blob)).unpack();
+var verify_930392077708082693 = (blob) => ObjectTracks.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_4179744154867129599 = (blob) => PerformanceOverlay.getRootAsPerformanceOverlay(new ByteBuffer(blob)).unpack();
 var verify_4179744154867129599 = (blob) => PerformanceOverlay.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_6089861490284108552 = (blob) => PoseEstimations.getRootAsPoseEstimations(new ByteBuffer(blob)).unpack();
-var verify_6089861490284108552 = (blob) => PoseEstimations.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_3767952910034633902 = (blob) => SegmentationMasks.getRootAsSegmentationMasks(new ByteBuffer(blob)).unpack();
-var verify_3767952910034633902 = (blob) => SegmentationMasks.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_4937615646931894804 = (blob) => TrackTraces.getRootAsTrackTraces(new ByteBuffer(blob)).unpack();
-var verify_4937615646931894804 = (blob) => TrackTraces.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_8795139052133278924 = (blob) => PoseEstimations.getRootAsPoseEstimations(new ByteBuffer(blob)).unpack();
+var verify_8795139052133278924 = (blob) => PoseEstimations.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_1102215109093226736 = (blob) => SegmentationMasks.getRootAsSegmentationMasks(new ByteBuffer(blob)).unpack();
+var verify_1102215109093226736 = (blob) => SegmentationMasks.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_8745337222662207869 = (blob) => TrackTraces.getRootAsTrackTraces(new ByteBuffer(blob)).unpack();
+var verify_8745337222662207869 = (blob) => TrackTraces.bufferHasIdentifier(new ByteBuffer(blob));
 var _TYPE_REGISTRY = /* @__PURE__ */ new Map([
-  [127096183275957372n, {
+  [928609632921539799n, {
     name: "perception::metadata::BoxDetections",
     root_type: "BoxDetections",
     qualified_root_type: "perception.metadata.BoxDetections",
     file_identifier: "BDET",
-    decode: decode_127096183275957372,
-    verify: verify_127096183275957372
+    decode: decode_928609632921539799,
+    verify: verify_928609632921539799
   }],
-  [9181357636124419217n, {
+  [94127366257443529n, {
     name: "perception::metadata::Classifications",
     root_type: "Classifications",
     qualified_root_type: "perception.metadata.Classifications",
     file_identifier: "CLSF",
-    decode: decode_9181357636124419217,
-    verify: verify_9181357636124419217
+    decode: decode_94127366257443529,
+    verify: verify_94127366257443529
   }],
-  [6787725252958650128n, {
+  [6405170853304169454n, {
     name: "perception::metadata::FrameContext",
     root_type: "FrameContext",
     qualified_root_type: "perception.metadata.FrameContext",
     file_identifier: "FCTX",
-    decode: decode_6787725252958650128,
-    verify: verify_6787725252958650128
+    decode: decode_6405170853304169454,
+    verify: verify_6405170853304169454
   }],
-  [3601053540183530964n, {
+  [3474598619102273931n, {
     name: "perception::metadata::ObjectEmbeddings",
     root_type: "ObjectEmbeddings",
     qualified_root_type: "perception.metadata.ObjectEmbeddings",
     file_identifier: "EMBE",
-    decode: decode_3601053540183530964,
-    verify: verify_3601053540183530964
+    decode: decode_3474598619102273931,
+    verify: verify_3474598619102273931
   }],
-  [1204340903431744882n, {
+  [930392077708082693n, {
     name: "perception::metadata::ObjectTracks",
     root_type: "ObjectTracks",
     qualified_root_type: "perception.metadata.ObjectTracks",
     file_identifier: "TRKS",
-    decode: decode_1204340903431744882,
-    verify: verify_1204340903431744882
+    decode: decode_930392077708082693,
+    verify: verify_930392077708082693
   }],
   [4179744154867129599n, {
     name: "perception::metadata::PerformanceOverlay",
@@ -5442,41 +5526,41 @@ var _TYPE_REGISTRY = /* @__PURE__ */ new Map([
     decode: decode_4179744154867129599,
     verify: verify_4179744154867129599
   }],
-  [6089861490284108552n, {
+  [8795139052133278924n, {
     name: "perception::metadata::PoseEstimations",
     root_type: "PoseEstimations",
     qualified_root_type: "perception.metadata.PoseEstimations",
     file_identifier: "POSE",
-    decode: decode_6089861490284108552,
-    verify: verify_6089861490284108552
+    decode: decode_8795139052133278924,
+    verify: verify_8795139052133278924
   }],
-  [3767952910034633902n, {
+  [1102215109093226736n, {
     name: "perception::metadata::SegmentationMasks",
     root_type: "SegmentationMasks",
     qualified_root_type: "perception.metadata.SegmentationMasks",
     file_identifier: "SGMS",
-    decode: decode_3767952910034633902,
-    verify: verify_3767952910034633902
+    decode: decode_1102215109093226736,
+    verify: verify_1102215109093226736
   }],
-  [4937615646931894804n, {
+  [8745337222662207869n, {
     name: "perception::metadata::TrackTraces",
     root_type: "TrackTraces",
     qualified_root_type: "perception.metadata.TrackTraces",
     file_identifier: "TRCE",
-    decode: decode_4937615646931894804,
-    verify: verify_4937615646931894804
+    decode: decode_8745337222662207869,
+    verify: verify_8745337222662207869
   }]
 ]);
 var _CLASS_TO_ID = /* @__PURE__ */ new Map([
-  [BoxDetectionsT, 127096183275957372n],
-  [ClassificationsT, 9181357636124419217n],
-  [FrameContextT, 6787725252958650128n],
-  [ObjectEmbeddingsT, 3601053540183530964n],
-  [ObjectTracksT, 1204340903431744882n],
+  [BoxDetectionsT, 928609632921539799n],
+  [ClassificationsT, 94127366257443529n],
+  [FrameContextT, 6405170853304169454n],
+  [ObjectEmbeddingsT, 3474598619102273931n],
+  [ObjectTracksT, 930392077708082693n],
   [PerformanceOverlayT, 4179744154867129599n],
-  [PoseEstimationsT, 6089861490284108552n],
-  [SegmentationMasksT, 3767952910034633902n],
-  [TrackTracesT, 4937615646931894804n]
+  [PoseEstimationsT, 8795139052133278924n],
+  [SegmentationMasksT, 1102215109093226736n],
+  [TrackTracesT, 8745337222662207869n]
 ]);
 
 // generated/perception/ts/dist/perception/envelope.js
@@ -5493,8 +5577,8 @@ var __classPrivateFieldGet = function(receiver, state, kind, f) {
 };
 var _ExternalKey_value;
 var SDK_NAME = "perception";
-var SDK_VERSION = "0.2.1";
-var SCHEMA_SET_SHA256 = "0ba6dfe959e1453ce12c7a8707623bc15d94d52c9235c26f7e27f31dda0775c5";
+var SDK_VERSION = "0.3.0";
+var SCHEMA_SET_SHA256 = "5a2f77909600d6458a707fba68cff1a7dc5f610dec58174456bb97d16596c383";
 var EXTERNAL_KEY_MIN = BigInt("9223372036854775808");
 var EXTERNAL_KEY_MASK = EXTERNAL_KEY_MIN - BigInt(1);
 var EXTERNAL_HASH_OFFSET = BigInt("14695981039346656037");
@@ -5836,6 +5920,7 @@ function objectData(object) {
   };
 }
 function layerData(layer2) {
+  const producer = layer2?.producer;
   return {
     engine: text(layer2?.engine),
     model: text(layer2?.model),
@@ -5843,7 +5928,12 @@ function layerData(layer2) {
     inferElementId: text(layer2?.inferElementId),
     labelFamily: text(layer2?.labelFamily),
     contentType: text(layer2?.contentType),
-    compositingMode: text(layer2?.compositingMode)
+    compositingMode: text(layer2?.compositingMode),
+    producer: producer ? {
+      instanceId: text(producer.instanceId),
+      component: text(producer.component),
+      implementation: text(producer.implementation)
+    } : null
   };
 }
 function layer(payload, detections) {
@@ -6320,6 +6410,7 @@ function drawLayers(ctx, perception, mapper, renderOptions, now) {
         data,
         mapper.display,
         renderOptions.colors,
+        classificationHeading(layer2),
         layer2.compositingMode === "bottomRight"
       )
     },
@@ -6364,7 +6455,7 @@ function drawFace(ctx, rect, mapper, colors) {
   ctx.stroke();
   ctx.restore();
 }
-function drawClassification(ctx, classification, display, colors, alignRight = false) {
+function drawClassification(ctx, classification, display, colors, heading, alignRight = false) {
   const candidates = Array.isArray(classification?.candidates) ? classification.candidates : [];
   if (candidates.length === 0) {
     return;
@@ -6375,10 +6466,10 @@ function drawClassification(ctx, classification, display, colors, alignRight = f
   const startX = display.x + padding;
   const startY = display.y + display.height - candidates.length * lineHeight - padding;
   const textX = classificationTextX(display, padding, alignRight);
-  if (alignRight) {
+  if (heading) {
     drawTextChip(
       ctx,
-      "Python classification",
+      heading,
       textX,
       Math.max(display.y + padding, startY - lineHeight),
       fontSize,
@@ -6389,6 +6480,9 @@ function drawClassification(ctx, classification, display, colors, alignRight = f
     const text2 = `#${index + 1}: ${candidate.text || candidate.classId} (${((candidate.confidence || 0) * 100).toFixed(1)}%)`;
     drawTextChip(ctx, text2, textX, startY + index * lineHeight, fontSize, colors.classification);
   });
+}
+function classificationHeading(layer2) {
+  return layer2?.producer?.implementation || "";
 }
 function classificationTextX(display, padding, alignRight) {
   if (!alignRight) {

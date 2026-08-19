@@ -25,7 +25,8 @@ std::unique_ptr<metadata::LayerInfoT> makeLayerInfo(std::string_view model,
                                                     std::string_view engine,
                                                     std::string_view tags,
                                                     std::string_view labelFamily,
-                                                    std::string_view compositingMode) {
+                                                    std::string_view compositingMode,
+                                                    const metadata::ProducerInfoT *producer) {
     auto info = std::make_unique<metadata::LayerInfoT>();
     info->engine = engine;
     info->model = model;
@@ -34,6 +35,18 @@ std::unique_ptr<metadata::LayerInfoT> makeLayerInfo(std::string_view model,
     info->label_family = labelFamily;
     info->content_type = contentType;
     info->compositing_mode = compositingMode;
+    if (producer != nullptr)
+        info->producer = std::make_unique<metadata::ProducerInfoT>(*producer);
+    return info;
+}
+
+std::unique_ptr<metadata::ProducerInfoT> makeProducerInfo(std::string_view instanceId,
+                                                         std::string_view component,
+                                                         std::string_view implementation) {
+    auto info = std::make_unique<metadata::ProducerInfoT>();
+    info->instance_id = instanceId;
+    info->component = component;
+    info->implementation = implementation;
     return info;
 }
 

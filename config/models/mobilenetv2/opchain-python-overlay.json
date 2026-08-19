@@ -25,12 +25,14 @@
 		},
 		{
 			"id": "pek-python-ops/PythonScript",
+			"instanceId": "python-classifier",
 			"attributes": {
 				"script": "scripts/tensor_metrics_overlay.py"
 			}
 		},
 		{
 			"id": "pek-std-ops/GenericPostprocess",
+			"instanceId": "cpp-classifier",
 			"attributes": {
 				"parser": "ImageNetClassificationParser",
 				"topK": 5,

@@ -86,7 +86,8 @@ pek::Result<void> PaddleOcrDetectionParser::parse(const pek::TensorParser::Input
                                               "",
                                               "",
                                               "",
-                                              "overlay");
+                                              "overlay",
+                                              &input.producerInfo);
     payload.masks.push_back(std::move(mask));
     results.add(std::move(payload));
     return {};

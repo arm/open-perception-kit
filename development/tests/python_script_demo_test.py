@@ -25,6 +25,8 @@ sys.path.insert(
     0, str(REPOSITORY_ROOT / "generated/perception/python/src")
 )
 
+from perception.fb.perception.metadata.ProducerInfo import ProducerInfoT
+
 tensor_module = types.ModuleType("pek_python_ops")
 tensor_module.Tensor = object
 sys.modules["pek_python_ops"] = tensor_module
@@ -68,6 +70,11 @@ class PythonScriptDemoTest(unittest.TestCase):
     def setUp(self):
         demo.previous_class_id = None
         demo.stable_frame_count = 0
+        demo.producer_info = ProducerInfoT(
+            instanceId="pekinfer0/python-classifier",
+            component="pek-python-ops/PythonScript",
+            implementation=SCRIPT_PATH.name,
+        )
 
     def test_bundled_labels_match_cpp_table(self):
         self.assertEqual(tuple(LABEL_PATH.read_text(encoding="utf-8").splitlines()),
@@ -87,6 +94,9 @@ class PythonScriptDemoTest(unittest.TestCase):
         self.assertEqual(payload.layer.contentType, "classification")
         self.assertEqual(payload.layer.compositingMode, "bottomRight")
         self.assertEqual(payload.layer.tags, "statefulTensorDemo;stableFrames=2")
+        self.assertEqual(payload.layer.producer.instanceId, "pekinfer0/python-classifier")
+        self.assertEqual(payload.layer.producer.component, "pek-python-ops/PythonScript")
+        self.assertEqual(payload.layer.producer.implementation, SCRIPT_PATH.name)
         self.assertEqual(len(candidates), 5)
         self.assertEqual(candidates[0].classId, 2)
         self.assertEqual(candidates[0].text, "goldfish")

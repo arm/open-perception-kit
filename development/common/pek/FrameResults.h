@@ -27,7 +27,12 @@ std::unique_ptr<metadata::LayerInfoT> makeLayerInfo(std::string_view model,
                                                     std::string_view engine = "",
                                                     std::string_view tags = "",
                                                     std::string_view labelFamily = "",
-                                                    std::string_view compositingMode = "");
+                                                    std::string_view compositingMode = "",
+                                                    const metadata::ProducerInfoT *producer = nullptr);
+
+std::unique_ptr<metadata::ProducerInfoT> makeProducerInfo(std::string_view instanceId,
+                                                         std::string_view component,
+                                                         std::string_view implementation);
 
 std::unique_ptr<metadata::BoundingBoxT>
 makeBoundingBox(float x, float y, float width, float height);

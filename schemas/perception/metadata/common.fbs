@@ -6,6 +6,12 @@ table ObjectMeta {
   creation_ts_ns:ulong;
 }
 
+table ProducerInfo {
+  instance_id:string;
+  component:string;
+  implementation:string;
+}
+
 table LayerInfo {
   engine:string;
   model:string;
@@ -14,6 +20,7 @@ table LayerInfo {
   label_family:string;
   content_type:string;
   compositing_mode:string;
+  producer:ProducerInfo;
 }
 
 table BoundingBox {

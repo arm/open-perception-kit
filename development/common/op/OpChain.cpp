@@ -73,7 +73,8 @@ pek::Result<void> OpChain::setupFromDescriptor(const pek::op::OpChainDescriptor 
     task = descriptor.task;
     runtime = descriptor.runtime;
 
-    for (const auto &op : descriptor.ops) {
+    for (size_t opIndex = 0; opIndex < descriptor.ops.size(); ++opIndex) {
+        const auto &op = descriptor.ops[opIndex];
 
         if (pek::utf8::count(op.id, '/') != 1) {
             return tl::unexpected(
@@ -92,6 +93,9 @@ pek::Result<void> OpChain::setupFromDescriptor(const pek::op::OpChainDescriptor 
 
         opRef->libName = libName;
         opRef->opName = opName;
+        opRef->index = opIndex;
+        opRef->instanceId = op.instanceId.empty() ? fmt::format("{}-{}", opName, opIndex)
+                                                  : op.instanceId;
 
         opRef->loopId = op.loopId.value_or(0);
 

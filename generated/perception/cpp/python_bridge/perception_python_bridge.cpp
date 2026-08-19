@@ -199,6 +199,14 @@ PyObject *
 make_perception_metadata_ObjectMeta_proxy(const perception::metadata::ObjectMetaT *value,
                                           std::shared_ptr<const native_proxy_anchor> anchor);
 
+PyTypeObject &pytype_perception_metadata_ProducerInfo() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+PyObject *
+make_perception_metadata_ProducerInfo_proxy(const perception::metadata::ProducerInfoT *value,
+                                            std::shared_ptr<const native_proxy_anchor> anchor);
+
 PyTypeObject &pytype_perception_metadata_LayerInfo() {
     static PyTypeObject type = make_py_type_object();
     return type;
@@ -2813,6 +2821,88 @@ make_perception_metadata_ObjectMeta_proxy(const perception::metadata::ObjectMeta
         pytype_perception_metadata_ObjectMeta(), value, std::move(anchor));
 }
 
+PyObject *get_perception_metadata_ProducerInfo_instance_id(PyObject *self, void *) {
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ProducerInfoT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
+        return nullptr;
+    }
+    return py_string_from_std(value->instance_id);
+}
+
+PyObject *get_perception_metadata_ProducerInfo_component(PyObject *self, void *) {
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ProducerInfoT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
+        return nullptr;
+    }
+    return py_string_from_std(value->component);
+}
+
+PyObject *get_perception_metadata_ProducerInfo_implementation(PyObject *self, void *) {
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::ProducerInfoT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
+        return nullptr;
+    }
+    return py_string_from_std(value->implementation);
+}
+
+PyGetSetDef *getsets_perception_metadata_ProducerInfo() {
+    static PyGetSetDef definitions[] = {
+        {"instanceId",
+         reinterpret_cast<getter>(get_perception_metadata_ProducerInfo_instance_id),
+         nullptr,
+         "read-only instance_id",
+         nullptr},
+        {"component",
+         reinterpret_cast<getter>(get_perception_metadata_ProducerInfo_component),
+         nullptr,
+         "read-only component",
+         nullptr},
+        {"implementation",
+         reinterpret_cast<getter>(get_perception_metadata_ProducerInfo_implementation),
+         nullptr,
+         "read-only implementation",
+         nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr},
+    };
+    return definitions;
+}
+
+bool ensure_perception_metadata_ProducerInfo_type() {
+    auto &type = pytype_perception_metadata_ProducerInfo();
+    if (type.tp_name == nullptr) {
+        type.tp_name = "perception_bridge.perception_metadata_ProducerInfo";
+        type.tp_basicsize = sizeof(native_proxy_object<perception::metadata::ProducerInfoT>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc = native_proxy_dealloc<perception::metadata::ProducerInfoT>;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "perception read-only live payload proxy";
+        type.tp_getset = getsets_perception_metadata_ProducerInfo();
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+PyObject *
+make_perception_metadata_ProducerInfo_proxy(const perception::metadata::ProducerInfoT *value,
+                                            std::shared_ptr<const native_proxy_anchor> anchor) {
+    return make_native_proxy<perception::metadata::ProducerInfoT>(
+        pytype_perception_metadata_ProducerInfo(), value, std::move(anchor));
+}
+
 PyObject *get_perception_metadata_LayerInfo_engine(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<perception::metadata::LayerInfoT> *>(self);
@@ -2890,6 +2980,22 @@ PyObject *get_perception_metadata_LayerInfo_compositing_mode(PyObject *self, voi
     return py_string_from_std(value->compositing_mode);
 }
 
+PyObject *get_perception_metadata_LayerInfo_producer(PyObject *self, void *) {
+    const auto *proxy =
+        reinterpret_cast<const native_proxy_object<perception::metadata::LayerInfoT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "perception payload proxy is invalid");
+        return nullptr;
+    }
+    const auto *nested = value->producer.get();
+    if (nested == nullptr) {
+        Py_RETURN_NONE;
+    }
+    return make_perception_metadata_ProducerInfo_proxy(
+        nested, proxy_anchor<perception::metadata::LayerInfoT>(self));
+}
+
 PyGetSetDef *getsets_perception_metadata_LayerInfo() {
     static PyGetSetDef definitions[] = {
         {"engine",
@@ -2926,6 +3032,11 @@ PyGetSetDef *getsets_perception_metadata_LayerInfo() {
          reinterpret_cast<getter>(get_perception_metadata_LayerInfo_compositing_mode),
          nullptr,
          "read-only compositing_mode",
+         nullptr},
+        {"producer",
+         reinterpret_cast<getter>(get_perception_metadata_LayerInfo_producer),
+         nullptr,
+         "read-only producer",
          nullptr},
         {nullptr, nullptr, nullptr, nullptr, nullptr},
     };
@@ -4908,6 +5019,7 @@ bool ensure_known_proxy_types() {
         !ensure_perception_metadata_PersonPresence_type() ||
         !ensure_perception_metadata_Classifications_type() ||
         !ensure_perception_metadata_ObjectMeta_type() ||
+        !ensure_perception_metadata_ProducerInfo_type() ||
         !ensure_perception_metadata_LayerInfo_type() ||
         !ensure_perception_metadata_BoundingBox_type() ||
         !ensure_perception_metadata_Point2f_type() ||
@@ -4974,6 +5086,11 @@ bool add_known_proxy_types(PyObject *python_module) {
     if (!add_python_type(python_module,
                          pytype_perception_metadata_ObjectMeta(),
                          "perception_metadata_ObjectMeta")) {
+        return false;
+    }
+    if (!add_python_type(python_module,
+                         pytype_perception_metadata_ProducerInfo(),
+                         "perception_metadata_ProducerInfo")) {
         return false;
     }
     if (!add_python_type(python_module,

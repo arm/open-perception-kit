@@ -112,7 +112,14 @@ pek::Result<void> GazeDetectionParser::parse(const pek::TensorParser::Input &inp
 
     perception::metadata::PoseEstimationsT payload;
     payload.layer = perception::makeLayerInfo(
-        input.inferenceInfo.modelName, input.inferenceInfo.inferElementId, k_content_type);
+        input.inferenceInfo.modelName,
+        input.inferenceInfo.inferElementId,
+        k_content_type,
+        "",
+        "",
+        "",
+        "",
+        &input.producerInfo);
     payload.poses.push_back(std::move(result));
     results.add(std::move(payload));
     return {};

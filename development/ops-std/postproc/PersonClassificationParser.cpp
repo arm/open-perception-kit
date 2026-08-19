@@ -70,7 +70,14 @@ pek::Result<void> PersonClassificationParser::parse(const pek::TensorParser::Inp
 
     perception::metadata::ClassificationsT payload;
     payload.layer = perception::makeLayerInfo(
-        input.inferenceInfo.modelName, input.inferenceInfo.inferElementId, k_content_type);
+        input.inferenceInfo.modelName,
+        input.inferenceInfo.inferElementId,
+        k_content_type,
+        "",
+        "",
+        "",
+        "",
+        &input.producerInfo);
     payload.person_presence.push_back(std::move(result));
     results.add(std::move(payload));
 

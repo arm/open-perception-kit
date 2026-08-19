@@ -52,8 +52,19 @@ InferenceControllerOp::process(pek::op::OpChainContext &opChainContext) {
         const uint64_t frameId = object->id;
 
         perception::metadata::FrameContextT frameContext;
+        const auto producer = perception::makeProducerInfo(
+            fmt::format("{}/{}", opChainContext.inferenceInfo.inferElementId, instanceId),
+            fmt::format("{}/{}", libName, opName),
+            opName);
         frameContext.layer = perception::makeLayerInfo(
-            "", "rootLayer_" + opChainContext.inferenceInfo.inferElementId, "frameContext");
+            "",
+            "rootLayer_" + opChainContext.inferenceInfo.inferElementId,
+            "frameContext",
+            "",
+            "",
+            "",
+            "",
+            producer.get());
         frameContext.video = std::make_unique<perception::metadata::VideoFrameContextT>();
         frameContext.video->object = std::move(object);
         frameContext.video->original_width = pipelineVideoFrame->width();

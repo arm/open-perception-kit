@@ -469,7 +469,9 @@ Result<void> YoloXParser::parse(const pek::TensorParser::Input &input,
                                               k_content_type,
                                               "",
                                               "",
-                                              "coco");
+                                              "coco",
+                                              "",
+                                              &input.producerInfo);
     appendDetections(dets, settings, geometry, input.inferenceInfo.parentId, payload);
     if (!payload.detections.empty()) {
         results.add(std::move(payload));

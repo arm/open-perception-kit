@@ -3,12 +3,23 @@ import test from "node:test";
 
 import {
   calculateContainedRect,
+  classificationHeading,
   classificationTextX,
   collectRectsByContentType,
   createCoordinateMapper,
   findParentRect,
   findVideoFrame,
 } from "../src/osd-renderer.js";
+
+test("classification heading identifies the payload producer implementation", () => {
+  assert.equal(classificationHeading({
+    producer: {implementation: "ImageNetClassificationParser"},
+  }), "ImageNetClassificationParser");
+  assert.equal(classificationHeading({
+    producer: {implementation: "tensor_metrics_overlay.py"},
+  }), "tensor_metrics_overlay.py");
+  assert.equal(classificationHeading({}), "");
+});
 
 test("classification text supports explicit lower-right alignment", () => {
   const display = {x: 20, y: 0, width: 1000, height: 300};

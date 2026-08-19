@@ -211,6 +211,7 @@ function drawLayers(ctx, perception, mapper, renderOptions, now) {
         data,
         mapper.display,
         renderOptions.colors,
+        classificationHeading(layer),
         layer.compositingMode === "bottomRight",
       ),
     },
@@ -260,7 +261,7 @@ function drawFace(ctx, rect, mapper, colors) {
   ctx.restore();
 }
 
-function drawClassification(ctx, classification, display, colors, alignRight = false) {
+function drawClassification(ctx, classification, display, colors, heading, alignRight = false) {
   const candidates = Array.isArray(classification?.candidates) ? classification.candidates : [];
   if (candidates.length === 0) {
     return;
@@ -272,10 +273,10 @@ function drawClassification(ctx, classification, display, colors, alignRight = f
   const startX = display.x + padding;
   const startY = display.y + display.height - candidates.length * lineHeight - padding;
   const textX = classificationTextX(display, padding, alignRight);
-  if (alignRight) {
+  if (heading) {
     drawTextChip(
       ctx,
-      "Python classification",
+      heading,
       textX,
       Math.max(display.y + padding, startY - lineHeight),
       fontSize,
@@ -286,6 +287,10 @@ function drawClassification(ctx, classification, display, colors, alignRight = f
     const text = `#${index + 1}: ${candidate.text || candidate.classId} (${((candidate.confidence || 0) * 100).toFixed(1)}%)`;
     drawTextChip(ctx, text, textX, startY + index * lineHeight, fontSize, colors.classification);
   });
+}
+
+export function classificationHeading(layer) {
+  return layer?.producer?.implementation || "";
 }
 
 export function classificationTextX(display, padding, alignRight) {

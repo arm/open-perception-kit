@@ -76,6 +76,7 @@ class GenericPostprocessOp : public pek::op::Op, public pek::op::OpInterfacePost
   private:
     std::unique_ptr<pek::TensorParser> parser;
     pek::AttributeMap attributes;
+    std::string parserName;
 };
 
 } // namespace pek::stdop

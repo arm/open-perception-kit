@@ -17,6 +17,7 @@ Add the operation at the required position in an OpChain:
 ```json
 {
   "id": "pek-python-ops/PythonScript",
+  "instanceId": "python-classifier",
   "attributes": {
     "script": "scripts/process.py",
     "pythonPaths": ["scripts/modules"]
@@ -26,6 +27,8 @@ Add the operation at the required position in an OpChain:
 
 Relative `script` and `pythonPaths` values resolve from the directory containing
 the OpChain descriptor. Restart the pipeline after changing a script.
+`instanceId` is optional, but assigning one gives payloads a stable producer
+identity even if the operation order changes.
 
 Place the operation after inference to receive output tensors. It may also be
 used elsewhere in the chain, in which case `tensors` is empty when no inference
@@ -61,6 +64,23 @@ FrameResults payloads are read-only bridge proxies. Use `env.add(...)` with the
 generated object API to append new payloads, following the same pattern as a
 generated Perception SDK consumer.
 
+During `process`, the module global `producer_info` contains the generated
+`ProducerInfoT` for the current Python Op. Attach it to the `LayerInfoT` of
+payloads created by the script:
+
+```python
+layer = LayerInfoT(
+    model="example-model",
+    contentType="classification",
+    producer=producer_info,
+)
+```
+
+The producer records the runtime instance ID, the
+`pek-python-ops/PythonScript` component, and the script filename. Do not retain
+or mutate `producer_info`; use it only while constructing payloads for the
+current invocation.
+
 ## Tensor contract
 
 Each `pek_python_ops.Tensor` provides:
@@ -91,7 +111,9 @@ independently calculates its top five classifications while tracking how many
 consecutive frames retain the same top class. The Python results appear in the
 lower-right corner, while the standard C++ top classifications remain in the
 lower-left for comparison. Both lists use the same five-row rank, label, and
-confidence format and align vertically. The stable-frame count is retained in
+confidence format and align vertically. `pekosd` labels each list with its
+recorded producer implementation: the C++ parser name on the left and the
+Python script filename on the right. The stable-frame count is retained in
 the Python layer's `tags` metadata instead of changing the visible label. The
 model-local Python demo bundles the same 1,001 ImageNet labels used by the C++
 parser because it runs before postprocessing.

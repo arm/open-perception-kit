@@ -44,6 +44,7 @@ struct OpChainDescriptor {
             loopId; ///< Optional loop group ID; operations with equal IDs form a loop.
         AttributeMap
             attributes; ///< Configuration attributes passed to the operation's configure() method.
+        std::string instanceId; ///< Optional stable identity for this operation instance.
     };
 
     std::string name;        ///< Internal name of the operation chain.
@@ -85,12 +86,18 @@ namespace pek::op {
 
 inline void to_json(nlohmann::json &j, const OpChainDescriptor::Op &op) {
     j = nlohmann::json{{"id", op.id}, {"attributes", op.attributes}};
+    if (!op.instanceId.empty())
+        j["instanceId"] = op.instanceId;
     if (op.loopId.has_value())
         j["loopId"] = *op.loopId;
 }
 
 inline void from_json(const nlohmann::json &j, OpChainDescriptor::Op &op) {
     j.at("id").get_to(op.id);
+    if (j.contains("instanceId"))
+        j.at("instanceId").get_to(op.instanceId);
+    else
+        op.instanceId.clear();
     if (j.contains("loopId"))
         op.loopId = j.at("loopId").get<std::size_t>();
     else

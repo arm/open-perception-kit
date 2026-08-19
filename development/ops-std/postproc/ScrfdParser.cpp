@@ -325,7 +325,14 @@ pek::Result<void> pek::stdop::postproc::ScrfdParser::parse(const pek::TensorPars
 
     perception::metadata::BoxDetectionsT payload;
     payload.layer = perception::makeLayerInfo(
-        input.inferenceInfo.modelName, input.inferenceInfo.inferElementId, k_content_type);
+        input.inferenceInfo.modelName,
+        input.inferenceInfo.inferElementId,
+        k_content_type,
+        "",
+        "",
+        "",
+        "",
+        &input.producerInfo);
     for (auto &detection : detections) {
         payload.detections.push_back(std::make_unique<FaceDetection>(std::move(detection)));
     }

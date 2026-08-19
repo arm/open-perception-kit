@@ -62,4 +62,10 @@ TEST(PekTrackerTrackingOutput, EmitsTracePayloadWhenEnabled) {
     appendTrackingOutput(frameResults, true);
 
     EXPECT_EQ(frameResults.count<perception::metadata::TrackTracesT>(), 1U);
+    frameResults.for_each<perception::metadata::TrackTracesT>([](const auto &payload) {
+        ASSERT_NE(payload.layer, nullptr);
+        ASSERT_NE(payload.layer->producer, nullptr);
+        EXPECT_EQ(payload.layer->producer->component, "gstreamer/pektracker");
+        EXPECT_EQ(payload.layer->producer->implementation, "Tracker");
+    });
 }

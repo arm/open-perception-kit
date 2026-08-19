@@ -88,6 +88,7 @@ def process(env: Envelope, tensors: tuple[Tensor, ...]) -> None:
                 labelFamily="ImageNet",
                 contentType="classification",
                 compositingMode="bottomRight",
+                producer=producer_info,
             ),
             classifications=[
                 ClassificationT(

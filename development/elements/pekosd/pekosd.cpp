@@ -860,6 +860,7 @@ static void drawClassificationList(Osd::Layer &layer,
                                    float imgWidth,
                                    float imgHeight,
                                    bool alignRight,
+                                   const std::string &heading,
                                    const perception::metadata::ClassificationT &classification) {
     const float fontSize = 14.0f;
     const float lineHeight = fontSize * 1.5f;
@@ -871,10 +872,11 @@ static void drawClassificationList(Osd::Layer &layer,
     const float startY =
         imgHeight - (static_cast<float>(numResults) * lineHeight) - (2.0f * padding);
 
-    if (alignRight) {
+    if (!heading.empty()) {
         Osd::Text::draw(layer,
-                        Osd::Coordinate(rightColumnX, std::max(padding, startY - lineHeight)),
-                        "Python classification",
+                        Osd::Coordinate(alignRight ? rightColumnX : startX,
+                                        std::max(padding, startY - lineHeight)),
+                        heading,
                         pek::Colors::fromStringOrDefault("#ffffffff"),
                         pek::Colors::fromStringOrDefault("#000000ff"),
                         "monospace",
@@ -999,9 +1001,13 @@ static void drawImageClassifications(Osd::Layer &layer,
 
     const bool alignRight = payload.layer != nullptr &&
                             payload.layer->compositing_mode == BOTTOM_RIGHT_COMPOSITING_MODE;
+    const std::string heading = payload.layer != nullptr && payload.layer->producer != nullptr
+                                    ? payload.layer->producer->implementation
+                                    : std::string{};
     for (const auto &classification : payload.classifications) {
         if (classification) {
-            drawClassificationList(layer, imgWidth, imgHeight, alignRight, *classification);
+            drawClassificationList(
+                layer, imgWidth, imgHeight, alignRight, heading, *classification);
         }
     }
 }

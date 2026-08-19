@@ -62,7 +62,8 @@ Result<void> ModNetSegmentationParser::parse(const Input &input,
                                               "",
                                               "",
                                               "",
-                                              "backgroundReplacement");
+                                              "backgroundReplacement",
+                                              &input.producerInfo);
     payload.masks.push_back(std::move(mask));
     results.add(std::move(payload));
     return {};
