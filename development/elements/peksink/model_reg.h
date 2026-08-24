@@ -8,6 +8,7 @@
 #include <map>
 #include <mutex>
 #include <string>
+#include <string_view>
 
 #include "status_reporter.h"
 
@@ -28,9 +29,9 @@ class ModelRegistry : public StatusReporter {
     void add_model(const std::string &model_name,
                    const std::string &element_name,
                    bool active,
-                   const std::string &display_name = "",
-                   const std::string &task = "",
-                   const std::string &runtime = "");
+                   std::string_view display_name = "",
+                   std::string_view task = "",
+                   std::string_view runtime = "");
     void del_model(const std::string &element_name);
     void toggle_model(const std::string &element_name, bool active);
 

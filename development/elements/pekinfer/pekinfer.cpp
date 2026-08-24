@@ -158,8 +158,7 @@ static gboolean gst_pekinfer_start(GstBaseTransform *b) {
         return FALSE;
     }
 
-    auto setupResult = members->setupOpChainFromJson(self->opChainPath);
-    if (!setupResult) {
+    if (auto setupResult = members->setupOpChainFromJson(self->opChainPath); !setupResult) {
         pek::log::error("Error while setting up op-chain [{}]: {}\n",
                         self->opChainPath,
                         setupResult.error().toString());
@@ -510,15 +509,12 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
 
 // ---------------- properties & class init ----------------
 
-enum {
-    PROP_0,
-    PROP_OPCHAIN_PATH,
-    PROP_MODEL_ACTIVE,
-    PROP_FORMAT,
-    PROP_INFER_ID,
-    PROP_QOS_ENABLED,
-    PROP_QOS_ACCEPTED_EVENTS_DEBUG,
-};
+constexpr guint PROP_OPCHAIN_PATH = 1;
+constexpr guint PROP_MODEL_ACTIVE = 2;
+constexpr guint PROP_FORMAT = 3;
+constexpr guint PROP_INFER_ID = 4;
+constexpr guint PROP_QOS_ENABLED = 5;
+constexpr guint PROP_QOS_ACCEPTED_EVENTS_DEBUG = 6;
 
 static void gst_pekinfer_set_property(GObject *o, guint id, const GValue *v, GParamSpec *ps) {
     auto *self = (GstPekInfer *)o;

@@ -13,12 +13,29 @@
 #include <fstream>
 #include <iterator>
 #include <map>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
 namespace {
 
 using Json = jsoncons::json;
+
+class SchemaError : public std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
+
+Json loadSchema(const std::filesystem::path &path) {
+    std::ifstream input(path);
+    if (!input)
+        throw SchemaError("Cannot read schema: " + path.string());
+
+    const std::string text{std::istreambuf_iterator<char>{input}, {}};
+    auto schema = Json::parse(text);
+    if (!schema.is_object() || !schema.contains("$id") || !schema.at("$id").is_string())
+        throw SchemaError("Schema has no string $id: " + path.string());
+    return schema;
+}
 
 TEST(ConfigSchemaResources, AreMetaValidWithUniqueIdsAndResolvableReferences) {
     const auto schemaRoot = std::filesystem::path{PEK_REPOSITORY_ROOT} / "config/schemas/v1";
@@ -27,7 +44,7 @@ TEST(ConfigSchemaResources, AreMetaValidWithUniqueIdsAndResolvableReferences) {
         if (entry.is_regular_file() && entry.path().filename().string().ends_with(".schema.json"))
             paths.push_back(entry.path());
     }
-    std::sort(paths.begin(), paths.end());
+    std::ranges::sort(paths);
     ASSERT_FALSE(paths.empty());
 
     const auto metaSchema = jsoncons::jsonschema::make_json_schema(
@@ -36,18 +53,15 @@ TEST(ConfigSchemaResources, AreMetaValidWithUniqueIdsAndResolvableReferences) {
     std::vector<std::pair<std::filesystem::path, Json>> documents;
 
     for (const auto &path : paths) {
-        std::ifstream input(path);
-        ASSERT_TRUE(input) << path;
-        const std::string text{std::istreambuf_iterator<char>{input}, {}};
-        Json schema;
-        ASSERT_NO_THROW(schema = Json::parse(text)) << path;
-        ASSERT_TRUE(schema.is_object() && schema.contains("$id") && schema.at("$id").is_string())
-            << path;
-        EXPECT_TRUE(metaSchema.is_valid(schema)) << path;
+        auto schema = loadSchema(path);
+        if (!metaSchema.is_valid(schema))
+            throw SchemaError("Schema is not meta-valid: " + path.string());
 
         const auto id = schema.at("$id").as<std::string>();
-        ASSERT_FALSE(id.empty()) << path;
-        ASSERT_TRUE(schemas.emplace(id, schema).second) << "duplicate $id " << id;
+        if (id.empty())
+            throw SchemaError("Schema has an empty $id: " + path.string());
+        if (!schemas.try_emplace(id, schema).second)
+            throw SchemaError("Duplicate schema $id: " + id);
         documents.emplace_back(path, std::move(schema));
     }
 
@@ -56,7 +70,8 @@ TEST(ConfigSchemaResources, AreMetaValidWithUniqueIdsAndResolvableReferences) {
         return schema == schemas.end() ? Json::null() : schema->second;
     };
     for (const auto &[path, schema] : documents) {
-        EXPECT_NO_THROW(jsoncons::jsonschema::make_json_schema(schema, resolver)) << path;
+        SCOPED_TRACE(path.string());
+        jsoncons::jsonschema::make_json_schema(schema, resolver);
     }
 }
 

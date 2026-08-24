@@ -12,13 +12,14 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
+#include <format>
 #include <iostream>
 #include <string>
 #include <vector>
 
 using pek::DataKind;
 using pek::Dtype;
-using pek::Float16;
 using pek::ImageOpDesc;
 using pek::PixelRect;
 using pek::RawImagePixelFormat;
@@ -51,6 +52,16 @@ struct Variant {
     Dtype type;
     Kernel full;
     Kernel rect;
+};
+
+struct ConversionCase {
+    PixelRect sourceRect;
+    size_t dstWidth;
+    size_t dstHeight;
+    bool letterbox = false;
+    bool callRect = false;
+    YuvColorMatrix matrix = YuvColorMatrix::Bt601;
+    YuvRange range = YuvRange::Limited;
 };
 
 #define V(name, kind, type, full, rect)                                                            \
@@ -261,31 +272,35 @@ std::vector<Variant> variants(RawImagePixelFormat format) {
 
 #undef V
 
+void fillPackedRgbFixture(Fixture &f) {
+    const size_t bpp = f.format == RawImagePixelFormat::Bgra ? 4 : 3;
+    f.stride0 = f.width * bpp + 3;
+    f.p0.assign(f.stride0 * f.height, 0xcd);
+    for (size_t y = 0; y < f.height; ++y) {
+        for (size_t x = 0; x < f.width; ++x) {
+            const auto r = static_cast<uint8_t>(13 + x * 41 + y * 17);
+            const auto g = static_cast<uint8_t>(237 - x * 29 - y * 11);
+            const auto b = static_cast<uint8_t>(5 + x * 19 + y * 53);
+            auto *p = f.p0.data() + y * f.stride0 + x * bpp;
+            if (f.format == RawImagePixelFormat::Bgra) {
+                p[0] = b;
+                p[1] = g;
+                p[2] = r;
+                p[3] = static_cast<uint8_t>(91 + x);
+            } else {
+                p[0] = r;
+                p[1] = g;
+                p[2] = b;
+            }
+        }
+    }
+}
+
 Fixture makeFixture(RawImagePixelFormat format) {
     Fixture f{};
     f.format = format;
     if (format == RawImagePixelFormat::Bgra || format == RawImagePixelFormat::Rgb) {
-        const size_t bpp = format == RawImagePixelFormat::Bgra ? 4 : 3;
-        f.stride0 = f.width * bpp + 3;
-        f.p0.assign(f.stride0 * f.height, 0xcd);
-        for (size_t y = 0; y < f.height; ++y) {
-            for (size_t x = 0; x < f.width; ++x) {
-                const uint8_t r = static_cast<uint8_t>(13 + x * 41 + y * 17);
-                const uint8_t g = static_cast<uint8_t>(237 - x * 29 - y * 11);
-                const uint8_t b = static_cast<uint8_t>(5 + x * 19 + y * 53);
-                auto *p = f.p0.data() + y * f.stride0 + x * bpp;
-                if (format == RawImagePixelFormat::Bgra) {
-                    p[0] = b;
-                    p[1] = g;
-                    p[2] = r;
-                    p[3] = static_cast<uint8_t>(91 + x);
-                } else {
-                    p[0] = r;
-                    p[1] = g;
-                    p[2] = b;
-                }
-            }
-        }
+        fillPackedRgbFixture(f);
         return f;
     }
 
@@ -341,7 +356,8 @@ Fixture makeFixture(RawImagePixelFormat format) {
     return f;
 }
 
-ImageOpDesc sourceDesc(const Fixture &f, PixelRect rect, YuvColorMatrix matrix, YuvRange range) {
+ImageOpDesc
+sourceDesc(const Fixture &f, const PixelRect &rect, YuvColorMatrix matrix, YuvRange range) {
     ImageOpDesc src;
     src.surfaceWidth = f.width;
     src.surfaceHeight = f.height;
@@ -366,7 +382,8 @@ ImageOpDesc sourceDesc(const Fixture &f, PixelRect rect, YuvColorMatrix matrix, 
 }
 
 Rgb yuvToRgb(uint8_t y, uint8_t u, uint8_t v, YuvColorMatrix matrix, YuvRange range) {
-    float kr = 0.299f, kb = 0.114f;
+    float kr = 0.299f;
+    float kb = 0.114f;
     if (matrix == YuvColorMatrix::Bt709) {
         kr = 0.2126f;
         kb = 0.0722f;
@@ -398,7 +415,9 @@ Rgb sample(const Fixture &f, size_t x, size_t y, YuvColorMatrix matrix, YuvRange
         const auto *p = f.p0.data() + y * f.stride0 + x * 3;
         return {p[0] / 255.0f, p[1] / 255.0f, p[2] / 255.0f};
     }
-    uint8_t yy = 0, u = 0, v = 0;
+    uint8_t yy = 0;
+    uint8_t u = 0;
+    uint8_t v = 0;
     if (f.format == RawImagePixelFormat::I420) {
         yy = f.p0[y * f.stride0 + x];
         u = f.p1[(y / 2) * f.stride1 + x / 2];
@@ -417,14 +436,6 @@ Rgb sample(const Fixture &f, size_t x, size_t y, YuvColorMatrix matrix, YuvRange
     return yuvToRgb(yy, u, v, matrix, range);
 }
 
-size_t channels(DataKind kind) {
-    return kind == DataKind::ImageGray ? 1 : 3;
-}
-
-size_t typeBytes(Dtype type) {
-    return type == Dtype::Float32 ? 4 : type == Dtype::Float16 ? 2 : 1;
-}
-
 uint8_t byte(float value) {
     return static_cast<uint8_t>(std::lround(std::clamp(value, 0.0f, 1.0f) * 255.0f));
 }
@@ -438,37 +449,39 @@ uint8_t rawY(const Fixture &f, size_t x, size_t y) {
 }
 
 bool isYuv(RawImagePixelFormat format) {
-    return format == RawImagePixelFormat::I420 || format == RawImagePixelFormat::Nv12 ||
-           format == RawImagePixelFormat::Yuy2;
+    using enum RawImagePixelFormat;
+    return format == I420 || format == Nv12 || format == Yuy2;
 }
 
-std::array<float, 3> expectedValues(
-    Rgb rgb, const ImageOpDesc &src, const Variant &variant, bool useRawY = false, uint8_t y = 0) {
-    if (variant.kind == DataKind::ImageGray) {
-        if (useRawY) {
-            if (variant.type == Dtype::Uint8) {
-                if (src.yuvRange == YuvRange::Full) {
-                    return {static_cast<float>(y), 0, 0};
-                }
-                const int limited = std::clamp(static_cast<int>(y) - 16, 0, 219);
-                return {static_cast<float>((limited * 255 + 109) / 219), 0, 0};
-            }
-            const float gray = std::clamp(src.yuvRange == YuvRange::Full
-                                              ? y / 255.0f
-                                              : (static_cast<float>(y) - 16.0f) / 219.0f,
-                                          0.0f,
-                                          1.0f);
-            return {(gray - src.mean.r) / src.std.r, 0, 0};
-        }
-        if (variant.type == Dtype::Uint8) {
-            const auto r = static_cast<uint16_t>(byte(rgb.r));
-            const auto g = static_cast<uint16_t>(byte(rgb.g));
-            const auto b = static_cast<uint16_t>(byte(rgb.b));
-            return {static_cast<float>((77u * r + 150u * g + 29u * b + 128u) >> 8), 0, 0};
-        }
-        const float gray = 0.299f * rgb.r + 0.587f * rgb.g + 0.114f * rgb.b;
+std::array<float, 3>
+expectedGray(Rgb rgb, const ImageOpDesc &src, Dtype type, bool useRawY, uint8_t y) {
+    if (useRawY && type == Dtype::Uint8) {
+        if (src.yuvRange == YuvRange::Full)
+            return {static_cast<float>(y), 0, 0};
+        const int limited = std::clamp(static_cast<int>(y) - 16, 0, 219);
+        return {static_cast<float>((limited * 255 + 109) / 219), 0, 0};
+    }
+    if (useRawY) {
+        const float gray = std::clamp(
+            src.yuvRange == YuvRange::Full ? y / 255.0f : (static_cast<float>(y) - 16.0f) / 219.0f,
+            0.0f,
+            1.0f);
         return {(gray - src.mean.r) / src.std.r, 0, 0};
     }
+    if (type == Dtype::Uint8) {
+        const auto r = static_cast<uint16_t>(byte(rgb.r));
+        const auto g = static_cast<uint16_t>(byte(rgb.g));
+        const auto b = static_cast<uint16_t>(byte(rgb.b));
+        return {static_cast<float>((77u * r + 150u * g + 29u * b + 128u) >> 8), 0, 0};
+    }
+    const float gray = 0.299f * rgb.r + 0.587f * rgb.g + 0.114f * rgb.b;
+    return {(gray - src.mean.r) / src.std.r, 0, 0};
+}
+
+std::array<float, 3>
+expectedValues(Rgb rgb, const ImageOpDesc &src, const Variant &variant, bool useRawY, uint8_t y) {
+    if (variant.kind == DataKind::ImageGray)
+        return expectedGray(rgb, src, variant.type, useRawY, y);
     if (variant.type == Dtype::Uint8) {
         return {static_cast<float>(byte(rgb.r)),
                 static_cast<float>(byte(rgb.g)),
@@ -484,91 +497,179 @@ std::array<float, 3> expectedValues(
     std::exit(1);
 }
 
+bool contains(const PixelRect &rect, size_t x, size_t y) {
+    return x >= rect.x && x < rect.x + rect.width && y >= rect.y && y < rect.y + rect.height;
+}
+
+std::array<float, 3> expectedPixel(const Fixture &fixture,
+                                   const ImageOpDesc &src,
+                                   const ImageOpDesc &dst,
+                                   const Variant &variant,
+                                   size_t x,
+                                   size_t y) {
+    const PixelRect inner = dst.keepAspectRatio
+                                ? PixelRect{0, 1, 6, 4}
+                                : PixelRect{0, 0, dst.surfaceWidth, dst.surfaceHeight};
+    if (!contains(inner, x, y))
+        return expectedValues({0.23f, 0.37f, 0.61f}, src, variant, false, 0);
+
+    const size_t sx = src.rect.x + ((x - inner.x) * src.rect.width) / inner.width;
+    const size_t sy = src.rect.y + ((y - inner.y) * src.rect.height) / inner.height;
+    const bool useRawY = isYuv(fixture.format);
+    return expectedValues(sample(fixture, sx, sy, src.yuvMatrix, src.yuvRange),
+                          src,
+                          variant,
+                          useRawY,
+                          useRawY ? rawY(fixture, sx, sy) : 0);
+}
+
+template <typename T> T outputValue(const std::vector<uint8_t> &output, size_t index) {
+    T value;
+    std::memcpy(&value, output.data() + index * sizeof(T), sizeof(T));
+    return value;
+}
+
+float outputValue(const std::vector<uint8_t> &output, size_t index, Dtype type) {
+    using enum Dtype;
+    switch (type) {
+    case Uint8:
+        return output[index];
+    case Float16:
+        return static_cast<float>(outputValue<pek::Float16>(output, index));
+    case Float32:
+        return outputValue<float>(output, index);
+    default:
+        fail("unsupported output type");
+    }
+}
+
+float tolerance(Dtype type) {
+    using enum Dtype;
+    switch (type) {
+    case Uint8:
+        return 0.0f;
+    case Float16:
+        return 0.002f;
+    case Float32:
+        return 0.00001f;
+    default:
+        fail("unsupported output type");
+    }
+}
+
+size_t outputIndex(const ImageOpDesc &dst, size_t x, size_t y, size_t channel) {
+    if (dst.kind == DataKind::ImageRgbChw)
+        return channel * dst.surfaceWidth * dst.surfaceHeight + y * dst.surfaceWidth + x;
+    return (y * dst.surfaceWidth + x) * dst.getChannelCount() + channel;
+}
+
+void checkValue(float actual,
+                float expected,
+                float allowedDifference,
+                const std::string &label,
+                size_t x,
+                size_t y,
+                size_t channel) {
+    if (std::abs(actual - expected) <= allowedDifference)
+        return;
+    fail(std::format(
+        "{} pixel={},{} channel={} actual={} expected={}", label, x, y, channel, actual, expected));
+}
+
 void checkOutput(const Fixture &fixture,
                  const ImageOpDesc &src,
+                 const ImageOpDesc &dst,
                  const Variant &variant,
                  const std::vector<uint8_t> &output,
-                 size_t dstWidth,
-                 size_t dstHeight,
-                 bool letterbox,
                  const std::string &label) {
-    const PixelRect inner =
-        letterbox ? PixelRect{0, 1, 6, 4} : PixelRect{0, 0, dstWidth, dstHeight};
-    for (size_t y = 0; y < dstHeight; ++y) {
-        for (size_t x = 0; x < dstWidth; ++x) {
-            Rgb rgb{0.23f, 0.37f, 0.61f};
-            bool fromSource = false;
-            size_t sx = 0, sy = 0;
-            if (!letterbox || (x >= inner.x && x < inner.x + inner.width && y >= inner.y &&
-                               y < inner.y + inner.height)) {
-                const auto &mapRect = letterbox ? inner : PixelRect{0, 0, dstWidth, dstHeight};
-                sx = src.rect.x + ((x - mapRect.x) * src.rect.width) / mapRect.width;
-                sy = src.rect.y + ((y - mapRect.y) * src.rect.height) / mapRect.height;
-                rgb = sample(fixture, sx, sy, src.yuvMatrix, src.yuvRange);
-                fromSource = true;
-            }
-            const auto expected = expectedValues(rgb,
-                                                 src,
-                                                 variant,
-                                                 fromSource && isYuv(fixture.format),
-                                                 fromSource ? rawY(fixture, sx, sy) : 0);
-            for (size_t c = 0; c < channels(variant.kind); ++c) {
-                const size_t index = variant.kind == DataKind::ImageRgbChw
-                                         ? c * dstWidth * dstHeight + y * dstWidth + x
-                                         : (y * dstWidth + x) * channels(variant.kind) + c;
-                float actual = 0.0f;
-                if (variant.type == Dtype::Uint8) {
-                    actual = output[index];
-                } else if (variant.type == Dtype::Float32) {
-                    actual = reinterpret_cast<const float *>(output.data())[index];
-                } else {
-                    actual =
-                        static_cast<float>(reinterpret_cast<const Float16 *>(output.data())[index]);
-                }
-                const float tolerance = variant.type == Dtype::Uint8     ? 0.0f
-                                        : variant.type == Dtype::Float16 ? 0.002f
-                                                                         : 0.00001f;
-                if (std::abs(actual - expected[c]) > tolerance) {
-                    fail(label + " pixel=" + std::to_string(x) + "," + std::to_string(y) +
-                         " channel=" + std::to_string(c) + " actual=" + std::to_string(actual) +
-                         " expected=" + std::to_string(expected[c]));
-                }
+    const auto allowedDifference = tolerance(variant.type);
+    for (size_t y = 0; y < dst.surfaceHeight; ++y) {
+        for (size_t x = 0; x < dst.surfaceWidth; ++x) {
+            const auto expected = expectedPixel(fixture, src, dst, variant, x, y);
+            for (size_t channel = 0; channel < dst.getChannelCount(); ++channel) {
+                const auto actual =
+                    outputValue(output, outputIndex(dst, x, y, channel), variant.type);
+                checkValue(actual, expected[channel], allowedDifference, label, x, y, channel);
             }
         }
     }
 }
 
-int runCase(const Fixture &fixture,
-            const Variant &variant,
-            PixelRect sourceRect,
-            size_t dstWidth,
-            size_t dstHeight,
-            bool letterbox,
-            bool callRect,
-            YuvColorMatrix matrix = YuvColorMatrix::Bt601,
-            YuvRange range = YuvRange::Limited) {
-    auto src = sourceDesc(fixture, sourceRect, matrix, range);
+int runCase(const Fixture &fixture, const Variant &variant, const ConversionCase &test) {
+    auto src = sourceDesc(fixture, test.sourceRect, test.matrix, test.range);
     ImageOpDesc dst;
-    dst.surfaceWidth = dstWidth;
-    dst.surfaceHeight = dstHeight;
-    dst.rect = {0, 0, dstWidth, dstHeight};
+    dst.surfaceWidth = test.dstWidth;
+    dst.surfaceHeight = test.dstHeight;
+    dst.rect = {0, 0, test.dstWidth, test.dstHeight};
     dst.kind = variant.kind;
     dst.type = variant.type;
-    dst.keepAspectRatio = letterbox;
+    dst.keepAspectRatio = test.letterbox;
     dst.letterboxRed = 0.23f;
     dst.letterboxGreen = 0.37f;
     dst.letterboxBlue = 0.61f;
-    const size_t byteCount =
-        dstWidth * dstHeight * channels(variant.kind) * typeBytes(variant.type);
+    const size_t byteCount = test.dstWidth * test.dstHeight * dst.getChannelCount() *
+                             pek::getValueTypeByteSize(variant.type);
     std::vector<uint8_t> output(byteCount, 0xa5);
     dst.planes[0] = {nullptr, output.data(), output.size(), 0};
     dst.planeCount = 1;
-    const std::string label = std::to_string(static_cast<int>(fixture.format)) + "/" + variant.name;
-    if (!(callRect ? variant.rect(src, dst, Sampling::Nearest)
-                   : variant.full(src, dst, Sampling::Nearest))) {
+    const auto label = std::format("{}/{}", static_cast<int>(fixture.format), variant.name);
+    const auto kernel = test.callRect ? variant.rect : variant.full;
+    if (!kernel(src, dst, Sampling::Nearest)) {
         fail(label + " kernel returned false");
     }
-    checkOutput(fixture, src, variant, output, dstWidth, dstHeight, letterbox, label);
+    checkOutput(fixture, src, dst, variant, output, label);
+    return 1;
+}
+
+int runStandardCases(const Fixture &fixture, const std::vector<Variant> &formatVariants) {
+    const std::array tests{
+        ConversionCase{{0, 0, 5, 3}, 5, 3, false, false},
+        ConversionCase{{0, 0, 5, 3}, 5, 3, false, true},
+        ConversionCase{{1, 0, 4, 3}, 3, 2, false, false},
+        ConversionCase{{0, 0, 5, 3}, 6, 6, true, false},
+    };
+    int cases = 0;
+    for (const auto &variant : formatVariants) {
+        for (const auto &test : tests)
+            cases += runCase(fixture, variant, test);
+    }
+    return cases;
+}
+
+int runYuvMatrixCases(const Fixture &fixture, const std::vector<Variant> &formatVariants) {
+    if (!isYuv(fixture.format))
+        return 0;
+
+    const auto variant = std::ranges::find_if(formatVariants, [](const Variant &candidate) {
+        return candidate.kind == DataKind::ImageRgbHwc && candidate.type == Dtype::Float32;
+    });
+    if (variant == formatVariants.end())
+        fail("missing YUV test variant");
+
+    int cases = 0;
+    for (const auto matrix :
+         {YuvColorMatrix::Bt601, YuvColorMatrix::Bt709, YuvColorMatrix::Bt2020}) {
+        for (const auto range : {YuvRange::Limited, YuvRange::Full}) {
+            cases += runCase(fixture, *variant, {{0, 0, 5, 3}, 5, 3, false, false, matrix, range});
+        }
+    }
+    return cases;
+}
+
+int rejectUndersizedPlane(const Fixture &fixture, const Variant &variant) {
+    auto invalid = sourceDesc(fixture, {0, 0, 5, 3}, YuvColorMatrix::Bt601, YuvRange::Limited);
+    invalid.planes[0].byteCount = 1;
+    ImageOpDesc dst;
+    dst.surfaceWidth = 5;
+    dst.surfaceHeight = 3;
+    dst.rect = {0, 0, 5, 3};
+    dst.kind = variant.kind;
+    dst.type = variant.type;
+    dst.planeCount = 1;
+    std::vector<uint8_t> output(5 * 3 * 3 * sizeof(float));
+    dst.planes[0] = {nullptr, output.data(), output.size(), 0};
+    if (variant.full(invalid, dst, Sampling::Nearest))
+        fail("undersized plane accepted");
     return 1;
 }
 
@@ -583,42 +684,10 @@ int main() {
     int cases = 0;
     for (const auto format : formats) {
         const auto fixture = makeFixture(format);
-        const auto vs = variants(format);
-        for (const auto &variant : vs) {
-            cases += runCase(fixture, variant, {0, 0, 5, 3}, 5, 3, false, false);
-            cases += runCase(fixture, variant, {0, 0, 5, 3}, 5, 3, false, true);
-            cases += runCase(fixture, variant, {1, 0, 4, 3}, 3, 2, false, false);
-            cases += runCase(fixture, variant, {0, 0, 5, 3}, 6, 6, true, false);
-        }
-        if (format == RawImagePixelFormat::I420 || format == RawImagePixelFormat::Nv12 ||
-            format == RawImagePixelFormat::Yuy2) {
-            const auto it = std::find_if(vs.begin(), vs.end(), [](const Variant &v) {
-                return v.kind == DataKind::ImageRgbHwc && v.type == Dtype::Float32;
-            });
-            for (const auto matrix :
-                 {YuvColorMatrix::Bt601, YuvColorMatrix::Bt709, YuvColorMatrix::Bt2020}) {
-                for (const auto range : {YuvRange::Limited, YuvRange::Full}) {
-                    cases += runCase(fixture, *it, {0, 0, 5, 3}, 5, 3, false, false, matrix, range);
-                }
-            }
-        }
-        auto invalid = sourceDesc(fixture, {0, 0, 5, 3}, YuvColorMatrix::Bt601, YuvRange::Limited);
-        invalid.planes[0].byteCount = 1;
-        const auto &variant = vs.front();
-        std::vector<float> out(5 * 3 * 3);
-        ImageOpDesc dst;
-        dst.surfaceWidth = 5;
-        dst.surfaceHeight = 3;
-        dst.rect = {0, 0, 5, 3};
-        dst.kind = variant.kind;
-        dst.type = variant.type;
-        dst.planeCount = 1;
-        dst.planes[0] = {
-            nullptr, reinterpret_cast<uint8_t *>(out.data()), out.size() * sizeof(float), 0};
-        if (variant.full(invalid, dst, Sampling::Nearest)) {
-            fail("undersized plane accepted");
-        }
-        ++cases;
+        const auto formatVariants = variants(format);
+        cases += runStandardCases(fixture, formatVariants);
+        cases += runYuvMatrixCases(fixture, formatVariants);
+        cases += rejectUndersizedPlane(fixture, formatVariants.front());
     }
     std::cout << "PASS conversion-cases=" << cases << '\n';
 }

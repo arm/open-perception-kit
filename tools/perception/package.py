@@ -42,6 +42,10 @@ SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 GIT_COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 CHECKSUM_SUFFIX = ".sha256"
 PROVENANCE_SUFFIX = ".provenance.json"
+MAX_NPM_ARCHIVE_BYTES = 64 * 1024 * 1024
+MAX_NPM_EXPANDED_BYTES = 256 * 1024 * 1024
+MAX_NPM_MEMBERS = 10_000
+MAX_NPM_METADATA_BYTES = 1024 * 1024
 
 
 def run(
@@ -196,7 +200,7 @@ def write_deterministic_npm_package(source: Path, destination: Path) -> None:
         files.extend(path for path in sorted((source / directory).rglob("*")) if path.is_file())
     destination.parent.mkdir(parents=True, exist_ok=True)
     buffer = io.BytesIO()
-    with tarfile.open(fileobj=buffer, mode="w", format=tarfile.PAX_FORMAT) as archive:
+    with tarfile.TarFile(fileobj=buffer, mode="w", format=tarfile.PAX_FORMAT) as archive:
         for path in files:
             relative = Path("package") / path.relative_to(source)
             info = tarfile.TarInfo(relative.as_posix())
@@ -215,20 +219,38 @@ def write_deterministic_npm_package(source: Path, destination: Path) -> None:
 
 
 def npm_package_metadata(path: Path) -> dict[str, object]:
-    with tarfile.open(path, "r:gz") as archive:
-        members = archive.getmembers()
-        names = {member.name for member in members}
-        if any(
-            member.name.startswith("/") or ".." in Path(member.name).parts
-            for member in members
-        ):
-            raise RuntimeError(f"npm package contains an unsafe path: {path.name}")
-        if "package/package.json" not in names:
+    if path.stat().st_size > MAX_NPM_ARCHIVE_BYTES:
+        raise RuntimeError(f"npm package archive is too large: {path.name}")
+
+    with (
+        path.open("rb") as source,
+        gzip.GzipFile(fileobj=source, mode="rb") as compressed,
+        tarfile.TarFile(fileobj=compressed, mode="r") as archive,
+    ):
+        package_bytes: bytes | None = None
+        member_count = 0
+        expanded_bytes = 0
+        for member in archive:
+            if member.name.startswith("/") or ".." in Path(member.name).parts:
+                raise RuntimeError(f"npm package contains an unsafe path: {path.name}")
+            member_count += 1
+            expanded_bytes += member.size
+            if member_count > MAX_NPM_MEMBERS or expanded_bytes > MAX_NPM_EXPANDED_BYTES:
+                raise RuntimeError(f"npm package expands beyond safety limits: {path.name}")
+            if member.name != "package/package.json":
+                continue
+            if package_bytes is not None or not member.isfile():
+                raise RuntimeError(f"npm package metadata is invalid: {path.name}")
+            if member.size > MAX_NPM_METADATA_BYTES:
+                raise RuntimeError(f"npm package metadata is too large: {path.name}")
+            package_file = archive.extractfile(member)
+            if package_file is None:
+                raise RuntimeError(f"npm package metadata is unreadable: {path.name}")
+            package_bytes = package_file.read(MAX_NPM_METADATA_BYTES + 1)
+
+        if package_bytes is None:
             raise RuntimeError(f"npm package has no package.json: {path.name}")
-        package_file = archive.extractfile("package/package.json")
-        if package_file is None:
-            raise RuntimeError(f"npm package metadata is unreadable: {path.name}")
-        package = json.loads(package_file.read().decode("utf-8"))
+        package = json.loads(package_bytes.decode("utf-8"))
     return package
 
 

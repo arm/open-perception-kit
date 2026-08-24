@@ -53,10 +53,10 @@ class OpChain {
      * @brief Gets the name of this chain.
      * @return Const reference to the chain name string.
      */
-    const std::string &getName();
-    const std::string &getDisplayName();
-    const std::string &getTask();
-    const std::string &getRuntime();
+    const std::string &getName() const;
+    const std::string &getDisplayName() const;
+    const std::string &getTask() const;
+    const std::string &getRuntime() const;
     /**
      * @brief Adds an operation reference to the chain.
      *

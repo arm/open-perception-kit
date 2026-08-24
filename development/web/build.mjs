@@ -1,4 +1,3 @@
-import {execFileSync} from 'node:child_process';
 import {cp, mkdir, readFile, rm} from 'node:fs/promises';
 import {createRequire} from 'node:module';
 import {tmpdir} from 'node:os';
@@ -10,12 +9,9 @@ const repoRoot = path.resolve(root, '..', '..');
 const output = path.join(root, 'content', 'pek-web.js');
 const dependencyStage = path.join(root, '.pek-web-build');
 const command = process.argv[2] || 'generate';
-const npmEnv = {...process.env};
-delete npmEnv.npm_config_prefix;
-delete npmEnv.NPM_CONFIG_PREFIX;
 const modulesRoot = process.env.PEK_WEB_NODE_MODULES
     || process.env.NODE_PATH
-    || execFileSync('npm', ['root', '--global'], {encoding: 'utf8', env: npmEnv}).trim();
+    || '/usr/local/lib/node_modules';
 
 if (!['generate', 'check'].includes(command)) {
     throw new Error(`unknown build command: ${command}`);

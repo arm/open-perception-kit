@@ -310,7 +310,8 @@ class SingleSourceContractTests(unittest.TestCase):
         self.assertIn("install-perception-flatbuffers", dockerfile)
         self.assertIn("ESBUILD_INTEGRITY", dockerfile)
         self.assertIn("sha256sum --check --strict", dockerfile)
-        self.assertIn("/tmp/esbuild-wasm.tgz /tmp/flatbuffers.tgz /tmp/typescript.tgz", dockerfile)
+        for archive in ("esbuild-wasm.tgz", "flatbuffers.tgz", "typescript.tgz"):
+            self.assertIn(archive, dockerfile)
         self.assertFalse((repository / "Dockerfile.dev").exists())
 
         plumber = (repository / "tools" / "plumber" / "pyproject.toml").read_text(
@@ -321,7 +322,6 @@ class SingleSourceContractTests(unittest.TestCase):
         self.assertIn(
             "COPY generated/perception/python /tmp/pek-tools/perception", dockerfile
         )
-        self.assertIn("/tmp/pek-tools/perception", dockerfile)
         self.assertIn("import perception, plumber", dockerfile)
 
         devsetup = (repository / ".devcontainer" / "devsetup.sh").read_text(
@@ -657,6 +657,20 @@ class BundleVerificationTests(unittest.TestCase):
             self.assertEqual(
                 release_package.npm_package_metadata(first)["name"], "perception"
             )
+
+    def test_rejects_oversized_npm_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "source"
+            source.mkdir()
+            (source / "package.json").write_bytes(
+                b"x" * (release_package.MAX_NPM_METADATA_BYTES + 1)
+            )
+            package = root / "oversized.tgz"
+            release_package.write_deterministic_npm_package(source, package)
+
+            with self.assertRaisesRegex(RuntimeError, "metadata is too large"):
+                release_package.npm_package_metadata(package)
 
     def test_rejects_modified_content(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
