@@ -36,9 +36,10 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
   name. `release-packages.yml` owns release Sonar analysis.
 - Runs Black Duck delta/snippet scans for same-repository pull requests and full
   source scans for nightly runs and `release/*` tags. Downloaded scanner
-  executables are checksum-verified before use. The PR-only snippet workflow is
-  separate, so the PEK CI graph shows one Black Duck full-scan consumer beside
-  Quality, Sonar, and Valgrind.
+  executables are checksum-verified before use. Full scans materialize the
+  Meson wrap sources before scanning. The PR-only snippet workflow is separate,
+  so the PEK CI graph shows one Black Duck full-scan consumer beside Quality,
+  Sonar, and Valgrind.
 - Runs pull request quality checks through `expkits-ci --ci-pr-checks`.
 - Runs full/nightly quality checks through `expkits-ci --ci-full-checks`.
 - Applies CI exceptions from the root-level `ci-suppressions.txt` only in the

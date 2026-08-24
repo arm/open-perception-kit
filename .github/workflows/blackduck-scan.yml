@@ -70,6 +70,21 @@ jobs:
           source .github/scripts/configure_workspace_ssh.sh
           git submodule update --init --recursive
 
+      - name: Materialize Meson wrap dependencies
+        run: |
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --env HOME=/tmp/blackduck-home \
+            --volume "$WORKSPACE_ROOT:/work" \
+            --workdir /work \
+            --entrypoint bash \
+            "$PEK_CI_IMAGE" -c '
+              set -euo pipefail
+              meson subprojects download --sourcedir /work/development
+              meson setup /tmp/blackduck-meson /work/development \
+                --buildtype=debug --layout=flat --wrap-mode=forcefallback -Dtests=false
+            '
+
       - name: Download verified Detect wrapper
         env:
           DETECT_SHA256: 37c678bb1cb770fdf0e841c2d281aaf06abec2fa211bee33de6ddd04e13b84fd # pragma: allowlist secret
