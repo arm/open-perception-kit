@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.0] - 2026-08-24
+
+### Perception SDK and configuration
+
+- Replace the hand-written perception result model and wire format with schema-generated FrameResults, and add generated C++, Python, and TypeScript SDKs used across the runtime, browser, publishing, and Plumber paths ([#217](https://github.com/Arm-Debug/amp-dev-forge/pull/217)).
+- Define and enforce versioned v1 Model and OpChain JSON descriptor schemas, add `pek-config-check`, and integrate validation into runtime, download, build, and release flows ([#296](https://github.com/Arm-Debug/amp-dev-forge/pull/296), [#297](https://github.com/Arm-Debug/amp-dev-forge/pull/297), [#255](https://github.com/Arm-Debug/amp-dev-forge/pull/255)).
+- Embed the verified Perception SDK ZIP, checksum, and provenance in Linux release packages while packaging descriptor schemas separately ([#331](https://github.com/Arm-Debug/amp-dev-forge/pull/331)).
+
+### Runtime and inference
+
+- Add direct I420, NV12, and YUY2 preprocessing with negotiated color metadata and RGB or grayscale tensor output ([#291](https://github.com/Arm-Debug/amp-dev-forge/pull/291)).
+- Derive tracker Kalman timing from buffer running times, with configurable fallback behavior for missing or invalid timestamps ([#327](https://github.com/Arm-Debug/amp-dev-forge/pull/327)).
+- Fix `pekinfer` retry ownership and ONNX Runtime setup and teardown leaks on repeated or failed starts ([#345](https://github.com/Arm-Debug/amp-dev-forge/pull/345), [#346](https://github.com/Arm-Debug/amp-dev-forge/pull/346)).
+- Clarify model, task, and runtime names in the browser model selector ([#268](https://github.com/Arm-Debug/amp-dev-forge/pull/268)).
+
+### Packaging and developer workflow
+
+- Include the experimental ExecuTorch backend and YOLOX model in Linux binary releases ([#316](https://github.com/Arm-Debug/amp-dev-forge/pull/316)).
+- Publish the runnable deployment image for both supported architectures and reuse its validated build for release archives ([#334](https://github.com/Arm-Debug/amp-dev-forge/pull/334)).
+- Consolidate supported builds on `scripts/build.sh`, reuse checksum-verified Docker-owned demo media, and remove the duplicate prerequisite path ([#338](https://github.com/Arm-Debug/amp-dev-forge/pull/338), [#336](https://github.com/Arm-Debug/amp-dev-forge/pull/336), [#354](https://github.com/Arm-Debug/amp-dev-forge/pull/354)).
+- Reduce repeated ExecuTorch setup and compilation time through validated cache reuse, automatic parallelism, and `ccache` support ([#318](https://github.com/Arm-Debug/amp-dev-forge/pull/318)).
+
 ## [0.1.7] - 2026-08-10
 
 ### Packaging and deployment
