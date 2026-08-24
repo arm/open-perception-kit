@@ -613,8 +613,8 @@ int runCase(const Fixture &fixture, const Variant &variant, const ConversionCase
     dst.planes[0] = {nullptr, output.data(), output.size(), 0};
     dst.planeCount = 1;
     const auto label = std::format("{}/{}", static_cast<int>(fixture.format), variant.name);
-    const auto kernel = test.callRect ? variant.rect : variant.full;
-    if (!kernel(src, dst, Sampling::Nearest)) {
+    if (const auto kernel = test.callRect ? variant.rect : variant.full;
+        !kernel(src, dst, Sampling::Nearest)) {
         fail(label + " kernel returned false");
     }
     checkOutput(fixture, src, dst, variant, output, label);
@@ -674,12 +674,13 @@ int rejectUndersizedPlane(const Fixture &fixture, const Variant &variant) {
 }
 
 int main() {
+    using enum RawImagePixelFormat;
     const std::array formats{
-        RawImagePixelFormat::Bgra,
-        RawImagePixelFormat::Rgb,
-        RawImagePixelFormat::I420,
-        RawImagePixelFormat::Nv12,
-        RawImagePixelFormat::Yuy2,
+        Bgra,
+        Rgb,
+        I420,
+        Nv12,
+        Yuy2,
     };
     int cases = 0;
     for (const auto format : formats) {

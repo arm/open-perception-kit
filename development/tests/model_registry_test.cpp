@@ -46,7 +46,7 @@ TEST(ModelRegistry, KeepsRuntimeMetadataForDuplicateInternalNames) {
     registry.add_model(
         "ImageNet Hailo", "pekinfer10", false, "MobileNetV2", "Image classification", "Hailo 10");
 
-    std::map<std::string, std::string> runtimes;
+    std::map<std::string, std::string, std::less<>> runtimes;
     for (const auto &model : registry.report()) {
         runtimes[model.at("element_name").get<std::string>()] =
             model.at("runtime").get<std::string>();

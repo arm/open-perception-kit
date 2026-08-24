@@ -23,6 +23,7 @@ import zipfile
 from dataclasses import asdict
 from email.parser import Parser
 from pathlib import Path
+from typing import cast
 
 import generate as perception_generate
 from artifacts import acquire_artifact
@@ -218,6 +219,21 @@ def write_deterministic_npm_package(source: Path, destination: Path) -> None:
             compressed.write(buffer.getvalue())
 
 
+def _read_npm_metadata_member(
+    archive: tarfile.TarFile, member: tarfile.TarInfo, package_name: str
+) -> bytes | None:
+    if member.name != "package/package.json":
+        return None
+    if not member.isfile():
+        raise RuntimeError(f"npm package metadata is invalid: {package_name}")
+    if member.size > MAX_NPM_METADATA_BYTES:
+        raise RuntimeError(f"npm package metadata is too large: {package_name}")
+    package_file = archive.extractfile(member)
+    if package_file is None:
+        raise RuntimeError(f"npm package metadata is unreadable: {package_name}")
+    return package_file.read(MAX_NPM_METADATA_BYTES + 1)
+
+
 def npm_package_metadata(path: Path) -> dict[str, object]:
     if path.stat().st_size > MAX_NPM_ARCHIVE_BYTES:
         raise RuntimeError(f"npm package archive is too large: {path.name}")
@@ -237,16 +253,12 @@ def npm_package_metadata(path: Path) -> dict[str, object]:
             expanded_bytes += member.size
             if member_count > MAX_NPM_MEMBERS or expanded_bytes > MAX_NPM_EXPANDED_BYTES:
                 raise RuntimeError(f"npm package expands beyond safety limits: {path.name}")
-            if member.name != "package/package.json":
+            candidate = _read_npm_metadata_member(archive, member, path.name)
+            if candidate is None:
                 continue
-            if package_bytes is not None or not member.isfile():
+            if package_bytes is not None:
                 raise RuntimeError(f"npm package metadata is invalid: {path.name}")
-            if member.size > MAX_NPM_METADATA_BYTES:
-                raise RuntimeError(f"npm package metadata is too large: {path.name}")
-            package_file = archive.extractfile(member)
-            if package_file is None:
-                raise RuntimeError(f"npm package metadata is unreadable: {path.name}")
-            package_bytes = package_file.read(MAX_NPM_METADATA_BYTES + 1)
+            package_bytes = candidate
 
         if package_bytes is None:
             raise RuntimeError(f"npm package has no package.json: {path.name}")
@@ -494,24 +506,27 @@ def _verify_descriptor_flatbuffers_locks(
 ) -> None:
     descriptor_flatbuffers = descriptor.get("flatbuffers")
     descriptor_typescript = descriptor.get("typescript_build")
-    if (
-        not isinstance(descriptor_flatbuffers, dict)
-        or not isinstance(descriptor_typescript, dict)
-        or not isinstance(manifest_flatbuffers, dict)
+    if not all(
+        isinstance(value, dict)
+        for value in (descriptor_flatbuffers, descriptor_typescript, manifest_flatbuffers)
     ):
         raise RuntimeError("release descriptor FlatBuffers metadata is malformed")
+    descriptor_flatbuffers = cast(dict[str, object], descriptor_flatbuffers)
+    descriptor_typescript = cast(dict[str, object], descriptor_typescript)
+    manifest_flatbuffers = cast(dict[str, object], manifest_flatbuffers)
 
     version = descriptor_flatbuffers.get("version")
     python_lock = descriptor_flatbuffers.get("python_wheel")
     source_lock = descriptor_flatbuffers.get("source_archive")
     typescript_lock = descriptor_typescript.get("flatbuffers_runtime")
-    if (
-        not isinstance(version, str)
-        or not isinstance(python_lock, dict)
-        or not isinstance(source_lock, dict)
-        or not isinstance(typescript_lock, dict)
+    if not isinstance(version, str) or not all(
+        isinstance(value, dict)
+        for value in (python_lock, source_lock, typescript_lock)
     ):
         raise RuntimeError("release descriptor FlatBuffers locks are malformed")
+    python_lock = cast(dict[str, object], python_lock)
+    source_lock = cast(dict[str, object], source_lock)
+    typescript_lock = cast(dict[str, object], typescript_lock)
 
     compiler = manifest_flatbuffers.get("compiler")
     if not isinstance(compiler, dict) or compiler.get("semantic_version") != version:

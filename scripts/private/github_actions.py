@@ -25,6 +25,23 @@ def parse_timestamp(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
+def required_pr_value(value: object, name: str, pr_number: str) -> str:
+    result = str(value or "").strip()
+    if not result:
+        raise RuntimeError(f"Unable to resolve {name} for PR #{pr_number}.")
+    return result
+
+
+def require_same_repository(
+    actual: str, expected: str, role: str, pr_number: str
+) -> None:
+    if actual != expected:
+        raise RuntimeError(
+            "Agent workflow automation only supports same-repository pull requests; "
+            f"PR #{pr_number} {role} repository is '{actual}', expected '{expected}'."
+        )
+
+
 def read_pr_details(pr_number: str, *, repository: str | None = None) -> dict[str, str]:
     repository = (repository or os.environ.get("GITHUB_REPOSITORY") or "").strip()
     if not repository:
@@ -34,25 +51,15 @@ def read_pr_details(pr_number: str, *, repository: str | None = None) -> dict[st
         raise RuntimeError(f"Unexpected PR payload for PR #{pr_number}.")
     head = dict(payload.get("head") or {})
     base = dict(payload.get("base") or {})
-    head_repository = str(dict(head.get("repo") or {}).get("full_name") or "").strip()
-    base_repository = str(dict(base.get("repo") or {}).get("full_name") or "").strip()
-    target_branch = str(base.get("ref") or "").strip()
-    if not head_repository:
-        raise RuntimeError(f"Unable to resolve head repository for PR #{pr_number}.")
-    if not base_repository:
-        raise RuntimeError(f"Unable to resolve base repository for PR #{pr_number}.")
-    if not target_branch:
-        raise RuntimeError(f"Unable to resolve target branch for PR #{pr_number}.")
-    if head_repository != repository:
-        raise RuntimeError(
-            "Agent workflow automation only supports same-repository pull requests; "
-            f"PR #{pr_number} head repository is '{head_repository}', expected '{repository}'."
-        )
-    if base_repository != repository:
-        raise RuntimeError(
-            "Agent workflow automation only supports same-repository pull requests; "
-            f"PR #{pr_number} base repository is '{base_repository}', expected '{repository}'."
-        )
+    head_repository = required_pr_value(
+        dict(head.get("repo") or {}).get("full_name"), "head repository", pr_number
+    )
+    base_repository = required_pr_value(
+        dict(base.get("repo") or {}).get("full_name"), "base repository", pr_number
+    )
+    target_branch = required_pr_value(base.get("ref"), "target branch", pr_number)
+    require_same_repository(head_repository, repository, "head", pr_number)
+    require_same_repository(base_repository, repository, "base", pr_number)
     return {
         "title": str(payload.get("title") or ""),
         "base_sha": str(base.get("sha") or ""),
