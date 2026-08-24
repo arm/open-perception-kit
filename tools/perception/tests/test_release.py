@@ -348,15 +348,26 @@ class GenerationReceiptTests(unittest.TestCase):
 
     def test_rejects_schema_changes_without_regeneration(self) -> None:
         config = release_package.perception_config.load_sdk_config()
+        manifest = json.loads(
+            (config.generated_root / "perception-sdk-manifest.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        flowdata_commit = manifest["generation"]["flowdata_sdk"]["commit"]
         with tempfile.TemporaryDirectory() as tmp:
             schema_dir = Path(tmp) / "metadata"
             shutil.copytree(config.schema_dir, schema_dir)
             schema = next(schema_dir.rglob("*.fbs"))
             schema.write_bytes(schema.read_bytes() + b"\n")
-            with self.assertRaisesRegex(RuntimeError, "schema inputs are stale"):
-                release_package.perception_generate.verify_perception_manifest(
-                    replace(config, schema_dir=schema_dir)
-                )
+            with patch.object(
+                release_package.perception_generate,
+                "git_commit",
+                return_value=flowdata_commit,
+            ):
+                with self.assertRaisesRegex(RuntimeError, "schema inputs are stale"):
+                    release_package.perception_generate.verify_perception_manifest(
+                        replace(config, schema_dir=schema_dir)
+                    )
 
 
 class PythonPackagingTests(unittest.TestCase):
