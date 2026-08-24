@@ -137,7 +137,7 @@ jobs:
           BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
         run: |
           scan_log="${RUNNER_TEMP}/blackduck-built/scan.log"
-          scan_link="$(grep -Eo 'https://[^[:space:]]+/api/projects/[0-9a-f-]+/versions/[0-9a-f-]+/(components|source-trees)' "$scan_log" 2>/dev/null | tail -n 1 || true)"
+          scan_link="$(grep -Eo 'https://[^[:space:]]+/api/(projects/[0-9a-f-]+/versions/[0-9a-f-]+/(components|source-trees)|developer-scans/[0-9a-f-]+)' "$scan_log" 2>/dev/null | tail -n 1 || true)"
           {
             echo '### Black Duck built output scan'
             echo
@@ -320,7 +320,7 @@ jobs:
           BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
         run: |
           scan_log="${RUNNER_TEMP}/blackduck-dependencies/scan.log"
-          scan_link="$(grep -Eo 'https://[^[:space:]]+/api/projects/[0-9a-f-]+/versions/[0-9a-f-]+/(components|source-trees)' "$scan_log" 2>/dev/null | tail -n 1 || true)"
+          scan_link="$(grep -Eo 'https://[^[:space:]]+/api/(projects/[0-9a-f-]+/versions/[0-9a-f-]+/(components|source-trees)|developer-scans/[0-9a-f-]+)' "$scan_log" 2>/dev/null | tail -n 1 || true)"
           {
             echo "### Black Duck ${SCAN_MODE} dependency scan"
             echo
@@ -525,7 +525,7 @@ jobs:
           BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
         run: |
           scan_log="${RUNNER_TEMP}/blackduck-snippets/scan.log"
-          scan_link="$(grep -Eo 'https://[^[:space:]]+/api/projects/[0-9a-f-]+/versions/[0-9a-f-]+/(components|source-trees)' "$scan_log" 2>/dev/null | tail -n 1 || true)"
+          scan_link="$(grep -Eo 'https://[^[:space:]]+/api/(projects/[0-9a-f-]+/versions/[0-9a-f-]+/(components|source-trees)|developer-scans/[0-9a-f-]+)' "$scan_log" 2>/dev/null | tail -n 1 || true)"
           {
             echo "### Black Duck ${SCAN_MODE} snippet scan"
             echo
