@@ -65,8 +65,12 @@ jobs:
       - name: Load PEK CI image
         run: |
           tools_dir="${RUNNER_TEMP}/pek-ci-image"
-          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
-            --archive "$tools_dir/pek-ci-image.tar" pek-release-with-ut
+          (
+            flock -x 9
+            python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
+              --archive "$tools_dir/pek-ci-image.tar" pek-release-with-ut
+            docker image rm "pek-ci:${CI_IMAGE_SHA}"
+          ) 9>"/tmp/pek-ci-image-${CI_IMAGE_SHA}.lock"
 
       - name: Checkout source
         uses: actions/checkout@v7
@@ -202,8 +206,12 @@ jobs:
         if: ${{ inputs.scan_mode == 'full' }}
         run: |
           tools_dir="${RUNNER_TEMP}/pek-ci-image-dependencies"
-          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
-            --archive "$tools_dir/pek-ci-image.tar" pek-ci
+          (
+            flock -x 9
+            python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
+              --archive "$tools_dir/pek-ci-image.tar" pek-ci
+            docker image rm "pek-ci:${CI_IMAGE_SHA}"
+          ) 9>"/tmp/pek-ci-image-${CI_IMAGE_SHA}.lock"
 
       - name: Checkout source
         uses: actions/checkout@v7
@@ -215,7 +223,6 @@ jobs:
           ref: ${{ inputs.checkout_ref }}
 
       - name: Prepare private submodules
-        if: ${{ inputs.scan_mode == 'full' }}
         working-directory: ${{ env.WORKSPACE_ROOT }}
         env:
           DEPLOY_KEY_FLOWDATA_SDK: ${{ secrets.DEPLOY_KEY_FLOWDATA_SDK }}
@@ -385,8 +392,12 @@ jobs:
         if: ${{ inputs.scan_mode == 'full' }}
         run: |
           tools_dir="${RUNNER_TEMP}/pek-ci-image-snippets"
-          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
-            --archive "$tools_dir/pek-ci-image.tar" pek-ci
+          (
+            flock -x 9
+            python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
+              --archive "$tools_dir/pek-ci-image.tar" pek-ci
+            docker image rm "pek-ci:${CI_IMAGE_SHA}"
+          ) 9>"/tmp/pek-ci-image-${CI_IMAGE_SHA}.lock"
 
       - name: Checkout source
         uses: actions/checkout@v7
