@@ -120,13 +120,13 @@ Perception SDK with the matching release tooling:
 ```bash
 sdk_root="$PEK_PACKAGE_ROOT/share/pek/perception-sdk"
 ./scripts/perception-sdk.sh verify \
-  "$sdk_root/perception-sdk-<sdk-version>.zip" \
+  "$sdk_root/perception-sdk-<pek-version>.zip" \
   --require-sidecars
-unzip "$sdk_root/perception-sdk-<sdk-version>.zip" -d perception-sdk
+unzip "$sdk_root/perception-sdk-<pek-version>.zip" -d perception-sdk
 ```
 
 Use the C++, Python, or TypeScript package from that extracted SDK. The SDK
-version is independent of the PEK product version.
+version matches the PEK product version.
 
 ## Packaged models
 

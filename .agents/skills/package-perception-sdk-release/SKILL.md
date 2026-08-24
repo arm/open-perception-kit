@@ -46,12 +46,11 @@ release candidate. It is reserved for local experiments and records
 
 ## Build the Bundle
 
-Read the stable version from `tools/perception/sdk.json`, then assert the same
+Read the stable PEK version from `development/meson.build`, then assert the same
 value during packaging:
 
 ```bash
-sdk_version="$(python3 -c \
-  'import json; print(json.load(open("tools/perception/sdk.json"))["version"])')"
+sdk_version="$(sed -n "s/^[[:space:]]*version: '\([^']*\)'.*/\1/p" development/meson.build)"
 
 ./scripts/perception-sdk.sh package \
   --output-dir artifacts \

@@ -493,11 +493,10 @@ def _verify_source_identities(
 
     descriptor = metadata["descriptor"]
     generated_manifest = metadata["generated_manifest"]
-    expected_artifact = {
-        "name": f"{descriptor.get('name')}-sdk",
-        "version": descriptor.get("version"),
-    }
-    if artifact != expected_artifact or generated_manifest.get("artifact") != artifact:
+    if (
+        artifact.get("name") != f"{descriptor.get('name')}-sdk"
+        or generated_manifest.get("artifact") != artifact
+    ):
         raise RuntimeError("release descriptor, generated manifest, and artifact identities differ")
     generated_descriptor = generated_manifest.get("descriptor")
     if (
@@ -916,7 +915,7 @@ def build_bundle(args: argparse.Namespace) -> Path:
     config = perception_config.load_sdk_config()
     if args.expect_version is not None and args.expect_version != config.version:
         raise RuntimeError(
-            f"expected SDK version {args.expect_version}, descriptor contains {config.version}"
+            f"expected PEK version {args.expect_version}, product contains {config.version}"
         )
     detached_commits = detached_source_commits(
         args.repository_commit, args.flowdata_commit
@@ -1041,7 +1040,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         formatter_class=SdkHelpFormatter,
         epilog=(
             "examples:\n"
-            "  ./scripts/perception-sdk.sh package --expect-version 0.1.0\n"
+            "  ./scripts/perception-sdk.sh package --expect-version MAJOR.MINOR.PATCH\n"
             "  ./scripts/perception-sdk.sh package --output-dir /tmp/sdk "
             "--artifact-dir /tmp/sdk-cache\n\n"
             "The command writes the ZIP, .sha256 checksum, and .provenance.json sidecar."
@@ -1058,8 +1057,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "--expect-version",
         metavar="MAJOR.MINOR.PATCH",
         help=(
-            "fail unless tools/perception/sdk.json contains exactly this SDK version; "
-            "does not override the descriptor"
+            "fail unless development/meson.build contains exactly this PEK version; "
+            "does not override the product version"
         ),
     )
     package_parser.add_argument(
@@ -1113,7 +1112,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         epilog=(
             "example:\n"
             "  ./scripts/perception-sdk.sh verify "
-            "artifacts/perception-sdk-0.1.0.zip --require-sidecars"
+            "artifacts/perception-sdk-MAJOR.MINOR.PATCH.zip --require-sidecars"
         ),
     )
     verify_parser.add_argument(

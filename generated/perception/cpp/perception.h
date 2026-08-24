@@ -36,7 +36,7 @@
 
 namespace perception {
 
-inline constexpr std::string_view PERCEPTION_VERSION = "0.1.0";
+inline constexpr std::string_view PERCEPTION_VERSION = "0.1.7";
 inline constexpr std::string_view PERCEPTION_NAME = "perception";
 inline constexpr std::string_view PERCEPTION_SCHEMA_SET_SHA256 =
     "0ba6dfe959e1453ce12c7a8707623bc15d94d52c9235c26f7e27f31dda0775c5";

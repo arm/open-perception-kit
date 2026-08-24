@@ -11,8 +11,8 @@ TypeScript packages, matching FlatBuffers runtimes, the source schemas, and a
 manifest describing every file and compatibility requirement.
 
 Released PEK architecture packages carry the unchanged ZIP, checksum, and
-provenance sidecar under `share/pek/perception-sdk/`. The SDK version remains
-independent of the PEK product version.
+provenance sidecar under `share/pek/perception-sdk/`. SDK packages use the PEK
+product version from `development/meson.build`.
 
 This is the release-packaging workflow. During implementation, use
 `$regenerate-perception-sdk` or `./scripts/perception-sdk.sh generate` to update
@@ -34,10 +34,10 @@ script is the only supported SDK command surface.
 The command verifies `tools/perception/sdk.json`, the checked-in generated SDK,
 internal Meson adapter, and generation receipt without invoking flowdata-sdk,
 `flatc`, or formatters. It builds the Python wheels from the canonical snapshot
-and creates `artifacts/perception-sdk-<sdk-version>.zip`.
+and creates `artifacts/perception-sdk-<pek-version>.zip`.
 
-Change the stable `MAJOR.MINOR.PATCH` version only in
-`tools/perception/sdk.json`, then run `./scripts/perception-sdk.sh generate`. The archive
+After changing the PEK product version in `development/meson.build`, run
+`./scripts/perception-sdk.sh generate`. The archive
 uses fixed timestamps, permissions, ordering, and compression so identical
 inputs produce identical bytes. Packaging rejects dirty SDK inputs and outputs
 unless `--allow-dirty` is explicitly supplied. CI can assert a release version
@@ -63,15 +63,18 @@ PEK publication exposes the same verified Perception wheel that is embedded in
 the SDK ZIP beside the PEK archives in the generic Artifactory release folder.
 Python-only consumers can lock that immutable URL directly.
 
-Declare the SDK version and map it to the wheel URL printed by the release job:
+Declare the PEK release version and map it to the wheel URL printed by the release job:
 
 ```toml
 [project]
-dependencies = ["opk-perception-sdk==0.1.0"]
+dependencies = ["opk-perception-sdk==<pek-version>"]
 
 [tool.uv.sources]
-opk-perception-sdk = { url = "https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci/releases/<pek-version>/opk_perception_sdk-0.1.0-py3-none-any.whl" }
+opk-perception-sdk = { url = "https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci/releases/<pek-version>/opk_perception_sdk-<pek-version>-py3-none-any.whl" }
 ```
+
+Integration snapshots keep that version and are distinguished by their
+Artifactory snapshot path, source commit, and locked SHA-256.
 
 Authenticate uv with the existing Artifactory credentials, then lock and sync:
 
@@ -107,7 +110,7 @@ Install both npm-compatible tarballs directly from the extracted bundle:
 ```bash
 npm install \
   ./typescript/flatbuffers-25.9.23.tgz \
-  ./typescript/perception-<sdk-version>.tgz
+  ./typescript/perception-<pek-version>.tgz
 ```
 
 Import `Envelope`, `ProducerIdentityStatus`, and generated payload classes from
@@ -148,7 +151,7 @@ Verify an archive and its checksum/provenance sidecars with:
 
 ```bash
 ./scripts/perception-sdk.sh verify \
-  artifacts/perception-sdk-<sdk-version>.zip \
+  artifacts/perception-sdk-<pek-version>.zip \
   --require-sidecars
 ```
 

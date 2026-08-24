@@ -18,7 +18,9 @@ from release_common import sha256
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SDK_CONFIG_PATH = Path(__file__).with_name("sdk.json")
+PRODUCT_VERSION_PATH = REPO_ROOT / "development/meson.build"
 SEMVER = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
+PRODUCT_VERSION = re.compile(r"project\([^)]*version:\s*'([^']+)'", re.DOTALL)
 
 
 @dataclass(frozen=True)
@@ -151,11 +153,19 @@ def _typescript_build(
     return runtime, compiler, node_minimum_major
 
 
+def product_version(path: Path = PRODUCT_VERSION_PATH) -> str:
+    match = PRODUCT_VERSION.search(path.read_text(encoding="utf-8"))
+    if not match or not SEMVER.fullmatch(match.group(1)):
+        raise RuntimeError(
+            "development/meson.build must contain a stable MAJOR.MINOR.PATCH version"
+        )
+    return match.group(1)
+
+
 def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
     raw = json.loads(path.read_text(encoding="utf-8"))
     expected = {
         "name",
-        "version",
         "schema_dir",
         "generated_dir",
         "flatbuffers",
@@ -168,11 +178,8 @@ def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
         raise RuntimeError(f"SDK descriptor fields must be exactly: {sorted(expected)}")
 
     name = raw["name"]
-    version = raw["version"]
     if not isinstance(name, str) or not re.fullmatch(r"[a-z][a-z0-9_-]*", name):
         raise RuntimeError("SDK name must be a lowercase package identifier")
-    if not isinstance(version, str) or not SEMVER.fullmatch(version):
-        raise RuntimeError("SDK version must be a stable semantic version (MAJOR.MINOR.PATCH)")
 
     flatbuffers = raw["flatbuffers"]
     if not isinstance(flatbuffers, dict) or set(flatbuffers) != {
@@ -222,7 +229,7 @@ def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
 
     return SdkConfig(
         name=name,
-        version=version,
+        version=product_version(),
         schema_dir=schema_dir,
         generated_root=generated_root,
         flatbuffers_version=flatbuffers_version,

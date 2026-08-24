@@ -29,7 +29,8 @@ snapshot and creates distributable artifacts without regenerating it.
 `tools/perception/sdk.json` is the only hand-edited SDK release descriptor. It
 defines the SDK identity, canonical schema and generated directories,
 flowdata-sdk location, generated project integrations, and checksum-locked
-FlatBuffers and Python wheel-build artifacts. `tools/perception/sdk_config.py` is the shared loader
+FlatBuffers and Python wheel-build artifacts. The SDK packages share the PEK
+product version from `development/meson.build`. `tools/perception/sdk_config.py` is the shared loader
 used by generation, packaging, tests, and development installation. Generation first verifies the raw
 flowdata manifests, then applies AMP-owned copyright and formatting decoration. The final
 generated SDK manifest embeds the raw generator manifests and records the

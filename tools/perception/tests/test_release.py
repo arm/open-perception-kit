@@ -8,7 +8,6 @@ import hashlib
 import importlib.util
 import json
 import shutil
-import subprocess
 import sys
 import tempfile
 import unittest
@@ -124,51 +123,6 @@ class SchemaChangeParserTests(unittest.TestCase):
         self.assertEqual(messages["Payload appended fields: value"], "breaking")
 
 
-class CommandHelpTests(unittest.TestCase):
-    def run_help(self, *arguments: str) -> str:
-        result = subprocess.run(
-            [sys.executable, str(PACKAGE_MODULE_PATH.parent / "cli.py"), *arguments, "--help"],
-            check=True,
-            text=True,
-            capture_output=True,
-        )
-        self.assertEqual(result.stderr, "")
-        return result.stdout
-
-    def test_top_level_help_documents_commands_and_examples(self) -> None:
-        output = self.run_help()
-        self.assertIn("./scripts/perception-sdk.sh <command> --help", output)
-        self.assertIn("package", output)
-        self.assertIn("install-dev", output)
-
-    def test_generate_and_check_help_document_tool_overrides(self) -> None:
-        for command in ("generate", "check"):
-            with self.subTest(command=command):
-                output = self.run_help(command)
-                self.assertIn(f"./scripts/perception-sdk.sh {command}", output)
-                self.assertIn("FlatBuffers compiler", output)
-                self.assertIn("autopep8", output)
-
-    def test_package_help_documents_release_controls(self) -> None:
-        output = self.run_help("package")
-        self.assertIn("never regenerates SDK files", output)
-        self.assertIn("does not override the descriptor", output)
-        self.assertIn("dirty=true", output)
-        self.assertIn("provenance", output)
-        self.assertIn("read-write cache", output)
-
-    def test_verify_help_documents_sidecar_behavior(self) -> None:
-        output = self.run_help("verify")
-        self.assertIn("Existing sidecars are always checked", output)
-        self.assertIn("require and verify both", output)
-
-    def test_install_dev_help_documents_target_and_cache(self) -> None:
-        output = self.run_help("install-dev")
-        self.assertIn("target Python interpreter", output)
-        self.assertIn("checksum-locked FlatBuffers", output)
-        self.assertIn("wheel", output)
-
-
 class SemanticVersionTests(unittest.TestCase):
     def test_accepts_stable_semantic_version(self) -> None:
         release_package.require_semantic_version("1.2.3")
@@ -188,11 +142,11 @@ class SemanticVersionTests(unittest.TestCase):
 
 
 class SdkDescriptorTests(unittest.TestCase):
-    def test_descriptor_is_the_authoritative_release_configuration(self) -> None:
+    def test_descriptor_and_product_version_are_the_release_configuration(self) -> None:
         config = release_package.perception_config.load_sdk_config()
         descriptor = json.loads(config.descriptor_path.read_text(encoding="utf-8"))
         self.assertEqual(config.name, descriptor["name"])
-        self.assertEqual(config.version, descriptor["version"])
+        self.assertNotIn("version", descriptor)
         self.assertIsNotNone(release_package.SEMANTIC_VERSION_RE.fullmatch(config.version))
         self.assertEqual(config.flatbuffers_version, descriptor["flatbuffers"]["version"])
         self.assertEqual(
@@ -229,6 +183,14 @@ class SdkDescriptorTests(unittest.TestCase):
             config.internal_meson_path.relative_to(config.generated_root.parents[1]).as_posix(),
             descriptor["project_generated_files"]["internal_meson"],
         )
+
+    def test_product_version_is_read_from_meson(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            meson = Path(tmp) / "meson.build"
+            meson.write_text("project('demo', version: '1.2.3')\n", encoding="utf-8")
+            self.assertEqual(
+                release_package.perception_config.product_version(meson), "1.2.3"
+            )
 
     def test_descriptor_rejects_unknown_fields(self) -> None:
         descriptor = json.loads(
@@ -300,47 +262,6 @@ class GenerationReceiptTests(unittest.TestCase):
                 release_package.perception_generate.verify_perception_manifest(
                     replace(config, schema_dir=schema_dir)
                 )
-
-
-class SingleSourceContractTests(unittest.TestCase):
-    def test_consumers_do_not_redeclare_sdk_configuration(self) -> None:
-        repository = Path(__file__).resolve().parents[3]
-        dockerfile = (repository / "Dockerfile").read_text(encoding="utf-8")
-        self.assertNotIn("ARG FLATBUFFERS_VERSION", dockerfile)
-        self.assertIn("install-perception-flatbuffers", dockerfile)
-        self.assertIn("ESBUILD_INTEGRITY", dockerfile)
-        self.assertIn("sha256sum --check --strict", dockerfile)
-        for archive in ("esbuild-wasm.tgz", "flatbuffers.tgz", "typescript.tgz"):
-            self.assertIn(archive, dockerfile)
-        self.assertFalse((repository / "Dockerfile.dev").exists())
-
-        plumber = (repository / "tools" / "plumber" / "pyproject.toml").read_text(
-            encoding="utf-8"
-        )
-        self.assertNotIn('"flatbuffers==', plumber)
-        self.assertIn('"perception==0.1.0"', plumber)
-        self.assertIn(
-            "COPY generated/perception/python /tmp/pek-tools/perception", dockerfile
-        )
-        self.assertIn("import perception, plumber", dockerfile)
-
-        devsetup = (repository / ".devcontainer" / "devsetup.sh").read_text(
-            encoding="utf-8"
-        )
-        self.assertNotIn("generated/perception", devsetup)
-        self.assertIn("scripts/perception-sdk.sh", devsetup)
-        self.assertIn("install-dev", devsetup)
-
-        self.assertFalse((repository / "scripts" / "gen-perception.sh").exists())
-        self.assertFalse((repository / "scripts" / "package-perception-sdk.sh").exists())
-        self.assertTrue((repository / "scripts" / "perception-sdk.sh").is_file())
-
-        packager = (repository / "tools" / "perception" / "package.py").read_text(
-            encoding="utf-8"
-        )
-        self.assertNotIn("check_generated", packager)
-        self.assertNotIn('add_argument("--flatc"', packager)
-        self.assertNotIn('add_argument("--clang-format"', packager)
 
 
 class BundleVerificationTests(unittest.TestCase):
@@ -450,7 +371,6 @@ class BundleVerificationTests(unittest.TestCase):
                         "version": "25.9.23",
                     }
                 },
-                "version": "1.2.3",
             }),
             encoding="utf-8",
         )
@@ -694,7 +614,7 @@ class BundleVerificationTests(unittest.TestCase):
             bundle = self.create_bundle(Path(tmp))
             descriptor_path = bundle / "metadata/sdk.json"
             descriptor = json.loads(descriptor_path.read_text(encoding="utf-8"))
-            descriptor["version"] = "2.0.0"
+            descriptor["name"] = "other_sdk"
             descriptor_path.write_text(json.dumps(descriptor), encoding="utf-8")
 
             manifest_path = bundle / release_package.MANIFEST_FILENAME

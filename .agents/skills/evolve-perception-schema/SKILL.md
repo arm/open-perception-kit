@@ -1,6 +1,6 @@
 ---
 name: evolve-perception-schema
-description: Evaluate, add, or evolve Perception FlatBuffers schemas and integrate their runtime semantics. Use for changes under schemas/perception, new FrameResults payloads, compatibility reviews, schema or SDK version decisions, or complex features that require schema updates. This skill owns authored schema design and compatibility; use regenerate-perception-sdk for checked-in generated outputs and package-perception-sdk-release for distributable ZIP bundles.
+description: Evaluate, add, or evolve Perception FlatBuffers schemas and integrate their runtime semantics. Use for changes under schemas/perception, new FrameResults payloads, compatibility reviews, release-impact decisions, or complex features that require schema updates. This skill owns authored schema design and compatibility; use regenerate-perception-sdk for checked-in generated outputs and package-perception-sdk-release for distributable ZIP bundles.
 ---
 
 # Evolve Perception Schema
@@ -25,12 +25,11 @@ change, and define its runtime semantics before regenerating derived SDK files.
 
 ## Classify the Change
 
-- **No schema change:** keep the SDK version unless public generated behavior
-  changes.
+- **No schema change:** no schema-driven PEK release impact.
 - **Compatible addition:** append table fields or add a payload root; increment
-  the SDK MINOR version.
+  a PEK MINOR release.
 - **Breaking change:** remove, rename, reorder, retype, or reinterpret published
-  fields; increment SDK MAJOR and define migration behavior.
+  fields; require a PEK MAJOR release and define migration behavior.
 - **Unclear semantics:** stop and document the compatibility decision before
   editing.
 
@@ -45,8 +44,7 @@ identities. Do not claim mixed-version typed compatibility without fixture tests
    identifiers unless intentionally making a breaking change.
 3. Give every new transportable root a unique four-character file identifier,
    one `root_type`, and initial `schema_major` and `schema_minor` fields.
-4. Update the SDK version and owned inputs only in
-   `tools/perception/sdk.json`.
+4. Record the required PEK release impact; do not create a separate SDK version.
 5. Update affected runtime producers, consumers, inspection tools, tests, and
    documentation.
 6. Add old/new fixture tests when mixed-version behavior matters.
@@ -79,7 +77,7 @@ Run tests for the runtime behavior that produces or consumes the payload. Let
 
 ## Report
 
-Summarize the compatibility classification, required SDK version bump, changed
+Summarize the compatibility classification, required PEK version bump, changed
 roots, transitively affected payloads, runtime semantics, migration behavior,
 and fixture coverage. State whether generation has been handed off and whether
 a release bundle is intentionally out of scope.

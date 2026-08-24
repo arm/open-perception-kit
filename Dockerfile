@@ -599,12 +599,9 @@ RUN --mount=type=cache,id=pek-deployment-ccache,target=/work/.cache/ccache,shari
     package_root=/opt/pek-release-root; \
     test -n "${PEK_RELEASE_SOURCE_COMMIT}"; \
     test -n "${PEK_FLOWDATA_SDK_COMMIT}"; \
-    sdk_version="$(python3 -c \
-      'import json; print(json.load(open("tools/perception/sdk.json"))["version"])')"; \
     /work/scripts/perception-sdk.sh package \
       --output-dir /tmp/perception-sdk-input \
       --artifact-dir /opt/pek-deps/perception-sdk-artifacts \
-      --expect-version "${sdk_version}" \
       --repository-commit "${PEK_RELEASE_SOURCE_COMMIT}" \
       --flowdata-commit "${PEK_FLOWDATA_SDK_COMMIT}"; \
     mkdir -p \

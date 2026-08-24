@@ -481,7 +481,7 @@ def _verify_upstream_receipts(
         if sdk_manifest.get("sdk", {}).get("name") != config.name:
             raise RuntimeError(f"{sdk} manifest SDK name does not match sdk.json")
         if sdk_manifest.get("sdk", {}).get("version") != config.version:
-            raise RuntimeError(f"{sdk} manifest SDK version does not match sdk.json")
+            raise RuntimeError(f"{sdk} manifest SDK version does not match the PEK version")
         if sdk_manifest.get("generator") != flowdata_identity.get("generator"):
             raise RuntimeError(f"{sdk} generator identity is stale")
         if sdk_manifest.get("schema_files") != _schema_records(config.schema_dir):

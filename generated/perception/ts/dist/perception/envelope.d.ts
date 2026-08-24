@@ -5,7 +5,7 @@ type NativePayload = {
     constructor: Function;
 };
 export declare const SDK_NAME = "perception";
-export declare const SDK_VERSION = "0.1.0";
+export declare const SDK_VERSION = "0.1.7";
 export declare const SCHEMA_SET_SHA256 = "0ba6dfe959e1453ce12c7a8707623bc15d94d52c9235c26f7e27f31dda0775c5";
 export declare const EXTERNAL_KEY_MIN: bigint;
 export declare enum ProducerIdentityStatus {

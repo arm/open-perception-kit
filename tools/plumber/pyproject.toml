@@ -8,7 +8,7 @@ requires-python = ">=3.13"
 dependencies = [
     "jmespath==1.1.0",
     "numpy==2.4.2",
-    "perception==0.1.0",
+    "perception",
     "pillow==12.3.0",
     "pyright==1.1.408"
 ]

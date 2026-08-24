@@ -47,8 +47,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
             "Run './scripts/perception-sdk.sh <command> --help' for command options.\n\n"
             "examples:\n"
             "  ./scripts/perception-sdk.sh check\n"
-            "  ./scripts/perception-sdk.sh package --expect-version 0.1.0\n"
-            "  ./scripts/perception-sdk.sh verify artifacts/perception-sdk-0.1.0.zip "
+            "  ./scripts/perception-sdk.sh package --expect-version MAJOR.MINOR.PATCH\n"
+            "  ./scripts/perception-sdk.sh verify "
+            "artifacts/perception-sdk-MAJOR.MINOR.PATCH.zip "
             "--require-sidecars"
         )
         parser.print_help()
