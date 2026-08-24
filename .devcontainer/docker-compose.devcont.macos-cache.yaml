@@ -1,0 +1,13 @@
+services:
+  pek-dev:
+    user: root
+    environment:
+      HOST_UID: ${HOST_UID}
+      HOST_GID: ${HOST_GID}
+    volumes:
+      - ccache:/work/.cache/ccache
+      - build-output:/work/development/build
+
+volumes:
+  ccache:
+  build-output:

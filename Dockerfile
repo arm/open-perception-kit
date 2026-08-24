@@ -393,6 +393,22 @@ COPY --from=pek-demo-media \
 COPY --from=pek-models \
   /work/config/models /opt/pek-app/config/models
 
+# Prewarm the macOS CI compiler cache on the native Arm64 image publisher.
+FROM pek-dev AS pek-dev-macos-cache-build
+
+ENV CCACHE_DIR=/work/.cache/ccache \
+  CCACHE_MAXSIZE=2G
+
+COPY --chown=dev . /work
+RUN ./scripts/build.sh && ccache --show-stats
+
+FROM pek-dev AS pek-dev-macos-ci
+
+USER root
+COPY --from=pek-dev-macos-cache-build --chown=dev \
+  /work/.cache/ccache /opt/pek-ccache
+USER dev
+
 # ==============================================================================
 # Documentation Image Lane
 # ==============================================================================

@@ -4,6 +4,8 @@ x-pek-runtime-environment: &pek-runtime-environment
 x-pek-development-environment: &pek-development-environment
   WAYLAND_DISPLAY: wayland-0
   DISPLAY: ${DISPLAY:-}
+  CCACHE_DIR: /work/.cache/ccache
+  CCACHE_MAXSIZE: 2G
 
 x-pek-model-image-build: &pek-model-image-build
   context: .

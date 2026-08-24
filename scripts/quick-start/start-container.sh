@@ -10,7 +10,7 @@ set -euo pipefail
 usage() {
     cat << 'EOF'
 Usage:
-  start-container.sh [--recreate] [--env-file PATH] [-h|--help]
+  start-container.sh [--recreate] [--no-build] [--env-file PATH] [-h|--help]
 
 Builds and starts the PEK quick-start container selected by host detection.
 
@@ -25,18 +25,23 @@ overrides.
 
 Options:
   --recreate  Recreate the selected container even if it is already running
+  --no-build  Start from an image already present in Docker
   --env-file PATH
               Pass PATH to Docker Compose for variable interpolation
 EOF
 }
 
 RECREATE="false"
+BUILD="true"
 COMPOSE_ENV_FILE=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --recreate)
             RECREATE="true"
+            ;;
+        --no-build)
+            BUILD="false"
             ;;
         --env-file)
             if [[ $# -lt 2 ]]; then
@@ -94,6 +99,9 @@ if [[ -n "${COMPOSE_ENV_FILE}" ]]; then
 fi
 
 PEK_WEBRTC_TURN="$(bash scripts/private/select-webrtc-turn-mode.sh "${PEK_PLATFORM_ID}")"
+if [[ "${PEK_PLATFORM_ID}" == macos ]]; then
+    COMPOSE_FILES+=(-f .devcontainer/docker-compose.devcont.macos-cache.yaml)
+fi
 if [[ "${PEK_WEBRTC_TURN}" == enabled ]]; then
     COMPOSE_FILES+=(-f .devcontainer/docker-compose.devcont.turn.yaml)
 fi
@@ -151,8 +159,23 @@ wait_for_container_ready() {
     return 1
 }
 
-container_workdir_writable() {
-    docker exec -u dev "${PEK_CONTAINER_NAME}" bash -lc 'test -w /work' > /dev/null 2>&1
+container_state_writable() {
+    local path
+    if ! docker exec -u dev "${PEK_CONTAINER_NAME}" mkdir -p /work/.cache/ccache /work/development/build; then
+        echo "Cannot create development cache directories as dev." >&2
+        return 1
+    fi
+    for path in /work /work/.cache/ccache /work/development/build; do
+        if ! docker exec -u dev "${PEK_CONTAINER_NAME}" test -w "${path}"; then
+            echo "Not writable as dev: ${path}" >&2
+            return 1
+        fi
+    done
+    if docker exec -u dev "${PEK_CONTAINER_NAME}" test -e /home/dev/.bash_profile &&
+        ! docker exec -u dev "${PEK_CONTAINER_NAME}" test -r /home/dev/.bash_profile; then
+        echo "Not readable as dev: /home/dev/.bash_profile" >&2
+        return 1
+    fi
 }
 
 print_enter_hint() {
@@ -181,7 +204,7 @@ bash .devcontainer/platform_init.sh \
     "${PEK_CONTAINER_SERVICE}" "${PEK_PICAMERA}" "${PEK_WEBRTC_TURN}"
 
 if container_running && [[ "$RECREATE" != "true" ]]; then
-    if container_ready && container_workdir_writable; then
+    if container_ready && container_state_writable; then
         print_enter_hint
         exit 0
     fi
@@ -199,21 +222,27 @@ if [[ "${PEK_PLATFORM_ID}" == rpi5* ]]; then
     echo "  Hailo:    ${PEK_HAILO_ARCH}"
 fi
 
-echo
-echo "Building shared development base..."
-bash scripts/private/build-dev-base.sh
+if [[ "$BUILD" == "true" ]]; then
+    echo
+    echo "Building shared development base..."
+    bash scripts/private/build-dev-base.sh
+fi
 
 echo
 echo "Building and starting container..."
-UP_ARGS=(up -d --build --remove-orphans)
+UP_ARGS=(up -d --remove-orphans)
+if [[ "$BUILD" == "true" ]]; then
+    UP_ARGS+=(--build)
+else
+    UP_ARGS+=(--no-build)
+fi
 if [[ "$RECREATE" == "true" ]]; then
     UP_ARGS+=(--force-recreate)
 fi
 "${COMPOSE_COMMAND[@]}" "${COMPOSE_FILES[@]}" "${UP_ARGS[@]}" "${PEK_CONTAINER_SERVICE}"
 wait_for_container_ready
-if ! container_workdir_writable; then
-    echo "Error: quick-start container /work is not writable as dev: ${PEK_CONTAINER_NAME}" >&2
-    docker logs "${PEK_CONTAINER_NAME}" >&2 || true
+if ! container_state_writable; then
+    echo "Error: container development directories are not writable as dev." >&2
     exit 1
 fi
 

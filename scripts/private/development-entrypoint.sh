@@ -12,6 +12,14 @@ set -euo pipefail
 ENTRYPOINT_READY_FILE="/tmp/pek-development-entrypoint-ready"
 rm -f "${ENTRYPOINT_READY_FILE}"
 
+run_as_development_user() {
+    if [[ -n "${HOST_UID}" && -n "${HOST_GID}" && "$(id -u)" -eq 0 ]]; then
+        gosu "${HOST_UID}:${HOST_GID}" "$@"
+    else
+        "$@"
+    fi
+}
+
 # If the user of the container has a zsh config then use that configuration inside the container, otherwise keep using the default one.
 if [[ -f "/home/${USERNAME}/configs/zshrc" ]]; then
     ln -sfn "/home/${USERNAME}/configs/zshrc" "/home/${USERNAME}/.zshrc"
@@ -24,14 +32,19 @@ seed_development_artifacts() {
     [[ -d "${artifacts_root}" ]] || return 0
     [[ -w /work ]] || return 0
 
+    if [[ -d /opt/pek-ccache ]]; then
+        run_as_development_user mkdir -p /work/.cache/ccache
+        run_as_development_user cp -a --no-clobber /opt/pek-ccache/. /work/.cache/ccache/
+    fi
+
     if [[ -d "${artifacts_root}/config/models" ]]; then
-        mkdir -p /work/config/models
-        cp -R --no-clobber "${artifacts_root}/config/models/." /work/config/models/
+        run_as_development_user mkdir -p /work/config/models
+        run_as_development_user cp -R --no-clobber "${artifacts_root}/config/models/." /work/config/models/
     fi
 
     if [[ -d "${video_artifacts}" ]]; then
-        mkdir -p /work/data/videos
-        cp -a --no-clobber "${video_artifacts}/." /work/data/videos/
+        run_as_development_user mkdir -p /work/data/videos
+        run_as_development_user cp -a --no-clobber "${video_artifacts}/." /work/data/videos/
         if [[ -f "${video_artifacts}/SHA256SUMS" ]]; then
             if ! (cd /work/data/videos && sha256sum --check --strict --quiet "${video_artifacts}/SHA256SUMS"); then
                 echo "ERROR: existing demo videos failed checksum validation." >&2
@@ -43,15 +56,15 @@ seed_development_artifacts() {
     fi
 
     if [[ -d "${artifacts_root}/development/build/meson-out" ]]; then
-        mkdir -p /work/development/build/meson-out
-        cp -a --no-clobber \
+        run_as_development_user mkdir -p /work/development/build/meson-out
+        run_as_development_user cp -a --no-clobber \
             "${artifacts_root}/development/build/meson-out/." \
             /work/development/build/meson-out/
     fi
 
     if [[ ! -e /work/tools/pek-menu && -f "${artifacts_root}/tools/pek-menu" ]]; then
-        mkdir -p /work/tools
-        cp -a "${artifacts_root}/tools/pek-menu" /work/tools/pek-menu
+        run_as_development_user mkdir -p /work/tools
+        run_as_development_user cp -a "${artifacts_root}/tools/pek-menu" /work/tools/pek-menu
     fi
 }
 
@@ -93,13 +106,15 @@ usermod -u "${HOST_UID}" "${USERNAME}" || true
 groupmod -g "${HOST_GID}" "$(id -gn "${USERNAME}")" || true
 usermod -g "${HOST_GID}" "${USERNAME}" || true
 
-seed_development_artifacts
-
-# Fix home ownership (keep it cheap)
+# Keep recursive ownership changes inside container-owned state. The checkout
+# bind already belongs to the host user and can be expensive to traverse.
+mkdir -p /work /work/.cache/ccache /work/development/build
+chown "${HOST_UID}:${HOST_GID}" /work
+chown -R "${HOST_UID}:${HOST_GID}" /work/.cache/ccache /work/development/build
 chown -R "${HOST_UID}:${HOST_GID}" "/home/${USERNAME}" || true
-mkdir -p /work
-chown -R "${HOST_UID}:${HOST_GID}" /work || true
-chown -R "${HOST_UID}:${HOST_GID}" /tmp/pekcomm || true
+chown "${HOST_UID}:${HOST_GID}" /tmp/pekcomm || true
+
+seed_development_artifacts
 
 # Drop privileges
 touch "${ENTRYPOINT_READY_FILE}"
