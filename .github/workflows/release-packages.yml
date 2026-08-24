@@ -494,10 +494,11 @@ jobs:
           DOWNLOAD_BASE: https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci
           SUBDIR_PATH: ${{ github.event_name == 'workflow_dispatch' && format('{0}/{1}-{2}-{3}', github.event.inputs.build_label, needs.prepare.outputs.commit, github.run_id, github.run_attempt) || '' }}
           TIMEOUT_SECONDS: 300
+          ARTIFACT_PATTERN: ${{ github.event_name == 'workflow_dispatch' && 'pek-release-artifacts/*' || 'pek-release-artifacts/*.tar.gz' }}
         run: >-
           "$GITHUB_WORKSPACE/publisher/.venv/bin/python"
           -m publisher.actions.publish_to_artifactory_action
-          "pek-release-artifacts/*"
+          "$ARTIFACT_PATTERN"
 
       - name: Publish Perception Python package to Artifactory PyPI
         if: github.event_name == 'push'
@@ -524,9 +525,11 @@ jobs:
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
             folder="snapshots/$LABEL/$COMMIT-${{ github.run_id }}-${{ github.run_attempt }}"
             title="PEK Artifactory snapshot"
+            artifacts=("$ARTIFACTS_DIR"/*)
           else
             folder="releases/$VERSION"
             title="PEK Artifactory release"
+            artifacts=("$ARTIFACTS_DIR"/*.tar.gz)
           fi
           base="https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci/$folder"
           echo "Artifactory folder: $folder"
@@ -537,7 +540,7 @@ jobs:
             echo
             echo "Container image: \`$IMAGE_REFERENCE@$IMAGE_DIGEST\`"
             echo
-            for artifact in "$ARTIFACTS_DIR"/*; do
+            for artifact in "${artifacts[@]}"; do
               name="$(basename "$artifact")"
               hash="$(sha256sum "$artifact" | cut -d' ' -f1)"
               url="$base/$name"
