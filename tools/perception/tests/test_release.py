@@ -11,7 +11,6 @@ import json
 import shutil
 import sys
 import tempfile
-import tomllib
 import unittest
 import zipfile
 from contextlib import redirect_stdout
@@ -372,8 +371,8 @@ class PythonPackagingTests(unittest.TestCase):
 
             release_package.set_python_distribution_name(project, "perception")
             self.assertEqual(
-                tomllib.loads(pyproject.read_text(encoding="utf-8"))["project"]["name"],
-                release_package.PYTHON_DISTRIBUTION_NAME,
+                pyproject.read_text(encoding="utf-8"),
+                '[project]\nname = "opk-perception-sdk"\nversion = "1.2.3"\n',
             )
             with self.assertRaisesRegex(RuntimeError, "project name is unexpected"):
                 release_package.set_python_distribution_name(project, "perception")
