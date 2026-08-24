@@ -169,7 +169,7 @@ jobs:
               docker compose -f .github/compose.ci.yaml down --remove-orphans || true
             )
           fi
-          docker image rm "${COMPOSE_PROJECT_NAME}-pek-release-with-ut" "${PEK_CI_IMAGE:-}" || true
+          docker image rm "${COMPOSE_PROJECT_NAME}-pek-release-with-ut" || true
           case "$WORKSPACE_ROOT" in
             "$GITHUB_WORKSPACE"/repo-*) rm -rf -- "$WORKSPACE_ROOT" ;;
             *) echo "Skipping unexpected workspace: $WORKSPACE_ROOT" >&2 ;;
@@ -292,7 +292,7 @@ jobs:
             --volume "$scanner_dir:/blackduck" \
             --workdir /work \
             --entrypoint bash \
-            "$PEK_CI_IMAGE" -c '
+            "${COMPOSE_PROJECT_NAME}-pek-ci" -c '
               set -euo pipefail
               scan_args=(
                 "--blackduck.url=${BLACKDUCK_URL}"
@@ -349,7 +349,7 @@ jobs:
         if: always()
         run: |
           if [[ "$SCAN_MODE" == full ]]; then
-            docker image rm "${COMPOSE_PROJECT_NAME}-pek-ci" "${PEK_CI_IMAGE:-}" || true
+            docker image rm "${COMPOSE_PROJECT_NAME}-pek-ci" || true
           fi
           case "$WORKSPACE_ROOT" in
             "$GITHUB_WORKSPACE"/repo-*) rm -rf -- "$WORKSPACE_ROOT" ;;
@@ -415,7 +415,7 @@ jobs:
             --volume "$WORKSPACE_ROOT:/work" \
             --workdir /work \
             --entrypoint bash \
-            "$PEK_CI_IMAGE" -c '
+            "${COMPOSE_PROJECT_NAME}-pek-ci" -c '
               set -euo pipefail
               meson subprojects download --sourcedir /work/development
               meson setup /tmp/blackduck-meson /work/development \
@@ -499,7 +499,7 @@ jobs:
             --volume "$scanner_dir:/blackduck" \
             --workdir /work \
             --entrypoint bash \
-            "$PEK_CI_IMAGE" -c '
+            "${COMPOSE_PROJECT_NAME}-pek-ci" -c '
               set -euo pipefail
               /blackduck/detect-arm.sh \
                 "--blackduck.url=${BLACKDUCK_URL}" \
@@ -552,7 +552,7 @@ jobs:
         if: always()
         run: |
           if [[ "$SCAN_MODE" == full ]]; then
-            docker image rm "${COMPOSE_PROJECT_NAME}-pek-ci" "${PEK_CI_IMAGE:-}" || true
+            docker image rm "${COMPOSE_PROJECT_NAME}-pek-ci" || true
           fi
           case "$WORKSPACE_ROOT" in
             "$GITHUB_WORKSPACE"/repo-*) rm -rf -- "$WORKSPACE_ROOT" ;;
