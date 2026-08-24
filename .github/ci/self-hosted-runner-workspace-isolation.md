@@ -45,8 +45,8 @@ behaviour entirely:
   resources and deletes its isolated checkout directory in an `if: always()`
   cleanup step
 - the Black Duck snippet scan uses an ephemeral runner and never executes files
-  from the pull request; the full scan runs in the PEK CI image on a hosted
-  runner
+  from the pull request; the full scan uses an isolated checkout on an internal
+  runner and removes its loaded PEK CI image and workspace after the scan
 
 This ensures that one job does not reuse another job's poisoned checkout path or
 Docker resource names.

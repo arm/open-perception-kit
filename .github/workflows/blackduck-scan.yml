@@ -101,27 +101,27 @@ jobs:
   full-scan:
     name: Black Duck full source scan
     if: ${{ inputs.ci_image_sha != '' }}
-    runs-on: ubuntu-latest
+    runs-on: self-hosted-ubuntu-latest-x64
     timeout-minutes: 45
     permissions:
       actions: read
       contents: read
     env:
       BLACKDUCK_VERSION: ${{ inputs.version_name }}
-      CI_CHECKOUT_PATH: blackduck-source
+      CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CI_IMAGE_SHA: ${{ inputs.ci_image_sha }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-      WORKSPACE_ROOT: ${{ github.workspace }}/blackduck-source
+      WORKSPACE_ROOT: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
       - name: Download PEK CI image
         uses: actions/download-artifact@v8
         with:
           name: pek-ci-image
-          path: .cache/pek-ci-image
+          path: ${{ runner.temp }}/pek-ci-image
 
       - name: Load PEK CI image
         run: |
-          tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
+          tools_dir="${RUNNER_TEMP}/pek-ci-image"
           python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
             --archive "$tools_dir/pek-ci-image.tar" pek-ci
 
@@ -204,3 +204,12 @@ jobs:
           path: ${{ runner.temp }}/blackduck/output
           if-no-files-found: warn
           retention-days: 10
+
+      - name: Cleanup isolated workspace and PEK CI image
+        if: always()
+        run: |
+          docker image rm "${COMPOSE_PROJECT_NAME}-pek-ci" "${PEK_CI_IMAGE:-}" || true
+          case "$WORKSPACE_ROOT" in
+            "$GITHUB_WORKSPACE"/repo-*) rm -rf -- "$WORKSPACE_ROOT" ;;
+            *) echo "Skipping unexpected workspace: $WORKSPACE_ROOT" >&2 ;;
+          esac
