@@ -154,12 +154,14 @@ jobs:
       WORKSPACE_ROOT: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
       - name: Download PEK CI image
+        if: ${{ inputs.scan_mode == 'full' }}
         uses: actions/download-artifact@v8
         with:
           name: pek-ci-image
           path: ${{ runner.temp }}/pek-ci-image-dependencies
 
       - name: Load PEK CI image
+        if: ${{ inputs.scan_mode == 'full' }}
         run: |
           tools_dir="${RUNNER_TEMP}/pek-ci-image-dependencies"
           python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
@@ -175,6 +177,7 @@ jobs:
           ref: ${{ inputs.checkout_ref }}
 
       - name: Prepare private submodules
+        if: ${{ inputs.scan_mode == 'full' }}
         working-directory: ${{ env.WORKSPACE_ROOT }}
         env:
           DEPLOY_KEY_FLOWDATA_SDK: ${{ secrets.DEPLOY_KEY_FLOWDATA_SDK }}
@@ -195,13 +198,42 @@ jobs:
           echo "$DETECT_SHA256  $scanner_dir/detect-arm.sh" | sha256sum --check --strict
           chmod +x "$scanner_dir/detect-arm.sh"
 
-      - name: Scan dependencies and enforce policy
+      - name: Scan PR dependencies on trusted runner and enforce policy
+        if: ${{ inputs.scan_mode == 'delta' }}
+        working-directory: ${{ env.WORKSPACE_ROOT }}
         env:
           BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }}
           BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
         run: |
           set -euo pipefail
-          case "$SCAN_MODE" in delta|full) ;; *) echo "Unsupported scan mode: $SCAN_MODE" >&2; exit 1 ;; esac
+          test -n "${BLACKDUCK_TOKEN:-}"
+          test -n "${BLACKDUCK_URL:-}"
+          project_name="${GITHUB_REPOSITORY//\//:}"
+          version_name="${BLACKDUCK_VERSION//\//-}"
+          scanner_dir="${RUNNER_TEMP}/blackduck-dependencies"
+
+          "$scanner_dir/detect-arm.sh" \
+            "--blackduck.url=${BLACKDUCK_URL}" \
+            "--blackduck.api.token=${BLACKDUCK_TOKEN}" \
+            "--detect.project.name=${project_name}" \
+            "--detect.project.version.name=${version_name}" \
+            "--detect.code.location.name=${project_name}/${version_name}/dependencies" \
+            --detect.blackduck.scan.mode=RAPID \
+            --detect.cleanup=false \
+            --detect.output.path="$scanner_dir/output" \
+            --detect.source.path="$WORKSPACE_ROOT" \
+            --detect.stateless.policy.check.fail.on.severities=ALL \
+            --detect.timeout=1800 \
+            --detect.tools=DETECTOR \
+            --logging.level.detect=INFO 2>&1 | tee "$scanner_dir/scan.log"
+
+      - name: Scan full dependencies and enforce policy
+        if: ${{ inputs.scan_mode == 'full' }}
+        env:
+          BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }}
+          BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
+        run: |
+          set -euo pipefail
           test -n "${BLACKDUCK_TOKEN:-}"
           test -n "${BLACKDUCK_URL:-}"
           project_name="${GITHUB_REPOSITORY//\//:}"
@@ -214,7 +246,6 @@ jobs:
             --env BLACKDUCK_URL \
             --env HOME=/tmp/blackduck-home \
             --env PROJECT_NAME="$project_name" \
-            --env SCAN_MODE \
             --env VERSION_NAME="$version_name" \
             --volume "$WORKSPACE_ROOT:/work:ro" \
             --volume "$scanner_dir:/blackduck" \
@@ -234,15 +265,8 @@ jobs:
                 --detect.timeout=1800
                 --detect.tools=DETECTOR
                 --logging.level.detect=INFO
+                --detect.policy.check.fail.on.severities=ALL
               )
-              if [[ "$SCAN_MODE" == delta ]]; then
-                scan_args+=(
-                  --detect.blackduck.scan.mode=RAPID
-                  --detect.stateless.policy.check.fail.on.severities=ALL
-                )
-              else
-                scan_args+=(--detect.policy.check.fail.on.severities=ALL)
-              fi
               /blackduck/detect-arm.sh "${scan_args[@]}"
             ' 2>&1 | tee "$scanner_dir/scan.log"
 
@@ -280,7 +304,9 @@ jobs:
       - name: Cleanup dependency scan
         if: always()
         run: |
-          docker image rm "${COMPOSE_PROJECT_NAME}-pek-ci" "${PEK_CI_IMAGE:-}" || true
+          if [[ "$SCAN_MODE" == full ]]; then
+            docker image rm "${COMPOSE_PROJECT_NAME}-pek-ci" "${PEK_CI_IMAGE:-}" || true
+          fi
           case "$WORKSPACE_ROOT" in
             "$GITHUB_WORKSPACE"/repo-*) rm -rf -- "$WORKSPACE_ROOT" ;;
             *) echo "Skipping unexpected workspace: $WORKSPACE_ROOT" >&2 ;;
