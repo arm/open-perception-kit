@@ -574,7 +574,11 @@ class BundleVerificationTests(unittest.TestCase):
                 "python": {"sdk": "python"},
                 "typescript": {"sdk": "ts"},
                 "python_bridge": {},
-                "python_package": {},
+                "python_package": {
+                    "distribution_name": "opk-perception-sdk",
+                    "import_name": "perception",
+                    "version": "1.2.3",
+                },
                 "schemas": True,
             },
             "payloads": [],
@@ -749,6 +753,17 @@ class BundleVerificationTests(unittest.TestCase):
             manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
             with self.assertRaisesRegex(RuntimeError, "artifact identities differ"):
+                release_package.verify_bundle(bundle)
+
+    def test_rejects_python_distribution_metadata_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle = self.create_bundle(Path(tmp))
+            manifest_path = bundle / release_package.MANIFEST_FILENAME
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["outputs"]["python_package"]["distribution_name"] = "perception"
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            with self.assertRaisesRegex(RuntimeError, "Python package identity"):
                 release_package.verify_bundle(bundle)
 
     def test_rejects_descriptor_flatbuffers_version_mismatch(self) -> None:

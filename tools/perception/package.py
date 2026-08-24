@@ -383,7 +383,11 @@ def write_bundle_manifest(
             "cpp": cpp_manifest["outputs"], "python": python_manifest["outputs"],
             "typescript": typescript_manifest["outputs"],
             "python_bridge": cpp_manifest["python_bridge"],
-            "python_package": python_manifest["python_package"], "schemas": True,
+            "python_package": {
+                **python_manifest["python_package"],
+                "distribution_name": PYTHON_DISTRIBUTION_NAME,
+            },
+            "schemas": True,
         },
         "payloads": cpp_manifest["payloads"],
         "perception_wheel": {
@@ -696,6 +700,15 @@ def _verify_python_packages(
     manifest: dict[str, object],
     file_entries: dict[str, dict[str, object]],
 ) -> dict[str, object]:
+    outputs = manifest.get("outputs")
+    python_package = outputs.get("python_package") if isinstance(outputs, dict) else None
+    if not isinstance(python_package, dict) or (
+        python_package.get("distribution_name") != PYTHON_DISTRIBUTION_NAME
+        or python_package.get("import_name") != "perception"
+        or python_package.get("version") != artifact["version"]
+    ):
+        raise RuntimeError("release Python package identity is invalid")
+
     perception = manifest.get("perception_wheel")
     flatbuffers = manifest.get("flatbuffers")
     if not isinstance(perception, dict) or not isinstance(flatbuffers, dict):
