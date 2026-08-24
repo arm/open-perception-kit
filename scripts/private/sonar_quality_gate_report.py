@@ -24,6 +24,15 @@ HTTP_RETRY_ATTEMPTS = 3
 HTTP_RETRY_INITIAL_DELAY_SECONDS = 1.0
 HTTP_RETRYABLE_STATUS_CODES = frozenset({408, 429, 500, 502, 503, 504})
 LOGGER = logging.getLogger("sonar_quality_gate_report")
+CI_SUPPRESSION_FILE = "ci-suppressions.txt"
+CI_SUPPRESSION_CONDITIONS = {
+    "UNIT_TEST_COVERAGE": frozenset({"new_coverage"}),
+    "CODE_DUPLICATION": frozenset({"new_duplicated_lines_density"}),
+    "MAINTAINABILITY": frozenset({"new_maintainability_rating"}),
+    "RELIABILITY": frozenset({"new_reliability_rating"}),
+    "SECURITY": frozenset({"new_security_rating"}),
+    "SECURITY_HOTSPOTS": frozenset({"new_security_hotspots_reviewed"}),
+}
 
 
 class ExitCode(IntEnum):
@@ -647,23 +656,97 @@ def lookup_rule_name(
     return ""
 
 
-def print_failed_conditions(conditions: Sequence[QualityGateCondition]) -> None:
-    failed_conditions = [
+def failed_quality_gate_conditions(
+    conditions: Sequence[QualityGateCondition],
+) -> list[QualityGateCondition]:
+    return [
         condition
         for condition in conditions
         if isinstance(condition, dict)
         and str(condition.get("status", "")).upper() in {"ERROR", "WARN"}
     ]
-    if not failed_conditions:
+
+
+def condition_metric(condition: QualityGateCondition) -> str:
+    return str(condition.get("metricKey", "")).strip() or "unknown"
+
+
+def load_ci_suppressions(
+    suppression_file: Path,
+) -> dict[str, tuple[str, str]]:
+    if not suppression_file.exists():
+        return {}
+
+    try:
+        entries = suppression_file.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeDecodeError) as exc:
+        raise RuntimeError(f"Failed to read CI suppressions: {suppression_file}") from exc
+
+    applied: dict[str, tuple[str, str]] = {}
+    for line_number, entry in enumerate(entries, start=1):
+        if not entry or entry.startswith("#"):
+            continue
+        suppression_type, separator, reason = entry.partition(":")
+        suppression_type = suppression_type.strip()
+        reason = reason.strip()
+        conditions = CI_SUPPRESSION_CONDITIONS.get(suppression_type)
+        if not separator or conditions is None:
+            raise RuntimeError(
+                f"CI suppression line {line_number} has unsupported format or type."
+            )
+        if not reason:
+            raise RuntimeError(
+                f"CI suppression line {line_number} requires a reason."
+            )
+
+        for condition in conditions:
+            applied[condition] = (suppression_type, reason)
+
+    return applied
+
+
+def quality_gate_status_after_suppressions(
+    gate_status: str,
+    failed_conditions: Sequence[QualityGateCondition],
+    suppressions: dict[str, tuple[str, str]],
+) -> str:
+    if gate_status == "OK" or not failed_conditions:
+        return gate_status
+    if all(condition_metric(condition) in suppressions for condition in failed_conditions):
+        return "OK"
+    return gate_status
+
+
+def print_failed_conditions(conditions: Sequence[QualityGateCondition]) -> None:
+    if not conditions:
         return
 
     log_info("Failed conditions:")
-    for condition in failed_conditions:
-        metric = str(condition.get("metricKey", "")).strip() or "unknown"
+    for condition in conditions:
+        metric = condition_metric(condition)
         actual = str(condition.get("actualValue", "n/a")).strip() or "n/a"
         comparator = str(condition.get("comparator", "")).strip() or "?"
         threshold = str(condition.get("errorThreshold", "n/a")).strip() or "n/a"
         log_info(f"- {metric}: actual {actual} {comparator} threshold {threshold}")
+    log_info()
+
+
+def print_applied_suppressions(
+    failed_conditions: Sequence[QualityGateCondition],
+    suppressions: dict[str, tuple[str, str]],
+) -> None:
+    applied_metrics = {
+        condition_metric(condition)
+        for condition in failed_conditions
+        if condition_metric(condition) in suppressions
+    }
+    if not applied_metrics:
+        return
+
+    log_info("Applied CI suppressions:")
+    for metric in sorted(applied_metrics):
+        suppression_type, reason = suppressions[metric]
+        log_info(f"- {suppression_type} ({metric}): {reason}")
     log_info()
 
 
@@ -1030,14 +1113,30 @@ def main(argv: Sequence[str] | None = None) -> int:
     log_info()
 
     conditions = project_status.get("conditions")
+    failed_conditions: list[QualityGateCondition] = []
     if isinstance(conditions, list):
-        print_failed_conditions(cast(list[QualityGateCondition], conditions))
+        failed_conditions = failed_quality_gate_conditions(
+            cast(list[QualityGateCondition], conditions)
+        )
+        print_failed_conditions(failed_conditions)
+
+    suppression_file = workspace_root / CI_SUPPRESSION_FILE
+    try:
+        suppressions = load_ci_suppressions(suppression_file)
+    except RuntimeError as exc:
+        return fail(f"Sonar report error: {exc}")
+    print_applied_suppressions(failed_conditions, suppressions)
+    effective_gate_status = quality_gate_status_after_suppressions(
+        gate_status,
+        failed_conditions,
+        suppressions,
+    )
 
     return report_issue_and_hotspot_snapshots(
         ctx,
         args,
         token,
-        gate_status,
+        effective_gate_status,
         workspace_root,
         rule_cache,
     )
