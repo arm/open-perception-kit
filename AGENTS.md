@@ -210,10 +210,10 @@ Ground doc changes in checked-in code and config.
 
 ## Build and validation
 
-- `./scripts/build-elements.sh debug [true|false]`
-- `./scripts/build-elements.sh release [true|false]`
-- `./scripts/build-elements.sh clean`
-- `./scripts/build-elements.sh debug true`
+- `./scripts/build.sh debug [true|false]`
+- `./scripts/build.sh release [true|false]`
+- `./scripts/build.sh clean`
+- `./scripts/build.sh debug true`
 - `meson test -C /work/development/build --print-errorlogs`
 - `./scripts/gen-doc.sh` to refresh generated docs, Doxygen output, and PlantUML images
 - `./scripts/serve-docs-plain.sh`

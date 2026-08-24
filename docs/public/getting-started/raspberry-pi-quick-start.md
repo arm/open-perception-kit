@@ -198,7 +198,7 @@ Expected result: VS Code reloads and opens the repository inside the Dev Contain
 Run in the **Docker shell on the Raspberry Pi**:
 
 ```bash
-./scripts/build-elements.sh debug false
+./scripts/build.sh debug false
 ```
 
 You can also use the VS Code task:

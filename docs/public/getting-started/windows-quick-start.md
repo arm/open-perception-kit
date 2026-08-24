@@ -124,7 +124,7 @@ Open a new terminal in VS Code after the container is ready. This terminal is th
 Run in the **Docker shell**:
 
 ```bash
-./scripts/build-elements.sh debug false
+./scripts/build.sh debug false
 ```
 
 You can also use the VS Code task:

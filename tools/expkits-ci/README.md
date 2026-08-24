@@ -66,7 +66,7 @@ Build the project first so Meson generates
 files or on an explicit file list:
 
 ```bash
-./scripts/build-elements.sh debug true
+./scripts/build.sh debug true
 rm -f clang-tidy.log
 expkits-ci --clang-tidy --log-output both --log-file clang-tidy.log
 rm -f clang-tidy.log

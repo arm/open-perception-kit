@@ -154,7 +154,7 @@ staged roots explicitly:
 ```sh
 PEK_EXECUTORCH_ROOT=/work/deps/executorch \
 PEK_LIBTORCH_ROOT=/work/deps/libtorch \
-PEK_EXECUTORCH=enabled ./scripts/build-elements.sh debug
+PEK_EXECUTORCH=enabled ./scripts/build.sh debug
 ```
 
 Use `--deb-output-dir` and `--deb-revision` to change the artifact directory or

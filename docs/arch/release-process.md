@@ -117,7 +117,7 @@ replacement.
 
 ## Package validation
 
-Inside `pek-deployment-build`, the existing `build-elements.sh` release build
+Inside `pek-deployment-build`, the `scripts/build.sh release` build
 enables Meson's package install surface. The same Docker stage installs that
 build into a cacheable staging root, adds the resolved models and pinned
 runtimes, and validates every ELF. A final identity-only layer names and archives
