@@ -11,6 +11,7 @@ import json
 import shutil
 import sys
 import tempfile
+import tomllib
 import unittest
 import zipfile
 from contextlib import redirect_stdout
@@ -125,7 +126,7 @@ class SchemaChangeParserTests(unittest.TestCase):
         self.assertEqual(messages["changed underlying type of enum:State"], "breaking")
         self.assertEqual(messages["Payload appended fields: value"], "breaking")
 
-    def test_json_report_output(self) -> None:
+    def test_report_outputs_json_and_human_text(self) -> None:
         report = {
             "base": "HEAD",
             "base_version": "1.2.3",
@@ -144,6 +145,16 @@ class SchemaChangeParserTests(unittest.TestCase):
         ):
             self.assertEqual(schema_change.main(), 0)
         self.assertEqual(json.loads(output.getvalue()), report)
+
+        output = io.StringIO()
+        with redirect_stdout(output):
+            schema_change.print_report(report)
+        self.assertIn("PEK version: 1.2.3 -> 1.2.3", output.getvalue())
+        self.assertIn("Required PEK release impact: none", output.getvalue())
+
+    def test_rejects_invalid_product_version(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "stable MAJOR.MINOR.PATCH"):
+            schema_change.parse_product_version("project('pek', version: 'next')")
 
     def test_schema_release_impact_uses_product_version(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -252,6 +263,9 @@ class SdkDescriptorTests(unittest.TestCase):
             self.assertEqual(
                 release_package.perception_config.product_version(meson), "1.2.3"
             )
+            meson.write_text("project('demo', version: 'next')\n", encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, "stable MAJOR.MINOR.PATCH"):
+                release_package.perception_config.product_version(meson)
 
     def test_descriptor_rejects_unknown_fields(self) -> None:
         descriptor = json.loads(
@@ -300,6 +314,27 @@ class ArtifactCacheTests(unittest.TestCase):
 
 
 class GenerationReceiptTests(unittest.TestCase):
+    def test_typescript_declaration_headers_are_idempotent(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            generated = Path(tmp)
+            declaration = generated / "ts/dist/perception/index.d.ts"
+            declaration.parent.mkdir(parents=True)
+            declaration.write_text("export {};\n", encoding="utf-8")
+
+            for _ in range(2):
+                release_package.perception_generate.add_typescript_declaration_headers(
+                    generated
+                )
+
+            expected_header = (
+                release_package.perception_generate.TS_LICENSE_HEADER
+                + release_package.perception_generate.TS_GENERATED_HEADER
+            )
+            self.assertEqual(
+                declaration.read_text(encoding="utf-8"),
+                f"{expected_header}export {{}};\n",
+            )
+
     def test_validates_detached_flowdata_identity(self) -> None:
         config = release_package.perception_config.load_sdk_config()
         manifest = json.loads(
@@ -323,6 +358,25 @@ class GenerationReceiptTests(unittest.TestCase):
                 release_package.perception_generate.verify_perception_manifest(
                     replace(config, schema_dir=schema_dir)
                 )
+
+
+class PythonPackagingTests(unittest.TestCase):
+    def test_distribution_name_is_rewritten_once(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            pyproject = project / "pyproject.toml"
+            pyproject.write_text(
+                '[project]\nname = "perception"\nversion = "1.2.3"\n',
+                encoding="utf-8",
+            )
+
+            release_package.set_python_distribution_name(project, "perception")
+            self.assertEqual(
+                tomllib.loads(pyproject.read_text(encoding="utf-8"))["project"]["name"],
+                release_package.PYTHON_DISTRIBUTION_NAME,
+            )
+            with self.assertRaisesRegex(RuntimeError, "project name is unexpected"):
+                release_package.set_python_distribution_name(project, "perception")
 
 
 class BundleVerificationTests(unittest.TestCase):
