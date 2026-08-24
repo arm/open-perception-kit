@@ -184,9 +184,10 @@ intentionally not part of the binary release.
 The same smoke path is run natively for x86_64 and Arm packages on pull
 requests targeting `main`. Pushes to `main` publish the three matching archives
 on one GitHub Release and together in Artifactory under `releases/<version>/`,
-plus the matching multi-architecture image in GHCR. Manual runs publish the
-archives only to Artifactory under
-`snapshots/<label>/<full-sha>-<run-id>-<attempt>/`. Both paths use
+the Perception wheel to Artifactory PyPI, and the matching multi-architecture
+image in GHCR. Manual runs publish the archives and wheel only to Artifactory
+under `snapshots/<label>/<full-sha>-<run-id>-<attempt>/`. The generic archive
+and snapshot paths use
 `https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci` as their
 base URL. The final Artifactory workflow log and job summary contain the folder,
 links, hashes, and the matching run-unique GHCR snapshot reference.

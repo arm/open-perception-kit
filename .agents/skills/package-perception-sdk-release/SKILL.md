@@ -103,11 +103,11 @@ Choose one handoff mode:
   upload the Perception ZIP file with the SHA and provenance to the chosen artifactory location.
 - **PEK product release handoff:** Pass the verified triplet only to the existing
   PEK package assembly. Require the same bytes under
-  `share/pek/perception-sdk/` in both architecture archives. The existing PEK
-  publication workflow publishes the verified Python wheel unchanged beside
-  the PEK archives in generic Artifactory. Stable release pushes also publish
-  that wheel to the existing Artifactory PyPI repository; manual snapshots do
-  not publish stable package versions to PyPI. Do not publish the rest of the
+  `share/pek/perception-sdk/` in both architecture archives. Stable release
+  pushes publish the verified Python wheel unchanged to the existing
+  Artifactory PyPI repository while generic Artifactory keeps the three PEK
+  archives. Manual snapshots instead place the wheel beside those archives in
+  their immutable generic Artifactory folder. Do not publish the rest of the
   triplet as separate top-level PEK release assets.
 
 Do not commit release ZIPs or sidecars unless repository policy explicitly
