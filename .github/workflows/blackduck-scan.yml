@@ -174,11 +174,15 @@ jobs:
             )
           fi
           docker image rm "${COMPOSE_PROJECT_NAME}-pek-release-with-ut" || true
-          case "$WORKSPACE_ROOT" in
-            "$GITHUB_WORKSPACE"/repo-*) rm -rf -- "$WORKSPACE_ROOT" ;;
-            *) echo "Skipping unexpected workspace: $WORKSPACE_ROOT" >&2 ;;
-          esac
-          rm -rf -- "$CCACHE_PATH"
+          for path in "$WORKSPACE_ROOT" "$CCACHE_PATH"; do
+            case "$path" in
+              "$GITHUB_WORKSPACE"/repo-*|"$GITHUB_WORKSPACE"/.cache/ccache-blackduck-built) ;;
+              *) echo "Skipping unexpected cleanup path: $path" >&2; continue ;;
+            esac
+            sudo chown -R "$(id -u):$(id -g)" "$path" || true
+            chmod -R u+rwX "$path" || true
+            rm -rf -- "$path" || sudo rm -rf -- "$path" || true
+          done
 
   dependencies:
     name: ${{ inputs.scan_mode == 'delta' && 'Delta dependency scan' || 'Full dependency scan' }}
