@@ -91,6 +91,7 @@ DEV_HOME="$(getent passwd "$DEV_USER" | cut -d: -f6)"
 DEV_GROUP="$(id -gn "$DEV_USER")"
 ONNXRUNTIME_VERSION=1.24.4
 ACTIONLINT_VERSION=1.7.12
+UV_VERSION=0.12.3
 NVIM_VERSION=v0.12.1
 CPP_TOOLS_VERSION=v1.29.3
 NPM_FALLBACK_REGISTRY="${NPM_FALLBACK_REGISTRY:-https://artifactory.arm.com:443/artifactory/api/npm/mirrors.npmjs_org}"
@@ -247,7 +248,8 @@ npm install --global --ignore-scripts --no-audit --no-fund \
     "${temporary_directory}/typescript.tgz"
 
 log "Installing uv and the PEK development-tool environment"
-curl --proto '=https' -LsSf https://astral.sh/uv/install.sh |
+curl --proto '=https' --tlsv1.2 -LsSf \
+    "https://releases.astral.sh/github/uv/releases/download/${UV_VERSION}/uv-installer.sh" |
     env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh
 uv pip install --system --break-system-packages jsonschema==4.26.0
 flatbuffers_wheel="$(python3 -c '
@@ -292,23 +294,6 @@ if [[ "$SKIP_SHELL" == false ]]; then
     update-alternatives --set vi /usr/local/bin/nvim
     update-alternatives --set vim /usr/local/bin/nvim
     luarocks install jsregexp
-
-    if [[ ! -d "${DEV_HOME}/.oh-my-zsh" ]]; then
-        curl --proto '=https' -fsSLo "${temporary_directory}/install-ohmyzsh.sh" \
-            https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh
-        chmod +x "${temporary_directory}/install-ohmyzsh.sh"
-        sudo -u "$DEV_USER" env HOME="$DEV_HOME" RUNZSH=no CHSH=no KEEP_ZSHRC=yes \
-            "${temporary_directory}/install-ohmyzsh.sh"
-    fi
-
-    install -d -o "$DEV_USER" -g "$DEV_GROUP" "${DEV_HOME}/.config"
-    if [[ -e "${DEV_HOME}/configs/zshrc" && ! -e "${DEV_HOME}/.zshrc" ]]; then
-        sudo -u "$DEV_USER" ln -s "${DEV_HOME}/configs/zshrc" "${DEV_HOME}/.zshrc"
-    fi
-    if [[ -d "${DEV_HOME}/configs/nvchad_2026_04" && ! -e "${DEV_HOME}/.config/nvim" ]]; then
-        sudo -u "$DEV_USER" ln -s \
-            "${DEV_HOME}/configs/nvchad_2026_04" "${DEV_HOME}/.config/nvim"
-    fi
 fi
 
 log "Writing the PEK development environment"
