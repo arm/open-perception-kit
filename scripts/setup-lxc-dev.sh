@@ -334,8 +334,8 @@ if [[ "$SKIP_ASSETS" == false ]]; then
         /opt/pek-venvs/devtools/bin/python \
         "$PEK_PROJECT_ROOT/scripts/download-models.py" \
         --models-dir "$PEK_PROJECT_ROOT/config/models"
-    sudo -u "$DEV_USER" -H env PEK_PROJECT_ROOT="$PEK_PROJECT_ROOT" \
-        "$PEK_PROJECT_ROOT/scripts/download-data.sh"
+    sudo -u "$DEV_USER" -H \
+        "$PEK_PROJECT_ROOT/scripts/private/download-demo-videos.sh"
 fi
 
 log "Installing development hooks"

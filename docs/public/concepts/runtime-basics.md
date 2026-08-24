@@ -140,7 +140,7 @@ The simplest method is to edit a pipeline preset under `config/pipelines/`.
 For a still image, use a `filesrc` source followed by image decode and `imagefreeze`, for example:
 
 ```text
-filesrc location=\"${PEK_PROJECT_ROOT:-/work}/data/images/my-image.jpg\" !
+filesrc location="${PEK_PROJECT_ROOT:-/work}/data/images/my-image.jpg" !
 jpegdec !
 imagefreeze !
 videoconvert ! video/x-raw,format=BGRA !
@@ -153,7 +153,7 @@ Suggested path for custom images is `data/images/`.
 For a video file, use a file source with decode, for example:
 
 ```text
-filesrc location=${PEK_PROJECT_ROOT:-/work}/data/videos/my-video.mp4 !
+filesrc location="${PEK_PROJECT_ROOT:-/work}/data/videos/my-video.mp4" !
 decodebin name=dec
 dec. ! queue ! videoconvert ! videoscale ! video/x-raw,format=BGRA !
 ```

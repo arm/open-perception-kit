@@ -261,6 +261,11 @@ test(
   args : [files('build_script_test.py'), pek_repository_root],
 )
 test(
+  'setup_lxc_dev_script_tests',
+  python,
+  args : [files('setup_lxc_dev_script_test.py'), pek_repository_root],
+)
+test(
   'qos_pipeline_tests',
   python,
   args : [
