@@ -350,8 +350,10 @@ jobs:
     runs-on: self-hosted-ubuntu-latest-x64
     permissions:
       contents: read
+      packages: write
     env:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
+      CI_IMAGE: ghcr.io/arm-debug/amp-dev-forge-ci
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CCACHE_PATH: ${{ github.workspace }}/.cache/ccache-sonar
@@ -378,15 +380,38 @@ jobs:
           source .github/scripts/configure_workspace_ssh.sh
           git submodule update --init --recursive
 
+      - name: Set up Docker builder
+        uses: docker/setup-buildx-action@v4
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
 
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
       - name: Build release Sonar image
-        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        run: docker compose -f "$DOCKER_COMPOSE_FILE" build --pull pek-sonar-check-release
+        uses: docker/build-push-action@v7
+        with:
+          cache-from: type=registry,ref=${{ env.CI_IMAGE }}:buildcache-release-sonar-amd64
+          cache-to: type=registry,ref=${{ env.CI_IMAGE }}:buildcache-release-sonar-amd64,mode=max
+          context: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+          labels: |
+            org.opencontainers.image.revision=${{ needs.prepare.outputs.commit }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ needs.prepare.outputs.version }}
+          outputs: type=docker
+          provenance: false
+          pull: true
+          push: false
+          tags: ${{ env.COMPOSE_PROJECT_NAME }}-pek-sonar-check-release
+          target: pek-ci
 
       - name: Restore compiler cache
         id: compiler-cache

@@ -67,7 +67,8 @@ Release validation and publication use three workflows:
 On a push to `main`, release Sonar analysis and the staging docs deployment run
 as independent release-package jobs. Their failures make the release workflow
 red, but the GitHub Release and Artifactory publication jobs do not depend on
-them and continue.
+them and continue. The release Sonar image reuses and updates a dedicated
+BuildKit registry cache in GHCR.
 
 Credentialed publication probes run only after an unprivileged pull-request or
 manual validation workflow succeeds. The trusted `workflow_run` workflow does
