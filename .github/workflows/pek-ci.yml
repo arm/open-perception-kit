@@ -14,6 +14,7 @@ on:
           - quality
           - sonar
           - valgrind
+          - blackduck
           - label
       pr_number:
         description: Optional PR number to run the PR validation path manually.
@@ -528,6 +529,30 @@ jobs:
       DOCKER_USER: ${{ secrets.DOCKER_USER }}
       DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
       HF_TOKEN: ${{ secrets.HF_TOKEN }} # pragma: allowlist secret
+
+  blackduck-full:
+    name: Black Duck full source scan
+    needs: build-ci-image
+    if: >-
+      !cancelled() &&
+      needs.build-ci-image.result == 'success' &&
+      (
+        github.event_name == 'schedule' ||
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/release/')) ||
+        (github.event_name == 'workflow_dispatch' && inputs.checks == 'blackduck')
+      )
+    permissions:
+      actions: read
+      contents: read
+    uses: ./.github/workflows/blackduck-scan.yml
+    with:
+      checkout_ref: ${{ needs.build-ci-image.outputs.head_sha }}
+      ci_image_sha: ${{ needs.build-ci-image.outputs.head_sha }}
+      version_name: ${{ github.event_name == 'schedule' && 'nightly' || github.ref_name }}
+    secrets:
+      BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
+      BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }} # pragma: allowlist secret
+      DEPLOY_KEY_FLOWDATA_SDK: ${{ secrets.DEPLOY_KEY_FLOWDATA_SDK }} # pragma: allowlist secret
 
   linux-quick-start-build-test:
     name: Quick-start on Linux

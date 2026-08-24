@@ -12,7 +12,8 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 ## What does `.github/workflows/pek-ci.yml` do?
 
 - Builds one exact-SHA PEK CI image, shares it within the workflow run, then runs
-  Quality, Sonar, Valgrind, and the `pek-ci` Docker Scout scan from that image.
+  Quality, Sonar, Valgrind, full Black Duck, and the `pek-ci` Docker Scout scan
+  from that image.
 - Uploads the complete run image handoff as a one-day raw tar artifact, so every
   consumer and the trusted PR GHCR publisher waits for the same image and
   exact-SHA helpers without consuming the Actions cache quota.
@@ -27,12 +28,16 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
   labels through this workflow so label-triggered checks do not create duplicate
   PR workflows. Workflow dependency freshness keeps its scheduled and manual
   entry points in `workflow-audit.yml`.
-- Supports manual `all`, `quality`, `sonar`, and `valgrind` selections.
+- Supports manual `all`, `quality`, `sonar`, `valgrind`, and `blackduck`
+  selections.
 - Uses each pull request's immediate base branch, including stacked pull requests.
 - Owns the nightly Quality and Valgrind run, the native deployment image
   caches, and the Valgrind baseline artifact.
 - The required PR Sonar check keeps the exact `Run Sonar analysis in Docker`
   name. `release-packages.yml` owns release Sonar analysis.
+- Runs Black Duck snippet scans for same-repository pull requests and full
+  source scans for nightly runs and `release/*` tags. Downloaded scanner
+  executables are checksum-verified before use.
 - Runs pull request quality checks through `expkits-ci --ci-pr-checks`.
 - Runs full/nightly quality checks through `expkits-ci --ci-full-checks`.
 - Applies CI exceptions from the root-level `ci-suppressions.txt` only in the
