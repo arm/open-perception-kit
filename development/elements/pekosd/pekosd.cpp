@@ -856,14 +856,13 @@ static void drawPersonPresence(Osd::Layer &layer,
     }
 }
 
-static float drawClassificationList(
-    Osd::Layer &layer,
-    float imgWidth,
-    float imgHeight,
-    bool alignRight,
-    float bottomOffset,
-    const std::string &heading,
-    const perception::metadata::ClassificationT &classification) {
+static float drawClassificationList(Osd::Layer &layer,
+                                    float imgWidth,
+                                    float imgHeight,
+                                    bool alignRight,
+                                    float bottomOffset,
+                                    const std::string &heading,
+                                    const perception::metadata::ClassificationT &classification) {
     const float fontSize = 14.0f;
     const float lineHeight = fontSize * 1.5f;
     const auto numResults = classification.candidates.size();
@@ -871,8 +870,8 @@ static float drawClassificationList(
     const float panelWidth = std::min(600.0f, std::max(0.0f, imgWidth - 2.0f * padding));
     const float startX = padding;
     const float rightColumnX = std::max(padding, imgWidth - padding - panelWidth);
-    const float startY = imgHeight - bottomOffset -
-                         (static_cast<float>(numResults) * lineHeight) - (2.0f * padding);
+    const float startY =
+        imgHeight - bottomOffset - (static_cast<float>(numResults) * lineHeight) - (2.0f * padding);
 
     if (!heading.empty()) {
         Osd::Text::draw(layer,
@@ -906,8 +905,8 @@ static float drawClassificationList(
                         fontSize);
     }
 
-    return static_cast<float>(numResults) * lineHeight +
-           (heading.empty() ? 0.0f : lineHeight) + (2.0f * padding);
+    return static_cast<float>(numResults) * lineHeight + (heading.empty() ? 0.0f : lineHeight) +
+           (2.0f * padding);
 }
 
 static void drawHumanFaceDetections(Osd::Layer &layer,

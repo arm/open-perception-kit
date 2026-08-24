@@ -57,10 +57,8 @@ TEST(OpChainDescriptor, DefaultInstanceIdsUseStablePerOpOccurrences) {
     EXPECT_EQ(pek::op::makeDefaultInstanceId("pek-python-ops/PythonScript", 1),
               "pek-python-ops-PythonScript-1");
     EXPECT_EQ(pek::op::makeDefaultInstanceId("other/Operation", 0), "other-Operation-0");
-    EXPECT_EQ(pek::op::makeDefaultInstanceId(".custom/Operation", 0),
-              "op-.custom-Operation-0");
-    EXPECT_EQ(pek::op::makeDefaultInstanceId("\xc3\xa9/Operation", 0),
-              "op----Operation-0");
+    EXPECT_EQ(pek::op::makeDefaultInstanceId(".custom/Operation", 0), "op-.custom-Operation-0");
+    EXPECT_EQ(pek::op::makeDefaultInstanceId("\xc3\xa9/Operation", 0), "op----Operation-0");
 }
 
 TEST(OpChainDescriptor, DoesNotResolveInferenceLikeCustomOpAttributes) {

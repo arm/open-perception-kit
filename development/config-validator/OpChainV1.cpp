@@ -139,13 +139,13 @@ void validateInstanceIds(ValidationReport &report,
         const auto [iterator, inserted] = firstById.emplace(instanceId, index);
         if (inserted)
             continue;
-        report.issues.push_back(makeIssue("opchain.v1.instance-id",
-                                          ValidationPhase::Descriptor,
-                                          source,
-                                          std::format("/ops/{}/instanceId", index),
-                                          std::format("operation instance ID '{}' is duplicated",
-                                                      instanceId),
-                                          std::format("/ops/{}/instanceId", iterator->second)));
+        report.issues.push_back(
+            makeIssue("opchain.v1.instance-id",
+                      ValidationPhase::Descriptor,
+                      source,
+                      std::format("/ops/{}/instanceId", index),
+                      std::format("operation instance ID '{}' is duplicated", instanceId),
+                      std::format("/ops/{}/instanceId", iterator->second)));
     }
 }
 

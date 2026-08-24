@@ -21,6 +21,15 @@ class PythonScriptPipelineTest(unittest.TestCase):
     def test_pipeline_loads_plugin_and_publishes_both_classifiers(self) -> None:
         repository = Path(sys.argv[1]).resolve()
         plugin_directory = Path(sys.argv[2]).resolve()
+        model = (
+            repository
+            / "config/models/mobilenetv2/mobilenet_v2_1.4_224.onnx"
+        )
+        if not model.is_file():
+            self.skipTest(
+                "MobileNet model artifact is unavailable; run "
+                "scripts/download-models.py first"
+            )
         environment = os.environ.copy()
         environment["GST_PLUGIN_PATH"] = str(plugin_directory)
         environment["LD_LIBRARY_PATH"] = os.pathsep.join(

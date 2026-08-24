@@ -123,7 +123,7 @@ TEST(ConfigValidator, OpChainValidatesPythonScriptAttributes) {
     EXPECT_FALSE(pek::config::validateOpChainJson(document.dump()));
 
     document["ops"][0]["attributes"] = {{"script", "scripts/process.py"},
-                                           {"pythonPaths", "scripts/modules"}};
+                                        {"pythonPaths", "scripts/modules"}};
     EXPECT_FALSE(pek::config::validateOpChainJson(document.dump()));
 }
 

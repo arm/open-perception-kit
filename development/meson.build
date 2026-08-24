@@ -165,6 +165,21 @@ python_ops_option = get_option('python_ops')
 python_ops_enabled = false
 pek_python = disabler()
 pek_numpy_include = ''
+test_python = disabler()
+
+if get_option('tests')
+  test_python_path = run_command(
+    'sh',
+    '-c',
+    'if [ -n "$PEK_DEVTOOLS_VENV" ]; then printf %s "$PEK_DEVTOOLS_VENV/bin/python"; fi',
+    check : false,
+  ).stdout().strip()
+  if test_python_path != ''
+    test_python = import('python').find_installation(test_python_path)
+  else
+    test_python = import('python').find_installation()
+  endif
+endif
 
 if get_option('tests') or not python_ops_option.disabled()
   pek_python_path = run_command(

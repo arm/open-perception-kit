@@ -97,7 +97,7 @@ if python_ops_enabled
   )
   test(
     'python_classification_demo_tests',
-    pek_python,
+    test_python,
     args : [files('python_classification_demo_test.py')],
   )
   python_classification_pipeline_test_env = environment()
@@ -107,7 +107,7 @@ if python_ops_enabled
   )
   test(
     'python_classification_pipeline_tests',
-    pek_python,
+    test_python,
     args : [
       files('python_classification_pipeline_test.py'),
       meson.project_source_root() / '..',
@@ -254,7 +254,7 @@ image_conversion_oracle_test = executable(
   include_directories : [common_include, include_directories('../ops-std')],
 )
 
-python = pek_python
+python = test_python
 perception_python_sdk_path = meson.project_source_root() / '../generated/perception/python/src'
 python_guest_script_test_env = environment()
 python_guest_script_test_env.prepend('PYTHONPATH', perception_python_sdk_path)
@@ -262,7 +262,7 @@ python_guest_script_executor = executable(
   'python_guest_script_executor',
   ['python_guest_script_executor.cpp'],
   cpp_args : [
-    '-DPERCEPTION_PYTHON_EXECUTABLE="' + python.full_path() + '"',
+    '-DPERCEPTION_PYTHON_EXECUTABLE="' + pek_python.full_path() + '"',
     '-DPERCEPTION_PYTHON_SDK_PATH="' + perception_python_sdk_path + '"',
   ],
   dependencies : [perception_python_bridge_dep],
