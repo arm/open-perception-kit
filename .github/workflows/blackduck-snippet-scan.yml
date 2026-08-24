@@ -1,0 +1,78 @@
+name: Black Duck PR snippet scan
+
+on:
+  pull_request_target:
+    branches: [main, develop, "feature/**", "sandbox/**"]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  select-scan-slot:
+    name: Select scan slot
+    runs-on: ubuntu-latest
+    outputs:
+      slot: ${{ steps.slot.outputs.value }}
+    steps:
+      - name: Calculate scan slot
+        id: slot
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: printf 'value=%02d\n' "$((PR_NUMBER % 20))" >> "$GITHUB_OUTPUT"
+
+  snippet-scan:
+    name: Scan PR snippets with Black Duck
+    needs: select-scan-slot
+    if: >-
+      github.actor != 'dependabot[bot]' &&
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    concurrency:
+      group: blackduck-pr-slot-${{ needs.select-scan-slot.outputs.slot }}
+      cancel-in-progress: false
+    runs-on: self-hosted-ubuntu-24.04-arm64-ephemeral
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      # The PR checkout is untrusted scan input. No files from it are executed.
+      - name: Checkout scan target
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          path: scan-target
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+          show-progress: false
+
+      - name: Run snippet scan
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BLACKDUCK_API_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }}
+          BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
+          BLACKDUCK_PROJECT_NAME: ${{ github.repository }}
+          BLACKDUCK_PROJECT_VERSION: pr-slot-${{ needs.select-scan-slot.outputs.slot }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PATCHSCAN_SHA256: ac0e0bc820e86f3b011c1a77f45c5db75832108eadd9d02cd02eac11868bac07 # pragma: allowlist secret
+          PATCHSCAN_URL: https://artifactory.arm.com/artifactory/blackduck.patch-snippet-checker/2.2.0/linux/arm64/patchscan
+          GIT_DIR: ${{ github.workspace }}/scan-target/.git
+          GIT_WORK_TREE: ${{ github.workspace }}/scan-target
+        run: |
+          set -euo pipefail
+          test -n "${BLACKDUCK_API_TOKEN:-}"
+          test -n "${BLACKDUCK_URL:-}"
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          git cat-file -e "${BASE_SHA}^{commit}"
+
+          curl --proto '=https' --tlsv1.2 --fail --location \
+            --retry 3 --retry-all-errors --output patchscan "$PATCHSCAN_URL"
+          echo "$PATCHSCAN_SHA256  patchscan" | sha256sum --check --strict
+          chmod +x patchscan
+
+          export BLACKDUCK_PROJECT_NAME="${BLACKDUCK_PROJECT_NAME//\//:}"
+          ./patchscan "${BASE_SHA}..${HEAD_SHA}" \
+            --detect.project.name "$BLACKDUCK_PROJECT_NAME" \
+            --detect.project.version.name "$BLACKDUCK_PROJECT_VERSION"

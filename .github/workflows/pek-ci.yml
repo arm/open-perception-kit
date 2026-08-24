@@ -531,7 +531,7 @@ jobs:
       HF_TOKEN: ${{ secrets.HF_TOKEN }} # pragma: allowlist secret
 
   blackduck-full:
-    name: Black Duck full source scan
+    name: Black Duck full scan
     needs: build-ci-image
     if: >-
       !cancelled() &&
