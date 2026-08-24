@@ -108,6 +108,20 @@ PyObject *make_native_vector_proxy(PyTypeObject &type,
     return make_native_proxy<VectorT>(type, value, std::move(anchor));
 }
 
+PyTypeObject make_py_type_object() {
+    struct type_head {
+        PyVarObject ob_base;
+    };
+    type_head head = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    PyTypeObject type{};
+    type.ob_base = head.ob_base;
+    return type;
+}
+
+template <typename Function> PyCFunction py_c_function(Function function) {
+    return reinterpret_cast<PyCFunction>(reinterpret_cast<void (*)()>(function));
+}
+
 PyObject *py_string_from_std(std::string_view value) {
     return PyUnicode_FromStringAndSize(value.data(), static_cast<Py_ssize_t>(value.size()));
 }
@@ -130,7 +144,7 @@ template <typename T> PyObject *py_long_from_enum(T value) {
 }
 
 PyTypeObject &pytype_perception_metadata_BoxDetection() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 PyObject *
@@ -138,7 +152,7 @@ make_perception_metadata_BoxDetection_proxy(const perception::metadata::BoxDetec
                                             std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &pytype_perception_metadata_BoxDetections() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 PyObject *
@@ -146,7 +160,7 @@ make_perception_metadata_BoxDetections_proxy(const perception::metadata::BoxDete
                                              std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &pytype_perception_metadata_ClassificationCandidate() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 PyObject *make_perception_metadata_ClassificationCandidate_proxy(
@@ -154,7 +168,7 @@ PyObject *make_perception_metadata_ClassificationCandidate_proxy(
     std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &pytype_perception_metadata_Classification() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 PyObject *
@@ -162,7 +176,7 @@ make_perception_metadata_Classification_proxy(const perception::metadata::Classi
                                               std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &pytype_perception_metadata_PersonPresence() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 PyObject *
@@ -170,7 +184,7 @@ make_perception_metadata_PersonPresence_proxy(const perception::metadata::Person
                                               std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &pytype_perception_metadata_Classifications() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 PyObject *
@@ -178,7 +192,7 @@ make_perception_metadata_Classifications_proxy(const perception::metadata::Class
                                                std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &pytype_perception_metadata_ObjectMeta() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 PyObject *
@@ -186,7 +200,7 @@ make_perception_metadata_ObjectMeta_proxy(const perception::metadata::ObjectMeta
                                           std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &pytype_perception_metadata_LayerInfo() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 PyObject *
@@ -194,7 +208,7 @@ make_perception_metadata_LayerInfo_proxy(const perception::metadata::LayerInfoT 
                                          std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &pytype_perception_metadata_BoundingBox() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 PyObject *
@@ -202,14 +216,14 @@ make_perception_metadata_BoundingBox_proxy(const perception::metadata::BoundingB
                                            std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &pytype_perception_metadata_Point2f() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 PyObject *make_perception_metadata_Point2f_proxy(const perception::metadata::Point2fT *value,
                                                  std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &pytype_perception_metadata_BitmapData() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 PyObject *
@@ -217,7 +231,7 @@ make_perception_metadata_BitmapData_proxy(const perception::metadata::BitmapData
                                           std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &pytype_perception_metadata_VideoFrameContext() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 PyObject *make_perception_metadata_VideoFrameContext_proxy(
@@ -225,7 +239,7 @@ PyObject *make_perception_metadata_VideoFrameContext_proxy(
     std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &pytype_perception_metadata_AudioFrameContext() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 PyObject *make_perception_metadata_AudioFrameContext_proxy(
@@ -233,7 +247,7 @@ PyObject *make_perception_metadata_AudioFrameContext_proxy(
     std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &pytype_perception_metadata_FrameContext() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 PyObject *
@@ -241,7 +255,7 @@ make_perception_metadata_FrameContext_proxy(const perception::metadata::FrameCon
                                             std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &pytype_perception_metadata_ObjectEmbedding() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 PyObject *
@@ -249,7 +263,7 @@ make_perception_metadata_ObjectEmbedding_proxy(const perception::metadata::Objec
                                                std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &pytype_perception_metadata_ObjectEmbeddings() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 PyObject *make_perception_metadata_ObjectEmbeddings_proxy(
@@ -257,7 +271,7 @@ PyObject *make_perception_metadata_ObjectEmbeddings_proxy(
     std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &pytype_perception_metadata_ObjectTrack() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 PyObject *
@@ -265,7 +279,7 @@ make_perception_metadata_ObjectTrack_proxy(const perception::metadata::ObjectTra
                                            std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &pytype_perception_metadata_ObjectTracks() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 PyObject *
@@ -273,7 +287,7 @@ make_perception_metadata_ObjectTracks_proxy(const perception::metadata::ObjectTr
                                             std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &pytype_perception_metadata_PerformanceOverlay() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 PyObject *make_perception_metadata_PerformanceOverlay_proxy(
@@ -281,7 +295,7 @@ PyObject *make_perception_metadata_PerformanceOverlay_proxy(
     std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &pytype_perception_metadata_PoseEstimation() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 PyObject *
@@ -289,7 +303,7 @@ make_perception_metadata_PoseEstimation_proxy(const perception::metadata::PoseEs
                                               std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &pytype_perception_metadata_PoseEstimations() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 PyObject *
@@ -297,7 +311,7 @@ make_perception_metadata_PoseEstimations_proxy(const perception::metadata::PoseE
                                                std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &pytype_perception_metadata_SegmentationMask() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 PyObject *make_perception_metadata_SegmentationMask_proxy(
@@ -305,7 +319,7 @@ PyObject *make_perception_metadata_SegmentationMask_proxy(
     std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &pytype_perception_metadata_SegmentationMasks() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 PyObject *make_perception_metadata_SegmentationMasks_proxy(
@@ -313,7 +327,7 @@ PyObject *make_perception_metadata_SegmentationMasks_proxy(
     std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &pytype_perception_metadata_TrackTrace() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 PyObject *
@@ -321,7 +335,7 @@ make_perception_metadata_TrackTrace_proxy(const perception::metadata::TrackTrace
                                           std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &pytype_perception_metadata_TrackTraces() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 PyObject *
@@ -333,7 +347,7 @@ PySequenceMethods &seq_perception_metadata_BoxDetections_detections_vector() {
     return methods;
 }
 PyTypeObject &pytype_perception_metadata_BoxDetections_detections_vector() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 
@@ -342,7 +356,7 @@ PySequenceMethods &seq_perception_metadata_Classification_candidates_vector() {
     return methods;
 }
 PyTypeObject &pytype_perception_metadata_Classification_candidates_vector() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 
@@ -351,7 +365,7 @@ PySequenceMethods &seq_perception_metadata_Classifications_classifications_vecto
     return methods;
 }
 PyTypeObject &pytype_perception_metadata_Classifications_classifications_vector() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 
@@ -360,7 +374,7 @@ PySequenceMethods &seq_perception_metadata_Classifications_person_presence_vecto
     return methods;
 }
 PyTypeObject &pytype_perception_metadata_Classifications_person_presence_vector() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 
@@ -369,7 +383,7 @@ PySequenceMethods &seq_perception_metadata_BitmapData_pixels_vector() {
     return methods;
 }
 PyTypeObject &pytype_perception_metadata_BitmapData_pixels_vector() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 
@@ -378,7 +392,7 @@ PySequenceMethods &seq_perception_metadata_ObjectEmbedding_values_vector() {
     return methods;
 }
 PyTypeObject &pytype_perception_metadata_ObjectEmbedding_values_vector() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 
@@ -387,7 +401,7 @@ PySequenceMethods &seq_perception_metadata_ObjectEmbeddings_embeddings_vector() 
     return methods;
 }
 PyTypeObject &pytype_perception_metadata_ObjectEmbeddings_embeddings_vector() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 
@@ -396,7 +410,7 @@ PySequenceMethods &seq_perception_metadata_ObjectTracks_tracks_vector() {
     return methods;
 }
 PyTypeObject &pytype_perception_metadata_ObjectTracks_tracks_vector() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 
@@ -405,7 +419,7 @@ PySequenceMethods &seq_perception_metadata_PerformanceOverlay_lines_vector() {
     return methods;
 }
 PyTypeObject &pytype_perception_metadata_PerformanceOverlay_lines_vector() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 
@@ -414,7 +428,7 @@ PySequenceMethods &seq_perception_metadata_PoseEstimations_poses_vector() {
     return methods;
 }
 PyTypeObject &pytype_perception_metadata_PoseEstimations_poses_vector() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 
@@ -423,7 +437,7 @@ PySequenceMethods &seq_perception_metadata_SegmentationMasks_masks_vector() {
     return methods;
 }
 PyTypeObject &pytype_perception_metadata_SegmentationMasks_masks_vector() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 
@@ -432,7 +446,7 @@ PySequenceMethods &seq_perception_metadata_TrackTrace_points_vector() {
     return methods;
 }
 PyTypeObject &pytype_perception_metadata_TrackTrace_points_vector() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 
@@ -441,7 +455,7 @@ PySequenceMethods &seq_perception_metadata_TrackTraces_traces_vector() {
     return methods;
 }
 PyTypeObject &pytype_perception_metadata_TrackTraces_traces_vector() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 
@@ -5057,31 +5071,31 @@ bool add_known_proxy_types(PyObject *python_module) {
 PyMethodDef *live_envelope_methods() {
     static PyMethodDef methods[] = {
         {"valid",
-         reinterpret_cast<PyCFunction>(live_envelope_is_valid),
+         py_c_function(live_envelope_is_valid),
          METH_NOARGS,
          "Return True while this live envelope wrapper is valid."},
         {"producer_identity",
-         reinterpret_cast<PyCFunction>(live_envelope_producer_identity),
+         py_c_function(live_envelope_producer_identity),
          METH_NOARGS,
          "Return the producer identity comparison status."},
         {"count",
-         reinterpret_cast<PyCFunction>(live_envelope_count),
+         py_c_function(live_envelope_count),
          METH_VARARGS,
          "Count known payloads by generated Python payload type or external bytes by ExternalKey."},
         {"contains",
-         reinterpret_cast<PyCFunction>(live_envelope_contains),
+         py_c_function(live_envelope_contains),
          METH_VARARGS,
          "Return True if a known payload or external payload exists for the selector."},
         {"get",
-         reinterpret_cast<PyCFunction>(live_envelope_get),
+         py_c_function(live_envelope_get),
          METH_VARARGS | METH_KEYWORDS,
          "Return a read-only live proxy for a known payload or bytes for an ExternalKey."},
         {"for_each",
-         reinterpret_cast<PyCFunction>(live_envelope_for_each),
+         py_c_function(live_envelope_for_each),
          METH_VARARGS,
          "Return read-only live proxies or external bytes for all entries matching the selector."},
         {"add",
-         reinterpret_cast<PyCFunction>(live_envelope_add),
+         py_c_function(live_envelope_add),
          METH_VARARGS,
          "Append a known payload value or external bytes with an ExternalKey."},
         {nullptr, nullptr, 0, nullptr},
@@ -5118,7 +5132,7 @@ PyGetSetDef *live_envelope_getset() {
 }
 
 PyTypeObject &live_envelope_type() {
-    static PyTypeObject type = {PyVarObject_HEAD_INIT(nullptr, 0)};
+    static PyTypeObject type = make_py_type_object();
     return type;
 }
 
@@ -5156,6 +5170,10 @@ PyModuleDef &bridge_module() {
         "perception_bridge",
         "perception embedded Python bridge for live C++ envelopes",
         -1,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
         nullptr,
     };
     return definition;
