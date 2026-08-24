@@ -78,7 +78,7 @@ services:
         .devcontainer/setup.sh &&
         .devcontainer/platform_init.sh pek-dev disabled &&
         ccache --zero-stats &&
-        ./scripts/build-elements.sh release true &&
+        ./scripts/build.sh release true &&
         meson test -C development/build --print-errorlogs &&
         ccache --show-stats
       '
@@ -197,7 +197,7 @@ services:
         .devcontainer/platform_init.sh pek-dev disabled &&
         source /work/tools/.venv/bin/activate &&
         ccache --zero-stats &&
-        ./scripts/build-elements.sh debug true --extra-setup-args=-Db_coverage=true,--wipe &&
+        ./scripts/build.sh debug true --extra-setup-args=-Db_coverage=true,--wipe &&
         meson test -C "$$BUILD_DIR" --print-errorlogs &&
         gcovr -r . --sonarqube coverage.xml &&
         if [ -n "$$PR_KEY" ] && [ -n "$$PR_BRANCH" ] && [ -n "$$PR_BASE" ]; then
@@ -233,7 +233,7 @@ services:
         .devcontainer/platform_init.sh pek-dev disabled &&
         source /work/tools/.venv/bin/activate &&
         ccache --zero-stats &&
-        ./scripts/build-elements.sh debug true --extra-setup-args=-Db_coverage=true,--wipe &&
+        ./scripts/build.sh debug true --extra-setup-args=-Db_coverage=true,--wipe &&
         meson test -C "$$BUILD_DIR" --print-errorlogs &&
         gcovr -r . --sonarqube coverage.xml &&
         sonar-scanner -Dsonar.qualitygate.wait="$${SONAR_QUALITYGATE_WAIT}" \

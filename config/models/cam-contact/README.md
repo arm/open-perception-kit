@@ -30,7 +30,7 @@ Similarly to #file:YoloParser.cpp  and #file:GazeDetectionParser.cpp I need simi
 Check my #codebase and make the needed modifications to make this model work.
 
 #### Build and documentation
-The project builds with  ./scripts/build-elements.sh debug command.
+The project builds with  ./scripts/build.sh debug command.
 The main build entry point is #file:meson.build 
 
 #### Documentation

@@ -256,9 +256,9 @@ test(
   timeout : 120,
 )
 test(
-  'build_elements_script_tests',
+  'build_script_tests',
   python,
-  args : [files('build_elements_script_test.py'), pek_repository_root],
+  args : [files('build_script_test.py'), pek_repository_root],
 )
 test(
   'qos_pipeline_tests',

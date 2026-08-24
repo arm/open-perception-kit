@@ -30,19 +30,7 @@ using namespace pek::onnx;
 
 Inference::Inference() = default;
 
-Inference::~Inference() {
-    if (this->sessionOptions)
-        delete this->sessionOptions;
-
-    if (this->environment)
-        delete this->environment;
-
-    if (this->memoryInfo)
-        delete this->memoryInfo;
-
-    if (this->session)
-        delete this->session;
-}
+Inference::~Inference() = default;
 
 pek::Result<void> Inference::setupFromJson(const std::string &filePath) {
     auto descResult = pek::ModelDescriptor::fromFile(filePath);
@@ -54,7 +42,17 @@ pek::Result<void> Inference::setupFromJson(const std::string &filePath) {
 
 pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc_) {
 
+    this->setupReady = false;
     this->api = ApiTensorGlue();
+    this->dynamicOutputData.clear();
+    this->model = {};
+    std::fill_n(this->outputTensorPointers, pek::MaxTensorCount, nullptr);
+    std::fill_n(this->outputTensorFinalShapes, pek::MaxTensorCount, pek::Shape{});
+    this->session.reset();
+    this->memoryInfo.reset();
+    this->sessionOptions.reset();
+    this->environment.reset();
+
     this->modelDescriptor = modelDesc_;
     // this->modelPath = file;
 
@@ -64,7 +62,7 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc_) {
         unsigned int intraThreads = hwThreads ? std::max<unsigned int>(1u, hwThreads - 1u) : 1u;
         unsigned int interThreads = 1u;
 
-        this->sessionOptions = new Ort::SessionOptions();
+        this->sessionOptions = std::make_unique<Ort::SessionOptions>();
         this->sessionOptions->SetIntraOpNumThreads(intraThreads);
         this->sessionOptions->SetInterOpNumThreads(interThreads);
         this->sessionOptions->SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
@@ -79,11 +77,11 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc_) {
         // this->sessionOptions->SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
         // ---
 
-        this->environment = new Ort::Env(ORT_LOGGING_LEVEL_WARNING, "pekinfer");
-        this->memoryInfo =
-            new Ort::MemoryInfo(Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU));
+        this->environment.reset(new Ort::Env(ORT_LOGGING_LEVEL_WARNING, "pekinfer"));
+        this->memoryInfo = std::make_unique<Ort::MemoryInfo>(
+            Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU));
 
-        this->session = new Ort::Session(
+        this->session = std::make_unique<Ort::Session>(
             *this->environment, modelDescriptor.modelFile.c_str(), *this->sessionOptions);
 
         auto modelResult = inspectModel(*this->session);

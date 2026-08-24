@@ -4,6 +4,7 @@
 !Dockerfile.pre-commit
 !Dockerfile.pages
 !.dockerignore
+!.gitmodules
 !.clang-format
 !.clang-tidy
 !.cmake-format.yaml
@@ -49,7 +50,18 @@ config/models/**/*.pte
 !tools/plumber/
 !tools/plumber/**
 !tools/perception/
+!tools/perception/artifacts.py
+!tools/perception/cli.py
+!tools/perception/generate.py
+!tools/perception/package.py
+!tools/perception/release_common.py
 !tools/perception/sdk.json
+!tools/perception/sdk_config.py
+
+!schemas/
+!schemas/perception/
+!schemas/perception/metadata/
+!schemas/perception/metadata/**
 
 !.devcontainer/
 !.devcontainer/**

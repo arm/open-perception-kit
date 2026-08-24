@@ -215,7 +215,7 @@ PYTHONPATH="generated/perception/python/src:tools/plumber" \
 For runtime-facing changes, build the elements with tests and run Meson tests:
 
 ```bash
-./scripts/build-elements.sh debug true
+./scripts/build.sh debug true
 meson test -C ./development/build-active --print-errorlogs
 ```
 

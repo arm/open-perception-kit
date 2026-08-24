@@ -19,23 +19,23 @@ REPOSITORY_ROOT = (
     if REPOSITORY_ARGUMENT is not None and REPOSITORY_ARGUMENT.is_dir()
     else Path(__file__).resolve().parents[2]
 )
-BUILD_ELEMENTS_PATH = "scripts/build-elements.sh"
-BUILD_SCRIPT = REPOSITORY_ROOT / BUILD_ELEMENTS_PATH
+BUILD_SCRIPT_PATH = "scripts/build.sh"
+BUILD_SCRIPT = REPOSITORY_ROOT / BUILD_SCRIPT_PATH
 SHTOOLS_SCRIPT = REPOSITORY_ROOT / "scripts/private/shtools.sh"
 PEK_MENU_PATH = "tools/pek-menu"
 NATIVE_BUILD_PATH = "development/build-native"
 
 
-class BuildElementsScriptTests(unittest.TestCase):
+class BuildScriptTests(unittest.TestCase):
     def make_checkout(self, parent: Path, name: str) -> Path:
         checkout = parent / name
         (checkout / "development").mkdir(parents=True)
         (checkout / "scripts/private").mkdir(parents=True)
         (checkout / "development/meson.build").write_text(
-            "project('build-elements-test')\n",
+            "project('build-script-test')\n",
             encoding="utf-8",
         )
-        shutil.copy2(BUILD_SCRIPT, checkout / BUILD_ELEMENTS_PATH)
+        shutil.copy2(BUILD_SCRIPT, checkout / BUILD_SCRIPT_PATH)
         shutil.copy2(SHTOOLS_SCRIPT, checkout / "scripts/private/shtools.sh")
         return checkout
 
@@ -92,6 +92,7 @@ class BuildElementsScriptTests(unittest.TestCase):
         environment = os.environ.copy()
         environment["PATH"] = f"{bin_dir}{os.pathsep}{environment['PATH']}"
         environment["PEK_BUILD_SCRIPT_TEST_LOG"] = str(log_path)
+        environment["container"] = "pek-build-script-test"
         for variable in (
             "PEK_EXECUTORCH",
             "PEK_HAILORT",
@@ -109,7 +110,7 @@ class BuildElementsScriptTests(unittest.TestCase):
             environment.update(environment_overrides)
 
         return subprocess.run(
-            [str(checkout / BUILD_ELEMENTS_PATH), *arguments],
+            [str(checkout / BUILD_SCRIPT_PATH), *arguments],
             cwd=checkout.parent,
             env=environment,
             check=False,
@@ -146,8 +147,13 @@ class BuildElementsScriptTests(unittest.TestCase):
                     str(checkout / NATIVE_BUILD_PATH),
                     str(checkout / "development"),
                     "--buildtype=debug",
+                    "-Ddebug=true",
+                    "-Dstrip=false",
+                    "-Db_lto=false",
+                    "-Doptimization=0",
                     "--layout=flat",
                     "-Dtests=true",
+                    "-Dexecutorch=auto",
                 ],
             )
             self.assertEqual(
@@ -163,7 +169,10 @@ class BuildElementsScriptTests(unittest.TestCase):
             self.assertTrue(
                 all(item["project_root"] == str(checkout) for item in invocations)
             )
-            self.assertNotIn("Meson feature selection", completed.stdout)
+            self.assertIn(
+                "Meson feature selection: executorch=auto",
+                completed.stdout,
+            )
 
     def test_explicit_backend_selection_is_forwarded_to_meson(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

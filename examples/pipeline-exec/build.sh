@@ -52,7 +52,7 @@ case "$ENABLE_TESTS" in
         ;;
 esac
 
-"$REPO_ROOT/scripts/build-elements.sh" "$BUILD_TYPE" "$ENABLE_TESTS"
+"$REPO_ROOT/scripts/build.sh" "$BUILD_TYPE" "$ENABLE_TESTS"
 
 if [[ -d "$PIPELINE_EXEC_BUILD_DIR/meson-private" ]]; then
     meson setup --reconfigure "$PIPELINE_EXEC_BUILD_DIR" "$SCRIPT_DIR"

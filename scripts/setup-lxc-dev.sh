@@ -344,5 +344,5 @@ sudo -u "$DEV_USER" -H env PEK_PROJECT_ROOT="$PEK_PROJECT_ROOT" bash -lc \
     'cd "$PEK_PROJECT_ROOT" && /opt/pek-venvs/devtools/bin/pre-commit install && /opt/pek-venvs/devtools/bin/pre-commit install -t commit-msg'
 
 log "LXC development environment is ready. Start a new login shell, then run:"
-log "  cd $PEK_PROJECT_ROOT && ./scripts/build-elements.sh debug false"
+log "  cd $PEK_PROJECT_ROOT && ./scripts/build.sh debug false"
 log "Group changes may require logging out of the LXC and back in."

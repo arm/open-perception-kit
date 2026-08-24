@@ -59,7 +59,7 @@ if [[ -z "${PEK_TERMINAL_WELCOME_SHOWN:-}" ]]; then
     frame_top
     frame_line "PEK repo ready"
     frame_mid
-    frame_line "Build cmd       ./scripts/build-elements.sh debug"
+    frame_line "Build cmd       ./scripts/build.sh debug"
     frame_line "Build task      00 Build Project"
     frame_line "Launch cmd      ./tools/pek-menu -l"
     frame_line "Launch task     00 Run project with latest pipeline"

@@ -77,6 +77,7 @@ export PEK_DEV_RPI5_H10_CONTAINER_NAME PEK_PICAMERA
 export HF_TOKEN="${HF_TOKEN-}"
 export HF_DOWNLOAD_CACHEBUST
 HF_DOWNLOAD_CACHEBUST="$("${REPO_ROOT}/scripts/private/generate-hf-download-cachebust.sh")"
+CONTAINER_READY_FILE="/tmp/pek-development-entrypoint-ready"
 
 COMPOSE_FILES=(
     -f .devcontainer/compose.devcont.yaml
@@ -125,6 +126,31 @@ container_running() {
     docker inspect -f '{{.State.Running}}' "${PEK_CONTAINER_NAME}" 2> /dev/null | grep -q '^true$'
 }
 
+container_ready() {
+    docker exec "${PEK_CONTAINER_NAME}" \
+        test -f "${CONTAINER_READY_FILE}" > /dev/null 2>&1
+}
+
+wait_for_container_ready() {
+    local attempt
+
+    for ((attempt = 0; attempt < 300; attempt++)); do
+        if ! container_running; then
+            echo "Error: quick-start container exited during startup: ${PEK_CONTAINER_NAME}" >&2
+            docker logs "${PEK_CONTAINER_NAME}" >&2 || true
+            return 1
+        fi
+        if container_ready; then
+            return 0
+        fi
+        sleep 1
+    done
+
+    echo "Error: quick-start container did not become ready within 300 seconds: ${PEK_CONTAINER_NAME}" >&2
+    docker logs "${PEK_CONTAINER_NAME}" >&2 || true
+    return 1
+}
+
 container_workdir_writable() {
     docker exec -u dev "${PEK_CONTAINER_NAME}" bash -lc 'test -w /work' > /dev/null 2>&1
 }
@@ -155,12 +181,12 @@ bash .devcontainer/platform_init.sh \
     "${PEK_CONTAINER_SERVICE}" "${PEK_PICAMERA}" "${PEK_WEBRTC_TURN}"
 
 if container_running && [[ "$RECREATE" != "true" ]]; then
-    if container_workdir_writable; then
+    if container_ready && container_workdir_writable; then
         print_enter_hint
         exit 0
     fi
 
-    echo "Container is running, but /work is not writable as dev."
+    echo "Container is running, but startup readiness or /work writability was not confirmed."
     echo "Recreating it with the host UID/GID mapping..."
     RECREATE="true"
 fi
@@ -184,6 +210,12 @@ if [[ "$RECREATE" == "true" ]]; then
     UP_ARGS+=(--force-recreate)
 fi
 "${COMPOSE_COMMAND[@]}" "${COMPOSE_FILES[@]}" "${UP_ARGS[@]}" "${PEK_CONTAINER_SERVICE}"
+wait_for_container_ready
+if ! container_workdir_writable; then
+    echo "Error: quick-start container /work is not writable as dev: ${PEK_CONTAINER_NAME}" >&2
+    docker logs "${PEK_CONTAINER_NAME}" >&2 || true
+    exit 1
+fi
 
 echo
 docker ps --filter "name=${PEK_CONTAINER_NAME}" --format 'table {{.Names}} {{.Status}}'

@@ -268,6 +268,98 @@ jobs:
           compression-level: 0
           retention-days: 1
 
+  build-nightly-deployment-images:
+    name: Build nightly deployment image (${{ matrix.architecture }})
+    if: ${{ github.event_name == 'schedule' }}
+    strategy:
+      matrix:
+        include:
+          - architecture: x86_64
+            cache_tag: amd64
+            platform: linux/amd64
+            runner: self-hosted-ubuntu-latest-x64
+          - architecture: aarch64
+            cache_tag: arm64
+            platform: linux/arm64
+            runner: self-hosted-ubuntu-latest-arm64
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    env:
+      CCACHE_PATH: .cache/ccache-deployment
+      DEPLOYMENT_IMAGE: ghcr.io/arm-debug/amp-dev-forge-deployment
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Resolve release cache inputs
+        id: source
+        run: |
+          echo "flowdata_commit=$(git rev-parse HEAD:tools/flowdata-sdk)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker builder
+        id: builder
+        uses: docker/setup-buildx-action@v4
+
+      - name: Restore deployment compiler cache
+        id: compiler-cache
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.CCACHE_PATH }}
+          key: pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-deployment-${{ github.sha }}
+          restore-keys: |
+            pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-deployment-
+
+      - name: Attach compiler cache to Docker builder
+        uses: reproducible-containers/buildkit-cache-dance@5422eac04292c961a382e0f584ea0f03ad9da723 # v3.4.0
+        with:
+          builder: ${{ steps.builder.outputs.name }}
+          cache-map: |
+            {
+              ".cache/ccache-deployment": {
+                "target": "/work/.cache/ccache",
+                "id": "pek-deployment-ccache",
+                "sharing": "locked"
+              }
+            }
+          skip-extraction: ${{ steps.compiler-cache.outputs.cache-hit }}
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build and publish deployment image
+        uses: docker/build-push-action@v7
+        with:
+          build-args: |
+            HF_DOWNLOAD_CACHEBUST=github-${{ github.run_id }}-${{ github.run_attempt }}
+            PEK_RELEASE_BUILD=true
+            PEK_RELEASE_SOURCE_COMMIT=${{ github.sha }}
+            PEK_FLOWDATA_SDK_COMMIT=${{ steps.source.outputs.flowdata_commit }}
+          cache-from: type=registry,ref=${{ env.DEPLOYMENT_IMAGE }}:buildcache-${{ matrix.cache_tag }}
+          cache-to: type=registry,ref=${{ env.DEPLOYMENT_IMAGE }}:buildcache-${{ matrix.cache_tag }},mode=max
+          context: .
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=nightly-${{ github.sha }}
+          platforms: ${{ matrix.platform }}
+          provenance: false
+          pull: true
+          push: true
+          secrets: |
+            "huggingface_token=${{ secrets.HF_TOKEN }}"
+            "executorch_artifactory_username=${{ secrets.PEK_ARTIFACTORY_USERNAME }}"
+            "executorch_artifactory_password=${{ secrets.PEK_ARTIFACTORY_API_KEY }}"
+          tags: ${{ env.DEPLOYMENT_IMAGE }}:nightly-${{ matrix.cache_tag }}
+          target: pek-deployment-base
+
   python-dependency-audit:
     name: Python Dependency Audit
     if: |

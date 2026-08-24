@@ -64,6 +64,20 @@ For implementation detail and background, continue with:
 
 Do not start by changing core runtime code unless the task clearly requires it.
 
+## Artifact download ownership
+
+Each external artifact has one download owner. Consumers must reuse the
+owner's output instead of downloading the same artifact from setup scripts,
+entrypoints, workflows, release scripts, or convenience wrappers.
+
+- Models: `pek-models` and `scripts/download-models.py`.
+- Demo videos: `pek-demo-media` and
+  `scripts/private/download-demo-videos.sh`.
+
+Extend the existing owner when adding an artifact in the same domain. If a new
+domain needs a downloader, define one owner and remove any overlapping path in
+the same change.
+
 ## Task routing
 
 ### Prepare or troubleshoot a release
@@ -196,10 +210,10 @@ Ground doc changes in checked-in code and config.
 
 ## Build and validation
 
-- `./scripts/build-elements.sh debug [true|false]`
-- `./scripts/build-elements.sh release [true|false]`
-- `./scripts/build-elements.sh clean`
-- `./scripts/build-elements.sh debug true`
+- `./scripts/build.sh debug [true|false]`
+- `./scripts/build.sh release [true|false]`
+- `./scripts/build.sh clean`
+- `./scripts/build.sh debug true`
 - `meson test -C ./development/build-active --print-errorlogs`
 - `./scripts/gen-doc.sh` to refresh generated docs, Doxygen output, and PlantUML images
 - `./scripts/serve-docs-plain.sh`

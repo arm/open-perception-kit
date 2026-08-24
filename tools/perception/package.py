@@ -242,6 +242,48 @@ def repository_git_status() -> str:
     ])
 
 
+def detached_source_commits(
+    repository_commit: str | None, flowdata_commit: str | None
+) -> tuple[str, str] | None:
+    if repository_commit is None and flowdata_commit is None:
+        return None
+    if (
+        repository_commit is None
+        or flowdata_commit is None
+        or not GIT_COMMIT_RE.fullmatch(repository_commit)
+        or not GIT_COMMIT_RE.fullmatch(flowdata_commit)
+    ):
+        raise RuntimeError(
+            "repository and flowdata commits must be supplied together as full Git SHAs"
+        )
+    return repository_commit, flowdata_commit
+
+
+def verify_detached_manifest(
+    config: perception_config.SdkConfig, flowdata_commit: str
+) -> dict[str, object]:
+    path = config.generated_root / perception_generate.PERCEPTION_MANIFEST_FILENAME
+    manifest = load_json(path)
+    perception_generate._verify_manifest_identity(
+        config, config.generated_root, config.internal_meson_path, path, manifest
+    )
+    generation = manifest.get("generation")
+    if not isinstance(generation, dict):
+        raise RuntimeError("Perception SDK generation identity is missing")
+    if generation.get("tools") != perception_generate._generation_tool_records():
+        raise RuntimeError("Perception SDK generation tools changed; regenerate the SDK")
+    flowdata_identity = generation.get("flowdata_sdk")
+    if (
+        not isinstance(flowdata_identity, dict)
+        or flowdata_identity.get("commit") != flowdata_commit
+    ):
+        raise RuntimeError("flowdata-sdk changed; regenerate the Perception SDK")
+    perception_generate._verify_upstream_receipts(
+        config, manifest, flowdata_identity
+    )
+    return manifest
+
+
 def content_digest(value: object) -> str:
     encoded = json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
@@ -730,6 +772,7 @@ def write_provenance(
     config: perception_config.SdkConfig,
     generated_manifest_path: Path,
     dirty: bool,
+    repository_commit: str,
 ) -> Path:
     provenance_path = archive_path.with_suffix(archive_path.suffix + PROVENANCE_SUFFIX)
     provenance = {
@@ -737,7 +780,7 @@ def write_provenance(
         "descriptor_sha256": config.descriptor_sha256,
         "dirty": dirty,
         "generated_manifest_sha256": sha256(generated_manifest_path),
-        "repository_commit": git_commit(),
+        "repository_commit": repository_commit,
     }
     provenance_path.write_text(
         json.dumps(provenance, indent=2, sort_keys=True) + "\n",
@@ -826,11 +869,19 @@ def build_bundle(args: argparse.Namespace) -> Path:
         raise RuntimeError(
             f"expected SDK version {args.expect_version}, descriptor contains {config.version}"
         )
-    generated_manifest = perception_generate.verify_perception_manifest(config)
-    status = repository_git_status()
-    dirty = bool(status)
-    if dirty and not args.allow_dirty:
-        raise RuntimeError(f"SDK inputs or outputs are dirty:\n{status}")
+    detached_commits = detached_source_commits(
+        args.repository_commit, args.flowdata_commit
+    )
+    if detached_commits:
+        generated_manifest = verify_detached_manifest(config, detached_commits[1])
+        repository_commit, dirty = detached_commits[0], False
+    else:
+        generated_manifest = perception_generate.verify_perception_manifest(config)
+        repository_commit = git_commit()
+        status = repository_git_status()
+        dirty = bool(status)
+        if dirty and not args.allow_dirty:
+            raise RuntimeError(f"SDK inputs or outputs are dirty:\n{status}")
 
     output_dir = args.output_dir.resolve()
     archive_path = output_dir / f"{config.name}-sdk-{config.version}.zip"
@@ -887,7 +938,9 @@ def build_bundle(args: argparse.Namespace) -> Path:
         verify_bundle(bundle_root)
         write_deterministic_zip(bundle_root, archive_path)
         verify_zip(bundle_root, archive_path)
-    write_provenance(archive_path, config, generated_manifest_path, dirty)
+    write_provenance(
+        archive_path, config, generated_manifest_path, dirty, repository_commit
+    )
     write_checksum(archive_path)
     return archive_path
 
@@ -966,6 +1019,14 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
             "allow tracked repository modifications and record dirty=true in provenance; "
             "intended only for local experiments"
         ),
+    )
+    package_parser.add_argument(
+        "--repository-commit",
+        help="selected repository commit when packaging from a Git-free build context",
+    )
+    package_parser.add_argument(
+        "--flowdata-commit",
+        help="selected flowdata-sdk gitlink when packaging from a Git-free build context",
     )
     package_parser.add_argument(
         "--flatbuffers-wheel",

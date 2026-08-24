@@ -84,7 +84,6 @@ SYSTEM_LIBRARY_PREFIXES = (
 )
 BUILD_LABEL_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$")
 VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+$", re.ASCII)
-DEBIAN_REVISION_PATTERN = re.compile(r"^[0-9A-Za-z][0-9A-Za-z.+~]*$", re.ASCII)
 JSON_GLOB = "*.json"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GIT_COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$", re.ASCII)
@@ -407,31 +406,7 @@ def validate_release_payload(package_root: Path, repo_root: Path | None) -> None
                     fail(f"Packaged payload differs from the selected source: {packaged_path}")
 
 
-def repository_commit(repo_root: Path) -> str:
-    completed = subprocess.run(
-        [
-            "git",
-            "-c",
-            f"safe.directory={repo_root}",
-            "-C",
-            str(repo_root),
-            "rev-parse",
-            "HEAD",
-        ],
-        check=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    commit = completed.stdout.strip()
-    if not GIT_COMMIT_PATTERN.fullmatch(commit):
-        fail("Selected source commit is invalid")
-    return commit
-
-
-def validate_perception_sdk(
-    perception_sdk_root: Path, repo_root: Path | None = None
-) -> None:
+def perception_sdk_archive(perception_sdk_root: Path) -> Path:
     if perception_sdk_root.is_symlink() or not perception_sdk_root.is_dir():
         fail(f"Perception SDK directory is missing or invalid: {perception_sdk_root}")
     entries = list(perception_sdk_root.iterdir())
@@ -446,7 +421,6 @@ def validate_perception_sdk(
     if len(archives) != 1:
         fail("Perception SDK directory must contain exactly one versioned ZIP")
     archive = archives[0]
-    version = archive.name.removeprefix("perception-sdk-").removesuffix(".zip")
     expected_names = {
         archive.name,
         f"{archive.name}.sha256",
@@ -454,6 +428,16 @@ def validate_perception_sdk(
     }
     if {path.name for path in entries} != expected_names:
         fail("Perception SDK directory must contain exactly the matching triplet")
+    return archive
+
+
+def validate_perception_sdk(
+    perception_sdk_root: Path,
+    expected_commit: str,
+    repo_root: Path | None = None,
+) -> None:
+    archive = perception_sdk_archive(perception_sdk_root)
+    version = archive.name.removeprefix("perception-sdk-").removesuffix(".zip")
 
     verification_root = repo_root or REPO_ROOT
     if repo_root is not None:
@@ -477,7 +461,9 @@ def validate_perception_sdk(
     commit = provenance.get("repository_commit")
     if not isinstance(commit, str) or not GIT_COMMIT_PATTERN.fullmatch(commit):
         fail("Perception SDK provenance commit is invalid")
-    if repo_root is not None and commit != repository_commit(repo_root):
+    if not GIT_COMMIT_PATTERN.fullmatch(expected_commit):
+        fail("Expected Perception SDK commit is invalid")
+    if commit != expected_commit:
         fail("Perception SDK provenance commit does not match the selected source")
 
 
@@ -571,16 +557,7 @@ def validate_runtime_files(package_root: Path) -> Path:
     return private_root
 
 
-def validate_package(args: argparse.Namespace) -> None:
-    package_root = Path(args.package_root).resolve()
-    architecture = args.architecture
-    repo_root_value = getattr(args, "repo_root", None)
-    repo_root = Path(repo_root_value).resolve() if repo_root_value else None
-    private_root = validate_runtime_files(package_root)
-    validate_legal_documentation(package_root)
-    validate_release_payload(package_root, repo_root)
-    validate_perception_sdk(package_root / "share/pek/perception-sdk", repo_root)
-
+def validate_onnx_runtime(private_root: Path) -> None:
     regular_onnx = [
         path
         for path in private_root.glob("libonnxruntime.so.*")
@@ -591,6 +568,82 @@ def validate_package(args: argparse.Namespace) -> None:
         fail("Package must contain exactly ONNX Runtime 1.24.4")
     if not soname_link.is_symlink() or os.readlink(soname_link) != regular_onnx[0].name:
         fail("ONNX Runtime SONAME link is missing or incorrect")
+    if dynamic_values(regular_onnx[0], "SONAME") != ["libonnxruntime.so.1"]:
+        fail("Pinned ONNX Runtime has an unexpected SONAME")
+
+
+def validate_elf_dependency(
+    path: Path,
+    library: str,
+    packaged_library_paths: dict[str, list[Path]],
+    internal_search_directories: set[Path],
+) -> None:
+    if library == "libfmt.so" or library.startswith("libfmt.so."):
+        fail(f"{path} has forbidden dependency {library}")
+    if library not in packaged_library_paths and not library.startswith(
+        SYSTEM_LIBRARY_PREFIXES
+    ):
+        fail(f"{path} has unresolved or unclassified dependency {library}")
+    if library in packaged_library_paths and not any(
+        (directory / library).is_file() for directory in internal_search_directories
+    ):
+        fail(f"{path} cannot resolve packaged dependency {library} through its RUNPATH")
+
+
+def validate_elf(
+    path: Path,
+    package_root: Path,
+    expected_machine: str,
+    packaged_library_paths: dict[str, list[Path]],
+) -> None:
+    header = read_elf(path, "-hW")
+    machine = next(
+        (
+            line.partition(":")[2].strip()
+            for line in header.splitlines()
+            if line.strip().startswith("Machine:")
+        ),
+        "",
+    )
+    if machine != expected_machine:
+        fail(f"Wrong ELF architecture: {path}")
+    runpaths = dynamic_values(path, "RUNPATH")
+    internal_search_directories = {
+        (path.parent / entry.replace("$ORIGIN", str(path.parent))).resolve()
+        for runpath in runpaths
+        for entry in runpath.split(":")
+        if entry
+    }
+    for library in dynamic_values(path, "NEEDED"):
+        validate_elf_dependency(
+            path, library, packaged_library_paths, internal_search_directories
+        )
+
+    relative = path.relative_to(package_root)
+    if relative.parts[:2] == ("lib", "gstreamer-1.0"):
+        expected_runpath = "$ORIGIN/../pek"
+    elif relative.parts[:2] == ("lib", "pek") and len(relative.parts) == 3:
+        expected_runpath = "$ORIGIN"
+    else:
+        expected_runpath = ""
+    if expected_runpath and expected_runpath not in runpaths:
+        fail(f"{path} has RUNPATH {runpaths}, expected {expected_runpath}")
+
+
+def validate_package(args: argparse.Namespace) -> None:
+    package_root = Path(args.package_root).resolve()
+    architecture = args.architecture
+    repo_root_value = getattr(args, "repo_root", None)
+    repo_root = Path(repo_root_value).resolve() if repo_root_value else None
+    private_root = validate_runtime_files(package_root)
+    validate_legal_documentation(package_root)
+    validate_release_payload(package_root, repo_root)
+    validate_perception_sdk(
+        package_root / "share/pek/perception-sdk",
+        args.expected_commit,
+        repo_root,
+    )
+    validate_onnx_runtime(private_root)
 
     elf_paths = [path for path in package_root.rglob("*") if is_elf(path)]
     if not elf_paths:
@@ -599,49 +652,11 @@ def validate_package(args: argparse.Namespace) -> None:
     for packaged_path in package_root.rglob("*"):
         if packaged_path.is_file():
             packaged_library_paths.setdefault(packaged_path.name, []).append(packaged_path)
-    expected_machine = "Advanced Micro Devices X86-64" if architecture == "x86_64" else "AArch64"
+    expected_machine = (
+        "Advanced Micro Devices X86-64" if architecture == "x86_64" else "AArch64"
+    )
     for path in elf_paths:
-        header = read_elf(path, "-hW")
-        machine = next(
-            (
-                line.partition(":")[2].strip()
-                for line in header.splitlines()
-                if line.strip().startswith("Machine:")
-            ),
-            "",
-        )
-        if machine != expected_machine:
-            fail(f"Wrong ELF architecture: {path}")
-        needed = dynamic_values(path, "NEEDED")
-        runpaths = dynamic_values(path, "RUNPATH")
-        internal_search_directories = {
-            (path.parent / entry.replace("$ORIGIN", str(path.parent))).resolve()
-            for runpath in runpaths
-            for entry in runpath.split(":")
-            if entry
-        }
-        for library in needed:
-            if library == "libfmt.so" or library.startswith("libfmt.so."):
-                fail(f"{path} has forbidden dependency {library}")
-            if (
-                library not in packaged_library_paths
-                and not library.startswith(SYSTEM_LIBRARY_PREFIXES)
-            ):
-                fail(f"{path} has unresolved or unclassified dependency {library}")
-            if library in packaged_library_paths and not any(
-                (directory / library).is_file() for directory in internal_search_directories
-            ):
-                fail(f"{path} cannot resolve packaged dependency {library} through its RUNPATH")
-
-        relative = path.relative_to(package_root)
-        if relative.parts[:2] == ("lib", "gstreamer-1.0"):
-            expected_runpath = "$ORIGIN/../pek"
-        elif relative.parts[:2] == ("lib", "pek") and len(relative.parts) == 3:
-            expected_runpath = "$ORIGIN"
-        else:
-            expected_runpath = ""
-        if expected_runpath and expected_runpath not in runpaths:
-            fail(f"{path} has RUNPATH {runpaths}, expected {expected_runpath}")
+        validate_elf(path, package_root, expected_machine, packaged_library_paths)
 
 
 def read_version(repo_root: Path) -> str:
@@ -650,29 +665,6 @@ def read_version(repo_root: Path) -> str:
     if not match or not VERSION_PATTERN.fullmatch(match.group(1)):
         fail("development/meson.build must contain a stable MAJOR.MINOR.PATCH version")
     return match.group(1)
-
-
-def read_docker_argument(repo_root: Path, name: str, pattern: re.Pattern[str]) -> str:
-    content = (repo_root / "Dockerfile").read_text(encoding="utf-8")
-    values = re.findall(rf"^ARG {re.escape(name)}=([^\s#]+)\s*$", content, re.MULTILINE)
-    if len(values) != 1 or not pattern.fullmatch(values[0]):
-        fail(f"Dockerfile must contain exactly one valid ARG {name}=value")
-    return values[0]
-
-
-def source_identity(repo_root: Path) -> dict[str, str]:
-    return {
-        "version": read_version(repo_root),
-        "onnxruntime_version": read_docker_argument(
-            repo_root, "ONNXRUNTIME_VERSION", VERSION_PATTERN
-        ),
-        "executorch_version": read_docker_argument(
-            repo_root, "EXECUTORCH_VERSION", VERSION_PATTERN
-        ),
-        "executorch_revision": read_docker_argument(
-            repo_root, "EXECUTORCH_DEB_REVISION", DEBIAN_REVISION_PATTERN
-        ),
-    }
 
 
 def changelog_section(repo_root: Path, version: str) -> str:
@@ -700,8 +692,7 @@ def write_github_output(values: dict[str, str]) -> None:
 
 def prepare(args: argparse.Namespace) -> None:
     repo_root = Path(args.repo_root).resolve()
-    identity = source_identity(repo_root)
-    version = identity["version"]
+    version = read_version(repo_root)
     if not args.build_label:
         changelog_section(repo_root, version)
     commit = args.commit
@@ -714,8 +705,8 @@ def prepare(args: argparse.Namespace) -> None:
     else:
         build_id = version
     write_github_output(
-        identity
-        | {
+        {
+            "version": version,
             "commit": commit,
             "build_id": build_id,
             "x86_archive": f"pek-{build_id}-linux-x86_64.tar.gz",
@@ -737,10 +728,7 @@ def main() -> int:
     validate_package_parser.add_argument("--architecture", choices=sorted(ARCHITECTURES), required=True)
     validate_package_parser.add_argument("--package-root", required=True)
     validate_package_parser.add_argument("--repo-root")
-
-    validate_sdk_parser = subparsers.add_parser("validate-perception-sdk")
-    validate_sdk_parser.add_argument("--perception-sdk-root", required=True)
-    validate_sdk_parser.add_argument("--repo-root")
+    validate_package_parser.add_argument("--expected-commit", required=True)
 
     prepare_parser = subparsers.add_parser("prepare")
     prepare_parser.add_argument("--repo-root", default=".")
@@ -753,11 +741,6 @@ def main() -> int:
             stage_models(args)
         elif args.command == "validate-package":
             validate_package(args)
-        elif args.command == "validate-perception-sdk":
-            validate_perception_sdk(
-                Path(args.perception_sdk_root).resolve(),
-                Path(args.repo_root).resolve() if args.repo_root else None,
-            )
         elif args.command == "prepare":
             prepare(args)
         return 0

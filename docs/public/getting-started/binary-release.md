@@ -17,6 +17,19 @@ Choose the architecture archive that matches `uname -m`. The documentation
 archive is architecture-neutral and contains the offline public site in
 `html/` and the generated API reference in `doxygen/`.
 
+The same native builds are also available as one multi-architecture runnable
+image. Docker selects the matching amd64 or arm64 manifest automatically:
+
+```bash
+docker pull ghcr.io/arm-debug/amp-dev-forge-deployment:<version>
+```
+
+Release notes provide the immutable image digest. Use the digest-qualified
+reference when a deployment must remain pinned. The image keeps the existing
+`pek-deployment-base` entrypoint and selects its pipeline through
+`PEK_PIPELINE`; provide the networking, ports, and devices required by that
+pipeline when creating the container.
+
 Verify the hash shown beside the archive on the GitHub Release or Artifactory
 workflow summary before extracting it:
 
@@ -170,11 +183,12 @@ intentionally not part of the binary release.
 
 The same smoke path is run natively for x86_64 and Arm packages on pull
 requests targeting `main`. Pushes to `main` publish the three matching archives
-on one GitHub Release and together in Artifactory under `releases/<version>/`.
-Manual runs publish them only to Artifactory under
+on one GitHub Release and together in Artifactory under `releases/<version>/`,
+plus the matching multi-architecture image in GHCR. Manual runs publish the
+archives only to Artifactory under
 `snapshots/<label>/<full-sha>-<run-id>-<attempt>/`. Both paths use
 `https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci` as their
 base URL. The final Artifactory workflow log and job summary contain the folder,
-links, and hashes.
+links, hashes, and the matching run-unique GHCR snapshot reference.
 
 [Back to Getting Started](/getting-started)
