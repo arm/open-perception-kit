@@ -19,6 +19,7 @@ from release_common import sha256
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SDK_CONFIG_PATH = Path(__file__).with_name("sdk.json")
 PRODUCT_VERSION_PATH = REPO_ROOT / "development/meson.build"
+PYTHON_DISTRIBUTION_NAME = "opk-perception-sdk"
 SEMVER = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 PRODUCT_VERSION = re.compile(r"project\([^)]*version:\s*'([^']+)'", re.DOTALL)
 

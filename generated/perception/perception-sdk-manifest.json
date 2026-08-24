@@ -95,8 +95,8 @@
     },
     {
       "path": "python/pyproject.toml",
-      "sha256": "094f4e82c9a785804c2968b76923365c4f389c9803f9a2fa47098666c8cc082d",
-      "size": 470
+      "sha256": "e3a6b43b56ef13ef84571f7d089b3b176bda0e9244c591a0264eb33a0db1988f",
+      "size": 478
     },
     {
       "path": "python/src/perception/__init__.py",
@@ -790,8 +790,8 @@
     "tools": [
       {
         "path": "tools/perception/generate.py",
-        "sha256": "67398379147b9b879acda689579a797fce96531aca738d62c75706ec26f9f72d",
-        "size": 30270
+        "sha256": "87b0c7168b2f6a585a5fb7d64fd02b4e36a96cf588d5d3edf2f11246a87f7be8",
+        "size": 30864
       },
       {
         "path": "tools/perception/release_common.py",
@@ -800,8 +800,8 @@
       },
       {
         "path": "tools/perception/sdk_config.py",
-        "sha256": "46ab17fed12d02de0dbe891fbd5e79f9d347b2fbf176d3d9bb743ef373158cd8",
-        "size": 9876
+        "sha256": "46c40962451e3d36040836d6f0ed8becc52516cd4789e3769d6c1965930ecd86",
+        "size": 9924
       },
       {
         "path": ".clang-format",

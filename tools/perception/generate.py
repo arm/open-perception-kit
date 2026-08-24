@@ -19,7 +19,7 @@ import tempfile
 from pathlib import Path
 
 from release_common import sha256
-from sdk_config import REPO_ROOT, SdkConfig, load_sdk_config
+from sdk_config import PYTHON_DISTRIBUTION_NAME, REPO_ROOT, SdkConfig, load_sdk_config
 
 FLOWDATA_MANIFEST_FILENAME = "flowdata-manifest.json"
 PERCEPTION_MANIFEST_FILENAME = "perception-sdk-manifest.json"
@@ -80,6 +80,18 @@ def generate_sdk(config: SdkConfig, generated_root: Path, flatc: str, python: st
     ])
     run([*common, "--sdk", "python"])
     run([*common, "--sdk", "ts"])
+
+
+def set_python_distribution_name(python_project: Path, source_name: str) -> None:
+    pyproject = python_project / "pyproject.toml"
+    text = pyproject.read_text(encoding="utf-8")
+    source = f'[project]\nname = "{source_name}"\n'
+    target = (
+        f'[project]\nname = "{PYTHON_DISTRIBUTION_NAME}"\n'
+    )
+    if text.count(source) != 1:
+        raise RuntimeError("generated Python project name is unexpected")
+    pyproject.write_text(text.replace(source, target), encoding="utf-8")
 
 
 def verify_flowdata_manifests(
@@ -529,6 +541,7 @@ def prepare_sdk(
 ) -> None:
     verify_flowdata_manifests(config, generated_root, python)
     flowdata_manifests = read_flowdata_manifests(generated_root)
+    set_python_distribution_name(generated_root / "python", config.name)
     add_license_headers(generated_root)
     prepare_typescript_package(config, generated_root)
     format_cpp_sources(generated_root, clang_format)

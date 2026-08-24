@@ -360,7 +360,7 @@ class GenerationReceiptTests(unittest.TestCase):
 
 
 class PythonPackagingTests(unittest.TestCase):
-    def test_distribution_name_is_rewritten_once(self) -> None:
+    def test_generated_distribution_name_is_rewritten_once(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             project = Path(tmp)
             pyproject = project / "pyproject.toml"
@@ -369,13 +369,17 @@ class PythonPackagingTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            release_package.set_python_distribution_name(project, "perception")
+            release_package.perception_generate.set_python_distribution_name(
+                project, "perception"
+            )
             self.assertEqual(
                 pyproject.read_text(encoding="utf-8"),
                 '[project]\nname = "opk-perception-sdk"\nversion = "1.2.3"\n',
             )
             with self.assertRaisesRegex(RuntimeError, "project name is unexpected"):
-                release_package.set_python_distribution_name(project, "perception")
+                release_package.perception_generate.set_python_distribution_name(
+                    project, "perception"
+                )
 
 
 class BundleVerificationTests(unittest.TestCase):

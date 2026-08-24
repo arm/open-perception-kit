@@ -2,7 +2,7 @@
 # SDK users: change schemas or generator inputs, then regenerate this file.
 
 [project]
-name = "perception"
+name = "opk-perception-sdk"
 version = "0.1.7"
 description = "Generated perception Python SDK"
 requires-python = ">=3.10"
