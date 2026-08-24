@@ -218,10 +218,12 @@ jobs:
             "--detect.project.name=${project_name}" \
             "--detect.project.version.name=${version_name}" \
             "--detect.code.location.name=${project_name}/${version_name}/dependencies" \
+            --detect.accuracy.required=NONE \
             --detect.blackduck.scan.mode=RAPID \
             --detect.cleanup=false \
             --detect.detector.search.depth=5 \
             --detect.output.path="$scanner_dir/output" \
+            --detect.python.path=/usr/bin/python3 \
             --detect.source.path="$WORKSPACE_ROOT" \
             --detect.stateless.policy.check.fail.on.severities=ALL \
             --detect.timeout=1800 \
@@ -260,9 +262,11 @@ jobs:
                 "--detect.project.name=${PROJECT_NAME}"
                 "--detect.project.version.name=${VERSION_NAME}"
                 "--detect.code.location.name=${PROJECT_NAME}/${VERSION_NAME}/dependencies"
+                --detect.accuracy.required=NONE
                 --detect.cleanup=false
                 --detect.detector.search.depth=5
                 --detect.output.path=/blackduck/output
+                --detect.python.path=/usr/bin/python3
                 --detect.source.path=/work
                 --detect.timeout=1800
                 --detect.tools=DETECTOR
