@@ -694,21 +694,24 @@ def _verify_schema_semantics(
     return schema_files, schema_digest
 
 
+def _verify_python_package_identity(manifest: dict[str, object], version: object) -> None:
+    outputs = manifest.get("outputs")
+    python_package = outputs.get("python_package") if isinstance(outputs, dict) else None
+    if not isinstance(python_package, dict) or (
+        python_package.get("distribution_name") != PYTHON_DISTRIBUTION_NAME
+        or python_package.get("import_name") != "perception"
+        or python_package.get("version") != version
+    ):
+        raise RuntimeError("release Python package identity is invalid")
+
+
 def _verify_python_packages(
     bundle_root: Path,
     artifact: dict[str, object],
     manifest: dict[str, object],
     file_entries: dict[str, dict[str, object]],
 ) -> dict[str, object]:
-    outputs = manifest.get("outputs")
-    python_package = outputs.get("python_package") if isinstance(outputs, dict) else None
-    if not isinstance(python_package, dict) or (
-        python_package.get("distribution_name") != PYTHON_DISTRIBUTION_NAME
-        or python_package.get("import_name") != "perception"
-        or python_package.get("version") != artifact["version"]
-    ):
-        raise RuntimeError("release Python package identity is invalid")
-
+    _verify_python_package_identity(manifest, artifact["version"])
     perception = manifest.get("perception_wheel")
     flatbuffers = manifest.get("flatbuffers")
     if not isinstance(perception, dict) or not isinstance(flatbuffers, dict):
