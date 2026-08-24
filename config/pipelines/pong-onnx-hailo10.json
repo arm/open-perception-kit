@@ -5,7 +5,7 @@
     "v4l2src device=/dev/video0 ! \"image/jpeg,width=800,height=600,framerate=30/1\"  !",
     "jpegdec !",
     "videoconvert ! video/x-raw,format=BGRA !",
-    "pekinfer opchain-path=${PEK_PROJECT_ROOT:-/work}/config/opchains/face-embedding/opchain-hailo10.json active=false !",
+    "pekinfer opchain-path=\"${PEK_PROJECT_ROOT:-/work}/config/opchains/face-embedding/opchain-hailo10.json\" active=false !",
     "pektracker content-type=humanFace use-embeddings=true association-mode=embedding use-kalman=false emit-predicted-detections=false emit-trace=false !",
     "pekperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
     "pekcomm method=websocket !",
@@ -14,7 +14,7 @@
   ],
   "agentReviewSuppressionFacePongInactiveModelEnd": "<agent-review:suppress-end>",
   "alternative-source-image": [
-    "filesrc location=${PEK_PROJECT_ROOT:-/work}/data/images/GettyImages-1140581459-thumbnail.jpg !",
+    "filesrc location=\"${PEK_PROJECT_ROOT:-/work}/data/images/GettyImages-1140581459-thumbnail.jpg\" !",
     "jpegdec !",
     "imagefreeze !",
     "videoconvert ! video/x-raw,format=BGRA !"
@@ -30,13 +30,13 @@
     "videoconvert ! video/x-raw,format=BGRA !"
   ],
   "alternative-source-video": [
-    "filesrc location=${PEK_PROJECT_ROOT:-/work}/data/videos/GettyImages-1298072556.mov !",
+    "filesrc location=\"${PEK_PROJECT_ROOT:-/work}/data/videos/GettyImages-1298072556.mov\" !",
     "decodebin !",
     "videoconvert !",
     "video/x-raw,format=BGRA !"
   ],
   "alternative-sink-file": [
-    "filesink location=${PEK_PROJECT_ROOT:-/work}/data/output/full-dev.mp4"
+    "filesink location=\"${PEK_PROJECT_ROOT:-/work}/data/output/full-dev.mp4\""
   ],
   "alternative-sink-peksink-with-audio": [
     "peksink name=sink",

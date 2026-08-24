@@ -16,6 +16,7 @@ namespace {
 
 constexpr const char *kEnv = "PEK_RUNTIME_PIPELINE_TEST_VALUE";
 constexpr const char *kRequiredEnv = "PEK_RUNTIME_PIPELINE_TEST_REQUIRED";
+constexpr const char *kSpacedRootEnv = "PEK_RUNTIME_PIPELINE_TEST_SPACED_ROOT";
 
 void setEnv(const char *key, const char *value) {
 #ifdef _WIN32
@@ -113,6 +114,21 @@ TEST(RuntimePipelineJsonLoading, ExpandsPlaceholdersAfterJoiningPipelineFragment
     auto result = pek::runtime::Pipeline::fromJsonFile(path.string());
     expectPipelineSuccess(result);
     std::filesystem::remove(path);
+}
+
+TEST(RuntimePipelineJsonLoading, PreservesQuotedExpandedPathsContainingSpaces) {
+    setEnv(kSpacedRootEnv, "/tmp/pek runtime checkout");
+    const auto path = writeTempPipelineJson(R"json({
+        "pipeline": [
+            "filesrc location=\"${PEK_RUNTIME_PIPELINE_TEST_SPACED_ROOT:-/work}/data/example.mov\" !",
+            "fakesink"
+        ]
+    })json");
+
+    auto result = pek::runtime::Pipeline::fromJsonFile(path.string());
+    unsetEnv(kSpacedRootEnv);
+    std::filesystem::remove(path);
+    expectPipelineSuccess(result);
 }
 
 TEST(RuntimePipelineBus, LogsStandardQosMessages) {

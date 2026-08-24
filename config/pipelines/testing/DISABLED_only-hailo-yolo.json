@@ -1,11 +1,11 @@
 {
   "description": "Test the Hailo YOLO pipeline with a simple pipeline that decodes a JPEG image, runs inference on the YOLOv11 model, and sends the output to a fakesink.",
   "pipeline": [
-    "filesrc location=${PEK_PROJECT_ROOT:-/work}/data/images/GettyImages-1140581459-thumbnail.jpg !",
+    "filesrc location=\"${PEK_PROJECT_ROOT:-/work}/data/images/GettyImages-1140581459-thumbnail.jpg\" !",
     "jpegdec !",
     "imagefreeze num-buffers=${NUM_FRAMES:-30} !",
     "videoconvert ! video/x-raw,format=BGRA,framerate=30/1 !",
-    "pekinfer opchain-path=${PEK_PROJECT_ROOT:-/work}/config/models/yolov11-hailo8/opchain.json active=true !",
+    "pekinfer opchain-path=\"${PEK_PROJECT_ROOT:-/work}/config/models/yolov11-hailo8/opchain.json\" active=true !",
     "fakesink sync=true"
   ]
 }

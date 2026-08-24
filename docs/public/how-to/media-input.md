@@ -34,7 +34,7 @@ Put your image under `data/images/`, then edit a pipeline under
 For a JPEG image, use this pattern:
 
 ```text
-filesrc location=${PEK_PROJECT_ROOT:-/work}/data/images/my-image.jpg !
+filesrc location="${PEK_PROJECT_ROOT:-/work}/data/images/my-image.jpg" !
 jpegdec !
 imagefreeze !
 videoconvert ! video/x-raw,format=BGRA !
@@ -50,7 +50,7 @@ Put your video under `data/videos/`, then edit a pipeline under
 For a local video file, use this pattern:
 
 ```text
-filesrc location=${PEK_PROJECT_ROOT:-/work}/data/videos/my-video.mp4 !
+filesrc location="${PEK_PROJECT_ROOT:-/work}/data/videos/my-video.mp4" !
 decodebin name=dec
 dec. ! queue ! videoconvert ! videoscale ! video/x-raw,format=BGRA !
 ```
