@@ -30,35 +30,19 @@ Optional backend feature environment variables:
 EOF
 }
 
-if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-    usage
-    exit 0
-fi
-
-if [[ $# -eq 0 ]]; then
-    set -- debug
-fi
-
-case "$1" in
-    debug | release | clean) ;;
-    *)
-        echo "Unknown command: $1" >&2
-        usage >&2
-        exit 2
-        ;;
-esac
-
 SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 
-in_container=false
-if [[ "$REPO_ROOT" == /work || -f /.dockerenv ]] || grep -qaE '/docker/|/containers/' /proc/1/cgroup 2> /dev/null; then
-    in_container=true
-fi
+running_in_container() {
+    [[ "$REPO_ROOT" == /work || -f /.dockerenv ]] ||
+        grep -qaE '/docker/|/containers/' /proc/1/cgroup 2> /dev/null
+}
 
-if [[ "$in_container" == false ]]; then
-    detect_script="$REPO_ROOT/scripts/quick-start/detect-environment.sh"
-    start_container_script="$REPO_ROOT/scripts/quick-start/start-container.sh"
+run_on_host() {
+    local detect_script="$REPO_ROOT/scripts/quick-start/detect-environment.sh"
+    local start_container_script="$REPO_ROOT/scripts/quick-start/start-container.sh"
+    local detect_output
+    local -a docker_exec_args
 
     if ! detect_output="$("$detect_script" --shell)"; then
         eval "$detect_output"
@@ -71,22 +55,7 @@ if [[ "$in_container" == false ]]; then
     eval "$detect_output"
 
     cd "$REPO_ROOT"
-    if ! docker inspect -f '{{.State.Running}}' "$PEK_CONTAINER_NAME" 2> /dev/null | grep -q '^true$'; then
-        echo "Container is not running: $PEK_CONTAINER_NAME"
-        echo "Starting it now..."
-        "$start_container_script"
-    fi
-
-    if ! docker inspect -f '{{.State.Running}}' "$PEK_CONTAINER_NAME" 2> /dev/null | grep -q '^true$'; then
-        echo "Error: container did not start: $PEK_CONTAINER_NAME" >&2
-        exit 1
-    fi
-
-    if ! docker exec -u dev "$PEK_CONTAINER_NAME" bash -lc 'test -w /work' > /dev/null 2>&1; then
-        echo "Container /work is not writable as dev."
-        echo "Recreating it with the host UID/GID mapping..."
-        "$start_container_script" --recreate
-    fi
+    "$start_container_script"
 
     docker_exec_args=(-u dev)
     if [[ -f "$REPO_ROOT/devices.env" ]]; then
@@ -104,27 +73,24 @@ if [[ "$in_container" == false ]]; then
         docker exec -u dev "$PEK_CONTAINER_NAME" test -x /work/tools/pek-menu
         echo "Pipeline launcher is ready at /work/tools/pek-menu"
     fi
-    exit 0
-fi
-
-# ---- include ----
-. "$SCRIPT_DIR/private/shtools.sh"
+}
 
 # ---- config ----
-PROJECT_ROOT=/work/development
-BUILD_DIR="$PROJECT_ROOT/build"
-TESTS_BUILD_DIR="$PROJECT_ROOT/build-test"
-PEK_MENU=$PROJECT_ROOT/build/meson-out/pek-menu
+MESON_SOURCE_DIR=/work/development
+BUILD_DIR="$MESON_SOURCE_DIR/build"
+TESTS_BUILD_DIR="$MESON_SOURCE_DIR/build-test"
+PEK_MENU=$MESON_SOURCE_DIR/build/meson-out/pek-menu
 PEK_MENU_OUT=/work/tools/pek-menu
-PEK_CONFIG_CHECK=$PROJECT_ROOT/build/meson-out/pek-config-check
+PEK_CONFIG_CHECK=$MESON_SOURCE_DIR/build/meson-out/pek-config-check
 PEK_CONFIG_CHECK_OUT=/work/tools/pek-config-check
-COMMON_LIBRARY=$PROJECT_ROOT/build/meson-out/libpek-common.so
+COMMON_LIBRARY=$MESON_SOURCE_DIR/build/meson-out/libpek-common.so
 COMMON_LIBRARY_OUT=/work/tools/libpek-common.so
+COMMAND=""
+BUILD_LABEL=""
 EXTRA_SETUP_ARGS=()
 MESON_SETUP_ARGS=()
-MESON_CONFIGURE_ARGS=()
-
-mkdir -p "$BUILD_DIR"
+MESON_MODE_ARGS=()
+POSITIONAL_ARGS=()
 
 meson_build_is_configured() {
     local build_dir="$1"
@@ -190,6 +156,45 @@ parse_args() {
     fi
 }
 
+parse_command() {
+    COMMAND="$1"
+    shift
+    EXTRA_SETUP_ARGS=()
+
+    case "$COMMAND" in
+        debug)
+            parse_args true "$@"
+            BUILD_LABEL="DEBUG"
+            MESON_MODE_ARGS=(
+                --buildtype=debug
+                -Ddebug=true
+                -Dstrip=false
+                -Db_lto=false
+                -Doptimization=0
+            )
+            ;;
+        release)
+            parse_args true "$@"
+            BUILD_LABEL="RELEASE"
+            MESON_MODE_ARGS=(
+                --buildtype=release
+                -Ddebug=false
+                -Dstrip=true
+                -Db_lto=true
+                -Doptimization=3
+            )
+            ;;
+        clean)
+            parse_args false "$@"
+            ;;
+        *)
+            echo "Unknown command: $COMMAND" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
+}
+
 normalize_feature_value() {
     local name="$1"
     local value="$2"
@@ -237,89 +242,51 @@ add_feature_option_from_env() {
 
     normalized_value="$(normalize_feature_value "$env_name/$option_name" "$raw_value")"
     MESON_SETUP_ARGS+=("-D${option_name}=${normalized_value}")
-    MESON_CONFIGURE_ARGS+=("-D${option_name}=${normalized_value}")
     msg "Meson feature selection: ${option_name}=${normalized_value}"
 }
 
 collect_meson_args() {
     MESON_SETUP_ARGS=("${EXTRA_SETUP_ARGS[@]}")
-    MESON_CONFIGURE_ARGS=("${EXTRA_SETUP_ARGS[@]}")
 
     add_feature_option_from_env "executorch" "PEK_EXECUTORCH" "auto"
     add_feature_option_from_env "hailort" "PEK_HAILORT"
     add_feature_option_from_env "ncnn" "PEK_NCNN"
 }
 
-# TODO: Give debug and release separate build directories, then remove the mode resets below.
 # ---- build ----
-debug() {
+build() {
     need meson
     need ninja
 
     local enable_tests="${1:-false}"
+    local arg
+    local -a reuse_args=()
 
-    msg_begin "Starting DEBUG build in directory: $PROJECT_ROOT (tests=$enable_tests)"
-
-    if ! meson_build_is_configured "$BUILD_DIR"; then
-        msg "Meson setup.."
-        meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat -Dtests="$enable_tests" "${MESON_SETUP_ARGS[@]}"
-    else
-        msg "Meson configure (keeping existing build dir)…"
-        meson configure "$BUILD_DIR" \
-            --buildtype=debug \
-            -Ddebug=true \
-            -Dstrip=false \
-            -Db_lto=false \
-            -Doptimization=0 \
-            -Dtests="$enable_tests" \
-            "${MESON_CONFIGURE_ARGS[@]}" > /dev/null
+    if meson_build_is_configured "$BUILD_DIR"; then
+        reuse_args=(--reconfigure)
+        for arg in "${MESON_SETUP_ARGS[@]}"; do
+            if [[ "$arg" == --wipe ]]; then
+                reuse_args=()
+                break
+            fi
+        done
     fi
 
-    msg "Compiling.."
-    meson compile -C "$BUILD_DIR"
-
-    stage_runtime_artifacts
-
-    msg_end "DEBUG compilation DONE → $BUILD_DIR"
-}
-
-release() {
-    need meson
-    need ninja
-
-    local enable_tests="${1:-false}"
-
-    msg_begin "Starting RELEASE build in directory: $PROJECT_ROOT (tests=$enable_tests)"
-
-    if ! meson_build_is_configured "$BUILD_DIR"; then
-        msg "Meson setup (release)…"
-        meson setup "$BUILD_DIR" "$PROJECT_ROOT" \
-            --buildtype=release \
-            -Ddebug=false \
-            -Dstrip=true \
-            -Db_lto=true \
-            -Doptimization=3 \
-            --layout=flat \
-            -Dtests="$enable_tests" \
-            "${MESON_SETUP_ARGS[@]}"
-    else
-        msg "Meson configure (keeping existing build dir)…"
-        meson configure "$BUILD_DIR" \
-            --buildtype=release \
-            -Ddebug=false \
-            -Dstrip=true \
-            -Db_lto=true \
-            -Doptimization=3 \
-            -Dtests="$enable_tests" \
-            "${MESON_CONFIGURE_ARGS[@]}" > /dev/null
-    fi
+    msg_begin "Starting $BUILD_LABEL build in directory: $MESON_SOURCE_DIR (tests=$enable_tests)"
+    msg "Meson setup…"
+    meson setup "$BUILD_DIR" "$MESON_SOURCE_DIR" \
+        "${reuse_args[@]}" \
+        "${MESON_MODE_ARGS[@]}" \
+        --layout=flat \
+        -Dtests="$enable_tests" \
+        "${MESON_SETUP_ARGS[@]}"
 
     msg "Compiling…"
     meson compile -C "$BUILD_DIR"
 
     stage_runtime_artifacts
 
-    msg_end "Release build done → $BUILD_DIR"
+    msg_end "$BUILD_LABEL build done → $BUILD_DIR"
 }
 # ---- clean ----
 clean() {
@@ -341,28 +308,34 @@ clean() {
 }
 
 # ---- entrypoint ----
-cmd="${1:-}"
-if [[ $# -gt 0 ]]; then
-    shift
-fi
-case "$cmd" in
-    debug)
-        parse_args true "$@"
-        collect_meson_args
-        debug "${POSITIONAL_ARGS[0]:-false}"
-        ;;
-    release)
-        parse_args true "$@"
-        collect_meson_args
-        release "${POSITIONAL_ARGS[0]:-false}"
-        ;;
-    clean)
-        parse_args false "$@"
+main() {
+    if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+        usage
+        return
+    fi
+
+    if [[ $# -eq 0 ]]; then
+        set -- debug
+    fi
+
+    parse_command "$@"
+
+    if ! running_in_container; then
+        run_on_host "$@"
+        return
+    fi
+
+    # ---- include ----
+    . "$SCRIPT_DIR/private/shtools.sh"
+
+    mkdir -p "$BUILD_DIR"
+    if [[ "$COMMAND" == clean ]]; then
         clean
-        ;;
-    *)
-        echo "Unknown command: $cmd" >&2
-        usage >&2
-        exit 2
-        ;;
-esac
+        return
+    fi
+
+    collect_meson_args
+    build "${POSITIONAL_ARGS[0]:-false}"
+}
+
+main "$@"
