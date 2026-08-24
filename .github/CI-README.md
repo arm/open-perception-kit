@@ -42,8 +42,8 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
   snippet equivalents against `nightly` or the release tag. Full snippet scans
   materialize Meson wrap sources first.
   Downloaded scanner executables are checksum-verified and every Detect policy
-   violation fails its lane. Persistent job summaries link to their Black Duck
-   BOM; transient Rapid details remain in the workflow artifact and log.
+  violation fails its lane. Persistent job summaries link to their Black Duck
+  BOM; transient Rapid details remain in the workflow artifact and log.
 - Runs pull request quality checks through `expkits-ci --ci-pr-checks`.
 - Runs full/nightly quality checks through `expkits-ci --ci-full-checks`.
 - Applies CI exceptions from the root-level `ci-suppressions.txt` only in the
