@@ -35,6 +35,10 @@ PY_LICENSE_HEADER = """\
 """
 CMAKE_LICENSE_HEADER = PY_LICENSE_HEADER
 TS_LICENSE_HEADER = "// Copyright (C) 2026 Arm Limited. All rights reserved.\n"
+TS_GENERATED_HEADER = """\
+// Generated file. Do not edit.
+// SDK users: change schemas or generator inputs, then regenerate this file.
+"""
 CMAKE_FORMAT = "cmake-format"
 MESON_BUILD_FILENAME = "meson.build"
 
@@ -178,6 +182,14 @@ def build_typescript_package(
         ])
     finally:
         shutil.rmtree(transient_modules)
+
+
+def add_typescript_declaration_headers(generated_root: Path) -> None:
+    header = f"{TS_LICENSE_HEADER}{TS_GENERATED_HEADER}"
+    for declaration in sorted((generated_root / "ts" / "dist").rglob("*.d.ts")):
+        text = declaration.read_text(encoding="utf-8")
+        if not text.startswith(header):
+            declaration.write_text(f"{header}{text}", encoding="utf-8")
 
 
 def format_cpp_sources(generated_root: Path, clang_format: str) -> None:
@@ -522,6 +534,7 @@ def prepare_sdk(
     format_cpp_sources(generated_root, clang_format)
     format_python_modules(generated_root, formatter_python)
     build_typescript_package(config, generated_root, node, node_modules)
+    add_typescript_declaration_headers(generated_root)
     validate_flowdata_manifests(config, flowdata_manifests)
     normalize_integration_files(config, generated_root)
     format_cmake_integrations(generated_root)
