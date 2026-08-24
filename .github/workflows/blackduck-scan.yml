@@ -75,6 +75,7 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           BLACKDUCK_API_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }}
+          BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
           BLACKDUCK_PROJECT_NAME: ${{ github.repository }}
           BLACKDUCK_PROJECT_VERSION: pr-slot-${{ needs.select-scan-slot.outputs.slot }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -85,6 +86,7 @@ jobs:
         run: |
           set -euo pipefail
           test -n "${BLACKDUCK_API_TOKEN:-}"
+          test -n "${BLACKDUCK_URL:-}"
           test "$(git rev-parse HEAD)" = "$HEAD_SHA"
           git cat-file -e "${BASE_SHA}^{commit}"
 
