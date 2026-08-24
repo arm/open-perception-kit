@@ -20,7 +20,7 @@ absolute path when set; otherwise the checkout containing this script is used.
 Options:
   --user NAME       Configure NAME as the development user (default: SUDO_USER)
   --skip-assets     Do not download model files and demo videos
-  --skip-shell      Do not install Neovim, cpptools, or Oh My Zsh
+  --skip-shell      Do not install Neovim, cpptools
   -h, --help        Show this help
 
 The LXC host remains responsible for networking and bind-mounting the checkout,
@@ -330,11 +330,10 @@ chown "$DEV_USER:$DEV_GROUP" /tmp/pekcomm
 
 if [[ "$SKIP_ASSETS" == false ]]; then
     log "Downloading model artifacts and demo videos as ${DEV_USER}"
-    sudo -u "$DEV_USER" -H env PEK_PROJECT_ROOT="$PEK_PROJECT_ROOT" \
+    sudo --preserve-env=PEK_PROJECT_ROOT,HF_TOKEN -u "$DEV_USER" -H \
         /opt/pek-venvs/devtools/bin/python \
         "$PEK_PROJECT_ROOT/scripts/download-models.py" \
-        --models-dir "$PEK_PROJECT_ROOT/config/models" \
-        --token "${HF_TOKEN:-}"
+        --models-dir "$PEK_PROJECT_ROOT/config/models"
     sudo -u "$DEV_USER" -H env PEK_PROJECT_ROOT="$PEK_PROJECT_ROOT" \
         "$PEK_PROJECT_ROOT/scripts/download-data.sh"
 fi

@@ -135,7 +135,7 @@ RUN --mount=type=cache,target=/root/.cache/huggingface \
     exit 1; \
   fi; \
   HF_DOWNLOAD_CACHEBUST="${HF_DOWNLOAD_CACHEBUST}" \
-  ./scripts/download-models.py --models-dir config/models --token "${HF_TOKEN:-}"
+  ./scripts/download-models.py --models-dir config/models
 
 # Development base extends the shared native build tooling. PEK source and build
 # outputs come from the mounted checkout, not from this image.

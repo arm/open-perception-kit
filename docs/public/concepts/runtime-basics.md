@@ -140,7 +140,7 @@ The simplest method is to edit a pipeline preset under `config/pipelines/`.
 For a still image, use a `filesrc` source followed by image decode and `imagefreeze`, for example:
 
 ```text
-filesrc location=${PEK_PROJECT_ROOT:-/work}/data/images/my-image.jpg !
+filesrc location=\"${PEK_PROJECT_ROOT:-/work}/data/images/my-image.jpg\" !
 jpegdec !
 imagefreeze !
 videoconvert ! video/x-raw,format=BGRA !

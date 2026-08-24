@@ -30,8 +30,8 @@ class ModelArtifactBuildTest(unittest.TestCase):
         self.assertEqual(
             inference_steps,
             [
-                "pekinfer opchain-path=${PEK_PROJECT_ROOT:-/work}/config/models/yolov11/opchain.json "
-                "active=true !"
+                'pekinfer opchain-path="${PEK_PROJECT_ROOT:-/work}/config/models/'
+                'yolov11/opchain.json" active=true !'
             ],
         )
         self.assertIn(
@@ -523,7 +523,7 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
             environment = dict(os.environ) | {
                 "HF_FAKE_CACHE": str(cache),
                 "HF_HOME": str(root / "hub-cache"),
-                "HF_TOKEN": "must-be-ignored-without-token-env",
+                "HF_TOKEN": "",
                 "HF_TOKEN_CAPTURE": str(root / "captured-token"),
                 "PYTHONPATH": str(fake_hub.parent),
             }
@@ -577,14 +577,8 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
                 ["False", str(root / "hub-cache/hub/anonymous")],
             )
 
-            environment["HF_TOKEN"] = ""
-            run_download("--token", check=True)
-            self.assertEqual(
-                (root / "captured-token").read_text().splitlines(),
-                ["False", str(root / "hub-cache/hub/anonymous")],
-            )
-
-            run_download("--token", "test-token", check=True)
+            environment["HF_TOKEN"] = "test-token"
+            run_download(check=True)
             first_token_capture = (
                 root / "captured-token"
             ).read_text().splitlines()
@@ -594,7 +588,8 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
             self.assertNotEqual(first_token_cache, Path(anonymous_capture[1]))
             self.assertNotIn("test-token", first_token_cache.name)
 
-            run_download("--token", "lower-access-token", check=True)
+            environment["HF_TOKEN"] = "lower-access-token"
+            run_download(check=True)
             second_token_capture = (
                 root / "captured-token"
             ).read_text().splitlines()
@@ -612,7 +607,7 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
                 text=True,
             )
             self.assertIn("--models-dir MODELS_DIR", help_result.stdout)
-            self.assertIn("--token [TOKEN]", help_result.stdout)
+            self.assertNotIn("--token", help_result.stdout)
 
             invalid_result = subprocess.run(
                 [
