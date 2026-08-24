@@ -499,6 +499,15 @@ jobs:
           -m publisher.actions.publish_to_artifactory_action
           "pek-release-artifacts/*"
 
+      - name: Publish Perception Python package to Artifactory PyPI
+        env:
+          TWINE_REPOSITORY_URL: ${{ vars.ARTIFACTORY_PYPI_URL }}
+          TWINE_USERNAME: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
+          TWINE_PASSWORD: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
+        run: >-
+          uvx --from 'twine==6.2.0' twine upload
+          "${{ runner.temp }}"/pek-release-artifacts/opk_perception_sdk-*-py3-none-any.whl
+
       # This step is only here to make the created package easier to access
       - name: Print links and hashes
         env:
