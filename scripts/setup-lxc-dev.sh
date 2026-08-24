@@ -322,7 +322,7 @@ if ! grep -Fqx 'source /etc/zsh/pek-dev.zsh' /etc/zsh/zshenv; then
     printf '\n# PEK development environment\nsource /etc/zsh/pek-dev.zsh\n' >> /etc/zsh/zshenv
 fi
 
-install -d -m 0755 /tmp
+install -d -m 1777 /tmp
 if [[ ! -e /tmp/pekcomm ]]; then
     mkfifo --mode=640 /tmp/pekcomm
 fi
