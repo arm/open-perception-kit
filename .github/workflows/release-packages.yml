@@ -502,7 +502,7 @@ jobs:
       - name: Publish Perception Python package to Artifactory PyPI
         if: github.event_name == 'push'
         env:
-          TWINE_REPOSITORY_URL: ${{ vars.ARTIFACTORY_PYPI_URL }}
+          TWINE_REPOSITORY_URL: https://artifactory.arm.com/artifactory/api/pypi/edge-ai-tooling.pypi
           TWINE_USERNAME: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
           TWINE_PASSWORD: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
         run: >-
