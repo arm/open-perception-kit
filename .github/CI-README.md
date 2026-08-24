@@ -13,8 +13,9 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 
 - Builds one exact-SHA PEK CI image, shares it within the workflow run, then runs
   Quality, Sonar, Valgrind, and the `pek-ci` Docker Scout scan from that image.
-- Uploads the PR image for the trusted GHCR publisher in the same build job, so
-  every consumer waits for one complete image handoff.
+- Uploads the complete run image handoff as a one-day raw tar artifact, so every
+  consumer and the trusted PR GHCR publisher waits for the same image and
+  exact-SHA helpers without consuming the Actions cache quota.
 - Reuses Docker layers through the ref-scoped cache flow below.
 - Starts the Linux, Raspberry Pi, and macOS quick-start checks independently.
   The macOS lane pulls an exact-SHA quick-start image from GHCR and seeds its
@@ -40,9 +41,9 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Supports Sonar gate suppressions for `UNIT_TEST_COVERAGE`, `CODE_DUPLICATION`,
   `MAINTAINABILITY`, `RELIABILITY`, `SECURITY`, and `SECURITY_HOTSPOTS`.
   Sonar findings and unsuppressed gate conditions remain blocking.
-- Lets `pek-ci-image-cleanup.yml` delete successful/cancelled run handoffs and
-  all remaining PR caches when the pull request closes. Failed-run handoffs stay
-  available for failed-job reruns.
+- Lets `pek-ci-image-cleanup.yml` delete all remaining PR caches and the PR GHCR
+  image when the pull request closes. One-day run artifacts remain available
+  for failed-job reruns.
 
 The Python dependency, Docker Scout, and workflow dependency workflows remain
 reusable and keep their independent schedule/manual triggers. Their direct PR
@@ -83,8 +84,7 @@ writes only its own merge ref.
 | Exact-SHA macOS quick-start image | Avoid QEMU image builds in the macOS lane | Published by `main` and `develop` pushes; newest 20 retained in GHCR |
 | macOS quick-start BuildKit cache | Reuse publisher image layers | Current GHCR `buildcache` tag; superseded untagged versions are deleted |
 | Sonar CFamily server cache | Reuse target-branch or main fallback analysis in pull requests | Updated by `main` and `develop` push analysis |
-| Run image cache | Pass the image from `Build PEK CI image` to its dependent jobs | Exact run; retained after failure for rerun, deleted after success/cancel or PR close |
-| PR image artifact | Pass the verified image to the trusted GHCR publisher | One day |
+| Run image artifact | Pass the image and exact-SHA helpers from `Build PEK CI image` to its dependent jobs and trusted PR publisher | One day |
 | `pek-ci-pr-<number>` image in GHCR | Pull the latest successful PEK CI image locally | Replaced after the next successful run; deleted when the PR closes |
 | `nightly-amd64` and `nightly-arm64` deployment images in GHCR | Seed native release runtime layers | Replaced by the next nightly run |
 | `buildcache-amd64` and `buildcache-arm64` in GHCR | Seed the complete native deployment build graph | Replaced by the next nightly run |
