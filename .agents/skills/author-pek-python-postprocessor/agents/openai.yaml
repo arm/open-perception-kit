@@ -1,0 +1,4 @@
+interface:
+  display_name: "Author PEK Python Postprocessor"
+  short_description: "Build trusted Python tensor postprocessors"
+  default_prompt: "Use $author-pek-python-postprocessor to add a model-local Python postprocessor, integrate it into an OpChain, and validate its pipeline."

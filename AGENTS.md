@@ -44,6 +44,7 @@ Read these first before making substantial changes:
 - [Runtime basics](docs/public/concepts/runtime-basics.md)
 - [Bring your model](docs/public/how-to/bring-your-model.md)
 - [Custom postprocessing](docs/public/how-to/custom-postprocessing.md)
+- [Python script Op](docs/public/how-to/python-script-op.md)
 - [Known limitations](docs/arch/known-limitations.md)
 
 For implementation detail and background, continue with:
@@ -58,6 +59,7 @@ For implementation detail and background, continue with:
 ## Default extension surfaces
 
 - `config/models/` for model descriptors and model-local opchains
+- `config/models/<model>/scripts/` for model-local Python postprocessing
 - `config/opchains/` for reusable multi-stage inference chains
 - `config/pipelines/` for top-level runnable presets used by `pek-menu`
 - `development/ops-std/postproc/` for new tensor parsers
@@ -125,6 +127,27 @@ Useful checked-in examples:
 - `development/ops-std/postproc/CameraContactParser.cpp`
 - `development/ops-std/postproc/YoloParser.cpp`
 - `development/ops-std/postproc/ImageNetClassificationParser.cpp`
+
+### Add Python postprocessing
+
+Use the repository skill `$author-pek-python-postprocessor` for trusted Python
+postprocessors executed through `pek-python-ops/PythonScript`.
+
+Start in:
+
+- `config/models/<model>/scripts/`
+- the model-local opchain or `config/opchains/`
+- `config/pipelines/` when a runnable preset is required
+
+Read first:
+
+- [Python script Op](docs/public/how-to/python-script-op.md)
+
+Use `config/models/mobilenetv2/scripts/python_classification.py` and
+`config/models/mobilenetv2/opchain-python-classification.json` as the primary
+checked-in example. Prefer existing generated Perception payloads and the
+official container runtime; do not begin by changing the Python bridge or core
+runtime.
 
 ### Add a new structured runtime result
 Use the repository skill `$evolve-perception-schema` for compatibility
