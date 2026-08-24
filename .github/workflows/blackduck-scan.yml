@@ -220,6 +220,7 @@ jobs:
             "--detect.code.location.name=${project_name}/${version_name}/dependencies" \
             --detect.blackduck.scan.mode=RAPID \
             --detect.cleanup=false \
+            --detect.detector.search.depth=5 \
             --detect.output.path="$scanner_dir/output" \
             --detect.source.path="$WORKSPACE_ROOT" \
             --detect.stateless.policy.check.fail.on.severities=ALL \
@@ -260,6 +261,7 @@ jobs:
                 "--detect.project.version.name=${VERSION_NAME}"
                 "--detect.code.location.name=${PROJECT_NAME}/${VERSION_NAME}/dependencies"
                 --detect.cleanup=false
+                --detect.detector.search.depth=5
                 --detect.output.path=/blackduck/output
                 --detect.source.path=/work
                 --detect.timeout=1800
