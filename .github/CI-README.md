@@ -28,14 +28,13 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
   labels through this workflow so label-triggered checks do not create duplicate
   PR workflows. Workflow dependency freshness keeps its scheduled and manual
   entry points in `workflow-audit.yml`.
-- Supports manual `all`, `quality`, `sonar`, `valgrind`, and `blackduck`
-  selections.
+- Supports manual `all`, `quality`, `sonar`, and `valgrind` selections.
 - Uses each pull request's immediate base branch, including stacked pull requests.
 - Owns the nightly Quality and Valgrind run, the native deployment image
   caches, and the Valgrind baseline artifact.
 - The required PR Sonar check keeps the exact `Run Sonar analysis in Docker`
   name. `release-packages.yml` owns release Sonar analysis.
-- Runs Black Duck snippet scans for same-repository pull requests and full
+- Runs Black Duck delta/snippet scans for same-repository pull requests and full
   source scans for nightly runs and `release/*` tags. Downloaded scanner
   executables are checksum-verified before use. The PR-only snippet workflow is
   separate, so the PEK CI graph shows one Black Duck full-scan consumer beside

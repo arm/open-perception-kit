@@ -22,7 +22,7 @@ jobs:
         run: printf 'value=%02d\n' "$((PR_NUMBER % 20))" >> "$GITHUB_OUTPUT"
 
   snippet-scan:
-    name: Scan PR snippets with Black Duck
+    name: Scan PR delta with Black Duck
     needs: select-scan-slot
     if: >-
       github.actor != 'dependabot[bot]' &&
