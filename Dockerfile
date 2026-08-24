@@ -157,7 +157,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-  ccache file gnupg gstreamer1.0-gl gstreamer1.0-nice gstreamer1.0-pipewire \
+  file gnupg gstreamer1.0-gl gstreamer1.0-nice gstreamer1.0-pipewire \
   gstreamer1.0-plugins-bad gstreamer1.0-plugins-base \
   gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
   gstreamer1.0-tools gstreamer1.0-x lldb-17 nodejs npm pre-commit python3-gi python3-pip \
@@ -397,8 +397,7 @@ COPY --from=pek-models \
 FROM pek-dev AS pek-dev-macos-cache-build
 
 ENV CCACHE_DIR=/work/.cache/ccache \
-  CCACHE_MAXSIZE=2G \
-  CCACHE_UMASK=000
+  CCACHE_MAXSIZE=2G
 
 COPY --chown=dev . /work
 RUN ./scripts/build.sh && ccache --show-stats

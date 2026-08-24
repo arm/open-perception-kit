@@ -6,7 +6,6 @@ x-pek-development-environment: &pek-development-environment
   DISPLAY: ${DISPLAY:-}
   CCACHE_DIR: /work/.cache/ccache
   CCACHE_MAXSIZE: 2G
-  CCACHE_UMASK: "000"
 
 x-pek-model-image-build: &pek-model-image-build
   context: .
