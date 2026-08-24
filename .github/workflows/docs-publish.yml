@@ -16,6 +16,12 @@ on:
         description: Commit SHA or ref to publish.
         required: false
         default: ""
+  workflow_call:
+    inputs:
+      publish_ref:
+        description: Commit SHA or ref to publish.
+        required: true
+        type: string
 
 permissions:
   contents: read

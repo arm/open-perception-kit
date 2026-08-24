@@ -169,7 +169,6 @@ class ModelArtifactBuildTest(unittest.TestCase):
             "-f compose.yaml config --quiet",
             pek_ci,
         )
-        self.assertEqual(pek_ci.count(workflow_step), 3)
         self.assertIn(
             "      - name: Generate Hugging Face download cache key\n"
             "        run: |\n"

@@ -64,6 +64,11 @@ Release validation and publication use three workflows:
 | Manual release validation | Resolves `source_ref`, builds temporary x86_64 and Arm snapshot images, runs their native offline integration smokes, and emits the validated archives | Uploads the validated archives to disposable Artifactory and draft GitHub Release locations, verifies them, and deletes them | Not run |
 | Manual package publication | Not run | Not run | Resolves `source_ref`, builds all three archives, smoke-tests both architecture images, publishes their multi-architecture GHCR snapshot, and publishes the archives to Artifactory only |
 
+On a push to `main`, release Sonar analysis and the staging docs deployment run
+as independent release-package jobs. Their failures make the release workflow
+red, but the GitHub Release and Artifactory publication jobs do not depend on
+them and continue.
+
 Credentialed publication probes run only after an unprivileged pull-request or
 manual validation workflow succeeds. The trusted `workflow_run` workflow does
 not check out or execute the selected source; it accepts only the two archives
