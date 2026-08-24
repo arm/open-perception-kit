@@ -23,6 +23,9 @@ REPO_ROOT = TOOL.parents[2]
 MODEL_DESCRIPTOR = "model.json"
 ONNX_MODEL_FILE = "model.onnx"
 ONNX_INFERENCE_OP = "pek-onnx-ops/Inference"
+EXECUTORCH_INFERENCE_OP = "pek-executorch-ops/Inference"
+OPCHAINS_DIR = Path("config/opchains")
+PLUGIN_DIR = Path("lib/gstreamer-1.0")
 SOURCE_COMMIT = "a" * 40
 
 
@@ -95,7 +98,7 @@ class ReleaseToolTests(unittest.TestCase):
     def test_stages_local_model_with_relative_references(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            (root / "config/opchains").mkdir(parents=True)
+            (root / OPCHAINS_DIR).mkdir(parents=True)
             add_release_models(root)
             model_root = root / "config/models/cam-contact"
             (model_root / "secondary.onnx").write_bytes(b"secondary")
@@ -141,7 +144,7 @@ class ReleaseToolTests(unittest.TestCase):
     def test_stages_only_release_model_allowlist(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            (root / "config/opchains").mkdir(parents=True)
+            (root / OPCHAINS_DIR).mkdir(parents=True)
             add_release_models(root)
             add_model(root, "not-released", ONNX_MODEL_FILE, ONNX_INFERENCE_OP)
             stage_root = root / "stage"
@@ -164,7 +167,7 @@ class ReleaseToolTests(unittest.TestCase):
     def test_stages_executorch_model_bytes_and_backend(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            (root / "config/opchains").mkdir(parents=True)
+            (root / OPCHAINS_DIR).mkdir(parents=True)
             add_release_models(root)
             source_model = root / "config/models/yolox/model.pte"
             source_model.write_bytes(b"pte\x00payload")
@@ -181,21 +184,21 @@ class ReleaseToolTests(unittest.TestCase):
                     encoding="utf-8"
                 )
             )
-            self.assertEqual(opchain["ops"][0]["id"], "pek-executorch-ops/Inference")
+            self.assertEqual(opchain["ops"][0]["id"], EXECUTORCH_INFERENCE_OP)
 
     def test_rejects_wrong_release_model_backend_or_suffix(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            (root / "config/opchains").mkdir(parents=True)
+            (root / OPCHAINS_DIR).mkdir(parents=True)
             add_release_models(root)
             yolox_opchain = root / "config/models/yolox/opchain.json"
             opchain = json.loads(yolox_opchain.read_text(encoding="utf-8"))
             opchain["ops"][0]["id"] = "pek-onnx-ops/Inference"
             yolox_opchain.write_text(json.dumps(opchain), encoding="utf-8")
-            with self.assertRaisesRegex(RuntimeError, "pek-executorch-ops/Inference"):
+            with self.assertRaisesRegex(RuntimeError, EXECUTORCH_INFERENCE_OP):
                 release_tool.discover_models(root)
 
-            opchain["ops"][0]["id"] = "pek-executorch-ops/Inference"
+            opchain["ops"][0]["id"] = EXECUTORCH_INFERENCE_OP
             yolox_opchain.write_text(json.dumps(opchain), encoding="utf-8")
             descriptor = root / "config/models/yolox/model.json"
             descriptor.write_text(json.dumps({"modelFile": "model.onnx"}), encoding="utf-8")
@@ -206,7 +209,7 @@ class ReleaseToolTests(unittest.TestCase):
     def test_rejects_hailo_release_content(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             package_root = Path(temporary)
-            plugin_root = package_root / "lib/gstreamer-1.0"
+            plugin_root = package_root / PLUGIN_DIR
             private_root = package_root / "lib/pek"
             plugin_root.mkdir(parents=True)
             private_root.mkdir()
@@ -226,7 +229,7 @@ class ReleaseToolTests(unittest.TestCase):
     def test_allows_source_named_legal_documentation_directories(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             package_root = Path(temporary)
-            plugin_root = package_root / "lib/gstreamer-1.0"
+            plugin_root = package_root / PLUGIN_DIR
             plugin_root.mkdir(parents=True)
             for plugin_name in release_tool.PLUGIN_NAMES:
                 (plugin_root / plugin_name).touch()
@@ -247,7 +250,7 @@ class ReleaseToolTests(unittest.TestCase):
     def test_rejects_incomplete_model_allowlist(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             package_root = Path(temporary)
-            plugin_root = package_root / "lib/gstreamer-1.0"
+            plugin_root = package_root / PLUGIN_DIR
             model_root = package_root / "share/pek/models"
             plugin_root.mkdir(parents=True)
             model_root.mkdir(parents=True)
@@ -269,7 +272,7 @@ class ReleaseToolTests(unittest.TestCase):
     def test_rejects_missing_or_non_elf_runtime_modules(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             package_root = Path(temporary)
-            plugin_root = package_root / "lib/gstreamer-1.0"
+            plugin_root = package_root / PLUGIN_DIR
             private_root = package_root / "lib/pek"
             model_root = package_root / "share/pek/models"
             plugin_root.mkdir(parents=True)
@@ -345,7 +348,7 @@ class ReleaseToolTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             repo_root = root / "source"
-            shared_root = repo_root / "config/opchains/tracking"
+            shared_root = repo_root / OPCHAINS_DIR / "tracking"
             shared_root.mkdir(parents=True)
 
             add_release_models(repo_root)
@@ -427,7 +430,7 @@ class ReleaseToolTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             repo_root = root / "source"
-            (repo_root / "config/opchains").mkdir(parents=True)
+            (repo_root / OPCHAINS_DIR).mkdir(parents=True)
             add_release_models(repo_root)
             nested_schema = repo_root / "config/schemas/v1/opchain/common.schema.json"
             nested_schema.parent.mkdir()
@@ -604,7 +607,7 @@ class ReleaseToolTests(unittest.TestCase):
             root = Path(temporary)
             model_root = root / "config/models/cam-contact"
             model_root.mkdir(parents=True)
-            (root / "config/opchains").mkdir(parents=True)
+            (root / OPCHAINS_DIR).mkdir(parents=True)
             (root / "config/models/escape.onnx").write_bytes(b"model")
             (model_root / MODEL_DESCRIPTOR).write_text(
                 json.dumps({"modelFile": "../escape.onnx"}), encoding="utf-8"

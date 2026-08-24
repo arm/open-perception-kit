@@ -16,19 +16,19 @@
 #include <string>
 using namespace pek::op;
 
-const std::string &OpChain::getName() {
+const std::string &OpChain::getName() const {
     return this->name;
 }
 
-const std::string &OpChain::getDisplayName() {
+const std::string &OpChain::getDisplayName() const {
     return this->displayName;
 }
 
-const std::string &OpChain::getTask() {
+const std::string &OpChain::getTask() const {
     return this->task;
 }
 
-const std::string &OpChain::getRuntime() {
+const std::string &OpChain::getRuntime() const {
     return this->runtime;
 }
 
