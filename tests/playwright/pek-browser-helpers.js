@@ -194,8 +194,7 @@ async function backendModelState(page, elementName) {
 }
 
 async function expectVideoKeepsPlaying(page, sampleCount = VIDEO_SAMPLE_COUNT) {
-  let previousState = await page.evaluate(readVideoState);
-  expectVideoStateToBeHealthy(previousState);
+  let previousState = await waitForHealthyVideoState(page, null, VIDEO_PROGRESS_TIMEOUT_MS);
 
   for (let index = 0; index < sampleCount; index += 1) {
     await page.waitForTimeout(VIDEO_SAMPLE_INTERVAL_MS);
