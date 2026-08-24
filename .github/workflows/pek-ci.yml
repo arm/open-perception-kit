@@ -548,7 +548,7 @@ jobs:
     with:
       checkout_ref: ${{ needs.build-ci-image.outputs.head_sha }}
       ci_image_sha: ${{ needs.build-ci-image.outputs.head_sha }}
-      version_name: ${{ github.event_name == 'schedule' && 'nightly' || github.ref_name }}
+      version_name: ${{ github.event_name == 'schedule' && 'nightly' || inputs.pr_number != '' && format('pr-{0}', inputs.pr_number) || github.ref_name }}
     secrets:
       BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
       BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }} # pragma: allowlist secret
