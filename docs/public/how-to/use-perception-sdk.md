@@ -59,22 +59,29 @@ descriptor also locks the C++ source archive used by the Docker images.
 
 ## Install the Python SDK
 
-PEK publication exposes the same verified Perception wheel that is embedded in
-the SDK ZIP beside the PEK archives in the generic Artifactory release folder.
-Python-only consumers can lock that immutable URL directly.
+Stable PEK releases publish the same verified Perception wheel that is embedded
+in the SDK ZIP to the existing `edge-ai-tooling` Artifactory PyPI repository.
+Python-only consumers can lock it as a normal package dependency.
 
-Declare the PEK release version and map it to the wheel URL printed by the release job:
+Declare the PEK release version and named index:
 
 ```toml
 [project]
 dependencies = ["opk-perception-sdk==<pek-version>"]
 
+[[tool.uv.index]]
+name = "edge-ai-tooling"
+url = "https://artifactory.arm.com/artifactory/api/pypi/edge-ai-tooling.pypi/simple"
+explicit = true
+authenticate = "always"
+
 [tool.uv.sources]
-opk-perception-sdk = { url = "https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci/releases/<pek-version>/opk_perception_sdk-<pek-version>-py3-none-any.whl" }
+opk-perception-sdk = { index = "edge-ai-tooling" }
 ```
 
-Integration snapshots keep that version and are distinguished by their
-Artifactory snapshot path, source commit, and locked SHA-256.
+Manual integration snapshots are not published as stable PyPI versions. Their
+wheel remains available at the exact generic Artifactory snapshot URL printed
+by the release job and can be temporarily pinned with its SHA-256.
 
 Authenticate uv with the existing Artifactory credentials, then lock and sync:
 

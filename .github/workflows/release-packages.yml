@@ -500,6 +500,7 @@ jobs:
           "pek-release-artifacts/*"
 
       - name: Publish Perception Python package to Artifactory PyPI
+        if: github.event_name == 'push'
         env:
           TWINE_REPOSITORY_URL: ${{ vars.ARTIFACTORY_PYPI_URL }}
           TWINE_USERNAME: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}

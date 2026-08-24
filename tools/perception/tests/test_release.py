@@ -6,14 +6,17 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import io
 import json
 import shutil
 import sys
 import tempfile
 import unittest
 import zipfile
-from pathlib import Path
+from contextlib import redirect_stdout
 from dataclasses import replace
+from pathlib import Path
+from unittest.mock import patch
 
 
 PACKAGE_MODULE_PATH = Path(__file__).resolve().parents[1] / "package.py"
@@ -121,6 +124,24 @@ class SchemaChangeParserTests(unittest.TestCase):
         self.assertEqual(messages["Point appended fields: z"], "breaking")
         self.assertEqual(messages["changed underlying type of enum:State"], "breaking")
         self.assertEqual(messages["Payload appended fields: value"], "breaking")
+
+    def test_json_report_output(self) -> None:
+        report = {
+            "base": "HEAD",
+            "required_bump": "none",
+            "changed_schemas": [],
+            "affected_roots": [],
+            "findings": [],
+        }
+        output = io.StringIO()
+        with (
+            patch.object(sys, "argv", ["evaluate_schema_change.py", "--json"]),
+            patch.object(schema_change, "repository_root", return_value=Path(".")),
+            patch.object(schema_change, "evaluate", return_value=report),
+            redirect_stdout(output),
+        ):
+            self.assertEqual(schema_change.main(), 0)
+        self.assertEqual(json.loads(output.getvalue()), report)
 
 
 class SemanticVersionTests(unittest.TestCase):

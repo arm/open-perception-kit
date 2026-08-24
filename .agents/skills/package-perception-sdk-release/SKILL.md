@@ -104,9 +104,11 @@ Choose one handoff mode:
 - **PEK product release handoff:** Pass the verified triplet only to the existing
   PEK package assembly. Require the same bytes under
   `share/pek/perception-sdk/` in both architecture archives. The existing PEK
-  publication workflow may publish the verified Python wheel unchanged beside
-  the PEK release archives in the same generic Artifactory folder; do not
-  publish the rest of the triplet as separate top-level PEK release assets.
+  publication workflow publishes the verified Python wheel unchanged beside
+  the PEK archives in generic Artifactory. Stable release pushes also publish
+  that wheel to the existing Artifactory PyPI repository; manual snapshots do
+  not publish stable package versions to PyPI. Do not publish the rest of the
+  triplet as separate top-level PEK release assets.
 
 Do not commit release ZIPs or sidecars unless repository policy explicitly
 requires it. Record the SDK version, repository commit, archive SHA-256,
