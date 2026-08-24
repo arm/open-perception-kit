@@ -15,8 +15,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+import sdk_config
+
 
 SCHEMA_DIRECTORY = Path("schemas/perception/metadata")
+PRODUCT_VERSION_PATH = Path("development/meson.build")
 RECORD_PATTERN = re.compile(r"\b(table|struct)\s+(\w+)\s*\{(.*?)\}", re.DOTALL)
 ENUM_PATTERN = re.compile(
     r"\b(enum|union)\s+(\w+)(?:\s*:\s*(\w+))?\s*\{(.*?)\}", re.DOTALL
@@ -189,6 +192,30 @@ def load_base_schemas(repo_root: Path, base: str) -> dict[str, Schema]:
         source = run_git(repo_root, ["show", f"{base}:{path}"])
         schemas[path] = parse_schema(path, source)
     return schemas
+
+
+def load_current_version(repo_root: Path) -> tuple[int, int, int]:
+    value = sdk_config.product_version(repo_root / PRODUCT_VERSION_PATH)
+    return tuple(int(component) for component in value.split("."))
+
+
+def parse_product_version(source: str) -> tuple[int, int, int]:
+    match = sdk_config.PRODUCT_VERSION.search(source)
+    if not match or not sdk_config.SEMVER.fullmatch(match.group(1)):
+        raise RuntimeError(
+            "development/meson.build must contain a stable MAJOR.MINOR.PATCH version"
+        )
+    return tuple(int(component) for component in match.group(1).split("."))
+
+
+def load_base_version(repo_root: Path, base: str) -> tuple[int, int, int]:
+    return parse_product_version(
+        run_git(repo_root, ["show", f"{base}:{PRODUCT_VERSION_PATH.as_posix()}"])
+    )
+
+
+def format_version(version: tuple[int, int, int]) -> str:
+    return ".".join(str(component) for component in version)
 
 
 def validate_file_identifier(path: str, identifier: str) -> list[Finding]:
@@ -417,6 +444,18 @@ def required_bump(findings: list[Finding], changed_paths: set[str]) -> str:
     return "none"
 
 
+def version_satisfies(
+    base: tuple[int, int, int],
+    current: tuple[int, int, int],
+    required: str,
+) -> bool:
+    if required == "none":
+        return True
+    if required == "major":
+        return current[0] > base[0]
+    return current[0] > base[0] or (current[0] == base[0] and current[1] > base[1])
+
+
 def evaluate(repo_root: Path, base: str) -> dict[str, object]:
     current = load_current_schemas(repo_root)
     previous = load_base_schemas(repo_root, base)
@@ -435,10 +474,23 @@ def evaluate(repo_root: Path, base: str) -> dict[str, object]:
             changed_paths.add(path)
             findings.extend(compare_schema(previous[path], current[path]))
 
+    base_version = load_base_version(repo_root, base)
+    current_version = load_current_version(repo_root)
     bump = required_bump(findings, changed_paths)
+    if not version_satisfies(base_version, current_version, bump):
+        findings.append(
+            Finding(
+                "error",
+                str(PRODUCT_VERSION_PATH),
+                f"PEK version {format_version(current_version)} does not satisfy required {bump} "
+                f"bump from {format_version(base_version)}",
+            )
+        )
 
     return {
         "base": base,
+        "base_version": format_version(base_version),
+        "current_version": format_version(current_version),
         "required_bump": bump,
         "changed_schemas": sorted(changed_paths),
         "affected_roots": dependent_roots(current, changed_paths),
@@ -448,6 +500,7 @@ def evaluate(repo_root: Path, base: str) -> dict[str, object]:
 
 def print_report(report: dict[str, object]) -> None:
     print(f"Base: {report['base']}")
+    print(f"PEK version: {report['base_version']} -> {report['current_version']}")
     print(f"Required PEK release impact: {report['required_bump']}")
     changed = report["changed_schemas"]
     affected = report["affected_roots"]

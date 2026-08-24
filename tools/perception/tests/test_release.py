@@ -128,6 +128,8 @@ class SchemaChangeParserTests(unittest.TestCase):
     def test_json_report_output(self) -> None:
         report = {
             "base": "HEAD",
+            "base_version": "1.2.3",
+            "current_version": "1.2.3",
             "required_bump": "none",
             "changed_schemas": [],
             "affected_roots": [],
@@ -142,6 +144,44 @@ class SchemaChangeParserTests(unittest.TestCase):
         ):
             self.assertEqual(schema_change.main(), 0)
         self.assertEqual(json.loads(output.getvalue()), report)
+
+    def test_schema_release_impact_uses_product_version(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "development").mkdir()
+            version_file = root / schema_change.PRODUCT_VERSION_PATH
+            with (
+                patch.object(schema_change, "load_base_schemas", return_value={}),
+                patch.object(schema_change, "load_current_schemas", return_value={}),
+                patch.object(schema_change, "required_bump", return_value="minor"),
+                patch.object(
+                    schema_change,
+                    "run_git",
+                    return_value="project('pek', version: '1.2.3')\n",
+                ),
+            ):
+                version_file.write_text(
+                    "project('pek', version: '1.2.4')\n", encoding="utf-8"
+                )
+                insufficient = schema_change.evaluate(root, "base")
+                self.assertEqual(insufficient["required_bump"], "minor")
+                self.assertTrue(
+                    any(
+                        finding["severity"] == "error"
+                        for finding in insufficient["findings"]
+                    )
+                )
+
+                version_file.write_text(
+                    "project('pek', version: '1.3.0')\n", encoding="utf-8"
+                )
+                sufficient = schema_change.evaluate(root, "base")
+                self.assertFalse(
+                    any(
+                        finding["severity"] == "error"
+                        for finding in sufficient["findings"]
+                    )
+                )
 
 
 class SemanticVersionTests(unittest.TestCase):
