@@ -171,9 +171,9 @@ std::string formatPythonError() {
     }
 
     PyObjectPtr separator(PyUnicode_FromString(""));
-    PyObjectPtr joined(formatted && separator ? PyUnicode_Join(separator.get(), formatted.get())
-                                              : nullptr);
-    if (joined) {
+    if (PyObjectPtr joined(formatted && separator ? PyUnicode_Join(separator.get(), formatted.get())
+                                                  : nullptr);
+        joined) {
         const char *text = PyUnicode_AsUTF8(joined.get());
         if (text != nullptr)
             return text;

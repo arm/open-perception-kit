@@ -723,10 +723,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   libfmt10 \
   libjson-glib-1.0-0 \
   libpython3.13 \
-  python3 \
   libsoup-3.0-0 \
   libssl3t64 \
   libusb-1.0-0 \
+  python3 \
   zlib1g; \
   if [ "${PEK_PICAMERA}" = enabled ]; then \
     test "$(dpkg --print-architecture)" = arm64; \

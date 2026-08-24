@@ -4,11 +4,11 @@
 
 #include "PythonScriptOp.h"
 
-#include <string>
+#include <string_view>
 
 namespace {
 
-pek::op::Op *createOp(const std::string &opName) {
+pek::op::Op *createOp(std::string_view opName) {
     if (opName == "PythonScript")
         return new pek::python::PythonScriptOp();
     return nullptr;

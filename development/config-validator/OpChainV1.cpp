@@ -132,11 +132,13 @@ void validateInstanceIds(ValidationReport &report,
     std::unordered_map<std::string, std::size_t> occurrences;
     for (std::size_t index = 0; index < descriptor.ops.size(); ++index) {
         const auto &op = descriptor.ops[index];
-        const std::size_t occurrence = occurrences[op.id]++;
+        auto &occurrenceCount = occurrences[op.id];
+        const std::size_t occurrence = occurrenceCount;
+        ++occurrenceCount;
         const std::string instanceId = op.instanceId.empty()
                                            ? pek::op::makeDefaultInstanceId(op.id, occurrence)
                                            : op.instanceId;
-        const auto [iterator, inserted] = firstById.emplace(instanceId, index);
+        const auto [iterator, inserted] = firstById.try_emplace(instanceId, index);
         if (inserted)
             continue;
         report.issues.push_back(

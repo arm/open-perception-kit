@@ -10,6 +10,8 @@
 #include <array>
 #include <stdexcept>
 
+extern "C" PyObject *PyInit_pek_python_ops();
+
 namespace pek::python {
 namespace {
 
@@ -22,13 +24,19 @@ struct TensorObject {
     int quantized;
 };
 
-PyTypeObject *tensorType = nullptr;
-
 struct ContextObject {
     PyObject_HEAD PyObject *producerInfo;
 };
 
-PyTypeObject *contextType = nullptr;
+struct BridgeState {
+    PyTypeObject *tensorType = nullptr;
+    PyTypeObject *contextType = nullptr;
+};
+
+BridgeState &bridgeState() {
+    static BridgeState state;
+    return state;
+}
 
 void tensorDealloc(PyObject *self) {
     auto *tensor = reinterpret_cast<TensorObject *>(self);
@@ -67,50 +75,63 @@ PyObject *getQuantized(PyObject *self, void *) {
     return PyBool_FromLong(reinterpret_cast<TensorObject *>(self)->quantized);
 }
 
-PyGetSetDef tensorGetSet[] = {
-    {const_cast<char *>("name"),
-     getName,
-     nullptr,
-     const_cast<char *>("Model output name."),
-     nullptr},
-    {const_cast<char *>("array"),
-     getArray,
-     nullptr,
-     const_cast<char *>("Read-only NumPy view."),
-     nullptr},
-    {const_cast<char *>("index"), getIndex, nullptr, const_cast<char *>("Output index."), nullptr},
-    {const_cast<char *>("scale"),
-     getScale,
-     nullptr,
-     const_cast<char *>("Quantization scale."),
-     nullptr},
-    {const_cast<char *>("zero_point"),
-     getZeroPoint,
-     nullptr,
-     const_cast<char *>("Quantization zero point."),
-     nullptr},
-    {const_cast<char *>("quantized"),
-     getQuantized,
-     nullptr,
-     const_cast<char *>("Whether dequantization metadata applies."),
-     nullptr},
-    {nullptr, nullptr, nullptr, nullptr, nullptr},
-};
+std::array<PyGetSetDef, 7> &tensorGetSet() {
+    static std::array<PyGetSetDef, 7> definitions = {{
+        {const_cast<char *>("name"),
+         getName,
+         nullptr,
+         const_cast<char *>("Model output name."),
+         nullptr},
+        {const_cast<char *>("array"),
+         getArray,
+         nullptr,
+         const_cast<char *>("Read-only NumPy view."),
+         nullptr},
+        {const_cast<char *>("index"),
+         getIndex,
+         nullptr,
+         const_cast<char *>("Output index."),
+         nullptr},
+        {const_cast<char *>("scale"),
+         getScale,
+         nullptr,
+         const_cast<char *>("Quantization scale."),
+         nullptr},
+        {const_cast<char *>("zero_point"),
+         getZeroPoint,
+         nullptr,
+         const_cast<char *>("Quantization zero point."),
+         nullptr},
+        {const_cast<char *>("quantized"),
+         getQuantized,
+         nullptr,
+         const_cast<char *>("Whether dequantization metadata applies."),
+         nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr},
+    }};
+    return definitions;
+}
 
-PyType_Slot tensorSlots[] = {
-    {Py_tp_dealloc, reinterpret_cast<void *>(tensorDealloc)},
-    {Py_tp_repr, reinterpret_cast<void *>(tensorRepr)},
-    {Py_tp_getset, tensorGetSet},
-    {0, nullptr},
-};
+std::array<PyType_Slot, 4> &tensorSlots() {
+    static std::array<PyType_Slot, 4> slots = {{
+        {Py_tp_dealloc, reinterpret_cast<void *>(tensorDealloc)},
+        {Py_tp_repr, reinterpret_cast<void *>(tensorRepr)},
+        {Py_tp_getset, tensorGetSet().data()},
+        {0, nullptr},
+    }};
+    return slots;
+}
 
-PyType_Spec tensorSpec = {
-    .name = "pek_python_ops.Tensor",
-    .basicsize = sizeof(TensorObject),
-    .itemsize = 0,
-    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
-    .slots = tensorSlots,
-};
+PyType_Spec &tensorSpec() {
+    static PyType_Spec spec = {
+        .name = "pek_python_ops.Tensor",
+        .basicsize = sizeof(TensorObject),
+        .itemsize = 0,
+        .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
+        .slots = tensorSlots().data(),
+    };
+    return spec;
+}
 
 void contextDealloc(PyObject *self) {
     auto *context = reinterpret_cast<ContextObject *>(self);
@@ -127,29 +148,38 @@ PyObject *getProducerInfo(PyObject *self, void *) {
     return Py_NewRef(reinterpret_cast<ContextObject *>(self)->producerInfo);
 }
 
-PyGetSetDef contextGetSet[] = {
-    {const_cast<char *>("producer_info"),
-     getProducerInfo,
-     nullptr,
-     const_cast<char *>("Producer identity for payloads created by this operation."),
-     nullptr},
-    {nullptr, nullptr, nullptr, nullptr, nullptr},
-};
+std::array<PyGetSetDef, 2> &contextGetSet() {
+    static std::array<PyGetSetDef, 2> definitions = {{
+        {const_cast<char *>("producer_info"),
+         getProducerInfo,
+         nullptr,
+         const_cast<char *>("Producer identity for payloads created by this operation."),
+         nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr},
+    }};
+    return definitions;
+}
 
-PyType_Slot contextSlots[] = {
-    {Py_tp_dealloc, reinterpret_cast<void *>(contextDealloc)},
-    {Py_tp_repr, reinterpret_cast<void *>(contextRepr)},
-    {Py_tp_getset, contextGetSet},
-    {0, nullptr},
-};
+std::array<PyType_Slot, 4> &contextSlots() {
+    static std::array<PyType_Slot, 4> slots = {{
+        {Py_tp_dealloc, reinterpret_cast<void *>(contextDealloc)},
+        {Py_tp_repr, reinterpret_cast<void *>(contextRepr)},
+        {Py_tp_getset, contextGetSet().data()},
+        {0, nullptr},
+    }};
+    return slots;
+}
 
-PyType_Spec contextSpec = {
-    .name = "pek_python_ops.Context",
-    .basicsize = sizeof(ContextObject),
-    .itemsize = 0,
-    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
-    .slots = contextSlots,
-};
+PyType_Spec &contextSpec() {
+    static PyType_Spec spec = {
+        .name = "pek_python_ops.Context",
+        .basicsize = sizeof(ContextObject),
+        .itemsize = 0,
+        .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
+        .slots = contextSlots().data(),
+    };
+    return spec;
+}
 
 int numpyType(pek::Dtype type) {
     switch (type) {
@@ -168,6 +198,12 @@ int numpyType(pek::Dtype type) {
 }
 
 PyObject *createTensor(size_t index, const pek::TensorView &view, const pek::Model *model) {
+    PyTypeObject *tensorType = bridgeState().tensorType;
+    if (tensorType == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "pek_python_ops.Tensor is not initialized");
+        return nullptr;
+    }
+
     const auto shape = view.getShape();
     std::array<npy_intp, 8> dimensions{};
     for (size_t dimension = 0; dimension < shape.rank; ++dimension) {
@@ -230,54 +266,55 @@ PyObject *createTensor(size_t index, const pek::TensorView &view, const pek::Mod
     return reinterpret_cast<PyObject *>(tensor);
 }
 
-PyModuleDef moduleDefinition = {
-    PyModuleDef_HEAD_INIT,
-    "pek_python_ops",
-    "Runtime objects passed to PEK Python script Ops.",
-    -1,
-    nullptr,
-    nullptr,
-    nullptr,
-    nullptr,
-    nullptr,
-};
+PyModuleDef &moduleDefinition() {
+    static PyModuleDef definition = {
+        PyModuleDef_HEAD_INIT,
+        "pek_python_ops",
+        "Runtime objects passed to PEK Python script Ops.",
+        -1,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+    };
+    return definition;
+}
 
 PyObject *initializeModule() {
     if (_import_array() < 0)
         return nullptr;
 
-    PyObject *module = PyModule_Create(&moduleDefinition);
-    if (module == nullptr)
+    PyObject *pythonModule = PyModule_Create(&moduleDefinition());
+    if (pythonModule == nullptr)
         return nullptr;
 
-    PyObject *type = PyType_FromSpec(&tensorSpec);
-    if (type == nullptr || PyModule_AddObjectRef(module, "Tensor", type) < 0) {
+    PyObject *type = PyType_FromSpec(&tensorSpec());
+    if (type == nullptr || PyModule_AddObjectRef(pythonModule, "Tensor", type) < 0) {
         Py_XDECREF(type);
-        Py_DECREF(module);
+        Py_DECREF(pythonModule);
         return nullptr;
     }
-    tensorType = reinterpret_cast<PyTypeObject *>(type);
-    Py_DECREF(type);
-
-    PyObject *context = PyType_FromSpec(&contextSpec);
-    if (context == nullptr || PyModule_AddObjectRef(module, "Context", context) < 0) {
+    PyObject *context = PyType_FromSpec(&contextSpec());
+    if (context == nullptr || PyModule_AddObjectRef(pythonModule, "Context", context) < 0) {
         Py_XDECREF(context);
-        Py_DECREF(module);
+        Py_DECREF(type);
+        Py_DECREF(pythonModule);
         return nullptr;
     }
-    contextType = reinterpret_cast<PyTypeObject *>(context);
+
+    BridgeState &state = bridgeState();
+    state.tensorType = reinterpret_cast<PyTypeObject *>(type);
+    state.contextType = reinterpret_cast<PyTypeObject *>(context);
+    Py_DECREF(type);
     Py_DECREF(context);
-    return module;
+    return pythonModule;
 }
 
 } // namespace
 
-extern "C" PyObject *PyInit_pek_python_ops() {
-    return initializeModule();
-}
-
 void appendTensorModuleInittab() {
-    if (PyImport_AppendInittab("pek_python_ops", &PyInit_pek_python_ops) != 0)
+    if (PyImport_AppendInittab("pek_python_ops", &::PyInit_pek_python_ops) != 0)
         throw std::runtime_error("Failed to register pek_python_ops Python module");
 }
 
@@ -313,6 +350,7 @@ PyObject *wrapContext(PyObject *producerInfo) {
         PyErr_SetString(PyExc_ValueError, "producer_info is required");
         return nullptr;
     }
+    PyTypeObject *contextType = bridgeState().contextType;
     if (contextType == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "pek_python_ops.Context is not initialized");
         return nullptr;
@@ -326,3 +364,7 @@ PyObject *wrapContext(PyObject *producerInfo) {
 }
 
 } // namespace pek::python
+
+extern "C" PyObject *PyInit_pek_python_ops() {
+    return pek::python::initializeModule();
+}

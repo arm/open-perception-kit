@@ -30,8 +30,8 @@ def process(env: Envelope, tensors: tuple[Tensor, ...], context: Context) -> Non
     assert tensors[1].name == "classes"
     assert tensors[1].array.dtype == numpy.int8
     assert tensors[1].array.tolist() == [1, 2]
-    assert tensors[1].scale == 0.5
-    assert tensors[1].zero_point == 1.0
+    numpy.testing.assert_allclose(tensors[1].scale, 0.5)
+    numpy.testing.assert_allclose(tensors[1].zero_point, 1.0)
     assert tensors[1].quantized
 
     try:

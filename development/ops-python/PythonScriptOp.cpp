@@ -40,7 +40,7 @@ void appendUniquePath(std::vector<std::filesystem::path> &paths,
                       const std::filesystem::path &path) {
     if (path.empty() || !std::filesystem::is_directory(path))
         return;
-    if (std::find(paths.begin(), paths.end(), path) == paths.end())
+    if (std::ranges::find(paths, path) == paths.end())
         paths.push_back(path);
 }
 
@@ -85,11 +85,11 @@ pek::Result<void> validateProcessSignature(PyObject *processFunction,
     }
 
     PyObjectPtr bindFunction(PyObject_GetAttrString(signature.get(), "bind"));
-    PyObjectPtr boundArguments(
-        bindFunction
-            ? PyObject_CallFunctionObjArgs(bindFunction.get(), Py_None, Py_None, Py_None, nullptr)
-            : nullptr);
-    if (!boundArguments) {
+    if (PyObjectPtr boundArguments(bindFunction
+                                       ? PyObject_CallFunctionObjArgs(
+                                             bindFunction.get(), Py_None, Py_None, Py_None, nullptr)
+                                       : nullptr);
+        !boundArguments) {
         return tl::unexpected(
             PEK_ERROR(pek::ErrorFlag::InvalidData,
                       fmt::format("{} process must accept three positional arguments "
@@ -115,27 +115,27 @@ class LoadedScript {
             GILGuard gil;
             PythonPathGuard pathGuard(pythonPaths);
 
-            PyObjectPtr runtimeModule(PyImport_ImportModule("pek_python_ops"));
-            if (!runtimeModule) {
+            if (PyObjectPtr runtimeModule(PyImport_ImportModule("pek_python_ops"));
+                !runtimeModule) {
                 return tl::unexpected(PEK_ERROR(pek::ErrorFlag::SystemFailure,
                                                 "Failed to initialize Python operation support:\n" +
                                                     formatPythonError()));
             }
 
-            PyObjectPtr module(PyModule_New(moduleName.c_str()));
-            if (!module)
+            PyObjectPtr scriptModule(PyModule_New(moduleName.c_str()));
+            if (!scriptModule)
                 return tl::unexpected(
                     PEK_ERROR(pek::ErrorFlag::SystemFailure, formatPythonError()));
 
-            PyObject *globals = PyModule_GetDict(module.get());
+            PyObject *globals = PyModule_GetDict(scriptModule.get());
             PyObjectPtr fileName(PyUnicode_FromString(absolutePath.string().c_str()));
-            PyObjectPtr packageName(PyUnicode_FromString(""));
-            if (globals == nullptr || !fileName || !packageName ||
+            if (PyObjectPtr packageName(PyUnicode_FromString(""));
+                globals == nullptr || !fileName || !packageName ||
                 PyDict_SetItemString(globals, "__builtins__", PyEval_GetBuiltins()) < 0 ||
                 PyDict_SetItemString(globals, "__file__", fileName.get()) < 0 ||
                 PyDict_SetItemString(globals, "__package__", packageName.get()) < 0 ||
-                PyDict_SetItemString(PyImport_GetModuleDict(), moduleName.c_str(), module.get()) <
-                    0) {
+                PyDict_SetItemString(
+                    PyImport_GetModuleDict(), moduleName.c_str(), scriptModule.get()) < 0) {
                 return tl::unexpected(
                     PEK_ERROR(pek::ErrorFlag::SystemFailure, formatPythonError()));
             }
@@ -150,8 +150,8 @@ class LoadedScript {
                                                             formatPythonError())));
             }
 
-            PyObjectPtr evaluation(PyEval_EvalCode(code.get(), globals, globals));
-            if (!evaluation) {
+            if (PyObjectPtr evaluation(PyEval_EvalCode(code.get(), globals, globals));
+                !evaluation) {
                 removeModule(moduleName);
                 return tl::unexpected(PEK_ERROR(pek::ErrorFlag::ParseError,
                                                 fmt::format("Failed to load {}:\n{}",
@@ -159,7 +159,7 @@ class LoadedScript {
                                                             formatPythonError())));
             }
 
-            PyObjectPtr processFunction(PyObject_GetAttrString(module.get(), "process"));
+            PyObjectPtr processFunction(PyObject_GetAttrString(scriptModule.get(), "process"));
             if (!processFunction || !PyCallable_Check(processFunction.get())) {
                 PyErr_Clear();
                 removeModule(moduleName);
@@ -177,7 +177,7 @@ class LoadedScript {
             }
 
             return std::unique_ptr<LoadedScript>(new LoadedScript(
-                std::move(moduleName), std::move(module), std::move(processFunction)));
+                std::move(moduleName), std::move(scriptModule), std::move(processFunction)));
         } catch (const std::exception &error) {
             return tl::unexpected(PEK_ERROR(pek::ErrorFlag::SystemFailure, error.what()));
         }
@@ -188,10 +188,6 @@ class LoadedScript {
 
     ~LoadedScript() {
         reset();
-    }
-
-    [[nodiscard]] PyObject *module() const noexcept {
-        return moduleObject.get();
     }
 
     [[nodiscard]] PyObject *processFunction() const noexcept {

@@ -96,7 +96,9 @@ pek::Result<void> OpChain::setupFromDescriptor(const pek::op::OpChainDescriptor 
         opRef->libName = libName;
         opRef->opName = opName;
         opRef->index = opIndex;
-        const size_t occurrence = occurrences[op.id]++;
+        auto &occurrenceCount = occurrences[op.id];
+        const size_t occurrence = occurrenceCount;
+        ++occurrenceCount;
         opRef->instanceId =
             op.instanceId.empty() ? makeDefaultInstanceId(op.id, occurrence) : op.instanceId;
 

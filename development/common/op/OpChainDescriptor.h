@@ -4,6 +4,7 @@
 #pragma once
 
 #include <cstddef>
+#include <format>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -37,7 +38,7 @@ inline std::string makeDefaultInstanceId(std::string_view opId, std::size_t occu
     }
     if (result.empty() || !isAsciiAlphaNumeric(result.front()))
         result.insert(0, "op-");
-    return result + "-" + std::to_string(occurrence);
+    return std::format("{}-{}", result, occurrence);
 }
 
 /**
