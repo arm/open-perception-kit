@@ -36,10 +36,11 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
   name. `release-packages.yml` owns release Sonar analysis.
 - Runs one Black Duck subgraph beside Quality, Sonar, and Valgrind. Every
   same-repository pull request gets its own `pr-<number>` version, a scan of the
-  built PEK CI image, a Rapid dependency policy check, a base-to-head snippet
-  scan, and one required quality-gate result. Nightly runs and `release/*` tags
-  run the full dependency and snippet equivalents against `nightly` or the
-  release tag. Full snippet scans materialize Meson wrap sources first.
+  release build output produced in the PEK CI image, a Rapid dependency policy
+  check, a base-to-head snippet scan, and one required quality-gate result.
+  Nightly runs and `release/*` tags run the full built-output, dependency, and
+  snippet equivalents against `nightly` or the release tag. Full snippet scans
+  materialize Meson wrap sources first.
   Downloaded scanner executables are checksum-verified and every Detect policy
    violation fails its lane. Persistent job summaries link to their Black Duck
    BOM; transient Rapid details remain in the workflow artifact and log.

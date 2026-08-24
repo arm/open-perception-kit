@@ -45,8 +45,9 @@ behaviour entirely:
   resources and deletes its isolated checkout directory in an `if: always()`
   cleanup step
 - the Black Duck jobs use isolated checkouts on internal runners; the PR snippet
-  lane only reads the exact base-to-head range, while dependency and full-source
-  lanes remove their loaded PEK CI image and workspace after each scan
+  lane only reads the exact base-to-head range, while the built-output,
+  dependency, and full-source lanes remove their loaded PEK CI image and
+  workspace after each scan
 
 This ensures that one job does not reuse another job's poisoned checkout path or
 Docker resource names.

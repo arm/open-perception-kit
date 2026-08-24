@@ -50,21 +50,47 @@ jobs:
       contents: read
     env:
       BLACKDUCK_VERSION: ${{ inputs.version_name }}
+      CCACHE_PATH: ${{ github.workspace }}/.cache/ccache-blackduck-built
+      CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CI_IMAGE_SHA: ${{ inputs.ci_image_sha }}
+      COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      WORKSPACE_ROOT: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
-      - name: Download built PEK CI image
+      - name: Download PEK CI image
         uses: actions/download-artifact@v8
         with:
           name: pek-ci-image
           path: ${{ runner.temp }}/pek-ci-image
 
-      - name: Verify built image revision
+      - name: Load PEK CI image
         run: |
-          set -euo pipefail
-          image="pek-ci:${CI_IMAGE_SHA}"
-          docker image load --input "${RUNNER_TEMP}/pek-ci-image/pek-ci-image.tar"
-          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image")" = "$CI_IMAGE_SHA"
-          echo "PEK_CI_IMAGE=$image" >> "$GITHUB_ENV"
+          tools_dir="${RUNNER_TEMP}/pek-ci-image"
+          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
+            --archive "$tools_dir/pek-ci-image.tar" pek-release-with-ut
+
+      - name: Checkout source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          path: ${{ env.CI_CHECKOUT_PATH }}
+          persist-credentials: false
+          ref: ${{ inputs.checkout_ref }}
+
+      - name: Prepare private submodules
+        working-directory: ${{ env.WORKSPACE_ROOT }}
+        env:
+          DEPLOY_KEY_FLOWDATA_SDK: ${{ secrets.DEPLOY_KEY_FLOWDATA_SDK }}
+        run: |
+          source .github/scripts/configure_workspace_ssh.sh
+          git submodule update --init --recursive
+
+      - name: Build release output in PEK CI image
+        working-directory: ${{ env.WORKSPACE_ROOT }}
+        run: |
+          install -d -m 0777 "$CCACHE_PATH"
+          docker compose -f .github/compose.ci.yaml run --rm pek-release-with-ut
+          test -d development/build
 
       - name: Download verified Detect wrapper
         env:
@@ -79,7 +105,7 @@ jobs:
           echo "$DETECT_SHA256  $scanner_dir/detect-arm.sh" | sha256sum --check --strict
           chmod +x "$scanner_dir/detect-arm.sh"
 
-      - name: Scan built output and enforce policy
+      - name: Scan release build output and enforce policy
         env:
           BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }}
           BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
@@ -98,11 +124,11 @@ jobs:
             "--detect.project.version.name=${version_name}" \
             "--detect.code.location.name=${project_name}/${version_name}/built-output" \
             --detect.cleanup=false \
-            --detect.container.scan.file.path="${RUNNER_TEMP}/pek-ci-image/pek-ci-image.tar" \
             --detect.output.path="$scanner_dir/output" \
             --detect.policy.check.fail.on.severities=ALL \
+            --detect.source.path="$WORKSPACE_ROOT/development/build" \
             --detect.timeout=1800 \
-            --detect.tools=CONTAINER_SCAN \
+            --detect.tools=SIGNATURE_SCAN \
             --logging.level.detect=INFO 2>&1 | tee "$scanner_dir/scan.log"
 
       - name: Report built output scan
@@ -134,9 +160,21 @@ jobs:
           if-no-files-found: warn
           retention-days: 10
 
-      - name: Remove loaded PEK CI image
+      - name: Cleanup built output scan
         if: always()
-        run: docker image rm "${PEK_CI_IMAGE:-pek-ci:${CI_IMAGE_SHA}}" || true
+        run: |
+          if [[ -d "$WORKSPACE_ROOT" ]]; then
+            (
+              cd "$WORKSPACE_ROOT"
+              docker compose -f .github/compose.ci.yaml down --remove-orphans || true
+            )
+          fi
+          docker image rm "${COMPOSE_PROJECT_NAME}-pek-release-with-ut" "${PEK_CI_IMAGE:-}" || true
+          case "$WORKSPACE_ROOT" in
+            "$GITHUB_WORKSPACE"/repo-*) rm -rf -- "$WORKSPACE_ROOT" ;;
+            *) echo "Skipping unexpected workspace: $WORKSPACE_ROOT" >&2 ;;
+          esac
+          rm -rf -- "$CCACHE_PATH"
 
   dependencies:
     name: ${{ inputs.scan_mode == 'delta' && 'Delta dependency scan' || 'Full dependency scan' }}
