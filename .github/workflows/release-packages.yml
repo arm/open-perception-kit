@@ -503,11 +503,11 @@ jobs:
       - name: Publish Perception Python package to Artifactory PyPI
         if: github.event_name == 'push'
         env:
-          TWINE_REPOSITORY_URL: https://artifactory.arm.com/artifactory/api/pypi/edge-ai-tooling.pypi
-          TWINE_USERNAME: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
-          TWINE_PASSWORD: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
+          UV_PUBLISH_URL: https://artifactory.arm.com/artifactory/api/pypi/edge-ai-tooling.pypi
+          UV_PUBLISH_USERNAME: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
+          UV_PUBLISH_PASSWORD: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
         run: >-
-          uvx --from 'twine==6.2.0' twine upload
+          uv publish
           "${{ runner.temp }}"/pek-release-artifacts/opk_perception_sdk-*-py3-none-any.whl
 
       # This step is only here to make the created package easier to access
