@@ -21,7 +21,7 @@ namespace {
 
 using Json = jsoncons::json;
 
-class SchemaError : public std::runtime_error {
+struct SchemaError : std::runtime_error {
     using std::runtime_error::runtime_error;
 };
 
