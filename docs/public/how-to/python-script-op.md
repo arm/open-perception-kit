@@ -147,15 +147,45 @@ order is documented by
 `config/models/mobilenetv2/opchain-python-classification.json`. The stable-frame count
 resets when the predicted class changes or the pipeline is recreated.
 
-## State, errors, and deployment
+## Failure behavior
+
+PEK loads and validates the script while configuring the OpChain, before the
+pipeline starts processing frames:
+
+1. The `script` file and every configured `pythonPaths` directory must exist.
+2. PEK compiles the complete script. Invalid Python syntax fails configuration
+   with the script path, line number, offending source line, and `SyntaxError`
+   details supplied by Python.
+3. PEK evaluates the module once. Missing imports and exceptions raised by
+   module-level code fail configuration with a Python traceback.
+4. The loaded module must define a callable `process` that accepts three
+   positional arguments. Missing or incompatible callbacks fail configuration
+   before streaming begins.
+
+Any configuration failure prevents the pipeline from starting. The native
+launcher or container log first reports the detailed Python or OpChain error,
+then GStreamer reports that the OpChain could not be set up.
+
+During streaming, each invocation must complete successfully and return
+`None`. An uncaught Python exception produces a runtime error containing the
+script path and complete Python traceback. Returning another value also fails
+the invocation, with an error stating that `process(env, tensors, context)`
+must return `None`. In either case, PEK aborts the current OpChain execution,
+posts a GStreamer element error, and stops the pipeline instead of silently
+dropping the affected frame or continuing with the next one. Catch and handle
+an exception inside the script only when continuing is intentional and safe.
+
+Detailed errors are currently available in the native launcher or container
+logs. The WebUI does not display Python tracebacks; it may only show the visible
+effect of the failed pipeline, such as a frozen or disconnected stream.
+
+## State and deployment
 
 - Module globals persist for the lifetime of the OpChain and reset when the
   pipeline recreates it. In a looped OpChain, state advances once per Op
   invocation rather than once per input frame.
 - Imported helper modules use Python's process-wide `sys.modules` cache. Keep
   isolated mutable state in the main script module.
-- An uncaught Python exception fails processing and includes its traceback in
-  the runtime error.
 - Scripts are not sandboxed. They can access the process, filesystem, network,
   and imported native modules. A slow script blocks the streaming thread.
 - Build with `-Dpython_ops=enabled`, or set `PEK_PYTHON_OPS=enabled` when using
