@@ -790,8 +790,8 @@
     "tools": [
       {
         "path": "tools/perception/generate.py",
-        "sha256": "87b0c7168b2f6a585a5fb7d64fd02b4e36a96cf588d5d3edf2f11246a87f7be8",
-        "size": 30864
+        "sha256": "bb05aa333aac02366d6ba8b7cf82d8822a569f49a15b196be9e767e4f85ba43d",
+        "size": 31678
       },
       {
         "path": "tools/perception/release_common.py",
@@ -1351,7 +1351,7 @@
       ],
       "python_package": {
         "build_backend": "setuptools.build_meta",
-        "distribution_name": "perception",
+        "distribution_name": "opk-perception-sdk",
         "import_name": "perception",
         "pure_python": true,
         "requires_python": ">=3.10",

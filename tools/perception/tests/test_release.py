@@ -886,6 +886,10 @@ class GeneratedSdkTests(unittest.TestCase):
         self.assertNotIn("manifest_version", manifest["upstream_receipts"]["ts"])
         self.assertEqual(manifest["upstream_receipts"]["ts"]["outputs"]["sdk"], "ts")
         self.assertEqual(
+            manifest["upstream_receipts"]["python"]["python_package"]["distribution_name"],
+            release_package.perception_config.PYTHON_DISTRIBUTION_NAME,
+        )
+        self.assertEqual(
             manifest["postprocessing"]["typescript"]["flatbuffers_runtime"],
             config.typescript_runtime.version,
         )

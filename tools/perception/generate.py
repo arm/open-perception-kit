@@ -512,6 +512,15 @@ def _verify_upstream_receipts(
             raise RuntimeError(f"{sdk} schema inputs are stale")
         if sdk_manifest.get("schema_set_sha256") != _schema_set_sha256(config.schema_dir):
             raise RuntimeError(f"{sdk} schema-set digest is stale")
+    python_receipt = flowdata["python"]
+    python_package = (
+        python_receipt.get("python_package")
+        if isinstance(python_receipt, dict) else None
+    )
+    if not isinstance(python_package, dict) or (
+        python_package.get("distribution_name") != PYTHON_DISTRIBUTION_NAME
+    ):
+        raise RuntimeError("Python receipt distribution name is stale")
 
 
 def verify_perception_manifest(
@@ -542,6 +551,16 @@ def prepare_sdk(
     verify_flowdata_manifests(config, generated_root, python)
     flowdata_manifests = read_flowdata_manifests(generated_root)
     set_python_distribution_name(generated_root / "python", config.name)
+    python_receipt = flowdata_manifests["python"]
+    python_package = (
+        python_receipt.get("python_package")
+        if isinstance(python_receipt, dict) else None
+    )
+    if not isinstance(python_package, dict) or (
+        python_package.get("distribution_name") != config.name
+    ):
+        raise RuntimeError("generated Python package metadata is unexpected")
+    python_package["distribution_name"] = PYTHON_DISTRIBUTION_NAME
     add_license_headers(generated_root)
     prepare_typescript_package(config, generated_root)
     format_cpp_sources(generated_root, clang_format)
