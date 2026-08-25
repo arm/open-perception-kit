@@ -199,6 +199,30 @@ jobs:
           if-no-files-found: error
           retention-days: 2
 
+      - name: Export Perception Python wheel
+        if: matrix.architecture == 'aarch64'
+        working-directory: ${{ env.SOURCE_DIR }}
+        run: |
+          set -euo pipefail
+          sdk=(dist/perception-sdk-input/perception-sdk-*.zip)
+          test "${#sdk[@]}" -eq 1
+          test -f "${sdk[0]}"
+          mkdir -p dist/perception-sdk-export
+          python3 -m zipfile -e "${sdk[0]}" dist/perception-sdk-export
+          wheel=(dist/perception-sdk-export/perception-sdk-*/python/opk_perception_sdk-*-py3-none-any.whl)
+          test "${#wheel[@]}" -eq 1
+          test -f "${wheel[0]}"
+          cp "${wheel[0]}" dist/
+
+      - name: Upload Perception Python wheel candidate
+        if: matrix.architecture == 'aarch64'
+        uses: actions/upload-artifact@v7
+        with:
+          name: pek-test-release-wheel-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.SOURCE_DIR }}/dist/opk_perception_sdk-*-py3-none-any.whl
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Clean isolated build workspace
         if: always()
         run: |
