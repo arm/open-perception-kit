@@ -146,8 +146,6 @@ jobs:
         env:
           UV_PUBLISH_CHECK_URL: https://artifactory.arm.com/artifactory/api/pypi/edge-ai-tooling.pypi/simple
           UV_PUBLISH_URL: https://artifactory.arm.com/artifactory/api/pypi/edge-ai-tooling.pypi
-          UV_PUBLISH_USERNAME: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
-          UV_PUBLISH_PASSWORD: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
           ARTIFACTS_DIR: ${{ runner.temp }}/pek-release-publication-candidates
         run: |
           set -euo pipefail

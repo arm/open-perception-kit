@@ -160,7 +160,7 @@ jobs:
           secrets: |
             "huggingface_token=${{ secrets.HF_TOKEN }}"
             "executorch_artifactory_username=${{ secrets.PEK_ARTIFACTORY_USERNAME }}"
-            "executorch_artifactory_password=${{ secrets.PEK_ARTIFACTORY_API_KEY }}"
+            "executorch_artifactory_password=${{ secrets.PEK_ARTIFACTORY_READ_TOKEN }}"
           tags: ${{ env.RELEASE_BUILD_IMAGE }}
           target: pek-deployment-base
 
