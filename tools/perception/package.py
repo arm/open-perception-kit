@@ -34,6 +34,8 @@ import sdk_config as perception_config
 REPO_ROOT = perception_config.REPO_ROOT
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "artifacts"
 MANIFEST_FILENAME = "perception-sdk-release-manifest.json"
+PYTHON_DISTRIBUTION_NAME = perception_config.PYTHON_DISTRIBUTION_NAME
+PYTHON_WHEEL_NAME = "opk_perception_sdk"
 SOURCE_DATE_EPOCH = "315532800"
 ZIP_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 SEMANTIC_VERSION_RE = re.compile(
@@ -154,7 +156,7 @@ def build_perception_wheel(
 
 def write_requirements(python_dir: Path, config: perception_config.SdkConfig) -> None:
     (python_dir / "requirements.txt").write_text(
-        f"{config.name}=={config.version}\n"
+        f"{PYTHON_DISTRIBUTION_NAME}=={config.version}\n"
         f"flatbuffers=={config.flatbuffers_wheel.version}\n",
         encoding="utf-8",
     )
@@ -371,7 +373,11 @@ def write_bundle_manifest(
             "cpp": cpp_manifest["outputs"], "python": python_manifest["outputs"],
             "typescript": typescript_manifest["outputs"],
             "python_bridge": cpp_manifest["python_bridge"],
-            "python_package": python_manifest["python_package"], "schemas": True,
+            "python_package": {
+                **python_manifest["python_package"],
+                "distribution_name": PYTHON_DISTRIBUTION_NAME,
+            },
+            "schemas": True,
         },
         "payloads": cpp_manifest["payloads"],
         "perception_wheel": {
@@ -481,11 +487,10 @@ def _verify_source_identities(
 
     descriptor = metadata["descriptor"]
     generated_manifest = metadata["generated_manifest"]
-    expected_artifact = {
-        "name": f"{descriptor.get('name')}-sdk",
-        "version": descriptor.get("version"),
-    }
-    if artifact != expected_artifact or generated_manifest.get("artifact") != artifact:
+    if (
+        artifact.get("name") != f"{descriptor.get('name')}-sdk"
+        or generated_manifest.get("artifact") != artifact
+    ):
         raise RuntimeError("release descriptor, generated manifest, and artifact identities differ")
     generated_descriptor = generated_manifest.get("descriptor")
     if (
@@ -679,12 +684,24 @@ def _verify_schema_semantics(
     return schema_files, schema_digest
 
 
+def _verify_python_package_identity(manifest: dict[str, object], version: object) -> None:
+    outputs = manifest.get("outputs")
+    python_package = outputs.get("python_package") if isinstance(outputs, dict) else None
+    if not isinstance(python_package, dict) or (
+        python_package.get("distribution_name") != PYTHON_DISTRIBUTION_NAME
+        or python_package.get("import_name") != "perception"
+        or python_package.get("version") != version
+    ):
+        raise RuntimeError("release Python package identity is invalid")
+
+
 def _verify_python_packages(
     bundle_root: Path,
     artifact: dict[str, object],
     manifest: dict[str, object],
     file_entries: dict[str, dict[str, object]],
 ) -> dict[str, object]:
+    _verify_python_package_identity(manifest, artifact["version"])
     perception = manifest.get("perception_wheel")
     flatbuffers = manifest.get("flatbuffers")
     if not isinstance(perception, dict) or not isinstance(flatbuffers, dict):
@@ -693,7 +710,7 @@ def _verify_python_packages(
     if not isinstance(flatbuffers_wheel, dict):
         raise RuntimeError("release FlatBuffers wheel metadata is malformed")
     for label, record, expected_name, expected_version in (
-        ("Perception", perception, "perception", artifact["version"]),
+        ("Perception", perception, PYTHON_DISTRIBUTION_NAME, artifact["version"]),
         ("FlatBuffers", flatbuffers_wheel, "flatbuffers", flatbuffers_wheel.get("version")),
     ):
         path_value = record.get("path")
@@ -904,7 +921,7 @@ def build_bundle(args: argparse.Namespace) -> Path:
     config = perception_config.load_sdk_config()
     if args.expect_version is not None and args.expect_version != config.version:
         raise RuntimeError(
-            f"expected SDK version {args.expect_version}, descriptor contains {config.version}"
+            f"expected PEK version {args.expect_version}, product contains {config.version}"
         )
     detached_commits = detached_source_commits(
         args.repository_commit, args.flowdata_commit
@@ -948,7 +965,7 @@ def build_bundle(args: argparse.Namespace) -> Path:
         )
         perception_wheel = build_perception_wheel(
             python=build_python, python_project=python_project, wheel_dir=python_dir,
-            name=config.name, version=config.version,
+            name=PYTHON_WHEEL_NAME, version=config.version,
         )
         flatbuffers_wheel = acquire_flatbuffers_wheel(
             generated_manifest=generated_manifest, wheel_dir=python_dir,
@@ -1028,7 +1045,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         formatter_class=SdkHelpFormatter,
         epilog=(
             "examples:\n"
-            "  ./scripts/perception-sdk.sh package --expect-version 0.1.0\n"
+            "  ./scripts/perception-sdk.sh package --expect-version MAJOR.MINOR.PATCH\n"
             "  ./scripts/perception-sdk.sh package --output-dir /tmp/sdk "
             "--artifact-dir /tmp/sdk-cache\n\n"
             "The command writes the ZIP, .sha256 checksum, and .provenance.json sidecar."
@@ -1045,8 +1062,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "--expect-version",
         metavar="MAJOR.MINOR.PATCH",
         help=(
-            "fail unless tools/perception/sdk.json contains exactly this SDK version; "
-            "does not override the descriptor"
+            "fail unless development/meson.build contains exactly this PEK version; "
+            "does not override the product version"
         ),
     )
     package_parser.add_argument(
@@ -1100,7 +1117,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         epilog=(
             "example:\n"
             "  ./scripts/perception-sdk.sh verify "
-            "artifacts/perception-sdk-0.1.0.zip --require-sidecars"
+            "artifacts/perception-sdk-MAJOR.MINOR.PATCH.zip --require-sidecars"
         ),
     )
     verify_parser.add_argument(

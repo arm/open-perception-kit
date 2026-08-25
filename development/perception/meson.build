@@ -1,7 +1,7 @@
 # Generated project adapter. Do not edit.
 # Regenerate with ./scripts/perception-sdk.sh generate.
 
-perception_version = '0.1.0'
+perception_version = '0.2.1'
 perception_flatbuffers_version_requirement = '==25.9.23'
 
 _perception_flatbuffers_dep = dependency(

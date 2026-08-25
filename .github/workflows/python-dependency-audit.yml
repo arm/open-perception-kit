@@ -57,8 +57,24 @@ jobs:
         with:
           python-version-file: ${{ matrix.package.path }}/pyproject.toml
 
-      - name: Run pip-audit
+      - name: Prepare Plumber audit environment
+        if: matrix.package.name == 'plumber'
+        run: |
+          python -m venv "$RUNNER_TEMP/plumber-audit"
+          "$RUNNER_TEMP/plumber-audit/bin/python" -m pip install \
+            generated/perception/python \
+            tools/plumber
+
+      - name: Run project pip-audit
+        if: matrix.package.name != 'plumber'
         uses: pypa/gh-action-pip-audit@v1.1.0
         with:
           inputs: ${{ matrix.package.path }}/
+          summary: true
+
+      - name: Run Plumber pip-audit
+        if: matrix.package.name == 'plumber'
+        uses: pypa/gh-action-pip-audit@v1.1.0
+        with:
+          virtual-environment: ${{ runner.temp }}/plumber-audit
           summary: true

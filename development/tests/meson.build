@@ -339,4 +339,10 @@ if node.found() and npm.found()
     args : ['test'],
     workdir : meson.project_source_root() / '..',
   )
+  test(
+    'peksink_web_bundle_check',
+    peksink_web,
+    args : ['check'],
+    workdir : meson.project_source_root() / '..',
+  )
 endif

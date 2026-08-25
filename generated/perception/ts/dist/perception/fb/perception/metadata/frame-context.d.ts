@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Arm Limited. All rights reserved.
+// Generated file. Do not edit.
+// SDK users: change schemas or generator inputs, then regenerate this file.
 import * as flatbuffers from 'flatbuffers';
 import { AudioFrameContext, AudioFrameContextT } from '../../perception/metadata/audio-frame-context.js';
 import { LayerInfo, LayerInfoT } from '../../perception/metadata/layer-info.js';

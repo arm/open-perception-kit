@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Arm Limited. All rights reserved.
+// Generated file. Do not edit.
+// SDK users: change schemas or generator inputs, then regenerate this file.
 import * as flatbuffers from 'flatbuffers';
 export declare class ClassificationCandidate implements flatbuffers.IUnpackableObject<ClassificationCandidateT> {
     bb: flatbuffers.ByteBuffer | null;

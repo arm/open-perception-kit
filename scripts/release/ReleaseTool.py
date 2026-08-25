@@ -442,10 +442,8 @@ def validate_perception_sdk(
     version = archive.name.removeprefix("perception-sdk-").removesuffix(".zip")
 
     verification_root = repo_root or REPO_ROOT
-    if repo_root is not None:
-        descriptor = load_json(repo_root / "tools/perception/sdk.json")
-        if not isinstance(descriptor, dict) or descriptor.get("version") != version:
-            fail("Perception SDK version does not match the selected source")
+    if repo_root is not None and read_version(repo_root) != version:
+        fail("Perception SDK version does not match the selected source")
     subprocess.run(
         [
             str(verification_root / "scripts/perception-sdk.sh"),

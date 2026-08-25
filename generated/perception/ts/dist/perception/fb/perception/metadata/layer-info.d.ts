@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Arm Limited. All rights reserved.
+// Generated file. Do not edit.
+// SDK users: change schemas or generator inputs, then regenerate this file.
 import * as flatbuffers from 'flatbuffers';
 export declare class LayerInfo implements flatbuffers.IUnpackableObject<LayerInfoT> {
     bb: flatbuffers.ByteBuffer | null;

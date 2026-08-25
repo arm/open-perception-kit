@@ -11,8 +11,8 @@ TypeScript packages, matching FlatBuffers runtimes, the source schemas, and a
 manifest describing every file and compatibility requirement.
 
 Released PEK architecture packages carry the unchanged ZIP, checksum, and
-provenance sidecar under `share/pek/perception-sdk/`. The SDK version remains
-independent of the PEK product version.
+provenance sidecar under `share/pek/perception-sdk/`. SDK packages use the PEK
+product version from `development/meson.build`.
 
 This is the release-packaging workflow. During implementation, use
 `$regenerate-perception-sdk` or `./scripts/perception-sdk.sh generate` to update
@@ -34,10 +34,10 @@ script is the only supported SDK command surface.
 The command verifies `tools/perception/sdk.json`, the checked-in generated SDK,
 internal Meson adapter, and generation receipt without invoking flowdata-sdk,
 `flatc`, or formatters. It builds the Python wheels from the canonical snapshot
-and creates `artifacts/perception-sdk-<sdk-version>.zip`.
+and creates `artifacts/perception-sdk-<pek-version>.zip`.
 
-Change the stable `MAJOR.MINOR.PATCH` version only in
-`tools/perception/sdk.json`, then run `./scripts/perception-sdk.sh generate`. The archive
+After changing the PEK product version in `development/meson.build`, run
+`./scripts/perception-sdk.sh generate`. The archive
 uses fixed timestamps, permissions, ordering, and compression so identical
 inputs produce identical bytes. Packaging rejects dirty SDK inputs and outputs
 unless `--allow-dirty` is explicitly supplied. CI can assert a release version
@@ -59,7 +59,41 @@ descriptor also locks the C++ source archive used by the Docker images.
 
 ## Install the Python SDK
 
-Extract the archive and run:
+Stable PEK releases publish the same verified Perception wheel that is embedded
+in the SDK ZIP to the existing `edge-ai-tooling` Artifactory PyPI repository.
+Python-only consumers can lock it as a normal package dependency.
+
+Declare the PEK release version and named index:
+
+```toml
+[project]
+dependencies = ["opk-perception-sdk==<pek-version>"]
+
+[[tool.uv.index]]
+name = "edge-ai-tooling"
+url = "https://artifactory.arm.com/artifactory/api/pypi/edge-ai-tooling.pypi/simple"
+explicit = true
+authenticate = "always"
+
+[tool.uv.sources]
+opk-perception-sdk = { index = "edge-ai-tooling" }
+```
+
+Manual integration snapshots are not published as stable PyPI versions. Their
+wheel remains available at the exact generic Artifactory snapshot URL printed
+by the release job and can be temporarily pinned with its SHA-256.
+
+Authenticate uv with the existing Artifactory credentials, then lock and sync:
+
+```bash
+printf '%s' "${ARTIFACTORY_TOKEN:?required}" | uv auth login artifactory.arm.com \
+  --username "${ARTIFACTORY_USERNAME:?required}" \
+  --password -
+uv lock
+uv sync --locked
+```
+
+For an offline bundle installation, extract the archive and run:
 
 ```bash
 python3 -m pip install \
@@ -83,7 +117,7 @@ Install both npm-compatible tarballs directly from the extracted bundle:
 ```bash
 npm install \
   ./typescript/flatbuffers-25.9.23.tgz \
-  ./typescript/perception-<sdk-version>.tgz
+  ./typescript/perception-<pek-version>.tgz
 ```
 
 Import `Envelope`, `ProducerIdentityStatus`, and generated payload classes from
@@ -124,7 +158,7 @@ Verify an archive and its checksum/provenance sidecars with:
 
 ```bash
 ./scripts/perception-sdk.sh verify \
-  artifacts/perception-sdk-<sdk-version>.zip \
+  artifacts/perception-sdk-<pek-version>.zip \
   --require-sidecars
 ```
 

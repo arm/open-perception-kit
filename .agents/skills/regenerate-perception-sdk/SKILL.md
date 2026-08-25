@@ -31,7 +31,7 @@ committed and ready to release.
    ```
 
 5. If schemas changed, apply `$evolve-perception-schema` first to classify
-   compatibility and choose the SDK version.
+   compatibility and record the required PEK release impact.
 
 ## Regenerate
 

@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Arm Limited. All rights reserved.
+// Generated file. Do not edit.
+// SDK users: change schemas or generator inputs, then regenerate this file.
 export { BitmapData, BitmapDataT } from './metadata/bitmap-data.js';
 export { BoundingBox, BoundingBoxT } from './metadata/bounding-box.js';
 export { LayerInfo, LayerInfoT } from './metadata/layer-info.js';
