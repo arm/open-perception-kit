@@ -276,7 +276,7 @@ pek::Result<void> PythonScriptOp::configure(const pek::AttributeMap &attributes)
 pek::Result<void> PythonScriptOp::bind(size_t index, const std::vector<pek::op::Op *> &ops) {
     model = nullptr;
     for (size_t upstream = index; upstream > 0; --upstream) {
-        auto *inference = ops[upstream - 1]->as<pek::op::OpInterfaceInference>();
+        const auto *inference = ops[upstream - 1]->as<pek::op::OpInterfaceInference>();
         if (inference != nullptr) {
             model = &inference->getModel();
             break;

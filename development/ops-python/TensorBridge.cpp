@@ -114,8 +114,8 @@ std::array<PyGetSetDef, 7> &tensorGetSet() {
 
 std::array<PyType_Slot, 4> &tensorSlots() {
     static std::array<PyType_Slot, 4> slots = {{
-        {Py_tp_dealloc, reinterpret_cast<void *>(tensorDealloc)},
-        {Py_tp_repr, reinterpret_cast<void *>(tensorRepr)},
+        {Py_tp_dealloc, reinterpret_cast<void *>(&tensorDealloc)},
+        {Py_tp_repr, reinterpret_cast<void *>(&tensorRepr)},
         {Py_tp_getset, tensorGetSet().data()},
         {0, nullptr},
     }};
@@ -162,8 +162,8 @@ std::array<PyGetSetDef, 2> &contextGetSet() {
 
 std::array<PyType_Slot, 4> &contextSlots() {
     static std::array<PyType_Slot, 4> slots = {{
-        {Py_tp_dealloc, reinterpret_cast<void *>(contextDealloc)},
-        {Py_tp_repr, reinterpret_cast<void *>(contextRepr)},
+        {Py_tp_dealloc, reinterpret_cast<void *>(&contextDealloc)},
+        {Py_tp_repr, reinterpret_cast<void *>(&contextRepr)},
         {Py_tp_getset, contextGetSet().data()},
         {0, nullptr},
     }};
