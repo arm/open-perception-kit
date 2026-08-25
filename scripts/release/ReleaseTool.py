@@ -19,13 +19,15 @@ import tempfile
 from pathlib import Path
 
 ARCHITECTURES = {"x86_64", "aarch64"}
+ONNX_INFERENCE_OP = "pek-onnx-ops/Inference"
+ONNX_MODEL_SUFFIX = ".onnx"
 RELEASE_MODELS = {
-    "cam-contact": ("pek-onnx-ops/Inference", ".onnx"),
-    "gaze-detection": ("pek-onnx-ops/Inference", ".onnx"),
-    "osnet_x0_25": ("pek-onnx-ops/Inference", ".onnx"),
-    "ultraface": ("pek-onnx-ops/Inference", ".onnx"),
-    "yolo26": ("pek-onnx-ops/Inference", ".onnx"),
-    "yolov11": ("pek-onnx-ops/Inference", ".onnx"),
+    "cam-contact": (ONNX_INFERENCE_OP, ONNX_MODEL_SUFFIX),
+    "gaze-detection": (ONNX_INFERENCE_OP, ONNX_MODEL_SUFFIX),
+    "osnet_x0_25": (ONNX_INFERENCE_OP, ONNX_MODEL_SUFFIX),
+    "ultraface": (ONNX_INFERENCE_OP, ONNX_MODEL_SUFFIX),
+    "yolo26": (ONNX_INFERENCE_OP, ONNX_MODEL_SUFFIX),
+    "yolov11": (ONNX_INFERENCE_OP, ONNX_MODEL_SUFFIX),
     "yolox": ("pek-executorch-ops/Inference", ".pte"),
 }
 RELEASE_MODEL_NAMES = set(RELEASE_MODELS)
@@ -494,17 +496,7 @@ def dynamic_values(path: Path, tag: str) -> list[str]:
     ]
 
 
-def validate_runtime_files(package_root: Path) -> Path:
-    plugin_root = package_root / "lib/gstreamer-1.0"
-    if not plugin_root.is_dir():
-        fail("Plugin directory is missing")
-    plugins = list(plugin_root.iterdir())
-    plugin_names = {path.name for path in plugins}
-    if plugin_names != PLUGIN_NAMES:
-        fail(f"Plugin directory must contain exactly six plugins: {sorted(plugin_names)}")
-    if any(not is_elf(path) for path in plugins):
-        fail("GStreamer plugins must be regular ELF files")
-
+def validate_release_tree(package_root: Path) -> None:
     forbidden_parts = {
         "examples",
         "tests",
@@ -528,6 +520,19 @@ def validate_runtime_files(package_root: Path) -> Path:
         if path.is_file() and path.suffix.lower() in {".a", ".h", ".hh", ".hpp"}:
             fail(f"Forbidden SDK file: {relative}")
 
+
+def validate_runtime_files(package_root: Path) -> Path:
+    plugin_root = package_root / "lib/gstreamer-1.0"
+    if not plugin_root.is_dir():
+        fail("Plugin directory is missing")
+    plugins = list(plugin_root.iterdir())
+    plugin_names = {path.name for path in plugins}
+    if plugin_names != PLUGIN_NAMES:
+        fail(f"Plugin directory must contain exactly six plugins: {sorted(plugin_names)}")
+    if any(not is_elf(path) for path in plugins):
+        fail("GStreamer plugins must be regular ELF files")
+
+    validate_release_tree(package_root)
     model_root = package_root / "share/pek/models"
     if not model_root.is_dir() or model_root.is_symlink():
         fail("Packaged model directory is missing or invalid")

@@ -36,9 +36,7 @@ template <typename T> T *mutablePlaneData(const ImagePlaneDesc &plane) noexcept 
     if constexpr (std::is_same_v<T, uint8_t>) {
         return plane.mutableData;
     } else {
-        return reinterpret_cast<T *>(
-            plane.mutableData); // NOSONAR - tensor buffers are byte-addressed and reinterpreted by
-                                // declared value type.
+        return static_cast<T *>(static_cast<void *>(plane.mutableData));
     }
 }
 

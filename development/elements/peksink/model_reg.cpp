@@ -11,9 +11,9 @@
 void ModelRegistry::add_model(const std::string &model_name,
                               const std::string &element_name,
                               bool active,
-                              const std::string &display_name,
-                              const std::string &task,
-                              const std::string &runtime) {
+                              std::string_view display_name,
+                              std::string_view task,
+                              std::string_view runtime) {
 
     {
         ModelStatus status;

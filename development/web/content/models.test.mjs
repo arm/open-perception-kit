@@ -137,11 +137,9 @@ globalThis.window = {
   PEK_CONFIG: {ctrlPort: 8001},
   dispatchEvent() {},
 };
-globalThis.CustomEvent = class {
-  constructor(type, init) {
-    this.type = type;
-    this.detail = init?.detail;
-  }
+globalThis.CustomEvent = function CustomEvent(type, init) {
+  this.type = type;
+  this.detail = init?.detail;
 };
 
 const sentMessages = [];
