@@ -22,6 +22,12 @@ The codebase currently supports these runtime/model combinations:
 - ONNX Runtime with `.onnx` models
 - HailoRT with `.hef` models
 
+These are the implementations currently available in the tree. The OpChain v1 extension contract is
+backend-independent: an exact `<library>/Inference` ID has one required `modelDescriptor` attribute,
+and its runtime implementation must provide `OpInterfaceInference`. Adding a conforming backend does
+not require adding its library name to the descriptor validator, but it still requires the runtime
+library, factory, interface implementation, and backend-specific artifact support.
+
 If you want the least friction, start with ONNX and reuse an existing output parser.
 
 ## Checked-in Hailo naming pattern
@@ -58,7 +64,7 @@ config/models/<your-model>/
 
 At minimum, that folder should contain:
 - a model file at the descriptor's `modelFile` path when the runtime starts
-- `model.json`
+- `model.json` or non-empty `model-<variant>.json` files for colocated stages
 - usually `opchain.json`
 - `index.md`
 
@@ -72,9 +78,12 @@ new checked-in binary.
 
 ## Required descriptor metadata
 
-`model.json` is the runtime descriptor used by the inference Op.
+`model.json` is the usual runtime descriptor used by the inference Op. Colocated multi-stage models
+can also use `model-<variant>.json`. These names select Model validation; `opchain.json` and
+`opchain-<variant>.json` select OpChain validation. Variants must be non-empty.
 
 Typical fields are:
+- `version`, set to `1`
 - `name`
 - `modelFile`
 - `dynamicOutput`
@@ -82,13 +91,22 @@ Typical fields are:
 - `inputTensors`
 - `outputTensors` when outputs are static
 
-`modelFile` is always a descriptor-relative local path. For a published,
+`modelFile` is a local filesystem path. Relative paths are resolved from the
+directory containing the Model descriptor, while absolute paths are used unchanged.
+Path components are not lexically rewritten, so filesystem symlink and `..`
+resolution keeps its normal meaning. Prefer a relative path so the model folder
+remains portable. URI values are not supported. For a published,
 single-file model, add an `hfDownload` object containing the Hugging Face API's
 `repo_id`, full commit `revision`, and `filename` arguments. The container build
 tries to download that one artifact; the runtime does not interpret remote
 locators or hold Hub credentials. Download failures are logged and skipped, so
 verify that every model required by the selected pipeline is present in the
-built image.
+built image. Because the image stages only the model folder, `hfDownload`
+requires `modelFile` to stay within its descriptor directory; use a relative
+path for that combination. The downloader validates each Model descriptor it
+consumes against `config/schemas/v1/model.schema.json` before starting any
+remote download. Schema, JSON, and destination validation failures are reported
+through Python logging and stop the build without a traceback.
 
 `hfDownload` currently downloads one file. Companion artifacts, such as an
 NCNN `.param` plus `.bin`, must already be present locally in the Docker build
@@ -106,9 +124,62 @@ tensor descriptors in the same order as the model's formal inputs and outputs.
 
 The easiest workflow is to copy one of the existing model folders and then adjust only the fields that differ.
 
+## Validate v1 descriptors
+
+The supported descriptor structure is defined by:
+
+- `config/schemas/v1/model.schema.json`
+- `config/schemas/v1/opchain.schema.json`
+
+A minimal dynamic-output Model descriptor is:
+
+```json
+{
+	"version": 1,
+	"name": "example-onnx",
+	"modelFile": "model.onnx",
+	"dynamicOutput": true,
+	"inputTensors": [
+		{
+			"shape": [1, 3, 224, 224],
+			"dataKind": "ImageRgbChw"
+		}
+	]
+}
+```
+
+From the repository root in the development container, validate every checked-in Model and OpChain
+descriptor with:
+
+```bash
+expkits-ci --config-schema-check
+```
+
+The validator rejects malformed JSON, duplicate keys, unsupported descriptor versions, schema
+violations, and artifact-free semantic errors such as invalid tensor feedback references or
+incompatible static feedback tensors. Backend-specific descriptors may share a canonical model
+name. The validator does not access model artifacts or validate backend compatibility, runtime
+tensor metadata, or parser output; those checks still happen when the model is loaded and run.
+
+The schemas own local field, type, range, conditional, and built-in Op/parser attribute rules.
+Attributes of custom Ops stay open because their contract belongs to that Op. The C++ semantic
+pass is limited to relationships a schema cannot express directly, including cross-index tensor
+checks, ordered stages and loops, and comparisons between sibling values.
+
 ## Creating the micropipeline
 
 The micropipeline is the `opchain.json` consumed by `pekinfer`.
+
+An OpChain can provide optional display metadata for model selectors:
+
+- `displayName` is the user-facing model or model-chain name.
+- `task` describes what the model does.
+- `runtime` identifies the exact inference runtime or accelerator variant.
+
+The loaded OpChain is the source of truth for these values. Use specific runtime names such as
+`Hailo 8`, `Hailo 8L`, or `Hailo 10` when compiled models are not interchangeable. If this
+metadata is omitted, the browser falls back to the internal `name` without guessing missing
+details.
 
 This is the main runtime interface you should use by default when onboarding a model. In the normal path, you do not start by changing `pekinfer` or adding a new Op. You start by describing the chain with `opchain.json` and by selecting the parser that turns model outputs into structured runtime results.
 
@@ -116,6 +187,12 @@ A minimal model opchain typically looks like this:
 
 ```json
 {
+	"version": 1,
+	"name": "YourModel",
+	"description": "Run the example model on each video frame.",
+	"displayName": "Your model",
+	"task": "Object detection",
+	"runtime": "ONNX",
 	"ops": [
 		{
 			"id": "pek-std-ops/InferenceController",
@@ -131,7 +208,7 @@ A minimal model opchain typically looks like this:
 		{
 			"id": "pek-onnx-ops/Inference",
 			"attributes": {
-				"modelDescriptor": "/work/config/models/<your-model>/model.json"
+				"modelDescriptor": "model.json"
 			}
 		},
 		{
@@ -144,11 +221,17 @@ A minimal model opchain typically looks like this:
 }
 ```
 
+`modelDescriptor` is a filesystem path resolved from the directory containing the OpChain
+descriptor, or an absolute path. Prefer `model.json` for an OpChain stored beside its model. A
+reusable OpChain under `config/opchains/<name>/` can use a path such as
+`../../models/<your-model>/model.json`. Path components are preserved for normal filesystem
+resolution, including symlinks followed by `..`. URI values are not supported.
+
 If your model runs on the full frame, a structure like this is usually enough.
 
 If your model runs on crops produced by another stage, reuse an existing multi-stage example instead of inventing a new structure from scratch.
 
-What matters here is not only that the model runs, but that the last stage produces results in the format the rest of PEK already understands. The normal app-consumable result format in PEK is `Perception`, carried downstream as `PerceptionMeta`, so the parser choice is part of the model integration contract, not an optional extra.
+What matters here is not only that the model runs, but that the last stage produces results in the format the rest of Perception Experience Kit already understands. The normal app-consumable result format is the FrameResults, carried downstream as `FrameResultsMeta`, so the parser choice is part of the model integration contract, not an optional extra.
 
 ## Reuse an existing postprocessor if possible
 
@@ -174,13 +257,13 @@ If none of them matches, then your model is not plug-and-play in the current sys
 
 The easiest models to integrate without code changes are models that fit one of these result types:
 
-- `Perception::Rect` for detections such as faces and generic objects
-- `Perception::Classification` for top-k or binary classification
-- `Perception::YawPitch` for gaze estimation
-- `Perception::SegmentationMap` for segmentation or mask outputs
-- `Perception::ObjectEmbedding` for ReID / embedding outputs
+- `BoxDetectionsT` for detections such as faces and generic objects
+- `ClassificationsT` for top-k or binary classification
+- `PoseEstimationsT` for gaze estimation
+- `SegmentationMasksT` for segmentation or mask outputs
+- `ObjectEmbeddingsT` for ReID / embedding outputs
 
-These are the structured result shapes that downstream PEK code already consumes. In other words, when bringing a model into PEK, you are usually trying to map raw tensors into one of these `Perception` forms rather than inventing a model-specific application contract.
+These are the structured result shapes that downstream Perception Experience Kit code already consumes. In other words, when bringing a model into Perception Experience Kit, you are usually trying to map raw tensors into one of these generated FrameResults payloads rather than inventing a model-specific application contract.
 
 If your output shape and meaning already match one of the existing parsers, integration is usually straightforward.
 
@@ -190,6 +273,7 @@ If they do not, the model can still be integrated, but you should expect to add 
 
 Before considering the integration complete, verify that:
 
+- `expkits-ci --config-schema-check` accepts the descriptor structure
 - the runtime can load the model file
 - `model.json` matches the real input and output expectations
 - preprocessing matches layout, value type, and normalization requirements
@@ -205,14 +289,16 @@ The normal workflow is:
 2. for local development, place the artifact at `modelFile` in the bind-mounted
    checkout; for a container image, add pinned `hfDownload` arguments unless
    the repository explicitly allowlists the local binary
-3. keep `modelFile` as the descriptor-relative runtime filename
+3. prefer a descriptor-relative `modelFile`; use an absolute path only when the
+   deployment owns that stable location
 4. create or update an `opchain.json`
 5. optionally add a top-level pipeline preset under `config/pipelines/`
-6. rebuild the container when the model is published; export a valid
+6. run `expkits-ci --config-schema-check` inside the container
+7. rebuild the container when the model is published; export a valid
    `HF_TOKEN` only when the artifact is private or gated
-7. confirm the built image contains every artifact referenced by that pipeline
-8. run the pipeline with the VS Code run task "00 Run project and select pipeline" or `tools/pek-menu`
-9. update the model and opchain `index.md` files
+8. confirm the built image contains every artifact referenced by that pipeline
+9. run the pipeline with the VS Code run task "00 Run project and select pipeline" or `tools/pek-menu`
+10. update the model and opchain `index.md` files
 
 ## What you should try not to change first
 

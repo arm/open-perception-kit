@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:arm:pek:schema:inference-op:v1",
+  "title": "Inference Op v1",
+  "if": {
+    "properties": {
+      "id": {
+        "pattern": "^[^/]+/Inference$"
+      }
+    },
+    "required": [
+      "id"
+    ]
+  },
+  "then": {
+    "required": [
+      "attributes"
+    ],
+    "properties": {
+      "attributes": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "modelDescriptor"
+        ],
+        "properties": {
+          "modelDescriptor": {
+            "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/localPath"
+          }
+        }
+      }
+    }
+  }
+}

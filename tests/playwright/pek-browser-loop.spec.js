@@ -16,10 +16,6 @@ test.setTimeout(STOCK_VIDEO_LOOP_TIMEOUT_MS + 180000);
 
 async function openReadyStockVideo(page) {
   await openPekUi(page);
-  await expect.poll(() => page.evaluate(async () => {
-    const { ctrlIsOpen } = await import('/ctrlws.js');
-    return ctrlIsOpen();
-  }), { timeout: STOCK_VIDEO_LOOP_TIMEOUT_MS }).toBe(true);
 
   const playPause = page.locator('#playPauseBtn');
   await expect(page.locator('.model-item').first()).toBeVisible({
@@ -131,9 +127,9 @@ test.describe('Stock video pause and loop recovery', () => {
     const playPause = page.locator('#playPauseBtn');
     const peerConnectionCount = await page.evaluate(() => window.__pekPeerConnections.length);
     const initialStreamId = await videoStreamId(page);
-    const frameTimeoutMs = await page.evaluate(async () => {
-      const { resolveWebRtcTimingConfig } = await import('/webrtc_config.js');
-      return resolveWebRtcTimingConfig(window.PEK_CONFIG || {}).frameTimeoutMs;
+    const frameTimeoutMs = await page.evaluate(() => {
+      const pekConfig = window.PEK_CONFIG || {};
+      return pekConfig.webrtc?.frameTimeoutMs ?? pekConfig.webrtcFrameTimeoutMs ?? 30000;
     });
     expect(frameTimeoutMs).toBeGreaterThan(0);
     const pauseDurationMs = frameTimeoutMs * 2;

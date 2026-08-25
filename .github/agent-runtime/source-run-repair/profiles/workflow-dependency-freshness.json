@@ -5,7 +5,10 @@
   "repair_branch_template": "feature/{task_ref}/bot-workflow-dependency-freshness-{source_run_id}",
   "repair_branch_guard_regex": "^feature/[^/]+/bot-workflow-dependency-freshness-",
   "repair_authorization_label": "agent-repair",
-  "pr_trigger_label": "run-pek-ci",
+  "pr_trigger_labels": [
+    "run-pek-ci",
+    "run-workflow-audit"
+  ],
   "pr_title_template": "[bot] Repair workflow dependency freshness from run {source_run_id}",
   "commit_subject_template": "[bot] Repair workflow dependency freshness from run {source_run_id}",
   "commit_notes_template": "Source workflow: {source_workflow_name}\n\nSource run: {source_run_url}\n\nSeed report artifact: workflow-dependency-freshness\n",
@@ -13,7 +16,7 @@
   "repair_definition_of_done": [
     "The original report artifact remains the starting evidence.",
     "Only outdated workflow refs identified by the source run are updated.",
-    "The generated repair PR receives the `{pr_trigger_label}` label for standard PR validation."
+    "The generated repair PR receives the configured trigger labels for standard PR validation: {pr_trigger_labels}."
   ],
   "agent_model_config": ".github/agent-runtime/runtime/agent-models.json",
   "agent_task_config": ".github/agent-runtime/runtime/agent-tasks.json",
@@ -28,7 +31,6 @@
     ".github/workflows/agent-repair-source-run-worker.yml",
     ".github/workflows/agent-review.yml",
     ".github/workflows/pek-ci.yml",
-    ".github/workflows/sonar.yml",
     ".github/compose.ci.yaml"
   ],
   "validation_command_set": "agent-workflow-python"

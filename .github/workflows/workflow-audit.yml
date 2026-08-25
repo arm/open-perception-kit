@@ -3,6 +3,12 @@ run-name: Workflow dependency freshness for ${{ github.ref_name }}
 
 on:
   workflow_call:
+    inputs:
+      checkout_ref:
+        description: Optional exact source ref for a caller-managed PR run.
+        required: false
+        default: ""
+        type: string
   workflow_dispatch:
     inputs:
       summary_limit:
@@ -10,15 +16,6 @@ on:
         required: false
         default: "10"
         type: number
-  pull_request:
-    branches: [ main, develop, "feature/**", "sandbox/**" ]
-    paths:
-      - ".github/workflows/**"
-      - "scripts/private/workflow_audit_report.py"
-      - "scripts/private/github_api.py"
-      - ".github/agent-runtime/source-run-repair/**"
-      - ".github/agent-runtime/workflow-policy/**"
-    types: [ opened, synchronize, reopened, ready_for_review ]
   schedule:
     - cron: "0 5 * * *"
 
@@ -40,6 +37,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.checkout_ref || github.sha }}
 
       - name: Render workflow dependency freshness report
         env:

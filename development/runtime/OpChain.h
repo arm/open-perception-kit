@@ -17,7 +17,7 @@ namespace pek::runtime {
  *
  * OpChain is the non-GStreamer direct inference API. It loads an existing PEK
  * opchain JSON file, executes it against a runtime::VideoFrame, and returns the
- * serialized Perception JSON.
+ * serialized FrameResults JSON wrapper.
  */
 class OpChain {
   public:
@@ -41,10 +41,10 @@ class OpChain {
     static Result<OpChain> fromJsonFile(const std::string &path);
 
     /**
-     * @brief Executes the opchain on one frame and returns Perception JSON.
+     * @brief Executes the opchain on one frame and returns a FrameResults JSON wrapper.
      * @param frame Input video frame. Existing image opchains expect BGRA input.
      * @param inferElementId Stable id written into inference metadata.
-     * @return Serialized Perception JSON on success.
+     * @return Serialized FrameResults JSON wrapper on success.
      */
     Result<std::string> run(const VideoFrame &frame, const std::string &inferElementId = "runtime");
 

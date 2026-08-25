@@ -3,29 +3,25 @@
  *************************************************************/
 #include "gst/gstelement.h"
 #include "gst/gstpad.h"
-#include <filesystem>
 #include <gst/base/gstbasetransform.h>
 #include <gst/gst.h>
 #include <gst/video/video.h>
 
-#include <filesystem>
 #include <fmt/core.h>
 #include <memory>
-#include <optional>
 #include <variant>
 
 #include "glib-object.h"
 #include "glib.h"
 
 #include "Log.h"
-#include "pek/Perception.h"
 #include "pek/Result.h"
 #include "pek/Tools.h"
 
 #include "op/OpChain.h"
 #include "op/OpChainContext.h"
 
-#include "gst/PerceptionMeta.h"
+#include "gst/FrameResultsMeta.h"
 #include "mediaio/GstVideoFrame.h"
 #include "perf/PerformanceTracer.h"
 
@@ -76,6 +72,7 @@ struct _GstPekInfer {
     guint64 qosProcessed;
     guint64 qosDropped;
     guint64 qosGeneration;
+    guint64 qosAcceptedEventsDebug;
 
     // a safe place for c++ stuff
     GstPekInferMembers *m;
@@ -87,8 +84,6 @@ G_DEFINE_TYPE(GstPekInfer, gst_pekinfer, GST_TYPE_BASE_TRANSFORM)
 
 // ---------------- GstBaseTransform virtuals ----------------
 //
-namespace fs = std::filesystem;
-
 static const gchar *gst_pekinfer_get_effective_inferId(GstPekInfer *self) {
     /* If user provided infer-id property, prefer it */
     if (self->inferId && self->inferId[0] != '\0')
@@ -121,17 +116,32 @@ static void gst_pekinfer_reset_qos(GstPekInfer *self) {
     GST_OBJECT_UNLOCK(self);
 }
 
-static std::optional<fs::path> parent_dir_name(const fs::path &p) {
-    if (!p.has_filename()) {
-        return std::nullopt;
+static bool gst_pekinfer_is_yuv_format(GstVideoFormat format) {
+    return format == GST_VIDEO_FORMAT_I420 || format == GST_VIDEO_FORMAT_NV12 ||
+           format == GST_VIDEO_FORMAT_YUY2;
+}
+
+static bool gst_pekinfer_has_supported_or_defaultable_yuv_colorimetry(const GstVideoInfo &info) {
+    const GstVideoColorimetry colorimetry = GST_VIDEO_INFO_COLORIMETRY(&info);
+
+    switch (colorimetry.matrix) {
+    case GST_VIDEO_COLOR_MATRIX_UNKNOWN:
+    case GST_VIDEO_COLOR_MATRIX_BT601:
+    case GST_VIDEO_COLOR_MATRIX_BT709:
+    case GST_VIDEO_COLOR_MATRIX_BT2020:
+        break;
+    default:
+        return false;
     }
 
-    fs::path parent = p.parent_path();
-    if (parent.empty()) {
-        return std::nullopt;
+    switch (colorimetry.range) {
+    case GST_VIDEO_COLOR_RANGE_UNKNOWN:
+    case GST_VIDEO_COLOR_RANGE_0_255:
+    case GST_VIDEO_COLOR_RANGE_16_235:
+        return true;
+    default:
+        return false;
     }
-
-    return parent.filename();
 }
 
 static gboolean gst_pekinfer_start(GstBaseTransform *b) {
@@ -141,15 +151,14 @@ static gboolean gst_pekinfer_start(GstBaseTransform *b) {
 
     gst_pekinfer_reset_qos(self);
 
-    self->m = new GstPekInferMembers();
+    auto members = std::make_unique<GstPekInferMembers>();
 
     if (!self->opChainPath || !self->opChainPath[0]) {
         GST_ERROR_OBJECT(self, "opchain property is mandatory but not set");
         return FALSE;
     }
 
-    auto setupResult = self->m->setupOpChainFromJson(self->opChainPath);
-    if (!setupResult) {
+    if (auto setupResult = members->setupOpChainFromJson(self->opChainPath); !setupResult) {
         pek::log::error("Error while setting up op-chain [{}]: {}\n",
                         self->opChainPath,
                         setupResult.error().toString());
@@ -160,14 +169,11 @@ static gboolean gst_pekinfer_start(GstBaseTransform *b) {
         return FALSE;
     }
 
+    self->m = members.release();
+
     // Send model registration event downstream
     GstPad *srcpad = gst_element_get_static_pad(GST_ELEMENT(self), "src");
     if (srcpad) {
-        std::string name = "unknown";
-        if (auto dir = parent_dir_name(self->opChainPath); dir.has_value()) {
-            name = dir->string();
-        }
-
         GstStructure *structure = gst_structure_new("pek-model-register",
                                                     "model-name",
                                                     G_TYPE_STRING,
@@ -179,6 +185,21 @@ static gboolean gst_pekinfer_start(GstBaseTransform *b) {
                                                     G_TYPE_BOOLEAN,
                                                     gst_pekinfer_is_active(self),
                                                     NULL);
+        if (!self->m->opChain.getDisplayName().empty()) {
+            gst_structure_set(structure,
+                              "display-name",
+                              G_TYPE_STRING,
+                              self->m->opChain.getDisplayName().c_str(),
+                              NULL);
+        }
+        if (!self->m->opChain.getTask().empty()) {
+            gst_structure_set(
+                structure, "task", G_TYPE_STRING, self->m->opChain.getTask().c_str(), NULL);
+        }
+        if (!self->m->opChain.getRuntime().empty()) {
+            gst_structure_set(
+                structure, "runtime", G_TYPE_STRING, self->m->opChain.getRuntime().c_str(), NULL);
+        }
         GstEvent *event = gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM, structure);
         gst_pad_push_event(srcpad, event);
         gst_object_unref(srcpad);
@@ -204,9 +225,21 @@ static gboolean gst_pekinfer_set_caps(GstBaseTransform *b, GstCaps *incaps, GstC
         return FALSE;
     }
 
-    // Keep original assumption: RGB only
-    if (GST_VIDEO_INFO_FORMAT(&self->vinfo) != GST_VIDEO_FORMAT_BGRA) {
-        GST_ERROR_OBJECT(self, "Unsupported format (expected BGRA)");
+    const auto format = GST_VIDEO_INFO_FORMAT(&self->vinfo);
+    if (format != GST_VIDEO_FORMAT_BGRA && format != GST_VIDEO_FORMAT_RGB &&
+        format != GST_VIDEO_FORMAT_I420 && format != GST_VIDEO_FORMAT_NV12 &&
+        format != GST_VIDEO_FORMAT_YUY2) {
+        GST_ERROR_OBJECT(self, "Unsupported format (expected BGRA, RGB, I420, NV12, or YUY2)");
+        return FALSE;
+    }
+
+    if (gst_pekinfer_is_yuv_format(format) &&
+        !gst_pekinfer_has_supported_or_defaultable_yuv_colorimetry(self->vinfo)) {
+        const GstVideoColorimetry colorimetry = GST_VIDEO_INFO_COLORIMETRY(&self->vinfo);
+        GST_ERROR_OBJECT(self,
+                         "Unsupported YUV colorimetry/range (matrix=%d, range=%d)",
+                         static_cast<int>(colorimetry.matrix),
+                         static_cast<int>(colorimetry.range));
         return FALSE;
     }
 
@@ -250,11 +283,14 @@ static gboolean gst_pekinfer_src_event(GstBaseTransform *trans, GstEvent *event)
             self->qosEarliestTime = qosEarliestTime;
             self->qosProportion = proportion;
             self->qosTimestamp = timestamp;
+            ++self->qosAcceptedEventsDebug;
         }
         GST_OBJECT_UNLOCK(self);
 
         if (!publishQos)
             return GST_BASE_TRANSFORM_CLASS(gst_pekinfer_parent_class)->src_event(trans, event);
+
+        g_object_notify(G_OBJECT(self), "qos-accepted-events-debug");
 
         GST_DEBUG_OBJECT(self,
                          "Received QoS event: type=%d proportion=%f diff=%" G_GINT64_FORMAT
@@ -322,6 +358,34 @@ static GstPekInferFramePolicy gst_pekinfer_get_frame_policy(GstPekInfer *self,
     return policy;
 }
 
+static std::shared_ptr<pek::mediaio::VideoFrame> gst_pekinfer_map_video_frame(GstPekInfer *self,
+                                                                              GstBuffer *buffer) {
+    if (pek::mediaio::gst::GstVideoFrame::hasDirectCpuAddress(buffer)) {
+        auto frame = pek::mediaio::gst::GstVideoFrame::mapGstBuffer(
+            buffer, self->vinfo, pek::AccessMode::Read);
+        if (!frame) {
+            GST_ELEMENT_ERROR(
+                self, RESOURCE, FAILED, ("Failed to map video buffer."), ("%s", self->opChainPath));
+        }
+        return frame;
+    }
+
+    if (pek::mediaio::gst::GstVideoFrame::hasDmaBufContent(buffer)) {
+        GST_ELEMENT_ERROR(self,
+                          RESOURCE,
+                          FAILED,
+                          ("DMA-BUF video buffers are not supported by pekinfer yet."),
+                          ("%s", self->opChainPath));
+    } else {
+        GST_ELEMENT_ERROR(self,
+                          RESOURCE,
+                          FAILED,
+                          ("Unsupported GstBuffer memory type."),
+                          ("%s", self->opChainPath));
+    }
+    return nullptr;
+}
+
 static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *buf) {
     auto *self = (GstPekInfer *)b;
 
@@ -329,10 +393,10 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
         return GST_FLOW_OK;
 
     // Keep the downstream metadata contract even when QoS skips inference.
-    if (auto perceptionMeta = pek::PerceptionMeta::get(buf); !perceptionMeta) {
-        auto perception = std::make_shared<pek::Perception>();
-        if (!pek::PerceptionMeta::add(buf, perception)) {
-            GST_WARNING_OBJECT(self, "Failed to attach PerceptionMeta");
+    if (auto frameResultsMeta = pek::FrameResultsMeta::get(buf); !frameResultsMeta) {
+        auto frameResults = std::make_shared<perception::FrameResults>();
+        if (!pek::FrameResultsMeta::add(buf, frameResults)) {
+            GST_WARNING_OBJECT(self, "Failed to attach FrameResultsMeta");
             return GST_FLOW_OK;
         }
     }
@@ -377,43 +441,25 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
 
     // Build the pipeline VideoFrame only from CPU-direct buffers for now. DMA-BUF-backed
     // buffers are detected explicitly so future DMA-BUF support can be added without
-    // accidentally taking a slow or invalid CPU mapping path.
-    std::shared_ptr<pek::mediaio::VideoFrame> sharedMediaFrame;
-    if (pek::mediaio::gst::GstVideoFrame::hasDirectCpuAddress(buf)) {
-        sharedMediaFrame =
-            pek::mediaio::gst::GstVideoFrame::mapGstBuffer(buf, self->vinfo, pek::AccessMode::Read);
-        if (!sharedMediaFrame) {
-            GST_ELEMENT_ERROR(
-                self, RESOURCE, FAILED, ("Failed to map video buffer."), ("%s", self->opChainPath));
-            return GST_FLOW_ERROR;
-        }
-    } else if (pek::mediaio::gst::GstVideoFrame::hasDmaBufContent(buf)) {
-        GST_ELEMENT_ERROR(self,
-                          RESOURCE,
-                          FAILED,
-                          ("DMA-BUF video buffers are not supported by pekinfer yet."),
-                          ("%s", self->opChainPath));
-        return GST_FLOW_ERROR;
-    } else {
-        GST_ELEMENT_ERROR(self,
-                          RESOURCE,
-                          FAILED,
-                          ("Unsupported GstBuffer memory type."),
-                          ("%s", self->opChainPath));
+    // accidentally taking a slow or invalid CPU mapping path. Keep this after attaching
+    // FrameResultsMeta: GstVideoFrame holds its own GstBuffer ref, which makes adding
+    // new metadata fail because the buffer is no longer considered writable.
+    auto sharedMediaFrame = gst_pekinfer_map_video_frame(self, buf);
+    if (!sharedMediaFrame) {
         return GST_FLOW_ERROR;
     }
 
-    // Mutate the PerceptionMeta while executing the op-chain. The mapped frame is
+    // Mutate the FrameResultsMeta while executing the op-chain. The mapped frame is
     // passed through the op context and stays alive for the whole op-chain execution.
-    auto ret =
-        pek::PerceptionMeta::mutate<GstFlowReturn>(buf, [self, sharedMediaFrame](auto &perception) {
+    auto ret = pek::FrameResultsMeta::mutate<GstFlowReturn>(
+        buf, [self, sharedMediaFrame](auto &frameResults) {
             // Execute the op-chain with the provided context. The chain can read and mutate the
-            // perception and read the video frame, but not mutate it.
+            // frame results and read the video frame, but not mutate the frame.
             pek::op::OpChainContext opChainContext;
             opChainContext.inferenceInfo.inferElementId =
                 std::string(gst_pekinfer_get_effective_inferId(self));
 
-            opChainContext.perception = &perception;
+            opChainContext.frameResults = &frameResults;
             opChainContext.videoFrames["pipelineVideoFrame"] = sharedMediaFrame;
 
             auto executeResult = self->m->executeOpChain(opChainContext);
@@ -463,7 +509,12 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
 
 // ---------------- properties & class init ----------------
 
-enum { PROP_0, PROP_OPCHAIN_PATH, PROP_MODEL_ACTIVE, PROP_FORMAT, PROP_INFER_ID, PROP_QOS_ENABLED };
+constexpr guint PROP_OPCHAIN_PATH = 1;
+constexpr guint PROP_MODEL_ACTIVE = 2;
+constexpr guint PROP_FORMAT = 3;
+constexpr guint PROP_INFER_ID = 4;
+constexpr guint PROP_QOS_ENABLED = 5;
+constexpr guint PROP_QOS_ACCEPTED_EVENTS_DEBUG = 6;
 
 static void gst_pekinfer_set_property(GObject *o, guint id, const GValue *v, GParamSpec *ps) {
     auto *self = (GstPekInfer *)o;
@@ -520,6 +571,11 @@ static void gst_pekinfer_get_property(GObject *o, guint id, GValue *v, GParamSpe
         g_value_set_boolean(v, self->qosEnabled);
         GST_OBJECT_UNLOCK(self);
         break;
+    case PROP_QOS_ACCEPTED_EVENTS_DEBUG:
+        GST_OBJECT_LOCK(self);
+        g_value_set_uint64(v, self->qosAcceptedEventsDebug);
+        GST_OBJECT_UNLOCK(self);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(o, id, ps);
     }
@@ -569,7 +625,7 @@ static void gst_pekinfer_class_init(GstPekInferClass *klass) {
         PROP_FORMAT,
         g_param_spec_string("format",
                             "Video format",
-                            "Video format (BGRA)",
+                            "Video format (BGRA, RGB, I420, NV12, or YUY2)",
                             "BGRA",
                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
@@ -591,12 +647,28 @@ static void gst_pekinfer_class_init(GstPekInferClass *klass) {
                              "Enable experimental inference skipping from QoS feedback",
                              false,
                              (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+    g_object_class_install_property(
+        gobj,
+        PROP_QOS_ACCEPTED_EVENTS_DEBUG,
+        g_param_spec_uint64("qos-accepted-events-debug",
+                            "QoS accepted events debug",
+                            "Debug-only count of QoS events committed by pekinfer",
+                            0,
+                            G_MAXUINT64,
+                            0,
+                            (GParamFlags)(G_PARAM_READABLE | G_PARAM_STATIC_STRINGS)));
 
     // Static pad templates (portable across GStreamer-1.0 versions)
-    static GstStaticPadTemplate sink_t = GST_STATIC_PAD_TEMPLATE(
-        "sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS("video/x-raw, format={BGRA}"));
-    static GstStaticPadTemplate src_t = GST_STATIC_PAD_TEMPLATE(
-        "src", GST_PAD_SRC, GST_PAD_ALWAYS, GST_STATIC_CAPS("video/x-raw, format={BGRA}"));
+    static GstStaticPadTemplate sink_t =
+        GST_STATIC_PAD_TEMPLATE("sink",
+                                GST_PAD_SINK,
+                                GST_PAD_ALWAYS,
+                                GST_STATIC_CAPS("video/x-raw, format={BGRA,RGB,I420,NV12,YUY2}"));
+    static GstStaticPadTemplate src_t =
+        GST_STATIC_PAD_TEMPLATE("src",
+                                GST_PAD_SRC,
+                                GST_PAD_ALWAYS,
+                                GST_STATIC_CAPS("video/x-raw, format={BGRA,RGB,I420,NV12,YUY2}"));
     gst_element_class_add_static_pad_template(ecls, &sink_t);
     gst_element_class_add_static_pad_template(ecls, &src_t);
 
@@ -620,6 +692,7 @@ static void gst_pekinfer_init(GstPekInfer *self) {
     self->m = nullptr;
     self->inferId = nullptr;
     self->qosEnabled = false;
+    self->qosAcceptedEventsDebug = 0;
     self->qosEarliestTime = GST_CLOCK_TIME_NONE;
     self->processingSkipFrames = 0;
     self->qosProportion = 1.0;

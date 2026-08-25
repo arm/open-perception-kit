@@ -109,13 +109,15 @@ class AttributeValue {
     std::int64_t asInt() const {
         return std::get<std::int64_t>(value_);
     }
-    /** @brief Returns value as double. */
+    /** @brief Returns an integer or double value as double. */
     double asDouble() const {
+        if (isInt())
+            return static_cast<double>(std::get<std::int64_t>(value_));
         return std::get<double>(value_);
     }
-    /** @brief Returns value as float. */
+    /** @brief Returns an integer or double value as float. */
     float asFloat() const {
-        return static_cast<float>(std::get<double>(value_));
+        return static_cast<float>(asDouble());
     }
     /** @brief Returns value as bool. */
     bool asBool() const {
@@ -264,72 +266,52 @@ struct AttributeMap {
     /**
      * @brief Returns integer value for @p key, or @p defaultValue when key is missing.
      *
-     * Returns default when key is missing or the stored type does not match.
+     * A present value with the wrong type is an error.
      */
     int64_t getIntOrDefault(const std::string &key, int64_t defaultValue) const {
-        try {
-            return getInt(key);
-        } catch (const AttributeError &error) {
+        if (!contains(key))
             return defaultValue;
-        } catch (const std::bad_variant_access &error) {
-            return defaultValue;
-        }
+        return getInt(key);
     }
     /**
      * @brief Returns float value for @p key, or @p defaultValue when key is missing.
      *
-     * Returns default when key is missing or the stored type does not match.
+     * A present value with the wrong type is an error.
      */
     float getFloatOrDefault(const std::string &key, float defaultValue) const {
-        try {
-            return getFloat(key);
-        } catch (const AttributeError &error) {
+        if (!contains(key))
             return defaultValue;
-        } catch (const std::bad_variant_access &error) {
-            return defaultValue;
-        }
+        return getFloat(key);
     }
     /**
      * @brief Returns double value for @p key, or @p defaultValue when key is missing.
      *
-     * Returns default when key is missing or the stored type does not match.
+     * A present value with the wrong type is an error.
      */
     double getDoubleOrDefault(const std::string &key, double defaultValue) const {
-        try {
-            return getDouble(key);
-        } catch (const AttributeError &error) {
+        if (!contains(key))
             return defaultValue;
-        } catch (const std::bad_variant_access &error) {
-            return defaultValue;
-        }
+        return getDouble(key);
     }
     /**
      * @brief Returns bool value for @p key, or @p defaultValue when key is missing.
      *
-     * Returns default when key is missing or the stored type does not match.
+     * A present value with the wrong type is an error.
      */
     bool getBoolOrDefault(const std::string &key, bool defaultValue) const {
-        try {
-            return getBool(key);
-        } catch (const AttributeError &error) {
+        if (!contains(key))
             return defaultValue;
-        } catch (const std::bad_variant_access &error) {
-            return defaultValue;
-        }
+        return getBool(key);
     }
     /**
      * @brief Returns string value for @p key, or @p defaultValue when key is missing.
      *
-     * Returns default when key is missing or the stored type does not match.
+     * A present value with the wrong type is an error.
      */
     std::string getStringOrDefault(const std::string &key, const std::string &defaultValue) const {
-        try {
-            return getString(key);
-        } catch (const AttributeError &error) {
+        if (!contains(key))
             return defaultValue;
-        } catch (const std::bad_variant_access &error) {
-            return defaultValue;
-        }
+        return getString(key);
     }
 
     /**

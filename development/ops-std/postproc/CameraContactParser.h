@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include "pek/Perception.h"
 #include "pek/Result.h"
 #include "pek/TensorParser.h"
 #include "pek/TensorView.h"
@@ -18,15 +17,8 @@ namespace pek::stdop::postproc {
  */
 struct CameraContactParser : public pek::TensorParser {
 
-    /**
-     * @brief Parses camera contact detection output.
-     *
-     * @param input Input tensor containing contact probability.
-     * @param output Perception layer populated with contact detection result.
-     * @return Result indicating success or parsing error.
-     */
     pek::Result<void> parse(const pek::TensorParser::Input &input,
-                            pek::Perception::Layer &output) override;
+                            perception::FrameResults &results) override;
 };
 
 } // namespace pek::stdop::postproc

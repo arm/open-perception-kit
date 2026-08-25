@@ -22,7 +22,8 @@
 #include <variant>
 #include <vector>
 
-#include "gst/PerceptionMeta.h"
+#include "gst/FrameResultsMeta.h"
+#include "pek/FrameResults.h"
 #include "perf/PerformanceTracer.h"
 
 #ifndef PACKAGE
@@ -593,27 +594,24 @@ static GstFlowReturn gst_pek_performance_transform_frame_ip(GstVideoFilter *filt
         self->cached_lines = get_performance_data(self);
     }
 
-    // try to get the perception meta
-    // it does not added yet -> add it
-    if (auto perceptionMeta = pek::PerceptionMeta::get(frame->buffer); !perceptionMeta) {
-        auto perception = std::make_shared<pek::Perception>();
-        pek::PerceptionMeta::add(frame->buffer, perception);
+    // Ensure generated FrameResults metadata exists so performance is a standalone payload.
+    if (auto frameResultsMeta = pek::FrameResultsMeta::get(frame->buffer); !frameResultsMeta) {
+        auto frameResults = std::make_shared<perception::FrameResults>();
+        pek::FrameResultsMeta::add(frame->buffer, frameResults);
     }
 
-    // Get PerceptionMeta with performance data
-    auto ret = pek::PerceptionMeta::mutate<GstFlowReturn>(frame->buffer, [self](auto &perception) {
-        perception.perfdata = self->cached_lines;
-        return GST_FLOW_OK;
-    });
+    auto ret =
+        pek::FrameResultsMeta::mutate<GstFlowReturn>(frame->buffer, [self](auto &frameResults) {
+            perception::appendPerformanceOverlay(frameResults, self->cached_lines);
+            return GST_FLOW_OK;
+        });
 
     using ME = pek::MetaError;
     if (std::holds_alternative<ME>(ret)) {
         switch (std::get<ME>(ret)) {
         case ME::OK:
         case ME::NO_METADATA:
-            // NO_METADATA means no AI model is running
-            // so no Perception is available.
-            // which is normal
+            // NO_METADATA means no AI model has attached FrameResults yet, which is normal.
             return GST_FLOW_OK;
         }
     } else {

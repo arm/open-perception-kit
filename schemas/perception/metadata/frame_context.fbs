@@ -1,0 +1,37 @@
+include "common.fbs";
+
+namespace perception.metadata;
+
+table VideoFrameContext {
+  object:perception.metadata.ObjectMeta;
+  original_width:ulong;
+  original_height:ulong;
+  source_crop_left:ulong;
+  source_crop_right:ulong;
+  source_crop_top:ulong;
+  source_crop_bottom:ulong;
+  letterbox_left:ulong;
+  letterbox_right:ulong;
+  letterbox_top:ulong;
+  letterbox_bottom:ulong;
+}
+
+table AudioFrameContext {
+  object:perception.metadata.ObjectMeta;
+  original_channels:ulong;
+  original_frequency:ulong;
+  original_sample_count:ulong;
+  cut_left_sample_count:ulong;
+  cut_right_sample_count:ulong;
+}
+
+table FrameContext {
+  schema_major:ushort = 1;
+  schema_minor:ushort = 0;
+  layer:perception.metadata.LayerInfo;
+  video:perception.metadata.VideoFrameContext;
+  audio:perception.metadata.AudioFrameContext;
+}
+
+root_type FrameContext;
+file_identifier "FCTX";

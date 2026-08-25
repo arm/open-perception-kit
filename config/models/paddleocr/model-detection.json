@@ -1,0 +1,22 @@
+{
+	"version": 1,
+	"name": "paddleocr-detection",
+	"modelFile": "detection.onnx",
+	"hfDownload": {
+		"repo_id": "Arm/PaddleOCR",
+		"revision": "49d3beebca12cb9ad0ce6a0ee3ff99c896b9ea6d",
+		"filename": "models/onnx/detection.onnx"
+	},
+	"dynamicOutput": true,
+	"inputTensors": [
+		{
+			"shape": [
+				1,
+				3,
+				640,
+				640
+			],
+			"dataKind": "ImageRgbChw"
+		}
+	]
+}

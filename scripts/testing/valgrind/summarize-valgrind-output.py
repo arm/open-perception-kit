@@ -5,7 +5,7 @@
 """Collect errors from Valgrind XML log files into one XML output file.
 
 Usage:
-	summarize-valgrind-output.py --logs-dir <dir> --output <file>
+	summarize-valgrind-output.py --logs-dir <dir> --output <file> [--suppressions-file <file>]
 """
 
 import argparse
@@ -124,7 +124,95 @@ def require_complete_valgrind_xml(root: ET.Element, xml_path: Path) -> None:
         )
 
 
-def collect_errors(logs_dir: Path, output: Path) -> ET.Element:
+def start_suppression_block(block: list[str] | None, path: Path) -> list[str]:
+    if block is not None:
+        raise ValueError(f"nested suppression block in {path}")
+    return []
+
+
+def finish_suppression_block(
+    block: list[str] | None, names: set[str], path: Path
+) -> None:
+    if not block:
+        raise ValueError(f"empty or unmatched suppression block in {path}")
+    name = block[0]
+    if name in names:
+        raise ValueError(f"duplicate suppression name in {path}: {name}")
+    names.add(name)
+
+
+def read_suppression_names(path: Path) -> set[str]:
+    """Return the unique suppression names from a Valgrind suppression file."""
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        raise ValueError(f"cannot read suppression file {path}: {exc}") from exc
+
+    names = set()
+    block = None
+    for raw_line in lines:
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line == "{":
+            block = start_suppression_block(block, path)
+        elif line == "}":
+            finish_suppression_block(block, names, path)
+            block = None
+        elif block is None:
+            raise ValueError(f"content outside suppression block in {path}: {line}")
+        else:
+            block.append(line)
+
+    if block is not None:
+        raise ValueError(f"unterminated suppression block in {path}")
+    if not names:
+        raise ValueError(f"no suppression blocks found in {path}")
+    return names
+
+
+def read_valgrind_xml(xml_path: Path) -> ET.Element | None:
+    try:
+        tree = ET.parse(xml_path)
+    except FileNotFoundError:
+        return None
+    except ET.ParseError as exc:
+        raise ValueError(f"malformed XML in {xml_path}: {exc}") from exc
+    root = tree.getroot()
+    require_complete_valgrind_xml(root, xml_path)
+    return root
+
+
+def record_used_suppressions(root: ET.Element, used_suppressions: set[str]) -> None:
+    for pair in root.findall(".//suppcounts/pair"):
+        name = pair.findtext("name", default="").strip()
+        count = int(pair.findtext("count", default="0"))
+        if name and count > 0:
+            used_suppressions.add(name)
+
+
+def append_unique_errors(
+    destination: ET.Element, source: ET.Element, seen_errors: set[tuple]
+) -> tuple[int, int]:
+    errors = list(source.findall(".//error"))
+    if not errors and source.tag == "error":
+        errors = [source]
+    duplicate_errors = 0
+    for error in errors:
+        fingerprint = element_fingerprint(error)
+        if fingerprint in seen_errors:
+            duplicate_errors += 1
+            continue
+        seen_errors.add(fingerprint)
+        destination.append(normalize_error(error))
+    return len(errors), duplicate_errors
+
+
+def collect_errors(
+    logs_dir: Path,
+    output: Path,
+    used_suppressions: set[str] | None = None,
+) -> ET.Element:
     """Collect unique normalized Valgrind <error> elements from XML logs."""
     root = ET.Element("valgrindoutput")
 
@@ -136,29 +224,15 @@ def collect_errors(logs_dir: Path, output: Path) -> ET.Element:
     seen_errors = set()
 
     for xml_path in xml_files:
-        try:
-            tree = ET.parse(xml_path)
-        except FileNotFoundError:
+        source_root = read_valgrind_xml(xml_path)
+        if source_root is None:
             continue
-        except ET.ParseError as exc:
-            raise ValueError(f"malformed XML in {xml_path}: {exc}") from exc
-
-        source_root = tree.getroot()
-        require_complete_valgrind_xml(source_root, xml_path)
+        if used_suppressions is not None:
+            record_used_suppressions(source_root, used_suppressions)
         total_logs += 1
-        errors = list(source_root.findall(".//error"))
-        if not errors and source_root.tag != "error":
-            continue
-
-        for error in errors or [source_root]:
-            total_errors += 1
-            fingerprint = element_fingerprint(error)
-            if fingerprint in seen_errors:
-                duplicate_errors += 1
-                continue
-
-            seen_errors.add(fingerprint)
-            root.append(normalize_error(error))
+        errors, duplicates = append_unique_errors(root, source_root, seen_errors)
+        total_errors += errors
+        duplicate_errors += duplicates
 
     root.set("source_logs", str(total_logs))
     root.set("raw_errors", str(total_errors))
@@ -191,6 +265,11 @@ def main() -> int:
         type=Path,
         help="Path to the XML file that will receive the collected errors",
     )
+    parser.add_argument(
+        "--suppressions-file",
+        type=Path,
+        help="Fail if any suppression in this file was unused by every Valgrind log",
+    )
     args = parser.parse_args()
 
     logs_dir = args.logs_dir
@@ -203,13 +282,34 @@ def main() -> int:
         LOGGER.error("Error: logs path is not a directory: %s", logs_dir)
         return 2
 
+    used_suppressions = set()
     try:
-        root = collect_errors(logs_dir, output)
+        expected_suppressions = (
+            read_suppression_names(args.suppressions_file)
+            if args.suppressions_file is not None
+            else set()
+        )
+        root = collect_errors(logs_dir, output, used_suppressions)
     except ValueError as exc:
         LOGGER.error("Error: %s", exc)
         return 2
 
     write_xml(root, output)
+    unused_suppressions = sorted(expected_suppressions - used_suppressions)
+    if unused_suppressions:
+        LOGGER.error(
+            "FAILED: %d unused Valgrind suppression(s):",
+            len(unused_suppressions),
+        )
+        for name in unused_suppressions:
+            LOGGER.error("  %s", name)
+        LOGGER.error("Remove unused suppressions from %s.", args.suppressions_file)
+        return 1
+    if expected_suppressions:
+        LOGGER.info(
+            "PASSED: All %d Valgrind suppressions were used.",
+            len(expected_suppressions),
+        )
     return 0
 
 

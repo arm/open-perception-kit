@@ -22,24 +22,11 @@ namespace pek::op {
  */
 class OpChain {
     std::string name;
+    std::string displayName;
+    std::string task;
+    std::string runtime;
     std::vector<pek::op::OpRef> opRefs;
     std::vector<pek::op::Op *> opPtrs;
-
-    /**
-     * @brief Validates that operations with the same loopId are contiguous.
-     * @return Result indicating success or failure of validation.
-     */
-    pek::Result<void> validateGroupedLoopIds();
-    /**
-     * @brief Validates that all loop groups have consistent sizes.
-     * @return Result indicating success or failure of validation.
-     */
-    pek::Result<void> validateLoopGroupSizes();
-    /**
-     * @brief Performs full chain validation including group IDs and loop sizes.
-     * @return Result indicating success or failure of validation.
-     */
-    pek::Result<void> validate();
 
   public:
     /**
@@ -66,7 +53,10 @@ class OpChain {
      * @brief Gets the name of this chain.
      * @return Const reference to the chain name string.
      */
-    const std::string &getName();
+    const std::string &getName() const;
+    const std::string &getDisplayName() const;
+    const std::string &getTask() const;
+    const std::string &getRuntime() const;
     /**
      * @brief Adds an operation reference to the chain.
      *

@@ -128,7 +128,7 @@ run_in_container() {
     }
 
     build_pek_runner() {
-        ./scripts/build-elements.sh debug true
+        ./scripts/build.sh debug true
         if [[ -d "${pek_build_dir}/meson-private" ]]; then
             meson setup --reconfigure "${pek_build_dir}" examples/yolo-benchmark/pek
         else

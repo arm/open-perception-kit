@@ -7,9 +7,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
 WORK_ROOT="$(cd -- "$SCRIPT_DIR/../../.." && pwd)"
-BUILD_SCRIPT="$WORK_ROOT/scripts/build-elements.sh"
+BUILD_SCRIPT="$WORK_ROOT/scripts/build.sh"
 SHTOOLS_SCRIPT="$WORK_ROOT/scripts/private/shtools.sh"
 PEK_MENU="$WORK_ROOT/tools/pek-menu"
+PEKINFER_RETRY_TEST="$WORK_ROOT/development/build/meson-out/pekinfer-retry-valgrind-test"
 TEST_PIPELINES_DIR="$WORK_ROOT/config/pipelines/testing"
 LOG_DIR="$SCRIPT_DIR/logs"
 DEFAULT_SUPPRESSIONS_FILE="$SCRIPT_DIR/suppressed-warnings"
@@ -57,12 +58,13 @@ run_build() {
     local do_clean="$1"
 
     if [[ "$do_clean" == "true" ]]; then
-        msg "Cleaning build directory via build-elements.sh clean"
+        msg "Cleaning build directory via scripts/build.sh clean"
         "$BUILD_SCRIPT" clean
     fi
 
-    msg "Building debug artifacts via build-elements.sh debug"
+    msg "Building debug artifacts via scripts/build.sh debug"
     "$BUILD_SCRIPT" debug
+    meson compile -C "$WORK_ROOT/development/build" pekinfer-retry-valgrind-test
 }
 
 run_valgrind_all() {
@@ -92,9 +94,12 @@ run_valgrind_all() {
         exit 1
     fi
 
-    # Ensure freshly built plugins are discoverable and pipeline templates can
-    # resolve the configured frame count from the process environment.
+    # Ensure freshly built plugins are discoverable and scanned under Valgrind.
     export GST_PLUGIN_PATH="$WORK_ROOT/development/build/meson-out${GST_PLUGIN_PATH:+:$GST_PLUGIN_PATH}"
+    export GST_REGISTRY="$LOG_DIR/.gstreamer-registry.bin"
+    rm -f "$GST_REGISTRY"
+
+    # Let pipeline templates resolve the configured frame count.
     export NUM_FRAMES="${NUM_FRAMES:-30}"
 
     local valgrind_args=(
@@ -196,9 +201,29 @@ run_valgrind_all() {
         fi
     done
 
+    local retry_log_file="$LOG_DIR/pekinfer-retry.valgrind.%p.xml"
+    local retry_log_glob="${retry_log_file//%p/*}"
+    local retry_rc=0
+
+    msg "Running PEKinfer failed-start/retry regression under valgrind"
+    if valgrind \
+        "${valgrind_args[@]}" \
+        --show-leak-kinds=definite \
+        --errors-for-leak-kinds=definite \
+        --xml-file="$retry_log_file" \
+        "$PEKINFER_RETRY_TEST" \
+        "$WORK_ROOT/config/models/yolov11/opchain.json" \
+        "$WORK_ROOT/config/models/yolov11/model.json"; then
+        msg "PASSED: PEKinfer failed-start/retry regression"
+    else
+        retry_rc=$?
+        msg "FAILED ($retry_rc): PEKinfer failed-start/retry regression"
+        msg "Logs: $retry_log_glob"
+    fi
+
     msg "Completed $total_count pipeline(s), failures: $fail_count, valgrind error reports: $valgrind_error_count"
 
-    if ((fail_count > 0)); then
+    if ((fail_count > 0 || retry_rc > 0)); then
         return 1
     fi
 

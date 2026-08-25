@@ -14,6 +14,27 @@ For anything beyond a tiny local edit:
 4. implement only the changes the task needs
 5. report what was verified and what was not
 
+Update feature branches by rebasing onto their target branch. Do not merge the
+target branch into a feature branch.
+
+### Stacked pull requests
+
+When asked to stack pull requests, use GitHub's native
+[stacked pull requests](https://docs.github.com/en/pull-requests/how-tos/stacked-pull-requests)
+feature:
+
+1. keep the bottom pull request targeted at the trunk branch
+2. rebase each upper branch onto the head of the pull request below it
+3. target each upper pull request at the branch of the pull request below it
+4. link the pull requests with the GitHub website or the Stacks REST API,
+   listing pull request numbers from bottom to top
+5. verify the stack membership and that each pull request shows only its layer's
+   focused diff
+
+Keep the stack linear by cascading rebases after a lower branch changes, and
+merge the pull requests from bottom to top. A textual dependency between pull
+requests that all target the trunk is not a native GitHub stack.
+
 ## Start here
 
 Read these first before making substantial changes:
@@ -29,7 +50,7 @@ For implementation detail and background, continue with:
 
 - [Architectural overview](docs/arch/architectural-overview.md)
 - [Op system](docs/arch/op-system.md)
-- [Perception](docs/arch/perception.md)
+- [FrameResults model](docs/arch/perception.md)
 - [pekinfer](docs/arch/elements/pekinfer.md)
 - [pekosd](docs/arch/elements/pekosd.md)
 - [peksink](docs/arch/elements/peksink.md)
@@ -42,6 +63,20 @@ For implementation detail and background, continue with:
 - `development/ops-std/postproc/` for new tensor parsers
 
 Do not start by changing core runtime code unless the task clearly requires it.
+
+## Artifact download ownership
+
+Each external artifact has one download owner. Consumers must reuse the
+owner's output instead of downloading the same artifact from setup scripts,
+entrypoints, workflows, release scripts, or convenience wrappers.
+
+- Models: `pek-models` and `scripts/download-models.py`.
+- Demo videos: `pek-demo-media` and
+  `scripts/private/download-demo-videos.sh`.
+
+Extend the existing owner when adding an artifact in the same domain. If a new
+domain needs a downloader, define one owner and remove any overlapping path in
+the same change.
 
 ## Task routing
 
@@ -92,20 +127,49 @@ Useful checked-in examples:
 - `development/ops-std/postproc/ImageNetClassificationParser.cpp`
 
 ### Add a new structured runtime result
+Use the repository skill `$evolve-perception-schema` for compatibility
+classification, authored schema changes, and runtime integration. Then use
+`$regenerate-perception-sdk` to update and validate the checked-in generated
+C++, Python, and TypeScript SDK snapshot.
+
 Start in:
 
-- `development/common/pek/Perception.h`
-- `development/common/pek/PerceptionSerializer.h`
-- `development/common/pek/PerceptionSerializer.cpp`
+- `tools/perception/sdk.json` for the authoritative schema and output paths
+- the descriptor's `schema_dir`
+- `schemas/perception/README.md` for schema evolution and compatibility rules
+- `docs/arch/perception.md`
+- `scripts/perception-sdk.sh`
 
-Then continue into parser and visualization code only if needed.
+Add persistent result shapes to the Perception schema, then regenerate the checked-in
+C++, Python, and TypeScript SDKs through the container workflow with
+`./scripts/perception-sdk.sh generate`.
+Do not recreate hand-written `Perception` containers or serializers. Continue into
+parser, visualization, tracking, or publishing code only if the new schema payload
+needs runtime support.
+
+The Perception SDK identity, repository paths, enabled outputs, and FlatBuffers
+wheel lock are owned only by `tools/perception/sdk.json`. All scripts load that
+descriptor through `tools/perception/sdk_config.py`; generated integrations and
+manifests are derived outputs and must not be edited independently. Raw flowdata
+manifests are verified before AMP-specific copyright and formatting decoration.
+
+### Regenerate the Perception SDK snapshot
+Use `$regenerate-perception-sdk` during implementation when authored SDK inputs
+change or `./scripts/perception-sdk.sh check` reports drift. This workflow
+updates tracked generated sources and prepares them for a normal source commit.
+It does not create release ZIPs.
+
+### Package a Perception SDK release
+Use `$package-perception-sdk-release` only after the authored and generated SDK
+snapshot is committed. This workflow creates and verifies the deterministic ZIP,
+checksum, and provenance sidecar without regenerating checked-in sources.
 
 ### Add or modify overlay rendering
 Start in:
 
 - `development/elements/pekosd/pekosd.cpp`
 
-Only do this after the `Perception` structure and parser output are clear.
+Only do this after the Perception schema payload and parser output are clear.
 
 ### Add or modify an app under `apps/`
 Start in:
@@ -138,17 +202,18 @@ Ground doc changes in checked-in code and config.
 - Branch and commit-message rules are documented in `.github/CONTRIBUTING.md`.
 - The active runtime code lives under `development/`.
 - Video-processing elements currently assume `BGRA` caps unless the task explicitly changes the contract.
-- `PerceptionMeta` is the current metadata type.
+- Runtime result data is carried downstream as FrameResults through `FrameResultsMeta`.
 - OpChain loop execution is driven by `loopId`.
-- `pekperformance` writes to `Perception.perfdata`; `pekosd` renders it.
+- `pekperformance` appends `PerformanceOverlayT` FrameResults payloads; `pekosd` renders supported FrameResults overlays.
+- `pekcomm` publishes serialized FrameResults packets for file/stdout output.
 - `peksink` currently owns the WebRTC, HTTP, and control WebSocket stack.
 
 ## Build and validation
 
-- `./scripts/build-elements.sh debug [true|false]`
-- `./scripts/build-elements.sh release [true|false]`
-- `./scripts/build-elements.sh clean`
-- `./scripts/build-elements.sh debug true`
+- `./scripts/build.sh debug [true|false]`
+- `./scripts/build.sh release [true|false]`
+- `./scripts/build.sh clean`
+- `./scripts/build.sh debug true`
 - `meson test -C /work/development/build --print-errorlogs`
 - `./scripts/gen-doc.sh` to refresh generated docs, Doxygen output, and PlantUML images
 - `./scripts/serve-docs-plain.sh`

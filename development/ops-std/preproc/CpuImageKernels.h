@@ -9,6 +9,9 @@
 
 namespace pek::stdop::preproc {
 
+/**
+ * @brief CPU image conversion kernels for packed BGRA and RGB source frames.
+ */
 struct ImageOps {
 
     // ---
@@ -167,92 +170,158 @@ struct ImageOps {
                                                         Sampling sampling = Sampling::Nearest);
 
     /**
-     * @brief Stretch-blits RGB8 CHW source rect into RGB float32 HWC destination rect.
-     * @param src Source descriptor (RGB8 CHW).
-     * @param dst Destination descriptor (RGB float32 HWC).
+     * @brief Stretch-blits RGB8 HWC full-frame input into RGB float32 CHW full-frame output.
+     * @param src Source image descriptor.
+     * @param dst Destination image descriptor and output buffer.
      * @param sampling Sampling mode used during resize.
-     * @return true on success, false on invalid pointers or out-of-bounds rects.
+     * @return true on success, false when descriptors, buffers, or layout are invalid.
      */
-    static bool StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Hwc(const ImageOpDesc &src,
-                                                         const ImageOpDesc &dst,
-                                                         Sampling sampling = Sampling::Nearest);
+    static bool StretchBlit_Rgb8_Hwc_Full_Rgbf32_Full_Chw(const ImageOpDesc &src,
+                                                          const ImageOpDesc &dst,
+                                                          Sampling sampling = Sampling::Nearest);
 
     /**
-     * @brief Stretch-blits RGB8 CHW source rect into RGB float16 HWC destination rect.
-     * @param src Source descriptor (RGB8 CHW).
-     * @param dst Destination descriptor (RGB float16 HWC).
+     * @brief Stretch-blits RGB8 HWC source rect into RGB float32 CHW destination rect.
+     * @param src Source image descriptor.
+     * @param dst Destination image descriptor and output buffer.
      * @param sampling Sampling mode used during resize.
-     * @return true on success, false on invalid pointers or out-of-bounds rects.
+     * @return true on success, false when descriptors, buffers, or layout are invalid.
      */
-    static bool StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Hwc(const ImageOpDesc &src,
-                                                         const ImageOpDesc &dst,
-                                                         Sampling sampling = Sampling::Nearest);
+    static bool StretchBlit_Rgb8_Hwc_Rect_Rgbf32_Rect_Chw(const ImageOpDesc &src,
+                                                          const ImageOpDesc &dst,
+                                                          Sampling sampling = Sampling::Nearest);
 
     /**
-     * @brief Stretch-blits RGB8 CHW full-frame input into RGB float32 HWC full-frame output.
-     * @param src Source descriptor (RGB8 CHW, full-frame rect expected).
-     * @param dst Destination descriptor (RGB float32 HWC, full-frame rect expected).
+     * @brief Stretch-blits RGB8 HWC full-frame input into RGB8 HWC full-frame output.
+     * @param src Source image descriptor.
+     * @param dst Destination image descriptor and output buffer.
      * @param sampling Sampling mode used during resize.
-     * @return true on success, false on invalid pointers or out-of-bounds rects.
+     * @return true on success, false when descriptors, buffers, or layout are invalid.
      */
-    static bool StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Hwc(const ImageOpDesc &src,
-                                                         const ImageOpDesc &dst,
-                                                         Sampling sampling = Sampling::Nearest);
+    static bool StretchBlit_Rgb8_Hwc_Full_Rgb8_Full_Hwc(const ImageOpDesc &src,
+                                                        const ImageOpDesc &dst,
+                                                        Sampling sampling = Sampling::Nearest);
 
     /**
-     * @brief Stretch-blits RGB8 CHW full-frame input into RGB float16 HWC full-frame output.
-     * @param src Source descriptor (RGB8 CHW, full-frame rect expected).
-     * @param dst Destination descriptor (RGB float16 HWC, full-frame rect expected).
+     * @brief Stretch-blits RGB8 HWC source rect into RGB8 HWC destination rect.
+     * @param src Source image descriptor.
+     * @param dst Destination image descriptor and output buffer.
      * @param sampling Sampling mode used during resize.
-     * @return true on success, false on invalid pointers or out-of-bounds rects.
+     * @return true on success, false when descriptors, buffers, or layout are invalid.
      */
-    static bool StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Hwc(const ImageOpDesc &src,
-                                                         const ImageOpDesc &dst,
-                                                         Sampling sampling = Sampling::Nearest);
+    static bool StretchBlit_Rgb8_Hwc_Rect_Rgb8_Rect_Hwc(const ImageOpDesc &src,
+                                                        const ImageOpDesc &dst,
+                                                        Sampling sampling = Sampling::Nearest);
 
     /**
-     * @brief Stretch-blits RGB8 CHW source rect into RGB float32 CHW destination rect.
-     * @param src Source descriptor (RGB8 CHW).
-     * @param dst Destination descriptor (RGB float32 CHW).
+     * @brief Stretch-blits RGB8 HWC full-frame input into RGB float32 HWC full-frame output.
+     * @param src Source image descriptor.
+     * @param dst Destination image descriptor and output buffer.
      * @param sampling Sampling mode used during resize.
-     * @return true on success, false on invalid pointers or out-of-bounds rects.
+     * @return true on success, false when descriptors, buffers, or layout are invalid.
      */
-    static bool StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(const ImageOpDesc &src,
-                                                         const ImageOpDesc &dst,
-                                                         Sampling sampling = Sampling::Nearest);
+    static bool StretchBlit_Rgb8_Hwc_Full_Rgbf32_Full_Hwc(const ImageOpDesc &src,
+                                                          const ImageOpDesc &dst,
+                                                          Sampling sampling = Sampling::Nearest);
 
     /**
-     * @brief Stretch-blits RGB8 CHW source rect into RGB float16 CHW destination rect.
-     * @param src Source descriptor (RGB8 CHW).
-     * @param dst Destination descriptor (RGB float16 CHW).
+     * @brief Stretch-blits RGB8 HWC source rect into RGB float32 HWC destination rect.
+     * @param src Source image descriptor.
+     * @param dst Destination image descriptor and output buffer.
      * @param sampling Sampling mode used during resize.
-     * @return true on success, false on invalid pointers or out-of-bounds rects.
+     * @return true on success, false when descriptors, buffers, or layout are invalid.
      */
-    static bool StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Chw(const ImageOpDesc &src,
-                                                         const ImageOpDesc &dst,
-                                                         Sampling sampling = Sampling::Nearest);
+    static bool StretchBlit_Rgb8_Hwc_Rect_Rgbf32_Rect_Hwc(const ImageOpDesc &src,
+                                                          const ImageOpDesc &dst,
+                                                          Sampling sampling = Sampling::Nearest);
 
     /**
-     * @brief Stretch-blits RGB8 CHW full-frame input into RGB float32 CHW full-frame output.
-     * @param src Source descriptor (RGB8 CHW, full-frame rect expected).
-     * @param dst Destination descriptor (RGB float32 CHW, full-frame rect expected).
+     * @brief Stretch-blits RGB8 HWC full-frame input into RGB float16 HWC full-frame output.
+     * @param src Source image descriptor.
+     * @param dst Destination image descriptor and output buffer.
      * @param sampling Sampling mode used during resize.
-     * @return true on success, false on invalid pointers or out-of-bounds rects.
+     * @return true on success, false when descriptors, buffers, or layout are invalid.
      */
-    static bool StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Chw(const ImageOpDesc &src,
-                                                         const ImageOpDesc &dst,
-                                                         Sampling sampling = Sampling::Nearest);
+    static bool StretchBlit_Rgb8_Hwc_Full_Rgbf16_Full_Hwc(const ImageOpDesc &src,
+                                                          const ImageOpDesc &dst,
+                                                          Sampling sampling = Sampling::Nearest);
 
     /**
-     * @brief Stretch-blits RGB8 CHW full-frame input into RGB float16 CHW full-frame output.
-     * @param src Source descriptor (RGB8 CHW, full-frame rect expected).
-     * @param dst Destination descriptor (RGB float16 CHW, full-frame rect expected).
+     * @brief Stretch-blits RGB8 HWC source rect into RGB float16 HWC destination rect.
+     * @param src Source image descriptor.
+     * @param dst Destination image descriptor and output buffer.
      * @param sampling Sampling mode used during resize.
-     * @return true on success, false on invalid pointers or out-of-bounds rects.
+     * @return true on success, false when descriptors, buffers, or layout are invalid.
      */
-    static bool StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Chw(const ImageOpDesc &src,
-                                                         const ImageOpDesc &dst,
-                                                         Sampling sampling = Sampling::Nearest);
+    static bool StretchBlit_Rgb8_Hwc_Rect_Rgbf16_Rect_Hwc(const ImageOpDesc &src,
+                                                          const ImageOpDesc &dst,
+                                                          Sampling sampling = Sampling::Nearest);
+
+    /**
+     * @brief Stretch-blits RGB8 HWC full-frame input into RGB float16 CHW full-frame output.
+     * @param src Source image descriptor.
+     * @param dst Destination image descriptor and output buffer.
+     * @param sampling Sampling mode used during resize.
+     * @return true on success, false when descriptors, buffers, or layout are invalid.
+     */
+    static bool StretchBlit_Rgb8_Hwc_Full_Rgbf16_Full_Chw(const ImageOpDesc &src,
+                                                          const ImageOpDesc &dst,
+                                                          Sampling sampling = Sampling::Nearest);
+
+    /**
+     * @brief Stretch-blits RGB8 HWC source rect into RGB float16 CHW destination rect.
+     * @param src Source image descriptor.
+     * @param dst Destination image descriptor and output buffer.
+     * @param sampling Sampling mode used during resize.
+     * @return true on success, false when descriptors, buffers, or layout are invalid.
+     */
+    static bool StretchBlit_Rgb8_Hwc_Rect_Rgbf16_Rect_Chw(const ImageOpDesc &src,
+                                                          const ImageOpDesc &dst,
+                                                          Sampling sampling = Sampling::Nearest);
+
+    /**
+     * @brief Stretch-blits RGB8 HWC full-frame input into Gray8 full-frame output.
+     * @param src Source image descriptor.
+     * @param dst Destination image descriptor and output buffer.
+     * @param sampling Sampling mode used during resize.
+     * @return true on success, false when descriptors, buffers, or layout are invalid.
+     */
+    static bool StretchBlit_Rgb8_Hwc_Full_Gray8_Full(const ImageOpDesc &src,
+                                                     const ImageOpDesc &dst,
+                                                     Sampling sampling = Sampling::Nearest);
+
+    /**
+     * @brief Stretch-blits RGB8 HWC source rect into Gray8 destination rect.
+     * @param src Source image descriptor.
+     * @param dst Destination image descriptor and output buffer.
+     * @param sampling Sampling mode used during resize.
+     * @return true on success, false when descriptors, buffers, or layout are invalid.
+     */
+    static bool StretchBlit_Rgb8_Hwc_Rect_Gray8_Rect(const ImageOpDesc &src,
+                                                     const ImageOpDesc &dst,
+                                                     Sampling sampling = Sampling::Nearest);
+
+    /**
+     * @brief Stretch-blits RGB8 HWC full-frame input into Grayf32 full-frame output.
+     * @param src Source image descriptor.
+     * @param dst Destination image descriptor and output buffer.
+     * @param sampling Sampling mode used during resize.
+     * @return true on success, false when descriptors, buffers, or layout are invalid.
+     */
+    static bool StretchBlit_Rgb8_Hwc_Full_Grayf32_Full(const ImageOpDesc &src,
+                                                       const ImageOpDesc &dst,
+                                                       Sampling sampling = Sampling::Nearest);
+
+    /**
+     * @brief Stretch-blits RGB8 HWC source rect into Grayf32 destination rect.
+     * @param src Source image descriptor.
+     * @param dst Destination image descriptor and output buffer.
+     * @param sampling Sampling mode used during resize.
+     * @return true on success, false when descriptors, buffers, or layout are invalid.
+     */
+    static bool StretchBlit_Rgb8_Hwc_Rect_Grayf32_Rect(const ImageOpDesc &src,
+                                                       const ImageOpDesc &dst,
+                                                       Sampling sampling = Sampling::Nearest);
 };
 
 } // namespace pek::stdop::preproc

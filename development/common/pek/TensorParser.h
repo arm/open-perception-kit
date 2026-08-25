@@ -5,7 +5,7 @@
 #pragma once
 
 #include "pek/AttributeMap.h"
-#include "pek/Perception.h"
+#include "pek/FrameResults.h"
 #include "pek/Result.h"
 #include "pek/TensorView.h"
 
@@ -20,9 +20,6 @@ struct TensorParser {
      * @brief Input package passed to parser implementations.
      */
     struct Input {
-
-        /// Optional/auxiliary layer context carried by the caller.
-        Perception::Layer perceptionLayer;
 
         /**
          * @brief Constructs parser input with immutable attributes.
@@ -44,12 +41,12 @@ struct TensorParser {
     virtual ~TensorParser() = default;
 
     /**
-     * @brief Parses tensors into a perception layer.
+     * @brief Parses tensors into frame results.
      * @param input Parser inputs, tensor array, and attributes.
-     * @param output Destination perception layer to fill/update.
+     * @param results Destination frame results to fill/update.
      * @return Success or error.
      */
     virtual pek::Result<void> parse(const pek::TensorParser::Input &input,
-                                    pek::Perception::Layer &output) = 0;
+                                    perception::FrameResults &results) = 0;
 };
 } // namespace pek

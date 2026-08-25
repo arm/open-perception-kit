@@ -1,4 +1,5 @@
 {
+	"version": 1,
 	"name": "imagenet",
 	"modelFile": "mobilenet_v2_1_4_224.hef",
 	"hfDownload": {

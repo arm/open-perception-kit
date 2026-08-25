@@ -9,6 +9,9 @@ set -euo pipefail
 : "${HOST_UID:=}"
 : "${HOST_GID:=}"
 
+ENTRYPOINT_READY_FILE="/tmp/pek-development-entrypoint-ready"
+rm -f "${ENTRYPOINT_READY_FILE}"
+
 # If the user of the container has a zsh config then use that configuration inside the container, otherwise keep using the default one.
 if [[ -f "/home/${USERNAME}/configs/zshrc" ]]; then
     ln -sfn "/home/${USERNAME}/configs/zshrc" "/home/${USERNAME}/.zshrc"
@@ -16,38 +19,56 @@ fi
 
 seed_development_artifacts() {
     local artifacts_root="/opt/pek-app"
+    local video_artifacts="${artifacts_root}/data/videos"
 
     [[ -d "${artifacts_root}" ]] || return 0
     [[ -w /work ]] || return 0
 
-    mkdir -p \
-        /work/config/models \
-        /work/data/videos \
-        /work/development/build/meson-out \
-        /work/tools
-
     if [[ -d "${artifacts_root}/config/models" ]]; then
+        mkdir -p /work/config/models
         cp -R --no-clobber "${artifacts_root}/config/models/." /work/config/models/
     fi
 
-    if [[ -d "${artifacts_root}/data/videos" ]]; then
-        cp -a --no-clobber "${artifacts_root}/data/videos/." /work/data/videos/
+    if [[ -d "${video_artifacts}" ]]; then
+        mkdir -p /work/data/videos
+        cp -a --no-clobber "${video_artifacts}/." /work/data/videos/
+        if [[ -f "${video_artifacts}/SHA256SUMS" ]]; then
+            if ! (cd /work/data/videos && sha256sum --check --strict --quiet "${video_artifacts}/SHA256SUMS"); then
+                echo "ERROR: existing demo videos failed checksum validation." >&2
+                echo "Remove them and retry the quick start:" >&2
+                echo "  rm -rf data/videos && ./scripts/quick_start.sh" >&2
+                exit 1
+            fi
+        fi
     fi
 
     if [[ -d "${artifacts_root}/development/build/meson-out" ]]; then
+        mkdir -p /work/development/build/meson-out
         cp -a --no-clobber \
             "${artifacts_root}/development/build/meson-out/." \
             /work/development/build/meson-out/
     fi
 
     if [[ ! -e /work/tools/pek-menu && -f "${artifacts_root}/tools/pek-menu" ]]; then
+        mkdir -p /work/tools
         cp -a "${artifacts_root}/tools/pek-menu" /work/tools/pek-menu
     fi
 }
 
+if [[ "${1:-}" == "--seed-artifacts" ]]; then
+    if [[ -d /opt/pek-app && ! -w /work ]]; then
+        echo "ERROR: cannot seed development artifacts into /work" >&2
+        exit 1
+    fi
+    seed_development_artifacts
+    touch "${ENTRYPOINT_READY_FILE}"
+    exit 0
+fi
+
 # If no remap requested, just run as current user
 if [[ -z "${HOST_UID}" || -z "${HOST_GID}" ]]; then
     seed_development_artifacts
+    touch "${ENTRYPOINT_READY_FILE}"
     exec "$@"
 fi
 
@@ -81,4 +102,5 @@ chown -R "${HOST_UID}:${HOST_GID}" /work || true
 chown -R "${HOST_UID}:${HOST_GID}" /tmp/pekcomm || true
 
 # Drop privileges
+touch "${ENTRYPOINT_READY_FILE}"
 exec gosu "${HOST_UID}:${HOST_GID}" "$@"

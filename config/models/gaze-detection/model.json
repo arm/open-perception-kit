@@ -1,4 +1,5 @@
 {
+	"version": 1,
 	"name": "gaze-yawpitch",
 	"modelFile": "l2cs_mobilegaze_mobilenetv2-a8w8-2-ort-quantized.onnx",
 	"hfDownload": {

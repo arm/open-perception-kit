@@ -136,7 +136,7 @@ int main(int argc, char **argv) {
 
         std::mutex timingMutex;
         std::vector<Clock::time_point> resultReadyTimes;
-        pipeline.onPerception([&](const std::string &) {
+        pipeline.onFrameResults([&](const std::string &) {
             const auto ready = Clock::now();
             std::lock_guard lock(timingMutex);
             resultReadyTimes.push_back(ready);

@@ -5,8 +5,9 @@
 #include "runtime/Pipeline.h"
 
 #include "Log.h"
-#include "gst/PerceptionMeta.h"
-#include "pek/PerceptionSerializer.h"
+#include "gst/FrameResultsMeta.h"
+#include "pek/Base64.h"
+#include "pek/FrameResults.h"
 
 #include <fmt/core.h>
 
@@ -90,6 +91,14 @@ void logQosMessage(GstMessage *message) {
                     formatName ? formatName : "unknown",
                     qosValue(processed),
                     qosValue(dropped));
+}
+
+std::string serializeFrameResultsJson(const perception::FrameResults &frameResults) {
+    const auto packet = perception::serialize(frameResults);
+    nlohmann::json wrapper;
+    wrapper["frame_results_encoding"] = "perception-frame-results+base64";
+    wrapper["frame_results_packet_b64"] = pek::base64Encode(packet);
+    return wrapper.dump();
 }
 
 bool isVarStart(char c) {
@@ -427,9 +436,9 @@ class Pipeline::Impl {
         return {};
     }
 
-    void onPerception(Pipeline::PerceptionCallback callback) {
+    void onFrameResults(Pipeline::FrameResultsCallback callback) {
         std::lock_guard lock(callbackMutex);
-        perceptionCallback = std::move(callback);
+        frameResultsCallback = std::move(callback);
     }
 
     void onError(Pipeline::ErrorCallback callback) {
@@ -444,7 +453,8 @@ class Pipeline::Impl {
 
     // Manual hook for users who want perception at a specific named element
     // instead of the automatically detected terminal sinks.
-    Result<void> attachPerceptionProbe(const std::string &elementName, const std::string &padName) {
+    Result<void> attachFrameResultsProbe(const std::string &elementName,
+                                         const std::string &padName) {
         if (!pipeline) {
             return tl::make_unexpected(
                 makeError(ErrorFlag::InvalidPipeline, "No pipeline has been loaded"));
@@ -482,7 +492,7 @@ class Pipeline::Impl {
     GstElement *pipeline = nullptr;
     std::vector<ProbeHandle> probes;
     mutable std::mutex callbackMutex;
-    Pipeline::PerceptionCallback perceptionCallback;
+    Pipeline::FrameResultsCallback frameResultsCallback;
     Pipeline::ErrorCallback errorCallback;
     Pipeline::EosCallback eosCallback;
 
@@ -785,22 +795,22 @@ class Pipeline::Impl {
             return GST_PAD_PROBE_OK;
         }
 
-        auto perception = pek::PerceptionMeta::read(buffer);
-        if (!perception) {
+        auto frameResults = pek::FrameResultsMeta::read(buffer);
+        if (!frameResults) {
             return GST_PAD_PROBE_OK;
         }
 
-        self->emitPerception(*perception);
+        self->emitPerception(*frameResults);
         return GST_PAD_PROBE_OK;
     }
 
     // Copy std::function under the mutex, then call it unlocked. This avoids
     // holding our lock while user code runs.
-    void emitPerception(const pek::Perception &perception) {
-        Pipeline::PerceptionCallback callback;
+    void emitPerception(const perception::FrameResults &frameResults) {
+        Pipeline::FrameResultsCallback callback;
         {
             std::lock_guard lock(callbackMutex);
-            callback = perceptionCallback;
+            callback = frameResultsCallback;
         }
 
         if (!callback) {
@@ -808,13 +818,11 @@ class Pipeline::Impl {
         }
 
         try {
-            const nlohmann::json perceptionJson = perception;
-            const std::string serializedPerception = perceptionJson.dump();
-            callback(serializedPerception);
+            callback(serializeFrameResultsJson(frameResults));
         } catch (const std::exception &e) {
             emitError(
                 makeError(ErrorFlag::RuntimeError,
-                          fmt::format("Failed to serialize Perception metadata: {}", e.what())));
+                          fmt::format("Failed to serialize FrameResults metadata: {}", e.what())));
         }
     }
 
@@ -916,8 +924,8 @@ Result<void> Pipeline::wait() {
     return impl->wait();
 }
 
-void Pipeline::onPerception(PerceptionCallback callback) {
-    impl->onPerception(std::move(callback));
+void Pipeline::onFrameResults(FrameResultsCallback callback) {
+    impl->onFrameResults(std::move(callback));
 }
 
 void Pipeline::onError(ErrorCallback callback) {
@@ -928,9 +936,9 @@ void Pipeline::onEos(EosCallback callback) {
     impl->onEos(std::move(callback));
 }
 
-Result<void> Pipeline::attachPerceptionProbe(const std::string &elementName,
-                                             const std::string &padName) {
-    return impl->attachPerceptionProbe(elementName, padName);
+Result<void> Pipeline::attachFrameResultsProbe(const std::string &elementName,
+                                               const std::string &padName) {
+    return impl->attachFrameResultsProbe(elementName, padName);
 }
 
 bool Pipeline::loaded() const noexcept {

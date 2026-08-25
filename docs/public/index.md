@@ -18,6 +18,12 @@ It uses a container-based workflow with a packaged pipeline, browser viewer,
 model controls, debug signals, and output paths you can adapt for your own
 application.
 
+At a high level, it combines:
+
+- GStreamer-based media pipeline integration
+- an Op-based execution model for preprocessing, inference, and postprocessing
+- schema-defined FrameResults that downstream elements can render, track, or publish
+
 **Note:** This developer preview is for evaluation, early application
 development, and feedback.
 
@@ -118,17 +124,18 @@ nor a runtime Hugging Face credential. Failed downloads are logged and skipped,
 so the image build still succeeds. A pipeline that references a missing model
 fails while its OpChain starts, even when that `pekinfer` has `active=false`.
 
-For a direct deployment build, export the same token before invoking Compose:
+For a direct deployment build, generate a cache key before invoking Compose.
+Export the token too only when private or gated models are needed:
 
 ```bash
-export HF_TOKEN="hf_your_token_here"
-export HF_DOWNLOAD_CACHEBUST="$(date +%s)-$$"
+export HF_DOWNLOAD_CACHEBUST="$(./scripts/private/generate-hf-download-cachebust.sh)"
+# Optional: export HF_TOKEN="hf_your_token_here"
 docker compose up --build
 ```
 
-Generate a fresh cache key before every authenticated direct Compose build.
-Such builds fail during interpolation when the key is omitted, preventing a
-cached model layer from another token from being reused silently.
+Generate a fresh cache key before every direct Compose build. The model stage
+rejects builds when the key is omitted, preventing an authenticated build from
+silently reusing a cached anonymous model layer.
 
 ### 3. Enter the container command line
 
@@ -136,14 +143,6 @@ cached model layer from another token from being reused silently.
 ./scripts/enter_cli.sh
 ```
 > **Expected outcome:** The prompt shows `dev`
-
-#### 3.1 Download the stock videos
-
-From the container shell, run:
-
-```bash
-./scripts/download_videos.sh
-```
 
 ### 4. Build PEK inside the Container
 

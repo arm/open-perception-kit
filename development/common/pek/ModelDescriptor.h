@@ -24,8 +24,8 @@ inline constexpr float DefaultLetterboxColor = 114.0f / 255.0f;
 /**
  * @brief JSON-serializable tensor descriptor used by model descriptors.
  *
- * Describes expected tensor shape/layout/type and optional quantization and
- * preprocessing parameters for input/output tensors.
+ * Describes expected tensor shape/layout/type and optional preprocessing
+ * parameters for input/output tensors.
  */
 struct TensorDescriptor {
     /// Tensor shape. When missing/invalid, runtime may try to infer it from model metadata.
@@ -36,12 +36,6 @@ struct TensorDescriptor {
 
     /// Tensor element type.
     pek::Dtype dtype = pek::Dtype::Float32;
-
-    /// Quantization zero point.
-    float zeroPoint = 0.0f;
-
-    /// Quantization scale.
-    float scale = 1.0f;
 
     /// Per-channel mean/std normalization parameters.
     pek::Colorf mean = {0.0f, 0.0f, 0.0f, 0.0f}, std = {1.0f, 1.0f, 1.0f, 1.0f};
@@ -80,7 +74,7 @@ struct ModelDescriptor {
     /// Optional legal/license notice associated with the model.
     std::string legal;
 
-    /// Model file path (usually relative to model directory/config root).
+    /// Model file path, relative to the descriptor or absolute.
     std::string modelFile;
 
     /// Semantic model content type (for example detection/classification).
@@ -100,20 +94,20 @@ struct ModelDescriptor {
      */
     bool dynamicOutput = false;
 
-    /// Optional output dtype override/hint.
-    pek::Dtype outputDtype = pek::Dtype::Float32;
-
     /**
      * @brief Builds a descriptor from JSON text.
      * @param jsonString JSON payload.
+     * @param source Descriptor source path used for diagnostics and filename routing.
      * @return Parsed descriptor or error.
      */
-    static pek::Result<ModelDescriptor> fromJson(const std::string &jsonString);
+    static pek::Result<ModelDescriptor> fromJson(const std::string &jsonString,
+                                                 const std::string &source = "model.json");
 
     /**
      * @brief Loads and parses a descriptor from a JSON file.
      * @param path JSON file path.
-     * @return Parsed descriptor with modelFile resolved relative to path, or error.
+     * @return Parsed descriptor with relative modelFile joined to path without lexical
+     * normalization, or error. Absolute modelFile values are preserved.
      */
     static pek::Result<ModelDescriptor> fromFile(const std::string &path);
 
@@ -124,28 +118,40 @@ struct ModelDescriptor {
 // ---
 
 inline void to_json(json &j, const TensorDescriptor &b) {
-    j = json{
-        {"shape", b.shape},
-        {"valueType", b.dtype},
-        {"zeroPoint", b.zeroPoint},
-        {"scale", b.scale},
-        {"mean", b.mean},
-        {"std", b.std},
-        {"keepAspectRatio", b.keepAspectRatio},
-        {"letterboxRed", b.letterboxRed},
-        {"letterboxGreen", b.letterboxGreen},
-        {"letterboxBlue", b.letterboxBlue},
-        {"matchShapeOutputIndex", b.matchShapeOutputIndex},
-        {"dataKind", b.dataKind},
-        {"valueInputs", b.valueInputs},
-    };
+    j = json{{"dataKind", b.dataKind}, {"valueType", b.dtype}};
+
+    const bool image = b.dataKind == pek::DataKind::ImageRgbChw ||
+                       b.dataKind == pek::DataKind::ImageRgbHwc ||
+                       b.dataKind == pek::DataKind::ImageGray;
+    const bool floating = b.dtype == pek::Dtype::Float16 || b.dtype == pek::Dtype::Float32;
+    const bool values =
+        b.dataKind == pek::DataKind::Value || b.dataKind == pek::DataKind::Vector2 ||
+        b.dataKind == pek::DataKind::Vector3 || b.dataKind == pek::DataKind::Vector4;
+
+    if (!values)
+        j["shape"] = b.shape;
+    if (image) {
+        j["keepAspectRatio"] = b.keepAspectRatio;
+        if (floating) {
+            j["mean"] = b.mean;
+            j["std"] = b.std;
+        }
+        if (b.keepAspectRatio) {
+            j["letterboxRed"] = b.letterboxRed;
+            j["letterboxGreen"] = b.letterboxGreen;
+            j["letterboxBlue"] = b.letterboxBlue;
+        }
+    }
+    if (b.dataKind == pek::DataKind::RawTensorData &&
+        b.matchShapeOutputIndex != pek::InvalidTensorIndex)
+        j["matchShapeOutputIndex"] = b.matchShapeOutputIndex;
+    if (values)
+        j["valueInputs"] = b.valueInputs;
 }
 
 inline void from_json(const json &j, TensorDescriptor &b) {
     b.shape = j.value("shape", pek::Shape());
     b.dtype = j.value("valueType", pek::Dtype::Float32);
-    b.zeroPoint = j.value("zeroPoint", 0.0f);
-    b.scale = j.value("scale", 1.0f);
     b.mean = j.value("mean", pek::Colorf{0.0f, 0.0f, 0.0f, 0.0f});
     b.std = j.value("std", pek::Colorf{1.0f, 1.0f, 1.0f, 1.0f});
     b.keepAspectRatio = j.value("keepAspectRatio", false);
@@ -158,14 +164,19 @@ inline void from_json(const json &j, TensorDescriptor &b) {
 }
 
 inline void to_json(json &j, const ModelDescriptor &b) {
-    j = json{{"name", b.name},
+    j = json{{"version", 1},
+             {"name", b.name},
              {"modelFile", b.modelFile},
-             {"contentType", b.contentType},
              {"inputTensors", b.inputTensors},
-             {"outputTensors", b.outputTensors},
-             {"tensorFeedbacks", b.tensorFeedbacks},
-             {"legal", b.legal},
              {"dynamicOutput", b.dynamicOutput}};
+    if (!b.contentType.empty())
+        j["contentType"] = b.contentType;
+    if (!b.outputTensors.empty())
+        j["outputTensors"] = b.outputTensors;
+    if (!b.tensorFeedbacks.empty())
+        j["tensorFeedbacks"] = b.tensorFeedbacks;
+    if (!b.legal.empty())
+        j["legal"] = b.legal;
 }
 
 inline void from_json(const json &j, ModelDescriptor &b) {

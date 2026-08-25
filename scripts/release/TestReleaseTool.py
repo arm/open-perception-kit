@@ -20,6 +20,13 @@ from scripts.release import ReleaseTool as release_tool  # noqa: E402
 
 TOOL = Path(__file__).with_name("ReleaseTool.py")
 REPO_ROOT = TOOL.parents[2]
+MODEL_DESCRIPTOR = "model.json"
+ONNX_MODEL_FILE = "model.onnx"
+ONNX_INFERENCE_OP = "pek-onnx-ops/Inference"
+EXECUTORCH_INFERENCE_OP = "pek-executorch-ops/Inference"
+OPCHAINS_DIR = Path("config/opchains")
+PLUGIN_DIR = Path("lib/gstreamer-1.0")
+SOURCE_COMMIT = "a" * 40
 
 
 def add_model(
@@ -28,7 +35,7 @@ def add_model(
     model_root = repo_root / "config/models" / model_id
     model_root.mkdir(parents=True)
     (model_root / filename).write_bytes(content)
-    (model_root / "model.json").write_text(
+    (model_root / MODEL_DESCRIPTOR).write_text(
         json.dumps({"modelFile": filename}), encoding="utf-8"
     )
     (model_root / "opchain.json").write_text(
@@ -37,9 +44,7 @@ def add_model(
                 "ops": [
                     {
                         "id": op_id,
-                        "attributes": {
-                            "modelDescriptor": f"/work/config/models/{model_id}/model.json"
-                        },
+                        "attributes": {"modelDescriptor": MODEL_DESCRIPTOR},
                     }
                 ]
             }
@@ -49,8 +54,35 @@ def add_model(
 
 
 def add_release_models(repo_root: Path) -> None:
-    for model_id in release_tool.RELEASE_MODEL_NAMES:
-        add_model(repo_root, model_id, "model.onnx", "pek-onnx-ops/Inference")
+    for model_id, (backend, suffix) in release_tool.RELEASE_MODELS.items():
+        add_model(repo_root, model_id, f"model{suffix}", backend)
+    schema_root = repo_root / "config/schemas/v1"
+    schema_root.mkdir(parents=True)
+    (schema_root / "model.schema.json").write_text("{}\n", encoding="utf-8")
+
+
+def add_perception_sdk(
+    root: Path,
+    version: str = "0.1.0",
+    commit: str = "a" * 40,
+    dirty: bool = False,
+) -> Path:
+    root.mkdir(parents=True)
+    archive = root / f"perception-sdk-{version}.zip"
+    archive.write_bytes(b"sdk")
+    (root / f"{archive.name}.sha256").write_text("checksum\n", encoding="utf-8")
+    (root / f"{archive.name}.provenance.json").write_text(
+        json.dumps({"dirty": dirty, "repository_commit": commit}), encoding="utf-8"
+    )
+    return archive
+
+
+def add_release_identity(repo_root: Path) -> None:
+    development_root = repo_root / "development"
+    development_root.mkdir()
+    (development_root / "meson.build").write_text(
+        "project('demo', version: '0.1.0')\n", encoding="utf-8"
+    )
 
 
 class ReleaseToolTests(unittest.TestCase):
@@ -66,7 +98,7 @@ class ReleaseToolTests(unittest.TestCase):
     def test_stages_local_model_with_relative_references(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            (root / "config/opchains").mkdir(parents=True)
+            (root / OPCHAINS_DIR).mkdir(parents=True)
             add_release_models(root)
             model_root = root / "config/models/cam-contact"
             (model_root / "secondary.onnx").write_bytes(b"secondary")
@@ -93,9 +125,9 @@ class ReleaseToolTests(unittest.TestCase):
                     encoding="utf-8"
                 )
             )
-            self.assertEqual(descriptor["modelFile"], "model.onnx")
+            self.assertEqual(descriptor["modelFile"], ONNX_MODEL_FILE)
             self.assertEqual(
-                opchain["ops"][0]["attributes"]["modelDescriptor"], "model.json"
+                opchain["ops"][0]["attributes"]["modelDescriptor"], MODEL_DESCRIPTOR
             )
             self.assertTrue(
                 (stage_root / "share/pek/models/cam-contact/secondary.json").is_file()
@@ -112,9 +144,9 @@ class ReleaseToolTests(unittest.TestCase):
     def test_stages_only_release_model_allowlist(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            (root / "config/opchains").mkdir(parents=True)
+            (root / OPCHAINS_DIR).mkdir(parents=True)
             add_release_models(root)
-            add_model(root, "not-released", "model.onnx", "pek-onnx-ops/Inference")
+            add_model(root, "not-released", ONNX_MODEL_FILE, ONNX_INFERENCE_OP)
             stage_root = root / "stage"
             completed = self.run_tool(
                 "stage-models",
@@ -132,10 +164,52 @@ class ReleaseToolTests(unittest.TestCase):
                 release_tool.RELEASE_MODEL_NAMES,
             )
 
+    def test_stages_executorch_model_bytes_and_backend(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / OPCHAINS_DIR).mkdir(parents=True)
+            add_release_models(root)
+            source_model = root / "config/models/yolox/model.pte"
+            source_model.write_bytes(b"pte\x00payload")
+
+            stage_root = root / "stage"
+            release_tool.stage_models(
+                SimpleNamespace(repo_root=str(root), stage_root=str(stage_root))
+            )
+
+            staged_model = stage_root / "share/pek/models/yolox/model.pte"
+            self.assertEqual(staged_model.read_bytes(), b"pte\x00payload")
+            opchain = json.loads(
+                (stage_root / "share/pek/models/yolox/opchain.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(opchain["ops"][0]["id"], EXECUTORCH_INFERENCE_OP)
+
+    def test_rejects_wrong_release_model_backend_or_suffix(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / OPCHAINS_DIR).mkdir(parents=True)
+            add_release_models(root)
+            yolox_opchain = root / "config/models/yolox/opchain.json"
+            opchain = json.loads(yolox_opchain.read_text(encoding="utf-8"))
+            opchain["ops"][0]["id"] = "pek-onnx-ops/Inference"
+            yolox_opchain.write_text(json.dumps(opchain), encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, EXECUTORCH_INFERENCE_OP):
+                release_tool.discover_models(root)
+
+            opchain["ops"][0]["id"] = EXECUTORCH_INFERENCE_OP
+            yolox_opchain.write_text(json.dumps(opchain), encoding="utf-8")
+            descriptor = root / "config/models/yolox/model.json"
+            descriptor.write_text(json.dumps({"modelFile": "model.onnx"}), encoding="utf-8")
+            (root / "config/models/yolox/model.onnx").write_bytes(b"onnx")
+            with self.assertRaisesRegex(RuntimeError, "unsupported model file"):
+                release_tool.discover_models(root)
+
     def test_rejects_hailo_release_content(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             package_root = Path(temporary)
-            plugin_root = package_root / "lib/gstreamer-1.0"
+            plugin_root = package_root / PLUGIN_DIR
             private_root = package_root / "lib/pek"
             plugin_root.mkdir(parents=True)
             private_root.mkdir()
@@ -152,10 +226,31 @@ class ReleaseToolTests(unittest.TestCase):
             ):
                 release_tool.validate_runtime_files(package_root)
 
+    def test_allows_source_named_legal_documentation_directories(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            package_root = Path(temporary)
+            plugin_root = package_root / PLUGIN_DIR
+            plugin_root.mkdir(parents=True)
+            for plugin_name in release_tool.PLUGIN_NAMES:
+                (plugin_root / plugin_name).touch()
+            legal_root = package_root / "share/pek/licenses/libexecutorch-dev/examples"
+            legal_root.mkdir(parents=True)
+            (legal_root / "LICENSE").write_text("ExecuTorch", encoding="utf-8")
+
+            with (
+                patch.object(
+                    release_tool,
+                    "is_elf",
+                    side_effect=lambda path: path.name in release_tool.PLUGIN_NAMES,
+                ),
+                self.assertRaisesRegex(RuntimeError, "Packaged model directory"),
+            ):
+                release_tool.validate_runtime_files(package_root)
+
     def test_rejects_incomplete_model_allowlist(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             package_root = Path(temporary)
-            plugin_root = package_root / "lib/gstreamer-1.0"
+            plugin_root = package_root / PLUGIN_DIR
             model_root = package_root / "share/pek/models"
             plugin_root.mkdir(parents=True)
             model_root.mkdir(parents=True)
@@ -177,7 +272,7 @@ class ReleaseToolTests(unittest.TestCase):
     def test_rejects_missing_or_non_elf_runtime_modules(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             package_root = Path(temporary)
-            plugin_root = package_root / "lib/gstreamer-1.0"
+            plugin_root = package_root / PLUGIN_DIR
             private_root = package_root / "lib/pek"
             model_root = package_root / "share/pek/models"
             plugin_root.mkdir(parents=True)
@@ -232,11 +327,28 @@ class ReleaseToolTests(unittest.TestCase):
             ):
                 release_tool.validate_package(arguments)
 
+    def test_requires_executorch_legal_documentation(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            package_root = Path(temporary)
+            legal_root = package_root / "share/pek/licenses"
+            legal_root.mkdir(parents=True)
+            (legal_root / "LICENSE").write_text("ONNX Runtime", encoding="utf-8")
+
+            with self.assertRaisesRegex(RuntimeError, "ExecuTorch legal documentation"):
+                release_tool.validate_legal_documentation(package_root)
+
+            executorch_legal_root = legal_root / "libexecutorch-dev"
+            executorch_legal_root.mkdir()
+            (executorch_legal_root / "LICENSE").write_text(
+                "ExecuTorch", encoding="utf-8"
+            )
+            release_tool.validate_legal_documentation(package_root)
+
     def test_validates_selected_model_and_opchain_payload(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             repo_root = root / "source"
-            shared_root = repo_root / "config/opchains"
+            shared_root = repo_root / OPCHAINS_DIR / "tracking"
             shared_root.mkdir(parents=True)
 
             add_release_models(repo_root)
@@ -245,10 +357,18 @@ class ReleaseToolTests(unittest.TestCase):
                     {
                         "ops": [
                             {
-                                "id": "pek-onnx-ops/Inference",
+                                "id": ONNX_INFERENCE_OP,
                                 "attributes": {
                                     "modelDescriptor": (
-                                        "/work/config/models/yolov11/model.json"
+                                        "../../models/yolov11/model.json"
+                                    )
+                                },
+                            },
+                            {
+                                "id": ONNX_INFERENCE_OP,
+                                "attributes": {
+                                    "modelDescriptor": (
+                                        "/work/config/models/osnet_x0_25/model.json"
                                     )
                                 },
                             }
@@ -265,16 +385,31 @@ class ReleaseToolTests(unittest.TestCase):
                     stage_root=str(package_root),
                 )
             )
+            staged_opchain = json.loads(
+                (
+                    package_root / "share/pek/opchains/tracking/demo.json"
+                ).read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                [
+                    op["attributes"]["modelDescriptor"]
+                    for op in staged_opchain["ops"]
+                ],
+                [
+                    "../../models/yolov11/model.json",
+                    "../../models/osnet_x0_25/model.json",
+                ],
+            )
             release_tool.validate_release_payload(package_root, repo_root)
 
-            model_path = package_root / "share/pek/models/yolov11/model.onnx"
+            model_path = package_root / "share/pek/models/yolov11" / ONNX_MODEL_FILE
             model = model_path.read_bytes()
             model_path.unlink()
             with self.assertRaisesRegex(RuntimeError, "models payload"):
                 release_tool.validate_release_payload(package_root, repo_root)
             model_path.write_bytes(model)
 
-            opchain_path = package_root / "share/pek/opchains/demo.json"
+            opchain_path = package_root / "share/pek/opchains/tracking/demo.json"
             opchain = opchain_path.read_bytes()
             opchain_path.unlink()
             with self.assertRaisesRegex(RuntimeError, "opchains payload"):
@@ -291,14 +426,165 @@ class ReleaseToolTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "Build-machine path"):
                 release_tool.validate_release_payload(package_root, repo_root)
 
+    def test_stages_and_validates_descriptor_schemas(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            repo_root = root / "source"
+            (repo_root / OPCHAINS_DIR).mkdir(parents=True)
+            add_release_models(repo_root)
+            nested_schema = repo_root / "config/schemas/v1/opchain/common.schema.json"
+            nested_schema.parent.mkdir()
+            nested_schema.write_bytes(b'{"title": "common"}\n')
+            legacy_schema = repo_root / "metadata/api/perception.schema.json"
+            legacy_schema.parent.mkdir(parents=True)
+            legacy_schema.write_text("{}\n", encoding="utf-8")
+
+            package_root = root / "package"
+            release_tool.stage_models(
+                SimpleNamespace(repo_root=str(repo_root), stage_root=str(package_root))
+            )
+            packaged_schema = (
+                package_root / "share/pek/schemas/json/v1/opchain/common.schema.json"
+            )
+            self.assertEqual(packaged_schema.read_bytes(), nested_schema.read_bytes())
+            self.assertFalse(
+                (package_root / "share/pek/schemas/json/perception.schema.json").exists()
+            )
+            release_tool.validate_release_payload(package_root, repo_root)
+
+            packaged_schema.write_text("{}\n", encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, "differs from the selected source"):
+                release_tool.validate_release_payload(package_root, repo_root)
+            packaged_schema.write_bytes(nested_schema.read_bytes())
+            (packaged_schema.parent / "extra.json").write_text("{}\n", encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, "schemas/json/v1 payload"):
+                release_tool.validate_release_payload(package_root, repo_root)
+            (packaged_schema.parent / "extra.json").unlink()
+            packaged_schema.unlink()
+            with self.assertRaisesRegex(RuntimeError, "schemas/json/v1 payload"):
+                release_tool.validate_release_payload(package_root, repo_root)
+
+    def test_rejects_unsafe_descriptor_schema_trees(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            schema_root = root / "schemas"
+            schema_root.mkdir()
+            schema = schema_root / "model.schema.json"
+            schema.write_text("{}\n", encoding="utf-8")
+            release_tool.validate_schema_tree(schema_root)
+
+            schema.write_text("{", encoding="utf-8")
+            with self.assertRaises(json.JSONDecodeError):
+                release_tool.validate_schema_tree(schema_root)
+            schema.write_text("{}\n", encoding="utf-8")
+            (schema_root / "README").write_text("not JSON", encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, "not JSON"):
+                release_tool.validate_schema_tree(schema_root)
+            (schema_root / "README").unlink()
+            (schema_root / "linked.json").symlink_to(schema)
+            with self.assertRaisesRegex(RuntimeError, "non-regular entry"):
+                release_tool.validate_schema_tree(schema_root)
+
+    def test_validates_perception_sdk_triplet(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            sdk_root = root / "perception-sdk"
+            archive = add_perception_sdk(sdk_root)
+            repo_root = root / "source"
+            descriptor = repo_root / "tools/perception/sdk.json"
+            descriptor.parent.mkdir(parents=True)
+            descriptor.write_text('{"version": "0.1.0"}\n', encoding="utf-8")
+
+            with patch.object(release_tool.subprocess, "run") as verifier:
+                release_tool.validate_perception_sdk(
+                    sdk_root, SOURCE_COMMIT, repo_root
+                )
+            verifier.assert_called_once_with(
+                [
+                    str(repo_root / "scripts/perception-sdk.sh"),
+                    "verify",
+                    str(archive),
+                    "--require-sidecars",
+                ],
+                check=True,
+                cwd=repo_root,
+            )
+
+            with patch.object(release_tool.subprocess, "run"):
+                release_tool.validate_perception_sdk(sdk_root, SOURCE_COMMIT)
+
+            (sdk_root / "extra").write_text("extra", encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, "matching triplet"):
+                release_tool.validate_perception_sdk(sdk_root, SOURCE_COMMIT)
+            (sdk_root / "extra").unlink()
+            (sdk_root / f"{archive.name}.sha256").unlink()
+            with self.assertRaisesRegex(RuntimeError, "matching triplet"):
+                release_tool.validate_perception_sdk(sdk_root, SOURCE_COMMIT)
+
+    def test_rejects_invalid_perception_sdk_provenance_and_entries(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            sdk_root = root / "perception-sdk"
+            archive = add_perception_sdk(sdk_root, dirty=True)
+            provenance = sdk_root / f"{archive.name}.provenance.json"
+
+            with (
+                patch.object(release_tool.subprocess, "run"),
+                self.assertRaisesRegex(RuntimeError, "dirty=false"),
+            ):
+                release_tool.validate_perception_sdk(sdk_root, SOURCE_COMMIT)
+
+            provenance.write_text(
+                json.dumps({"dirty": False, "repository_commit": "invalid"}),
+                encoding="utf-8",
+            )
+            with (
+                patch.object(release_tool.subprocess, "run"),
+                self.assertRaisesRegex(RuntimeError, "commit is invalid"),
+            ):
+                release_tool.validate_perception_sdk(sdk_root, SOURCE_COMMIT)
+
+            provenance.unlink()
+            provenance.symlink_to(archive)
+            with self.assertRaisesRegex(RuntimeError, "regular files"):
+                release_tool.validate_perception_sdk(sdk_root, SOURCE_COMMIT)
+
+    def test_rejects_perception_sdk_selected_source_mismatch_and_verify_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            sdk_root = root / "perception-sdk"
+            add_perception_sdk(sdk_root)
+            repo_root = root / "source"
+            descriptor = repo_root / "tools/perception/sdk.json"
+            descriptor.parent.mkdir(parents=True)
+            descriptor.write_text('{"version": "1.0.0"}\n', encoding="utf-8")
+
+            with self.assertRaisesRegex(RuntimeError, "version does not match"):
+                release_tool.validate_perception_sdk(
+                    sdk_root, SOURCE_COMMIT, repo_root
+                )
+
+            descriptor.write_text('{"version": "0.1.0"}\n', encoding="utf-8")
+            with (
+                patch.object(release_tool.subprocess, "run"),
+                self.assertRaisesRegex(RuntimeError, "commit does not match"),
+            ):
+                release_tool.validate_perception_sdk(sdk_root, "b" * 40, repo_root)
+
+            with (
+                patch.object(
+                    release_tool.subprocess,
+                    "run",
+                    side_effect=subprocess.CalledProcessError(1, "verify"),
+                ),
+                self.assertRaises(subprocess.CalledProcessError),
+            ):
+                release_tool.validate_perception_sdk(sdk_root, SOURCE_COMMIT)
+
     def test_only_final_preparation_requires_matching_changelog(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            development_root = root / "development"
-            development_root.mkdir()
-            (development_root / "meson.build").write_text(
-                "project('demo', version: '0.1.0')\n", encoding="utf-8"
-            )
+            add_release_identity(root)
             (root / "CHANGELOG.md").write_text("# Changelog\n", encoding="utf-8")
             arguments = (
                 "prepare",
@@ -321,9 +607,9 @@ class ReleaseToolTests(unittest.TestCase):
             root = Path(temporary)
             model_root = root / "config/models/cam-contact"
             model_root.mkdir(parents=True)
-            (root / "config/opchains").mkdir(parents=True)
+            (root / OPCHAINS_DIR).mkdir(parents=True)
             (root / "config/models/escape.onnx").write_bytes(b"model")
-            (model_root / "model.json").write_text(
+            (model_root / MODEL_DESCRIPTOR).write_text(
                 json.dumps({"modelFile": "../escape.onnx"}), encoding="utf-8"
             )
             (model_root / "opchain.json").write_text(
@@ -331,12 +617,8 @@ class ReleaseToolTests(unittest.TestCase):
                     {
                         "ops": [
                             {
-                                "id": "pek-onnx-ops/Inference",
-                                "attributes": {
-                                    "modelDescriptor": (
-                                        "/work/config/models/cam-contact/model.json"
-                                    )
-                                },
+                                "id": ONNX_INFERENCE_OP,
+                                "attributes": {"modelDescriptor": MODEL_DESCRIPTOR},
                             }
                         ]
                     }

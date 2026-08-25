@@ -7,7 +7,6 @@
 #include <string>
 
 #include "pek/AttributeMap.h"
-#include "pek/Perception.h"
 #include "pek/Result.h"
 #include "pek/Tools.h"
 

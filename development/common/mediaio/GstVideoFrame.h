@@ -90,7 +90,13 @@ class GstVideoFrame final : public pek::mediaio::VideoFrame {
                  pek::AccessMode accessMode = pek::AccessMode::Read);
 
     /** @copydoc pek::mediaio::VideoFrame::format() */
-    pek::DataKind format() const noexcept override;
+    pek::RawImagePixelFormat format() const noexcept override;
+
+    /** @copydoc pek::mediaio::VideoFrame::yuvColorMatrix() */
+    pek::YuvColorMatrix yuvColorMatrix() const noexcept override;
+
+    /** @copydoc pek::mediaio::VideoFrame::yuvRange() */
+    pek::YuvRange yuvRange() const noexcept override;
 
     /** @copydoc pek::mediaio::VideoFrame::width() */
     uint32_t width() const noexcept override;
@@ -121,6 +127,8 @@ class GstVideoFrame final : public pek::mediaio::VideoFrame {
      * @param videoInfo Video layout used for remapping this buffer.
      * @param memoryType Backing memory type exposed by the frame.
      * @param format Pixel layout represented by the frame.
+     * @param yuvMatrix YUV-to-RGB matrix for YUV frames.
+     * @param yuvRange Encoded YUV sample range for YUV frames.
      * @param width Frame width in pixels.
      * @param height Frame height in pixels.
      * @param timestampNs Presentation timestamp in nanoseconds.
@@ -131,7 +139,9 @@ class GstVideoFrame final : public pek::mediaio::VideoFrame {
                   ::GstVideoFrame frameMap,
                   GstVideoInfo videoInfo,
                   pek::MemoryType memoryType,
-                  pek::DataKind format,
+                  pek::RawImagePixelFormat format,
+                  pek::YuvColorMatrix yuvMatrix,
+                  pek::YuvRange yuvRange,
                   uint32_t width,
                   uint32_t height,
                   TimestampNs timestampNs,
@@ -152,7 +162,11 @@ class GstVideoFrame final : public pek::mediaio::VideoFrame {
     /// Backing memory type exposed by this frame.
     pek::MemoryType frameMemoryType = pek::MemoryType::Unknown;
     /// Pixel layout represented by this frame.
-    pek::DataKind frameFormat = pek::DataKind::Unknown;
+    pek::RawImagePixelFormat frameFormat = pek::RawImagePixelFormat::Unknown;
+    /// YUV-to-RGB matrix for YUV frames.
+    pek::YuvColorMatrix frameYuvMatrix = pek::YuvColorMatrix::Unknown;
+    /// Encoded YUV sample range for YUV frames.
+    pek::YuvRange frameYuvRange = pek::YuvRange::Unknown;
     /// Frame width in pixels.
     uint32_t frameWidth = 0;
     /// Frame height in pixels.

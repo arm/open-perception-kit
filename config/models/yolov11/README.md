@@ -6,5 +6,5 @@ Full-frame object detector.
 - Input: NCHW image, `[1, 3, 320, 320]`
 - Output: dynamic detection tensor containing bounding boxes and labels
 - Post processor: `YoloParser`
-- Supported Perception result: `Perception::Rect` in a `genericObject` layer
+- Supported FrameResults payload: `BoxDetectionsT` with `content_type` set to `genericObject`
 - Typical use: first stage for object detection and tracking input

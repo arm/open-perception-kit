@@ -17,6 +17,19 @@ Choose the architecture archive that matches `uname -m`. The documentation
 archive is architecture-neutral and contains the offline public site in
 `html/` and the generated API reference in `doxygen/`.
 
+The same native builds are also available as one multi-architecture runnable
+image. Docker selects the matching amd64 or arm64 manifest automatically:
+
+```bash
+docker pull ghcr.io/arm-debug/amp-dev-forge-deployment:<version>
+```
+
+Release notes provide the immutable image digest. Use the digest-qualified
+reference when a deployment must remain pinned. The image keeps the existing
+`pek-deployment-base` entrypoint and selects its pipeline through
+`PEK_PIPELINE`; provide the networking, ports, and devices required by that
+pipeline when creating the container.
+
 Verify the hash shown beside the archive on the GitHub Release or Artifactory
 workflow summary before extracting it:
 
@@ -26,13 +39,23 @@ sha256sum pek-<version>-linux-<architecture>.tar.gz
 
 Architecture packages contain the six PEK plugins, the private
 `lib/pek/pek-runtime.so` and common libraries, compatible model binaries and
-OpChains, JSON schemas, `peksink` web assets, approved notices, and ONNX
-Runtime.
+OpChains, `peksink` web assets, approved notices, and ONNX Runtime. They also
+contain the experimental ExecuTorch operation module and the YOLOX ExecuTorch
+model, plus these two distinct payloads:
+
+- `share/pek/perception-sdk/` contains the Perception SDK ZIP, checksum, and
+  provenance sidecar;
+- `share/pek/schemas/json/v1/` contains the model and OpChain descriptor JSON
+  schemas copied from the released source.
+
+The descriptor schemas are direct PEK package content, not files in the SDK
+ZIP. Retired `metadata/api` schemas are not included.
 
 They deliberately exclude `pek-menu`, pipeline presets, examples, sample
 media, documentation, source, tests, debug files, NCNN, public C++ headers,
 unused ONNX provider libraries, Hailo models and operation modules, and
-accelerator drivers or firmware.
+accelerator drivers or firmware. ExecuTorch SDK headers and static libraries
+are build inputs and are not exposed by the archive.
 
 ## Host prerequisites
 
@@ -67,6 +90,9 @@ runtime. The link is required because the runtime's upstream SONAME is recorded
 as `DT_NEEDED=libonnxruntime.so.1` in `pek-onnx-ops.so`; the dynamic loader
 looks up that exact name.
 
+ExecuTorch is statically linked into `lib/pek/pek-executorch-ops.so`. It remains
+experimental and does not add a public SDK surface to the binary release.
+
 The plugin directory contains the six supported plugins:
 
 - `libpekcomm.so`
@@ -88,6 +114,20 @@ The package exposes no PEK C++ headers and Cairn does not link directly to
 GStreamer element, but the PEK C++ performance-metrics API is not part of the
 binary release.
 
+To consume serialized `FrameResults`, Cairn can verify and extract the nested
+Perception SDK with the matching release tooling:
+
+```bash
+sdk_root="$PEK_PACKAGE_ROOT/share/pek/perception-sdk"
+./scripts/perception-sdk.sh verify \
+  "$sdk_root/perception-sdk-<sdk-version>.zip" \
+  --require-sidecars
+unzip "$sdk_root/perception-sdk-<sdk-version>.zip" -d perception-sdk
+```
+
+Use the C++, Python, or TypeScript package from that extracted SDK. The SDK
+version is independent of the PEK product version.
+
 ## Packaged models
 
 All packaged model references are local. During release creation, pinned
@@ -100,6 +140,7 @@ a Hugging Face token.
 | Package | Backend | Model directories |
 | --- | --- | --- |
 | x86_64 and Arm | ONNX | `cam-contact`, `gaze-detection`, `osnet_x0_25`, `ultraface`, `yolo26`, `yolov11` |
+| x86_64 and Arm | ExecuTorch (experimental) | `yolox` |
 
 ## Run packaged inference
 
@@ -142,11 +183,12 @@ intentionally not part of the binary release.
 
 The same smoke path is run natively for x86_64 and Arm packages on pull
 requests targeting `main`. Pushes to `main` publish the three matching archives
-on one GitHub Release and together in Artifactory under `releases/<version>/`.
-Manual runs publish them only to Artifactory under
+on one GitHub Release and together in Artifactory under `releases/<version>/`,
+plus the matching multi-architecture image in GHCR. Manual runs publish the
+archives only to Artifactory under
 `snapshots/<label>/<full-sha>-<run-id>-<attempt>/`. Both paths use
 `https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci` as their
 base URL. The final Artifactory workflow log and job summary contain the folder,
-links, and hashes.
+links, hashes, and the matching run-unique GHCR snapshot reference.
 
 [Back to Getting Started](/getting-started)

@@ -23,6 +23,9 @@ trap 'die "failed at line $LINENO"' ERR
 # Read the full incident note before changing or reusing this line:
 #   .github/ci/self-hosted-runner-workspace-isolation.md
 sudo chown -R $(id -u):$(id -g) "/work/" || true
+if [[ -x /usr/local/bin/development-entrypoint ]]; then
+    /usr/local/bin/development-entrypoint --seed-artifacts
+fi
 
 # ---------- basic info ----------
 log "Executing ./.devcontainer/setup.sh (base setup)"

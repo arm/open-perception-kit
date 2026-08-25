@@ -1,13 +1,16 @@
 {
+	"version": 1,
 	"name": "CameraContact",
+	"displayName": "Nitec RS18",
+	"task": "Camera contact",
+	"runtime": "ONNX",
 	"description": "Model to detect if a person is looking into the camera or not.",
 	"ops": [
 		{
 			"id": "pek-std-ops/InferenceController",
 			"loopId": 1,
 			"attributes": {
-				"contentType": "humanFace",
-				"inferenceSource": "inferenceImageCrops"
+				"contentType": "humanFace"
 			}
 		},
 		{

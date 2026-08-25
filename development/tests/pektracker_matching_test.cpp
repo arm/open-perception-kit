@@ -5,25 +5,24 @@
 #include <gtest/gtest.h>
 
 #include "Matching.h"
+#include "TrackLifecycle.h"
+#include "pek/FrameResults.h"
 
-#include <functional>
 #include <vector>
 
 namespace {
 
-pek::Perception::Rect makeRect(uint64_t uuid, float x, float y, float width, float height) {
-    pek::Perception::Rect rect;
-    rect.uuid = uuid;
-    rect.x = x;
-    rect.y = y;
-    rect.width = width;
-    rect.height = height;
-    rect.confidence = 1.0f;
-    return rect;
+perception::metadata::BoxDetectionT
+makeDetection(uint64_t id, float x, float y, float width, float height) {
+    perception::metadata::BoxDetectionT detection;
+    detection.object = perception::makeObjectMeta(id);
+    detection.box = perception::makeBoundingBox(x, y, width, height);
+    detection.confidence = 1.0f;
+    return detection;
 }
 
 pek::tracker::TrackState makeTrack(pek::tracker::TrackId trackId,
-                                   const pek::Perception::Rect &lastDetection,
+                                   const perception::metadata::BoxDetectionT &lastDetection,
                                    const std::vector<float> &embedding) {
     pek::tracker::TrackState track;
     track.trackId = trackId;
@@ -46,19 +45,20 @@ pek::tracker::Config matchingConfig(pek::tracker::AssociationMode mode) {
 
 TEST(PekTrackerMatching, HybridRejectsNonOverlappingEmbeddingOnlyAssignment) {
     const std::vector<float> embedding{1.0f, 0.0f};
-    const auto trackRect = makeRect(1, 0.0f, 0.0f, 10.0f, 10.0f);
-    const auto detectionRect = makeRect(2, 100.0f, 100.0f, 10.0f, 10.0f);
+    const auto trackRect = makeDetection(1, 0.0f, 0.0f, 10.0f, 10.0f);
+    const auto detectionRect = makeDetection(2, 100.0f, 100.0f, 10.0f, 10.0f);
 
     pek::tracker::ActiveTrackMap activeTracks;
     activeTracks.emplace(42, makeTrack(42, trackRect, embedding));
 
-    pek::tracker::DetectionBatch detections{detectionRect};
-    pek::tracker::EmbeddingBatch embeddings{{detectionRect.uuid, std::cref(embedding)}};
+    pek::tracker::DetectionBatch detections{&detectionRect};
+    pek::tracker::EmbeddingBatch embeddings{{detectionRect.object->id, &embedding}};
 
     const auto result = pek::tracker::matching::associateDetectionsToActiveTracks(
         detections,
         embeddings,
         activeTracks,
+        1.0f / 30.0f,
         matchingConfig(pek::tracker::AssociationMode::Hybrid));
 
     EXPECT_TRUE(result.matches.empty());
@@ -68,19 +68,20 @@ TEST(PekTrackerMatching, HybridRejectsNonOverlappingEmbeddingOnlyAssignment) {
 
 TEST(PekTrackerMatching, HybridAcceptsAssignmentWhenIoUPassesThreshold) {
     const std::vector<float> embedding{1.0f, 0.0f};
-    const auto trackRect = makeRect(1, 0.0f, 0.0f, 10.0f, 10.0f);
-    const auto detectionRect = makeRect(2, 1.0f, 1.0f, 10.0f, 10.0f);
+    const auto trackRect = makeDetection(1, 0.0f, 0.0f, 10.0f, 10.0f);
+    const auto detectionRect = makeDetection(2, 1.0f, 1.0f, 10.0f, 10.0f);
 
     pek::tracker::ActiveTrackMap activeTracks;
     activeTracks.emplace(42, makeTrack(42, trackRect, embedding));
 
-    pek::tracker::DetectionBatch detections{detectionRect};
-    pek::tracker::EmbeddingBatch embeddings{{detectionRect.uuid, std::cref(embedding)}};
+    pek::tracker::DetectionBatch detections{&detectionRect};
+    pek::tracker::EmbeddingBatch embeddings{{detectionRect.object->id, &embedding}};
 
     const auto result = pek::tracker::matching::associateDetectionsToActiveTracks(
         detections,
         embeddings,
         activeTracks,
+        1.0f / 30.0f,
         matchingConfig(pek::tracker::AssociationMode::Hybrid));
 
     ASSERT_EQ(result.matches.size(), 1U);
@@ -91,23 +92,94 @@ TEST(PekTrackerMatching, HybridAcceptsAssignmentWhenIoUPassesThreshold) {
 
 TEST(PekTrackerMatching, EmbeddingModeAcceptsNonOverlappingEmbeddingAssignment) {
     const std::vector<float> embedding{1.0f, 0.0f};
-    const auto trackRect = makeRect(1, 0.0f, 0.0f, 10.0f, 10.0f);
-    const auto detectionRect = makeRect(2, 100.0f, 100.0f, 10.0f, 10.0f);
+    const auto trackRect = makeDetection(1, 0.0f, 0.0f, 10.0f, 10.0f);
+    const auto detectionRect = makeDetection(2, 100.0f, 100.0f, 10.0f, 10.0f);
 
     pek::tracker::ActiveTrackMap activeTracks;
     activeTracks.emplace(42, makeTrack(42, trackRect, embedding));
 
-    pek::tracker::DetectionBatch detections{detectionRect};
-    pek::tracker::EmbeddingBatch embeddings{{detectionRect.uuid, std::cref(embedding)}};
+    pek::tracker::DetectionBatch detections{&detectionRect};
+    pek::tracker::EmbeddingBatch embeddings{{detectionRect.object->id, &embedding}};
 
     const auto result = pek::tracker::matching::associateDetectionsToActiveTracks(
         detections,
         embeddings,
         activeTracks,
+        1.0f / 30.0f,
         matchingConfig(pek::tracker::AssociationMode::Embedding));
 
     ASSERT_EQ(result.matches.size(), 1U);
     EXPECT_EQ(result.matches[0].first, 0U);
     EXPECT_EQ(result.matches[0].second, 42U);
     EXPECT_TRUE(result.unmatchedDetections.empty());
+}
+
+TEST(PekTrackerTiming, KalmanDtUsesRunningTimeDeltaUnlessFallbackIsForced) {
+    pek::tracker::Config config;
+    pek::tracker::KalmanDeltaTimeTracking timing;
+
+    timing.update(1'000ULL, config);
+    EXPECT_TRUE(timing.usesFallback());
+
+    timing.update(1'250ULL, config);
+    EXPECT_FLOAT_EQ(timing.effectiveKalmanDt(), 0.25f);
+    EXPECT_DOUBLE_EQ(timing.trackerTimeMs(),
+                     static_cast<double>(config.kalmanDtFallback) * 1'000.0 + 250.0);
+    EXPECT_FALSE(timing.usesFallback());
+
+    config.kalmanDtFallback = 0.1f;
+    config.kalmanDtForceFallback = true;
+    timing.update(2'000ULL, config);
+    EXPECT_FLOAT_EQ(timing.effectiveKalmanDt(), 0.1f);
+    EXPECT_DOUBLE_EQ(timing.trackerTimeMs(),
+                     static_cast<double>(pek::tracker::Defaults::kalmanDtFallback) * 1'000.0 +
+                         1'000.0);
+    EXPECT_TRUE(timing.usesFallback());
+    EXPECT_TRUE(timing.fallbackForced());
+}
+
+TEST(PekTrackerTiming, KalmanDtResynchronizesAfterMissingRunningTime) {
+    pek::tracker::Config config;
+    pek::tracker::KalmanDeltaTimeTracking timing;
+
+    timing.update(0ULL, config);
+    timing.update(std::nullopt, config);
+    timing.update(66ULL, config);
+    EXPECT_FLOAT_EQ(timing.effectiveKalmanDt(), config.kalmanDtFallback);
+    EXPECT_DOUBLE_EQ(timing.trackerTimeMs(),
+                     static_cast<double>(config.kalmanDtFallback) * 3'000.0);
+    EXPECT_TRUE(timing.usesFallback());
+
+    timing.update(99ULL, config);
+    EXPECT_FLOAT_EQ(timing.effectiveKalmanDt(), 0.033f);
+    EXPECT_DOUBLE_EQ(timing.trackerTimeMs(),
+                     static_cast<double>(config.kalmanDtFallback) * 3'000.0 + 33.0);
+    EXPECT_FALSE(timing.usesFallback());
+}
+
+TEST(PekTrackerTiming, DormantTrackExpiresUsingTrackerTime) {
+    pek::tracker::DetectionBatch detections;
+    pek::tracker::EmbeddingBatch embeddings;
+    pek::tracker::AssociationResult association;
+    pek::tracker::Config config;
+    config.dormantTrackHistorySeconds = 8.0f;
+
+    pek::tracker::ActiveTrackMap activeTracks;
+    pek::tracker::DormantTrackMap inactiveTracks;
+    pek::tracker::DormantTrackState dormantTrack;
+    dormantTrack.trackId = 1;
+    dormantTrack.storedAtTrackerTimeMs = 1'000.0;
+    const bool inserted =
+        inactiveTracks.try_emplace(dormantTrack.trackId, std::move(dormantTrack)).second;
+    ASSERT_TRUE(inserted);
+    pek::tracker::TrackId nextTrackId = 2;
+
+    const auto frameTrackingContext = pek::tracker::tracklifecycle::FrameTrackingContext{
+        detections, embeddings, association, 11, 11'000ULL, 10.0f, config};
+    auto mutableTrackState =
+        pek::tracker::tracklifecycle::MutableTrackState{activeTracks, inactiveTracks, nextTrackId};
+
+    pek::tracker::tracklifecycle::expireInactiveTracks(frameTrackingContext, mutableTrackState);
+
+    EXPECT_TRUE(inactiveTracks.empty());
 }

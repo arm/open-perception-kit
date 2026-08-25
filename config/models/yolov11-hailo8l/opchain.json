@@ -1,5 +1,9 @@
 {
+	"version": 1,
 	"name": "YoloV11 HAILO",
+	"displayName": "YOLOv11n",
+	"task": "Object detection",
+	"runtime": "Hailo 8L",
 	"description": "Hailo 8L-compiled variant of the YoloV11 object detection model.",
 	"ops": [
 		{
@@ -31,8 +35,7 @@
 				"maxDetections": 50,
 				"classCount": 80,
 				"maxBboxesPerClass": 100,
-				"coordOrder": "yxyx",
-				"debug": false
+				"coordOrder": "yxyx"
 			}
 		}
 	]

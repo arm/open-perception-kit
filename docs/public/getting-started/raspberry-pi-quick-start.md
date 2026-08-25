@@ -98,8 +98,6 @@ Expected result: Docker Engine and Docker Compose both print version information
 
 If these checks fail, fix them before opening the project in VS Code. The Dev Container depends on the Pi host setup.
 
-After PEK is cloned in the next step, the repository also contains `./scripts/pre-req.sh`. Treat it as an extra helper check, not as a replacement for the checks above.
-
 ## 6. Clone PEK On The Raspberry Pi
 
 Run in the **Raspberry Pi shell**:
@@ -198,7 +196,7 @@ Expected result: VS Code reloads and opens the repository inside the Dev Contain
 Run in the **Docker shell on the Raspberry Pi**:
 
 ```bash
-./scripts/build-elements.sh debug false
+./scripts/build.sh debug false
 ```
 
 You can also use the VS Code task:
@@ -243,7 +241,7 @@ If that does not work, use the Pi IP address:
 http://<raspberry-pi-ip-address>:9999
 ```
 
-In the **AI Models** panel, enable one model first. Start with `yolov11` or `mobilenetv2`.
+In the **Model Selector** panel, enable a model to start inference.
 
 ![PEK browser UI after opening the web view](/img/10-browser-ui.png)
 
@@ -324,7 +322,7 @@ To run the last selected pipeline again, run in the **Docker shell on the Raspbe
 - If VS Code cannot connect over SSH, confirm terminal SSH works first.
 - If `raspberrypi.local` does not resolve, use the Pi IP address.
 - If the Dev Container does not start, confirm Docker works on the Raspberry Pi with `docker info`.
-- If the browser opens but no result appears, enable a model in the **AI Models** panel.
+- If the browser opens but no result appears, enable a model in the **Model Selector** panel.
 - If you expected a live camera feed, use `05-full-onnx-raspicam` for a Raspberry Pi camera or `06-full-onnx-usb-cam` for a USB camera at `/dev/video0`, then follow the camera section above if your device needs custom source settings.
 
 [Back to Get Started](/getting-started)

@@ -20,8 +20,9 @@ At the end of this page, you should be able to place new files in the right fold
 ### `config/`
 This is the most important folder for normal usage.
 
-- `config/models/` stores model folders. Put `model.json`, a basic and minimal
-  `opchain.json`, and `index.md` here. A local development model can sit beside
+- `config/models/` stores model folders. Put `model.json` (or non-empty
+  `model-<variant>.json` files for colocated multi-stage models), usually a basic and
+  minimal `opchain.json`, and `index.md` here. A local development model can sit beside
   its descriptor in the bind-mounted checkout. Published artifacts included in
   container images use descriptor `hfDownload` metadata; only explicitly
   allowlisted repository-local binaries enter the Docker build context.
@@ -53,7 +54,7 @@ These contain the project documentation.
 ### `scripts/`
 This contains the main helper scripts you are expected to run.
 
-- `scripts/build-elements.sh` builds the runtime.
+- `scripts/build.sh` builds the runtime.
 - `scripts/serve-docs.sh` and `scripts/serve-docs-plain.sh` serve the docs.
 - `scripts/gen-doc.sh` refreshes generated documentation.
 - `scripts/docker-nuke.sh` stops and removes Docker containers created by the project.

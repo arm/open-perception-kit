@@ -6,7 +6,6 @@
 
 #include "pek/Result.h"
 
-#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <ctime>
@@ -22,6 +21,12 @@ typedef void *DynamicLibraryHandle;
  * @brief Utility helpers shared across runtime components.
  */
 struct Tools {
+    /**
+     * @brief Returns the bind address used by local HTTP/WebRTC services.
+     * @return Address string suitable for binding service sockets.
+     */
+    static std::string getLocalIp();
+
     /**
      * @brief Opens a shared library by name.
      * @param name Library file name or path. If no .so suffix is provided, .so is also tried.
@@ -150,20 +155,10 @@ struct Tools {
 };
 
 /**
- * @brief Monotonic process-local UUID-like counter.
+ * @brief Returns the next process-local object ID.
+ * @return Monotonically increasing object ID value.
  */
-struct Uuid {
-    /**
-     * @brief Returns the next monotonically increasing id.
-     * @return Next id value.
-     */
-    static uint64_t next() noexcept {
-        return counter.fetch_add(1, std::memory_order_relaxed);
-    }
-
-  private:
-    static std::atomic<uint64_t> counter;
-};
+uint64_t nextObjectId() noexcept;
 
 /**
  * @brief UTC wall-clock time helpers.

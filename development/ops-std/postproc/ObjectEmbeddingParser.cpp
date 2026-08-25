@@ -6,12 +6,14 @@
 
 #include <cmath>
 #include <fmt/core.h>
+#include <memory>
+#include <utility>
 
 using namespace pek;
 using namespace pek::stdop::postproc;
 
 Result<void> ObjectEmbeddingParser::parse(const TensorParser::Input &input,
-                                          Perception::Layer &detectionResult) {
+                                          perception::FrameResults &results) {
 
     if (!input.tensors[0]) {
         return tl::unexpected(
@@ -28,27 +30,30 @@ Result<void> ObjectEmbeddingParser::parse(const TensorParser::Input &input,
 
     const size_t embeddingSize = shape.dims[1];
 
-    Perception::ObjectEmbedding embedding;
-    embedding.parentUuid = input.inferenceInfo.parentUuid;
-    embedding.values.resize(embeddingSize);
+    auto embedding = std::make_unique<perception::metadata::ObjectEmbeddingT>();
+    embedding->object = perception::makeObjectMeta(0U, input.inferenceInfo.parentId);
+    embedding->values.resize(embeddingSize);
 
     float l2Norm = 0.0f;
     for (size_t i = 0; i < embeddingSize; ++i) {
         const float value = input.tensors[0]->get(i);
-        embedding.values[i] = value;
+        embedding->values[i] = value;
         l2Norm += value * value;
     }
 
     l2Norm = std::sqrt(l2Norm);
     if (l2Norm > 1e-12f) {
         const float invNorm = 1.0f / l2Norm;
-        for (auto &v : embedding.values) {
+        for (auto &v : embedding->values) {
             v *= invNorm;
         }
     }
 
-    detectionResult.contentType = "objectEmbedding";
-    detectionResult.detections.push_back(std::move(embedding));
+    perception::metadata::ObjectEmbeddingsT payload;
+    payload.layer = perception::makeLayerInfo(
+        input.inferenceInfo.modelName, input.inferenceInfo.inferElementId, "objectEmbedding");
+    payload.embeddings.push_back(std::move(embedding));
+    results.add(std::move(payload));
 
     return {};
 }

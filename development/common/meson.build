@@ -1,6 +1,4 @@
 
-subdir('logging')
-
 common = shared_library(
   'pek-common',
   sources: [
@@ -16,7 +14,9 @@ common = shared_library(
 
     'pek/AudioBuffer.cpp',
 
-    'pek/PerceptionSerializer.cpp',
+    'pek/Base64.cpp',
+
+    'pek/FrameResults.cpp',
 
     'op/Op.cpp',
     'op/OpRef.cpp',
@@ -33,7 +33,7 @@ common = shared_library(
     'mediaio/PixelBufferVideoFrame.cpp',
   ],
   include_directories: [ common_include ],
-  dependencies: [ pek_deps ],
+  dependencies: [ pek_deps, config_validator_dep ],
   link_whole: [logging],
   gnu_symbol_visibility: 'default',
   install: release_package,

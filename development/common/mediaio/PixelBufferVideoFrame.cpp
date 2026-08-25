@@ -22,15 +22,18 @@ namespace {
  * @param format Pixel layout used to infer bytes per pixel.
  * @return Tight row stride in bytes, or 0 when format is unsupported.
  */
-uint32_t defaultStride(uint32_t width, pek::DataKind format) noexcept {
+uint32_t defaultStride(uint32_t width, pek::RawImagePixelFormat format) noexcept {
+    using enum pek::RawImagePixelFormat;
+
     switch (format) {
-    case pek::DataKind::ImageBgraHwc:
+    case Bgra:
         return width * 4;
-    case pek::DataKind::ImageRgbHwc:
-    case pek::DataKind::ImageRgbChw:
+    case Rgb:
         return width * 3;
-    case pek::DataKind::ImageGray:
+    case Gray:
         return width;
+    case Yuy2:
+        return ((width + 1) / 2) * 4;
     default:
         return 0;
     }
@@ -114,11 +117,13 @@ bool validPixelBuffer(const void *data,
                       size_t byteSize,
                       uint32_t width,
                       uint32_t height,
-                      pek::DataKind format,
+                      pek::RawImagePixelFormat format,
                       uint32_t strideBytes,
                       pek::AccessMode accessMode) noexcept {
-    if (data == nullptr || byteSize == 0 || !pek::isImageDataKind(format) ||
-        !validAccessMode(accessMode) || !validDimensions(width, height, strideBytes)) {
+    if (const uint32_t minimumStrideBytes = defaultStride(width, format);
+        data == nullptr || byteSize == 0 || minimumStrideBytes == 0 ||
+        strideBytes < minimumStrideBytes || !validAccessMode(accessMode) ||
+        !validDimensions(width, height, strideBytes)) {
         return false;
     }
 
@@ -133,7 +138,7 @@ PixelBufferVideoFrame::PixelBufferVideoFrame(
     size_t byteSize,
     uint32_t width,
     uint32_t height,
-    pek::DataKind format,
+    pek::RawImagePixelFormat format,
     uint32_t strideBytes,
     pek::AccessMode accessMode,
     TimestampNs timestampNs,
@@ -142,7 +147,7 @@ PixelBufferVideoFrame::PixelBufferVideoFrame(
       frameFormat(format), frameStrideBytes(strideBytes), frameAccess(accessMode),
       frameTimestampNs(timestampNs), lifetimeAnchor(std::move(lifetimeAnchorValue)) {
     framePlanes.push_back(
-        DataView::host(frameData, frameByteSize, frameFormat, frameStrideBytes, frameAccess, 0));
+        DataView::host(frameData, frameByteSize, frameStrideBytes, frameAccess, 0));
 }
 
 std::unique_ptr<PixelBufferVideoFrame>
@@ -150,7 +155,7 @@ PixelBufferVideoFrame::borrow(void *data,
                               size_t byteSize,
                               uint32_t width,
                               uint32_t height,
-                              pek::DataKind format,
+                              pek::RawImagePixelFormat format,
                               uint32_t strideBytes,
                               pek::AccessMode accessMode,
                               TimestampNs timestampNs,
@@ -179,7 +184,7 @@ PixelBufferVideoFrame::borrowReadOnly(const void *data,
                                       size_t byteSize,
                                       uint32_t width,
                                       uint32_t height,
-                                      pek::DataKind format,
+                                      pek::RawImagePixelFormat format,
                                       uint32_t strideBytes,
                                       TimestampNs timestampNs,
                                       std::shared_ptr<const void> lifetimeAnchor) {
@@ -197,7 +202,7 @@ PixelBufferVideoFrame::borrowReadOnly(const void *data,
 std::unique_ptr<PixelBufferVideoFrame> PixelBufferVideoFrame::take(std::vector<uint8_t> buffer,
                                                                    uint32_t width,
                                                                    uint32_t height,
-                                                                   pek::DataKind format,
+                                                                   pek::RawImagePixelFormat format,
                                                                    uint32_t strideBytes,
                                                                    pek::AccessMode accessMode,
                                                                    TimestampNs timestampNs) {
@@ -217,7 +222,7 @@ std::unique_ptr<PixelBufferVideoFrame> PixelBufferVideoFrame::copy(const void *d
                                                                    size_t byteSize,
                                                                    uint32_t width,
                                                                    uint32_t height,
-                                                                   pek::DataKind format,
+                                                                   pek::RawImagePixelFormat format,
                                                                    uint32_t strideBytes,
                                                                    pek::AccessMode accessMode,
                                                                    TimestampNs timestampNs) {
@@ -230,8 +235,26 @@ std::unique_ptr<PixelBufferVideoFrame> PixelBufferVideoFrame::copy(const void *d
     return take(std::move(buffer), width, height, format, strideBytes, accessMode, timestampNs);
 }
 
-pek::DataKind PixelBufferVideoFrame::format() const noexcept {
+pek::RawImagePixelFormat PixelBufferVideoFrame::format() const noexcept {
     return frameFormat;
+}
+
+pek::YuvColorMatrix PixelBufferVideoFrame::yuvColorMatrix() const noexcept {
+    using enum pek::YuvColorMatrix;
+
+    if (frameFormat == pek::RawImagePixelFormat::Yuy2) {
+        return frameHeight <= 576 ? Bt601 : Bt709;
+    }
+    return Unknown;
+}
+
+pek::YuvRange PixelBufferVideoFrame::yuvRange() const noexcept {
+    using enum pek::YuvRange;
+
+    if (frameFormat == pek::RawImagePixelFormat::Yuy2) {
+        return Limited;
+    }
+    return Unknown;
 }
 
 uint32_t PixelBufferVideoFrame::width() const noexcept {
@@ -278,7 +301,7 @@ std::unique_ptr<VideoFrame> makePixelBufferVideoFrame(void *data,
                                                       size_t byteSize,
                                                       uint32_t width,
                                                       uint32_t height,
-                                                      pek::DataKind format,
+                                                      pek::RawImagePixelFormat format,
                                                       uint32_t strideBytes,
                                                       pek::AccessMode accessMode,
                                                       TimestampNs timestampNs,
@@ -299,7 +322,7 @@ makeReadOnlyPixelBufferVideoFrame(const void *data,
                                   size_t byteSize,
                                   uint32_t width,
                                   uint32_t height,
-                                  pek::DataKind format,
+                                  pek::RawImagePixelFormat format,
                                   uint32_t strideBytes,
                                   TimestampNs timestampNs,
                                   std::shared_ptr<const void> lifetimeAnchor) {
@@ -310,7 +333,7 @@ makeReadOnlyPixelBufferVideoFrame(const void *data,
 std::unique_ptr<VideoFrame> makeOwnedPixelBufferVideoFrame(std::vector<uint8_t> buffer,
                                                            uint32_t width,
                                                            uint32_t height,
-                                                           pek::DataKind format,
+                                                           pek::RawImagePixelFormat format,
                                                            uint32_t strideBytes,
                                                            pek::AccessMode accessMode,
                                                            TimestampNs timestampNs) {
@@ -322,7 +345,7 @@ std::unique_ptr<VideoFrame> copyPixelBufferVideoFrame(const void *data,
                                                       size_t byteSize,
                                                       uint32_t width,
                                                       uint32_t height,
-                                                      pek::DataKind format,
+                                                      pek::RawImagePixelFormat format,
                                                       uint32_t strideBytes,
                                                       pek::AccessMode accessMode,
                                                       TimestampNs timestampNs) {

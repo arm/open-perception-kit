@@ -53,7 +53,7 @@ class SonarQualityGateWorkflowTests(unittest.TestCase):
             },
             clear=False,
         ):
-            command = sonar_quality_gate_workflow.quality_gate_report_command(probe_api_access=True)
+            command = sonar_quality_gate_workflow.quality_gate_report_command()
 
         self.assertEqual(command[:4], ["docker", "compose", "-f", ".github/compose.ci.yaml"])
         self.assertIn("--entrypoint", command)
@@ -69,12 +69,11 @@ class SonarQualityGateWorkflowTests(unittest.TestCase):
         self.assertEqual(command[command.index("--pull-request-key") + 1], "101")
         self.assertEqual(command[command.index("--pull-request-branch") + 1], "feature/test")
         self.assertEqual(command[command.index("--pull-request-base") + 1], "main")
-        self.assertIn("--probe-api-access", command)
 
     def test_container_report_task_path_matches_compose_work_bind_mount(self):
         compose_base = (REPO_ROOT / "compose.base.yaml").read_text(encoding="utf-8")
 
-        command = sonar_quality_gate_workflow.quality_gate_report_command(probe_api_access=False)
+        command = sonar_quality_gate_workflow.quality_gate_report_command()
 
         self.assertIn("- .:/work", compose_base)
         self.assertEqual(command[command.index("--report-task-file") + 1], "/work/.scannerwork/report-task.txt")
@@ -123,6 +122,54 @@ class SonarQualityGateWorkflowTests(unittest.TestCase):
             self.assertIn("### Sonar quality gate report", summary)
             self.assertIn("two\nthree", summary)
             self.assertNotIn("one\ntwo\nthree", summary)
+
+    def test_ci_suppression_file_supports_detectable_sonar_conditions(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            suppression_file = Path(temp_dir) / "ci-suppressions.txt"
+            suppression_file.write_text(
+                "# Add one suppression per line.\n"
+                "UNIT_TEST_COVERAGE: Coverage is deferred.\n"
+                "CODE_DUPLICATION: Duplication is accepted.\n"
+                "\n",
+                encoding="utf-8",
+            )
+
+            suppressions = sonar_quality_gate_report.load_ci_suppressions(
+                suppression_file
+            )
+
+        self.assertEqual(
+            suppressions["new_coverage"],
+            ("UNIT_TEST_COVERAGE", "Coverage is deferred."),
+        )
+        self.assertEqual(
+            suppressions["new_duplicated_lines_density"],
+            ("CODE_DUPLICATION", "Duplication is accepted."),
+        )
+
+    def test_coverage_suppression_does_not_hide_other_gate_failures(self):
+        suppressions = {
+            "new_coverage": ("UNIT_TEST_COVERAGE", "Coverage is deferred.")
+        }
+        coverage = {"metricKey": "new_coverage", "status": "ERROR"}
+        issues = {"metricKey": "new_violations", "status": "ERROR"}
+
+        self.assertEqual(
+            sonar_quality_gate_report.quality_gate_status_after_suppressions(
+                "ERROR",
+                [coverage],
+                suppressions,
+            ),
+            "OK",
+        )
+        self.assertEqual(
+            sonar_quality_gate_report.quality_gate_status_after_suppressions(
+                "ERROR",
+                [coverage, issues],
+                suppressions,
+            ),
+            "ERROR",
+        )
 
 
 if __name__ == "__main__":

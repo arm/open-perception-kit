@@ -3,20 +3,21 @@
  *************************************************************/
 
 #include "postproc/RvmParser.h"
-#include "pek/Perception.h"
 #include "pek/TensorParser.h"
 #include "pek/Types.h"
 
 #include <cmath>
 #include <cstdint>
 #include <fmt/core.h>
+#include <memory>
 #include <string>
+#include <utility>
 
 using namespace pek;
 using namespace pek::stdop::postproc;
 
-Result<void> RvmParser::parse(const pek::TensorParser::Input &input,
-                              pek::Perception::Layer &detectionResult) {
+pek::Result<void> RvmParser::parse(const pek::TensorParser::Input &input,
+                                   perception::FrameResults &results) {
 
     if (!input.tensors[0] || !input.tensors[1]) {
         return tl::unexpected(
@@ -43,12 +44,9 @@ Result<void> RvmParser::parse(const pek::TensorParser::Input &input,
     size_t maskHeight = shape.dims[2];
     size_t maskWidth = shape.dims[3];
 
-    detectionResult.detections.push_back(Perception::SegmentationMap());
+    pek::Bitmap bitmap(pek::Bitmap::Type::Uint8, maskWidth, maskHeight);
 
-    auto &sm = std::get<Perception::SegmentationMap>(detectionResult.detections.back());
-    sm.bitmap = pek::Bitmap(pek::Bitmap::Type::Uint8, maskWidth, maskHeight);
-
-    uint8_t *dst = (uint8_t *)sm.bitmap.getData();
+    auto *dst = bitmap.getMutableData();
 
     // size_t planeSize = maskHeight * maskWidth;
 
@@ -64,8 +62,20 @@ Result<void> RvmParser::parse(const pek::TensorParser::Input &input,
         }
     }
 
-    detectionResult.contentType = "segmentation";
-    detectionResult.compositingMode = "backgroundReplacement";
+    auto mask = std::make_unique<perception::metadata::SegmentationMaskT>();
+    mask->object = perception::makeObjectMeta(0U, input.inferenceInfo.parentId);
+    mask->bitmap = perception::makeBitmapData(bitmap);
+
+    perception::metadata::SegmentationMasksT payload;
+    payload.layer = perception::makeLayerInfo(input.inferenceInfo.modelName,
+                                              input.inferenceInfo.inferElementId,
+                                              "segmentation",
+                                              "",
+                                              "",
+                                              "",
+                                              "backgroundReplacement");
+    payload.masks.push_back(std::move(mask));
+    results.add(std::move(payload));
 
     return {};
 }

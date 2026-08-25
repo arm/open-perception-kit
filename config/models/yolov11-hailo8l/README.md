@@ -6,7 +6,7 @@ Hailo 8-compiled variant of the YOLOv11 detector.
 - Input: NHWC image, `[1, 320, 320, 3]`, `Uint8`
 - Output: packed Hailo NMS detections
 - Post processor: `YoloParser`
-- Supported Perception result: `Perception::Rect` in a `genericObject` layer
+- Supported FrameResults payload: `BoxDetectionsT` with `content_type` set to `genericObject`
 - Note: this `.hef` is the compiled Hailo version of the original ONNX model
 - Typical pairing: `config/pipelines/03-full-onnx-hailo8l.json`
 

@@ -6,7 +6,7 @@ sidebar_label: Tensor Parser
 # TensorParser
 
 `TensorParser` is the interface for converting raw inference output tensors into
-structured `Perception` metadata. Parsers are backend-agnostic: they interpret
+typed `FrameResults` payloads. Parsers are backend-agnostic: they interpret
 model-specific output layouts, not backend execution details.
 
 ## Purpose
@@ -20,16 +20,16 @@ Typical parser responsibilities are:
 - read output tensors through `TensorView`
 - use `InferenceInfo` for coordinate and provenance context
 - decode model-specific tensor layouts
-- write structured results into a `Perception::Layer`
+- append structured generated payloads to `perception::FrameResults`
 - return explicit success or failure
 
 Parsers must not own or modify tensor memory.
 
 ## Execution Contract
 
-`parse(const Input&, Perception::Layer&)` receives the tensor outputs, parser
-attributes, inference context, and destination layer. The parser writes only the
-structured metadata that belongs to that inference step.
+`parse(const Input&, perception::FrameResults&)` receives the tensor outputs,
+parser attributes, inference context, and destination envelope. The parser
+appends only the typed payloads that belong to that inference step.
 
 This keeps inference execution, tensor interpretation, and downstream metadata
 transport separated.
@@ -44,8 +44,11 @@ Adding a parser normally means:
 
 1. Add a parser class implementing the `TensorParser` contract.
 2. Register it with `GenericPostprocessOp`.
-3. Reference it from the model or OpChain configuration.
-4. Add focused tests using known output tensors and expected `Perception` layers.
+3. Reuse or add its closed local `$defs` entry and dispatcher `$ref` in
+   `config/schemas/v1/opchain/ops/generic-postprocess.schema.json`.
+4. Reference it from the model or OpChain configuration.
+5. Add focused tests using known output tensors and expected `FrameResults` payloads.
+6. Run `expkits-ci --config-schema-check` in the development container.
 
 Python-based postprocessing is not part of the current runtime. See
 [Known Limitations](known-limitations.md).

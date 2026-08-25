@@ -1,5 +1,9 @@
 {
+	"version": 1,
 	"name": "MobileNetV3RVM",
+	"displayName": "RVM MobileNetV3",
+	"task": "Video matting",
+	"runtime": "ONNX",
 	"description": "MobileNetV3 based RVM for real-time background removal.",
 	"ops": [
 		{

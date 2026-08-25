@@ -167,5 +167,7 @@ executorchops = shared_module(
   gnu_symbol_visibility: 'default',
   link_with: [common],
 
-  install: false,
+  install: release_package,
+  install_dir: 'lib/pek',
+  install_rpath: '$ORIGIN',
 )

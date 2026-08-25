@@ -10,6 +10,8 @@ Follow the repository root `AGENTS.md` first.
   - `config/pipelines/`
   - `development/ops-std/postproc/`
 - Shared types: `development/common/pek/`
+- Perception SDK descriptor: `tools/perception/sdk.json`
+- Perception schemas and generated SDKs: use the paths declared by the descriptor
 - Op system: `development/common/op/`
 - GStreamer metadata: `development/common/gst/`
 - Launcher: `development/pek-menu/`
@@ -18,11 +20,12 @@ Follow the repository root `AGENTS.md` first.
 
 ## Preserve current contracts
 - Video-processing elements expect `BGRA` unless the task changes the contract.
-- Buffer metadata is `PerceptionMeta`.
+- Runtime result metadata is `FrameResultsMeta`.
 - OpChain loops use `loopId`.
-- `pekinfer` executes OpChains and writes `PerceptionMeta`.
-- `pekperformance` writes text into `Perception.perfdata`.
-- `pekosd` renders overlays.
+- `pekinfer` executes OpChains and appends generated FrameResults payloads.
+- `pekperformance` appends `PerformanceOverlayT` FrameResults payloads.
+- `pekosd` renders supported FrameResults overlays.
+- `pekcomm` publishes serialized FrameResults packets for file/stdout output.
 - `peksink` owns the WebRTC, HTTP, and control WebSocket stack.
 
 ## Working style
@@ -37,9 +40,9 @@ Follow the repository root `AGENTS.md` first.
 - Do not suggest fixing them unless the task is about fixtures or tests.
 
 ## Validation
-- Build: `./scripts/build-elements.sh debug [true|false]` or `./scripts/build-elements.sh release [true|false]`
-- Clean: `./scripts/build-elements.sh clean`
-- Tests: `./scripts/build-elements.sh debug true` then `meson test -C /work/development/build --print-errorlogs`
+- Build: `./scripts/build.sh debug [true|false]` or `./scripts/build.sh release [true|false]`
+- Clean: `./scripts/build.sh clean`
+- Tests: `./scripts/build.sh debug true` then `meson test -C /work/development/build --print-errorlogs`
 - Pipeline dry-run: `./tools/pek-menu -p <pipeline-id-or-path>` if available
 - Docs and diagrams: `./scripts/gen-doc.sh`
 - Docs preview: `./scripts/serve-docs-plain.sh` or `./scripts/serve-docs.sh`

@@ -1,0 +1,20 @@
+{
+  "name": "pek-webui",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs generate",
+    "check": "node build.mjs check",
+    "generate": "node build.mjs generate",
+    "test": "node --test tests/osd-renderer.test.mjs tests/webrtc_client.test.mjs tests/webrtc_config.test.mjs && node test-frame-results.mjs"
+  },
+  "dependencies": {
+    "flatbuffers": "25.9.23"
+  },
+  "devDependencies": {
+    "esbuild-wasm": "0.25.8"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

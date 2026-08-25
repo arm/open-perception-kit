@@ -1,5 +1,9 @@
 {
+	"version": 1,
 	"name": "YoloV26",
+	"displayName": "YOLO26n",
+	"task": "Object detection",
+	"runtime": "ONNX",
 	"description": "YoloV26 object detection model.",
 	"ops": [
 		{

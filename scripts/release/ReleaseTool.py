@@ -19,14 +19,18 @@ import tempfile
 from pathlib import Path
 
 ARCHITECTURES = {"x86_64", "aarch64"}
-RELEASE_MODEL_NAMES = {
-    "cam-contact",
-    "gaze-detection",
-    "osnet_x0_25",
-    "ultraface",
-    "yolo26",
-    "yolov11",
+ONNX_INFERENCE_OP = "pek-onnx-ops/Inference"
+ONNX_MODEL_SUFFIX = ".onnx"
+RELEASE_MODELS = {
+    "cam-contact": (ONNX_INFERENCE_OP, ONNX_MODEL_SUFFIX),
+    "gaze-detection": (ONNX_INFERENCE_OP, ONNX_MODEL_SUFFIX),
+    "osnet_x0_25": (ONNX_INFERENCE_OP, ONNX_MODEL_SUFFIX),
+    "ultraface": (ONNX_INFERENCE_OP, ONNX_MODEL_SUFFIX),
+    "yolo26": (ONNX_INFERENCE_OP, ONNX_MODEL_SUFFIX),
+    "yolov11": (ONNX_INFERENCE_OP, ONNX_MODEL_SUFFIX),
+    "yolox": ("pek-executorch-ops/Inference", ".pte"),
 }
+RELEASE_MODEL_NAMES = set(RELEASE_MODELS)
 PLUGIN_NAMES = {
     "libpekcomm.so",
     "libpekinfer.so",
@@ -36,6 +40,7 @@ PLUGIN_NAMES = {
     "libpektracker.so",
 }
 OP_MODULE_NAMES = {
+    "pek-executorch-ops.so",
     "pek-onnx-ops.so",
     "pek-std-ops.so",
 }
@@ -82,6 +87,11 @@ SYSTEM_LIBRARY_PREFIXES = (
 BUILD_LABEL_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$")
 VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+$", re.ASCII)
 JSON_GLOB = "*.json"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+GIT_COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$", re.ASCII)
+PERCEPTION_SDK_ARCHIVE_PATTERN = re.compile(
+    r"^perception-sdk-(\d+\.\d+\.\d+)\.zip$", re.ASCII
+)
 
 
 def fail(message: str) -> None:
@@ -133,14 +143,17 @@ def find_primary_descriptor(model_root: Path, model_id: str) -> Path:
     if not isinstance(opchain, dict) or not isinstance(opchain.get("ops"), list):
         fail(f"{model_id}: invalid model opchain")
 
+    expected_backend = RELEASE_MODELS[model_id][0]
     inference_ops = []
     for op in opchain["ops"]:
         if not isinstance(op, dict):
             fail(f"{model_id}: invalid op entry")
-        if str(op.get("id", "")).startswith("pek-onnx-ops/"):
+        if op.get("id") == expected_backend:
             inference_ops.append(op)
     if len(inference_ops) != 1:
-        fail(f"{model_id}: model opchain must contain exactly one ONNX inference op")
+        fail(
+            f"{model_id}: model opchain must contain exactly one {expected_backend} op"
+        )
     attributes = inference_ops[0].get("attributes")
     if not isinstance(attributes, dict) or "modelDescriptor" not in attributes:
         fail(f"{model_id}: inference op has no modelDescriptor")
@@ -153,12 +166,13 @@ def collect_model_files(
     model_root: Path, model_id: str, primary_descriptor: Path
 ) -> tuple[list[Path], list[Path]]:
     config_paths = sorted(model_root.rglob(JSON_GLOB))
+    model_suffix = RELEASE_MODELS[model_id][1]
     model_paths = {
         resolve_model_path(
             model_root, str(path.relative_to(model_root)), f"{model_id}.{path.name}"
         )
         for path in model_root.rglob("*")
-        if path.is_file() and path.suffix == ".onnx"
+        if path.is_file() and path.suffix == model_suffix
     }
     for config_path in config_paths:
         config = load_json(config_path)
@@ -215,9 +229,35 @@ def rewrite_model_opchain(opchain: object, model_id: str, source_root: Path) -> 
     return opchain
 
 
+def resolve_shared_model_descriptor(
+    value: object, source_path: Path, models_root: Path
+) -> tuple[str, str] | None:
+    if not isinstance(value, str):
+        return None
+    descriptor_path = Path(value)
+    if descriptor_path.is_absolute():
+        try:
+            descriptor_path = models_root / descriptor_path.relative_to(
+                "/work/config/models"
+            )
+        except ValueError:
+            return None
+    else:
+        descriptor_path = source_path.parent / descriptor_path
+    try:
+        model_id, descriptor_name = descriptor_path.resolve().relative_to(
+            models_root.resolve()
+        ).parts
+    except ValueError:
+        return None
+    return model_id, descriptor_name
+
+
 def rewrite_shared_opchain(
     opchain: object,
+    source_path: Path,
     destination_path: Path,
+    models_root: Path,
     selected: dict[str, dict[str, object]],
     stage_root: Path,
 ) -> object | None:
@@ -229,11 +269,18 @@ def rewrite_shared_opchain(
         attributes = op.get("attributes")
         if not isinstance(attributes, dict) or "modelDescriptor" not in attributes:
             continue
-        descriptor_value = str(attributes["modelDescriptor"])
-        match = re.search(r"(?:^|/)config/models/([^/]+)/([^/]+)$", descriptor_value)
-        if not match or match.group(1) not in selected:
+        resolved = resolve_shared_model_descriptor(
+            attributes["modelDescriptor"], source_path, models_root
+        )
+        if resolved is None:
             return None
-        model_id, descriptor_name = match.groups()
+        model_id, descriptor_name = resolved
+        descriptor_path = models_root / model_id / descriptor_name
+        if (
+            model_id not in selected
+            or descriptor_path not in selected[model_id]["config_paths"]
+        ):
+            return None
         target_descriptor = stage_root / "share/pek/models" / model_id / descriptor_name
         attributes["modelDescriptor"] = os.path.relpath(
             target_descriptor, destination_path.parent
@@ -276,10 +323,19 @@ def stage_models(args: argparse.Namespace) -> None:
     for source_path in source_root.rglob(JSON_GLOB):
         destination_path = target_root / source_path.relative_to(source_root)
         rewritten = rewrite_shared_opchain(
-            load_json(source_path), destination_path, selected, stage_root
+            load_json(source_path),
+            source_path,
+            destination_path,
+            repo_root / "config/models",
+            selected,
+            stage_root,
         )
         if rewritten is not None:
             write_json(destination_path, rewritten)
+
+    source_root = repo_root / "config/schemas/v1"
+    validate_schema_tree(source_root)
+    shutil.copytree(source_root, stage_root / "share/pek/schemas/json/v1")
 
     for json_path in (stage_root / "share/pek").rglob(JSON_GLOB):
         content = json_path.read_text(encoding="utf-8")
@@ -301,7 +357,32 @@ def payload_files(root: Path) -> set[Path]:
     return files
 
 
-def validate_release_payload(package_root: Path, repo_root: Path) -> None:
+def validate_schema_tree(root: Path) -> set[Path]:
+    files = payload_files(root)
+    if not files:
+        fail(f"Descriptor schema directory is missing or empty: {root}")
+    for relative in files:
+        path = root / relative
+        if path.suffix != ".json":
+            fail(f"Descriptor schema is not JSON: {path}")
+        load_json(path)
+    return files
+
+
+def validate_legal_documentation(package_root: Path) -> None:
+    legal_root = package_root / "share/pek/licenses"
+    if not payload_files(legal_root):
+        fail("Packaged legal documentation is missing or empty")
+    if not payload_files(legal_root / "libexecutorch-dev"):
+        fail("Packaged ExecuTorch legal documentation is missing or empty")
+
+
+def validate_release_payload(package_root: Path, repo_root: Path | None) -> None:
+    packaged_schema_root = package_root / "share/pek/schemas/json/v1"
+    validate_schema_tree(packaged_schema_root)
+    if repo_root is None:
+        return
+
     with tempfile.TemporaryDirectory() as temporary:
         expected_root = Path(temporary) / "expected"
         stage_models(
@@ -310,7 +391,7 @@ def validate_release_payload(package_root: Path, repo_root: Path) -> None:
                 stage_root=str(expected_root),
             )
         )
-        for payload in ("models", "opchains"):
+        for payload in ("models", "opchains", "schemas/json/v1"):
             expected = expected_root / "share/pek" / payload
             packaged = package_root / "share/pek" / payload
             expected_files = payload_files(expected)
@@ -325,6 +406,67 @@ def validate_release_payload(package_root: Path, repo_root: Path) -> None:
                     fail(f"Build-machine path remains in {packaged_path}")
                 if not filecmp.cmp(expected / relative, packaged_path, shallow=False):
                     fail(f"Packaged payload differs from the selected source: {packaged_path}")
+
+
+def perception_sdk_archive(perception_sdk_root: Path) -> Path:
+    if perception_sdk_root.is_symlink() or not perception_sdk_root.is_dir():
+        fail(f"Perception SDK directory is missing or invalid: {perception_sdk_root}")
+    entries = list(perception_sdk_root.iterdir())
+    if any(path.is_symlink() or not path.is_file() for path in entries):
+        fail("Perception SDK directory must contain only regular files")
+
+    archives = [
+        path
+        for path in entries
+        if PERCEPTION_SDK_ARCHIVE_PATTERN.fullmatch(path.name)
+    ]
+    if len(archives) != 1:
+        fail("Perception SDK directory must contain exactly one versioned ZIP")
+    archive = archives[0]
+    expected_names = {
+        archive.name,
+        f"{archive.name}.sha256",
+        f"{archive.name}.provenance.json",
+    }
+    if {path.name for path in entries} != expected_names:
+        fail("Perception SDK directory must contain exactly the matching triplet")
+    return archive
+
+
+def validate_perception_sdk(
+    perception_sdk_root: Path,
+    expected_commit: str,
+    repo_root: Path | None = None,
+) -> None:
+    archive = perception_sdk_archive(perception_sdk_root)
+    version = archive.name.removeprefix("perception-sdk-").removesuffix(".zip")
+
+    verification_root = repo_root or REPO_ROOT
+    if repo_root is not None:
+        descriptor = load_json(repo_root / "tools/perception/sdk.json")
+        if not isinstance(descriptor, dict) or descriptor.get("version") != version:
+            fail("Perception SDK version does not match the selected source")
+    subprocess.run(
+        [
+            str(verification_root / "scripts/perception-sdk.sh"),
+            "verify",
+            str(archive),
+            "--require-sidecars",
+        ],
+        check=True,
+        cwd=verification_root,
+    )
+
+    provenance = load_json(perception_sdk_root / f"{archive.name}.provenance.json")
+    if not isinstance(provenance, dict) or provenance.get("dirty") is not False:
+        fail("Perception SDK provenance must record dirty=false")
+    commit = provenance.get("repository_commit")
+    if not isinstance(commit, str) or not GIT_COMMIT_PATTERN.fullmatch(commit):
+        fail("Perception SDK provenance commit is invalid")
+    if not GIT_COMMIT_PATTERN.fullmatch(expected_commit):
+        fail("Expected Perception SDK commit is invalid")
+    if commit != expected_commit:
+        fail("Perception SDK provenance commit does not match the selected source")
 
 
 def read_elf(path: Path, *arguments: str) -> str:
@@ -354,6 +496,31 @@ def dynamic_values(path: Path, tag: str) -> list[str]:
     ]
 
 
+def validate_release_tree(package_root: Path) -> None:
+    forbidden_parts = {
+        "examples",
+        "tests",
+        "pipelines",
+        "src",
+        "include",
+    }
+    legal_root = package_root / "share/pek/licenses"
+    for path in package_root.rglob("*"):
+        relative = path.relative_to(package_root)
+        if legal_root in path.parents:
+            continue
+        if forbidden_parts & set(relative.parts):
+            fail(f"Forbidden release path: {relative}")
+        if any("hailo" in part.lower() for part in relative.parts):
+            fail(f"Forbidden Hailo release path: {relative}")
+        if path.name == "pek-menu" or path.name.startswith(
+            ("libfmt.so", "pek-ncnn-ops.so")
+        ):
+            fail(f"Forbidden release file: {relative}")
+        if path.is_file() and path.suffix.lower() in {".a", ".h", ".hh", ".hpp"}:
+            fail(f"Forbidden SDK file: {relative}")
+
+
 def validate_runtime_files(package_root: Path) -> Path:
     plugin_root = package_root / "lib/gstreamer-1.0"
     if not plugin_root.is_dir():
@@ -365,24 +532,7 @@ def validate_runtime_files(package_root: Path) -> Path:
     if any(not is_elf(path) for path in plugins):
         fail("GStreamer plugins must be regular ELF files")
 
-    forbidden_parts = {
-        "examples",
-        "tests",
-        "pipelines",
-        "src",
-        "include",
-    }
-    for path in package_root.rglob("*"):
-        relative = path.relative_to(package_root)
-        if forbidden_parts & set(relative.parts):
-            fail(f"Forbidden release path: {relative}")
-        if any("hailo" in part.lower() for part in relative.parts):
-            fail(f"Forbidden Hailo release path: {relative}")
-        if path.name == "pek-menu" or path.name.startswith(
-            ("libfmt.so", "pek-ncnn-ops.so")
-        ):
-            fail(f"Forbidden release file: {relative}")
-
+    validate_release_tree(package_root)
     model_root = package_root / "share/pek/models"
     if not model_root.is_dir() or model_root.is_symlink():
         fail("Packaged model directory is missing or invalid")
@@ -412,14 +562,7 @@ def validate_runtime_files(package_root: Path) -> Path:
     return private_root
 
 
-def validate_package(args: argparse.Namespace) -> None:
-    package_root = Path(args.package_root).resolve()
-    architecture = args.architecture
-    private_root = validate_runtime_files(package_root)
-
-    if repo_root_value := getattr(args, "repo_root", None):
-        validate_release_payload(package_root, Path(repo_root_value).resolve())
-
+def validate_onnx_runtime(private_root: Path) -> None:
     regular_onnx = [
         path
         for path in private_root.glob("libonnxruntime.so.*")
@@ -430,6 +573,82 @@ def validate_package(args: argparse.Namespace) -> None:
         fail("Package must contain exactly ONNX Runtime 1.24.4")
     if not soname_link.is_symlink() or os.readlink(soname_link) != regular_onnx[0].name:
         fail("ONNX Runtime SONAME link is missing or incorrect")
+    if dynamic_values(regular_onnx[0], "SONAME") != ["libonnxruntime.so.1"]:
+        fail("Pinned ONNX Runtime has an unexpected SONAME")
+
+
+def validate_elf_dependency(
+    path: Path,
+    library: str,
+    packaged_library_paths: dict[str, list[Path]],
+    internal_search_directories: set[Path],
+) -> None:
+    if library == "libfmt.so" or library.startswith("libfmt.so."):
+        fail(f"{path} has forbidden dependency {library}")
+    if library not in packaged_library_paths and not library.startswith(
+        SYSTEM_LIBRARY_PREFIXES
+    ):
+        fail(f"{path} has unresolved or unclassified dependency {library}")
+    if library in packaged_library_paths and not any(
+        (directory / library).is_file() for directory in internal_search_directories
+    ):
+        fail(f"{path} cannot resolve packaged dependency {library} through its RUNPATH")
+
+
+def validate_elf(
+    path: Path,
+    package_root: Path,
+    expected_machine: str,
+    packaged_library_paths: dict[str, list[Path]],
+) -> None:
+    header = read_elf(path, "-hW")
+    machine = next(
+        (
+            line.partition(":")[2].strip()
+            for line in header.splitlines()
+            if line.strip().startswith("Machine:")
+        ),
+        "",
+    )
+    if machine != expected_machine:
+        fail(f"Wrong ELF architecture: {path}")
+    runpaths = dynamic_values(path, "RUNPATH")
+    internal_search_directories = {
+        (path.parent / entry.replace("$ORIGIN", str(path.parent))).resolve()
+        for runpath in runpaths
+        for entry in runpath.split(":")
+        if entry
+    }
+    for library in dynamic_values(path, "NEEDED"):
+        validate_elf_dependency(
+            path, library, packaged_library_paths, internal_search_directories
+        )
+
+    relative = path.relative_to(package_root)
+    if relative.parts[:2] == ("lib", "gstreamer-1.0"):
+        expected_runpath = "$ORIGIN/../pek"
+    elif relative.parts[:2] == ("lib", "pek") and len(relative.parts) == 3:
+        expected_runpath = "$ORIGIN"
+    else:
+        expected_runpath = ""
+    if expected_runpath and expected_runpath not in runpaths:
+        fail(f"{path} has RUNPATH {runpaths}, expected {expected_runpath}")
+
+
+def validate_package(args: argparse.Namespace) -> None:
+    package_root = Path(args.package_root).resolve()
+    architecture = args.architecture
+    repo_root_value = getattr(args, "repo_root", None)
+    repo_root = Path(repo_root_value).resolve() if repo_root_value else None
+    private_root = validate_runtime_files(package_root)
+    validate_legal_documentation(package_root)
+    validate_release_payload(package_root, repo_root)
+    validate_perception_sdk(
+        package_root / "share/pek/perception-sdk",
+        args.expected_commit,
+        repo_root,
+    )
+    validate_onnx_runtime(private_root)
 
     elf_paths = [path for path in package_root.rglob("*") if is_elf(path)]
     if not elf_paths:
@@ -438,49 +657,11 @@ def validate_package(args: argparse.Namespace) -> None:
     for packaged_path in package_root.rglob("*"):
         if packaged_path.is_file():
             packaged_library_paths.setdefault(packaged_path.name, []).append(packaged_path)
-    expected_machine = "Advanced Micro Devices X86-64" if architecture == "x86_64" else "AArch64"
+    expected_machine = (
+        "Advanced Micro Devices X86-64" if architecture == "x86_64" else "AArch64"
+    )
     for path in elf_paths:
-        header = read_elf(path, "-hW")
-        machine = next(
-            (
-                line.partition(":")[2].strip()
-                for line in header.splitlines()
-                if line.strip().startswith("Machine:")
-            ),
-            "",
-        )
-        if machine != expected_machine:
-            fail(f"Wrong ELF architecture: {path}")
-        needed = dynamic_values(path, "NEEDED")
-        runpaths = dynamic_values(path, "RUNPATH")
-        internal_search_directories = {
-            (path.parent / entry.replace("$ORIGIN", str(path.parent))).resolve()
-            for runpath in runpaths
-            for entry in runpath.split(":")
-            if entry
-        }
-        for library in needed:
-            if library == "libfmt.so" or library.startswith("libfmt.so."):
-                fail(f"{path} has forbidden dependency {library}")
-            if (
-                library not in packaged_library_paths
-                and not library.startswith(SYSTEM_LIBRARY_PREFIXES)
-            ):
-                fail(f"{path} has unresolved or unclassified dependency {library}")
-            if library in packaged_library_paths and not any(
-                (directory / library).is_file() for directory in internal_search_directories
-            ):
-                fail(f"{path} cannot resolve packaged dependency {library} through its RUNPATH")
-
-        relative = path.relative_to(package_root)
-        if relative.parts[:2] == ("lib", "gstreamer-1.0"):
-            expected_runpath = "$ORIGIN/../pek"
-        elif relative.parts[:2] == ("lib", "pek") and len(relative.parts) == 3:
-            expected_runpath = "$ORIGIN"
-        else:
-            expected_runpath = ""
-        if expected_runpath and expected_runpath not in runpaths:
-            fail(f"{path} has RUNPATH {runpaths}, expected {expected_runpath}")
+        validate_elf(path, package_root, expected_machine, packaged_library_paths)
 
 
 def read_version(repo_root: Path) -> str:
@@ -552,6 +733,7 @@ def main() -> int:
     validate_package_parser.add_argument("--architecture", choices=sorted(ARCHITECTURES), required=True)
     validate_package_parser.add_argument("--package-root", required=True)
     validate_package_parser.add_argument("--repo-root")
+    validate_package_parser.add_argument("--expected-commit", required=True)
 
     prepare_parser = subparsers.add_parser("prepare")
     prepare_parser.add_argument("--repo-root", default=".")

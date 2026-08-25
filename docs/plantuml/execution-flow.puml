@@ -37,8 +37,8 @@ while ("Next buffer arrives?") is (yes)
   partition "" {
     :Source / decode / `videoconvert`\ndeliver a BGRA buffer;
     if ("`pekinfer active`?") then (yes)
-      :Map `GstBuffer`, ensure `PerceptionMeta`\n(create `Perception` on first touch),\nand create `OpChainContext`;
-      :Insert `BitmapView` as `pipelineVideoFrame`\nand attach `Perception*` + `inferElementId`;
+      :Map `GstBuffer`, ensure `FrameResultsMeta`\n(create `FrameResults` on first touch),\nand create `OpChainContext`;
+      :Insert `BitmapView` as `pipelineVideoFrame`\nand attach `FrameResults*` + `inferElementId`;
       :Call `OpChain::execute()`;
     else (no)
       :Skip inference work and pass the buffer through;
@@ -51,15 +51,15 @@ while ("Next buffer arrives?") is (yes)
       while ("More crops or loop-group work?") is (yes)
         :`GenericImagePreprocessOp`\nreads the upcoming model metadata,\nfinds the input tensor,\nand builds the preprocessed tensor;
         :Runtime-specific `InferenceOp`\nand wraps outputs as `TensorView`s;
-        :`GenericPostprocessOp`\nselects the configured parser,\nturns tensors into a `Perception::Layer`,\nlinks `parentUuid`, and appends the layer;
+        :`GenericPostprocessOp`\nselects the configured parser,\nturns tensors into generated payloads,\nlinks parent IDs, and appends them;
       endwhile (no)
     endif
   }
 
   partition "Downstream Perception Experience Kit processing and output\nafter inference and opchain execution" {
-    :`pektracker` optionally mutates\n`Perception` with IDs and traces;
-    :`pekperformance` refreshes metrics,\ncalls `endCycle()`, and writes `perfdata`;
-    :`pekosd` reads `PerceptionMeta`,\nbuilds Cairo layers,\nand composites overlays onto the frame;
+    :`pektracker` appends tracking payloads\nwith IDs and traces;
+    :`pekperformance` refreshes metrics,\ncalls `endCycle()`, and appends `PerformanceOverlayT`;
+    :`pekosd` reads `FrameResultsMeta`,\nbuilds Cairo layers,\nand composites overlays onto the frame;
     :`peksink` encodes VP8/Opus,\nkeeps drain branches alive,\nserves HTTP + WebRTC + control WS,\nand streams the result to the browser;
   }
 endwhile (no)

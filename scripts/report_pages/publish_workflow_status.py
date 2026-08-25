@@ -38,15 +38,16 @@ from scripts.playwright.pages.publish_playwright_pages import (  # noqa: E402
 DRY_RUN_ENV = "REPORT_STATUS_PAGES_DRY_RUN"
 STORAGE_BRANCH = "playwright-pages"
 WORKFLOW_SOURCES = {
-    ".github/workflows/pek-ci.yml": ("pek-ci", "Perception Experience Kit CI Pipeline"),
+    ".github/workflows/pek-ci.yml": ("pek-ci", "PEK CI"),
     ".github/workflows/python-dependency-audit.yml": ("python-audit", "Python Dependency Audit"),
     ".github/workflows/docker-scout-image-audit.yml": ("docker-scout", "Docker Scout Image Audit"),
     ".github/workflows/workflow-audit.yml": ("workflow-freshness", "Workflow Dependency Freshness"),
     ".github/workflows/yolo-benchmark.yml": ("yolo-video", "YOLO Video Benchmark"),
     ".github/workflows/yolo-imageset-benchmark.yml": ("yolo-imageset", "YOLO Imageset Benchmark"),
-    ".github/workflows/valgrind.yml": ("valgrind", "Valgrind Baseline Artifact"),
 }
+VALGRIND_WORKFLOW = "Valgrind Baseline Artifact"
 WORKFLOW_NAMES = {name: (source, name) for source, name in WORKFLOW_SOURCES.values()}
+WORKFLOW_NAMES[VALGRIND_WORKFLOW] = ("valgrind", VALGRIND_WORKFLOW)
 FAILURE_CONCLUSIONS = {"action_required", "failure", "startup_failure", "timed_out"}
 
 
@@ -252,6 +253,42 @@ def workflow_identity(workflow_path: str, workflow_name: str) -> tuple[str, str]
     return identity
 
 
+def pull_request_number(run: dict[str, object]) -> str:
+    pull_requests = run.get("pull_requests")
+    if not isinstance(pull_requests, list) or not pull_requests:
+        return ""
+    first = pull_requests[0]
+    return str(first.get("number", "")) if isinstance(first, dict) else ""
+
+
+def validate_run_identity(run_id: str, run_attempt: str, head_sha: str) -> None:
+    if not run_id.isdigit() or not run_attempt.isdigit():
+        raise PublishError("UPSTREAM_RUN_ID and UPSTREAM_RUN_ATTEMPT must be numeric.")
+    if not re.fullmatch(r"[0-9a-f]{40}", head_sha):
+        raise PublishError("UPSTREAM_HEAD_SHA must be a full lowercase Git SHA.")
+
+
+def status_metric(
+    repository: str,
+    source: str,
+    event: str,
+    conclusion: str,
+    run_id: str,
+) -> tuple[str, str, list[str], list[dict[str, object]]]:
+    jobs = (
+        workflow_jobs(repository, run_id)
+        if source in {"python-audit", "docker-scout"} or conclusion != "success"
+        else []
+    )
+    if source == "valgrind" and event == "schedule" and conclusion == "success":
+        metric, metric_tone = valgrind_metric(repository, run_id)
+        return metric, metric_tone, [], jobs
+    metric, metric_tone, details = workflow_metric(
+        source, event, conclusion, jobs, repository, run_id
+    )
+    return metric, metric_tone, details, jobs
+
+
 def status_from_run(repository: str, run: dict[str, object]) -> tuple[str, dict[str, object]] | None:
     event = str(run.get("event", ""))
     branch = str(run.get("head_branch", ""))
@@ -263,44 +300,29 @@ def status_from_run(repository: str, run: dict[str, object]) -> tuple[str, dict[
     source, workflow_name = workflow_identity(
         str(run.get("path", "")), str(run.get("name", ""))
     )
-    pull_requests = run.get("pull_requests")
-    first_pull_request = (
-        pull_requests[0]
-        if isinstance(pull_requests, list) and pull_requests and isinstance(pull_requests[0], dict)
-        else {}
-    )
-    pull_request_number = str(first_pull_request.get("number", ""))
+    pr_number = pull_request_number(run)
     scheduled = event == "schedule" and branch == "develop"
-    pull_request = event == "pull_request" and source in WORKFLOW_PR_REPORTS
+    pull_request = event == "pull_request" and (
+        source in WORKFLOW_PR_REPORTS or source == "pek-ci"
+    )
     if head_repository != repository or not (scheduled or pull_request):
         print(f"Ignoring upstream run: event={event}, branch={branch}, repo={head_repository}")
         return None
-    if pull_request and not pull_request_number.isdigit():
+    if pull_request and not pr_number.isdigit():
         raise PublishError("UPSTREAM_PULL_REQUEST_NUMBER must be numeric for pull requests.")
 
     run_id = str(run.get("id", ""))
     run_attempt = str(run.get("run_attempt", ""))
     head_sha = str(run.get("head_sha", ""))
-    if not run_id.isdigit() or not run_attempt.isdigit():
-        raise PublishError("UPSTREAM_RUN_ID and UPSTREAM_RUN_ATTEMPT must be numeric.")
-    if not re.fullmatch(r"[0-9a-f]{40}", head_sha):
-        raise PublishError("UPSTREAM_HEAD_SHA must be a full lowercase Git SHA.")
+    validate_run_identity(run_id, run_attempt, head_sha)
 
     conclusion = str(run.get("conclusion", ""))
     if pull_request and conclusion == "skipped":
-        print(f"Ignoring skipped pull request run: workflow={workflow_name}, pr={pull_request_number}")
+        print(f"Ignoring skipped pull request run: workflow={workflow_name}, pr={pr_number}")
         return None
-    jobs = (
-        workflow_jobs(repository, run_id)
-        if source in {"python-audit", "docker-scout"} or conclusion != "success" else []
+    metric, metric_tone, details, jobs = status_metric(
+        repository, source, event, conclusion, run_id
     )
-    if source == "valgrind" and event == "schedule" and conclusion == "success":
-        metric, metric_tone = valgrind_metric(repository, run_id)
-        details = []
-    else:
-        metric, metric_tone, details = workflow_metric(
-            source, event, conclusion, jobs, repository, run_id
-        )
     return source, {
         "conclusion": conclusion,
         "details": details,
@@ -309,7 +331,7 @@ def status_from_run(repository: str, run: dict[str, object]) -> tuple[str, dict[
         "head_sha": head_sha,
         "metric": metric,
         "metric_tone": metric_tone,
-        "pull_request_number": pull_request_number,
+        "pull_request_number": pr_number,
         "repository": repository,
         "run_attempt": run_attempt,
         "run_id": run_id,
@@ -317,6 +339,121 @@ def status_from_run(repository: str, run: dict[str, object]) -> tuple[str, dict[
         "workflow": workflow_name,
         "summary": job_summary(jobs, conclusion),
     }
+
+
+def valgrind_status(
+    repository: str,
+    status: dict[str, object],
+    jobs: list[dict[str, object]],
+) -> dict[str, object] | None:
+    valgrind_job = next(
+        (job for job in jobs if job.get("name") == "Run Valgrind checks in Docker"),
+        None,
+    )
+    if valgrind_job is None:
+        return None
+    conclusion = str(valgrind_job.get("conclusion", ""))
+    image_build_failed = any(
+        job.get("name") in {"Build PEK CI image", "Build Docker image"}
+        and job.get("conclusion") in FAILURE_CONCLUSIONS | {"cancelled"}
+        for job in jobs
+    )
+    if conclusion == "skipped" and not image_build_failed:
+        return None
+    result = dict(status)
+    result.update({
+        "conclusion": status["conclusion"] if conclusion == "skipped" else conclusion,
+        "details": [],
+        "metric": "",
+        "metric_tone": "",
+        "summary": (
+            status["summary"] if conclusion == "skipped"
+            else job_summary([valgrind_job], conclusion)
+        ),
+        "workflow": VALGRIND_WORKFLOW,
+    })
+    if result["conclusion"] != "success":
+        return result
+    if status["event"] == "schedule":
+        metric, tone = valgrind_metric(repository, str(status["run_id"]))
+        result.update({"metric": metric, "metric_tone": tone})
+    elif status["event"] == "pull_request":
+        result.update({"metric": "0 new errors", "metric_tone": "fast"})
+    return result
+
+
+def embedded_statuses(
+    repository: str,
+    status: dict[str, object],
+    jobs: list[dict[str, object]],
+) -> list[tuple[str, dict[str, object]]]:
+    results = []
+    embedded_jobs = (
+        ("python-audit", "Python Dependency Audit", "pip-audit ("),
+        ("docker-scout", "Docker Scout Image Audit", "docker-scout ("),
+        (
+            "workflow-freshness",
+            "Workflow Dependency Freshness",
+            "workflow dependency freshness",
+        ),
+    )
+    for source, workflow_name, job_marker in embedded_jobs:
+        source_jobs = [
+            job
+            for job in jobs
+            if job_marker in str(job.get("name", ""))
+            and job.get("conclusion") != "skipped"
+        ]
+        if not source_jobs:
+            continue
+        conclusions = {str(job.get("conclusion", "")) for job in source_jobs}
+        if conclusions & FAILURE_CONCLUSIONS:
+            conclusion = "failure"
+        elif "cancelled" in conclusions:
+            conclusion = "cancelled"
+        else:
+            conclusion = "success"
+        metric, tone, details = workflow_metric(
+            source,
+            "pull_request",
+            conclusion,
+            source_jobs,
+            repository,
+            str(status["run_id"]),
+        )
+        source_status = dict(status)
+        source_status.update({
+            "conclusion": conclusion,
+            "details": details,
+            "metric": metric,
+            "metric_tone": tone,
+            "summary": job_summary(source_jobs, conclusion),
+            "workflow": workflow_name,
+        })
+        results.append((source, source_status))
+    return results
+
+
+def related_statuses(
+    repository: str,
+    selected: tuple[str, dict[str, object]] | None,
+) -> list[tuple[str, dict[str, object]]]:
+    if selected is None or selected[0] != "pek-ci":
+        return [selected] if selected is not None else []
+
+    status = selected[1]
+    jobs = workflow_jobs(repository, str(status["run_id"]))
+    valgrind = valgrind_status(repository, status, jobs)
+    derived = [("valgrind", valgrind)] if valgrind is not None else []
+    if status["event"] == "pull_request":
+        return [*derived, *embedded_statuses(repository, status, jobs)]
+    return [selected, *derived]
+
+
+def statuses_from_run(
+        repository: str, run: dict[str, object]
+) -> list[tuple[str, dict[str, object]]]:
+    return related_statuses(repository, status_from_run(repository, run))
 
 
 def upstream_status() -> tuple[str, dict[str, object]] | None:
@@ -357,9 +494,7 @@ def latest_scheduled_statuses(repository: str) -> list[tuple[str, dict[str, obje
         if run is None:
             continue
         run["path"] = workflow_path
-        selected = status_from_run(repository, run)
-        if selected is not None:
-            statuses.append(selected)
+        statuses.extend(statuses_from_run(repository, run))
     return statuses
 
 
@@ -370,21 +505,9 @@ def status_path(site_dir: Path, source: str, status: dict[str, object]) -> Path:
     return status_dir / "prs" / f'{status["pull_request_number"]}.json'
 
 
-def publish(site_dir: Path, storage_branch: str = STORAGE_BRANCH) -> bool:
-    selected = upstream_status()
-    if selected is None:
-        set_output("deploy", "false")
-        return False
-    force_deploy = env("REPORT_STATUS_FORCE_DEPLOY") == "1"
-    selections = {selected[0]: selected[1]}
-    if selected[1]["event"] == "schedule" and env("REPORT_STATUS_RECONCILE_SCHEDULED") == "1":
-        for source, status in latest_scheduled_statuses(str(selected[1]["repository"])):
-            if run_order(status) >= run_order(selections.get(source)):
-                selections[source] = status
-
-    checkout_site_branch(site_dir, storage_branch, DRY_RUN_ENV, "local-report-status-pages")
-    remove_legacy_root_site(site_dir)
-    write_playwright_index(site_dir, str(selected[1]["repository"]))
+def write_statuses(
+    site_dir: Path, selections: dict[str, dict[str, object]]
+) -> list[str]:
     published = []
     for source, status in selections.items():
         path = status_path(site_dir, source, status)
@@ -400,8 +523,32 @@ def publish(site_dir: Path, storage_branch: str = STORAGE_BRANCH) -> bool:
                 f"attempt {status['run_attempt']}."
             )
             continue
-        path.write_text(json.dumps(status, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        path.write_text(
+            json.dumps(status, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
         published.append(str(status["workflow"]))
+    return published
+
+
+def publish(site_dir: Path, storage_branch: str = STORAGE_BRANCH) -> bool:
+    selected = upstream_status()
+    if selected is None:
+        set_output("deploy", "false")
+        return False
+    force_deploy = env("REPORT_STATUS_FORCE_DEPLOY") == "1"
+    selections = dict(related_statuses(str(selected[1]["repository"]), selected))
+    if not selections:
+        set_output("deploy", "false")
+        return False
+    if selected[1]["event"] == "schedule" and env("REPORT_STATUS_RECONCILE_SCHEDULED") == "1":
+        for source, status in latest_scheduled_statuses(str(selected[1]["repository"])):
+            if run_order(status) >= run_order(selections.get(source)):
+                selections[source] = status
+
+    checkout_site_branch(site_dir, storage_branch, DRY_RUN_ENV, "local-report-status-pages")
+    remove_legacy_root_site(site_dir)
+    write_playwright_index(site_dir, str(selected[1]["repository"]))
+    published = write_statuses(site_dir, selections)
 
     if not published:
         set_output("deploy", "true" if force_deploy else "false")

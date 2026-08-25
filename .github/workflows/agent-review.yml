@@ -103,7 +103,7 @@ jobs:
       - name: Fetch OpenAI proxy token
         id: openai-token
         continue-on-error: true
-        uses: Arm-Debug/devops-actions/fetch-openai-proxy-token@v1.8.0
+        uses: Arm-Debug/devops-actions/fetch-openai-proxy-token@v1
 
       # <agent-review:suppress-begin> Intentional current self-hosted OpenAI
       # review trust boundary for same-repo pull requests.

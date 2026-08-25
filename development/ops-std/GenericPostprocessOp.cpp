@@ -9,7 +9,7 @@
 #include <map>
 #include <memory>
 
-#include "pek/Perception.h"
+#include "pek/FrameResults.h"
 #include "pek/Types.h"
 #include <perf/PerformanceMetrics.h>
 #include <perf/PerformanceTracer.h>
@@ -112,30 +112,9 @@ GenericPostprocessOp::process(pek::op::OpChainContext &opChainContext) {
     // copy active inference info
     tensorParserInput.inferenceInfo = opChainContext.inferenceInfo;
 
-    pek::Perception::Layer rawDetectionLayer;
-    rawDetectionLayer.model = opChainContext.inferenceInfo.modelName;
-    rawDetectionLayer.inferElementId = opChainContext.inferenceInfo.inferElementId;
-    auto parseResult = parser->parse(tensorParserInput, rawDetectionLayer);
-    if (!parseResult) {
+    if (auto parseResult = parser->parse(tensorParserInput, *opChainContext.frameResults);
+        !parseResult) {
         return tl::unexpected(parseResult.error());
-    }
-
-    // set parent uids
-    for (auto &det : rawDetectionLayer.detections) {
-        pek::Perception::Object &obj = std::visit(
-            [](auto &v) -> pek::Perception::Object & {
-                return static_cast<pek::Perception::Object &>(v);
-            },
-            det);
-
-        obj.parentUuid = opChainContext.inferenceSourceUuid;
-    }
-
-    opChainContext.perception->layers.push_back(rawDetectionLayer);
-
-    if (!opChainContext.rootLayer.detections.empty() && !opChainContext.hasRootLayer) {
-        opChainContext.perception->layers.push_back(opChainContext.rootLayer);
-        opChainContext.hasRootLayer = true;
     }
 
     return pek::op::OpSignal::Continue;

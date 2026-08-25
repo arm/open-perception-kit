@@ -5,8 +5,10 @@
 #include "pek/Types.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 
 using namespace pek::stdop::preproc;
 using pek::Float16;
@@ -17,6 +19,81 @@ struct Rgbf {
     float g = 0.0f;
     float b = 0.0f;
 };
+
+constexpr size_t BgraBytesPerPixel = 4;
+constexpr size_t RgbBytesPerPixel = 3;
+
+struct InterleavedSourceView {
+    const uint8_t *data = nullptr;
+    size_t strideBytes = 0;
+};
+
+bool multiplyOverflows(size_t a, size_t b) {
+    return a != 0 && b > std::numeric_limits<size_t>::max() / a;
+}
+
+InterleavedSourceView makeInterleavedSourceView(const pek::ImageOpDesc &src, size_t bytesPerPixel) {
+    if (!src.planes[0].data || src.surfaceWidth == 0 || src.surfaceHeight == 0) {
+        return {};
+    }
+    assert(src.planes[0].mutableData == nullptr);
+
+    if (multiplyOverflows(src.surfaceWidth, bytesPerPixel)) {
+        return {};
+    }
+
+    const size_t tightStrideBytes = src.surfaceWidth * bytesPerPixel;
+    const size_t strideBytes =
+        src.planes[0].strideBytes != 0 ? src.planes[0].strideBytes : tightStrideBytes;
+
+    if (strideBytes < tightStrideBytes) {
+        return {};
+    }
+
+    if (src.planes[0].byteCount != 0) {
+        const size_t lastRow = src.surfaceHeight - 1;
+        if (multiplyOverflows(lastRow, strideBytes)) {
+            return {};
+        }
+
+        const size_t lastRowOffset = lastRow * strideBytes;
+        if (lastRowOffset > std::numeric_limits<size_t>::max() - tightStrideBytes) {
+            return {};
+        }
+
+        if (src.planes[0].byteCount < lastRowOffset + tightStrideBytes) {
+            return {};
+        }
+    }
+
+    return {src.planes[0].data, strideBytes};
+}
+
+InterleavedSourceView makeBgraSourceView(const pek::ImageOpDesc &src) {
+    return makeInterleavedSourceView(src, BgraBytesPerPixel);
+}
+
+InterleavedSourceView makeRgbSourceView(const pek::ImageOpDesc &src) {
+    return makeInterleavedSourceView(src, RgbBytesPerPixel);
+}
+
+bool hasTightDestinationStride(const pek::ImageOpDesc &dst) {
+    assert(dst.planes[0].data == nullptr);
+    assert(dst.planes[0].mutableData != nullptr);
+    return dst.planes[0].mutableData != nullptr && dst.planes[0].strideBytes == 0;
+}
+
+const uint8_t *sourceRowAt(const InterleavedSourceView &src, size_t y) {
+    return src.data + y * src.strideBytes;
+}
+
+const uint8_t *bgraRowAt(const InterleavedSourceView &src, size_t y) {
+    return sourceRowAt(src, y);
+}
+
+const uint8_t *rgbRowAt(const InterleavedSourceView &src, size_t y) {
+    return sourceRowAt(src, y);
+}
 
 inline bool canRunDirectFullKernel(const pek::ImageOpDesc &src, const pek::ImageOpDesc &dst) {
     return !dst.keepAspectRatio && src.rectIsFullSurface() && dst.rectIsFullSurface() &&
@@ -65,7 +142,7 @@ bool makeLetterboxDestination(const pek::ImageOpDesc &src,
 }
 
 void fillRgbF32Chw(const pek::ImageOpDesc &dst, const pek::Colorf &mean, const pek::Colorf &std) {
-    auto *out = reinterpret_cast<float *>(dst.data);
+    auto *out = pek::mutablePlaneData<float>(dst.planes[0]);
     const size_t planeSize = dst.surfaceWidth * dst.surfaceHeight;
     auto rgb = letterboxRgb(dst);
     if (!pek::MeanStd::isDefaultMean(mean) || !pek::MeanStd::isDefaultStd(std)) {
@@ -85,7 +162,7 @@ void fillRgbF32Chw(const pek::ImageOpDesc &dst, const pek::Colorf &mean, const p
 }
 
 void fillRgbF16Chw(const pek::ImageOpDesc &dst, const pek::Colorf &mean, const pek::Colorf &std) {
-    auto *out = reinterpret_cast<Float16 *>(dst.data);
+    auto *out = pek::mutablePlaneData<Float16>(dst.planes[0]);
     const size_t planeSize = dst.surfaceWidth * dst.surfaceHeight;
     auto rgb = letterboxRgb(dst);
     if (!pek::MeanStd::isDefaultMean(mean) || !pek::MeanStd::isDefaultStd(std)) {
@@ -105,7 +182,7 @@ void fillRgbF16Chw(const pek::ImageOpDesc &dst, const pek::Colorf &mean, const p
 }
 
 void fillRgb8Hwc(const pek::ImageOpDesc &dst) {
-    auto *out = static_cast<uint8_t *>(dst.data);
+    auto *out = pek::mutablePlaneData<uint8_t>(dst.planes[0]);
     const auto rgb = letterboxRgb(dst);
     const uint8_t r = toByte(rgb.r);
     const uint8_t g = toByte(rgb.g);
@@ -124,7 +201,7 @@ void fillRgb8Hwc(const pek::ImageOpDesc &dst) {
 }
 
 void fillRgbF32Hwc(const pek::ImageOpDesc &dst, const pek::Colorf &mean, const pek::Colorf &std) {
-    auto *out = reinterpret_cast<float *>(dst.data);
+    auto *out = pek::mutablePlaneData<float>(dst.planes[0]);
     auto rgb = letterboxRgb(dst);
     if (!pek::MeanStd::isDefaultMean(mean) || !pek::MeanStd::isDefaultStd(std)) {
         rgb = applyMeanStd(rgb, mean, std);
@@ -143,7 +220,7 @@ void fillRgbF32Hwc(const pek::ImageOpDesc &dst, const pek::Colorf &mean, const p
 }
 
 void fillRgbF16Hwc(const pek::ImageOpDesc &dst, const pek::Colorf &mean, const pek::Colorf &std) {
-    auto *out = reinterpret_cast<Float16 *>(dst.data);
+    auto *out = pek::mutablePlaneData<Float16>(dst.planes[0]);
     auto rgb = letterboxRgb(dst);
     if (!pek::MeanStd::isDefaultMean(mean) || !pek::MeanStd::isDefaultStd(std)) {
         rgb = applyMeanStd(rgb, mean, std);
@@ -162,7 +239,7 @@ void fillRgbF16Hwc(const pek::ImageOpDesc &dst, const pek::Colorf &mean, const p
 }
 
 void fillGray8(const pek::ImageOpDesc &dst) {
-    auto *out = static_cast<uint8_t *>(dst.data);
+    auto *out = pek::mutablePlaneData<uint8_t>(dst.planes[0]);
     const uint8_t gray = rgbToGrayByte(letterboxRgb(dst));
 
     for (size_t y = 0; y < dst.rect.height; ++y) {
@@ -175,7 +252,7 @@ void fillGray8(const pek::ImageOpDesc &dst) {
 }
 
 void fillGrayF32(const pek::ImageOpDesc &dst, const pek::Colorf &mean, const pek::Colorf &std) {
-    auto *out = reinterpret_cast<float *>(dst.data);
+    auto *out = pek::mutablePlaneData<float>(dst.planes[0]);
     float gray = rgbToGrayFloat(letterboxRgb(dst));
     if (!pek::MeanStd::isDefaultMean(mean) || !pek::MeanStd::isDefaultStd(std)) {
         constexpr float eps = 1e-12f;
@@ -205,18 +282,16 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf32_Full_Chw(const ImageOpDesc &src
 
     (void)sampling;
 
-    const uint8_t *srcPtr = src.data;
-    const size_t srcWidth = src.surfaceWidth;
-    const size_t srcHeight = src.surfaceHeight;
+    const auto srcView = makeBgraSourceView(src);
 
-    float *dstPtr = (float *)dst.data;
+    float *dstPtr = pek::mutablePlaneData<float>(dst.planes[0]);
     const size_t dstWidth = dst.surfaceWidth;
     const size_t dstHeight = dst.surfaceHeight;
 
     const Colorf &mean = src.mean;
     const Colorf &std = src.std;
 
-    if (!srcPtr || !dstPtr)
+    if (!srcView.data || !dstPtr || !hasTightDestinationStride(dst))
         return false;
 
     constexpr float inv255 = 1.0f / 255.0f;
@@ -224,8 +299,9 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf32_Full_Chw(const ImageOpDesc &src
 
     if (pek::MeanStd::isDefaultMean(mean) && pek::MeanStd::isDefaultStd(std)) {
         for (size_t y = 0; y < dstHeight; ++y) {
+            const uint8_t *srcRow = bgraRowAt(srcView, y);
             for (size_t x = 0; x < dstWidth; ++x) {
-                const uint8_t *p = srcPtr + (y * srcWidth + x) * 4;
+                const uint8_t *p = srcRow + x * BgraBytesPerPixel;
                 const size_t hw = y * dstWidth + x;
                 dstPtr[0 * planeSize + hw] = p[2] * inv255;
                 dstPtr[1 * planeSize + hw] = p[1] * inv255;
@@ -244,8 +320,9 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf32_Full_Chw(const ImageOpDesc &src
         const float invStdB = 1.0f / std::max(stdB, eps);
 
         for (size_t y = 0; y < dstHeight; ++y) {
+            const uint8_t *srcRow = bgraRowAt(srcView, y);
             for (size_t x = 0; x < dstWidth; ++x) {
-                const uint8_t *p = srcPtr + (y * srcWidth + x) * 4;
+                const uint8_t *p = srcRow + x * BgraBytesPerPixel;
                 const size_t hw = y * dstWidth + x;
 
                 const float r01 = p[2] * inv255;
@@ -265,12 +342,12 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf32_Full_Chw(const ImageOpDesc &src
 bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(const ImageOpDesc &src,
                                                           const ImageOpDesc &dst,
                                                           Sampling sampling) {
-    const uint8_t *srcPtr = src.data;
+    const auto srcView = makeBgraSourceView(src);
     size_t srcWidth = src.surfaceWidth;
     size_t srcHeight = src.surfaceHeight;
     const PixelRect &srcRect = src.rect;
 
-    float *dstPtr = (float *)dst.data;
+    float *dstPtr = pek::mutablePlaneData<float>(dst.planes[0]);
     size_t dstWidth = dst.surfaceWidth;
     size_t dstHeight = dst.surfaceHeight;
     const PixelRect &dstRect = dst.rect;
@@ -278,7 +355,7 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(const ImageOpDesc &src
     const Colorf &mean = src.mean;
     const Colorf &std = src.std;
 
-    if (!srcPtr || !dstPtr)
+    if (!srcView.data || !dstPtr || !hasTightDestinationStride(dst))
         return false;
 
     if (srcRect.x + srcRect.width > srcWidth || srcRect.y + srcRect.height > srcHeight ||
@@ -294,11 +371,9 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(const ImageOpDesc &src
         return StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(src, innerDst, sampling);
     }
 
-    const uint8_t *in = srcPtr;
     float *out = dstPtr;
     constexpr float inv255 = 1.0f / 255.0f;
 
-    const size_t C = 3;
     const size_t H = dstHeight;
     const size_t W = dstWidth;
 
@@ -310,6 +385,7 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(const ImageOpDesc &src
         // default mean/std
         for (size_t dy = 0; dy < dstRect.height; ++dy) {
             const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
+            const uint8_t *srcRow = bgraRowAt(srcView, sy);
             const size_t dyi = dstRect.y + dy;
 
             for (size_t dx = 0; dx < dstRect.width; ++dx) {
@@ -317,8 +393,7 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(const ImageOpDesc &src
                 const size_t dxi = dstRect.x + dx;
 
                 // source: BGRA interleaved, HWC
-                const size_t srcIndexRGB = (sy * srcWidth + sx) * 4;
-                const uint8_t *p = in + srcIndexRGB;
+                const uint8_t *p = srcRow + sx * BgraBytesPerPixel;
 
                 // CHW destination
                 const size_t hwIndex = dyi * W + dxi;
@@ -343,14 +418,14 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(const ImageOpDesc &src
 
         for (size_t dy = 0; dy < dstRect.height; ++dy) {
             const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
+            const uint8_t *srcRow = bgraRowAt(srcView, sy);
             const size_t dyi = dstRect.y + dy;
 
             for (size_t dx = 0; dx < dstRect.width; ++dx) {
                 const size_t sx = srcRect.x + (dx * srcRect.width) / dstRect.width;
                 const size_t dxi = dstRect.x + dx;
 
-                const size_t srcIndex = (sy * srcWidth + sx) * 4;
-                const uint8_t *p = in + srcIndex;
+                const uint8_t *p = srcRow + sx * BgraBytesPerPixel;
 
                 const size_t hwIndex = dyi * W + dxi;
 
@@ -377,21 +452,21 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgb8_Full_Hwc(const ImageOpDesc &src,
 
     (void)sampling;
 
-    const uint8_t *srcPtr = src.data;
-    const size_t srcWidth = src.surfaceWidth;
+    const auto srcView = makeBgraSourceView(src);
 
-    uint8_t *dstPtr = (uint8_t *)dst.data;
+    uint8_t *dstPtr = pek::mutablePlaneData<uint8_t>(dst.planes[0]);
     const size_t dstWidth = dst.surfaceWidth;
     const size_t dstHeight = dst.surfaceHeight;
 
-    if (!srcPtr || !dstPtr)
+    if (!srcView.data || !dstPtr || !hasTightDestinationStride(dst))
         return false;
 
     constexpr size_t Cdst = 3;
 
     for (size_t y = 0; y < dstHeight; ++y) {
+        const uint8_t *srcRow = bgraRowAt(srcView, y);
         for (size_t x = 0; x < dstWidth; ++x) {
-            const uint8_t *p = srcPtr + (y * srcWidth + x) * 4;
+            const uint8_t *p = srcRow + x * BgraBytesPerPixel;
             const size_t dstIndex = (y * dstWidth + x) * Cdst;
 
             dstPtr[dstIndex + 0] = p[2];
@@ -406,17 +481,17 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgb8_Full_Hwc(const ImageOpDesc &src,
 bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgb8_Rect_Hwc(const ImageOpDesc &src,
                                                         const ImageOpDesc &dst,
                                                         Sampling sampling) {
-    const uint8_t *srcPtr = src.data;
+    const auto srcView = makeBgraSourceView(src);
     size_t srcWidth = src.surfaceWidth;
     size_t srcHeight = src.surfaceHeight;
     const PixelRect &srcRect = src.rect;
 
-    uint8_t *dstPtr = (uint8_t *)dst.data;
+    uint8_t *dstPtr = pek::mutablePlaneData<uint8_t>(dst.planes[0]);
     size_t dstWidth = dst.surfaceWidth;
     size_t dstHeight = dst.surfaceHeight;
     const PixelRect &dstRect = dst.rect;
 
-    if (!srcPtr || !dstPtr)
+    if (!srcView.data || !dstPtr || !hasTightDestinationStride(dst))
         return false;
 
     if (srcRect.x + srcRect.width > srcWidth || srcRect.y + srcRect.height > srcHeight ||
@@ -438,14 +513,14 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgb8_Rect_Hwc(const ImageOpDesc &src,
 
     for (size_t dy = 0; dy < dstRect.height; ++dy) {
         const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
+        const uint8_t *srcRow = bgraRowAt(srcView, sy);
         const size_t dyi = dstRect.y + dy;
 
         for (size_t dx = 0; dx < dstRect.width; ++dx) {
             const size_t sx = srcRect.x + (dx * srcRect.width) / dstRect.width;
             const size_t dxi = dstRect.x + dx;
 
-            const size_t srcIndex = (sy * srcWidth + sx) * 4;
-            const uint8_t *p = srcPtr + srcIndex;
+            const uint8_t *p = srcRow + sx * BgraBytesPerPixel;
 
             const size_t dstIndex = (dyi * dstWidth + dxi) * Cdst;
             // BGRA -> RGB
@@ -467,17 +542,16 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf16_Full_Chw(const ImageOpDesc &src
 
     (void)sampling;
 
-    const uint8_t *srcPtr = src.data;
-    const size_t srcWidth = src.surfaceWidth;
+    const auto srcView = makeBgraSourceView(src);
 
-    Float16 *dstPtr = (Float16 *)dst.data;
+    Float16 *dstPtr = pek::mutablePlaneData<Float16>(dst.planes[0]);
     const size_t dstWidth = dst.surfaceWidth;
     const size_t dstHeight = dst.surfaceHeight;
 
     const Colorf &mean = src.mean;
     const Colorf &std = src.std;
 
-    if (!srcPtr || !dstPtr)
+    if (!srcView.data || !dstPtr || !hasTightDestinationStride(dst))
         return false;
 
     constexpr float inv255 = 1.0f / 255.0f;
@@ -485,8 +559,9 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf16_Full_Chw(const ImageOpDesc &src
 
     if (pek::MeanStd::isDefaultMean(mean) && pek::MeanStd::isDefaultStd(std)) {
         for (size_t y = 0; y < dstHeight; ++y) {
+            const uint8_t *srcRow = bgraRowAt(srcView, y);
             for (size_t x = 0; x < dstWidth; ++x) {
-                const uint8_t *p = srcPtr + (y * srcWidth + x) * 4;
+                const uint8_t *p = srcRow + x * BgraBytesPerPixel;
                 const size_t hw = y * dstWidth + x;
 
                 dstPtr[0 * planeSize + hw] = static_cast<Float16>(p[2] * inv255);
@@ -506,8 +581,9 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf16_Full_Chw(const ImageOpDesc &src
         const float invStdB = 1.0f / std::max(stdB, eps);
 
         for (size_t y = 0; y < dstHeight; ++y) {
+            const uint8_t *srcRow = bgraRowAt(srcView, y);
             for (size_t x = 0; x < dstWidth; ++x) {
-                const uint8_t *p = srcPtr + (y * srcWidth + x) * 4;
+                const uint8_t *p = srcRow + x * BgraBytesPerPixel;
                 const size_t hw = y * dstWidth + x;
 
                 const float r01 = p[2] * inv255;
@@ -527,12 +603,12 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf16_Full_Chw(const ImageOpDesc &src
 bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(const ImageOpDesc &src,
                                                           const ImageOpDesc &dst,
                                                           Sampling sampling) {
-    const uint8_t *srcPtr = src.data;
+    const auto srcView = makeBgraSourceView(src);
     size_t srcWidth = src.surfaceWidth;
     size_t srcHeight = src.surfaceHeight;
     const PixelRect &srcRect = src.rect;
 
-    Float16 *dstPtr = (Float16 *)dst.data;
+    Float16 *dstPtr = pek::mutablePlaneData<Float16>(dst.planes[0]);
     size_t dstWidth = dst.surfaceWidth;
     size_t dstHeight = dst.surfaceHeight;
     const PixelRect &dstRect = dst.rect;
@@ -540,7 +616,7 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(const ImageOpDesc &src
     const Colorf &mean = src.mean;
     const Colorf &std = src.std;
 
-    if (!srcPtr || !dstPtr)
+    if (!srcView.data || !dstPtr || !hasTightDestinationStride(dst))
         return false;
 
     if (srcRect.x + srcRect.width > srcWidth || srcRect.y + srcRect.height > srcHeight ||
@@ -556,7 +632,6 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(const ImageOpDesc &src
         return StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(src, innerDst, sampling);
     }
 
-    const uint8_t *in = srcPtr;
     Float16 *out = dstPtr;
     constexpr float inv255 = 1.0f / 255.0f;
 
@@ -573,6 +648,7 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(const ImageOpDesc &src
         // default mean/std
         for (size_t dy = 0; dy < dstRect.height; ++dy) {
             const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
+            const uint8_t *srcRow = bgraRowAt(srcView, sy);
             const size_t dyi = dstRect.y + dy;
 
             for (size_t dx = 0; dx < dstRect.width; ++dx) {
@@ -580,8 +656,7 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(const ImageOpDesc &src
                 const size_t dxi = dstRect.x + dx;
 
                 // source: BGRA interleaved, HWC
-                const size_t srcIndexRGB = (sy * srcWidth + sx) * 4;
-                const uint8_t *p = in + srcIndexRGB;
+                const uint8_t *p = srcRow + sx * BgraBytesPerPixel;
 
                 // CHW destination
                 const size_t hwIndex = dyi * W + dxi;
@@ -606,14 +681,14 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(const ImageOpDesc &src
 
         for (size_t dy = 0; dy < dstRect.height; ++dy) {
             const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
+            const uint8_t *srcRow = bgraRowAt(srcView, sy);
             const size_t dyi = dstRect.y + dy;
 
             for (size_t dx = 0; dx < dstRect.width; ++dx) {
                 const size_t sx = srcRect.x + (dx * srcRect.width) / dstRect.width;
                 const size_t dxi = dstRect.x + dx;
 
-                const size_t srcIndex = (sy * srcWidth + sx) * 4;
-                const uint8_t *p = in + srcIndex;
+                const uint8_t *p = srcRow + sx * BgraBytesPerPixel;
 
                 const size_t hwIndex = dyi * W + dxi;
 
@@ -640,17 +715,16 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf32_Full_Hwc(const ImageOpDesc &src
 
     (void)sampling;
 
-    const uint8_t *srcPtr = src.data;
-    const size_t srcWidth = src.surfaceWidth;
+    const auto srcView = makeBgraSourceView(src);
 
-    float *dstPtr = (float *)dst.data;
+    float *dstPtr = pek::mutablePlaneData<float>(dst.planes[0]);
     const size_t dstWidth = dst.surfaceWidth;
     const size_t dstHeight = dst.surfaceHeight;
 
     const Colorf &mean = src.mean;
     const Colorf &std = src.std;
 
-    if (!srcPtr || !dstPtr)
+    if (!srcView.data || !dstPtr || !hasTightDestinationStride(dst))
         return false;
 
     constexpr float inv255 = 1.0f / 255.0f;
@@ -658,8 +732,9 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf32_Full_Hwc(const ImageOpDesc &src
 
     if (pek::MeanStd::isDefaultMean(mean) && pek::MeanStd::isDefaultStd(std)) {
         for (size_t y = 0; y < dstHeight; ++y) {
+            const uint8_t *srcRow = bgraRowAt(srcView, y);
             for (size_t x = 0; x < dstWidth; ++x) {
-                const uint8_t *p = srcPtr + (y * srcWidth + x) * 4;
+                const uint8_t *p = srcRow + x * BgraBytesPerPixel;
                 float *q = dstPtr + (y * dstWidth + x) * C;
 
                 q[0] = p[2] * inv255;
@@ -679,8 +754,9 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf32_Full_Hwc(const ImageOpDesc &src
         const float invStdB = 1.0f / std::max(stdB, eps);
 
         for (size_t y = 0; y < dstHeight; ++y) {
+            const uint8_t *srcRow = bgraRowAt(srcView, y);
             for (size_t x = 0; x < dstWidth; ++x) {
-                const uint8_t *p = srcPtr + (y * srcWidth + x) * 4;
+                const uint8_t *p = srcRow + x * BgraBytesPerPixel;
                 float *q = dstPtr + (y * dstWidth + x) * C;
 
                 q[0] = (p[2] * inv255 - meanR) * invStdR;
@@ -696,12 +772,12 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf32_Full_Hwc(const ImageOpDesc &src
 bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Hwc(const ImageOpDesc &src,
                                                           const ImageOpDesc &dst,
                                                           Sampling sampling) {
-    const uint8_t *srcPtr = src.data;
+    const auto srcView = makeBgraSourceView(src);
     size_t srcWidth = src.surfaceWidth;
     size_t srcHeight = src.surfaceHeight;
     const PixelRect &srcRect = src.rect;
 
-    float *dstPtr = (float *)dst.data;
+    float *dstPtr = pek::mutablePlaneData<float>(dst.planes[0]);
     size_t dstWidth = dst.surfaceWidth;
     size_t dstHeight = dst.surfaceHeight;
     const PixelRect &dstRect = dst.rect;
@@ -709,7 +785,7 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Hwc(const ImageOpDesc &src
     const Colorf &mean = src.mean;
     const Colorf &std = src.std;
 
-    if (!srcPtr || !dstPtr)
+    if (!srcView.data || !dstPtr || !hasTightDestinationStride(dst))
         return false;
 
     if (srcRect.x + srcRect.width > srcWidth || srcRect.y + srcRect.height > srcHeight ||
@@ -733,14 +809,15 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Hwc(const ImageOpDesc &src
     if (pek::MeanStd::isDefaultMean(mean) && pek::MeanStd::isDefaultStd(std)) {
         for (size_t dy = 0; dy < dstRect.height; ++dy) {
             const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
+            const uint8_t *srcRow = bgraRowAt(srcView, sy);
             const size_t dyi = dstRect.y + dy;
 
             for (size_t dx = 0; dx < dstRect.width; ++dx) {
                 const size_t sx = srcRect.x + (dx * srcRect.width) / dstRect.width;
                 const size_t dxi = dstRect.x + dx;
 
-                const uint8_t *p = srcPtr + (sy * srcWidth + sx) * 4; // BGRA
-                float *q = dstPtr + (dyi * dstWidth + dxi) * C;       // RGB HWC
+                const uint8_t *p = srcRow + sx * BgraBytesPerPixel; // BGRA
+                float *q = dstPtr + (dyi * dstWidth + dxi) * C;     // RGB HWC
 
                 q[0] = p[2] * inv255; // R
                 q[1] = p[1] * inv255; // G
@@ -760,13 +837,14 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Hwc(const ImageOpDesc &src
 
         for (size_t dy = 0; dy < dstRect.height; ++dy) {
             const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
+            const uint8_t *srcRow = bgraRowAt(srcView, sy);
             const size_t dyi = dstRect.y + dy;
 
             for (size_t dx = 0; dx < dstRect.width; ++dx) {
                 const size_t sx = srcRect.x + (dx * srcRect.width) / dstRect.width;
                 const size_t dxi = dstRect.x + dx;
 
-                const uint8_t *p = srcPtr + (sy * srcWidth + sx) * 4;
+                const uint8_t *p = srcRow + sx * BgraBytesPerPixel;
                 float *q = dstPtr + (dyi * dstWidth + dxi) * C;
 
                 q[0] = (p[2] * inv255 - meanR) * invStdR;
@@ -788,17 +866,16 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf16_Full_Hwc(const ImageOpDesc &src
 
     (void)sampling;
 
-    const uint8_t *srcPtr = src.data;
-    const size_t srcWidth = src.surfaceWidth;
+    const auto srcView = makeBgraSourceView(src);
 
-    Float16 *dstPtr = (Float16 *)dst.data;
+    Float16 *dstPtr = pek::mutablePlaneData<Float16>(dst.planes[0]);
     const size_t dstWidth = dst.surfaceWidth;
     const size_t dstHeight = dst.surfaceHeight;
 
     const Colorf &mean = src.mean;
     const Colorf &std = src.std;
 
-    if (!srcPtr || !dstPtr)
+    if (!srcView.data || !dstPtr || !hasTightDestinationStride(dst))
         return false;
 
     constexpr float inv255 = 1.0f / 255.0f;
@@ -806,8 +883,9 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf16_Full_Hwc(const ImageOpDesc &src
 
     if (pek::MeanStd::isDefaultMean(mean) && pek::MeanStd::isDefaultStd(std)) {
         for (size_t y = 0; y < dstHeight; ++y) {
+            const uint8_t *srcRow = bgraRowAt(srcView, y);
             for (size_t x = 0; x < dstWidth; ++x) {
-                const uint8_t *p = srcPtr + (y * srcWidth + x) * 4;
+                const uint8_t *p = srcRow + x * BgraBytesPerPixel;
                 Float16 *q = dstPtr + (y * dstWidth + x) * C;
 
                 q[0] = static_cast<Float16>(p[2] * inv255);
@@ -827,8 +905,9 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf16_Full_Hwc(const ImageOpDesc &src
         const float invStdB = 1.0f / std::max(stdB, eps);
 
         for (size_t y = 0; y < dstHeight; ++y) {
+            const uint8_t *srcRow = bgraRowAt(srcView, y);
             for (size_t x = 0; x < dstWidth; ++x) {
-                const uint8_t *p = srcPtr + (y * srcWidth + x) * 4;
+                const uint8_t *p = srcRow + x * BgraBytesPerPixel;
                 Float16 *q = dstPtr + (y * dstWidth + x) * C;
 
                 q[0] = static_cast<Float16>((p[2] * inv255 - meanR) * invStdR);
@@ -844,12 +923,12 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf16_Full_Hwc(const ImageOpDesc &src
 bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Hwc(const ImageOpDesc &src,
                                                           const ImageOpDesc &dst,
                                                           Sampling sampling) {
-    const uint8_t *srcPtr = src.data;
+    const auto srcView = makeBgraSourceView(src);
     size_t srcWidth = src.surfaceWidth;
     size_t srcHeight = src.surfaceHeight;
     const PixelRect &srcRect = src.rect;
 
-    Float16 *dstPtr = (Float16 *)dst.data;
+    Float16 *dstPtr = pek::mutablePlaneData<Float16>(dst.planes[0]);
     size_t dstWidth = dst.surfaceWidth;
     size_t dstHeight = dst.surfaceHeight;
     const PixelRect &dstRect = dst.rect;
@@ -857,7 +936,7 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Hwc(const ImageOpDesc &src
     const Colorf &mean = src.mean;
     const Colorf &std = src.std;
 
-    if (!srcPtr || !dstPtr)
+    if (!srcView.data || !dstPtr || !hasTightDestinationStride(dst))
         return false;
 
     if (srcRect.x + srcRect.width > srcWidth || srcRect.y + srcRect.height > srcHeight ||
@@ -881,13 +960,14 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Hwc(const ImageOpDesc &src
     if (pek::MeanStd::isDefaultMean(mean) && pek::MeanStd::isDefaultStd(std)) {
         for (size_t dy = 0; dy < dstRect.height; ++dy) {
             const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
+            const uint8_t *srcRow = bgraRowAt(srcView, sy);
             const size_t dyi = dstRect.y + dy;
 
             for (size_t dx = 0; dx < dstRect.width; ++dx) {
                 const size_t sx = srcRect.x + (dx * srcRect.width) / dstRect.width;
                 const size_t dxi = dstRect.x + dx;
 
-                const uint8_t *p = srcPtr + (sy * srcWidth + sx) * 4;
+                const uint8_t *p = srcRow + sx * BgraBytesPerPixel;
                 Float16 *q = dstPtr + (dyi * dstWidth + dxi) * C;
 
                 q[0] = static_cast<Float16>(p[2] * inv255); // R
@@ -908,13 +988,14 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Hwc(const ImageOpDesc &src
 
         for (size_t dy = 0; dy < dstRect.height; ++dy) {
             const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
+            const uint8_t *srcRow = bgraRowAt(srcView, sy);
             const size_t dyi = dstRect.y + dy;
 
             for (size_t dx = 0; dx < dstRect.width; ++dx) {
                 const size_t sx = srcRect.x + (dx * srcRect.width) / dstRect.width;
                 const size_t dxi = dstRect.x + dx;
 
-                const uint8_t *p = srcPtr + (sy * srcWidth + sx) * 4;
+                const uint8_t *p = srcRow + sx * BgraBytesPerPixel;
                 Float16 *q = dstPtr + (dyi * dstWidth + dxi) * C;
 
                 q[0] = static_cast<Float16>((p[2] * inv255 - meanR) * invStdR);
@@ -936,23 +1017,23 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Gray8_Full(const ImageOpDesc &src,
 
     (void)sampling;
 
-    const uint8_t *srcPtr = src.data;
-    const size_t srcWidth = src.surfaceWidth;
+    const auto srcView = makeBgraSourceView(src);
 
-    uint8_t *dstPtr = (uint8_t *)dst.data;
+    uint8_t *dstPtr = pek::mutablePlaneData<uint8_t>(dst.planes[0]);
     const size_t dstWidth = dst.surfaceWidth;
     const size_t dstHeight = dst.surfaceHeight;
 
-    if (!srcPtr || !dstPtr)
+    if (!srcView.data || !dstPtr || !hasTightDestinationStride(dst))
         return false;
 
     for (size_t y = 0; y < dstHeight; ++y) {
+        const uint8_t *srcRow = bgraRowAt(srcView, y);
         for (size_t x = 0; x < dstWidth; ++x) {
-            const uint8_t *p = srcPtr + (y * srcWidth + x) * 4;
+            const uint8_t *p = srcRow + x * BgraBytesPerPixel;
             const uint8_t r = p[2];
             const uint8_t g = p[1];
             const uint8_t b = p[0];
-            const uint16_t yy = static_cast<uint16_t>(77u * r + 150u * g + 29u * b + 128u);
+            const auto yy = static_cast<uint16_t>(77u * r + 150u * g + 29u * b + 128u);
             dstPtr[y * dstWidth + x] = static_cast<uint8_t>(yy >> 8);
         }
     }
@@ -963,17 +1044,17 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Gray8_Full(const ImageOpDesc &src,
 bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Gray8_Rect(const ImageOpDesc &src,
                                                      const ImageOpDesc &dst,
                                                      Sampling sampling) {
-    const uint8_t *srcPtr = src.data;
+    const auto srcView = makeBgraSourceView(src);
     size_t srcWidth = src.surfaceWidth;
     size_t srcHeight = src.surfaceHeight;
     const PixelRect &srcRect = src.rect;
 
-    uint8_t *dstPtr = (uint8_t *)dst.data;
+    uint8_t *dstPtr = pek::mutablePlaneData<uint8_t>(dst.planes[0]);
     size_t dstWidth = dst.surfaceWidth;
     size_t dstHeight = dst.surfaceHeight;
     const PixelRect &dstRect = dst.rect;
 
-    if (!srcPtr || !dstPtr)
+    if (!srcView.data || !dstPtr || !hasTightDestinationStride(dst))
         return false;
 
     if (srcRect.x + srcRect.width > srcWidth || srcRect.y + srcRect.height > srcHeight ||
@@ -993,18 +1074,19 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Gray8_Rect(const ImageOpDesc &src,
 
     for (size_t dy = 0; dy < dstRect.height; ++dy) {
         const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
+        const uint8_t *srcRow = bgraRowAt(srcView, sy);
         const size_t dyi = dstRect.y + dy;
 
         for (size_t dx = 0; dx < dstRect.width; ++dx) {
             const size_t sx = srcRect.x + (dx * srcRect.width) / dstRect.width;
             const size_t dxi = dstRect.x + dx;
 
-            const uint8_t *p = srcPtr + (sy * srcWidth + sx) * 4;
+            const uint8_t *p = srcRow + sx * BgraBytesPerPixel;
             const uint8_t r = p[2];
             const uint8_t g = p[1];
             const uint8_t b = p[0];
 
-            const uint16_t y = static_cast<uint16_t>(77u * r + 150u * g + 29u * b + 128u);
+            const auto y = static_cast<uint16_t>(77u * r + 150u * g + 29u * b + 128u);
             dstPtr[dyi * dstWidth + dxi] = static_cast<uint8_t>(y >> 8);
         }
     }
@@ -1021,25 +1103,25 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Grayf32_Full(const ImageOpDesc &src,
 
     (void)sampling;
 
-    const uint8_t *srcPtr = src.data;
-    const size_t srcWidth = src.surfaceWidth;
+    const auto srcView = makeBgraSourceView(src);
 
-    float *dstPtr = (float *)dst.data;
+    float *dstPtr = pek::mutablePlaneData<float>(dst.planes[0]);
     const size_t dstWidth = dst.surfaceWidth;
     const size_t dstHeight = dst.surfaceHeight;
 
     const Colorf &mean = src.mean;
     const Colorf &std = src.std;
 
-    if (!srcPtr || !dstPtr)
+    if (!srcView.data || !dstPtr || !hasTightDestinationStride(dst))
         return false;
 
     constexpr float inv255 = 1.0f / 255.0f;
 
     if (pek::MeanStd::isDefaultMean(mean) && pek::MeanStd::isDefaultStd(std)) {
         for (size_t y = 0; y < dstHeight; ++y) {
+            const uint8_t *srcRow = bgraRowAt(srcView, y);
             for (size_t x = 0; x < dstWidth; ++x) {
-                const uint8_t *p = srcPtr + (y * srcWidth + x) * 4;
+                const uint8_t *p = srcRow + x * BgraBytesPerPixel;
                 const float r = static_cast<float>(p[2]) * inv255;
                 const float g = static_cast<float>(p[1]) * inv255;
                 const float b = static_cast<float>(p[0]) * inv255;
@@ -1051,8 +1133,9 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Grayf32_Full(const ImageOpDesc &src,
         const float invStd = 1.0f / std::max(std.r, eps);
 
         for (size_t y = 0; y < dstHeight; ++y) {
+            const uint8_t *srcRow = bgraRowAt(srcView, y);
             for (size_t x = 0; x < dstWidth; ++x) {
-                const uint8_t *p = srcPtr + (y * srcWidth + x) * 4;
+                const uint8_t *p = srcRow + x * BgraBytesPerPixel;
                 const float r = static_cast<float>(p[2]) * inv255;
                 const float g = static_cast<float>(p[1]) * inv255;
                 const float b = static_cast<float>(p[0]) * inv255;
@@ -1068,17 +1151,17 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Grayf32_Full(const ImageOpDesc &src,
 bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Grayf32_Rect(const ImageOpDesc &src,
                                                        const ImageOpDesc &dst,
                                                        Sampling sampling) {
-    const uint8_t *srcPtr = src.data;
+    const auto srcView = makeBgraSourceView(src);
     const size_t srcWidth = src.surfaceWidth;
     const size_t srcHeight = src.surfaceHeight;
     const PixelRect &srcRect = src.rect;
 
-    float *dstPtr = (float *)dst.data;
+    float *dstPtr = pek::mutablePlaneData<float>(dst.planes[0]);
     const size_t dstWidth = dst.surfaceWidth;
     const size_t dstHeight = dst.surfaceHeight;
     const PixelRect &dstRect = dst.rect;
 
-    if (!srcPtr || !dstPtr)
+    if (!srcView.data || !dstPtr || !hasTightDestinationStride(dst))
         return false;
 
     if (srcRect.x + srcRect.width > srcWidth || srcRect.y + srcRect.height > srcHeight ||
@@ -1104,13 +1187,14 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Grayf32_Rect(const ImageOpDesc &src,
     if (pek::MeanStd::isDefaultMean(mean) && pek::MeanStd::isDefaultStd(std)) {
         for (size_t dy = 0; dy < dstRect.height; ++dy) {
             const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
+            const uint8_t *srcRow = bgraRowAt(srcView, sy);
             const size_t dyi = dstRect.y + dy;
 
             for (size_t dx = 0; dx < dstRect.width; ++dx) {
                 const size_t sx = srcRect.x + (dx * srcRect.width) / dstRect.width;
                 const size_t dxi = dstRect.x + dx;
 
-                const uint8_t *p = srcPtr + (sy * srcWidth + sx) * 4;
+                const uint8_t *p = srcRow + sx * BgraBytesPerPixel;
                 const float r = static_cast<float>(p[2]) * inv255;
                 const float g = static_cast<float>(p[1]) * inv255;
                 const float b = static_cast<float>(p[0]) * inv255;
@@ -1123,13 +1207,14 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Grayf32_Rect(const ImageOpDesc &src,
 
         for (size_t dy = 0; dy < dstRect.height; ++dy) {
             const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
+            const uint8_t *srcRow = bgraRowAt(srcView, sy);
             const size_t dyi = dstRect.y + dy;
 
             for (size_t dx = 0; dx < dstRect.width; ++dx) {
                 const size_t sx = srcRect.x + (dx * srcRect.width) / dstRect.width;
                 const size_t dxi = dstRect.x + dx;
 
-                const uint8_t *p = srcPtr + (sy * srcWidth + sx) * 4;
+                const uint8_t *p = srcRow + sx * BgraBytesPerPixel;
                 const float r = static_cast<float>(p[2]) * inv255;
                 const float g = static_cast<float>(p[1]) * inv255;
                 const float b = static_cast<float>(p[0]) * inv255;
@@ -1142,20 +1227,89 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Grayf32_Rect(const ImageOpDesc &src,
     return true;
 }
 
-bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Hwc(const ImageOpDesc &src,
-                                                        const ImageOpDesc &dst,
-                                                        Sampling sampling) {
-    const uint8_t *srcPtr = src.data;
+bool ImageOps::StretchBlit_Rgb8_Hwc_Full_Rgbf32_Full_Chw(const ImageOpDesc &src,
+                                                         const ImageOpDesc &dst,
+                                                         Sampling sampling) {
+    if (!canRunDirectFullKernel(src, dst)) {
+        return StretchBlit_Rgb8_Hwc_Rect_Rgbf32_Rect_Chw(src, dst, sampling);
+    }
+
+    (void)sampling;
+
+    const auto srcView = makeRgbSourceView(src);
+
+    float *dstPtr = pek::mutablePlaneData<float>(dst.planes[0]);
+    const size_t dstWidth = dst.surfaceWidth;
+    const size_t dstHeight = dst.surfaceHeight;
+
+    const Colorf &mean = src.mean;
+    const Colorf &std = src.std;
+
+    if (!srcView.data || !dstPtr || !hasTightDestinationStride(dst))
+        return false;
+
+    constexpr float inv255 = 1.0f / 255.0f;
+    const size_t planeSize = dstWidth * dstHeight;
+
+    if (pek::MeanStd::isDefaultMean(mean) && pek::MeanStd::isDefaultStd(std)) {
+        for (size_t y = 0; y < dstHeight; ++y) {
+            const uint8_t *srcRow = rgbRowAt(srcView, y);
+            for (size_t x = 0; x < dstWidth; ++x) {
+                const uint8_t *p = srcRow + x * RgbBytesPerPixel;
+                const size_t hw = y * dstWidth + x;
+                dstPtr[0 * planeSize + hw] = p[0] * inv255;
+                dstPtr[1 * planeSize + hw] = p[1] * inv255;
+                dstPtr[2 * planeSize + hw] = p[2] * inv255;
+            }
+        }
+    } else {
+        const auto [meanR, meanG, meanB, meanA] = mean;
+        const auto [stdR, stdG, stdB, stdA] = std;
+        (void)meanA;
+        (void)stdA;
+
+        constexpr float eps = 1e-12f;
+        const float invStdR = 1.0f / std::max(stdR, eps);
+        const float invStdG = 1.0f / std::max(stdG, eps);
+        const float invStdB = 1.0f / std::max(stdB, eps);
+
+        for (size_t y = 0; y < dstHeight; ++y) {
+            const uint8_t *srcRow = rgbRowAt(srcView, y);
+            for (size_t x = 0; x < dstWidth; ++x) {
+                const uint8_t *p = srcRow + x * RgbBytesPerPixel;
+                const size_t hw = y * dstWidth + x;
+
+                const float r01 = p[0] * inv255;
+                const float g01 = p[1] * inv255;
+                const float b01 = p[2] * inv255;
+
+                dstPtr[0 * planeSize + hw] = (r01 - meanR) * invStdR;
+                dstPtr[1 * planeSize + hw] = (g01 - meanG) * invStdG;
+                dstPtr[2 * planeSize + hw] = (b01 - meanB) * invStdB;
+            }
+        }
+    }
+
+    return true;
+}
+
+bool ImageOps::StretchBlit_Rgb8_Hwc_Rect_Rgbf32_Rect_Chw(const ImageOpDesc &src,
+                                                         const ImageOpDesc &dst,
+                                                         Sampling sampling) {
+    const auto srcView = makeRgbSourceView(src);
     size_t srcWidth = src.surfaceWidth;
     size_t srcHeight = src.surfaceHeight;
     const PixelRect &srcRect = src.rect;
 
-    float *dstPtr = (float *)dst.data;
+    float *dstPtr = pek::mutablePlaneData<float>(dst.planes[0]);
     size_t dstWidth = dst.surfaceWidth;
     size_t dstHeight = dst.surfaceHeight;
     const PixelRect &dstRect = dst.rect;
 
-    if (!srcPtr || !dstPtr)
+    const Colorf &mean = src.mean;
+    const Colorf &std = src.std;
+
+    if (!srcView.data || !dstPtr || !hasTightDestinationStride(dst))
         return false;
 
     if (srcRect.x + srcRect.width > srcWidth || srcRect.y + srcRect.height > srcHeight ||
@@ -1167,378 +1321,849 @@ bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Hwc(const ImageOpDesc &src,
         if (!makeLetterboxDestination(src, dst, innerDst)) {
             return false;
         }
-        fillRgbF32Hwc(dst, defaultMean, defaultStd);
-        return StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Hwc(src, innerDst, sampling);
+        fillRgbF32Chw(dst, mean, std);
+        return StretchBlit_Rgb8_Hwc_Rect_Rgbf32_Rect_Chw(src, innerDst, sampling);
     }
 
+    float *out = dstPtr;
     constexpr float inv255 = 1.0f / 255.0f;
 
-    const size_t C = 3;
-    const size_t Wdst = dstWidth;
+    const size_t H = dstHeight;
+    const size_t W = dstWidth;
 
-    const size_t srcPlane = srcWidth * srcHeight; // CHW planes
-    const size_t dstPlane = dstWidth * dstHeight; // not used here, but symmetry
+    const size_t planeSize = H * W;
 
-    (void)dstPlane;
+    if (pek::MeanStd::isDefaultMean(mean) && pek::MeanStd::isDefaultStd(std)) {
+        for (size_t dy = 0; dy < dstRect.height; ++dy) {
+            const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
+            const uint8_t *srcRow = rgbRowAt(srcView, sy);
+            const size_t dyi = dstRect.y + dy;
+
+            for (size_t dx = 0; dx < dstRect.width; ++dx) {
+                const size_t sx = srcRect.x + (dx * srcRect.width) / dstRect.width;
+                const size_t dxi = dstRect.x + dx;
+
+                const uint8_t *p = srcRow + sx * RgbBytesPerPixel;
+
+                const size_t hwIndex = dyi * W + dxi;
+
+                out[0 * planeSize + hwIndex] = p[0] * inv255;
+                out[1 * planeSize + hwIndex] = p[1] * inv255;
+                out[2 * planeSize + hwIndex] = p[2] * inv255;
+            }
+        }
+    } else {
+        const auto [meanR, meanG, meanB, meanA] = mean;
+        const auto [stdR, stdG, stdB, stdA] = std;
+        (void)meanA;
+        (void)stdA;
+
+        constexpr float eps = 1e-12f;
+        const float invStdR = 1.0f / std::max(stdR, eps);
+        const float invStdG = 1.0f / std::max(stdG, eps);
+        const float invStdB = 1.0f / std::max(stdB, eps);
+
+        for (size_t dy = 0; dy < dstRect.height; ++dy) {
+            const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
+            const uint8_t *srcRow = rgbRowAt(srcView, sy);
+            const size_t dyi = dstRect.y + dy;
+
+            for (size_t dx = 0; dx < dstRect.width; ++dx) {
+                const size_t sx = srcRect.x + (dx * srcRect.width) / dstRect.width;
+                const size_t dxi = dstRect.x + dx;
+
+                const uint8_t *p = srcRow + sx * RgbBytesPerPixel;
+
+                const size_t hwIndex = dyi * W + dxi;
+
+                const float r01 = p[0] * inv255;
+                const float g01 = p[1] * inv255;
+                const float b01 = p[2] * inv255;
+
+                out[0 * planeSize + hwIndex] = (r01 - meanR) * invStdR;
+                out[1 * planeSize + hwIndex] = (g01 - meanG) * invStdG;
+                out[2 * planeSize + hwIndex] = (b01 - meanB) * invStdB;
+            }
+        }
+    }
+
     (void)sampling;
 
-    // nearest-neighbor resize, CHW(u8) -> HWC(f32)
-    for (size_t dy = 0; dy < dstRect.height; ++dy) {
-        const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
-        const size_t dyi = dstRect.y + dy;
+    return true;
+}
 
-        for (size_t dx = 0; dx < dstRect.width; ++dx) {
-            const size_t sx = srcRect.x + (dx * srcRect.width) / dstRect.width;
-            const size_t dxi = dstRect.x + dx;
+bool ImageOps::StretchBlit_Rgb8_Hwc_Full_Rgb8_Full_Hwc(const ImageOpDesc &src,
+                                                       const ImageOpDesc &dst,
+                                                       Sampling sampling) {
+    if (!canRunDirectFullKernel(src, dst)) {
+        return StretchBlit_Rgb8_Hwc_Rect_Rgb8_Rect_Hwc(src, dst, sampling);
+    }
 
-            const size_t srcHw = sy * srcWidth + sx;
+    (void)sampling;
 
-            const uint8_t r = srcPtr[0 * srcPlane + srcHw];
-            const uint8_t g = srcPtr[1 * srcPlane + srcHw];
-            const uint8_t b = srcPtr[2 * srcPlane + srcHw];
+    const auto srcView = makeRgbSourceView(src);
 
-            const size_t dstIndex = (dyi * Wdst + dxi) * C; // HWC interleaved
+    uint8_t *dstPtr = pek::mutablePlaneData<uint8_t>(dst.planes[0]);
+    const size_t dstWidth = dst.surfaceWidth;
+    const size_t dstHeight = dst.surfaceHeight;
 
-            dstPtr[dstIndex + 0] = r * inv255;
-            dstPtr[dstIndex + 1] = g * inv255;
-            dstPtr[dstIndex + 2] = b * inv255;
+    if (!srcView.data || !dstPtr || !hasTightDestinationStride(dst))
+        return false;
+
+    constexpr size_t Cdst = 3;
+
+    for (size_t y = 0; y < dstHeight; ++y) {
+        const uint8_t *srcRow = rgbRowAt(srcView, y);
+        for (size_t x = 0; x < dstWidth; ++x) {
+            const uint8_t *p = srcRow + x * RgbBytesPerPixel;
+            const size_t dstIndex = (y * dstWidth + x) * Cdst;
+
+            dstPtr[dstIndex + 0] = p[0];
+            dstPtr[dstIndex + 1] = p[1];
+            dstPtr[dstIndex + 2] = p[2];
         }
     }
 
     return true;
 }
 
-bool ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Hwc(const ImageOpDesc &src,
-                                                        const ImageOpDesc &dst,
-                                                        Sampling sampling) {
-    if (!canRunDirectFullKernel(src, dst)) {
-        return StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Hwc(src, dst, sampling);
+bool ImageOps::StretchBlit_Rgb8_Hwc_Rect_Rgb8_Rect_Hwc(const ImageOpDesc &src,
+                                                       const ImageOpDesc &dst,
+                                                       Sampling sampling) {
+    const auto srcView = makeRgbSourceView(src);
+    size_t srcWidth = src.surfaceWidth;
+    size_t srcHeight = src.surfaceHeight;
+    const PixelRect &srcRect = src.rect;
+
+    uint8_t *dstPtr = pek::mutablePlaneData<uint8_t>(dst.planes[0]);
+    size_t dstWidth = dst.surfaceWidth;
+    size_t dstHeight = dst.surfaceHeight;
+    const PixelRect &dstRect = dst.rect;
+
+    if (!srcView.data || !dstPtr || !hasTightDestinationStride(dst))
+        return false;
+
+    if (srcRect.x + srcRect.width > srcWidth || srcRect.y + srcRect.height > srcHeight ||
+        dstRect.x + dstRect.width > dstWidth || dstRect.y + dstRect.height > dstHeight)
+        return false;
+
+    if (dst.keepAspectRatio) {
+        pek::ImageOpDesc innerDst;
+        if (!makeLetterboxDestination(src, dst, innerDst)) {
+            return false;
+        }
+        fillRgb8Hwc(dst);
+        return StretchBlit_Rgb8_Hwc_Rect_Rgb8_Rect_Hwc(src, innerDst, sampling);
     }
 
     (void)sampling;
 
-    const uint8_t *srcPtr = src.data;
-    const size_t srcWidth = src.surfaceWidth;
-    const size_t srcHeight = src.surfaceHeight;
+    constexpr size_t Cdst = 3;
 
-    float *dstPtr = (float *)dst.data;
+    for (size_t dy = 0; dy < dstRect.height; ++dy) {
+        const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
+        const uint8_t *srcRow = rgbRowAt(srcView, sy);
+        const size_t dyi = dstRect.y + dy;
+
+        for (size_t dx = 0; dx < dstRect.width; ++dx) {
+            const size_t sx = srcRect.x + (dx * srcRect.width) / dstRect.width;
+            const size_t dxi = dstRect.x + dx;
+
+            const uint8_t *p = srcRow + sx * RgbBytesPerPixel;
+
+            const size_t dstIndex = (dyi * dstWidth + dxi) * Cdst;
+            dstPtr[dstIndex + 0] = p[0];
+            dstPtr[dstIndex + 1] = p[1];
+            dstPtr[dstIndex + 2] = p[2];
+        }
+    }
+
+    return true;
+}
+
+bool ImageOps::StretchBlit_Rgb8_Hwc_Full_Rgbf16_Full_Chw(const ImageOpDesc &src,
+                                                         const ImageOpDesc &dst,
+                                                         Sampling sampling) {
+    if (!canRunDirectFullKernel(src, dst)) {
+        return StretchBlit_Rgb8_Hwc_Rect_Rgbf16_Rect_Chw(src, dst, sampling);
+    }
+
+    (void)sampling;
+
+    const auto srcView = makeRgbSourceView(src);
+
+    Float16 *dstPtr = pek::mutablePlaneData<Float16>(dst.planes[0]);
     const size_t dstWidth = dst.surfaceWidth;
     const size_t dstHeight = dst.surfaceHeight;
 
-    if (!srcPtr || !dstPtr)
+    const Colorf &mean = src.mean;
+    const Colorf &std = src.std;
+
+    if (!srcView.data || !dstPtr || !hasTightDestinationStride(dst))
+        return false;
+
+    constexpr float inv255 = 1.0f / 255.0f;
+    const size_t planeSize = dstWidth * dstHeight;
+
+    if (pek::MeanStd::isDefaultMean(mean) && pek::MeanStd::isDefaultStd(std)) {
+        for (size_t y = 0; y < dstHeight; ++y) {
+            const uint8_t *srcRow = rgbRowAt(srcView, y);
+            for (size_t x = 0; x < dstWidth; ++x) {
+                const uint8_t *p = srcRow + x * RgbBytesPerPixel;
+                const size_t hw = y * dstWidth + x;
+
+                dstPtr[0 * planeSize + hw] = static_cast<Float16>(p[0] * inv255);
+                dstPtr[1 * planeSize + hw] = static_cast<Float16>(p[1] * inv255);
+                dstPtr[2 * planeSize + hw] = static_cast<Float16>(p[2] * inv255);
+            }
+        }
+    } else {
+        const auto [meanR, meanG, meanB, meanA] = mean;
+        const auto [stdR, stdG, stdB, stdA] = std;
+        (void)meanA;
+        (void)stdA;
+
+        constexpr float eps = 1e-12f;
+        const float invStdR = 1.0f / std::max(stdR, eps);
+        const float invStdG = 1.0f / std::max(stdG, eps);
+        const float invStdB = 1.0f / std::max(stdB, eps);
+
+        for (size_t y = 0; y < dstHeight; ++y) {
+            const uint8_t *srcRow = rgbRowAt(srcView, y);
+            for (size_t x = 0; x < dstWidth; ++x) {
+                const uint8_t *p = srcRow + x * RgbBytesPerPixel;
+                const size_t hw = y * dstWidth + x;
+
+                const float r01 = p[0] * inv255;
+                const float g01 = p[1] * inv255;
+                const float b01 = p[2] * inv255;
+
+                dstPtr[0 * planeSize + hw] = static_cast<Float16>((r01 - meanR) * invStdR);
+                dstPtr[1 * planeSize + hw] = static_cast<Float16>((g01 - meanG) * invStdG);
+                dstPtr[2 * planeSize + hw] = static_cast<Float16>((b01 - meanB) * invStdB);
+            }
+        }
+    }
+
+    return true;
+}
+
+bool ImageOps::StretchBlit_Rgb8_Hwc_Rect_Rgbf16_Rect_Chw(const ImageOpDesc &src,
+                                                         const ImageOpDesc &dst,
+                                                         Sampling sampling) {
+    const auto srcView = makeRgbSourceView(src);
+    size_t srcWidth = src.surfaceWidth;
+    size_t srcHeight = src.surfaceHeight;
+    const PixelRect &srcRect = src.rect;
+
+    Float16 *dstPtr = pek::mutablePlaneData<Float16>(dst.planes[0]);
+    size_t dstWidth = dst.surfaceWidth;
+    size_t dstHeight = dst.surfaceHeight;
+    const PixelRect &dstRect = dst.rect;
+
+    const Colorf &mean = src.mean;
+    const Colorf &std = src.std;
+
+    if (!srcView.data || !dstPtr || !hasTightDestinationStride(dst))
+        return false;
+
+    if (srcRect.x + srcRect.width > srcWidth || srcRect.y + srcRect.height > srcHeight ||
+        dstRect.x + dstRect.width > dstWidth || dstRect.y + dstRect.height > dstHeight)
+        return false;
+
+    if (dst.keepAspectRatio) {
+        pek::ImageOpDesc innerDst;
+        if (!makeLetterboxDestination(src, dst, innerDst)) {
+            return false;
+        }
+        fillRgbF16Chw(dst, mean, std);
+        return StretchBlit_Rgb8_Hwc_Rect_Rgbf16_Rect_Chw(src, innerDst, sampling);
+    }
+
+    Float16 *out = dstPtr;
+    constexpr float inv255 = 1.0f / 255.0f;
+
+    const size_t H = dstHeight;
+    const size_t W = dstWidth;
+
+    const size_t planeSize = H * W;
+
+    if (pek::MeanStd::isDefaultMean(mean) && pek::MeanStd::isDefaultStd(std)) {
+        for (size_t dy = 0; dy < dstRect.height; ++dy) {
+            const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
+            const uint8_t *srcRow = rgbRowAt(srcView, sy);
+            const size_t dyi = dstRect.y + dy;
+
+            for (size_t dx = 0; dx < dstRect.width; ++dx) {
+                const size_t sx = srcRect.x + (dx * srcRect.width) / dstRect.width;
+                const size_t dxi = dstRect.x + dx;
+
+                const uint8_t *p = srcRow + sx * RgbBytesPerPixel;
+
+                const size_t hwIndex = dyi * W + dxi;
+
+                out[0 * planeSize + hwIndex] = static_cast<Float16>(p[0] * inv255);
+                out[1 * planeSize + hwIndex] = static_cast<Float16>(p[1] * inv255);
+                out[2 * planeSize + hwIndex] = static_cast<Float16>(p[2] * inv255);
+            }
+        }
+    } else {
+        const auto [meanR, meanG, meanB, meanA] = mean;
+        const auto [stdR, stdG, stdB, stdA] = std;
+        (void)meanA;
+        (void)stdA;
+
+        constexpr float eps = 1e-12f;
+        const float invStdR = 1.0f / std::max(stdR, eps);
+        const float invStdG = 1.0f / std::max(stdG, eps);
+        const float invStdB = 1.0f / std::max(stdB, eps);
+
+        for (size_t dy = 0; dy < dstRect.height; ++dy) {
+            const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
+            const uint8_t *srcRow = rgbRowAt(srcView, sy);
+            const size_t dyi = dstRect.y + dy;
+
+            for (size_t dx = 0; dx < dstRect.width; ++dx) {
+                const size_t sx = srcRect.x + (dx * srcRect.width) / dstRect.width;
+                const size_t dxi = dstRect.x + dx;
+
+                const uint8_t *p = srcRow + sx * RgbBytesPerPixel;
+
+                const size_t hwIndex = dyi * W + dxi;
+
+                const float r01 = p[0] * inv255;
+                const float g01 = p[1] * inv255;
+                const float b01 = p[2] * inv255;
+
+                out[0 * planeSize + hwIndex] = static_cast<Float16>((r01 - meanR) * invStdR);
+                out[1 * planeSize + hwIndex] = static_cast<Float16>((g01 - meanG) * invStdG);
+                out[2 * planeSize + hwIndex] = static_cast<Float16>((b01 - meanB) * invStdB);
+            }
+        }
+    }
+
+    (void)sampling;
+
+    return true;
+}
+
+bool ImageOps::StretchBlit_Rgb8_Hwc_Full_Rgbf32_Full_Hwc(const ImageOpDesc &src,
+                                                         const ImageOpDesc &dst,
+                                                         Sampling sampling) {
+    if (!canRunDirectFullKernel(src, dst)) {
+        return StretchBlit_Rgb8_Hwc_Rect_Rgbf32_Rect_Hwc(src, dst, sampling);
+    }
+
+    (void)sampling;
+
+    const auto srcView = makeRgbSourceView(src);
+
+    float *dstPtr = pek::mutablePlaneData<float>(dst.planes[0]);
+    const size_t dstWidth = dst.surfaceWidth;
+    const size_t dstHeight = dst.surfaceHeight;
+
+    const Colorf &mean = src.mean;
+    const Colorf &std = src.std;
+
+    if (!srcView.data || !dstPtr || !hasTightDestinationStride(dst))
         return false;
 
     constexpr float inv255 = 1.0f / 255.0f;
     constexpr size_t C = 3;
-    const size_t srcPlane = srcWidth * srcHeight;
 
-    for (size_t y = 0; y < dstHeight; ++y) {
-        for (size_t x = 0; x < dstWidth; ++x) {
-            const size_t srcHw = y * srcWidth + x;
-            const size_t dstIndex = (y * dstWidth + x) * C;
-            dstPtr[dstIndex + 0] = srcPtr[0 * srcPlane + srcHw] * inv255;
-            dstPtr[dstIndex + 1] = srcPtr[1 * srcPlane + srcHw] * inv255;
-            dstPtr[dstIndex + 2] = srcPtr[2 * srcPlane + srcHw] * inv255;
+    if (pek::MeanStd::isDefaultMean(mean) && pek::MeanStd::isDefaultStd(std)) {
+        for (size_t y = 0; y < dstHeight; ++y) {
+            const uint8_t *srcRow = rgbRowAt(srcView, y);
+            for (size_t x = 0; x < dstWidth; ++x) {
+                const uint8_t *p = srcRow + x * RgbBytesPerPixel;
+                float *q = dstPtr + (y * dstWidth + x) * C;
+
+                q[0] = p[0] * inv255;
+                q[1] = p[1] * inv255;
+                q[2] = p[2] * inv255;
+            }
+        }
+    } else {
+        const auto [meanR, meanG, meanB, meanA] = mean;
+        const auto [stdR, stdG, stdB, stdA] = std;
+        (void)meanA;
+        (void)stdA;
+
+        constexpr float eps = 1e-12f;
+        const float invStdR = 1.0f / std::max(stdR, eps);
+        const float invStdG = 1.0f / std::max(stdG, eps);
+        const float invStdB = 1.0f / std::max(stdB, eps);
+
+        for (size_t y = 0; y < dstHeight; ++y) {
+            const uint8_t *srcRow = rgbRowAt(srcView, y);
+            for (size_t x = 0; x < dstWidth; ++x) {
+                const uint8_t *p = srcRow + x * RgbBytesPerPixel;
+                float *q = dstPtr + (y * dstWidth + x) * C;
+
+                q[0] = (p[0] * inv255 - meanR) * invStdR;
+                q[1] = (p[1] * inv255 - meanG) * invStdG;
+                q[2] = (p[2] * inv255 - meanB) * invStdB;
+            }
         }
     }
 
     return true;
 }
 
-bool ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Hwc(const ImageOpDesc &src,
-                                                        const ImageOpDesc &dst,
-                                                        Sampling sampling) {
-    if (!canRunDirectFullKernel(src, dst)) {
-        return StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Hwc(src, dst, sampling);
+bool ImageOps::StretchBlit_Rgb8_Hwc_Rect_Rgbf32_Rect_Hwc(const ImageOpDesc &src,
+                                                         const ImageOpDesc &dst,
+                                                         Sampling sampling) {
+    const auto srcView = makeRgbSourceView(src);
+    size_t srcWidth = src.surfaceWidth;
+    size_t srcHeight = src.surfaceHeight;
+    const PixelRect &srcRect = src.rect;
+
+    float *dstPtr = pek::mutablePlaneData<float>(dst.planes[0]);
+    size_t dstWidth = dst.surfaceWidth;
+    size_t dstHeight = dst.surfaceHeight;
+    const PixelRect &dstRect = dst.rect;
+
+    const Colorf &mean = src.mean;
+    const Colorf &std = src.std;
+
+    if (!srcView.data || !dstPtr || !hasTightDestinationStride(dst))
+        return false;
+
+    if (srcRect.x + srcRect.width > srcWidth || srcRect.y + srcRect.height > srcHeight ||
+        dstRect.x + dstRect.width > dstWidth || dstRect.y + dstRect.height > dstHeight)
+        return false;
+
+    if (dst.keepAspectRatio) {
+        pek::ImageOpDesc innerDst;
+        if (!makeLetterboxDestination(src, dst, innerDst)) {
+            return false;
+        }
+        fillRgbF32Hwc(dst, mean, std);
+        return StretchBlit_Rgb8_Hwc_Rect_Rgbf32_Rect_Hwc(src, innerDst, sampling);
+    }
+
+    constexpr float inv255 = 1.0f / 255.0f;
+    constexpr size_t C = 3;
+
+    if (pek::MeanStd::isDefaultMean(mean) && pek::MeanStd::isDefaultStd(std)) {
+        for (size_t dy = 0; dy < dstRect.height; ++dy) {
+            const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
+            const uint8_t *srcRow = rgbRowAt(srcView, sy);
+            const size_t dyi = dstRect.y + dy;
+
+            for (size_t dx = 0; dx < dstRect.width; ++dx) {
+                const size_t sx = srcRect.x + (dx * srcRect.width) / dstRect.width;
+                const size_t dxi = dstRect.x + dx;
+
+                const uint8_t *p = srcRow + sx * RgbBytesPerPixel;
+                float *q = dstPtr + (dyi * dstWidth + dxi) * C;
+
+                q[0] = p[0] * inv255;
+                q[1] = p[1] * inv255;
+                q[2] = p[2] * inv255;
+            }
+        }
+    } else {
+        const auto [meanR, meanG, meanB, meanA] = mean;
+        const auto [stdR, stdG, stdB, stdA] = std;
+        (void)meanA;
+        (void)stdA;
+
+        constexpr float eps = 1e-12f;
+        const float invStdR = 1.0f / std::max(stdR, eps);
+        const float invStdG = 1.0f / std::max(stdG, eps);
+        const float invStdB = 1.0f / std::max(stdB, eps);
+
+        for (size_t dy = 0; dy < dstRect.height; ++dy) {
+            const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
+            const uint8_t *srcRow = rgbRowAt(srcView, sy);
+            const size_t dyi = dstRect.y + dy;
+
+            for (size_t dx = 0; dx < dstRect.width; ++dx) {
+                const size_t sx = srcRect.x + (dx * srcRect.width) / dstRect.width;
+                const size_t dxi = dstRect.x + dx;
+
+                const uint8_t *p = srcRow + sx * RgbBytesPerPixel;
+                float *q = dstPtr + (dyi * dstWidth + dxi) * C;
+
+                q[0] = (p[0] * inv255 - meanR) * invStdR;
+                q[1] = (p[1] * inv255 - meanG) * invStdG;
+                q[2] = (p[2] * inv255 - meanB) * invStdB;
+            }
+        }
     }
 
     (void)sampling;
 
-    const uint8_t *srcPtr = src.data;
-    const size_t srcWidth = src.surfaceWidth;
-    const size_t srcHeight = src.surfaceHeight;
+    return true;
+}
 
-    Float16 *dstPtr = (Float16 *)dst.data;
+bool ImageOps::StretchBlit_Rgb8_Hwc_Full_Rgbf16_Full_Hwc(const ImageOpDesc &src,
+                                                         const ImageOpDesc &dst,
+                                                         Sampling sampling) {
+    if (!canRunDirectFullKernel(src, dst)) {
+        return StretchBlit_Rgb8_Hwc_Rect_Rgbf16_Rect_Hwc(src, dst, sampling);
+    }
+
+    (void)sampling;
+
+    const auto srcView = makeRgbSourceView(src);
+
+    Float16 *dstPtr = pek::mutablePlaneData<Float16>(dst.planes[0]);
     const size_t dstWidth = dst.surfaceWidth;
     const size_t dstHeight = dst.surfaceHeight;
 
-    if (!srcPtr || !dstPtr)
+    const Colorf &mean = src.mean;
+    const Colorf &std = src.std;
+
+    if (!srcView.data || !dstPtr || !hasTightDestinationStride(dst))
         return false;
 
     constexpr float inv255 = 1.0f / 255.0f;
     constexpr size_t C = 3;
-    const size_t srcPlane = srcWidth * srcHeight;
 
-    for (size_t y = 0; y < dstHeight; ++y) {
-        for (size_t x = 0; x < dstWidth; ++x) {
-            const size_t srcHw = y * srcWidth + x;
-            const size_t dstIndex = (y * dstWidth + x) * C;
-            dstPtr[dstIndex + 0] = static_cast<Float16>(srcPtr[0 * srcPlane + srcHw] * inv255);
-            dstPtr[dstIndex + 1] = static_cast<Float16>(srcPtr[1 * srcPlane + srcHw] * inv255);
-            dstPtr[dstIndex + 2] = static_cast<Float16>(srcPtr[2 * srcPlane + srcHw] * inv255);
+    if (pek::MeanStd::isDefaultMean(mean) && pek::MeanStd::isDefaultStd(std)) {
+        for (size_t y = 0; y < dstHeight; ++y) {
+            const uint8_t *srcRow = rgbRowAt(srcView, y);
+            for (size_t x = 0; x < dstWidth; ++x) {
+                const uint8_t *p = srcRow + x * RgbBytesPerPixel;
+                Float16 *q = dstPtr + (y * dstWidth + x) * C;
+
+                q[0] = static_cast<Float16>(p[0] * inv255);
+                q[1] = static_cast<Float16>(p[1] * inv255);
+                q[2] = static_cast<Float16>(p[2] * inv255);
+            }
+        }
+    } else {
+        const auto [meanR, meanG, meanB, meanA] = mean;
+        const auto [stdR, stdG, stdB, stdA] = std;
+        (void)meanA;
+        (void)stdA;
+
+        constexpr float eps = 1e-12f;
+        const float invStdR = 1.0f / std::max(stdR, eps);
+        const float invStdG = 1.0f / std::max(stdG, eps);
+        const float invStdB = 1.0f / std::max(stdB, eps);
+
+        for (size_t y = 0; y < dstHeight; ++y) {
+            const uint8_t *srcRow = rgbRowAt(srcView, y);
+            for (size_t x = 0; x < dstWidth; ++x) {
+                const uint8_t *p = srcRow + x * RgbBytesPerPixel;
+                Float16 *q = dstPtr + (y * dstWidth + x) * C;
+
+                q[0] = static_cast<Float16>((p[0] * inv255 - meanR) * invStdR);
+                q[1] = static_cast<Float16>((p[1] * inv255 - meanG) * invStdG);
+                q[2] = static_cast<Float16>((p[2] * inv255 - meanB) * invStdB);
+            }
         }
     }
 
     return true;
 }
 
-bool ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Chw(const ImageOpDesc &src,
-                                                        const ImageOpDesc &dst,
-                                                        Sampling sampling) {
-    if (!canRunDirectFullKernel(src, dst)) {
-        return StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(src, dst, sampling);
+bool ImageOps::StretchBlit_Rgb8_Hwc_Rect_Rgbf16_Rect_Hwc(const ImageOpDesc &src,
+                                                         const ImageOpDesc &dst,
+                                                         Sampling sampling) {
+    const auto srcView = makeRgbSourceView(src);
+    size_t srcWidth = src.surfaceWidth;
+    size_t srcHeight = src.surfaceHeight;
+    const PixelRect &srcRect = src.rect;
+
+    Float16 *dstPtr = pek::mutablePlaneData<Float16>(dst.planes[0]);
+    size_t dstWidth = dst.surfaceWidth;
+    size_t dstHeight = dst.surfaceHeight;
+    const PixelRect &dstRect = dst.rect;
+
+    const Colorf &mean = src.mean;
+    const Colorf &std = src.std;
+
+    if (!srcView.data || !dstPtr || !hasTightDestinationStride(dst))
+        return false;
+
+    if (srcRect.x + srcRect.width > srcWidth || srcRect.y + srcRect.height > srcHeight ||
+        dstRect.x + dstRect.width > dstWidth || dstRect.y + dstRect.height > dstHeight)
+        return false;
+
+    if (dst.keepAspectRatio) {
+        pek::ImageOpDesc innerDst;
+        if (!makeLetterboxDestination(src, dst, innerDst)) {
+            return false;
+        }
+        fillRgbF16Hwc(dst, mean, std);
+        return StretchBlit_Rgb8_Hwc_Rect_Rgbf16_Rect_Hwc(src, innerDst, sampling);
+    }
+
+    constexpr float inv255 = 1.0f / 255.0f;
+    constexpr size_t C = 3;
+
+    if (pek::MeanStd::isDefaultMean(mean) && pek::MeanStd::isDefaultStd(std)) {
+        for (size_t dy = 0; dy < dstRect.height; ++dy) {
+            const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
+            const uint8_t *srcRow = rgbRowAt(srcView, sy);
+            const size_t dyi = dstRect.y + dy;
+
+            for (size_t dx = 0; dx < dstRect.width; ++dx) {
+                const size_t sx = srcRect.x + (dx * srcRect.width) / dstRect.width;
+                const size_t dxi = dstRect.x + dx;
+
+                const uint8_t *p = srcRow + sx * RgbBytesPerPixel;
+                Float16 *q = dstPtr + (dyi * dstWidth + dxi) * C;
+
+                q[0] = static_cast<Float16>(p[0] * inv255);
+                q[1] = static_cast<Float16>(p[1] * inv255);
+                q[2] = static_cast<Float16>(p[2] * inv255);
+            }
+        }
+    } else {
+        const auto [meanR, meanG, meanB, meanA] = mean;
+        const auto [stdR, stdG, stdB, stdA] = std;
+        (void)meanA;
+        (void)stdA;
+
+        constexpr float eps = 1e-12f;
+        const float invStdR = 1.0f / std::max(stdR, eps);
+        const float invStdG = 1.0f / std::max(stdG, eps);
+        const float invStdB = 1.0f / std::max(stdB, eps);
+
+        for (size_t dy = 0; dy < dstRect.height; ++dy) {
+            const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
+            const uint8_t *srcRow = rgbRowAt(srcView, sy);
+            const size_t dyi = dstRect.y + dy;
+
+            for (size_t dx = 0; dx < dstRect.width; ++dx) {
+                const size_t sx = srcRect.x + (dx * srcRect.width) / dstRect.width;
+                const size_t dxi = dstRect.x + dx;
+
+                const uint8_t *p = srcRow + sx * RgbBytesPerPixel;
+                Float16 *q = dstPtr + (dyi * dstWidth + dxi) * C;
+
+                q[0] = static_cast<Float16>((p[0] * inv255 - meanR) * invStdR);
+                q[1] = static_cast<Float16>((p[1] * inv255 - meanG) * invStdG);
+                q[2] = static_cast<Float16>((p[2] * inv255 - meanB) * invStdB);
+            }
+        }
     }
 
     (void)sampling;
 
-    const uint8_t *srcPtr = src.data;
-    const size_t srcWidth = src.surfaceWidth;
-    const size_t srcHeight = src.surfaceHeight;
+    return true;
+}
 
-    float *dstPtr = (float *)dst.data;
+bool ImageOps::StretchBlit_Rgb8_Hwc_Full_Gray8_Full(const ImageOpDesc &src,
+                                                    const ImageOpDesc &dst,
+                                                    Sampling sampling) {
+    if (!canRunDirectFullKernel(src, dst)) {
+        return StretchBlit_Rgb8_Hwc_Rect_Gray8_Rect(src, dst, sampling);
+    }
+
+    (void)sampling;
+
+    const auto srcView = makeRgbSourceView(src);
+
+    uint8_t *dstPtr = pek::mutablePlaneData<uint8_t>(dst.planes[0]);
     const size_t dstWidth = dst.surfaceWidth;
     const size_t dstHeight = dst.surfaceHeight;
 
-    if (!srcPtr || !dstPtr)
+    if (!srcView.data || !dstPtr || !hasTightDestinationStride(dst))
         return false;
 
-    constexpr float inv255 = 1.0f / 255.0f;
-    const size_t srcPlane = srcWidth * srcHeight;
-    const size_t dstPlane = dstWidth * dstHeight;
-
     for (size_t y = 0; y < dstHeight; ++y) {
+        const uint8_t *srcRow = rgbRowAt(srcView, y);
         for (size_t x = 0; x < dstWidth; ++x) {
-            const size_t srcHw = y * srcWidth + x;
-            const size_t dstHw = y * dstWidth + x;
-            dstPtr[0 * dstPlane + dstHw] = srcPtr[0 * srcPlane + srcHw] * inv255;
-            dstPtr[1 * dstPlane + dstHw] = srcPtr[1 * srcPlane + srcHw] * inv255;
-            dstPtr[2 * dstPlane + dstHw] = srcPtr[2 * srcPlane + srcHw] * inv255;
+            const uint8_t *p = srcRow + x * RgbBytesPerPixel;
+            const uint8_t r = p[0];
+            const uint8_t g = p[1];
+            const uint8_t b = p[2];
+            const auto yy = static_cast<uint16_t>(77u * r + 150u * g + 29u * b + 128u);
+            dstPtr[y * dstWidth + x] = static_cast<uint8_t>(yy >> 8);
         }
     }
 
     return true;
 }
 
-bool ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Chw(const ImageOpDesc &src,
-                                                        const ImageOpDesc &dst,
-                                                        Sampling sampling) {
-    if (!canRunDirectFullKernel(src, dst)) {
-        return StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Chw(src, dst, sampling);
+bool ImageOps::StretchBlit_Rgb8_Hwc_Rect_Gray8_Rect(const ImageOpDesc &src,
+                                                    const ImageOpDesc &dst,
+                                                    Sampling sampling) {
+    const auto srcView = makeRgbSourceView(src);
+    size_t srcWidth = src.surfaceWidth;
+    size_t srcHeight = src.surfaceHeight;
+    const PixelRect &srcRect = src.rect;
+
+    uint8_t *dstPtr = pek::mutablePlaneData<uint8_t>(dst.planes[0]);
+    size_t dstWidth = dst.surfaceWidth;
+    size_t dstHeight = dst.surfaceHeight;
+    const PixelRect &dstRect = dst.rect;
+
+    if (!srcView.data || !dstPtr || !hasTightDestinationStride(dst))
+        return false;
+
+    if (srcRect.x + srcRect.width > srcWidth || srcRect.y + srcRect.height > srcHeight ||
+        dstRect.x + dstRect.width > dstWidth || dstRect.y + dstRect.height > dstHeight)
+        return false;
+
+    if (dst.keepAspectRatio) {
+        pek::ImageOpDesc innerDst;
+        if (!makeLetterboxDestination(src, dst, innerDst)) {
+            return false;
+        }
+        fillGray8(dst);
+        return StretchBlit_Rgb8_Hwc_Rect_Gray8_Rect(src, innerDst, sampling);
     }
 
     (void)sampling;
 
-    const uint8_t *srcPtr = src.data;
-    const size_t srcWidth = src.surfaceWidth;
-    const size_t srcHeight = src.surfaceHeight;
+    for (size_t dy = 0; dy < dstRect.height; ++dy) {
+        const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
+        const uint8_t *srcRow = rgbRowAt(srcView, sy);
+        const size_t dyi = dstRect.y + dy;
 
-    Float16 *dstPtr = (Float16 *)dst.data;
+        for (size_t dx = 0; dx < dstRect.width; ++dx) {
+            const size_t sx = srcRect.x + (dx * srcRect.width) / dstRect.width;
+            const size_t dxi = dstRect.x + dx;
+
+            const uint8_t *p = srcRow + sx * RgbBytesPerPixel;
+            const uint8_t r = p[0];
+            const uint8_t g = p[1];
+            const uint8_t b = p[2];
+
+            const auto y = static_cast<uint16_t>(77u * r + 150u * g + 29u * b + 128u);
+            dstPtr[dyi * dstWidth + dxi] = static_cast<uint8_t>(y >> 8);
+        }
+    }
+
+    return true;
+}
+
+bool ImageOps::StretchBlit_Rgb8_Hwc_Full_Grayf32_Full(const ImageOpDesc &src,
+                                                      const ImageOpDesc &dst,
+                                                      Sampling sampling) {
+    if (!canRunDirectFullKernel(src, dst)) {
+        return StretchBlit_Rgb8_Hwc_Rect_Grayf32_Rect(src, dst, sampling);
+    }
+
+    (void)sampling;
+
+    const auto srcView = makeRgbSourceView(src);
+
+    float *dstPtr = pek::mutablePlaneData<float>(dst.planes[0]);
     const size_t dstWidth = dst.surfaceWidth;
     const size_t dstHeight = dst.surfaceHeight;
 
-    if (!srcPtr || !dstPtr)
+    const Colorf &mean = src.mean;
+    const Colorf &std = src.std;
+
+    if (!srcView.data || !dstPtr || !hasTightDestinationStride(dst))
         return false;
 
     constexpr float inv255 = 1.0f / 255.0f;
-    const size_t srcPlane = srcWidth * srcHeight;
-    const size_t dstPlane = dstWidth * dstHeight;
 
-    for (size_t y = 0; y < dstHeight; ++y) {
-        for (size_t x = 0; x < dstWidth; ++x) {
-            const size_t srcHw = y * srcWidth + x;
-            const size_t dstHw = y * dstWidth + x;
-            dstPtr[0 * dstPlane + dstHw] =
-                static_cast<Float16>(srcPtr[0 * srcPlane + srcHw] * inv255);
-            dstPtr[1 * dstPlane + dstHw] =
-                static_cast<Float16>(srcPtr[1 * srcPlane + srcHw] * inv255);
-            dstPtr[2 * dstPlane + dstHw] =
-                static_cast<Float16>(srcPtr[2 * srcPlane + srcHw] * inv255);
+    if (pek::MeanStd::isDefaultMean(mean) && pek::MeanStd::isDefaultStd(std)) {
+        for (size_t y = 0; y < dstHeight; ++y) {
+            const uint8_t *srcRow = rgbRowAt(srcView, y);
+            for (size_t x = 0; x < dstWidth; ++x) {
+                const uint8_t *p = srcRow + x * RgbBytesPerPixel;
+                const float r = static_cast<float>(p[0]) * inv255;
+                const float g = static_cast<float>(p[1]) * inv255;
+                const float b = static_cast<float>(p[2]) * inv255;
+                dstPtr[y * dstWidth + x] = 0.299f * r + 0.587f * g + 0.114f * b;
+            }
+        }
+    } else {
+        constexpr float eps = 1e-12f;
+        const float invStd = 1.0f / std::max(std.r, eps);
+
+        for (size_t y = 0; y < dstHeight; ++y) {
+            const uint8_t *srcRow = rgbRowAt(srcView, y);
+            for (size_t x = 0; x < dstWidth; ++x) {
+                const uint8_t *p = srcRow + x * RgbBytesPerPixel;
+                const float r = static_cast<float>(p[0]) * inv255;
+                const float g = static_cast<float>(p[1]) * inv255;
+                const float b = static_cast<float>(p[2]) * inv255;
+                const float gray = 0.299f * r + 0.587f * g + 0.114f * b;
+                dstPtr[y * dstWidth + x] = (gray - mean.r) * invStd;
+            }
         }
     }
 
     return true;
 }
 
-bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(const ImageOpDesc &src,
-                                                        const ImageOpDesc &dst,
-                                                        Sampling sampling) {
-    const uint8_t *srcPtr = src.data;
-    size_t srcWidth = src.surfaceWidth;
-    size_t srcHeight = src.surfaceHeight;
+bool ImageOps::StretchBlit_Rgb8_Hwc_Rect_Grayf32_Rect(const ImageOpDesc &src,
+                                                      const ImageOpDesc &dst,
+                                                      Sampling sampling) {
+    const auto srcView = makeRgbSourceView(src);
+    const size_t srcWidth = src.surfaceWidth;
+    const size_t srcHeight = src.surfaceHeight;
     const PixelRect &srcRect = src.rect;
 
-    float *dstPtr = (float *)dst.data;
-    size_t dstWidth = dst.surfaceWidth;
-    size_t dstHeight = dst.surfaceHeight;
+    float *dstPtr = pek::mutablePlaneData<float>(dst.planes[0]);
+    const size_t dstWidth = dst.surfaceWidth;
+    const size_t dstHeight = dst.surfaceHeight;
     const PixelRect &dstRect = dst.rect;
 
-    if (!srcPtr || !dstPtr)
+    if (!srcView.data || !dstPtr || !hasTightDestinationStride(dst))
         return false;
 
     if (srcRect.x + srcRect.width > srcWidth || srcRect.y + srcRect.height > srcHeight ||
         dstRect.x + dstRect.width > dstWidth || dstRect.y + dstRect.height > dstHeight)
         return false;
 
-    if (dst.keepAspectRatio) {
-        pek::ImageOpDesc innerDst;
-        if (!makeLetterboxDestination(src, dst, innerDst)) {
-            return false;
-        }
-        fillRgbF32Chw(dst, defaultMean, defaultStd);
-        return StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(src, innerDst, sampling);
-    }
-
-    constexpr float inv255 = 1.0f / 255.0f;
-
-    const size_t Wdst = dstWidth;
-    const size_t Hdst = dstHeight;
-
-    const size_t srcPlane = srcWidth * srcHeight; // CHW source planes
-    const size_t dstPlane = Wdst * Hdst;          // CHW dest planes
-
-    (void)sampling;
-
-    // nearest-neighbor resize, CHW(u8) -> CHW(f32)
-    for (size_t dy = 0; dy < dstRect.height; ++dy) {
-        const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
-        const size_t dyi = dstRect.y + dy;
-
-        for (size_t dx = 0; dx < dstRect.width; ++dx) {
-            const size_t sx = srcRect.x + (dx * srcRect.width) / dstRect.width;
-            const size_t dxi = dstRect.x + dx;
-
-            const size_t srcHw = sy * srcWidth + sx;
-            const size_t dstHw = dyi * Wdst + dxi;
-
-            const uint8_t r = srcPtr[0 * srcPlane + srcHw];
-            const uint8_t g = srcPtr[1 * srcPlane + srcHw];
-            const uint8_t b = srcPtr[2 * srcPlane + srcHw];
-
-            dstPtr[0 * dstPlane + dstHw] = r * inv255;
-            dstPtr[1 * dstPlane + dstHw] = g * inv255;
-            dstPtr[2 * dstPlane + dstHw] = b * inv255;
-        }
-    }
-
-    return true;
-}
-
-bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Hwc(const ImageOpDesc &src,
-                                                        const ImageOpDesc &dst,
-                                                        Sampling sampling) {
-    const uint8_t *srcPtr = src.data;
-    size_t srcWidth = src.surfaceWidth;
-    size_t srcHeight = src.surfaceHeight;
-    const PixelRect &srcRect = src.rect;
-
-    Float16 *dstPtr = (Float16 *)dst.data;
-    size_t dstWidth = dst.surfaceWidth;
-    size_t dstHeight = dst.surfaceHeight;
-    const PixelRect &dstRect = dst.rect;
-
-    if (!srcPtr || !dstPtr)
-        return false;
-
-    if (srcRect.x + srcRect.width > srcWidth || srcRect.y + srcRect.height > srcHeight ||
-        dstRect.x + dstRect.width > dstWidth || dstRect.y + dstRect.height > dstHeight)
-        return false;
+    const Colorf &mean = src.mean;
+    const Colorf &std = src.std;
 
     if (dst.keepAspectRatio) {
         pek::ImageOpDesc innerDst;
         if (!makeLetterboxDestination(src, dst, innerDst)) {
             return false;
         }
-        fillRgbF16Hwc(dst, defaultMean, defaultStd);
-        return StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Hwc(src, innerDst, sampling);
+        fillGrayF32(dst, mean, std);
+        return StretchBlit_Rgb8_Hwc_Rect_Grayf32_Rect(src, innerDst, sampling);
     }
 
     constexpr float inv255 = 1.0f / 255.0f;
-    const size_t C = 3;
-    const size_t Wdst = dstWidth;
-    const size_t srcPlane = srcWidth * srcHeight;
+
+    if (pek::MeanStd::isDefaultMean(mean) && pek::MeanStd::isDefaultStd(std)) {
+        for (size_t dy = 0; dy < dstRect.height; ++dy) {
+            const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
+            const uint8_t *srcRow = rgbRowAt(srcView, sy);
+            const size_t dyi = dstRect.y + dy;
+
+            for (size_t dx = 0; dx < dstRect.width; ++dx) {
+                const size_t sx = srcRect.x + (dx * srcRect.width) / dstRect.width;
+                const size_t dxi = dstRect.x + dx;
+
+                const uint8_t *p = srcRow + sx * RgbBytesPerPixel;
+                const float r = static_cast<float>(p[0]) * inv255;
+                const float g = static_cast<float>(p[1]) * inv255;
+                const float b = static_cast<float>(p[2]) * inv255;
+                dstPtr[dyi * dstWidth + dxi] = 0.299f * r + 0.587f * g + 0.114f * b;
+            }
+        }
+    } else {
+        constexpr float eps = 1e-12f;
+        const float invStd = 1.0f / std::max(std.r, eps);
+
+        for (size_t dy = 0; dy < dstRect.height; ++dy) {
+            const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
+            const uint8_t *srcRow = rgbRowAt(srcView, sy);
+            const size_t dyi = dstRect.y + dy;
+
+            for (size_t dx = 0; dx < dstRect.width; ++dx) {
+                const size_t sx = srcRect.x + (dx * srcRect.width) / dstRect.width;
+                const size_t dxi = dstRect.x + dx;
+
+                const uint8_t *p = srcRow + sx * RgbBytesPerPixel;
+                const float r = static_cast<float>(p[0]) * inv255;
+                const float g = static_cast<float>(p[1]) * inv255;
+                const float b = static_cast<float>(p[2]) * inv255;
+                const float gray = 0.299f * r + 0.587f * g + 0.114f * b;
+                dstPtr[dyi * dstWidth + dxi] = (gray - mean.r) * invStd;
+            }
+        }
+    }
 
     (void)sampling;
-
-    for (size_t dy = 0; dy < dstRect.height; ++dy) {
-        const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
-        const size_t dyi = dstRect.y + dy;
-
-        for (size_t dx = 0; dx < dstRect.width; ++dx) {
-            const size_t sx = srcRect.x + (dx * srcRect.width) / dstRect.width;
-            const size_t dxi = dstRect.x + dx;
-
-            const size_t srcHw = sy * srcWidth + sx;
-            const uint8_t r = srcPtr[0 * srcPlane + srcHw];
-            const uint8_t g = srcPtr[1 * srcPlane + srcHw];
-            const uint8_t b = srcPtr[2 * srcPlane + srcHw];
-
-            const size_t dstIndex = (dyi * Wdst + dxi) * C;
-            dstPtr[dstIndex + 0] = static_cast<Float16>(r * inv255);
-            dstPtr[dstIndex + 1] = static_cast<Float16>(g * inv255);
-            dstPtr[dstIndex + 2] = static_cast<Float16>(b * inv255);
-        }
-    }
-
-    return true;
-}
-
-bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Chw(const ImageOpDesc &src,
-                                                        const ImageOpDesc &dst,
-                                                        Sampling sampling) {
-    const uint8_t *srcPtr = src.data;
-    size_t srcWidth = src.surfaceWidth;
-    size_t srcHeight = src.surfaceHeight;
-    const PixelRect &srcRect = src.rect;
-
-    Float16 *dstPtr = (Float16 *)dst.data;
-    size_t dstWidth = dst.surfaceWidth;
-    size_t dstHeight = dst.surfaceHeight;
-    const PixelRect &dstRect = dst.rect;
-
-    if (!srcPtr || !dstPtr)
-        return false;
-
-    if (srcRect.x + srcRect.width > srcWidth || srcRect.y + srcRect.height > srcHeight ||
-        dstRect.x + dstRect.width > dstWidth || dstRect.y + dstRect.height > dstHeight)
-        return false;
-
-    if (dst.keepAspectRatio) {
-        pek::ImageOpDesc innerDst;
-        if (!makeLetterboxDestination(src, dst, innerDst)) {
-            return false;
-        }
-        fillRgbF16Chw(dst, defaultMean, defaultStd);
-        return StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Chw(src, innerDst, sampling);
-    }
-
-    constexpr float inv255 = 1.0f / 255.0f;
-    const size_t Wdst = dstWidth;
-    const size_t Hdst = dstHeight;
-    const size_t srcPlane = srcWidth * srcHeight;
-    const size_t dstPlane = Wdst * Hdst;
-
-    (void)sampling;
-
-    for (size_t dy = 0; dy < dstRect.height; ++dy) {
-        const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
-        const size_t dyi = dstRect.y + dy;
-
-        for (size_t dx = 0; dx < dstRect.width; ++dx) {
-            const size_t sx = srcRect.x + (dx * srcRect.width) / dstRect.width;
-            const size_t dxi = dstRect.x + dx;
-
-            const size_t srcHw = sy * srcWidth + sx;
-            const size_t dstHw = dyi * Wdst + dxi;
-
-            const uint8_t r = srcPtr[0 * srcPlane + srcHw];
-            const uint8_t g = srcPtr[1 * srcPlane + srcHw];
-            const uint8_t b = srcPtr[2 * srcPlane + srcHw];
-
-            dstPtr[0 * dstPlane + dstHw] = static_cast<Float16>(r * inv255);
-            dstPtr[1 * dstPlane + dstHw] = static_cast<Float16>(g * inv255);
-            dstPtr[2 * dstPlane + dstHw] = static_cast<Float16>(b * inv255);
-        }
-    }
 
     return true;
 }

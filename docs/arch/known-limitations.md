@@ -15,8 +15,8 @@ runtime. Treat these as constraints when extending the system.
   and pipeline state control in one GStreamer element.
 - Browser UI hosting should move out of `peksink`; the runtime should publish
   media and perception results through a stable contract.
-- `pekcomm` can publish serialized `Perception`, but there is no standard,
-  versioned application endpoint for perception results yet.
+- `pekcomm` can publish serialized `FrameResults` packets, but there is no
+  standard, versioned application endpoint for perception results yet.
 
 ## Security And Lifecycle
 
@@ -27,8 +27,9 @@ runtime. Treat these as constraints when extending the system.
 
 ## Perception And Postprocessing Contracts
 
-- New `Perception` result structures still require coordinated C++ changes across
-  the common model, serializer, parser, and visualization code.
+- New persistent result shapes require a Perception schema update and regenerated
+  SDK. Parser, tracker, publishing, or visualization changes are still required
+  when those components need to produce or consume the new payload semantics.
 - Custom postprocessing is C++-only today and registered through
   `GenericPostprocessOp`.
 - `pekosd` rendering is hardcoded around known content types, so it is best
@@ -51,9 +52,9 @@ runtime. Treat these as constraints when extending the system.
 
 ## Configuration And OpChain Contracts
 
-- JSON model, OpChain, and pipeline schemas need stronger documentation,
-  validation, and tests.
-- Descriptor versioning and migration rules are not defined.
+- Top-level pipeline JSON is not covered by a versioned schema or semantic validator.
+- Model and OpChain v1 are versioned, but migration policy for future descriptor versions is not
+  defined.
 - OpChain execution is ordered and supports grouped loops, but richer scheduling
   such as startup-only stages is not represented cleanly.
 
@@ -72,8 +73,8 @@ runtime. Treat these as constraints when extending the system.
   or memory consumption.
 - `PerformanceTracer` and `pekperformance` exist, but measurement checkpoints are
   not yet a user-facing contract.
-- Coverage is thin for parser behavior, known inference outputs, JSON/schema
-  validation, and GStreamer element lifecycle behavior.
+- Coverage is thin for parser behavior, known inference outputs, and GStreamer
+  element lifecycle behavior.
 
 ## Packaging And Deployment
 

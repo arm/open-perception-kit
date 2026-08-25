@@ -4,14 +4,14 @@
 
 #include "ModNetSegmentationParser.h"
 #include <algorithm>
+#include <memory>
+#include <utility>
 
 using namespace pek;
 using namespace pek::stdop::postproc;
 
-Result<void> ModNetSegmentationParser::parse(const Input &input, Perception::Layer &layer) {
-    layer.contentType = "segmentation";
-    layer.compositingMode = "backgroundReplacement";
-
+Result<void> ModNetSegmentationParser::parse(const Input &input,
+                                             perception::FrameResults &results) {
     const float thresholdLow = (float)input.attributes.getDoubleOrDefault("thresholdLow", 0.2f);
     const float thresholdHigh = (float)input.attributes.getDoubleOrDefault("thresholdHigh", 0.8f);
 
@@ -51,10 +51,19 @@ Result<void> ModNetSegmentationParser::parse(const Input &input, Perception::Lay
         }
     }
 
-    // Create SegmentationMap detection
-    Perception::SegmentationMap segMap;
-    segMap.bitmap = std::move(alphaMatte);
+    auto mask = std::make_unique<perception::metadata::SegmentationMaskT>();
+    mask->object = perception::makeObjectMeta(0U, input.inferenceInfo.parentId);
+    mask->bitmap = perception::makeBitmapData(alphaMatte);
 
-    layer.detections.emplace_back(std::move(segMap));
+    perception::metadata::SegmentationMasksT payload;
+    payload.layer = perception::makeLayerInfo(input.inferenceInfo.modelName,
+                                              input.inferenceInfo.inferElementId,
+                                              "segmentation",
+                                              "",
+                                              "",
+                                              "",
+                                              "backgroundReplacement");
+    payload.masks.push_back(std::move(mask));
+    results.add(std::move(payload));
     return {};
 }

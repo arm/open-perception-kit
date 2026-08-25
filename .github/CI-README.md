@@ -11,30 +11,152 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 
 ## What does `.github/workflows/pek-ci.yml` do?
 
-- Runs the actual checks
+- Builds one exact-SHA PEK CI image, shares it within the workflow run, then runs
+  Quality, Sonar, release Sonar, Valgrind, and the `pek-ci` Docker Scout scan
+  from that image.
+- Uploads the PR image for the trusted GHCR publisher in the same build job, so
+  every consumer waits for one complete image handoff.
+- Reuses Docker layers through the ref-scoped cache flow below.
+- Starts the Linux, Raspberry Pi, and macOS quick-start checks independently
+  because they build their own platform images.
+- Routes `run-python-audit`, `run-docker-scout`, and `run-workflow-audit` PR
+  labels through this workflow so label-triggered checks do not create duplicate
+  PR workflows. Workflow dependency freshness keeps its scheduled and manual
+  entry points in `workflow-audit.yml`.
+- Supports manual `all`, `quality`, `sonar`, and `valgrind` selections.
+- Uses each pull request's immediate base branch, including stacked pull requests.
+- Owns the nightly Quality and Valgrind run, the native deployment image
+  caches, and the Valgrind baseline artifact.
+- Owns release-tag Sonar analysis; the required PR Sonar check keeps the exact
+  `Run Sonar analysis in Docker` name.
 - Runs pull request quality checks through `expkits-ci --ci-pr-checks`.
 - Runs full/nightly quality checks through `expkits-ci --ci-full-checks`.
+- Applies CI exceptions from the root-level `ci-suppressions.txt`. Each line is
+  one `SUPPRESSION_TYPE: Reason` entry and remains as suppression history.
+- Supports Sonar gate suppressions for `UNIT_TEST_COVERAGE`, `CODE_DUPLICATION`,
+  `MAINTAINABILITY`, `RELIABILITY`, `SECURITY`, and `SECURITY_HOTSPOTS`.
+  Sonar findings and unsuppressed gate conditions remain blocking.
+- Lets `pek-ci-image-cleanup.yml` delete successful/cancelled run handoffs and
+  all remaining PR caches when the pull request closes. Failed-run handoffs stay
+  available for failed-job reruns.
+
+The Python dependency, Docker Scout, and workflow dependency workflows remain
+reusable and keep their independent schedule/manual triggers. Their direct PR
+triggers are disabled; `pek-ci.yml` owns PR orchestration. Scheduled report
+sources and artifact names therefore stay unchanged.
+
+`.github/workflows/valgrind.yml` is only the trusted `pull_request_target`
+publisher that requests a missing baseline from `pek-ci.yml`; it never runs PR
+code. Its trusted helper also covers feature-branch bases used by stacked pull
+requests.
+
+### Cache flow
+
+GHCR stores the latest successful image for each PR, exact-SHA Valgrind
+baselines, and the nightly amd64/arm64 deployment images. Those deployment
+builds export their complete BuildKit graphs to architecture-specific registry
+cache tags. Other Docker layers and compiler outputs use the GitHub Actions
+cache.
+
+| Run | Docker layers read from | Docker layers written to |
+| --- | --- | --- |
+| `main` or `develop` | Current branch cache | Current branch baseline |
+| First PR run | Available base/default branch baseline | `refs/pull/<number>/merge` |
+| Later PR commit or rerun | The PR cache, with base/default as fallback | The same PR cache |
+
+The Buildx scope is always `pek-ci`. GitHub applies the branch and PR isolation;
+the workflow does not build its own cache-key hierarchy. A PR cannot overwrite
+the `main` or `develop` baseline. The same rule applies to stacked PRs: each PR
+writes only its own merge ref.
+
+| Stored data | Purpose | Lifetime |
+| --- | --- | --- |
+| Buildx `pek-ci` cache | Reuse Docker layers between runs | Branch/PR ref; deleted when the PR closes or GitHub evicts it |
+| Quality, Sonar, and Valgrind ccache | Reuse compiled objects for the same check | PR ref; deleted when the PR closes or GitHub evicts it |
+| Sonar CFamily server cache | Reuse target-branch or main fallback analysis in pull requests | Updated by `main` and `develop` push analysis |
+| Run image cache | Pass the image from `Build PEK CI image` to its dependent jobs | Exact run; retained after failure for rerun, deleted after success/cancel or PR close |
+| PR image artifact | Pass the verified image to the trusted GHCR publisher | One day |
+| `pek-ci-pr-<number>` image in GHCR | Pull the latest successful PEK CI image locally | Replaced after the next successful run; deleted when the PR closes |
+| `nightly-amd64` and `nightly-arm64` deployment images in GHCR | Seed native release runtime layers | Replaced by the next nightly run |
+| `buildcache-amd64` and `buildcache-arm64` in GHCR | Seed the complete native deployment build graph | Replaced by the next nightly run |
+| Valgrind baseline in GHCR | Compare against the exact base SHA | Managed by the trusted baseline publisher |
+
+The pull-request workflow has no package-write permission. After successful CI,
+the trusted `PEK CI Image` workflow publishes the verified image:
+
+```console
+docker pull ghcr.io/arm-debug/amp-dev-forge-ci:pek-ci-pr-<number>
+```
+
+References: GitHub [cache access restrictions](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching#restrictions-for-accessing-a-cache),
+Docker [Buildx `gha` cache scope](https://docs.docker.com/build/cache/backends/gha/#scope),
+and Sonar [incremental analysis](https://docs.sonarsource.com/sonarqube-server/2025.4/analyzing-source-code/incremental-analysis/introduction/).
+
+### Measured PR timings
+
+Queue time is excluded; job time includes setup and cleanup. The legacy
+baseline built the same CI image independently in each job. Cold and warm paths
+include the shared producer once; warm reran the same SHA with populated image
+and compiler caches. Quick-start jobs are excluded because they remain
+independent of this x86_64 image.
+
+| Path | Legacy baseline | Cold ref cache | Warm rerun | Warm reduction |
+| --- | ---: | ---: | ---: | ---: |
+| CI image | built in every job | [5:33](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93442576791) | [1:27](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93447199213) | n/a |
+| Quality E2E | [10:07](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31254094969/job/93094753719) | 5:33 + [9:12](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93443869967) = 14:45 | 1:27 + [5:01](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93447548498) = 6:28 | 36.1% |
+| Sonar E2E | [20:00](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31254094986/job/93094753758) | 5:33 + [14:01](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93443869962) = 19:34 | 1:27 + [14:02](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93447548602) = 15:29 | 22.6% |
+| Valgrind E2E | [11:52](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31254094974/job/93094753670) | 5:33 + [8:30](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93443869925) = 14:03 | 1:27 + [5:55](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31384465615/job/93447548536) = 7:22 | 37.9% |
+| Critical path | 20:00 | 19:34 | 15:29 | 22.6% |
+| Runner time | 41:59 | 37:16 | 26:25 | 37.1% |
+
+The cold run followed deletion of every PR cache; the warm run reran the same
+SHA. Their cache-sensitive steps show where the warm reduction comes from:
+
+| Cache-sensitive step | Cold | Warm |
+| --- | ---: | ---: |
+| Build CI image | 4:48 | 0:42, all 17 layers cached |
+| Quality build and unit tests | 7:01, 2/113 hits | 2:53, 112/113 hits |
+| Valgrind checks | 5:52, 2/88 hits | 3:34, 87/88 hits |
+| Sonar analysis | 11:48, 0/96 server hits | 11:45, 0/96 server hits |
+
+After a `develop` branch analysis seeded Sonar's server cache, the same PR Sonar
+job reran in [8:30](https://github.com/Arm-Debug/amp-dev-forge/actions/runs/31387622127/job/93458223381):
+the analysis step fell from 11:46 to 6:07, with 54/96 CFamily cache hits and an
+81% symbolic-execution hit rate. The same-head CI image-to-Sonar path is 9:50,
+10:10 (50.8%) shorter than the legacy baseline.
 
 ## What does `.github/workflows/release-tests.yml` do?
 
-- Runs directly only for pull requests targeting `main`.
-- Builds temporary x86_64 and Arm candidate archives and runs the native
-  package smoke test for each architecture. It does not build documentation or
-  publish a release.
+- Runs for pull requests targeting `main`, or manually for a selected
+  `source_ref`.
+- Builds temporary x86_64 and Arm release snapshot images. Each image runs its
+  native offline Perception integration smoke during the Docker build and
+  exports its validated archive. A successful run is followed by
+  disposable Artifactory and draft GitHub Release publication probes; both
+  probes delete their uploads. It does not build documentation or retain a
+  published release.
 
 ## What does `.github/workflows/release-packages.yml` do?
 
-| Event | Validation workflow | Package workflow outcome |
-| --- | --- | --- |
-| Pull request targeting `main` | Builds and smoke-tests the two architecture candidates | Not run |
-| Push to `main` | Not run | Builds all three archives, smoke-tests both architecture archives, and publishes one GitHub Release plus one Artifactory folder |
-| Manual dispatch | Not run | Resolves `source_ref`, builds all three archives, smoke-tests both architecture archives, and publishes one Artifactory folder |
+| Event | Candidate validation | Publication validation | Package publication |
+| --- | --- | --- | --- |
+| Pull request targeting `main` | Builds and smoke-tests the two architecture snapshot images | Uploads, verifies, and deletes both disposable publication targets | Not run |
+| Push to `main` | Not run | Not run | Builds all three archives, smoke-tests and publishes one multi-architecture GHCR image, then publishes one GitHub Release plus one Artifactory folder |
+| Manual release validation | Resolves `source_ref`, builds and smoke-tests the two temporary architecture images | Uploads, verifies, and deletes both disposable publication targets | Not run |
+| Manual package publication | Not run | Not run | Resolves `source_ref`, builds all three archives, smoke-tests and publishes one multi-architecture GHCR snapshot, then publishes one Artifactory folder |
 
-Both workflows execute `SmokePackage.py` against their exact x86_64 and Arm
-archives. Each smoke uses PyGObject to load the packaged private runtime,
-discover the plugins through `GST_PLUGIN_PATH`, run inference to EOS, and
-verify the packaged `peksink` web content.
-Push and manual publication jobs cannot start unless both package smokes pass.
+For release builds, `pek-deployment-base` runs its smoke inside the existing
+Dockerfile with networking disabled. The non-root runtime extracts the generated
+archive, discovers its installed plugins, executes YOLov11 with ONNX Runtime and
+YOLOX with ExecuTorch, requires non-empty output from `pekcomm`, and starts the
+packaged `peksink` web surface. No separate smoke image or Dockerfile is built.
+Push and manual publication jobs cannot start unless both native image builds
+pass.
+The native jobs push the existing `pek-deployment-base` outputs by digest and a
+small merge job publishes those exact amd64 and arm64 digests as
+`ghcr.io/arm-debug/amp-dev-forge-deployment:<tag>` without rebuilding. Stable
+tags are the product version; manual tags also include the run ID and attempt.
+The summary records the immutable multi-architecture digest.
 For pushes to `main`, Artifactory publication also waits for the GitHub Release
 job to succeed. An existing `v<version>` therefore prevents publication to both
 release destinations. Manual snapshots do not create or depend on a GitHub
@@ -47,33 +169,51 @@ publication writes to
 The same URL is used for uploads and generated download links.
 The final Artifactory workflow log and `$GITHUB_STEP_SUMMARY` expose the folder,
 all three links, and SHA-256 values for both paths.
-If GitHub Release publication succeeds but Artifactory later fails, repair or
-remove the partial GitHub Release before rerunning the workflow.
+If GHCR or GitHub Release publication succeeds but a later publication fails,
+repair or remove the partial publication before rerunning the workflow.
 
-Each workflow resolves the selected commit's pinned `hfDownload` descriptors
-once with `scripts/download-models.py` and transfers that model tree to both
-architecture builds as a short-lived Actions artifact. Both archives receive
-exactly the same six ONNX model directories: `cam-contact`, `gaze-detection`,
-`osnet_x0_25`, `ultraface`, `yolo26`, and `yolov11`. Published packages contain
-the model bytes and need neither Hugging Face access nor a token at runtime.
+Each native architecture build uses the existing `pek-models` Docker artifact
+stage to resolve the selected commit's pinned `hfDownload` descriptors. Both
+archives receive the six ONNX model directories `cam-contact`,
+`gaze-detection`, `osnet_x0_25`, `ultraface`, `yolo26`, and `yolov11`, plus the
+checked-in ExecuTorch `yolox` model. Published packages contain the model bytes
+and need neither Hugging Face access nor a token at runtime.
 
-Build inputs reuse the repository's ONNX Runtime installer. The downloaded
-ONNX Runtime package is checksum-verified. Hailo models, operation modules,
-SDKs, and runtimes are excluded from both release architectures.
+Build inputs reuse `pek-deployment-build`, which owns the repository build
+toolchain and the ONNX Runtime and ExecuTorch Debian installers. The runnable
+`pek-deployment-base` snapshot contains the prebuilt app and the validated
+release archive. It retains the deployment lane's resolved configuration,
+models, pipelines, and demo media. Release archives remain the narrow
+seven-model integration surface and contain the standard, ONNX, and
+experimental ExecuTorch operation modules, but no SDK headers or static
+libraries. The release image does not install Hailo operation modules, SDKs, or
+runtimes.
 
-Release dependency preparation gets its model and runtime inputs from these
-sources:
+The same Docker stage packages the checked-in Perception SDK snapshot. The
+workflow passes only the selected source and flowdata-sdk gitlink SHAs; it does
+not initialize the private submodule or transfer a separate SDK input artifact.
+
+Release image builds get their model and runtime inputs from these sources:
 
 | Variables | Set or referenced in |
 | --- | --- |
-| `ONNXRUNTIME_VERSION` | Defaulted in `Dockerfile`; read and passed explicitly by both release workflows |
-| `HF_TOKEN` | Read-only repository secret; exposed only to each workflow's model-resolution step while checked-in models require authentication |
+| `ONNXRUNTIME_VERSION` | Defaulted and consumed by `pek-deployment-build` |
+| `EXECUTORCH_VERSION`, `EXECUTORCH_DEB_REVISION` | Defaulted and consumed by `pek-deployment-build` |
+| `HF_TOKEN` | Read-only repository secret; exposed to `pek-models` only as a BuildKit secret while checked-in models require authentication |
+| `PEK_ARTIFACTORY_USERNAME`, `PEK_ARTIFACTORY_API_KEY` | Existing repository secrets used to read the ExecuTorch Debian package and publish release archives |
 
-`Dockerfile` remains the version authority; release workflows use the value
-from the selected source.
-Dependency preparation uses the selected source's checked-in installers and
-does not receive GitHub secrets. Only model resolution receives `HF_TOKEN`;
-package build jobs receive the resolved files and no credentials.
+`Dockerfile` remains the version authority. Release jobs build its existing
+`pek-deployment-base` target for the native architecture and copy the archive
+from `/opt/pek-release-artifacts`. The same image digest is the corresponding
+GHCR manifest input. The native jobs import the nightly deployment lane's
+architecture-specific BuildKit registry cache and fall back to its shared
+ccache. They do not upload another full BuildKit graph after every release.
+No prepared dependency or model tree is transferred between jobs.
+
+The documentation release job likewise builds the existing `pek-docs` target,
+runs `scripts/gen-doc.sh` in that container, and archives the generated HTML
+with system `tar`. There is no separate release documentation image or package
+script.
 
 Configured GitHub Actions secrets supply `HF_TOKEN`, `PEK_ARTIFACTORY_USERNAME`,
 and `PEK_ARTIFACTORY_API_KEY`. Once the workflow is registered on the default `develop`
@@ -101,7 +241,7 @@ Before making the repository or its release pipeline public:
 - make every checked-in `hfDownload` source anonymously readable;
 - remove every `${{ secrets.HF_TOKEN }}` reference from repository workflows;
 - delete the repository Actions secret after no workflow references it; and
-- run model resolution plus the x86_64 and Arm package smokes with `HF_TOKEN`
+- run model resolution plus the x86_64 and Arm image smokes with `HF_TOKEN`
   unset.
 
 Optional local BuildKit-secret support remains available for developers who add
@@ -158,7 +298,8 @@ reviewed publisher change is adopted; PEK does not copy or fork the package.
 - Runs a minimal dependency freshness report for external GitHub Actions used by repository workflows
 - Compares the current `uses:` refs against the latest GitHub release/tag for each action repository
 - Publishes one simple Markdown report and a lightweight JSON snapshot in the `workflow-dependency-freshness` artifact
-- On pull requests, reruns only the report job so workflow changes can validate the same dependency evidence without opening repair PRs
+- On pull requests, is called by `pek-ci.yml` and runs only the report job; it
+  does not open repair PRs
 
 ## What does `.github/workflows/agent-repair-source-run.yml` do?
 
@@ -231,10 +372,16 @@ reviewed publisher change is adopted; PEK does not copy or fork the package.
 
 ## Functionalities
 
-- **Triggers:** Runs on pull requests, manual dispatch, and nightly schedule.
-- **Branch and PR logic:** Only runs on non-draft PRs, or when the `run-pek-ci` label is added to a draft PR.
-- **init-workspace:** Prepares the workspace and environment.
-- **build-changed-applications:** Builds only the applications changed in a PR.
-- **build-all-applications:** Builds all applications (nightly or manual trigger).
+- **Triggers:** Runs on pull requests, `main`/`develop` pushes, `release/*`
+  tags, manual dispatch, and the nightly schedule.
+- **Branch and PR logic:** Standard checks run on non-draft PRs;
+  `run-pek-ci`, `run-macos-ci`, `run-python-audit`, `run-docker-scout`, and
+  `run-workflow-audit` route their selected work through the same PR workflow.
+- **Context:** The shared-image job resolves the exact source SHA and immediate
+  PR base; platform quick-start jobs checkout the event source directly.
+- **Shared image:** Publishes `pek-ci` once and attaches each compatible Docker
+  Compose service to it.
+- **Platform checks:** Linux, Raspberry Pi, and macOS quick-start checks build
+  their native images independently from the shared x86_64 CI image.
 - **Agent Review:** A separate advisory workflow runs Agent Review, uploads the generated artifacts for the PR, posts a fresh comment-only summary review for each successful run, and publishes inline review comments for the current findings.
 - **Ruleset sync:** A separate workflow applies the checked-in repository ruleset drafts to GitHub after they are merged to `develop`.

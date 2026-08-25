@@ -1,0 +1,4 @@
+interface:
+  display_name: "Evolve Perception Schema"
+  short_description: "Evaluate and evolve Perception schemas safely"
+  default_prompt: "Use $evolve-perception-schema to add or evolve a Perception schema and validate compatibility."

@@ -104,7 +104,7 @@ class EventFlowMonitor:
         self._qos_event_received = threading.Event()
         self.forwarded_qos_events = 0
         self.received_qos_events = 0
-        self.infer_has_perception_meta = False
+        self.infer_has_frame_results_meta = False
         self._probes = []
 
         # Events counted here escaped every pekinfer instance. An enabled, active
@@ -159,16 +159,16 @@ class EventFlowMonitor:
     def _observe_infer_buffer(
         self, _pad: Any, info: Any, _data: Any
     ) -> Any:
-        # PerceptionMeta is registered when the pipeline starts processing, so its
+        # FrameResultsMeta is registered when the pipeline starts processing, so its
         # GObject type cannot be resolved when this monitor is constructed.
-        perception_meta_api = self._gobject.type_from_name(
-            "com_arm_pek_meta_PerceptionAPI_v1"
+        frame_results_meta_api = self._gobject.type_from_name(
+            "com_arm_pek_meta_FrameResultsAPI_v1"
         )
         buffer = info.get_buffer()
-        self.infer_has_perception_meta = bool(
-            perception_meta_api
+        self.infer_has_frame_results_meta = bool(
+            frame_results_meta_api
             and buffer is not None
-            and buffer.get_meta(perception_meta_api) is not None
+            and buffer.get_meta(frame_results_meta_api) is not None
         )
         self._buffer_forwarded.set()
         return self._gst.PadProbeReturn.OK
@@ -187,7 +187,7 @@ class EventFlowMonitor:
 
     def push_buffer(self, pts: int) -> None:
         self._buffer_forwarded.clear()
-        self.infer_has_perception_meta = False
+        self.infer_has_frame_results_meta = False
         buffer = self._gst.Buffer.new_allocate(None, 16 * 16 * 4, None)
         buffer.pts = pts
         buffer.duration = self._gst.SECOND // 30
@@ -201,6 +201,12 @@ class EventFlowMonitor:
 
 
 class QosPipelineTest(unittest.TestCase):
+    PEKSINK_TESTS = {
+        "test_qos_is_disabled_by_default",
+        "test_enabling_peksink_uses_only_drain_native_qos",
+        "test_peksink_feedback_reaches_pekinfer",
+    }
+
     @classmethod
     def setUpClass(cls) -> None:
         import gi
@@ -215,6 +221,7 @@ class QosPipelineTest(unittest.TestCase):
         cls.Gst = Gst
 
     def setUp(self) -> None:
+        self.uses_peksink = self._testMethodName in self.PEKSINK_TESTS
         self.delay_op = DelayOpController(DELAY_OP_PATH)
         self.addCleanup(self.delay_op.close)
         self.directory = tempfile.TemporaryDirectory(prefix="pek-qos-")
@@ -222,11 +229,13 @@ class QosPipelineTest(unittest.TestCase):
 
         descriptors = {}
         for control_id in ("inactive", "infer"):
-            descriptor = Path(self.directory.name) / f"{control_id}-opchain.json"
+            descriptor = Path(self.directory.name) / f"opchain-{control_id}.json"
             descriptor.write_text(
                 json.dumps(
                     {
+                        "version": 1,
                         "name": f"qos-test-{control_id}",
+                        "description": "QoS integration test opchain",
                         "ops": [
                             {
                                 "id": "pek-test-qos-delay/Delay",
@@ -243,6 +252,11 @@ class QosPipelineTest(unittest.TestCase):
             )
             descriptors[control_id] = descriptor
 
+        output = (
+            "peksink name=output"
+            if self.uses_peksink
+            else "fakesink name=output async=false sync=false qos=false"
+        )
         self.pipeline = self.Gst.parse_launch(
             # The inactive instance verifies that QoS reaches the next active
             # inference element instead of being consumed unconditionally.
@@ -255,7 +269,7 @@ class QosPipelineTest(unittest.TestCase):
             "pektracker name=tracker max-missed-frames=15 qos=false ! "
             "pekperformance name=performance enabled=false qos=false ! "
             "pekosd name=osd enabled=false qos=false ! "
-            "peksink name=output"
+            f"{output}"
         )
         self.addCleanup(self.stop_pipeline)
 
@@ -271,16 +285,24 @@ class QosPipelineTest(unittest.TestCase):
         self.elements = {
             name: self.pipeline.get_by_name(name) for name in element_names
         }
-        self.elements["drain_fakesink"] = self.elements["output"].get_by_name(
-            "drain_fakesink"
-        )
-        self.elements["vconv"] = self.elements["output"].get_by_name("vconv")
         self.assertIsNotNone(self.elements["source"])
-        self.assertIsNotNone(self.elements["drain_fakesink"])
+        if self.uses_peksink:
+            self.elements["drain_fakesink"] = self.elements["output"].get_by_name(
+                "drain_fakesink"
+            )
+            self.elements["vconv"] = self.elements["output"].get_by_name("vconv")
+            self.assertIsNotNone(self.elements["drain_fakesink"])
         self.flow_monitor = EventFlowMonitor(
             self.elements["source"], self.elements["infer"], self.Gst, self.GObject
         )
+        self.qos_accepted = threading.Event()
+        self.elements["infer"].connect(
+            "notify::qos-accepted-events-debug", self._on_qos_accepted
+        )
         self.frame_duration = self.Gst.SECOND // 30
+
+    def _on_qos_accepted(self, _element: Any, _property: Any) -> None:
+        self.qos_accepted.set()
 
     def stop_pipeline(self) -> None:
         if self.pipeline is None:
@@ -292,7 +314,7 @@ class QosPipelineTest(unittest.TestCase):
         self.elements.clear()
         self.pipeline = None
         # Pad probes and PyGObject wrappers can form cycles. Collect them before the
-        # next test constructs a peksink using the same fixed network endpoints.
+        # next test creates another pipeline.
         gc.collect()
 
     def start_pipeline(self, delay_milliseconds: int = 0) -> None:
@@ -321,9 +343,10 @@ class QosPipelineTest(unittest.TestCase):
 
     def enable_controlled_inference_qos(self) -> None:
         self.enable_inference_qos()
-        # These tests inject exact events. Native converter feedback would add
-        # unrelated QoS messages to the same pipeline bus.
-        self.elements["vconv"].set_property("qos", False)
+        if self.uses_peksink:
+            # These tests inject exact events. Native converter feedback would add
+            # unrelated QoS messages to the same pipeline bus.
+            self.elements["vconv"].set_property("qos", False)
 
     def establish_segment(self) -> None:
         # appsrc sends its initial SEGMENT with the first buffer, and pekinfer
@@ -413,6 +436,10 @@ class QosPipelineTest(unittest.TestCase):
         )
         self.elements["drain_fakesink"].set_property("max-lateness", 0)
         feedback_start = 100 * self.Gst.MSECOND
+        accepted_events = self.elements["infer"].get_property(
+            "qos-accepted-events-debug"
+        )
+        self.qos_accepted.clear()
         self.flow_monitor.push_buffer(feedback_start)
         self.flow_monitor.push_buffer(feedback_start + self.frame_duration)
         self.assertTrue(
@@ -421,6 +448,14 @@ class QosPipelineTest(unittest.TestCase):
         )
         self.assertGreaterEqual(self.flow_monitor.received_qos_events, 1)
         self.assertEqual(self.flow_monitor.forwarded_qos_events, 0)
+        self.assertTrue(
+            self.qos_accepted.wait(1),
+            "pekinfer did not commit the native QoS event",
+        )
+        self.assertGreater(
+            self.elements["infer"].get_property("qos-accepted-events-debug"),
+            accepted_events,
+        )
 
         self.flow_monitor.push_buffer(feedback_start + 2 * self.frame_duration)
         message = self.pop_qos_message(
@@ -522,8 +557,8 @@ class QosPipelineTest(unittest.TestCase):
         skipped_frame_pts = event_timestamp + self.frame_duration
         self.flow_monitor.push_buffer(skipped_frame_pts)
         self.assertTrue(
-            self.flow_monitor.infer_has_perception_meta,
-            "a QoS-skipped frame did not carry PerceptionMeta",
+            self.flow_monitor.infer_has_frame_results_meta,
+            "a QoS-skipped frame did not carry FrameResultsMeta",
         )
         message = self.pop_qos_message("pekinfer did not post a QoS message")
         self.assertEqual(message.src.get_name(), "infer")

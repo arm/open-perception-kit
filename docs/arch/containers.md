@@ -46,6 +46,8 @@ Documentation lane
 CI lane
   pek-dev-base
     -> pek-ci
+  pek-demo-media
+    --copy demo videos--> pek-ci
 
 Deployment lane
   pek-build-base
@@ -56,7 +58,7 @@ Deployment lane
   pek-demo-media
     --copy demo videos--> pek-deployment-build
   pek-deployment-build
-    --copy selected /opt/pek-app and ONNX Runtime outputs-->
+    --copy selected /opt/pek-app, release archive, and ONNX Runtime outputs-->
   debian:trixie-slim
     -> pek-deployment-base
 
@@ -74,16 +76,21 @@ inheriting artifact-stage tools. Helper runtimes are intentionally separate
 top-level Dockerfiles because they do not share the core Debian build graph.
 
 The CI service mapping uses these image lanes without creating new image
-contracts for each job. `pek-release-with-ut`, `pek-valgrind-check`,
+contracts for each job. The nightly PEK CI schedule publishes native amd64 and
+arm64 `pek-deployment-base` images and their full BuildKit registry caches.
+`pek-release-with-ut`, `pek-valgrind-check`,
 `pek-generate-valgrind-summary`, `pek-quality-check-full`, `pek-sonar-check`,
 `pek-sonar-check-release`, `pek-quality-check-pull-request`, and
 `pek-clang-tidy-baseline-check` run in the `pek-ci` image. Repository-check and
 report-page jobs use their helper images. Deployment build/audit jobs use
-`pek-build-base` and `pek-deployment-base`.
+`pek-build-base` and `pek-deployment-base`. Binary release jobs build the
+existing `pek-deployment-base` target natively, export its validated archive,
+and combine the native digests into one published multi-architecture image.
 
-Containers remain the development and source deployment environment. The
-binary release archives are a separate surface: users extract the matching
-architecture package and set only its plugin directory in `GST_PLUGIN_PATH`.
+The published deployment image is the complete runnable snapshot. The binary
+release archives remain a narrower integration surface: users extract the
+matching architecture package and set only its plugin directory in
+`GST_PLUGIN_PATH`.
 
 ## Runtime Contracts
 
@@ -174,22 +181,27 @@ The lists below name the tools or runtime packages added by each layer. Child
 stages inherit everything from their parent unless noted otherwise.
 
 - `pek-build-base`: `ca-certificates`, `curl`, `git`, `build-essential`,
-  `meson`, `ninja-build`, `pkg-config`, `cmake`, `unzip`, `python3`, OpenSSL,
-  fmt, FFTW, libsoup, JSON-GLib, Cairo, and GStreamer development headers.
+  `meson`, `ninja-build`, `pkg-config`, `cmake`, `unzip`, `python3` with venv,
+  OpenSSL, fmt, FFTW, libsoup, JSON-GLib, Cairo, and GStreamer development
+  headers.
 - `pek-cross-build-base`: currently inherits `pek-build-base` and gives the
   deployment build lane a named cross-build root.
 - `pek-demo-media`: starts from `debian:trixie-slim`, adds `ca-certificates`,
-  `curl`, and `bash`, then runs `scripts/download-data.sh` unless
-  `NO_EXAMPLE_CONTENT=true`, producing `data/videos` for deployment.
+  `curl`, and `bash`, then runs `scripts/private/download-demo-videos.sh` unless
+  `NO_EXAMPLE_CONTENT=true`. The checked-in manifest locks each Box file by
+  SHA-256, and the stage emits `data/videos/SHA256SUMS` beside the verified
+  media.
 - `pek-models`: starts from `python:3.13-slim-trixie`, adds
-  `huggingface_hub==1.18.0`, then runs `scripts/download-models.py` with the
-  optional Hugging Face build secret to resolve model artifacts under
-  `config/models`.
+  `huggingface_hub==1.18.0` and `jsonschema==4.26.0`, then runs
+  `scripts/download-models.py` with the optional Hugging Face build secret to
+  resolve model artifacts under `config/models`.
 - `pek-dev-base`: adds `wget`, `sudo`, `gnupg`, `shfmt`, `zip`, `python3-pip`,
   `pre-commit`, `lldb-17`, `valgrind`, `file`, GStreamer runtime plugins,
   `actionlint`, ONNX Runtime, `uv`, the `expkits-ci` tool, `plumber`, and
-  `huggingface_hub==1.18.0` in the devtools venv.
-- `pek-dev-tools`: adds Executorch packages, locale support, shell/editor tools
+  `huggingface_hub==1.18.0` in the devtools venv, with
+  `jsonschema==4.26.0` inherited from its system-site packages. It also owns
+  the shared mounted-checkout entrypoint used by development and CI targets.
+- `pek-dev-tools`: adds ExecuTorch packages, locale support, shell/editor tools
   such as `zsh`, Vim, Neovim, Nano, tmux, bash completion, `mc`, debugging and
   language tools such as `gdb` and `clangd`, browser and device tools such as
   Firefox ESR and `v4l-utils`, search/navigation tools such as `ripgrep`,
@@ -202,18 +214,24 @@ stages inherit everything from their parent unless noted otherwise.
   does not copy the repository or prebuilt PEK binaries into the image.
 - `pek-docs`: adds `openjdk-25-jdk`, Graphviz, Pandoc, Doxygen, and the
   PlantUML JAR.
-- `pek-ci`: adds the docs toolchain plus `gcovr`, Python development and venv
-  packages, Python GObject/GStreamer bindings, compression/database development
-  libraries, the PlantUML JAR, and Sonar Scanner.
+- `pek-ci`: adds the docs toolchain plus `gcovr`, Python development and
+  GObject/GStreamer bindings, compression/database development
+  libraries, the PlantUML JAR, and Sonar Scanner. It copies demo videos from
+  `pek-demo-media`; the inherited entrypoint verifies and seeds them into the
+  mounted checkout.
 - `pek-deployment-build`: inherits `pek-cross-build-base`, adds the target
   sysroot when cross-building, installs target ONNX Runtime, downloads Meson
   subprojects, consumes resolved model artifacts from `pek-models` and demo
   videos from `pek-demo-media`, builds PEK release outputs, and collects
-  `/opt/pek-app`.
-- `pek-deployment-base`: contains runtime packages only: OpenSSL, fmt, FFTW,
-  libsoup, JSON-GLib, Cairo, GStreamer runtime/tools/plugins, optional Raspberry
-  Pi camera runtime packages, ONNX Runtime libraries, and the selected PEK app
-  outputs copied from `pek-deployment-build`.
+  `/opt/pek-app`. Native release builds install the ExecuTorch toolchain and
+  use the selected source and flowdata-sdk gitlink identities to package the
+  checked-in Perception SDK snapshot. They reuse the same Meson build to create
+  the validated architecture tarball in `/opt/pek-release-artifacts`.
+- `pek-deployment-base`: contains only the selected deployment outputs and
+  runtime dependencies: OpenSSL, fmt, FFTW, libsoup, JSON-GLib, Cairo,
+  libusb, zlib, GStreamer runtime/tools/plugins, optional Raspberry Pi camera
+  packages, ONNX Runtime libraries, the PEK app, and any release tarball copied
+  from `pek-deployment-build`.
 - `pek-pre-commit-runtime`: starts from `python:3.13-slim-trixie` and adds
   `ca-certificates`, `curl`, `git`, `shfmt`, `actionlint`, and `expkits-ci`.
 - `pek-playwright-pages`: starts from `python:3.13-slim-trixie` and adds
@@ -233,12 +251,15 @@ on PEK binaries baked into the CI image.
 
 The documentation lane is separate from general CI. The `pek-docs` image reuses
 the development base and adds documentation tools such as Doxygen, Pandoc,
-Graphviz, and PlantUML.
+Graphviz, and PlantUML. Release documentation is generated and archived from
+this same image rather than a second release-specific container or wrapper.
 
 The deployment lane has two roles plus shared artifact inputs.
 `pek-deployment-build` inherits the cross-build base, consumes model artifacts
-and demo media, compiles PEK, and collects `/opt/pek-app`. `pek-deployment-base`
-is the slim runtime image that receives selected outputs from the builder stage.
+and demo media, compiles PEK, and collects `/opt/pek-app`. For a native release
+it also packages the checked-in Perception SDK snapshot and creates the
+architecture archive. `pek-deployment-base` is the runnable release snapshot
+that receives both outputs from the builder stage.
 
 The helper lane contains small workflow-specific images. `pek-pre-commit-runtime`
 runs local repository checks from the host Git hook, and `pek-playwright-pages`
@@ -247,10 +268,12 @@ supports report-page publishing.
 ## Use Cases
 
 Use the development images for interactive work, local builds, debugging, and
-running the kit from a mounted checkout.
+running the kit from a mounted checkout. Binary release jobs build
+`pek-deployment-base`, publish its native digests as one GHCR image, and extract
+its prebuilt architecture archives.
 
-Use the CI image for release builds, unit tests, coverage, Valgrind, Sonar,
-clang-tidy baseline checks, and PR quality gates.
+Use the CI image for unit tests, coverage, Valgrind, Sonar, clang-tidy baseline
+checks, and PR quality gates.
 
 Use the documentation image when generating public docs, Doxygen output, and
 PlantUML diagrams.

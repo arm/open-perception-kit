@@ -46,9 +46,9 @@ The host-only wrapper keeps the existing local hook intent through shared
 - `--pre-commit-check`: the check-only equivalent used by CI and manual
   verification.
 - `--ci-pr-checks`: PR quality gate, adding branch naming, CI commit-message,
-  and Agent runtime static analysis to `--pre-commit-check`.
+  Agent runtime static analysis, and config descriptor validation to `--pre-commit-check`.
 - `--ci-full-checks`: full/nightly quality gate, adding Agent runtime static
-  analysis to `--pre-commit-check`.
+  analysis and config descriptor validation to `--pre-commit-check`.
 
 Light mapping:
 

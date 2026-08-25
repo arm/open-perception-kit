@@ -5,12 +5,13 @@
 #pragma once
 
 #include "TrackState.h"
-#include "pek/Perception.h"
+#include "pek/FrameResults.h"
 
 #include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -31,7 +32,8 @@ inline constexpr float minCosineSimilarity = 0.0f;
 inline constexpr float reidReassociateThreshold = 0.65f;
 inline constexpr float dormantTrackHistorySeconds = 8.0f;
 inline constexpr float traceHistorySeconds = 5.0f;
-inline constexpr float kalmanDt = 1.0f / 30.0f;
+inline constexpr float kalmanDtFallback = 1.0f / 30.0f;
+inline constexpr bool kalmanDtForceFallback = false;
 inline constexpr float kalmanInitialCovariancePos = 100.0f;
 inline constexpr float kalmanInitialCovarianceVel = 25.0f;
 inline constexpr float kalmanProcessNoisePos = 0.1f;
@@ -57,7 +59,8 @@ struct Config {
     float reidReassociateThreshold = Defaults::reidReassociateThreshold;
     float dormantTrackHistorySeconds = Defaults::dormantTrackHistorySeconds;
     float traceHistorySeconds = Defaults::traceHistorySeconds;
-    float kalmanDt = Defaults::kalmanDt;
+    float kalmanDtFallback = Defaults::kalmanDtFallback;
+    bool kalmanDtForceFallback = Defaults::kalmanDtForceFallback;
     float kalmanInitialCovariancePos = Defaults::kalmanInitialCovariancePos;
     float kalmanInitialCovarianceVel = Defaults::kalmanInitialCovarianceVel;
     float kalmanProcessNoisePos = Defaults::kalmanProcessNoisePos;
@@ -70,6 +73,63 @@ struct Config {
     AssociationMode associationMode = Defaults::associationMode;
 };
 
+class KalmanDeltaTimeTracking {
+  public:
+    void reset() {
+        lastFrameRunningTimeMs.reset();
+        resolvedKalmanDt = Defaults::kalmanDtFallback;
+        elapsedTrackerTimeMs = 0.0;
+        usingKalmanDtFallback = false;
+        forcedKalmanDtFallback = false;
+    }
+
+    void update(std::optional<uint64_t> runningTimeMs, const Config &config) {
+        const bool hasPreviousFrameTimestamp = lastFrameRunningTimeMs.has_value();
+        const bool hasCurrentFrameTimestamp = runningTimeMs.has_value();
+        const bool hasRunningTimeDelta = hasPreviousFrameTimestamp && hasCurrentFrameTimestamp &&
+                                         *runningTimeMs > *lastFrameRunningTimeMs;
+        const double runningTimeDeltaMs =
+            hasRunningTimeDelta ? static_cast<double>(*runningTimeMs - *lastFrameRunningTimeMs)
+                                : static_cast<double>(config.kalmanDtFallback) * 1'000.0;
+        // Lifecycle time follows valid media timing even when Kalman fallback is forced.
+        elapsedTrackerTimeMs += runningTimeDeltaMs;
+
+        forcedKalmanDtFallback = config.kalmanDtForceFallback;
+        usingKalmanDtFallback = forcedKalmanDtFallback || !hasRunningTimeDelta;
+        resolvedKalmanDt = usingKalmanDtFallback
+                               ? config.kalmanDtFallback
+                               : static_cast<float>(runningTimeDeltaMs) / 1'000.0f;
+        if (runningTimeMs.has_value()) {
+            lastFrameRunningTimeMs = runningTimeMs;
+        } else {
+            lastFrameRunningTimeMs.reset();
+        }
+    }
+
+    float effectiveKalmanDt() const {
+        return resolvedKalmanDt;
+    }
+
+    double trackerTimeMs() const {
+        return elapsedTrackerTimeMs;
+    }
+
+    bool usesFallback() const {
+        return usingKalmanDtFallback;
+    }
+
+    bool fallbackForced() const {
+        return forcedKalmanDtFallback;
+    }
+
+  private:
+    std::optional<uint64_t> lastFrameRunningTimeMs;
+    float resolvedKalmanDt = Defaults::kalmanDtFallback;
+    double elapsedTrackerTimeMs = 0.0;
+    bool usingKalmanDtFallback = false;
+    bool forcedKalmanDtFallback = false;
+};
+
 using TrackId = uint64_t;
 using DetectionIndex = size_t;
 using DetectionTrackAssignments = std::map<DetectionIndex, TrackId>;
@@ -77,8 +137,8 @@ using TrackIdList = std::vector<TrackId>;
 using ActiveTrackMap = std::map<TrackId, TrackState>;
 using DormantTrackMap = std::map<TrackId, DormantTrackState>;
 
-using EmbeddingBatch = std::map<uint64_t, std::reference_wrapper<const std::vector<float>>>;
-using DetectionBatch = std::vector<pek::Perception::Rect>;
+using EmbeddingBatch = std::map<uint64_t, const std::vector<float> *>;
+using DetectionBatch = std::vector<const perception::metadata::BoxDetectionT *>;
 using TrackMatch = std::pair<DetectionIndex, TrackId>;
 
 struct AssociationResult {
@@ -94,18 +154,23 @@ class Tracker {
      */
     void reset();
 
+    const KalmanDeltaTimeTracking &kalmanDeltaTimeTracking() const;
+
     /**
-     * @brief Processes one perception frame through the tracking pipeline.
-     * @param perception Perception payload for the current frame.
+     * @brief Processes one FrameResults frame through the tracking pipeline.
+     * @param frameResults Generated metadata for the current frame.
      * @param config Tracker runtime configuration.
      */
-    void process(pek::Perception &perception, const Config &config);
+    void process(perception::FrameResults &frameResults,
+                 const Config &config,
+                 std::optional<uint64_t> runningTimeMs);
 
   private:
     ActiveTrackMap activeTracks;
     DormantTrackMap inactiveTracks;
     TrackId nextTrackId = 1;
     uint64_t currentFrameIndex = 0;
+    KalmanDeltaTimeTracking kalmanDeltaTime;
 };
 
 } // namespace pek::tracker

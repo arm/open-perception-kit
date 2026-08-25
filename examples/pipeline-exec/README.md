@@ -4,14 +4,16 @@
 pipeline through the public C++ `pek::runtime::Pipeline` wrapper.
 
 It accepts one PEK pipeline JSON file, loads the `pipeline` definition from that
-file, starts the pipeline, prints a small summary for every serialized Perception JSON callback,
-and uses its own condition variable to react to EOS or error callbacks. It can
-also enable PEK historical performance capture and write completed spans to CSV
-through the public runtime `PerformanceMetrics` facade.
+file, starts the pipeline, prints a small summary for every serialized
+FrameResults transport callback, and uses its own condition variable to react
+to EOS or error callbacks. The callback JSON identifies the transport encoding
+and carries the serialized packet as base64 rather than exposing payload layers
+as JSON. The example can also enable PEK historical performance capture and write
+completed spans to CSV through the public runtime `PerformanceMetrics` facade.
 
 The source intentionally uses only the public runtime API. GStreamer types and
-the C++ `pek::Perception` type stay hidden behind the wrapper, and the example
-keeps control of its own thread instead of calling `Pipeline::wait()`.
+the C++ `perception::FrameResults` type stay hidden behind the wrapper, and the
+example keeps control of its own thread instead of calling `Pipeline::wait()`.
 
 ## Build
 

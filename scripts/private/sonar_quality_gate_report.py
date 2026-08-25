@@ -24,6 +24,15 @@ HTTP_RETRY_ATTEMPTS = 3
 HTTP_RETRY_INITIAL_DELAY_SECONDS = 1.0
 HTTP_RETRYABLE_STATUS_CODES = frozenset({408, 429, 500, 502, 503, 504})
 LOGGER = logging.getLogger("sonar_quality_gate_report")
+CI_SUPPRESSION_FILE = "ci-suppressions.txt"
+CI_SUPPRESSION_CONDITIONS = {
+    "UNIT_TEST_COVERAGE": frozenset({"new_coverage"}),
+    "CODE_DUPLICATION": frozenset({"new_duplicated_lines_density"}),
+    "MAINTAINABILITY": frozenset({"new_maintainability_rating"}),
+    "RELIABILITY": frozenset({"new_reliability_rating"}),
+    "SECURITY": frozenset({"new_security_rating"}),
+    "SECURITY_HOTSPOTS": frozenset({"new_security_hotspots_reviewed"}),
+}
 
 
 class ExitCode(IntEnum):
@@ -131,12 +140,12 @@ class RuleShowPayload(TypedDict, total=False):
     rule: RulePayload
 
 
-class ProbeErrorPayload(TypedDict, total=False):
+class ApiErrorPayload(TypedDict, total=False):
     msg: str
 
 
-class ProbeBodyPayload(TypedDict, total=False):
-    errors: list[ProbeErrorPayload]
+class ApiErrorBodyPayload(TypedDict, total=False):
+    errors: list[ApiErrorPayload]
 
 
 class HttpTextResponse(TypedDict):
@@ -194,7 +203,7 @@ def format_http_request_error(exc: HttpRequestError) -> str:
         return f"URL error | {exc.reason}"
 
     detail = f"HTTP {exc.status_code} {exc.reason}".strip()
-    summary = summarize_probe_body(exc.body)
+    summary = summarize_response_body(exc.body)
     if summary:
         return f"{detail} | {summary}"
     return detail
@@ -274,7 +283,6 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--issue-limit", type=int, default=25)
     parser.add_argument("--hotspot-limit", type=int, default=10)
     parser.add_argument("--snippet-context", type=int, default=2)
-    parser.add_argument("--probe-api-access", action="store_true")
     return parser.parse_args(argv)
 
 
@@ -422,7 +430,7 @@ def build_auth_headers(token: str) -> tuple[tuple[str, str], tuple[str, str]]:
     )
 
 
-def parse_probe_payload(body: str) -> tuple[str, JsonObject | None]:
+def parse_response_payload(body: str) -> tuple[str, JsonObject | None]:
     compact_body = " ".join(body.split())
     if not compact_body:
         return "", None
@@ -437,7 +445,7 @@ def parse_probe_payload(body: str) -> tuple[str, JsonObject | None]:
     return compact_body, payload
 
 
-def probe_error_messages(payload: ProbeBodyPayload) -> list[str]:
+def api_error_messages(payload: ApiErrorBodyPayload) -> list[str]:
     errors = payload.get("errors")
     if not isinstance(errors, list):
         return []
@@ -452,8 +460,8 @@ def probe_error_messages(payload: ProbeBodyPayload) -> list[str]:
     return messages
 
 
-def summarize_probe_payload(payload: JsonObject) -> str:
-    messages = probe_error_messages(cast(ProbeBodyPayload, payload))
+def summarize_response_payload(payload: JsonObject) -> str:
+    messages = api_error_messages(cast(ApiErrorBodyPayload, payload))
     if messages:
         return "; ".join(messages)[:160]
 
@@ -463,51 +471,18 @@ def summarize_probe_payload(payload: JsonObject) -> str:
     return ""
 
 
-def summarize_probe_body(body: str) -> str:
-    compact_body, payload = parse_probe_payload(body)
+def summarize_response_body(body: str) -> str:
+    compact_body, payload = parse_response_payload(body)
     if not compact_body:
         return ""
 
     if payload is None:
         return compact_body[:160]
 
-    payload_summary = summarize_probe_payload(payload)
+    payload_summary = summarize_response_payload(payload)
     if payload_summary:
         return payload_summary
     return compact_body[:160]
-
-
-def probe_api_access(
-    server_url: str,
-    api_path: str,
-    token: str,
-    params: dict[str, str] | None = None,
-) -> list[str]:
-    url = build_api_url(server_url, api_path, params)
-
-    results: list[str] = []
-    for auth_name, auth_header in build_auth_headers(token):
-        try:
-            response = request_text_with_retry(
-                api_path,
-                lambda auth_header=auth_header: request.Request(
-                    url,
-                    headers={
-                        "Authorization": auth_header,
-                        "Accept": "application/json",
-                    },
-                ),
-            )
-            summary = summarize_probe_body(response["body"])
-            result = f"- {api_path} [{auth_name}]: HTTP {response['status']}"
-            if summary:
-                result = f"{result} | {summary}"
-            results.append(result)
-        except HttpRequestError as exc:
-            result = f"- {api_path} [{auth_name}]: {format_http_request_error(exc)}"
-            results.append(result)
-
-    return results
 
 
 def wait_for_task(
@@ -681,23 +656,97 @@ def lookup_rule_name(
     return ""
 
 
-def print_failed_conditions(conditions: Sequence[QualityGateCondition]) -> None:
-    failed_conditions = [
+def failed_quality_gate_conditions(
+    conditions: Sequence[QualityGateCondition],
+) -> list[QualityGateCondition]:
+    return [
         condition
         for condition in conditions
         if isinstance(condition, dict)
         and str(condition.get("status", "")).upper() in {"ERROR", "WARN"}
     ]
-    if not failed_conditions:
+
+
+def condition_metric(condition: QualityGateCondition) -> str:
+    return str(condition.get("metricKey", "")).strip() or "unknown"
+
+
+def load_ci_suppressions(
+    suppression_file: Path,
+) -> dict[str, tuple[str, str]]:
+    if not suppression_file.exists():
+        return {}
+
+    try:
+        entries = suppression_file.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeDecodeError) as exc:
+        raise RuntimeError(f"Failed to read CI suppressions: {suppression_file}") from exc
+
+    applied: dict[str, tuple[str, str]] = {}
+    for line_number, entry in enumerate(entries, start=1):
+        if not entry or entry.startswith("#"):
+            continue
+        suppression_type, separator, reason = entry.partition(":")
+        suppression_type = suppression_type.strip()
+        reason = reason.strip()
+        conditions = CI_SUPPRESSION_CONDITIONS.get(suppression_type)
+        if not separator or conditions is None:
+            raise RuntimeError(
+                f"CI suppression line {line_number} has unsupported format or type."
+            )
+        if not reason:
+            raise RuntimeError(
+                f"CI suppression line {line_number} requires a reason."
+            )
+
+        for condition in conditions:
+            applied[condition] = (suppression_type, reason)
+
+    return applied
+
+
+def quality_gate_status_after_suppressions(
+    gate_status: str,
+    failed_conditions: Sequence[QualityGateCondition],
+    suppressions: dict[str, tuple[str, str]],
+) -> str:
+    if gate_status == "OK" or not failed_conditions:
+        return gate_status
+    if all(condition_metric(condition) in suppressions for condition in failed_conditions):
+        return "OK"
+    return gate_status
+
+
+def print_failed_conditions(conditions: Sequence[QualityGateCondition]) -> None:
+    if not conditions:
         return
 
     log_info("Failed conditions:")
-    for condition in failed_conditions:
-        metric = str(condition.get("metricKey", "")).strip() or "unknown"
+    for condition in conditions:
+        metric = condition_metric(condition)
         actual = str(condition.get("actualValue", "n/a")).strip() or "n/a"
         comparator = str(condition.get("comparator", "")).strip() or "?"
         threshold = str(condition.get("errorThreshold", "n/a")).strip() or "n/a"
         log_info(f"- {metric}: actual {actual} {comparator} threshold {threshold}")
+    log_info()
+
+
+def print_applied_suppressions(
+    failed_conditions: Sequence[QualityGateCondition],
+    suppressions: dict[str, tuple[str, str]],
+) -> None:
+    applied_metrics = {
+        condition_metric(condition)
+        for condition in failed_conditions
+        if condition_metric(condition) in suppressions
+    }
+    if not applied_metrics:
+        return
+
+    log_info("Applied CI suppressions:")
+    for metric in sorted(applied_metrics):
+        suppression_type, reason = suppressions[metric]
+        log_info(f"- {suppression_type} ({metric}): {reason}")
     log_info()
 
 
@@ -910,57 +959,6 @@ def load_issue_snapshot(
     )
 
 
-def print_api_access_probe(
-    ctx: ReportTaskContext,
-    analysis_id: str,
-    token: str,
-    issue_limit: int,
-    hotspot_limit: int,
-) -> None:
-    log_info("Sonar API access probe")
-    log_info(f"Project: {ctx['projectKey']}")
-    log_context_scope(ctx)
-    log_info()
-
-    probe_targets = (
-        (
-            "/api/ce/task",
-            {"id": ctx["ceTaskId"]},
-        ),
-        (
-            "/api/qualitygates/project_status",
-            {"analysisId": analysis_id},
-        ),
-        (
-            "/api/issues/search",
-            build_query(
-                branch=ctx.get("branch", ""),
-                pull_request=ctx.get("pullRequest", ""),
-                componentKeys=ctx["projectKey"],
-                resolved="false",
-                inNewCodePeriod="true",
-                ps=str(max(1, issue_limit)),
-            ),
-        ),
-        (
-            "/api/hotspots/search",
-            build_query(
-                branch=ctx.get("branch", ""),
-                pull_request=ctx.get("pullRequest", ""),
-                projectKey=ctx["projectKey"],
-                status="TO_REVIEW",
-                inNewCodePeriod="true",
-                ps=str(max(1, hotspot_limit)),
-            ),
-        ),
-    )
-
-    for api_path, params in probe_targets:
-        for result in probe_api_access(ctx["serverUrl"], api_path, token, params):
-            log_info(result)
-    log_info()
-
-
 def print_report_header(ctx: ReportTaskContext) -> None:
     log_info("Sonar quality gate report")
     log_info(f"Project: {ctx['projectKey']}")
@@ -1105,16 +1103,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not analysis_id:
         return fail("Sonar report error: compute-engine task completed without an analysisId.")
 
-    if args.probe_api_access:
-        print_api_access_probe(
-            ctx,
-            analysis_id,
-            token,
-            args.issue_limit,
-            args.hotspot_limit,
-        )
-        return int(ExitCode.OK)
-
     try:
         project_status = fetch_quality_gate_project_status(ctx, analysis_id, token)
     except RuntimeError as exc:
@@ -1125,14 +1113,30 @@ def main(argv: Sequence[str] | None = None) -> int:
     log_info()
 
     conditions = project_status.get("conditions")
+    failed_conditions: list[QualityGateCondition] = []
     if isinstance(conditions, list):
-        print_failed_conditions(cast(list[QualityGateCondition], conditions))
+        failed_conditions = failed_quality_gate_conditions(
+            cast(list[QualityGateCondition], conditions)
+        )
+        print_failed_conditions(failed_conditions)
+
+    suppression_file = workspace_root / CI_SUPPRESSION_FILE
+    try:
+        suppressions = load_ci_suppressions(suppression_file)
+    except RuntimeError as exc:
+        return fail(f"Sonar report error: {exc}")
+    print_applied_suppressions(failed_conditions, suppressions)
+    effective_gate_status = quality_gate_status_after_suppressions(
+        gate_status,
+        failed_conditions,
+        suppressions,
+    )
 
     return report_issue_and_hotspot_snapshots(
         ctx,
         args,
         token,
-        gate_status,
+        effective_gate_status,
         workspace_root,
         rule_cache,
     )

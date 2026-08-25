@@ -2,7 +2,7 @@
 title: Runtime Basics
 sidebar_position: 2
 sidebar_label: Runtime Basics
-description: Understand how GStreamer pipelines, OpChains, model descriptors, and Perception results fit together at runtime.
+description: Understand how GStreamer pipelines, OpChains, model descriptors, and FrameResults fit together at runtime.
 ---
 
 # Runtime Basics
@@ -47,7 +47,7 @@ The launcher `tools/pek-menu` reads these presets and runs them. For normal use,
 If you want to change which image, video, or camera is used, this is usually the first place to edit.
 
 Some checked-in presets intentionally set `pekinfer active=false`.
-That lets the PEK web UI register the model first and then enable it from the **AI Models** panel when you are ready.
+That lets the PEK web UI register the model first and then enable it from the **Model Selector** panel when you are ready.
 `active=false` disables per-frame OpChain execution; it does not defer setup.
 `pekinfer` still loads the OpChain and its model during startup, so every
 referenced model artifact must already exist.
@@ -90,7 +90,11 @@ The descriptor defines things such as:
 - output behavior
 - model name and content type
 
-`modelFile` is always a local path relative to its descriptor. The standard
+`modelFile` is a local filesystem path. Relative paths are resolved from the
+directory containing its Model descriptor; absolute paths are used unchanged. Relative
+and absolute paths retain their components so the filesystem resolves symlinks
+and parent traversal in the normal order. Relative paths are preferred so model
+folders remain portable. The standard
 container images try to download published PEK model artifacts from pinned
 Hugging Face revisions into those paths. When `HF_TOKEN` is unset, accessible
 public artifacts download anonymously. Each failed download is logged and
@@ -98,6 +102,9 @@ skipped, so the container build can succeed with an incomplete model set.
 Runtime containers do not download models and need no Hugging Face network
 access or credentials. A pipeline that references a missing artifact fails
 during OpChain setup, including when its `pekinfer` starts with `active=false`.
+Build-time `hfDownload` staging requires a descriptor-relative `modelFile`
+inside the model folder; absolute paths remain available for externally managed
+runtime artifacts.
 
 If you are only adding your own model, you usually only need to copy and adapt an existing `model.json`.
 

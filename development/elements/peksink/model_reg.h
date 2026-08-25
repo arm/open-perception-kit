@@ -8,6 +8,7 @@
 #include <map>
 #include <mutex>
 #include <string>
+#include <string_view>
 
 #include "status_reporter.h"
 
@@ -15,6 +16,9 @@ struct ModelStatus {
     std::string name;
     bool active;
     std::string element_name;
+    std::string display_name;
+    std::string task;
+    std::string runtime;
 };
 
 class ModelRegistry : public StatusReporter {
@@ -22,7 +26,12 @@ class ModelRegistry : public StatusReporter {
     std::map<std::string, ModelStatus> model_registry; // key: element_name
 
   public:
-    void add_model(const std::string &model_name, const std::string &element_name, bool active);
+    void add_model(const std::string &model_name,
+                   const std::string &element_name,
+                   bool active,
+                   std::string_view display_name = "",
+                   std::string_view task = "",
+                   std::string_view runtime = "");
     void del_model(const std::string &element_name);
     void toggle_model(const std::string &element_name, bool active);
 

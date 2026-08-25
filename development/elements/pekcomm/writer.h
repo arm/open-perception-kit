@@ -12,13 +12,13 @@
 #include <string>
 #include <thread>
 
-#include <pek/Perception.h>
+#include <pek/FrameResults.h>
 
 struct _GstPekComm;
 
 struct PekCommJob {
     uint64_t frame_counter = 0;
-    std::shared_ptr<const pek::Perception> perception;
+    std::shared_ptr<const perception::FrameResults> frameResults;
 };
 
 class JobQueue {

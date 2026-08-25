@@ -1,4 +1,5 @@
 {
+    "version": 1,
     "name": "scrfd-face",
     "contentType": "humanFace",
     "modelFile": "scrfd_2.5g.hef",

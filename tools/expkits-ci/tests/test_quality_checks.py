@@ -380,6 +380,41 @@ class TestQualityChecks(unittest.TestCase):
 
         self.assertTrue(result)
 
+    def test_check_config_schema_runs_shared_validator(self):
+        run_config_validator = Mock(
+            return_value=Mock(
+                returncode=0,
+                stdout="Configuration descriptors are valid.\n",
+            )
+        )
+        config_schema = types.ModuleType("expkits_ci.config_schema")
+        config_schema.run_config_validator = run_config_validator
+        self.quality_checks.file_utils.get_project_root = Mock(return_value="/work")
+
+        with patch.dict(sys.modules, {"expkits_ci.config_schema": config_schema}):
+            result = self.quality_checks.check_config_schema()
+
+        self.assertTrue(result)
+        run_config_validator.assert_called_once_with("/work")
+
+    def test_check_config_schema_reports_validator_failures(self):
+        failures = (
+            Mock(return_value=Mock(returncode=1, stdout="invalid descriptor\n")),
+            Mock(side_effect=FileNotFoundError("pek-config-check is unavailable")),
+        )
+        self.quality_checks.file_utils.get_project_root = Mock(return_value="/work")
+
+        for run_config_validator in failures:
+            with self.subTest(side_effect=run_config_validator.side_effect):
+                config_schema = types.ModuleType("expkits_ci.config_schema")
+                config_schema.run_config_validator = run_config_validator
+                with patch.dict(sys.modules, {"expkits_ci.config_schema": config_schema}):
+                    with self.assertLogs("expkits_ci", level="ERROR"):
+                        result = self.quality_checks.check_config_schema()
+
+                self.assertFalse(result)
+                run_config_validator.assert_called_once_with("/work")
+
     def test_file_filter_does_not_ignore_dotgithub_as_dotgit(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -459,6 +494,7 @@ class TestQualityChecks(unittest.TestCase):
         line_filter = json.loads(line_filter_arg.split("=", 1)[1])
         project_file_pattern = re.compile(line_filter[0]["name"])
         self.assertRegex("../common/pek/Result.h", project_file_pattern)
+        self.assertRegex("../config-validator/Validator.cpp", project_file_pattern)
         self.assertRegex("/work/development/runtime/Result.cpp", project_file_pattern)
         self.assertRegex("../ops-ncnn/NcnnOp.cpp", project_file_pattern)
         self.assertNotRegex("../subprojects/fmt/include/fmt/base.h", project_file_pattern)

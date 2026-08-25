@@ -4,8 +4,8 @@
 
 #pragma once
 
+#include "pek/FrameResults.h"
 #include "pek/KalmanFilter.h"
-#include "pek/Perception.h"
 
 #include <cstdint>
 #include <deque>
@@ -17,12 +17,17 @@ namespace pek::tracker {
 
 struct Config;
 
+struct Point2f {
+    float x = 0.0f;
+    float y = 0.0f;
+};
+
 struct TrackState {
     using Kalman = pek::KalmanFilter<4, 2, float>;
     uint64_t trackId = 0;
-    pek::Perception::Rect lastDetection;
+    perception::metadata::BoxDetectionT lastDetection;
     std::string lastMatchDiagnostic = "NEW";
-    std::deque<pek::Perception::TrackTrace::Point> traceHistoryPoints;
+    std::deque<perception::metadata::Point2fT> traceHistoryPoints;
     bool kalmanInitialized = false;
     bool predictedThisFrame = false;
     Kalman kalman;
@@ -35,9 +40,9 @@ struct TrackState {
 
 struct DormantTrackState {
     uint64_t trackId = 0;
-    pek::Perception::Rect lastDetection;
+    perception::metadata::BoxDetectionT lastDetection;
     std::vector<float> lastEmbedding;
-    uint64_t storedAtFrame = 0;
+    double storedAtTrackerTimeMs = 0.0;
 };
 
 } // namespace pek::tracker
@@ -57,7 +62,7 @@ void clearPredictionFlag(TrackState &track);
  * @param config Tracker configuration used by prediction logic.
  * @return Predicted center point of the track.
  */
-Perception::TrackTrace::Point predictCenter(TrackState &track, const Config &config);
+Point2f predictCenter(TrackState &track, float kalmanDt, const Config &config);
 
 /**
  * @brief Correct track state using the latest detection measurement.
@@ -66,9 +71,10 @@ Perception::TrackTrace::Point predictCenter(TrackState &track, const Config &con
  * @param config Tracker configuration used by correction logic.
  * @return Corrected/smoothed center point after measurement update.
  */
-Perception::TrackTrace::Point correctCenterWithMeasurement(TrackState &track,
-                                                           const Perception::Rect &detection,
-                                                           const Config &config);
+Point2f correctCenterWithMeasurement(TrackState &track,
+                                     const perception::metadata::BoxDetectionT &detection,
+                                     float kalmanDt,
+                                     const Config &config);
 
 /**
  * @brief Append a new trace history point while respecting trace history limits.
@@ -78,7 +84,8 @@ Perception::TrackTrace::Point correctCenterWithMeasurement(TrackState &track,
  * @return None.
  */
 void appendTracePoint(TrackState &track,
-                      const Perception::TrackTrace::Point &point,
+                      const Point2f &point,
+                      float kalmanDt,
                       const Config &config);
 
 } // namespace pek::tracker::trackstate

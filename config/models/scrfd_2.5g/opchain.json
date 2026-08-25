@@ -1,5 +1,9 @@
 {
+    "version": 1,
     "name": "SCRFD 2.5G HAILO",
+    "displayName": "SCRFD 2.5G",
+    "task": "Face detection",
+    "runtime": "Hailo 10",
     "description": "Hailo 10-compiled SCRFD 2.5G face detector.",
     "ops": [
         {

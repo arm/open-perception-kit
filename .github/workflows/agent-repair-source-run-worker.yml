@@ -152,7 +152,7 @@ jobs:
 
       - name: Fetch OpenAI proxy token
         id: openai-token
-        uses: Arm-Debug/devops-actions/fetch-openai-proxy-token@v1.8.0
+        uses: Arm-Debug/devops-actions/fetch-openai-proxy-token@v1
 
       - name: Run OpenAI SDK repair agent
         shell: bash

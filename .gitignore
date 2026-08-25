@@ -94,6 +94,7 @@ onnxruntime-linux-x64-*
 graphs/
 
 tools/pek-menu
+tools/pek-config-check
 tools/libpek-common.so
 
 core.*
@@ -115,10 +116,11 @@ docs/html
 todo.md
 
 # -------------------------
-# Demo video assets (download with scripts/download-data.sh)
+# Demo video assets (provided by the pek-demo-media stage)
 # -------------------------
 data/videos/*.mov
 data/videos/*.mp4
+data/videos/SHA256SUMS
 
 
 # -------------------------
@@ -131,6 +133,7 @@ coverage.xml
 # Valgrind output xml files and error summary xml file
 # -------------------------
 scripts/testing/valgrind/logs/*.xml
+scripts/testing/valgrind/logs/.gstreamer-registry.bin
 **/valgrind-error-summary*.xml
 
 # Example build outputs

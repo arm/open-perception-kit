@@ -1,5 +1,5 @@
 project('pek_elements', ['c', 'cpp'],
-  version: '0.1.7',
+  version: '0.2.0',
   default_options: [
     'c_std=c11',
     'cpp_std=c++20',
@@ -51,6 +51,12 @@ threads_dep = dependency('threads')
 nlohmann_dep = dependency('nlohmann_json',
                       required : true,
                       fallback : ['nlohmann_json', 'nlohmann_json_dep'])
+
+jsoncons_dep = dependency(
+  'jsoncons',
+  required : true,
+  fallback : ['jsoncons', 'jsoncons_dep'],
+)
 
 magic_enum_dep = dependency(
   'magic_enum',
@@ -154,6 +160,23 @@ endif
 # Common include(s)
 common_include = include_directories('common', 'common/logging/include')
 
+if get_option('tests')
+  pek_python_path = run_command(
+    'sh',
+    '-c',
+    'if [ -n "$PEK_DEVTOOLS_VENV" ]; then printf %s "$PEK_DEVTOOLS_VENV/bin/python"; fi',
+    check : false,
+  ).stdout().strip()
+  if pek_python_path != ''
+    pek_python = import('python').find_installation(pek_python_path)
+  else
+    pek_python = import('python').find_installation()
+  endif
+endif
+
+subdir('perception')
+pek_deps += [perception_dep]
+
 # gtest dependencies
 cmake = import('cmake')
 
@@ -169,6 +192,8 @@ gtest_dep      = gtest_cmake.dependency('gtest')
 gtest_main_dep = gtest_cmake.dependency('gtest_main')
 
 # Subdirs
+subdir('common/logging')
+subdir('config-validator')
 subdir('common')
 subdir('runtime')
 subdir('elements/pekinfer')
@@ -191,17 +216,6 @@ if release_package
     'web/content',
     install_dir : 'web/content',
     strip_directory : true,
-    exclude_files : [
-      'package.json',
-      'osd-renderer.test.mjs',
-      'webrtc_client.test.mjs',
-      'webrtc_config.test.mjs',
-    ],
-  )
-  install_data(
-    meson.project_source_root() / '../metadata/api/perception.schema.json',
-    meson.project_source_root() / '../metadata/api/perception-message.schema.json',
-    install_dir : 'share/pek/schemas/json',
   )
 endif
 

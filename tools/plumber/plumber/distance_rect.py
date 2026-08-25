@@ -7,11 +7,11 @@ from typing import Tuple, Optional
 from . import auxiliary as aux
 
 
-# normalize rect fields to [x0,y0,x1,y1] in relative coordinates (0..1)
+# normalize rectangle fields to [x0,y0,x1,y1] in relative coordinates (0..1)
 
 
-def normalize_rect(det: dict, frame_size: Optional[Tuple[int, int]]) -> Tuple[float, float, float, float]:
-    data = det.get("data", {})
+def normalize_rect(item: dict, frame_size: Optional[Tuple[int, int]]) -> Tuple[float, float, float, float]:
+    data = item.get("data", {})
     x = float(data.get("x", 0.0))
     y = float(data.get("y", 0.0))
     w = float(data.get("width", 0.0))
@@ -60,18 +60,18 @@ def iou_from_normalized(a: Tuple[float, float, float, float], b: Tuple[float, fl
     return inter / denom
 
 
-def distance_rect(gt_det: dict, out_det: dict, gt_parent_det: dict, out_parent_det: dict) -> float:
+def distance_rect(gt_item: dict, out_item: dict, gt_parent_item: dict, out_parent_item: dict) -> float:
     """
-    Return a normalized distance in [0,1] for Rect detections.
+    Return a normalized distance in [0,1] for rectangle-like frame result items.
     We use: distance = 1 - IoU(normalized boxes).
-    If either rect has zero area, IoU=0 (distance=1).
+    If either rectangle has zero area, IoU=0 (distance=1).
     """
 
-    gt_frame_size = aux.frame_size_from_parent(gt_parent_det)
-    out_frame_size = aux.frame_size_from_parent(out_parent_det)
+    gt_frame_size = aux.frame_size_from_parent(gt_parent_item)
+    out_frame_size = aux.frame_size_from_parent(out_parent_item)
 
-    a = normalize_rect(gt_det, gt_frame_size)
-    b = normalize_rect(out_det, out_frame_size)
+    a = normalize_rect(gt_item, gt_frame_size)
+    b = normalize_rect(out_item, out_frame_size)
     iou = iou_from_normalized(a, b)
     dist = 1.0 - iou
     # clamp for numerical safety

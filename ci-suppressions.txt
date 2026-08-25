@@ -1,0 +1,5 @@
+# Accepted CI exceptions are kept here as history.
+# Add one SUPPRESSION_TYPE: Reason per line. Comment lines start with #.
+# Available: UNIT_TEST_COVERAGE, CODE_DUPLICATION, MAINTAINABILITY, RELIABILITY,
+# SECURITY, SECURITY_HOTSPOTS.
+UNIT_TEST_COVERAGE: Code coverage is generally decreased on the develop, it will not be fixed on the release branch.

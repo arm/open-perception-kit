@@ -1,4 +1,5 @@
 {
+	"version": 1,
 	"name": "rvm-seg",
 	"modelFile": "rvm_mobilenetv3_fp32.onnx",
 	"hfDownload": {

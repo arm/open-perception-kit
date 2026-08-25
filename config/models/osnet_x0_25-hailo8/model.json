@@ -1,4 +1,5 @@
 {
+    "version": 1,
     "name": "osnet_x0_25_msmt17",
     "contentType": "genericObject",
     "modelFile": "osnet_x0_25_msmt17_opset21_patched.hef",
@@ -17,19 +18,7 @@
                 3
             ],
             "dataKind": "ImageRgbHwc",
-            "valueType": "Uint8",
-            "mean": [
-                0.485,
-                0.456,
-                0.406,
-                0.0
-            ],
-            "std": [
-                0.229,
-                0.224,
-                0.225,
-                1.0
-            ]
+            "valueType": "Uint8"
         }
     ]
 }

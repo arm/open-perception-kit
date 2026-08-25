@@ -74,7 +74,10 @@ class AgentWorkflowProfileContractTests(unittest.TestCase):
             "feature/{task_ref}/bot-workflow-dependency-freshness-{source_run_id}",
         )
         self.assertEqual(audit_profile["repair_authorization_label"], "agent-repair")
-        self.assertEqual(audit_profile["pr_trigger_label"], "run-pek-ci")
+        self.assertEqual(
+            audit_profile["pr_trigger_labels"],
+            ["run-pek-ci", "run-workflow-audit"],
+        )
         audit_profile_source = WORKFLOW_DEPENDENCY_FRESHNESS_PROFILE_FILE.read_text(encoding="utf-8")
         self.assertEqual(audit_profile["validation_command_set"], "agent-workflow-python")
         self.assertIn("standard PR validation", audit_profile["repair_definition_of_done"][-1])

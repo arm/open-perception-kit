@@ -10,15 +10,12 @@ services:
       target: pek-build-base
 
   pek-deployment-base:
+    extends:
+      file: ../compose.base.yaml
+      service: pek-model-image
     platform: linux/arm64
     build:
-      context: ..
-      dockerfile: Dockerfile
       target: pek-deployment-base
-      secrets:
-        - huggingface_token
-      args:
-        HF_DOWNLOAD_CACHEBUST: ${HF_DOWNLOAD_CACHEBUST:-${HF_TOKEN:+${GITHUB_RUN_ID:?Set HF_DOWNLOAD_CACHEBUST when HF_TOKEN is set}-${GITHUB_RUN_ATTEMPT:-0}}}
 
   pek-docs: &pek-docs
     extends:
@@ -38,6 +35,12 @@ services:
 
     network_mode: bridge
     hostname: pek-ci
+    environment:
+      CCACHE_DIR: /work/.cache/ccache
+      CCACHE_MAXSIZE: 2G
+      CCACHE_UMASK: "000"
+    volumes:
+      - ${CCACHE_PATH:-../.cache/ccache}:/work/.cache/ccache
     build:
       <<: *pek-tool-build
       target: pek-ci
@@ -45,17 +48,13 @@ services:
   pek-dev: &pek-dev
     extends:
       file: ../compose.base.yaml
-      service: pek-common-dev
+      service: pek-common-dev-model-image
 
     network_mode: bridge
     hostname: pek-dev
     build:
       <<: *pek-tool-build
       target: pek-dev
-      secrets:
-        - huggingface_token
-      args:
-        HF_DOWNLOAD_CACHEBUST: ${HF_DOWNLOAD_CACHEBUST:-${HF_TOKEN:+${GITHUB_RUN_ID:?Set HF_DOWNLOAD_CACHEBUST when HF_TOKEN is set}-${GITHUB_RUN_ATTEMPT:-0}}}
 
   pek-pre-commit-runtime:
     network_mode: bridge
@@ -78,8 +77,10 @@ services:
       bash -c '
         .devcontainer/setup.sh &&
         .devcontainer/platform_init.sh pek-dev disabled &&
-        ./scripts/build-elements.sh release true &&
-        meson test -C development/build --print-errorlogs
+        ccache --zero-stats &&
+        ./scripts/build.sh release true &&
+        meson test -C development/build --print-errorlogs &&
+        ccache --show-stats
       '
 
   pek-clang-tidy-baseline-check:
@@ -121,7 +122,9 @@ services:
       bash -c '
         .devcontainer/setup.sh &&
         .devcontainer/platform_init.sh pek-dev disabled &&
-        ./scripts/testing/valgrind/test-elements-with-valgrind.sh clean --pipeline only-onnx-yolo
+        ccache --zero-stats &&
+        ./scripts/testing/valgrind/test-elements-with-valgrind.sh clean --pipeline only-onnx-yolo &&
+        ccache --show-stats
       '
 
   pek-generate-valgrind-summary:
@@ -132,7 +135,8 @@ services:
         if find scripts/testing/valgrind/logs -name "*.valgrind.*.xml" -print -quit 2>/dev/null | grep -q .; then
           python3 scripts/testing/valgrind/summarize-valgrind-output.py \
             --logs-dir scripts/testing/valgrind/logs \
-            --output scripts/testing/valgrind/valgrind-error-summary.xml;
+            --output scripts/testing/valgrind/valgrind-error-summary.xml \
+            --suppressions-file scripts/testing/valgrind/suppressed-warnings;
         else
           echo "No valgrind log files found; refusing to publish a new baseline." >&2;
           exit 1;
@@ -147,8 +151,11 @@ services:
         .devcontainer/devsetup.sh &&
         .devcontainer/platform_init.sh pek-dev disabled &&
         mkdir -p /work/.github/artifacts &&
+        meson setup /tmp/pek-config-validator-build /work/development --buildtype=release --layout=flat -Dtests=false &&
+        meson compile -C /tmp/pek-config-validator-build pek-config-check &&
         source /work/tools/.venv/bin/activate &&
-        expkits-ci --ci-pr-checks --pr-target-branch ${PULL_REQUEST_TARGET_BRANCH} \
+        PATH="/tmp/pek-config-validator-build/meson-out:$$PATH" \
+          expkits-ci --ci-pr-checks --pr-target-branch ${PULL_REQUEST_TARGET_BRANCH} \
           --report-file /work/.github/artifacts/expkits-ci-pr-report.txt
       '
 
@@ -161,8 +168,11 @@ services:
         .devcontainer/platform_init.sh pek-dev disabled &&
         mkdir -p /work/.github/artifacts &&
         ./scripts/gen-doc.sh &&
+        meson setup /tmp/pek-config-validator-build /work/development --buildtype=release --layout=flat -Dtests=false &&
+        meson compile -C /tmp/pek-config-validator-build pek-config-check &&
         source /work/tools/.venv/bin/activate &&
-        expkits-ci --ci-full-checks \
+        PATH="/tmp/pek-config-validator-build/meson-out:$$PATH" \
+          expkits-ci --ci-full-checks \
           --report-file /work/.github/artifacts/expkits-ci-full-report.txt
       '
 
@@ -170,6 +180,8 @@ services:
     <<: *pek-ci
     hostname: pek-sonar-check
     environment:
+      CCACHE_DIR: /work/.cache/ccache
+      CCACHE_MAXSIZE: 2G
       PROJECT_ROOT: /work/development
       BUILD_DIR: /work/development/build
       SONAR_HOST_URL: ${SONAR_HOST_URL}
@@ -184,7 +196,8 @@ services:
         .devcontainer/devsetup.sh &&
         .devcontainer/platform_init.sh pek-dev disabled &&
         source /work/tools/.venv/bin/activate &&
-        ./scripts/build-elements.sh debug true --extra-setup-args=-Db_coverage=true,--wipe &&
+        ccache --zero-stats &&
+        ./scripts/build.sh debug true --extra-setup-args=-Db_coverage=true,--wipe &&
         meson test -C "$$BUILD_DIR" --print-errorlogs &&
         gcovr -r . --sonarqube coverage.xml &&
         if [ -n "$$PR_KEY" ] && [ -n "$$PR_BRANCH" ] && [ -n "$$PR_BASE" ]; then
@@ -196,13 +209,16 @@ services:
         else
           sonar_scope_args=(-Dsonar.branch.name="$$SONAR_BRANCH")
         fi &&
-        sonar-scanner -Dsonar.qualitygate.wait="$${SONAR_QUALITYGATE_WAIT}" "$${sonar_scope_args[@]}"
+        sonar-scanner -Dsonar.qualitygate.wait="$${SONAR_QUALITYGATE_WAIT}" "$${sonar_scope_args[@]}" &&
+        ccache --show-stats
       '
 
   pek-sonar-check-release:
     <<: *pek-ci
     hostname: pek-sonar-check-release
     environment:
+      CCACHE_DIR: /work/.cache/ccache
+      CCACHE_MAXSIZE: 2G
       PROJECT_ROOT: /work/development
       BUILD_DIR: /work/development/build
       SONAR_HOST_URL: ${SONAR_HOST_URL}
@@ -216,13 +232,15 @@ services:
         .devcontainer/devsetup.sh &&
         .devcontainer/platform_init.sh pek-dev disabled &&
         source /work/tools/.venv/bin/activate &&
-        ./scripts/build-elements.sh debug true --extra-setup-args=-Db_coverage=true,--wipe &&
+        ccache --zero-stats &&
+        ./scripts/build.sh debug true --extra-setup-args=-Db_coverage=true,--wipe &&
         meson test -C "$$BUILD_DIR" --print-errorlogs &&
         gcovr -r . --sonarqube coverage.xml &&
         sonar-scanner -Dsonar.qualitygate.wait="$${SONAR_QUALITYGATE_WAIT}" \
           -Dsonar.branch.name="$$SONAR_BRANCH" \
           -Dsonar.projectVersion="$$SONAR_PROJECT_VERSION" \
-          -Dsonar.buildString="$$BUILD_STRING"
+          -Dsonar.buildString="$$BUILD_STRING" &&
+        ccache --show-stats
       '
 
 secrets:

@@ -14,7 +14,7 @@ results through reusable, configurable processing stages.
 - GStreamer-based media pipeline integration.
 - An Op-based execution model for preprocessing, inference, and postprocessing.
 - Configurable workflows that can be run repeatedly across environments.
-- Structured `Perception` results that downstream elements can render, track, or publish.
+- Structured `FrameResults` payloads that downstream elements can render, track, or publish.
 - Runtime information for development, debugging, and evaluation.
 
 The inference capability is not tied to GStreamer itself. GStreamer is the

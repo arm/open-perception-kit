@@ -4,26 +4,31 @@
 
 #include "postproc/ScrfdParser.h"
 
-#include "pek/Perception.h"
+#include "pek/FrameResults.h"
 
 #include <algorithm>
 #include <cmath>
 #include <fmt/core.h>
 #include <map>
+#include <memory>
+#include <utility>
 #include <vector>
 
 using namespace pek;
+using FaceDetection = perception::metadata::BoxDetectionT;
 
 namespace {
 
-inline float iou(const Perception::Rect &a, const Perception::Rect &b) {
-    const float ax2 = a.x + a.width;
-    const float ay2 = a.y + a.height;
-    const float bx2 = b.x + b.width;
-    const float by2 = b.y + b.height;
+inline float iou(const FaceDetection &a, const FaceDetection &b) {
+    const auto &abox = *a.box;
+    const auto &bbox = *b.box;
+    const float ax2 = abox.x + abox.width;
+    const float ay2 = abox.y + abox.height;
+    const float bx2 = bbox.x + bbox.width;
+    const float by2 = bbox.y + bbox.height;
 
-    const float interLeft = std::max(a.x, b.x);
-    const float interTop = std::max(a.y, b.y);
+    const float interLeft = std::max(abox.x, bbox.x);
+    const float interTop = std::max(abox.y, bbox.y);
     const float interRight = std::min(ax2, bx2);
     const float interBottom = std::min(ay2, by2);
 
@@ -33,35 +38,30 @@ inline float iou(const Perception::Rect &a, const Perception::Rect &b) {
         return 0.0f;
 
     const float interArea = interW * interH;
-    const float unionArea = a.width * a.height + b.width * b.height - interArea;
+    const float unionArea = abox.width * abox.height + bbox.width * bbox.height - interArea;
     if (unionArea <= 0.0f)
         return 0.0f;
 
     return interArea / unionArea;
 }
 
-static std::vector<Perception::Detection>
-nonMaxSuppression(const std::vector<Perception::Detection> &detections,
-                  float scoreThreshold,
-                  float iouThreshold,
-                  size_t maxDetections) {
-    std::vector<Perception::Detection> candidates;
+std::vector<FaceDetection> nonMaxSuppression(const std::vector<FaceDetection> &detections,
+                                             float scoreThreshold,
+                                             float iouThreshold,
+                                             size_t maxDetections) {
+    std::vector<FaceDetection> candidates;
     candidates.reserve(detections.size());
     for (const auto &det : detections) {
-        const auto &rect = std::get<Perception::Rect>(det);
-        if (rect.confidence >= scoreThreshold) {
-            candidates.push_back(rect);
+        if (det.confidence >= scoreThreshold) {
+            candidates.push_back(det);
         }
     }
 
-    std::sort(candidates.begin(),
-              candidates.end(),
-              [](const Perception::Detection &lhs, const Perception::Detection &rhs) {
-                  return std::get<Perception::Rect>(lhs).confidence >
-                         std::get<Perception::Rect>(rhs).confidence;
-              });
+    std::ranges::sort(candidates, [](const FaceDetection &lhs, const FaceDetection &rhs) {
+        return lhs.confidence > rhs.confidence;
+    });
 
-    std::vector<Perception::Detection> result;
+    std::vector<FaceDetection> result;
     std::vector<bool> suppressed(candidates.size(), false);
     result.reserve(std::min(maxDetections, candidates.size()));
 
@@ -69,13 +69,13 @@ nonMaxSuppression(const std::vector<Perception::Detection> &detections,
         if (suppressed[i])
             continue;
 
-        const auto &current = std::get<Perception::Rect>(candidates[i]);
+        const auto &current = candidates[i];
         result.push_back(current);
 
         for (size_t j = i + 1; j < candidates.size(); ++j) {
             if (suppressed[j])
                 continue;
-            if (iou(current, std::get<Perception::Rect>(candidates[j])) >= iouThreshold) {
+            if (iou(current, candidates[j]) >= iouThreshold) {
                 suppressed[j] = true;
             }
         }
@@ -235,9 +235,8 @@ validateGroups(const pek::TensorParser::Input &input, size_t modelWidth, size_t 
 
 } // namespace
 
-pek::Result<void>
-pek::stdop::postproc::ScrfdParser::parse(const pek::TensorParser::Input &input,
-                                         pek::Perception::Layer &detectionResult) {
+pek::Result<void> pek::stdop::postproc::ScrfdParser::parse(const pek::TensorParser::Input &input,
+                                                           perception::FrameResults &results) {
     const float confThreshold =
         static_cast<float>(input.attributes.getDoubleOrDefault("confidenceThreshold", 0.5));
     const float iouThreshold =
@@ -269,6 +268,7 @@ pek::stdop::postproc::ScrfdParser::parse(const pek::TensorParser::Input &input,
 
     const float scaleX = static_cast<float>(frameWidth) / static_cast<float>(modelWidth);
     const float scaleY = static_cast<float>(frameHeight) / static_cast<float>(modelHeight);
+    std::vector<FaceDetection> detections;
 
     for (const auto &group : *groupsResult) {
         for (size_t y = 0; y < group.height; ++y) {
@@ -309,23 +309,29 @@ pek::stdop::postproc::ScrfdParser::parse(const pek::TensorParser::Input &input,
                         y2 /= static_cast<float>(frameHeight);
                     }
 
-                    Perception::Rect rect;
-                    rect.x = x1;
-                    rect.y = y1;
-                    rect.width = std::max(0.0f, x2 - x1);
-                    rect.height = std::max(0.0f, y2 - y1);
-                    rect.confidence = score;
-                    rect.classId = 0;
-
-                    detectionResult.detections.push_back(rect);
+                    FaceDetection detection;
+                    detection.object = perception::makeObjectMeta(0U, input.inferenceInfo.parentId);
+                    detection.box = perception::makeBoundingBox(
+                        x1, y1, std::max(0.0f, x2 - x1), std::max(0.0f, y2 - y1));
+                    detection.confidence = score;
+                    detection.class_id = 0;
+                    detections.push_back(std::move(detection));
                 }
             }
         }
     }
 
-    detectionResult.detections =
-        nonMaxSuppression(detectionResult.detections, confThreshold, iouThreshold, maxDetections);
-    detectionResult.contentType = "humanFace";
+    detections = nonMaxSuppression(detections, confThreshold, iouThreshold, maxDetections);
+
+    perception::metadata::BoxDetectionsT payload;
+    payload.layer = perception::makeLayerInfo(
+        input.inferenceInfo.modelName, input.inferenceInfo.inferElementId, "humanFace");
+    for (auto &detection : detections) {
+        payload.detections.push_back(std::make_unique<FaceDetection>(std::move(detection)));
+    }
+    if (!payload.detections.empty()) {
+        results.add(std::move(payload));
+    }
 
     return {};
 }

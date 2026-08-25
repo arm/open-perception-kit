@@ -7,8 +7,8 @@
 #include "mediaio/VideoFrame.h"
 #include "op/OpChain.h"
 #include "op/OpChainContext.h"
-#include "pek/Perception.h"
-#include "pek/PerceptionSerializer.h"
+#include "pek/Base64.h"
+#include "pek/FrameResults.h"
 #include "pek/Result.h"
 
 #include <fmt/core.h>
@@ -68,6 +68,14 @@ Error mapInternalError(const pek::Error &error) {
     return runtimeError;
 }
 
+std::string serializeFrameResultsJson(const perception::FrameResults &frameResults) {
+    const auto packet = perception::serialize(frameResults);
+    nlohmann::json wrapper;
+    wrapper["frame_results_encoding"] = "perception-frame-results+base64";
+    wrapper["frame_results_packet_b64"] = pek::base64Encode(packet);
+    return wrapper.dump();
+}
+
 } // namespace
 
 struct OpChain::Impl {
@@ -101,10 +109,10 @@ Result<std::string> OpChain::run(const VideoFrame &frame, const std::string &inf
         return tl::make_unexpected(Error(ErrorFlag::InvalidArgument, "VideoFrame is empty"));
     }
 
-    pek::Perception perception;
+    perception::FrameResults frameResults;
     pek::op::OpChainContext context;
     context.inferenceInfo.inferElementId = inferElementId.empty() ? "runtime" : inferElementId;
-    context.perception = &perception;
+    context.frameResults = &frameResults;
     context.videoFrames["pipelineVideoFrame"] =
         std::static_pointer_cast<pek::mediaio::VideoFrame>(frame.internalFrameHandle());
 
@@ -114,12 +122,11 @@ Result<std::string> OpChain::run(const VideoFrame &frame, const std::string &inf
     }
 
     try {
-        const nlohmann::json perceptionJson = perception;
-        return perceptionJson.dump();
+        return serializeFrameResultsJson(frameResults);
     } catch (const std::exception &e) {
         return tl::make_unexpected(
             Error(ErrorFlag::RuntimeError,
-                  fmt::format("Failed to serialize Perception metadata: {}", e.what())));
+                  fmt::format("Failed to serialize FrameResults metadata: {}", e.what())));
     }
 }
 

@@ -44,7 +44,7 @@ class QualityChecks:
         "-fno-defer-pop"
     ]
     CLANG_TIDY_PROJECT_FILE_FILTER = (
-        r"(^|.*/)(common|elements|ops-[^/]+|pek-menu|runtime|tests|web)/.*"
+        r"(^|.*/)(common|config-validator|elements|ops-[^/]+|pek-menu|runtime|tests|web)/.*"
     )
     MERGE_COMMIT_HEADLINE_RE = re.compile(
         r"^Merge (?:(?:(?:remote-tracking )?branch|tag) '[^']+'(?: into .+)?|pull request #\d+\b.*)$",
@@ -76,6 +76,7 @@ class QualityChecks:
         "scripts/download-models.py",
         "tools/expkits-ci/agent-workflows-mypy.ini",
         "tools/expkits-ci/expkits_ci/agent_static_analysis.py",
+        "tools/expkits-ci/expkits_ci/config_schema.py",
         "tools/expkits-ci/tests/test_agent_static_analysis.py",
         "tools/expkits-ci/tests/test_agent_workflow_contracts.py",
         "tools/expkits-ci/pyproject.toml",
@@ -233,6 +234,25 @@ class QualityChecks:
             return False
 
         logger.info("GitHub Actions workflows passed actionlint.")
+        return True
+
+    def check_config_schema(self) -> bool:
+        """Validate every supported Model and OpChain descriptor."""
+        from expkits_ci.config_schema import run_config_validator
+
+        logger.info("Validating v1 Model and OpChain descriptors...")
+        project_root = self.file_utils.get_project_root()
+        try:
+            proc = run_config_validator(project_root)
+        except (OSError, ValueError) as error:
+            logger.error(str(error))
+            return False
+
+        if proc.returncode != 0:
+            self.log_captured_tool_output(proc.stdout)
+            return False
+
+        logger.info(proc.stdout.strip())
         return True
 
     @staticmethod
@@ -837,7 +857,7 @@ class QualityChecks:
 
         logger.error("Could not find compile_commands.json for clang-tidy.")
         logger.error(f"Checked path: {compile_commands_path}")
-        logger.error("Build the project first, for example with: ./scripts/build-elements.sh debug true")
+        logger.error("Build the project first, for example with: ./scripts/build.sh debug true")
         return None
 
     @staticmethod

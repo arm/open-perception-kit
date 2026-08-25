@@ -14,15 +14,15 @@ micropipeline.
 
 - Base class: `GstBaseTransform`
 - Processing mode: in-place `transform_ip`
-- Supported caps: `video/x-raw, format=BGRA`
+- Supported caps: `video/x-raw, format={BGRA,RGB,I420,NV12,YUY2}`
 - Main property: `opchain-path`, the JSON descriptor to execute
 - Control property: `active`, which enables or disables per-frame OpChain execution
 - Experimental property: `qos-enabled`, disabled by default
-- Metadata output: `PerceptionMeta`
+- Metadata output: `FrameResultsMeta`
 
-The implementation currently assumes tightly packed BGRA memory with stride equal
-to `width * 4`. Padded stride, multi-planar formats, and zero-copy paths require
-explicit `GstVideoFrame`/plane-stride handling.
+The implementation currently maps CPU-addressable `GstVideoFrame` buffers and
+passes per-plane data and stride into preprocessing. DMA-BUF-backed frames are
+detected but rejected until explicit zero-copy support is added.
 
 ## Lifecycle
 
@@ -31,7 +31,7 @@ JSON regardless of `active`. Setup failure prevents the element from starting.
 After successful setup, it emits a downstream `pek-model-register` event with
 model name, element name, and active state.
 
-On `set_caps()`, it validates BGRA caps and stores frame dimensions.
+On `set_caps()`, it validates the supported raw video caps and stores frame dimensions.
 
 On `stop()`, it releases OpChain state and resources.
 
@@ -39,14 +39,15 @@ On `stop()`, it releases OpChain state and resources.
 
 For each active frame:
 
-1. Map the buffer for read/write access.
-2. Ensure `PerceptionMeta` is attached.
-3. Construct an `OpChainContext`.
-4. Add the BGRA frame as `bitmapViews["pipelineVideoFrame"]`.
-5. Expose the frame's `Perception` object to Ops.
-6. Execute the OpChain.
+1. Ensure `FrameResultsMeta` is attached, including on QoS-skipped frames.
+2. Evaluate the QoS and processing-latency skip policy.
+3. Map an executable frame into a `VideoFrame` view.
+4. Construct an `OpChainContext`.
+5. Add the frame as `videoFrames["pipelineVideoFrame"]`.
+6. Expose the frame's `FrameResults` envelope to Ops.
+7. Execute the OpChain.
 
-Persistent outputs must be written into `Perception`; `OpChainContext` is
+Persistent outputs must be appended to `FrameResults`; `OpChainContext` is
 transient and discarded after the execution step.
 
 ## Error Handling And Observability
@@ -74,7 +75,7 @@ When an `UNDERFLOW` event reports positive lateness, active frames skip OpChain
 execution only while their running-time is earlier than the recovery point
 `event timestamp + lateness`. This ignores small spikes that the next frame has
 already recovered from and can skip multiple inference executions after a larger
-delay. The original video buffers are still forwarded with `PerceptionMeta`
+delay. The original video buffers are still forwarded with `FrameResultsMeta`
 (newly empty when no upstream result exists), allowing `pektracker` to emit
 prediction-only detections in the absence of new inference results. `pekinfer`
 posts a standard `GST_MESSAGE_QOS`

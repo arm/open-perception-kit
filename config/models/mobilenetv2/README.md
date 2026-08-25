@@ -6,5 +6,5 @@ Whole-frame ImageNet classifier.
 - Input: NCHW image, `[1, 3, 224, 224]`
 - Output: ImageNet class scores
 - Post processor: `ImageNetClassificationParser`
-- Supported Perception result: `Perception::Classification` in a `classification` layer
+- Supported FrameResults payload: `ClassificationsT` with `content_type` set to `classification`
 - Typical use: scene/image classification without detection boxes

@@ -1,0 +1,18 @@
+include "common.fbs";
+
+namespace perception.metadata;
+
+table SegmentationMask {
+  object:perception.metadata.ObjectMeta;
+  bitmap:perception.metadata.BitmapData;
+}
+
+table SegmentationMasks {
+  schema_major:ushort = 1;
+  schema_minor:ushort = 0;
+  layer:perception.metadata.LayerInfo;
+  masks:[perception.metadata.SegmentationMask];
+}
+
+root_type SegmentationMasks;
+file_identifier "SGMS";
