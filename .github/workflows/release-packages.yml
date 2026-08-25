@@ -455,7 +455,7 @@ jobs:
       - name: Set up locked uv and Python
         uses: astral-sh/setup-uv@v10.0.1
         with:
-          version: '0.8.13'
+          version: '0.8.15'
           python-version: '3.14'
 
       - name: Create read-only publisher token

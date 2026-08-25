@@ -86,7 +86,7 @@ jobs:
       - name: Set up locked uv and Python
         uses: astral-sh/setup-uv@v10.0.1
         with:
-          version: '0.8.13'
+          version: '0.8.15'
           python-version: '3.14'
 
       - name: Create read-only publisher token
@@ -148,17 +148,11 @@ jobs:
           UV_PUBLISH_URL: https://artifactory.arm.com/artifactory/api/pypi/edge-ai-tooling.pypi
           UV_PUBLISH_USERNAME: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
           UV_PUBLISH_PASSWORD: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
+          ARTIFACTS_DIR: ${{ runner.temp }}/pek-release-publication-candidates
         run: |
           set -euo pipefail
-          probe="$RUNNER_TEMP/opk_perception_sdk-0.1.7-py3-none-any.whl"
-          curl --fail --silent --show-error \
-            --user "$UV_PUBLISH_USERNAME:$UV_PUBLISH_PASSWORD" \
-            --output "$probe" \
-            https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci/snapshots/expkits-1258-wheel/9b6f1d04e4947c5574ea9853d49742363617f307-32719852864-1/opk_perception_sdk-0.1.7-py3-none-any.whl
-          printf '%s  %s\n' \
-            99d37f82614c9bf11659c91cb6546655034bd7fe33307d8b319a3d777a37ddfd \
-            "$probe" | sha256sum --check --strict
-          uv publish --dry-run "$probe"
+          wheel=("$ARTIFACTS_DIR"/opk_perception_sdk-*-py3-none-any.whl)
+          uv publish --dry-run "${wheel[0]}"
 
       - name: Delete Artifactory test packages
         if: always()
