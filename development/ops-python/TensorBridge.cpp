@@ -8,7 +8,8 @@
 #include "TensorBridge.h"
 
 #include <array>
-#include <stdexcept>
+
+#include "PythonBridgeError.h"
 
 extern "C" PyObject *PyInit_pek_python_ops();
 
@@ -182,16 +183,18 @@ PyType_Spec &contextSpec() {
 }
 
 int numpyType(pek::Dtype type) {
+    using enum pek::Dtype;
+
     switch (type) {
-    case pek::Dtype::Uint8:
+    case Uint8:
         return NPY_UINT8;
-    case pek::Dtype::Int8:
+    case Int8:
         return NPY_INT8;
-    case pek::Dtype::Float16:
+    case Float16:
         return NPY_FLOAT16;
-    case pek::Dtype::Float32:
+    case Float32:
         return NPY_FLOAT32;
-    case pek::Dtype::Int64:
+    case Int64:
         return NPY_INT64;
     }
     return NPY_NOTYPE;
@@ -315,7 +318,7 @@ PyObject *initializeModule() {
 
 void appendTensorModuleInittab() {
     if (PyImport_AppendInittab("pek_python_ops", &::PyInit_pek_python_ops) != 0)
-        throw std::runtime_error("Failed to register pek_python_ops Python module");
+        throw PythonBridgeError("Failed to register pek_python_ops Python module");
 }
 
 PyObject *wrapTensors(const pek::op::OpChainContext &context, const pek::Model *model) {

@@ -17,13 +17,13 @@ std::string formatPythonError();
 
 class GILGuard {
   public:
-    GILGuard();
+    GILGuard() = default;
     GILGuard(const GILGuard &) = delete;
     GILGuard &operator=(const GILGuard &) = delete;
     ~GILGuard();
 
   private:
-    PyGILState_STATE state;
+    PyGILState_STATE state = PyGILState_Ensure();
 };
 
 class PyObjectPtr {

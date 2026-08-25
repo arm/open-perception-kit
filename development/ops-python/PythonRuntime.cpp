@@ -7,10 +7,10 @@
 #include <dlfcn.h>
 
 #include <mutex>
-#include <stdexcept>
 #include <string_view>
 #include <utility>
 
+#include "PythonBridgeError.h"
 #include "TensorBridge.h"
 #include "python_bridge/perception_python_bridge.h"
 
@@ -32,15 +32,15 @@ void exposePythonSymbols() {
     Dl_info info{};
     if (dladdr(reinterpret_cast<const void *>(&Py_InitializeFromConfig), &info) == 0 ||
         info.dli_fname == nullptr) {
-        throw std::runtime_error("Failed to locate the embedded Python library");
+        throw PythonBridgeError("Failed to locate the embedded Python library");
     }
 
     pythonLibraryHandle = dlopen(
         info.dli_fname, RTLD_NOW | RTLD_GLOBAL | RTLD_NODELETE); // NOLINT(concurrency-mt-unsafe)
     if (pythonLibraryHandle == nullptr) {
         const char *error = dlerror();
-        throw std::runtime_error(std::string("Failed to expose embedded Python symbols: ") +
-                                 (error == nullptr ? "unknown error" : error));
+        throw PythonBridgeError(std::string("Failed to expose embedded Python symbols: ") +
+                                (error == nullptr ? "unknown error" : error));
     }
 }
 
@@ -61,7 +61,7 @@ void initializeRuntime() {
     const std::string error = status.err_msg == nullptr ? "unknown error" : status.err_msg;
     PyConfig_Clear(&config);
     if (PyStatus_Exception(status) || !Py_IsInitialized())
-        throw std::runtime_error("Failed to initialize embedded Python: " + error);
+        throw PythonBridgeError("Failed to initialize embedded Python: " + error);
 
     PyEval_SaveThread();
 }
@@ -71,8 +71,6 @@ void initializeRuntime() {
 void ensureRuntime() {
     std::call_once(initializationFlag, initializeRuntime);
 }
-
-GILGuard::GILGuard() : state(PyGILState_Ensure()) {}
 
 GILGuard::~GILGuard() {
     PyGILState_Release(state);
@@ -114,7 +112,7 @@ PythonPathGuard::PythonPathGuard(const std::vector<std::filesystem::path> &paths
     originalPathSnapshot =
         PyObjectPtr(originalPathObject ? PySequence_List(originalPathObject.get()) : nullptr);
     if (!originalPathObject || !PyList_Check(originalPathObject.get()) || !originalPathSnapshot)
-        throw std::runtime_error("Failed to access Python sys.path: " + formatPythonError());
+        throw PythonBridgeError("Failed to access Python sys.path: " + formatPythonError());
 
     for (auto iterator = paths.rbegin(); iterator != paths.rend(); ++iterator) {
         PyObjectPtr value(PyUnicode_FromString(iterator->string().c_str()));
@@ -127,7 +125,7 @@ PythonPathGuard::PythonPathGuard(const std::vector<std::filesystem::path> &paths
                 PyErr_Clear();
             if (PyObject_SetAttrString(sysModule.get(), "path", originalPathObject.get()) < 0)
                 PyErr_Clear();
-            throw std::runtime_error("Failed to update Python sys.path: " + error);
+            throw PythonBridgeError("Failed to update Python sys.path: " + error);
         }
     }
 }

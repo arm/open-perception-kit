@@ -8,11 +8,11 @@
 #include <atomic>
 #include <fstream>
 #include <iterator>
-#include <stdexcept>
 #include <utility>
 
 #include <fmt/format.h>
 
+#include "PythonBridgeError.h"
 #include "PythonRuntime.h"
 #include "TensorBridge.h"
 #include "op/OpChainDescriptor.h"
@@ -32,7 +32,7 @@ std::atomic_uint64_t nextModuleId = 0;
 std::string readScript(const std::filesystem::path &path) {
     std::ifstream input(path, std::ios::binary);
     if (!input)
-        throw std::runtime_error("Failed to open Python script: " + path.string());
+        throw PythonBridgeError("Failed to open Python script: " + path.string());
     return std::string(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>());
 }
 
