@@ -206,8 +206,7 @@ Release image builds get their model and runtime inputs from these sources:
 | `ONNXRUNTIME_VERSION` | Defaulted and consumed by `pek-deployment-build` |
 | `EXECUTORCH_VERSION`, `EXECUTORCH_DEB_REVISION` | Defaulted and consumed by `pek-deployment-build` |
 | `HF_TOKEN` | Read-only repository secret; exposed to `pek-models` only as a BuildKit secret while checked-in models require authentication |
-| `PEK_ARTIFACTORY_USERNAME`, `PEK_ARTIFACTORY_READ_TOKEN` | Download-only credentials used by selected-source builds to read the ExecuTorch Debian package |
-| `PEK_ARTIFACTORY_API_KEY` | Publish credential used only by trusted Artifactory publication jobs |
+| `PEK_ARTIFACTORY_USERNAME`, `PEK_ARTIFACTORY_API_KEY` | Existing repository secrets used to read the ExecuTorch Debian package and publish release archives |
 
 `Dockerfile` remains the version authority. Release jobs build its existing
 `pek-deployment-base` target for the native architecture and copy the archive
@@ -223,8 +222,7 @@ with system `tar`. There is no separate release documentation image or package
 script.
 
 Configured GitHub Actions secrets supply `HF_TOKEN`, `PEK_ARTIFACTORY_USERNAME`,
-`PEK_ARTIFACTORY_READ_TOKEN`, and `PEK_ARTIFACTORY_API_KEY`. The read token must
-not have deploy permission. Once the workflow is registered on the default `develop`
+and `PEK_ARTIFACTORY_API_KEY`. Once the workflow is registered on the default `develop`
 branch, a manual run may select a feature branch for release testing. GitHub
 cannot manually dispatch a new workflow before it exists on the default branch.
 
