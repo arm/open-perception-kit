@@ -13,8 +13,8 @@ gcovr -r . \
     --exclude-noncode-lines \
     --exclude-throw-branches \
     --exclude-unreachable-branches \
-    --sonarqube-metric line \
     --sonarqube coverage.xml
+sed -E -i 's/ branchesToCover="[0-9]+" coveredBranches="[0-9]+"//g' coverage.xml
 
 coverage erase
 coverage run --parallel-mode --branch --source=tools/perception,scripts/release \
