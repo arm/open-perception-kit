@@ -495,6 +495,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   openjdk-25-jdk pandoc python3-dev python3-gi python3-gst-1.0 \
   zlib1g-dev
 
+RUN uv pip install --python /opt/pek-venvs/devtools/bin/python coverage==7.10.7
+
 RUN set -eux; \
   mkdir -p /opt/pek-deps; \
   plantuml_jar="plantuml-mit-${PLANTUML_VERSION}.jar"; \

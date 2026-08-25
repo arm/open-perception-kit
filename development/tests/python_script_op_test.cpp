@@ -137,6 +137,52 @@ TEST(PythonScriptOp, RejectsIncompatibleProcessSignaturesDuringConfiguration) {
     EXPECT_EQ(loadedScriptModuleCount(), initialCount);
 }
 
+TEST(PythonScriptOp, RejectsSyntaxErrorsDuringConfiguration) {
+    pek::python::PythonScriptOp script;
+    const auto result = script.configure(attributes("invalid_syntax.txt"));
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().flag, pek::ErrorFlag::ParseError);
+    EXPECT_NE(result.error().info.find("Failed to compile"), std::string::npos);
+    EXPECT_NE(result.error().info.find("SyntaxError"), std::string::npos);
+    EXPECT_NE(result.error().info.find("invalid_syntax.txt"), std::string::npos);
+}
+
+TEST(PythonScriptOp, RejectsModuleLevelExceptionsDuringConfiguration) {
+    pek::python::PythonScriptOp script;
+    const auto result = script.configure(attributes("module_failure.py"));
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().flag, pek::ErrorFlag::ParseError);
+    EXPECT_NE(result.error().info.find("Failed to load"), std::string::npos);
+    EXPECT_NE(result.error().info.find("intentional module initialization failure"),
+              std::string::npos);
+    EXPECT_NE(result.error().info.find("module_failure.py"), std::string::npos);
+}
+
+TEST(PythonScriptOp, RejectsMissingProcessDuringConfiguration) {
+    pek::python::PythonScriptOp script;
+    const auto result = script.configure(attributes("missing_process.py"));
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().flag, pek::ErrorFlag::InvalidData);
+    EXPECT_NE(result.error().info.find("must define callable process"), std::string::npos);
+}
+
+TEST(PythonScriptOp, RejectsMissingPythonPathDuringConfiguration) {
+    auto configuration = attributes("empty_tensors.py");
+    configuration.setArray(
+        "pythonPaths",
+        pek::AttributeValue::Array{pek::AttributeValue("missing-python-import-path")});
+
+    pek::python::PythonScriptOp script;
+    const auto result = script.configure(configuration);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().flag, pek::ErrorFlag::FileNotFound);
+    EXPECT_NE(result.error().info.find("Python import path does not exist"), std::string::npos);
+}
+
 TEST(PythonScriptOp, AcceptsCompatibleVariadicProcessSignature) {
     pek::python::PythonScriptOp script;
     std::vector<pek::op::Op *> ops = {&script};
@@ -244,6 +290,80 @@ TEST(PythonScriptOp, ReturnsPythonTracebackAsRuntimeError) {
     ASSERT_FALSE(result);
     EXPECT_NE(result.error().info.find("intentional Python failure"), std::string::npos);
     EXPECT_NE(result.error().info.find("failing.py"), std::string::npos);
+}
+
+TEST(PythonScriptOp, RejectsNonNoneProcessResult) {
+    pek::python::PythonScriptOp script;
+    std::vector<pek::op::Op *> ops = {&script};
+    ASSERT_TRUE(script.configure(attributes("returns_value.py")));
+    ASSERT_TRUE(script.bind(0, ops));
+
+    perception::FrameResults results;
+    pek::op::OpChainContext context;
+    context.frameResults = &results;
+    const auto result = script.process(context);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().flag, pek::ErrorFlag::InvalidData);
+    EXPECT_NE(result.error().info.find("must return None"), std::string::npos);
+}
+
+TEST(PythonScriptOp, RequiresFrameResults) {
+    pek::python::PythonScriptOp script;
+    std::vector<pek::op::Op *> ops = {&script};
+    ASSERT_TRUE(script.configure(attributes("empty_tensors.py")));
+    ASSERT_TRUE(script.bind(0, ops));
+
+    pek::op::OpChainContext context;
+    const auto result = script.process(context);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().flag, pek::ErrorFlag::InvalidData);
+    EXPECT_NE(result.error().info.find("requires FrameResults"), std::string::npos);
+}
+
+TEST(PythonScriptOp, RejectsProcessingBeforeConfiguration) {
+    pek::python::PythonScriptOp script;
+    pek::op::OpChainContext context;
+    const auto result = script.process(context);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().flag, pek::ErrorFlag::SystemFailure);
+    EXPECT_NE(result.error().info.find("is not configured"), std::string::npos);
+}
+
+TEST(PythonScriptOp, RejectsTensorCountBeyondContextCapacity) {
+    pek::python::PythonScriptOp script;
+    std::vector<pek::op::Op *> ops = {&script};
+    ASSERT_TRUE(script.configure(attributes("empty_tensors.py")));
+    ASSERT_TRUE(script.bind(0, ops));
+
+    perception::FrameResults results;
+    pek::op::OpChainContext context;
+    context.frameResults = &results;
+    context.inferenceOutputTensorCount = context.inferenceOutputTensors.size() + 1;
+    const auto result = script.process(context);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().flag, pek::ErrorFlag::TensorError);
+    EXPECT_NE(result.error().info.find("tensor count exceeds"), std::string::npos);
+}
+
+TEST(PythonScriptOp, RejectsInvalidTensorViews) {
+    pek::python::PythonScriptOp script;
+    std::vector<pek::op::Op *> ops = {&script};
+    ASSERT_TRUE(script.configure(attributes("empty_tensors.py")));
+    ASSERT_TRUE(script.bind(0, ops));
+
+    perception::FrameResults results;
+    pek::op::OpChainContext context;
+    context.frameResults = &results;
+    context.inferenceOutputTensorCount = 1;
+    const auto result = script.process(context);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().flag, pek::ErrorFlag::TensorError);
+    EXPECT_NE(result.error().info.find("tensor 0 is invalid"), std::string::npos);
 }
 
 TEST(PythonScriptOp, RejectsMissingScript) {

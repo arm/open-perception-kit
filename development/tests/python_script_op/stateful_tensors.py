@@ -17,7 +17,9 @@ def process(env: Envelope, tensors: tuple[Tensor, ...], context: Context) -> Non
 
     assert env is not None
     assert context.producer_info.implementation == "stateful_tensors.py"
+    assert "Context(producer_info=" in repr(context)
     assert len(tensors) == 2
+    assert "Tensor(index=0" in repr(tensors[0])
     assert tensors[0].index == 0
     assert tensors[0].name == "scores"
     assert tensors[0].array.dtype == numpy.float32
