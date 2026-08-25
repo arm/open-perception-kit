@@ -120,8 +120,8 @@ bool validPixelBuffer(const void *data,
                       pek::RawImagePixelFormat format,
                       uint32_t strideBytes,
                       pek::AccessMode accessMode) noexcept {
-    const uint32_t minimumStrideBytes = defaultStride(width, format);
-    if (data == nullptr || byteSize == 0 || minimumStrideBytes == 0 ||
+    if (const uint32_t minimumStrideBytes = defaultStride(width, format);
+        data == nullptr || byteSize == 0 || minimumStrideBytes == 0 ||
         strideBytes < minimumStrideBytes || !validAccessMode(accessMode) ||
         !validDimensions(width, height, strideBytes)) {
         return false;

@@ -17,8 +17,12 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Uploads the PR image for the trusted GHCR publisher in the same build job, so
   every consumer waits for one complete image handoff.
 - Reuses Docker layers through the ref-scoped cache flow below.
-- Starts the Linux, Raspberry Pi, and macOS quick-start checks independently
-  because they build their own platform images.
+- Starts the Linux, Raspberry Pi, and macOS quick-start checks independently.
+  The macOS lane pulls an exact-SHA quick-start image from GHCR and seeds its
+  compiler cache into temporary Colima volumes. It can reuse the newest
+  image-compatible ancestor, or the PR-base image when its inputs are unchanged;
+  missing images fall back to the local QEMU build. The checkout, job containers,
+  and complete Colima VM are removed.
 - Routes `run-python-audit`, `run-docker-scout`, and `run-workflow-audit` PR
   labels through this workflow so label-triggered checks do not create duplicate
   PR workflows. Workflow dependency freshness keeps its scheduled and manual
@@ -31,6 +35,12 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
   `Run Sonar analysis in Docker` name.
 - Runs pull request quality checks through `expkits-ci --ci-pr-checks`.
 - Runs full/nightly quality checks through `expkits-ci --ci-full-checks`.
+- Applies CI exceptions from the root-level `ci-suppressions.txt` only in the
+  pull request that adds each `SUPPRESSION_TYPE: Reason` line. Merged entries
+  remain as inert suppression history.
+- Supports Sonar gate suppressions for `UNIT_TEST_COVERAGE`, `CODE_DUPLICATION`,
+  `MAINTAINABILITY`, `RELIABILITY`, `SECURITY`, and `SECURITY_HOTSPOTS`.
+  Sonar findings and unsuppressed gate conditions remain blocking.
 - Lets `pek-ci-image-cleanup.yml` delete successful/cancelled run handoffs and
   all remaining PR caches when the pull request closes. Failed-run handoffs stay
   available for failed-job reruns.
@@ -48,10 +58,11 @@ requests.
 ### Cache flow
 
 GHCR stores the latest successful image for each PR, exact-SHA Valgrind
-baselines, and the nightly amd64/arm64 deployment images. Those deployment
-builds export their complete BuildKit graphs to architecture-specific registry
-cache tags. Other Docker layers and compiler outputs use the GitHub Actions
-cache.
+baselines, recent exact-SHA macOS quick-start images, and the nightly
+amd64/arm64 deployment images. The deployment and macOS publishers export
+their BuildKit graphs to separate registry cache tags. Other Docker layers and
+compiler outputs use the GitHub Actions cache. The macOS compiler cache is
+embedded in its published image and copied into a temporary Colima volume.
 
 | Run | Docker layers read from | Docker layers written to |
 | --- | --- | --- |
@@ -68,6 +79,9 @@ writes only its own merge ref.
 | --- | --- | --- |
 | Buildx `pek-ci` cache | Reuse Docker layers between runs | Branch/PR ref; deleted when the PR closes or GitHub evicts it |
 | Quality, Sonar, and Valgrind ccache | Reuse compiled objects for the same check | PR ref; deleted when the PR closes or GitHub evicts it |
+| macOS quick-start ccache seed | Avoid cold compilation under QEMU | Embedded in each published macOS quick-start image; the entrypoint copies it into a temporary Colima volume |
+| Exact-SHA macOS quick-start image | Avoid QEMU image builds in the macOS lane | Published by `main` and `develop` pushes; newest 20 retained in GHCR |
+| macOS quick-start BuildKit cache | Reuse publisher image layers | Current GHCR `buildcache` tag; superseded untagged versions are deleted |
 | Sonar CFamily server cache | Reuse target-branch or main fallback analysis in pull requests | Updated by `main` and `develop` push analysis |
 | Run image cache | Pass the image from `Build PEK CI image` to its dependent jobs | Exact run; retained after failure for rerun, deleted after success/cancel or PR close |
 | PR image artifact | Pass the verified image to the trusted GHCR publisher | One day |

@@ -198,10 +198,9 @@ Model** panel. If the toggle is off, enable it.
 
 Congratulations, you have run your first Perception Kit pipeline!
 
-## For VS Code users 
+## Platform-specific setup
 
-Pipeline testing and development are fully supported in Visual Studio Code (VS Code)
-Follow the links below for detailed instructions:
+Use these guides for platform prerequisites and command-line or VS Code setup:
 
 * [Raspberry Pi 5](getting-started/raspberry-pi-quick-start.md)
 * [Windows](getting-started/windows-quick-start.md)

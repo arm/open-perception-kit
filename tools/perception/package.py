@@ -23,6 +23,7 @@ import zipfile
 from dataclasses import asdict
 from email.parser import Parser
 from pathlib import Path
+from typing import cast
 
 import generate as perception_generate
 from artifacts import acquire_artifact
@@ -42,6 +43,10 @@ SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 GIT_COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 CHECKSUM_SUFFIX = ".sha256"
 PROVENANCE_SUFFIX = ".provenance.json"
+MAX_NPM_ARCHIVE_BYTES = 64 * 1024 * 1024
+MAX_NPM_EXPANDED_BYTES = 256 * 1024 * 1024
+MAX_NPM_MEMBERS = 10_000
+MAX_NPM_METADATA_BYTES = 1024 * 1024
 
 
 def run(
@@ -196,7 +201,7 @@ def write_deterministic_npm_package(source: Path, destination: Path) -> None:
         files.extend(path for path in sorted((source / directory).rglob("*")) if path.is_file())
     destination.parent.mkdir(parents=True, exist_ok=True)
     buffer = io.BytesIO()
-    with tarfile.open(fileobj=buffer, mode="w", format=tarfile.PAX_FORMAT) as archive:
+    with tarfile.TarFile(fileobj=buffer, mode="w", format=tarfile.PAX_FORMAT) as archive:
         for path in files:
             relative = Path("package") / path.relative_to(source)
             info = tarfile.TarInfo(relative.as_posix())
@@ -214,21 +219,50 @@ def write_deterministic_npm_package(source: Path, destination: Path) -> None:
             compressed.write(buffer.getvalue())
 
 
+def _read_npm_metadata_member(
+    archive: tarfile.TarFile, member: tarfile.TarInfo, package_name: str
+) -> bytes | None:
+    if member.name != "package/package.json":
+        return None
+    if not member.isfile():
+        raise RuntimeError(f"npm package metadata is invalid: {package_name}")
+    if member.size > MAX_NPM_METADATA_BYTES:
+        raise RuntimeError(f"npm package metadata is too large: {package_name}")
+    package_file = archive.extractfile(member)
+    if package_file is None:
+        raise RuntimeError(f"npm package metadata is unreadable: {package_name}")
+    return package_file.read(MAX_NPM_METADATA_BYTES + 1)
+
+
 def npm_package_metadata(path: Path) -> dict[str, object]:
-    with tarfile.open(path, "r:gz") as archive:
-        members = archive.getmembers()
-        names = {member.name for member in members}
-        if any(
-            member.name.startswith("/") or ".." in Path(member.name).parts
-            for member in members
-        ):
-            raise RuntimeError(f"npm package contains an unsafe path: {path.name}")
-        if "package/package.json" not in names:
+    if path.stat().st_size > MAX_NPM_ARCHIVE_BYTES:
+        raise RuntimeError(f"npm package archive is too large: {path.name}")
+
+    with (
+        path.open("rb") as source,
+        gzip.GzipFile(fileobj=source, mode="rb") as compressed,
+        tarfile.TarFile(fileobj=compressed, mode="r") as archive,
+    ):
+        package_bytes: bytes | None = None
+        member_count = 0
+        expanded_bytes = 0
+        for member in archive:
+            if member.name.startswith("/") or ".." in Path(member.name).parts:
+                raise RuntimeError(f"npm package contains an unsafe path: {path.name}")
+            member_count += 1
+            expanded_bytes += member.size
+            if member_count > MAX_NPM_MEMBERS or expanded_bytes > MAX_NPM_EXPANDED_BYTES:
+                raise RuntimeError(f"npm package expands beyond safety limits: {path.name}")
+            candidate = _read_npm_metadata_member(archive, member, path.name)
+            if candidate is None:
+                continue
+            if package_bytes is not None:
+                raise RuntimeError(f"npm package metadata is invalid: {path.name}")
+            package_bytes = candidate
+
+        if package_bytes is None:
             raise RuntimeError(f"npm package has no package.json: {path.name}")
-        package_file = archive.extractfile("package/package.json")
-        if package_file is None:
-            raise RuntimeError(f"npm package metadata is unreadable: {path.name}")
-        package = json.loads(package_file.read().decode("utf-8"))
+        package = json.loads(package_bytes.decode("utf-8"))
     return package
 
 
@@ -472,24 +506,27 @@ def _verify_descriptor_flatbuffers_locks(
 ) -> None:
     descriptor_flatbuffers = descriptor.get("flatbuffers")
     descriptor_typescript = descriptor.get("typescript_build")
-    if (
-        not isinstance(descriptor_flatbuffers, dict)
-        or not isinstance(descriptor_typescript, dict)
-        or not isinstance(manifest_flatbuffers, dict)
+    if not all(
+        isinstance(value, dict)
+        for value in (descriptor_flatbuffers, descriptor_typescript, manifest_flatbuffers)
     ):
         raise RuntimeError("release descriptor FlatBuffers metadata is malformed")
+    descriptor_flatbuffers = cast(dict[str, object], descriptor_flatbuffers)
+    descriptor_typescript = cast(dict[str, object], descriptor_typescript)
+    manifest_flatbuffers = cast(dict[str, object], manifest_flatbuffers)
 
     version = descriptor_flatbuffers.get("version")
     python_lock = descriptor_flatbuffers.get("python_wheel")
     source_lock = descriptor_flatbuffers.get("source_archive")
     typescript_lock = descriptor_typescript.get("flatbuffers_runtime")
-    if (
-        not isinstance(version, str)
-        or not isinstance(python_lock, dict)
-        or not isinstance(source_lock, dict)
-        or not isinstance(typescript_lock, dict)
+    if not isinstance(version, str) or not all(
+        isinstance(value, dict)
+        for value in (python_lock, source_lock, typescript_lock)
     ):
         raise RuntimeError("release descriptor FlatBuffers locks are malformed")
+    python_lock = cast(dict[str, object], python_lock)
+    source_lock = cast(dict[str, object], source_lock)
+    typescript_lock = cast(dict[str, object], typescript_lock)
 
     compiler = manifest_flatbuffers.get("compiler")
     if not isinstance(compiler, dict) or compiler.get("semantic_version") != version:

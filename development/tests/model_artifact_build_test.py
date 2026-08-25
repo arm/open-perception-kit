@@ -14,9 +14,12 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DOWNLOAD_SCRIPT = REPO_ROOT / "scripts" / "download-models.py"
+COMPOSE_FILE = "compose.yaml"
+DOCKER_UNAVAILABLE = "Docker CLI is not installed"
 MODELS_DIR = "config/models"
 MODEL_DESCRIPTOR = "model.json"
-MODEL_SCHEMA = Path("config/schemas/v1/model.schema.json")
+SCHEMAS_DIR = Path("config/schemas")
+MODEL_SCHEMA = SCHEMAS_DIR / "v1/model.schema.json"
 
 
 class ModelArtifactBuildTest(unittest.TestCase):
@@ -40,7 +43,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
         )
         self.assertIn(
             "PEK_PIPELINE: ${PEK_PIPELINE:-yolov11-onnx}",
-            (REPO_ROOT / "compose.yaml").read_text(),
+            (REPO_ROOT / COMPOSE_FILE).read_text(),
         )
         self.assertIn(
             "ARG PEK_PIPELINE=yolov11-onnx",
@@ -108,7 +111,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
             1,
         )
         for name, service in (
-            ("compose.yaml", "pek-model-image"),
+            (COMPOSE_FILE, "pek-model-image"),
             (".devcontainer/compose.devcont.yaml", "pek-common-dev-model-image"),
             (".github/compose.ci.yaml", "pek-model-image"),
             (".github/compose.ci.yaml", "pek-common-dev-model-image"),
@@ -184,7 +187,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
     def test_tokenless_compose_config(self) -> None:
         docker = shutil.which("docker")
         if docker is None:
-            self.skipTest("Docker CLI is not installed")
+            self.skipTest(DOCKER_UNAVAILABLE)
         if subprocess.run(
             [docker, "compose", "version"],
             capture_output=True,
@@ -196,7 +199,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
         env.pop("HF_TOKEN", None)
         env.pop("HF_DOWNLOAD_CACHEBUST", None)
         config = subprocess.run(
-            [docker, "compose", "-f", "compose.yaml", "config", "--format", "json"],
+            [docker, "compose", "-f", COMPOSE_FILE, "config", "--format", "json"],
             cwd=REPO_ROOT,
             env=env,
             text=True,
@@ -211,7 +214,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
 
         env["HF_TOKEN"] = "test-token"
         authenticated_config = subprocess.run(
-            [docker, "compose", "-f", "compose.yaml", "config", "--format", "json"],
+            [docker, "compose", "-f", COMPOSE_FILE, "config", "--format", "json"],
             cwd=REPO_ROOT,
             env=env,
             text=True,
@@ -230,7 +233,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
         if docker is None:
             if docker_required:
                 self.fail("Docker CLI is required")
-            self.skipTest("Docker CLI is not installed")
+            self.skipTest(DOCKER_UNAVAILABLE)
         if subprocess.run(
             [docker, "buildx", "version"],
             stdout=subprocess.DEVNULL,
@@ -250,7 +253,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
                 "buildx",
                 "bake",
                 "-f",
-                "compose.yaml",
+                COMPOSE_FILE,
                 "--call=outline",
                 "pek-dev",
             ],
@@ -280,7 +283,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
         if docker is None:
             if docker_required:
                 self.fail("Docker CLI is required")
-            self.skipTest("Docker CLI is not installed")
+            self.skipTest(DOCKER_UNAVAILABLE)
         if subprocess.run(
             [docker, "info"],
             stdout=subprocess.DEVNULL,
@@ -295,8 +298,8 @@ class ModelArtifactBuildTest(unittest.TestCase):
             context = Path(temporary_directory)
             shutil.copy2(REPO_ROOT / "Dockerfile", context / "Dockerfile")
             shutil.copytree(
-                REPO_ROOT / "config/schemas",
-                context / "config/schemas",
+                REPO_ROOT / SCHEMAS_DIR,
+                context / SCHEMAS_DIR,
             )
             models = context / "config/models"
             models.mkdir()
@@ -446,8 +449,8 @@ class ModelArtifactBuildTest(unittest.TestCase):
             cache.mkdir()
             shutil.copy2(DOWNLOAD_SCRIPT, scripts / DOWNLOAD_SCRIPT.name)
             shutil.copytree(
-                REPO_ROOT / "config/schemas",
-                root / "config/schemas",
+                REPO_ROOT / SCHEMAS_DIR,
+                root / SCHEMAS_DIR,
             )
 
             for name, model_file, hub_file in (

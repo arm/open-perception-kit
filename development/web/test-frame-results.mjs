@@ -6,12 +6,9 @@ import {fileURLToPath, pathToFileURL} from 'node:url';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(root, '..', '..');
-const npmEnv = {...process.env};
-delete npmEnv.npm_config_prefix;
-delete npmEnv.NPM_CONFIG_PREFIX;
 const modulesRoot = process.env.PEK_WEB_NODE_MODULES
     || process.env.NODE_PATH
-    || execFileSync('npm', ['root', '--global'], {encoding: 'utf8', env: npmEnv}).trim();
+    || '/usr/local/lib/node_modules';
 const require = createRequire(import.meta.url);
 
 function resolvePackage(name, fallback) {

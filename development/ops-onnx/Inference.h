@@ -123,7 +123,7 @@ struct Inference {
         return outputTensorFinalShapes[index];
     }
 
-  protected:
+  private:
     pek::InferenceInfo inferenceInfo;
     bool setupReady = false;
 

@@ -26,14 +26,12 @@ static bool check_inference_lifecycle(const char *model_descriptor_path) {
     }
 
     for (int attempt = 0; attempt < 2; ++attempt) {
-        auto setup_result = inference.setup(*descriptor);
-        if (!setup_result) {
+        if (auto setup_result = inference.setup(*descriptor); !setup_result) {
             std::fprintf(stderr, "ONNX setup attempt %d failed\n", attempt + 1);
             return false;
         }
 
-        auto inference_result = inference.inference();
-        if (!inference_result) {
+        if (auto inference_result = inference.inference(); !inference_result) {
             std::fprintf(stderr, "ONNX inference attempt %d failed\n", attempt + 1);
             return false;
         }

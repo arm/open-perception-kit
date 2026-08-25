@@ -63,6 +63,28 @@ async function registeredModels(page) {
   return models;
 }
 
+function modelLabelOverflowProblems(measurement) {
+  const epsilon = 0.5;
+  const problems = [];
+  if (measurement.row.scrollWidth > measurement.row.clientWidth)
+    problems.push('row has horizontal overflow');
+  if (!measurement.copy || measurement.copy.left < measurement.row.left - epsilon ||
+      measurement.copy.right > measurement.row.right + epsilon)
+    problems.push('label container extends outside row');
+  if (!measurement.actions || measurement.actions.right > measurement.row.right + epsilon)
+    problems.push('toggle controls extend outside row');
+  if (measurement.copy && measurement.actions &&
+      measurement.copy.right > measurement.actions.left + epsilon)
+    problems.push('label content overlaps toggle controls');
+  if (!measurement.task || measurement.task.scrollWidth > measurement.task.clientWidth)
+    problems.push('task label overflows');
+  if (measurement.details && measurement.details.scrollWidth > measurement.details.clientWidth &&
+      (measurement.details.overflowX !== 'hidden' ||
+       measurement.details.textOverflow !== 'ellipsis'))
+    problems.push('long model details are not contained by ellipsis');
+  return problems;
+}
+
 async function expectModelLabelsDoNotOverflow(page) {
   const measurements = await page.locator(`${MODELS_CONTAINER} ${MODEL_ITEM}`)
     .evaluateAll((items, attributes) => items.map((item) => {
@@ -99,27 +121,9 @@ async function expectModelLabelsDoNotOverflow(page) {
       elementName: MODEL_ELEMENT_NAME_ATTRIBUTE,
     });
 
-  const epsilon = 0.5;
   const failures = [];
   for (const measurement of measurements) {
-    const problems = [];
-    if (measurement.row.scrollWidth > measurement.row.clientWidth)
-      problems.push('row has horizontal overflow');
-    if (!measurement.copy || measurement.copy.left < measurement.row.left - epsilon ||
-        measurement.copy.right > measurement.row.right + epsilon)
-      problems.push('label container extends outside row');
-    if (!measurement.actions || measurement.actions.right > measurement.row.right + epsilon)
-      problems.push('toggle controls extend outside row');
-    if (measurement.copy && measurement.actions &&
-        measurement.copy.right > measurement.actions.left + epsilon)
-      problems.push('label content overlaps toggle controls');
-    if (!measurement.task || measurement.task.scrollWidth > measurement.task.clientWidth)
-      problems.push('task label overflows');
-    if (measurement.details && measurement.details.scrollWidth > measurement.details.clientWidth &&
-        (measurement.details.overflowX !== 'hidden' ||
-         measurement.details.textOverflow !== 'ellipsis'))
-      problems.push('long model details are not contained by ellipsis');
-
+    const problems = modelLabelOverflowProblems(measurement);
     if (problems.length > 0)
       failures.push({...measurement, problems});
   }
@@ -190,8 +194,7 @@ async function backendModelState(page, elementName) {
 }
 
 async function expectVideoKeepsPlaying(page, sampleCount = VIDEO_SAMPLE_COUNT) {
-  let previousState = await page.evaluate(readVideoState);
-  expectVideoStateToBeHealthy(previousState);
+  let previousState = await waitForHealthyVideoState(page, null, VIDEO_PROGRESS_TIMEOUT_MS);
 
   for (let index = 0; index < sampleCount; index += 1) {
     await page.waitForTimeout(VIDEO_SAMPLE_INTERVAL_MS);

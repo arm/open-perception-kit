@@ -157,11 +157,11 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-  file gnupg gstreamer1.0-gl gstreamer1.0-nice gstreamer1.0-pipewire \
+  file gnupg gosu gstreamer1.0-gl gstreamer1.0-nice gstreamer1.0-pipewire \
   gstreamer1.0-plugins-bad gstreamer1.0-plugins-base \
   gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
   gstreamer1.0-tools gstreamer1.0-x lldb-17 nodejs npm pre-commit python3-gi python3-pip \
-  gosu shellcheck shfmt sudo valgrind wget zip; \
+  shellcheck shfmt sudo valgrind wget zip; \
   update-ca-certificates
 
 RUN set -eux; \
@@ -175,15 +175,14 @@ RUN set -eux; \
     local url="$1"; local destination="$2"; \
     timeout 180s curl \
       --fail --location --proto '=https' --proto-redir '=https' \
-      --retry 1 --output "${destination}" "${url}" || \
-      curl \
-        --fail --location --proto '=https' --proto-redir '=https' \
-        --retry 3 --output "${destination}" \
-        "${NPM_FALLBACK_REGISTRY}/${url#https://registry.npmjs.org/}"; \
+      --retry 3 --output "${destination}" "${url}"; \
   }; \
-  download "${esbuild_url}" /tmp/esbuild-wasm.tgz; \
-  download "${flatbuffers_url}" /tmp/flatbuffers.tgz; \
-  download "${typescript_url}" /tmp/typescript.tgz; \
+  download "${esbuild_url}" /tmp/esbuild-wasm.tgz || \
+    download "${NPM_FALLBACK_REGISTRY}/${esbuild_url#https://registry.npmjs.org/}" /tmp/esbuild-wasm.tgz; \
+  download "${flatbuffers_url}" /tmp/flatbuffers.tgz || \
+    download "${NPM_FALLBACK_REGISTRY}/${flatbuffers_url#https://registry.npmjs.org/}" /tmp/flatbuffers.tgz; \
+  download "${typescript_url}" /tmp/typescript.tgz || \
+    download "${NPM_FALLBACK_REGISTRY}/${typescript_url#https://registry.npmjs.org/}" /tmp/typescript.tgz; \
   ESBUILD_INTEGRITY="${esbuild_integrity}" node -e 'const crypto=require("crypto"); const fs=require("fs"); const [algorithm, expected]=process.env.ESBUILD_INTEGRITY.split("-", 2); const actual=crypto.createHash(algorithm).update(fs.readFileSync("/tmp/esbuild-wasm.tgz")).digest("base64"); if (actual !== expected) throw new Error("esbuild-wasm integrity mismatch")'; \
   echo "${flatbuffers_sha256}  /tmp/flatbuffers.tgz" | sha256sum --check --strict; \
   echo "${typescript_sha256}  /tmp/typescript.tgz" | sha256sum --check --strict; \
@@ -392,6 +391,22 @@ COPY --from=pek-demo-media \
   /work/data/videos /opt/pek-app/data/videos
 COPY --from=pek-models \
   /work/config/models /opt/pek-app/config/models
+
+# Prewarm the macOS CI compiler cache on the native Arm64 image publisher.
+FROM pek-dev AS pek-dev-macos-cache-build
+
+ENV CCACHE_DIR=/work/.cache/ccache \
+  CCACHE_MAXSIZE=2G
+
+COPY --chown=dev . /work
+RUN ./scripts/build.sh && ccache --show-stats
+
+FROM pek-dev AS pek-dev-macos-ci
+
+USER root
+COPY --from=pek-dev-macos-cache-build --chown=dev \
+  /work/.cache/ccache /opt/pek-ccache
+USER dev
 
 # ==============================================================================
 # Documentation Image Lane

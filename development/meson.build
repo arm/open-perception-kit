@@ -1,5 +1,5 @@
 project('pek_elements', ['c', 'cpp'],
-  version: '0.1.7',
+  version: '0.2.0',
   default_options: [
     'c_std=c11',
     'cpp_std=c++20',

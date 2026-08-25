@@ -59,9 +59,7 @@ inline size_t getValueTypeByteSize(Dtype type) {
     case Dtype::Int64:
         return 8;
     }
-    throw std::runtime_error(
-        "Unknown Dtype in getValueTypeByteSize()"); // NOSONAR - PEK does not expose a typed
-                                                    // exception hierarchy here.
+    throw std::invalid_argument("Unknown Dtype in getValueTypeByteSize()");
 }
 
 /**
@@ -86,9 +84,7 @@ inline size_t getAudioSampleByteSize(AudioSampleType t) {
     case AudioSampleType::F32:
         return 4;
     }
-    throw std::runtime_error(
-        "Unknown AudioSampleType in getAudioSampleByteSize()"); // NOSONAR - PEK does not expose a
-                                                                // typed exception hierarchy here.
+    throw std::invalid_argument("Unknown AudioSampleType in getAudioSampleByteSize()");
 }
 
 /**
@@ -194,7 +190,7 @@ struct YuvToRgbCoefficients {
  * @brief Returns the luma coefficients for a supported YUV color matrix.
  * @param matrix Matrix family.
  * @return Red and blue luma coefficients for the requested matrix.
- * @throws std::runtime_error if @p matrix is unknown or unsupported.
+ * @throws std::invalid_argument if @p matrix is unknown or unsupported.
  */
 inline YuvToRgbCoefficients getYuvToRgbCoefficients(YuvColorMatrix matrix) {
     using enum YuvColorMatrix;
@@ -207,10 +203,7 @@ inline YuvToRgbCoefficients getYuvToRgbCoefficients(YuvColorMatrix matrix) {
     case Bt2020:
         return {0.2627f, 0.0593f};
     default:
-        throw std::runtime_error(
-            "Unknown YUV color matrix in getYuvToRgbCoefficients()"); // NOSONAR - PEK does not
-                                                                      // expose a typed exception
-                                                                      // hierarchy here.
+        throw std::invalid_argument("Unknown YUV color matrix in getYuvToRgbCoefficients()");
     }
 }
 

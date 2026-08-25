@@ -2,12 +2,14 @@
 title: Windows Quick Start
 sidebar_position: 2
 sidebar_label: Windows
-description: Set up Perception XPK on Windows with WSL, Docker Desktop, and a VS Code Dev Container.
+description: Set up Perception XPK on Windows with WSL and Docker Desktop from the command line or VS Code.
 ---
 
 # Windows Quick Start
 
-Use this guide on a Windows computer. PEK runs inside WSL and a VS Code Dev Container, so most commands are Linux commands even though your computer is Windows.
+Use this guide on a Windows computer. PEK runs in a Docker container managed
+from WSL. You can use the WSL command line only or optionally work through a VS
+Code Dev Container.
 
 ## What You Need
 
@@ -16,6 +18,9 @@ Install these before you start:
 - WSL with Ubuntu installed.
 - Git inside WSL.
 - Docker Desktop with WSL integration enabled.
+
+For the optional VS Code workflow, also install:
+
 - Visual Studio Code on Windows.
 - VS Code **Dev Containers** extension.
 - VS Code **WSL** extension.
@@ -34,10 +39,16 @@ Check that basic tools are available:
 git --version
 docker --version
 docker compose version
-code --version
+docker info
 ```
 
 If `docker` does not work, open Docker Desktop and confirm that WSL integration is enabled for your Ubuntu distribution.
+
+For the optional VS Code workflow, also check:
+
+```bash
+code --version
+```
 
 ### Configure mirrored WSL networking for WebRTC
 
@@ -74,29 +85,60 @@ cd amp-dev-forge
 
 If you must clone with SSH, set up your key first: [GitHub SSH Key Setup](github-ssh-key.md).
 
-Expected result: you are in the `pek` folder in WSL.
+Expected result: you are in the `amp-dev-forge` folder in WSL.
 
-## 3. Open The Project In VS Code
+### Optional private or gated model access
 
-Run in the **WSL shell**, from the `pek` folder:
-
-```bash
-code .
-```
-
-If the build needs private or gated models, export a read-only `HF_TOKEN` in
-this WSL shell before opening VS Code:
+Accessible public models download anonymously. If the build also needs private
+or gated models, export a read-only Hugging Face token in the WSL shell before
+starting either workflow:
 
 ```bash
 export HF_TOKEN="hf_your_token_here"
-code .
 ```
 
-Docker supplies the token only to the pinned model-download build step; it is
-not added to the runtime container environment. Failed downloads are logged and
-skipped, so the image can build without every configured model. After
-correcting a token, run **Dev Containers: Rebuild Container**; initialization
-refreshes the model-download cache key.
+Docker supplies the token only to the model-download build step. It is not
+added to the runtime container environment. Failed model downloads are logged
+and skipped, so the image can still build.
+
+You can add this line to the .bashrc of your user, so the token will be 
+automatically added at the start of the shell.
+
+## 3. Command-Line-Only Workflow
+
+Run these commands in the **WSL shell**, from the repository folder:
+
+```bash
+./scripts/quick_start.sh
+./scripts/build.sh
+./scripts/run.sh
+```
+
+The scripts create or reuse the development container, build PEK inside it,
+and run the bundled `yolov11-onnx` sample. Keep the last command running and
+continue to [Open The Web UI](#7-open-the-web-ui).
+
+Expected result: the build prints
+`Pipeline launcher is ready at /work/tools/pek-menu`, then the run command
+prints a `gst-launch-1.0` command and keeps running.
+
+To open an interactive shell inside the same container, run:
+
+```bash
+./scripts/enter_cli.sh
+```
+
+This is optional; `build.sh` and `run.sh` work directly from the WSL shell.
+
+## 4. Open The Project In VS Code
+
+Skip this section if you used the command-line-only workflow.
+
+Run in the **WSL shell**, from the `amp-dev-forge` folder:
+
+```bash
+code .
+```
 
 VS Code should open the folder through WSL. In VS Code:
 
@@ -117,9 +159,9 @@ Expected result: VS Code reloads and the lower-left corner shows that you are in
 
 ![VS Code terminal inside the Dev Container](/img/07-in-container-new-console.png)
 
-## 4. Build PEK
+## 5. Build PEK
 
-Open a new terminal in VS Code after the container is ready. This terminal is the **Docker shell**.
+Open a new terminal (either in VS Code after the container is ready or in WSL). This terminal is the **Docker shell**.
 
 Run in the **Docker shell**:
 
@@ -127,7 +169,7 @@ Run in the **Docker shell**:
 ./scripts/build.sh debug false
 ```
 
-You can also use the VS Code task:
+In VS Code you can also use the following task:
 
 1. Open the Command Palette with `Ctrl+Shift+P`.
 2. Run **Tasks: Run Task**.
@@ -137,9 +179,9 @@ You can also use the VS Code task:
 
 Expected result: the build finishes without errors and `tools/pek-menu` exists.
 
-## 5. Start The First Pipeline
+## 6. Start The First Pipeline
 
-Run in the **Docker shell**:
+Run in the **Docker shell** (either in VSCode devcontainer or in WSL after entering with `enter_cli.sh`):
 
 ```bash
 ./tools/pek-menu yolov11-onnx
@@ -153,7 +195,7 @@ Expected result: the pipeline starts and keeps running in the terminal. Leave th
 
 Some GStreamer or browser-connection warnings can appear while the pipeline is running. Treat the browser result in the next step as the real success check.
 
-## 6. Open The Web UI
+## 7. Open The Web UI
 
 Open Microsoft Edge or Firefox on Windows:
 
@@ -167,7 +209,7 @@ In the **Model Selector** panel, enable a model to start inference.
 
 Expected result: the page shows the PEK view and enabling a model produces an overlay or result. The default quick-start pipeline uses checked-in sample media; `06-full-onnx-usb-cam` uses a USB camera at `/dev/video0`.
 
-## 7. Stop And Run Again
+## 8. Stop And Run Again
 
 To stop PEK, click the terminal that is running the pipeline and press `Ctrl+C`.
 
@@ -182,6 +224,11 @@ To run the last selected pipeline again, run in the **Docker shell**:
 - If container initialization reports that host-address loopback is required,
   update `%UserProfile%\.wslconfig`, run **wsl --shutdown** from Windows
   PowerShell, and reopen WSL.
+- If Docker reports that `/perception-experience-kit` is already in use, check
+  `docker ps -a --filter name='^/perception-experience-kit$'`. If it is an old
+  PEK container you no longer need, remove it with
+  `docker rm --force perception-experience-kit`, then rerun
+  `./scripts/quick_start.sh`. This removes the container, not repository files.
 - If VS Code says the container cannot start, make sure Docker Desktop is open.
 - If Docker commands fail in WSL, check Docker Desktop WSL integration.
 - If the browser opens but no result appears, enable a model in the **Model Selector** panel.

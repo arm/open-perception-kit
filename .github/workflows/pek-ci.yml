@@ -360,6 +360,73 @@ jobs:
           tags: ${{ env.DEPLOYMENT_IMAGE }}:nightly-${{ matrix.cache_tag }}
           target: pek-deployment-base
 
+  publish-macos-dev-image:
+    name: Publish macOS quick-start image
+    if: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') }}
+    runs-on: self-hosted-ubuntu-latest-arm64
+    permissions:
+      contents: read
+      packages: write
+    env:
+      CI_CHECKOUT_PATH: pek-dev-image-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          path: ${{ env.CI_CHECKOUT_PATH }}
+          persist-credentials: false
+
+      - name: Resolve image repository
+        id: image
+        run: echo "repository=ghcr.io/${GITHUB_REPOSITORY,,}-dev" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve model cache identity
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: echo "HF_DOWNLOAD_CACHEBUST=$(scripts/private/generate-hf-download-cachebust.sh)" >> "$GITHUB_ENV"
+
+      - name: Set up Docker builder
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build and publish macOS quick-start image
+        uses: docker/build-push-action@v7
+        with:
+          build-args: |
+            HF_DOWNLOAD_CACHEBUST=${{ env.HF_DOWNLOAD_CACHEBUST }}
+          cache-from: |
+            type=registry,ref=${{ steps.image.outputs.repository }}:buildcache
+          cache-to: type=registry,ref=${{ steps.image.outputs.repository }}:buildcache,mode=max
+          context: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+          file: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/Dockerfile
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ github.sha }}
+          platforms: linux/arm64
+          provenance: false
+          pull: true
+          push: true
+          secrets: huggingface_token=${{ secrets.HF_TOKEN }} # pragma: allowlist secret
+          tags: |
+            ${{ steps.image.outputs.repository }}:sha-${{ github.sha }}
+          target: pek-dev-macos-ci
+
+      - name: Retain recent macOS quick-start images
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/private/ci_image.py retain-dev --keep 20
+
+      - name: Clean isolated workspace
+        if: always()
+        run: rm -rf -- "${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}"
+
   python-dependency-audit:
     name: Python Dependency Audit
     if: |
@@ -647,7 +714,9 @@ jobs:
     runs-on: self-hosted-macos-arm64-latest
     timeout-minutes: 240
     permissions:
+      actions: read
       contents: read
+      packages: read
       pull-requests: read
     if: |
       github.event_name == 'schedule' ||
@@ -711,20 +780,27 @@ jobs:
 
       - name: Start Colima and check macOS Docker integration
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        run: |
-          brew install docker colima docker-compose docker-buildx qemu
-          mkdir -p ~/.docker/cli-plugins
-          ln -sf "$(brew --prefix)/opt/docker-compose/bin/docker-compose" ~/.docker/cli-plugins/docker-compose
-          ln -sf "$(brew --prefix)/opt/docker-buildx/bin/docker-buildx" ~/.docker/cli-plugins/docker-buildx
-          colima start --vm-type=qemu --cpu 4 --memory 8 --mount-type=sshfs
-          docker context use colima
-          ./scripts/quick-start/detect-environment.sh
-          docker info
-          docker compose version
+        run: ./scripts/private/macos-docker.sh
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Pull prebuilt quick-start image
+        id: dev-image
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          BASE_IMAGE_SHA: ${{ steps.manual_pr.outputs.base_sha || github.event.pull_request.base.sha || github.sha }}
+        run: python3 scripts/private/ci_image.py prepare-dev --base-sha "$BASE_IMAGE_SHA"
 
       - name: Build and start quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        run: ./scripts/quick-start/start-container.sh --recreate
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: ./scripts/quick-start/start-container.sh --recreate ${{ steps.dev-image.outputs.start_args }}
 
       - name: Build PEK in quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -749,19 +825,18 @@ jobs:
           if-no-files-found: ignore
           retention-days: 10
 
-      - name: Clean quick-start workspace
+      - name: Stop quick-start container
         if: always()
-        run: |
-          checkout_path="${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}"
-          cleanup_status=0
-          if [ -x "$checkout_path/scripts/quick-start/cleanup-container.sh" ]; then
-            "$checkout_path/scripts/quick-start/cleanup-container.sh" || cleanup_status=$?
-          fi
-          rm -rf -- "$checkout_path"
-          if command -v colima >/dev/null; then
-            colima delete --force || cleanup_status=$?
-          fi
-          exit "$cleanup_status"
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: ./scripts/quick-start/cleanup-container.sh
+
+      - name: Delete isolated workspace
+        if: always()
+        run: rm -rf -- "${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}"
+
+      - name: Delete Colima VM
+        if: always()
+        run: colima delete --force
 
   quality-checks:
     name: Run quality checks in Docker
@@ -1080,6 +1155,7 @@ jobs:
           PR_KEY: ${{ needs.build-ci-image.outputs.pr_number }}
           PR_BRANCH: ${{ needs.build-ci-image.outputs.pr_context == 'true' && needs.build-ci-image.outputs.head_ref || '' }}
           PR_BASE: ${{ needs.build-ci-image.outputs.base_ref }}
+          PR_BASE_SHA: ${{ needs.build-ci-image.outputs.base_sha }}
         run: |
           set -euo pipefail
           python3 scripts/private/sonar_quality_gate_workflow.py
