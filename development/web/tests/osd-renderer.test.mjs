@@ -10,7 +10,26 @@ import {
   createCoordinateMapper,
   findParentRect,
   findVideoFrame,
+  renderOsd,
 } from "../src/osd-renderer.js";
+
+function createCanvasContext() {
+  const calls = [];
+  return {
+    calls,
+    setTransform() {},
+    clearRect() {},
+    save() {},
+    restore() {},
+    measureText(text) {
+      return {width: text.length * 8};
+    },
+    fillRect() {},
+    fillText(text, x, y) {
+      calls.push({text, x, y});
+    },
+  };
+}
 
 test("classification heading identifies the payload producer implementation", () => {
   assert.equal(classificationHeading({
@@ -32,6 +51,62 @@ test("classification text supports explicit lower-right alignment", () => {
 test("classification panels reserve deterministic vertical space", () => {
   assert.equal(classificationPanelHeight(5, "producer"), 146);
   assert.equal(classificationPanelHeight(5, ""), 125);
+});
+
+test("classification layers render labelled left and right columns", () => {
+  globalThis.window = {devicePixelRatio: 1};
+  const context = createCanvasContext();
+  const canvas = {
+    clientWidth: 1000,
+    clientHeight: 500,
+    width: 0,
+    height: 0,
+    getContext: () => context,
+  };
+  const candidates = [
+    {text: "nematode", classId: 111, confidence: 0.75},
+    {classId: 222, confidence: 0.25},
+  ];
+  const perception = {
+    layers: [
+      {
+        contentType: "classification",
+        compositingMode: "bottomLeft",
+        producer: {implementation: "ImageNetClassificationParser"},
+        detections: [{type: "Classification", data: {candidates}}],
+      },
+      {
+        contentType: "classification",
+        compositingMode: "bottomRight",
+        producer: {implementation: "python_classification.py"},
+        detections: [{type: "Classification", data: {candidates}}],
+      },
+      {
+        contentType: "classification",
+        detections: [{type: "Classification", data: {candidates: []}}],
+      },
+    ],
+  };
+
+  renderOsd(canvas, {videoWidth: 1000, videoHeight: 500}, perception, {
+    objects: false,
+    faces: false,
+    gaze: false,
+    cameraContact: false,
+    trackTraces: false,
+    personStatus: false,
+    performance: false,
+  });
+
+  assert.deepEqual(context.calls.map(({text}) => text), [
+    "ImageNetClassificationParser",
+    "#1: nematode (75.0%)",
+    "#2: 222 (25.0%)",
+    "python_classification.py",
+    "#1: nematode (75.0%)",
+    "#2: 222 (25.0%)",
+  ]);
+  assert.ok(context.calls[0].x < context.calls[3].x);
 });
 
 test("video frame metadata is preferred when present", () => {

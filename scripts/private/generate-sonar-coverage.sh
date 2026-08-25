@@ -9,7 +9,12 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd -- "${script_dir}/../.." && pwd)"
 cd "${repo_root}"
 
-gcovr -r . --sonarqube coverage.xml
+gcovr -r . \
+    --exclude-noncode-lines \
+    --exclude-throw-branches \
+    --exclude-unreachable-branches \
+    --sonarqube-metric line \
+    --sonarqube coverage.xml
 
 coverage erase
 coverage run --parallel-mode --branch --source=tools/perception,scripts/release \

@@ -88,7 +88,7 @@ standard_content_type_tests = executable(
 if python_ops_enabled
   python_script_op_tests = executable(
     'python_script_op_tests',
-    ['python_script_op_test.cpp'],
+    ['python_script_op_test.cpp', '../ops-python/Plugin.cpp'],
     include_directories : [common_include, include_directories('../ops-python')],
     cpp_args : [
       '-DPYTHON_SCRIPT_OP_FIXTURES="' + meson.current_source_dir() / 'python_script_op' + '"',

@@ -11,6 +11,7 @@
 
 #include "PythonRuntime.h"
 #include "PythonScriptOp.h"
+#include "TensorBridge.h"
 #include "op/Op.h"
 #include "pek/FrameResults.h"
 #include "perf/PerformanceTracer.h"
@@ -18,6 +19,9 @@
 #ifndef PYTHON_SCRIPT_OP_FIXTURES
 #define PYTHON_SCRIPT_OP_FIXTURES ""
 #endif
+
+extern "C" void pek_delete_op_instance(void *opInstance);
+extern "C" void *pek_create_op_instance(const char *opName);
 
 namespace {
 
@@ -79,6 +83,97 @@ size_t loadedScriptModuleCount() {
 }
 
 } // namespace
+
+TEST(PythonOpsPlugin, CreatesOnlySupportedOperations) {
+    EXPECT_EQ(pek_create_op_instance(nullptr), nullptr);
+    EXPECT_EQ(pek_create_op_instance("Unsupported"), nullptr);
+
+    void *instance = pek_create_op_instance("PythonScript");
+    ASSERT_NE(instance, nullptr);
+    pek_delete_op_instance(instance);
+}
+
+TEST(PythonRuntime, ReleasesOwnedPythonObjects) {
+    pek::python::ensureRuntime();
+    pek::python::GILGuard gil;
+    pek::python::PyObjectPtr owned(PyLong_FromLong(42));
+
+    PyObject *released = owned.release();
+
+    ASSERT_NE(released, nullptr);
+    EXPECT_EQ(PyLong_AsLong(released), 42);
+    EXPECT_FALSE(owned);
+    Py_DECREF(released);
+}
+
+TEST(PythonRuntime, FormatsMissingPythonExceptions) {
+    pek::python::ensureRuntime();
+    pek::python::GILGuard gil;
+    PyErr_Clear();
+
+    EXPECT_EQ(pek::python::formatPythonError(), "Python operation failed without an exception");
+}
+
+TEST(TensorBridge, WrapsAllSupportedAdditionalTensorTypes) {
+    pek::python::ensureRuntime();
+    pek::python::GILGuard gil;
+    pek::python::PyObjectPtr module(PyImport_ImportModule("pek_python_ops"));
+    ASSERT_TRUE(module) << pek::python::formatPythonError();
+
+    std::array<uint8_t, 1> uint8Values = {1};
+    std::array<uint16_t, 1> float16Values = {0};
+    std::array<int64_t, 1> int64Values = {2};
+    pek::op::OpChainContext context;
+    context.inferenceOutputTensorCount = 3;
+    context.inferenceOutputTensors[0] = pek::TensorView(
+        uint8Values.data(), sizeof(uint8Values), pek::Shape(1), pek::Dtype::Uint8, 0.5F, 1.0F);
+    context.inferenceOutputTensors[1] = pek::TensorView(float16Values.data(),
+                                                        sizeof(float16Values),
+                                                        pek::Shape(1),
+                                                        pek::Dtype::Float16,
+                                                        1.0F,
+                                                        0.0F);
+    context.inferenceOutputTensors[2] = pek::TensorView(
+        int64Values.data(), sizeof(int64Values), pek::Shape(1), pek::Dtype::Int64, 1.0F, 0.0F);
+
+    pek::python::PyObjectPtr tensors(pek::python::wrapTensors(context, nullptr));
+
+    ASSERT_TRUE(tensors) << pek::python::formatPythonError();
+    EXPECT_EQ(PyTuple_Size(tensors.get()), 3);
+}
+
+TEST(TensorBridge, RejectsNonpositiveRuntimeDimensions) {
+    pek::python::ensureRuntime();
+    pek::python::GILGuard gil;
+    pek::python::PyObjectPtr module(PyImport_ImportModule("pek_python_ops"));
+    ASSERT_TRUE(module) << pek::python::formatPythonError();
+
+    std::array<uint8_t, 1> values = {1};
+    pek::Shape invalidShape;
+    invalidShape.setFrom(std::vector<int64_t>{0});
+    pek::op::OpChainContext context;
+    context.inferenceOutputTensorCount = 1;
+    context.inferenceOutputTensors[0] =
+        pek::TensorView(values.data(), sizeof(values), invalidShape, pek::Dtype::Uint8, 1.0F, 0.0F);
+
+    pek::python::PyObjectPtr tensors(pek::python::wrapTensors(context, nullptr));
+
+    EXPECT_FALSE(tensors);
+    EXPECT_NE(pek::python::formatPythonError().find("invalid runtime shape"), std::string::npos);
+}
+
+TEST(TensorBridge, RequiresProducerInfoForContext) {
+    pek::python::ensureRuntime();
+    pek::python::GILGuard gil;
+    pek::python::PyObjectPtr module(PyImport_ImportModule("pek_python_ops"));
+    ASSERT_TRUE(module) << pek::python::formatPythonError();
+
+    pek::python::PyObjectPtr context(pek::python::wrapContext(nullptr));
+
+    EXPECT_FALSE(context);
+    EXPECT_NE(pek::python::formatPythonError().find("producer_info is required"),
+              std::string::npos);
+}
 
 TEST(PythonScriptOp, PreservesStateAndExposesReadOnlyTensors) {
     FakeInferenceOp inference;
@@ -181,6 +276,15 @@ TEST(PythonScriptOp, RejectsMissingPythonPathDuringConfiguration) {
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().flag, pek::ErrorFlag::FileNotFound);
     EXPECT_NE(result.error().info.find("Python import path does not exist"), std::string::npos);
+}
+
+TEST(PythonScriptOp, AcceptsExistingPythonImportPaths) {
+    auto configuration = attributes("empty_tensors.py");
+    configuration.setArray(
+        "pythonPaths", pek::AttributeValue::Array{pek::AttributeValue(PYTHON_SCRIPT_OP_FIXTURES)});
+
+    pek::python::PythonScriptOp script;
+    EXPECT_TRUE(script.configure(configuration));
 }
 
 TEST(PythonScriptOp, AcceptsCompatibleVariadicProcessSignature) {
