@@ -512,7 +512,10 @@ def _verify_upstream_receipts(
             raise RuntimeError(f"{sdk} schema inputs are stale")
         if sdk_manifest.get("schema_set_sha256") != _schema_set_sha256(config.schema_dir):
             raise RuntimeError(f"{sdk} schema-set digest is stale")
-    python_receipt = flowdata["python"]
+    _verify_python_receipt(flowdata["python"])
+
+
+def _verify_python_receipt(python_receipt: object) -> None:
     python_package = (
         python_receipt.get("python_package")
         if isinstance(python_receipt, dict) else None

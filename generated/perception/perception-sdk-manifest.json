@@ -790,8 +790,8 @@
     "tools": [
       {
         "path": "tools/perception/generate.py",
-        "sha256": "bb05aa333aac02366d6ba8b7cf82d8822a569f49a15b196be9e767e4f85ba43d",
-        "size": 31678
+        "sha256": "26909c082f8056f22edd475f996328d766d445fa1d145da72b70dc609e1a3336",
+        "size": 31747
       },
       {
         "path": "tools/perception/release_common.py",
