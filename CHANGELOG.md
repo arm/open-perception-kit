@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.1] - 2026-08-25
+
+### Perception SDK distribution
+
+- Publish the release-aligned OPK Perception SDK wheel to Artifactory PyPI for locked Python consumption while retaining the native PEK package for runtime plugins and models.
+
 ## [0.2.0] - 2026-08-24
 
 ### Perception SDK and configuration
