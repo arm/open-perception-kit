@@ -151,8 +151,6 @@ The branch protection ruleset applies to `main` and `develop` and:
 - requires the `Run Sonar analysis in Docker` and
   `Run quality checks in Docker` status checks, without requiring the branch to
   be up to date before merging
-- additionally requires `Release publication validation` for pull requests to
-  `main`
 
 No bypass actors are configured. Repository administrators must keep the
 GitHub settings aligned with this policy.

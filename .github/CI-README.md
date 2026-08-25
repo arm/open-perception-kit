@@ -139,20 +139,17 @@ the analysis step fell from 11:46 to 6:07, with 54/96 CFamily cache hits and an
 - Runs for pull requests targeting `main`, or manually for a selected
   `source_ref`.
 - Builds temporary x86_64 and Arm release snapshot images. Each image runs its
-  native offline Perception integration smoke during the Docker build and
-  exports its validated archive. A successful run is followed by
-  disposable Artifactory and draft GitHub Release publication probes; both
-  probes delete their uploads. It does not build documentation or retain a
-  published release.
+  native offline Perception integration smoke during the Docker build. It does
+  not publish or retain release artifacts.
 
 ## What does `.github/workflows/release-packages.yml` do?
 
-| Event | Candidate validation | Publication validation | Package publication |
-| --- | --- | --- | --- |
-| Pull request targeting `main` | Builds and smoke-tests the two architecture snapshot images | Uploads, verifies, and deletes both disposable publication targets | Not run |
-| Push to `main` | Not run | Not run | Builds all three archives, smoke-tests and publishes one multi-architecture GHCR image, then publishes one GitHub Release plus one Artifactory folder |
-| Manual release validation | Resolves `source_ref`, builds and smoke-tests the two temporary architecture images | Uploads, verifies, and deletes both disposable publication targets | Not run |
-| Manual package publication | Not run | Not run | Resolves `source_ref`, builds all three archives, smoke-tests and publishes one multi-architecture GHCR snapshot, then publishes one Artifactory folder |
+| Event | Candidate validation | Package publication |
+| --- | --- | --- |
+| Pull request targeting `main` | Builds and smoke-tests the two architecture snapshot images | Not run |
+| Push to `main` | Not run | Builds all three archives, smoke-tests and publishes one multi-architecture GHCR image, then publishes one GitHub Release plus one Artifactory folder |
+| Manual release validation | Resolves `source_ref`, then builds and smoke-tests the two temporary architecture images | Not run |
+| Manual package publication | Not run | Resolves `source_ref`, builds all three archives, smoke-tests and publishes one multi-architecture GHCR snapshot, then publishes one Artifactory folder |
 
 For release builds, `pek-deployment-base` runs its smoke inside the existing
 Dockerfile with networking disabled. The non-root runtime extracts the generated

@@ -42,10 +42,9 @@ directly from the selected commit's checked-in, CI-validated SDK snapshot. The
 release source and `tools/flowdata-sdk` gitlink SHAs are scalar build inputs, so
 release jobs neither initialize the private submodule nor exchange a parallel
 SDK build input. The stage embeds the triplet under `share/pek/perception-sdk`
-and checks its provenance against the release commit. The Arm snapshot job also
-uploads that exact embedded triplet as the existing temporary
-`pek-perception-sdk-input-*` or `pek-test-perception-sdk-input-*` Actions
-artifact; it does not rebuild it. For PEK publication, the Artifactory job
+and checks its provenance against the release commit. The Arm publication job
+also uploads that exact embedded triplet as the temporary
+`pek-perception-sdk-input-*` Actions artifact; it does not rebuild it. For PEK publication, the Artifactory job
 extracts the verified Python wheel from that exact triplet. Stable release
 pushes publish it unchanged to `edge-ai-tooling.pypi` while generic Artifactory
 keeps the three PEK archives. Manual snapshots instead place the wheel beside
@@ -60,29 +59,14 @@ runtimes are not installed by the release build.
 
 ## Event routing
 
-Release validation and publication use three workflows:
+Release validation and publication use two workflows:
 
-| Event | `release-tests.yml` | `release-publication-tests.yml` | `release-packages.yml` |
-| --- | --- | --- | --- |
-| Pull request to `main` | Builds temporary x86_64 and Arm snapshot images, runs their native offline integration smokes, and emits the validated archives | Uploads the validated archives to disposable Artifactory and draft GitHub Release locations, verifies them, and deletes them | Not run |
-| Push to `main` | Not run | Not run | Builds all three archives, smoke-tests both architecture images, publishes their multi-architecture GHCR image, then publishes the archives to one `v<version>` GitHub release and generic Artifactory, and the Perception wheel to Artifactory PyPI |
-| Manual release validation | Resolves `source_ref`, builds temporary x86_64 and Arm snapshot images, runs their native offline integration smokes, and emits the validated archives | Uploads the validated archives to disposable Artifactory and draft GitHub Release locations, verifies them, and deletes them | Not run |
-| Manual package publication | Not run | Not run | Resolves `source_ref`, builds all three archives, smoke-tests both architecture images, publishes their multi-architecture GHCR snapshot, and publishes the archives plus Perception wheel only to an immutable generic Artifactory snapshot folder |
-
-Credentialed publication probes run only after an unprivileged pull-request or
-manual validation workflow succeeds. The trusted `workflow_run` workflow does
-not check out or execute the selected source; it accepts only the two archives
-produced by the smoke-tested architecture images. It uploads them with Publisher below
-`ci/run-<source-run-id>-<attempt>/<commit>/`, verifies and always deletes that
-folder. It also creates a draft prerelease titled
-`[TEST ONLY - DO NOT USE]`, uploads and verifies both assets, then always
-deletes the release and tag. The workflow reports a
-`Release publication validation` status on the pull-request commit; it passes
-only when both publication probes pass.
-
-GitHub loads `workflow_run` definitions from the default `develop` branch.
-After a hotfix adds or changes this probe on `main`, back-merge it to `develop`
-before relying on the new validation for later release pull requests.
+| Event | `release-tests.yml` | `release-packages.yml` |
+| --- | --- | --- |
+| Pull request to `main` | Builds temporary x86_64 and Arm snapshot images and runs their native offline integration smokes | Not run |
+| Push to `main` | Not run | Builds all three archives, smoke-tests both architecture images, publishes their multi-architecture GHCR image, then publishes the archives to one `v<version>` GitHub release and generic Artifactory, and the Perception wheel to Artifactory PyPI |
+| Manual release validation | Resolves `source_ref`, builds temporary x86_64 and Arm snapshot images, and runs their native offline integration smokes | Not run |
+| Manual package publication | Not run | Resolves `source_ref`, builds all three archives, smoke-tests both architecture images, publishes their multi-architecture GHCR snapshot, and publishes the archives plus Perception wheel only to an immutable generic Artifactory snapshot folder |
 
 Each workflow resolves one immutable commit and uses it for every image build.
 Push and manual publication cannot start unless both native snapshot images
@@ -95,9 +79,8 @@ combines those exact amd64 and arm64 digests without rebuilding. Stable releases
 use the product version as the GHCR tag. Manual snapshots append the workflow
 run ID and attempt to their build ID. The workflow summary and stable GitHub
 Release notes record the pullable reference and immutable manifest digest.
-Manual release validation emits only temporary Actions artifacts and activates
-the same disposable publication probes; no uploaded package, release, or tag is
-retained.
+Manual release validation keeps the built images local to its jobs and retains
+no package, release, or tag.
 For a push, Artifactory additionally depends on successful GitHub Release
 publication, so the existing-version guard protects both release destinations.
 Manual snapshots bypass the skipped GitHub Release job and continue to publish
