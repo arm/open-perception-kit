@@ -1080,6 +1080,7 @@ jobs:
           PR_KEY: ${{ needs.build-ci-image.outputs.pr_number }}
           PR_BRANCH: ${{ needs.build-ci-image.outputs.pr_context == 'true' && needs.build-ci-image.outputs.head_ref || '' }}
           PR_BASE: ${{ needs.build-ci-image.outputs.base_ref }}
+          PR_BASE_SHA: ${{ needs.build-ci-image.outputs.base_sha }}
         run: |
           set -euo pipefail
           python3 scripts/private/sonar_quality_gate_workflow.py

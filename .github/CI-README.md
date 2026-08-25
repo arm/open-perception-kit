@@ -31,8 +31,9 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
   `Run Sonar analysis in Docker` name.
 - Runs pull request quality checks through `expkits-ci --ci-pr-checks`.
 - Runs full/nightly quality checks through `expkits-ci --ci-full-checks`.
-- Applies CI exceptions from the root-level `ci-suppressions.txt`. Each line is
-  one `SUPPRESSION_TYPE: Reason` entry and remains as suppression history.
+- Applies CI exceptions from the root-level `ci-suppressions.txt` only in the
+  pull request that adds each `SUPPRESSION_TYPE: Reason` line. Merged entries
+  remain as inert suppression history.
 - Supports Sonar gate suppressions for `UNIT_TEST_COVERAGE`, `CODE_DUPLICATION`,
   `MAINTAINABILITY`, `RELIABILITY`, `SECURITY`, and `SECURITY_HOTSPOTS`.
   Sonar findings and unsuppressed gate conditions remain blocking.
