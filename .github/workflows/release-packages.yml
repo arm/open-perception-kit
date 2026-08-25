@@ -500,27 +500,6 @@ jobs:
           -m publisher.actions.publish_to_artifactory_action
           "$ARTIFACT_PATTERN"
 
-      - name: Verify Artifactory snapshot upload
-        if: github.event_name == 'workflow_dispatch'
-        env:
-          ARTIFACTORY_USER: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
-          ARTIFACTORY_TOKEN: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
-          ARTIFACTS_DIR: ${{ runner.temp }}/pek-release-artifacts
-          SNAPSHOT_URL: https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci/snapshots/${{ github.event.inputs.build_label }}/${{ needs.prepare.outputs.commit }}-${{ github.run_id }}-${{ github.run_attempt }}
-        run: |
-          set -euo pipefail
-          for artifact in "$ARTIFACTS_DIR"/*; do
-            curl --fail --silent --show-error --head \
-              --user "$ARTIFACTORY_USER:$ARTIFACTORY_TOKEN" \
-              "$SNAPSHOT_URL/$(basename "$artifact")" >/dev/null
-          done
-          wheel=("$ARTIFACTS_DIR"/opk_perception_sdk-*-py3-none-any.whl)
-          downloaded="$RUNNER_TEMP/$(basename "${wheel[0]}")"
-          curl --fail --silent --show-error \
-            --user "$ARTIFACTORY_USER:$ARTIFACTORY_TOKEN" \
-            --output "$downloaded" "$SNAPSHOT_URL/$(basename "${wheel[0]}")"
-          cmp "${wheel[0]}" "$downloaded"
-
       - name: Publish Perception Python package to Artifactory PyPI
         if: github.event_name == 'push'
         env:

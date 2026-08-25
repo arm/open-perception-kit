@@ -1,0 +1,270 @@
+name: PEK release publication validation
+
+on:
+  workflow_run:
+    workflows: [PEK release validation]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  required-status-pending:
+    name: Start required release publication status
+    if: >-
+      ${{ github.event.workflow_run.path == '.github/workflows/release-tests.yml' &&
+          github.event.workflow_run.head_repository.full_name == github.repository &&
+          (github.event.workflow_run.event == 'workflow_dispatch' ||
+           (github.event.workflow_run.event == 'pull_request' &&
+            contains(github.event.workflow_run.pull_requests.*.base.ref, 'main'))) }}
+    runs-on: ubuntu-24.04
+    permissions:
+      statuses: write
+    steps:
+      - name: Mark release publication validation pending
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$HEAD_SHA" \
+            -f state=pending \
+            -f context='Release publication validation' \
+            -f description='Waiting for Artifactory and GitHub release publication probes' \
+            -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+
+  artifactory:
+    name: Test Artifactory upload
+    needs: required-status-pending
+    if: >-
+      ${{ github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.path == '.github/workflows/release-tests.yml' &&
+          github.event.workflow_run.head_repository.full_name == github.repository &&
+          (github.event.workflow_run.event == 'workflow_dispatch' ||
+           (github.event.workflow_run.event == 'pull_request' &&
+            contains(github.event.workflow_run.pull_requests.*.base.ref, 'main'))) }}
+    runs-on: self-hosted-ubuntu-latest-x64
+    steps:
+      - name: Download tested publication candidates
+        uses: actions/download-artifact@v8
+        with:
+          pattern: pek-test-release-*-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+          path: ${{ runner.temp }}/pek-release-publication-candidates
+          merge-multiple: true
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Accept exactly two architecture archives and one wheel
+        env:
+          ARTIFACTS_DIR: ${{ runner.temp }}/pek-release-publication-candidates
+        run: |
+          set -euo pipefail
+          test -z "$(find "$ARTIFACTS_DIR" -type l -print -quit)"
+          mapfile -d '' -t files < <(
+            find "$ARTIFACTS_DIR" -mindepth 1 -maxdepth 1 -type f -print0 | sort -z
+          )
+          test "${#files[@]}" -eq 3
+          mapfile -d '' -t archives < <(
+            find "$ARTIFACTS_DIR" -mindepth 1 -maxdepth 1 -type f -name '*.tar.gz' -print0 | sort -z
+          )
+          test "${#archives[@]}" -eq 2
+          x86_count=0
+          arm_count=0
+          for archive in "${archives[@]}"; do
+            case "${archive##*/}" in
+              pek-*-linux-x86_64.tar.gz) ((x86_count += 1)) ;;
+              pek-*-linux-aarch64.tar.gz) ((arm_count += 1)) ;;
+            esac
+          done
+          test "$x86_count" -eq 1
+          test "$arm_count" -eq 1
+          wheel=("$ARTIFACTS_DIR"/opk_perception_sdk-*-py3-none-any.whl)
+          test "${#wheel[@]}" -eq 1
+          test -f "${wheel[0]}"
+
+      - name: Set up locked uv and Python
+        uses: astral-sh/setup-uv@v10.0.1
+        with:
+          version: '0.8.15'
+          python-version: '3.14'
+
+      - name: Create read-only publisher token
+        id: publisher-token
+        uses: actions/create-github-app-token@v3.2.0
+        with:
+          client-id: Iv23li0DqDMHoMs0TXT9
+          private-key: ${{ secrets.EDGEAI_EXPKITS_APP_PK }}
+          owner: Arm-Debug
+          repositories: publisher
+          permission-contents: read
+
+      - name: Checkout publisher
+        uses: actions/checkout@v7
+        with:
+          repository: Arm-Debug/publisher
+          ref: cd16aa5aa6771b32d62466c974f0f2526d000013 # pragma: allowlist secret
+          token: ${{ steps.publisher-token.outputs.token }}
+          path: publisher
+          persist-credentials: false
+
+      - name: Install locked publisher
+        working-directory: publisher
+        run: uv sync --frozen --no-dev
+
+      - name: Upload and verify Artifactory test packages
+        working-directory: ${{ runner.temp }}/pek-release-publication-candidates
+        env:
+          ARTIFACTORY_HOST: https://artifactory.arm.com
+          ARTIFACTORY_USER: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
+          ARTIFACTORY_TOKEN: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
+          ARTIFACTORY_ARTIFACTS_NAME: ai-expkits-internal.opk-ci
+          ARTIFACTS_DIR: ${{ runner.temp }}/pek-release-publication-candidates
+          RELEASE_VERSION: ci
+          SUBDIR_PATH: run-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}/${{ github.event.workflow_run.head_sha }}
+          DOWNLOAD_BASE: https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci
+          TIMEOUT_SECONDS: 300
+        run: |
+          set -euo pipefail
+          "$GITHUB_WORKSPACE/publisher/.venv/bin/python" \
+            -m publisher.actions.publish_to_artifactory_action \
+            "*"
+          for artifact in "$ARTIFACTS_DIR"/*; do
+            url="$DOWNLOAD_BASE/$RELEASE_VERSION/$SUBDIR_PATH/$(basename "$artifact")"
+            curl --fail --silent --show-error --head \
+              --user "$ARTIFACTORY_USER:$ARTIFACTORY_TOKEN" "$url" >/dev/null
+          done
+          wheel=("$ARTIFACTS_DIR"/opk_perception_sdk-*-py3-none-any.whl)
+          downloaded="$RUNNER_TEMP/$(basename "${wheel[0]}")"
+          curl --fail --silent --show-error \
+            --user "$ARTIFACTORY_USER:$ARTIFACTORY_TOKEN" \
+            --output "$downloaded" \
+            "$DOWNLOAD_BASE/$RELEASE_VERSION/$SUBDIR_PATH/$(basename "${wheel[0]}")"
+          cmp "${wheel[0]}" "$downloaded"
+
+      - name: Delete Artifactory test packages
+        if: always()
+        env:
+          ARTIFACTORY_HOST: https://artifactory.arm.com
+          ARTIFACTORY_USER: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
+          ARTIFACTORY_TOKEN: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
+          ARTIFACTORY_ARTIFACTS_NAME: ai-expkits-internal.opk-ci
+          TEST_PATH: ci/run-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}/${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+            --request DELETE --user "$ARTIFACTORY_USER:$ARTIFACTORY_TOKEN" \
+            "$ARTIFACTORY_HOST/artifactory/$ARTIFACTORY_ARTIFACTS_NAME/$TEST_PATH")"
+          case "$status" in
+            200|204|404) ;;
+            *) echo "Artifactory cleanup failed with HTTP $status" >&2; exit 1 ;;
+          esac
+
+  github-release:
+    name: Test GitHub release upload
+    needs: required-status-pending
+    if: >-
+      ${{ github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.path == '.github/workflows/release-tests.yml' &&
+          github.event.workflow_run.head_repository.full_name == github.repository &&
+          (github.event.workflow_run.event == 'workflow_dispatch' ||
+           (github.event.workflow_run.event == 'pull_request' &&
+            contains(github.event.workflow_run.pull_requests.*.base.ref, 'main'))) }}
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: write
+    env:
+      ARTIFACTS_DIR: ${{ github.workspace }}/pek-release-publication-candidates
+      TEST_TAG: ci-release-upload-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Download tested publication candidates
+        uses: actions/download-artifact@v8
+        with:
+          pattern: pek-test-release-*-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+          path: ${{ env.ARTIFACTS_DIR }}
+          merge-multiple: true
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Accept exactly both architecture archives
+        run: |
+          set -euo pipefail
+          test -z "$(find "$ARTIFACTS_DIR" -type l -print -quit)"
+          mapfile -d '' -t archives < <(
+            find "$ARTIFACTS_DIR" -mindepth 1 -maxdepth 1 -type f -name '*.tar.gz' -print0 | sort -z
+          )
+          test "${#archives[@]}" -eq 2
+          x86_count=0
+          arm_count=0
+          for archive in "${archives[@]}"; do
+            case "${archive##*/}" in
+              pek-*-linux-x86_64.tar.gz) ((x86_count += 1)) ;;
+              pek-*-linux-aarch64.tar.gz) ((arm_count += 1)) ;;
+            esac
+          done
+          test "$x86_count" -eq 1
+          test "$arm_count" -eq 1
+
+      - name: Create, upload, and verify GitHub test release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          mapfile -d '' -t archives < <(
+            find "$ARTIFACTS_DIR" -mindepth 1 -maxdepth 1 -type f -name '*.tar.gz' -print0 | sort -z
+          )
+          gh release create "$TEST_TAG" --draft --prerelease --target "$HEAD_SHA" \
+            --title "[TEST ONLY - DO NOT USE] PEK run $SOURCE_RUN_ID upload validation" \
+            --notes "Temporary release upload validation. Do not use."
+          gh release upload "$TEST_TAG" "${archives[@]}"
+          expected="$(printf '%s\n' "${archives[@]##*/}" | sort)"
+          actual="$(gh release view "$TEST_TAG" --json assets --jq '.assets[].name' | sort)"
+          test "$actual" = "$expected"
+
+      - name: Delete GitHub test release and tag
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TEST_TAG" >/dev/null 2>&1; then
+            gh release delete "$TEST_TAG" --yes
+          fi
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TEST_TAG" >/dev/null 2>&1; then
+            gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$TEST_TAG"
+          fi
+
+  required-status-complete:
+    name: Complete required release publication status
+    needs: [required-status-pending, artifactory, github-release]
+    if: ${{ always() && needs.required-status-pending.result == 'success' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      statuses: write
+    steps:
+      - name: Report release publication validation result
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          STATUS_STATE: >-
+            ${{ github.event.workflow_run.conclusion == 'success' &&
+                needs.artifactory.result == 'success' &&
+                needs.github-release.result == 'success' &&
+                'success' || 'failure' }}
+        run: |
+          if [[ "$STATUS_STATE" == success ]]; then
+            description='Artifactory and GitHub release publication probes passed'
+          else
+            description='Release publication validation failed; inspect the workflow run'
+          fi
+          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$HEAD_SHA" \
+            -f state="$STATUS_STATE" \
+            -f context='Release publication validation' \
+            -f description="$description" \
+            -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          [[ "$STATUS_STATE" == success ]]
