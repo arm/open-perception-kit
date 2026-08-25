@@ -141,8 +141,15 @@ jobs:
             --output "$downloaded" \
             "$DOWNLOAD_BASE/$RELEASE_VERSION/$SUBDIR_PATH/$(basename "${wheel[0]}")"
           cmp "${wheel[0]}" "$downloaded"
+
+      - name: Install and import published Perception wheel
+        run: |
+          set -euo pipefail
+          wheel=("$RUNNER_TEMP"/opk_perception_sdk-*-py3-none-any.whl)
+          test "${#wheel[@]}" -eq 1
+          test -f "${wheel[0]}"
           uv venv "$RUNNER_TEMP/perception-wheel-probe"
-          uv pip install --python "$RUNNER_TEMP/perception-wheel-probe/bin/python" "$downloaded"
+          uv pip install --python "$RUNNER_TEMP/perception-wheel-probe/bin/python" "${wheel[0]}"
           "$RUNNER_TEMP/perception-wheel-probe/bin/python" -c 'import perception'
 
       - name: Delete Artifactory test packages
