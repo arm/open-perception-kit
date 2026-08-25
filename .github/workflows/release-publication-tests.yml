@@ -158,7 +158,7 @@ jobs:
           printf '%s  %s\n' \
             99d37f82614c9bf11659c91cb6546655034bd7fe33307d8b319a3d777a37ddfd \
             "$probe" | sha256sum --check --strict
-          uv publish "$probe"
+          uv publish --dry-run "$probe"
 
       - name: Delete Artifactory test packages
         if: always()
