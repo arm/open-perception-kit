@@ -142,16 +142,18 @@ the analysis step fell from 11:46 to 6:07, with 54/96 CFamily cache hits and an
   native offline Perception integration smoke during the Docker build and
   exports its validated archive; the Arm job also exports the embedded
   Perception wheel. A successful run is followed by disposable publication
-  probes: Artifactory receives both archives and the wheel, while the draft
-  GitHub Release remains archive-only. Both probes delete their uploads.
+  probes: generic Artifactory receives both archives and the release wheel, a
+  disposable prerelease wheel is published and consumed through Artifactory
+  PyPI, and the draft GitHub Release remains archive-only. Every probe deletes
+  its uploads.
 
 ## What does `.github/workflows/release-packages.yml` do?
 
 | Event | Candidate validation | Publication validation | Package publication |
 | --- | --- | --- | --- |
-| Pull request targeting `main` | Builds and smoke-tests the two architecture snapshot images | Uploads, verifies, and deletes both disposable publication targets | Not run |
+| Pull request targeting `main` | Builds and smoke-tests the two architecture snapshot images | Uploads, verifies, and deletes the generic Artifactory, Artifactory PyPI, and GitHub Release probes | Not run |
 | Push to `main` | Not run | Not run | Builds all three archives, smoke-tests and publishes one multi-architecture GHCR image, publishes the archives to GitHub Release and generic Artifactory, and publishes the wheel to Artifactory PyPI |
-| Manual release validation | Resolves `source_ref`, builds and smoke-tests the two temporary architecture images | Uploads, verifies, and deletes both disposable publication targets | Not run |
+| Manual release validation | Resolves any commit, tag, or branch `source_ref`, builds and smoke-tests the two temporary architecture images | Uploads, verifies, and deletes the generic Artifactory, Artifactory PyPI, and GitHub Release probes | Not run |
 | Manual package publication | Not run | Not run | Resolves `source_ref`, builds all three archives, smoke-tests and publishes one multi-architecture GHCR snapshot, then publishes the archives and wheel to one generic Artifactory snapshot folder |
 
 For release builds, `pek-deployment-base` runs its smoke inside the existing

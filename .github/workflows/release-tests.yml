@@ -95,6 +95,7 @@ jobs:
       packages: read
     env:
       DEPLOYMENT_IMAGE: ghcr.io/arm-debug/amp-dev-forge-deployment
+      PYPI_TEST_VERSION: ${{ needs.prepare.outputs.version }}.dev${{ github.run_id }}${{ github.run_attempt }}
       RELEASE_BUILD_IMAGE: pek-deployment-base:${{ needs.prepare.outputs.commit }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.artifact_label }}
       SOURCE_DIR: candidate-source-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-${{ matrix.artifact_label }}
     steps:
@@ -222,6 +223,34 @@ jobs:
           path: ${{ env.SOURCE_DIR }}/dist/opk_perception_sdk-*-py3-none-any.whl
           if-no-files-found: error
           retention-days: 7
+
+      - name: Set up locked uv for the PyPI probe
+        if: matrix.architecture == 'aarch64'
+        uses: astral-sh/setup-uv@v10.0.1
+        with:
+          version: '0.8.15'
+          python-version: '3.14'
+
+      - name: Build disposable PyPI wheel candidate
+        if: matrix.architecture == 'aarch64'
+        working-directory: ${{ env.SOURCE_DIR }}
+        run: |
+          set -euo pipefail
+          cp -a generated/perception/python dist/pypi-probe-source
+          uv version "$PYPI_TEST_VERSION" --project dist/pypi-probe-source
+          uv build --wheel --out-dir dist/pypi-probe dist/pypi-probe-source
+          wheel=(dist/pypi-probe/opk_perception_sdk-"$PYPI_TEST_VERSION"-py3-none-any.whl)
+          test "${#wheel[@]}" -eq 1
+          test -f "${wheel[0]}"
+
+      - name: Upload disposable PyPI wheel candidate
+        if: matrix.architecture == 'aarch64'
+        uses: actions/upload-artifact@v7
+        with:
+          name: pek-test-pypi-wheel-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.SOURCE_DIR }}/dist/pypi-probe/opk_perception_sdk-*-py3-none-any.whl
+          if-no-files-found: error
+          retention-days: 2
 
       - name: Clean isolated build workspace
         if: always()
