@@ -69,7 +69,7 @@ pek::Result<void> RvmParser::parse(const pek::TensorParser::Input &input,
     perception::metadata::SegmentationMasksT payload;
     payload.layer = perception::makeLayerInfo(input.inferenceInfo.modelName,
                                               input.inferenceInfo.inferElementId,
-                                              "segmentation",
+                                              k_content_type,
                                               "",
                                               "",
                                               "",

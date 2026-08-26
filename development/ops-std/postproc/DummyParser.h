@@ -17,6 +17,9 @@ namespace pek::stdop::postproc {
  * Used to investigate network output before implementing a real parser.
  */
 struct DummyParser : public pek::TensorParser {
+    std::vector<std::string_view> getProvidedContentTypes() const override {
+        return {};
+    }
 
     pek::Result<void> parse(const pek::TensorParser::Input &input,
                             perception::FrameResults &results) override;

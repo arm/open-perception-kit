@@ -17,6 +17,11 @@ namespace pek::stdop::postproc {
  * Used to detect human face rectangles on an image.
  */
 struct UltraFaceParser : public pek::TensorParser {
+    static constexpr std::string_view k_content_type = "humanFace";
+
+    std::vector<std::string_view> getProvidedContentTypes() const override {
+        return {k_content_type};
+    }
 
     pek::Result<void> parse(const pek::TensorParser::Input &input,
                             perception::FrameResults &results) override;

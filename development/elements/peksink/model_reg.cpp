@@ -51,13 +51,6 @@ void ModelRegistry::del_model(const std::string &element_name) {
     trigger_reporting();
 }
 
-void ModelRegistry::toggle_model(const std::string &element_name, bool active) {
-    if (auto it = model_registry.find(element_name); it != model_registry.end()) {
-        (*it).second.active = active;
-        trigger_reporting();
-    }
-}
-
 nlohmann::json ModelRegistry::report() const {
     using namespace nlohmann;
 

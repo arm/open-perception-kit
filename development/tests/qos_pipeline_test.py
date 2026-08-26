@@ -200,6 +200,88 @@ class EventFlowMonitor:
             raise AssertionError("pekinfer did not forward the video frame")
 
 
+class ContentDependencyPipelineTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        import gi
+
+        gi.require_version("Gst", "1.0")
+        from gi.repository import Gst
+
+        Gst.init(None)
+        for plugin_path in GST_PLUGIN_PATHS:
+            Gst.Plugin.load_file(str(plugin_path))
+        cls.Gst = Gst
+
+    def setUp(self) -> None:
+        self.directory = tempfile.TemporaryDirectory(prefix="pek-content-dependency-")
+        self.addCleanup(self.directory.cleanup)
+
+        capabilities = {
+            "unrelated": {"provided-content-type": "genericObject"},
+            "face-a": {"provided-content-type": "humanFace"},
+            "face-b": {"provided-content-type": "humanFace"},
+            "contact": {
+                "required-content-type": "humanFace",
+                "provided-content-type": "cameraContact",
+            },
+            "gaze": {"required-content-type": "cameraContact"},
+        }
+        descriptors = {}
+        for name, attributes in capabilities.items():
+            descriptor = Path(self.directory.name) / f"opchain-{name}.json"
+            descriptor.write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "name": f"content-dependency-{name}",
+                        "description": "Content dependency integration test OpChain",
+                        "ops": [
+                            {
+                                "id": "pek-test-qos-delay/Delay",
+                                "attributes": attributes,
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            descriptors[name] = descriptor
+
+        chain = " ! ".join(
+            f'pekinfer name={name} opchain-path="{descriptors[name]}" active=false'
+            for name in capabilities
+        )
+        self.pipeline = self.Gst.parse_launch(
+            "appsrc name=source is-live=true format=time "
+            "caps=video/x-raw,format=BGRA,width=16,height=16 ! "
+            f"{chain} ! fakesink async=false sync=false"
+        )
+        self.addCleanup(self.stop_pipeline)
+        self.elements = {
+            name: self.pipeline.get_by_name(name) for name in capabilities
+        }
+
+    def stop_pipeline(self) -> None:
+        if self.pipeline is not None:
+            self.pipeline.set_state(self.Gst.State.NULL)
+            self.pipeline = None
+            gc.collect()
+
+    def test_enabling_model_activates_all_matching_upstream_dependencies(self) -> None:
+        self.assertNotEqual(
+            self.pipeline.set_state(self.Gst.State.PLAYING),
+            self.Gst.StateChangeReturn.FAILURE,
+        )
+        self.pipeline.get_state(self.Gst.SECOND)
+
+        self.elements["gaze"].set_property("active", True)
+
+        for name in ("gaze", "contact", "face-a", "face-b"):
+            self.assertTrue(self.elements[name].get_property("active"), name)
+        self.assertFalse(self.elements["unrelated"].get_property("active"))
+
+
 class QosPipelineTest(unittest.TestCase):
     PEKSINK_TESTS = {
         "test_qos_is_disabled_by_default",

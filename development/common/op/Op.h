@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "pek/AttributeMap.h"
@@ -54,11 +55,15 @@ struct OpInterfaceInference {
  */
 struct OpInterfacePostprocessor {
     virtual ~OpInterfacePostprocessor() = default;
-    /**
-     * @brief Retrieves the unique identifier of this postprocessor.
-     * @return String ID identifying the postprocessor type (e.g., "yolo", "mobilenet").
-     */
-    virtual std::string getPostprocessorId() = 0;
+    virtual std::vector<std::string_view> getProvidedContentTypes() const = 0;
+};
+
+/**
+ * @brief Interface for operations that consume semantic FrameResults content.
+ */
+struct OpInterfaceContentConsumer {
+    virtual ~OpInterfaceContentConsumer() = default;
+    virtual std::vector<std::string_view> getRequiredContentTypes() const = 0;
 };
 
 /**

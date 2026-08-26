@@ -11,7 +11,10 @@
 #include <cstring>
 #include <memory>
 #include <mutex>
+#include <string>
+#include <string_view>
 #include <thread>
+#include <vector>
 
 namespace {
 
@@ -29,7 +32,9 @@ void releaseHandle(DelayOpHandle *handle) {
 
 // A 30 FPS frame has a roughly 33 ms budget. Sleeping for 50 ms makes one following
 // frame become stale, exercising pekinfer's proactive skip policy without loading a model.
-class DelayOp final : public pek::op::Op {
+class DelayOp final : public pek::op::Op,
+                      public pek::op::OpInterfacePostprocessor,
+                      public pek::op::OpInterfaceContentConsumer {
   public:
     ~DelayOp() override {
         if (handle_ != nullptr) {
@@ -40,6 +45,8 @@ class DelayOp final : public pek::op::Op {
     }
 
     pek::Result<void> configure(const pek::AttributeMap &attributes) override {
+        providedContentType_ = attributes.getStringOrDefault("provided-content-type", "");
+        requiredContentType_ = attributes.getStringOrDefault("required-content-type", "");
         if (attributes.contains("control-handle")) {
             handle_ = reinterpret_cast<DelayOpHandle *>(
                 static_cast<std::uintptr_t>(attributes.getInt("control-handle")));
@@ -69,6 +76,16 @@ class DelayOp final : public pek::op::Op {
         return pek::op::OpSignal::Continue;
     }
 
+    std::vector<std::string_view> getProvidedContentTypes() const override {
+        return providedContentType_.empty() ? std::vector<std::string_view>{}
+                                            : std::vector<std::string_view>{providedContentType_};
+    }
+
+    std::vector<std::string_view> getRequiredContentTypes() const override {
+        return requiredContentType_.empty() ? std::vector<std::string_view>{}
+                                            : std::vector<std::string_view>{requiredContentType_};
+    }
+
     void setDelay(std::uint64_t milliseconds) {
         delayMilliseconds_.store(milliseconds);
     }
@@ -94,6 +111,8 @@ class DelayOp final : public pek::op::Op {
     }
 
   private:
+    std::string providedContentType_;
+    std::string requiredContentType_;
     DelayOpHandle *handle_ = nullptr;
     std::atomic<std::uint64_t> delayMilliseconds_{50};
     std::mutex gateMutex_;

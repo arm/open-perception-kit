@@ -466,7 +466,7 @@ Result<void> YoloXParser::parse(const pek::TensorParser::Input &input,
     perception::metadata::BoxDetectionsT payload;
     payload.layer = perception::makeLayerInfo(input.inferenceInfo.modelName,
                                               input.inferenceInfo.inferElementId,
-                                              "genericObject",
+                                              k_content_type,
                                               "",
                                               "",
                                               "coco");

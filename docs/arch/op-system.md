@@ -110,7 +110,8 @@ the looped form, InferenceController starts the group. A non-empty controller
 Some Ops expose narrower contracts used by inference and postprocessing code:
 
 - `OpInterfaceInference` exposes tensor memory and model metadata to inference backends.
-- `OpInterfacePostprocessor` identifies and runs domain-specific output parsing.
+- `OpInterfacePostprocessor` reports the semantic content types produced by
+  domain-specific output parsing.
 
 These interfaces keep backend execution and result interpretation separate from
 concrete Op implementations.

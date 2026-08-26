@@ -29,7 +29,7 @@ namespace pek::stdop {
  * 3. Parser converts tensors to Perception result objects
  * 4. Results stored in OpChainContext.perception for final output
  */
-class GenericPostprocessOp : public pek::op::Op {
+class GenericPostprocessOp : public pek::op::Op, public pek::op::OpInterfacePostprocessor {
   public:
     /**
      * @brief Constructs a generic postprocessing operation.
@@ -71,6 +71,7 @@ class GenericPostprocessOp : public pek::op::Op {
      * @return Result indicating success or binding error.
      */
     pek::Result<void> bind(size_t index, const std::vector<pek::op::Op *> &ops) override;
+    std::vector<std::string_view> getProvidedContentTypes() const override;
 
   private:
     std::unique_ptr<pek::TensorParser> parser;

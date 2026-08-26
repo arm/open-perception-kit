@@ -256,8 +256,6 @@ void CtrlWebSocket::model_toggle(const json &jsn) {
         g_object_set(target_element, "active", active, NULL);
         gst_object_unref(target_element);
 
-        self_->private_data->model_registry->toggle_model(element_name, active);
-
         GST_INFO_OBJECT(self_, "Set element %s active=%d", element_name.c_str(), active);
 
     } catch (const json::exception &e) {
