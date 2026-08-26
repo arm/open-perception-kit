@@ -12,8 +12,7 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 ## What does `.github/workflows/pek-ci.yml` do?
 
 - Builds one exact-SHA PEK CI image, shares it within the workflow run, then runs
-  Quality, Sonar, release Sonar, Valgrind, and the `pek-ci` Docker Scout scan
-  from that image.
+  Quality, Sonar, Valgrind, and the `pek-ci` Docker Scout scan from that image.
 - Uploads the PR image for the trusted GHCR publisher in the same build job, so
   every consumer waits for one complete image handoff.
 - Reuses Docker layers through the ref-scoped cache flow below.
@@ -31,8 +30,8 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Uses each pull request's immediate base branch, including stacked pull requests.
 - Owns the nightly Quality and Valgrind run, the native deployment image
   caches, and the Valgrind baseline artifact.
-- Owns release-tag Sonar analysis; the required PR Sonar check keeps the exact
-  `Run Sonar analysis in Docker` name.
+- The required PR Sonar check keeps the exact `Run Sonar analysis in Docker`
+  name. `release-packages.yml` owns release Sonar analysis.
 - Runs pull request quality checks through `expkits-ci --ci-pr-checks`.
 - Runs full/nightly quality checks through `expkits-ci --ci-full-checks`.
 - Applies CI exceptions from the root-level `ci-suppressions.txt` only in the
@@ -59,10 +58,11 @@ requests.
 
 GHCR stores the latest successful image for each PR, exact-SHA Valgrind
 baselines, recent exact-SHA macOS quick-start images, and the nightly
-amd64/arm64 deployment images. The deployment and macOS publishers export
-their BuildKit graphs to separate registry cache tags. Other Docker layers and
-compiler outputs use the GitHub Actions cache. The macOS compiler cache is
-embedded in its published image and copied into a temporary Colima volume.
+amd64/arm64 deployment images. The deployment, macOS, and release Sonar jobs
+export their BuildKit graphs to separate registry cache tags. Other Docker
+layers and compiler outputs use the GitHub Actions cache. The macOS compiler
+cache is embedded in its published image and copied into a temporary Colima
+volume.
 
 | Run | Docker layers read from | Docker layers written to |
 | --- | --- | --- |
@@ -88,6 +88,7 @@ writes only its own merge ref.
 | `pek-ci-pr-<number>` image in GHCR | Pull the latest successful PEK CI image locally | Replaced after the next successful run; deleted when the PR closes |
 | `nightly-amd64` and `nightly-arm64` deployment images in GHCR | Seed native release runtime layers | Replaced by the next nightly run |
 | `buildcache-amd64` and `buildcache-arm64` in GHCR | Seed the complete native deployment build graph | Replaced by the next nightly run |
+| `buildcache-release-sonar-amd64` in GHCR | Reuse the release Sonar `pek-ci` image layers | Replaced by the next release Sonar build |
 | Valgrind baseline in GHCR | Compare against the exact base SHA | Managed by the trusted baseline publisher |
 
 The pull-request workflow has no package-write permission. After successful CI,
@@ -172,6 +173,11 @@ For pushes to `main`, Artifactory publication also waits for the GitHub Release
 job to succeed. An existing `v<version>` therefore prevents publication to both
 release destinations. Manual snapshots do not create or depend on a GitHub
 Release.
+
+Release Sonar and the staging documentation deployment are independent jobs on
+pushes to `main`. Their failures make the workflow red without blocking the
+GitHub Release or Artifactory publication jobs. Release Sonar keeps its
+`pek-ci` BuildKit graph in the dedicated GHCR registry cache above.
 
 Automatic `main` publication writes to `releases/<version>/`; manual
 publication writes to
