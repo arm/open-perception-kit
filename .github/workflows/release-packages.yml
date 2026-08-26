@@ -225,7 +225,7 @@ jobs:
           rm -rf -- "$SOURCE_DIR"
 
   blackduck-detect:
-    name: Prepare verified Detect wrapper
+    name: Detect wrapper
     uses: ./.github/workflows/blackduck-detect.yml
 
   blackduck-release-packages:

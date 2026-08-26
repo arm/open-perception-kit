@@ -42,7 +42,7 @@ permissions:
 
 jobs:
   detect-wrapper:
-    name: Prepare verified Detect wrapper
+    name: Detect wrapper
     uses: ./.github/workflows/blackduck-detect.yml
 
   built-output:

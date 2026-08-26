@@ -7,7 +7,7 @@ permissions: {}
 
 jobs:
   download:
-    name: Prepare verified Detect wrapper
+    name: Download and verify
     runs-on: self-hosted-ubuntu-latest-x64
     timeout-minutes: 5
     steps:
