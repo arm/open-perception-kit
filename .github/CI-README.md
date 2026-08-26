@@ -19,15 +19,17 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
   exact-SHA helpers without consuming the Actions cache quota.
 - Reuses Docker layers through the ref-scoped cache flow below.
 - Starts the Linux, Raspberry Pi, and macOS quick-start checks independently.
+  Pull requests run the Raspberry Pi lane only when `run-rpi-ci` is applied;
+  the nightly schedule and manual `all` runs retain Raspberry Pi coverage.
   The macOS lane pulls an exact-SHA quick-start image from GHCR and seeds its
   compiler cache into temporary Colima volumes. It can reuse the newest
   image-compatible ancestor, or the PR-base image when its inputs are unchanged;
   missing images fall back to the local QEMU build. The checkout, job containers,
   and complete Colima VM are removed.
-- Routes `run-python-audit`, `run-docker-scout`, and `run-workflow-audit` PR
-  labels through this workflow so label-triggered checks do not create duplicate
-  PR workflows. Workflow dependency freshness keeps its scheduled and manual
-  entry points in `workflow-audit.yml`.
+- Routes `run-rpi-ci`, `run-python-audit`, `run-docker-scout`, and
+  `run-workflow-audit` PR labels through this workflow so label-triggered checks
+  do not create duplicate PR workflows. Workflow dependency freshness keeps its
+  scheduled and manual entry points in `workflow-audit.yml`.
 - Supports manual `all`, `quality`, `sonar`, and `valgrind` selections.
 - Uses each pull request's immediate base branch, including stacked pull requests.
 - Owns the nightly Quality and Valgrind run, the native deployment image
@@ -403,8 +405,9 @@ reviewed publisher change is adopted; PEK does not copy or fork the package.
 - **Triggers:** Runs on pull requests, `main`/`develop` pushes, `release/*`
   tags, manual dispatch, and the nightly schedule.
 - **Branch and PR logic:** Standard checks run on non-draft PRs;
-  `run-pek-ci`, `run-macos-ci`, `run-python-audit`, `run-docker-scout`, and
-  `run-workflow-audit` route their selected work through the same PR workflow.
+  `run-pek-ci`, `run-macos-ci`, `run-rpi-ci`, `run-python-audit`,
+  `run-docker-scout`, and `run-workflow-audit` route their selected work through
+  the same PR workflow.
 - **Context:** The shared-image job resolves the exact source SHA and immediate
   PR base; platform quick-start jobs checkout the event source directly.
 - **Shared image:** Publishes `pek-ci` once and attaches each compatible Docker

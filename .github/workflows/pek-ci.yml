@@ -92,7 +92,7 @@ jobs:
           else
             test "$CHECKS" = label
             case "$PR_LABEL" in
-              run-macos-ci|run-python-audit|run-docker-scout|run-workflow-audit) ;;
+              run-macos-ci|run-rpi-ci|run-python-audit|run-docker-scout|run-workflow-audit) ;;
               *) exit 1 ;;
             esac
           fi
@@ -676,20 +676,26 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
-    # Fork PR code must not run on the self-hosted RPI runner. Dependabot PRs only need
-    # host CI; other same-repo PRs run RPI whenever the Linux quick-start build runs.
+    # Fork PR code must not run on the self-hosted RPI runner. PRs use an explicit
+    # run-rpi-ci label to limit SD-card wear; nightly and manual all runs remain automatic.
     if: |
       github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && inputs.checks == 'all') ||
+      (
+        github.event_name == 'workflow_dispatch' &&
+        (
+          (inputs.checks == 'all' && inputs.pr_label == '') ||
+          (inputs.checks == 'label' && inputs.pr_label == 'run-rpi-ci')
+        )
+      ) ||
       (
         github.event_name == 'pull_request' &&
         github.event.pull_request.head.repo.full_name == github.repository &&
         github.event.pull_request.user.login != 'dependabot[bot]' &&
         (
-          (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
+          (github.event.action == 'labeled' && github.event.label.name == 'run-rpi-ci') ||
           (
-            github.event.pull_request.draft == false ||
-            (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
+            contains(fromJSON('["synchronize","reopened"]'), github.event.action) &&
+            contains(github.event.pull_request.labels.*.name, 'run-rpi-ci')
           )
         )
       )

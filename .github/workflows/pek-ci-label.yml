@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     if: >-
       github.event_name == 'pull_request_target' &&
-      contains(fromJSON('["run-pek-ci","run-macos-ci","run-python-audit","run-docker-scout","run-workflow-audit"]'), github.event.label.name) &&
+      contains(fromJSON('["run-pek-ci","run-macos-ci","run-rpi-ci","run-python-audit","run-docker-scout","run-workflow-audit"]'), github.event.label.name) &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.pull_request.user.login != 'dependabot[bot]'
     permissions:
@@ -78,7 +78,7 @@ jobs:
           test "${#head_sha}" = 40
           case "$head_sha" in *[!0-9a-f]*) exit 1 ;; esac
           case "$pr_label" in
-            run-pek-ci|run-macos-ci|run-python-audit|run-docker-scout|run-workflow-audit) ;;
+            run-pek-ci|run-macos-ci|run-rpi-ci|run-python-audit|run-docker-scout|run-workflow-audit) ;;
             *) exit 1 ;;
           esac
 
