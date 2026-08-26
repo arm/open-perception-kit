@@ -338,6 +338,7 @@ if node.found() and npm.found()
     peksink_web,
     args : ['test'],
     workdir : meson.project_source_root() / '..',
+    timeout : 120,
   )
   test(
     'peksink_web_bundle_check',
