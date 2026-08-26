@@ -1,7 +1,7 @@
 {
-  "description": "MobileNetV2 ONNX classification of a real sample image with comparable C++ and stateful Python results in the WebUI.",
+  "description": "MobileNetV2 ONNX classification of a New York traffic scene with comparable C++ and stateful Python results in the WebUI.",
   "pipeline": [
-    "filesrc location=/work/data/images/GettyImages-1140581459-thumbnail.jpg !",
+    "filesrc location=/work/data/images/GettyImages-2222093886-thumbnail.jpg !",
     "jpegdec !",
     "imagefreeze is-live=true !",
     "videoconvert !",

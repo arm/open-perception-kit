@@ -6479,12 +6479,21 @@ function drawClassification(ctx, classification, display, colors, heading, align
       textX,
       Math.max(display.y + padding, startY - lineHeight),
       fontSize,
-      colors.classification
+      colors.classification,
+      alignRight
     );
   }
   candidates.forEach((candidate, index) => {
     const text2 = `#${index + 1}: ${candidate.text || candidate.classId} (${((candidate.confidence || 0) * 100).toFixed(1)}%)`;
-    drawTextChip(ctx, text2, textX, startY + index * lineHeight, fontSize, colors.classification);
+    drawTextChip(
+      ctx,
+      text2,
+      textX,
+      startY + index * lineHeight,
+      fontSize,
+      colors.classification,
+      alignRight
+    );
   });
   return classificationPanelHeight(candidates.length, heading);
 }
@@ -6495,8 +6504,7 @@ function classificationTextX(display, padding, alignRight) {
   if (!alignRight) {
     return display.x + padding;
   }
-  const panelWidth = Math.min(600, Math.max(0, display.width - 2 * padding));
-  return Math.max(display.x + padding, display.x + display.width - padding - panelWidth);
+  return display.x + display.width - padding;
 }
 function classificationPanelHeight(candidateCount, heading) {
   const fontSize = 14;
@@ -6602,7 +6610,7 @@ function drawPerformance(ctx, perception, colors) {
     y += 16;
   }
 }
-function drawTextChip(ctx, text2, x, y, fontSize, color = DEFAULT_COLORS.text) {
+function drawTextChip(ctx, text2, x, y, fontSize, color = DEFAULT_COLORS.text, alignRight = false) {
   ctx.save();
   ctx.font = `${fontSize}px monospace`;
   ctx.textBaseline = "top";
@@ -6611,10 +6619,11 @@ function drawTextChip(ctx, text2, x, y, fontSize, color = DEFAULT_COLORS.text) {
   const metrics = ctx.measureText(text2);
   const width = metrics.width + paddingX * 2;
   const height = fontSize + paddingY * 2;
+  const drawX = alignRight ? x - width : x;
   ctx.fillStyle = DEFAULT_COLORS.textBg;
-  ctx.fillRect(x, y, width, height);
+  ctx.fillRect(drawX, y, width, height);
   ctx.fillStyle = color;
-  ctx.fillText(text2, x + paddingX, y + paddingY);
+  ctx.fillText(text2, drawX + paddingX, y + paddingY);
   ctx.restore();
 }
 function drawArrow(ctx, from, to, color, width = 3, headSize = 10) {

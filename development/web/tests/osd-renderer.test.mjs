@@ -45,7 +45,7 @@ test("classification text supports explicit lower-right alignment", () => {
   const display = {x: 20, y: 0, width: 1000, height: 300};
 
   assert.equal(classificationTextX(display, 10, false), 30);
-  assert.equal(classificationTextX(display, 10, true), 410);
+  assert.equal(classificationTextX(display, 10, true), 1010);
 });
 
 test("classification panels reserve deterministic vertical space", () => {
@@ -107,6 +107,56 @@ test("classification layers render labelled left and right columns", () => {
     "#2: 222 (25.0%)",
   ]);
   assert.ok(context.calls[0].x < context.calls[3].x);
+});
+
+test("classification columns stay separated on a typical narrow video", () => {
+  globalThis.window = {devicePixelRatio: 1};
+  const context = createCanvasContext();
+  const canvas = {
+    clientWidth: 640,
+    clientHeight: 360,
+    width: 0,
+    height: 0,
+    getContext: () => context,
+  };
+  const candidates = [
+    {text: "chainlink fence", classId: 489, confidence: 0.56},
+  ];
+  const perception = {
+    layers: [
+      {
+        contentType: "classification",
+        compositingMode: "bottomLeft",
+        producer: {implementation: "ImageNetClassificationParser"},
+        detections: [{type: "Classification", data: {candidates}}],
+      },
+      {
+        contentType: "classification",
+        compositingMode: "bottomRight",
+        producer: {implementation: "python_classification.py"},
+        detections: [{type: "Classification", data: {candidates}}],
+      },
+    ],
+  };
+
+  renderOsd(canvas, {videoWidth: 1280, videoHeight: 720}, perception, {
+    objects: false,
+    faces: false,
+    gaze: false,
+    cameraContact: false,
+    trackTraces: false,
+    personStatus: false,
+    performance: false,
+  });
+
+  const leftHeading = context.calls.find(
+    ({text}) => text === "ImageNetClassificationParser",
+  );
+  const rightHeading = context.calls.find(
+    ({text}) => text === "python_classification.py",
+  );
+  assert.ok(leftHeading.x < 20);
+  assert.ok(rightHeading.x > 400);
 });
 
 test("video frame metadata is preferred when present", () => {

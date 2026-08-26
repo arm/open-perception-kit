@@ -13,12 +13,13 @@ The optional `opchain-python-classification.json` variant runs
 `scripts/python_classification.py` between inference and the standard
 postprocessor. The script independently calculates the top five ImageNet
 classes from the raw output tensor and tracks how many consecutive frames keep
-the same top class. The `mobilenet-python-classification` pipeline continuously classifies a
-bundled real sample image and uses the WebUI as the single overlay renderer. The
-Python list appears in the lower-right corner and the standard postprocessor
-list appears in the lower-left. Both sides use the same five-row rank, label,
-and confidence format; the stable-frame count remains available in the Python
-layer metadata.
+the same top class. The `mobilenet-python-classification` pipeline continuously
+classifies a bundled New York traffic image, whose leading results include cab,
+garbage truck, streetcar, and minibus, and uses the WebUI as the single overlay
+renderer. The Python list appears in the lower-right corner and the standard
+postprocessor list appears in the lower-left. Both sides use the same five-row
+rank, label, and confidence format; the stable-frame count remains available in
+the Python layer metadata.
 
 The Python demo uses the model-local `scripts/imagenet_labels.txt` table so it
 can produce a human-readable label before the C++ postprocessor executes. Keep
