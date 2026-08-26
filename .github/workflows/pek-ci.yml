@@ -14,6 +14,7 @@ on:
           - quality
           - sonar
           - valgrind
+          - blackduck
           - label
       pr_number:
         description: Optional PR number to run the PR validation path manually.
@@ -552,6 +553,7 @@ jobs:
           inputs.pr_label == 'run-pek-ci' &&
           needs.build-ci-image.outputs.pr_context == 'true'
         ) ||
+        (github.event_name == 'workflow_dispatch' && inputs.checks == 'blackduck') ||
         github.event_name == 'schedule' ||
         (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
       )
@@ -564,8 +566,8 @@ jobs:
       checkout_ref: ${{ needs.build-ci-image.outputs.head_sha }}
       ci_image_sha: ${{ needs.build-ci-image.outputs.head_sha }}
       pr_number: ${{ needs.build-ci-image.outputs.pr_number }}
-      scan_mode: ${{ (github.event_name == 'schedule' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))) && 'full' || 'delta' }}
-      version_name: ${{ github.event_name == 'schedule' && 'nightly' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) && github.ref_name || format('pr-{0}', needs.build-ci-image.outputs.pr_number) }}
+      scan_mode: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.checks == 'blackduck') || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))) && 'full' || 'delta' }}
+      version_name: ${{ github.event_name == 'schedule' && 'nightly' || ((github.event_name == 'workflow_dispatch' && inputs.checks == 'blackduck') || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))) && github.ref_name || format('pr-{0}', needs.build-ci-image.outputs.pr_number) }}
     secrets:
       BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
       BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }} # pragma: allowlist secret

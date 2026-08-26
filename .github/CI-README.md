@@ -30,7 +30,8 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
   `run-workflow-audit` PR labels through this workflow so label-triggered checks
   do not create duplicate PR workflows. Workflow dependency freshness keeps its
   scheduled and manual entry points in `workflow-audit.yml`.
-- Supports manual `all`, `quality`, `sonar`, and `valgrind` selections.
+- Supports manual `all`, `quality`, `sonar`, `valgrind`, and full `blackduck`
+  selections.
 - Uses each pull request's immediate base branch, including stacked pull requests.
 - Owns the nightly Quality and Valgrind run, the native deployment image
   caches, and the Valgrind baseline artifact.
@@ -42,7 +43,9 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
   check, a base-to-head snippet scan, and one required quality-gate result.
   Nightly runs and `v*` release tags run the full built-output, dependency, and
   snippet equivalents against `nightly` or the release tag. Full snippet scans
-  materialize Meson wrap sources first.
+  materialize Meson wrap sources first. The release workflow explicitly
+  dispatches the tag scan after publishing because its `GITHUB_TOKEN` tag does
+  not emit a second workflow run.
   Downloaded scanner executables are checksum-verified and every Detect policy
   violation fails its lane. Persistent job summaries link to their Black Duck
   BOM; transient Rapid details remain in the workflow artifact and log.

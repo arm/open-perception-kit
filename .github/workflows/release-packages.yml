@@ -472,6 +472,7 @@ jobs:
     needs: [prepare, build, build-docs, release-image]
     runs-on: ubuntu-24.04
     permissions:
+      actions: write
       contents: write
     steps:
       - name: Checkout released source
@@ -520,6 +521,12 @@ jobs:
             --title "PEK $VERSION" --notes-file release-body.md
           gh release upload "v$VERSION" "${archives[@]}"
           gh release edit "v$VERSION" --draft=false
+
+      - name: Queue full Black Duck release scan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: gh workflow run pek-ci.yml --ref "v$VERSION" -f checks=blackduck
 
   artifactory:
     name: Publish one Artifactory release
