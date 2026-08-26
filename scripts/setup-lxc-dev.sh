@@ -328,10 +328,9 @@ if ! grep -Fqx 'source /etc/zsh/pek-dev.zsh' /etc/zsh/zshenv; then
 fi
 
 install -d -m 1777 /tmp
-if [[ ! -e /tmp/pekcomm ]]; then
-    mkfifo --mode=640 /tmp/pekcomm
-fi
-chown "$DEV_USER:$DEV_GROUP" /tmp/pekcomm
+rm -f -- "$PEKCOMM_FIFO"
+mkfifo --mode=0640 "$PEKCOMM_FIFO"
+chown --no-dereference "$DEV_USER:$DEV_GROUP" "$PEKCOMM_FIFO"
 
 if [[ "$SKIP_ASSETS" == false ]]; then
     log "Downloading model artifacts and demo videos as ${DEV_USER}"
