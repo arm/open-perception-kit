@@ -3,6 +3,11 @@ name: Docker Scout Image Audit
 on:
   workflow_call:
     inputs:
+      ci_image_ref:
+        description: Run-tagged PEK CI image from the caller run.
+        required: false
+        default: ""
+        type: string
       ci_image_sha:
         description: Exact source SHA of a prepared PEK CI image.
         required: false
@@ -27,6 +32,7 @@ on:
 permissions:
   actions: read
   contents: read
+  packages: read
 
 jobs:
   docker-scout:
@@ -71,29 +77,6 @@ jobs:
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
 
     steps:
-      - name: Download PEK CI image
-        if: matrix.image.service == 'pek-ci' && inputs.ci_image_sha != ''
-        uses: actions/download-artifact@v8
-        with:
-          name: pek-ci-image-handoff.tar
-          path: .cache
-          skip-decompress: true
-
-      - name: Extract PEK CI image
-        if: matrix.image.service == 'pek-ci' && inputs.ci_image_sha != ''
-        run: |
-          mkdir -p .cache/pek-ci-image
-          tar -xf .cache/pek-ci-image-handoff.tar -C .cache/pek-ci-image
-
-      - name: Load PEK CI image
-        if: matrix.image.service == 'pek-ci' && inputs.ci_image_sha != ''
-        env:
-          CI_IMAGE_SHA: ${{ inputs.ci_image_sha }}
-        run: |
-          tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
-          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
-            --archive "$tools_dir/pek-ci-image.tar" pek-ci
-
       - name: Checkout current ref
         id: checkout-current-ref
         if: github.event_name != 'pull_request'
@@ -112,6 +95,24 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.sha }}
           path: ${{ env.CI_CHECKOUT_PATH }}
+
+      - name: Log in to GitHub Container Registry
+        if: matrix.image.service == 'pek-ci' && inputs.ci_image_sha != ''
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Pull PEK CI image
+        if: matrix.image.service == 'pek-ci' && inputs.ci_image_sha != ''
+        env:
+          CI_IMAGE_REGISTRY: ${{ inputs.ci_image_ref }}
+          CI_IMAGE_SHA: ${{ inputs.ci_image_sha }}
+        run: |
+          python3 "${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}/scripts/private/ci_image.py" \
+            prepare "$CI_IMAGE_SHA" \
+            --registry-image "$CI_IMAGE_REGISTRY" pek-ci
 
       - name: Validate Docker Scout credentials
         id: validate-docker-credentials

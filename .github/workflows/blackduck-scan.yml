@@ -12,6 +12,10 @@ on:
         description: Exact source SHA to scan.
         required: true
         type: string
+      ci_image_ref:
+        description: Run-tagged PEK CI image from the caller run.
+        required: true
+        type: string
       ci_image_sha:
         description: Exact PEK CI image SHA from the caller run.
         required: true
@@ -53,38 +57,17 @@ jobs:
     permissions:
       actions: read
       contents: read
+      packages: read
     env:
       BLACKDUCK_VERSION: ${{ inputs.version_name }}
       CCACHE_SCHEMA_VERSION: v2
       CCACHE_PATH: ${{ github.workspace }}/.cache/ccache-blackduck-built
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      CI_IMAGE_REGISTRY: ${{ inputs.ci_image_ref }}
       CI_IMAGE_SHA: ${{ inputs.ci_image_sha }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       WORKSPACE_ROOT: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
-      - name: Download PEK CI image
-        uses: actions/download-artifact@v8
-        with:
-          name: pek-ci-image-handoff.tar
-          path: ${{ runner.temp }}/pek-ci-image-download
-          skip-decompress: true
-
-      - name: Extract PEK CI image
-        run: |
-          mkdir -p "$RUNNER_TEMP/pek-ci-image"
-          tar -xf "$RUNNER_TEMP/pek-ci-image-download/pek-ci-image-handoff.tar" \
-            -C "$RUNNER_TEMP/pek-ci-image"
-
-      - name: Load PEK CI image
-        run: |
-          tools_dir="${RUNNER_TEMP}/pek-ci-image"
-          (
-            flock -x 9
-            python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
-              --archive "$tools_dir/pek-ci-image.tar" pek-release-with-ut
-            docker image rm "pek-ci:${CI_IMAGE_SHA}"
-          ) 9>"/tmp/pek-ci-image-${CI_IMAGE_SHA}.lock"
-
       - name: Checkout source
         uses: actions/checkout@v7
         with:
@@ -93,6 +76,21 @@ jobs:
           path: ${{ env.CI_CHECKOUT_PATH }}
           persist-credentials: false
           ref: ${{ inputs.checkout_ref }}
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Pull PEK CI image
+        run: |
+          (
+            flock -x 9
+            python3 "$WORKSPACE_ROOT/scripts/private/ci_image.py" prepare "$CI_IMAGE_SHA" \
+              --registry-image "$CI_IMAGE_REGISTRY" pek-release-with-ut
+          ) 9>"/tmp/pek-ci-image-${CI_IMAGE_SHA}.lock"
 
       - name: Prepare private submodules
         working-directory: ${{ env.WORKSPACE_ROOT }}
@@ -218,41 +216,16 @@ jobs:
     permissions:
       actions: read
       contents: read
+      packages: read
     env:
       BLACKDUCK_VERSION: ${{ inputs.version_name }}
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      CI_IMAGE_REGISTRY: ${{ inputs.ci_image_ref }}
       CI_IMAGE_SHA: ${{ inputs.ci_image_sha }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       SCAN_MODE: ${{ inputs.scan_mode }}
       WORKSPACE_ROOT: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
-      - name: Download PEK CI image
-        if: ${{ inputs.scan_mode == 'full' }}
-        uses: actions/download-artifact@v8
-        with:
-          name: pek-ci-image-handoff.tar
-          path: ${{ runner.temp }}/pek-ci-image-dependencies-download
-          skip-decompress: true
-
-      - name: Extract PEK CI image
-        if: ${{ inputs.scan_mode == 'full' }}
-        run: |
-          mkdir -p "$RUNNER_TEMP/pek-ci-image-dependencies"
-          tar -xf \
-            "$RUNNER_TEMP/pek-ci-image-dependencies-download/pek-ci-image-handoff.tar" \
-            -C "$RUNNER_TEMP/pek-ci-image-dependencies"
-
-      - name: Load PEK CI image
-        if: ${{ inputs.scan_mode == 'full' }}
-        run: |
-          tools_dir="${RUNNER_TEMP}/pek-ci-image-dependencies"
-          (
-            flock -x 9
-            python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
-              --archive "$tools_dir/pek-ci-image.tar" pek-ci
-            docker image rm "pek-ci:${CI_IMAGE_SHA}"
-          ) 9>"/tmp/pek-ci-image-${CI_IMAGE_SHA}.lock"
-
       - name: Checkout source
         uses: actions/checkout@v7
         with:
@@ -261,6 +234,23 @@ jobs:
           path: ${{ env.CI_CHECKOUT_PATH }}
           persist-credentials: false
           ref: ${{ inputs.checkout_ref }}
+
+      - name: Log in to GitHub Container Registry
+        if: ${{ inputs.scan_mode == 'full' }}
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Pull PEK CI image
+        if: ${{ inputs.scan_mode == 'full' }}
+        run: |
+          (
+            flock -x 9
+            python3 "$WORKSPACE_ROOT/scripts/private/ci_image.py" prepare "$CI_IMAGE_SHA" \
+              --registry-image "$CI_IMAGE_REGISTRY" pek-ci
+          ) 9>"/tmp/pek-ci-image-${CI_IMAGE_SHA}.lock"
 
       - name: Prepare private submodules
         working-directory: ${{ env.WORKSPACE_ROOT }}
@@ -409,10 +399,12 @@ jobs:
     permissions:
       actions: read
       contents: read
+      packages: read
     env:
       BASE_SHA: ${{ inputs.base_sha }}
       BLACKDUCK_VERSION: ${{ inputs.version_name }}
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      CI_IMAGE_REGISTRY: ${{ inputs.ci_image_ref }}
       CI_IMAGE_SHA: ${{ inputs.ci_image_sha }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       HEAD_SHA: ${{ inputs.checkout_ref }}
@@ -420,33 +412,6 @@ jobs:
       SCAN_MODE: ${{ inputs.scan_mode }}
       WORKSPACE_ROOT: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
-      - name: Download PEK CI image
-        if: ${{ inputs.scan_mode == 'full' }}
-        uses: actions/download-artifact@v8
-        with:
-          name: pek-ci-image-handoff.tar
-          path: ${{ runner.temp }}/pek-ci-image-snippets-download
-          skip-decompress: true
-
-      - name: Extract PEK CI image
-        if: ${{ inputs.scan_mode == 'full' }}
-        run: |
-          mkdir -p "$RUNNER_TEMP/pek-ci-image-snippets"
-          tar -xf \
-            "$RUNNER_TEMP/pek-ci-image-snippets-download/pek-ci-image-handoff.tar" \
-            -C "$RUNNER_TEMP/pek-ci-image-snippets"
-
-      - name: Load PEK CI image
-        if: ${{ inputs.scan_mode == 'full' }}
-        run: |
-          tools_dir="${RUNNER_TEMP}/pek-ci-image-snippets"
-          (
-            flock -x 9
-            python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
-              --archive "$tools_dir/pek-ci-image.tar" pek-ci
-            docker image rm "pek-ci:${CI_IMAGE_SHA}"
-          ) 9>"/tmp/pek-ci-image-${CI_IMAGE_SHA}.lock"
-
       - name: Checkout source
         uses: actions/checkout@v7
         with:
@@ -455,6 +420,23 @@ jobs:
           path: ${{ env.CI_CHECKOUT_PATH }}
           persist-credentials: false
           ref: ${{ inputs.checkout_ref }}
+
+      - name: Log in to GitHub Container Registry
+        if: ${{ inputs.scan_mode == 'full' }}
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Pull PEK CI image
+        if: ${{ inputs.scan_mode == 'full' }}
+        run: |
+          (
+            flock -x 9
+            python3 "$WORKSPACE_ROOT/scripts/private/ci_image.py" prepare "$CI_IMAGE_SHA" \
+              --registry-image "$CI_IMAGE_REGISTRY" pek-ci
+          ) 9>"/tmp/pek-ci-image-${CI_IMAGE_SHA}.lock"
 
       - name: Prepare private submodules
         if: ${{ inputs.scan_mode == 'full' }}

@@ -14,9 +14,9 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Builds one exact-SHA PEK CI image, shares it within the workflow run, then runs
   Quality, Sonar, Valgrind, full Black Duck, and the `pek-ci` Docker Scout scan
   from that image.
-- Uploads the complete run image handoff as a one-day raw tar artifact, so every
-  consumer and the trusted PR GHCR publisher waits for the same image and
-  exact-SHA helpers without consuming the Actions cache quota.
+- Pushes a run-unique candidate image to GHCR. Every consumer pulls that tag, so
+  only missing layers cross the network. Consumers run repository helpers from
+  their exact-SHA checkout; no separate image or tools artifact is transferred.
 - Reuses Docker layers through the ref-scoped cache flow below.
 - Starts the Linux, Raspberry Pi, and macOS quick-start checks independently.
   Pull requests run the Raspberry Pi lane only when `run-rpi-ci` is applied;
@@ -102,15 +102,17 @@ writes only its own merge ref.
 | Exact-SHA macOS quick-start image | Avoid QEMU image builds in the macOS lane | Published by `main` and `develop` pushes; newest 20 retained in GHCR |
 | macOS quick-start BuildKit cache | Reuse publisher image layers | Current GHCR `buildcache` tag; superseded untagged versions are deleted |
 | Sonar CFamily server cache | Reuse target-branch or main fallback analysis in pull requests | Updated by `main` and `develop` push analysis |
-| Run image artifact | Pass the image and exact-SHA helpers from `Build PEK CI image` to its dependent jobs and trusted PR publisher | One day |
+| Run candidate image in GHCR | Pass the built image to dependent jobs by its run-unique tag; unpromoted candidates are deleted after the run | Run completion, or PR close after promotion |
 | `pek-ci-pr-<number>` image in GHCR | Pull the latest successful PEK CI image locally | Replaced after the next successful run; deleted when the PR closes |
 | `nightly-amd64` and `nightly-arm64` deployment images in GHCR | Seed native release runtime layers | Replaced by the next nightly run |
 | `buildcache-amd64` and `buildcache-arm64` in GHCR | Seed the complete native deployment build graph | Replaced by the next nightly run |
 | `buildcache-release-sonar-amd64` in GHCR | Reuse the release Sonar `pek-ci` image layers | Replaced by the next release Sonar build |
 | Valgrind baseline in GHCR | Compare against the exact base SHA | Managed by the trusted baseline publisher |
 
-The pull-request workflow has no package-write permission. After successful CI,
-the trusted `PEK CI Image` workflow publishes the verified image:
+The same-repository image producer has package-write permission only for its
+run-unique candidate tag; fork pull requests cannot enter that path. Consumers
+pull that tag. After successful CI, the trusted `PEK CI Image`
+workflow verifies the current exact SHA and promotes the candidate image:
 
 ```console
 docker pull ghcr.io/arm-debug/amp-dev-forge-ci:pek-ci-pr-<number>

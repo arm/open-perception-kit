@@ -15,6 +15,9 @@ import sys
 
 
 SHA_PATTERN = re.compile(r"[0-9a-f]{40}")
+REGISTRY_IMAGE_PATTERN = re.compile(
+    r"ghcr\.io/[a-z0-9][a-z0-9._/-]*:pek-ci-run-[0-9]+-[0-9]+"
+)
 DEV_IMAGE_TAG_PATTERN = re.compile(r"sha-[0-9a-f]{40}")
 SERVICE_PATTERN = re.compile(r"[a-z0-9][a-z0-9_-]*")
 DEV_IMAGE_INPUTS = (
@@ -45,10 +48,6 @@ def validate_sha(value: str) -> str:
     if not SHA_PATTERN.fullmatch(value):
         raise ValueError("CI image identity must be a full lowercase Git SHA.")
     return value
-
-
-def image_ref(sha: str) -> str:
-    return f"pek-ci:{validate_sha(sha)}"
 
 
 def github_repository() -> str:
@@ -129,22 +128,22 @@ def append_github_output(name: str, value: str) -> None:
         output_file.write(f"{name}={value}\n")
 
 
-def prepare(sha: str, archive: str, services: list[str]) -> str:
+def prepare(sha: str, registry_image: str, services: list[str]) -> str:
     sha = validate_sha(sha)
     if not services or any(not SERVICE_PATTERN.fullmatch(service) for service in services):
         raise ValueError("At least one valid Compose service is required.")
+    if not REGISTRY_IMAGE_PATTERN.fullmatch(registry_image):
+        raise ValueError("Registry CI image must be a run-tagged lowercase GHCR reference.")
 
-    image = image_ref(sha)
-    run(["docker", "image", "load", "--input", archive])
-    Path(archive).unlink()
-    verify_revision(image, sha)
+    run(["docker", "pull", registry_image])
+    verify_revision(registry_image, sha)
     project = compose_project_name()
     for service in services:
-        run(["docker", "tag", image, f"{project}-{service}"])
+        run(["docker", "tag", registry_image, f"{project}-{service}"])
     append_github_env("COMPOSE_PROJECT_NAME", project)
-    append_github_env("PEK_CI_IMAGE", image)
-    print(f"Prepared {image} for {', '.join(services)}")
-    return image
+    append_github_env("PEK_CI_IMAGE", registry_image)
+    print(f"Prepared {registry_image} for {', '.join(services)}")
+    return registry_image
 
 
 def git_head_sha() -> str:
@@ -269,7 +268,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     subparsers = parser.add_subparsers(dest="command", required=True)
     prepare_parser = subparsers.add_parser("prepare")
     prepare_parser.add_argument("sha")
-    prepare_parser.add_argument("--archive", required=True)
+    prepare_parser.add_argument("--registry-image", required=True)
     prepare_parser.add_argument("services", nargs="+")
     prepare_dev_parser = subparsers.add_parser("prepare-dev")
     prepare_dev_parser.add_argument("--base-sha", required=True)
@@ -281,7 +280,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 def main(argv: list[str]) -> int:
     args = parse_args(argv)
     if args.command == "prepare":
-        prepare(args.sha, args.archive, args.services)
+        prepare(args.sha, args.registry_image, args.services)
     elif args.command == "prepare-dev":
         prepare_dev(args.base_sha)
     else:

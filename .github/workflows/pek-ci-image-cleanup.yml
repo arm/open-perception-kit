@@ -52,7 +52,7 @@ jobs:
             jq -s 'add')"
           mapfile -t version_ids < <(
             jq -r --arg tag "$PR_TAG" \
-              '.[] | select(.metadata.container.tags == [$tag]) | .id' <<< "$versions"
+              '.[] | select(.metadata.container.tags | index($tag)) | .id' <<< "$versions"
           )
           test "${#version_ids[@]}" -le 1
           if [ "${#version_ids[@]}" -eq 1 ]; then
@@ -70,7 +70,6 @@ jobs:
       github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
-      actions: read
       packages: write
       pull-requests: read
     steps:
@@ -91,33 +90,22 @@ jobs:
             echo 'current=false' >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Find PEK CI image
+      - name: Find PEK CI candidate image
         if: ${{ steps.pr.outputs.current == 'true' }}
         id: image
         env:
           GH_TOKEN: ${{ github.token }}
-          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_TAG: pek-ci-run-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
         run: |
-          count="$(gh api --method GET \
-            "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts" \
-            -f name=pek-ci-image-handoff.tar --jq '.artifacts | length')"
+          count="$(gh api --paginate \
+            "orgs/${GITHUB_REPOSITORY_OWNER}/packages/container/amp-dev-forge-ci/versions?per_page=100" |
+            jq -sr --arg tag "$RUN_TAG" 'add | [.[] | select(.metadata.container.tags | index($tag))] | length')"
           test "$count" -le 1
           if [ "$count" -eq 1 ]; then
             echo 'exists=true' >> "$GITHUB_OUTPUT"
           else
             echo 'exists=false' >> "$GITHUB_OUTPUT"
           fi
-
-      - name: Download PEK CI image
-        if: ${{ steps.image.outputs.exists == 'true' }}
-        uses: actions/download-artifact@v8
-        with:
-          name: pek-ci-image-handoff.tar
-          path: ${{ runner.temp }}
-          repository: ${{ github.repository }}
-          run-id: ${{ github.event.workflow_run.id }}
-          github-token: ${{ github.token }}
-          skip-decompress: true
 
       - name: Log in to GitHub Container Registry
         if: ${{ steps.image.outputs.exists == 'true' }}
@@ -133,23 +121,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
           PR_TAG: pek-ci-pr-${{ github.event.workflow_run.pull_requests[0].number }}
+          RUN_TAG: pek-ci-run-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
         run: |
-          local_image="pek-ci:${EXPECTED_SHA}"
+          candidate_image="ghcr.io/${GITHUB_REPOSITORY,,}-ci:${RUN_TAG}"
           published_image="ghcr.io/${GITHUB_REPOSITORY,,}-ci:${PR_TAG}"
-          mkdir -p "${RUNNER_TEMP}/pek-ci-image"
-          tar -xf "${RUNNER_TEMP}/pek-ci-image-handoff.tar" -C "${RUNNER_TEMP}/pek-ci-image"
-          docker image load --input "${RUNNER_TEMP}/pek-ci-image/pek-ci-image.tar"
-          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$local_image")" = "$EXPECTED_SHA"
+          docker pull "$candidate_image"
+          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$candidate_image")" = "$EXPECTED_SHA"
           versions="$(gh api --paginate \
             "orgs/${GITHUB_REPOSITORY_OWNER}/packages/container/amp-dev-forge-ci/versions?per_page=100" |
             jq -s 'add')"
           mapfile -t version_ids < <(
             jq -r --arg tag "$PR_TAG" \
-              '.[] | select(.metadata.container.tags == [$tag]) | .id' <<< "$versions"
+              '.[] | select(.metadata.container.tags | index($tag)) | .id' <<< "$versions"
           )
           test "${#version_ids[@]}" -le 1
           previous_version_id="${version_ids[0]:-}"
-          docker tag "$local_image" "$published_image"
+          docker tag "$candidate_image" "$published_image"
           docker push "$published_image"
           if [ -n "$previous_version_id" ]; then
             current_version_id="$(gh api --paginate \
@@ -164,3 +151,35 @@ jobs:
           # Markdown code fences must remain literal.
           # shellcheck disable=SC2016
           printf 'Pull the latest successful PR image:\n\n```console\ndocker pull %s\n```\n' "$published_image" >> "$GITHUB_STEP_SUMMARY"
+
+  cleanup-run-image:
+    name: Delete unpromoted PEK CI candidate image
+    if: ${{ always() && github.event_name == 'workflow_run' }}
+    needs: publish-pr-image
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Delete unpromoted PEK CI candidate image
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_TAG: pek-ci-run-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+        run: |
+          versions="$(gh api --paginate \
+            "orgs/${GITHUB_REPOSITORY_OWNER}/packages/container/amp-dev-forge-ci/versions?per_page=100" |
+            jq -s 'add')"
+          mapfile -t version_ids < <(
+            jq -r --arg tag "$RUN_TAG" \
+              '.[] | select(.metadata.container.tags | index($tag)) | .id' <<< "$versions"
+          )
+          test "${#version_ids[@]}" -le 1
+          if [ "${#version_ids[@]}" -eq 1 ]; then
+            version_id="${version_ids[0]}"
+            promoted="$(jq -r --argjson id "$version_id" \
+              '.[] | select(.id == $id) | any(.metadata.container.tags[]; startswith("pek-ci-pr-"))' \
+              <<< "$versions")"
+            if [ "$promoted" != true ]; then
+              gh api --method DELETE \
+                "orgs/${GITHUB_REPOSITORY_OWNER}/packages/container/amp-dev-forge-ci/versions/${version_id}"
+            fi
+          fi

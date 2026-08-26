@@ -124,12 +124,14 @@ jobs:
       )
     permissions:
       contents: read
+      packages: write
       pull-requests: read
     outputs:
       base_ref: ${{ steps.context.outputs.base_ref }}
       base_sha: ${{ steps.context.outputs.base_sha }}
       head_ref: ${{ steps.context.outputs.head_ref }}
       head_sha: ${{ steps.context.outputs.head_sha }}
+      image_ref: ${{ steps.context.outputs.image_ref }}
       pr_context: ${{ steps.context.outputs.pr_context }}
       pr_number: ${{ steps.context.outputs.pr_number }}
       target_branch_name: ${{ steps.context.outputs.target_branch_name }}
@@ -184,14 +186,6 @@ jobs:
           source .github/scripts/configure_workspace_ssh.sh
           git submodule update --init --recursive
 
-      - name: Checkout workflow helpers
-        uses: actions/checkout@v7
-        with:
-          repository: ${{ github.repository }}
-          ref: ${{ github.workflow_sha }}
-          path: .cache/workflow-helpers
-          persist-credentials: false
-
       - name: Prepare Docker build
         id: context
         env:
@@ -216,25 +210,13 @@ jobs:
           fi
           test "${#target_branch_head_sha}" = 40
           case "$target_branch_head_sha" in *[!0-9a-f]*) exit 1 ;; esac
-          tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
-          helpers_dir="${GITHUB_WORKSPACE}/.cache/workflow-helpers"
-          mkdir -p "$tools_dir/valgrind"
-          cp "$helpers_dir/scripts/private/ci_image.py" "$tools_dir/ci_image.py"
-          cp \
-            "$helpers_dir/scripts/testing/valgrind/compare-valgrind-results.py" \
-            "$helpers_dir/scripts/testing/valgrind/summarize-valgrind-output.py" \
-            "$helpers_dir/scripts/testing/valgrind/suppressed-warnings" \
-            "$helpers_dir/scripts/testing/valgrind/test-elements-with-valgrind.sh" \
-            "$helpers_dir/scripts/testing/valgrind/test_compare_valgrind_results.py" \
-            "$helpers_dir/scripts/testing/valgrind/test_summarize_valgrind_output.py" \
-            "$helpers_dir/scripts/testing/valgrind/test_valgrind_baseline_artifact.py" \
-            "$helpers_dir/scripts/testing/valgrind/valgrind-baseline-artifact.py" \
-            "$tools_dir/valgrind/"
+          image_ref="ghcr.io/${GITHUB_REPOSITORY,,}-ci:pek-ci-run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           {
             printf 'base_ref=%s\n' "$BASE_REF"
             printf 'base_sha=%s\n' "$BASE_SHA"
             printf 'head_ref=%s\n' "$HEAD_REF"
             printf 'head_sha=%s\n' "$head_sha"
+            printf 'image_ref=%s\n' "$image_ref"
             printf 'pr_context=%s\n' "$PR_CONTEXT"
             printf 'pr_number=%s\n' "$PR_NUMBER"
             printf 'target_branch_name=%s\n' "$TARGET_BRANCH_NAME"
@@ -243,6 +225,13 @@ jobs:
 
       - name: Set up Docker builder
         uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
 
       - name: Validate model cache key guard
         env:
@@ -267,27 +256,11 @@ jobs:
             org.opencontainers.image.revision=${{ steps.context.outputs.head_sha }}
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.version=${{ steps.context.outputs.head_sha }}
-          outputs: type=docker,dest=${{ github.workspace }}/.cache/pek-ci-image/pek-ci-image.tar
           provenance: false
           pull: true
-          push: false
-          tags: pek-ci:${{ steps.context.outputs.head_sha }}
+          push: true
+          tags: ${{ steps.context.outputs.image_ref }}
           target: pek-ci
-
-      - name: Package PEK CI image handoff
-        run: >-
-          tar -C .cache/pek-ci-image -cf .cache/pek-ci-image-handoff.tar .
-
-      - name: Share PEK CI image
-        uses: actions/upload-artifact@v7
-        with:
-          name: pek-ci-image-handoff.tar
-          path: .cache/pek-ci-image-handoff.tar
-          archive: false
-          include-hidden-files: true
-          if-no-files-found: error
-          overwrite: true
-          retention-days: 1
 
   build-nightly-deployment-images:
     name: Build nightly deployment image (${{ matrix.architecture }})
@@ -522,8 +495,10 @@ jobs:
     permissions:
       actions: read
       contents: read
+      packages: read
     uses: ./.github/workflows/docker-scout-image-audit.yml
     with:
+      ci_image_ref: ${{ needs.build-ci-image.outputs.image_ref }}
       ci_image_sha: ${{ needs.build-ci-image.outputs.head_sha }}
       checkout_ref: ${{ inputs.pr_head_sha }}
     secrets:
@@ -567,10 +542,12 @@ jobs:
     permissions:
       actions: read
       contents: read
+      packages: read
     uses: ./.github/workflows/blackduck-scan.yml
     with:
       base_sha: ${{ needs.build-ci-image.outputs.base_sha }}
       checkout_ref: ${{ needs.build-ci-image.outputs.head_sha }}
+      ci_image_ref: ${{ needs.build-ci-image.outputs.image_ref }}
       ci_image_sha: ${{ needs.build-ci-image.outputs.head_sha }}
       pr_number: ${{ needs.build-ci-image.outputs.pr_number }}
       scan_mode: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.pr_label == '' && contains(fromJSON('["all","blackduck"]'), inputs.checks)) || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))) && 'full' || 'delta' }}
@@ -960,6 +937,7 @@ jobs:
     permissions:
       actions: read
       contents: read
+      packages: read
     env:
       python_ver: "3.12.1"
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
@@ -967,35 +945,6 @@ jobs:
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CCACHE_PATH: ${{ github.workspace }}/.cache/ccache-quality
     steps:
-      - name: Download PEK CI image
-        uses: actions/download-artifact@v8
-        with:
-          name: pek-ci-image-handoff.tar
-          path: .cache
-          skip-decompress: true
-
-      - name: Extract PEK CI image
-        run: |
-          mkdir -p .cache/pek-ci-image
-          tar -xf .cache/pek-ci-image-handoff.tar -C .cache/pek-ci-image
-
-      - name: Load PEK CI image
-        env:
-          CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
-          IMAGE_JOB_RESULT: ${{ needs.build-ci-image.result }}
-        run: |
-          test "$IMAGE_JOB_RESULT" = success
-          tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
-          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
-            --archive "$tools_dir/pek-ci-image.tar" \
-            pek-quality-check-full \
-            pek-quality-check-pull-request \
-            pek-release-with-ut \
-            pek-clang-tidy-baseline-check
-
-      - name: Prepare compiler cache
-        run: install -d -m 0777 "$CCACHE_PATH"
-
       - name: Checkout
         uses: actions/checkout@v7
         with:
@@ -1004,6 +953,31 @@ jobs:
           ref: ${{ needs.build-ci-image.outputs.head_sha }}
           path: ${{ env.CI_CHECKOUT_PATH }}
           persist-credentials: false
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Pull PEK CI image
+        env:
+          CI_IMAGE_REGISTRY: ${{ needs.build-ci-image.outputs.image_ref }}
+          CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
+          IMAGE_JOB_RESULT: ${{ needs.build-ci-image.result }}
+        run: |
+          test "$IMAGE_JOB_RESULT" = success
+          python3 "${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}/scripts/private/ci_image.py" \
+            prepare "$CI_IMAGE_SHA" \
+            --registry-image "$CI_IMAGE_REGISTRY" \
+            pek-quality-check-full \
+            pek-quality-check-pull-request \
+            pek-release-with-ut \
+            pek-clang-tidy-baseline-check
+
+      - name: Prepare compiler cache
+        run: install -d -m 0777 "$CCACHE_PATH"
 
       - name: Generate Hugging Face download cache key
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -1170,33 +1144,39 @@ jobs:
     permissions:
       actions: read
       contents: read
+      packages: read
     env:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CCACHE_PATH: ${{ github.workspace }}/.cache/ccache-sonar
     steps:
-      - name: Download PEK CI image
-        uses: actions/download-artifact@v8
+      - name: Checkout
+        uses: actions/checkout@v7
         with:
-          name: pek-ci-image-handoff.tar
-          path: .cache
-          skip-decompress: true
+          fetch-depth: 0
+          fetch-tags: true
+          ref: ${{ needs.build-ci-image.outputs.head_sha }}
+          path: ${{ env.CI_CHECKOUT_PATH }}
+          persist-credentials: false
 
-      - name: Extract PEK CI image
-        run: |
-          mkdir -p .cache/pek-ci-image
-          tar -xf .cache/pek-ci-image-handoff.tar -C .cache/pek-ci-image
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
 
-      - name: Load PEK CI image
+      - name: Pull PEK CI image
         env:
+          CI_IMAGE_REGISTRY: ${{ needs.build-ci-image.outputs.image_ref }}
           CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
           IMAGE_JOB_RESULT: ${{ needs.build-ci-image.result }}
         run: |
           test "$IMAGE_JOB_RESULT" = success
-          tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
-          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
-            --archive "$tools_dir/pek-ci-image.tar" pek-sonar-check
+          python3 "${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}/scripts/private/ci_image.py" \
+            prepare "$CI_IMAGE_SHA" \
+            --registry-image "$CI_IMAGE_REGISTRY" pek-sonar-check
 
       - name: Prepare workspace
         run: |
@@ -1208,15 +1188,6 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
-
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          fetch-tags: true
-          ref: ${{ needs.build-ci-image.outputs.head_sha }}
-          path: ${{ env.CI_CHECKOUT_PATH }}
-          persist-credentials: false
 
       - name: Prepare private submodules
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -1400,37 +1371,6 @@ jobs:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
       CCACHE_PATH: ${{ github.workspace }}/.cache/ccache
     steps:
-      - name: Download PEK CI image
-        uses: actions/download-artifact@v8
-        with:
-          name: pek-ci-image-handoff.tar
-          path: .cache
-          skip-decompress: true
-
-      - name: Extract PEK CI image
-        working-directory: ${{ github.workspace }}
-        run: |
-          mkdir -p .cache/pek-ci-image
-          tar -xf .cache/pek-ci-image-handoff.tar -C .cache/pek-ci-image
-
-      - name: Load PEK CI image
-        working-directory: ${{ github.workspace }}
-        env:
-          CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
-          IMAGE_JOB_RESULT: ${{ needs.build-ci-image.result }}
-        run: |
-          test "$IMAGE_JOB_RESULT" = success
-          tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
-          echo "CI_IMAGE_TOOLS=$tools_dir" >> "$GITHUB_ENV"
-          python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
-            --archive "$tools_dir/pek-ci-image.tar" \
-            pek-valgrind-check \
-            pek-generate-valgrind-summary
-
-      - name: Prepare compiler cache
-        working-directory: ${{ github.workspace }}
-        run: install -d -m 0777 "$CCACHE_PATH"
-
       - name: Checkout
         uses: actions/checkout@v7
         with:
@@ -1439,6 +1379,49 @@ jobs:
           ref: ${{ needs.build-ci-image.outputs.head_sha }}
           path: valgrind-source
           persist-credentials: false
+
+      - name: Checkout current Valgrind helpers for a historical backfill
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.valgrind_baseline_sha != '' }}
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.workflow_sha }}
+          path: .cache/workflow-helpers
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/private/ci_image.py
+            scripts/testing/valgrind
+          sparse-checkout-cone-mode: false
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Pull PEK CI image
+        working-directory: ${{ github.workspace }}
+        env:
+          BACKFILL_SHA: ${{ github.event.inputs.valgrind_baseline_sha }}
+          CI_IMAGE_REGISTRY: ${{ needs.build-ci-image.outputs.image_ref }}
+          CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
+          IMAGE_JOB_RESULT: ${{ needs.build-ci-image.result }}
+        run: |
+          test "$IMAGE_JOB_RESULT" = success
+          tools_root="${GITHUB_WORKSPACE}/valgrind-source"
+          if [ -n "$BACKFILL_SHA" ]; then
+            tools_root="${GITHUB_WORKSPACE}/.cache/workflow-helpers"
+          fi
+          echo "CI_IMAGE_TOOLS=${tools_root}/scripts/testing/valgrind" >> "$GITHUB_ENV"
+          python3 "${tools_root}/scripts/private/ci_image.py" prepare "$CI_IMAGE_SHA" \
+            --registry-image "$CI_IMAGE_REGISTRY" \
+            pek-valgrind-check \
+            pek-generate-valgrind-summary
+
+      - name: Prepare compiler cache
+        working-directory: ${{ github.workspace }}
+        run: install -d -m 0777 "$CCACHE_PATH"
 
       - name: Prepare private submodules
         working-directory: ${{ github.workspace }}/valgrind-source
@@ -1465,7 +1448,7 @@ jobs:
 
       - name: Run Valgrind Python unit tests
         run: |
-          cd "$CI_IMAGE_TOOLS/valgrind"
+          cd "$CI_IMAGE_TOOLS"
           python3 -m unittest \
             test_valgrind_baseline_artifact.py \
             test_compare_valgrind_results.py \
@@ -1494,7 +1477,7 @@ jobs:
         if: ${{ needs.build-ci-image.outputs.pr_context == 'true' && steps.valgrind_checks.outcome == 'success' && steps.valgrind_summary.outcome == 'success' }}
         id: valgrind_compare
         run: |
-          python3 "$CI_IMAGE_TOOLS/valgrind/compare-valgrind-results.py" \
+          python3 "$CI_IMAGE_TOOLS/compare-valgrind-results.py" \
             --baseline scripts/testing/valgrind/baseline/valgrind-error-summary.xml \
             --current scripts/testing/valgrind/valgrind-error-summary.xml
 

@@ -18,18 +18,15 @@ ci_image = importlib.import_module("ci_image")
 
 
 SHA = "1" * 40
-IMAGE = f"pek-ci:{SHA}"
 HEAD_SHA = "2" * 40
 BASE_SHA = "3" * 40
 COMPAT_SHA = "4" * 40
 
 
 class CiImageTests(unittest.TestCase):
-    def test_image_ref_is_sha_pinned_and_lowercase(self):
-        self.assertEqual(ci_image.image_ref(SHA), IMAGE)
-
-    def test_prepare_loads_verifies_and_tags_the_image(self):
+    def test_prepare_pulls_run_tag_verifies_and_tags_the_image(self):
         command_result: subprocess.CompletedProcess[str] = subprocess.CompletedProcess([], 0)
+        registry_image = "ghcr.io/arm-debug/amp-dev-forge-ci:pek-ci-run-123-1"
         with (
             tempfile.TemporaryDirectory() as tmpdir,
             mock.patch.dict(
@@ -43,22 +40,19 @@ class CiImageTests(unittest.TestCase):
             mock.patch.object(ci_image, "run", return_value=command_result) as run,
             mock.patch.object(ci_image, "verify_revision") as verify,
         ):
-            archive = Path(tmpdir) / "pek-ci-image.tar"
-            archive.touch()
-            ci_image.prepare(SHA, str(archive), ["pek-sonar-check", "pek-valgrind-check"])
-            self.assertFalse(archive.exists())
+            ci_image.prepare(SHA, registry_image, ["pek-sonar-check"])
+
             self.assertEqual(
                 (Path(tmpdir) / "github-env").read_text(encoding="utf-8").splitlines(),
-                ["COMPOSE_PROJECT_NAME=pek-test", f"PEK_CI_IMAGE={IMAGE}"],
+                ["COMPOSE_PROJECT_NAME=pek-test", f"PEK_CI_IMAGE={registry_image}"],
             )
 
-        verify.assert_called_once_with(IMAGE, SHA)
+        verify.assert_called_once_with(registry_image, SHA)
         self.assertEqual(
             run.call_args_list,
             [
-                mock.call(["docker", "image", "load", "--input", str(archive)]),
-                mock.call(["docker", "tag", IMAGE, "pek-test-pek-sonar-check"]),
-                mock.call(["docker", "tag", IMAGE, "pek-test-pek-valgrind-check"]),
+                mock.call(["docker", "pull", registry_image]),
+                mock.call(["docker", "tag", registry_image, "pek-test-pek-sonar-check"]),
             ],
         )
 
