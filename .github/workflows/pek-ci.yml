@@ -1,5 +1,5 @@
 name: PEK CI
-run-name: "${{ inputs.target_branch_head_sha != '' && format('Valgrind baseline {0}@{1}', inputs.target_branch_name, inputs.target_branch_head_sha) || inputs.pr_label != '' && format('PEK CI (head): {0}', inputs.pr_label) || 'PEK CI' }}"
+run-name: "${{ inputs.target_branch_head_sha != '' && format('Valgrind baseline {0}@{1}', inputs.target_branch_name, inputs.target_branch_head_sha) || inputs.pr_label != '' && format('PEK CI (head): {0} {1}', inputs.pr_head_sha, inputs.pr_label) || 'PEK CI' }}"
 
 on:
   workflow_dispatch:
@@ -547,6 +547,11 @@ jobs:
             github.event.label.name == 'run-pek-ci'
           )
         ) ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          inputs.pr_label == 'run-pek-ci' &&
+          needs.build-ci-image.outputs.pr_context == 'true'
+        ) ||
         github.event_name == 'schedule' ||
         (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/release/'))
       )
@@ -555,12 +560,12 @@ jobs:
       contents: read
     uses: ./.github/workflows/blackduck-scan.yml
     with:
-      base_sha: ${{ github.event.pull_request.base.sha || '' }}
+      base_sha: ${{ needs.build-ci-image.outputs.base_sha }}
       checkout_ref: ${{ needs.build-ci-image.outputs.head_sha }}
       ci_image_sha: ${{ needs.build-ci-image.outputs.head_sha }}
-      pr_number: ${{ github.event.pull_request.number && format('{0}', github.event.pull_request.number) || '' }}
-      scan_mode: ${{ github.event_name == 'pull_request' && 'delta' || 'full' }}
-      version_name: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.event_name == 'schedule' && 'nightly' || github.ref_name }}
+      pr_number: ${{ needs.build-ci-image.outputs.pr_number }}
+      scan_mode: ${{ (github.event_name == 'schedule' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/release/'))) && 'full' || 'delta' }}
+      version_name: ${{ github.event_name == 'schedule' && 'nightly' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/release/')) && github.ref_name || format('pr-{0}', needs.build-ci-image.outputs.pr_number) }}
     secrets:
       BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
       BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }} # pragma: allowlist secret

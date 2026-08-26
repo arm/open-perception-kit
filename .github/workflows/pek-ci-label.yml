@@ -4,6 +4,9 @@ on:
   pull_request_target:
     branches: [main, develop, "feature/**", "sandbox/**"]
     types: [labeled]
+  workflow_run:
+    workflows: [PEK CI]
+    types: [completed]
 
 permissions: {}
 
@@ -50,3 +53,44 @@ jobs:
             -f pr_head_ref="$head_ref" \
             -f pr_head_sha="$head_sha" \
             -f pr_label="$PR_LABEL"
+
+  report-dispatched-run:
+    name: Report PEK CI head result
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.event == 'workflow_dispatch' &&
+      startsWith(github.event.workflow_run.display_title, 'PEK CI (head): ') &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    permissions:
+      statuses: write
+    steps:
+      - name: Report result on exact PR head
+        env:
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          DISPLAY_TITLE: ${{ github.event.workflow_run.display_title }}
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          context="${DISPLAY_TITLE#PEK CI (head): }"
+          read -r head_sha pr_label extra <<< "$context"
+          test -z "${extra:-}"
+          test "${#head_sha}" = 40
+          case "$head_sha" in *[!0-9a-f]*) exit 1 ;; esac
+          case "$pr_label" in
+            run-pek-ci|run-macos-ci|run-python-audit|run-docker-scout|run-workflow-audit) ;;
+            *) exit 1 ;;
+          esac
+
+          case "$CONCLUSION" in
+            success) state=success ;;
+            failure) state=failure ;;
+            *) state=error ;;
+          esac
+
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/statuses/${head_sha}" \
+            -f state="$state" \
+            -f context="PEK CI (head): ${pr_label}" \
+            -f description="${pr_label} head validation concluded: ${CONCLUSION}" \
+            -f target_url="$RUN_URL"
+          test "$state" = success
