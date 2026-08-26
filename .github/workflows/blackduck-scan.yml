@@ -59,8 +59,15 @@ jobs:
       - name: Download PEK CI image
         uses: actions/download-artifact@v8
         with:
-          name: pek-ci-image
-          path: ${{ runner.temp }}/pek-ci-image
+          name: pek-ci-image-handoff.tar
+          path: ${{ runner.temp }}/pek-ci-image-download
+          skip-decompress: true
+
+      - name: Extract PEK CI image
+        run: |
+          mkdir -p "$RUNNER_TEMP/pek-ci-image"
+          tar -xf "$RUNNER_TEMP/pek-ci-image-download/pek-ci-image-handoff.tar" \
+            -C "$RUNNER_TEMP/pek-ci-image"
 
       - name: Load PEK CI image
         run: |
@@ -203,8 +210,17 @@ jobs:
         if: ${{ inputs.scan_mode == 'full' }}
         uses: actions/download-artifact@v8
         with:
-          name: pek-ci-image
-          path: ${{ runner.temp }}/pek-ci-image-dependencies
+          name: pek-ci-image-handoff.tar
+          path: ${{ runner.temp }}/pek-ci-image-dependencies-download
+          skip-decompress: true
+
+      - name: Extract PEK CI image
+        if: ${{ inputs.scan_mode == 'full' }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/pek-ci-image-dependencies"
+          tar -xf \
+            "$RUNNER_TEMP/pek-ci-image-dependencies-download/pek-ci-image-handoff.tar" \
+            -C "$RUNNER_TEMP/pek-ci-image-dependencies"
 
       - name: Load PEK CI image
         if: ${{ inputs.scan_mode == 'full' }}
@@ -389,8 +405,17 @@ jobs:
         if: ${{ inputs.scan_mode == 'full' }}
         uses: actions/download-artifact@v8
         with:
-          name: pek-ci-image
-          path: ${{ runner.temp }}/pek-ci-image-snippets
+          name: pek-ci-image-handoff.tar
+          path: ${{ runner.temp }}/pek-ci-image-snippets-download
+          skip-decompress: true
+
+      - name: Extract PEK CI image
+        if: ${{ inputs.scan_mode == 'full' }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/pek-ci-image-snippets"
+          tar -xf \
+            "$RUNNER_TEMP/pek-ci-image-snippets-download/pek-ci-image-handoff.tar" \
+            -C "$RUNNER_TEMP/pek-ci-image-snippets"
 
       - name: Load PEK CI image
         if: ${{ inputs.scan_mode == 'full' }}
