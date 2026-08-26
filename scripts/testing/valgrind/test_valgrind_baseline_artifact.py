@@ -240,7 +240,7 @@ class TestValgrindBaselineArtifact(unittest.TestCase):
         ), mock.patch.object(
             self.helper, "find_active_run", return_value=None
         ), mock.patch.object(self.helper.subprocess, "run") as subprocess_run:
-            result = self.helper.publish_missing_baseline(TARGET_BRANCH_NAME)
+            result = self.helper.publish_missing_baseline(TARGET_BRANCH_NAME, BASE_SHA)
 
         self.assertIsNone(result)
         subprocess_run.assert_called_once_with(
@@ -271,7 +271,9 @@ class TestValgrindBaselineArtifact(unittest.TestCase):
             ), mock.patch.object(
                 self.helper, "find_active_run", return_value=None
             ), mock.patch.object(self.helper.subprocess, "run") as subprocess_run:
-                result = self.helper.publish_missing_baseline(TARGET_BRANCH_NAME)
+                result = self.helper.publish_missing_baseline(
+                    TARGET_BRANCH_NAME, BASE_SHA
+                )
 
         self.assertIsNone(result)
         subprocess_run.assert_called_once()
@@ -284,7 +286,9 @@ class TestValgrindBaselineArtifact(unittest.TestCase):
             ), mock.patch.object(
                 self.helper, "read_remote_baseline", return_value=(BASE_SHA, content)
             ), mock.patch.object(self.helper, "find_active_run") as find_active_run:
-                result = self.helper.publish_missing_baseline(TARGET_BRANCH_NAME)
+                result = self.helper.publish_missing_baseline(
+                    TARGET_BRANCH_NAME, BASE_SHA
+                )
 
         self.assertIsNone(result)
         find_active_run.assert_not_called()
@@ -308,6 +312,15 @@ class TestValgrindBaselineArtifact(unittest.TestCase):
         ):
             self.assertEqual(self.helper.find_active_run(TARGET_BRANCH_NAME, BASE_SHA), 123)
 
+    def test_publish_rejects_a_target_that_is_no_longer_branch_head(self):
+        with mock.patch.object(
+            self.helper, "get_target_branch_head_sha", return_value=OLD_SHA
+        ), mock.patch.object(self.helper, "read_remote_baseline") as read_remote:
+            with self.assertRaisesRegex(RuntimeError, "advanced"):
+                self.helper.publish_missing_baseline(TARGET_BRANCH_NAME, BASE_SHA)
+
+        read_remote.assert_not_called()
+
     def test_main_reads_target_branch_name_and_head_from_the_environment(self):
         with tempfile.TemporaryDirectory() as tmpdir, mock.patch.dict(
             os.environ,
@@ -329,7 +342,10 @@ class TestValgrindBaselineArtifact(unittest.TestCase):
     def test_main_runs_the_publish_command(self):
         with mock.patch.dict(
             os.environ,
-            {"TARGET_BRANCH_NAME": TARGET_BRANCH_NAME},
+            {
+                "TARGET_BRANCH_NAME": TARGET_BRANCH_NAME,
+                "TARGET_BRANCH_HEAD_SHA": BASE_SHA,
+            },
         ), mock.patch.object(
             self.helper.sys,
             "argv",
@@ -337,16 +353,29 @@ class TestValgrindBaselineArtifact(unittest.TestCase):
         ), mock.patch.object(self.helper, "publish_missing_baseline") as publish:
             self.assertEqual(self.helper.main(), 0)
 
-        publish.assert_called_once_with(TARGET_BRANCH_NAME)
+        publish.assert_called_once_with(TARGET_BRANCH_NAME, BASE_SHA)
 
     def test_wait_downloads_the_published_baseline(self):
         with tempfile.TemporaryDirectory() as tmpdir, mock.patch.object(
             self.helper, "download_baseline", side_effect=[1, 0]
-        ) as download, mock.patch.object(self.helper.time, "sleep"):
+        ) as download, mock.patch.object(
+            self.helper, "get_target_branch_head_sha", return_value=BASE_SHA
+        ), mock.patch.object(self.helper.time, "sleep"):
             code = self.helper.wait_for_baseline(TARGET_BRANCH_NAME, BASE_SHA, Path(tmpdir))
 
         self.assertEqual(code, 0)
         self.assertEqual(download.call_count, 2)
+
+    def test_wait_stops_when_the_target_branch_advances(self):
+        with tempfile.TemporaryDirectory() as tmpdir, mock.patch.object(
+            self.helper, "download_baseline", return_value=1
+        ), mock.patch.object(
+            self.helper, "get_target_branch_head_sha", return_value=OLD_SHA
+        ), mock.patch.object(self.helper.time, "sleep") as sleep:
+            code = self.helper.wait_for_baseline(TARGET_BRANCH_NAME, BASE_SHA, Path(tmpdir))
+
+        self.assertEqual(code, 1)
+        sleep.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -275,9 +275,10 @@ def upload_baseline(branch: str, target_sha: str, summary: Path) -> int:
     return 1
 
 
-def publish_missing_baseline(branch: str) -> None:
-    target_sha = get_target_branch_head_sha(branch)
+def publish_missing_baseline(branch: str, target_sha: str) -> None:
     validate_sha(target_sha)
+    if get_target_branch_head_sha(branch) != target_sha:
+        raise RuntimeError(f"Target branch {branch} advanced past {target_sha}.")
     existing = read_remote_baseline(branch)
     if existing is not None:
         newest_reference_sha, _ = existing
@@ -311,6 +312,13 @@ def wait_for_baseline(branch: str, target_sha: str, output_dir: Path) -> int:
     while True:
         if download_baseline(branch, target_sha, output_dir, quiet=True) == 0:
             return 0
+        if get_target_branch_head_sha(branch) != target_sha:
+            print(
+                f"Target branch {branch} advanced while waiting for "
+                f"baseline {target_sha}.",
+                file=sys.stderr,
+            )
+            return 1
         if time.monotonic() >= deadline:
             print(
                 f"Timed out waiting for Artifactory Valgrind baseline "
@@ -338,11 +346,11 @@ def main() -> int:
     args = parser.parse_args()
     try:
         branch = target_branch_name()
-        if args.command == "publish":
-            publish_missing_baseline(branch)
-            return 0
         target_sha = required_env("TARGET_BRANCH_HEAD_SHA")
         validate_sha(target_sha)
+        if args.command == "publish":
+            publish_missing_baseline(branch, target_sha)
+            return 0
         if args.command == "wait":
             return wait_for_baseline(branch, target_sha, args.output_dir)
         return upload_baseline(branch, target_sha, args.input)

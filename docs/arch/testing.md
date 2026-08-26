@@ -32,7 +32,9 @@ are stored as one current reference per branch at
 `https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci/ci/valgrind-baselines/<branch>/valgrind-error-summary.xml`.
 Pull-request jobs resolve the current target-branch head when validation starts
 and accept the reference only when its recorded newest reference SHA matches
-that head. If it is missing, invalid, or outdated, the trusted baseline
+that head. Downloads and publication use the existing
+`PEK_ARTIFACTORY_USERNAME` and `PEK_ARTIFACTORY_API_KEY` secrets. If the
+reference is missing, invalid, or outdated, the trusted baseline
 workflow schedules a backfill and the job waits for publication. Publishing a
 new branch head replaces the previous reference; the GitHub Actions
 `valgrind-baseline` artifact is only a one-day handoff between jobs.

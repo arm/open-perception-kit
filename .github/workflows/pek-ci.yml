@@ -1264,6 +1264,7 @@ jobs:
         env:
           ARTIFACTORY_TOKEN: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
           ARTIFACTORY_USER: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
+          GH_TOKEN: ${{ github.token }}
           TARGET_BRANCH_NAME: ${{ needs.build-ci-image.outputs.target_branch_name }}
           TARGET_BRANCH_HEAD_SHA: ${{ needs.build-ci-image.outputs.target_branch_head_sha }}
         run: >-
@@ -1442,7 +1443,7 @@ jobs:
     needs:
       - build-ci-image
       - valgrind
-    if: ${{ needs.valgrind.result == 'success' && needs.build-ci-image.outputs.pr_context != 'true' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') }}
+    if: ${{ !cancelled() && needs.valgrind.result == 'success' && needs.build-ci-image.outputs.pr_context != 'true' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') }}
     runs-on: self-hosted-ubuntu-latest-x64
     environment: artifactory-publishing
     concurrency:
