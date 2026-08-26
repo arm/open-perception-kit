@@ -539,6 +539,40 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   update-ca-certificates; \
   rm -rf /var/lib/apt/lists/*
 
+FROM pek-gstreamer-runtime-base AS pek-python-ops-runtime
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+  PYTHONDONTWRITEBYTECODE=1
+
+COPY tools/perception/sdk.json /tmp/perception-sdk.json
+COPY development/ops-python/runtime.json /tmp/python-ops-runtime.json
+COPY generated/perception/python /tmp/perception-python
+
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+  --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+  set -eux; \
+  apt-get update; \
+  apt-get install -y --no-install-recommends \
+    python3 \
+    python3-venv; \
+  runtime_arch="$(dpkg --print-architecture)"; \
+  case "${runtime_arch}" in amd64) runtime_arch=x86_64 ;; arm64) runtime_arch=aarch64 ;; *) exit 1 ;; esac; \
+  numpy_wheel="$(python3 -c 'import json, sys; wheel=json.load(open(sys.argv[1]))["numpy"]["wheels"][sys.argv[2]]; print(wheel["url"] + "#sha256=" + wheel["sha256"])' /tmp/python-ops-runtime.json "${runtime_arch}")"; \
+  flatbuffers_wheel="$(python3 -c 'import json; wheel=json.load(open("/tmp/perception-sdk.json"))["flatbuffers"]["python_wheel"]; print(wheel["url"] + "#sha256=" + wheel["sha256"])')"; \
+  python3 -m venv /opt/pek-venvs/python-ops-runtime; \
+  /opt/pek-venvs/python-ops-runtime/bin/pip install --no-cache-dir \
+    "${numpy_wheel}" \
+    "${flatbuffers_wheel}"; \
+  /opt/pek-venvs/python-ops-runtime/bin/pip install --no-cache-dir --no-deps \
+    /tmp/perception-python; \
+  /opt/pek-venvs/python-ops-runtime/bin/python -c \
+    'import flatbuffers, numpy, perception'; \
+  rm -rf \
+    /tmp/perception-python \
+    /tmp/perception-sdk.json \
+    /tmp/python-ops-runtime.json \
+    /var/lib/apt/lists/*
+
 FROM pek-cross-build-base AS pek-deployment-build
 
 ARG TARGETARCH
@@ -616,11 +650,15 @@ RUN --mount=type=cache,id=pek-deployment-ccache,target=/work/.cache/ccache,shari
   fi; \
   mkdir -p /work/tools; \
   executorch=auto; \
+  python_ops=auto; \
   if [ "${PEK_RELEASE_BUILD}" = true ]; then \
     executorch=enabled; \
+    python_ops=enabled; \
+  elif [ "${TARGETARCH}" != "${native_arch}" ]; then \
+    python_ops=disabled; \
   fi; \
   PEK_EXECUTORCH="${executorch}" \
-  PEK_PYTHON_OPS=enabled \
+  PEK_PYTHON_OPS="${python_ops}" \
   PEK_PYTHON_RUNTIME_VENV=/opt/pek-venvs/python-ops-runtime \
   PEK_ONNXRUNTIME_ROOT=/opt/pek-deps/onnxruntime \
   NINJAFLAGS=-j2 \
@@ -692,13 +730,15 @@ RUN set -eux; \
     rm -rf /tmp/pek-release; \
   fi
 
-FROM pek-gstreamer-runtime-base AS pek-deployment-base
+FROM pek-python-ops-runtime AS pek-deployment-base
 
 ARG USERNAME=pek
 ARG USER_UID=1000
 ARG USER_GID=1000
 ARG PEK_PIPELINE=yolov11-onnx
 ARG PEK_PICAMERA=disabled
+ARG BUILDARCH
+ARG TARGETARCH
 
 ENV DEBIAN_FRONTEND=noninteractive \
   LANG=C.UTF-8 \
@@ -757,7 +797,6 @@ RUN set -eux; \
   chown -R "${USER_UID}:${USER_GID}" /work /tmp/pekcomm
 
 COPY --from=pek-deployment-build /opt/pek-deps/onnxruntime/lib /opt/pek-deps/onnxruntime/lib
-COPY --from=pek-deployment-build /opt/pek-venvs/python-ops-runtime /opt/pek-venvs/python-ops-runtime
 COPY --from=pek-deployment-build /work/config /work/config
 COPY data /work/data
 COPY --from=pek-demo-media /work/data/videos /work/data/videos
@@ -770,17 +809,23 @@ COPY --from=pek-deployment-build /opt/pek-release-artifacts /opt/pek-release-art
 RUN set -eux; \
   /opt/pek-venvs/python-ops-runtime/bin/python -c \
     'import flatbuffers, numpy, perception'; \
-  if ldd /work/development/build/meson-out/pek-python-ops.so | grep -q 'not found'; then \
-    exit 1; \
-  fi; \
-  gst-launch-1.0 -q \
-    videotestsrc num-buffers=1 pattern=ball ! \
-    videoconvert ! videoscale ! \
-    video/x-raw,format=BGRA,width=320,height=240,framerate=5/1 ! \
-    pekinfer \
-      opchain-path=/work/config/models/mobilenetv2/opchain-python-classification.json \
-      active=true ! \
-    fakesink
+  python_ops=/work/development/build/meson-out/pek-python-ops.so; \
+  if [ "${BUILDARCH}" = "${TARGETARCH}" ]; then \
+    test -f "${python_ops}"; \
+    if ldd "${python_ops}" | grep -q 'not found'; then \
+      exit 1; \
+    fi; \
+    gst-launch-1.0 -q \
+      videotestsrc num-buffers=1 pattern=ball ! \
+      videoconvert ! videoscale ! \
+      video/x-raw,format=BGRA,width=320,height=240,framerate=5/1 ! \
+      pekinfer \
+        opchain-path=/work/config/models/mobilenetv2/opchain-python-classification.json \
+        active=true ! \
+      fakesink; \
+  else \
+    test ! -e "${python_ops}"; \
+  fi
 
 EXPOSE 8000
 EXPOSE 8001

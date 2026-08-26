@@ -137,7 +137,7 @@ the pipeline.
 Build with Python operations enabled and run the pipeline:
 
 ```bash
-PEK_PYTHON_OPS=enabled ./scripts/build-elements.sh debug true
+PEK_PYTHON_OPS=enabled ./scripts/build.sh debug true
 ./tools/pek-menu mobilenet-python-classification
 ```
 
@@ -189,7 +189,7 @@ effect of the failed pipeline, such as a frozen or disconnected stream.
 - Scripts are not sandboxed. They can access the process, filesystem, network,
   and imported native modules. A slow script blocks the streaming thread.
 - Build with `-Dpython_ops=enabled`, or set `PEK_PYTHON_OPS=enabled` when using
-  `scripts/build-elements.sh`. Run the resulting pipeline through a native PEK
+  `scripts/build.sh`. Run the resulting pipeline through a native PEK
   launcher inside an official PEK container. Python-hosted GStreamer
   applications, standalone binary archives, and deployments outside those
   containers are not part of the current support contract.

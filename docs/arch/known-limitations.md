@@ -78,3 +78,11 @@ runtime. Treat these as constraints when extending the system.
   not yet a user-facing contract.
 - Coverage is thin for parser behavior, known inference outputs, and GStreamer
   element lifecycle behavior.
+
+## Packaging And Deployment
+
+- Development and deployment still assume containers, source-tree layout, and many
+  hardcoded `/work` paths.
+- Cross-built deployment images omit the embedded Python operation module. The
+  published release images are built natively for amd64 and arm64 and include
+  it with a target-platform Python runtime.

@@ -75,7 +75,7 @@ Add the smallest useful coverage for the change:
 Build with Python operations enabled and run focused tests first:
 
 ```bash
-PEK_PYTHON_OPS=enabled ./scripts/build-elements.sh debug true
+PEK_PYTHON_OPS=enabled ./scripts/build.sh debug true
 meson test -C /work/development/build \
   python_script_op_tests \
   python_classification_pipeline_tests \

@@ -24,9 +24,6 @@ python_ops = shared_module(
   cpp_args : python_ops_cpp_args,
   name_prefix : '',
   gnu_symbol_visibility : 'default',
-  install : release_package,
-  install_dir : 'lib/pek',
-  install_rpath : '$ORIGIN',
 )
 
 python_ops_test_dep = declare_dependency(
@@ -36,14 +33,3 @@ python_ops_test_dep = declare_dependency(
   sources : python_ops_sources,
   compile_args : python_ops_cpp_args,
 )
-
-if release_package
-  install_subdir(
-    '../../generated/perception/python/src/perception',
-    install_dir : 'share/pek/python',
-  )
-  install_data(
-    'pek_python_ops.pyi',
-    install_dir : 'share/pek/python',
-  )
-endif

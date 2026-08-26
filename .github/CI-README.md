@@ -132,10 +132,11 @@ Build inputs reuse `pek-deployment-build`, which owns the repository build
 toolchain and the ONNX Runtime and ExecuTorch Debian installers. The runnable
 `pek-deployment-base` snapshot contains the prebuilt app and the validated
 release archive. It retains the deployment lane's resolved configuration,
-models, pipelines, and demo media. Release archives remain the narrow
-seven-model integration surface and contain the standard, ONNX, and
-experimental ExecuTorch operation modules, but no SDK headers or static
-libraries.
+models, pipelines, demo media, embedded Python operation module, and a
+target-platform Python runtime assembled from pinned wheels. Release archives
+remain the narrow seven-model integration surface and contain the standard,
+ONNX, and experimental ExecuTorch operation modules, but not the Python
+operation module, SDK headers, or static libraries.
 
 The same Docker stage packages the checked-in Perception SDK snapshot. The
 workflow passes only the selected source and flowdata-sdk gitlink SHAs; it does

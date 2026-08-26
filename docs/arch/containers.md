@@ -62,7 +62,9 @@ Deployment lane
   pek-deployment-build
     --copy selected /opt/pek-app, release archive, and ONNX Runtime outputs-->
   debian:trixie-slim
-    -> pek-deployment-base
+    -> pek-gstreamer-runtime-base
+       -> pek-python-ops-runtime
+          -> pek-deployment-base
 
 Helper lane
   python:3.13-slim-trixie
@@ -223,14 +225,21 @@ stages inherit everything from their parent unless noted otherwise.
   subprojects, consumes resolved model artifacts from `pek-models` and demo
   videos from `pek-demo-media`, builds PEK release outputs, and collects
   `/opt/pek-app`. Native release builds install the ExecuTorch toolchain and
-  use the selected source and flowdata-sdk gitlink identities to package the
-  checked-in Perception SDK snapshot. They reuse the same Meson build to create
-  the validated architecture tarball in `/opt/pek-release-artifacts`.
+  enable the Python operation module for the runnable deployment image. They use
+  the selected source and flowdata-sdk gitlink identities to package the
+  checked-in Perception SDK snapshot and reuse the same Meson build to create
+  the validated architecture tarball in `/opt/pek-release-artifacts`. Cross
+  builds omit the embedded Python operation module because its target Python
+  development dependency cannot be discovered through the current cross file.
+- `pek-python-ops-runtime`: runs on the target platform and creates the embedded
+  Python virtual environment from the pinned target-architecture NumPy wheel,
+  the pinned FlatBuffers wheel, and the generated Perception Python package.
 - `pek-deployment-base`: contains only the selected deployment outputs and
   runtime dependencies: OpenSSL, fmt, FFTW, libsoup, JSON-GLib, Cairo,
   libusb, zlib, GStreamer runtime/tools/plugins, optional Raspberry Pi camera
-  packages, ONNX Runtime libraries, the PEK app, and any release tarball copied
-  from `pek-deployment-build`.
+  packages, ONNX Runtime libraries, the target-platform Python operation
+  runtime, the PEK app, and any release tarball copied from
+  `pek-deployment-build`.
 - `pek-pre-commit-runtime`: starts from `python:3.13-slim-trixie` and adds
   `ca-certificates`, `curl`, `git`, `shfmt`, `actionlint`, and `expkits-ci`.
 - `pek-playwright-pages`: starts from `python:3.13-slim-trixie` and adds
@@ -265,8 +274,10 @@ The deployment lane has two roles plus shared artifact inputs.
 `pek-deployment-build` inherits the cross-build base, consumes model artifacts
 and demo media, compiles PEK, and collects `/opt/pek-app`. For a native release
 it also packages the checked-in Perception SDK snapshot and creates the
-architecture archive. `pek-deployment-base` is the runnable release snapshot
-that receives both outputs from the builder stage.
+architecture archive. `pek-python-ops-runtime` creates the Python environment
+on the target platform. `pek-deployment-base` is the runnable release snapshot
+that receives the application and archive from the builder and the Python
+environment from the target runtime stage.
 
 The helper lane contains small workflow-specific images. `pek-pre-commit-runtime`
 runs local repository checks from the host Git hook, and `pek-playwright-pages`
