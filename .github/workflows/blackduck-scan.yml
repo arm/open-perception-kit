@@ -61,7 +61,7 @@ jobs:
       - name: Share verified Detect wrapper
         uses: actions/upload-artifact@v7
         with:
-          name: blackduck-detect-arm.sh
+          name: detect-arm.sh
           path: ${{ runner.temp }}/blackduck-detect/detect-arm.sh
           archive: false
           if-no-files-found: error
@@ -134,7 +134,7 @@ jobs:
       - name: Download verified Detect wrapper
         uses: actions/download-artifact@v8
         with:
-          name: blackduck-detect-arm.sh
+          name: detect-arm.sh
           path: ${{ runner.temp }}/blackduck-built
           skip-decompress: true
 
@@ -278,7 +278,7 @@ jobs:
       - name: Download verified Detect wrapper
         uses: actions/download-artifact@v8
         with:
-          name: blackduck-detect-arm.sh
+          name: detect-arm.sh
           path: ${{ runner.temp }}/blackduck-dependencies
           skip-decompress: true
 
@@ -490,7 +490,7 @@ jobs:
         if: ${{ inputs.scan_mode == 'full' }}
         uses: actions/download-artifact@v8
         with:
-          name: blackduck-detect-arm.sh
+          name: detect-arm.sh
           path: ${{ runner.temp }}/blackduck-snippets
           skip-decompress: true
 
