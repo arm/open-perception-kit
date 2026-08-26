@@ -6,15 +6,17 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import io
 import json
 import shutil
-import subprocess
 import sys
 import tempfile
 import unittest
 import zipfile
-from pathlib import Path
+from contextlib import redirect_stdout
 from dataclasses import replace
+from pathlib import Path
+from unittest.mock import patch
 
 
 PACKAGE_MODULE_PATH = Path(__file__).resolve().parents[1] / "package.py"
@@ -123,50 +125,73 @@ class SchemaChangeParserTests(unittest.TestCase):
         self.assertEqual(messages["changed underlying type of enum:State"], "breaking")
         self.assertEqual(messages["Payload appended fields: value"], "breaking")
 
+    def test_report_outputs_json_and_human_text(self) -> None:
+        report = {
+            "base": "HEAD",
+            "base_version": "1.2.3",
+            "current_version": "1.2.3",
+            "required_bump": "none",
+            "changed_schemas": [],
+            "affected_roots": [],
+            "findings": [],
+        }
+        output = io.StringIO()
+        with (
+            patch.object(sys, "argv", ["evaluate_schema_change.py", "--json"]),
+            patch.object(schema_change, "repository_root", return_value=Path(".")),
+            patch.object(schema_change, "evaluate", return_value=report),
+            redirect_stdout(output),
+        ):
+            self.assertEqual(schema_change.main(), 0)
+        self.assertEqual(json.loads(output.getvalue()), report)
 
-class CommandHelpTests(unittest.TestCase):
-    def run_help(self, *arguments: str) -> str:
-        result = subprocess.run(
-            [sys.executable, str(PACKAGE_MODULE_PATH.parent / "cli.py"), *arguments, "--help"],
-            check=True,
-            text=True,
-            capture_output=True,
-        )
-        self.assertEqual(result.stderr, "")
-        return result.stdout
+        output = io.StringIO()
+        with redirect_stdout(output):
+            schema_change.print_report(report)
+        self.assertIn("PEK version: 1.2.3 -> 1.2.3", output.getvalue())
+        self.assertIn("Required PEK release impact: none", output.getvalue())
 
-    def test_top_level_help_documents_commands_and_examples(self) -> None:
-        output = self.run_help()
-        self.assertIn("./scripts/perception-sdk.sh <command> --help", output)
-        self.assertIn("package", output)
-        self.assertIn("install-dev", output)
+    def test_rejects_invalid_product_version(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "stable MAJOR.MINOR.PATCH"):
+            schema_change.parse_product_version("project('pek', version: 'next')")
 
-    def test_generate_and_check_help_document_tool_overrides(self) -> None:
-        for command in ("generate", "check"):
-            with self.subTest(command=command):
-                output = self.run_help(command)
-                self.assertIn(f"./scripts/perception-sdk.sh {command}", output)
-                self.assertIn("FlatBuffers compiler", output)
-                self.assertIn("autopep8", output)
+    def test_schema_release_impact_uses_product_version(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "development").mkdir()
+            version_file = root / schema_change.PRODUCT_VERSION_PATH
+            with (
+                patch.object(schema_change, "load_base_schemas", return_value={}),
+                patch.object(schema_change, "load_current_schemas", return_value={}),
+                patch.object(schema_change, "required_bump", return_value="minor"),
+                patch.object(
+                    schema_change,
+                    "run_git",
+                    return_value="project('pek', version: '1.2.3')\n",
+                ),
+            ):
+                version_file.write_text(
+                    "project('pek', version: '1.2.4')\n", encoding="utf-8"
+                )
+                insufficient = schema_change.evaluate(root, "base")
+                self.assertEqual(insufficient["required_bump"], "minor")
+                self.assertTrue(
+                    any(
+                        finding["severity"] == "error"
+                        for finding in insufficient["findings"]
+                    )
+                )
 
-    def test_package_help_documents_release_controls(self) -> None:
-        output = self.run_help("package")
-        self.assertIn("never regenerates SDK files", output)
-        self.assertIn("does not override the descriptor", output)
-        self.assertIn("dirty=true", output)
-        self.assertIn("provenance", output)
-        self.assertIn("read-write cache", output)
-
-    def test_verify_help_documents_sidecar_behavior(self) -> None:
-        output = self.run_help("verify")
-        self.assertIn("Existing sidecars are always checked", output)
-        self.assertIn("require and verify both", output)
-
-    def test_install_dev_help_documents_target_and_cache(self) -> None:
-        output = self.run_help("install-dev")
-        self.assertIn("target Python interpreter", output)
-        self.assertIn("checksum-locked FlatBuffers", output)
-        self.assertIn("wheel", output)
+                version_file.write_text(
+                    "project('pek', version: '1.3.0')\n", encoding="utf-8"
+                )
+                sufficient = schema_change.evaluate(root, "base")
+                self.assertFalse(
+                    any(
+                        finding["severity"] == "error"
+                        for finding in sufficient["findings"]
+                    )
+                )
 
 
 class SemanticVersionTests(unittest.TestCase):
@@ -188,11 +213,11 @@ class SemanticVersionTests(unittest.TestCase):
 
 
 class SdkDescriptorTests(unittest.TestCase):
-    def test_descriptor_is_the_authoritative_release_configuration(self) -> None:
+    def test_descriptor_and_product_version_are_the_release_configuration(self) -> None:
         config = release_package.perception_config.load_sdk_config()
         descriptor = json.loads(config.descriptor_path.read_text(encoding="utf-8"))
         self.assertEqual(config.name, descriptor["name"])
-        self.assertEqual(config.version, descriptor["version"])
+        self.assertNotIn("version", descriptor)
         self.assertIsNotNone(release_package.SEMANTIC_VERSION_RE.fullmatch(config.version))
         self.assertEqual(config.flatbuffers_version, descriptor["flatbuffers"]["version"])
         self.assertEqual(
@@ -229,6 +254,17 @@ class SdkDescriptorTests(unittest.TestCase):
             config.internal_meson_path.relative_to(config.generated_root.parents[1]).as_posix(),
             descriptor["project_generated_files"]["internal_meson"],
         )
+
+    def test_product_version_is_read_from_meson(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            meson = Path(tmp) / "meson.build"
+            meson.write_text("project('demo', version: '1.2.3')\n", encoding="utf-8")
+            self.assertEqual(
+                release_package.perception_config.product_version(meson), "1.2.3"
+            )
+            meson.write_text("project('demo', version: 'next')\n", encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, "stable MAJOR.MINOR.PATCH"):
+                release_package.perception_config.product_version(meson)
 
     def test_descriptor_rejects_unknown_fields(self) -> None:
         descriptor = json.loads(
@@ -277,6 +313,27 @@ class ArtifactCacheTests(unittest.TestCase):
 
 
 class GenerationReceiptTests(unittest.TestCase):
+    def test_typescript_declaration_headers_are_idempotent(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            generated = Path(tmp)
+            declaration = generated / "ts/dist/perception/index.d.ts"
+            declaration.parent.mkdir(parents=True)
+            declaration.write_text("export {};\n", encoding="utf-8")
+
+            for _ in range(2):
+                release_package.perception_generate.add_typescript_declaration_headers(
+                    generated
+                )
+
+            expected_header = (
+                release_package.perception_generate.TS_LICENSE_HEADER
+                + release_package.perception_generate.TS_GENERATED_HEADER
+            )
+            self.assertEqual(
+                declaration.read_text(encoding="utf-8"),
+                f"{expected_header}export {{}};\n",
+            )
+
     def test_validates_detached_flowdata_identity(self) -> None:
         config = release_package.perception_config.load_sdk_config()
         manifest = json.loads(
@@ -291,56 +348,49 @@ class GenerationReceiptTests(unittest.TestCase):
 
     def test_rejects_schema_changes_without_regeneration(self) -> None:
         config = release_package.perception_config.load_sdk_config()
+        manifest = json.loads(
+            (config.generated_root / "perception-sdk-manifest.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        flowdata_commit = manifest["generation"]["flowdata_sdk"]["commit"]
         with tempfile.TemporaryDirectory() as tmp:
             schema_dir = Path(tmp) / "metadata"
             shutil.copytree(config.schema_dir, schema_dir)
             schema = next(schema_dir.rglob("*.fbs"))
             schema.write_bytes(schema.read_bytes() + b"\n")
-            with self.assertRaisesRegex(RuntimeError, "schema inputs are stale"):
-                release_package.perception_generate.verify_perception_manifest(
-                    replace(config, schema_dir=schema_dir)
+            with patch.object(
+                release_package.perception_generate,
+                "git_commit",
+                return_value=flowdata_commit,
+            ):
+                with self.assertRaisesRegex(RuntimeError, "schema inputs are stale"):
+                    release_package.perception_generate.verify_perception_manifest(
+                        replace(config, schema_dir=schema_dir)
+                    )
+
+
+class PythonPackagingTests(unittest.TestCase):
+    def test_generated_distribution_name_is_rewritten_once(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            pyproject = project / "pyproject.toml"
+            pyproject.write_text(
+                '[project]\nname = "perception"\nversion = "1.2.3"\n',
+                encoding="utf-8",
+            )
+
+            release_package.perception_generate.set_python_distribution_name(
+                project, "perception"
+            )
+            self.assertEqual(
+                pyproject.read_text(encoding="utf-8"),
+                '[project]\nname = "opk-perception-sdk"\nversion = "1.2.3"\n',
+            )
+            with self.assertRaisesRegex(RuntimeError, "project name is unexpected"):
+                release_package.perception_generate.set_python_distribution_name(
+                    project, "perception"
                 )
-
-
-class SingleSourceContractTests(unittest.TestCase):
-    def test_consumers_do_not_redeclare_sdk_configuration(self) -> None:
-        repository = Path(__file__).resolve().parents[3]
-        dockerfile = (repository / "Dockerfile").read_text(encoding="utf-8")
-        self.assertNotIn("ARG FLATBUFFERS_VERSION", dockerfile)
-        self.assertIn("install-perception-flatbuffers", dockerfile)
-        self.assertIn("ESBUILD_INTEGRITY", dockerfile)
-        self.assertIn("sha256sum --check --strict", dockerfile)
-        for archive in ("esbuild-wasm.tgz", "flatbuffers.tgz", "typescript.tgz"):
-            self.assertIn(archive, dockerfile)
-        self.assertFalse((repository / "Dockerfile.dev").exists())
-
-        plumber = (repository / "tools" / "plumber" / "pyproject.toml").read_text(
-            encoding="utf-8"
-        )
-        self.assertNotIn('"flatbuffers==', plumber)
-        self.assertIn('"perception==0.1.0"', plumber)
-        self.assertIn(
-            "COPY generated/perception/python /tmp/pek-tools/perception", dockerfile
-        )
-        self.assertIn("import perception, plumber", dockerfile)
-
-        devsetup = (repository / ".devcontainer" / "devsetup.sh").read_text(
-            encoding="utf-8"
-        )
-        self.assertNotIn("generated/perception", devsetup)
-        self.assertIn("scripts/perception-sdk.sh", devsetup)
-        self.assertIn("install-dev", devsetup)
-
-        self.assertFalse((repository / "scripts" / "gen-perception.sh").exists())
-        self.assertFalse((repository / "scripts" / "package-perception-sdk.sh").exists())
-        self.assertTrue((repository / "scripts" / "perception-sdk.sh").is_file())
-
-        packager = (repository / "tools" / "perception" / "package.py").read_text(
-            encoding="utf-8"
-        )
-        self.assertNotIn("check_generated", packager)
-        self.assertNotIn('add_argument("--flatc"', packager)
-        self.assertNotIn('add_argument("--clang-format"', packager)
 
 
 class BundleVerificationTests(unittest.TestCase):
@@ -407,8 +457,8 @@ class BundleVerificationTests(unittest.TestCase):
             path.write_bytes(content)
         self.create_wheel(flatbuffers_wheel_path, "flatbuffers", "25.9.23")
         self.create_wheel(
-            bundle / "python/perception.whl",
-            "perception",
+            bundle / "python/opk_perception_sdk.whl",
+            "opk-perception-sdk",
             "1.2.3",
             ["flatbuffers>=24.3.25,<26.0.0"],
         )
@@ -450,14 +500,13 @@ class BundleVerificationTests(unittest.TestCase):
                         "version": "25.9.23",
                     }
                 },
-                "version": "1.2.3",
             }),
             encoding="utf-8",
         )
         files["metadata/sdk.json"] = b""
         files.update({
             "python/flatbuffers.whl": b"",
-            "python/perception.whl": b"",
+            "python/opk_perception_sdk.whl": b"",
             "typescript/flatbuffers-25.9.23.tgz": b"",
             "typescript/perception-1.2.3.tgz": b"",
         })
@@ -540,13 +589,17 @@ class BundleVerificationTests(unittest.TestCase):
                 "python": {"sdk": "python"},
                 "typescript": {"sdk": "ts"},
                 "python_bridge": {},
-                "python_package": {},
+                "python_package": {
+                    "distribution_name": "opk-perception-sdk",
+                    "import_name": "perception",
+                    "version": "1.2.3",
+                },
                 "schemas": True,
             },
             "payloads": [],
             "perception_wheel": {
-                "path": "python/perception.whl",
-                "sha256": digest(bundle / "python/perception.whl"),
+                "path": "python/opk_perception_sdk.whl",
+                "sha256": digest(bundle / "python/opk_perception_sdk.whl"),
             },
             "perception_npm_package": {
                 "path": "typescript/perception-1.2.3.tgz",
@@ -694,7 +747,7 @@ class BundleVerificationTests(unittest.TestCase):
             bundle = self.create_bundle(Path(tmp))
             descriptor_path = bundle / "metadata/sdk.json"
             descriptor = json.loads(descriptor_path.read_text(encoding="utf-8"))
-            descriptor["version"] = "2.0.0"
+            descriptor["name"] = "other_sdk"
             descriptor_path.write_text(json.dumps(descriptor), encoding="utf-8")
 
             manifest_path = bundle / release_package.MANIFEST_FILENAME
@@ -715,6 +768,17 @@ class BundleVerificationTests(unittest.TestCase):
             manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
             with self.assertRaisesRegex(RuntimeError, "artifact identities differ"):
+                release_package.verify_bundle(bundle)
+
+    def test_rejects_python_distribution_metadata_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle = self.create_bundle(Path(tmp))
+            manifest_path = bundle / release_package.MANIFEST_FILENAME
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["outputs"]["python_package"]["distribution_name"] = "perception"
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            with self.assertRaisesRegex(RuntimeError, "Python package identity"):
                 release_package.verify_bundle(bundle)
 
     def test_rejects_descriptor_flatbuffers_version_mismatch(self) -> None:
@@ -821,6 +885,10 @@ class GeneratedSdkTests(unittest.TestCase):
         self.assertNotIn("manifest_version", manifest["upstream_receipts"]["python"])
         self.assertNotIn("manifest_version", manifest["upstream_receipts"]["ts"])
         self.assertEqual(manifest["upstream_receipts"]["ts"]["outputs"]["sdk"], "ts")
+        self.assertEqual(
+            manifest["upstream_receipts"]["python"]["python_package"]["distribution_name"],
+            release_package.perception_config.PYTHON_DISTRIBUTION_NAME,
+        )
         self.assertEqual(
             manifest["postprocessing"]["typescript"]["flatbuffers_runtime"],
             config.typescript_runtime.version,

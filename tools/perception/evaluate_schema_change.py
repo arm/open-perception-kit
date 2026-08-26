@@ -15,10 +15,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+import sdk_config
+
 
 SCHEMA_DIRECTORY = Path("schemas/perception/metadata")
-SDK_DESCRIPTOR = Path("tools/perception/sdk.json")
-SEMVER_PATTERN = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
+PRODUCT_VERSION_PATH = Path("development/meson.build")
 RECORD_PATTERN = re.compile(r"\b(table|struct)\s+(\w+)\s*\{(.*?)\}", re.DOTALL)
 ENUM_PATTERN = re.compile(
     r"\b(enum|union)\s+(\w+)(?:\s*:\s*(\w+))?\s*\{(.*?)\}", re.DOTALL
@@ -194,32 +195,27 @@ def load_base_schemas(repo_root: Path, base: str) -> dict[str, Schema]:
 
 
 def load_current_version(repo_root: Path) -> tuple[int, int, int]:
-    descriptor = json.loads((repo_root / SDK_DESCRIPTOR).read_text(encoding="utf-8"))
-    return parse_version(descriptor["version"], str(SDK_DESCRIPTOR))
+    value = sdk_config.product_version(repo_root / PRODUCT_VERSION_PATH)
+    return tuple(int(component) for component in value.split("."))
 
 
-def load_base_version(repo_root: Path, base: str) -> Optional[tuple[int, int, int]]:
-    result = subprocess.run(
-        ["git", "-C", str(repo_root), "show", f"{base}:{SDK_DESCRIPTOR.as_posix()}"],
-        check=False,
-        text=True,
-        capture_output=True,
+def parse_product_version(source: str) -> tuple[int, int, int]:
+    match = sdk_config.PRODUCT_VERSION.search(source)
+    if not match or not sdk_config.SEMVER.fullmatch(match.group(1)):
+        raise RuntimeError(
+            "development/meson.build must contain a stable MAJOR.MINOR.PATCH version"
+        )
+    return tuple(int(component) for component in match.group(1).split("."))
+
+
+def load_base_version(repo_root: Path, base: str) -> tuple[int, int, int]:
+    return parse_product_version(
+        run_git(repo_root, ["show", f"{base}:{PRODUCT_VERSION_PATH.as_posix()}"])
     )
-    if result.returncode != 0:
-        return None
-    descriptor = json.loads(result.stdout)
-    return parse_version(descriptor["version"], f"{base}:{SDK_DESCRIPTOR}")
 
 
-def parse_version(value: str, source: str) -> tuple[int, int, int]:
-    match = SEMVER_PATTERN.fullmatch(value)
-    if not match:
-        raise ValueError(f"{source} has invalid stable semantic version: {value!r}")
-    return tuple(int(component) for component in match.groups())
-
-
-def format_version(version: Optional[tuple[int, int, int]]) -> Optional[str]:
-    return ".".join(str(component) for component in version) if version else None
+def format_version(version: tuple[int, int, int]) -> str:
+    return ".".join(str(component) for component in version)
 
 
 def validate_file_identifier(path: str, identifier: str) -> list[Finding]:
@@ -449,11 +445,11 @@ def required_bump(findings: list[Finding], changed_paths: set[str]) -> str:
 
 
 def version_satisfies(
-    base: Optional[tuple[int, int, int]],
+    base: tuple[int, int, int],
     current: tuple[int, int, int],
     required: str,
 ) -> bool:
-    if required == "none" or base is None:
+    if required == "none":
         return True
     if required == "major":
         return current[0] > base[0]
@@ -485,9 +481,9 @@ def evaluate(repo_root: Path, base: str) -> dict[str, object]:
         findings.append(
             Finding(
                 "error",
-                str(SDK_DESCRIPTOR),
-                f"SDK version {format_version(current_version)} does not satisfy required {bump} bump "
-                f"from {format_version(base_version)}",
+                str(PRODUCT_VERSION_PATH),
+                f"PEK version {format_version(current_version)} does not satisfy required {bump} "
+                f"bump from {format_version(base_version)}",
             )
         )
 
@@ -504,8 +500,8 @@ def evaluate(repo_root: Path, base: str) -> dict[str, object]:
 
 def print_report(report: dict[str, object]) -> None:
     print(f"Base: {report['base']}")
-    print(f"SDK version: {report['base_version']} -> {report['current_version']}")
-    print(f"Required bump: {report['required_bump']}")
+    print(f"PEK version: {report['base_version']} -> {report['current_version']}")
+    print(f"Required PEK release impact: {report['required_bump']}")
     changed = report["changed_schemas"]
     affected = report["affected_roots"]
     print("Changed schemas: " + (", ".join(changed) if changed else "none"))
@@ -533,7 +529,7 @@ def repository_root(argument: Optional[str]) -> Path:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Evaluate Perception schema compatibility and SDK versioning against a Git base."
+        description="Evaluate Perception schema compatibility and PEK release impact against a Git base."
     )
     parser.add_argument(
         "--base",

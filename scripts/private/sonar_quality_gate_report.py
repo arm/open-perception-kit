@@ -10,6 +10,7 @@ import base64
 import json
 import logging
 import os
+import subprocess
 import sys
 import time
 from collections.abc import Callable, Sequence
@@ -278,6 +279,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--pull-request-key", default="")
     parser.add_argument("--pull-request-branch", default="")
     parser.add_argument("--pull-request-base", default="")
+    parser.add_argument("--pull-request-base-sha", default="")
     parser.add_argument("--timeout-seconds", type=int, default=300)
     parser.add_argument("--poll-interval-seconds", type=int, default=5)
     parser.add_argument("--issue-limit", type=int, default=25)
@@ -671,19 +673,52 @@ def condition_metric(condition: QualityGateCondition) -> str:
     return str(condition.get("metricKey", "")).strip() or "unknown"
 
 
+def new_ci_suppression_entries(
+    suppression_file: Path,
+    pull_request_base_sha: str,
+) -> list[str]:
+    if len(pull_request_base_sha) != 40 or any(
+        character not in "0123456789abcdef" for character in pull_request_base_sha
+    ):
+        raise RuntimeError("Pull-request base SHA must be a full lowercase Git commit.")
+    try:
+        diff = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(suppression_file.parent),
+                "diff",
+                "--unified=0",
+                pull_request_base_sha,
+                "--",
+                CI_SUPPRESSION_FILE,
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError, UnicodeDecodeError) as exc:
+        raise RuntimeError("Failed to compare CI suppressions with the PR base.") from exc
+
+    return [
+        line[1:]
+        for line in diff.stdout.splitlines()
+        if line.startswith("+") and not line.startswith("+++")
+    ]
+
+
 def load_ci_suppressions(
     suppression_file: Path,
+    pull_request_base_sha: str,
 ) -> dict[str, tuple[str, str]]:
-    if not suppression_file.exists():
+    if not suppression_file.exists() or not pull_request_base_sha:
         return {}
 
-    try:
-        entries = suppression_file.read_text(encoding="utf-8").splitlines()
-    except (OSError, UnicodeDecodeError) as exc:
-        raise RuntimeError(f"Failed to read CI suppressions: {suppression_file}") from exc
-
     applied: dict[str, tuple[str, str]] = {}
-    for line_number, entry in enumerate(entries, start=1):
+    for entry in new_ci_suppression_entries(
+        suppression_file,
+        pull_request_base_sha,
+    ):
         if not entry or entry.startswith("#"):
             continue
         suppression_type, separator, reason = entry.partition(":")
@@ -691,13 +726,9 @@ def load_ci_suppressions(
         reason = reason.strip()
         conditions = CI_SUPPRESSION_CONDITIONS.get(suppression_type)
         if not separator or conditions is None:
-            raise RuntimeError(
-                f"CI suppression line {line_number} has unsupported format or type."
-            )
+            raise RuntimeError("New CI suppression has unsupported format or type.")
         if not reason:
-            raise RuntimeError(
-                f"CI suppression line {line_number} requires a reason."
-            )
+            raise RuntimeError("New CI suppression requires a reason.")
 
         for condition in conditions:
             applied[condition] = (suppression_type, reason)
@@ -1122,7 +1153,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     suppression_file = workspace_root / CI_SUPPRESSION_FILE
     try:
-        suppressions = load_ci_suppressions(suppression_file)
+        suppressions = load_ci_suppressions(
+            suppression_file,
+            args.pull_request_base_sha,
+        )
     except RuntimeError as exc:
         return fail(f"Sonar report error: {exc}")
     print_applied_suppressions(failed_conditions, suppressions)

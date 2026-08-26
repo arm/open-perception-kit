@@ -19,7 +19,7 @@ import tempfile
 from pathlib import Path
 
 from release_common import sha256
-from sdk_config import REPO_ROOT, SdkConfig, load_sdk_config
+from sdk_config import PYTHON_DISTRIBUTION_NAME, REPO_ROOT, SdkConfig, load_sdk_config
 
 FLOWDATA_MANIFEST_FILENAME = "flowdata-manifest.json"
 PERCEPTION_MANIFEST_FILENAME = "perception-sdk-manifest.json"
@@ -35,6 +35,10 @@ PY_LICENSE_HEADER = """\
 """
 CMAKE_LICENSE_HEADER = PY_LICENSE_HEADER
 TS_LICENSE_HEADER = "// Copyright (C) 2026 Arm Limited. All rights reserved.\n"
+TS_GENERATED_HEADER = """\
+// Generated file. Do not edit.
+// SDK users: change schemas or generator inputs, then regenerate this file.
+"""
 CMAKE_FORMAT = "cmake-format"
 MESON_BUILD_FILENAME = "meson.build"
 
@@ -76,6 +80,18 @@ def generate_sdk(config: SdkConfig, generated_root: Path, flatc: str, python: st
     ])
     run([*common, "--sdk", "python"])
     run([*common, "--sdk", "ts"])
+
+
+def set_python_distribution_name(python_project: Path, source_name: str) -> None:
+    pyproject = python_project / "pyproject.toml"
+    text = pyproject.read_text(encoding="utf-8")
+    source = f'[project]\nname = "{source_name}"\n'
+    target = (
+        f'[project]\nname = "{PYTHON_DISTRIBUTION_NAME}"\n'
+    )
+    if text.count(source) != 1:
+        raise RuntimeError("generated Python project name is unexpected")
+    pyproject.write_text(text.replace(source, target), encoding="utf-8")
 
 
 def verify_flowdata_manifests(
@@ -178,6 +194,14 @@ def build_typescript_package(
         ])
     finally:
         shutil.rmtree(transient_modules)
+
+
+def add_typescript_declaration_headers(generated_root: Path) -> None:
+    header = f"{TS_LICENSE_HEADER}{TS_GENERATED_HEADER}"
+    for declaration in sorted((generated_root / "ts" / "dist").rglob("*.d.ts")):
+        text = declaration.read_text(encoding="utf-8")
+        if not text.startswith(header):
+            declaration.write_text(f"{header}{text}", encoding="utf-8")
 
 
 def format_cpp_sources(generated_root: Path, clang_format: str) -> None:
@@ -481,13 +505,25 @@ def _verify_upstream_receipts(
         if sdk_manifest.get("sdk", {}).get("name") != config.name:
             raise RuntimeError(f"{sdk} manifest SDK name does not match sdk.json")
         if sdk_manifest.get("sdk", {}).get("version") != config.version:
-            raise RuntimeError(f"{sdk} manifest SDK version does not match sdk.json")
+            raise RuntimeError(f"{sdk} manifest SDK version does not match the PEK version")
         if sdk_manifest.get("generator") != flowdata_identity.get("generator"):
             raise RuntimeError(f"{sdk} generator identity is stale")
         if sdk_manifest.get("schema_files") != _schema_records(config.schema_dir):
             raise RuntimeError(f"{sdk} schema inputs are stale")
         if sdk_manifest.get("schema_set_sha256") != _schema_set_sha256(config.schema_dir):
             raise RuntimeError(f"{sdk} schema-set digest is stale")
+    _verify_python_receipt(flowdata["python"])
+
+
+def _verify_python_receipt(python_receipt: object) -> None:
+    python_package = (
+        python_receipt.get("python_package")
+        if isinstance(python_receipt, dict) else None
+    )
+    if not isinstance(python_package, dict) or (
+        python_package.get("distribution_name") != PYTHON_DISTRIBUTION_NAME
+    ):
+        raise RuntimeError("Python receipt distribution name is stale")
 
 
 def verify_perception_manifest(
@@ -517,11 +553,23 @@ def prepare_sdk(
 ) -> None:
     verify_flowdata_manifests(config, generated_root, python)
     flowdata_manifests = read_flowdata_manifests(generated_root)
+    set_python_distribution_name(generated_root / "python", config.name)
+    python_receipt = flowdata_manifests["python"]
+    python_package = (
+        python_receipt.get("python_package")
+        if isinstance(python_receipt, dict) else None
+    )
+    if not isinstance(python_package, dict) or (
+        python_package.get("distribution_name") != config.name
+    ):
+        raise RuntimeError("generated Python package metadata is unexpected")
+    python_package["distribution_name"] = PYTHON_DISTRIBUTION_NAME
     add_license_headers(generated_root)
     prepare_typescript_package(config, generated_root)
     format_cpp_sources(generated_root, clang_format)
     format_python_modules(generated_root, formatter_python)
     build_typescript_package(config, generated_root, node, node_modules)
+    add_typescript_declaration_headers(generated_root)
     validate_flowdata_manifests(config, flowdata_manifests)
     normalize_integration_files(config, generated_root)
     format_cmake_integrations(generated_root)

@@ -7,15 +7,16 @@ versions, evaluate compatibility, regenerate the SDKs, and validate a change.
 ## Sources of Truth
 
 - `schemas/perception/metadata/` contains the complete authored schema set.
-- `tools/perception/sdk.json` owns the SDK name, SDK semantic version, schema and
+- `tools/perception/sdk.json` owns the SDK name, schema and
   output paths, FlowData generator location, exact FlatBuffers version, and
   release-tool checksums.
+- `development/meson.build` owns the shared PEK and SDK package version.
 - `generated/perception/` contains derived C++, Python, and TypeScript SDK output.
 - `generated/perception/perception-sdk-manifest.json` is the generation receipt.
 - `scripts/perception-sdk.sh` is the supported command surface for generation,
   drift checking, packaging, verification, and development installation.
 - `tools/perception/evaluate_schema_change.py` evaluates schema compatibility
-  and required SDK version changes against a Git revision.
+  and required PEK release impact against a Git revision.
 
 Do not edit generated files, generated build integrations, or manifests by
 hand. Change the schemas or `tools/perception/sdk.json`, then regenerate them.
@@ -25,7 +26,7 @@ hand. Change the schemas or `tools/perception/sdk.json`, then regenerate them.
 Perception SDK work has three separate concerns:
 
 1. Use `$evolve-perception-schema` to design or change authored schemas, assess
-   compatibility, choose the SDK version, and update runtime semantics.
+   compatibility, record the required PEK release impact, and update runtime semantics.
 2. Use `$regenerate-perception-sdk` during implementation to materialize and
    validate the tracked C++, Python, and TypeScript SDK snapshot. Commit these generated
    files normally with their authored inputs.
@@ -63,7 +64,8 @@ and does not regenerate the SDK.
 
 ## Versioning Policy
 
-The SDK version in `tools/perception/sdk.json` uses stable semantic versioning:
+SDK packages use the PEK product version from `development/meson.build`. Apply
+the schema compatibility impact to that release version:
 
 - Increment **MAJOR** for an incompatible generated API or semantic contract,
   including removed or renamed public fields, changed field types, changed
@@ -133,8 +135,7 @@ and test it as a schema-set-wide change.
    `schema_major`, `schema_minor`, optional `LayerInfo`, and the payload data.
 5. Add one `root_type` and choose a descriptive, unique four-character
    `file_identifier`.
-6. Increment the SDK version in `tools/perception/sdk.json`. A new payload is
-   normally a MINOR release.
+6. Record that a new payload normally requires a MINOR PEK release.
 7. Hand off to `$regenerate-perception-sdk` and regenerate all configured SDK
    outputs:
 
@@ -193,7 +194,7 @@ Before editing a published schema:
 5. Prefer appending an optional table field for an additive change.
 6. For an incompatible or meaning-changing redesign, consider a new root and
    file identifier so both contracts can coexist during migration.
-7. Increment the SDK version according to the public API and semantic impact.
+7. Record the required PEK release impact according to the public API and semantics.
 8. Regenerate and inspect all payload and manifest changes.
 9. Add old/new fixture tests when mixed-version behavior matters. Test old
    payload bytes with the new schema and new payload bytes with the old schema,
@@ -241,7 +242,7 @@ for review candidates; do not weaken manifest or checksum validation.
 ## Review Checklist
 
 - The change follows the FlatBuffers evolution rules above.
-- The SDK version matches the API and semantic impact.
+- The PEK release version matches the SDK API and semantic impact.
 - Every root has one unique `file_identifier` and stable root identity.
 - Shared-schema impact has been reviewed across all dependent roots.
 - Generated C++, Python, and TypeScript outputs and manifests were regenerated, not edited.

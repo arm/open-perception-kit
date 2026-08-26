@@ -22,6 +22,12 @@ if [[ -n "$detect_output" ]]; then
     eval "$detect_output"
     export PEK_DEV_CONTAINER_NAME PEK_DEV_RPI5_H8_CONTAINER_NAME
     export PEK_DEV_RPI5_H10_CONTAINER_NAME PEK_PICAMERA
+    if [[ "${PEK_PLATFORM_ID}" == macos ]]; then
+        HOST_UID="$(id -u)"
+        HOST_GID="$(id -g)"
+        export HOST_UID HOST_GID
+        COMPOSE_FILES+=(-f .devcontainer/docker-compose.devcont.macos-cache.yaml)
+    fi
     if [[ "$(bash scripts/private/select-webrtc-turn-mode.sh "${PEK_PLATFORM_ID}")" == enabled ]]; then
         COMPOSE_FILES+=(-f .devcontainer/docker-compose.devcont.turn.yaml)
     fi

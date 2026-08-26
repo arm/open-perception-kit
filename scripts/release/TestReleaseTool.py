@@ -79,7 +79,7 @@ def add_perception_sdk(
 
 def add_release_identity(repo_root: Path) -> None:
     development_root = repo_root / "development"
-    development_root.mkdir()
+    development_root.mkdir(parents=True)
     (development_root / "meson.build").write_text(
         "project('demo', version: '0.1.0')\n", encoding="utf-8"
     )
@@ -491,9 +491,7 @@ class ReleaseToolTests(unittest.TestCase):
             sdk_root = root / "perception-sdk"
             archive = add_perception_sdk(sdk_root)
             repo_root = root / "source"
-            descriptor = repo_root / "tools/perception/sdk.json"
-            descriptor.parent.mkdir(parents=True)
-            descriptor.write_text('{"version": "0.1.0"}\n', encoding="utf-8")
+            add_release_identity(repo_root)
 
             with patch.object(release_tool.subprocess, "run") as verifier:
                 release_tool.validate_perception_sdk(
@@ -555,16 +553,19 @@ class ReleaseToolTests(unittest.TestCase):
             sdk_root = root / "perception-sdk"
             add_perception_sdk(sdk_root)
             repo_root = root / "source"
-            descriptor = repo_root / "tools/perception/sdk.json"
-            descriptor.parent.mkdir(parents=True)
-            descriptor.write_text('{"version": "1.0.0"}\n', encoding="utf-8")
+            add_release_identity(repo_root)
+            (repo_root / "development/meson.build").write_text(
+                "project('demo', version: '1.0.0')\n", encoding="utf-8"
+            )
 
             with self.assertRaisesRegex(RuntimeError, "version does not match"):
                 release_tool.validate_perception_sdk(
                     sdk_root, SOURCE_COMMIT, repo_root
                 )
 
-            descriptor.write_text('{"version": "0.1.0"}\n', encoding="utf-8")
+            (repo_root / "development/meson.build").write_text(
+                "project('demo', version: '0.1.0')\n", encoding="utf-8"
+            )
             with (
                 patch.object(release_tool.subprocess, "run"),
                 self.assertRaisesRegex(RuntimeError, "commit does not match"),

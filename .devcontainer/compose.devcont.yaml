@@ -52,6 +52,7 @@ services:
       <<: *pek-hailo-build
       args:
         PEK_HAILO_ARCH: h10
+
 secrets:
   huggingface_token:
     environment: HF_TOKEN

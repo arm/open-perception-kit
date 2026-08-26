@@ -392,6 +392,22 @@ COPY --from=pek-demo-media \
 COPY --from=pek-models \
   /work/config/models /opt/pek-app/config/models
 
+# Prewarm the macOS CI compiler cache on the native Arm64 image publisher.
+FROM pek-dev AS pek-dev-macos-cache-build
+
+ENV CCACHE_DIR=/work/.cache/ccache \
+  CCACHE_MAXSIZE=2G
+
+COPY --chown=dev . /work
+RUN ./scripts/build.sh && ccache --show-stats
+
+FROM pek-dev AS pek-dev-macos-ci
+
+USER root
+COPY --from=pek-dev-macos-cache-build --chown=dev \
+  /work/.cache/ccache /opt/pek-ccache
+USER dev
+
 # ==============================================================================
 # Documentation Image Lane
 # ==============================================================================
@@ -583,12 +599,9 @@ RUN --mount=type=cache,id=pek-deployment-ccache,target=/work/.cache/ccache,shari
     package_root=/opt/pek-release-root; \
     test -n "${PEK_RELEASE_SOURCE_COMMIT}"; \
     test -n "${PEK_FLOWDATA_SDK_COMMIT}"; \
-    sdk_version="$(python3 -c \
-      'import json; print(json.load(open("tools/perception/sdk.json"))["version"])')"; \
     /work/scripts/perception-sdk.sh package \
       --output-dir /tmp/perception-sdk-input \
       --artifact-dir /opt/pek-deps/perception-sdk-artifacts \
-      --expect-version "${sdk_version}" \
       --repository-commit "${PEK_RELEASE_SOURCE_COMMIT}" \
       --flowdata-commit "${PEK_FLOWDATA_SDK_COMMIT}"; \
     mkdir -p \

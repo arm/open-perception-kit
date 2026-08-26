@@ -54,6 +54,8 @@ def quality_gate_report_command() -> list[str]:
         "PR_BRANCH",
         "-e",
         "PR_BASE",
+        "-e",
+        "PR_BASE_SHA",
         "pek-sonar-check",
         "scripts/private/sonar_quality_gate_report.py",
         "--report-task-file",
@@ -66,6 +68,8 @@ def quality_gate_report_command() -> list[str]:
         os.environ.get("PR_BRANCH", ""),
         "--pull-request-base",
         os.environ.get("PR_BASE", ""),
+        "--pull-request-base-sha",
+        os.environ.get("PR_BASE_SHA", ""),
     ]
     return command
 

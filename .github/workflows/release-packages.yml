@@ -201,7 +201,7 @@ jobs:
           name: pek-perception-sdk-input-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ env.SOURCE_DIR }}/dist/perception-sdk-input/perception-sdk-*
           if-no-files-found: error
-          retention-days: 2
+          retention-days: 7
 
       - name: Record image digest
         env:
@@ -407,7 +407,29 @@ jobs:
           path: ${{ runner.temp }}/pek-release-artifacts
           merge-multiple: true
 
-      - name: Accept exactly three archives
+      - name: Download Perception SDK input
+        uses: actions/download-artifact@v8
+        with:
+          name: pek-perception-sdk-input-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/pek-perception-sdk-input
+
+      - name: Export Perception Python wheel
+        env:
+          ARTIFACTS_DIR: ${{ runner.temp }}/pek-release-artifacts
+          SDK_DIR: ${{ runner.temp }}/pek-perception-sdk-input
+        run: |
+          set -euo pipefail
+          sdk=("$SDK_DIR"/perception-sdk-*.zip)
+          test "${#sdk[@]}" -eq 1
+          test -f "${sdk[0]}"
+          mkdir -p "$RUNNER_TEMP/perception-sdk-export"
+          python3 -m zipfile -e "${sdk[0]}" "$RUNNER_TEMP/perception-sdk-export"
+          wheel=("$RUNNER_TEMP"/perception-sdk-export/perception-sdk-*/python/opk_perception_sdk-*-py3-none-any.whl)
+          test "${#wheel[@]}" -eq 1
+          test -f "${wheel[0]}"
+          cp "${wheel[0]}" "$ARTIFACTS_DIR/"
+
+      - name: Accept exactly three archives and one wheel
         env:
           ARTIFACTS_DIR: ${{ runner.temp }}/pek-release-artifacts
           BUILD_ID: ${{ needs.prepare.outputs.build_id }}
@@ -422,16 +444,18 @@ jobs:
           mapfile -d '' -t files < <(
             find "$ARTIFACTS_DIR" -mindepth 1 -maxdepth 1 -type f -print0 | sort -z
           )
-          mapfile -d '' -t expected < <(printf '%s\0' "${expected[@]}" | sort -z)
-          test "${#files[@]}" -eq 3
-          for index in 0 1 2; do
-            test "${files[$index]##*/}" = "${expected[$index]}"
+          test "${#files[@]}" -eq 4
+          for archive in "${expected[@]}"; do
+            test -f "$ARTIFACTS_DIR/$archive"
           done
+          wheel=("$ARTIFACTS_DIR"/opk_perception_sdk-*-py3-none-any.whl)
+          test "${#wheel[@]}" -eq 1
+          test -f "${wheel[0]}"
 
       - name: Set up locked uv and Python
         uses: astral-sh/setup-uv@v10.0.1
         with:
-          version: '0.8.13'
+          version: '0.8.15'
           python-version: '3.14'
 
       - name: Create read-only publisher token
@@ -470,10 +494,22 @@ jobs:
           DOWNLOAD_BASE: https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci
           SUBDIR_PATH: ${{ github.event_name == 'workflow_dispatch' && format('{0}/{1}-{2}-{3}', github.event.inputs.build_label, needs.prepare.outputs.commit, github.run_id, github.run_attempt) || '' }}
           TIMEOUT_SECONDS: 300
+          ARTIFACT_PATTERN: ${{ github.event_name == 'workflow_dispatch' && 'pek-release-artifacts/*' || 'pek-release-artifacts/*.tar.gz' }}
         run: >-
           "$GITHUB_WORKSPACE/publisher/.venv/bin/python"
           -m publisher.actions.publish_to_artifactory_action
-          "pek-release-artifacts/*.tar.gz"
+          "$ARTIFACT_PATTERN"
+
+      - name: Publish Perception Python package to Artifactory PyPI
+        if: github.event_name == 'push'
+        env:
+          UV_PUBLISH_CHECK_URL: https://artifactory.arm.com/artifactory/api/pypi/edge-ai-tooling.pypi/simple
+          UV_PUBLISH_URL: https://artifactory.arm.com/artifactory/api/pypi/edge-ai-tooling.pypi
+          UV_PUBLISH_USERNAME: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
+          UV_PUBLISH_PASSWORD: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
+        run: >-
+          uv publish
+          "${{ runner.temp }}"/pek-release-artifacts/opk_perception_sdk-*-py3-none-any.whl
 
       # This step is only here to make the created package easier to access
       - name: Print links and hashes
@@ -490,9 +526,11 @@ jobs:
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
             folder="snapshots/$LABEL/$COMMIT-${{ github.run_id }}-${{ github.run_attempt }}"
             title="PEK Artifactory snapshot"
+            artifacts=("$ARTIFACTS_DIR"/*)
           else
             folder="releases/$VERSION"
             title="PEK Artifactory release"
+            artifacts=("$ARTIFACTS_DIR"/*.tar.gz)
           fi
           base="https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci/$folder"
           echo "Artifactory folder: $folder"
@@ -503,9 +541,9 @@ jobs:
             echo
             echo "Container image: \`$IMAGE_REFERENCE@$IMAGE_DIGEST\`"
             echo
-            for archive in "$ARTIFACTS_DIR"/*.tar.gz; do
-              name="$(basename "$archive")"
-              hash="$(sha256sum "$archive" | cut -d' ' -f1)"
+            for artifact in "${artifacts[@]}"; do
+              name="$(basename "$artifact")"
+              hash="$(sha256sum "$artifact" | cut -d' ' -f1)"
               url="$base/$name"
               echo "$url"
               # shellcheck disable=SC2016

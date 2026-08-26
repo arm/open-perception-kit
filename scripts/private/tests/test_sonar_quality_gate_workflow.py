@@ -50,6 +50,7 @@ class SonarQualityGateWorkflowTests(unittest.TestCase):
                 "PR_KEY": "101",
                 "PR_BRANCH": "feature/test",
                 "PR_BASE": "main",
+                "PR_BASE_SHA": "a" * 40,
             },
             clear=False,
         ):
@@ -58,7 +59,15 @@ class SonarQualityGateWorkflowTests(unittest.TestCase):
         self.assertEqual(command[:4], ["docker", "compose", "-f", ".github/compose.ci.yaml"])
         self.assertIn("--entrypoint", command)
         self.assertEqual(command[command.index("--entrypoint") + 1], "python3")
-        for env_name in ["SONAR_TOKEN", "SONAR_HOST_URL", "SONAR_BRANCH", "PR_KEY", "PR_BRANCH", "PR_BASE"]:
+        for env_name in [
+            "SONAR_TOKEN",
+            "SONAR_HOST_URL",
+            "SONAR_BRANCH",
+            "PR_KEY",
+            "PR_BRANCH",
+            "PR_BASE",
+            "PR_BASE_SHA",
+        ]:
             self.assertIn(env_name, command)
         service_index = command.index("pek-sonar-check")
         self.assertEqual(command[service_index + 1], "scripts/private/sonar_quality_gate_report.py")
@@ -69,6 +78,9 @@ class SonarQualityGateWorkflowTests(unittest.TestCase):
         self.assertEqual(command[command.index("--pull-request-key") + 1], "101")
         self.assertEqual(command[command.index("--pull-request-branch") + 1], "feature/test")
         self.assertEqual(command[command.index("--pull-request-base") + 1], "main")
+        self.assertEqual(
+            command[command.index("--pull-request-base-sha") + 1], "a" * 40
+        )
 
     def test_container_report_task_path_matches_compose_work_bind_mount(self):
         compose_base = (REPO_ROOT / "compose.base.yaml").read_text(encoding="utf-8")
@@ -123,28 +135,45 @@ class SonarQualityGateWorkflowTests(unittest.TestCase):
             self.assertIn("two\nthree", summary)
             self.assertNotIn("one\ntwo\nthree", summary)
 
-    def test_ci_suppression_file_supports_detectable_sonar_conditions(self):
+    def test_ci_suppressions_apply_only_in_the_pr_that_adds_them(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             suppression_file = Path(temp_dir) / "ci-suppressions.txt"
             suppression_file.write_text(
                 "# Add one suppression per line.\n"
                 "UNIT_TEST_COVERAGE: Coverage is deferred.\n"
                 "CODE_DUPLICATION: Duplication is accepted.\n"
-                "\n",
+                "MAINTAINABILITY: Maintainability is accepted.\n",
                 encoding="utf-8",
             )
+            with mock.patch.object(
+                sonar_quality_gate_report.subprocess,
+                "run",
+                return_value=mock.Mock(
+                    stdout=(
+                        "+++ b/ci-suppressions.txt\n"
+                        "+CODE_DUPLICATION: Duplication is accepted.\n"
+                        "+MAINTAINABILITY: Maintainability is accepted.\n"
+                    )
+                ),
+            ):
+                suppressions = sonar_quality_gate_report.load_ci_suppressions(
+                    suppression_file,
+                    "a" * 40,
+                )
 
-            suppressions = sonar_quality_gate_report.load_ci_suppressions(
-                suppression_file
+            self.assertEqual(
+                sonar_quality_gate_report.load_ci_suppressions(suppression_file, ""),
+                {},
             )
 
-        self.assertEqual(
-            suppressions["new_coverage"],
-            ("UNIT_TEST_COVERAGE", "Coverage is deferred."),
-        )
+        self.assertNotIn("new_coverage", suppressions)
         self.assertEqual(
             suppressions["new_duplicated_lines_density"],
             ("CODE_DUPLICATION", "Duplication is accepted."),
+        )
+        self.assertEqual(
+            suppressions["new_maintainability_rating"],
+            ("MAINTAINABILITY", "Maintainability is accepted."),
         )
 
     def test_coverage_suppression_does_not_hide_other_gate_failures(self):

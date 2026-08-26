@@ -17,8 +17,12 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Uploads the PR image for the trusted GHCR publisher in the same build job, so
   every consumer waits for one complete image handoff.
 - Reuses Docker layers through the ref-scoped cache flow below.
-- Starts the Linux, Raspberry Pi, and macOS quick-start checks independently
-  because they build their own platform images.
+- Starts the Linux, Raspberry Pi, and macOS quick-start checks independently.
+  The macOS lane pulls an exact-SHA quick-start image from GHCR and seeds its
+  compiler cache into temporary Colima volumes. It can reuse the newest
+  image-compatible ancestor, or the PR-base image when its inputs are unchanged;
+  missing images fall back to the local QEMU build. The checkout, job containers,
+  and complete Colima VM are removed.
 - Routes `run-python-audit`, `run-docker-scout`, and `run-workflow-audit` PR
   labels through this workflow so label-triggered checks do not create duplicate
   PR workflows. Workflow dependency freshness keeps its scheduled and manual
@@ -31,8 +35,9 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
   `Run Sonar analysis in Docker` name.
 - Runs pull request quality checks through `expkits-ci --ci-pr-checks`.
 - Runs full/nightly quality checks through `expkits-ci --ci-full-checks`.
-- Applies CI exceptions from the root-level `ci-suppressions.txt`. Each line is
-  one `SUPPRESSION_TYPE: Reason` entry and remains as suppression history.
+- Applies CI exceptions from the root-level `ci-suppressions.txt` only in the
+  pull request that adds each `SUPPRESSION_TYPE: Reason` line. Merged entries
+  remain as inert suppression history.
 - Supports Sonar gate suppressions for `UNIT_TEST_COVERAGE`, `CODE_DUPLICATION`,
   `MAINTAINABILITY`, `RELIABILITY`, `SECURITY`, and `SECURITY_HOTSPOTS`.
   Sonar findings and unsuppressed gate conditions remain blocking.
@@ -53,10 +58,11 @@ requests.
 ### Cache flow
 
 GHCR stores the latest successful image for each PR, exact-SHA Valgrind
-baselines, and the nightly amd64/arm64 deployment images. Those deployment
-builds export their complete BuildKit graphs to architecture-specific registry
-cache tags. Other Docker layers and compiler outputs use the GitHub Actions
-cache.
+baselines, recent exact-SHA macOS quick-start images, and the nightly
+amd64/arm64 deployment images. The deployment and macOS publishers export
+their BuildKit graphs to separate registry cache tags. Other Docker layers and
+compiler outputs use the GitHub Actions cache. The macOS compiler cache is
+embedded in its published image and copied into a temporary Colima volume.
 
 | Run | Docker layers read from | Docker layers written to |
 | --- | --- | --- |
@@ -73,6 +79,9 @@ writes only its own merge ref.
 | --- | --- | --- |
 | Buildx `pek-ci` cache | Reuse Docker layers between runs | Branch/PR ref; deleted when the PR closes or GitHub evicts it |
 | Quality, Sonar, and Valgrind ccache | Reuse compiled objects for the same check | PR ref; deleted when the PR closes or GitHub evicts it |
+| macOS quick-start ccache seed | Avoid cold compilation under QEMU | Embedded in each published macOS quick-start image; the entrypoint copies it into a temporary Colima volume |
+| Exact-SHA macOS quick-start image | Avoid QEMU image builds in the macOS lane | Published by `main` and `develop` pushes; newest 20 retained in GHCR |
+| macOS quick-start BuildKit cache | Reuse publisher image layers | Current GHCR `buildcache` tag; superseded untagged versions are deleted |
 | Sonar CFamily server cache | Reuse target-branch or main fallback analysis in pull requests | Updated by `main` and `develop` push analysis |
 | Run image cache | Pass the image from `Build PEK CI image` to its dependent jobs | Exact run; retained after failure for rerun, deleted after success/cancel or PR close |
 | PR image artifact | Pass the verified image to the trusted GHCR publisher | One day |
@@ -131,19 +140,21 @@ the analysis step fell from 11:46 to 6:07, with 54/96 CFamily cache hits and an
   `source_ref`.
 - Builds temporary x86_64 and Arm release snapshot images. Each image runs its
   native offline Perception integration smoke during the Docker build and
-  exports its validated archive. A successful run is followed by
-  disposable Artifactory and draft GitHub Release publication probes; both
-  probes delete their uploads. It does not build documentation or retain a
-  published release.
+  exports its validated archive; the Arm job also exports the embedded
+  Perception wheel. A successful run is followed by disposable publication
+  probes: generic Artifactory receives both archives and the release wheel, a
+  disposable prerelease wheel is published and consumed through Artifactory
+  PyPI, and the draft GitHub Release remains archive-only. Every probe deletes
+  its uploads.
 
 ## What does `.github/workflows/release-packages.yml` do?
 
 | Event | Candidate validation | Publication validation | Package publication |
 | --- | --- | --- | --- |
-| Pull request targeting `main` | Builds and smoke-tests the two architecture snapshot images | Uploads, verifies, and deletes both disposable publication targets | Not run |
-| Push to `main` | Not run | Not run | Builds all three archives, smoke-tests and publishes one multi-architecture GHCR image, then publishes one GitHub Release plus one Artifactory folder |
-| Manual release validation | Resolves `source_ref`, builds and smoke-tests the two temporary architecture images | Uploads, verifies, and deletes both disposable publication targets | Not run |
-| Manual package publication | Not run | Not run | Resolves `source_ref`, builds all three archives, smoke-tests and publishes one multi-architecture GHCR snapshot, then publishes one Artifactory folder |
+| Pull request targeting `main` | Builds and smoke-tests the two architecture snapshot images | Uploads, verifies, and deletes the generic Artifactory, Artifactory PyPI, and GitHub Release probes | Not run |
+| Push to `main` | Not run | Not run | Builds all three archives, smoke-tests and publishes one multi-architecture GHCR image, publishes the archives to GitHub Release and generic Artifactory, and publishes the wheel to Artifactory PyPI |
+| Manual release validation | Resolves any commit, tag, or branch `source_ref`, builds and smoke-tests the two temporary architecture images | Uploads, verifies, and deletes the generic Artifactory, Artifactory PyPI, and GitHub Release probes | Not run |
+| Manual package publication | Not run | Not run | Resolves `source_ref`, builds all three archives, smoke-tests and publishes one multi-architecture GHCR snapshot, then publishes the archives and wheel to one generic Artifactory snapshot folder |
 
 For release builds, `pek-deployment-base` runs its smoke inside the existing
 Dockerfile with networking disabled. The non-root runtime extracts the generated
@@ -168,7 +179,7 @@ publication writes to
 `https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci`.
 The same URL is used for uploads and generated download links.
 The final Artifactory workflow log and `$GITHUB_STEP_SUMMARY` expose the folder,
-all three links, and SHA-256 values for both paths.
+the three stable archive links or four snapshot links, and their SHA-256 values.
 If GHCR or GitHub Release publication succeeds but a later publication fails,
 repair or remove the partial publication before rerunning the workflow.
 
