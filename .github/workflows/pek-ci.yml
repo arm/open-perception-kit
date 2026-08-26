@@ -57,7 +57,7 @@ on:
     - cron: "0 2 * * *" # Every day at 2 AM UTC'
   push:
     branches: [main, develop]
-    tags: ["release/*"]
+    tags: ["v*"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.inputs.pr_number || format('{0}-{1}-{2}-{3}-{4}', github.event_name, github.ref, github.event.inputs.checks || 'all', github.event.inputs.target_branch_name || 'current', github.event.inputs.target_branch_head_sha || 'current') }}-${{ github.event.inputs.pr_label || (github.event.action == 'labeled' && (!contains(github.event.label.name, 'run-pek-ci') || contains(github.event.pull_request.labels.*.name, 'run-macos-ci')) && github.run_id || 'validation') }}
@@ -553,7 +553,7 @@ jobs:
           needs.build-ci-image.outputs.pr_context == 'true'
         ) ||
         github.event_name == 'schedule' ||
-        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/release/'))
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
       )
     permissions:
       actions: read
@@ -564,8 +564,8 @@ jobs:
       checkout_ref: ${{ needs.build-ci-image.outputs.head_sha }}
       ci_image_sha: ${{ needs.build-ci-image.outputs.head_sha }}
       pr_number: ${{ needs.build-ci-image.outputs.pr_number }}
-      scan_mode: ${{ (github.event_name == 'schedule' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/release/'))) && 'full' || 'delta' }}
-      version_name: ${{ github.event_name == 'schedule' && 'nightly' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/release/')) && github.ref_name || format('pr-{0}', needs.build-ci-image.outputs.pr_number) }}
+      scan_mode: ${{ (github.event_name == 'schedule' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))) && 'full' || 'delta' }}
+      version_name: ${{ github.event_name == 'schedule' && 'nightly' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) && github.ref_name || format('pr-{0}', needs.build-ci-image.outputs.pr_number) }}
     secrets:
       BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
       BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }} # pragma: allowlist secret

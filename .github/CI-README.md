@@ -40,7 +40,7 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
   same-repository pull request gets its own `pr-<number>` version, a scan of the
   release build output produced in the PEK CI image, a Rapid dependency policy
   check, a base-to-head snippet scan, and one required quality-gate result.
-  Nightly runs and `release/*` tags run the full built-output, dependency, and
+  Nightly runs and `v*` release tags run the full built-output, dependency, and
   snippet equivalents against `nightly` or the release tag. Full snippet scans
   materialize Meson wrap sources first.
   Downloaded scanner executables are checksum-verified and every Detect policy
@@ -402,7 +402,7 @@ reviewed publisher change is adopted; PEK does not copy or fork the package.
 
 ## Functionalities
 
-- **Triggers:** Runs on pull requests, `main`/`develop` pushes, `release/*`
+- **Triggers:** Runs on pull requests, `main`/`develop` pushes, `v*` release
   tags, manual dispatch, and the nightly schedule.
 - **Branch and PR logic:** Standard checks run on non-draft PRs;
   `run-pek-ci`, `run-macos-ci`, `run-rpi-ci`, `run-python-audit`,
