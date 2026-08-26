@@ -186,84 +186,6 @@ jobs:
               "$package/share/pek/perception-sdk"
           fi
 
-      - name: Download verified Detect wrapper
-        if: github.event_name == 'push'
-        env:
-          DETECT_SHA256: 37c678bb1cb770fdf0e841c2d281aaf06abec2fa211bee33de6ddd04e13b84fd # pragma: allowlist secret
-          DETECT_URL: https://artifactory.arm.com/artifactory/synopsys-blackduck.detect-arm/detect-arm.sh
-        run: |
-          set -euo pipefail
-          scanner_dir="${RUNNER_TEMP}/blackduck-release-${{ matrix.artifact_label }}"
-          install -d -m 0777 "$scanner_dir/output"
-          curl --proto '=https' --tlsv1.2 --fail --location \
-            --retry 3 --retry-all-errors --output "$scanner_dir/detect-arm.sh" "$DETECT_URL"
-          echo "$DETECT_SHA256  $scanner_dir/detect-arm.sh" | sha256sum --check --strict
-          chmod +x "$scanner_dir/detect-arm.sh"
-
-      - name: Scan ${{ matrix.architecture }} release package and enforce policy
-        if: github.event_name == 'push'
-        working-directory: ${{ env.SOURCE_DIR }}
-        env:
-          ARCHIVE: ${{ matrix.architecture == 'x86_64' && needs.prepare.outputs.x86_archive || needs.prepare.outputs.arm_archive }}
-          BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }}
-          BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
-          BLACKDUCK_VERSION: v${{ needs.prepare.outputs.version }}
-        run: |
-          set -euo pipefail
-          test -n "${BLACKDUCK_TOKEN:-}"
-          test -n "${BLACKDUCK_URL:-}"
-          scanner_dir="${RUNNER_TEMP}/blackduck-release-${{ matrix.artifact_label }}"
-          package_dir="$scanner_dir/package"
-          install -d -m 0777 "$package_dir"
-          tar -xzf "dist/$ARCHIVE" -C "$package_dir"
-
-          project_name="${GITHUB_REPOSITORY//\//:}"
-          version_name="${BLACKDUCK_VERSION//\//-}"
-          "$scanner_dir/detect-arm.sh" \
-            "--blackduck.url=${BLACKDUCK_URL}" \
-            "--blackduck.api.token=${BLACKDUCK_TOKEN}" \
-            "--detect.project.name=${project_name}" \
-            "--detect.project.version.name=${version_name}" \
-            "--detect.code.location.name=${project_name}/${version_name}/release-package-${{ matrix.architecture }}" \
-            --detect.cleanup=false \
-            --detect.output.path="$scanner_dir/output" \
-            --detect.policy.check.fail.on.severities=ALL \
-            --detect.source.path="$package_dir" \
-            --detect.timeout=1800 \
-            --detect.tools=SIGNATURE_SCAN \
-            --logging.level.detect=INFO 2>&1 | tee "$scanner_dir/scan.log"
-
-      - name: Report release package scan
-        if: always() && github.event_name == 'push'
-        env:
-          BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
-          BLACKDUCK_VERSION: v${{ needs.prepare.outputs.version }}
-        run: |
-          scan_log="${RUNNER_TEMP}/blackduck-release-${{ matrix.artifact_label }}/scan.log"
-          scan_link="$(grep -Eo 'https://[^[:space:]]+/api/(projects/[0-9a-f-]+/versions/[0-9a-f-]+/(components|source-trees)|developer-scans/[0-9a-f-]+)' "$scan_log" 2>/dev/null | tail -n 1 || true)"
-          {
-            echo '### Black Duck release package scan'
-            echo
-            echo "- Architecture: \`${{ matrix.architecture }}\`"
-            echo "- Version: \`${BLACKDUCK_VERSION//\//-}\`"
-            if [[ -n "$scan_link" ]]; then
-              echo "- [Open scan]($scan_link)"
-            else
-              echo "- [Open Black Duck](${BLACKDUCK_URL})"
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload release package scan details
-        if: always() && github.event_name == 'push'
-        uses: actions/upload-artifact@v7
-        with:
-          name: blackduck-release-package-${{ matrix.artifact_label }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            ${{ runner.temp }}/blackduck-release-${{ matrix.artifact_label }}/output
-            ${{ runner.temp }}/blackduck-release-${{ matrix.artifact_label }}/scan.log
-          if-no-files-found: warn
-          retention-days: 10
-
       - name: Upload package
         uses: actions/upload-artifact@v7
         with:
@@ -301,11 +223,112 @@ jobs:
         run: |
           docker image rm "$RELEASE_IMAGE@$IMAGE_DIGEST" 2>/dev/null || true
           rm -rf -- "$SOURCE_DIR"
-          rm -rf -- "$RUNNER_TEMP/blackduck-release-${{ matrix.artifact_label }}"
+
+  blackduck-detect:
+    name: Prepare verified Detect wrapper
+    uses: ./.github/workflows/blackduck-detect.yml
+
+  blackduck-release-packages:
+    name: Scan ${{ matrix.architecture }} release package
+    needs: [prepare, build, blackduck-detect]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: x86_64
+            artifact_label: x86
+          - architecture: aarch64
+            artifact_label: arm
+    runs-on: self-hosted-ubuntu-latest-x64
+    timeout-minutes: 45
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Download release package
+        uses: actions/download-artifact@v8
+        with:
+          name: pek-release-${{ matrix.artifact_label }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/blackduck-release-${{ matrix.artifact_label }}/artifact
+
+      - name: Download verified Detect wrapper
+        uses: actions/download-artifact@v8
+        with:
+          name: detect-arm.sh
+          path: ${{ runner.temp }}/blackduck-release-${{ matrix.artifact_label }}
+          skip-decompress: true
+
+      - name: Scan release package and enforce policy
+        env:
+          ARCHIVE: ${{ matrix.architecture == 'x86_64' && needs.prepare.outputs.x86_archive || needs.prepare.outputs.arm_archive }}
+          BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }}
+          BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
+          BLACKDUCK_VERSION: ${{ github.event_name == 'push' && format('v{0}', needs.prepare.outputs.version) || needs.prepare.outputs.image_tag }}
+        run: |
+          set -euo pipefail
+          test -n "${BLACKDUCK_TOKEN:-}"
+          test -n "${BLACKDUCK_URL:-}"
+          scanner_dir="${RUNNER_TEMP}/blackduck-release-${{ matrix.artifact_label }}"
+          package_dir="$scanner_dir/package"
+          install -d -m 0777 "$package_dir" "$scanner_dir/output"
+          test -f "$scanner_dir/artifact/$ARCHIVE"
+          tar -xzf "$scanner_dir/artifact/$ARCHIVE" -C "$package_dir"
+          chmod +x "$scanner_dir/detect-arm.sh"
+
+          project_name="${GITHUB_REPOSITORY//\//:}"
+          version_name="${BLACKDUCK_VERSION//\//-}"
+          "$scanner_dir/detect-arm.sh" \
+            "--blackduck.url=${BLACKDUCK_URL}" \
+            "--blackduck.api.token=${BLACKDUCK_TOKEN}" \
+            "--detect.project.name=${project_name}" \
+            "--detect.project.version.name=${version_name}" \
+            "--detect.code.location.name=${project_name}/${version_name}/release-package-${{ matrix.architecture }}" \
+            --detect.cleanup=false \
+            --detect.output.path="$scanner_dir/output" \
+            --detect.policy.check.fail.on.severities=ALL \
+            --detect.source.path="$package_dir" \
+            --detect.timeout=1800 \
+            --detect.tools=SIGNATURE_SCAN \
+            --logging.level.detect=INFO 2>&1 | tee "$scanner_dir/scan.log"
+
+      - name: Report release package scan
+        if: always()
+        env:
+          BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
+          BLACKDUCK_VERSION: ${{ github.event_name == 'push' && format('v{0}', needs.prepare.outputs.version) || needs.prepare.outputs.image_tag }}
+        run: |
+          scan_log="${RUNNER_TEMP}/blackduck-release-${{ matrix.artifact_label }}/scan.log"
+          scan_link="$(grep -Eo 'https://[^[:space:]]+/api/(projects/[0-9a-f-]+/versions/[0-9a-f-]+/(components|source-trees)|developer-scans/[0-9a-f-]+)' "$scan_log" 2>/dev/null | tail -n 1 || true)"
+          {
+            echo '### Black Duck release package scan'
+            echo
+            echo "- Architecture: \`${{ matrix.architecture }}\`"
+            echo "- Version: \`${BLACKDUCK_VERSION//\//-}\`"
+            if [[ -n "$scan_link" ]]; then
+              echo "- [Open scan]($scan_link)"
+            else
+              echo "- [Open Black Duck](${BLACKDUCK_URL})"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload release package scan details
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: blackduck-release-package-${{ matrix.artifact_label }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/blackduck-release-${{ matrix.artifact_label }}/output
+            ${{ runner.temp }}/blackduck-release-${{ matrix.artifact_label }}/scan.log
+          if-no-files-found: warn
+          retention-days: 10
+
+      - name: Cleanup release package scan
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/blackduck-release-${{ matrix.artifact_label }}"
 
   release-image:
     name: Publish multi-architecture snapshot image
-    needs: [prepare, build]
+    needs: [prepare, build, blackduck-release-packages]
     runs-on: ubuntu-24.04
     permissions:
       contents: read

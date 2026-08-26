@@ -60,6 +60,7 @@ jobs:
     if: >-
       github.event_name == 'workflow_run' &&
       github.event.workflow_run.event == 'workflow_dispatch' &&
+      github.event.workflow_run.actor.login == 'github-actions[bot]' &&
       startsWith(github.event.workflow_run.display_title, 'PEK CI (head): ') &&
       github.event.workflow_run.head_repository.full_name == github.repository
     permissions:
