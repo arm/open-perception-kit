@@ -1326,6 +1326,10 @@ jobs:
     needs:
       - build-ci-image
       - download-valgrind-baseline
+    outputs:
+      head_sha: ${{ needs.build-ci-image.outputs.head_sha }}
+      pr_context: ${{ needs.build-ci-image.outputs.pr_context }}
+      target_branch_name: ${{ needs.build-ci-image.outputs.target_branch_name }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -1482,14 +1486,12 @@ jobs:
 
   publish-valgrind-baseline:
     name: Publish Valgrind baseline
-    needs:
-      - build-ci-image
-      - valgrind
-    if: ${{ !cancelled() && needs.valgrind.result == 'success' && needs.build-ci-image.outputs.pr_context != 'true' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') }}
+    needs: valgrind
+    if: ${{ !cancelled() && needs.valgrind.result == 'success' && needs.valgrind.outputs.pr_context != 'true' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') }}
     runs-on: self-hosted-ubuntu-latest-x64
     environment: artifactory-publishing
     concurrency:
-      group: valgrind-baseline-publish-${{ needs.build-ci-image.outputs.target_branch_name }}
+      group: valgrind-baseline-publish-${{ needs.valgrind.outputs.target_branch_name }}
       cancel-in-progress: false
     permissions:
       actions: read
@@ -1512,8 +1514,8 @@ jobs:
           ARTIFACTORY_TOKEN: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
           ARTIFACTORY_USER: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
           GH_TOKEN: ${{ github.token }}
-          TARGET_BRANCH_NAME: ${{ needs.build-ci-image.outputs.target_branch_name }}
-          TARGET_BRANCH_HEAD_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
+          TARGET_BRANCH_NAME: ${{ needs.valgrind.outputs.target_branch_name }}
+          TARGET_BRANCH_HEAD_SHA: ${{ needs.valgrind.outputs.head_sha }}
         run: |
           python3 scripts/testing/valgrind/valgrind-baseline-artifact.py upload \
             --input valgrind-baseline/valgrind-error-summary.xml
