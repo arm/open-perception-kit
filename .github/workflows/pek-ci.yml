@@ -241,28 +241,6 @@ jobs:
             printf 'target_branch_head_sha=%s\n' "$target_branch_head_sha"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Download and verify Black Duck Detect wrapper
-        env:
-          DETECT_SHA256: 37c678bb1cb770fdf0e841c2d281aaf06abec2fa211bee33de6ddd04e13b84fd # pragma: allowlist secret
-          DETECT_URL: https://artifactory.arm.com/artifactory/synopsys-blackduck.detect-arm/detect-arm.sh
-        run: |
-          set -euo pipefail
-          scanner_dir="${GITHUB_WORKSPACE}/.cache/blackduck"
-          install -d -m 0777 "$scanner_dir"
-          curl --proto '=https' --tlsv1.2 --fail --location \
-            --retry 3 --retry-all-errors --output "$scanner_dir/detect-arm.sh" "$DETECT_URL"
-          echo "$DETECT_SHA256  $scanner_dir/detect-arm.sh" | sha256sum --check --strict
-
-      - name: Share verified Black Duck Detect wrapper
-        uses: actions/upload-artifact@v7
-        with:
-          name: blackduck-detect-arm.sh
-          path: .cache/blackduck/detect-arm.sh
-          archive: false
-          if-no-files-found: error
-          overwrite: true
-          retention-days: 1
-
       - name: Set up Docker builder
         uses: docker/setup-buildx-action@v4
 
