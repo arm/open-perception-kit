@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.2.1] - 2026-08-25
+## [0.2.1] - 2026-08-26
 
 ### Perception SDK distribution
 
