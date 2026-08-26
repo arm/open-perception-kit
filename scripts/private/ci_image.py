@@ -142,8 +142,8 @@ def prepare(sha: str, registry_image: str, services: list[str]) -> str:
     project = compose_project_name()
     for service in services:
         run(["docker", "tag", registry_image, f"{project}-{service}"])
+    run(["docker", "image", "rm", registry_image])
     append_github_env("COMPOSE_PROJECT_NAME", project)
-    append_github_env("PEK_CI_IMAGE", registry_image)
     print(f"Prepared {registry_image} for {', '.join(services)}")
     return registry_image
 

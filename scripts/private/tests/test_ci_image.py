@@ -45,7 +45,7 @@ class CiImageTests(unittest.TestCase):
 
             self.assertEqual(
                 (Path(tmpdir) / "github-env").read_text(encoding="utf-8").splitlines(),
-                ["COMPOSE_PROJECT_NAME=pek-test", f"PEK_CI_IMAGE={registry_image}"],
+                ["COMPOSE_PROJECT_NAME=pek-test"],
             )
 
         verify.assert_called_once_with(registry_image, SHA)
@@ -54,6 +54,7 @@ class CiImageTests(unittest.TestCase):
             [
                 mock.call(["docker", "pull", registry_image]),
                 mock.call(["docker", "tag", registry_image, "pek-test-pek-sonar-check"]),
+                mock.call(["docker", "image", "rm", registry_image]),
             ],
         )
 
