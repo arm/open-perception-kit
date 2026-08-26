@@ -104,9 +104,12 @@ To take measurements in Performix, you need a recipe.
 Not all kinds of measurements are possible in a container.
 
 Now here is an example of setting up one that works:
+
 - Target: Name of the target
 - Workload type: Launch a new process
-- Workload: The process that will be executed and measured on the target (for example `/work/tools/pek-menu 01-full-onnx`)
+- Workload: The process that will be executed and measured on the target (for
+  example `$PEK_PROJECT_ROOT/tools/pek-menu 01-full-onnx`). Ensure
+  `PEK_PROJECT_ROOT` is set in the workload environment.
 - Set profiling duration: Limitless or execution for a limited time only
 - Different other settings
 

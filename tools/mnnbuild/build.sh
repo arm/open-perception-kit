@@ -8,9 +8,28 @@ set -euo pipefail
 # Build MNN static library + MNNConvert converter.
 # - Clones/updates source into this script's directory.
 # - Builds into this script's directory.
-# - Installs into: /work/deps/mnn
+# - Installs into: $PEK_PROJECT_ROOT/deps/mnn
 
-INSTALL_PREFIX="/work/deps/mnn"
+# Resolve script directory (works even if invoked via symlink)
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+
+requested_project_root="${PEK_PROJECT_ROOT:-$SCRIPT_DIR/../..}"
+if [[ "$requested_project_root" != /* ]]; then
+    echo "PEK_PROJECT_ROOT must be an absolute path: $requested_project_root" >&2
+    exit 2
+fi
+if [[ ! -d "$requested_project_root" ]]; then
+    echo "PEK project root does not exist: $requested_project_root" >&2
+    exit 2
+fi
+PEK_PROJECT_ROOT="$(cd -- "$requested_project_root" && pwd -P)"
+export PEK_PROJECT_ROOT
+if [[ ! -f "$PEK_PROJECT_ROOT/development/meson.build" ]]; then
+    echo "PEK_PROJECT_ROOT is not a PEK checkout: $PEK_PROJECT_ROOT" >&2
+    exit 2
+fi
+
+INSTALL_PREFIX="$PEK_PROJECT_ROOT/deps/mnn"
 
 # Optional overrides:
 #   MNN_REF=master|<tag>|<commit>   (default: master)
@@ -19,9 +38,6 @@ INSTALL_PREFIX="/work/deps/mnn"
 MNN_REF="${MNN_REF:-master}"
 JOBS="${JOBS:-$(getconf _NPROCESSORS_ONLN 2> /dev/null || echo 4)}"
 FULLY_STATIC_EXE="${FULLY_STATIC_EXE:-0}"
-
-# Resolve script directory (works even if invoked via symlink)
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 
 SRC_DIR="${SCRIPT_DIR}/MNN"
 BUILD_DIR="${SCRIPT_DIR}/build-mnn-static"

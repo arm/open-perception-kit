@@ -11,7 +11,7 @@ if ncnn_root_env != ''
 endif
 
 ncnn_candidates += [
-  meson.project_source_root() / '../deps/ncnn',
+  pek_repository_root / 'deps/ncnn',
 ]
 
 ncnn_root = ''

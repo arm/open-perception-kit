@@ -3,26 +3,21 @@
 These scripts prepare ExecuTorch C/C++ development files for PEK. They keep
 clone, source, build, virtualenv, download, cache, and temporary state inside the
 work directory you pass on the command line, then stage the usable SDK files into
-`/work/deps` by default.
+`$PEK_PROJECT_ROOT/deps` by default. `PEK_PROJECT_ROOT` defaults to the checkout
+containing the scripts when it is not set explicitly.
 
 ## Scripts
-
-`setup-executorch-deps.sh` clones ExecuTorch from git, builds it, and stages:
-
-- `/work/deps/executorch/include`
-- `/work/deps/executorch/lib`
-- `/work/deps/libtorch/include`
-- `/work/deps/executorch-legal-documentation` for ExecuTorch and third-party
-  licenses/copyright notices
-
-The default ExecuTorch ref is `release/1.0`. You can override the repo, ref,
-deps directory, and build parallelism with the script options or environment
-variables listed by `--help`.
 
 `setup-executorch-1.3.1-deps.sh` uses the official ExecuTorch `v1.3.1` source
 archive instead of cloning the top-level source from a live branch. Git is still
 used to recover the pinned submodule commits for that tag, because GitHub source
-archives do not contain submodule contents.
+archives do not contain submodule contents. It stages:
+
+- `$PEK_PROJECT_ROOT/deps/executorch/include`
+- `$PEK_PROJECT_ROOT/deps/executorch/lib`
+- `$PEK_PROJECT_ROOT/deps/libtorch/include`
+- `$PEK_PROJECT_ROOT/deps/executorch-legal-documentation` for ExecuTorch and
+  third-party licenses/copyright notices
 
 `package-executorch-1.3.1-deb.sh` creates a Debian package from an SDK already
 staged by the ExecuTorch 1.3.1 setup script, without rebuilding it.
@@ -37,12 +32,14 @@ repository in Artifactory and recalculates its Debian repository metadata.
 
 ## Usage
 
-The work directory is mandatory. The scripts fail immediately when it is not
-provided.
+Run these commands from the repository root. The work directory is mandatory;
+the setup script fails immediately when it is not provided. If the development
+environment has not already set the project root, set it for the current shell:
 
 ```sh
-scripts/private/executorch/setup-executorch-deps.sh /work/var/executorch-build
-scripts/private/executorch/setup-executorch-1.3.1-deps.sh /work/var/executorch-1.3.1-build
+export PEK_PROJECT_ROOT="$PWD"
+scripts/private/executorch/setup-executorch-1.3.1-deps.sh \
+  "$PEK_PROJECT_ROOT/var/executorch-1.3.1-build"
 ```
 
 The ExecuTorch 1.3.1 setup reuses its work directory and CMake build directory
@@ -82,11 +79,11 @@ the build machine architecture:
 
 ```sh
 scripts/private/executorch/setup-executorch-1.3.1-deps.sh \
-  /work/var/executorch-1.3.1-x86_64-build \
+  "$PEK_PROJECT_ROOT/var/executorch-1.3.1-x86_64-build" \
   --target-arch x86_64
 
 scripts/private/executorch/setup-executorch-1.3.1-deps.sh \
-  /work/var/executorch-1.3.1-arm-build \
+  "$PEK_PROJECT_ROOT/var/executorch-1.3.1-arm-build" \
   --target-arch arm
 ```
 
@@ -126,8 +123,9 @@ the `EXECUTORCH_ARM_CC`,
 ## Debian package
 
 The ExecuTorch 1.3.1 setup script creates a Debian development package after
-staging and validating the SDK. Packages are written to `/work/var` by default
-and use the `name-version-revision-arch.deb` layout, for example:
+staging and validating the SDK. Packages are written to
+`$PEK_PROJECT_ROOT/var` by default and use the
+`name-version-revision-arch.deb` layout, for example:
 
 - `libexecutorch-dev-1.3.1-2-amd64.deb`
 - `libexecutorch-dev-1.3.1-2-arm64.deb`
@@ -144,7 +142,7 @@ PEK discovers this installed layout automatically. Install a generated package
 with:
 
 ```sh
-sudo apt install /work/var/libexecutorch-dev-1.3.1-2-amd64.deb
+sudo apt install "$PEK_PROJECT_ROOT/var/libexecutorch-dev-1.3.1-2-amd64.deb"
 ```
 
 Automatic detection only uses the installed `/opt/pek-deps/executorch` SDK. To
@@ -152,8 +150,8 @@ build directly from the staging tree without installing the package, select both
 staged roots explicitly:
 
 ```sh
-PEK_EXECUTORCH_ROOT=/work/deps/executorch \
-PEK_LIBTORCH_ROOT=/work/deps/libtorch \
+PEK_EXECUTORCH_ROOT="$PEK_PROJECT_ROOT/deps/executorch" \
+PEK_LIBTORCH_ROOT="$PEK_PROJECT_ROOT/deps/libtorch" \
 PEK_EXECUTORCH=enabled ./scripts/build.sh debug
 ```
 
@@ -164,10 +162,10 @@ An already-staged SDK can be packaged again without rebuilding ExecuTorch:
 
 ```sh
 scripts/private/executorch/package-executorch-1.3.1-deb.sh \
-  --executorch-dir /work/deps/executorch \
-  --libtorch-dir /work/deps/libtorch \
-  --legal-documentation-dir /work/deps/executorch-legal-documentation \
-  --output-dir /work/var \
+  --executorch-dir "$PEK_PROJECT_ROOT/deps/executorch" \
+  --libtorch-dir "$PEK_PROJECT_ROOT/deps/libtorch" \
+  --legal-documentation-dir "$PEK_PROJECT_ROOT/deps/executorch-legal-documentation" \
+  --output-dir "$PEK_PROJECT_ROOT/var" \
   --revision 2
 ```
 
@@ -253,7 +251,7 @@ export EXECUTORCH_ARTIFACTORY_USERNAME='<username>'
 export EXECUTORCH_ARTIFACTORY_PASSWORD='<access-token>'
 
 scripts/private/executorch/upload-executorch-1.3.1-deb.sh \
-  /work/var/libexecutorch-dev-1.3.1-2-amd64.deb
+  "$PEK_PROJECT_ROOT/var/libexecutorch-dev-1.3.1-2-amd64.deb"
 ```
 
 The defaults upload to the `ai-expkits-internal.opk-deb` repository under the

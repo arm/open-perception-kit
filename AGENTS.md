@@ -214,7 +214,7 @@ Ground doc changes in checked-in code and config.
 - `./scripts/build.sh release [true|false]`
 - `./scripts/build.sh clean`
 - `./scripts/build.sh debug true`
-- `meson test -C /work/development/build --print-errorlogs`
+- `meson test -C ./development/build-active --print-errorlogs`
 - `./scripts/gen-doc.sh` to refresh generated docs, Doxygen output, and PlantUML images
 - `./scripts/serve-docs-plain.sh`
 - `./scripts/serve-docs.sh`

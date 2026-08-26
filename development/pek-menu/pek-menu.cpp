@@ -31,19 +31,29 @@ namespace fs = std::filesystem;
 using json = nlohmann::json;
 
 struct PipelineEntry {
-    std::string full_path{};   // filename with extension, internally used as ID
+    std::string id{};          // filename with extension, independent of the project root
     std::string description{}; // The description of the pipeline from the JSON file
     std::string pipeline{};    // The pipeline definition from the JSON file
     bool loop{};               // Restart the pipeline after a clean end-of-stream.
 };
 
-static constexpr const char *kPipelinesDir = "/work/config/pipelines";
+using PipelineIndex = std::unordered_map<std::string, size_t>;
+
+static constexpr const char *kDefaultProjectRoot = "/work";
 static constexpr const char *kLastSelectionFileName = ".last_selected_pipeline_id";
 static constexpr auto kMinimumLoopRuntime = std::chrono::seconds(1);
 static constexpr int kExecutionFailureExitCode = 127;
 static constexpr int kSignalExitCodeOffset = 128;
 static volatile sig_atomic_t pipeline_process_group = -1;
 static volatile sig_atomic_t requested_termination_signal = 0;
+
+static fs::path pipelines_directory() {
+    const char *configured_root = std::getenv("PEK_PROJECT_ROOT");
+    const fs::path project_root = configured_root != nullptr && configured_root[0] != '\0'
+                                      ? configured_root
+                                      : kDefaultProjectRoot;
+    return project_root / "config" / "pipelines";
+}
 
 static void forward_termination_signal(int signal_number) {
     requested_termination_signal = signal_number;
@@ -52,7 +62,7 @@ static void forward_termination_signal(int signal_number) {
 }
 
 static fs::path last_selection_path() {
-    return fs::path(kPipelinesDir) / kLastSelectionFileName;
+    return pipelines_directory() / kLastSelectionFileName;
 }
 
 static std::optional<std::string> load_last_selected_pipeline() {
@@ -65,7 +75,7 @@ static std::optional<std::string> load_last_selected_pipeline() {
     id = trim(id);
     if (id.empty())
         return std::nullopt;
-    return id;
+    return fs::path(id).filename().string();
 }
 
 static bool save_last_selected_pipeline(const std::string &pipeline) {
@@ -97,7 +107,7 @@ static std::optional<PipelineEntry> load_entry_from_json_file(const fs::path &p)
         }
 
         PipelineEntry pipeline_entry{};
-        pipeline_entry.full_path = p.string();
+        pipeline_entry.id = p.filename().string();
         pipeline_entry.description = json_content["description"].get<std::string>();
 
         if (json_content.contains("loop")) {
@@ -154,16 +164,15 @@ static std::optional<PipelineEntry> load_entry_from_json_file(const fs::path &p)
 
 static std::vector<PipelineEntry> enumerate_entries() {
     std::vector<PipelineEntry> entries;
-    const fs::path pipelines_directory(kPipelinesDir);
+    const fs::path directory = pipelines_directory();
 
     std::error_code ec;
-    if (!fs::exists(pipelines_directory, ec) || !fs::is_directory(pipelines_directory, ec)) {
-        pek::log::instantError("Directory not found or not a directory: {}\n",
-                               pipelines_directory.string());
+    if (!fs::exists(directory, ec) || !fs::is_directory(directory, ec)) {
+        pek::log::instantError("Directory not found or not a directory: {}\n", directory.string());
         return entries;
     }
 
-    for (const auto &fileSystemObject : fs::directory_iterator(pipelines_directory, ec)) {
+    for (const auto &fileSystemObject : fs::directory_iterator(directory, ec)) {
         if (ec)
             break;
         if (!fileSystemObject.is_regular_file())
@@ -179,9 +188,7 @@ static std::vector<PipelineEntry> enumerate_entries() {
         }
     }
 
-    std::sort(entries.begin(), entries.end(), [](const auto &a, const auto &b) {
-        return a.full_path < b.full_path;
-    });
+    std::ranges::sort(entries, [](const auto &a, const auto &b) { return a.id < b.id; });
 
     return entries;
 }
@@ -195,26 +202,27 @@ static bool file_exists(const fs::path &p) {
 
 // Resolves a pipeline argument which can be either:
 // - A full path to a JSON file
-// - A pipeline ID/stem (resolved against kPipelinesDir with/without .json extension)
-static std::optional<std::string> resolve_pipeline_path(const std::string &requested) {
-
-    const fs::path req_path(requested);
+// - A pipeline ID/stem (resolved against the configured pipeline directory with/without .json
+// extension)
+static std::optional<std::string> resolve_pipeline_path(const fs::path &requested) {
 
     // First, check if it's already a valid full path
-    if (file_exists(req_path)) {
+    if (file_exists(requested)) {
         return requested;
     }
 
-    // Try to resolve as an ID in kPipelinesDir:
-    // 1. <kPipelinesDir>/<requested>.json
-    // 2. <kPipelinesDir>/<requested>
-    fs::path candidate1 = fs::path(kPipelinesDir) / (requested + ".json");
-    if (file_exists(candidate1)) {
+    // Try to resolve as an ID in the configured pipeline directory:
+    // 1. <pipelines_directory>/<requested>.json
+    // 2. <pipelines_directory>/<requested>
+    const fs::path directory = pipelines_directory();
+
+    auto requested_with_extension = requested;
+    requested_with_extension.replace_extension(".json");
+    if (fs::path candidate1 = directory / requested_with_extension; file_exists(candidate1)) {
         return candidate1.string();
     }
 
-    fs::path candidate2 = fs::path(kPipelinesDir) / requested;
-    if (file_exists(candidate2)) {
+    if (fs::path candidate2 = directory / requested; file_exists(candidate2)) {
         return candidate2.string();
     }
 
@@ -351,6 +359,7 @@ static void print_usage(const char *argv0) {
         "  {} <pipeline>   # run pipeline by ID (e.g., 'onnx') or full path to a JSON file. Shall not be used together with -l\n"
         "\n"
         "Environment:\n"
+        "  PEK_PROJECT_ROOT=/work               # project checkout root (default: /work)\n"
         "  OPK_LOG_LEVEL=0..5                 # log verbosity: 0=off, 1=errors, 2=warnings, 3=notices, 4=info (default), 5=debug\n"
         "  OPK_LOG_TARGETS=stdout,stderr,file # initial log targets: stdout, stderr, and/or raw file, or none (default: stdout)\n"
         "  OPK_LOG_FILE=opk.log               # file target path (default: opk.log; does not enable the target)\n",
@@ -408,6 +417,127 @@ static int parse_args(int argc,
     return 0;
 }
 
+static PipelineIndex index_pipeline_entries(const std::vector<PipelineEntry> &entries) {
+    PipelineIndex id_to_idx;
+    id_to_idx.reserve(entries.size());
+    for (size_t i = 0; i < entries.size(); ++i) {
+        id_to_idx[entries[i].id] = i;
+    }
+    return id_to_idx;
+}
+
+static int run_last_pipeline(const std::vector<PipelineEntry> &entries,
+                             const PipelineIndex &id_to_idx,
+                             bool dry_run) {
+    const auto last_pipeline = load_last_selected_pipeline();
+    if (!last_pipeline) {
+        pek::log::instantInfo("No previous selection stored ({}).\n",
+                              last_selection_path().string());
+        return 3;
+    }
+
+    const auto it = id_to_idx.find(*last_pipeline);
+    if (it == id_to_idx.end()) {
+        pek::log::instantInfo("Last selected pipeline '{}' not found in directory.\n",
+                              *last_pipeline);
+        return 3;
+    }
+
+    const auto &pipeline_entry = entries[it->second];
+    (void)save_last_selected_pipeline(pipeline_entry.id);
+    return run_gst_launch(pipeline_entry.pipeline, dry_run, pipeline_entry.loop);
+}
+
+static int run_requested_pipeline(const std::string &requested_pipeline,
+                                  const fs::path &configured_pipelines_directory,
+                                  bool dry_run) {
+    const auto resolved = resolve_pipeline_path(requested_pipeline);
+    if (!resolved) {
+        pek::log::instantInfo("Pipeline not found: '{}' (expected full path or ID in {})\n",
+                              requested_pipeline,
+                              configured_pipelines_directory.string());
+        return 3;
+    }
+
+    const auto entry = load_entry_from_json_file(*resolved);
+    if (!entry) {
+        pek::log::instantInfo("Failed to load pipeline from: {}\n", *resolved);
+        return 3;
+    }
+
+    // Since this path might not be available in the menu, do not save it as the last selected
+    // pipeline.
+    return run_gst_launch(entry->pipeline, dry_run, entry->loop);
+}
+
+static std::optional<size_t> find_last_pipeline_index(const PipelineIndex &id_to_idx) {
+    const auto last_pipeline = load_last_selected_pipeline();
+    if (!last_pipeline)
+        return std::nullopt;
+
+    const auto it = id_to_idx.find(*last_pipeline);
+    if (it == id_to_idx.end())
+        return std::nullopt;
+
+    return it->second;
+}
+
+static void print_pipeline_menu(const fs::path &configured_pipelines_directory,
+                                const std::vector<PipelineEntry> &entries,
+                                const std::optional<size_t> &last_pipeline_idx) {
+    pek::log::instantInfo("Pipelines in: {}\n", configured_pipelines_directory.string());
+    if (last_pipeline_idx.has_value()) {
+        const auto &pipeline_entry = entries[*last_pipeline_idx];
+        pek::log::instantInfo(
+            "0 -> {} [LAST: {}]\n", pipeline_entry.id, pipeline_entry.description);
+    } else {
+        pek::log::instantInfo("0 -> (no previous selection)\n");
+    }
+
+    for (size_t i = 0; i < entries.size(); ++i) {
+        const auto &pipeline_entry = entries[i];
+        pek::log::instantInfo(
+            "{} -> {} [{}]\n", i + 1, pipeline_entry.id, pipeline_entry.description);
+    }
+}
+
+static int run_pipeline_menu(const fs::path &configured_pipelines_directory,
+                             const std::vector<PipelineEntry> &entries,
+                             const PipelineIndex &id_to_idx,
+                             bool dry_run) {
+    const auto last_pipeline_idx = find_last_pipeline_index(id_to_idx);
+    print_pipeline_menu(configured_pipelines_directory, entries, last_pipeline_idx);
+
+    const auto max_choice = static_cast<int>(entries.size());
+    while (true) {
+        pek::log::instantInfo("\nSelect (0..{}): ", max_choice);
+        std::fflush(stdout);
+        const auto choice = read_choice_int();
+        if (!choice || *choice < 0 || *choice > max_choice) {
+            pek::log::instantError("Invalid choice. Try again.\n");
+            continue;
+        }
+
+        if (*choice == 0) {
+            if (!last_pipeline_idx.has_value()) {
+                pek::log::instantInfo("No previous selection stored. Choose 1..{}.\n", max_choice);
+                continue;
+            }
+            const auto &pipeline_entry = entries[*last_pipeline_idx];
+            (void)save_last_selected_pipeline(pipeline_entry.id);
+            return run_gst_launch(pipeline_entry.pipeline, dry_run, pipeline_entry.loop);
+        }
+
+        const auto idx = static_cast<size_t>(*choice - 1);
+        const auto &pipeline_entry = entries[idx];
+        if (!save_last_selected_pipeline(pipeline_entry.id)) {
+            pek::log::instantInfo("Warning: failed to save last selected pipeline to {}\n",
+                                  last_selection_path().string());
+        }
+        return run_gst_launch(pipeline_entry.pipeline, dry_run, pipeline_entry.loop);
+    }
+}
+
 int main(int argc, char **argv) {
     // Parse XOR args: "-l" OR "<pipeline>" OR none
     bool run_last = false;
@@ -418,107 +548,21 @@ int main(int argc, char **argv) {
     if (rc != 0)
         return rc;
 
+    const fs::path configured_pipelines_directory = pipelines_directory();
     auto entries = enumerate_entries();
     if (entries.empty()) {
-        pek::log::instantInfo("No valid pipelines found in: {}\n", kPipelinesDir);
+        pek::log::instantInfo("No valid pipelines found in: {}\n",
+                              configured_pipelines_directory.string());
         return 1;
     }
 
-    std::unordered_map<std::string, size_t> id_to_idx;
-    id_to_idx.reserve(entries.size());
-    for (size_t i = 0; i < entries.size(); ++i) {
-        id_to_idx[entries[i].full_path] = i;
-    }
+    const auto id_to_idx = index_pipeline_entries(entries);
 
-    // Fast path: run last
-    if (run_last) {
-        auto last_pipeline = load_last_selected_pipeline();
-        if (!last_pipeline) {
-            pek::log::instantInfo("No previous selection stored ({}).\n",
-                                  last_selection_path().string());
-            return 3;
-        }
-        auto it = id_to_idx.find(*last_pipeline);
-        if (it == id_to_idx.end()) {
-            pek::log::instantInfo("Last selected pipeline '{}' not found in directory.\n",
-                                  *last_pipeline);
-            return 3;
-        }
-        const auto &pipelineEntry = entries[it->second];
-        (void)save_last_selected_pipeline(pipelineEntry.full_path);
-        return run_gst_launch(pipelineEntry.pipeline, dry_run, pipelineEntry.loop);
-    }
+    if (run_last)
+        return run_last_pipeline(entries, id_to_idx, dry_run);
 
-    // Fast path: run by path or ID
-    if (requested_pipeline) {
-        auto resolved = resolve_pipeline_path(*requested_pipeline);
-        if (!resolved) {
-            pek::log::instantInfo("Pipeline not found: '{}' (expected full path or ID in {})\n",
-                                  *requested_pipeline,
-                                  kPipelinesDir);
-            return 3;
-        }
-        auto entry = load_entry_from_json_file(*resolved);
-        if (!entry) {
-            pek::log::instantInfo("Failed to load pipeline from: {}\n", *resolved);
-            return 3;
-        }
-        // Since this path might not be available in the menu, we won't save it as last selected
-        // pipeline.
-        return run_gst_launch(entry->pipeline, dry_run, entry->loop);
-    }
+    if (requested_pipeline)
+        return run_requested_pipeline(*requested_pipeline, configured_pipelines_directory, dry_run);
 
-    // Menu mode (no args)
-    auto last_pipeline = load_last_selected_pipeline();
-    std::optional<size_t> last_pipeline_idx;
-    if (last_pipeline) {
-        auto it = id_to_idx.find(*last_pipeline);
-        if (it != id_to_idx.end())
-            last_pipeline_idx = it->second;
-    }
-
-    pek::log::instantInfo("Pipelines in: {}\n", kPipelinesDir);
-    if (last_pipeline_idx) {
-        const auto &pipelineEntry = entries[*last_pipeline_idx];
-        pek::log::instantInfo(
-            "0 -> {} [LAST: {}]\n", pipelineEntry.full_path, pipelineEntry.description);
-    } else {
-        pek::log::instantInfo("0 -> (no previous selection)\n");
-    }
-
-    for (size_t i = 0; i < entries.size(); ++i) {
-        const auto &pipelineEntry = entries[i];
-        pek::log::instantInfo(
-            "{} -> {} [{}]\n", i + 1, pipelineEntry.full_path, pipelineEntry.description);
-    }
-
-    const int max_choice = static_cast<int>(entries.size());
-    while (true) {
-        pek::log::instantInfo("\nSelect (0..{}): ", max_choice);
-        std::fflush(stdout);
-        auto c = read_choice_int();
-        if (!c || *c < 0 || *c > max_choice) {
-            pek::log::instantError("Invalid choice. Try again.\n");
-            continue;
-        }
-
-        if (*c == 0) {
-            if (!last_pipeline_idx) {
-                pek::log::instantInfo("No previous selection stored. Choose 1..{}.\n", max_choice);
-                continue;
-            }
-            const auto &pipelineEntry = entries[*last_pipeline_idx];
-            (void)save_last_selected_pipeline(pipelineEntry.full_path);
-            return run_gst_launch(pipelineEntry.pipeline, dry_run, pipelineEntry.loop);
-        }
-
-        const size_t idx = static_cast<size_t>(*c - 1);
-        const auto &pipelineEntry = entries[idx];
-
-        if (!save_last_selected_pipeline(pipelineEntry.full_path)) {
-            pek::log::instantInfo("Warning: failed to save last selected pipeline to {}\n",
-                                  last_selection_path().string());
-        }
-        return run_gst_launch(pipelineEntry.pipeline, dry_run, pipelineEntry.loop);
-    }
+    return run_pipeline_menu(configured_pipelines_directory, entries, id_to_idx, dry_run);
 }

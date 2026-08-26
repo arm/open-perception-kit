@@ -26,16 +26,24 @@ and copies the binary to `examples/bin/pipeline-exec`.
 
 ## Run
 
+Set the project root when running directly from a checkout outside the
+container:
+
 ```sh
-./examples/bin/pipeline-exec /work/config/pipelines/debug/video.json
+export PEK_PROJECT_ROOT="$(pwd -P)"
+```
+
+```sh
+./examples/bin/pipeline-exec \
+  "$PEK_PROJECT_ROOT/config/pipelines/debug/video.json"
 ```
 
 To collect performance spans:
 
 ```sh
 ./examples/bin/pipeline-exec \
-  --perf-csv /work/var/pipeline-perf.csv \
-  /work/config/pipelines/debug/video.json
+  --perf-csv "$PEK_PROJECT_ROOT/var/pipeline-perf.csv" \
+  "$PEK_PROJECT_ROOT/config/pipelines/debug/video.json"
 ```
 
 The CSV is written by `pek::runtime::PerformanceMetrics::writeCsv()`. It
@@ -43,9 +51,12 @@ contains completed historical spans only; scopes still open when the process
 finishes are omitted rather than assigned a fabricated end time.
 
 If PEK plugins are not installed globally, the example scans
-`/work/development/build/meson-out` by default. Override that with
-`PEK_PLUGIN_PATH` when needed:
+`${PEK_PROJECT_ROOT:-/work}/development/build-active/meson-out` by default.
+`build-active` points to the correct container or native build directory.
+Override plugin discovery with `PEK_PLUGIN_PATH` when needed:
 
 ```sh
-PEK_PLUGIN_PATH=/path/to/plugins ./examples/bin/pipeline-exec /work/config/pipelines/debug/video.json
+PEK_PLUGIN_PATH=/path/to/plugins \
+  ./examples/bin/pipeline-exec \
+  "$PEK_PROJECT_ROOT/config/pipelines/debug/video.json"
 ```

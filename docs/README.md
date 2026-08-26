@@ -22,6 +22,10 @@ From the repository root, run:
 ./scripts/serve-docs.sh
 ```
 
+The documentation scripts use `PEK_PROJECT_ROOT` when it is set and otherwise
+derive the checkout from their own location. Set it to an absolute path when
+invoking the scripts for a different checkout.
+
 The script serves `docs/public` with the Arm docs preview image and keeps `docs/public/static` available for `/img/...` paths. It preserves the existing local script URL, `http://localhost:3003`.
 
 If you need to run the container manually, the equivalent command is:

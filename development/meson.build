@@ -8,6 +8,12 @@ project('pek_elements', ['c', 'cpp'],
   ]
 )
 
+# The Meson source tree is development/, while repository-owned dependencies,
+# configuration, metadata, scripts, and tests live one directory above it.
+# Keep this derived from Meson's source root so native builds do not depend on
+# the checkout being mounted at a particular filesystem location.
+pek_repository_root = meson.project_source_root() / '..'
+
 add_project_arguments('-Wno-unused-variable', language: ['c', 'cpp'])
 add_project_arguments('-Wno-unused-parameter', language: ['c', 'cpp'])
 add_project_arguments('-Wno-unused-function', language: ['c', 'cpp'])
@@ -96,8 +102,8 @@ endif
 
 onnx_candidates += [
   '/opt/pek-deps/onnxruntime',
-  meson.project_source_root() / '../deps/onnxruntime',
-  meson.project_source_root() / '../onnxruntime-linux-aarch64-1.24.4',
+  pek_repository_root / 'deps/onnxruntime',
+  pek_repository_root / 'onnxruntime-linux-aarch64-1.24.4',
 ]
 
 foreach candidate : onnx_candidates
@@ -216,6 +222,17 @@ if release_package
     'web/content',
     install_dir : 'web/content',
     strip_directory : true,
+    exclude_files : [
+      'package.json',
+      'osd-renderer.test.mjs',
+      'webrtc_client.test.mjs',
+      'webrtc_config.test.mjs',
+    ],
+  )
+  install_data(
+    pek_repository_root / 'metadata/api/perception.schema.json',
+    pek_repository_root / 'metadata/api/perception-message.schema.json',
+    install_dir : 'share/pek/schemas/json',
   )
 endif
 

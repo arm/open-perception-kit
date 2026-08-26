@@ -13,17 +13,18 @@ Usage:
   scripts/private/executorch/package-executorch-1.3.1-deb.sh [options]
 
 Options:
-  --executorch-dir DIR  Staged ExecuTorch SDK. Default: /work/deps/executorch
-  --libtorch-dir DIR    Staged libtorch compatibility headers. Default: /work/deps/libtorch
+  --executorch-dir DIR  Staged ExecuTorch SDK. Default: $PEK_PROJECT_ROOT/deps/executorch
+  --libtorch-dir DIR    Staged libtorch compatibility headers. Default: $PEK_PROJECT_ROOT/deps/libtorch
   --legal-documentation-dir DIR
                         ExecuTorch and third-party licenses/copyright notices.
-                        Default: /work/deps/executorch-legal-documentation
-  --output-dir DIR      Debian package output directory. Default: /work/var
+                        Default: $PEK_PROJECT_ROOT/deps/executorch-legal-documentation
+  --output-dir DIR      Debian package output directory. Default: $PEK_PROJECT_ROOT/var
   --install-root DIR    Package installation root. Default: /opt/pek-deps
   --revision REV        Debian package revision. Default: 2
   --help                Show this help.
 
 Environment:
+  PEK_PROJECT_ROOT            PEK checkout root. Default: checkout containing this script.
   EXECUTORCH_SDK_DIR          Same as --executorch-dir.
   LIBTORCH_SDK_DIR            Same as --libtorch-dir.
   EXECUTORCH_LEGAL_DOCUMENTATION_DIR
@@ -94,13 +95,24 @@ archive_architecture() {
     esac
 }
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+requested_project_root="${PEK_PROJECT_ROOT:-${SCRIPT_DIR}/../../..}"
+[[ "${requested_project_root}" == /* ]] ||
+    die "PEK_PROJECT_ROOT must be an absolute path: ${requested_project_root}"
+[[ -d "${requested_project_root}" ]] ||
+    die "PEK project root does not exist: ${requested_project_root}"
+PEK_PROJECT_ROOT="$(cd -- "${requested_project_root}" && pwd -P)"
+[[ -f "${PEK_PROJECT_ROOT}/development/meson.build" ]] ||
+    die "PEK_PROJECT_ROOT is not a PEK checkout: ${PEK_PROJECT_ROOT}"
+export PEK_PROJECT_ROOT
+
 ORIGINAL_CWD="$(pwd -P)"
 PACKAGE_NAME="libexecutorch-dev"
 PACKAGE_VERSION="1.3.1"
-EXECUTORCH_DIR="${EXECUTORCH_SDK_DIR:-/work/deps/executorch}"
-LIBTORCH_DIR="${LIBTORCH_SDK_DIR:-/work/deps/libtorch}"
-LEGAL_DOCUMENTATION_DIR="${EXECUTORCH_LEGAL_DOCUMENTATION_DIR:-/work/deps/executorch-legal-documentation}"
-OUTPUT_DIR="${EXECUTORCH_DEB_OUTPUT_DIR:-/work/var}"
+EXECUTORCH_DIR="${EXECUTORCH_SDK_DIR:-${PEK_PROJECT_ROOT}/deps/executorch}"
+LIBTORCH_DIR="${LIBTORCH_SDK_DIR:-${PEK_PROJECT_ROOT}/deps/libtorch}"
+LEGAL_DOCUMENTATION_DIR="${EXECUTORCH_LEGAL_DOCUMENTATION_DIR:-${PEK_PROJECT_ROOT}/deps/executorch-legal-documentation}"
+OUTPUT_DIR="${EXECUTORCH_DEB_OUTPUT_DIR:-${PEK_PROJECT_ROOT}/var}"
 INSTALL_ROOT="${EXECUTORCH_DEB_INSTALL_ROOT:-/opt/pek-deps}"
 PACKAGE_REVISION="${EXECUTORCH_DEB_REVISION:-2}"
 PACKAGE_MAINTAINER="${EXECUTORCH_DEB_MAINTAINER:-Arm Limited}"

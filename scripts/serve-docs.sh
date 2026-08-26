@@ -7,9 +7,23 @@ set -euo pipefail
 
 IMAGE="${DOCS_IMAGE:-ghcr.io/arm-debug/arm-docs-github-action/local:latest}"
 PORT="${DOCS_PORT:-3003}"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-DOCS_ROOT_DIR="$REPO_ROOT/docs/public"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+requested_project_root="${PEK_PROJECT_ROOT:-$SCRIPT_DIR/..}"
+if [[ "$requested_project_root" != /* ]]; then
+    echo "PEK_PROJECT_ROOT must be an absolute path: $requested_project_root" >&2
+    exit 2
+fi
+if [[ ! -d "$requested_project_root" ]]; then
+    echo "PEK project root does not exist: $requested_project_root" >&2
+    exit 2
+fi
+PEK_PROJECT_ROOT="$(cd -- "$requested_project_root" && pwd -P)"
+export PEK_PROJECT_ROOT
+DOCS_ROOT_DIR="$PEK_PROJECT_ROOT/docs/public"
+if [[ ! -d "$DOCS_ROOT_DIR" ]]; then
+    printf 'Documentation root directory not found: %s\n' "$DOCS_ROOT_DIR" >&2
+    exit 2
+fi
 
 if command -v podman > /dev/null 2>&1; then
     CONTAINER_ENGINE="podman"
@@ -62,11 +76,6 @@ If you are using podman directly, you can verify the login with:
 
 After the login succeeds, run this script again.
 EOF
-    exit 1
-fi
-
-if [ ! -d "$DOCS_ROOT_DIR" ]; then
-    printf 'Documentation root directory not found: %s\n' "$DOCS_ROOT_DIR" >&2
     exit 1
 fi
 

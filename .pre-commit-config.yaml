@@ -3,16 +3,16 @@ repos:
     hooks:
       - id: branch-naming
         name: Branch Naming Convention
-        entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --branch-naming --list-of-files "$@"' _
+        entry: bash -c 'source "${PEK_PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/tools/.venv/bin/activate" && expkits-ci --verbose --branch-naming --list-of-files "$@"' _
         language: system
         stages: [pre-commit]
       - id: commit-msg
         name: Commit Message Format
-        entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --commit-msg --list-of-files "$@"' _
+        entry: bash -c 'source "${PEK_PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/tools/.venv/bin/activate" && expkits-ci --verbose --commit-msg --list-of-files "$@"' _
         language: system
         stages: [commit-msg]
       - id: pre-commit-checks
         name: Pre-commit checks
-        entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --pre-commit-fix --list-of-files "$@"' _
+        entry: bash -c 'source "${PEK_PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/tools/.venv/bin/activate" && expkits-ci --verbose --pre-commit-fix --list-of-files "$@"' _
         language: system
         stages: [pre-commit]

@@ -6,7 +6,7 @@
             "preLaunchTask": "00 Build Project",
             "type": "cppdbg",
             "request": "launch",
-            "program": "/work/tools/pek-menu",
+            "program": "${workspaceFolder}/tools/pek-menu",
             "args": [
                 "-l"
             ],
@@ -14,8 +14,12 @@
             "cwd": "${workspaceFolder}",
             "environment": [
                 {
+                    "name": "PEK_PROJECT_ROOT",
+                    "value": "${workspaceFolder}"
+                },
+                {
                     "name": "GST_PLUGIN_PATH",
-                    "value": "${workspaceFolder}/development/build/meson-out"
+                    "value": "${workspaceFolder}/development/build-active/meson-out"
                 }
             ],
             "externalConsole": false,
@@ -38,7 +42,7 @@
             "preLaunchTask": "00 Build Project",
             "type": "cppdbg",
             "request": "launch",
-            "program": "/work/tools/pek-menu",
+            "program": "${workspaceFolder}/tools/pek-menu",
             "args": [
                 "${input:selectedPipeline}"
             ],
@@ -46,8 +50,12 @@
             "cwd": "${workspaceFolder}",
             "environment": [
                 {
+                    "name": "PEK_PROJECT_ROOT",
+                    "value": "${workspaceFolder}"
+                },
+                {
                     "name": "GST_PLUGIN_PATH",
-                    "value": "${workspaceFolder}/development/build/meson-out"
+                    "value": "${workspaceFolder}/development/build-active/meson-out"
                 }
             ],
             "externalConsole": false,
@@ -70,13 +78,14 @@
             "preLaunchTask": "00 Build Project",
             "type": "lldb",
             "request": "launch",
-            "program": "/work/tools/pek-menu",
+            "program": "${workspaceFolder}/tools/pek-menu",
             "args": [
                 "-l"
             ],
-            "cwd": "/work",
+            "cwd": "${workspaceFolder}",
             "env": {
-                "GST_PLUGIN_PATH": "/work/development/build/meson-out"
+                "PEK_PROJECT_ROOT": "${workspaceFolder}",
+                "GST_PLUGIN_PATH": "${workspaceFolder}/development/build-active/meson-out"
             }
         },
         {
@@ -88,7 +97,7 @@
                 "port": 5678
             },
             "justMyCode": false
-        },
+        }
     ],
     "inputs": [
         {

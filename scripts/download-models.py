@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import logging
+import os
 import shutil
 from pathlib import Path
 
@@ -31,14 +32,6 @@ def parse_args() -> argparse.Namespace:
         required=True,
         type=Path,
         help="Directory recursively searched for JSON model descriptors.",
-    )
-    parser.add_argument(
-        "--token",
-        nargs="?",
-        help=(
-            "Hugging Face token. If the option or its value is omitted, "
-            "public models are downloaded anonymously."
-        ),
     )
     args = parser.parse_args()
     if not args.models_dir.is_dir():
@@ -138,7 +131,8 @@ def _download_model(model_file, destination, source, token, credential_cache) ->
         LOGGER.warning("Skipping %s: %s", model_file, error)
 
 
-def main(models_dir: Path, token: str | None) -> None:
+def main(models_dir: Path) -> None:
+    token = os.environ.get("HF_TOKEN")
     if not token:
         LOGGER.info(
             "No Hugging Face token supplied; downloading public models anonymously."
@@ -159,7 +153,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     arguments = parse_args()
     try:
-        main(arguments.models_dir, arguments.token)
+        main(arguments.models_dir)
     except (OSError, ValueError) as error:
         LOGGER.error("%s", error)
         raise SystemExit(1) from None

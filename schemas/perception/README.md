@@ -217,7 +217,7 @@ For runtime-facing changes, build the elements with tests and run Meson tests:
 
 ```bash
 ./scripts/build.sh debug true
-meson test -C /work/development/build --print-errorlogs
+meson test -C ./development/build-active --print-errorlogs
 ```
 
 After the complete authored and generated snapshot is committed, hand off to

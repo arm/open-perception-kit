@@ -3,3 +3,5 @@
 # Available: UNIT_TEST_COVERAGE, CODE_DUPLICATION, MAINTAINABILITY, RELIABILITY,
 # SECURITY, SECURITY_HOTSPOTS.
 UNIT_TEST_COVERAGE: Code coverage is generally decreased on the develop, it will not be fixed on the release branch.
+UNIT_TEST_COVERAGE: The Python coverage is too low, as it is not generated at all. Will be fixed by the EXPKITS-1264. 
+

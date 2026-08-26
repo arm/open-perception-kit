@@ -34,7 +34,7 @@ def main() -> int:
         epilog=(
             "example:\n"
             "  ./scripts/perception-sdk.sh install-dev "
-            "--python /work/tools/.venv/bin/python"
+            "--python tools/.venv/bin/python"
         ),
     )
     parser.add_argument(

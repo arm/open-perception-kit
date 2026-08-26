@@ -7,7 +7,7 @@ start
 
 partition "Launcher and preset loading" {
   :Run `tools/pek-menu`;
-  :Enumerate `/work/config/pipelines/*.json`\nand parse the selected preset with `nlohmann::json`;
+  :Enumerate `config/pipelines/*.json` below\nthe project root and parse the selected preset\nwith `nlohmann::json`;
   :Validate `description` and `pipeline`,\nthen join the `pipeline` array into one\nGStreamer launch string;
   :Call `gst_parse_launch()` to build an example graph:\nsource -> decode -> videoconvert(BGRA)\n-> pekinfer -> pektracker -> pekperformance -> pekosd -> peksink;
 }

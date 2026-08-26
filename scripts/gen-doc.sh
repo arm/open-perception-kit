@@ -5,8 +5,27 @@
 
 set -euo pipefail
 
-SRC_DIR="/work/docs/public"
-OUT_DIR="/work/docs/html"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+requested_project_root="${PEK_PROJECT_ROOT:-$SCRIPT_DIR/..}"
+if [[ "$requested_project_root" != /* ]]; then
+    echo "PEK_PROJECT_ROOT must be an absolute path: $requested_project_root" >&2
+    exit 2
+fi
+if [[ ! -d "$requested_project_root" ]]; then
+    echo "PEK project root does not exist: $requested_project_root" >&2
+    exit 2
+fi
+PEK_PROJECT_ROOT="$(cd -- "$requested_project_root" && pwd -P)"
+export PEK_PROJECT_ROOT
+if [[ ! -f "$PEK_PROJECT_ROOT/development/Doxyfile" ||
+      ! -d "$PEK_PROJECT_ROOT/docs/public" ]]; then
+    echo "PEK_PROJECT_ROOT is not a PEK checkout: $PEK_PROJECT_ROOT" >&2
+    exit 2
+fi
+
+DEVELOPMENT_DIR="$PEK_PROJECT_ROOT/development"
+SRC_DIR="$PEK_PROJECT_ROOT/docs/public"
+OUT_DIR="$PEK_PROJECT_ROOT/docs/html"
 HTML_CONTENT_DIR="$OUT_DIR/public"
 TMP_DIR="$(mktemp -d)"
 
@@ -21,12 +40,11 @@ echo "Source: $SRC_DIR"
 echo "Output: $OUT_DIR"
 
 echo "Running Doxygen API docs (using development/Doxyfile)..."
-DOXY_OUT_DIR="/work/development/build/doc/doxygen"
+DOXY_OUT_DIR="$DEVELOPMENT_DIR/build/doc/doxygen"
 mkdir -p "$DOXY_OUT_DIR"
-(   
-    cd /work/development
-    doxygen Doxyfile
-)
+pushd "$DEVELOPMENT_DIR" > /dev/null
+doxygen Doxyfile
+popd > /dev/null
 
 # --- prepare output dir ---
 if [ -d "$OUT_DIR" ]; then
@@ -40,19 +58,21 @@ fi
 # --- prepare markdown sources for plain HTML generation ---
 PREPARED_SRC_DIR="$TMP_DIR/public"
 echo "Preparing Markdown sources for plain HTML output..."
-python3 /work/scripts/private/prepare_plain_docs.py "$SRC_DIR" "$PREPARED_SRC_DIR"
+python3 "$PEK_PROJECT_ROOT/scripts/private/prepare_plain_docs.py" \
+    "$SRC_DIR" "$PREPARED_SRC_DIR"
 
 # --- regenerate png figures (if any .puml exist) ---
-PLANTUML_SRC_DIR="/work/docs/plantuml"
-PLANTUML_OUT_DIR="/work/docs/public/static/img"
+PLANTUML_SRC_DIR="$PEK_PROJECT_ROOT/docs/plantuml"
+PLANTUML_OUT_DIR="$SRC_DIR/static/img"
 
 if [ -d "$PLANTUML_SRC_DIR" ]; then
     echo "Regenerating PlantUML figures from $PLANTUML_SRC_DIR..."
     mkdir -p "$PLANTUML_OUT_DIR"
     if compgen -G "$PLANTUML_SRC_DIR"/*.puml > /dev/null; then
         PLANTUML_JAR="${PLANTUML_JAR:-/opt/pek-deps/plantuml-mit-1.2026.2.jar}"
-        if [ ! -f "$PLANTUML_JAR" ] && [ -f "/work/deps/plantuml-mit-1.2026.2.jar" ]; then
-            PLANTUML_JAR="/work/deps/plantuml-mit-1.2026.2.jar"
+        REPOSITORY_PLANTUML_JAR="$PEK_PROJECT_ROOT/deps/plantuml-mit-1.2026.2.jar"
+        if [ ! -f "$PLANTUML_JAR" ] && [ -f "$REPOSITORY_PLANTUML_JAR" ]; then
+            PLANTUML_JAR="$REPOSITORY_PLANTUML_JAR"
         fi
         if [ -f "$PLANTUML_JAR" ]; then
             java -Djava.awt.headless=true -jar "$PLANTUML_JAR" -tpng "$PLANTUML_SRC_DIR"/*.puml -o "$PLANTUML_OUT_DIR"
@@ -69,7 +89,7 @@ fi
 # --- convert markdown to html recursively ---
 echo "Converting Markdown files to HTML..."
 find "$PREPARED_SRC_DIR" -type f -name "*.md" -print0 | while IFS= read -r -d '' file; do
-    rel_path="${file#$PREPARED_SRC_DIR/}"
+    rel_path="${file#"$PREPARED_SRC_DIR"/}"
     out_path="$HTML_CONTENT_DIR/${rel_path%.md}.html"
     mkdir -p "$(dirname "$out_path")"
     echo "Converting $rel_path -> ${rel_path%.md}.html"
@@ -82,23 +102,23 @@ find "$SRC_DIR" -type f \( \
     -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o \
     -iname "*.gif" -o -iname "*.svg" -o -iname "*.webp" \
     \) -print0 | while IFS= read -r -d '' file; do
-    rel_path="${file#$SRC_DIR/}"
+    rel_path="${file#"$SRC_DIR"/}"
     out_path="$HTML_CONTENT_DIR/$rel_path"
     mkdir -p "$(dirname "$out_path")"
     cp -f "$file" "$out_path"
 done
 
-if [ -d "/work/docs/public/static" ]; then
+if [ -d "$SRC_DIR/static" ]; then
     echo "Copying static assets..."
     mkdir -p "$OUT_DIR/static"
-    cp -a /work/docs/public/static/. "$OUT_DIR/static/"
+    cp -a "$SRC_DIR/static/." "$OUT_DIR/static/"
 fi
 
-if [ -d "/work/docs/public/static/img" ]; then
+if [ -d "$SRC_DIR/static/img" ]; then
     echo "Creating root-level /img alias for plain HTML output..."
     rm -rf "$OUT_DIR/img"
     mkdir -p "$OUT_DIR/img"
-    cp -a /work/docs/public/static/img/. "$OUT_DIR/img/"
+    cp -a "$SRC_DIR/static/img/." "$OUT_DIR/img/"
 fi
 
 # --- simple link rewrite: .md -> .html ---
@@ -121,14 +141,14 @@ EOF
 
 echo "Done. Open: $OUT_DIR/index.html"
 
-BUILD_DOC_HTML_DIR="/work/development/build/doc/html"
+BUILD_DOC_HTML_DIR="$DEVELOPMENT_DIR/build/doc/html"
 echo "Copying documentation to $BUILD_DOC_HTML_DIR..."
 mkdir -p "$BUILD_DOC_HTML_DIR"
 rm -rf "${BUILD_DOC_HTML_DIR:?}/"*
 cp -a "$OUT_DIR/." "$BUILD_DOC_HTML_DIR/"
 echo "Documentation copied to $BUILD_DOC_HTML_DIR"
 
-BUILD_DOC_MD_DIR="/work/development/build/doc/md"
+BUILD_DOC_MD_DIR="$DEVELOPMENT_DIR/build/doc/md"
 echo "Copying documentation to $BUILD_DOC_MD_DIR..."
 mkdir -p "$BUILD_DOC_MD_DIR"
 cp -a "$SRC_DIR/." "$BUILD_DOC_MD_DIR/"

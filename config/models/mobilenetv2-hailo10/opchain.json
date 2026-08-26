@@ -20,7 +20,7 @@
 		{
 			"id": "pek-hailort-ops/Inference",
 			"attributes": {
-				"modelDescriptor": "/work/config/models/mobilenetv2-hailo10/model.json"
+				"modelDescriptor": "model.json"
 			}
 		},
 		{

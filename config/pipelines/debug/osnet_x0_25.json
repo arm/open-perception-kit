@@ -1,12 +1,12 @@
 {
     "description": "Test YOLO + OSNet embedding + tracker pipeline",
     "pipeline": [
-        "filesrc location=/work/data/images/GettyImages-1140581459-thumbnail.jpg !",
+        "filesrc location=\"${PEK_PROJECT_ROOT:-/work}/data/images/GettyImages-1140581459-thumbnail.jpg\" !",
         "jpegdec !",
         "imagefreeze !",
         "videoconvert ! video/x-raw,format=BGRA !",
-        "pekinfer opchain-path=/work/config/models/yolov11/opchain.json active=true !",
-        "pekinfer opchain-path=/work/config/models/osnet_x0_25/opchain.json active=true !",
+        "pekinfer opchain-path=\"${PEK_PROJECT_ROOT:-/work}/config/models/yolov11/opchain.json\" active=true !",
+        "pekinfer opchain-path=\"${PEK_PROJECT_ROOT:-/work}/config/models/osnet_x0_25/opchain.json\" active=true !",
         "pektracker content-type=genericObject !",
         "fakesink"
     ]

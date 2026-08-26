@@ -44,7 +44,23 @@ def read_fifo_lines(fifo_path: str):
 
 # ---------- Subprocess management ----------
 
-def start_pipeline(pek_menu: str, pipeline_name: str, extra_args: List[str], fifo_path: str) -> subprocess.Popen:
+
+def resolve_project_root() -> Path:
+    project_root = Path(os.environ.get("PEK_PROJECT_ROOT", "/work"))
+    if not project_root.is_absolute():
+        raise ValueError(
+            f"PEK_PROJECT_ROOT must be an absolute path: {project_root}"
+        )
+    return project_root
+
+
+def start_pipeline(
+    pek_menu: str,
+    pipeline_name: str,
+    extra_args: List[str],
+    fifo_path: str,
+    project_root: Path,
+) -> subprocess.Popen:
     """
     Start 'pek-menu <pipeline_name> ...' in background.
     """
@@ -56,13 +72,14 @@ def start_pipeline(pek_menu: str, pipeline_name: str, extra_args: List[str], fif
 
     # Set PEKCOMM_FILE for this subprocess only
     env["PEKCOMM_FILE"] = fifo_path
+    env["PEK_PROJECT_ROOT"] = str(project_root)
 
     return subprocess.Popen(
         cmd,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         text=True,
-        cwd="/work/",
+        cwd=project_root,
         env=env,
     )
 
@@ -121,7 +138,13 @@ def run_save_mode(args) -> int:
     if not fifo.exists():
         os.mkfifo(args.fifo)
 
-    proc = start_pipeline(args.pek_menu, args.pipeline, args.pek_menu_args, args.fifo)
+    proc = start_pipeline(
+        args.pek_menu,
+        args.pipeline,
+        args.pek_menu_args,
+        args.fifo,
+        args.project_root,
+    )
 
     def shutdown(*_):
         stop_process(proc)
@@ -218,7 +241,13 @@ def run_check_mode(args) -> int:
     if ground_frames is None:
         return 2
 
-    proc = start_pipeline(args.pek_menu, args.pipeline, args.pek_menu_args, args.fifo)
+    proc = start_pipeline(
+        args.pek_menu,
+        args.pipeline,
+        args.pek_menu_args,
+        args.fifo,
+        args.project_root,
+    )
     try:
         failures, compared = compare_pipeline_output(args, ground_frames)
     except KeyboardInterrupt:
@@ -236,7 +265,8 @@ def run_check_mode(args) -> int:
 
 # ---------- CLI ----------
 
-def build_arg_parser() -> argparse.ArgumentParser:
+def build_arg_parser(project_root: Optional[Path] = None) -> argparse.ArgumentParser:
+    project_root = project_root or resolve_project_root()
     p = argparse.ArgumentParser(
         description="Tester tool for pek-menu pipeline FIFO FrameResults output.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -256,7 +286,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
 
     p.add_argument("--fifo", default="/tmp/pekcomm", help="Path to FIFO used by pekcomm.")
-    p.add_argument("--pek-menu", default="/work/tools/pek-menu", help="Path to pek-menu executable.")
+    p.add_argument(
+        "--pek-menu",
+        default=str(project_root / "tools/pek-menu"),
+        help="Path to pek-menu executable.",
+    )
     p.add_argument(
         "--pek-menu-args",
         nargs=argparse.REMAINDER,
@@ -268,11 +302,18 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--verbose", action="store_true", help="Print per-message debug info.")
     p.add_argument("--fail-fast", action="store_true", help="Stop at first mismatch (check mode).")
 
+    p.set_defaults(project_root=project_root)
     return p
 
 
 def main() -> int:
-    args = build_arg_parser().parse_args()
+    try:
+        project_root = resolve_project_root()
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+
+    args = build_arg_parser(project_root).parse_args()
     if args.limit < 0:
         print("--limit must be >= 0", file=sys.stderr)
         return 2

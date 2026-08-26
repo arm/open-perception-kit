@@ -17,7 +17,7 @@ Usage:
   scripts/private/ncnn/setup-ncnn-env.sh <work-dir> [options]
 
 Example:
-  scripts/private/ncnn/setup-ncnn-env.sh /work/var/ncnn-convert
+  scripts/private/ncnn/setup-ncnn-env.sh ./var/ncnn-convert
 
 Options:
   --work-dir DIR    Directory used for the Python venv.

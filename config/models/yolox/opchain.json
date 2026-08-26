@@ -20,7 +20,7 @@
 		{
 			"id": "pek-executorch-ops/Inference",
 			"attributes": {
-				"modelDescriptor": "/work/config/models/yolox/model.json"
+				"modelDescriptor": "model.json"
 			}
 		},
 		{

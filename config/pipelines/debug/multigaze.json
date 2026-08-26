@@ -1,11 +1,11 @@
 {
   "description": "Multiple inference types cascaded in one opchain.",
   "pipeline": [
-    "filesrc location=/work/data/images/GettyImages-1140581459-thumbnail.jpg !",
+    "filesrc location=\"${PEK_PROJECT_ROOT:-/work}/data/images/GettyImages-1140581459-thumbnail.jpg\" !",
     "jpegdec !",
     "imagefreeze !",
     "videoconvert ! video/x-raw,format=BGRA !",
-    "pekinfer opchain-path=/work/config/opchains/gaze-detection/opchain.json active=false !",
+    "pekinfer opchain-path=\"${PEK_PROJECT_ROOT:-/work}/config/opchains/gaze-detection/opchain.json\" active=false !",
     "pektracker content-type=genericObject !",
     "pekperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
     "pekosd enabled=true !",
