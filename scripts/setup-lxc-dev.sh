@@ -328,6 +328,7 @@ if ! grep -Fqx 'source /etc/zsh/pek-dev.zsh' /etc/zsh/zshenv; then
 fi
 
 install -d -m 1777 /tmp
+PEKCOMM_FIFO="${PEKCOMM_FIFO:-/tmp/pekcomm}"
 rm -f -- "$PEKCOMM_FIFO"
 mkfifo --mode=0640 "$PEKCOMM_FIFO"
 chown --no-dereference "$DEV_USER:$DEV_GROUP" "$PEKCOMM_FIFO"
