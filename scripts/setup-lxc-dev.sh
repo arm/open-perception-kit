@@ -7,6 +7,10 @@
 
 set -euo pipefail
 
+hf_token="${HF_TOKEN-}"
+export -n hf_token
+unset HF_TOKEN
+
 usage() {
     cat << 'EOF'
 Usage:
@@ -25,6 +29,7 @@ Options:
 
 The LXC host remains responsible for networking and bind-mounting the checkout,
 /dev/dri, camera/audio devices, the user's configs, and SSH credentials.
+HF_TOKEN is exposed only to the model downloader.
 EOF
 }
 
@@ -330,13 +335,15 @@ chown "$DEV_USER:$DEV_GROUP" /tmp/pekcomm
 
 if [[ "$SKIP_ASSETS" == false ]]; then
     log "Downloading model artifacts and demo videos as ${DEV_USER}"
-    sudo --preserve-env=PEK_PROJECT_ROOT,HF_TOKEN -u "$DEV_USER" -H \
+    HF_TOKEN="$hf_token" \
+        sudo --preserve-env=PEK_PROJECT_ROOT,HF_TOKEN -u "$DEV_USER" -H \
         /opt/pek-venvs/devtools/bin/python \
         "$PEK_PROJECT_ROOT/scripts/download-models.py" \
         --models-dir "$PEK_PROJECT_ROOT/config/models"
     sudo -u "$DEV_USER" -H \
         "$PEK_PROJECT_ROOT/scripts/private/download-demo-videos.sh"
 fi
+unset hf_token
 
 log "Installing development hooks"
 sudo -u "$DEV_USER" -H env PEK_PROJECT_ROOT="$PEK_PROJECT_ROOT" bash -lc \
