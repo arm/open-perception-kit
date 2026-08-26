@@ -55,6 +55,7 @@ jobs:
       contents: read
     env:
       BLACKDUCK_VERSION: ${{ inputs.version_name }}
+      CCACHE_SCHEMA_VERSION: v2
       CCACHE_PATH: ${{ github.workspace }}/.cache/ccache-blackduck-built
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CI_IMAGE_SHA: ${{ inputs.ci_image_sha }}
@@ -101,12 +102,29 @@ jobs:
           source .github/scripts/configure_workspace_ssh.sh
           git submodule update --init --recursive
 
+      - name: Restore compiler cache
+        id: compiler-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ env.CCACHE_PATH }}
+          key: pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-blackduck-built-${{ inputs.checkout_ref }}
+          restore-keys: |
+            pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-blackduck-built-
+
       - name: Build release output in PEK CI image
+        id: release_build
         working-directory: ${{ env.WORKSPACE_ROOT }}
         run: |
           install -d -m 0777 "$CCACHE_PATH"
           docker compose -f .github/compose.ci.yaml run --rm pek-release-with-ut
           test -d development/build
+
+      - name: Save compiler cache
+        if: ${{ !cancelled() && steps.release_build.outcome == 'success' && steps.compiler-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ env.CCACHE_PATH }}
+          key: ${{ steps.compiler-cache.outputs.cache-primary-key }}
 
       - name: Download verified Detect wrapper
         uses: actions/download-artifact@v8
