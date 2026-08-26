@@ -26,6 +26,7 @@ Commands:
 
 Optional backend feature environment variables:
   PEK_EXECUTORCH=enabled|disabled|auto  or  executorch=enabled|disabled|auto
+  PEK_PYTHON_OPS=enabled|disabled|auto  or  python_ops=enabled|disabled|auto
 
 Project location:
   PEK_PROJECT_ROOT=/absolute/path/to/amp-dev-forge
@@ -91,7 +92,9 @@ run_on_host() {
     if [[ -f "$REPO_ROOT/devices.env" ]]; then
         docker_exec_args+=(--env-file "$REPO_ROOT/devices.env")
     fi
-    for env_name in PEK_EXECUTORCH executorch; do
+    for env_name in \
+        PEK_EXECUTORCH PEK_PYTHON_OPS \
+        executorch python_ops; do
         if [[ "${!env_name+x}" == x ]]; then
             docker_exec_args+=(--env "$env_name=${!env_name}")
         fi
