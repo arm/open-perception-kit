@@ -104,10 +104,11 @@ jobs:
           test -d development/build
 
       - name: Download verified Detect wrapper
-        run: |
-          set -euo pipefail
-          scanner_dir="${RUNNER_TEMP}/blackduck-built"
-          "$WORKSPACE_ROOT/.github/scripts/download_blackduck_detect.sh" "$scanner_dir"
+        uses: actions/download-artifact@v8
+        with:
+          name: blackduck-detect-arm.sh
+          path: ${{ runner.temp }}/blackduck-built
+          skip-decompress: true
 
       - name: Scan release build output and enforce policy
         env:
@@ -120,6 +121,8 @@ jobs:
           project_name="${GITHUB_REPOSITORY//\//:}"
           version_name="${BLACKDUCK_VERSION//\//-}"
           scanner_dir="${RUNNER_TEMP}/blackduck-built"
+          install -d -m 0777 "$scanner_dir/output"
+          chmod +x "$scanner_dir/detect-arm.sh"
 
           "$scanner_dir/detect-arm.sh" \
             "--blackduck.url=${BLACKDUCK_URL}" \
@@ -244,10 +247,11 @@ jobs:
           git submodule update --init --recursive
 
       - name: Download verified Detect wrapper
-        run: |
-          set -euo pipefail
-          scanner_dir="${RUNNER_TEMP}/blackduck-dependencies"
-          "$WORKSPACE_ROOT/.github/scripts/download_blackduck_detect.sh" "$scanner_dir"
+        uses: actions/download-artifact@v8
+        with:
+          name: blackduck-detect-arm.sh
+          path: ${{ runner.temp }}/blackduck-dependencies
+          skip-decompress: true
 
       - name: Scan PR dependencies on trusted runner and enforce policy
         if: ${{ inputs.scan_mode == 'delta' }}
@@ -262,6 +266,8 @@ jobs:
           project_name="${GITHUB_REPOSITORY//\//:}"
           version_name="${BLACKDUCK_VERSION//\//-}"
           scanner_dir="${RUNNER_TEMP}/blackduck-dependencies"
+          install -d -m 0777 "$scanner_dir/output"
+          chmod +x "$scanner_dir/detect-arm.sh"
 
           "$scanner_dir/detect-arm.sh" \
             "--blackduck.url=${BLACKDUCK_URL}" \
@@ -293,6 +299,8 @@ jobs:
           project_name="${GITHUB_REPOSITORY//\//:}"
           version_name="${BLACKDUCK_VERSION//\//-}"
           scanner_dir="${RUNNER_TEMP}/blackduck-dependencies"
+          install -d -m 0777 "$scanner_dir/output"
+          chmod +x "$scanner_dir/detect-arm.sh"
 
           docker run --rm \
             --user "$(id -u):$(id -g)" \
@@ -450,10 +458,11 @@ jobs:
 
       - name: Download verified Detect wrapper
         if: ${{ inputs.scan_mode == 'full' }}
-        run: |
-          set -euo pipefail
-          scanner_dir="${RUNNER_TEMP}/blackduck-snippets"
-          "$WORKSPACE_ROOT/.github/scripts/download_blackduck_detect.sh" "$scanner_dir"
+        uses: actions/download-artifact@v8
+        with:
+          name: blackduck-detect-arm.sh
+          path: ${{ runner.temp }}/blackduck-snippets
+          skip-decompress: true
 
       - name: Download verified patch scanner
         if: ${{ inputs.scan_mode == 'delta' }}
@@ -506,6 +515,8 @@ jobs:
           project_name="${GITHUB_REPOSITORY//\//:}"
           version_name="${BLACKDUCK_VERSION//\//-}"
           scanner_dir="${RUNNER_TEMP}/blackduck-snippets"
+          install -d -m 0777 "$scanner_dir/output"
+          chmod +x "$scanner_dir/detect-arm.sh"
 
           docker run --rm \
             --user "$(id -u):$(id -g)" \

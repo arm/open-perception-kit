@@ -188,10 +188,17 @@ jobs:
 
       - name: Download verified Detect wrapper
         if: github.event_name == 'push'
-        working-directory: ${{ env.SOURCE_DIR }}
+        env:
+          DETECT_SHA256: 37c678bb1cb770fdf0e841c2d281aaf06abec2fa211bee33de6ddd04e13b84fd # pragma: allowlist secret
+          DETECT_URL: https://artifactory.arm.com/artifactory/synopsys-blackduck.detect-arm/detect-arm.sh
         run: |
+          set -euo pipefail
           scanner_dir="${RUNNER_TEMP}/blackduck-release-${{ matrix.artifact_label }}"
-          .github/scripts/download_blackduck_detect.sh "$scanner_dir"
+          install -d -m 0777 "$scanner_dir/output"
+          curl --proto '=https' --tlsv1.2 --fail --location \
+            --retry 3 --retry-all-errors --output "$scanner_dir/detect-arm.sh" "$DETECT_URL"
+          echo "$DETECT_SHA256  $scanner_dir/detect-arm.sh" | sha256sum --check --strict
+          chmod +x "$scanner_dir/detect-arm.sh"
 
       - name: Scan ${{ matrix.architecture }} release package and enforce policy
         if: github.event_name == 'push'
