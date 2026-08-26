@@ -43,9 +43,10 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
   check, a base-to-head snippet scan, and one required quality-gate result.
   Nightly runs and `v*` release tags run the full built-output, dependency, and
   snippet equivalents against `nightly` or the release tag. Full snippet scans
-  materialize Meson wrap sources first. The release workflow explicitly
-  dispatches the tag scan after publishing because its `GITHUB_TOKEN` tag does
-  not emit a second workflow run.
+  materialize Meson wrap sources first. Official releases also policy-scan the
+  exact x86_64 and aarch64 package archives before publication. The release
+  workflow explicitly dispatches the tag scan after publishing because its
+  `GITHUB_TOKEN` tag does not emit a second workflow run.
   Downloaded scanner executables are checksum-verified and every Detect policy
   violation fails its lane. Persistent job summaries link to their Black Duck
   BOM; transient Rapid details remain in the workflow artifact and log.
@@ -180,6 +181,9 @@ YOLOX with ExecuTorch, requires non-empty output from `pekcomm`, and starts the
 packaged `peksink` web surface. No separate smoke image or Dockerfile is built.
 Push and manual publication jobs cannot start unless both native image builds
 pass.
+On pushes to `main`, each native archive must also pass its Black Duck policy
+scan before GitHub Release or Artifactory publication can start. Manual
+snapshots skip this release-only gate.
 The native jobs push the existing `pek-deployment-base` outputs by digest and a
 small merge job publishes those exact amd64 and arm64 digests as
 `ghcr.io/arm-debug/amp-dev-forge-deployment:<tag>` without rebuilding. Stable
