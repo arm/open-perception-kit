@@ -59,7 +59,6 @@ concurrency:
 
 env:
   CCACHE_SCHEMA_VERSION: v2
-  CI_IMAGE_CACHE_KEY: pek-ci-image-${{ github.run_id }}
 
 jobs:
   validate-label-dispatch:
@@ -252,19 +251,19 @@ jobs:
           tags: pek-ci:${{ steps.context.outputs.head_sha }}
           target: pek-ci
 
-      - name: Share PEK CI image
-        uses: actions/cache/save@v6
-        with:
-          path: .cache/pek-ci-image
-          key: ${{ env.CI_IMAGE_CACHE_KEY }}
+      - name: Package PEK CI image handoff
+        run: >-
+          tar -C .cache/pek-ci-image -cf .cache/pek-ci-image-handoff.tar .
 
-      - name: Upload PEK CI image for publishing
-        if: ${{ github.event_name == 'pull_request' }}
+      - name: Share PEK CI image
         uses: actions/upload-artifact@v7
         with:
-          name: pek-ci-image
-          path: .cache/pek-ci-image/pek-ci-image.tar
-          compression-level: 0
+          name: pek-ci-image-handoff.tar
+          path: .cache/pek-ci-image-handoff.tar
+          archive: false
+          include-hidden-files: true
+          if-no-files-found: error
+          overwrite: true
           retention-days: 1
 
   build-nightly-deployment-images:
@@ -866,12 +865,17 @@ jobs:
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CCACHE_PATH: ${{ github.workspace }}/.cache/ccache-quality
     steps:
-      - name: Restore PEK CI image
-        uses: actions/cache/restore@v6
+      - name: Download PEK CI image
+        uses: actions/download-artifact@v8
         with:
-          path: .cache/pek-ci-image
-          key: ${{ env.CI_IMAGE_CACHE_KEY }}
-          fail-on-cache-miss: true
+          name: pek-ci-image-handoff.tar
+          path: .cache
+          skip-decompress: true
+
+      - name: Extract PEK CI image
+        run: |
+          mkdir -p .cache/pek-ci-image
+          tar -xf .cache/pek-ci-image-handoff.tar -C .cache/pek-ci-image
 
       - name: Load PEK CI image
         env:
@@ -1070,12 +1074,17 @@ jobs:
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CCACHE_PATH: ${{ github.workspace }}/.cache/ccache-sonar
     steps:
-      - name: Restore PEK CI image
-        uses: actions/cache/restore@v6
+      - name: Download PEK CI image
+        uses: actions/download-artifact@v8
         with:
-          path: .cache/pek-ci-image
-          key: ${{ env.CI_IMAGE_CACHE_KEY }}
-          fail-on-cache-miss: true
+          name: pek-ci-image-handoff.tar
+          path: .cache
+          skip-decompress: true
+
+      - name: Extract PEK CI image
+        run: |
+          mkdir -p .cache/pek-ci-image
+          tar -xf .cache/pek-ci-image-handoff.tar -C .cache/pek-ci-image
 
       - name: Load PEK CI image
         env:
@@ -1240,12 +1249,18 @@ jobs:
       VALGRIND_BASELINE_WORKFLOW: pek-ci.yml
       CCACHE_PATH: ${{ github.workspace }}/.cache/ccache
     steps:
-      - name: Restore PEK CI image
-        uses: actions/cache/restore@v6
+      - name: Download PEK CI image
+        uses: actions/download-artifact@v8
         with:
-          path: .cache/pek-ci-image
-          key: ${{ env.CI_IMAGE_CACHE_KEY }}
-          fail-on-cache-miss: true
+          name: pek-ci-image-handoff.tar
+          path: .cache
+          skip-decompress: true
+
+      - name: Extract PEK CI image
+        working-directory: ${{ github.workspace }}
+        run: |
+          mkdir -p .cache/pek-ci-image
+          tar -xf .cache/pek-ci-image-handoff.tar -C .cache/pek-ci-image
 
       - name: Load PEK CI image
         working-directory: ${{ github.workspace }}

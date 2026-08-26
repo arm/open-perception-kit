@@ -15,25 +15,6 @@ concurrency:
   group: pek-ci-image-pr-${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number || github.run_id }}
 
 jobs:
-  cleanup-run-cache:
-    name: Delete PEK CI image cache
-    if: >-
-      github.event_name == 'workflow_run' &&
-      contains(fromJSON('["success","cancelled"]'), github.event.workflow_run.conclusion)
-    runs-on: ubuntu-latest
-    permissions:
-      actions: write
-    steps:
-      - name: Delete run-scoped cache
-        env:
-          GH_TOKEN: ${{ github.token }}
-          CACHE_KEY: pek-ci-image-${{ github.event.workflow_run.id }}
-        run: |
-          cache_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/caches?key=${CACHE_KEY}" --jq '.actions_caches[0].id // empty')"
-          if [ -n "$cache_id" ]; then
-            gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/caches/${cache_id}"
-          fi
-
   cleanup-pr-caches:
     name: Delete PR caches
     if: ${{ github.event_name == 'pull_request_target' && github.event.action == 'closed' }}
@@ -119,7 +100,7 @@ jobs:
         run: |
           count="$(gh api --method GET \
             "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts" \
-            -f name=pek-ci-image --jq '.artifacts | length')"
+            -f name=pek-ci-image-handoff.tar --jq '.artifacts | length')"
           test "$count" -le 1
           if [ "$count" -eq 1 ]; then
             echo 'exists=true' >> "$GITHUB_OUTPUT"
@@ -131,11 +112,12 @@ jobs:
         if: ${{ steps.image.outputs.exists == 'true' }}
         uses: actions/download-artifact@v8
         with:
-          name: pek-ci-image
-          path: ${{ runner.temp }}/pek-ci-image
+          name: pek-ci-image-handoff.tar
+          path: ${{ runner.temp }}
           repository: ${{ github.repository }}
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ github.token }}
+          skip-decompress: true
 
       - name: Log in to GitHub Container Registry
         if: ${{ steps.image.outputs.exists == 'true' }}
@@ -154,6 +136,8 @@ jobs:
         run: |
           local_image="pek-ci:${EXPECTED_SHA}"
           published_image="ghcr.io/${GITHUB_REPOSITORY,,}-ci:${PR_TAG}"
+          mkdir -p "${RUNNER_TEMP}/pek-ci-image"
+          tar -xf "${RUNNER_TEMP}/pek-ci-image-handoff.tar" -C "${RUNNER_TEMP}/pek-ci-image"
           docker image load --input "${RUNNER_TEMP}/pek-ci-image/pek-ci-image.tar"
           test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$local_image")" = "$EXPECTED_SHA"
           versions="$(gh api --paginate \

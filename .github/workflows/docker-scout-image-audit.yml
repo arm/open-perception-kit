@@ -28,9 +28,6 @@ permissions:
   actions: read
   contents: read
 
-env:
-  CI_IMAGE_CACHE_KEY: pek-ci-image-${{ github.run_id }}
-
 jobs:
   docker-scout:
     name: docker-scout (${{ matrix.image.service }})
@@ -74,13 +71,19 @@ jobs:
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
 
     steps:
-      - name: Restore PEK CI image
+      - name: Download PEK CI image
         if: matrix.image.service == 'pek-ci' && inputs.ci_image_sha != ''
-        uses: actions/cache/restore@v6
+        uses: actions/download-artifact@v8
         with:
-          path: .cache/pek-ci-image
-          key: ${{ env.CI_IMAGE_CACHE_KEY }}
-          fail-on-cache-miss: true
+          name: pek-ci-image-handoff.tar
+          path: .cache
+          skip-decompress: true
+
+      - name: Extract PEK CI image
+        if: matrix.image.service == 'pek-ci' && inputs.ci_image_sha != ''
+        run: |
+          mkdir -p .cache/pek-ci-image
+          tar -xf .cache/pek-ci-image-handoff.tar -C .cache/pek-ci-image
 
       - name: Load PEK CI image
         if: matrix.image.service == 'pek-ci' && inputs.ci_image_sha != ''
