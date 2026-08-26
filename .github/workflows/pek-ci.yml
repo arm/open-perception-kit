@@ -210,7 +210,7 @@ jobs:
           fi
           test "${#target_branch_head_sha}" = 40
           case "$target_branch_head_sha" in *[!0-9a-f]*) exit 1 ;; esac
-          image_ref="ghcr.io/${GITHUB_REPOSITORY,,}-ci:pek-ci-run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          image_ref="ghcr.io/${GITHUB_REPOSITORY,,}-ci:pek-ci-run-${GITHUB_RUN_ID}"
           {
             printf 'base_ref=%s\n' "$BASE_REF"
             printf 'base_sha=%s\n' "$BASE_SHA"

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import importlib
+from datetime import datetime, timezone
 from pathlib import Path
 import subprocess
 import sys
@@ -26,7 +27,7 @@ COMPAT_SHA = "4" * 40
 class CiImageTests(unittest.TestCase):
     def test_prepare_pulls_run_tag_verifies_and_tags_the_image(self):
         command_result: subprocess.CompletedProcess[str] = subprocess.CompletedProcess([], 0)
-        registry_image = "ghcr.io/arm-debug/amp-dev-forge-ci:pek-ci-run-123-1"
+        registry_image = "ghcr.io/arm-debug/amp-dev-forge-ci:pek-ci-run-123"
         with (
             tempfile.TemporaryDirectory() as tmpdir,
             mock.patch.dict(
@@ -106,6 +107,40 @@ class CiImageTests(unittest.TestCase):
             {"id": 5, "created_at": "2026-01-05", "metadata": {"container": {"tags": []}}},
         ]
         self.assertEqual(ci_image.versions_to_delete(versions, keep=1), [3, 5])
+
+    def test_run_retention_deletes_only_stale_unpromoted_versions(self):
+        versions = [
+            {
+                "id": 1,
+                "created_at": "2026-01-01T00:00:00Z",
+                "metadata": {"container": {"tags": ["pek-ci-run-101"]}},
+            },
+            {
+                "id": 2,
+                "created_at": "2026-01-04T00:00:00Z",
+                "metadata": {"container": {"tags": ["pek-ci-run-102"]}},
+            },
+            {
+                "id": 3,
+                "created_at": "2026-01-01T00:00:00Z",
+                "metadata": {
+                    "container": {"tags": ["pek-ci-run-103", "pek-ci-pr-378"]}
+                },
+            },
+            {
+                "id": 4,
+                "created_at": "2026-01-01T00:00:00Z",
+                "metadata": {"container": {"tags": ["buildcache"]}},
+            },
+            {
+                "id": 5,
+                "created_at": "2026-01-01T00:00:00Z",
+                "metadata": {"container": {"tags": []}},
+            },
+        ]
+        cutoff = datetime(2026, 1, 3, tzinfo=timezone.utc)
+
+        self.assertEqual(ci_image.stale_run_versions_to_delete(versions, cutoff), [1, 5])
 
 
 if __name__ == "__main__":

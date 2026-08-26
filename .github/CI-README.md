@@ -60,8 +60,8 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
   `MAINTAINABILITY`, `RELIABILITY`, `SECURITY`, and `SECURITY_HOTSPOTS`.
   Sonar findings and unsuppressed gate conditions remain blocking.
 - Lets `pek-ci-image-cleanup.yml` delete all remaining PR caches and the PR GHCR
-  image when the pull request closes. One-day run artifacts remain available
-  for failed-job reruns.
+  image when the pull request closes. Failed and cancelled run candidate images
+  remain available for one day so failed-job reruns can reuse the producer.
 
 The Python dependency, Docker Scout, and workflow dependency workflows remain
 reusable and keep their independent schedule/manual triggers. Their direct PR
@@ -102,7 +102,7 @@ writes only its own merge ref.
 | Exact-SHA macOS quick-start image | Avoid QEMU image builds in the macOS lane | Published by `main` and `develop` pushes; newest 20 retained in GHCR |
 | macOS quick-start BuildKit cache | Reuse publisher image layers | Current GHCR `buildcache` tag; superseded untagged versions are deleted |
 | Sonar CFamily server cache | Reuse target-branch or main fallback analysis in pull requests | Updated by `main` and `develop` push analysis |
-| Run candidate image in GHCR | Pass the built image to dependent jobs by its run-unique tag; unpromoted candidates are deleted after the run | Run completion, or PR close after promotion |
+| Run candidate image in GHCR | Pass the built image to dependent jobs by its stable run tag; unpromoted failed candidates support failed-job reruns | Successful run completion, one-day failure retention, or PR close after promotion |
 | `pek-ci-pr-<number>` image in GHCR | Pull the latest successful PEK CI image locally | Replaced after the next successful run; deleted when the PR closes |
 | `nightly-amd64` and `nightly-arm64` deployment images in GHCR | Seed native release runtime layers | Replaced by the next nightly run |
 | `buildcache-amd64` and `buildcache-arm64` in GHCR | Seed the complete native deployment build graph | Replaced by the next nightly run |

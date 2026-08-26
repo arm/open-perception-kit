@@ -176,23 +176,32 @@ jobs:
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
+          recommendation="${REVIEW_RECOMMENDATION:-unknown}"
+          finding_count="${REVIEW_FINDING_COUNT:-unknown}"
+          {
+            echo '### Agent Review gate'
+            echo
+            echo "- Job result: ${REVIEW_RESULT}"
+            echo "- Recommendation: ${recommendation}"
+            echo "- Finding count: ${finding_count}"
+          } >> "${GITHUB_STEP_SUMMARY}"
           if [ "${REVIEW_RESULT}" = "skipped" ]; then
             if [ "${EVENT_NAME}" = "pull_request" ] && [ "${HEAD_REPOSITORY}" != "${REPOSITORY}" ]; then
-              echo "Agent Review skipped unsupported fork pull request head ${HEAD_REPOSITORY}; the gate cannot pass without a review."
-              exit 0
+              echo "::error title=Agent Review unavailable::Unsupported fork pull request head ${HEAD_REPOSITORY}; finding_count=${finding_count}."
+              exit 1
             fi
-            echo "Agent Review job was skipped unexpectedly."
-            exit 0
+            echo "::error title=Agent Review unavailable::Review job was skipped unexpectedly; finding_count=${finding_count}."
+            exit 1
           fi
           if [ "${REVIEW_RESULT}" != "success" ]; then
-            echo "Agent Review job result was ${REVIEW_RESULT}."
-            exit 0
+            echo "::error title=Agent Review unavailable::Review job result was ${REVIEW_RESULT}; finding_count=${finding_count}."
+            exit 1
           fi
-          if [ "${REVIEW_RECOMMENDATION}" != "approve" ]; then
-            echo "Agent Review recommendation was ${REVIEW_RECOMMENDATION:-unknown} with finding_count=${REVIEW_FINDING_COUNT:-unknown}."
-            exit 0
+          if [ "${recommendation}" != "approve" ] || [ "${finding_count}" != "0" ]; then
+            echo "::error title=Agent Review findings::recommendation=${recommendation}, finding_count=${finding_count}."
+            exit 1
           fi
-          echo "Agent Review approved this head."
+          echo "Agent Review approved this head with finding_count=0."
 
   auto-stabilize-pr:
     name: Auto stabilize Agent Review findings

@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timedelta, timezone
 import json
 import os
 from pathlib import Path
@@ -16,8 +17,9 @@ import sys
 
 SHA_PATTERN = re.compile(r"[0-9a-f]{40}")
 REGISTRY_IMAGE_PATTERN = re.compile(
-    r"ghcr\.io/[a-z0-9][a-z0-9._/-]*:pek-ci-run-[0-9]+-[0-9]+"
+    r"ghcr\.io/[a-z0-9][a-z0-9._/-]*:pek-ci-run-[0-9]+"
 )
+RUN_IMAGE_TAG_PATTERN = re.compile(r"pek-ci-run-[0-9]+")
 DEV_IMAGE_TAG_PATTERN = re.compile(r"sha-[0-9a-f]{40}")
 SERVICE_PATTERN = re.compile(r"[a-z0-9][a-z0-9_-]*")
 DEV_IMAGE_INPUTS = (
@@ -245,6 +247,30 @@ def versions_to_delete(versions: list[dict[str, object]], keep: int) -> list[int
     return deletion_ids
 
 
+def stale_run_versions_to_delete(
+    versions: list[dict[str, object]], cutoff: datetime
+) -> list[int]:
+    if cutoff.tzinfo is None:
+        raise ValueError("Run image retention cutoff must include a timezone.")
+    deletion_ids: list[int] = []
+    for version in versions:
+        version_id = version.get("id")
+        if not isinstance(version_id, int):
+            raise ValueError("Package version id must be an integer.")
+        created_at_value = version.get("created_at")
+        if not isinstance(created_at_value, str):
+            raise ValueError("Package version created_at must be a string.")
+        created_at = datetime.fromisoformat(created_at_value.replace("Z", "+00:00"))
+        if created_at.tzinfo is None:
+            raise ValueError("Package version created_at must include a timezone.")
+        tags = version_tags(version)
+        if created_at < cutoff and (
+            not tags or all(RUN_IMAGE_TAG_PATTERN.fullmatch(tag) for tag in tags)
+        ):
+            deletion_ids.append(version_id)
+    return deletion_ids
+
+
 def retain_dev_images(keep: int) -> list[int]:
     owner, repository = github_repository().split("/", 1)
     package = f"{repository}-dev"
@@ -263,6 +289,27 @@ def retain_dev_images(keep: int) -> list[int]:
     return deletion_ids
 
 
+def retain_run_images(hours: int) -> list[int]:
+    if hours <= 0:
+        raise ValueError("Run image retention must be positive.")
+    owner, repository = github_repository().split("/", 1)
+    package = f"{repository}-ci"
+    endpoint = f"orgs/{owner}/packages/container/{package}/versions"
+    result = run(
+        ["gh", "api", "--paginate", "--jq", ".[]", f"{endpoint}?per_page=100"],
+        capture_output=True,
+    )
+    versions = [json.loads(line) for line in result.stdout.splitlines()]
+    if any(not isinstance(version, dict) for version in versions):
+        raise ValueError("GitHub package versions response contains an invalid version.")
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    deletion_ids = stale_run_versions_to_delete(versions, cutoff)
+    for version_id in deletion_ids:
+        run(["gh", "api", "--method", "DELETE", f"{endpoint}/{version_id}"])
+    print(f"Deleted {len(deletion_ids)} stale {package} run image version(s).")
+    return deletion_ids
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Load the shared PEK CI image.")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -274,6 +321,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     prepare_dev_parser.add_argument("--base-sha", required=True)
     retain_dev_parser = subparsers.add_parser("retain-dev")
     retain_dev_parser.add_argument("--keep", type=int, default=20)
+    retain_run_parser = subparsers.add_parser("retain-run")
+    retain_run_parser.add_argument("--hours", type=int, default=24)
     return parser.parse_args(argv)
 
 
@@ -283,8 +332,10 @@ def main(argv: list[str]) -> int:
         prepare(args.sha, args.registry_image, args.services)
     elif args.command == "prepare-dev":
         prepare_dev(args.base_sha)
-    else:
+    elif args.command == "retain-dev":
         retain_dev_images(args.keep)
+    else:
+        retain_run_images(args.hours)
     return 0
 
 
