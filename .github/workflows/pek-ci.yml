@@ -1367,6 +1367,7 @@ jobs:
       actions: read
       contents: read
       artifact-metadata: write
+      packages: read
     env:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
       CCACHE_PATH: ${{ github.workspace }}/.cache/ccache
