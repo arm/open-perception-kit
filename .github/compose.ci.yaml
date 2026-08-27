@@ -203,6 +203,15 @@ services:
         coverage erase &&
         coverage run --branch --source=tools/perception,scripts/release -m unittest tools/perception/tests/test_release.py &&
         coverage run --append --branch --source=tools/perception,scripts/release -m unittest scripts/release/TestReleaseTool.py &&
+        PYTHONPATH="/work/tools/expkits-ci:/work/tools/expkits-ci/tests:$${PYTHONPATH:-}" \
+          coverage run --append --branch --source=tools/expkits-ci/expkits_ci \
+          -m unittest \
+          test_clang_tidy_statistics \
+          test_config_schema_check \
+          test_detect_secrets_quality_flow.DetectSecretsQualityFlowTests \
+          test_expkits_ci_cli \
+          test_expkits_ci_e2e \
+          test_quality_checks &&
         coverage xml -o python-coverage.xml &&
         if [ -n "$$PR_KEY" ] && [ -n "$$PR_BRANCH" ] && [ -n "$$PR_BASE" ]; then
           sonar_scope_args=(
@@ -243,6 +252,15 @@ services:
         coverage erase &&
         coverage run --branch --source=tools/perception,scripts/release -m unittest tools/perception/tests/test_release.py &&
         coverage run --append --branch --source=tools/perception,scripts/release -m unittest scripts/release/TestReleaseTool.py &&
+        PYTHONPATH="/work/tools/expkits-ci:/work/tools/expkits-ci/tests:$${PYTHONPATH:-}" \
+          coverage run --append --branch --source=tools/expkits-ci/expkits_ci \
+          -m unittest \
+          test_clang_tidy_statistics \
+          test_config_schema_check \
+          test_detect_secrets_quality_flow.DetectSecretsQualityFlowTests \
+          test_expkits_ci_cli \
+          test_expkits_ci_e2e \
+          test_quality_checks &&
         coverage xml -o python-coverage.xml &&
         sonar-scanner -Dsonar.qualitygate.wait="$${SONAR_QUALITYGATE_WAIT}" \
           -Dsonar.branch.name="$$SONAR_BRANCH" \
