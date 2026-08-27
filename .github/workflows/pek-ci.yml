@@ -1289,6 +1289,8 @@ jobs:
             rm -rf "${workspace_root}" || sudo rm -rf "${workspace_root}" || true
           fi
 
+          docker image rm -f "$PEK_CI_IMAGE" || true
+
   download-valgrind-baseline:
     name: Download current Valgrind baseline
     needs: build-ci-image

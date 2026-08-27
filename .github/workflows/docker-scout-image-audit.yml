@@ -235,8 +235,6 @@ jobs:
 
       - name: Clean Docker Scout workspace and image
         if: always()
-        env:
-          REUSED_CI_IMAGE: ${{ matrix.image.service == 'pek-ci' && inputs.ci_image_ref != '' }}
         run: |
           set +e
           checkout_path="${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}"
@@ -250,7 +248,7 @@ jobs:
               exit 0
               ;;
           esac
-          if [ -n "$image_ref" ] && [ "$REUSED_CI_IMAGE" != true ]; then
+          if [ -n "$image_ref" ]; then
             docker image rm -f "$image_ref" || true
           fi
           rm -rf "$checkout_path"

@@ -199,6 +199,7 @@ jobs:
             chmod -R u+rwX "$path" || true
             rm -rf -- "$path" || sudo rm -rf -- "$path" || true
           done
+          docker image rm -f "$PEK_CI_IMAGE" || true
 
   dependencies:
     name: ${{ inputs.scan_mode == 'delta' && 'Delta dependency scan' || 'Full dependency scan' }}
@@ -376,6 +377,9 @@ jobs:
             "$GITHUB_WORKSPACE"/repo-*) rm -rf -- "$WORKSPACE_ROOT" ;;
             *) echo "Skipping unexpected workspace: $WORKSPACE_ROOT" >&2 ;;
           esac
+          if [[ "$SCAN_MODE" == full ]]; then
+            docker image rm -f "$PEK_CI_IMAGE" || true
+          fi
 
   snippets:
     name: ${{ inputs.scan_mode == 'delta' && 'Delta snippet scan' || 'Full snippet scan' }}
@@ -575,6 +579,9 @@ jobs:
             "$GITHUB_WORKSPACE"/repo-*) rm -rf -- "$WORKSPACE_ROOT" ;;
             *) echo "Skipping unexpected workspace: $WORKSPACE_ROOT" >&2 ;;
           esac
+          if [[ "$SCAN_MODE" == full ]]; then
+            docker image rm -f "$PEK_CI_IMAGE" || true
+          fi
 
   quality-gate:
     name: Black Duck quality gate
