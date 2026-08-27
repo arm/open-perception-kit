@@ -16,12 +16,13 @@ services:
     extends:
       file: ../compose.base.yaml
       service: pek-common-dev-model-image
+    image: ${PEK_DEV_IMAGE:-perception-experience-kit-dev}
     container_name: ${PEK_DEV_CONTAINER_NAME:-perception-experience-kit}
     hostname: ${PEK_DEV_CONTAINER_NAME:-perception-experience-kit}
     command: sleep infinity
     build:
       network: ${BUILD_NETWORK_MODE:-default}
-      target: pek-dev
+      target: ${PEK_DEV_TARGET:-pek-dev}
       args:
         USER_UID: ${HOST_UID:-1000}
         USER_GID: ${HOST_GID:-1000}

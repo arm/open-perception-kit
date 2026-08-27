@@ -63,9 +63,9 @@ jobs:
       CCACHE_SCHEMA_VERSION: v2
       CCACHE_PATH: ${{ github.workspace }}/.cache/ccache-blackduck-built
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-      CI_IMAGE_REGISTRY: ${{ inputs.ci_image_ref }}
       CI_IMAGE_SHA: ${{ inputs.ci_image_sha }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      PEK_CI_IMAGE: ${{ inputs.ci_image_ref }}
       WORKSPACE_ROOT: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
       - name: Checkout source
@@ -86,8 +86,8 @@ jobs:
 
       - name: Pull PEK CI image
         run: |
-          python3 "$WORKSPACE_ROOT/scripts/private/ci_image.py" prepare "$CI_IMAGE_SHA" \
-            --registry-image "$CI_IMAGE_REGISTRY" pek-release-with-ut
+          docker pull "$PEK_CI_IMAGE"
+          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$PEK_CI_IMAGE")" = "$CI_IMAGE_SHA"
 
       - name: Prepare private submodules
         working-directory: ${{ env.WORKSPACE_ROOT }}
@@ -194,7 +194,6 @@ jobs:
               docker compose -f .github/compose.ci.yaml down --remove-orphans || true
             )
           fi
-          docker image rm "${COMPOSE_PROJECT_NAME}-pek-release-with-ut" || true
           for path in "$WORKSPACE_ROOT" "$CCACHE_PATH"; do
             case "$path" in
               "$GITHUB_WORKSPACE"/repo-*|"$GITHUB_WORKSPACE"/.cache/ccache-blackduck-built) ;;
@@ -217,9 +216,9 @@ jobs:
     env:
       BLACKDUCK_VERSION: ${{ inputs.version_name }}
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-      CI_IMAGE_REGISTRY: ${{ inputs.ci_image_ref }}
       CI_IMAGE_SHA: ${{ inputs.ci_image_sha }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      PEK_CI_IMAGE: ${{ inputs.ci_image_ref }}
       SCAN_MODE: ${{ inputs.scan_mode }}
       WORKSPACE_ROOT: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
@@ -243,8 +242,8 @@ jobs:
       - name: Pull PEK CI image
         if: ${{ inputs.scan_mode == 'full' }}
         run: |
-          python3 "$WORKSPACE_ROOT/scripts/private/ci_image.py" prepare "$CI_IMAGE_SHA" \
-            --registry-image "$CI_IMAGE_REGISTRY" pek-ci
+          docker pull "$PEK_CI_IMAGE"
+          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$PEK_CI_IMAGE")" = "$CI_IMAGE_SHA"
 
       - name: Prepare private submodules
         working-directory: ${{ env.WORKSPACE_ROOT }}
@@ -321,7 +320,7 @@ jobs:
             --volume "$scanner_dir:/blackduck" \
             --workdir /work \
             --entrypoint bash \
-            "${COMPOSE_PROJECT_NAME}-pek-ci" -c '
+            "$PEK_CI_IMAGE" -c '
               set -euo pipefail
               scan_args=(
                 "--blackduck.url=${BLACKDUCK_URL}"
@@ -377,9 +376,6 @@ jobs:
       - name: Cleanup dependency scan
         if: always()
         run: |
-          if [[ "$SCAN_MODE" == full ]]; then
-            docker image rm "${COMPOSE_PROJECT_NAME}-pek-ci" || true
-          fi
           case "$WORKSPACE_ROOT" in
             "$GITHUB_WORKSPACE"/repo-*) rm -rf -- "$WORKSPACE_ROOT" ;;
             *) echo "Skipping unexpected workspace: $WORKSPACE_ROOT" >&2 ;;
@@ -398,9 +394,9 @@ jobs:
       BASE_SHA: ${{ inputs.base_sha }}
       BLACKDUCK_VERSION: ${{ inputs.version_name }}
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-      CI_IMAGE_REGISTRY: ${{ inputs.ci_image_ref }}
       CI_IMAGE_SHA: ${{ inputs.ci_image_sha }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      PEK_CI_IMAGE: ${{ inputs.ci_image_ref }}
       HEAD_SHA: ${{ inputs.checkout_ref }}
       PR_NUMBER: ${{ inputs.pr_number }}
       SCAN_MODE: ${{ inputs.scan_mode }}
@@ -426,8 +422,8 @@ jobs:
       - name: Pull PEK CI image
         if: ${{ inputs.scan_mode == 'full' }}
         run: |
-          python3 "$WORKSPACE_ROOT/scripts/private/ci_image.py" prepare "$CI_IMAGE_SHA" \
-            --registry-image "$CI_IMAGE_REGISTRY" pek-ci
+          docker pull "$PEK_CI_IMAGE"
+          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$PEK_CI_IMAGE")" = "$CI_IMAGE_SHA"
 
       - name: Prepare private submodules
         if: ${{ inputs.scan_mode == 'full' }}
@@ -447,7 +443,7 @@ jobs:
             --volume "$WORKSPACE_ROOT:/work" \
             --workdir /work \
             --entrypoint bash \
-            "${COMPOSE_PROJECT_NAME}-pek-ci" -c '
+            "$PEK_CI_IMAGE" -c '
               set -euo pipefail
               meson subprojects download --sourcedir /work/development
               meson setup /tmp/blackduck-meson /work/development \
@@ -527,7 +523,7 @@ jobs:
             --volume "$scanner_dir:/blackduck" \
             --workdir /work \
             --entrypoint bash \
-            "${COMPOSE_PROJECT_NAME}-pek-ci" -c '
+            "$PEK_CI_IMAGE" -c '
               set -euo pipefail
               /blackduck/detect-arm.sh \
                 "--blackduck.url=${BLACKDUCK_URL}" \
@@ -579,9 +575,6 @@ jobs:
       - name: Cleanup snippet scan
         if: always()
         run: |
-          if [[ "$SCAN_MODE" == full ]]; then
-            docker image rm "${COMPOSE_PROJECT_NAME}-pek-ci" || true
-          fi
           case "$WORKSPACE_ROOT" in
             "$GITHUB_WORKSPACE"/repo-*) rm -rf -- "$WORKSPACE_ROOT" ;;
             *) echo "Skipping unexpected workspace: $WORKSPACE_ROOT" >&2 ;;

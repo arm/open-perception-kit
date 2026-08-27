@@ -75,13 +75,13 @@ requests.
 
 ### Cache flow
 
-GHCR stores the latest successful image for each PR, exact-SHA Valgrind
-baselines, recent exact-SHA macOS quick-start images, and the nightly
-amd64/arm64 deployment images. The deployment, macOS, and release Sonar jobs
-export their BuildKit graphs to separate registry cache tags. Other Docker
-layers and compiler outputs use the GitHub Actions cache. The macOS compiler
-cache is embedded in its published image and copied into a temporary Colima
-volume.
+GHCR stores run-scoped CI images, exact-SHA Valgrind baselines, recent exact-SHA
+macOS quick-start images, and the nightly amd64/arm64 deployment images. The
+deployment, macOS, and release Sonar jobs export their BuildKit graphs to
+separate registry cache tags. Other Docker layers and compiler outputs use the
+GitHub Actions cache. The macOS compiler cache is embedded in its published
+image and copied into a temporary Colima volume; an exact-image miss rebuilds
+from the registry layer cache.
 
 | Run | Docker layers read from | Docker layers written to |
 | --- | --- | --- |
@@ -102,21 +102,16 @@ writes only its own merge ref.
 | Exact-SHA macOS quick-start image | Avoid QEMU image builds in the macOS lane | Published by `main` and `develop` pushes; newest 20 retained in GHCR |
 | macOS quick-start BuildKit cache | Reuse publisher image layers | Current GHCR `buildcache` tag; superseded untagged versions are deleted |
 | Sonar CFamily server cache | Reuse target-branch or main fallback analysis in pull requests | Updated by `main` and `develop` push analysis |
-| Run candidate image in GHCR | Pass the built image to dependent jobs by its stable run tag; unpromoted failed candidates support failed-job reruns | Successful run completion, one-day failure retention, or PR close after promotion |
-| `pek-ci-pr-<number>` image in GHCR | Pull the latest successful PEK CI image locally | Replaced after the next successful run; deleted when the PR closes |
+| Run image in GHCR | Pass the built image directly to dependent jobs by its stable run tag and support failed-job reruns | One day |
 | `nightly-amd64` and `nightly-arm64` deployment images in GHCR | Seed native release runtime layers | Replaced by the next nightly run |
 | `buildcache-amd64` and `buildcache-arm64` in GHCR | Seed the complete native deployment build graph | Replaced by the next nightly run |
 | `buildcache-release-sonar-amd64` in GHCR | Reuse the release Sonar `pek-ci` image layers | Replaced by the next release Sonar build |
 | Valgrind baseline in GHCR | Compare against the exact base SHA | Managed by the trusted baseline publisher |
 
 The same-repository image producer has package-write permission only for its
-run-unique candidate tag; fork pull requests cannot enter that path. Consumers
-pull that tag. After successful CI, the trusted `PEK CI Image`
-workflow verifies the current exact SHA and promotes the candidate image:
-
-```console
-docker pull ghcr.io/arm-debug/amp-dev-forge-ci:pek-ci-pr-<number>
-```
+run-unique tag; fork pull requests cannot enter that path. Consumers
+pull that tag directly and verify its revision label. The scheduled `PEK CI
+Image` workflow removes run images after one day.
 
 References: GitHub [cache access restrictions](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching#restrictions-for-accessing-a-cache),
 Docker [Buildx `gha` cache scope](https://docs.docker.com/build/cache/backends/gha/#scope),

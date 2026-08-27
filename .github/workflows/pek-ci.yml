@@ -578,6 +578,7 @@ jobs:
       )
     env:
       PEK_QUICK_START_CI_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      PEK_DEV_TARGET: pek-dev-macos-ci
       CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
@@ -870,8 +871,19 @@ jobs:
         id: dev-image
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
-          BASE_IMAGE_SHA: ${{ steps.manual_pr.outputs.base_sha || github.event.pull_request.base.sha || github.sha }}
-        run: python3 scripts/private/ci_image.py prepare-dev --base-sha "$BASE_IMAGE_SHA"
+          DEV_IMAGE_SHA: ${{ steps.manual_pr.outputs.head_sha || github.event.pull_request.head.sha || github.sha }}
+        run: |
+          repository="ghcr.io/${GITHUB_REPOSITORY,,}-dev"
+          image="${repository}:sha-${DEV_IMAGE_SHA}"
+          echo "PEK_DEV_IMAGE=${image}" >> "$GITHUB_ENV"
+          echo "PEK_DEV_CACHE_FROM=type=registry,ref=${repository}:buildcache" >> "$GITHUB_ENV"
+          if docker pull "$image"; then
+            test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image")" = "$DEV_IMAGE_SHA"
+            echo 'start_args=--no-build' >> "$GITHUB_OUTPUT"
+          else
+            echo '::notice::Exact image unavailable; rebuilding from the registry layer cache.'
+            echo 'start_args=' >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Build and start quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -944,6 +956,7 @@ jobs:
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CCACHE_PATH: ${{ github.workspace }}/.cache/ccache-quality
+      PEK_CI_IMAGE: ${{ needs.build-ci-image.outputs.image_ref }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -963,18 +976,12 @@ jobs:
 
       - name: Pull PEK CI image
         env:
-          CI_IMAGE_REGISTRY: ${{ needs.build-ci-image.outputs.image_ref }}
           CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
           IMAGE_JOB_RESULT: ${{ needs.build-ci-image.result }}
         run: |
           test "$IMAGE_JOB_RESULT" = success
-          python3 "${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}/scripts/private/ci_image.py" \
-            prepare "$CI_IMAGE_SHA" \
-            --registry-image "$CI_IMAGE_REGISTRY" \
-            pek-quality-check-full \
-            pek-quality-check-pull-request \
-            pek-release-with-ut \
-            pek-clang-tidy-baseline-check
+          docker pull "$PEK_CI_IMAGE"
+          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$PEK_CI_IMAGE")" = "$CI_IMAGE_SHA"
 
       - name: Prepare compiler cache
         run: install -d -m 0777 "$CCACHE_PATH"
@@ -1150,6 +1157,7 @@ jobs:
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CCACHE_PATH: ${{ github.workspace }}/.cache/ccache-sonar
+      PEK_CI_IMAGE: ${{ needs.build-ci-image.outputs.image_ref }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -1169,14 +1177,12 @@ jobs:
 
       - name: Pull PEK CI image
         env:
-          CI_IMAGE_REGISTRY: ${{ needs.build-ci-image.outputs.image_ref }}
           CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
           IMAGE_JOB_RESULT: ${{ needs.build-ci-image.result }}
         run: |
           test "$IMAGE_JOB_RESULT" = success
-          python3 "${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}/scripts/private/ci_image.py" \
-            prepare "$CI_IMAGE_SHA" \
-            --registry-image "$CI_IMAGE_REGISTRY" pek-sonar-check
+          docker pull "$PEK_CI_IMAGE"
+          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$PEK_CI_IMAGE")" = "$CI_IMAGE_SHA"
 
       - name: Prepare workspace
         run: |
@@ -1285,10 +1291,6 @@ jobs:
             rm -rf "${workspace_root}" || sudo rm -rf "${workspace_root}" || true
           fi
 
-          if [ -n "${PEK_CI_IMAGE:-}" ]; then
-            docker image rm "${PEK_CI_IMAGE}" || true
-          fi
-
   download-valgrind-baseline:
     name: Download current Valgrind baseline
     needs: build-ci-image
@@ -1371,6 +1373,7 @@ jobs:
     env:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
       CCACHE_PATH: ${{ github.workspace }}/.cache/ccache
+      PEK_CI_IMAGE: ${{ needs.build-ci-image.outputs.image_ref }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -1390,7 +1393,6 @@ jobs:
           path: .cache/workflow-helpers
           persist-credentials: false
           sparse-checkout: |
-            scripts/private/ci_image.py
             scripts/testing/valgrind
           sparse-checkout-cone-mode: false
 
@@ -1405,7 +1407,6 @@ jobs:
         working-directory: ${{ github.workspace }}
         env:
           BACKFILL_SHA: ${{ github.event.inputs.target_branch_head_sha }}
-          CI_IMAGE_REGISTRY: ${{ needs.build-ci-image.outputs.image_ref }}
           CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
           IMAGE_JOB_RESULT: ${{ needs.build-ci-image.result }}
         run: |
@@ -1415,10 +1416,8 @@ jobs:
             tools_root="${GITHUB_WORKSPACE}/.cache/workflow-helpers"
           fi
           echo "CI_IMAGE_TOOLS=${tools_root}/scripts/testing/valgrind" >> "$GITHUB_ENV"
-          python3 "${tools_root}/scripts/private/ci_image.py" prepare "$CI_IMAGE_SHA" \
-            --registry-image "$CI_IMAGE_REGISTRY" \
-            pek-valgrind-check \
-            pek-generate-valgrind-summary
+          docker pull "$PEK_CI_IMAGE"
+          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$PEK_CI_IMAGE")" = "$CI_IMAGE_SHA"
 
       - name: Prepare compiler cache
         working-directory: ${{ github.workspace }}

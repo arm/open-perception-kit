@@ -75,6 +75,7 @@ jobs:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-${{ matrix.image.service }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      PEK_CI_IMAGE: ${{ inputs.ci_image_ref }}
 
     steps:
       - name: Checkout current ref
@@ -107,12 +108,10 @@ jobs:
       - name: Pull PEK CI image
         if: matrix.image.service == 'pek-ci' && inputs.ci_image_sha != ''
         env:
-          CI_IMAGE_REGISTRY: ${{ inputs.ci_image_ref }}
           CI_IMAGE_SHA: ${{ inputs.ci_image_sha }}
         run: |
-          python3 "${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}/scripts/private/ci_image.py" \
-            prepare "$CI_IMAGE_SHA" \
-            --registry-image "$CI_IMAGE_REGISTRY" pek-ci
+          docker pull "$PEK_CI_IMAGE"
+          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$PEK_CI_IMAGE")" = "$CI_IMAGE_SHA"
 
       - name: Validate Docker Scout credentials
         id: validate-docker-credentials
@@ -151,7 +150,11 @@ jobs:
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: |
           set -euo pipefail
-          image_ref="${COMPOSE_PROJECT_NAME}-${{ matrix.image.service }}:latest"
+          if [ "${{ matrix.image.service }}" = pek-ci ]; then
+            image_ref="${PEK_CI_IMAGE:-pek-ci:latest}"
+          else
+            image_ref="${COMPOSE_PROJECT_NAME}-${{ matrix.image.service }}:latest"
+          fi
           if ! docker image inspect "${image_ref}" >/dev/null 2>&1; then
             echo "Expected compose-built image tag '${image_ref}' was not found for service '${{ matrix.image.service }}'." >&2
             exit 1
@@ -250,6 +253,8 @@ jobs:
 
       - name: Clean Docker Scout workspace and image
         if: always()
+        env:
+          REUSED_CI_IMAGE: ${{ matrix.image.service == 'pek-ci' && inputs.ci_image_sha != '' }}
         run: |
           set +e
           checkout_path="${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}"
@@ -263,10 +268,7 @@ jobs:
               exit 0
               ;;
           esac
-          if [ -n "$image_ref" ]; then
+          if [ -n "$image_ref" ] && [ "$REUSED_CI_IMAGE" != true ]; then
             docker image rm -f "$image_ref" || true
-          fi
-          if [ -n "${PEK_CI_IMAGE:-}" ]; then
-            docker image rm -f "$PEK_CI_IMAGE" || true
           fi
           rm -rf "$checkout_path"
