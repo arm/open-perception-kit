@@ -15,6 +15,30 @@ concurrency:
   group: pek-ci-image-${{ github.event.pull_request.number || github.run_id }}
 
 jobs:
+  cleanup-blackduck-pr-version:
+    name: Delete Black Duck PR version
+    if: ${{ github.event_name == 'pull_request_target' && github.event.action == 'closed' }}
+    runs-on: self-hosted-ubuntu-latest-x64
+    permissions:
+      contents: read
+    concurrency:
+      group: blackduck-pr-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout cleanup helper
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: blackduck-cleanup
+          persist-credentials: false
+
+      - name: Delete Black Duck PR version
+        env:
+          BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }} # pragma: allowlist secret
+          BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
+          VERSION_NAME: pr-${{ github.event.pull_request.number }}
+        run: blackduck-cleanup/.github/scripts/blackduck_version_cleanup.sh delete "$VERSION_NAME"
+
   cleanup-pr-caches:
     name: Delete PR caches
     if: ${{ github.event_name == 'pull_request_target' && github.event.action == 'closed' }}
