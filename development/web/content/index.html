@@ -80,13 +80,6 @@
                             aria-expanded="false" aria-pressed="false">
                             <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
                         </button>
-                        <button id="fullscreenOutputsBtn"
-                            class="video-control-button video-outputs-fullscreen-button" type="button"
-                            aria-label="Show outputs in fullscreen"
-                            data-tooltip="Show outputs in fullscreen" aria-pressed="false">
-                            <i id="fullscreenOutputsIcon" class="fa-solid fa-gauge video-gauge-icon--outline"
-                                aria-hidden="true"></i>
-                        </button>
                         <button id="toggleVideoFeedBtn"
                             class="video-control-button video-feed-toggle-button" type="button"
                             aria-label="Hide video feed"
@@ -94,10 +87,17 @@
                             <i id="toggleVideoFeedIcon" class="fa-solid fa-eye-slash"
                                 aria-hidden="true"></i>
                         </button>
-                        <button id="videoFullscreenBtn" class="video-control-button video-fullscreen-button"
-                            type="button" aria-label="Fullscreen video" data-tooltip="Fullscreen">
-                            <i id="videoFullscreenIcon" class="fa-solid fa-up-right-and-down-left-from-center"
+                        <button id="sidebarVisibilityBtn" class="video-control-button video-sidebar-button"
+                            type="button" aria-label="Toggle sidebar" data-tooltip="Toggle sidebar"
+                            aria-pressed="true">
+                            <i class="fa-solid fa-table-columns"
                                 aria-hidden="true"></i>
+                        </button>
+                        <button id="outputsVisibilityBtn"
+                            class="video-control-button video-outputs-button" type="button"
+                            aria-label="Toggle outputs"
+                            data-tooltip="Toggle outputs" aria-pressed="true">
+                            <i class="fa-solid fa-rectangle-list" aria-hidden="true"></i>
                         </button>
                     </div>
                     <div id="clientOsdControlsPanel" class="client-osd-controls-panel" hidden>
@@ -229,8 +229,6 @@
                                 </button>
                             </div>
                             <div id="log" class="log"></div>
-                            <textarea id="debugLogCopyBuffer" class="debug-log-copy-buffer" readonly
-                                aria-label="Debug log copy buffer"></textarea>
                         </div>
                     </div>
                 </div>

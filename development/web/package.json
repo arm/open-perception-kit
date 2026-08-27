@@ -6,7 +6,7 @@
     "build": "node build.mjs generate",
     "check": "node build.mjs check",
     "generate": "node build.mjs generate",
-    "test": "node --test tests/osd-renderer.test.mjs tests/webrtc_client.test.mjs tests/webrtc_config.test.mjs && node test-frame-results.mjs"
+    "test": "node --test tests/copy-utils.test.mjs tests/osd-renderer.test.mjs tests/video-layout.test.mjs tests/webrtc_client.test.mjs tests/webrtc_config.test.mjs && node test-frame-results.mjs"
   },
   "dependencies": {
     "flatbuffers": "25.9.23"

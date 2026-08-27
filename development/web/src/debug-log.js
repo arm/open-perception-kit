@@ -2,7 +2,6 @@ import { copyTextWithFeedback, setCopyButtonAvailable } from './copy-utils.js?v=
 
 const copyButton = document.getElementById('copyDebugLogBtn');
 const logEl = document.getElementById('log');
-const copyBuffer = document.getElementById('debugLogCopyBuffer');
 
 function getLogText() {
     if (!logEl) return '';
@@ -17,8 +16,7 @@ async function copyLog() {
     if (!copyButton) return;
 
     const logText = getLogText();
-    copyBuffer?.classList.remove('is-visible');
-    await copyTextWithFeedback(copyButton, logText, 'Copy', copyBuffer);
+    await copyTextWithFeedback(copyButton, logText, 'Copy');
 }
 
 function updateCopyButtonState() {

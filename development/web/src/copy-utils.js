@@ -1,13 +1,32 @@
 async function writeClipboard(text) {
-    if (!navigator.clipboard?.writeText) {
-        throw new Error('Clipboard API is unavailable');
+    if (navigator.clipboard?.writeText) {
+        try {
+            await navigator.clipboard.writeText(text);
+            return;
+        } catch {
+            // Plain HTTP origins need the document fallback below.
+        }
     }
 
+    const buffer = document.createElement('textarea');
+    buffer.value = text;
+    buffer.readOnly = true;
+    buffer.style.position = 'fixed';
+    buffer.style.opacity = '0';
+    document.body.appendChild(buffer);
+    const activeElement = document.activeElement;
+    let copied = false;
+
     try {
-        await navigator.clipboard.writeText(text);
-    } catch (error) {
-        throw new Error('Clipboard write failed', { cause: error });
+        buffer.focus();
+        buffer.select();
+        copied = document.execCommand('copy');
+    } finally {
+        buffer.remove();
+        activeElement?.focus?.();
     }
+
+    if (!copied) throw new Error('Clipboard write failed');
 }
 
 function setButtonIcon(button, iconName) {
@@ -25,7 +44,7 @@ function setButtonFeedback(button, state, label) {
     setButtonIcon(button, state === 'copied' ? 'check' : 'copy');
 }
 
-export async function copyTextWithFeedback(button, text, emptyText = 'Empty', fallbackBuffer = null) {
+export async function copyTextWithFeedback(button, text, emptyText = 'Empty') {
     if (!button) return;
     if (!String(text || '').trim()) return;
 
@@ -41,16 +60,7 @@ export async function copyTextWithFeedback(button, text, emptyText = 'Empty', fa
         setButtonFeedback(button, text ? 'copied' : 'empty', text ? 'Copied' : emptyText);
     } catch (error) {
         console.debug('Clipboard copy failed', error);
-        if (fallbackBuffer) {
-            fallbackBuffer.value = text;
-            fallbackBuffer.classList.add('is-visible');
-            fallbackBuffer.focus();
-            fallbackBuffer.select();
-            fallbackBuffer.setSelectionRange(0, fallbackBuffer.value.length);
-            setButtonFeedback(button, 'manual-copy', 'Select text to copy');
-        } else {
-            setButtonFeedback(button, 'failed', 'Copy failed');
-        }
+        setButtonFeedback(button, 'failed', 'Copy failed');
     }
 
     button.copyFeedbackTimer = setTimeout(() => {
