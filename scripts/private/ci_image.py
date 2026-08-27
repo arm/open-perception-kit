@@ -88,14 +88,14 @@ def stale_ci_versions_to_delete(
         version_id = version.get("id")
         if not isinstance(version_id, int):
             raise ValueError("Package version id must be an integer.")
-        created_at_value = version.get("created_at")
-        if not isinstance(created_at_value, str):
-            raise ValueError("Package version created_at must be a string.")
-        created_at = datetime.fromisoformat(created_at_value.replace("Z", "+00:00"))
-        if created_at.tzinfo is None:
-            raise ValueError("Package version created_at must include a timezone.")
+        updated_at_value = version.get("updated_at") or version.get("created_at")
+        if not isinstance(updated_at_value, str):
+            raise ValueError("Package version timestamp must be a string.")
+        updated_at = datetime.fromisoformat(updated_at_value.replace("Z", "+00:00"))
+        if updated_at.tzinfo is None:
+            raise ValueError("Package version timestamp must include a timezone.")
         tags = version_tags(version)
-        if created_at < cutoff and (
+        if updated_at < cutoff and (
             not tags or all(CI_IMAGE_TAG_PATTERN.fullmatch(tag) for tag in tags)
         ):
             deletion_ids.append(version_id)

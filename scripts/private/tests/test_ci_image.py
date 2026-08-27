@@ -47,6 +47,7 @@ class CiImageTests(unittest.TestCase):
             {
                 "id": 1,
                 "created_at": "2026-01-01T00:00:00Z",
+                "updated_at": "2026-01-04T00:00:00Z",
                 "metadata": {"container": {"tags": ["pek-ci-run-101"]}},
             },
             {
@@ -74,7 +75,7 @@ class CiImageTests(unittest.TestCase):
         ]
         cutoff = datetime(2026, 1, 3, tzinfo=timezone.utc)
 
-        self.assertEqual(ci_image.stale_ci_versions_to_delete(versions, cutoff), [1, 3, 5])
+        self.assertEqual(ci_image.stale_ci_versions_to_delete(versions, cutoff), [3, 5])
 
 
 if __name__ == "__main__":
