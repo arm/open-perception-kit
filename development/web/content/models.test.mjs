@@ -167,7 +167,6 @@ test("selector renders task and model details from descriptor metadata", () => {
     runtime: "ONNX",
     task: "Object detection",
     providedContentTypes: ["genericObject"],
-    requiredContentTypes: ["imageEmbedding"],
   };
 
   modelsManager.render([model]);
@@ -175,8 +174,6 @@ test("selector renders task and model details from descriptor metadata", () => {
   const item = modelsContainer.children[0];
   const task = item.querySelector(".model-task");
   const details = item.querySelector(".model-details");
-  const providedContentTypes = item.querySelector(".model-provides");
-  const requiredContentTypes = item.querySelector(".model-requires");
   const toggleLabel = item.querySelector("label");
   const toggle = item.querySelector("input");
 
@@ -184,8 +181,7 @@ test("selector renders task and model details from descriptor metadata", () => {
   assert.equal(item.getAttribute("data-model-element-name"), "pekinfer1");
   assert.equal(task.textContent, "Object detection");
   assert.equal(details.textContent, "YOLOv11n (ONNX)");
-  assert.equal(providedContentTypes.textContent, "Provides: genericObject");
-  assert.equal(requiredContentTypes.textContent, "Requires: imageEmbedding");
+  assert.equal(item.querySelector(".model-dependency-info"), null);
   assert.equal(item.querySelector(".model-copy").title, "Object detection - YOLOv11n (ONNX)");
   assert.equal(toggleLabel.getAttribute("aria-label"), "Toggle Object detection - YOLOv11n (ONNX)");
 
@@ -196,6 +192,46 @@ test("selector renders task and model details from descriptor metadata", () => {
     type: "model_toggle",
     name: "pekinfer1",
   });
+});
+
+test("dependent models show their provider networks beside the toggle", () => {
+  modelsManager.render([
+    {
+      active: false,
+      displayName: "L2CS MobileGaze",
+      element_name: "pekinfer2",
+      name: "GazeDetection",
+      requiredContentTypes: ["humanFace"],
+    },
+    {
+      active: false,
+      displayName: "UltraFace",
+      element_name: "pekinfer1",
+      name: "Ultraface",
+      providedContentTypes: ["humanFace"],
+      task: "Face detection",
+    },
+    {
+      active: false,
+      displayName: "YOLOv11n",
+      element_name: "pekinfer0",
+      name: "YoloV11",
+      providedContentTypes: ["genericObject"],
+    },
+  ]);
+
+  const dependentItem = modelsContainer.children.find(
+    (item) => item.getAttribute("data-model-name") === "GazeDetection");
+  const actions = dependentItem.querySelector(".model-actions");
+  const dependencyInfo = actions.querySelector(".model-dependency-info");
+  const dependencyPopup = dependencyInfo.querySelector(".model-dependency-popup");
+
+  assert.equal(dependencyInfo.querySelector(".model-dependency-icon").textContent, "i");
+  assert.equal(dependencyPopup.querySelector(".model-dependency-heading").textContent, "Depends on:");
+  assert.equal(dependencyPopup.querySelector("li").textContent, "Face detection");
+  assert.equal(dependencyInfo.getAttribute("aria-label"), "Depends on: Face detection");
+  assert.equal(actions.children[0], dependencyInfo);
+  assert.equal(actions.children[1].tagName, "LABEL");
 });
 
 test("duplicate descriptor names retain unique element identities", () => {
