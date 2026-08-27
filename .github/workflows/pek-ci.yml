@@ -1163,7 +1163,8 @@ jobs:
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CCACHE_PATH: ${{ github.workspace }}/.cache/ccache-sonar
-      PEK_CI_IMAGE: ${{ needs.build-ci-image.outputs.image_ref }}
+      PEK_CI_IMAGE: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-pek-ci
+      PEK_CI_IMAGE_SOURCE: ${{ needs.build-ci-image.outputs.image_ref }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -1185,8 +1186,10 @@ jobs:
         env:
           CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
         run: |
-          docker pull "$PEK_CI_IMAGE"
-          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$PEK_CI_IMAGE")" = "$CI_IMAGE_SHA"
+          docker pull "$PEK_CI_IMAGE_SOURCE"
+          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$PEK_CI_IMAGE_SOURCE")" = "$CI_IMAGE_SHA"
+          docker tag "$PEK_CI_IMAGE_SOURCE" "$PEK_CI_IMAGE"
+          docker image rm "$PEK_CI_IMAGE_SOURCE" || true
 
       - name: Prepare workspace
         run: |

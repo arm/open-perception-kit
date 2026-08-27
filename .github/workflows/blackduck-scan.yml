@@ -61,7 +61,8 @@ jobs:
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CI_IMAGE_SHA: ${{ inputs.checkout_ref }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-      PEK_CI_IMAGE: ${{ inputs.ci_image_ref }}
+      PEK_CI_IMAGE: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-pek-ci
+      PEK_CI_IMAGE_SOURCE: ${{ inputs.ci_image_ref }}
       WORKSPACE_ROOT: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
       - name: Checkout source
@@ -82,8 +83,10 @@ jobs:
 
       - name: Pull PEK CI image
         run: |
-          docker pull "$PEK_CI_IMAGE"
-          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$PEK_CI_IMAGE")" = "$CI_IMAGE_SHA"
+          docker pull "$PEK_CI_IMAGE_SOURCE"
+          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$PEK_CI_IMAGE_SOURCE")" = "$CI_IMAGE_SHA"
+          docker tag "$PEK_CI_IMAGE_SOURCE" "$PEK_CI_IMAGE"
+          docker image rm "$PEK_CI_IMAGE_SOURCE" || true
 
       - name: Prepare private submodules
         working-directory: ${{ env.WORKSPACE_ROOT }}
@@ -214,7 +217,8 @@ jobs:
       BLACKDUCK_VERSION: ${{ inputs.version_name }}
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CI_IMAGE_SHA: ${{ inputs.checkout_ref }}
-      PEK_CI_IMAGE: ${{ inputs.ci_image_ref }}
+      PEK_CI_IMAGE: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-pek-ci
+      PEK_CI_IMAGE_SOURCE: ${{ inputs.ci_image_ref }}
       SCAN_MODE: ${{ inputs.scan_mode }}
       WORKSPACE_ROOT: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
@@ -238,8 +242,10 @@ jobs:
       - name: Pull PEK CI image
         if: ${{ inputs.scan_mode == 'full' }}
         run: |
-          docker pull "$PEK_CI_IMAGE"
-          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$PEK_CI_IMAGE")" = "$CI_IMAGE_SHA"
+          docker pull "$PEK_CI_IMAGE_SOURCE"
+          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$PEK_CI_IMAGE_SOURCE")" = "$CI_IMAGE_SHA"
+          docker tag "$PEK_CI_IMAGE_SOURCE" "$PEK_CI_IMAGE"
+          docker image rm "$PEK_CI_IMAGE_SOURCE" || true
 
       - name: Prepare private submodules
         working-directory: ${{ env.WORKSPACE_ROOT }}
@@ -394,7 +400,8 @@ jobs:
       BASE_SHA: ${{ inputs.base_sha }}
       BLACKDUCK_VERSION: ${{ inputs.version_name }}
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-      PEK_CI_IMAGE: ${{ inputs.ci_image_ref }}
+      PEK_CI_IMAGE: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-pek-ci
+      PEK_CI_IMAGE_SOURCE: ${{ inputs.ci_image_ref }}
       HEAD_SHA: ${{ inputs.checkout_ref }}
       PR_NUMBER: ${{ inputs.pr_number }}
       SCAN_MODE: ${{ inputs.scan_mode }}
@@ -420,8 +427,10 @@ jobs:
       - name: Pull PEK CI image
         if: ${{ inputs.scan_mode == 'full' }}
         run: |
-          docker pull "$PEK_CI_IMAGE"
-          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$PEK_CI_IMAGE")" = "$HEAD_SHA"
+          docker pull "$PEK_CI_IMAGE_SOURCE"
+          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$PEK_CI_IMAGE_SOURCE")" = "$HEAD_SHA"
+          docker tag "$PEK_CI_IMAGE_SOURCE" "$PEK_CI_IMAGE"
+          docker image rm "$PEK_CI_IMAGE_SOURCE" || true
 
       - name: Prepare private submodules
         if: ${{ inputs.scan_mode == 'full' }}
