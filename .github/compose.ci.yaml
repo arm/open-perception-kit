@@ -212,6 +212,9 @@ services:
           test_expkits_ci_cli \
           test_expkits_ci_e2e \
           test_quality_checks &&
+        PYTHONPATH="/work/tools/plumber:$${PYTHONPATH:-}" \
+          coverage run --append --branch --source=tools/plumber/plumber \
+          -m unittest discover -s tools/plumber/tests -p "test_*.py" &&
         coverage xml -o python-coverage.xml &&
         if [ -n "$$PR_KEY" ] && [ -n "$$PR_BRANCH" ] && [ -n "$$PR_BASE" ]; then
           sonar_scope_args=(
@@ -261,6 +264,9 @@ services:
           test_expkits_ci_cli \
           test_expkits_ci_e2e \
           test_quality_checks &&
+        PYTHONPATH="/work/tools/plumber:$${PYTHONPATH:-}" \
+          coverage run --append --branch --source=tools/plumber/plumber \
+          -m unittest discover -s tools/plumber/tests -p "test_*.py" &&
         coverage xml -o python-coverage.xml &&
         sonar-scanner -Dsonar.qualitygate.wait="$${SONAR_QUALITYGATE_WAIT}" \
           -Dsonar.branch.name="$$SONAR_BRANCH" \
