@@ -1,5 +1,5 @@
 name: PEK CI
-run-name: "${{ inputs.target_branch_head_sha != '' && format('Valgrind baseline {0}@{1}', inputs.target_branch_name, inputs.target_branch_head_sha) || inputs.pr_label != '' && format('PEK CI (head): {0}', inputs.pr_label) || 'PEK CI' }}"
+run-name: "${{ inputs.target_branch_head_sha != '' && format('Valgrind baseline {0}@{1}', inputs.target_branch_name, inputs.target_branch_head_sha) || inputs.pr_label != '' && format('PEK CI (head): {0} {1}', inputs.pr_head_sha, inputs.pr_label) || 'PEK CI' }}"
 
 on:
   workflow_dispatch:
@@ -14,6 +14,7 @@ on:
           - quality
           - sonar
           - valgrind
+          - blackduck
           - label
       pr_number:
         description: Optional PR number to run the PR validation path manually.
@@ -57,6 +58,7 @@ on:
     - cron: "0 2 * * *" # Every day at 2 AM UTC'
   push:
     branches: [main, develop]
+    tags: ["v*"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.inputs.pr_number || format('{0}-{1}-{2}-{3}-{4}', github.event_name, github.ref, github.event.inputs.checks || 'all', github.event.inputs.target_branch_name || 'current', github.event.inputs.target_branch_head_sha || 'current') }}-${{ github.event.inputs.pr_label || (github.event.action == 'labeled' && (!contains(github.event.label.name, 'run-pek-ci') || contains(github.event.pull_request.labels.*.name, 'run-macos-ci')) && github.run_id || 'validation') }}
@@ -91,7 +93,7 @@ jobs:
           else
             test "$CHECKS" = label
             case "$PR_LABEL" in
-              run-macos-ci|run-python-audit|run-docker-scout|run-workflow-audit) ;;
+              run-macos-ci|run-rpi-ci|run-python-audit|run-docker-scout|run-workflow-audit) ;;
               *) exit 1 ;;
             esac
           fi
@@ -529,6 +531,55 @@ jobs:
       DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
       HF_TOKEN: ${{ secrets.HF_TOKEN }} # pragma: allowlist secret
 
+  blackduck:
+    name: Black Duck quality gate
+    needs: build-ci-image
+    if: >-
+      !cancelled() &&
+      needs.build-ci-image.result == 'success' &&
+      (
+        (
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.user.login != 'dependabot[bot]' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          (
+            github.event.action != 'labeled' ||
+            github.event.label.name == 'run-pek-ci'
+          ) &&
+          (
+            github.event.pull_request.draft == false ||
+            (github.event.action == 'labeled' && github.event.label.name == 'run-pek-ci')
+          )
+        ) ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          inputs.pr_label == 'run-pek-ci' &&
+          needs.build-ci-image.outputs.pr_context == 'true'
+        ) ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          inputs.pr_label == '' &&
+          contains(fromJSON('["all","blackduck"]'), inputs.checks)
+        ) ||
+        github.event_name == 'schedule' ||
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
+      )
+    permissions:
+      actions: read
+      contents: read
+    uses: ./.github/workflows/blackduck-scan.yml
+    with:
+      base_sha: ${{ needs.build-ci-image.outputs.base_sha }}
+      checkout_ref: ${{ needs.build-ci-image.outputs.head_sha }}
+      ci_image_sha: ${{ needs.build-ci-image.outputs.head_sha }}
+      pr_number: ${{ needs.build-ci-image.outputs.pr_number }}
+      scan_mode: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.pr_label == '' && contains(fromJSON('["all","blackduck"]'), inputs.checks)) || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))) && 'full' || 'delta' }}
+      version_name: ${{ github.event_name == 'schedule' && 'nightly' || ((github.event_name == 'workflow_dispatch' && inputs.pr_label == '' && contains(fromJSON('["all","blackduck"]'), inputs.checks)) || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))) && github.ref_name || format('pr-{0}', needs.build-ci-image.outputs.pr_number) }}
+    secrets:
+      BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
+      BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }} # pragma: allowlist secret
+      DEPLOY_KEY_FLOWDATA_SDK: ${{ secrets.DEPLOY_KEY_FLOWDATA_SDK }} # pragma: allowlist secret
+
   linux-quick-start-build-test:
     name: Quick-start on Linux
     runs-on: ubuntu-latest
@@ -629,26 +680,31 @@ jobs:
 
   rpi5-quick-start-build-test:
     name: Quick-start and Playwright on Raspberry Pi 5
-    needs: build-ci-image
     runs-on: [self-hosted, Linux, ARM64, amp-dev-forge-runner-rpi5]
     timeout-minutes: 240
     permissions:
       contents: read
       pull-requests: read
-    # Fork PR code must not run on the self-hosted RPI runner. Dependabot PRs only need
-    # host CI; other same-repo PRs run RPI whenever the Linux quick-start build runs.
+    # Fork PR code must not run on the self-hosted RPI runner. PRs use an explicit
+    # run-rpi-ci label to limit SD-card wear; nightly and manual all runs remain automatic.
     if: |
       github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && inputs.checks == 'all') ||
+      (
+        github.event_name == 'workflow_dispatch' &&
+        (
+          (inputs.checks == 'all' && inputs.pr_label == '') ||
+          (inputs.checks == 'label' && inputs.pr_label == 'run-rpi-ci')
+        )
+      ) ||
       (
         github.event_name == 'pull_request' &&
         github.event.pull_request.head.repo.full_name == github.repository &&
         github.event.pull_request.user.login != 'dependabot[bot]' &&
         (
-          (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
+          (github.event.action == 'labeled' && github.event.label.name == 'run-rpi-ci') ||
           (
-            github.event.pull_request.draft == false ||
-            (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
+            contains(fromJSON('["synchronize","reopened"]'), github.event.action) &&
+            contains(github.event.pull_request.labels.*.name, 'run-rpi-ci')
           )
         )
       )
@@ -657,12 +713,37 @@ jobs:
       CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
+      - name: Checkout manual-run helper
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          ref: ${{ github.event.repository.default_branch }}
+          path: ${{ env.CI_CHECKOUT_PATH }}
+          persist-credentials: false
+
+      - name: Resolve manual PR
+        id: manual_pr
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 scripts/private/github_pr_context.py \
+            --pr-number "${{ github.event.inputs.pr_number }}" \
+            --repo "${{ github.repository }}" \
+            --base-ref-override "${{ github.event.inputs.pr_base_ref }}" \
+            --head-ref-override "${{ github.event.inputs.pr_head_ref }}" \
+            --head-sha-override "${{ github.event.inputs.pr_head_sha }}" \
+            --github-output "${GITHUB_OUTPUT}"
+
       - name: Checkout
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
-          ref: ${{ needs.build-ci-image.outputs.head_sha }}
+          ref: ${{ steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.event.pull_request.head.sha || github.sha }}
           path: ${{ env.CI_CHECKOUT_PATH }}
           persist-credentials: false
 
@@ -1284,6 +1365,10 @@ jobs:
     needs:
       - build-ci-image
       - download-valgrind-baseline
+    outputs:
+      head_sha: ${{ needs.build-ci-image.outputs.head_sha }}
+      pr_context: ${{ needs.build-ci-image.outputs.pr_context }}
+      target_branch_name: ${{ needs.build-ci-image.outputs.target_branch_name }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -1440,14 +1525,12 @@ jobs:
 
   publish-valgrind-baseline:
     name: Publish Valgrind baseline
-    needs:
-      - build-ci-image
-      - valgrind
-    if: ${{ !cancelled() && needs.valgrind.result == 'success' && needs.build-ci-image.outputs.pr_context != 'true' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') }}
+    needs: valgrind
+    if: ${{ !cancelled() && needs.valgrind.result == 'success' && needs.valgrind.outputs.pr_context != 'true' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') }}
     runs-on: self-hosted-ubuntu-latest-x64
     environment: artifactory-publishing
     concurrency:
-      group: valgrind-baseline-publish-${{ needs.build-ci-image.outputs.target_branch_name }}
+      group: valgrind-baseline-publish-${{ needs.valgrind.outputs.target_branch_name }}
       cancel-in-progress: false
     permissions:
       actions: read
@@ -1470,70 +1553,8 @@ jobs:
           ARTIFACTORY_TOKEN: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
           ARTIFACTORY_USER: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
           GH_TOKEN: ${{ github.token }}
-          TARGET_BRANCH_NAME: ${{ needs.build-ci-image.outputs.target_branch_name }}
-          TARGET_BRANCH_HEAD_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
+          TARGET_BRANCH_NAME: ${{ needs.valgrind.outputs.target_branch_name }}
+          TARGET_BRANCH_HEAD_SHA: ${{ needs.valgrind.outputs.head_sha }}
         run: |
           python3 scripts/testing/valgrind/valgrind-baseline-artifact.py upload \
             --input valgrind-baseline/valgrind-error-summary.xml
-
-  report-label-result:
-    name: Report PEK CI head result
-    needs:
-      - validate-label-dispatch
-      - build-ci-image
-      - python-dependency-audit
-      - workflow-dependency-freshness
-      - docker-scout
-      - linux-quick-start-build-test
-      - rpi5-quick-start-build-test
-      - macos-nightly-test
-      - quality-checks
-      - sonar
-      - valgrind
-    if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.pr_label != '' }}
-    runs-on: ubuntu-latest
-    permissions:
-      statuses: write
-    steps:
-      - name: Report selected checks on PR head
-        env:
-          GH_TOKEN: ${{ github.token }}
-          HEAD_SHA: ${{ inputs.pr_head_sha }}
-          PR_LABEL: ${{ inputs.pr_label }}
-          VALIDATION_RESULT: ${{ needs.validate-label-dispatch.result }}
-          BUILD_RESULT: ${{ needs.build-ci-image.result }}
-          PYTHON_RESULT: ${{ needs.python-dependency-audit.result }}
-          WORKFLOW_RESULT: ${{ needs.workflow-dependency-freshness.result }}
-          SCOUT_RESULT: ${{ needs.docker-scout.result }}
-          LINUX_RESULT: ${{ needs.linux-quick-start-build-test.result }}
-          RPI_RESULT: ${{ needs.rpi5-quick-start-build-test.result }}
-          MACOS_RESULT: ${{ needs.macos-nightly-test.result }}
-          QUALITY_RESULT: ${{ needs.quality-checks.result }}
-          SONAR_RESULT: ${{ needs.sonar.result }}
-          VALGRIND_RESULT: ${{ needs.valgrind.result }}
-        run: |
-          case "$PR_LABEL" in
-            run-pek-ci) results="$VALIDATION_RESULT $BUILD_RESULT $LINUX_RESULT $RPI_RESULT $QUALITY_RESULT $SONAR_RESULT $VALGRIND_RESULT" ;;
-            run-macos-ci) results="$VALIDATION_RESULT $MACOS_RESULT" ;;
-            run-python-audit) results="$VALIDATION_RESULT $PYTHON_RESULT" ;;
-            run-docker-scout) results="$VALIDATION_RESULT $BUILD_RESULT $SCOUT_RESULT" ;;
-            run-workflow-audit) results="$VALIDATION_RESULT $WORKFLOW_RESULT" ;;
-            *) exit 1 ;;
-          esac
-
-          state=success
-          for result in $results; do
-            if [ "$result" = cancelled ]; then
-              state=error
-            elif [ "$result" != success ] && [ "$state" = success ]; then
-              state=failure
-            fi
-          done
-
-          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          gh api --method POST "repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" \
-            -f state="$state" \
-            -f context="PEK CI (head): ${PR_LABEL}" \
-            -f description="${PR_LABEL} head validation concluded: ${state}" \
-            -f target_url="$run_url"
-          test "$state" = success

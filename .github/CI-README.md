@@ -12,27 +12,45 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 ## What does `.github/workflows/pek-ci.yml` do?
 
 - Builds one exact-SHA PEK CI image, shares it within the workflow run, then runs
-  Quality, Sonar, Valgrind, and the `pek-ci` Docker Scout scan from that image.
+  Quality, Sonar, Valgrind, full Black Duck, and the `pek-ci` Docker Scout scan
+  from that image.
 - Uploads the complete run image handoff as a one-day raw tar artifact, so every
   consumer and the trusted PR GHCR publisher waits for the same image and
   exact-SHA helpers without consuming the Actions cache quota.
 - Reuses Docker layers through the ref-scoped cache flow below.
 - Starts the Linux, Raspberry Pi, and macOS quick-start checks independently.
+  Pull requests run the Raspberry Pi lane only when `run-rpi-ci` is applied;
+  the nightly schedule and manual `all` runs retain Raspberry Pi coverage.
   The macOS lane pulls an exact-SHA quick-start image from GHCR and seeds its
   compiler cache into temporary Colima volumes. It can reuse the newest
   image-compatible ancestor, or the PR-base image when its inputs are unchanged;
   missing images fall back to the local QEMU build. The checkout, job containers,
   and complete Colima VM are removed.
-- Routes `run-python-audit`, `run-docker-scout`, and `run-workflow-audit` PR
-  labels through this workflow so label-triggered checks do not create duplicate
-  PR workflows. Workflow dependency freshness keeps its scheduled and manual
-  entry points in `workflow-audit.yml`.
-- Supports manual `all`, `quality`, `sonar`, and `valgrind` selections.
+- Routes `run-rpi-ci`, `run-python-audit`, `run-docker-scout`, and
+  `run-workflow-audit` PR labels through this workflow so label-triggered checks
+  do not create duplicate PR workflows. Workflow dependency freshness keeps its
+  scheduled and manual entry points in `workflow-audit.yml`.
+- Supports manual `all`, `quality`, `sonar`, `valgrind`, and full `blackduck`
+  selections.
 - Uses each pull request's immediate base branch, including stacked pull requests.
 - Owns the nightly Quality and Valgrind run, the native deployment image
   caches, and the Valgrind baseline artifact.
 - The required PR Sonar check keeps the exact `Run Sonar analysis in Docker`
   name. `release-packages.yml` owns release Sonar analysis.
+- Runs one Black Duck subgraph beside Quality, Sonar, and Valgrind. Every
+  same-repository pull request gets its own `pr-<number>` version, a scan of the
+  release build output produced in the PEK CI image, a Rapid dependency policy
+  check, a base-to-head snippet scan, and one required quality-gate result.
+  Nightly runs and `v*` release tags run the full built-output, dependency, and
+  snippet equivalents against `nightly` or the release tag. Full snippet scans
+  materialize Meson wrap sources first. Release and snapshot publications also
+  policy-scan the exact x86_64 and aarch64 package archives before publication.
+  The release workflow explicitly dispatches the tag scan after publishing
+  because its `GITHUB_TOKEN` tag does not emit a second workflow run.
+  `blackduck-detect.yml` owns the checksum-verified Detect wrapper artifact used
+  by every scan job. Every Detect policy violation fails its lane. Persistent
+  job summaries link to their Black Duck BOM; transient Rapid details remain in
+  the workflow artifact and log.
 - Runs pull request quality checks through `expkits-ci --ci-pr-checks`.
 - Runs full/nightly quality checks through `expkits-ci --ci-full-checks`.
 - Applies CI exceptions from the root-level `ci-suppressions.txt` only in the
@@ -164,6 +182,8 @@ YOLOX with ExecuTorch, requires non-empty output from `pekcomm`, and starts the
 packaged `peksink` web surface. No separate smoke image or Dockerfile is built.
 Push and manual publication jobs cannot start unless both native image builds
 pass.
+Each native archive must also pass its Black Duck policy scan before GitHub
+Release, GHCR index, or Artifactory publication can start.
 The native jobs push the existing `pek-deployment-base` outputs by digest and a
 small merge job publishes those exact amd64 and arm64 digests as
 `ghcr.io/arm-debug/amp-dev-forge-deployment:<tag>` without rebuilding. Stable
@@ -389,11 +409,12 @@ reviewed publisher change is adopted; PEK does not copy or fork the package.
 
 ## Functionalities
 
-- **Triggers:** Runs on pull requests, `main`/`develop` pushes, `release/*`
+- **Triggers:** Runs on pull requests, `main`/`develop` pushes, `v*` release
   tags, manual dispatch, and the nightly schedule.
 - **Branch and PR logic:** Standard checks run on non-draft PRs;
-  `run-pek-ci`, `run-macos-ci`, `run-python-audit`, `run-docker-scout`, and
-  `run-workflow-audit` route their selected work through the same PR workflow.
+  `run-pek-ci`, `run-macos-ci`, `run-rpi-ci`, `run-python-audit`,
+  `run-docker-scout`, and `run-workflow-audit` route their selected work through
+  the same PR workflow.
 - **Context:** The shared-image job resolves the exact source SHA and immediate
   PR base; platform quick-start jobs checkout the event source directly.
 - **Shared image:** Publishes `pek-ci` once and attaches each compatible Docker

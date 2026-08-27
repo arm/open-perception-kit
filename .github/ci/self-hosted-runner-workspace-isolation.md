@@ -44,9 +44,10 @@ behaviour entirely:
 - the self-hosted Sonar job tears down its workflow-scoped Compose
   resources and deletes its isolated checkout directory in an `if: always()`
   cleanup step
-- the self-hosted Black Duck workflow bind-mounts only its isolated checkout
-  directory and removes its workflow-scoped images before deleting that
-  checkout
+- the Black Duck jobs use isolated checkouts on internal runners; the PR snippet
+  lane only reads the exact base-to-head range, while the built-output,
+  dependency, and full-source lanes remove their loaded PEK CI image and
+  workspace after each scan
 
 This ensures that one job does not reuse another job's poisoned checkout path or
 Docker resource names.

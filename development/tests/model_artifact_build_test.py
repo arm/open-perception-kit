@@ -140,19 +140,8 @@ class ModelArtifactBuildTest(unittest.TestCase):
             "          echo \"HF_DOWNLOAD_CACHEBUST=${cache_key}\" "
             ">> \"$GITHUB_ENV\""
         )
-        for name in (
-            ".github/workflows/blackduck-scan.yml",
-            ".github/workflows/docker-scout-image-audit.yml",
-        ):
-            self.assertIn(workflow_step, (REPO_ROOT / name).read_text())
-
-        blackduck = (
-            REPO_ROOT / ".github/workflows/blackduck-scan.yml"
-        ).read_text()
-        self.assertLess(
-            blackduck.index("      - name: Generate Hugging Face download cache key"),
-            blackduck.index("      - name: Discover buildable containers"),
-        )
+        docker_scout = REPO_ROOT / ".github/workflows/docker-scout-image-audit.yml"
+        self.assertIn(workflow_step, docker_scout.read_text())
 
         pek_ci = (REPO_ROOT / ".github/workflows/pek-ci.yml").read_text()
         self.assertIn(
