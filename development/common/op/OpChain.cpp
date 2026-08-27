@@ -14,6 +14,7 @@
 #include "perf/PerformanceMetrics.h"
 
 #include <algorithm>
+#include <span>
 #include <string>
 using namespace pek::op;
 
@@ -36,7 +37,7 @@ const std::string &OpChain::getRuntime() const {
 namespace {
 
 template <typename Interface, typename Getter>
-std::vector<std::string_view> collectContentTypes(const std::vector<pek::op::Op *> &ops,
+std::vector<std::string_view> collectContentTypes(std::span<pek::op::Op *const> ops,
                                                   Getter getter) {
     std::vector<std::string_view> result;
     for (const auto *op : ops) {
@@ -44,8 +45,7 @@ std::vector<std::string_view> collectContentTypes(const std::vector<pek::op::Op 
         if (contentOp == nullptr)
             continue;
         for (const auto contentType : getter(*contentOp)) {
-            if (!contentType.empty() &&
-                std::find(result.begin(), result.end(), contentType) == result.end())
+            if (!contentType.empty() && std::ranges::find(result, contentType) == result.end())
                 result.push_back(contentType);
         }
     }

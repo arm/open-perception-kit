@@ -120,12 +120,12 @@ static void gst_pekinfer_emit_content_requirements(GstPekInfer *self) {
     }
 }
 
-static bool gst_pekinfer_provides_content_type(GstPekInfer *self, std::string_view contentType) {
+static bool gst_pekinfer_provides_content_type(const GstPekInfer *self,
+                                               std::string_view contentType) {
     if (self->m == nullptr)
         return false;
     const auto providedContentTypes = self->m->opChain.getProvidedContentTypes();
-    return std::find(providedContentTypes.begin(), providedContentTypes.end(), contentType) !=
-           providedContentTypes.end();
+    return std::ranges::find(providedContentTypes, contentType) != providedContentTypes.end();
 }
 
 static void gst_pekinfer_push_model_registration(GstPekInfer *self) {
