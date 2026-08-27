@@ -169,5 +169,14 @@ class PrepareDatasetTest(unittest.TestCase):
             self.assertFalse((root / "escape.txt").exists())
 
 
+class DockerRunnerTest(unittest.TestCase):
+    def test_project_root_is_configurable(self) -> None:
+        compose = (ROOT / "docker" / "compose.yaml").read_text()
+        runner = (ROOT / "docker" / "run.sh").read_text()
+        self.assertNotIn("/work", compose + runner)
+        self.assertIn("PEK_PROJECT_ROOT", compose)
+        self.assertIn("PEK_PROJECT_ROOT", runner)
+
+
 if __name__ == "__main__":
     unittest.main()

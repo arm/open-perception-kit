@@ -499,8 +499,7 @@ jobs:
     uses: ./.github/workflows/docker-scout-image-audit.yml
     with:
       ci_image_ref: ${{ needs.build-ci-image.outputs.image_ref }}
-      ci_image_sha: ${{ needs.build-ci-image.outputs.head_sha }}
-      checkout_ref: ${{ inputs.pr_head_sha }}
+      checkout_ref: ${{ needs.build-ci-image.outputs.head_sha }}
     secrets:
       DOCKER_USER: ${{ secrets.DOCKER_USER }}
       DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
@@ -548,7 +547,6 @@ jobs:
       base_sha: ${{ needs.build-ci-image.outputs.base_sha }}
       checkout_ref: ${{ needs.build-ci-image.outputs.head_sha }}
       ci_image_ref: ${{ needs.build-ci-image.outputs.image_ref }}
-      ci_image_sha: ${{ needs.build-ci-image.outputs.head_sha }}
       pr_number: ${{ needs.build-ci-image.outputs.pr_number }}
       scan_mode: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.pr_label == '' && contains(fromJSON('["all","blackduck"]'), inputs.checks)) || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))) && 'full' || 'delta' }}
       version_name: ${{ github.event_name == 'schedule' && 'nightly' || ((github.event_name == 'workflow_dispatch' && inputs.pr_label == '' && contains(fromJSON('["all","blackduck"]'), inputs.checks)) || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))) && github.ref_name || format('pr-{0}', needs.build-ci-image.outputs.pr_number) }}
@@ -578,7 +576,6 @@ jobs:
       )
     env:
       PEK_QUICK_START_CI_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-      PEK_DEV_TARGET: pek-dev-macos-ci
       CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
@@ -662,6 +659,7 @@ jobs:
     timeout-minutes: 240
     permissions:
       contents: read
+      packages: read
       pull-requests: read
     # Fork PR code must not run on the self-hosted RPI runner. PRs use an explicit
     # run-rpi-ci label to limit SD-card wear; nightly and manual all runs remain automatic.
@@ -690,6 +688,7 @@ jobs:
       PEK_QUICK_START_CI_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      PEK_DEV_CACHE_FROM: type=registry,ref=ghcr.io/arm-debug/amp-dev-forge-dev:buildcache
     steps:
       - name: Checkout manual-run helper
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
@@ -732,6 +731,13 @@ jobs:
         run: |
           source .github/scripts/configure_workspace_ssh.sh
           git submodule update --init --recursive
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
 
       - name: Clean stale browser smoke containers
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -933,6 +939,7 @@ jobs:
     runs-on: ubuntu-latest
     if: |
       !cancelled() &&
+      needs.build-ci-image.result == 'success' &&
       (
         github.event_name == 'schedule' ||
         (github.event_name == 'workflow_dispatch' && contains(fromJSON('["all","quality"]'), inputs.checks)) ||
@@ -977,9 +984,7 @@ jobs:
       - name: Pull PEK CI image
         env:
           CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
-          IMAGE_JOB_RESULT: ${{ needs.build-ci-image.result }}
         run: |
-          test "$IMAGE_JOB_RESULT" = success
           docker pull "$PEK_CI_IMAGE"
           test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$PEK_CI_IMAGE")" = "$CI_IMAGE_SHA"
 
@@ -1135,6 +1140,7 @@ jobs:
     runs-on: self-hosted-ubuntu-latest-x64
     if: |
       !cancelled() &&
+      needs.build-ci-image.result == 'success' &&
       (
         (github.event_name == 'push' && github.ref_type == 'branch') ||
         (github.event_name == 'workflow_dispatch' && contains(fromJSON('["all","sonar"]'), inputs.checks)) ||
@@ -1178,9 +1184,7 @@ jobs:
       - name: Pull PEK CI image
         env:
           CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
-          IMAGE_JOB_RESULT: ${{ needs.build-ci-image.result }}
         run: |
-          test "$IMAGE_JOB_RESULT" = success
           docker pull "$PEK_CI_IMAGE"
           test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$PEK_CI_IMAGE")" = "$CI_IMAGE_SHA"
 
@@ -1188,12 +1192,6 @@ jobs:
         run: |
           echo "WORKSPACE_ROOT=${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}" >> "$GITHUB_ENV"
           install -d -m 0777 "$CCACHE_PATH"
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v4
-        with:
-          username: ${{ secrets.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
 
       - name: Prepare private submodules
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -1408,9 +1406,7 @@ jobs:
         env:
           BACKFILL_SHA: ${{ github.event.inputs.target_branch_head_sha }}
           CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
-          IMAGE_JOB_RESULT: ${{ needs.build-ci-image.result }}
         run: |
-          test "$IMAGE_JOB_RESULT" = success
           tools_root="${GITHUB_WORKSPACE}/valgrind-source"
           if [ -n "$BACKFILL_SHA" ]; then
             tools_root="${GITHUB_WORKSPACE}/.cache/workflow-helpers"

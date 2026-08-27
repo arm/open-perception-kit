@@ -406,8 +406,9 @@ jobs:
             --user "$(id -u):$(id -g)" \
             --env BUILD_ID \
             --env HOME=/tmp \
-            --volume "$PWD:/work" \
-            --workdir /work \
+            --env PEK_PROJECT_ROOT="$PWD" \
+            --volume "$PWD:$PWD" \
+            --workdir "$PWD" \
             "$DOCS_IMAGE" \
             bash -euxc '
               scripts/gen-doc.sh

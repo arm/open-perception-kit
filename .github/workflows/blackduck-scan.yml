@@ -16,10 +16,6 @@ on:
         description: Run-tagged PEK CI image from the caller run.
         required: true
         type: string
-      ci_image_sha:
-        description: Exact PEK CI image SHA from the caller run.
-        required: true
-        type: string
       pr_number:
         description: Pull request number for delta scans.
         required: false
@@ -63,7 +59,7 @@ jobs:
       CCACHE_SCHEMA_VERSION: v2
       CCACHE_PATH: ${{ github.workspace }}/.cache/ccache-blackduck-built
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-      CI_IMAGE_SHA: ${{ inputs.ci_image_sha }}
+      CI_IMAGE_SHA: ${{ inputs.checkout_ref }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       PEK_CI_IMAGE: ${{ inputs.ci_image_ref }}
       WORKSPACE_ROOT: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
@@ -216,8 +212,7 @@ jobs:
     env:
       BLACKDUCK_VERSION: ${{ inputs.version_name }}
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-      CI_IMAGE_SHA: ${{ inputs.ci_image_sha }}
-      COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      CI_IMAGE_SHA: ${{ inputs.checkout_ref }}
       PEK_CI_IMAGE: ${{ inputs.ci_image_ref }}
       SCAN_MODE: ${{ inputs.scan_mode }}
       WORKSPACE_ROOT: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
@@ -314,11 +309,12 @@ jobs:
             --env BLACKDUCK_TOKEN \
             --env BLACKDUCK_URL \
             --env HOME=/tmp/blackduck-home \
+            --env PEK_PROJECT_ROOT="$WORKSPACE_ROOT" \
             --env PROJECT_NAME="$project_name" \
             --env VERSION_NAME="$version_name" \
-            --volume "$WORKSPACE_ROOT:/work:ro" \
+            --volume "$WORKSPACE_ROOT:$WORKSPACE_ROOT:ro" \
             --volume "$scanner_dir:/blackduck" \
-            --workdir /work \
+            --workdir "$WORKSPACE_ROOT" \
             --entrypoint bash \
             "$PEK_CI_IMAGE" -c '
               set -euo pipefail
@@ -333,7 +329,7 @@ jobs:
                 --detect.detector.search.depth=5
                 --detect.output.path=/blackduck/output
                 --detect.python.path=/usr/bin/python3
-                --detect.source.path=/work
+                "--detect.source.path=${PEK_PROJECT_ROOT}"
                 --detect.timeout=1800
                 --detect.tools=DETECTOR
                 --logging.level.detect=INFO
@@ -394,8 +390,6 @@ jobs:
       BASE_SHA: ${{ inputs.base_sha }}
       BLACKDUCK_VERSION: ${{ inputs.version_name }}
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-      CI_IMAGE_SHA: ${{ inputs.ci_image_sha }}
-      COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       PEK_CI_IMAGE: ${{ inputs.ci_image_ref }}
       HEAD_SHA: ${{ inputs.checkout_ref }}
       PR_NUMBER: ${{ inputs.pr_number }}
@@ -423,7 +417,7 @@ jobs:
         if: ${{ inputs.scan_mode == 'full' }}
         run: |
           docker pull "$PEK_CI_IMAGE"
-          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$PEK_CI_IMAGE")" = "$CI_IMAGE_SHA"
+          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$PEK_CI_IMAGE")" = "$HEAD_SHA"
 
       - name: Prepare private submodules
         if: ${{ inputs.scan_mode == 'full' }}
@@ -440,13 +434,14 @@ jobs:
           docker run --rm \
             --user "$(id -u):$(id -g)" \
             --env HOME=/tmp/blackduck-home \
-            --volume "$WORKSPACE_ROOT:/work" \
-            --workdir /work \
+            --env PEK_PROJECT_ROOT="$WORKSPACE_ROOT" \
+            --volume "$WORKSPACE_ROOT:$WORKSPACE_ROOT" \
+            --workdir "$WORKSPACE_ROOT" \
             --entrypoint bash \
             "$PEK_CI_IMAGE" -c '
               set -euo pipefail
-              meson subprojects download --sourcedir /work/development
-              meson setup /tmp/blackduck-meson /work/development \
+              meson subprojects download --sourcedir "${PEK_PROJECT_ROOT}/development"
+              meson setup /tmp/blackduck-meson "${PEK_PROJECT_ROOT}/development" \
                 --buildtype=debug --layout=flat --wrap-mode=forcefallback -Dtests=false
             '
 
@@ -517,11 +512,12 @@ jobs:
             --env BLACKDUCK_TOKEN \
             --env BLACKDUCK_URL \
             --env HOME=/tmp/blackduck-home \
+            --env PEK_PROJECT_ROOT="$WORKSPACE_ROOT" \
             --env PROJECT_NAME="$project_name" \
             --env VERSION_NAME="$version_name" \
-            --volume "$WORKSPACE_ROOT:/work:ro" \
+            --volume "$WORKSPACE_ROOT:$WORKSPACE_ROOT:ro" \
             --volume "$scanner_dir:/blackduck" \
-            --workdir /work \
+            --workdir "$WORKSPACE_ROOT" \
             --entrypoint bash \
             "$PEK_CI_IMAGE" -c '
               set -euo pipefail
@@ -537,7 +533,7 @@ jobs:
                 --detect.excluded.directories=.git,.cache,.github/workflows,development/build,node_modules \
                 --detect.output.path=/blackduck/output \
                 --detect.policy.check.fail.on.severities=ALL \
-                --detect.source.path=/work \
+                "--detect.source.path=${PEK_PROJECT_ROOT}" \
                 --detect.timeout=1800 \
                 --detect.tools=SIGNATURE_SCAN \
                 --logging.level.detect=INFO

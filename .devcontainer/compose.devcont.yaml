@@ -22,7 +22,7 @@ services:
     command: sleep infinity
     build:
       network: ${BUILD_NETWORK_MODE:-default}
-      target: ${PEK_DEV_TARGET:-pek-dev}
+      target: pek-dev
       args:
         USER_UID: ${HOST_UID:-1000}
         USER_GID: ${HOST_GID:-1000}

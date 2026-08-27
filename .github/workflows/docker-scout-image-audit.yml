@@ -8,11 +8,6 @@ on:
         required: false
         default: ""
         type: string
-      ci_image_sha:
-        description: Exact source SHA of a prepared PEK CI image.
-        required: false
-        default: ""
-        type: string
       checkout_ref:
         description: Optional exact source ref for a caller-managed PR run.
         required: false
@@ -98,7 +93,7 @@ jobs:
           path: ${{ env.CI_CHECKOUT_PATH }}
 
       - name: Log in to GitHub Container Registry
-        if: matrix.image.service == 'pek-ci' && inputs.ci_image_sha != ''
+        if: matrix.image.service == 'pek-ci' && inputs.ci_image_ref != ''
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -106,24 +101,12 @@ jobs:
           password: ${{ github.token }}
 
       - name: Pull PEK CI image
-        if: matrix.image.service == 'pek-ci' && inputs.ci_image_sha != ''
+        if: matrix.image.service == 'pek-ci' && inputs.ci_image_ref != ''
         env:
-          CI_IMAGE_SHA: ${{ inputs.ci_image_sha }}
+          CI_IMAGE_SHA: ${{ inputs.checkout_ref }}
         run: |
           docker pull "$PEK_CI_IMAGE"
           test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$PEK_CI_IMAGE")" = "$CI_IMAGE_SHA"
-
-      - name: Validate Docker Scout credentials
-        id: validate-docker-credentials
-        env:
-          DOCKER_USER: ${{ secrets.DOCKER_USER }}
-          DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
-        run: |
-          set -euo pipefail
-          if [ -z "${DOCKER_USER}" ] || [ -z "${DOCKER_TOKEN}" ]; then
-            echo "DOCKER_USER and DOCKER_TOKEN are required for Docker Scout image audits." >&2
-            exit 1
-          fi
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
@@ -139,7 +122,7 @@ jobs:
           echo "HF_DOWNLOAD_CACHEBUST=${cache_key}" >> "$GITHUB_ENV"
 
       - name: Build docker image
-        if: matrix.image.service != 'pek-ci' || inputs.ci_image_sha == ''
+        if: matrix.image.service != 'pek-ci' || inputs.ci_image_ref == ''
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
           HF_TOKEN: ${{ contains(fromJSON('["pek-deployment-base","pek-dev"]'), matrix.image.service) && secrets.HF_TOKEN || '' }}
@@ -233,7 +216,6 @@ jobs:
           cat <<EOF > ".github/artifacts/docker-scout/${{ matrix.image.service }}/report.txt"
           service=${{ matrix.image.service }}
           image_ref=${{ steps.resolve-image.outputs.image_ref }}
-          credentials_available=${{ steps.validate-docker-credentials.outcome == 'success' }}
           scout_outcome=${{ steps.docker-scout.outcome }}
           scout_summary=github-job-summary
           sbom_file=image.spdx.json
@@ -254,7 +236,7 @@ jobs:
       - name: Clean Docker Scout workspace and image
         if: always()
         env:
-          REUSED_CI_IMAGE: ${{ matrix.image.service == 'pek-ci' && inputs.ci_image_sha != '' }}
+          REUSED_CI_IMAGE: ${{ matrix.image.service == 'pek-ci' && inputs.ci_image_ref != '' }}
         run: |
           set +e
           checkout_path="${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}"

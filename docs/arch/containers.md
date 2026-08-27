@@ -33,7 +33,9 @@ Development tooling lane
   pek-build-base
     -> pek-dev-base
        -> pek-dev-tools
-       -> pek-dev
+          -> pek-dev
+             -> pek-dev-macos-cache-build
+             -> pek-dev-macos-ci
   pek-models
     --copy model artifacts--> pek-dev
   pek-demo-media
@@ -78,6 +80,11 @@ top-level Dockerfiles because they do not share the core Debian build graph.
 The CI service mapping uses these image lanes without creating new image
 contracts for each job. The nightly PEK CI schedule publishes native amd64 and
 arm64 `pek-deployment-base` images and their full BuildKit registry caches.
+The native Arm64 publisher also publishes an exact-SHA `pek-dev-macos-ci`
+development image and its full registry cache. macOS and YOLO use the exact
+image when it exists and rebuild from that cache otherwise. Raspberry Pi
+quick-start imports the same cache while rebuilding the camera-enabled
+`pek-dev` target.
 `pek-release-with-ut`, `pek-valgrind-check`,
 `pek-generate-valgrind-summary`, `pek-quality-check-full`, `pek-sonar-check`,
 `pek-sonar-check-release`, `pek-quality-check-pull-request`, and
@@ -237,12 +244,13 @@ stages inherit everything from their parent unless noted otherwise.
 - `pek-playwright-pages`: starts from `python:3.13-slim-trixie` and adds
   `ca-certificates`, GitHub CLI `gh`, and `git`.
 
-Quick-start builds mount a compiler cache at `/work/.cache/ccache`. The native
-Arm64 publisher prewarms this cache in the macOS CI image. The container
-entrypoint maps the runner's UID/GID at runtime and copies the seed into
-temporary, project-scoped compiler-cache and build-output volumes. macOS CI then
-deletes Colima. Publisher build layers are reused through the current GHCR
-`buildcache` tag; only the newest 20 exact-SHA images are kept.
+Quick-start builds mount a compiler cache at `$PEK_PROJECT_ROOT/.cache/ccache`. The native
+Arm64 publisher prewarms this cache in the exact-SHA development image. The
+container entrypoint maps the runner's UID/GID at runtime and copies the seed
+into temporary, project-scoped compiler-cache and build-output volumes. macOS
+CI then deletes Colima. YOLO keeps its compiler cache in the existing benchmark
+volume. Publisher, Raspberry Pi, and YOLO build layers are reused through the
+current GHCR `buildcache` tag; only the newest 20 exact-SHA images are kept.
 
 ## Image Lanes
 

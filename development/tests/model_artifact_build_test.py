@@ -80,9 +80,12 @@ class ModelArtifactBuildTest(unittest.TestCase):
             dockerfile,
         )
         self.assertIn(
-            'cp -R --no-clobber "${artifacts_root}/config/models/." '
-            "/work/config/models/",
+            '"${PEK_PROJECT_ROOT}/config/models/"',
             entrypoint,
+        )
+        self.assertNotIn("/work", entrypoint)
+        self.assertNotIn(
+            "/work", (REPO_ROOT / ".devcontainer/setup.sh").read_text()
         )
 
     def test_model_download_cache_bust_is_consumed(self) -> None:
