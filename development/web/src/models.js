@@ -153,9 +153,10 @@ class ModelsManager {
             dependencyInfo.setAttribute('tabindex', '0');
             dependencyInfo.setAttribute('aria-label', `Depends on: ${accessibleProviders}`);
 
-            const dependencyIcon = document.createElement('div');
+            const dependencyIcon = document.createElement('img');
             dependencyIcon.className = 'model-dependency-icon';
-            dependencyIcon.textContent = 'i';
+            dependencyIcon.setAttribute('src', '/assets/information.svg');
+            dependencyIcon.setAttribute('alt', '');
             dependencyIcon.setAttribute('aria-hidden', 'true');
 
             const dependencyPopup = document.createElement('div');
