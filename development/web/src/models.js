@@ -36,6 +36,10 @@ function readableText(value) {
     return String(value ?? '').trim();
 }
 
+function contentTypes(value) {
+    return Array.isArray(value) ? value.map(readableText).filter(Boolean) : [];
+}
+
 function resolveModelPresentation(model) {
     const rawName = readableText(model.name) || 'Unknown model';
     const displayName = readableText(model.displayName) || rawName;
@@ -71,6 +75,8 @@ class ModelsManager {
             displayName: model.displayName || '',
             task: model.task || '',
             runtime: model.runtime || '',
+            providedContentTypes: contentTypes(model.providedContentTypes),
+            requiredContentTypes: contentTypes(model.requiredContentTypes),
         })));
         if (nextSignature === this._lastModelsSignature) {
             return;
@@ -119,6 +125,19 @@ class ModelsManager {
             modelDetails.className = 'model-details';
             modelDetails.textContent = presentation.secondaryLabel;
             modelCopy.appendChild(modelDetails);
+        }
+
+        const providedContentTypes = contentTypes(model.providedContentTypes);
+        const requiredContentTypes = contentTypes(model.requiredContentTypes);
+        for (const [label, className, types] of [
+            ['Provides', 'model-provides', providedContentTypes],
+            ['Requires', 'model-requires', requiredContentTypes],
+        ]) {
+            if (types.length === 0) continue;
+            const contentTypeDetails = document.createElement('div');
+            contentTypeDetails.className = `model-content-types ${className}`;
+            contentTypeDetails.textContent = `${label}: ${types.join(', ')}`;
+            modelCopy.appendChild(contentTypeDetails);
         }
         modelInfo.appendChild(modelCopy);
 

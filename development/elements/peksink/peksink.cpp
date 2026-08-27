@@ -16,6 +16,7 @@ g++ -fPIC -shared -o libgstpeksink.so peksink.cpp \
 #define GST_USE_UNSTABLE_API
 
 #include "Log.h"
+#include "gst/ModelRegistrationEvent.h"
 #include "http_server.h"
 #include "peksink.h"
 #include "utils.h"
@@ -37,6 +38,8 @@ g++ -fPIC -shared -o libgstpeksink.so peksink.cpp \
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <string_view>
+#include <vector>
 
 #ifndef PACKAGE
 #define PACKAGE "peksink"
@@ -330,20 +333,50 @@ static void gst_pek_sink_stop_pipeline_async(GstElement *element, gpointer user_
 }
 
 /* ===== Event handling ===== */
+static std::vector<std::string> gst_pek_sink_get_content_types(const GstStructure *structure,
+                                                               std::string_view field) {
+    std::vector<std::string> result;
+    const GValue *values = gst_structure_get_value(structure, field.data());
+    if (values == nullptr || !GST_VALUE_HOLDS_LIST(values))
+        return result;
+
+    const guint size = gst_value_list_get_size(values);
+    result.reserve(size);
+    for (guint i = 0; i < size; ++i) {
+        const GValue *value = gst_value_list_get_value(values, i);
+        if (G_VALUE_HOLDS_STRING(value)) {
+            const gchar *content_type = g_value_get_string(value);
+            if (content_type != nullptr)
+                result.emplace_back(content_type);
+        }
+    }
+    return result;
+}
+
 static gboolean gst_pek_sink_sink_event(GstPad *pad, GstObject *parent, GstEvent *event) {
     auto *self = reinterpret_cast<GstPekSink *>(parent);
 
     if (GST_EVENT_TYPE(event) == GST_EVENT_CUSTOM_DOWNSTREAM) {
         const GstStructure *structure = gst_event_get_structure(event);
 
-        if (gst_structure_has_name(structure, "pek-model-register")) {
-            const gchar *model_name = gst_structure_get_string(structure, "model-name");
-            const gchar *element_name = gst_structure_get_string(structure, "element-name");
-            const gchar *display_name = gst_structure_get_string(structure, "display-name");
-            const gchar *task = gst_structure_get_string(structure, "task");
-            const gchar *runtime = gst_structure_get_string(structure, "runtime");
+        if (gst_structure_has_name(structure, pek::model_registration_event::k_name.data())) {
+            const gchar *model_name = gst_structure_get_string(
+                structure, pek::model_registration_event::k_model_name_field.data());
+            const gchar *element_name = gst_structure_get_string(
+                structure, pek::model_registration_event::k_element_name_field.data());
+            const gchar *display_name = gst_structure_get_string(
+                structure, pek::model_registration_event::k_display_name_field.data());
+            const gchar *task = gst_structure_get_string(
+                structure, pek::model_registration_event::k_task_field.data());
+            const gchar *runtime = gst_structure_get_string(
+                structure, pek::model_registration_event::k_runtime_field.data());
+            const auto provided_content_types = gst_pek_sink_get_content_types(
+                structure, pek::model_registration_event::k_provided_content_types_field);
+            const auto required_content_types = gst_pek_sink_get_content_types(
+                structure, pek::model_registration_event::k_required_content_types_field);
             gboolean active = FALSE;
-            gst_structure_get_boolean(structure, "active", &active);
+            gst_structure_get_boolean(
+                structure, pek::model_registration_event::k_active_field.data(), &active);
 
             if (model_name && element_name) {
                 self->private_data->model_registry->add_model(model_name,
@@ -351,7 +384,9 @@ static gboolean gst_pek_sink_sink_event(GstPad *pad, GstObject *parent, GstEvent
                                                               active,
                                                               display_name ? display_name : "",
                                                               task ? task : "",
-                                                              runtime ? runtime : "");
+                                                              runtime ? runtime : "",
+                                                              provided_content_types,
+                                                              required_content_types);
             }
 
             // Consume the event (don't pass it further)

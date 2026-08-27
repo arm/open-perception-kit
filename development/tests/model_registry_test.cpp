@@ -11,7 +11,14 @@
 
 TEST(ModelRegistry, ReportsOptionalDisplayMetadata) {
     ModelRegistry registry;
-    registry.add_model("YoloV11", "pekinfer0", true, "YOLOv11n", "Object detection", "ONNX");
+    registry.add_model("YoloV11",
+                       "pekinfer0",
+                       true,
+                       "YOLOv11n",
+                       "Object detection",
+                       "ONNX",
+                       {"genericObject"},
+                       {"imageEmbedding"});
 
     const auto report = registry.report();
 
@@ -22,6 +29,8 @@ TEST(ModelRegistry, ReportsOptionalDisplayMetadata) {
     EXPECT_EQ(report[0].at("displayName"), "YOLOv11n");
     EXPECT_EQ(report[0].at("task"), "Object detection");
     EXPECT_EQ(report[0].at("runtime"), "ONNX");
+    EXPECT_EQ(report[0].at("providedContentTypes"), nlohmann::json::array({"genericObject"}));
+    EXPECT_EQ(report[0].at("requiredContentTypes"), nlohmann::json::array({"imageEmbedding"}));
 }
 
 TEST(ModelRegistry, OmitsAbsentDisplayMetadata) {
@@ -37,6 +46,8 @@ TEST(ModelRegistry, OmitsAbsentDisplayMetadata) {
     EXPECT_FALSE(report[0].contains("displayName"));
     EXPECT_FALSE(report[0].contains("task"));
     EXPECT_FALSE(report[0].contains("runtime"));
+    EXPECT_EQ(report[0].at("providedContentTypes"), nlohmann::json::array());
+    EXPECT_EQ(report[0].at("requiredContentTypes"), nlohmann::json::array());
 }
 
 TEST(ModelRegistry, KeepsRuntimeMetadataForDuplicateInternalNames) {

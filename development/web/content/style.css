@@ -1549,6 +1549,15 @@ body.is-resizing-bottom-column * {
   text-overflow: ellipsis;
 }
 
+.model-content-types {
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .models-empty {
   padding: 16px;
   text-align: center;

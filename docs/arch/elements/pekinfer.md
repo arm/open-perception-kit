@@ -28,8 +28,9 @@ detected but rejected until explicit zero-copy support is added.
 
 On `start()`, the element allocates internal state and loads the OpChain from
 JSON regardless of `active`. Setup failure prevents the element from starting.
-After successful setup, it emits a downstream `pek-model-register` event with
-model name, element name, and active state.
+After successful setup and whenever `active` changes, it emits a downstream
+`pek-model-register` event with model identity, active state, and the OpChain's
+declared required and provided content types.
 
 On `set_caps()`, it validates the supported raw video caps and stores frame dimensions.
 

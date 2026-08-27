@@ -9,6 +9,7 @@
 #include <mutex>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "status_reporter.h"
 
@@ -19,6 +20,8 @@ struct ModelStatus {
     std::string display_name;
     std::string task;
     std::string runtime;
+    std::vector<std::string> provided_content_types;
+    std::vector<std::string> required_content_types;
 };
 
 class ModelRegistry : public StatusReporter {
@@ -31,7 +34,9 @@ class ModelRegistry : public StatusReporter {
                    bool active,
                    std::string_view display_name = "",
                    std::string_view task = "",
-                   std::string_view runtime = "");
+                   std::string_view runtime = "",
+                   const std::vector<std::string> &provided_content_types = {},
+                   const std::vector<std::string> &required_content_types = {});
     void del_model(const std::string &element_name);
 
     nlohmann::json report() const override;

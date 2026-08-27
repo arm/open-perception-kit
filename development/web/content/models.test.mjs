@@ -166,6 +166,8 @@ test("selector renders task and model details from descriptor metadata", () => {
     name: "YoloV11",
     runtime: "ONNX",
     task: "Object detection",
+    providedContentTypes: ["genericObject"],
+    requiredContentTypes: ["imageEmbedding"],
   };
 
   modelsManager.render([model]);
@@ -173,6 +175,8 @@ test("selector renders task and model details from descriptor metadata", () => {
   const item = modelsContainer.children[0];
   const task = item.querySelector(".model-task");
   const details = item.querySelector(".model-details");
+  const providedContentTypes = item.querySelector(".model-provides");
+  const requiredContentTypes = item.querySelector(".model-requires");
   const toggleLabel = item.querySelector("label");
   const toggle = item.querySelector("input");
 
@@ -180,6 +184,8 @@ test("selector renders task and model details from descriptor metadata", () => {
   assert.equal(item.getAttribute("data-model-element-name"), "pekinfer1");
   assert.equal(task.textContent, "Object detection");
   assert.equal(details.textContent, "YOLOv11n (ONNX)");
+  assert.equal(providedContentTypes.textContent, "Provides: genericObject");
+  assert.equal(requiredContentTypes.textContent, "Requires: imageEmbedding");
   assert.equal(item.querySelector(".model-copy").title, "Object detection - YOLOv11n (ONNX)");
   assert.equal(toggleLabel.getAttribute("aria-label"), "Toggle Object detection - YOLOv11n (ONNX)");
 

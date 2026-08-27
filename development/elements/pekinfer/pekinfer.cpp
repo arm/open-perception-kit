@@ -12,6 +12,7 @@
 #include <memory>
 #include <string_view>
 #include <variant>
+#include <vector>
 
 #include "glib-object.h"
 #include "glib.h"
@@ -25,6 +26,7 @@
 
 #include "gst/ContentRequirementEvent.h"
 #include "gst/FrameResultsMeta.h"
+#include "gst/ModelRegistrationEvent.h"
 #include "mediaio/GstVideoFrame.h"
 #include "perf/PerformanceTracer.h"
 
@@ -135,6 +137,23 @@ static void gst_pekinfer_activate_for_content_requirement(GstPekInfer *self) {
         g_object_set(self, "active", TRUE, nullptr);
 }
 
+static void gst_pekinfer_set_content_types(GstStructure *structure,
+                                            std::string_view field,
+                                            const std::vector<std::string_view> &contentTypes) {
+    GValue values = G_VALUE_INIT;
+    g_value_init(&values, GST_TYPE_LIST);
+    for (const auto contentType : contentTypes) {
+        GValue value = G_VALUE_INIT;
+        g_value_init(&value, G_TYPE_STRING);
+        const std::string contentTypeString(contentType);
+        g_value_set_string(&value, contentTypeString.c_str());
+        gst_value_list_append_value(&values, &value);
+        g_value_unset(&value);
+    }
+    gst_structure_set_value(structure, field.data(), &values);
+    g_value_unset(&values);
+}
+
 static void gst_pekinfer_push_model_registration(GstPekInfer *self) {
     if (self->m == nullptr)
         return;
@@ -143,32 +162,45 @@ static void gst_pekinfer_push_model_registration(GstPekInfer *self) {
     if (srcpad == nullptr)
         return;
 
-    GstStructure *structure = gst_structure_new("pek-model-register",
-                                                "model-name",
-                                                G_TYPE_STRING,
-                                                self->m->opChain.getName().c_str(),
-                                                "element-name",
-                                                G_TYPE_STRING,
-                                                GST_OBJECT_NAME(self),
-                                                "active",
-                                                G_TYPE_BOOLEAN,
-                                                gst_pekinfer_is_active(self),
-                                                nullptr);
+    GstStructure *structure =
+        gst_structure_new(pek::model_registration_event::k_name.data(),
+                          pek::model_registration_event::k_model_name_field.data(),
+                          G_TYPE_STRING,
+                          self->m->opChain.getName().c_str(),
+                          pek::model_registration_event::k_element_name_field.data(),
+                          G_TYPE_STRING,
+                          GST_OBJECT_NAME(self),
+                          pek::model_registration_event::k_active_field.data(),
+                          G_TYPE_BOOLEAN,
+                          gst_pekinfer_is_active(self),
+                          nullptr);
     if (!self->m->opChain.getDisplayName().empty()) {
         gst_structure_set(structure,
-                          "display-name",
+                          pek::model_registration_event::k_display_name_field.data(),
                           G_TYPE_STRING,
                           self->m->opChain.getDisplayName().c_str(),
                           nullptr);
     }
     if (!self->m->opChain.getTask().empty()) {
-        gst_structure_set(
-            structure, "task", G_TYPE_STRING, self->m->opChain.getTask().c_str(), nullptr);
+        gst_structure_set(structure,
+                          pek::model_registration_event::k_task_field.data(),
+                          G_TYPE_STRING,
+                          self->m->opChain.getTask().c_str(),
+                          nullptr);
     }
     if (!self->m->opChain.getRuntime().empty()) {
-        gst_structure_set(
-            structure, "runtime", G_TYPE_STRING, self->m->opChain.getRuntime().c_str(), nullptr);
+        gst_structure_set(structure,
+                          pek::model_registration_event::k_runtime_field.data(),
+                          G_TYPE_STRING,
+                          self->m->opChain.getRuntime().c_str(),
+                          nullptr);
     }
+    gst_pekinfer_set_content_types(structure,
+                                   pek::model_registration_event::k_provided_content_types_field,
+                                   self->m->opChain.getProvidedContentTypes());
+    gst_pekinfer_set_content_types(structure,
+                                   pek::model_registration_event::k_required_content_types_field,
+                                   self->m->opChain.getRequiredContentTypes());
     gst_pad_push_event(srcpad, gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM, structure));
     gst_object_unref(srcpad);
 }

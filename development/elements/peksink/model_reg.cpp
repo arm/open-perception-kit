@@ -13,7 +13,9 @@ void ModelRegistry::add_model(const std::string &model_name,
                               bool active,
                               std::string_view display_name,
                               std::string_view task,
-                              std::string_view runtime) {
+                              std::string_view runtime,
+                              const std::vector<std::string> &provided_content_types,
+                              const std::vector<std::string> &required_content_types) {
 
     {
         ModelStatus status;
@@ -23,6 +25,8 @@ void ModelRegistry::add_model(const std::string &model_name,
         status.display_name = display_name;
         status.task = task;
         status.runtime = runtime;
+        status.provided_content_types = provided_content_types;
+        status.required_content_types = required_content_types;
         std::lock_guard<std::mutex> lock(model_registry_mutex);
         model_registry[element_name] = status;
     }
@@ -63,6 +67,8 @@ nlohmann::json ModelRegistry::report() const {
             {"name", status.name},
             {"active", status.active},
             {"element_name", status.element_name},
+            {"providedContentTypes", status.provided_content_types},
+            {"requiredContentTypes", status.required_content_types},
         });
         if (!status.display_name.empty())
             model["displayName"] = status.display_name;
