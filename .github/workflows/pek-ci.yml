@@ -1372,6 +1372,7 @@ jobs:
       packages: read
     env:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
+      COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CCACHE_PATH: ${{ github.workspace }}/.cache/ccache
       PEK_CI_IMAGE: ${{ needs.build-ci-image.outputs.image_ref }}
     steps:
@@ -1416,6 +1417,10 @@ jobs:
           echo "CI_IMAGE_TOOLS=${tools_root}/scripts/testing/valgrind" >> "$GITHUB_ENV"
           docker pull "$PEK_CI_IMAGE"
           test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$PEK_CI_IMAGE")" = "$CI_IMAGE_SHA"
+          if [ -n "$BACKFILL_SHA" ]; then
+            docker tag "$PEK_CI_IMAGE" "${COMPOSE_PROJECT_NAME}-pek-valgrind-check"
+            docker tag "$PEK_CI_IMAGE" "${COMPOSE_PROJECT_NAME}-pek-generate-valgrind-summary"
+          fi
 
       - name: Prepare compiler cache
         working-directory: ${{ github.workspace }}
