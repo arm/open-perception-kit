@@ -27,8 +27,20 @@ clean builds, verbose output, third-party suppression control, and generated
 suppression candidates. Run `--help` for the current option set.
 
 Current CI runs Valgrind nightly, uploads raw logs as artifacts, and publishes
-the collected baseline record count. These checks are not yet a hard quality
-gate because existing issues still need to be addressed.
+the collected baseline record count. Successful `main` and `develop` summaries
+are stored as one current reference per branch at
+`https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci/ci/valgrind-baselines/<branch>/valgrind-error-summary.xml`.
+Pull-request jobs resolve the current target-branch head when validation starts
+and accept the reference only when its recorded newest reference SHA matches
+that head. Downloads and publication use the existing
+`PEK_ARTIFACTORY_USERNAME` and `PEK_ARTIFACTORY_API_KEY` secrets. If the
+reference is missing, invalid, or outdated, the trusted baseline
+workflow schedules a backfill and the job waits for publication. Publishing a
+new branch head replaces the previous reference; the GitHub Actions
+`valgrind-baseline` artifact is only a one-day handoff between jobs.
+
+These checks are not yet a hard quality gate because existing issues still
+need to be addressed.
 
 ## Debugging Failures
 

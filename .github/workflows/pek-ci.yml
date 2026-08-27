@@ -1,5 +1,5 @@
 name: PEK CI
-run-name: "${{ inputs.valgrind_baseline_sha != '' && format('Valgrind baseline {0}', inputs.valgrind_baseline_sha) || inputs.pr_label != '' && format('PEK CI (head): {0}', inputs.pr_label) || 'PEK CI' }}"
+run-name: "${{ inputs.target_branch_head_sha != '' && format('Valgrind baseline {0}@{1}', inputs.target_branch_name, inputs.target_branch_head_sha) || inputs.pr_label != '' && format('PEK CI (head): {0} {1}', inputs.pr_head_sha, inputs.pr_label) || 'PEK CI' }}"
 
 on:
   workflow_dispatch:
@@ -14,6 +14,7 @@ on:
           - quality
           - sonar
           - valgrind
+          - blackduck
           - label
       pr_number:
         description: Optional PR number to run the PR validation path manually.
@@ -40,8 +41,13 @@ on:
         required: false
         default: ""
         type: string
-      valgrind_baseline_sha:
+      target_branch_head_sha:
         description: Internal exact source SHA for a Valgrind baseline backfill.
+        required: false
+        default: ""
+        type: string
+      target_branch_name:
+        description: Internal target branch for a Valgrind baseline backfill.
         required: false
         default: ""
         type: string
@@ -52,9 +58,10 @@ on:
     - cron: "0 2 * * *" # Every day at 2 AM UTC'
   push:
     branches: [main, develop]
+    tags: ["v*"]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.inputs.pr_number || format('{0}-{1}-{2}-{3}', github.event_name, github.ref, github.event.inputs.checks || 'all', github.event.inputs.valgrind_baseline_sha || 'current') }}-${{ github.event.inputs.pr_label || (github.event.action == 'labeled' && (!contains(github.event.label.name, 'run-pek-ci') || contains(github.event.pull_request.labels.*.name, 'run-macos-ci')) && github.run_id || 'validation') }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.inputs.pr_number || format('{0}-{1}-{2}-{3}-{4}', github.event_name, github.ref, github.event.inputs.checks || 'all', github.event.inputs.target_branch_name || 'current', github.event.inputs.target_branch_head_sha || 'current') }}-${{ github.event.inputs.pr_label || (github.event.action == 'labeled' && (!contains(github.event.label.name, 'run-pek-ci') || contains(github.event.pull_request.labels.*.name, 'run-macos-ci')) && github.run_id || 'validation') }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -86,7 +93,7 @@ jobs:
           else
             test "$CHECKS" = label
             case "$PR_LABEL" in
-              run-macos-ci|run-python-audit|run-docker-scout|run-workflow-audit) ;;
+              run-macos-ci|run-rpi-ci|run-python-audit|run-docker-scout|run-workflow-audit) ;;
               *) exit 1 ;;
             esac
           fi
@@ -125,13 +132,17 @@ jobs:
       head_sha: ${{ steps.context.outputs.head_sha }}
       pr_context: ${{ steps.context.outputs.pr_context }}
       pr_number: ${{ steps.context.outputs.pr_number }}
+      target_branch_name: ${{ steps.context.outputs.target_branch_name }}
+      target_branch_head_sha: ${{ steps.context.outputs.target_branch_head_sha }}
     steps:
       - name: Validate Valgrind baseline backfill
-        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.valgrind_baseline_sha != '' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.target_branch_head_sha != '' || github.event.inputs.target_branch_name != '') }}
         env:
+          TARGET_BRANCH_NAME: ${{ github.event.inputs.target_branch_name }}
+          TARGET_BRANCH_HEAD_SHA: ${{ github.event.inputs.target_branch_head_sha }}
           CHECKS: ${{ github.event.inputs.checks }}
           PR_NUMBER: ${{ github.event.inputs.pr_number }}
-        run: test "$CHECKS" = valgrind && test -z "$PR_NUMBER"
+        run: test "$CHECKS" = valgrind && test -z "$PR_NUMBER" && test -n "$TARGET_BRANCH_NAME" && test -n "$TARGET_BRANCH_HEAD_SHA"
 
       - name: Checkout manual-run helper
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
@@ -163,7 +174,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-          ref: ${{ github.event.inputs.valgrind_baseline_sha || steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.event.inputs.target_branch_head_sha || steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
       - name: Prepare private submodules
@@ -186,15 +197,25 @@ jobs:
         env:
           BASE_REF: ${{ steps.manual_pr.outputs.base_ref || github.base_ref }}
           BASE_SHA: ${{ steps.manual_pr.outputs.base_sha || github.event.pull_request.base.sha || '' }}
+          TARGET_BRANCH_HEAD_SHA: ${{ github.event.inputs.target_branch_head_sha }}
+          GH_TOKEN: ${{ github.token }}
           HEAD_REF: ${{ steps.manual_pr.outputs.head_ref || github.head_ref || github.ref_name }}
           PR_CONTEXT: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '') }}
           PR_NUMBER: ${{ steps.manual_pr.outputs.pr_number || github.event.pull_request.number || '' }}
+          TARGET_BRANCH_NAME: ${{ github.event.inputs.target_branch_name || steps.manual_pr.outputs.base_ref || github.base_ref || github.ref_name }}
         run: |
           set -euo pipefail
           head_sha="$(git rev-parse HEAD)"
           if [ "$PR_CONTEXT" = "true" ]; then
             test -n "$BASE_SHA"
+            target_branch_head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/${TARGET_BRANCH_NAME}" --jq .object.sha)"
+          elif [ -n "$TARGET_BRANCH_HEAD_SHA" ]; then
+            target_branch_head_sha="$TARGET_BRANCH_HEAD_SHA"
+          else
+            target_branch_head_sha="$head_sha"
           fi
+          test "${#target_branch_head_sha}" = 40
+          case "$target_branch_head_sha" in *[!0-9a-f]*) exit 1 ;; esac
           tools_dir="${GITHUB_WORKSPACE}/.cache/pek-ci-image"
           helpers_dir="${GITHUB_WORKSPACE}/.cache/workflow-helpers"
           mkdir -p "$tools_dir/valgrind"
@@ -216,6 +237,8 @@ jobs:
             printf 'head_sha=%s\n' "$head_sha"
             printf 'pr_context=%s\n' "$PR_CONTEXT"
             printf 'pr_number=%s\n' "$PR_NUMBER"
+            printf 'target_branch_name=%s\n' "$TARGET_BRANCH_NAME"
+            printf 'target_branch_head_sha=%s\n' "$target_branch_head_sha"
           } >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker builder
@@ -508,6 +531,55 @@ jobs:
       DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
       HF_TOKEN: ${{ secrets.HF_TOKEN }} # pragma: allowlist secret
 
+  blackduck:
+    name: Black Duck quality gate
+    needs: build-ci-image
+    if: >-
+      !cancelled() &&
+      needs.build-ci-image.result == 'success' &&
+      (
+        (
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.user.login != 'dependabot[bot]' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          (
+            github.event.action != 'labeled' ||
+            github.event.label.name == 'run-pek-ci'
+          ) &&
+          (
+            github.event.pull_request.draft == false ||
+            (github.event.action == 'labeled' && github.event.label.name == 'run-pek-ci')
+          )
+        ) ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          inputs.pr_label == 'run-pek-ci' &&
+          needs.build-ci-image.outputs.pr_context == 'true'
+        ) ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          inputs.pr_label == '' &&
+          contains(fromJSON('["all","blackduck"]'), inputs.checks)
+        ) ||
+        github.event_name == 'schedule' ||
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
+      )
+    permissions:
+      actions: read
+      contents: read
+    uses: ./.github/workflows/blackduck-scan.yml
+    with:
+      base_sha: ${{ needs.build-ci-image.outputs.base_sha }}
+      checkout_ref: ${{ needs.build-ci-image.outputs.head_sha }}
+      ci_image_sha: ${{ needs.build-ci-image.outputs.head_sha }}
+      pr_number: ${{ needs.build-ci-image.outputs.pr_number }}
+      scan_mode: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.pr_label == '' && contains(fromJSON('["all","blackduck"]'), inputs.checks)) || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))) && 'full' || 'delta' }}
+      version_name: ${{ github.event_name == 'schedule' && 'nightly' || ((github.event_name == 'workflow_dispatch' && inputs.pr_label == '' && contains(fromJSON('["all","blackduck"]'), inputs.checks)) || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))) && github.ref_name || format('pr-{0}', needs.build-ci-image.outputs.pr_number) }}
+    secrets:
+      BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
+      BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }} # pragma: allowlist secret
+      DEPLOY_KEY_FLOWDATA_SDK: ${{ secrets.DEPLOY_KEY_FLOWDATA_SDK }} # pragma: allowlist secret
+
   linux-quick-start-build-test:
     name: Quick-start on Linux
     runs-on: ubuntu-latest
@@ -608,26 +680,31 @@ jobs:
 
   rpi5-quick-start-build-test:
     name: Quick-start and Playwright on Raspberry Pi 5
-    needs: build-ci-image
     runs-on: [self-hosted, Linux, ARM64, amp-dev-forge-runner-rpi5]
     timeout-minutes: 240
     permissions:
       contents: read
       pull-requests: read
-    # Fork PR code must not run on the self-hosted RPI runner. Dependabot PRs only need
-    # host CI; other same-repo PRs run RPI whenever the Linux quick-start build runs.
+    # Fork PR code must not run on the self-hosted RPI runner. PRs use an explicit
+    # run-rpi-ci label to limit SD-card wear; nightly and manual all runs remain automatic.
     if: |
       github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && inputs.checks == 'all') ||
+      (
+        github.event_name == 'workflow_dispatch' &&
+        (
+          (inputs.checks == 'all' && inputs.pr_label == '') ||
+          (inputs.checks == 'label' && inputs.pr_label == 'run-rpi-ci')
+        )
+      ) ||
       (
         github.event_name == 'pull_request' &&
         github.event.pull_request.head.repo.full_name == github.repository &&
         github.event.pull_request.user.login != 'dependabot[bot]' &&
         (
-          (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
+          (github.event.action == 'labeled' && github.event.label.name == 'run-rpi-ci') ||
           (
-            github.event.pull_request.draft == false ||
-            (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
+            contains(fromJSON('["synchronize","reopened"]'), github.event.action) &&
+            contains(github.event.pull_request.labels.*.name, 'run-rpi-ci')
           )
         )
       )
@@ -636,12 +713,37 @@ jobs:
       CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
+      - name: Checkout manual-run helper
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          ref: ${{ github.event.repository.default_branch }}
+          path: ${{ env.CI_CHECKOUT_PATH }}
+          persist-credentials: false
+
+      - name: Resolve manual PR
+        id: manual_pr
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 scripts/private/github_pr_context.py \
+            --pr-number "${{ github.event.inputs.pr_number }}" \
+            --repo "${{ github.repository }}" \
+            --base-ref-override "${{ github.event.inputs.pr_base_ref }}" \
+            --head-ref-override "${{ github.event.inputs.pr_head_ref }}" \
+            --head-sha-override "${{ github.event.inputs.pr_head_sha }}" \
+            --github-output "${GITHUB_OUTPUT}"
+
       - name: Checkout
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
-          ref: ${{ needs.build-ci-image.outputs.head_sha }}
+          ref: ${{ steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.event.pull_request.head.sha || github.sha }}
           path: ${{ env.CI_CHECKOUT_PATH }}
           persist-credentials: false
 
@@ -1216,15 +1318,66 @@ jobs:
             docker image rm "${PEK_CI_IMAGE}" || true
           fi
 
+  download-valgrind-baseline:
+    name: Download current Valgrind baseline
+    needs: build-ci-image
+    if: >-
+      needs.build-ci-image.result == 'success' &&
+      needs.build-ci-image.outputs.pr_context == 'true' &&
+      (github.event_name != 'pull_request' ||
+       github.event.action != 'labeled' ||
+       github.event.label.name == 'run-pek-ci') &&
+      (github.event_name != 'workflow_dispatch' ||
+       contains(fromJSON('["all","valgrind"]'), inputs.checks))
+    runs-on: self-hosted-ubuntu-latest-x64
+    permissions:
+      actions: read
+      artifact-metadata: write
+      contents: read
+    steps:
+      - name: Checkout baseline helper
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.build-ci-image.outputs.head_sha }}
+          persist-credentials: false
+
+      - name: Wait for current Valgrind baseline in Artifactory
+        env:
+          ARTIFACTORY_TOKEN: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
+          ARTIFACTORY_USER: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
+          GH_TOKEN: ${{ github.token }}
+          TARGET_BRANCH_NAME: ${{ needs.build-ci-image.outputs.target_branch_name }}
+          TARGET_BRANCH_HEAD_SHA: ${{ needs.build-ci-image.outputs.target_branch_head_sha }}
+        run: >-
+          python3 scripts/testing/valgrind/valgrind-baseline-artifact.py wait
+          --output-dir scripts/testing/valgrind/baseline
+
+      - name: Share current Valgrind baseline
+        uses: actions/upload-artifact@v7
+        with:
+          name: valgrind-baseline-reference
+          path: scripts/testing/valgrind/baseline/valgrind-error-summary.xml
+          if-no-files-found: error
+          retention-days: 1
+
   valgrind:
     name: Run Valgrind checks in Docker
-    needs: build-ci-image
+    needs:
+      - build-ci-image
+      - download-valgrind-baseline
+    outputs:
+      head_sha: ${{ needs.build-ci-image.outputs.head_sha }}
+      pr_context: ${{ needs.build-ci-image.outputs.pr_context }}
+      target_branch_name: ${{ needs.build-ci-image.outputs.target_branch_name }}
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ./valgrind-source
     if: |
       !cancelled() &&
+      needs.build-ci-image.result == 'success' &&
+      (needs.build-ci-image.outputs.pr_context != 'true' ||
+       needs.download-valgrind-baseline.result == 'success') &&
       (
         github.event_name == 'schedule' ||
         (github.event_name == 'push' && github.ref_type == 'branch') ||
@@ -1243,10 +1396,8 @@ jobs:
       actions: read
       contents: read
       artifact-metadata: write
-      packages: read
     env:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
-      VALGRIND_BASELINE_WORKFLOW: pek-ci.yml
       CCACHE_PATH: ${{ github.workspace }}/.cache/ccache
     steps:
       - name: Download PEK CI image
@@ -1312,13 +1463,6 @@ jobs:
           restore-keys: |
             pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-valgrind-
 
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
-
       - name: Run Valgrind Python unit tests
         run: |
           cd "$CI_IMAGE_TOOLS/valgrind"
@@ -1327,41 +1471,12 @@ jobs:
             test_compare_valgrind_results.py \
             test_summarize_valgrind_output.py
 
-      - name: Download Valgrind baseline from GHCR
+      - name: Download current Valgrind baseline
         if: needs.build-ci-image.outputs.pr_context == 'true'
-        id: valgrind_baseline
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VALGRIND_BASELINE_BRANCH: ${{ needs.build-ci-image.outputs.base_ref }}
-          VALGRIND_BASELINE_SHA: ${{ needs.build-ci-image.outputs.base_sha }}
-        run: |
-          python3 "$CI_IMAGE_TOOLS/valgrind/valgrind-baseline-artifact.py" download \
-            --sha "$VALGRIND_BASELINE_SHA" \
-            --output-dir scripts/testing/valgrind/baseline
-
-      - name: Wait for missing Valgrind baseline in GHCR
-        if: >-
-          needs.build-ci-image.outputs.pr_context == 'true' &&
-          steps.valgrind_baseline.outcome != 'success'
-        id: waited_valgrind_baseline
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VALGRIND_BASELINE_BRANCH: ${{ needs.build-ci-image.outputs.base_ref }}
-          VALGRIND_BASELINE_SHA: ${{ needs.build-ci-image.outputs.base_sha }}
-        run: |
-          python3 "$CI_IMAGE_TOOLS/valgrind/valgrind-baseline-artifact.py" wait \
-            --sha "$VALGRIND_BASELINE_SHA" \
-            --output-dir scripts/testing/valgrind/baseline
-
-      - name: Require existing Valgrind baseline
-        if: >-
-          needs.build-ci-image.outputs.pr_context == 'true' &&
-          steps.valgrind_baseline.outcome != 'success' &&
-          steps.waited_valgrind_baseline.outcome == 'skipped'
-        run: |
-          echo "Missing Valgrind baseline in GHCR and no automatic publisher is available." >&2
-          exit 1
+        uses: actions/download-artifact@v8
+        with:
+          name: valgrind-baseline-reference
+          path: valgrind-source/scripts/testing/valgrind/baseline
 
       - name: Clear stale Valgrind logs
         run: find scripts/testing/valgrind/logs -name "*.valgrind.*.xml" -delete 2>/dev/null || true
@@ -1399,7 +1514,7 @@ jobs:
           name: valgrind-baseline
           path: valgrind-source/scripts/testing/valgrind/valgrind-error-summary.xml
           if-no-files-found: error
-          retention-days: 60
+          retention-days: 1
 
       - name: Save compiler cache
         if: ${{ !cancelled() && steps.valgrind_checks.outcome == 'success' && steps.valgrind_summary.outcome == 'success' && steps.compiler-cache.outputs.cache-hit != 'true' }}
@@ -1410,15 +1525,16 @@ jobs:
 
   publish-valgrind-baseline:
     name: Publish Valgrind baseline
-    needs:
-      - build-ci-image
-      - valgrind
-    if: ${{ needs.valgrind.result == 'success' && needs.build-ci-image.outputs.pr_context != 'true' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') }}
-    runs-on: ubuntu-latest
+    needs: valgrind
+    if: ${{ !cancelled() && needs.valgrind.result == 'success' && needs.valgrind.outputs.pr_context != 'true' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') }}
+    runs-on: self-hosted-ubuntu-latest-x64
+    environment: artifactory-publishing
+    concurrency:
+      group: valgrind-baseline-publish-${{ needs.valgrind.outputs.target_branch_name }}
+      cancel-in-progress: false
     permissions:
       actions: read
       contents: read
-      packages: write
     steps:
       - name: Checkout trusted baseline publisher
         uses: actions/checkout@v7
@@ -1432,79 +1548,13 @@ jobs:
           name: valgrind-baseline
           path: valgrind-baseline
 
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
-
-      - name: Publish baseline to GHCR
+      - name: Publish baseline to Artifactory
         env:
+          ARTIFACTORY_TOKEN: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
+          ARTIFACTORY_USER: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
           GH_TOKEN: ${{ github.token }}
+          TARGET_BRANCH_NAME: ${{ needs.valgrind.outputs.target_branch_name }}
+          TARGET_BRANCH_HEAD_SHA: ${{ needs.valgrind.outputs.head_sha }}
         run: |
           python3 scripts/testing/valgrind/valgrind-baseline-artifact.py upload \
-            --sha "${{ needs.build-ci-image.outputs.head_sha }}" \
             --input valgrind-baseline/valgrind-error-summary.xml
-
-  report-label-result:
-    name: Report PEK CI head result
-    needs:
-      - validate-label-dispatch
-      - build-ci-image
-      - python-dependency-audit
-      - workflow-dependency-freshness
-      - docker-scout
-      - linux-quick-start-build-test
-      - rpi5-quick-start-build-test
-      - macos-nightly-test
-      - quality-checks
-      - sonar
-      - valgrind
-    if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.pr_label != '' }}
-    runs-on: ubuntu-latest
-    permissions:
-      statuses: write
-    steps:
-      - name: Report selected checks on PR head
-        env:
-          GH_TOKEN: ${{ github.token }}
-          HEAD_SHA: ${{ inputs.pr_head_sha }}
-          PR_LABEL: ${{ inputs.pr_label }}
-          VALIDATION_RESULT: ${{ needs.validate-label-dispatch.result }}
-          BUILD_RESULT: ${{ needs.build-ci-image.result }}
-          PYTHON_RESULT: ${{ needs.python-dependency-audit.result }}
-          WORKFLOW_RESULT: ${{ needs.workflow-dependency-freshness.result }}
-          SCOUT_RESULT: ${{ needs.docker-scout.result }}
-          LINUX_RESULT: ${{ needs.linux-quick-start-build-test.result }}
-          RPI_RESULT: ${{ needs.rpi5-quick-start-build-test.result }}
-          MACOS_RESULT: ${{ needs.macos-nightly-test.result }}
-          QUALITY_RESULT: ${{ needs.quality-checks.result }}
-          SONAR_RESULT: ${{ needs.sonar.result }}
-          VALGRIND_RESULT: ${{ needs.valgrind.result }}
-        run: |
-          case "$PR_LABEL" in
-            run-pek-ci) results="$VALIDATION_RESULT $BUILD_RESULT $LINUX_RESULT $RPI_RESULT $QUALITY_RESULT $SONAR_RESULT $VALGRIND_RESULT" ;;
-            run-macos-ci) results="$VALIDATION_RESULT $MACOS_RESULT" ;;
-            run-python-audit) results="$VALIDATION_RESULT $PYTHON_RESULT" ;;
-            run-docker-scout) results="$VALIDATION_RESULT $BUILD_RESULT $SCOUT_RESULT" ;;
-            run-workflow-audit) results="$VALIDATION_RESULT $WORKFLOW_RESULT" ;;
-            *) exit 1 ;;
-          esac
-
-          state=success
-          for result in $results; do
-            if [ "$result" = cancelled ]; then
-              state=error
-            elif [ "$result" != success ] && [ "$state" = success ]; then
-              state=failure
-            fi
-          done
-
-          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          gh api --method POST "repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" \
-            -f state="$state" \
-            -f context="PEK CI (head): ${PR_LABEL}" \
-            -f description="${PR_LABEL} head validation concluded: ${state}" \
-            -f target_url="$run_url"
-          test "$state" = success

@@ -1,654 +1,621 @@
-name: Black Duck Security and License Scan
-run-name: Black Duck scan for ${{ github.ref_name }}
+name: Black Duck scan
 
 on:
-  release:
-    types: [published]
-  workflow_dispatch:
+  workflow_call:
+    inputs:
+      base_sha:
+        description: Pull request base SHA for delta scans.
+        required: false
+        default: ""
+        type: string
+      checkout_ref:
+        description: Exact source SHA to scan.
+        required: true
+        type: string
+      ci_image_sha:
+        description: Exact PEK CI image SHA from the caller run.
+        required: true
+        type: string
+      pr_number:
+        description: Pull request number for delta scans.
+        required: false
+        default: ""
+        type: string
+      scan_mode:
+        description: Black Duck scan mode, delta or full.
+        required: true
+        type: string
+      version_name:
+        description: Black Duck project version name.
+        required: true
+        type: string
+    secrets:
+      BLACKDUCK_URL:
+        required: true
+      BLACKDUCK_TOKEN:
+        required: true
+      DEPLOY_KEY_FLOWDATA_SDK:
+        required: true
 
 permissions:
   contents: read
 
-concurrency:
-  group: blackduck-${{ github.ref }}
-  cancel-in-progress: false
-
 jobs:
-  blackduck:
-    name: Black Duck (${{ matrix.architecture }})
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - architecture: x86
-            runner: self-hosted-ubuntu-latest-x64
-            onnxruntime_architecture: x64
-          - architecture: arm
-            runner: self-hosted-ubuntu-latest-arm64
-            onnxruntime_architecture: aarch64
-    runs-on: ${{ matrix.runner }}
-    defaults:
-      run:
-        shell: bash
-    env:
-      BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
-      BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }}
-      CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-      ONNXRUNTIME_ARCHITECTURE: ${{ matrix.onnxruntime_architecture }}
+  detect-wrapper:
+    name: Detect wrapper
+    uses: ./.github/workflows/blackduck-detect.yml
 
+  built-output:
+    name: Built output scan
+    needs: detect-wrapper
+    runs-on: self-hosted-ubuntu-latest-x64
+    timeout-minutes: 45
+    permissions:
+      actions: read
+      contents: read
+    env:
+      BLACKDUCK_VERSION: ${{ inputs.version_name }}
+      CCACHE_PATH: ${{ github.workspace }}/.cache/ccache-blackduck-built
+      CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      CI_IMAGE_SHA: ${{ inputs.ci_image_sha }}
+      COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      WORKSPACE_ROOT: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
-      - name: Checkout repository
+      - name: Download PEK CI image
+        uses: actions/download-artifact@v8
+        with:
+          name: pek-ci-image-handoff.tar
+          path: ${{ runner.temp }}/pek-ci-image-download
+          skip-decompress: true
+
+      - name: Extract PEK CI image
+        run: |
+          mkdir -p "$RUNNER_TEMP/pek-ci-image"
+          tar -xf "$RUNNER_TEMP/pek-ci-image-download/pek-ci-image-handoff.tar" \
+            -C "$RUNNER_TEMP/pek-ci-image"
+
+      - name: Load PEK CI image
+        run: |
+          tools_dir="${RUNNER_TEMP}/pek-ci-image"
+          (
+            flock -x 9
+            python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
+              --archive "$tools_dir/pek-ci-image.tar" pek-release-with-ut
+            docker image rm "pek-ci:${CI_IMAGE_SHA}"
+          ) 9>"/tmp/pek-ci-image-${CI_IMAGE_SHA}.lock"
+
+      - name: Checkout source
         uses: actions/checkout@v7
         with:
+          fetch-depth: 0
+          fetch-tags: true
           path: ${{ env.CI_CHECKOUT_PATH }}
+          persist-credentials: false
+          ref: ${{ inputs.checkout_ref }}
 
       - name: Prepare private submodules
-        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        working-directory: ${{ env.WORKSPACE_ROOT }}
         env:
           DEPLOY_KEY_FLOWDATA_SDK: ${{ secrets.DEPLOY_KEY_FLOWDATA_SDK }}
         run: |
           source .github/scripts/configure_workspace_ssh.sh
           git submodule update --init --recursive
 
-      - name: Export isolated workspace root
-        run: echo "WORKSPACE_ROOT=${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}" >> "$GITHUB_ENV"
-
-      - name: Generate Hugging Face download cache key
-        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+      - name: Build release output in PEK CI image
+        working-directory: ${{ env.WORKSPACE_ROOT }}
         run: |
-          set -euo pipefail
-          cache_key="$(scripts/private/generate-hf-download-cachebust.sh)"
-          echo "HF_DOWNLOAD_CACHEBUST=${cache_key}" >> "$GITHUB_ENV"
+          install -d -m 0777 "$CCACHE_PATH"
+          docker compose -f .github/compose.ci.yaml run --rm pek-release-with-ut
+          test -d development/build
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v4
+      - name: Download verified Detect wrapper
+        uses: actions/download-artifact@v8
         with:
-          username: ${{ secrets.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
+          name: detect-arm.sh
+          path: ${{ runner.temp }}/blackduck-built
+          skip-decompress: true
 
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: "3.12"
-
-      - name: Validate scan prerequisites
+      - name: Scan release build output and enforce policy
+        env:
+          BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }}
+          BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
         run: |
           set -euo pipefail
-          [[ -n "${BLACKDUCK_URL:-}" ]] || { echo "Missing BLACKDUCK_URL secret" >&2; exit 2; }
-          [[ -n "${BLACKDUCK_TOKEN:-}" ]] || { echo "Missing BLACKDUCK_TOKEN secret" >&2; exit 2; }
-          [[ -n "${{ secrets.DOCKER_USER }}" ]] || { echo "Missing DOCKER_USER secret" >&2; exit 14; }
-          [[ -n "${{ secrets.DOCKER_TOKEN }}" ]] || { echo "Missing DOCKER_TOKEN secret" >&2; exit 15; }
-          command -v docker >/dev/null 2>&1 || { echo "Docker is required on this runner" >&2; exit 12; }
-          docker compose version >/dev/null 2>&1 || { echo "docker compose is required on this runner" >&2; exit 13; }
+          test -n "${BLACKDUCK_TOKEN:-}"
+          test -n "${BLACKDUCK_URL:-}"
+          project_name="${GITHUB_REPOSITORY//\//:}"
+          version_name="${BLACKDUCK_VERSION//\//-}"
+          scanner_dir="${RUNNER_TEMP}/blackduck-built"
+          install -d -m 0777 "$scanner_dir/output"
+          chmod +x "$scanner_dir/detect-arm.sh"
 
-      - name: Download Detect script
+          "$scanner_dir/detect-arm.sh" \
+            "--blackduck.url=${BLACKDUCK_URL}" \
+            "--blackduck.api.token=${BLACKDUCK_TOKEN}" \
+            "--detect.project.name=${project_name}" \
+            "--detect.project.version.name=${version_name}" \
+            "--detect.code.location.name=${project_name}/${version_name}/built-output" \
+            --detect.cleanup=false \
+            --detect.output.path="$scanner_dir/output" \
+            --detect.policy.check.fail.on.severities=ALL \
+            --detect.source.path="$WORKSPACE_ROOT/development/build" \
+            --detect.timeout=1800 \
+            --detect.tools=SIGNATURE_SCAN \
+            --logging.level.detect=INFO 2>&1 | tee "$scanner_dir/scan.log"
+
+      - name: Report built output scan
+        if: always()
+        env:
+          BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
         run: |
-          set -euo pipefail
-          detect_script="${WORKSPACE_ROOT}/detect-arm.sh"
-          curl -fsSL "https://artifactory.arm.com/artifactory/synopsys-blackduck.detect-arm/detect-arm.sh" -o "${detect_script}"
-          head -n 1 "${detect_script}" | grep -q '^#!' || { echo "Downloaded script is invalid" >&2; exit 3; }
-          chmod +x "${detect_script}"
-
-      - name: Resolve project and version names
-        run: |
-          set -euo pipefail
-
-          project_name="${{ github.repository }}"
-          project_name="${project_name//\//:}"
-
-          if [[ "${{ github.event_name }}" == "release" ]]; then
-            base_version="${{ github.event.release.tag_name }}"
-          else
-            base_version="${{ github.ref_name }}"
-            [[ -n "$(printf '%s' "${base_version}" | tr -d '[:space:]')" ]] || base_version="manual-scan"
-          fi
-
-          safe_base_version="$(printf '%s' "${base_version}" | sed 's/[[:space:]\/]/-/g')"
-          [[ -n "${safe_base_version}" ]] || safe_base_version="manual-scan"
-
+          scan_log="${RUNNER_TEMP}/blackduck-built/scan.log"
+          scan_link="$(grep -Eo 'https://[^[:space:]]+/api/(projects/[0-9a-f-]+/versions/[0-9a-f-]+/(components|source-trees)|developer-scans/[0-9a-f-]+)' "$scan_log" 2>/dev/null | tail -n 1 || true)"
           {
-            echo "PROJECT_NAME=${project_name}"
-            echo "SOURCE_VERSION=${safe_base_version}--source--${{ matrix.architecture }}"
-            echo "CONTAINER_VERSION_PREFIX=${safe_base_version}--container--${{ matrix.architecture }}"
-          } >> "$GITHUB_ENV"
+            echo '### Black Duck built output scan'
+            echo
+            echo "- Version: \`${BLACKDUCK_VERSION//\//-}\`"
+            if [[ -n "$scan_link" ]]; then
+              echo "- [Open scan]($scan_link)"
+            else
+              echo "- [Open Black Duck](${BLACKDUCK_URL})"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Discover buildable containers
+      - name: Upload built output scan details
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: blackduck-${{ inputs.scan_mode }}-built-output
+          path: |
+            ${{ runner.temp }}/blackduck-built/output
+            ${{ runner.temp }}/blackduck-built/scan.log
+          if-no-files-found: warn
+          retention-days: 10
+
+      - name: Cleanup built output scan
+        if: always()
         run: |
-          set -euo pipefail
+          if [[ -d "$WORKSPACE_ROOT" ]]; then
+            (
+              cd "$WORKSPACE_ROOT"
+              docker compose -f .github/compose.ci.yaml down --remove-orphans || true
+            )
+          fi
+          docker image rm "${COMPOSE_PROJECT_NAME}-pek-release-with-ut" || true
+          for path in "$WORKSPACE_ROOT" "$CCACHE_PATH"; do
+            case "$path" in
+              "$GITHUB_WORKSPACE"/repo-*|"$GITHUB_WORKSPACE"/.cache/ccache-blackduck-built) ;;
+              *) echo "Skipping unexpected cleanup path: $path" >&2; continue ;;
+            esac
+            sudo chown -R "$(id -u):$(id -g)" "$path" || true
+            chmod -R u+rwX "$path" || true
+            rm -rf -- "$path" || sudo rm -rf -- "$path" || true
+          done
 
-          python3 - <<'PY'
-          import json
-          import os
-          import pathlib
-          import re
-          import subprocess
+  dependencies:
+    name: ${{ inputs.scan_mode == 'delta' && 'Delta dependency scan' || 'Full dependency scan' }}
+    needs: detect-wrapper
+    runs-on: self-hosted-ubuntu-latest-x64
+    timeout-minutes: 45
+    permissions:
+      actions: read
+      contents: read
+    env:
+      BLACKDUCK_VERSION: ${{ inputs.version_name }}
+      CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      CI_IMAGE_SHA: ${{ inputs.ci_image_sha }}
+      COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      SCAN_MODE: ${{ inputs.scan_mode }}
+      WORKSPACE_ROOT: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+    steps:
+      - name: Download PEK CI image
+        if: ${{ inputs.scan_mode == 'full' }}
+        uses: actions/download-artifact@v8
+        with:
+          name: pek-ci-image-handoff.tar
+          path: ${{ runner.temp }}/pek-ci-image-dependencies-download
+          skip-decompress: true
 
-          workspace = pathlib.Path(os.environ["WORKSPACE_ROOT"]).resolve()
-          runner_temp = pathlib.Path(os.environ["RUNNER_TEMP"]).resolve()
-          manifest_path = runner_temp / "bd-container-manifest.json"
-          run_suffix = f"{os.environ['GITHUB_RUN_ID']}-{os.environ['GITHUB_RUN_ATTEMPT']}"
-
-          def slugify(value: str) -> str:
-              value = value.strip().lower()
-              value = re.sub(r"[^a-z0-9._-]+", "-", value)
-              value = re.sub(r"-+", "-", value).strip("-")
-              return value or "container"
-
-          def run_compose_config(compose_files):
-              env = os.environ.copy()
-              env.setdefault("HOST_UID", str(os.getuid()))
-              env.setdefault("HOST_GID", str(os.getgid()))
-              env.setdefault("HOME", str(pathlib.Path.home()))
-              env.setdefault("SSH_AUTH_SOCK", env.get("SSH_AUTH_SOCK", "/tmp/ssh-agent"))
-              cmd = ["docker", "compose"]
-              for compose_file in compose_files:
-                  cmd += ["-f", str(compose_file)]
-              cmd += ["config", "--format", "json"]
-              result = subprocess.run(cmd, capture_output=True, text=True, env=env)
-              if result.returncode != 0:
-                  raise RuntimeError(result.stderr.strip() or f"docker compose config failed for {compose_files}")
-              return json.loads(result.stdout)
-
-          def normalize_build(build_spec, project_dir: pathlib.Path):
-              if isinstance(build_spec, str):
-                  context = build_spec
-                  dockerfile = "Dockerfile"
-                  target = None
-              else:
-                  context = build_spec.get("context", ".")
-                  dockerfile = build_spec.get("dockerfile", "Dockerfile")
-                  target = build_spec.get("target")
-
-              context_path = pathlib.Path(context)
-              if not context_path.is_absolute():
-                  context_path = (project_dir / context_path).resolve()
-              else:
-                  context_path = context_path.resolve()
-
-              dockerfile_path = pathlib.Path(dockerfile)
-              if not dockerfile_path.is_absolute():
-                  dockerfile_path = (context_path / dockerfile_path).resolve()
-              else:
-                  dockerfile_path = dockerfile_path.resolve()
-
-              if not context_path.exists():
-                  raise RuntimeError(f"Build context does not exist: {context_path}")
-
-              if not dockerfile_path.exists():
-                  raise RuntimeError(f"Dockerfile does not exist: {dockerfile_path}")
-
-              return str(context_path), str(dockerfile_path), target
-
-          def normalize_compose_files(raw):
-              if isinstance(raw, str):
-                  return [raw]
-              if isinstance(raw, list):
-                  return raw
-              return []
-
-          def normalize_shell_command(cmd):
-              if cmd is None:
-                  return None
-              if isinstance(cmd, str):
-                  return cmd.strip() or None
-              if isinstance(cmd, list):
-                  return " ".join(str(x) for x in cmd).strip() or None
-              if isinstance(cmd, dict):
-                  parts = []
-                  for v in cmd.values():
-                      if isinstance(v, list):
-                          parts.append(" ".join(str(x) for x in v))
-                      else:
-                          parts.append(str(v))
-                  return " && ".join(p.strip() for p in parts if p.strip()) or None
-              return str(cmd).strip() or None
-
-          entries = []
-
-          devcontainer_files = sorted(workspace.glob(".devcontainer/**/devcontainer.json"))
-          for dc_file in devcontainer_files:
-              try:
-                  data = json.loads(dc_file.read_text())
-              except Exception as e:
-                  print(f"WARNING: failed to parse {dc_file}: {e}", flush=True)
-                  continue
-
-              service = data.get("service")
-              compose_files_raw = normalize_compose_files(data.get("dockerComposeFile", []))
-              if not service or not compose_files_raw:
-                  continue
-
-              compose_files = []
-
-              for item in compose_files_raw:
-                  item = item.replace("${localWorkspaceFolder}", str(workspace))
-                  path = pathlib.Path(item)
-                  if not path.is_absolute():
-                      path = (dc_file.parent / path).resolve()
-                  else:
-                      path = path.resolve()
-
-                  if path.exists():
-                      compose_files.append(path)
-                  else:
-                      print(f"WARNING: compose file not found: {path}", flush=True)
-
-              if not compose_files:
-                  continue
-
-              compose_cfg = run_compose_config(compose_files)
-              svc = compose_cfg.get("services", {}).get(service)
-              if not svc:
-                  continue
-
-              build = svc.get("build")
-              if not build:
-                  continue
-
-              context, dockerfile, target = normalize_build(build, compose_files[0].parent)
-
-              name = slugify(f"{dc_file.parent.name}-{service}")
-
-              entries.append({
-                  "name": name,
-                  "origin": str(dc_file.relative_to(workspace)),
-                  "context": context,
-                  "dockerfile": dockerfile,
-                  "target": target,
-                  "image": f"blackduck-scan-{name}:{os.environ['GITHUB_SHA']}-{run_suffix}",
-                  "prepared_image": f"blackduck-scan-{name}:prepared-{os.environ['GITHUB_SHA']}-{run_suffix}",
-                  "remote_user": data.get("remoteUser"),
-                  "workspace_folder": data.get("workspaceFolder", "/work"),
-                  "post_create_command": normalize_shell_command(data.get("postCreateCommand")),
-                  "build_ok": False,
-                  "prepared_ok": False,
-              })
-
-          if not entries:
-              raise SystemExit("No buildable containers discovered")
-
-          manifest_path.write_text(json.dumps(entries, indent=2))
-          print(json.dumps(entries, indent=2))
-          PY
-
-      - name: Build shared development base
+      - name: Extract PEK CI image
+        if: ${{ inputs.scan_mode == 'full' }}
         run: |
-          set -euo pipefail
-          base_image="perception-experience-kit-build-base:${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          docker build \
-            -t "${base_image}" \
-            -f "${WORKSPACE_ROOT}/Dockerfile" \
-            --target pek-build-base \
-            "${WORKSPACE_ROOT}"
-          echo "PEK_BUILD_BASE_IMAGE=${base_image}" >> "${GITHUB_ENV}"
+          mkdir -p "$RUNNER_TEMP/pek-ci-image-dependencies"
+          tar -xf \
+            "$RUNNER_TEMP/pek-ci-image-dependencies-download/pek-ci-image-handoff.tar" \
+            -C "$RUNNER_TEMP/pek-ci-image-dependencies"
 
-      - name: Build discovered container images
+      - name: Load PEK CI image
+        if: ${{ inputs.scan_mode == 'full' }}
+        run: |
+          tools_dir="${RUNNER_TEMP}/pek-ci-image-dependencies"
+          (
+            flock -x 9
+            python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
+              --archive "$tools_dir/pek-ci-image.tar" pek-ci
+            docker image rm "pek-ci:${CI_IMAGE_SHA}"
+          ) 9>"/tmp/pek-ci-image-${CI_IMAGE_SHA}.lock"
+
+      - name: Checkout source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          path: ${{ env.CI_CHECKOUT_PATH }}
+          persist-credentials: false
+          ref: ${{ inputs.checkout_ref }}
+
+      - name: Prepare private submodules
+        working-directory: ${{ env.WORKSPACE_ROOT }}
         env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          DEPLOY_KEY_FLOWDATA_SDK: ${{ secrets.DEPLOY_KEY_FLOWDATA_SDK }}
         run: |
-          set -euo pipefail
+          source .github/scripts/configure_workspace_ssh.sh
+          git submodule update --init --recursive
 
-          python3 - <<'PY'
-          import json
-          import os
-          import pathlib
-          import subprocess
-          import sys
+      - name: Download verified Detect wrapper
+        uses: actions/download-artifact@v8
+        with:
+          name: detect-arm.sh
+          path: ${{ runner.temp }}/blackduck-dependencies
+          skip-decompress: true
 
-          hf_token = os.environ.pop("HF_TOKEN", "")
-          scrubbed_env = os.environ.copy()
-          manifest_path = pathlib.Path(os.environ["RUNNER_TEMP"]) / "bd-container-manifest.json"
-          entries = json.loads(manifest_path.read_text())
-
-          built_any = False
-
-          for entry in entries:
-              cmd = [
-                  "docker", "build",
-                  "-t", entry["image"],
-                  "-f", entry["dockerfile"],
-              ]
-              target = entry.get("target")
-              dockerfile_name = pathlib.Path(entry["dockerfile"]).name
-              uses_huggingface_models = target in {"pek-dev", "pek-deployment-base"} or (
-                  target is None and dockerfile_name == "Dockerfile"
-              )
-              build_env = scrubbed_env.copy()
-              if uses_huggingface_models:
-                  build_env["HF_TOKEN"] = hf_token
-                  cmd += [
-                      "--secret", "id=huggingface_token,env=HF_TOKEN",
-                      "--build-arg",
-                      f"HF_DOWNLOAD_CACHEBUST={os.environ['HF_DOWNLOAD_CACHEBUST']}",
-                  ]
-              if entry.get("target"):
-                  cmd += ["--target", entry["target"]]
-              cmd += [entry["context"]]
-
-              print(f"Building {entry['name']} from {entry['origin']}")
-              result = subprocess.run(cmd, env=build_env)
-
-              if result.returncode == 0:
-                  subprocess.run(
-                      ["docker", "image", "inspect", entry["image"]],
-                      check=True,
-                      env=scrubbed_env,
-                  )
-                  entry["build_ok"] = True
-                  built_any = True
-              else:
-                  print(f"WARNING: build failed for {entry['name']}, skipping later stages for this container")
-                  entry["build_ok"] = False
-                  entry["build_exit_code"] = result.returncode
-
-          manifest_path.write_text(json.dumps(entries, indent=2))
-
-          if not built_any:
-              print("No container images built successfully", file=sys.stderr)
-              sys.exit(1)
-          PY
-
-      - name: Build Meson wrap dependency image
+      - name: Scan PR dependencies on trusted runner and enforce policy
+        if: ${{ inputs.scan_mode == 'delta' }}
+        working-directory: ${{ env.WORKSPACE_ROOT }}
         env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }}
+          BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
         run: |
           set -euo pipefail
-          dev_image="perception-experience-kit-bd:${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          docker build \
-            -t "${dev_image}" \
-            -f "${WORKSPACE_ROOT}/Dockerfile" \
-            --secret "id=huggingface_token,env=HF_TOKEN" \
-            --build-arg "HF_DOWNLOAD_CACHEBUST=${HF_DOWNLOAD_CACHEBUST}" \
-            --target pek-dev \
-            "${WORKSPACE_ROOT}"
+          test -n "${BLACKDUCK_TOKEN:-}"
+          test -n "${BLACKDUCK_URL:-}"
+          project_name="${GITHUB_REPOSITORY//\//:}"
+          version_name="${BLACKDUCK_VERSION//\//-}"
+          scanner_dir="${RUNNER_TEMP}/blackduck-dependencies"
+          install -d -m 0777 "$scanner_dir/output"
+          chmod +x "$scanner_dir/detect-arm.sh"
+
+          "$scanner_dir/detect-arm.sh" \
+            "--blackduck.url=${BLACKDUCK_URL}" \
+            "--blackduck.api.token=${BLACKDUCK_TOKEN}" \
+            "--detect.project.name=${project_name}" \
+            "--detect.project.version.name=${version_name}" \
+            "--detect.code.location.name=${project_name}/${version_name}/dependencies" \
+            --detect.accuracy.required=NONE \
+            --detect.blackduck.scan.mode=RAPID \
+            --detect.cleanup=false \
+            --detect.detector.search.depth=5 \
+            --detect.output.path="$scanner_dir/output" \
+            --detect.python.path=/usr/bin/python3 \
+            --detect.source.path="$WORKSPACE_ROOT" \
+            --detect.stateless.policy.check.fail.on.severities=ALL \
+            --detect.timeout=1800 \
+            --detect.tools=DETECTOR \
+            --logging.level.detect=INFO 2>&1 | tee "$scanner_dir/scan.log"
+
+      - name: Scan full dependencies and enforce policy
+        if: ${{ inputs.scan_mode == 'full' }}
+        env:
+          BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }}
+          BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
+        run: |
+          set -euo pipefail
+          test -n "${BLACKDUCK_TOKEN:-}"
+          test -n "${BLACKDUCK_URL:-}"
+          project_name="${GITHUB_REPOSITORY//\//:}"
+          version_name="${BLACKDUCK_VERSION//\//-}"
+          scanner_dir="${RUNNER_TEMP}/blackduck-dependencies"
+          install -d -m 0777 "$scanner_dir/output"
+          chmod +x "$scanner_dir/detect-arm.sh"
 
           docker run --rm \
-            -u "$(id -u):$(id -g)" \
-            -e "ONNXRUNTIME_ARCHITECTURE=${ONNXRUNTIME_ARCHITECTURE}" \
-            -v "${WORKSPACE_ROOT}:/work" \
-            -w /work \
-            "${dev_image}" \
-            bash -lc '
+            --user "$(id -u):$(id -g)" \
+            --env BLACKDUCK_TOKEN \
+            --env BLACKDUCK_URL \
+            --env HOME=/tmp/blackduck-home \
+            --env PROJECT_NAME="$project_name" \
+            --env VERSION_NAME="$version_name" \
+            --volume "$WORKSPACE_ROOT:/work:ro" \
+            --volume "$scanner_dir:/blackduck" \
+            --workdir /work \
+            --entrypoint bash \
+            "${COMPOSE_PROJECT_NAME}-pek-ci" -c '
               set -euo pipefail
-              if [[ ! -d /work/deps/onnxruntime/include || ! -d /work/deps/onnxruntime/lib ]]; then
-                tmp_dir="$(mktemp -d)"
-                onnxruntime_dir="onnxruntime-linux-${ONNXRUNTIME_ARCHITECTURE}-1.24.4"
-                curl -fsSL "https://github.com/microsoft/onnxruntime/releases/download/v1.24.4/${onnxruntime_dir}.tgz" \
-                  | tar -xzf - -C "$tmp_dir"
-                mkdir -p /work/deps/onnxruntime
-                for stale_path in /work/deps/onnxruntime/include /work/deps/onnxruntime/lib; do
-                  case "$stale_path" in
-                    /work/deps/onnxruntime/*)
-                      rm -rf "$stale_path"
-                      ;;
-                    *)
-                      echo "Refusing to remove unexpected ONNX Runtime path: $stale_path" >&2
-                      exit 1
-                      ;;
-                  esac
-                done
-                cp -r "$tmp_dir/${onnxruntime_dir}/include" /work/deps/onnxruntime/
-                cp -r "$tmp_dir/${onnxruntime_dir}/lib" /work/deps/onnxruntime/
-                case "$tmp_dir" in
-                  /tmp/*)
-                    rm -rf "$tmp_dir"
-                    ;;
-                  *)
-                    echo "Refusing to remove unexpected temporary directory: $tmp_dir" >&2
-                    exit 1
-                    ;;
-                esac
-              fi
+              scan_args=(
+                "--blackduck.url=${BLACKDUCK_URL}"
+                "--blackduck.api.token=${BLACKDUCK_TOKEN}"
+                "--detect.project.name=${PROJECT_NAME}"
+                "--detect.project.version.name=${VERSION_NAME}"
+                "--detect.code.location.name=${PROJECT_NAME}/${VERSION_NAME}/dependencies"
+                --detect.accuracy.required=NONE
+                --detect.cleanup=false
+                --detect.detector.search.depth=5
+                --detect.output.path=/blackduck/output
+                --detect.python.path=/usr/bin/python3
+                --detect.source.path=/work
+                --detect.timeout=1800
+                --detect.tools=DETECTOR
+                --logging.level.detect=INFO
+                --detect.policy.check.fail.on.severities=ALL
+              )
+              /blackduck/detect-arm.sh "${scan_args[@]}"
+            ' 2>&1 | tee "$scanner_dir/scan.log"
 
+      - name: Report dependency scan
+        if: always()
+        env:
+          BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
+        run: |
+          scan_log="${RUNNER_TEMP}/blackduck-dependencies/scan.log"
+          scan_link="$(grep -Eo 'https://[^[:space:]]+/api/(projects/[0-9a-f-]+/versions/[0-9a-f-]+/(components|source-trees)|developer-scans/[0-9a-f-]+)' "$scan_log" 2>/dev/null | tail -n 1 || true)"
+          {
+            echo "### Black Duck ${SCAN_MODE} dependency scan"
+            echo
+            echo "- Version: \`${BLACKDUCK_VERSION//\//-}\`"
+            if [[ -n "$scan_link" ]]; then
+              echo "- [Open scan]($scan_link)"
+            elif [[ "$SCAN_MODE" == delta ]]; then
+              echo "- [Open Rapid scan result](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})"
+            else
+              echo "- [Open Black Duck](${BLACKDUCK_URL})"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload dependency scan details
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: blackduck-${{ inputs.scan_mode }}-dependencies
+          path: |
+            ${{ runner.temp }}/blackduck-dependencies/output
+            ${{ runner.temp }}/blackduck-dependencies/scan.log
+          if-no-files-found: warn
+          retention-days: 10
+
+      - name: Cleanup dependency scan
+        if: always()
+        run: |
+          if [[ "$SCAN_MODE" == full ]]; then
+            docker image rm "${COMPOSE_PROJECT_NAME}-pek-ci" || true
+          fi
+          case "$WORKSPACE_ROOT" in
+            "$GITHUB_WORKSPACE"/repo-*) rm -rf -- "$WORKSPACE_ROOT" ;;
+            *) echo "Skipping unexpected workspace: $WORKSPACE_ROOT" >&2 ;;
+          esac
+
+  snippets:
+    name: ${{ inputs.scan_mode == 'delta' && 'Delta snippet scan' || 'Full snippet scan' }}
+    needs: detect-wrapper
+    runs-on: self-hosted-ubuntu-latest-x64
+    timeout-minutes: 45
+    permissions:
+      actions: read
+      contents: read
+    env:
+      BASE_SHA: ${{ inputs.base_sha }}
+      BLACKDUCK_VERSION: ${{ inputs.version_name }}
+      CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      CI_IMAGE_SHA: ${{ inputs.ci_image_sha }}
+      COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      HEAD_SHA: ${{ inputs.checkout_ref }}
+      PR_NUMBER: ${{ inputs.pr_number }}
+      SCAN_MODE: ${{ inputs.scan_mode }}
+      WORKSPACE_ROOT: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+    steps:
+      - name: Download PEK CI image
+        if: ${{ inputs.scan_mode == 'full' }}
+        uses: actions/download-artifact@v8
+        with:
+          name: pek-ci-image-handoff.tar
+          path: ${{ runner.temp }}/pek-ci-image-snippets-download
+          skip-decompress: true
+
+      - name: Extract PEK CI image
+        if: ${{ inputs.scan_mode == 'full' }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/pek-ci-image-snippets"
+          tar -xf \
+            "$RUNNER_TEMP/pek-ci-image-snippets-download/pek-ci-image-handoff.tar" \
+            -C "$RUNNER_TEMP/pek-ci-image-snippets"
+
+      - name: Load PEK CI image
+        if: ${{ inputs.scan_mode == 'full' }}
+        run: |
+          tools_dir="${RUNNER_TEMP}/pek-ci-image-snippets"
+          (
+            flock -x 9
+            python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
+              --archive "$tools_dir/pek-ci-image.tar" pek-ci
+            docker image rm "pek-ci:${CI_IMAGE_SHA}"
+          ) 9>"/tmp/pek-ci-image-${CI_IMAGE_SHA}.lock"
+
+      - name: Checkout source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          path: ${{ env.CI_CHECKOUT_PATH }}
+          persist-credentials: false
+          ref: ${{ inputs.checkout_ref }}
+
+      - name: Prepare private submodules
+        if: ${{ inputs.scan_mode == 'full' }}
+        working-directory: ${{ env.WORKSPACE_ROOT }}
+        env:
+          DEPLOY_KEY_FLOWDATA_SDK: ${{ secrets.DEPLOY_KEY_FLOWDATA_SDK }}
+        run: |
+          source .github/scripts/configure_workspace_ssh.sh
+          git submodule update --init --recursive
+
+      - name: Materialize Meson wrap sources
+        if: ${{ inputs.scan_mode == 'full' }}
+        run: |
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --env HOME=/tmp/blackduck-home \
+            --volume "$WORKSPACE_ROOT:/work" \
+            --workdir /work \
+            --entrypoint bash \
+            "${COMPOSE_PROJECT_NAME}-pek-ci" -c '
+              set -euo pipefail
               meson subprojects download --sourcedir /work/development
-              meson setup /tmp/bd-meson-setup /work/development --buildtype=debug --layout=flat --wrap-mode=forcefallback -Dtests=false
+              meson setup /tmp/blackduck-meson /work/development \
+                --buildtype=debug --layout=flat --wrap-mode=forcefallback -Dtests=false
             '
 
-      - name: Materialize container setup dependencies
+      - name: Download verified Detect wrapper
+        if: ${{ inputs.scan_mode == 'full' }}
+        uses: actions/download-artifact@v8
+        with:
+          name: detect-arm.sh
+          path: ${{ runner.temp }}/blackduck-snippets
+          skip-decompress: true
+
+      - name: Download verified patch scanner
+        if: ${{ inputs.scan_mode == 'delta' }}
+        env:
+          PATCHSCAN_SHA256: 51556fe5a78a83e4f4b28a8ee5f697830253de3b3d41af2822d9a99b461976f2 # pragma: allowlist secret
+          PATCHSCAN_URL: https://artifactory.arm.com/artifactory/blackduck.patch-snippet-checker/2.2.0/linux/amd64/patchscan
         run: |
           set -euo pipefail
+          scanner_dir="${RUNNER_TEMP}/blackduck-snippets"
+          install -d -m 0777 "$scanner_dir/output"
+          curl --proto '=https' --tlsv1.2 --fail --location \
+            --retry 3 --retry-all-errors --output "$scanner_dir/patchscan" "$PATCHSCAN_URL"
+          echo "$PATCHSCAN_SHA256  $scanner_dir/patchscan" | sha256sum --check --strict
+          chmod +x "$scanner_dir/patchscan"
 
-          python3 - <<'PY'
-          import json
-          import os
-          import pathlib
-          import shlex
-          import subprocess
-
-          manifest_path = pathlib.Path(os.environ["RUNNER_TEMP"]) / "bd-container-manifest.json"
-          workspace = pathlib.Path(os.environ["WORKSPACE_ROOT"]).resolve()
-          entries = json.loads(manifest_path.read_text())
-
-          for entry in entries:
-              if not entry.get("build_ok", False):
-                  print(f"Skipping preparation for {entry['name']} because build failed")
-                  continue
-
-              container_name = f"bd-prep-{entry['name']}-{os.environ['GITHUB_RUN_ID']}-{os.environ['GITHUB_RUN_ATTEMPT']}"
-              workspace_folder = entry.get("workspace_folder") or "/work"
-              post_create_command = entry.get("post_create_command")
-              remote_user = entry.get("remote_user")
-
-              print(f"Preparing runtime dependencies for {entry['name']}")
-              subprocess.run(["docker", "rm", "-f", container_name], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-              run_cmd = [
-                  "docker", "run", "-d",
-                  "--name", container_name,
-                  "-v", f"{workspace}:{workspace_folder}",
-                  "-w", workspace_folder,
-                  entry["image"],
-                  "bash", "-lc", "while true; do sleep 5; done"
-              ]
-              subprocess.run(run_cmd, check=True)
-
-              try:
-                  def exec_in_container(command, user=None):
-                      if not command:
-                          return
-                      cmd = ["docker", "exec"]
-                      if user:
-                          cmd += ["-u", user]
-                      cmd += [container_name, "bash", "-lc", f"cd {shlex.quote(workspace_folder)} && {command}"]
-                      subprocess.run(cmd, check=True)
-
-                  if post_create_command:
-                      try:
-                          exec_in_container(post_create_command, remote_user)
-                      except subprocess.CalledProcessError:
-                          exec_in_container(post_create_command)
-
-                  subprocess.run(["docker", "commit", container_name, entry["prepared_image"]], check=True)
-                  subprocess.run(["docker", "image", "inspect", entry["prepared_image"]], check=True)
-                  entry["prepared_ok"] = True
-              except subprocess.CalledProcessError as exc:
-                  print(f"WARNING: preparation failed for {entry['name']}: {exc}")
-                  entry["prepared_ok"] = False
-              finally:
-                  subprocess.run(["docker", "rm", "-f", container_name], check=False)
-
-          manifest_path.write_text(json.dumps(entries, indent=2))
-          PY
-
-      - name: Run Black Duck source scan
+      - name: Scan PR snippet delta and enforce policy
+        if: ${{ inputs.scan_mode == 'delta' }}
+        working-directory: ${{ runner.temp }}
+        env:
+          BLACKDUCK_API_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }}
+          BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
+          GIT_DIR: ${{ env.WORKSPACE_ROOT }}/.git
+          GIT_WORK_TREE: ${{ env.WORKSPACE_ROOT }}
         run: |
           set -euo pipefail
-          bd_out="${RUNNER_TEMP}/bd-output"
-          detect_script="${WORKSPACE_ROOT}/detect-arm.sh"
+          test -n "${BLACKDUCK_API_TOKEN:-}"
+          test -n "${BLACKDUCK_URL:-}"
+          test -n "$BASE_SHA"
+          test -n "$PR_NUMBER"
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          git cat-file -e "${BASE_SHA}^{commit}"
+          project_name="${GITHUB_REPOSITORY//\//:}"
+          version_name="${BLACKDUCK_VERSION//\//-}"
 
-          detect_common=(
-            "--blackduck.url=${BLACKDUCK_URL}"
-            "--blackduck.api.token=${BLACKDUCK_TOKEN}"
-            "--detect.project.name=${PROJECT_NAME}"
-            "--detect.cleanup=false"
-            "--logging.level.detect=INFO"
-            "--detect.timeout=1800"
-          )
+          "${RUNNER_TEMP}/blackduck-snippets/patchscan" "${BASE_SHA}..${HEAD_SHA}" \
+            --blackduck.base.url "$BLACKDUCK_URL" \
+            --detect.project.name "$project_name" \
+            --detect.project.version.name "$version_name" \
+            --patch-name "pr-${PR_NUMBER}" 2>&1 | tee "${RUNNER_TEMP}/blackduck-snippets/scan.log"
 
-          "${detect_script}" "${detect_common[@]}" \
-            --detect.project.version.name="${SOURCE_VERSION}" \
-            --detect.code.location.name="${PROJECT_NAME}/${SOURCE_VERSION}/source" \
-            --detect.source.path="${WORKSPACE_ROOT}" \
-            --detect.output.path="${bd_out}/source" \
-            --detect.tools=DETECTOR,SIGNATURE_SCAN \
-            --detect.blackduck.signature.scanner.snippet.matching=SNIPPET_MATCHING \
-            --detect.blackduck.signature.scanner.upload.source.mode=true \
-            --detect.excluded.directories="bd-output,bd-output-*,.git,.github/workflows,.bd-container-tars"
-
-      - name: Run Black Duck container scans
+      - name: Scan full source snippets and enforce policy
+        if: ${{ inputs.scan_mode == 'full' }}
+        env:
+          BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }}
+          BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
         run: |
           set -euo pipefail
-          workspace_root="${WORKSPACE_ROOT:-}"
-          container_scan_tars_dir="${workspace_root}/.bd-container-tars"
+          test -n "${BLACKDUCK_TOKEN:-}"
+          test -n "${BLACKDUCK_URL:-}"
+          project_name="${GITHUB_REPOSITORY//\//:}"
+          version_name="${BLACKDUCK_VERSION//\//-}"
+          scanner_dir="${RUNNER_TEMP}/blackduck-snippets"
+          install -d -m 0777 "$scanner_dir/output"
+          chmod +x "$scanner_dir/detect-arm.sh"
 
-          case "${container_scan_tars_dir}" in
-            "${GITHUB_WORKSPACE:-}"/repo-*/.bd-container-tars)
-              ;;
-            *)
-              echo "Refusing to reset unexpected Black Duck tar directory: ${container_scan_tars_dir}" >&2
-              exit 1
-              ;;
-          esac
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --env BLACKDUCK_TOKEN \
+            --env BLACKDUCK_URL \
+            --env HOME=/tmp/blackduck-home \
+            --env PROJECT_NAME="$project_name" \
+            --env VERSION_NAME="$version_name" \
+            --volume "$WORKSPACE_ROOT:/work:ro" \
+            --volume "$scanner_dir:/blackduck" \
+            --workdir /work \
+            --entrypoint bash \
+            "${COMPOSE_PROJECT_NAME}-pek-ci" -c '
+              set -euo pipefail
+              /blackduck/detect-arm.sh \
+                "--blackduck.url=${BLACKDUCK_URL}" \
+                "--blackduck.api.token=${BLACKDUCK_TOKEN}" \
+                "--detect.project.name=${PROJECT_NAME}" \
+                "--detect.project.version.name=${VERSION_NAME}" \
+                "--detect.code.location.name=${PROJECT_NAME}/${VERSION_NAME}/snippets" \
+                --detect.blackduck.signature.scanner.snippet.matching=SNIPPET_MATCHING \
+                --detect.blackduck.signature.scanner.upload.source.mode=true \
+                --detect.cleanup=false \
+                --detect.excluded.directories=.git,.cache,.github/workflows,development/build,node_modules \
+                --detect.output.path=/blackduck/output \
+                --detect.policy.check.fail.on.severities=ALL \
+                --detect.source.path=/work \
+                --detect.timeout=1800 \
+                --detect.tools=SIGNATURE_SCAN \
+                --logging.level.detect=INFO
+            ' 2>&1 | tee "$scanner_dir/scan.log"
 
-          rm -rf "${container_scan_tars_dir}"
-          mkdir -p "${container_scan_tars_dir}"
+      - name: Report snippet scan
+        if: always()
+        env:
+          BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
+        run: |
+          scan_log="${RUNNER_TEMP}/blackduck-snippets/scan.log"
+          scan_link="$(grep -Eo 'https://[^[:space:]]+/api/(projects/[0-9a-f-]+/versions/[0-9a-f-]+/(components|source-trees)|developer-scans/[0-9a-f-]+)' "$scan_log" 2>/dev/null | tail -n 1 || true)"
+          {
+            echo "### Black Duck ${SCAN_MODE} snippet scan"
+            echo
+            echo "- Version: \`${BLACKDUCK_VERSION//\//-}\`"
+            if [[ -n "$scan_link" ]]; then
+              echo "- [Open scan]($scan_link)"
+            else
+              echo "- [Open Black Duck](${BLACKDUCK_URL})"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
-          python3 - <<'PY'
-          import json
-          import os
-          import pathlib
-          import re
-          import subprocess
-
-          manifest_path = pathlib.Path(os.environ["RUNNER_TEMP"]) / "bd-container-manifest.json"
-          workspace = pathlib.Path(os.environ["WORKSPACE_ROOT"]).resolve()
-          tar_dir = workspace / ".bd-container-tars"
-          bd_out = pathlib.Path(os.environ["RUNNER_TEMP"]) / "bd-output" / "containers"
-          detect_script = workspace / "detect-arm.sh"
-          entries = json.loads(manifest_path.read_text())
-
-          def version_slug(name: str) -> str:
-              value = name.strip().lower()
-              value = re.sub(r"[^a-z0-9._-]+", "-", value)
-              value = re.sub(r"-+", "-", value).strip("-")
-              return value or "container"
-
-          for entry in entries:
-              name = entry["name"]
-
-              if not entry.get("build_ok", False):
-                  print(f"Skipping Black Duck scan for {name} because build failed")
-                  continue
-
-              version_name = f"{os.environ['CONTAINER_VERSION_PREFIX']}-{version_slug(name)}"
-              image_tar = tar_dir / f"{name}.tar"
-              output_dir = bd_out / name
-              output_dir.mkdir(parents=True, exist_ok=True)
-
-              scan_image = entry["prepared_image"] if entry.get("prepared_ok", False) else entry["image"]
-
-              print(f"Saving image tar for {name} from {scan_image}")
-              subprocess.run(["docker", "save", "-o", str(image_tar), scan_image], check=True)
-
-              detect_cmd = [
-                  str(detect_script),
-                  f"--blackduck.url={os.environ['BLACKDUCK_URL']}",
-                  f"--blackduck.api.token={os.environ['BLACKDUCK_TOKEN']}",
-                  f"--detect.project.name={os.environ['PROJECT_NAME']}",
-                  f"--detect.project.version.name={version_name}",
-                  "--detect.cleanup=false",
-                  "--logging.level.detect=INFO",
-                  "--detect.timeout=1800",
-                  "--detect.tools=CONTAINER_SCAN",
-                  f"--detect.code.location.name={os.environ['PROJECT_NAME']}/{version_name}/container/{name}",
-                  f"--detect.output.path={output_dir}",
-                  f"--detect.container.scan.file.path={image_tar}",
-              ]
-
-              print(f"Running Black Duck container scan for {name} -> version {version_name}")
-              subprocess.run(detect_cmd, check=True)
-          PY
-
-      - name: Upload discovered container manifest
+      - name: Upload snippet scan details
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: blackduck-${{ matrix.architecture }}-container-manifest
-          path: ${{ runner.temp }}/bd-container-manifest.json
-          if-no-files-found: warn
-          retention-days: 10
-
-      - name: Upload Black Duck status files
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: blackduck-${{ matrix.architecture }}-status
-          path: ${{ runner.temp }}/bd-output/**/status/status.json
-          if-no-files-found: warn
-          retention-days: 10
-
-      - name: Upload Black Duck container outputs
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: blackduck-${{ matrix.architecture }}-container-outputs
-          path: ${{ runner.temp }}/bd-output/containers
-          if-no-files-found: warn
-          retention-days: 10
-
-      - name: Upload Black Duck Detect logs
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: blackduck-${{ matrix.architecture }}-detect-logs
+          name: blackduck-${{ inputs.scan_mode }}-snippets
           path: |
-            ${{ runner.temp }}/bd-output/**/*.log
-            ${{ runner.temp }}/bd-output/**/*.txt
-            ${{ runner.temp }}/bd-output/**/scan/BlackDuckScanOutput/**
-            ${{ runner.temp }}/bd-output/**/bdio/**
+            ${{ runner.temp }}/blackduck-snippets/output
+            ${{ runner.temp }}/blackduck-snippets/scan.log
           if-no-files-found: warn
           retention-days: 10
 
-      - name: Cleanup isolated workspace and Black Duck images
+      - name: Cleanup snippet scan
         if: always()
-        shell: bash
         run: |
-          workspace_root="${WORKSPACE_ROOT:-}"
-          expected_workspace_prefix="${GITHUB_WORKSPACE:-}/repo-"
-          run_suffix="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-
-          mapfile -t prep_containers < <(
-            docker ps -a --format '{{.ID}} {{.Names}}' \
-              | grep -E " bd-prep-.*-${run_suffix}$" \
-              | awk '{print $1}' \
-              || true
-          )
-
-          if [ "${#prep_containers[@]}" -gt 0 ]; then
-            docker rm -f "${prep_containers[@]}" || true
+          if [[ "$SCAN_MODE" == full ]]; then
+            docker image rm "${COMPOSE_PROJECT_NAME}-pek-ci" || true
           fi
-
-          mapfile -t run_images < <(
-            docker image ls --format '{{.Repository}}:{{.Tag}}' \
-              | grep -E "^blackduck-scan-.*:(prepared-)?${GITHUB_SHA}-${run_suffix}$|^perception-experience-kit-bd:${GITHUB_SHA}-${run_suffix}$" \
-              || true
-          )
-
-          if [ "${#run_images[@]}" -gt 0 ]; then
-            docker image rm -f "${run_images[@]}" || true
-          fi
-
-          case "${workspace_root}" in
-            "${expected_workspace_prefix}"*)
-              ;;
-            *)
-              echo "Skipping cleanup for unexpected WORKSPACE_ROOT='${workspace_root}'" >&2
-              exit 0
-              ;;
+          case "$WORKSPACE_ROOT" in
+            "$GITHUB_WORKSPACE"/repo-*) rm -rf -- "$WORKSPACE_ROOT" ;;
+            *) echo "Skipping unexpected workspace: $WORKSPACE_ROOT" >&2 ;;
           esac
 
-          if [ -d "${workspace_root}" ]; then
-            sudo chown -R "$(id -u):$(id -g)" "${workspace_root}" || true
-            chmod -R u+rwX "${workspace_root}" || true
-            rm -rf "${workspace_root}" || sudo rm -rf "${workspace_root}" || true
-          fi
+  quality-gate:
+    name: Black Duck quality gate
+    if: always()
+    needs: [built-output, dependencies, snippets]
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Require every Black Duck scan
+        env:
+          BUILT_OUTPUT_RESULT: ${{ needs.built-output.result }}
+          DEPENDENCY_RESULT: ${{ needs.dependencies.result }}
+          SNIPPET_RESULT: ${{ needs.snippets.result }}
+        run: |
+          {
+            echo '### Black Duck quality gate'
+            echo
+            echo "- Built output: ${BUILT_OUTPUT_RESULT}"
+            echo "- Dependencies: ${DEPENDENCY_RESULT}"
+            echo "- Snippets: ${SNIPPET_RESULT}"
+          } >> "$GITHUB_STEP_SUMMARY"
+          test "$BUILT_OUTPUT_RESULT" = success
+          test "$DEPENDENCY_RESULT" = success
+          test "$SNIPPET_RESULT" = success

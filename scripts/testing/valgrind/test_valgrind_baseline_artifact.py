@@ -3,9 +3,9 @@
 # Copyright (C) 2026 Arm Limited. All rights reserved.
 ################################################################
 
+import hashlib
 import importlib.util
 import os
-import subprocess
 import tempfile
 import unittest
 import urllib.error
@@ -14,15 +14,16 @@ from unittest import mock
 
 
 SCRIPT_PATH = Path(__file__).with_name("valgrind-baseline-artifact.py")
+TARGET_BRANCH_NAME = "develop"
 BASE_SHA = "a" * 40
+OLD_SHA = "b" * 40
 
 
 def load_helper():
     spec = importlib.util.spec_from_file_location("valgrind_baseline_artifact", SCRIPT_PATH)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
-    with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": "example/repo"}):
-        spec.loader.exec_module(module)
+    spec.loader.exec_module(module)
     return module
 
 
@@ -41,135 +42,177 @@ class TestValgrindBaselineArtifact(unittest.TestCase):
         path.write_bytes(content)
         return content
 
-    def test_download_requires_one_exact_sha_tag_and_verifies_content(self):
+    def test_download_writes_the_current_branch_artifact(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             output = Path(tmpdir)
             expected = output / self.helper.SUMMARY_NAME
             content = self.summary(output / "source.xml")
-            digest = self.helper.summary_digest(output / "source.xml")
-            tag = f"v2-sha-{BASE_SHA}-{digest}"
 
-            def docker(*args, **_kwargs):
-                if args[0] == "create":
-                    return "container-id"
-                if args[0] == "cp":
-                    Path(args[2]).write_bytes(content)
-                return ""
-
-            with mock.patch.object(self.helper, "commit_tags", return_value=[tag]), \
-                    mock.patch.object(self.helper, "docker", side_effect=docker) as run:
-                code = self.helper.download_baseline(BASE_SHA, output)
+            with mock.patch.object(
+                self.helper, "read_remote_baseline", return_value=(BASE_SHA, content)
+            ):
+                code = self.helper.download_baseline(TARGET_BRANCH_NAME, BASE_SHA, output)
 
             self.assertEqual(code, 0)
-            self.assertEqual(expected.read_bytes(), content)
-            self.assertEqual(run.call_args_list[-1], mock.call("rm", "-f", "container-id"))
+            self.assertEqual(self.helper.summary_digest(expected), self.helper.summary_digest_bytes(content))
 
-    def test_ambiguous_sha_does_not_pull(self):
-        tags = [
-            f"v2-sha-{BASE_SHA}-{'1' * 64}",
-            f"v2-sha-{BASE_SHA}-{'2' * 64}",
-        ]
-        with tempfile.TemporaryDirectory() as tmpdir, \
-                mock.patch.object(self.helper, "commit_tags", return_value=tags), \
-                mock.patch.object(self.helper, "docker") as docker:
-            code = self.helper.download_baseline(BASE_SHA, Path(tmpdir))
+    def test_missing_branch_baseline_removes_a_stale_local_artifact(self):
+        with tempfile.TemporaryDirectory() as tmpdir, mock.patch.object(
+            self.helper, "read_remote_baseline", return_value=None
+        ):
+            output = Path(tmpdir)
+            expected = output / self.helper.SUMMARY_NAME
+            expected.write_text("stale", encoding="utf-8")
+            code = self.helper.download_baseline(TARGET_BRANCH_NAME, BASE_SHA, output)
 
         self.assertEqual(code, 1)
-        docker.assert_not_called()
+        self.assertFalse(expected.exists())
 
-    def test_upload_skips_existing_identical_baseline(self):
+    def test_outdated_branch_baseline_is_not_used(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            summary = Path(tmpdir) / self.helper.SUMMARY_NAME
-            self.summary(summary)
-            tag = f"v2-sha-{BASE_SHA}-{self.helper.summary_digest(summary)}"
-            with mock.patch.object(self.helper, "commit_tags", return_value=[tag]), \
-                    mock.patch.object(self.helper, "docker") as docker:
-                code = self.helper.upload_baseline(BASE_SHA, summary)
+            output = Path(tmpdir)
+            content = self.summary(output / "source.xml")
+            with mock.patch.object(
+                self.helper, "read_remote_baseline", return_value=(OLD_SHA, content)
+            ):
+                code = self.helper.download_baseline(TARGET_BRANCH_NAME, BASE_SHA, output)
 
-        self.assertEqual(code, 0)
-        docker.assert_not_called()
+        self.assertEqual(code, 1)
+        self.assertFalse((output / self.helper.SUMMARY_NAME).exists())
 
-    def test_upload_rejects_conflicting_baseline(self):
+    def test_invalid_download_removes_a_stale_local_artifact(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output = Path(tmpdir)
+            expected = output / self.helper.SUMMARY_NAME
+            expected.write_text("stale", encoding="utf-8")
+            response = mock.MagicMock()
+            response.__enter__.return_value.read.return_value = b"<not-valgrindoutput />"
+            with mock.patch.object(
+                self.helper,
+                "artifactory_request",
+                return_value=response,
+            ):
+                code = self.helper.download_baseline(TARGET_BRANCH_NAME, BASE_SHA, output)
+
+            self.assertEqual(code, 1)
+            self.assertFalse(expected.exists())
+
+    def test_upload_skips_a_source_that_is_no_longer_branch_head(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             summary = Path(tmpdir) / self.helper.SUMMARY_NAME
             self.summary(summary)
             with mock.patch.object(
-                self.helper,
-                "commit_tags",
-                return_value=[f"v2-sha-{BASE_SHA}-{'1' * 64}"],
-            ):
-                with self.assertRaisesRegex(RuntimeError, "Conflicting"):
-                    self.helper.upload_baseline(BASE_SHA, summary)
+                self.helper, "get_target_branch_head_sha", return_value=OLD_SHA
+            ), mock.patch.object(self.helper, "read_remote_baseline") as read_remote:
+                code = self.helper.upload_baseline(TARGET_BRANCH_NAME, BASE_SHA, summary)
 
-    def test_upload_retries_transient_registry_failure(self):
+        self.assertEqual(code, 0)
+        read_remote.assert_not_called()
+
+    def test_upload_skips_existing_identical_baseline(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            summary = Path(tmpdir) / self.helper.SUMMARY_NAME
+            content = self.summary(summary)
+            with mock.patch.object(
+                self.helper, "get_target_branch_head_sha", return_value=BASE_SHA
+            ), mock.patch.object(
+                self.helper, "read_remote_baseline", return_value=(BASE_SHA, content)
+            ), mock.patch.object(self.helper, "artifactory_request") as request:
+                code = self.helper.upload_baseline(TARGET_BRANCH_NAME, BASE_SHA, summary)
+
+        self.assertEqual(code, 0)
+        request.assert_not_called()
+
+    def test_upload_rejects_conflicting_baseline_for_the_same_head(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             summary = Path(tmpdir) / self.helper.SUMMARY_NAME
             self.summary(summary)
-            pushes = 0
+            other = Path(tmpdir) / "other.xml"
+            existing = self.summary(other, "/work/other.so")
+            with mock.patch.object(
+                self.helper, "get_target_branch_head_sha", return_value=BASE_SHA
+            ), mock.patch.object(
+                self.helper, "read_remote_baseline", return_value=(BASE_SHA, existing)
+            ):
+                with self.assertRaisesRegex(RuntimeError, "Conflicting"):
+                    self.helper.upload_baseline(TARGET_BRANCH_NAME, BASE_SHA, summary)
 
-            def docker(*args, **_kwargs):
-                nonlocal pushes
-                if args[0] == "push":
-                    pushes += 1
-                    if pushes == 1:
-                        raise subprocess.CalledProcessError(1, args)
-                return ""
-
-            with mock.patch.object(self.helper, "commit_tags", return_value=[]), \
-                    mock.patch.object(self.helper, "docker", side_effect=docker), \
-                    mock.patch.object(self.helper.time, "sleep"):
-                code = self.helper.upload_baseline(BASE_SHA, summary)
+    def test_upload_replaces_the_previous_branch_head(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            summary = Path(tmpdir) / self.helper.SUMMARY_NAME
+            content = self.summary(summary)
+            with mock.patch.object(
+                self.helper,
+                "get_target_branch_head_sha",
+                side_effect=[BASE_SHA, BASE_SHA],
+            ), mock.patch.object(
+                self.helper,
+                "read_remote_baseline",
+                side_effect=[(OLD_SHA, content), (BASE_SHA, content)],
+            ), mock.patch.object(
+                self.helper, "artifactory_request", return_value=mock.MagicMock()
+            ) as request:
+                code = self.helper.upload_baseline(TARGET_BRANCH_NAME, BASE_SHA, summary)
 
         self.assertEqual(code, 0)
-        self.assertEqual(pushes, 2)
+        request.assert_called_once_with(TARGET_BRANCH_NAME, data=mock.ANY)
 
-    def test_commit_tags_uses_registry_pull_credentials(self):
-        digest_tag = f"v2-sha-{BASE_SHA}-{'1' * 64}"
-        responses = [
-            mock.MagicMock(
-                __enter__=lambda response: response,
-                __exit__=mock.Mock(return_value=False),
-                read=mock.Mock(return_value=b'{"token":"registry-token"}'),
-            ),
-            mock.MagicMock(
-                __enter__=lambda response: response,
-                __exit__=mock.Mock(return_value=False),
-                read=mock.Mock(return_value=(f'{{"tags":["other","{digest_tag}"]}}').encode()),
-                headers={},
-            ),
-        ]
+    def test_upload_retries_transient_artifactory_failure(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            summary = Path(tmpdir) / self.helper.SUMMARY_NAME
+            content = self.summary(summary)
+            uploads = 0
+
+            def request(*_args, **_kwargs):
+                nonlocal uploads
+                uploads += 1
+                if uploads == 1:
+                    raise urllib.error.URLError("temporary")
+                return mock.MagicMock()
+
+            with mock.patch.object(
+                self.helper,
+                "get_target_branch_head_sha",
+                side_effect=[BASE_SHA, BASE_SHA],
+            ), mock.patch.object(
+                self.helper,
+                "read_remote_baseline",
+                side_effect=[None, (BASE_SHA, content)],
+            ), mock.patch.object(
+                self.helper, "artifactory_request", side_effect=request
+            ), mock.patch.object(self.helper.time, "sleep"):
+                code = self.helper.upload_baseline(TARGET_BRANCH_NAME, BASE_SHA, summary)
+
+        self.assertEqual(code, 0)
+        self.assertEqual(uploads, 2)
+
+    def test_artifactory_request_uses_branch_path_auth_and_upload_checksum(self):
+        content = b"summary"
         with mock.patch.dict(
             os.environ,
-            {"GITHUB_ACTOR": "ci-user", "GH_TOKEN": "ci-token"},
+            {"ARTIFACTORY_USER": "ci-user", "ARTIFACTORY_TOKEN": "ci-token"},
         ), mock.patch.object(
             self.helper.urllib.request,
             "urlopen",
-            side_effect=responses,
+            return_value=mock.MagicMock(),
         ) as urlopen:
-            tags = self.helper.commit_tags(BASE_SHA)
+            self.helper.artifactory_request("feature/test", data=content)
 
-        self.assertEqual(tags, [digest_tag])
-        self.assertEqual(urlopen.call_count, 2)
-        self.assertTrue(
-            urlopen.call_args_list[1].args[0].get_header("Authorization").startswith("Bearer ")
+        request = urlopen.call_args.args[0]
+        self.assertEqual(request.get_method(), "PUT")
+        self.assertEqual(
+            request.full_url,
+            f"{self.helper.ARTIFACTORY_BASE_URL}/feature/test/{self.helper.SUMMARY_NAME}",
+        )
+        self.assertTrue(request.get_header("Authorization").startswith("Basic "))
+        self.assertEqual(
+            request.get_header("X-checksum-sha256"), hashlib.sha256(content).hexdigest()
         )
 
-    def test_commit_tags_treats_missing_registry_package_as_empty(self):
-        token_response = mock.MagicMock(
-            __enter__=lambda response: response,
-            __exit__=mock.Mock(return_value=False),
-            read=mock.Mock(return_value=b'{"token":"registry-token"}'),
-        )
+    def test_read_remote_baseline_treats_404_as_missing(self):
         missing = urllib.error.HTTPError("url", 404, "missing", {}, None)
-        with mock.patch.dict(
-            os.environ,
-            {"GITHUB_ACTOR": "ci-user", "GH_TOKEN": "ci-token"},
-        ), mock.patch.object(
-            self.helper.urllib.request,
-            "urlopen",
-            side_effect=[token_response, missing],
-        ):
-            self.assertEqual(self.helper.commit_tags(BASE_SHA), [])
+        with mock.patch.object(self.helper, "artifactory_request", side_effect=missing):
+            self.assertIsNone(self.helper.read_remote_baseline(TARGET_BRANCH_NAME))
 
     def test_digest_ignores_non_repository_errors(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -189,51 +232,150 @@ class TestValgrindBaselineArtifact(unittest.TestCase):
                 self.helper.summary_digest(repository),
             )
 
-    def test_publish_dispatches_only_when_baseline_and_run_are_missing(self):
-        with mock.patch.object(self.helper, "baseline_sha", return_value=BASE_SHA), \
-                mock.patch.object(self.helper, "commit_tags", return_value=[]), \
-                mock.patch.object(self.helper, "find_active_run", return_value=None), \
-                mock.patch.object(self.helper.subprocess, "run") as subprocess_run:
-            code = self.helper.publish_missing_baseline()
+    def test_publish_dispatches_current_branch_head_when_baseline_is_missing(self):
+        with mock.patch.object(
+            self.helper, "get_target_branch_head_sha", return_value=BASE_SHA
+        ), mock.patch.object(
+            self.helper, "read_remote_baseline", return_value=None
+        ), mock.patch.object(
+            self.helper, "find_active_run", return_value=None
+        ), mock.patch.object(self.helper.subprocess, "run") as subprocess_run:
+            result = self.helper.publish_missing_baseline(TARGET_BRANCH_NAME, BASE_SHA)
 
-        self.assertEqual(code, 0)
+        self.assertIsNone(result)
         subprocess_run.assert_called_once_with(
             [
-                "gh", "workflow", "run", "pek-ci.yml",
-                "--ref", "develop",
-                "-f", "checks=valgrind",
-                "-f", f"valgrind_baseline_sha={BASE_SHA}",
+                "gh",
+                "workflow",
+                "run",
+                "pek-ci.yml",
+                "--ref",
+                "develop",
+                "-f",
+                "checks=valgrind",
+                "-f",
+                f"target_branch_head_sha={BASE_SHA}",
+                "-f",
+                f"target_branch_name={TARGET_BRANCH_NAME}",
             ],
             check=True,
         )
 
-    def test_find_active_run_matches_the_baseline_sha_in_the_run_name(self):
+    def test_publish_replaces_an_outdated_branch_baseline(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            content = self.summary(Path(tmpdir) / "summary.xml")
+            with mock.patch.object(
+                self.helper, "get_target_branch_head_sha", return_value=BASE_SHA
+            ), mock.patch.object(
+                self.helper, "read_remote_baseline", return_value=(OLD_SHA, content)
+            ), mock.patch.object(
+                self.helper, "find_active_run", return_value=None
+            ), mock.patch.object(self.helper.subprocess, "run") as subprocess_run:
+                result = self.helper.publish_missing_baseline(
+                    TARGET_BRANCH_NAME, BASE_SHA
+                )
+
+        self.assertIsNone(result)
+        subprocess_run.assert_called_once()
+
+    def test_publish_skips_the_current_branch_baseline(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            content = self.summary(Path(tmpdir) / "summary.xml")
+            with mock.patch.object(
+                self.helper, "get_target_branch_head_sha", return_value=BASE_SHA
+            ), mock.patch.object(
+                self.helper, "read_remote_baseline", return_value=(BASE_SHA, content)
+            ), mock.patch.object(self.helper, "find_active_run") as find_active_run:
+                result = self.helper.publish_missing_baseline(
+                    TARGET_BRANCH_NAME, BASE_SHA
+                )
+
+        self.assertIsNone(result)
+        find_active_run.assert_not_called()
+
+    def test_find_active_run_matches_branch_and_sha_in_the_run_name(self):
         with mock.patch.object(
             self.helper,
             "list_backfill_runs",
             return_value=[
                 {
                     "databaseId": 123,
-                    "displayTitle": f"Valgrind baseline {BASE_SHA}",
+                    "displayTitle": f"Valgrind baseline {TARGET_BRANCH_NAME}@{BASE_SHA}",
                     "status": "in_progress",
                 },
                 {
                     "databaseId": 456,
-                    "displayTitle": f"Valgrind baseline {'b' * 40}",
+                    "displayTitle": f"Valgrind baseline main@{BASE_SHA}",
                     "status": "in_progress",
                 },
             ],
         ):
-            self.assertEqual(self.helper.find_active_run(BASE_SHA), 123)
+            self.assertEqual(self.helper.find_active_run(TARGET_BRANCH_NAME, BASE_SHA), 123)
+
+    def test_publish_rejects_a_target_that_is_no_longer_branch_head(self):
+        with mock.patch.object(
+            self.helper, "get_target_branch_head_sha", return_value=OLD_SHA
+        ), mock.patch.object(self.helper, "read_remote_baseline") as read_remote:
+            with self.assertRaisesRegex(RuntimeError, "advanced"):
+                self.helper.publish_missing_baseline(TARGET_BRANCH_NAME, BASE_SHA)
+
+        read_remote.assert_not_called()
+
+    def test_main_reads_target_branch_name_and_head_from_the_environment(self):
+        with tempfile.TemporaryDirectory() as tmpdir, mock.patch.dict(
+            os.environ,
+            {
+                "TARGET_BRANCH_NAME": TARGET_BRANCH_NAME,
+                "TARGET_BRANCH_HEAD_SHA": BASE_SHA,
+            },
+        ), mock.patch.object(
+            self.helper.sys,
+            "argv",
+            ["valgrind-baseline-artifact.py", "wait", "--output-dir", tmpdir],
+        ), mock.patch.object(
+            self.helper, "wait_for_baseline", return_value=0
+        ) as wait:
+            self.assertEqual(self.helper.main(), 0)
+
+        wait.assert_called_once_with(TARGET_BRANCH_NAME, BASE_SHA, Path(tmpdir))
+
+    def test_main_runs_the_publish_command(self):
+        with mock.patch.dict(
+            os.environ,
+            {
+                "TARGET_BRANCH_NAME": TARGET_BRANCH_NAME,
+                "TARGET_BRANCH_HEAD_SHA": BASE_SHA,
+            },
+        ), mock.patch.object(
+            self.helper.sys,
+            "argv",
+            ["valgrind-baseline-artifact.py", "publish"],
+        ), mock.patch.object(self.helper, "publish_missing_baseline") as publish:
+            self.assertEqual(self.helper.main(), 0)
+
+        publish.assert_called_once_with(TARGET_BRANCH_NAME, BASE_SHA)
 
     def test_wait_downloads_the_published_baseline(self):
-        with tempfile.TemporaryDirectory() as tmpdir, \
-                mock.patch.object(self.helper, "download_baseline", side_effect=[1, 0]) as download, \
-                mock.patch.object(self.helper.time, "sleep"):
-            code = self.helper.wait_for_baseline(BASE_SHA, Path(tmpdir))
+        with tempfile.TemporaryDirectory() as tmpdir, mock.patch.object(
+            self.helper, "download_baseline", side_effect=[1, 0]
+        ) as download, mock.patch.object(
+            self.helper, "get_target_branch_head_sha", return_value=BASE_SHA
+        ), mock.patch.object(self.helper.time, "sleep"):
+            code = self.helper.wait_for_baseline(TARGET_BRANCH_NAME, BASE_SHA, Path(tmpdir))
 
         self.assertEqual(code, 0)
         self.assertEqual(download.call_count, 2)
+
+    def test_wait_stops_when_the_target_branch_advances(self):
+        with tempfile.TemporaryDirectory() as tmpdir, mock.patch.object(
+            self.helper, "download_baseline", return_value=1
+        ), mock.patch.object(
+            self.helper, "get_target_branch_head_sha", return_value=OLD_SHA
+        ), mock.patch.object(self.helper.time, "sleep") as sleep:
+            code = self.helper.wait_for_baseline(TARGET_BRANCH_NAME, BASE_SHA, Path(tmpdir))
+
+        self.assertEqual(code, 1)
+        sleep.assert_not_called()
 
 
 if __name__ == "__main__":

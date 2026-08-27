@@ -2,7 +2,7 @@
 ################################################################
 # Copyright (C) 2026 Arm Limited. All rights reserved.
 ################################################################
-"""Store exact-SHA Valgrind summaries in GHCR."""
+"""Store the current Valgrind summary for each target branch in Artifactory."""
 
 import argparse
 import base64
@@ -11,27 +11,25 @@ import json
 import os
 import re
 import runpy
-import shutil
 import subprocess
 import sys
 import tempfile
 import time
 import urllib.error
-import urllib.parse
 import urllib.request
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 
 ACTIVE_STATUSES = {"queued", "in_progress", "requested", "waiting", "pending"}
-BASELINE_BRANCH = os.environ.get("VALGRIND_BASELINE_BRANCH", "develop")
-OWNER, REPOSITORY_NAME = os.environ["GITHUB_REPOSITORY"].split("/", 1)
-REPOSITORY = f"{OWNER}/{REPOSITORY_NAME}"
-WORKFLOW_NAME = os.environ.get("VALGRIND_BASELINE_WORKFLOW", "pek-ci.yml")
 WORKFLOW_REF = os.environ.get("VALGRIND_BASELINE_WORKFLOW_REF", "develop")
-PACKAGE = f"{REPOSITORY_NAME.lower()}-valgrind-baseline"
-IMAGE = f"ghcr.io/{OWNER.lower()}/{PACKAGE}"
-REGISTRY_REPOSITORY = f"{OWNER.lower()}/{PACKAGE}"
+WORKFLOW_NAME = "pek-ci.yml"
+ARTIFACTORY_BASE_URL = (
+    "https://artifactory.arm.com/artifactory/"
+    "ai-expkits-internal.opk-ci/ci/valgrind-baselines"
+)
 SUMMARY_NAME = "valgrind-error-summary.xml"
+NEWEST_REFERENCE_SHA_ATTRIBUTE = "newest-reference-sha"
 
 
 def gh(*args: str) -> str:
@@ -47,14 +45,11 @@ def gh_json(*args: str):
     return json.loads(gh(*args))
 
 
-def docker(*args: str, capture_output: bool = False) -> str:
-    result = subprocess.run(
-        ["docker", *args],
-        check=True,
-        capture_output=capture_output,
-        text=capture_output,
-    )
-    return result.stdout.strip() if capture_output else ""
+def required_env(name: str) -> str:
+    value = os.environ.get(name, "")
+    if not value:
+        raise RuntimeError(f"Missing {name}")
+    return value
 
 
 def validate_sha(sha: str) -> None:
@@ -62,19 +57,27 @@ def validate_sha(sha: str) -> None:
         raise ValueError(f"Invalid Git commit SHA: {sha}")
 
 
-def current_branch_sha() -> str:
+def validate_branch_name(branch: str) -> None:
+    if not re.fullmatch(r"[A-Za-z0-9._/-]+", branch) or any(
+        part in {"", ".", ".."} for part in branch.split("/")
+    ):
+        raise ValueError(f"Invalid Git branch: {branch}")
+
+
+def target_branch_name() -> str:
+    branch = required_env("TARGET_BRANCH_NAME")
+    validate_branch_name(branch)
+    return branch
+
+
+def get_target_branch_head_sha(branch: str) -> str:
+    validate_branch_name(branch)
     return gh(
         "api",
-        f"repos/{REPOSITORY}/git/ref/heads/{BASELINE_BRANCH}",
+        f"repos/{required_env('GITHUB_REPOSITORY')}/git/ref/heads/{branch}",
         "--jq",
         ".object.sha",
     )
-
-
-def baseline_sha(explicit_sha: str = "") -> str:
-    sha = explicit_sha or os.environ.get("VALGRIND_BASELINE_SHA", "") or current_branch_sha()
-    validate_sha(sha)
-    return sha
 
 
 def list_backfill_runs():
@@ -82,7 +85,7 @@ def list_backfill_runs():
         "run",
         "list",
         "--repo",
-        REPOSITORY,
+        required_env("GITHUB_REPOSITORY"),
         "--workflow",
         WORKFLOW_NAME,
         "--branch",
@@ -96,8 +99,8 @@ def list_backfill_runs():
     )
 
 
-def find_active_run(sha: str):
-    title = f"Valgrind baseline {sha}"
+def find_active_run(branch: str, target_sha: str):
+    title = f"Valgrind baseline {branch}@{target_sha}"
     for run in list_backfill_runs():
         if run.get("displayTitle") == title and run.get("status") in ACTIVE_STATUSES:
             return int(run["databaseId"])
@@ -113,149 +116,219 @@ def summary_digest(path: Path) -> str:
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
-def commit_tags(sha: str) -> list[str]:
-    prefix = f"v2-sha-{sha}-"
-    actor = os.environ.get("GITHUB_ACTOR") or gh("api", "user", "--jq", ".login")
-    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN") or gh("auth", "token")
-    credentials = base64.b64encode(f"{actor}:{token}".encode()).decode()
-    query = urllib.parse.urlencode(
-        {"service": "ghcr.io", "scope": f"repository:{REGISTRY_REPOSITORY}:pull"}
+def summary_digest_bytes(payload: bytes) -> str:
+    with tempfile.NamedTemporaryFile() as summary:
+        summary.write(payload)
+        summary.flush()
+        return summary_digest(Path(summary.name))
+
+
+def pack_baseline(target_sha: str, payload: bytes) -> bytes:
+    validate_sha(target_sha)
+    root = ET.fromstring(payload)
+    if root.tag != "valgrindoutput":
+        raise ValueError(f"Invalid Valgrind summary root: {root.tag}")
+    root.set(NEWEST_REFERENCE_SHA_ATTRIBUTE, target_sha)
+    return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
+def unpack_baseline(payload: bytes) -> tuple[str, bytes]:
+    root = ET.fromstring(payload)
+    if root.tag != "valgrindoutput":
+        raise ValueError(f"Invalid Valgrind summary root: {root.tag}")
+    newest_reference_sha = root.attrib.pop(NEWEST_REFERENCE_SHA_ATTRIBUTE, "")
+    validate_sha(newest_reference_sha)
+    summary = ET.tostring(root, encoding="utf-8", xml_declaration=True)
+    return newest_reference_sha, summary
+
+
+def artifactory_request(branch: str, *, data: bytes | None = None):
+    validate_branch_name(branch)
+    user = required_env("ARTIFACTORY_USER")
+    token = required_env("ARTIFACTORY_TOKEN")
+
+    credentials = base64.b64encode(f"{user}:{token}".encode()).decode()
+    request = urllib.request.Request(
+        f"{ARTIFACTORY_BASE_URL}/{branch}/{SUMMARY_NAME}",
+        data=data,
+        method="PUT" if data is not None else "GET",
     )
-    request = urllib.request.Request(f"https://ghcr.io/token?{query}")
     request.add_header("Authorization", f"Basic {credentials}")
-    with urllib.request.urlopen(request, timeout=30) as response:
-        registry_token = json.load(response)["token"]
-
-    tags = []
-    url = f"https://ghcr.io/v2/{REGISTRY_REPOSITORY}/tags/list?n=100"
-    while url:
-        request = urllib.request.Request(url)
-        request.add_header("Authorization", f"Bearer {registry_token}")
-        try:
-            with urllib.request.urlopen(request, timeout=30) as response:
-                tags.extend(json.load(response).get("tags") or [])
-                link = response.headers.get("Link", "")
-        except urllib.error.HTTPError as error:
-            if error.code == 404:
-                return []
-            raise
-        next_page = re.search(r'<([^>]+)>;\s*rel="next"', link)
-        url = urllib.parse.urljoin(url, next_page.group(1)) if next_page else ""
-    return sorted(tag for tag in tags if tag.startswith(prefix))
+    if data is not None:
+        request.add_header("Content-Type", "application/xml")
+        request.add_header("X-Checksum-Sha256", hashlib.sha256(data).hexdigest())
+    return urllib.request.urlopen(request, timeout=30)
 
 
-def download_baseline(sha: str, output_dir: Path, *, quiet: bool = False) -> int:
-    validate_sha(sha)
-    tags = commit_tags(sha)
-    if len(tags) != 1:
-        if not quiet:
-            reason = "not found" if not tags else f"ambiguous ({len(tags)} versions)"
-            print(f"GHCR Valgrind baseline {reason} for {sha}.", file=sys.stderr)
-        return 1
+def read_remote_baseline(branch: str) -> tuple[str, bytes] | None:
+    try:
+        with artifactory_request(branch) as response:
+            payload = response.read()
+    except urllib.error.HTTPError as error:
+        if error.code == 404:
+            return None
+        raise
 
-    tag = tags[0]
-    expected_digest = tag.removeprefix(f"v2-sha-{sha}-")
-    if not re.fullmatch(r"[0-9a-f]{64}", expected_digest):
-        print(f"Ignoring malformed GHCR Valgrind baseline tag: {tag}", file=sys.stderr)
-        return 1
+    try:
+        return unpack_baseline(payload)
+    except (ET.ParseError, ValueError):
+        return None
 
-    image = f"{IMAGE}:{tag}"
-    output_dir.mkdir(parents=True, exist_ok=True)
+
+def baseline_matches(
+    baseline: tuple[str, bytes] | None,
+    target_sha: str,
+    checksum: str,
+) -> bool:
+    return (
+        baseline is not None
+        and baseline[0] == target_sha
+        and summary_digest_bytes(baseline[1]) == checksum
+    )
+
+
+def reject_same_sha_conflict(
+    baseline: tuple[str, bytes] | None,
+    branch: str,
+    target_sha: str,
+) -> None:
+    if baseline is not None and baseline[0] == target_sha:
+        raise RuntimeError(
+            f"Conflicting Artifactory Valgrind baseline already exists "
+            f"for {branch}@{target_sha}."
+        )
+
+
+def download_baseline(
+    branch: str,
+    target_sha: str,
+    output_dir: Path,
+    *,
+    quiet: bool = False,
+) -> int:
+    validate_branch_name(branch)
+    validate_sha(target_sha)
     summary = output_dir / SUMMARY_NAME
     summary.unlink(missing_ok=True)
-    docker("pull", image)
-    container = docker("create", image, capture_output=True)
-    try:
-        docker("cp", f"{container}:/{SUMMARY_NAME}", str(summary))
-    finally:
-        docker("rm", "-f", container)
-
-    if summary_digest(summary) != expected_digest:
-        summary.unlink(missing_ok=True)
-        print(f"Ignoring corrupt GHCR Valgrind baseline for {sha}.", file=sys.stderr)
+    baseline = read_remote_baseline(branch)
+    if baseline is None:
+        if not quiet:
+            print(
+                f"No valid Artifactory Valgrind baseline found for {branch}.",
+                file=sys.stderr,
+            )
         return 1
 
-    print(f"Downloaded GHCR Valgrind baseline for {sha}.")
+    newest_reference_sha, payload = baseline
+    if newest_reference_sha != target_sha:
+        if not quiet:
+            print(
+                f"Artifactory Valgrind baseline for {branch} is {newest_reference_sha}, "
+                f"not current head {target_sha}.",
+                file=sys.stderr,
+            )
+        return 1
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    temporary = summary.with_suffix(".xml.tmp")
+    temporary.write_bytes(payload)
+    temporary.replace(summary)
+    print(f"Downloaded Artifactory Valgrind baseline for {branch}@{target_sha}.")
     return 0
 
 
-def upload_baseline(sha: str, summary: Path) -> int:
-    validate_sha(sha)
+def upload_baseline(branch: str, target_sha: str, summary: Path) -> int:
+    validate_branch_name(branch)
+    validate_sha(target_sha)
     checksum = summary_digest(summary)
-    tag = f"v2-sha-{sha}-{checksum}"
-    existing_tags = commit_tags(sha)
-    if tag in existing_tags:
-        print(f"GHCR Valgrind baseline already exists for {sha}.")
+    if get_target_branch_head_sha(branch) != target_sha:
+        print(f"Skipping outdated Valgrind baseline for {branch}@{target_sha}.")
         return 0
-    if existing_tags:
-        raise RuntimeError(f"Conflicting GHCR Valgrind baseline already exists for {sha}.")
 
-    image = f"{IMAGE}:{tag}"
-    with tempfile.TemporaryDirectory() as tmpdir:
-        context = Path(tmpdir)
-        shutil.copy2(summary, context / SUMMARY_NAME)
-        (context / "Dockerfile").write_text(
-            "FROM scratch\n"
-            f'LABEL org.opencontainers.image.source="https://github.com/{REPOSITORY}"\n'
-            f"COPY {SUMMARY_NAME} /{SUMMARY_NAME}\n"
-            f'CMD ["/{SUMMARY_NAME}"]\n',
-            encoding="utf-8",
-        )
-        docker("build", "--tag", image, str(context))
+    payload = pack_baseline(target_sha, summary.read_bytes())
+    existing = read_remote_baseline(branch)
+    if baseline_matches(existing, target_sha, checksum):
+        print(f"Artifactory baseline already exists for {branch}@{target_sha}.")
+        return 0
+    reject_same_sha_conflict(existing, branch, target_sha)
 
     for attempt in range(3):
         try:
-            docker("push", image)
-            print(f"Published GHCR Valgrind baseline for {sha}.")
+            artifactory_request(branch, data=payload).close()
+            published = read_remote_baseline(branch)
+            if not baseline_matches(published, target_sha, checksum):
+                raise RuntimeError(
+                    f"Could not verify Artifactory baseline "
+                    f"for {branch}@{target_sha}."
+                )
+            if get_target_branch_head_sha(branch) != target_sha:
+                print(f"Published {branch}@{target_sha}, but the branch advanced.")
+                return 0
+            print(f"Published Artifactory baseline for {branch}@{target_sha}.")
             return 0
-        except subprocess.CalledProcessError:
-            if attempt == 2:
+        except urllib.error.URLError as error:
+            if attempt == 2 or (
+                isinstance(error, urllib.error.HTTPError) and error.code < 500
+            ):
                 raise
             time.sleep(2**attempt)
     return 1
 
 
-def publish_missing_baseline() -> int:
-    sha = baseline_sha()
-    tags = commit_tags(sha)
-    if len(tags) == 1:
-        print(f"GHCR Valgrind baseline already exists for {sha}.")
-        return 0
-    if len(tags) > 1:
-        raise RuntimeError(f"Ambiguous GHCR Valgrind baseline for {sha}.")
+def publish_missing_baseline(branch: str, target_sha: str) -> None:
+    validate_sha(target_sha)
+    if get_target_branch_head_sha(branch) != target_sha:
+        raise RuntimeError(f"Target branch {branch} advanced past {target_sha}.")
+    existing = read_remote_baseline(branch)
+    if existing is not None:
+        newest_reference_sha, _ = existing
+        if newest_reference_sha == target_sha:
+            print(f"Artifactory baseline already exists for {branch}@{target_sha}.")
+            return
 
-    active_run = find_active_run(sha)
+    active_run = find_active_run(branch, target_sha)
     if active_run is not None:
         print(f"Valgrind baseline run {active_run} is already active.")
-        return 0
+        return
 
     subprocess.run(
         [
             "gh", "workflow", "run", WORKFLOW_NAME,
             "--ref", WORKFLOW_REF,
             "-f", "checks=valgrind",
-            "-f", f"valgrind_baseline_sha={sha}",
+            "-f", f"target_branch_head_sha={target_sha}",
+            "-f", f"target_branch_name={branch}",
         ],
         check=True,
     )
-    return 0
 
 
-def wait_for_baseline(sha: str, output_dir: Path) -> int:
+def wait_for_baseline(branch: str, target_sha: str, output_dir: Path) -> int:
     poll_seconds = int(os.environ.get("VALGRIND_BASELINE_POLL_SECONDS", "30"))
     timeout_seconds = int(os.environ.get("VALGRIND_BASELINE_TIMEOUT_SECONDS", "5400"))
     deadline = time.monotonic() + timeout_seconds
     attempt = 0
 
     while True:
-        if download_baseline(sha, output_dir, quiet=True) == 0:
+        if download_baseline(branch, target_sha, output_dir, quiet=True) == 0:
             return 0
+        if get_target_branch_head_sha(branch) != target_sha:
+            print(
+                f"Target branch {branch} advanced while waiting for "
+                f"baseline {target_sha}.",
+                file=sys.stderr,
+            )
+            return 1
         if time.monotonic() >= deadline:
-            print(f"Timed out waiting for GHCR Valgrind baseline {sha}.", file=sys.stderr)
+            print(
+                f"Timed out waiting for Artifactory Valgrind baseline "
+                f"{branch}@{target_sha}.",
+                file=sys.stderr,
+            )
             return 1
         attempt += 1
         if attempt % 4 == 1:
-            print(f"Waiting for GHCR Valgrind baseline {sha}.")
+            print(f"Waiting for Artifactory baseline {branch}@{target_sha}.")
         time.sleep(poll_seconds)
 
 
@@ -264,29 +337,31 @@ def main() -> int:
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("publish")
 
-    download = subparsers.add_parser("download")
-    download.add_argument("--sha", default="")
-    download.add_argument("--output-dir", required=True, type=Path)
-
     wait = subparsers.add_parser("wait")
-    wait.add_argument("--sha", default="")
     wait.add_argument("--output-dir", required=True, type=Path)
 
     upload = subparsers.add_parser("upload")
-    upload.add_argument("--sha", required=True)
     upload.add_argument("--input", required=True, type=Path)
 
     args = parser.parse_args()
     try:
+        branch = target_branch_name()
+        target_sha = required_env("TARGET_BRANCH_HEAD_SHA")
+        validate_sha(target_sha)
         if args.command == "publish":
-            return publish_missing_baseline()
-        if args.command == "download":
-            return download_baseline(baseline_sha(args.sha), args.output_dir)
+            publish_missing_baseline(branch, target_sha)
+            return 0
         if args.command == "wait":
-            return wait_for_baseline(baseline_sha(args.sha), args.output_dir)
-        return upload_baseline(args.sha, args.input)
-    except (OSError, RuntimeError, subprocess.CalledProcessError, ValueError) as error:
-        print(f"GHCR Valgrind baseline unavailable: {error}", file=sys.stderr)
+            return wait_for_baseline(branch, target_sha, args.output_dir)
+        return upload_baseline(branch, target_sha, args.input)
+    except (
+        ET.ParseError,
+        OSError,
+        RuntimeError,
+        subprocess.CalledProcessError,
+        ValueError,
+    ) as error:
+        print(f"Artifactory Valgrind baseline unavailable: {error}", file=sys.stderr)
         return 1
 
 
