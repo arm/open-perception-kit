@@ -203,6 +203,7 @@ services:
         coverage erase &&
         coverage run --branch --source=tools/perception,scripts/release -m unittest tools/perception/tests/test_release.py &&
         coverage run --append --branch --source=tools/perception,scripts/release -m unittest scripts/release/TestReleaseTool.py &&
+        coverage run --append --branch --include=scripts/testing/valgrind/valgrind-baseline-artifact.py -m unittest scripts/testing/valgrind/test_valgrind_baseline_artifact.py &&
         coverage xml -o python-coverage.xml &&
         if [ -n "$$PR_KEY" ] && [ -n "$$PR_BRANCH" ] && [ -n "$$PR_BASE" ]; then
           sonar_scope_args=(
@@ -243,6 +244,7 @@ services:
         coverage erase &&
         coverage run --branch --source=tools/perception,scripts/release -m unittest tools/perception/tests/test_release.py &&
         coverage run --append --branch --source=tools/perception,scripts/release -m unittest scripts/release/TestReleaseTool.py &&
+        coverage run --append --branch --include=scripts/testing/valgrind/valgrind-baseline-artifact.py -m unittest scripts/testing/valgrind/test_valgrind_baseline_artifact.py &&
         coverage xml -o python-coverage.xml &&
         sonar-scanner -Dsonar.qualitygate.wait="$${SONAR_QUALITYGATE_WAIT}" \
           -Dsonar.branch.name="$$SONAR_BRANCH" \
