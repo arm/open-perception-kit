@@ -38,6 +38,7 @@ class CiImageTests(unittest.TestCase):
                 },
                 clear=True,
             ),
+            mock.patch.object(ci_image.fcntl, "flock") as flock,
             mock.patch.object(ci_image, "run", return_value=command_result) as run,
             mock.patch.object(ci_image, "verify_revision") as verify,
         ):
@@ -49,6 +50,7 @@ class CiImageTests(unittest.TestCase):
             )
 
         verify.assert_called_once_with(registry_image, SHA)
+        self.assertEqual(flock.call_args.args[1], ci_image.fcntl.LOCK_EX)
         self.assertEqual(
             run.call_args_list,
             [

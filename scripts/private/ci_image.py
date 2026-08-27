@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timedelta, timezone
+import fcntl
 import json
 import os
 from pathlib import Path
@@ -137,12 +138,14 @@ def prepare(sha: str, registry_image: str, services: list[str]) -> str:
     if not REGISTRY_IMAGE_PATTERN.fullmatch(registry_image):
         raise ValueError("Registry CI image must be a run-tagged lowercase GHCR reference.")
 
-    run(["docker", "pull", registry_image])
-    verify_revision(registry_image, sha)
     project = compose_project_name()
-    for service in services:
-        run(["docker", "tag", registry_image, f"{project}-{service}"])
-    run(["docker", "image", "rm", registry_image])
+    with Path(f"/tmp/pek-ci-image-{sha}.lock").open("a", encoding="utf-8") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        run(["docker", "pull", registry_image])
+        verify_revision(registry_image, sha)
+        for service in services:
+            run(["docker", "tag", registry_image, f"{project}-{service}"])
+        run(["docker", "image", "rm", registry_image])
     append_github_env("COMPOSE_PROJECT_NAME", project)
     print(f"Prepared {registry_image} for {', '.join(services)}")
     return registry_image

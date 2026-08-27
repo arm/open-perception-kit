@@ -86,11 +86,8 @@ jobs:
 
       - name: Pull PEK CI image
         run: |
-          (
-            flock -x 9
-            python3 "$WORKSPACE_ROOT/scripts/private/ci_image.py" prepare "$CI_IMAGE_SHA" \
-              --registry-image "$CI_IMAGE_REGISTRY" pek-release-with-ut
-          ) 9>"/tmp/pek-ci-image-${CI_IMAGE_SHA}.lock"
+          python3 "$WORKSPACE_ROOT/scripts/private/ci_image.py" prepare "$CI_IMAGE_SHA" \
+            --registry-image "$CI_IMAGE_REGISTRY" pek-release-with-ut
 
       - name: Prepare private submodules
         working-directory: ${{ env.WORKSPACE_ROOT }}
@@ -246,11 +243,8 @@ jobs:
       - name: Pull PEK CI image
         if: ${{ inputs.scan_mode == 'full' }}
         run: |
-          (
-            flock -x 9
-            python3 "$WORKSPACE_ROOT/scripts/private/ci_image.py" prepare "$CI_IMAGE_SHA" \
-              --registry-image "$CI_IMAGE_REGISTRY" pek-ci
-          ) 9>"/tmp/pek-ci-image-${CI_IMAGE_SHA}.lock"
+          python3 "$WORKSPACE_ROOT/scripts/private/ci_image.py" prepare "$CI_IMAGE_SHA" \
+            --registry-image "$CI_IMAGE_REGISTRY" pek-ci
 
       - name: Prepare private submodules
         working-directory: ${{ env.WORKSPACE_ROOT }}
@@ -432,11 +426,8 @@ jobs:
       - name: Pull PEK CI image
         if: ${{ inputs.scan_mode == 'full' }}
         run: |
-          (
-            flock -x 9
-            python3 "$WORKSPACE_ROOT/scripts/private/ci_image.py" prepare "$CI_IMAGE_SHA" \
-              --registry-image "$CI_IMAGE_REGISTRY" pek-ci
-          ) 9>"/tmp/pek-ci-image-${CI_IMAGE_SHA}.lock"
+          python3 "$WORKSPACE_ROOT/scripts/private/ci_image.py" prepare "$CI_IMAGE_SHA" \
+            --registry-image "$CI_IMAGE_REGISTRY" pek-ci
 
       - name: Prepare private submodules
         if: ${{ inputs.scan_mode == 'full' }}
