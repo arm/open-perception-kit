@@ -879,7 +879,7 @@ jobs:
         env:
           DEV_IMAGE_SHA: ${{ steps.manual_pr.outputs.head_sha || github.event.pull_request.head.sha || github.sha }}
         run: |
-          repository="ghcr.io/${GITHUB_REPOSITORY,,}-dev"
+          repository="ghcr.io/$(printf '%s' "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')-dev"
           image="${repository}:sha-${DEV_IMAGE_SHA}"
           echo "PEK_DEV_IMAGE=${image}" >> "$GITHUB_ENV"
           echo "PEK_DEV_CACHE_FROM=type=registry,ref=${repository}:buildcache" >> "$GITHUB_ENV"
