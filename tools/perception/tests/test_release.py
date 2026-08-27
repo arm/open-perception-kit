@@ -9,6 +9,7 @@ import importlib.util
 import io
 import json
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -857,6 +858,17 @@ class BundleVerificationTests(unittest.TestCase):
 
 
 class GeneratedSdkTests(unittest.TestCase):
+    @unittest.skipUnless(shutil.which("cargo"), "cargo is not installed")
+    def test_generated_rust_sdk(self) -> None:
+        config = release_package.perception_config.load_sdk_config()
+        with tempfile.TemporaryDirectory() as tmp:
+            rust_copy = Path(tmp) / "rust"
+            shutil.copytree(config.generated_root / "rust", rust_copy)
+            subprocess.run(
+                ["cargo", "test", "--manifest-path", str(rust_copy / "Cargo.toml")],
+                check=True,
+            )
+
     def test_checked_in_sdk_has_release_integrations_and_typing(self) -> None:
         repository = Path(__file__).resolve().parents[3]
         config = release_package.perception_config.load_sdk_config()
@@ -868,6 +880,13 @@ class GeneratedSdkTests(unittest.TestCase):
         self.assertTrue((generated / "ts" / "src" / "perception" / "index.ts").is_file())
         self.assertTrue((generated / "ts" / "dist" / "perception" / "index.js").is_file())
         self.assertTrue((generated / "ts" / "dist" / "perception" / "index.d.ts").is_file())
+        self.assertTrue((generated / "rust" / "Cargo.toml").is_file())
+        self.assertTrue((generated / "rust" / "src" / "lib.rs").is_file())
+        self.assertTrue((generated / "rust" / "tests" / "opk_packet.rs").is_file())
+        self.assertIn(
+            f'name = "{config.name}"',
+            (generated / "rust" / "Cargo.toml").read_text(encoding="utf-8"),
+        )
 
         manifest = json.loads(
             (generated / "perception-sdk-manifest.json").read_text(encoding="utf-8")
@@ -883,7 +902,9 @@ class GeneratedSdkTests(unittest.TestCase):
         )
         self.assertNotIn("manifest_version", manifest["upstream_receipts"]["cpp"])
         self.assertNotIn("manifest_version", manifest["upstream_receipts"]["python"])
+        self.assertNotIn("manifest_version", manifest["upstream_receipts"]["rust"])
         self.assertNotIn("manifest_version", manifest["upstream_receipts"]["ts"])
+        self.assertEqual(manifest["upstream_receipts"]["rust"]["outputs"]["sdk"], "rust")
         self.assertEqual(manifest["upstream_receipts"]["ts"]["outputs"]["sdk"], "ts")
         self.assertEqual(
             manifest["upstream_receipts"]["python"]["python_package"]["distribution_name"],
@@ -892,6 +913,13 @@ class GeneratedSdkTests(unittest.TestCase):
         self.assertEqual(
             manifest["postprocessing"]["typescript"]["flatbuffers_runtime"],
             config.typescript_runtime.version,
+        )
+        self.assertEqual(
+            manifest["postprocessing"]["rust"],
+            {
+                "flatbuffers_runtime": config.flatbuffers_version,
+                "standard_library": True,
+            },
         )
         self.assertTrue(
             (generated / "cpp" / "meson" / "perception" / "python_bridge" / "meson.build").is_file()

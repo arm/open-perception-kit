@@ -18,7 +18,7 @@ runtime result envelope.
 
 The canonical schema and generated output directories are declared in
 `tools/perception/sdk.json`. Run `./scripts/perception-sdk.sh generate` to
-regenerate the checked-in C++, Python, and TypeScript SDKs; use
+regenerate the checked-in C++, Python, Rust, and TypeScript SDKs; use
 `./scripts/perception-sdk.sh check` in CI to detect drift.
 
 Development generation and release packaging are intentionally separate.

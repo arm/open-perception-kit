@@ -45,6 +45,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   apt-get install -y --no-install-recommends \
   build-essential \
   ca-certificates \
+  cargo \
   ccache \
   cmake \
   curl \
@@ -64,6 +65,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   python3 \
   python3-dev \
   python3-venv \
+  rustc \
   unzip; \
   update-ca-certificates; \
   install-perception-flatbuffers /tmp/perception-sdk.json; \
