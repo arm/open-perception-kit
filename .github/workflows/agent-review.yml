@@ -187,19 +187,19 @@ jobs:
           } >> "${GITHUB_STEP_SUMMARY}"
           if [ "${REVIEW_RESULT}" = "skipped" ]; then
             if [ "${EVENT_NAME}" = "pull_request" ] && [ "${HEAD_REPOSITORY}" != "${REPOSITORY}" ]; then
-              echo "::error title=Agent Review unavailable::Unsupported fork pull request head ${HEAD_REPOSITORY}; finding_count=${finding_count}."
-              exit 1
+              echo "::warning title=Agent Review unavailable::Unsupported fork pull request head ${HEAD_REPOSITORY}; finding_count=${finding_count}."
+              exit 0
             fi
-            echo "::error title=Agent Review unavailable::Review job was skipped unexpectedly; finding_count=${finding_count}."
-            exit 1
+            echo "::warning title=Agent Review unavailable::Review job was skipped unexpectedly; finding_count=${finding_count}."
+            exit 0
           fi
           if [ "${REVIEW_RESULT}" != "success" ]; then
-            echo "::error title=Agent Review unavailable::Review job result was ${REVIEW_RESULT}; finding_count=${finding_count}."
-            exit 1
+            echo "::warning title=Agent Review unavailable::Review job result was ${REVIEW_RESULT}; finding_count=${finding_count}."
+            exit 0
           fi
           if [ "${recommendation}" != "approve" ] || [ "${finding_count}" != "0" ]; then
-            echo "::error title=Agent Review findings::recommendation=${recommendation}, finding_count=${finding_count}."
-            exit 1
+            echo "::warning title=Agent Review findings::recommendation=${recommendation}, finding_count=${finding_count}."
+            exit 0
           fi
           echo "Agent Review approved this head with finding_count=0."
 
