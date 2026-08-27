@@ -95,6 +95,8 @@ run_in_container() {
     fi
     mkdir -p "${artifact_root}" "${cache_root}" "${ccache_dir}" "${ultralytics_config_dir}/Ultralytics"
     export CCACHE_DIR="${ccache_dir}"
+    export GST_PLUGIN_PATH="${PEK_PROJECT_ROOT}/development/build-active/meson-out${GST_PLUGIN_PATH:+:${GST_PLUGIN_PATH}}"
+    export LD_LIBRARY_PATH="${PEK_PROJECT_ROOT}/development/build-active/meson-out${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
     export YOLO_CONFIG_DIR="${ultralytics_config_dir}"
 
     ensure_bare_venv() {

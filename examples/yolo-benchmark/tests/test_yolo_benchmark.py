@@ -176,6 +176,7 @@ class DockerRunnerTest(unittest.TestCase):
         self.assertNotIn("/work", compose + runner)
         self.assertIn("PEK_PROJECT_ROOT", compose)
         self.assertIn("PEK_PROJECT_ROOT", runner)
+        self.assertIn("${PEK_PROJECT_ROOT}/development/build-active/meson-out", runner)
 
 
 if __name__ == "__main__":
