@@ -1381,7 +1381,7 @@ jobs:
           persist-credentials: false
 
       - name: Checkout current Valgrind helpers for a historical backfill
-        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.valgrind_baseline_sha != '' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.target_branch_head_sha != '' }}
         uses: actions/checkout@v7
         with:
           repository: ${{ github.repository }}
@@ -1403,7 +1403,7 @@ jobs:
       - name: Pull PEK CI image
         working-directory: ${{ github.workspace }}
         env:
-          BACKFILL_SHA: ${{ github.event.inputs.valgrind_baseline_sha }}
+          BACKFILL_SHA: ${{ github.event.inputs.target_branch_head_sha }}
           CI_IMAGE_REGISTRY: ${{ needs.build-ci-image.outputs.image_ref }}
           CI_IMAGE_SHA: ${{ needs.build-ci-image.outputs.head_sha }}
           IMAGE_JOB_RESULT: ${{ needs.build-ci-image.result }}
