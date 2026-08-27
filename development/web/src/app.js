@@ -5,7 +5,7 @@ import './video-controls.js';
 import './audio.js';
 import './output-panels.js';
 import './layout-resize.js';
-import './video-fullscreen.js';
+import './video-layout.js';
 import './performance-metrics.js';
 import './inference-output.js';
 import './debug-log.js';
