@@ -15,10 +15,21 @@ fmt_dep = dependency(
   fallback: ['fmt', 'fmt_dep'],
   required: true,
 )
+flatbuffers_dep = dependency('flatbuffers', version: '==25.9.23', required: false)
+if not flatbuffers_dep.found()
+  flatbuffers_dep = declare_dependency(
+    include_directories: include_directories(
+      '../../development/subprojects/flatbuffers-25.9.23/include',
+    ),
+    version: '25.9.23',
+  )
+endif
 
 repo_root = meson.project_source_root() / '../..'
 development_include = include_directories(
+  '../common',
   '../../development',
+  '../../generated/perception/cpp',
   '../../development/subprojects/expected-1.3.1/include',
   '../../development/subprojects/magic_enum-0.9.7/include',
   '../../development/subprojects/nlohmann_json-3.12.0/include',
@@ -44,6 +55,7 @@ runtime_dep = declare_dependency(
 executable(
   'pipeline-exec',
   'main.cpp',
-  dependencies: [ runtime_dep, fmt_dep ],
+  '../common/TextDisplay.cpp',
+  dependencies: [ runtime_dep, fmt_dep, flatbuffers_dep ],
   install: false,
 )

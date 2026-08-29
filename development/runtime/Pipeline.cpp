@@ -93,8 +93,7 @@ void logQosMessage(GstMessage *message) {
                     qosValue(dropped));
 }
 
-std::string serializeFrameResultsJson(const perception::FrameResults &frameResults) {
-    const auto packet = perception::serialize(frameResults);
+std::string serializeFrameResultsJson(const std::vector<std::uint8_t> &packet) {
     nlohmann::json wrapper;
     wrapper["frame_results_encoding"] = "perception-frame-results+base64";
     wrapper["frame_results_packet_b64"] = pek::base64Encode(packet);
@@ -441,6 +440,11 @@ class Pipeline::Impl {
         frameResultsCallback = std::move(callback);
     }
 
+    void onFrameResultsPacket(Pipeline::FrameResultsPacketCallback callback) {
+        std::lock_guard lock(callbackMutex);
+        frameResultsPacketCallback = std::move(callback);
+    }
+
     void onError(Pipeline::ErrorCallback callback) {
         std::lock_guard lock(callbackMutex);
         errorCallback = std::move(callback);
@@ -493,6 +497,7 @@ class Pipeline::Impl {
     std::vector<ProbeHandle> probes;
     mutable std::mutex callbackMutex;
     Pipeline::FrameResultsCallback frameResultsCallback;
+    Pipeline::FrameResultsPacketCallback frameResultsPacketCallback;
     Pipeline::ErrorCallback errorCallback;
     Pipeline::EosCallback eosCallback;
 
@@ -808,17 +813,25 @@ class Pipeline::Impl {
     // holding our lock while user code runs.
     void emitPerception(const perception::FrameResults &frameResults) {
         Pipeline::FrameResultsCallback callback;
+        Pipeline::FrameResultsPacketCallback packetCallback;
         {
             std::lock_guard lock(callbackMutex);
             callback = frameResultsCallback;
+            packetCallback = frameResultsPacketCallback;
         }
 
-        if (!callback) {
+        if (!callback && !packetCallback) {
             return;
         }
 
         try {
-            callback(serializeFrameResultsJson(frameResults));
+            const auto packet = perception::serialize(frameResults);
+            if (packetCallback) {
+                packetCallback(packet);
+            }
+            if (callback) {
+                callback(serializeFrameResultsJson(packet));
+            }
         } catch (const std::exception &e) {
             emitError(
                 makeError(ErrorFlag::RuntimeError,
@@ -926,6 +939,10 @@ Result<void> Pipeline::wait() {
 
 void Pipeline::onFrameResults(FrameResultsCallback callback) {
     impl->onFrameResults(std::move(callback));
+}
+
+void Pipeline::onFrameResultsPacket(FrameResultsPacketCallback callback) {
+    impl->onFrameResultsPacket(std::move(callback));
 }
 
 void Pipeline::onError(ErrorCallback callback) {

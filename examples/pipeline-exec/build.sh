@@ -9,7 +9,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 
 BUILD_TYPE="${1:-debug}"
-ENABLE_TESTS="${2:-true}"
+ENABLE_TESTS="${2:-false}"
 PIPELINE_EXEC_BUILD_DIR="${PIPELINE_EXEC_BUILD_DIR:-/tmp/pipeline-exec-build}"
 TARGET_DIR="$REPO_ROOT/examples/bin"
 TARGET="$TARGET_DIR/pipeline-exec"
@@ -23,7 +23,7 @@ its binary to examples/bin/pipeline-exec.
 
 Arguments:
   debug|release  Main PEK build type. Default: debug.
-  true|false     Enable tests in the main PEK build. Default: true.
+  true|false     Enable tests in the main PEK build. Default: false.
 
 Environment:
   PIPELINE_EXEC_BUILD_DIR  Meson build directory for pipeline-exec. Default: /tmp/pipeline-exec-build.

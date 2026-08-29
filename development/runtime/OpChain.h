@@ -7,8 +7,10 @@
 #include "runtime/Result.h"
 #include "runtime/VideoFrame.h"
 
+#include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace pek::runtime {
 
@@ -17,7 +19,12 @@ namespace pek::runtime {
  *
  * OpChain is the non-GStreamer direct inference API. It loads an existing PEK
  * opchain JSON file, executes it against a runtime::VideoFrame, and returns the
- * serialized FrameResults JSON wrapper.
+ * serialized FrameResults metadata.
+ *
+ * OpChain owns the loaded opchain resources and is move-only. run() and
+ * runPacket() are synchronous calls: the input VideoFrame is borrowed only until
+ * the call returns, and returned strings/vectors own their storage. A single
+ * OpChain instance is not documented as safe for concurrent run calls.
  */
 class OpChain {
   public:
@@ -42,11 +49,30 @@ class OpChain {
 
     /**
      * @brief Executes the opchain on one frame and returns a FrameResults JSON wrapper.
+     *
+     * The frame is borrowed for the duration of the call. The returned string owns
+     * the serialized JSON/base64 wrapper and remains valid independently of the
+     * OpChain and VideoFrame.
+     *
      * @param frame Input video frame. Existing image opchains expect BGRA input.
      * @param inferElementId Stable id written into inference metadata.
      * @return Serialized FrameResults JSON wrapper on success.
      */
     Result<std::string> run(const VideoFrame &frame, const std::string &inferElementId = "runtime");
+
+    /**
+     * @brief Executes the opchain on one frame and returns the binary Perception packet.
+     *
+     * The frame is borrowed for the duration of the call. The returned vector owns
+     * the serialized packet bytes and remains valid independently of the OpChain
+     * and VideoFrame.
+     *
+     * @param frame Input video frame. Existing image opchains expect BGRA input.
+     * @param inferElementId Stable id written into inference metadata.
+     * @return Serialized Perception FrameResults packet on success.
+     */
+    Result<std::vector<std::uint8_t>> runPacket(const VideoFrame &frame,
+                                                const std::string &inferElementId = "runtime");
 
     /** @brief Returns true when an opchain has been loaded. */
     bool loaded() const noexcept;

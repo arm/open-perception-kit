@@ -9,7 +9,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 
 BUILD_TYPE="${1:-debug}"
-ENABLE_TESTS="${2:-true}"
+ENABLE_TESTS="${2:-false}"
 OPCHAIN_EXEC_BUILD_DIR="${OPCHAIN_EXEC_BUILD_DIR:-/tmp/opchain-exec-build}"
 TARGET_DIR="$REPO_ROOT/examples/bin"
 TARGET="$TARGET_DIR/opchain-exec"
@@ -23,7 +23,7 @@ resulting binary to examples/bin/opchain-exec.
 
 Arguments:
   debug|release  Main PEK build type. Default: debug.
-  true|false     Enable tests in the main PEK build. Default: true.
+  true|false     Enable tests in the main PEK build. Default: false.
 
 Environment:
   OPCHAIN_EXEC_BUILD_DIR  Meson build directory for opchain-exec. Default: /tmp/opchain-exec-build.

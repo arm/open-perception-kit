@@ -6,9 +6,11 @@
 
 #include "runtime/Result.h"
 
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace pek::runtime {
 
@@ -18,25 +20,46 @@ namespace pek::runtime {
  * Pipeline intentionally hides all GStreamer and internal PEK runtime types
  * from the public runtime API. Client code can build and control a GStreamer-backed
  * PEK pipeline while depending only on runtime headers and normal C++ types.
+ *
+ * Pipeline owns the wrapped GStreamer pipeline and its installed probes. The
+ * wrapper is move-only; callbacks registered on the pipeline are owned by the
+ * Pipeline object until replaced, cleared, or the Pipeline is destroyed.
  */
 class Pipeline {
   public:
     /**
      * @brief Called when a buffer carrying FrameResults metadata passes a runtime probe.
      *
-     * The callback receives the serialized FrameResults JSON wrapper for that buffer. The
-     * string reference is valid only for the duration of the callback; copy it
-     * inside the callback if it must be retained.
+     * The callback receives the serialized FrameResults JSON wrapper for that buffer.
+     * The string reference is valid only for the duration of the callback; copy it
+     * inside the callback if it must be retained. FrameResults callbacks can run
+     * from streaming/runtime threads, so callback code should not assume it is on
+     * the thread that called start().
      */
     using FrameResultsCallback = std::function<void(const std::string &)>;
 
     /**
+     * @brief Called when a buffer carrying FrameResults metadata passes a runtime probe.
+     *
+     * The callback receives the serialized Perception FrameResults packet bytes for that
+     * buffer. The byte-vector reference is valid only for the duration of the callback;
+     * copy it inside the callback if it must be retained. FrameResults callbacks
+     * can run from streaming/runtime threads, so callback code should not assume it
+     * is on the thread that called start().
+     */
+    using FrameResultsPacketCallback = std::function<void(const std::vector<std::uint8_t> &)>;
+
+    /**
      * @brief Called when pipeline execution reports an error.
+     *
+     * Error callbacks can run from Pipeline's background bus watcher thread.
      */
     using ErrorCallback = std::function<void(const Error &)>;
 
     /**
      * @brief Called when the pipeline posts EOS.
+     *
+     * EOS callbacks can run from Pipeline's background bus watcher thread.
      */
     using EosCallback = std::function<void()>;
 
@@ -112,6 +135,8 @@ class Pipeline {
      *
      * Pipeline owns a small background bus watcher thread after start(). EOS
      * and ERROR are reported through onEos(), onError(), and wait().
+     * FrameResults callbacks may also begin running before start() returns if the
+     * pipeline produces buffers immediately.
      */
     Result<void> start();
 
@@ -122,6 +147,9 @@ class Pipeline {
 
     /**
      * @brief Stops the pipeline and releases streaming resources by moving it to NULL.
+     *
+     * stop() also requests the background bus watcher to exit and joins it when
+     * called from another thread.
      */
     Result<void> stop();
 
@@ -135,8 +163,21 @@ class Pipeline {
 
     /**
      * @brief Registers a callback for FrameResults metadata seen by runtime probes.
+     *
+     * The callback object is moved into the Pipeline. Objects captured by the
+     * callback remain owned by the caller and must outlive every callback
+     * invocation.
      */
     void onFrameResults(FrameResultsCallback callback);
+
+    /**
+     * @brief Registers a packet callback for FrameResults metadata seen by runtime probes.
+     *
+     * The callback object is moved into the Pipeline. Objects captured by the
+     * callback remain owned by the caller and must outlive every callback
+     * invocation.
+     */
+    void onFrameResultsPacket(FrameResultsPacketCallback callback);
 
     /**
      * @brief Registers a callback for pipeline errors observed by the bus watcher.

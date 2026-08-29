@@ -2,6 +2,9 @@
  * Copyright (C) 2025 Arm Limited. All rights reserved.
  *************************************************************/
 
+#include "TextDisplay.h"
+#include "runtime/FrameResultsPacket.h"
+#include "runtime/Logging.h"
 #include "runtime/OpChain.h"
 #include "runtime/Tools.h"
 #include "runtime/VideoFrame.h"
@@ -14,6 +17,43 @@
 
 namespace {
 
+template <typename Payload>
+void printPayloadBranch(const perception::container::envelope &frameResults,
+                        std::size_t &printedPayloads) {
+    pek::runtime::visitFrameResultsPayloads<Payload>(
+        frameResults, [&printedPayloads](const Payload &payload) {
+            ++printedPayloads;
+            fmt::print("{}\n", TextDisplay::formatText(payload));
+        });
+}
+
+void printTypedPayloadText(const perception::container::envelope &frameResults) {
+    std::size_t printedPayloads = 0;
+
+    // The packet has already been validated by runtime::decodeFrameResultsPacket().
+    // From here on the example shows the normal typed SDK consumption pattern:
+    // choose a generated payload root type, then run a lambda once for every
+    // payload of that type in the envelope.
+    printPayloadBranch<perception::metadata::FrameContextT>(frameResults, printedPayloads);
+    printPayloadBranch<perception::metadata::BoxDetectionsT>(frameResults, printedPayloads);
+    printPayloadBranch<perception::metadata::ObjectTracksT>(frameResults, printedPayloads);
+    printPayloadBranch<perception::metadata::ClassificationsT>(frameResults, printedPayloads);
+    printPayloadBranch<perception::metadata::PoseEstimationsT>(frameResults, printedPayloads);
+    printPayloadBranch<perception::metadata::SegmentationMasksT>(frameResults, printedPayloads);
+    printPayloadBranch<perception::metadata::ObjectEmbeddingsT>(frameResults, printedPayloads);
+    printPayloadBranch<perception::metadata::TrackTracesT>(frameResults, printedPayloads);
+    printPayloadBranch<perception::metadata::PerformanceOverlayT>(frameResults, printedPayloads);
+
+    const auto totalPayloads = frameResults.size();
+    if (printedPayloads == 0 && totalPayloads == 0) {
+        fmt::print("FrameResults: no payloads\n");
+    } else if (printedPayloads < totalPayloads) {
+        for (std::size_t i = printedPayloads; i < totalPayloads; ++i) {
+            fmt::print("Unknown payload type\n");
+        }
+    }
+}
+
 void printUsage(const char *programName) {
     fmt::print(stderr, "Usage: {} <opchain.json> <image.png|image.jpg|image.jpeg>\n", programName);
 }
@@ -21,6 +61,11 @@ void printUsage(const char *programName) {
 } // namespace
 
 int main(int argc, char **argv) {
+    pek::runtime::setLogLevel(pek::runtime::LogLevel::Error);
+    pek::runtime::setLogTargetState(pek::runtime::LogTarget::Stdout, false);
+    pek::runtime::setLogTargetState(pek::runtime::LogTarget::Stderr, true);
+    pek::runtime::setLogTargetState(pek::runtime::LogTarget::File, false);
+
     // opchain-exec intentionally has the smallest useful interface for the
     // direct runtime API: one OpChain JSON file and one image file that becomes
     // the synthetic pipelineVideoFrame consumed by existing image opchains.
@@ -54,12 +99,26 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    auto perceptionJson = opChain->run(*frame, "opchain-exec");
-    if (!perceptionJson) {
-        fmt::print(stderr, "{}\n", perceptionJson.error().toString());
+    // runPacket() returns the serialized Perception envelope bytes. Keeping
+    // packet transport separate from typed access lets simple tools relay bytes,
+    // while typed consumers decode only at the point where they need semantics.
+    auto packet = opChain->runPacket(*frame, "opchain-exec");
+    if (!packet) {
+        fmt::print(stderr, "{}\n", packet.error().toString());
         return 1;
     }
 
-    fmt::print("{}\n", *perceptionJson);
+    // The runtime helper validates the FlatBuffers envelope and checks producer
+    // identity before exposing generated SDK payload types to the application.
+    auto frameResults = pek::runtime::decodeFrameResultsPacket(*packet);
+    if (!frameResults) {
+        fmt::print(stderr, "{}\n", frameResults.error().toString());
+        return 1;
+    }
+
+    // The payload count helps distinguish an actually empty result from a
+    // packet that contains payloads this example does not know how to visit.
+    fmt::print("Perception packet bytes: {}, payloads={}\n", packet->size(), frameResults->size());
+    printTypedPayloadText(*frameResults);
     return 0;
 }

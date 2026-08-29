@@ -113,16 +113,8 @@ next message. Parent directories are not created automatically.
 Environment settings are read once, when process logging is first initialized. Later API calls
 change the in-process settings and do not modify the environment.
 
-If `OPK_LOG_LEVEL` or `OPK_LOG_TARGETS` is unset, PEK reports the chosen default synchronously on
-stderr. When both are unset, the level notice is written first:
-
-```text
-OPK_LOG_LEVEL is not set; defaulting to 4 (Info).
-OPK_LOG_TARGETS is not set; defaulting to stdout.
-```
-
-These notices are unconditional and do not pass through level filtering or asynchronous target
-selection. Malformed values fall back silently.
+If `OPK_LOG_LEVEL` or `OPK_LOG_TARGETS` is unset, PEK silently uses the defaults: `Info` level and
+the `stdout` target. Malformed values also fall back silently.
 
 ## Message formatting and destinations
 
