@@ -55,6 +55,7 @@ runtime_dep = declare_dependency(
 executable(
   'pipeline-exec',
   'main.cpp',
+  '../common/PerceptionPacket.cpp',
   '../common/TextDisplay.cpp',
   dependencies: [ runtime_dep, fmt_dep, flatbuffers_dep ],
   install: false,

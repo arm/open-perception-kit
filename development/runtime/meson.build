@@ -3,7 +3,6 @@ runtime_include = include_directories('..')
 pek_runtime = shared_library(
   'pek-runtime',
   sources: [
-    'FrameResultsPacket.cpp',
     'Logging.cpp',
     'OpChain.cpp',
     'PerformanceMetrics.cpp',

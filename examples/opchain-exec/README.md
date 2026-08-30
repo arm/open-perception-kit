@@ -7,11 +7,11 @@ returned packet with the generated Perception C++ SDK.
 The current version loads a PNG/JPEG image file with `pek::runtime::Tools`, wraps
 the decoded BGRA pixels as a `pek::runtime::VideoFrame`, executes an OpChain JSON
 file through `pek::runtime::OpChain`, validates the binary Perception packet
-through the public runtime API, and demonstrates typed generated Perception SDK
-payload handling with lambdas. The source intentionally avoids direct `op/`,
-`mediaio/`, and internal `pek/Perception` headers, but it does include generated
-`perception::metadata::*` payload types because typed result consumption is part
-of the example.
+through the example-local `PerceptionPacket` helper, and demonstrates typed
+generated Perception SDK payload handling with lambdas. The source intentionally
+avoids direct `op/`, `mediaio/`, and internal `pek/Perception` headers, but it
+does include generated `perception::metadata::*` payload types because typed
+result consumption is part of the example.
 
 ## Build
 

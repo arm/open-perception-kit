@@ -14,10 +14,10 @@ capture and write completed spans to CSV through the public runtime
 The source intentionally keeps GStreamer and internal `pek/` implementation
 types behind `pek::runtime::Pipeline`, but it does include generated
 `perception::metadata::*` payload types because typed result consumption is part
-of the example. Each packet is validated through
-`pek::runtime::decodeFrameResultsPacket()`, visited with typed Perception SDK
-lambdas, and displayed through the example-local `TextDisplay` helper. Unknown
-payload types are reported as `Unknown payload type`.
+of the example. Each packet is validated through the example-local
+`PerceptionPacket` helper, visited with typed Perception SDK lambdas, and
+displayed through the example-local `TextDisplay` helper. Unknown payload types
+are reported as `Unknown payload type`.
 
 ## Build
 

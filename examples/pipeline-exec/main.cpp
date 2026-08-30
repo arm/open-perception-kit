@@ -2,8 +2,8 @@
  * Copyright (C) 2025 Arm Limited. All rights reserved.
  *************************************************************/
 
+#include "PerceptionPacket.h"
 #include "TextDisplay.h"
-#include "runtime/FrameResultsPacket.h"
 #include "runtime/Logging.h"
 #include "runtime/PerformanceMetrics.h"
 #include "runtime/Pipeline.h"
@@ -88,7 +88,7 @@ std::string pluginPath() {
 template <typename Payload>
 void printPayloadBranch(const perception::container::envelope &frameResults,
                         std::size_t &printedPayloads) {
-    pek::runtime::visitFrameResultsPayloads<Payload>(
+    PerceptionPacket::visitFrameResultsPayloads<Payload>(
         frameResults, [&printedPayloads](const Payload &payload) {
             ++printedPayloads;
             fmt::print("{}\n", TextDisplay::formatText(payload));
@@ -98,7 +98,7 @@ void printPayloadBranch(const perception::container::envelope &frameResults,
 void printTypedPayloadText(const perception::container::envelope &frameResults) {
     std::size_t printedPayloads = 0;
 
-    // The packet has already been validated by runtime::decodeFrameResultsPacket().
+    // The packet has already been validated by the example-local PerceptionPacket helper.
     // Each visitor call selects one generated payload root type, and the lambda
     // runs once for every payload of that type in this frame. The display helper
     // formats that one decoded payload into terminal-friendly text.
@@ -194,7 +194,7 @@ int main(int argc, char **argv) {
             // Decode exactly at the application boundary where typed semantics are
             // needed. The helper validates the FlatBuffers envelope and checks
             // producer identity before generated SDK payload types are visited.
-            auto frameResults = pek::runtime::decodeFrameResultsPacket(packet);
+            auto frameResults = PerceptionPacket::decodeFrameResultsPacket(packet);
             if (!frameResults) {
                 fmt::print(stderr, "{}\n", frameResults.error().toString());
                 markCompleted(true);

@@ -2,8 +2,8 @@
  * Copyright (C) 2025 Arm Limited. All rights reserved.
  *************************************************************/
 
+#include "PerceptionPacket.h"
 #include "TextDisplay.h"
-#include "runtime/FrameResultsPacket.h"
 #include "runtime/Logging.h"
 #include "runtime/OpChain.h"
 #include "runtime/Tools.h"
@@ -20,7 +20,7 @@ namespace {
 template <typename Payload>
 void printPayloadBranch(const perception::container::envelope &frameResults,
                         std::size_t &printedPayloads) {
-    pek::runtime::visitFrameResultsPayloads<Payload>(
+    PerceptionPacket::visitFrameResultsPayloads<Payload>(
         frameResults, [&printedPayloads](const Payload &payload) {
             ++printedPayloads;
             fmt::print("{}\n", TextDisplay::formatText(payload));
@@ -30,7 +30,7 @@ void printPayloadBranch(const perception::container::envelope &frameResults,
 void printTypedPayloadText(const perception::container::envelope &frameResults) {
     std::size_t printedPayloads = 0;
 
-    // The packet has already been validated by runtime::decodeFrameResultsPacket().
+    // The packet has already been validated by the example-local PerceptionPacket helper.
     // From here on the example shows the normal typed SDK consumption pattern:
     // choose a generated payload root type, then run a lambda once for every
     // payload of that type in the envelope.
@@ -108,9 +108,9 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    // The runtime helper validates the FlatBuffers envelope and checks producer
-    // identity before exposing generated SDK payload types to the application.
-    auto frameResults = pek::runtime::decodeFrameResultsPacket(*packet);
+    // The example-local helper validates the FlatBuffers envelope and checks
+    // producer identity before generated SDK payload types are visited.
+    auto frameResults = PerceptionPacket::decodeFrameResultsPacket(*packet);
     if (!frameResults) {
         fmt::print(stderr, "{}\n", frameResults.error().toString());
         return 1;

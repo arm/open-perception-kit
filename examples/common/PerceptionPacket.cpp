@@ -2,7 +2,7 @@
  * Copyright (C) 2026 Arm Limited. All rights reserved.
  *************************************************************/
 
-#include "runtime/FrameResultsPacket.h"
+#include "PerceptionPacket.h"
 
 #include <fmt/core.h>
 
@@ -10,7 +10,6 @@
 #include <span>
 #include <vector>
 
-namespace pek::runtime {
 namespace {
 
 const char *producerIdentityStatusName(perception::container::producer_identity_status status) {
@@ -36,32 +35,31 @@ const char *producerIdentityStatusName(perception::container::producer_identity_
 
 } // namespace
 
-Result<perception::container::envelope>
-decodeFrameResultsPacket(std::span<const std::uint8_t> packet) {
+pek::runtime::Result<perception::container::envelope>
+PerceptionPacket::decodeFrameResultsPacket(std::span<const std::uint8_t> packet) {
     perception::container::envelope envelope(packet);
     if (!envelope.valid()) {
         return tl::make_unexpected(
-            Error(ErrorFlag::InvalidPipeline,
-                  fmt::format("Invalid Perception packet: {}", envelope.error())));
+            pek::runtime::Error(pek::runtime::ErrorFlag::InvalidPipeline,
+                                fmt::format("Invalid Perception packet: {}", envelope.error())));
     }
 
     const auto producerIdentity = envelope.producer_identity();
     if (producerIdentity != perception::container::producer_identity_status::exact_match) {
-        return tl::make_unexpected(Error(ErrorFlag::InvalidPipeline,
-                                         fmt::format("Unsupported Perception producer identity: {} "
-                                                     "(producer={}, version={}, schema={})",
-                                                     producerIdentityStatusName(producerIdentity),
-                                                     envelope.producer_sdk_name(),
-                                                     envelope.producer_sdk_version(),
-                                                     envelope.producer_schema_set_sha256())));
+        return tl::make_unexpected(
+            pek::runtime::Error(pek::runtime::ErrorFlag::InvalidPipeline,
+                                fmt::format("Unsupported Perception producer identity: {} "
+                                            "(producer={}, version={}, schema={})",
+                                            producerIdentityStatusName(producerIdentity),
+                                            envelope.producer_sdk_name(),
+                                            envelope.producer_sdk_version(),
+                                            envelope.producer_schema_set_sha256())));
     }
 
     return envelope;
 }
 
-Result<perception::container::envelope>
-decodeFrameResultsPacket(const std::vector<std::uint8_t> &packet) {
+pek::runtime::Result<perception::container::envelope>
+PerceptionPacket::decodeFrameResultsPacket(const std::vector<std::uint8_t> &packet) {
     return decodeFrameResultsPacket(std::span<const std::uint8_t>(packet.data(), packet.size()));
 }
-
-} // namespace pek::runtime
