@@ -27,7 +27,6 @@ Commands:
 Optional backend feature environment variables:
   PEK_EXECUTORCH=enabled|disabled|auto  or  executorch=enabled|disabled|auto
   PEK_HAILORT=enabled|disabled|auto     or  hailort=enabled|disabled|auto
-  PEK_NCNN=enabled|disabled|auto        or  ncnn=enabled|disabled|auto
 
 Project location:
   PEK_PROJECT_ROOT=/absolute/path/to/amp-dev-forge
@@ -93,7 +92,7 @@ run_on_host() {
     if [[ -f "$REPO_ROOT/devices.env" ]]; then
         docker_exec_args+=(--env-file "$REPO_ROOT/devices.env")
     fi
-    for env_name in PEK_EXECUTORCH PEK_HAILORT PEK_NCNN executorch hailort ncnn; do
+    for env_name in PEK_EXECUTORCH PEK_HAILORT executorch hailort; do
         if [[ "${!env_name+x}" == x ]]; then
             docker_exec_args+=(--env "$env_name=${!env_name}")
         fi
@@ -318,7 +317,6 @@ collect_meson_args() {
 
     add_feature_option_from_env "executorch" "PEK_EXECUTORCH" "auto"
     add_feature_option_from_env "hailort" "PEK_HAILORT"
-    add_feature_option_from_env "ncnn" "PEK_NCNN"
 }
 
 # ---- build ----

@@ -126,9 +126,6 @@ onnx_dep = declare_dependency(
 )
 
 if release_package
-  if not get_option('ncnn').disabled()
-    error('Release packages require -Dncnn=disabled.')
-  endif
   if host_machine.cpu_family() != 'x86_64' and host_machine.cpu_family() != 'aarch64'
     error('Release packages support only x86_64 and aarch64.')
   elif not get_option('hailort').disabled()
@@ -215,7 +212,6 @@ subdir('pek-menu')
 # Optional subdirs decision tree is inside the subdir
 subdir('ops-hailort')
 subdir('ops-executorch')
-subdir('ops-ncnn')
 
 if release_package
   install_subdir(

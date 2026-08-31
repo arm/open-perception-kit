@@ -96,10 +96,8 @@ class BuildScriptTests(unittest.TestCase):
         for variable in (
             "PEK_EXECUTORCH",
             "PEK_HAILORT",
-            "PEK_NCNN",
             "executorch",
             "hailort",
-            "ncnn",
         ):
             environment.pop(variable, None)
         if project_root is None:
