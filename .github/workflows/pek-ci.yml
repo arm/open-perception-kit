@@ -233,6 +233,7 @@ jobs:
           python3 development/tests/model_artifact_build_test.py
           ModelArtifactBuildTest.test_raw_model_build_requires_cache_key
           ModelArtifactBuildTest.test_main_compose_uses_model_bearing_target
+          ModelArtifactBuildTest.test_retired_model_artifacts_are_absent
 
       - name: Validate tokenless Compose config
         run: env -u HF_TOKEN -u HF_DOWNLOAD_CACHEBUST docker compose -f compose.yaml config --quiet

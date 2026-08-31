@@ -7,10 +7,7 @@
 
 #include <algorithm>
 #include <cmath>
-#include <fmt/core.h>
 #include <memory>
-#include <optional>
-#include <string>
 #include <utility>
 #include <vector>
 
@@ -21,31 +18,6 @@ struct Det {
     float x1, y1, x2, y2, conf;
     int cls;
 };
-
-enum class OutputFormat {
-    UltralyticsYolo,
-    HailoYoloNMS,
-};
-
-enum class CoordOrder {
-    yxyx,
-    xyxy,
-};
-
-static OutputFormat parseOutputFormat(const pek::AttributeMap &attrs) {
-    const std::string fmt = attrs.getStringOrDefault("outputFormat", "UltralyticsYolo");
-
-    if (fmt == "UltralyticsYolo") {
-        return OutputFormat::UltralyticsYolo;
-    }
-
-    if (fmt == "HailoYoloNMS") {
-        return OutputFormat::HailoYoloNMS;
-    }
-
-    // Unknown: keep behavior predictable.
-    return OutputFormat::UltralyticsYolo;
-}
 
 static float iou(const Det &a, const Det &b) {
     float xx1 = std::max(a.x1, b.x1), yy1 = std::max(a.y1, b.y1);
@@ -76,10 +48,6 @@ static inline float clampf(float v, float lo, float hi) {
     return std::max(lo, std::min(v, hi));
 }
 
-static inline bool isFinitePositive(float v) {
-    return std::isfinite(v) && (v > 0.0f);
-}
-
 static inline size_t activeModelWidth(const pek::ImageInferenceMetadata &image) {
     const size_t horizontalPadding = image.letterboxLeft + image.letterboxRight;
     if (horizontalPadding >= image.modelWidth) {
@@ -104,11 +72,6 @@ static inline float modelToFrameX(float x, const pek::ImageInferenceMetadata &im
 static inline float modelToFrameY(float y, const pek::ImageInferenceMetadata &image) {
     return (y - static_cast<float>(image.letterboxTop)) * static_cast<float>(image.height) /
            static_cast<float>(activeModelHeight(image));
-}
-
-static inline CoordOrder coordOrderCode(const pek::AttributeMap &attrs) {
-    const std::string order = attrs.getStringOrDefault("coordOrder", "yxyx");
-    return order == "xyxy" ? CoordOrder::xyxy : CoordOrder::yxyx;
 }
 
 static void fillDetection(const std::vector<Det> &dets,
@@ -165,86 +128,6 @@ static void processDetection(const pek::TensorParser::Input &input,
     d.y2 = clampf(d.y2, 0.0f, static_cast<float>(image.height - 1));
 }
 
-static std::optional<Det> parsePackedHailoDetection(const pek::TensorParser::Input &input,
-                                                    const TensorView &tensor,
-                                                    int classId,
-                                                    size_t &offset,
-                                                    float confThreshold,
-                                                    CoordOrder coordOrder) {
-    const float a0 = tensor.get(offset);
-    const float a1 = tensor.get(offset + 1);
-    const float a2 = tensor.get(offset + 2);
-    const float a3 = tensor.get(offset + 3);
-    const float score = tensor.get(offset + 4);
-    offset += 5;
-
-    if (!std::isfinite(score) || score <= 0.0f || score < confThreshold)
-        return std::nullopt;
-
-    const bool yxyx = coordOrder == CoordOrder::yxyx;
-    Det detection{yxyx ? a1 : a0, yxyx ? a0 : a1, yxyx ? a3 : a2, yxyx ? a2 : a3, score, classId};
-    if (!(std::isfinite(detection.x1) && std::isfinite(detection.y1) &&
-          std::isfinite(detection.x2) && std::isfinite(detection.y2)))
-        return std::nullopt;
-    if (!isFinitePositive(std::fabs(detection.x2 - detection.x1)) ||
-        !isFinitePositive(std::fabs(detection.y2 - detection.y1)))
-        return std::nullopt;
-
-    processDetection(input, detection, input.inferenceInfo.image);
-    if (detection.x2 <= detection.x1 || detection.y2 <= detection.y1)
-        return std::nullopt;
-    return detection;
-}
-
-static Result<std::vector<Det>> parseHailoDetections(const pek::TensorParser::Input &input,
-                                                     const TensorView &tensor,
-                                                     const pek::Shape &shape) {
-    const auto classCount = static_cast<int>(input.attributes.getIntOrDefault("classCount", 80));
-    const auto maxBboxesPerClass =
-        static_cast<int>(input.attributes.getIntOrDefault("maxBboxesPerClass", 100));
-    const auto maxDetections = input.attributes.getIntOrDefault("maxDetections", 5);
-    const auto confThreshold =
-        static_cast<float>(input.attributes.getDoubleOrDefault("confidenceThreshold", 0.25));
-    const auto coordOrder = coordOrderCode(input.attributes);
-
-    assert(classCount > 0);
-    assert(maxBboxesPerClass > 0);
-
-    if (shape.rank != 3 || shape.dims[0] != 1 || shape.dims[1] != classCount) {
-        return tl::unexpected(PEK_ERROR(
-            pek::ErrorFlag::InvalidData,
-            fmt::format("YoloParser: expected packed tensor shape [1,classCount,flat], got {}",
-                        shape.toString())));
-    }
-
-    std::vector<Det> detections;
-    detections.reserve(static_cast<size_t>(classCount) * static_cast<size_t>(maxBboxesPerClass));
-
-    size_t offset = 0;
-    for (int classId = 0; classId < classCount; ++classId) {
-        if (offset >= tensor.getCount())
-            break;
-        const auto count = std::clamp(static_cast<int>(tensor.get(offset)), 0, maxBboxesPerClass);
-        ++offset;
-
-        for (int index = 0; index < count; ++index) {
-            if (offset + 4 >= tensor.getCount())
-                break;
-            if (auto detection = parsePackedHailoDetection(
-                    input, tensor, classId, offset, confThreshold, coordOrder))
-                detections.push_back(*detection);
-        }
-    }
-
-    const auto resultCount = std::min(static_cast<size_t>(maxDetections), detections.size());
-    std::ranges::partial_sort(
-        detections, detections.begin() + resultCount, [](const Det &left, const Det &right) {
-            return left.conf > right.conf;
-        });
-    detections.resize(resultCount);
-    return detections;
-}
-
 static std::vector<Det> parseUltralyticsDetections(const pek::TensorParser::Input &input,
                                                    const TensorView &tensor,
                                                    const pek::Shape &shape) {
@@ -293,7 +176,6 @@ static std::vector<Det> parseUltralyticsDetections(const pek::TensorParser::Inpu
 pek::Result<void> YoloParser::parse(const pek::TensorParser::Input &input,
                                     perception::FrameResults &results) {
 
-    const auto outputFormat = parseOutputFormat(input.attributes);
     const auto iouThreshold =
         static_cast<float>(input.attributes.getDoubleOrDefault("iouThreshold", 0.45));
     const bool normalizeOutputCoordinates =
@@ -317,13 +199,7 @@ pek::Result<void> YoloParser::parse(const pek::TensorParser::Input &input,
     const TensorView &tensor = *input.tensors[0];
     const pek::Shape shape = input.tensors[0]->getShape();
 
-    auto parsed = outputFormat == OutputFormat::HailoYoloNMS
-                      ? parseHailoDetections(input, tensor, shape)
-                      : Result<std::vector<Det>>{parseUltralyticsDetections(input, tensor, shape)};
-    if (!parsed)
-        return tl::unexpected(parsed.error());
-
-    if (auto dets = std::move(*parsed); !dets.empty()) {
+    if (auto dets = parseUltralyticsDetections(input, tensor, shape); !dets.empty()) {
         if (applyNms)
             nms(dets, iouThreshold);
 

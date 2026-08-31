@@ -16,8 +16,6 @@ Builds and starts the PEK quick-start container selected by host detection.
 
 Platform mapping:
   Raspberry Pi 5            -> pek-dev with Pi camera support
-  Raspberry Pi 5 + Hailo 8  -> pek-dev-rpi5-h8
-  Raspberry Pi 5 + Hailo 10 -> pek-dev-rpi5-h10
   WSL/Linux/macOS           -> pek-dev
 
 The script uses the checked-in devcontainer compose files and generated device
@@ -77,8 +75,7 @@ if ! detect_output="$("${SCRIPT_DIR}/detect-environment.sh" --shell)"; then
     exit 1
 fi
 eval "$detect_output"
-export PEK_DEV_CONTAINER_NAME PEK_DEV_RPI5_H8_CONTAINER_NAME
-export PEK_DEV_RPI5_H10_CONTAINER_NAME PEK_PICAMERA
+export PEK_DEV_CONTAINER_NAME PEK_PICAMERA
 export HF_TOKEN="${HF_TOKEN-}"
 export HF_DOWNLOAD_CACHEBUST
 HF_DOWNLOAD_CACHEBUST="$("${REPO_ROOT}/scripts/private/generate-hf-download-cachebust.sh")"
@@ -89,7 +86,6 @@ COMPOSE_FILES=(
     -f .devcontainer/docker-compose.ssh-agent.yaml
     -f .devcontainer/docker-compose.devcont.video.yaml
     -f .devcontainer/docker-compose.devcont.audio.yaml
-    -f .devcontainer/docker-compose.devcont.npu.yaml
     -f .devcontainer/docker-compose.devcont.shared_memory.yaml
 )
 
@@ -226,10 +222,6 @@ echo "Starting quick-start container:"
 echo "  Platform: ${PEK_PLATFORM_NAME} (${PEK_PLATFORM_ID})"
 echo "  Service:  ${PEK_CONTAINER_SERVICE}"
 echo "  Name:     ${PEK_CONTAINER_NAME}"
-if [[ "${PEK_PLATFORM_ID}" == rpi5* ]]; then
-    echo "  Hailo:    ${PEK_HAILO_ARCH}"
-fi
-
 if [[ "$BUILD" == "true" ]]; then
     echo
     echo "Building shared development base..."

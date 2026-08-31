@@ -243,13 +243,6 @@
         "parser": {
           "const": "YoloParser"
         },
-        "outputFormat": {
-          "enum": [
-            "UltralyticsYolo",
-            "HailoYoloNMS"
-          ],
-          "default": "UltralyticsYolo"
-        },
         "confidenceThreshold": {
           "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/probability",
           "default": 0.25
@@ -269,25 +262,6 @@
         "applyNms": {
           "type": "boolean",
           "default": true
-        },
-        "maxDetections": {
-          "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/positiveCount",
-          "default": 5
-        },
-        "classCount": {
-          "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/positiveCount",
-          "default": 80
-        },
-        "maxBboxesPerClass": {
-          "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/positiveCount",
-          "default": 100
-        },
-        "coordOrder": {
-          "enum": [
-            "yxyx",
-            "xyxy"
-          ],
-          "default": "yxyx"
         }
       },
       "allOf": [
@@ -306,44 +280,6 @@
             "not": {
               "required": [
                 "iouThreshold"
-              ]
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "outputFormat": {
-                "const": "HailoYoloNMS"
-              }
-            },
-            "required": [
-              "outputFormat"
-            ]
-          },
-          "else": {
-            "not": {
-              "anyOf": [
-                {
-                  "required": [
-                    "classCount"
-                  ]
-                },
-                {
-                  "required": [
-                    "maxDetections"
-                  ]
-                },
-                {
-                  "required": [
-                    "maxBboxesPerClass"
-                  ]
-                },
-                {
-                  "required": [
-                    "coordOrder"
-                  ]
-                }
               ]
             }
           }

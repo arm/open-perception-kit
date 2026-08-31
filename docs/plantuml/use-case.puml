@@ -26,9 +26,9 @@ rectangle "Perception Experience Kit" {
   usecase "Schema-based Perception\n+ entities" as UC_schema #8A6A00
   usecase "Browser mapping /\nGPU OSD / separate web app" as UC_runtimefuture #7A1F1F
 
-  usecase "PC / Raspberry Pi + Hailo\ndevcontainers + passthrough" as UC_envcurrent
+  usecase "PC / Raspberry Pi\ndevcontainers + passthrough" as UC_envcurrent
   usecase "Model config + preset +\nJSON OpChain" as UC_modelcurrent
-  usecase "ONNX Runtime /\nHailoRT" as UC_mainbackends
+  usecase "ONNX Runtime" as UC_mainbackends
   usecase "Current C++ contract +\nserialization" as UC_cpp
   usecase "peksink + pekosd +\ntracking + perf / profiling" as UC_runtimecurrent
 

@@ -45,6 +45,9 @@ OP_MODULE_NAMES = {
     "pek-std-ops.so",
 }
 RUNTIME_LIBRARY_NAME = "pek-runtime.so"
+# Temporary EXPKITS-1084 quality gate for retired release payloads.
+RETIRED_RELEASE_PATH_MARKERS = ("hailo",)
+RETIRED_RELEASE_SUFFIXES = {".hef"}
 SYSTEM_LIBRARY_PREFIXES = (
     "ld-linux-",
     "libblkid.so.",
@@ -509,8 +512,12 @@ def validate_release_tree(package_root: Path) -> None:
             continue
         if forbidden_parts & set(relative.parts):
             fail(f"Forbidden release path: {relative}")
-        if any("hailo" in part.lower() for part in relative.parts):
-            fail(f"Forbidden Hailo release path: {relative}")
+        if path.suffix.casefold() in RETIRED_RELEASE_SUFFIXES or any(
+            marker in part.casefold()
+            for marker in RETIRED_RELEASE_PATH_MARKERS
+            for part in relative.parts
+        ):
+            fail(f"Forbidden retired release path: {relative}")
         if path.name == "pek-menu" or path.name.startswith(
             ("libfmt.so", "pek-ncnn-ops.so")
         ):

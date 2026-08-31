@@ -27,13 +27,6 @@ For live ONNX camera runs, start with one of these files:
 - `config/pipelines/05-full-onnx-raspicam.json`
 - `config/pipelines/06-full-onnx-usb-cam.json`
 
-For Hailo or custom preset work, open one of these files and replace the source
-section manually:
-
-- `config/pipelines/02-full-onnx-hailo8.json`
-- `config/pipelines/03-full-onnx-hailo8l.json`
-- `config/pipelines/04-full-onnx-hailo10.json`
-
 ## 2. Find The Source Section
 
 At the top of the `pipeline` array, the source section defines the input.

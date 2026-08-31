@@ -95,10 +95,8 @@ class BuildScriptTests(unittest.TestCase):
         environment["container"] = "pek-build-script-test"
         for variable in (
             "PEK_EXECUTORCH",
-            "PEK_HAILORT",
             "PEK_NCNN",
             "executorch",
-            "hailort",
             "ncnn",
         ):
             environment.pop(variable, None)

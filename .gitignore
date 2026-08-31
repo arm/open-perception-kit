@@ -65,7 +65,6 @@ devices.env
 .devcontainer/cameras.env
 .devcontainer/*.video.yaml
 .devcontainer/*.audio.yaml
-.devcontainer/*.npu.yaml
 .devcontainer/*.shared_memory.yaml
 .devcontainer/*.network.yaml
 .devcontainer/pc/devcontainer-lock.json

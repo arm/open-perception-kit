@@ -29,6 +29,16 @@ Internal:
 EOF
 }
 
+check_retired_model_artifacts() {
+    local artifact=""
+
+    while IFS= read -r -d '' artifact; do
+        case "${artifact##*.}" in
+            [hH][eE][fF]) repo_checks_die "Retired model artifact found: ${artifact#"${REPO_ROOT}/"}" ;;
+        esac
+    done < <(find "${REPO_ROOT}/config/models" -type f -print0)
+}
+
 trap 'repo_checks_on_error "${LINENO}"' ERR
 
 ensure_runtime_files() {
@@ -202,6 +212,7 @@ run_host_mode() {
     case "${MODE}" in
         delta)
             [ "$#" -eq 0 ] || repo_checks_die "default delta mode does not accept positional arguments."
+            check_retired_model_artifacts
             build_delta_command
             repo_checks_check_docker_setup
             run_repo_checks_command
@@ -213,6 +224,7 @@ run_host_mode() {
             ;;
         full)
             [ "$#" -eq 0 ] || repo_checks_die "full does not accept positional arguments."
+            check_retired_model_artifacts
             build_full_command
             repo_checks_check_docker_setup
             run_repo_checks_command

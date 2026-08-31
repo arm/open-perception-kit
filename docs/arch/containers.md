@@ -110,7 +110,7 @@ part of the container contract as well.
 Before a development or quick-start container is created,
 `.devcontainer/platform_init.sh` runs on the Docker host and calls
 `scripts/private/dev-init.sh`. The initialization flow discovers cameras, audio
-devices, Hailo devices, shared memory, and DMA-related resources, then generates
+devices, shared memory, and DMA-related resources, then generates
 the matching `.devcontainer/docker-compose.<kind>.*.yaml` overrides and
 `devices.env` entries.
 
@@ -118,21 +118,6 @@ The selected Compose service, generated overrides, and `devices.env` together
 define which host resources enter the container. Device discovery must stay on
 the host because the container cannot discover resources that have not yet been
 passed through.
-
-### Hailo Host And Container Boundary
-
-Hailo 8/Hailo 8L and Hailo 10 use separate services:
-`pek-dev-rpi5-h8` and `pek-dev-rpi5-h10`. Use the service, compiled model
-variant, and pipeline preset that match the attached accelerator generation;
-their model files and user-space runtime packages are not interchangeable.
-
-The Raspberry Pi host owns the generation-specific Hailo software stack and
-kernel/device integration (`hailo-all` for Hailo 8/Hailo 8L or
-`hailo-h10-all` for Hailo 10). The matching container installs user-space
-HailoRT and TAPPAS packages from `.devcontainer/Dockerfile.hailo`, while the
-generated NPU override passes `/dev/hailo*` devices and, when present, the
-HailoRT Unix socket into the container. Kernel-driver packages stay on the host
-because they are coupled to the host kernel and device lifecycle.
 
 ### Host And Bridge Networking
 

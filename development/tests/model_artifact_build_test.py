@@ -20,6 +20,8 @@ MODELS_DIR = "config/models"
 MODEL_DESCRIPTOR = "model.json"
 SCHEMAS_DIR = Path("config/schemas")
 MODEL_SCHEMA = SCHEMAS_DIR / "v1/model.schema.json"
+# Temporary EXPKITS-1084 quality gate while stale model artifacts may remain in build contexts.
+RETIRED_MODEL_SUFFIXES = {".hef"}
 
 
 class ModelArtifactBuildTest(unittest.TestCase):
@@ -429,6 +431,15 @@ class ModelArtifactBuildTest(unittest.TestCase):
             ]
             self.assertEqual(rules, expected)
 
+    def test_retired_model_artifacts_are_absent(self) -> None:
+        model_root = REPO_ROOT / MODELS_DIR
+        retired = sorted(
+            str(path.relative_to(REPO_ROOT))
+            for path in model_root.rglob("*")
+            if path.is_file() and path.suffix.casefold() in RETIRED_MODEL_SUFFIXES
+        )
+        self.assertEqual(retired, [], f"retired model artifacts found: {retired}")
+
     def test_download_cli_contract(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
@@ -446,7 +457,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
 
             for name, model_file, hub_file in (
                 ("first", "missing.onnx", "missing.onnx"),
-                ("second", "renamed.hef", "available.onnx"),
+                ("second", "renamed.bin", "available.onnx"),
             ):
                 model_dir = root / "config" / "models" / name
                 model_dir.mkdir(parents=True)
@@ -543,7 +554,7 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
 
             self.assertFalse((root / "config/models/first/missing.onnx").exists())
             self.assertEqual(
-                (root / "config/models/second/renamed.hef").read_text(),
+                (root / "config/models/second/renamed.bin").read_text(),
                 "model",
             )
             self.assertIn(
@@ -562,7 +573,7 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
             )
             self.assertIn(
                 "WARNING: available.onnx uses .onnx, but "
-                "config/models/second/renamed.hef uses .hef; saving as configured.",
+                "config/models/second/renamed.bin uses .bin; saving as configured.",
                 result.stderr,
             )
             anonymous_capture = (root / "captured-token").read_text().splitlines()

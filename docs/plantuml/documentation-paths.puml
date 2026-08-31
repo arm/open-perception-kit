@@ -26,11 +26,6 @@ else (no)
       :Windows + WSL / Linux / macOS\ncontainer workflow;
     elseif (Raspberry Pi 5)
       :Raspberry Pi 5 setup,\nSSH, camera, and target prep;
-      if ("Which accelerator?") then (Hailo 8)
-        :Use the RPI5 H8 devcontainer\nfor Hailo 8 / AI HAT+;
-      else (Hailo 10)
-        :Use the RPI5 H10 devcontainer\nfor Hailo 10 / AI HAT+ 2;
-      endif
     else (Deployment)
       :Topo-compatible deployment path;
     endif

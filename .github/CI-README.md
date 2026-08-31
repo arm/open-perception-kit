@@ -120,8 +120,7 @@ release archive. It retains the deployment lane's resolved configuration,
 models, pipelines, and demo media. Release archives remain the narrow
 seven-model integration surface and contain the standard, ONNX, and
 experimental ExecuTorch operation modules, but no SDK headers or static
-libraries. The release image does not install Hailo operation modules, SDKs, or
-runtimes.
+libraries.
 
 The same Docker stage packages the checked-in Perception SDK snapshot. The
 workflow passes only the selected source and flowdata-sdk gitlink SHAs; it does

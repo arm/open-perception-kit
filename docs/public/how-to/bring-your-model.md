@@ -20,7 +20,7 @@ At the end of this page, you should have a model folder, a matching `model.json`
 The codebase currently supports these runtime/model combinations:
 
 - ONNX Runtime with `.onnx` models
-- HailoRT with `.hef` models
+- ExecuTorch with `.pte` models
 
 These are the implementations currently available in the tree. The OpChain v1 extension contract is
 backend-independent: an exact `<library>/Inference` ID has one required `modelDescriptor` attribute,
@@ -29,30 +29,6 @@ not require adding its library name to the descriptor validator, but it still re
 library, factory, interface implementation, and backend-specific artifact support.
 
 If you want the least friction, start with ONNX and reuse an existing output parser.
-
-## Checked-in Hailo naming pattern
-
-The repository now keeps compiled Hailo variants in accelerator-specific model folders rather than in one generic `*-hef` bucket.
-
-Current checked-in examples include:
-
-- `config/models/mobilenetv2-hailo8/`
-- `config/models/mobilenetv2-hailo8l/`
-- `config/models/mobilenetv2-hailo10/`
-- `config/models/osnet_x0_25-hailo8/`
-- `config/models/osnet_x0_25-hailo8l/`
-- `config/models/osnet_x0_25-hailo10/`
-- `config/models/yolov11-hailo8/`
-- `config/models/yolov11-hailo8l/`
-
-The matching full-demo presets are:
-
-- `config/pipelines/02-full-onnx-hailo8.json`
-- `config/pipelines/03-full-onnx-hailo8l.json`
-- `config/pipelines/04-full-onnx-hailo10.json`
-
-If you are adding another compiled Hailo model, follow that same naming pattern so the pipeline can select the intended accelerator generation explicitly.
-Hailo 8 and Hailo 8L compiled model files are not interchangeable, so keep those variants in separate folders and use the matching pipeline preset.
 
 ## Minimum files for a new model
 
@@ -71,7 +47,7 @@ At minimum, that folder should contain:
 For most users, these files are the main integration interface of the system. The default path is to describe the model with `model.json`, connect it with `opchain.json`, and let the existing runtime elements do the rest.
 
 For local development, the model file can live in the bind-mounted checkout.
-New `.onnx`, `.hef`, and `.pte` files are ignored by Git and the Docker build
+New `.onnx` and `.pte` files are ignored by Git and the Docker build
 context unless the repository explicitly allowlists them. To include a new
 published model in a container image, use `hfDownload` instead of relying on a
 new checked-in binary.
@@ -176,10 +152,9 @@ An OpChain can provide optional display metadata for model selectors:
 - `task` describes what the model does.
 - `runtime` identifies the exact inference runtime or accelerator variant.
 
-The loaded OpChain is the source of truth for these values. Use specific runtime names such as
-`Hailo 8`, `Hailo 8L`, or `Hailo 10` when compiled models are not interchangeable. If this
-metadata is omitted, the browser falls back to the internal `name` without guessing missing
-details.
+The loaded OpChain is the source of truth for these values. Use the exact runtime name when model
+artifacts are not interchangeable. If this metadata is omitted, the browser falls back to the
+internal `name` without guessing missing details.
 
 This is the main runtime interface you should use by default when onboarding a model. In the normal path, you do not start by changing `pekinfer` or adding a new Op. You start by describing the chain with `opchain.json` and by selecting the parser that turns model outputs into structured runtime results.
 
@@ -318,13 +293,10 @@ If you need to go beyond that and change elements or core runtime behavior, the 
 ## Good examples to copy from
 
 - `config/models/yolov11/` for a simple object detector
-- `config/models/yolov11-hailo8/` for a Hailo 8 detector variant
 - `config/opchains/tracking/` for a detector + embedding cascade
 - `config/models/mobilenetv2/` for a simple classifier
-- `config/models/mobilenetv2-hailo8/` and `config/models/mobilenetv2-hailo10/` for compiled Hailo classifier variants
 - `config/models/modnet/` for segmentation
 - `config/models/osnet_x0_25/` for embeddings
-- `config/models/osnet_x0_25-hailo8/` and `config/models/osnet_x0_25-hailo10/` for compiled Hailo embedding variants
 
 ## If the built-in parsers are not enough
 
