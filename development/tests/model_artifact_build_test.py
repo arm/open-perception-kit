@@ -415,6 +415,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
 
     def test_model_artifacts_are_ignored_except_checked_in_models(self) -> None:
         expected = [
+            "config/models/**/*.hef",
             "config/models/**/*.onnx",
             "config/models/**/*.pte",
             "!config/models/paddleocr/classification.onnx",

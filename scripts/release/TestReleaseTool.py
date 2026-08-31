@@ -206,6 +206,23 @@ class ReleaseToolTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "unsupported model file"):
                 release_tool.discover_models(root)
 
+    def test_rejects_retired_release_content(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            package_root = Path(temporary)
+            for relative in (
+                "lib/pek/libhailort.so",
+                "share/pek/models/retired/model.hef",
+            ):
+                with self.subTest(relative=relative):
+                    payload = package_root / relative
+                    payload.parent.mkdir(parents=True, exist_ok=True)
+                    payload.touch()
+                    with self.assertRaisesRegex(
+                        RuntimeError, "Forbidden retired release path"
+                    ):
+                        release_tool.validate_release_tree(package_root)
+                    payload.unlink()
+
     def test_allows_source_named_legal_documentation_directories(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             package_root = Path(temporary)
