@@ -5,12 +5,16 @@
 
 set -euo pipefail
 
+stable_release_name() {
+    [[ "$1" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+}
+
 release_deletions() {
     local incoming="$1"
     jq -c --arg incoming "$incoming" '
         [.items[] |
             select(.versionName != $incoming) |
-            select(.versionName | test("^v[0-9]+\\.[0-9]+\\.[0-9]+([-.+][0-9A-Za-z.-]+)?$"))] |
+            select(.versionName | test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))] |
         sort_by(.createdAt // "", .versionName) |
         if length > 2 then .[0:(length - 2)][] else empty end'
 }
@@ -23,7 +27,16 @@ if [ "${1:-}" = --self-test ]; then
         {"versionName":"v0.3.0","createdAt":"2026-03-01"},
         {"versionName":"v0.4.0","createdAt":"2026-04-01"},
         {"versionName":"v0.5.0","createdAt":"2026-05-01"},
+        {"versionName":"v0.0.1-rc1","createdAt":"2025-01-01"},
+        {"versionName":"v0.0.1-snapshot","createdAt":"2025-01-02"},
+        {"versionName":"v0.0.1.4","createdAt":"2025-01-03"},
+        {"versionName":"v0.0.1+build.1","createdAt":"2025-01-04"},
         {"versionName":"nightly","createdAt":"2026-06-01"}]}'
+    stable_release_name v0.6.0
+    ! stable_release_name v0.6.0-rc1
+    ! stable_release_name v0.6.0-snapshot
+    ! stable_release_name v0.6.0.4
+    ! stable_release_name v0.6.0+build.1
     mapfile -t deletions < <(release_deletions v0.5.0 <<< "$fixture")
     test "${#deletions[@]}" -eq 2
     test "$(jq -r '.versionName' <<< "${deletions[0]}")" = v0.1.0
@@ -120,7 +133,7 @@ case "$operation" in
         delete_version "${matches[0]}"
         ;;
     rotate-release)
-        [[ "$requested_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.-]+)?$ ]]
+        stable_release_name "$requested_version"
         while IFS= read -r version; do
             delete_version "$version"
         done < <(release_deletions "$requested_version" <<< "$versions")
