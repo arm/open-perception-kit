@@ -173,7 +173,7 @@ RUN set -eux; \
   typescript_sha256="$(node -e 'const config=require("/tmp/perception-sdk.json"); console.log(config.typescript_build.typescript.sha256)')"; \
   download() { \
     local url="$1"; local destination="$2"; \
-    timeout 180s curl \
+    timeout 30s curl \
       --fail --location --proto '=https' --proto-redir '=https' \
       --retry 3 --output "${destination}" "${url}"; \
   }; \
