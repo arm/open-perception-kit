@@ -131,8 +131,6 @@ if release_package
   endif
   if host_machine.cpu_family() != 'x86_64' and host_machine.cpu_family() != 'aarch64'
     error('Release packages support only x86_64 and aarch64.')
-  elif not get_option('hailort').disabled()
-    error('Release packages require -Dhailort=disabled.')
   endif
 endif
 
@@ -213,7 +211,6 @@ subdir('elements/pekcomm')
 subdir('pek-menu')
 
 # Optional subdirs decision tree is inside the subdir
-subdir('ops-hailort')
 subdir('ops-executorch')
 subdir('ops-ncnn')
 

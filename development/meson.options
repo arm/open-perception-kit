@@ -17,9 +17,3 @@ option('ncnn',
   value : 'auto',
   description : 'Enable NCNN integration (ops-ncnn)'
 )
-
-option('hailort',
-  type : 'feature',
-  value : 'auto',
-  description : 'Enable HailoRT integration (ops-hailort)'
-)

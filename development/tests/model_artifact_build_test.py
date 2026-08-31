@@ -413,7 +413,6 @@ class ModelArtifactBuildTest(unittest.TestCase):
 
     def test_model_artifacts_are_ignored_except_checked_in_models(self) -> None:
         expected = [
-            "config/models/**/*.hef",
             "config/models/**/*.onnx",
             "config/models/**/*.pte",
             "!config/models/paddleocr/classification.onnx",
@@ -446,7 +445,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
 
             for name, model_file, hub_file in (
                 ("first", "missing.onnx", "missing.onnx"),
-                ("second", "renamed.hef", "available.onnx"),
+                ("second", "renamed.bin", "available.onnx"),
             ):
                 model_dir = root / "config" / "models" / name
                 model_dir.mkdir(parents=True)
@@ -543,7 +542,7 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
 
             self.assertFalse((root / "config/models/first/missing.onnx").exists())
             self.assertEqual(
-                (root / "config/models/second/renamed.hef").read_text(),
+                (root / "config/models/second/renamed.bin").read_text(),
                 "model",
             )
             self.assertIn(
@@ -562,7 +561,7 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
             )
             self.assertIn(
                 "WARNING: available.onnx uses .onnx, but "
-                "config/models/second/renamed.hef uses .hef; saving as configured.",
+                "config/models/second/renamed.bin uses .bin; saving as configured.",
                 result.stderr,
             )
             anonymous_capture = (root / "captured-token").read_text().splitlines()

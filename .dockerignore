@@ -37,7 +37,6 @@
 # Demo video assets are downloaded in a dedicated Docker build stage.
 data/videos/
 # Model artifacts; keep the checked-in local models.
-config/models/**/*.hef
 config/models/**/*.onnx
 config/models/**/*.pte
 !config/models/paddleocr/classification.onnx

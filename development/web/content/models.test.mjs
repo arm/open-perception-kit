@@ -197,30 +197,30 @@ test("duplicate descriptor names retain unique element identities", () => {
     {
       active: false,
       displayName: "MobileNetV2",
-      element_name: "pekinfer8",
-      name: "ImageNet Hailo",
-      runtime: "Hailo 8",
+      element_name: "pekinfer-onnx",
+      name: "ImageNet",
+      runtime: "ONNX",
       task: "Image classification",
     },
     {
       active: false,
       displayName: "MobileNetV2",
-      element_name: "pekinfer10",
-      name: "ImageNet Hailo",
-      runtime: "Hailo 10",
+      element_name: "pekinfer-executorch",
+      name: "ImageNet",
+      runtime: "ExecuTorch",
       task: "Image classification",
     },
   ]);
 
   assert.equal(modelsContainer.children.length, 2);
-  assert.equal(modelsContainer.children[0].getAttribute("data-model-name"), "ImageNet Hailo");
-  assert.equal(modelsContainer.children[1].getAttribute("data-model-name"), "ImageNet Hailo");
-  assert.equal(modelsContainer.children[0].getAttribute("data-model-element-name"), "pekinfer8");
-  assert.equal(modelsContainer.children[1].getAttribute("data-model-element-name"), "pekinfer10");
+  assert.equal(modelsContainer.children[0].getAttribute("data-model-name"), "ImageNet");
+  assert.equal(modelsContainer.children[1].getAttribute("data-model-name"), "ImageNet");
+  assert.equal(modelsContainer.children[0].getAttribute("data-model-element-name"), "pekinfer-onnx");
+  assert.equal(modelsContainer.children[1].getAttribute("data-model-element-name"), "pekinfer-executorch");
   assert.equal(modelsContainer.children[0].querySelector(".model-details").textContent,
-    "MobileNetV2 (Hailo 8)");
+    "MobileNetV2 (ONNX)");
   assert.equal(modelsContainer.children[1].querySelector(".model-details").textContent,
-    "MobileNetV2 (Hailo 10)");
+    "MobileNetV2 (ExecuTorch)");
 
   const secondToggle = modelsContainer.children[1].querySelector("input");
   secondToggle.checked = true;

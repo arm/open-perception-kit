@@ -509,8 +509,6 @@ def validate_release_tree(package_root: Path) -> None:
             continue
         if forbidden_parts & set(relative.parts):
             fail(f"Forbidden release path: {relative}")
-        if any("hailo" in part.lower() for part in relative.parts):
-            fail(f"Forbidden Hailo release path: {relative}")
         if path.name == "pek-menu" or path.name.startswith(
             ("libfmt.so", "pek-ncnn-ops.so")
         ):
