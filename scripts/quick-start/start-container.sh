@@ -16,8 +16,6 @@ Builds and starts the PEK quick-start container selected by host detection.
 
 Platform mapping:
   Raspberry Pi 5            -> pek-dev with Pi camera support
-  Raspberry Pi 5 + Hailo 8  -> pek-dev-rpi5-h8
-  Raspberry Pi 5 + Hailo 10 -> pek-dev-rpi5-h10
   WSL/Linux/macOS           -> pek-dev
 
 The script uses the checked-in devcontainer compose files and generated device
@@ -77,8 +75,7 @@ if ! detect_output="$("${SCRIPT_DIR}/detect-environment.sh" --shell)"; then
     exit 1
 fi
 eval "$detect_output"
-export PEK_DEV_CONTAINER_NAME PEK_DEV_RPI5_H8_CONTAINER_NAME
-export PEK_DEV_RPI5_H10_CONTAINER_NAME PEK_PICAMERA
+export PEK_DEV_CONTAINER_NAME PEK_PICAMERA
 export HF_TOKEN="${HF_TOKEN-}"
 export HF_DOWNLOAD_CACHEBUST
 HF_DOWNLOAD_CACHEBUST="$("${REPO_ROOT}/scripts/private/generate-hf-download-cachebust.sh")"
@@ -89,7 +86,6 @@ COMPOSE_FILES=(
     -f .devcontainer/docker-compose.ssh-agent.yaml
     -f .devcontainer/docker-compose.devcont.video.yaml
     -f .devcontainer/docker-compose.devcont.audio.yaml
-    -f .devcontainer/docker-compose.devcont.npu.yaml
     -f .devcontainer/docker-compose.devcont.shared_memory.yaml
 )
 
@@ -99,6 +95,9 @@ if [[ -n "${COMPOSE_ENV_FILE}" ]]; then
 fi
 
 PEK_WEBRTC_TURN="$(bash scripts/private/select-webrtc-turn-mode.sh "${PEK_PLATFORM_ID}")"
+if [[ -n "${PEK_DEV_CACHE_FROM:-}" ]]; then
+    COMPOSE_FILES+=(-f .devcontainer/docker-compose.devcont.registry-cache.yaml)
+fi
 if [[ "${PEK_PLATFORM_ID}" == macos ]]; then
     COMPOSE_FILES+=(-f .devcontainer/docker-compose.devcont.macos-cache.yaml)
 fi
@@ -160,12 +159,17 @@ wait_for_container_ready() {
 }
 
 container_state_writable() {
-    local path
-    if ! docker exec -u dev "${PEK_CONTAINER_NAME}" mkdir -p /work/.cache/ccache /work/development/build; then
+    local ccache_dir path project_root
+    project_root="$(docker exec -u dev "${PEK_CONTAINER_NAME}" \
+        sh -c 'printf %s "${PEK_PROJECT_ROOT:-$PWD}"')"
+    ccache_dir="$(docker exec -u dev "${PEK_CONTAINER_NAME}" \
+        sh -c 'printf %s "${CCACHE_DIR:-${PEK_PROJECT_ROOT:-$PWD}/.cache/ccache}"')"
+    if ! docker exec -u dev "${PEK_CONTAINER_NAME}" \
+        mkdir -p "${ccache_dir}" "${project_root}/development/build"; then
         echo "Cannot create development cache directories as dev." >&2
         return 1
     fi
-    for path in /work /work/.cache/ccache /work/development/build; do
+    for path in "${project_root}" "${ccache_dir}" "${project_root}/development/build"; do
         if ! docker exec -u dev "${PEK_CONTAINER_NAME}" test -w "${path}"; then
             echo "Not writable as dev: ${path}" >&2
             return 1
@@ -209,7 +213,7 @@ if container_running && [[ "$RECREATE" != "true" ]]; then
         exit 0
     fi
 
-    echo "Container is running, but startup readiness or /work writability was not confirmed."
+    echo "Container is running, but startup readiness or project-root writability was not confirmed."
     echo "Recreating it with the host UID/GID mapping..."
     RECREATE="true"
 fi
@@ -218,10 +222,6 @@ echo "Starting quick-start container:"
 echo "  Platform: ${PEK_PLATFORM_NAME} (${PEK_PLATFORM_ID})"
 echo "  Service:  ${PEK_CONTAINER_SERVICE}"
 echo "  Name:     ${PEK_CONTAINER_NAME}"
-if [[ "${PEK_PLATFORM_ID}" == rpi5* ]]; then
-    echo "  Hailo:    ${PEK_HAILO_ARCH}"
-fi
-
 if [[ "$BUILD" == "true" ]]; then
     echo
     echo "Building shared development base..."

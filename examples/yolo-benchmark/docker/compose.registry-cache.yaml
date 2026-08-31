@@ -1,0 +1,5 @@
+services:
+  yolo-benchmark:
+    build:
+      cache_from:
+        - ${YOLO_BENCHMARK_CACHE_FROM}

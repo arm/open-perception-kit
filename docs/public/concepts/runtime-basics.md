@@ -80,7 +80,7 @@ For most users, the important point is simple: the pipeline decides where media 
 
 A model in PEK is made of two parts:
 
-1. the actual model file, such as `.onnx` or `.hef`
+1. the actual model file, such as `.onnx` or `.pte`
 2. a JSON descriptor, usually `model.json`, that tells PEK how to use it
 
 The descriptor defines things such as:
@@ -187,16 +187,11 @@ The checked-in pipeline presets live under `config/pipelines/`.
 Common presets include:
 
 - `01-full-onnx.json` - integrated ONNX model pipelines.
-- `02-full-onnx-hailo8.json` - integrated ONNX and Hailo 8 pipelines.
-- `03-full-onnx-hailo8l.json` - integrated ONNX and Hailo 8L pipelines.
-- `04-full-onnx-hailo10.json` - integrated ONNX and Hailo 10 pipelines.
 - `05-full-onnx-raspicam.json` - integrated ONNX pipelines on the Raspberry Pi camera source.
 - `06-full-onnx-usb-cam.json` - integrated ONNX pipelines on the USB camera source at `/dev/video0`.
 - `cam-connect.json` - camera-contact demo.
 - `gaze-detection.json` - gaze-estimation demo.
 - `tracker-pc.json` - ONNX tracking demo.
-- `tracker-rpi-hailo8.json` - Hailo 8 tracking demo.
-- `tracker-rpi-hailo10.json` - Hailo 10 tracking demo.
 
 Pipeline files often contain `alternative-source-*` and `alternative-sink-*` sections. Use those as templates when switching from the default sample media to a camera, video file, or different sink.
 

@@ -266,12 +266,9 @@ GenericPostprocess parser attributes SHALL be:
 | `YoloParser` | Yolo v1 matrix below |
 | `YoloXParser` | YoloX v1 matrix below |
 
-Yolo v1 SHALL allow `outputFormat="UltralyticsYolo"` (`UltralyticsYolo` or `HailoYoloNMS`),
-`confidenceThreshold=0.25` and `iouThreshold=0.45` in `[0,1]`,
+Yolo v1 SHALL allow `confidenceThreshold=0.25` and `iouThreshold=0.45` in `[0,1]`,
 `coordinatesAreNormalized=false`, `normalizeOutputCoordinates=true`, and `applyNms=true`.
-Explicit `applyNms=false` SHALL prohibit `iouThreshold`. Only `HailoYoloNMS` SHALL allow positive
-`maxDetections=5`, positive `classCount=80`, positive `maxBboxesPerClass=100`, and
-`coordOrder="yxyx"` (`yxyx` or `xyxy`).
+Explicit `applyNms=false` SHALL prohibit `iouThreshold`.
 
 YoloX v1 SHALL allow positive `classCount=80`, `confidenceThreshold=0.25` and
 `iouThreshold=0.45` in `[0,1]`, positive `maxDetections=100`, `applyNms=true`, `decoded=false`,

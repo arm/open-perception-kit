@@ -1,0 +1,9 @@
+services:
+  pek-build-base:
+    build:
+      cache_from:
+        - ${PEK_DEV_CACHE_FROM}
+  pek-dev:
+    build:
+      cache_from:
+        - ${PEK_DEV_CACHE_FROM}

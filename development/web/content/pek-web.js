@@ -988,11 +988,11 @@ function setPanelButtonState(panel, visible) {
   if (!panel.button) {
     return;
   }
-  const icon2 = panel.button.querySelector("i");
+  const icon = panel.button.querySelector("i");
   panel.button.setAttribute("aria-pressed", visible ? "true" : "false");
   panel.button.setAttribute("aria-label", (visible ? "Hide " : "Show ") + panel.label);
-  if (icon2) {
-    icon2.className = visible ? "fa-solid fa-eye" : "fa-solid fa-eye-slash";
+  if (icon) {
+    icon.className = visible ? "fa-solid fa-eye" : "fa-solid fa-eye-slash";
   }
 }
 function applyPanelState(key) {
@@ -1281,10 +1281,9 @@ function dockTargetHeight() {
   const style = getComputedStyle(root);
   const expandedHeight = px(style.getPropertyValue("--bottom-dock-height")) || 244;
   const collapsedHeight = px(style.getPropertyValue("--bottom-dock-collapsed-height")) || 48;
-  const isFullscreen2 = document.body.classList.contains("video-fullscreen");
-  const outputsShown = document.body.classList.contains("fullscreen-outputs-enabled");
+  const outputsHidden = document.body.classList.contains("outputs-hidden");
   const outputsEmpty = document.body.classList.contains("output-panels-empty");
-  if (isFullscreen2 && !outputsShown)
+  if (outputsHidden)
     return 0;
   return outputsEmpty ? collapsedHeight : expandedHeight;
 }
@@ -1476,55 +1475,27 @@ document.querySelector(".main-content")?.addEventListener("transitionend", (even
   }
 });
 
-// development/web/src/video-fullscreen.js
-var button = document.getElementById("videoFullscreenBtn");
-var icon = document.getElementById("videoFullscreenIcon");
-var controls = document.querySelector(".video-control-buttons");
-var videoWrapper = document.querySelector(".video-wrapper");
-var outputsButton = document.getElementById("fullscreenOutputsBtn");
-var outputsIcon = document.getElementById("fullscreenOutputsIcon");
+// development/web/src/video-layout.js
+var sidebarButton = document.getElementById("sidebarVisibilityBtn");
+var outputsButton = document.getElementById("outputsVisibilityBtn");
 var videoFeedButton = document.getElementById("toggleVideoFeedBtn");
 var videoFeedIcon = document.getElementById("toggleVideoFeedIcon");
-var isFullscreen = false;
-var hideTimer = null;
-var outputsAvailable = true;
-var outputsInFullscreen = (localStorage.getItem("pek-video:fullscreen-outputs:v1") ?? localStorage.getItem("pek-video:fullscreen-metrics:v1")) === "true";
+var sidebarVisible = localStorage.getItem("pek-layout:sidebar-visible:v1") !== "false";
+var outputsVisible = localStorage.getItem("pek-video:outputs-visible:v1") !== "false";
 var videoFeedHidden = localStorage.getItem("pek-video:feed-hidden:v1") === "true";
 function notifyVideoLayoutChange() {
-  window.dispatchEvent(new CustomEvent("video-layout-change", {
-    detail: {
-      isFullscreen,
-      outputsInFullscreen,
-      outputsAvailable,
-      videoFeedHidden
-    }
-  }));
+  const detail = { sidebarVisible, outputsVisible, videoFeedHidden };
+  window.dispatchEvent(new CustomEvent("video-layout-change", { detail }));
   requestAnimationFrame(() => {
-    window.dispatchEvent(new CustomEvent("video-layout-change", {
-      detail: {
-        isFullscreen,
-        outputsInFullscreen,
-        outputsAvailable,
-        videoFeedHidden
-      }
-    }));
+    window.dispatchEvent(new CustomEvent("video-layout-change", { detail }));
   });
 }
-function setControlsVisible(visible) {
-  document.body.classList.toggle("video-fullscreen-controls-visible", visible);
-}
-function scheduleHideControls(delay = 1300) {
-  window.clearTimeout(hideTimer);
-  hideTimer = window.setTimeout(() => {
-    if (isFullscreen && !controls?.matches(":hover, :focus-within") && !videoWrapper?.matches(":hover")) {
-      setControlsVisible(false);
-    }
-  }, delay);
-}
-function isPointerInsideVideoWrapper(event, margin = 0) {
-  const rect = videoWrapper?.getBoundingClientRect();
-  if (!rect) return false;
-  return event.clientX >= rect.left - margin && event.clientX <= rect.right + margin && event.clientY >= rect.top - margin && event.clientY <= rect.bottom + margin;
+function setSidebarVisible(visible) {
+  sidebarVisible = visible;
+  document.body.classList.toggle("sidebar-hidden", !sidebarVisible);
+  localStorage.setItem("pek-layout:sidebar-visible:v1", sidebarVisible ? "true" : "false");
+  sidebarButton?.setAttribute("aria-pressed", sidebarVisible ? "true" : "false");
+  notifyVideoLayoutChange();
 }
 function setVideoFeedHidden(hidden) {
   videoFeedHidden = hidden;
@@ -1540,22 +1511,12 @@ function setVideoFeedHidden(hidden) {
   }
   notifyVideoLayoutChange();
 }
-function setOutputsInFullscreen(enabled, { animate = true } = {}) {
+function setOutputsVisible(visible, { animate = true } = {}) {
   const update = () => {
-    outputsInFullscreen = enabled;
-    document.body.classList.toggle("fullscreen-outputs-enabled", outputsInFullscreen);
-    localStorage.setItem("pek-video:fullscreen-outputs:v1", outputsInFullscreen ? "true" : "false");
-    if (outputsButton) {
-      outputsButton.setAttribute(
-        "aria-label",
-        outputsInFullscreen ? "Hide outputs in fullscreen" : "Show outputs in fullscreen"
-      );
-      outputsButton.setAttribute("aria-pressed", outputsInFullscreen ? "true" : "false");
-      outputsButton.dataset.tooltip = outputsInFullscreen ? "Hide outputs in fullscreen" : "Show outputs in fullscreen";
-    }
-    if (outputsIcon) {
-      outputsIcon.className = outputsInFullscreen ? "fa-solid fa-gauge" : "fa-solid fa-gauge video-gauge-icon--outline";
-    }
+    outputsVisible = visible;
+    document.body.classList.toggle("outputs-hidden", !outputsVisible);
+    localStorage.setItem("pek-video:outputs-visible:v1", outputsVisible ? "true" : "false");
+    outputsButton?.setAttribute("aria-pressed", outputsVisible ? "true" : "false");
   };
   if (animate && window.animateBottomDockHeightChange) {
     window.animateBottomDockHeightChange(update);
@@ -1564,145 +1525,83 @@ function setOutputsInFullscreen(enabled, { animate = true } = {}) {
   }
   notifyVideoLayoutChange();
 }
-function setOutputsAvailable(available) {
-  outputsAvailable = available;
-  if (outputsButton) {
-    outputsButton.hidden = false;
-  }
-  notifyVideoLayoutChange();
-}
-function setFullscreen(nextFullscreen) {
-  isFullscreen = nextFullscreen;
-  document.body.classList.toggle("video-fullscreen", isFullscreen);
-  if (button) {
-    button.setAttribute("aria-label", isFullscreen ? "Exit fullscreen video" : "Fullscreen video");
-    button.dataset.tooltip = isFullscreen ? "Exit Fullscreen" : "Fullscreen";
-  }
-  if (icon) {
-    icon.className = isFullscreen ? "fa-solid fa-down-left-and-up-right-to-center" : "fa-solid fa-up-right-and-down-left-from-center";
-  }
-  setControlsVisible(isFullscreen);
-  if (isFullscreen) {
-    scheduleHideControls();
-  } else {
-    window.clearTimeout(hideTimer);
-  }
-  notifyVideoLayoutChange();
-}
+setSidebarVisible(sidebarVisible);
 setVideoFeedHidden(videoFeedHidden);
-setOutputsInFullscreen(outputsInFullscreen, { animate: false });
-setOutputsAvailable(outputsAvailable);
-button?.addEventListener("click", () => {
-  const nextFullscreen = !isFullscreen;
-  setFullscreen(nextFullscreen);
-  if (nextFullscreen) {
-    button.blur();
-  }
+setOutputsVisible(outputsVisible, { animate: false });
+sidebarButton?.addEventListener("click", () => {
+  setSidebarVisible(!sidebarVisible);
 });
 outputsButton?.addEventListener("click", () => {
-  setOutputsInFullscreen(!outputsInFullscreen);
+  setOutputsVisible(!outputsVisible);
 });
 videoFeedButton?.addEventListener("click", () => {
   setVideoFeedHidden(!videoFeedHidden);
 });
-window.addEventListener("output-panels-change", (event) => {
-  setOutputsAvailable((event.detail?.visiblePanels?.length || 0) > 0);
-});
-controls?.addEventListener("mouseenter", () => {
-  if (isFullscreen) {
-    setControlsVisible(true);
-    window.clearTimeout(hideTimer);
-  }
-});
-controls?.addEventListener("mouseleave", () => {
-  if (isFullscreen) scheduleHideControls(600);
-});
-videoWrapper?.addEventListener("mouseenter", () => {
-  if (isFullscreen) {
-    setControlsVisible(true);
-    scheduleHideControls();
-  }
-});
-videoWrapper?.addEventListener("mousemove", () => {
-  if (isFullscreen) {
-    setControlsVisible(true);
-    scheduleHideControls();
-  }
-});
-document.addEventListener("mousemove", (event) => {
-  if (!isFullscreen) return;
-  if (isPointerInsideVideoWrapper(event, 8)) {
-    setControlsVisible(true);
-    scheduleHideControls();
-    return;
-  }
-  if (!controls?.matches(":hover, :focus-within")) {
-    scheduleHideControls(250);
-  }
-});
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && isFullscreen) {
-    setFullscreen(false);
-  }
-});
 
 // development/web/src/copy-utils.js?v=icon-copy-buttons-20260608
 async function writeClipboard(text2) {
-  if (!navigator.clipboard?.writeText) {
-    throw new Error("Clipboard API is unavailable");
-  }
-  try {
-    await navigator.clipboard.writeText(text2);
-  } catch (error) {
-    throw new Error("Clipboard write failed", { cause: error });
-  }
-}
-function setButtonIcon(button2, iconName) {
-  const icon2 = button2?.querySelector("i");
-  if (!icon2)
-    return;
-  icon2.className = `fa-solid fa-${iconName}`;
-}
-function setButtonFeedback(button2, state, label) {
-  button2.dataset.copyState = state;
-  button2.setAttribute("aria-label", label);
-  button2.title = label;
-  setButtonIcon(button2, state === "copied" ? "check" : "copy");
-}
-async function copyTextWithFeedback(button2, text2, emptyText = "Empty", fallbackBuffer = null) {
-  if (!button2) return;
-  if (!String(text2 || "").trim()) return;
-  const originalLabel = button2.getAttribute("aria-label") || button2.title || "Copy";
-  if (button2.copyFeedbackTimer) {
-    clearTimeout(button2.copyFeedbackTimer);
-    button2.copyFeedbackTimer = null;
-  }
-  button2.dataset.copyState = "copying";
-  try {
-    await writeClipboard(text2);
-    setButtonFeedback(button2, text2 ? "copied" : "empty", text2 ? "Copied" : emptyText);
-  } catch (error) {
-    console.debug("Clipboard copy failed", error);
-    if (fallbackBuffer) {
-      fallbackBuffer.value = text2;
-      fallbackBuffer.classList.add("is-visible");
-      fallbackBuffer.focus();
-      fallbackBuffer.select();
-      fallbackBuffer.setSelectionRange(0, fallbackBuffer.value.length);
-      setButtonFeedback(button2, "manual-copy", "Select text to copy");
-    } else {
-      setButtonFeedback(button2, "failed", "Copy failed");
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text2);
+      return;
+    } catch {
     }
   }
-  button2.copyFeedbackTimer = setTimeout(() => {
-    setButtonFeedback(button2, "idle", originalLabel);
-    button2.copyFeedbackTimer = null;
+  const buffer = document.createElement("textarea");
+  buffer.value = text2;
+  buffer.readOnly = true;
+  buffer.style.position = "fixed";
+  buffer.style.opacity = "0";
+  document.body.appendChild(buffer);
+  const activeElement = document.activeElement;
+  let copied = false;
+  try {
+    buffer.focus();
+    buffer.select();
+    copied = document.execCommand("copy");
+  } finally {
+    buffer.remove();
+    activeElement?.focus?.();
+  }
+  if (!copied) throw new Error("Clipboard write failed");
+}
+function setButtonIcon(button, iconName) {
+  const icon = button?.querySelector("i");
+  if (!icon)
+    return;
+  icon.className = `fa-solid fa-${iconName}`;
+}
+function setButtonFeedback(button, state, label) {
+  button.dataset.copyState = state;
+  button.setAttribute("aria-label", label);
+  button.title = label;
+  setButtonIcon(button, state === "copied" ? "check" : "copy");
+}
+async function copyTextWithFeedback(button, text2, emptyText = "Empty") {
+  if (!button) return;
+  if (!String(text2 || "").trim()) return;
+  const originalLabel = button.getAttribute("aria-label") || button.title || "Copy";
+  if (button.copyFeedbackTimer) {
+    clearTimeout(button.copyFeedbackTimer);
+    button.copyFeedbackTimer = null;
+  }
+  button.dataset.copyState = "copying";
+  try {
+    await writeClipboard(text2);
+    setButtonFeedback(button, text2 ? "copied" : "empty", text2 ? "Copied" : emptyText);
+  } catch (error) {
+    console.debug("Clipboard copy failed", error);
+    setButtonFeedback(button, "failed", "Copy failed");
+  }
+  button.copyFeedbackTimer = setTimeout(() => {
+    setButtonFeedback(button, "idle", originalLabel);
+    button.copyFeedbackTimer = null;
   }, 1500);
 }
-function setCopyButtonAvailable(button2, available) {
-  if (!button2) return;
-  button2.disabled = !available;
-  button2.setAttribute("aria-disabled", available ? "false" : "true");
+function setCopyButtonAvailable(button, available) {
+  if (!button) return;
+  button.disabled = !available;
+  button.setAttribute("aria-disabled", available ? "false" : "true");
 }
 
 // development/web/src/performance-metrics.js
@@ -1989,7 +1888,6 @@ updateCopyButtonState2();
 // development/web/src/debug-log.js
 var copyButton3 = document.getElementById("copyDebugLogBtn");
 var logEl2 = document.getElementById("log");
-var copyBuffer = document.getElementById("debugLogCopyBuffer");
 function getLogText() {
   if (!logEl2) return "";
   return Array.from(logEl2.querySelectorAll(".log-line")).map((line) => line.textContent.trim()).filter(Boolean).join("\n");
@@ -1997,8 +1895,7 @@ function getLogText() {
 async function copyLog() {
   if (!copyButton3) return;
   const logText = getLogText();
-  copyBuffer?.classList.remove("is-visible");
-  await copyTextWithFeedback(copyButton3, logText, "Copy", copyBuffer);
+  await copyTextWithFeedback(copyButton3, logText, "Copy");
 }
 function updateCopyButtonState3() {
   setCopyButtonAvailable(copyButton3, !!getLogText());

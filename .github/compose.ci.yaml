@@ -33,6 +33,7 @@ services:
       file: ../compose.base.yaml
       service: pek-common-dev
 
+    image: ${PEK_CI_IMAGE:-pek-ci}
     network_mode: bridge
     hostname: pek-ci
     environment:

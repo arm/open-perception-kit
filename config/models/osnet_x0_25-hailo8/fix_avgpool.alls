@@ -1,9 +1,0 @@
-model_optimization_flavor(optimization_level=0, compression_level=0)
-
-pre_quantization_optimization(global_avgpool_reduction, layers=avgpool2, division_factors=[4, 4])
-pre_quantization_optimization(global_avgpool_reduction, layers=avgpool3, division_factors=[4, 4])
-pre_quantization_optimization(global_avgpool_reduction, layers=avgpool4, division_factors=[4, 4])
-pre_quantization_optimization(global_avgpool_reduction, layers=avgpool5, division_factors=[4, 4])
-pre_quantization_optimization(global_avgpool_reduction, layers=avgpool6, division_factors=[4, 4])
-pre_quantization_optimization(global_avgpool_reduction, layers=avgpool7, division_factors=[4, 4])
-pre_quantization_optimization(global_avgpool_reduction, layers=avgpool8, division_factors=[4, 4])

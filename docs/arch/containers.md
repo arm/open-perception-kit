@@ -33,7 +33,9 @@ Development tooling lane
   pek-build-base
     -> pek-dev-base
        -> pek-dev-tools
-       -> pek-dev
+          -> pek-dev
+             -> pek-dev-macos-cache-build
+             -> pek-dev-macos-ci
   pek-models
     --copy model artifacts--> pek-dev
   pek-demo-media
@@ -78,6 +80,11 @@ top-level Dockerfiles because they do not share the core Debian build graph.
 The CI service mapping uses these image lanes without creating new image
 contracts for each job. The nightly PEK CI schedule publishes native amd64 and
 arm64 `pek-deployment-base` images and their full BuildKit registry caches.
+The native Arm64 publisher also publishes an exact-SHA `pek-dev-macos-ci`
+development image and its full registry cache. macOS and YOLO use the exact
+image when it exists and rebuild from that cache otherwise. Raspberry Pi
+quick-start imports the same cache while rebuilding the camera-enabled
+`pek-dev` target.
 `pek-release-with-ut`, `pek-valgrind-check`,
 `pek-generate-valgrind-summary`, `pek-quality-check-full`, `pek-sonar-check`,
 `pek-sonar-check-release`, `pek-quality-check-pull-request`, and
@@ -103,7 +110,7 @@ part of the container contract as well.
 Before a development or quick-start container is created,
 `.devcontainer/platform_init.sh` runs on the Docker host and calls
 `scripts/private/dev-init.sh`. The initialization flow discovers cameras, audio
-devices, Hailo devices, shared memory, and DMA-related resources, then generates
+devices, shared memory, and DMA-related resources, then generates
 the matching `.devcontainer/docker-compose.<kind>.*.yaml` overrides and
 `devices.env` entries.
 
@@ -111,21 +118,6 @@ The selected Compose service, generated overrides, and `devices.env` together
 define which host resources enter the container. Device discovery must stay on
 the host because the container cannot discover resources that have not yet been
 passed through.
-
-### Hailo Host And Container Boundary
-
-Hailo 8/Hailo 8L and Hailo 10 use separate services:
-`pek-dev-rpi5-h8` and `pek-dev-rpi5-h10`. Use the service, compiled model
-variant, and pipeline preset that match the attached accelerator generation;
-their model files and user-space runtime packages are not interchangeable.
-
-The Raspberry Pi host owns the generation-specific Hailo software stack and
-kernel/device integration (`hailo-all` for Hailo 8/Hailo 8L or
-`hailo-h10-all` for Hailo 10). The matching container installs user-space
-HailoRT and TAPPAS packages from `.devcontainer/Dockerfile.hailo`, while the
-generated NPU override passes `/dev/hailo*` devices and, when present, the
-HailoRT Unix socket into the container. Kernel-driver packages stay on the host
-because they are coupled to the host kernel and device lifecycle.
 
 ### Host And Bridge Networking
 
@@ -237,12 +229,13 @@ stages inherit everything from their parent unless noted otherwise.
 - `pek-playwright-pages`: starts from `python:3.13-slim-trixie` and adds
   `ca-certificates`, GitHub CLI `gh`, and `git`.
 
-Quick-start builds mount a compiler cache at `/work/.cache/ccache`. The native
-Arm64 publisher prewarms this cache in the macOS CI image. The container
-entrypoint maps the runner's UID/GID at runtime and copies the seed into
-temporary, project-scoped compiler-cache and build-output volumes. macOS CI then
-deletes Colima. Publisher build layers are reused through the current GHCR
-`buildcache` tag; only the newest 20 exact-SHA images are kept.
+Quick-start builds mount a compiler cache at `$PEK_PROJECT_ROOT/.cache/ccache`. The native
+Arm64 publisher prewarms this cache in the exact-SHA development image. The
+container entrypoint maps the runner's UID/GID at runtime and copies the seed
+into temporary, project-scoped compiler-cache and build-output volumes. macOS
+CI then deletes Colima. YOLO keeps its compiler cache in the existing benchmark
+volume. Publisher, Raspberry Pi, and YOLO build layers are reused through the
+current GHCR `buildcache` tag; only the newest 20 exact-SHA images are kept.
 
 ## Image Lanes
 

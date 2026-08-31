@@ -108,13 +108,9 @@
             "options": [
                 "yolov11-onnx",
                 "01-full-onnx",
-                "02-full-onnx-hailo8",
-                "03-full-onnx-hailo8l",
-                "04-full-onnx-hailo10",
                 "cam-connect",
                 "gaze-detection",
-                "tracker-pc",
-                "tracker-rpi-hailo8"
+                "tracker-pc"
             ]
         }
     ]

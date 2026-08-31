@@ -206,25 +206,22 @@ class ReleaseToolTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "unsupported model file"):
                 release_tool.discover_models(root)
 
-    def test_rejects_hailo_release_content(self) -> None:
+    def test_rejects_retired_release_content(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             package_root = Path(temporary)
-            plugin_root = package_root / PLUGIN_DIR
-            private_root = package_root / "lib/pek"
-            plugin_root.mkdir(parents=True)
-            private_root.mkdir()
-            for plugin_name in release_tool.PLUGIN_NAMES:
-                (plugin_root / plugin_name).touch()
-            (private_root / "pek-hailort-ops.so").touch()
-            with (
-                patch.object(
-                    release_tool,
-                    "is_elf",
-                    side_effect=lambda path: path.name in release_tool.PLUGIN_NAMES,
-                ),
-                self.assertRaisesRegex(RuntimeError, "Forbidden Hailo release path"),
+            for relative in (
+                "lib/pek/libhailort.so",
+                "share/pek/models/retired/model.hef",
             ):
-                release_tool.validate_runtime_files(package_root)
+                with self.subTest(relative=relative):
+                    payload = package_root / relative
+                    payload.parent.mkdir(parents=True, exist_ok=True)
+                    payload.touch()
+                    with self.assertRaisesRegex(
+                        RuntimeError, "Forbidden retired release path"
+                    ):
+                        release_tool.validate_release_tree(package_root)
+                    payload.unlink()
 
     def test_allows_source_named_legal_documentation_directories(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

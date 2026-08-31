@@ -1,6 +1,6 @@
 {
   "description": "Gaze detection pipeline with the default video source and peksink video sink.",
-  "agentReviewSuppressionGazeTcpBegin": "<agent-review:suppress-begin> gaze-detection is a local demo metadata stream, not the Face Pong demo. Face Pong uses config/pipelines/pong-onnx-hailo10.json with WebSocket metadata, and TCP auth/TLS is intentionally out of scope for this demo.",
+  "agentReviewSuppressionGazeTcpBegin": "<agent-review:suppress-begin> gaze-detection is a local demo metadata stream, and TCP auth/TLS is intentionally out of scope for this demo.",
   "pipeline": [
     "filesrc location=\"${PEK_PROJECT_ROOT:-/work}/data/videos/GettyImages-1129703310.mov\" !",
     "decodebin !",

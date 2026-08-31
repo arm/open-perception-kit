@@ -16,6 +16,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 concurrency:
   group: yolo-video-benchmark-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.event.pull_request.number || github.ref }}-${{ github.event.action == 'labeled' && github.event.label.name != 'run-yolo-benchmark' && github.run_id || 'validation' }}
@@ -39,7 +40,9 @@ jobs:
     env:
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: yolo-video-benchmark-${{ github.run_id }}-${{ github.run_attempt }}
-      YOLO_BENCHMARK_IMAGE_NAME: amp-dev-forge-yolo-video-benchmark:${{ github.run_id }}-${{ github.run_attempt }}
+      YOLO_BENCHMARK_IMAGE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      YOLO_BENCHMARK_IMAGE_NAME: ghcr.io/arm-debug/amp-dev-forge-dev:sha-${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      YOLO_BENCHMARK_CACHE_FROM: type=registry,ref=ghcr.io/arm-debug/amp-dev-forge-dev:buildcache
       YOLO_BENCHMARK_KIND: video
       YOLO_BENCHMARK_RUNS: ${{ github.event_name == 'pull_request' && '1' || inputs.benchmark_runs }}
 
@@ -52,6 +55,13 @@ jobs:
           fetch-depth: 1
           path: ${{ env.CI_CHECKOUT_PATH }}
 
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
       - name: Set up YOLO benchmark cache
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: ./examples/yolo-benchmark/docker/run.sh setup
@@ -59,7 +69,8 @@ jobs:
       - name: Run benchmark unit tests
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: |
-          docker compose -f examples/yolo-benchmark/docker/compose.yaml run --rm \
+          HOST_UID="$(id -u)" HOST_GID="$(id -g)" PEK_PROJECT_ROOT="${PWD}" \
+            docker compose -f examples/yolo-benchmark/docker/compose.yaml run --rm \
             yolo-benchmark \
             python3 -m unittest discover -s examples/yolo-benchmark/tests
 

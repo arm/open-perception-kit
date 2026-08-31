@@ -15,16 +15,11 @@ OpChain and model during startup, so all artifacts referenced by the selected
 pipeline must be present.
 
 - `01-full-onnx` — all listed ONNX model pipelines on a video source
-- `02-full-onnx-hailo8` — all listed ONNX + Hailo 8 model pipelines on a video source with peksink video and optional audio sink
-- `03-full-onnx-hailo8l` — all listed ONNX + Hailo 8L model pipelines on a video source with peksink video and optional audio sink
-- `04-full-onnx-hailo10` — all listed ONNX + Hailo 10 model pipelines on a video source with peksink video and optional audio sink
 - `05-full-onnx-raspicam` — all listed ONNX model pipelines on the Raspberry Pi camera source
 - `06-full-onnx-usb-cam` — all listed ONNX model pipelines on the USB camera source at `/dev/video0`
 - `cam-connect` — camera-contact demo
 - `gaze-detection` — gaze-estimation demo
 - `tracker-pc` — ONNX tracking demo
-- `tracker-rpi-hailo8` — Hailo 8 tracking demo
-- `tracker-rpi-hailo10` — Hailo 10 tracking demo
 - `yolov11-onnx` — bundled YOLOv11 ONNX object detection viewer demo
 - `yolo26-onnx` — YOLO26 ONNX object detection viewer demo
 

@@ -63,8 +63,8 @@ runtime. Treat these as constraints when extending the system.
 - Build-time `hfDownload` metadata materializes one artifact per descriptor but
   does not provide checksums, license metadata, multi-file bundles, or a
   complete-image gate. Failed downloads are logged and skipped.
-- ONNX Runtime and HailoRT are the main working backends. ExecuTorch is
-  experimental, MNN is planned, and RKNN/Orion6 is not supported.
+- ONNX Runtime is the main working backend. ExecuTorch is experimental, MNN is
+  planned, and RKNN/Orion6 is not supported.
 - Model performance and accuracy baselines are not published consistently.
 
 ## Observability And Quality

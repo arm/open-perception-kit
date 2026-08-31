@@ -14,7 +14,6 @@ while preserving generic preprocessing, postprocessing, and `Perception` output.
 | Engine | Status | Notes |
 | --- | --- | --- |
 | ONNX Runtime | Working | Main cross-platform baseline and broad model compatibility path. |
-| HailoRT | Working | Hardware acceleration path for supported Raspberry Pi + Hailo setups. |
 | ExecuTorch | Experimental | In-tree evaluation path for edge-focused PyTorch deployment. |
 | MNN | Planned | Candidate backend for mobile/embedded GPU acceleration. |
 
@@ -22,9 +21,6 @@ while preserving generic preprocessing, postprocessing, and `Perception` output.
 
 ONNX Runtime is the reference software backend because it is mature, widely used,
 and useful for validating pipelines across host platforms.
-
-HailoRT provides accelerator offload for supported Hailo hardware. It is the main
-hardware-backed path for Raspberry Pi deployments.
 
 ExecuTorch is present for evaluation and should be treated as experimental until
 its model support, tests, and integration behavior are made stable.
