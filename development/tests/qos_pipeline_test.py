@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import ctypes
 import gc
-import json
 from pathlib import Path
 import sys
 import tempfile
@@ -17,6 +16,12 @@ import threading
 import time
 import unittest
 from typing import Any
+
+from pipeline_test_utils import (
+    load_gstreamer_plugins,
+    release_pipeline,
+    write_test_opchain,
+)
 
 # Meson passes the test-only Delay Op first. OpChain loads that shared module through
 # its plugin ABI; it is not a GStreamer plugin and must not be given to load_file().
@@ -200,88 +205,6 @@ class EventFlowMonitor:
             raise AssertionError("pekinfer did not forward the video frame")
 
 
-class ContentDependencyPipelineTest(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        import gi
-
-        gi.require_version("Gst", "1.0")
-        from gi.repository import Gst
-
-        Gst.init(None)
-        for plugin_path in GST_PLUGIN_PATHS:
-            Gst.Plugin.load_file(str(plugin_path))
-        cls.Gst = Gst
-
-    def setUp(self) -> None:
-        self.directory = tempfile.TemporaryDirectory(prefix="pek-content-dependency-")
-        self.addCleanup(self.directory.cleanup)
-
-        capabilities = {
-            "unrelated": {"provided-content-type": "genericObject"},
-            "face-a": {"provided-content-type": "humanFace"},
-            "face-b": {"provided-content-type": "humanFace"},
-            "contact": {
-                "required-content-type": "humanFace",
-                "provided-content-type": "cameraContact",
-            },
-            "gaze": {"required-content-type": "cameraContact"},
-        }
-        descriptors = {}
-        for name, attributes in capabilities.items():
-            descriptor = Path(self.directory.name) / f"opchain-{name}.json"
-            descriptor.write_text(
-                json.dumps(
-                    {
-                        "version": 1,
-                        "name": f"content-dependency-{name}",
-                        "description": "Content dependency integration test OpChain",
-                        "ops": [
-                            {
-                                "id": "pek-test-qos-delay/Delay",
-                                "attributes": attributes,
-                            }
-                        ],
-                    }
-                ),
-                encoding="utf-8",
-            )
-            descriptors[name] = descriptor
-
-        chain = " ! ".join(
-            f'pekinfer name={name} opchain-path="{descriptors[name]}" active=false'
-            for name in capabilities
-        )
-        self.pipeline = self.Gst.parse_launch(
-            "appsrc name=source is-live=true format=time "
-            "caps=video/x-raw,format=BGRA,width=16,height=16 ! "
-            f"{chain} ! fakesink async=false sync=false"
-        )
-        self.addCleanup(self.stop_pipeline)
-        self.elements = {
-            name: self.pipeline.get_by_name(name) for name in capabilities
-        }
-
-    def stop_pipeline(self) -> None:
-        if self.pipeline is not None:
-            self.pipeline.set_state(self.Gst.State.NULL)
-            self.pipeline = None
-            gc.collect()
-
-    def test_enabling_model_activates_all_matching_upstream_dependencies(self) -> None:
-        self.assertNotEqual(
-            self.pipeline.set_state(self.Gst.State.PLAYING),
-            self.Gst.StateChangeReturn.FAILURE,
-        )
-        self.pipeline.get_state(self.Gst.SECOND)
-
-        self.elements["gaze"].set_property("active", True)
-
-        for name in ("gaze", "contact", "face-a", "face-b"):
-            self.assertTrue(self.elements[name].get_property("active"), name)
-        self.assertFalse(self.elements["unrelated"].get_property("active"))
-
-
 class QosPipelineTest(unittest.TestCase):
     PEKSINK_TESTS = {
         "test_qos_is_disabled_by_default",
@@ -291,16 +214,10 @@ class QosPipelineTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
-        import gi
+        cls.Gst = load_gstreamer_plugins(GST_PLUGIN_PATHS)
+        from gi.repository import GObject
 
-        gi.require_version("Gst", "1.0")
-        from gi.repository import GObject, Gst
-
-        Gst.init(None)
-        for plugin_path in GST_PLUGIN_PATHS:
-            Gst.Plugin.load_file(str(plugin_path))
         cls.GObject = GObject
-        cls.Gst = Gst
 
     def setUp(self) -> None:
         self.uses_peksink = self._testMethodName in self.PEKSINK_TESTS
@@ -309,30 +226,18 @@ class QosPipelineTest(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory(prefix="pek-qos-")
         self.addCleanup(self.directory.cleanup)
 
-        descriptors = {}
-        for control_id in ("inactive", "infer"):
-            descriptor = Path(self.directory.name) / f"opchain-{control_id}.json"
-            descriptor.write_text(
-                json.dumps(
-                    {
-                        "version": 1,
-                        "name": f"qos-test-{control_id}",
-                        "description": "QoS integration test opchain",
-                        "ops": [
-                            {
-                                "id": "pek-test-qos-delay/Delay",
-                                "attributes": (
-                                    {"control-handle": self.delay_op.handle}
-                                    if control_id == "infer"
-                                    else {}
-                                ),
-                            }
-                        ],
-                    }
+        descriptors = {
+            control_id: write_test_opchain(
+                self.directory.name,
+                control_id,
+                (
+                    {"control-handle": self.delay_op.handle}
+                    if control_id == "infer"
+                    else {}
                 ),
-                encoding="utf-8",
             )
-            descriptors[control_id] = descriptor
+            for control_id in ("inactive", "infer")
+        }
 
         output = (
             "peksink name=output"
@@ -389,7 +294,7 @@ class QosPipelineTest(unittest.TestCase):
     def stop_pipeline(self) -> None:
         if self.pipeline is None:
             return
-        self.pipeline.set_state(self.Gst.State.NULL)
+        release_pipeline(self.pipeline, self.Gst)
         if hasattr(self, "flow_monitor"):
             self.flow_monitor.close()
             self.flow_monitor = None

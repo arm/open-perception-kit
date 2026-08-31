@@ -266,6 +266,17 @@ test(
   args : [files('setup_lxc_dev_script_test.py'), pek_repository_root],
 )
 test(
+  'content_dependency_pipeline_tests',
+  python,
+  args : [
+    files('content_dependency_pipeline_test.py'),
+    qos_delay_op.full_path(),
+    gstpekinfer.full_path(),
+    pekinferpre.full_path(),
+  ],
+  depends : [gstpekinfer, qos_delay_op, pekinferpre],
+)
+test(
   'qos_pipeline_tests',
   python,
   args : [
