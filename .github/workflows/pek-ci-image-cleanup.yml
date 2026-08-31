@@ -18,8 +18,8 @@ concurrency:
   group: pek-ci-image-${{ github.event.pull_request.number || github.run_id }}
 
 jobs:
-  cleanup-blackduck-pr-version:
-    name: Delete Black Duck PR version
+  resolve-blackduck-pr-context:
+    name: Resolve Black Duck PR context
     if: >-
       (
         github.event_name == 'pull_request_target' &&
@@ -42,13 +42,12 @@ jobs:
           )
         )
       )
-    runs-on: self-hosted-ubuntu-latest-x64
+    runs-on: ubuntu-latest
     permissions:
-      contents: read
       pull-requests: read
-    concurrency:
-      group: blackduck-pr-${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number || github.event.workflow_run.id }}
-      cancel-in-progress: false
+    outputs:
+      closed: ${{ steps.pr.outputs.closed }}
+      number: ${{ steps.pr.outputs.number }}
     steps:
       - name: Check PR is closed
         id: pr
@@ -77,8 +76,18 @@ jobs:
             echo 'closed=false' >> "$GITHUB_OUTPUT"
           fi
 
+  cleanup-blackduck-pr-version:
+    name: Delete Black Duck PR version
+    needs: resolve-blackduck-pr-context
+    if: ${{ needs.resolve-blackduck-pr-context.outputs.closed == 'true' }}
+    runs-on: self-hosted-ubuntu-latest-x64
+    permissions:
+      contents: read
+    concurrency:
+      group: blackduck-pr-${{ needs.resolve-blackduck-pr-context.outputs.number }}
+      cancel-in-progress: false
+    steps:
       - name: Checkout cleanup helper
-        if: ${{ steps.pr.outputs.closed == 'true' }}
         uses: actions/checkout@v7
         with:
           ref: ${{ github.workflow_sha }}
@@ -86,11 +95,10 @@ jobs:
           persist-credentials: false
 
       - name: Delete Black Duck PR version
-        if: ${{ steps.pr.outputs.closed == 'true' }}
         env:
           BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }} # pragma: allowlist secret
           BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
-          VERSION_NAME: pr-${{ steps.pr.outputs.number }}
+          VERSION_NAME: pr-${{ needs.resolve-blackduck-pr-context.outputs.number }}
         run: blackduck-cleanup/.github/scripts/blackduck_version_cleanup.sh delete "$VERSION_NAME"
 
   cleanup-pr-caches:

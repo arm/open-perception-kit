@@ -1141,7 +1141,7 @@ jobs:
         if: always()
         shell: bash
         run: |
-          workspace_root="${WORKSPACE_ROOT:-}"
+          workspace_root="${WORKSPACE_ROOT:-${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}}"
           expected_workspace_prefix="${GITHUB_WORKSPACE:-}/repo-"
 
           case "${workspace_root}" in
