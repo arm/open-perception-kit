@@ -15,15 +15,12 @@ fmt_dep = dependency(
   fallback: ['fmt', 'fmt_dep'],
   required: true,
 )
-flatbuffers_dep = dependency('flatbuffers', version: '==25.9.23', required: false)
-if not flatbuffers_dep.found()
-  flatbuffers_dep = declare_dependency(
-    include_directories: include_directories(
-      '../../development/subprojects/flatbuffers-25.9.23/include',
-    ),
-    version: '25.9.23',
-  )
-endif
+perception_flatbuffers_version_requirement = '==25.9.23'
+flatbuffers_dep = dependency(
+  'flatbuffers',
+  version: perception_flatbuffers_version_requirement,
+  required: true,
+)
 
 repo_root = meson.project_source_root() / '../..'
 development_include = include_directories(

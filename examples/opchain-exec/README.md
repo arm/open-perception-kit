@@ -24,6 +24,8 @@ Op plugins exist:
 
 The build script selects that build through `development/build-active`, whether
 the main tree was built in Docker or natively.
+The standalone example build also needs a compatible FlatBuffers C++ package
+visible to Meson because it includes generated Perception SDK headers.
 
 Then build the example:
 

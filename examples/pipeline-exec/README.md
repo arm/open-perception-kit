@@ -26,7 +26,9 @@ are reported as `Unknown payload type`.
 ```
 
 The script rebuilds the main development tree, builds the standalone example,
-and copies the binary to `examples/bin/pipeline-exec`.
+and copies the binary to `examples/bin/pipeline-exec`. The standalone example
+build also needs a compatible FlatBuffers C++ package visible to Meson because
+it includes generated Perception SDK headers.
 
 ## Run
 

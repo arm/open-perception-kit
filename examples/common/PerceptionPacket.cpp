@@ -6,8 +6,12 @@
 
 #include <fmt/core.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <span>
+#include <string>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -33,6 +37,90 @@ const char *producerIdentityStatusName(perception::container::producer_identity_
     return "unknown";
 }
 
+template <typename Payload>
+bool validatePayloadBlobAsType(const perception::internalfb::WirePayload &payload,
+                               std::size_t payloadIndex,
+                               std::string &error) {
+    using native_type = std::remove_cvref_t<Payload>;
+    using traits = perception::detail::native_traits<native_type>;
+
+    if (payload.id() != traits::id) {
+        return false;
+    }
+
+    const auto *blob = payload.blob();
+    if (!blob || blob->size() == 0) {
+        error = fmt::format("Invalid Perception payload {} at index {}: empty {} blob",
+                            payload.id(),
+                            payloadIndex,
+                            traits::qualified_root_type);
+        return true;
+    }
+
+    flatbuffers::Verifier verifier(blob->Data(), blob->size());
+    if (!verifier.VerifyBuffer<typename traits::table_type>(traits::file_identifier())) {
+        error = fmt::format("Invalid Perception payload {} at index {}: malformed {} blob",
+                            payload.id(),
+                            payloadIndex,
+                            traits::qualified_root_type);
+    }
+    return true;
+}
+
+bool validateKnownPayloadBlob(const perception::internalfb::WirePayload &payload,
+                              std::size_t payloadIndex,
+                              std::string &error) {
+    return validatePayloadBlobAsType<perception::metadata::BoxDetectionsT>(
+               payload, payloadIndex, error) ||
+           validatePayloadBlobAsType<perception::metadata::ClassificationsT>(
+               payload, payloadIndex, error) ||
+           validatePayloadBlobAsType<perception::metadata::FrameContextT>(
+               payload, payloadIndex, error) ||
+           validatePayloadBlobAsType<perception::metadata::ObjectEmbeddingsT>(
+               payload, payloadIndex, error) ||
+           validatePayloadBlobAsType<perception::metadata::ObjectTracksT>(
+               payload, payloadIndex, error) ||
+           validatePayloadBlobAsType<perception::metadata::PerformanceOverlayT>(
+               payload, payloadIndex, error) ||
+           validatePayloadBlobAsType<perception::metadata::PoseEstimationsT>(
+               payload, payloadIndex, error) ||
+           validatePayloadBlobAsType<perception::metadata::SegmentationMasksT>(
+               payload, payloadIndex, error) ||
+           validatePayloadBlobAsType<perception::metadata::TrackTracesT>(
+               payload, payloadIndex, error);
+}
+
+pek::runtime::Result<void> validateKnownPayloadBlobs(std::span<const std::uint8_t> packet) {
+    const auto *envelope =
+        flatbuffers::GetRoot<perception::internalfb::WireEnvelope>(packet.data());
+    if (!envelope) {
+        return {};
+    }
+
+    const auto *payloads = envelope->payloads();
+    if (!payloads) {
+        return {};
+    }
+
+    std::size_t payloadIndex = 0;
+    for (const auto *payload : *payloads) {
+        if (!payload) {
+            ++payloadIndex;
+            continue;
+        }
+
+        std::string error;
+        validateKnownPayloadBlob(*payload, payloadIndex, error);
+        if (!error.empty()) {
+            return tl::make_unexpected(
+                pek::runtime::Error(pek::runtime::ErrorFlag::InvalidPipeline, std::move(error)));
+        }
+        ++payloadIndex;
+    }
+
+    return {};
+}
+
 } // namespace
 
 pek::runtime::Result<perception::container::envelope>
@@ -54,6 +142,11 @@ PerceptionPacket::decodeFrameResultsPacket(std::span<const std::uint8_t> packet)
                                             envelope.producer_sdk_name(),
                                             envelope.producer_sdk_version(),
                                             envelope.producer_schema_set_sha256())));
+    }
+
+    auto payloadsValid = validateKnownPayloadBlobs(packet);
+    if (!payloadsValid) {
+        return tl::make_unexpected(std::move(payloadsValid.error()));
     }
 
     return envelope;
