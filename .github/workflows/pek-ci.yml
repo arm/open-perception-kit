@@ -248,9 +248,9 @@ jobs:
       - name: Build PEK CI image
         uses: docker/build-push-action@v7
         with:
-          # PRs restore the base/default seed without exporting another BuildKit graph.
+          # Non-default refs restore the default-branch seed without exporting another BuildKit graph.
           cache-from: type=gha,scope=pek-ci
-          cache-to: ${{ (github.event_name == 'schedule' || (github.event_name == 'push' && github.ref_type == 'branch')) && 'type=gha,mode=max,scope=pek-ci' || '' }}
+          cache-to: ${{ (github.event_name == 'schedule' || (github.event_name == 'push' && github.ref_name == github.event.repository.default_branch)) && 'type=gha,mode=max,scope=pek-ci' || '' }}
           context: .
           file: Dockerfile
           labels: |

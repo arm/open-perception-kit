@@ -25,7 +25,7 @@ pull-request code.
 
 | Stored data | Owner and lifetime |
 | --- | --- |
-| Buildx `pek-ci` cache | GitHub Actions protected-branch seed; PR, tag, and manual runs restore it without exporting another BuildKit graph |
+| Buildx `pek-ci` cache | GitHub Actions default-branch seed; `main`, PR, tag, and manual runs restore it without exporting another BuildKit graph |
 | Quality, Sonar, Valgrind, and Black Duck ccache | Separate GitHub Actions branch/PR caches for each check |
 | Run-tagged `pek-ci` image | GHCR handoff between jobs; deleted after one day |
 | Exact-SHA Arm64 development image | GHCR; newest 20 retained; used by macOS and YOLO |
