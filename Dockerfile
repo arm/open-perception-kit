@@ -176,7 +176,7 @@ RUN set -eux; \
     timeout 30s curl \
       --fail --location --proto '=https' --proto-redir '=https' \
       --retry 1 --output "${destination}" "${url}" || \
-      curl \
+      timeout 180s curl \
         --fail --location --proto '=https' --proto-redir '=https' \
         --retry 3 --output "${destination}" \
         "${NPM_FALLBACK_REGISTRY}/${url#https://registry.npmjs.org/}"; \
