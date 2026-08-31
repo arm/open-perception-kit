@@ -49,7 +49,6 @@ COMPOSE_FILES=(
     -f .devcontainer/docker-compose."${DC_KIND}".yaml
     -f .devcontainer/docker-compose."${DC_KIND}".video.yaml
     -f .devcontainer/docker-compose."${DC_KIND}".audio.yaml
-    -f .devcontainer/docker-compose."${DC_KIND}".npu.yaml
     -f .devcontainer/docker-compose."${DC_KIND}".shared_memory.yaml
 )
 

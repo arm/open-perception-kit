@@ -12,8 +12,8 @@ on:
         description: Exact source SHA to scan.
         required: true
         type: string
-      ci_image_sha:
-        description: Exact PEK CI image SHA from the caller run.
+      ci_image_ref:
+        description: Run-tagged PEK CI image from the caller run.
         required: true
         type: string
       pr_number:
@@ -53,37 +53,18 @@ jobs:
     permissions:
       actions: read
       contents: read
+      packages: read
     env:
       BLACKDUCK_VERSION: ${{ inputs.version_name }}
+      CCACHE_SCHEMA_VERSION: v2
       CCACHE_PATH: ${{ github.workspace }}/.cache/ccache-blackduck-built
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-      CI_IMAGE_SHA: ${{ inputs.ci_image_sha }}
+      CI_IMAGE_SHA: ${{ inputs.checkout_ref }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      PEK_CI_IMAGE: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-pek-ci
+      PEK_CI_IMAGE_SOURCE: ${{ inputs.ci_image_ref }}
       WORKSPACE_ROOT: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
-      - name: Download PEK CI image
-        uses: actions/download-artifact@v8
-        with:
-          name: pek-ci-image-handoff.tar
-          path: ${{ runner.temp }}/pek-ci-image-download
-          skip-decompress: true
-
-      - name: Extract PEK CI image
-        run: |
-          mkdir -p "$RUNNER_TEMP/pek-ci-image"
-          tar -xf "$RUNNER_TEMP/pek-ci-image-download/pek-ci-image-handoff.tar" \
-            -C "$RUNNER_TEMP/pek-ci-image"
-
-      - name: Load PEK CI image
-        run: |
-          tools_dir="${RUNNER_TEMP}/pek-ci-image"
-          (
-            flock -x 9
-            python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
-              --archive "$tools_dir/pek-ci-image.tar" pek-release-with-ut
-            docker image rm "pek-ci:${CI_IMAGE_SHA}"
-          ) 9>"/tmp/pek-ci-image-${CI_IMAGE_SHA}.lock"
-
       - name: Checkout source
         uses: actions/checkout@v7
         with:
@@ -93,6 +74,20 @@ jobs:
           persist-credentials: false
           ref: ${{ inputs.checkout_ref }}
 
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Pull PEK CI image
+        run: |
+          docker pull "$PEK_CI_IMAGE_SOURCE"
+          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$PEK_CI_IMAGE_SOURCE")" = "$CI_IMAGE_SHA"
+          docker tag "$PEK_CI_IMAGE_SOURCE" "$PEK_CI_IMAGE"
+          docker image rm "$PEK_CI_IMAGE_SOURCE" || true
+
       - name: Prepare private submodules
         working-directory: ${{ env.WORKSPACE_ROOT }}
         env:
@@ -101,12 +96,29 @@ jobs:
           source .github/scripts/configure_workspace_ssh.sh
           git submodule update --init --recursive
 
+      - name: Restore compiler cache
+        id: compiler-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ env.CCACHE_PATH }}
+          key: pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-blackduck-built-${{ inputs.checkout_ref }}
+          restore-keys: |
+            pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-blackduck-built-
+
       - name: Build release output in PEK CI image
+        id: release_build
         working-directory: ${{ env.WORKSPACE_ROOT }}
         run: |
           install -d -m 0777 "$CCACHE_PATH"
           docker compose -f .github/compose.ci.yaml run --rm pek-release-with-ut
           test -d development/build
+
+      - name: Save compiler cache
+        if: ${{ !cancelled() && steps.release_build.outcome == 'success' && steps.compiler-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ env.CCACHE_PATH }}
+          key: ${{ steps.compiler-cache.outputs.cache-primary-key }}
 
       - name: Download verified Detect wrapper
         uses: actions/download-artifact@v8
@@ -181,7 +193,6 @@ jobs:
               docker compose -f .github/compose.ci.yaml down --remove-orphans || true
             )
           fi
-          docker image rm "${COMPOSE_PROJECT_NAME}-pek-release-with-ut" || true
           for path in "$WORKSPACE_ROOT" "$CCACHE_PATH"; do
             case "$path" in
               "$GITHUB_WORKSPACE"/repo-*|"$GITHUB_WORKSPACE"/.cache/ccache-blackduck-built) ;;
@@ -191,6 +202,7 @@ jobs:
             chmod -R u+rwX "$path" || true
             rm -rf -- "$path" || sudo rm -rf -- "$path" || true
           done
+          docker image rm -f "$PEK_CI_IMAGE" || true
 
   dependencies:
     name: ${{ inputs.scan_mode == 'delta' && 'Delta dependency scan' || 'Full dependency scan' }}
@@ -200,41 +212,16 @@ jobs:
     permissions:
       actions: read
       contents: read
+      packages: read
     env:
       BLACKDUCK_VERSION: ${{ inputs.version_name }}
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-      CI_IMAGE_SHA: ${{ inputs.ci_image_sha }}
-      COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      CI_IMAGE_SHA: ${{ inputs.checkout_ref }}
+      PEK_CI_IMAGE: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-pek-ci
+      PEK_CI_IMAGE_SOURCE: ${{ inputs.ci_image_ref }}
       SCAN_MODE: ${{ inputs.scan_mode }}
       WORKSPACE_ROOT: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
-      - name: Download PEK CI image
-        if: ${{ inputs.scan_mode == 'full' }}
-        uses: actions/download-artifact@v8
-        with:
-          name: pek-ci-image-handoff.tar
-          path: ${{ runner.temp }}/pek-ci-image-dependencies-download
-          skip-decompress: true
-
-      - name: Extract PEK CI image
-        if: ${{ inputs.scan_mode == 'full' }}
-        run: |
-          mkdir -p "$RUNNER_TEMP/pek-ci-image-dependencies"
-          tar -xf \
-            "$RUNNER_TEMP/pek-ci-image-dependencies-download/pek-ci-image-handoff.tar" \
-            -C "$RUNNER_TEMP/pek-ci-image-dependencies"
-
-      - name: Load PEK CI image
-        if: ${{ inputs.scan_mode == 'full' }}
-        run: |
-          tools_dir="${RUNNER_TEMP}/pek-ci-image-dependencies"
-          (
-            flock -x 9
-            python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
-              --archive "$tools_dir/pek-ci-image.tar" pek-ci
-            docker image rm "pek-ci:${CI_IMAGE_SHA}"
-          ) 9>"/tmp/pek-ci-image-${CI_IMAGE_SHA}.lock"
-
       - name: Checkout source
         uses: actions/checkout@v7
         with:
@@ -243,6 +230,22 @@ jobs:
           path: ${{ env.CI_CHECKOUT_PATH }}
           persist-credentials: false
           ref: ${{ inputs.checkout_ref }}
+
+      - name: Log in to GitHub Container Registry
+        if: ${{ inputs.scan_mode == 'full' }}
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Pull PEK CI image
+        if: ${{ inputs.scan_mode == 'full' }}
+        run: |
+          docker pull "$PEK_CI_IMAGE_SOURCE"
+          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$PEK_CI_IMAGE_SOURCE")" = "$CI_IMAGE_SHA"
+          docker tag "$PEK_CI_IMAGE_SOURCE" "$PEK_CI_IMAGE"
+          docker image rm "$PEK_CI_IMAGE_SOURCE" || true
 
       - name: Prepare private submodules
         working-directory: ${{ env.WORKSPACE_ROOT }}
@@ -313,13 +316,14 @@ jobs:
             --env BLACKDUCK_TOKEN \
             --env BLACKDUCK_URL \
             --env HOME=/tmp/blackduck-home \
+            --env PEK_PROJECT_ROOT="$WORKSPACE_ROOT" \
             --env PROJECT_NAME="$project_name" \
             --env VERSION_NAME="$version_name" \
-            --volume "$WORKSPACE_ROOT:/work:ro" \
+            --volume "$WORKSPACE_ROOT:$WORKSPACE_ROOT:ro" \
             --volume "$scanner_dir:/blackduck" \
-            --workdir /work \
+            --workdir "$WORKSPACE_ROOT" \
             --entrypoint bash \
-            "${COMPOSE_PROJECT_NAME}-pek-ci" -c '
+            "$PEK_CI_IMAGE" -c '
               set -euo pipefail
               scan_args=(
                 "--blackduck.url=${BLACKDUCK_URL}"
@@ -332,7 +336,7 @@ jobs:
                 --detect.detector.search.depth=5
                 --detect.output.path=/blackduck/output
                 --detect.python.path=/usr/bin/python3
-                --detect.source.path=/work
+                "--detect.source.path=${PEK_PROJECT_ROOT}"
                 --detect.timeout=1800
                 --detect.tools=DETECTOR
                 --logging.level.detect=INFO
@@ -375,13 +379,13 @@ jobs:
       - name: Cleanup dependency scan
         if: always()
         run: |
-          if [[ "$SCAN_MODE" == full ]]; then
-            docker image rm "${COMPOSE_PROJECT_NAME}-pek-ci" || true
-          fi
           case "$WORKSPACE_ROOT" in
             "$GITHUB_WORKSPACE"/repo-*) rm -rf -- "$WORKSPACE_ROOT" ;;
             *) echo "Skipping unexpected workspace: $WORKSPACE_ROOT" >&2 ;;
           esac
+          if [[ "$SCAN_MODE" == full ]]; then
+            docker image rm -f "$PEK_CI_IMAGE" || true
+          fi
 
   snippets:
     name: ${{ inputs.scan_mode == 'delta' && 'Delta snippet scan' || 'Full snippet scan' }}
@@ -391,44 +395,18 @@ jobs:
     permissions:
       actions: read
       contents: read
+      packages: read
     env:
       BASE_SHA: ${{ inputs.base_sha }}
       BLACKDUCK_VERSION: ${{ inputs.version_name }}
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-      CI_IMAGE_SHA: ${{ inputs.ci_image_sha }}
-      COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      PEK_CI_IMAGE: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-pek-ci
+      PEK_CI_IMAGE_SOURCE: ${{ inputs.ci_image_ref }}
       HEAD_SHA: ${{ inputs.checkout_ref }}
       PR_NUMBER: ${{ inputs.pr_number }}
       SCAN_MODE: ${{ inputs.scan_mode }}
       WORKSPACE_ROOT: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
-      - name: Download PEK CI image
-        if: ${{ inputs.scan_mode == 'full' }}
-        uses: actions/download-artifact@v8
-        with:
-          name: pek-ci-image-handoff.tar
-          path: ${{ runner.temp }}/pek-ci-image-snippets-download
-          skip-decompress: true
-
-      - name: Extract PEK CI image
-        if: ${{ inputs.scan_mode == 'full' }}
-        run: |
-          mkdir -p "$RUNNER_TEMP/pek-ci-image-snippets"
-          tar -xf \
-            "$RUNNER_TEMP/pek-ci-image-snippets-download/pek-ci-image-handoff.tar" \
-            -C "$RUNNER_TEMP/pek-ci-image-snippets"
-
-      - name: Load PEK CI image
-        if: ${{ inputs.scan_mode == 'full' }}
-        run: |
-          tools_dir="${RUNNER_TEMP}/pek-ci-image-snippets"
-          (
-            flock -x 9
-            python3 "$tools_dir/ci_image.py" prepare "$CI_IMAGE_SHA" \
-              --archive "$tools_dir/pek-ci-image.tar" pek-ci
-            docker image rm "pek-ci:${CI_IMAGE_SHA}"
-          ) 9>"/tmp/pek-ci-image-${CI_IMAGE_SHA}.lock"
-
       - name: Checkout source
         uses: actions/checkout@v7
         with:
@@ -437,6 +415,22 @@ jobs:
           path: ${{ env.CI_CHECKOUT_PATH }}
           persist-credentials: false
           ref: ${{ inputs.checkout_ref }}
+
+      - name: Log in to GitHub Container Registry
+        if: ${{ inputs.scan_mode == 'full' }}
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Pull PEK CI image
+        if: ${{ inputs.scan_mode == 'full' }}
+        run: |
+          docker pull "$PEK_CI_IMAGE_SOURCE"
+          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$PEK_CI_IMAGE_SOURCE")" = "$HEAD_SHA"
+          docker tag "$PEK_CI_IMAGE_SOURCE" "$PEK_CI_IMAGE"
+          docker image rm "$PEK_CI_IMAGE_SOURCE" || true
 
       - name: Prepare private submodules
         if: ${{ inputs.scan_mode == 'full' }}
@@ -453,13 +447,14 @@ jobs:
           docker run --rm \
             --user "$(id -u):$(id -g)" \
             --env HOME=/tmp/blackduck-home \
-            --volume "$WORKSPACE_ROOT:/work" \
-            --workdir /work \
+            --env PEK_PROJECT_ROOT="$WORKSPACE_ROOT" \
+            --volume "$WORKSPACE_ROOT:$WORKSPACE_ROOT" \
+            --workdir "$WORKSPACE_ROOT" \
             --entrypoint bash \
-            "${COMPOSE_PROJECT_NAME}-pek-ci" -c '
+            "$PEK_CI_IMAGE" -c '
               set -euo pipefail
-              meson subprojects download --sourcedir /work/development
-              meson setup /tmp/blackduck-meson /work/development \
+              meson subprojects download --sourcedir "${PEK_PROJECT_ROOT}/development"
+              meson setup /tmp/blackduck-meson "${PEK_PROJECT_ROOT}/development" \
                 --buildtype=debug --layout=flat --wrap-mode=forcefallback -Dtests=false
             '
 
@@ -530,13 +525,14 @@ jobs:
             --env BLACKDUCK_TOKEN \
             --env BLACKDUCK_URL \
             --env HOME=/tmp/blackduck-home \
+            --env PEK_PROJECT_ROOT="$WORKSPACE_ROOT" \
             --env PROJECT_NAME="$project_name" \
             --env VERSION_NAME="$version_name" \
-            --volume "$WORKSPACE_ROOT:/work:ro" \
+            --volume "$WORKSPACE_ROOT:$WORKSPACE_ROOT:ro" \
             --volume "$scanner_dir:/blackduck" \
-            --workdir /work \
+            --workdir "$WORKSPACE_ROOT" \
             --entrypoint bash \
-            "${COMPOSE_PROJECT_NAME}-pek-ci" -c '
+            "$PEK_CI_IMAGE" -c '
               set -euo pipefail
               /blackduck/detect-arm.sh \
                 "--blackduck.url=${BLACKDUCK_URL}" \
@@ -550,7 +546,7 @@ jobs:
                 --detect.excluded.directories=.git,.cache,.github/workflows,development/build,node_modules \
                 --detect.output.path=/blackduck/output \
                 --detect.policy.check.fail.on.severities=ALL \
-                --detect.source.path=/work \
+                "--detect.source.path=${PEK_PROJECT_ROOT}" \
                 --detect.timeout=1800 \
                 --detect.tools=SIGNATURE_SCAN \
                 --logging.level.detect=INFO
@@ -588,13 +584,13 @@ jobs:
       - name: Cleanup snippet scan
         if: always()
         run: |
-          if [[ "$SCAN_MODE" == full ]]; then
-            docker image rm "${COMPOSE_PROJECT_NAME}-pek-ci" || true
-          fi
           case "$WORKSPACE_ROOT" in
             "$GITHUB_WORKSPACE"/repo-*) rm -rf -- "$WORKSPACE_ROOT" ;;
             *) echo "Skipping unexpected workspace: $WORKSPACE_ROOT" >&2 ;;
           esac
+          if [[ "$SCAN_MODE" == full ]]; then
+            docker image rm -f "$PEK_CI_IMAGE" || true
+          fi
 
   quality-gate:
     name: Black Duck quality gate

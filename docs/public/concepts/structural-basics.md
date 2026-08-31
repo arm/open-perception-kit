@@ -26,8 +26,6 @@ This is the most important folder for normal usage.
   its descriptor in the bind-mounted checkout. Published artifacts included in
   container images use descriptor `hfDownload` metadata; only explicitly
   allowlisted repository-local binaries enter the Docker build context.
-  Runtime-specific compiled variants also live here, for example
-  `mobilenetv2-hailo8/` and `mobilenetv2-hailo10/`.
 - `config/opchains/` stores reusable multi-stage pipelines, for example detector + secondary model chains.
 - `config/pipelines/` stores the top-level presets shown by `pek-menu`.
 

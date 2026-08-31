@@ -53,8 +53,8 @@ ZIP. Retired `metadata/api` schemas are not included.
 
 They deliberately exclude `pek-menu`, pipeline presets, examples, sample
 media, documentation, source, tests, debug files, public C++ headers,
-unused ONNX provider libraries, Hailo models and operation modules, and
-accelerator drivers or firmware. ExecuTorch SDK headers and static libraries
+unused ONNX provider libraries, and accelerator drivers or firmware.
+ExecuTorch SDK headers and static libraries
 are build inputs and are not exposed by the archive.
 
 ## Host prerequisites

@@ -74,8 +74,8 @@ Use `YOLO_BENCHMARK_LIMIT` for smoke runs. `0` means full COCO val2017.
 
 The standalone PEK video runner checks `PEK_PLUGIN_PATH` first. Otherwise it
 loads build-tree plugins from
-`${PEK_PROJECT_ROOT:-/work}/development/build-active/meson-out`, where
-`build-active` selects the current container or native build.
+`$PEK_PROJECT_ROOT/development/build-active/meson-out`, where `build-active`
+selects the current container or native build.
 
 ```sh
 ./examples/yolo-benchmark/docker/run.sh setup

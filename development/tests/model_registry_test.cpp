@@ -42,9 +42,13 @@ TEST(ModelRegistry, OmitsAbsentDisplayMetadata) {
 TEST(ModelRegistry, KeepsRuntimeMetadataForDuplicateInternalNames) {
     ModelRegistry registry;
     registry.add_model(
-        "ImageNet Hailo", "pekinfer8", false, "MobileNetV2", "Image classification", "Hailo 8");
-    registry.add_model(
-        "ImageNet Hailo", "pekinfer10", false, "MobileNetV2", "Image classification", "Hailo 10");
+        "ImageNet", "pekinfer-onnx", false, "MobileNetV2", "Image classification", "ONNX");
+    registry.add_model("ImageNet",
+                       "pekinfer-executorch",
+                       false,
+                       "MobileNetV2",
+                       "Image classification",
+                       "ExecuTorch");
 
     std::map<std::string, std::string, std::less<>> runtimes;
     for (const auto &model : registry.report()) {
@@ -52,6 +56,6 @@ TEST(ModelRegistry, KeepsRuntimeMetadataForDuplicateInternalNames) {
             model.at("runtime").get<std::string>();
     }
 
-    EXPECT_EQ(runtimes.at("pekinfer8"), "Hailo 8");
-    EXPECT_EQ(runtimes.at("pekinfer10"), "Hailo 10");
+    EXPECT_EQ(runtimes.at("pekinfer-onnx"), "ONNX");
+    EXPECT_EQ(runtimes.at("pekinfer-executorch"), "ExecuTorch");
 }

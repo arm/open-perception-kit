@@ -128,8 +128,6 @@ onnx_dep = declare_dependency(
 if release_package
   if host_machine.cpu_family() != 'x86_64' and host_machine.cpu_family() != 'aarch64'
     error('Release packages support only x86_64 and aarch64.')
-  elif not get_option('hailort').disabled()
-    error('Release packages require -Dhailort=disabled.')
   endif
 endif
 
@@ -210,7 +208,6 @@ subdir('elements/pekcomm')
 subdir('pek-menu')
 
 # Optional subdirs decision tree is inside the subdir
-subdir('ops-hailort')
 subdir('ops-executorch')
 
 if release_package
@@ -224,11 +221,6 @@ if release_package
       'webrtc_client.test.mjs',
       'webrtc_config.test.mjs',
     ],
-  )
-  install_data(
-    pek_repository_root / 'metadata/api/perception.schema.json',
-    pek_repository_root / 'metadata/api/perception-message.schema.json',
-    install_dir : 'share/pek/schemas/json',
   )
 endif
 

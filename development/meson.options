@@ -11,9 +11,3 @@ option('executorch',
   value : 'auto',
   description : 'Enable ExecuTorch integration'
 )
-
-option('hailort',
-  type : 'feature',
-  value : 'auto',
-  description : 'Enable HailoRT integration (ops-hailort)'
-)

@@ -266,7 +266,6 @@ EXPOSE 8000 8001 9999 8080 2222
 ENV GST_DEBUG=2 \
   GST_PLUGIN_PATH=/work/development/build/meson-out \
   LD_LIBRARY_PATH=/opt/pek-deps/onnxruntime/lib:/work/development/build/meson-out \
-  PEK_HAILORT=disabled \
   PEK_DEVTOOLS_VENV=/opt/pek-venvs/devtools \
   PATH=/opt/pek-venvs/devtools/bin:${PATH}
 
@@ -575,7 +574,6 @@ RUN --mount=type=cache,id=pek-deployment-ccache,target=/work/.cache/ccache,shari
     executorch=enabled; \
   fi; \
   PEK_EXECUTORCH="${executorch}" \
-  PEK_HAILORT=disabled \
   PEK_ONNXRUNTIME_ROOT=/opt/pek-deps/onnxruntime \
   NINJAFLAGS=-j2 \
   ./scripts/build.sh release false "${extra_setup_args[@]}"; \
@@ -791,7 +789,6 @@ RUN set -eux; \
   scripts/private/install-onnxruntime.sh \
     "${ONNXRUNTIME_VERSION}" "${TARGETARCH}" /opt/pek-deps/onnxruntime; \
   PEK_EXECUTORCH=disabled \
-  PEK_HAILORT=disabled \
   PEK_ONNXRUNTIME_ROOT=/opt/pek-deps/onnxruntime \
     scripts/build.sh release false
 

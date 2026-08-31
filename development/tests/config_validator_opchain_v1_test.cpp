@@ -124,13 +124,6 @@ TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {
         nlohmann::json{{"parser", "CameraContactParser"},
                        {"contactClassIndex", 0},
                        {"noContactClassIndex", 1}},
-        nlohmann::json{{"parser", "YoloParser"}, {"outputFormat", "UltralyticsYolo"}},
-        nlohmann::json{{"parser", "YoloParser"},
-                       {"outputFormat", "HailoYoloNMS"},
-                       {"maxDetections", 5},
-                       {"classCount", 80},
-                       {"maxBboxesPerClass", 100},
-                       {"coordOrder", "xyxy"}},
         nlohmann::json{{"parser", "YoloParser"}, {"applyNms", false}},
         nlohmann::json{{"parser", "YoloXParser"}, {"applyNms", false}},
     };
@@ -148,9 +141,6 @@ TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {
                        {"contactClassIndex", 0},
                        {"noContactClassIndex", 0}},
         nlohmann::json{{"parser", "PaddleOcrDetectionParser"}, {"gamma", 0}},
-        nlohmann::json{{"parser", "YoloParser"}, {"classCount", 80}},
-        nlohmann::json{{"parser", "YoloParser"}, {"outputFormat", "UltraliticsYolo"}},
-        nlohmann::json{{"parser", "YoloParser"}, {"maxDetections", 5}},
         nlohmann::json{{"parser", "YoloParser"}, {"applyNms", false}, {"iouThreshold", 0.4}},
         nlohmann::json{{"parser", "YoloXParser"}, {"applyNms", false}, {"iouThreshold", 0.4}},
     };

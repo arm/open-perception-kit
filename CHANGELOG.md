@@ -46,7 +46,7 @@ All notable changes to this project will be documented in this file.
 
 ### Runtime and inference
 
-- Add C++ runtime APIs for asynchronous Pipeline and OpChain execution, foreign-backed video frames, an experimental NCNN backend, and expanded ExecuTorch deployment support ([#132](https://github.com/Arm-Debug/amp-dev-forge/pull/132), [#222](https://github.com/Arm-Debug/amp-dev-forge/pull/222)).
+- Add C++ runtime APIs for asynchronous Pipeline and OpChain execution, foreign-backed video frames, and expanded ExecuTorch deployment support ([#132](https://github.com/Arm-Debug/amp-dev-forge/pull/132), [#222](https://github.com/Arm-Debug/amp-dev-forge/pull/222)).
 - Add opt-in GStreamer QoS-aware inference scheduling while preserving video flow and tracker continuity ([#286](https://github.com/Arm-Debug/amp-dev-forge/pull/286)).
 - Add grayscale preprocessing.
 - Add aspect-ratio-preserving letterbox resize support ([#185](https://github.com/Arm-Debug/amp-dev-forge/pull/185)).

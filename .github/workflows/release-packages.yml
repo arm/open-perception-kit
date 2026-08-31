@@ -406,8 +406,9 @@ jobs:
             --user "$(id -u):$(id -g)" \
             --env BUILD_ID \
             --env HOME=/tmp \
-            --volume "$PWD:/work" \
-            --workdir /work \
+            --env PEK_PROJECT_ROOT="$PWD" \
+            --volume "$PWD:$PWD" \
+            --workdir "$PWD" \
             "$DOCS_IMAGE" \
             bash -euxc '
               scripts/gen-doc.sh
@@ -459,6 +460,7 @@ jobs:
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CCACHE_PATH: ${{ github.workspace }}/.cache/ccache-sonar
+      PEK_CI_IMAGE: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-pek-sonar-check-release
     steps:
       - name: Prepare workspace
         run: |
@@ -512,7 +514,7 @@ jobs:
           provenance: false
           pull: true
           push: false
-          tags: ${{ env.COMPOSE_PROJECT_NAME }}-pek-sonar-check-release
+          tags: ${{ env.PEK_CI_IMAGE }}
           target: pek-ci
 
       - name: Restore compiler cache
@@ -567,6 +569,7 @@ jobs:
             chmod -R u+rwX "$workspace_root" || true
             rm -rf "$workspace_root" || sudo rm -rf "$workspace_root" || true
           fi
+          docker image rm "$PEK_CI_IMAGE" 2>/dev/null || true
 
   github-release:
     name: Publish one GitHub release

@@ -312,7 +312,6 @@ EOF
     cat << 'EOF'
 export GST_PLUGIN_PATH="$PEK_PROJECT_ROOT/development/build-active/meson-out${GST_PLUGIN_PATH:+:$GST_PLUGIN_PATH}"
 export LD_LIBRARY_PATH="/opt/pek-deps/onnxruntime/lib:$PEK_PROJECT_ROOT/development/build-active/meson-out${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-export PEK_HAILORT="${PEK_HAILORT:-disabled}"
 export PEK_DEVTOOLS_VENV=/opt/pek-venvs/devtools
 export PATH="/opt/pek-venvs/devtools/bin:$PATH"
 EOF
