@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Collection
 import ctypes
 import gc
 from pathlib import Path
@@ -37,12 +38,10 @@ class ContentDependencyPipelineTest(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory(prefix="pek-content-dependency-")
         self.addCleanup(self.directory.cleanup)
 
-        descriptors = self.create_dependency_opchains()
-        self.pipeline = self.create_pipeline(descriptors)
+        self.descriptors = self.create_dependency_opchains()
+        self.pipeline = None
         self.addCleanup(self.stop_pipeline)
-        self.elements = {
-            name: self.pipeline.get_by_name(name) for name in descriptors
-        }
+        self.elements = {}
 
     def create_dependency_opchains(self) -> dict[str, Path]:
         # Pipeline order is upstream to downstream. Both face models can provide the
@@ -62,16 +61,20 @@ class ContentDependencyPipelineTest(unittest.TestCase):
             for name, attributes in capabilities.items()
         }
 
-    def create_pipeline(self, descriptors: dict[str, Path]):
+    def create_pipeline(self, initially_active: Collection[str] = ()) -> None:
         inference_chain = " ! ".join(
-            f'pekinfer name={name} opchain-path="{descriptor}" active=false'
-            for name, descriptor in descriptors.items()
+            f'pekinfer name={name} opchain-path="{descriptor}"'
+            f'{"" if name in initially_active else " active=false"}'
+            for name, descriptor in self.descriptors.items()
         )
-        return self.Gst.parse_launch(
+        self.pipeline = self.Gst.parse_launch(
             "appsrc is-live=true format=time "
             "caps=video/x-raw,format=BGRA,width=16,height=16 ! "
             f"{inference_chain} ! fakesink async=false sync=false"
         )
+        self.elements = {
+            name: self.pipeline.get_by_name(name) for name in self.descriptors
+        }
 
     def start_pipeline(self) -> None:
         self.assertNotEqual(
@@ -86,6 +89,7 @@ class ContentDependencyPipelineTest(unittest.TestCase):
         gc.collect()
 
     def test_enabling_model_activates_all_matching_upstream_dependencies(self) -> None:
+        self.create_pipeline()
         self.start_pipeline()
 
         # Enabling gaze requests cameraContact upstream. Contact activates and in
@@ -95,6 +99,31 @@ class ContentDependencyPipelineTest(unittest.TestCase):
         for name in ("gaze", "contact", "face-a", "face-b"):
             self.assertTrue(self.elements[name].get_property("active"), name)
         self.assertFalse(self.elements["unrelated"].get_property("active"))
+
+    def test_initially_active_model_activates_upstream_dependencies(self) -> None:
+        # Gaze uses pekinfer's default active=true state; every other model starts
+        # disabled so activation can only come from requirements emitted at startup.
+        self.create_pipeline(initially_active={"gaze"})
+        self.start_pipeline()
+
+        for name in ("gaze", "contact", "face-a", "face-b"):
+            self.assertTrue(self.elements[name].get_property("active"), name)
+        self.assertFalse(self.elements["unrelated"].get_property("active"))
+
+    def test_active_provider_propagates_its_dependencies(self) -> None:
+        self.create_pipeline()
+        self.start_pipeline()
+
+        # Activating contact initially enables its face providers. Disable them again
+        # to isolate the path where gaze finds contact already active.
+        self.elements["contact"].set_property("active", True)
+        self.elements["face-a"].set_property("active", False)
+        self.elements["face-b"].set_property("active", False)
+
+        self.elements["gaze"].set_property("active", True)
+
+        self.assertTrue(self.elements["face-a"].get_property("active"))
+        self.assertTrue(self.elements["face-b"].get_property("active"))
 
 
 if __name__ == "__main__":

@@ -250,6 +250,17 @@ static gboolean gst_pekinfer_stop(GstBaseTransform *b) {
     return TRUE;
 }
 
+static GstStateChangeReturn gst_pekinfer_change_state(GstElement *element,
+                                                      GstStateChange transition) {
+    const auto result =
+        GST_ELEMENT_CLASS(gst_pekinfer_parent_class)->change_state(element, transition);
+    if (result != GST_STATE_CHANGE_FAILURE && transition == GST_STATE_CHANGE_PAUSED_TO_PLAYING &&
+        gst_pekinfer_is_active(GST_PEKINFER(element))) {
+        gst_pekinfer_emit_content_requirements(GST_PEKINFER(element));
+    }
+    return result;
+}
+
 static gboolean gst_pekinfer_set_caps(GstBaseTransform *b, GstCaps *incaps, GstCaps *outcaps) {
     auto *self = (GstPekInfer *)b;
     (void)outcaps;
@@ -295,9 +306,11 @@ static gboolean gst_pekinfer_src_event(GstBaseTransform *trans, GstEvent *event)
             gst_structure_has_name(structure, pek::content_requirement_event::k_name.data())) {
             const gchar *contentType = gst_structure_get_string(
                 structure, pek::content_requirement_event::k_content_type_field.data());
-            if (contentType != nullptr && gst_pekinfer_provides_content_type(self, contentType) &&
-                !gst_pekinfer_is_active(self)) {
-                g_object_set(self, "active", TRUE, nullptr);
+            if (contentType != nullptr && gst_pekinfer_provides_content_type(self, contentType)) {
+                if (gst_pekinfer_is_active(self))
+                    gst_pekinfer_emit_content_requirements(self);
+                else
+                    g_object_set(self, "active", TRUE, nullptr);
             }
         }
     }
@@ -740,6 +753,7 @@ static void gst_pekinfer_class_init(GstPekInferClass *klass) {
     bcls->sink_event = gst_pekinfer_sink_event;
     bcls->src_event = gst_pekinfer_src_event;
     bcls->transform_ip = gst_pekinfer_transform_ip;
+    ecls->change_state = gst_pekinfer_change_state;
 }
 
 static void gst_pekinfer_init(GstPekInfer *self) {
