@@ -228,7 +228,7 @@ test("duplicate descriptor names retain unique element identities", () => {
 
   assert.deepEqual(sentMessages.at(-1), {
     type: "model_toggle",
-    name: "pekinfer10",
+    name: "pekinfer-executorch",
   });
 });
 
