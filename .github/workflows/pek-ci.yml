@@ -937,7 +937,7 @@ jobs:
   quality-checks:
     name: Run quality checks in Docker
     needs: build-ci-image
-    runs-on: ubuntu-latest
+    runs-on: self-hosted-ubuntu-latest-x64
     if: |
       !cancelled() &&
       needs.build-ci-image.result == 'success' &&
