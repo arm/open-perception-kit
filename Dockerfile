@@ -66,6 +66,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   python3-dev \
   python3-venv \
   rustc \
+  rustfmt \
   unzip; \
   update-ca-certificates; \
   install-perception-flatbuffers /tmp/perception-sdk.json; \

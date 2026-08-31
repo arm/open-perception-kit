@@ -35,6 +35,18 @@ def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def cargo_is_usable() -> bool:
+    cargo = shutil.which("cargo")
+    if cargo is None:
+        return False
+    return subprocess.run(
+        [cargo, "--version"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    ).returncode == 0
+
+
 class SchemaChangeParserTests(unittest.TestCase):
     def test_field_parser_handles_types_and_defaults(self) -> None:
         fields = schema_change.parse_fields(
@@ -450,6 +462,11 @@ class BundleVerificationTests(unittest.TestCase):
         files = {
             "cpp/perception.h": b"header\n",
             "metadata/perception-sdk-manifest.json": b"{}\n",
+            "rust/Cargo.toml": (
+                b'[package]\nname = "perception"\nversion = "1.2.3"\n'
+                b'edition = "2021"\n\n[dependencies]\nflatbuffers = "=25.9.23"\n'
+            ),
+            "rust/src/lib.rs": b"pub struct Envelope;\n",
             "schemas/payload.fbs": b"namespace perception.metadata;\n",
         }
         for relative_path, content in files.items():
@@ -522,11 +539,39 @@ class BundleVerificationTests(unittest.TestCase):
                     "path": "tools/perception/sdk.json",
                     "sha256": descriptor_sha256,
                 },
+                "files": [
+                    {
+                        "path": relative,
+                        "sha256": digest(bundle / relative),
+                        "size": (bundle / relative).stat().st_size,
+                    }
+                    for relative in sorted(files)
+                    if relative.startswith("rust/")
+                ],
                 "upstream_receipts": {
                     "cpp": {
                         "schema_files": schema_files,
                         "schema_set_sha256": schema_digest,
-                    }
+                    },
+                    "rust": {
+                        "flatbuffers_runtimes": [
+                            {
+                                "language": "rust",
+                                "package": "flatbuffers",
+                                "version_requirement": "==25.9.23",
+                            }
+                        ],
+                        "files": [
+                            {
+                                "path": relative.removeprefix("rust/"),
+                                "sha256": digest(bundle / relative),
+                                "size": (bundle / relative).stat().st_size,
+                            }
+                            for relative in sorted(files)
+                            if relative.startswith("rust/")
+                        ],
+                        "outputs": {"sdk": "rust"},
+                    },
                 }
             }),
             encoding="utf-8",
@@ -580,6 +625,13 @@ class BundleVerificationTests(unittest.TestCase):
                     "url": "https://example.invalid/flatbuffers-25.9.23.tgz",
                     "version": "25.9.23",
                 },
+                "runtimes": [
+                    {
+                        "language": "rust",
+                        "package": "flatbuffers",
+                        "version_requirement": "==25.9.23",
+                    }
+                ],
             },
             "outputs": {
                 "cpp": {
@@ -588,6 +640,7 @@ class BundleVerificationTests(unittest.TestCase):
                     "sdk": "cpp",
                 },
                 "python": {"sdk": "python"},
+                "rust": {"sdk": "rust"},
                 "typescript": {"sdk": "ts"},
                 "python_bridge": {},
                 "python_package": {
@@ -733,6 +786,15 @@ class BundleVerificationTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 release_package.verify_bundle(bundle)
 
+    def test_rejects_modified_rust_crate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle = self.create_bundle(Path(tmp))
+            (bundle / "rust" / "src" / "lib.rs").write_text(
+                "pub struct Changed;\n", encoding="utf-8"
+            )
+            with self.assertRaises(RuntimeError):
+                release_package.verify_bundle(bundle)
+
     def test_rejects_self_declared_input_tree_digest(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             bundle = self.create_bundle(Path(tmp))
@@ -858,7 +920,26 @@ class BundleVerificationTests(unittest.TestCase):
 
 
 class GeneratedSdkTests(unittest.TestCase):
-    @unittest.skipUnless(shutil.which("cargo"), "cargo is not installed")
+    def test_release_copy_excludes_rust_build_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "source"
+            (source / "src").mkdir(parents=True)
+            (source / "target" / "debug").mkdir(parents=True)
+            (source / "Cargo.toml").write_text("[package]\n", encoding="utf-8")
+            (source / "Cargo.lock").write_text("transient\n", encoding="utf-8")
+            (source / "src" / "lib.rs").write_text("pub fn sdk() {}\n", encoding="utf-8")
+            (source / "target" / "debug" / "sdk").write_bytes(b"transient")
+
+            destination = root / "destination"
+            release_package.copy_rust_sdk(source, destination)
+
+            self.assertTrue((destination / "Cargo.toml").is_file())
+            self.assertTrue((destination / "src" / "lib.rs").is_file())
+            self.assertFalse((destination / "Cargo.lock").exists())
+            self.assertFalse((destination / "target").exists())
+
+    @unittest.skipUnless(cargo_is_usable(), "cargo is not installed or usable")
     def test_generated_rust_sdk(self) -> None:
         config = release_package.perception_config.load_sdk_config()
         with tempfile.TemporaryDirectory() as tmp:
@@ -918,6 +999,12 @@ class GeneratedSdkTests(unittest.TestCase):
             manifest["postprocessing"]["rust"],
             {
                 "flatbuffers_runtime": config.flatbuffers_version,
+                "formatter": subprocess.run(
+                    ["rustfmt", "--version"],
+                    check=True,
+                    text=True,
+                    capture_output=True,
+                ).stdout.strip(),
                 "standard_library": True,
             },
         )

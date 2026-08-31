@@ -41,6 +41,7 @@ TS_GENERATED_HEADER = """\
 // SDK users: change schemas or generator inputs, then regenerate this file.
 """
 CMAKE_FORMAT = "cmake-format"
+RUSTFMT = "rustfmt"
 MESON_BUILD_FILENAME = "meson.build"
 RUST_FIXTURE = REPO_ROOT / "tools/perception/tests/fixtures/opk-box-detections-v0.2.1.hex"
 
@@ -174,7 +175,7 @@ def prepare_rust_tests(config: SdkConfig, generated_root: Path) -> None:
 
 use {crate_name}::fb::perception::metadata::BoxDetectionsT;
 use {crate_name}::{{
-    external_key, Envelope, ProducerIdentityStatus, {config.name.upper()}_NAME,
+    external_key, payload, Envelope, ProducerIdentityStatus, {config.name.upper()}_NAME,
     {config.name.upper()}_VERSION, SCHEMA_SET_SHA256,
 }};
 
@@ -207,7 +208,8 @@ fn decodes_python_produced_box_detections_packet() {{
     assert_eq!(envelope.producer_identity(), expected_identity);
     assert_eq!(envelope.len(), 2);
 
-    let boxes = envelope.get::<BoxDetectionsT>(0).expect("BoxDetections payload");
+    let box_detections = payload::<BoxDetectionsT>();
+    let boxes = envelope.get(box_detections, 0).expect("BoxDetections payload");
     let layer = boxes.layer.as_ref().expect("layer");
     assert_eq!(layer.engine.as_deref(), Some("fixture"));
     assert_eq!(layer.model.as_deref(), Some("yolov11n"));
@@ -225,10 +227,10 @@ fn decodes_python_produced_box_detections_packet() {{
         (10.5, 20.25, 30.75, 40.5));
 
     let key = external_key("com.arm.opk.fixture");
-    assert_eq!(envelope.get_external(key, 0), Some(b"fixture-external".as_slice()));
+    assert_eq!(envelope.get(key, 0), Some(b"fixture-external".as_slice()));
     let roundtrip = Envelope::decode(envelope.serialize()).expect("round trip");
-    assert!(roundtrip.get::<BoxDetectionsT>(0).is_some());
-    assert_eq!(roundtrip.get_external(key, 0), Some(b"fixture-external".as_slice()));
+    assert!(roundtrip.get(box_detections, 0).is_some());
+    assert_eq!(roundtrip.get(key, 0), Some(b"fixture-external".as_slice()));
 
     let future = async move {{ roundtrip.len() }};
     assert_send(future);
@@ -321,6 +323,13 @@ def format_python_modules(generated_root: Path, python: str) -> None:
     except (FileNotFoundError, subprocess.CalledProcessError) as exc:
         raise RuntimeError("autopep8 is required to format generated Python files") from exc
     run([python, "-m", "autopep8", "--in-place", *map(str, modules)])
+
+
+def format_rust_sources(generated_root: Path) -> None:
+    sources = sorted((generated_root / "rust").rglob("*.rs"))
+    if not shutil.which(RUSTFMT):
+        raise RuntimeError(f"{RUSTFMT} is required to format generated Rust files")
+    run([RUSTFMT, "--edition", "2021", *map(str, sources)])
 
 
 def format_cmake_integrations(generated_root: Path) -> None:
@@ -534,6 +543,7 @@ def write_perception_manifest(
             },
             "rust": {
                 "flatbuffers_runtime": config.flatbuffers_version,
+                "formatter": command_version([RUSTFMT, "--version"]),
                 "standard_library": True,
             },
         },
@@ -671,6 +681,7 @@ def prepare_sdk(
     prepare_typescript_package(config, generated_root)
     format_cpp_sources(generated_root, clang_format)
     format_python_modules(generated_root, formatter_python)
+    format_rust_sources(generated_root)
     build_typescript_package(config, generated_root, node, node_modules)
     add_typescript_declaration_headers(generated_root)
     validate_flowdata_manifests(config, flowdata_manifests)

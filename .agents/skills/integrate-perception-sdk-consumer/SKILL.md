@@ -1,6 +1,6 @@
 ---
 name: integrate-perception-sdk-consumer
-description: Integrate external C++, Python, or TypeScript applications with a released Perception SDK and serialized FrameResults packets. Use for consumer-side proof of concepts, Plumber-like decoders, browser clients, Cairn adapters, build integration, package installation, producer identity and compatibility checks, payload routing, or SDK upgrade work. Do not use this skill to modify schemas, regenerate checked-in SDK sources, or create release bundles.
+description: Integrate external C++, Python, Rust, or TypeScript applications with a released Perception SDK and serialized FrameResults packets. Use for consumer-side proof of concepts, Plumber-like decoders, browser clients, Cairn adapters, build integration, package installation, producer identity and compatibility checks, payload routing, or SDK upgrade work. Do not use this skill to modify schemas, regenerate checked-in SDK sources, or create release bundles.
 ---
 
 # Integrate Perception SDK Consumer
@@ -95,6 +95,15 @@ bundle. Import `Envelope` and generated payload classes from `perception`,
 require a valid envelope and exact producer identity, then iterate typed payloads
 with `for_each(TypeT)`. Browser applications should bundle the SDK and runtime
 rather than serving unresolved npm imports directly.
+
+## Integrate Rust Consumers
+
+Add the extracted `rust/` directory as a path dependency. Import `Envelope`,
+`payload`, and generated native payload types from `perception`. Require
+`valid()` and an exact `producer_identity()` match before typed access. Reuse a
+typed selector with `count`, `contains`, `get`, and `for_each`; use
+`external_key` for external payloads. Unknown, changed, and malformed entries
+remain available through `entries()` and are preserved when reserialized.
 
 ## Apply Compatibility Policy
 

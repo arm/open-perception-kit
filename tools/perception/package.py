@@ -70,6 +70,14 @@ def copy_schema_set(config: perception_config.SdkConfig, destination: Path) -> N
     shutil.copytree(config.schema_dir, target)
 
 
+def copy_rust_sdk(source: Path, destination: Path) -> None:
+    shutil.copytree(
+        source,
+        destination,
+        ignore=shutil.ignore_patterns("Cargo.lock", "target"),
+    )
+
+
 def generated_flatbuffers_version(generated_manifest: dict[str, object]) -> str:
     try:
         version = generated_manifest["upstream_receipts"]["cpp"]["flatc"]["semantic_version"]
@@ -166,8 +174,9 @@ def write_readme(bundle_root: Path, config: perception_config.SdkConfig) -> None
     (bundle_root / "README.md").write_text(
         f"""# Perception SDK {config.version}
 
-This archive contains the generated C++ SDK, Python SDK wheel, TypeScript SDK
-package, matching FlatBuffers runtimes, source schemas, and release metadata.
+This archive contains the generated C++ SDK, Python SDK wheel, Rust crate,
+TypeScript SDK package, matching FlatBuffers runtimes, source schemas, and
+release metadata.
 
 ## Python
 
@@ -182,6 +191,19 @@ only inside a C++ host that registers the generated live-envelope bridge.
 
 Use `cpp/cmake/perception.cmake` directly. For Meson, vendor the complete `cpp/`
 directory and call `subdir('path/to/cpp/meson/perception')`.
+
+## Rust
+
+Add the extracted `rust/` directory as a path dependency:
+
+```toml
+[dependencies]
+perception = {{ path = "/path/to/perception-sdk-{config.version}/rust" }}
+```
+
+Import `Envelope`, `payload`, and generated native payload types from the
+`perception` crate. Require a valid envelope and an exact producer identity
+match before typed payload access.
 
 ## TypeScript
 
@@ -347,7 +369,13 @@ def write_bundle_manifest(
 ) -> None:
     cpp_manifest = generated_manifest["upstream_receipts"]["cpp"]
     python_manifest = generated_manifest["upstream_receipts"]["python"]
+    rust_manifest = generated_manifest["upstream_receipts"]["rust"]
     typescript_manifest = generated_manifest["upstream_receipts"]["ts"]
+    runtime_records = {
+        (record["language"], record["package"], record["version_requirement"]): record
+        for receipt in (cpp_manifest, python_manifest, rust_manifest, typescript_manifest)
+        for record in receipt["flatbuffers_runtimes"]
+    }
     manifest = {
         "archive": {
             "compression": "stored", "file_mode": "0644",
@@ -366,11 +394,12 @@ def write_bundle_manifest(
                 **asdict(config.typescript_runtime),
                 "path": f"typescript/{flatbuffers_npm_package.name}",
             },
-            "runtimes": cpp_manifest["flatbuffers_runtimes"],
+            "runtimes": [runtime_records[key] for key in sorted(runtime_records)],
         },
         "generator": generated_manifest["generation"]["flowdata_sdk"],
         "outputs": {
             "cpp": cpp_manifest["outputs"], "python": python_manifest["outputs"],
+            "rust": rust_manifest["outputs"],
             "typescript": typescript_manifest["outputs"],
             "python_bridge": cpp_manifest["python_bridge"],
             "python_package": {
@@ -763,6 +792,83 @@ def _verify_typescript_packages(
         raise RuntimeError("FlatBuffers TypeScript package identity is invalid")
 
 
+def _verify_rust_crate(
+    bundle_root: Path,
+    artifact: dict[str, object],
+    manifest: dict[str, object],
+    file_entries: dict[str, dict[str, object]],
+) -> None:
+    outputs = manifest.get("outputs")
+    rust_output = outputs.get("rust") if isinstance(outputs, dict) else None
+    if not isinstance(rust_output, dict) or rust_output.get("sdk") != "rust":
+        raise RuntimeError("release Rust SDK metadata is missing")
+
+    source = manifest.get("source")
+    generated_identity = source.get("generated_manifest") if isinstance(source, dict) else None
+    if not isinstance(generated_identity, dict):
+        raise RuntimeError("release generated SDK identity is missing")
+    generated = load_json(
+        bundle_root / validate_relative_path(generated_identity.get("path"))
+    )
+    upstream = generated.get("upstream_receipts")
+    rust_receipt = upstream.get("rust") if isinstance(upstream, dict) else None
+    if not isinstance(rust_receipt, dict) or rust_receipt.get("outputs") != rust_output:
+        raise RuntimeError("release Rust SDK metadata does not match generation receipt")
+
+    flatbuffers = manifest.get("flatbuffers")
+    runtimes = flatbuffers.get("runtimes") if isinstance(flatbuffers, dict) else None
+    rust_runtimes = rust_receipt.get("flatbuffers_runtimes")
+    if not isinstance(runtimes, list) or not isinstance(rust_runtimes, list) or not all(
+        runtime in runtimes for runtime in rust_runtimes
+    ):
+        raise RuntimeError("release Rust FlatBuffers runtime metadata is missing")
+
+    generated_files = generated.get("files")
+    if not isinstance(generated_files, list):
+        raise RuntimeError("release generated SDK file receipt is missing")
+    files = [
+        {**record, "path": str(record.get("path", "")).removeprefix("rust/")}
+        for record in generated_files
+        if isinstance(record, dict) and str(record.get("path", "")).startswith("rust/")
+    ]
+    if not files:
+        raise RuntimeError("release Rust SDK file receipt is missing")
+    expected_paths: set[str] = set()
+    for record in files:
+        if not isinstance(record, dict):
+            raise RuntimeError("release Rust SDK file receipt is malformed")
+        relative = Path("rust") / validate_relative_path(record.get("path"))
+        expected_paths.add(relative.as_posix())
+        entry = file_entries.get(relative.as_posix())
+        path = bundle_root / relative
+        if (
+            entry is None
+            or not path.is_file()
+            or entry.get("sha256") != record.get("sha256")
+            or entry.get("size") != record.get("size")
+        ):
+            raise RuntimeError(f"release Rust SDK file does not match: {relative}")
+    actual_paths = {
+        path.relative_to(bundle_root).as_posix()
+        for path in (bundle_root / "rust").rglob("*")
+        if path.is_file()
+    }
+    if actual_paths != expected_paths:
+        raise RuntimeError("release Rust SDK file set does not match generation receipt")
+
+    cargo_toml = (bundle_root / "rust" / "Cargo.toml").read_text(encoding="utf-8")
+    expected_name = str(artifact.get("name", "")).removesuffix("-sdk")
+    expected_version = artifact.get("version")
+    package_section = cargo_toml.split("[dependencies]", 1)[0]
+    if (
+        re.search(rf'^name\s*=\s*"{re.escape(expected_name)}"\s*$', package_section, re.MULTILINE)
+        is None
+        or re.search(rf'^version\s*=\s*"{re.escape(str(expected_version))}"\s*$', package_section, re.MULTILINE)
+        is None
+    ):
+        raise RuntimeError("release Rust crate identity is invalid")
+
+
 def verify_manifest_semantics(
     bundle_root: Path,
     manifest: dict[str, object],
@@ -777,6 +883,7 @@ def verify_manifest_semantics(
     _verify_release_tools(source)
     _verify_schema_semantics(bundle_root, manifest)
     flatbuffers = _verify_python_packages(bundle_root, artifact, manifest, file_entries)
+    _verify_rust_crate(bundle_root, artifact, manifest, file_entries)
     _verify_typescript_packages(bundle_root, artifact, manifest, flatbuffers, file_entries)
 
 
@@ -943,6 +1050,7 @@ def build_bundle(args: argparse.Namespace) -> Path:
         workspace = Path(tmp)
         bundle_root = workspace / f"{config.name}-sdk-{config.version}"
         shutil.copytree(config.generated_root / "cpp", bundle_root / "cpp")
+        copy_rust_sdk(config.generated_root / "rust", bundle_root / "rust")
         copy_schema_set(config, bundle_root)
         metadata_dir = bundle_root / "metadata"
         metadata_dir.mkdir(parents=True)

@@ -4,8 +4,8 @@
 
 use perception::fb::perception::metadata::BoxDetectionsT;
 use perception::{
-    external_key, Envelope, ProducerIdentityStatus, PERCEPTION_NAME,
-    PERCEPTION_VERSION, SCHEMA_SET_SHA256,
+    external_key, payload, Envelope, ProducerIdentityStatus, PERCEPTION_NAME, PERCEPTION_VERSION,
+    SCHEMA_SET_SHA256,
 };
 
 fn decode_hex(value: &str) -> Vec<u8> {
@@ -37,7 +37,10 @@ fn decodes_python_produced_box_detections_packet() {
     assert_eq!(envelope.producer_identity(), expected_identity);
     assert_eq!(envelope.len(), 2);
 
-    let boxes = envelope.get::<BoxDetectionsT>(0).expect("BoxDetections payload");
+    let box_detections = payload::<BoxDetectionsT>();
+    let boxes = envelope
+        .get(box_detections, 0)
+        .expect("BoxDetections payload");
     let layer = boxes.layer.as_ref().expect("layer");
     assert_eq!(layer.engine.as_deref(), Some("fixture"));
     assert_eq!(layer.model.as_deref(), Some("yolov11n"));
@@ -49,16 +52,21 @@ fn decodes_python_produced_box_detections_packet() {
     assert_eq!(detection.text.as_deref(), Some("car"));
     assert_eq!(detection.confidence, 0.875);
     let object = detection.object.as_ref().expect("object");
-    assert_eq!((object.id, object.parent_id, object.creation_ts_ns), (42, 7, 123_456_789));
+    assert_eq!(
+        (object.id, object.parent_id, object.creation_ts_ns),
+        (42, 7, 123_456_789)
+    );
     let rectangle = detection.box_.as_ref().expect("box");
-    assert_eq!((rectangle.x, rectangle.y, rectangle.width, rectangle.height),
-        (10.5, 20.25, 30.75, 40.5));
+    assert_eq!(
+        (rectangle.x, rectangle.y, rectangle.width, rectangle.height),
+        (10.5, 20.25, 30.75, 40.5)
+    );
 
     let key = external_key("com.arm.opk.fixture");
-    assert_eq!(envelope.get_external(key, 0), Some(b"fixture-external".as_slice()));
+    assert_eq!(envelope.get(key, 0), Some(b"fixture-external".as_slice()));
     let roundtrip = Envelope::decode(envelope.serialize()).expect("round trip");
-    assert!(roundtrip.get::<BoxDetectionsT>(0).is_some());
-    assert_eq!(roundtrip.get_external(key, 0), Some(b"fixture-external".as_slice()));
+    assert!(roundtrip.get(box_detections, 0).is_some());
+    assert_eq!(roundtrip.get(key, 0), Some(b"fixture-external".as_slice()));
 
     let future = async move { roundtrip.len() };
     assert_send(future);

@@ -294,159 +294,169 @@
       "size": 152
     },
     {
-      "path": "rust/src/lib.rs",
-      "sha256": "e4f5dc3ea3e7d201db780e1a71cfc4e23e43d213b60425a735487c5bef670ea3",
-      "size": 33373
+      "path": "rust/src/fb/mod.rs",
+      "sha256": "6c1acf972332ab99312db98f99328177b991f5afb8f21d763b986fb68b745c15",
+      "size": 90
     },
     {
-      "path": "rust/src/perception/internalfb/mod.rs",
-      "sha256": "b0e6c52ffefa9562ba4f1a76641c2373b40a589c496ee34180e32450607c1001",
-      "size": 210
+      "path": "rust/src/fb/perception/metadata/audio_frame_context_generated.rs",
+      "sha256": "ee3a58278db6a6adf0973a40f4f1e09790af2d68e644cf58e3b40e518b9d7d02",
+      "size": 11144
     },
     {
-      "path": "rust/src/perception/internalfb/wire_envelope_generated.rs",
-      "sha256": "846dc6c305cc58a06825043c04e9e356daa5a9a7863a56c9ab7e594e589c3dd4",
-      "size": 12251
+      "path": "rust/src/fb/perception/metadata/bitmap_data_generated.rs",
+      "sha256": "9ddd0773290e67d1b6bd0c4caf9f3e11eb4422009d1aa98fdf028d771cd062b9",
+      "size": 7565
     },
     {
-      "path": "rust/src/perception/internalfb/wire_payload_generated.rs",
-      "sha256": "76ca9161a42f7a07474053cdeafb9030367421afc497104b5b0b5ee4ca9e5b8b",
-      "size": 4721
+      "path": "rust/src/fb/perception/metadata/bounding_box_generated.rs",
+      "sha256": "cf6c9762e103e8b181cf00c68548b4dc8c4e94193a78173d296fe61269bdea8b",
+      "size": 6424
     },
     {
-      "path": "rust/src/perception/metadata/audio_frame_context_generated.rs",
-      "sha256": "76ef777587a018b1b90b7a486c86b4cca69a99186718f5841cabc0c2d70a8f29",
-      "size": 9498
+      "path": "rust/src/fb/perception/metadata/box_detection_generated.rs",
+      "sha256": "ea53b1e208c4086b9576e236f5c9fa9d7ae0e92bc28de326ff1a0fe8794fb577",
+      "size": 8754
     },
     {
-      "path": "rust/src/perception/metadata/bitmap_data_generated.rs",
-      "sha256": "f84617c071b855d421787501d85196f1aaa3624f061e1eadf42373204b3d0b36",
-      "size": 6614
+      "path": "rust/src/fb/perception/metadata/box_detections_generated.rs",
+      "sha256": "af4c980f4409b9e18f5ab3f986addec9c59cdf8ebd315cb68d3d33d82fe42954",
+      "size": 12197
     },
     {
-      "path": "rust/src/perception/metadata/bounding_box_generated.rs",
-      "sha256": "de11b7c48050acf86752e473599459f15357adb86e46c3edbecef56e530c1b92",
-      "size": 5662
+      "path": "rust/src/fb/perception/metadata/classification_candidate_generated.rs",
+      "sha256": "7904888cd60b88ea946900d13fc11eaca75bf47c0c0f8e5cff0b4044cafa89bf",
+      "size": 9851
     },
     {
-      "path": "rust/src/perception/metadata/box_detection_generated.rs",
-      "sha256": "a1d0cf7afddaa70c3ec69744544308c9293584b59fc853f136dbf0a3cbf7ae1a",
-      "size": 7670
+      "path": "rust/src/fb/perception/metadata/classification_generated.rs",
+      "sha256": "b6de4f4a30cccca6c58b7b118a1b37627ef8d4bba4ccf459a43a23840c0b09ee",
+      "size": 6512
     },
     {
-      "path": "rust/src/perception/metadata/box_detections_generated.rs",
-      "sha256": "f0c2982d554b317299e86a9761547dee0a3d0ed9df54397e5d38c3142c5ec201",
-      "size": 11075
+      "path": "rust/src/fb/perception/metadata/classifications_generated.rs",
+      "sha256": "05e6aaa1657cf1c7ec41240ff4a8f191682317ecbd499f894fcf1da7ecec414d",
+      "size": 14513
     },
     {
-      "path": "rust/src/perception/metadata/classification_candidate_generated.rs",
-      "sha256": "f01670405ce0457ddfff004892caa667a7138ea8151783a28fd5107bd700105a",
-      "size": 8521
+      "path": "rust/src/fb/perception/metadata/frame_context_generated.rs",
+      "sha256": "14b88ceaf68cdc34506032266359ab7734b9615bae72eda921cac132a579a976",
+      "size": 13009
     },
     {
-      "path": "rust/src/perception/metadata/classification_generated.rs",
-      "sha256": "74192546d7d848735b2901deb2fd050463ef7ba68a277b06d562c780293b9ce8",
-      "size": 5743
+      "path": "rust/src/fb/perception/metadata/layer_info_generated.rs",
+      "sha256": "2b129291b9a764aba6a494e2cf2a52f6981574ba254c1bf3d9b06f8302e3de12",
+      "size": 12205
     },
     {
-      "path": "rust/src/perception/metadata/classifications_generated.rs",
-      "sha256": "2696c3d58df1e98ea4bc2b2ac42ed83ee7c6dcf411974a2099fc47fb518331ce",
-      "size": 12981
-    },
-    {
-      "path": "rust/src/perception/metadata/frame_context_generated.rs",
-      "sha256": "d3b41ae918162d4b3dffcb67ac6f2893d026af9d0eb73c23b5077ec1d0c351ab",
-      "size": 11649
-    },
-    {
-      "path": "rust/src/perception/metadata/layer_info_generated.rs",
-      "sha256": "b676efa38d8762e11815f45691e193998b0c39e5243af0f1a885405b3f730d37",
-      "size": 10622
-    },
-    {
-      "path": "rust/src/perception/metadata/mod.rs",
+      "path": "rust/src/fb/perception/metadata/mod.rs",
       "sha256": "9f0a5ed1a2fd6706aa495e8c276a6b017d8ae26f95d2be2ca1cbd5fe15e4d31b",
       "size": 1923
     },
     {
-      "path": "rust/src/perception/metadata/object_embedding_generated.rs",
-      "sha256": "73d8bd7f925557bb192ed827cb7b33ee809c57ba6cdab4f91627f0786d67c1a0",
-      "size": 5326
+      "path": "rust/src/fb/perception/metadata/object_embedding_generated.rs",
+      "sha256": "307ad845b36618f1f8e72c151b53990c79a11e10effc733e76f9dc6829e10565",
+      "size": 5985
     },
     {
-      "path": "rust/src/perception/metadata/object_embeddings_generated.rs",
-      "sha256": "933503ecd384bbd5a9249dc6c96ab884d952d5de969e6ccaf10bf67120f7c6cc",
-      "size": 11324
+      "path": "rust/src/fb/perception/metadata/object_embeddings_generated.rs",
+      "sha256": "c95d6def8e15ff3369a97bf5d9a05289bc79e4e06f86e2dddef89654ff3c041e",
+      "size": 12500
     },
     {
-      "path": "rust/src/perception/metadata/object_meta_generated.rs",
-      "sha256": "0a1f08a0ec5c4e9154480e4604e13c668f6e8908645808a21898b21527378718",
-      "size": 5290
+      "path": "rust/src/fb/perception/metadata/object_meta_generated.rs",
+      "sha256": "e970ecc6d24f6f7473be30bdc619c04e80c279ea8b4faab3db6798bfb2cbe499",
+      "size": 5966
     },
     {
-      "path": "rust/src/perception/metadata/object_track_generated.rs",
-      "sha256": "df695bfb825aacc7304a9f59384e3167e88773fd7411a87108b4dd150c4827ac",
-      "size": 11209
+      "path": "rust/src/fb/perception/metadata/object_track_generated.rs",
+      "sha256": "65b5cf145e2d84b99375fefa049428e31fde7a4c541075b7c64a1070a29208bb",
+      "size": 12896
     },
     {
-      "path": "rust/src/perception/metadata/object_tracks_generated.rs",
-      "sha256": "f76b1cf0e7b7e664b182ae654cb3533cf1fc1b4984c810fb86b7804035993052",
-      "size": 10900
+      "path": "rust/src/fb/perception/metadata/object_tracks_generated.rs",
+      "sha256": "9d6887c04e0cd3327d2613d68f0cf8fdc45a1dee8a1e76f94e30ba9db4e8b4a5",
+      "size": 12000
     },
     {
-      "path": "rust/src/perception/metadata/performance_overlay_generated.rs",
-      "sha256": "9ec26f23f9773170bc832b3beae7960b35393a54129fb8c2cf494d0453220123",
-      "size": 10276
+      "path": "rust/src/fb/perception/metadata/performance_overlay_generated.rs",
+      "sha256": "b1b83ab11a743e1f7a137aaf148068fab6e18466bee4a1d2e30ae2aa0e800ee3",
+      "size": 11224
     },
     {
-      "path": "rust/src/perception/metadata/person_presence_generated.rs",
-      "sha256": "bc21b30013990b65177d084d2792d097f7873b02abf3798ed376a3b09622ea3e",
-      "size": 5974
+      "path": "rust/src/fb/perception/metadata/person_presence_generated.rs",
+      "sha256": "bfe233fba422e2154e45dcec7a953b7755f3abe1163317888d23c993a0110b2f",
+      "size": 6802
     },
     {
-      "path": "rust/src/perception/metadata/point_2f_generated.rs",
-      "sha256": "71ba99d8864b87029308c8d98d24df62946467abdc205531461e3f440bae9b8e",
-      "size": 4102
+      "path": "rust/src/fb/perception/metadata/point_2f_generated.rs",
+      "sha256": "5cc66e5338dd6cb2b4b70c30ece2b0a462d0f9a99c99c835916b5ca5c532d2bc",
+      "size": 4364
     },
     {
-      "path": "rust/src/perception/metadata/pose_estimation_generated.rs",
-      "sha256": "beefff3c88adcc709203977e8be61b1b2cd5a7b7cfd7c05973f48a7314d25604",
-      "size": 6363
+      "path": "rust/src/fb/perception/metadata/pose_estimation_generated.rs",
+      "sha256": "4906494f0c97f757e40cff1f479c31a7027bae30b2213efce41e6133d6c5a6fc",
+      "size": 7331
     },
     {
-      "path": "rust/src/perception/metadata/pose_estimations_generated.rs",
-      "sha256": "60f4927c6d13279bc64f2b5db7d839c7a189279c50a96c7b5d064a8d235bd1ea",
-      "size": 11126
+      "path": "rust/src/fb/perception/metadata/pose_estimations_generated.rs",
+      "sha256": "7689230dad6a990213f91484671898ffaa2117993cdb7b99253c54e085e5237b",
+      "size": 12254
     },
     {
-      "path": "rust/src/perception/metadata/segmentation_mask_generated.rs",
-      "sha256": "5f99dbd8ef866cbe4c18dbdcaba669ee5d8e3ba11107a6767930050125c49aed",
-      "size": 5285
+      "path": "rust/src/fb/perception/metadata/segmentation_mask_generated.rs",
+      "sha256": "e85fb36bfb32ff924524e145f3021addab90be30c7634c77ac3635c3cb278787",
+      "size": 5932
     },
     {
-      "path": "rust/src/perception/metadata/segmentation_masks_generated.rs",
-      "sha256": "1d8dcb2a6aa78f2b17063516fc7f4fd92ac241bd73a90732d1a81edae7e4ff69",
-      "size": 11292
+      "path": "rust/src/fb/perception/metadata/segmentation_masks_generated.rs",
+      "sha256": "799fa4e1835f0f0ee3e5aa992b1ce077cea0e34b93c75b96e5031c51530dbd91",
+      "size": 12420
     },
     {
-      "path": "rust/src/perception/metadata/track_trace_generated.rs",
-      "sha256": "189b9aa34c558d10570b6d8d0418de8887fba44ac5a171af6414b14eee4e34af",
-      "size": 6190
+      "path": "rust/src/fb/perception/metadata/track_trace_generated.rs",
+      "sha256": "f42e3172f72c97435e38ab3151df8c9d6a37b80d1903386588c984c1208fa347",
+      "size": 7129
     },
     {
-      "path": "rust/src/perception/metadata/track_traces_generated.rs",
-      "sha256": "78b0465575c9e07018171ae4be28f0dfb543f4e2656b07f7ca4cddcc36ce1e9b",
-      "size": 10817
+      "path": "rust/src/fb/perception/metadata/track_traces_generated.rs",
+      "sha256": "0794776d7aafdc9a58a00b40b8de52ce37994d35824ea0e751d25b87a1c6b5b4",
+      "size": 11917
     },
     {
-      "path": "rust/src/perception/metadata/video_frame_context_generated.rs",
-      "sha256": "80850c2b18349f622806fe0856568c8803d0ea39489eaa5cb7dbcad68c4d9cee",
-      "size": 13710
+      "path": "rust/src/fb/perception/metadata/video_frame_context_generated.rs",
+      "sha256": "716ca4b81c91ca096a858be1f351f4be567d50936499975faa29fb4bf0bdc3b5",
+      "size": 15830
     },
     {
-      "path": "rust/src/perception/mod.rs",
-      "sha256": "8eabf894c93d8e9eed8457a794c29c006d510d8ae66b6c5c29745545123940e6",
-      "size": 115
+      "path": "rust/src/fb/perception/mod.rs",
+      "sha256": "2f8cbee27e76e3a100283b9b0526e6450d1f8284a0424743dd9bbf5004bafd7e",
+      "size": 88
+    },
+    {
+      "path": "rust/src/flowdata_internal/internalfb/mod.rs",
+      "sha256": "b0e6c52ffefa9562ba4f1a76641c2373b40a589c496ee34180e32450607c1001",
+      "size": 210
+    },
+    {
+      "path": "rust/src/flowdata_internal/internalfb/wire_envelope_generated.rs",
+      "sha256": "12af8dc5c34483d8a4ec91ff72b2b0de0f882d7b26aade60b78df7b5ae5921e8",
+      "size": 13814
+    },
+    {
+      "path": "rust/src/flowdata_internal/internalfb/wire_payload_generated.rs",
+      "sha256": "dbb10c65d9020d97e58da121b319def67456bd8ffc438819b2a24600f33b5b99",
+      "size": 5162
+    },
+    {
+      "path": "rust/src/flowdata_internal/mod.rs",
+      "sha256": "56c6c77b8cb49fbb815c91e1a0875b5823fe756d8ad324588cf24b1474a51c13",
+      "size": 97
+    },
+    {
+      "path": "rust/src/lib.rs",
+      "sha256": "ac688ce9d6df76f37c9f7a95b662cc63ecabe96190f39c010904be914c567d3e",
+      "size": 42724
     },
     {
       "path": "rust/tests/fixtures/opk-box-detections-v0.2.1.hex",
@@ -455,8 +465,8 @@
     },
     {
       "path": "rust/tests/opk_packet.rs",
-      "sha256": "c780eb55d54a1c86d8c2d1af10a42a417de273e67bccbde764efc29e675dc59b",
-      "size": 2835
+      "sha256": "b022a26801450298b4ea868dd56b9cbf01382c31a7d9aa49bc3319884a00b58a",
+      "size": 2930
     },
     {
       "path": "ts/dist/perception/envelope.d.ts",
@@ -951,7 +961,7 @@
   ],
   "generation": {
     "flowdata_sdk": {
-      "commit": "027b121b82edd2ba94f20dcb0110584cd4b78d50",
+      "commit": "319c9a43640a0764650531ff13042ae1ff5d3900",
       "generator": {
         "name": "flowdata-sdk",
         "version": "0.6.0"
@@ -960,8 +970,8 @@
     "tools": [
       {
         "path": "tools/perception/generate.py",
-        "sha256": "367fdf9b34a42c04f6e7bf36071d9cb204fcffeb0a33ddd313126ac68a89bc60",
-        "size": 36386
+        "sha256": "51e8070d47ccad4a36943c77b88a3b0672db760d00cadcf9e49350a1ed3185bd",
+        "size": 36854
       },
       {
         "path": "tools/perception/release_common.py",
@@ -988,10 +998,11 @@
   "postprocessing": {
     "cmake_formatter": "0.6.13",
     "copyright_headers": "Arm Limited 2025",
-    "cpp_formatter": "clang-format version 21.1.1",
-    "python_formatter": "autopep8 2.3.1 (pycodestyle: 2.14.0)",
+    "cpp_formatter": "clang-format version 20.1.8",
+    "python_formatter": "autopep8 2.3.1 (pycodestyle: 2.12.1)",
     "rust": {
       "flatbuffers_runtime": "25.9.23",
+      "formatter": "rustfmt 1.8.0",
       "standard_library": true
     },
     "typescript": {
@@ -1604,159 +1615,169 @@
           "size": 152
         },
         {
-          "path": "src/lib.rs",
-          "sha256": "c314bbbb780211752491532fe48dece61f7d71a351321ed7bb050d74f9234640",
-          "size": 33317
+          "path": "src/fb/mod.rs",
+          "sha256": "d398a89bd049ac605100a370710c37d971ddeae9103e954283457e05a5b1775a",
+          "size": 34
         },
         {
-          "path": "src/perception/internalfb/mod.rs",
-          "sha256": "990b0912d7227050942823597f9f03edd33a723b3ba6633488a3b6dbfd853b99",
-          "size": 154
+          "path": "src/fb/perception/metadata/audio_frame_context_generated.rs",
+          "sha256": "b7e82eab7ea449dc58e2f480fd892ba7f4e9e8ece6a0afc467b433a43d5000e5",
+          "size": 11088
         },
         {
-          "path": "src/perception/internalfb/wire_envelope_generated.rs",
-          "sha256": "631654e8baa7327b2a3ca06843fad00c88366d3ccbfdedb1fedafd66f267a63e",
-          "size": 12195
+          "path": "src/fb/perception/metadata/bitmap_data_generated.rs",
+          "sha256": "c83facad20eb2753d676b7934657f526e5c0a4f64392d7be8eaaf2a48f0b0230",
+          "size": 7509
         },
         {
-          "path": "src/perception/internalfb/wire_payload_generated.rs",
-          "sha256": "ce2d27206999e601e85c6dd786e2e0071bb52ddf870ece6b4a660c7646a3951f",
-          "size": 4665
+          "path": "src/fb/perception/metadata/bounding_box_generated.rs",
+          "sha256": "092f6b2707fb753a205aee37a8bc8ad927fd95faa3f63cd260b90cb7f173e05b",
+          "size": 6368
         },
         {
-          "path": "src/perception/metadata/audio_frame_context_generated.rs",
-          "sha256": "ebe3fbce8d8f0a9b00b6403c790034da8e9bc73ee3919045909eddadefd7a5f4",
-          "size": 9442
+          "path": "src/fb/perception/metadata/box_detection_generated.rs",
+          "sha256": "4f123a30c620b95a82fef2ad4a33c6a9c295f44d8a48c3a2fac86a759031fe54",
+          "size": 8698
         },
         {
-          "path": "src/perception/metadata/bitmap_data_generated.rs",
-          "sha256": "575323dc8bda31f09fa2b0fee11aac2dd5e5020858017f3557cccef2d77e9d65",
-          "size": 6558
+          "path": "src/fb/perception/metadata/box_detections_generated.rs",
+          "sha256": "3c1271d7e5544e07d580b338a0400621e3d8f5275da3403a15c57ef754725bd2",
+          "size": 12141
         },
         {
-          "path": "src/perception/metadata/bounding_box_generated.rs",
-          "sha256": "877aa9b16d56bceb977bfdc97a4be0347c19c94c620e4b8d535c5d727ddbd53e",
-          "size": 5606
+          "path": "src/fb/perception/metadata/classification_candidate_generated.rs",
+          "sha256": "9142b225e9cd37cf4755f6a755250bf90937ddff672b3d6694799f7709fba6df",
+          "size": 9795
         },
         {
-          "path": "src/perception/metadata/box_detection_generated.rs",
-          "sha256": "ff6cab17951249fdb69cf20471d83f70241f9ebd7623689e62205324fd669265",
-          "size": 7614
+          "path": "src/fb/perception/metadata/classification_generated.rs",
+          "sha256": "151fed4775fcf361c740702b7b66d05d79b589e73674d7b1dbbab31e1504b637",
+          "size": 6456
         },
         {
-          "path": "src/perception/metadata/box_detections_generated.rs",
-          "sha256": "82c25b67eabec62c405841f50e1d87ff8fb58cd791c9211370acdbbea87f8383",
-          "size": 11019
+          "path": "src/fb/perception/metadata/classifications_generated.rs",
+          "sha256": "21157fcdc436d12d5b7d304ebaef4dabba621922a535857adad82ac7be096b8c",
+          "size": 14457
         },
         {
-          "path": "src/perception/metadata/classification_candidate_generated.rs",
-          "sha256": "98418258bee3d2d40ba032e147002a613aff8d4d4f8351259759fca02ade9f49",
-          "size": 8465
+          "path": "src/fb/perception/metadata/frame_context_generated.rs",
+          "sha256": "191e24d5028b45f1f7431f0548f7985677dcb0b37820db13c578b7030b69f8ec",
+          "size": 12953
         },
         {
-          "path": "src/perception/metadata/classification_generated.rs",
-          "sha256": "95b5369df7912279309fea777f6413f6f1b85e2e17a7e12886fef78fa8b16a3b",
-          "size": 5687
+          "path": "src/fb/perception/metadata/layer_info_generated.rs",
+          "sha256": "3e34213c917cf230b9b6df9da9bcc8f16e5c3edb3d5d1539ed2c49475df17020",
+          "size": 12149
         },
         {
-          "path": "src/perception/metadata/classifications_generated.rs",
-          "sha256": "14607ae9d599fd213b97fa754dd504257ee2c15d5b7cda537112b9aa688e1f83",
-          "size": 12925
-        },
-        {
-          "path": "src/perception/metadata/frame_context_generated.rs",
-          "sha256": "e0601f3a5a92d9acccfceb07190a933c77a0a2dcee9cd675a54624159c1bbf65",
-          "size": 11593
-        },
-        {
-          "path": "src/perception/metadata/layer_info_generated.rs",
-          "sha256": "0b2111712ad83598838cd12f1c657c9e95154969a2ad6158dbf8d7f70095624b",
-          "size": 10566
-        },
-        {
-          "path": "src/perception/metadata/mod.rs",
+          "path": "src/fb/perception/metadata/mod.rs",
           "sha256": "8a2a3d087643fadcde79ee4219b0b75c7b5e5fb154d6b0ff66a82b2b5dc11b6c",
           "size": 1867
         },
         {
-          "path": "src/perception/metadata/object_embedding_generated.rs",
-          "sha256": "f9f8d076de9b8bf5f91cb9f76d93b7736643f909c8f16b5c91ededf611d22bcd",
-          "size": 5270
+          "path": "src/fb/perception/metadata/object_embedding_generated.rs",
+          "sha256": "ab6493edad7549f57125eebad4132f7b148c5abfbbc7bd9e7d130e4c04ac6114",
+          "size": 5929
         },
         {
-          "path": "src/perception/metadata/object_embeddings_generated.rs",
-          "sha256": "b71f64892252d340e12d183f89245395050429fbd12e20ac367002617734784d",
-          "size": 11268
+          "path": "src/fb/perception/metadata/object_embeddings_generated.rs",
+          "sha256": "3a375bf6072b4015a7dc5fe782793d93f1f91a6718d576722f41e5f33f34e879",
+          "size": 12444
         },
         {
-          "path": "src/perception/metadata/object_meta_generated.rs",
-          "sha256": "9dc36b5b8b8a9f1cf4de0f49a2ee3e8bdc689f5ebe9212a84e6ac92169e9b91f",
-          "size": 5234
+          "path": "src/fb/perception/metadata/object_meta_generated.rs",
+          "sha256": "e0c6403626b4498aea6345c6b7956ad36b764cc136f099ce98d3b376aff606e5",
+          "size": 5910
         },
         {
-          "path": "src/perception/metadata/object_track_generated.rs",
-          "sha256": "f2f86f37431a64e61a2ea903ac7963ee4938cc4548960f39d55bf27ddc9e71bc",
-          "size": 11153
+          "path": "src/fb/perception/metadata/object_track_generated.rs",
+          "sha256": "2f32593da8746ef9de90487fe420fafbcdbd8bbb5ea41e0ce163d6adee477d7b",
+          "size": 12840
         },
         {
-          "path": "src/perception/metadata/object_tracks_generated.rs",
-          "sha256": "befb1718fa8eaf44ee59db44e985f0b706d409de0c49ed5dfe1605676fd049cf",
-          "size": 10844
+          "path": "src/fb/perception/metadata/object_tracks_generated.rs",
+          "sha256": "4b663193a8b6c625b2c68e9358b496ef2cc1657b08a2b4293645c13a31f5fcce",
+          "size": 11944
         },
         {
-          "path": "src/perception/metadata/performance_overlay_generated.rs",
-          "sha256": "014e45ed7cf7384a4cd06d678285e9bb44351204302a4fdc8780348c59d6b722",
-          "size": 10220
+          "path": "src/fb/perception/metadata/performance_overlay_generated.rs",
+          "sha256": "dae82cab88d7527df1c0e476131087163b85bb1c27a647da2b4ef3d9f5799537",
+          "size": 11168
         },
         {
-          "path": "src/perception/metadata/person_presence_generated.rs",
-          "sha256": "f7a51b39b2d492f0c3a1dd370d69aacd0466b8125cfbbecd0ef0edd8947f3a21",
-          "size": 5918
+          "path": "src/fb/perception/metadata/person_presence_generated.rs",
+          "sha256": "60fbe77d58e9f3d58cd1f1dad220d44a866cf16193c281e3a6bb402b02bde9cd",
+          "size": 6746
         },
         {
-          "path": "src/perception/metadata/point_2f_generated.rs",
-          "sha256": "14f0b14d77f5f7b0388d643d66d7b98d910325cc657272af8a23539879f936f6",
-          "size": 4046
+          "path": "src/fb/perception/metadata/point_2f_generated.rs",
+          "sha256": "56211396e4a9d2eb4fd2ba5fbb98804ec4353b0e1992b296a70f7d9c79db4e74",
+          "size": 4308
         },
         {
-          "path": "src/perception/metadata/pose_estimation_generated.rs",
-          "sha256": "61e49ab0d8a64b66edbdbf015d16fcc50c81b49f1441bc1687e9c7523c537c78",
-          "size": 6307
+          "path": "src/fb/perception/metadata/pose_estimation_generated.rs",
+          "sha256": "ad51b523f523362f259870174713460994aa4e3612a337a7eb5cd44513f22246",
+          "size": 7275
         },
         {
-          "path": "src/perception/metadata/pose_estimations_generated.rs",
-          "sha256": "abde753d951a4070746809c10ef2e740a791c2cfb7d2e15158a93852ed780d0f",
-          "size": 11070
+          "path": "src/fb/perception/metadata/pose_estimations_generated.rs",
+          "sha256": "0a176e519151c95278ba04f9c5e9cb3fb7e8548eb702ec5da14325ecf3d5f38b",
+          "size": 12198
         },
         {
-          "path": "src/perception/metadata/segmentation_mask_generated.rs",
-          "sha256": "311646ca89890182cb4a8a2bd3726c45e999209958c45d825801a1ce7d7560e7",
-          "size": 5229
+          "path": "src/fb/perception/metadata/segmentation_mask_generated.rs",
+          "sha256": "3ee5842f1d4b3f96a7ee005378768a7630d92f0dbdd95d98d3e8a7204b9c2d90",
+          "size": 5876
         },
         {
-          "path": "src/perception/metadata/segmentation_masks_generated.rs",
-          "sha256": "3128c5b95dcb8ade6d15e3b56875f3600ecf0f4212327210f95ea01669d91911",
-          "size": 11236
+          "path": "src/fb/perception/metadata/segmentation_masks_generated.rs",
+          "sha256": "5a94a2f4cf20949bbe0ee64852811715106f3217f87698424b03cb5b5534fc42",
+          "size": 12364
         },
         {
-          "path": "src/perception/metadata/track_trace_generated.rs",
-          "sha256": "936afa2d5f6f4d33890a315b8247004551a47e3be46dcca4cb6f3c1d01371c93",
-          "size": 6134
+          "path": "src/fb/perception/metadata/track_trace_generated.rs",
+          "sha256": "c7c0d586e64a8c774cdc3ad93d1fb396a4fad9f5bff3cff45fc02f27e714e3a6",
+          "size": 7073
         },
         {
-          "path": "src/perception/metadata/track_traces_generated.rs",
-          "sha256": "90024d97d34613b93781f2c0f299135fa7bc31cc7dbdcc53a3d6bca07fd15637",
-          "size": 10761
+          "path": "src/fb/perception/metadata/track_traces_generated.rs",
+          "sha256": "324ea50b5c6140c407ab6f66dffd6ba975b19d697f598be8e5a70b1b387ab037",
+          "size": 11861
         },
         {
-          "path": "src/perception/metadata/video_frame_context_generated.rs",
-          "sha256": "8c5f8814c5d86c9b26d847644d5d69c23ebec84664c2523eecde6cfae3ac61b0",
-          "size": 13654
+          "path": "src/fb/perception/metadata/video_frame_context_generated.rs",
+          "sha256": "a582e3503150ada8624dcaf70ddfabc4df92c381921a6e947f176b0ed1832df3",
+          "size": 15774
         },
         {
-          "path": "src/perception/mod.rs",
-          "sha256": "08111e08ad3ec35e482d8b2802e4f5a2785d99570bd63defacf957106b3a5078",
-          "size": 59
+          "path": "src/fb/perception/mod.rs",
+          "sha256": "872289c00b2b64c5c62892261add2e0337129da5824cd323ec0e5a29b33fc41b",
+          "size": 32
+        },
+        {
+          "path": "src/flowdata_internal/internalfb/mod.rs",
+          "sha256": "990b0912d7227050942823597f9f03edd33a723b3ba6633488a3b6dbfd853b99",
+          "size": 154
+        },
+        {
+          "path": "src/flowdata_internal/internalfb/wire_envelope_generated.rs",
+          "sha256": "e1021b7aedfb67be11339775a153f23ab075e3d8ce9bd3ec94356cc70031f240",
+          "size": 13758
+        },
+        {
+          "path": "src/flowdata_internal/internalfb/wire_payload_generated.rs",
+          "sha256": "1ddea51a9901d5b3bf558cd7cd638c686c35c51a5a30dcb320e677ef108fa35f",
+          "size": 5106
+        },
+        {
+          "path": "src/flowdata_internal/mod.rs",
+          "sha256": "38bf045bec7ce82af3f2ac4f9520ca09128a476e62084e02123b29bc5254152d",
+          "size": 41
+        },
+        {
+          "path": "src/lib.rs",
+          "sha256": "9b3164b0285ae17ea63daee7e633465a31b1e83397c7a87b45e74d9dc5815bce",
+          "size": 42668
         }
       ],
       "flatbuffers_runtimes": [

@@ -1,14 +1,14 @@
 ---
 title: Build and use the Perception SDK bundle
 sidebar_label: Perception SDK bundle
-description: Build a reproducible Perception C++, Python, and TypeScript SDK archive and integrate it into an application.
+description: Build a reproducible Perception C++, Python, Rust, and TypeScript SDK archive and integrate it into an application.
 ---
 
 # Build and use the Perception SDK bundle
 
 The release bundle contains the generated C++ SDK, installable Python and
-TypeScript packages, matching FlatBuffers runtimes, the source schemas, and a
-manifest describing every file and compatibility requirement.
+TypeScript packages, a Rust crate, matching FlatBuffers runtimes, the source
+schemas, and a manifest describing every file and compatibility requirement.
 
 Released PEK architecture packages carry the unchanged ZIP, checksum, and
 provenance sidecar under `share/pek/perception-sdk/`. SDK packages use the PEK
@@ -128,6 +128,22 @@ TypeScript declarations, and generated sources; consumers do not regenerate it.
 The embedded `peksink` WebUI bundles this same generated SDK with its authored
 browser modules. Use `./scripts/peksink-web.sh check` to verify the committed
 browser asset after SDK or WebUI changes.
+
+## Integrate the Rust SDK
+
+Add the extracted `rust/` crate as a path dependency. The crate already pins
+the FlatBuffers runtime version used to generate its sources:
+
+```toml
+[dependencies]
+perception = { path = "/path/to/perception-sdk-<pek-version>/rust" }
+```
+
+Import `Envelope`, `payload`, and generated native payload types from
+`perception`. Construct an envelope from packet bytes, require `valid()`, and
+check `producer_identity()` before typed access. Use the same selector for
+`count`, `contains`, `get`, and `for_each`; use `external_key` for external
+payloads. Unknown or changed payloads remain preserved across serialization.
 
 ## Integrate the C++ SDK
 

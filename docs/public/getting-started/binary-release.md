@@ -129,7 +129,7 @@ sdk_root="$PEK_PACKAGE_ROOT/share/pek/perception-sdk"
 unzip "$sdk_root/perception-sdk-<pek-version>.zip" -d perception-sdk
 ```
 
-Use the C++, Python, or TypeScript package from that extracted SDK. The SDK
+Use the C++, Python, Rust, or TypeScript package from that extracted SDK. The SDK
 version matches the PEK product version.
 
 ## Packaged models

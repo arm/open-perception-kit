@@ -15,9 +15,9 @@ generated SDK snapshot has been committed normally. If schemas or generated
 sources still need changes, stop and use `$evolve-perception-schema` or
 `$regenerate-perception-sdk` first.
 
-The release bundle contains the C++ SDK, Perception Python wheel and TypeScript
-npm package, matching FlatBuffers runtimes, source schemas, build integrations,
-release manifest, ZIP checksum, and provenance sidecar.
+The release bundle contains the C++ SDK, Perception Python wheel, Rust crate,
+and TypeScript npm package, matching FlatBuffers runtimes, source schemas,
+build integrations, release manifest, ZIP checksum, and provenance sidecar.
 
 ## Preflight the Snapshot
 
