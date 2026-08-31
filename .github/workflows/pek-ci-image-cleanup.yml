@@ -17,7 +17,10 @@ concurrency:
 jobs:
   cleanup-blackduck-pr-version:
     name: Delete Black Duck PR version
-    if: ${{ github.event_name == 'pull_request_target' && github.event.action == 'closed' }}
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      github.event.action == 'closed' &&
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: self-hosted-ubuntu-latest-x64
     permissions:
       contents: read
