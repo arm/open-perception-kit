@@ -1,5 +1,5 @@
 name: PEK CI
-run-name: "${{ inputs.target_branch_head_sha != '' && format('Valgrind baseline {0}@{1}', inputs.target_branch_name, inputs.target_branch_head_sha) || inputs.pr_label != '' && format('PEK CI (head): {0} {1}', inputs.pr_head_sha, inputs.pr_label) || 'PEK CI' }}"
+run-name: "${{ inputs.target_branch_head_sha != '' && format('Valgrind baseline {0}@{1}', inputs.target_branch_name, inputs.target_branch_head_sha) || inputs.pr_label != '' && format('PEK CI (head): {0} {1} {2}', inputs.pr_head_sha, inputs.pr_label, inputs.pr_number) || 'PEK CI' }}"
 
 on:
   workflow_dispatch:

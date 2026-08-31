@@ -28,24 +28,47 @@ jobs:
       ) ||
       (
         github.event_name == 'workflow_run' &&
-        contains(fromJSON('["pull_request","workflow_dispatch"]'), github.event.workflow_run.event) &&
-        github.event.workflow_run.pull_requests[0].number &&
-        github.event.workflow_run.head_repository.full_name == github.repository
+        github.event.workflow_run.head_repository.full_name == github.repository &&
+        (
+          (
+            github.event.workflow_run.event == 'pull_request' &&
+            github.event.workflow_run.pull_requests[0].number
+          ) ||
+          (
+            github.event.workflow_run.event == 'workflow_dispatch' &&
+            github.event.workflow_run.actor.login == 'github-actions[bot]' &&
+            startsWith(github.event.workflow_run.display_title, 'PEK CI (head): ') &&
+            contains(github.event.workflow_run.display_title, ' run-pek-ci ')
+          )
+        )
       )
     runs-on: self-hosted-ubuntu-latest-x64
     permissions:
       contents: read
       pull-requests: read
     concurrency:
-      group: blackduck-pr-${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number }}
+      group: blackduck-pr-${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number || github.event.workflow_run.id }}
       cancel-in-progress: false
     steps:
       - name: Check PR is closed
         id: pr
         env:
+          DISPLAY_TITLE: ${{ github.event.workflow_run.display_title }}
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number }}
+          RUN_EVENT: ${{ github.event.workflow_run.event }}
         run: |
+          if [ -z "$PR_NUMBER" ]; then
+            test "$RUN_EVENT" = workflow_dispatch
+            context="${DISPLAY_TITLE#PEK CI (head): }"
+            read -r head_sha pr_label PR_NUMBER extra <<< "$context"
+            test -z "${extra:-}"
+            test "${#head_sha}" = 40
+            case "$head_sha" in *[!0-9a-f]*) exit 1 ;; esac
+            test "$pr_label" = run-pek-ci
+          fi
+          case "$PR_NUMBER" in ''|*[!0-9]*) exit 1 ;; esac
+          echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
           state="$(gh api --method GET \
             "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq .state)"
           if [ "$state" = closed ]; then
@@ -67,7 +90,7 @@ jobs:
         env:
           BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }} # pragma: allowlist secret
           BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
-          VERSION_NAME: pr-${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number }}
+          VERSION_NAME: pr-${{ steps.pr.outputs.number }}
         run: blackduck-cleanup/.github/scripts/blackduck_version_cleanup.sh delete "$VERSION_NAME"
 
   cleanup-pr-caches:

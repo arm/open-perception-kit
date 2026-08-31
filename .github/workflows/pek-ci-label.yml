@@ -74,10 +74,11 @@ jobs:
           RUN_URL: ${{ github.event.workflow_run.html_url }}
         run: |
           context="${DISPLAY_TITLE#PEK CI (head): }"
-          read -r head_sha pr_label extra <<< "$context"
+          read -r head_sha pr_label pr_number extra <<< "$context"
           test -z "${extra:-}"
           test "${#head_sha}" = 40
           case "$head_sha" in *[!0-9a-f]*) exit 1 ;; esac
+          case "$pr_number" in ''|*[!0-9]*) exit 1 ;; esac
           case "$pr_label" in
             run-pek-ci|run-macos-ci|run-rpi-ci|run-python-audit|run-docker-scout|run-workflow-audit) ;;
             *) exit 1 ;;
