@@ -989,8 +989,10 @@ jobs:
           docker pull "$PEK_CI_IMAGE"
           test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$PEK_CI_IMAGE")" = "$CI_IMAGE_SHA"
 
-      - name: Prepare compiler cache
-        run: install -d -m 0777 "$CCACHE_PATH"
+      - name: Prepare workspace
+        run: |
+          echo "WORKSPACE_ROOT=${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}" >> "$GITHUB_ENV"
+          install -d -m 0777 "$CCACHE_PATH"
 
       - name: Generate Hugging Face download cache key
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -1134,6 +1136,36 @@ jobs:
         with:
           path: ${{ env.CCACHE_PATH }}
           key: ${{ steps.compiler-cache.outputs.cache-primary-key }}
+
+      - name: Cleanup isolated workspace
+        if: always()
+        shell: bash
+        run: |
+          workspace_root="${WORKSPACE_ROOT:-}"
+          expected_workspace_prefix="${GITHUB_WORKSPACE:-}/repo-"
+
+          case "${workspace_root}" in
+            "${expected_workspace_prefix}"*) ;;
+            *)
+              echo "Skipping cleanup for unexpected WORKSPACE_ROOT='${workspace_root}'" >&2
+              exit 0
+              ;;
+          esac
+
+          if [ -d "${workspace_root}" ]; then
+            if [ -f "${workspace_root}/${DOCKER_COMPOSE_FILE}" ]; then
+              (
+                cd "${workspace_root}"
+                docker compose -f "${DOCKER_COMPOSE_FILE}" down --remove-orphans --rmi local || true
+              )
+            fi
+
+            sudo chown -R "$(id -u):$(id -g)" "${workspace_root}" || true
+            chmod -R u+rwX "${workspace_root}" || true
+            rm -rf "${workspace_root}" || sudo rm -rf "${workspace_root}" || true
+          fi
+
+          docker image rm -f "$PEK_CI_IMAGE" || true
 
   sonar:
     name: Run Sonar analysis in Docker

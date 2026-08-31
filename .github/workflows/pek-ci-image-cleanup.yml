@@ -4,6 +4,9 @@ on:
   pull_request_target:
     branches: [main, develop, "feature/**", "sandbox/**"]
     types: [closed]
+  workflow_run:
+    workflows: ["PEK CI"]
+    types: [completed]
   schedule:
     - cron: "30 3 * * *"
   workflow_dispatch:
