@@ -1129,7 +1129,7 @@ jobs:
           retention-days: 10
 
       - name: Save compiler cache
-        if: ${{ !cancelled() && steps.release_build.outcome == 'success' && steps.compiler-cache.outputs.cache-hit != 'true' }}
+        if: ${{ !cancelled() && steps.release_build.outcome == 'success' && steps.compiler-cache.outputs.cache-hit != 'true' && (needs.build-ci-image.outputs.pr_context != 'true' || startsWith(github.ref, 'refs/pull/')) }}
         uses: actions/cache/save@v6
         with:
           path: ${{ env.CCACHE_PATH }}
@@ -1289,7 +1289,7 @@ jobs:
           retention-days: 10
 
       - name: Save compiler cache
-        if: ${{ !cancelled() && steps.sonar_analysis.outcome == 'success' && steps.compiler-cache.outputs.cache-hit != 'true' }}
+        if: ${{ !cancelled() && steps.sonar_analysis.outcome == 'success' && steps.compiler-cache.outputs.cache-hit != 'true' && (needs.build-ci-image.outputs.pr_context != 'true' || startsWith(github.ref, 'refs/pull/')) }}
         uses: actions/cache/save@v6
         with:
           path: ${{ env.CCACHE_PATH }}
@@ -1537,7 +1537,7 @@ jobs:
           retention-days: 1
 
       - name: Save compiler cache
-        if: ${{ !cancelled() && steps.valgrind_checks.outcome == 'success' && steps.valgrind_summary.outcome == 'success' && steps.compiler-cache.outputs.cache-hit != 'true' }}
+        if: ${{ !cancelled() && steps.valgrind_checks.outcome == 'success' && steps.valgrind_summary.outcome == 'success' && steps.compiler-cache.outputs.cache-hit != 'true' && (needs.build-ci-image.outputs.pr_context != 'true' || startsWith(github.ref, 'refs/pull/')) }}
         uses: actions/cache/save@v6
         with:
           path: ${{ env.CCACHE_PATH }}
