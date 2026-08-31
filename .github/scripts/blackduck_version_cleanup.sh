@@ -28,6 +28,8 @@ if [ "${1:-}" = --self-test ]; then
     test "${#deletions[@]}" -eq 2
     test "$(jq -r '.versionName' <<< "${deletions[0]}")" = v0.1.0
     test "$(jq -r '.versionName' <<< "${deletions[1]}")" = v0.2.0
+    mapfile -t deletions < <(release_deletions v0.6.0 <<< "$fixture")
+    test "${#deletions[@]}" -eq 3
     echo "Black Duck release rotation self-test passed"
     exit 0
 fi
@@ -73,9 +75,10 @@ project="$(curl "${api_headers[@]}" "$project_url")"
 test "$(jq -r '.name' <<< "$project")" = "$project_name"
 echo "Verified Black Duck project ${project_name}/${project_id}"
 
+versions_url="$project_url/versions"
 versions="$(curl "${api_headers[@]}" --get \
     --data-urlencode 'limit=100' \
-    "$project_url/versions")"
+    "$versions_url")"
 # ponytail: the licence currently caps the project below 100 versions; paginate if that changes.
 version_count="$(jq -er '.totalCount' <<< "$versions")"
 test "$version_count" -le 100
@@ -121,6 +124,14 @@ case "$operation" in
         while IFS= read -r version; do
             delete_version "$version"
         done < <(release_deletions "$requested_version" <<< "$versions")
+        if ! jq -e --arg name "$requested_version" \
+            '.items[] | select(.versionName == $name)' <<< "$versions" > /dev/null; then
+            request="$(jq -cn --arg url "$versions_url" --arg name "$requested_version" \
+                '{versionUrl: $url, cloneCategories: ["VULN_DATA", "COMPONENT_DATA"],
+                  versionName: $name, phase: "DEVELOPMENT", distribution: "EXTERNAL"}')"
+            curl "${api_headers[@]}" --request POST --data "$request" \
+                --output /dev/null "$versions_url"
+        fi
         echo "Reserved ${project_name}/${requested_version}; retaining it and two other releases"
         ;;
     *)
