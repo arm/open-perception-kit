@@ -229,11 +229,6 @@ if release_package
       'webrtc_config.test.mjs',
     ],
   )
-  install_data(
-    pek_repository_root / 'metadata/api/perception.schema.json',
-    pek_repository_root / 'metadata/api/perception-message.schema.json',
-    install_dir : 'share/pek/schemas/json',
-  )
 endif
 
 if get_option('tests')

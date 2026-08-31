@@ -16,6 +16,7 @@ services:
     extends:
       file: ../compose.base.yaml
       service: pek-common-dev-model-image
+    image: ${PEK_DEV_IMAGE:-perception-experience-kit-dev}
     container_name: ${PEK_DEV_CONTAINER_NAME:-perception-experience-kit}
     hostname: ${PEK_DEV_CONTAINER_NAME:-perception-experience-kit}
     command: sleep infinity

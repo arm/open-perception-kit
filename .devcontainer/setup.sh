@@ -5,6 +5,9 @@
 
 set -euo pipefail
 
+PEK_PROJECT_ROOT="$(cd "${PEK_PROJECT_ROOT:-.}" && pwd -P)"
+export PEK_PROJECT_ROOT
+
 # ---------- helpers ----------
 log() { echo -e "[setup.sh] $*"; }
 die() {
@@ -15,14 +18,14 @@ die() {
 trap 'die "failed at line $LINENO"' ERR
 
 # !!! WARNING: HOST WORKSPACE OWNERSHIP HAZARD !!!
-# This line recursively rewrites ownership of /work. In CI, /work is often a
-# bind-mounted checkout from the self-hosted runner host.
+# This line recursively rewrites ownership of the project root. In CI, it is
+# often a bind-mounted checkout from the self-hosted runner host.
 # Reusing this pattern without isolating the checkout path and the compose
 # project can poison later jobs and break actions/checkout with permission
 # errors such as .git/index.lock or unlink failures on tracked files.
 # Read the full incident note before changing or reusing this line:
 #   .github/ci/self-hosted-runner-workspace-isolation.md
-sudo chown -R $(id -u):$(id -g) "/work/" || true
+sudo chown -R "$(id -u):$(id -g)" "${PEK_PROJECT_ROOT}/" || true
 if [[ -x /usr/local/bin/development-entrypoint ]]; then
     /usr/local/bin/development-entrypoint --seed-artifacts
 fi
@@ -42,7 +45,7 @@ else
 fi
 
 # ---------- PlantUML JAR (verify only) ----------
-WORK_PLANTUML_JAR="/work/deps/plantuml-mit-1.2026.2.jar"
+WORK_PLANTUML_JAR="${PEK_PROJECT_ROOT}/deps/plantuml-mit-1.2026.2.jar"
 IMAGE_PLANTUML_JAR="/opt/pek-deps/plantuml-mit-1.2026.2.jar"
 
 if [[ -f "$WORK_PLANTUML_JAR" ]]; then
