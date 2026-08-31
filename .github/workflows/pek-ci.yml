@@ -558,7 +558,7 @@ jobs:
 
   linux-quick-start-build-test:
     name: Quick-start on Linux
-    runs-on: ubuntu-latest
+    runs-on: self-hosted-ubuntu-latest-x64
     timeout-minutes: 240
     permissions:
       contents: read
