@@ -31,7 +31,7 @@ package " " <<inference-container>>{
     ResPte  -[dashed]-> PEKModel : represented as\n(config: ExecuTorch)
 
     PEKModel -down[hidden]-> Inference
-    PEKModel -down-> Inference : model description\n& inference config
+    PEKModel -down-> Inference
 
     Inference -down[hidden]-> ResultMeta
     Inference -down-> ResultMeta : produces
