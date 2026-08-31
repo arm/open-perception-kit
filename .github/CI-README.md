@@ -25,7 +25,7 @@ pull-request code.
 
 | Stored data | Owner and lifetime |
 | --- | --- |
-| Buildx `pek-ci` cache | GitHub Actions default-branch seed; `main`, PR, tag, and manual runs restore it without exporting another BuildKit graph |
+| Buildx `pek-ci` cache | `develop`-owned GitHub Actions seed |
 | Quality, Sonar, Valgrind, and Black Duck ccache | Separate GitHub Actions branch/PR caches for each check |
 | Run-tagged `pek-ci` image | GHCR handoff between jobs; deleted after one day |
 | Exact-SHA Arm64 development image | GHCR; newest 20 retained; used by macOS and YOLO |
@@ -35,6 +35,13 @@ pull-request code.
 | Release Sonar BuildKit cache | GHCR `buildcache-release-sonar-amd64` |
 | Sonar CFamily server cache | Updated by `main` and `develop` analysis |
 | Valgrind baseline | Artifactory, managed by the trusted baseline publisher |
+
+The `develop` branch is the only writer of the PEK CI BuildKit cache; `main`,
+pull requests, tags, and manual runs only read it.
+
+- Pull requests write only their lane-specific Quality, Sonar, Valgrind, and
+  Black Duck compiler caches under the PR merge ref; reruns of the same PR
+  reuse them, and the close workflow deletes them.
 
 The Arm64 development image embeds a compiler-cache seed. macOS copies it into
 temporary Colima volumes, while YOLO keeps subsequent compiler output in its
