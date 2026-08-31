@@ -25,7 +25,7 @@ rectangle "Perception Experience Kit Container" {
   package "Inference execution inside pekinfer" as INFERBOX {
     component "OpChain / Op system\n(JSON descriptors,\nconfigure -> bind -> process,\nloopId-based execution)" as OPC
     component "Preprocess Ops" as PRE
-    component "Inference Ops\n(ONNX / Hailo / ExecuTorch)" as INF
+    component "Inference Ops\n(ONNX / ExecuTorch)" as INF
     component "Postprocess Parsers" as POST
   }
 

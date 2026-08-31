@@ -14,25 +14,20 @@ package " " <<inference-container>>{
     package "Inference" as Inference {
     together {
         component "ONNX Runtime" as ONNX
-        component "HailoRT" as HAILO
         component "ExecuTorch" as EXEC
     }
 
-    ONNX -[hidden]right-> HAILO
-    HAILO -[hidden]right-> EXEC
+    ONNX -[hidden]right-> EXEC
     }
 
     package "Inference result metadata\n\nSimple user friendly outputs:\n- bounding boxes\n- text\n- scalars\n- etc." as ResultMeta
 
     rectangle "ONNX runtime resource\n(.onnx file)" as ResOnnx
-    rectangle "HailoRT resource\n(.hef file)" as ResHef
     rectangle "ExecuTorch resource\n(.pte file)" as ResPte
 
-    ResOnnx -[hidden]right-> ResHef
-    ResHef -[hidden]right-> ResPte
+    ResOnnx -[hidden]right-> ResPte
 
     ResOnnx -[dashed]-> PEKModel : represented as\n(config: ONNX)
-    ResHef  -[dashed]-> PEKModel : represented as\n(config: HailoRT)
     ResPte  -[dashed]-> PEKModel : represented as\n(config: ExecuTorch)
 
     PEKModel -down[hidden]-> Inference
