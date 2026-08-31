@@ -569,7 +569,8 @@ jobs:
       (
         github.event_name == 'pull_request' &&
         github.event.pull_request.head.repo.full_name == github.repository &&
-        contains(github.event.pull_request.labels.*.name, 'run-pek-ci')
+        contains(github.event.pull_request.labels.*.name, 'run-pek-ci') &&
+        (github.event.action != 'labeled' || github.event.label.name == 'run-pek-ci')
       )
     env:
       PEK_QUICK_START_CI_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
