@@ -113,6 +113,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR_REF: refs/pull/${{ github.event.pull_request.number }}/merge
         run: |
+          set -euo pipefail
           gh api --paginate --method GET "repos/${GITHUB_REPOSITORY}/actions/caches" \
             -f ref="$PR_REF" -f per_page=100 --jq '.actions_caches[].id' |
             while IFS= read -r cache_id; do

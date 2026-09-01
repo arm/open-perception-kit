@@ -9,8 +9,8 @@ owns their GitHub Actions orchestration:
   Quality, Sonar, Valgrind, Black Duck, and the `pek-ci` Docker Scout lane pull
   that image and verify its revision label
 - Linux, Raspberry Pi, and macOS quick-start jobs build independently; the
-  Raspberry Pi and macOS PR lanes require their `run-rpi-ci` or `run-macos-ci`
-  label
+  Linux PR lane requires `run-pek-ci`, while Raspberry Pi and macOS require
+  `run-rpi-ci` or `run-macos-ci`
 - `expkits-ci --ci-pr-checks` and `expkits-ci --ci-full-checks` remain the
   repository-owned quality entrypoints
 - the required Sonar check keeps the `Run Sonar analysis in Docker` name;
