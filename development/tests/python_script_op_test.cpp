@@ -114,6 +114,39 @@ TEST(PythonRuntime, FormatsMissingPythonExceptions) {
     EXPECT_EQ(pek::python::formatPythonError(), "Python operation failed without an exception");
 }
 
+TEST(TensorBridge, PythonScriptDecoratorPreservesCallableIdentity) {
+    pek::python::ensureRuntime();
+    pek::python::GILGuard gil;
+    pek::python::PyObjectPtr module(PyImport_ImportModule("pek_python_ops"));
+    ASSERT_TRUE(module) << pek::python::formatPythonError();
+    pek::python::PyObjectPtr decorator(PyObject_GetAttrString(module.get(), "python_script"));
+    ASSERT_TRUE(decorator) << pek::python::formatPythonError();
+    ASSERT_TRUE(PyCallable_Check(decorator.get()));
+    pek::python::PyObjectPtr callbackType(PyObject_GetAttrString(module.get(), "ProcessCallback"));
+    ASSERT_TRUE(callbackType) << pek::python::formatPythonError();
+    PyObject *callable = PyDict_GetItemString(PyEval_GetBuiltins(), "len");
+    ASSERT_NE(callable, nullptr);
+
+    pek::python::PyObjectPtr decorated(PyObject_CallOneArg(decorator.get(), callable));
+
+    ASSERT_TRUE(decorated) << pek::python::formatPythonError();
+    EXPECT_EQ(decorated.get(), callable);
+}
+
+TEST(TensorBridge, PythonScriptDecoratorRejectsNoncallables) {
+    pek::python::ensureRuntime();
+    pek::python::GILGuard gil;
+    pek::python::PyObjectPtr module(PyImport_ImportModule("pek_python_ops"));
+    ASSERT_TRUE(module) << pek::python::formatPythonError();
+    pek::python::PyObjectPtr decorator(PyObject_GetAttrString(module.get(), "python_script"));
+    ASSERT_TRUE(decorator) << pek::python::formatPythonError();
+
+    pek::python::PyObjectPtr decorated(PyObject_CallOneArg(decorator.get(), Py_None));
+
+    EXPECT_FALSE(decorated);
+    EXPECT_NE(pek::python::formatPythonError().find("expects a callable"), std::string::npos);
+}
+
 TEST(TensorBridge, WrapsAllSupportedAdditionalTensorTypes) {
     pek::python::ensureRuntime();
     pek::python::GILGuard gil;

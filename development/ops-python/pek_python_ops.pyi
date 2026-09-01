@@ -2,10 +2,11 @@
 # Copyright (C) 2026 Arm Limited. All rights reserved.
 ################################################################
 
-from typing import Final
+from typing import Final, Protocol
 
 import numpy
 from perception.fb.perception.metadata.ProducerInfo import ProducerInfoT
+from perception.guest import Envelope
 
 
 class Context:
@@ -23,3 +24,20 @@ class Tensor:
     scale: Final[float]
     zero_point: Final[float]
     quantized: Final[bool]
+
+
+class ProcessCallback(Protocol):
+    """Callable contract for the module-level PythonScript entry point."""
+
+    def __call__(
+        self,
+        env: Envelope,
+        tensors: tuple[Tensor, ...],
+        context: Context,
+        /,
+    ) -> None: ...
+
+
+def python_script(callback: ProcessCallback, /) -> ProcessCallback:
+    """Type-check and return a PythonScript entry point unchanged."""
+    ...

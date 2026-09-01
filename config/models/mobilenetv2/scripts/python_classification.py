@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy
 
-from pek_python_ops import Context, Tensor
+from pek_python_ops import Context, Tensor, python_script
 from perception.fb.perception.metadata.Classification import ClassificationT
 from perception.fb.perception.metadata.ClassificationCandidate import ClassificationCandidateT
 from perception.fb.perception.metadata.Classifications import ClassificationsT
@@ -53,6 +53,7 @@ def _top_classes(tensor: Tensor) -> list[tuple[int, float]]:
     ]
 
 
+@python_script
 def process(env: Envelope, tensors: tuple[Tensor, ...], context: Context) -> None:
     global previous_class_id, stable_frame_count
 

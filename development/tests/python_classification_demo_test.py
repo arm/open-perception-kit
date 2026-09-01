@@ -29,9 +29,15 @@ ProducerInfoT = importlib.import_module(
     "perception.fb.perception.metadata.ProducerInfo"
 ).ProducerInfoT
 
+
+def python_script(callback):
+    return callback
+
+
 tensor_module = types.ModuleType("pek_python_ops")
 tensor_module.Context = object
 tensor_module.Tensor = object
+tensor_module.python_script = python_script
 sys.modules["pek_python_ops"] = tensor_module
 
 guest_module = types.ModuleType("perception.guest")

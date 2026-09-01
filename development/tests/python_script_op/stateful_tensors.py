@@ -5,12 +5,13 @@
 import numpy
 
 from perception.guest import Envelope
-from pek_python_ops import Context, Tensor
+from pek_python_ops import Context, Tensor, python_script
 
 
 call_count = 0
 
 
+@python_script
 def process(env: Envelope, tensors: tuple[Tensor, ...], context: Context) -> None:
     global call_count
     call_count += 1

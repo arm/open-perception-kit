@@ -48,12 +48,13 @@ outputs are available.
 import numpy
 
 from perception.guest import Envelope
-from pek_python_ops import Context, Tensor
+from pek_python_ops import Context, Tensor, python_script
 
 
 frame_count = 0
 
 
+@python_script
 def process(env: Envelope, tensors: tuple[Tensor, ...], context: Context) -> None:
     global frame_count
     frame_count += 1
@@ -67,10 +68,12 @@ def process(env: Envelope, tensors: tuple[Tensor, ...], context: Context) -> Non
         print(frame_count, output.index, output.name, values.shape, values.dtype)
 ```
 
-`process` must accept the envelope, tensor tuple, and call-scoped context and
-return `None`. Existing FrameResults payloads are read-only bridge proxies. Use
-`env.add(...)` with the generated object API to append new payloads, following
-the same pattern as a generated Perception SDK consumer.
+The `python_script` decorator returns the original function unchanged and gives
+IDEs and type checkers the reusable `ProcessCallback` contract. The decorated
+`process` function must accept the envelope, tensor tuple, and call-scoped
+context and return `None`. Existing FrameResults payloads are read-only bridge
+proxies. Use `env.add(...)` with the generated object API to append new payloads,
+following the same pattern as a generated Perception SDK consumer.
 
 `context.producer_info` contains the generated `ProducerInfoT` for the current
 Python Op. Attach it to the `LayerInfoT` of payloads created by the script:

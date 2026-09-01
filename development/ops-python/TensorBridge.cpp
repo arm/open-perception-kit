@@ -149,6 +149,25 @@ PyObject *getProducerInfo(PyObject *self, void *) {
     return Py_NewRef(reinterpret_cast<ContextObject *>(self)->producerInfo);
 }
 
+PyObject *pythonScript(PyObject *, PyObject *callback) {
+    if (!PyCallable_Check(callback)) {
+        PyErr_SetString(PyExc_TypeError, "python_script expects a callable");
+        return nullptr;
+    }
+    return Py_NewRef(callback);
+}
+
+std::array<PyMethodDef, 2> &moduleMethods() {
+    static std::array<PyMethodDef, 2> definitions = {{
+        {"python_script",
+         pythonScript,
+         METH_O,
+         "Mark a callable as a typed PEK Python script entry point."},
+        {nullptr, nullptr, 0, nullptr},
+    }};
+    return definitions;
+}
+
 std::array<PyGetSetDef, 2> &contextGetSet() {
     static std::array<PyGetSetDef, 2> definitions = {{
         {const_cast<char *>("producer_info"),
@@ -275,7 +294,7 @@ PyModuleDef &moduleDefinition() {
         "pek_python_ops",
         "Runtime objects passed to PEK Python script Ops.",
         -1,
-        nullptr,
+        moduleMethods().data(),
         nullptr,
         nullptr,
         nullptr,
@@ -291,6 +310,19 @@ PyObject *initializeModule() {
     PyObject *pythonModule = PyModule_Create(&moduleDefinition());
     if (pythonModule == nullptr)
         return nullptr;
+
+    PyObject *typingModule = PyImport_ImportModule("typing");
+    PyObject *processCallback =
+        typingModule ? PyObject_GetAttrString(typingModule, "Callable") : nullptr;
+    if (processCallback == nullptr ||
+        PyModule_AddObjectRef(pythonModule, "ProcessCallback", processCallback) < 0) {
+        Py_XDECREF(processCallback);
+        Py_XDECREF(typingModule);
+        Py_DECREF(pythonModule);
+        return nullptr;
+    }
+    Py_DECREF(processCallback);
+    Py_DECREF(typingModule);
 
     PyObject *type = PyType_FromSpec(&tensorSpec());
     if (type == nullptr || PyModule_AddObjectRef(pythonModule, "Tensor", type) < 0) {
