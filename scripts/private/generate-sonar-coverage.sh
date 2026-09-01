@@ -42,8 +42,16 @@ coverage xml -o python-coverage.xml
 
 rm -rf development/web/coverage
 mkdir -p development/web/coverage
-node --test \
+PEK_WEB_TEST_OUTPUT_DIR=development/web/coverage \
+    node development/web/test-frame-results.mjs \
+    --enable-source-maps \
     --experimental-test-coverage \
+    --test-reporter=spec \
+    --test-reporter-destination=stdout \
     --test-reporter=lcov \
     --test-reporter-destination=development/web/coverage/lcov.info \
-    development/web/tests/*.test.mjs
+    development/web/tests/copy-utils.test.mjs \
+    development/web/tests/osd-renderer.test.mjs \
+    development/web/tests/video-layout.test.mjs \
+    development/web/tests/webrtc_client.test.mjs \
+    development/web/tests/webrtc_config.test.mjs
