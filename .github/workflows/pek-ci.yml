@@ -73,11 +73,13 @@ jobs:
     name: Validate label dispatch
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_label != '' }}
-    permissions: {}
+    permissions:
+      pull-requests: read
     steps:
       - name: Validate selected label checks
         env:
           CHECKS: ${{ inputs.checks }}
+          GH_TOKEN: ${{ github.token }}
           PR_BASE_REF: ${{ inputs.pr_base_ref }}
           PR_HEAD_REF: ${{ inputs.pr_head_ref }}
           PR_HEAD_SHA: ${{ inputs.pr_head_sha }}
@@ -87,8 +89,20 @@ jobs:
           test -n "$PR_NUMBER"
           test -n "$PR_BASE_REF"
           test -n "$PR_HEAD_REF"
+          case "$PR_NUMBER" in *[!0-9]*) exit 1 ;; esac
           test "${#PR_HEAD_SHA}" = 40
           case "$PR_HEAD_SHA" in *[!0-9a-f]*) exit 1 ;; esac
+          read -r actual_base_ref actual_head_ref actual_head_sha head_repository author < <(
+            gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
+              --jq '[.base.ref, .head.ref, .head.sha, .head.repo.full_name, .user.login] | @tsv'
+          )
+          test "$actual_base_ref" = "$PR_BASE_REF"
+          test "$actual_head_ref" = "$PR_HEAD_REF"
+          test "$actual_head_sha" = "$PR_HEAD_SHA"
+          test "$head_repository" = "$GITHUB_REPOSITORY"
+          test "$author" != 'dependabot[bot]'
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
+            --jq '.labels[].name' | grep -Fxq "$PR_LABEL"
           if [ "$PR_LABEL" = run-pek-ci ]; then
             test "$CHECKS" = all
           else
@@ -584,27 +598,35 @@ jobs:
 
   linux-quick-start-build-test:
     name: Quick-start on Linux
+    needs: validate-label-dispatch
     runs-on: self-hosted-ubuntu-latest-x64
     timeout-minutes: 240
     permissions:
       contents: read
       pull-requests: read
     if: |
-      github.event_name == 'schedule' ||
+      always() &&
       (
-        github.event_name == 'workflow_dispatch' &&
-        inputs.checks == 'all' &&
+        github.event_name == 'schedule' ||
         (
-          (inputs.pr_number == '' && inputs.pr_label == '') ||
-          (inputs.pr_number != '' && inputs.pr_label == 'run-pek-ci')
+          github.event_name == 'workflow_dispatch' &&
+          inputs.checks == 'all' &&
+          (
+            (inputs.pr_number == '' && inputs.pr_label == '') ||
+            (
+              inputs.pr_number != '' &&
+              inputs.pr_label == 'run-pek-ci' &&
+              needs.validate-label-dispatch.result == 'success'
+            )
+          )
+        ) ||
+        (
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          github.event.pull_request.user.login != 'dependabot[bot]' &&
+          contains(github.event.pull_request.labels.*.name, 'run-pek-ci') &&
+          (github.event.action != 'labeled' || github.event.label.name == 'run-pek-ci')
         )
-      ) ||
-      (
-        github.event_name == 'pull_request' &&
-        github.event.pull_request.head.repo.full_name == github.repository &&
-        github.event.pull_request.user.login != 'dependabot[bot]' &&
-        contains(github.event.pull_request.labels.*.name, 'run-pek-ci') &&
-        (github.event.action != 'labeled' || github.event.label.name == 'run-pek-ci')
       )
     env:
       PEK_QUICK_START_CI_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
