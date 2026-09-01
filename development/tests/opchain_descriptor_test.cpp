@@ -104,17 +104,22 @@ TEST(OpChainDescriptor, RejectsUriModelDescriptor) {
     EXPECT_NE(result.error().info.find("schema.validation"), std::string::npos);
 }
 
-TEST(OpChainDescriptor, ResolvesPythonScriptPathsRelativeToSource) {
-    const auto directory = std::filesystem::path("pek_opchain_descriptor_test") / "python";
-    std::filesystem::remove_all(directory.parent_path());
-    std::filesystem::create_directories(directory);
-    const auto descriptorPath = directory / "opchain.json";
+TEST(OpChainDescriptor, ResolvesPythonScriptPathsRelativeToModelDescriptor) {
+    const auto root = std::filesystem::path("pek_opchain_descriptor_test") / "python";
+    const auto opchainDirectory = root / "opchains";
+    const auto modelDirectory = root / "models" / "example";
+    std::filesystem::remove_all(root.parent_path());
+    std::filesystem::create_directories(opchainDirectory);
+    std::filesystem::create_directories(modelDirectory);
+    const auto descriptorPath = opchainDirectory / "opchain.json";
     nlohmann::json value = {
         {"version", 1},
         {"name", "python"},
         {"description", "Python path resolution test."},
         {"ops",
-         {{{"id", "pek-python-ops/PythonScript"},
+         {{{"id", "pek-future-ops/Inference"},
+           {"attributes", {{"modelDescriptor", "../models/example/model.json"}}}},
+          {{"id", "pek-python-ops/PythonScript"},
            {"attributes",
             {{"script", "scripts/process.py"},
              {"pythonPaths", {"modules", std::filesystem::absolute("shared").string()}}}}}}},
@@ -124,12 +129,92 @@ TEST(OpChainDescriptor, ResolvesPythonScriptPathsRelativeToSource) {
     const auto result = pek::op::OpChainDescriptor::fromFile(descriptorPath.string());
 
     ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result->ops[0].attributes.getString("script"),
-              (directory / "scripts/process.py").string());
-    const auto &paths = result->ops[0].attributes.getArray("pythonPaths");
+    EXPECT_EQ(result->ops[1].attributes.getString("script"),
+              (opchainDirectory / "../models/example/scripts/process.py").string());
+    const auto &paths = result->ops[1].attributes.getArray("pythonPaths");
     ASSERT_EQ(paths.size(), 2U);
-    EXPECT_EQ(paths[0].asString(), (directory / "modules").string());
+    EXPECT_EQ(paths[0].asString(), (opchainDirectory / "../models/example/modules").string());
     EXPECT_EQ(paths[1].asString(), std::filesystem::absolute("shared").string());
+    std::filesystem::remove_all(root.parent_path());
+}
+
+TEST(OpChainDescriptor, RejectsRelativePythonScriptPathsWithoutModelDescriptor) {
+    const auto directory = std::filesystem::path("pek_opchain_descriptor_test") / "python-no-model";
+    std::filesystem::remove_all(directory.parent_path());
+    std::filesystem::create_directories(directory);
+    const auto descriptorPath = directory / "opchain.json";
+    nlohmann::json value = {
+        {"version", 1},
+        {"name", "python"},
+        {"description", "Python path resolution test."},
+        {"ops",
+         {{{"id", "pek-python-ops/PythonScript"},
+           {"attributes", {{"script", "scripts/process.py"}}}}}},
+    };
+    std::ofstream(descriptorPath) << value;
+
+    const auto result = pek::op::OpChainDescriptor::fromFile(descriptorPath.string());
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_NE(result.error().info.find("require an inference modelDescriptor"), std::string::npos);
+    std::filesystem::remove_all(directory.parent_path());
+}
+
+TEST(OpChainDescriptor, RejectsAmbiguousRelativePythonScriptPaths) {
+    const auto directory =
+        std::filesystem::path("pek_opchain_descriptor_test") / "python-ambiguous";
+    std::filesystem::remove_all(directory.parent_path());
+    std::filesystem::create_directories(directory);
+    const auto descriptorPath = directory / "opchain.json";
+    nlohmann::json value = {
+        {"version", 1},
+        {"name", "python"},
+        {"description", "Python path resolution test."},
+        {"ops",
+         {{{"id", "pek-future-ops/Inference"},
+           {"attributes", {{"modelDescriptor", "models/first/model.json"}}}},
+          {{"id", "pek-future-ops/Inference"},
+           {"attributes", {{"modelDescriptor", "models/second/model.json"}}}},
+          {{"id", "pek-python-ops/PythonScript"},
+           {"attributes", {{"script", "scripts/process.py"}}}}}},
+    };
+    std::ofstream(descriptorPath) << value;
+
+    const auto result = pek::op::OpChainDescriptor::fromFile(descriptorPath.string());
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_NE(result.error().info.find("ambiguous"), std::string::npos);
+    std::filesystem::remove_all(directory.parent_path());
+}
+
+TEST(OpChainDescriptor, AllowsAbsolutePythonScriptPathsWithMultipleModelDirectories) {
+    const auto directory = std::filesystem::path("pek_opchain_descriptor_test") / "python-absolute";
+    std::filesystem::remove_all(directory.parent_path());
+    std::filesystem::create_directories(directory);
+    const auto descriptorPath = directory / "opchain.json";
+    const auto absoluteScript = std::filesystem::absolute("scripts/process.py").string();
+    const auto absolutePythonPath = std::filesystem::absolute("modules").string();
+    nlohmann::json value = {
+        {"version", 1},
+        {"name", "python"},
+        {"description", "Python path resolution test."},
+        {"ops",
+         {{{"id", "pek-future-ops/Inference"},
+           {"attributes", {{"modelDescriptor", "models/first/model.json"}}}},
+          {{"id", "pek-future-ops/Inference"},
+           {"attributes", {{"modelDescriptor", "models/second/model.json"}}}},
+          {{"id", "pek-python-ops/PythonScript"},
+           {"attributes", {{"script", absoluteScript}, {"pythonPaths", {absolutePythonPath}}}}}}},
+    };
+    std::ofstream(descriptorPath) << value;
+
+    const auto result = pek::op::OpChainDescriptor::fromFile(descriptorPath.string());
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->ops[2].attributes.getString("script"), absoluteScript);
+    const auto &paths = result->ops[2].attributes.getArray("pythonPaths");
+    ASSERT_EQ(paths.size(), 1U);
+    EXPECT_EQ(paths[0].asString(), absolutePythonPath);
     std::filesystem::remove_all(directory.parent_path());
 }
 

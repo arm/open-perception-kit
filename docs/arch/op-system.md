@@ -107,13 +107,15 @@ the looped form, InferenceController starts the group. A non-empty controller
 
 The optional `pek-python-ops/PythonScript` operation loads a Python module once
 and calls `process(env, tensors, context)` on each execution. The call-scoped
-context provides producer identity for payloads created by the script. Its `script` and
-`pythonPaths` attributes use the same descriptor-relative path policy as model
-descriptors. It is a generic hook: before inference it receives an empty tensor
+context provides producer identity for payloads created by the script. Absolute
+`script` and `pythonPaths` values are used unchanged. Relative values resolve
+from the directory containing the inference operation's `modelDescriptor`. An
+OpChain whose model descriptors occupy multiple directories must use absolute
+Python paths. It is a generic hook: before inference it receives an empty tensor
 tuple, while after inference it receives the latest output tensors as read-only
-NumPy views. The views are zero-copy and valid only for the duration of the
-call. The operation is supported by native pipelines in the official PEK
-containers and uses their pinned embedded Python runtime.
+NumPy views. The views are zero-copy and valid only for the duration of the call.
+The operation is supported by native pipelines in the official PEK containers
+and uses their pinned embedded Python runtime.
 
 ## Inference and Postprocessing Interfaces
 

@@ -30,8 +30,11 @@ Add the operation at the required position in an OpChain:
 }
 ```
 
-Relative `script` and `pythonPaths` values resolve from the directory containing
-the OpChain descriptor. Restart the pipeline after changing a script.
+Absolute `script` and `pythonPaths` values are used unchanged. Relative values
+resolve from the directory containing the inference operation's `modelDescriptor`.
+An OpChain with model descriptors in multiple directories must use absolute Python
+paths to avoid an ambiguous model-relative base. Restart the pipeline after
+changing a script.
 `instanceId` is optional, but assigning one gives payloads a stable producer
 identity even if the operation order changes.
 

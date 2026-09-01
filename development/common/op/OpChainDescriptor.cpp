@@ -8,6 +8,7 @@
 #include "pek/File.h"
 
 #include <filesystem>
+#include <set>
 #include <utility>
 
 using namespace pek::op;
@@ -42,16 +43,63 @@ void resolvePathArrayAttribute(OpChainDescriptor::Op &op,
     op.attributes.setArray(key, std::move(resolved));
 }
 
-void resolveDescriptorPaths(OpChainDescriptor &descriptor, const std::filesystem::path &source) {
-    const auto directory = source.parent_path();
-    for (auto &op : descriptor.ops) {
-        if (isInferenceOpId(op.id))
-            resolvePathAttribute(op, "modelDescriptor", directory);
-        if (op.id == "pek-python-ops/PythonScript") {
-            resolvePathAttribute(op, "script", directory);
-            resolvePathArrayAttribute(op, "pythonPaths", directory);
-        }
+bool hasRelativePathAttribute(const OpChainDescriptor::Op &op, std::string_view attribute) {
+    const std::string key(attribute);
+    return op.attributes.contains(key) &&
+           !std::filesystem::path(op.attributes.getString(key)).is_absolute();
+}
+
+bool hasRelativePathArrayAttribute(const OpChainDescriptor::Op &op, std::string_view attribute) {
+    const std::string key(attribute);
+    if (!op.attributes.contains(key))
+        return false;
+
+    for (const auto &value : op.attributes.getArray(key)) {
+        if (!std::filesystem::path(value.asString()).is_absolute())
+            return true;
     }
+    return false;
+}
+
+pek::Result<void> resolveDescriptorPaths(OpChainDescriptor &descriptor,
+                                         const std::filesystem::path &source) {
+    const auto descriptorDirectory = source.parent_path();
+    std::set<std::filesystem::path> modelDirectories;
+
+    for (auto &op : descriptor.ops) {
+        if (!isInferenceOpId(op.id))
+            continue;
+        resolvePathAttribute(op, "modelDescriptor", descriptorDirectory);
+        modelDirectories.emplace(
+            std::filesystem::path(op.attributes.getString("modelDescriptor")).parent_path());
+    }
+
+    for (auto &op : descriptor.ops) {
+        if (op.id != "pek-python-ops/PythonScript")
+            continue;
+
+        const bool needsModelDirectory = hasRelativePathAttribute(op, "script") ||
+                                         hasRelativePathArrayAttribute(op, "pythonPaths");
+        if (!needsModelDirectory)
+            continue;
+        if (modelDirectories.empty()) {
+            return tl::unexpected(
+                PEK_ERROR(pek::ErrorFlag::InvalidData,
+                          "relative PythonScript paths require an inference modelDescriptor"));
+        }
+        if (modelDirectories.size() != 1) {
+            return tl::unexpected(PEK_ERROR(
+                pek::ErrorFlag::InvalidData,
+                "relative PythonScript paths are ambiguous with modelDescriptors in multiple "
+                "directories; use absolute paths"));
+        }
+
+        const auto &modelDirectory = *modelDirectories.begin();
+        resolvePathAttribute(op, "script", modelDirectory);
+        resolvePathArrayAttribute(op, "pythonPaths", modelDirectory);
+    }
+
+    return {};
 }
 
 } // namespace
@@ -67,7 +115,10 @@ pek::Result<OpChainDescriptor> OpChainDescriptor::fromJson(const std::string &js
 pek::Result<OpChainDescriptor> OpChainDescriptor::fromFile(const std::string &path) {
     std::string content = pek::fs::loadTextOrDefault(path, "");
     auto descriptor = fromJson(content, path);
-    if (descriptor.has_value())
-        resolveDescriptorPaths(*descriptor, path);
+    if (descriptor.has_value()) {
+        auto resolution = resolveDescriptorPaths(*descriptor, path);
+        if (!resolution.has_value())
+            return tl::unexpected(std::move(resolution.error()));
+    }
     return descriptor;
 }
