@@ -747,8 +747,8 @@ jobs:
       contents: read
       packages: read
       pull-requests: read
-    # Fork PR code must not run on the self-hosted RPI runner. PRs use an explicit
-    # run-rpi-ci label to limit SD-card wear; nightly and manual all runs remain automatic.
+    # Fork and Dependabot PR code must not run on the self-hosted RPI runner.
+    # Same-repository non-draft PRs run automatically; run-rpi-ci reruns the lane.
     if: |
       always() &&
       (
@@ -770,10 +770,13 @@ jobs:
         github.event.pull_request.head.repo.full_name == github.repository &&
         github.event.pull_request.user.login != 'dependabot[bot]' &&
         (
-          (github.event.action == 'labeled' && github.event.label.name == 'run-rpi-ci') ||
           (
-            contains(fromJSON('["synchronize","reopened"]'), github.event.action) &&
-            contains(github.event.pull_request.labels.*.name, 'run-rpi-ci')
+            github.event.action != 'labeled' &&
+            github.event.pull_request.draft == false
+          ) ||
+          (
+            github.event.action == 'labeled' &&
+            github.event.label.name == 'run-rpi-ci'
           )
         )
       )
