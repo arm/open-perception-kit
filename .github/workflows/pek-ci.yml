@@ -108,7 +108,7 @@ jobs:
           else
             test "$CHECKS" = label
             case "$PR_LABEL" in
-              run-macos-ci|run-rpi-ci|run-python-audit|run-docker-scout|run-workflow-audit) ;;
+              run-macos-ci|run-python-audit|run-docker-scout|run-workflow-audit) ;;
               *) exit 1 ;;
             esac
           fi
@@ -748,7 +748,7 @@ jobs:
       packages: read
       pull-requests: read
     # Fork and Dependabot PR code must not run on the self-hosted RPI runner.
-    # Same-repository non-draft PRs run automatically; run-rpi-ci reruns the lane.
+    # Same-repository non-draft PRs run automatically.
     if: |
       always() &&
       (
@@ -757,29 +757,19 @@ jobs:
         needs.validate-label-dispatch.result == 'success'
       ) &&
       (
-      github.event_name == 'schedule' ||
-      (
-        github.event_name == 'workflow_dispatch' &&
+        github.event_name == 'schedule' ||
         (
-          (inputs.checks == 'all' && inputs.pr_label == '') ||
-          (inputs.checks == 'label' && inputs.pr_label == 'run-rpi-ci')
-        )
-      ) ||
-      (
-        github.event_name == 'pull_request' &&
-        github.event.pull_request.head.repo.full_name == github.repository &&
-        github.event.pull_request.user.login != 'dependabot[bot]' &&
+          github.event_name == 'workflow_dispatch' &&
+          inputs.checks == 'all' &&
+          inputs.pr_label == ''
+        ) ||
         (
-          (
-            github.event.action != 'labeled' &&
-            github.event.pull_request.draft == false
-          ) ||
-          (
-            github.event.action == 'labeled' &&
-            github.event.label.name == 'run-rpi-ci'
-          )
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          github.event.pull_request.user.login != 'dependabot[bot]' &&
+          github.event.action != 'labeled' &&
+          github.event.pull_request.draft == false
         )
-      )
       )
     env:
       PEK_QUICK_START_CI_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
