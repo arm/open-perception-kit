@@ -28,7 +28,6 @@ class PythonScriptOp final : public pek::op::Op {
 
   private:
     std::filesystem::path scriptPath;
-    std::vector<std::filesystem::path> pythonPaths;
     std::unique_ptr<LoadedScript> loadedScript;
     const pek::Model *model = nullptr;
 };

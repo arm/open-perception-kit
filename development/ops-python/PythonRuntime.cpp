@@ -117,40 +117,43 @@ PyObjectPtr::operator bool() const noexcept {
     return object != nullptr;
 }
 
-PythonPathGuard::PythonPathGuard(const std::vector<std::filesystem::path> &paths) {
+PythonPathTemplate::PythonPathTemplate(const std::vector<std::filesystem::path> &paths) {
     sysModule = PyObjectPtr(PyImport_ImportModule("sys"));
-    originalPathObject =
-        PyObjectPtr(sysModule ? PyObject_GetAttrString(sysModule.get(), "path") : nullptr);
-    originalPathSnapshot =
-        PyObjectPtr(originalPathObject ? PySequence_List(originalPathObject.get()) : nullptr);
-    if (!originalPathObject || !PyList_Check(originalPathObject.get()) || !originalPathSnapshot)
+    PyObjectPtr currentPath(sysModule ? PyObject_GetAttrString(sysModule.get(), "path") : nullptr);
+    path = PyObjectPtr(currentPath ? PySequence_List(currentPath.get()) : nullptr);
+    if (!currentPath || !path)
         throw PythonBridgeError("Failed to access Python sys.path: " + formatPythonError());
 
     for (auto iterator = paths.rbegin(); iterator != paths.rend(); ++iterator) {
         PyObjectPtr value(PyUnicode_FromString(iterator->string().c_str()));
-        if (!value || PyList_Insert(originalPathObject.get(), 0, value.get()) < 0) {
-            const std::string error = formatPythonError();
-            if (PyList_SetSlice(originalPathObject.get(),
-                                0,
-                                PyList_Size(originalPathObject.get()),
-                                originalPathSnapshot.get()) < 0)
-                PyErr_Clear();
-            if (PyObject_SetAttrString(sysModule.get(), "path", originalPathObject.get()) < 0)
-                PyErr_Clear();
-            throw PythonBridgeError("Failed to update Python sys.path: " + error);
-        }
+        if (!value || PyList_Insert(path.get(), 0, value.get()) < 0)
+            throw PythonBridgeError("Failed to prepare Python sys.path: " + formatPythonError());
     }
 }
 
+void PythonPathTemplate::release() noexcept {
+    static_cast<void>(sysModule.release());
+    static_cast<void>(path.release());
+}
+
+PythonPathGuard::PythonPathGuard(const PythonPathTemplate &pathTemplate)
+    : sysModule(pathTemplate.sysModule.get()) {
+    originalPathObject =
+        PyObjectPtr(sysModule ? PyObject_GetAttrString(sysModule, "path") : nullptr);
+    temporaryPath =
+        PyObjectPtr(pathTemplate.path ? PySequence_List(pathTemplate.path.get()) : nullptr);
+    if (!originalPathObject || !temporaryPath)
+        throw PythonBridgeError("Failed to prepare temporary Python sys.path: " +
+                                formatPythonError());
+    if (PyObject_SetAttrString(sysModule, "path", temporaryPath.get()) < 0)
+        throw PythonBridgeError("Failed to activate temporary Python sys.path: " +
+                                formatPythonError());
+}
+
 PythonPathGuard::~PythonPathGuard() {
-    if (!sysModule || !originalPathObject || !originalPathSnapshot)
+    if (sysModule == nullptr || !originalPathObject)
         return;
-    if (PyList_SetSlice(originalPathObject.get(),
-                        0,
-                        PyList_Size(originalPathObject.get()),
-                        originalPathSnapshot.get()) < 0)
-        PyErr_Clear();
-    if (PyObject_SetAttrString(sysModule.get(), "path", originalPathObject.get()) < 0)
+    if (PyObject_SetAttrString(sysModule, "path", originalPathObject.get()) < 0)
         PyErr_Clear();
 }
 

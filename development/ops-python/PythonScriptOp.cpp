@@ -113,7 +113,8 @@ class LoadedScript {
             const std::string source = readScript(scriptPath);
             const auto absolutePath = std::filesystem::absolute(scriptPath);
             GILGuard gil;
-            PythonPathGuard pathGuard(pythonPaths);
+            PythonPathTemplate pathTemplate(pythonPaths);
+            PythonPathGuard pathGuard(pathTemplate);
 
             if (PyObjectPtr runtimeModule(PyImport_ImportModule("pek_python_ops"));
                 !runtimeModule) {
@@ -176,8 +177,10 @@ class LoadedScript {
                 return tl::unexpected(signatureResult.error());
             }
 
-            return std::unique_ptr<LoadedScript>(new LoadedScript(
-                std::move(moduleName), std::move(scriptModule), std::move(processFunction)));
+            return std::unique_ptr<LoadedScript>(new LoadedScript(std::move(moduleName),
+                                                                  std::move(scriptModule),
+                                                                  std::move(processFunction),
+                                                                  std::move(pathTemplate)));
         } catch (const std::exception &error) {
             return tl::unexpected(PEK_ERROR(pek::ErrorFlag::SystemFailure, error.what()));
         }
@@ -194,10 +197,17 @@ class LoadedScript {
         return callable.get();
     }
 
+    [[nodiscard]] const PythonPathTemplate &pythonPathTemplate() const noexcept {
+        return pathTemplate;
+    }
+
   private:
-    LoadedScript(std::string moduleName, PyObjectPtr moduleObject, PyObjectPtr callable)
+    LoadedScript(std::string moduleName,
+                 PyObjectPtr moduleObject,
+                 PyObjectPtr callable,
+                 PythonPathTemplate pathTemplate)
         : moduleName(std::move(moduleName)), moduleObject(std::move(moduleObject)),
-          callable(std::move(callable)) {}
+          callable(std::move(callable)), pathTemplate(std::move(pathTemplate)) {}
 
     void reset() noexcept {
         if (!moduleObject && !callable)
@@ -205,6 +215,7 @@ class LoadedScript {
         if (!Py_IsInitialized()) {
             static_cast<void>(moduleObject.release());
             static_cast<void>(callable.release());
+            pathTemplate.release();
             return;
         }
 
@@ -212,11 +223,13 @@ class LoadedScript {
         removeModule(moduleName);
         callable = PyObjectPtr();
         moduleObject = PyObjectPtr();
+        pathTemplate = PythonPathTemplate();
     }
 
     std::string moduleName;
     PyObjectPtr moduleObject;
     PyObjectPtr callable;
+    PythonPathTemplate pathTemplate;
 };
 
 PythonScriptOp::PythonScriptOp() = default;
@@ -259,7 +272,6 @@ pek::Result<void> PythonScriptOp::configure(const pek::AttributeMap &attributes)
             return tl::unexpected(candidateScript.error());
 
         scriptPath = candidateScriptPath;
-        pythonPaths = std::move(candidatePythonPaths);
         loadedScript = std::move(*candidateScript);
         model = nullptr;
     } catch (const pek::AttributeError &error) {
@@ -302,7 +314,7 @@ pek::Result<pek::op::OpSignal> PythonScriptOp::process(pek::op::OpChainContext &
 
     try {
         GILGuard gil;
-        PythonPathGuard pathGuard(pythonPaths);
+        PythonPathGuard pathGuard(loadedScript->pythonPathTemplate());
         perception::python_bridge::scoped_envelope envelope(*context.frameResults);
         const auto producer = producerInfo(context.inferenceInfo.inferElementId,
                                            scriptPath.filename().string(),

@@ -43,17 +43,34 @@ class PyObjectPtr {
     PyObject *object;
 };
 
+class PythonPathTemplate {
+  public:
+    PythonPathTemplate() = default;
+    explicit PythonPathTemplate(const std::vector<std::filesystem::path> &paths);
+    PythonPathTemplate(const PythonPathTemplate &) = delete;
+    PythonPathTemplate &operator=(const PythonPathTemplate &) = delete;
+    PythonPathTemplate(PythonPathTemplate &&) noexcept = default;
+    PythonPathTemplate &operator=(PythonPathTemplate &&) noexcept = default;
+    void release() noexcept;
+
+  private:
+    friend class PythonPathGuard;
+
+    PyObjectPtr sysModule;
+    PyObjectPtr path;
+};
+
 class PythonPathGuard {
   public:
-    explicit PythonPathGuard(const std::vector<std::filesystem::path> &paths);
+    explicit PythonPathGuard(const PythonPathTemplate &pathTemplate);
     PythonPathGuard(const PythonPathGuard &) = delete;
     PythonPathGuard &operator=(const PythonPathGuard &) = delete;
     ~PythonPathGuard();
 
   private:
-    PyObjectPtr sysModule;
+    PyObject *sysModule = nullptr;
     PyObjectPtr originalPathObject;
-    PyObjectPtr originalPathSnapshot;
+    PyObjectPtr temporaryPath;
 };
 
 std::filesystem::path packagedPythonPath();

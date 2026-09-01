@@ -320,6 +320,25 @@ TEST(PythonScriptOp, AcceptsExistingPythonImportPaths) {
     EXPECT_TRUE(script.configure(configuration));
 }
 
+TEST(PythonScriptOp, SupportsLazyImportsFromConfiguredPythonPaths) {
+    auto configuration = attributes("lazy_import.py");
+    configuration.setArray(
+        "pythonPaths",
+        pek::AttributeValue::Array{pek::AttributeValue(
+            (std::filesystem::path(PYTHON_SCRIPT_OP_FIXTURES) / "lazy_import_path").string())});
+
+    pek::python::PythonScriptOp script;
+    std::vector<pek::op::Op *> ops = {&script};
+    ASSERT_TRUE(script.configure(configuration));
+    ASSERT_TRUE(script.bind(0, ops));
+
+    perception::FrameResults results;
+    pek::op::OpChainContext context;
+    context.frameResults = &results;
+
+    EXPECT_TRUE(script.process(context));
+}
+
 TEST(PythonScriptOp, AcceptsCompatibleVariadicProcessSignature) {
     pek::python::PythonScriptOp script;
     std::vector<pek::op::Op *> ops = {&script};
@@ -376,6 +395,20 @@ TEST(PythonScriptOp, RestoresSysPathAfterScriptMutation) {
     ASSERT_TRUE(checkingScript.configure(attributes("assert_sys_path_restored.py")));
     ASSERT_TRUE(checkingScript.bind(0, checkingOps));
     EXPECT_TRUE(checkingScript.process(context));
+}
+
+TEST(PythonScriptOp, UsesFreshSysPathForEveryProcessCall) {
+    pek::python::PythonScriptOp script;
+    std::vector<pek::op::Op *> ops = {&script};
+    ASSERT_TRUE(script.configure(attributes("mutate_sys_path_repeatedly.py")));
+    ASSERT_TRUE(script.bind(0, ops));
+
+    perception::FrameResults results;
+    pek::op::OpChainContext context;
+    context.frameResults = &results;
+
+    ASSERT_TRUE(script.process(context));
+    EXPECT_TRUE(script.process(context));
 }
 
 TEST(PythonScriptOp, UsesConfiguredContainerRuntime) {
