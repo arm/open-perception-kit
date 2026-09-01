@@ -40,6 +40,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: blackduck-${{ inputs.version_name }}
+  cancel-in-progress: false
+
 jobs:
   detect-wrapper:
     name: Detect wrapper

@@ -228,9 +228,34 @@ jobs:
     name: Detect wrapper
     uses: ./.github/workflows/blackduck-detect.yml
 
+  blackduck-release-retention:
+    name: Reserve Black Duck release slot
+    needs: prepare
+    runs-on: self-hosted-ubuntu-latest-x64
+    permissions:
+      contents: read
+    concurrency:
+      group: blackduck-release-retention
+      cancel-in-progress: false
+    steps:
+      - name: Checkout cleanup helper
+        if: github.event_name == 'push'
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Keep three Black Duck releases
+        if: github.event_name == 'push'
+        env:
+          BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }} # pragma: allowlist secret
+          BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
+          VERSION_NAME: v${{ needs.prepare.outputs.version }}
+        run: .github/scripts/blackduck_version_cleanup.sh rotate-release "$VERSION_NAME"
+
   blackduck-release-packages:
     name: Scan ${{ matrix.architecture }} release package
-    needs: [prepare, build, blackduck-detect]
+    needs: [prepare, build, blackduck-detect, blackduck-release-retention]
     strategy:
       fail-fast: false
       matrix:
