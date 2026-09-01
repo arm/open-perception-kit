@@ -79,7 +79,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     timeout 30s curl \
       --fail --location --proto '=https' --proto-redir '=https' \
       --retry 1 --output "${destination}" "${url}" || \
-      curl \
+      timeout 180s curl \
         --fail --location --proto '=https' --proto-redir '=https' \
         --retry 3 --output "${destination}" "${fallback_url}"; \
     echo "${sha256}  ${destination}" | sha256sum --check --strict; \
