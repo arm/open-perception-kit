@@ -76,6 +76,15 @@ opchain_descriptor_tests = executable(
   link_with : [common],
 )
 
+standard_content_type_tests = executable(
+  'standard_content_type_tests',
+  ['standard_content_type_test.cpp'],
+  include_directories : [common_include],
+  cpp_args : ['-DPEK_STDOPS_PATH="' + stdops.full_path() + '"'],
+  dependencies : [gtest_main_dep, gtest_dep, pek_deps],
+  link_with : [common],
+)
+
 # Test-only OpChain plugin that simulates inference exceeding one frame budget.
 qos_delay_op = shared_module(
   'pek-test-qos-delay',
@@ -242,6 +251,7 @@ test(
   ],
 )
 test('opchain_descriptor_tests', opchain_descriptor_tests)
+test('standard_content_type_tests', standard_content_type_tests, depends : stdops)
 test(
   'pek_menu_cli_tests',
   python,

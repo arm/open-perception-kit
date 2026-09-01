@@ -128,6 +128,13 @@ static bool gst_pekinfer_provides_content_type(const GstPekInfer *self,
     return std::ranges::find(providedContentTypes, contentType) != providedContentTypes.end();
 }
 
+static void gst_pekinfer_activate_for_content_requirement(GstPekInfer *self) {
+    if (gst_pekinfer_is_active(self))
+        gst_pekinfer_emit_content_requirements(self);
+    else
+        g_object_set(self, "active", TRUE, nullptr);
+}
+
 static void gst_pekinfer_push_model_registration(GstPekInfer *self) {
     if (self->m == nullptr)
         return;
@@ -306,12 +313,8 @@ static gboolean gst_pekinfer_src_event(GstBaseTransform *trans, GstEvent *event)
             gst_structure_has_name(structure, pek::content_requirement_event::k_name.data())) {
             const gchar *contentType = gst_structure_get_string(
                 structure, pek::content_requirement_event::k_content_type_field.data());
-            if (contentType != nullptr && gst_pekinfer_provides_content_type(self, contentType)) {
-                if (gst_pekinfer_is_active(self))
-                    gst_pekinfer_emit_content_requirements(self);
-                else
-                    g_object_set(self, "active", TRUE, nullptr);
-            }
+            if (contentType != nullptr && gst_pekinfer_provides_content_type(self, contentType))
+                gst_pekinfer_activate_for_content_requirement(self);
         }
     }
 

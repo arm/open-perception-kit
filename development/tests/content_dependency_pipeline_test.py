@@ -109,6 +109,27 @@ class ContentDependencyPipelineTest(unittest.TestCase):
             self.assertTrue(self.elements[name].get_property("active"), name)
         self.assertFalse(self.elements["unrelated"].get_property("active"))
 
+    def test_model_can_be_activated_before_pipeline_start(self) -> None:
+        self.create_pipeline()
+
+        self.elements["contact"].set_property("active", True)
+
+        self.assertTrue(self.elements["contact"].get_property("active"))
+
+    def test_malformed_content_requirement_events_are_ignored(self) -> None:
+        self.create_pipeline()
+        self.start_pipeline()
+
+        for structure_name in ("not-a-content-requirement", "pek-content-required"):
+            structure = self.Gst.Structure.new_empty(structure_name)
+            event = self.Gst.Event.new_custom(
+                self.Gst.EventType.CUSTOM_UPSTREAM, structure
+            )
+            self.elements["gaze"].get_static_pad("src").send_event(event)
+
+        for element in self.elements.values():
+            self.assertFalse(element.get_property("active"))
+
     def test_initially_active_model_activates_upstream_dependencies(self) -> None:
         # Gaze uses pekinfer's default active=true state; every other model starts
         # disabled so activation can only come from requirements emitted at startup.

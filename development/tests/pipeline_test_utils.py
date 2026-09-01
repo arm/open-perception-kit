@@ -33,6 +33,9 @@ def write_test_opchain(
             {
                 "version": 1,
                 "name": f"pipeline-test-{name}",
+                "displayName": f"Pipeline Test {name}",
+                "task": "Pipeline integration",
+                "runtime": "Test",
                 "description": "Pipeline integration test OpChain",
                 "ops": [
                     {
