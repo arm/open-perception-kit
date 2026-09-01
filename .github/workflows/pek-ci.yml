@@ -115,8 +115,16 @@ jobs:
 
   build-ci-image:
     name: Build PEK CI image
+    needs: validate-label-dispatch
     runs-on: ubuntu-latest
     if: |
+      always() &&
+      (
+        github.event_name != 'workflow_dispatch' ||
+        inputs.pr_label == '' ||
+        needs.validate-label-dispatch.result == 'success'
+      ) &&
+      (
       (
         github.event_name == 'workflow_dispatch' &&
         (inputs.checks != 'label' || inputs.pr_label == 'run-docker-scout')
@@ -136,6 +144,7 @@ jobs:
           github.event.pull_request.draft == false ||
           github.event.action == 'labeled'
         )
+      )
       )
     permissions:
       contents: read
@@ -464,7 +473,15 @@ jobs:
 
   python-dependency-audit:
     name: Python Dependency Audit
+    needs: validate-label-dispatch
     if: |
+      always() &&
+      (
+        github.event_name != 'workflow_dispatch' ||
+        inputs.pr_label == '' ||
+        needs.validate-label-dispatch.result == 'success'
+      ) &&
+      (
       (
         github.event_name == 'workflow_dispatch' &&
         inputs.checks == 'label' &&
@@ -481,6 +498,7 @@ jobs:
           )
         )
       )
+      )
     permissions:
       contents: read
     uses: ./.github/workflows/python-dependency-audit.yml
@@ -489,7 +507,15 @@ jobs:
 
   workflow-dependency-freshness:
     name: Workflow Dependency Freshness
+    needs: validate-label-dispatch
     if: |
+      always() &&
+      (
+        github.event_name != 'workflow_dispatch' ||
+        inputs.pr_label == '' ||
+        needs.validate-label-dispatch.result == 'success'
+      ) &&
+      (
       (
         github.event_name == 'workflow_dispatch' &&
         inputs.checks == 'label' &&
@@ -505,6 +531,7 @@ jobs:
             contains(github.event.pull_request.labels.*.name, 'run-workflow-audit')
           )
         )
+      )
       )
     permissions:
       actions: read
@@ -713,6 +740,7 @@ jobs:
 
   rpi5-quick-start-build-test:
     name: Quick-start and Playwright on Raspberry Pi 5
+    needs: validate-label-dispatch
     runs-on: [self-hosted, Linux, ARM64, amp-dev-forge-runner-rpi5]
     timeout-minutes: 240
     permissions:
@@ -722,6 +750,13 @@ jobs:
     # Fork PR code must not run on the self-hosted RPI runner. PRs use an explicit
     # run-rpi-ci label to limit SD-card wear; nightly and manual all runs remain automatic.
     if: |
+      always() &&
+      (
+        github.event_name != 'workflow_dispatch' ||
+        inputs.pr_label == '' ||
+        needs.validate-label-dispatch.result == 'success'
+      ) &&
+      (
       github.event_name == 'schedule' ||
       (
         github.event_name == 'workflow_dispatch' &&
@@ -741,6 +776,7 @@ jobs:
             contains(github.event.pull_request.labels.*.name, 'run-rpi-ci')
           )
         )
+      )
       )
     env:
       PEK_QUICK_START_CI_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
@@ -853,6 +889,7 @@ jobs:
 
   macos-nightly-test:
     name: Quick-start and Playwright on macOS
+    needs: validate-label-dispatch
     runs-on: self-hosted-macos-arm64-latest
     timeout-minutes: 240
     permissions:
@@ -861,6 +898,13 @@ jobs:
       packages: read
       pull-requests: read
     if: |
+      always() &&
+      (
+        github.event_name != 'workflow_dispatch' ||
+        inputs.pr_label == '' ||
+        needs.validate-label-dispatch.result == 'success'
+      ) &&
+      (
       github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' && inputs.checks == 'all' && inputs.pr_label == '') ||
       (github.event_name == 'workflow_dispatch' && inputs.checks == 'label' && inputs.pr_label == 'run-macos-ci') ||
@@ -872,6 +916,7 @@ jobs:
           ((github.event.action == 'synchronize' || github.event.action == 'reopened') &&
             contains(github.event.pull_request.labels.*.name, 'run-macos-ci'))
         )
+      )
       )
     env:
       PEK_QUICK_START_CI_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
