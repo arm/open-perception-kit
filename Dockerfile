@@ -171,15 +171,17 @@ RUN set -eux; \
   flatbuffers_sha256="$(node -e 'const config=require("/tmp/perception-sdk.json"); console.log(config.typescript_build.flatbuffers_runtime.sha256)')"; \
   typescript_url="$(node -e 'const config=require("/tmp/perception-sdk.json"); console.log(config.typescript_build.typescript.url)')"; \
   typescript_sha256="$(node -e 'const config=require("/tmp/perception-sdk.json"); console.log(config.typescript_build.typescript.sha256)')"; \
+  download_once() { \
+    local max_time="$1"; local retries="$2"; local url="$3"; local destination="$4"; \
+    timeout "${max_time}" curl \
+      --fail --location --proto '=https' --proto-redir '=https' \
+      --retry "${retries}" --output "${destination}" "${url}"; \
+  }; \
   download() { \
     local url="$1"; local destination="$2"; \
-    timeout 30s curl \
-      --fail --location --proto '=https' --proto-redir '=https' \
-      --retry 1 --output "${destination}" "${url}" || \
-      timeout 180s curl \
-        --fail --location --proto '=https' --proto-redir '=https' \
-        --retry 3 --output "${destination}" \
-        "${NPM_FALLBACK_REGISTRY}/${url#https://registry.npmjs.org/}"; \
+    download_once 30s 1 "${url}" "${destination}" || \
+      download_once 180s 3 \
+        "${NPM_FALLBACK_REGISTRY}/${url#https://registry.npmjs.org/}" "${destination}"; \
   }; \
   download "${esbuild_url}" /tmp/esbuild-wasm.tgz; \
   download "${flatbuffers_url}" /tmp/flatbuffers.tgz; \
