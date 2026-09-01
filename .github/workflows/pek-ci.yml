@@ -829,6 +829,15 @@ jobs:
           source .github/scripts/configure_workspace_ssh.sh
           git submodule update --init --recursive
 
+      - name: Restore RPI compiler cache
+        id: compiler-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/.cache/ccache
+          key: pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-rpi5-${{ steps.manual_pr.outputs.head_sha || github.event.pull_request.head.sha || github.sha }}
+          restore-keys: |
+            pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-rpi5-
+
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4
         with:
@@ -851,8 +860,12 @@ jobs:
         run: ./scripts/quick-start/start-container.sh --recreate
 
       - name: Build PEK in quick-start container
+        id: pek-build
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        run: ./scripts/build.sh
+        run: |
+          docker exec -u dev "${PEK_QUICK_START_CI_NAME}-dev" ccache --zero-stats
+          ./scripts/build.sh
+          docker exec -u dev "${PEK_QUICK_START_CI_NAME}-dev" ccache --show-stats
 
       - name: Browser smoke test with local data
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -861,6 +874,13 @@ jobs:
           BROWSER_SMOKE_REBUILD: "1"
           NUM_FRAMES: "45000"
         run: exec ./scripts/playwright/browser-smoke/run.sh
+
+      - name: Save RPI compiler cache
+        if: ${{ !cancelled() && steps.pek-build.outcome == 'success' && steps.compiler-cache.outputs.cache-hit != 'true' && (github.event_name == 'schedule' || startsWith(github.ref, 'refs/pull/')) }}
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/.cache/ccache
+          key: ${{ steps.compiler-cache.outputs.cache-primary-key }}
 
       - name: Upload RPI browser smoke artifacts
         if: always()

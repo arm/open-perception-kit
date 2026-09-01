@@ -26,7 +26,7 @@ pull-request code.
 | Stored data | Owner and lifetime |
 | --- | --- |
 | Buildx `pek-ci` cache | `develop`-owned GitHub Actions seed |
-| Quality, Sonar, Valgrind, and Black Duck ccache | Separate GitHub Actions branch/PR caches for each check |
+| Quality, Sonar, Valgrind, Black Duck, and Raspberry Pi ccache | Separate GitHub Actions branch/PR caches for each check |
 | YOLO Pages benchmark inputs | Checksum-tagged GHCR data image produced by `develop` and read by the three Pages publishers |
 | Run-tagged `pek-ci` image | GHCR handoff between jobs; deleted after one day |
 | Exact-SHA Arm64 development image | GHCR; newest 20 retained; used by macOS and YOLO |
@@ -40,9 +40,9 @@ pull-request code.
 The `develop` branch is the only writer of the PEK CI BuildKit cache; `main`,
 pull requests, tags, and manual runs only read it.
 
-- Pull requests write only their lane-specific Quality, Sonar, Valgrind, and
-  Black Duck compiler caches under the PR merge ref; reruns of the same PR
-  reuse them, and the close workflow deletes them.
+- Pull requests write only their lane-specific Quality, Sonar, Valgrind, Black
+  Duck, and Raspberry Pi compiler caches under the PR merge ref; reruns of the
+  same PR reuse them, and the close workflow deletes them.
 
 The architecture-neutral `pek-yolo-pages-dataset` target contains the verified
 COCO val2017 images and pinned benchmark video used in Pages deployments. Its
