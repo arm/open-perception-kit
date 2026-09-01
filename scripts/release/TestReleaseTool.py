@@ -29,6 +29,17 @@ PLUGIN_DIR = Path("lib/gstreamer-1.0")
 SOURCE_COMMIT = "a" * 40
 
 
+class FakeDistribution:
+    def __init__(self, root: Path, name: str, version: str, files: list[str]) -> None:
+        self.root = root
+        self.metadata = {"Name": name}
+        self.version = version
+        self.files = [Path(path) for path in files]
+
+    def locate_file(self, path: object) -> Path:
+        return self.root / str(path)
+
+
 def add_model(
     repo_root: Path, model_id: str, filename: str, op_id: str, content: bytes = b"model"
 ) -> None:
@@ -94,6 +105,127 @@ class ReleaseToolTests(unittest.TestCase):
             stderr=subprocess.PIPE,
             text=True,
         )
+
+    def test_stages_and_validates_private_python_runtime(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source_root = root / "site-packages"
+            distributions = {
+                "flatbuffers": FakeDistribution(
+                    source_root,
+                    "flatbuffers",
+                    "25.9.23",
+                    [
+                        "flatbuffers/__init__.py",
+                        "flatbuffers-25.9.23.dist-info/METADATA",
+                        "flatbuffers-25.9.23.dist-info/RECORD",
+                    ],
+                ),
+                "numpy": FakeDistribution(
+                    source_root,
+                    "numpy",
+                    "2.4.2",
+                    [
+                        "numpy/__init__.py",
+                        "numpy/_core/module.so",
+                        "numpy/_core/include/numpy.h",
+                        "numpy/tests/test_runtime.py",
+                        "numpy-2.4.2.dist-info/METADATA",
+                    ],
+                ),
+                "opk-perception-sdk": FakeDistribution(
+                    source_root,
+                    "opk_perception_sdk",
+                    "0.3.0",
+                    [
+                        "perception/__init__.py",
+                        "opk_perception_sdk-0.3.0.dist-info/METADATA",
+                    ],
+                ),
+            }
+            for distribution in distributions.values():
+                for entry in distribution.files:
+                    path = distribution.locate_file(entry)
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text(str(entry), encoding="utf-8")
+
+            stage_root = root / "stage"
+            stale_runtime_root = stage_root / release_tool.PYTHON_RUNTIME_ROOT
+            stale_runtime_root.mkdir(parents=True)
+            (stale_runtime_root / "stale-package.py").write_text("stale", encoding="utf-8")
+            with patch.object(
+                release_tool.importlib.metadata,
+                "distribution",
+                side_effect=lambda name: distributions[name],
+            ):
+                release_tool.stage_python_runtime(SimpleNamespace(stage_root=str(stage_root)))
+
+            runtime_root = stage_root / release_tool.PYTHON_RUNTIME_ROOT
+            self.assertFalse((runtime_root / "stale-package.py").exists())
+            (runtime_root / "pek_python_ops.pyi").write_text("", encoding="utf-8")
+            self.assertTrue((runtime_root / "numpy/_core/module.so").is_file())
+            self.assertFalse((runtime_root / "numpy/_core/include/numpy.h").exists())
+            self.assertFalse((runtime_root / "numpy/tests/test_runtime.py").exists())
+            self.assertFalse(
+                (runtime_root / "flatbuffers-25.9.23.dist-info/RECORD").exists()
+            )
+            release_tool.validate_python_runtime(stage_root)
+
+            repo_root = root / "source"
+            (repo_root / "development/ops-python").mkdir(parents=True)
+            (repo_root / "tools/perception").mkdir(parents=True)
+            (repo_root / "generated/perception/python").mkdir(parents=True)
+            (repo_root / "development/ops-python/runtime.json").write_text(
+                json.dumps({"numpy": {"version": "2.4.2"}}), encoding="utf-8"
+            )
+            (repo_root / "tools/perception/sdk.json").write_text(
+                json.dumps({"flatbuffers": {"version": "25.9.23"}}),
+                encoding="utf-8",
+            )
+            (repo_root / "generated/perception/python/pyproject.toml").write_text(
+                '[project]\nversion = "0.3.0"\n', encoding="utf-8"
+            )
+            release_tool.validate_python_runtime(stage_root, repo_root)
+
+            (runtime_root / "requests").mkdir()
+            with self.assertRaisesRegex(RuntimeError, "unexpected entries"):
+                release_tool.validate_python_runtime(stage_root)
+            (runtime_root / "requests").rmdir()
+
+            (runtime_root / release_tool.PYTHON_RUNTIME_MANIFEST).write_text(
+                json.dumps({"distributions": {"numpy": "2.4.2"}}),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(RuntimeError, "release contract"):
+                release_tool.validate_python_runtime(stage_root)
+
+    def test_elf_dependencies_can_resolve_through_rpath(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            package_root = Path(temporary)
+            library_root = package_root / "share/pek/python/numpy.libs"
+            library_root.mkdir(parents=True)
+            extension = library_root / "libextension.so"
+            dependency = library_root / "libdependency.so"
+            extension.touch()
+            dependency.touch()
+
+            def fake_read_elf(path: Path, *arguments: str) -> str:
+                if arguments == ("-hW",):
+                    return "Machine: AArch64\n"
+                if path == extension:
+                    return """
+ 0x000000000000000f (RPATH) Library rpath: [$ORIGIN]
+ 0x0000000000000001 (NEEDED) Shared library: [libdependency.so]
+"""
+                return ""
+
+            with patch.object(release_tool, "read_elf", side_effect=fake_read_elf):
+                release_tool.validate_elf(
+                    extension,
+                    package_root,
+                    "AArch64",
+                    {dependency.name: [dependency]},
+                )
 
     def test_stages_local_model_with_relative_references(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

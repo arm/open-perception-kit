@@ -228,9 +228,11 @@ stages inherit everything from their parent unless noted otherwise.
   enable the Python operation module for the runnable deployment image. They use
   the selected source and flowdata-sdk gitlink identities to package the
   checked-in Perception SDK snapshot and reuse the same Meson build to create
-  the validated architecture tarball in `/opt/pek-release-artifacts`. Cross
-  builds omit the embedded Python operation module because its target Python
-  development dependency cannot be discovered through the current cross file.
+  the validated architecture tarball in `/opt/pek-release-artifacts`. The native
+  archive contains the Python operation module and copies its locked runtime
+  packages into `share/pek/python`. Cross builds omit the embedded Python
+  operation module because its target Python development dependency cannot be
+  discovered through the current cross file.
 - `pek-python-ops-runtime`: runs on the target platform and creates the embedded
   Python virtual environment from the pinned target-architecture NumPy wheel,
   the pinned FlatBuffers wheel, and the generated Perception Python package.

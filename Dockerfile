@@ -682,6 +682,9 @@ RUN --mount=type=cache,id=pek-deployment-ccache,target=/work/.cache/ccache,shari
     /work/tools/pek-config-check --root /work; \
     DESTDIR="${package_root}" meson install \
       -C /work/development/build --skip-subprojects; \
+    /opt/pek-venvs/python-ops-runtime/bin/python \
+      /work/scripts/release/ReleaseTool.py stage-python-runtime \
+      --stage-root "${package_root}"; \
     cp /opt/pek-deps/onnxruntime/lib/libonnxruntime.so.1.24.4 \
       "${package_root}/lib/pek/"; \
     ln -s libonnxruntime.so.1.24.4 \
@@ -861,6 +864,20 @@ RUN --network=none set -eux; \
       pekosd enabled=true ! fakesink sync=false; \
     test -s "${output}"; \
   done; \
+  python_smoke_root="${package_root}/share/pek/models/yolov11"; \
+  cp /work/development/tests/python_script_op/runtime_environment.py \
+    "${python_smoke_root}/"; \
+  python3 -c \
+    'import json, sys; opchain=json.load(open(sys.argv[1], encoding="utf-8")); opchain["ops"].insert(0, {"id": "pek-python-ops/PythonScript", "attributes": {"script": "runtime_environment.py"}}); json.dump(opchain, open(sys.argv[2], "w", encoding="utf-8"))' \
+    "${python_smoke_root}/opchain.json" \
+    "${python_smoke_root}/opchain-python-smoke.json"; \
+  env -u PEK_DEVTOOLS_VENV -u PEK_PYTHON_RUNTIME_VENV \
+    GST_REGISTRY="${registry}" timeout 120s gst-launch-1.0 -q \
+    videotestsrc pattern=ball num-buffers=1 ! \
+    video/x-raw,format=BGRA,width=320,height=320,framerate=5/1 ! \
+    pekinfer \
+      opchain-path="${python_smoke_root}/opchain-python-smoke.json" ! \
+    fakesink sync=false; \
   GST_REGISTRY="${registry}" timeout 120s gst-launch-1.0 -q \
     videotestsrc pattern=ball num-buffers=5 ! \
     video/x-raw,format=BGRA,width=320,height=320,framerate=5/1 ! \

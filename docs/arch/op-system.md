@@ -115,7 +115,9 @@ Python paths. It is a generic hook: before inference it receives an empty tensor
 tuple, while after inference it receives the latest output tensors as read-only
 NumPy views. The views are zero-copy and valid only for the duration of the call.
 The operation is supported by native pipelines in the official PEK containers
-and uses their pinned embedded Python runtime.
+and by extracted PEK binary releases on Debian Trixie. Containers use their
+locked virtual environment; binary releases use the system CPython interpreter
+and package-relative locked Python dependencies.
 
 ## Inference and Postprocessing Interfaces
 

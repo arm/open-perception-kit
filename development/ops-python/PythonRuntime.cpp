@@ -6,7 +6,10 @@
 
 #include <dlfcn.h>
 
+#include <cstdlib>
+#include <filesystem>
 #include <mutex>
+#include <string>
 #include <string_view>
 #include <utility>
 
@@ -44,6 +47,13 @@ void exposePythonSymbols() {
     }
 }
 
+std::filesystem::path pythonExecutable() {
+    const char *runtimeVenv = std::getenv("PEK_PYTHON_RUNTIME_VENV");
+    if (runtimeVenv != nullptr && std::string_view(runtimeVenv).empty() == false)
+        return std::filesystem::path(runtimeVenv) / "bin/python";
+    return PEK_PYTHON_EXECUTABLE;
+}
+
 void initializeRuntime() {
     exposePythonSymbols();
     perception::python_bridge::append_inittab();
@@ -52,8 +62,10 @@ void initializeRuntime() {
     PyConfig config;
     PyConfig_InitPythonConfig(&config);
     PyStatus status = PyStatus_Ok();
-    if (std::string_view(PEK_PYTHON_EXECUTABLE).empty() == false) {
-        status = PyConfig_SetBytesString(&config, &config.program_name, PEK_PYTHON_EXECUTABLE);
+    const auto executable = pythonExecutable();
+    if (!executable.empty()) {
+        const auto executableString = executable.string();
+        status = PyConfig_SetBytesString(&config, &config.program_name, executableString.c_str());
     }
     if (!PyStatus_Exception(status))
         status = Py_InitializeFromConfig(&config);

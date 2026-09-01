@@ -11,9 +11,10 @@ script runs inside the pipeline process and is loaded once for each Op instance,
 so module globals persist between calls.
 
 Python postprocessors are supported when a native PEK pipeline runs inside the
-official quick-start or deployment container. Both images supply the compatible
+official quick-start or deployment container, or from an extracted PEK binary
+release on its supported Debian platform. The containers supply the compatible
 CPython interpreter, NumPy, FlatBuffers runtime, and generated Perception guest
-bridge; no Python installation from the host system is used.
+bridge; no Python installation from the development host is used.
 
 ## Developer workflow
 
@@ -250,7 +251,7 @@ versions. It does not support a native macOS or Windows developer workflow.
 - Scripts are not sandboxed. They can access the process, filesystem, network,
   and imported native modules. A slow script blocks the streaming thread.
 - Build with `-Dpython_ops=enabled`, or set `PEK_PYTHON_OPS=enabled` when using
-  `scripts/build.sh`. Run the resulting pipeline through a native PEK
-  launcher inside an official PEK container. Python-hosted GStreamer
-  applications, standalone binary archives, and deployments outside those
-  containers are not part of the current support contract.
+  `scripts/build.sh`. Run the resulting pipeline through a native PEK launcher
+  inside an official PEK container or with the matching extracted PEK binary
+  release on Debian Trixie. Python-hosted GStreamer applications and other
+  deployment platforms are not part of the current support contract.
