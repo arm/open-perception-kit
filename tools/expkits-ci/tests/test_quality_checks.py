@@ -496,7 +496,7 @@ class TestQualityChecks(unittest.TestCase):
         self.assertRegex("../common/pek/Result.h", project_file_pattern)
         self.assertRegex("../config-validator/Validator.cpp", project_file_pattern)
         self.assertRegex("/work/development/runtime/Result.cpp", project_file_pattern)
-        self.assertRegex("../ops-ncnn/NcnnOp.cpp", project_file_pattern)
+        self.assertRegex("../ops-onnx/Inference.cpp", project_file_pattern)
         self.assertNotRegex("../subprojects/fmt/include/fmt/base.h", project_file_pattern)
 
     def test_check_secrets_batches_files_and_uses_resolved_command(self):

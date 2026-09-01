@@ -84,19 +84,11 @@ consumes against `config/schemas/v1/model.schema.json` before starting any
 remote download. Schema, JSON, and destination validation failures are reported
 through Python logging and stop the build without a traceback.
 
-`hfDownload` currently downloads one file. Companion artifacts, such as an
-NCNN `.param` plus `.bin`, must already be present locally in the Docker build
-context; `hfDownload` cannot fetch both.
-
 Important input metadata includes:
 - shape
 - data kind, such as `ImageRgbChw` or `ImageRgbHwc`
 - value type
 - normalization, if required by the model
-
-For NCNN descriptors, use the `.param` file as `modelFile`; the runtime loads the sibling `.bin`
-file with the same basename. NCNN input/output blob names are read from the model; keep JSON
-tensor descriptors in the same order as the model's formal inputs and outputs.
 
 The easiest workflow is to copy one of the existing model folders and then adjust only the fields that differ.
 

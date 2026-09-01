@@ -518,9 +518,7 @@ def validate_release_tree(package_root: Path) -> None:
             for part in relative.parts
         ):
             fail(f"Forbidden retired release path: {relative}")
-        if path.name == "pek-menu" or path.name.startswith(
-            ("libfmt.so", "pek-ncnn-ops.so")
-        ):
+        if path.name == "pek-menu" or path.name.startswith("libfmt.so"):
             fail(f"Forbidden release file: {relative}")
         if path.is_file() and path.suffix.lower() in {".a", ".h", ".hh", ".hpp"}:
             fail(f"Forbidden SDK file: {relative}")

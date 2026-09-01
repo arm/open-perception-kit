@@ -33,7 +33,7 @@ digests as one multi-architecture
 `ghcr.io/arm-debug/amp-dev-forge-deployment` image and copies the tarball from
 each finished image. Hugging Face and ExecuTorch credentials are BuildKit
 secrets and are not stored in image layers or published artifacts. Release
-builds omit the NCNN runtime, package ONNX Runtime 1.24.4 with its
+builds package ONNX Runtime 1.24.4 with its
 required SONAME link, and statically link ExecuTorch into its operation module
 without shipping ExecuTorch SDK files.
 
@@ -149,7 +149,7 @@ The validator checks:
 - no public or source headers;
 - expected architecture and package-relative RUNPATH on every PEK DSO;
 - complete classified `DT_NEEDED` resolution;
-- no fmt DSO, NCNN, source, tests, examples, or pipeline presets;
+- no fmt DSO, source, tests, examples, or pipeline presets;
 - one ONNX Runtime binary and its `libonnxruntime.so.1` link;
 - the standard, ONNX, and experimental ExecuTorch operation modules;
 - exactly the seven release model directories;

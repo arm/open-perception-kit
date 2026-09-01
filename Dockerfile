@@ -570,13 +570,10 @@ RUN --mount=type=cache,id=pek-deployment-ccache,target=/work/.cache/ccache,shari
   fi; \
   mkdir -p /work/tools; \
   executorch=auto; \
-  ncnn=auto; \
   if [ "${PEK_RELEASE_BUILD}" = true ]; then \
     executorch=enabled; \
-    ncnn=disabled; \
   fi; \
   PEK_EXECUTORCH="${executorch}" \
-  PEK_NCNN="${ncnn}" \
   PEK_ONNXRUNTIME_ROOT=/opt/pek-deps/onnxruntime \
   NINJAFLAGS=-j2 \
   ./scripts/build.sh release false "${extra_setup_args[@]}"; \
@@ -792,7 +789,6 @@ RUN set -eux; \
   scripts/private/install-onnxruntime.sh \
     "${ONNXRUNTIME_VERSION}" "${TARGETARCH}" /opt/pek-deps/onnxruntime; \
   PEK_EXECUTORCH=disabled \
-  PEK_NCNN=disabled \
   PEK_ONNXRUNTIME_ROOT=/opt/pek-deps/onnxruntime \
     scripts/build.sh release false
 

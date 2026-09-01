@@ -95,9 +95,7 @@ class BuildScriptTests(unittest.TestCase):
         environment["container"] = "pek-build-script-test"
         for variable in (
             "PEK_EXECUTORCH",
-            "PEK_NCNN",
             "executorch",
-            "ncnn",
         ):
             environment.pop(variable, None)
         if project_root is None:

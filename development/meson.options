@@ -11,9 +11,3 @@ option('executorch',
   value : 'auto',
   description : 'Enable ExecuTorch integration'
 )
-
-option('ncnn',
-  type : 'feature',
-  value : 'auto',
-  description : 'Enable NCNN integration (ops-ncnn)'
-)

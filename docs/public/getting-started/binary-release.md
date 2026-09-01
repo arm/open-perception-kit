@@ -52,7 +52,7 @@ The descriptor schemas are direct PEK package content, not files in the SDK
 ZIP. Retired `metadata/api` schemas are not included.
 
 They deliberately exclude `pek-menu`, pipeline presets, examples, sample
-media, documentation, source, tests, debug files, NCNN, public C++ headers,
+media, documentation, source, tests, debug files, public C++ headers,
 unused ONNX provider libraries, and accelerator drivers or firmware.
 ExecuTorch SDK headers and static libraries
 are build inputs and are not exposed by the archive.
