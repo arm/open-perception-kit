@@ -15,6 +15,25 @@ official quick-start or deployment container. Both images supply the compatible
 CPython interpreter, NumPy, FlatBuffers runtime, and generated Perception guest
 bridge; no Python installation from the host system is used.
 
+## Developer workflow
+
+Start the standard PEK development environment and enter its shell from the
+host:
+
+```bash
+./scripts/quick_start.sh
+./scripts/enter_cli.sh
+```
+
+Build and run Python Op pipelines from that container shell. The container
+already provides the locked Python runtime and sets
+`PEK_PYTHON_RUNTIME_VENV`; do not create a Python Op virtual environment or
+install NumPy and FlatBuffers on the host.
+
+The script is not launched by the host Python interpreter. It is loaded by the
+native `pek-python-ops` component and runs in its embedded interpreter while the
+pipeline is processing frames.
+
 ## Configure the Op
 
 Add the operation at the required position in an OpChain:
@@ -140,7 +159,8 @@ responsive and visually smooth. `imagefreeze` keeps the real sample live without
 end-of-stream pipeline restarts, so Python state persists until the user stops
 the pipeline.
 
-Build with Python operations enabled and run the pipeline:
+Inside the official development container, build with Python operations enabled
+and run the pipeline:
 
 ```bash
 PEK_PYTHON_OPS=enabled ./scripts/build.sh debug true
@@ -186,6 +206,41 @@ logs. The WebUI does not display Python tracebacks; it may only show the visible
 effect of the failed pipeline, such as a frozen or disconnected stream.
 
 ## State and deployment
+
+### Advanced custom Linux environments
+
+Normal quick-start users do not run `scripts/setup-python-ops-runtime.sh`. PEK
+Docker builds use this initializer to assemble the locked runtime consistently.
+Run it manually only when maintaining a custom PEK Linux image or reproducing
+the image setup in another supported Linux environment.
+
+The runtime requires:
+
+- a compatible CPython interpreter with `venv` support
+- Python development headers when building the native Python operation
+- the architecture-specific NumPy wheel locked in
+  `development/ops-python/runtime.json`
+- the FlatBuffers Python runtime locked in `tools/perception/sdk.json`
+- the generated Perception Python package when scripts import `perception`
+
+The native `pek_python_ops` module is produced by the PEK native build; it is
+not installed by pip or by this initializer. Installing the Python dependencies
+alone does not create a supported standalone Python execution environment.
+
+To create the locked runtime in such a Linux environment, run:
+
+```bash
+./scripts/setup-python-ops-runtime.sh \
+  --venv .venv-python-ops \
+  --perception-sdk generated/perception/python
+export PEK_PYTHON_RUNTIME_VENV="$PWD/.venv-python-ops"
+```
+
+The initializer selects the architecture-specific NumPy wheel from
+`development/ops-python/runtime.json`, selects the FlatBuffers wheel from
+`tools/perception/sdk.json`, verifies their checksums through pip, installs the
+generated Perception Python package when requested, and validates the installed
+versions. It does not support a native macOS or Windows developer workflow.
 
 - Module globals persist for the lifetime of the OpChain and reset when the
   pipeline recreates it. In a looped OpChain, state advances once per Op

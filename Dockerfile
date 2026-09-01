@@ -36,6 +36,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 COPY tools/perception/sdk.json /tmp/perception-sdk.json
 COPY development/ops-python/runtime.json /tmp/python-ops-runtime.json
 COPY --chmod=0755 scripts/private/install-perception-flatbuffers.sh /usr/local/bin/install-perception-flatbuffers
+COPY --chmod=0755 scripts/setup-python-ops-runtime.sh /usr/local/bin/setup-python-ops-runtime
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
@@ -85,15 +86,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         --retry 3 --output "${destination}" "${fallback_url}"; \
     echo "${sha256}  ${destination}" | sha256sum --check --strict; \
   done; \
-  runtime_arch="$(dpkg --print-architecture)"; \
-  case "${runtime_arch}" in amd64) runtime_arch=x86_64 ;; arm64) runtime_arch=aarch64 ;; *) exit 1 ;; esac; \
-  numpy_wheel="$(python3 -c 'import json, sys; wheel=json.load(open(sys.argv[1]))["numpy"]["wheels"][sys.argv[2]]; print(wheel["url"] + "#sha256=" + wheel["sha256"])' /tmp/python-ops-runtime.json "${runtime_arch}")"; \
-  flatbuffers_wheel="$(python3 -c 'import json; wheel=json.load(open("/tmp/perception-sdk.json"))["flatbuffers"]["python_wheel"]; print(wheel["url"] + "#sha256=" + wheel["sha256"])')"; \
-  python3 -m venv /opt/pek-venvs/python-ops-runtime; \
-  /opt/pek-venvs/python-ops-runtime/bin/pip install --no-cache-dir \
-    "${numpy_wheel}" \
-    "${flatbuffers_wheel}"; \
-  /opt/pek-venvs/python-ops-runtime/bin/python -c 'import flatbuffers, numpy; print(flatbuffers.__version__, numpy.__version__)'; \
+  setup-python-ops-runtime \
+    --venv /opt/pek-venvs/python-ops-runtime \
+    --runtime-json /tmp/python-ops-runtime.json \
+    --sdk-json /tmp/perception-sdk.json; \
   rm -f /tmp/perception-sdk.json /tmp/python-ops-runtime.json
 
 
@@ -547,6 +543,7 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
 COPY tools/perception/sdk.json /tmp/perception-sdk.json
 COPY development/ops-python/runtime.json /tmp/python-ops-runtime.json
 COPY generated/perception/python /tmp/perception-python
+COPY --chmod=0755 scripts/setup-python-ops-runtime.sh /usr/local/bin/setup-python-ops-runtime
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
@@ -555,18 +552,11 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   apt-get install -y --no-install-recommends \
     python3 \
     python3-venv; \
-  runtime_arch="$(dpkg --print-architecture)"; \
-  case "${runtime_arch}" in amd64) runtime_arch=x86_64 ;; arm64) runtime_arch=aarch64 ;; *) exit 1 ;; esac; \
-  numpy_wheel="$(python3 -c 'import json, sys; wheel=json.load(open(sys.argv[1]))["numpy"]["wheels"][sys.argv[2]]; print(wheel["url"] + "#sha256=" + wheel["sha256"])' /tmp/python-ops-runtime.json "${runtime_arch}")"; \
-  flatbuffers_wheel="$(python3 -c 'import json; wheel=json.load(open("/tmp/perception-sdk.json"))["flatbuffers"]["python_wheel"]; print(wheel["url"] + "#sha256=" + wheel["sha256"])')"; \
-  python3 -m venv /opt/pek-venvs/python-ops-runtime; \
-  /opt/pek-venvs/python-ops-runtime/bin/pip install --no-cache-dir \
-    "${numpy_wheel}" \
-    "${flatbuffers_wheel}"; \
-  /opt/pek-venvs/python-ops-runtime/bin/pip install --no-cache-dir --no-deps \
-    /tmp/perception-python; \
-  /opt/pek-venvs/python-ops-runtime/bin/python -c \
-    'import flatbuffers, numpy, perception'; \
+  setup-python-ops-runtime \
+    --venv /opt/pek-venvs/python-ops-runtime \
+    --runtime-json /tmp/python-ops-runtime.json \
+    --sdk-json /tmp/perception-sdk.json \
+    --perception-sdk /tmp/perception-python; \
   rm -rf \
     /tmp/perception-python \
     /tmp/perception-sdk.json \
