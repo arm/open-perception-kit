@@ -151,6 +151,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           LEGACY_CACHE_KEY: yolo-performance-datasets-coco-val2017-4f7e2ccb2866ec5041993c9cf2a952bbed69647b115d0f74da7ce8f4bef82f05
         run: |
+          set -euo pipefail
           gh api --paginate --method GET "repos/${GITHUB_REPOSITORY}/actions/caches" \
             -f key="${LEGACY_CACHE_KEY}" -f ref="refs/heads/${DEFAULT_BRANCH}" -f per_page=100 \
             --jq '.actions_caches[].id' |
