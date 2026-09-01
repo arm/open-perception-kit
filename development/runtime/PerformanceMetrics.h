@@ -49,6 +49,9 @@ struct PerformanceSpan {
 
 /**
  * @brief Process-wide snapshot of collected PEK performance metrics.
+ *
+ * The vectors in the snapshot own copies of the metric records present when
+ * snapshot() was called.
  */
 struct PerformanceMetricsSnapshot {
     std::vector<PerformanceMetric> metrics;
@@ -65,6 +68,9 @@ struct PerformanceMetricsSnapshot {
  *
  * This API exposes metrics collected by PEK_PERF_SCOPE instrumentation without
  * requiring external applications to include common/perf headers.
+ *
+ * Metrics configuration and collected data are process-wide. They are not owned
+ * by, or scoped to, one Pipeline or OpChain instance.
  */
 class PerformanceMetrics {
   public:

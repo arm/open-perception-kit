@@ -1,19 +1,23 @@
 # pipeline-exec
 
 `pipeline-exec` is a proof-of-concept application for embedding a PEK GStreamer
-pipeline through the public C++ `pek::runtime::Pipeline` wrapper.
+pipeline through the public C++ `pek::runtime::Pipeline` wrapper, then consuming
+FrameResults packets with the generated Perception C++ SDK.
 
 It accepts one PEK pipeline JSON file, loads the `pipeline` definition from that
-file, starts the pipeline, prints a small summary for every serialized
-FrameResults transport callback, and uses its own condition variable to react
-to EOS or error callbacks. The callback JSON identifies the transport encoding
-and carries the serialized packet as base64 rather than exposing payload layers
-as JSON. The example can also enable PEK historical performance capture and write
-completed spans to CSV through the public runtime `PerformanceMetrics` facade.
+file, starts the pipeline, prints a terminal-friendly dump for every serialized
+FrameResults packet callback, and uses its own condition variable to react to
+EOS or error callbacks. The example can also enable PEK historical performance
+capture and write completed spans to CSV through the public runtime
+`PerformanceMetrics` facade.
 
-The source intentionally uses only the public runtime API. GStreamer types and
-the C++ `perception::FrameResults` type stay hidden behind the wrapper, and the
-example keeps control of its own thread instead of calling `Pipeline::wait()`.
+The source intentionally keeps GStreamer and internal `pek/` implementation
+types behind `pek::runtime::Pipeline`, but it does include generated
+`perception::metadata::*` payload types because typed result consumption is part
+of the example. Each packet is validated through the example-local
+`PerceptionPacket` helper, visited with typed Perception SDK lambdas, and
+displayed through the example-local `TextDisplay` helper. Unknown payload types
+are reported as `Unknown payload type`.
 
 ## Build
 
@@ -22,7 +26,9 @@ example keeps control of its own thread instead of calling `Pipeline::wait()`.
 ```
 
 The script rebuilds the main development tree, builds the standalone example,
-and copies the binary to `examples/bin/pipeline-exec`.
+and copies the binary to `examples/bin/pipeline-exec`. The standalone example
+build also needs a compatible FlatBuffers C++ package visible to Meson because
+it includes generated Perception SDK headers.
 
 ## Run
 
