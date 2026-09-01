@@ -47,7 +47,8 @@ def _top_classes(tensor: Tensor) -> list[tuple[int, float]]:
     logits = logits[0]
     probabilities = numpy.exp(logits - numpy.max(logits))
     probabilities /= numpy.sum(probabilities)
-    class_ids = numpy.argsort(probabilities)[::-1][:TOP_K]
+    top_class_ids = numpy.argpartition(probabilities, -TOP_K)[-TOP_K:]
+    class_ids = top_class_ids[numpy.argsort(probabilities[top_class_ids])[::-1]]
     return [
         (int(class_id), float(probabilities[class_id])) for class_id in class_ids
     ]

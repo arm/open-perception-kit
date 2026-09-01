@@ -96,6 +96,22 @@ class PythonScriptDemoTest(unittest.TestCase):
         self.assertEqual(tuple(LABEL_PATH.read_text(encoding="utf-8").splitlines()),
                          cpp_imagenet_labels())
 
+    def test_top_classes_returns_only_sorted_top_k(self):
+        logits = numpy.zeros((1, 1001), dtype=numpy.float32)
+        expected_class_ids = [21, 34, 55, 89, 144]
+        logits[0, expected_class_ids] = [9.0, 7.0, 5.0, 3.0, 1.0]
+
+        top_classes = demo._top_classes(FakeTensor(logits))
+
+        self.assertEqual([class_id for class_id, _ in top_classes], expected_class_ids)
+        self.assertEqual(len(top_classes), demo.TOP_K)
+        self.assertTrue(
+            all(
+                top_classes[index][1] > top_classes[index + 1][1]
+                for index in range(len(top_classes) - 1)
+            )
+        )
+
     def test_process_emits_stateful_bottom_right_classification(self):
         logits = numpy.zeros((1, 1001), dtype=numpy.float32)
         logits[0, 2] = 5.0
