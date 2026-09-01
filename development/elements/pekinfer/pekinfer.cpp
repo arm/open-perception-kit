@@ -115,8 +115,8 @@ static void gst_pekinfer_emit_content_requirements(GstPekInfer *self) {
                               G_TYPE_STRING,
                               contentTypeString.c_str(),
                               nullptr);
-        gst_element_send_event(GST_ELEMENT(self),
-                               gst_event_new_custom(GST_EVENT_CUSTOM_UPSTREAM, structure));
+        gst_pad_push_event(GST_BASE_TRANSFORM_SINK_PAD(self),
+                           gst_event_new_custom(GST_EVENT_CUSTOM_UPSTREAM, structure));
     }
 }
 
@@ -373,6 +373,10 @@ static gboolean gst_pekinfer_src_event(GstBaseTransform *trans, GstEvent *event)
 static gboolean gst_pekinfer_sink_event(GstBaseTransform *trans, GstEvent *event) {
     const auto eventType = GST_EVENT_TYPE(event);
     switch (eventType) {
+    case GST_EVENT_STREAM_START:
+        if (gst_pekinfer_is_active(GST_PEKINFER(trans)))
+            gst_pekinfer_emit_content_requirements(GST_PEKINFER(trans));
+        break;
     case GST_EVENT_SEGMENT:
     case GST_EVENT_FLUSH_START:
     case GST_EVENT_FLUSH_STOP:

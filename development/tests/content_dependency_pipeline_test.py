@@ -61,16 +61,25 @@ class ContentDependencyPipelineTest(unittest.TestCase):
             for name, attributes in capabilities.items()
         }
 
-    def create_pipeline(self, initially_active: Collection[str] = ()) -> None:
+    def create_pipeline(
+        self,
+        initially_active: Collection[str] = (),
+        *,
+        is_live: bool = True,
+        source_name: str | None = None,
+    ) -> None:
         inference_chain = " ! ".join(
             f'pekinfer name={name} opchain-path="{descriptor}"'
             f'{"" if name in initially_active else " active=false"}'
             for name, descriptor in self.descriptors.items()
         )
+        source_name_property = f" name={source_name}" if source_name else ""
         self.pipeline = self.Gst.parse_launch(
-            "appsrc is-live=true format=time "
+            f"appsrc{source_name_property} "
+            f"is-live={'true' if is_live else 'false'} format=time "
             "caps=video/x-raw,format=BGRA,width=16,height=16 ! "
-            f"{inference_chain} ! fakesink async=false sync=false"
+            f"{inference_chain} ! "
+            f"fakesink async={'false' if is_live else 'true'} sync=false"
         )
         self.elements = {
             name: self.pipeline.get_by_name(name) for name in self.descriptors
@@ -105,6 +114,28 @@ class ContentDependencyPipelineTest(unittest.TestCase):
         # disabled so activation can only come from requirements emitted at startup.
         self.create_pipeline(initially_active={"gaze"})
         self.start_pipeline()
+
+        for name in ("gaze", "contact", "face-a", "face-b"):
+            self.assertTrue(self.elements[name].get_property("active"), name)
+        self.assertFalse(self.elements["unrelated"].get_property("active"))
+
+    def test_initially_active_model_activates_dependencies_before_preroll(self) -> None:
+        self.create_pipeline(
+            initially_active={"gaze"}, is_live=False, source_name="source"
+        )
+        self.assertNotEqual(
+            self.pipeline.set_state(self.Gst.State.PAUSED),
+            self.Gst.StateChangeReturn.FAILURE,
+        )
+
+        source = self.pipeline.get_by_name("source")
+        buffer = self.Gst.Buffer.new_allocate(None, 16 * 16 * 4, None)
+        self.assertEqual(
+            source.emit("push-buffer", buffer), self.Gst.FlowReturn.OK
+        )
+        state_change, current_state, _ = self.pipeline.get_state(self.Gst.SECOND)
+        self.assertEqual(state_change, self.Gst.StateChangeReturn.SUCCESS)
+        self.assertEqual(current_state, self.Gst.State.PAUSED)
 
         for name in ("gaze", "contact", "face-a", "face-b"):
             self.assertTrue(self.elements[name].get_property("active"), name)
