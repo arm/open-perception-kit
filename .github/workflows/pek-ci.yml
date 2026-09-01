@@ -591,7 +591,14 @@ jobs:
       pull-requests: read
     if: |
       github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && inputs.checks == 'all') ||
+      (
+        github.event_name == 'workflow_dispatch' &&
+        inputs.checks == 'all' &&
+        (
+          (inputs.pr_number == '' && inputs.pr_label == '') ||
+          (inputs.pr_number != '' && inputs.pr_label == 'run-pek-ci')
+        )
+      ) ||
       (
         github.event_name == 'pull_request' &&
         github.event.pull_request.head.repo.full_name == github.repository &&
