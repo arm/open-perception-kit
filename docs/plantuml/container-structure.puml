@@ -44,9 +44,13 @@ package "Dockerfile\ncore cross-lane stage graph" {
   package "Shared Artifact Stages\n(selected outputs copied into other lanes)" {
     component "pek-models\nHugging Face model artifact stage" as models #fed7aa
     component "pek-demo-media\ndemo video artifact stage" as demo_media #fed7aa
+    component "pek-yolo-pages-dataset-build\nverified benchmark inputs" as yolo_dataset_build #fed7aa
+    component "pek-yolo-pages-dataset\narchitecture-neutral OCI data image" as yolo_dataset #bbf7d0
 
     py313 --> models : FROM
     debian --> demo_media : FROM
+    py313 --> yolo_dataset_build : FROM
+    yolo_dataset_build ..> yolo_dataset : COPY images, list,\nvideo + provenance
   }
 
   package "Development Tooling Images\n(no PEK binaries built into pek-dev)" {
@@ -131,6 +135,7 @@ package "CI Service Mapping" {
   ci_image ..> ci_clang_tidy : clang-tidy baseline
   pre_commit ..> ci_pre_commit : repo checks
   pages ..> ci_pages : report page publishing
+  yolo_dataset ..> ci_pages : pull benchmark inputs
 }
 
 note right of dev_image
@@ -166,6 +171,12 @@ note bottom of docs_image
   Release documentation uses this existing tool image
   directly, then archives generated HTML with system tar.
   No release-specific docs image or entrypoint exists.
+end note
+
+note bottom of yolo_dataset
+  The immutable GHCR tag covers the COCO image archive,
+  annotations, and pinned video checksums. Source archives
+  and annotations are excluded from the final data image.
 end note
 
 note bottom of pre_commit

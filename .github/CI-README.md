@@ -27,6 +27,7 @@ pull-request code.
 | --- | --- |
 | Buildx `pek-ci` cache | `develop`-owned GitHub Actions seed |
 | Quality, Sonar, Valgrind, and Black Duck ccache | Separate GitHub Actions branch/PR caches for each check |
+| YOLO Pages benchmark inputs | Checksum-tagged GHCR data image produced by `develop` and read by the three Pages publishers |
 | Run-tagged `pek-ci` image | GHCR handoff between jobs; deleted after one day |
 | Exact-SHA Arm64 development image | GHCR; newest 20 retained; used by macOS and YOLO |
 | Arm64 development BuildKit cache | GHCR `buildcache`; used by macOS, Raspberry Pi, and YOLO after an exact-image miss or when platform build arguments differ |
@@ -42,6 +43,12 @@ pull requests, tags, and manual runs only read it.
 - Pull requests write only their lane-specific Quality, Sonar, Valgrind, and
   Black Duck compiler caches under the PR merge ref; reruns of the same PR
   reuse them, and the close workflow deletes them.
+
+The architecture-neutral `pek-yolo-pages-dataset` target contains the verified
+COCO val2017 images and pinned benchmark video used in Pages deployments. Its
+immutable GHCR tag covers all three source checksums. The expanded inputs no
+longer consume GitHub Actions cache quota; the scheduled cleanup removes the
+retired cache entry.
 
 The Arm64 development image embeds a compiler-cache seed. macOS copies it into
 temporary Colima volumes, while YOLO keeps subsequent compiler output in its

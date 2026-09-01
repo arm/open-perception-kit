@@ -183,6 +183,13 @@ stages inherit everything from their parent unless noted otherwise.
   `NO_EXAMPLE_CONTENT=true`. The checked-in manifest locks each Box file by
   SHA-256, and the stage emits `data/videos/SHA256SUMS` beside the verified
   media.
+- `pek-yolo-pages-dataset-build`: starts from `python:3.13-slim-trixie`, uses
+  the existing checksum-verifying benchmark downloaders, and prepares the COCO
+  val2017 image set plus the pinned benchmark video.
+- `pek-yolo-pages-dataset`: is the architecture-neutral scratch image copied
+  into Pages jobs. It contains only the expanded COCO images, image list, video,
+  and video provenance manifest; source ZIPs and annotations stay in the build
+  stage.
 - `pek-models`: starts from `python:3.13-slim-trixie`, adds
   `huggingface_hub==1.18.0` and `jsonschema==4.26.0`, then runs
   `scripts/download-models.py` with the optional Hugging Face build secret to

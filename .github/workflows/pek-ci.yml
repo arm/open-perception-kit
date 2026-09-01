@@ -66,6 +66,7 @@ concurrency:
 
 env:
   CCACHE_SCHEMA_VERSION: v2
+  YOLO_PAGES_DATASET_IMAGE: ghcr.io/arm-debug/amp-dev-forge-yolo-pages-dataset:coco-val2017-4f7e2ccb2866-annotations-113a836d9019-video-710831289c00
 
 jobs:
   validate-label-dispatch:
@@ -244,6 +245,31 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
+
+      - name: Check YOLO Pages dataset image
+        if: ${{ github.event_name == 'schedule' || (github.event_name == 'push' && github.ref_name == github.event.repository.default_branch) }}
+        id: yolo-pages-dataset
+        run: |
+          if docker manifest inspect "${YOLO_PAGES_DATASET_IMAGE}" > /dev/null 2>&1; then
+            echo 'publish=false' >> "${GITHUB_OUTPUT}"
+          else
+            echo 'publish=true' >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Publish YOLO Pages dataset image
+        if: steps.yolo-pages-dataset.outputs.publish == 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile
+          labels: |
+            org.opencontainers.image.description=Checksum-verified COCO val2017 and pinned YOLO benchmark video
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.title=PEK YOLO Pages dataset
+          provenance: false
+          push: true
+          tags: ${{ env.YOLO_PAGES_DATASET_IMAGE }}
+          target: pek-yolo-pages-dataset
 
       - name: Build PEK CI image
         uses: docker/build-push-action@v7

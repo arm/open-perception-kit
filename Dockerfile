@@ -111,6 +111,27 @@ RUN if [ "${NO_EXAMPLE_CONTENT}" != "true" ]; then \
       mkdir -p data/videos; \
     fi
 
+# Keep the Pages benchmark inputs in one architecture-neutral image instead of
+# spending the repository Actions-cache quota on the expanded dataset.
+FROM --platform=${BUILDPLATFORM} python:3.13-slim-trixie AS pek-yolo-pages-dataset-build
+
+WORKDIR /opt/yolo-performance-dataset
+COPY --chmod=0555 \
+  examples/yolo-benchmark/prepare_dataset.py \
+  examples/yolo-benchmark/prepare_video.py \
+  ./
+RUN python3 prepare_dataset.py --coco-dir coco --output images.tsv && \
+  python3 prepare_video.py \
+    --video media/mediapipe-object-detection.mp4 \
+    --manifest media/video-source.json && \
+  rm -rf coco/annotations coco/downloads
+
+FROM scratch AS pek-yolo-pages-dataset
+
+COPY --from=pek-yolo-pages-dataset-build /opt/yolo-performance-dataset/coco/val2017 /opt/yolo-performance-dataset/coco/val2017
+COPY --from=pek-yolo-pages-dataset-build /opt/yolo-performance-dataset/images.tsv /opt/yolo-performance-dataset/images.tsv
+COPY --from=pek-yolo-pages-dataset-build /opt/yolo-performance-dataset/media /opt/yolo-performance-dataset/media
+
 # Model artifacts are resolved in a dedicated stage so Hugging Face tokens stay
 # scoped to build-time model download.
 FROM --platform=${BUILDPLATFORM} python:3.13-slim-trixie AS pek-models

@@ -17,8 +17,12 @@ permissions:
   actions: read
   contents: write
   id-token: write
+  packages: read
   pages: write
   pull-requests: read
+
+env:
+  YOLO_PAGES_DATASET_IMAGE: ghcr.io/arm-debug/amp-dev-forge-yolo-pages-dataset:coco-val2017-4f7e2ccb2866-annotations-113a836d9019-video-710831289c00
 
 concurrency:
   group: >-
@@ -101,19 +105,17 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: examples/yolo-benchmark/pages/run.sh publish
 
-      - name: Cache YOLO performance dataset
+      - name: Log in to GitHub Container Registry
         if: steps.pages.outputs.deploy == 'true'
-        uses: actions/cache@v6
+        uses: docker/login-action@v4
         with:
-          path: _yolo_performance_dataset_cache
-          key: yolo-performance-datasets-coco-val2017-4f7e2ccb2866ec5041993c9cf2a952bbed69647b115d0f74da7ce8f4bef82f05
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
 
       - name: Restore YOLO dataset overlay
         if: steps.pages.outputs.deploy == 'true'
-        run: |
-          python3 examples/yolo-benchmark/pages/restore_dataset_overlay.py \
-            --site-dir _yolo_benchmark_pages_site \
-            --cache-dir _yolo_performance_dataset_cache
+        run: examples/yolo-benchmark/pages/restore_dataset_overlay_from_image.sh _yolo_benchmark_pages_site
 
       - name: Restore deploy-only report videos
         if: steps.pages.outputs.deploy == 'true'
