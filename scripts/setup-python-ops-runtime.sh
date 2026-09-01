@@ -17,7 +17,7 @@ architecture=
 dry_run=false
 
 usage() {
-    cat <<'EOF'
+    cat << 'EOF'
 Usage: setup-python-ops-runtime.sh [options]
 
 Options:
@@ -90,7 +90,7 @@ if [[ -n "${perception_sdk}" && ! -f "${perception_sdk}/pyproject.toml" ]]; then
     echo "Perception Python SDK not found: ${perception_sdk}" >&2
     exit 1
 fi
-if ! command -v "${python}" >/dev/null 2>&1 && [[ ! -x "${python}" ]]; then
+if ! command -v "${python}" > /dev/null 2>&1 && [[ ! -x "${python}" ]]; then
     echo "Python interpreter not found: ${python}" >&2
     exit 1
 fi
