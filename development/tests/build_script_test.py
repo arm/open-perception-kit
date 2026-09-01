@@ -95,7 +95,9 @@ class BuildScriptTests(unittest.TestCase):
         environment["container"] = "pek-build-script-test"
         for variable in (
             "PEK_EXECUTORCH",
+            "PEK_PYTHON_OPS",
             "executorch",
+            "python_ops",
         ):
             environment.pop(variable, None)
         if project_root is None:
@@ -150,6 +152,7 @@ class BuildScriptTests(unittest.TestCase):
                     "--layout=flat",
                     "-Dtests=true",
                     "-Dexecutorch=auto",
+                    "-Dpython_ops=auto",
                 ],
             )
             self.assertEqual(
@@ -181,14 +184,22 @@ class BuildScriptTests(unittest.TestCase):
                 bin_dir,
                 log_path,
                 "debug",
-                environment_overrides={"PEK_EXECUTORCH": "disabled"},
+                environment_overrides={
+                    "PEK_EXECUTORCH": "disabled",
+                    "PEK_PYTHON_OPS": "enabled",
+                },
             )
 
             self.assertEqual(completed.returncode, 0, completed.stderr)
             invocations = self.read_invocations(log_path)
             self.assertIn("-Dexecutorch=disabled", invocations[0]["argv"])
+            self.assertIn("-Dpython_ops=enabled", invocations[0]["argv"])
             self.assertIn(
                 "Meson feature selection: executorch=disabled",
+                completed.stdout,
+            )
+            self.assertIn(
+                "Meson feature selection: python_ops=enabled",
                 completed.stdout,
             )
 
