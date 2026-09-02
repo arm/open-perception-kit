@@ -819,6 +819,13 @@ jobs:
           source .github/scripts/configure_workspace_ssh.sh
           git submodule update --init --recursive
 
+      - name: Select GNU tar for Actions cache
+        run: |
+          mkdir -p "$RUNNER_TEMP/gnu-tar"
+          ln -sf "$(command -v gtar)" "$RUNNER_TEMP/gnu-tar/tar"
+          "$RUNNER_TEMP/gnu-tar/tar" --version | grep -F 'GNU tar'
+          echo "$RUNNER_TEMP/gnu-tar" >> "$GITHUB_PATH"
+
       - name: Restore RPI compiler cache
         id: compiler-cache
         uses: actions/cache/restore@v6
