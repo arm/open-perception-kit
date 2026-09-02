@@ -46,6 +46,7 @@ services:
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix
       - .:/work
+      - ${PEK_CCACHE_PATH:-./.cache/ccache}:/work/.cache/ccache
       - /run/udev:/run/udev:ro
 
     environment:

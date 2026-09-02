@@ -774,6 +774,7 @@ jobs:
       CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       PEK_DEV_CACHE_FROM: type=registry,ref=ghcr.io/arm-debug/amp-dev-forge-dev:buildcache
+      PEK_CCACHE_PATH: ${{ github.workspace }}/.cache/ccache-rpi5
     steps:
       - name: Checkout manual-run helper
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
@@ -817,7 +818,8 @@ jobs:
 
       - name: Select GNU tar for Actions cache
         run: |
-          mkdir -p "$RUNNER_TEMP/gnu-tar"
+          rm -rf -- "$PEK_CCACHE_PATH"
+          mkdir -p "$RUNNER_TEMP/gnu-tar" "$PEK_CCACHE_PATH"
           tar_path="$(command -v gtar || command -v tar)"
           ln -sf "$tar_path" "$RUNNER_TEMP/gnu-tar/tar"
           "$RUNNER_TEMP/gnu-tar/tar" --version | grep -F 'GNU tar'
@@ -827,7 +829,7 @@ jobs:
         id: compiler-cache
         uses: actions/cache/restore@v6
         with:
-          path: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/.cache/ccache
+          path: .cache/ccache-rpi5
           key: pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-rpi5-${{ steps.manual_pr.outputs.head_sha || github.event.pull_request.head.sha || github.sha }}
           restore-keys: |
             pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-rpi5-
@@ -873,7 +875,7 @@ jobs:
         if: ${{ !cancelled() && steps.pek-build.outcome == 'success' && steps.compiler-cache.outputs.cache-hit != 'true' && (github.event_name == 'schedule' || startsWith(github.ref, 'refs/pull/')) }}
         uses: actions/cache/save@v6
         with:
-          path: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/.cache/ccache
+          path: .cache/ccache-rpi5
           key: ${{ steps.compiler-cache.outputs.cache-primary-key }}
 
       - name: Upload RPI browser smoke artifacts
@@ -901,6 +903,7 @@ jobs:
           if [ -x "$checkout_path/scripts/quick-start/cleanup-container.sh" ]; then
             "$checkout_path/scripts/quick-start/cleanup-container.sh" || cleanup_status=$?
           fi
+          rm -rf -- "$PEK_CCACHE_PATH"
           rm -rf -- "$checkout_path"
           exit "$cleanup_status"
 
