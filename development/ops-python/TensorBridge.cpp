@@ -157,7 +157,7 @@ PyObject *pythonScript(PyObject *, PyObject *callback) {
     return Py_NewRef(callback);
 }
 
-inline std::array<PyMethodDef, 2> moduleMethodDefinitions = {{
+inline const std::array<PyMethodDef, 2> moduleMethodDefinitions = {{
     {"python_script",
      pythonScript,
      METH_O,
@@ -165,7 +165,7 @@ inline std::array<PyMethodDef, 2> moduleMethodDefinitions = {{
     {nullptr, nullptr, 0, nullptr},
 }};
 
-std::array<PyMethodDef, 2> &moduleMethods() {
+const std::array<PyMethodDef, 2> &moduleMethods() {
     return moduleMethodDefinitions;
 }
 
@@ -295,7 +295,7 @@ PyModuleDef &moduleDefinition() {
         "pek_python_ops",
         "Runtime objects passed to PEK Python script Ops.",
         -1,
-        moduleMethods().data(),
+        const_cast<PyMethodDef *>(moduleMethods().data()),
         nullptr,
         nullptr,
         nullptr,
