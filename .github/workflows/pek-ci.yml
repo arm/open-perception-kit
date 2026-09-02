@@ -692,8 +692,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          fetch-depth: 0
-          fetch-tags: true
           ref: ${{ steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.event.pull_request.head.sha || github.sha }}
           path: ${{ env.CI_CHECKOUT_PATH }}
           persist-credentials: false
@@ -805,8 +803,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          fetch-depth: 0
-          fetch-tags: true
           ref: ${{ steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.event.pull_request.head.sha || github.sha }}
           path: ${{ env.CI_CHECKOUT_PATH }}
           persist-credentials: false
@@ -971,8 +967,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          fetch-depth: 0
-          fetch-tags: true
           ref: ${{ steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.event.pull_request.head.sha || github.sha }}
           path: ${{ env.CI_CHECKOUT_PATH }}
           persist-credentials: false
