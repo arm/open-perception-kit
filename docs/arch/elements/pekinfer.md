@@ -35,6 +35,18 @@ On `set_caps()`, it validates the supported raw video caps and stores frame dime
 
 On `stop()`, it releases OpChain state and resources.
 
+## Automatic Upstream Activation
+
+When an active `pekinfer` starts or changes from inactive to active, it sends an
+upstream requirement for each content type needed by its OpChain. Every upstream
+`pekinfer` whose OpChain provides a matching content type becomes active. A newly
+activated provider sends its own requirements, so activation can propagate
+transitively through multiple dependent elements.
+
+This propagation only enables elements. Setting a `pekinfer` to inactive affects
+that element alone and does not disable its upstream providers, because those
+providers may still be required by other active elements.
+
 ## Per-Frame Execution
 
 For each active frame:

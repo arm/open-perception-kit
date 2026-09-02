@@ -16,6 +16,11 @@ namespace pek::stdop::postproc {
  * locations and recognized character/word sequences.
  */
 struct PaddleOcrDetectionParser : public pek::TensorParser {
+    static constexpr std::string_view k_content_type = "segmentation";
+
+    std::vector<std::string_view> getProvidedContentTypes() const override {
+        return {k_content_type};
+    }
 
     pek::Result<void> parse(const pek::TensorParser::Input &input,
                             perception::FrameResults &results) override;

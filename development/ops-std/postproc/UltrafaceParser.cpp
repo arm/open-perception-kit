@@ -365,7 +365,7 @@ pek::Result<void> UltraFaceParser::parse(const pek::TensorParser::Input &input,
 
     perception::metadata::BoxDetectionsT payload;
     payload.layer = perception::makeLayerInfo(
-        input.inferenceInfo.modelName, input.inferenceInfo.inferElementId, "humanFace");
+        input.inferenceInfo.modelName, input.inferenceInfo.inferElementId, k_content_type);
     for (auto &detection : detections) {
         payload.detections.push_back(std::make_unique<FaceDetection>(std::move(detection)));
     }

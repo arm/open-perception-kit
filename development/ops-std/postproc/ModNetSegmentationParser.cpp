@@ -58,7 +58,7 @@ Result<void> ModNetSegmentationParser::parse(const Input &input,
     perception::metadata::SegmentationMasksT payload;
     payload.layer = perception::makeLayerInfo(input.inferenceInfo.modelName,
                                               input.inferenceInfo.inferElementId,
-                                              "segmentation",
+                                              k_content_type,
                                               "",
                                               "",
                                               "",

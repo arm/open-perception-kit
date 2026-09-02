@@ -94,6 +94,10 @@ pek::Result<void> GenericPostprocessOp::configure(const pek::AttributeMap &attri
     return {};
 }
 
+std::vector<std::string_view> GenericPostprocessOp::getProvidedContentTypes() const {
+    return parser ? parser->getProvidedContentTypes() : std::vector<std::string_view>{};
+}
+
 pek::Result<pek::op::OpSignal>
 GenericPostprocessOp::process(pek::op::OpChainContext &opChainContext) {
     PEK_TRACE_SCOPE(fmt::format("std/Post/{}", opChainContext.inferenceInfo.modelName));

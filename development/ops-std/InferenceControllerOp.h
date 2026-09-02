@@ -26,7 +26,7 @@ namespace pek::stdop {
  * 2. Preprocess, inference, and postprocess operations consume one crop per loop iteration
  * 3. GenericImagePreprocessOp returns OpSignal::BreakLoop when no crops remain
  */
-class InferenceControllerOp : public pek::op::Op {
+class InferenceControllerOp : public pek::op::Op, public pek::op::OpInterfaceContentConsumer {
   public:
     /**
      * @brief Constructs an inference controller operation.
@@ -64,6 +64,7 @@ class InferenceControllerOp : public pek::op::Op {
      * @return Result indicating success or binding error.
      */
     pek::Result<void> bind(size_t index, const std::vector<pek::op::Op *> &ops) override;
+    std::vector<std::string_view> getRequiredContentTypes() const override;
 
   private:
     std::string contentType;

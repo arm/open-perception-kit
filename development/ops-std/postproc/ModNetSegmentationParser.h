@@ -16,6 +16,11 @@ namespace pek::stdop::postproc {
  */
 class ModNetSegmentationParser : public TensorParser {
   public:
+    static constexpr std::string_view k_content_type = "segmentation";
+
+    std::vector<std::string_view> getProvidedContentTypes() const override {
+        return {k_content_type};
+    }
     pek::Result<void> parse(const Input &input, perception::FrameResults &results) override;
 };
 

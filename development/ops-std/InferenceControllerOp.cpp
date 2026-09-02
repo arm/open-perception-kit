@@ -29,6 +29,11 @@ pek::Result<void> InferenceControllerOp::configure(const pek::AttributeMap &attr
     return {};
 }
 
+std::vector<std::string_view> InferenceControllerOp::getRequiredContentTypes() const {
+    return contentType.empty() ? std::vector<std::string_view>{}
+                               : std::vector<std::string_view>{contentType};
+}
+
 pek::Result<pek::op::OpSignal>
 InferenceControllerOp::process(pek::op::OpChainContext &opChainContext) {
     auto *pipelineVideoFrame = opChainContext.getVideoFrame("pipelineVideoFrame");

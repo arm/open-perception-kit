@@ -13,6 +13,8 @@
 #include "op/OpChainDescriptor.h"
 #include "perf/PerformanceMetrics.h"
 
+#include <algorithm>
+#include <span>
 #include <string>
 using namespace pek::op;
 
@@ -30,6 +32,36 @@ const std::string &OpChain::getTask() const {
 
 const std::string &OpChain::getRuntime() const {
     return this->runtime;
+}
+
+namespace {
+
+template <typename Interface, typename Getter>
+std::vector<std::string_view> collectContentTypes(std::span<pek::op::Op *const> ops,
+                                                  Getter getter) {
+    std::vector<std::string_view> result;
+    for (const auto *op : ops) {
+        const auto *contentOp = op->as<Interface>();
+        if (contentOp == nullptr)
+            continue;
+        for (const auto contentType : getter(*contentOp)) {
+            if (!contentType.empty() && std::ranges::find(result, contentType) == result.end())
+                result.push_back(contentType);
+        }
+    }
+    return result;
+}
+
+} // namespace
+
+std::vector<std::string_view> OpChain::getProvidedContentTypes() const {
+    return collectContentTypes<OpInterfacePostprocessor>(
+        opPtrs, [](const auto &op) { return op.getProvidedContentTypes(); });
+}
+
+std::vector<std::string_view> OpChain::getRequiredContentTypes() const {
+    return collectContentTypes<OpInterfaceContentConsumer>(
+        opPtrs, [](const auto &op) { return op.getRequiredContentTypes(); });
 }
 
 pek::Result<void> OpChain::setupFromDescriptor(const pek::op::OpChainDescriptor &descriptor) {

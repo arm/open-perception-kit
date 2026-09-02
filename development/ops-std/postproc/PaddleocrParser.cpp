@@ -82,7 +82,7 @@ pek::Result<void> PaddleOcrDetectionParser::parse(const pek::TensorParser::Input
     perception::metadata::SegmentationMasksT payload;
     payload.layer = perception::makeLayerInfo(input.inferenceInfo.modelName,
                                               input.inferenceInfo.inferElementId,
-                                              "segmentation",
+                                              k_content_type,
                                               "",
                                               "",
                                               "",

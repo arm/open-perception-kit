@@ -33,7 +33,6 @@ class ModelRegistry : public StatusReporter {
                    std::string_view task = "",
                    std::string_view runtime = "");
     void del_model(const std::string &element_name);
-    void toggle_model(const std::string &element_name, bool active);
 
     nlohmann::json report() const override;
 };
