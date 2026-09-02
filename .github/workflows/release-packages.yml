@@ -490,7 +490,7 @@ jobs:
       - name: Prepare workspace
         run: |
           echo "WORKSPACE_ROOT=${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}" >> "$GITHUB_ENV"
-          install -d -m 0777 "$CCACHE_PATH"
+          test -d "$CCACHE_PATH" || install -d -m 0777 "$CCACHE_PATH"
 
       - name: Checkout released source
         uses: actions/checkout@v7

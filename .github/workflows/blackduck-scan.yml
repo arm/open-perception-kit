@@ -113,7 +113,7 @@ jobs:
         id: release_build
         working-directory: ${{ env.WORKSPACE_ROOT }}
         run: |
-          install -d -m 0777 "$CCACHE_PATH"
+          test -d "$CCACHE_PATH" || install -d -m 0777 "$CCACHE_PATH"
           docker compose -f .github/compose.ci.yaml run --rm pek-release-with-ut
           test -d development/build
 

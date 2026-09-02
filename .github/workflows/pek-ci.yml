@@ -1112,7 +1112,7 @@ jobs:
       - name: Prepare workspace
         run: |
           echo "WORKSPACE_ROOT=${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}" >> "$GITHUB_ENV"
-          install -d -m 0777 "$CCACHE_PATH"
+          test -d "$CCACHE_PATH" || install -d -m 0777 "$CCACHE_PATH"
 
       - name: Generate Hugging Face download cache key
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -1347,7 +1347,7 @@ jobs:
       - name: Prepare workspace
         run: |
           echo "WORKSPACE_ROOT=${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}" >> "$GITHUB_ENV"
-          install -d -m 0777 "$CCACHE_PATH"
+          test -d "$CCACHE_PATH" || install -d -m 0777 "$CCACHE_PATH"
 
       - name: Prepare private submodules
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -1580,7 +1580,7 @@ jobs:
 
       - name: Prepare compiler cache
         working-directory: ${{ github.workspace }}
-        run: install -d -m 0777 "$CCACHE_PATH"
+        run: test -d "$CCACHE_PATH" || install -d -m 0777 "$CCACHE_PATH"
 
       - name: Prepare private submodules
         working-directory: ${{ github.workspace }}/valgrind-source
