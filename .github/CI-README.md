@@ -9,8 +9,9 @@ owns their GitHub Actions orchestration:
   Quality, Sonar, Valgrind, Black Duck, and the `pek-ci` Docker Scout lane pull
   that image and verify its revision label
 - Linux, Raspberry Pi, and macOS quick-start jobs build independently; the
-  Raspberry Pi and macOS PR lanes require their `run-rpi-ci` or `run-macos-ci`
-  label
+  Raspberry Pi PR lane runs by default, while Linux and macOS require
+  `run-pek-ci` or `run-macos-ci`; `run-pek-ci` replays both Linux and Raspberry
+  Pi at the validated PR head
 - `expkits-ci --ci-pr-checks` and `expkits-ci --ci-full-checks` remain the
   repository-owned quality entrypoints
 - the required Sonar check keeps the `Run Sonar analysis in Docker` name;
@@ -25,8 +26,9 @@ pull-request code.
 
 | Stored data | Owner and lifetime |
 | --- | --- |
-| Buildx `pek-ci` cache | GitHub Actions branch/PR cache; PR entries are deleted when the PR closes or GitHub evicts them |
-| Quality, Sonar, Valgrind, and Black Duck ccache | Separate GitHub Actions branch/PR caches for each check |
+| Buildx `pek-ci` cache | `develop`-owned GitHub Actions seed |
+| Quality, Sonar, Valgrind, Black Duck, and Raspberry Pi ccache | Separate GitHub Actions branch/PR caches for each check |
+| YOLO Pages benchmark inputs | Checksum-tagged GHCR data image produced by `develop` and read by the three Pages publishers |
 | Run-tagged `pek-ci` image | GHCR handoff between jobs; deleted after one day |
 | Exact-SHA Arm64 development image | GHCR; newest 20 retained; used by macOS and YOLO |
 | Arm64 development BuildKit cache | GHCR `buildcache`; used by macOS, Raspberry Pi, and YOLO after an exact-image miss or when platform build arguments differ |
@@ -35,6 +37,19 @@ pull-request code.
 | Release Sonar BuildKit cache | GHCR `buildcache-release-sonar-amd64` |
 | Sonar CFamily server cache | Updated by `main` and `develop` analysis |
 | Valgrind baseline | Artifactory, managed by the trusted baseline publisher |
+
+The `develop` branch is the only writer of the PEK CI BuildKit cache; `main`,
+pull requests, tags, and manual runs only read it.
+
+- Pull requests write only their lane-specific Quality, Sonar, Valgrind, Black
+  Duck, and Raspberry Pi compiler caches under the PR merge ref; reruns of the
+  same PR reuse them, and the close workflow deletes them.
+
+The architecture-neutral `pek-yolo-pages-dataset` target contains the verified
+COCO val2017 images and pinned benchmark video used in Pages deployments. Its
+immutable GHCR tag covers all three source checksums. The expanded inputs no
+longer consume GitHub Actions cache quota; the scheduled cleanup removes the
+retired cache entry.
 
 The Arm64 development image embeds a compiler-cache seed. macOS copies it into
 temporary Colima volumes, while YOLO keeps subsequent compiler output in its

@@ -113,12 +113,12 @@ jobs:
         id: release_build
         working-directory: ${{ env.WORKSPACE_ROOT }}
         run: |
-          install -d -m 0777 "$CCACHE_PATH"
+          test -d "$CCACHE_PATH" || install -d -m 0777 "$CCACHE_PATH"
           docker compose -f .github/compose.ci.yaml run --rm pek-release-with-ut
           test -d development/build
 
       - name: Save compiler cache
-        if: ${{ !cancelled() && steps.release_build.outcome == 'success' && steps.compiler-cache.outputs.cache-hit != 'true' }}
+        if: ${{ !cancelled() && steps.release_build.outcome == 'success' && steps.compiler-cache.outputs.cache-hit != 'true' && (inputs.pr_number == '' || startsWith(github.ref, 'refs/pull/')) }}
         uses: actions/cache/save@v6
         with:
           path: ${{ env.CCACHE_PATH }}

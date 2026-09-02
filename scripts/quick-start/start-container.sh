@@ -196,6 +196,8 @@ print_enter_hint() {
 
 cd "${REPO_ROOT}"
 
+mkdir -p .cache/ccache "${PEK_CCACHE_PATH:-.cache/ccache}"
+
 HOST_UID="$(id -u)"
 HOST_GID="$(id -g)"
 export HOST_UID HOST_GID

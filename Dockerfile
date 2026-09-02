@@ -79,7 +79,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     timeout 30s curl \
       --fail --location --proto '=https' --proto-redir '=https' \
       --retry 1 --output "${destination}" "${url}" || \
-      curl \
+      timeout 180s curl \
         --fail --location --proto '=https' --proto-redir '=https' \
         --retry 3 --output "${destination}" "${fallback_url}"; \
     echo "${sha256}  ${destination}" | sha256sum --check --strict; \
@@ -110,6 +110,27 @@ RUN if [ "${NO_EXAMPLE_CONTENT}" != "true" ]; then \
     else \
       mkdir -p data/videos; \
     fi
+
+# Keep the Pages benchmark inputs in one architecture-neutral image instead of
+# spending the repository Actions-cache quota on the expanded dataset.
+FROM --platform=${BUILDPLATFORM} python:3.13-slim-trixie AS pek-yolo-pages-dataset-build
+
+WORKDIR /opt/yolo-performance-dataset
+COPY --chmod=0555 \
+  examples/yolo-benchmark/prepare_dataset.py \
+  examples/yolo-benchmark/prepare_video.py \
+  ./
+RUN python3 prepare_dataset.py --coco-dir coco --output images.tsv && \
+  python3 prepare_video.py \
+    --video media/mediapipe-object-detection.mp4 \
+    --manifest media/video-source.json && \
+  rm -rf coco/annotations coco/downloads
+
+FROM scratch AS pek-yolo-pages-dataset
+
+COPY --from=pek-yolo-pages-dataset-build /opt/yolo-performance-dataset/coco/val2017 /opt/yolo-performance-dataset/coco/val2017
+COPY --from=pek-yolo-pages-dataset-build /opt/yolo-performance-dataset/images.tsv /opt/yolo-performance-dataset/images.tsv
+COPY --from=pek-yolo-pages-dataset-build /opt/yolo-performance-dataset/media /opt/yolo-performance-dataset/media
 
 # Model artifacts are resolved in a dedicated stage so Hugging Face tokens stay
 # scoped to build-time model download.
@@ -171,18 +192,21 @@ RUN set -eux; \
   flatbuffers_sha256="$(node -e 'const config=require("/tmp/perception-sdk.json"); console.log(config.typescript_build.flatbuffers_runtime.sha256)')"; \
   typescript_url="$(node -e 'const config=require("/tmp/perception-sdk.json"); console.log(config.typescript_build.typescript.url)')"; \
   typescript_sha256="$(node -e 'const config=require("/tmp/perception-sdk.json"); console.log(config.typescript_build.typescript.sha256)')"; \
+  download_once() { \
+    local max_time="$1"; local retries="$2"; local url="$3"; local destination="$4"; \
+    timeout "${max_time}" curl \
+      --fail --location --proto '=https' --proto-redir '=https' \
+      --retry "${retries}" --output "${destination}" "${url}"; \
+  }; \
   download() { \
     local url="$1"; local destination="$2"; \
-    timeout 180s curl \
-      --fail --location --proto '=https' --proto-redir '=https' \
-      --retry 3 --output "${destination}" "${url}"; \
+    download_once 30s 1 "${url}" "${destination}" || \
+      download_once 180s 3 \
+        "${NPM_FALLBACK_REGISTRY}/${url#https://registry.npmjs.org/}" "${destination}"; \
   }; \
-  download "${esbuild_url}" /tmp/esbuild-wasm.tgz || \
-    download "${NPM_FALLBACK_REGISTRY}/${esbuild_url#https://registry.npmjs.org/}" /tmp/esbuild-wasm.tgz; \
-  download "${flatbuffers_url}" /tmp/flatbuffers.tgz || \
-    download "${NPM_FALLBACK_REGISTRY}/${flatbuffers_url#https://registry.npmjs.org/}" /tmp/flatbuffers.tgz; \
-  download "${typescript_url}" /tmp/typescript.tgz || \
-    download "${NPM_FALLBACK_REGISTRY}/${typescript_url#https://registry.npmjs.org/}" /tmp/typescript.tgz; \
+  download "${esbuild_url}" /tmp/esbuild-wasm.tgz; \
+  download "${flatbuffers_url}" /tmp/flatbuffers.tgz; \
+  download "${typescript_url}" /tmp/typescript.tgz; \
   ESBUILD_INTEGRITY="${esbuild_integrity}" node -e 'const crypto=require("crypto"); const fs=require("fs"); const [algorithm, expected]=process.env.ESBUILD_INTEGRITY.split("-", 2); const actual=crypto.createHash(algorithm).update(fs.readFileSync("/tmp/esbuild-wasm.tgz")).digest("base64"); if (actual !== expected) throw new Error("esbuild-wasm integrity mismatch")'; \
   echo "${flatbuffers_sha256}  /tmp/flatbuffers.tgz" | sha256sum --check --strict; \
   echo "${typescript_sha256}  /tmp/typescript.tgz" | sha256sum --check --strict; \
