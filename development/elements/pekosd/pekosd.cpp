@@ -164,7 +164,7 @@ static void gst_pek_osd_init(GstPekOsd *self) {
     self->performanceOverlayEnabled = DEFAULT_PERFORMANCE_OVERLAY_ENABLED;
     self->bgImagePath = g_strdup(DEFAULT_BG_IMAGE);
     self->frameCount = 0;
-    self->bgImage.reset();
+    std::construct_at(&self->bgImage);
 
     GST_DEBUG_OBJECT(self, "Initialized PekOsd element");
 }
@@ -292,7 +292,7 @@ static void gst_pek_osd_finalize(GObject *object) {
 
     g_free(self->bgImagePath);
     self->bgImagePath = nullptr;
-    self->bgImage.reset();
+    std::destroy_at(&self->bgImage);
 
     G_OBJECT_CLASS(parent_class)->finalize(object);
 }

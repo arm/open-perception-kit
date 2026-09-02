@@ -16,6 +16,7 @@
 #include <chrono>
 #include <cstring>
 #include <map>
+#include <memory>
 #include <set>
 #include <string>
 #include <utility>
@@ -292,10 +293,10 @@ static void gst_pek_performance_init(GstPekPerformance *self) {
     self->frame_count = 0;
     self->update_interval = DEFAULT_UPDATE_INTERVAL;
     self->show_all_metrics = DEFAULT_SHOW_ALL_METRICS;
-    self->last_frame_time = std::chrono::steady_clock::now();
+    std::construct_at(&self->last_frame_time, std::chrono::steady_clock::now());
     self->fps_average = 0.0;
     self->enabled = DEFAULT_ENABLED;
-    self->cached_lines = std::vector<std::string>();
+    std::construct_at(&self->cached_lines);
     self->cache_width = 0;
     self->cache_height = 0;
     self->cache_dirty = true;
@@ -308,7 +309,10 @@ static void gst_pek_performance_finalize(GObject *object) {
     GstPekPerformance *self = GST_PEK_PERFORMANCE(object);
 
     gst_pek_performance_set_collection_enabled(self, false);
-    self->cached_lines.clear();
+
+    std::destroy_at(&self->cached_lines);
+    std::destroy_at(&self->last_frame_time);
+
     g_free(self->background_color);
     g_free(self->text_color);
 
