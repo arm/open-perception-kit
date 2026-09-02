@@ -3,7 +3,3 @@
 ################################################################
 
 raise RuntimeError("intentional module initialization failure")
-
-
-def process(env, tensors, context):
-    return None

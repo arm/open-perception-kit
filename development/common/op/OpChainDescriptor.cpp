@@ -7,6 +7,7 @@
 #include "Validator.h"
 #include "pek/File.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <set>
 #include <utility>
@@ -54,11 +55,9 @@ bool hasRelativePathArrayAttribute(const OpChainDescriptor::Op &op, std::string_
     if (!op.attributes.contains(key))
         return false;
 
-    for (const auto &value : op.attributes.getArray(key)) {
-        if (!std::filesystem::path(value.asString()).is_absolute())
-            return true;
-    }
-    return false;
+    return std::ranges::any_of(op.attributes.getArray(key), [](const auto &value) {
+        return !std::filesystem::path(value.asString()).is_absolute();
+    });
 }
 
 pek::Result<void> resolveDescriptorPaths(OpChainDescriptor &descriptor,
@@ -78,9 +77,9 @@ pek::Result<void> resolveDescriptorPaths(OpChainDescriptor &descriptor,
         if (op.id != "pek-python-ops/PythonScript")
             continue;
 
-        const bool needsModelDirectory = hasRelativePathAttribute(op, "script") ||
-                                         hasRelativePathArrayAttribute(op, "pythonPaths");
-        if (!needsModelDirectory)
+        if (const bool needsModelDirectory = hasRelativePathAttribute(op, "script") ||
+                                             hasRelativePathArrayAttribute(op, "pythonPaths");
+            !needsModelDirectory)
             continue;
         if (modelDirectories.empty()) {
             return tl::unexpected(

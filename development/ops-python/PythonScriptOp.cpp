@@ -177,10 +177,10 @@ class LoadedScript {
                 return tl::unexpected(signatureResult.error());
             }
 
-            return std::unique_ptr<LoadedScript>(new LoadedScript(std::move(moduleName),
-                                                                  std::move(scriptModule),
-                                                                  std::move(processFunction),
-                                                                  std::move(pathTemplate)));
+            return std::make_unique<LoadedScript>(std::move(moduleName),
+                                                  std::move(scriptModule),
+                                                  std::move(processFunction),
+                                                  std::move(pathTemplate));
         } catch (const std::exception &error) {
             return tl::unexpected(PEK_ERROR(pek::ErrorFlag::SystemFailure, error.what()));
         }
@@ -188,6 +188,13 @@ class LoadedScript {
 
     LoadedScript(const LoadedScript &) = delete;
     LoadedScript &operator=(const LoadedScript &) = delete;
+
+    LoadedScript(std::string moduleName,
+                 PyObjectPtr moduleObject,
+                 PyObjectPtr callable,
+                 PythonPathTemplate pathTemplate)
+        : moduleName(std::move(moduleName)), moduleObject(std::move(moduleObject)),
+          callable(std::move(callable)), pathTemplate(std::move(pathTemplate)) {}
 
     ~LoadedScript() {
         reset();
@@ -202,13 +209,6 @@ class LoadedScript {
     }
 
   private:
-    LoadedScript(std::string moduleName,
-                 PyObjectPtr moduleObject,
-                 PyObjectPtr callable,
-                 PythonPathTemplate pathTemplate)
-        : moduleName(std::move(moduleName)), moduleObject(std::move(moduleObject)),
-          callable(std::move(callable)), pathTemplate(std::move(pathTemplate)) {}
-
     void reset() noexcept {
         if (!moduleObject && !callable)
             return;

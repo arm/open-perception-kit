@@ -157,15 +157,16 @@ PyObject *pythonScript(PyObject *, PyObject *callback) {
     return Py_NewRef(callback);
 }
 
+inline std::array<PyMethodDef, 2> moduleMethodDefinitions = {{
+    {"python_script",
+     pythonScript,
+     METH_O,
+     "Mark a callable as a typed PEK Python script entry point."},
+    {nullptr, nullptr, 0, nullptr},
+}};
+
 std::array<PyMethodDef, 2> &moduleMethods() {
-    static std::array<PyMethodDef, 2> definitions = {{
-        {"python_script",
-         pythonScript,
-         METH_O,
-         "Mark a callable as a typed PEK Python script entry point."},
-        {nullptr, nullptr, 0, nullptr},
-    }};
-    return definitions;
+    return moduleMethodDefinitions;
 }
 
 std::array<PyGetSetDef, 2> &contextGetSet() {

@@ -117,12 +117,14 @@ TEST(PythonRuntime, FormatsMissingPythonExceptions) {
 TEST(TensorBridge, PythonScriptDecoratorPreservesCallableIdentity) {
     pek::python::ensureRuntime();
     pek::python::GILGuard gil;
-    pek::python::PyObjectPtr module(PyImport_ImportModule("pek_python_ops"));
-    ASSERT_TRUE(module) << pek::python::formatPythonError();
-    pek::python::PyObjectPtr decorator(PyObject_GetAttrString(module.get(), "python_script"));
+    pek::python::PyObjectPtr runtimeModule(PyImport_ImportModule("pek_python_ops"));
+    ASSERT_TRUE(runtimeModule) << pek::python::formatPythonError();
+    pek::python::PyObjectPtr decorator(
+        PyObject_GetAttrString(runtimeModule.get(), "python_script"));
     ASSERT_TRUE(decorator) << pek::python::formatPythonError();
     ASSERT_TRUE(PyCallable_Check(decorator.get()));
-    pek::python::PyObjectPtr callbackType(PyObject_GetAttrString(module.get(), "ProcessCallback"));
+    pek::python::PyObjectPtr callbackType(
+        PyObject_GetAttrString(runtimeModule.get(), "ProcessCallback"));
     ASSERT_TRUE(callbackType) << pek::python::formatPythonError();
     PyObject *callable = PyDict_GetItemString(PyEval_GetBuiltins(), "len");
     ASSERT_NE(callable, nullptr);
@@ -136,9 +138,10 @@ TEST(TensorBridge, PythonScriptDecoratorPreservesCallableIdentity) {
 TEST(TensorBridge, PythonScriptDecoratorRejectsNoncallables) {
     pek::python::ensureRuntime();
     pek::python::GILGuard gil;
-    pek::python::PyObjectPtr module(PyImport_ImportModule("pek_python_ops"));
-    ASSERT_TRUE(module) << pek::python::formatPythonError();
-    pek::python::PyObjectPtr decorator(PyObject_GetAttrString(module.get(), "python_script"));
+    pek::python::PyObjectPtr runtimeModule(PyImport_ImportModule("pek_python_ops"));
+    ASSERT_TRUE(runtimeModule) << pek::python::formatPythonError();
+    pek::python::PyObjectPtr decorator(
+        PyObject_GetAttrString(runtimeModule.get(), "python_script"));
     ASSERT_TRUE(decorator) << pek::python::formatPythonError();
 
     pek::python::PyObjectPtr decorated(PyObject_CallOneArg(decorator.get(), Py_None));
@@ -150,8 +153,8 @@ TEST(TensorBridge, PythonScriptDecoratorRejectsNoncallables) {
 TEST(TensorBridge, WrapsAllSupportedAdditionalTensorTypes) {
     pek::python::ensureRuntime();
     pek::python::GILGuard gil;
-    pek::python::PyObjectPtr module(PyImport_ImportModule("pek_python_ops"));
-    ASSERT_TRUE(module) << pek::python::formatPythonError();
+    pek::python::PyObjectPtr runtimeModule(PyImport_ImportModule("pek_python_ops"));
+    ASSERT_TRUE(runtimeModule) << pek::python::formatPythonError();
 
     std::array<uint8_t, 1> uint8Values = {1};
     std::array<uint16_t, 1> float16Values = {0};
@@ -178,8 +181,8 @@ TEST(TensorBridge, WrapsAllSupportedAdditionalTensorTypes) {
 TEST(TensorBridge, RejectsNonpositiveRuntimeDimensions) {
     pek::python::ensureRuntime();
     pek::python::GILGuard gil;
-    pek::python::PyObjectPtr module(PyImport_ImportModule("pek_python_ops"));
-    ASSERT_TRUE(module) << pek::python::formatPythonError();
+    pek::python::PyObjectPtr runtimeModule(PyImport_ImportModule("pek_python_ops"));
+    ASSERT_TRUE(runtimeModule) << pek::python::formatPythonError();
 
     std::array<uint8_t, 1> values = {1};
     pek::Shape invalidShape;
@@ -198,8 +201,8 @@ TEST(TensorBridge, RejectsNonpositiveRuntimeDimensions) {
 TEST(TensorBridge, RequiresProducerInfoForContext) {
     pek::python::ensureRuntime();
     pek::python::GILGuard gil;
-    pek::python::PyObjectPtr module(PyImport_ImportModule("pek_python_ops"));
-    ASSERT_TRUE(module) << pek::python::formatPythonError();
+    pek::python::PyObjectPtr runtimeModule(PyImport_ImportModule("pek_python_ops"));
+    ASSERT_TRUE(runtimeModule) << pek::python::formatPythonError();
 
     pek::python::PyObjectPtr context(pek::python::wrapContext(nullptr));
 

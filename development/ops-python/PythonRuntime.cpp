@@ -48,8 +48,8 @@ void exposePythonSymbols() {
 }
 
 std::filesystem::path pythonExecutable() {
-    const char *runtimeVenv = std::getenv("PEK_PYTHON_RUNTIME_VENV");
-    if (runtimeVenv != nullptr && std::string_view(runtimeVenv).empty() == false)
+    if (const char *runtimeVenv = std::getenv("PEK_PYTHON_RUNTIME_VENV");
+        runtimeVenv != nullptr && std::string_view(runtimeVenv).empty() == false)
         return std::filesystem::path(runtimeVenv) / "bin/python";
     return PEK_PYTHON_EXECUTABLE;
 }
@@ -62,8 +62,7 @@ void initializeRuntime() {
     PyConfig config;
     PyConfig_InitPythonConfig(&config);
     PyStatus status = PyStatus_Ok();
-    const auto executable = pythonExecutable();
-    if (!executable.empty()) {
+    if (const auto executable = pythonExecutable(); !executable.empty()) {
         const auto executableString = executable.string();
         status = PyConfig_SetBytesString(&config, &config.program_name, executableString.c_str());
     }

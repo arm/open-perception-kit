@@ -58,6 +58,7 @@ PYTHON_RUNTIME_MODULES = {
 }
 PYTHON_RUNTIME_ROOT = Path("share/pek/python")
 PYTHON_RUNTIME_MANIFEST = "pek-runtime.json"
+PYTHON_OPS_TYPE_STUB = "pek_python_ops.pyi"
 PYTHON_RUNTIME_EXCLUDED_PARTS = {
     "__pycache__",
     "examples",
@@ -404,28 +405,39 @@ def stage_python_distribution(
     return copied
 
 
-def stage_python_runtime(args: argparse.Namespace) -> None:
-    target_root = Path(args.stage_root).resolve() / PYTHON_RUNTIME_ROOT
-    target_root.mkdir(parents=True, exist_ok=True)
+def clear_python_runtime(target_root: Path) -> None:
     for path in target_root.iterdir():
-        if path.name == "pek_python_ops.pyi":
+        if path.name == PYTHON_OPS_TYPE_STUB:
             continue
         if path.is_dir() and not path.is_symlink():
             shutil.rmtree(path)
         else:
             path.unlink()
+
+
+def installed_python_runtime_distribution(
+    requested_name: str,
+) -> tuple[str, importlib.metadata.Distribution]:
+    try:
+        distribution = importlib.metadata.distribution(requested_name)
+    except importlib.metadata.PackageNotFoundError:
+        fail(f"Python runtime distribution is not installed: {requested_name}")
+    distribution_name = distribution.metadata["Name"]
+    if not distribution_name:
+        fail(f"Python runtime distribution has no name: {requested_name}")
+    name = canonical_distribution_name(distribution_name)
+    if name != requested_name:
+        fail(f"Unexpected Python runtime distribution: {name}")
+    return name, distribution
+
+
+def stage_python_runtime(args: argparse.Namespace) -> None:
+    target_root = Path(args.stage_root).resolve() / PYTHON_RUNTIME_ROOT
+    target_root.mkdir(parents=True, exist_ok=True)
+    clear_python_runtime(target_root)
     versions: dict[str, str] = {}
     for requested_name in sorted(PYTHON_RUNTIME_DISTRIBUTIONS):
-        try:
-            distribution = importlib.metadata.distribution(requested_name)
-        except importlib.metadata.PackageNotFoundError:
-            fail(f"Python runtime distribution is not installed: {requested_name}")
-        distribution_name = distribution.metadata["Name"]
-        if not distribution_name:
-            fail(f"Python runtime distribution has no name: {requested_name}")
-        name = canonical_distribution_name(distribution_name)
-        if name != requested_name:
-            fail(f"Unexpected Python runtime distribution: {name}")
+        name, distribution = installed_python_runtime_distribution(requested_name)
         if stage_python_distribution(distribution, target_root) == 0:
             fail(f"Python runtime distribution has no package files: {name}")
         versions[name] = distribution.version
@@ -435,9 +447,28 @@ def stage_python_runtime(args: argparse.Namespace) -> None:
     )
 
 
+def json_mapping(path: Path) -> dict[str, object]:
+    value = load_json(path)
+    if not isinstance(value, dict):
+        fail(f"Expected a JSON object in {path}")
+    return value
+
+
+def configured_version(config: dict[str, object], package_name: str, path: Path) -> str:
+    package = config.get(package_name)
+    if not isinstance(package, dict):
+        fail(f"Missing {package_name} configuration in {path}")
+    version = package.get("version")
+    if not isinstance(version, str) or not version:
+        fail(f"Missing {package_name} version in {path}")
+    return version
+
+
 def expected_python_runtime_versions(repo_root: Path) -> dict[str, str]:
-    runtime = load_json(repo_root / "development/ops-python/runtime.json")
-    sdk = load_json(repo_root / "tools/perception/sdk.json")
+    runtime_path = repo_root / "development/ops-python/runtime.json"
+    sdk_path = repo_root / "tools/perception/sdk.json"
+    runtime = json_mapping(runtime_path)
+    sdk = json_mapping(sdk_path)
     pyproject = (
         repo_root / "generated/perception/python/pyproject.toml"
     ).read_text(encoding="utf-8")
@@ -445,8 +476,8 @@ def expected_python_runtime_versions(repo_root: Path) -> dict[str, str]:
     if version_match is None:
         fail("Generated Perception Python package version is missing")
     return {
-        "flatbuffers": sdk["flatbuffers"]["version"],
-        "numpy": runtime["numpy"]["version"],
+        "flatbuffers": configured_version(sdk, "flatbuffers", sdk_path),
+        "numpy": configured_version(runtime, "numpy", runtime_path),
         "opk-perception-sdk": version_match.group(1),
     }
 
@@ -461,7 +492,7 @@ def validate_python_runtime(package_root: Path, repo_root: Path | None = None) -
     if missing_modules:
         fail(f"Packaged Python runtime modules are missing: {missing_modules}")
     allowed_prefixes = ("flatbuffers", "numpy", "opk_perception_sdk", "perception")
-    allowed_files = {"pek_python_ops.pyi", PYTHON_RUNTIME_MANIFEST}
+    allowed_files = {PYTHON_OPS_TYPE_STUB, PYTHON_RUNTIME_MANIFEST}
     unexpected = sorted(
         path.name
         for path in runtime_root.iterdir()
@@ -470,7 +501,7 @@ def validate_python_runtime(package_root: Path, repo_root: Path | None = None) -
     )
     if unexpected:
         fail(f"Packaged Python runtime contains unexpected entries: {unexpected}")
-    type_stub = runtime_root / "pek_python_ops.pyi"
+    type_stub = runtime_root / PYTHON_OPS_TYPE_STUB
     if not type_stub.is_file() or type_stub.is_symlink():
         fail("Packaged Python operation type stub is missing or invalid")
     manifest_path = runtime_root / PYTHON_RUNTIME_MANIFEST
