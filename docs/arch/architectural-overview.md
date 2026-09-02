@@ -54,10 +54,11 @@ pipeline. See
 A typical execution flow:
 
 1. GStreamer delivers an audio or video buffer into the pipeline.
-2. `pekinfer` executes an OpChain for preprocessing, inference, and postprocessing.
+2. `pekinfer` executes an OpChain whose Ops record hierarchical timing scopes in
+   process-wide `PerformanceMetrics`.
 3. Results are appended to `FrameResults` as typed schema payloads.
 4. `pektracker` can stabilize detections across frames and append tracking output.
-5. `pekperformance` records runtime performance information.
+5. `pekperformance` reads interval aggregates and appends `PerformanceOverlayT`.
 6. `pekosd` can draw supported `FrameResults` payloads onto video frames.
 7. `peksink` can stream the output to a browser through WebRTC.
 

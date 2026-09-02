@@ -71,7 +71,7 @@ runtime. Treat these as constraints when extending the system.
 
 - There are no stable performance goals for latency, FPS, CPU, accelerator use,
   or memory consumption.
-- `PerformanceTracer` and `pekperformance` exist, but measurement checkpoints are
+- `PerformanceMetrics` exposes process-wide timing data, but individual measurement points are
   not yet a user-facing contract.
 - Coverage is thin for parser behavior, known inference outputs, and GStreamer
   element lifecycle behavior.
