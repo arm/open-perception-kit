@@ -759,14 +759,29 @@ jobs:
         (
           github.event_name == 'workflow_dispatch' &&
           inputs.checks == 'all' &&
-          inputs.pr_label == ''
+          (
+            (inputs.pr_number == '' && inputs.pr_label == '') ||
+            (
+              inputs.pr_number != '' &&
+              inputs.pr_label == 'run-pek-ci' &&
+              needs.validate-label-dispatch.result == 'success'
+            )
+          )
         ) ||
         (
           github.event_name == 'pull_request' &&
           github.event.pull_request.head.repo.full_name == github.repository &&
           github.event.pull_request.user.login != 'dependabot[bot]' &&
-          github.event.action != 'labeled' &&
-          github.event.pull_request.draft == false
+          (
+            (
+              github.event.action != 'labeled' &&
+              github.event.pull_request.draft == false
+            ) ||
+            (
+              github.event.action == 'labeled' &&
+              github.event.label.name == 'run-pek-ci'
+            )
+          )
         )
       )
     env:
