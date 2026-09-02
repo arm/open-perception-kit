@@ -10,6 +10,7 @@
 #include <chrono>
 #include <cstdio>
 #include <limits>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <sys/syscall.h>
@@ -505,7 +506,76 @@ void collectHistoryEvents(std::vector<PerformanceMetrics::SpanRecord> &destinati
     }
 }
 
+using ScopeNameHierarchy = std::vector<std::string_view>;
+
+bool buildScopeNameHierarchy(const PerformanceMetrics::Snapshot &snapshot,
+                             const PerformanceMetrics::MetricRecord &metric,
+                             ScopeNameHierarchy &scopeNameHierarchy) {
+    scopeNameHierarchy.clear();
+    const auto *currentHierarchyMetric = &metric;
+
+    for (std::size_t hierarchyDepth = 0; hierarchyDepth <= snapshot.metrics.size();
+         ++hierarchyDepth) {
+        scopeNameHierarchy.push_back(currentHierarchyMetric->getName());
+        if (currentHierarchyMetric->parentId == PerformanceMetrics::InvalidMetricId) {
+            std::ranges::reverse(scopeNameHierarchy);
+            return true;
+        }
+        if (currentHierarchyMetric->parentId >= snapshot.metrics.size() ||
+            snapshot.metrics[currentHierarchyMetric->parentId].id !=
+                currentHierarchyMetric->parentId) {
+            return false;
+        }
+        currentHierarchyMetric = &snapshot.metrics[currentHierarchyMetric->parentId];
+    }
+
+    return false;
+}
+
 } // namespace
+
+std::vector<ScopeIntervalMetrics>
+calculateScopeIntervalMetrics(const PerformanceMetrics::Snapshot &intervalStartSnapshot,
+                              const PerformanceMetrics::Snapshot &intervalEndSnapshot) {
+    std::map<ScopeNameHierarchy, const PerformanceMetrics::MetricRecord *>
+        intervalStartMetricsByScopeHierarchy;
+    ScopeNameHierarchy scopeNameHierarchy;
+    for (const auto &metric : intervalStartSnapshot.metrics) {
+        if (buildScopeNameHierarchy(intervalStartSnapshot, metric, scopeNameHierarchy)) {
+            intervalStartMetricsByScopeHierarchy.try_emplace(scopeNameHierarchy, &metric);
+        }
+    }
+
+    std::vector<ScopeIntervalMetrics> scopeIntervalMetrics;
+    scopeIntervalMetrics.reserve(intervalEndSnapshot.metrics.size());
+    for (const auto &metric : intervalEndSnapshot.metrics) {
+        if (!buildScopeNameHierarchy(intervalEndSnapshot, metric, scopeNameHierarchy)) {
+            continue;
+        }
+
+        const auto intervalStartMetricIterator =
+            intervalStartMetricsByScopeHierarchy.find(scopeNameHierarchy);
+        const auto intervalStartCount =
+            intervalStartMetricIterator == intervalStartMetricsByScopeHierarchy.end()
+                ? 0
+                : intervalStartMetricIterator->second->count;
+        const auto intervalStartTotalNs =
+            intervalStartMetricIterator == intervalStartMetricsByScopeHierarchy.end()
+                ? 0
+                : intervalStartMetricIterator->second->totalNs;
+        if (metric.count <= intervalStartCount || metric.totalNs < intervalStartTotalNs) {
+            continue;
+        }
+
+        const auto completedScopeCount = metric.count - intervalStartCount;
+        const auto totalDurationNs = metric.totalNs - intervalStartTotalNs;
+        scopeIntervalMetrics.emplace_back(std::string(metric.getName()),
+                                          completedScopeCount,
+                                          totalDurationNs,
+                                          totalDurationNs / completedScopeCount);
+    }
+    return scopeIntervalMetrics;
+}
 
 // Scope owns the obligation to finish one recording. Move operations transfer that obligation and
 // clear the source so exactly one Scope reports the duration and unwinds the nesting frame.
@@ -699,7 +769,7 @@ bool PerformanceMetrics::writeCsv(std::string_view path) const {
                      static_cast<unsigned long long>(span.id),
                      static_cast<unsigned long long>(span.parentId),
                      span.depth);
-        writeCsvEscapedName(file, span.nameView());
+        writeCsvEscapedName(file, span.getName());
         std::fprintf(file,
                      ",%llu,%llu,%llu,%.2f\n",
                      static_cast<unsigned long long>(span.startNs),

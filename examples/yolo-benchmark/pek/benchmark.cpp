@@ -8,7 +8,7 @@
 
 #include <fmt/core.h>
 #include <nlohmann/json.hpp>
-#include <perf/PerformanceTracer.h>
+#include <perf/PerformanceMetrics.h>
 
 #include <algorithm>
 #include <chrono>
@@ -205,16 +205,17 @@ std::string timingsPathFor(const std::string &outputPath) {
     return path.string();
 }
 
-StageTimes stageTimesFromTracer(const pek::perf::PerformanceTracer &tracer) {
+StageTimes stageTimesFromScopeIntervalMetrics(
+    const std::vector<pek::perf::ScopeIntervalMetrics> &scopeIntervalMetrics) {
     StageTimes times;
-    for (const auto &measurement : tracer.getCurrentCycleMeasurements()) {
-        const auto &key = measurement.key;
-        if (key.find("/GenImgPre/") != std::string::npos) {
-            times.preprocessMs += measurement.duration_ms();
-        } else if (key.find("/Infer/") != std::string::npos) {
-            times.inferenceMs += measurement.duration_ms();
-        } else if (key.find("/Post/") != std::string::npos) {
-            times.postprocessMs += measurement.duration_ms();
+    for (const auto &metric : scopeIntervalMetrics) {
+        const double totalDurationMs = static_cast<double>(metric.totalDurationNs) / 1000000.0;
+        if (metric.name.find("/GenImgPre/") != std::string::npos) {
+            times.preprocessMs += totalDurationMs;
+        } else if (metric.name.find("/Infer/") != std::string::npos) {
+            times.inferenceMs += totalDurationMs;
+        } else if (metric.name.find("/Post/") != std::string::npos) {
+            times.postprocessMs += totalDurationMs;
         }
     }
     return times;
@@ -282,7 +283,6 @@ int runBenchmark(const std::string &opchainPath,
     const double preloadMs = elapsedMs(preloadStarted, Clock::now());
 
     const std::size_t warmupImages = std::min<std::size_t>(1, rows.size());
-    auto *tracer = pek::perf::getGlobalTracer();
     for (std::size_t i = 0; i < warmupImages; ++i) {
         auto warmupResult =
             runFrame(*opChain, preloadedRows[i].frame, "warmup_" + preloadedRows[i].imageId);
@@ -291,7 +291,6 @@ int runBenchmark(const std::string &opchainPath,
             return 1;
         }
     }
-    tracer->reset();
 
     ensureParentDirectory(outputPath);
     std::ofstream output(outputPath);
@@ -304,8 +303,9 @@ int runBenchmark(const std::string &opchainPath,
     std::vector<StageTimes> stageTimes(rows.size());
     std::vector<std::size_t> detectionCounts(rows.size(), 0);
     const auto loopStarted = Clock::now();
+    auto &globalPerformanceMetrics = pek::perf::defaultPerformanceMetrics();
     for (std::size_t i = 0; i < rows.size(); ++i) {
-        tracer->reset();
+        const auto intervalStartSnapshot = globalPerformanceMetrics.aggregateSnapshot();
         const auto imageStarted = Clock::now();
         auto perceptionJson = runFrame(*opChain, preloadedRows[i].frame, rows[i].imageId);
         const auto imageFinished = Clock::now();
@@ -315,7 +315,9 @@ int runBenchmark(const std::string &opchainPath,
         }
 
         imageTimesMs[i] = elapsedMs(imageStarted, imageFinished);
-        stageTimes[i] = stageTimesFromTracer(*tracer);
+        const auto intervalEndSnapshot = globalPerformanceMetrics.aggregateSnapshot();
+        stageTimes[i] = stageTimesFromScopeIntervalMetrics(
+            pek::perf::calculateScopeIntervalMetrics(intervalStartSnapshot, intervalEndSnapshot));
         const auto prediction = resultJson(rows[i], *perceptionJson);
         detectionCounts[i] = prediction["detections"].size();
         output << prediction.dump() << '\n';

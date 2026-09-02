@@ -76,7 +76,7 @@ class PerformanceMetrics {
         bool nameTruncated = false;
 
         /** Returns the copied scope name as a string_view. */
-        [[nodiscard]] std::string_view nameView() const noexcept {
+        [[nodiscard]] std::string_view getName() const noexcept {
             return name.data();
         }
 
@@ -135,7 +135,7 @@ class PerformanceMetrics {
         bool hasChildren = false;
 
         /** Returns the copied scope name as a string_view. */
-        [[nodiscard]] std::string_view nameView() const noexcept {
+        [[nodiscard]] std::string_view getName() const noexcept {
             return name.data();
         }
     };
@@ -312,6 +312,34 @@ class PerformanceMetrics {
 
     detail::PerformanceMetricsStatePtr state;
 };
+
+/** Timing statistics for one scope completed between two aggregate snapshots. */
+struct ScopeIntervalMetrics {
+    /** Copied name of the scope represented by this interval. */
+    std::string name;
+
+    /** Number of scopes completed during the interval. */
+    std::uint64_t completedScopeCount = 0;
+
+    /** Total duration of scopes completed during the interval, in nanoseconds. */
+    std::uint64_t totalDurationNs = 0;
+
+    /** Average duration of scopes completed during the interval, in nanoseconds. */
+    std::uint64_t averageDurationNs = 0;
+};
+
+/**
+ * Calculates timing statistics for scopes completed between chronological snapshots.
+ *
+ * Metrics are matched by their complete root-to-scope name hierarchy. Missing hierarchies and
+ * records whose counters moved backwards are omitted.
+ *
+ * The hierarchy is the dynamic nesting of named recorder scopes, not a filesystem path or a
+ * reconstructed static call graph.
+ */
+[[nodiscard]] std::vector<ScopeIntervalMetrics>
+calculateScopeIntervalMetrics(const PerformanceMetrics::Snapshot &intervalStartSnapshot,
+                              const PerformanceMetrics::Snapshot &intervalEndSnapshot);
 
 /**
  * Binds a PerformanceMetrics instance to the current thread until destruction.

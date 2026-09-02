@@ -23,7 +23,6 @@
 #include "tl/expected.hpp"
 
 #include <perf/PerformanceMetrics.h>
-#include <perf/PerformanceTracer.h>
 
 using namespace pek::stdop;
 
@@ -120,7 +119,6 @@ pek::Result<void> GenericImagePreprocessOp::configure(const pek::AttributeMap &a
 pek::Result<pek::op::OpSignal> GenericImagePreprocessOp::process(
     pek::op::OpChainContext &opChainContext) { // NOSONAR - preprocessing setup is intentionally
                                                // linear to keep frame/tensor state explicit.
-    PEK_TRACE_SCOPE(fmt::format("std/GenImgPre/{}", upcomingInferenceModel.name));
     PEK_PERF_SCOPE(fmt::format("std/GenImgPre/{}", upcomingInferenceModel.name));
 
     if (opChainContext.inferenceImageCrops.size() == 0) {

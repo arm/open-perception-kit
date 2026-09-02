@@ -50,7 +50,7 @@ PerformanceMetricsSnapshot PerformanceMetrics::snapshot() {
         PerformanceMetric output;
         output.id = metric.id;
         output.parentId = metric.parentId;
-        output.name = std::string(metric.nameView());
+        output.name = std::string(metric.getName());
         output.depth = metric.depth;
         output.count = metric.count;
         output.totalNs = metric.totalNs;
@@ -68,7 +68,7 @@ PerformanceMetricsSnapshot PerformanceMetrics::snapshot() {
         PerformanceSpan output;
         output.id = span.id;
         output.parentId = span.parentId;
-        output.name = std::string(span.nameView());
+        output.name = std::string(span.getName());
         output.startNs = span.startNs;
         output.endNs = span.endNs;
         output.durationNs = span.durationNs();

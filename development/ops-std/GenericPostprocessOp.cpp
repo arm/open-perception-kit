@@ -12,7 +12,6 @@
 #include "pek/FrameResults.h"
 #include "pek/Types.h"
 #include <perf/PerformanceMetrics.h>
-#include <perf/PerformanceTracer.h>
 
 // parser class headers
 #include "postproc/CameraContactParser.h"
@@ -100,7 +99,6 @@ std::vector<std::string_view> GenericPostprocessOp::getProvidedContentTypes() co
 
 pek::Result<pek::op::OpSignal>
 GenericPostprocessOp::process(pek::op::OpChainContext &opChainContext) {
-    PEK_TRACE_SCOPE(fmt::format("std/Post/{}", opChainContext.inferenceInfo.modelName));
     PEK_PERF_SCOPE(fmt::format("std/Post/{}", opChainContext.inferenceInfo.modelName));
 
     pek::TensorParser::Input tensorParserInput(attributes);

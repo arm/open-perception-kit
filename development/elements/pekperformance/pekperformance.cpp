@@ -13,19 +13,20 @@
 #include <gst/video/video.h>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstring>
-#include <map>
+#include <format>
 #include <memory>
-#include <set>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <variant>
 #include <vector>
 
 #include "gst/FrameResultsMeta.h"
 #include "pek/FrameResults.h"
-#include "perf/PerformanceTracer.h"
+#include "perf/PerformanceMetrics.h"
 
 #ifndef PACKAGE
 #define PACKAGE "pek-elements"
@@ -68,11 +69,12 @@ struct _GstPekPerformance {
 
     // Cached overlay surface
     std::vector<std::string> cached_lines;
+    pek::perf::PerformanceMetrics::Snapshot internal_baseline;
     guint cache_width;
     guint cache_height;
     gboolean cache_dirty;
     gboolean started;
-    gboolean collects_measurements;
+    gboolean measurement_inprogress;
 
     // Track maximum height to prevent vertical flickering when metric count changes
     guint max_height;
@@ -129,29 +131,19 @@ static gboolean gst_pek_performance_stop(GstBaseTransform *trans);
 static gboolean gst_pek_performance_sink_event(GstBaseTransform *trans, GstEvent *event);
 static gboolean gst_pek_performance_src_event(GstBaseTransform *trans, GstEvent *event);
 
-static void gst_pek_performance_set_collection_enabled(GstPekPerformance *self, gboolean enabled) {
-    if (self->collects_measurements == enabled) {
+static void update_measurement_state(GstPekPerformance *self) {
+    const gboolean measurement_is_enabled = self->started && self->enabled;
+    if (self->measurement_inprogress == measurement_is_enabled) {
         return;
     }
 
-    auto *tracer = pek::perf::getGlobalTracer();
-    if (enabled) {
-        tracer->registerCurrentCycleConsumer();
+    if (measurement_is_enabled) {
+        self->internal_baseline = pek::perf::defaultPerformanceMetrics().aggregateSnapshot();
     } else {
-        tracer->unregisterCurrentCycleConsumer();
+        self->internal_baseline = {};
     }
-    self->collects_measurements = enabled;
-}
-
-// Helper function to parse hex color
-static void parse_hex_color(const char *hex, double *r, double *g, double *b) {
-    unsigned int color = 0;
-    if (hex && hex[0] == '#') {
-        sscanf(hex + 1, "%x", &color);
-    }
-    *r = ((color >> 16) & 0xFF) / 255.0;
-    *g = ((color >> 8) & 0xFF) / 255.0;
-    *b = (color & 0xFF) / 255.0;
+    self->measurement_inprogress = measurement_is_enabled;
+    self->cache_dirty = true;
 }
 
 #define gst_pek_performance_parent_class parent_class
@@ -270,7 +262,7 @@ static void gst_pek_performance_class_init(GstPekPerformanceClass *klass) {
         element_class,
         "PEK Performance Overlay",
         "Filter/Effect/Video",
-        "Overlays real-time performance metrics from Performance Tracer",
+        "Overlays real-time performance metrics from Performance Metrics",
         "PEK Team <pek@example.com>");
 
     // Set pad templates
@@ -297,19 +289,24 @@ static void gst_pek_performance_init(GstPekPerformance *self) {
     self->fps_average = 0.0;
     self->enabled = DEFAULT_ENABLED;
     std::construct_at(&self->cached_lines);
+    std::construct_at(&self->internal_baseline);
     self->cache_width = 0;
     self->cache_height = 0;
     self->cache_dirty = true;
     self->started = false;
-    self->collects_measurements = false;
+    self->measurement_inprogress = false;
     self->max_height = 0;
 }
 
 static void gst_pek_performance_finalize(GObject *object) {
     GstPekPerformance *self = GST_PEK_PERFORMANCE(object);
 
-    gst_pek_performance_set_collection_enabled(self, false);
+    GST_OBJECT_LOCK(self);
+    self->started = false;
+    update_measurement_state(self);
+    GST_OBJECT_UNLOCK(self);
 
+    std::destroy_at(&self->internal_baseline);
     std::destroy_at(&self->cached_lines);
     std::destroy_at(&self->last_frame_time);
 
@@ -350,12 +347,16 @@ static void gst_pek_performance_set_property(GObject *object,
         self->update_interval = g_value_get_uint(value);
         break;
     case PROP_SHOW_ALL_METRICS:
+        GST_OBJECT_LOCK(self);
         self->show_all_metrics = g_value_get_boolean(value);
         self->cache_dirty = true;
+        GST_OBJECT_UNLOCK(self);
         break;
     case PROP_ENABLED:
+        GST_OBJECT_LOCK(self);
         self->enabled = g_value_get_boolean(value);
-        gst_pek_performance_set_collection_enabled(self, self->started && self->enabled);
+        update_measurement_state(self);
+        GST_OBJECT_UNLOCK(self);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -390,10 +391,14 @@ gst_pek_performance_get_property(GObject *object, guint prop_id, GValue *value, 
         g_value_set_uint(value, self->update_interval);
         break;
     case PROP_SHOW_ALL_METRICS:
+        GST_OBJECT_LOCK(self);
         g_value_set_boolean(value, self->show_all_metrics);
+        GST_OBJECT_UNLOCK(self);
         break;
     case PROP_ENABLED:
+        GST_OBJECT_LOCK(self);
         g_value_set_boolean(value, self->enabled);
+        GST_OBJECT_UNLOCK(self);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -403,166 +408,88 @@ gst_pek_performance_get_property(GObject *object, guint prop_id, GValue *value, 
 
 static gboolean gst_pek_performance_start(GstBaseTransform *trans) {
     GstPekPerformance *self = GST_PEK_PERFORMANCE(trans);
+    GST_OBJECT_LOCK(self);
     self->started = true;
-    gst_pek_performance_set_collection_enabled(self, self->enabled);
+    update_measurement_state(self);
+    GST_OBJECT_UNLOCK(self);
     return TRUE;
 }
 
 static gboolean gst_pek_performance_stop(GstBaseTransform *trans) {
     GstPekPerformance *self = GST_PEK_PERFORMANCE(trans);
+    GST_OBJECT_LOCK(self);
     self->started = false;
-    gst_pek_performance_set_collection_enabled(self, false);
+    update_measurement_state(self);
+    GST_OBJECT_UNLOCK(self);
     return TRUE;
 }
 
 // Helper function to render overlay to cached surface
 static std::vector<std::string> get_performance_data(GstPekPerformance *self) {
-    // Get global tracer (fresh each time to ensure same instance as pekinfer)
-    pek::perf::PerformanceTracer *tracer = pek::perf::getGlobalTracer();
+    std::vector<pek::perf::ScopeIntervalMetrics> scope_interval_metrics;
+    gboolean show_all_metrics;
+    gdouble fps_average;
 
-    // Capture current-cycle measurements before ending the cycle. endCycle()
-    // clears the current cycle buffer, so we must read it first.
-    std::vector<pek::perf::TimingMeasurement> measurements = tracer->getCurrentCycleMeasurements();
-
-    // End the performance cycle to calculate statistics
-    tracer->endCycle();
-
-    // Remove stale metrics for models that produced no measurements in this
-    // cycle. This helps when a model is disabled: its historical metrics
-    // should not remain in the cache and be displayed by OSD.
-    {
-        std::set<std::string> active_models;
-        for (const auto &m : measurements) {
-            const auto &k = m.key;
-            size_t pos = k.find('_');
-            std::string model = (pos != std::string::npos) ? k.substr(0, pos) : k;
-            active_models.insert(model);
-        }
-
-        // Iterate all known stats and remove those whose model prefix was not
-        // observed in this cycle.
-        auto all_stats_for_removal = tracer->getAllStats();
-        for (const auto &kv : all_stats_for_removal) {
-            const std::string &key = kv.first;
-            const pek::perf::TimingStats &stats = kv.second;
-            if (stats.count == 0)
-                continue;
-
-            size_t pos = key.find('_');
-            std::string model = (pos != std::string::npos) ? key.substr(0, pos) : key;
-            if (active_models.find(model) == active_models.end()) {
-                tracer->removeMetrics(key);
-            }
-        }
+    GST_OBJECT_LOCK(self);
+    if (self->measurement_inprogress) {
+        auto interval_end_snapshot = pek::perf::defaultPerformanceMetrics().aggregateSnapshot();
+        scope_interval_metrics = pek::perf::calculateScopeIntervalMetrics(self->internal_baseline,
+                                                                          interval_end_snapshot);
+        self->internal_baseline = std::move(interval_end_snapshot);
     }
+    show_all_metrics = self->show_all_metrics;
+    fps_average = self->fps_average;
+    GST_OBJECT_UNLOCK(self);
 
-    // Parse colors
-    double bg_r, bg_g, bg_b;
-    double text_r, text_g, text_b;
-    parse_hex_color(self->background_color, &bg_r, &bg_g, &bg_b);
-    parse_hex_color(self->text_color, &text_r, &text_g, &text_b);
-
-    // Collect performance data
     std::vector<std::string> lines;
     lines.push_back("═══ Performance Metrics ═══");
 
-    // Group metrics by model name (prefix before underscore) - declared outside for FPS calculation
-    std::map<std::string, std::vector<std::pair<std::string, pek::perf::TimingStats>>>
-        grouped_metrics;
-
-    if (self->show_all_metrics) {
-        // Display all available metrics from tracer, grouped by model
-        auto all_stats = tracer->getAllStats();
-
-        for (const auto &[key, stats] : all_stats) {
-            if (stats.count > 0) {
-                // Extract model name (everything before first underscore)
-                size_t underscore_pos = key.find('_');
-                std::string model_name =
-                    (underscore_pos != std::string::npos) ? key.substr(0, underscore_pos) : key;
-                grouped_metrics[model_name].push_back({key, stats});
-            }
-        }
-
-        // Display metrics grouped by model, ordered: preprocess, inference, postprocess
-        for (const auto &[model_name, metrics] : grouped_metrics) {
-            // Sort metrics within each model: preprocess -> inference -> postprocess
-            std::vector<std::pair<std::string, pek::perf::TimingStats>> sorted_metrics = metrics;
-            std::sort(
-                sorted_metrics.begin(), sorted_metrics.end(), [](const auto &a, const auto &b) {
-                    auto get_order = [](const std::string &key) {
-                        if (key.find("_preprocess") != std::string::npos)
-                            return 0;
-                        if (key.find("_inference") != std::string::npos)
-                            return 1;
-                        if (key.find("_postprocess") != std::string::npos)
-                            return 2;
-                        return 3;
-                    };
-                    return get_order(a.first) < get_order(b.first);
-                });
-
-            for (const auto &[key, stats] : sorted_metrics) {
-                char line_buffer[96];
-                double avg = stats.avg_ms();
-                double p95 = stats.p95_ms();
-                snprintf(line_buffer,
-                         sizeof(line_buffer),
-                         "%-24s: %7.2fms  (p95: %7.2fms)",
-                         key.c_str(),
-                         avg,
-                         p95);
-                lines.push_back(std::string(line_buffer));
-            }
+    if (show_all_metrics) {
+        for (const auto &metric : scope_interval_metrics) {
+            const double average_duration_ms =
+                static_cast<double>(metric.averageDurationNs) / 1000000.0;
+            lines.emplace_back(std::format("{:<24}: {:7.2f}ms", metric.name, average_duration_ms));
         }
     } else {
-        // Display predefined list of metrics
-        struct MetricData {
-            const char *name;
-            const char *key;
+        struct StageIntervalTotals {
+            const char *display_name;
+            std::string_view metric_name_marker;
+            std::uint64_t completed_scope_count = 0;
+            std::uint64_t total_duration_ns = 0;
         };
 
-        MetricData metrics[] = {{"PreProc", "preprocessing"},
-                                {"Inference", "inference"},
-                                {"PostProc", "postprocessing"}};
-
-        for (const auto &metric : metrics) {
-            const auto stats = tracer->getStats(metric.key);
-
-            char line_buffer[96];
-            if (stats.count > 0) {
-                double avg = stats.avg_ms();
-                double p95 = stats.p95_ms();
-                snprintf(line_buffer,
-                         sizeof(line_buffer),
-                         "%-24s: %7.2fms  (p95: %7.2fms)",
-                         metric.name,
-                         avg,
-                         p95);
-            } else {
-                snprintf(line_buffer,
-                         sizeof(line_buffer),
-                         "%-24s: %s",
-                         metric.name,
-                         "  -- (waiting...)  ");
+        std::array stage_interval_totals = {StageIntervalTotals{"PreProc", "/GenImgPre/"},
+                                            StageIntervalTotals{"Inference", "/Infer/"},
+                                            StageIntervalTotals{"PostProc", "/Post/"}};
+        for (const auto &metric : scope_interval_metrics) {
+            const auto stage =
+                std::ranges::find_if(stage_interval_totals, [&metric](const auto &item) {
+                    return metric.name.find(item.metric_name_marker) != std::string::npos;
+                });
+            if (stage != stage_interval_totals.end()) {
+                stage->completed_scope_count += metric.completedScopeCount;
+                stage->total_duration_ns += metric.totalDurationNs;
             }
-            lines.push_back(std::string(line_buffer));
+        }
+
+        for (const auto &stage : stage_interval_totals) {
+            if (stage.completed_scope_count == 0) {
+                continue;
+            }
+            const double average_duration_ms = static_cast<double>(stage.total_duration_ns) /
+                                               static_cast<double>(stage.completed_scope_count) /
+                                               1000000.0;
+            lines.emplace_back(
+                std::format("{:<24}: {:7.2f}ms", stage.display_name, average_duration_ms));
         }
     }
 
     // Always include an FPS line so downstream OSD can show at least FPS when
     // no model metrics are available. If FPS not yet measured, show placeholder.
-    {
-        char fps_buffer[96];
-        if (self->fps_average > 0) {
-            snprintf(fps_buffer,
-                     sizeof(fps_buffer),
-                     "Pipeline                : %6.1f FPS",
-                     self->fps_average);
-        } else {
-            snprintf(fps_buffer, sizeof(fps_buffer), "Pipeline                :    --.- FPS");
-        }
-        lines.push_back(std::string(fps_buffer));
+    if (fps_average > 0) {
+        lines.emplace_back(std::format("Pipeline                : {:6.1f} FPS", fps_average));
+    } else {
+        lines.emplace_back("Pipeline                :    --.- FPS");
     }
 
     lines.push_back("═══════════════════════════════════════════════");
@@ -573,7 +500,9 @@ static GstFlowReturn gst_pek_performance_transform_frame_ip(GstVideoFilter *filt
                                                             GstVideoFrame *frame) {
     GstPekPerformance *self = GST_PEK_PERFORMANCE(filter);
 
-    if (!self->enabled) {
+    GST_OBJECT_LOCK(self);
+    if (const gboolean enabled = self->enabled; !enabled) {
+        GST_OBJECT_UNLOCK(self);
         return GST_FLOW_OK;
     }
 
@@ -593,7 +522,12 @@ static GstFlowReturn gst_pek_performance_transform_frame_ip(GstVideoFilter *filt
 
     self->frame_count++;
 
-    if (self->cache_dirty || (self->frame_count % self->update_interval) == 0) {
+    const gboolean cache_should_be_updated =
+        self->cache_dirty || (self->frame_count % self->update_interval) == 0;
+    self->cache_dirty = false;
+    GST_OBJECT_UNLOCK(self);
+
+    if (cache_should_be_updated) {
         // Update cache every N frames
         self->cached_lines = get_performance_data(self);
     }
@@ -643,8 +577,10 @@ static gboolean gst_pek_performance_src_event(GstBaseTransform *trans, GstEvent 
             gboolean enabled;
             if (gst_structure_get_boolean(structure, "enabled", &enabled)) {
                 GST_INFO_OBJECT(self, "Received upstream event: enabled=%d", enabled);
+                GST_OBJECT_LOCK(self);
                 self->enabled = enabled;
-                gst_pek_performance_set_collection_enabled(self, self->started && self->enabled);
+                update_measurement_state(self);
+                GST_OBJECT_UNLOCK(self);
             } else {
                 GST_WARNING_OBJECT(self, "Received pekperformance event without 'enabled' field");
             }

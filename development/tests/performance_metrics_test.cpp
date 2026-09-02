@@ -6,6 +6,7 @@
 
 #include "perf/PerformanceMetrics.h"
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdio>
@@ -32,7 +33,7 @@ findMetric(const PerformanceMetrics::Snapshot &snapshot,
            std::string_view name,
            std::uint64_t parentId = PerformanceMetrics::InvalidMetricId) {
     for (const auto &metric : snapshot.metrics) {
-        if (metric.parentId == parentId && metric.nameView() == name) {
+        if (metric.parentId == parentId && metric.getName() == name) {
             return &metric;
         }
     }
@@ -94,6 +95,118 @@ TEST(PerformanceMetrics, SameNameUnderDifferentParentsStaysSeparate) {
     EXPECT_NE(sharedA->id, sharedB->id);
 }
 
+TEST(PerformanceMetrics, ScopeIntervalMetricsUseHierarchyAndIncludeNewScopes) {
+    PerformanceMetrics metrics;
+
+    {
+        auto parentAScope = metrics.scope("parentA");
+        auto sharedScope = metrics.scope("shared");
+    }
+    {
+        auto parentBScope = metrics.scope("parentB");
+        auto sharedScope = metrics.scope("shared");
+    }
+    {
+        auto staleScope = metrics.scope("stale");
+    }
+    const auto intervalStartSnapshot = metrics.aggregateSnapshot();
+
+    for (std::size_t iteration = 0; iteration < 2; ++iteration) {
+        auto parentAScope = metrics.scope("parentA");
+        auto sharedScope = metrics.scope("shared");
+    }
+    for (std::size_t iteration = 0; iteration < 3; ++iteration) {
+        auto parentBScope = metrics.scope("parentB");
+        auto sharedScope = metrics.scope("shared");
+    }
+    {
+        auto newParentScope = metrics.scope("new-parent");
+        auto newLeafScope = metrics.scope("new-leaf");
+    }
+    const auto intervalEndSnapshot = metrics.aggregateSnapshot();
+
+    const auto *intervalStartParentA = findMetric(intervalStartSnapshot, "parentA");
+    const auto *intervalStartParentB = findMetric(intervalStartSnapshot, "parentB");
+    const auto *intervalEndParentA = findMetric(intervalEndSnapshot, "parentA");
+    const auto *intervalEndParentB = findMetric(intervalEndSnapshot, "parentB");
+    ASSERT_NE(intervalStartParentA, nullptr);
+    ASSERT_NE(intervalStartParentB, nullptr);
+    ASSERT_NE(intervalEndParentA, nullptr);
+    ASSERT_NE(intervalEndParentB, nullptr);
+
+    const auto *intervalStartSharedA =
+        findMetric(intervalStartSnapshot, "shared", intervalStartParentA->id);
+    const auto *intervalStartSharedB =
+        findMetric(intervalStartSnapshot, "shared", intervalStartParentB->id);
+    const auto *intervalEndSharedA =
+        findMetric(intervalEndSnapshot, "shared", intervalEndParentA->id);
+    const auto *intervalEndSharedB =
+        findMetric(intervalEndSnapshot, "shared", intervalEndParentB->id);
+    const auto *intervalEndNewParent = findMetric(intervalEndSnapshot, "new-parent");
+    ASSERT_NE(intervalEndNewParent, nullptr);
+    const auto *intervalEndNewLeaf =
+        findMetric(intervalEndSnapshot, "new-leaf", intervalEndNewParent->id);
+    ASSERT_NE(intervalStartSharedA, nullptr);
+    ASSERT_NE(intervalStartSharedB, nullptr);
+    ASSERT_NE(intervalEndSharedA, nullptr);
+    ASSERT_NE(intervalEndSharedB, nullptr);
+    ASSERT_NE(intervalEndNewLeaf, nullptr);
+    ASSERT_GE(intervalEndSharedA->totalNs, intervalStartSharedA->totalNs);
+    ASSERT_GE(intervalEndSharedB->totalNs, intervalStartSharedB->totalNs);
+
+    const auto scopeIntervalMetrics =
+        pek::perf::calculateScopeIntervalMetrics(intervalStartSnapshot, intervalEndSnapshot);
+    std::vector<std::uint64_t> sharedCompletedScopeCounts;
+    for (const auto &metric : scopeIntervalMetrics) {
+        EXPECT_NE(metric.name, "stale");
+        EXPECT_GT(metric.completedScopeCount, 0U);
+        EXPECT_EQ(metric.averageDurationNs, metric.totalDurationNs / metric.completedScopeCount);
+        if (metric.name == "shared") {
+            sharedCompletedScopeCounts.push_back(metric.completedScopeCount);
+            if (metric.completedScopeCount == 2) {
+                EXPECT_EQ(metric.totalDurationNs,
+                          intervalEndSharedA->totalNs - intervalStartSharedA->totalNs);
+            } else if (metric.completedScopeCount == 3) {
+                EXPECT_EQ(metric.totalDurationNs,
+                          intervalEndSharedB->totalNs - intervalStartSharedB->totalNs);
+            }
+        }
+    }
+    std::ranges::sort(sharedCompletedScopeCounts);
+    EXPECT_EQ(sharedCompletedScopeCounts, (std::vector<std::uint64_t>{2, 3}));
+
+    const auto newParentIntervalMetric = std::ranges::find(
+        scopeIntervalMetrics, "new-parent", &pek::perf::ScopeIntervalMetrics::name);
+    ASSERT_NE(newParentIntervalMetric, scopeIntervalMetrics.end());
+    EXPECT_EQ(newParentIntervalMetric->completedScopeCount, intervalEndNewParent->count);
+    EXPECT_EQ(newParentIntervalMetric->totalDurationNs, intervalEndNewParent->totalNs);
+
+    const auto newLeafIntervalMetric =
+        std::ranges::find(scopeIntervalMetrics, "new-leaf", &pek::perf::ScopeIntervalMetrics::name);
+    ASSERT_NE(newLeafIntervalMetric, scopeIntervalMetrics.end());
+    EXPECT_EQ(newLeafIntervalMetric->completedScopeCount, intervalEndNewLeaf->count);
+    EXPECT_EQ(newLeafIntervalMetric->totalDurationNs, intervalEndNewLeaf->totalNs);
+
+    auto regressedCounterSnapshot = intervalEndSnapshot;
+    for (auto &metric : regressedCounterSnapshot.metrics) {
+        metric.count = 0;
+        metric.totalNs = 0;
+    }
+    EXPECT_TRUE(
+        pek::perf::calculateScopeIntervalMetrics(intervalStartSnapshot, regressedCounterSnapshot)
+            .empty());
+
+    auto regressedDurationSnapshot = intervalEndSnapshot;
+    ASSERT_GT(intervalStartParentA->totalNs, 0U);
+    regressedDurationSnapshot.metrics[intervalEndParentA->id].totalNs =
+        intervalStartParentA->totalNs - 1;
+    const auto regressedDurationMetrics =
+        pek::perf::calculateScopeIntervalMetrics(intervalStartSnapshot, regressedDurationSnapshot);
+    EXPECT_EQ(std::ranges::find(
+                  regressedDurationMetrics, "parentA", &pek::perf::ScopeIntervalMetrics::name),
+              regressedDurationMetrics.end());
+}
+
 TEST(PerformanceMetrics, SwitchingRecordersPreservesEachNestedStack) {
     PerformanceMetrics first;
     PerformanceMetrics second;
@@ -117,6 +230,31 @@ TEST(PerformanceMetrics, SwitchingRecordersPreservesEachNestedStack) {
     EXPECT_NE(findMetric(secondSnapshot, "second-root"), nullptr);
 }
 
+TEST(PerformanceMetrics, ScopeIntervalMetricsIgnoreMalformedHierarchies) {
+    PerformanceMetrics::Snapshot invalidParentSnapshot;
+    invalidParentSnapshot.metrics.emplace_back();
+    invalidParentSnapshot.metrics.front().id = 0;
+    invalidParentSnapshot.metrics.front().parentId = 1;
+    invalidParentSnapshot.metrics.front().count = 1;
+
+    PerformanceMetrics::Snapshot cyclicHierarchySnapshot;
+    cyclicHierarchySnapshot.metrics.emplace_back();
+    cyclicHierarchySnapshot.metrics.front().id = 0;
+    cyclicHierarchySnapshot.metrics.front().parentId = 0;
+    cyclicHierarchySnapshot.metrics.front().count = 1;
+
+    PerformanceMetrics::Snapshot mismatchedParentSnapshot;
+    mismatchedParentSnapshot.metrics.resize(2);
+    mismatchedParentSnapshot.metrics.front().id = 1;
+    mismatchedParentSnapshot.metrics.back().id = 1;
+    mismatchedParentSnapshot.metrics.back().parentId = 0;
+    mismatchedParentSnapshot.metrics.back().count = 1;
+
+    EXPECT_TRUE(pek::perf::calculateScopeIntervalMetrics({}, invalidParentSnapshot).empty());
+    EXPECT_TRUE(pek::perf::calculateScopeIntervalMetrics({}, cyclicHierarchySnapshot).empty());
+    EXPECT_TRUE(pek::perf::calculateScopeIntervalMetrics({}, mismatchedParentSnapshot).empty());
+}
+
 TEST(PerformanceMetrics, LongNamesAreTruncatedAndReported) {
     PerformanceMetrics metrics;
     const std::string longName(PerformanceMetrics::MaxSpanNameLength + 8, 'x');
@@ -127,21 +265,21 @@ TEST(PerformanceMetrics, LongNamesAreTruncatedAndReported) {
 
     const auto snapshot = metrics.aggregateSnapshot();
     ASSERT_EQ(snapshot.metrics.size(), 1U);
-    EXPECT_EQ(snapshot.metrics.front().nameView().size(), PerformanceMetrics::MaxSpanNameLength);
+    EXPECT_EQ(snapshot.metrics.front().getName().size(), PerformanceMetrics::MaxSpanNameLength);
     EXPECT_TRUE(snapshot.metrics.front().nameTruncated);
 }
 
-TEST(PerformanceMetrics, HistoryDisabledStoresNoSpans) {
+TEST(PerformanceMetrics, AggregateOnlyRecordingRetainsCountsWithoutHistory) {
     PerformanceMetrics metrics;
 
-    {
+    for (std::size_t iteration = 0; iteration < 2000; ++iteration) {
         auto scope = metrics.scope("aggregate-only");
     }
 
     const auto snapshot = metrics.snapshot();
     EXPECT_TRUE(snapshot.spans.empty());
     ASSERT_EQ(snapshot.metrics.size(), 1U);
-    EXPECT_EQ(snapshot.metrics.front().count, 1U);
+    EXPECT_EQ(snapshot.metrics.front().count, 2000U);
 }
 
 TEST(PerformanceMetrics, HistoryRecordsOnlyCompletedSpans) {
@@ -159,8 +297,8 @@ TEST(PerformanceMetrics, HistoryRecordsOnlyCompletedSpans) {
     ASSERT_EQ(snapshot.spans.size(), 2U);
     EXPECT_TRUE(snapshot.spans[0].complete());
     EXPECT_TRUE(snapshot.spans[1].complete());
-    EXPECT_EQ(snapshot.spans[0].nameView(), "history-root");
-    EXPECT_EQ(snapshot.spans[1].nameView(), "history-child");
+    EXPECT_EQ(snapshot.spans[0].getName(), "history-root");
+    EXPECT_EQ(snapshot.spans[1].getName(), "history-child");
     EXPECT_EQ(snapshot.spans[1].parentId, snapshot.spans[0].id);
 }
 
