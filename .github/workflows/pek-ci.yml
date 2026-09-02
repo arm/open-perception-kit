@@ -818,7 +818,8 @@ jobs:
       - name: Select GNU tar for Actions cache
         run: |
           mkdir -p "$RUNNER_TEMP/gnu-tar"
-          ln -sf "$(command -v gtar)" "$RUNNER_TEMP/gnu-tar/tar"
+          tar_path="$(command -v gtar || command -v tar)"
+          ln -sf "$tar_path" "$RUNNER_TEMP/gnu-tar/tar"
           "$RUNNER_TEMP/gnu-tar/tar" --version | grep -F 'GNU tar'
           echo "$RUNNER_TEMP/gnu-tar" >> "$GITHUB_PATH"
 
