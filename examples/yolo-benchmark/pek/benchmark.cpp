@@ -304,8 +304,8 @@ int runBenchmark(const std::string &opchainPath,
     std::vector<std::size_t> detectionCounts(rows.size(), 0);
     const auto loopStarted = Clock::now();
     auto &globalPerformanceMetrics = pek::perf::defaultPerformanceMetrics();
+    auto intervalBaselineSnapshot = globalPerformanceMetrics.aggregateSnapshot();
     for (std::size_t i = 0; i < rows.size(); ++i) {
-        const auto intervalStartSnapshot = globalPerformanceMetrics.aggregateSnapshot();
         const auto imageStarted = Clock::now();
         auto perceptionJson = runFrame(*opChain, preloadedRows[i].frame, rows[i].imageId);
         const auto imageFinished = Clock::now();
@@ -315,9 +315,10 @@ int runBenchmark(const std::string &opchainPath,
         }
 
         imageTimesMs[i] = elapsedMs(imageStarted, imageFinished);
-        const auto intervalEndSnapshot = globalPerformanceMetrics.aggregateSnapshot();
-        stageTimes[i] = stageTimesFromScopeIntervalMetrics(
-            pek::perf::calculateScopeIntervalMetrics(intervalStartSnapshot, intervalEndSnapshot));
+        auto intervalEndSnapshot = globalPerformanceMetrics.aggregateSnapshot();
+        stageTimes[i] = stageTimesFromScopeIntervalMetrics(pek::perf::calculateScopeIntervalMetrics(
+            intervalBaselineSnapshot, intervalEndSnapshot));
+        intervalBaselineSnapshot = std::move(intervalEndSnapshot);
         const auto prediction = resultJson(rows[i], *perceptionJson);
         detectionCounts[i] = prediction["detections"].size();
         output << prediction.dump() << '\n';
