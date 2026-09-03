@@ -45,9 +45,9 @@ serves the same non-blocking role as the video path.
 - an HTTP server for static browser content
 - a model registry exposed through the control channel
 
-`pekinfer` emits `pek-model-register` events, and `peksink` records that model
-state for browser-side visibility. It also handles unregister events if an
-upstream component emits them.
+`pekinfer` emits `pek-model-register` events, and `peksink` records the model
+state and declared required/provided content types for browser-side visibility.
+It also handles unregister events if an upstream component emits them.
 
 The `/api/model-info` endpoint searches for model and OpChain descriptors under
 `${PEK_PROJECT_ROOT:-/work}/config`. Explicitly setting `PEK_PROJECT_ROOT`

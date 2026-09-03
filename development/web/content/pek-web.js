@@ -738,6 +738,13 @@ function orderModels(models) {
 function readableText(value) {
   return String(value ?? "").trim();
 }
+function contentTypes(value) {
+  return Array.isArray(value) ? value.map(readableText).filter(Boolean) : [];
+}
+function dependencyProviderTasks(model, models) {
+  const required = new Set(contentTypes(model.requiredContentTypes));
+  return [...new Set(models.filter((candidate) => candidate !== model && contentTypes(candidate.providedContentTypes).some((type) => required.has(type))).map((candidate) => readableText(candidate.task) || readableText(candidate.name)).filter(Boolean))];
+}
 function resolveModelPresentation(model) {
   const rawName = readableText(model.name) || "Unknown model";
   const displayName = readableText(model.displayName) || rawName;
@@ -767,7 +774,9 @@ var ModelsManager = class {
       name: model.name || "",
       displayName: model.displayName || "",
       task: model.task || "",
-      runtime: model.runtime || ""
+      runtime: model.runtime || "",
+      providedContentTypes: contentTypes(model.providedContentTypes),
+      requiredContentTypes: contentTypes(model.requiredContentTypes)
     })));
     if (nextSignature === this._lastModelsSignature) {
       return;
@@ -782,12 +791,13 @@ var ModelsManager = class {
             `;
       return;
     }
-    orderModels(models).forEach((model) => {
-      const modelItem = this.createModelItem(model);
+    const orderedModels = orderModels(models);
+    orderedModels.forEach((model) => {
+      const modelItem = this.createModelItem(model, orderedModels);
       this.container.appendChild(modelItem);
     });
   }
-  createModelItem(model) {
+  createModelItem(model, models) {
     const item = document.createElement("div");
     item.className = "model-item";
     item.setAttribute("data-model-name", model.name || "");
@@ -809,9 +819,40 @@ var ModelsManager = class {
       modelDetails.textContent = presentation.secondaryLabel;
       modelCopy.appendChild(modelDetails);
     }
+    const requiredContentTypes = contentTypes(model.requiredContentTypes);
     modelInfo.appendChild(modelCopy);
     const modelActions = document.createElement("div");
     modelActions.className = "model-actions";
+    if (requiredContentTypes.length > 0) {
+      const providerTasks = dependencyProviderTasks(model, models);
+      const accessibleProviders = providerTasks.length > 0 ? providerTasks.join(", ") : "No provider registered";
+      const dependencyInfo = document.createElement("div");
+      dependencyInfo.className = "model-dependency-info";
+      dependencyInfo.setAttribute("tabindex", "0");
+      dependencyInfo.setAttribute("aria-label", `Depends on: ${accessibleProviders}`);
+      const dependencyIcon = document.createElement("img");
+      dependencyIcon.className = "model-dependency-icon";
+      dependencyIcon.setAttribute("src", "/assets/information.svg");
+      dependencyIcon.setAttribute("alt", "");
+      dependencyIcon.setAttribute("aria-hidden", "true");
+      const dependencyPopup = document.createElement("div");
+      dependencyPopup.className = "model-dependency-popup";
+      dependencyPopup.setAttribute("role", "tooltip");
+      const dependencyHeading = document.createElement("div");
+      dependencyHeading.className = "model-dependency-heading";
+      dependencyHeading.textContent = "Depends on:";
+      dependencyPopup.appendChild(dependencyHeading);
+      const dependencyList = document.createElement("ul");
+      const items = providerTasks.length > 0 ? providerTasks : ["No provider registered"];
+      for (const task of items) {
+        const dependency = document.createElement("li");
+        dependency.textContent = task;
+        dependencyList.appendChild(dependency);
+      }
+      dependencyPopup.appendChild(dependencyList);
+      dependencyInfo.append(dependencyIcon, dependencyPopup);
+      modelActions.appendChild(dependencyInfo);
+    }
     const toggleLabel = document.createElement("label");
     toggleLabel.className = "model-toggle-switch";
     toggleLabel.setAttribute("aria-label", `Toggle ${presentation.fullLabel}`);

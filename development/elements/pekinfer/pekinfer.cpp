@@ -12,6 +12,7 @@
 #include <memory>
 #include <string_view>
 #include <variant>
+#include <vector>
 
 #include "glib-object.h"
 #include "glib.h"
@@ -135,6 +136,18 @@ static void gst_pekinfer_activate_for_content_requirement(GstPekInfer *self) {
         g_object_set(self, "active", TRUE, nullptr);
 }
 
+static void gst_pekinfer_set_content_types(GstStructure *structure,
+                                           std::string_view field,
+                                           const std::vector<std::string_view> &contentTypes) {
+    std::vector<std::string> strings(contentTypes.begin(), contentTypes.end());
+    std::vector<const gchar *> values;
+    values.reserve(strings.size() + 1);
+    for (const auto &contentType : strings)
+        values.push_back(contentType.c_str());
+    values.push_back(nullptr);
+    gst_structure_set(structure, field.data(), G_TYPE_STRV, values.data(), nullptr);
+}
+
 static void gst_pekinfer_push_model_registration(GstPekInfer *self) {
     if (self->m == nullptr)
         return;
@@ -169,6 +182,10 @@ static void gst_pekinfer_push_model_registration(GstPekInfer *self) {
         gst_structure_set(
             structure, "runtime", G_TYPE_STRING, self->m->opChain.getRuntime().c_str(), nullptr);
     }
+    gst_pekinfer_set_content_types(
+        structure, "provided-content-types", self->m->opChain.getProvidedContentTypes());
+    gst_pekinfer_set_content_types(
+        structure, "required-content-types", self->m->opChain.getRequiredContentTypes());
     gst_pad_push_event(srcpad, gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM, structure));
     gst_object_unref(srcpad);
 }
