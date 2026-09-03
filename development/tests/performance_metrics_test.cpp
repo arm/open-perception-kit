@@ -70,6 +70,20 @@ TEST(PerformanceMetrics, NestedScopesProduceHierarchyAndAverages) {
     EXPECT_GT(child->averageNs, 0U);
 }
 
+TEST(PerformanceMetrics, SnapshotDerivesChildrenForOpenScopes) {
+    PerformanceMetrics metrics;
+
+    auto rootScope = metrics.scope("open-root");
+    auto childScope = metrics.scope("open-child");
+
+    const auto snapshot = metrics.aggregateSnapshot();
+    const auto *root = findMetric(snapshot, "open-root");
+    ASSERT_NE(root, nullptr);
+    EXPECT_EQ(root->count, 0U);
+    EXPECT_TRUE(root->hasChildren);
+    EXPECT_EQ(findMetric(snapshot, "open-child", root->id), nullptr);
+}
+
 TEST(PerformanceMetrics, SameNameUnderDifferentParentsStaysSeparate) {
     PerformanceMetrics metrics;
 

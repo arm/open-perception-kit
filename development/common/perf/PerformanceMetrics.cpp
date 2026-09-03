@@ -137,7 +137,6 @@ struct PerformanceMetricsAtomicMetric {
     std::atomic<std::uint64_t> maxNs{0};
     std::atomic<std::uint64_t> lastNs{0};
     std::atomic<bool> nameTruncated{false};
-    std::atomic<bool> hasChildren{false};
 };
 
 // All recorder-owned data associated with one recording thread. The slot owns that thread's
@@ -311,7 +310,6 @@ std::uint32_t ensureMetric(detail::PerformanceMetricsThreadSlot &slot,
     metric.maxNs.store(0, std::memory_order_relaxed);
     metric.lastNs.store(0, std::memory_order_relaxed);
     metric.nameTruncated.store(nameTruncated, std::memory_order_relaxed);
-    metric.hasChildren.store(false, std::memory_order_relaxed);
     slot.metricCount.store(metricCount + 1, std::memory_order_release);
     return metricCount;
 }
@@ -324,19 +322,6 @@ void beginMetricWrite(detail::PerformanceMetricsAtomicMetric &metric) noexcept {
 
 void endMetricWrite(detail::PerformanceMetricsAtomicMetric &metric) noexcept {
     metric.sequence.fetch_add(1, std::memory_order_release);
-}
-
-// Retains empty parent nodes in snapshots when they have a recorded descendant.
-void markMetricHasChildren(detail::PerformanceMetricsThreadSlot &slot,
-                           std::uint32_t metricIndex) noexcept {
-    if (metricIndex >= MaxMetricsPerThread) {
-        return;
-    }
-
-    auto &metric = slot.metrics[metricIndex];
-    beginMetricWrite(metric);
-    metric.hasChildren.store(true, std::memory_order_relaxed);
-    endMetricWrite(metric);
 }
 
 // Incorporates one completed scope duration into its thread-local aggregate node.
@@ -388,7 +373,6 @@ PerformanceMetrics::MetricRecord readMetric(const detail::PerformanceMetricsThre
         metric.maxNs = source.maxNs.load(std::memory_order_relaxed);
         metric.lastNs = source.lastNs.load(std::memory_order_relaxed);
         metric.nameTruncated = source.nameTruncated.load(std::memory_order_relaxed);
-        metric.hasChildren = source.hasChildren.load(std::memory_order_relaxed);
 
         const auto sequenceAfter = source.sequence.load(std::memory_order_acquire);
         if (sequenceBefore == sequenceAfter && (sequenceAfter & 1U) == 0) {
@@ -417,7 +401,6 @@ std::uint64_t mergeMetric(std::vector<PerformanceMetrics::MetricRecord> &destina
             }
             metric.averageNs = metric.count == 0 ? 0 : metric.totalNs / metric.count;
             metric.nameTruncated = metric.nameTruncated || source.nameTruncated;
-            metric.hasChildren = metric.hasChildren || source.hasChildren;
             return metric.id;
         }
     }
@@ -436,6 +419,7 @@ std::uint64_t collectMetric(std::vector<PerformanceMetrics::MetricRecord> &desti
                             const detail::PerformanceMetricsThreadSlot &slot,
                             std::uint32_t metricIndex,
                             std::uint32_t metricCount,
+                            bool includeEmptyMetric,
                             std::vector<std::uint64_t> &mergedIds) {
     if (metricIndex >= metricCount) {
         return PerformanceMetrics::InvalidMetricId;
@@ -449,12 +433,15 @@ std::uint64_t collectMetric(std::vector<PerformanceMetrics::MetricRecord> &desti
     std::uint64_t parentId = PerformanceMetrics::InvalidMetricId;
     if (sourceMetadata.parentIndex != InvalidLocalMetricIndex &&
         sourceMetadata.parentIndex < metricCount) {
-        parentId =
-            collectMetric(destination, slot, sourceMetadata.parentIndex, metricCount, mergedIds);
+        parentId = collectMetric(
+            destination, slot, sourceMetadata.parentIndex, metricCount, true, mergedIds);
+        if (parentId != PerformanceMetrics::InvalidMetricId) {
+            destination[parentId].hasChildren = true;
+        }
     }
 
     const auto source = readMetric(slot, metricIndex);
-    if (source.count == 0 && !source.hasChildren) {
+    if (source.count == 0 && !includeEmptyMetric) {
         return PerformanceMetrics::InvalidMetricId;
     }
 
@@ -471,7 +458,7 @@ void collectMetrics(std::vector<PerformanceMetrics::MetricRecord> &destination,
     std::vector<std::uint64_t> mergedIds(metricCount, PerformanceMetrics::InvalidMetricId);
 
     for (std::uint32_t index = 0; index < metricCount; ++index) {
-        collectMetric(destination, slot, index, metricCount, mergedIds);
+        collectMetric(destination, slot, index, metricCount, false, mergedIds);
     }
 }
 
@@ -659,10 +646,6 @@ PerformanceMetrics::Scope PerformanceMetrics::scope(std::string_view name) noexc
             ensureMetric(slot, storedName, parentIndex, frame->depth, nameTruncated);
         if (metricIndex == InvalidLocalMetricIndex) {
             return {};
-        }
-
-        if (parentIndex != InvalidLocalMetricIndex) {
-            markMetricHasChildren(slot, parentIndex);
         }
 
         const auto historyRecorded = state->historyEnabled.load(std::memory_order_relaxed);
