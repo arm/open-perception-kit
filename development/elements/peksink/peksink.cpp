@@ -37,8 +37,6 @@ g++ -fPIC -shared -o libgstpeksink.so peksink.cpp \
 #include <filesystem>
 #include <memory>
 #include <string>
-#include <string_view>
-#include <vector>
 
 #ifndef PACKAGE
 #define PACKAGE "peksink"
@@ -332,21 +330,6 @@ static void gst_pek_sink_stop_pipeline_async(GstElement *element, gpointer user_
 }
 
 /* ===== Event handling ===== */
-static std::vector<std::string> gst_pek_sink_get_content_types(const GstStructure *structure,
-                                                               std::string_view field) {
-    std::vector<std::string> result;
-    const GValue *values = gst_structure_get_value(structure, field.data());
-    if (values == nullptr || !G_VALUE_HOLDS(values, G_TYPE_STRV))
-        return result;
-
-    const auto content_types = static_cast<const gchar *const *>(g_value_get_boxed(values));
-    if (content_types != nullptr)
-        for (const gchar *const *content_type = content_types; *content_type != nullptr;
-             ++content_type)
-            result.emplace_back(*content_type);
-    return result;
-}
-
 static gboolean gst_pek_sink_sink_event(GstPad *pad, GstObject *parent, GstEvent *event) {
     auto *self = reinterpret_cast<GstPekSink *>(parent);
 
@@ -354,28 +337,8 @@ static gboolean gst_pek_sink_sink_event(GstPad *pad, GstObject *parent, GstEvent
         const GstStructure *structure = gst_event_get_structure(event);
 
         if (gst_structure_has_name(structure, "pek-model-register")) {
-            const gchar *model_name = gst_structure_get_string(structure, "model-name");
-            const gchar *element_name = gst_structure_get_string(structure, "element-name");
-            const gchar *display_name = gst_structure_get_string(structure, "display-name");
-            const gchar *task = gst_structure_get_string(structure, "task");
-            const gchar *runtime = gst_structure_get_string(structure, "runtime");
-            const auto provided_content_types =
-                gst_pek_sink_get_content_types(structure, "provided-content-types");
-            const auto required_content_types =
-                gst_pek_sink_get_content_types(structure, "required-content-types");
-            gboolean active = FALSE;
-            gst_structure_get_boolean(structure, "active", &active);
-
-            if (model_name && element_name) {
-                self->private_data->model_registry->add_model(model_name,
-                                                              element_name,
-                                                              active,
-                                                              display_name ? display_name : "",
-                                                              task ? task : "",
-                                                              runtime ? runtime : "",
-                                                              provided_content_types,
-                                                              required_content_types);
-            }
+            if (auto status = model_status_from_registration(structure))
+                self->private_data->model_registry->add_model(*status);
 
             // Consume the event (don't pass it further)
             gst_event_unref(event);
