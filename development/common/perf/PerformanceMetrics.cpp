@@ -172,7 +172,6 @@ struct PerformanceMetricsState {
     explicit PerformanceMetricsState(std::uint64_t id) : instanceId(id) {}
 
     const std::uint64_t instanceId = 0;
-    std::atomic<bool> enabled{true};
     std::atomic<bool> historyEnabled{false};
     std::atomic<std::uint32_t> nextSlot{0};
     std::atomic<std::uint64_t> nextSpanId{1};
@@ -622,10 +621,6 @@ PerformanceMetrics::~PerformanceMetrics() {
 //
 // Failures return an inactive Scope because instrumentation must not disrupt the measured work.
 PerformanceMetrics::Scope PerformanceMetrics::scope(std::string_view name) noexcept {
-    if (!state->enabled.load(std::memory_order_relaxed)) {
-        return {};
-    }
-
     try {
         auto *frame = acquireThreadFrame(*state);
         if (frame == nullptr) {
@@ -673,16 +668,8 @@ PerformanceMetrics::Scope PerformanceMetrics::scope(std::string_view name) noexc
     }
 }
 
-// Recorder options are atomic because instrumentation and snapshot/control code may access them
-// from different threads. Trace is retained as an alias for the historical-span option.
-void PerformanceMetrics::setEnabled(bool enabled) noexcept {
-    state->enabled.store(enabled, std::memory_order_relaxed);
-}
-
-bool PerformanceMetrics::enabled() const noexcept {
-    return state->enabled.load(std::memory_order_relaxed);
-}
-
+// History control is atomic because instrumentation and control code may access it from different
+// threads. Trace is retained as an alias for the historical-span option.
 void PerformanceMetrics::setHistoryEnabled(bool enabled) noexcept {
     state->historyEnabled.store(enabled, std::memory_order_relaxed);
 }

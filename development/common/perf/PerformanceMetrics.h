@@ -248,15 +248,9 @@ class PerformanceMetrics {
      * Starts measuring a named scope.
      *
      * The name is copied immediately into fixed-size storage. Returns an
-     * inactive Scope when the recorder is disabled or capacity is exhausted.
+     * inactive Scope when capacity is exhausted.
      */
     [[nodiscard]] Scope scope(std::string_view name) noexcept;
-
-    /** Enables or disables aggregate and historical recording. */
-    void setEnabled(bool enabled) noexcept;
-
-    /** Returns whether aggregate and historical recording are enabled. */
-    [[nodiscard]] bool enabled() const noexcept;
 
     /** Enables or disables storing completed spans for snapshots and CSV export. */
     void setHistoryEnabled(bool enabled) noexcept;
@@ -434,7 +428,7 @@ class ScopedMetricsContext {
 /**
  * Enables or disables historical scope capture on the lazy process-global recorder.
  *
- * Aggregate metrics are still recorded while the recorder is enabled.
+ * Aggregate metrics remain enabled.
  */
 #define PEK_PERF_HISTORY_ENABLE(enabled)                                                           \
     ::pek::perf::defaultPerformanceMetrics().setHistoryEnabled(enabled)

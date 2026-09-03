@@ -77,9 +77,8 @@ class PerformanceMetrics {
     /**
      * @brief Enables or disables historical completed-span collection.
      *
-     * Aggregate metrics are collected while the common recorder is enabled.
-     * Historical spans are only stored when history collection is explicitly
-     * enabled.
+     * Aggregate metrics are always collected. Historical spans are only stored
+     * when history collection is explicitly enabled.
      */
     static void setHistoryEnabled(bool enabled);
 
