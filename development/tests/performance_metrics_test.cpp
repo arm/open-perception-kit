@@ -60,14 +60,14 @@ TEST(PerformanceMetrics, NestedScopesProduceHierarchyAndAverages) {
     EXPECT_EQ(root->parentId, PerformanceMetrics::InvalidMetricId);
     EXPECT_EQ(root->depth, 0U);
     EXPECT_EQ(root->count, 1U);
-    EXPECT_GT(root->averageNs, 0U);
+    EXPECT_EQ(root->averageNs, root->totalNs / root->count);
     EXPECT_TRUE(root->hasChildren);
 
     const auto *child = findMetric(snapshot, "child", root->id);
     ASSERT_NE(child, nullptr);
     EXPECT_EQ(child->depth, 1U);
     EXPECT_EQ(child->count, 1U);
-    EXPECT_GT(child->averageNs, 0U);
+    EXPECT_EQ(child->averageNs, child->totalNs / child->count);
 }
 
 TEST(PerformanceMetrics, SnapshotDerivesChildrenForOpenScopes) {
@@ -80,6 +80,7 @@ TEST(PerformanceMetrics, SnapshotDerivesChildrenForOpenScopes) {
     const auto *root = findMetric(snapshot, "open-root");
     ASSERT_NE(root, nullptr);
     EXPECT_EQ(root->count, 0U);
+    EXPECT_EQ(root->averageNs, 0U);
     EXPECT_TRUE(root->hasChildren);
     EXPECT_EQ(findMetric(snapshot, "open-child", root->id), nullptr);
 }
@@ -311,6 +312,8 @@ TEST(PerformanceMetrics, HistoryRecordsOnlyCompletedSpans) {
     ASSERT_EQ(snapshot.spans.size(), 2U);
     EXPECT_TRUE(snapshot.spans[0].complete());
     EXPECT_TRUE(snapshot.spans[1].complete());
+    EXPECT_EQ(snapshot.spans[0].durationNs(), snapshot.spans[0].endNs - snapshot.spans[0].startNs);
+    EXPECT_EQ(snapshot.spans[1].durationNs(), snapshot.spans[1].endNs - snapshot.spans[1].startNs);
     EXPECT_EQ(snapshot.spans[0].getName(), "history-root");
     EXPECT_EQ(snapshot.spans[1].getName(), "history-child");
     EXPECT_EQ(snapshot.spans[1].parentId, snapshot.spans[0].id);

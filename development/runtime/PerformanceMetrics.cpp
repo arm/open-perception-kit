@@ -66,7 +66,7 @@ PerformanceMetricsSnapshot PerformanceMetrics::snapshot() {
         output.durationNs = span.durationNs();
         output.threadId = span.threadId;
         output.depth = span.depth;
-        output.complete = span.complete();
+        output.complete = true;
         output.nameTruncated = span.nameTruncated;
 
         result.spans.push_back(std::move(output));

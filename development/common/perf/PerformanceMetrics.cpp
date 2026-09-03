@@ -122,7 +122,7 @@ struct HistoryChunk {
     std::size_t size = 0;
 };
 
-// Collection of metrics. Name, parentIndex, and depth identify the path. The counters summarize
+// Collection of metrics. Name and parentIndex identify the path. The counters summarize
 // every completed invocation of that path. The owning thread is the only writer, but snapshots may
 // read concurrently, so counters are atomic and sequence changes make readers retry instead of
 // combining values from different updates.
@@ -130,7 +130,6 @@ struct PerformanceMetricsAtomicMetric {
     std::atomic<std::uint64_t> sequence{0};
     PerformanceMetrics::SpanName name{};
     std::uint32_t parentIndex = InvalidLocalMetricIndex;
-    std::uint32_t depth = 0;
     std::atomic<std::uint64_t> count{0};
     std::atomic<std::uint64_t> totalNs{0};
     std::atomic<std::uint64_t> minNs{0};
@@ -276,7 +275,6 @@ ThreadFrame *acquireThreadFrame(detail::PerformanceMetricsState &state) {
 std::uint32_t ensureMetric(detail::PerformanceMetricsThreadSlot &slot,
                            const PerformanceMetrics::SpanName &name,
                            std::uint32_t parentIndex,
-                           std::uint32_t depth,
                            bool nameTruncated) noexcept {
     const auto metricCount =
         std::min(slot.metricCount.load(std::memory_order_acquire), MaxMetricsPerThread);
@@ -300,7 +298,6 @@ std::uint32_t ensureMetric(detail::PerformanceMetricsThreadSlot &slot,
     metric.sequence.store(0, std::memory_order_relaxed);
     metric.name = name;
     metric.parentIndex = parentIndex;
-    metric.depth = depth;
     metric.count.store(0, std::memory_order_relaxed);
     metric.totalNs.store(0, std::memory_order_relaxed);
     metric.minNs.store(0, std::memory_order_relaxed);
@@ -363,7 +360,6 @@ PerformanceMetrics::MetricRecord readMetric(const detail::PerformanceMetricsThre
         }
 
         metric.name = source.name;
-        metric.depth = source.depth;
         metric.count = source.count.load(std::memory_order_relaxed);
         metric.totalNs = source.totalNs.load(std::memory_order_relaxed);
         metric.minNs = source.minNs.load(std::memory_order_relaxed);
@@ -377,7 +373,6 @@ PerformanceMetrics::MetricRecord readMetric(const detail::PerformanceMetricsThre
         }
     }
 
-    metric.averageNs = metric.count == 0 ? 0 : metric.totalNs / metric.count;
     return metric;
 }
 
@@ -396,7 +391,6 @@ std::uint64_t mergeMetric(std::vector<PerformanceMetrics::MetricRecord> &destina
                 metric.maxNs = std::max(metric.maxNs, source.maxNs);
                 metric.lastNs = source.lastNs;
             }
-            metric.averageNs = metric.count == 0 ? 0 : metric.totalNs / metric.count;
             metric.nameTruncated = metric.nameTruncated || source.nameTruncated;
             return metric.id;
         }
@@ -405,7 +399,8 @@ std::uint64_t mergeMetric(std::vector<PerformanceMetrics::MetricRecord> &destina
     auto metric = source;
     metric.id = destination.size();
     metric.parentId = parentId;
-    metric.averageNs = metric.count == 0 ? 0 : metric.totalNs / metric.count;
+    metric.depth =
+        parentId == PerformanceMetrics::InvalidMetricId ? 0 : destination[parentId].depth + 1;
     destination.push_back(metric);
     return metric.id;
 }
@@ -635,8 +630,7 @@ PerformanceMetrics::Scope PerformanceMetrics::scope(std::string_view name) noexc
         const bool nameTruncated = copySpanName(storedName, name);
         const auto parentIndex = frame->depth == 0 ? InvalidLocalMetricIndex
                                                    : frame->stack[frame->depth - 1].metricIndex;
-        const auto metricIndex =
-            ensureMetric(slot, storedName, parentIndex, frame->depth, nameTruncated);
+        const auto metricIndex = ensureMetric(slot, storedName, parentIndex, nameTruncated);
         if (metricIndex == InvalidLocalMetricIndex) {
             return {};
         }
@@ -719,10 +713,6 @@ bool PerformanceMetrics::writeCsv(std::string_view path) const {
                  "thread_id,span_id,parent_span_id,depth,name,start_ns,end_ns,duration_ns,"
                  "duration_ms\n");
     for (const auto &span : spans) {
-        if (!span.complete()) {
-            continue;
-        }
-
         std::fprintf(file,
                      "%llu,%llu,%llu,%u,",
                      static_cast<unsigned long long>(span.threadId),
@@ -774,6 +764,10 @@ PerformanceMetrics::Snapshot PerformanceMetrics::aggregateSnapshot() const {
         snapshot.wrongThreadScopeCloses +=
             slot.wrongThreadScopeCloses.load(std::memory_order_relaxed);
         collectMetrics(snapshot.metrics, slot);
+    }
+
+    for (auto &metric : snapshot.metrics) {
+        metric.averageNs = metric.count == 0 ? 0 : metric.totalNs / metric.count;
     }
 
     snapshot.threadSlotOverflow = state->threadSlotOverflow.load(std::memory_order_acquire);
