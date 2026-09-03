@@ -15,7 +15,6 @@
 #include <mutex>
 #include <sys/syscall.h>
 #include <thread>
-#include <type_traits>
 #include <unistd.h>
 
 namespace pek::perf {
@@ -45,19 +44,14 @@ struct StackEntry {
     std::uint64_t spanId = PerformanceMetrics::InvalidSpanId;
 };
 
-// The nesting state for one (recorder, recording thread) pair. The frame identifies the thread's
-// slot and stores the currently open scopes in call order. It is separate from the slot because
-// the stack is transient recording state, whereas the slot also retains completed measurements.
+// The nesting state for one recording thread. The frame identifies the thread's slot and stores the
+// currently open scopes in call order. It is separate from the slot because the stack is transient
+// recording state, whereas the slot also retains completed measurements.
 struct ThreadFrame {
     std::uint32_t slotIndex = 0;
     std::array<StackEntry, MaxStackDepth> stack{};
     std::uint32_t depth = 0;
 };
-
-std::uint64_t nextInstanceId() noexcept {
-    static std::atomic<std::uint64_t> nextId{1};
-    return nextId.fetch_add(1, std::memory_order_relaxed);
-}
 
 std::uint64_t nowNs() noexcept {
     const auto now = std::chrono::steady_clock::now().time_since_epoch();
@@ -67,14 +61,6 @@ std::uint64_t nowNs() noexcept {
 
 std::uint64_t currentThreadId() noexcept {
     return static_cast<std::uint64_t>(::syscall(SYS_gettid));
-}
-
-// Internal slot lookup needs a unique identifier. A process-wide counter assigns each thread a
-// distinct token.
-std::uint64_t currentThreadToken() noexcept {
-    static std::atomic<std::uint64_t> nextToken{1};
-    thread_local const std::uint64_t token = nextToken.fetch_add(1, std::memory_order_relaxed);
-    return token;
 }
 
 // Names use fixed storage in the recording structures to avoid allocating on every scope. The
@@ -142,8 +128,6 @@ struct PerformanceMetricsAtomicMetric {
 // nesting frame, aggregate hierarchy, diagnostic counters, and optional history.
 struct PerformanceMetricsThreadSlot {
     std::atomic<bool> active{false};
-    // Used only to recover this slot after a thread switches between recorders
-    std::uint64_t threadToken = 0;
     // The Linux thread identifier written to exported SpanRecords.
     std::uint64_t threadId = 0;
     std::atomic<std::uint32_t> droppedMetrics{0};
@@ -168,9 +152,6 @@ struct PerformanceMetricsThreadSlot {
 // destruction can release them even when a framework retains worker threads and therefore does not
 // destroy those threads' thread-local storage objects.
 struct PerformanceMetricsState {
-    explicit PerformanceMetricsState(std::uint64_t id) : instanceId(id) {}
-
-    const std::uint64_t instanceId = 0;
     std::atomic<bool> historyEnabled{false};
     std::atomic<std::uint32_t> nextSlot{0};
     std::atomic<std::uint64_t> nextSpanId{1};
@@ -184,61 +165,18 @@ struct PerformanceMetricsState {
 
 namespace {
 
-// Trivial thread-local navigation state, not measurement storage. state, instanceId, and frame
-// cache the most recently used (recorder, thread) frame so repeated scopes avoid scanning slots.
-//
-// The pointers are non-owning. PerformanceMetricsState owns frames through its thread slots; this
-// ensures recorder destruction releases them even if a framework retains the worker thread and
-// delays TLS cleanup until after leak reporting.
-struct ThreadContext {
-    const detail::PerformanceMetricsState *state = nullptr;
-    std::uint64_t instanceId = 0;
-    ThreadFrame *frame = nullptr;
-};
-
-static_assert(std::is_trivially_destructible_v<ThreadContext>,
-              "ThreadContext must not require TLS destructor registration");
-
-// Returns the calling thread's single context. It remains trivially destructible so accessing
-// performance metrics does not add a dynamic TLS cleanup allocation.
-ThreadContext &threadContext() noexcept {
-    // Function-local storage preserves per-thread lazy initialization. Sonar warning S6018 applies
-    // to global variables declared in headers, not to this local variable.
-    thread_local ThreadContext context; // NOSONAR
-    return context;
+// Returns the calling thread's non-owning frame cache. PerformanceMetricsState owns the frame, so
+// the cache needs no TLS cleanup allocation.
+ThreadFrame *&currentThreadFrame() noexcept {
+    thread_local ThreadFrame *frame = nullptr; // NOSONAR
+    return frame;
 }
 
-// Finds this thread's frame for a recorder. The last-used frame is returned directly on the common
-// path. After switching recorders, the function scans that recorder's published slots, finds the
-// one bearing this thread's token, and refreshes the cache.
-ThreadFrame *findThreadFrame(const detail::PerformanceMetricsState &state) noexcept {
-    auto &context = threadContext();
-    if (context.state == &state && context.instanceId == state.instanceId &&
-        context.frame != nullptr) {
-        return context.frame;
-    }
-
-    const auto threadToken = currentThreadToken();
-    const auto slotCount = std::min(state.nextSlot.load(std::memory_order_acquire), MaxThreadSlots);
-    for (std::uint32_t index = 0; index < slotCount; ++index) {
-        const auto &slot = state.slots[index];
-        if (slot.active.load(std::memory_order_acquire) && slot.threadToken == threadToken &&
-            slot.frame != nullptr) {
-            context.state = &state;
-            context.instanceId = state.instanceId;
-            context.frame = slot.frame.get();
-            return context.frame;
-        }
-    }
-
-    return nullptr;
-}
-
-// Returns the existing frame for this (recorder, thread) pair or claims and initializes one state
-// slot. The frame is allocated dynamically but owned by the state. active is published last so
-// concurrent snapshots never observe a partially initialized slot.
+// Returns the existing frame for this thread or claims and initializes one state slot. The frame is
+// allocated dynamically but owned by the state. active is published last so concurrent snapshots
+// never observe a partially initialized slot.
 ThreadFrame *acquireThreadFrame(detail::PerformanceMetricsState &state) {
-    if (auto *frame = findThreadFrame(state)) {
+    if (auto *frame = currentThreadFrame()) {
         return frame;
     }
 
@@ -252,7 +190,6 @@ ThreadFrame *acquireThreadFrame(detail::PerformanceMetricsState &state) {
     auto frame = std::make_unique<ThreadFrame>();
     frame->slotIndex = slotIndex;
 
-    slot.threadToken = currentThreadToken();
     slot.threadId = currentThreadId();
     slot.droppedMetrics.store(0, std::memory_order_relaxed);
     slot.droppedSpans.store(0, std::memory_order_relaxed);
@@ -262,11 +199,8 @@ ThreadFrame *acquireThreadFrame(detail::PerformanceMetricsState &state) {
     slot.frame = std::move(frame);
     slot.active.store(true, std::memory_order_release);
 
-    auto &context = threadContext();
-    context.state = &state;
-    context.instanceId = state.instanceId;
-    context.frame = slot.frame.get();
-    return context.frame;
+    currentThreadFrame() = slot.frame.get();
+    return slot.frame.get();
 }
 
 // Locates or creates the aggregate metric identified by (parentIndex, name) in one thread slot.
@@ -594,13 +528,10 @@ void PerformanceMetrics::Scope::close() noexcept {
     recording.metrics = nullptr;
 }
 
-// Constructs the private implementation state through the incomplete-type-aware pointer declared
-// in the public header.
-detail::PerformanceMetricsStatePtr PerformanceMetrics::createState() {
-    return std::make_unique<detail::PerformanceMetricsState>(nextInstanceId());
+// PerformanceMetricsState is intentionally incomplete in the public header.
+PerformanceMetrics::PerformanceMetrics()
+    : state(std::make_unique<detail::PerformanceMetricsState>()) { // NOSONAR
 }
-
-PerformanceMetrics::PerformanceMetrics() : state(createState()) {}
 
 // Automatic CSV export runs while the recorder and all state-owned history are still alive. State
 // destruction then releases every thread frame, including frames belonging to retained workers.
@@ -815,7 +746,7 @@ void PerformanceMetrics::exitBlock(std::uint32_t slotIndex,
     }
 
     auto &slot = state->slots[slotIndex];
-    auto *frame = findThreadFrame(*state);
+    auto *frame = currentThreadFrame();
     if (frame == nullptr || frame->slotIndex != slotIndex) {
         slot.wrongThreadScopeCloses.fetch_add(1, std::memory_order_relaxed);
         return;

@@ -15,12 +15,15 @@
 #include <fstream>
 #include <string>
 #include <thread>
+#include <type_traits>
 #include <unistd.h>
 #include <vector>
 
 namespace {
 
 using pek::perf::PerformanceMetrics;
+
+static_assert(!std::is_default_constructible_v<PerformanceMetrics>);
 
 std::string tempCsvPath(std::string_view suffix) {
     const auto token = ::getpid();
@@ -43,7 +46,7 @@ findMetric(const PerformanceMetrics::Snapshot &snapshot,
 } // namespace
 
 TEST(PerformanceMetrics, NestedScopesProduceHierarchyAndAverages) {
-    PerformanceMetrics metrics;
+    auto &metrics = pek::perf::defaultPerformanceMetrics();
 
     {
         auto root = metrics.scope("root");
@@ -71,7 +74,7 @@ TEST(PerformanceMetrics, NestedScopesProduceHierarchyAndAverages) {
 }
 
 TEST(PerformanceMetrics, SnapshotDerivesChildrenForOpenScopes) {
-    PerformanceMetrics metrics;
+    auto &metrics = pek::perf::defaultPerformanceMetrics();
 
     auto rootScope = metrics.scope("open-root");
     auto childScope = metrics.scope("open-child");
@@ -86,7 +89,7 @@ TEST(PerformanceMetrics, SnapshotDerivesChildrenForOpenScopes) {
 }
 
 TEST(PerformanceMetrics, SameNameUnderDifferentParentsStaysSeparate) {
-    PerformanceMetrics metrics;
+    auto &metrics = pek::perf::defaultPerformanceMetrics();
 
     {
         auto parentA = metrics.scope("parentA");
@@ -111,7 +114,7 @@ TEST(PerformanceMetrics, SameNameUnderDifferentParentsStaysSeparate) {
 }
 
 TEST(PerformanceMetrics, ScopeIntervalMetricsUseHierarchyAndIncludeNewScopes) {
-    PerformanceMetrics metrics;
+    auto &metrics = pek::perf::defaultPerformanceMetrics();
 
     {
         auto parentAScope = metrics.scope("parentA");
@@ -222,27 +225,8 @@ TEST(PerformanceMetrics, ScopeIntervalMetricsUseHierarchyAndIncludeNewScopes) {
               regressedDurationMetrics.end());
 }
 
-TEST(PerformanceMetrics, SwitchingRecordersPreservesEachNestedStack) {
-    PerformanceMetrics first;
-    PerformanceMetrics second;
-
-    {
-        auto firstRoot = first.scope("first-root");
-        {
-            auto secondRoot = second.scope("second-root");
-        }
-        {
-            auto firstChild = first.scope("first-child");
-        }
-    }
-
-    const auto firstSnapshot = first.aggregateSnapshot();
-    const auto *firstRoot = findMetric(firstSnapshot, "first-root");
-    ASSERT_NE(firstRoot, nullptr);
-    EXPECT_NE(findMetric(firstSnapshot, "first-child", firstRoot->id), nullptr);
-
-    const auto secondSnapshot = second.aggregateSnapshot();
-    EXPECT_NE(findMetric(secondSnapshot, "second-root"), nullptr);
+TEST(PerformanceMetrics, DefaultRecorderReturnsSingleton) {
+    EXPECT_EQ(&pek::perf::defaultPerformanceMetrics(), &pek::perf::defaultPerformanceMetrics());
 }
 
 TEST(PerformanceMetrics, ScopeIntervalMetricsIgnoreMalformedHierarchies) {
@@ -271,7 +255,7 @@ TEST(PerformanceMetrics, ScopeIntervalMetricsIgnoreMalformedHierarchies) {
 }
 
 TEST(PerformanceMetrics, LongNamesAreTruncatedAndReported) {
-    PerformanceMetrics metrics;
+    auto &metrics = pek::perf::defaultPerformanceMetrics();
     const std::string longName(PerformanceMetrics::MaxSpanNameLength + 8, 'x');
 
     {
@@ -279,27 +263,33 @@ TEST(PerformanceMetrics, LongNamesAreTruncatedAndReported) {
     }
 
     const auto snapshot = metrics.aggregateSnapshot();
-    ASSERT_EQ(snapshot.metrics.size(), 1U);
-    EXPECT_EQ(snapshot.metrics.front().getName().size(), PerformanceMetrics::MaxSpanNameLength);
-    EXPECT_TRUE(snapshot.metrics.front().nameTruncated);
+    const auto *metric = findMetric(
+        snapshot, std::string_view(longName).substr(0, PerformanceMetrics::MaxSpanNameLength));
+    ASSERT_NE(metric, nullptr);
+    EXPECT_EQ(metric->getName().size(), PerformanceMetrics::MaxSpanNameLength);
+    EXPECT_TRUE(metric->nameTruncated);
 }
 
 TEST(PerformanceMetrics, AggregateOnlyRecordingRetainsCountsWithoutHistory) {
-    PerformanceMetrics metrics;
+    auto &metrics = pek::perf::defaultPerformanceMetrics();
+    metrics.setHistoryEnabled(false);
+    const auto initialSpanCount = metrics.snapshot().spans.size();
 
     for (std::size_t iteration = 0; iteration < 2000; ++iteration) {
         auto scope = metrics.scope("aggregate-only");
     }
 
     const auto snapshot = metrics.snapshot();
-    EXPECT_TRUE(snapshot.spans.empty());
-    ASSERT_EQ(snapshot.metrics.size(), 1U);
-    EXPECT_EQ(snapshot.metrics.front().count, 2000U);
+    EXPECT_EQ(snapshot.spans.size(), initialSpanCount);
+    const auto *metric = findMetric(snapshot, "aggregate-only");
+    ASSERT_NE(metric, nullptr);
+    EXPECT_EQ(metric->count, 2000U);
 }
 
 TEST(PerformanceMetrics, HistoryRecordsOnlyCompletedSpans) {
-    PerformanceMetrics metrics;
+    auto &metrics = pek::perf::defaultPerformanceMetrics();
     metrics.setHistoryEnabled(true);
+    const auto firstNewSpan = metrics.snapshot().spans.size();
 
     {
         auto root = metrics.scope("history-root");
@@ -308,26 +298,30 @@ TEST(PerformanceMetrics, HistoryRecordsOnlyCompletedSpans) {
         }
     }
 
+    metrics.setHistoryEnabled(false);
     const auto snapshot = metrics.snapshot();
-    ASSERT_EQ(snapshot.spans.size(), 2U);
-    EXPECT_TRUE(snapshot.spans[0].complete());
-    EXPECT_TRUE(snapshot.spans[1].complete());
-    EXPECT_EQ(snapshot.spans[0].durationNs(), snapshot.spans[0].endNs - snapshot.spans[0].startNs);
-    EXPECT_EQ(snapshot.spans[1].durationNs(), snapshot.spans[1].endNs - snapshot.spans[1].startNs);
-    EXPECT_EQ(snapshot.spans[0].getName(), "history-root");
-    EXPECT_EQ(snapshot.spans[1].getName(), "history-child");
-    EXPECT_EQ(snapshot.spans[1].parentId, snapshot.spans[0].id);
+    ASSERT_EQ(snapshot.spans.size(), firstNewSpan + 2);
+    const auto &rootSpan = snapshot.spans[firstNewSpan];
+    const auto &childSpan = snapshot.spans[firstNewSpan + 1];
+    EXPECT_TRUE(rootSpan.complete());
+    EXPECT_TRUE(childSpan.complete());
+    EXPECT_EQ(rootSpan.durationNs(), rootSpan.endNs - rootSpan.startNs);
+    EXPECT_EQ(childSpan.durationNs(), childSpan.endNs - childSpan.startNs);
+    EXPECT_EQ(rootSpan.getName(), "history-root");
+    EXPECT_EQ(childSpan.getName(), "history-child");
+    EXPECT_EQ(childSpan.parentId, rootSpan.id);
 }
 
 TEST(PerformanceMetrics, CsvExportWritesCompletedHistoricalSpans) {
     const auto path = tempCsvPath("manual");
     std::remove(path.c_str());
 
-    PerformanceMetrics metrics;
+    auto &metrics = pek::perf::defaultPerformanceMetrics();
     metrics.setHistoryEnabled(true);
     {
         auto scope = metrics.scope("csv-root");
     }
+    metrics.setHistoryEnabled(false);
 
     ASSERT_TRUE(metrics.writeCsv(path));
 
@@ -342,18 +336,19 @@ TEST(PerformanceMetrics, CsvExportWritesCompletedHistoricalSpans) {
     std::remove(path.c_str());
 }
 
-TEST(PerformanceMetrics, AutoCsvExportWritesOnNormalDestruction) {
+TEST(PerformanceMetrics, AutoCsvExportWritesConfiguredPath) {
     const auto path = tempCsvPath("auto");
     std::remove(path.c_str());
 
+    auto &metrics = pek::perf::defaultPerformanceMetrics();
+    metrics.setHistoryEnabled(true);
+    metrics.setAutoCsvExportPath(path);
     {
-        PerformanceMetrics metrics;
-        metrics.setHistoryEnabled(true);
-        metrics.setAutoCsvExportPath(path);
-        {
-            auto scope = metrics.scope("auto-root");
-        }
+        auto scope = metrics.scope("auto-root");
     }
+    metrics.setHistoryEnabled(false);
+    metrics.writeAutoCsv();
+    metrics.setAutoCsvExportPath({});
 
     std::ifstream input(path);
     ASSERT_TRUE(input.good());
@@ -363,26 +358,8 @@ TEST(PerformanceMetrics, AutoCsvExportWritesOnNormalDestruction) {
     std::remove(path.c_str());
 }
 
-TEST(PerformanceMetrics, ThreadSlotOverflowIsReportedSafely) {
-    PerformanceMetrics metrics;
-    {
-        std::vector<std::jthread> threads;
-        threads.reserve(132);
-
-        for (std::size_t index = 0; index < 132; ++index) {
-            threads.emplace_back([&metrics]() {
-                auto scope = metrics.scope("threaded");
-                std::this_thread::sleep_for(std::chrono::microseconds(10));
-            });
-        }
-    }
-
-    const auto snapshot = metrics.aggregateSnapshot();
-    EXPECT_TRUE(snapshot.threadSlotOverflow);
-}
-
 TEST(PerformanceMetrics, SnapshotWhileThreadsRecordIsSafe) {
-    PerformanceMetrics metrics;
+    auto &metrics = pek::perf::defaultPerformanceMetrics();
     std::atomic<bool> start{false};
     {
         std::vector<std::jthread> threads;
@@ -410,4 +387,22 @@ TEST(PerformanceMetrics, SnapshotWhileThreadsRecordIsSafe) {
     const auto *outer = findMetric(snapshot, "outer");
     ASSERT_NE(outer, nullptr);
     EXPECT_GT(outer->count, 0U);
+}
+
+TEST(PerformanceMetrics, ThreadSlotOverflowIsReportedSafely) {
+    auto &metrics = pek::perf::defaultPerformanceMetrics();
+    {
+        std::vector<std::jthread> threads;
+        threads.reserve(132);
+
+        for (std::size_t index = 0; index < 132; ++index) {
+            threads.emplace_back([&metrics]() {
+                auto scope = metrics.scope("threaded");
+                std::this_thread::sleep_for(std::chrono::microseconds(10));
+            });
+        }
+    }
+
+    const auto snapshot = metrics.aggregateSnapshot();
+    EXPECT_TRUE(snapshot.threadSlotOverflow);
 }

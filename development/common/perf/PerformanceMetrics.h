@@ -20,7 +20,7 @@ using PerformanceMetricsStatePtr = std::unique_ptr<PerformanceMetricsState>;
 } // namespace detail
 
 /**
- * Hierarchical block timer for PEK instrumentation.
+ * Process-wide hierarchical block timer for PEK instrumentation.
  *
  * The default mode records aggregate timing only. Scope names are copied into a
  * fixed-size inline buffer, so callers may pass dynamic string_views without
@@ -222,28 +222,6 @@ class PerformanceMetrics {
         Recording recording;
     };
 
-    PerformanceMetrics();
-
-    /**
-     * Destroys the recorder.
-     *
-     * If an automatic CSV export path is configured, completed historical spans
-     * are written best-effort during destruction.
-     */
-    ~PerformanceMetrics();
-
-    /** Recorder instances own thread-local slot state and cannot be copied. */
-    PerformanceMetrics(const PerformanceMetrics &) = delete;
-
-    /** Recorder instances own thread-local slot state and cannot be copied. */
-    PerformanceMetrics &operator=(const PerformanceMetrics &) = delete;
-
-    /** Recorder instances are address-stable for thread-local frame lookup. */
-    PerformanceMetrics(PerformanceMetrics &&) = delete;
-
-    /** Recorder instances are address-stable for thread-local frame lookup. */
-    PerformanceMetrics &operator=(PerformanceMetrics &&) = delete;
-
     /**
      * Starts measuring a named scope.
      *
@@ -288,7 +266,15 @@ class PerformanceMetrics {
     [[nodiscard]] Snapshot snapshot() const;
 
   private:
-    static detail::PerformanceMetricsStatePtr createState();
+    friend PerformanceMetrics &defaultPerformanceMetrics() noexcept;
+
+    PerformanceMetrics();
+    ~PerformanceMetrics();
+
+    PerformanceMetrics(const PerformanceMetrics &) = delete;
+    PerformanceMetrics &operator=(const PerformanceMetrics &) = delete;
+    PerformanceMetrics(PerformanceMetrics &&) = delete;
+    PerformanceMetrics &operator=(PerformanceMetrics &&) = delete;
 
     void exitBlock(std::uint32_t slotIndex,
                    std::uint32_t metricIndex,
