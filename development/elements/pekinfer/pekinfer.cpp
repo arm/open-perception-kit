@@ -137,8 +137,8 @@ static void gst_pekinfer_activate_for_content_requirement(GstPekInfer *self) {
 }
 
 static void gst_pekinfer_set_content_types(GstStructure *structure,
-                                            std::string_view field,
-                                            const std::vector<std::string_view> &contentTypes) {
+                                           std::string_view field,
+                                           const std::vector<std::string_view> &contentTypes) {
     std::vector<std::string> strings(contentTypes.begin(), contentTypes.end());
     std::vector<const gchar *> values;
     values.reserve(strings.size() + 1);
