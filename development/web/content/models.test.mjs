@@ -237,6 +237,20 @@ test("dependent models show their provider networks beside the toggle", () => {
   assert.equal(actions.children[1].tagName, "LABEL");
 });
 
+test("dependent models identify missing providers", () => {
+  modelsManager.render([{
+    active: false,
+    element_name: "pekinfer0",
+    name: "GazeDetection",
+    providedContentTypes: "humanFace",
+    requiredContentTypes: ["", null, "humanFace"],
+  }]);
+
+  const dependencyInfo = modelsContainer.children[0].querySelector(".model-dependency-info");
+  assert.equal(dependencyInfo.getAttribute("aria-label"), "Depends on: No provider registered");
+  assert.equal(dependencyInfo.querySelector("li").textContent, "No provider registered");
+});
+
 test("duplicate descriptor names retain unique element identities", () => {
   modelsManager.render([
     {

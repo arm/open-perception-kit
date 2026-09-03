@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
 #include <map>
 #include <string>
 
@@ -78,8 +79,8 @@ TEST(ModelRegistry, KeepsRuntimeMetadataForDuplicateInternalNames) {
 }
 
 TEST(ModelRegistration, ParsesOptionalFieldsAndContentTypes) {
-    const gchar *provided[] = {"genericObject", "humanFace", nullptr};
-    const gchar *required[] = {"imageEmbedding", nullptr};
+    const std::array<const gchar *, 3> provided = {"genericObject", "humanFace", nullptr};
+    const std::array<const gchar *, 2> required = {"imageEmbedding", nullptr};
     GstStructure *structure = gst_structure_new("pek-model-register",
                                                 "model-name",
                                                 G_TYPE_STRING,
@@ -101,10 +102,10 @@ TEST(ModelRegistration, ParsesOptionalFieldsAndContentTypes) {
                                                 "ONNX",
                                                 "provided-content-types",
                                                 G_TYPE_STRV,
-                                                provided,
+                                                provided.data(),
                                                 "required-content-types",
                                                 G_TYPE_STRV,
-                                                required,
+                                                required.data(),
                                                 nullptr);
 
     const auto status = model_status_from_registration(structure);
