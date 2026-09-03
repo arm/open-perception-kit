@@ -187,7 +187,6 @@ namespace {
 
 // Trivial thread-local navigation state, not measurement storage. state, instanceId, and frame
 // cache the most recently used (recorder, thread) frame so repeated scopes avoid scanning slots.
-// currentMetrics is the recorder temporarily selected by ScopedMetricsContext.
 //
 // The pointers are non-owning. PerformanceMetricsState owns frames through its thread slots; this
 // ensures recorder destruction releases them even if a framework retains the worker thread and
@@ -196,7 +195,6 @@ struct ThreadContext {
     const detail::PerformanceMetricsState *state = nullptr;
     std::uint64_t instanceId = 0;
     ThreadFrame *frame = nullptr;
-    PerformanceMetrics *currentMetrics = nullptr;
 };
 
 static_assert(std::is_trivially_destructible_v<ThreadContext>,
@@ -873,22 +871,6 @@ void PerformanceMetrics::exitBlock(std::uint32_t slotIndex,
     }
 }
 
-// Temporarily binds a recorder to this thread for code using enterCurrentBlock(). Nested bindings
-// work because construction saves and destruction restores the previous pointer.
-ScopedMetricsContext::ScopedMetricsContext(PerformanceMetrics &metrics) noexcept
-    : previous(threadContext().currentMetrics) {
-    threadContext().currentMetrics = &metrics;
-}
-
-ScopedMetricsContext::~ScopedMetricsContext() {
-    threadContext().currentMetrics = previous;
-}
-
-// Returns only the explicitly thread-bound recorder; it does not fall back to the global recorder.
-PerformanceMetrics *currentPerformanceMetrics() noexcept {
-    return threadContext().currentMetrics;
-}
-
 // Lazily constructs the process-wide recorder used by the convenience API. Normal static
 // destruction performs optional CSV export and releases the recorder-owned frames.
 PerformanceMetrics &defaultPerformanceMetrics() noexcept {
@@ -901,17 +883,6 @@ PerformanceMetrics &defaultPerformanceMetrics() noexcept {
 // Convenience entry point for instrumentation that explicitly targets the process-wide recorder.
 PerformanceMetrics::Scope enterBlock(std::string_view name) noexcept {
     return defaultPerformanceMetrics().scope(name);
-}
-
-// Convenience entry point for code that should record only when its thread has an explicit
-// ScopedMetricsContext binding.
-PerformanceMetrics::Scope enterCurrentBlock(std::string_view name) noexcept {
-    auto *metrics = currentPerformanceMetrics();
-    if (metrics == nullptr) {
-        return {};
-    }
-
-    return metrics->scope(name);
 }
 
 } // namespace pek::perf

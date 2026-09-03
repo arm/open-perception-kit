@@ -336,37 +336,6 @@ calculateScopeIntervalMetrics(const PerformanceMetrics::Snapshot &intervalStartS
                               const PerformanceMetrics::Snapshot &intervalEndSnapshot);
 
 /**
- * Binds a PerformanceMetrics instance to the current thread until destruction.
- * Nested bindings restore the previous current recorder.
- */
-class ScopedMetricsContext {
-  public:
-    /** Binds the supplied recorder as the current recorder for this thread. */
-    explicit ScopedMetricsContext(PerformanceMetrics &metrics) noexcept;
-
-    /** Restores the previously bound current recorder for this thread. */
-    ~ScopedMetricsContext();
-
-    /** Context bindings are scoped and cannot be copied. */
-    ScopedMetricsContext(const ScopedMetricsContext &) = delete;
-
-    /** Context bindings are scoped and cannot be copied. */
-    ScopedMetricsContext &operator=(const ScopedMetricsContext &) = delete;
-
-    /** Context bindings are scoped and cannot be moved. */
-    ScopedMetricsContext(ScopedMetricsContext &&) = delete;
-
-    /** Context bindings are scoped and cannot be moved. */
-    ScopedMetricsContext &operator=(ScopedMetricsContext &&) = delete;
-
-  private:
-    PerformanceMetrics *previous = nullptr;
-};
-
-/** Returns the PerformanceMetrics instance bound to the current thread, if any. */
-[[nodiscard]] PerformanceMetrics *currentPerformanceMetrics() noexcept;
-
-/**
  * Lazy process-wide metrics recorder for no-init experiments. The recorder is
  * destroyed normally at process shutdown, including best-effort automatic CSV
  * export when configured, without leaking the process-wide recorder.
@@ -375,9 +344,6 @@ class ScopedMetricsContext {
 
 /** Starts a scope on the process-global default recorder. */
 [[nodiscard]] PerformanceMetrics::Scope enterBlock(std::string_view name) noexcept;
-
-/** Starts a scope on the current thread-bound recorder, or returns an inactive scope. */
-[[nodiscard]] PerformanceMetrics::Scope enterCurrentBlock(std::string_view name) noexcept;
 
 } // namespace pek::perf
 
@@ -394,28 +360,6 @@ class ScopedMetricsContext {
 /** Internal helper: creates a unique local variable name for RAII scope objects. */
 #define PEK_PERF_METRICS_UNIQUE_NAME_(base) PEK_PERF_METRICS_CONCAT_(base, __LINE__)
 #endif
-
-/** Records one RAII scope into an explicitly owned PerformanceMetrics instance. */
-#define PEK_METRICS_SCOPE(metrics, name)                                                           \
-    [[maybe_unused]] auto PEK_PERF_METRICS_UNIQUE_NAME_(_pek_metrics_scope_) = (metrics).scope(name)
-
-/**
- * Records one RAII scope into the lazy process-global PerformanceMetrics instance.
- *
- * Use this when no explicit metrics object is passed around.
- */
-#define PEK_METRICS_SCOPE_GLOBAL(name)                                                             \
-    [[maybe_unused]] auto PEK_PERF_METRICS_UNIQUE_NAME_(_pek_metrics_global_scope_) =              \
-        ::pek::perf::enterBlock(name)
-
-/**
- * Records one RAII scope into the current thread-bound PerformanceMetrics instance.
- *
- * The scope is inactive when no ScopedMetricsContext is bound.
- */
-#define PEK_METRICS_SCOPE_CURRENT(name)                                                            \
-    [[maybe_unused]] auto PEK_PERF_METRICS_UNIQUE_NAME_(_pek_metrics_current_scope_) =             \
-        ::pek::perf::enterCurrentBlock(name)
 
 /** Drop-in global performance scope used by PEK instrumentation sites. */
 #define PEK_PERF_SCOPE(name)                                                                       \
