@@ -88,16 +88,6 @@ class PerformanceMetrics {
     static bool historyEnabled();
 
     /**
-     * @brief Compatibility alias for setHistoryEnabled().
-     */
-    static void setTraceEnabled(bool enabled);
-
-    /**
-     * @brief Compatibility alias for historyEnabled().
-     */
-    static bool traceEnabled();
-
-    /**
      * @brief Sets the optional best-effort CSV export path for normal process shutdown.
      */
     static void setAutoCsvExportPath(const std::string &path);

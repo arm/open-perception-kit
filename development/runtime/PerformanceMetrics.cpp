@@ -18,14 +18,6 @@ bool PerformanceMetrics::historyEnabled() {
     return pek::perf::defaultPerformanceMetrics().historyEnabled();
 }
 
-void PerformanceMetrics::setTraceEnabled(bool enabled) {
-    setHistoryEnabled(enabled);
-}
-
-bool PerformanceMetrics::traceEnabled() {
-    return historyEnabled();
-}
-
 void PerformanceMetrics::setAutoCsvExportPath(const std::string &path) {
     pek::perf::defaultPerformanceMetrics().setAutoCsvExportPath(path);
 }

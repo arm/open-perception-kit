@@ -258,12 +258,6 @@ class PerformanceMetrics {
     /** Returns whether completed span history is currently recorded. */
     [[nodiscard]] bool historyEnabled() const noexcept;
 
-    /** Compatibility alias for setHistoryEnabled(). */
-    void setTraceEnabled(bool enabled) noexcept;
-
-    /** Compatibility alias for historyEnabled(). */
-    [[nodiscard]] bool traceEnabled() const noexcept;
-
     /**
      * Sets the optional best-effort automatic CSV export path.
      *
@@ -376,6 +370,3 @@ calculateScopeIntervalMetrics(const PerformanceMetrics::Snapshot &intervalStartS
  */
 #define PEK_PERF_HISTORY_ENABLE(enabled)                                                           \
     ::pek::perf::defaultPerformanceMetrics().setHistoryEnabled(enabled)
-
-/** Compatibility alias for earlier trace naming. */
-#define PEK_PERF_TRACE_ENABLE(enabled) PEK_PERF_HISTORY_ENABLE(enabled)

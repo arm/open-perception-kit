@@ -667,21 +667,13 @@ PerformanceMetrics::Scope PerformanceMetrics::scope(std::string_view name) noexc
 }
 
 // History control is atomic because instrumentation and control code may access it from different
-// threads. Trace is retained as an alias for the historical-span option.
+// threads.
 void PerformanceMetrics::setHistoryEnabled(bool enabled) noexcept {
     state->historyEnabled.store(enabled, std::memory_order_relaxed);
 }
 
 bool PerformanceMetrics::historyEnabled() const noexcept {
     return state->historyEnabled.load(std::memory_order_relaxed);
-}
-
-void PerformanceMetrics::setTraceEnabled(bool enabled) noexcept {
-    setHistoryEnabled(enabled);
-}
-
-bool PerformanceMetrics::traceEnabled() const noexcept {
-    return historyEnabled();
 }
 
 // The auto-export path is less frequently accessed and dynamically sized, so a mutex protects it
