@@ -135,8 +135,8 @@ release archive. It retains the deployment lane's resolved configuration,
 models, pipelines, demo media, embedded Python operation module, and a
 target-platform Python runtime assembled from pinned wheels. Release archives
 remain the narrow seven-model integration surface and contain the standard,
-ONNX, and experimental ExecuTorch operation modules, but not the Python
-operation module, SDK headers, or static libraries.
+ONNX, experimental ExecuTorch, and Python operation modules, but no SDK headers
+or static libraries.
 
 The same Docker stage packages the checked-in Perception SDK snapshot. The
 workflow passes only the selected source and flowdata-sdk gitlink SHAs; it does

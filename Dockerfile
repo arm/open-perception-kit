@@ -831,7 +831,9 @@ WORKDIR /work
 
 ARG TARGETARCH
 ARG PEK_RELEASE_BUILD_ID=""
-RUN --network=none set -eux; \
+RUN --network=none \
+  --mount=type=bind,source=development/tests/python_script_op/runtime_environment.py,target=/tmp/runtime_environment.py,readonly \
+  set -eux; \
   if [ -z "${PEK_RELEASE_BUILD_ID}" ]; then \
     exit 0; \
   fi; \
@@ -865,7 +867,7 @@ RUN --network=none set -eux; \
     test -s "${output}"; \
   done; \
   python_smoke_root="${package_root}/share/pek/models/yolov11"; \
-  cp /work/development/tests/python_script_op/runtime_environment.py \
+  cp /tmp/runtime_environment.py \
     "${python_smoke_root}/"; \
   python3 -c \
     'import json, sys; opchain=json.load(open(sys.argv[1], encoding="utf-8")); opchain["ops"].insert(0, {"id": "pek-python-ops/PythonScript", "attributes": {"script": "runtime_environment.py"}}); json.dump(opchain, open(sys.argv[2], "w", encoding="utf-8"))' \
