@@ -1036,6 +1036,17 @@ class BundleVerificationTests(unittest.TestCase):
 
 
 class GeneratedSdkTests(unittest.TestCase):
+    def test_release_readme_bootstraps_consumer_lockfile(self) -> None:
+        config = release_package.perception_config.load_sdk_config()
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle_root = Path(tmp)
+            release_package.write_readme(bundle_root, config)
+            readme = (bundle_root / "README.md").read_text(encoding="utf-8")
+
+        generate = readme.index("cargo generate-lockfile --offline")
+        build = readme.index("cargo build --offline --locked")
+        self.assertLess(generate, build)
+
     def test_release_copy_excludes_rust_build_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

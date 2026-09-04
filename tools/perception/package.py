@@ -320,7 +320,12 @@ perception = {{ path = "/path/to/perception-sdk-{config.version}/rust" }}
 
 For an offline consumer build, copy `rust/.cargo/config.toml` into the
 consumer's `.cargo/config.toml`, change `directory` to the absolute extracted
-`rust/vendor` path, and run `cargo build --offline --locked`.
+`rust/vendor` path, then generate and use the consumer lockfile:
+
+```bash
+cargo generate-lockfile --offline
+cargo build --offline --locked
+```
 
 Import `Envelope`, `payload`, and generated native payload types from the
 `perception` crate. Require successful `Envelope::decode(...)` and an exact

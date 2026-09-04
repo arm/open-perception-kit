@@ -106,7 +106,8 @@ before typed access. Reuse a typed selector with `count`, `contains`, `get`, and
 remain available through `entries()` and are preserved when reserialized.
 For offline builds, copy the bundled Cargo source-replacement configuration
 into the consumer workspace and point it at the extracted `rust/vendor`
-directory.
+directory. Run `cargo generate-lockfile --offline` once in the consumer
+workspace before building with `cargo build --offline --locked`.
 
 ## Apply Compatibility Policy
 
