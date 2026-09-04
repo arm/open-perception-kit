@@ -10,11 +10,11 @@
 #include <chrono>
 #include <cstdio>
 #include <limits>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <sys/syscall.h>
 #include <thread>
-#include <type_traits>
 #include <unistd.h>
 
 namespace pek::perf {
@@ -44,19 +44,14 @@ struct StackEntry {
     std::uint64_t spanId = PerformanceMetrics::InvalidSpanId;
 };
 
-// The nesting state for one (recorder, recording thread) pair. The frame identifies the thread's
-// slot and stores the currently open scopes in call order. It is separate from the slot because
-// the stack is transient recording state, whereas the slot also retains completed measurements.
+// The nesting state for one recording thread. The frame identifies the thread's slot and stores the
+// currently open scopes in call order. It is separate from the slot because the stack is transient
+// recording state, whereas the slot also retains completed measurements.
 struct ThreadFrame {
     std::uint32_t slotIndex = 0;
     std::array<StackEntry, MaxStackDepth> stack{};
     std::uint32_t depth = 0;
 };
-
-std::uint64_t nextInstanceId() noexcept {
-    static std::atomic<std::uint64_t> nextId{1};
-    return nextId.fetch_add(1, std::memory_order_relaxed);
-}
 
 std::uint64_t nowNs() noexcept {
     const auto now = std::chrono::steady_clock::now().time_since_epoch();
@@ -66,14 +61,6 @@ std::uint64_t nowNs() noexcept {
 
 std::uint64_t currentThreadId() noexcept {
     return static_cast<std::uint64_t>(::syscall(SYS_gettid));
-}
-
-// Internal slot lookup needs a unique identifier. A process-wide counter assigns each thread a
-// distinct token.
-std::uint64_t currentThreadToken() noexcept {
-    static std::atomic<std::uint64_t> nextToken{1};
-    thread_local const std::uint64_t token = nextToken.fetch_add(1, std::memory_order_relaxed);
-    return token;
 }
 
 // Names use fixed storage in the recording structures to avoid allocating on every scope. The
@@ -121,7 +108,7 @@ struct HistoryChunk {
     std::size_t size = 0;
 };
 
-// Collection of metrics. Name, parentIndex, and depth identify the path. The counters summarize
+// Collection of metrics. Name and parentIndex identify the path. The counters summarize
 // every completed invocation of that path. The owning thread is the only writer, but snapshots may
 // read concurrently, so counters are atomic and sequence changes make readers retry instead of
 // combining values from different updates.
@@ -129,22 +116,18 @@ struct PerformanceMetricsAtomicMetric {
     std::atomic<std::uint64_t> sequence{0};
     PerformanceMetrics::SpanName name{};
     std::uint32_t parentIndex = InvalidLocalMetricIndex;
-    std::uint32_t depth = 0;
     std::atomic<std::uint64_t> count{0};
     std::atomic<std::uint64_t> totalNs{0};
     std::atomic<std::uint64_t> minNs{0};
     std::atomic<std::uint64_t> maxNs{0};
     std::atomic<std::uint64_t> lastNs{0};
     std::atomic<bool> nameTruncated{false};
-    std::atomic<bool> hasChildren{false};
 };
 
 // All recorder-owned data associated with one recording thread. The slot owns that thread's
 // nesting frame, aggregate hierarchy, diagnostic counters, and optional history.
 struct PerformanceMetricsThreadSlot {
     std::atomic<bool> active{false};
-    // Used only to recover this slot after a thread switches between recorders
-    std::uint64_t threadToken = 0;
     // The Linux thread identifier written to exported SpanRecords.
     std::uint64_t threadId = 0;
     std::atomic<std::uint32_t> droppedMetrics{0};
@@ -169,10 +152,6 @@ struct PerformanceMetricsThreadSlot {
 // destruction can release them even when a framework retains worker threads and therefore does not
 // destroy those threads' thread-local storage objects.
 struct PerformanceMetricsState {
-    explicit PerformanceMetricsState(std::uint64_t id) : instanceId(id) {}
-
-    const std::uint64_t instanceId = 0;
-    std::atomic<bool> enabled{true};
     std::atomic<bool> historyEnabled{false};
     std::atomic<std::uint32_t> nextSlot{0};
     std::atomic<std::uint64_t> nextSpanId{1};
@@ -186,63 +165,18 @@ struct PerformanceMetricsState {
 
 namespace {
 
-// Trivial thread-local navigation state, not measurement storage. state, instanceId, and frame
-// cache the most recently used (recorder, thread) frame so repeated scopes avoid scanning slots.
-// currentMetrics is the recorder temporarily selected by ScopedMetricsContext.
-//
-// The pointers are non-owning. PerformanceMetricsState owns frames through its thread slots; this
-// ensures recorder destruction releases them even if a framework retains the worker thread and
-// delays TLS cleanup until after leak reporting.
-struct ThreadContext {
-    const detail::PerformanceMetricsState *state = nullptr;
-    std::uint64_t instanceId = 0;
-    ThreadFrame *frame = nullptr;
-    PerformanceMetrics *currentMetrics = nullptr;
-};
-
-static_assert(std::is_trivially_destructible_v<ThreadContext>,
-              "ThreadContext must not require TLS destructor registration");
-
-// Returns the calling thread's single context. It remains trivially destructible so accessing
-// performance metrics does not add a dynamic TLS cleanup allocation.
-ThreadContext &threadContext() noexcept {
-    // Function-local storage preserves per-thread lazy initialization. Sonar warning S6018 applies
-    // to global variables declared in headers, not to this local variable.
-    thread_local ThreadContext context; // NOSONAR
-    return context;
+// Returns the calling thread's non-owning frame cache. PerformanceMetricsState owns the frame, so
+// the cache needs no TLS cleanup allocation.
+ThreadFrame *&currentThreadFrame() noexcept {
+    thread_local ThreadFrame *frame = nullptr; // NOSONAR
+    return frame;
 }
 
-// Finds this thread's frame for a recorder. The last-used frame is returned directly on the common
-// path. After switching recorders, the function scans that recorder's published slots, finds the
-// one bearing this thread's token, and refreshes the cache.
-ThreadFrame *findThreadFrame(const detail::PerformanceMetricsState &state) noexcept {
-    auto &context = threadContext();
-    if (context.state == &state && context.instanceId == state.instanceId &&
-        context.frame != nullptr) {
-        return context.frame;
-    }
-
-    const auto threadToken = currentThreadToken();
-    const auto slotCount = std::min(state.nextSlot.load(std::memory_order_acquire), MaxThreadSlots);
-    for (std::uint32_t index = 0; index < slotCount; ++index) {
-        const auto &slot = state.slots[index];
-        if (slot.active.load(std::memory_order_acquire) && slot.threadToken == threadToken &&
-            slot.frame != nullptr) {
-            context.state = &state;
-            context.instanceId = state.instanceId;
-            context.frame = slot.frame.get();
-            return context.frame;
-        }
-    }
-
-    return nullptr;
-}
-
-// Returns the existing frame for this (recorder, thread) pair or claims and initializes one state
-// slot. The frame is allocated dynamically but owned by the state. active is published last so
-// concurrent snapshots never observe a partially initialized slot.
+// Returns the existing frame for this thread or claims and initializes one state slot. The frame is
+// allocated dynamically but owned by the state. active is published last so concurrent snapshots
+// never observe a partially initialized slot.
 ThreadFrame *acquireThreadFrame(detail::PerformanceMetricsState &state) {
-    if (auto *frame = findThreadFrame(state)) {
+    if (auto *frame = currentThreadFrame()) {
         return frame;
     }
 
@@ -256,7 +190,6 @@ ThreadFrame *acquireThreadFrame(detail::PerformanceMetricsState &state) {
     auto frame = std::make_unique<ThreadFrame>();
     frame->slotIndex = slotIndex;
 
-    slot.threadToken = currentThreadToken();
     slot.threadId = currentThreadId();
     slot.droppedMetrics.store(0, std::memory_order_relaxed);
     slot.droppedSpans.store(0, std::memory_order_relaxed);
@@ -266,11 +199,8 @@ ThreadFrame *acquireThreadFrame(detail::PerformanceMetricsState &state) {
     slot.frame = std::move(frame);
     slot.active.store(true, std::memory_order_release);
 
-    auto &context = threadContext();
-    context.state = &state;
-    context.instanceId = state.instanceId;
-    context.frame = slot.frame.get();
-    return context.frame;
+    currentThreadFrame() = slot.frame.get();
+    return slot.frame.get();
 }
 
 // Locates or creates the aggregate metric identified by (parentIndex, name) in one thread slot.
@@ -279,7 +209,6 @@ ThreadFrame *acquireThreadFrame(detail::PerformanceMetricsState &state) {
 std::uint32_t ensureMetric(detail::PerformanceMetricsThreadSlot &slot,
                            const PerformanceMetrics::SpanName &name,
                            std::uint32_t parentIndex,
-                           std::uint32_t depth,
                            bool nameTruncated) noexcept {
     const auto metricCount =
         std::min(slot.metricCount.load(std::memory_order_acquire), MaxMetricsPerThread);
@@ -303,14 +232,12 @@ std::uint32_t ensureMetric(detail::PerformanceMetricsThreadSlot &slot,
     metric.sequence.store(0, std::memory_order_relaxed);
     metric.name = name;
     metric.parentIndex = parentIndex;
-    metric.depth = depth;
     metric.count.store(0, std::memory_order_relaxed);
     metric.totalNs.store(0, std::memory_order_relaxed);
     metric.minNs.store(0, std::memory_order_relaxed);
     metric.maxNs.store(0, std::memory_order_relaxed);
     metric.lastNs.store(0, std::memory_order_relaxed);
     metric.nameTruncated.store(nameTruncated, std::memory_order_relaxed);
-    metric.hasChildren.store(false, std::memory_order_relaxed);
     slot.metricCount.store(metricCount + 1, std::memory_order_release);
     return metricCount;
 }
@@ -323,19 +250,6 @@ void beginMetricWrite(detail::PerformanceMetricsAtomicMetric &metric) noexcept {
 
 void endMetricWrite(detail::PerformanceMetricsAtomicMetric &metric) noexcept {
     metric.sequence.fetch_add(1, std::memory_order_release);
-}
-
-// Retains empty parent nodes in snapshots when they have a recorded descendant.
-void markMetricHasChildren(detail::PerformanceMetricsThreadSlot &slot,
-                           std::uint32_t metricIndex) noexcept {
-    if (metricIndex >= MaxMetricsPerThread) {
-        return;
-    }
-
-    auto &metric = slot.metrics[metricIndex];
-    beginMetricWrite(metric);
-    metric.hasChildren.store(true, std::memory_order_relaxed);
-    endMetricWrite(metric);
 }
 
 // Incorporates one completed scope duration into its thread-local aggregate node.
@@ -380,14 +294,12 @@ PerformanceMetrics::MetricRecord readMetric(const detail::PerformanceMetricsThre
         }
 
         metric.name = source.name;
-        metric.depth = source.depth;
         metric.count = source.count.load(std::memory_order_relaxed);
         metric.totalNs = source.totalNs.load(std::memory_order_relaxed);
         metric.minNs = source.minNs.load(std::memory_order_relaxed);
         metric.maxNs = source.maxNs.load(std::memory_order_relaxed);
         metric.lastNs = source.lastNs.load(std::memory_order_relaxed);
         metric.nameTruncated = source.nameTruncated.load(std::memory_order_relaxed);
-        metric.hasChildren = source.hasChildren.load(std::memory_order_relaxed);
 
         const auto sequenceAfter = source.sequence.load(std::memory_order_acquire);
         if (sequenceBefore == sequenceAfter && (sequenceAfter & 1U) == 0) {
@@ -395,7 +307,6 @@ PerformanceMetrics::MetricRecord readMetric(const detail::PerformanceMetricsThre
         }
     }
 
-    metric.averageNs = metric.count == 0 ? 0 : metric.totalNs / metric.count;
     return metric;
 }
 
@@ -414,9 +325,7 @@ std::uint64_t mergeMetric(std::vector<PerformanceMetrics::MetricRecord> &destina
                 metric.maxNs = std::max(metric.maxNs, source.maxNs);
                 metric.lastNs = source.lastNs;
             }
-            metric.averageNs = metric.count == 0 ? 0 : metric.totalNs / metric.count;
             metric.nameTruncated = metric.nameTruncated || source.nameTruncated;
-            metric.hasChildren = metric.hasChildren || source.hasChildren;
             return metric.id;
         }
     }
@@ -424,7 +333,8 @@ std::uint64_t mergeMetric(std::vector<PerformanceMetrics::MetricRecord> &destina
     auto metric = source;
     metric.id = destination.size();
     metric.parentId = parentId;
-    metric.averageNs = metric.count == 0 ? 0 : metric.totalNs / metric.count;
+    metric.depth =
+        parentId == PerformanceMetrics::InvalidMetricId ? 0 : destination[parentId].depth + 1;
     destination.push_back(metric);
     return metric.id;
 }
@@ -435,6 +345,7 @@ std::uint64_t collectMetric(std::vector<PerformanceMetrics::MetricRecord> &desti
                             const detail::PerformanceMetricsThreadSlot &slot,
                             std::uint32_t metricIndex,
                             std::uint32_t metricCount,
+                            bool includeEmptyMetric,
                             std::vector<std::uint64_t> &mergedIds) {
     if (metricIndex >= metricCount) {
         return PerformanceMetrics::InvalidMetricId;
@@ -448,12 +359,15 @@ std::uint64_t collectMetric(std::vector<PerformanceMetrics::MetricRecord> &desti
     std::uint64_t parentId = PerformanceMetrics::InvalidMetricId;
     if (sourceMetadata.parentIndex != InvalidLocalMetricIndex &&
         sourceMetadata.parentIndex < metricCount) {
-        parentId =
-            collectMetric(destination, slot, sourceMetadata.parentIndex, metricCount, mergedIds);
+        parentId = collectMetric(
+            destination, slot, sourceMetadata.parentIndex, metricCount, true, mergedIds);
+        if (parentId != PerformanceMetrics::InvalidMetricId) {
+            destination[parentId].hasChildren = true;
+        }
     }
 
     const auto source = readMetric(slot, metricIndex);
-    if (source.count == 0 && !source.hasChildren) {
+    if (source.count == 0 && !includeEmptyMetric) {
         return PerformanceMetrics::InvalidMetricId;
     }
 
@@ -470,7 +384,7 @@ void collectMetrics(std::vector<PerformanceMetrics::MetricRecord> &destination,
     std::vector<std::uint64_t> mergedIds(metricCount, PerformanceMetrics::InvalidMetricId);
 
     for (std::uint32_t index = 0; index < metricCount; ++index) {
-        collectMetric(destination, slot, index, metricCount, mergedIds);
+        collectMetric(destination, slot, index, metricCount, false, mergedIds);
     }
 }
 
@@ -505,7 +419,76 @@ void collectHistoryEvents(std::vector<PerformanceMetrics::SpanRecord> &destinati
     }
 }
 
+using ScopeNameHierarchy = std::vector<std::string_view>;
+
+bool buildScopeNameHierarchy(const PerformanceMetrics::Snapshot &snapshot,
+                             const PerformanceMetrics::MetricRecord &metric,
+                             ScopeNameHierarchy &scopeNameHierarchy) {
+    scopeNameHierarchy.clear();
+    const auto *currentHierarchyMetric = &metric;
+
+    for (std::size_t hierarchyDepth = 0; hierarchyDepth <= snapshot.metrics.size();
+         ++hierarchyDepth) {
+        scopeNameHierarchy.push_back(currentHierarchyMetric->getName());
+        if (currentHierarchyMetric->parentId == PerformanceMetrics::InvalidMetricId) {
+            std::ranges::reverse(scopeNameHierarchy);
+            return true;
+        }
+        if (currentHierarchyMetric->parentId >= snapshot.metrics.size() ||
+            snapshot.metrics[currentHierarchyMetric->parentId].id !=
+                currentHierarchyMetric->parentId) {
+            return false;
+        }
+        currentHierarchyMetric = &snapshot.metrics[currentHierarchyMetric->parentId];
+    }
+
+    return false;
+}
+
 } // namespace
+
+std::vector<ScopeIntervalMetrics>
+calculateScopeIntervalMetrics(const PerformanceMetrics::Snapshot &intervalStartSnapshot,
+                              const PerformanceMetrics::Snapshot &intervalEndSnapshot) {
+    std::map<ScopeNameHierarchy, const PerformanceMetrics::MetricRecord *>
+        intervalStartMetricsByScopeHierarchy;
+    ScopeNameHierarchy scopeNameHierarchy;
+    for (const auto &metric : intervalStartSnapshot.metrics) {
+        if (buildScopeNameHierarchy(intervalStartSnapshot, metric, scopeNameHierarchy)) {
+            intervalStartMetricsByScopeHierarchy.try_emplace(scopeNameHierarchy, &metric);
+        }
+    }
+
+    std::vector<ScopeIntervalMetrics> scopeIntervalMetrics;
+    scopeIntervalMetrics.reserve(intervalEndSnapshot.metrics.size());
+    for (const auto &metric : intervalEndSnapshot.metrics) {
+        if (!buildScopeNameHierarchy(intervalEndSnapshot, metric, scopeNameHierarchy)) {
+            continue;
+        }
+
+        const auto intervalStartMetricIterator =
+            intervalStartMetricsByScopeHierarchy.find(scopeNameHierarchy);
+        const auto intervalStartCount =
+            intervalStartMetricIterator == intervalStartMetricsByScopeHierarchy.end()
+                ? 0
+                : intervalStartMetricIterator->second->count;
+        const auto intervalStartTotalNs =
+            intervalStartMetricIterator == intervalStartMetricsByScopeHierarchy.end()
+                ? 0
+                : intervalStartMetricIterator->second->totalNs;
+        if (metric.count <= intervalStartCount || metric.totalNs < intervalStartTotalNs) {
+            continue;
+        }
+
+        const auto completedScopeCount = metric.count - intervalStartCount;
+        const auto totalDurationNs = metric.totalNs - intervalStartTotalNs;
+        scopeIntervalMetrics.emplace_back(std::string(metric.getName()),
+                                          completedScopeCount,
+                                          totalDurationNs,
+                                          totalDurationNs / completedScopeCount);
+    }
+    return scopeIntervalMetrics;
+}
 
 // Scope owns the obligation to finish one recording. Move operations transfer that obligation and
 // clear the source so exactly one Scope reports the duration and unwinds the nesting frame.
@@ -545,13 +528,10 @@ void PerformanceMetrics::Scope::close() noexcept {
     recording.metrics = nullptr;
 }
 
-// Constructs the private implementation state through the incomplete-type-aware pointer declared
-// in the public header.
-detail::PerformanceMetricsStatePtr PerformanceMetrics::createState() {
-    return std::make_unique<detail::PerformanceMetricsState>(nextInstanceId());
+// PerformanceMetricsState is intentionally incomplete in the public header.
+PerformanceMetrics::PerformanceMetrics()
+    : state(std::make_unique<detail::PerformanceMetricsState>()) { // NOSONAR
 }
-
-PerformanceMetrics::PerformanceMetrics() : state(createState()) {}
 
 // Automatic CSV export runs while the recorder and all state-owned history are still alive. State
 // destruction then releases every thread frame, including frames belonging to retained workers.
@@ -565,10 +545,6 @@ PerformanceMetrics::~PerformanceMetrics() {
 //
 // Failures return an inactive Scope because instrumentation must not disrupt the measured work.
 PerformanceMetrics::Scope PerformanceMetrics::scope(std::string_view name) noexcept {
-    if (!state->enabled.load(std::memory_order_relaxed)) {
-        return {};
-    }
-
     try {
         auto *frame = acquireThreadFrame(*state);
         if (frame == nullptr) {
@@ -585,14 +561,9 @@ PerformanceMetrics::Scope PerformanceMetrics::scope(std::string_view name) noexc
         const bool nameTruncated = copySpanName(storedName, name);
         const auto parentIndex = frame->depth == 0 ? InvalidLocalMetricIndex
                                                    : frame->stack[frame->depth - 1].metricIndex;
-        const auto metricIndex =
-            ensureMetric(slot, storedName, parentIndex, frame->depth, nameTruncated);
+        const auto metricIndex = ensureMetric(slot, storedName, parentIndex, nameTruncated);
         if (metricIndex == InvalidLocalMetricIndex) {
             return {};
-        }
-
-        if (parentIndex != InvalidLocalMetricIndex) {
-            markMetricHasChildren(slot, parentIndex);
         }
 
         const auto historyRecorded = state->historyEnabled.load(std::memory_order_relaxed);
@@ -620,30 +591,14 @@ PerformanceMetrics::Scope PerformanceMetrics::scope(std::string_view name) noexc
     }
 }
 
-// Recorder options are atomic because instrumentation and snapshot/control code may access them
-// from different threads. Trace is retained as an alias for the historical-span option.
-void PerformanceMetrics::setEnabled(bool enabled) noexcept {
-    state->enabled.store(enabled, std::memory_order_relaxed);
-}
-
-bool PerformanceMetrics::enabled() const noexcept {
-    return state->enabled.load(std::memory_order_relaxed);
-}
-
+// History control is atomic because instrumentation and control code may access it from different
+// threads.
 void PerformanceMetrics::setHistoryEnabled(bool enabled) noexcept {
     state->historyEnabled.store(enabled, std::memory_order_relaxed);
 }
 
 bool PerformanceMetrics::historyEnabled() const noexcept {
     return state->historyEnabled.load(std::memory_order_relaxed);
-}
-
-void PerformanceMetrics::setTraceEnabled(bool enabled) noexcept {
-    setHistoryEnabled(enabled);
-}
-
-bool PerformanceMetrics::traceEnabled() const noexcept {
-    return historyEnabled();
 }
 
 // The auto-export path is less frequently accessed and dynamically sized, so a mutex protects it
@@ -689,17 +644,13 @@ bool PerformanceMetrics::writeCsv(std::string_view path) const {
                  "thread_id,span_id,parent_span_id,depth,name,start_ns,end_ns,duration_ns,"
                  "duration_ms\n");
     for (const auto &span : spans) {
-        if (!span.complete()) {
-            continue;
-        }
-
         std::fprintf(file,
                      "%llu,%llu,%llu,%u,",
                      static_cast<unsigned long long>(span.threadId),
                      static_cast<unsigned long long>(span.id),
                      static_cast<unsigned long long>(span.parentId),
                      span.depth);
-        writeCsvEscapedName(file, span.nameView());
+        writeCsvEscapedName(file, span.getName());
         std::fprintf(file,
                      ",%llu,%llu,%llu,%.2f\n",
                      static_cast<unsigned long long>(span.startNs),
@@ -744,6 +695,10 @@ PerformanceMetrics::Snapshot PerformanceMetrics::aggregateSnapshot() const {
         snapshot.wrongThreadScopeCloses +=
             slot.wrongThreadScopeCloses.load(std::memory_order_relaxed);
         collectMetrics(snapshot.metrics, slot);
+    }
+
+    for (auto &metric : snapshot.metrics) {
+        metric.averageNs = metric.count == 0 ? 0 : metric.totalNs / metric.count;
     }
 
     snapshot.threadSlotOverflow = state->threadSlotOverflow.load(std::memory_order_acquire);
@@ -791,7 +746,7 @@ void PerformanceMetrics::exitBlock(std::uint32_t slotIndex,
     }
 
     auto &slot = state->slots[slotIndex];
-    auto *frame = findThreadFrame(*state);
+    auto *frame = currentThreadFrame();
     if (frame == nullptr || frame->slotIndex != slotIndex) {
         slot.wrongThreadScopeCloses.fetch_add(1, std::memory_order_relaxed);
         return;
@@ -833,22 +788,6 @@ void PerformanceMetrics::exitBlock(std::uint32_t slotIndex,
     }
 }
 
-// Temporarily binds a recorder to this thread for code using enterCurrentBlock(). Nested bindings
-// work because construction saves and destruction restores the previous pointer.
-ScopedMetricsContext::ScopedMetricsContext(PerformanceMetrics &metrics) noexcept
-    : previous(threadContext().currentMetrics) {
-    threadContext().currentMetrics = &metrics;
-}
-
-ScopedMetricsContext::~ScopedMetricsContext() {
-    threadContext().currentMetrics = previous;
-}
-
-// Returns only the explicitly thread-bound recorder; it does not fall back to the global recorder.
-PerformanceMetrics *currentPerformanceMetrics() noexcept {
-    return threadContext().currentMetrics;
-}
-
 // Lazily constructs the process-wide recorder used by the convenience API. Normal static
 // destruction performs optional CSV export and releases the recorder-owned frames.
 PerformanceMetrics &defaultPerformanceMetrics() noexcept {
@@ -861,17 +800,6 @@ PerformanceMetrics &defaultPerformanceMetrics() noexcept {
 // Convenience entry point for instrumentation that explicitly targets the process-wide recorder.
 PerformanceMetrics::Scope enterBlock(std::string_view name) noexcept {
     return defaultPerformanceMetrics().scope(name);
-}
-
-// Convenience entry point for code that should record only when its thread has an explicit
-// ScopedMetricsContext binding.
-PerformanceMetrics::Scope enterCurrentBlock(std::string_view name) noexcept {
-    auto *metrics = currentPerformanceMetrics();
-    if (metrics == nullptr) {
-        return {};
-    }
-
-    return metrics->scope(name);
 }
 
 } // namespace pek::perf

@@ -410,6 +410,33 @@ class QosPipelineTest(unittest.TestCase):
             self.elements["tracker"].get_property("max-missed-frames"), 15
         )
 
+    def test_pekperformance_generates_overlay_when_enabled(self) -> None:
+        output_received = threading.Event()
+        self.elements["output"].set_property("signal-handoffs", True)
+        self.elements["output"].connect(
+            "handoff", lambda *_arguments: output_received.set()
+        )
+        self.elements["performance"].set_property("update-interval", 1)
+        self.elements["performance"].set_property("enabled", True)
+        self.assertEqual(
+            self.elements["performance"].get_property("update-interval"), 1
+        )
+        self.assertTrue(self.elements["performance"].get_property("enabled"))
+        self.start_pipeline()
+
+        for frame_index in range(3):
+            output_received.clear()
+            self.flow_monitor.push_buffer(frame_index * self.frame_duration)
+            self.assertTrue(output_received.wait(1))
+
+        self.elements["performance"].set_property("show-all-metrics", True)
+        self.assertTrue(
+            self.elements["performance"].get_property("show-all-metrics")
+        )
+        output_received.clear()
+        self.flow_monitor.push_buffer(3 * self.frame_duration)
+        self.assertTrue(output_received.wait(1))
+
     def test_peksink_feedback_reaches_pekinfer(self) -> None:
         self.enable_inference_qos()
         self.elements["output"].set_property("qos-enabled", True)

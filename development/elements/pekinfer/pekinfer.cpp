@@ -27,7 +27,6 @@
 #include "gst/ContentRequirementEvent.h"
 #include "gst/FrameResultsMeta.h"
 #include "mediaio/GstVideoFrame.h"
-#include "perf/PerformanceTracer.h"
 
 struct GstPekInferMembers {
     // std::shared_ptr<onnx::Inference> onnxInference;
@@ -236,8 +235,6 @@ static bool gst_pekinfer_has_supported_or_defaultable_yuv_colorimetry(const GstV
 
 static gboolean gst_pekinfer_start(GstBaseTransform *b) {
     auto *self = (GstPekInfer *)b;
-    static pek::perf::PerformanceTracer *tracer = pek::perf::getGlobalTracer();
-    (void)tracer;
 
     gst_pekinfer_reset_qos(self);
 

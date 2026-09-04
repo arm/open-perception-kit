@@ -1,6 +1,22 @@
 @startuml
 !include pek-style.puml
 
+skinparam dpi 120
+<style>
+activityDiagram {
+  circle {
+    start {
+      BackgroundColor #51D358
+      LineColor #51D358
+    }
+    stop {
+      BackgroundColor #EC5C4F
+      LineColor #EC5C4F
+    }
+  }
+}
+</style>
+
 title Perception Experience Kit Engineer Execution Flow Example
 
 start
@@ -21,7 +37,7 @@ partition "Startup and module setup" {
     :`OpChain::bind()` wires dependencies,\nvalidates grouped `loopId`;
     :Emit `pek-model-register` downstream;
   fork again
-    :`pektracker::start()`, `pekperformance`,\nand `pekosd::start()` prepare\ntracker, tracing, and filter state;
+    :`pektracker::start()`, `pekperformance`,\nand `pekosd::start()` prepare\ntracker, interval baseline, and filter state;
   fork again
     :`peksink::init()` builds the internal\nvideo/audio branches,\nsilence fallback, and drain branches;
     :Create `ModelRegistry`, start;
@@ -33,13 +49,14 @@ partition "Startup and module setup" {
   :Pipeline reaches PLAYING state;
 }
 
-while ("Next buffer arrives?") is (yes)
+while ("Source emits another video buffer?") is (yes)
   partition "" {
     :Source / decode / `videoconvert`\ndeliver a BGRA buffer;
     if ("`pekinfer active`?") then (yes)
       :Map `GstBuffer`, ensure `FrameResultsMeta`\n(create `FrameResults` on first touch),\nand create `OpChainContext`;
       :Insert `BitmapView` as `pipelineVideoFrame`\nand attach `FrameResults*` + `inferElementId`;
       :Call `OpChain::execute()`;
+      :OpChain and stage `PEK_PERF_SCOPE`s\nrecord hierarchical timings in the\nprocess-wide `PerformanceMetrics` recorder;
     else (no)
       :Skip inference work and pass the buffer through;
     endif
@@ -58,11 +75,22 @@ while ("Next buffer arrives?") is (yes)
 
   partition "Downstream Perception Experience Kit processing and output\nafter inference and opchain execution" {
     :`pektracker` appends tracking payloads\nwith IDs and traces;
-    :`pekperformance` refreshes metrics,\ncalls `endCycle()`, and appends `PerformanceOverlayT`;
+    :`pekperformance` takes an aggregate snapshot,\nderives interval averages, and appends\n`PerformanceOverlayT`;
     :`pekosd` reads `FrameResultsMeta`,\nbuilds Cairo layers,\nand composites overlays onto the frame;
     :`peksink` encodes VP8/Opus,\nkeeps drain branches alive,\nserves HTTP + WebRTC + control WS,\nand streams the result to the browser;
   }
-endwhile (no)
+endwhile (EOS)
 
-stop
+:`peksink` forwards EOS and posts it\nto the top-level pipeline;
+:`gst-launch-1.0` shuts down the pipeline;
+if ("Restart after clean EOS?\n(`loop=true` and runtime >= 1 second)") then (yes)
+  :`pek-menu` starts a new `gst-launch-1.0` process;
+  note right
+    Continue from "Launcher and preset loading".
+  end note
+  detach
+else (no)
+  :Launcher exits;
+  stop
+endif
 @enduml

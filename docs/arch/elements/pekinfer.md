@@ -70,8 +70,10 @@ they prevent startup. Execution failures are also reported and stop the
 affected flow. Other runtime paths still contain abort behavior that should be
 replaced with graceful error reporting.
 
-The element participates in global performance tracing. Ops and backends can emit
-timing keys that `pekperformance` later publishes.
+Ops and backends record hierarchical scopes in the process-wide
+`PerformanceMetrics` recorder. Runtime clients can read aggregate snapshots or
+opt-in span-history CSV, while `pekperformance` derives interval averages from
+the aggregates and publishes them without resetting the recorder.
 
 ## QoS Feedback
 

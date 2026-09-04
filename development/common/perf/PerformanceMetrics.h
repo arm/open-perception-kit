@@ -20,7 +20,7 @@ using PerformanceMetricsStatePtr = std::unique_ptr<PerformanceMetricsState>;
 } // namespace detail
 
 /**
- * Hierarchical block timer for PEK instrumentation.
+ * Process-wide hierarchical block timer for PEK instrumentation.
  *
  * The default mode records aggregate timing only. Scope names are copied into a
  * fixed-size inline buffer, so callers may pass dynamic string_views without
@@ -76,7 +76,7 @@ class PerformanceMetrics {
         bool nameTruncated = false;
 
         /** Returns the copied scope name as a string_view. */
-        [[nodiscard]] std::string_view nameView() const noexcept {
+        [[nodiscard]] std::string_view getName() const noexcept {
             return name.data();
         }
 
@@ -135,7 +135,7 @@ class PerformanceMetrics {
         bool hasChildren = false;
 
         /** Returns the copied scope name as a string_view. */
-        [[nodiscard]] std::string_view nameView() const noexcept {
+        [[nodiscard]] std::string_view getName() const noexcept {
             return name.data();
         }
     };
@@ -222,53 +222,19 @@ class PerformanceMetrics {
         Recording recording;
     };
 
-    PerformanceMetrics();
-
-    /**
-     * Destroys the recorder.
-     *
-     * If an automatic CSV export path is configured, completed historical spans
-     * are written best-effort during destruction.
-     */
-    ~PerformanceMetrics();
-
-    /** Recorder instances own thread-local slot state and cannot be copied. */
-    PerformanceMetrics(const PerformanceMetrics &) = delete;
-
-    /** Recorder instances own thread-local slot state and cannot be copied. */
-    PerformanceMetrics &operator=(const PerformanceMetrics &) = delete;
-
-    /** Recorder instances are address-stable for thread-local frame lookup. */
-    PerformanceMetrics(PerformanceMetrics &&) = delete;
-
-    /** Recorder instances are address-stable for thread-local frame lookup. */
-    PerformanceMetrics &operator=(PerformanceMetrics &&) = delete;
-
     /**
      * Starts measuring a named scope.
      *
      * The name is copied immediately into fixed-size storage. Returns an
-     * inactive Scope when the recorder is disabled or capacity is exhausted.
+     * inactive Scope when capacity is exhausted.
      */
     [[nodiscard]] Scope scope(std::string_view name) noexcept;
-
-    /** Enables or disables aggregate and historical recording. */
-    void setEnabled(bool enabled) noexcept;
-
-    /** Returns whether aggregate and historical recording are enabled. */
-    [[nodiscard]] bool enabled() const noexcept;
 
     /** Enables or disables storing completed spans for snapshots and CSV export. */
     void setHistoryEnabled(bool enabled) noexcept;
 
     /** Returns whether completed span history is currently recorded. */
     [[nodiscard]] bool historyEnabled() const noexcept;
-
-    /** Compatibility alias for setHistoryEnabled(). */
-    void setTraceEnabled(bool enabled) noexcept;
-
-    /** Compatibility alias for historyEnabled(). */
-    [[nodiscard]] bool traceEnabled() const noexcept;
 
     /**
      * Sets the optional best-effort automatic CSV export path.
@@ -300,7 +266,15 @@ class PerformanceMetrics {
     [[nodiscard]] Snapshot snapshot() const;
 
   private:
-    static detail::PerformanceMetricsStatePtr createState();
+    friend PerformanceMetrics &defaultPerformanceMetrics() noexcept;
+
+    PerformanceMetrics();
+    ~PerformanceMetrics();
+
+    PerformanceMetrics(const PerformanceMetrics &) = delete;
+    PerformanceMetrics &operator=(const PerformanceMetrics &) = delete;
+    PerformanceMetrics(PerformanceMetrics &&) = delete;
+    PerformanceMetrics &operator=(PerformanceMetrics &&) = delete;
 
     void exitBlock(std::uint32_t slotIndex,
                    std::uint32_t metricIndex,
@@ -313,36 +287,33 @@ class PerformanceMetrics {
     detail::PerformanceMetricsStatePtr state;
 };
 
-/**
- * Binds a PerformanceMetrics instance to the current thread until destruction.
- * Nested bindings restore the previous current recorder.
- */
-class ScopedMetricsContext {
-  public:
-    /** Binds the supplied recorder as the current recorder for this thread. */
-    explicit ScopedMetricsContext(PerformanceMetrics &metrics) noexcept;
+/** Timing statistics for one scope completed between two aggregate snapshots. */
+struct ScopeIntervalMetrics {
+    /** Copied name of the scope represented by this interval. */
+    std::string name;
 
-    /** Restores the previously bound current recorder for this thread. */
-    ~ScopedMetricsContext();
+    /** Number of scopes completed during the interval. */
+    std::uint64_t completedScopeCount = 0;
 
-    /** Context bindings are scoped and cannot be copied. */
-    ScopedMetricsContext(const ScopedMetricsContext &) = delete;
+    /** Total duration of scopes completed during the interval, in nanoseconds. */
+    std::uint64_t totalDurationNs = 0;
 
-    /** Context bindings are scoped and cannot be copied. */
-    ScopedMetricsContext &operator=(const ScopedMetricsContext &) = delete;
-
-    /** Context bindings are scoped and cannot be moved. */
-    ScopedMetricsContext(ScopedMetricsContext &&) = delete;
-
-    /** Context bindings are scoped and cannot be moved. */
-    ScopedMetricsContext &operator=(ScopedMetricsContext &&) = delete;
-
-  private:
-    PerformanceMetrics *previous = nullptr;
+    /** Average duration of scopes completed during the interval, in nanoseconds. */
+    std::uint64_t averageDurationNs = 0;
 };
 
-/** Returns the PerformanceMetrics instance bound to the current thread, if any. */
-[[nodiscard]] PerformanceMetrics *currentPerformanceMetrics() noexcept;
+/**
+ * Calculates timing statistics for scopes completed between chronological snapshots.
+ *
+ * Metrics are matched by their complete root-to-scope name hierarchy. Missing hierarchies and
+ * records whose counters moved backwards are omitted.
+ *
+ * The hierarchy is the dynamic nesting of named recorder scopes, not a filesystem path or a
+ * reconstructed static call graph.
+ */
+[[nodiscard]] std::vector<ScopeIntervalMetrics>
+calculateScopeIntervalMetrics(const PerformanceMetrics::Snapshot &intervalStartSnapshot,
+                              const PerformanceMetrics::Snapshot &intervalEndSnapshot);
 
 /**
  * Lazy process-wide metrics recorder for no-init experiments. The recorder is
@@ -353,9 +324,6 @@ class ScopedMetricsContext {
 
 /** Starts a scope on the process-global default recorder. */
 [[nodiscard]] PerformanceMetrics::Scope enterBlock(std::string_view name) noexcept;
-
-/** Starts a scope on the current thread-bound recorder, or returns an inactive scope. */
-[[nodiscard]] PerformanceMetrics::Scope enterCurrentBlock(std::string_view name) noexcept;
 
 } // namespace pek::perf
 
@@ -373,28 +341,6 @@ class ScopedMetricsContext {
 #define PEK_PERF_METRICS_UNIQUE_NAME_(base) PEK_PERF_METRICS_CONCAT_(base, __LINE__)
 #endif
 
-/** Records one RAII scope into an explicitly owned PerformanceMetrics instance. */
-#define PEK_METRICS_SCOPE(metrics, name)                                                           \
-    [[maybe_unused]] auto PEK_PERF_METRICS_UNIQUE_NAME_(_pek_metrics_scope_) = (metrics).scope(name)
-
-/**
- * Records one RAII scope into the lazy process-global PerformanceMetrics instance.
- *
- * Use this when no explicit metrics object is passed around.
- */
-#define PEK_METRICS_SCOPE_GLOBAL(name)                                                             \
-    [[maybe_unused]] auto PEK_PERF_METRICS_UNIQUE_NAME_(_pek_metrics_global_scope_) =              \
-        ::pek::perf::enterBlock(name)
-
-/**
- * Records one RAII scope into the current thread-bound PerformanceMetrics instance.
- *
- * The scope is inactive when no ScopedMetricsContext is bound.
- */
-#define PEK_METRICS_SCOPE_CURRENT(name)                                                            \
-    [[maybe_unused]] auto PEK_PERF_METRICS_UNIQUE_NAME_(_pek_metrics_current_scope_) =             \
-        ::pek::perf::enterCurrentBlock(name)
-
 /** Drop-in global performance scope used by PEK instrumentation sites. */
 #define PEK_PERF_SCOPE(name)                                                                       \
     [[maybe_unused]] auto PEK_PERF_METRICS_UNIQUE_NAME_(_pek_perf_scope_) =                        \
@@ -406,10 +352,7 @@ class ScopedMetricsContext {
 /**
  * Enables or disables historical scope capture on the lazy process-global recorder.
  *
- * Aggregate metrics are still recorded while the recorder is enabled.
+ * Aggregate metrics remain enabled.
  */
 #define PEK_PERF_HISTORY_ENABLE(enabled)                                                           \
     ::pek::perf::defaultPerformanceMetrics().setHistoryEnabled(enabled)
-
-/** Compatibility alias for earlier trace naming. */
-#define PEK_PERF_TRACE_ENABLE(enabled) PEK_PERF_HISTORY_ENABLE(enabled)

@@ -13,8 +13,6 @@
 #include "pek/Types.h"
 #include "tl/expected.hpp"
 
-#include <perf/PerformanceTracer.h>
-
 using namespace pek::stdop;
 
 InferenceControllerOp::InferenceControllerOp() = default;

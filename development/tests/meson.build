@@ -60,14 +60,6 @@ model_registry_tests = executable(
   link_with : [common],
 )
 
-performance_tracer_tests = executable(
-  'performance_tracer_tests',
-  ['performance_tracer_test.cpp'],
-  include_directories : [common_include],
-  dependencies : [gtest_main_dep, gtest_dep],
-  link_with : [common],
-)
-
 opchain_descriptor_tests = executable(
   'opchain_descriptor_tests',
   ['opchain_descriptor_test.cpp'],
@@ -353,7 +345,6 @@ test(
   python,
   args : [files('opchain_display_metadata_test.py'), pek_repository_root],
 )
-test('performance_tracer_tests', performance_tracer_tests)
 test(
   'release_tool_tests',
   python,
