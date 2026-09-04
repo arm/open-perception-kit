@@ -249,7 +249,7 @@ static void
 gst_pek_performance_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec) {
     GstPekPerformance *self = GST_PEK_PERFORMANCE(object);
 
-    switch (static_cast<PropertyId>(prop_id)) {
+    switch (static_cast<PropertyId>(prop_id)) { // NOSONAR: keep property IDs explicit.
     case PropertyId::UpdateInterval:
         g_value_set_uint(value, self->update_interval);
         break;
