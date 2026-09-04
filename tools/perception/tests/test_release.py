@@ -904,6 +904,27 @@ class BundleVerificationTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "unsafe path"):
                 release_package.extract_rust_crate(crate, root / "vendor", artifact)
 
+    def test_rejects_duplicate_rust_crate_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            crate = root / "flatbuffers-25.9.23.crate"
+            with tarfile.open(  # NOSONAR: intentionally ambiguous test archive.
+                crate, "w:gz"
+            ) as archive:
+                for content in (b"first\n", b"second\n"):
+                    member = tarfile.TarInfo("flatbuffers-25.9.23/src/lib.rs")
+                    member.size = len(content)
+                    archive.addfile(member, io.BytesIO(content))
+            artifact = release_package.perception_config.LockedArtifact(
+                name="flatbuffers",
+                version="25.9.23",
+                filename=crate.name,
+                url=f"https://example.invalid/{crate.name}",
+                sha256=digest(crate),
+            )
+            with self.assertRaisesRegex(RuntimeError, "duplicate archive path"):
+                release_package.extract_rust_crate(crate, root / "vendor", artifact)
+
     def test_rejects_self_declared_input_tree_digest(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             bundle = self.create_bundle(Path(tmp))

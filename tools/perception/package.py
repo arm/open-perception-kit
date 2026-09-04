@@ -152,6 +152,7 @@ def extract_rust_crate(
 ) -> None:
     expected_root = f"{artifact.name}-{artifact.version}"
     file_hashes: dict[str, str] = {}
+    member_paths: set[str] = set()
     with tarfile.open(crate, "r:gz") as archive:  # NOSONAR: validated before extraction.
         members = archive.getmembers()
         if len(members) > MAX_RUST_CRATE_MEMBERS:
@@ -163,11 +164,17 @@ def extract_rust_crate(
             relative = _rust_crate_member_path(member, expected_root)
             if relative is None:
                 continue
+            relative_path = relative.as_posix()
+            if relative_path in member_paths:
+                raise RuntimeError(
+                    f"Rust crate contains duplicate archive path: {member.name}"
+                )
+            member_paths.add(relative_path)
             target = destination.joinpath(*relative.parts)
             if member.isdir():
                 target.mkdir(parents=True, exist_ok=True)
                 continue
-            file_hashes[relative.as_posix()] = _extract_rust_crate_file(
+            file_hashes[relative_path] = _extract_rust_crate_file(
                 archive, member, target
             )
     if not file_hashes:

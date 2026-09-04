@@ -986,7 +986,7 @@
   ],
   "generation": {
     "flowdata_sdk": {
-      "commit": "976778d259a3d52e946c89b90bb02e572dbf16c8",
+      "commit": "c3cc0f162b32c558a25f3517d4cce6630fefdbda",
       "generator": {
         "name": "flowdata-sdk",
         "version": "0.6.0"
