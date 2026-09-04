@@ -130,32 +130,46 @@ def read_flowdata_manifests(generated_root: Path) -> dict[str, object]:
     return manifests
 
 
+def _add_license_header(path: Path, marker: str, prefix: str) -> None:
+    text = path.read_text(encoding="utf-8")
+    if not text.startswith(marker):
+        path.write_text(f"{prefix}{text}", encoding="utf-8")
+
+
+def _add_license_headers_to(paths: list[Path], marker: str, prefix: str) -> None:
+    for path in paths:
+        _add_license_header(path, marker, prefix)
+
+
 def add_license_headers(generated_root: Path) -> None:
-    for source in sorted((generated_root / "cpp").rglob("*")):
-        if source.suffix in {".h", ".cpp"}:
-            text = source.read_text(encoding="utf-8")
-            if not text.startswith(CPP_LICENSE_HEADER):
-                source.write_text(f"{CPP_LICENSE_HEADER}\n{text}", encoding="utf-8")
+    cpp_sources = [
+        source
+        for source in sorted((generated_root / "cpp").rglob("*"))
+        if source.suffix in {".h", ".cpp"}
+    ]
+    _add_license_headers_to(
+        cpp_sources, CPP_LICENSE_HEADER, f"{CPP_LICENSE_HEADER}\n"
+    )
     modules = [
         *sorted((generated_root / "python").rglob("*.py")),
         *sorted((generated_root / "python").rglob("*.pyi")),
     ]
-    for module in modules:
-        text = module.read_text(encoding="utf-8")
-        if not text.startswith(PY_LICENSE_HEADER):
-            module.write_text(f"{PY_LICENSE_HEADER}\n{text}", encoding="utf-8")
-    for integration in sorted((generated_root / "cpp" / "cmake").rglob("*.cmake")):
-        text = integration.read_text(encoding="utf-8")
-        if not text.startswith(CMAKE_LICENSE_HEADER):
-            integration.write_text(f"{CMAKE_LICENSE_HEADER}{text}", encoding="utf-8")
-    for module in sorted((generated_root / "ts").rglob("*.ts")):
-        text = module.read_text(encoding="utf-8")
-        if not text.startswith(TS_LICENSE_HEADER):
-            module.write_text(f"{TS_LICENSE_HEADER}{text}", encoding="utf-8")
-    for module in sorted((generated_root / "rust").rglob("*.rs")):
-        text = module.read_text(encoding="utf-8")
-        if not text.startswith(RUST_LICENSE_HEADER):
-            module.write_text(f"{RUST_LICENSE_HEADER}{text}", encoding="utf-8")
+    _add_license_headers_to(modules, PY_LICENSE_HEADER, f"{PY_LICENSE_HEADER}\n")
+    _add_license_headers_to(
+        sorted((generated_root / "cpp" / "cmake").rglob("*.cmake")),
+        CMAKE_LICENSE_HEADER,
+        CMAKE_LICENSE_HEADER,
+    )
+    _add_license_headers_to(
+        sorted((generated_root / "ts").rglob("*.ts")),
+        TS_LICENSE_HEADER,
+        TS_LICENSE_HEADER,
+    )
+    _add_license_headers_to(
+        sorted((generated_root / "rust").rglob("*.rs")),
+        RUST_LICENSE_HEADER,
+        RUST_LICENSE_HEADER,
+    )
 
 
 def prepare_typescript_package(config: SdkConfig, generated_root: Path) -> None:

@@ -115,6 +115,36 @@ def copy_rust_sdk(source: Path, destination: Path) -> None:
     )
 
 
+def _rust_crate_member_path(
+    member: tarfile.TarInfo, expected_root: str
+) -> PurePosixPath | None:
+    path = PurePosixPath(member.name)
+    if path.is_absolute() or ".." in path.parts or not path.parts:
+        raise RuntimeError(f"Rust crate contains unsafe path: {member.name}")
+    if path.parts[0] != expected_root:
+        raise RuntimeError(
+            f"Rust crate root does not match package identity: {member.name}"
+        )
+    relative = PurePosixPath(*path.parts[1:])
+    return relative if relative.parts else None
+
+
+def _extract_rust_crate_file(
+    archive: tarfile.TarFile,
+    member: tarfile.TarInfo,
+    target: Path,
+) -> str:
+    if not member.isfile():
+        raise RuntimeError(f"Rust crate contains unsupported member: {member.name}")
+    source = archive.extractfile(member)
+    if source is None:
+        raise RuntimeError(f"Rust crate member cannot be read: {member.name}")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with source, target.open("wb") as output:
+        shutil.copyfileobj(source, output)
+    return sha256(target)
+
+
 def extract_rust_crate(
     crate: Path,
     destination: Path,
@@ -122,36 +152,24 @@ def extract_rust_crate(
 ) -> None:
     expected_root = f"{artifact.name}-{artifact.version}"
     file_hashes: dict[str, str] = {}
-    expanded_size = 0
-    with tarfile.open(crate, "r:gz") as archive:
+    with tarfile.open(crate, "r:gz") as archive:  # NOSONAR: validated before extraction.
         members = archive.getmembers()
         if len(members) > MAX_RUST_CRATE_MEMBERS:
             raise RuntimeError(f"Rust crate has too many archive members: {crate.name}")
+        expanded_size = sum(member.size for member in members if member.isfile())
+        if expanded_size > MAX_RUST_CRATE_EXPANDED_BYTES:
+            raise RuntimeError(f"Rust crate expands beyond the size limit: {crate.name}")
         for member in members:
-            path = PurePosixPath(member.name)
-            if path.is_absolute() or ".." in path.parts or not path.parts:
-                raise RuntimeError(f"Rust crate contains unsafe path: {member.name}")
-            if path.parts[0] != expected_root:
-                raise RuntimeError(f"Rust crate root does not match package identity: {member.name}")
-            relative = PurePosixPath(*path.parts[1:])
-            if not relative.parts:
+            relative = _rust_crate_member_path(member, expected_root)
+            if relative is None:
                 continue
             target = destination.joinpath(*relative.parts)
             if member.isdir():
                 target.mkdir(parents=True, exist_ok=True)
                 continue
-            if not member.isfile():
-                raise RuntimeError(f"Rust crate contains unsupported member: {member.name}")
-            expanded_size += member.size
-            if expanded_size > MAX_RUST_CRATE_EXPANDED_BYTES:
-                raise RuntimeError(f"Rust crate expands beyond the size limit: {crate.name}")
-            source = archive.extractfile(member)
-            if source is None:
-                raise RuntimeError(f"Rust crate member cannot be read: {member.name}")
-            target.parent.mkdir(parents=True, exist_ok=True)
-            with source, target.open("wb") as output:
-                shutil.copyfileobj(source, output)
-            file_hashes[relative.as_posix()] = sha256(target)
+            file_hashes[relative.as_posix()] = _extract_rust_crate_file(
+                archive, member, target
+            )
     if not file_hashes:
         raise RuntimeError(f"Rust crate contains no files: {crate.name}")
     (destination / ".cargo-checksum.json").write_text(
@@ -669,11 +687,9 @@ def _verify_source_identities(
     )
 
 
-def _verify_descriptor_flatbuffers_locks(
-    descriptor: dict[str, object],
-    manifest_flatbuffers: object,
-    bundle_root: Path,
-) -> None:
+def _descriptor_flatbuffers_locks(
+    descriptor: dict[str, object], manifest_flatbuffers: object
+) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
     descriptor_flatbuffers = descriptor.get("flatbuffers")
     descriptor_typescript = descriptor.get("typescript_build")
     if not all(
@@ -684,7 +700,13 @@ def _verify_descriptor_flatbuffers_locks(
     descriptor_flatbuffers = cast(dict[str, object], descriptor_flatbuffers)
     descriptor_typescript = cast(dict[str, object], descriptor_typescript)
     manifest_flatbuffers = cast(dict[str, object], manifest_flatbuffers)
+    return descriptor_flatbuffers, descriptor_typescript, manifest_flatbuffers
 
+
+def _flatbuffers_lock_values(
+    descriptor_flatbuffers: dict[str, object],
+    descriptor_typescript: dict[str, object],
+) -> tuple[str, dict[str, object], dict[str, object], list[object], dict[str, object]]:
     version = descriptor_flatbuffers.get("version")
     python_lock = descriptor_flatbuffers.get("python_wheel")
     source_lock = descriptor_flatbuffers.get("source_archive")
@@ -698,7 +720,66 @@ def _verify_descriptor_flatbuffers_locks(
     python_lock = cast(dict[str, object], python_lock)
     source_lock = cast(dict[str, object], source_lock)
     typescript_lock = cast(dict[str, object], typescript_lock)
+    return version, python_lock, source_lock, rust_locks, typescript_lock
 
+
+def _verify_descriptor_artifact_lock(
+    key: str,
+    expected: dict[str, object],
+    manifest_flatbuffers: dict[str, object],
+    bundle_root: Path,
+) -> None:
+    record = manifest_flatbuffers.get(key)
+    if not isinstance(record, dict) or any(
+        record.get(field) != value for field, value in expected.items()
+    ):
+        raise RuntimeError(
+            f"release descriptor FlatBuffers {key} lock does not match manifest"
+        )
+    if key == "source_archive":
+        return
+    path = validate_relative_path(record.get("path"))
+    if path.name != expected["filename"] or not (bundle_root / path).is_file():
+        raise RuntimeError(
+            f"release descriptor FlatBuffers {key} filename does not match package"
+        )
+
+
+def _verify_descriptor_rust_locks(
+    rust_locks: list[object],
+    manifest_flatbuffers: dict[str, object],
+    bundle_root: Path,
+) -> None:
+    rust_records = manifest_flatbuffers.get("rust_crates")
+    if not isinstance(rust_records, list) or len(rust_records) != len(rust_locks):
+        raise RuntimeError("release descriptor Rust crate locks do not match manifest")
+    for index, (lock, record) in enumerate(zip(rust_locks, rust_records)):
+        if not isinstance(lock, dict) or not isinstance(record, dict):
+            raise RuntimeError("release descriptor Rust crate lock is malformed")
+        expected = {
+            key: lock.get(key)
+            for key in ("filename", "name", "sha256", "url", "version")
+        }
+        if any(record.get(field) != value for field, value in expected.items()):
+            raise RuntimeError(
+                f"release descriptor Rust crate lock {index} does not match manifest"
+            )
+        path = validate_relative_path(record.get("path"))
+        if path.name != expected["filename"] or not (bundle_root / path).is_file():
+            raise RuntimeError("release descriptor Rust crate filename does not match package")
+
+
+def _verify_descriptor_flatbuffers_locks(
+    descriptor: dict[str, object],
+    manifest_flatbuffers: object,
+    bundle_root: Path,
+) -> None:
+    descriptor_flatbuffers, descriptor_typescript, manifest_flatbuffers = (
+        _descriptor_flatbuffers_locks(descriptor, manifest_flatbuffers)
+    )
+    version, python_lock, source_lock, rust_locks, typescript_lock = (
+        _flatbuffers_lock_values(descriptor_flatbuffers, descriptor_typescript)
+    )
     compiler = manifest_flatbuffers.get("compiler")
     if not isinstance(compiler, dict) or compiler.get("semantic_version") != version:
         raise RuntimeError("release descriptor FlatBuffers version does not match compiler")
@@ -724,36 +805,10 @@ def _verify_descriptor_flatbuffers_locks(
         },
     }
     for key, expected in expected_records.items():
-        record = manifest_flatbuffers.get(key)
-        if not isinstance(record, dict) or any(
-            record.get(field) != value for field, value in expected.items()
-        ):
-            raise RuntimeError(
-                f"release descriptor FlatBuffers {key} lock does not match manifest"
-            )
-        if key != "source_archive":
-            path = validate_relative_path(record.get("path"))
-            if path.name != expected["filename"] or not (bundle_root / path).is_file():
-                raise RuntimeError(
-                    f"release descriptor FlatBuffers {key} filename does not match package"
-                )
-    rust_records = manifest_flatbuffers.get("rust_crates")
-    if not isinstance(rust_records, list) or len(rust_records) != len(rust_locks):
-        raise RuntimeError("release descriptor Rust crate locks do not match manifest")
-    for index, (lock, record) in enumerate(zip(rust_locks, rust_records)):
-        if not isinstance(lock, dict) or not isinstance(record, dict):
-            raise RuntimeError("release descriptor Rust crate lock is malformed")
-        expected = {
-            key: lock.get(key)
-            for key in ("filename", "name", "sha256", "url", "version")
-        }
-        if any(record.get(field) != value for field, value in expected.items()):
-            raise RuntimeError(
-                f"release descriptor Rust crate lock {index} does not match manifest"
-            )
-        path = validate_relative_path(record.get("path"))
-        if path.name != expected["filename"] or not (bundle_root / path).is_file():
-            raise RuntimeError("release descriptor Rust crate filename does not match package")
+        _verify_descriptor_artifact_lock(
+            key, expected, manifest_flatbuffers, bundle_root
+        )
+    _verify_descriptor_rust_locks(rust_locks, manifest_flatbuffers, bundle_root)
 
 
 def _verify_packaged_artifact_records(
@@ -946,12 +1001,10 @@ def _verify_typescript_packages(
         raise RuntimeError("FlatBuffers TypeScript package identity is invalid")
 
 
-def _verify_rust_crate(
+def _rust_release_receipts(
     bundle_root: Path,
-    artifact: dict[str, object],
     manifest: dict[str, object],
-    file_entries: dict[str, dict[str, object]],
-) -> None:
+) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
     outputs = manifest.get("outputs")
     rust_output = outputs.get("rust") if isinstance(outputs, dict) else None
     if not isinstance(rust_output, dict) or rust_output.get("sdk") != "rust":
@@ -968,7 +1021,12 @@ def _verify_rust_crate(
     rust_receipt = upstream.get("rust") if isinstance(upstream, dict) else None
     if not isinstance(rust_receipt, dict) or rust_receipt.get("outputs") != rust_output:
         raise RuntimeError("release Rust SDK metadata does not match generation receipt")
+    return rust_output, rust_receipt, generated
 
+
+def _verify_rust_runtime_metadata(
+    manifest: dict[str, object], rust_receipt: dict[str, object]
+) -> None:
     flatbuffers = manifest.get("flatbuffers")
     runtimes = flatbuffers.get("runtimes") if isinstance(flatbuffers, dict) else None
     rust_runtimes = rust_receipt.get("flatbuffers_runtimes")
@@ -977,6 +1035,8 @@ def _verify_rust_crate(
     ):
         raise RuntimeError("release Rust FlatBuffers runtime metadata is missing")
 
+
+def _rust_generated_files(generated: dict[str, object]) -> list[dict[str, object]]:
     generated_files = generated.get("files")
     if not isinstance(generated_files, list):
         raise RuntimeError("release generated SDK file receipt is missing")
@@ -987,10 +1047,16 @@ def _verify_rust_crate(
     ]
     if not files:
         raise RuntimeError("release Rust SDK file receipt is missing")
+    return files
+
+
+def _verify_rust_file_receipt(
+    bundle_root: Path,
+    files: list[dict[str, object]],
+    file_entries: dict[str, dict[str, object]],
+) -> None:
     expected_paths: set[str] = set()
     for record in files:
-        if not isinstance(record, dict):
-            raise RuntimeError("release Rust SDK file receipt is malformed")
         relative = Path("rust") / validate_relative_path(record.get("path"))
         expected_paths.add(relative.as_posix())
         entry = file_entries.get(relative.as_posix())
@@ -1018,6 +1084,10 @@ def _verify_rust_crate(
     if actual_paths - release_only_paths != expected_paths:
         raise RuntimeError("release Rust SDK file set does not match generation receipt")
 
+
+def _verify_rust_package_identity(
+    bundle_root: Path, artifact: dict[str, object]
+) -> None:
     cargo_toml = (bundle_root / "rust" / "Cargo.toml").read_text(encoding="utf-8")
     expected_name = str(artifact.get("name", "")).removesuffix("-sdk")
     expected_version = artifact.get("version")
@@ -1030,52 +1100,73 @@ def _verify_rust_crate(
     ):
         raise RuntimeError("release Rust crate identity is invalid")
 
+
+def _verify_rust_vendor_record(
+    bundle_root: Path,
+    record: object,
+    file_entries: dict[str, dict[str, object]],
+    locked_packages: dict[tuple[str, str], str | None],
+) -> str:
+    if not isinstance(record, dict):
+        raise RuntimeError("release Rust crate artifact is malformed")
+    name = record.get("name")
+    version = record.get("version")
+    checksum = record.get("sha256")
+    if not all(isinstance(value, str) for value in (name, version, checksum)):
+        raise RuntimeError("release Rust crate artifact identity is malformed")
+    name = cast(str, name)
+    version = cast(str, version)
+    checksum = cast(str, checksum)
+    path = validate_relative_path(record.get("path"))
+    crate = bundle_root / path
+    if (
+        not crate.is_file()
+        or sha256(crate) != checksum
+        or path.as_posix() not in file_entries
+    ):
+        raise RuntimeError(f"release Rust crate artifact does not match: {path}")
+    if locked_packages.get((name, version)) != checksum:
+        raise RuntimeError(f"release Rust Cargo lock does not match crate: {name}")
+    vendor_relative = Path("rust/vendor") / f"{name}-{version}"
+    checksum_metadata = load_json(bundle_root / vendor_relative / ".cargo-checksum.json")
+    if checksum_metadata.get("package") != checksum:
+        raise RuntimeError(f"release Rust vendor checksum does not match crate: {name}")
+    locked_artifact = perception_config.LockedArtifact(
+        name=name,
+        version=version,
+        filename=str(record.get("filename")),
+        url=str(record.get("url")),
+        sha256=checksum,
+    )
+    with tempfile.TemporaryDirectory(prefix="perception-rust-vendor-verify-") as tmp:
+        expected_vendor = Path(tmp) / f"{name}-{version}"
+        extract_rust_crate(crate, expected_vendor, locked_artifact)
+        if directory_file_hashes(bundle_root / vendor_relative) != directory_file_hashes(
+            expected_vendor
+        ):
+            raise RuntimeError(f"release Rust vendor contents do not match crate: {name}")
+    return vendor_relative.as_posix()
+
+
+def _verify_rust_vendor(
+    bundle_root: Path,
+    manifest: dict[str, object],
+    file_entries: dict[str, dict[str, object]],
+) -> None:
     cargo_config = bundle_root / "rust" / ".cargo" / "config.toml"
     if cargo_config.read_text(encoding="utf-8") != RUST_CARGO_CONFIG:
         raise RuntimeError("release Rust Cargo vendor configuration is invalid")
     locked_packages = cargo_lock_packages(bundle_root / "rust" / "Cargo.lock")
+    flatbuffers = manifest.get("flatbuffers")
     rust_records = flatbuffers.get("rust_crates") if isinstance(flatbuffers, dict) else None
     if not isinstance(rust_records, list) or not rust_records:
         raise RuntimeError("release Rust crate artifacts are missing")
-    expected_vendor_dirs: set[str] = set()
-    for record in rust_records:
-        if not isinstance(record, dict):
-            raise RuntimeError("release Rust crate artifact is malformed")
-        name = record.get("name")
-        version = record.get("version")
-        checksum = record.get("sha256")
-        if not all(isinstance(value, str) for value in (name, version, checksum)):
-            raise RuntimeError("release Rust crate artifact identity is malformed")
-        path = validate_relative_path(record.get("path"))
-        crate = bundle_root / path
-        if (
-            not crate.is_file()
-            or sha256(crate) != checksum
-            or path.as_posix() not in file_entries
-        ):
-            raise RuntimeError(f"release Rust crate artifact does not match: {path}")
-        if locked_packages.get((name, version)) != checksum:
-            raise RuntimeError(f"release Rust Cargo lock does not match crate: {name}")
-        vendor_relative = Path("rust/vendor") / f"{name}-{version}"
-        expected_vendor_dirs.add(vendor_relative.as_posix())
-        checksum_path = bundle_root / vendor_relative / ".cargo-checksum.json"
-        checksum_metadata = load_json(checksum_path)
-        if checksum_metadata.get("package") != checksum:
-            raise RuntimeError(f"release Rust vendor checksum does not match crate: {name}")
-        artifact = perception_config.LockedArtifact(
-            name=name,
-            version=version,
-            filename=str(record.get("filename")),
-            url=str(record.get("url")),
-            sha256=checksum,
+    expected_vendor_dirs = {
+        _verify_rust_vendor_record(
+            bundle_root, record, file_entries, locked_packages
         )
-        with tempfile.TemporaryDirectory(prefix="perception-rust-vendor-verify-") as tmp:
-            expected_vendor = Path(tmp) / f"{name}-{version}"
-            extract_rust_crate(crate, expected_vendor, artifact)
-            if directory_file_hashes(bundle_root / vendor_relative) != directory_file_hashes(
-                expected_vendor
-            ):
-                raise RuntimeError(f"release Rust vendor contents do not match crate: {name}")
+        for record in rust_records
+    }
     actual_vendor_dirs = {
         path.relative_to(bundle_root).as_posix()
         for path in (bundle_root / "rust" / "vendor").iterdir()
@@ -1083,6 +1174,21 @@ def _verify_rust_crate(
     }
     if actual_vendor_dirs != expected_vendor_dirs:
         raise RuntimeError("release Rust vendor directory set is stale")
+
+
+def _verify_rust_crate(
+    bundle_root: Path,
+    artifact: dict[str, object],
+    manifest: dict[str, object],
+    file_entries: dict[str, dict[str, object]],
+) -> None:
+    _, rust_receipt, generated = _rust_release_receipts(bundle_root, manifest)
+    _verify_rust_runtime_metadata(manifest, rust_receipt)
+    _verify_rust_file_receipt(
+        bundle_root, _rust_generated_files(generated), file_entries
+    )
+    _verify_rust_package_identity(bundle_root, artifact)
+    _verify_rust_vendor(bundle_root, manifest, file_entries)
 
 
 def verify_manifest_semantics(

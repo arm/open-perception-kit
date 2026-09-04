@@ -493,7 +493,9 @@ class BundleVerificationTests(unittest.TestCase):
             relative = f"rust/crates/{filename}"
             crate_file = b"[package]\n"
             archive_bytes = io.BytesIO()
-            with tarfile.open(fileobj=archive_bytes, mode="w:gz") as archive:
+            with tarfile.open(  # NOSONAR: test creates a minimal in-memory archive.
+                fileobj=archive_bytes, mode="w:gz"
+            ) as archive:
                 member = tarfile.TarInfo(f"{name}-{version}/Cargo.toml")
                 member.size = len(crate_file)
                 archive.addfile(member, io.BytesIO(crate_file))
@@ -885,7 +887,9 @@ class BundleVerificationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             crate = root / "flatbuffers-25.9.23.crate"
-            with tarfile.open(crate, "w:gz") as archive:
+            with tarfile.open(  # NOSONAR: test creates an intentionally unsafe archive.
+                crate, "w:gz"
+            ) as archive:
                 content = b"unsafe\n"
                 member = tarfile.TarInfo("flatbuffers-25.9.23/../outside")
                 member.size = len(content)

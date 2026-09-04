@@ -403,6 +403,7 @@ jobs:
     env:
       BASE_SHA: ${{ inputs.base_sha }}
       BLACKDUCK_VERSION: ${{ inputs.version_name }}
+      BLACKDUCK_SNIPPET_EXCLUDED_DIRECTORIES: generated/perception/rust/src/fb,generated/perception/rust/src/flowdata_internal/internalfb
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       PEK_CI_IMAGE: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-pek-ci
       PEK_CI_IMAGE_SOURCE: ${{ inputs.ci_image_ref }}
@@ -505,6 +506,7 @@ jobs:
 
           "${RUNNER_TEMP}/blackduck-snippets/patchscan" "${BASE_SHA}..${HEAD_SHA}" \
             --blackduck.base.url "$BLACKDUCK_URL" \
+            --detect.excluded.directories "$BLACKDUCK_SNIPPET_EXCLUDED_DIRECTORIES" \
             --detect.project.name "$project_name" \
             --detect.project.version.name "$version_name" \
             --patch-name "pr-${PR_NUMBER}" 2>&1 | tee "${RUNNER_TEMP}/blackduck-snippets/scan.log"
@@ -528,6 +530,7 @@ jobs:
             --user "$(id -u):$(id -g)" \
             --env BLACKDUCK_TOKEN \
             --env BLACKDUCK_URL \
+            --env BLACKDUCK_SNIPPET_EXCLUDED_DIRECTORIES \
             --env HOME=/tmp/blackduck-home \
             --env PEK_PROJECT_ROOT="$WORKSPACE_ROOT" \
             --env PROJECT_NAME="$project_name" \
@@ -547,7 +550,7 @@ jobs:
                 --detect.blackduck.signature.scanner.snippet.matching=SNIPPET_MATCHING \
                 --detect.blackduck.signature.scanner.upload.source.mode=true \
                 --detect.cleanup=false \
-                --detect.excluded.directories=.git,.cache,.github/workflows,development/build,node_modules \
+                "--detect.excluded.directories=.git,.cache,.github/workflows,development/build,node_modules,${BLACKDUCK_SNIPPET_EXCLUDED_DIRECTORIES}" \
                 --detect.output.path=/blackduck/output \
                 --detect.policy.check.fail.on.severities=ALL \
                 "--detect.source.path=${PEK_PROJECT_ROOT}" \

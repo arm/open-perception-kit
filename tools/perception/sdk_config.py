@@ -20,6 +20,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SDK_CONFIG_PATH = Path(__file__).with_name("sdk.json")
 PRODUCT_VERSION_PATH = REPO_ROOT / "development/meson.build"
 PYTHON_DISTRIBUTION_NAME = "opk-perception-sdk"
+PACKAGE_NAME_RE = re.compile(r"[a-z][a-z0-9_-]*")
 SEMVER = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 PRODUCT_VERSION = re.compile(r"project\([^)]*version:\s*'([^']+)'", re.DOTALL)
 
@@ -124,7 +125,7 @@ def _python_build_tools(value: object) -> tuple[LockedArtifact, ...]:
         if not isinstance(tool, dict):
             raise RuntimeError(f"{field} has invalid fields")
         name = tool.get("name")
-        if not isinstance(name, str) or not re.fullmatch(r"[a-z][a-z0-9_-]*", name):
+        if not isinstance(name, str) or PACKAGE_NAME_RE.fullmatch(name) is None:
             raise RuntimeError(f"{field}.name is invalid")
         artifacts.append(_named_artifact(tool, field, name))
     if [artifact.name for artifact in artifacts] != ["pip", "setuptools", "wheel"]:
@@ -141,7 +142,7 @@ def _rust_crates(value: object, flatbuffers_version: str) -> tuple[LockedArtifac
         if not isinstance(crate, dict):
             raise RuntimeError(f"{field} has invalid fields")
         name = crate.get("name")
-        if not isinstance(name, str) or not re.fullmatch(r"[a-z][a-z0-9_-]*", name):
+        if not isinstance(name, str) or PACKAGE_NAME_RE.fullmatch(name) is None:
             raise RuntimeError(f"{field}.name is invalid")
         artifact = _named_artifact(crate, field, name)
         if artifact.filename != f"{artifact.name}-{artifact.version}.crate":
@@ -203,7 +204,7 @@ def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
         raise RuntimeError(f"SDK descriptor fields must be exactly: {sorted(expected)}")
 
     name = raw["name"]
-    if not isinstance(name, str) or not re.fullmatch(r"[a-z][a-z0-9_-]*", name):
+    if not isinstance(name, str) or PACKAGE_NAME_RE.fullmatch(name) is None:
         raise RuntimeError("SDK name must be a lowercase package identifier")
 
     flatbuffers = raw["flatbuffers"]
