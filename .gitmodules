@@ -1,4 +1,4 @@
 [submodule "tools/flowdata-sdk"]
 	path = tools/flowdata-sdk
 	url = https://github.com/Arm-Debug/flowdata-sdk.git
-	branch = feature/EXPKITS-1265/add-rust-sdk-generation
+	branch = main
