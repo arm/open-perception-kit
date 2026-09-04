@@ -8,7 +8,7 @@
     "video/x-raw,format=BGRA !",
     "pekinfer opchain-path=\"${PEK_PROJECT_ROOT:-/work}/config/opchains/gaze-detection/opchain.json\" active=true !",
     "pektracker content-type=genericObject !",
-    "pekperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
+    "pekperformance show-all-metrics=true update-interval=1 !",
     "pekcomm method=tcp tcp-host=0.0.0.0 tcp-port=7001 !",
     "pekosd enabled=true !",
     "peksink name=sink"

@@ -15,7 +15,6 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
-#include <cstring>
 #include <format>
 #include <memory>
 #include <string>
@@ -50,12 +49,6 @@ struct _GstPekPerformance {
     GstVideoFilter videofilter;
 
     // Properties
-    gint x_offset;
-    gint y_offset;
-    gdouble font_size;
-    gchar *background_color;
-    gchar *text_color;
-    gdouble alpha;
     gboolean show_all_metrics;
     gboolean enabled;
 
@@ -70,14 +63,9 @@ struct _GstPekPerformance {
     // Cached overlay surface
     std::vector<std::string> cached_lines;
     pek::perf::PerformanceMetrics::Snapshot internal_baseline;
-    guint cache_width;
-    guint cache_height;
     gboolean cache_dirty;
     gboolean started;
     gboolean measurement_inprogress;
-
-    // Track maximum height to prevent vertical flickering when metric count changes
-    guint max_height;
 };
 
 struct _GstPekPerformanceClass {
@@ -92,28 +80,16 @@ GST_DEBUG_CATEGORY_STATIC(gst_pek_performance_debug);
 #define GST_CAT_DEFAULT gst_pek_performance_debug
 
 // Default values
-#define DEFAULT_X_OFFSET 10
-#define DEFAULT_Y_OFFSET 10
-#define DEFAULT_FONT_SIZE 12.0
-#define DEFAULT_BG_COLOR "#000000"
-#define DEFAULT_TEXT_COLOR "#00FF00"
-#define DEFAULT_ALPHA 0.85
 #define DEFAULT_UPDATE_INTERVAL 5
 #define DEFAULT_SHOW_ALL_METRICS FALSE
 #define DEFAULT_ENABLED TRUE
 
 // Property IDs
-enum {
-    PROP_0,
-    PROP_X_OFFSET,
-    PROP_Y_OFFSET,
-    PROP_FONT_SIZE,
-    PROP_BG_COLOR,
-    PROP_TEXT_COLOR,
-    PROP_ALPHA,
-    PROP_UPDATE_INTERVAL,
-    PROP_SHOW_ALL_METRICS,
-    PROP_ENABLED
+enum class PropertyId : guint {
+    Reserved = 0,
+    UpdateInterval,
+    ShowAllMetrics,
+    Enabled,
 };
 
 // Function prototypes
@@ -165,72 +141,9 @@ static void gst_pek_performance_class_init(GstPekPerformanceClass *klass) {
     trans_class->sink_event = gst_pek_performance_sink_event;
     trans_class->src_event = gst_pek_performance_src_event;
 
-    // Install properties
     g_object_class_install_property(
         gobject_class,
-        PROP_X_OFFSET,
-        g_param_spec_int("x-offset",
-                         "X Offset",
-                         "Horizontal offset in pixels",
-                         0,
-                         G_MAXINT,
-                         DEFAULT_X_OFFSET,
-                         (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-
-    g_object_class_install_property(
-        gobject_class,
-        PROP_Y_OFFSET,
-        g_param_spec_int("y-offset",
-                         "Y Offset",
-                         "Vertical offset in pixels",
-                         0,
-                         G_MAXINT,
-                         DEFAULT_Y_OFFSET,
-                         (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-
-    g_object_class_install_property(
-        gobject_class,
-        PROP_FONT_SIZE,
-        g_param_spec_double("font-size",
-                            "Font Size",
-                            "Font size in points",
-                            6.0,
-                            72.0,
-                            DEFAULT_FONT_SIZE,
-                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-
-    g_object_class_install_property(
-        gobject_class,
-        PROP_BG_COLOR,
-        g_param_spec_string("bg-color",
-                            "Background Color",
-                            "Background color (hex)",
-                            DEFAULT_BG_COLOR,
-                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-
-    g_object_class_install_property(
-        gobject_class,
-        PROP_TEXT_COLOR,
-        g_param_spec_string("text-color",
-                            "Text Color",
-                            "Text color (hex)",
-                            DEFAULT_TEXT_COLOR,
-                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-
-    g_object_class_install_property(
-        gobject_class,
-        PROP_ALPHA,
-        g_param_spec_double("alpha",
-                            "Alpha",
-                            "Background transparency (0=transparent, 1=opaque)",
-                            0.0,
-                            1.0,
-                            DEFAULT_ALPHA,
-                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-
-    g_object_class_install_property(
-        gobject_class,
-        PROP_UPDATE_INTERVAL,
+        static_cast<guint>(PropertyId::UpdateInterval),
         g_param_spec_uint("update-interval",
                           "Update Interval",
                           "Update overlay every N frames",
@@ -241,7 +154,7 @@ static void gst_pek_performance_class_init(GstPekPerformanceClass *klass) {
 
     g_object_class_install_property(
         gobject_class,
-        PROP_SHOW_ALL_METRICS,
+        static_cast<guint>(PropertyId::ShowAllMetrics),
         g_param_spec_boolean("show-all-metrics",
                              "Show All Metrics",
                              "Display all available metrics instead of predefined list",
@@ -250,7 +163,7 @@ static void gst_pek_performance_class_init(GstPekPerformanceClass *klass) {
 
     g_object_class_install_property(
         gobject_class,
-        PROP_ENABLED,
+        static_cast<guint>(PropertyId::Enabled),
         g_param_spec_boolean("enabled",
                              "Enabled",
                              "Enable or disable performance metadata generation",
@@ -276,12 +189,6 @@ static void gst_pek_performance_class_init(GstPekPerformanceClass *klass) {
 }
 
 static void gst_pek_performance_init(GstPekPerformance *self) {
-    self->x_offset = DEFAULT_X_OFFSET;
-    self->y_offset = DEFAULT_Y_OFFSET;
-    self->font_size = DEFAULT_FONT_SIZE;
-    self->background_color = g_strdup(DEFAULT_BG_COLOR);
-    self->text_color = g_strdup(DEFAULT_TEXT_COLOR);
-    self->alpha = DEFAULT_ALPHA;
     self->frame_count = 0;
     self->update_interval = DEFAULT_UPDATE_INTERVAL;
     self->show_all_metrics = DEFAULT_SHOW_ALL_METRICS;
@@ -290,12 +197,9 @@ static void gst_pek_performance_init(GstPekPerformance *self) {
     self->enabled = DEFAULT_ENABLED;
     std::construct_at(&self->cached_lines);
     std::construct_at(&self->internal_baseline);
-    self->cache_width = 0;
-    self->cache_height = 0;
     self->cache_dirty = true;
     self->started = false;
     self->measurement_inprogress = false;
-    self->max_height = 0;
 }
 
 static void gst_pek_performance_finalize(GObject *object) {
@@ -310,9 +214,6 @@ static void gst_pek_performance_finalize(GObject *object) {
     std::destroy_at(&self->cached_lines);
     std::destroy_at(&self->last_frame_time);
 
-    g_free(self->background_color);
-    g_free(self->text_color);
-
     G_OBJECT_CLASS(parent_class)->finalize(object);
 }
 
@@ -322,37 +223,17 @@ static void gst_pek_performance_set_property(GObject *object,
                                              GParamSpec *pspec) {
     GstPekPerformance *self = GST_PEK_PERFORMANCE(object);
 
-    switch (prop_id) {
-    case PROP_X_OFFSET:
-        self->x_offset = g_value_get_int(value);
-        break;
-    case PROP_Y_OFFSET:
-        self->y_offset = g_value_get_int(value);
-        break;
-    case PROP_FONT_SIZE:
-        self->font_size = g_value_get_double(value);
-        break;
-    case PROP_BG_COLOR:
-        g_free(self->background_color);
-        self->background_color = g_value_dup_string(value);
-        break;
-    case PROP_TEXT_COLOR:
-        g_free(self->text_color);
-        self->text_color = g_value_dup_string(value);
-        break;
-    case PROP_ALPHA:
-        self->alpha = g_value_get_double(value);
-        break;
-    case PROP_UPDATE_INTERVAL:
+    switch (static_cast<PropertyId>(prop_id)) {
+    case PropertyId::UpdateInterval:
         self->update_interval = g_value_get_uint(value);
         break;
-    case PROP_SHOW_ALL_METRICS:
+    case PropertyId::ShowAllMetrics:
         GST_OBJECT_LOCK(self);
         self->show_all_metrics = g_value_get_boolean(value);
         self->cache_dirty = true;
         GST_OBJECT_UNLOCK(self);
         break;
-    case PROP_ENABLED:
+    case PropertyId::Enabled:
         GST_OBJECT_LOCK(self);
         self->enabled = g_value_get_boolean(value);
         update_measurement_state(self);
@@ -368,34 +249,16 @@ static void
 gst_pek_performance_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec) {
     GstPekPerformance *self = GST_PEK_PERFORMANCE(object);
 
-    switch (prop_id) {
-    case PROP_X_OFFSET:
-        g_value_set_int(value, self->x_offset);
-        break;
-    case PROP_Y_OFFSET:
-        g_value_set_int(value, self->y_offset);
-        break;
-    case PROP_FONT_SIZE:
-        g_value_set_double(value, self->font_size);
-        break;
-    case PROP_BG_COLOR:
-        g_value_set_string(value, self->background_color);
-        break;
-    case PROP_TEXT_COLOR:
-        g_value_set_string(value, self->text_color);
-        break;
-    case PROP_ALPHA:
-        g_value_set_double(value, self->alpha);
-        break;
-    case PROP_UPDATE_INTERVAL:
+    switch (static_cast<PropertyId>(prop_id)) {
+    case PropertyId::UpdateInterval:
         g_value_set_uint(value, self->update_interval);
         break;
-    case PROP_SHOW_ALL_METRICS:
+    case PropertyId::ShowAllMetrics:
         GST_OBJECT_LOCK(self);
         g_value_set_boolean(value, self->show_all_metrics);
         GST_OBJECT_UNLOCK(self);
         break;
-    case PROP_ENABLED:
+    case PropertyId::Enabled:
         GST_OBJECT_LOCK(self);
         g_value_set_boolean(value, self->enabled);
         GST_OBJECT_UNLOCK(self);

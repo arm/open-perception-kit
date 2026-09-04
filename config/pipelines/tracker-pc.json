@@ -7,7 +7,7 @@
     "video/x-raw,format=BGRA !",
     "pekinfer opchain-path=\"${PEK_PROJECT_ROOT:-/work}/config/opchains/tracking/opchain-onnx.json\" active=true !",
     "pektracker content-type=genericObject !",
-    "pekperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
+    "pekperformance show-all-metrics=true update-interval=1 !",
     "pekosd enabled=true !",
     "peksink name=sink"
   ],
