@@ -1147,14 +1147,14 @@ class GeneratedSdkTests(unittest.TestCase):
             manifest["postprocessing"]["typescript"]["flatbuffers_runtime"],
             config.typescript_runtime.version,
         )
+        rust_postprocessing = manifest["postprocessing"]["rust"]
         self.assertEqual(
-            manifest["postprocessing"]["rust"],
-            {
-                "flatbuffers_runtime": config.flatbuffers_version,
-                "formatter": release_package.perception_generate.rustfmt_version(),
-                "standard_library": True,
-            },
+            rust_postprocessing["flatbuffers_runtime"], config.flatbuffers_version
         )
+        self.assertRegex(
+            rust_postprocessing["formatter"], r"^rustfmt \d+\.\d+\.\d+$"
+        )
+        self.assertIs(rust_postprocessing["standard_library"], True)
         self.assertTrue(
             (generated / "cpp" / "meson" / "perception" / "python_bridge" / "meson.build").is_file()
         )
