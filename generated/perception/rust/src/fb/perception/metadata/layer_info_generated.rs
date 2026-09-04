@@ -35,6 +35,7 @@ impl<'a> LayerInfo<'a> {
     pub const VT_LABEL_FAMILY: flatbuffers::VOffsetT = 12;
     pub const VT_CONTENT_TYPE: flatbuffers::VOffsetT = 14;
     pub const VT_COMPOSITING_MODE: flatbuffers::VOffsetT = 16;
+    pub const VT_PRODUCER: flatbuffers::VOffsetT = 18;
 
     #[inline]
     pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -46,6 +47,9 @@ impl<'a> LayerInfo<'a> {
         args: &'args LayerInfoArgs<'args>,
     ) -> flatbuffers::WIPOffset<LayerInfo<'bldr>> {
         let mut builder = LayerInfoBuilder::new(_fbb);
+        if let Some(x) = args.producer {
+            builder.add_producer(x);
+        }
         if let Some(x) = args.compositing_mode {
             builder.add_compositing_mode(x);
         }
@@ -78,6 +82,7 @@ impl<'a> LayerInfo<'a> {
         let label_family = self.label_family().map(|x| x.to_string());
         let content_type = self.content_type().map(|x| x.to_string());
         let compositing_mode = self.compositing_mode().map(|x| x.to_string());
+        let producer = self.producer().map(|x| Box::new(x.unpack()));
         LayerInfoT {
             engine,
             model,
@@ -86,6 +91,7 @@ impl<'a> LayerInfo<'a> {
             label_family,
             content_type,
             compositing_mode,
+            producer,
         }
     }
 
@@ -159,6 +165,16 @@ impl<'a> LayerInfo<'a> {
                 .get::<flatbuffers::ForwardsUOffset<&str>>(LayerInfo::VT_COMPOSITING_MODE, None)
         }
     }
+    #[inline]
+    pub fn producer(&self) -> Option<ProducerInfo<'a>> {
+        // Safety:
+        // Created from valid Table for this object
+        // which contains a valid value in this slot
+        unsafe {
+            self._tab
+                .get::<flatbuffers::ForwardsUOffset<ProducerInfo>>(LayerInfo::VT_PRODUCER, None)
+        }
+    }
 }
 
 impl flatbuffers::Verifiable for LayerInfo<'_> {
@@ -192,6 +208,11 @@ impl flatbuffers::Verifiable for LayerInfo<'_> {
                 Self::VT_COMPOSITING_MODE,
                 false,
             )?
+            .visit_field::<flatbuffers::ForwardsUOffset<ProducerInfo>>(
+                "producer",
+                Self::VT_PRODUCER,
+                false,
+            )?
             .finish();
         Ok(())
     }
@@ -204,6 +225,7 @@ pub struct LayerInfoArgs<'a> {
     pub label_family: Option<flatbuffers::WIPOffset<&'a str>>,
     pub content_type: Option<flatbuffers::WIPOffset<&'a str>>,
     pub compositing_mode: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub producer: Option<flatbuffers::WIPOffset<ProducerInfo<'a>>>,
 }
 impl<'a> Default for LayerInfoArgs<'a> {
     #[inline]
@@ -216,6 +238,7 @@ impl<'a> Default for LayerInfoArgs<'a> {
             label_family: None,
             content_type: None,
             compositing_mode: None,
+            producer: None,
         }
     }
 }
@@ -269,6 +292,14 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> LayerInfoBuilder<'a, 'b, A> {
         );
     }
     #[inline]
+    pub fn add_producer(&mut self, producer: flatbuffers::WIPOffset<ProducerInfo<'b>>) {
+        self.fbb_
+            .push_slot_always::<flatbuffers::WIPOffset<ProducerInfo>>(
+                LayerInfo::VT_PRODUCER,
+                producer,
+            );
+    }
+    #[inline]
     pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> LayerInfoBuilder<'a, 'b, A> {
         let start = _fbb.start_table();
         LayerInfoBuilder {
@@ -293,6 +324,7 @@ impl core::fmt::Debug for LayerInfo<'_> {
         ds.field("label_family", &self.label_family());
         ds.field("content_type", &self.content_type());
         ds.field("compositing_mode", &self.compositing_mode());
+        ds.field("producer", &self.producer());
         ds.finish()
     }
 }
@@ -306,6 +338,7 @@ pub struct LayerInfoT {
     pub label_family: Option<String>,
     pub content_type: Option<String>,
     pub compositing_mode: Option<String>,
+    pub producer: Option<Box<ProducerInfoT>>,
 }
 impl Default for LayerInfoT {
     fn default() -> Self {
@@ -317,6 +350,7 @@ impl Default for LayerInfoT {
             label_family: None,
             content_type: None,
             compositing_mode: None,
+            producer: None,
         }
     }
 }
@@ -338,6 +372,7 @@ impl LayerInfoT {
             .compositing_mode
             .as_ref()
             .map(|x| _fbb.create_string(x));
+        let producer = self.producer.as_ref().map(|x| x.pack(_fbb));
         LayerInfo::create(
             _fbb,
             &LayerInfoArgs {
@@ -348,6 +383,7 @@ impl LayerInfoT {
                 label_family,
                 content_type,
                 compositing_mode,
+                producer,
             },
         )
     }

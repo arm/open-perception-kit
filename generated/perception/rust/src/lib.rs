@@ -33,10 +33,10 @@ use crate::flowdata_internal::internalfb as wire;
 /// Generated SDK name written into serialized producer identity metadata.
 pub const PERCEPTION_NAME: &str = "perception";
 /// Generated SDK version written into serialized producer identity metadata.
-pub const PERCEPTION_VERSION: &str = "0.2.1";
+pub const PERCEPTION_VERSION: &str = "0.3.0";
 /// SHA-256 identity of the complete schema set used for generation.
 pub const SCHEMA_SET_SHA256: &str =
-    "0ba6dfe959e1453ce12c7a8707623bc15d94d52c9235c26f7e27f31dda0775c5"; // pragma: allowlist secret
+    "5a2f77909600d6458a707fba68cff1a7dc5f610dec58174456bb97d16596c383"; // pragma: allowlist secret
 /// Exact FlatBuffers runtime version required by this crate.
 pub const FLATBUFFERS_VERSION_REQUIREMENT: &str = "==25.9.23";
 /// Lowest numeric key reserved for application-defined external payloads.
@@ -796,31 +796,31 @@ fn decode_entry<T: NativePayload>(id: u64, bytes: Vec<u8>) -> Entry {
 
 fn decode_known(id: u64, bytes: Vec<u8>) -> Entry {
     match id {
-        127096183275957372 => {
+        928609632921539799 => {
             decode_entry::<crate::fb::perception::metadata::BoxDetectionsT>(id, bytes)
         }
-        9181357636124419217 => {
+        94127366257443529 => {
             decode_entry::<crate::fb::perception::metadata::ClassificationsT>(id, bytes)
         }
-        6787725252958650128 => {
+        6405170853304169454 => {
             decode_entry::<crate::fb::perception::metadata::FrameContextT>(id, bytes)
         }
-        3601053540183530964 => {
+        3474598619102273931 => {
             decode_entry::<crate::fb::perception::metadata::ObjectEmbeddingsT>(id, bytes)
         }
-        1204340903431744882 => {
+        930392077708082693 => {
             decode_entry::<crate::fb::perception::metadata::ObjectTracksT>(id, bytes)
         }
         4179744154867129599 => {
             decode_entry::<crate::fb::perception::metadata::PerformanceOverlayT>(id, bytes)
         }
-        6089861490284108552 => {
+        8795139052133278924 => {
             decode_entry::<crate::fb::perception::metadata::PoseEstimationsT>(id, bytes)
         }
-        3767952910034633902 => {
+        1102215109093226736 => {
             decode_entry::<crate::fb::perception::metadata::SegmentationMasksT>(id, bytes)
         }
-        4937615646931894804 => {
+        8745337222662207869 => {
             decode_entry::<crate::fb::perception::metadata::TrackTracesT>(id, bytes)
         }
         _ if id >= EXTERNAL_KEY_MIN => Entry::External { id, bytes },
@@ -1080,15 +1080,15 @@ fn valid_sha256(value: &str) -> bool {
 
 fn encode_known(data: &PayloadData) -> (u64, Vec<u8>) {
     match data {
-        PayloadData::Payload0(value) => (127096183275957372, value.encode_payload()),
-        PayloadData::Payload1(value) => (9181357636124419217, value.encode_payload()),
-        PayloadData::Payload2(value) => (6787725252958650128, value.encode_payload()),
-        PayloadData::Payload3(value) => (3601053540183530964, value.encode_payload()),
-        PayloadData::Payload4(value) => (1204340903431744882, value.encode_payload()),
+        PayloadData::Payload0(value) => (928609632921539799, value.encode_payload()),
+        PayloadData::Payload1(value) => (94127366257443529, value.encode_payload()),
+        PayloadData::Payload2(value) => (6405170853304169454, value.encode_payload()),
+        PayloadData::Payload3(value) => (3474598619102273931, value.encode_payload()),
+        PayloadData::Payload4(value) => (930392077708082693, value.encode_payload()),
         PayloadData::Payload5(value) => (4179744154867129599, value.encode_payload()),
-        PayloadData::Payload6(value) => (6089861490284108552, value.encode_payload()),
-        PayloadData::Payload7(value) => (3767952910034633902, value.encode_payload()),
-        PayloadData::Payload8(value) => (4937615646931894804, value.encode_payload()),
+        PayloadData::Payload6(value) => (8795139052133278924, value.encode_payload()),
+        PayloadData::Payload7(value) => (1102215109093226736, value.encode_payload()),
+        PayloadData::Payload8(value) => (8745337222662207869, value.encode_payload()),
     }
 }
 
@@ -1166,18 +1166,18 @@ mod tests {
         );
 
         let malformed_bytes = b"not-a-flatbuffer";
-        let malformed = Envelope::decode(raw_packet(127096183275957372, malformed_bytes))
+        let malformed = Envelope::decode(raw_packet(928609632921539799, malformed_bytes))
             .expect("malformed known payload keeps envelope valid");
         assert!(
             matches!(malformed.entries().next(), Some(EntryRef::MalformedKnown {
-            id: 127096183275957372, bytes, ..
+            id: 928609632921539799, bytes, ..
         }) if bytes == malformed_bytes)
         );
         let malformed_roundtrip =
             Envelope::decode(malformed.serialize()).expect("malformed known round trip");
         assert!(
             matches!(malformed_roundtrip.entries().next(), Some(EntryRef::MalformedKnown {
-            id: 127096183275957372, bytes, ..
+            id: 928609632921539799, bytes, ..
         }) if bytes == malformed_bytes)
         );
     }

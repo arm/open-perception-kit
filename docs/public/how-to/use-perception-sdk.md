@@ -132,16 +132,24 @@ browser asset after SDK or WebUI changes.
 ## Integrate the Rust SDK
 
 Add the extracted `rust/` crate as a path dependency. The crate already pins
-the FlatBuffers runtime version used to generate its sources:
+the FlatBuffers runtime version used to generate its sources. The bundle also
+contains checksum-locked Cargo archives, a generated `Cargo.lock`, and a
+`rust/vendor/` directory for offline builds:
 
 ```toml
 [dependencies]
 perception = { path = "/path/to/perception-sdk-<pek-version>/rust" }
 ```
 
+For an offline consumer build, copy `rust/.cargo/config.toml` into the
+consumer's `.cargo/config.toml` and change its `directory` value to the absolute
+path of the extracted `rust/vendor` directory. Then build with
+`cargo build --offline --locked`. Cargo configuration is resolved from the
+consumer workspace, not from path dependencies.
+
 Import `Envelope`, `payload`, and generated native payload types from
-`perception`. Construct an envelope from packet bytes, require `valid()`, and
-check `producer_identity()` before typed access. Use the same selector for
+`perception`. Construct an envelope with `Envelope::decode(...)`, require a
+successful result, and check `producer_identity()` before typed access. Use the same selector for
 `count`, `contains`, `get`, and `for_each`; use `external_key` for external
 payloads. Unknown or changed payloads remain preserved across serialization.
 

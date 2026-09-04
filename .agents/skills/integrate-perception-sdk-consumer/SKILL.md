@@ -100,10 +100,13 @@ rather than serving unresolved npm imports directly.
 
 Add the extracted `rust/` directory as a path dependency. Import `Envelope`,
 `payload`, and generated native payload types from `perception`. Require
-`valid()` and an exact `producer_identity()` match before typed access. Reuse a
-typed selector with `count`, `contains`, `get`, and `for_each`; use
+successful `Envelope::decode(...)` and an exact `producer_identity()` match
+before typed access. Reuse a typed selector with `count`, `contains`, `get`, and `for_each`; use
 `external_key` for external payloads. Unknown, changed, and malformed entries
 remain available through `entries()` and are preserved when reserialized.
+For offline builds, copy the bundled Cargo source-replacement configuration
+into the consumer workspace and point it at the extracted `rust/vendor`
+directory.
 
 ## Apply Compatibility Policy
 

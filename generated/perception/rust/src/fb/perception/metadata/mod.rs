@@ -40,6 +40,8 @@ mod pose_estimation_generated;
 pub use self::pose_estimation_generated::*;
 mod pose_estimations_generated;
 pub use self::pose_estimations_generated::*;
+mod producer_info_generated;
+pub use self::producer_info_generated::*;
 mod segmentation_mask_generated;
 pub use self::segmentation_mask_generated::*;
 mod segmentation_masks_generated;

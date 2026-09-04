@@ -171,7 +171,7 @@ parser, visualization, tracking, or publishing code only if the new schema paylo
 needs runtime support.
 
 The Perception SDK identity, repository paths, enabled outputs, and FlatBuffers
-wheel lock are owned only by `tools/perception/sdk.json`. All scripts load that
+runtime artifact locks are owned only by `tools/perception/sdk.json`. All scripts load that
 descriptor through `tools/perception/sdk_config.py`; generated integrations and
 manifests are derived outputs and must not be edited independently. Raw flowdata
 manifests are verified before AMP-specific copyright and formatting decoration.

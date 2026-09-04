@@ -12,6 +12,7 @@ import difflib
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -44,6 +45,8 @@ CMAKE_FORMAT = "cmake-format"
 RUSTFMT = "rustfmt"
 MESON_BUILD_FILENAME = "meson.build"
 RUST_FIXTURE = REPO_ROOT / "tools/perception/tests/fixtures/opk-box-detections-v0.2.1.hex"
+RUST_FIXTURE_SDK_VERSION = "0.2.1"
+RUST_FIXTURE_SCHEMA_SET_SHA256 = "0ba6dfe959e1453ce12c7a8707623bc15d94d52c9235c26f7e27f31dda0775c5"
 
 
 def run(cmd: list[str]) -> None:
@@ -53,6 +56,14 @@ def run(cmd: list[str]) -> None:
 def command_version(cmd: list[str]) -> str:
     result = subprocess.run(cmd, check=True, text=True, capture_output=True)
     return result.stdout.strip() or result.stderr.strip()
+
+
+def rustfmt_version() -> str:
+    version = command_version([RUSTFMT, "--version"])
+    match = re.match(r"rustfmt (\d+\.\d+\.\d+)", version)
+    if match is None:
+        raise RuntimeError(f"Unable to parse rustfmt version: {version}")
+    return f"rustfmt {match.group(1)}"
 
 
 def git_commit(repository: Path) -> str:
@@ -175,9 +186,12 @@ def prepare_rust_tests(config: SdkConfig, generated_root: Path) -> None:
 
 use {crate_name}::fb::perception::metadata::BoxDetectionsT;
 use {crate_name}::{{
-    external_key, payload, Envelope, ProducerIdentityStatus, {config.name.upper()}_NAME,
+    external_key, payload, EntryRef, Envelope, ProducerIdentityStatus, {config.name.upper()}_NAME,
     {config.name.upper()}_VERSION, SCHEMA_SET_SHA256,
 }};
+
+const FIXTURE_SDK_VERSION: &str = "{RUST_FIXTURE_SDK_VERSION}";
+const FIXTURE_SCHEMA_SET_SHA256: &str = "{RUST_FIXTURE_SCHEMA_SET_SHA256}";
 
 fn decode_hex(value: &str) -> Vec<u8> {{
     let compact = value.trim();
@@ -198,38 +212,57 @@ fn decodes_python_produced_box_detections_packet() {{
     let envelope = Envelope::decode(packet).expect("pinned OPK packet must decode");
 
     assert_eq!(envelope.producer_sdk_name(), {config.name.upper()}_NAME);
-    assert_eq!(envelope.producer_sdk_version(), "0.2.1");
-    assert_eq!(envelope.producer_schema_set_sha256(), SCHEMA_SET_SHA256);
-    let expected_identity = if {config.name.upper()}_VERSION == "0.2.1" {{
-        ProducerIdentityStatus::ExactMatch
-    }} else {{
+    assert_eq!(envelope.producer_sdk_version(), FIXTURE_SDK_VERSION);
+    assert_eq!(
+        envelope.producer_schema_set_sha256(),
+        FIXTURE_SCHEMA_SET_SHA256
+    );
+    let expected_identity = if {config.name.upper()}_VERSION != FIXTURE_SDK_VERSION {{
         ProducerIdentityStatus::SdkVersionMismatch
+    }} else if SCHEMA_SET_SHA256 != FIXTURE_SCHEMA_SET_SHA256 {{
+        ProducerIdentityStatus::SchemaSetMismatch
+    }} else {{
+        ProducerIdentityStatus::ExactMatch
     }};
     assert_eq!(envelope.producer_identity(), expected_identity);
     assert_eq!(envelope.len(), 2);
 
     let box_detections = payload::<BoxDetectionsT>();
-    let boxes = envelope.get(box_detections, 0).expect("BoxDetections payload");
-    let layer = boxes.layer.as_ref().expect("layer");
-    assert_eq!(layer.engine.as_deref(), Some("fixture"));
-    assert_eq!(layer.model.as_deref(), Some("yolov11n"));
-    assert_eq!(layer.infer_element_id.as_deref(), Some("infer0"));
-    let detections = boxes.detections.as_ref().expect("detections");
-    assert_eq!(detections.len(), 1);
-    let detection = &detections[0];
-    assert_eq!(detection.class_id, 3);
-    assert_eq!(detection.text.as_deref(), Some("car"));
-    assert_eq!(detection.confidence, 0.875);
-    let object = detection.object.as_ref().expect("object");
-    assert_eq!((object.id, object.parent_id, object.creation_ts_ns), (42, 7, 123_456_789));
-    let rectangle = detection.box_.as_ref().expect("box");
-    assert_eq!((rectangle.x, rectangle.y, rectangle.width, rectangle.height),
-        (10.5, 20.25, 30.75, 40.5));
+    let preserved_payload = if expected_identity == ProducerIdentityStatus::ExactMatch {{
+        let boxes = envelope.get(box_detections, 0).expect("BoxDetections payload");
+        let layer = boxes.layer.as_ref().expect("layer");
+        assert_eq!(layer.engine.as_deref(), Some("fixture"));
+        assert_eq!(layer.model.as_deref(), Some("yolov11n"));
+        assert_eq!(layer.infer_element_id.as_deref(), Some("infer0"));
+        let detections = boxes.detections.as_ref().expect("detections");
+        assert_eq!(detections.len(), 1);
+        let detection = &detections[0];
+        assert_eq!(detection.class_id, 3);
+        assert_eq!(detection.text.as_deref(), Some("car"));
+        assert_eq!(detection.confidence, 0.875);
+        let object = detection.object.as_ref().expect("object");
+        assert_eq!((object.id, object.parent_id, object.creation_ts_ns), (42, 7, 123_456_789));
+        let rectangle = detection.box_.as_ref().expect("box");
+        assert_eq!((rectangle.x, rectangle.y, rectangle.width, rectangle.height),
+            (10.5, 20.25, 30.75, 40.5));
+        None
+    }} else {{
+        assert!(envelope.get(box_detections, 0).is_none());
+        match envelope.entries().next() {{
+            Some(EntryRef::Unknown {{ id, bytes }}) => Some((id, bytes.to_vec())),
+            entry => panic!("expected preserved historical payload, got {{entry:?}}"),
+        }}
+    }};
 
     let key = external_key("com.arm.opk.fixture");
     assert_eq!(envelope.get(key, 0), Some(b"fixture-external".as_slice()));
     let roundtrip = Envelope::decode(envelope.serialize()).expect("round trip");
-    assert!(roundtrip.get(box_detections, 0).is_some());
+    if let Some((historical_id, historical_bytes)) = preserved_payload {{
+        assert!(matches!(roundtrip.entries().next(), Some(EntryRef::Unknown {{ id, bytes }})
+            if id == historical_id && bytes == historical_bytes));
+    }} else {{
+        assert!(roundtrip.get(box_detections, 0).is_some());
+    }}
     assert_eq!(roundtrip.get(key, 0), Some(b"fixture-external".as_slice()));
 
     let future = async move {{ roundtrip.len() }};
@@ -543,7 +576,7 @@ def write_perception_manifest(
             },
             "rust": {
                 "flatbuffers_runtime": config.flatbuffers_version,
-                "formatter": command_version([RUSTFMT, "--version"]),
+                "formatter": rustfmt_version(),
                 "standard_library": True,
             },
         },
