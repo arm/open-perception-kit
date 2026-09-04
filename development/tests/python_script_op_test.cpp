@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
 #include <filesystem>
 #include <string_view>
@@ -14,7 +15,7 @@
 #include "TensorBridge.h"
 #include "op/Op.h"
 #include "pek/FrameResults.h"
-#include "perf/PerformanceTracer.h"
+#include "perf/PerformanceMetrics.h"
 
 #ifndef PYTHON_SCRIPT_OP_FIXTURES
 #define PYTHON_SCRIPT_OP_FIXTURES ""
@@ -428,8 +429,8 @@ TEST(PythonScriptOp, UsesConfiguredContainerRuntime) {
 }
 
 TEST(PythonScriptOp, RecordsWholeOperationTiming) {
-    auto *tracer = pek::perf::getGlobalTracer();
-    tracer->reset();
+    auto &metrics = pek::perf::defaultPerformanceMetrics();
+    const auto intervalStart = metrics.aggregateSnapshot();
 
     pek::python::PythonScriptOp script;
     std::vector<pek::op::Op *> ops = {&script};
@@ -442,11 +443,14 @@ TEST(PythonScriptOp, RecordsWholeOperationTiming) {
     context.inferenceInfo.modelName = "test-model";
 
     ASSERT_TRUE(script.process(context));
-    tracer->endCycle();
-
-    const auto stats = tracer->getStats("python/Script/test-model/pek-python-ops-PythonScript-0");
-    EXPECT_EQ(stats.count, 1U);
-    tracer->reset();
+    const auto intervalEnd = metrics.aggregateSnapshot();
+    const auto intervalMetrics =
+        pek::perf::calculateScopeIntervalMetrics(intervalStart, intervalEnd);
+    const auto metric = std::ranges::find_if(intervalMetrics, [](const auto &candidate) {
+        return candidate.name == "python/Script/test-model/pek-python-ops-PythonScript-0";
+    });
+    ASSERT_NE(metric, intervalMetrics.end());
+    EXPECT_EQ(metric->completedScopeCount, 1U);
 }
 
 TEST(PythonScriptOp, ReturnsPythonTracebackAsRuntimeError) {
