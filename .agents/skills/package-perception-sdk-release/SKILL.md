@@ -15,8 +15,9 @@ generated SDK snapshot has been committed normally. If schemas or generated
 sources still need changes, stop and use `$evolve-perception-schema` or
 `$regenerate-perception-sdk` first.
 
-The release bundle contains the C++ SDK, Perception Python wheel and TypeScript
-npm package, matching FlatBuffers runtimes, source schemas, build integrations,
+The release bundle contains the C++ SDK, Perception Python wheel, Rust crate,
+and TypeScript npm package, matching FlatBuffers runtimes including a
+checksum-locked Cargo vendor directory, source schemas, build integrations,
 release manifest, ZIP checksum, and provenance sidecar.
 
 ## Preflight the Snapshot
@@ -57,7 +58,9 @@ sdk_version="$(sed -n "s/^[[:space:]]*version: '\([^']*\)'.*/\1/p" development/m
   --expect-version "${sdk_version}"
 ```
 
-For an offline or cached build, use the checksum-locked artifact cache:
+For an offline or cached build, use the checksum-locked artifact cache. It must
+contain the locked Python, TypeScript, and Rust Cargo artifacts from
+`tools/perception/sdk.json`:
 
 ```bash
 ./scripts/perception-sdk.sh package \

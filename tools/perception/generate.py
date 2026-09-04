@@ -12,6 +12,7 @@ import difflib
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -35,12 +36,17 @@ PY_LICENSE_HEADER = """\
 """
 CMAKE_LICENSE_HEADER = PY_LICENSE_HEADER
 TS_LICENSE_HEADER = "// Copyright (C) 2026 Arm Limited. All rights reserved.\n"
+RUST_LICENSE_HEADER = TS_LICENSE_HEADER
 TS_GENERATED_HEADER = """\
 // Generated file. Do not edit.
 // SDK users: change schemas or generator inputs, then regenerate this file.
 """
 CMAKE_FORMAT = "cmake-format"
+RUSTFMT = "rustfmt"
 MESON_BUILD_FILENAME = "meson.build"
+RUST_FIXTURE = REPO_ROOT / "tools/perception/tests/fixtures/opk-box-detections-v0.2.1.hex"
+RUST_FIXTURE_SDK_VERSION = "0.2.1"
+RUST_FIXTURE_SCHEMA_SET_SHA256 = "0ba6dfe959e1453ce12c7a8707623bc15d94d52c9235c26f7e27f31dda0775c5"
 
 
 def run(cmd: list[str]) -> None:
@@ -50,6 +56,14 @@ def run(cmd: list[str]) -> None:
 def command_version(cmd: list[str]) -> str:
     result = subprocess.run(cmd, check=True, text=True, capture_output=True)
     return result.stdout.strip() or result.stderr.strip()
+
+
+def rustfmt_version() -> str:
+    version = command_version([RUSTFMT, "--version"])
+    match = re.match(r"rustfmt (\d+\.\d+\.\d+)", version)
+    if match is None:
+        raise RuntimeError(f"Unable to parse rustfmt version: {version}")
+    return f"rustfmt {match.group(1)}"
 
 
 def git_commit(repository: Path) -> str:
@@ -79,6 +93,7 @@ def generate_sdk(config: SdkConfig, generated_root: Path, flatc: str, python: st
         *common, "--sdk", "cpp", "--cpp-python-bridge", "--cmake", "--meson",
     ])
     run([*common, "--sdk", "python"])
+    run([*common, "--sdk", "rust"])
     run([*common, "--sdk", "ts"])
 
 
@@ -97,7 +112,7 @@ def set_python_distribution_name(python_project: Path, source_name: str) -> None
 def verify_flowdata_manifests(
     config: SdkConfig, generated_root: Path, python: str
 ) -> None:
-    for sdk in ("cpp", "python", "ts"):
+    for sdk in ("cpp", "python", "rust", "ts"):
         command = [
             python, str(config.flowdata_generator), "verify-manifest",
             str(generated_root / sdk / FLOWDATA_MANIFEST_FILENAME),
@@ -108,35 +123,53 @@ def verify_flowdata_manifests(
 
 def read_flowdata_manifests(generated_root: Path) -> dict[str, object]:
     manifests: dict[str, object] = {}
-    for sdk in ("cpp", "python", "ts"):
+    for sdk in ("cpp", "python", "rust", "ts"):
         path = generated_root / sdk / FLOWDATA_MANIFEST_FILENAME
         manifests[sdk] = json.loads(path.read_text(encoding="utf-8"))
         path.unlink()
     return manifests
 
 
+def _add_license_header(path: Path, marker: str, prefix: str) -> None:
+    text = path.read_text(encoding="utf-8")
+    if not text.startswith(marker):
+        path.write_text(f"{prefix}{text}", encoding="utf-8")
+
+
+def _add_license_headers_to(paths: list[Path], marker: str, prefix: str) -> None:
+    for path in paths:
+        _add_license_header(path, marker, prefix)
+
+
 def add_license_headers(generated_root: Path) -> None:
-    for source in sorted((generated_root / "cpp").rglob("*")):
-        if source.suffix in {".h", ".cpp"}:
-            text = source.read_text(encoding="utf-8")
-            if not text.startswith(CPP_LICENSE_HEADER):
-                source.write_text(f"{CPP_LICENSE_HEADER}\n{text}", encoding="utf-8")
+    cpp_sources = [
+        source
+        for source in sorted((generated_root / "cpp").rglob("*"))
+        if source.suffix in {".h", ".cpp"}
+    ]
+    _add_license_headers_to(
+        cpp_sources, CPP_LICENSE_HEADER, f"{CPP_LICENSE_HEADER}\n"
+    )
     modules = [
         *sorted((generated_root / "python").rglob("*.py")),
         *sorted((generated_root / "python").rglob("*.pyi")),
     ]
-    for module in modules:
-        text = module.read_text(encoding="utf-8")
-        if not text.startswith(PY_LICENSE_HEADER):
-            module.write_text(f"{PY_LICENSE_HEADER}\n{text}", encoding="utf-8")
-    for integration in sorted((generated_root / "cpp" / "cmake").rglob("*.cmake")):
-        text = integration.read_text(encoding="utf-8")
-        if not text.startswith(CMAKE_LICENSE_HEADER):
-            integration.write_text(f"{CMAKE_LICENSE_HEADER}{text}", encoding="utf-8")
-    for module in sorted((generated_root / "ts").rglob("*.ts")):
-        text = module.read_text(encoding="utf-8")
-        if not text.startswith(TS_LICENSE_HEADER):
-            module.write_text(f"{TS_LICENSE_HEADER}{text}", encoding="utf-8")
+    _add_license_headers_to(modules, PY_LICENSE_HEADER, f"{PY_LICENSE_HEADER}\n")
+    _add_license_headers_to(
+        sorted((generated_root / "cpp" / "cmake").rglob("*.cmake")),
+        CMAKE_LICENSE_HEADER,
+        CMAKE_LICENSE_HEADER,
+    )
+    _add_license_headers_to(
+        sorted((generated_root / "ts").rglob("*.ts")),
+        TS_LICENSE_HEADER,
+        TS_LICENSE_HEADER,
+    )
+    _add_license_headers_to(
+        sorted((generated_root / "rust").rglob("*.rs")),
+        RUST_LICENSE_HEADER,
+        RUST_LICENSE_HEADER,
+    )
 
 
 def prepare_typescript_package(config: SdkConfig, generated_root: Path) -> None:
@@ -149,6 +182,108 @@ def prepare_typescript_package(config: SdkConfig, generated_root: Path) -> None:
     package_path.write_text(
         json.dumps(package, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
+
+
+def prepare_rust_tests(config: SdkConfig, generated_root: Path) -> None:
+    rust_root = generated_root / "rust"
+    cargo_toml = rust_root / "Cargo.toml"
+    expected_name = f'name = "{config.name}"'
+    if expected_name not in cargo_toml.read_text(encoding="utf-8"):
+        raise RuntimeError("generated Rust package name does not match sdk.json")
+    fixture_target = rust_root / "tests" / "fixtures" / RUST_FIXTURE.name
+    fixture_target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(RUST_FIXTURE, fixture_target)
+    crate_name = config.name.replace("-", "_")
+    test_source = f'''\
+// Generated file. Do not edit.
+// SDK users: change schemas or generator inputs, then regenerate this file.
+
+use {crate_name}::fb::perception::metadata::BoxDetectionsT;
+use {crate_name}::{{
+    external_key, payload, EntryRef, Envelope, ProducerIdentityStatus, {config.name.upper()}_NAME,
+    {config.name.upper()}_VERSION, SCHEMA_SET_SHA256,
+}};
+
+const FIXTURE_SDK_VERSION: &str = "{RUST_FIXTURE_SDK_VERSION}";
+const FIXTURE_SCHEMA_SET_SHA256: &str = "{RUST_FIXTURE_SCHEMA_SET_SHA256}";
+
+fn decode_hex(value: &str) -> Vec<u8> {{
+    let compact = value.trim();
+    (0..compact.len())
+        .step_by(2)
+        .map(|index| u8::from_str_radix(&compact[index..index + 2], 16).unwrap())
+        .collect()
+}}
+
+fn assert_send_sync_static<T: Send + Sync + 'static>() {{}}
+fn assert_send<T: Send>(_: T) {{}}
+
+#[test]
+fn decodes_python_produced_box_detections_packet() {{
+    assert_send_sync_static::<Envelope>();
+    assert_send_sync_static::<BoxDetectionsT>();
+    let packet = decode_hex(include_str!("fixtures/{RUST_FIXTURE.name}"));
+    let envelope = Envelope::decode(packet).expect("pinned OPK packet must decode");
+
+    assert_eq!(envelope.producer_sdk_name(), {config.name.upper()}_NAME);
+    assert_eq!(envelope.producer_sdk_version(), FIXTURE_SDK_VERSION);
+    assert_eq!(
+        envelope.producer_schema_set_sha256(),
+        FIXTURE_SCHEMA_SET_SHA256
+    );
+    let expected_identity = if {config.name.upper()}_VERSION != FIXTURE_SDK_VERSION {{
+        ProducerIdentityStatus::SdkVersionMismatch
+    }} else if SCHEMA_SET_SHA256 != FIXTURE_SCHEMA_SET_SHA256 {{
+        ProducerIdentityStatus::SchemaSetMismatch
+    }} else {{
+        ProducerIdentityStatus::ExactMatch
+    }};
+    assert_eq!(envelope.producer_identity(), expected_identity);
+    assert_eq!(envelope.len(), 2);
+
+    let box_detections = payload::<BoxDetectionsT>();
+    let preserved_payload = if expected_identity == ProducerIdentityStatus::ExactMatch {{
+        let boxes = envelope.get(box_detections, 0).expect("BoxDetections payload");
+        let layer = boxes.layer.as_ref().expect("layer");
+        assert_eq!(layer.engine.as_deref(), Some("fixture"));
+        assert_eq!(layer.model.as_deref(), Some("yolov11n"));
+        assert_eq!(layer.infer_element_id.as_deref(), Some("infer0"));
+        let detections = boxes.detections.as_ref().expect("detections");
+        assert_eq!(detections.len(), 1);
+        let detection = &detections[0];
+        assert_eq!(detection.class_id, 3);
+        assert_eq!(detection.text.as_deref(), Some("car"));
+        assert_eq!(detection.confidence, 0.875);
+        let object = detection.object.as_ref().expect("object");
+        assert_eq!((object.id, object.parent_id, object.creation_ts_ns), (42, 7, 123_456_789));
+        let rectangle = detection.box_.as_ref().expect("box");
+        assert_eq!((rectangle.x, rectangle.y, rectangle.width, rectangle.height),
+            (10.5, 20.25, 30.75, 40.5));
+        None
+    }} else {{
+        assert!(envelope.get(box_detections, 0).is_none());
+        match envelope.entries().next() {{
+            Some(EntryRef::Unknown {{ id, bytes }}) => Some((id, bytes.to_vec())),
+            entry => panic!("expected preserved historical payload, got {{entry:?}}"),
+        }}
+    }};
+
+    let key = external_key("com.arm.opk.fixture");
+    assert_eq!(envelope.get(key, 0), Some(b"fixture-external".as_slice()));
+    let roundtrip = Envelope::decode(envelope.serialize()).expect("round trip");
+    if let Some((historical_id, historical_bytes)) = preserved_payload {{
+        assert!(matches!(roundtrip.entries().next(), Some(EntryRef::Unknown {{ id, bytes }})
+            if id == historical_id && bytes == historical_bytes));
+    }} else {{
+        assert!(roundtrip.get(box_detections, 0).is_some());
+    }}
+    assert_eq!(roundtrip.get(key, 0), Some(b"fixture-external".as_slice()));
+
+    let future = async move {{ roundtrip.len() }};
+    assert_send(future);
+}}
+'''
+    (rust_root / "tests" / "opk_packet.rs").write_text(test_source, encoding="utf-8")
 
 
 def build_typescript_package(
@@ -237,6 +372,13 @@ def format_python_modules(generated_root: Path, python: str) -> None:
     run([python, "-m", "autopep8", "--in-place", *map(str, modules)])
 
 
+def format_rust_sources(generated_root: Path) -> None:
+    sources = sorted((generated_root / "rust").rglob("*.rs"))
+    if not shutil.which(RUSTFMT):
+        raise RuntimeError(f"{RUSTFMT} is required to format generated Rust files")
+    run([RUSTFMT, "--edition", "2021", *map(str, sources)])
+
+
 def format_cmake_integrations(generated_root: Path) -> None:
     integrations = sorted((generated_root / "cpp" / "cmake").rglob("*.cmake"))
     if not shutil.which(CMAKE_FORMAT):
@@ -255,14 +397,18 @@ def validate_flowdata_manifests(
 ) -> None:
     cpp = manifests.get("cpp")
     python_manifest = manifests.get("python")
+    rust_manifest = manifests.get("rust")
     typescript_manifest = manifests.get("ts")
-    if not all(isinstance(value, dict) for value in (cpp, python_manifest, typescript_manifest)):
-        raise RuntimeError("flowdata generation did not produce C++, Python, and TypeScript manifests")
+    manifests_by_language = (cpp, python_manifest, rust_manifest, typescript_manifest)
+    if not all(isinstance(value, dict) for value in manifests_by_language):
+        raise RuntimeError(
+            "flowdata generation did not produce C++, Python, Rust, and TypeScript manifests"
+        )
     shared_fields = (
         "sdk", "generator", "flatc", "schema_files", "schema_set_sha256", "payloads",
     )
     for field in shared_fields:
-        if not all(cpp.get(field) == manifest.get(field) for manifest in (python_manifest, typescript_manifest)):
+        if not all(cpp.get(field) == manifest.get(field) for manifest in manifests_by_language[1:]):
             raise RuntimeError(f"flowdata manifests disagree on {field}")
     expected_sdk = {"name": config.name, "version": config.version}
     if cpp.get("sdk") != expected_sdk:
@@ -291,6 +437,12 @@ def validate_flowdata_manifests(
         "sdk": "ts",
     }:
         raise RuntimeError("flowdata TypeScript outputs do not match the Perception SDK contract")
+    if rust_manifest.get("outputs") != {
+        "cpp_python_bridge": False,
+        "integrations": [],
+        "sdk": "rust",
+    }:
+        raise RuntimeError("flowdata Rust outputs do not match the Perception SDK contract")
 
 
 def normalize_integration_files(config: SdkConfig, generated_root: Path) -> None:
@@ -350,6 +502,8 @@ def is_transient_generated_path(path: Path, root: Path) -> bool:
         or any(part.endswith(".egg-info") for part in relative.parts)
         or relative.parts[:2] == ("python", "build")
         or "node_modules" in relative.parts
+        or relative.parts[:2] == ("rust", "target")
+        or relative == Path("rust/Cargo.lock")
         or path.suffix == ".pyc"
     )
 
@@ -434,6 +588,11 @@ def write_perception_manifest(
                 "flatbuffers_runtime": config.typescript_runtime.version,
                 "node": f">={config.node_minimum_major}",
             },
+            "rust": {
+                "flatbuffers_runtime": config.flatbuffers_version,
+                "formatter": rustfmt_version(),
+                "standard_library": True,
+            },
         },
         "project_files": [{
             "path": config.internal_meson_path.relative_to(REPO_ROOT).as_posix(),
@@ -496,9 +655,9 @@ def _verify_upstream_receipts(
     flowdata_identity: dict[str, object],
 ) -> None:
     flowdata = manifest.get("upstream_receipts")
-    if not isinstance(flowdata, dict) or set(flowdata) != {"cpp", "python", "ts"}:
+    if not isinstance(flowdata, dict) or set(flowdata) != {"cpp", "python", "rust", "ts"}:
         raise RuntimeError("Perception SDK manifest has incomplete flowdata metadata")
-    for sdk in ("cpp", "python", "ts"):
+    for sdk in ("cpp", "python", "rust", "ts"):
         sdk_manifest = flowdata[sdk]
         if not isinstance(sdk_manifest, dict):
             raise RuntimeError(f"{sdk} manifest metadata is malformed")
@@ -564,10 +723,12 @@ def prepare_sdk(
     ):
         raise RuntimeError("generated Python package metadata is unexpected")
     python_package["distribution_name"] = PYTHON_DISTRIBUTION_NAME
+    prepare_rust_tests(config, generated_root)
     add_license_headers(generated_root)
     prepare_typescript_package(config, generated_root)
     format_cpp_sources(generated_root, clang_format)
     format_python_modules(generated_root, formatter_python)
+    format_rust_sources(generated_root)
     build_typescript_package(config, generated_root, node, node_modules)
     add_typescript_declaration_headers(generated_root)
     validate_flowdata_manifests(config, flowdata_manifests)
@@ -598,7 +759,7 @@ def _tree_diff(expected: Path, actual: Path) -> str:
         elif not right.exists():
             lines.append(f"missing from checked-in SDK: {relative}")
         elif left.read_bytes() != right.read_bytes():
-            if left.suffix in {".json", ".py", ".pyi", ".h", ".cpp", ".txt", ".md"} or left.name in {MESON_BUILD_FILENAME, "pyproject.toml"}:
+            if left.suffix in {".json", ".py", ".pyi", ".h", ".cpp", ".rs", ".txt", ".md", ".toml"} or left.name in {MESON_BUILD_FILENAME, "pyproject.toml"}:
                 lines.extend(difflib.unified_diff(
                     right.read_text(encoding="utf-8").splitlines(),
                     left.read_text(encoding="utf-8").splitlines(),

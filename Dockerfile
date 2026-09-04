@@ -21,6 +21,7 @@ ARG EXECUTORCH_ARTIFACTORY_SERVER=https://artifactory.arm.com:443
 ARG EXECUTORCH_ARTIFACTORY_REPOSITORY=ai-expkits-internal.opk-deb
 ARG EXECUTORCH_ARTIFACTORY_DISTRIBUTION=trixie
 ARG EXECUTORCH_ARTIFACTORY_COMPONENT=main
+ARG CRATES_FALLBACK_REGISTRY=https://crates.io/api/v1/crates
 ARG NPM_FALLBACK_REGISTRY=https://artifactory.arm.com:443/artifactory/api/npm/mirrors.npmjs_org
 ARG PYPI_FALLBACK_REPOSITORY=https://artifactory.arm.com:443/artifactory/api/pypi/ml-xpk.pypi
 
@@ -45,6 +46,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   apt-get install -y --no-install-recommends \
   build-essential \
   ca-certificates \
+  cargo \
   ccache \
   cmake \
   curl \
@@ -64,15 +66,21 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   python3 \
   python3-dev \
   python3-venv \
+  rustc \
+  rustfmt \
   unzip; \
   update-ca-certificates; \
   install-perception-flatbuffers /tmp/perception-sdk.json; \
   mkdir -p /opt/pek-deps/perception-sdk-artifacts; \
-  python3 -c 'import json; d=json.load(open("/tmp/perception-sdk.json")); artifacts=[*d["python_build"]["tools"], d["flatbuffers"]["python_wheel"], d["typescript_build"]["flatbuffers_runtime"]]; [print(a["filename"], a["url"], a["sha256"], sep="\t") for a in artifacts]' | \
-  while IFS=$'\t' read -r filename url sha256; do \
+  python3 -c 'import json; d=json.load(open("/tmp/perception-sdk.json")); artifacts=[*d["python_build"]["tools"], d["flatbuffers"]["python_wheel"], *d["flatbuffers"]["rust_crates"], d["typescript_build"]["flatbuffers_runtime"]]; [print(a["filename"], a["url"], a["sha256"], a.get("name", ""), a.get("version", ""), sep="\t") for a in artifacts]' | \
+  while IFS=$'\t' read -r filename url sha256 name version; do \
+    fallback_user_agent='curl'; \
     case "${url}" in \
       https://files.pythonhosted.org/*) \
         fallback_url="${PYPI_FALLBACK_REPOSITORY}/${url#https://files.pythonhosted.org/}" ;; \
+      https://static.crates.io/crates/*) \
+        fallback_url="${CRATES_FALLBACK_REGISTRY}/${name}/${version}/download"; \
+        fallback_user_agent='cargo' ;; \
       https://registry.npmjs.org/*) \
         fallback_url="${NPM_FALLBACK_REGISTRY}/${url#https://registry.npmjs.org/}" ;; \
       *) echo "Unsupported Perception SDK artifact URL: ${url}" >&2; exit 1 ;; \
@@ -83,7 +91,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       --retry 1 --output "${destination}" "${url}" || \
       timeout 180s curl \
         --fail --location --proto '=https' --proto-redir '=https' \
-        --retry 3 --output "${destination}" "${fallback_url}"; \
+        --retry 3 --user-agent "${fallback_user_agent}" \
+        --output "${destination}" "${fallback_url}"; \
     echo "${sha256}  ${destination}" | sha256sum --check --strict; \
   done; \
   setup-python-ops-runtime \

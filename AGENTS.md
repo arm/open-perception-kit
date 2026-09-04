@@ -153,7 +153,7 @@ runtime.
 Use the repository skill `$evolve-perception-schema` for compatibility
 classification, authored schema changes, and runtime integration. Then use
 `$regenerate-perception-sdk` to update and validate the checked-in generated
-C++, Python, and TypeScript SDK snapshot.
+C++, Python, Rust, and TypeScript SDK snapshot.
 
 Start in:
 
@@ -164,14 +164,14 @@ Start in:
 - `scripts/perception-sdk.sh`
 
 Add persistent result shapes to the Perception schema, then regenerate the checked-in
-C++, Python, and TypeScript SDKs through the container workflow with
+C++, Python, Rust, and TypeScript SDKs through the container workflow with
 `./scripts/perception-sdk.sh generate`.
 Do not recreate hand-written `Perception` containers or serializers. Continue into
 parser, visualization, tracking, or publishing code only if the new schema payload
 needs runtime support.
 
 The Perception SDK identity, repository paths, enabled outputs, and FlatBuffers
-wheel lock are owned only by `tools/perception/sdk.json`. All scripts load that
+runtime artifact locks are owned only by `tools/perception/sdk.json`. All scripts load that
 descriptor through `tools/perception/sdk_config.py`; generated integrations and
 manifests are derived outputs and must not be edited independently. Raw flowdata
 manifests are verified before AMP-specific copyright and formatting decoration.

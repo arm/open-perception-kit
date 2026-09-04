@@ -5,7 +5,7 @@
   },
   "descriptor": {
     "path": "tools/perception/sdk.json",
-    "sha256": "e3d073bbddeb0bd9eb2fc5cd8cdfdd7b40864912e8b9a23c53e60a717912860b"
+    "sha256": "17fbc1126e2f52432efe07c408918ca357c16c0366f1f02501a7876aba3b7547"
   },
   "files": [
     {
@@ -292,6 +292,191 @@
       "path": "python/src/perception/sdk.py",
       "sha256": "aad4449dad7ff9a52327ab3dc775e28e1be44fb30336c2adbfae6f3e7aa522f3",
       "size": 15472
+    },
+    {
+      "path": "rust/Cargo.toml",
+      "sha256": "addc625094b318dedf2d10cf467b33c35120c8ce1dfb2222595692f9c608a5b3",
+      "size": 152
+    },
+    {
+      "path": "rust/src/fb/mod.rs",
+      "sha256": "6c1acf972332ab99312db98f99328177b991f5afb8f21d763b986fb68b745c15",
+      "size": 90
+    },
+    {
+      "path": "rust/src/fb/perception/metadata/audio_frame_context_generated.rs",
+      "sha256": "ee3a58278db6a6adf0973a40f4f1e09790af2d68e644cf58e3b40e518b9d7d02",
+      "size": 11144
+    },
+    {
+      "path": "rust/src/fb/perception/metadata/bitmap_data_generated.rs",
+      "sha256": "9ddd0773290e67d1b6bd0c4caf9f3e11eb4422009d1aa98fdf028d771cd062b9",
+      "size": 7565
+    },
+    {
+      "path": "rust/src/fb/perception/metadata/bounding_box_generated.rs",
+      "sha256": "cf6c9762e103e8b181cf00c68548b4dc8c4e94193a78173d296fe61269bdea8b",
+      "size": 6424
+    },
+    {
+      "path": "rust/src/fb/perception/metadata/box_detection_generated.rs",
+      "sha256": "ea53b1e208c4086b9576e236f5c9fa9d7ae0e92bc28de326ff1a0fe8794fb577",
+      "size": 8754
+    },
+    {
+      "path": "rust/src/fb/perception/metadata/box_detections_generated.rs",
+      "sha256": "af4c980f4409b9e18f5ab3f986addec9c59cdf8ebd315cb68d3d33d82fe42954",
+      "size": 12197
+    },
+    {
+      "path": "rust/src/fb/perception/metadata/classification_candidate_generated.rs",
+      "sha256": "7904888cd60b88ea946900d13fc11eaca75bf47c0c0f8e5cff0b4044cafa89bf",
+      "size": 9851
+    },
+    {
+      "path": "rust/src/fb/perception/metadata/classification_generated.rs",
+      "sha256": "b6de4f4a30cccca6c58b7b118a1b37627ef8d4bba4ccf459a43a23840c0b09ee",
+      "size": 6512
+    },
+    {
+      "path": "rust/src/fb/perception/metadata/classifications_generated.rs",
+      "sha256": "05e6aaa1657cf1c7ec41240ff4a8f191682317ecbd499f894fcf1da7ecec414d",
+      "size": 14513
+    },
+    {
+      "path": "rust/src/fb/perception/metadata/frame_context_generated.rs",
+      "sha256": "14b88ceaf68cdc34506032266359ab7734b9615bae72eda921cac132a579a976",
+      "size": 13009
+    },
+    {
+      "path": "rust/src/fb/perception/metadata/layer_info_generated.rs",
+      "sha256": "a262401214cb2139d6cc3d2191ed3edfba4268d83daa04d872d8ef1805355ff8",
+      "size": 13552
+    },
+    {
+      "path": "rust/src/fb/perception/metadata/mod.rs",
+      "sha256": "eb33c86bbd963ff388f3de93b9d095ecdb3567d8a9cb2f5dd1e591c89ffc0c01",
+      "size": 1994
+    },
+    {
+      "path": "rust/src/fb/perception/metadata/object_embedding_generated.rs",
+      "sha256": "307ad845b36618f1f8e72c151b53990c79a11e10effc733e76f9dc6829e10565",
+      "size": 5985
+    },
+    {
+      "path": "rust/src/fb/perception/metadata/object_embeddings_generated.rs",
+      "sha256": "c95d6def8e15ff3369a97bf5d9a05289bc79e4e06f86e2dddef89654ff3c041e",
+      "size": 12500
+    },
+    {
+      "path": "rust/src/fb/perception/metadata/object_meta_generated.rs",
+      "sha256": "e970ecc6d24f6f7473be30bdc619c04e80c279ea8b4faab3db6798bfb2cbe499",
+      "size": 5966
+    },
+    {
+      "path": "rust/src/fb/perception/metadata/object_track_generated.rs",
+      "sha256": "65b5cf145e2d84b99375fefa049428e31fde7a4c541075b7c64a1070a29208bb",
+      "size": 12896
+    },
+    {
+      "path": "rust/src/fb/perception/metadata/object_tracks_generated.rs",
+      "sha256": "9d6887c04e0cd3327d2613d68f0cf8fdc45a1dee8a1e76f94e30ba9db4e8b4a5",
+      "size": 12000
+    },
+    {
+      "path": "rust/src/fb/perception/metadata/performance_overlay_generated.rs",
+      "sha256": "b1b83ab11a743e1f7a137aaf148068fab6e18466bee4a1d2e30ae2aa0e800ee3",
+      "size": 11224
+    },
+    {
+      "path": "rust/src/fb/perception/metadata/person_presence_generated.rs",
+      "sha256": "bfe233fba422e2154e45dcec7a953b7755f3abe1163317888d23c993a0110b2f",
+      "size": 6802
+    },
+    {
+      "path": "rust/src/fb/perception/metadata/point_2f_generated.rs",
+      "sha256": "5cc66e5338dd6cb2b4b70c30ece2b0a462d0f9a99c99c835916b5ca5c532d2bc",
+      "size": 4364
+    },
+    {
+      "path": "rust/src/fb/perception/metadata/pose_estimation_generated.rs",
+      "sha256": "4906494f0c97f757e40cff1f479c31a7027bae30b2213efce41e6133d6c5a6fc",
+      "size": 7331
+    },
+    {
+      "path": "rust/src/fb/perception/metadata/pose_estimations_generated.rs",
+      "sha256": "7689230dad6a990213f91484671898ffaa2117993cdb7b99253c54e085e5237b",
+      "size": 12254
+    },
+    {
+      "path": "rust/src/fb/perception/metadata/producer_info_generated.rs",
+      "sha256": "c552b7b11e30f0af94cbbdb9771f9cc2bf54ab50e720c89cfe5eb37e3e68807d",
+      "size": 7330
+    },
+    {
+      "path": "rust/src/fb/perception/metadata/segmentation_mask_generated.rs",
+      "sha256": "e85fb36bfb32ff924524e145f3021addab90be30c7634c77ac3635c3cb278787",
+      "size": 5932
+    },
+    {
+      "path": "rust/src/fb/perception/metadata/segmentation_masks_generated.rs",
+      "sha256": "799fa4e1835f0f0ee3e5aa992b1ce077cea0e34b93c75b96e5031c51530dbd91",
+      "size": 12420
+    },
+    {
+      "path": "rust/src/fb/perception/metadata/track_trace_generated.rs",
+      "sha256": "f42e3172f72c97435e38ab3151df8c9d6a37b80d1903386588c984c1208fa347",
+      "size": 7129
+    },
+    {
+      "path": "rust/src/fb/perception/metadata/track_traces_generated.rs",
+      "sha256": "0794776d7aafdc9a58a00b40b8de52ce37994d35824ea0e751d25b87a1c6b5b4",
+      "size": 11917
+    },
+    {
+      "path": "rust/src/fb/perception/metadata/video_frame_context_generated.rs",
+      "sha256": "716ca4b81c91ca096a858be1f351f4be567d50936499975faa29fb4bf0bdc3b5",
+      "size": 15830
+    },
+    {
+      "path": "rust/src/fb/perception/mod.rs",
+      "sha256": "2f8cbee27e76e3a100283b9b0526e6450d1f8284a0424743dd9bbf5004bafd7e",
+      "size": 88
+    },
+    {
+      "path": "rust/src/flowdata_internal/internalfb/mod.rs",
+      "sha256": "b0e6c52ffefa9562ba4f1a76641c2373b40a589c496ee34180e32450607c1001",
+      "size": 210
+    },
+    {
+      "path": "rust/src/flowdata_internal/internalfb/wire_envelope_generated.rs",
+      "sha256": "12af8dc5c34483d8a4ec91ff72b2b0de0f882d7b26aade60b78df7b5ae5921e8",
+      "size": 13814
+    },
+    {
+      "path": "rust/src/flowdata_internal/internalfb/wire_payload_generated.rs",
+      "sha256": "dbb10c65d9020d97e58da121b319def67456bd8ffc438819b2a24600f33b5b99",
+      "size": 5162
+    },
+    {
+      "path": "rust/src/flowdata_internal/mod.rs",
+      "sha256": "56c6c77b8cb49fbb815c91e1a0875b5823fe756d8ad324588cf24b1474a51c13",
+      "size": 97
+    },
+    {
+      "path": "rust/src/lib.rs",
+      "sha256": "32f9371253715e5b4ea4abefee39177e520b03be53353b3e62f97195560a92ce",
+      "size": 42718
+    },
+    {
+      "path": "rust/tests/fixtures/opk-box-detections-v0.2.1.hex",
+      "sha256": "67cef1b807e574f7c1a79689fd4b9ae83f3cd8b32faf78a44ff4de58914fb467",
+      "size": 993
+    },
+    {
+      "path": "rust/tests/opk_packet.rs",
+      "sha256": "54a6ab2afe00b738ce5b49846a1407fe960f75d89d169b356461c3c4e07331db",
+      "size": 4031
     },
     {
       "path": "ts/dist/perception/envelope.d.ts",
@@ -801,17 +986,17 @@
   ],
   "generation": {
     "flowdata_sdk": {
-      "commit": "d3513f3ff4d85022fe23d0545b6b25a73dfda5ec",
+      "commit": "25924bd9b369a7a400099e912858e2760c720f92",
       "generator": {
         "name": "flowdata-sdk",
-        "version": "0.5.0"
+        "version": "0.6.0"
       }
     },
     "tools": [
       {
         "path": "tools/perception/generate.py",
-        "sha256": "396f0d2f81d87a36c7a1b6883d91771edb375d4b55d8053f2bf92156ee7dce94",
-        "size": 31769
+        "sha256": "4ef7a6bd808615aed72b057a82018a5a3cbc732de326c6fea1709ad1fd57a468",
+        "size": 38212
       },
       {
         "path": "tools/perception/release_common.py",
@@ -820,8 +1005,8 @@
       },
       {
         "path": "tools/perception/sdk_config.py",
-        "sha256": "46c40962451e3d36040836d6f0ed8becc52516cd4789e3769d6c1965930ecd86",
-        "size": 9924
+        "sha256": "35f679797d9b32fb35c4bef14f025ba88dc170265c53ae6a1b44a3d7def0f776",
+        "size": 11436
       },
       {
         "path": ".clang-format",
@@ -840,6 +1025,11 @@
     "copyright_headers": "Arm Limited 2025",
     "cpp_formatter": "clang-format version 20.1.8",
     "python_formatter": "autopep8 2.3.1 (pycodestyle: 2.12.1)",
+    "rust": {
+      "flatbuffers_runtime": "25.9.23",
+      "formatter": "rustfmt 1.8.0",
+      "standard_library": true
+    },
     "typescript": {
       "compiler": "5.9.2",
       "flatbuffers_runtime": "25.9.23",
@@ -961,7 +1151,7 @@
       },
       "generator": {
         "name": "flowdata-sdk",
-        "version": "0.5.0"
+        "version": "0.6.0"
       },
       "outputs": {
         "cpp_python_bridge": true,
@@ -1311,7 +1501,7 @@
       },
       "generator": {
         "name": "flowdata-sdk",
-        "version": "0.5.0"
+        "version": "0.6.0"
       },
       "outputs": {
         "cpp_python_bridge": false,
@@ -1389,6 +1579,319 @@
         "version": "0.3.0",
         "wheel_tag": "py3-none-any"
       },
+      "schema_files": [
+        {
+          "path": "box_detections.fbs",
+          "sha256": "fef9b1a679c99977c10410ef0ac18889a50ddaf7392f5deff3e42b0cd086c57e",
+          "size": 431
+        },
+        {
+          "path": "classifications.fbs",
+          "sha256": "dfcc8380bc7bb68ad35db6b8ab9b08f0827792abb4bf74762833e4d49e2d740e",
+          "size": 714
+        },
+        {
+          "path": "common.fbs",
+          "sha256": "b03f12f1880549833614147b4f031e2d0909eeb1182b4704ded7dcb25bd786c4",
+          "size": 600
+        },
+        {
+          "path": "frame_context.fbs",
+          "sha256": "331fc0b70017804976253f3cbd130cb41ef313ceaba591f88035cf314cc7060b",
+          "size": 856
+        },
+        {
+          "path": "object_embeddings.fbs",
+          "sha256": "9c6fa19199b16fbded3b50d1c0510e9a107972544b60ce7e6ec7ed62bbeec604",
+          "size": 366
+        },
+        {
+          "path": "object_tracks.fbs",
+          "sha256": "83529d0043559e9033b7080d66d6e4d2fc4b7a90e438e77da7915f7020f76e6d",
+          "size": 504
+        },
+        {
+          "path": "performance_overlay.fbs",
+          "sha256": "9f83a45af191752dbbde5a680798d642836a6a5a6bb5ec939fdf42a21be393a6",
+          "size": 188
+        },
+        {
+          "path": "pose_estimations.fbs",
+          "sha256": "e2224e5f114c45059ee3562a6169e4cdaa0cad4247d3f676e1ccfa8e8f7e2137",
+          "size": 387
+        },
+        {
+          "path": "segmentation_masks.fbs",
+          "sha256": "1474553d40ca6ae27cffd54bcc4befd232e2b7610d1e25af6fa1c0ec817437e7",
+          "size": 388
+        },
+        {
+          "path": "track_traces.fbs",
+          "sha256": "85a90ebf6eb8b3c2a7f5c1613a4fa0bcf00a0f51b0514e186650ae0bb751f923",
+          "size": 382
+        }
+      ],
+      "schema_set_sha256": "5a2f77909600d6458a707fba68cff1a7dc5f610dec58174456bb97d16596c383",
+      "sdk": {
+        "name": "perception",
+        "version": "0.3.0"
+      }
+    },
+    "rust": {
+      "files": [
+        {
+          "path": "Cargo.toml",
+          "sha256": "addc625094b318dedf2d10cf467b33c35120c8ce1dfb2222595692f9c608a5b3",
+          "size": 152
+        },
+        {
+          "path": "src/fb/mod.rs",
+          "sha256": "d398a89bd049ac605100a370710c37d971ddeae9103e954283457e05a5b1775a",
+          "size": 34
+        },
+        {
+          "path": "src/fb/perception/metadata/audio_frame_context_generated.rs",
+          "sha256": "b7e82eab7ea449dc58e2f480fd892ba7f4e9e8ece6a0afc467b433a43d5000e5",
+          "size": 11088
+        },
+        {
+          "path": "src/fb/perception/metadata/bitmap_data_generated.rs",
+          "sha256": "c83facad20eb2753d676b7934657f526e5c0a4f64392d7be8eaaf2a48f0b0230",
+          "size": 7509
+        },
+        {
+          "path": "src/fb/perception/metadata/bounding_box_generated.rs",
+          "sha256": "092f6b2707fb753a205aee37a8bc8ad927fd95faa3f63cd260b90cb7f173e05b",
+          "size": 6368
+        },
+        {
+          "path": "src/fb/perception/metadata/box_detection_generated.rs",
+          "sha256": "4f123a30c620b95a82fef2ad4a33c6a9c295f44d8a48c3a2fac86a759031fe54",
+          "size": 8698
+        },
+        {
+          "path": "src/fb/perception/metadata/box_detections_generated.rs",
+          "sha256": "3c1271d7e5544e07d580b338a0400621e3d8f5275da3403a15c57ef754725bd2",
+          "size": 12141
+        },
+        {
+          "path": "src/fb/perception/metadata/classification_candidate_generated.rs",
+          "sha256": "9142b225e9cd37cf4755f6a755250bf90937ddff672b3d6694799f7709fba6df",
+          "size": 9795
+        },
+        {
+          "path": "src/fb/perception/metadata/classification_generated.rs",
+          "sha256": "151fed4775fcf361c740702b7b66d05d79b589e73674d7b1dbbab31e1504b637",
+          "size": 6456
+        },
+        {
+          "path": "src/fb/perception/metadata/classifications_generated.rs",
+          "sha256": "21157fcdc436d12d5b7d304ebaef4dabba621922a535857adad82ac7be096b8c",
+          "size": 14457
+        },
+        {
+          "path": "src/fb/perception/metadata/frame_context_generated.rs",
+          "sha256": "191e24d5028b45f1f7431f0548f7985677dcb0b37820db13c578b7030b69f8ec",
+          "size": 12953
+        },
+        {
+          "path": "src/fb/perception/metadata/layer_info_generated.rs",
+          "sha256": "183b5ea0394133d606c9c8ebd0c1511dc4a21fbb299949d7917b3cec7025ea06",
+          "size": 13496
+        },
+        {
+          "path": "src/fb/perception/metadata/mod.rs",
+          "sha256": "92d73414297c5ede663824e2b92c85a58abcf72e07b2631f640b6178bd353351",
+          "size": 1938
+        },
+        {
+          "path": "src/fb/perception/metadata/object_embedding_generated.rs",
+          "sha256": "ab6493edad7549f57125eebad4132f7b148c5abfbbc7bd9e7d130e4c04ac6114",
+          "size": 5929
+        },
+        {
+          "path": "src/fb/perception/metadata/object_embeddings_generated.rs",
+          "sha256": "3a375bf6072b4015a7dc5fe782793d93f1f91a6718d576722f41e5f33f34e879",
+          "size": 12444
+        },
+        {
+          "path": "src/fb/perception/metadata/object_meta_generated.rs",
+          "sha256": "e0c6403626b4498aea6345c6b7956ad36b764cc136f099ce98d3b376aff606e5",
+          "size": 5910
+        },
+        {
+          "path": "src/fb/perception/metadata/object_track_generated.rs",
+          "sha256": "2f32593da8746ef9de90487fe420fafbcdbd8bbb5ea41e0ce163d6adee477d7b",
+          "size": 12840
+        },
+        {
+          "path": "src/fb/perception/metadata/object_tracks_generated.rs",
+          "sha256": "4b663193a8b6c625b2c68e9358b496ef2cc1657b08a2b4293645c13a31f5fcce",
+          "size": 11944
+        },
+        {
+          "path": "src/fb/perception/metadata/performance_overlay_generated.rs",
+          "sha256": "dae82cab88d7527df1c0e476131087163b85bb1c27a647da2b4ef3d9f5799537",
+          "size": 11168
+        },
+        {
+          "path": "src/fb/perception/metadata/person_presence_generated.rs",
+          "sha256": "60fbe77d58e9f3d58cd1f1dad220d44a866cf16193c281e3a6bb402b02bde9cd",
+          "size": 6746
+        },
+        {
+          "path": "src/fb/perception/metadata/point_2f_generated.rs",
+          "sha256": "56211396e4a9d2eb4fd2ba5fbb98804ec4353b0e1992b296a70f7d9c79db4e74",
+          "size": 4308
+        },
+        {
+          "path": "src/fb/perception/metadata/pose_estimation_generated.rs",
+          "sha256": "ad51b523f523362f259870174713460994aa4e3612a337a7eb5cd44513f22246",
+          "size": 7275
+        },
+        {
+          "path": "src/fb/perception/metadata/pose_estimations_generated.rs",
+          "sha256": "0a176e519151c95278ba04f9c5e9cb3fb7e8548eb702ec5da14325ecf3d5f38b",
+          "size": 12198
+        },
+        {
+          "path": "src/fb/perception/metadata/producer_info_generated.rs",
+          "sha256": "cb65e8f585f5e4a1555835c2e594baa79b218b65f653e71ed6f80998b5314048",
+          "size": 7274
+        },
+        {
+          "path": "src/fb/perception/metadata/segmentation_mask_generated.rs",
+          "sha256": "3ee5842f1d4b3f96a7ee005378768a7630d92f0dbdd95d98d3e8a7204b9c2d90",
+          "size": 5876
+        },
+        {
+          "path": "src/fb/perception/metadata/segmentation_masks_generated.rs",
+          "sha256": "5a94a2f4cf20949bbe0ee64852811715106f3217f87698424b03cb5b5534fc42",
+          "size": 12364
+        },
+        {
+          "path": "src/fb/perception/metadata/track_trace_generated.rs",
+          "sha256": "c7c0d586e64a8c774cdc3ad93d1fb396a4fad9f5bff3cff45fc02f27e714e3a6",
+          "size": 7073
+        },
+        {
+          "path": "src/fb/perception/metadata/track_traces_generated.rs",
+          "sha256": "324ea50b5c6140c407ab6f66dffd6ba975b19d697f598be8e5a70b1b387ab037",
+          "size": 11861
+        },
+        {
+          "path": "src/fb/perception/metadata/video_frame_context_generated.rs",
+          "sha256": "a582e3503150ada8624dcaf70ddfabc4df92c381921a6e947f176b0ed1832df3",
+          "size": 15774
+        },
+        {
+          "path": "src/fb/perception/mod.rs",
+          "sha256": "872289c00b2b64c5c62892261add2e0337129da5824cd323ec0e5a29b33fc41b",
+          "size": 32
+        },
+        {
+          "path": "src/flowdata_internal/internalfb/mod.rs",
+          "sha256": "990b0912d7227050942823597f9f03edd33a723b3ba6633488a3b6dbfd853b99",
+          "size": 154
+        },
+        {
+          "path": "src/flowdata_internal/internalfb/wire_envelope_generated.rs",
+          "sha256": "e1021b7aedfb67be11339775a153f23ab075e3d8ce9bd3ec94356cc70031f240",
+          "size": 13758
+        },
+        {
+          "path": "src/flowdata_internal/internalfb/wire_payload_generated.rs",
+          "sha256": "1ddea51a9901d5b3bf558cd7cd638c686c35c51a5a30dcb320e677ef108fa35f",
+          "size": 5106
+        },
+        {
+          "path": "src/flowdata_internal/mod.rs",
+          "sha256": "38bf045bec7ce82af3f2ac4f9520ca09128a476e62084e02123b29bc5254152d",
+          "size": 41
+        },
+        {
+          "path": "src/lib.rs",
+          "sha256": "6233af59e7ef9665e173fe4bc2fc0fccfc71c16b1765fc4c5c7e3689ef9447cb",
+          "size": 42662
+        }
+      ],
+      "flatbuffers_runtimes": [
+        {
+          "language": "rust",
+          "package": "flatbuffers",
+          "version_requirement": "==25.9.23"
+        }
+      ],
+      "flatc": {
+        "semantic_version": "25.9.23",
+        "version": "flatc version 25.9.23",
+        "version_requirement": ">=24.3.25,<26.0.0"
+      },
+      "generator": {
+        "name": "flowdata-sdk",
+        "version": "0.6.0"
+      },
+      "outputs": {
+        "cpp_python_bridge": false,
+        "integrations": [],
+        "sdk": "rust"
+      },
+      "payloads": [
+        {
+          "file_identifier": "BDET",
+          "payload_id": "0x0ce3158a894b54d7",
+          "qualified_root_type": "perception.metadata.BoxDetections",
+          "schema": "box_detections.fbs"
+        },
+        {
+          "file_identifier": "CLSF",
+          "payload_id": "0x014e6857456b02c9",
+          "qualified_root_type": "perception.metadata.Classifications",
+          "schema": "classifications.fbs"
+        },
+        {
+          "file_identifier": "FCTX",
+          "payload_id": "0x58e3bcf47ce173ee",
+          "qualified_root_type": "perception.metadata.FrameContext",
+          "schema": "frame_context.fbs"
+        },
+        {
+          "file_identifier": "EMBE",
+          "payload_id": "0x30384108eca7618b",
+          "qualified_root_type": "perception.metadata.ObjectEmbeddings",
+          "schema": "object_embeddings.fbs"
+        },
+        {
+          "file_identifier": "TRKS",
+          "payload_id": "0x0ce96aaa4da0be05",
+          "qualified_root_type": "perception.metadata.ObjectTracks",
+          "schema": "object_tracks.fbs"
+        },
+        {
+          "file_identifier": "PERF",
+          "payload_id": "0x3a016f29e2dedcff",
+          "qualified_root_type": "perception.metadata.PerformanceOverlay",
+          "schema": "performance_overlay.fbs"
+        },
+        {
+          "file_identifier": "POSE",
+          "payload_id": "0x7a0e9c5e8891e4cc",
+          "qualified_root_type": "perception.metadata.PoseEstimations",
+          "schema": "pose_estimations.fbs"
+        },
+        {
+          "file_identifier": "SGMS",
+          "payload_id": "0x0f4bdacd4b91f8f0",
+          "qualified_root_type": "perception.metadata.SegmentationMasks",
+          "schema": "segmentation_masks.fbs"
+        },
+        {
+          "file_identifier": "TRCE",
+          "payload_id": "0x795dadde85c8397d",
+          "qualified_root_type": "perception.metadata.TrackTraces",
+          "schema": "track_traces.fbs"
+        }
+      ],
       "schema_files": [
         {
           "path": "box_detections.fbs",
@@ -1639,7 +2142,7 @@
       },
       "generator": {
         "name": "flowdata-sdk",
-        "version": "0.5.0"
+        "version": "0.6.0"
       },
       "outputs": {
         "cpp_python_bridge": false,
