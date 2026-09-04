@@ -153,7 +153,7 @@ def extract_rust_crate(
     expected_root = f"{artifact.name}-{artifact.version}"
     file_hashes: dict[str, str] = {}
     member_paths: set[str] = set()
-    with tarfile.open(crate, "r:gz") as archive:  # NOSONAR: validated before extraction.
+    with tarfile.open(crate, "r:gz") as archive:  # NOSONAR
         members = archive.getmembers()
         if len(members) > MAX_RUST_CRATE_MEMBERS:
             raise RuntimeError(f"Rust crate has too many archive members: {crate.name}")
