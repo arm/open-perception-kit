@@ -36,10 +36,10 @@
 
 namespace perception {
 
-inline constexpr std::string_view PERCEPTION_VERSION = "0.2.1";
+inline constexpr std::string_view PERCEPTION_VERSION = "0.3.0";
 inline constexpr std::string_view PERCEPTION_NAME = "perception";
 inline constexpr std::string_view PERCEPTION_SCHEMA_SET_SHA256 =
-    "0ba6dfe959e1453ce12c7a8707623bc15d94d52c9235c26f7e27f31dda0775c5";
+    "5a2f77909600d6458a707fba68cff1a7dc5f610dec58174456bb97d16596c383";
 inline constexpr std::string_view PERCEPTION_FLATBUFFERS_VERSION_REQUIREMENT = "==25.9.23";
 
 namespace detail {
@@ -52,7 +52,7 @@ template <> struct native_traits<perception::metadata::BoxDetectionsT> {
     using table_type = perception::metadata::BoxDetections;
     using native_type = perception::metadata::BoxDetectionsT;
 
-    static constexpr id_t id = 127096183275957372ULL;
+    static constexpr id_t id = 928609632921539799ULL;
     static constexpr std::string_view qualified_root_type = "perception.metadata.BoxDetections";
 
     static constexpr const char *file_identifier() {
@@ -68,7 +68,7 @@ template <> struct native_traits<perception::metadata::ClassificationsT> {
     using table_type = perception::metadata::Classifications;
     using native_type = perception::metadata::ClassificationsT;
 
-    static constexpr id_t id = 9181357636124419217ULL;
+    static constexpr id_t id = 94127366257443529ULL;
     static constexpr std::string_view qualified_root_type = "perception.metadata.Classifications";
 
     static constexpr const char *file_identifier() {
@@ -84,7 +84,7 @@ template <> struct native_traits<perception::metadata::FrameContextT> {
     using table_type = perception::metadata::FrameContext;
     using native_type = perception::metadata::FrameContextT;
 
-    static constexpr id_t id = 6787725252958650128ULL;
+    static constexpr id_t id = 6405170853304169454ULL;
     static constexpr std::string_view qualified_root_type = "perception.metadata.FrameContext";
 
     static constexpr const char *file_identifier() {
@@ -100,7 +100,7 @@ template <> struct native_traits<perception::metadata::ObjectEmbeddingsT> {
     using table_type = perception::metadata::ObjectEmbeddings;
     using native_type = perception::metadata::ObjectEmbeddingsT;
 
-    static constexpr id_t id = 3601053540183530964ULL;
+    static constexpr id_t id = 3474598619102273931ULL;
     static constexpr std::string_view qualified_root_type = "perception.metadata.ObjectEmbeddings";
 
     static constexpr const char *file_identifier() {
@@ -116,7 +116,7 @@ template <> struct native_traits<perception::metadata::ObjectTracksT> {
     using table_type = perception::metadata::ObjectTracks;
     using native_type = perception::metadata::ObjectTracksT;
 
-    static constexpr id_t id = 1204340903431744882ULL;
+    static constexpr id_t id = 930392077708082693ULL;
     static constexpr std::string_view qualified_root_type = "perception.metadata.ObjectTracks";
 
     static constexpr const char *file_identifier() {
@@ -149,7 +149,7 @@ template <> struct native_traits<perception::metadata::PoseEstimationsT> {
     using table_type = perception::metadata::PoseEstimations;
     using native_type = perception::metadata::PoseEstimationsT;
 
-    static constexpr id_t id = 6089861490284108552ULL;
+    static constexpr id_t id = 8795139052133278924ULL;
     static constexpr std::string_view qualified_root_type = "perception.metadata.PoseEstimations";
 
     static constexpr const char *file_identifier() {
@@ -165,7 +165,7 @@ template <> struct native_traits<perception::metadata::SegmentationMasksT> {
     using table_type = perception::metadata::SegmentationMasks;
     using native_type = perception::metadata::SegmentationMasksT;
 
-    static constexpr id_t id = 3767952910034633902ULL;
+    static constexpr id_t id = 1102215109093226736ULL;
     static constexpr std::string_view qualified_root_type = "perception.metadata.SegmentationMasks";
 
     static constexpr const char *file_identifier() {
@@ -181,7 +181,7 @@ template <> struct native_traits<perception::metadata::TrackTracesT> {
     using table_type = perception::metadata::TrackTraces;
     using native_type = perception::metadata::TrackTracesT;
 
-    static constexpr id_t id = 4937615646931894804ULL;
+    static constexpr id_t id = 8745337222662207869ULL;
     static constexpr std::string_view qualified_root_type = "perception.metadata.TrackTraces";
 
     static constexpr const char *file_identifier() {

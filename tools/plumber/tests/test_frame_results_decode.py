@@ -109,7 +109,7 @@ class FrameResultsDecodeTests(unittest.TestCase):
             (None, None, None, "missing"),
             (PERCEPTION_NAME, PERCEPTION_VERSION, "bad", "malformed"),
             ("other_sdk", PERCEPTION_VERSION, SCHEMA_SET_SHA256, "sdk_name_mismatch"),
-            (PERCEPTION_NAME, "0.2.0", SCHEMA_SET_SHA256, "sdk_version_mismatch"),
+            (PERCEPTION_NAME, "9.9.9", SCHEMA_SET_SHA256, "sdk_version_mismatch"),
             (PERCEPTION_NAME, PERCEPTION_VERSION, "0" * 64, "schema_set_mismatch"),
         ]
 

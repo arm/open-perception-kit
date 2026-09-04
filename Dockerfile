@@ -34,7 +34,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 COPY tools/perception/sdk.json /tmp/perception-sdk.json
+COPY development/ops-python/runtime.json /tmp/python-ops-runtime.json
 COPY --chmod=0755 scripts/private/install-perception-flatbuffers.sh /usr/local/bin/install-perception-flatbuffers
+COPY --chmod=0755 scripts/setup-python-ops-runtime.sh /usr/local/bin/setup-python-ops-runtime
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
@@ -84,7 +86,11 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         --retry 3 --output "${destination}" "${fallback_url}"; \
     echo "${sha256}  ${destination}" | sha256sum --check --strict; \
   done; \
-  rm -f /tmp/perception-sdk.json
+  setup-python-ops-runtime \
+    --venv /opt/pek-venvs/python-ops-runtime \
+    --runtime-json /tmp/python-ops-runtime.json \
+    --sdk-json /tmp/perception-sdk.json; \
+  rm -f /tmp/perception-sdk.json /tmp/python-ops-runtime.json
 
 
 FROM pek-build-base AS pek-cross-build-base
@@ -169,6 +175,7 @@ ARG USER_UID=1000
 ARG USER_GID=1000
 
 COPY tools/perception/sdk.json /tmp/perception-sdk.json
+COPY development/ops-python/runtime.json /tmp/python-ops-runtime.json
 COPY development/web/package-lock.json /tmp/pek-web-package-lock.json
 
 RUN set -eux; uname -a; cat /etc/os-release; dpkg --print-architecture
@@ -272,6 +279,9 @@ COPY tools/plumber /tmp/pek-tools/plumber
 COPY generated/perception/python /tmp/pek-tools/perception
 RUN set -eux; \
   uv pip install --system --break-system-packages jsonschema==4.26.0; \
+  runtime_arch="$(dpkg --print-architecture)"; \
+  case "${runtime_arch}" in amd64) runtime_arch=x86_64 ;; arm64) runtime_arch=aarch64 ;; *) exit 1 ;; esac; \
+  numpy_wheel="$(python3 -c 'import json, sys; wheel=json.load(open(sys.argv[1]))["numpy"]["wheels"][sys.argv[2]]; print(wheel["url"] + "#sha256=" + wheel["sha256"])' /tmp/python-ops-runtime.json "${runtime_arch}")"; \
   flatbuffers_wheel="$(python3 -c 'import json; wheel=json.load(open("/tmp/perception-sdk.json"))["flatbuffers"]["python_wheel"]; print(wheel["url"] + "#sha256=" + wheel["sha256"])')"; \
   uv venv --system-site-packages /opt/pek-venvs/devtools; \
   uv pip install --python /opt/pek-venvs/devtools/bin/python \
@@ -279,17 +289,19 @@ RUN set -eux; \
   /tmp/pek-tools/perception \
   /tmp/pek-tools/plumber \
   huggingface_hub==1.18.0 \
+  "${numpy_wheel}" \
   "${flatbuffers_wheel}"; \
   cd /tmp; \
   /opt/pek-venvs/devtools/bin/python -c 'import perception, plumber'; \
   chown -R "${USER_UID}:${USER_GID}" /opt/pek-venvs/devtools; \
-  rm -rf /tmp/pek-tools /tmp/perception-sdk.json
+  rm -rf /tmp/pek-tools /tmp/perception-sdk.json /tmp/python-ops-runtime.json
 
 EXPOSE 8000 8001 9999 8080 2222
 
 ENV GST_DEBUG=2 \
   GST_PLUGIN_PATH=/work/development/build/meson-out \
   LD_LIBRARY_PATH=/opt/pek-deps/onnxruntime/lib:/work/development/build/meson-out \
+  PEK_PYTHON_RUNTIME_VENV=/opt/pek-venvs/python-ops-runtime \
   PEK_DEVTOOLS_VENV=/opt/pek-venvs/devtools \
   PATH=/opt/pek-venvs/devtools/bin:${PATH}
 
@@ -479,6 +491,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   openjdk-25-jdk pandoc python3-dev python3-gi python3-gst-1.0 \
   zlib1g-dev
 
+RUN uv pip install --python /opt/pek-venvs/devtools/bin/python coverage==7.10.7
+
 RUN set -eux; \
   mkdir -p /opt/pek-deps; \
   plantuml_jar="plantuml-mit-${PLANTUML_VERSION}.jar"; \
@@ -520,6 +534,34 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   libgstreamer1.0-0; \
   update-ca-certificates; \
   rm -rf /var/lib/apt/lists/*
+
+FROM pek-gstreamer-runtime-base AS pek-python-ops-runtime
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+  PYTHONDONTWRITEBYTECODE=1
+
+COPY tools/perception/sdk.json /tmp/perception-sdk.json
+COPY development/ops-python/runtime.json /tmp/python-ops-runtime.json
+COPY generated/perception/python /tmp/perception-python
+COPY --chmod=0755 scripts/setup-python-ops-runtime.sh /usr/local/bin/setup-python-ops-runtime
+
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+  --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+  set -eux; \
+  apt-get update; \
+  apt-get install -y --no-install-recommends \
+    python3 \
+    python3-venv; \
+  setup-python-ops-runtime \
+    --venv /opt/pek-venvs/python-ops-runtime \
+    --runtime-json /tmp/python-ops-runtime.json \
+    --sdk-json /tmp/perception-sdk.json \
+    --perception-sdk /tmp/perception-python; \
+  rm -rf \
+    /tmp/perception-python \
+    /tmp/perception-sdk.json \
+    /tmp/python-ops-runtime.json \
+    /var/lib/apt/lists/*
 
 FROM pek-cross-build-base AS pek-deployment-build
 
@@ -585,6 +627,10 @@ RUN --mount=type=cache,id=pek-deployment-ccache,target=/work/.cache/ccache,shari
   export CCACHE_MAXSIZE=2G; \
   export CCACHE_UMASK=000; \
   ccache --zero-stats; \
+  /opt/pek-venvs/python-ops-runtime/bin/pip install --no-cache-dir --no-deps \
+    /work/generated/perception/python; \
+  /opt/pek-venvs/python-ops-runtime/bin/python -c \
+    'import flatbuffers, numpy, perception'; \
   native_arch="$(dpkg --print-architecture)"; \
   extra_setup_args=(); \
   if [ "${PEK_RELEASE_BUILD}" = true ]; then \
@@ -594,10 +640,16 @@ RUN --mount=type=cache,id=pek-deployment-ccache,target=/work/.cache/ccache,shari
   fi; \
   mkdir -p /work/tools; \
   executorch=auto; \
+  python_ops=auto; \
   if [ "${PEK_RELEASE_BUILD}" = true ]; then \
     executorch=enabled; \
+    python_ops=enabled; \
+  elif [ "${TARGETARCH}" != "${native_arch}" ]; then \
+    python_ops=disabled; \
   fi; \
   PEK_EXECUTORCH="${executorch}" \
+  PEK_PYTHON_OPS="${python_ops}" \
+  PEK_PYTHON_RUNTIME_VENV=/opt/pek-venvs/python-ops-runtime \
   PEK_ONNXRUNTIME_ROOT=/opt/pek-deps/onnxruntime \
   NINJAFLAGS=-j2 \
   ./scripts/build.sh release false "${extra_setup_args[@]}"; \
@@ -630,6 +682,9 @@ RUN --mount=type=cache,id=pek-deployment-ccache,target=/work/.cache/ccache,shari
     /work/tools/pek-config-check --root /work; \
     DESTDIR="${package_root}" meson install \
       -C /work/development/build --skip-subprojects; \
+    /opt/pek-venvs/python-ops-runtime/bin/python \
+      /work/scripts/release/ReleaseTool.py stage-python-runtime \
+      --stage-root "${package_root}"; \
     cp /opt/pek-deps/onnxruntime/lib/libonnxruntime.so.1.24.4 \
       "${package_root}/lib/pek/"; \
     ln -s libonnxruntime.so.1.24.4 \
@@ -668,13 +723,15 @@ RUN set -eux; \
     rm -rf /tmp/pek-release; \
   fi
 
-FROM pek-gstreamer-runtime-base AS pek-deployment-base
+FROM pek-python-ops-runtime AS pek-deployment-base
 
 ARG USERNAME=pek
 ARG USER_UID=1000
 ARG USER_GID=1000
 ARG PEK_PIPELINE=yolov11-onnx
 ARG PEK_PICAMERA=disabled
+ARG BUILDARCH
+ARG TARGETARCH
 
 ENV DEBIAN_FRONTEND=noninteractive \
   LANG=C.UTF-8 \
@@ -682,6 +739,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
   GST_DEBUG=2 \
   GST_PLUGIN_PATH=/work/development/build/meson-out \
   LD_LIBRARY_PATH=/opt/pek-deps/onnxruntime/lib:/work/development/build/meson-out \
+  PEK_PYTHON_RUNTIME_VENV=/opt/pek-venvs/python-ops-runtime \
   PEK_PIPELINE=${PEK_PIPELINE}
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -699,9 +757,11 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   libfftw3-single3 \
   libfmt10 \
   libjson-glib-1.0-0 \
+  libpython3.13 \
   libsoup-3.0-0 \
   libssl3t64 \
   libusb-1.0-0 \
+  python3 \
   zlib1g; \
   if [ "${PEK_PICAMERA}" = enabled ]; then \
     test "$(dpkg --print-architecture)" = arm64; \
@@ -739,6 +799,27 @@ COPY --from=pek-deployment-build /opt/pek-app/tools /work/tools
 COPY --from=pek-deployment-build /opt/pek-app/scripts /work/scripts
 COPY --from=pek-deployment-build /opt/pek-release-artifacts /opt/pek-release-artifacts
 
+RUN set -eux; \
+  /opt/pek-venvs/python-ops-runtime/bin/python -c \
+    'import flatbuffers, numpy, perception'; \
+  python_ops=/work/development/build/meson-out/pek-python-ops.so; \
+  if [ "${BUILDARCH}" = "${TARGETARCH}" ]; then \
+    test -f "${python_ops}"; \
+    if ldd "${python_ops}" | grep -q 'not found'; then \
+      exit 1; \
+    fi; \
+    gst-launch-1.0 -q \
+      videotestsrc num-buffers=1 pattern=ball ! \
+      videoconvert ! videoscale ! \
+      video/x-raw,format=BGRA,width=320,height=240,framerate=5/1 ! \
+      pekinfer \
+        opchain-path=/work/config/models/mobilenetv2/opchain-python-classification.json \
+        active=true ! \
+      fakesink; \
+  else \
+    test ! -e "${python_ops}"; \
+  fi
+
 EXPOSE 8000
 EXPOSE 8001
 EXPOSE 9999
@@ -750,7 +831,9 @@ WORKDIR /work
 
 ARG TARGETARCH
 ARG PEK_RELEASE_BUILD_ID=""
-RUN --network=none set -eux; \
+RUN --network=none \
+  --mount=type=bind,source=development/tests/python_script_op/runtime_environment.py,target=/tmp/runtime_environment.py,readonly \
+  set -eux; \
   if [ -z "${PEK_RELEASE_BUILD_ID}" ]; then \
     exit 0; \
   fi; \
@@ -783,6 +866,20 @@ RUN --network=none set -eux; \
       pekosd enabled=true ! fakesink sync=false; \
     test -s "${output}"; \
   done; \
+  python_smoke_root="${package_root}/share/pek/models/yolov11"; \
+  cp /tmp/runtime_environment.py \
+    "${python_smoke_root}/"; \
+  python3 -c \
+    'import json, sys; opchain=json.load(open(sys.argv[1], encoding="utf-8")); opchain["ops"].insert(0, {"id": "pek-python-ops/PythonScript", "attributes": {"script": "runtime_environment.py"}}); json.dump(opchain, open(sys.argv[2], "w", encoding="utf-8"))' \
+    "${python_smoke_root}/opchain.json" \
+    "${python_smoke_root}/opchain-python-smoke.json"; \
+  env -u PEK_DEVTOOLS_VENV -u PEK_PYTHON_RUNTIME_VENV \
+    GST_REGISTRY="${registry}" timeout 120s gst-launch-1.0 -q \
+    videotestsrc pattern=ball num-buffers=1 ! \
+    video/x-raw,format=BGRA,width=320,height=320,framerate=5/1 ! \
+    pekinfer \
+      opchain-path="${python_smoke_root}/opchain-python-smoke.json" ! \
+    fakesink sync=false; \
   GST_REGISTRY="${registry}" timeout 120s gst-launch-1.0 -q \
     videotestsrc pattern=ball num-buffers=5 ! \
     video/x-raw,format=BGRA,width=320,height=320,framerate=5/1 ! \

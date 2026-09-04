@@ -36,6 +36,8 @@ struct TensorParser {
         const pek::AttributeMap &attributes;
         /// Runtime inference information for parser decisions/diagnostics.
         pek::InferenceInfo inferenceInfo;
+        /// Identity of the operation and implementation producing result payloads.
+        perception::metadata::ProducerInfoT producerInfo;
     };
 
     /**

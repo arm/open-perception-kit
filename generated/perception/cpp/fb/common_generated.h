@@ -22,6 +22,10 @@ struct ObjectMeta;
 struct ObjectMetaBuilder;
 struct ObjectMetaT;
 
+struct ProducerInfo;
+struct ProducerInfoBuilder;
+struct ProducerInfoT;
+
 struct LayerInfo;
 struct LayerInfoBuilder;
 struct LayerInfoT;
@@ -115,6 +119,97 @@ CreateObjectMeta(::flatbuffers::FlatBufferBuilder &_fbb,
                  const ObjectMetaT *_o,
                  const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
+struct ProducerInfoT : public ::flatbuffers::NativeTable {
+    typedef ProducerInfo TableType;
+    std::string instance_id{};
+    std::string component{};
+    std::string implementation{};
+};
+
+struct ProducerInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+    typedef ProducerInfoT NativeTableType;
+    typedef ProducerInfoBuilder Builder;
+    enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+        VT_INSTANCE_ID = 4,
+        VT_COMPONENT = 6,
+        VT_IMPLEMENTATION = 8
+    };
+    const ::flatbuffers::String *instance_id() const {
+        return GetPointer<const ::flatbuffers::String *>(VT_INSTANCE_ID);
+    }
+    const ::flatbuffers::String *component() const {
+        return GetPointer<const ::flatbuffers::String *>(VT_COMPONENT);
+    }
+    const ::flatbuffers::String *implementation() const {
+        return GetPointer<const ::flatbuffers::String *>(VT_IMPLEMENTATION);
+    }
+    bool Verify(::flatbuffers::Verifier &verifier) const {
+        return VerifyTableStart(verifier) && VerifyOffset(verifier, VT_INSTANCE_ID) &&
+               verifier.VerifyString(instance_id()) && VerifyOffset(verifier, VT_COMPONENT) &&
+               verifier.VerifyString(component()) && VerifyOffset(verifier, VT_IMPLEMENTATION) &&
+               verifier.VerifyString(implementation()) && verifier.EndTable();
+    }
+    ProducerInfoT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+    void UnPackTo(ProducerInfoT *_o,
+                  const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+    static ::flatbuffers::Offset<ProducerInfo>
+    Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+         const ProducerInfoT *_o,
+         const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct ProducerInfoBuilder {
+    typedef ProducerInfo Table;
+    ::flatbuffers::FlatBufferBuilder &fbb_;
+    ::flatbuffers::uoffset_t start_;
+    void add_instance_id(::flatbuffers::Offset<::flatbuffers::String> instance_id) {
+        fbb_.AddOffset(ProducerInfo::VT_INSTANCE_ID, instance_id);
+    }
+    void add_component(::flatbuffers::Offset<::flatbuffers::String> component) {
+        fbb_.AddOffset(ProducerInfo::VT_COMPONENT, component);
+    }
+    void add_implementation(::flatbuffers::Offset<::flatbuffers::String> implementation) {
+        fbb_.AddOffset(ProducerInfo::VT_IMPLEMENTATION, implementation);
+    }
+    explicit ProducerInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
+        start_ = fbb_.StartTable();
+    }
+    ::flatbuffers::Offset<ProducerInfo> Finish() {
+        const auto end = fbb_.EndTable(start_);
+        auto o = ::flatbuffers::Offset<ProducerInfo>(end);
+        return o;
+    }
+};
+
+inline ::flatbuffers::Offset<ProducerInfo>
+CreateProducerInfo(::flatbuffers::FlatBufferBuilder &_fbb,
+                   ::flatbuffers::Offset<::flatbuffers::String> instance_id = 0,
+                   ::flatbuffers::Offset<::flatbuffers::String> component = 0,
+                   ::flatbuffers::Offset<::flatbuffers::String> implementation = 0) {
+    ProducerInfoBuilder builder_(_fbb);
+    builder_.add_implementation(implementation);
+    builder_.add_component(component);
+    builder_.add_instance_id(instance_id);
+    return builder_.Finish();
+}
+
+inline ::flatbuffers::Offset<ProducerInfo>
+CreateProducerInfoDirect(::flatbuffers::FlatBufferBuilder &_fbb,
+                         const char *instance_id = nullptr,
+                         const char *component = nullptr,
+                         const char *implementation = nullptr) {
+    auto instance_id__ = instance_id ? _fbb.CreateString(instance_id) : 0;
+    auto component__ = component ? _fbb.CreateString(component) : 0;
+    auto implementation__ = implementation ? _fbb.CreateString(implementation) : 0;
+    return perception::metadata::CreateProducerInfo(
+        _fbb, instance_id__, component__, implementation__);
+}
+
+::flatbuffers::Offset<ProducerInfo>
+CreateProducerInfo(::flatbuffers::FlatBufferBuilder &_fbb,
+                   const ProducerInfoT *_o,
+                   const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
 struct LayerInfoT : public ::flatbuffers::NativeTable {
     typedef LayerInfo TableType;
     std::string engine{};
@@ -124,6 +219,11 @@ struct LayerInfoT : public ::flatbuffers::NativeTable {
     std::string label_family{};
     std::string content_type{};
     std::string compositing_mode{};
+    std::unique_ptr<perception::metadata::ProducerInfoT> producer{};
+    LayerInfoT() = default;
+    LayerInfoT(const LayerInfoT &o);
+    LayerInfoT(LayerInfoT &&) FLATBUFFERS_NOEXCEPT = default;
+    LayerInfoT &operator=(LayerInfoT o) FLATBUFFERS_NOEXCEPT;
 };
 
 struct LayerInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -136,7 +236,8 @@ struct LayerInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
         VT_INFER_ELEMENT_ID = 10,
         VT_LABEL_FAMILY = 12,
         VT_CONTENT_TYPE = 14,
-        VT_COMPOSITING_MODE = 16
+        VT_COMPOSITING_MODE = 16,
+        VT_PRODUCER = 18
     };
     const ::flatbuffers::String *engine() const {
         return GetPointer<const ::flatbuffers::String *>(VT_ENGINE);
@@ -159,6 +260,9 @@ struct LayerInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     const ::flatbuffers::String *compositing_mode() const {
         return GetPointer<const ::flatbuffers::String *>(VT_COMPOSITING_MODE);
     }
+    const perception::metadata::ProducerInfo *producer() const {
+        return GetPointer<const perception::metadata::ProducerInfo *>(VT_PRODUCER);
+    }
     bool Verify(::flatbuffers::Verifier &verifier) const {
         return VerifyTableStart(verifier) && VerifyOffset(verifier, VT_ENGINE) &&
                verifier.VerifyString(engine()) && VerifyOffset(verifier, VT_MODEL) &&
@@ -168,7 +272,8 @@ struct LayerInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
                VerifyOffset(verifier, VT_LABEL_FAMILY) && verifier.VerifyString(label_family()) &&
                VerifyOffset(verifier, VT_CONTENT_TYPE) && verifier.VerifyString(content_type()) &&
                VerifyOffset(verifier, VT_COMPOSITING_MODE) &&
-               verifier.VerifyString(compositing_mode()) && verifier.EndTable();
+               verifier.VerifyString(compositing_mode()) && VerifyOffset(verifier, VT_PRODUCER) &&
+               verifier.VerifyTable(producer()) && verifier.EndTable();
     }
     LayerInfoT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
     void UnPackTo(LayerInfoT *_o,
@@ -204,6 +309,9 @@ struct LayerInfoBuilder {
     void add_compositing_mode(::flatbuffers::Offset<::flatbuffers::String> compositing_mode) {
         fbb_.AddOffset(LayerInfo::VT_COMPOSITING_MODE, compositing_mode);
     }
+    void add_producer(::flatbuffers::Offset<perception::metadata::ProducerInfo> producer) {
+        fbb_.AddOffset(LayerInfo::VT_PRODUCER, producer);
+    }
     explicit LayerInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
         start_ = fbb_.StartTable();
     }
@@ -222,8 +330,10 @@ CreateLayerInfo(::flatbuffers::FlatBufferBuilder &_fbb,
                 ::flatbuffers::Offset<::flatbuffers::String> infer_element_id = 0,
                 ::flatbuffers::Offset<::flatbuffers::String> label_family = 0,
                 ::flatbuffers::Offset<::flatbuffers::String> content_type = 0,
-                ::flatbuffers::Offset<::flatbuffers::String> compositing_mode = 0) {
+                ::flatbuffers::Offset<::flatbuffers::String> compositing_mode = 0,
+                ::flatbuffers::Offset<perception::metadata::ProducerInfo> producer = 0) {
     LayerInfoBuilder builder_(_fbb);
+    builder_.add_producer(producer);
     builder_.add_compositing_mode(compositing_mode);
     builder_.add_content_type(content_type);
     builder_.add_label_family(label_family);
@@ -242,7 +352,8 @@ CreateLayerInfoDirect(::flatbuffers::FlatBufferBuilder &_fbb,
                       const char *infer_element_id = nullptr,
                       const char *label_family = nullptr,
                       const char *content_type = nullptr,
-                      const char *compositing_mode = nullptr) {
+                      const char *compositing_mode = nullptr,
+                      ::flatbuffers::Offset<perception::metadata::ProducerInfo> producer = 0) {
     auto engine__ = engine ? _fbb.CreateString(engine) : 0;
     auto model__ = model ? _fbb.CreateString(model) : 0;
     auto tags__ = tags ? _fbb.CreateString(tags) : 0;
@@ -257,7 +368,8 @@ CreateLayerInfoDirect(::flatbuffers::FlatBufferBuilder &_fbb,
                                                  infer_element_id__,
                                                  label_family__,
                                                  content_type__,
-                                                 compositing_mode__);
+                                                 compositing_mode__,
+                                                 producer);
 }
 
 ::flatbuffers::Offset<LayerInfo>
@@ -564,6 +676,78 @@ CreateObjectMeta(::flatbuffers::FlatBufferBuilder &_fbb,
     return perception::metadata::CreateObjectMeta(_fbb, _id, _parent_id, _creation_ts_ns);
 }
 
+inline ProducerInfoT *
+ProducerInfo::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+    auto _o = std::unique_ptr<ProducerInfoT>(new ProducerInfoT());
+    UnPackTo(_o.get(), _resolver);
+    return _o.release();
+}
+
+inline void ProducerInfo::UnPackTo(ProducerInfoT *_o,
+                                   const ::flatbuffers::resolver_function_t *_resolver) const {
+    (void)_o;
+    (void)_resolver;
+    {
+        auto _e = instance_id();
+        if (_e)
+            _o->instance_id = _e->str();
+    }
+    {
+        auto _e = component();
+        if (_e)
+            _o->component = _e->str();
+    }
+    {
+        auto _e = implementation();
+        if (_e)
+            _o->implementation = _e->str();
+    }
+}
+
+inline ::flatbuffers::Offset<ProducerInfo>
+ProducerInfo::Pack(::flatbuffers::FlatBufferBuilder &_fbb,
+                   const ProducerInfoT *_o,
+                   const ::flatbuffers::rehasher_function_t *_rehasher) {
+    return CreateProducerInfo(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<ProducerInfo>
+CreateProducerInfo(::flatbuffers::FlatBufferBuilder &_fbb,
+                   const ProducerInfoT *_o,
+                   const ::flatbuffers::rehasher_function_t *_rehasher) {
+    (void)_rehasher;
+    (void)_o;
+    struct _VectorArgs {
+        ::flatbuffers::FlatBufferBuilder *__fbb;
+        const ProducerInfoT *__o;
+        const ::flatbuffers::rehasher_function_t *__rehasher;
+    } _va = {&_fbb, _o, _rehasher};
+    (void)_va;
+    auto _instance_id = _o->instance_id.empty() ? 0 : _fbb.CreateString(_o->instance_id);
+    auto _component = _o->component.empty() ? 0 : _fbb.CreateString(_o->component);
+    auto _implementation = _o->implementation.empty() ? 0 : _fbb.CreateString(_o->implementation);
+    return perception::metadata::CreateProducerInfo(
+        _fbb, _instance_id, _component, _implementation);
+}
+
+inline LayerInfoT::LayerInfoT(const LayerInfoT &o)
+    : engine(o.engine), model(o.model), tags(o.tags), infer_element_id(o.infer_element_id),
+      label_family(o.label_family), content_type(o.content_type),
+      compositing_mode(o.compositing_mode),
+      producer((o.producer) ? new perception::metadata::ProducerInfoT(*o.producer) : nullptr) {}
+
+inline LayerInfoT &LayerInfoT::operator=(LayerInfoT o) FLATBUFFERS_NOEXCEPT {
+    std::swap(engine, o.engine);
+    std::swap(model, o.model);
+    std::swap(tags, o.tags);
+    std::swap(infer_element_id, o.infer_element_id);
+    std::swap(label_family, o.label_family);
+    std::swap(content_type, o.content_type);
+    std::swap(compositing_mode, o.compositing_mode);
+    std::swap(producer, o.producer);
+    return *this;
+}
+
 inline LayerInfoT *LayerInfo::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
     auto _o = std::unique_ptr<LayerInfoT>(new LayerInfoT());
     UnPackTo(_o.get(), _resolver);
@@ -609,6 +793,19 @@ inline void LayerInfo::UnPackTo(LayerInfoT *_o,
         if (_e)
             _o->compositing_mode = _e->str();
     }
+    {
+        auto _e = producer();
+        if (_e) {
+            if (_o->producer) {
+                _e->UnPackTo(_o->producer.get(), _resolver);
+            } else {
+                _o->producer =
+                    std::unique_ptr<perception::metadata::ProducerInfoT>(_e->UnPack(_resolver));
+            }
+        } else if (_o->producer) {
+            _o->producer.reset();
+        }
+    }
 }
 
 inline ::flatbuffers::Offset<LayerInfo>
@@ -639,6 +836,7 @@ CreateLayerInfo(::flatbuffers::FlatBufferBuilder &_fbb,
     auto _content_type = _o->content_type.empty() ? 0 : _fbb.CreateString(_o->content_type);
     auto _compositing_mode =
         _o->compositing_mode.empty() ? 0 : _fbb.CreateString(_o->compositing_mode);
+    auto _producer = _o->producer ? CreateProducerInfo(_fbb, _o->producer.get(), _rehasher) : 0;
     return perception::metadata::CreateLayerInfo(_fbb,
                                                  _engine,
                                                  _model,
@@ -646,7 +844,8 @@ CreateLayerInfo(::flatbuffers::FlatBufferBuilder &_fbb,
                                                  _infer_element_id,
                                                  _label_family,
                                                  _content_type,
-                                                 _compositing_mode);
+                                                 _compositing_mode,
+                                                 _producer);
 }
 
 inline BoundingBoxT *

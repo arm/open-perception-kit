@@ -40,8 +40,9 @@ sha256sum pek-<version>-linux-<architecture>.tar.gz
 Architecture packages contain the six PEK plugins, the private
 `lib/pek/pek-runtime.so` and common libraries, compatible model binaries and
 OpChains, `peksink` web assets, approved notices, and ONNX Runtime. They also
-contain the experimental ExecuTorch operation module and the YOLOX ExecuTorch
-model, plus these two distinct payloads:
+contain the experimental ExecuTorch operation module, the PythonScript operation
+module, the YOLOX ExecuTorch model, and a private locked Python package directory
+at `share/pek/python`, plus these two distinct payloads:
 
 - `share/pek/perception-sdk/` contains the Perception SDK ZIP, checksum, and
   provenance sidecar;
@@ -64,8 +65,11 @@ tools with the Base, Good, and Bad plugin sets, including Nice and the WebRTC
 plugins. GLib, Cairo, OpenSSL, zlib, Brotli, zstd, libsoup 3, json-glib, the
 C/C++ runtimes, and any required accelerator driver and firmware remain host
 dependencies. The Arm package also requires the system `libusb-1.0` runtime.
-Python applications also need the system PyGObject GStreamer bindings,
-available as `python3-gst-1.0` on Debian Trixie.
+PythonScript OpChains require the Debian Trixie `python3` and `libpython3.13`
+packages; NumPy, FlatBuffers, and the Perception guest package are already
+included privately in the PEK archive. Python applications that drive
+GStreamer directly also need the system PyGObject bindings, available as
+`python3-gst-1.0`.
 
 ## Extract and discover the plugins
 

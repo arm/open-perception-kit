@@ -19,21 +19,27 @@ makeObjectMeta(uint64_t id, uint64_t parentId, uint64_t creationTsNs) {
     return object;
 }
 
-std::unique_ptr<metadata::LayerInfoT> makeLayerInfo(std::string_view model,
-                                                    std::string_view inferElementId,
-                                                    std::string_view contentType,
-                                                    std::string_view engine,
-                                                    std::string_view tags,
-                                                    std::string_view labelFamily,
-                                                    std::string_view compositingMode) {
+std::unique_ptr<metadata::LayerInfoT> makeLayerInfo(const LayerInfoDescriptor &descriptor) {
     auto info = std::make_unique<metadata::LayerInfoT>();
-    info->engine = engine;
-    info->model = model;
-    info->tags = tags;
-    info->infer_element_id = inferElementId;
-    info->label_family = labelFamily;
-    info->content_type = contentType;
-    info->compositing_mode = compositingMode;
+    info->engine = descriptor.engine;
+    info->model = descriptor.model;
+    info->tags = descriptor.tags;
+    info->infer_element_id = descriptor.inferElementId;
+    info->label_family = descriptor.labelFamily;
+    info->content_type = descriptor.contentType;
+    info->compositing_mode = descriptor.compositingMode;
+    if (descriptor.producer != nullptr)
+        info->producer = std::make_unique<metadata::ProducerInfoT>(*descriptor.producer);
+    return info;
+}
+
+std::unique_ptr<metadata::ProducerInfoT> makeProducerInfo(std::string_view instanceId,
+                                                          std::string_view component,
+                                                          std::string_view implementation) {
+    auto info = std::make_unique<metadata::ProducerInfoT>();
+    info->instance_id = instanceId;
+    info->component = component;
+    info->implementation = implementation;
     return info;
 }
 

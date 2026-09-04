@@ -112,9 +112,16 @@ struct Op {
      */
     virtual Result<OpSignal> process(OpChainContext &opChainContext) = 0;
 
-    std::string libName; ///< Name of the shared library providing this operation.
-    std::string opName;  ///< Name of the operation class within the library.
-    size_t loopId = 0;   ///< Loop group ID; ops with the same loopId execute in a loop.
+    [[nodiscard]] perception::metadata::ProducerInfoT
+    producerInfo(std::string_view inferElementId,
+                 std::string_view implementation,
+                 std::string_view fallbackComponent) const;
+
+    std::string libName;    ///< Name of the shared library providing this operation.
+    std::string opName;     ///< Name of the operation class within the library.
+    std::string instanceId; ///< Stable descriptor identity or deterministic fallback.
+    size_t index = 0;       ///< Position of this operation in the OpChain.
+    size_t loopId = 0;      ///< Loop group ID; ops with the same loopId execute in a loop.
 
     /**
      * @brief Safely casts this operation to a derived type.

@@ -1,7 +1,7 @@
 # Generated project adapter. Do not edit.
 # Regenerate with ./scripts/perception-sdk.sh generate.
 
-perception_version = '0.2.1'
+perception_version = '0.3.0'
 perception_flatbuffers_version_requirement = '==25.9.23'
 
 _perception_flatbuffers_dep = dependency(
@@ -17,7 +17,7 @@ perception_dep = declare_dependency(
   dependencies : [_perception_flatbuffers_dep],
 )
 
-if get_option('tests')
+if get_option('tests') or python_ops_enabled
   _perception_python = pek_python
   _perception_python_embed_dep = _perception_python.dependency(
     embed : true,

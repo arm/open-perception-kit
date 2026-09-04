@@ -103,8 +103,11 @@ pek::Result<void> ImageNetClassificationParser::parse(const pek::TensorParser::I
                           std::greater<>());
 
         perception::metadata::ClassificationsT payload;
-        payload.layer = perception::makeLayerInfo(
-            input.inferenceInfo.modelName, input.inferenceInfo.inferElementId, k_content_type);
+        payload.layer =
+            perception::makeLayerInfo({.model = input.inferenceInfo.modelName,
+                                       .inferElementId = input.inferenceInfo.inferElementId,
+                                       .contentType = k_content_type,
+                                       .producer = &input.producerInfo});
 
         auto classification = std::make_unique<perception::metadata::ClassificationT>();
         classification->object = perception::makeObjectMeta(0U, input.inferenceInfo.parentId);

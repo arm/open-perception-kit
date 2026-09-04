@@ -131,9 +131,10 @@ replacement.
 Inside `pek-deployment-build`, the `scripts/build.sh release` build
 enables Meson's package install surface. The same Docker stage installs that
 build into a cacheable staging root, adds the resolved models and pinned
-runtimes, and validates every ELF. A final identity-only layer names and archives
-that payload with system `tar` and `gzip`; it does not call a release-build
-wrapper or configure a second build tree.
+runtimes, stages the locked NumPy, FlatBuffers, and Perception Python packages,
+and validates every ELF. A final identity-only layer names and archives that
+payload with system `tar` and `gzip`; it does not call a release-build wrapper
+or configure a second build tree.
 The architecture archives expose only the GStreamer plugin integration
 surface; neither Meson nor release scripts install PEK source headers.
 
@@ -145,7 +146,9 @@ release-specific packaging entrypoint.
 The validator checks:
 
 - exactly six GStreamer plugins;
+- exactly four PEK operation modules, including `pek-python-ops.so`;
 - one unversioned `lib/pek/pek-runtime.so`;
+- the private Python runtime modules and distribution manifest;
 - no public or source headers;
 - expected architecture and package-relative RUNPATH on every PEK DSO;
 - complete classified `DT_NEEDED` resolution;

@@ -91,6 +91,13 @@ producer element ID, label family, content type, and compositing mode. Consumers
 must select payloads by type and semantic fields such as `content_type`, not by
 their position in the envelope.
 
+`LayerInfo.producer` identifies the component that created the payload rather
+than only the enclosing inference element. Its `instance_id` distinguishes
+multiple operations in one OpChain, `component` identifies the canonical Op or
+element type, and `implementation` identifies the selected parser, script, or
+processing implementation. Producer metadata is provenance and must not be
+used as a replacement for payload-type or content-type routing.
+
 Result items use `ObjectMeta` where identity or parent relationships are needed:
 
 - `id` identifies an item within the producer's result model

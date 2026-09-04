@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:arm:pek:schema:python-script-op:v1",
+  "title": "PythonScript Op v1",
+  "if": {
+    "properties": {
+      "id": {
+        "const": "pek-python-ops/PythonScript"
+      }
+    },
+    "required": [
+      "id"
+    ]
+  },
+  "then": {
+    "required": [
+      "attributes"
+    ],
+    "properties": {
+      "attributes": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "script"
+        ],
+        "properties": {
+          "script": {
+            "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/localPath"
+          },
+          "pythonPaths": {
+            "type": "array",
+            "items": {
+              "$ref": "urn:arm:pek:schema:opchain-common:v1#/$defs/localPath"
+            },
+            "uniqueItems": true
+          }
+        }
+      }
+    }
+  }
+}

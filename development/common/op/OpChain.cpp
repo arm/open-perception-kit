@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <span>
 #include <string>
+#include <unordered_map>
 using namespace pek::op;
 
 const std::string &OpChain::getName() const {
@@ -72,8 +73,10 @@ pek::Result<void> OpChain::setupFromDescriptor(const pek::op::OpChainDescriptor 
     displayName = descriptor.displayName;
     task = descriptor.task;
     runtime = descriptor.runtime;
+    std::unordered_map<std::string, size_t> occurrences;
 
-    for (const auto &op : descriptor.ops) {
+    for (size_t opIndex = 0; opIndex < descriptor.ops.size(); ++opIndex) {
+        const auto &op = descriptor.ops[opIndex];
 
         if (pek::utf8::count(op.id, '/') != 1) {
             return tl::unexpected(
@@ -92,6 +95,12 @@ pek::Result<void> OpChain::setupFromDescriptor(const pek::op::OpChainDescriptor 
 
         opRef->libName = libName;
         opRef->opName = opName;
+        opRef->index = opIndex;
+        auto &occurrenceCount = occurrences[op.id];
+        const size_t occurrence = occurrenceCount;
+        ++occurrenceCount;
+        opRef->instanceId =
+            op.instanceId.empty() ? makeDefaultInstanceId(op.id, occurrence) : op.instanceId;
 
         opRef->loopId = op.loopId.value_or(0);
 

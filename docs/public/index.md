@@ -222,6 +222,7 @@ Pick your next step.
 | [Understanding the repository structure](concepts/structural-basics.md) | How to get started with new components |
 | [Pipeline basics](concepts/runtime-basics.md) | Learn about inference pipeline principles  |
 | [Custom postprocessing](how-to/custom-postprocessing.md) | Inference result postprocessing  |
+| [Python script Op](how-to/python-script-op.md) | Stateful scripting with FrameResults and tensors |
 | [Performance Measurement](how-to/performance-measurement.md) | Measure the pipeline performance with Performix |
 
 

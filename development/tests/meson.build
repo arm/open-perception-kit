@@ -85,6 +85,41 @@ standard_content_type_tests = executable(
   link_with : [common],
 )
 
+if python_ops_enabled
+  python_script_op_tests = executable(
+    'python_script_op_tests',
+    ['python_script_op_test.cpp', '../ops-python/Plugin.cpp'],
+    include_directories : [common_include, include_directories('../ops-python')],
+    cpp_args : [
+      '-DPYTHON_SCRIPT_OP_FIXTURES="' + meson.current_source_dir() / 'python_script_op' + '"',
+    ],
+    dependencies : [gtest_main_dep, gtest_dep, python_ops_test_dep],
+  )
+  test(
+    'python_classification_demo_tests',
+    test_python,
+    args : [files('python_classification_demo_test.py')],
+  )
+  python_classification_pipeline_test_env = environment()
+  python_classification_pipeline_test_env.prepend(
+    'PYTHONPATH',
+    meson.project_source_root() / '../generated/perception/python/src',
+  )
+  test(
+    'python_classification_pipeline_tests',
+    test_python,
+    args : [
+      files('python_classification_pipeline_test.py'),
+      meson.project_source_root() / '..',
+      meson.project_build_root() / 'meson-out',
+    ],
+    env : python_classification_pipeline_test_env,
+    depends : [gstpekinfer, pekcomm, onnxops, stdops, python_ops],
+    timeout : 90,
+    is_parallel : false,
+  )
+endif
+
 # Test-only OpChain plugin that simulates inference exceeding one frame budget.
 qos_delay_op = shared_module(
   'pek-test-qos-delay',
@@ -219,7 +254,7 @@ image_conversion_oracle_test = executable(
   include_directories : [common_include, include_directories('../ops-std')],
 )
 
-python = pek_python
+python = test_python
 perception_python_sdk_path = meson.project_source_root() / '../generated/perception/python/src'
 python_guest_script_test_env = environment()
 python_guest_script_test_env.prepend('PYTHONPATH', perception_python_sdk_path)
@@ -227,7 +262,7 @@ python_guest_script_executor = executable(
   'python_guest_script_executor',
   ['python_guest_script_executor.cpp'],
   cpp_args : [
-    '-DPERCEPTION_PYTHON_EXECUTABLE="' + python.full_path() + '"',
+    '-DPERCEPTION_PYTHON_EXECUTABLE="' + pek_python.full_path() + '"',
     '-DPERCEPTION_PYTHON_SDK_PATH="' + perception_python_sdk_path + '"',
   ],
   dependencies : [perception_python_bridge_dep],
@@ -252,6 +287,9 @@ test(
 )
 test('opchain_descriptor_tests', opchain_descriptor_tests)
 test('standard_content_type_tests', standard_content_type_tests, depends : stdops)
+if python_ops_enabled
+  test('python_script_op_tests', python_script_op_tests)
+endif
 test(
   'pek_menu_cli_tests',
   python,

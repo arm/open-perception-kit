@@ -4,7 +4,7 @@ import test from 'node:test';
 import {Builder} from 'flatbuffers';
 import {Envelope} from '../../../generated/perception/ts/dist/perception/index.js';
 import {WireEnvelope, WireEnvelopeT} from '../../../generated/perception/ts/dist/perception/fb/perception/internalfb/wire-envelope.js';
-import {BoundingBoxT, LayerInfoT, ObjectMetaT, Point2fT} from '../../../generated/perception/ts/dist/perception/fb/perception/metadata.js';
+import {BoundingBoxT, LayerInfoT, ObjectMetaT, Point2fT, ProducerInfoT} from '../../../generated/perception/ts/dist/perception/fb/perception/metadata.js';
 import {BoxDetectionT} from '../../../generated/perception/ts/dist/perception/fb/perception/metadata/box-detection.js';
 import {BoxDetectionsT} from '../../../generated/perception/ts/dist/perception/fb/perception/metadata/box-detections.js';
 import {ClassificationCandidateT} from '../../../generated/perception/ts/dist/perception/fb/perception/metadata/classification-candidate.js';
@@ -23,7 +23,16 @@ import {decodeFrameResultsMessage, FRAME_RESULTS_ENCODING, FrameResultsDecodeErr
 import {findParentRect, findVideoFrame} from '../src/osd-renderer.js';
 
 function layer(contentType) {
-    return new LayerInfoT('engine', 'model', '', 'infer', 'labels', contentType, '');
+    return new LayerInfoT(
+        'engine',
+        'model',
+        '',
+        'infer',
+        'labels',
+        contentType,
+        '',
+        new ProducerInfoT('infer/parser', 'pek-std-ops/GenericPostprocess', 'FixtureParser'),
+    );
 }
 
 function encodedFixture() {
@@ -123,6 +132,11 @@ test('decodes typed FrameResults into the established WebUI view model', () => {
     const video = decoded.frame_results.layers.find((item) => item.contentType === 'videoFrame');
     assert.equal(video.detections[0].data.originalWidth, 640);
     const face = decoded.frame_results.layers.find((item) => item.contentType === 'humanFace');
+    assert.deepEqual(face.producer, {
+        instanceId: 'infer/parser',
+        component: 'pek-std-ops/GenericPostprocess',
+        implementation: 'FixtureParser',
+    });
     assert.deepEqual(face.detections[0].data, {
         uuid: '20',
         parentUuid: '0',

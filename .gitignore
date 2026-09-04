@@ -126,7 +126,10 @@ data/videos/SHA256SUMS
 # Sonar files
 # -------------------------
 .scannerwork
+.coverage
 coverage.xml
+python-coverage.xml
+development/web/coverage/
 
 # -------------------------
 # Valgrind output xml files and error summary xml file

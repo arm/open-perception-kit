@@ -1,0 +1,16 @@
+{
+  "description": "MobileNetV2 ONNX classification of a New York traffic scene with comparable C++ and stateful Python results in the WebUI.",
+  "pipeline": [
+    "filesrc location=/work/data/images/GettyImages-2222093886-thumbnail.jpg !",
+    "jpegdec !",
+    "imagefreeze is-live=true !",
+    "videoconvert !",
+    "videoscale !",
+    "video/x-raw,format=BGRA,width=1280,height=720,framerate=20/1 !",
+    "pekinfer opchain-path=/work/config/models/mobilenetv2/opchain-python-classification.json active=true !",
+    "pekperformance show-all-metrics=true update-interval=1 !",
+    "pekcomm method=websocket endpoint=/ws !",
+    "pekosd enabled=false performance-overlay-enabled=false !",
+    "peksink name=sink"
+  ]
+}

@@ -1,7 +1,7 @@
 {
   "artifact": {
     "name": "perception-sdk",
-    "version": "0.2.1"
+    "version": "0.3.0"
   },
   "descriptor": {
     "path": "tools/perception/sdk.json",
@@ -10,7 +10,7 @@
   "files": [
     {
       "path": "cpp/cmake/perception.cmake",
-      "sha256": "c496135cf11fce0852e70e4645463e3ba2bf3f6e70aee70ef60cc749685fca73",
+      "sha256": "d540ef8887464a8fb233deddb212cbf0e63958b7a77848d2a0e9c9f32927cac3",
       "size": 3404
     },
     {
@@ -25,8 +25,8 @@
     },
     {
       "path": "cpp/fb/common_generated.h",
-      "sha256": "a596a92ceace078d0218e51941a8cca78959bc9c0f012f5236cebde24727c686",
-      "size": 30152
+      "sha256": "77faf8b847d64fdc46cb50f9fce21c764b2c940242a55bb0bf25174686d0a18d",
+      "size": 38505
     },
     {
       "path": "cpp/fb/frame_context_generated.h",
@@ -70,7 +70,7 @@
     },
     {
       "path": "cpp/meson/perception/meson.build",
-      "sha256": "9a375507ecf8f499458a395084a0e937aba7d8ae0bd78190d675733852b688f4",
+      "sha256": "a53c3c6ecb76faf5009a6f0192be6f66c4d4c4c7e0b5cb07e19bffb037bfc38e",
       "size": 3163
     },
     {
@@ -80,13 +80,13 @@
     },
     {
       "path": "cpp/perception.h",
-      "sha256": "24fe1b988ee0d03a346aef7e3d00b55ef862936702863f76134ffea09b9fd498",
-      "size": 31218
+      "sha256": "142058c6dc617d5f58ebe4f2e283a680819aa61c596fcbd8ad13bbb3ff711895",
+      "size": 31215
     },
     {
       "path": "cpp/python_bridge/perception_python_bridge.cpp",
-      "sha256": "baccfaccb181028bc65800f306e64e6b10c51fbc5bcdf8c8b51681c33c69a956",
-      "size": 205502
+      "sha256": "be22ea5eedd204d056988fe9be1fd251390fa31636ced2a6d439fa022218ccef",
+      "size": 210052
     },
     {
       "path": "cpp/python_bridge/perception_python_bridge.h",
@@ -95,12 +95,12 @@
     },
     {
       "path": "python/pyproject.toml",
-      "sha256": "f0c6dec429f2c259bc95a51c05ae2f0ad73e8c3512cc30af565f060156368cd1",
+      "sha256": "ff6b6885e241d113ba3f9009950d9ba9add4fac3ebaea1d8f381b8e6c971a68c",
       "size": 478
     },
     {
       "path": "python/src/perception/__init__.py",
-      "sha256": "563e125b3e42fbab741f4dd4555bc4976ab3a7fcf3658bd47925f4c9baec477e",
+      "sha256": "c88251eae85b4249fb40bfb4d1789c899dd32fc103b8ee85076fdafa7be82eaf",
       "size": 655
     },
     {
@@ -160,8 +160,8 @@
     },
     {
       "path": "python/src/perception/fb/perception/metadata/LayerInfo.py",
-      "sha256": "ffdb6b382dd08860ce2c05d0eaaa47fa51b8f9bbb7e15538fc1f859794901192",
-      "size": 7423
+      "sha256": "e00625ef9aadb3f689009c0eabe9f3dfe590fb062afdf414b5db4d4cad666c4b",
+      "size": 8662
     },
     {
       "path": "python/src/perception/fb/perception/metadata/ObjectEmbedding.py",
@@ -212,6 +212,11 @@
       "path": "python/src/perception/fb/perception/metadata/PoseEstimations.py",
       "sha256": "bc05bfa7fed72a4a3fc802b1ffe9d224952198170b5d0d9f1192a20daf37bd4e",
       "size": 7227
+    },
+    {
+      "path": "python/src/perception/fb/perception/metadata/ProducerInfo.py",
+      "sha256": "366bc84a4ab52b980e1addb01b75ab4a8d08f61f6d3d823ecff2072cd9b580b2",
+      "size": 4484
     },
     {
       "path": "python/src/perception/fb/perception/metadata/SegmentationMask.py",
@@ -280,22 +285,22 @@
     },
     {
       "path": "python/src/perception/registry.py",
-      "sha256": "b9458d88ba82c845c6f06efba347f22c67b2d8eba2553d2de298ed2d61ea177f",
-      "size": 3433
+      "sha256": "a72d3de6a030e7a291c50dd1a9e075042c6b8a893b5316777fdd2fce9409848b",
+      "size": 3430
     },
     {
       "path": "python/src/perception/sdk.py",
-      "sha256": "d63c0a6f173022afbb6eba983282d1496483730c8971ed77c34b50b05929db46",
+      "sha256": "aad4449dad7ff9a52327ab3dc775e28e1be44fb30336c2adbfae6f3e7aa522f3",
       "size": 15472
     },
     {
       "path": "ts/dist/perception/envelope.d.ts",
-      "sha256": "5cbdb09244b312d6f93a0e28cd03771b7c6b75063852fbe2777a046f97d55a12",
+      "sha256": "975a2910d2dbde5c58cd3429119212ac431113fa1923a32f6afec243ca3f3a32",
       "size": 2307
     },
     {
       "path": "ts/dist/perception/envelope.js",
-      "sha256": "0cfb7831ab30d0ae9085b836367c0f7470545f3252aac52196eadf799d5323d0",
+      "sha256": "8af44a77002ea50b94c830794b589615332e2cc26b76a2d92b39950032df7d3a",
       "size": 13723
     },
     {
@@ -420,13 +425,13 @@
     },
     {
       "path": "ts/dist/perception/fb/perception/metadata/layer-info.d.ts",
-      "sha256": "75f485086fcdab8873dd15f4a7643bb36284bd0bc3e10a95836e65b6dae2df46",
-      "size": 3387
+      "sha256": "ce2dd9bc64d7e13d61bcc6a39366b061b698bb58e68dc518d7ab8afd1dd4e8af",
+      "size": 3357
     },
     {
       "path": "ts/dist/perception/fb/perception/metadata/layer-info.js",
-      "sha256": "5f8d89603e47c747130a4d49615a2ffe111c19bb951751fd81bf691d41ece242",
-      "size": 5608
+      "sha256": "a76cdb1074a1d6ebb6035b0cc36ec727f7c039d78389d7103958a9266772d51c",
+      "size": 5988
     },
     {
       "path": "ts/dist/perception/fb/perception/metadata/object-embedding.d.ts",
@@ -529,6 +534,16 @@
       "size": 4515
     },
     {
+      "path": "ts/dist/perception/fb/perception/metadata/producer-info.d.ts",
+      "sha256": "2e75638a7c4ebfbc5aa027edaae63c8eec48b065289f0ba67185dfbd11634650",
+      "size": 2121
+    },
+    {
+      "path": "ts/dist/perception/fb/perception/metadata/producer-info.js",
+      "sha256": "3c7ac11bd226ceea1551a23a71f456e711d7db7d3719d38ac8482bf5c7ee3cab",
+      "size": 3336
+    },
+    {
       "path": "ts/dist/perception/fb/perception/metadata/segmentation-mask.d.ts",
       "sha256": "3684d447970fee685b7f3f311cda906d17957c434f9b529ee41dae974bbd456f",
       "size": 1627
@@ -580,22 +595,22 @@
     },
     {
       "path": "ts/dist/perception/fb/perception/metadata.d.ts",
-      "sha256": "0c2fb3b33152ced76469aefeb30f96ff6097c6ac07eb07a8559c93cb1c3df3a0",
-      "size": 641
+      "sha256": "baccb403503a8839fe8da6af8d3f6d8316b00926754a01fbfca79031115a494e",
+      "size": 716
     },
     {
       "path": "ts/dist/perception/fb/perception/metadata.js",
-      "sha256": "9605f79643a45866945f73477eddffa82ee6d9994accfa72a30551395c27aaaa",
-      "size": 735
+      "sha256": "dd8092116b0f82ca4aee0260257524cc5a8d8e1484d60987f621b49c3e1ed8e0",
+      "size": 810
     },
     {
       "path": "ts/dist/perception/index.d.ts",
-      "sha256": "7085d32c02f8d6f3a09bbd875c2723abc4311b4e410ecbe5eafd868d682b8522",
+      "sha256": "2b0dd06790037259bd927f263e0d66233f503ac6d397930475ec42c25857d318",
       "size": 583
     },
     {
       "path": "ts/dist/perception/index.js",
-      "sha256": "73dd7e4ea0395f46882460ff04ed119e75bed26072b5e98d750ad2738e7b8be7",
+      "sha256": "72645cab52011aa4c7466fd93c864d154e65ad435bfcd2d6e5e1ed243584314c",
       "size": 551
     },
     {
@@ -605,17 +620,17 @@
     },
     {
       "path": "ts/dist/perception/registry.js",
-      "sha256": "3707f72db4a869864dbeb83b8fe90d0eb20b87a8981476ebc26b170520f67470",
-      "size": 7877
+      "sha256": "1613daeb2b5039352777f18eb0780e52fd78aab2a9e43ec7739f249d9995c8bf",
+      "size": 7844
     },
     {
       "path": "ts/package.json",
-      "sha256": "758dd88e9a1e21aa38a21c10716592ee4f9b9dd57f8acc1cd1f4f7e2540e98ef",
+      "sha256": "8e20cee96364a6d184caa1879a431d7254e6fda6e20cfc52309931f2b6cb269d",
       "size": 746
     },
     {
       "path": "ts/src/perception/envelope.ts",
-      "sha256": "f74e455eec5ae9a82ef9a888572ad084c6fd6ace224f94936008d88c90dbfadd",
+      "sha256": "ee32424a898009e0d89c21b4f0a5b490b136ef02420986a3c85cc6d2a4c7a472",
       "size": 12350
     },
     {
@@ -680,8 +695,8 @@
     },
     {
       "path": "ts/src/perception/fb/perception/metadata/layer-info.ts",
-      "sha256": "e016fccde34e478e507c59a25aa5529cc0834868f9896ab5f1207d1e8c2300e5",
-      "size": 6826
+      "sha256": "b60ab07f85f6537f147042d7bf5da78833ef0846ca4bd039dad999b04d59fd06",
+      "size": 7059
     },
     {
       "path": "ts/src/perception/fb/perception/metadata/object-embedding.ts",
@@ -734,6 +749,11 @@
       "size": 4979
     },
     {
+      "path": "ts/src/perception/fb/perception/metadata/producer-info.ts",
+      "sha256": "01e9315312af38d61ef13090678169aa590c58b6d13f096bb096a436788c09c5",
+      "size": 4018
+    },
+    {
       "path": "ts/src/perception/fb/perception/metadata/segmentation-mask.ts",
       "sha256": "6a8df4cab1c9e43cfbefa79f1290b1569e159bab8456b50dfa0f840c27abdc4a",
       "size": 3102
@@ -760,18 +780,18 @@
     },
     {
       "path": "ts/src/perception/fb/perception/metadata.ts",
-      "sha256": "a17b8881154107a28f802268284604deb7e82a6c4de07366d97db596483bc7da",
-      "size": 737
+      "sha256": "4c4688d48d4dfdc4a66cfb427606ce2039e51be4b898781b6adbd063a93cd05c",
+      "size": 812
     },
     {
       "path": "ts/src/perception/index.ts",
-      "sha256": "57df984f276a132f697278bf48e0a73ba9bc78666944f671448d4da1af621fcb",
+      "sha256": "78a311c11549f9dabd6d626f19d3bf20cb1e53c96ed61d7279291d470df4af7f",
       "size": 564
     },
     {
       "path": "ts/src/perception/registry.ts",
-      "sha256": "3163add3b63a01c79cb1a024099f5a765f7162da5b1d01a2cd7a3aaee5883f20",
-      "size": 8051
+      "sha256": "b30bf7bf5145eb4df068c8137620e0215b2399e97e12b8257090d28897931d07",
+      "size": 8018
     },
     {
       "path": "ts/tsconfig.json",
@@ -790,8 +810,8 @@
     "tools": [
       {
         "path": "tools/perception/generate.py",
-        "sha256": "26909c082f8056f22edd475f996328d766d445fa1d145da72b70dc609e1a3336",
-        "size": 31747
+        "sha256": "396f0d2f81d87a36c7a1b6883d91771edb375d4b55d8053f2bf92156ee7dce94",
+        "size": 31769
       },
       {
         "path": "tools/perception/release_common.py",
@@ -829,8 +849,8 @@
   "project_files": [
     {
       "path": "development/perception/meson.build",
-      "sha256": "ca88d60725f70c9248b9a930c917d728f1a732f41b9694b3f234e90a6bf7e0e0",
-      "size": 1113
+      "sha256": "8fc60debc51e061a441ada55a1bd7101a296626ee17aa47648577c54b8651548",
+      "size": 1135
     }
   ],
   "upstream_receipts": {
@@ -838,7 +858,7 @@
       "files": [
         {
           "path": "cmake/perception.cmake",
-          "sha256": "44ce97c67e43546f8a2a0ecc4e496c903210331781b66d031382abb76e571eeb",
+          "sha256": "7a54d48973f0c1c746b89e16ed6094b932cd29971cc613a9917081143e1e0096",
           "size": 3149
         },
         {
@@ -853,8 +873,8 @@
         },
         {
           "path": "fb/common_generated.h",
-          "sha256": "5e05e3c556ffb217d2590677684c0b998e5364293b5baa1159377a12428a0d9a",
-          "size": 26502
+          "sha256": "a2d4c180d04fc7e56831b9c6f46532581891435367e700d5801099360f79bd97",
+          "size": 34082
         },
         {
           "path": "fb/frame_context_generated.h",
@@ -898,7 +918,7 @@
         },
         {
           "path": "meson/perception/meson.build",
-          "sha256": "d774c62251830ebde0877f52d2c0c17940ea17801d61df2fd37d6b6b776db340",
+          "sha256": "8a662b0cbf3b91be7c870c74d24b0b2e0c6b08bc369860c3df89d71cb2eaf872",
           "size": 3164
         },
         {
@@ -908,13 +928,13 @@
         },
         {
           "path": "perception.h",
-          "sha256": "5344912f5dd0c5e3ba9b0fd63c0e1216868e25929b6fb587d942853c530a64df",
-          "size": 30843
+          "sha256": "2a08208a902bec45e90cdfaa6fe9e9f3441cccae3e00245c1ceb50b26b006afb",
+          "size": 30840
         },
         {
           "path": "python_bridge/perception_python_bridge.cpp",
-          "sha256": "03415ca3f1b1f7b44bed8275028bce5572d9fa2f1842d37e7026d22c1714ca25",
-          "size": 199050
+          "sha256": "ed32bd35d4aeee2d373441a4690ccd5a1eb1ab2d9be428310e7a2140333d6523",
+          "size": 203436
         },
         {
           "path": "python_bridge/perception_python_bridge.h",
@@ -954,31 +974,31 @@
       "payloads": [
         {
           "file_identifier": "BDET",
-          "payload_id": "0x01c3894e2878ac7c",
+          "payload_id": "0x0ce3158a894b54d7",
           "qualified_root_type": "perception.metadata.BoxDetections",
           "schema": "box_detections.fbs"
         },
         {
           "file_identifier": "CLSF",
-          "payload_id": "0x7f6abc2009042491",
+          "payload_id": "0x014e6857456b02c9",
           "qualified_root_type": "perception.metadata.Classifications",
           "schema": "classifications.fbs"
         },
         {
           "file_identifier": "FCTX",
-          "payload_id": "0x5e32d827978c7f10",
+          "payload_id": "0x58e3bcf47ce173ee",
           "qualified_root_type": "perception.metadata.FrameContext",
           "schema": "frame_context.fbs"
         },
         {
           "file_identifier": "EMBE",
-          "payload_id": "0x31f9831d97cd5dd4",
+          "payload_id": "0x30384108eca7618b",
           "qualified_root_type": "perception.metadata.ObjectEmbeddings",
           "schema": "object_embeddings.fbs"
         },
         {
           "file_identifier": "TRKS",
-          "payload_id": "0x10b6adabb985ad72",
+          "payload_id": "0x0ce96aaa4da0be05",
           "qualified_root_type": "perception.metadata.ObjectTracks",
           "schema": "object_tracks.fbs"
         },
@@ -990,19 +1010,19 @@
         },
         {
           "file_identifier": "POSE",
-          "payload_id": "0x548388c28bb71b08",
+          "payload_id": "0x7a0e9c5e8891e4cc",
           "qualified_root_type": "perception.metadata.PoseEstimations",
           "schema": "pose_estimations.fbs"
         },
         {
           "file_identifier": "SGMS",
-          "payload_id": "0x344a75354d0384ae",
+          "payload_id": "0x0f4bdacd4b91f8f0",
           "qualified_root_type": "perception.metadata.SegmentationMasks",
           "schema": "segmentation_masks.fbs"
         },
         {
           "file_identifier": "TRCE",
-          "payload_id": "0x4485ef4530c94214",
+          "payload_id": "0x795dadde85c8397d",
           "qualified_root_type": "perception.metadata.TrackTraces",
           "schema": "track_traces.fbs"
         }
@@ -1029,8 +1049,8 @@
         },
         {
           "path": "common.fbs",
-          "sha256": "5c0897a7f77fb2f59827c110412469f13a94b2bb4cb552c18a903789b20e10b8",
-          "size": 484
+          "sha256": "b03f12f1880549833614147b4f031e2d0909eeb1182b4704ded7dcb25bd786c4",
+          "size": 600
         },
         {
           "path": "frame_context.fbs",
@@ -1068,22 +1088,22 @@
           "size": 382
         }
       ],
-      "schema_set_sha256": "0ba6dfe959e1453ce12c7a8707623bc15d94d52c9235c26f7e27f31dda0775c5",
+      "schema_set_sha256": "5a2f77909600d6458a707fba68cff1a7dc5f610dec58174456bb97d16596c383",
       "sdk": {
         "name": "perception",
-        "version": "0.2.1"
+        "version": "0.3.0"
       }
     },
     "python": {
       "files": [
         {
           "path": "pyproject.toml",
-          "sha256": "aefc3e2bf72a2a9260a045a19137cbf9f3e37829f24b8c6e4ee6faf2cf80f7f1",
+          "sha256": "f6567a4fc02773e39ffa8875d97b930e0c79e5ab6f352bb9ecc9b6ffc8b09132",
           "size": 470
         },
         {
           "path": "src/perception/__init__.py",
-          "sha256": "7192e1ad31796a2018f610ac0a57d00fd5485abd095219323bf4d2f64efcf357",
+          "sha256": "57719dbafc794661dcc32bce87147a8ebc9d19757143fdf80d302797f38a8fe7",
           "size": 470
         },
         {
@@ -1143,8 +1163,8 @@
         },
         {
           "path": "src/perception/fb/perception/metadata/LayerInfo.py",
-          "sha256": "32e57838b733d3648ba17ca1ae8e584532f8357bda7099818655ed606b07a53d",
-          "size": 7231
+          "sha256": "2ed50bee02d27323e00b6ab274e3e209807a86b782b59df37a4c1aa8fe59264c",
+          "size": 8451
         },
         {
           "path": "src/perception/fb/perception/metadata/ObjectEmbedding.py",
@@ -1195,6 +1215,11 @@
           "path": "src/perception/fb/perception/metadata/PoseEstimations.py",
           "sha256": "748d81646cef27629214cc66dab403125d9e15d507cdaeaac21b11019b121a2d",
           "size": 7006
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/ProducerInfo.py",
+          "sha256": "4be5b5ade0a1cda0b8977a8695baa5fbfcce5ec1416c4d7b79d06ca38b0fc735",
+          "size": 4292
         },
         {
           "path": "src/perception/fb/perception/metadata/SegmentationMask.py",
@@ -1263,12 +1288,12 @@
         },
         {
           "path": "src/perception/registry.py",
-          "sha256": "7b24e3e817965520a090667bfe6d0cebb52c0efa75fb75bde13dd00dc1d7cf01",
-          "size": 3247
+          "sha256": "484394c006b45d66ca1f13c28315e48f2990a6641faeaf28cbdcad6c12aefbc7",
+          "size": 3244
         },
         {
           "path": "src/perception/sdk.py",
-          "sha256": "e3c7a79e6844b48e5f2c96a210e7dd85fe57e34556e0c238fb5a440dc81c989a",
+          "sha256": "5378aa4fb5abd70da5de306d47f1f4267f37d23d4323649231cbaf118fcb466b",
           "size": 15286
         }
       ],
@@ -1296,31 +1321,31 @@
       "payloads": [
         {
           "file_identifier": "BDET",
-          "payload_id": "0x01c3894e2878ac7c",
+          "payload_id": "0x0ce3158a894b54d7",
           "qualified_root_type": "perception.metadata.BoxDetections",
           "schema": "box_detections.fbs"
         },
         {
           "file_identifier": "CLSF",
-          "payload_id": "0x7f6abc2009042491",
+          "payload_id": "0x014e6857456b02c9",
           "qualified_root_type": "perception.metadata.Classifications",
           "schema": "classifications.fbs"
         },
         {
           "file_identifier": "FCTX",
-          "payload_id": "0x5e32d827978c7f10",
+          "payload_id": "0x58e3bcf47ce173ee",
           "qualified_root_type": "perception.metadata.FrameContext",
           "schema": "frame_context.fbs"
         },
         {
           "file_identifier": "EMBE",
-          "payload_id": "0x31f9831d97cd5dd4",
+          "payload_id": "0x30384108eca7618b",
           "qualified_root_type": "perception.metadata.ObjectEmbeddings",
           "schema": "object_embeddings.fbs"
         },
         {
           "file_identifier": "TRKS",
-          "payload_id": "0x10b6adabb985ad72",
+          "payload_id": "0x0ce96aaa4da0be05",
           "qualified_root_type": "perception.metadata.ObjectTracks",
           "schema": "object_tracks.fbs"
         },
@@ -1332,19 +1357,19 @@
         },
         {
           "file_identifier": "POSE",
-          "payload_id": "0x548388c28bb71b08",
+          "payload_id": "0x7a0e9c5e8891e4cc",
           "qualified_root_type": "perception.metadata.PoseEstimations",
           "schema": "pose_estimations.fbs"
         },
         {
           "file_identifier": "SGMS",
-          "payload_id": "0x344a75354d0384ae",
+          "payload_id": "0x0f4bdacd4b91f8f0",
           "qualified_root_type": "perception.metadata.SegmentationMasks",
           "schema": "segmentation_masks.fbs"
         },
         {
           "file_identifier": "TRCE",
-          "payload_id": "0x4485ef4530c94214",
+          "payload_id": "0x795dadde85c8397d",
           "qualified_root_type": "perception.metadata.TrackTraces",
           "schema": "track_traces.fbs"
         }
@@ -1361,7 +1386,7 @@
             "src/perception/guest.pyi"
           ]
         },
-        "version": "0.2.1",
+        "version": "0.3.0",
         "wheel_tag": "py3-none-any"
       },
       "schema_files": [
@@ -1377,8 +1402,8 @@
         },
         {
           "path": "common.fbs",
-          "sha256": "5c0897a7f77fb2f59827c110412469f13a94b2bb4cb552c18a903789b20e10b8",
-          "size": 484
+          "sha256": "b03f12f1880549833614147b4f031e2d0909eeb1182b4704ded7dcb25bd786c4",
+          "size": 600
         },
         {
           "path": "frame_context.fbs",
@@ -1416,22 +1441,22 @@
           "size": 382
         }
       ],
-      "schema_set_sha256": "0ba6dfe959e1453ce12c7a8707623bc15d94d52c9235c26f7e27f31dda0775c5",
+      "schema_set_sha256": "5a2f77909600d6458a707fba68cff1a7dc5f610dec58174456bb97d16596c383",
       "sdk": {
         "name": "perception",
-        "version": "0.2.1"
+        "version": "0.3.0"
       }
     },
     "ts": {
       "files": [
         {
           "path": "package.json",
-          "sha256": "78bc3b29ef0654364e94da2f9febee93d72fb7f0844909b43327d5d53a9b141f",
+          "sha256": "c767716a30d7fb5e4c5bd69a819ecf06714b795180f68a2a410caf5ea7d1861e",
           "size": 678
         },
         {
           "path": "src/perception/envelope.ts",
-          "sha256": "996ce30b6e976215ab8dc8792de26a6b3d621a78d5b08714f5519c3a10bd6c6d",
+          "sha256": "5921c48f1bc4754b2901420e5096ff6ff9d531785d319739f215247f95023441",
           "size": 12294
         },
         {
@@ -1451,8 +1476,8 @@
         },
         {
           "path": "src/perception/fb/perception/metadata.ts",
-          "sha256": "0b562c917d241e16d08abe09e8fe162eaa2f3330fee5005a73ca86e7b9f45f0c",
-          "size": 681
+          "sha256": "1fd89b8ae1f4e2f8c905085d5bca687464474cb0249743ec529d21d1ba68ae78",
+          "size": 756
         },
         {
           "path": "src/perception/fb/perception/metadata/audio-frame-context.ts",
@@ -1501,8 +1526,8 @@
         },
         {
           "path": "src/perception/fb/perception/metadata/layer-info.ts",
-          "sha256": "1944dfa46177c4266091b09d2ada6cdc74a194b421482fcd4b124ebd6c009796",
-          "size": 6770
+          "sha256": "62ad7ee9ae7cc84211727ff3681c2e1d3fbbf61b343a4db04c56155de29b4c8a",
+          "size": 7003
         },
         {
           "path": "src/perception/fb/perception/metadata/object-embedding.ts",
@@ -1555,6 +1580,11 @@
           "size": 4923
         },
         {
+          "path": "src/perception/fb/perception/metadata/producer-info.ts",
+          "sha256": "bd896ee2fda4b075d8c45e00897d53b70e7caec774be5815189884deebb4abfe",
+          "size": 3962
+        },
+        {
           "path": "src/perception/fb/perception/metadata/segmentation-mask.ts",
           "sha256": "f627972d56a5daa21e7c2e31b835cd1ada466d9f7f1384c45b7b38f45f8b13ad",
           "size": 3046
@@ -1581,13 +1611,13 @@
         },
         {
           "path": "src/perception/index.ts",
-          "sha256": "41794ee7d24854eaf63146917f996eb83eeb282a171e3907c78f406553abca60",
+          "sha256": "282bb60a9a89c8ce5ae233235fa2d47428f3255a1011f74ddec60373b76ec394",
           "size": 508
         },
         {
           "path": "src/perception/registry.ts",
-          "sha256": "d9ab716e8bd947828f3d3055d31dc4b36bbfee5abe62efcf0674545c21602500",
-          "size": 7995
+          "sha256": "8f8afde7fb5c1c6114d0a041b2f1dedc775a82c23e9a0fc652224e0ea3bb1d8f",
+          "size": 7962
         },
         {
           "path": "tsconfig.json",
@@ -1619,31 +1649,31 @@
       "payloads": [
         {
           "file_identifier": "BDET",
-          "payload_id": "0x01c3894e2878ac7c",
+          "payload_id": "0x0ce3158a894b54d7",
           "qualified_root_type": "perception.metadata.BoxDetections",
           "schema": "box_detections.fbs"
         },
         {
           "file_identifier": "CLSF",
-          "payload_id": "0x7f6abc2009042491",
+          "payload_id": "0x014e6857456b02c9",
           "qualified_root_type": "perception.metadata.Classifications",
           "schema": "classifications.fbs"
         },
         {
           "file_identifier": "FCTX",
-          "payload_id": "0x5e32d827978c7f10",
+          "payload_id": "0x58e3bcf47ce173ee",
           "qualified_root_type": "perception.metadata.FrameContext",
           "schema": "frame_context.fbs"
         },
         {
           "file_identifier": "EMBE",
-          "payload_id": "0x31f9831d97cd5dd4",
+          "payload_id": "0x30384108eca7618b",
           "qualified_root_type": "perception.metadata.ObjectEmbeddings",
           "schema": "object_embeddings.fbs"
         },
         {
           "file_identifier": "TRKS",
-          "payload_id": "0x10b6adabb985ad72",
+          "payload_id": "0x0ce96aaa4da0be05",
           "qualified_root_type": "perception.metadata.ObjectTracks",
           "schema": "object_tracks.fbs"
         },
@@ -1655,19 +1685,19 @@
         },
         {
           "file_identifier": "POSE",
-          "payload_id": "0x548388c28bb71b08",
+          "payload_id": "0x7a0e9c5e8891e4cc",
           "qualified_root_type": "perception.metadata.PoseEstimations",
           "schema": "pose_estimations.fbs"
         },
         {
           "file_identifier": "SGMS",
-          "payload_id": "0x344a75354d0384ae",
+          "payload_id": "0x0f4bdacd4b91f8f0",
           "qualified_root_type": "perception.metadata.SegmentationMasks",
           "schema": "segmentation_masks.fbs"
         },
         {
           "file_identifier": "TRCE",
-          "payload_id": "0x4485ef4530c94214",
+          "payload_id": "0x795dadde85c8397d",
           "qualified_root_type": "perception.metadata.TrackTraces",
           "schema": "track_traces.fbs"
         }
@@ -1685,8 +1715,8 @@
         },
         {
           "path": "common.fbs",
-          "sha256": "5c0897a7f77fb2f59827c110412469f13a94b2bb4cb552c18a903789b20e10b8",
-          "size": 484
+          "sha256": "b03f12f1880549833614147b4f031e2d0909eeb1182b4704ded7dcb25bd786c4",
+          "size": 600
         },
         {
           "path": "frame_context.fbs",
@@ -1724,10 +1754,10 @@
           "size": 382
         }
       ],
-      "schema_set_sha256": "0ba6dfe959e1453ce12c7a8707623bc15d94d52c9235c26f7e27f31dda0775c5",
+      "schema_set_sha256": "5a2f77909600d6458a707fba68cff1a7dc5f610dec58174456bb97d16596c383",
       "sdk": {
         "name": "perception",
-        "version": "0.2.1"
+        "version": "0.3.0"
       }
     }
   }

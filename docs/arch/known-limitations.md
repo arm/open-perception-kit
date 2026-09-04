@@ -30,8 +30,12 @@ runtime. Treat these as constraints when extending the system.
 - New persistent result shapes require a Perception schema update and regenerated
   SDK. Parser, tracker, publishing, or visualization changes are still required
   when those components need to produce or consume the new payload semantics.
-- Custom postprocessing is C++-only today and registered through
-  `GenericPostprocessOp`.
+- Native custom postprocessing is registered through `GenericPostprocessOp`.
+  The Python script Op can inspect inference outputs and append FrameResults,
+  but it is supported only in native PEK pipelines inside the official
+  containers or from a matching binary release on Debian Trixie. It executes
+  trusted code in process and its zero-copy tensor arrays are valid only during
+  the current call.
 - `pekosd` rendering is hardcoded around known content types, so it is best
   treated as a debugging overlay rather than the long-term visualization layer.
 
@@ -75,3 +79,11 @@ runtime. Treat these as constraints when extending the system.
   not yet a user-facing contract.
 - Coverage is thin for parser behavior, known inference outputs, and GStreamer
   element lifecycle behavior.
+
+## Packaging And Deployment
+
+- Development and deployment still assume containers, source-tree layout, and many
+  hardcoded `/work` paths.
+- Cross-built deployment images omit the embedded Python operation module. The
+  published release images are built natively for amd64 and arm64 and include
+  it with a target-platform Python runtime.

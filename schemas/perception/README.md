@@ -122,6 +122,12 @@ Shared definitions in `common.fbs` affect every root that includes them. A
 change there can change several generated payload IDs and public APIs, so review
 and test it as a schema-set-wide change.
 
+`LayerInfo.producer`, when present, identifies the concrete runtime producer.
+Its instance ID is unique within the running pipeline, its component is the
+canonical Op or element type, and its implementation is the configured parser,
+script, or processing implementation. Consumers must use these values for
+provenance and diagnostics only, not for semantic payload routing.
+
 ## Add a New Payload
 
 1. Confirm that the result is persistent runtime data and belongs in the shared

@@ -11,3 +11,9 @@ option('executorch',
   value : 'auto',
   description : 'Enable ExecuTorch integration'
 )
+
+option('python_ops',
+  type : 'feature',
+  value : 'auto',
+  description : 'Enable the embedded Python script Op'
+)

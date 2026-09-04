@@ -204,12 +204,12 @@ pek::Result<void> YoloParser::parse(const pek::TensorParser::Input &input,
             nms(dets, iouThreshold);
 
         perception::metadata::BoxDetectionsT payload;
-        payload.layer = perception::makeLayerInfo(input.inferenceInfo.modelName,
-                                                  input.inferenceInfo.inferElementId,
-                                                  k_content_type,
-                                                  "",
-                                                  "",
-                                                  "coco");
+        payload.layer =
+            perception::makeLayerInfo({.model = input.inferenceInfo.modelName,
+                                       .inferElementId = input.inferenceInfo.inferElementId,
+                                       .contentType = k_content_type,
+                                       .labelFamily = "coco",
+                                       .producer = &input.producerInfo});
         fillDetection(dets, input, payload, normalizeOutputCoordinates);
         if (!payload.detections.empty()) {
             results.add(std::move(payload));
