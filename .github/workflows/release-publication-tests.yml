@@ -23,6 +23,7 @@ jobs:
       statuses: write
     steps:
       - name: Mark release publication validation pending
+        if: github.event.workflow_run.event == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
@@ -372,8 +373,11 @@ jobs:
               assert!(Envelope::decode(Vec::new()).is_err());
           }
           EOF
-          cargo generate-lockfile --manifest-path "$project/Cargo.toml"
-          cargo run --locked --manifest-path "$project/Cargo.toml"
+          (
+            cd "$project"
+            cargo generate-lockfile
+            cargo run --locked
+          )
 
   cargo-cleanup:
     name: Delete disposable Cargo crate
@@ -549,7 +553,8 @@ jobs:
     permissions:
       statuses: write
     steps:
-      - name: Report release publication validation result
+      - name: Report pull request publication validation result
+        if: github.event.workflow_run.event == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
@@ -573,3 +578,16 @@ jobs:
             -f description="$description" \
             -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           [[ "$STATUS_STATE" == success ]]
+
+      - name: Complete manual publication validation
+        if: github.event.workflow_run.event == 'workflow_dispatch'
+        env:
+          STATUS_STATE: >-
+            ${{ github.event.workflow_run.conclusion == 'success' &&
+                needs.artifactory.result == 'success' &&
+                needs.cargo-upload.result == 'success' &&
+                needs.cargo-consume.result == 'success' &&
+                needs.cargo-cleanup.result == 'success' &&
+                needs.github-release.result == 'success' &&
+                'success' || 'failure' }}
+        run: '[[ "$STATUS_STATE" == success ]]'

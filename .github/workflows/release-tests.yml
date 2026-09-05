@@ -301,7 +301,10 @@ jobs:
           probe = os.environ["CARGO_TEST_VERSION"]
           manifest.write_text(text.replace(old, f'version = "{probe}"'))
           PY
-          cargo generate-lockfile --offline --manifest-path dist/cargo-probe-source/Cargo.toml
+          (
+            cd dist/cargo-probe-source
+            cargo generate-lockfile --offline
+          )
           mv dist/cargo-probe-source/vendor dist/cargo-probe-vendor
           cat > dist/cargo-probe-source/.cargo/config.toml <<EOF
           [source.crates-io]
@@ -313,7 +316,10 @@ jobs:
           [net]
           offline = true
           EOF
-          cargo package --offline --locked --manifest-path dist/cargo-probe-source/Cargo.toml
+          (
+            cd dist/cargo-probe-source
+            cargo package --offline --locked
+          )
           crate=(dist/cargo-probe-source/target/package/perception-"$CARGO_TEST_VERSION".crate)
           test "${#crate[@]}" -eq 1
           test -f "${crate[0]}"
