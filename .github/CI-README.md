@@ -72,19 +72,22 @@ and Sonar [incremental analysis](https://docs.sonarsource.com/sonarqube-server/2
 - Builds temporary x86_64 and Arm release snapshot images. Each image runs its
   native offline Perception integration smoke during the Docker build and
   exports its validated archive; the Arm job also exports the embedded
-  Perception wheel. A successful run is followed by disposable publication
-  probes: generic Artifactory receives both archives and the release wheel, a
-  disposable prerelease wheel is published and consumed through Artifactory
-  PyPI, and the draft GitHub Release remains archive-only. Every probe deletes
-  its uploads.
+  Perception wheel and deterministic Cargo crate. A separate temporary Rust
+  source copy produces `perception-<stable>-ci.<run-id>.<attempt>.crate` offline
+  and locked. A successful run is followed by disposable publication probes:
+  generic Artifactory receives both archives and the release wheel, disposable
+  prerelease Python and Cargo packages are published and consumed through their
+  package indexes, and the draft GitHub Release remains archive-only. Every
+  probe deletes its uploads. The exact stable crate is retained for seven days
+  as validation evidence, but is not published.
 
 ## What does `.github/workflows/release-packages.yml` do?
 
 | Event | Candidate validation | Publication validation | Package publication |
 | --- | --- | --- | --- |
-| Pull request targeting `main` | Builds and smoke-tests the two architecture snapshot images | Uploads, verifies, and deletes the generic Artifactory, Artifactory PyPI, and GitHub Release probes | Not run |
+| Pull request targeting `main` | Builds and smoke-tests the two architecture snapshot images | Uploads, anonymously consumes, verifies, and deletes the generic Artifactory, Artifactory PyPI, Cargo, and GitHub Release probes | Not run |
 | Push to `main` | Not run | Not run | Builds all three archives, smoke-tests and publishes one multi-architecture GHCR image, publishes the archives to GitHub Release and generic Artifactory, and publishes the wheel to Artifactory PyPI |
-| Manual release validation | Resolves any commit, tag, or branch `source_ref`, builds and smoke-tests the two temporary architecture images | Uploads, verifies, and deletes the generic Artifactory, Artifactory PyPI, and GitHub Release probes | Not run |
+| Manual release validation | Resolves any commit, tag, or branch `source_ref`, builds and smoke-tests the two temporary architecture images | Uploads, anonymously consumes, verifies, and deletes the generic Artifactory, Artifactory PyPI, Cargo, and GitHub Release probes | Not run |
 | Manual package publication | Not run | Not run | Resolves `source_ref`, builds all three archives, smoke-tests and publishes one multi-architecture GHCR snapshot, then publishes the archives and wheel to one generic Artifactory snapshot folder |
 
 For release builds, `pek-deployment-base` runs its smoke inside the existing
@@ -163,6 +166,16 @@ The documentation release job likewise builds the existing `pek-docs` target,
 runs `scripts/gen-doc.sh` in that container, and archives the generated HTML
 with system `tar`. There is no separate release documentation image or package
 script.
+
+Cargo uses the anonymous sparse index at
+`https://artifactory.arm.com/artifactory/api/cargo/edge-ai-tooling.cargo/index/`.
+Only trusted opaque-byte upload and `if: always()` cleanup jobs receive Cargo
+repository credentials; neither checks out, extracts, compiles, or executes PR
+crate code. The no-secrets GitHub-hosted consumer uses a new `CARGO_HOME`, empty
+job permissions, and a clean project. Upload, consume, and cleanup all gate the
+required publication status. Cargo object deletion and sparse-index cleanup are
+phase-one assumptions to confirm with a manual validation after merge to
+`develop`. Stable Cargo publication remains disabled in `release-packages.yml`.
 
 Configured GitHub Actions secrets supply `HF_TOKEN`, `PEK_ARTIFACTORY_USERNAME`,
 and `PEK_ARTIFACTORY_API_KEY`. Once the workflow is registered on the default `develop`

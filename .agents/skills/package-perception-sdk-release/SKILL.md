@@ -91,8 +91,13 @@ Confirm that these three files exist:
 
 Confirm that provenance records the intended repository commit and
 `dirty=false`. The archive verifier checks deterministic ZIP metadata, safe
-paths, bundle manifests, file hashes, wheel metadata, schema identity, and
-sidecar integrity.
+paths, bundle manifests, file hashes, wheel and Cargo metadata, schema identity,
+and sidecar integrity. The Rust crate is produced by canonical offline locked
+Cargo test/package commands rather than a custom tar writer. Verification
+requires one safe package root, bounded regular files/directories, exact package
+and FlatBuffers dependency identity, generated-source reconciliation, no
+vendored or build-only content, and an offline compile against the bundled
+vendor directory.
 
 For explicit reproducibility qualification, build twice from the same commit
 and locked artifact cache into separate output directories, then compare the
@@ -110,12 +115,28 @@ Choose one handoff mode:
   pushes publish the verified Python wheel unchanged to the existing
   Artifactory PyPI repository while generic Artifactory keeps the three PEK
   archives. Manual snapshots instead place the wheel beside those archives in
-  their immutable generic Artifactory folder. Do not publish the rest of the
-  triplet as separate top-level PEK release assets.
+  their immutable generic Artifactory folder. Release validation exports the
+  exact stable Rust crate for seven days and separately proves a unique
+  `<stable>-ci.<run-id>.<attempt>` Cargo version through opaque upload,
+  anonymous sparse-index consumption, and cleanup. Stable Cargo publication is
+  not enabled in `release-packages.yml`; do not publish it manually as part of
+  phase one. Do not publish the rest of the triplet as separate top-level PEK
+  release assets.
 
 Do not commit release ZIPs or sidecars unless repository policy explicitly
 requires it. Record the SDK version, repository commit, archive SHA-256,
 handoff mode, and destination in the release task.
+
+## Confirm the Phase-One Cargo Probe
+
+After the workflow change reaches `develop`, manually dispatch release
+validation and confirm all three Cargo jobs pass: upload/download byte compare,
+anonymous consumption from
+`https://artifactory.arm.com/artifactory/api/cargo/edge-ai-tooling.cargo/index/`,
+and exact-version cleanup from object storage and `pe/rc/perception`. The
+credentialed jobs must continue to treat the candidate as opaque bytes and must
+not check out or execute selected-source code. Only after this trusted probe is
+proven should a separate phase enable stable Cargo publication.
 
 ## Verify an Existing Artifact
 

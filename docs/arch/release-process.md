@@ -46,11 +46,15 @@ and checks its provenance against the release commit. The Arm snapshot job also
 uploads that exact embedded triplet as the existing temporary
 `pek-perception-sdk-input-*` or `pek-test-perception-sdk-input-*` Actions
 artifact; it does not rebuild it. For PEK publication, the Artifactory job
-extracts the verified Python wheel from that exact triplet. Stable release
-pushes publish it unchanged to `edge-ai-tooling.pypi` while generic Artifactory
-keeps the three PEK archives. Manual snapshots instead place the wheel beside
-those archives in their immutable generic Artifactory snapshot folder. GitHub
-Release assets remain the three archives.
+extracts the verified Python wheel from that exact triplet. Release validation
+also exports the exact embedded `perception-<version>.crate` as a seven-day
+Actions artifact. Stable release pushes publish the wheel unchanged to
+`edge-ai-tooling.pypi` while generic Artifactory keeps the three PEK archives.
+Manual snapshots instead place the wheel beside those archives in their
+immutable generic Artifactory snapshot folder. GitHub Release assets remain the
+three archives. Stable Cargo publication is not enabled in
+`release-packages.yml`; that remains phase two after the disposable probe is
+proven on `develop`.
 
 The architecture tarballs keep their seven-model allowlist. The image is the
 full existing deployment snapshot, including the resolved configuration, model,
@@ -64,9 +68,9 @@ Release validation and publication use three workflows:
 
 | Event | `release-tests.yml` | `release-publication-tests.yml` | `release-packages.yml` |
 | --- | --- | --- | --- |
-| Pull request to `main` | Builds temporary x86_64 and Arm snapshot images, runs their native offline integration smokes, and emits the validated archives plus embedded Perception wheel | Uploads the archives and wheel to disposable Artifactory and the archives to a draft GitHub Release, verifies them, and deletes them | Not run |
+| Pull request to `main` | Builds temporary x86_64 and Arm snapshot images, runs their native offline integration smokes, and emits the validated archives plus embedded Perception wheel and Cargo crate; also builds uniquely versioned disposable PyPI and Cargo probes | Uploads, consumes, verifies, and deletes the disposable Artifactory, PyPI, Cargo, and draft GitHub Release probes | Not run |
 | Push to `main` | Not run | Not run | Builds all three archives, smoke-tests both architecture images, publishes their multi-architecture GHCR image, then publishes the archives to one `v<version>` GitHub release and generic Artifactory, and the Perception wheel to Artifactory PyPI |
-| Manual release validation | Resolves `source_ref`, builds temporary x86_64 and Arm snapshot images, runs their native offline integration smokes, and emits the validated archives plus embedded Perception wheel | Uploads the archives and wheel to disposable Artifactory and the archives to a draft GitHub Release, verifies them, and deletes them | Not run |
+| Manual release validation | Resolves `source_ref`, builds temporary x86_64 and Arm snapshot images, runs their native offline integration smokes, and emits the validated archives plus embedded Perception wheel and Cargo crate; also builds uniquely versioned disposable PyPI and Cargo probes | Uploads, consumes, verifies, and deletes the disposable Artifactory, PyPI, Cargo, and draft GitHub Release probes | Not run |
 | Manual package publication | Not run | Not run | Resolves `source_ref`, builds all three archives, smoke-tests both architecture images, publishes their multi-architecture GHCR snapshot, and publishes the archives plus Perception wheel only to an immutable generic Artifactory snapshot folder |
 
 On a push to `main`, release Sonar analysis and the staging docs deployment run
@@ -77,14 +81,25 @@ BuildKit registry cache in GHCR.
 
 Credentialed publication probes run only after an unprivileged pull-request or
 manual validation workflow succeeds. The trusted `workflow_run` workflow does
-not check out or execute the selected source; it accepts only the two archives
-and wheel produced by the smoke-tested architecture images. It uploads all three
-with Publisher below `ci/run-<source-run-id>-<attempt>/<commit>/`, verifies and
-always deletes that folder. It also creates a draft prerelease titled
-`[TEST ONLY - DO NOT USE]`, uploads and verifies both assets, then always
-deletes the release and tag. The workflow reports a
-`Release publication validation` status on the pull-request commit; it passes
-only when both publication probes pass.
+not check out or execute the selected source. Generic and PyPI validation keep
+the existing candidates and cleanup. Cargo validation accepts only the opaque,
+uniquely versioned `perception-<stable>-ci.<run-id>.<attempt>.crate` bytes. Its
+credentialed jobs never extract, compile, or execute those bytes: one bounds
+and hashes the file, raw-PUTs and compares the exact download, and requires the
+sparse entry's `vers` and `cksum` to match. An `if: always()` cleanup deletes
+only that object and polls object and sparse-index absence. A separate GitHub-hosted job
+with no secrets and empty permissions resolves the exact version anonymously
+from a fresh Cargo home and exercises a minimal packet API. The sparse index is
+`https://artifactory.arm.com/artifactory/api/cargo/edge-ai-tooling.cargo/index/`.
+The workflow also creates and removes the existing draft prerelease. The
+`Release publication validation` status passes only when upload, anonymous
+consume, cleanup, generic Artifactory, PyPI, and GitHub Release probes pass.
+
+The Cargo deletion and sparse-index removal semantics are intentionally being
+proven by phase one. After this lands on `develop`, run a manual release
+validation, confirm the exact probe appears, resolves anonymously, and is absent
+from both object storage and `pe/rc/perception` after cleanup. Do not add stable
+Cargo publication until that post-merge validation succeeds.
 
 GitHub loads `workflow_run` definitions from the default `develop` branch.
 After a hotfix adds or changes this probe on `main`, back-merge it to `develop`
