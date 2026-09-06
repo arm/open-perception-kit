@@ -118,11 +118,8 @@ publication writes to
 The same URL is used for uploads and generated download links.
 The final Artifactory workflow log and `$GITHUB_STEP_SUMMARY` expose the folder,
 the three stable archive links or five snapshot links, and their SHA-256 values.
-Stable Perception crates are packaged from the checked-in generated source with
-the SDK bundle's locked Cargo vendor directory, then uploaded unchanged to
-`edge-ai-tooling.cargo`. If GHCR or GitHub Release publication succeeds but a
-later publication fails, repair or remove the partial publication before
-rerunning the workflow.
+See the [release process](../docs/arch/release-process.md) for language-package
+routing and partial-publication recovery.
 
 Each native architecture build uses the existing `pek-models` Docker artifact
 stage to resolve the selected commit's pinned `hfDownload` descriptors. Both

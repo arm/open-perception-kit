@@ -207,40 +207,28 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           set -euo pipefail
-          sdk=(dist/perception-sdk-input/perception-sdk-*.zip)
-          test "${#sdk[@]}" -eq 1
+          sdk="dist/perception-sdk-input/perception-sdk-$VERSION.zip"
+          export_root="dist/perception-sdk-export/perception-sdk-$VERSION"
           mkdir -p dist/perception-sdk-export
-          python3 -m zipfile -e "${sdk[0]}" dist/perception-sdk-export
-          rust=(dist/perception-sdk-export/perception-sdk-*/rust)
-          test "${#rust[@]}" -eq 1
-          test -d "${rust[0]}/vendor"
-          test -d "${rust[0]}/crates"
+          python3 -m zipfile -e "$sdk" dist/perception-sdk-export
+          rust="$export_root/rust"
           # Dependency archives seed vendor/ but are not part of the published crate.
-          rm -rf -- "${rust[0]}/crates"
+          rm -rf -- "$rust/crates"
           (
-            cd "${rust[0]}"
+            cd "$rust"
             cargo package --offline --locked
           )
-          crate=("${rust[0]}"/target/package/perception-"$VERSION".crate)
-          test "${#crate[@]}" -eq 1
-          test -f "${crate[0]}"
-          cp "${crate[0]}" dist/
-
-      - name: Upload Perception Rust crate
-        if: matrix.architecture == 'aarch64'
-        uses: actions/upload-artifact@v7
-        with:
-          name: pek-perception-rust-crate-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ env.SOURCE_DIR }}/dist/perception-${{ needs.prepare.outputs.version }}.crate
-          if-no-files-found: error
-          retention-days: 7
+          cp "$export_root/python/opk_perception_sdk-$VERSION-py3-none-any.whl" \
+            dist/perception-sdk-input/
+          cp "$rust/target/package/perception-$VERSION.crate" \
+            dist/perception-sdk-input/
 
       - name: Upload Perception SDK input
         if: matrix.architecture == 'aarch64'
         uses: actions/upload-artifact@v7
         with:
           name: pek-perception-sdk-input-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ env.SOURCE_DIR }}/dist/perception-sdk-input/perception-sdk-*
+          path: ${{ env.SOURCE_DIR }}/dist/perception-sdk-input/
           if-no-files-found: error
           retention-days: 7
 
@@ -725,27 +713,16 @@ jobs:
           name: pek-perception-sdk-input-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/pek-perception-sdk-input
 
-      - name: Download Perception Rust crate
-        uses: actions/download-artifact@v8
-        with:
-          name: pek-perception-rust-crate-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/pek-release-artifacts
-
-      - name: Export Perception Python wheel
+      - name: Stage Perception language packages
         env:
           ARTIFACTS_DIR: ${{ runner.temp }}/pek-release-artifacts
           SDK_DIR: ${{ runner.temp }}/pek-perception-sdk-input
+          VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           set -euo pipefail
-          sdk=("$SDK_DIR"/perception-sdk-*.zip)
-          test "${#sdk[@]}" -eq 1
-          test -f "${sdk[0]}"
-          mkdir -p "$RUNNER_TEMP/perception-sdk-export"
-          python3 -m zipfile -e "${sdk[0]}" "$RUNNER_TEMP/perception-sdk-export"
-          wheel=("$RUNNER_TEMP"/perception-sdk-export/perception-sdk-*/python/opk_perception_sdk-*-py3-none-any.whl)
-          test "${#wheel[@]}" -eq 1
-          test -f "${wheel[0]}"
-          cp "${wheel[0]}" "$ARTIFACTS_DIR/"
+          cp "$SDK_DIR/opk_perception_sdk-$VERSION-py3-none-any.whl" \
+            "$ARTIFACTS_DIR/"
+          cp "$SDK_DIR/perception-$VERSION.crate" "$ARTIFACTS_DIR/"
 
       - name: Accept exactly three archives and two language packages
         env:
@@ -758,19 +735,17 @@ jobs:
             "pek-$BUILD_ID-linux-x86_64.tar.gz"
             "pek-$BUILD_ID-linux-aarch64.tar.gz"
             "pek-docs-$BUILD_ID.tar.gz"
+            "opk_perception_sdk-$VERSION-py3-none-any.whl"
             "perception-$VERSION.crate"
           )
           test -z "$(find "$ARTIFACTS_DIR" -type l -print -quit)"
           mapfile -d '' -t files < <(
             find "$ARTIFACTS_DIR" -mindepth 1 -maxdepth 1 -type f -print0 | sort -z
           )
-          test "${#files[@]}" -eq 5
+          test "${#files[@]}" -eq "${#expected[@]}"
           for artifact in "${expected[@]}"; do
             test -f "$ARTIFACTS_DIR/$artifact"
           done
-          wheel=("$ARTIFACTS_DIR"/opk_perception_sdk-*-py3-none-any.whl)
-          test "${#wheel[@]}" -eq 1
-          test -f "${wheel[0]}"
 
       - name: Set up locked uv and Python
         uses: astral-sh/setup-uv@v10.0.1
@@ -829,12 +804,10 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           set -euo pipefail
-          crate="$ARTIFACTS_DIR/perception-$VERSION.crate"
-          test -f "$crate"
           curl --fail-with-body --silent --show-error \
             --user "$ARTIFACTORY_USERNAME:$ARTIFACTORY_TOKEN" \
-            --upload-file "$crate" \
-            "https://artifactory.arm.com/artifactory/edge-ai-tooling.cargo/crates/perception/${crate##*/}"
+            --upload-file "$ARTIFACTS_DIR/perception-$VERSION.crate" \
+            "https://artifactory.arm.com/artifactory/edge-ai-tooling.cargo/crates/perception/perception-$VERSION.crate"
 
       - name: Publish Perception Python package to Artifactory PyPI
         if: github.event_name == 'push'
