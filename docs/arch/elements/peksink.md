@@ -12,7 +12,8 @@ make containerized or headless pipelines visible and controllable from a browser
 ## Element Contract
 
 - Base class: `GstBin`
-- Video sink pad: `videosink`, always present
+- Video sink pad: `videosink`, always present, accepting
+  `video/x-raw, format={BGRA,RGB,I420,NV12,YUY2}`
 - Audio sink pad: `audiosink`, request pad
 - Output: WebRTC transport rather than a normal downstream pad
 - Video encoding: VP8

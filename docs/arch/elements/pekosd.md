@@ -5,7 +5,7 @@ sidebar_label: pekosd
 
 # pekosd
 
-`pekosd` is a `GstVideoFilter` that renders `FrameResults` payloads onto BGRA video
+`pekosd` is a `GstVideoFilter` that renders `FrameResults` payloads onto PEK video
 frames. It is a presentation/debugging stage and does not modify `FrameResults`
 itself.
 
@@ -13,7 +13,7 @@ itself.
 
 - Base class: `GstVideoFilter`
 - Processing mode: in-place `transform_frame_ip`
-- Pad caps: `video/x-raw, format=BGRA`
+- Pad caps: `video/x-raw, format={BGRA,RGB,I420,NV12,YUY2}`
 - Metadata dependency: `FrameResultsMeta`
 - Main property: `enabled`
 
@@ -21,11 +21,11 @@ If no `FrameResultsMeta` is attached, the frame passes through unchanged.
 
 ## Execution Model
 
-For each frame, `pekosd` reads the immutable `FrameResults` envelope, creates one or
-more Cairo-backed overlay layers, composites those layers onto the input frame,
-and returns the modified frame downstream.
+For each frame, `pekosd` reads the immutable `FrameResults` envelope, draws supported
+overlays onto the input frame, and returns the modified frame downstream.
 
-The current implementation uses CPU-based Cairo rendering over linear BGRA memory.
+The current implementation is migrating from CPU-based Cairo rendering over linear
+BGRA memory to direct raster drawing over the negotiated PEK video formats.
 Future DMABUF/Vulkan-style rendering is a planned direction, not the current path.
 
 ## Rendering Model

@@ -58,6 +58,9 @@ struct _GstPekTracker {
 
 G_END_DECLS
 
+static constexpr const char *PEK_SUPPORTED_RAW_VIDEO_CAPS =
+    "video/x-raw, format={BGRA,RGB,I420,NV12,YUY2}";
+
 struct _GstPekTracker::Members {
     pek::tracker::Tracker tracker;
 };
@@ -182,6 +185,19 @@ static gboolean gst_pektracker_stop(GstBaseTransform *b) {
     return TRUE;
 }
 
+static bool gst_pektracker_is_supported_format(GstVideoFormat format) noexcept {
+    switch (format) {
+    case GST_VIDEO_FORMAT_BGRA:
+    case GST_VIDEO_FORMAT_RGB:
+    case GST_VIDEO_FORMAT_I420:
+    case GST_VIDEO_FORMAT_NV12:
+    case GST_VIDEO_FORMAT_YUY2:
+        return true;
+    default:
+        return false;
+    }
+}
+
 static gboolean gst_pektracker_set_caps(GstBaseTransform *b, GstCaps *incaps, GstCaps *outcaps) {
     auto *self = (GstPekTracker *)b;
     (void)outcaps;
@@ -191,8 +207,8 @@ static gboolean gst_pektracker_set_caps(GstBaseTransform *b, GstCaps *incaps, Gs
         return FALSE;
     }
 
-    if (GST_VIDEO_INFO_FORMAT(&self->vinfo) != GST_VIDEO_FORMAT_BGRA) {
-        GST_ERROR_OBJECT(self, "Unsupported format (expected BGRA)");
+    if (!gst_pektracker_is_supported_format(GST_VIDEO_INFO_FORMAT(&self->vinfo))) {
+        GST_ERROR_OBJECT(self, "Unsupported format (expected BGRA, RGB, I420, NV12, or YUY2)");
         return FALSE;
     }
 
@@ -678,9 +694,9 @@ static void gst_pektracker_class_init(GstPekTrackerClass *klass) {
                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     static GstStaticPadTemplate sink_t = GST_STATIC_PAD_TEMPLATE(
-        "sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS("video/x-raw, format={BGRA}"));
+        "sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS(PEK_SUPPORTED_RAW_VIDEO_CAPS));
     static GstStaticPadTemplate src_t = GST_STATIC_PAD_TEMPLATE(
-        "src", GST_PAD_SRC, GST_PAD_ALWAYS, GST_STATIC_CAPS("video/x-raw, format={BGRA}"));
+        "src", GST_PAD_SRC, GST_PAD_ALWAYS, GST_STATIC_CAPS(PEK_SUPPORTED_RAW_VIDEO_CAPS));
     gst_element_class_add_static_pad_template(ecls, &sink_t);
     gst_element_class_add_static_pad_template(ecls, &src_t);
 

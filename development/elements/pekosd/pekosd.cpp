@@ -2,6 +2,7 @@
  * Copyright (C) 2025 Arm Limited. All rights reserved.
  *************************************************************/
 
+#include "RasterOsd.h"
 #include "gst/FrameResultsMeta.h"
 #include "gst/Tools.h"
 #include "osd.h"
@@ -10,7 +11,10 @@
 #include "pek/FrameResults.h"
 #include "pek/Tools.h"
 
+#include "perf/PerformanceMetrics.h"
+
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
@@ -69,6 +73,9 @@ GST_DEBUG_CATEGORY_STATIC(gst_pek_osd_debug);
 #define GST_CAT_DEFAULT gst_pek_osd_debug
 
 namespace Osd = pek::osd;
+
+static constexpr const char *PEK_SUPPORTED_RAW_VIDEO_CAPS =
+    "video/x-raw, format=(string){BGRA,RGB,I420,NV12,YUY2}";
 
 // Default values
 #define DEFAULT_ENABLED FALSE
@@ -145,11 +152,11 @@ static void gst_pek_osd_class_init(GstPekOsdClass *klass) {
     gst_element_class_set_static_metadata(element_class,
                                           "PEK OSD Overlay",
                                           "Filter/Video",
-                                          "On-Screen Display overlay for BGRA video frames",
+                                          "On-Screen Display overlay for PEK video frames",
                                           "PEK Development Team");
 
     // Set pad templates
-    GstCaps *caps = gst_caps_from_string("video/x-raw, format=(string){BGRA}");
+    GstCaps *caps = gst_caps_from_string(PEK_SUPPORTED_RAW_VIDEO_CAPS);
     GstPadTemplate *src_template = gst_pad_template_new("src", GST_PAD_SRC, GST_PAD_ALWAYS, caps);
     GstPadTemplate *sink_template =
         gst_pad_template_new("sink", GST_PAD_SINK, GST_PAD_ALWAYS, caps);
@@ -1101,6 +1108,169 @@ static void gst_pek_osd_process_segmentation(GstPekOsd *self,
         });
 }
 
+static pek::RawImagePixelFormat rawImagePixelFormatFromGst(GstVideoFormat format) noexcept {
+    using enum pek::RawImagePixelFormat;
+
+    switch (format) {
+    case GST_VIDEO_FORMAT_BGRA:
+        return Bgra;
+    case GST_VIDEO_FORMAT_RGB:
+        return Rgb;
+    case GST_VIDEO_FORMAT_I420:
+        return I420;
+    case GST_VIDEO_FORMAT_NV12:
+        return Nv12;
+    case GST_VIDEO_FORMAT_YUY2:
+        return Yuy2;
+    default:
+        return Unknown;
+    }
+}
+
+static bool isYuvFormat(pek::RawImagePixelFormat format) noexcept {
+    using enum pek::RawImagePixelFormat;
+
+    switch (format) {
+    case I420:
+    case Nv12:
+    case Yuy2:
+        return true;
+    default:
+        return false;
+    }
+}
+
+static pek::YuvColorMatrix defaultYuvColorMatrix(std::uint32_t height) noexcept {
+    return height <= 576U ? pek::YuvColorMatrix::Bt601 : pek::YuvColorMatrix::Bt709;
+}
+
+static pek::YuvColorMatrix yuvColorMatrixFromGst(const GstVideoColorimetry &colorimetry,
+                                                 std::uint32_t height) noexcept {
+    using enum pek::YuvColorMatrix;
+
+    switch (colorimetry.matrix) {
+    case GST_VIDEO_COLOR_MATRIX_BT601:
+        return Bt601;
+    case GST_VIDEO_COLOR_MATRIX_BT709:
+        return Bt709;
+    case GST_VIDEO_COLOR_MATRIX_BT2020:
+        return Bt2020;
+    case GST_VIDEO_COLOR_MATRIX_UNKNOWN:
+        return defaultYuvColorMatrix(height);
+    default:
+        return Unknown;
+    }
+}
+
+static pek::YuvRange yuvRangeFromGst(const GstVideoColorimetry &colorimetry) noexcept {
+    using enum pek::YuvRange;
+
+    switch (colorimetry.range) {
+    case GST_VIDEO_COLOR_RANGE_0_255:
+        return Full;
+    case GST_VIDEO_COLOR_RANGE_16_235:
+        return Limited;
+    case GST_VIDEO_COLOR_RANGE_UNKNOWN:
+        return Limited;
+    default:
+        return Unknown;
+    }
+}
+
+static std::size_t rasterPlaneByteSize(const GstVideoFrame &frame, guint plane) noexcept {
+    const auto &info = frame.info;
+    if (info.finfo == nullptr) {
+        return 0U;
+    }
+
+    const gint stride = GST_VIDEO_FRAME_PLANE_STRIDE(&frame, plane);
+    const guint height =
+        GST_VIDEO_FORMAT_INFO_SCALE_HEIGHT(info.finfo, plane, GST_VIDEO_INFO_HEIGHT(&info));
+    if (stride <= 0 || height == 0U) {
+        return 0U;
+    }
+
+    const auto strideBytes = static_cast<std::size_t>(stride);
+    if (strideBytes > std::numeric_limits<std::size_t>::max() / static_cast<std::size_t>(height)) {
+        return 0U;
+    }
+
+    return strideBytes * static_cast<std::size_t>(height);
+}
+
+static Osd::RasterDrawRequest
+makeRasterDrawRequest(GstPekOsd *self,
+                      GstVideoFrame *frame,
+                      const perception::FrameResults &frameResults,
+                      std::array<pek::ImagePlaneDesc, pek::MaxImagePlaneCount> &planes) noexcept {
+    const auto &info = frame->info;
+    const auto format = rawImagePixelFormatFromGst(GST_VIDEO_INFO_FORMAT(&info));
+    const auto width = static_cast<std::uint32_t>(GST_VIDEO_INFO_WIDTH(&info));
+    const auto height = static_cast<std::uint32_t>(GST_VIDEO_INFO_HEIGHT(&info));
+    const auto planeCount = std::min<std::size_t>(GST_VIDEO_INFO_N_PLANES(&info), planes.size());
+
+    for (std::size_t plane = 0U; plane < planeCount; ++plane) {
+        auto *data = static_cast<std::uint8_t *>(
+            GST_VIDEO_FRAME_PLANE_DATA(frame, static_cast<guint>(plane)));
+        const gint stride = GST_VIDEO_FRAME_PLANE_STRIDE(frame, static_cast<guint>(plane));
+        const auto byteCount = rasterPlaneByteSize(*frame, static_cast<guint>(plane));
+        if (data == nullptr || stride <= 0 || byteCount == 0U) {
+            planes[plane] = {};
+            continue;
+        }
+
+        planes[plane] = {
+            data,
+            data,
+            byteCount,
+            static_cast<std::size_t>(stride),
+        };
+    }
+
+    const auto yuvMatrix = isYuvFormat(format)
+                               ? yuvColorMatrixFromGst(GST_VIDEO_INFO_COLORIMETRY(&info), height)
+                               : pek::YuvColorMatrix::Unknown;
+    const auto yuvRange = isYuvFormat(format) ? yuvRangeFromGst(GST_VIDEO_INFO_COLORIMETRY(&info))
+                                              : pek::YuvRange::Unknown;
+
+    return Osd::RasterDrawRequest{
+        .surface =
+            Osd::RasterSurface{
+                .format = format,
+                .width = width,
+                .height = height,
+                .planes = std::span<pek::ImagePlaneDesc>(planes.data(), planeCount),
+                .yuvMatrix = yuvMatrix,
+                .yuvRange = yuvRange,
+            },
+        .frameResults = &frameResults,
+        .options =
+            Osd::RasterDrawOptions{
+                .performanceOverlayEnabled = self->performanceOverlayEnabled ? true : false,
+                .backgroundImage = self->bgImage ? &*self->bgImage : nullptr,
+            },
+    };
+}
+
+static const char *rasterDrawStatusName(Osd::RasterDrawStatus status) noexcept {
+    using enum Osd::RasterDrawStatus;
+
+    switch (status) {
+    case Drawn:
+        return "drawn";
+    case MissingFrameResults:
+        return "missing-frame-results";
+    case UnsupportedFormat:
+        return "unsupported-format";
+    case InvalidSurface:
+        return "invalid-surface";
+    case NotImplemented:
+        return "not-implemented";
+    default:
+        return "unknown";
+    }
+}
+
 static GstFlowReturn gst_pek_osd_transform_frame_ip(GstVideoFilter *filter, GstVideoFrame *frame) {
     auto *self = GST_PEK_OSD(filter);
 
@@ -1108,22 +1278,35 @@ static GstFlowReturn gst_pek_osd_transform_frame_ip(GstVideoFilter *filter, GstV
         return GST_FLOW_OK;
     }
 
+    PEK_PERF_SCOPE("osd/render");
+
+    constexpr bool useRasterOsd = true;
+
     auto *imgData = static_cast<guint8 *>(GST_VIDEO_FRAME_PLANE_DATA(frame, 0));
     const float imgWidth = static_cast<float>(GST_VIDEO_FRAME_WIDTH(frame));
     const float imgHeight = static_cast<float>(GST_VIDEO_FRAME_HEIGHT(frame));
     const gint imgStride = GST_VIDEO_FRAME_PLANE_STRIDE(frame, 0);
 
-    pek::osd::Layers_t layers;
-
     if (auto frameResults = pek::FrameResultsMeta::read(frame->buffer); frameResults != nullptr) {
-        gst_pek_osd_process_segmentation(
-            self, imgData, imgStride, imgWidth, imgHeight, layers, *frameResults);
-        layers.push_back(drawFrameResultsLayer(imgWidth, imgHeight, *frameResults));
-        if (self->performanceOverlayEnabled) {
-            layers.push_back(drawPerformanceLayer(imgWidth, imgHeight, *frameResults));
-        }
+        if (useRasterOsd) {
+            std::array<pek::ImagePlaneDesc, pek::MaxImagePlaneCount> rasterPlanes{};
+            const auto request = makeRasterDrawRequest(self, frame, *frameResults, rasterPlanes);
+            const auto status = Osd::drawRasterOsd(request);
+            if (status != Osd::RasterDrawStatus::Drawn &&
+                status != Osd::RasterDrawStatus::NotImplemented) {
+                GST_WARNING_OBJECT(self, "Raster OSD failed: %s", rasterDrawStatusName(status));
+            }
+        } else {
+            pek::osd::Layers_t layers;
+            gst_pek_osd_process_segmentation(
+                self, imgData, imgStride, imgWidth, imgHeight, layers, *frameResults);
+            layers.push_back(drawFrameResultsLayer(imgWidth, imgHeight, *frameResults));
+            if (self->performanceOverlayEnabled) {
+                layers.push_back(drawPerformanceLayer(imgWidth, imgHeight, *frameResults));
+            }
 
-        pek::osd::Canvas(imgData, imgWidth, imgHeight).paint(layers);
+            pek::osd::Canvas(imgData, imgWidth, imgHeight).paint(layers);
+        }
     }
 
     ++self->frameCount;
@@ -1139,7 +1322,7 @@ static gboolean pekosd_plugin_init(GstPlugin *plugin) {
 GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   GST_VERSION_MINOR,
                   pekosd,
-                  "PEK OSD Overlay - On-Screen Display for BGRA video frames",
+                  "PEK OSD Overlay - On-Screen Display for PEK video frames",
                   pekosd_plugin_init,
                   "1.0",
                   "LGPL",

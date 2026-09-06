@@ -52,6 +52,14 @@ base64_tests = executable(
   link_with : [common],
 )
 
+surface_painter_tests = executable(
+  'surface_painter_tests',
+  ['surface_painter_test.cpp', '../elements/pekosd/RasterOsd.cpp'],
+  include_directories : [common_include, include_directories('../elements/pekosd')],
+  dependencies : [gtest_main_dep, gtest_dep, pek_deps],
+  link_with : [common],
+)
+
 model_registry_tests = executable(
   'model_registry_tests',
   ['model_registry_test.cpp', '../elements/peksink/model_reg.cpp'],
@@ -339,6 +347,7 @@ test(
 )
 test('model_descriptor_tests', model_descriptor_tests)
 test('base64_tests', base64_tests)
+test('surface_painter_tests', surface_painter_tests)
 test('model_registry_tests', model_registry_tests)
 test(
   'opchain_display_metadata_tests',

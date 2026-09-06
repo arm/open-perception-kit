@@ -4,8 +4,6 @@
   "pipeline": [
     "filesrc location=\"${PEK_PROJECT_ROOT:-/work}/data/videos/GettyImages-1140581459.mov\" !",
     "decodebin !",
-    "videoconvert !",
-    "video/x-raw,format=BGRA !",
     "pekinfer opchain-path=\"${PEK_PROJECT_ROOT:-/work}/config/models/ultraface/opchain.json\" active=false !",
     "pekinfer opchain-path=\"${PEK_PROJECT_ROOT:-/work}/config/models/yolov11/opchain.json\" active=true !",
     "pekinfer opchain-path=\"${PEK_PROJECT_ROOT:-/work}/config/models/cam-contact/opchain.json\" active=false !",
@@ -18,7 +16,6 @@
     "pekinfer opchain-path=\"${PEK_PROJECT_ROOT:-/work}/config/models/rvm/opchain.json\" active=false !",
     "pektracker content-type=genericObject !",
     "pekperformance show-all-metrics=true update-interval=1 !",
-    "pekcomm method=websocket endpoint=/ws !",
     "pekosd enabled=true bg-image=\"${PEK_PROJECT_ROOT:-/work}/data/images/GettyImages-1298072556-thumbnail.jpg\" !",
     "peksink name=sink"
   ],

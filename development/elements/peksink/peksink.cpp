@@ -44,6 +44,9 @@ g++ -fPIC -shared -o libgstpeksink.so peksink.cpp \
 
 /* =============================== PekSink ============================== */
 
+static constexpr const char *PEK_SUPPORTED_RAW_VIDEO_CAPS =
+    "video/x-raw, format={BGRA,RGB,I420,NV12,YUY2}";
+
 /* ===== Properties ===== */
 enum {
     PROP_0,
@@ -234,7 +237,7 @@ gst_pek_sink_get_property(GObject *object, guint prop_id, GValue *value, GParamS
 
 /* ===== Pad templates ===== */
 static GstStaticPadTemplate v_sink_template = GST_STATIC_PAD_TEMPLATE(
-    "videosink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS("video/x-raw"));
+    "videosink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS(PEK_SUPPORTED_RAW_VIDEO_CAPS));
 
 static GstStaticPadTemplate a_sink_template = GST_STATIC_PAD_TEMPLATE(
     "audiosink", GST_PAD_SINK, GST_PAD_REQUEST, GST_STATIC_CAPS("audio/x-raw"));

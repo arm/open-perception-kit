@@ -26,6 +26,7 @@ repo_root = meson.project_source_root() / '../..'
 development_include = include_directories(
   '../common',
   '../../development',
+  '../../development/common',
   '../../generated/perception/cpp',
   '../../development/subprojects/expected-1.3.1/include',
   '../../development/subprojects/magic_enum-0.9.7/include',

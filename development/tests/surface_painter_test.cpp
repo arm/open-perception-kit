@@ -1,0 +1,708 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
+#include "RasterOsd.h"
+#include "mediaio/PixelBufferVideoFrame.h"
+#include "pek/Tools.h"
+#include "raster/BitmapFont.h"
+#include "raster/SurfacePainter.h"
+
+#include <algorithm>
+#include <array>
+#include <chrono>
+#include <cstdint>
+#include <memory>
+#include <span>
+#include <thread>
+#include <utility>
+#include <vector>
+
+#include <gtest/gtest.h>
+
+namespace {
+
+using pek::ImagePlaneDesc;
+using pek::RawImagePixelFormat;
+using pek::raster::BitmapFont;
+using pek::raster::SurfacePainter;
+using pek::raster::TextAnchor;
+
+constexpr std::uint8_t Sentinel = 0xcd;
+
+struct PlaneStorage {
+    std::vector<std::uint8_t> bytes;
+    std::uint32_t stride = 0;
+    std::uint32_t rowBytes = 0;
+    std::uint32_t height = 0;
+};
+
+struct SurfaceStorage {
+    RawImagePixelFormat format = RawImagePixelFormat::Unknown;
+    std::uint32_t width = 0;
+    std::uint32_t height = 0;
+    std::array<PlaneStorage, pek::MaxImagePlaneCount> storage;
+    std::array<ImagePlaneDesc, pek::MaxImagePlaneCount> planes{};
+    std::size_t planeCount = 0;
+};
+
+PlaneStorage makePlane(std::uint32_t rowBytes, std::uint32_t height, std::uint32_t padding = 3) {
+    PlaneStorage plane;
+    plane.rowBytes = rowBytes;
+    plane.height = height;
+    plane.stride = rowBytes + padding;
+    plane.bytes.assign(static_cast<std::size_t>(plane.stride) * height, Sentinel);
+    return plane;
+}
+
+SurfaceStorage makeSurface(RawImagePixelFormat format, std::uint32_t width, std::uint32_t height) {
+    SurfaceStorage surface;
+    surface.format = format;
+    surface.width = width;
+    surface.height = height;
+
+    const std::uint32_t chromaWidth = (width + 1) / 2;
+    const std::uint32_t chromaHeight = (height + 1) / 2;
+    switch (format) {
+    case RawImagePixelFormat::Bgra:
+        surface.planeCount = 1;
+        surface.storage[0] = makePlane(width * 4, height);
+        break;
+    case RawImagePixelFormat::Rgb:
+        surface.planeCount = 1;
+        surface.storage[0] = makePlane(width * 3, height);
+        break;
+    case RawImagePixelFormat::I420:
+        surface.planeCount = 3;
+        surface.storage[0] = makePlane(width, height);
+        surface.storage[1] = makePlane(chromaWidth, chromaHeight);
+        surface.storage[2] = makePlane(chromaWidth, chromaHeight);
+        break;
+    case RawImagePixelFormat::Nv12:
+        surface.planeCount = 2;
+        surface.storage[0] = makePlane(width, height);
+        surface.storage[1] = makePlane(chromaWidth * 2, chromaHeight);
+        break;
+    case RawImagePixelFormat::Yuy2:
+        surface.planeCount = 1;
+        surface.storage[0] = makePlane(chromaWidth * 4, height);
+        break;
+    default:
+        break;
+    }
+
+    for (std::size_t index = 0; index < surface.planeCount; ++index) {
+        auto &plane = surface.storage[index];
+        surface.planes[index] = {nullptr, plane.bytes.data(), plane.bytes.size(), plane.stride};
+    }
+    return surface;
+}
+
+std::span<ImagePlaneDesc> planeSpan(SurfaceStorage &surface) {
+    return std::span<ImagePlaneDesc>(surface.planes.data(), surface.planeCount);
+}
+
+bool activeAreaChanged(const SurfaceStorage &surface) {
+    for (std::size_t planeIndex = 0; planeIndex < surface.planeCount; ++planeIndex) {
+        const auto &plane = surface.storage[planeIndex];
+        for (std::uint32_t y = 0; y < plane.height; ++y) {
+            const auto *row = plane.bytes.data() + static_cast<std::size_t>(y) * plane.stride;
+            for (std::uint32_t x = 0; x < plane.rowBytes; ++x) {
+                if (row[x] != Sentinel) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+void expectPaddingUnchanged(const SurfaceStorage &surface) {
+    for (std::size_t planeIndex = 0; planeIndex < surface.planeCount; ++planeIndex) {
+        const auto &plane = surface.storage[planeIndex];
+        for (std::uint32_t y = 0; y < plane.height; ++y) {
+            const auto *row = plane.bytes.data() + static_cast<std::size_t>(y) * plane.stride;
+            for (std::uint32_t x = plane.rowBytes; x < plane.stride; ++x) {
+                EXPECT_EQ(row[x], Sentinel)
+                    << "plane=" << planeIndex << " row=" << y << " padding=" << x;
+            }
+        }
+    }
+}
+
+std::array<ImagePlaneDesc, 1> readonlyPlanes(const SurfaceStorage &surface) {
+    return {ImagePlaneDesc{
+        surface.storage[0].bytes.data(),
+        nullptr,
+        surface.storage[0].bytes.size(),
+        surface.storage[0].stride,
+    }};
+}
+
+perception::FrameResults makeTrackTraceFrameResults() {
+    perception::metadata::TrackTracesT payload;
+
+    auto trace = std::make_unique<perception::metadata::TrackTraceT>();
+    trace->track_id = 3U;
+
+    auto first = std::make_unique<perception::metadata::Point2fT>();
+    first->x = 4.0f;
+    first->y = 5.0f;
+    trace->points.push_back(std::move(first));
+
+    auto second = std::make_unique<perception::metadata::Point2fT>();
+    second->x = 36.0f;
+    second->y = 18.0f;
+    trace->points.push_back(std::move(second));
+
+    auto third = std::make_unique<perception::metadata::Point2fT>();
+    third->x = 60.0f;
+    third->y = 30.0f;
+    trace->points.push_back(std::move(third));
+
+    payload.traces.push_back(std::move(trace));
+
+    perception::FrameResults frameResults;
+    frameResults.add(std::move(payload));
+    return frameResults;
+}
+
+perception::FrameResults makeGenericObjectFrameResults() {
+    perception::metadata::BoxDetectionsT payload;
+
+    perception::LayerInfoDescriptor layerDescriptor;
+    layerDescriptor.contentType = "genericObject";
+    payload.layer = perception::makeLayerInfo(layerDescriptor);
+
+    auto detection = std::make_unique<perception::metadata::BoxDetectionT>();
+    detection->object = perception::makeObjectMeta(42U);
+    detection->box = perception::makeBoundingBox(-3.4f, 1.2f, 10.8f, 4.6f);
+    detection->confidence = 0.8f;
+    detection->class_id = 1;
+    detection->text = "car";
+    payload.detections.push_back(std::move(detection));
+
+    perception::FrameResults frameResults;
+    frameResults.add(std::move(payload));
+    return frameResults;
+}
+
+perception::FrameResults makeHumanFaceAndGazeFrameResults() {
+    perception::metadata::BoxDetectionsT facePayload;
+
+    perception::LayerInfoDescriptor faceLayerDescriptor;
+    faceLayerDescriptor.contentType = "humanFace";
+    facePayload.layer = perception::makeLayerInfo(faceLayerDescriptor);
+
+    auto face = std::make_unique<perception::metadata::BoxDetectionT>();
+    face->object = perception::makeObjectMeta(7U);
+    face->box = perception::makeBoundingBox(28.0f, 18.0f, 24.0f, 24.0f);
+    face->confidence = 0.9f;
+    facePayload.detections.push_back(std::move(face));
+
+    perception::metadata::PoseEstimationsT gazePayload;
+
+    perception::LayerInfoDescriptor gazeLayerDescriptor;
+    gazeLayerDescriptor.contentType = "eyeYawPitch";
+    gazePayload.layer = perception::makeLayerInfo(gazeLayerDescriptor);
+
+    auto gaze = std::make_unique<perception::metadata::PoseEstimationT>();
+    gaze->object = perception::makeObjectMeta(8U, 7U);
+    gaze->confidence = 0.95f;
+    gaze->yaw = 20.0f;
+    gaze->pitch = -10.0f;
+    gazePayload.poses.push_back(std::move(gaze));
+
+    perception::FrameResults frameResults;
+    frameResults.add(std::move(facePayload));
+    frameResults.add(std::move(gazePayload));
+    return frameResults;
+}
+
+perception::FrameResults makeCameraContactFrameResults() {
+    perception::metadata::BoxDetectionsT facePayload;
+
+    perception::LayerInfoDescriptor faceLayerDescriptor;
+    faceLayerDescriptor.contentType = "humanFace";
+    facePayload.layer = perception::makeLayerInfo(faceLayerDescriptor);
+
+    auto face = std::make_unique<perception::metadata::BoxDetectionT>();
+    face->object = perception::makeObjectMeta(11U);
+    face->box = perception::makeBoundingBox(34.0f, 16.0f, 60.0f, 60.0f);
+    face->confidence = 0.9f;
+    facePayload.detections.push_back(std::move(face));
+
+    perception::metadata::ClassificationsT contactPayload;
+
+    perception::LayerInfoDescriptor contactLayerDescriptor;
+    contactLayerDescriptor.contentType = "cameraContact";
+    contactPayload.layer = perception::makeLayerInfo(contactLayerDescriptor);
+
+    auto classification = std::make_unique<perception::metadata::ClassificationT>();
+    classification->object = perception::makeObjectMeta(12U, 11U);
+
+    auto candidate = std::make_unique<perception::metadata::ClassificationCandidateT>();
+    candidate->confidence = 0.95f;
+    candidate->class_id = 1;
+    candidate->text = "contact";
+    classification->candidates.push_back(std::move(candidate));
+    contactPayload.classifications.push_back(std::move(classification));
+
+    perception::FrameResults frameResults;
+    frameResults.add(std::move(facePayload));
+    frameResults.add(std::move(contactPayload));
+    return frameResults;
+}
+
+perception::FrameResults makePersonClassificationFrameResults() {
+    perception::metadata::ClassificationsT payload;
+
+    perception::LayerInfoDescriptor layerDescriptor;
+    layerDescriptor.contentType = "personClassification";
+    payload.layer = perception::makeLayerInfo(layerDescriptor);
+
+    auto presence = std::make_unique<perception::metadata::PersonPresenceT>();
+    presence->object = perception::makeObjectMeta(21U);
+    presence->yes_confidence = 0.9f;
+    presence->no_confidence = 0.1f;
+    payload.person_presence.push_back(std::move(presence));
+
+    perception::FrameResults frameResults;
+    frameResults.add(std::move(payload));
+    return frameResults;
+}
+
+std::unique_ptr<perception::metadata::ClassificationCandidateT>
+makeClassificationCandidate(int classId, const char *text, float confidence) {
+    auto candidate = std::make_unique<perception::metadata::ClassificationCandidateT>();
+    candidate->class_id = classId;
+    candidate->text = text;
+    candidate->confidence = confidence;
+    return candidate;
+}
+
+perception::FrameResults makeImageClassificationFrameResults() {
+    perception::metadata::ClassificationsT leftPayload;
+    auto leftProducer = perception::makeProducerInfo("left", "test", "cpp-classifier");
+    perception::LayerInfoDescriptor leftLayerDescriptor;
+    leftLayerDescriptor.contentType = "classification";
+    leftLayerDescriptor.producer = leftProducer.get();
+    leftPayload.layer = perception::makeLayerInfo(leftLayerDescriptor);
+
+    auto leftClassification = std::make_unique<perception::metadata::ClassificationT>();
+    leftClassification->candidates.push_back(makeClassificationCandidate(1, "car", 0.8f));
+    leftPayload.classifications.push_back(std::move(leftClassification));
+
+    perception::metadata::ClassificationsT rightPayload;
+    auto rightProducer = perception::makeProducerInfo("right", "test", "python-script");
+    perception::LayerInfoDescriptor rightLayerDescriptor;
+    rightLayerDescriptor.contentType = "classification";
+    rightLayerDescriptor.compositingMode = "bottomRight";
+    rightLayerDescriptor.producer = rightProducer.get();
+    rightPayload.layer = perception::makeLayerInfo(rightLayerDescriptor);
+
+    auto rightClassification = std::make_unique<perception::metadata::ClassificationT>();
+    rightClassification->candidates.push_back(makeClassificationCandidate(2, "street", 0.7f));
+    rightPayload.classifications.push_back(std::move(rightClassification));
+
+    perception::FrameResults frameResults;
+    frameResults.add(std::move(leftPayload));
+    frameResults.add(std::move(rightPayload));
+    return frameResults;
+}
+
+perception::FrameResults makePerformanceOverlayFrameResults() {
+    perception::FrameResults frameResults;
+    perception::appendPerformanceOverlay(frameResults,
+                                         {
+                                             "OSD                     :    1.23ms",
+                                             "Pipeline                :   60.0 FPS",
+                                         });
+    return frameResults;
+}
+
+void waitForPersonClassificationBlinkOn() {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(300);
+    while (pek::Time::utcMs() % 1000U >= 800U && std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+}
+
+} // namespace
+
+TEST(BitmapFontTest, RequiredGlyphsAreAvailable) {
+    constexpr char required[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ "
+                                "%!-+,.?:;()[]{}=<>/\\_#*@|";
+
+    for (const char character : required) {
+        if (character == '\0') {
+            break;
+        }
+        EXPECT_TRUE(BitmapFont::hasGlyph(character)) << character;
+    }
+    EXPECT_FALSE(BitmapFont::hasGlyph('~'));
+    EXPECT_EQ(&BitmapFont::glyph('~'), &BitmapFont::glyph('?'));
+}
+
+TEST(SurfacePainterTest, RejectsInvalidAndReadOnlyPlanes) {
+    auto surface = makeSurface(RawImagePixelFormat::Bgra, 8, 8);
+    auto ro = readonlyPlanes(surface);
+    SurfacePainter readonly(
+        RawImagePixelFormat::Bgra, surface.width, surface.height, std::span<ImagePlaneDesc>(ro));
+    EXPECT_FALSE(readonly.valid());
+    readonly.drawRect(0, 0, 4, 4, pek::Colors::red);
+    readonly.fillRect(0, 0, 4, 4, pek::Colors::lime);
+    readonly.drawPoint(2, 2, pek::Colors::blue, 3);
+    EXPECT_FALSE(activeAreaChanged(surface));
+
+    SurfacePainter invalidFormat(
+        RawImagePixelFormat::Unknown, surface.width, surface.height, planeSpan(surface));
+    EXPECT_FALSE(invalidFormat.valid());
+}
+
+TEST(SurfacePainterTest, MeasuresTextWithoutSurface) {
+    const auto oneScale = SurfacePainter::measureText("OK");
+    EXPECT_EQ(oneScale.width, 17);
+    EXPECT_EQ(oneScale.height, 12);
+
+    const auto scaled = SurfacePainter::measureText("A+1", 2);
+    EXPECT_EQ(scaled.width, 52);
+    EXPECT_EQ(scaled.height, 24);
+
+    const auto normalized = SurfacePainter::measureText("A", -2);
+    EXPECT_EQ(normalized.width, 8);
+    EXPECT_EQ(normalized.height, 12);
+
+    const auto empty = SurfacePainter::measureText("", 3);
+    EXPECT_EQ(empty.width, 0);
+    EXPECT_EQ(empty.height, 0);
+}
+
+TEST(SurfacePainterTest, FillsRectsAndDrawsPointsInAllSupportedFormats) {
+    constexpr std::array formats{
+        RawImagePixelFormat::Bgra,
+        RawImagePixelFormat::Rgb,
+        RawImagePixelFormat::I420,
+        RawImagePixelFormat::Nv12,
+        RawImagePixelFormat::Yuy2,
+    };
+
+    for (const auto format : formats) {
+        auto surface = makeSurface(format, 13, 9);
+        SurfacePainter painter(format, surface.width, surface.height, planeSpan(surface));
+        ASSERT_TRUE(painter.valid()) << static_cast<int>(format);
+
+        painter.fillRect(-3, -2, 8, 6, pek::Colors::red);
+        painter.drawPoint(12, 8, pek::Colors::lime, 4);
+
+        EXPECT_TRUE(activeAreaChanged(surface)) << static_cast<int>(format);
+        expectPaddingUnchanged(surface);
+    }
+}
+
+TEST(RasterOsdTest, DrawsTrackTracesInAllSupportedFormats) {
+    constexpr std::array formats{
+        RawImagePixelFormat::Bgra,
+        RawImagePixelFormat::Rgb,
+        RawImagePixelFormat::I420,
+        RawImagePixelFormat::Nv12,
+        RawImagePixelFormat::Yuy2,
+    };
+    const auto frameResults = makeTrackTraceFrameResults();
+
+    for (const auto format : formats) {
+        auto surface = makeSurface(format, 80, 48);
+
+        pek::osd::RasterDrawRequest request;
+        request.surface.format = format;
+        request.surface.width = surface.width;
+        request.surface.height = surface.height;
+        request.surface.planes = planeSpan(surface);
+        request.frameResults = &frameResults;
+
+        EXPECT_EQ(pek::osd::drawRasterOsd(request), pek::osd::RasterDrawStatus::Drawn)
+            << static_cast<int>(format);
+        EXPECT_TRUE(activeAreaChanged(surface)) << static_cast<int>(format);
+        expectPaddingUnchanged(surface);
+    }
+}
+
+TEST(RasterOsdTest, DrawsGenericObjectLabelledBoxesInAllSupportedFormats) {
+    constexpr std::array formats{
+        RawImagePixelFormat::Bgra,
+        RawImagePixelFormat::Rgb,
+        RawImagePixelFormat::I420,
+        RawImagePixelFormat::Nv12,
+        RawImagePixelFormat::Yuy2,
+    };
+    const auto frameResults = makeGenericObjectFrameResults();
+
+    for (const auto format : formats) {
+        auto surface = makeSurface(format, 13, 9);
+
+        pek::osd::RasterDrawRequest request;
+        request.surface.format = format;
+        request.surface.width = surface.width;
+        request.surface.height = surface.height;
+        request.surface.planes = planeSpan(surface);
+        request.frameResults = &frameResults;
+
+        EXPECT_EQ(pek::osd::drawRasterOsd(request), pek::osd::RasterDrawStatus::Drawn)
+            << static_cast<int>(format);
+        EXPECT_TRUE(activeAreaChanged(surface)) << static_cast<int>(format);
+        expectPaddingUnchanged(surface);
+    }
+}
+
+TEST(RasterOsdTest, DrawsHumanFaceCirclesAndGazeVectorsInAllSupportedFormats) {
+    constexpr std::array formats{
+        RawImagePixelFormat::Bgra,
+        RawImagePixelFormat::Rgb,
+        RawImagePixelFormat::I420,
+        RawImagePixelFormat::Nv12,
+        RawImagePixelFormat::Yuy2,
+    };
+    const auto frameResults = makeHumanFaceAndGazeFrameResults();
+
+    for (const auto format : formats) {
+        auto surface = makeSurface(format, 96, 72);
+
+        pek::osd::RasterDrawRequest request;
+        request.surface.format = format;
+        request.surface.width = surface.width;
+        request.surface.height = surface.height;
+        request.surface.planes = planeSpan(surface);
+        request.frameResults = &frameResults;
+
+        EXPECT_EQ(pek::osd::drawRasterOsd(request), pek::osd::RasterDrawStatus::Drawn)
+            << static_cast<int>(format);
+        EXPECT_TRUE(activeAreaChanged(surface)) << static_cast<int>(format);
+        expectPaddingUnchanged(surface);
+    }
+}
+
+TEST(RasterOsdTest, DrawsCameraContactMarkersInAllSupportedFormats) {
+    constexpr std::array formats{
+        RawImagePixelFormat::Bgra,
+        RawImagePixelFormat::Rgb,
+        RawImagePixelFormat::I420,
+        RawImagePixelFormat::Nv12,
+        RawImagePixelFormat::Yuy2,
+    };
+    const auto frameResults = makeCameraContactFrameResults();
+
+    for (const auto format : formats) {
+        auto surface = makeSurface(format, 128, 96);
+
+        pek::osd::RasterDrawRequest request;
+        request.surface.format = format;
+        request.surface.width = surface.width;
+        request.surface.height = surface.height;
+        request.surface.planes = planeSpan(surface);
+        request.frameResults = &frameResults;
+
+        EXPECT_EQ(pek::osd::drawRasterOsd(request), pek::osd::RasterDrawStatus::Drawn)
+            << static_cast<int>(format);
+        EXPECT_TRUE(activeAreaChanged(surface)) << static_cast<int>(format);
+        expectPaddingUnchanged(surface);
+    }
+}
+
+TEST(RasterOsdTest, DrawsPersonClassificationInAllSupportedFormats) {
+    constexpr std::array formats{
+        RawImagePixelFormat::Bgra,
+        RawImagePixelFormat::Rgb,
+        RawImagePixelFormat::I420,
+        RawImagePixelFormat::Nv12,
+        RawImagePixelFormat::Yuy2,
+    };
+    const auto frameResults = makePersonClassificationFrameResults();
+
+    for (const auto format : formats) {
+        auto surface = makeSurface(format, 240, 160);
+
+        pek::osd::RasterDrawRequest request;
+        request.surface.format = format;
+        request.surface.width = surface.width;
+        request.surface.height = surface.height;
+        request.surface.planes = planeSpan(surface);
+        request.frameResults = &frameResults;
+
+        waitForPersonClassificationBlinkOn();
+        EXPECT_EQ(pek::osd::drawRasterOsd(request), pek::osd::RasterDrawStatus::Drawn)
+            << static_cast<int>(format);
+        EXPECT_TRUE(activeAreaChanged(surface)) << static_cast<int>(format);
+        expectPaddingUnchanged(surface);
+    }
+}
+
+TEST(RasterOsdTest, DrawsClassificationListsLeftAndRightInAllSupportedFormats) {
+    constexpr std::array formats{
+        RawImagePixelFormat::Bgra,
+        RawImagePixelFormat::Rgb,
+        RawImagePixelFormat::I420,
+        RawImagePixelFormat::Nv12,
+        RawImagePixelFormat::Yuy2,
+    };
+    const auto frameResults = makeImageClassificationFrameResults();
+
+    for (const auto format : formats) {
+        auto surface = makeSurface(format, 320, 180);
+
+        pek::osd::RasterDrawRequest request;
+        request.surface.format = format;
+        request.surface.width = surface.width;
+        request.surface.height = surface.height;
+        request.surface.planes = planeSpan(surface);
+        request.frameResults = &frameResults;
+
+        EXPECT_EQ(pek::osd::drawRasterOsd(request), pek::osd::RasterDrawStatus::Drawn)
+            << static_cast<int>(format);
+        EXPECT_TRUE(activeAreaChanged(surface)) << static_cast<int>(format);
+        expectPaddingUnchanged(surface);
+    }
+}
+
+TEST(RasterOsdTest, DrawsPerformanceOverlayInAllSupportedFormats) {
+    constexpr std::array formats{
+        RawImagePixelFormat::Bgra,
+        RawImagePixelFormat::Rgb,
+        RawImagePixelFormat::I420,
+        RawImagePixelFormat::Nv12,
+        RawImagePixelFormat::Yuy2,
+    };
+    const auto frameResults = makePerformanceOverlayFrameResults();
+
+    for (const auto format : formats) {
+        auto surface = makeSurface(format, 180, 48);
+
+        pek::osd::RasterDrawRequest request;
+        request.surface.format = format;
+        request.surface.width = surface.width;
+        request.surface.height = surface.height;
+        request.surface.planes = planeSpan(surface);
+        request.frameResults = &frameResults;
+        request.options.performanceOverlayEnabled = true;
+
+        EXPECT_EQ(pek::osd::drawRasterOsd(request), pek::osd::RasterDrawStatus::Drawn)
+            << static_cast<int>(format);
+        EXPECT_TRUE(activeAreaChanged(surface)) << static_cast<int>(format);
+        expectPaddingUnchanged(surface);
+    }
+}
+
+TEST(RasterOsdTest, SkipsPerformanceOverlayWhenDisabled) {
+    auto surface = makeSurface(RawImagePixelFormat::Bgra, 180, 48);
+    const auto frameResults = makePerformanceOverlayFrameResults();
+
+    pek::osd::RasterDrawRequest request;
+    request.surface.format = surface.format;
+    request.surface.width = surface.width;
+    request.surface.height = surface.height;
+    request.surface.planes = planeSpan(surface);
+    request.frameResults = &frameResults;
+    request.options.performanceOverlayEnabled = false;
+
+    EXPECT_EQ(pek::osd::drawRasterOsd(request), pek::osd::RasterDrawStatus::Drawn);
+    EXPECT_FALSE(activeAreaChanged(surface));
+    expectPaddingUnchanged(surface);
+}
+
+TEST(SurfacePainterTest, DrawsAndClipsAllSupportedFormatsWithoutTouchingPadding) {
+    constexpr std::array formats{
+        RawImagePixelFormat::Bgra,
+        RawImagePixelFormat::Rgb,
+        RawImagePixelFormat::I420,
+        RawImagePixelFormat::Nv12,
+        RawImagePixelFormat::Yuy2,
+    };
+
+    for (const auto format : formats) {
+        auto surface = makeSurface(format, 9, 7);
+        SurfacePainter painter(format, surface.width, surface.height, planeSpan(surface));
+        ASSERT_TRUE(painter.valid()) << static_cast<int>(format);
+
+        painter.drawRect(-1000, -1000, 1004, 1004, pek::Colors::red, 2);
+        painter.drawLine(-1000, 3, 1000000, 3, pek::Colors::lime, 2);
+        painter.drawCircle(4, 3, 5, pek::Colors::blue, 3);
+
+        EXPECT_TRUE(activeAreaChanged(surface)) << static_cast<int>(format);
+        expectPaddingUnchanged(surface);
+    }
+}
+
+TEST(SurfacePainterTest, TextUsesBackgroundAnchorAndScale) {
+    auto surface = makeSurface(RawImagePixelFormat::Bgra, 40, 30);
+    SurfacePainter painter(
+        RawImagePixelFormat::Bgra, surface.width, surface.height, planeSpan(surface));
+    ASSERT_TRUE(painter.valid());
+
+    const auto metrics = SurfacePainter::measureText("A+1", 2);
+    EXPECT_EQ(metrics.width, 52);
+    EXPECT_EQ(metrics.height, 24);
+
+    painter.drawText(
+        39, 29, "A+1", pek::Colors::white, pek::Colors::black, 2, TextAnchor::BottomRight);
+    EXPECT_TRUE(activeAreaChanged(surface));
+    expectPaddingUnchanged(surface);
+
+    const auto before = surface.storage[0].bytes;
+    painter.drawText(0, 0, "", pek::Colors::white, pek::Colors::black);
+    EXPECT_EQ(surface.storage[0].bytes, before);
+}
+
+TEST(SurfacePainterTest, ThicknessLessThanOneIsNormalized) {
+    auto surface = makeSurface(RawImagePixelFormat::Rgb, 10, 10);
+    SurfacePainter painter(
+        RawImagePixelFormat::Rgb, surface.width, surface.height, planeSpan(surface));
+    ASSERT_TRUE(painter.valid());
+
+    painter.drawRect(2, 2, 5, 5, pek::Colors::red, 0);
+    painter.drawLine(0, 0, 9, 9, pek::Colors::lime, -5);
+    painter.drawCircle(5, 5, 3, pek::Colors::blue, 20);
+
+    EXPECT_TRUE(activeAreaChanged(surface));
+    expectPaddingUnchanged(surface);
+}
+
+TEST(SurfacePainterTest, CanUseMappedPixelBufferVideoFramePlanes) {
+    constexpr std::uint32_t width = 8;
+    constexpr std::uint32_t height = 6;
+    constexpr std::uint32_t stride = width * 4;
+    std::vector<std::uint8_t> pixels(static_cast<std::size_t>(stride) * height, Sentinel);
+    auto frame = pek::mediaio::makePixelBufferVideoFrame(pixels.data(),
+                                                         pixels.size(),
+                                                         width,
+                                                         height,
+                                                         RawImagePixelFormat::Bgra,
+                                                         stride,
+                                                         pek::AccessMode::ReadWrite);
+    ASSERT_NE(frame, nullptr);
+    auto mapped = frame->map(pek::AccessMode::ReadWrite);
+    ASSERT_NE(mapped, nullptr);
+
+    std::array<ImagePlaneDesc, pek::MaxImagePlaneCount> planes{};
+    std::size_t planeCount = 0;
+    for (const auto &plane : mapped->planes()) {
+        planes[planeCount++] = {
+            nullptr,
+            static_cast<std::uint8_t *>(plane.mutableData()),
+            plane.byteSize(),
+            plane.strideBytes(),
+        };
+    }
+
+    SurfacePainter painter(mapped->format(),
+                           mapped->width(),
+                           mapped->height(),
+                           std::span<ImagePlaneDesc>(planes.data(), planeCount),
+                           mapped->yuvColorMatrix(),
+                           mapped->yuvRange());
+    ASSERT_TRUE(painter.valid());
+    painter.drawText(0, 0, "OK", pek::Colors::white, pek::Colors::black);
+
+    EXPECT_NE(std::find_if(pixels.begin(),
+                           pixels.end(),
+                           [](std::uint8_t value) { return value != Sentinel; }),
+              pixels.end());
+}

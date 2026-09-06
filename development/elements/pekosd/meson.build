@@ -2,6 +2,7 @@
 gstpekosd = shared_module(
   'pekosd',
   sources: [
+    'RasterOsd.cpp',
     'pekosd.cpp'
   ],
   include_directories: common_include,
