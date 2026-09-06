@@ -209,29 +209,19 @@ jobs:
           set -euo pipefail
           sdk=(dist/perception-sdk-input/perception-sdk-*.zip)
           test "${#sdk[@]}" -eq 1
-          mkdir -p dist/perception-sdk-export dist/cargo-home
+          mkdir -p dist/perception-sdk-export
           python3 -m zipfile -e "${sdk[0]}" dist/perception-sdk-export
-          bundled_rust=(dist/perception-sdk-export/perception-sdk-*/rust)
-          test "${#bundled_rust[@]}" -eq 1
-          test -d "${bundled_rust[0]}/vendor"
-          cp "${bundled_rust[0]}/Cargo.lock" generated/perception/rust/Cargo.lock
-          vendor="$PWD/${bundled_rust[0]}/vendor"
-          cat > dist/cargo-home/config.toml <<EOF
-          [source.crates-io]
-          replace-with = "perception-sdk-vendor"
-
-          [source.perception-sdk-vendor]
-          directory = "$vendor"
-
-          [net]
-          offline = true
-          EOF
-          export CARGO_HOME="$PWD/dist/cargo-home"
+          rust=(dist/perception-sdk-export/perception-sdk-*/rust)
+          test "${#rust[@]}" -eq 1
+          test -d "${rust[0]}/vendor"
+          test -d "${rust[0]}/crates"
+          # Dependency archives seed vendor/ but are not part of the published crate.
+          rm -rf -- "${rust[0]}/crates"
           (
-            cd generated/perception/rust
+            cd "${rust[0]}"
             cargo package --offline --locked
           )
-          crate=(generated/perception/rust/target/package/perception-"$VERSION".crate)
+          crate=("${rust[0]}"/target/package/perception-"$VERSION".crate)
           test "${#crate[@]}" -eq 1
           test -f "${crate[0]}"
           cp "${crate[0]}" dist/
