@@ -102,18 +102,20 @@ two ZIP SHA-256 values.
 
 Choose one handoff mode:
 
-- **Standalone Perception SDK handoff:** When the Perception SDK itself is the requested deliverable,
-  upload the Perception ZIP file with the SHA and provenance to the chosen artifactory location.
+- **Standalone Perception SDK handoff:** When the Perception SDK itself is the
+  requested deliverable, upload the Perception ZIP file with the SHA and
+  provenance to the chosen artifactory location.
 - **PEK product release handoff:** Pass the verified triplet only to the existing
   PEK package assembly. Require the same bytes under
   `share/pek/perception-sdk/` in both architecture archives. Stable release
   pushes publish the verified Python wheel unchanged to the existing
-  Artifactory PyPI repository. The Arm release build packages the checked-in
-  Rust source against the bundle's locked vendor directory and the publication
-  job raw-PUTs that exact crate to `edge-ai-tooling.cargo`. The upload must fail
-  if that version already exists, and the repository must reject overwrites.
-  Generic Artifactory keeps the three PEK archives. Manual snapshots instead place the wheel and
-  crate beside those archives in their immutable generic Artifactory folder.
+  Artifactory PyPI repository. The Arm release build packages the bundle's
+  prepared Rust tree using its locked vendor directory, and the publication job
+  raw-PUTs that exact crate to `edge-ai-tooling.cargo`. The upload must fail if
+  that version already exists, and the repository must reject overwrites.
+  Generic Artifactory keeps the three PEK archives. Manual snapshots instead
+  place the wheel and crate beside those archives in their immutable generic
+  Artifactory folder.
   Do not publish the rest of the triplet as separate top-level PEK release
   assets.
 

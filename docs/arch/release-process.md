@@ -46,8 +46,8 @@ and checks its provenance against the release commit. The Arm snapshot job also
 uploads that exact embedded triplet as the existing temporary
 `pek-perception-sdk-input-*` or `pek-test-perception-sdk-input-*` Actions
 artifact; it does not rebuild it. For PEK publication, the Arm build extracts
-the verified Python wheel and packages the checked-in generated Rust source with
-the bundle's locked offline Cargo vendor directory. It places both language
+the verified Python wheel and packages the prepared Rust tree from that triplet
+using its locked offline Cargo vendor directory. It places both language
 packages beside the triplet in `pek-perception-sdk-input-*`; the Artifactory job
 publishes those exact files. Stable release pushes publish the wheel unchanged
 to `edge-ai-tooling.pypi` and raw-PUT the crate unchanged to

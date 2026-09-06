@@ -139,8 +139,8 @@ Stable PEK releases publish the `perception` crate at the PEK version to the
 index = "sparse+https://artifactory.arm.com/artifactory/api/cargo/edge-ai-tooling.cargo/index/"
 ```
 
-Select that registry only for Perception so its FlatBuffers dependency continues
-to resolve from crates.io:
+Select that registry only for Perception so its FlatBuffers dependency
+continues to resolve from crates.io:
 
 ```toml
 [dependencies]
@@ -173,8 +173,9 @@ workspace, not from path dependencies.
 
 Import `Envelope`, `payload`, and generated native payload types from
 `perception`. Construct an envelope with `Envelope::decode(...)`, require a
-successful result, and check `producer_identity()` before typed access. Use the same selector for
-`count`, `contains`, `get`, and `for_each`; use `external_key` for external
+successful result, and check `producer_identity()` before typed access. Use the
+same selector for `count`, `contains`, `get`, and `for_each`; use `external_key`
+for external
 payloads. Unknown or changed payloads remain preserved across serialization.
 
 ## Integrate the C++ SDK
