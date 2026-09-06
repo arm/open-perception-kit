@@ -49,10 +49,8 @@ MAX_NPM_ARCHIVE_BYTES = 64 * 1024 * 1024
 MAX_NPM_EXPANDED_BYTES = 256 * 1024 * 1024
 MAX_NPM_MEMBERS = 10_000
 MAX_NPM_METADATA_BYTES = 1024 * 1024
-MAX_RUST_CRATE_ARCHIVE_BYTES = 64 * 1024 * 1024
 MAX_RUST_CRATE_EXPANDED_BYTES = 64 * 1024 * 1024
 MAX_RUST_CRATE_MEMBERS = 10_000
-MAX_RUST_METADATA_BYTES = 1024 * 1024
 RUST_CARGO_CONFIG = """\
 [source.crates-io]
 replace-with = "perception-sdk-vendor"
@@ -121,12 +119,7 @@ def _rust_crate_member_path(
     member: tarfile.TarInfo, expected_root: str
 ) -> PurePosixPath | None:
     path = PurePosixPath(member.name)
-    if (
-        "\\" in member.name
-        or path.is_absolute()
-        or ".." in path.parts
-        or not path.parts
-    ):
+    if path.is_absolute() or ".." in path.parts or not path.parts:
         raise RuntimeError(f"Rust crate contains unsafe path: {member.name}")
     if path.parts[0] != expected_root:
         raise RuntimeError(
@@ -152,12 +145,12 @@ def _extract_rust_crate_file(
     return sha256(target)
 
 
-def extract_safe_rust_crate(
-    crate: Path, destination: Path, name: str, version: str
-) -> dict[str, str]:
-    if crate.stat().st_size > MAX_RUST_CRATE_ARCHIVE_BYTES:
-        raise RuntimeError(f"Rust crate archive is too large: {crate.name}")
-    expected_root = f"{name}-{version}"
+def extract_rust_crate(
+    crate: Path,
+    destination: Path,
+    artifact: perception_config.LockedArtifact,
+) -> None:
+    expected_root = f"{artifact.name}-{artifact.version}"
     file_hashes: dict[str, str] = {}
     member_paths: set[str] = set()
     with tarfile.open(crate, "r:gz") as archive:  # NOSONAR
@@ -170,10 +163,6 @@ def extract_safe_rust_crate(
         for member in members:
             relative = _rust_crate_member_path(member, expected_root)
             if relative is None:
-                if not member.isdir():
-                    raise RuntimeError(
-                        f"Rust crate root member is not a directory: {member.name}"
-                    )
                 continue
             relative_path = relative.as_posix()
             if relative_path in member_paths:
@@ -190,17 +179,6 @@ def extract_safe_rust_crate(
             )
     if not file_hashes:
         raise RuntimeError(f"Rust crate contains no files: {crate.name}")
-    return file_hashes
-
-
-def extract_rust_crate(
-    crate: Path,
-    destination: Path,
-    artifact: perception_config.LockedArtifact,
-) -> None:
-    file_hashes = extract_safe_rust_crate(
-        crate, destination, artifact.name, artifact.version
-    )
     (destination / ".cargo-checksum.json").write_text(
         json.dumps({"files": file_hashes, "package": artifact.sha256}, sort_keys=True),
         encoding="utf-8",
@@ -213,7 +191,7 @@ def prepare_rust_vendor(
     workspace: Path,
     config: perception_config.SdkConfig,
     artifact_dir: Path | None,
-) -> tuple[list[Path], dict[str, str]]:
+) -> list[Path]:
     crates_dir = rust_root / "crates"
     vendor_dir = rust_root / "vendor"
     crate_paths: list[Path] = []
@@ -239,66 +217,7 @@ def prepare_rust_vendor(
         cwd=rust_root,
         env=environment,
     )
-    return crate_paths, environment
-
-
-def build_perception_rust_crate(
-    *, rust_root: Path, environment: dict[str, str], name: str, version: str
-) -> Path:
-    cargo_environment = dict(environment)
-    cargo_environment.update(
-        {"CARGO_INCREMENTAL": "0", "SOURCE_DATE_EPOCH": SOURCE_DATE_EPOCH}
-    )
-    common = [
-        "--offline",
-        "--locked",
-        "--manifest-path",
-        str(rust_root / "Cargo.toml"),
-    ]
-    try:
-        run(["cargo", "test", *common], cwd=rust_root, env=cargo_environment)
-        with tempfile.TemporaryDirectory(prefix="perception-rust-package-") as tmp:
-            package_root = Path(tmp) / name
-            shutil.copytree(
-                rust_root,
-                package_root,
-                ignore=shutil.ignore_patterns(
-                    ".cargo", "crates", "target", "vendor", "*.crate"
-                ),
-            )
-            vendor = rust_root / "vendor"
-            if vendor.is_dir():
-                cargo_config = package_root / ".cargo" / "config.toml"
-                cargo_config.parent.mkdir()
-                cargo_config.write_text(
-                    "[source.crates-io]\n"
-                    'replace-with = "perception-sdk-vendor"\n\n'
-                    "[source.perception-sdk-vendor]\n"
-                    f"directory = {json.dumps(str(vendor.resolve()))}\n\n"
-                    "[net]\noffline = true\n",
-                    encoding="utf-8",
-                )
-            package_common = [
-                "--offline", "--locked", "--manifest-path",
-                str(package_root / "Cargo.toml"),
-            ]
-            run(
-                ["cargo", "package", *package_common],
-                cwd=package_root,
-                env=cargo_environment,
-            )
-            package_dir = package_root / "target" / "package"
-            crates = sorted(package_dir.glob("*.crate"))
-            expected = package_dir / f"{name}-{version}.crate"
-            if crates != [expected] or not expected.is_file():
-                raise RuntimeError(
-                    f"expected one {name}-{version}.crate, found: {crates}"
-                )
-            destination = rust_root / expected.name
-            shutil.copy2(expected, destination)
-            return destination
-    finally:
-        shutil.rmtree(rust_root / "target", ignore_errors=True)
+    return crate_paths
 
 
 def generated_flatbuffers_version(generated_manifest: dict[str, object]) -> str:
@@ -595,7 +514,6 @@ def write_bundle_manifest(
     generated_manifest: dict[str, object],
     generated_manifest_path: Path,
     perception_wheel: Path,
-    perception_rust_crate: Path,
     flatbuffers_wheel: Path,
     perception_npm_package: Path,
     flatbuffers_npm_package: Path,
@@ -655,13 +573,6 @@ def write_bundle_manifest(
         "perception_wheel": {
             "filename": perception_wheel.name,
             "path": f"python/{perception_wheel.name}", "sha256": sha256(perception_wheel),
-        },
-        "perception_rust_crate": {
-            "filename": perception_rust_crate.name,
-            "name": config.name,
-            "version": config.version,
-            "path": f"rust/{perception_rust_crate.name}",
-            "sha256": sha256(perception_rust_crate),
         },
         "perception_npm_package": {
             "filename": perception_npm_package.name,
@@ -912,9 +823,7 @@ def _verify_packaged_artifact_records(
     manifest: dict[str, object],
     file_entries: dict[str, dict[str, object]],
 ) -> None:
-    for section in (
-        "perception_wheel", "perception_rust_crate", "perception_npm_package"
-    ):
+    for section in ("perception_wheel", "perception_npm_package"):
         record = manifest.get(section)
         if not isinstance(record, dict):
             raise RuntimeError(f"release manifest {section} is malformed")
@@ -930,8 +839,7 @@ def verify_bundle(bundle_root: Path) -> None:
     manifest = load_json(manifest_path)
     expected_fields = {
         "archive", "artifact", "files", "flatbuffers", "generator", "outputs",
-        "payloads", "perception_npm_package", "perception_rust_crate",
-        "perception_wheel", "postprocessing", "schemas",
+        "payloads", "perception_npm_package", "perception_wheel", "postprocessing", "schemas",
         "schema_set_sha256", "source", "tools",
     }
     if set(manifest) != expected_fields:
@@ -1179,7 +1087,6 @@ def _verify_rust_file_receipt(
         or path == "rust/.cargo/config.toml"
         or path.startswith("rust/crates/")
         or path.startswith("rust/vendor/")
-        or (path.startswith("rust/perception-") and path.endswith(".crate"))
     }
     if actual_paths - release_only_paths != expected_paths:
         raise RuntimeError("release Rust SDK file set does not match generation receipt")
@@ -1276,145 +1183,6 @@ def _verify_rust_vendor(
         raise RuntimeError("release Rust vendor directory set is stale")
 
 
-def _cargo_manifest_value(text: str, section: str, key: str) -> str | None:
-    match = re.search(
-        rf"(?ms)^\[{re.escape(section)}\]\s*(.*?)(?=^\[|\Z)", text
-    )
-    if match is None:
-        return None
-    value = re.search(
-        rf'(?m)^{re.escape(key)}\s*=\s*"([^"]+)"\s*$', match.group(1)
-    )
-    return value.group(1) if value is not None else None
-
-
-def _flatbuffers_dependency(text: str) -> str | None:
-    direct = _cargo_manifest_value(text, "dependencies", "flatbuffers")
-    if direct is not None:
-        return direct
-    return _cargo_manifest_value(text, "dependencies.flatbuffers", "version")
-
-
-def verify_rust_crate_compile(bundle_root: Path, crate_root: Path) -> None:
-    with tempfile.TemporaryDirectory(prefix="perception-rust-crate-compile-") as tmp:
-        workspace = Path(tmp)
-        cargo_home = workspace / "cargo-home"
-        cargo_home.mkdir()
-        cargo_config = crate_root / ".cargo" / "config.toml"
-        cargo_config.parent.mkdir()
-        vendor = (bundle_root / "rust" / "vendor").resolve()
-        cargo_config.write_text(
-            "[source.crates-io]\nreplace-with = \"perception-sdk-vendor\"\n\n"
-            "[source.perception-sdk-vendor]\n"
-            f"directory = {json.dumps(str(vendor))}\n\n[net]\noffline = true\n",
-            encoding="utf-8",
-        )
-        environment = dict(os.environ)
-        environment.update(
-            {
-                "CARGO_HOME": str(cargo_home),
-                "CARGO_TARGET_DIR": str(workspace / "target"),
-            }
-        )
-        run(
-            [
-                "cargo", "test", "--offline", "--locked", "--manifest-path",
-                str(crate_root / "Cargo.toml"),
-            ],
-            cwd=crate_root,
-            env=environment,
-        )
-
-
-def _verify_perception_rust_crate(
-    bundle_root: Path,
-    artifact: dict[str, object],
-    manifest: dict[str, object],
-    generated: dict[str, object],
-    file_entries: dict[str, dict[str, object]],
-) -> None:
-    record = manifest.get("perception_rust_crate")
-    name = str(artifact.get("name", "")).removesuffix("-sdk")
-    version = artifact.get("version")
-    expected_filename = f"{name}-{version}.crate"
-    expected_record = {
-        "name": name,
-        "version": version,
-        "filename": expected_filename,
-        "path": f"rust/{expected_filename}",
-    }
-    if not isinstance(record, dict) or any(
-        record.get(key) != value for key, value in expected_record.items()
-    ) or not SHA256_RE.fullmatch(str(record.get("sha256", ""))):
-        raise RuntimeError("release Perception Rust crate identity is invalid")
-    relative = validate_relative_path(record["path"])
-    root_crates = {
-        path.name for path in (bundle_root / "rust").glob("*.crate") if path.is_file()
-    }
-    if root_crates != {expected_filename}:
-        raise RuntimeError("release Perception Rust crate artifact set is invalid")
-    crate = bundle_root / relative
-    entry = file_entries.get(relative.as_posix())
-    if (
-        not crate.is_file()
-        or sha256(crate) != record["sha256"]
-        or entry is None
-        or entry.get("sha256") != record["sha256"]
-    ):
-        raise RuntimeError("release Perception Rust crate checksum mismatch")
-
-    with tempfile.TemporaryDirectory(prefix="perception-rust-crate-verify-") as tmp:
-        crate_root = Path(tmp) / f"{name}-{version}"
-        try:
-            extracted = extract_safe_rust_crate(
-                crate, crate_root, name, str(version)
-            )
-        except (tarfile.TarError, EOFError) as exc:
-            raise RuntimeError("release Perception Rust crate archive is invalid") from exc
-        forbidden_roots = {".cargo", "crates", "target", "vendor"}
-        if any(PurePosixPath(path).parts[0] in forbidden_roots for path in extracted):
-            raise RuntimeError("release Perception Rust crate contains release-only content")
-        generated_files = _rust_generated_files(generated)
-        expected_sources = {
-            str(record["path"]): record for record in generated_files
-        }
-        expected_paths = (set(expected_sources) - {"Cargo.toml"}) | {
-            "Cargo.toml", "Cargo.toml.orig", "Cargo.lock"
-        }
-        if set(extracted) != expected_paths:
-            raise RuntimeError(
-                "release Perception Rust crate file set does not match generation receipt"
-            )
-        for path, source_record in expected_sources.items():
-            packaged_path = "Cargo.toml.orig" if path == "Cargo.toml" else path
-            packaged = crate_root / packaged_path
-            if (
-                extracted.get(packaged_path) != source_record.get("sha256")
-                or packaged.stat().st_size != source_record.get("size")
-            ):
-                raise RuntimeError(
-                    f"release Perception Rust crate source does not match: {path}"
-                )
-        if (crate_root / "Cargo.lock").read_bytes() != (
-            bundle_root / "rust" / "Cargo.lock"
-        ).read_bytes():
-            raise RuntimeError("release Perception Rust crate lockfile does not match bundle")
-        for cargo_toml in (crate_root / "Cargo.toml", crate_root / "Cargo.toml.orig"):
-            if cargo_toml.stat().st_size > MAX_RUST_METADATA_BYTES:
-                raise RuntimeError("release Perception Rust crate metadata is too large")
-            cargo_text = cargo_toml.read_text(encoding="utf-8")
-            if (
-                _cargo_manifest_value(cargo_text, "package", "name") != name
-                or _cargo_manifest_value(cargo_text, "package", "version") != version
-                or _flatbuffers_dependency(cargo_text)
-                != f"={manifest['flatbuffers']['compiler']['semantic_version']}"
-            ):
-                raise RuntimeError(
-                    "release Perception Rust crate package metadata is invalid"
-                )
-        verify_rust_crate_compile(bundle_root, crate_root)
-
-
 def _verify_rust_crate(
     bundle_root: Path,
     artifact: dict[str, object],
@@ -1428,9 +1196,6 @@ def _verify_rust_crate(
     )
     _verify_rust_package_identity(bundle_root, artifact)
     _verify_rust_vendor(bundle_root, manifest, file_entries)
-    _verify_perception_rust_crate(
-        bundle_root, artifact, manifest, generated, file_entries
-    )
 
 
 def verify_manifest_semantics(
@@ -1615,17 +1380,11 @@ def build_bundle(args: argparse.Namespace) -> Path:
         bundle_root = workspace / f"{config.name}-sdk-{config.version}"
         shutil.copytree(config.generated_root / "cpp", bundle_root / "cpp")
         copy_rust_sdk(config.generated_root / "rust", bundle_root / "rust")
-        rust_crates, cargo_environment = prepare_rust_vendor(
+        rust_crates = prepare_rust_vendor(
             rust_root=bundle_root / "rust",
             workspace=workspace,
             config=config,
             artifact_dir=args.artifact_dir,
-        )
-        perception_rust_crate = build_perception_rust_crate(
-            rust_root=bundle_root / "rust",
-            environment=cargo_environment,
-            name=config.name,
-            version=config.version,
         )
         copy_schema_set(config, bundle_root)
         metadata_dir = bundle_root / "metadata"
@@ -1669,9 +1428,7 @@ def build_bundle(args: argparse.Namespace) -> Path:
         write_bundle_manifest(
             bundle_root=bundle_root, config=config, generated_manifest=generated_manifest,
             generated_manifest_path=generated_manifest_path,
-            perception_wheel=perception_wheel,
-            perception_rust_crate=perception_rust_crate,
-            flatbuffers_wheel=flatbuffers_wheel,
+            perception_wheel=perception_wheel, flatbuffers_wheel=flatbuffers_wheel,
             perception_npm_package=perception_npm_package,
             flatbuffers_npm_package=flatbuffers_npm_package,
             rust_crates=rust_crates,

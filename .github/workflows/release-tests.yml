@@ -96,7 +96,6 @@ jobs:
     env:
       DEPLOYMENT_IMAGE: ghcr.io/arm-debug/amp-dev-forge-deployment
       PYPI_TEST_VERSION: ${{ needs.prepare.outputs.version }}.dev${{ github.run_id }}${{ github.run_attempt }}
-      CARGO_TEST_VERSION: ${{ needs.prepare.outputs.version }}-ci.${{ github.run_id }}.${{ github.run_attempt }}
       RELEASE_BUILD_IMAGE: pek-deployment-base:${{ needs.prepare.outputs.commit }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.artifact_label }}
       SOURCE_DIR: candidate-source-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-${{ matrix.artifact_label }}
     steps:
@@ -224,116 +223,6 @@ jobs:
           path: ${{ env.SOURCE_DIR }}/dist/opk_perception_sdk-*-py3-none-any.whl
           if-no-files-found: error
           retention-days: 7
-
-      - name: Export exact stable Perception Cargo crate
-        if: matrix.architecture == 'aarch64'
-        working-directory: ${{ env.SOURCE_DIR }}
-        env:
-          SDK_VERSION: ${{ needs.prepare.outputs.version }}
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import hashlib
-          import json
-          import os
-          from pathlib import Path
-
-          roots = list(Path("dist/perception-sdk-export").glob("perception-sdk-*"))
-          if len(roots) != 1:
-              raise SystemExit(f"expected one extracted SDK root, found {roots}")
-          root = roots[0]
-          version = os.environ["SDK_VERSION"]
-          filename = f"perception-{version}.crate"
-          record = json.loads(
-              (root / "perception-sdk-release-manifest.json").read_text()
-          )["perception_rust_crate"]
-          expected = {
-              "filename": filename,
-              "name": "perception",
-              "path": f"rust/{filename}",
-              "version": version,
-          }
-          if any(record.get(key) != value for key, value in expected.items()):
-              raise SystemExit("stable Cargo crate manifest identity is invalid")
-          crate = root / record["path"]
-          checksum = hashlib.sha256(crate.read_bytes()).hexdigest()
-          if checksum != record.get("sha256"):
-              raise SystemExit("stable Cargo crate checksum is invalid")
-          (Path("dist") / filename).write_bytes(crate.read_bytes())
-          PY
-
-      - name: Upload stable Perception Cargo crate candidate
-        if: matrix.architecture == 'aarch64'
-        uses: actions/upload-artifact@v7
-        with:
-          name: pek-test-stable-cargo-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ env.SOURCE_DIR }}/dist/perception-${{ needs.prepare.outputs.version }}.crate
-          if-no-files-found: error
-          retention-days: 7
-
-      - name: Set up pinned Rust for the Cargo probe
-        if: matrix.architecture == 'aarch64'
-        uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: 1.85.0
-
-      - name: Build disposable Cargo crate candidate
-        if: matrix.architecture == 'aarch64'
-        working-directory: ${{ env.SOURCE_DIR }}
-        run: |
-          set -euo pipefail
-          cp -a generated/perception/rust dist/cargo-probe-source
-          sdk_root=(dist/perception-sdk-export/perception-sdk-*)
-          test "${#sdk_root[@]}" -eq 1
-          cp -a "${sdk_root[0]}/rust/vendor" dist/cargo-probe-source/vendor
-          cp -a "${sdk_root[0]}/rust/.cargo" dist/cargo-probe-source/.cargo
-          rm -f dist/cargo-probe-source/Cargo.lock
-          python3 - <<'PY'
-          import os
-          from pathlib import Path
-
-          manifest = Path("dist/cargo-probe-source/Cargo.toml")
-          text = manifest.read_text()
-          stable = "${{ needs.prepare.outputs.version }}"
-          old = f'version = "{stable}"'
-          if text.count(old) != 1:
-              raise SystemExit("generated Cargo package version is unexpected")
-          probe = os.environ["CARGO_TEST_VERSION"]
-          manifest.write_text(text.replace(old, f'version = "{probe}"'))
-          PY
-          (
-            cd dist/cargo-probe-source
-            cargo generate-lockfile --offline
-          )
-          mv dist/cargo-probe-source/vendor dist/cargo-probe-vendor
-          cat > dist/cargo-probe-source/.cargo/config.toml <<EOF
-          [source.crates-io]
-          replace-with = "perception-sdk-vendor"
-
-          [source.perception-sdk-vendor]
-          directory = "$PWD/dist/cargo-probe-vendor"
-
-          [net]
-          offline = true
-          EOF
-          (
-            cd dist/cargo-probe-source
-            cargo package --offline --locked
-          )
-          crate=(dist/cargo-probe-source/target/package/perception-"$CARGO_TEST_VERSION".crate)
-          test "${#crate[@]}" -eq 1
-          test -f "${crate[0]}"
-          mkdir -p dist/cargo-probe
-          cp "${crate[0]}" dist/cargo-probe/
-
-      - name: Upload disposable Cargo crate candidate
-        if: matrix.architecture == 'aarch64'
-        uses: actions/upload-artifact@v7
-        with:
-          name: pek-test-cargo-crate-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ env.SOURCE_DIR }}/dist/cargo-probe/perception-*.crate
-          if-no-files-found: error
-          retention-days: 2
 
       - name: Set up locked uv for the PyPI probe
         if: matrix.architecture == 'aarch64'

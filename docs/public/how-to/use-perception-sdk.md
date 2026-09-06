@@ -33,9 +33,8 @@ script is the only supported SDK command surface.
 
 The command verifies `tools/perception/sdk.json`, the checked-in generated SDK,
 internal Meson adapter, and generation receipt without invoking flowdata-sdk,
-`flatc`, or formatters. It builds the Python wheels and runs offline locked
-Cargo test/package commands against the canonical Rust snapshot before creating
-`artifacts/perception-sdk-<pek-version>.zip`.
+`flatc`, or formatters. It builds the Python wheels from the canonical snapshot
+and creates `artifacts/perception-sdk-<pek-version>.zip`.
 
 After changing the PEK product version in `development/meson.build`, run
 `./scripts/perception-sdk.sh generate`. The archive
@@ -132,26 +131,37 @@ browser asset after SDK or WebUI changes.
 
 ## Integrate the Rust SDK
 
-The bundle contains both the prepared `rust/` source tree and the deterministic
-`rust/perception-<pek-version>.crate`. Phase-one release validation retains the
-exact stable crate as a seven-day Actions artifact and publishes only a unique
-`<stable>-ci.<run-id>.<attempt>` probe. Stable Cargo publication is not enabled
-yet; continue to use the extracted bundle for stable versions until phase two.
+Stable PEK releases publish the `perception` crate at the PEK version to the
+`edge-ai-tooling` Cargo registry. Configure its sparse index:
 
-Add the extracted `rust/` crate as a path dependency. The crate already pins
-the FlatBuffers runtime version used to generate its sources. The bundle also
-contains checksum-locked Cargo archives, a generated `Cargo.lock`, and a
-`rust/vendor/` directory for offline builds:
+```toml
+[registries.edge-ai-tooling]
+index = "sparse+https://artifactory.arm.com/artifactory/api/cargo/edge-ai-tooling.cargo/index/"
+```
+
+Select that registry only for Perception so its FlatBuffers dependency continues
+to resolve from crates.io:
+
+```toml
+[dependencies]
+perception = { version = "=<pek-version>", registry = "edge-ai-tooling" }
+```
+
+Manual snapshots do not publish to the Cargo registry. For a snapshot or an
+offline build, add the extracted `rust/` crate as a path dependency. The crate
+already pins the FlatBuffers runtime version used to generate its sources. The
+bundle also contains checksum-locked Cargo archives, a generated `Cargo.lock`,
+and a `rust/vendor/` directory:
 
 ```toml
 [dependencies]
 perception = { path = "/path/to/perception-sdk-<pek-version>/rust" }
 ```
 
-For an offline consumer build, copy `rust/.cargo/config.toml` into the
-consumer's `.cargo/config.toml` and change its `directory` value to the absolute
-path of the extracted `rust/vendor` directory. Generate the consumer lockfile,
-then build without accessing the registry:
+Copy `rust/.cargo/config.toml` into the consumer's `.cargo/config.toml` and
+change its `directory` value to the absolute path of the extracted `rust/vendor`
+directory. Generate the consumer lockfile, then build without accessing the
+registry:
 
 ```bash
 cargo generate-lockfile --offline
@@ -160,28 +170,6 @@ cargo build --offline --locked
 
 Cargo configuration and the consumer lockfile are resolved from the consumer
 workspace, not from path dependencies.
-
-The disposable CI probe uses the anonymous Artifactory sparse index. This is the
-Cargo configuration that phase-one validation exercises:
-
-```toml
-[registries.edge-ai-tooling]
-index = "sparse+https://artifactory.arm.com/artifactory/api/cargo/edge-ai-tooling.cargo/index/"
-```
-
-Select that registry only for Perception so transitive crates such as
-FlatBuffers continue to resolve from crates.io:
-
-```toml
-[dependencies]
-perception = { version = "=<probe-version>", registry = "edge-ai-tooling" }
-```
-
-After the workflow lands on `develop`, maintainers manually run release
-validation and require successful opaque-byte upload/download comparison,
-anonymous clean-project consumption, and exact-version object/index cleanup.
-Credentialed jobs never extract, compile, or execute the probe. This validation
-does not make the stable crate available from the index.
 
 Import `Envelope`, `payload`, and generated native payload types from
 `perception`. Construct an envelope with `Envelope::decode(...)`, require a

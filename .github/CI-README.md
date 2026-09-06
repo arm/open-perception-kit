@@ -72,23 +72,20 @@ and Sonar [incremental analysis](https://docs.sonarsource.com/sonarqube-server/2
 - Builds temporary x86_64 and Arm release snapshot images. Each image runs its
   native offline Perception integration smoke during the Docker build and
   exports its validated archive; the Arm job also exports the embedded
-  Perception wheel and deterministic Cargo crate. A separate temporary Rust
-  source copy produces `perception-<stable>-ci.<run-id>.<attempt>.crate` offline
-  and locked. A successful run is followed by disposable publication probes:
-  generic Artifactory receives both archives and the release wheel, disposable
-  prerelease Python and Cargo packages are published and consumed through their
-  package indexes, and the draft GitHub Release remains archive-only. Every
-  probe deletes its uploads. The exact stable crate is retained for seven days
-  as validation evidence, but is not published.
+  Perception wheel. A successful run is followed by disposable publication
+  probes: generic Artifactory receives both archives and the release wheel, a
+  disposable prerelease wheel is published and consumed through Artifactory
+  PyPI, and the draft GitHub Release remains archive-only. Every probe deletes
+  its uploads.
 
 ## What does `.github/workflows/release-packages.yml` do?
 
 | Event | Candidate validation | Publication validation | Package publication |
 | --- | --- | --- | --- |
-| Pull request targeting `main` | Builds and smoke-tests the two architecture snapshot images | Uploads, anonymously consumes, verifies, and deletes the generic Artifactory, Artifactory PyPI, Cargo, and GitHub Release probes | Not run |
-| Push to `main` | Not run | Not run | Builds all three archives, smoke-tests and publishes one multi-architecture GHCR image, publishes the archives to GitHub Release and generic Artifactory, and publishes the wheel to Artifactory PyPI |
-| Manual release validation | Resolves any commit, tag, or branch `source_ref`, builds and smoke-tests the two temporary architecture images | Uploads, anonymously consumes, verifies, and deletes the generic Artifactory, Artifactory PyPI, Cargo, and GitHub Release probes | Not run |
-| Manual package publication | Not run | Not run | Resolves `source_ref`, builds all three archives, smoke-tests and publishes one multi-architecture GHCR snapshot, then publishes the archives and wheel to one generic Artifactory snapshot folder |
+| Pull request targeting `main` | Builds and smoke-tests the two architecture snapshot images | Uploads, verifies, and deletes the generic Artifactory, Artifactory PyPI, and GitHub Release probes | Not run |
+| Push to `main` | Not run | Not run | Builds all three archives, smoke-tests and publishes one multi-architecture GHCR image, publishes the archives to GitHub Release and generic Artifactory, the wheel to Artifactory PyPI, and the crate to Artifactory Cargo |
+| Manual release validation | Resolves any commit, tag, or branch `source_ref`, builds and smoke-tests the two temporary architecture images | Uploads, verifies, and deletes the generic Artifactory, Artifactory PyPI, and GitHub Release probes | Not run |
+| Manual package publication | Not run | Not run | Resolves `source_ref`, builds all three archives, smoke-tests and publishes one multi-architecture GHCR snapshot, then publishes the archives, wheel, and crate to one generic Artifactory snapshot folder |
 
 For release builds, `pek-deployment-base` runs its smoke inside the existing
 Dockerfile with networking disabled. The non-root runtime extracts the generated
@@ -120,9 +117,12 @@ publication writes to
 `https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci`.
 The same URL is used for uploads and generated download links.
 The final Artifactory workflow log and `$GITHUB_STEP_SUMMARY` expose the folder,
-the three stable archive links or four snapshot links, and their SHA-256 values.
-If GHCR or GitHub Release publication succeeds but a later publication fails,
-repair or remove the partial publication before rerunning the workflow.
+the three stable archive links or five snapshot links, and their SHA-256 values.
+Stable Perception crates are packaged from the checked-in generated source with
+the SDK bundle's locked Cargo vendor directory, then uploaded unchanged to
+`edge-ai-tooling.cargo`. If GHCR or GitHub Release publication succeeds but a
+later publication fails, repair or remove the partial publication before
+rerunning the workflow.
 
 Each native architecture build uses the existing `pek-models` Docker artifact
 stage to resolve the selected commit's pinned `hfDownload` descriptors. Both
@@ -152,7 +152,7 @@ Release image builds get their model and runtime inputs from these sources:
 | `ONNXRUNTIME_VERSION` | Defaulted and consumed by `pek-deployment-build` |
 | `EXECUTORCH_VERSION`, `EXECUTORCH_DEB_REVISION` | Defaulted and consumed by `pek-deployment-build` |
 | `HF_TOKEN` | Read-only repository secret; exposed to `pek-models` only as a BuildKit secret while checked-in models require authentication |
-| `PEK_ARTIFACTORY_USERNAME`, `PEK_ARTIFACTORY_API_KEY` | Existing repository secrets used to read the ExecuTorch Debian package and publish release archives |
+| `PEK_ARTIFACTORY_USERNAME`, `PEK_ARTIFACTORY_API_KEY` | Existing repository secrets used to read the ExecuTorch Debian package and publish release archives, Python wheels, and Rust crates |
 
 `Dockerfile` remains the version authority. Release jobs build its existing
 `pek-deployment-base` target for the native architecture and copy the archive
@@ -166,16 +166,6 @@ The documentation release job likewise builds the existing `pek-docs` target,
 runs `scripts/gen-doc.sh` in that container, and archives the generated HTML
 with system `tar`. There is no separate release documentation image or package
 script.
-
-Cargo uses the anonymous sparse index at
-`https://artifactory.arm.com/artifactory/api/cargo/edge-ai-tooling.cargo/index/`.
-Only trusted opaque-byte upload and `if: always()` cleanup jobs receive Cargo
-repository credentials; neither checks out, extracts, compiles, or executes PR
-crate code. The no-secrets GitHub-hosted consumer uses a new `CARGO_HOME`, empty
-job permissions, and a clean project. Upload, consume, and cleanup all gate the
-required publication status. Cargo object deletion and sparse-index cleanup are
-phase-one assumptions to confirm with a manual validation after merge to
-`develop`. Stable Cargo publication remains disabled in `release-packages.yml`.
 
 Configured GitHub Actions secrets supply `HF_TOKEN`, `PEK_ARTIFACTORY_USERNAME`,
 and `PEK_ARTIFACTORY_API_KEY`. Once the workflow is registered on the default `develop`

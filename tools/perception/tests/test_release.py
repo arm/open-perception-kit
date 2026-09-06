@@ -8,7 +8,6 @@ import hashlib
 import importlib.util
 import io
 import json
-import os
 import shutil
 import subprocess
 import sys
@@ -415,13 +414,6 @@ class PythonPackagingTests(unittest.TestCase):
 
 
 class BundleVerificationTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self.compile_patch = patch.object(
-            release_package, "verify_rust_crate_compile"
-        )
-        self.compile_patch.start()
-        self.addCleanup(self.compile_patch.stop)
-
     def create_npm_package(
         self,
         root: Path,
@@ -539,21 +531,6 @@ class BundleVerificationTests(unittest.TestCase):
             + "\n".join(lock_packages)
             + '\n[[package]]\nname = "perception"\nversion = "1.2.3"\n'
         ).encode()
-        crate_buffer = io.BytesIO()
-        with tarfile.open(  # NOSONAR - synthetic test fixture
-            fileobj=crate_buffer, mode="w:gz"
-        ) as crate_archive:
-            crate_files = {
-                "Cargo.toml": files["rust/Cargo.toml"],
-                "Cargo.toml.orig": files["rust/Cargo.toml"],
-                "Cargo.lock": files["rust/Cargo.lock"],
-                "src/lib.rs": files["rust/src/lib.rs"],
-            }
-            for relative_path, content in crate_files.items():
-                member = tarfile.TarInfo(f"perception-1.2.3/{relative_path}")
-                member.size = len(content)
-                crate_archive.addfile(member, io.BytesIO(content))
-        files["rust/perception-1.2.3.crate"] = crate_buffer.getvalue()
         for relative_path, content in files.items():
             path = bundle / relative_path
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -745,16 +722,8 @@ class BundleVerificationTests(unittest.TestCase):
             },
             "payloads": [],
             "perception_wheel": {
-                "filename": "opk_perception_sdk.whl",
                 "path": "python/opk_perception_sdk.whl",
                 "sha256": digest(bundle / "python/opk_perception_sdk.whl"),
-            },
-            "perception_rust_crate": {
-                "filename": "perception-1.2.3.crate",
-                "name": "perception",
-                "version": "1.2.3",
-                "path": "rust/perception-1.2.3.crate",
-                "sha256": digest(bundle / "rust/perception-1.2.3.crate"),
             },
             "perception_npm_package": {
                 "path": "typescript/perception-1.2.3.tgz",
@@ -792,20 +761,6 @@ class BundleVerificationTests(unittest.TestCase):
             json.dumps(manifest), encoding="utf-8"
         )
         return bundle
-
-    def rewrite_packaged_crate_identity(self, bundle: Path) -> None:
-        crate = bundle / "rust/perception-1.2.3.crate"
-        manifest_path = bundle / release_package.MANIFEST_FILENAME
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        checksum = digest(crate)
-        manifest["perception_rust_crate"]["sha256"] = checksum
-        record = next(
-            item for item in manifest["files"]
-            if item["path"] == "rust/perception-1.2.3.crate"
-        )
-        record["sha256"] = checksum
-        record["size"] = crate.stat().st_size
-        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
     def rewrite_descriptor_identity(
         self, bundle: Path, descriptor: dict[str, object]
@@ -901,61 +856,13 @@ class BundleVerificationTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 release_package.verify_bundle(bundle)
 
-    def test_rejects_modified_rust_source(self) -> None:
+    def test_rejects_modified_rust_crate(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             bundle = self.create_bundle(Path(tmp))
             (bundle / "rust" / "src" / "lib.rs").write_text(
                 "pub struct Changed;\n", encoding="utf-8"
             )
             with self.assertRaises(RuntimeError):
-                release_package.verify_bundle(bundle)
-
-    def test_rejects_corrupt_perception_crate_content(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            bundle = self.create_bundle(Path(tmp))
-            crate = bundle / "rust/perception-1.2.3.crate"
-            members: list[tuple[tarfile.TarInfo, bytes]] = []
-            with tarfile.open(crate, "r:gz") as archive:  # NOSONAR - test fixture
-                for member in archive.getmembers():
-                    source = archive.extractfile(member)
-                    content = source.read() if source is not None else b""
-                    if member.name.endswith("/src/lib.rs"):
-                        content = b"pub struct Corrupt;\n"
-                        member.size = len(content)
-                    members.append((member, content))
-            with tarfile.open(crate, "w:gz") as archive:  # NOSONAR - test fixture
-                for member, content in members:
-                    archive.addfile(member, io.BytesIO(content))
-            self.rewrite_packaged_crate_identity(bundle)
-            with self.assertRaisesRegex(RuntimeError, "source does not match"):
-                release_package.verify_bundle(bundle)
-
-    def test_rejects_extra_perception_crate_artifact(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            bundle = self.create_bundle(Path(tmp))
-            extra = bundle / "rust/perception-extra.crate"
-            extra.write_bytes(b"extra")
-            manifest_path = bundle / release_package.MANIFEST_FILENAME
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            manifest["files"].append(
-                {
-                    "path": "rust/perception-extra.crate",
-                    "sha256": digest(extra),
-                    "size": extra.stat().st_size,
-                }
-            )
-            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
-            with self.assertRaisesRegex(RuntimeError, "artifact set"):
-                release_package.verify_bundle(bundle)
-
-    def test_rejects_perception_crate_manifest_identity_mismatch(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            bundle = self.create_bundle(Path(tmp))
-            manifest_path = bundle / release_package.MANIFEST_FILENAME
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            manifest["perception_rust_crate"]["version"] = "9.9.9"
-            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
-            with self.assertRaisesRegex(RuntimeError, "crate identity"):
                 release_package.verify_bundle(bundle)
 
     def test_rejects_modified_rust_vendor_contents(self) -> None:
@@ -985,29 +892,6 @@ class BundleVerificationTests(unittest.TestCase):
             ) as archive:
                 content = b"unsafe\n"
                 member = tarfile.TarInfo("flatbuffers-25.9.23/../outside")
-                member.size = len(content)
-                archive.addfile(member, io.BytesIO(content))
-            artifact = release_package.perception_config.LockedArtifact(
-                name="flatbuffers",
-                version="25.9.23",
-                filename=crate.name,
-                url=f"https://example.invalid/{crate.name}",
-                sha256=digest(crate),
-            )
-            with self.assertRaisesRegex(RuntimeError, "unsafe path"):
-                release_package.extract_rust_crate(crate, root / "vendor", artifact)
-
-    def test_rejects_windows_style_rust_crate_traversal(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            crate = root / "flatbuffers-25.9.23.crate"
-            with tarfile.open(  # NOSONAR - synthetic test fixture
-                crate, "w:gz"
-            ) as archive:
-                content = b"unsafe\n"
-                member = tarfile.TarInfo(
-                    "flatbuffers-25.9.23/directory\\..\\..\\outside"
-                )
                 member.size = len(content)
                 archive.addfile(member, io.BytesIO(content))
             artifact = release_package.perception_config.LockedArtifact(
@@ -1206,56 +1090,6 @@ class GeneratedSdkTests(unittest.TestCase):
             self.assertTrue((destination / "src" / "lib.rs").is_file())
             self.assertFalse((destination / "Cargo.lock").exists())
             self.assertFalse((destination / "target").exists())
-
-    @unittest.skipUnless(cargo_is_usable(), "cargo is not installed or usable")
-    def test_two_cargo_packages_are_byte_identical(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            cargo_home = root / "cargo-home"
-            cargo_home.mkdir()
-            crates = []
-            for label in ("first", "second"):
-                project = root / label
-                (project / "src").mkdir(parents=True)
-                (project / "Cargo.toml").write_text(
-                    '[package]\nname = "perception"\nversion = "1.2.3"\n'
-                    'edition = "2021"\n',
-                    encoding="utf-8",
-                )
-                (project / "src/lib.rs").write_text(
-                    "pub fn packet_count() -> usize { 0 }\n", encoding="utf-8"
-                )
-                (project / "crates").mkdir()
-                (project / "crates/transient.crate").write_bytes(b"transient")
-                (project / ".cargo").mkdir()
-                (project / ".cargo/config.toml").write_text(
-                    "[net]\noffline = true\n", encoding="utf-8"
-                )
-                environment = dict(os.environ)
-                environment["CARGO_HOME"] = str(cargo_home)
-                subprocess.run(
-                    ["cargo", "generate-lockfile", "--offline"],
-                    cwd=project,
-                    env=environment,
-                    check=True,
-                )
-                crates.append(
-                    release_package.build_perception_rust_crate(
-                        rust_root=project,
-                        environment=environment,
-                        name="perception",
-                        version="1.2.3",
-                    ).read_bytes()
-                )
-            self.assertEqual(crates[0], crates[1])
-            with tarfile.open(fileobj=io.BytesIO(crates[0]), mode="r:gz") as archive:
-                packaged_paths = {
-                    Path(member.name).parts[1] for member in archive.getmembers()
-                }
-            self.assertNotIn(".cargo", packaged_paths)
-            self.assertNotIn("crates", packaged_paths)
-            self.assertNotIn("target", packaged_paths)
-            self.assertNotIn("vendor", packaged_paths)
 
     @unittest.skipUnless(cargo_is_usable(), "cargo is not installed or usable")
     def test_generated_rust_sdk(self) -> None:
