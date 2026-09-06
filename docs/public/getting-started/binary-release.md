@@ -62,7 +62,7 @@ are build inputs and are not exposed by the archive.
 
 PEK packages target Debian Trixie. Install the system GStreamer runtime and
 tools with the Base, Good, and Bad plugin sets, including Nice and the WebRTC
-plugins. GLib, Cairo, OpenSSL, zlib, Brotli, zstd, libsoup 3, json-glib, the
+plugins. GLib, OpenSSL, zlib, Brotli, zstd, libsoup 3, json-glib, the
 C/C++ runtimes, and any required accelerator driver and firmware remain host
 dependencies. The Arm package also requires the system `libusb-1.0` runtime.
 PythonScript OpChains require the Debian Trixie `python3` and `libpython3.13`

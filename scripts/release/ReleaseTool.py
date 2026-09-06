@@ -79,8 +79,6 @@ SYSTEM_LIBRARY_PREFIXES = (
     "libbrotlidec.so.",
     "libbrotlienc.so.",
     "libc.so.",
-    "libcairo-gobject.so.",
-    "libcairo.so.",
     "libcap.so.",
     "libcrypto.so.",
     "libdl.so.",

@@ -33,7 +33,6 @@ apt-get install -y --no-install-recommends --download-only \
     "libfftw3-dev:${architecture}" \
     "libsoup-3.0-dev:${architecture}" \
     "libjson-glib-dev:${architecture}" \
-    "libcairo2-dev:${architecture}" \
     "libgstreamer1.0-dev:${architecture}" \
     "libgstreamer-plugins-base1.0-dev:${architecture}" \
     "libgstreamer-plugins-bad1.0-dev:${architecture}"

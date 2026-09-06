@@ -51,7 +51,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   cmake \
   curl \
   git \
-  libcairo2-dev \
   libfftw3-dev \
   libfmt-dev \
   libgstreamer-plugins-bad1.0-dev \
@@ -762,7 +761,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   gstreamer1.0-pipewire \
   gstreamer1.0-plugins-bad \
   gstreamer1.0-plugins-good \
-  libcairo2 \
   libfftw3-single3 \
   libfmt10 \
   libjson-glib-1.0-0 \

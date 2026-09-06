@@ -11,6 +11,7 @@
 
 #include "pek/Color.h"
 #include "pek/Tools.h"
+#include "raster/SegmentationMask.h"
 #include "raster/SurfacePainter.h"
 
 #include <algorithm>
@@ -32,7 +33,9 @@ constexpr const char *EyeYawPitchContentType = "eyeYawPitch";
 constexpr const char *CameraContactContentType = "cameraContact";
 constexpr const char *ClassificationContentType = "classification";
 constexpr const char *PersonClassificationContentType = "personClassification";
+constexpr const char *SegmentationContentType = "segmentation";
 constexpr const char *BottomRightCompositingMode = "bottomRight";
+constexpr const char *BackgroundReplacementCompositingMode = "backgroundReplacement";
 constexpr int ObjectBoxThickness = 2;
 constexpr int HumanFaceCircleThickness = 2;
 constexpr pek::Color HumanFaceCircleColor = pek::colorFromRgbBytes(38, 0, 255);
@@ -112,8 +115,16 @@ bool isPersonClassificationLayer(const perception::metadata::LayerInfoT *layer) 
     return hasContentType(layer, PersonClassificationContentType);
 }
 
+bool isSegmentationLayer(const perception::metadata::LayerInfoT *layer) noexcept {
+    return hasContentType(layer, SegmentationContentType);
+}
+
 bool isBottomRightLayer(const perception::metadata::LayerInfoT *layer) noexcept {
     return layer != nullptr && layer->compositing_mode == BottomRightCompositingMode;
+}
+
+bool usesBackgroundReplacement(const perception::metadata::LayerInfoT *layer) noexcept {
+    return layer != nullptr && layer->compositing_mode == BackgroundReplacementCompositingMode;
 }
 
 int textScaleForHeight(std::uint32_t height) noexcept {
@@ -133,6 +144,26 @@ int surfaceDimensionToInt(std::uint32_t value) noexcept {
 
 pek::Color colorForTrack(std::uint64_t trackId) noexcept {
     return TrackTracePalette[trackId % TrackTracePalette.size()];
+}
+
+pek::raster::ImageSurfaceView makeImageSurfaceView(const RasterSurface &surface) noexcept {
+    return {
+        .format = surface.format,
+        .width = surface.width,
+        .height = surface.height,
+        .planes = surface.planes,
+        .yuvMatrix = surface.yuvMatrix,
+        .yuvRange = surface.yuvRange,
+    };
+}
+
+pek::raster::MaskView makeMaskView(const perception::metadata::BitmapDataT &bitmap) noexcept {
+    return {
+        .data = bitmap.pixels.data(),
+        .size = bitmap.pixels.size(),
+        .width = bitmap.width,
+        .height = bitmap.height,
+    };
 }
 
 int textLineHeight(int scale) noexcept {
@@ -272,6 +303,36 @@ void drawSimpleArrow(pek::raster::SurfacePainter &painter,
                      roundToInt(baseY - py * headHalfWidth),
                      color,
                      GazeVectorThickness);
+}
+
+void drawSegmentationMasks(pek::raster::ImageSurfaceView surface,
+                           const perception::FrameResults &frameResults,
+                           const RasterDrawOptions &options) {
+    frameResults.for_each<perception::metadata::SegmentationMasksT>(
+        [surface, &options](const auto &payload) {
+            if (!isSegmentationLayer(payload.layer.get())) {
+                return;
+            }
+
+            const bool replaceBackground = usesBackgroundReplacement(payload.layer.get());
+            for (const auto &mask : payload.masks) {
+                if (!mask || !mask->bitmap) {
+                    continue;
+                }
+
+                const auto maskView = makeMaskView(*mask->bitmap);
+                if (replaceBackground) {
+                    (void)pek::raster::replaceBackgroundFromMask(
+                        surface,
+                        maskView,
+                        pek::raster::BackgroundReplacementOptions{
+                            .backgroundImage = options.backgroundImage,
+                        });
+                } else {
+                    (void)pek::raster::blendSegmentationMask(surface, maskView);
+                }
+            }
+        });
 }
 
 bool isFinitePoint(const perception::metadata::Point2fT &point) noexcept {
@@ -820,6 +881,8 @@ RasterDrawStatus drawRasterOsd(const RasterDrawRequest &request) noexcept {
         return RasterDrawStatus::InvalidSurface;
     }
 
+    drawSegmentationMasks(
+        makeImageSurfaceView(request.surface), *request.frameResults, request.options);
     drawTrackTraces(painter, *request.frameResults);
     drawHumanFaces(painter, request.surface, *request.frameResults);
     drawLabelledBoxes(painter, request.surface, *request.frameResults);

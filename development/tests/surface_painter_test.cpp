@@ -139,6 +139,62 @@ std::array<ImagePlaneDesc, 1> readonlyPlanes(const SurfaceStorage &surface) {
     }};
 }
 
+void setBgra(pek::Bitmap &bitmap,
+             std::size_t x,
+             std::size_t y,
+             std::uint8_t b,
+             std::uint8_t g,
+             std::uint8_t r) {
+    auto *data = bitmap.getMutableData();
+    const auto index = (y * bitmap.getWidth() + x) * 4U;
+    data[index + 0U] = b;
+    data[index + 1U] = g;
+    data[index + 2U] = r;
+    data[index + 3U] = 255U;
+}
+
+pek::Bitmap makeBackgroundImage() {
+    pek::Bitmap bitmap(pek::Bitmap::Type::Uint32, 2, 2);
+    setBgra(bitmap, 0, 0, 16, 32, 48);
+    setBgra(bitmap, 1, 0, 64, 80, 96);
+    setBgra(bitmap, 0, 1, 112, 128, 144);
+    setBgra(bitmap, 1, 1, 160, 176, 192);
+    return bitmap;
+}
+
+std::unique_ptr<perception::metadata::BitmapDataT> makeSegmentationMaskBitmap() {
+    auto bitmap = std::make_unique<perception::metadata::BitmapDataT>();
+    bitmap->width = 2U;
+    bitmap->height = 2U;
+    bitmap->value_type = "Uint8";
+    bitmap->pixels = {
+        0U,
+        96U,
+        180U,
+        255U,
+    };
+    return bitmap;
+}
+
+perception::FrameResults makeSegmentationFrameResults(const char *compositingMode = nullptr) {
+    perception::metadata::SegmentationMasksT payload;
+
+    perception::LayerInfoDescriptor layerDescriptor;
+    layerDescriptor.contentType = "segmentation";
+    if (compositingMode != nullptr) {
+        layerDescriptor.compositingMode = compositingMode;
+    }
+    payload.layer = perception::makeLayerInfo(layerDescriptor);
+
+    auto mask = std::make_unique<perception::metadata::SegmentationMaskT>();
+    mask->bitmap = makeSegmentationMaskBitmap();
+    payload.masks.push_back(std::move(mask));
+
+    perception::FrameResults frameResults;
+    frameResults.add(std::move(payload));
+    return frameResults;
+}
+
 perception::FrameResults makeTrackTraceFrameResults() {
     perception::metadata::TrackTracesT payload;
 
@@ -395,6 +451,62 @@ TEST(SurfacePainterTest, FillsRectsAndDrawsPointsInAllSupportedFormats) {
         painter.fillRect(-3, -2, 8, 6, pek::Colors::red);
         painter.drawPoint(12, 8, pek::Colors::lime, 4);
 
+        EXPECT_TRUE(activeAreaChanged(surface)) << static_cast<int>(format);
+        expectPaddingUnchanged(surface);
+    }
+}
+
+TEST(RasterOsdTest, DrawsSegmentationMasksInAllSupportedFormats) {
+    constexpr std::array formats{
+        RawImagePixelFormat::Bgra,
+        RawImagePixelFormat::Rgb,
+        RawImagePixelFormat::I420,
+        RawImagePixelFormat::Nv12,
+        RawImagePixelFormat::Yuy2,
+    };
+    const auto frameResults = makeSegmentationFrameResults();
+
+    for (const auto format : formats) {
+        auto surface = makeSurface(format, 16, 12);
+
+        pek::osd::RasterDrawRequest request;
+        request.surface.format = format;
+        request.surface.width = surface.width;
+        request.surface.height = surface.height;
+        request.surface.planes = planeSpan(surface);
+        request.frameResults = &frameResults;
+
+        EXPECT_EQ(pek::osd::drawRasterOsd(request), pek::osd::RasterDrawStatus::Drawn)
+            << static_cast<int>(format);
+        EXPECT_TRUE(activeAreaChanged(surface)) << static_cast<int>(format);
+        expectPaddingUnchanged(surface);
+    }
+}
+
+TEST(RasterOsdTest, ReplacesBackgroundFromSegmentationMasksInAllSupportedFormats) {
+    constexpr std::array formats{
+        RawImagePixelFormat::Bgra,
+        RawImagePixelFormat::Rgb,
+        RawImagePixelFormat::I420,
+        RawImagePixelFormat::Nv12,
+        RawImagePixelFormat::Yuy2,
+    };
+    const auto frameResults = makeSegmentationFrameResults("backgroundReplacement");
+    const auto background = makeBackgroundImage();
+
+    for (const auto format : formats) {
+        auto surface = makeSurface(format, 16, 12);
+
+        pek::osd::RasterDrawRequest request;
+        request.surface.format = format;
+        request.surface.width = surface.width;
+        request.surface.height = surface.height;
+        request.surface.planes = planeSpan(surface);
+        request.frameResults = &frameResults;
+        request.options.backgroundImage = &background;
+
+        EXPECT_EQ(pek::osd::drawRasterOsd(request), pek::osd::RasterDrawStatus::Drawn)
+            << static_cast<int>(format);
         EXPECT_TRUE(activeAreaChanged(surface)) << static_cast<int>(format);
         expectPaddingUnchanged(surface);
     }

@@ -22,11 +22,9 @@ If no `FrameResultsMeta` is attached, the frame passes through unchanged.
 ## Execution Model
 
 For each frame, `pekosd` reads the immutable `FrameResults` envelope, draws supported
-overlays onto the input frame, and returns the modified frame downstream.
-
-The current implementation is migrating from CPU-based Cairo rendering over linear
-BGRA memory to direct raster drawing over the negotiated PEK video formats.
-Future DMABUF/Vulkan-style rendering is a planned direction, not the current path.
+overlays directly onto the negotiated input frame, and returns the modified frame
+downstream. Future DMABUF/Vulkan-style rendering is a planned direction, not the
+current path.
 
 ## Rendering Model
 
@@ -48,8 +46,7 @@ object, such as gaze vectors anchored to face rectangles.
 ## Memory And Performance
 
 - Frames are modified in place.
-- Overlay layers are temporary Cairo ARGB32 surfaces.
-- No full-frame copy is required for the final canvas.
+- No full-frame overlay canvas is allocated.
 - Rendering is CPU-bound and assumes linear image memory.
 
 Treat `pekosd` as a debugging overlay rather than the long-term application UI

@@ -6,7 +6,7 @@ gstpekosd = shared_module(
     'pekosd.cpp'
   ],
   include_directories: common_include,
-  dependencies: pek_deps + [dependency('cairo')],
+  dependencies: pek_deps,
   link_with: [ common ],
   gnu_symbol_visibility: 'hidden',
   install: release_package,

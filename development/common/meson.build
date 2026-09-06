@@ -27,6 +27,7 @@ common = shared_library(
     'perf/PerformanceMetrics.cpp',
 
     'raster/BitmapFont.cpp',
+    'raster/SegmentationMask.cpp',
     'raster/SurfacePainter.cpp',
 
     'mediaio/Common.cpp',

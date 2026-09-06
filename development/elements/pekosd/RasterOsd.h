@@ -80,10 +80,7 @@ enum class RasterDrawStatus {
     UnsupportedFormat,
 
     /** Target planes, dimensions, or strides are not writable/valid. */
-    InvalidSurface,
-
-    /** Raster OSD drawing is not wired yet behind this API boundary. */
-    NotImplemented,
+    InvalidSurface
 };
 
 /**
@@ -94,8 +91,8 @@ enum class RasterDrawStatus {
 /**
  * @brief Validates and dispatches raster OSD rendering for a frame.
  *
- * This entry point is the handoff boundary used while the Cairo helpers are moved
- * into a direct raster implementation.
+ * This entry point is the handoff boundary from the GStreamer element into the
+ * direct raster implementation.
  */
 [[nodiscard]] RasterDrawStatus drawRasterOsd(const RasterDrawRequest &request) noexcept;
 

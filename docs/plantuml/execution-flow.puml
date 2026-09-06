@@ -76,7 +76,7 @@ while ("Source emits another video buffer?") is (yes)
   partition "Downstream Perception Experience Kit processing and output\nafter inference and opchain execution" {
     :`pektracker` appends tracking payloads\nwith IDs and traces;
     :`pekperformance` takes an aggregate snapshot,\nderives interval averages, and appends\n`PerformanceOverlayT`;
-    :`pekosd` reads `FrameResultsMeta`,\nbuilds Cairo layers,\nand composites overlays onto the frame;
+    :`pekosd` reads `FrameResultsMeta`\nand draws raster overlays\nonto the frame;
     :`peksink` encodes VP8/Opus,\nkeeps drain branches alive,\nserves HTTP + WebRTC + control WS,\nand streams the result to the browser;
   }
 endwhile (EOS)

@@ -6,8 +6,6 @@
 #include "gst/gstpad.h"
 #include "pek/Tools.h"
 
-#include <cairo.h>
-
 #include <gst/gst.h>
 #include <gst/video/gstvideofilter.h>
 #include <gst/video/video.h>
