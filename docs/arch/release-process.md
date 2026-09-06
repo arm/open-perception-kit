@@ -47,13 +47,16 @@ uploads that exact embedded triplet as the existing temporary
 `pek-perception-sdk-input-*` or `pek-test-perception-sdk-input-*` Actions
 artifact; it does not rebuild it. For PEK publication, the Arm build extracts
 the verified Python wheel and packages the prepared Rust tree from that triplet
-using its locked offline Cargo vendor directory. It places both language
-packages beside the triplet in `pek-perception-sdk-input-*`; the Artifactory job
-publishes those exact files. Stable release pushes publish the wheel unchanged
-to `edge-ai-tooling.pypi` and raw-PUT the crate unchanged to
+using its locked offline Cargo vendor directory. The release-only crate manifest
+records FlatBuffers as a crates.io dependency so consumers do not look for it in
+the private registry. The Arm build verifies the packaged crate before placing
+both language packages beside the triplet in `pek-perception-sdk-input-*`; the
+Artifactory job publishes those exact files. Stable release pushes publish the
+wheel unchanged to `edge-ai-tooling.pypi` and raw-PUT the crate unchanged to
 `edge-ai-tooling.cargo`, while generic Artifactory keeps the three PEK archives.
-The Cargo upload refuses an existing version and uses a conditional create-only
-request; repository-side overwrite suppression remains required.
+The Cargo version preflight runs before generic Artifactory publication. The
+conditional create-only upload is followed by a byte-for-byte download and
+sparse-index check; repository-side overwrite suppression remains required.
 Manual snapshots instead place the wheel and crate beside those archives in
 their immutable generic Artifactory snapshot folder. GitHub Release assets
 remain the three archives.

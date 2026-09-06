@@ -139,8 +139,8 @@ Stable PEK releases publish the `perception` crate at the PEK version to the
 index = "sparse+https://artifactory.arm.com/artifactory/api/cargo/edge-ai-tooling.cargo/index/"
 ```
 
-Select that registry only for Perception so its FlatBuffers dependency
-continues to resolve from crates.io:
+Select that registry only for Perception. The published crate metadata assigns
+its FlatBuffers dependency to crates.io explicitly:
 
 ```toml
 [dependencies]

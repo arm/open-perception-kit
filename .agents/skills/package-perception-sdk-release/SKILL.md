@@ -109,10 +109,13 @@ Choose one handoff mode:
   PEK package assembly. Require the same bytes under
   `share/pek/perception-sdk/` in both architecture archives. Stable release
   pushes publish the verified Python wheel unchanged to the existing
-  Artifactory PyPI repository. The Arm release build packages the bundle's
-  prepared Rust tree using its locked vendor directory, and the publication job
-  raw-PUTs that exact crate to `edge-ai-tooling.cargo`. The upload must fail if
-  that version already exists, and the repository must reject overwrites.
+  Artifactory PyPI repository. The Arm release build packages and verifies the
+  bundle's prepared Rust tree using its locked vendor directory. The
+  release-only manifest must record FlatBuffers as a crates.io dependency. The
+  publication job must reject an existing version before generic Artifactory
+  publication, raw-PUT the exact crate to `edge-ai-tooling.cargo`, then verify
+  the downloaded bytes and sparse-index entry. The repository must also reject
+  overwrites.
   Generic Artifactory keeps the three PEK archives. Manual snapshots instead
   place the wheel and crate beside those archives in their immutable generic
   Artifactory folder.

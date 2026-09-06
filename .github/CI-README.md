@@ -83,7 +83,7 @@ and Sonar [incremental analysis](https://docs.sonarsource.com/sonarqube-server/2
 | Event | Candidate validation | Publication validation | Package publication |
 | --- | --- | --- | --- |
 | Pull request targeting `main` | Builds and smoke-tests the two architecture snapshot images | Uploads, verifies, and deletes the generic Artifactory, Artifactory PyPI, and GitHub Release probes | Not run |
-| Push to `main` | Not run | Not run | Builds all three archives, smoke-tests and publishes one multi-architecture GHCR image, publishes the archives to GitHub Release and generic Artifactory, the wheel to Artifactory PyPI, and the crate to Artifactory Cargo |
+| Push to `main` | Not run | Not run | Builds all three archives, smoke-tests and publishes one multi-architecture GHCR image, publishes the archives to GitHub Release and generic Artifactory, the wheel to Artifactory PyPI, and the verified crate to Artifactory Cargo with download and sparse-index checks |
 | Manual release validation | Resolves any commit, tag, or branch `source_ref`, builds and smoke-tests the two temporary architecture images | Uploads, verifies, and deletes the generic Artifactory, Artifactory PyPI, and GitHub Release probes | Not run |
 | Manual package publication | Not run | Not run | Resolves `source_ref`, builds all three archives, smoke-tests and publishes one multi-architecture GHCR snapshot, then publishes the archives, wheel, and crate to one generic Artifactory snapshot folder |
 
