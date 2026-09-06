@@ -52,6 +52,8 @@ packages beside the triplet in `pek-perception-sdk-input-*`; the Artifactory job
 publishes those exact files. Stable release pushes publish the wheel unchanged
 to `edge-ai-tooling.pypi` and raw-PUT the crate unchanged to
 `edge-ai-tooling.cargo`, while generic Artifactory keeps the three PEK archives.
+The Cargo upload refuses an existing version and uses a conditional create-only
+request; repository-side overwrite suppression remains required.
 Manual snapshots instead place the wheel and crate beside those archives in
 their immutable generic Artifactory snapshot folder. GitHub Release assets
 remain the three archives.
@@ -130,8 +132,8 @@ dispatch a new workflow before it has been registered on the default branch.
 
 Cross-system publication is deliberately not resumed automatically. If the GHCR
 image or GitHub Release succeeds and a later generic Artifactory, Cargo, or PyPI
-publication fails, repair or remove the partial publications before rerunning;
-their immutable version guards reject replacement.
+publication fails, repair or remove the partial publications before rerunning.
+Existing-version checks and repository overwrite protection reject replacement.
 
 ## Package validation
 

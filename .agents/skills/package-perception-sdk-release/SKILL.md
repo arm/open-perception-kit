@@ -110,8 +110,9 @@ Choose one handoff mode:
   pushes publish the verified Python wheel unchanged to the existing
   Artifactory PyPI repository. The Arm release build packages the checked-in
   Rust source against the bundle's locked vendor directory and the publication
-  job raw-PUTs that exact crate to `edge-ai-tooling.cargo`. Generic Artifactory
-  keeps the three PEK archives. Manual snapshots instead place the wheel and
+  job raw-PUTs that exact crate to `edge-ai-tooling.cargo`. The upload must fail
+  if that version already exists, and the repository must reject overwrites.
+  Generic Artifactory keeps the three PEK archives. Manual snapshots instead place the wheel and
   crate beside those archives in their immutable generic Artifactory folder.
   Do not publish the rest of the triplet as separate top-level PEK release
   assets.
