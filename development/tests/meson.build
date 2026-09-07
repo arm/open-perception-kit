@@ -92,6 +92,17 @@ if python_ops_enabled
     test_python,
     args : [files('python_classification_demo_test.py')],
   )
+  byom_blazeface_example_test_env = environment()
+  byom_blazeface_example_test_env.prepend(
+    'PYTHONPATH',
+    meson.project_source_root() / '../generated/perception/python/src',
+  )
+  test(
+    'byom_blazeface_example_tests',
+    test_python,
+    args : [files('byom_blazeface_example_test.py')],
+    env : byom_blazeface_example_test_env,
+  )
   python_classification_pipeline_test_env = environment()
   python_classification_pipeline_test_env.prepend(
     'PYTHONPATH',

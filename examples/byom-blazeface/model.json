@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "name": "byom-blazeface",
+  "modelFile": "face_detector.onnx",
+  "dynamicOutput": false,
+  "inputTensors": [
+    {
+      "shape": [1, 128, 128, 3],
+      "dataKind": "ImageRgbHwc",
+      "valueType": "Float32",
+      "mean": [0.5, 0.5, 0.5],
+      "std": [0.5, 0.5, 0.5]
+    }
+  ],
+  "outputTensors": [
+    {
+      "shape": [1, 896, 16],
+      "dataKind": "RawTensorData",
+      "valueType": "Float32"
+    },
+    {
+      "shape": [1, 896, 1],
+      "dataKind": "RawTensorData",
+      "valueType": "Float32"
+    }
+  ]
+}
