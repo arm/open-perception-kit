@@ -957,13 +957,21 @@ jobs:
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
   perception-cargo-consumer:
-    name: Consume Perception crate on ARM64
+    name: Consume Perception crate (${{ matrix.architecture }})
     needs: [prepare, artifactory]
     if: >-
       ${{ github.event_name == 'push' &&
           needs.prepare.result == 'success' &&
           needs.artifactory.result == 'success' }}
-    runs-on: self-hosted-ubuntu-latest-arm64
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: x86_64
+            runner: self-hosted-ubuntu-latest-x64
+          - architecture: aarch64
+            runner: self-hosted-ubuntu-latest-arm64
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Set up pinned Rust
         uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0

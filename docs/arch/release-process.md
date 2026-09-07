@@ -58,9 +58,9 @@ Artifactory keeps the three PEK archives. The Cargo version preflight runs befor
 generic Artifactory publication. After Cargo confirms sparse-index visibility,
 the publication job downloads the registered crate, compares it byte-for-byte
 with the Arm build's package, verifies the index checksum, and runs a clean,
-exact-pinned Cargo 1.85 consumer build on ARM64 without FlatBuffers generation.
-A red release must be restored to its pre-release state by the release owner
-before retrying.
+exact-pinned Cargo 1.85 consumer build on x86_64 and ARM64 without FlatBuffers
+generation. A red release must be restored to its pre-release state by the
+release owner before retrying.
 Public distribution must use authenticated, server-enforced immutable
 publication instead. Manual snapshots place the wheel and crate beside those
 archives in their immutable generic Artifactory snapshot folder. GitHub Release

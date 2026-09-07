@@ -116,8 +116,8 @@ Choose one handoff mode:
   publication, publish the staged source through Cargo's native protocol using
   the existing PEK Artifactory publisher identity, then verify that the
   registered crate matches the Arm build's package and sparse-index checksum. A
-  clean, exact-pinned Cargo 1.85 consumer must build it on ARM64 without
-  FlatBuffers generation. A red release
+  clean, exact-pinned Cargo 1.85 consumer must build it on x86_64 and ARM64
+  without FlatBuffers generation. A red release
   requires release-owner cleanup before retry. Public distribution must use
   authenticated, server-enforced immutable publication instead.
   Generic Artifactory keeps the three PEK archives. Manual snapshots instead

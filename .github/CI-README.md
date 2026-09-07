@@ -153,7 +153,8 @@ Release image builds get their model and runtime inputs from these sources:
 
 Perception Rust crates use Cargo's native publish protocol with the existing PEK
 Artifactory publisher identity. A clean Cargo 1.85 consumer then resolves and
-builds the exact published version on ARM64 without FlatBuffers generation.
+builds the exact published version on x86_64 and ARM64 without FlatBuffers
+generation.
 
 `Dockerfile` remains the version authority. Release jobs build its existing
 `pek-deployment-base` target for the native architecture and copy the archive
