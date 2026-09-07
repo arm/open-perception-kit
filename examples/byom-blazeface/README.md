@@ -5,9 +5,9 @@ Kit without adding model-specific C++ code or generating a new SDK type.
 
 It uses the Apache-2.0 BlazeFace model from
 `fernandotonon/QtMeshEditor-blazeface-onnx`, pinned to revision
-`50f2c66ffbdf84beae8c267df2b49e5c5a5162e9`. The model descriptor declares
-that source, and the repository model downloader installs and verifies it. The
-BYOM integration begins with describing how PEK must call the local artifact.
+`50f2c66ffbdf84beae8c267df2b49e5c5a5162e9`. The model descriptor records that
+source through `hfDownload`, but the PEK runtime does not download models. The
+user must provide the local model file before running the example.
 
 ```text
 model.json
@@ -31,6 +31,11 @@ the custom result schema and its meaning.
 - input and output tensor shapes and types
 - image layout and color format
 - preprocessing normalization
+
+The `hfDownload` entry records pinned artifact provenance for build or
+provisioning tooling. It is not a runtime URL. External integrations may use
+their own artifact-management process; PEK only consumes the local path in
+`modelFile`.
 
 BlazeFace expects a float32 RGB NHWC tensor with shape `[1, 128, 128, 3]`.
 PEK resizes the frame and applies mean `0.5` and standard deviation `0.5`,
@@ -114,7 +119,10 @@ of its external payload.
 ## Run the example
 
 Use an official PEK development or deployment environment with ONNX and Python
-Ops enabled. The prerecorded video under `data/videos/` must be available.
+Ops enabled. Provide the model as
+`examples/byom-blazeface/face_detector.onnx`; `run.py` verifies its declared
+digest and refuses to start inference when the file is missing or unexpected.
+The prerecorded video under `data/videos/` must also be available.
 
 ```bash
 cd examples/byom-blazeface

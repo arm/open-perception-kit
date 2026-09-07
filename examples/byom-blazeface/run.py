@@ -24,7 +24,7 @@ def run_example(script_path: Path, shutdown: runtime.ShutdownState) -> int:
     from support import video
 
     paths, tools = runtime.discover_example(script_path)
-    model.ensure_model(paths.model, paths.repository_root, shutdown)
+    model.ensure_model(paths.model, shutdown)
 
     with tempfile.TemporaryDirectory(prefix="pek-byom-blazeface-") as temporary_dir:
         temporary_path = Path(temporary_dir)
