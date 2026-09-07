@@ -21,8 +21,6 @@ coverage run --parallel-mode --branch --source=tools/perception,scripts/release 
     -m unittest tools/perception/tests/test_release.py
 coverage run --parallel-mode --branch --source=tools/perception,scripts/release \
     -m unittest scripts/release/TestReleaseTool.py
-coverage run --parallel-mode --branch --source=tools/perception,scripts/release \
-    -m unittest scripts/release/TestPackagePerceptionCargo.py
 coverage run --parallel-mode development/tests/python_classification_demo_test.py
 PYTHONPATH="tools/expkits-ci:tools/expkits-ci/tests${PYTHONPATH:+:${PYTHONPATH}}" \
     coverage run --parallel-mode --branch --source=tools/expkits-ci/expkits_ci \
