@@ -149,12 +149,12 @@ Release image builds get their model and runtime inputs from these sources:
 | `ONNXRUNTIME_VERSION` | Defaulted and consumed by `pek-deployment-build` |
 | `EXECUTORCH_VERSION`, `EXECUTORCH_DEB_REVISION` | Defaulted and consumed by `pek-deployment-build` |
 | `HF_TOKEN` | Read-only repository secret; exposed to `pek-models` only as a BuildKit secret while checked-in models require authentication |
-| `PEK_ARTIFACTORY_USERNAME`, `PEK_ARTIFACTORY_API_KEY` | Existing repository secrets used to read the ExecuTorch Debian package and publish release archives, Python wheels, and Rust crates |
+| `PEK_ARTIFACTORY_USERNAME`, `PEK_ARTIFACTORY_API_KEY` | Existing repository secrets used to read the ExecuTorch Debian package and publish release archives and Python wheels |
 
-Perception Rust crates use Cargo's native publish protocol with the existing PEK
-Artifactory publisher identity. A clean Cargo 1.85 consumer then resolves and
-builds the exact published version on x86_64 and ARM64 without FlatBuffers
-generation.
+Perception Rust crates use Cargo's native publish protocol with the existing
+anonymous Cargo principal on the explicit eu02 registry route. A clean Cargo
+1.85 consumer then resolves and builds the exact published version through the
+global registry on x86_64 and ARM64 without FlatBuffers generation.
 
 `Dockerfile` remains the version authority. Release jobs build its existing
 `pek-deployment-base` target for the native architecture and copy the archive

@@ -782,14 +782,25 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           set -euo pipefail
-          url="https://artifactory.arm.com/artifactory/edge-ai-tooling.cargo/crates/perception/perception-$VERSION.crate"
-          status="$(curl --silent --show-error --output /dev/null \
-            --write-out '%{http_code}' "$url")"
-          case "$status" in
-            404) ;;
-            200) echo "Perception crate $VERSION already exists." >&2; exit 1 ;;
-            *) echo "Cargo publication preflight failed with HTTP $status." >&2; exit 1 ;;
-          esac
+          registry="https://artifactory.eu02.arm.com/artifactory/api/cargo/edge-ai-tooling.cargo"
+          url="https://artifactory.eu02.arm.com/artifactory/edge-ai-tooling.cargo/crates/perception/perception-$VERSION.crate"
+          storage_url="https://artifactory.eu02.arm.com/artifactory/api/storage/edge-ai-tooling.cargo/crates/perception/perception-$VERSION.crate"
+          index_url="$registry/index/pe/rc/perception"
+          config="$RUNNER_TEMP/perception-cargo-config.json"
+          headers="$RUNNER_TEMP/perception-cargo-config.headers"
+
+          curl --fail --silent --show-error --dump-header "$headers" \
+            --output "$config" "$registry/index/config.json"
+          jq --exit-status --arg registry "$registry" \
+            '.api == $registry and .dl == ($registry + "/v1/crates")' \
+            "$config" > /dev/null
+          for unpublished_url in "$url" "$storage_url"; do
+            test "$(curl --silent --show-error --output /dev/null \
+              --write-out '%{http_code}' "$unpublished_url")" = 404
+          done
+          curl --fail --silent --show-error "$index_url" | \
+            jq --exit-status --slurp --arg version "$VERSION" \
+              'all(.[]; .vers != $version)' > /dev/null
 
       - name: Set up locked uv and Python
         uses: astral-sh/setup-uv@v10.0.1
@@ -842,8 +853,6 @@ jobs:
       - name: Publish and verify Perception crate
         if: github.event_name == 'push'
         env:
-          ARTIFACTORY_API_KEY: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
-          ARTIFACTORY_USERNAME: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
           ARTIFACTS_DIR: ${{ runner.temp }}/pek-release-artifacts
           CARGO_HOME: ${{ runner.temp }}/perception-cargo-home
           RUSTUP_TOOLCHAIN: 1.85.0
@@ -853,34 +862,37 @@ jobs:
           set -euo pipefail
           crate="$ARTIFACTS_DIR/perception-$VERSION.crate"
           publish_source="$SDK_DIR/perception-cargo-source-$VERSION"
-          url="https://artifactory.arm.com/artifactory/edge-ai-tooling.cargo/crates/perception/perception-$VERSION.crate"
-          index_url="https://artifactory.arm.com/artifactory/api/cargo/edge-ai-tooling.cargo/index/pe/rc/perception"
+          registry="https://artifactory.eu02.arm.com/artifactory/api/cargo/edge-ai-tooling.cargo"
+          url="https://artifactory.eu02.arm.com/artifactory/edge-ai-tooling.cargo/crates/perception/perception-$VERSION.crate"
+          storage_url="https://artifactory.eu02.arm.com/artifactory/api/storage/edge-ai-tooling.cargo/crates/perception/perception-$VERSION.crate"
+          index_url="$registry/index/pe/rc/perception"
 
           rm -rf -- "$CARGO_HOME"
           mkdir -p "$CARGO_HOME"
           cat > "$CARGO_HOME/config.toml" <<'EOF'
           [registries.artifactory]
-          index = "sparse+https://artifactory.arm.com/artifactory/api/cargo/edge-ai-tooling.cargo/index/"
+          index = "sparse+https://artifactory.eu02.arm.com/artifactory/api/cargo/edge-ai-tooling.cargo/index/"
           credential-provider = "cargo:token"
 
           [registries.crates-io]
           index = "sparse+https://index.crates.io/"
           EOF
-          test -n "$ARTIFACTORY_USERNAME"
-          test -n "$ARTIFACTORY_API_KEY"
-          basic_token="$(printf '%s:%s' "$ARTIFACTORY_USERNAME" "$ARTIFACTORY_API_KEY" | base64 -w0)"
-          echo "::add-mask::$basic_token"
-          export CARGO_REGISTRIES_ARTIFACTORY_TOKEN="Basic $basic_token"
+          anonymous_token="$(printf 'anonymous:' | base64 -w0)"
+          export CARGO_REGISTRIES_ARTIFACTORY_TOKEN="Basic $anonymous_token"
           (cd "$publish_source" && cargo publish --locked --no-verify --registry artifactory)
 
           published="$RUNNER_TEMP/perception-$VERSION.published.crate"
           for attempt in {1..12}; do
             if curl --fail-with-body --silent --show-error \
-              --output "$published" "$url"; then
+              --output "$published" "$url" && \
+              curl --fail --silent --show-error "$storage_url" | \
+                jq --exit-status \
+                  '.createdBy == "anonymous" and .modifiedBy == "anonymous"' \
+                  > /dev/null; then
               break
             fi
             if [[ "$attempt" == 12 ]]; then
-              echo "Published Perception crate did not become downloadable." >&2
+              echo "Published Perception crate or ownership did not become visible." >&2
               exit 1
             fi
             sleep 5
@@ -904,6 +916,8 @@ jobs:
           done
           printf "### Perception Cargo\n\n- URL: %s\n- SHA-256: \`%s\`\n- Sparse index: %s\n" \
             "$url" "$checksum" "$index_url" >> "$GITHUB_STEP_SUMMARY"
+          sed -n -E '/^(X-JFrog-Version|X-Artifactory-Node-Id):/Ip' \
+            "$RUNNER_TEMP/perception-cargo-config.headers" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish Perception Python package to Artifactory PyPI
         if: github.event_name == 'push'

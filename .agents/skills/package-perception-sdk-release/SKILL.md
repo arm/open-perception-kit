@@ -114,8 +114,9 @@ Choose one handoff mode:
   release-only manifest must record FlatBuffers as a crates.io dependency. The
   publication job must reject an existing version before generic Artifactory
   publication, publish the staged source through Cargo's native protocol using
-  the existing PEK Artifactory publisher identity, then verify that the
-  registered crate matches the Arm build's package and sparse-index checksum. A
+  the existing anonymous Cargo principal on the explicit eu02 route, then
+  verify that the registered crate matches the Arm build's package and
+  sparse-index checksum. A
   clean, exact-pinned Cargo 1.85 consumer must build it on x86_64 and ARM64
   without FlatBuffers generation. A red release
   requires release-owner cleanup before retry. Public distribution must use

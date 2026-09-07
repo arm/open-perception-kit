@@ -53,8 +53,9 @@ the private registry. The Arm build verifies the packaged crate and stages the
 prepared source that produced it beside both language packages in
 `pek-perception-sdk-input-*`. Stable release pushes publish the wheel unchanged
 to `edge-ai-tooling.pypi` and use Cargo's native publish protocol with the
-existing PEK Artifactory publisher identity for `edge-ai-tooling.cargo`; generic
-Artifactory keeps the three PEK archives. The Cargo version preflight runs before
+existing anonymous Cargo principal on the explicit eu02 route for
+`edge-ai-tooling.cargo`; generic Artifactory keeps the three PEK archives. The
+Cargo version preflight runs before
 generic Artifactory publication. After Cargo confirms sparse-index visibility,
 the publication job downloads the registered crate, compares it byte-for-byte
 with the Arm build's package, verifies the index checksum, and runs a clean,
