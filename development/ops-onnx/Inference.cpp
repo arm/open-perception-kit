@@ -16,6 +16,7 @@
 #include <cstring>
 #include <memory>
 #include <thread>
+#include <utility>
 
 #include <fmt/core.h>
 
@@ -96,7 +97,7 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc_) {
 
         auto cmResult = model.applyModelFromDescriptor(this->modelDescriptor);
         if (!cmResult) {
-            return tl::make_unexpected(cmResult.error());
+            return tl::unexpected(cmResult.error());
         }
 
         auto setupTensorsResult = this->setupTensorsForModel();
@@ -110,17 +111,19 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc_) {
         pek::log::info("{}", "ONNX: Model loaded\n");
 
     } catch (const std::exception &e) {
-        return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::InferenceRtModelLoadError, e.what()));
+        return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InferenceRtModelLoadError, e.what()));
     }
 
     return {};
 }
 
-void Inference::recreateInputTensor(size_t index, const pek::Shape &shape, pek::Dtype valueType) {
+pek::Result<void>
+Inference::recreateInputTensor(size_t index, const pek::Shape &shape, pek::Dtype valueType) {
     if (index >= pek::MaxTensorCount) {
         pek::log::error(
             "Input tensor index {} exceeds max supported {}\n", index, pek::MaxTensorCount);
-        return;
+        return tl::unexpected(
+            PEK_ERROR(pek::ErrorFlag::InvalidData, "Input tensor index exceeds max supported"));
     }
 
     pek::log::info("Recreating input tensor #{} [{}] from {} to {}\n",
@@ -130,7 +133,12 @@ void Inference::recreateInputTensor(size_t index, const pek::Shape &shape, pek::
                    shape.toString());
 
     api.inputTensors[index] = std::make_unique<onnx::Tensor>(shape, valueType);
-    api.inputTensorVector[index] = api.inputTensors[index]->createOnnxTensor(*this->memoryInfo);
+    auto tensorResult = api.inputTensors[index]->createOnnxTensor(*this->memoryInfo);
+    if (!tensorResult) {
+        return tl::unexpected(tensorResult.error());
+    }
+    api.inputTensorVector[index] = std::move(*tensorResult);
+    return {};
 }
 
 pek::Result<void> Inference::setupTensorsForModel() {
@@ -152,7 +160,11 @@ pek::Result<void> Inference::setupTensorsForModel() {
         api.inputTensors[i] = std::make_unique<onnx::Tensor>(this->model.inputs[i].shape,
                                                              this->model.inputs[i].valueType);
         api.inputNames.push_back(this->model.inputs[i].name.c_str());
-        api.inputTensorVector.push_back(api.inputTensors[i]->createOnnxTensor(*this->memoryInfo));
+        auto tensorResult = api.inputTensors[i]->createOnnxTensor(*this->memoryInfo);
+        if (!tensorResult) {
+            return tl::unexpected(tensorResult.error());
+        }
+        api.inputTensorVector.push_back(std::move(*tensorResult));
     }
 
     if (this->model.outputs.size() > pek::MaxTensorCount) {
@@ -172,9 +184,13 @@ pek::Result<void> Inference::setupTensorsForModel() {
         api.outputTensors[i] = std::make_unique<onnx::Tensor>(this->model.outputs[i].shape,
                                                               this->model.outputs[i].valueType);
         api.outputNames.push_back(this->model.outputs[i].name.c_str());
-        if (false == model.useDynamicOutput)
-            api.outputTensorVector.push_back(
-                api.outputTensors[i]->createOnnxTensor(*this->memoryInfo));
+        if (false == model.useDynamicOutput) {
+            auto tensorResult = api.outputTensors[i]->createOnnxTensor(*this->memoryInfo);
+            if (!tensorResult) {
+                return tl::unexpected(tensorResult.error());
+            }
+            api.outputTensorVector.push_back(std::move(*tensorResult));
+        }
     }
 
     pek::log::info("ONNX: Input tensors are set up\n");
@@ -211,7 +227,10 @@ pek::Result<void> Inference::inference() {
                                                this->model.inputs[i].valueInputs.data());
                 }
             } else {
-                return tl::make_unexpected(PEK_ERROR(
+                pek::log::error("ONNX scalar input tensor {} has unsupported dtype {}\n",
+                                i,
+                                magic_enum::enum_name(this->model.inputs[i].valueType));
+                return tl::unexpected(PEK_ERROR(
                     pek::ErrorFlag::InvalidData,
                     "ONNX scalar input tensor " + std::to_string(i) + " has unsupported dtype " +
                         std::string(magic_enum::enum_name(this->model.inputs[i].valueType))));
@@ -238,7 +257,7 @@ pek::Result<void> Inference::inference() {
                                                    api.outputNames.size());
         }
     } catch (const std::exception &e) {
-        return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::InferenceRtInferenceError, e.what()));
+        return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InferenceRtInferenceError, e.what()));
     }
 
     // fill the tensors data pointers
@@ -248,7 +267,7 @@ pek::Result<void> Inference::inference() {
 
     if (false == model.useDynamicOutput) {
         if (api.outputTensorVector.size() > pek::MaxTensorCount) {
-            return tl::make_unexpected(
+            return tl::unexpected(
                 PEK_ERROR(pek::ErrorFlag::InvalidData,
                           fmt::format("Model output tensor count {} exceeds max supported {}",
                                       api.outputTensorVector.size(),
@@ -257,14 +276,15 @@ pek::Result<void> Inference::inference() {
         for (size_t i = 0; i < api.outputTensorVector.size(); i++) {
             outputTensorPointers[i] = api.outputTensorVector[i].GetTensorData<uint8_t>();
             if (!outputTensorPointers[i]) {
-                return tl::make_unexpected(
+                pek::log::error("ONNX output tensor {} has no data\n", i);
+                return tl::unexpected(
                     PEK_ERROR(pek::ErrorFlag::InvalidData,
                               "ONNX output tensor " + std::to_string(i) + " has no data"));
             }
         }
     } else {
         if (dynamicOutputData.size() > pek::MaxTensorCount) {
-            return tl::make_unexpected(PEK_ERROR(
+            return tl::unexpected(PEK_ERROR(
                 pek::ErrorFlag::InvalidData,
                 fmt::format("Model dynamic output tensor count {} exceeds max supported {}",
                             dynamicOutputData.size(),
@@ -274,7 +294,8 @@ pek::Result<void> Inference::inference() {
             Ort::Value &v = dynamicOutputData[i];
             outputTensorPointers[i] = v.GetTensorMutableData<uint8_t>();
             if (!outputTensorPointers[i]) {
-                return tl::make_unexpected(
+                pek::log::error("ONNX dynamic output tensor {} has no data\n", i);
+                return tl::unexpected(
                     PEK_ERROR(pek::ErrorFlag::InvalidData,
                               "ONNX dynamic output tensor " + std::to_string(i) + " has no data"));
             }
@@ -295,10 +316,13 @@ pek::Result<void> Inference::inference() {
             auto tinfo = v.GetTensorTypeAndShapeInfo();
             std::vector<int64_t> onnxShape = tinfo.GetShape();
             if (!outputTensorFinalShapes[i].setFrom(onnxShape)) {
-                return tl::make_unexpected(
-                    PEK_ERROR(pek::ErrorFlag::InvalidData,
-                              "ONNX dynamic output tensor " + std::to_string(i) + " size " +
-                                  std::to_string(onnxShape.size()) + " exceeds max supported 8"));
+                pek::log::error("ONNX dynamic output tensor {} size {} exceeds max supported 8\n",
+                                i,
+                                onnxShape.size());
+                return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
+                                                "ONNX dynamic output tensor " + std::to_string(i) +
+                                                    " size " + std::to_string(onnxShape.size()) +
+                                                    " exceeds max supported 8"));
             }
         }
     }
@@ -316,7 +340,10 @@ pek::Result<void> Inference::inference() {
                         i,
                         outputIndex,
                         outputShape.toString());
-                    recreateInputTensor(i, outputShape, valueType);
+                    auto recreateResult = recreateInputTensor(i, outputShape, valueType);
+                    if (!recreateResult) {
+                        return tl::unexpected(recreateResult.error());
+                    }
                 }
                 model.inputs[i].matchShapeOutputIndex = pek::InvalidTensorIndex;
             }
@@ -333,8 +360,8 @@ pek::Result<void> Inference::inference() {
 
                 if (fromOutputIndex >= model.outputs.size() ||
                     toInputIndex >= model.inputs.size()) {
-                    return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
-                                                         "tensor feedback index out of range"));
+                    return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
+                                                    "tensor feedback index out of range"));
                 }
 
                 size_t fromByteCount = 0;
@@ -353,8 +380,8 @@ pek::Result<void> Inference::inference() {
                 size_t toByteCount = api.inputTensors[toInputIndex]->getByteCount();
 
                 if (fromByteCount != toByteCount) {
-                    return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
-                                                         "tensor feedback buffer size mismatch"));
+                    return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
+                                                    "tensor feedback buffer size mismatch"));
                 }
 
                 memcpy(api.inputTensors[toInputIndex]->getData(),
@@ -363,7 +390,8 @@ pek::Result<void> Inference::inference() {
 
                 tesorIndex++;
             } else {
-                return tl::make_unexpected(
+                pek::log::error("Unsupported tensor feedback mode\n");
+                return tl::unexpected(
                     PEK_ERROR(pek::ErrorFlag::InvalidData, "unsupported tensor feedback mode"));
             }
         }

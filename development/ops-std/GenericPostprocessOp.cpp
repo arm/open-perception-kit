@@ -9,6 +9,7 @@
 #include <map>
 #include <memory>
 
+#include "Log.h"
 #include "pek/FrameResults.h"
 #include "pek/Types.h"
 #include <perf/PerformanceMetrics.h>
@@ -110,6 +111,7 @@ GenericPostprocessOp::process(pek::op::OpChainContext &opChainContext) {
     for (size_t i = 0; i < pek::MaxTensorCount; i++) {
         if (i < opChainContext.inferenceOutputTensorCount) {
             if (!opChainContext.inferenceOutputTensors[i].isValid()) {
+                pek::log::error("Postprocessor input tensor {} is invalid\n", i);
                 return tl::unexpected(
                     PEK_ERROR(pek::ErrorFlag::InvalidData,
                               "Postprocessor input tensor " + std::to_string(i) + " is invalid"));

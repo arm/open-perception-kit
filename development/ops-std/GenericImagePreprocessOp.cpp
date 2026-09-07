@@ -132,7 +132,7 @@ pek::Result<pek::op::OpSignal> GenericImagePreprocessOp::process(
     auto *pipelineVideoFrame = opChainContext.getVideoFrame(inputImageSourceName);
 
     if (pipelineVideoFrame == nullptr) {
-        return tl::make_unexpected(PEK_ERROR(
+        return tl::unexpected(PEK_ERROR(
             pek::ErrorFlag::InvalidOpChain,
             fmt::format("GenericImagePreprocessOp needs VideoFrame '{}'", inputImageSourceName)));
     }
@@ -140,7 +140,7 @@ pek::Result<pek::op::OpSignal> GenericImagePreprocessOp::process(
     size_t modelWidth, modelHeight;
     const auto &inputTensor = upcomingInferenceModel.inputs[inputImageTensorIndex];
     if (false == inputTensor.tryGetImageTensorSize(modelWidth, modelHeight)) {
-        return tl::make_unexpected(
+        return tl::unexpected(
             PEK_ERROR(pek::ErrorFlag::InvalidData, "tensor seems not to be an image"));
     }
 
@@ -157,7 +157,7 @@ pek::Result<pek::op::OpSignal> GenericImagePreprocessOp::process(
     if (!hasReadableHostPlanes(readablePlanes)) {
         mappedPipelineVideoFrame = pipelineVideoFrame->map(pek::AccessMode::Read);
         if (!mappedPipelineVideoFrame) {
-            return tl::make_unexpected(
+            return tl::unexpected(
                 PEK_ERROR(pek::ErrorFlag::InvalidData,
                           "GenericImagePreprocessOp failed to map pipelineVideoFrame VideoFrame"));
         }
@@ -165,7 +165,7 @@ pek::Result<pek::op::OpSignal> GenericImagePreprocessOp::process(
         readableVideoFrame = mappedPipelineVideoFrame.get();
         readablePlanes = readableVideoFrame->planes();
         if (!hasReadableHostPlanes(readablePlanes)) {
-            return tl::make_unexpected(
+            return tl::unexpected(
                 PEK_ERROR(pek::ErrorFlag::InvalidData,
                           "GenericImagePreprocessOp VideoFrame has no readable host planes"));
         }
@@ -174,7 +174,7 @@ pek::Result<pek::op::OpSignal> GenericImagePreprocessOp::process(
     const auto sourceFormat = readableVideoFrame->format();
     const size_t sourcePlaneCount = readablePlanes.size();
     if (sourcePlaneCount == 0 || sourcePlaneCount > pek::MaxImagePlaneCount) {
-        return tl::make_unexpected(
+        return tl::unexpected(
             PEK_ERROR(pek::ErrorFlag::InvalidData,
                       "GenericImagePreprocessOp VideoFrame has invalid plane count"));
     }
@@ -189,10 +189,11 @@ pek::Result<pek::op::OpSignal> GenericImagePreprocessOp::process(
         setup.imageSourceDesc.planes[planeIndex] = makePlaneDesc(readablePlanes[planeIndex]);
         if (!setup.imageSourceDesc.planes[planeIndex].data ||
             setup.imageSourceDesc.planes[planeIndex].mutableData) {
-            return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
-                                                 "GenericImagePreprocessOp source plane " +
-                                                     std::to_string(planeIndex) +
-                                                     " is not readable"));
+            pek::log::error("GenericImagePreprocessOp source plane {} is not readable\n",
+                            planeIndex);
+            return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
+                                            "GenericImagePreprocessOp source plane " +
+                                                std::to_string(planeIndex) + " is not readable"));
         }
     }
     setup.imageSourceDesc.format = sourceFormat;
@@ -204,7 +205,7 @@ pek::Result<pek::op::OpSignal> GenericImagePreprocessOp::process(
         setup.imageSourceDesc.yuvRange = readableVideoFrame->yuvRange();
         if (setup.imageSourceDesc.yuvMatrix == pek::YuvColorMatrix::Unknown ||
             setup.imageSourceDesc.yuvRange == pek::YuvRange::Unknown) {
-            return tl::make_unexpected(PEK_ERROR(
+            return tl::unexpected(PEK_ERROR(
                 pek::ErrorFlag::InvalidData,
                 "GenericImagePreprocessOp YUV VideoFrame has unknown colorimetry or range"));
         }
@@ -255,10 +256,12 @@ pek::Result<pek::op::OpSignal> GenericImagePreprocessOp::process(
     };
     if (setup.imageDestinationDesc.planes[0].data ||
         !setup.imageDestinationDesc.planes[0].mutableData) {
-        return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
-                                             "GenericImagePreprocessOp input tensor " +
-                                                 std::to_string(inputImageTensorIndex) +
-                                                 " is not writable"));
+        pek::log::error("GenericImagePreprocessOp input tensor {} is not writable\n",
+                        inputImageTensorIndex);
+        return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
+                                        "GenericImagePreprocessOp input tensor " +
+                                            std::to_string(inputImageTensorIndex) +
+                                            " is not writable"));
     }
     setup.imageDestinationDesc.keepAspectRatio = inputTensor.keepAspectRatio;
     setup.imageDestinationDesc.letterboxRed = inputTensor.letterboxRed;

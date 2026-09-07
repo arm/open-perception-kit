@@ -153,7 +153,10 @@ pek::Result<pek::Model> Inference::inspectModel(executorch::extension::Module &m
                 }
 
                 auto sizes = tm->sizes();
-                if (sizes.size() < 1 || sizes.size() > pek::MaxTensorCount) {
+                if (sizes.size() < 1 || sizes.size() > std::size(input.shape.dims)) {
+                    pek::log::error("ExecuTorch input tensor {} size {} must be between 1 and 8\n",
+                                    i,
+                                    sizes.size());
                     return tl::unexpected{PEK_ERROR(pek::ErrorFlag::ModelInspectError,
                                                     "input tensor size must be between 1 and 8")};
                 }
@@ -182,7 +185,10 @@ pek::Result<pek::Model> Inference::inspectModel(executorch::extension::Module &m
                 }
 
                 auto sizes = tm->sizes();
-                if (sizes.size() < 1 || sizes.size() > pek::MaxTensorCount) {
+                if (sizes.size() < 1 || sizes.size() > std::size(output.shape.dims)) {
+                    pek::log::error("ExecuTorch output tensor {} size {} must be between 1 and 8\n",
+                                    i,
+                                    sizes.size());
                     return tl::unexpected{PEK_ERROR(pek::ErrorFlag::ModelInspectError,
                                                     "output tensor size must be between 1 and 8")};
                 }
@@ -228,7 +234,7 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc_) {
 
     auto cmResult = model.applyModelFromDescriptor(modelDescriptor);
     if (!cmResult) {
-        return tl::make_unexpected(cmResult.error());
+        return tl::unexpected(cmResult.error());
     }
 
     // After this point, descriptor shapes/types are the PEK runtime contract.
@@ -339,11 +345,13 @@ pek::Result<void> Inference::inference() {
         // Downstream postprocess receives non-owning views over these addresses.
         outputTensorPointers[i] = static_cast<const uint8_t *>(tensor.const_data_ptr());
         if (!outputTensorPointers[i]) {
+            pek::log::error("ExecuTorch output tensor {} has no data\n", i);
             return tl::unexpected{
                 PEK_ERROR(pek::ErrorFlag::InvalidData,
                           "ExecuTorch output tensor " + std::to_string(i) + " has no data")};
         }
         if (tensor.sizes().size() < 1 || tensor.sizes().size() > 8) {
+            pek::log::error("ExecuTorch output tensor {} size must be between 1 and 8\n", i);
             return tl::unexpected{PEK_ERROR(pek::ErrorFlag::InvalidData,
                                             "ExecuTorch output tensor " + std::to_string(i) +
                                                 " size must be between 1 and 8")};

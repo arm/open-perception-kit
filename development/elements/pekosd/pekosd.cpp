@@ -2,6 +2,7 @@
  * Copyright (C) 2025 Arm Limited. All rights reserved.
  *************************************************************/
 
+#include "Log.h"
 #include "gst/FrameResultsMeta.h"
 #include "gst/Tools.h"
 #include "osd.h"
@@ -1107,6 +1108,7 @@ static GstFlowReturn gst_pek_osd_transform_frame_ip(GstVideoFilter *filter, GstV
 
     auto *imgData = static_cast<guint8 *>(GST_VIDEO_FRAME_PLANE_DATA(frame, 0));
     if (!imgData) {
+        pek::log::error("Failed to access video frame data: BGRA plane 0 is null\n");
         GST_ELEMENT_ERROR(
             self, RESOURCE, READ, ("Failed to access video frame data"), ("BGRA plane 0 is null"));
         return GST_FLOW_ERROR;
