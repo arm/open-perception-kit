@@ -869,16 +869,34 @@ jobs:
           (cd "$publish_source" && cargo publish --locked --no-verify --registry artifactory)
 
           published="$RUNNER_TEMP/perception-$VERSION.published.crate"
-          curl --fail-with-body --silent --show-error \
-            --output "$published" "$url"
+          for attempt in {1..12}; do
+            if curl --fail-with-body --silent --show-error \
+              --output "$published" "$url"; then
+              break
+            fi
+            if [[ "$attempt" == 12 ]]; then
+              echo "Published Perception crate did not become downloadable." >&2
+              exit 1
+            fi
+            sleep 5
+          done
           cmp "$crate" "$published"
 
           checksum="$(sha256sum "$published" | cut -d' ' -f1)"
-          curl --fail --silent --show-error "$index_url" | \
-            jq --exit-status --slurp \
-              --arg version "$VERSION" --arg checksum "$checksum" \
-              'any(.[]; .name == "perception" and .vers == $version and .cksum == $checksum and .yanked == false)' \
-              > /dev/null
+          for attempt in {1..12}; do
+            if curl --fail --silent --show-error "$index_url" | \
+              jq --exit-status --slurp \
+                --arg version "$VERSION" --arg checksum "$checksum" \
+                'any(.[]; .name == "perception" and .vers == $version and .cksum == $checksum and .yanked == false)' \
+                > /dev/null; then
+              break
+            fi
+            if [[ "$attempt" == 12 ]]; then
+              echo "Cargo index did not expose the expected Perception crate." >&2
+              exit 1
+            fi
+            sleep 5
+          done
           printf "### Perception Cargo\n\n- URL: %s\n- SHA-256: \`%s\`\n- Sparse index: %s\n" \
             "$url" "$checksum" "$index_url" >> "$GITHUB_STEP_SUMMARY"
 
