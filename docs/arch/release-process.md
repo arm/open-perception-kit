@@ -42,28 +42,34 @@ directly from the selected commit's checked-in, CI-validated SDK snapshot. The
 release source and `tools/flowdata-sdk` gitlink SHAs are scalar build inputs, so
 release jobs neither initialize the private submodule nor exchange a parallel
 SDK build input. The stage embeds the triplet under `share/pek/perception-sdk`
-and checks its provenance against the release commit. The Arm snapshot job also
-uploads that exact embedded triplet as the existing temporary
+and checks its provenance against the release commit. The Arm snapshot job
+also uploads that exact embedded triplet as the existing temporary
 `pek-perception-sdk-input-*` or `pek-test-perception-sdk-input-*` Actions
 artifact; it does not rebuild it. For PEK publication, the Arm build extracts
 the verified Python wheel and packages the prepared Rust tree from that triplet
 using its locked offline Cargo vendor directory. The release-only crate manifest
 records FlatBuffers as a crates.io dependency so consumers do not look for it in
-the private registry. The Arm build verifies the packaged crate before placing
-both language packages beside the triplet in `pek-perception-sdk-input-*`; the
-Artifactory job publishes those exact files. Stable release pushes publish the
-wheel unchanged to `edge-ai-tooling.pypi` and raw-PUT the crate unchanged to
-`edge-ai-tooling.cargo`, while generic Artifactory keeps the three PEK archives.
-The Cargo version preflight runs before generic Artifactory publication. The
-conditional create-only upload is followed by a byte-for-byte download and a
-bounded sparse-index visibility check. The current internal Cargo repository
-accepts this path without Actions credentials and does not enforce the
-conditional no-overwrite header. A red release must be restored to its
-pre-release state by the release owner before retrying. Public distribution
-must use authenticated, server-enforced immutable publication instead.
-Manual snapshots instead place the wheel and crate beside those archives in
-their immutable generic Artifactory snapshot folder. GitHub Release assets
-remain the three archives.
+the private registry. The Arm build verifies the packaged crate and stages the
+prepared source that produced it beside both language packages in
+`pek-perception-sdk-input-*`. It recreates the retained crate from that source
+with Cargo 1.85 and a clean sparse crates.io configuration so native publication
+produces the same bytes. For stable release pushes, an early job on
+`amp-dev-forge-runner-ubuntu-x64` checks that the Cargo version is available on
+the explicit eu02 route before any public release mutation. The existing
+`self-hosted-ubuntu-latest-x64` Artifactory job then publishes the three PEK
+archives and the unchanged wheel to `edge-ai-tooling.pypi`. After that job
+succeeds, the physical runner uses Cargo's native publish protocol with the
+existing anonymous principal for `edge-ai-tooling.cargo`. After native
+publication, it waits for the registered crate and its anonymous ownership,
+compares it byte-for-byte with the Arm build's package, and waits for the
+matching sparse index checksum. Clean, exact-pinned Cargo 1.85 consumer
+builds then run on x86_64 and ARM64 without FlatBuffers generation. A red
+release must be restored to its pre-release state by the release owner before
+retrying.
+Public distribution must use authenticated, server-enforced immutable
+publication instead. Manual snapshots place the wheel and crate beside those
+archives in their immutable generic Artifactory snapshot folder. GitHub Release
+assets remain the three archives.
 
 The architecture tarballs keep their seven-model allowlist. The image is the
 full existing deployment snapshot, including the resolved configuration, model,
