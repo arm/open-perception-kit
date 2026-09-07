@@ -94,21 +94,28 @@ jobs:
       - name: Delete superseded PR compiler caches
         env:
           GH_TOKEN: ${{ github.token }}
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
           PR_REF: refs/pull/${{ github.event.workflow_run.pull_requests[0].number }}/merge
         run: |
           set -euo pipefail
-          current_head_sha="$(gh api --method GET \
-            "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq .head.sha)"
-          if [ "$current_head_sha" != "$HEAD_SHA" ]; then
-            echo "Skipping stale run for $HEAD_SHA; current PR head is $current_head_sha"
+          IFS=$'\t' read -r pr_state current_head_sha < <(
+            gh api --method GET "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
+              --jq '[.state, .head.sha] | @tsv'
+          )
+          if [ "$pr_state" = closed ]; then
+            echo "PR is closed; deleting all caches for $PR_REF"
+            gh api --paginate --method GET "repos/${GITHUB_REPOSITORY}/actions/caches" \
+              -f ref="$PR_REF" -f per_page=100 --jq '.actions_caches[].id' |
+              while IFS= read -r cache_id; do
+                gh api --method DELETE \
+                  "repos/${GITHUB_REPOSITORY}/actions/caches/${cache_id}"
+              done
             exit 0
           fi
 
           gh api --paginate --method GET "repos/${GITHUB_REPOSITORY}/actions/caches" \
             -f ref="$PR_REF" -f per_page=100 |
-            jq -sr --arg head_sha "$HEAD_SHA" '
+            jq -sr --arg head_sha "$current_head_sha" '
               [.[].actions_caches[]
                | select(.key | startswith("pek-ccache-"))
                | select(.key | test("-[0-9a-f]{40}$"))] as $caches
