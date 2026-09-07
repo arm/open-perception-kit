@@ -55,8 +55,8 @@ Artifactory job publishes those exact files. Stable release pushes publish the
 wheel unchanged to `edge-ai-tooling.pypi` and raw-PUT the crate unchanged to
 `edge-ai-tooling.cargo`, while generic Artifactory keeps the three PEK archives.
 The Cargo version preflight runs before generic Artifactory publication. The
-conditional create-only upload is followed by a byte-for-byte download and
-sparse-index check; repository-side overwrite suppression remains required.
+conditional create-only upload is followed by a byte-for-byte download check;
+repository-side overwrite suppression remains required.
 Manual snapshots instead place the wheel and crate beside those archives in
 their immutable generic Artifactory snapshot folder. GitHub Release assets
 remain the three archives.

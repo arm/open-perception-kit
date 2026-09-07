@@ -114,8 +114,7 @@ Choose one handoff mode:
   release-only manifest must record FlatBuffers as a crates.io dependency. The
   publication job must reject an existing version before generic Artifactory
   publication, raw-PUT the exact crate to `edge-ai-tooling.cargo`, then verify
-  the downloaded bytes and sparse-index entry. The repository must also reject
-  overwrites.
+  the downloaded bytes. The repository must also reject overwrites.
   Generic Artifactory keeps the three PEK archives. Manual snapshots instead
   place the wheel and crate beside those archives in their immutable generic
   Artifactory folder.

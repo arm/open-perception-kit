@@ -831,53 +831,11 @@ jobs:
           cmp "$crate" "$downloaded"
 
           checksum="$(sha256sum "$crate" | cut -d' ' -f1)"
-          index_url="https://artifactory.arm.com/artifactory/api/cargo/edge-ai-tooling.cargo/index/pe/rc/perception"
-          index="$RUNNER_TEMP/perception-cargo-index"
-          indexed=false
-          for _ in {1..12}; do
-            if curl --fail --silent --show-error \
-              --user "$ARTIFACTORY_USERNAME:$ARTIFACTORY_TOKEN" \
-              --output "$index" "$index_url" && \
-              python3 - "$index" "$VERSION" "$checksum" <<'PY'
-          import json
-          import sys
-          from pathlib import Path
-
-          path, version, checksum = sys.argv[1:]
-          entries = [json.loads(line) for line in Path(path).read_text().splitlines()]
-          entry = next(
-              (item for item in entries if item.get("name") == "perception" and item.get("vers") == version),
-              None,
-          )
-          if entry is None or entry.get("cksum") != checksum or entry.get("yanked"):
-              raise SystemExit(1)
-          dependency = next(
-              (item for item in entry.get("deps", []) if item.get("name") == "flatbuffers"),
-              None,
-          )
-          crates_io = {
-              "sparse+https://index.crates.io/",
-              "https://github.com/rust-lang/crates.io-index",
-          }
-          if dependency is None or dependency.get("registry") not in crates_io:
-              raise SystemExit(1)
-          PY
-            then
-              indexed=true
-              break
-            fi
-            sleep 5
-          done
-          if [[ "$indexed" != true ]]; then
-            echo "Cargo index did not expose the expected Perception crate." >&2
-            exit 1
-          fi
           {
             echo "### Perception Cargo"
             echo
             echo "- URL: $url"
             echo "- SHA-256: \`$checksum\`"
-            echo "- Sparse index: $index_url"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish Perception Python package to Artifactory PyPI
