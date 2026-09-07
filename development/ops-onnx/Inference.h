@@ -73,7 +73,7 @@ struct Tensor {
                                                          onnxShape,
                                                          this->shape.rank);
             }
-        } catch (const std::exception &error) {
+        } catch (const Ort::Exception &error) {
             const std::string message =
                 "Failed to create ONNX tensor: " + std::string(error.what());
             pek::log::error("{}\n", message);

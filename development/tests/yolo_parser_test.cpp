@@ -96,3 +96,48 @@ TEST(YoloParser, RejectsMalformedTensorShape) {
 
     EXPECT_FALSE(parser.parse(input, output).has_value());
 }
+
+TEST(YoloParser, RejectsInvalidImageSize) {
+    pek::AttributeMap attrs;
+    pek::TensorParser::Input input(attrs);
+    input.inferenceInfo.image = {.width = 100, .height = 100, .modelWidth = 100, .modelHeight = 0};
+
+    perception::FrameResults output;
+    pek::stdop::postproc::YoloParser parser;
+
+    EXPECT_FALSE(parser.parse(input, output).has_value());
+}
+
+TEST(YoloParser, RejectsTensorWithTooFewValuesPerCandidate) {
+    pek::AttributeMap attrs;
+    std::vector<float> tensorData(32U, 0.0f);
+    pek::TensorView tensor(tensorData.data(),
+                           tensorData.size() * sizeof(float),
+                           pek::Shape(1, 4, 8),
+                           pek::Dtype::Float32,
+                           1.0f,
+                           0.0f);
+    pek::TensorParser::Input input(attrs);
+    input.tensors[0] = &tensor;
+    input.inferenceInfo.image = {
+        .width = 100, .height = 100, .modelWidth = 100, .modelHeight = 100};
+
+    perception::FrameResults output;
+    pek::stdop::postproc::YoloParser parser;
+
+    EXPECT_FALSE(parser.parse(input, output).has_value());
+}
+
+TEST(YoloParser, RejectsInvalidTensorView) {
+    pek::AttributeMap attrs;
+    pek::TensorView tensor(nullptr, 0U, pek::Shape(1, 5, 5), pek::Dtype::Float32, 1.0f, 0.0f);
+    pek::TensorParser::Input input(attrs);
+    input.tensors[0] = &tensor;
+    input.inferenceInfo.image = {
+        .width = 100, .height = 100, .modelWidth = 100, .modelHeight = 100};
+
+    perception::FrameResults output;
+    pek::stdop::postproc::YoloParser parser;
+
+    EXPECT_FALSE(parser.parse(input, output).has_value());
+}

@@ -67,29 +67,29 @@ struct Shape {
 
     /**
      * @brief Sets shape dimensions from a size_t vector.
-     * @param dims Dimension values. Maximum supported size is 8.
+     * @param dimensions Dimension values. Maximum supported size is 8.
      * @return true when the dimensions fit, false when the size exceeds 8.
      */
-    bool setFrom(const std::vector<size_t> &dims) {
-        if (dims.size() > 8)
+    bool setFrom(const std::vector<size_t> &dimensions) {
+        if (dimensions.size() > 8)
             return false;
-        this->rank = dims.size();
-        for (size_t i = 0; i < dims.size(); i++)
-            this->dims[i] = dims[i];
+        this->rank = dimensions.size();
+        for (size_t i = 0; i < dimensions.size(); i++)
+            this->dims[i] = static_cast<int>(dimensions[i]);
         return true;
     }
 
     /**
      * @brief Sets shape dimensions from an int64_t vector.
-     * @param dims Dimension values. Maximum supported size is 8.
+     * @param dimensions Dimension values. Maximum supported size is 8.
      * @return true when the dimensions fit, false when the size exceeds 8.
      */
-    bool setFrom(const std::vector<int64_t> &dims) {
-        if (dims.size() > 8)
+    bool setFrom(const std::vector<int64_t> &dimensions) {
+        if (dimensions.size() > 8)
             return false;
-        this->rank = dims.size();
-        for (size_t i = 0; i < dims.size(); i++)
-            this->dims[i] = dims[i];
+        this->rank = dimensions.size();
+        for (size_t i = 0; i < dimensions.size(); i++)
+            this->dims[i] = static_cast<int>(dimensions[i]);
         return true;
     }
 
