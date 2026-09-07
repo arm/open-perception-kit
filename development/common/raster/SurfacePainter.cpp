@@ -255,12 +255,13 @@ SurfacePainter::TextMetrics SurfacePainter::measureText(std::string_view text, i
     const I64 glyphHeight = BitmapFont::GlyphHeight * normalizedScale;
     const I64 glyphGap = BitmapFont::GlyphGap * normalizedScale;
     const I64 glyphAdvance = glyphWidth + glyphGap;
-    const auto maxLength = static_cast<std::size_t>(std::numeric_limits<I64>::max() / glyphAdvance);
-    if (text.size() > maxLength) {
+    if (const auto maxLength =
+            static_cast<std::size_t>(std::numeric_limits<I64>::max() / glyphAdvance);
+        text.size() > maxLength) {
         return {};
     }
 
-    const I64 textLength = static_cast<I64>(text.size());
+    const auto textLength = static_cast<I64>(text.size());
     return {
         textLength * glyphWidth + (textLength - 1) * glyphGap,
         glyphHeight,
@@ -337,7 +338,12 @@ SurfacePainter::TargetColor SurfacePainter::makeTargetColor(pek::Color color) co
     return target;
 }
 
-void SurfacePainter::fillClippedSpan(I64 x0, I64 x1, I64 y, const TargetColor &color) noexcept {
+void SurfacePainter::fillClippedSpan( // NOSONAR: explicit per-format stores keep the raster hot
+                                      // path direct.
+    I64 x0,
+    I64 x1,
+    I64 y,
+    const TargetColor &color) noexcept {
     if (!isValid || y < 0 || y >= static_cast<I64>(surfaceHeight) || x1 <= x0) {
         return;
     }
@@ -358,8 +364,9 @@ void SurfacePainter::fillClippedSpan(I64 x0, I64 x1, I64 y, const TargetColor &c
         auto *first = row + static_cast<std::size_t>(x0) * 4;
         const auto pixelCount = static_cast<std::size_t>(x1 - x0);
         if constexpr (std::endian::native == std::endian::little) {
-            if (reinterpret_cast<std::uintptr_t>(first) % alignof(std::uint32_t) == 0U) {
-                auto *words = reinterpret_cast<std::uint32_t *>(first);
+            const auto firstAddress = reinterpret_cast<std::uintptr_t>(first); // NOSONAR
+            if (firstAddress % alignof(std::uint32_t) == 0U) {
+                auto *words = reinterpret_cast<std::uint32_t *>(first); // NOSONAR
                 std::fill_n(words, pixelCount, bgraWord(color.b, color.g, color.r));
                 break;
             }
@@ -404,7 +411,7 @@ void SurfacePainter::fillClippedSpan(I64 x0, I64 x1, I64 y, const TargetColor &c
         std::fill(yRow + xStart, yRow + xEnd, color.y);
         const I64 cx0 = x0 / 2;
         const I64 cx1 = (x1 - 1) / 2 + 1;
-        const std::size_t cy = static_cast<std::size_t>(y / 2);
+        const auto cy = static_cast<std::size_t>(y / 2);
         const auto cxStart = static_cast<std::size_t>(cx0);
         const auto cxEnd = static_cast<std::size_t>(cx1);
         auto *uRow = targetPlanes[1].mutableData + cy * uStride;
@@ -586,7 +593,14 @@ void SurfacePainter::drawRect(
     const TargetColor targetColor = makeTargetColor(color);
     const I64 t = normalizePositive(thickness);
     for (I64 layer = 0; layer < t; ++layer) {
-        const I64 offset = layer == 0 ? 0 : (layer % 2 == 1 ? (layer + 1) / 2 : -(layer / 2));
+        I64 offset = 0;
+        if (layer != 0) {
+            if (layer % 2 == 1) {
+                offset = (layer + 1) / 2;
+            } else {
+                offset = -(layer / 2);
+            }
+        }
         drawOnePixelRect(static_cast<I64>(x) + offset,
                          static_cast<I64>(y) + offset,
                          static_cast<I64>(w) - 2 * offset,
@@ -737,13 +751,14 @@ void SurfacePainter::drawText(int x,
             const auto row = glyph.rows[gy];
             for (int gx = 0; gx < BitmapFont::GlyphWidth; ++gx) {
                 const auto mask = static_cast<std::byte>(1U << (7 - gx));
-                if ((row & mask) != std::byte{}) {
-                    fillClippedRect(penX + static_cast<I64>(gx) * normalizedScale,
-                                    originY + static_cast<I64>(gy) * normalizedScale,
-                                    normalizedScale,
-                                    normalizedScale,
-                                    glyphColor);
+                if ((row & mask) == std::byte{}) {
+                    continue;
                 }
+                fillClippedRect(penX + static_cast<I64>(gx) * normalizedScale,
+                                originY + static_cast<I64>(gy) * normalizedScale,
+                                normalizedScale,
+                                normalizedScale,
+                                glyphColor);
             }
         }
         penX += glyphWidth + glyphGap;

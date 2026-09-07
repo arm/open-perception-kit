@@ -404,7 +404,7 @@ static std::size_t rasterPlaneByteSize(const GstVideoFrame &frame, guint plane) 
 
 static Osd::RasterDrawRequest
 makeRasterDrawRequest(GstPekOsd *self,
-                      GstVideoFrame *frame,
+                      const GstVideoFrame *frame,
                       const perception::FrameResults &frameResults,
                       std::array<pek::ImagePlaneDesc, pek::MaxImagePlaneCount> &planes) noexcept {
     const auto &info = frame->info;

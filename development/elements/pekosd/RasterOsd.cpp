@@ -750,7 +750,7 @@ int drawClassificationList(pek::raster::SurfacePainter &painter,
     const int scale = textScaleForHeight(surface.height);
     const int lineHeight = classificationLineHeight(scale);
     const int width = surfaceDimensionToInt(surface.width);
-    const int height = surfaceDimensionToInt(surface.height);
+    const auto height = surfaceDimensionToInt(surface.height);
     const auto numResults = static_cast<int>(classification.candidates.size());
     const int lineX = alignRight ? std::max(ClassificationPadding, width - ClassificationPadding)
                                  : ClassificationPadding;
@@ -826,7 +826,7 @@ void drawPerformanceOverlay(pek::raster::SurfacePainter &painter,
     int lineY = PerformanceYOffset;
     const int textScale = textScaleForHeight(surface.height);
     const int lineHeight = textLineHeight(textScale);
-    const int height =
+    const auto height =
         static_cast<int>(std::min<std::uint32_t>(surface.height, std::numeric_limits<int>::max()));
     frameResults.for_each<perception::metadata::PerformanceOverlayT>(
         [&painter, height, textScale, lineHeight, &lineY](const auto &payload) {
