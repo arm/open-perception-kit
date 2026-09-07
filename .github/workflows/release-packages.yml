@@ -251,7 +251,7 @@ jobs:
           (
             cd "$publish_source"
             CARGO_HOME="$publish_cargo_home" \
-              cargo package --locked --no-verify
+              cargo package --locked --no-verify --allow-dirty
           )
           cp "$publish_source/target/package/perception-$VERSION.crate" \
             dist/perception-sdk-input/
