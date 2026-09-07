@@ -105,7 +105,8 @@ jobs:
           if [ "$pr_state" = closed ]; then
             echo "PR is closed; deleting all caches for $PR_REF"
             gh api --paginate --method GET "repos/${GITHUB_REPOSITORY}/actions/caches" \
-              -f ref="$PR_REF" -f per_page=100 --jq '.actions_caches[].id' |
+              -f ref="$PR_REF" -f per_page=100 |
+              jq -sr '.[].actions_caches[].id' |
               while IFS= read -r cache_id; do
                 gh api --method DELETE \
                   "repos/${GITHUB_REPOSITORY}/actions/caches/${cache_id}"
@@ -175,7 +176,8 @@ jobs:
         run: |
           set -euo pipefail
           gh api --paginate --method GET "repos/${GITHUB_REPOSITORY}/actions/caches" \
-            -f ref="$PR_REF" -f per_page=100 --jq '.actions_caches[].id' |
+            -f ref="$PR_REF" -f per_page=100 |
+            jq -sr '.[].actions_caches[].id' |
             while IFS= read -r cache_id; do
               gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/caches/${cache_id}"
             done
@@ -214,8 +216,8 @@ jobs:
         run: |
           set -euo pipefail
           gh api --paginate --method GET "repos/${GITHUB_REPOSITORY}/actions/caches" \
-            -f key="${LEGACY_CACHE_KEY}" -f ref="refs/heads/${DEFAULT_BRANCH}" -f per_page=100 \
-            --jq '.actions_caches[].id' |
+            -f key="${LEGACY_CACHE_KEY}" -f ref="refs/heads/${DEFAULT_BRANCH}" -f per_page=100 |
+            jq -sr '.[].actions_caches[].id' |
             while IFS= read -r cache_id; do
               gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/caches/${cache_id}"
             done
