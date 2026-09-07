@@ -24,7 +24,7 @@ All notable changes to this project will be documented in this file.
 - Fix independent WebUI sidebar and output controls and make copy actions work on HTTP origins ([#388](https://github.com/Arm-Debug/amp-dev-forge/pull/388)).
 - Improve CI and release reliability with scoped caches, artifact-based image handoff, remote Valgrind baselines, Black Duck lifecycle management, and non-blocking release observability ([#366](https://github.com/Arm-Debug/amp-dev-forge/pull/366), [#370](https://github.com/Arm-Debug/amp-dev-forge/pull/370), [#367](https://github.com/Arm-Debug/amp-dev-forge/pull/367), [#391](https://github.com/Arm-Debug/amp-dev-forge/pull/391), [#401](https://github.com/Arm-Debug/amp-dev-forge/pull/401), [#408](https://github.com/Arm-Debug/amp-dev-forge/pull/408), [#364](https://github.com/Arm-Debug/amp-dev-forge/pull/364)).
 
-## [0.2.1] - 2026-08-25
+## [0.2.1] - 2026-08-26
 
 ### Perception SDK distribution
 
@@ -68,7 +68,7 @@ All notable changes to this project will be documented in this file.
 
 ### Runtime and inference
 
-- Add C++ runtime APIs for asynchronous Pipeline and OpChain execution, foreign-backed video frames, and expanded ExecuTorch deployment support ([#132](https://github.com/Arm-Debug/amp-dev-forge/pull/132), [#222](https://github.com/Arm-Debug/amp-dev-forge/pull/222)).
+- Add C++ runtime APIs for asynchronous Pipeline and OpChain execution, foreign-backed video frames, an experimental NCNN backend, and expanded ExecuTorch deployment support ([#132](https://github.com/Arm-Debug/amp-dev-forge/pull/132), [#222](https://github.com/Arm-Debug/amp-dev-forge/pull/222)).
 - Add opt-in GStreamer QoS-aware inference scheduling while preserving video flow and tracker continuity ([#286](https://github.com/Arm-Debug/amp-dev-forge/pull/286)).
 - Add grayscale preprocessing.
 - Add aspect-ratio-preserving letterbox resize support ([#185](https://github.com/Arm-Debug/amp-dev-forge/pull/185)).
