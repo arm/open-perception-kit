@@ -76,46 +76,63 @@ jobs:
             echo 'closed=false' >> "$GITHUB_OUTPUT"
           fi
 
-  cleanup-superseded-pr-caches:
-    name: Delete superseded PR compiler caches
+  cleanup-superseded-compiler-caches:
+    name: Delete superseded compiler caches
     if: >-
       github.event_name == 'workflow_run' &&
-      github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.head_repository.full_name == github.repository &&
-      github.event.workflow_run.pull_requests[0].number
+      (
+        (
+          github.event.workflow_run.event == 'pull_request' &&
+          github.event.workflow_run.pull_requests[0].number
+        ) ||
+        (
+          github.event.workflow_run.head_branch == 'develop' &&
+          contains(fromJSON('["push","schedule","workflow_dispatch"]'), github.event.workflow_run.event)
+        )
+      )
     runs-on: ubuntu-latest
     permissions:
       actions: write
+      contents: read
       pull-requests: read
     concurrency:
-      group: pr-cache-${{ github.event.workflow_run.pull_requests[0].number }}
+      group: compiler-cache-${{ github.event.workflow_run.pull_requests[0].number || 'develop' }}
       cancel-in-progress: false
     steps:
-      - name: Delete superseded PR compiler caches
+      - name: Delete superseded compiler caches
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
-          PR_REF: refs/pull/${{ github.event.workflow_run.pull_requests[0].number }}/merge
+          RUN_EVENT: ${{ github.event.workflow_run.event }}
         run: |
           set -euo pipefail
-          IFS=$'\t' read -r pr_state current_head_sha < <(
-            gh api --method GET "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
-              --jq '[.state, .head.sha] | @tsv'
-          )
-          if [ "$pr_state" = closed ]; then
-            echo "PR is closed; deleting all caches for $PR_REF"
-            gh api --paginate --method GET "repos/${GITHUB_REPOSITORY}/actions/caches" \
-              -f ref="$PR_REF" -f per_page=100 |
-              jq -sr '.[].actions_caches[].id' |
-              while IFS= read -r cache_id; do
-                gh api --method DELETE \
-                  "repos/${GITHUB_REPOSITORY}/actions/caches/${cache_id}"
-              done
-            exit 0
+          if [ "$RUN_EVENT" = pull_request ]; then
+            cache_ref="refs/pull/${PR_NUMBER}/merge"
+            IFS=$'\t' read -r pr_state current_head_sha < <(
+              gh api --method GET "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
+                --jq '[.state, .head.sha] | @tsv'
+            )
+            if [ "$pr_state" = closed ]; then
+              echo "PR is closed; deleting all caches for $cache_ref"
+              gh api --paginate --method GET "repos/${GITHUB_REPOSITORY}/actions/caches" \
+                -f ref="$cache_ref" -f per_page=100 |
+                jq -sr '.[].actions_caches[].id' |
+                while IFS= read -r cache_id; do
+                  gh api --method DELETE \
+                    "repos/${GITHUB_REPOSITORY}/actions/caches/${cache_id}"
+                done
+              exit 0
+            fi
+          else
+            cache_ref=refs/heads/develop
+            current_head_sha="$(
+              gh api --method GET "repos/${GITHUB_REPOSITORY}/branches/develop" --jq .commit.sha
+            )"
           fi
 
           gh api --paginate --method GET "repos/${GITHUB_REPOSITORY}/actions/caches" \
-            -f ref="$PR_REF" -f per_page=100 |
+            -f ref="$cache_ref" -f per_page=100 |
             jq -sr --arg head_sha "$current_head_sha" '
               [.[].actions_caches[]
                | select(.key | startswith("pek-ccache-"))
