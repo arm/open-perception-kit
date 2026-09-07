@@ -53,12 +53,14 @@ the private registry. The Arm build verifies the packaged crate and stages the
 prepared source that produced it beside both language packages in
 `pek-perception-sdk-input-*`. Stable release pushes publish the wheel unchanged
 to `edge-ai-tooling.pypi` and use Cargo's native publish protocol with the
-repository's anonymous principal for `edge-ai-tooling.cargo`; generic
+existing PEK Artifactory publisher identity for `edge-ai-tooling.cargo`; generic
 Artifactory keeps the three PEK archives. The Cargo version preflight runs before
 generic Artifactory publication. After Cargo confirms sparse-index visibility,
 the publication job downloads the registered crate, compares it byte-for-byte
-with the Arm build's package, and verifies the index checksum. A red release
-must be restored to its pre-release state by the release owner before retrying.
+with the Arm build's package, verifies the index checksum, and runs a clean,
+exact-pinned Cargo 1.85 consumer build on ARM64 without FlatBuffers generation.
+A red release must be restored to its pre-release state by the release owner
+before retrying.
 Public distribution must use authenticated, server-enforced immutable
 publication instead. Manual snapshots place the wheel and crate beside those
 archives in their immutable generic Artifactory snapshot folder. GitHub Release
