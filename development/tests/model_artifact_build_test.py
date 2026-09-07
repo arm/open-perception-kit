@@ -74,7 +74,11 @@ class ModelArtifactBuildTest(unittest.TestCase):
         runtime_stage = dockerfile.split(" AS pek-dev-base", 1)[1].split(
             "FROM pek-dev-base AS pek-dev-tools", 1
         )[0]
+        dev_tools_stage = dockerfile.split(" AS pek-dev-tools", 1)[1].split(
+            "FROM pek-dev-tools AS pek-dev", 1
+        )[0]
         self.assertIn("huggingface_hub==1.18.0", runtime_stage)
+        self.assertRegex(dev_tools_stage, r"\bffmpeg\b")
         self.assertEqual(dockerfile.count("jsonschema==4.26.0"), 2)
         self.assertIn(
             "COPY --from=pek-models \\\n"
