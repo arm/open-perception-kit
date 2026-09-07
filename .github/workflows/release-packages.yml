@@ -252,7 +252,7 @@ jobs:
           (
             cd "$publish_source"
             CARGO_HOME="$publish_cargo_home" \
-              cargo package --locked --no-verify --allow-dirty
+              cargo package --locked
           )
           cp "$publish_source/target/package/perception-$VERSION.crate" \
             dist/perception-sdk-input/
@@ -990,7 +990,7 @@ jobs:
           EOF
           anonymous_token="$(printf 'anonymous:' | base64 -w0)"
           export CARGO_REGISTRIES_ARTIFACTORY_TOKEN="Basic $anonymous_token"
-          (cd "$publish_source" && cargo package --locked --no-verify --allow-dirty)
+          (cd "$publish_source" && cargo package --locked --no-verify)
           cmp "$crate" "$publish_source/target/package/perception-$VERSION.crate"
           (cd "$publish_source" && cargo publish --locked --no-verify --registry artifactory)
 
