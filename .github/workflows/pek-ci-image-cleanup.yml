@@ -76,6 +76,48 @@ jobs:
             echo 'closed=false' >> "$GITHUB_OUTPUT"
           fi
 
+  cleanup-superseded-compiler-caches:
+    name: Delete superseded compiler caches
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      (
+        (
+          github.event.workflow_run.event == 'pull_request' &&
+          github.event.workflow_run.pull_requests[0].number
+        ) ||
+        (
+          github.event.workflow_run.head_branch == 'develop' &&
+          contains(fromJSON('["push","schedule","workflow_dispatch"]'), github.event.workflow_run.event)
+        )
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+      pull-requests: read
+    concurrency:
+      group: >-
+        ${{ github.event.workflow_run.pull_requests[0].number &&
+            format('pr-cache-{0}', github.event.workflow_run.pull_requests[0].number) ||
+            'develop-cache' }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout cleanup helper
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.workflow_sha }}
+
+      - name: Delete superseded compiler caches
+        env:
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          RUN_EVENT: ${{ github.event.workflow_run.event }}
+        run: python3 scripts/private/actions_cache.py reconcile
+          "$RUN_EVENT" "$PR_NUMBER" "$BRANCH"
+
   cleanup-blackduck-pr-version:
     name: Delete Black Duck PR version
     needs: resolve-blackduck-pr-context
@@ -107,18 +149,22 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: write
+      contents: read
+    concurrency:
+      group: pr-cache-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
     steps:
+      - name: Checkout cleanup helper
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.workflow_sha }}
+
       - name: Delete PR caches
         env:
           GH_TOKEN: ${{ github.token }}
           PR_REF: refs/pull/${{ github.event.pull_request.number }}/merge
-        run: |
-          set -euo pipefail
-          gh api --paginate --method GET "repos/${GITHUB_REPOSITORY}/actions/caches" \
-            -f ref="$PR_REF" -f per_page=100 --jq '.actions_caches[].id' |
-            while IFS= read -r cache_id; do
-              gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/caches/${cache_id}"
-            done
+        run: python3 scripts/private/actions_cache.py delete-ref "$PR_REF"
 
   cleanup-stale-images:
     name: Delete stale PEK CI images
@@ -145,17 +191,18 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: write
+      contents: read
     steps:
+      - name: Checkout cleanup helper
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.workflow_sha }}
+
       - name: Delete retired YOLO Pages dataset cache
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           GH_TOKEN: ${{ github.token }}
           LEGACY_CACHE_KEY: yolo-performance-datasets-coco-val2017-4f7e2ccb2866ec5041993c9cf2a952bbed69647b115d0f74da7ce8f4bef82f05
-        run: |
-          set -euo pipefail
-          gh api --paginate --method GET "repos/${GITHUB_REPOSITORY}/actions/caches" \
-            -f key="${LEGACY_CACHE_KEY}" -f ref="refs/heads/${DEFAULT_BRANCH}" -f per_page=100 \
-            --jq '.actions_caches[].id' |
-            while IFS= read -r cache_id; do
-              gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/caches/${cache_id}"
-            done
+        run: python3 scripts/private/actions_cache.py delete-key
+          "refs/heads/${DEFAULT_BRANCH}" "$LEGACY_CACHE_KEY"
