@@ -112,7 +112,7 @@ pek::runtime::Result<void> validateKnownPayloadBlobs(std::span<const std::uint8_
         std::string error;
         validateKnownPayloadBlob(*payload, payloadIndex, error);
         if (!error.empty()) {
-            return tl::make_unexpected(
+            return tl::unexpected(
                 pek::runtime::Error(pek::runtime::ErrorFlag::InvalidPipeline, std::move(error)));
         }
         ++payloadIndex;
@@ -127,14 +127,14 @@ pek::runtime::Result<perception::container::envelope>
 PerceptionPacket::decodeFrameResultsPacket(std::span<const std::uint8_t> packet) {
     perception::container::envelope envelope(packet);
     if (!envelope.valid()) {
-        return tl::make_unexpected(
+        return tl::unexpected(
             pek::runtime::Error(pek::runtime::ErrorFlag::InvalidPipeline,
                                 fmt::format("Invalid Perception packet: {}", envelope.error())));
     }
 
     const auto producerIdentity = envelope.producer_identity();
     if (producerIdentity != perception::container::producer_identity_status::exact_match) {
-        return tl::make_unexpected(
+        return tl::unexpected(
             pek::runtime::Error(pek::runtime::ErrorFlag::InvalidPipeline,
                                 fmt::format("Unsupported Perception producer identity: {} "
                                             "(producer={}, version={}, schema={})",
@@ -146,7 +146,7 @@ PerceptionPacket::decodeFrameResultsPacket(std::span<const std::uint8_t> packet)
 
     auto payloadsValid = validateKnownPayloadBlobs(packet);
     if (!payloadsValid) {
-        return tl::make_unexpected(std::move(payloadsValid.error()));
+        return tl::unexpected(std::move(payloadsValid.error()));
     }
 
     return envelope;

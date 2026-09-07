@@ -3,6 +3,7 @@
  *************************************************************/
 
 #include "postproc/YoloParser.h"
+#include "Log.h"
 #include "pek/Labels.h"
 
 #include <algorithm>
@@ -189,15 +190,50 @@ pek::Result<void> YoloParser::parse(const pek::TensorParser::Input &input,
     const size_t modelWidth = image.modelWidth;
     const size_t modelHeight = image.modelHeight;
 
-    assert(frameWidth != 0);
-    assert(frameHeight != 0);
-    assert(modelWidth != 0);
-    assert(modelHeight != 0);
-    assert(input.tensors[0]);
-    assert(input.inferenceInfo.image.modelWidth == input.inferenceInfo.image.modelHeight);
+    if (frameWidth == 0 || frameHeight == 0 || modelWidth == 0 || modelHeight == 0) {
+        pek::log::error("YoloParser: image dimensions must be positive, got frame {}x{} and model "
+                        "{}x{}\n",
+                        frameWidth,
+                        frameHeight,
+                        modelWidth,
+                        modelHeight);
+        return tl::unexpected(PEK_ERROR(
+            pek::ErrorFlag::InvalidData,
+            "YoloParser: image dimensions must be positive, got frame " +
+                std::to_string(frameWidth) + "x" + std::to_string(frameHeight) + " and model " +
+                std::to_string(modelWidth) + "x" + std::to_string(modelHeight)));
+    }
+
+    if (!input.tensors[0]) {
+        pek::log::error("YoloParser: input tensor is null\n");
+        return tl::unexpected(
+            PEK_ERROR(pek::ErrorFlag::InvalidData, "YoloParser: input tensor is null"));
+    }
 
     const TensorView &tensor = *input.tensors[0];
     const pek::Shape shape = input.tensors[0]->getShape();
+    if (shape.rank != 3 || shape.dims[0] != 1 || shape.dims[1] <= 0 || shape.dims[2] <= 0) {
+        pek::log::error("YoloParser: tensor must be 3D with shape [1,C,N] or [1,N,C], got {}\n",
+                        shape.toString());
+        return tl::unexpected(
+            PEK_ERROR(pek::ErrorFlag::InvalidData,
+                      "YoloParser: tensor must be 3D with shape [1,C,N] or [1,N,C], got " +
+                          shape.toString()));
+    }
+
+    if (std::min(shape.dims[1], shape.dims[2]) < 5) {
+        pek::log::error("YoloParser: tensor needs at least 5 values per candidate, got {}\n",
+                        shape.toString());
+        return tl::unexpected(PEK_ERROR(
+            pek::ErrorFlag::InvalidData,
+            "YoloParser: tensor needs at least 5 values per candidate, got " + shape.toString()));
+    }
+
+    if (!tensor.isValid()) {
+        pek::log::error("YoloParser: input tensor view is invalid\n");
+        return tl::unexpected(
+            PEK_ERROR(pek::ErrorFlag::InvalidData, "YoloParser: input tensor view is invalid"));
+    }
 
     if (auto dets = parseUltralyticsDetections(input, tensor, shape); !dets.empty()) {
         if (applyNms)

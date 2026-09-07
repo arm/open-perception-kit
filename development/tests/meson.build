@@ -180,6 +180,14 @@ yolo_parser_tests = executable(
   link_with : [common],
 )
 
+onnx_tensor_tests = executable(
+  'onnx_tensor_tests',
+  ['onnx_tensor_test.cpp'],
+  include_directories : [common_include, include_directories('../ops-onnx')],
+  dependencies : [gtest_main_dep, gtest_dep, pek_deps, onnx_dep],
+  link_with : [common],
+)
+
 logging_tests = executable(
   'logging_tests',
   ['LoggingTest.cpp'],
@@ -377,6 +385,7 @@ test('kalman_filter_tests', kalman_filter_tests)
 test('hungarian_tests', hungarian_tests)
 test('iou_tests', iou_tests)
 test('yolo_parser_tests', yolo_parser_tests)
+test('onnx_tensor_tests', onnx_tensor_tests)
 test('logging_tests', logging_tests)
 test('logger_tests', logger_tests)
 test(

@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 
 #include "pek/Matrix.h"
+#include "pek/Shape.h"
 
 namespace {
 
@@ -258,7 +259,8 @@ TEST(MatrixOps, InverseFiveByFiveLeftIdentity) {
     const auto a = b.transpose() * b + 0.5 * pek::Matrix<5, 5, double>::identity();
     const auto inv = a.inv();
 
-    ExpectIdentityNear(a * inv, 1e-5);
+    ASSERT_TRUE(inv.has_value());
+    ExpectIdentityNear(a * *inv, 1e-5);
 }
 
 TEST(MatrixOps, InverseFiveByFiveRightIdentity) {
@@ -273,5 +275,25 @@ TEST(MatrixOps, InverseFiveByFiveRightIdentity) {
     const auto a = b.transpose() * b + 0.5 * pek::Matrix<5, 5, double>::identity();
     const auto inv = a.inv();
 
-    ExpectIdentityNear(inv * a, 1e-5);
+    ASSERT_TRUE(inv.has_value());
+    ExpectIdentityNear(*inv * a, 1e-5);
+}
+
+TEST(MatrixOps, SingularMatrixHasNoInverse) {
+    const pek::Matrix<2, 2, double> singular{{{1.0, 2.0}, {2.0, 4.0}}};
+
+    EXPECT_FALSE(singular.inv().has_value());
+}
+
+TEST(Shape, RejectsRankAboveFixedCapacity) {
+    pek::Shape shape(1, 2);
+
+    EXPECT_FALSE(shape.setFrom(std::vector<int64_t>(9, 1)));
+    EXPECT_EQ(shape, pek::Shape(1, 2));
+}
+
+TEST(Shape, RejectsNonPositiveDynamicDimension) {
+    pek::Shape dynamic(-1, 2);
+
+    EXPECT_FALSE(dynamic.applyDimensionsForDynamic(pek::Shape(0, 2)));
 }

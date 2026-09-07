@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <initializer_list>
+#include <optional>
 #include <type_traits>
 
 namespace pek {
@@ -222,10 +223,10 @@ template <uint32_t ROWS, uint32_t COLS, typename T = double> class Matrix {
      * @brief Computes matrix inverse using Gauss-Jordan elimination.
      * @tparam R Row count.
      * @tparam C Column count.
-     * @return Inverse matrix.
+     * @return Inverse matrix, or no value when the matrix is singular.
      */
     template <uint32_t R = ROWS, uint32_t C = COLS>
-    typename std::enable_if<(R == C), Matrix<R, C, T>>::type inv() const {
+    typename std::enable_if<(R == C), std::optional<Matrix<R, C, T>>>::type inv() const {
         Matrix<R, C, T> left = *this;
         Matrix<R, C, T> right = Matrix<R, C, T>::template identity<R, C>();
 
@@ -241,7 +242,8 @@ template <uint32_t ROWS, uint32_t COLS, typename T = double> class Matrix {
                 }
             }
 
-            assert(bestAbs != static_cast<T>(0));
+            if (bestAbs == static_cast<T>(0))
+                return std::nullopt;
 
             if (bestRow != pivot) {
                 for (size_t c = 0; c < C; ++c) {
@@ -256,7 +258,8 @@ template <uint32_t ROWS, uint32_t COLS, typename T = double> class Matrix {
             }
 
             const T pivotValue = left[pivot][pivot];
-            assert(pivotValue != static_cast<T>(0));
+            if (pivotValue == static_cast<T>(0))
+                return std::nullopt;
 
             for (size_t c = 0; c < C; ++c) {
                 left[pivot][c] /= pivotValue;
