@@ -7,8 +7,8 @@
 namespace pek::raster {
 namespace {
 
-constexpr std::uint8_t row(std::uint8_t bits) noexcept {
-    return static_cast<std::uint8_t>(bits << 2);
+constexpr std::byte row(std::uint8_t bits) noexcept {
+    return static_cast<std::byte>(bits << 2U);
 }
 
 constexpr BitmapGlyph makeGlyph(std::uint8_t r0,
@@ -18,7 +18,21 @@ constexpr BitmapGlyph makeGlyph(std::uint8_t r0,
                                 std::uint8_t r4,
                                 std::uint8_t r5,
                                 std::uint8_t r6) noexcept {
-    return {{0, 0, row(r0), row(r1), row(r2), row(r3), row(r4), row(r5), row(r6), 0, 0, 0}};
+    constexpr std::byte empty{};
+    return {{
+        empty,
+        empty,
+        row(r0),
+        row(r1),
+        row(r2),
+        row(r3),
+        row(r4),
+        row(r5),
+        row(r6),
+        empty,
+        empty,
+        empty,
+    }};
 }
 
 constexpr BitmapGlyph Blank = makeGlyph(0, 0, 0, 0, 0, 0, 0);

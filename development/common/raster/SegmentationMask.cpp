@@ -89,14 +89,18 @@ std::uint8_t clampByte(float value) noexcept {
 }
 
 pek::YuvColorMatrix resolveMatrix(pek::YuvColorMatrix matrix, std::uint32_t height) noexcept {
-    if (matrix != pek::YuvColorMatrix::Unknown) {
+    using enum pek::YuvColorMatrix;
+
+    if (matrix != Unknown) {
         return matrix;
     }
-    return height <= 576U ? pek::YuvColorMatrix::Bt601 : pek::YuvColorMatrix::Bt709;
+    return height <= 576U ? Bt601 : Bt709;
 }
 
 pek::YuvRange resolveRange(pek::YuvRange range) noexcept {
-    return range == pek::YuvRange::Unknown ? pek::YuvRange::Limited : range;
+    using enum pek::YuvRange;
+
+    return range == Unknown ? Limited : range;
 }
 
 YuvCoefficients yuvCoefficients(pek::YuvColorMatrix matrix) noexcept {
@@ -132,7 +136,9 @@ makeTargetColor(RgbBytes color, pek::YuvColorMatrix matrix, pek::YuvRange range)
     const float cb = (b - y) / (2.0f * (1.0f - kb));
     const float cr = (r - y) / (2.0f * (1.0f - kr));
 
-    if (range == pek::YuvRange::Full) {
+    using enum pek::YuvRange;
+
+    if (range == Full) {
         target.y = clampByte(y * 255.0f);
         target.u = clampByte(cb * 255.0f + 128.0f);
         target.v = clampByte(cr * 255.0f + 128.0f);
@@ -192,7 +198,7 @@ std::size_t scaledIndex(std::uint64_t accumulator, std::size_t source) noexcept 
     return std::min<std::size_t>(static_cast<std::size_t>(accumulator >> 32U), source - 1U);
 }
 
-bool validateMask(MaskView mask) noexcept {
+bool validateMask(const MaskView &mask) noexcept {
     if (mask.data == nullptr || mask.width == 0 || mask.height == 0 ||
         multiplyOverflows(mask.width, mask.height)) {
         return false;
@@ -225,7 +231,9 @@ RgbBytes sampleBackgroundRgb(const BitmapView &bitmap,
     return {pixel[2], pixel[1], pixel[0]};
 }
 
-bool prepareLayout(ImageSurfaceView surface, SurfaceLayout &layout) noexcept {
+bool prepareLayout(const ImageSurfaceView &surface,
+                   SurfaceLayout &layout) noexcept { // NOSONAR: explicit pixel-format validation
+                                                     // mirrors memory layouts.
     if (surface.width == 0 || surface.height == 0) {
         return false;
     }
@@ -306,7 +314,7 @@ bool prepareLayout(ImageSurfaceView surface, SurfaceLayout &layout) noexcept {
 }
 
 void blendBgra(const SurfaceLayout &layout,
-               MaskView mask,
+               const MaskView &mask,
                const TargetColor &color,
                std::uint8_t maxAlpha) noexcept {
     const auto xStep = scaleStep(mask.width, layout.width);
@@ -333,7 +341,7 @@ void blendBgra(const SurfaceLayout &layout,
 }
 
 void blendRgb(const SurfaceLayout &layout,
-              MaskView mask,
+              const MaskView &mask,
               const TargetColor &color,
               std::uint8_t maxAlpha) noexcept {
     const auto xStep = scaleStep(mask.width, layout.width);
@@ -359,7 +367,7 @@ void blendRgb(const SurfaceLayout &layout,
 }
 
 void blendI420(const SurfaceLayout &layout,
-               MaskView mask,
+               const MaskView &mask,
                const TargetColor &color,
                std::uint8_t maxAlpha) noexcept {
     const auto xStep = scaleStep(mask.width, layout.width);
@@ -401,7 +409,7 @@ void blendI420(const SurfaceLayout &layout,
 }
 
 void blendNv12(const SurfaceLayout &layout,
-               MaskView mask,
+               const MaskView &mask,
                const TargetColor &color,
                std::uint8_t maxAlpha) noexcept {
     const auto xStep = scaleStep(mask.width, layout.width);
@@ -443,7 +451,7 @@ void blendNv12(const SurfaceLayout &layout,
 }
 
 void blendYuy2(const SurfaceLayout &layout,
-               MaskView mask,
+               const MaskView &mask,
                const TargetColor &color,
                std::uint8_t maxAlpha) noexcept {
     const auto xStep = scaleStep(mask.width, layout.width);
@@ -485,7 +493,7 @@ void blendYuy2(const SurfaceLayout &layout,
 }
 
 void replaceBgra(const SurfaceLayout &layout,
-                 MaskView mask,
+                 const MaskView &mask,
                  const TargetColor &fallback,
                  const BitmapView &background,
                  std::uint8_t threshold) noexcept {
@@ -526,7 +534,7 @@ void replaceBgra(const SurfaceLayout &layout,
 }
 
 void replaceRgb(const SurfaceLayout &layout,
-                MaskView mask,
+                const MaskView &mask,
                 const TargetColor &fallback,
                 const BitmapView &background,
                 std::uint8_t threshold) noexcept {
@@ -579,7 +587,7 @@ TargetColor replacementColorAt(const SurfaceLayout &layout,
 }
 
 void replaceI420(const SurfaceLayout &layout,
-                 MaskView mask,
+                 const MaskView &mask,
                  const TargetColor &fallback,
                  const BitmapView &background,
                  std::uint8_t threshold) noexcept {
@@ -637,7 +645,7 @@ void replaceI420(const SurfaceLayout &layout,
 }
 
 void replaceNv12(const SurfaceLayout &layout,
-                 MaskView mask,
+                 const MaskView &mask,
                  const TargetColor &fallback,
                  const BitmapView &background,
                  std::uint8_t threshold) noexcept {
@@ -694,11 +702,12 @@ void replaceNv12(const SurfaceLayout &layout,
     }
 }
 
-void replaceYuy2(const SurfaceLayout &layout,
-                 MaskView mask,
-                 const TargetColor &fallback,
-                 const BitmapView &background,
-                 std::uint8_t threshold) noexcept {
+void replaceYuy2( // NOSONAR: packed YUY2 replacement is intentionally format-specific.
+    const SurfaceLayout &layout,
+    const MaskView &mask,
+    const TargetColor &fallback,
+    const BitmapView &background,
+    std::uint8_t threshold) noexcept {
     const auto maskXStep = scaleStep(mask.width, layout.width);
     const auto maskYStep = scaleStep(mask.height, layout.height);
     const auto bgXStep = scaleStep(background.width, layout.width);
@@ -748,9 +757,9 @@ void replaceYuy2(const SurfaceLayout &layout,
 
 } // namespace
 
-bool blendSegmentationMask(ImageSurfaceView surface,
-                           MaskView mask,
-                           SegmentationMaskOptions options) noexcept {
+bool blendSegmentationMask(const ImageSurfaceView &surface,
+                           const MaskView &mask,
+                           const SegmentationMaskOptions &options) noexcept {
     SurfaceLayout layout;
     if (!validateMask(mask) || !prepareLayout(surface, layout)) {
         return false;
@@ -780,9 +789,9 @@ bool blendSegmentationMask(ImageSurfaceView surface,
     }
 }
 
-bool replaceBackgroundFromMask(ImageSurfaceView surface,
-                               MaskView mask,
-                               BackgroundReplacementOptions options) noexcept {
+bool replaceBackgroundFromMask(const ImageSurfaceView &surface,
+                               const MaskView &mask,
+                               const BackgroundReplacementOptions &options) noexcept {
     SurfaceLayout layout;
     if (!validateMask(mask) || !prepareLayout(surface, layout)) {
         return false;

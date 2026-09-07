@@ -74,14 +74,18 @@ std::uint8_t clampByte(float value) noexcept {
 }
 
 pek::YuvColorMatrix resolveMatrix(pek::YuvColorMatrix matrix, std::uint32_t height) noexcept {
-    if (matrix != pek::YuvColorMatrix::Unknown) {
+    using enum pek::YuvColorMatrix;
+
+    if (matrix != Unknown) {
         return matrix;
     }
-    return height <= 576 ? pek::YuvColorMatrix::Bt601 : pek::YuvColorMatrix::Bt709;
+    return height <= 576U ? Bt601 : Bt709;
 }
 
 pek::YuvRange resolveRange(pek::YuvRange range) noexcept {
-    return range == pek::YuvRange::Unknown ? pek::YuvRange::Limited : range;
+    using enum pek::YuvRange;
+
+    return range == Unknown ? Limited : range;
 }
 
 YuvCoefficients yuvCoefficients(pek::YuvColorMatrix matrix) noexcept {
@@ -257,7 +261,8 @@ SurfacePainter::TextMetrics SurfacePainter::measureText(std::string_view text, i
     };
 }
 
-bool SurfacePainter::validate() noexcept {
+bool SurfacePainter::validate() noexcept { // NOSONAR: explicit per-format validation keeps raster
+                                           // contracts local.
     if (surfaceWidth == 0 || surfaceHeight == 0) {
         return false;
     }
@@ -313,7 +318,9 @@ SurfacePainter::TargetColor SurfacePainter::makeTargetColor(pek::Color color) co
     const float cb = (b - y) / (2.0f * (1.0f - kb));
     const float cr = (r - y) / (2.0f * (1.0f - kr));
 
-    if (yuvRange == pek::YuvRange::Full) {
+    using enum pek::YuvRange;
+
+    if (yuvRange == Full) {
         target.y = clampByte(y * 255.0f);
         target.u = clampByte(cb * 255.0f + 128.0f);
         target.v = clampByte(cr * 255.0f + 128.0f);
@@ -325,7 +332,12 @@ SurfacePainter::TargetColor SurfacePainter::makeTargetColor(pek::Color color) co
     return target;
 }
 
-void SurfacePainter::fillClippedSpan(I64 x0, I64 x1, I64 y, const TargetColor &color) noexcept {
+void SurfacePainter::fillClippedSpan( // NOSONAR: explicit per-format stores avoid extra hot-path
+                                      // abstraction.
+    I64 x0,
+    I64 x1,
+    I64 y,
+    const TargetColor &color) noexcept {
     if (!isValid || y < 0 || y >= static_cast<I64>(surfaceHeight) || x1 <= x0) {
         return;
     }
@@ -449,8 +461,13 @@ void SurfacePainter::fillClippedSpan(I64 x0, I64 x1, I64 y, const TargetColor &c
     }
 }
 
-void SurfacePainter::fillClippedRect(
-    I64 x, I64 y, I64 w, I64 h, const TargetColor &color) noexcept {
+void SurfacePainter::fillClippedRect( // NOSONAR: per-format rectangle paths avoid repeated chroma
+                                      // writes.
+    I64 x,
+    I64 y,
+    I64 w,
+    I64 h,
+    const TargetColor &color) noexcept {
     Rect rect{x, y, w, h};
     if (!clipRect(rect, surfaceWidth, surfaceHeight)) {
         return;
@@ -722,7 +739,7 @@ void SurfacePainter::drawText(int x,
     for (const char rawCharacter : text) {
         const BitmapGlyph &glyph = BitmapFont::glyph(rawCharacter);
         for (int gy = 0; gy < BitmapFont::GlyphHeight; ++gy) {
-            const auto row = glyph.rows[gy];
+            const auto row = std::to_integer<std::uint8_t>(glyph.rows[gy]);
             for (int gx = 0; gx < BitmapFont::GlyphWidth; ++gx) {
                 const std::uint8_t mask = static_cast<std::uint8_t>(1u << (7 - gx));
                 if ((row & mask) != 0) {

@@ -343,7 +343,9 @@ static bool isYuvFormat(pek::RawImagePixelFormat format) noexcept {
 }
 
 static pek::YuvColorMatrix defaultYuvColorMatrix(std::uint32_t height) noexcept {
-    return height <= 576U ? pek::YuvColorMatrix::Bt601 : pek::YuvColorMatrix::Bt709;
+    using enum pek::YuvColorMatrix;
+
+    return height <= 576U ? Bt601 : Bt709;
 }
 
 static pek::YuvColorMatrix yuvColorMatrixFromGst(const GstVideoColorimetry &colorimetry,

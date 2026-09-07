@@ -10,6 +10,7 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 
 namespace pek::raster {
@@ -21,7 +22,7 @@ namespace pek::raster {
  */
 struct BitmapGlyph {
     /** @brief Packed glyph rows, with bit 7 representing the leftmost pixel. */
-    std::array<std::uint8_t, 12> rows{};
+    std::array<std::byte, 12> rows{};
 };
 
 /**

@@ -88,16 +88,18 @@ struct BackgroundReplacementOptions {
  * @brief Alpha-blends a segmentation mask over @p surface.
  * @return True when input validation passed and rendering was attempted.
  */
-[[nodiscard]] bool blendSegmentationMask(ImageSurfaceView surface,
-                                         MaskView mask,
-                                         SegmentationMaskOptions options = {}) noexcept;
+[[nodiscard]] bool
+blendSegmentationMask(const ImageSurfaceView &surface,
+                      const MaskView &mask,
+                      const SegmentationMaskOptions &options = SegmentationMaskOptions{}) noexcept;
 
 /**
  * @brief Replaces background pixels selected by a binary segmentation mask.
  * @return True when input validation passed and rendering was attempted.
  */
-[[nodiscard]] bool replaceBackgroundFromMask(ImageSurfaceView surface,
-                                             MaskView mask,
-                                             BackgroundReplacementOptions options = {}) noexcept;
+[[nodiscard]] bool replaceBackgroundFromMask(
+    const ImageSurfaceView &surface,
+    const MaskView &mask,
+    const BackgroundReplacementOptions &options = BackgroundReplacementOptions{}) noexcept;
 
 } // namespace pek::raster

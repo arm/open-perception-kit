@@ -305,11 +305,11 @@ void drawSimpleArrow(pek::raster::SurfacePainter &painter,
                      GazeVectorThickness);
 }
 
-void drawSegmentationMasks(pek::raster::ImageSurfaceView surface,
+void drawSegmentationMasks(const pek::raster::ImageSurfaceView &surface,
                            const perception::FrameResults &frameResults,
                            const RasterDrawOptions &options) {
     frameResults.for_each<perception::metadata::SegmentationMasksT>(
-        [surface, &options](const auto &payload) {
+        [&surface, &options](const auto &payload) {
             if (!isSegmentationLayer(payload.layer.get())) {
                 return;
             }
