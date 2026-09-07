@@ -812,7 +812,7 @@ jobs:
           -m publisher.actions.publish_to_artifactory_action
           "$ARTIFACT_PATTERN"
 
-      - name: Publish Perception Rust crate to Artifactory Cargo
+      - name: Publish and verify Perception crate bytes
         if: github.event_name == 'push'
         env:
           ARTIFACTORY_USERNAME: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
@@ -831,6 +831,7 @@ jobs:
             --upload-file "$crate" "$url")"
           case "$status" in
             200|201) ;;
+            412) echo "Perception crate $VERSION already exists." >&2; exit 1 ;;
             *) cat "$response" >&2; echo "Cargo upload failed with HTTP $status." >&2; exit 1 ;;
           esac
 
@@ -847,6 +848,37 @@ jobs:
             echo "- URL: $url"
             echo "- SHA-256: \`$checksum\`"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify Perception Cargo index visibility
+        if: github.event_name == 'push'
+        env:
+          ARTIFACTORY_USERNAME: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
+          ARTIFACTORY_TOKEN: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
+          ARTIFACTS_DIR: ${{ runner.temp }}/pek-release-artifacts
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          crate="$ARTIFACTS_DIR/perception-$VERSION.crate"
+          checksum="$(sha256sum "$crate" | cut -d' ' -f1)"
+          index_url="https://artifactory.arm.com/artifactory/api/cargo/edge-ai-tooling.cargo/index/pe/rc/perception"
+          indexed=false
+          for _ in {1..12}; do
+            if curl --fail --silent --show-error \
+              --user "$ARTIFACTORY_USERNAME:$ARTIFACTORY_TOKEN" "$index_url" | \
+              jq --exit-status --slurp \
+                --arg version "$VERSION" --arg checksum "$checksum" \
+                'any(.[]; .name == "perception" and .vers == $version and .cksum == $checksum and .yanked == false)' \
+                > /dev/null; then
+              indexed=true
+              break
+            fi
+            sleep 5
+          done
+          if [[ "$indexed" != true ]]; then
+            echo "Cargo index did not expose the expected Perception crate." >&2
+            exit 1
+          fi
+          echo "- Sparse index: $index_url" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish Perception Python package to Artifactory PyPI
         if: github.event_name == 'push'
