@@ -116,7 +116,7 @@ jobs:
           PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
           RUN_EVENT: ${{ github.event.workflow_run.event }}
         run: python3 scripts/private/actions_cache.py reconcile
-          --event "$RUN_EVENT" --pr-number "$PR_NUMBER" --branch "$BRANCH"
+          "$RUN_EVENT" "$PR_NUMBER" "$BRANCH"
 
   cleanup-blackduck-pr-version:
     name: Delete Black Duck PR version
@@ -164,7 +164,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PR_REF: refs/pull/${{ github.event.pull_request.number }}/merge
-        run: python3 scripts/private/actions_cache.py delete-ref --ref "$PR_REF"
+        run: python3 scripts/private/actions_cache.py delete-ref "$PR_REF"
 
   cleanup-stale-images:
     name: Delete stale PEK CI images
@@ -205,4 +205,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           LEGACY_CACHE_KEY: yolo-performance-datasets-coco-val2017-4f7e2ccb2866ec5041993c9cf2a952bbed69647b115d0f74da7ce8f4bef82f05
         run: python3 scripts/private/actions_cache.py delete-key
-          --ref "refs/heads/${DEFAULT_BRANCH}" --key "$LEGACY_CACHE_KEY"
+          "refs/heads/${DEFAULT_BRANCH}" "$LEGACY_CACHE_KEY"
