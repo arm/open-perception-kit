@@ -171,7 +171,7 @@ class ByomBlazeFaceExampleTest(unittest.TestCase):
 
         self.assertEqual(status, 0)
         self.assertEqual(calls, ["discover", "model", "pipeline", "video"])
-        ensure_model.assert_called_once_with(paths.model, shutdown)
+        ensure_model.assert_called_once_with(paths.model, paths.repository_root, shutdown)
         pipeline.assert_called_once()
         render.assert_called_once()
 
@@ -414,44 +414,89 @@ class ByomBlazeFaceExampleTest(unittest.TestCase):
 
             run.assert_called_once()
 
-    def test_verified_model_is_accepted(self):
+    def test_verified_model_reuses_cache_without_downloader(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             model = root / "face_detector.onnx"
             model.write_bytes(b"verified-model")
             self._write_model_descriptor(root, b"verified-model")
 
-            model_support.ensure_model(model, runtime_support.ShutdownState())
-
-    def test_missing_model_requires_user_provisioning(self):
-        with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory)
-            model = root / "face_detector.onnx"
-            self._write_model_descriptor(root, b"verified-model")
-
-            with self.assertRaisesRegex(
-                runtime_support.ExampleError,
-                "provide the file declared by model.json",
-            ):
-                model_support.ensure_model(model, runtime_support.ShutdownState())
-
-    def test_corrupt_model_is_rejected(self):
-        with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory)
-            model = root / "face_detector.onnx"
-            model.write_bytes(b"corrupt")
-            self._write_model_descriptor(root, b"verified-model")
-
-            with self.assertRaisesRegex(
-                runtime_support.ExampleError,
-                "replace the local model file",
-            ):
+            with mock.patch.object(model_support, "run_managed_command") as download:
                 model_support.ensure_model(
                     model,
+                    REPOSITORY_ROOT,
                     runtime_support.ShutdownState(),
                 )
 
-            self.assertEqual(model.read_bytes(), b"corrupt")
+            download.assert_not_called()
+
+    def test_corrupt_model_is_replaced_through_download_owner(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            scripts = root / "scripts"
+            scripts.mkdir()
+            downloader = scripts / "download-models.py"
+            downloader.touch(mode=0o700)
+            model = root / "example/face_detector.onnx"
+            model.parent.mkdir()
+            model.write_bytes(b"corrupt")
+            self._write_model_descriptor(model.parent, b"verified-model")
+
+            def install(*_args, **_kwargs):
+                model.write_bytes(b"verified-model")
+                return 0
+
+            with mock.patch.object(
+                model_support,
+                "run_managed_command",
+                side_effect=install,
+            ) as download, mock.patch.object(
+                model_support,
+                "_model_downloader_python",
+                return_value="/devtools/bin/python",
+            ):
+                model_support.ensure_model(
+                    model,
+                    root,
+                    runtime_support.ShutdownState(),
+                )
+
+            download.assert_called_once_with(
+                [
+                    "/devtools/bin/python",
+                    str(downloader),
+                    "--models-dir",
+                    str(model.parent),
+                ],
+                mock.ANY,
+                "model downloader",
+            )
+            self.assertEqual(model.read_bytes(), b"verified-model")
+
+    def test_model_download_owner_interruption_is_propagated(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            scripts = root / "scripts"
+            scripts.mkdir()
+            (scripts / "download-models.py").touch(mode=0o700)
+            model = root / "example/face_detector.onnx"
+            model.parent.mkdir()
+            self._write_model_descriptor(model.parent, b"verified-model")
+
+            with (
+                mock.patch.object(model_support, "run_managed_command", return_value=130),
+                mock.patch.object(
+                    model_support,
+                    "_model_downloader_python",
+                    return_value="/devtools/bin/python",
+                ),
+                self.assertRaises(runtime_support.ExampleInterrupted),
+            ):
+                model_support.ensure_model(
+                    model,
+                    root,
+                    runtime_support.ShutdownState(),
+                )
 
     @staticmethod
     def _write_model_descriptor(directory: Path, model_bytes: bytes) -> None:
