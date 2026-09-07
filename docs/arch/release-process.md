@@ -49,21 +49,20 @@ artifact; it does not rebuild it. For PEK publication, the Arm build extracts
 the verified Python wheel and packages the prepared Rust tree from that triplet
 using its locked offline Cargo vendor directory. The release-only crate manifest
 records FlatBuffers as a crates.io dependency so consumers do not look for it in
-the private registry. The Arm build verifies the packaged crate before placing
-both language packages beside the triplet in `pek-perception-sdk-input-*`; the
-Artifactory job publishes those exact files. Stable release pushes publish the
-wheel unchanged to `edge-ai-tooling.pypi` and raw-PUT the crate unchanged to
-`edge-ai-tooling.cargo`, while generic Artifactory keeps the three PEK archives.
-The Cargo version preflight runs before generic Artifactory publication. The
-conditional create-only upload is followed by a byte-for-byte download and a
-bounded sparse-index visibility check. The current internal Cargo repository
-accepts this path without Actions credentials and does not enforce the
-conditional no-overwrite header. A red release must be restored to its
-pre-release state by the release owner before retrying. Public distribution
-must use authenticated, server-enforced immutable publication instead.
-Manual snapshots instead place the wheel and crate beside those archives in
-their immutable generic Artifactory snapshot folder. GitHub Release assets
-remain the three archives.
+the private registry. The Arm build verifies the packaged crate and stages the
+prepared source that produced it beside both language packages in
+`pek-perception-sdk-input-*`. Stable release pushes publish the wheel unchanged
+to `edge-ai-tooling.pypi` and use Cargo's native publish protocol with the
+repository's anonymous principal for `edge-ai-tooling.cargo`; generic
+Artifactory keeps the three PEK archives. The Cargo version preflight runs before
+generic Artifactory publication. After Cargo confirms sparse-index visibility,
+the publication job downloads the registered crate, compares it byte-for-byte
+with the Arm build's package, and verifies the index checksum. A red release
+must be restored to its pre-release state by the release owner before retrying.
+Public distribution must use authenticated, server-enforced immutable
+publication instead. Manual snapshots place the wheel and crate beside those
+archives in their immutable generic Artifactory snapshot folder. GitHub Release
+assets remain the three archives.
 
 The architecture tarballs keep their seven-model allowlist. The image is the
 full existing deployment snapshot, including the resolved configuration, model,

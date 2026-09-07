@@ -230,6 +230,17 @@ jobs:
           printf '\n[registries.crates-io]\nindex = "sparse+https://index.crates.io/"\n' \
             >> "$rust/.cargo/config.toml"
           (cd "$rust" && cargo package --offline --locked)
+          publish_source="dist/perception-sdk-input/perception-cargo-source-$VERSION"
+          python3 - "$rust" "$publish_source" <<'PY'
+          import shutil
+          import sys
+
+          shutil.copytree(
+              sys.argv[1],
+              sys.argv[2],
+              ignore=shutil.ignore_patterns(".cargo", "crates", "target", "vendor"),
+          )
+          PY
           cp "$rust/target/package/perception-$VERSION.crate" \
             dist/perception-sdk-input/
           cp "$export_root/python/opk_perception_sdk-$VERSION-py3-none-any.whl" \
@@ -725,6 +736,12 @@ jobs:
           name: pek-perception-sdk-input-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/pek-perception-sdk-input
 
+      - name: Set up pinned Rust for Perception publication
+        if: github.event_name == 'push'
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+        with:
+          toolchain: 1.85.0
+
       - name: Stage Perception language packages
         env:
           ARTIFACTS_DIR: ${{ runner.temp }}/pek-release-artifacts
@@ -826,31 +843,42 @@ jobs:
         if: github.event_name == 'push'
         env:
           ARTIFACTS_DIR: ${{ runner.temp }}/pek-release-artifacts
+          CARGO_HOME: ${{ runner.temp }}/perception-cargo-home
+          RUSTUP_TOOLCHAIN: 1.85.0
+          SDK_DIR: ${{ runner.temp }}/pek-perception-sdk-input
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           set -euo pipefail
           crate="$ARTIFACTS_DIR/perception-$VERSION.crate"
+          publish_source="$SDK_DIR/perception-cargo-source-$VERSION"
           url="https://artifactory.arm.com/artifactory/edge-ai-tooling.cargo/crates/perception/perception-$VERSION.crate"
-          curl --fail-with-body --silent --show-error \
-            --header 'If-None-Match: *' --upload-file "$crate" "$url"
-          curl --fail-with-body --silent --show-error "$url" | cmp "$crate" -
-
-          checksum="$(sha256sum "$crate" | cut -d' ' -f1)"
           index_url="https://artifactory.arm.com/artifactory/api/cargo/edge-ai-tooling.cargo/index/pe/rc/perception"
-          for attempt in {1..12}; do
-            if curl --fail --silent --show-error "$index_url" | \
-              jq --exit-status --slurp \
-                --arg version "$VERSION" --arg checksum "$checksum" \
-                "any(.[]; .name == \"perception\" and .vers == \$version and .cksum == \$checksum and .yanked == false)" \
-                > /dev/null; then
-              break
-            fi
-            if [[ "$attempt" == 12 ]]; then
-              echo "Cargo index did not expose the expected Perception crate." >&2
-              exit 1
-            fi
-            sleep 5
-          done
+
+          rm -rf -- "$CARGO_HOME"
+          mkdir -p "$CARGO_HOME"
+          cat > "$CARGO_HOME/config.toml" <<'EOF'
+          [registries.artifactory]
+          index = "sparse+https://artifactory.arm.com/artifactory/api/cargo/edge-ai-tooling.cargo/index/"
+          credential-provider = "cargo:token"
+
+          [registries.crates-io]
+          index = "sparse+https://index.crates.io/"
+          EOF
+          anonymous_token="$(printf 'anonymous:' | base64 -w0)"
+          export CARGO_REGISTRIES_ARTIFACTORY_TOKEN="Basic $anonymous_token"
+          (cd "$publish_source" && cargo publish --locked --no-verify --registry artifactory)
+
+          published="$RUNNER_TEMP/perception-$VERSION.published.crate"
+          curl --fail-with-body --silent --show-error \
+            --output "$published" "$url"
+          cmp "$crate" "$published"
+
+          checksum="$(sha256sum "$published" | cut -d' ' -f1)"
+          curl --fail --silent --show-error "$index_url" | \
+            jq --exit-status --slurp \
+              --arg version "$VERSION" --arg checksum "$checksum" \
+              'any(.[]; .name == "perception" and .vers == $version and .cksum == $checksum and .yanked == false)' \
+              > /dev/null
           printf "### Perception Cargo\n\n- URL: %s\n- SHA-256: \`%s\`\n- Sparse index: %s\n" \
             "$url" "$checksum" "$index_url" >> "$GITHUB_STEP_SUMMARY"
 

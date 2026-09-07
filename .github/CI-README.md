@@ -151,8 +151,8 @@ Release image builds get their model and runtime inputs from these sources:
 | `HF_TOKEN` | Read-only repository secret; exposed to `pek-models` only as a BuildKit secret while checked-in models require authentication |
 | `PEK_ARTIFACTORY_USERNAME`, `PEK_ARTIFACTORY_API_KEY` | Existing repository secrets used to read the ExecuTorch Debian package and publish release archives and Python wheels |
 
-Perception Rust crates use the internal `edge-ai-tooling.cargo` raw PUT and
-sparse-index read endpoints without GitHub Actions credentials.
+Perception Rust crates use Cargo's native publish protocol and the internal
+`edge-ai-tooling.cargo` anonymous principal, without GitHub Actions credentials.
 
 `Dockerfile` remains the version authority. Release jobs build its existing
 `pek-deployment-base` target for the native architecture and copy the archive
