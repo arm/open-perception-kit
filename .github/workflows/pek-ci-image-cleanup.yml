@@ -111,11 +111,12 @@ jobs:
 
       - name: Delete superseded compiler caches
         env:
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
           RUN_EVENT: ${{ github.event.workflow_run.event }}
         run: python3 scripts/private/actions_cache.py reconcile
-          --event "$RUN_EVENT" --pr-number "$PR_NUMBER"
+          --event "$RUN_EVENT" --pr-number "$PR_NUMBER" --branch "$BRANCH"
 
   cleanup-blackduck-pr-version:
     name: Delete Black Duck PR version

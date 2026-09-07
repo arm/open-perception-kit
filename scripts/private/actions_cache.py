@@ -11,6 +11,7 @@ import os
 import re
 import subprocess
 import sys
+import urllib.parse
 
 
 COMPILER_CACHE_KEY = re.compile(r"^(pek-ccache-.+-)([0-9a-f]{40})$")
@@ -127,10 +128,19 @@ def reconcile_pull_request(number: str) -> None:
     delete_caches(superseded_compiler_caches(caches, head_sha), "superseded")
 
 
-def reconcile_develop() -> None:
+def reconcile_branch(branch: str) -> None:
+    if not branch:
+        raise ValueError("Branch name is required for a branch event.")
     repository = github_repository()
+    encoded_branch = urllib.parse.quote(branch, safe="")
     payload = read_json(
-        ["gh", "api", "--method", "GET", f"repos/{repository}/branches/develop"]
+        [
+            "gh",
+            "api",
+            "--method",
+            "GET",
+            f"repos/{repository}/branches/{encoded_branch}",
+        ]
     )
     if not isinstance(payload, dict):
         raise ValueError("GitHub branch response must be an object.")
@@ -138,7 +148,7 @@ def reconcile_develop() -> None:
     head_sha = commit.get("sha") if isinstance(commit, dict) else None
     if not isinstance(head_sha, str):
         raise ValueError("GitHub branch response has an invalid head.")
-    caches = list_caches("refs/heads/develop")
+    caches = list_caches(f"refs/heads/{branch}")
     delete_caches(superseded_compiler_caches(caches, head_sha), "superseded")
 
 
@@ -162,6 +172,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "--event", required=True, choices=("pull_request", "push", "schedule", "workflow_dispatch")
     )
     reconcile_parser.add_argument("--pr-number", default="")
+    reconcile_parser.add_argument("--branch", default="")
 
     delete_ref_parser = subparsers.add_parser("delete-ref")
     delete_ref_parser.add_argument("--ref", required=True)
@@ -180,7 +191,7 @@ def main(argv: list[str]) -> int:
         else:
             if args.pr_number:
                 raise ValueError("A branch event cannot include a pull request number.")
-            reconcile_develop()
+            reconcile_branch(args.branch)
     elif args.command == "delete-ref":
         delete_ref(args.ref)
     else:
