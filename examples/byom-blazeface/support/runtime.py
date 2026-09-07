@@ -178,6 +178,7 @@ def discover_example(script_path: Path) -> tuple[ExamplePaths, OptionalTools]:
 
 def pipeline_environment(paths: ExamplePaths, results_path: Path) -> dict[str, str]:
     environment = os.environ.copy()
+    environment.pop("HF_TOKEN", None)
     environment.update(
         {
             "PEK_PROJECT_ROOT": str(paths.repository_root),

@@ -209,6 +209,22 @@ class ByomBlazeFaceExampleTest(unittest.TestCase):
         self.assertEqual(status, 0)
         render.assert_not_called()
 
+    def test_pipeline_environment_does_not_expose_hugging_face_token(self):
+        paths, _tools = self._example_runtime()
+        results_path = Path("/tmp/frame-results.ndjson")
+        with mock.patch.dict(
+            os.environ,
+            {"HF_TOKEN": "sensitive", "PRESERVED_VARIABLE": "value"},
+            clear=True,
+        ):
+            environment = runtime_support.pipeline_environment(paths, results_path)
+
+        self.assertNotIn("HF_TOKEN", environment)
+        self.assertEqual(environment["PRESERVED_VARIABLE"], "value")
+        self.assertEqual(environment["PEK_PROJECT_ROOT"], str(paths.repository_root))
+        self.assertEqual(environment["BYOM_EXAMPLE_DIR"], str(paths.example_dir))
+        self.assertEqual(environment["BYOM_RESULTS"], str(results_path))
+
     def test_listener_rejects_every_incompatible_producer_identity(self):
         cases = (
             ({"SDK_NAME": "different_sdk"}, ProducerIdentityStatus.SDK_NAME_MISMATCH),

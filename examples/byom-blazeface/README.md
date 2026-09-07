@@ -23,6 +23,23 @@ PEK owns preprocessing, inference execution, and result transport. The model
 integration owns the tensor contract and postprocessing. The application owns
 the custom result schema and its meaning.
 
+## What is part of the integration?
+
+The files are separated so the reusable BYOM contract stays visible:
+
+- `model.json`, `opchain.json`, and `postprocess.py` are the model integration.
+  They describe the tensor contract, compose standard PEK operations, and turn
+  model outputs into application-owned results.
+- `pipeline.json` is the minimal runnable media flow used to exercise that
+  integration through `pekinfer` and transport results through `pekcomm`.
+- `support/results.py` is the standalone application-side consumer. It shows
+  how a user retrieves and validates the external payload with the Perception
+  SDK.
+- `run.py` and the remaining `support/` modules are demonstration support.
+  They provision the model, manage processes and shutdown, follow NDJSON, and
+  optionally render a verification video. Applications normally replace this
+  orchestration with their own lifecycle and presentation code.
+
 ## 1. Describe the model
 
 `model.json` defines the contract between BlazeFace and PEK:
