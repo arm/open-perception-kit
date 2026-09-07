@@ -5,7 +5,6 @@
 #include "preproc/CpuImageKernelsNv12.h"
 
 #include <algorithm>
-#include <cassert>
 #include <cmath>
 #include <cstdint>
 #include <limits>
@@ -47,7 +46,8 @@ bool hasPlaneBytes(const pek::ImagePlaneDesc &plane, size_t width, size_t height
     if (!plane.data || width == 0 || height == 0) {
         return false;
     }
-    assert(plane.mutableData == nullptr);
+    if (plane.mutableData != nullptr)
+        return false;
 
     const size_t strideBytes = plane.strideBytes != 0 ? plane.strideBytes : width;
     if (strideBytes < width) {
@@ -137,9 +137,8 @@ YuvToRgb makeYuvToRgb(const pek::ImageOpDesc &src) {
 }
 
 bool hasTightDestinationStride(const pek::ImageOpDesc &dst) {
-    assert(dst.planes[0].data == nullptr);
-    assert(dst.planes[0].mutableData != nullptr);
-    return dst.planes[0].mutableData != nullptr && dst.planes[0].strideBytes == 0;
+    return dst.planes[0].data == nullptr && dst.planes[0].mutableData != nullptr &&
+           dst.planes[0].strideBytes == 0;
 }
 
 const uint8_t *planeRowAt(const uint8_t *plane, size_t strideBytes, size_t y) {

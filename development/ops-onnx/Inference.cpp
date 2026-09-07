@@ -211,7 +211,10 @@ pek::Result<void> Inference::inference() {
                                                this->model.inputs[i].valueInputs.data());
                 }
             } else {
-                assert(0); // no type support to set scalar tensor input value
+                return tl::make_unexpected(PEK_ERROR(
+                    pek::ErrorFlag::InvalidData,
+                    "ONNX scalar input tensor " + std::to_string(i) + " has unsupported dtype " +
+                        std::string(magic_enum::enum_name(this->model.inputs[i].valueType))));
             }
         }
     }
@@ -253,6 +256,11 @@ pek::Result<void> Inference::inference() {
         }
         for (size_t i = 0; i < api.outputTensorVector.size(); i++) {
             outputTensorPointers[i] = api.outputTensorVector[i].GetTensorData<uint8_t>();
+            if (!outputTensorPointers[i]) {
+                return tl::make_unexpected(
+                    PEK_ERROR(pek::ErrorFlag::InvalidData,
+                              "ONNX output tensor " + std::to_string(i) + " has no data"));
+            }
         }
     } else {
         if (dynamicOutputData.size() > pek::MaxTensorCount) {
@@ -265,6 +273,11 @@ pek::Result<void> Inference::inference() {
         for (size_t i = 0; i < dynamicOutputData.size(); i++) {
             Ort::Value &v = dynamicOutputData[i];
             outputTensorPointers[i] = v.GetTensorMutableData<uint8_t>();
+            if (!outputTensorPointers[i]) {
+                return tl::make_unexpected(
+                    PEK_ERROR(pek::ErrorFlag::InvalidData,
+                              "ONNX dynamic output tensor " + std::to_string(i) + " has no data"));
+            }
         }
     }
 
@@ -281,7 +294,12 @@ pek::Result<void> Inference::inference() {
             Ort::Value &v = dynamicOutputData[i];
             auto tinfo = v.GetTensorTypeAndShapeInfo();
             std::vector<int64_t> onnxShape = tinfo.GetShape();
-            outputTensorFinalShapes[i].setFrom(onnxShape);
+            if (!outputTensorFinalShapes[i].setFrom(onnxShape)) {
+                return tl::make_unexpected(
+                    PEK_ERROR(pek::ErrorFlag::InvalidData,
+                              "ONNX dynamic output tensor " + std::to_string(i) + " size " +
+                                  std::to_string(onnxShape.size()) + " exceeds max supported 8"));
+            }
         }
     }
 
@@ -345,7 +363,8 @@ pek::Result<void> Inference::inference() {
 
                 tesorIndex++;
             } else {
-                assert(0); // unsupported feedback mode
+                return tl::make_unexpected(
+                    PEK_ERROR(pek::ErrorFlag::InvalidData, "unsupported tensor feedback mode"));
             }
         }
     }

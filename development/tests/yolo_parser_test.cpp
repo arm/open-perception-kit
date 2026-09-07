@@ -64,3 +64,35 @@ TEST(YoloParser, StoresBestClassIdOnRectOutput) {
     EXPECT_EQ(detections[0]->class_id, 1);
     EXPECT_FLOAT_EQ(detections[0]->confidence, 0.9f);
 }
+
+TEST(YoloParser, RejectsMissingTensor) {
+    pek::AttributeMap attrs;
+    pek::TensorParser::Input input(attrs);
+    input.inferenceInfo.image = {
+        .width = 100, .height = 100, .modelWidth = 100, .modelHeight = 100};
+
+    perception::FrameResults output;
+    pek::stdop::postproc::YoloParser parser;
+
+    EXPECT_FALSE(parser.parse(input, output).has_value());
+}
+
+TEST(YoloParser, RejectsMalformedTensorShape) {
+    pek::AttributeMap attrs;
+    std::vector<float> tensorData(4, 0.0f);
+    pek::TensorView tensor(tensorData.data(),
+                           tensorData.size() * sizeof(float),
+                           pek::Shape(1, 4),
+                           pek::Dtype::Float32,
+                           1.0f,
+                           0.0f);
+    pek::TensorParser::Input input(attrs);
+    input.tensors[0] = &tensor;
+    input.inferenceInfo.image = {
+        .width = 100, .height = 100, .modelWidth = 100, .modelHeight = 100};
+
+    perception::FrameResults output;
+    pek::stdop::postproc::YoloParser parser;
+
+    EXPECT_FALSE(parser.parse(input, output).has_value());
+}

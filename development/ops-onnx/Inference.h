@@ -15,6 +15,7 @@
 #include "pek/Types.h"
 
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -72,7 +73,8 @@ struct Tensor {
                                                      onnxShape,
                                                      this->shape.rank);
         } else {
-            assert(0);
+            throw std::invalid_argument("Unsupported ONNX tensor dtype " +
+                                        std::to_string(static_cast<int>(this->type)));
         }
     }
 

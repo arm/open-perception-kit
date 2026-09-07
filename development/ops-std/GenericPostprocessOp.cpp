@@ -108,10 +108,16 @@ GenericPostprocessOp::process(pek::op::OpChainContext &opChainContext) {
 
     // populate tensors
     for (size_t i = 0; i < pek::MaxTensorCount; i++) {
-        if (i < opChainContext.inferenceOutputTensorCount)
+        if (i < opChainContext.inferenceOutputTensorCount) {
+            if (!opChainContext.inferenceOutputTensors[i].isValid()) {
+                return tl::unexpected(
+                    PEK_ERROR(pek::ErrorFlag::InvalidData,
+                              "Postprocessor input tensor " + std::to_string(i) + " is invalid"));
+            }
             tensorParserInput.tensors[i] = &opChainContext.inferenceOutputTensors[i];
-        else
+        } else {
             tensorParserInput.tensors[i] = nullptr;
+        }
     }
 
     // copy active inference info

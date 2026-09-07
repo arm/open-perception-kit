@@ -3,7 +3,6 @@
  *************************************************************/
 
 #include <algorithm>
-#include <cassert>
 #include <cstddef>
 #include <executorch/extension/module/module.h>
 #include <executorch/extension/tensor/tensor_ptr_maker.h>
@@ -68,19 +67,17 @@ static bool to_executorch_dtype(pek::Dtype t, executorch::aten::ScalarType &outT
 template <typename SizesT> static pek::Shape to_pek_shape(const SizesT &sizes) {
     pek::Shape s{};
 
-    s.rank = static_cast<int>(sizes.size());
-
     // PEK Shape has fixed storage for 8 dimensions.
     const size_t maxDims = sizeof(s.dims) / sizeof(s.dims[0]);
-    const size_t n = std::min(sizes.size(), maxDims);
+    if (sizes.size() > maxDims)
+        return s;
 
-    assert(sizes.size() <= maxDims && "Tensor rank exceeds maximum supported Shape rank");
-
-    for (size_t i = 0; i < n; ++i) {
+    s.rank = sizes.size();
+    for (size_t i = 0; i < sizes.size(); ++i) {
         s.dims[i] = static_cast<int>(sizes[i]);
     }
 
-    for (size_t i = n; i < maxDims; ++i) {
+    for (size_t i = sizes.size(); i < maxDims; ++i) {
         s.dims[i] = 0;
     }
 
@@ -341,6 +338,16 @@ pek::Result<void> Inference::inference() {
 
         // Downstream postprocess receives non-owning views over these addresses.
         outputTensorPointers[i] = static_cast<const uint8_t *>(tensor.const_data_ptr());
+        if (!outputTensorPointers[i]) {
+            return tl::unexpected{
+                PEK_ERROR(pek::ErrorFlag::InvalidData,
+                          "ExecuTorch output tensor " + std::to_string(i) + " has no data")};
+        }
+        if (tensor.sizes().size() < 1 || tensor.sizes().size() > 8) {
+            return tl::unexpected{PEK_ERROR(pek::ErrorFlag::InvalidData,
+                                            "ExecuTorch output tensor " + std::to_string(i) +
+                                                " size must be between 1 and 8")};
+        }
         outputTensorFinalShapes[i] = to_pek_shape(tensor.sizes());
     }
 

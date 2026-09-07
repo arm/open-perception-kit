@@ -673,6 +673,29 @@ int rejectUndersizedPlane(const Fixture &fixture, const Variant &variant) {
     return 1;
 }
 
+int rejectConflictingPlaneAccess(const Fixture &fixture, const Variant &variant) {
+    auto src = sourceDesc(fixture, {0, 0, 5, 3}, YuvColorMatrix::Bt601, YuvRange::Limited);
+    ImageOpDesc dst;
+    dst.surfaceWidth = 5;
+    dst.surfaceHeight = 3;
+    dst.rect = {0, 0, 5, 3};
+    dst.kind = variant.kind;
+    dst.type = variant.type;
+    dst.planeCount = 1;
+    std::vector<uint8_t> output(5 * 3 * 3 * sizeof(float));
+    dst.planes[0] = {nullptr, output.data(), output.size(), 0};
+
+    src.planes[0].mutableData = output.data();
+    if (variant.full(src, dst, Sampling::Nearest))
+        fail("writable source plane accepted");
+
+    src.planes[0].mutableData = nullptr;
+    dst.planes[0].data = output.data();
+    if (variant.full(src, dst, Sampling::Nearest))
+        fail("readable destination plane accepted");
+    return 2;
+}
+
 int main() {
     using enum RawImagePixelFormat;
     const std::array formats{
@@ -689,6 +712,7 @@ int main() {
         cases += runStandardCases(fixture, formatVariants);
         cases += runYuvMatrixCases(fixture, formatVariants);
         cases += rejectUndersizedPlane(fixture, formatVariants.front());
+        cases += rejectConflictingPlaneAccess(fixture, formatVariants.front());
     }
     std::cout << "PASS conversion-cases=" << cases << '\n';
 }

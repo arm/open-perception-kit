@@ -5,7 +5,6 @@
 #include "GenericImagePreprocessOp.h"
 
 #include <algorithm>
-#include <cassert>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
@@ -188,8 +187,13 @@ pek::Result<pek::op::OpSignal> GenericImagePreprocessOp::process(
     setup.imageSourceDesc.planeCount = sourcePlaneCount;
     for (size_t planeIndex = 0; planeIndex < sourcePlaneCount; ++planeIndex) {
         setup.imageSourceDesc.planes[planeIndex] = makePlaneDesc(readablePlanes[planeIndex]);
-        assert(setup.imageSourceDesc.planes[planeIndex].data != nullptr);
-        assert(setup.imageSourceDesc.planes[planeIndex].mutableData == nullptr);
+        if (!setup.imageSourceDesc.planes[planeIndex].data ||
+            setup.imageSourceDesc.planes[planeIndex].mutableData) {
+            return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
+                                                 "GenericImagePreprocessOp source plane " +
+                                                     std::to_string(planeIndex) +
+                                                     " is not readable"));
+        }
     }
     setup.imageSourceDesc.format = sourceFormat;
     setup.imageSourceDesc.type = pek::Dtype::Uint8;
@@ -249,8 +253,13 @@ pek::Result<pek::op::OpSignal> GenericImagePreprocessOp::process(
         inputTensor.shape.getFullValueCount() * pek::getValueTypeByteSize(inputTensor.valueType),
         0,
     };
-    assert(setup.imageDestinationDesc.planes[0].data == nullptr);
-    assert(setup.imageDestinationDesc.planes[0].mutableData != nullptr);
+    if (setup.imageDestinationDesc.planes[0].data ||
+        !setup.imageDestinationDesc.planes[0].mutableData) {
+        return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
+                                             "GenericImagePreprocessOp input tensor " +
+                                                 std::to_string(inputImageTensorIndex) +
+                                                 " is not writable"));
+    }
     setup.imageDestinationDesc.keepAspectRatio = inputTensor.keepAspectRatio;
     setup.imageDestinationDesc.letterboxRed = inputTensor.letterboxRed;
     setup.imageDestinationDesc.letterboxGreen = inputTensor.letterboxGreen;
