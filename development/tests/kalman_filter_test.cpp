@@ -93,7 +93,7 @@ TEST(KalmanFilterCv2D, UpdateMovesEstimateTowardMeasurementAndReducesPositionCov
     measurement[0][0] = 1.2;
     measurement[1][0] = 1.8;
 
-    kf.update(measurement, makeObservation(), makeMeasurementNoise(0.25));
+    ASSERT_TRUE(kf.update(measurement, makeObservation(), makeMeasurementNoise(0.25)));
 
     const auto &posteriorState = kf.state();
     EXPECT_LT(std::abs(posteriorState[0][0] - measurement[0][0]),
@@ -132,7 +132,7 @@ TEST(KalmanFilterCv2D, RepeatedPredictUpdateConvergesToConstantVelocityTrajector
         MeasurementVector measurement{};
         measurement[0][0] = static_cast<double>(t);     // x = 1 * t
         measurement[1][0] = static_cast<double>(2 * t); // y = 2 * t
-        kf.update(measurement, observation, measurementNoise);
+        ASSERT_TRUE(kf.update(measurement, observation, measurementNoise));
     }
 
     const auto &state = kf.state();
@@ -140,4 +140,10 @@ TEST(KalmanFilterCv2D, RepeatedPredictUpdateConvergesToConstantVelocityTrajector
     EXPECT_NEAR(state[1][0], 12.0, 0.15);
     EXPECT_NEAR(state[2][0], 1.0, 0.15);
     EXPECT_NEAR(state[3][0], 2.0, 0.15);
+}
+
+TEST(KalmanFilterCv2D, RejectsSingularInnovationCovariance) {
+    Cv2DKf kf(StateVector{}, StateMatrix{});
+
+    EXPECT_FALSE(kf.update(MeasurementVector{}, makeObservation(), MeasurementMatrix{}));
 }

@@ -5,7 +5,6 @@
 #include "pek/Types.h"
 
 #include <algorithm>
-#include <cassert>
 #include <cmath>
 #include <cstdint>
 #include <limits>
@@ -36,7 +35,8 @@ InterleavedSourceView makeInterleavedSourceView(const pek::ImageOpDesc &src, siz
     if (!src.planes[0].data || src.surfaceWidth == 0 || src.surfaceHeight == 0) {
         return {};
     }
-    assert(src.planes[0].mutableData == nullptr);
+    if (src.planes[0].mutableData != nullptr)
+        return {};
 
     if (multiplyOverflows(src.surfaceWidth, bytesPerPixel)) {
         return {};
@@ -78,9 +78,8 @@ InterleavedSourceView makeRgbSourceView(const pek::ImageOpDesc &src) {
 }
 
 bool hasTightDestinationStride(const pek::ImageOpDesc &dst) {
-    assert(dst.planes[0].data == nullptr);
-    assert(dst.planes[0].mutableData != nullptr);
-    return dst.planes[0].mutableData != nullptr && dst.planes[0].strideBytes == 0;
+    return dst.planes[0].data == nullptr && dst.planes[0].mutableData != nullptr &&
+           dst.planes[0].strideBytes == 0;
 }
 
 const uint8_t *sourceRowAt(const InterleavedSourceView &src, size_t y) {

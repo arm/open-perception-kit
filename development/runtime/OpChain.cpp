@@ -99,7 +99,7 @@ Result<OpChain> OpChain::fromJsonFile(const std::string &path) {
     auto implValue = std::make_unique<Impl>();
     auto setupResult = implValue->chain.setupFromFile(path);
     if (!setupResult) {
-        return tl::make_unexpected(mapInternalError(setupResult.error()));
+        return tl::unexpected(mapInternalError(setupResult.error()));
     }
 
     implValue->loaded = true;
@@ -109,10 +109,10 @@ Result<OpChain> OpChain::fromJsonFile(const std::string &path) {
 Result<perception::FrameResults> OpChain::Impl::runFrameResults(const VideoFrame &frame,
                                                                 const std::string &inferElementId) {
     if (!loaded) {
-        return tl::make_unexpected(Error(ErrorFlag::InvalidArgument, "No OpChain has been loaded"));
+        return tl::unexpected(Error(ErrorFlag::InvalidArgument, "No OpChain has been loaded"));
     }
     if (frame.empty()) {
-        return tl::make_unexpected(Error(ErrorFlag::InvalidArgument, "VideoFrame is empty"));
+        return tl::unexpected(Error(ErrorFlag::InvalidArgument, "VideoFrame is empty"));
     }
 
     perception::FrameResults frameResults;
@@ -124,7 +124,7 @@ Result<perception::FrameResults> OpChain::Impl::runFrameResults(const VideoFrame
 
     auto executeResult = chain.execute(context);
     if (!executeResult) {
-        return tl::make_unexpected(mapInternalError(executeResult.error()));
+        return tl::unexpected(mapInternalError(executeResult.error()));
     }
 
     return frameResults;
@@ -133,13 +133,13 @@ Result<perception::FrameResults> OpChain::Impl::runFrameResults(const VideoFrame
 Result<std::string> OpChain::run(const VideoFrame &frame, const std::string &inferElementId) {
     auto packet = runPacket(frame, inferElementId);
     if (!packet) {
-        return tl::make_unexpected(std::move(packet.error()));
+        return tl::unexpected(std::move(packet.error()));
     }
 
     try {
         return serializePacketJson(*packet);
     } catch (const std::exception &e) {
-        return tl::make_unexpected(
+        return tl::unexpected(
             Error(ErrorFlag::RuntimeError,
                   fmt::format("Failed to serialize FrameResults transport wrapper: {}", e.what())));
     }
@@ -148,18 +148,18 @@ Result<std::string> OpChain::run(const VideoFrame &frame, const std::string &inf
 Result<std::vector<std::uint8_t>> OpChain::runPacket(const VideoFrame &frame,
                                                      const std::string &inferElementId) {
     if (!impl) {
-        return tl::make_unexpected(Error(ErrorFlag::InvalidArgument, "No OpChain has been loaded"));
+        return tl::unexpected(Error(ErrorFlag::InvalidArgument, "No OpChain has been loaded"));
     }
 
     auto frameResults = impl->runFrameResults(frame, inferElementId);
     if (!frameResults) {
-        return tl::make_unexpected(std::move(frameResults.error()));
+        return tl::unexpected(std::move(frameResults.error()));
     }
 
     try {
         return perception::serialize(*frameResults);
     } catch (const std::exception &e) {
-        return tl::make_unexpected(
+        return tl::unexpected(
             Error(ErrorFlag::RuntimeError,
                   fmt::format("Failed to serialize FrameResults metadata: {}", e.what())));
     }

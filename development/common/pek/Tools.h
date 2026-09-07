@@ -67,7 +67,7 @@ struct Tools {
 
         auto raw = DynamicLibraryGetSymbolRaw(handle, symbolName);
         if (!raw) {
-            return tl::make_unexpected(raw.error());
+            return tl::unexpected(raw.error());
         }
 
         return reinterpret_cast<FuncPtr>(*raw);

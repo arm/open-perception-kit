@@ -59,8 +59,8 @@ pek::Result<void> OpRef::bind(const std::string &soName, const std::string &opNa
     // Open library (Tools::DynamicLibraryOpen returns tl::optional / similar)
     auto openResult = Tools::DynamicLibraryOpen(soName);
     if (!openResult.has_value()) {
-        return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::SystemFailure,
-                                             fmt::format("Cannot load library [{}]", soName)));
+        return tl::unexpected(PEK_ERROR(pek::ErrorFlag::SystemFailure,
+                                        fmt::format("Cannot load library [{}]", soName)));
     }
 
     dlHandle = *openResult;
@@ -70,7 +70,7 @@ pek::Result<void> OpRef::bind(const std::string &soName, const std::string &opNa
     if (!cr || !del) {
         // reset() will close dlHandle and clear fields
         reset();
-        return tl::make_unexpected(
+        return tl::unexpected(
             PEK_ERROR(pek::ErrorFlag::SystemFailure,
                       fmt::format("Cannot get interface methods of library [{}]", soName)));
     }
@@ -85,14 +85,14 @@ pek::Result<void> OpRef::bind(const std::string &soName, const std::string &opNa
     } catch (...) {
         // In case createFn throws (shouldn't), clean up
         reset();
-        return tl::make_unexpected(PEK_ERROR(
+        return tl::unexpected(PEK_ERROR(
             pek::ErrorFlag::SystemFailure,
             fmt::format("Exception while creating op [{}] of library [{}]", opName, soName)));
     }
 
     if (!raw) {
         reset();
-        return tl::make_unexpected(
+        return tl::unexpected(
             PEK_ERROR(pek::ErrorFlag::SystemFailure,
                       fmt::format("Cannot create op [{}] of library [{}]", opName, soName)));
     }
