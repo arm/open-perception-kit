@@ -8,7 +8,7 @@ namespace pek::raster {
 namespace {
 
 constexpr std::byte row(std::uint8_t bits) noexcept {
-    return static_cast<std::byte>(bits << 2U);
+    return static_cast<std::byte>(bits << 2U); // NOSONAR: glyph rows are compact bitmasks.
 }
 
 constexpr BitmapGlyph makeGlyph(std::uint8_t r0,

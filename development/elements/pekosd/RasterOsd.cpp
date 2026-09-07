@@ -186,7 +186,7 @@ int roundToInt(float value) noexcept {
         return 0;
     }
 
-    const double coordinate = static_cast<double>(value);
+    const auto coordinate = static_cast<double>(value);
     if (coordinate <= static_cast<double>(std::numeric_limits<int>::min())) {
         return std::numeric_limits<int>::min();
     }
@@ -309,7 +309,7 @@ void drawSegmentationMasks(const pek::raster::ImageSurfaceView &surface,
                            const perception::FrameResults &frameResults,
                            const RasterDrawOptions &options) {
     frameResults.for_each<perception::metadata::SegmentationMasksT>(
-        [&surface, &options](const auto &payload) {
+        [&](const auto &payload) { // NOSONAR: payload handling stays local to traversal.
             if (!isSegmentationLayer(payload.layer.get())) {
                 return;
             }
@@ -715,9 +715,9 @@ void drawPersonPresence(pek::raster::SurfacePainter &painter,
     const std::string_view label = isPerson ? "PERSON" : "NON-PERSON";
     const pek::Color color = isPerson ? PersonPresenceColor : NoPersonPresenceColor;
     const int scale = personTextScaleForHeight(surface.height);
-    const int centerX = static_cast<int>(
+    const auto centerX = static_cast<int>(
         std::min<std::uint32_t>(surface.width / 2U, std::numeric_limits<int>::max()));
-    const int centerY = static_cast<int>(
+    const auto centerY = static_cast<int>(
         std::min<std::uint32_t>(surface.height / 2U, std::numeric_limits<int>::max()));
 
     painter.drawText(

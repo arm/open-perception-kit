@@ -144,7 +144,13 @@ I64 outCode(I64 x, I64 y, I64 width, I64 height) noexcept {
     return code;
 }
 
-bool clipLineToSurface(I64 &x0, I64 &y0, I64 &x1, I64 &y1, I64 width, I64 height) noexcept {
+bool clipLineToSurface( // NOSONAR: Cohen-Sutherland clipping is clearer kept as one loop.
+    I64 &x0,
+    I64 &y0,
+    I64 &x1,
+    I64 &y1,
+    I64 width,
+    I64 height) noexcept {
     if (width <= 0 || height <= 0) {
         return false;
     }
@@ -153,8 +159,8 @@ bool clipLineToSurface(I64 &x0, I64 &y0, I64 &x1, I64 &y1, I64 width, I64 height
     I64 code1 = outCode(x1, y1, width, height);
     const long double xmin = 0.0L;
     const long double ymin = 0.0L;
-    const long double xmax = static_cast<long double>(width - 1);
-    const long double ymax = static_cast<long double>(height - 1);
+    const auto xmax = static_cast<long double>(width - 1);
+    const auto ymax = static_cast<long double>(height - 1);
 
     while (true) {
         if ((code0 | code1) == 0) {
@@ -167,10 +173,10 @@ bool clipLineToSurface(I64 &x0, I64 &y0, I64 &x1, I64 &y1, I64 width, I64 height
         const I64 codeOut = code0 != 0 ? code0 : code1;
         long double x = 0.0L;
         long double y = 0.0L;
-        const long double fx0 = static_cast<long double>(x0);
-        const long double fy0 = static_cast<long double>(y0);
-        const long double fx1 = static_cast<long double>(x1);
-        const long double fy1 = static_cast<long double>(y1);
+        const auto fx0 = static_cast<long double>(x0);
+        const auto fy0 = static_cast<long double>(y0);
+        const auto fx1 = static_cast<long double>(x1);
+        const auto fy1 = static_cast<long double>(y1);
 
         if ((codeOut & OutTop) != 0) {
             if (y1 == y0) {
@@ -261,8 +267,7 @@ SurfacePainter::TextMetrics SurfacePainter::measureText(std::string_view text, i
     };
 }
 
-bool SurfacePainter::validate() noexcept { // NOSONAR: explicit per-format validation keeps raster
-                                           // contracts local.
+bool SurfacePainter::validate() noexcept {
     if (surfaceWidth == 0 || surfaceHeight == 0) {
         return false;
     }
@@ -332,12 +337,7 @@ SurfacePainter::TargetColor SurfacePainter::makeTargetColor(pek::Color color) co
     return target;
 }
 
-void SurfacePainter::fillClippedSpan( // NOSONAR: explicit per-format stores avoid extra hot-path
-                                      // abstraction.
-    I64 x0,
-    I64 x1,
-    I64 y,
-    const TargetColor &color) noexcept {
+void SurfacePainter::fillClippedSpan(I64 x0, I64 x1, I64 y, const TargetColor &color) noexcept {
     if (!isValid || y < 0 || y >= static_cast<I64>(surfaceHeight) || x1 <= x0) {
         return;
     }
@@ -461,13 +461,8 @@ void SurfacePainter::fillClippedSpan( // NOSONAR: explicit per-format stores avo
     }
 }
 
-void SurfacePainter::fillClippedRect( // NOSONAR: per-format rectangle paths avoid repeated chroma
-                                      // writes.
-    I64 x,
-    I64 y,
-    I64 w,
-    I64 h,
-    const TargetColor &color) noexcept {
+void SurfacePainter::fillClippedRect(
+    I64 x, I64 y, I64 w, I64 h, const TargetColor &color) noexcept {
     Rect rect{x, y, w, h};
     if (!clipRect(rect, surfaceWidth, surfaceHeight)) {
         return;
@@ -739,10 +734,10 @@ void SurfacePainter::drawText(int x,
     for (const char rawCharacter : text) {
         const BitmapGlyph &glyph = BitmapFont::glyph(rawCharacter);
         for (int gy = 0; gy < BitmapFont::GlyphHeight; ++gy) {
-            const auto row = std::to_integer<std::uint8_t>(glyph.rows[gy]);
+            const auto row = glyph.rows[gy];
             for (int gx = 0; gx < BitmapFont::GlyphWidth; ++gx) {
-                const std::uint8_t mask = static_cast<std::uint8_t>(1u << (7 - gx));
-                if ((row & mask) != 0) {
+                const auto mask = static_cast<std::byte>(1U << (7 - gx));
+                if ((row & mask) != std::byte{}) {
                     fillClippedRect(penX + static_cast<I64>(gx) * normalizedScale,
                                     originY + static_cast<I64>(gy) * normalizedScale,
                                     normalizedScale,

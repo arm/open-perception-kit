@@ -186,16 +186,18 @@ std::uint64_t scaleStep(std::size_t source, std::size_t destination) noexcept {
         return 0;
     }
 
-    const auto source64 = static_cast<std::uint64_t>(
-        std::min<std::size_t>(source, std::numeric_limits<std::uint32_t>::max()));
-    return (source64 << 32U) / static_cast<std::uint64_t>(destination);
+    constexpr std::size_t MaxScaledSource = std::numeric_limits<std::uint32_t>::max();
+    const auto scaledSource = std::min(source, MaxScaledSource);
+    return (scaledSource << 32U) / destination;
 }
 
 std::size_t scaledIndex(std::uint64_t accumulator, std::size_t source) noexcept {
     if (source == 0) {
         return 0;
     }
-    return std::min<std::size_t>(static_cast<std::size_t>(accumulator >> 32U), source - 1U);
+    const auto scaled = accumulator >> 32U;
+    const auto maxIndex = source - 1U;
+    return scaled < maxIndex ? scaled : maxIndex;
 }
 
 bool validateMask(const MaskView &mask) noexcept {
@@ -231,9 +233,9 @@ RgbBytes sampleBackgroundRgb(const BitmapView &bitmap,
     return {pixel[2], pixel[1], pixel[0]};
 }
 
-bool prepareLayout(const ImageSurfaceView &surface,
-                   SurfaceLayout &layout) noexcept { // NOSONAR: explicit pixel-format validation
-                                                     // mirrors memory layouts.
+bool prepareLayout( // NOSONAR: explicit pixel-format validation mirrors memory layouts.
+    const ImageSurfaceView &surface,
+    SurfaceLayout &layout) noexcept {
     if (surface.width == 0 || surface.height == 0) {
         return false;
     }
@@ -270,8 +272,8 @@ bool prepareLayout(const ImageSurfaceView &surface,
         return true;
     case I420: {
         const std::size_t chromaWidth = (width + 1U) / 2U;
-        const std::size_t chromaHeight = (height + 1U) / 2U;
-        if (surface.planes.size() < 3U || !hasPlaneBytes(surface.planes[0], width, height) ||
+        if (const std::size_t chromaHeight = (height + 1U) / 2U;
+            surface.planes.size() < 3U || !hasPlaneBytes(surface.planes[0], width, height) ||
             !hasPlaneBytes(surface.planes[1], chromaWidth, chromaHeight) ||
             !hasPlaneBytes(surface.planes[2], chromaWidth, chromaHeight)) {
             return false;
@@ -286,8 +288,8 @@ bool prepareLayout(const ImageSurfaceView &surface,
     }
     case Nv12: {
         const std::size_t chromaWidth = (width + 1U) / 2U;
-        const std::size_t chromaHeight = (height + 1U) / 2U;
-        if (surface.planes.size() < 2U || multiplyOverflows(chromaWidth, std::size_t{2}) ||
+        if (const std::size_t chromaHeight = (height + 1U) / 2U;
+            surface.planes.size() < 2U || multiplyOverflows(chromaWidth, std::size_t{2}) ||
             !hasPlaneBytes(surface.planes[0], width, height) ||
             !hasPlaneBytes(surface.planes[1], chromaWidth * 2U, chromaHeight)) {
             return false;
@@ -702,12 +704,11 @@ void replaceNv12(const SurfaceLayout &layout,
     }
 }
 
-void replaceYuy2( // NOSONAR: packed YUY2 replacement is intentionally format-specific.
-    const SurfaceLayout &layout,
-    const MaskView &mask,
-    const TargetColor &fallback,
-    const BitmapView &background,
-    std::uint8_t threshold) noexcept {
+void replaceYuy2(const SurfaceLayout &layout,
+                 const MaskView &mask,
+                 const TargetColor &fallback,
+                 const BitmapView &background,
+                 std::uint8_t threshold) noexcept {
     const auto maskXStep = scaleStep(mask.width, layout.width);
     const auto maskYStep = scaleStep(mask.height, layout.height);
     const auto bgXStep = scaleStep(background.width, layout.width);
