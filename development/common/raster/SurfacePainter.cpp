@@ -4,6 +4,7 @@
 
 #include "raster/SurfacePainter.h"
 
+#include "pek/String.h"
 #include "raster/BitmapFont.h"
 
 #include <algorithm>
@@ -105,6 +106,138 @@ YuvCoefficients yuvCoefficients(pek::YuvColorMatrix matrix) noexcept {
 
 I64 normalizePositive(int value) noexcept {
     return value < 1 ? 1 : static_cast<I64>(value);
+}
+
+bool hasValidUtf8ContinuationBytes(const char *begin, const char *end) noexcept {
+    for (const char *current = begin + 1; current < end; ++current) {
+        const auto byte = static_cast<unsigned char>(*current);
+        if ((byte & 0xC0U) != 0x80U) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool hasValidUtf8Range(char32_t codepoint, std::ptrdiff_t byteLength) noexcept {
+    switch (byteLength) {
+    case 1:
+        return codepoint <= 0x7FU;
+    case 2:
+        return codepoint >= 0x80U && codepoint <= 0x7FFU;
+    case 3:
+        return codepoint >= 0x800U && codepoint <= 0xFFFFU &&
+               !(codepoint >= 0xD800U && codepoint <= 0xDFFFU);
+    case 4:
+        return codepoint >= 0x10000U && codepoint <= 0x10FFFFU;
+    default:
+        return false;
+    }
+}
+
+template <typename Emit> void emitAsciiGlyph(char character, Emit &emit) noexcept {
+    switch (character) {
+    case '\n':
+    case '\r':
+    case '\t':
+        emit(' ');
+        break;
+    default:
+        emit(BitmapFont::hasGlyph(character) ? character : '?');
+        break;
+    }
+}
+
+template <typename Emit> void emitSimplifiedGlyphs(char32_t codepoint, Emit &emit) noexcept {
+    switch (codepoint) {
+    case U'\u00A0':
+        emitAsciiGlyph(' ', emit);
+        break;
+    case U'\u2010':
+    case U'\u2011':
+    case U'\u2012':
+    case U'\u2013':
+    case U'\u2014':
+    case U'\u2212':
+        emitAsciiGlyph('-', emit);
+        break;
+    case U'\u2018':
+    case U'\u2019':
+    case U'\u201A':
+    case U'\u2032':
+        emitAsciiGlyph('\'', emit);
+        break;
+    case U'\u201C':
+    case U'\u201D':
+    case U'\u201E':
+    case U'\u2033':
+        emitAsciiGlyph('"', emit);
+        break;
+    case U'\u2026':
+        emitAsciiGlyph('.', emit);
+        emitAsciiGlyph('.', emit);
+        emitAsciiGlyph('.', emit);
+        break;
+    default:
+        if (codepoint <= 0x7FU) {
+            emitAsciiGlyph(static_cast<char>(codepoint), emit);
+        } else {
+            emitAsciiGlyph('?', emit);
+        }
+        break;
+    }
+}
+
+template <typename Emit> void forEachTextGlyph(std::string_view text, Emit &&emit) noexcept {
+    const char *current = text.data();
+    const char *end = current + text.size();
+
+    while (current < end) {
+        const char *next = pek::codepoint::skip(current);
+        if (next <= current || next > end) {
+            emitAsciiGlyph('?', emit);
+            break;
+        }
+
+        const auto byteLength = next - current;
+        const char32_t codepoint = pek::codepoint::decode(current);
+        if (!hasValidUtf8ContinuationBytes(current, next) ||
+            !hasValidUtf8Range(codepoint, byteLength)) {
+            emitAsciiGlyph('?', emit);
+            current = next;
+            continue;
+        }
+
+        emitSimplifiedGlyphs(codepoint, emit);
+        current = next;
+    }
+}
+
+SurfacePainter::TextMetrics measureTextGlyphs(std::string_view text, I64 normalizedScale) noexcept {
+    const I64 glyphWidth = BitmapFont::GlyphWidth * normalizedScale;
+    const I64 glyphHeight = BitmapFont::GlyphHeight * normalizedScale;
+    const I64 glyphGap = BitmapFont::GlyphGap * normalizedScale;
+    const I64 glyphAdvance = glyphWidth + glyphGap;
+    const auto maxLength = static_cast<std::size_t>(std::numeric_limits<I64>::max() / glyphAdvance);
+
+    std::size_t textLength = 0;
+    bool overflow = false;
+    forEachTextGlyph(text, [&](char) noexcept {
+        if (textLength >= maxLength) {
+            overflow = true;
+            return;
+        }
+        ++textLength;
+    });
+
+    if (textLength == 0 || overflow) {
+        return {};
+    }
+
+    const auto textLengthPixels = static_cast<I64>(textLength);
+    return {
+        textLengthPixels * glyphWidth + (textLengthPixels - 1) * glyphGap,
+        glyphHeight,
+    };
 }
 
 std::uint32_t bgraWord(const std::uint8_t b, const std::uint8_t g, const std::uint8_t r) noexcept {
@@ -250,22 +383,7 @@ SurfacePainter::TextMetrics SurfacePainter::measureText(std::string_view text, i
         return {};
     }
 
-    const I64 normalizedScale = normalizePositive(scale);
-    const I64 glyphWidth = BitmapFont::GlyphWidth * normalizedScale;
-    const I64 glyphHeight = BitmapFont::GlyphHeight * normalizedScale;
-    const I64 glyphGap = BitmapFont::GlyphGap * normalizedScale;
-    const I64 glyphAdvance = glyphWidth + glyphGap;
-    if (const auto maxLength =
-            static_cast<std::size_t>(std::numeric_limits<I64>::max() / glyphAdvance);
-        text.size() > maxLength) {
-        return {};
-    }
-
-    const auto textLength = static_cast<I64>(text.size());
-    return {
-        textLength * glyphWidth + (textLength - 1) * glyphGap,
-        glyphHeight,
-    };
+    return measureTextGlyphs(text, normalizePositive(scale));
 }
 
 bool SurfacePainter::validate() noexcept {
@@ -706,12 +824,12 @@ void SurfacePainter::drawText(int x,
         return;
     }
 
-    const auto metrics = measureText(text, scale);
+    const I64 normalizedScale = normalizePositive(scale);
+    const auto metrics = measureTextGlyphs(text, normalizedScale);
     if (metrics.width <= 0 || metrics.height <= 0) {
         return;
     }
 
-    const I64 normalizedScale = normalizePositive(scale);
     const I64 glyphWidth = BitmapFont::GlyphWidth * normalizedScale;
     const I64 glyphGap = BitmapFont::GlyphGap * normalizedScale;
     const I64 textWidth = metrics.width;
@@ -745,7 +863,7 @@ void SurfacePainter::drawText(int x,
     const TargetColor glyphColor = makeTargetColor(fontColor);
 
     I64 penX = originX;
-    for (const char rawCharacter : text) {
+    forEachTextGlyph(text, [&](char rawCharacter) noexcept {
         const BitmapGlyph &glyph = BitmapFont::glyph(rawCharacter);
         for (int gy = 0; gy < BitmapFont::GlyphHeight; ++gy) {
             const auto row = glyph.rows[gy];
@@ -762,7 +880,7 @@ void SurfacePainter::drawText(int x,
             }
         }
         penX += glyphWidth + glyphGap;
-    }
+    });
 }
 
 } // namespace pek::raster

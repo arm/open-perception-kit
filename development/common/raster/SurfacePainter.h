@@ -86,7 +86,7 @@ class SurfacePainter {
 
     /**
      * @brief Measures bitmap-font text without touching a surface.
-     * @param text ASCII text to measure.
+     * @param text UTF-8 text to measure after ASCII bitmap-font simplification.
      * @param scale Integer glyph scale; values below 1 are treated as 1.
      * @return Bounding-box dimensions in pixels, or zeros when the request overflows.
      */
@@ -147,7 +147,7 @@ class SurfacePainter {
      * @brief Draws opaque bitmap-font text with an opaque background.
      * @param x Anchor X coordinate.
      * @param y Anchor Y coordinate.
-     * @param text ASCII text to draw.
+     * @param text UTF-8 text to draw after ASCII bitmap-font simplification.
      * @param fontColor Opaque glyph color.
      * @param backgroundColor Opaque background color for the text bounding box.
      * @param scale Integer glyph scale; values below 1 are treated as 1.

@@ -6,6 +6,7 @@
 #include "mediaio/PixelBufferVideoFrame.h"
 #include "pek/Tools.h"
 #include "raster/BitmapFont.h"
+#include "raster/SegmentationMask.h"
 #include "raster/SurfacePainter.h"
 
 #include <algorithm>
@@ -14,6 +15,7 @@
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <string_view>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -128,6 +130,53 @@ void expectPaddingUnchanged(const SurfaceStorage &surface) {
             }
         }
     }
+}
+
+std::uint8_t *planeRow(SurfaceStorage &surface, std::size_t planeIndex, std::uint32_t y) {
+    auto &plane = surface.storage[planeIndex];
+    return plane.bytes.data() + static_cast<std::size_t>(y) * plane.stride;
+}
+
+const std::uint8_t *
+planeRow(const SurfaceStorage &surface, std::size_t planeIndex, std::uint32_t y) {
+    const auto &plane = surface.storage[planeIndex];
+    return plane.bytes.data() + static_cast<std::size_t>(y) * plane.stride;
+}
+
+void fillActivePlane(SurfaceStorage &surface, std::size_t planeIndex, std::uint8_t value) {
+    auto &plane = surface.storage[planeIndex];
+    for (std::uint32_t y = 0; y < plane.height; ++y) {
+        auto *row = planeRow(surface, planeIndex, y);
+        std::fill(row, row + plane.rowBytes, value);
+    }
+}
+
+std::uint8_t
+blendForCoverage(std::uint8_t dst, std::uint8_t src, unsigned covered, unsigned total) {
+    const auto alpha = static_cast<unsigned>((covered * 255U + total / 2U) / total);
+    const auto invAlpha = 255U - alpha;
+    return static_cast<std::uint8_t>(
+        (static_cast<unsigned>(src) * alpha + static_cast<unsigned>(dst) * invAlpha + 127U) / 255U);
+}
+
+int changedBgraRowWidth(const SurfaceStorage &surface, std::uint32_t y) {
+    const auto *row = planeRow(surface, 0U, y);
+    int firstChanged = -1;
+    int lastChanged = -1;
+    for (std::uint32_t x = 0; x < surface.width; ++x) {
+        const auto pixel = static_cast<std::size_t>(x) * 4U;
+        if (row[pixel] == Sentinel && row[pixel + 1U] == Sentinel && row[pixel + 2U] == Sentinel &&
+            row[pixel + 3U] == Sentinel) {
+            continue;
+        }
+
+        if (firstChanged < 0) {
+            firstChanged = static_cast<int>(x);
+        }
+        lastChanged = static_cast<int>(x);
+    }
+
+    return firstChanged < 0 ? 0 : lastChanged - firstChanged + 1;
 }
 
 std::array<ImagePlaneDesc, 1> readonlyPlanes(const SurfaceStorage &surface) {
@@ -388,7 +437,7 @@ void waitForPersonClassificationBlinkOn() {
 
 TEST(BitmapFontTest, RequiredGlyphsAreAvailable) {
     constexpr char required[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ "
-                                "%!-+,.?:;()[]{}=<>/\\_#*@|";
+                                "%!\"'-+,.?:;()[]{}=<>/\\_#*@|";
 
     for (const char character : required) {
         if (character == '\0') {
@@ -432,6 +481,24 @@ TEST(SurfacePainterTest, MeasuresTextWithoutSurface) {
     const auto empty = SurfacePainter::measureText("", 3);
     EXPECT_EQ(empty.width, 0);
     EXPECT_EQ(empty.height, 0);
+}
+
+TEST(SurfacePainterTest, MeasuresUtf8TextAfterAsciiSimplification) {
+    const auto unsupportedCodepoint = SurfacePainter::measureText("\xC3\xA9");
+    EXPECT_EQ(unsupportedCodepoint.width, BitmapFont::GlyphWidth);
+    EXPECT_EQ(unsupportedCodepoint.height, BitmapFont::GlyphHeight);
+
+    const auto enDash = SurfacePainter::measureText("\xE2\x80\x93");
+    EXPECT_EQ(enDash.width, BitmapFont::GlyphWidth);
+
+    const auto ellipsis = SurfacePainter::measureText("\xE2\x80\xA6");
+    EXPECT_EQ(ellipsis.width, BitmapFont::GlyphWidth * 3 + BitmapFont::GlyphGap * 2);
+
+    const auto smartQuoted = SurfacePainter::measureText("\xE2\x80\x9Cok\xE2\x80\x9D");
+    EXPECT_EQ(smartQuoted.width, BitmapFont::GlyphWidth * 4 + BitmapFont::GlyphGap * 3);
+
+    const auto truncated = SurfacePainter::measureText(std::string_view("\xE2", 1));
+    EXPECT_EQ(truncated.width, BitmapFont::GlyphWidth);
 }
 
 TEST(SurfacePainterTest, FillsRectsAndDrawsPointsInAllSupportedFormats) {
@@ -508,6 +575,117 @@ TEST(RasterOsdTest, ReplacesBackgroundFromSegmentationMasksInAllSupportedFormats
         EXPECT_EQ(pek::osd::drawRasterOsd(request), pek::osd::RasterDrawStatus::Drawn)
             << static_cast<int>(format);
         EXPECT_TRUE(activeAreaChanged(surface)) << static_cast<int>(format);
+        expectPaddingUnchanged(surface);
+    }
+}
+
+TEST(SegmentationMaskTest, BackgroundReplacementBlendsSharedYuvChromaForMixedBlocks) {
+    constexpr std::uint8_t InitialY = 80U;
+    constexpr std::uint8_t InitialU = 33U;
+    constexpr std::uint8_t InitialV = 44U;
+    constexpr std::uint8_t ReplacementY = 16U;
+    constexpr std::uint8_t ReplacementU = 128U;
+    constexpr std::uint8_t ReplacementV = 128U;
+    constexpr auto QuarterBlock = 1U;
+    constexpr auto HalfPair = 1U;
+    constexpr std::array formats{
+        RawImagePixelFormat::I420,
+        RawImagePixelFormat::Nv12,
+        RawImagePixelFormat::Yuy2,
+    };
+
+    for (const auto format : formats) {
+        const auto height = format == RawImagePixelFormat::Yuy2 ? 1U : 2U;
+        auto surface = makeSurface(format, 4U, height);
+        fillActivePlane(surface, 0U, InitialY);
+        if (format == RawImagePixelFormat::I420) {
+            fillActivePlane(surface, 1U, InitialU);
+            fillActivePlane(surface, 2U, InitialV);
+        } else if (format == RawImagePixelFormat::Nv12) {
+            for (std::uint32_t y = 0; y < surface.storage[1].height; ++y) {
+                auto *row = planeRow(surface, 1U, y);
+                for (std::uint32_t x = 0; x < surface.storage[1].rowBytes; x += 2U) {
+                    row[x] = InitialU;
+                    row[x + 1U] = InitialV;
+                }
+            }
+        } else {
+            auto *row = planeRow(surface, 0U, 0U);
+            for (std::uint32_t x = 0; x < surface.storage[0].rowBytes; x += 4U) {
+                row[x] = InitialY;
+                row[x + 1U] = InitialU;
+                row[x + 2U] = InitialY;
+                row[x + 3U] = InitialV;
+            }
+        }
+
+        const std::vector<std::uint8_t> maskPixels =
+            format == RawImagePixelFormat::Yuy2 ? std::vector<std::uint8_t>{255U, 0U, 255U, 255U}
+                                                : std::vector<std::uint8_t>{
+                                                      255U,
+                                                      0U,
+                                                      255U,
+                                                      255U,
+                                                      0U,
+                                                      0U,
+                                                      255U,
+                                                      255U,
+                                                  };
+        const pek::raster::MaskView mask{
+            maskPixels.data(),
+            maskPixels.size(),
+            4U,
+            height,
+        };
+        const pek::raster::ImageSurfaceView surfaceView{
+            format,
+            surface.width,
+            surface.height,
+            planeSpan(surface),
+        };
+        pek::raster::BackgroundReplacementOptions options;
+        options.threshold = 150U;
+        options.fallbackColor = pek::colorFromRgbBytes(0U, 0U, 0U);
+
+        ASSERT_TRUE(pek::raster::replaceBackgroundFromMask(surfaceView, mask, options))
+            << static_cast<int>(format);
+
+        if (format == RawImagePixelFormat::Yuy2) {
+            const auto *row = planeRow(surface, 0U, 0U);
+            EXPECT_EQ(row[0], ReplacementY);
+            EXPECT_EQ(row[1], blendForCoverage(InitialU, ReplacementU, HalfPair, 2U));
+            EXPECT_EQ(row[2], InitialY);
+            EXPECT_EQ(row[3], blendForCoverage(InitialV, ReplacementV, HalfPair, 2U));
+            EXPECT_EQ(row[4], ReplacementY);
+            EXPECT_EQ(row[5], ReplacementU);
+            EXPECT_EQ(row[6], ReplacementY);
+            EXPECT_EQ(row[7], ReplacementV);
+        } else {
+            const auto *y0 = planeRow(surface, 0U, 0U);
+            const auto *y1 = planeRow(surface, 0U, 1U);
+            EXPECT_EQ(y0[0], ReplacementY) << static_cast<int>(format);
+            EXPECT_EQ(y0[1], InitialY) << static_cast<int>(format);
+            EXPECT_EQ(y0[2], ReplacementY) << static_cast<int>(format);
+            EXPECT_EQ(y0[3], ReplacementY) << static_cast<int>(format);
+            EXPECT_EQ(y1[0], InitialY) << static_cast<int>(format);
+            EXPECT_EQ(y1[1], InitialY) << static_cast<int>(format);
+            EXPECT_EQ(y1[2], ReplacementY) << static_cast<int>(format);
+            EXPECT_EQ(y1[3], ReplacementY) << static_cast<int>(format);
+            if (format == RawImagePixelFormat::I420) {
+                const auto *u = planeRow(surface, 1U, 0U);
+                const auto *v = planeRow(surface, 2U, 0U);
+                EXPECT_EQ(u[0], blendForCoverage(InitialU, ReplacementU, QuarterBlock, 4U));
+                EXPECT_EQ(v[0], blendForCoverage(InitialV, ReplacementV, QuarterBlock, 4U));
+                EXPECT_EQ(u[1], ReplacementU);
+                EXPECT_EQ(v[1], ReplacementV);
+            } else {
+                const auto *uv = planeRow(surface, 1U, 0U);
+                EXPECT_EQ(uv[0], blendForCoverage(InitialU, ReplacementU, QuarterBlock, 4U));
+                EXPECT_EQ(uv[1], blendForCoverage(InitialV, ReplacementV, QuarterBlock, 4U));
+                EXPECT_EQ(uv[2], ReplacementU);
+                EXPECT_EQ(uv[3], ReplacementV);
+            }
+        }
         expectPaddingUnchanged(surface);
     }
 }
@@ -701,6 +879,43 @@ TEST(RasterOsdTest, DrawsPerformanceOverlayInAllSupportedFormats) {
         EXPECT_TRUE(activeAreaChanged(surface)) << static_cast<int>(format);
         expectPaddingUnchanged(surface);
     }
+}
+
+TEST(RasterOsdTest, DrawsPerformanceOverlayAsRectangularBlock) {
+    perception::FrameResults frameResults;
+    perception::appendPerformanceOverlay(frameResults,
+                                         {
+                                             "A: 1",
+                                             "STD/GENIMGPRE/YOLO-OBJDET:   1.18ms",
+                                             "Pipeline:  26.0 FPS",
+                                         });
+    auto surface = makeSurface(RawImagePixelFormat::Bgra, 360, 80);
+
+    pek::osd::RasterDrawRequest request;
+    request.surface.format = surface.format;
+    request.surface.width = surface.width;
+    request.surface.height = surface.height;
+    request.surface.planes = planeSpan(surface);
+    request.frameResults = &frameResults;
+    request.options.performanceOverlayEnabled = true;
+
+    ASSERT_EQ(pek::osd::drawRasterOsd(request), pek::osd::RasterDrawStatus::Drawn);
+
+    std::vector<int> changedRowWidths;
+    for (std::uint32_t y = 0; y < surface.height; ++y) {
+        const int rowWidth = changedBgraRowWidth(surface, y);
+        if (rowWidth > 0) {
+            changedRowWidths.push_back(rowWidth);
+        }
+    }
+
+    ASSERT_FALSE(changedRowWidths.empty());
+    const int blockWidth = changedRowWidths.front();
+    EXPECT_GT(blockWidth, 200);
+    for (const int rowWidth : changedRowWidths) {
+        EXPECT_EQ(rowWidth, blockWidth);
+    }
+    expectPaddingUnchanged(surface);
 }
 
 TEST(RasterOsdTest, SkipsPerformanceOverlayWhenDisabled) {

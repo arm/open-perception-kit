@@ -11,12 +11,14 @@
 
 #include "pek/Color.h"
 #include "pek/Tools.h"
+#include "raster/BitmapFont.h"
 #include "raster/SegmentationMask.h"
 #include "raster/SurfacePainter.h"
 
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <format>
 #include <limits>
@@ -84,6 +86,12 @@ struct PixelBox {
     int y = 0;
     int width = 0;
     int height = 0;
+};
+
+struct PerformanceLineParts {
+    std::string_view label;
+    std::string_view value;
+    bool hasSeparator = false;
 };
 
 bool hasContentType(const perception::metadata::LayerInfoT *layer,
@@ -169,6 +177,77 @@ pek::raster::MaskView makeMaskView(const perception::metadata::BitmapDataT &bitm
 int textLineHeight(int scale) noexcept {
     const auto height = pek::raster::SurfacePainter::measureText("M", scale).height;
     return height > 0 ? static_cast<int>(height) : 1;
+}
+
+std::size_t textGlyphCount(std::string_view text) noexcept {
+    const auto metrics = pek::raster::SurfacePainter::measureText(text);
+    if (metrics.width <= 0) {
+        return 0;
+    }
+
+    constexpr auto glyphAdvance =
+        pek::raster::BitmapFont::GlyphWidth + pek::raster::BitmapFont::GlyphGap;
+    return static_cast<std::size_t>((metrics.width + pek::raster::BitmapFont::GlyphGap) /
+                                    glyphAdvance);
+}
+
+std::string_view trimTrailingSpaces(std::string_view text) noexcept {
+    while (!text.empty() && text.back() == ' ') {
+        text.remove_suffix(1);
+    }
+    return text;
+}
+
+PerformanceLineParts parsePerformanceLine(std::string_view line) noexcept {
+    const auto separator = line.find(':');
+    if (separator == std::string_view::npos) {
+        return {
+            .label = trimTrailingSpaces(line),
+        };
+    }
+
+    return {
+        .label = trimTrailingSpaces(line.substr(0, separator)),
+        .value = line.substr(separator + 1),
+        .hasSeparator = true,
+    };
+}
+
+std::vector<std::string> alignPerformanceLines(const std::vector<std::string> &lines) {
+    std::vector<PerformanceLineParts> parts;
+    parts.reserve(lines.size());
+
+    std::size_t maxLabelGlyphs = 0;
+    for (const auto &line : lines) {
+        auto parsed = parsePerformanceLine(line);
+        if (parsed.hasSeparator) {
+            maxLabelGlyphs = std::max(maxLabelGlyphs, textGlyphCount(parsed.label));
+        }
+        parts.push_back(parsed);
+    }
+
+    std::vector<std::string> aligned;
+    aligned.reserve(parts.size());
+
+    std::size_t maxLineGlyphs = 0;
+    for (const auto &part : parts) {
+        std::string line(part.label);
+        if (part.hasSeparator) {
+            const auto labelGlyphs = textGlyphCount(part.label);
+            line.append(maxLabelGlyphs - std::min(maxLabelGlyphs, labelGlyphs), ' ');
+            line.push_back(':');
+            line.append(part.value);
+        }
+
+        maxLineGlyphs = std::max(maxLineGlyphs, textGlyphCount(line));
+        aligned.push_back(std::move(line));
+    }
+
+    for (auto &line : aligned) {
+        const auto lineGlyphs = textGlyphCount(line);
+        line.append(maxLineGlyphs - std::min(maxLineGlyphs, lineGlyphs), ' ');
+    }
+    return aligned;
 }
 
 int classificationLineHeight(int scale) noexcept {
@@ -830,7 +909,8 @@ void drawPerformanceOverlay(pek::raster::SurfacePainter &painter,
         static_cast<int>(std::min<std::uint32_t>(surface.height, std::numeric_limits<int>::max()));
     frameResults.for_each<perception::metadata::PerformanceOverlayT>(
         [&painter, height, textScale, lineHeight, &lineY](const auto &payload) {
-            for (const auto &line : payload.lines) {
+            const auto lines = alignPerformanceLines(payload.lines);
+            for (const auto &line : lines) {
                 if (lineY >= height) {
                     return;
                 }

@@ -200,6 +200,31 @@ std::size_t scaledIndex(std::uint64_t accumulator, std::size_t source) noexcept 
     return scaled < maxIndex ? scaled : maxIndex;
 }
 
+std::uint8_t maskBlockCoverageAlpha(const MaskView &mask,
+                                    std::uint64_t xAccumulator,
+                                    std::uint64_t yAccumulator,
+                                    std::uint64_t xStep,
+                                    std::uint64_t yStep,
+                                    std::uint32_t width,
+                                    std::uint32_t height,
+                                    std::uint8_t threshold) noexcept {
+    unsigned covered = 0U;
+    for (std::uint32_t y = 0; y < height; ++y) {
+        const auto *maskRow =
+            mask.data +
+            scaledIndex(yAccumulator + static_cast<std::uint64_t>(y) * yStep, mask.height) *
+                mask.width;
+        for (std::uint32_t x = 0; x < width; ++x) {
+            if (maskRow[scaledIndex(xAccumulator + static_cast<std::uint64_t>(x) * xStep,
+                                    mask.width)] >= threshold) {
+                ++covered;
+            }
+        }
+    }
+    const auto total = static_cast<unsigned>(width) * static_cast<unsigned>(height);
+    return total == 0U ? 0U : static_cast<std::uint8_t>((covered * 255U + total / 2U) / total);
+}
+
 bool validateMask(const MaskView &mask) noexcept {
     if (mask.data == nullptr || mask.width == 0 || mask.height == 0 ||
         multiplyOverflows(mask.width, mask.height)) {
@@ -619,29 +644,34 @@ void replaceI420(const SurfaceLayout &layout,
 
     const auto chromaWidth = (static_cast<std::size_t>(layout.width) + 1U) / 2U;
     const auto chromaHeight = (static_cast<std::size_t>(layout.height) + 1U) / 2U;
-    const auto maskCxStep = scaleStep(mask.width, chromaWidth);
-    const auto maskCyStep = scaleStep(mask.height, chromaHeight);
     const auto bgCxStep = scaleStep(background.width, chromaWidth);
     const auto bgCyStep = scaleStep(background.height, chromaHeight);
-    std::uint64_t maskCyAccumulator = 0;
     std::uint64_t bgCyAccumulator = 0;
-    for (std::size_t cy = 0; cy < chromaHeight;
-         ++cy, maskCyAccumulator += maskCyStep, bgCyAccumulator += bgCyStep) {
-        const auto *maskRow = mask.data + scaledIndex(maskCyAccumulator, mask.height) * mask.width;
+    for (std::size_t cy = 0; cy < chromaHeight; ++cy, bgCyAccumulator += bgCyStep) {
         auto *uRow = layout.planes[1].mutableData + cy * layout.plane1Stride;
         auto *vRow = layout.planes[2].mutableData + cy * layout.plane2Stride;
-        std::uint64_t maskCxAccumulator = 0;
         std::uint64_t bgCxAccumulator = 0;
-        for (std::size_t cx = 0; cx < chromaWidth;
-             ++cx, maskCxAccumulator += maskCxStep, bgCxAccumulator += bgCxStep) {
-            if (maskRow[scaledIndex(maskCxAccumulator, mask.width)] < threshold) {
+        for (std::size_t cx = 0; cx < chromaWidth; ++cx, bgCxAccumulator += bgCxStep) {
+            const auto x = static_cast<std::uint32_t>(cx * 2U);
+            const auto y = static_cast<std::uint32_t>(cy * 2U);
+            const auto blockWidth = std::min<std::uint32_t>(2U, layout.width - x);
+            const auto blockHeight = std::min<std::uint32_t>(2U, layout.height - y);
+            const auto alpha = maskBlockCoverageAlpha(mask,
+                                                      static_cast<std::uint64_t>(x) * maskXStep,
+                                                      static_cast<std::uint64_t>(y) * maskYStep,
+                                                      maskXStep,
+                                                      maskYStep,
+                                                      blockWidth,
+                                                      blockHeight,
+                                                      threshold);
+            if (alpha == 0U) {
                 continue;
             }
 
             const auto color =
                 replacementColorAt(layout, fallback, background, bgCxAccumulator, bgCyAccumulator);
-            uRow[cx] = color.u;
-            vRow[cx] = color.v;
+            uRow[cx] = blendByte(uRow[cx], color.u, alpha);
+            vRow[cx] = blendByte(vRow[cx], color.v, alpha);
         }
     }
 }
@@ -677,29 +707,34 @@ void replaceNv12(const SurfaceLayout &layout,
 
     const auto chromaWidth = (static_cast<std::size_t>(layout.width) + 1U) / 2U;
     const auto chromaHeight = (static_cast<std::size_t>(layout.height) + 1U) / 2U;
-    const auto maskCxStep = scaleStep(mask.width, chromaWidth);
-    const auto maskCyStep = scaleStep(mask.height, chromaHeight);
     const auto bgCxStep = scaleStep(background.width, chromaWidth);
     const auto bgCyStep = scaleStep(background.height, chromaHeight);
-    std::uint64_t maskCyAccumulator = 0;
     std::uint64_t bgCyAccumulator = 0;
-    for (std::size_t cy = 0; cy < chromaHeight;
-         ++cy, maskCyAccumulator += maskCyStep, bgCyAccumulator += bgCyStep) {
-        const auto *maskRow = mask.data + scaledIndex(maskCyAccumulator, mask.height) * mask.width;
+    for (std::size_t cy = 0; cy < chromaHeight; ++cy, bgCyAccumulator += bgCyStep) {
         auto *uvRow = layout.planes[1].mutableData + cy * layout.plane1Stride;
-        std::uint64_t maskCxAccumulator = 0;
         std::uint64_t bgCxAccumulator = 0;
-        for (std::size_t cx = 0; cx < chromaWidth;
-             ++cx, maskCxAccumulator += maskCxStep, bgCxAccumulator += bgCxStep) {
-            if (maskRow[scaledIndex(maskCxAccumulator, mask.width)] < threshold) {
+        for (std::size_t cx = 0; cx < chromaWidth; ++cx, bgCxAccumulator += bgCxStep) {
+            const auto x = static_cast<std::uint32_t>(cx * 2U);
+            const auto y = static_cast<std::uint32_t>(cy * 2U);
+            const auto blockWidth = std::min<std::uint32_t>(2U, layout.width - x);
+            const auto blockHeight = std::min<std::uint32_t>(2U, layout.height - y);
+            const auto alpha = maskBlockCoverageAlpha(mask,
+                                                      static_cast<std::uint64_t>(x) * maskXStep,
+                                                      static_cast<std::uint64_t>(y) * maskYStep,
+                                                      maskXStep,
+                                                      maskYStep,
+                                                      blockWidth,
+                                                      blockHeight,
+                                                      threshold);
+            if (alpha == 0U) {
                 continue;
             }
 
             const auto color =
                 replacementColorAt(layout, fallback, background, bgCxAccumulator, bgCyAccumulator);
             auto *uv = uvRow + cx * 2U;
-            uv[0] = color.u;
-            uv[1] = color.v;
+            uv[0] = blendByte(uv[0], color.u, alpha);
+            uv[1] = blendByte(uv[1], color.v, alpha);
         }
     }
 }
@@ -714,7 +749,6 @@ void replaceYuy2(const SurfaceLayout &layout,
     const auto bgXStep = scaleStep(background.width, layout.width);
     const auto bgYStep = scaleStep(background.height, layout.height);
     const auto pairWidth = (static_cast<std::size_t>(layout.width) + 1U) / 2U;
-    const auto maskPairXStep = scaleStep(mask.width, pairWidth);
     const auto bgPairXStep = scaleStep(background.width, pairWidth);
 
     std::uint64_t maskYAccumulator = 0;
@@ -738,20 +772,28 @@ void replaceYuy2(const SurfaceLayout &layout,
                 replacementColorAt(layout, fallback, background, bgXAccumulator, bgYAccumulator).y;
         }
 
-        std::uint64_t maskPairXAccumulator = 0;
         std::uint64_t bgPairXAccumulator = 0;
-        for (std::size_t pairIndex = 0; pairIndex < pairWidth; ++pairIndex,
-                         maskPairXAccumulator += maskPairXStep,
-                         bgPairXAccumulator += bgPairXStep) {
-            if (maskRow[scaledIndex(maskPairXAccumulator, mask.width)] < threshold) {
+        for (std::size_t pairIndex = 0; pairIndex < pairWidth;
+             ++pairIndex, bgPairXAccumulator += bgPairXStep) {
+            const auto x = static_cast<std::uint32_t>(pairIndex * 2U);
+            const auto blockWidth = std::min<std::uint32_t>(2U, layout.width - x);
+            const auto alpha = maskBlockCoverageAlpha(mask,
+                                                      static_cast<std::uint64_t>(x) * maskXStep,
+                                                      maskYAccumulator,
+                                                      maskXStep,
+                                                      maskYStep,
+                                                      blockWidth,
+                                                      1U,
+                                                      threshold);
+            if (alpha == 0U) {
                 continue;
             }
 
             const auto color = replacementColorAt(
                 layout, fallback, background, bgPairXAccumulator, bgYAccumulator);
             auto *pair = row + pairIndex * 4U;
-            pair[1] = color.u;
-            pair[3] = color.v;
+            pair[1] = blendByte(pair[1], color.u, alpha);
+            pair[3] = blendByte(pair[3], color.v, alpha);
         }
     }
 }

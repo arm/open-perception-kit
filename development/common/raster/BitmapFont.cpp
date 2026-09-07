@@ -115,6 +115,8 @@ constexpr BitmapGlyph LetterZ =
 constexpr BitmapGlyph Percent =
     makeGlyph(0b11001, 0b11010, 0b00010, 0b00100, 0b01000, 0b01011, 0b10011);
 constexpr BitmapGlyph Exclaim = makeGlyph(0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0, 0b00100);
+constexpr BitmapGlyph Apostrophe = makeGlyph(0b00100, 0b00100, 0b01000, 0, 0, 0, 0);
+constexpr BitmapGlyph Quote = makeGlyph(0b01010, 0b01010, 0b01010, 0, 0, 0, 0);
 constexpr BitmapGlyph Minus = makeGlyph(0, 0, 0, 0b11111, 0, 0, 0);
 constexpr BitmapGlyph Plus = makeGlyph(0, 0b00100, 0b00100, 0b11111, 0b00100, 0b00100, 0);
 constexpr BitmapGlyph Comma = makeGlyph(0, 0, 0, 0, 0, 0b00100, 0b01000);
@@ -222,6 +224,8 @@ bool BitmapFont::hasGlyph(char character) noexcept {
     case ' ':
     case '%':
     case '!':
+    case '\'':
+    case '"':
     case '-':
     case '+':
     case ',':
@@ -291,6 +295,10 @@ const BitmapGlyph &BitmapFont::glyph(char character) noexcept {
         return Percent;
     case '!':
         return Exclaim;
+    case '\'':
+        return Apostrophe;
+    case '"':
+        return Quote;
     case '-':
         return Minus;
     case '+':
