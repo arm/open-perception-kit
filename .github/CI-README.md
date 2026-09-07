@@ -14,8 +14,8 @@ owns their GitHub Actions orchestration:
   Pi at the validated PR head
 - `expkits-ci --ci-pr-checks` and `expkits-ci --ci-full-checks` remain the
   repository-owned quality entrypoints
-- the required Sonar check keeps the `Run Sonar analysis in Docker` name;
-  release Sonar belongs to `release-packages.yml`
+- release pull requests skip the general PEK CI lanes; their package smokes and
+  disposable publication probes run in the dedicated release workflows
 
 Python dependency, Docker Scout, Black Duck, and workflow dependency checks
 remain reusable workflows. `.github/workflows/valgrind.yml` is the trusted
@@ -34,12 +34,11 @@ pull-request code.
 | Arm64 development BuildKit cache | GHCR `buildcache`; used by macOS, Raspberry Pi, and YOLO after an exact-image miss or when platform build arguments differ |
 | YOLO compiler cache | Existing benchmark Docker volume shared by video and image-set setup |
 | Native deployment BuildKit caches | GHCR architecture-specific `buildcache-*` tags |
-| Release Sonar BuildKit cache | GHCR `buildcache-release-sonar-amd64` |
-| Sonar CFamily server cache | Updated by `main` and `develop` analysis |
+| Sonar CFamily server cache | Updated by `develop` analysis |
 | Valgrind baseline | Artifactory, managed by the trusted baseline publisher |
 
-The `develop` branch is the only writer of the PEK CI BuildKit cache; `main`,
-pull requests, tags, and manual runs only read it.
+The `develop` branch is the only writer of the PEK CI BuildKit cache; ordinary
+pull requests and manual runs only read it.
 
 - Pull requests write only their lane-specific Quality, Sonar, Valgrind, Black
   Duck, and Raspberry Pi compiler caches under the PR merge ref; reruns of the
@@ -93,9 +92,7 @@ archive, discovers its installed plugins, executes YOLov11 with ONNX Runtime and
 YOLOX with ExecuTorch, requires non-empty output from `pekcomm`, and starts the
 packaged `peksink` web surface. No separate smoke image or Dockerfile is built.
 Push and manual publication jobs cannot start unless both native image builds
-pass.
-Each native archive must also pass its Black Duck policy scan before GitHub
-Release, GHCR index, or Artifactory publication can start.
+and their embedded integration smokes pass.
 The native jobs push the existing `pek-deployment-base` outputs by digest and a
 small merge job publishes those exact amd64 and arm64 digests as
 `ghcr.io/arm-debug/amp-dev-forge-deployment:<tag>` without rebuilding. Stable
@@ -106,10 +103,8 @@ job to succeed. An existing `v<version>` therefore prevents publication to both
 release destinations. Manual snapshots do not create or depend on a GitHub
 Release.
 
-Release Sonar and the staging documentation deployment are independent jobs on
-pushes to `main`. Their failures make the workflow red without blocking the
-GitHub Release or Artifactory publication jobs. Release Sonar keeps its
-`pek-ci` BuildKit graph in the dedicated GHCR registry cache above.
+The staging documentation deployment remains an independent job on pushes to
+`main`; package publication does not depend on it.
 
 Automatic `main` publication writes to `releases/<version>/`; manual
 publication writes to

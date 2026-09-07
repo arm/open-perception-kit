@@ -82,11 +82,8 @@ Release validation and publication use three workflows:
 | Manual release validation | Resolves `source_ref`, builds temporary x86_64 and Arm snapshot images, runs their native offline integration smokes, and emits the validated archives plus embedded Perception wheel | Uploads the archives and wheel to disposable Artifactory and the archives to a draft GitHub Release, verifies them, and deletes them | Not run |
 | Manual package publication | Not run | Not run | Resolves `source_ref`, builds all three archives, smoke-tests both architecture images, publishes their multi-architecture GHCR snapshot, and publishes the archives, Perception wheel, and Perception crate only to an immutable generic Artifactory snapshot folder |
 
-On a push to `main`, release Sonar analysis and the staging docs deployment run
-as independent release-package jobs. Their failures make the release workflow
-red, but the GitHub Release and Artifactory publication jobs do not depend on
-them and continue. The release Sonar image reuses and updates a dedicated
-BuildKit registry cache in GHCR.
+On a push to `main`, the staging docs deployment runs as an independent
+release-package job. Package publication does not depend on it.
 
 Credentialed publication probes run only after an unprivileged pull-request or
 manual validation workflow succeeds. The trusted `workflow_run` workflow does

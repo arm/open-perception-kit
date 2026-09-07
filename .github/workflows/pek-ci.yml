@@ -57,8 +57,7 @@ on:
   schedule:
     - cron: "0 2 * * *" # Every day at 2 AM UTC'
   push:
-    branches: [main, develop]
-    tags: ["v*"]
+    branches: [develop]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.inputs.pr_number || format('{0}-{1}-{2}-{3}-{4}', github.event_name, github.ref, github.event.inputs.checks || 'all', github.event.inputs.target_branch_name || 'current', github.event.inputs.target_branch_head_sha || 'current') }}-${{ github.event.inputs.pr_label || (github.event.action == 'labeled' && (!contains(github.event.label.name, 'run-pek-ci') || contains(github.event.pull_request.labels.*.name, 'run-macos-ci')) && github.run_id || 'validation') }}
@@ -119,6 +118,11 @@ jobs:
     runs-on: ubuntu-latest
     if: |
       always() &&
+      !(
+        github.event_name == 'pull_request' &&
+        github.event.pull_request.base.ref == 'main' &&
+        startsWith(github.event.pull_request.head.ref, 'release/')
+      ) &&
       (
         github.event_name != 'workflow_dispatch' ||
         inputs.pr_label == '' ||
@@ -749,6 +753,11 @@ jobs:
     # Same-repository non-draft PRs run automatically.
     if: |
       always() &&
+      !(
+        github.event_name == 'pull_request' &&
+        github.event.pull_request.base.ref == 'main' &&
+        startsWith(github.event.pull_request.head.ref, 'release/')
+      ) &&
       (
         github.event_name != 'workflow_dispatch' ||
         inputs.pr_label == '' ||
