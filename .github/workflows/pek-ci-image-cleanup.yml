@@ -97,7 +97,10 @@ jobs:
       contents: read
       pull-requests: read
     concurrency:
-      group: compiler-cache-${{ github.event.workflow_run.pull_requests[0].number || 'develop' }}
+      group: >-
+        ${{ github.event.workflow_run.pull_requests[0].number &&
+            format('pr-cache-{0}', github.event.workflow_run.pull_requests[0].number) ||
+            'develop-cache' }}
       cancel-in-progress: false
     steps:
       - name: Delete superseded compiler caches
