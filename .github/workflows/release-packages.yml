@@ -697,9 +697,16 @@ jobs:
             test "$("${curl_direct[@]}" --silent --show-error --output /dev/null \
               --write-out '%{http_code}' "$unpublished_url")" = 404
           done
-          "${curl_direct[@]}" --fail --silent --show-error "$index_url" | \
-            jq --exit-status --slurp --arg version "$VERSION" \
-              'all(.[]; .vers != $version)' > /dev/null
+          index="$RUNNER_TEMP/perception-cargo-index"
+          index_status="$("${curl_direct[@]}" --silent --show-error \
+            --output "$index" --write-out '%{http_code}' "$index_url")"
+          case "$index_status" in
+            200)
+              jq --exit-status --slurp --arg version "$VERSION" \
+                'all(.[]; .vers != $version)' "$index" > /dev/null ;;
+            404) ;;
+            *) echo "Unexpected Cargo index response: $index_status" >&2; exit 1 ;;
+          esac
 
   github-release:
     name: Publish one GitHub release
@@ -975,6 +982,8 @@ jobs:
           EOF
           anonymous_token="$(printf 'anonymous:' | base64 -w0)"
           export CARGO_REGISTRIES_ARTIFACTORY_TOKEN="Basic $anonymous_token"
+          (cd "$publish_source" && cargo package --locked --no-verify --allow-dirty)
+          cmp "$crate" "$publish_source/target/package/perception-$VERSION.crate"
           (cd "$publish_source" && cargo publish --locked --no-verify --registry artifactory)
 
           published="$RUNNER_TEMP/perception-$VERSION.published.crate"
