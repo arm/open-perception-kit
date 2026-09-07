@@ -230,7 +230,8 @@ jobs:
           printf '\n[registries.crates-io]\nindex = "sparse+https://index.crates.io/"\n' \
             >> "$rust/.cargo/config.toml"
           (cd "$rust" && cargo package --offline --locked)
-          publish_source="dist/perception-sdk-input/perception-cargo-source-$VERSION"
+          publish_source="$RUNNER_TEMP/perception-cargo-source-$VERSION"
+          rm -rf -- "$publish_source"
           python3 - "$rust" "$publish_source" <<'PY'
           import shutil
           import sys
@@ -256,6 +257,7 @@ jobs:
           cp "$publish_source/target/package/perception-$VERSION.crate" \
             dist/perception-sdk-input/
           rm -rf -- "$publish_source/target"
+          mv "$publish_source" dist/perception-sdk-input/
           cp "$export_root/python/opk_perception_sdk-$VERSION-py3-none-any.whl" \
             dist/perception-sdk-input/
 
