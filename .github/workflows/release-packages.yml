@@ -205,74 +205,12 @@ jobs:
         working-directory: ${{ env.SOURCE_DIR }}
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
-        run: |
-          set -euo pipefail
-          sdk="$PWD/dist/perception-sdk-input/perception-sdk-$VERSION.zip"
-          export_dir="$RUNNER_TEMP/perception-sdk-export"
-          export_root="$export_dir/perception-sdk-$VERSION"
-          rm -rf -- "$export_dir"
-          mkdir -p "$export_dir"
-          python3 -m zipfile -e "$sdk" "$export_dir"
-          rust="$export_root/rust"
-          # Alternate-registry dependencies default to that registry unless named explicitly.
-          python3 - "$rust/Cargo.toml" "$rust/.cargo/config.toml" <<'PY'
-          import re
-          import sys
-          from pathlib import Path
-
-          manifest_path = Path(sys.argv[1])
-          manifest = manifest_path.read_text(encoding="utf-8")
-          manifest, replacements = re.subn(
-              r'(?m)^flatbuffers = "(=[^"]+)"$',
-              r'flatbuffers = { version = "\1", registry = "crates-io" }',
-              manifest,
-          )
-          if replacements != 1:
-              raise SystemExit("expected one pinned FlatBuffers dependency")
-          manifest_path.write_text(manifest, encoding="utf-8")
-
-          config_path = Path(sys.argv[2])
-          config = config_path.read_text(encoding="utf-8")
-          if "[registries.crates-io]" in config:
-              raise SystemExit("crates.io registry alias already exists")
-          config_path.write_text(
-              config
-              + '\n[registries.crates-io]\n'
-              + 'index = "sparse+https://index.crates.io/"\n',
-              encoding="utf-8",
-          )
-          PY
-          # Dependency archives seed vendor/ but are not part of the published crate.
-          rm -rf -- "$rust/crates"
-          (
-            cd "$rust"
-            cargo package --offline --locked
-          )
-          crate="$rust/target/package/perception-$VERSION.crate"
-          python3 - "$crate" "$VERSION" <<'PY'
-          import sys
-          import tarfile
-          from pathlib import PurePosixPath
-
-          crate, version = sys.argv[1:]
-          root = f"perception-{version}"
-          with tarfile.open(crate, "r:gz") as archive:
-              members = archive.getmembers()
-              forbidden = {".cargo", "crates", "vendor"}
-              for member in members:
-                  relative = PurePosixPath(member.name).relative_to(root)
-                  if relative.parts and relative.parts[0] in forbidden:
-                      raise SystemExit(f"published crate contains {relative.parts[0]}")
-              manifest = archive.extractfile(f"{root}/Cargo.toml")
-              if manifest is None:
-                  raise SystemExit("published crate has no Cargo.toml")
-              cargo_toml = manifest.read().decode("utf-8")
-          if 'registry-index = "sparse+https://index.crates.io/"' not in cargo_toml:
-              raise SystemExit("published FlatBuffers dependency is not pinned to crates.io")
-          PY
-          cp "$export_root/python/opk_perception_sdk-$VERSION-py3-none-any.whl" \
-            dist/perception-sdk-input/
-          cp "$crate" dist/perception-sdk-input/
+        run: >-
+          python3 scripts/release/PackagePerceptionCargo.py
+          --sdk "dist/perception-sdk-input/perception-sdk-$VERSION.zip"
+          --version "$VERSION"
+          --output-dir dist/perception-sdk-input
+          --workspace "$RUNNER_TEMP"
 
       - name: Upload Perception SDK input
         if: matrix.architecture == 'aarch64'
