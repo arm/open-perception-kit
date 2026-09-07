@@ -96,7 +96,8 @@ and absolute paths retain their components so the filesystem resolves symlinks
 and parent traversal in the normal order. Relative paths are preferred so model
 folders remain portable. The standard
 container images try to download published PEK model artifacts from pinned
-Hugging Face revisions into those paths. When `HF_TOKEN` is unset, accessible
+Hugging Face revisions into those paths. An optional `hfDownload.sha256` digest
+is verified before the artifact is atomically installed. When `HF_TOKEN` is unset, accessible
 public artifacts download anonymously. Each failed download is logged and
 skipped, so the container build can succeed with an incomplete model set.
 Runtime containers do not download models and need no Hugging Face network

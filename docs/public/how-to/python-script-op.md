@@ -60,7 +60,10 @@ identity even if the operation order changes.
 
 Place the operation after inference to receive output tensors. It may also be
 used elsewhere in the chain, in which case `tensors` is empty when no inference
-outputs are available.
+outputs are available. A PythonScript operation may be the terminal
+postprocessor for an inference stage when it appends all required FrameResults
+itself. It may instead appear before `pek-std-ops/GenericPostprocess` when Python
+and native postprocessing both need the same inference outputs.
 
 ## Implement the script
 

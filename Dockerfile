@@ -343,7 +343,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-  bash-completion bat clangd dnsutils eza fd-find firefox-esr fonts-powerline \
+  bash-completion bat clangd dnsutils eza fd-find ffmpeg firefox-esr fonts-powerline \
   gdb iproute2 iputils-arping iputils-ping less locales lua5.1 \
   luarocks mc nano neovim net-tools nmap openssh-client powerline ripgrep \
   tcpdump tmux traceroute tree-sitter-cli v4l-utils vim wl-clipboard \

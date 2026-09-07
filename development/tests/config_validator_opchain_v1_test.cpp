@@ -243,6 +243,14 @@ TEST(ConfigValidator, OpChainV1ValidatesBuiltInStageStructure) {
     auto descriptor = builtInStage();
     EXPECT_TRUE(pek::config::validateOpChainSemantics(descriptor).ok());
 
+    descriptor.ops.back().id = "pek-python-ops/PythonScript";
+    EXPECT_TRUE(pek::config::validateOpChainSemantics(descriptor).ok());
+
+    descriptor = builtInStage();
+    descriptor.ops.insert(descriptor.ops.end() - 1,
+                          {"pek-python-ops/PythonScript", std::nullopt, {}});
+    EXPECT_TRUE(pek::config::validateOpChainSemantics(descriptor).ok());
+
     descriptor.ops.insert(descriptor.ops.end() - 1, {"custom/Between", std::nullopt, {}});
     EXPECT_TRUE(pek::config::validateOpChainSemantics(descriptor).ok());
 
@@ -258,6 +266,13 @@ TEST(ConfigValidator, OpChainV1ValidatesBuiltInStageStructure) {
 
     descriptor = builtInStage();
     descriptor.ops.back().id = "custom/WrongPostprocess";
+    EXPECT_TRUE(
+        hasRule(pek::config::validateOpChainSemantics(descriptor), "opchain.v1.builtin-stage"));
+
+    descriptor = builtInStage();
+    descriptor.ops.back().id = "pek-python-ops/PythonScript";
+    descriptor.ops.insert(descriptor.ops.end() - 1,
+                          {"pek-std-ops/GenericPostprocess", std::nullopt, {}});
     EXPECT_TRUE(
         hasRule(pek::config::validateOpChainSemantics(descriptor), "opchain.v1.builtin-stage"));
 
