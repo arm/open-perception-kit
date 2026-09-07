@@ -114,9 +114,11 @@ Choose one handoff mode:
   release-only manifest must record FlatBuffers as a crates.io dependency. The
   publication job must reject an existing version before generic Artifactory
   publication, raw-PUT the exact crate to `edge-ai-tooling.cargo`, then verify
-  the downloaded bytes and bounded sparse-index visibility. The publishing
-  credential must not have JFrog Delete/Overwrite permission, and the repository
-  must reject overwrites.
+  the downloaded bytes and bounded sparse-index visibility. The current internal
+  repository accepts this path without Actions credentials and does not provide
+  atomic overwrite protection. A red release requires release-owner cleanup
+  before retry. Public distribution must use authenticated, server-enforced
+  immutable publication instead.
   Generic Artifactory keeps the three PEK archives. Manual snapshots instead
   place the wheel and crate beside those archives in their immutable generic
   Artifactory folder.

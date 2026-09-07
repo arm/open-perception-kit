@@ -35,11 +35,21 @@ Report the predecessor, proposed version, classification, and short rationale be
 
 ## Prepare and validate
 
-1. Update the authoritative version in `development/meson.build` and only the active version surfaces discovered from the repository. Do not rewrite historical examples or release records.
-2. Add a non-empty `CHANGELOG.md` section in the existing format. Describe product changes, not release mechanics or ignored utility releases.
-3. Reuse `scripts/release/ReleaseTool.py` and the commands exercised by the current workflows. Do not duplicate release validation in the skill.
-4. Run the smallest relevant local checks, then rely on the release PR workflows for architecture packaging and smoke coverage that is unavailable locally.
-5. Follow the current contribution rules for branch names, commits, PR titles, descriptions, and labels.
+1. Update exactly three authored active-version surfaces:
+   - `development/meson.build`: authoritative product version.
+   - `CHANGELOG.md`: one non-empty section for the same version.
+   - `tools/plumber/pyproject.toml`: the exact `opk-perception-sdk==<version>` dependency.
+   Do not rewrite historical examples or release records.
+2. Regenerate both derived version surfaces, in this order:
+   - `./scripts/perception-sdk.sh generate`
+   - `./scripts/peksink-web.sh generate`
+3. Refresh the complete `.secrets.baseline` after SDK regeneration because the generated manifest hashes change. Do not run a path-scoped baseline update: it drops entries for every file outside that path.
+4. Verify the propagation with `./scripts/perception-sdk.sh check`, `./scripts/peksink-web.sh check`, and `./scripts/pre-commit/run.sh` before starting release CI.
+5. Reuse `scripts/release/ReleaseTool.py` and the commands exercised by the current workflows. Do not duplicate release validation in the skill.
+6. Rely on the release PR workflows for architecture packaging and smoke coverage that is unavailable locally.
+7. Follow the current contribution rules for branch names, commits, PR titles, descriptions, and labels.
+
+Failure pattern: changing only `development/meson.build` produces a stale Perception SDK identity; regenerating the SDK without updating plumber makes the Docker dependency solve unsatisfiable. This sequence was verified by clean Perception SDK and WebUI checks plus a successful local uv dependency solve. The ruled-out shortcut is a manual single-file version bump.
 
 ## Handle PRs, CI, and follow-ups
 

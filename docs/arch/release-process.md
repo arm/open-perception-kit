@@ -56,9 +56,11 @@ wheel unchanged to `edge-ai-tooling.pypi` and raw-PUT the crate unchanged to
 `edge-ai-tooling.cargo`, while generic Artifactory keeps the three PEK archives.
 The Cargo version preflight runs before generic Artifactory publication. The
 conditional create-only upload is followed by a byte-for-byte download and a
-bounded sparse-index visibility check. Repository-side overwrite suppression
-remains required, and the publishing credential must not have JFrog
-Delete/Overwrite permission.
+bounded sparse-index visibility check. The current internal Cargo repository
+accepts this path without Actions credentials and does not enforce the
+conditional no-overwrite header. A red release must be restored to its
+pre-release state by the release owner before retrying. Public distribution
+must use authenticated, server-enforced immutable publication instead.
 Manual snapshots instead place the wheel and crate beside those archives in
 their immutable generic Artifactory snapshot folder. GitHub Release assets
 remain the three archives.
@@ -138,7 +140,8 @@ dispatch a new workflow before it has been registered on the default branch.
 Cross-system publication is deliberately not resumed automatically. If the GHCR
 image or GitHub Release succeeds and a later generic Artifactory, Cargo, or PyPI
 publication fails, repair or remove the partial publications before rerunning.
-Existing-version checks and repository overwrite protection reject replacement.
+The Cargo preflight rejects a version that is already visible, but the current
+internal repository does not provide atomic overwrite protection.
 
 ## Package validation
 
