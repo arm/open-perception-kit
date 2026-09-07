@@ -159,7 +159,7 @@ template <class Traits> class Meta {
     }
 
     static gboolean transform(GstBuffer *dest, GstMeta *meta, GstBuffer *, GQuark, gpointer) {
-        auto *src = reinterpret_cast<MetaType *>(meta);
+        auto src = reinterpret_cast<MetaType *>(meta);
         if (!src)
             return FALSE;
 
