@@ -418,7 +418,13 @@ jobs:
 
   release-image:
     name: Publish multi-architecture snapshot image
-    needs: [prepare, build, blackduck-release-packages]
+    needs: [prepare, build, blackduck-release-packages, perception-cargo-preflight]
+    if: >-
+      always() &&
+      needs.prepare.result == 'success' &&
+      needs.build.result == 'success' &&
+      needs.blackduck-release-packages.result == 'success' &&
+      (github.event_name != 'push' || needs.perception-cargo-preflight.result == 'success')
     runs-on: ubuntu-24.04
     permissions:
       contents: read
