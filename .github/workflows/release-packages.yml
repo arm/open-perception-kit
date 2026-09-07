@@ -205,12 +205,22 @@ jobs:
         working-directory: ${{ env.SOURCE_DIR }}
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
-        run: >-
-          python3 scripts/release/PackagePerceptionCargo.py
-          --sdk "dist/perception-sdk-input/perception-sdk-$VERSION.zip"
-          --version "$VERSION"
-          --output-dir dist/perception-sdk-input
-          --workspace "$RUNNER_TEMP"
+        run: |
+          set -euo pipefail
+          sdk="dist/perception-sdk-input/perception-sdk-$VERSION.zip"
+          export_root="$RUNNER_TEMP/perception-sdk-$VERSION"
+          rm -rf -- "$export_root"
+          python3 -m zipfile -e "$sdk" "$RUNNER_TEMP"
+          rust="$export_root/rust"
+          python3 scripts/release/ConfigurePerceptionCargo.py \
+            --manifest "$rust/Cargo.toml" \
+            --cargo-config "$rust/.cargo/config.toml"
+          rm -rf -- "$rust/crates"
+          (cd "$rust" && cargo package --offline --locked)
+          cp "$rust/target/package/perception-$VERSION.crate" \
+            dist/perception-sdk-input/
+          cp "$export_root/python/opk_perception_sdk-$VERSION-py3-none-any.whl" \
+            dist/perception-sdk-input/
 
       - name: Upload Perception SDK input
         if: matrix.architecture == 'aarch64'
