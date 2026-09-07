@@ -5,8 +5,9 @@ Kit without adding model-specific C++ code or generating a new SDK type.
 
 It uses the Apache-2.0 BlazeFace model from
 `fernandotonon/QtMeshEditor-blazeface-onnx`, pinned to revision
-`50f2c66ffbdf84beae8c267df2b49e5c5a5162e9`. The runner downloads the model;
-the BYOM integration begins with describing how PEK must call it.
+`50f2c66ffbdf84beae8c267df2b49e5c5a5162e9`. The model descriptor declares
+that source, and the repository model downloader installs and verifies it. The
+BYOM integration begins with describing how PEK must call the local artifact.
 
 ```text
 model.json

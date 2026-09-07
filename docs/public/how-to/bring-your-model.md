@@ -73,7 +73,9 @@ Path components are not lexically rewritten, so filesystem symlink and `..`
 resolution keeps its normal meaning. Prefer a relative path so the model folder
 remains portable. URI values are not supported. For a published,
 single-file model, add an `hfDownload` object containing the Hugging Face API's
-`repo_id`, full commit `revision`, and `filename` arguments. The container build
+`repo_id`, full commit `revision`, and `filename` arguments. Add `sha256` when
+the artifact digest is known so the downloader verifies it before atomically
+installing the model. The container build
 tries to download that one artifact; the runtime does not interpret remote
 locators or hold Hub credentials. Download failures are logged and skipped, so
 verify that every model required by the selected pipeline is present in the

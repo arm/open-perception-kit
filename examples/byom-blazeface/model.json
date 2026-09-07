@@ -2,6 +2,12 @@
   "version": 1,
   "name": "byom-blazeface",
   "modelFile": "face_detector.onnx",
+  "hfDownload": {
+    "repo_id": "fernandotonon/QtMeshEditor-blazeface-onnx",
+    "revision": "50f2c66ffbdf84beae8c267df2b49e5c5a5162e9",
+    "filename": "face_detector.onnx",
+    "sha256": "02a04d5d37c3558dc4d5274f7f8f0f0f01ac94e46c5ffb2cee82395d47e23181"
+  },
   "dynamicOutput": false,
   "inputTensors": [
     {

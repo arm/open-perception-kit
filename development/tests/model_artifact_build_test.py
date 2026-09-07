@@ -435,6 +435,22 @@ class ModelArtifactBuildTest(unittest.TestCase):
             ]
             self.assertEqual(rules, expected)
 
+    def test_byom_generated_artifacts_are_excluded_from_docker_context(self) -> None:
+        dockerignore = (REPO_ROOT / ".dockerignore").read_text().splitlines()
+        self.assertEqual(
+            [
+                line
+                for line in dockerignore
+                if line.startswith("examples/byom-blazeface/")
+            ],
+            [
+                "examples/byom-blazeface/face_detector.onnx",
+                "examples/byom-blazeface/face_detector.onnx.part",
+                "examples/byom-blazeface/blazeface-detections.mp4",
+                "examples/byom-blazeface/.blazeface-detections.part.mp4",
+            ],
+        )
+
     def test_retired_model_artifacts_are_absent(self) -> None:
         model_root = REPO_ROOT / MODELS_DIR
         retired = sorted(
@@ -475,6 +491,13 @@ class ModelArtifactBuildTest(unittest.TestCase):
                                 "repo_id": "test/repo",
                                 "revision": "0123456789abcdef0123456789abcdef01234567",
                                 "filename": hub_file,
+                                **(
+                                    {
+                                        "sha256": "9372c470eeadd5ecd9c3c74c2b3cb633f8e2f2fad799250a0f70d652b6b825e4"
+                                    }
+                                    if name == "second"
+                                    else {}
+                                ),
                             },
                             "dynamicOutput": True,
                             "inputTensors": [
@@ -580,11 +603,32 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
                 "config/models/second/renamed.bin uses .bin; saving as configured.",
                 result.stderr,
             )
+            self.assertFalse(
+                (root / "config/models/second/renamed.bin.part").exists()
+            )
             anonymous_capture = (root / "captured-token").read_text().splitlines()
             self.assertEqual(
                 anonymous_capture,
                 ["False", str(root / "hub-cache/hub/anonymous")],
             )
+
+            verified_descriptor = root / "config/models/second/model.json"
+            mismatched_model = json.loads(verified_descriptor.read_text())
+            mismatched_model["hfDownload"]["sha256"] = "0" * 64
+            verified_descriptor.write_text(json.dumps(mismatched_model))
+            installed_model = root / "config/models/second/renamed.bin"
+            installed_model.write_text("existing")
+
+            mismatch_result = run_download()
+            self.assertEqual(mismatch_result.returncode, 0, mismatch_result.stderr)
+            self.assertFalse(installed_model.exists())
+            self.assertFalse(installed_model.with_name("renamed.bin.part").exists())
+            self.assertIn("SHA-256 mismatch", mismatch_result.stderr)
+
+            mismatched_model["hfDownload"]["sha256"] = (
+                "9372c470eeadd5ecd9c3c74c2b3cb633f8e2f2fad799250a0f70d652b6b825e4"
+            )
+            verified_descriptor.write_text(json.dumps(mismatched_model))
 
             environment["HF_TOKEN"] = "test-token"
             run_download(check=True)

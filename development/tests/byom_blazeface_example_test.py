@@ -9,6 +9,7 @@ from perception.packet import Envelope as PacketEnvelope
 from perception import ProducerIdentityStatus
 
 import base64
+import hashlib
 import importlib
 import importlib.util
 import io
@@ -170,7 +171,7 @@ class ByomBlazeFaceExampleTest(unittest.TestCase):
 
         self.assertEqual(status, 0)
         self.assertEqual(calls, ["discover", "model", "pipeline", "video"])
-        ensure_model.assert_called_once_with(paths.model, shutdown)
+        ensure_model.assert_called_once_with(paths.model, paths.repository_root, shutdown)
         pipeline.assert_called_once()
         render.assert_called_once()
 
@@ -413,84 +414,101 @@ class ByomBlazeFaceExampleTest(unittest.TestCase):
 
             run.assert_called_once()
 
-    def test_download_interruption_removes_partial_file(self):
-        shutdown = runtime_support.ShutdownState()
-
-        class InterruptedResponse:
-            headers = {}
-            read_count = 0
-
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *_args):
-                return False
-
-            def geturl(self):
-                return model_support.MODEL_URL
-
-            def read(self, _size):
-                self.read_count += 1
-                if self.read_count == 1:
-                    return b"partial-model"
-                shutdown.request(signal.SIGTERM, None)
-                return b""
-
+    def test_verified_model_reuses_cache_without_downloader(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
-            model = Path(temporary_directory) / "face_detector.onnx"
+            root = Path(temporary_directory)
+            model = root / "face_detector.onnx"
+            model.write_bytes(b"verified-model")
+            self._write_model_descriptor(root, b"verified-model")
+
+            with mock.patch.object(model_support, "run_managed_command") as download:
+                model_support.ensure_model(
+                    model,
+                    REPOSITORY_ROOT,
+                    runtime_support.ShutdownState(),
+                )
+
+            download.assert_not_called()
+
+    def test_corrupt_model_is_replaced_through_download_owner(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            scripts = root / "scripts"
+            scripts.mkdir()
+            downloader = scripts / "download-models.py"
+            downloader.touch(mode=0o700)
+            model = root / "example/face_detector.onnx"
+            model.parent.mkdir()
+            model.write_bytes(b"corrupt")
+            self._write_model_descriptor(model.parent, b"verified-model")
+
+            def install(*_args, **_kwargs):
+                model.write_bytes(b"verified-model")
+                return 0
+
+            with mock.patch.object(
+                model_support,
+                "run_managed_command",
+                side_effect=install,
+            ) as download, mock.patch.object(
+                model_support,
+                "_model_downloader_python",
+                return_value="/devtools/bin/python",
+            ):
+                model_support.ensure_model(
+                    model,
+                    root,
+                    runtime_support.ShutdownState(),
+                )
+
+            download.assert_called_once_with(
+                [
+                    "/devtools/bin/python",
+                    str(downloader),
+                    "--models-dir",
+                    str(model.parent),
+                ],
+                mock.ANY,
+                "model downloader",
+            )
+            self.assertEqual(model.read_bytes(), b"verified-model")
+
+    def test_model_download_owner_interruption_is_propagated(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            scripts = root / "scripts"
+            scripts.mkdir()
+            (scripts / "download-models.py").touch(mode=0o700)
+            model = root / "example/face_detector.onnx"
+            model.parent.mkdir()
+            self._write_model_descriptor(model.parent, b"verified-model")
+
             with (
+                mock.patch.object(model_support, "run_managed_command", return_value=130),
                 mock.patch.object(
                     model_support,
-                    "open_model_url",
-                    return_value=InterruptedResponse(),
+                    "_model_downloader_python",
+                    return_value="/devtools/bin/python",
                 ),
                 self.assertRaises(runtime_support.ExampleInterrupted),
             ):
-                model_support.ensure_model(model, shutdown)
+                model_support.ensure_model(
+                    model,
+                    root,
+                    runtime_support.ShutdownState(),
+                )
 
-            self.assertFalse(model.exists())
-            self.assertFalse(model.with_name(model.name + ".part").exists())
-
-    def test_download_rejects_non_https_redirect(self):
-        class RedirectedResponse:
-            headers = {}
-
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *_args):
-                return False
-
-            def geturl(self):
-                return "http://example.invalid/face_detector.onnx"
-
-        with tempfile.TemporaryDirectory() as temporary_directory:
-            model = Path(temporary_directory) / "face_detector.onnx"
-            with (
-                mock.patch.object(
-                    model_support,
-                    "open_model_url",
-                    return_value=RedirectedResponse(),
-                ),
-                self.assertRaisesRegex(runtime_support.ExampleError, "non-HTTPS"),
-            ):
-                model_support.ensure_model(model, runtime_support.ShutdownState())
-
-            self.assertFalse(model.with_name(model.name + ".part").exists())
-
-    def test_redirect_handler_rejects_downgrade_before_following(self):
-        handler = model_support.HttpsOnlyRedirectHandler()
-        request = model_support.urllib.request.Request(model_support.MODEL_URL)
-
-        with self.assertRaisesRegex(model_support.urllib.error.HTTPError, "non-HTTPS"):
-            handler.redirect_request(
-                request,
-                None,
-                302,
-                "Found",
-                {},
-                "http://example.invalid/face_detector.onnx",
+    @staticmethod
+    def _write_model_descriptor(directory: Path, model_bytes: bytes) -> None:
+        (directory / "model.json").write_text(
+            json.dumps(
+                {
+                    "hfDownload": {
+                        "sha256": hashlib.sha256(model_bytes).hexdigest(),
+                    }
+                }
             )
+        )
 
     @staticmethod
     def _example_runtime():

@@ -2,137 +2,111 @@
 # Copyright (C) 2026 Arm Limited. All rights reserved.
 ################################################################
 
-"""Acquire the pinned external model without ever loading unverified bytes."""
+"""Acquire and verify the model through the repository download owner."""
 
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 from pathlib import Path
+import subprocess
 import sys
 from typing import Any
-import urllib.error
-import urllib.parse
-import urllib.request
 
-from support.runtime import ExampleError, ShutdownState
-
-
-MODEL_URL = (
-    "https://huggingface.co/fernandotonon/QtMeshEditor-blazeface-onnx/resolve/"
-    "50f2c66ffbdf84beae8c267df2b49e5c5a5162e9/face_detector.onnx"
+from support.runtime import (
+    ExampleError,
+    ExampleInterrupted,
+    ShutdownState,
+    run_managed_command,
 )
-MODEL_SHA256 = (
-    "02a04d5d37c3558dc4d5274f7f8f0f0f01ac94e46c5ffb2cee82395d47e23181"  # pragma: allowlist secret
-)
-MAX_MODEL_BYTES = 64 * 1024 * 1024
-DOWNLOAD_TIMEOUT_SECONDS = 30
 
 
-class HttpsOnlyRedirectHandler(urllib.request.HTTPRedirectHandler):
-    def redirect_request(
-        self,
-        request: urllib.request.Request,
-        file_pointer: Any,
-        code: int,
-        message: str,
-        headers: Any,
-        new_url: str,
-    ) -> urllib.request.Request | None:
-        if urllib.parse.urlsplit(new_url).scheme.lower() != "https":
-            raise urllib.error.HTTPError(
-                new_url,
-                code,
-                "refusing non-HTTPS model redirect",
-                headers,
-                file_pointer,
-            )
-        return super().redirect_request(
-            request,
-            file_pointer,
-            code,
-            message,
-            headers,
-            new_url,
-        )
+def ensure_model(
+    model_path: Path,
+    repository_root: Path,
+    shutdown: ShutdownState,
+) -> None:
+    """Reuse a verified model or ask the repository owner to install it."""
 
-
-def ensure_model(model_path: Path, shutdown: ShutdownState) -> None:
-    """Reuse a verified cache or atomically install a verified download."""
-
-    partial_path = model_path.with_name(model_path.name + ".part")
+    descriptor = model_path.with_name("model.json")
+    expected_sha256 = _expected_sha256(descriptor)
     shutdown.check()
     if model_path.is_file():
-        existing_hash = _sha256(model_path, shutdown)
-        if existing_hash == MODEL_SHA256:
+        existing_sha256 = _sha256(model_path, shutdown)
+        if existing_sha256 == expected_sha256:
             print(f"Using verified cached model: {model_path}", file=sys.stderr)
             return
         print(
-            f"Cached model has SHA-256 {existing_hash}; downloading a verified replacement.",
+            f"Cached model has SHA-256 {existing_sha256}; requesting a verified replacement.",
             file=sys.stderr,
         )
 
-    partial_path.unlink(missing_ok=True)
-    print(f"Downloading pinned BlazeFace model to {partial_path.name}...", file=sys.stderr)
-    request = urllib.request.Request(MODEL_URL, headers={"User-Agent": "PEK-BYOM-BlazeFace/1"})
-    digest = hashlib.sha256()
-    downloaded = 0
-    expected_length = None
+    downloader = repository_root / "scripts/download-models.py"
+    if not downloader.is_file():
+        raise ExampleError(f"model download owner is missing: {downloader}")
+    downloader_python = _model_downloader_python()
+
+    status = run_managed_command(
+        [downloader_python, str(downloader), "--models-dir", str(descriptor.parent)],
+        shutdown,
+        "model downloader",
+    )
+    if status == 130:
+        raise ExampleInterrupted
+    if status != 0:
+        raise ExampleError(f"model download owner exited with status {status}")
+    if not model_path.is_file():
+        raise ExampleError(f"model download did not produce {model_path}")
+
+    actual_sha256 = _sha256(model_path, shutdown)
+    if actual_sha256 != expected_sha256:
+        raise ExampleError(
+            f"model SHA-256 mismatch: expected {expected_sha256}, got {actual_sha256}"
+        )
+    print(f"Downloaded and verified model: {model_path}", file=sys.stderr)
+
+
+def _model_downloader_python() -> str:
+    candidates = []
+    if devtools_venv := os.environ.get("PEK_DEVTOOLS_VENV"):
+        candidates.append(Path(devtools_venv).expanduser().resolve() / "bin/python")
+    candidates.append(Path(sys.executable))
+
+    for candidate in dict.fromkeys(candidates):
+        if not candidate.is_file() or not os.access(candidate, os.X_OK):
+            continue
+        try:
+            completed = subprocess.run(
+                [str(candidate), "-c", "import huggingface_hub, jsonschema"],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except OSError:
+            continue
+        if completed.returncode == 0:
+            return str(candidate)
+    raise ExampleError(
+        "the repository model downloader requires the PEK devtools Python environment"
+    )
+
+
+def _expected_sha256(descriptor: Path) -> str:
     try:
-        with open_model_url(request) as response:
-            final_url = response.geturl()
-            if urllib.parse.urlsplit(final_url).scheme.lower() != "https":
-                raise ExampleError(f"model download redirected to non-HTTPS URL: {final_url}")
-            length_header = response.headers.get("Content-Length")
-            if length_header is not None:
-                try:
-                    expected_length = int(length_header)
-                except ValueError as exc:
-                    raise ExampleError(f"invalid model Content-Length {length_header!r}") from exc
-                if expected_length < 1 or expected_length > MAX_MODEL_BYTES:
-                    raise ExampleError(
-                        f"model response size {expected_length} exceeds the allowed limit"
-                    )
-
-            with partial_path.open("xb") as destination:
-                while True:
-                    chunk = response.read(1024 * 1024)
-                    shutdown.check()
-                    if not chunk:
-                        break
-                    downloaded += len(chunk)
-                    if downloaded > MAX_MODEL_BYTES:
-                        raise ExampleError(
-                            f"model download exceeded the {MAX_MODEL_BYTES}-byte limit"
-                        )
-                    destination.write(chunk)
-                    digest.update(chunk)
-                destination.flush()
-                os.fsync(destination.fileno())
-
-        if downloaded == 0:
-            raise ExampleError("model download was empty")
-        if expected_length is not None and downloaded != expected_length:
-            raise ExampleError(
-                f"incomplete model download: expected {expected_length} bytes, got {downloaded}"
-            )
-        actual_hash = digest.hexdigest()
-        if actual_hash != MODEL_SHA256:
-            raise ExampleError(
-                f"model SHA-256 mismatch: expected {MODEL_SHA256}, got {actual_hash}"
-            )
-        shutdown.check()
-        os.replace(partial_path, model_path)
-        print(f"Downloaded and verified {downloaded} bytes.", file=sys.stderr)
-    except (urllib.error.URLError, OSError) as exc:
-        raise ExampleError(f"model download failed: {exc}") from exc
-    finally:
-        partial_path.unlink(missing_ok=True)
-
-
-def open_model_url(request: urllib.request.Request):
-    opener = urllib.request.build_opener(HttpsOnlyRedirectHandler())
-    return opener.open(request, timeout=DOWNLOAD_TIMEOUT_SECONDS)
+        document: Any = json.loads(descriptor.read_text())
+        expected_sha256 = document["hfDownload"]["sha256"]
+    except (OSError, UnicodeError, json.JSONDecodeError, KeyError, TypeError) as exc:
+        raise ExampleError(
+            f"model descriptor does not provide hfDownload.sha256: {descriptor}"
+        ) from exc
+    if (
+        not isinstance(expected_sha256, str)
+        or len(expected_sha256) != 64
+        or any(character not in "0123456789abcdef" for character in expected_sha256)
+    ):
+        raise ExampleError(f"invalid hfDownload.sha256 in {descriptor}")
+    return expected_sha256
 
 
 def _sha256(path: Path, shutdown: ShutdownState) -> str:
