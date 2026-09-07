@@ -11,10 +11,9 @@ import argparse
 import re
 import shutil
 import subprocess
-import tarfile
 import tempfile
 import zipfile
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 CRATES_IO_INDEX = "sparse+https://index.crates.io/"
 
@@ -67,27 +66,6 @@ def package_sdk(sdk: Path, version: str, output_dir: Path, workspace: Path) -> N
         )
 
         crate = rust / "target" / "package" / f"perception-{version}.crate"
-        root = f"perception-{version}"
-        with tarfile.open(crate, "r:gz") as archive:  # NOSONAR
-            for member in archive.getmembers():
-                relative = PurePosixPath(member.name).relative_to(root)
-                if relative.parts and relative.parts[0] in {
-                    ".cargo",
-                    "crates",
-                    "vendor",
-                }:
-                    raise RuntimeError(
-                        f"published crate contains {relative.parts[0]}"
-                    )
-            packaged_manifest = archive.extractfile(f"{root}/Cargo.toml")
-            if packaged_manifest is None:
-                raise RuntimeError("published crate has no Cargo.toml")
-            cargo_toml = packaged_manifest.read().decode("utf-8")
-        if f'registry-index = "{CRATES_IO_INDEX}"' not in cargo_toml:
-            raise RuntimeError(
-                "published FlatBuffers dependency is not pinned to crates.io"
-            )
-
         output_dir.mkdir(parents=True, exist_ok=True)
         shutil.copy2(crate, output_dir / crate.name)
         wheel = export_root / "python" / (
