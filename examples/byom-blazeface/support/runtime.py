@@ -300,7 +300,9 @@ def send_process_signal(
     if child.poll() is not None:
         return
     try:
-        os.killpg(child.pid, requested_signal)
+        # ManagedProcess creates this child as a new session leader, so its PID
+        # identifies only the private process group owned by this runner.
+        os.killpg(child.pid, requested_signal)  # NOSONAR
     except ProcessLookupError:
         pass
 

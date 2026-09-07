@@ -375,6 +375,14 @@ class ByomBlazeFaceExampleTest(unittest.TestCase):
 
         self.assertEqual(status, 130)
 
+    def test_process_signal_targets_the_managed_child_group(self):
+        child = RunningChild()
+
+        with mock.patch.object(runtime_support.os, "killpg") as kill_process_group:
+            runtime_support.send_process_signal(child, signal.SIGINT)
+
+        kill_process_group.assert_called_once_with(child.pid, signal.SIGINT)
+
     def test_sdk_interpreter_selection_skips_incompatible_candidate(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)

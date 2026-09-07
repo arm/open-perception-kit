@@ -38,45 +38,56 @@ def _scale_for_layer(layer: int) -> float:
     return MIN_SCALE + (MAX_SCALE - MIN_SCALE) * layer / (len(ANCHOR_STRIDES) - 1)
 
 
+def _anchor_sizes_for_layer(layer: int) -> list[tuple[float, float]]:
+    scale = _scale_for_layer(layer)
+    sizes = []
+    for aspect_ratio in ASPECT_RATIOS:
+        ratio_sqrt = math.sqrt(aspect_ratio)
+        sizes.append((scale * ratio_sqrt, scale / ratio_sqrt))
+
+    if INTERPOLATED_SCALE_ASPECT_RATIO <= 0.0:
+        return sizes
+    next_scale = 1.0 if layer == len(ANCHOR_STRIDES) - 1 else _scale_for_layer(layer + 1)
+    interpolated_scale = math.sqrt(scale * next_scale)
+    ratio_sqrt = math.sqrt(INTERPOLATED_SCALE_ASPECT_RATIO)
+    sizes.append(
+        (interpolated_scale * ratio_sqrt, interpolated_scale / ratio_sqrt)
+    )
+    return sizes
+
+
+def _stride_group(first_layer: int) -> tuple[int, int]:
+    stride = ANCHOR_STRIDES[first_layer]
+    next_layer = first_layer
+    anchors_per_cell = 0
+    while next_layer < len(ANCHOR_STRIDES) and ANCHOR_STRIDES[next_layer] == stride:
+        anchors_per_cell += len(_anchor_sizes_for_layer(next_layer))
+        next_layer += 1
+    return next_layer, anchors_per_cell
+
+
+def _append_anchor_grid(
+    anchors: list[tuple[float, float, float, float]],
+    stride: int,
+    anchors_per_cell: int,
+) -> None:
+    feature_map_size = math.ceil(INPUT_SIZE / stride)
+    for y in range(feature_map_size):
+        for x in range(feature_map_size):
+            center_x = (x + ANCHOR_OFFSET) / feature_map_size
+            center_y = (y + ANCHOR_OFFSET) / feature_map_size
+            anchors.extend(
+                (center_x, center_y, 1.0, 1.0) for _ in range(anchors_per_cell)
+            )
+
+
 def _generate_anchors() -> numpy.ndarray:
     anchors = []
     layer = 0
     while layer < len(ANCHOR_STRIDES):
-        last_same_stride = layer
-        anchor_sizes = []
-        while (
-            last_same_stride < len(ANCHOR_STRIDES)
-            and ANCHOR_STRIDES[last_same_stride] == ANCHOR_STRIDES[layer]
-        ):
-            scale = _scale_for_layer(last_same_stride)
-            for aspect_ratio in ASPECT_RATIOS:
-                ratio_sqrt = math.sqrt(aspect_ratio)
-                anchor_sizes.append((scale * ratio_sqrt, scale / ratio_sqrt))
-            if INTERPOLATED_SCALE_ASPECT_RATIO > 0.0:
-                next_scale = (
-                    1.0
-                    if last_same_stride == len(ANCHOR_STRIDES) - 1
-                    else _scale_for_layer(last_same_stride + 1)
-                )
-                interpolated_scale = math.sqrt(scale * next_scale)
-                ratio_sqrt = math.sqrt(INTERPOLATED_SCALE_ASPECT_RATIO)
-                anchor_sizes.append(
-                    (
-                        interpolated_scale * ratio_sqrt,
-                        interpolated_scale / ratio_sqrt,
-                    )
-                )
-            last_same_stride += 1
-
         stride = ANCHOR_STRIDES[layer]
-        feature_map_size = math.ceil(INPUT_SIZE / stride)
-        for y in range(feature_map_size):
-            for x in range(feature_map_size):
-                center_x = (x + ANCHOR_OFFSET) / feature_map_size
-                center_y = (y + ANCHOR_OFFSET) / feature_map_size
-                for _width, _height in anchor_sizes:
-                    anchors.append((center_x, center_y, 1.0, 1.0))
-        layer = last_same_stride
+        layer, anchors_per_cell = _stride_group(layer)
+        _append_anchor_grid(anchors, stride, anchors_per_cell)
 
     result = numpy.asarray(anchors, dtype=numpy.float32)
     if result.shape != (896, 4):
@@ -88,55 +99,78 @@ ANCHORS = _generate_anchors()
 
 
 # Validate the inference boundary before interpreting any tensor bytes.
+def _validate_tensor_storage(tensor: Tensor) -> None:
+    if tensor.quantized:
+        raise RuntimeError(f"BlazeFace output {tensor.name!r} must be floating-point")
+    if tensor.array.dtype.kind != "f":
+        raise RuntimeError(
+            f"BlazeFace output {tensor.name!r} has non-floating dtype {tensor.array.dtype}"
+        )
+
+
+def _partition_outputs(
+    tensors: tuple[Tensor, ...],
+) -> tuple[dict[str, Tensor], list[Tensor]]:
+    named = {}
+    unnamed = []
+    for tensor in tensors:
+        _validate_tensor_storage(tensor)
+        if tensor.name is None:
+            unnamed.append(tensor)
+            continue
+        if tensor.name not in EXPECTED_TENSORS:
+            raise RuntimeError(f"unexpected BlazeFace output name {tensor.name!r}")
+        if tensor.name in named:
+            raise RuntimeError(f"duplicate BlazeFace output name {tensor.name!r}")
+        named[tensor.name] = tensor
+    return named, unnamed
+
+
+def _take_unnamed_output(
+    unnamed: list[Tensor], expected_name: str, expected_shape: tuple[int, ...]
+) -> Tensor:
+    candidate_indexes = [
+        index for index, tensor in enumerate(unnamed) if tensor.array.shape == expected_shape
+    ]
+    if len(candidate_indexes) != 1:
+        raise RuntimeError(
+            f"cannot unambiguously identify missing output {expected_name!r} "
+            f"with shape {expected_shape}"
+        )
+    return unnamed.pop(candidate_indexes[0])
+
+
+def _validate_output_array(
+    tensor: Tensor, expected_name: str, expected_shape: tuple[int, ...]
+) -> numpy.ndarray:
+    values = tensor.array
+    if values.shape != expected_shape:
+        raise RuntimeError(
+            f"BlazeFace output {expected_name!r} expected shape {expected_shape}, "
+            f"got {values.shape}"
+        )
+    if not numpy.isfinite(values).all():
+        raise RuntimeError(f"BlazeFace output {expected_name!r} contains non-finite values")
+    return values.astype(numpy.float32, copy=False)
+
+
 def _validated_outputs(tensors: tuple[Tensor, ...]) -> tuple[numpy.ndarray, numpy.ndarray]:
     if len(tensors) != 2:
         raise RuntimeError(f"expected exactly two BlazeFace outputs, got {len(tensors)}")
 
-    named = {}
-    unnamed = []
-    for tensor in tensors:
-        if tensor.quantized:
-            raise RuntimeError(f"BlazeFace output {tensor.name!r} must be floating-point")
-        if tensor.array.dtype.kind != "f":
-            raise RuntimeError(
-                f"BlazeFace output {tensor.name!r} has non-floating dtype {tensor.array.dtype}"
-            )
-        if tensor.name is None:
-            unnamed.append(tensor)
-        elif tensor.name in EXPECTED_TENSORS:
-            if tensor.name in named:
-                raise RuntimeError(f"duplicate BlazeFace output name {tensor.name!r}")
-            named[tensor.name] = tensor
-        else:
-            raise RuntimeError(f"unexpected BlazeFace output name {tensor.name!r}")
-
+    named, unnamed = _partition_outputs(tensors)
     for expected_name, expected_shape in EXPECTED_TENSORS.items():
-        if expected_name in named:
-            continue
-        candidate_indexes = [
-            index for index, tensor in enumerate(unnamed) if tensor.array.shape == expected_shape
-        ]
-        if len(candidate_indexes) != 1:
-            raise RuntimeError(
-                f"cannot unambiguously identify missing output {expected_name!r} "
-                f"with shape {expected_shape}"
+        if expected_name not in named:
+            named[expected_name] = _take_unnamed_output(
+                unnamed, expected_name, expected_shape
             )
-        named[expected_name] = unnamed.pop(candidate_indexes[0])
-
     if unnamed:
         raise RuntimeError("unmatched unnamed BlazeFace output tensor")
 
-    arrays = []
-    for expected_name, expected_shape in EXPECTED_TENSORS.items():
-        values = named[expected_name].array
-        if values.shape != expected_shape:
-            raise RuntimeError(
-                f"BlazeFace output {expected_name!r} expected shape {expected_shape}, "
-                f"got {values.shape}"
-            )
-        if not numpy.isfinite(values).all():
-            raise RuntimeError(f"BlazeFace output {expected_name!r} contains non-finite values")
-        arrays.append(values.astype(numpy.float32, copy=False))
+    arrays = [
+        _validate_output_array(named[name], name, shape)
+        for name, shape in EXPECTED_TENSORS.items()
+    ]
     return arrays[0], arrays[1]
 
 

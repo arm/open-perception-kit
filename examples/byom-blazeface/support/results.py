@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import base64
-import binascii
 from dataclasses import dataclass
 import json
 import math
@@ -22,6 +21,7 @@ from support.runtime import ExampleError
 FRAME_RESULTS_ENCODING = "perception-frame-results+base64"
 FACES_KEY_NAME = "com.arm.example.blazeface.faces.v1"
 FACES_KEY = external_key(FACES_KEY_NAME)
+FACE_FIELDS = {"x", "y", "width", "height", "confidence"}
 
 
 @dataclass(frozen=True)
@@ -114,7 +114,7 @@ def _decode_packet_bytes(wrapper: dict[str, Any], frame: int) -> bytes:
         raise ExampleError(f"frame {frame}: missing frame_results_packet_b64")
     try:
         return base64.b64decode(encoded_packet, validate=True)
-    except (binascii.Error, ValueError) as exc:
+    except ValueError as exc:
         raise ExampleError(f"frame {frame}: invalid frame_results_packet_b64") from exc
 
 
@@ -136,37 +136,44 @@ def _validate_faces(payload: Any, frame: int) -> tuple[Face, ...]:
     if not isinstance(raw_faces, list):
         raise ExampleError(f"frame {frame}: external payload 'faces' must be a list")
 
-    faces = []
-    expected_fields = {"x", "y", "width", "height", "confidence"}
-    for index, raw_face in enumerate(raw_faces, start=1):
-        if not isinstance(raw_face, dict) or set(raw_face) != expected_fields:
-            raise ExampleError(f"frame {frame}: face {index} has an invalid structure")
-        face = Face(
-            x=_number(raw_face["x"], "x", frame),
-            y=_number(raw_face["y"], "y", frame),
-            width=_number(raw_face["width"], "width", frame),
-            height=_number(raw_face["height"], "height", frame),
-            confidence=_number(raw_face["confidence"], "confidence", frame),
-        )
-        for field, value in (
-            ("x", face.x),
-            ("y", face.y),
-            ("width", face.width),
-            ("height", face.height),
-            ("confidence", face.confidence),
-        ):
-            if not 0.0 <= value <= 1.0:
-                raise ExampleError(
-                    f"frame {frame}: face {index} field {field!r} is outside [0,1]"
-                )
-        if face.width <= 0.0 or face.height <= 0.0:
-            raise ExampleError(f"frame {frame}: face {index} has an empty rectangle")
-        if face.x + face.width > 1.0 + 1e-9:
-            raise ExampleError(f"frame {frame}: face {index} exceeds the frame width")
-        if face.y + face.height > 1.0 + 1e-9:
-            raise ExampleError(f"frame {frame}: face {index} exceeds the frame height")
-        faces.append(face)
-    return tuple(faces)
+    return tuple(
+        _validated_face(raw_face, frame, index)
+        for index, raw_face in enumerate(raw_faces, start=1)
+    )
+
+
+def _validated_face(raw_face: Any, frame: int, index: int) -> Face:
+    if not isinstance(raw_face, dict) or set(raw_face) != FACE_FIELDS:
+        raise ExampleError(f"frame {frame}: face {index} has an invalid structure")
+    face = Face(
+        x=_number(raw_face["x"], "x", frame),
+        y=_number(raw_face["y"], "y", frame),
+        width=_number(raw_face["width"], "width", frame),
+        height=_number(raw_face["height"], "height", frame),
+        confidence=_number(raw_face["confidence"], "confidence", frame),
+    )
+    _validate_face_ranges(face, frame, index)
+    return face
+
+
+def _validate_face_ranges(face: Face, frame: int, index: int) -> None:
+    for field, value in (
+        ("x", face.x),
+        ("y", face.y),
+        ("width", face.width),
+        ("height", face.height),
+        ("confidence", face.confidence),
+    ):
+        if not 0.0 <= value <= 1.0:
+            raise ExampleError(
+                f"frame {frame}: face {index} field {field!r} is outside [0,1]"
+            )
+    if face.width <= 0.0 or face.height <= 0.0:
+        raise ExampleError(f"frame {frame}: face {index} has an empty rectangle")
+    if face.x + face.width > 1.0 + 1e-9:
+        raise ExampleError(f"frame {frame}: face {index} exceeds the frame width")
+    if face.y + face.height > 1.0 + 1e-9:
+        raise ExampleError(f"frame {frame}: face {index} exceeds the frame height")
 
 
 def _number(value: Any, field: str, frame: int) -> float:
