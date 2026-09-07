@@ -109,13 +109,13 @@ Choose one handoff mode:
   PEK package assembly. Require the same bytes under
   `share/pek/perception-sdk/` in both architecture archives. Stable release
   pushes publish the verified Python wheel unchanged to the existing
-  Artifactory PyPI repository. The Arm release build packages and verifies the
-  bundle's prepared Rust tree using its locked vendor directory. The
+  Artifactory PyPI repository. The x86_64 release build packages and verifies
+  the bundle's prepared Rust tree using its locked vendor directory. The
   release-only manifest must record FlatBuffers as a crates.io dependency. The
   publication job must reject an existing version before generic Artifactory
   publication, publish the staged source through Cargo's native protocol using
   the existing anonymous Cargo principal on the explicit eu02 route, then
-  verify that the registered crate matches the Arm build's package and
+  verify that the registered crate matches the x86_64 build's package and
   sparse-index checksum. A
   clean, exact-pinned Cargo 1.85 consumer must build it on x86_64 and ARM64
   without FlatBuffers generation. A red release

@@ -42,14 +42,14 @@ directly from the selected commit's checked-in, CI-validated SDK snapshot. The
 release source and `tools/flowdata-sdk` gitlink SHAs are scalar build inputs, so
 release jobs neither initialize the private submodule nor exchange a parallel
 SDK build input. The stage embeds the triplet under `share/pek/perception-sdk`
-and checks its provenance against the release commit. The Arm snapshot job also
-uploads that exact embedded triplet as the existing temporary
+and checks its provenance against the release commit. The x86_64 snapshot job
+also uploads that exact embedded triplet as the existing temporary
 `pek-perception-sdk-input-*` or `pek-test-perception-sdk-input-*` Actions
-artifact; it does not rebuild it. For PEK publication, the Arm build extracts
+artifact; it does not rebuild it. For PEK publication, the x86_64 build extracts
 the verified Python wheel and packages the prepared Rust tree from that triplet
 using its locked offline Cargo vendor directory. The release-only crate manifest
 records FlatBuffers as a crates.io dependency so consumers do not look for it in
-the private registry. The Arm build verifies the packaged crate and stages the
+the private registry. The x86_64 build verifies the packaged crate and stages the
 prepared source that produced it beside both language packages in
 `pek-perception-sdk-input-*`. It recreates the retained crate from that source
 with Cargo 1.85 and a clean sparse crates.io configuration so native publication
@@ -60,9 +60,9 @@ the explicit eu02 route before any public release mutation. The existing
 archives and the unchanged wheel to `edge-ai-tooling.pypi`. After that job
 succeeds, the physical runner uses Cargo's native publish protocol with the
 existing anonymous principal for `edge-ai-tooling.cargo`. After native
-publication, it waits for the registered crate and its anonymous
-ownership, compares it byte-for-byte with the Arm build's package, and waits for
-the matching sparse index checksum. Clean, exact-pinned Cargo 1.85 consumer
+publication, it waits for the registered crate and its anonymous ownership,
+compares it byte-for-byte with the x86_64 build's package, and waits for the
+matching sparse index checksum. Clean, exact-pinned Cargo 1.85 consumer
 builds then run on x86_64 and ARM64 without FlatBuffers generation. A red
 release must be restored to its pre-release state by the release owner before
 retrying.
