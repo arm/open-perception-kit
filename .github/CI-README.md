@@ -83,9 +83,9 @@ and Sonar [incremental analysis](https://docs.sonarsource.com/sonarqube-server/2
 | Event | Candidate validation | Publication validation | Package publication |
 | --- | --- | --- | --- |
 | Pull request targeting `main` | Builds and smoke-tests the two architecture snapshot images | Uploads, verifies, and deletes the generic Artifactory, Artifactory PyPI, and GitHub Release probes | Not run |
-| Push to `main` | Not run | Not run | Builds all three archives, smoke-tests and publishes one multi-architecture GHCR image, publishes the archives to GitHub Release and generic Artifactory, and publishes the wheel to Artifactory PyPI |
+| Push to `main` | Not run | Not run | Builds all three archives, smoke-tests and publishes one multi-architecture GHCR image, publishes the archives to GitHub Release and generic Artifactory, the wheel to Artifactory PyPI, and the verified crate to Artifactory Cargo with byte-for-byte download and bounded sparse-index visibility checks |
 | Manual release validation | Resolves any commit, tag, or branch `source_ref`, builds and smoke-tests the two temporary architecture images | Uploads, verifies, and deletes the generic Artifactory, Artifactory PyPI, and GitHub Release probes | Not run |
-| Manual package publication | Not run | Not run | Resolves `source_ref`, builds all three archives, smoke-tests and publishes one multi-architecture GHCR snapshot, then publishes the archives and wheel to one generic Artifactory snapshot folder |
+| Manual package publication | Not run | Not run | Resolves `source_ref`, builds all three archives, smoke-tests and publishes one multi-architecture GHCR snapshot, then publishes the archives, wheel, and crate to one generic Artifactory snapshot folder |
 
 For release builds, `pek-deployment-base` runs its smoke inside the existing
 Dockerfile with networking disabled. The non-root runtime extracts the generated
@@ -117,9 +117,9 @@ publication writes to
 `https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci`.
 The same URL is used for uploads and generated download links.
 The final Artifactory workflow log and `$GITHUB_STEP_SUMMARY` expose the folder,
-the three stable archive links or four snapshot links, and their SHA-256 values.
-If GHCR or GitHub Release publication succeeds but a later publication fails,
-repair or remove the partial publication before rerunning the workflow.
+the three stable archive links or five snapshot links, and their SHA-256 values.
+See the [release process](../docs/arch/release-process.md) for language-package
+routing and partial-publication recovery.
 
 Each native architecture build uses the existing `pek-models` Docker artifact
 stage to resolve the selected commit's pinned `hfDownload` descriptors. Both
@@ -149,7 +149,10 @@ Release image builds get their model and runtime inputs from these sources:
 | `ONNXRUNTIME_VERSION` | Defaulted and consumed by `pek-deployment-build` |
 | `EXECUTORCH_VERSION`, `EXECUTORCH_DEB_REVISION` | Defaulted and consumed by `pek-deployment-build` |
 | `HF_TOKEN` | Read-only repository secret; exposed to `pek-models` only as a BuildKit secret while checked-in models require authentication |
-| `PEK_ARTIFACTORY_USERNAME`, `PEK_ARTIFACTORY_API_KEY` | Existing repository secrets used to read the ExecuTorch Debian package and publish release archives |
+| `PEK_ARTIFACTORY_USERNAME`, `PEK_ARTIFACTORY_API_KEY` | Existing repository secrets used to read the ExecuTorch Debian package and publish release archives and Python wheels |
+
+Perception Rust crates use the internal `edge-ai-tooling.cargo` raw PUT and
+sparse-index read endpoints without GitHub Actions credentials.
 
 `Dockerfile` remains the version authority. Release jobs build its existing
 `pek-deployment-base` target for the native architecture and copy the archive

@@ -102,16 +102,28 @@ two ZIP SHA-256 values.
 
 Choose one handoff mode:
 
-- **Standalone Perception SDK handoff:** When the Perception SDK itself is the requested deliverable,
-  upload the Perception ZIP file with the SHA and provenance to the chosen artifactory location.
+- **Standalone Perception SDK handoff:** When the Perception SDK itself is the
+  requested deliverable, upload the Perception ZIP file with the SHA and
+  provenance to the chosen artifactory location.
 - **PEK product release handoff:** Pass the verified triplet only to the existing
   PEK package assembly. Require the same bytes under
   `share/pek/perception-sdk/` in both architecture archives. Stable release
   pushes publish the verified Python wheel unchanged to the existing
-  Artifactory PyPI repository while generic Artifactory keeps the three PEK
-  archives. Manual snapshots instead place the wheel beside those archives in
-  their immutable generic Artifactory folder. Do not publish the rest of the
-  triplet as separate top-level PEK release assets.
+  Artifactory PyPI repository. The Arm release build packages and verifies the
+  bundle's prepared Rust tree using its locked vendor directory. The
+  release-only manifest must record FlatBuffers as a crates.io dependency. The
+  publication job must reject an existing version before generic Artifactory
+  publication, raw-PUT the exact crate to `edge-ai-tooling.cargo`, then verify
+  the downloaded bytes and bounded sparse-index visibility. The current internal
+  repository accepts this path without Actions credentials and does not provide
+  atomic overwrite protection. A red release requires release-owner cleanup
+  before retry. Public distribution must use authenticated, server-enforced
+  immutable publication instead.
+  Generic Artifactory keeps the three PEK archives. Manual snapshots instead
+  place the wheel and crate beside those archives in their immutable generic
+  Artifactory folder.
+  Do not publish the rest of the triplet as separate top-level PEK release
+  assets.
 
 Do not commit release ZIPs or sidecars unless repository policy explicitly
 requires it. Record the SDK version, repository commit, archive SHA-256,

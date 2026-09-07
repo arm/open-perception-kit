@@ -45,12 +45,25 @@ SDK build input. The stage embeds the triplet under `share/pek/perception-sdk`
 and checks its provenance against the release commit. The Arm snapshot job also
 uploads that exact embedded triplet as the existing temporary
 `pek-perception-sdk-input-*` or `pek-test-perception-sdk-input-*` Actions
-artifact; it does not rebuild it. For PEK publication, the Artifactory job
-extracts the verified Python wheel from that exact triplet. Stable release
-pushes publish it unchanged to `edge-ai-tooling.pypi` while generic Artifactory
-keeps the three PEK archives. Manual snapshots instead place the wheel beside
-those archives in their immutable generic Artifactory snapshot folder. GitHub
-Release assets remain the three archives.
+artifact; it does not rebuild it. For PEK publication, the Arm build extracts
+the verified Python wheel and packages the prepared Rust tree from that triplet
+using its locked offline Cargo vendor directory. The release-only crate manifest
+records FlatBuffers as a crates.io dependency so consumers do not look for it in
+the private registry. The Arm build verifies the packaged crate before placing
+both language packages beside the triplet in `pek-perception-sdk-input-*`; the
+Artifactory job publishes those exact files. Stable release pushes publish the
+wheel unchanged to `edge-ai-tooling.pypi` and raw-PUT the crate unchanged to
+`edge-ai-tooling.cargo`, while generic Artifactory keeps the three PEK archives.
+The Cargo version preflight runs before generic Artifactory publication. The
+conditional create-only upload is followed by a byte-for-byte download and a
+bounded sparse-index visibility check. The current internal Cargo repository
+accepts this path without Actions credentials and does not enforce the
+conditional no-overwrite header. A red release must be restored to its
+pre-release state by the release owner before retrying. Public distribution
+must use authenticated, server-enforced immutable publication instead.
+Manual snapshots instead place the wheel and crate beside those archives in
+their immutable generic Artifactory snapshot folder. GitHub Release assets
+remain the three archives.
 
 The architecture tarballs keep their seven-model allowlist. The image is the
 full existing deployment snapshot, including the resolved configuration, model,
@@ -65,9 +78,9 @@ Release validation and publication use three workflows:
 | Event | `release-tests.yml` | `release-publication-tests.yml` | `release-packages.yml` |
 | --- | --- | --- | --- |
 | Pull request to `main` | Builds temporary x86_64 and Arm snapshot images, runs their native offline integration smokes, and emits the validated archives plus embedded Perception wheel | Uploads the archives and wheel to disposable Artifactory and the archives to a draft GitHub Release, verifies them, and deletes them | Not run |
-| Push to `main` | Not run | Not run | Builds all three archives, smoke-tests both architecture images, publishes their multi-architecture GHCR image, then publishes the archives to one `v<version>` GitHub release and generic Artifactory, and the Perception wheel to Artifactory PyPI |
+| Push to `main` | Not run | Not run | Builds all three archives, smoke-tests both architecture images, publishes their multi-architecture GHCR image, then publishes the archives to one `v<version>` GitHub release and generic Artifactory, the Perception wheel to Artifactory PyPI, and the Perception crate to Artifactory Cargo |
 | Manual release validation | Resolves `source_ref`, builds temporary x86_64 and Arm snapshot images, runs their native offline integration smokes, and emits the validated archives plus embedded Perception wheel | Uploads the archives and wheel to disposable Artifactory and the archives to a draft GitHub Release, verifies them, and deletes them | Not run |
-| Manual package publication | Not run | Not run | Resolves `source_ref`, builds all three archives, smoke-tests both architecture images, publishes their multi-architecture GHCR snapshot, and publishes the archives plus Perception wheel only to an immutable generic Artifactory snapshot folder |
+| Manual package publication | Not run | Not run | Resolves `source_ref`, builds all three archives, smoke-tests both architecture images, publishes their multi-architecture GHCR snapshot, and publishes the archives, Perception wheel, and Perception crate only to an immutable generic Artifactory snapshot folder |
 
 On a push to `main`, release Sonar analysis and the staging docs deployment run
 as independent release-package jobs. Their failures make the release workflow
@@ -115,16 +128,20 @@ artifacts are stored under
 `https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci`. The same
 URL is used for uploads and generated download links. The publisher job uses
 the locked `Arm-Debug/publisher` package from its synchronized runtime-only
-environment, prints the three stable generic URLs or four snapshot URLs, and
-adds links and SHA-256 values to the workflow summary. Once this
+environment, prints the three stable generic URLs or five snapshot URLs, and
+adds links and SHA-256 values to the workflow summary. Stable crates are
+published below
+`https://artifactory.arm.com/artifactory/edge-ai-tooling.cargo/crates/perception/`.
+Once this
 workflow exists on the default `develop` branch, a manual run may select a
 feature branch while the release process is being tested. GitHub does not
 dispatch a new workflow before it has been registered on the default branch.
 
 Cross-system publication is deliberately not resumed automatically. If the GHCR
-image or GitHub Release succeeds and a later publication fails, repair or remove
-the partial publications before rerunning; their immutable version guards reject
-replacement.
+image or GitHub Release succeeds and a later generic Artifactory, Cargo, or PyPI
+publication fails, repair or remove the partial publications before rerunning.
+The Cargo preflight rejects a version that is already visible, but the current
+internal repository does not provide atomic overwrite protection.
 
 ## Package validation
 
