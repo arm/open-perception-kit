@@ -30,6 +30,7 @@ from perception.fb.perception.metadata.ObjectMeta import ObjectMetaT  # noqa: E4
 from perception.fb.perception.metadata.Point2f import Point2fT  # noqa: E402
 from perception.fb.perception.metadata.PoseEstimation import PoseEstimationT  # noqa: E402
 from perception.fb.perception.metadata.PoseEstimations import PoseEstimationsT  # noqa: E402
+from perception.fb.perception.metadata.ProducerInfo import ProducerInfoT  # noqa: E402
 from perception.fb.perception.metadata.TrackTrace import TrackTraceT  # noqa: E402
 from perception.fb.perception.metadata.TrackTraces import TrackTracesT  # noqa: E402
 from perception.fb.perception.metadata.VideoFrameContext import VideoFrameContextT  # noqa: E402
@@ -41,6 +42,11 @@ def layer(content_type: str, infer_element_id: str = "infer0") -> LayerInfoT:
         inferElementId=infer_element_id,
         contentType=content_type,
         engine="test",
+        producer=ProducerInfoT(
+            instanceId=f"{infer_element_id}/fixture",
+            component="test/Producer",
+            implementation="FixtureProducer",
+        ),
     )
 
 
@@ -100,6 +106,14 @@ class FrameResultsNormalizeTests(unittest.TestCase):
         self.assertEqual(box_item["item_type"], "BoxDetection")
         self.assertEqual(box_item["data"]["parentId"], 1)
         self.assertEqual(box_item["data"]["text"], "face")
+        self.assertEqual(
+            snapshot.payloads[box_key].layer_info["producer"],
+            {
+                "instanceId": "infer0/fixture",
+                "component": "test/Producer",
+                "implementation": "FixtureProducer",
+            },
+        )
 
     def test_normalizes_classification_pose_embedding_and_trace_payloads(self) -> None:
         frame_results = FrameResults()

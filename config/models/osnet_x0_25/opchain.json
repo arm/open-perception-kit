@@ -25,7 +25,7 @@
             "id": "pek-onnx-ops/Inference",
             "loopId": 1,
             "attributes": {
-                "modelDescriptor": "/work/config/models/osnet_x0_25/model.json"
+                "modelDescriptor": "model.json"
             }
         },
         {

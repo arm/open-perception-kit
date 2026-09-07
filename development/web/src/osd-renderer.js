@@ -179,10 +179,11 @@ function drawConfiguredLayer(layer, renderer) {
     return;
   }
 
-  drawLayerDetections(layer, renderer.detectionType, renderer.draw);
+  drawLayerDetections(layer, renderer.detectionType, (data) => renderer.draw(data, layer));
 }
 
 function drawLayers(ctx, perception, mapper, renderOptions, now) {
+  const classificationBottomOffsets = {left: 0, right: 0};
   const renderers = [
     {
       enabled: renderOptions.trackTraces,
@@ -206,7 +207,19 @@ function drawLayers(ctx, perception, mapper, renderOptions, now) {
       enabled: renderOptions.classification,
       contentType: "classification",
       detectionType: "Classification",
-      draw: (data) => drawClassification(ctx, data, mapper.display, renderOptions.colors),
+      draw: (data, layer) => {
+        const alignRight = layer.compositingMode === "bottomRight";
+        const side = alignRight ? "right" : "left";
+        classificationBottomOffsets[side] += drawClassification(
+          ctx,
+          data,
+          mapper.display,
+          renderOptions.colors,
+          classificationHeading(layer),
+          alignRight,
+          classificationBottomOffsets[side],
+        );
+      },
     },
     {
       enabled: renderOptions.personStatus,
@@ -254,21 +267,69 @@ function drawFace(ctx, rect, mapper, colors) {
   ctx.restore();
 }
 
-function drawClassification(ctx, classification, display, colors) {
+function drawClassification(
+  ctx,
+  classification,
+  display,
+  colors,
+  heading,
+  alignRight = false,
+  bottomOffset = 0,
+) {
   const candidates = Array.isArray(classification?.candidates) ? classification.candidates : [];
   if (candidates.length === 0) {
-    return;
+    return 0;
   }
 
   const fontSize = 14;
   const lineHeight = fontSize * 1.5;
   const padding = 10;
   const startX = display.x + padding;
-  const startY = display.y + display.height - candidates.length * lineHeight - padding;
+  const startY = display.y + display.height - bottomOffset - candidates.length * lineHeight - 2 * padding;
+  const textX = classificationTextX(display, padding, alignRight);
+  if (heading) {
+    drawTextChip(
+      ctx,
+      heading,
+      textX,
+      Math.max(display.y + padding, startY - lineHeight),
+      fontSize,
+      colors.classification,
+      alignRight,
+    );
+  }
   candidates.forEach((candidate, index) => {
     const text = `#${index + 1}: ${candidate.text || candidate.classId} (${((candidate.confidence || 0) * 100).toFixed(1)}%)`;
-    drawTextChip(ctx, text, startX, startY + index * lineHeight, fontSize, colors.classification);
+    drawTextChip(
+      ctx,
+      text,
+      textX,
+      startY + index * lineHeight,
+      fontSize,
+      colors.classification,
+      alignRight,
+    );
   });
+  return classificationPanelHeight(candidates.length, heading);
+}
+
+export function classificationHeading(layer) {
+  return layer?.producer?.implementation || "";
+}
+
+export function classificationTextX(display, padding, alignRight) {
+  if (!alignRight) {
+    return display.x + padding;
+  }
+
+  return display.x + display.width - padding;
+}
+
+export function classificationPanelHeight(candidateCount, heading) {
+  const fontSize = 14;
+  const lineHeight = fontSize * 1.5;
+  const padding = 10;
+  return candidateCount * lineHeight + (heading ? lineHeight : 0) + 2 * padding;
 }
 
 function drawPersonClassification(ctx, personClassification, display, now, colors) {
@@ -383,7 +444,15 @@ function drawPerformance(ctx, perception, colors) {
   }
 }
 
-function drawTextChip(ctx, text, x, y, fontSize, color = DEFAULT_COLORS.text) {
+function drawTextChip(
+  ctx,
+  text,
+  x,
+  y,
+  fontSize,
+  color = DEFAULT_COLORS.text,
+  alignRight = false,
+) {
   ctx.save();
   ctx.font = `${fontSize}px monospace`;
   ctx.textBaseline = "top";
@@ -392,10 +461,11 @@ function drawTextChip(ctx, text, x, y, fontSize, color = DEFAULT_COLORS.text) {
   const metrics = ctx.measureText(text);
   const width = metrics.width + paddingX * 2;
   const height = fontSize + paddingY * 2;
+  const drawX = alignRight ? x - width : x;
   ctx.fillStyle = DEFAULT_COLORS.textBg;
-  ctx.fillRect(x, y, width, height);
+  ctx.fillRect(drawX, y, width, height);
   ctx.fillStyle = color;
-  ctx.fillText(text, x + paddingX, y + paddingY);
+  ctx.fillText(text, drawX + paddingX, y + paddingY);
   ctx.restore();
 }
 

@@ -30,7 +30,7 @@ class PayloadKey:
 @dataclass
 class PayloadSnapshot:
     key: PayloadKey
-    layer_info: dict[str, str]
+    layer_info: dict[str, Any]
     items: list[dict[str, Any]] = field(default_factory=list)
 
 
@@ -63,7 +63,7 @@ def _sequence(value: Any) -> list:
     return list(value)
 
 
-def _layer_info_dict(layer_info: Any) -> dict[str, str]:
+def _layer_info_dict(layer_info: Any) -> dict[str, Any]:
     if layer_info is None:
         return {
             "engine": "",
@@ -73,7 +73,9 @@ def _layer_info_dict(layer_info: Any) -> dict[str, str]:
             "labelFamily": "",
             "contentType": "",
             "compositingMode": "",
+            "producer": None,
         }
+    producer = layer_info.producer
     return {
         "engine": _text(layer_info.engine),
         "model": _text(layer_info.model),
@@ -82,6 +84,13 @@ def _layer_info_dict(layer_info: Any) -> dict[str, str]:
         "labelFamily": _text(layer_info.labelFamily),
         "contentType": _text(layer_info.contentType),
         "compositingMode": _text(layer_info.compositingMode),
+        "producer": None
+        if producer is None
+        else {
+            "instanceId": _text(producer.instanceId),
+            "component": _text(producer.component),
+            "implementation": _text(producer.implementation),
+        },
     }
 
 

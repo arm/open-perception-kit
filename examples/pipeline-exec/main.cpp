@@ -2,6 +2,9 @@
  * Copyright (C) 2025 Arm Limited. All rights reserved.
  *************************************************************/
 
+#include "PerceptionPacket.h"
+#include "TextDisplay.h"
+#include "runtime/Logging.h"
 #include "runtime/PerformanceMetrics.h"
 #include "runtime/Pipeline.h"
 
@@ -9,13 +12,15 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <mutex>
 #include <string>
 #include <utility>
-
-#include <nlohmann/json.hpp>
+#include <vector>
 
 namespace {
 
@@ -74,12 +79,57 @@ std::string pluginPath() {
         }
     }
 
-    return "/work/development/build/meson-out";
+    const char *projectRoot = std::getenv("PEK_PROJECT_ROOT");
+    const std::filesystem::path root =
+        projectRoot != nullptr && projectRoot[0] != '\0' ? projectRoot : "/work";
+    return (root / "development/build-active/meson-out").string();
+}
+
+template <typename Payload>
+void printPayloadBranch(const perception::container::envelope &frameResults,
+                        std::size_t &printedPayloads) {
+    PerceptionPacket::visitFrameResultsPayloads<Payload>(
+        frameResults, [&printedPayloads](const Payload &payload) {
+            ++printedPayloads;
+            fmt::print("{}\n", TextDisplay::formatText(payload));
+        });
+}
+
+void printTypedPayloadText(const perception::container::envelope &frameResults) {
+    std::size_t printedPayloads = 0;
+
+    // The packet has already been validated by the example-local PerceptionPacket helper.
+    // Each visitor call selects one generated payload root type, and the lambda
+    // runs once for every payload of that type in this frame. The display helper
+    // formats that one decoded payload into terminal-friendly text.
+    printPayloadBranch<perception::metadata::FrameContextT>(frameResults, printedPayloads);
+    printPayloadBranch<perception::metadata::BoxDetectionsT>(frameResults, printedPayloads);
+    printPayloadBranch<perception::metadata::ObjectTracksT>(frameResults, printedPayloads);
+    printPayloadBranch<perception::metadata::ClassificationsT>(frameResults, printedPayloads);
+    printPayloadBranch<perception::metadata::PoseEstimationsT>(frameResults, printedPayloads);
+    printPayloadBranch<perception::metadata::SegmentationMasksT>(frameResults, printedPayloads);
+    printPayloadBranch<perception::metadata::ObjectEmbeddingsT>(frameResults, printedPayloads);
+    printPayloadBranch<perception::metadata::TrackTracesT>(frameResults, printedPayloads);
+    printPayloadBranch<perception::metadata::PerformanceOverlayT>(frameResults, printedPayloads);
+
+    const auto totalPayloads = frameResults.size();
+    if (printedPayloads == 0 && totalPayloads == 0) {
+        fmt::print("FrameResults: no payloads\n");
+    } else if (printedPayloads < totalPayloads) {
+        for (std::size_t i = printedPayloads; i < totalPayloads; ++i) {
+            fmt::print("Unknown payload type\n");
+        }
+    }
 }
 
 } // namespace
 
 int main(int argc, char **argv) {
+    pek::runtime::setLogLevel(pek::runtime::LogLevel::Error);
+    pek::runtime::setLogTargetState(pek::runtime::LogTarget::Stdout, false);
+    pek::runtime::setLogTargetState(pek::runtime::LogTarget::Stderr, true);
+    pek::runtime::setLogTargetState(pek::runtime::LogTarget::File, false);
+
     // pipeline-exec intentionally has the smallest useful interface for the
     // GStreamer-backed runtime layer: one PEK pipeline JSON file, plus optional
     // performance trace CSV output. The JSON format is the same one used by the
@@ -133,32 +183,32 @@ int main(int argc, char **argv) {
         completionCv.notify_one();
     };
 
-    // onFrameResults() is the main reason this example exists. The runtime wrapper installs
-    // internal probes that read FrameResults metadata from GStreamer buffers and call this C++
-    // callback with a JSON transport wrapper. No internal FrameResults type and no
-    // GstBuffer/GstMeta type is visible to the application.
-    pipeline.onFrameResults([&frameResultsCount](const std::string &frameResultsJson) {
-        const size_t currentFrameResults = ++frameResultsCount;
+    // onFrameResultsPacket() is the main reason this example exists. The runtime
+    // wrapper installs internal probes that read FrameResults metadata from
+    // GStreamer buffers and call this C++ callback with serialized Perception
+    // packet bytes. No GstBuffer/GstMeta type is visible to the application.
+    pipeline.onFrameResultsPacket(
+        [&frameResultsCount, &markCompleted](const std::vector<std::uint8_t> &packet) {
+            const size_t currentFrameResults = ++frameResultsCount;
 
-        try {
-            const auto document = nlohmann::json::parse(frameResultsJson);
-            const auto encoding = document.at("frame_results_encoding").get<std::string>();
-            const auto packetBase64 = document.at("frame_results_packet_b64").get<std::string>();
-            if (encoding != "perception-frame-results+base64") {
-                fmt::print(
-                    stderr, "pipeline-exec: unsupported FrameResults encoding: {}\n", encoding);
+            // Decode exactly at the application boundary where typed semantics are
+            // needed. The helper validates the FlatBuffers envelope and checks
+            // producer identity before generated SDK payload types are visited.
+            auto frameResults = PerceptionPacket::decodeFrameResultsPacket(packet);
+            if (!frameResults) {
+                fmt::print(stderr, "{}\n", frameResults.error().toString());
+                markCompleted(true);
                 return;
             }
 
-            fmt::print("FrameResults {}: encoding={}, packet-base64-bytes={}\n",
+            // Payload count helps distinguish "nothing was attached" from "payloads
+            // exist, but this example does not currently visit their generated type".
+            fmt::print("FrameResults {}: packet bytes={}, payloads={}\n",
                        currentFrameResults,
-                       encoding,
-                       packetBase64.size());
-        } catch (const nlohmann::json::exception &e) {
-            fmt::print(
-                stderr, "pipeline-exec: invalid FrameResults transport wrapper: {}\n", e.what());
-        }
-    });
+                       packet.size(),
+                       frameResults->size());
+            printTypedPayloadText(*frameResults);
+        });
 
     // Errors observed by Pipeline's internal bus watcher are reported through
     // the public pek::runtime::Error type. The callback may run from Pipeline's

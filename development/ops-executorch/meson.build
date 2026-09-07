@@ -43,10 +43,10 @@ endif
 
 libtorch_candidates += [
   executorch_root / '..' / 'libtorch',
-  meson.project_source_root() / '../deps/libtorch',
+  pek_repository_root / 'deps/libtorch',
 ]
 
-libtorch_root = meson.project_source_root() / '../deps/libtorch'
+libtorch_root = pek_repository_root / 'deps/libtorch'
 foreach candidate : libtorch_candidates
   if fs.is_dir(candidate / 'include')
     libtorch_root = candidate

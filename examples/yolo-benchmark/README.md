@@ -70,7 +70,19 @@ https://s3.amazonaws.com/images.cocodataset.org/annotations/annotations_trainval
 ```
 Use `YOLO_BENCHMARK_LIMIT` for smoke runs. `0` means full COCO val2017.
 
+Pages publishers restore these inputs from the checksum-tagged
+`pek-yolo-pages-dataset` GHCR image instead of GitHub Actions cache. The final
+image keeps the expanded validation images and pinned video, but excludes the
+download ZIPs and annotations. COCO image use remains governed by the
+[official COCO terms](https://cocodataset.org/#termsofuse); the annotations are
+CC BY 4.0 but are not redistributed in the final image.
+
 ## Docker Run
+
+The standalone PEK video runner checks `PEK_PLUGIN_PATH` first. Otherwise it
+loads build-tree plugins from
+`$PEK_PROJECT_ROOT/development/build-active/meson-out`, where `build-active`
+selects the current container or native build.
 
 ```sh
 ./examples/yolo-benchmark/docker/run.sh setup

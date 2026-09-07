@@ -16,6 +16,11 @@ namespace pek::stdop::postproc {
  * Parses gaze estimation model outputs to extract eye gaze direction vectors.
  */
 struct GazeDetectionParser : public pek::TensorParser {
+    static constexpr std::string_view k_content_type = "eyeYawPitch";
+
+    std::vector<std::string_view> getProvidedContentTypes() const override {
+        return {k_content_type};
+    }
 
     pek::Result<void> parse(const pek::TensorParser::Input &input,
                             perception::FrameResults &results) override;

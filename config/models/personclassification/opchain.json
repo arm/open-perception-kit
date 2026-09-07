@@ -20,7 +20,7 @@
 		{
 			"id": "pek-onnx-ops/Inference",
 			"attributes": {
-				"modelDescriptor": "/work/config/models/personclassification/model.json"
+				"modelDescriptor": "model.json"
 			}
 		},
 		{

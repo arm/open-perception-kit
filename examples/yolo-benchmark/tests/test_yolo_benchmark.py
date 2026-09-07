@@ -169,5 +169,33 @@ class PrepareDatasetTest(unittest.TestCase):
             self.assertFalse((root / "escape.txt").exists())
 
 
+class DockerRunnerTest(unittest.TestCase):
+    def test_project_root_is_configurable(self) -> None:
+        compose = (ROOT / "docker" / "compose.yaml").read_text()
+        runner = (ROOT / "docker" / "run.sh").read_text()
+        self.assertNotIn("/work", compose + runner)
+        self.assertIn("PEK_PROJECT_ROOT", compose)
+        self.assertIn("PEK_PROJECT_ROOT", runner)
+        self.assertIn("${PEK_PROJECT_ROOT}/development/build-active/meson-out", runner)
+
+    def test_pages_dataset_uses_one_oci_image(self) -> None:
+        repo_root = ROOT.parents[1]
+        workflows = [
+            (repo_root / ".github/workflows" / name).read_text()
+            for name in (
+                "playwright-pages.yml",
+                "report-status-pages.yml",
+                "yolo-benchmark-pages.yml",
+            )
+        ]
+        for workflow in workflows:
+            self.assertIn("packages: read", workflow)
+            self.assertIn("restore_dataset_overlay_from_image.sh", workflow)
+            self.assertNotIn("actions/cache", workflow)
+        pek_ci = (repo_root / ".github/workflows/pek-ci.yml").read_text()
+        self.assertIn("target: pek-yolo-pages-dataset", pek_ci)
+        self.assertIn("FROM scratch AS pek-yolo-pages-dataset", (repo_root / "Dockerfile").read_text())
+
+
 if __name__ == "__main__":
     unittest.main()

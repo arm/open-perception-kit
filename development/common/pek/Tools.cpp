@@ -64,7 +64,7 @@ Result<DynamicLibraryHandle> Tools::DynamicLibraryOpen(const std::string &name) 
 
     if (!handle) {
         pek::log::error("{}", loadErrors);
-        return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::SystemFailure, loadErrors));
+        return tl::unexpected(PEK_ERROR(pek::ErrorFlag::SystemFailure, loadErrors));
     }
 
     return handle;
@@ -80,7 +80,7 @@ void Tools::DynamicLibraryClose(DynamicLibraryHandle handle) {
 Result<void *> Tools::DynamicLibraryGetSymbolRaw(DynamicLibraryHandle handle,
                                                  const std::string &symbolName) {
     if (!handle) {
-        return tl::make_unexpected(
+        return tl::unexpected(
             PEK_ERROR(pek::ErrorFlag::SystemFailure, "Null dynamic library handle"));
     }
 
@@ -90,7 +90,7 @@ Result<void *> Tools::DynamicLibraryGetSymbolRaw(DynamicLibraryHandle handle,
 
     if (const char *err = dlerror(); err != nullptr) { // NOLINT(concurrency-mt-unsafe)
         std::string errorInfo = fmt::format("Symbol [{}] lookup error: {}", symbolName, err);
-        return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::SystemFailure, errorInfo));
+        return tl::unexpected(PEK_ERROR(pek::ErrorFlag::SystemFailure, errorInfo));
     }
 
     return sym;
@@ -126,7 +126,7 @@ Result<std::vector<uint8_t>> loadImageFileChannels(const std::string &path,
 
     const std::string extension = imageExtension(path);
     if (!isSupportedImageExtension(extension)) {
-        return tl::make_unexpected(PEK_ERROR(
+        return tl::unexpected(PEK_ERROR(
             pek::ErrorFlag::NotSupported,
             fmt::format("Unsupported image file extension '{}' for '{}'; supported extensions: "
                         ".png, .jpg, .jpeg",
@@ -140,7 +140,7 @@ Result<std::vector<uint8_t>> loadImageFileChannels(const std::string &path,
 
     stbi_uc *rawPixels = stbi_load(path.c_str(), &width, &height, &channels, requestedChannels);
     if (rawPixels == nullptr) {
-        return tl::make_unexpected(
+        return tl::unexpected(
             PEK_ERROR(pek::ErrorFlag::FileOperationError,
                       fmt::format("Failed to load image file '{}': {}",
                                   path,
@@ -151,7 +151,7 @@ Result<std::vector<uint8_t>> loadImageFileChannels(const std::string &path,
     auto pixels = std::unique_ptr<stbi_uc, decltype(&stbi_image_free)>(rawPixels, stbi_image_free);
 
     if (width <= 0 || height <= 0) {
-        return tl::make_unexpected(PEK_ERROR(
+        return tl::unexpected(PEK_ERROR(
             pek::ErrorFlag::InvalidData,
             fmt::format(
                 "Image file '{}' decoded to invalid dimensions {}x{}", path, width, height)));
@@ -163,7 +163,7 @@ Result<std::vector<uint8_t>> loadImageFileChannels(const std::string &path,
 
     if (imageWidth > std::numeric_limits<size_t>::max() / imageHeight ||
         imageWidth * imageHeight > std::numeric_limits<size_t>::max() / bytesPerPixel) {
-        return tl::make_unexpected(PEK_ERROR(
+        return tl::unexpected(PEK_ERROR(
             pek::ErrorFlag::InvalidData,
             fmt::format("Image file '{}' dimensions are too large: {}x{}", path, width, height)));
     }

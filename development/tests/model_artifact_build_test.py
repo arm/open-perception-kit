@@ -20,6 +20,8 @@ MODELS_DIR = "config/models"
 MODEL_DESCRIPTOR = "model.json"
 SCHEMAS_DIR = Path("config/schemas")
 MODEL_SCHEMA = SCHEMAS_DIR / "v1/model.schema.json"
+# Temporary EXPKITS-1084 quality gate while stale model artifacts may remain in build contexts.
+RETIRED_MODEL_SUFFIXES = {".hef"}
 
 
 class ModelArtifactBuildTest(unittest.TestCase):
@@ -33,8 +35,8 @@ class ModelArtifactBuildTest(unittest.TestCase):
         self.assertEqual(
             inference_steps,
             [
-                "pekinfer opchain-path=/work/config/models/yolov11/opchain.json "
-                "active=true !"
+                'pekinfer opchain-path="${PEK_PROJECT_ROOT:-/work}/config/models/'
+                'yolov11/opchain.json" active=true !'
             ],
         )
         self.assertIn(
@@ -72,7 +74,11 @@ class ModelArtifactBuildTest(unittest.TestCase):
         runtime_stage = dockerfile.split(" AS pek-dev-base", 1)[1].split(
             "FROM pek-dev-base AS pek-dev-tools", 1
         )[0]
+        dev_tools_stage = dockerfile.split(" AS pek-dev-tools", 1)[1].split(
+            "FROM pek-dev-tools AS pek-dev", 1
+        )[0]
         self.assertIn("huggingface_hub==1.18.0", runtime_stage)
+        self.assertRegex(dev_tools_stage, r"\bffmpeg\b")
         self.assertEqual(dockerfile.count("jsonschema==4.26.0"), 2)
         self.assertIn(
             "COPY --from=pek-models \\\n"
@@ -80,9 +86,12 @@ class ModelArtifactBuildTest(unittest.TestCase):
             dockerfile,
         )
         self.assertIn(
-            'cp -R --no-clobber "${artifacts_root}/config/models/." '
-            "/work/config/models/",
+            '"${PEK_PROJECT_ROOT}/config/models/"',
             entrypoint,
+        )
+        self.assertNotIn("/work", entrypoint)
+        self.assertNotIn(
+            "/work", (REPO_ROOT / ".devcontainer/setup.sh").read_text()
         )
 
     def test_model_download_cache_bust_is_consumed(self) -> None:
@@ -140,19 +149,8 @@ class ModelArtifactBuildTest(unittest.TestCase):
             "          echo \"HF_DOWNLOAD_CACHEBUST=${cache_key}\" "
             ">> \"$GITHUB_ENV\""
         )
-        for name in (
-            ".github/workflows/blackduck-scan.yml",
-            ".github/workflows/docker-scout-image-audit.yml",
-        ):
-            self.assertIn(workflow_step, (REPO_ROOT / name).read_text())
-
-        blackduck = (
-            REPO_ROOT / ".github/workflows/blackduck-scan.yml"
-        ).read_text()
-        self.assertLess(
-            blackduck.index("      - name: Generate Hugging Face download cache key"),
-            blackduck.index("      - name: Discover buildable containers"),
-        )
+        docker_scout = REPO_ROOT / ".github/workflows/docker-scout-image-audit.yml"
+        self.assertIn(workflow_step, docker_scout.read_text())
 
         pek_ci = (REPO_ROOT / ".github/workflows/pek-ci.yml").read_text()
         self.assertIn(
@@ -172,7 +170,6 @@ class ModelArtifactBuildTest(unittest.TestCase):
             "-f compose.yaml config --quiet",
             pek_ci,
         )
-        self.assertEqual(pek_ci.count(workflow_step), 3)
         self.assertIn(
             "      - name: Generate Hugging Face download cache key\n"
             "        run: |\n"
@@ -438,6 +435,31 @@ class ModelArtifactBuildTest(unittest.TestCase):
             ]
             self.assertEqual(rules, expected)
 
+    def test_byom_generated_artifacts_are_excluded_from_docker_context(self) -> None:
+        dockerignore = (REPO_ROOT / ".dockerignore").read_text().splitlines()
+        self.assertEqual(
+            [
+                line
+                for line in dockerignore
+                if line.startswith("examples/byom-blazeface/")
+            ],
+            [
+                "examples/byom-blazeface/face_detector.onnx",
+                "examples/byom-blazeface/face_detector.onnx.part",
+                "examples/byom-blazeface/blazeface-detections.mp4",
+                "examples/byom-blazeface/.blazeface-detections.part.mp4",
+            ],
+        )
+
+    def test_retired_model_artifacts_are_absent(self) -> None:
+        model_root = REPO_ROOT / MODELS_DIR
+        retired = sorted(
+            str(path.relative_to(REPO_ROOT))
+            for path in model_root.rglob("*")
+            if path.is_file() and path.suffix.casefold() in RETIRED_MODEL_SUFFIXES
+        )
+        self.assertEqual(retired, [], f"retired model artifacts found: {retired}")
+
     def test_download_cli_contract(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
@@ -455,7 +477,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
 
             for name, model_file, hub_file in (
                 ("first", "missing.onnx", "missing.onnx"),
-                ("second", "renamed.hef", "available.onnx"),
+                ("second", "renamed.bin", "available.onnx"),
             ):
                 model_dir = root / "config" / "models" / name
                 model_dir.mkdir(parents=True)
@@ -469,6 +491,13 @@ class ModelArtifactBuildTest(unittest.TestCase):
                                 "repo_id": "test/repo",
                                 "revision": "0123456789abcdef0123456789abcdef01234567",
                                 "filename": hub_file,
+                                **(
+                                    {
+                                        "sha256": "9372c470eeadd5ecd9c3c74c2b3cb633f8e2f2fad799250a0f70d652b6b825e4"
+                                    }
+                                    if name == "second"
+                                    else {}
+                                ),
                             },
                             "dynamicOutput": True,
                             "inputTensors": [
@@ -526,7 +555,7 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
             environment = dict(os.environ) | {
                 "HF_FAKE_CACHE": str(cache),
                 "HF_HOME": str(root / "hub-cache"),
-                "HF_TOKEN": "must-be-ignored-without-token-env",
+                "HF_TOKEN": "",
                 "HF_TOKEN_CAPTURE": str(root / "captured-token"),
                 "PYTHONPATH": str(fake_hub.parent),
             }
@@ -552,7 +581,7 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
 
             self.assertFalse((root / "config/models/first/missing.onnx").exists())
             self.assertEqual(
-                (root / "config/models/second/renamed.hef").read_text(),
+                (root / "config/models/second/renamed.bin").read_text(),
                 "model",
             )
             self.assertIn(
@@ -571,8 +600,11 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
             )
             self.assertIn(
                 "WARNING: available.onnx uses .onnx, but "
-                "config/models/second/renamed.hef uses .hef; saving as configured.",
+                "config/models/second/renamed.bin uses .bin; saving as configured.",
                 result.stderr,
+            )
+            self.assertFalse(
+                (root / "config/models/second/renamed.bin.part").exists()
             )
             anonymous_capture = (root / "captured-token").read_text().splitlines()
             self.assertEqual(
@@ -580,14 +612,26 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
                 ["False", str(root / "hub-cache/hub/anonymous")],
             )
 
-            environment["HF_TOKEN"] = ""
-            run_download("--token", check=True)
-            self.assertEqual(
-                (root / "captured-token").read_text().splitlines(),
-                ["False", str(root / "hub-cache/hub/anonymous")],
-            )
+            verified_descriptor = root / "config/models/second/model.json"
+            mismatched_model = json.loads(verified_descriptor.read_text())
+            mismatched_model["hfDownload"]["sha256"] = "0" * 64
+            verified_descriptor.write_text(json.dumps(mismatched_model))
+            installed_model = root / "config/models/second/renamed.bin"
+            installed_model.write_text("existing")
 
-            run_download("--token", "test-token", check=True)
+            mismatch_result = run_download()
+            self.assertEqual(mismatch_result.returncode, 0, mismatch_result.stderr)
+            self.assertFalse(installed_model.exists())
+            self.assertFalse(installed_model.with_name("renamed.bin.part").exists())
+            self.assertIn("SHA-256 mismatch", mismatch_result.stderr)
+
+            mismatched_model["hfDownload"]["sha256"] = (
+                "9372c470eeadd5ecd9c3c74c2b3cb633f8e2f2fad799250a0f70d652b6b825e4"
+            )
+            verified_descriptor.write_text(json.dumps(mismatched_model))
+
+            environment["HF_TOKEN"] = "test-token"
+            run_download(check=True)
             first_token_capture = (
                 root / "captured-token"
             ).read_text().splitlines()
@@ -597,7 +641,8 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
             self.assertNotEqual(first_token_cache, Path(anonymous_capture[1]))
             self.assertNotIn("test-token", first_token_cache.name)
 
-            run_download("--token", "lower-access-token", check=True)
+            environment["HF_TOKEN"] = "lower-access-token"
+            run_download(check=True)
             second_token_capture = (
                 root / "captured-token"
             ).read_text().splitlines()
@@ -615,7 +660,7 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
                 text=True,
             )
             self.assertIn("--models-dir MODELS_DIR", help_result.stdout)
-            self.assertIn("--token [TOKEN]", help_result.stdout)
+            self.assertNotIn("--token", help_result.stdout)
 
             invalid_result = subprocess.run(
                 [

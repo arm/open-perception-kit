@@ -6,49 +6,16 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timedelta, timezone
 import json
 import os
-from pathlib import Path
 import re
 import subprocess
 import sys
 
 
-SHA_PATTERN = re.compile(r"[0-9a-f]{40}")
+CI_IMAGE_TAG_PATTERN = re.compile(r"pek-ci-(?:run|pr)-[0-9]+")
 DEV_IMAGE_TAG_PATTERN = re.compile(r"sha-[0-9a-f]{40}")
-SERVICE_PATTERN = re.compile(r"[a-z0-9][a-z0-9_-]*")
-DEV_IMAGE_INPUTS = (
-    "Dockerfile",
-    ".dockerignore",
-    "compose.base.yaml",
-    "config",
-    ".devcontainer/compose.devcont.yaml",
-    ".devcontainer/configs/zshrc",
-    "development/web/package-lock.json",
-    "generated/perception/python",
-    "scripts/download-models.py",
-    "scripts/private/demo-videos.manifest",
-    "scripts/private/development-entrypoint.sh",
-    "scripts/private/download-demo-videos.sh",
-    "scripts/private/executorch/install-executorch-deb.sh",
-    "scripts/private/generate-hf-download-cachebust.sh",
-    "scripts/private/install-onnxruntime.sh",
-    "scripts/private/install-perception-flatbuffers.sh",
-    "tools/expkits-ci",
-    "tools/perception/sdk.json",
-    "tools/plumber",
-    "var",
-)
-
-
-def validate_sha(value: str) -> str:
-    if not SHA_PATTERN.fullmatch(value):
-        raise ValueError("CI image identity must be a full lowercase Git SHA.")
-    return value
-
-
-def image_ref(sha: str) -> str:
-    return f"pek-ci:{validate_sha(sha)}"
 
 
 def github_repository() -> str:
@@ -56,14 +23,6 @@ def github_repository() -> str:
     if value.count("/") != 1:
         raise RuntimeError("GITHUB_REPOSITORY must contain owner/repository.")
     return value
-
-
-def dev_repository() -> str:
-    return f"ghcr.io/{github_repository()}-dev"
-
-
-def dev_image_ref(sha: str) -> str:
-    return f"{dev_repository()}:sha-{validate_sha(sha)}"
 
 
 def run(command: list[str], *, capture_output: bool = False) -> subprocess.CompletedProcess[str]:
@@ -74,133 +33,6 @@ def run(command: list[str], *, capture_output: bool = False) -> subprocess.Compl
         stdout=subprocess.PIPE if capture_output else None,
         stderr=subprocess.PIPE if capture_output else None,
     )
-
-
-def image_label(image: str, label: str) -> str:
-    result = run(
-        [
-            "docker",
-            "image",
-            "inspect",
-            "--format",
-            f"{{{{ index .Config.Labels {json.dumps(label)} }}}}",
-            image,
-        ],
-        capture_output=True,
-    )
-    return result.stdout.strip()
-
-
-def verify_revision(image: str, sha: str) -> None:
-    revision = image_label(image, "org.opencontainers.image.revision")
-    if revision != sha:
-        raise RuntimeError(f"CI image revision is {revision or '<missing>'}, expected {sha}.")
-
-
-def compose_project_name() -> str:
-    value = os.environ.get("COMPOSE_PROJECT_NAME", "").strip()
-    if not value:
-        parts = (
-            os.environ.get("GITHUB_RUN_ID", ""),
-            os.environ.get("GITHUB_RUN_ATTEMPT", ""),
-            os.environ.get("GITHUB_JOB", ""),
-        )
-        if not all(parts):
-            raise RuntimeError("COMPOSE_PROJECT_NAME or the GitHub run identity is required.")
-        value = f"pek-{parts[0]}-{parts[1]}-{parts[2]}"
-    if not SERVICE_PATTERN.fullmatch(value):
-        raise ValueError(f"Unsupported Compose project name: {value}")
-    return value
-
-
-def append_github_env(name: str, value: str) -> None:
-    path = os.environ.get("GITHUB_ENV", "").strip()
-    if not path:
-        return
-    with Path(path).open("a", encoding="utf-8") as env_file:
-        env_file.write(f"{name}={value}\n")
-
-
-def append_github_output(name: str, value: str) -> None:
-    path = os.environ.get("GITHUB_OUTPUT", "").strip()
-    if not path:
-        return
-    with Path(path).open("a", encoding="utf-8") as output_file:
-        output_file.write(f"{name}={value}\n")
-
-
-def prepare(sha: str, archive: str, services: list[str]) -> str:
-    sha = validate_sha(sha)
-    if not services or any(not SERVICE_PATTERN.fullmatch(service) for service in services):
-        raise ValueError("At least one valid Compose service is required.")
-
-    image = image_ref(sha)
-    run(["docker", "image", "load", "--input", archive])
-    Path(archive).unlink()
-    verify_revision(image, sha)
-    project = compose_project_name()
-    for service in services:
-        run(["docker", "tag", image, f"{project}-{service}"])
-    append_github_env("COMPOSE_PROJECT_NAME", project)
-    append_github_env("PEK_CI_IMAGE", image)
-    print(f"Prepared {image} for {', '.join(services)}")
-    return image
-
-
-def git_head_sha() -> str:
-    result = run(["git", "rev-parse", "HEAD"], capture_output=True)
-    return validate_sha(result.stdout.strip())
-
-
-def dev_inputs_unchanged(base_sha: str, head_sha: str) -> bool:
-    try:
-        run(["git", "diff", "--quiet", base_sha, head_sha, "--", *DEV_IMAGE_INPUTS])
-    except subprocess.CalledProcessError as error:
-        if error.returncode == 1:
-            return False
-        raise
-    return True
-
-
-def compatible_dev_sha(head_sha: str) -> str:
-    result = run(
-        ["git", "log", "-1", "--format=%H", head_sha, "--", *DEV_IMAGE_INPUTS],
-        capture_output=True,
-    )
-    return validate_sha(result.stdout.strip())
-
-
-def pull_dev_image(sha: str) -> str | None:
-    image = dev_image_ref(sha)
-    try:
-        run(["docker", "pull", image])
-    except subprocess.CalledProcessError:
-        return None
-    verify_revision(image, sha)
-    return image
-
-
-def prepare_dev(base_sha: str) -> str | None:
-    base_sha = validate_sha(base_sha)
-    head_sha = git_head_sha()
-    candidates = [head_sha]
-    if base_sha != head_sha and dev_inputs_unchanged(base_sha, head_sha):
-        candidates.append(base_sha)
-    candidates.append(compatible_dev_sha(head_sha))
-
-    image = None
-    for candidate in dict.fromkeys(candidates):
-        image = pull_dev_image(candidate)
-        if image is not None:
-            break
-
-    if image is None:
-        print("::warning::Prebuilt image unavailable; falling back to the QEMU build.")
-    else:
-        run(["docker", "tag", image, f"{compose_project_name()}-pek-dev"])
-
-    append_github_output("start_args", "--no-build" if image is not None else "")
-    return image
 
 
 def version_tags(version: dict[str, object]) -> list[str]:
@@ -246,6 +78,30 @@ def versions_to_delete(versions: list[dict[str, object]], keep: int) -> list[int
     return deletion_ids
 
 
+def stale_ci_versions_to_delete(
+    versions: list[dict[str, object]], cutoff: datetime
+) -> list[int]:
+    if cutoff.tzinfo is None:
+        raise ValueError("CI image retention cutoff must include a timezone.")
+    deletion_ids: list[int] = []
+    for version in versions:
+        version_id = version.get("id")
+        if not isinstance(version_id, int):
+            raise ValueError("Package version id must be an integer.")
+        updated_at_value = version.get("updated_at") or version.get("created_at")
+        if not isinstance(updated_at_value, str):
+            raise ValueError("Package version timestamp must be a string.")
+        updated_at = datetime.fromisoformat(updated_at_value.replace("Z", "+00:00"))
+        if updated_at.tzinfo is None:
+            raise ValueError("Package version timestamp must include a timezone.")
+        tags = version_tags(version)
+        if updated_at < cutoff and (
+            not tags or all(CI_IMAGE_TAG_PATTERN.fullmatch(tag) for tag in tags)
+        ):
+            deletion_ids.append(version_id)
+    return deletion_ids
+
+
 def retain_dev_images(keep: int) -> list[int]:
     owner, repository = github_repository().split("/", 1)
     package = f"{repository}-dev"
@@ -264,28 +120,43 @@ def retain_dev_images(keep: int) -> list[int]:
     return deletion_ids
 
 
+def retain_ci_images(hours: int) -> list[int]:
+    if hours <= 0:
+        raise ValueError("CI image retention must be positive.")
+    owner, repository = github_repository().split("/", 1)
+    package = f"{repository}-ci"
+    endpoint = f"orgs/{owner}/packages/container/{package}/versions"
+    result = run(
+        ["gh", "api", "--paginate", "--jq", ".[]", f"{endpoint}?per_page=100"],
+        capture_output=True,
+    )
+    versions = [json.loads(line) for line in result.stdout.splitlines()]
+    if any(not isinstance(version, dict) for version in versions):
+        raise ValueError("GitHub package versions response contains an invalid version.")
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    deletion_ids = stale_ci_versions_to_delete(versions, cutoff)
+    for version_id in deletion_ids:
+        run(["gh", "api", "--method", "DELETE", f"{endpoint}/{version_id}"])
+    print(f"Deleted {len(deletion_ids)} stale {package} image version(s).")
+    return deletion_ids
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Load the shared PEK CI image.")
+    parser = argparse.ArgumentParser(description="Retain recent PEK container images.")
     subparsers = parser.add_subparsers(dest="command", required=True)
-    prepare_parser = subparsers.add_parser("prepare")
-    prepare_parser.add_argument("sha")
-    prepare_parser.add_argument("--archive", required=True)
-    prepare_parser.add_argument("services", nargs="+")
-    prepare_dev_parser = subparsers.add_parser("prepare-dev")
-    prepare_dev_parser.add_argument("--base-sha", required=True)
     retain_dev_parser = subparsers.add_parser("retain-dev")
     retain_dev_parser.add_argument("--keep", type=int, default=20)
+    retain_ci_parser = subparsers.add_parser("retain-ci")
+    retain_ci_parser.add_argument("--hours", type=int, default=24)
     return parser.parse_args(argv)
 
 
 def main(argv: list[str]) -> int:
     args = parse_args(argv)
-    if args.command == "prepare":
-        prepare(args.sha, args.archive, args.services)
-    elif args.command == "prepare-dev":
-        prepare_dev(args.base_sha)
-    else:
+    if args.command == "retain-dev":
         retain_dev_images(args.keep)
+    else:
+        retain_ci_images(args.hours)
     return 0
 
 

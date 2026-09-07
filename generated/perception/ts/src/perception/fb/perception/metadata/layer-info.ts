@@ -5,6 +5,7 @@
 
 import * as flatbuffers from 'flatbuffers';
 
+import { ProducerInfo, ProducerInfoT } from '../../perception/metadata/producer-info.js';
 
 
 export class LayerInfo implements flatbuffers.IUnpackableObject<LayerInfoT> {
@@ -74,8 +75,13 @@ compositingMode(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+producer(obj?:ProducerInfo):ProducerInfo|null {
+  const offset = this.bb!.__offset(this.bb_pos, 18);
+  return offset ? (obj || new ProducerInfo()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
+}
+
 static startLayerInfo(builder:flatbuffers.Builder) {
-  builder.startObject(7);
+  builder.startObject(8);
 }
 
 static addEngine(builder:flatbuffers.Builder, engineOffset:flatbuffers.Offset) {
@@ -106,22 +112,15 @@ static addCompositingMode(builder:flatbuffers.Builder, compositingModeOffset:fla
   builder.addFieldOffset(6, compositingModeOffset, 0);
 }
 
+static addProducer(builder:flatbuffers.Builder, producerOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(7, producerOffset, 0);
+}
+
 static endLayerInfo(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createLayerInfo(builder:flatbuffers.Builder, engineOffset:flatbuffers.Offset, modelOffset:flatbuffers.Offset, tagsOffset:flatbuffers.Offset, inferElementIdOffset:flatbuffers.Offset, labelFamilyOffset:flatbuffers.Offset, contentTypeOffset:flatbuffers.Offset, compositingModeOffset:flatbuffers.Offset):flatbuffers.Offset {
-  LayerInfo.startLayerInfo(builder);
-  LayerInfo.addEngine(builder, engineOffset);
-  LayerInfo.addModel(builder, modelOffset);
-  LayerInfo.addTags(builder, tagsOffset);
-  LayerInfo.addInferElementId(builder, inferElementIdOffset);
-  LayerInfo.addLabelFamily(builder, labelFamilyOffset);
-  LayerInfo.addContentType(builder, contentTypeOffset);
-  LayerInfo.addCompositingMode(builder, compositingModeOffset);
-  return LayerInfo.endLayerInfo(builder);
-}
 
 unpack(): LayerInfoT {
   return new LayerInfoT(
@@ -131,7 +130,8 @@ unpack(): LayerInfoT {
     this.inferElementId(),
     this.labelFamily(),
     this.contentType(),
-    this.compositingMode()
+    this.compositingMode(),
+    (this.producer() !== null ? this.producer()!.unpack() : null)
   );
 }
 
@@ -144,6 +144,7 @@ unpackTo(_o: LayerInfoT): void {
   _o.labelFamily = this.labelFamily();
   _o.contentType = this.contentType();
   _o.compositingMode = this.compositingMode();
+  _o.producer = (this.producer() !== null ? this.producer()!.unpack() : null);
 }
 }
 
@@ -155,7 +156,8 @@ constructor(
   public inferElementId: string|Uint8Array|null = null,
   public labelFamily: string|Uint8Array|null = null,
   public contentType: string|Uint8Array|null = null,
-  public compositingMode: string|Uint8Array|null = null
+  public compositingMode: string|Uint8Array|null = null,
+  public producer: ProducerInfoT|null = null
 ){}
 
 
@@ -167,15 +169,18 @@ pack(builder:flatbuffers.Builder): flatbuffers.Offset {
   const labelFamily = (this.labelFamily !== null ? builder.createString(this.labelFamily!) : 0);
   const contentType = (this.contentType !== null ? builder.createString(this.contentType!) : 0);
   const compositingMode = (this.compositingMode !== null ? builder.createString(this.compositingMode!) : 0);
+  const producer = (this.producer !== null ? this.producer!.pack(builder) : 0);
 
-  return LayerInfo.createLayerInfo(builder,
-    engine,
-    model,
-    tags,
-    inferElementId,
-    labelFamily,
-    contentType,
-    compositingMode
-  );
+  LayerInfo.startLayerInfo(builder);
+  LayerInfo.addEngine(builder, engine);
+  LayerInfo.addModel(builder, model);
+  LayerInfo.addTags(builder, tags);
+  LayerInfo.addInferElementId(builder, inferElementId);
+  LayerInfo.addLabelFamily(builder, labelFamily);
+  LayerInfo.addContentType(builder, contentType);
+  LayerInfo.addCompositingMode(builder, compositingMode);
+  LayerInfo.addProducer(builder, producer);
+
+  return LayerInfo.endLayerInfo(builder);
 }
 }

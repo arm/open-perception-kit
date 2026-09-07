@@ -28,12 +28,25 @@ detected but rejected until explicit zero-copy support is added.
 
 On `start()`, the element allocates internal state and loads the OpChain from
 JSON regardless of `active`. Setup failure prevents the element from starting.
-After successful setup, it emits a downstream `pek-model-register` event with
-model name, element name, and active state.
+After successful setup and whenever `active` changes, it emits a downstream
+`pek-model-register` event with model identity, active state, and the OpChain's
+declared required and provided content types.
 
 On `set_caps()`, it validates the supported raw video caps and stores frame dimensions.
 
 On `stop()`, it releases OpChain state and resources.
+
+## Automatic Upstream Activation
+
+When an active `pekinfer` starts or changes from inactive to active, it sends an
+upstream requirement for each content type needed by its OpChain. Every upstream
+`pekinfer` whose OpChain provides a matching content type becomes active. A newly
+activated provider sends its own requirements, so activation can propagate
+transitively through multiple dependent elements.
+
+This propagation only enables elements. Setting a `pekinfer` to inactive affects
+that element alone and does not disable its upstream providers, because those
+providers may still be required by other active elements.
 
 ## Per-Frame Execution
 
@@ -57,8 +70,10 @@ they prevent startup. Execution failures are also reported and stop the
 affected flow. Other runtime paths still contain abort behavior that should be
 replaced with graceful error reporting.
 
-The element participates in global performance tracing. Ops and backends can emit
-timing keys that `pekperformance` later publishes.
+Ops and backends record hierarchical scopes in the process-wide
+`PerformanceMetrics` recorder. Runtime clients can read aggregate snapshots or
+opt-in span-history CSV, while `pekperformance` derives interval averages from
+the aggregates and publishes them without resetting the recorder.
 
 ## QoS Feedback
 

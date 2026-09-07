@@ -32,6 +32,7 @@ function objectData(object) {
 }
 
 function layerData(layer) {
+    const producer = layer?.producer;
     return {
         engine: text(layer?.engine),
         model: text(layer?.model),
@@ -40,6 +41,11 @@ function layerData(layer) {
         labelFamily: text(layer?.labelFamily),
         contentType: text(layer?.contentType),
         compositingMode: text(layer?.compositingMode),
+        producer: producer ? {
+            instanceId: text(producer.instanceId),
+            component: text(producer.component),
+            implementation: text(producer.implementation),
+        } : null,
     };
 }
 

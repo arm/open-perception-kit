@@ -75,6 +75,10 @@ config/models/**/*.pte
 !docs/**
 !examples/
 !examples/**
+examples/byom-blazeface/face_detector.onnx
+examples/byom-blazeface/face_detector.onnx.part
+examples/byom-blazeface/blazeface-detections.mp4
+examples/byom-blazeface/.blazeface-detections.part.mp4
 !metadata/
 !metadata/**
 !tests/
@@ -84,6 +88,10 @@ config/models/**/*.pte
 
 **/build/
 **/build/**
+**/build-native/
+**/build-native/**
+**/build-native-test/
+**/build-native-test/**
 __pycache__/
 **/__pycache__/
 .cache/

@@ -17,6 +17,11 @@ namespace pek::stdop::postproc {
  * Used to generate segmentation map of the background on a camera frame.
  */
 struct RvmParser : public pek::TensorParser {
+    static constexpr std::string_view k_content_type = "segmentation";
+
+    std::vector<std::string_view> getProvidedContentTypes() const override {
+        return {k_content_type};
+    }
 
     pek::Result<void> parse(const pek::TensorParser::Input &input,
                             perception::FrameResults &results) override;

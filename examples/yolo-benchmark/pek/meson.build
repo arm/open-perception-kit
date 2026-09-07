@@ -24,7 +24,7 @@ development_include = include_directories(
   '../../../development/subprojects/magic_enum-0.9.7/include',
   '../../../development/subprojects/nlohmann_json-3.12.0/include',
 )
-runtime_build_dir = repo_root / 'development/build/meson-out'
+runtime_build_dir = repo_root / 'development/build-active/meson-out'
 runtime_library = runtime_build_dir / 'pek-runtime.so'
 common_library = runtime_build_dir / 'libpek-common.so'
 

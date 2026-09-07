@@ -738,6 +738,13 @@ function orderModels(models) {
 function readableText(value) {
   return String(value ?? "").trim();
 }
+function contentTypes(value) {
+  return Array.isArray(value) ? value.map(readableText).filter(Boolean) : [];
+}
+function dependencyProviderTasks(model, models) {
+  const required = new Set(contentTypes(model.requiredContentTypes));
+  return [...new Set(models.filter((candidate) => candidate !== model && contentTypes(candidate.providedContentTypes).some((type) => required.has(type))).map((candidate) => readableText(candidate.task) || readableText(candidate.name)).filter(Boolean))];
+}
 function resolveModelPresentation(model) {
   const rawName = readableText(model.name) || "Unknown model";
   const displayName = readableText(model.displayName) || rawName;
@@ -767,7 +774,9 @@ var ModelsManager = class {
       name: model.name || "",
       displayName: model.displayName || "",
       task: model.task || "",
-      runtime: model.runtime || ""
+      runtime: model.runtime || "",
+      providedContentTypes: contentTypes(model.providedContentTypes),
+      requiredContentTypes: contentTypes(model.requiredContentTypes)
     })));
     if (nextSignature === this._lastModelsSignature) {
       return;
@@ -782,12 +791,13 @@ var ModelsManager = class {
             `;
       return;
     }
-    orderModels(models).forEach((model) => {
-      const modelItem = this.createModelItem(model);
+    const orderedModels = orderModels(models);
+    orderedModels.forEach((model) => {
+      const modelItem = this.createModelItem(model, orderedModels);
       this.container.appendChild(modelItem);
     });
   }
-  createModelItem(model) {
+  createModelItem(model, models) {
     const item = document.createElement("div");
     item.className = "model-item";
     item.setAttribute("data-model-name", model.name || "");
@@ -809,9 +819,40 @@ var ModelsManager = class {
       modelDetails.textContent = presentation.secondaryLabel;
       modelCopy.appendChild(modelDetails);
     }
+    const requiredContentTypes = contentTypes(model.requiredContentTypes);
     modelInfo.appendChild(modelCopy);
     const modelActions = document.createElement("div");
     modelActions.className = "model-actions";
+    if (requiredContentTypes.length > 0) {
+      const providerTasks = dependencyProviderTasks(model, models);
+      const accessibleProviders = providerTasks.length > 0 ? providerTasks.join(", ") : "No provider registered";
+      const dependencyInfo = document.createElement("div");
+      dependencyInfo.className = "model-dependency-info";
+      dependencyInfo.setAttribute("tabindex", "0");
+      dependencyInfo.setAttribute("aria-label", `Depends on: ${accessibleProviders}`);
+      const dependencyIcon = document.createElement("img");
+      dependencyIcon.className = "model-dependency-icon";
+      dependencyIcon.setAttribute("src", "/assets/information.svg");
+      dependencyIcon.setAttribute("alt", "");
+      dependencyIcon.setAttribute("aria-hidden", "true");
+      const dependencyPopup = document.createElement("div");
+      dependencyPopup.className = "model-dependency-popup";
+      dependencyPopup.setAttribute("role", "tooltip");
+      const dependencyHeading = document.createElement("div");
+      dependencyHeading.className = "model-dependency-heading";
+      dependencyHeading.textContent = "Depends on:";
+      dependencyPopup.appendChild(dependencyHeading);
+      const dependencyList = document.createElement("ul");
+      const items = providerTasks.length > 0 ? providerTasks : ["No provider registered"];
+      for (const task of items) {
+        const dependency = document.createElement("li");
+        dependency.textContent = task;
+        dependencyList.appendChild(dependency);
+      }
+      dependencyPopup.appendChild(dependencyList);
+      dependencyInfo.append(dependencyIcon, dependencyPopup);
+      modelActions.appendChild(dependencyInfo);
+    }
     const toggleLabel = document.createElement("label");
     toggleLabel.className = "model-toggle-switch";
     toggleLabel.setAttribute("aria-label", `Toggle ${presentation.fullLabel}`);
@@ -988,11 +1029,11 @@ function setPanelButtonState(panel, visible) {
   if (!panel.button) {
     return;
   }
-  const icon2 = panel.button.querySelector("i");
+  const icon = panel.button.querySelector("i");
   panel.button.setAttribute("aria-pressed", visible ? "true" : "false");
   panel.button.setAttribute("aria-label", (visible ? "Hide " : "Show ") + panel.label);
-  if (icon2) {
-    icon2.className = visible ? "fa-solid fa-eye" : "fa-solid fa-eye-slash";
+  if (icon) {
+    icon.className = visible ? "fa-solid fa-eye" : "fa-solid fa-eye-slash";
   }
 }
 function applyPanelState(key) {
@@ -1281,10 +1322,9 @@ function dockTargetHeight() {
   const style = getComputedStyle(root);
   const expandedHeight = px(style.getPropertyValue("--bottom-dock-height")) || 244;
   const collapsedHeight = px(style.getPropertyValue("--bottom-dock-collapsed-height")) || 48;
-  const isFullscreen2 = document.body.classList.contains("video-fullscreen");
-  const outputsShown = document.body.classList.contains("fullscreen-outputs-enabled");
+  const outputsHidden = document.body.classList.contains("outputs-hidden");
   const outputsEmpty = document.body.classList.contains("output-panels-empty");
-  if (isFullscreen2 && !outputsShown)
+  if (outputsHidden)
     return 0;
   return outputsEmpty ? collapsedHeight : expandedHeight;
 }
@@ -1476,55 +1516,27 @@ document.querySelector(".main-content")?.addEventListener("transitionend", (even
   }
 });
 
-// development/web/src/video-fullscreen.js
-var button = document.getElementById("videoFullscreenBtn");
-var icon = document.getElementById("videoFullscreenIcon");
-var controls = document.querySelector(".video-control-buttons");
-var videoWrapper = document.querySelector(".video-wrapper");
-var outputsButton = document.getElementById("fullscreenOutputsBtn");
-var outputsIcon = document.getElementById("fullscreenOutputsIcon");
+// development/web/src/video-layout.js
+var sidebarButton = document.getElementById("sidebarVisibilityBtn");
+var outputsButton = document.getElementById("outputsVisibilityBtn");
 var videoFeedButton = document.getElementById("toggleVideoFeedBtn");
 var videoFeedIcon = document.getElementById("toggleVideoFeedIcon");
-var isFullscreen = false;
-var hideTimer = null;
-var outputsAvailable = true;
-var outputsInFullscreen = (localStorage.getItem("pek-video:fullscreen-outputs:v1") ?? localStorage.getItem("pek-video:fullscreen-metrics:v1")) === "true";
+var sidebarVisible = localStorage.getItem("pek-layout:sidebar-visible:v1") !== "false";
+var outputsVisible = localStorage.getItem("pek-video:outputs-visible:v1") !== "false";
 var videoFeedHidden = localStorage.getItem("pek-video:feed-hidden:v1") === "true";
 function notifyVideoLayoutChange() {
-  window.dispatchEvent(new CustomEvent("video-layout-change", {
-    detail: {
-      isFullscreen,
-      outputsInFullscreen,
-      outputsAvailable,
-      videoFeedHidden
-    }
-  }));
+  const detail = { sidebarVisible, outputsVisible, videoFeedHidden };
+  window.dispatchEvent(new CustomEvent("video-layout-change", { detail }));
   requestAnimationFrame(() => {
-    window.dispatchEvent(new CustomEvent("video-layout-change", {
-      detail: {
-        isFullscreen,
-        outputsInFullscreen,
-        outputsAvailable,
-        videoFeedHidden
-      }
-    }));
+    window.dispatchEvent(new CustomEvent("video-layout-change", { detail }));
   });
 }
-function setControlsVisible(visible) {
-  document.body.classList.toggle("video-fullscreen-controls-visible", visible);
-}
-function scheduleHideControls(delay = 1300) {
-  window.clearTimeout(hideTimer);
-  hideTimer = window.setTimeout(() => {
-    if (isFullscreen && !controls?.matches(":hover, :focus-within") && !videoWrapper?.matches(":hover")) {
-      setControlsVisible(false);
-    }
-  }, delay);
-}
-function isPointerInsideVideoWrapper(event, margin = 0) {
-  const rect = videoWrapper?.getBoundingClientRect();
-  if (!rect) return false;
-  return event.clientX >= rect.left - margin && event.clientX <= rect.right + margin && event.clientY >= rect.top - margin && event.clientY <= rect.bottom + margin;
+function setSidebarVisible(visible) {
+  sidebarVisible = visible;
+  document.body.classList.toggle("sidebar-hidden", !sidebarVisible);
+  localStorage.setItem("pek-layout:sidebar-visible:v1", sidebarVisible ? "true" : "false");
+  sidebarButton?.setAttribute("aria-pressed", sidebarVisible ? "true" : "false");
+  notifyVideoLayoutChange();
 }
 function setVideoFeedHidden(hidden) {
   videoFeedHidden = hidden;
@@ -1540,22 +1552,12 @@ function setVideoFeedHidden(hidden) {
   }
   notifyVideoLayoutChange();
 }
-function setOutputsInFullscreen(enabled, { animate = true } = {}) {
+function setOutputsVisible(visible, { animate = true } = {}) {
   const update = () => {
-    outputsInFullscreen = enabled;
-    document.body.classList.toggle("fullscreen-outputs-enabled", outputsInFullscreen);
-    localStorage.setItem("pek-video:fullscreen-outputs:v1", outputsInFullscreen ? "true" : "false");
-    if (outputsButton) {
-      outputsButton.setAttribute(
-        "aria-label",
-        outputsInFullscreen ? "Hide outputs in fullscreen" : "Show outputs in fullscreen"
-      );
-      outputsButton.setAttribute("aria-pressed", outputsInFullscreen ? "true" : "false");
-      outputsButton.dataset.tooltip = outputsInFullscreen ? "Hide outputs in fullscreen" : "Show outputs in fullscreen";
-    }
-    if (outputsIcon) {
-      outputsIcon.className = outputsInFullscreen ? "fa-solid fa-gauge" : "fa-solid fa-gauge video-gauge-icon--outline";
-    }
+    outputsVisible = visible;
+    document.body.classList.toggle("outputs-hidden", !outputsVisible);
+    localStorage.setItem("pek-video:outputs-visible:v1", outputsVisible ? "true" : "false");
+    outputsButton?.setAttribute("aria-pressed", outputsVisible ? "true" : "false");
   };
   if (animate && window.animateBottomDockHeightChange) {
     window.animateBottomDockHeightChange(update);
@@ -1564,145 +1566,83 @@ function setOutputsInFullscreen(enabled, { animate = true } = {}) {
   }
   notifyVideoLayoutChange();
 }
-function setOutputsAvailable(available) {
-  outputsAvailable = available;
-  if (outputsButton) {
-    outputsButton.hidden = false;
-  }
-  notifyVideoLayoutChange();
-}
-function setFullscreen(nextFullscreen) {
-  isFullscreen = nextFullscreen;
-  document.body.classList.toggle("video-fullscreen", isFullscreen);
-  if (button) {
-    button.setAttribute("aria-label", isFullscreen ? "Exit fullscreen video" : "Fullscreen video");
-    button.dataset.tooltip = isFullscreen ? "Exit Fullscreen" : "Fullscreen";
-  }
-  if (icon) {
-    icon.className = isFullscreen ? "fa-solid fa-down-left-and-up-right-to-center" : "fa-solid fa-up-right-and-down-left-from-center";
-  }
-  setControlsVisible(isFullscreen);
-  if (isFullscreen) {
-    scheduleHideControls();
-  } else {
-    window.clearTimeout(hideTimer);
-  }
-  notifyVideoLayoutChange();
-}
+setSidebarVisible(sidebarVisible);
 setVideoFeedHidden(videoFeedHidden);
-setOutputsInFullscreen(outputsInFullscreen, { animate: false });
-setOutputsAvailable(outputsAvailable);
-button?.addEventListener("click", () => {
-  const nextFullscreen = !isFullscreen;
-  setFullscreen(nextFullscreen);
-  if (nextFullscreen) {
-    button.blur();
-  }
+setOutputsVisible(outputsVisible, { animate: false });
+sidebarButton?.addEventListener("click", () => {
+  setSidebarVisible(!sidebarVisible);
 });
 outputsButton?.addEventListener("click", () => {
-  setOutputsInFullscreen(!outputsInFullscreen);
+  setOutputsVisible(!outputsVisible);
 });
 videoFeedButton?.addEventListener("click", () => {
   setVideoFeedHidden(!videoFeedHidden);
 });
-window.addEventListener("output-panels-change", (event) => {
-  setOutputsAvailable((event.detail?.visiblePanels?.length || 0) > 0);
-});
-controls?.addEventListener("mouseenter", () => {
-  if (isFullscreen) {
-    setControlsVisible(true);
-    window.clearTimeout(hideTimer);
-  }
-});
-controls?.addEventListener("mouseleave", () => {
-  if (isFullscreen) scheduleHideControls(600);
-});
-videoWrapper?.addEventListener("mouseenter", () => {
-  if (isFullscreen) {
-    setControlsVisible(true);
-    scheduleHideControls();
-  }
-});
-videoWrapper?.addEventListener("mousemove", () => {
-  if (isFullscreen) {
-    setControlsVisible(true);
-    scheduleHideControls();
-  }
-});
-document.addEventListener("mousemove", (event) => {
-  if (!isFullscreen) return;
-  if (isPointerInsideVideoWrapper(event, 8)) {
-    setControlsVisible(true);
-    scheduleHideControls();
-    return;
-  }
-  if (!controls?.matches(":hover, :focus-within")) {
-    scheduleHideControls(250);
-  }
-});
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && isFullscreen) {
-    setFullscreen(false);
-  }
-});
 
 // development/web/src/copy-utils.js?v=icon-copy-buttons-20260608
 async function writeClipboard(text2) {
-  if (!navigator.clipboard?.writeText) {
-    throw new Error("Clipboard API is unavailable");
-  }
-  try {
-    await navigator.clipboard.writeText(text2);
-  } catch (error) {
-    throw new Error("Clipboard write failed", { cause: error });
-  }
-}
-function setButtonIcon(button2, iconName) {
-  const icon2 = button2?.querySelector("i");
-  if (!icon2)
-    return;
-  icon2.className = `fa-solid fa-${iconName}`;
-}
-function setButtonFeedback(button2, state, label) {
-  button2.dataset.copyState = state;
-  button2.setAttribute("aria-label", label);
-  button2.title = label;
-  setButtonIcon(button2, state === "copied" ? "check" : "copy");
-}
-async function copyTextWithFeedback(button2, text2, emptyText = "Empty", fallbackBuffer = null) {
-  if (!button2) return;
-  if (!String(text2 || "").trim()) return;
-  const originalLabel = button2.getAttribute("aria-label") || button2.title || "Copy";
-  if (button2.copyFeedbackTimer) {
-    clearTimeout(button2.copyFeedbackTimer);
-    button2.copyFeedbackTimer = null;
-  }
-  button2.dataset.copyState = "copying";
-  try {
-    await writeClipboard(text2);
-    setButtonFeedback(button2, text2 ? "copied" : "empty", text2 ? "Copied" : emptyText);
-  } catch (error) {
-    console.debug("Clipboard copy failed", error);
-    if (fallbackBuffer) {
-      fallbackBuffer.value = text2;
-      fallbackBuffer.classList.add("is-visible");
-      fallbackBuffer.focus();
-      fallbackBuffer.select();
-      fallbackBuffer.setSelectionRange(0, fallbackBuffer.value.length);
-      setButtonFeedback(button2, "manual-copy", "Select text to copy");
-    } else {
-      setButtonFeedback(button2, "failed", "Copy failed");
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text2);
+      return;
+    } catch {
     }
   }
-  button2.copyFeedbackTimer = setTimeout(() => {
-    setButtonFeedback(button2, "idle", originalLabel);
-    button2.copyFeedbackTimer = null;
+  const buffer = document.createElement("textarea");
+  buffer.value = text2;
+  buffer.readOnly = true;
+  buffer.style.position = "fixed";
+  buffer.style.opacity = "0";
+  document.body.appendChild(buffer);
+  const activeElement = document.activeElement;
+  let copied = false;
+  try {
+    buffer.focus();
+    buffer.select();
+    copied = document.execCommand("copy");
+  } finally {
+    buffer.remove();
+    activeElement?.focus?.();
+  }
+  if (!copied) throw new Error("Clipboard write failed");
+}
+function setButtonIcon(button, iconName) {
+  const icon = button?.querySelector("i");
+  if (!icon)
+    return;
+  icon.className = `fa-solid fa-${iconName}`;
+}
+function setButtonFeedback(button, state, label) {
+  button.dataset.copyState = state;
+  button.setAttribute("aria-label", label);
+  button.title = label;
+  setButtonIcon(button, state === "copied" ? "check" : "copy");
+}
+async function copyTextWithFeedback(button, text2, emptyText = "Empty") {
+  if (!button) return;
+  if (!String(text2 || "").trim()) return;
+  const originalLabel = button.getAttribute("aria-label") || button.title || "Copy";
+  if (button.copyFeedbackTimer) {
+    clearTimeout(button.copyFeedbackTimer);
+    button.copyFeedbackTimer = null;
+  }
+  button.dataset.copyState = "copying";
+  try {
+    await writeClipboard(text2);
+    setButtonFeedback(button, text2 ? "copied" : "empty", text2 ? "Copied" : emptyText);
+  } catch (error) {
+    console.debug("Clipboard copy failed", error);
+    setButtonFeedback(button, "failed", "Copy failed");
+  }
+  button.copyFeedbackTimer = setTimeout(() => {
+    setButtonFeedback(button, "idle", originalLabel);
+    button.copyFeedbackTimer = null;
   }, 1500);
 }
-function setCopyButtonAvailable(button2, available) {
-  if (!button2) return;
-  button2.disabled = !available;
-  button2.setAttribute("aria-disabled", available ? "false" : "true");
+function setCopyButtonAvailable(button, available) {
+  if (!button) return;
+  button.disabled = !available;
+  button.setAttribute("aria-disabled", available ? "false" : "true");
 }
 
 // development/web/src/performance-metrics.js
@@ -1989,7 +1929,6 @@ updateCopyButtonState2();
 // development/web/src/debug-log.js
 var copyButton3 = document.getElementById("copyDebugLogBtn");
 var logEl2 = document.getElementById("log");
-var copyBuffer = document.getElementById("debugLogCopyBuffer");
 function getLogText() {
   if (!logEl2) return "";
   return Array.from(logEl2.querySelectorAll(".log-line")).map((line) => line.textContent.trim()).filter(Boolean).join("\n");
@@ -1997,8 +1936,7 @@ function getLogText() {
 async function copyLog() {
   if (!copyButton3) return;
   const logText = getLogText();
-  copyBuffer?.classList.remove("is-visible");
-  await copyTextWithFeedback(copyButton3, logText, "Copy", copyBuffer);
+  await copyTextWithFeedback(copyButton3, logText, "Copy");
 }
 function updateCopyButtonState3() {
   setCopyButtonAvailable(copyButton3, !!getLogText());
@@ -3214,6 +3152,82 @@ var BoxDetectionT = class {
   }
 };
 
+// generated/perception/ts/dist/perception/fb/perception/metadata/producer-info.js
+var ProducerInfo = class _ProducerInfo {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsProducerInfo(bb, obj) {
+    return (obj || new _ProducerInfo()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsProducerInfo(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _ProducerInfo()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  instanceId(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  component(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  implementation(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  static startProducerInfo(builder) {
+    builder.startObject(3);
+  }
+  static addInstanceId(builder, instanceIdOffset) {
+    builder.addFieldOffset(0, instanceIdOffset, 0);
+  }
+  static addComponent(builder, componentOffset) {
+    builder.addFieldOffset(1, componentOffset, 0);
+  }
+  static addImplementation(builder, implementationOffset) {
+    builder.addFieldOffset(2, implementationOffset, 0);
+  }
+  static endProducerInfo(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createProducerInfo(builder, instanceIdOffset, componentOffset, implementationOffset) {
+    _ProducerInfo.startProducerInfo(builder);
+    _ProducerInfo.addInstanceId(builder, instanceIdOffset);
+    _ProducerInfo.addComponent(builder, componentOffset);
+    _ProducerInfo.addImplementation(builder, implementationOffset);
+    return _ProducerInfo.endProducerInfo(builder);
+  }
+  unpack() {
+    return new ProducerInfoT(this.instanceId(), this.component(), this.implementation());
+  }
+  unpackTo(_o) {
+    _o.instanceId = this.instanceId();
+    _o.component = this.component();
+    _o.implementation = this.implementation();
+  }
+};
+var ProducerInfoT = class {
+  constructor(instanceId = null, component = null, implementation = null) {
+    this.instanceId = instanceId;
+    this.component = component;
+    this.implementation = implementation;
+  }
+  pack(builder) {
+    const instanceId = this.instanceId !== null ? builder.createString(this.instanceId) : 0;
+    const component = this.component !== null ? builder.createString(this.component) : 0;
+    const implementation = this.implementation !== null ? builder.createString(this.implementation) : 0;
+    return ProducerInfo.createProducerInfo(builder, instanceId, component, implementation);
+  }
+};
+
 // generated/perception/ts/dist/perception/fb/perception/metadata/layer-info.js
 var LayerInfo = class _LayerInfo {
   constructor() {
@@ -3260,8 +3274,12 @@ var LayerInfo = class _LayerInfo {
     const offset = this.bb.__offset(this.bb_pos, 16);
     return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
   }
+  producer(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 18);
+    return offset ? (obj || new ProducerInfo()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
   static startLayerInfo(builder) {
-    builder.startObject(7);
+    builder.startObject(8);
   }
   static addEngine(builder, engineOffset) {
     builder.addFieldOffset(0, engineOffset, 0);
@@ -3284,23 +3302,15 @@ var LayerInfo = class _LayerInfo {
   static addCompositingMode(builder, compositingModeOffset) {
     builder.addFieldOffset(6, compositingModeOffset, 0);
   }
+  static addProducer(builder, producerOffset) {
+    builder.addFieldOffset(7, producerOffset, 0);
+  }
   static endLayerInfo(builder) {
     const offset = builder.endObject();
     return offset;
   }
-  static createLayerInfo(builder, engineOffset, modelOffset, tagsOffset, inferElementIdOffset, labelFamilyOffset, contentTypeOffset, compositingModeOffset) {
-    _LayerInfo.startLayerInfo(builder);
-    _LayerInfo.addEngine(builder, engineOffset);
-    _LayerInfo.addModel(builder, modelOffset);
-    _LayerInfo.addTags(builder, tagsOffset);
-    _LayerInfo.addInferElementId(builder, inferElementIdOffset);
-    _LayerInfo.addLabelFamily(builder, labelFamilyOffset);
-    _LayerInfo.addContentType(builder, contentTypeOffset);
-    _LayerInfo.addCompositingMode(builder, compositingModeOffset);
-    return _LayerInfo.endLayerInfo(builder);
-  }
   unpack() {
-    return new LayerInfoT(this.engine(), this.model(), this.tags(), this.inferElementId(), this.labelFamily(), this.contentType(), this.compositingMode());
+    return new LayerInfoT(this.engine(), this.model(), this.tags(), this.inferElementId(), this.labelFamily(), this.contentType(), this.compositingMode(), this.producer() !== null ? this.producer().unpack() : null);
   }
   unpackTo(_o) {
     _o.engine = this.engine();
@@ -3310,10 +3320,11 @@ var LayerInfo = class _LayerInfo {
     _o.labelFamily = this.labelFamily();
     _o.contentType = this.contentType();
     _o.compositingMode = this.compositingMode();
+    _o.producer = this.producer() !== null ? this.producer().unpack() : null;
   }
 };
 var LayerInfoT = class {
-  constructor(engine = null, model = null, tags = null, inferElementId = null, labelFamily = null, contentType = null, compositingMode = null) {
+  constructor(engine = null, model = null, tags = null, inferElementId = null, labelFamily = null, contentType = null, compositingMode = null, producer = null) {
     this.engine = engine;
     this.model = model;
     this.tags = tags;
@@ -3321,6 +3332,7 @@ var LayerInfoT = class {
     this.labelFamily = labelFamily;
     this.contentType = contentType;
     this.compositingMode = compositingMode;
+    this.producer = producer;
   }
   pack(builder) {
     const engine = this.engine !== null ? builder.createString(this.engine) : 0;
@@ -3330,7 +3342,17 @@ var LayerInfoT = class {
     const labelFamily = this.labelFamily !== null ? builder.createString(this.labelFamily) : 0;
     const contentType = this.contentType !== null ? builder.createString(this.contentType) : 0;
     const compositingMode = this.compositingMode !== null ? builder.createString(this.compositingMode) : 0;
-    return LayerInfo.createLayerInfo(builder, engine, model, tags, inferElementId, labelFamily, contentType, compositingMode);
+    const producer = this.producer !== null ? this.producer.pack(builder) : 0;
+    LayerInfo.startLayerInfo(builder);
+    LayerInfo.addEngine(builder, engine);
+    LayerInfo.addModel(builder, model);
+    LayerInfo.addTags(builder, tags);
+    LayerInfo.addInferElementId(builder, inferElementId);
+    LayerInfo.addLabelFamily(builder, labelFamily);
+    LayerInfo.addContentType(builder, contentType);
+    LayerInfo.addCompositingMode(builder, compositingMode);
+    LayerInfo.addProducer(builder, producer);
+    return LayerInfo.endLayerInfo(builder);
   }
 };
 
@@ -5437,64 +5459,64 @@ var TrackTracesT = class {
 };
 
 // generated/perception/ts/dist/perception/registry.js
-var decode_127096183275957372 = (blob) => BoxDetections.getRootAsBoxDetections(new ByteBuffer(blob)).unpack();
-var verify_127096183275957372 = (blob) => BoxDetections.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_9181357636124419217 = (blob) => Classifications.getRootAsClassifications(new ByteBuffer(blob)).unpack();
-var verify_9181357636124419217 = (blob) => Classifications.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_6787725252958650128 = (blob) => FrameContext.getRootAsFrameContext(new ByteBuffer(blob)).unpack();
-var verify_6787725252958650128 = (blob) => FrameContext.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_3601053540183530964 = (blob) => ObjectEmbeddings.getRootAsObjectEmbeddings(new ByteBuffer(blob)).unpack();
-var verify_3601053540183530964 = (blob) => ObjectEmbeddings.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_1204340903431744882 = (blob) => ObjectTracks.getRootAsObjectTracks(new ByteBuffer(blob)).unpack();
-var verify_1204340903431744882 = (blob) => ObjectTracks.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_928609632921539799 = (blob) => BoxDetections.getRootAsBoxDetections(new ByteBuffer(blob)).unpack();
+var verify_928609632921539799 = (blob) => BoxDetections.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_94127366257443529 = (blob) => Classifications.getRootAsClassifications(new ByteBuffer(blob)).unpack();
+var verify_94127366257443529 = (blob) => Classifications.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_6405170853304169454 = (blob) => FrameContext.getRootAsFrameContext(new ByteBuffer(blob)).unpack();
+var verify_6405170853304169454 = (blob) => FrameContext.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_3474598619102273931 = (blob) => ObjectEmbeddings.getRootAsObjectEmbeddings(new ByteBuffer(blob)).unpack();
+var verify_3474598619102273931 = (blob) => ObjectEmbeddings.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_930392077708082693 = (blob) => ObjectTracks.getRootAsObjectTracks(new ByteBuffer(blob)).unpack();
+var verify_930392077708082693 = (blob) => ObjectTracks.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_4179744154867129599 = (blob) => PerformanceOverlay.getRootAsPerformanceOverlay(new ByteBuffer(blob)).unpack();
 var verify_4179744154867129599 = (blob) => PerformanceOverlay.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_6089861490284108552 = (blob) => PoseEstimations.getRootAsPoseEstimations(new ByteBuffer(blob)).unpack();
-var verify_6089861490284108552 = (blob) => PoseEstimations.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_3767952910034633902 = (blob) => SegmentationMasks.getRootAsSegmentationMasks(new ByteBuffer(blob)).unpack();
-var verify_3767952910034633902 = (blob) => SegmentationMasks.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_4937615646931894804 = (blob) => TrackTraces.getRootAsTrackTraces(new ByteBuffer(blob)).unpack();
-var verify_4937615646931894804 = (blob) => TrackTraces.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_8795139052133278924 = (blob) => PoseEstimations.getRootAsPoseEstimations(new ByteBuffer(blob)).unpack();
+var verify_8795139052133278924 = (blob) => PoseEstimations.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_1102215109093226736 = (blob) => SegmentationMasks.getRootAsSegmentationMasks(new ByteBuffer(blob)).unpack();
+var verify_1102215109093226736 = (blob) => SegmentationMasks.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_8745337222662207869 = (blob) => TrackTraces.getRootAsTrackTraces(new ByteBuffer(blob)).unpack();
+var verify_8745337222662207869 = (blob) => TrackTraces.bufferHasIdentifier(new ByteBuffer(blob));
 var _TYPE_REGISTRY = /* @__PURE__ */ new Map([
-  [127096183275957372n, {
+  [928609632921539799n, {
     name: "perception::metadata::BoxDetections",
     root_type: "BoxDetections",
     qualified_root_type: "perception.metadata.BoxDetections",
     file_identifier: "BDET",
-    decode: decode_127096183275957372,
-    verify: verify_127096183275957372
+    decode: decode_928609632921539799,
+    verify: verify_928609632921539799
   }],
-  [9181357636124419217n, {
+  [94127366257443529n, {
     name: "perception::metadata::Classifications",
     root_type: "Classifications",
     qualified_root_type: "perception.metadata.Classifications",
     file_identifier: "CLSF",
-    decode: decode_9181357636124419217,
-    verify: verify_9181357636124419217
+    decode: decode_94127366257443529,
+    verify: verify_94127366257443529
   }],
-  [6787725252958650128n, {
+  [6405170853304169454n, {
     name: "perception::metadata::FrameContext",
     root_type: "FrameContext",
     qualified_root_type: "perception.metadata.FrameContext",
     file_identifier: "FCTX",
-    decode: decode_6787725252958650128,
-    verify: verify_6787725252958650128
+    decode: decode_6405170853304169454,
+    verify: verify_6405170853304169454
   }],
-  [3601053540183530964n, {
+  [3474598619102273931n, {
     name: "perception::metadata::ObjectEmbeddings",
     root_type: "ObjectEmbeddings",
     qualified_root_type: "perception.metadata.ObjectEmbeddings",
     file_identifier: "EMBE",
-    decode: decode_3601053540183530964,
-    verify: verify_3601053540183530964
+    decode: decode_3474598619102273931,
+    verify: verify_3474598619102273931
   }],
-  [1204340903431744882n, {
+  [930392077708082693n, {
     name: "perception::metadata::ObjectTracks",
     root_type: "ObjectTracks",
     qualified_root_type: "perception.metadata.ObjectTracks",
     file_identifier: "TRKS",
-    decode: decode_1204340903431744882,
-    verify: verify_1204340903431744882
+    decode: decode_930392077708082693,
+    verify: verify_930392077708082693
   }],
   [4179744154867129599n, {
     name: "perception::metadata::PerformanceOverlay",
@@ -5504,41 +5526,41 @@ var _TYPE_REGISTRY = /* @__PURE__ */ new Map([
     decode: decode_4179744154867129599,
     verify: verify_4179744154867129599
   }],
-  [6089861490284108552n, {
+  [8795139052133278924n, {
     name: "perception::metadata::PoseEstimations",
     root_type: "PoseEstimations",
     qualified_root_type: "perception.metadata.PoseEstimations",
     file_identifier: "POSE",
-    decode: decode_6089861490284108552,
-    verify: verify_6089861490284108552
+    decode: decode_8795139052133278924,
+    verify: verify_8795139052133278924
   }],
-  [3767952910034633902n, {
+  [1102215109093226736n, {
     name: "perception::metadata::SegmentationMasks",
     root_type: "SegmentationMasks",
     qualified_root_type: "perception.metadata.SegmentationMasks",
     file_identifier: "SGMS",
-    decode: decode_3767952910034633902,
-    verify: verify_3767952910034633902
+    decode: decode_1102215109093226736,
+    verify: verify_1102215109093226736
   }],
-  [4937615646931894804n, {
+  [8745337222662207869n, {
     name: "perception::metadata::TrackTraces",
     root_type: "TrackTraces",
     qualified_root_type: "perception.metadata.TrackTraces",
     file_identifier: "TRCE",
-    decode: decode_4937615646931894804,
-    verify: verify_4937615646931894804
+    decode: decode_8745337222662207869,
+    verify: verify_8745337222662207869
   }]
 ]);
 var _CLASS_TO_ID = /* @__PURE__ */ new Map([
-  [BoxDetectionsT, 127096183275957372n],
-  [ClassificationsT, 9181357636124419217n],
-  [FrameContextT, 6787725252958650128n],
-  [ObjectEmbeddingsT, 3601053540183530964n],
-  [ObjectTracksT, 1204340903431744882n],
+  [BoxDetectionsT, 928609632921539799n],
+  [ClassificationsT, 94127366257443529n],
+  [FrameContextT, 6405170853304169454n],
+  [ObjectEmbeddingsT, 3474598619102273931n],
+  [ObjectTracksT, 930392077708082693n],
   [PerformanceOverlayT, 4179744154867129599n],
-  [PoseEstimationsT, 6089861490284108552n],
-  [SegmentationMasksT, 3767952910034633902n],
-  [TrackTracesT, 4937615646931894804n]
+  [PoseEstimationsT, 8795139052133278924n],
+  [SegmentationMasksT, 1102215109093226736n],
+  [TrackTracesT, 8745337222662207869n]
 ]);
 
 // generated/perception/ts/dist/perception/envelope.js
@@ -5555,8 +5577,8 @@ var __classPrivateFieldGet = function(receiver, state, kind, f) {
 };
 var _ExternalKey_value;
 var SDK_NAME = "perception";
-var SDK_VERSION = "0.2.1";
-var SCHEMA_SET_SHA256 = "0ba6dfe959e1453ce12c7a8707623bc15d94d52c9235c26f7e27f31dda0775c5";
+var SDK_VERSION = "0.3.0";
+var SCHEMA_SET_SHA256 = "5a2f77909600d6458a707fba68cff1a7dc5f610dec58174456bb97d16596c383";
 var EXTERNAL_KEY_MIN = BigInt("9223372036854775808");
 var EXTERNAL_KEY_MASK = EXTERNAL_KEY_MIN - BigInt(1);
 var EXTERNAL_HASH_OFFSET = BigInt("14695981039346656037");
@@ -5898,6 +5920,7 @@ function objectData(object) {
   };
 }
 function layerData(layer2) {
+  const producer = layer2?.producer;
   return {
     engine: text(layer2?.engine),
     model: text(layer2?.model),
@@ -5905,7 +5928,12 @@ function layerData(layer2) {
     inferElementId: text(layer2?.inferElementId),
     labelFamily: text(layer2?.labelFamily),
     contentType: text(layer2?.contentType),
-    compositingMode: text(layer2?.compositingMode)
+    compositingMode: text(layer2?.compositingMode),
+    producer: producer ? {
+      instanceId: text(producer.instanceId),
+      component: text(producer.component),
+      implementation: text(producer.implementation)
+    } : null
   };
 }
 function layer(payload, detections) {
@@ -6351,9 +6379,10 @@ function drawConfiguredLayer(layer2, renderer) {
   if (!renderer.enabled || layer2.contentType !== renderer.contentType) {
     return;
   }
-  drawLayerDetections(layer2, renderer.detectionType, renderer.draw);
+  drawLayerDetections(layer2, renderer.detectionType, (data) => renderer.draw(data, layer2));
 }
 function drawLayers(ctx, perception, mapper, renderOptions, now) {
+  const classificationBottomOffsets = { left: 0, right: 0 };
   const renderers = [
     {
       enabled: renderOptions.trackTraces,
@@ -6377,7 +6406,19 @@ function drawLayers(ctx, perception, mapper, renderOptions, now) {
       enabled: renderOptions.classification,
       contentType: "classification",
       detectionType: "Classification",
-      draw: (data) => drawClassification(ctx, data, mapper.display, renderOptions.colors)
+      draw: (data, layer2) => {
+        const alignRight = layer2.compositingMode === "bottomRight";
+        const side = alignRight ? "right" : "left";
+        classificationBottomOffsets[side] += drawClassification(
+          ctx,
+          data,
+          mapper.display,
+          renderOptions.colors,
+          classificationHeading(layer2),
+          alignRight,
+          classificationBottomOffsets[side]
+        );
+      }
     },
     {
       enabled: renderOptions.personStatus,
@@ -6420,20 +6461,56 @@ function drawFace(ctx, rect, mapper, colors) {
   ctx.stroke();
   ctx.restore();
 }
-function drawClassification(ctx, classification, display, colors) {
+function drawClassification(ctx, classification, display, colors, heading, alignRight = false, bottomOffset = 0) {
   const candidates = Array.isArray(classification?.candidates) ? classification.candidates : [];
   if (candidates.length === 0) {
-    return;
+    return 0;
   }
   const fontSize = 14;
   const lineHeight = fontSize * 1.5;
   const padding = 10;
   const startX = display.x + padding;
-  const startY = display.y + display.height - candidates.length * lineHeight - padding;
+  const startY = display.y + display.height - bottomOffset - candidates.length * lineHeight - 2 * padding;
+  const textX = classificationTextX(display, padding, alignRight);
+  if (heading) {
+    drawTextChip(
+      ctx,
+      heading,
+      textX,
+      Math.max(display.y + padding, startY - lineHeight),
+      fontSize,
+      colors.classification,
+      alignRight
+    );
+  }
   candidates.forEach((candidate, index) => {
     const text2 = `#${index + 1}: ${candidate.text || candidate.classId} (${((candidate.confidence || 0) * 100).toFixed(1)}%)`;
-    drawTextChip(ctx, text2, startX, startY + index * lineHeight, fontSize, colors.classification);
+    drawTextChip(
+      ctx,
+      text2,
+      textX,
+      startY + index * lineHeight,
+      fontSize,
+      colors.classification,
+      alignRight
+    );
   });
+  return classificationPanelHeight(candidates.length, heading);
+}
+function classificationHeading(layer2) {
+  return layer2?.producer?.implementation || "";
+}
+function classificationTextX(display, padding, alignRight) {
+  if (!alignRight) {
+    return display.x + padding;
+  }
+  return display.x + display.width - padding;
+}
+function classificationPanelHeight(candidateCount, heading) {
+  const fontSize = 14;
+  const lineHeight = fontSize * 1.5;
+  const padding = 10;
+  return candidateCount * lineHeight + (heading ? lineHeight : 0) + 2 * padding;
 }
 function drawPersonClassification(ctx, personClassification, display, now, colors) {
   if (now % 1e3 >= 800) {
@@ -6533,7 +6610,7 @@ function drawPerformance(ctx, perception, colors) {
     y += 16;
   }
 }
-function drawTextChip(ctx, text2, x, y, fontSize, color = DEFAULT_COLORS.text) {
+function drawTextChip(ctx, text2, x, y, fontSize, color = DEFAULT_COLORS.text, alignRight = false) {
   ctx.save();
   ctx.font = `${fontSize}px monospace`;
   ctx.textBaseline = "top";
@@ -6542,10 +6619,11 @@ function drawTextChip(ctx, text2, x, y, fontSize, color = DEFAULT_COLORS.text) {
   const metrics = ctx.measureText(text2);
   const width = metrics.width + paddingX * 2;
   const height = fontSize + paddingY * 2;
+  const drawX = alignRight ? x - width : x;
   ctx.fillStyle = DEFAULT_COLORS.textBg;
-  ctx.fillRect(x, y, width, height);
+  ctx.fillRect(drawX, y, width, height);
   ctx.fillStyle = color;
-  ctx.fillText(text2, x + paddingX, y + paddingY);
+  ctx.fillText(text2, drawX + paddingX, y + paddingY);
   ctx.restore();
 }
 function drawArrow(ctx, from, to, color, width = 3, headSize = 10) {

@@ -86,6 +86,20 @@ TEST(TokenizeExpand, EnvDefaultValueUsedWhenUnsetOrEmpty) {
     UnsetEnv("CAM1");
 }
 
+TEST(TokenizeExpand, ProjectRootUsesWorkDefaultAndPreservesSpaces) {
+    UnsetEnv("PEK_PROJECT_ROOT");
+    ExecArgs default_root = tokenize_and_expand_argv(
+        "filesrc location=${PEK_PROJECT_ROOT:-/work}/data/videos/example.mp4");
+    ExpectTokensEq(default_root, {"filesrc", "location=/work/data/videos/example.mp4"});
+
+    SetEnv("PEK_PROJECT_ROOT", "/tmp/pek checkout");
+    ExecArgs configured_root = tokenize_and_expand_argv(
+        "filesrc location=${PEK_PROJECT_ROOT:-/work}/data/videos/example.mp4");
+    ExpectTokensEq(configured_root,
+                   {"filesrc", "location=/tmp/pek checkout/data/videos/example.mp4"});
+    UnsetEnv("PEK_PROJECT_ROOT");
+}
+
 TEST(TokenizeExpand, EnvErrorFormThrowsOnUnsetOrEmpty) {
     UnsetEnv("REQ");
     EXPECT_THROW(tokenize_and_expand_argv("x ${REQ?REQ is required} y"), std::runtime_error);

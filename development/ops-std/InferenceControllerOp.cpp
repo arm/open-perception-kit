@@ -13,8 +13,6 @@
 #include "pek/Types.h"
 #include "tl/expected.hpp"
 
-#include <perf/PerformanceTracer.h>
-
 using namespace pek::stdop;
 
 InferenceControllerOp::InferenceControllerOp() = default;
@@ -27,6 +25,11 @@ pek::Result<void> InferenceControllerOp::bind(size_t index, const std::vector<pe
 pek::Result<void> InferenceControllerOp::configure(const pek::AttributeMap &attributes) {
     contentType = attributes.getStringOrDefault("contentType", "");
     return {};
+}
+
+std::vector<std::string_view> InferenceControllerOp::getRequiredContentTypes() const {
+    return contentType.empty() ? std::vector<std::string_view>{}
+                               : std::vector<std::string_view>{contentType};
 }
 
 pek::Result<pek::op::OpSignal>
@@ -47,8 +50,11 @@ InferenceControllerOp::process(pek::op::OpChainContext &opChainContext) {
         const uint64_t frameId = object->id;
 
         perception::metadata::FrameContextT frameContext;
+        const auto producer = producerInfo(
+            opChainContext.inferenceInfo.inferElementId, opName, "pek-std-ops/InferenceController");
+        const auto rootLayerId = "rootLayer_" + opChainContext.inferenceInfo.inferElementId;
         frameContext.layer = perception::makeLayerInfo(
-            "", "rootLayer_" + opChainContext.inferenceInfo.inferElementId, "frameContext");
+            {.inferElementId = rootLayerId, .contentType = "frameContext", .producer = &producer});
         frameContext.video = std::make_unique<perception::metadata::VideoFrameContextT>();
         frameContext.video->object = std::move(object);
         frameContext.video->original_width = pipelineVideoFrame->width();

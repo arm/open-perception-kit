@@ -1,5 +1,5 @@
-# Strict reachable-only suppressions for reviewed PEK-owned call stacks.
-# Each block preserves one complete stack observed with --num-callers=64.
+# Add suppressions only when the complete stack contains no PEK-owned function.
+# Remove a suppression when its warning is fixed or no longer observed.
 
 {
    pek_reachable_tools_dynamic_library_open_calloc_dl_new_object_dl_map_object_from_fd_dl_map_object_dl_open_worker_begin_launcher
@@ -35,6 +35,7 @@
    fun:gst_iterator_fold
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_ZL25gst_pekinfer_change_stateP11_GstElement14GstStateChange
    fun:gst_element_change_state
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
@@ -78,6 +79,7 @@
    fun:gst_iterator_fold
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_ZL25gst_pekinfer_change_stateP11_GstElement14GstStateChange
    fun:gst_element_change_state
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
@@ -123,6 +125,7 @@
    fun:gst_iterator_fold
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_ZL25gst_pekinfer_change_stateP11_GstElement14GstStateChange
    fun:gst_element_change_state
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
@@ -171,6 +174,7 @@
    fun:gst_iterator_fold
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_ZL25gst_pekinfer_change_stateP11_GstElement14GstStateChange
    fun:gst_element_change_state
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
@@ -219,6 +223,7 @@
    fun:gst_iterator_fold
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_ZL25gst_pekinfer_change_stateP11_GstElement14GstStateChange
    fun:gst_element_change_state
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
@@ -266,6 +271,7 @@
    fun:gst_iterator_fold
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_ZL25gst_pekinfer_change_stateP11_GstElement14GstStateChange
    fun:gst_element_change_state
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
@@ -310,6 +316,7 @@
    fun:gst_iterator_fold
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_ZL25gst_pekinfer_change_stateP11_GstElement14GstStateChange
    fun:gst_element_change_state
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
@@ -355,6 +362,7 @@
    fun:gst_iterator_fold
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_ZL25gst_pekinfer_change_stateP11_GstElement14GstStateChange
    fun:gst_element_change_state
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
@@ -402,6 +410,7 @@
    fun:gst_iterator_fold
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_ZL25gst_pekinfer_change_stateP11_GstElement14GstStateChange
    fun:gst_element_change_state
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
@@ -445,6 +454,7 @@
    fun:gst_iterator_fold
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_ZL25gst_pekinfer_change_stateP11_GstElement14GstStateChange
    fun:gst_element_change_state
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
@@ -493,6 +503,7 @@
    fun:gst_iterator_fold
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_ZL25gst_pekinfer_change_stateP11_GstElement14GstStateChange
    fun:gst_element_change_state
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
@@ -532,6 +543,7 @@
    fun:gst_iterator_fold
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_ZL25gst_pekinfer_change_stateP11_GstElement14GstStateChange
    fun:gst_element_change_state
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
@@ -3030,198 +3042,6 @@
    fun:gst_video_filter_get_type
    fun:_ZL25gst_pek_osd_get_type_oncev
    fun:gst_pek_osd_get_type
-   fun:_ZL18pekosd_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
-   pek_reachable_pekosd_plugin_init_calloc_gst_structure_copy_g_type_class_get_triple_nested_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:calloc
-   fun:g_malloc0
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:gst_structure_copy
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:g_type_class_get
-   fun:g_type_class_get
-   fun:g_type_class_get
-   fun:gst_element_register
-   fun:_ZL18pekosd_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
-   pek_reachable_gst_pek_osd_get_type_once_calloc_g_type_register_static_gst_base_transform_get_type_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:calloc
-   fun:g_malloc0
-   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
-   fun:g_type_register_static
-   fun:gst_base_transform_get_type
-   obj:/usr/lib/x86_64-linux-gnu/libgstvideo-1.0.so.*
-   fun:gst_video_filter_get_type
-   fun:_ZL25gst_pek_osd_get_type_oncev
-   fun:gst_pek_osd_get_type
-   fun:_ZL18pekosd_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
-   pek_reachable_pekosd_plugin_init_calloc_g_type_class_get_triple_nested_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:calloc
-   fun:g_malloc0
-   fun:g_type_class_get
-   fun:g_type_class_get
-   fun:g_type_class_get
-   fun:gst_element_register
-   fun:_ZL18pekosd_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
-   pek_reachable_pekosd_plugin_init_malloc_g_slist_copy_deep_g_type_class_get_triple_nested_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:g_malloc
-   fun:g_slist_copy_deep
-   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
-   fun:g_type_class_get
-   fun:g_type_class_get
-   fun:g_type_class_get
-   fun:gst_element_register
-   fun:_ZL18pekosd_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
-   pek_reachable_pekosd_plugin_init_malloc_gst_debug_category_new_g_type_class_get_triple_nested_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:g_malloc
-   fun:_gst_debug_category_new
-   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
-   fun:g_type_class_get
-   fun:g_type_class_get
-   fun:g_type_class_get
-   fun:gst_element_register
-   fun:_ZL18pekosd_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
-   pek_reachable_pekosd_plugin_init_g_type_create_instance_g_param_spec_boolean_g_type_class_get_triple_nested_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:g_type_create_instance
-   fun:g_param_spec_internal
-   fun:g_param_spec_boolean
-   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
-   fun:g_type_class_get
-   fun:g_type_class_get
-   fun:g_type_class_get
-   fun:gst_element_register
-   fun:_ZL18pekosd_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
-   pek_reachable_gst_pek_osd_get_type_once_realloc_g_type_register_static_gst_base_transform_get_type_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:realloc
-   fun:g_realloc
-   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
-   fun:g_type_register_static
-   fun:gst_base_transform_get_type
-   obj:/usr/lib/x86_64-linux-gnu/libgstvideo-1.0.so.*
-   fun:gst_video_filter_get_type
-   fun:_ZL25gst_pek_osd_get_type_oncev
-   fun:gst_pek_osd_get_type
-   fun:_ZL18pekosd_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
-   pek_reachable_pekosd_plugin_init_malloc_g_strdup_gst_debug_category_new_g_type_class_get_triple_nested_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:g_malloc
-   fun:g_strdup
-   fun:_gst_debug_category_new
-   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
-   fun:g_type_class_get
-   fun:g_type_class_get
-   fun:g_type_class_get
-   fun:gst_element_register
-   fun:_ZL18pekosd_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
-   pek_reachable_pekosd_plugin_init_malloc_g_slist_prepend_gst_debug_category_new_g_type_class_get_triple_nested_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:g_malloc
-   fun:g_slist_prepend
-   fun:_gst_debug_category_new
-   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
-   fun:g_type_class_get
-   fun:g_type_class_get
-   fun:g_type_class_get
-   fun:gst_element_register
    fun:_ZL18pekosd_plugin_initP10_GstPlugin
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*

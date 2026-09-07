@@ -12,14 +12,8 @@ option('executorch',
   description : 'Enable ExecuTorch integration'
 )
 
-option('ncnn',
+option('python_ops',
   type : 'feature',
   value : 'auto',
-  description : 'Enable NCNN integration (ops-ncnn)'
-)
-
-option('hailort',
-  type : 'feature',
-  value : 'auto',
-  description : 'Enable HailoRT integration (ops-hailort)'
+  description : 'Enable the embedded Python script Op'
 )

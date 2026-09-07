@@ -13,6 +13,7 @@
 #include "http_server.h"
 #include "nlohmann/json_fwd.hpp"
 #include "peksink.h"
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 
@@ -59,6 +60,11 @@ static json browser_ice_server_from_url(const char *server_url) {
 
     ice_server["urls"] = url;
     return ice_server;
+}
+
+static std::filesystem::path project_root() {
+    const char *configured_root = std::getenv("PEK_PROJECT_ROOT");
+    return configured_root != nullptr && configured_root[0] != '\0' ? configured_root : "/work";
 }
 
 PekSinkHttpServerError PekSinkHttpServer::setup() {
@@ -154,17 +160,19 @@ void PekSinkHttpServer::get_model_info(const Request &req, Response &res) {
         return;
     }
 
+    const auto configured_project_root = project_root();
+
     // Candidate directories to search for model.json and opchain.json
     std::vector<std::filesystem::path> model_bases = {
+        configured_project_root / "config" / "models",
         std::filesystem::current_path() / "config" / "models",
         std::filesystem::current_path() / ".." / "config" / "models",
-        std::filesystem::path("/work") / "config" / "models",
     };
 
     std::vector<std::filesystem::path> opchain_bases = {
+        configured_project_root / "config" / "opchains",
         std::filesystem::current_path() / "config" / "opchains",
         std::filesystem::current_path() / ".." / "config" / "opchains",
-        std::filesystem::path("/work") / "config" / "opchains",
     };
 
     bool found = false;

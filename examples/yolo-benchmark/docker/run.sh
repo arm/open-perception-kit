@@ -7,7 +7,13 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(git -C "${SCRIPT_DIR}" rev-parse --show-toplevel)"
+: "${PEK_PROJECT_ROOT:=${REPO_ROOT}}"
+PEK_PROJECT_ROOT="$(cd "${PEK_PROJECT_ROOT}" && pwd -P)"
+export PEK_PROJECT_ROOT
+REPO_ROOT="${PEK_PROJECT_ROOT}"
+SCRIPT_DIR="${REPO_ROOT}/examples/yolo-benchmark/docker"
 COMPOSE_FILE="${SCRIPT_DIR}/compose.yaml"
+CACHE_COMPOSE_FILE="${SCRIPT_DIR}/compose.registry-cache.yaml"
 IMAGE_NAME="${YOLO_BENCHMARK_IMAGE_NAME:-amp-dev-forge-yolo-benchmark:local}"
 DEFAULT_BENCHMARK_RUNS=10
 
@@ -23,7 +29,10 @@ Environment:
   YOLO_BENCHMARK_LIMIT           Optional image-list limit. Default: full COCO val2017.
   YOLO_BENCHMARK_RUNS            Optional benchmark repetition override. Default: 10.
   YOLO_BENCHMARK_IMAGE_NAME      Runtime image tag override.
+  YOLO_BENCHMARK_IMAGE_SHA       Expected revision of a prebuilt runtime image.
+  YOLO_BENCHMARK_CACHE_FROM      Optional BuildKit cache source used after an image miss.
   YOLO_BENCHMARK_CACHE_VOLUME    Docker volume override for dataset, venv, and PEK build cache.
+  PEK_PROJECT_ROOT               Absolute PEK checkout path. Default: checkout containing this script.
   COMPOSE_PROJECT_NAME           Compose project override. Default: amp-dev-forge-yolo-benchmark
 EOF
 }
@@ -64,7 +73,7 @@ validate_inputs() {
 }
 
 run_in_container() {
-    local artifact_root="/work/artifacts/yolo-benchmark"
+    local artifact_root="${PEK_PROJECT_ROOT}/artifacts/yolo-benchmark"
     local cache_root="/cache/yolo-benchmark"
     local benchmark_kind="${YOLO_BENCHMARK_KIND:-images}"
     local image_list="${artifact_root}/images.tsv"
@@ -74,16 +83,20 @@ run_in_container() {
     local venv="${cache_root}/.venv"
     local dataset_dir="${cache_root}/coco"
     local pek_build_dir="${cache_root}/pek-build"
+    local ccache_dir="${cache_root}/ccache"
     local ultralytics_config_dir="${cache_root}/ultralytics"
     local requirements="examples/yolo-benchmark/bare/requirements.txt"
     local model="config/models/yolov11/yolo11n-fp32-320.onnx"
     local opchain="config/models/yolov11/opchain.json"
 
-    cd /work
+    cd "${PEK_PROJECT_ROOT}"
     if [[ ! -w "${cache_root}" ]]; then
         sudo chown -R "$(id -u):$(id -g)" "${cache_root}"
     fi
-    mkdir -p "${artifact_root}" "${cache_root}" "${ultralytics_config_dir}/Ultralytics"
+    mkdir -p "${artifact_root}" "${cache_root}" "${ccache_dir}" "${ultralytics_config_dir}/Ultralytics"
+    export CCACHE_DIR="${ccache_dir}"
+    export GST_PLUGIN_PATH="${PEK_PROJECT_ROOT}/development/build-active/meson-out${GST_PLUGIN_PATH:+:${GST_PLUGIN_PATH}}"
+    export LD_LIBRARY_PATH="${PEK_PROJECT_ROOT}/development/build-active/meson-out${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
     export YOLO_CONFIG_DIR="${ultralytics_config_dir}"
 
     ensure_bare_venv() {
@@ -385,7 +398,15 @@ export HOST_GID="$(id -g)"
 export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-amp-dev-forge-yolo-benchmark}"
 
 if [[ "${command}" == "setup" ]]; then
-    docker compose -f "${COMPOSE_FILE}" build yolo-benchmark
+    if [[ -n "${YOLO_BENCHMARK_IMAGE_SHA:-}" ]] && docker pull "${IMAGE_NAME}"; then
+        test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "${IMAGE_NAME}")" = "${YOLO_BENCHMARK_IMAGE_SHA}"
+    else
+        compose_files=(-f "${COMPOSE_FILE}")
+        if [[ -n "${YOLO_BENCHMARK_CACHE_FROM:-}" ]]; then
+            compose_files+=(-f "${CACHE_COMPOSE_FILE}")
+        fi
+        docker compose "${compose_files[@]}" build yolo-benchmark
+    fi
 elif ! docker image inspect "${IMAGE_NAME}" > /dev/null 2>&1; then
     repo_checks_die \
         "YOLO benchmark image '${IMAGE_NAME}' is not built yet. Run examples/yolo-benchmark/docker/run.sh setup first."

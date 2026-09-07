@@ -15,7 +15,7 @@ config_schema_resources_tests = executable(
   'config_schema_resources_tests',
   ['config_schema_resources_test.cpp'],
   cpp_args : [
-    '-DPEK_REPOSITORY_ROOT="@0@"'.format(meson.project_source_root() / '..'),
+    '-DPEK_REPOSITORY_ROOT="@0@"'.format(pek_repository_root),
   ],
   dependencies : [gtest_main_dep, gtest_dep, jsoncons_dep],
 )
@@ -31,7 +31,7 @@ config_validator_tests = executable(
     'config_validator_test.cpp',
   ],
   cpp_args : [
-    '-DPEK_REPOSITORY_ROOT="@0@"'.format(meson.project_source_root() / '..'),
+    '-DPEK_REPOSITORY_ROOT="@0@"'.format(pek_repository_root),
   ],
   dependencies : [gtest_main_dep, gtest_dep, config_validator_dep, jsoncons_dep],
 )
@@ -52,19 +52,19 @@ base64_tests = executable(
   link_with : [common],
 )
 
+gst_meta_wrapper_tests = executable(
+  'gst_meta_wrapper_tests',
+  ['gst_meta_wrapper_test.cpp'],
+  include_directories : [common_include],
+  dependencies : [gtest_main_dep, gtest_dep, pek_deps],
+  link_with : [common],
+)
+
 model_registry_tests = executable(
   'model_registry_tests',
   ['model_registry_test.cpp', '../elements/peksink/model_reg.cpp'],
   include_directories : [common_include, include_directories('../elements/peksink')],
   dependencies : [gtest_main_dep, gtest_dep, pek_deps],
-  link_with : [common],
-)
-
-performance_tracer_tests = executable(
-  'performance_tracer_tests',
-  ['performance_tracer_test.cpp'],
-  include_directories : [common_include],
-  dependencies : [gtest_main_dep, gtest_dep],
   link_with : [common],
 )
 
@@ -75,6 +75,61 @@ opchain_descriptor_tests = executable(
   dependencies : [gtest_main_dep, gtest_dep, pek_deps],
   link_with : [common],
 )
+
+standard_content_type_tests = executable(
+  'standard_content_type_tests',
+  ['standard_content_type_test.cpp'],
+  include_directories : [common_include],
+  cpp_args : ['-DPEK_STDOPS_PATH="' + stdops.full_path() + '"'],
+  dependencies : [gtest_main_dep, gtest_dep, pek_deps],
+  link_with : [common],
+)
+
+if python_ops_enabled
+  python_script_op_tests = executable(
+    'python_script_op_tests',
+    ['python_script_op_test.cpp', '../ops-python/Plugin.cpp'],
+    include_directories : [common_include, include_directories('../ops-python')],
+    cpp_args : [
+      '-DPYTHON_SCRIPT_OP_FIXTURES="' + meson.current_source_dir() / 'python_script_op' + '"',
+    ],
+    dependencies : [gtest_main_dep, gtest_dep, python_ops_test_dep],
+  )
+  test(
+    'python_classification_demo_tests',
+    test_python,
+    args : [files('python_classification_demo_test.py')],
+  )
+  byom_blazeface_example_test_env = environment()
+  byom_blazeface_example_test_env.prepend(
+    'PYTHONPATH',
+    meson.project_source_root() / '../generated/perception/python/src',
+  )
+  test(
+    'byom_blazeface_example_tests',
+    test_python,
+    args : [files('byom_blazeface_example_test.py')],
+    env : byom_blazeface_example_test_env,
+  )
+  python_classification_pipeline_test_env = environment()
+  python_classification_pipeline_test_env.prepend(
+    'PYTHONPATH',
+    meson.project_source_root() / '../generated/perception/python/src',
+  )
+  test(
+    'python_classification_pipeline_tests',
+    test_python,
+    args : [
+      files('python_classification_pipeline_test.py'),
+      meson.project_source_root() / '..',
+      meson.project_build_root() / 'meson-out',
+    ],
+    env : python_classification_pipeline_test_env,
+    depends : [gstpekinfer, pekcomm, onnxops, stdops, python_ops],
+    timeout : 90,
+    is_parallel : false,
+  )
+endif
 
 # Test-only OpChain plugin that simulates inference exceeding one frame budget.
 qos_delay_op = shared_module(
@@ -122,6 +177,14 @@ yolo_parser_tests = executable(
   include_directories : [common_include, include_directories('../ops-std')],
   cpp_args: ['-DFMT_HEADER_ONLY'],
   dependencies : [gtest_main_dep, gtest_dep, pek_deps],
+  link_with : [common],
+)
+
+onnx_tensor_tests = executable(
+  'onnx_tensor_tests',
+  ['onnx_tensor_test.cpp'],
+  include_directories : [common_include, include_directories('../ops-onnx')],
+  dependencies : [gtest_main_dep, gtest_dep, pek_deps, onnx_dep],
   link_with : [common],
 )
 
@@ -210,7 +273,7 @@ image_conversion_oracle_test = executable(
   include_directories : [common_include, include_directories('../ops-std')],
 )
 
-python = pek_python
+python = test_python
 perception_python_sdk_path = meson.project_source_root() / '../generated/perception/python/src'
 python_guest_script_test_env = environment()
 python_guest_script_test_env.prepend('PYTHONPATH', perception_python_sdk_path)
@@ -218,7 +281,7 @@ python_guest_script_executor = executable(
   'python_guest_script_executor',
   ['python_guest_script_executor.cpp'],
   cpp_args : [
-    '-DPERCEPTION_PYTHON_EXECUTABLE="' + python.full_path() + '"',
+    '-DPERCEPTION_PYTHON_EXECUTABLE="' + pek_python.full_path() + '"',
     '-DPERCEPTION_PYTHON_SDK_PATH="' + perception_python_sdk_path + '"',
   ],
   dependencies : [perception_python_bridge_dep],
@@ -238,10 +301,14 @@ test(
   args : [
     files('pek_config_check_cli_test.py'),
     pek_config_check.full_path(),
-    meson.project_source_root() / '..',
+    pek_repository_root,
   ],
 )
 test('opchain_descriptor_tests', opchain_descriptor_tests)
+test('standard_content_type_tests', standard_content_type_tests, depends : stdops)
+if python_ops_enabled
+  test('python_script_op_tests', python_script_op_tests)
+endif
 test(
   'pek_menu_cli_tests',
   python,
@@ -254,6 +321,27 @@ test(
   python,
   args : [files('model_artifact_build_test.py')],
   timeout : 120,
+)
+test(
+  'build_script_tests',
+  python,
+  args : [files('build_script_test.py'), pek_repository_root],
+)
+test(
+  'setup_lxc_dev_script_tests',
+  python,
+  args : [files('setup_lxc_dev_script_test.py'), pek_repository_root],
+)
+test(
+  'content_dependency_pipeline_tests',
+  python,
+  args : [
+    files('content_dependency_pipeline_test.py'),
+    qos_delay_op.full_path(),
+    gstpekinfer.full_path(),
+    pekinferpre.full_path(),
+  ],
+  depends : [gstpekinfer, qos_delay_op, pekinferpre],
 )
 test(
   'qos_pipeline_tests',
@@ -278,18 +366,18 @@ test(
 )
 test('model_descriptor_tests', model_descriptor_tests)
 test('base64_tests', base64_tests)
+test('gst_meta_wrapper_tests', gst_meta_wrapper_tests)
 test('model_registry_tests', model_registry_tests)
 test(
   'opchain_display_metadata_tests',
   python,
-  args : [files('opchain_display_metadata_test.py'), meson.project_source_root() / '..'],
+  args : [files('opchain_display_metadata_test.py'), pek_repository_root],
 )
-test('performance_tracer_tests', performance_tracer_tests)
 test(
   'release_tool_tests',
   python,
   args : [
-    meson.project_source_root() / '../scripts/release/TestReleaseTool.py',
+    pek_repository_root / 'scripts/release/TestReleaseTool.py',
   ],
 )
 test('matrix_operations_tests', matrix_operations_tests)
@@ -297,6 +385,7 @@ test('kalman_filter_tests', kalman_filter_tests)
 test('hungarian_tests', hungarian_tests)
 test('iou_tests', iou_tests)
 test('yolo_parser_tests', yolo_parser_tests)
+test('onnx_tensor_tests', onnx_tensor_tests)
 test('logging_tests', logging_tests)
 test('logger_tests', logger_tests)
 test(
@@ -338,7 +427,7 @@ if node.found() and npm.found()
     peksink_web,
     args : ['test'],
     workdir : meson.project_source_root() / '..',
-    timeout : 120,
+    timeout : 60,
   )
   test(
     'peksink_web_bundle_check',

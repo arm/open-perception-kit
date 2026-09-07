@@ -82,6 +82,51 @@ TEST(ConfigValidator, OpChainAttributesAreOptionalExceptForDataBearingOps) {
     }
 }
 
+TEST(ConfigValidator, OpChainAcceptsStableInstanceIds) {
+    nlohmann::json document{
+        {"version", 1},
+        {"name", "instance-id"},
+        {"description", "Validate operation producer identities."},
+        {"ops", {{{"id", "custom/Operation"}, {"instanceId", "python-classifier"}}}},
+    };
+
+    const auto result = pek::config::validateOpChainJson(document.dump());
+    ASSERT_TRUE(result) << (result ? "" : result.error().toText());
+    EXPECT_EQ(result->ops[0].instanceId, "python-classifier");
+
+    document["ops"][0]["instanceId"] = "invalid instance";
+    EXPECT_FALSE(pek::config::validateOpChainJson(document.dump()));
+
+    document["ops"] = {
+        {{"id", "custom/First"}, {"instanceId", "duplicate"}},
+        {{"id", "custom/Second"}, {"instanceId", "duplicate"}},
+    };
+    const auto duplicate = pek::config::validateOpChainJson(document.dump());
+    ASSERT_FALSE(duplicate);
+    EXPECT_TRUE(hasRule(duplicate.error(), "opchain.v1.instance-id"));
+}
+
+TEST(ConfigValidator, OpChainValidatesPythonScriptAttributes) {
+    nlohmann::json document{
+        {"version", 1},
+        {"name", "python-script"},
+        {"description", "Validate PythonScript attributes."},
+        {"ops",
+         {{{"id", "pek-python-ops/PythonScript"},
+           {"attributes",
+            {{"script", "scripts/process.py"}, {"pythonPaths", {"scripts/modules"}}}}}}},
+    };
+
+    EXPECT_TRUE(pek::config::validateOpChainJson(document.dump()));
+
+    document["ops"][0]["attributes"].erase("script");
+    EXPECT_FALSE(pek::config::validateOpChainJson(document.dump()));
+
+    document["ops"][0]["attributes"] = {{"script", "scripts/process.py"},
+                                        {"pythonPaths", "scripts/modules"}};
+    EXPECT_FALSE(pek::config::validateOpChainJson(document.dump()));
+}
+
 TEST(ConfigValidator, OpChainProjectionClearsOmittedAttributes) {
     pek::op::OpChainDescriptor::Op reused;
     reused.attributes.set("stale", true);
@@ -124,13 +169,6 @@ TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {
         nlohmann::json{{"parser", "CameraContactParser"},
                        {"contactClassIndex", 0},
                        {"noContactClassIndex", 1}},
-        nlohmann::json{{"parser", "YoloParser"}, {"outputFormat", "UltralyticsYolo"}},
-        nlohmann::json{{"parser", "YoloParser"},
-                       {"outputFormat", "HailoYoloNMS"},
-                       {"maxDetections", 5},
-                       {"classCount", 80},
-                       {"maxBboxesPerClass", 100},
-                       {"coordOrder", "xyxy"}},
         nlohmann::json{{"parser", "YoloParser"}, {"applyNms", false}},
         nlohmann::json{{"parser", "YoloXParser"}, {"applyNms", false}},
     };
@@ -148,9 +186,6 @@ TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {
                        {"contactClassIndex", 0},
                        {"noContactClassIndex", 0}},
         nlohmann::json{{"parser", "PaddleOcrDetectionParser"}, {"gamma", 0}},
-        nlohmann::json{{"parser", "YoloParser"}, {"classCount", 80}},
-        nlohmann::json{{"parser", "YoloParser"}, {"outputFormat", "UltraliticsYolo"}},
-        nlohmann::json{{"parser", "YoloParser"}, {"maxDetections", 5}},
         nlohmann::json{{"parser", "YoloParser"}, {"applyNms", false}, {"iouThreshold", 0.4}},
         nlohmann::json{{"parser", "YoloXParser"}, {"applyNms", false}, {"iouThreshold", 0.4}},
     };
@@ -208,6 +243,14 @@ TEST(ConfigValidator, OpChainV1ValidatesBuiltInStageStructure) {
     auto descriptor = builtInStage();
     EXPECT_TRUE(pek::config::validateOpChainSemantics(descriptor).ok());
 
+    descriptor.ops.back().id = "pek-python-ops/PythonScript";
+    EXPECT_TRUE(pek::config::validateOpChainSemantics(descriptor).ok());
+
+    descriptor = builtInStage();
+    descriptor.ops.insert(descriptor.ops.end() - 1,
+                          {"pek-python-ops/PythonScript", std::nullopt, {}});
+    EXPECT_TRUE(pek::config::validateOpChainSemantics(descriptor).ok());
+
     descriptor.ops.insert(descriptor.ops.end() - 1, {"custom/Between", std::nullopt, {}});
     EXPECT_TRUE(pek::config::validateOpChainSemantics(descriptor).ok());
 
@@ -223,6 +266,13 @@ TEST(ConfigValidator, OpChainV1ValidatesBuiltInStageStructure) {
 
     descriptor = builtInStage();
     descriptor.ops.back().id = "custom/WrongPostprocess";
+    EXPECT_TRUE(
+        hasRule(pek::config::validateOpChainSemantics(descriptor), "opchain.v1.builtin-stage"));
+
+    descriptor = builtInStage();
+    descriptor.ops.back().id = "pek-python-ops/PythonScript";
+    descriptor.ops.insert(descriptor.ops.end() - 1,
+                          {"pek-std-ops/GenericPostprocess", std::nullopt, {}});
     EXPECT_TRUE(
         hasRule(pek::config::validateOpChainSemantics(descriptor), "opchain.v1.builtin-stage"));
 

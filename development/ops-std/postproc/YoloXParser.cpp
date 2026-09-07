@@ -464,12 +464,11 @@ Result<void> YoloXParser::parse(const pek::TensorParser::Input &input,
     auto dets = collectDetections(reader, processedCandidateCount, grid, settings, geometry);
     finalizeDetections(dets, settings);
     perception::metadata::BoxDetectionsT payload;
-    payload.layer = perception::makeLayerInfo(input.inferenceInfo.modelName,
-                                              input.inferenceInfo.inferElementId,
-                                              "genericObject",
-                                              "",
-                                              "",
-                                              "coco");
+    payload.layer = perception::makeLayerInfo({.model = input.inferenceInfo.modelName,
+                                               .inferElementId = input.inferenceInfo.inferElementId,
+                                               .contentType = k_content_type,
+                                               .labelFamily = "coco",
+                                               .producer = &input.producerInfo});
     appendDetections(dets, settings, geometry, input.inferenceInfo.parentId, payload);
     if (!payload.detections.empty()) {
         results.add(std::move(payload));

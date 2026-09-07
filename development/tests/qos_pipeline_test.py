@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import ctypes
 import gc
-import json
 from pathlib import Path
 import sys
 import tempfile
@@ -17,6 +16,12 @@ import threading
 import time
 import unittest
 from typing import Any
+
+from pipeline_test_utils import (
+    load_gstreamer_plugins,
+    release_pipeline,
+    write_test_opchain,
+)
 
 # Meson passes the test-only Delay Op first. OpChain loads that shared module through
 # its plugin ABI; it is not a GStreamer plugin and must not be given to load_file().
@@ -209,16 +214,10 @@ class QosPipelineTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
-        import gi
+        cls.Gst = load_gstreamer_plugins(GST_PLUGIN_PATHS)
+        from gi.repository import GObject
 
-        gi.require_version("Gst", "1.0")
-        from gi.repository import GObject, Gst
-
-        Gst.init(None)
-        for plugin_path in GST_PLUGIN_PATHS:
-            Gst.Plugin.load_file(str(plugin_path))
         cls.GObject = GObject
-        cls.Gst = Gst
 
     def setUp(self) -> None:
         self.uses_peksink = self._testMethodName in self.PEKSINK_TESTS
@@ -227,30 +226,18 @@ class QosPipelineTest(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory(prefix="pek-qos-")
         self.addCleanup(self.directory.cleanup)
 
-        descriptors = {}
-        for control_id in ("inactive", "infer"):
-            descriptor = Path(self.directory.name) / f"opchain-{control_id}.json"
-            descriptor.write_text(
-                json.dumps(
-                    {
-                        "version": 1,
-                        "name": f"qos-test-{control_id}",
-                        "description": "QoS integration test opchain",
-                        "ops": [
-                            {
-                                "id": "pek-test-qos-delay/Delay",
-                                "attributes": (
-                                    {"control-handle": self.delay_op.handle}
-                                    if control_id == "infer"
-                                    else {}
-                                ),
-                            }
-                        ],
-                    }
+        descriptors = {
+            control_id: write_test_opchain(
+                self.directory.name,
+                control_id,
+                (
+                    {"control-handle": self.delay_op.handle}
+                    if control_id == "infer"
+                    else {}
                 ),
-                encoding="utf-8",
             )
-            descriptors[control_id] = descriptor
+            for control_id in ("inactive", "infer")
+        }
 
         output = (
             "peksink name=output"
@@ -307,7 +294,7 @@ class QosPipelineTest(unittest.TestCase):
     def stop_pipeline(self) -> None:
         if self.pipeline is None:
             return
-        self.pipeline.set_state(self.Gst.State.NULL)
+        release_pipeline(self.pipeline, self.Gst)
         if hasattr(self, "flow_monitor"):
             self.flow_monitor.close()
             self.flow_monitor = None
@@ -422,6 +409,33 @@ class QosPipelineTest(unittest.TestCase):
         self.assertEqual(
             self.elements["tracker"].get_property("max-missed-frames"), 15
         )
+
+    def test_pekperformance_generates_overlay_when_enabled(self) -> None:
+        output_received = threading.Event()
+        self.elements["output"].set_property("signal-handoffs", True)
+        self.elements["output"].connect(
+            "handoff", lambda *_arguments: output_received.set()
+        )
+        self.elements["performance"].set_property("update-interval", 1)
+        self.elements["performance"].set_property("enabled", True)
+        self.assertEqual(
+            self.elements["performance"].get_property("update-interval"), 1
+        )
+        self.assertTrue(self.elements["performance"].get_property("enabled"))
+        self.start_pipeline()
+
+        for frame_index in range(3):
+            output_received.clear()
+            self.flow_monitor.push_buffer(frame_index * self.frame_duration)
+            self.assertTrue(output_received.wait(1))
+
+        self.elements["performance"].set_property("show-all-metrics", True)
+        self.assertTrue(
+            self.elements["performance"].get_property("show-all-metrics")
+        )
+        output_received.clear()
+        self.flow_monitor.push_buffer(3 * self.frame_duration)
+        self.assertTrue(output_received.wait(1))
 
     def test_peksink_feedback_reaches_pekinfer(self) -> None:
         self.enable_inference_qos()

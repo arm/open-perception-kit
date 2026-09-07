@@ -8,6 +8,9 @@ set -euo pipefail
 : "${USERNAME:=dev}"
 : "${HOST_UID:=}"
 : "${HOST_GID:=}"
+PEK_PROJECT_ROOT="$(cd "${PEK_PROJECT_ROOT:-.}" && pwd -P)"
+: "${CCACHE_DIR:=${PEK_PROJECT_ROOT}/.cache/ccache}"
+export PEK_PROJECT_ROOT CCACHE_DIR
 
 ENTRYPOINT_READY_FILE="/tmp/pek-development-entrypoint-ready"
 rm -f "${ENTRYPOINT_READY_FILE}"
@@ -30,23 +33,25 @@ seed_development_artifacts() {
     local video_artifacts="${artifacts_root}/data/videos"
 
     [[ -d "${artifacts_root}" ]] || return 0
-    [[ -w /work ]] || return 0
+    [[ -w "${PEK_PROJECT_ROOT}" ]] || return 0
 
     if [[ -d /opt/pek-ccache ]]; then
-        run_as_development_user mkdir -p /work/.cache/ccache
-        run_as_development_user cp -a --no-clobber /opt/pek-ccache/. /work/.cache/ccache/
+        run_as_development_user mkdir -p "${CCACHE_DIR}"
+        run_as_development_user cp -a --no-clobber /opt/pek-ccache/. "${CCACHE_DIR}/"
     fi
 
     if [[ -d "${artifacts_root}/config/models" ]]; then
-        run_as_development_user mkdir -p /work/config/models
-        run_as_development_user cp -R --no-clobber "${artifacts_root}/config/models/." /work/config/models/
+        run_as_development_user mkdir -p "${PEK_PROJECT_ROOT}/config/models"
+        run_as_development_user cp -R --no-clobber \
+            "${artifacts_root}/config/models/." "${PEK_PROJECT_ROOT}/config/models/"
     fi
 
     if [[ -d "${video_artifacts}" ]]; then
-        run_as_development_user mkdir -p /work/data/videos
-        run_as_development_user cp -a --no-clobber "${video_artifacts}/." /work/data/videos/
+        run_as_development_user mkdir -p "${PEK_PROJECT_ROOT}/data/videos"
+        run_as_development_user cp -a --no-clobber \
+            "${video_artifacts}/." "${PEK_PROJECT_ROOT}/data/videos/"
         if [[ -f "${video_artifacts}/SHA256SUMS" ]]; then
-            if ! (cd /work/data/videos && sha256sum --check --strict --quiet "${video_artifacts}/SHA256SUMS"); then
+            if ! (cd "${PEK_PROJECT_ROOT}/data/videos" && sha256sum --check --strict --quiet "${video_artifacts}/SHA256SUMS"); then
                 echo "ERROR: existing demo videos failed checksum validation." >&2
                 echo "Remove them and retry the quick start:" >&2
                 echo "  rm -rf data/videos && ./scripts/quick_start.sh" >&2
@@ -56,21 +61,22 @@ seed_development_artifacts() {
     fi
 
     if [[ -d "${artifacts_root}/development/build/meson-out" ]]; then
-        run_as_development_user mkdir -p /work/development/build/meson-out
+        run_as_development_user mkdir -p "${PEK_PROJECT_ROOT}/development/build/meson-out"
         run_as_development_user cp -a --no-clobber \
             "${artifacts_root}/development/build/meson-out/." \
-            /work/development/build/meson-out/
+            "${PEK_PROJECT_ROOT}/development/build/meson-out/"
     fi
 
-    if [[ ! -e /work/tools/pek-menu && -f "${artifacts_root}/tools/pek-menu" ]]; then
-        run_as_development_user mkdir -p /work/tools
-        run_as_development_user cp -a "${artifacts_root}/tools/pek-menu" /work/tools/pek-menu
+    if [[ ! -e "${PEK_PROJECT_ROOT}/tools/pek-menu" && -f "${artifacts_root}/tools/pek-menu" ]]; then
+        run_as_development_user mkdir -p "${PEK_PROJECT_ROOT}/tools"
+        run_as_development_user cp -a \
+            "${artifacts_root}/tools/pek-menu" "${PEK_PROJECT_ROOT}/tools/pek-menu"
     fi
 }
 
 if [[ "${1:-}" == "--seed-artifacts" ]]; then
-    if [[ -d /opt/pek-app && ! -w /work ]]; then
-        echo "ERROR: cannot seed development artifacts into /work" >&2
+    if [[ -d /opt/pek-app && ! -w "${PEK_PROJECT_ROOT}" ]]; then
+        echo "ERROR: cannot seed development artifacts into ${PEK_PROJECT_ROOT}" >&2
         exit 1
     fi
     seed_development_artifacts
@@ -108,9 +114,9 @@ usermod -g "${HOST_GID}" "${USERNAME}" || true
 
 # Keep recursive ownership changes inside container-owned state. The checkout
 # bind already belongs to the host user and can be expensive to traverse.
-mkdir -p /work /work/.cache/ccache /work/development/build
-chown "${HOST_UID}:${HOST_GID}" /work
-chown -R "${HOST_UID}:${HOST_GID}" /work/.cache/ccache /work/development/build
+mkdir -p "${PEK_PROJECT_ROOT}" "${CCACHE_DIR}" "${PEK_PROJECT_ROOT}/development/build"
+chown "${HOST_UID}:${HOST_GID}" "${PEK_PROJECT_ROOT}"
+chown -R "${HOST_UID}:${HOST_GID}" "${CCACHE_DIR}" "${PEK_PROJECT_ROOT}/development/build"
 chown -R "${HOST_UID}:${HOST_GID}" "/home/${USERNAME}" || true
 chown "${HOST_UID}:${HOST_GID}" /tmp/pekcomm || true
 

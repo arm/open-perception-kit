@@ -80,7 +80,7 @@ For most users, the important point is simple: the pipeline decides where media 
 
 A model in PEK is made of two parts:
 
-1. the actual model file, such as `.onnx` or `.hef`
+1. the actual model file, such as `.onnx` or `.pte`
 2. a JSON descriptor, usually `model.json`, that tells PEK how to use it
 
 The descriptor defines things such as:
@@ -96,7 +96,8 @@ and absolute paths retain their components so the filesystem resolves symlinks
 and parent traversal in the normal order. Relative paths are preferred so model
 folders remain portable. The standard
 container images try to download published PEK model artifacts from pinned
-Hugging Face revisions into those paths. When `HF_TOKEN` is unset, accessible
+Hugging Face revisions into those paths. An optional `hfDownload.sha256` digest
+is verified before the artifact is atomically installed. When `HF_TOKEN` is unset, accessible
 public artifacts download anonymously. Each failed download is logged and
 skipped, so the container build can succeed with an incomplete model set.
 Runtime containers do not download models and need no Hugging Face network
@@ -140,7 +141,7 @@ The simplest method is to edit a pipeline preset under `config/pipelines/`.
 For a still image, use a `filesrc` source followed by image decode and `imagefreeze`, for example:
 
 ```text
-filesrc location=/work/data/images/my-image.jpg !
+filesrc location="${PEK_PROJECT_ROOT:-/work}/data/images/my-image.jpg" !
 jpegdec !
 imagefreeze !
 videoconvert ! video/x-raw,format=BGRA !
@@ -153,7 +154,7 @@ Suggested path for custom images is `data/images/`.
 For a video file, use a file source with decode, for example:
 
 ```text
-filesrc location=/work/data/videos/my-video.mp4 !
+filesrc location="${PEK_PROJECT_ROOT:-/work}/data/videos/my-video.mp4" !
 decodebin name=dec
 dec. ! queue ! videoconvert ! videoscale ! video/x-raw,format=BGRA !
 ```
@@ -187,16 +188,11 @@ The checked-in pipeline presets live under `config/pipelines/`.
 Common presets include:
 
 - `01-full-onnx.json` - integrated ONNX model pipelines.
-- `02-full-onnx-hailo8.json` - integrated ONNX and Hailo 8 pipelines.
-- `03-full-onnx-hailo8l.json` - integrated ONNX and Hailo 8L pipelines.
-- `04-full-onnx-hailo10.json` - integrated ONNX and Hailo 10 pipelines.
 - `05-full-onnx-raspicam.json` - integrated ONNX pipelines on the Raspberry Pi camera source.
 - `06-full-onnx-usb-cam.json` - integrated ONNX pipelines on the USB camera source at `/dev/video0`.
 - `cam-connect.json` - camera-contact demo.
 - `gaze-detection.json` - gaze-estimation demo.
 - `tracker-pc.json` - ONNX tracking demo.
-- `tracker-rpi-hailo8.json` - Hailo 8 tracking demo.
-- `tracker-rpi-hailo10.json` - Hailo 10 tracking demo.
 
 Pipeline files often contain `alternative-source-*` and `alternative-sink-*` sections. Use those as templates when switching from the default sample media to a camera, video file, or different sink.
 

@@ -1,17 +1,17 @@
 {
     "description": "Test ONNX RGB pipeline",
     "pipeline": [
-        "filesrc location=/work/data/images/GettyImages-1140581459-thumbnail.jpg !",
+        "filesrc location=\"${PEK_PROJECT_ROOT:-/work}/data/images/GettyImages-1140581459-thumbnail.jpg\" !",
         "jpegdec !",
         "imagefreeze !",
         "videoconvert !",
-        "pekinfer opchain-path=/work/config/models/yolov11/opchain.json active=true !",
-        "pekinfer opchain-path=/work/config/models/ultraface/opchain.json active=true !",
-        "pekinfer opchain-path=/work/config/models/personclassification/opchain.json active=true !",
-        "pekinfer opchain-path=/work/config/models/gaze-detection/opchain.json active=true !",
+        "pekinfer opchain-path=\"${PEK_PROJECT_ROOT:-/work}/config/models/yolov11/opchain.json\" active=true !",
+        "pekinfer opchain-path=\"${PEK_PROJECT_ROOT:-/work}/config/models/ultraface/opchain.json\" active=true !",
+        "pekinfer opchain-path=\"${PEK_PROJECT_ROOT:-/work}/config/models/personclassification/opchain.json\" active=true !",
+        "pekinfer opchain-path=\"${PEK_PROJECT_ROOT:-/work}/config/models/gaze-detection/opchain.json\" active=true !",
         "textoverlay name=overlay valignment=top halignment=center font-desc=Sans,14 !",
         "videoconvert ! ",
-        "pekperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 ! ",
+        "pekperformance show-all-metrics=true update-interval=1 ! ",
         "videoconvert ! ",
         "peksink name=sink"
     ]

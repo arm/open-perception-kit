@@ -1,6 +1,10 @@
 services:
   pek-dev:
     user: root
+    build:
+      target: pek-dev-macos-ci
+      cache_from:
+        - ${PEK_DEV_CACHE_FROM:-type=registry,ref=ghcr.io/arm-debug/amp-dev-forge-dev:buildcache}
     environment:
       HOST_UID: ${HOST_UID}
       HOST_GID: ${HOST_GID}

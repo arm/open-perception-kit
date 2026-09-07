@@ -7,6 +7,7 @@
 #include "preproc/CpuImageKernelsNv12.h"
 #include "preproc/CpuImageKernelsYuy2.h"
 
+#include "Log.h"
 #include <fmt/core.h>
 #include <magic_enum/magic_enum.hpp>
 
@@ -235,12 +236,17 @@ pek::stdop::preproc::GenericImageTensorBuilder::build(const TensorBuilder::Setup
             return {};
         }
 
+        pek::log::error("GenericImageTensorBuilder: conversion kernel failed for {}\n",
+                        describeConversion(setup.imageSourceDesc, setup.imageDestinationDesc));
         return tl::unexpected(PEK_ERROR(
             pek::ErrorFlag::InvalidData,
             fmt::format("GenericImageTensorBuilder: conversion kernel failed for {}",
                         describeConversion(setup.imageSourceDesc, setup.imageDestinationDesc))));
     }
 
+    pek::log::error(
+        "GenericImageTensorBuilder: unsupported source/destination kind+type conversion: {}\n",
+        describeConversion(setup.imageSourceDesc, setup.imageDestinationDesc));
     return tl::unexpected(PEK_ERROR(
         pek::ErrorFlag::InvalidData,
         fmt::format(

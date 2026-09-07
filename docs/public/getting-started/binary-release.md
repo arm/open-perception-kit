@@ -40,8 +40,9 @@ sha256sum pek-<version>-linux-<architecture>.tar.gz
 Architecture packages contain the six PEK plugins, the private
 `lib/pek/pek-runtime.so` and common libraries, compatible model binaries and
 OpChains, `peksink` web assets, approved notices, and ONNX Runtime. They also
-contain the experimental ExecuTorch operation module and the YOLOX ExecuTorch
-model, plus these two distinct payloads:
+contain the experimental ExecuTorch operation module, the PythonScript operation
+module, the YOLOX ExecuTorch model, and a private locked Python package directory
+at `share/pek/python`, plus these two distinct payloads:
 
 - `share/pek/perception-sdk/` contains the Perception SDK ZIP, checksum, and
   provenance sidecar;
@@ -52,9 +53,9 @@ The descriptor schemas are direct PEK package content, not files in the SDK
 ZIP. Retired `metadata/api` schemas are not included.
 
 They deliberately exclude `pek-menu`, pipeline presets, examples, sample
-media, documentation, source, tests, debug files, NCNN, public C++ headers,
-unused ONNX provider libraries, Hailo models and operation modules, and
-accelerator drivers or firmware. ExecuTorch SDK headers and static libraries
+media, documentation, source, tests, debug files, public C++ headers,
+unused ONNX provider libraries, and accelerator drivers or firmware.
+ExecuTorch SDK headers and static libraries
 are build inputs and are not exposed by the archive.
 
 ## Host prerequisites
@@ -64,8 +65,11 @@ tools with the Base, Good, and Bad plugin sets, including Nice and the WebRTC
 plugins. GLib, Cairo, OpenSSL, zlib, Brotli, zstd, libsoup 3, json-glib, the
 C/C++ runtimes, and any required accelerator driver and firmware remain host
 dependencies. The Arm package also requires the system `libusb-1.0` runtime.
-Python applications also need the system PyGObject GStreamer bindings,
-available as `python3-gst-1.0` on Debian Trixie.
+PythonScript OpChains require the Debian Trixie `python3` and `libpython3.13`
+packages; NumPy, FlatBuffers, and the Perception guest package are already
+included privately in the PEK archive. Python applications that drive
+GStreamer directly also need the system PyGObject bindings, available as
+`python3-gst-1.0`.
 
 ## Extract and discover the plugins
 
@@ -125,7 +129,7 @@ sdk_root="$PEK_PACKAGE_ROOT/share/pek/perception-sdk"
 unzip "$sdk_root/perception-sdk-<pek-version>.zip" -d perception-sdk
 ```
 
-Use the C++, Python, or TypeScript package from that extracted SDK. The SDK
+Use the C++, Python, Rust, or TypeScript package from that extracted SDK. The SDK
 version matches the PEK product version.
 
 ## Packaged models
@@ -183,9 +187,10 @@ intentionally not part of the binary release.
 
 The same smoke path is run natively for x86_64 and Arm packages on pull
 requests targeting `main`. Pushes to `main` publish the three matching archives
-on one GitHub Release and together in Artifactory under `releases/<version>/`,
-the Perception wheel to Artifactory PyPI, and the matching multi-architecture
-image in GHCR. Manual runs publish the archives and wheel only to Artifactory
+on one GitHub Release and together in generic Artifactory under
+`releases/<version>/`, the Perception wheel to Artifactory PyPI, the Perception
+crate to Artifactory Cargo, and the matching multi-architecture image in GHCR.
+Manual runs publish the archives, wheel, and crate only to generic Artifactory
 under `snapshots/<label>/<full-sha>-<run-id>-<attempt>/`. The generic archive
 and snapshot paths use
 `https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci` as their

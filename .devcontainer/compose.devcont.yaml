@@ -1,9 +1,3 @@
-x-pek-hailo-build: &pek-hailo-build
-  context: ..
-  dockerfile: .devcontainer/Dockerfile.hailo
-  additional_contexts:
-    pek-dev: service:pek-dev
-
 services:
   pek-build-base:
     image: ${PEK_BUILD_BASE_IMAGE:-perception-experience-kit-build-base}
@@ -16,6 +10,7 @@ services:
     extends:
       file: ../compose.base.yaml
       service: pek-common-dev-model-image
+    image: ${PEK_DEV_IMAGE:-perception-experience-kit-dev}
     container_name: ${PEK_DEV_CONTAINER_NAME:-perception-experience-kit}
     hostname: ${PEK_DEV_CONTAINER_NAME:-perception-experience-kit}
     command: sleep infinity
@@ -30,29 +25,6 @@ services:
         EXECUTORCH_ARTIFACTORY_PASSWORD: ${EXECUTORCH_ARTIFACTORY_PASSWORD:-}
         EXECUTORCH_VERSION: ${EXECUTORCH_VERSION:-}
         EXECUTORCH_DEB_REVISION: ${EXECUTORCH_DEB_REVISION:-}
-  pek-dev-rpi5-h8:
-    extends:
-      file: ../compose.base.yaml
-      service: pek-common-dev
-    container_name: ${PEK_DEV_RPI5_H8_CONTAINER_NAME:-perception-experience-kit-rpi5-h8}
-    hostname: ${PEK_DEV_RPI5_H8_CONTAINER_NAME:-perception-experience-kit-rpi5-h8}
-    command: sleep infinity
-    build:
-      <<: *pek-hailo-build
-      args:
-        PEK_HAILO_ARCH: h8
-  pek-dev-rpi5-h10:
-    extends:
-      file: ../compose.base.yaml
-      service: pek-common-dev
-    container_name: ${PEK_DEV_RPI5_H10_CONTAINER_NAME:-perception-experience-kit-rpi5-h10}
-    hostname: ${PEK_DEV_RPI5_H10_CONTAINER_NAME:-perception-experience-kit-rpi5-h10}
-    command: sleep infinity
-    build:
-      <<: *pek-hailo-build
-      args:
-        PEK_HAILO_ARCH: h10
-
 secrets:
   huggingface_token:
     environment: HF_TOKEN

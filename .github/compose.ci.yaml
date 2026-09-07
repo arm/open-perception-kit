@@ -33,6 +33,7 @@ services:
       file: ../compose.base.yaml
       service: pek-common-dev
 
+    image: ${PEK_CI_IMAGE:-pek-ci}
     network_mode: bridge
     hostname: pek-ci
     environment:
@@ -198,12 +199,8 @@ services:
         source /work/tools/.venv/bin/activate &&
         ccache --zero-stats &&
         ./scripts/build.sh debug true --extra-setup-args=-Db_coverage=true,--wipe &&
-        meson test -C "$$BUILD_DIR" --print-errorlogs &&
-        gcovr -r . --sonarqube coverage.xml &&
-        coverage erase &&
-        coverage run --branch --source=tools/perception,scripts/release -m unittest tools/perception/tests/test_release.py &&
-        coverage run --append --branch --source=tools/perception,scripts/release -m unittest scripts/release/TestReleaseTool.py &&
-        coverage xml -o python-coverage.xml &&
+        meson test -C "$$BUILD_DIR" --print-errorlogs --num-processes 1 --timeout-multiplier 2 &&
+        ./scripts/private/generate-sonar-coverage.sh &&
         if [ -n "$$PR_KEY" ] && [ -n "$$PR_BRANCH" ] && [ -n "$$PR_BASE" ]; then
           sonar_scope_args=(
             -Dsonar.pullrequest.key="$$PR_KEY"
@@ -238,12 +235,8 @@ services:
         source /work/tools/.venv/bin/activate &&
         ccache --zero-stats &&
         ./scripts/build.sh debug true --extra-setup-args=-Db_coverage=true,--wipe &&
-        meson test -C "$$BUILD_DIR" --print-errorlogs &&
-        gcovr -r . --sonarqube coverage.xml &&
-        coverage erase &&
-        coverage run --branch --source=tools/perception,scripts/release -m unittest tools/perception/tests/test_release.py &&
-        coverage run --append --branch --source=tools/perception,scripts/release -m unittest scripts/release/TestReleaseTool.py &&
-        coverage xml -o python-coverage.xml &&
+        meson test -C "$$BUILD_DIR" --print-errorlogs --num-processes 1 --timeout-multiplier 2 &&
+        ./scripts/private/generate-sonar-coverage.sh &&
         sonar-scanner -Dsonar.qualitygate.wait="$${SONAR_QUALITYGATE_WAIT}" \
           -Dsonar.branch.name="$$SONAR_BRANCH" \
           -Dsonar.projectVersion="$$SONAR_PROJECT_VERSION" \

@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
 #include <map>
 #include <string>
 
@@ -11,7 +12,16 @@
 
 TEST(ModelRegistry, ReportsOptionalDisplayMetadata) {
     ModelRegistry registry;
-    registry.add_model("YoloV11", "pekinfer0", true, "YOLOv11n", "Object detection", "ONNX");
+    registry.add_model({
+        .name = "YoloV11",
+        .active = true,
+        .element_name = "pekinfer0",
+        .display_name = "YOLOv11n",
+        .task = "Object detection",
+        .runtime = "ONNX",
+        .provided_content_types = {"genericObject"},
+        .required_content_types = {"imageEmbedding"},
+    });
 
     const auto report = registry.report();
 
@@ -22,11 +32,13 @@ TEST(ModelRegistry, ReportsOptionalDisplayMetadata) {
     EXPECT_EQ(report[0].at("displayName"), "YOLOv11n");
     EXPECT_EQ(report[0].at("task"), "Object detection");
     EXPECT_EQ(report[0].at("runtime"), "ONNX");
+    EXPECT_EQ(report[0].at("providedContentTypes"), nlohmann::json::array({"genericObject"}));
+    EXPECT_EQ(report[0].at("requiredContentTypes"), nlohmann::json::array({"imageEmbedding"}));
 }
 
 TEST(ModelRegistry, OmitsAbsentDisplayMetadata) {
     ModelRegistry registry;
-    registry.add_model("Custom", "pekinfer0", false);
+    registry.add_model({.name = "Custom", .active = false, .element_name = "pekinfer0"});
 
     const auto report = registry.report();
 
@@ -37,14 +49,24 @@ TEST(ModelRegistry, OmitsAbsentDisplayMetadata) {
     EXPECT_FALSE(report[0].contains("displayName"));
     EXPECT_FALSE(report[0].contains("task"));
     EXPECT_FALSE(report[0].contains("runtime"));
+    EXPECT_EQ(report[0].at("providedContentTypes"), nlohmann::json::array());
+    EXPECT_EQ(report[0].at("requiredContentTypes"), nlohmann::json::array());
 }
 
 TEST(ModelRegistry, KeepsRuntimeMetadataForDuplicateInternalNames) {
     ModelRegistry registry;
-    registry.add_model(
-        "ImageNet Hailo", "pekinfer8", false, "MobileNetV2", "Image classification", "Hailo 8");
-    registry.add_model(
-        "ImageNet Hailo", "pekinfer10", false, "MobileNetV2", "Image classification", "Hailo 10");
+    registry.add_model({.name = "ImageNet",
+                        .active = false,
+                        .element_name = "pekinfer-onnx",
+                        .display_name = "MobileNetV2",
+                        .task = "Image classification",
+                        .runtime = "ONNX"});
+    registry.add_model({.name = "ImageNet",
+                        .active = false,
+                        .element_name = "pekinfer-executorch",
+                        .display_name = "MobileNetV2",
+                        .task = "Image classification",
+                        .runtime = "ExecuTorch"});
 
     std::map<std::string, std::string, std::less<>> runtimes;
     for (const auto &model : registry.report()) {
@@ -52,6 +74,89 @@ TEST(ModelRegistry, KeepsRuntimeMetadataForDuplicateInternalNames) {
             model.at("runtime").get<std::string>();
     }
 
-    EXPECT_EQ(runtimes.at("pekinfer8"), "Hailo 8");
-    EXPECT_EQ(runtimes.at("pekinfer10"), "Hailo 10");
+    EXPECT_EQ(runtimes.at("pekinfer-onnx"), "ONNX");
+    EXPECT_EQ(runtimes.at("pekinfer-executorch"), "ExecuTorch");
+}
+
+TEST(ModelRegistration, ParsesOptionalFieldsAndContentTypes) {
+    const std::array<const gchar *, 3> provided = {"genericObject", "humanFace", nullptr};
+    const std::array<const gchar *, 2> required = {"imageEmbedding", nullptr};
+    GstStructure *structure = gst_structure_new("pek-model-register",
+                                                "model-name",
+                                                G_TYPE_STRING,
+                                                "YoloV11",
+                                                "element-name",
+                                                G_TYPE_STRING,
+                                                "pekinfer0",
+                                                "active",
+                                                G_TYPE_BOOLEAN,
+                                                TRUE,
+                                                "display-name",
+                                                G_TYPE_STRING,
+                                                "YOLOv11n",
+                                                "task",
+                                                G_TYPE_STRING,
+                                                "Object detection",
+                                                "runtime",
+                                                G_TYPE_STRING,
+                                                "ONNX",
+                                                "provided-content-types",
+                                                G_TYPE_STRV,
+                                                provided.data(),
+                                                "required-content-types",
+                                                G_TYPE_STRV,
+                                                required.data(),
+                                                nullptr);
+
+    const auto status = model_status_from_registration(structure);
+
+    ASSERT_TRUE(status);
+    EXPECT_EQ(status->name, "YoloV11");
+    EXPECT_TRUE(status->active);
+    EXPECT_EQ(status->display_name, "YOLOv11n");
+    EXPECT_EQ(status->task, "Object detection");
+    EXPECT_EQ(status->runtime, "ONNX");
+    EXPECT_EQ(status->provided_content_types,
+              std::vector<std::string>({"genericObject", "humanFace"}));
+    EXPECT_EQ(status->required_content_types, std::vector<std::string>({"imageEmbedding"}));
+    gst_structure_free(structure);
+}
+
+TEST(ModelRegistration, TreatsMissingInvalidAndNullContentTypesAsEmpty) {
+    GstStructure *structure = gst_structure_new("pek-model-register",
+                                                "model-name",
+                                                G_TYPE_STRING,
+                                                "Custom",
+                                                "element-name",
+                                                G_TYPE_STRING,
+                                                "pekinfer0",
+                                                "provided-content-types",
+                                                G_TYPE_STRING,
+                                                "not-a-string-vector",
+                                                nullptr);
+    GValue null_content_types = G_VALUE_INIT;
+    g_value_init(&null_content_types, G_TYPE_STRV);
+    g_value_set_boxed(&null_content_types, nullptr);
+    gst_structure_set_value(structure, "required-content-types", &null_content_types);
+
+    const auto status = model_status_from_registration(structure);
+
+    ASSERT_TRUE(status);
+    EXPECT_FALSE(status->active);
+    EXPECT_TRUE(status->display_name.empty());
+    EXPECT_TRUE(status->task.empty());
+    EXPECT_TRUE(status->runtime.empty());
+    EXPECT_TRUE(status->provided_content_types.empty());
+    EXPECT_TRUE(status->required_content_types.empty());
+    g_value_unset(&null_content_types);
+    gst_structure_free(structure);
+}
+
+TEST(ModelRegistration, RejectsMissingRequiredNames) {
+    GstStructure *structure = gst_structure_new_empty("pek-model-register");
+    EXPECT_FALSE(model_status_from_registration(structure));
+
+    gst_structure_set(structure, "model-name", G_TYPE_STRING, "Custom", nullptr);
+    EXPECT_FALSE(model_status_from_registration(structure));
+    gst_structure_free(structure);
 }

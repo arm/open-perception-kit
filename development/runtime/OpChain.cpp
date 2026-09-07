@@ -15,9 +15,12 @@
 #include <magic_enum/magic_enum.hpp>
 #include <nlohmann/json.hpp>
 
+#include <cstdint>
 #include <exception>
 #include <memory>
+#include <span>
 #include <utility>
+#include <vector>
 
 namespace pek::runtime {
 namespace {
@@ -68,8 +71,7 @@ Error mapInternalError(const pek::Error &error) {
     return runtimeError;
 }
 
-std::string serializeFrameResultsJson(const perception::FrameResults &frameResults) {
-    const auto packet = perception::serialize(frameResults);
+std::string serializePacketJson(std::span<const std::uint8_t> packet) {
     nlohmann::json wrapper;
     wrapper["frame_results_encoding"] = "perception-frame-results+base64";
     wrapper["frame_results_packet_b64"] = pek::base64Encode(packet);
@@ -81,6 +83,9 @@ std::string serializeFrameResultsJson(const perception::FrameResults &frameResul
 struct OpChain::Impl {
     pek::op::OpChain chain;
     bool loaded = false;
+
+    Result<perception::FrameResults> runFrameResults(const VideoFrame &frame,
+                                                     const std::string &inferElementId);
 };
 
 OpChain::OpChain() = default;
@@ -94,19 +99,20 @@ Result<OpChain> OpChain::fromJsonFile(const std::string &path) {
     auto implValue = std::make_unique<Impl>();
     auto setupResult = implValue->chain.setupFromFile(path);
     if (!setupResult) {
-        return tl::make_unexpected(mapInternalError(setupResult.error()));
+        return tl::unexpected(mapInternalError(setupResult.error()));
     }
 
     implValue->loaded = true;
     return OpChain(std::move(implValue));
 }
 
-Result<std::string> OpChain::run(const VideoFrame &frame, const std::string &inferElementId) {
-    if (!impl || !impl->loaded) {
-        return tl::make_unexpected(Error(ErrorFlag::InvalidArgument, "No OpChain has been loaded"));
+Result<perception::FrameResults> OpChain::Impl::runFrameResults(const VideoFrame &frame,
+                                                                const std::string &inferElementId) {
+    if (!loaded) {
+        return tl::unexpected(Error(ErrorFlag::InvalidArgument, "No OpChain has been loaded"));
     }
     if (frame.empty()) {
-        return tl::make_unexpected(Error(ErrorFlag::InvalidArgument, "VideoFrame is empty"));
+        return tl::unexpected(Error(ErrorFlag::InvalidArgument, "VideoFrame is empty"));
     }
 
     perception::FrameResults frameResults;
@@ -116,15 +122,44 @@ Result<std::string> OpChain::run(const VideoFrame &frame, const std::string &inf
     context.videoFrames["pipelineVideoFrame"] =
         std::static_pointer_cast<pek::mediaio::VideoFrame>(frame.internalFrameHandle());
 
-    auto executeResult = impl->chain.execute(context);
+    auto executeResult = chain.execute(context);
     if (!executeResult) {
-        return tl::make_unexpected(mapInternalError(executeResult.error()));
+        return tl::unexpected(mapInternalError(executeResult.error()));
+    }
+
+    return frameResults;
+}
+
+Result<std::string> OpChain::run(const VideoFrame &frame, const std::string &inferElementId) {
+    auto packet = runPacket(frame, inferElementId);
+    if (!packet) {
+        return tl::unexpected(std::move(packet.error()));
     }
 
     try {
-        return serializeFrameResultsJson(frameResults);
+        return serializePacketJson(*packet);
     } catch (const std::exception &e) {
-        return tl::make_unexpected(
+        return tl::unexpected(
+            Error(ErrorFlag::RuntimeError,
+                  fmt::format("Failed to serialize FrameResults transport wrapper: {}", e.what())));
+    }
+}
+
+Result<std::vector<std::uint8_t>> OpChain::runPacket(const VideoFrame &frame,
+                                                     const std::string &inferElementId) {
+    if (!impl) {
+        return tl::unexpected(Error(ErrorFlag::InvalidArgument, "No OpChain has been loaded"));
+    }
+
+    auto frameResults = impl->runFrameResults(frame, inferElementId);
+    if (!frameResults) {
+        return tl::unexpected(std::move(frameResults.error()));
+    }
+
+    try {
+        return perception::serialize(*frameResults);
+    } catch (const std::exception &e) {
+        return tl::unexpected(
             Error(ErrorFlag::RuntimeError,
                   fmt::format("Failed to serialize FrameResults metadata: {}", e.what())));
     }

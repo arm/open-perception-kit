@@ -160,6 +160,14 @@ only known generated schema payloads.
 plumber <pipeline> <mode> <file> [options]
 ```
 
+Plumber uses `PEK_PROJECT_ROOT` as the working directory for `pek-menu` and as
+the base of its default executable path. It defaults to `/work`, preserving the
+container workflow. For a native checkout, set it to the absolute project path:
+
+```bash
+export PEK_PROJECT_ROOT="$(pwd)"
+```
+
 ### Positional arguments
 
 - `pipeline`
@@ -182,7 +190,7 @@ plumber <pipeline> <mode> <file> [options]
 
 - `--pek-menu`
   - path to the `pek-menu` executable
-  - default: `/work/tools/pek-menu`
+  - default: `${PEK_PROJECT_ROOT:-/work}/tools/pek-menu`
 
 - `--pek-menu-args`
   - extra arguments passed to `pek-menu`

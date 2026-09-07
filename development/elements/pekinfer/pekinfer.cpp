@@ -7,9 +7,12 @@
 #include <gst/gst.h>
 #include <gst/video/video.h>
 
+#include <algorithm>
 #include <fmt/core.h>
 #include <memory>
+#include <string_view>
 #include <variant>
+#include <vector>
 
 #include "glib-object.h"
 #include "glib.h"
@@ -21,9 +24,9 @@
 #include "op/OpChain.h"
 #include "op/OpChainContext.h"
 
+#include "gst/ContentRequirementEvent.h"
 #include "gst/FrameResultsMeta.h"
 #include "mediaio/GstVideoFrame.h"
-#include "perf/PerformanceTracer.h"
 
 struct GstPekInferMembers {
     // std::shared_ptr<onnx::Inference> onnxInference;
@@ -100,6 +103,92 @@ static gboolean gst_pekinfer_is_active(GstPekInfer *self) {
     return active;
 }
 
+static void gst_pekinfer_emit_content_requirements(GstPekInfer *self) {
+    if (self->m == nullptr)
+        return;
+
+    for (const auto contentType : self->m->opChain.getRequiredContentTypes()) {
+        const std::string contentTypeString(contentType);
+        GstStructure *structure =
+            gst_structure_new(pek::content_requirement_event::k_name.data(),
+                              pek::content_requirement_event::k_content_type_field.data(),
+                              G_TYPE_STRING,
+                              contentTypeString.c_str(),
+                              nullptr);
+        gst_pad_push_event(GST_BASE_TRANSFORM_SINK_PAD(self),
+                           gst_event_new_custom(GST_EVENT_CUSTOM_UPSTREAM, structure));
+    }
+}
+
+static bool gst_pekinfer_provides_content_type(const GstPekInfer *self,
+                                               std::string_view contentType) {
+    if (self->m == nullptr)
+        return false;
+    const auto providedContentTypes = self->m->opChain.getProvidedContentTypes();
+    return std::ranges::find(providedContentTypes, contentType) != providedContentTypes.end();
+}
+
+static void gst_pekinfer_activate_for_content_requirement(GstPekInfer *self) {
+    if (gst_pekinfer_is_active(self))
+        gst_pekinfer_emit_content_requirements(self);
+    else
+        g_object_set(self, "active", TRUE, nullptr);
+}
+
+static void gst_pekinfer_set_content_types(GstStructure *structure,
+                                           std::string_view field,
+                                           const std::vector<std::string_view> &contentTypes) {
+    std::vector<std::string> strings(contentTypes.begin(), contentTypes.end());
+    std::vector<const gchar *> values;
+    values.reserve(strings.size() + 1);
+    for (const auto &contentType : strings)
+        values.push_back(contentType.c_str());
+    values.push_back(nullptr);
+    gst_structure_set(structure, field.data(), G_TYPE_STRV, values.data(), nullptr);
+}
+
+static void gst_pekinfer_push_model_registration(GstPekInfer *self) {
+    if (self->m == nullptr)
+        return;
+
+    GstPad *srcpad = gst_element_get_static_pad(GST_ELEMENT(self), "src");
+    if (srcpad == nullptr)
+        return;
+
+    GstStructure *structure = gst_structure_new("pek-model-register",
+                                                "model-name",
+                                                G_TYPE_STRING,
+                                                self->m->opChain.getName().c_str(),
+                                                "element-name",
+                                                G_TYPE_STRING,
+                                                GST_OBJECT_NAME(self),
+                                                "active",
+                                                G_TYPE_BOOLEAN,
+                                                gst_pekinfer_is_active(self),
+                                                nullptr);
+    if (!self->m->opChain.getDisplayName().empty()) {
+        gst_structure_set(structure,
+                          "display-name",
+                          G_TYPE_STRING,
+                          self->m->opChain.getDisplayName().c_str(),
+                          nullptr);
+    }
+    if (!self->m->opChain.getTask().empty()) {
+        gst_structure_set(
+            structure, "task", G_TYPE_STRING, self->m->opChain.getTask().c_str(), nullptr);
+    }
+    if (!self->m->opChain.getRuntime().empty()) {
+        gst_structure_set(
+            structure, "runtime", G_TYPE_STRING, self->m->opChain.getRuntime().c_str(), nullptr);
+    }
+    gst_pekinfer_set_content_types(
+        structure, "provided-content-types", self->m->opChain.getProvidedContentTypes());
+    gst_pekinfer_set_content_types(
+        structure, "required-content-types", self->m->opChain.getRequiredContentTypes());
+    gst_pad_push_event(srcpad, gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM, structure));
+    gst_object_unref(srcpad);
+}
+
 static void gst_pekinfer_reset_qos_unlocked(GstPekInfer *self) {
     self->qosEarliestTime = GST_CLOCK_TIME_NONE;
     self->processingSkipFrames = 0;
@@ -146,8 +235,6 @@ static bool gst_pekinfer_has_supported_or_defaultable_yuv_colorimetry(const GstV
 
 static gboolean gst_pekinfer_start(GstBaseTransform *b) {
     auto *self = (GstPekInfer *)b;
-    static pek::perf::PerformanceTracer *tracer = pek::perf::getGlobalTracer();
-    (void)tracer;
 
     gst_pekinfer_reset_qos(self);
 
@@ -171,39 +258,7 @@ static gboolean gst_pekinfer_start(GstBaseTransform *b) {
 
     self->m = members.release();
 
-    // Send model registration event downstream
-    GstPad *srcpad = gst_element_get_static_pad(GST_ELEMENT(self), "src");
-    if (srcpad) {
-        GstStructure *structure = gst_structure_new("pek-model-register",
-                                                    "model-name",
-                                                    G_TYPE_STRING,
-                                                    self->m->opChain.getName().c_str(),
-                                                    "element-name",
-                                                    G_TYPE_STRING,
-                                                    GST_OBJECT_NAME(self),
-                                                    "active",
-                                                    G_TYPE_BOOLEAN,
-                                                    gst_pekinfer_is_active(self),
-                                                    NULL);
-        if (!self->m->opChain.getDisplayName().empty()) {
-            gst_structure_set(structure,
-                              "display-name",
-                              G_TYPE_STRING,
-                              self->m->opChain.getDisplayName().c_str(),
-                              NULL);
-        }
-        if (!self->m->opChain.getTask().empty()) {
-            gst_structure_set(
-                structure, "task", G_TYPE_STRING, self->m->opChain.getTask().c_str(), NULL);
-        }
-        if (!self->m->opChain.getRuntime().empty()) {
-            gst_structure_set(
-                structure, "runtime", G_TYPE_STRING, self->m->opChain.getRuntime().c_str(), NULL);
-        }
-        GstEvent *event = gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM, structure);
-        gst_pad_push_event(srcpad, event);
-        gst_object_unref(srcpad);
-    }
+    gst_pekinfer_push_model_registration(self);
 
     return TRUE;
 }
@@ -214,6 +269,17 @@ static gboolean gst_pekinfer_stop(GstBaseTransform *b) {
     delete self->m;
     self->m = nullptr;
     return TRUE;
+}
+
+static GstStateChangeReturn gst_pekinfer_change_state(GstElement *element,
+                                                      GstStateChange transition) {
+    const auto result =
+        GST_ELEMENT_CLASS(gst_pekinfer_parent_class)->change_state(element, transition);
+    if (result != GST_STATE_CHANGE_FAILURE && transition == GST_STATE_CHANGE_PAUSED_TO_PLAYING &&
+        gst_pekinfer_is_active(GST_PEKINFER(element))) {
+        gst_pekinfer_emit_content_requirements(GST_PEKINFER(element));
+    }
+    return result;
 }
 
 static gboolean gst_pekinfer_set_caps(GstBaseTransform *b, GstCaps *incaps, GstCaps *outcaps) {
@@ -254,6 +320,17 @@ static GstClockTime gst_pekinfer_saturating_add(GstClockTime timestamp, GstClock
 static gboolean gst_pekinfer_src_event(GstBaseTransform *trans, GstEvent *event) {
     auto *self = GST_PEKINFER(trans);
     const auto eventType = GST_EVENT_TYPE(event);
+
+    if (eventType == GST_EVENT_CUSTOM_UPSTREAM) {
+        const GstStructure *structure = gst_event_get_structure(event);
+        if (structure != nullptr &&
+            gst_structure_has_name(structure, pek::content_requirement_event::k_name.data())) {
+            const gchar *contentType = gst_structure_get_string(
+                structure, pek::content_requirement_event::k_content_type_field.data());
+            if (contentType != nullptr && gst_pekinfer_provides_content_type(self, contentType))
+                gst_pekinfer_activate_for_content_requirement(self);
+        }
+    }
 
     if (eventType == GST_EVENT_QOS) {
         GST_OBJECT_LOCK(self);
@@ -313,6 +390,10 @@ static gboolean gst_pekinfer_src_event(GstBaseTransform *trans, GstEvent *event)
 static gboolean gst_pekinfer_sink_event(GstBaseTransform *trans, GstEvent *event) {
     const auto eventType = GST_EVENT_TYPE(event);
     switch (eventType) {
+    case GST_EVENT_STREAM_START:
+        if (gst_pekinfer_is_active(GST_PEKINFER(trans)))
+            gst_pekinfer_emit_content_requirements(GST_PEKINFER(trans));
+        break;
     case GST_EVENT_SEGMENT:
     case GST_EVENT_FLUSH_START:
     case GST_EVENT_FLUSH_STOP:
@@ -524,11 +605,20 @@ static void gst_pekinfer_set_property(GObject *o, guint id, const GValue *v, GPa
         self->opChainPath = g_value_dup_string(v);
         break;
     case PROP_MODEL_ACTIVE: {
+        gboolean activeChanged = FALSE;
+        gboolean emitContentRequirements = FALSE;
+        const gboolean active = g_value_get_boolean(v);
         GST_OBJECT_LOCK(self);
-        self->active = g_value_get_boolean(v);
+        activeChanged = self->active != active;
+        emitContentRequirements = !self->active && active;
+        self->active = active;
         if (!self->active)
             gst_pekinfer_reset_qos_unlocked(self);
         GST_OBJECT_UNLOCK(self);
+        if (activeChanged)
+            gst_pekinfer_push_model_registration(self);
+        if (emitContentRequirements)
+            gst_pekinfer_emit_content_requirements(self);
         break;
     }
     case PROP_FORMAT:
@@ -684,6 +774,7 @@ static void gst_pekinfer_class_init(GstPekInferClass *klass) {
     bcls->sink_event = gst_pekinfer_sink_event;
     bcls->src_event = gst_pekinfer_src_event;
     bcls->transform_ip = gst_pekinfer_transform_ip;
+    ecls->change_state = gst_pekinfer_change_state;
 }
 
 static void gst_pekinfer_init(GstPekInfer *self) {

@@ -16,11 +16,16 @@ namespace {
 constexpr std::string_view Controller = "pek-std-ops/InferenceController";
 constexpr std::string_view Preprocess = "pek-std-ops/GenericImagePreprocess";
 constexpr std::string_view Postprocess = "pek-std-ops/GenericPostprocess";
+constexpr std::string_view PythonScript = "pek-python-ops/PythonScript";
 using Ops = std::vector<pek::op::OpChainDescriptor::Op>;
 
 bool isBuiltInStageOp(std::string_view id) {
     return id == Controller || id == Preprocess || id == Postprocess ||
            pek::op::isInferenceOpId(id);
+}
+
+bool isTerminalPostprocess(std::string_view id) {
+    return id == Postprocess || id == PythonScript;
 }
 
 std::optional<std::string> stringAttribute(const pek::AttributeMap &attributes,
@@ -125,6 +130,32 @@ void validateLoopGroups(ValidationReport &report,
     }
 }
 
+void validateInstanceIds(ValidationReport &report,
+                         const pek::op::OpChainDescriptor &descriptor,
+                         std::string_view source) {
+    std::unordered_map<std::string, std::size_t> firstById;
+    std::unordered_map<std::string, std::size_t> occurrences;
+    for (std::size_t index = 0; index < descriptor.ops.size(); ++index) {
+        const auto &op = descriptor.ops[index];
+        auto &occurrenceCount = occurrences[op.id];
+        const std::size_t occurrence = occurrenceCount;
+        ++occurrenceCount;
+        const std::string instanceId = op.instanceId.empty()
+                                           ? pek::op::makeDefaultInstanceId(op.id, occurrence)
+                                           : op.instanceId;
+        const auto [iterator, inserted] = firstById.try_emplace(instanceId, index);
+        if (inserted)
+            continue;
+        report.issues.push_back(
+            makeIssue("opchain.v1.instance-id",
+                      ValidationPhase::Descriptor,
+                      source,
+                      std::format("/ops/{}/instanceId", index),
+                      std::format("operation instance ID '{}' is duplicated", instanceId),
+                      std::format("/ops/{}/instanceId", iterator->second)));
+    }
+}
+
 void validateStageStart(ValidationReport &report,
                         const Ops &ops,
                         std::size_t controller,
@@ -161,8 +192,11 @@ bool validateStageShape(ValidationReport &report,
                       controller + 2,
                       "preprocessing must be immediately followed by backend inference");
     }
-    if (ops[end - 1].id != Postprocess) {
-        addStageIssue(report, source, end - 1, "built-in stage must end with GenericPostprocess");
+    if (!isTerminalPostprocess(ops[end - 1].id)) {
+        addStageIssue(report,
+                      source,
+                      end - 1,
+                      "built-in stage must end with GenericPostprocess or PythonScript");
     }
 
     for (std::size_t index = controller + 3; index + 1 < end; ++index) {
@@ -180,12 +214,13 @@ bool validateStageShape(ValidationReport &report,
             [first, last](const auto &predicate) { return std::count_if(first, last, predicate); };
         count([](const auto &op) { return op.id == Preprocess; }) != 1 ||
         count([](const auto &op) { return pek::op::isInferenceOpId(op.id); }) != 1 ||
-        count([](const auto &op) { return op.id == Postprocess; }) != 1) {
+        count([](const auto &op) { return op.id == Postprocess; }) !=
+            (ops[end - 1].id == Postprocess ? 1 : 0)) {
         addStageIssue(report,
                       source,
                       controller,
-                      "built-in stage must contain exactly one preprocess, inference, and "
-                      "postprocess operation");
+                      "built-in stage must contain exactly one preprocess and inference "
+                      "operation followed by one terminal postprocess operation");
     }
     return true;
 }
@@ -290,6 +325,7 @@ ValidationReport validateOpChainV1(const pek::op::OpChainDescriptor &descriptor,
                                    std::string_view source) {
     ValidationReport report;
     validateControlCharacters(report, descriptor, source);
+    validateInstanceIds(report, descriptor, source);
     validateLoopGroups(report, descriptor, source);
     validateStages(report, descriptor, source);
     validateThresholds(report, descriptor, source);

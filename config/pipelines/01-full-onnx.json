@@ -2,28 +2,28 @@
   "description": "Every available ONNX model with the main camera source, WebSocket metadata streaming, and peksink video sink.",
   "loop": true,
   "pipeline": [
-    "filesrc location=/work/data/videos/GettyImages-1140581459.mov !",
+    "filesrc location=\"${PEK_PROJECT_ROOT:-/work}/data/videos/GettyImages-1140581459.mov\" !",
     "decodebin !",
     "videoconvert !",
     "video/x-raw,format=BGRA !",
-    "pekinfer opchain-path=/work/config/models/ultraface/opchain.json active=false !",
-    "pekinfer opchain-path=/work/config/models/yolov11/opchain.json active=true !",
-    "pekinfer opchain-path=/work/config/models/cam-contact/opchain.json active=false !",
-    "pekinfer opchain-path=/work/config/models/gaze-detection/opchain.json active=false !",
-    "pekinfer opchain-path=/work/config/models/mobilenetv2/opchain.json active=false !",
-    "pekinfer opchain-path=/work/config/models/modnet/opchain.json active=false !",
-    "pekinfer opchain-path=/work/config/models/osnet_x0_25/opchain.json active=false !",
-    "pekinfer opchain-path=/work/config/models/paddleocr/opchain.json active=false !",
-    "pekinfer opchain-path=/work/config/models/personclassification/opchain.json active=false !",
-    "pekinfer opchain-path=/work/config/models/rvm/opchain.json active=false !",
+    "pekinfer opchain-path=\"${PEK_PROJECT_ROOT:-/work}/config/models/ultraface/opchain.json\" active=false !",
+    "pekinfer opchain-path=\"${PEK_PROJECT_ROOT:-/work}/config/models/yolov11/opchain.json\" active=true !",
+    "pekinfer opchain-path=\"${PEK_PROJECT_ROOT:-/work}/config/models/cam-contact/opchain.json\" active=false !",
+    "pekinfer opchain-path=\"${PEK_PROJECT_ROOT:-/work}/config/models/gaze-detection/opchain.json\" active=false !",
+    "pekinfer opchain-path=\"${PEK_PROJECT_ROOT:-/work}/config/models/mobilenetv2/opchain.json\" active=false !",
+    "pekinfer opchain-path=\"${PEK_PROJECT_ROOT:-/work}/config/models/modnet/opchain.json\" active=false !",
+    "pekinfer opchain-path=\"${PEK_PROJECT_ROOT:-/work}/config/models/osnet_x0_25/opchain.json\" active=false !",
+    "pekinfer opchain-path=\"${PEK_PROJECT_ROOT:-/work}/config/models/paddleocr/opchain.json\" active=false !",
+    "pekinfer opchain-path=\"${PEK_PROJECT_ROOT:-/work}/config/models/personclassification/opchain.json\" active=false !",
+    "pekinfer opchain-path=\"${PEK_PROJECT_ROOT:-/work}/config/models/rvm/opchain.json\" active=false !",
     "pektracker content-type=genericObject !",
-    "pekperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
+    "pekperformance show-all-metrics=true update-interval=1 !",
     "pekcomm method=websocket endpoint=/ws !",
-    "pekosd enabled=true performance-overlay-enabled=false bg-image=\"/work/data/images/GettyImages-1298072556-thumbnail.jpg\" !",
+    "pekosd enabled=true bg-image=\"${PEK_PROJECT_ROOT:-/work}/data/images/GettyImages-1298072556-thumbnail.jpg\" !",
     "peksink name=sink"
   ],
   "alternative-source-image": [
-    "filesrc location=/work/data/images/GettyImages-1140581459-thumbnail.jpg !",
+    "filesrc location=\"${PEK_PROJECT_ROOT:-/work}/data/images/GettyImages-1140581459-thumbnail.jpg\" !",
     "jpegdec !",
     "imagefreeze !",
     "videoconvert ! video/x-raw,format=BGRA !"
@@ -39,13 +39,13 @@
     "videoconvert ! video/x-raw,format=BGRA !"
   ],
   "alternative-source-video": [
-    "filesrc location=/work/data/videos/GettyImages-1298072556.mov !",
+    "filesrc location=\"${PEK_PROJECT_ROOT:-/work}/data/videos/GettyImages-1298072556.mov\" !",
     "decodebin !",
     "videoconvert !",
     "video/x-raw,format=BGRA !"
   ],
   "alternative-sink": [
-    "filesink location=/work/data/output/full-dev.mp4"
+    "filesink location=\"${PEK_PROJECT_ROOT:-/work}/data/output/full-dev.mp4\""
   ],
   "alternative-sink-peksink-with-audio": [
     "peksink name=sink",

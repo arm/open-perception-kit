@@ -239,6 +239,15 @@ class StaticQualityConfigTests(unittest.TestCase):
             self.pre_commit_hook_block(pre_commit, "pre-commit-checks"),
         )
 
+    def test_pre_commit_hooks_resolve_venv_from_project_root(self):
+        pre_commit = PRE_COMMIT_CONFIG.read_text(encoding="utf-8")
+
+        self.assertEqual(
+            pre_commit.count('${PEK_PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/tools/.venv/bin/activate'),
+            3,
+        )
+        self.assertNotIn("source /work/tools/.venv/bin/activate", pre_commit)
+
     def test_repo_configs_enable_secret_scan_and_quality_report_artifacts(self):
         pre_commit = PRE_COMMIT_CONFIG.read_text(encoding="utf-8")
         compose = CI_COMPOSE_FILE.read_text(encoding="utf-8")

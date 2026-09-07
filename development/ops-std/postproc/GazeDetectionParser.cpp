@@ -111,8 +111,10 @@ pek::Result<void> GazeDetectionParser::parse(const pek::TensorParser::Input &inp
     result->confidence = std::min(yawConf, pitchConf);
 
     perception::metadata::PoseEstimationsT payload;
-    payload.layer = perception::makeLayerInfo(
-        input.inferenceInfo.modelName, input.inferenceInfo.inferElementId, "eyeYawPitch");
+    payload.layer = perception::makeLayerInfo({.model = input.inferenceInfo.modelName,
+                                               .inferElementId = input.inferenceInfo.inferElementId,
+                                               .contentType = k_content_type,
+                                               .producer = &input.producerInfo});
     payload.poses.push_back(std::move(result));
     results.add(std::move(payload));
     return {};

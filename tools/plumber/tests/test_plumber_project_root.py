@@ -1,0 +1,97 @@
+#!/usr/bin/env python3
+################################################################
+# Copyright (C) 2026 Arm Limited. All rights reserved.
+################################################################
+
+import os
+import sys
+import unittest
+from pathlib import Path
+from unittest import mock
+
+
+ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "tools" / "plumber"))
+
+from plumber.plumber import (  # noqa: E402
+    build_arg_parser,
+    resolve_project_root,
+    start_pipeline,
+)
+
+
+class PlumberProjectRootTests(unittest.TestCase):
+    def test_defaults_to_container_project_root(self) -> None:
+        with mock.patch.dict(os.environ, {}, clear=True):
+            project_root = resolve_project_root()
+            args = build_arg_parser(project_root).parse_args(
+                ["pipeline", "save", "ground-truth.ndjson"]
+            )
+
+        self.assertEqual(project_root, Path("/work"))
+        self.assertEqual(args.project_root, Path("/work"))
+        self.assertEqual(args.pek_menu, "/work/tools/pek-menu")
+
+    def test_uses_environment_project_root_for_defaults(self) -> None:
+        checkout = Path("/home/developer/amp-dev-forge")
+        with mock.patch.dict(
+            os.environ,
+            {"PEK_PROJECT_ROOT": str(checkout)},
+            clear=True,
+        ):
+            project_root = resolve_project_root()
+            args = build_arg_parser(project_root).parse_args(
+                ["pipeline", "check", "ground-truth.ndjson"]
+            )
+
+        self.assertEqual(args.project_root, checkout)
+        self.assertEqual(
+            args.pek_menu,
+            "/home/developer/amp-dev-forge/tools/pek-menu",
+        )
+
+    def test_rejects_relative_environment_project_root(self) -> None:
+        with mock.patch.dict(
+            os.environ,
+            {"PEK_PROJECT_ROOT": "relative/checkout"},
+            clear=True,
+        ):
+            with self.assertRaisesRegex(
+                ValueError,
+                "PEK_PROJECT_ROOT must be an absolute path",
+            ):
+                resolve_project_root()
+
+    @mock.patch("plumber.plumber.subprocess.Popen")
+    def test_pipeline_uses_project_root_as_cwd_and_environment(
+        self,
+        popen: mock.Mock,
+    ) -> None:
+        checkout = Path("/home/developer/amp-dev-forge")
+
+        start_pipeline(
+            str(checkout / "tools/pek-menu"),
+            "pipeline",
+            ["--example"],
+            "/tmp/pekcomm",
+            checkout,
+        )
+
+        popen.assert_called_once()
+        command = popen.call_args.args[0]
+        options = popen.call_args.kwargs
+        self.assertEqual(
+            command,
+            [
+                "/home/developer/amp-dev-forge/tools/pek-menu",
+                "pipeline",
+                "--example",
+            ],
+        )
+        self.assertEqual(options["cwd"], checkout)
+        self.assertEqual(options["env"]["PEK_PROJECT_ROOT"], str(checkout))
+        self.assertEqual(options["env"]["PEKCOMM_FILE"], "/tmp/pekcomm")
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -15,15 +15,23 @@ fmt_dep = dependency(
   fallback: ['fmt', 'fmt_dep'],
   required: true,
 )
+perception_flatbuffers_version_requirement = '==25.9.23'
+flatbuffers_dep = dependency(
+  'flatbuffers',
+  version: perception_flatbuffers_version_requirement,
+  required: true,
+)
 
 repo_root = meson.project_source_root() / '../..'
 development_include = include_directories(
+  '../common',
   '../../development',
+  '../../generated/perception/cpp',
   '../../development/subprojects/expected-1.3.1/include',
   '../../development/subprojects/magic_enum-0.9.7/include',
   '../../development/subprojects/nlohmann_json-3.12.0/include',
 )
-runtime_build_dir = repo_root / 'development/build/meson-out'
+runtime_build_dir = repo_root / 'development/build-active/meson-out'
 runtime_library = runtime_build_dir / 'pek-runtime.so'
 common_library = runtime_build_dir / 'libpek-common.so'
 
@@ -44,6 +52,8 @@ runtime_dep = declare_dependency(
 executable(
   'pipeline-exec',
   'main.cpp',
-  dependencies: [ runtime_dep, fmt_dep ],
+  '../common/PerceptionPacket.cpp',
+  '../common/TextDisplay.cpp',
+  dependencies: [ runtime_dep, fmt_dep, flatbuffers_dep ],
   install: false,
 )

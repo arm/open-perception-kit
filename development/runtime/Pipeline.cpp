@@ -93,8 +93,7 @@ void logQosMessage(GstMessage *message) {
                     qosValue(dropped));
 }
 
-std::string serializeFrameResultsJson(const perception::FrameResults &frameResults) {
-    const auto packet = perception::serialize(frameResults);
+std::string serializeFrameResultsJson(const std::vector<std::uint8_t> &packet) {
     nlohmann::json wrapper;
     wrapper["frame_results_encoding"] = "perception-frame-results+base64";
     wrapper["frame_results_packet_b64"] = pek::base64Encode(packet);
@@ -149,7 +148,7 @@ Result<std::string> expandPipelineDescription(const std::string &description) {
             const size_t defaultStart = nameEnd + 2;
             const size_t end = description.find('}', defaultStart);
             if (end == std::string::npos) {
-                return tl::make_unexpected(makeError(
+                return tl::unexpected(makeError(
                     ErrorFlag::ParseError,
                     fmt::format("Unterminated pipeline variable default for '{}'", variableName)));
             }
@@ -164,7 +163,7 @@ Result<std::string> expandPipelineDescription(const std::string &description) {
             const size_t messageStart = nameEnd + 1;
             const size_t end = description.find('}', messageStart);
             if (end == std::string::npos) {
-                return tl::make_unexpected(makeError(
+                return tl::unexpected(makeError(
                     ErrorFlag::ParseError,
                     fmt::format("Unterminated required pipeline variable '{}'", variableName)));
             }
@@ -174,7 +173,7 @@ Result<std::string> expandPipelineDescription(const std::string &description) {
                 if (message.empty()) {
                     message = fmt::format("Environment variable '{}' is required", variableName);
                 }
-                return tl::make_unexpected(makeError(ErrorFlag::InvalidPipeline, message));
+                return tl::unexpected(makeError(ErrorFlag::InvalidPipeline, message));
             }
 
             expanded += value;
@@ -194,7 +193,7 @@ Result<std::string> expandPipelineDescription(const std::string &description) {
 Result<std::string> loadPipelineDescriptionFromJsonFile(const std::string &path) {
     std::ifstream input(path);
     if (!input.is_open()) {
-        return tl::make_unexpected(
+        return tl::unexpected(
             makeError(ErrorFlag::FileNotFound,
                       fmt::format("Failed to open PEK pipeline JSON file '{}'", path)));
     }
@@ -204,13 +203,13 @@ Result<std::string> loadPipelineDescriptionFromJsonFile(const std::string &path)
         input >> document;
 
         if (!document.is_object()) {
-            return tl::make_unexpected(
+            return tl::unexpected(
                 makeError(ErrorFlag::InvalidPipeline,
                           fmt::format("PEK pipeline JSON '{}' must contain a root object", path)));
         }
 
         if (!document.contains("pipeline")) {
-            return tl::make_unexpected(makeError(
+            return tl::unexpected(makeError(
                 ErrorFlag::InvalidPipeline,
                 fmt::format("PEK pipeline JSON '{}' is missing required 'pipeline' field", path)));
         }
@@ -219,7 +218,7 @@ Result<std::string> loadPipelineDescriptionFromJsonFile(const std::string &path)
         if (pipeline.is_string()) {
             auto description = pipeline.get<std::string>();
             if (description.empty()) {
-                return tl::make_unexpected(makeError(
+                return tl::unexpected(makeError(
                     ErrorFlag::InvalidPipeline,
                     fmt::format("PEK pipeline JSON '{}' contains an empty 'pipeline' string",
                                 path)));
@@ -228,7 +227,7 @@ Result<std::string> loadPipelineDescriptionFromJsonFile(const std::string &path)
         }
 
         if (!pipeline.is_array()) {
-            return tl::make_unexpected(makeError(
+            return tl::unexpected(makeError(
                 ErrorFlag::InvalidPipeline,
                 fmt::format(
                     "PEK pipeline JSON '{}' field 'pipeline' must be a string or array of strings",
@@ -239,7 +238,7 @@ Result<std::string> loadPipelineDescriptionFromJsonFile(const std::string &path)
         bool first = true;
         for (const auto &partValue : pipeline) {
             if (!partValue.is_string()) {
-                return tl::make_unexpected(makeError(
+                return tl::unexpected(makeError(
                     ErrorFlag::InvalidPipeline,
                     fmt::format(
                         "PEK pipeline JSON '{}' field 'pipeline' array must contain only strings",
@@ -259,14 +258,14 @@ Result<std::string> loadPipelineDescriptionFromJsonFile(const std::string &path)
         }
 
         if (joined.empty()) {
-            return tl::make_unexpected(makeError(
+            return tl::unexpected(makeError(
                 ErrorFlag::InvalidPipeline,
                 fmt::format("PEK pipeline JSON '{}' contains an empty 'pipeline' array", path)));
         }
 
         return joined;
     } catch (const nlohmann::json::exception &e) {
-        return tl::make_unexpected(
+        return tl::unexpected(
             makeError(ErrorFlag::ParseError,
                       fmt::format("Failed to parse PEK pipeline JSON '{}': {}", path, e.what())));
     }
@@ -326,7 +325,7 @@ class Pipeline::Impl {
 
         auto expandedDescription = expandPipelineDescription(description);
         if (!expandedDescription) {
-            return tl::make_unexpected(std::move(expandedDescription.error()));
+            return tl::unexpected(std::move(expandedDescription.error()));
         }
 
         GError *parseError = nullptr;
@@ -337,7 +336,7 @@ class Pipeline::Impl {
             if (parseError) {
                 g_error_free(parseError);
             }
-            return tl::make_unexpected(makeError(ErrorFlag::InvalidPipeline, message));
+            return tl::unexpected(makeError(ErrorFlag::InvalidPipeline, message));
         }
 
         if (parseError) {
@@ -345,7 +344,7 @@ class Pipeline::Impl {
                                                       : "pipeline parsed with recoverable errors";
             g_error_free(parseError);
             gst_object_unref(parsed);
-            return tl::make_unexpected(makeError(ErrorFlag::InvalidPipeline, message));
+            return tl::unexpected(makeError(ErrorFlag::InvalidPipeline, message));
         }
 
         pipeline = parsed;
@@ -356,7 +355,7 @@ class Pipeline::Impl {
     Result<void> loadFromJsonFile(const std::string &path) {
         auto description = loadPipelineDescriptionFromJsonFile(path);
         if (!description) {
-            return tl::make_unexpected(std::move(description.error()));
+            return tl::unexpected(std::move(description.error()));
         }
 
         return loadFromString(*description);
@@ -365,13 +364,13 @@ class Pipeline::Impl {
     // start(), pause(), and stop() all use this small shared state helper.
     Result<void> setState(GstState state, const char *stateName) {
         if (!pipeline) {
-            return tl::make_unexpected(
+            return tl::unexpected(
                 makeError(ErrorFlag::InvalidPipeline, "No pipeline has been loaded"));
         }
 
         const GstStateChangeReturn ret = gst_element_set_state(pipeline, state);
         if (ret == GST_STATE_CHANGE_FAILURE) {
-            return tl::make_unexpected(
+            return tl::unexpected(
                 makeError(ErrorFlag::RuntimeError,
                           fmt::format("Failed to set pipeline state to {}", stateName)));
         }
@@ -381,7 +380,7 @@ class Pipeline::Impl {
 
     Result<void> start() {
         if (!pipeline) {
-            return tl::make_unexpected(
+            return tl::unexpected(
                 makeError(ErrorFlag::InvalidPipeline, "No pipeline has been loaded"));
         }
 
@@ -412,11 +411,11 @@ class Pipeline::Impl {
         {
             std::unique_lock lock(lifecycleMutex);
             if (!pipeline) {
-                return tl::make_unexpected(
+                return tl::unexpected(
                     makeError(ErrorFlag::InvalidPipeline, "No pipeline has been loaded"));
             }
             if (!busThread.joinable() && terminalState == TerminalState::None) {
-                return tl::make_unexpected(
+                return tl::unexpected(
                     makeError(ErrorFlag::InvalidPipeline,
                               "Pipeline has not been started; call start() before wait()"));
             }
@@ -431,7 +430,7 @@ class Pipeline::Impl {
         joinBusWatcherIfNotCurrent();
 
         if (hasError) {
-            return tl::make_unexpected(std::move(error));
+            return tl::unexpected(std::move(error));
         }
         return {};
     }
@@ -439,6 +438,11 @@ class Pipeline::Impl {
     void onFrameResults(Pipeline::FrameResultsCallback callback) {
         std::lock_guard lock(callbackMutex);
         frameResultsCallback = std::move(callback);
+    }
+
+    void onFrameResultsPacket(Pipeline::FrameResultsPacketCallback callback) {
+        std::lock_guard lock(callbackMutex);
+        frameResultsPacketCallback = std::move(callback);
     }
 
     void onError(Pipeline::ErrorCallback callback) {
@@ -456,17 +460,17 @@ class Pipeline::Impl {
     Result<void> attachFrameResultsProbe(const std::string &elementName,
                                          const std::string &padName) {
         if (!pipeline) {
-            return tl::make_unexpected(
+            return tl::unexpected(
                 makeError(ErrorFlag::InvalidPipeline, "No pipeline has been loaded"));
         }
         if (!GST_IS_BIN(pipeline)) {
-            return tl::make_unexpected(
+            return tl::unexpected(
                 makeError(ErrorFlag::InvalidPipeline, "Loaded pipeline is not a GStreamer bin"));
         }
 
         GstElement *element = gst_bin_get_by_name(GST_BIN(pipeline), elementName.c_str());
         if (!element) {
-            return tl::make_unexpected(
+            return tl::unexpected(
                 makeError(ErrorFlag::InvalidPipeline,
                           fmt::format("Element '{}' was not found in the pipeline", elementName)));
         }
@@ -474,7 +478,7 @@ class Pipeline::Impl {
         GstPad *pad = gst_element_get_static_pad(element, padName.c_str());
         gst_object_unref(element);
         if (!pad) {
-            return tl::make_unexpected(makeError(
+            return tl::unexpected(makeError(
                 ErrorFlag::InvalidPipeline,
                 fmt::format("Element '{}' does not have a static '{}' pad", elementName, padName)));
         }
@@ -493,6 +497,7 @@ class Pipeline::Impl {
     std::vector<ProbeHandle> probes;
     mutable std::mutex callbackMutex;
     Pipeline::FrameResultsCallback frameResultsCallback;
+    Pipeline::FrameResultsPacketCallback frameResultsPacketCallback;
     Pipeline::ErrorCallback errorCallback;
     Pipeline::EosCallback eosCallback;
 
@@ -808,17 +813,25 @@ class Pipeline::Impl {
     // holding our lock while user code runs.
     void emitPerception(const perception::FrameResults &frameResults) {
         Pipeline::FrameResultsCallback callback;
+        Pipeline::FrameResultsPacketCallback packetCallback;
         {
             std::lock_guard lock(callbackMutex);
             callback = frameResultsCallback;
+            packetCallback = frameResultsPacketCallback;
         }
 
-        if (!callback) {
+        if (!callback && !packetCallback) {
             return;
         }
 
         try {
-            callback(serializeFrameResultsJson(frameResults));
+            const auto packet = perception::serialize(frameResults);
+            if (packetCallback) {
+                packetCallback(packet);
+            }
+            if (callback) {
+                callback(serializeFrameResultsJson(packet));
+            }
         } catch (const std::exception &e) {
             emitError(
                 makeError(ErrorFlag::RuntimeError,
@@ -863,7 +876,7 @@ Result<Pipeline> Pipeline::fromString(const std::string &description) {
     Pipeline pipeline;
     auto result = pipeline.loadFromString(description);
     if (!result) {
-        return tl::make_unexpected(std::move(result.error()));
+        return tl::unexpected(std::move(result.error()));
     }
 
     return pipeline;
@@ -873,7 +886,7 @@ Result<Pipeline> Pipeline::fromJsonFile(const std::string &path) {
     Pipeline pipeline;
     auto result = pipeline.loadFromJsonFile(path);
     if (!result) {
-        return tl::make_unexpected(std::move(result.error()));
+        return tl::unexpected(std::move(result.error()));
     }
 
     return pipeline;
@@ -886,7 +899,7 @@ Result<void> Pipeline::addPluginPath(const std::string &path) {
 
     std::error_code ec;
     if (!std::filesystem::is_directory(path, ec)) {
-        return tl::make_unexpected(
+        return tl::unexpected(
             makeError(ErrorFlag::FileNotFound,
                       fmt::format("GStreamer plugin path '{}' is not a directory", path)));
     }
@@ -926,6 +939,10 @@ Result<void> Pipeline::wait() {
 
 void Pipeline::onFrameResults(FrameResultsCallback callback) {
     impl->onFrameResults(std::move(callback));
+}
+
+void Pipeline::onFrameResultsPacket(FrameResultsPacketCallback callback) {
+    impl->onFrameResultsPacket(std::move(callback));
 }
 
 void Pipeline::onError(ErrorCallback callback) {

@@ -9,6 +9,7 @@
 #include "op/OpRef.h"
 #include "pek/Result.h"
 
+#include <string_view>
 #include <vector>
 
 namespace pek::op {
@@ -57,6 +58,8 @@ class OpChain {
     const std::string &getDisplayName() const;
     const std::string &getTask() const;
     const std::string &getRuntime() const;
+    std::vector<std::string_view> getProvidedContentTypes() const;
+    std::vector<std::string_view> getRequiredContentTypes() const;
     /**
      * @brief Adds an operation reference to the chain.
      *

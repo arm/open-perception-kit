@@ -5,6 +5,36 @@
       "sha256": "255538574d6cb6d0a79a17ec8bc0d30985913b87513a01cce8bcdb6b4c44d0e2",
       "url": "https://files.pythonhosted.org/packages/ee/1b/00a78aa2e8fbd63f9af08c9c19e6deb3d5d66b4dda677a0f61654680ee89/flatbuffers-25.9.23-py2.py3-none-any.whl"
     },
+    "rust_crates": [
+      {
+        "filename": "flatbuffers-25.9.23.crate",
+        "name": "flatbuffers",
+        "sha256": "09b6620799e7340ebd9968d2e0708eb82cf1971e9a16821e2091b6d6e475eed5",
+        "url": "https://static.crates.io/crates/flatbuffers/flatbuffers-25.9.23.crate",
+        "version": "25.9.23"
+      },
+      {
+        "filename": "bitflags-2.13.1.crate",
+        "name": "bitflags",
+        "sha256": "b588b76d00fde79687d7646a9b5bdf3cc0f655e0bbd080335a95d7e96f3587da",
+        "url": "https://static.crates.io/crates/bitflags/bitflags-2.13.1.crate",
+        "version": "2.13.1"
+      },
+      {
+        "filename": "rustc_version-0.4.1.crate",
+        "name": "rustc_version",
+        "sha256": "cfcb3a22ef46e85b45de6ee7e79d063319ebb6594faafcf1c225ea92ab6e9b92",
+        "url": "https://static.crates.io/crates/rustc_version/rustc_version-0.4.1.crate",
+        "version": "0.4.1"
+      },
+      {
+        "filename": "semver-1.0.28.crate",
+        "name": "semver",
+        "sha256": "8a7852d02fc848982e0c167ef163aaff9cd91dc640ba85e263cb1ce46fae51cd",
+        "url": "https://static.crates.io/crates/semver/semver-1.0.28.crate",
+        "version": "1.0.28"
+      }
+    ],
     "source_archive": {
       "filename": "v25.9.23.tar.gz",
       "sha256": "9102253214dea6ae10c2ac966ea1ed2155d22202390b532d1dea64935c518ada",

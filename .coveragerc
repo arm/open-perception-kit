@@ -1,0 +1,12 @@
+[run]
+branch = True
+parallel = True
+include =
+    config/models/mobilenetv2/scripts/*.py
+    tools/plumber/plumber/*.py
+
+[report]
+show_missing = True
+
+[xml]
+output = python-coverage.xml

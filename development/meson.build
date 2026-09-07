@@ -1,5 +1,5 @@
 project('pek_elements', ['c', 'cpp'],
-  version: '0.2.1',
+    version: '0.3.0',
   default_options: [
     'c_std=c11',
     'cpp_std=c++20',
@@ -7,6 +7,12 @@ project('pek_elements', ['c', 'cpp'],
     'b_lto=false', # true for release
   ]
 )
+
+# The Meson source tree is development/, while repository-owned dependencies,
+# configuration, metadata, scripts, and tests live one directory above it.
+# Keep this derived from Meson's source root so native builds do not depend on
+# the checkout being mounted at a particular filesystem location.
+pek_repository_root = meson.project_source_root() / '..'
 
 add_project_arguments('-Wno-unused-variable', language: ['c', 'cpp'])
 add_project_arguments('-Wno-unused-parameter', language: ['c', 'cpp'])
@@ -96,8 +102,8 @@ endif
 
 onnx_candidates += [
   '/opt/pek-deps/onnxruntime',
-  meson.project_source_root() / '../deps/onnxruntime',
-  meson.project_source_root() / '../onnxruntime-linux-aarch64-1.24.4',
+  pek_repository_root / 'deps/onnxruntime',
+  pek_repository_root / 'onnxruntime-linux-aarch64-1.24.4',
 ]
 
 foreach candidate : onnx_candidates
@@ -120,13 +126,8 @@ onnx_dep = declare_dependency(
 )
 
 if release_package
-  if not get_option('ncnn').disabled()
-    error('Release packages require -Dncnn=disabled.')
-  endif
   if host_machine.cpu_family() != 'x86_64' and host_machine.cpu_family() != 'aarch64'
     error('Release packages support only x86_64 and aarch64.')
-  elif not get_option('hailort').disabled()
-    error('Release packages require -Dhailort=disabled.')
   endif
 endif
 
@@ -160,17 +161,53 @@ endif
 # Common include(s)
 common_include = include_directories('common', 'common/logging/include')
 
+python_ops_option = get_option('python_ops')
+python_ops_enabled = false
+pek_python = disabler()
+pek_numpy_include = ''
+test_python = disabler()
+
 if get_option('tests')
-  pek_python_path = run_command(
+  test_python_path = run_command(
     'sh',
     '-c',
     'if [ -n "$PEK_DEVTOOLS_VENV" ]; then printf %s "$PEK_DEVTOOLS_VENV/bin/python"; fi',
     check : false,
   ).stdout().strip()
-  if pek_python_path != ''
-    pek_python = import('python').find_installation(pek_python_path)
+  if test_python_path != ''
+    test_python = import('python').find_installation(test_python_path)
   else
-    pek_python = import('python').find_installation()
+    test_python = import('python').find_installation()
+  endif
+endif
+
+if get_option('tests') or not python_ops_option.disabled()
+  pek_python_path = run_command(
+    'sh',
+    '-c',
+    'if [ -n "$PEK_PYTHON_RUNTIME_VENV" ]; then printf %s "$PEK_PYTHON_RUNTIME_VENV/bin/python"; elif [ -n "$PEK_DEVTOOLS_VENV" ]; then printf %s "$PEK_DEVTOOLS_VENV/bin/python"; fi',
+    check : false,
+  ).stdout().strip()
+  if pek_python_path != ''
+    pek_python = import('python').find_installation(pek_python_path, required : false)
+  else
+    pek_python = import('python').find_installation(required : false)
+  endif
+
+  if pek_python.found()
+    numpy_probe = run_command(
+      pek_python,
+      ['-c', 'import numpy; print(numpy.get_include())'],
+      check : false,
+    )
+    if numpy_probe.returncode() == 0
+      pek_numpy_include = numpy_probe.stdout().strip()
+      python_ops_enabled = not python_ops_option.disabled()
+    elif python_ops_option.enabled()
+      error('python_ops requires NumPy for the selected Python installation.')
+    endif
+  elif get_option('tests') or python_ops_option.enabled()
+    error('A Python development installation is required.')
   endif
 endif
 
@@ -199,6 +236,9 @@ subdir('runtime')
 subdir('elements/pekinfer')
 subdir('ops-onnx')
 subdir('ops-std')
+if python_ops_enabled
+  subdir('ops-python')
+endif
 subdir('elements/pektracker')
 subdir('elements/pekperformance')
 subdir('elements/pekosd')
@@ -207,15 +247,19 @@ subdir('elements/pekcomm')
 subdir('pek-menu')
 
 # Optional subdirs decision tree is inside the subdir
-subdir('ops-hailort')
 subdir('ops-executorch')
-subdir('ops-ncnn')
 
 if release_package
   install_subdir(
     'web/content',
     install_dir : 'web/content',
     strip_directory : true,
+    exclude_files : [
+      'package.json',
+      'osd-renderer.test.mjs',
+      'webrtc_client.test.mjs',
+      'webrtc_config.test.mjs',
+    ],
   )
 endif
 

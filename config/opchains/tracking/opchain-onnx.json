@@ -20,7 +20,7 @@
         {
             "id": "pek-onnx-ops/Inference",
             "attributes": {
-                "modelDescriptor": "/work/config/models/yolov11/model.json"
+                "modelDescriptor": "../../models/yolov11/model.json"
             }
         },
         {
@@ -52,7 +52,7 @@
             "id": "pek-onnx-ops/Inference",
             "loopId": 2,
             "attributes": {
-                "modelDescriptor": "/work/config/models/osnet_x0_25/model.json"
+                "modelDescriptor": "../../models/osnet_x0_25/model.json"
             }
         },
         {

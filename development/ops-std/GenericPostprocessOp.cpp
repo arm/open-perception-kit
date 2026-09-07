@@ -9,10 +9,10 @@
 #include <map>
 #include <memory>
 
+#include "Log.h"
 #include "pek/FrameResults.h"
 #include "pek/Types.h"
 #include <perf/PerformanceMetrics.h>
-#include <perf/PerformanceTracer.h>
 
 // parser class headers
 #include "postproc/CameraContactParser.h"
@@ -75,18 +75,21 @@ pek::Result<void> GenericPostprocessOp::configure(const pek::AttributeMap &attri
 
     this->attributes = attributes.cloneDeep();
 
-    std::string parser = attributes.getStringOrDefault("parser", "");
+    parserName = attributes.getStringOrDefault("parser", "");
+    if (instanceId.empty())
+        instanceId = fmt::format("GenericPostprocess-{}", index);
 
-    if (parser.empty()) {
+    if (parserName.empty()) {
         return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
                                         fmt::format("No 'parser' attribute in postprocessor op")));
     }
 
     const auto &registry = getParserRegistry();
-    auto it = registry.find(parser);
+    auto it = registry.find(parserName);
     if (it == registry.end()) {
-        return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
-                                        fmt::format("No tensor parser with name: [{}]", parser)));
+        return tl::unexpected(
+            PEK_ERROR(pek::ErrorFlag::InvalidData,
+                      fmt::format("No tensor parser with name: [{}]", parserName)));
     }
 
     this->parser = it->second();
@@ -94,23 +97,35 @@ pek::Result<void> GenericPostprocessOp::configure(const pek::AttributeMap &attri
     return {};
 }
 
+std::vector<std::string_view> GenericPostprocessOp::getProvidedContentTypes() const {
+    return parser ? parser->getProvidedContentTypes() : std::vector<std::string_view>{};
+}
+
 pek::Result<pek::op::OpSignal>
 GenericPostprocessOp::process(pek::op::OpChainContext &opChainContext) {
-    PEK_TRACE_SCOPE(fmt::format("std/Post/{}", opChainContext.inferenceInfo.modelName));
     PEK_PERF_SCOPE(fmt::format("std/Post/{}", opChainContext.inferenceInfo.modelName));
 
     pek::TensorParser::Input tensorParserInput(attributes);
 
     // populate tensors
     for (size_t i = 0; i < pek::MaxTensorCount; i++) {
-        if (i < opChainContext.inferenceOutputTensorCount)
+        if (i < opChainContext.inferenceOutputTensorCount) {
+            if (!opChainContext.inferenceOutputTensors[i].isValid()) {
+                pek::log::error("Postprocessor input tensor {} is invalid\n", i);
+                return tl::unexpected(
+                    PEK_ERROR(pek::ErrorFlag::InvalidData,
+                              "Postprocessor input tensor " + std::to_string(i) + " is invalid"));
+            }
             tensorParserInput.tensors[i] = &opChainContext.inferenceOutputTensors[i];
-        else
+        } else {
             tensorParserInput.tensors[i] = nullptr;
+        }
     }
 
     // copy active inference info
     tensorParserInput.inferenceInfo = opChainContext.inferenceInfo;
+    tensorParserInput.producerInfo = producerInfo(
+        opChainContext.inferenceInfo.inferElementId, parserName, "pek-std-ops/GenericPostprocess");
 
     if (auto parseResult = parser->parse(tensorParserInput, *opChainContext.frameResults);
         !parseResult) {

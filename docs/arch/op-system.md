@@ -105,12 +105,27 @@ controller, preprocess, inference, optional custom Ops, and final postprocess. I
 the looped form, InferenceController starts the group. A non-empty controller
 `contentType` requires the looped form.
 
+The optional `pek-python-ops/PythonScript` operation loads a Python module once
+and calls `process(env, tensors, context)` on each execution. The call-scoped
+context provides producer identity for payloads created by the script. Absolute
+`script` and `pythonPaths` values are used unchanged. Relative values resolve
+from the directory containing the inference operation's `modelDescriptor`. An
+OpChain whose model descriptors occupy multiple directories must use absolute
+Python paths. It is a generic hook: before inference it receives an empty tensor
+tuple, while after inference it receives the latest output tensors as read-only
+NumPy views. The views are zero-copy and valid only for the duration of the call.
+The operation is supported by native pipelines in the official PEK containers
+and by extracted PEK binary releases on Debian Trixie. Containers use their
+locked virtual environment; binary releases use the system CPython interpreter
+and package-relative locked Python dependencies.
+
 ## Inference and Postprocessing Interfaces
 
 Some Ops expose narrower contracts used by inference and postprocessing code:
 
 - `OpInterfaceInference` exposes tensor memory and model metadata to inference backends.
-- `OpInterfacePostprocessor` identifies and runs domain-specific output parsing.
+- `OpInterfacePostprocessor` reports the semantic content types produced by
+  domain-specific output parsing.
 
 These interfaces keep backend execution and result interpretation separate from
 concrete Op implementations.
@@ -135,8 +150,7 @@ Release packages install Op modules beside PEK's private libraries in
 `lib/pek`; the private library RUNPATH lets the existing bare module names
 resolve without `LD_LIBRARY_PATH`. Both architecture packages contain the
 standard and ONNX operation modules plus the experimental ExecuTorch operation
-module. Hailo operation modules remain available in development environments
-but are not part of the binary release.
+module.
 
 Checked-in Op implementations live under `development/ops-*`, including standard
 orchestration Ops and backend-specific inference Ops. Treat that tree as the

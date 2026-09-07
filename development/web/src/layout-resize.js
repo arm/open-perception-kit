@@ -295,11 +295,10 @@ function dockTargetHeight() {
     const style = getComputedStyle(root);
     const expandedHeight = px(style.getPropertyValue('--bottom-dock-height')) || 244;
     const collapsedHeight = px(style.getPropertyValue('--bottom-dock-collapsed-height')) || 48;
-    const isFullscreen = document.body.classList.contains('video-fullscreen');
-    const outputsShown = document.body.classList.contains('fullscreen-outputs-enabled');
+    const outputsHidden = document.body.classList.contains('outputs-hidden');
     const outputsEmpty = document.body.classList.contains('output-panels-empty');
 
-    if (isFullscreen && !outputsShown)
+    if (outputsHidden)
         return 0;
 
     return outputsEmpty ? collapsedHeight : expandedHeight;

@@ -20,6 +20,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SDK_CONFIG_PATH = Path(__file__).with_name("sdk.json")
 PRODUCT_VERSION_PATH = REPO_ROOT / "development/meson.build"
 PYTHON_DISTRIBUTION_NAME = "opk-perception-sdk"
+PACKAGE_NAME_RE = re.compile(r"[a-z][a-z0-9_-]*")
 SEMVER = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 PRODUCT_VERSION = re.compile(r"project\([^)]*version:\s*'([^']+)'", re.DOTALL)
 
@@ -41,6 +42,7 @@ class SdkConfig:
     generated_root: Path
     flatbuffers_version: str
     flatbuffers_wheel: LockedArtifact
+    flatbuffers_rust_crates: tuple[LockedArtifact, ...]
     flatbuffers_source: LockedArtifact
     python_build_tools: tuple[LockedArtifact, ...]
     typescript_runtime: LockedArtifact
@@ -123,11 +125,34 @@ def _python_build_tools(value: object) -> tuple[LockedArtifact, ...]:
         if not isinstance(tool, dict):
             raise RuntimeError(f"{field} has invalid fields")
         name = tool.get("name")
-        if not isinstance(name, str) or not re.fullmatch(r"[a-z][a-z0-9_-]*", name):
+        if not isinstance(name, str) or PACKAGE_NAME_RE.fullmatch(name) is None:
             raise RuntimeError(f"{field}.name is invalid")
         artifacts.append(_named_artifact(tool, field, name))
     if [artifact.name for artifact in artifacts] != ["pip", "setuptools", "wheel"]:
         raise RuntimeError("python_build.tools must contain pip, setuptools, and wheel in order")
+    return tuple(artifacts)
+
+
+def _rust_crates(value: object, flatbuffers_version: str) -> tuple[LockedArtifact, ...]:
+    if not isinstance(value, list) or not value:
+        raise RuntimeError("flatbuffers.rust_crates must be a non-empty list")
+    artifacts: list[LockedArtifact] = []
+    for index, crate in enumerate(value):
+        field = f"flatbuffers.rust_crates[{index}]"
+        if not isinstance(crate, dict):
+            raise RuntimeError(f"{field} has invalid fields")
+        name = crate.get("name")
+        if not isinstance(name, str) or PACKAGE_NAME_RE.fullmatch(name) is None:
+            raise RuntimeError(f"{field}.name is invalid")
+        artifact = _named_artifact(crate, field, name)
+        if artifact.filename != f"{artifact.name}-{artifact.version}.crate":
+            raise RuntimeError(f"{field}.filename must match the Cargo crate identity")
+        artifacts.append(artifact)
+    names = [artifact.name for artifact in artifacts]
+    if len(names) != len(set(names)):
+        raise RuntimeError("flatbuffers.rust_crates names must be unique")
+    if artifacts[0].name != "flatbuffers" or artifacts[0].version != flatbuffers_version:
+        raise RuntimeError("the first Rust crate must be the locked FlatBuffers runtime")
     return tuple(artifacts)
 
 
@@ -179,16 +204,16 @@ def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
         raise RuntimeError(f"SDK descriptor fields must be exactly: {sorted(expected)}")
 
     name = raw["name"]
-    if not isinstance(name, str) or not re.fullmatch(r"[a-z][a-z0-9_-]*", name):
+    if not isinstance(name, str) or PACKAGE_NAME_RE.fullmatch(name) is None:
         raise RuntimeError("SDK name must be a lowercase package identifier")
 
     flatbuffers = raw["flatbuffers"]
     if not isinstance(flatbuffers, dict) or set(flatbuffers) != {
-        "version", "python_wheel", "source_archive"
+        "version", "python_wheel", "rust_crates", "source_archive"
     }:
         raise RuntimeError(
             "flatbuffers fields must be exactly: "
-            "['python_wheel', 'source_archive', 'version']"
+            "['python_wheel', 'rust_crates', 'source_archive', 'version']"
         )
     flatbuffers_version = flatbuffers["version"]
     if not isinstance(flatbuffers_version, str) or not SEMVER.fullmatch(flatbuffers_version):
@@ -202,6 +227,7 @@ def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
         flatbuffers["source_archive"], "flatbuffers.source_archive",
         "flatbuffers", flatbuffers_version,
     )
+    rust_crates = _rust_crates(flatbuffers["rust_crates"], flatbuffers_version)
 
     build_tools = _python_build_tools(raw["python_build"])
     typescript_runtime, typescript_compiler, node_minimum_major = _typescript_build(
@@ -235,6 +261,7 @@ def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
         generated_root=generated_root,
         flatbuffers_version=flatbuffers_version,
         flatbuffers_wheel=wheel,
+        flatbuffers_rust_crates=rust_crates,
         flatbuffers_source=source,
         python_build_tools=build_tools,
         typescript_runtime=typescript_runtime,

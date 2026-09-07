@@ -16,6 +16,11 @@ namespace pek::stdop::postproc {
  * Specialized parser for detecting if the user looks into the camera or not.
  */
 struct CameraContactParser : public pek::TensorParser {
+    static constexpr std::string_view k_content_type = "cameraContact";
+
+    std::vector<std::string_view> getProvidedContentTypes() const override {
+        return {k_content_type};
+    }
 
     pek::Result<void> parse(const pek::TensorParser::Input &input,
                             perception::FrameResults &results) override;

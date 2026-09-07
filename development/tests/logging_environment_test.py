@@ -37,14 +37,10 @@ class LoggingEnvironmentTest(unittest.TestCase):
             text=True,
         )
 
-    def test_missing_values_report_defaults_in_order(self):
+    def test_missing_values_use_defaults_silently(self):
         result = self.run_probe("targets")
         self.assertEqual(result.stdout, "stdout\n")
-        self.assertEqual(
-            result.stderr,
-            "OPK_LOG_LEVEL is not set; defaulting to 4 (Info).\n"
-            "OPK_LOG_TARGETS is not set; defaulting to stdout.\n",
-        )
+        self.assertEqual(result.stderr, "")
 
     def test_level_is_parsed_clamped_and_malformed_values_default_silently(self):
         self.assertEqual(self.run_probe("level", level="2", targets="none").stdout, "2\n")

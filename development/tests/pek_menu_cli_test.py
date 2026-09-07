@@ -23,6 +23,7 @@ class TestPekMenuCliDiagnostics(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.pek_menu = Path(sys.argv[1]).resolve()
+        cls.project_root = Path(__file__).resolve().parents[2]
 
     def run_cli(
         self,
@@ -31,6 +32,7 @@ class TestPekMenuCliDiagnostics(unittest.TestCase):
     ) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
         env["OPK_LOG_LEVEL"] = "0"
+        env["PEK_PROJECT_ROOT"] = str(self.project_root)
         if env_overrides:
             env.update(env_overrides)
 
@@ -150,6 +152,35 @@ class TestPekMenuCliDiagnostics(unittest.TestCase):
         self.assertEqual(result.stdout, "gst-launch-1.0 fakesrc ! fakesink \n")
         self.assertEqual(result.stderr, "")
 
+    def test_project_root_controls_pipeline_discovery_and_expansion(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir) / "project root"
+            pipelines_dir = project_root / "config" / "pipelines"
+            pipelines_dir.mkdir(parents=True)
+            pipeline = pipelines_dir / "portable.json"
+            self.write_pipeline(
+                pipeline,
+                "filesrc location=${PEK_PROJECT_ROOT:-/work}/data/example.mp4 ! fakesink",
+            )
+            selection_file = pipelines_dir / ".last_selected_pipeline_id"
+            selection_file.write_text(
+                "/work/config/pipelines/portable.json\n",
+                encoding="utf-8",
+            )
+            environment = {"PEK_PROJECT_ROOT": str(project_root)}
+
+            selected_by_id = self.run_cli("-p", "portable", env_overrides=environment)
+            selected_as_last = self.run_cli("-p", "-l", env_overrides=environment)
+            self.assertEqual(selection_file.read_text(encoding="utf-8"), "portable.json\n")
+
+        expected = (
+            f"gst-launch-1.0 filesrc location={project_root}/data/example.mp4 ! fakesink \n"
+        )
+        for result in (selected_by_id, selected_as_last):
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, expected)
+            self.assertEqual(result.stderr, "")
+
     def test_exec_failure_diagnostic_is_not_suppressed(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             pipeline = Path(tmpdir) / "exec-failure.json"
@@ -238,6 +269,7 @@ class TestPekMenuCliDiagnostics(unittest.TestCase):
 
             env = os.environ.copy()
             env["OPK_LOG_LEVEL"] = "0"
+            env["PEK_PROJECT_ROOT"] = str(self.project_root)
             env["PATH"] = f"{bin_dir}:{env['PATH']}"
             env["PEK_MENU_TEST_MARKER"] = str(marker)
             env["PEK_MENU_TEST_DESCENDANT"] = str(descendant)

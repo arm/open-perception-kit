@@ -1,14 +1,14 @@
 ---
 title: Build and use the Perception SDK bundle
 sidebar_label: Perception SDK bundle
-description: Build a reproducible Perception C++, Python, and TypeScript SDK archive and integrate it into an application.
+description: Build a reproducible Perception C++, Python, Rust, and TypeScript SDK archive and integrate it into an application.
 ---
 
 # Build and use the Perception SDK bundle
 
 The release bundle contains the generated C++ SDK, installable Python and
-TypeScript packages, matching FlatBuffers runtimes, the source schemas, and a
-manifest describing every file and compatibility requirement.
+TypeScript packages, a Rust crate, matching FlatBuffers runtimes, the source
+schemas, and a manifest describing every file and compatibility requirement.
 
 Released PEK architecture packages carry the unchanged ZIP, checksum, and
 provenance sidecar under `share/pek/perception-sdk/`. SDK packages use the PEK
@@ -128,6 +128,55 @@ TypeScript declarations, and generated sources; consumers do not regenerate it.
 The embedded `peksink` WebUI bundles this same generated SDK with its authored
 browser modules. Use `./scripts/peksink-web.sh check` to verify the committed
 browser asset after SDK or WebUI changes.
+
+## Integrate the Rust SDK
+
+Stable PEK releases publish the `perception` crate at the PEK version to the
+`edge-ai-tooling` Cargo registry. Configure its sparse index:
+
+```toml
+[registries.edge-ai-tooling]
+index = "sparse+https://artifactory.arm.com/artifactory/api/cargo/edge-ai-tooling.cargo/index/"
+```
+
+Select that registry only for Perception. The published crate metadata assigns
+its FlatBuffers dependency to crates.io explicitly:
+
+```toml
+[dependencies]
+perception = { version = "=<pek-version>", registry = "edge-ai-tooling" }
+```
+
+Manual snapshots do not publish to the Cargo registry. For a snapshot or an
+offline build, add the extracted `rust/` crate as a path dependency. The crate
+already pins the FlatBuffers runtime version used to generate its sources. The
+bundle also contains checksum-locked Cargo archives, a generated `Cargo.lock`,
+and a `rust/vendor/` directory:
+
+```toml
+[dependencies]
+perception = { path = "/path/to/perception-sdk-<pek-version>/rust" }
+```
+
+Copy `rust/.cargo/config.toml` into the consumer's `.cargo/config.toml` and
+change its `directory` value to the absolute path of the extracted `rust/vendor`
+directory. Generate the consumer lockfile, then build without accessing the
+registry:
+
+```bash
+cargo generate-lockfile --offline
+cargo build --offline --locked
+```
+
+Cargo configuration and the consumer lockfile are resolved from the consumer
+workspace, not from path dependencies.
+
+Import `Envelope`, `payload`, and generated native payload types from
+`perception`. Construct an envelope with `Envelope::decode(...)`, require a
+successful result, and check `producer_identity()` before typed access. Use the
+same selector for `count`, `contains`, `get`, and `for_each`; use `external_key`
+for external
+payloads. Unknown or changed payloads remain preserved across serialization.
 
 ## Integrate the C++ SDK
 

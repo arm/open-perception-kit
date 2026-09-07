@@ -1,6 +1,6 @@
 ---
 name: regenerate-perception-sdk
-description: Regenerate and validate the canonical checked-in Perception C++, Python, and TypeScript SDK snapshot during implementation. Use when schemas, tools/perception/sdk.json, flowdata-sdk, formatting rules, generated build integrations, or generator behavior require updates under generated/perception or development/perception/meson.build; when the SDK drift check fails; or when generated SDK sources must be prepared for a normal source commit. Do not use this skill to create release ZIP bundles.
+description: Regenerate and validate the canonical checked-in Perception C++, Python, Rust, and TypeScript SDK snapshot during implementation. Use when schemas, tools/perception/sdk.json, flowdata-sdk, formatting rules, generated build integrations, or generator behavior require updates under generated/perception or development/perception/meson.build; when the SDK drift check fails; or when generated SDK sources must be prepared for a normal source commit. Do not use this skill to create release ZIP bundles.
 ---
 
 # Regenerate Perception SDK
@@ -10,7 +10,7 @@ reviewable, commit-ready source diff. Do not create release artifacts.
 
 ## Confirm the Workflow
 
-Use this workflow when implementation requires new generated C++, Python, or TypeScript SDK
+Use this workflow when implementation requires new generated C++, Python, Rust, or TypeScript SDK
 sources. The outputs are normal tracked repository files and must be committed
 with the authored inputs that produced them.
 
@@ -79,7 +79,7 @@ git diff --check
 Confirm that:
 
 - generated payload identities and schema-set digests changed only as expected
-- C++, Python, and TypeScript APIs describe the same payload set
+- C++, Python, Rust, and TypeScript APIs describe the same payload set
 - generated CMake, Meson, and Python bridge integrations remain present
 - the generation manifest records the intended SDK and tool versions
 - obsolete generated files disappeared when their authored inputs were removed

@@ -56,7 +56,7 @@ in this workflow.
 
 After authored inputs and runtime semantics are settled, apply
 `$regenerate-perception-sdk` to regenerate, inspect, and validate the checked-in
-C++, Python, and TypeScript SDK snapshot. Commit authored and generated source changes
+C++, Python, Rust, and TypeScript SDK snapshot. Commit authored and generated source changes
 together through the normal repository workflow.
 
 Do not build a release ZIP during implementation. After the complete snapshot

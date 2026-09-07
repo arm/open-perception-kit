@@ -1,12 +1,12 @@
 {
     "description": "Test tracker with YOLO + OSNet ReID on video",
     "pipeline": [
-        "filesrc location=/work/data/videos/GettyImages-1298072556.mov !",
+        "filesrc location=\"${PEK_PROJECT_ROOT:-/work}/data/videos/GettyImages-1298072556.mov\" !",
         "decodebin !",
         "videoconvert !",
         "video/x-raw,format=BGRA !",
-        "pekinfer opchain-path=/work/config/models/yolov11/opchain.json active=true !",
-        "pekinfer opchain-path=/work/config/models/osnet_x0_25/opchain.json active=true !",
+        "pekinfer opchain-path=\"${PEK_PROJECT_ROOT:-/work}/config/models/yolov11/opchain.json\" active=true !",
+        "pekinfer opchain-path=\"${PEK_PROJECT_ROOT:-/work}/config/models/osnet_x0_25/opchain.json\" active=true !",
         "pektracker content-type=genericObject !",
         "pekosd enabled=true !",
         "pekcomm method=file file-name=${PEKCOMM_FILE:-/tmp/pekcomm} !",

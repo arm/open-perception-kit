@@ -9,6 +9,9 @@
 #include "pek/Result.h"
 #include "pek/TensorView.h"
 
+#include <string_view>
+#include <vector>
+
 namespace pek {
 
 /**
@@ -33,12 +36,19 @@ struct TensorParser {
         const pek::AttributeMap &attributes;
         /// Runtime inference information for parser decisions/diagnostics.
         pek::InferenceInfo inferenceInfo;
+        /// Identity of the operation and implementation producing result payloads.
+        perception::metadata::ProducerInfoT producerInfo;
     };
 
     /**
      * @brief Virtual destructor for polymorphic use.
      */
     virtual ~TensorParser() = default;
+
+    /**
+     * @brief Returns the semantic content types this parser appends to FrameResults.
+     */
+    virtual std::vector<std::string_view> getProvidedContentTypes() const = 0;
 
     /**
      * @brief Parses tensors into frame results.

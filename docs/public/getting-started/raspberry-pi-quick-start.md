@@ -263,7 +263,7 @@ Open the pipeline file you want to adapt and replace the first source lines in t
 The checked-in sample source currently starts like this:
 
 ```json
-"filesrc location=/work/data/videos/GettyImages-1140581459.mov !",
+"filesrc location=\"${PEK_PROJECT_ROOT:-/work}/data/videos/GettyImages-1140581459.mov\" !",
 "decodebin !",
 "videoconvert !",
 "video/x-raw,format=BGRA !",

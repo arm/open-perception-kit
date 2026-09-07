@@ -6,6 +6,7 @@
 
 # namespace: metadata
 
+import perception.fb.perception.metadata.ProducerInfo
 import flatbuffers
 from flatbuffers.compat import import_numpy
 np = import_numpy()
@@ -79,9 +80,20 @@ class LayerInfo(object):
             return self._tab.String(o + self._tab.Pos)
         return None
 
+    # LayerInfo
+    def Producer(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(18))
+        if o != 0:
+            x = self._tab.Indirect(o + self._tab.Pos)
+            from perception.fb.perception.metadata.ProducerInfo import ProducerInfo
+            obj = ProducerInfo()
+            obj.Init(self._tab.Bytes, x)
+            return obj
+        return None
+
 
 def LayerInfoStart(builder):
-    builder.StartObject(7)
+    builder.StartObject(8)
 
 
 def Start(builder):
@@ -144,12 +156,26 @@ def AddCompositingMode(builder, compositingMode):
     LayerInfoAddCompositingMode(builder, compositingMode)
 
 
+def LayerInfoAddProducer(builder, producer):
+    builder.PrependUOffsetTRelativeSlot(7, flatbuffers.number_types.UOffsetTFlags.py_type(producer), 0)
+
+
+def AddProducer(builder, producer):
+    LayerInfoAddProducer(builder, producer)
+
+
 def LayerInfoEnd(builder):
     return builder.EndObject()
 
 
 def End(builder):
     return LayerInfoEnd(builder)
+
+
+try:
+    from typing import Optional
+except:
+    pass
 
 
 class LayerInfoT(object):
@@ -164,6 +190,7 @@ class LayerInfoT(object):
         labelFamily=None,
         contentType=None,
         compositingMode=None,
+        producer=None,
     ):
         self.engine = engine  # type: Optional[str]
         self.model = model  # type: Optional[str]
@@ -172,6 +199,7 @@ class LayerInfoT(object):
         self.labelFamily = labelFamily  # type: Optional[str]
         self.contentType = contentType  # type: Optional[str]
         self.compositingMode = compositingMode  # type: Optional[str]
+        self.producer = producer  # type: Optional[perception.fb.perception.metadata.ProducerInfo.ProducerInfoT]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -201,6 +229,9 @@ class LayerInfoT(object):
         self.labelFamily = layerInfo.LabelFamily()
         self.contentType = layerInfo.ContentType()
         self.compositingMode = layerInfo.CompositingMode()
+        if layerInfo.Producer() is not None:
+            self.producer = perception.fb.perception.metadata.ProducerInfo.ProducerInfoT.InitFromObj(
+                layerInfo.Producer())
 
     # LayerInfoT
     def Pack(self, builder):
@@ -218,6 +249,8 @@ class LayerInfoT(object):
             contentType = builder.CreateString(self.contentType)
         if self.compositingMode is not None:
             compositingMode = builder.CreateString(self.compositingMode)
+        if self.producer is not None:
+            producer = self.producer.Pack(builder)
         LayerInfoStart(builder)
         if self.engine is not None:
             LayerInfoAddEngine(builder, engine)
@@ -233,5 +266,7 @@ class LayerInfoT(object):
             LayerInfoAddContentType(builder, contentType)
         if self.compositingMode is not None:
             LayerInfoAddCompositingMode(builder, compositingMode)
+        if self.producer is not None:
+            LayerInfoAddProducer(builder, producer)
         layerInfo = LayerInfoEnd(builder)
         return layerInfo

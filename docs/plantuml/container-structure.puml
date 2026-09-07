@@ -44,21 +44,30 @@ package "Dockerfile\ncore cross-lane stage graph" {
   package "Shared Artifact Stages\n(selected outputs copied into other lanes)" {
     component "pek-models\nHugging Face model artifact stage" as models #fed7aa
     component "pek-demo-media\ndemo video artifact stage" as demo_media #fed7aa
+    component "pek-yolo-pages-dataset-build\nverified benchmark inputs" as yolo_dataset_build #fed7aa
+    component "pek-yolo-pages-dataset\narchitecture-neutral OCI data image" as yolo_dataset #bbf7d0
 
     py313 --> models : FROM
     debian --> demo_media : FROM
+    py313 --> yolo_dataset_build : FROM
+    yolo_dataset_build ..> yolo_dataset : COPY images, list,\nvideo + provenance
   }
 
   package "Development Tooling Images\n(no PEK binaries built into pek-dev)" {
     component "pek-build-base\nshared native build tools" as build_base #bfdbfe
     component "pek-dev-base\nshared build/runtime + checkout entrypoint" as dev_base #bfdbfe
     component "pek-dev-tools\nshell, editor, debugger, network tools" as dev_tools #bfdbfe
-    component "pek-dev\ndevcontainer target\nrepo mounted at /work" as dev_image #bbf7d0
+    component "pek-dev\ndevcontainer target\nrepo at PEK_PROJECT_ROOT" as dev_image #bbf7d0
+    component "pek-dev-macos-cache-build\nnative Arm64 ccache seed" as dev_cache #fed7aa
+    component "pek-dev-macos-ci\nArm64 development image + ccache seed" as dev_ci #bbf7d0
 
     debian --> build_base : FROM
     build_base --> dev_base : FROM
     dev_base --> dev_tools : FROM
     dev_tools --> dev_image : FROM
+    dev_image --> dev_cache : FROM + build checkout
+    dev_image --> dev_ci : FROM
+    dev_cache ..> dev_ci : COPY ccache seed
     models ..> dev_image : COPY model artifacts\n/opt/pek-app/config/models
     demo_media ..> dev_image : COPY demo videos\n/opt/pek-app/data/videos
   }
@@ -101,6 +110,7 @@ package "Helper Dockerfiles\nindependent workflow runtimes" {
 package "CI Service Mapping" {
   component "CI: pek-build-base" as ci_build_base #fef3c7
   component "Nightly: pek-deployment-base\namd64 + arm64 image and full cache" as ci_deploy #fef3c7
+  component "Arm64 CI: development image\nexact SHA or registry layer cache" as ci_dev #fef3c7
   component "CI: pek-release-with-ut" as ci_release #fef3c7
   component "CI: pek-valgrind-check" as ci_valgrind #fef3c7
   component "CI: pek-generate-valgrind-summary" as ci_valgrind_summary #fef3c7
@@ -114,6 +124,7 @@ package "CI Service Mapping" {
 
   build_base ..> ci_build_base : image target
   deployment_image ..> ci_deploy : image target
+  dev_ci ..> ci_dev : image target
   ci_image ..> ci_release : runs build/tests\nfrom checkout
   ci_image ..> ci_valgrind : runs valgrind tests\nfrom checkout
   ci_image ..> ci_valgrind_summary : parses valgrind logs
@@ -124,13 +135,20 @@ package "CI Service Mapping" {
   ci_image ..> ci_clang_tidy : clang-tidy baseline
   pre_commit ..> ci_pre_commit : repo checks
   pages ..> ci_pages : report page publishing
+  yolo_dataset ..> ci_pages : pull benchmark inputs
 }
 
 note right of dev_image
   Contract: tools and dependency libraries plus
   optional downloaded model and demo media artifacts. The
-  repository is mounted at /work; PEK binaries are
+  repository is mounted at PEK_PROJECT_ROOT; PEK binaries are
   built from that checkout, not copied into this image.
+end note
+
+note right of dev_ci
+  macOS and YOLO use the exact-SHA image when available.
+  Missing images and the Raspberry Pi camera-enabled target
+  rebuild from the same registry layer cache.
 end note
 
 note bottom of deployment_build
@@ -153,6 +171,12 @@ note bottom of docs_image
   Release documentation uses this existing tool image
   directly, then archives generated HTML with system tar.
   No release-specific docs image or entrypoint exists.
+end note
+
+note bottom of yolo_dataset
+  The immutable GHCR tag covers the COCO image archive,
+  annotations, and pinned video checksums. Source archives
+  and annotations are excluded from the final data image.
 end note
 
 note bottom of pre_commit

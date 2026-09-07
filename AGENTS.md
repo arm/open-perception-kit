@@ -44,6 +44,7 @@ Read these first before making substantial changes:
 - [Runtime basics](docs/public/concepts/runtime-basics.md)
 - [Bring your model](docs/public/how-to/bring-your-model.md)
 - [Custom postprocessing](docs/public/how-to/custom-postprocessing.md)
+- [Python script Op](docs/public/how-to/python-script-op.md)
 - [Known limitations](docs/arch/known-limitations.md)
 
 For implementation detail and background, continue with:
@@ -58,6 +59,7 @@ For implementation detail and background, continue with:
 ## Default extension surfaces
 
 - `config/models/` for model descriptors and model-local opchains
+- `config/models/<model>/scripts/` for model-local Python postprocessing
 - `config/opchains/` for reusable multi-stage inference chains
 - `config/pipelines/` for top-level runnable presets used by `pek-menu`
 - `development/ops-std/postproc/` for new tensor parsers
@@ -126,11 +128,32 @@ Useful checked-in examples:
 - `development/ops-std/postproc/YoloParser.cpp`
 - `development/ops-std/postproc/ImageNetClassificationParser.cpp`
 
+### Add Python postprocessing
+
+Use the repository skill `$author-pek-python-postprocessor` for trusted Python
+postprocessors executed through `pek-python-ops/PythonScript`.
+
+Start in:
+
+- `config/models/<model>/scripts/`
+- the model-local opchain or `config/opchains/`
+- `config/pipelines/` when a runnable preset is required
+
+Read first:
+
+- [Python script Op](docs/public/how-to/python-script-op.md)
+
+Use `config/models/mobilenetv2/scripts/python_classification.py` and
+`config/models/mobilenetv2/opchain-python-classification.json` as the primary
+checked-in example. Prefer existing generated Perception payloads and the
+official container runtime; do not begin by changing the Python bridge or core
+runtime.
+
 ### Add a new structured runtime result
 Use the repository skill `$evolve-perception-schema` for compatibility
 classification, authored schema changes, and runtime integration. Then use
 `$regenerate-perception-sdk` to update and validate the checked-in generated
-C++, Python, and TypeScript SDK snapshot.
+C++, Python, Rust, and TypeScript SDK snapshot.
 
 Start in:
 
@@ -141,14 +164,14 @@ Start in:
 - `scripts/perception-sdk.sh`
 
 Add persistent result shapes to the Perception schema, then regenerate the checked-in
-C++, Python, and TypeScript SDKs through the container workflow with
+C++, Python, Rust, and TypeScript SDKs through the container workflow with
 `./scripts/perception-sdk.sh generate`.
 Do not recreate hand-written `Perception` containers or serializers. Continue into
 parser, visualization, tracking, or publishing code only if the new schema payload
 needs runtime support.
 
 The Perception SDK identity, repository paths, enabled outputs, and FlatBuffers
-wheel lock are owned only by `tools/perception/sdk.json`. All scripts load that
+runtime artifact locks are owned only by `tools/perception/sdk.json`. All scripts load that
 descriptor through `tools/perception/sdk_config.py`; generated integrations and
 manifests are derived outputs and must not be edited independently. Raw flowdata
 manifests are verified before AMP-specific copyright and formatting decoration.
@@ -214,7 +237,7 @@ Ground doc changes in checked-in code and config.
 - `./scripts/build.sh release [true|false]`
 - `./scripts/build.sh clean`
 - `./scripts/build.sh debug true`
-- `meson test -C /work/development/build --print-errorlogs`
+- `meson test -C ./development/build-active --print-errorlogs`
 - `./scripts/gen-doc.sh` to refresh generated docs, Doxygen output, and PlantUML images
 - `./scripts/serve-docs-plain.sh`
 - `./scripts/serve-docs.sh`

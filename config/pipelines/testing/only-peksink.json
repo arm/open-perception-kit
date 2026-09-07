@@ -1,11 +1,11 @@
 {
   "description": "Test the peksink plugin with a simple pipeline that decodes a JPEG image, publishes metadata, and serves the output through peksink.",
   "pipeline": [
-    "filesrc location=/work/data/images/GettyImages-1140581459-thumbnail.jpg !",
+    "filesrc location=\"${PEK_PROJECT_ROOT:-/work}/data/images/GettyImages-1140581459-thumbnail.jpg\" !",
     "jpegdec !",
     "imagefreeze num-buffers=${NUM_FRAMES:-30} !",
     "videoconvert ! video/x-raw,format=BGRA,framerate=30/1 !",
-    "pekperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
+    "pekperformance show-all-metrics=true update-interval=1 !",
     "pekcomm method=websocket endpoint=/ws !",
     "peksink name=sink"
   ]

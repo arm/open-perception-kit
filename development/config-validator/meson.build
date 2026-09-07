@@ -14,6 +14,7 @@ config_validator_schema_manifest = [
   ['urn:arm:pek:schema:generic-image-preprocess-op:v1', 'config/schemas/v1/opchain/ops/generic-image-preprocess.schema.json'],
   ['urn:arm:pek:schema:inference-op:v1', 'config/schemas/v1/opchain/ops/inference.schema.json'],
   ['urn:arm:pek:schema:generic-postprocess-op:v1', 'config/schemas/v1/opchain/ops/generic-postprocess.schema.json'],
+  ['urn:arm:pek:schema:python-script-op:v1', 'config/schemas/v1/opchain/ops/python-script.schema.json'],
 ]
 
 config_validator_embedded_schemas = ''
@@ -22,7 +23,7 @@ config_validator_raw_string_terminator = ')' + config_validator_raw_string_delim
 foreach schema : config_validator_schema_manifest
   schema_id = schema[0]
   schema_path = schema[1]
-  schema_text = config_validator_fs.read(meson.project_source_root() / '..' / schema_path)
+  schema_text = config_validator_fs.read(pek_repository_root / schema_path)
   if schema_text.contains(config_validator_raw_string_terminator)
     error(schema_path + ' contains the embedded schema raw-string terminator')
   endif

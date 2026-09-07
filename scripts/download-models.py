@@ -7,7 +7,7 @@ import argparse
 import hashlib
 import json
 import logging
-import shutil
+import os
 from pathlib import Path
 
 from huggingface_hub import hf_hub_download
@@ -31,14 +31,6 @@ def parse_args() -> argparse.Namespace:
         required=True,
         type=Path,
         help="Directory recursively searched for JSON model descriptors.",
-    )
-    parser.add_argument(
-        "--token",
-        nargs="?",
-        help=(
-            "Hugging Face token. If the option or its value is omitted, "
-            "public models are downloaded anonymously."
-        ),
     )
     args = parser.parse_args()
     if not args.models_dir.is_dir():
@@ -124,6 +116,7 @@ def _download_model(model_file, destination, source, token, credential_cache) ->
         source["filename"],
         model_file,
     )
+    expected_sha256 = source.get("sha256")
     try:
         downloaded = hf_hub_download(
             repo_id=source["repo_id"],
@@ -132,13 +125,53 @@ def _download_model(model_file, destination, source, token, credential_cache) ->
             token=token or False,
             cache_dir=credential_cache,
         )
-        shutil.copyfile(downloaded, destination)
-        destination.chmod(0o644)
+        _install_download(Path(downloaded), destination, expected_sha256)
     except Exception as error:
+        if expected_sha256 is not None and not _matches_sha256(
+            destination, expected_sha256
+        ):
+            destination.unlink(missing_ok=True)
         LOGGER.warning("Skipping %s: %s", model_file, error)
 
 
-def main(models_dir: Path, token: str | None) -> None:
+def _install_download(source: Path, destination: Path, expected_sha256: str | None) -> None:
+    partial = destination.with_name(destination.name + ".part")
+    partial.unlink(missing_ok=True)
+    digest = hashlib.sha256()
+    try:
+        with source.open("rb") as source_file, partial.open("xb") as destination_file:
+            while chunk := source_file.read(1024 * 1024):
+                destination_file.write(chunk)
+                digest.update(chunk)
+            destination_file.flush()
+            os.fsync(destination_file.fileno())
+
+        actual_sha256 = digest.hexdigest()
+        if expected_sha256 is not None and actual_sha256 != expected_sha256:
+            raise ValueError(
+                f"SHA-256 mismatch: expected {expected_sha256}, got {actual_sha256}"
+            )
+        partial.chmod(0o644)
+        os.replace(partial, destination)
+    finally:
+        partial.unlink(missing_ok=True)
+
+
+def _matches_sha256(path: Path, expected_sha256: str) -> bool:
+    if not path.is_file():
+        return False
+    digest = hashlib.sha256()
+    try:
+        with path.open("rb") as source:
+            for chunk in iter(lambda: source.read(1024 * 1024), b""):
+                digest.update(chunk)
+    except OSError:
+        return False
+    return digest.hexdigest() == expected_sha256
+
+
+def main(models_dir: Path) -> None:
+    token = os.environ.get("HF_TOKEN")
     if not token:
         LOGGER.info(
             "No Hugging Face token supplied; downloading public models anonymously."
@@ -159,7 +192,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     arguments = parse_args()
     try:
-        main(arguments.models_dir, arguments.token)
+        main(arguments.models_dir)
     except (OSError, ValueError) as error:
         LOGGER.error("%s", error)
         raise SystemExit(1) from None

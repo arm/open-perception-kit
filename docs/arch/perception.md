@@ -18,7 +18,7 @@ runtime result envelope.
 
 The canonical schema and generated output directories are declared in
 `tools/perception/sdk.json`. Run `./scripts/perception-sdk.sh generate` to
-regenerate the checked-in C++, Python, and TypeScript SDKs; use
+regenerate the checked-in C++, Python, Rust, and TypeScript SDKs; use
 `./scripts/perception-sdk.sh check` in CI to detect drift.
 
 Development generation and release packaging are intentionally separate.
@@ -90,6 +90,13 @@ records interpretation and provenance fields such as engine, model, tags,
 producer element ID, label family, content type, and compositing mode. Consumers
 must select payloads by type and semantic fields such as `content_type`, not by
 their position in the envelope.
+
+`LayerInfo.producer` identifies the component that created the payload rather
+than only the enclosing inference element. Its `instance_id` distinguishes
+multiple operations in one OpChain, `component` identifies the canonical Op or
+element type, and `implementation` identifies the selected parser, script, or
+processing implementation. Producer metadata is provenance and must not be
+used as a replacement for payload-type or content-type routing.
 
 Result items use `ObjectMeta` where identity or parent relationships are needed:
 

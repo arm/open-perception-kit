@@ -133,6 +133,12 @@ jobs:
             }
           skip-extraction: ${{ steps.compiler-cache.outputs.cache-hit }}
 
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
+
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4
         with:
@@ -194,12 +200,73 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Set up pinned Rust for Perception packaging
+        if: matrix.architecture == 'aarch64'
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+        with:
+          toolchain: 1.85.0
+
+      - name: Package Perception Rust crate
+        if: matrix.architecture == 'aarch64'
+        working-directory: ${{ env.SOURCE_DIR }}
+        env:
+          RUSTUP_TOOLCHAIN: 1.85.0
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          export_root="$RUNNER_TEMP/perception-sdk-$VERSION"
+          rm -rf -- "$export_root"
+          python3 -m zipfile -e \
+            "dist/perception-sdk-input/perception-sdk-$VERSION.zip" "$RUNNER_TEMP"
+          rust="$export_root/rust"
+          sed -i \
+            -e '/^\[package\]$/a exclude = ["vendor/**", ".cargo/**", "crates/**"]' \
+            -e 's/^flatbuffers = "\(=[^"]*\)"$/flatbuffers = { version = "\1", registry = "crates-io" }/' \
+            "$rust/Cargo.toml"
+          grep -Fqx 'exclude = ["vendor/**", ".cargo/**", "crates/**"]' \
+            "$rust/Cargo.toml"
+          grep -Eq '^flatbuffers = \{ version = "=[^"]+", registry = "crates-io" \}$' \
+            "$rust/Cargo.toml"
+          printf '\n[registries.crates-io]\nindex = "sparse+https://index.crates.io/"\n' \
+            >> "$rust/.cargo/config.toml"
+          (cd "$rust" && cargo package --offline --locked)
+          publish_source="$RUNNER_TEMP/perception-cargo-source-$VERSION"
+          rm -rf -- "$publish_source"
+          python3 - "$rust" "$publish_source" <<'PY'
+          import shutil
+          import sys
+
+          shutil.copytree(
+              sys.argv[1],
+              sys.argv[2],
+              ignore=shutil.ignore_patterns(".cargo", "crates", "target", "vendor"),
+          )
+          PY
+          publish_cargo_home="$RUNNER_TEMP/perception-publish-cargo-home"
+          rm -rf -- "$publish_cargo_home"
+          mkdir -p "$publish_cargo_home"
+          cat > "$publish_cargo_home/config.toml" <<'EOF'
+          [registries.crates-io]
+          index = "sparse+https://index.crates.io/"
+          EOF
+          (
+            cd "$publish_source"
+            CARGO_HOME="$publish_cargo_home" \
+              cargo package --locked
+          )
+          cp "$publish_source/target/package/perception-$VERSION.crate" \
+            dist/perception-sdk-input/
+          rm -rf -- "$publish_source/target"
+          mv "$publish_source" dist/perception-sdk-input/
+          cp "$export_root/python/opk_perception_sdk-$VERSION-py3-none-any.whl" \
+            dist/perception-sdk-input/
+
       - name: Upload Perception SDK input
         if: matrix.architecture == 'aarch64'
         uses: actions/upload-artifact@v7
         with:
           name: pek-perception-sdk-input-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ env.SOURCE_DIR }}/dist/perception-sdk-input/perception-sdk-*
+          path: ${{ env.SOURCE_DIR }}/dist/perception-sdk-input/
           if-no-files-found: error
           retention-days: 7
 
@@ -226,7 +293,12 @@ jobs:
 
   release-image:
     name: Publish multi-architecture snapshot image
-    needs: [prepare, build]
+    needs: [prepare, build, perception-cargo-preflight]
+    if: >-
+      always() &&
+      needs.prepare.result == 'success' &&
+      needs.build.result == 'success' &&
+      (github.event_name != 'push' || needs.perception-cargo-preflight.result == 'success')
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -304,8 +376,9 @@ jobs:
             --user "$(id -u):$(id -g)" \
             --env BUILD_ID \
             --env HOME=/tmp \
-            --volume "$PWD:/work" \
-            --workdir /work \
+            --env PEK_PROJECT_ROOT="$PWD" \
+            --volume "$PWD:$PWD" \
+            --workdir "$PWD" \
             "$DOCS_IMAGE" \
             bash -euxc '
               scripts/gen-doc.sh
@@ -332,12 +405,71 @@ jobs:
         if: always()
         run: docker image rm "$DOCS_IMAGE" 2>/dev/null || true
 
+  release-docs-staging:
+    name: Publish release docs to staging
+    if: github.event_name == 'push'
+    needs: prepare
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/docs-publish.yml
+    with:
+      publish_ref: ${{ needs.prepare.outputs.commit }}
+
+  perception-cargo-preflight:
+    name: Check Perception Cargo version is available
+    needs: prepare
+    if: github.event_name == 'push'
+    runs-on: amp-dev-forge-runner-ubuntu-x64
+    timeout-minutes: 5
+    env:
+      NO_PROXY: artifactory.eu02.arm.com,artifactory.arm.com
+    steps:
+      - name: Check Cargo registry
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          registry="https://artifactory.eu02.arm.com/artifactory/api/cargo/edge-ai-tooling.cargo"
+          url="https://artifactory.eu02.arm.com/artifactory/edge-ai-tooling.cargo/crates/perception/perception-$VERSION.crate"
+          storage_url="https://artifactory.eu02.arm.com/artifactory/api/storage/edge-ai-tooling.cargo/crates/perception/perception-$VERSION.crate"
+          index_url="$registry/index/pe/rc/perception"
+          config="$RUNNER_TEMP/perception-cargo-config.json"
+          curl_direct=(curl --noproxy "$NO_PROXY" --connect-timeout 10 --max-time 30)
+
+          "${curl_direct[@]}" --fail --silent --show-error \
+            --output "$config" "$registry/index/config.json"
+          api="$(jq --exit-status --raw-output '.api' "$config")"
+          test "$(jq --exit-status --raw-output '.dl' "$config")" = "$api/v1/crates"
+          case "$api" in
+            https://artifactory.arm.com/artifactory/api/cargo/edge-ai-tooling.cargo | \
+              https://artifactory.arm.com:443/artifactory/api/cargo/edge-ai-tooling.cargo | \
+              https://artifactory.eu02.arm.com/artifactory/api/cargo/edge-ai-tooling.cargo | \
+              https://artifactory.eu02.arm.com:443/artifactory/api/cargo/edge-ai-tooling.cargo) ;;
+            *) echo "Unexpected Cargo API route: $api" >&2; exit 1 ;;
+          esac
+          for unpublished_url in "$url" "$storage_url"; do
+            test "$("${curl_direct[@]}" --silent --show-error --output /dev/null \
+              --write-out '%{http_code}' "$unpublished_url")" = 404
+          done
+          index="$RUNNER_TEMP/perception-cargo-index"
+          index_status="$("${curl_direct[@]}" --silent --show-error \
+            --output "$index" --write-out '%{http_code}' "$index_url")"
+          case "$index_status" in
+            200)
+              jq --exit-status --slurp --arg version "$VERSION" \
+                'all(.[]; .vers != $version)' "$index" > /dev/null ;;
+            404) ;;
+            *) echo "Unexpected Cargo index response: $index_status" >&2; exit 1 ;;
+          esac
+
   github-release:
     name: Publish one GitHub release
     if: github.event_name == 'push'
-    needs: [prepare, build, build-docs, release-image]
+    needs: [prepare, build, build-docs, release-image, perception-cargo-preflight]
     runs-on: ubuntu-24.04
     permissions:
+      actions: write
       contents: write
     steps:
       - name: Checkout released source
@@ -413,44 +545,39 @@ jobs:
           name: pek-perception-sdk-input-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/pek-perception-sdk-input
 
-      - name: Export Perception Python wheel
+      - name: Stage Perception language packages
         env:
           ARTIFACTS_DIR: ${{ runner.temp }}/pek-release-artifacts
           SDK_DIR: ${{ runner.temp }}/pek-perception-sdk-input
+          VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           set -euo pipefail
-          sdk=("$SDK_DIR"/perception-sdk-*.zip)
-          test "${#sdk[@]}" -eq 1
-          test -f "${sdk[0]}"
-          mkdir -p "$RUNNER_TEMP/perception-sdk-export"
-          python3 -m zipfile -e "${sdk[0]}" "$RUNNER_TEMP/perception-sdk-export"
-          wheel=("$RUNNER_TEMP"/perception-sdk-export/perception-sdk-*/python/opk_perception_sdk-*-py3-none-any.whl)
-          test "${#wheel[@]}" -eq 1
-          test -f "${wheel[0]}"
-          cp "${wheel[0]}" "$ARTIFACTS_DIR/"
+          cp "$SDK_DIR/opk_perception_sdk-$VERSION-py3-none-any.whl" \
+            "$ARTIFACTS_DIR/"
+          cp "$SDK_DIR/perception-$VERSION.crate" "$ARTIFACTS_DIR/"
 
-      - name: Accept exactly three archives and one wheel
+      - name: Accept exactly three archives and two language packages
         env:
           ARTIFACTS_DIR: ${{ runner.temp }}/pek-release-artifacts
           BUILD_ID: ${{ needs.prepare.outputs.build_id }}
+          VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           set -euo pipefail
           expected=(
             "pek-$BUILD_ID-linux-x86_64.tar.gz"
             "pek-$BUILD_ID-linux-aarch64.tar.gz"
             "pek-docs-$BUILD_ID.tar.gz"
+            "opk_perception_sdk-$VERSION-py3-none-any.whl"
+            "perception-$VERSION.crate"
           )
           test -z "$(find "$ARTIFACTS_DIR" -type l -print -quit)"
           mapfile -d '' -t files < <(
             find "$ARTIFACTS_DIR" -mindepth 1 -maxdepth 1 -type f -print0 | sort -z
           )
-          test "${#files[@]}" -eq 4
-          for archive in "${expected[@]}"; do
-            test -f "$ARTIFACTS_DIR/$archive"
+          test "${#files[@]}" -eq "${#expected[@]}"
+          for artifact in "${expected[@]}"; do
+            test -f "$ARTIFACTS_DIR/$artifact"
           done
-          wheel=("$ARTIFACTS_DIR"/opk_perception_sdk-*-py3-none-any.whl)
-          test "${#wheel[@]}" -eq 1
-          test -f "${wheel[0]}"
 
       - name: Set up locked uv and Python
         uses: astral-sh/setup-uv@v10.0.1
@@ -550,3 +677,154 @@ jobs:
               printf -- '- [%s](%s) — `%s`\n' "$name" "$url" "$hash"
             done
           } | tee -a "$GITHUB_STEP_SUMMARY"
+
+  perception-cargo-publish:
+    name: Publish and verify Perception crate
+    needs: [prepare, artifactory]
+    if: >-
+      ${{ github.event_name == 'push' &&
+          needs.prepare.result == 'success' &&
+          needs.artifactory.result == 'success' }}
+    runs-on: amp-dev-forge-runner-ubuntu-x64
+    timeout-minutes: 10
+    env:
+      NO_PROXY: artifactory.eu02.arm.com,artifactory.arm.com
+    steps:
+      - name: Download Perception SDK input
+        uses: actions/download-artifact@v8
+        with:
+          name: pek-perception-sdk-input-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/pek-perception-sdk-input
+
+      - name: Set up pinned Rust for Perception publication
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+        with:
+          toolchain: 1.85.0
+          cache: false
+
+      - name: Publish and verify Perception crate
+        env:
+          CARGO_HOME: ${{ runner.temp }}/perception-cargo-home
+          RUSTUP_TOOLCHAIN: 1.85.0
+          SDK_DIR: ${{ runner.temp }}/pek-perception-sdk-input
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          export no_proxy="$NO_PROXY"
+          crate="$SDK_DIR/perception-$VERSION.crate"
+          publish_source="$SDK_DIR/perception-cargo-source-$VERSION"
+          registry="https://artifactory.eu02.arm.com/artifactory/api/cargo/edge-ai-tooling.cargo"
+          url="https://artifactory.eu02.arm.com/artifactory/edge-ai-tooling.cargo/crates/perception/perception-$VERSION.crate"
+          storage_url="https://artifactory.eu02.arm.com/artifactory/api/storage/edge-ai-tooling.cargo/crates/perception/perception-$VERSION.crate"
+          index_url="$registry/index/pe/rc/perception"
+          curl_direct=(curl --noproxy "$NO_PROXY" --connect-timeout 10 --max-time 30)
+
+          rm -rf -- "$CARGO_HOME"
+          mkdir -p "$CARGO_HOME"
+          cat > "$CARGO_HOME/config.toml" <<'EOF'
+          [registries.artifactory]
+          index = "sparse+https://artifactory.eu02.arm.com/artifactory/api/cargo/edge-ai-tooling.cargo/index/"
+          credential-provider = "cargo:token"
+
+          [registries.crates-io]
+          index = "sparse+https://index.crates.io/"
+          EOF
+          anonymous_token="$(printf 'anonymous:' | base64 -w0)"
+          export CARGO_REGISTRIES_ARTIFACTORY_TOKEN="Basic $anonymous_token"
+          (cd "$publish_source" && cargo package --locked --no-verify)
+          cmp "$crate" "$publish_source/target/package/perception-$VERSION.crate"
+          (cd "$publish_source" && cargo publish --locked --no-verify --registry artifactory)
+
+          published="$RUNNER_TEMP/perception-$VERSION.published.crate"
+          for attempt in {1..12}; do
+            if "${curl_direct[@]}" --fail-with-body --silent --show-error \
+              --output "$published" "$url" && \
+              "${curl_direct[@]}" --fail --silent --show-error "$storage_url" | \
+                jq --exit-status \
+                  '.createdBy == "anonymous" and .modifiedBy == "anonymous"' \
+                  > /dev/null; then
+              break
+            fi
+            if [[ "$attempt" == 12 ]]; then
+              echo "Published Perception crate or ownership did not become visible." >&2
+              exit 1
+            fi
+            sleep 5
+          done
+          cmp "$crate" "$published"
+
+          checksum="$(sha256sum "$published" | cut -d' ' -f1)"
+          for attempt in {1..12}; do
+            if "${curl_direct[@]}" --fail --silent --show-error "$index_url" | \
+              jq --exit-status --slurp \
+                --arg version "$VERSION" --arg checksum "$checksum" \
+                'any(.[]; .name == "perception" and .vers == $version and .cksum == $checksum and .yanked == false)' \
+                > /dev/null; then
+              break
+            fi
+            if [[ "$attempt" == 12 ]]; then
+              echo "Cargo index did not expose the expected Perception crate." >&2
+              exit 1
+            fi
+            sleep 5
+          done
+          printf "### Perception Cargo\n\n- URL: %s\n- SHA-256: \`%s\`\n- Sparse index: %s\n" \
+            "$url" "$checksum" "$index_url" >> "$GITHUB_STEP_SUMMARY"
+
+  perception-cargo-consumer:
+    name: Consume Perception crate (${{ matrix.architecture }})
+    needs: [prepare, perception-cargo-publish]
+    if: >-
+      ${{ github.event_name == 'push' &&
+          needs.prepare.result == 'success' &&
+          needs.perception-cargo-publish.result == 'success' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: x86_64
+            runner: self-hosted-ubuntu-latest-x64
+          - architecture: aarch64
+            runner: self-hosted-ubuntu-latest-arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Set up pinned Rust
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+        with:
+          toolchain: 1.85.0
+          cache: false
+
+      - name: Build a clean exact-pinned consumer
+        env:
+          CARGO_HOME: ${{ runner.temp }}/perception-cargo-consumer-home
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          consumer="$RUNNER_TEMP/perception-cargo-consumer"
+          rm -rf -- "$CARGO_HOME" "$consumer"
+          mkdir -p "$CARGO_HOME" "$consumer/bin" "$consumer/src"
+          printf '#!/bin/sh\nexit 99\n' > "$consumer/bin/flatc"
+          chmod +x "$consumer/bin/flatc"
+          export PATH="$consumer/bin:$PATH"
+          cat > "$CARGO_HOME/config.toml" <<'EOF'
+          [registries.artifactory]
+          index = "sparse+https://artifactory.arm.com/artifactory/api/cargo/edge-ai-tooling.cargo/index/"
+          EOF
+          cat > "$consumer/Cargo.toml" <<EOF
+          [package]
+          name = "perception-release-consumer"
+          version = "0.0.0"
+          edition = "2021"
+
+          [dependencies]
+          perception = { version = "=$VERSION", registry = "artifactory" }
+          EOF
+          cat > "$consumer/src/main.rs" <<EOF
+          fn main() {
+              assert_eq!(perception::PERCEPTION_VERSION, "$VERSION");
+          }
+          EOF
+          (cd "$consumer" && cargo generate-lockfile)
+          (cd "$consumer" && cargo run --locked)
+          test -z "$(find "$CARGO_HOME/registry/src" \
+            -path "*/perception-$VERSION/build.rs" -print -quit)"

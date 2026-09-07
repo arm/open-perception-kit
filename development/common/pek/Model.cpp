@@ -3,6 +3,7 @@
  *************************************************************/
 
 #include "pek/Model.h"
+#include "Log.h"
 
 namespace pek {
 
@@ -57,7 +58,7 @@ pek::Result<void> Model::applyModelFromDescriptor(const ModelDescriptor &modelDe
 
     // INPUT tensors
     if (inputs.size() != modelDescriptor.inputTensors.size()) {
-        return tl::make_unexpected(
+        return tl::unexpected(
             PEK_ERROR(pek::ErrorFlag::InvalidData,
                       "input tensor count must be the same in runtime model and json"));
     }
@@ -67,7 +68,7 @@ pek::Result<void> Model::applyModelFromDescriptor(const ModelDescriptor &modelDe
 
         // setup data kind
         if (descTensor.dataKind == pek::DataKind::Unknown) {
-            return tl::make_unexpected(
+            return tl::unexpected(
                 PEK_ERROR(pek::ErrorFlag::InvalidData, "input tensor data kind is unknown"));
         }
         this->inputs[i].dataKind = descTensor.dataKind;
@@ -75,7 +76,7 @@ pek::Result<void> Model::applyModelFromDescriptor(const ModelDescriptor &modelDe
         // check Value/Vector2/Vector3/Vector4 value count
         if (pek::isScalarDataKind(this->inputs[i].dataKind)) {
             if (modelDescriptor.inputTensors[i].shape.isValid()) {
-                return tl::make_unexpected(PEK_ERROR(
+                return tl::unexpected(PEK_ERROR(
                     pek::ErrorFlag::InvalidData,
                     "please do not include shape for Value/Vector input tensors in json"));
             }
@@ -88,13 +89,13 @@ pek::Result<void> Model::applyModelFromDescriptor(const ModelDescriptor &modelDe
                  descTensor.valueInputs.size() != 3) ||
                 (this->inputs[i].dataKind == pek::DataKind::Vector4 &&
                  descTensor.valueInputs.size() != 4)) {
-                return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
-                                                     "input tensor Value/Vector needs the proper "
-                                                     "amount of input values in valueInputs"));
+                return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
+                                                "input tensor Value/Vector needs the proper "
+                                                "amount of input values in valueInputs"));
             }
         } else {
             if (modelDescriptor.inputTensors[i].shape.isInvalid()) {
-                return tl::make_unexpected(
+                return tl::unexpected(
                     PEK_ERROR(pek::ErrorFlag::InvalidData,
                               "please include shape for non-Value/Vector input tensors in json"));
             }
@@ -102,14 +103,15 @@ pek::Result<void> Model::applyModelFromDescriptor(const ModelDescriptor &modelDe
 
         // setup final tensor shape
         if (descTensor.shape.hasDynamicDimension()) {
-            return tl::make_unexpected(
+            return tl::unexpected(
                 PEK_ERROR(pek::ErrorFlag::InvalidData, "json cannot contain dynamic input shapes"));
         }
 
         if (this->inputs[i].shape.hasDynamicDimension()) {
             // if there is dynamic shape in onnx, the desc shape must be forced to it
             if (false == this->inputs[i].shape.applyDimensionsForDynamic(descTensor.shape)) {
-                return tl::make_unexpected(
+                pek::log::error("Cannot apply JSON input tensor shape to runtime tensor shape\n");
+                return tl::unexpected(
                     PEK_ERROR(pek::ErrorFlag::InvalidData,
                               "cannot apply json input tensor shape to onnx tensor shape"));
             }
@@ -118,7 +120,7 @@ pek::Result<void> Model::applyModelFromDescriptor(const ModelDescriptor &modelDe
             if (modelDescriptor.inputTensors[i].shape.isValid()) {
                 if (modelDescriptor.inputTensors[i].shape == this->inputs[i].shape) {
                 } else {
-                    return tl::make_unexpected(
+                    return tl::unexpected(
                         PEK_ERROR(pek::ErrorFlag::InvalidData,
                                   "if shape is provided in input tensor, the runtime static shape "
                                   "must match, tip: you can skip shape in this case"));
@@ -140,18 +142,18 @@ pek::Result<void> Model::applyModelFromDescriptor(const ModelDescriptor &modelDe
     // OUTPUT tensors
     if (false == modelDescriptor.dynamicOutput) {
         if (outputs.size() != modelDescriptor.outputTensors.size()) {
-            return tl::make_unexpected(
+            return tl::unexpected(
                 PEK_ERROR(pek::ErrorFlag::InvalidData,
                           "output tensor count must be the same in runtime model and json"));
         }
         if (inputs.size() != modelDescriptor.inputTensors.size()) {
-            return tl::make_unexpected(
+            return tl::unexpected(
                 PEK_ERROR(pek::ErrorFlag::InvalidData,
                           "input tensor count must be the same in runtime model and json"));
         }
     } else {
         if (modelDescriptor.outputTensors.size()) {
-            return tl::make_unexpected(PEK_ERROR(
+            return tl::unexpected(PEK_ERROR(
                 pek::ErrorFlag::InvalidData,
                 "please avoid to insert outputs in the json if the output is set to dynamic"));
         }
@@ -162,19 +164,20 @@ pek::Result<void> Model::applyModelFromDescriptor(const ModelDescriptor &modelDe
 
         // setup data kind
         if (descTensor.dataKind == pek::DataKind::Unknown) {
-            return tl::make_unexpected(
+            return tl::unexpected(
                 PEK_ERROR(pek::ErrorFlag::InvalidData, "output tensor data kind is unknown"));
         }
 
         // setup final tensor shape
         if (descTensor.shape.hasDynamicDimension()) {
-            return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
-                                                 "json cannot contain dynamic output shapes"));
+            return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
+                                            "json cannot contain dynamic output shapes"));
         }
 
         if (this->outputs[i].shape.hasDynamicDimension()) {
             if (false == this->outputs[i].shape.applyDimensionsForDynamic(descTensor.shape)) {
-                return tl::make_unexpected(
+                pek::log::error("Cannot apply JSON output tensor shape to runtime tensor shape\n");
+                return tl::unexpected(
                     PEK_ERROR(pek::ErrorFlag::InvalidData,
                               "cannot apply json output tensor shape to onnx tensor shape"));
             }
@@ -182,7 +185,7 @@ pek::Result<void> Model::applyModelFromDescriptor(const ModelDescriptor &modelDe
             // if no dynamic shape in onnx, but shape is provided in dest, they must match
             if (modelDescriptor.outputTensors[i].shape.isValid()) {
                 if (modelDescriptor.outputTensors[i].shape != this->outputs[i].shape) {
-                    return tl::make_unexpected(
+                    return tl::unexpected(
                         PEK_ERROR(pek::ErrorFlag::InvalidData,
                                   "if shape is provided in output tensor, the runtime static shape "
                                   "must match, tip: you can skip shape in this case"));
@@ -199,7 +202,7 @@ pek::Result<void> Model::applyModelFromDescriptor(const ModelDescriptor &modelDe
     if (this->useDynamicOutput == false) {
         for (const auto &input : inputs) {
             if (input.matchShapeOutputIndex != pek::InvalidTensorIndex) {
-                return tl::make_unexpected(
+                return tl::unexpected(
                     PEK_ERROR(pek::ErrorFlag::InvalidData,
                               "matchShapeOutputIndex cannot be used if the output is not dynamic"));
             }

@@ -3,8 +3,8 @@
 ## Summary
 
 Some CI jobs in this repository run Docker Compose services with the checked out
-repository bind-mounted into the container as `/work`. The setup path then
-recursively changes ownership of `/work`.
+repository bind-mounted into the container as `PEK_PROJECT_ROOT`. The setup path
+then recursively changes ownership of that project root.
 
 On self-hosted runners this is dangerous because the checkout lives in a
 persistent host workspace. Once a container rewrites ownership of the mounted
@@ -25,8 +25,8 @@ a state that breaks later, unrelated jobs.
 The issue comes from the combination of:
 
 1. a persistent self-hosted runner workspace
-2. bind-mounting the host checkout into the container as `/work`
-3. recursively running `chown -R` on `/work`
+2. bind-mounting the host checkout at `PEK_PROJECT_ROOT`
+3. recursively running `chown -R` on that project root
 4. sharing fixed Compose container names across jobs
 
 The critical ownership-changing line currently lives in
@@ -44,16 +44,16 @@ behaviour entirely:
 - the self-hosted Sonar job tears down its workflow-scoped Compose
   resources and deletes its isolated checkout directory in an `if: always()`
   cleanup step
-- the self-hosted Black Duck workflow bind-mounts only its isolated checkout
-  directory and removes its workflow-scoped images before deleting that
-  checkout
+- the Black Duck jobs use isolated checkouts on internal runners and remove
+  their workspace after each scan; the PR snippet lane reads only the exact
+  base-to-head range
 
 This ensures that one job does not reuse another job's poisoned checkout path or
 Docker resource names.
 
 ## Why the warning stays near `chown`
 
-The `chown -R /work` line is easy to cargo-cult into new CI paths because it
+The recursive project-root `chown` is easy to cargo-cult into new CI paths because it
 looks harmless inside a dev container. It is not harmless on a self-hosted
 runner with bind-mounted source code.
 

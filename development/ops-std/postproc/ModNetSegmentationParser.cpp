@@ -56,13 +56,11 @@ Result<void> ModNetSegmentationParser::parse(const Input &input,
     mask->bitmap = perception::makeBitmapData(alphaMatte);
 
     perception::metadata::SegmentationMasksT payload;
-    payload.layer = perception::makeLayerInfo(input.inferenceInfo.modelName,
-                                              input.inferenceInfo.inferElementId,
-                                              "segmentation",
-                                              "",
-                                              "",
-                                              "",
-                                              "backgroundReplacement");
+    payload.layer = perception::makeLayerInfo({.model = input.inferenceInfo.modelName,
+                                               .inferElementId = input.inferenceInfo.inferElementId,
+                                               .contentType = k_content_type,
+                                               .compositingMode = "backgroundReplacement",
+                                               .producer = &input.producerInfo});
     payload.masks.push_back(std::move(mask));
     results.add(std::move(payload));
     return {};

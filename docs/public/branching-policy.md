@@ -154,5 +154,9 @@ The branch protection ruleset applies to `main` and `develop` and:
 - additionally requires `Release publication validation` for pull requests to
   `main`
 
+`release/*` pull requests targeting `main` leave the general PEK CI jobs
+skipped. Their release-specific package smokes and disposable publication
+probes provide the required release validation instead.
+
 No bypass actors are configured. Repository administrators must keep the
 GitHub settings aligned with this policy.

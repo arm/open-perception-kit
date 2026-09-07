@@ -2,6 +2,7 @@
  * Copyright (C) 2025 Arm Limited. All rights reserved.
  *************************************************************/
 
+#include "Log.h"
 #include "gst/FrameResultsMeta.h"
 #include "gst/Tools.h"
 #include "osd.h"
@@ -11,7 +12,6 @@
 #include "pek/Tools.h"
 
 #include <algorithm>
-#include <cassert>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -164,7 +164,7 @@ static void gst_pek_osd_init(GstPekOsd *self) {
     self->performanceOverlayEnabled = DEFAULT_PERFORMANCE_OVERLAY_ENABLED;
     self->bgImagePath = g_strdup(DEFAULT_BG_IMAGE);
     self->frameCount = 0;
-    self->bgImage.reset();
+    std::construct_at(&self->bgImage);
 
     GST_DEBUG_OBJECT(self, "Initialized PekOsd element");
 }
@@ -292,7 +292,7 @@ static void gst_pek_osd_finalize(GObject *object) {
 
     g_free(self->bgImagePath);
     self->bgImagePath = nullptr;
-    self->bgImage.reset();
+    std::destroy_at(&self->bgImage);
 
     G_OBJECT_CLASS(parent_class)->finalize(object);
 }
@@ -413,8 +413,6 @@ static void replaceBackground(guint8 *imgData,
                               gint imgStride,
                               const SegmentationBitmapView &segMap,
                               const std::optional<pek::Bitmap> &bgImage) {
-    assert(imgData != nullptr);
-
     const auto segWidth = segMap.width;
     const auto segHeight = segMap.height;
 
@@ -510,6 +508,7 @@ static constexpr const char *EYE_YAW_PITCH_CONTENT_TYPE = "eyeYawPitch";
 static constexpr const char *CAMERA_CONTACT_CONTENT_TYPE = "cameraContact";
 static constexpr const char *SEGMENTATION_CONTENT_TYPE = "segmentation";
 static constexpr const char *BACKGROUND_REPLACEMENT_COMPOSITING_MODE = "backgroundReplacement";
+static constexpr const char *BOTTOM_RIGHT_COMPOSITING_MODE = "bottomRight";
 
 static bool hasContentType(const perception::metadata::LayerInfoT *layer, const char *contentType) {
     return layer != nullptr && layer->content_type == contentType;
@@ -855,16 +854,33 @@ static void drawPersonPresence(Osd::Layer &layer,
     }
 }
 
-static void drawClassificationList(Osd::Layer &layer,
-                                   float imgHeight,
-                                   const perception::metadata::ClassificationT &classification) {
+static float drawClassificationList(Osd::Layer &layer,
+                                    float imgWidth,
+                                    float imgHeight,
+                                    bool alignRight,
+                                    float bottomOffset,
+                                    const std::string &heading,
+                                    const perception::metadata::ClassificationT &classification) {
     const float fontSize = 14.0f;
     const float lineHeight = fontSize * 1.5f;
     const auto numResults = classification.candidates.size();
     const float padding = 10.0f;
+    const float panelWidth = std::min(600.0f, std::max(0.0f, imgWidth - 2.0f * padding));
     const float startX = padding;
+    const float rightColumnX = std::max(padding, imgWidth - padding - panelWidth);
     const float startY =
-        imgHeight - (static_cast<float>(numResults) * lineHeight) - (2.0f * padding);
+        imgHeight - bottomOffset - (static_cast<float>(numResults) * lineHeight) - (2.0f * padding);
+
+    if (!heading.empty()) {
+        Osd::Text::draw(layer,
+                        Osd::Coordinate(alignRight ? rightColumnX : startX,
+                                        std::max(padding, startY - lineHeight)),
+                        heading,
+                        pek::Colors::fromStringOrDefault("#ffffffff"),
+                        pek::Colors::fromStringOrDefault("#000000ff"),
+                        "monospace",
+                        fontSize);
+    }
 
     for (size_t i = 0U; i < classification.candidates.size(); ++i) {
         const auto &result = classification.candidates[i];
@@ -875,7 +891,7 @@ static void drawClassificationList(Osd::Layer &layer,
         const auto text =
             std::format("#{}: {} ({:.1f}%)", i + 1U, result->text, result->confidence * 100.0f);
 
-        const float textX = startX;
+        const float textX = alignRight ? rightColumnX : startX;
         const float textY = startY + static_cast<float>(i) * lineHeight;
 
         Osd::Text::draw(layer,
@@ -886,6 +902,9 @@ static void drawClassificationList(Osd::Layer &layer,
                         "monospace",
                         fontSize);
     }
+
+    return static_cast<float>(numResults) * lineHeight + (heading.empty() ? 0.0f : lineHeight) +
+           (2.0f * padding);
 }
 
 static void drawHumanFaceDetections(Osd::Layer &layer,
@@ -975,15 +994,25 @@ static void drawPersonClassifications(Osd::Layer &layer,
 }
 
 static void drawImageClassifications(Osd::Layer &layer,
+                                     float imgWidth,
                                      float imgHeight,
+                                     float &leftBottomOffset,
+                                     float &rightBottomOffset,
                                      const perception::metadata::ClassificationsT &payload) {
     if (!isClassificationLayer(payload.layer.get())) {
         return;
     }
 
+    const bool alignRight = payload.layer != nullptr &&
+                            payload.layer->compositing_mode == BOTTOM_RIGHT_COMPOSITING_MODE;
+    const std::string heading = payload.layer != nullptr && payload.layer->producer != nullptr
+                                    ? payload.layer->producer->implementation
+                                    : std::string{};
+    float &bottomOffset = alignRight ? rightBottomOffset : leftBottomOffset;
     for (const auto &classification : payload.classifications) {
         if (classification) {
-            drawClassificationList(layer, imgHeight, *classification);
+            bottomOffset += drawClassificationList(
+                layer, imgWidth, imgHeight, alignRight, bottomOffset, heading, *classification);
         }
     }
 }
@@ -992,10 +1021,13 @@ static void drawClassifications(Osd::Layer &layer,
                                 float imgWidth,
                                 float imgHeight,
                                 const perception::FrameResults &frameResults) {
+    float leftBottomOffset = 0.0f;
+    float rightBottomOffset = 0.0f;
     frameResults.for_each<perception::metadata::ClassificationsT>(
-        [&layer, imgWidth, imgHeight](const auto &payload) {
+        [&layer, imgWidth, imgHeight, &leftBottomOffset, &rightBottomOffset](const auto &payload) {
             drawPersonClassifications(layer, imgWidth, imgHeight, payload);
-            drawImageClassifications(layer, imgHeight, payload);
+            drawImageClassifications(
+                layer, imgWidth, imgHeight, leftBottomOffset, rightBottomOffset, payload);
         });
 }
 
@@ -1075,6 +1107,12 @@ static GstFlowReturn gst_pek_osd_transform_frame_ip(GstVideoFilter *filter, GstV
     }
 
     auto *imgData = static_cast<guint8 *>(GST_VIDEO_FRAME_PLANE_DATA(frame, 0));
+    if (!imgData) {
+        pek::log::error("Failed to access video frame data: BGRA plane 0 is null\n");
+        GST_ELEMENT_ERROR(
+            self, RESOURCE, READ, ("Failed to access video frame data"), ("BGRA plane 0 is null"));
+        return GST_FLOW_ERROR;
+    }
     const float imgWidth = static_cast<float>(GST_VIDEO_FRAME_WIDTH(frame));
     const float imgHeight = static_cast<float>(GST_VIDEO_FRAME_HEIGHT(frame));
     const gint imgStride = GST_VIDEO_FRAME_PLANE_STRIDE(frame, 0);

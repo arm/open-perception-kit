@@ -166,6 +166,7 @@ test("selector renders task and model details from descriptor metadata", () => {
     name: "YoloV11",
     runtime: "ONNX",
     task: "Object detection",
+    providedContentTypes: ["genericObject"],
   };
 
   modelsManager.render([model]);
@@ -180,6 +181,7 @@ test("selector renders task and model details from descriptor metadata", () => {
   assert.equal(item.getAttribute("data-model-element-name"), "pekinfer1");
   assert.equal(task.textContent, "Object detection");
   assert.equal(details.textContent, "YOLOv11n (ONNX)");
+  assert.equal(item.querySelector(".model-dependency-info"), null);
   assert.equal(item.querySelector(".model-copy").title, "Object detection - YOLOv11n (ONNX)");
   assert.equal(toggleLabel.getAttribute("aria-label"), "Toggle Object detection - YOLOv11n (ONNX)");
 
@@ -192,35 +194,92 @@ test("selector renders task and model details from descriptor metadata", () => {
   });
 });
 
+test("dependent models show their provider networks beside the toggle", () => {
+  modelsManager.render([
+    {
+      active: false,
+      displayName: "L2CS MobileGaze",
+      element_name: "pekinfer2",
+      name: "GazeDetection",
+      requiredContentTypes: ["humanFace"],
+    },
+    {
+      active: false,
+      displayName: "UltraFace",
+      element_name: "pekinfer1",
+      name: "Ultraface",
+      providedContentTypes: ["humanFace"],
+      task: "Face detection",
+    },
+    {
+      active: false,
+      displayName: "YOLOv11n",
+      element_name: "pekinfer0",
+      name: "YoloV11",
+      providedContentTypes: ["genericObject"],
+    },
+  ]);
+
+  const dependentItem = modelsContainer.children.find(
+    (item) => item.getAttribute("data-model-name") === "GazeDetection");
+  const actions = dependentItem.querySelector(".model-actions");
+  const dependencyInfo = actions.querySelector(".model-dependency-info");
+  const dependencyPopup = dependencyInfo.querySelector(".model-dependency-popup");
+
+  const dependencyIcon = dependencyInfo.querySelector(".model-dependency-icon");
+  assert.equal(dependencyIcon.tagName, "IMG");
+  assert.equal(dependencyIcon.getAttribute("src"), "/assets/information.svg");
+  assert.equal(dependencyIcon.getAttribute("alt"), "");
+  assert.equal(dependencyPopup.querySelector(".model-dependency-heading").textContent, "Depends on:");
+  assert.equal(dependencyPopup.querySelector("li").textContent, "Face detection");
+  assert.equal(dependencyInfo.getAttribute("aria-label"), "Depends on: Face detection");
+  assert.equal(actions.children[0], dependencyInfo);
+  assert.equal(actions.children[1].tagName, "LABEL");
+});
+
+test("dependent models identify missing providers", () => {
+  modelsManager.render([{
+    active: false,
+    element_name: "pekinfer0",
+    name: "GazeDetection",
+    providedContentTypes: "humanFace",
+    requiredContentTypes: ["", null, "humanFace"],
+  }]);
+
+  const dependencyInfo = modelsContainer.children[0].querySelector(".model-dependency-info");
+  assert.equal(dependencyInfo.getAttribute("aria-label"), "Depends on: No provider registered");
+  assert.equal(dependencyInfo.querySelector("li").textContent, "No provider registered");
+});
+
 test("duplicate descriptor names retain unique element identities", () => {
   modelsManager.render([
     {
       active: false,
       displayName: "MobileNetV2",
-      element_name: "pekinfer8",
-      name: "ImageNet Hailo",
-      runtime: "Hailo 8",
+      element_name: "pekinfer-onnx",
+      name: "ImageNet",
+      runtime: "ONNX",
       task: "Image classification",
     },
     {
       active: false,
       displayName: "MobileNetV2",
-      element_name: "pekinfer10",
-      name: "ImageNet Hailo",
-      runtime: "Hailo 10",
+      element_name: "pekinfer-executorch",
+      name: "ImageNet",
+      runtime: "ExecuTorch",
       task: "Image classification",
     },
   ]);
 
   assert.equal(modelsContainer.children.length, 2);
-  assert.equal(modelsContainer.children[0].getAttribute("data-model-name"), "ImageNet Hailo");
-  assert.equal(modelsContainer.children[1].getAttribute("data-model-name"), "ImageNet Hailo");
-  assert.equal(modelsContainer.children[0].getAttribute("data-model-element-name"), "pekinfer8");
-  assert.equal(modelsContainer.children[1].getAttribute("data-model-element-name"), "pekinfer10");
+  assert.equal(modelsContainer.children[0].getAttribute("data-model-name"), "ImageNet");
+  assert.equal(modelsContainer.children[1].getAttribute("data-model-name"), "ImageNet");
+  assert.equal(modelsContainer.children[0].getAttribute("data-model-element-name"), "pekinfer-onnx");
+  assert.equal(modelsContainer.children[1].getAttribute("data-model-element-name"), "pekinfer-executorch");
   assert.equal(modelsContainer.children[0].querySelector(".model-details").textContent,
-    "MobileNetV2 (Hailo 8)");
+    "MobileNetV2 (ONNX)");
   assert.equal(modelsContainer.children[1].querySelector(".model-details").textContent,
-    "MobileNetV2 (Hailo 10)");
+    "MobileNetV2 (ExecuTorch)");
 
   const secondToggle = modelsContainer.children[1].querySelector("input");
   secondToggle.checked = true;
@@ -228,7 +287,7 @@ test("duplicate descriptor names retain unique element identities", () => {
 
   assert.deepEqual(sentMessages.at(-1), {
     type: "model_toggle",
-    name: "pekinfer10",
+    name: "pekinfer-executorch",
   });
 });
 

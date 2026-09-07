@@ -77,8 +77,10 @@ pek::Result<void> CameraContactParser::parse(const pek::TensorParser::Input &inp
     classification->candidates.push_back(std::move(candidate));
 
     perception::metadata::ClassificationsT payload;
-    payload.layer = perception::makeLayerInfo(
-        input.inferenceInfo.modelName, input.inferenceInfo.inferElementId, "cameraContact");
+    payload.layer = perception::makeLayerInfo({.model = input.inferenceInfo.modelName,
+                                               .inferElementId = input.inferenceInfo.inferElementId,
+                                               .contentType = k_content_type,
+                                               .producer = &input.producerInfo});
     payload.classifications.push_back(std::move(classification));
     results.add(std::move(payload));
 
