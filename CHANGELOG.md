@@ -2,7 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.2.1] - 2026-08-25
+## [0.3.0] - 2026-09-07
+
+### Perception SDK distribution
+
+- Add the generated Rust Perception SDK with typed FrameResults packet APIs and cross-language tests, and publish its versioned crate to the internal Cargo registry as part of the stable release flow ([#384](https://github.com/Arm-Debug/amp-dev-forge/pull/384), [#410](https://github.com/Arm-Debug/amp-dev-forge/pull/410)).
+- Add producer identity metadata across the generated SDKs and update the standalone C++ examples to consume schema-based runtime packets ([#362](https://github.com/Arm-Debug/amp-dev-forge/pull/362), [#399](https://github.com/Arm-Debug/amp-dev-forge/pull/399)).
+
+### Runtime and inference
+
+- Add stateful embedded Python postprocessing with read-only zero-copy tensor views, generated Perception APIs, and a MobileNet classification example ([#362](https://github.com/Arm-Debug/amp-dev-forge/pull/362)).
+- Add an isolated BlazeFace bring-your-own-model example covering model setup, Python postprocessing, external result transport, and optional visualization ([#414](https://github.com/Arm-Debug/amp-dev-forge/pull/414)).
+- Automatically enable transitive upstream model dependencies and show those dependencies in DebugUI ([#380](https://github.com/Arm-Debug/amp-dev-forge/pull/380), [#385](https://github.com/Arm-Debug/amp-dev-forge/pull/385)).
+- Consolidate C++ performance tracing in `PerformanceMetrics` while preserving overlays, runtime snapshots, CSV export, and benchmark timing ([#409](https://github.com/Arm-Debug/amp-dev-forge/pull/409)).
+- Fix metadata-copy null handling and the lifetime of embedded C++ members in `pekperformance` and `pekosd` ([#406](https://github.com/Arm-Debug/amp-dev-forge/pull/406), [#404](https://github.com/Arm-Debug/amp-dev-forge/pull/404)).
+
+### Platform and developer workflow
+
+- Remove the unsupported Hailo and NCNN inference backends and their configuration, build, runtime, and documentation surfaces ([#382](https://github.com/Arm-Debug/amp-dev-forge/pull/382), [#400](https://github.com/Arm-Debug/amp-dev-forge/pull/400)).
+- Support native checkouts outside `/work` through `PEK_PROJECT_ROOT` and stable native build paths ([#349](https://github.com/Arm-Debug/amp-dev-forge/pull/349)).
+- Fix independent WebUI sidebar and output controls and make copy actions work on HTTP origins ([#388](https://github.com/Arm-Debug/amp-dev-forge/pull/388)).
+- Improve CI and release reliability with scoped caches, artifact-based image handoff, remote Valgrind baselines, Black Duck lifecycle management, and non-blocking release observability ([#366](https://github.com/Arm-Debug/amp-dev-forge/pull/366), [#370](https://github.com/Arm-Debug/amp-dev-forge/pull/370), [#367](https://github.com/Arm-Debug/amp-dev-forge/pull/367), [#391](https://github.com/Arm-Debug/amp-dev-forge/pull/391), [#401](https://github.com/Arm-Debug/amp-dev-forge/pull/401), [#408](https://github.com/Arm-Debug/amp-dev-forge/pull/408), [#364](https://github.com/Arm-Debug/amp-dev-forge/pull/364)).
+
+## [0.2.1] - 2026-08-26
 
 ### Perception SDK distribution
 
@@ -46,7 +68,7 @@ All notable changes to this project will be documented in this file.
 
 ### Runtime and inference
 
-- Add C++ runtime APIs for asynchronous Pipeline and OpChain execution, foreign-backed video frames, and expanded ExecuTorch deployment support ([#132](https://github.com/Arm-Debug/amp-dev-forge/pull/132), [#222](https://github.com/Arm-Debug/amp-dev-forge/pull/222)).
+- Add C++ runtime APIs for asynchronous Pipeline and OpChain execution, foreign-backed video frames, an experimental NCNN backend, and expanded ExecuTorch deployment support ([#132](https://github.com/Arm-Debug/amp-dev-forge/pull/132), [#222](https://github.com/Arm-Debug/amp-dev-forge/pull/222)).
 - Add opt-in GStreamer QoS-aware inference scheduling while preserving video flow and tracker continuity ([#286](https://github.com/Arm-Debug/amp-dev-forge/pull/286)).
 - Add grayscale preprocessing.
 - Add aspect-ratio-preserving letterbox resize support ([#185](https://github.com/Arm-Debug/amp-dev-forge/pull/185)).
