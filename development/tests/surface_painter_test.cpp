@@ -2,7 +2,7 @@
  * Copyright (C) 2025 Arm Limited. All rights reserved.
  *************************************************************/
 
-#include "RasterOsd.h"
+#include "DebugOverlayRenderer.h"
 #include "mediaio/PixelBufferVideoFrame.h"
 #include "pek/Tools.h"
 #include "raster/BitmapFont.h"
@@ -523,7 +523,7 @@ TEST(SurfacePainterTest, FillsRectsAndDrawsPointsInAllSupportedFormats) {
     }
 }
 
-TEST(RasterOsdTest, DrawsSegmentationMasksInAllSupportedFormats) {
+TEST(DebugOverlayRendererTest, DrawsSegmentationMasksInAllSupportedFormats) {
     constexpr std::array formats{
         RawImagePixelFormat::Bgra,
         RawImagePixelFormat::Rgb,
@@ -536,21 +536,21 @@ TEST(RasterOsdTest, DrawsSegmentationMasksInAllSupportedFormats) {
     for (const auto format : formats) {
         auto surface = makeSurface(format, 16, 12);
 
-        pek::osd::RasterDrawRequest request;
+        pek::osd::DebugOverlayRequest request;
         request.surface.format = format;
         request.surface.width = surface.width;
         request.surface.height = surface.height;
         request.surface.planes = planeSpan(surface);
         request.frameResults = &frameResults;
 
-        EXPECT_EQ(pek::osd::drawRasterOsd(request), pek::osd::RasterDrawStatus::Drawn)
+        EXPECT_EQ(pek::osd::drawDebugOverlay(request), pek::osd::DebugOverlayStatus::Drawn)
             << static_cast<int>(format);
         EXPECT_TRUE(activeAreaChanged(surface)) << static_cast<int>(format);
         expectPaddingUnchanged(surface);
     }
 }
 
-TEST(RasterOsdTest, ReplacesBackgroundFromSegmentationMasksInAllSupportedFormats) {
+TEST(DebugOverlayRendererTest, ReplacesBackgroundFromSegmentationMasksInAllSupportedFormats) {
     constexpr std::array formats{
         RawImagePixelFormat::Bgra,
         RawImagePixelFormat::Rgb,
@@ -564,7 +564,7 @@ TEST(RasterOsdTest, ReplacesBackgroundFromSegmentationMasksInAllSupportedFormats
     for (const auto format : formats) {
         auto surface = makeSurface(format, 16, 12);
 
-        pek::osd::RasterDrawRequest request;
+        pek::osd::DebugOverlayRequest request;
         request.surface.format = format;
         request.surface.width = surface.width;
         request.surface.height = surface.height;
@@ -572,7 +572,7 @@ TEST(RasterOsdTest, ReplacesBackgroundFromSegmentationMasksInAllSupportedFormats
         request.frameResults = &frameResults;
         request.options.backgroundImage = &background;
 
-        EXPECT_EQ(pek::osd::drawRasterOsd(request), pek::osd::RasterDrawStatus::Drawn)
+        EXPECT_EQ(pek::osd::drawDebugOverlay(request), pek::osd::DebugOverlayStatus::Drawn)
             << static_cast<int>(format);
         EXPECT_TRUE(activeAreaChanged(surface)) << static_cast<int>(format);
         expectPaddingUnchanged(surface);
@@ -690,7 +690,7 @@ TEST(SegmentationMaskTest, BackgroundReplacementBlendsSharedYuvChromaForMixedBlo
     }
 }
 
-TEST(RasterOsdTest, DrawsTrackTracesInAllSupportedFormats) {
+TEST(DebugOverlayRendererTest, DrawsTrackTracesInAllSupportedFormats) {
     constexpr std::array formats{
         RawImagePixelFormat::Bgra,
         RawImagePixelFormat::Rgb,
@@ -703,21 +703,21 @@ TEST(RasterOsdTest, DrawsTrackTracesInAllSupportedFormats) {
     for (const auto format : formats) {
         auto surface = makeSurface(format, 80, 48);
 
-        pek::osd::RasterDrawRequest request;
+        pek::osd::DebugOverlayRequest request;
         request.surface.format = format;
         request.surface.width = surface.width;
         request.surface.height = surface.height;
         request.surface.planes = planeSpan(surface);
         request.frameResults = &frameResults;
 
-        EXPECT_EQ(pek::osd::drawRasterOsd(request), pek::osd::RasterDrawStatus::Drawn)
+        EXPECT_EQ(pek::osd::drawDebugOverlay(request), pek::osd::DebugOverlayStatus::Drawn)
             << static_cast<int>(format);
         EXPECT_TRUE(activeAreaChanged(surface)) << static_cast<int>(format);
         expectPaddingUnchanged(surface);
     }
 }
 
-TEST(RasterOsdTest, DrawsGenericObjectLabelledBoxesInAllSupportedFormats) {
+TEST(DebugOverlayRendererTest, DrawsGenericObjectLabelledBoxesInAllSupportedFormats) {
     constexpr std::array formats{
         RawImagePixelFormat::Bgra,
         RawImagePixelFormat::Rgb,
@@ -730,21 +730,21 @@ TEST(RasterOsdTest, DrawsGenericObjectLabelledBoxesInAllSupportedFormats) {
     for (const auto format : formats) {
         auto surface = makeSurface(format, 13, 9);
 
-        pek::osd::RasterDrawRequest request;
+        pek::osd::DebugOverlayRequest request;
         request.surface.format = format;
         request.surface.width = surface.width;
         request.surface.height = surface.height;
         request.surface.planes = planeSpan(surface);
         request.frameResults = &frameResults;
 
-        EXPECT_EQ(pek::osd::drawRasterOsd(request), pek::osd::RasterDrawStatus::Drawn)
+        EXPECT_EQ(pek::osd::drawDebugOverlay(request), pek::osd::DebugOverlayStatus::Drawn)
             << static_cast<int>(format);
         EXPECT_TRUE(activeAreaChanged(surface)) << static_cast<int>(format);
         expectPaddingUnchanged(surface);
     }
 }
 
-TEST(RasterOsdTest, DrawsHumanFaceCirclesAndGazeVectorsInAllSupportedFormats) {
+TEST(DebugOverlayRendererTest, DrawsHumanFaceCirclesAndGazeVectorsInAllSupportedFormats) {
     constexpr std::array formats{
         RawImagePixelFormat::Bgra,
         RawImagePixelFormat::Rgb,
@@ -757,21 +757,21 @@ TEST(RasterOsdTest, DrawsHumanFaceCirclesAndGazeVectorsInAllSupportedFormats) {
     for (const auto format : formats) {
         auto surface = makeSurface(format, 96, 72);
 
-        pek::osd::RasterDrawRequest request;
+        pek::osd::DebugOverlayRequest request;
         request.surface.format = format;
         request.surface.width = surface.width;
         request.surface.height = surface.height;
         request.surface.planes = planeSpan(surface);
         request.frameResults = &frameResults;
 
-        EXPECT_EQ(pek::osd::drawRasterOsd(request), pek::osd::RasterDrawStatus::Drawn)
+        EXPECT_EQ(pek::osd::drawDebugOverlay(request), pek::osd::DebugOverlayStatus::Drawn)
             << static_cast<int>(format);
         EXPECT_TRUE(activeAreaChanged(surface)) << static_cast<int>(format);
         expectPaddingUnchanged(surface);
     }
 }
 
-TEST(RasterOsdTest, DrawsCameraContactMarkersInAllSupportedFormats) {
+TEST(DebugOverlayRendererTest, DrawsCameraContactMarkersInAllSupportedFormats) {
     constexpr std::array formats{
         RawImagePixelFormat::Bgra,
         RawImagePixelFormat::Rgb,
@@ -784,21 +784,21 @@ TEST(RasterOsdTest, DrawsCameraContactMarkersInAllSupportedFormats) {
     for (const auto format : formats) {
         auto surface = makeSurface(format, 128, 96);
 
-        pek::osd::RasterDrawRequest request;
+        pek::osd::DebugOverlayRequest request;
         request.surface.format = format;
         request.surface.width = surface.width;
         request.surface.height = surface.height;
         request.surface.planes = planeSpan(surface);
         request.frameResults = &frameResults;
 
-        EXPECT_EQ(pek::osd::drawRasterOsd(request), pek::osd::RasterDrawStatus::Drawn)
+        EXPECT_EQ(pek::osd::drawDebugOverlay(request), pek::osd::DebugOverlayStatus::Drawn)
             << static_cast<int>(format);
         EXPECT_TRUE(activeAreaChanged(surface)) << static_cast<int>(format);
         expectPaddingUnchanged(surface);
     }
 }
 
-TEST(RasterOsdTest, DrawsPersonClassificationInAllSupportedFormats) {
+TEST(DebugOverlayRendererTest, DrawsPersonClassificationInAllSupportedFormats) {
     constexpr std::array formats{
         RawImagePixelFormat::Bgra,
         RawImagePixelFormat::Rgb,
@@ -811,7 +811,7 @@ TEST(RasterOsdTest, DrawsPersonClassificationInAllSupportedFormats) {
     for (const auto format : formats) {
         auto surface = makeSurface(format, 240, 160);
 
-        pek::osd::RasterDrawRequest request;
+        pek::osd::DebugOverlayRequest request;
         request.surface.format = format;
         request.surface.width = surface.width;
         request.surface.height = surface.height;
@@ -819,14 +819,14 @@ TEST(RasterOsdTest, DrawsPersonClassificationInAllSupportedFormats) {
         request.frameResults = &frameResults;
 
         waitForPersonClassificationBlinkOn();
-        EXPECT_EQ(pek::osd::drawRasterOsd(request), pek::osd::RasterDrawStatus::Drawn)
+        EXPECT_EQ(pek::osd::drawDebugOverlay(request), pek::osd::DebugOverlayStatus::Drawn)
             << static_cast<int>(format);
         EXPECT_TRUE(activeAreaChanged(surface)) << static_cast<int>(format);
         expectPaddingUnchanged(surface);
     }
 }
 
-TEST(RasterOsdTest, DrawsClassificationListsLeftAndRightInAllSupportedFormats) {
+TEST(DebugOverlayRendererTest, DrawsClassificationListsLeftAndRightInAllSupportedFormats) {
     constexpr std::array formats{
         RawImagePixelFormat::Bgra,
         RawImagePixelFormat::Rgb,
@@ -839,21 +839,21 @@ TEST(RasterOsdTest, DrawsClassificationListsLeftAndRightInAllSupportedFormats) {
     for (const auto format : formats) {
         auto surface = makeSurface(format, 320, 180);
 
-        pek::osd::RasterDrawRequest request;
+        pek::osd::DebugOverlayRequest request;
         request.surface.format = format;
         request.surface.width = surface.width;
         request.surface.height = surface.height;
         request.surface.planes = planeSpan(surface);
         request.frameResults = &frameResults;
 
-        EXPECT_EQ(pek::osd::drawRasterOsd(request), pek::osd::RasterDrawStatus::Drawn)
+        EXPECT_EQ(pek::osd::drawDebugOverlay(request), pek::osd::DebugOverlayStatus::Drawn)
             << static_cast<int>(format);
         EXPECT_TRUE(activeAreaChanged(surface)) << static_cast<int>(format);
         expectPaddingUnchanged(surface);
     }
 }
 
-TEST(RasterOsdTest, DrawsPerformanceOverlayInAllSupportedFormats) {
+TEST(DebugOverlayRendererTest, DrawsPerformanceOverlayInAllSupportedFormats) {
     constexpr std::array formats{
         RawImagePixelFormat::Bgra,
         RawImagePixelFormat::Rgb,
@@ -866,7 +866,7 @@ TEST(RasterOsdTest, DrawsPerformanceOverlayInAllSupportedFormats) {
     for (const auto format : formats) {
         auto surface = makeSurface(format, 180, 48);
 
-        pek::osd::RasterDrawRequest request;
+        pek::osd::DebugOverlayRequest request;
         request.surface.format = format;
         request.surface.width = surface.width;
         request.surface.height = surface.height;
@@ -874,14 +874,14 @@ TEST(RasterOsdTest, DrawsPerformanceOverlayInAllSupportedFormats) {
         request.frameResults = &frameResults;
         request.options.performanceOverlayEnabled = true;
 
-        EXPECT_EQ(pek::osd::drawRasterOsd(request), pek::osd::RasterDrawStatus::Drawn)
+        EXPECT_EQ(pek::osd::drawDebugOverlay(request), pek::osd::DebugOverlayStatus::Drawn)
             << static_cast<int>(format);
         EXPECT_TRUE(activeAreaChanged(surface)) << static_cast<int>(format);
         expectPaddingUnchanged(surface);
     }
 }
 
-TEST(RasterOsdTest, DrawsPerformanceOverlayAsRectangularBlock) {
+TEST(DebugOverlayRendererTest, DrawsPerformanceOverlayAsRectangularBlock) {
     perception::FrameResults frameResults;
     perception::appendPerformanceOverlay(frameResults,
                                          {
@@ -891,7 +891,7 @@ TEST(RasterOsdTest, DrawsPerformanceOverlayAsRectangularBlock) {
                                          });
     auto surface = makeSurface(RawImagePixelFormat::Bgra, 360, 80);
 
-    pek::osd::RasterDrawRequest request;
+    pek::osd::DebugOverlayRequest request;
     request.surface.format = surface.format;
     request.surface.width = surface.width;
     request.surface.height = surface.height;
@@ -899,7 +899,7 @@ TEST(RasterOsdTest, DrawsPerformanceOverlayAsRectangularBlock) {
     request.frameResults = &frameResults;
     request.options.performanceOverlayEnabled = true;
 
-    ASSERT_EQ(pek::osd::drawRasterOsd(request), pek::osd::RasterDrawStatus::Drawn);
+    ASSERT_EQ(pek::osd::drawDebugOverlay(request), pek::osd::DebugOverlayStatus::Drawn);
 
     std::vector<int> changedRowWidths;
     for (std::uint32_t y = 0; y < surface.height; ++y) {
@@ -918,11 +918,11 @@ TEST(RasterOsdTest, DrawsPerformanceOverlayAsRectangularBlock) {
     expectPaddingUnchanged(surface);
 }
 
-TEST(RasterOsdTest, SkipsPerformanceOverlayWhenDisabled) {
+TEST(DebugOverlayRendererTest, SkipsPerformanceOverlayWhenDisabled) {
     auto surface = makeSurface(RawImagePixelFormat::Bgra, 180, 48);
     const auto frameResults = makePerformanceOverlayFrameResults();
 
-    pek::osd::RasterDrawRequest request;
+    pek::osd::DebugOverlayRequest request;
     request.surface.format = surface.format;
     request.surface.width = surface.width;
     request.surface.height = surface.height;
@@ -930,7 +930,7 @@ TEST(RasterOsdTest, SkipsPerformanceOverlayWhenDisabled) {
     request.frameResults = &frameResults;
     request.options.performanceOverlayEnabled = false;
 
-    EXPECT_EQ(pek::osd::drawRasterOsd(request), pek::osd::RasterDrawStatus::Drawn);
+    EXPECT_EQ(pek::osd::drawDebugOverlay(request), pek::osd::DebugOverlayStatus::Drawn);
     EXPECT_FALSE(activeAreaChanged(surface));
     expectPaddingUnchanged(surface);
 }

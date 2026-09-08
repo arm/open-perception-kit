@@ -3,11 +3,11 @@
  *************************************************************/
 
 /**
- * @file RasterOsd.cpp
- * @brief Raster-backed rendering implementation for the PEK OSD element.
+ * @file DebugOverlayRenderer.cpp
+ * @brief Debug decoration rendering implementation for the PEK OSD element.
  */
 
-#include "RasterOsd.h"
+#include "DebugOverlayRenderer.h"
 
 #include "pek/Color.h"
 #include "pek/Tools.h"
@@ -154,7 +154,7 @@ pek::Color colorForTrack(std::uint64_t trackId) noexcept {
     return TrackTracePalette[trackId % TrackTracePalette.size()];
 }
 
-pek::raster::ImageSurfaceView makeImageSurfaceView(const RasterSurface &surface) noexcept {
+pek::raster::ImageSurfaceView makeImageSurfaceView(const DebugOverlaySurface &surface) noexcept {
     return {
         .format = surface.format,
         .width = surface.width,
@@ -203,6 +203,8 @@ PerformanceLineParts parsePerformanceLine(std::string_view line) noexcept {
     if (separator == std::string_view::npos) {
         return {
             .label = trimTrailingSpaces(line),
+            .value = {},
+            .hasSeparator = false,
         };
     }
 
@@ -288,7 +290,7 @@ int clampRasterEdge(double value, std::uint32_t upper) noexcept {
     return static_cast<int>(std::lround(value));
 }
 
-bool makePixelBox(const RasterSurface &surface,
+bool makePixelBox(const DebugOverlaySurface &surface,
                   const perception::metadata::BoundingBoxT &box,
                   PixelBox &out) noexcept {
     if (surface.width == 0U || surface.height == 0U || !std::isfinite(box.x) ||
@@ -386,7 +388,7 @@ void drawSimpleArrow(pek::raster::SurfacePainter &painter,
 
 void drawSegmentationMasks(const pek::raster::ImageSurfaceView &surface,
                            const perception::FrameResults &frameResults,
-                           const RasterDrawOptions &options) {
+                           const DebugOverlayOptions &options) {
     frameResults.for_each<perception::metadata::SegmentationMasksT>(
         [&](const auto &payload) { // NOSONAR: payload handling stays local to traversal.
             if (!isSegmentationLayer(payload.layer.get())) {
@@ -543,7 +545,7 @@ findOnlyHumanFaceDetection(const perception::FrameResults &frameResults, std::ui
 }
 
 void drawHumanFaceCircle(pek::raster::SurfacePainter &painter,
-                         const RasterSurface &surface,
+                         const DebugOverlaySurface &surface,
                          const perception::metadata::BoundingBoxT &box) noexcept {
     PixelBox pixelBox;
     if (!makePixelBox(surface, box, pixelBox)) {
@@ -557,7 +559,7 @@ void drawHumanFaceCircle(pek::raster::SurfacePainter &painter,
 }
 
 void drawHumanFaceDetections(pek::raster::SurfacePainter &painter,
-                             const RasterSurface &surface,
+                             const DebugOverlaySurface &surface,
                              const perception::FrameResults &frameResults,
                              const std::set<std::uint64_t> &trackedSourceIds) {
     frameResults.for_each<perception::metadata::BoxDetectionsT>(
@@ -578,7 +580,7 @@ void drawHumanFaceDetections(pek::raster::SurfacePainter &painter,
 }
 
 void drawHumanFaceTracks(pek::raster::SurfacePainter &painter,
-                         const RasterSurface &surface,
+                         const DebugOverlaySurface &surface,
                          const perception::FrameResults &frameResults) {
     frameResults.for_each<perception::metadata::ObjectTracksT>(
         [&painter, &surface](const auto &payload) {
@@ -597,7 +599,7 @@ void drawHumanFaceTracks(pek::raster::SurfacePainter &painter,
 }
 
 void drawHumanFaces(pek::raster::SurfacePainter &painter,
-                    const RasterSurface &surface,
+                    const DebugOverlaySurface &surface,
                     const perception::FrameResults &frameResults) {
     const auto trackedSourceIds = collectTrackedSourceIds(frameResults, HumanFaceContentType);
     drawHumanFaceDetections(painter, surface, frameResults, trackedSourceIds);
@@ -605,7 +607,7 @@ void drawHumanFaces(pek::raster::SurfacePainter &painter,
 }
 
 void drawLabelledBox(pek::raster::SurfacePainter &painter,
-                     const RasterSurface &surface,
+                     const DebugOverlaySurface &surface,
                      const perception::metadata::BoundingBoxT &box,
                      std::string_view label) noexcept {
     PixelBox pixelBox;
@@ -627,7 +629,7 @@ void drawLabelledBox(pek::raster::SurfacePainter &painter,
 }
 
 void drawGenericObjectDetections(pek::raster::SurfacePainter &painter,
-                                 const RasterSurface &surface,
+                                 const DebugOverlaySurface &surface,
                                  const perception::FrameResults &frameResults,
                                  const std::set<std::uint64_t> &trackedSourceIds) {
     frameResults.for_each<perception::metadata::BoxDetectionsT>(
@@ -648,7 +650,7 @@ void drawGenericObjectDetections(pek::raster::SurfacePainter &painter,
 }
 
 void drawGenericObjectTracks(pek::raster::SurfacePainter &painter,
-                             const RasterSurface &surface,
+                             const DebugOverlaySurface &surface,
                              const perception::FrameResults &frameResults) {
     frameResults.for_each<perception::metadata::ObjectTracksT>(
         [&painter, &surface](const auto &payload) {
@@ -667,7 +669,7 @@ void drawGenericObjectTracks(pek::raster::SurfacePainter &painter,
 }
 
 void drawLabelledBoxes(pek::raster::SurfacePainter &painter,
-                       const RasterSurface &surface,
+                       const DebugOverlaySurface &surface,
                        const perception::FrameResults &frameResults) {
     const auto trackedSourceIds = collectTrackedSourceIds(frameResults, GenericObjectContentType);
     drawGenericObjectDetections(painter, surface, frameResults, trackedSourceIds);
@@ -675,7 +677,7 @@ void drawLabelledBoxes(pek::raster::SurfacePainter &painter,
 }
 
 void drawGazeVector(pek::raster::SurfacePainter &painter,
-                    const RasterSurface &surface,
+                    const DebugOverlaySurface &surface,
                     const perception::FrameResults &frameResults,
                     const perception::metadata::PoseEstimationT &pose) {
     if (!pose.object || !std::isfinite(pose.yaw) || !std::isfinite(pose.pitch)) {
@@ -706,7 +708,7 @@ void drawGazeVector(pek::raster::SurfacePainter &painter,
 }
 
 void drawGazeVectors(pek::raster::SurfacePainter &painter,
-                     const RasterSurface &surface,
+                     const DebugOverlaySurface &surface,
                      const perception::FrameResults &frameResults) {
     frameResults.for_each<perception::metadata::PoseEstimationsT>(
         [&painter, &surface, &frameResults](const auto &payload) {
@@ -723,7 +725,7 @@ void drawGazeVectors(pek::raster::SurfacePainter &painter,
 }
 
 void drawCameraContactMarker(pek::raster::SurfacePainter &painter,
-                             const RasterSurface &surface,
+                             const DebugOverlaySurface &surface,
                              const perception::FrameResults &frameResults,
                              const perception::metadata::ClassificationT &classification) {
     if (!classification.object || classification.candidates.empty() ||
@@ -767,7 +769,7 @@ void drawCameraContactMarker(pek::raster::SurfacePainter &painter,
 }
 
 void drawCameraContactMarkers(pek::raster::SurfacePainter &painter,
-                              const RasterSurface &surface,
+                              const DebugOverlaySurface &surface,
                               const perception::FrameResults &frameResults) {
     frameResults.for_each<perception::metadata::ClassificationsT>(
         [&painter, &surface, &frameResults](const auto &payload) {
@@ -784,7 +786,7 @@ void drawCameraContactMarkers(pek::raster::SurfacePainter &painter,
 }
 
 void drawPersonPresence(pek::raster::SurfacePainter &painter,
-                        const RasterSurface &surface,
+                        const DebugOverlaySurface &surface,
                         const perception::metadata::PersonPresenceT &presence) {
     if (surface.width == 0U || surface.height == 0U || pek::Time::utcMs() % 1000U >= 800U) {
         return;
@@ -804,7 +806,7 @@ void drawPersonPresence(pek::raster::SurfacePainter &painter,
 }
 
 void drawPersonClassifications(pek::raster::SurfacePainter &painter,
-                               const RasterSurface &surface,
+                               const DebugOverlaySurface &surface,
                                const perception::FrameResults &frameResults) {
     frameResults.for_each<perception::metadata::ClassificationsT>(
         [&painter, &surface](const auto &payload) {
@@ -821,7 +823,7 @@ void drawPersonClassifications(pek::raster::SurfacePainter &painter,
 }
 
 int drawClassificationList(pek::raster::SurfacePainter &painter,
-                           const RasterSurface &surface,
+                           const DebugOverlaySurface &surface,
                            bool alignRight,
                            int bottomOffset,
                            std::string_view heading,
@@ -870,7 +872,7 @@ int drawClassificationList(pek::raster::SurfacePainter &painter,
 }
 
 void drawImageClassifications(pek::raster::SurfacePainter &painter,
-                              const RasterSurface &surface,
+                              const DebugOverlaySurface &surface,
                               const perception::FrameResults &frameResults) {
     int leftBottomOffset = 0;
     int rightBottomOffset = 0;
@@ -896,7 +898,7 @@ void drawImageClassifications(pek::raster::SurfacePainter &painter,
 }
 
 void drawPerformanceOverlay(pek::raster::SurfacePainter &painter,
-                            const RasterSurface &surface,
+                            const DebugOverlaySurface &surface,
                             const perception::FrameResults &frameResults) {
     if (surface.height == 0U) {
         return;
@@ -928,7 +930,7 @@ void drawPerformanceOverlay(pek::raster::SurfacePainter &painter,
 
 } // namespace
 
-bool supportsRasterSurfaceFormat(pek::RawImagePixelFormat format) noexcept {
+bool supportsDebugOverlayFormat(pek::RawImagePixelFormat format) noexcept {
     using enum pek::RawImagePixelFormat;
 
     switch (format) {
@@ -943,12 +945,12 @@ bool supportsRasterSurfaceFormat(pek::RawImagePixelFormat format) noexcept {
     }
 }
 
-RasterDrawStatus drawRasterOsd(const RasterDrawRequest &request) noexcept {
+DebugOverlayStatus drawDebugOverlay(const DebugOverlayRequest &request) noexcept {
     if (request.frameResults == nullptr) {
-        return RasterDrawStatus::MissingFrameResults;
+        return DebugOverlayStatus::MissingFrameResults;
     }
-    if (!supportsRasterSurfaceFormat(request.surface.format)) {
-        return RasterDrawStatus::UnsupportedFormat;
+    if (!supportsDebugOverlayFormat(request.surface.format)) {
+        return DebugOverlayStatus::UnsupportedFormat;
     }
 
     pek::raster::SurfacePainter painter(request.surface.format,
@@ -958,7 +960,7 @@ RasterDrawStatus drawRasterOsd(const RasterDrawRequest &request) noexcept {
                                         request.surface.yuvMatrix,
                                         request.surface.yuvRange);
     if (!painter.valid()) {
-        return RasterDrawStatus::InvalidSurface;
+        return DebugOverlayStatus::InvalidSurface;
     }
 
     drawSegmentationMasks(
@@ -974,7 +976,7 @@ RasterDrawStatus drawRasterOsd(const RasterDrawRequest &request) noexcept {
         drawPerformanceOverlay(painter, request.surface, *request.frameResults);
     }
 
-    return RasterDrawStatus::Drawn;
+    return DebugOverlayStatus::Drawn;
 }
 
 } // namespace pek::osd

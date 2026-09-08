@@ -2,7 +2,7 @@
  * Copyright (C) 2025 Arm Limited. All rights reserved.
  *************************************************************/
 
-#include "RasterOsd.h"
+#include "DebugOverlayRenderer.h"
 #include "gst/FrameResultsMeta.h"
 #include "pek/Bitmap.h"
 #include "pek/FrameResults.h"
@@ -381,7 +381,7 @@ static pek::YuvRange yuvRangeFromGst(const GstVideoColorimetry &colorimetry) noe
     }
 }
 
-static std::size_t rasterPlaneByteSize(const GstVideoFrame &frame, guint plane) noexcept {
+static std::size_t debugOverlayPlaneByteSize(const GstVideoFrame &frame, guint plane) noexcept {
     const auto &info = frame.info;
     if (info.finfo == nullptr) {
         return 0U;
@@ -402,11 +402,11 @@ static std::size_t rasterPlaneByteSize(const GstVideoFrame &frame, guint plane) 
     return strideBytes * static_cast<std::size_t>(height);
 }
 
-static Osd::RasterDrawRequest
-makeRasterDrawRequest(GstPekOsd *self,
-                      const GstVideoFrame *frame,
-                      const perception::FrameResults &frameResults,
-                      std::array<pek::ImagePlaneDesc, pek::MaxImagePlaneCount> &planes) noexcept {
+static Osd::DebugOverlayRequest
+makeDebugOverlayRequest(GstPekOsd *self,
+                        const GstVideoFrame *frame,
+                        const perception::FrameResults &frameResults,
+                        std::array<pek::ImagePlaneDesc, pek::MaxImagePlaneCount> &planes) noexcept {
     const auto &info = frame->info;
     const auto format = rawImagePixelFormatFromGst(GST_VIDEO_INFO_FORMAT(&info));
     const auto width = static_cast<std::uint32_t>(GST_VIDEO_INFO_WIDTH(&info));
@@ -417,7 +417,7 @@ makeRasterDrawRequest(GstPekOsd *self,
         auto *data = static_cast<std::uint8_t *>(
             GST_VIDEO_FRAME_PLANE_DATA(frame, static_cast<guint>(plane)));
         const gint stride = GST_VIDEO_FRAME_PLANE_STRIDE(frame, static_cast<guint>(plane));
-        const auto byteCount = rasterPlaneByteSize(*frame, static_cast<guint>(plane));
+        const auto byteCount = debugOverlayPlaneByteSize(*frame, static_cast<guint>(plane));
         if (data == nullptr || stride <= 0 || byteCount == 0U) {
             planes[plane] = {};
             continue;
@@ -437,9 +437,9 @@ makeRasterDrawRequest(GstPekOsd *self,
     const auto yuvRange = isYuvFormat(format) ? yuvRangeFromGst(GST_VIDEO_INFO_COLORIMETRY(&info))
                                               : pek::YuvRange::Unknown;
 
-    return Osd::RasterDrawRequest{
+    return Osd::DebugOverlayRequest{
         .surface =
-            Osd::RasterSurface{
+            Osd::DebugOverlaySurface{
                 .format = format,
                 .width = width,
                 .height = height,
@@ -449,15 +449,15 @@ makeRasterDrawRequest(GstPekOsd *self,
             },
         .frameResults = &frameResults,
         .options =
-            Osd::RasterDrawOptions{
+            Osd::DebugOverlayOptions{
                 .performanceOverlayEnabled = self->performanceOverlayEnabled ? true : false,
                 .backgroundImage = self->bgImage ? &*self->bgImage : nullptr,
             },
     };
 }
 
-static const char *rasterDrawStatusName(Osd::RasterDrawStatus status) noexcept {
-    using enum Osd::RasterDrawStatus;
+static const char *debugOverlayStatusName(Osd::DebugOverlayStatus status) noexcept {
+    using enum Osd::DebugOverlayStatus;
 
     switch (status) {
     case Drawn:
@@ -483,11 +483,12 @@ static GstFlowReturn gst_pek_osd_transform_frame_ip(GstVideoFilter *filter, GstV
     PEK_PERF_SCOPE("osd/render");
 
     if (auto frameResults = pek::FrameResultsMeta::read(frame->buffer); frameResults != nullptr) {
-        std::array<pek::ImagePlaneDesc, pek::MaxImagePlaneCount> rasterPlanes{};
-        const auto request = makeRasterDrawRequest(self, frame, *frameResults, rasterPlanes);
-        const auto status = Osd::drawRasterOsd(request);
-        if (status != Osd::RasterDrawStatus::Drawn) {
-            GST_WARNING_OBJECT(self, "Raster OSD failed: %s", rasterDrawStatusName(status));
+        std::array<pek::ImagePlaneDesc, pek::MaxImagePlaneCount> debugOverlayPlanes{};
+        const auto request =
+            makeDebugOverlayRequest(self, frame, *frameResults, debugOverlayPlanes);
+        const auto status = Osd::drawDebugOverlay(request);
+        if (status != Osd::DebugOverlayStatus::Drawn) {
+            GST_WARNING_OBJECT(self, "Debug overlay failed: %s", debugOverlayStatusName(status));
         }
     }
 

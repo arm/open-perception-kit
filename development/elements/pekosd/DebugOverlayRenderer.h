@@ -3,8 +3,8 @@
  *************************************************************/
 
 /**
- * @file RasterOsd.h
- * @brief Raster-backed rendering boundary for the PEK OSD element.
+ * @file DebugOverlayRenderer.h
+ * @brief Debug decoration rendering boundary for the PEK OSD element.
  */
 
 #pragma once
@@ -19,9 +19,9 @@
 namespace pek::osd {
 
 /**
- * @brief Writable video surface used by the raster OSD renderer.
+ * @brief Writable video surface used by the debug overlay renderer.
  */
-struct RasterSurface {
+struct DebugOverlaySurface {
     /** @brief Pixel layout of the target video frame. */
     pek::RawImagePixelFormat format = pek::RawImagePixelFormat::Unknown;
 
@@ -42,9 +42,9 @@ struct RasterSurface {
 };
 
 /**
- * @brief Runtime options that affect which overlays are drawn.
+ * @brief Runtime options that affect which debug decorations are drawn.
  */
-struct RasterDrawOptions {
+struct DebugOverlayOptions {
     /** @brief Draw PerformanceOverlayT payloads when present. */
     bool performanceOverlayEnabled = true;
 
@@ -53,30 +53,30 @@ struct RasterDrawOptions {
 };
 
 /**
- * @brief Complete raster OSD draw request.
+ * @brief Complete debug overlay draw request.
  */
-struct RasterDrawRequest {
+struct DebugOverlayRequest {
     /** @brief Destination surface to draw into. */
-    RasterSurface surface{};
+    DebugOverlaySurface surface{};
 
     /** @brief FrameResults metadata that drives overlay rendering. */
     const perception::FrameResults *frameResults = nullptr;
 
-    /** @brief OSD rendering options. */
-    RasterDrawOptions options{};
+    /** @brief Debug overlay rendering options. */
+    DebugOverlayOptions options{};
 };
 
 /**
- * @brief Result of dispatching a raster OSD draw request.
+ * @brief Result of dispatching a debug overlay draw request.
  */
-enum class RasterDrawStatus {
+enum class DebugOverlayStatus {
     /** Request was accepted and drawing completed. */
     Drawn,
 
     /** No FrameResults metadata was supplied. */
     MissingFrameResults,
 
-    /** Target pixel format is not supported by the raster OSD path. */
+    /** Target pixel format is not supported by the debug overlay renderer. */
     UnsupportedFormat,
 
     /** Target planes, dimensions, or strides are not writable/valid. */
@@ -84,16 +84,16 @@ enum class RasterDrawStatus {
 };
 
 /**
- * @brief Returns true when the raster OSD path can target @p format.
+ * @brief Returns true when the debug overlay renderer can target @p format.
  */
-[[nodiscard]] bool supportsRasterSurfaceFormat(pek::RawImagePixelFormat format) noexcept;
+[[nodiscard]] bool supportsDebugOverlayFormat(pek::RawImagePixelFormat format) noexcept;
 
 /**
- * @brief Validates and dispatches raster OSD rendering for a frame.
+ * @brief Validates and dispatches debug overlay rendering for a frame.
  *
  * This entry point is the handoff boundary from the GStreamer element into the
- * direct raster implementation.
+ * direct debug decoration implementation.
  */
-[[nodiscard]] RasterDrawStatus drawRasterOsd(const RasterDrawRequest &request) noexcept;
+[[nodiscard]] DebugOverlayStatus drawDebugOverlay(const DebugOverlayRequest &request) noexcept;
 
 } // namespace pek::osd

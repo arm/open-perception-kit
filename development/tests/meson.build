@@ -54,7 +54,7 @@ base64_tests = executable(
 
 surface_painter_tests = executable(
   'surface_painter_tests',
-  ['surface_painter_test.cpp', '../elements/pekosd/RasterOsd.cpp'],
+  ['surface_painter_test.cpp', '../elements/pekosd/DebugOverlayRenderer.cpp'],
   include_directories : [common_include, include_directories('../elements/pekosd')],
   dependencies : [gtest_main_dep, gtest_dep, pek_deps],
   link_with : [common],
