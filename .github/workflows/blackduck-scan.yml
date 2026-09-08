@@ -403,7 +403,7 @@ jobs:
     env:
       BASE_SHA: ${{ inputs.base_sha }}
       BLACKDUCK_VERSION: ${{ inputs.version_name }}
-      BLACKDUCK_SNIPPET_EXCLUDED_DIRECTORIES: generated/perception/rust/src/fb,generated/perception/rust/src/flowdata_internal/internalfb
+      BLACKDUCK_SNIPPET_EXCLUDED_DIRECTORIES: generated/perception
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       PEK_CI_IMAGE: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-pek-ci
       PEK_CI_IMAGE_SOURCE: ${{ inputs.ci_image_ref }}
