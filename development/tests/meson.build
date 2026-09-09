@@ -56,6 +56,9 @@ surface_painter_tests = executable(
   'surface_painter_tests',
   ['surface_painter_test.cpp', '../elements/pekosd/DebugOverlayRenderer.cpp'],
   include_directories : [common_include, include_directories('../elements/pekosd')],
+  dependencies : [gtest_main_dep, gtest_dep, pek_deps],
+  link_with : [common],
+)
 
 gst_meta_wrapper_tests = executable(
   'gst_meta_wrapper_tests',
@@ -372,11 +375,8 @@ test(
 )
 test('model_descriptor_tests', model_descriptor_tests)
 test('base64_tests', base64_tests)
-<<<<<<< HEAD
 test('surface_painter_tests', surface_painter_tests)
-=======
 test('gst_meta_wrapper_tests', gst_meta_wrapper_tests)
->>>>>>> origin/develop
 test('model_registry_tests', model_registry_tests)
 test(
   'opchain_display_metadata_tests',
