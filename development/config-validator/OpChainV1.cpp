@@ -16,11 +16,16 @@ namespace {
 constexpr std::string_view Controller = "pek-std-ops/InferenceController";
 constexpr std::string_view Preprocess = "pek-std-ops/GenericImagePreprocess";
 constexpr std::string_view Postprocess = "pek-std-ops/GenericPostprocess";
+constexpr std::string_view PythonScript = "pek-python-ops/PythonScript";
 using Ops = std::vector<pek::op::OpChainDescriptor::Op>;
 
 bool isBuiltInStageOp(std::string_view id) {
     return id == Controller || id == Preprocess || id == Postprocess ||
            pek::op::isInferenceOpId(id);
+}
+
+bool isTerminalPostprocess(std::string_view id) {
+    return id == Postprocess || id == PythonScript;
 }
 
 std::optional<std::string> stringAttribute(const pek::AttributeMap &attributes,
@@ -187,8 +192,11 @@ bool validateStageShape(ValidationReport &report,
                       controller + 2,
                       "preprocessing must be immediately followed by backend inference");
     }
-    if (ops[end - 1].id != Postprocess) {
-        addStageIssue(report, source, end - 1, "built-in stage must end with GenericPostprocess");
+    if (!isTerminalPostprocess(ops[end - 1].id)) {
+        addStageIssue(report,
+                      source,
+                      end - 1,
+                      "built-in stage must end with GenericPostprocess or PythonScript");
     }
 
     for (std::size_t index = controller + 3; index + 1 < end; ++index) {
@@ -206,12 +214,13 @@ bool validateStageShape(ValidationReport &report,
             [first, last](const auto &predicate) { return std::count_if(first, last, predicate); };
         count([](const auto &op) { return op.id == Preprocess; }) != 1 ||
         count([](const auto &op) { return pek::op::isInferenceOpId(op.id); }) != 1 ||
-        count([](const auto &op) { return op.id == Postprocess; }) != 1) {
+        count([](const auto &op) { return op.id == Postprocess; }) !=
+            (ops[end - 1].id == Postprocess ? 1 : 0)) {
         addStageIssue(report,
                       source,
                       controller,
-                      "built-in stage must contain exactly one preprocess, inference, and "
-                      "postprocess operation");
+                      "built-in stage must contain exactly one preprocess and inference "
+                      "operation followed by one terminal postprocess operation");
     }
     return true;
 }

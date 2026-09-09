@@ -487,6 +487,14 @@ static GstFlowReturn gst_pek_osd_transform_frame_ip(GstVideoFilter *filter, GstV
         const auto request =
             makeDebugOverlayRequest(self, frame, *frameResults, debugOverlayPlanes);
         const auto status = Osd::drawDebugOverlay(request);
+        if (status == Osd::DebugOverlayStatus::InvalidSurface) {
+            GST_ELEMENT_ERROR(self,
+                              RESOURCE,
+                              READ,
+                              ("Failed to access video frame data"),
+                              ("Debug overlay surface is invalid"));
+            return GST_FLOW_ERROR;
+        }
         if (status != Osd::DebugOverlayStatus::Drawn) {
             GST_WARNING_OBJECT(self, "Debug overlay failed: %s", debugOverlayStatusName(status));
         }

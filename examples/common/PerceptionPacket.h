@@ -32,7 +32,7 @@ class PerceptionPacket {
     visitFrameResultsPacketPayloads(std::span<const std::uint8_t> packet, Fn &&visitor) {
         auto frameResults = decodeFrameResultsPacket(packet);
         if (!frameResults) {
-            return tl::make_unexpected(std::move(frameResults.error()));
+            return tl::unexpected(std::move(frameResults.error()));
         }
 
         visitFrameResultsPayloads<Payload>(*frameResults, std::forward<Fn>(visitor));

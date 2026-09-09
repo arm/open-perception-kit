@@ -342,7 +342,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-  bash-completion bat clangd dnsutils eza fd-find firefox-esr fonts-powerline \
+  bash-completion bat clangd dnsutils eza fd-find ffmpeg firefox-esr fonts-powerline \
   gdb iproute2 iputils-arping iputils-ping less locales lua5.1 \
   luarocks mc nano neovim net-tools nmap openssh-client powerline ripgrep \
   tcpdump tmux traceroute tree-sitter-cli v4l-utils vim wl-clipboard \
@@ -550,7 +550,6 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
 
 COPY tools/perception/sdk.json /tmp/perception-sdk.json
 COPY development/ops-python/runtime.json /tmp/python-ops-runtime.json
-COPY generated/perception/python /tmp/perception-python
 COPY --chmod=0755 scripts/setup-python-ops-runtime.sh /usr/local/bin/setup-python-ops-runtime
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -563,13 +562,18 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   setup-python-ops-runtime \
     --venv /opt/pek-venvs/python-ops-runtime \
     --runtime-json /tmp/python-ops-runtime.json \
-    --sdk-json /tmp/perception-sdk.json \
-    --perception-sdk /tmp/perception-python; \
+    --sdk-json /tmp/perception-sdk.json; \
   rm -rf \
-    /tmp/perception-python \
     /tmp/perception-sdk.json \
     /tmp/python-ops-runtime.json \
     /var/lib/apt/lists/*
+
+COPY generated/perception/python /tmp/perception-python
+RUN set -eux; \
+  /opt/pek-venvs/python-ops-runtime/bin/pip install --no-cache-dir --no-deps \
+    /tmp/perception-python; \
+  /opt/pek-venvs/python-ops-runtime/bin/python -c 'import perception'; \
+  rm -rf /tmp/perception-python
 
 FROM pek-cross-build-base AS pek-deployment-build
 

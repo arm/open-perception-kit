@@ -4,6 +4,7 @@
 
 #include "TrackState.h"
 
+#include "Log.h"
 #include "Tracker.h"
 
 #include <algorithm>
@@ -102,7 +103,11 @@ Point2f correctCenterWithMeasurement(TrackState &track,
     measurementNoise[0][0] = config.kalmanMeasurementNoisePos;
     measurementNoise[1][1] = config.kalmanMeasurementNoisePos;
 
-    track.kalman.update(measurement, observation, measurementNoise);
+    if (!track.kalman.update(measurement, observation, measurementNoise)) {
+        pek::log::warning(
+            "[pektracker] Skipping Kalman correction because innovation covariance is singular\n");
+        return makePoint(measX, measY);
+    }
 
     const auto &state = track.kalman.state();
     return makePoint(state[0][0], state[1][0]);

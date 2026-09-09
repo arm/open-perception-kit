@@ -388,7 +388,7 @@ def stage_python_distribution(
         if (
             PYTHON_RUNTIME_EXCLUDED_PARTS & set(relative.parts)
             or source.suffix.lower() in PYTHON_RUNTIME_EXCLUDED_SUFFIXES
-            or source.name == "RECORD"
+            or source.name in {"RECORD", "direct_url.json"}
             or not source.is_file()
         ):
             continue

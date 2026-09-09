@@ -160,8 +160,11 @@ template <class Traits> class Meta {
 
     static gboolean transform(GstBuffer *dest, GstMeta *meta, GstBuffer *, GQuark, gpointer) {
         auto src = reinterpret_cast<MetaType *>(meta);
+        if (!src)
+            return FALSE;
+
         auto *dst = (MetaType *)gst_buffer_add_meta(dest, info(), nullptr);
-        if (!dst && !src)
+        if (!dst)
             return FALSE;
         dst->payload.~shared_ptr();
         new (&dst->payload) std::shared_ptr<Payload>(src->payload); // shallow copy

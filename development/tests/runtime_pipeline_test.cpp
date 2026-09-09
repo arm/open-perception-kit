@@ -4,13 +4,19 @@
 
 #include <gtest/gtest.h>
 
+#include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <string>
+#include <vector>
 
 #include "Log.h"
+#include "runtime/OpChain.h"
 #include "runtime/Pipeline.h"
+#include "runtime/VideoFrame.h"
 
 namespace {
 
@@ -167,4 +173,69 @@ TEST(RuntimePipelineBus, LogsStandardQosMessages) {
     EXPECT_NE(output.find("GStreamer QoS: source=qos_sink"), std::string::npos) << output;
     EXPECT_NE(output.find("format=buffers"), std::string::npos);
     EXPECT_NE(output.find("dropped="), std::string::npos);
+}
+
+TEST(RuntimeVideoFrameValidation, RejectsInvalidBgraInputs) {
+    const std::vector<std::uint8_t> pixel(4U, 0U);
+
+    EXPECT_FALSE(pek::runtime::VideoFrame::copyBgra(nullptr, 4U, 1U, 1U).has_value());
+    EXPECT_FALSE(pek::runtime::VideoFrame::borrowBgra(nullptr, 4U, 1U, 1U).has_value());
+    EXPECT_FALSE(
+        pek::runtime::VideoFrame::borrowBgra(pixel.data(), pixel.size(), 0U, 1U).has_value());
+    EXPECT_FALSE(pek::runtime::VideoFrame::borrowBgra(pixel.data(), 3U, 1U, 1U).has_value());
+    EXPECT_FALSE(
+        pek::runtime::VideoFrame::moveBgra(std::vector<std::uint8_t>{}, 0U, 1U).has_value());
+    EXPECT_FALSE(
+        pek::runtime::VideoFrame::moveBgra(
+            std::vector<std::uint8_t>{}, std::numeric_limits<std::size_t>::max() / 4U + 1U, 1U)
+            .has_value());
+    EXPECT_FALSE(pek::runtime::VideoFrame::moveBgra(
+                     std::vector<std::uint8_t>{},
+                     static_cast<std::size_t>(std::numeric_limits<std::uint32_t>::max()) + 1U,
+                     1U)
+                     .has_value());
+    EXPECT_FALSE(
+        pek::runtime::VideoFrame::moveBgra(std::vector<std::uint8_t>(4U), 1U, 0U).has_value());
+    EXPECT_FALSE(
+        pek::runtime::VideoFrame::moveBgra(std::vector<std::uint8_t>(4U), 1U, 1U, 3U).has_value());
+    EXPECT_FALSE(
+        pek::runtime::VideoFrame::moveBgra(std::vector<std::uint8_t>(3U), 1U, 1U).has_value());
+}
+
+TEST(RuntimePipelineErrors, RejectsInvalidStateAndDescriptions) {
+    pek::runtime::Pipeline pipeline;
+    EXPECT_FALSE(pipeline.start().has_value());
+    EXPECT_FALSE(pipeline.pause().has_value());
+    EXPECT_FALSE(pipeline.stop().has_value());
+    EXPECT_FALSE(pipeline.wait().has_value());
+    EXPECT_FALSE(pipeline.attachFrameResultsProbe("missing").has_value());
+    EXPECT_FALSE(pek::runtime::Pipeline::addPluginPath("/does-not-exist/pek-plugins").has_value());
+    EXPECT_FALSE(pek::runtime::Pipeline::fromString("pek-element-that-does-not-exist").has_value());
+    EXPECT_FALSE(
+        pek::runtime::Pipeline::fromJsonFile("/does-not-exist/pek-pipeline.json").has_value());
+
+    const std::vector<std::string> invalidJson{
+        "[]",
+        "{}",
+        R"({"pipeline":""})",
+        R"({"pipeline":42})",
+        R"({"pipeline":[42]})",
+        R"({"pipeline":[]})",
+        "{",
+    };
+    for (const auto &contents : invalidJson) {
+        const auto path = writeTempPipelineJson(contents);
+        EXPECT_FALSE(pek::runtime::Pipeline::fromJsonFile(path.string()).has_value()) << contents;
+        std::filesystem::remove(path);
+    }
+}
+
+TEST(RuntimeOpChainErrors, RejectsMissingChain) {
+    pek::runtime::OpChain chain;
+    const pek::runtime::VideoFrame frame;
+
+    EXPECT_FALSE(chain.run(frame).has_value());
+    EXPECT_FALSE(chain.runPacket(frame).has_value());
+    EXPECT_FALSE(
+        pek::runtime::OpChain::fromJsonFile("/does-not-exist/pek-opchain.json").has_value());
 }

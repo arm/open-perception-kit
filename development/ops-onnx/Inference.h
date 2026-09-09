@@ -14,11 +14,10 @@
 #include "pek/Result.h"
 #include "pek/Types.h"
 
+#include <exception>
 #include <memory>
 #include <string>
 #include <vector>
-
-#include "pek/Result.h"
 
 namespace pek::onnx {
 
@@ -58,22 +57,33 @@ struct Tensor {
         return this->shape == shape;
     }
 
-    Ort::Value createOnnxTensor(const Ort::MemoryInfo &memInfo) {
-        if (this->type == pek::Dtype::Float32) {
-            return Ort::Value::CreateTensor<float>(memInfo,
-                                                   reinterpret_cast<float *>(getData()),
-                                                   getElementCount(),
-                                                   this->onnxShape,
-                                                   this->shape.rank);
-        } else if (this->type == pek::Dtype::Int64) {
-            return Ort::Value::CreateTensor<int64_t>(memInfo,
-                                                     reinterpret_cast<int64_t *>(getData()),
-                                                     getElementCount(),
-                                                     onnxShape,
-                                                     this->shape.rank);
-        } else {
-            assert(0);
+    pek::Result<Ort::Value> createOnnxTensor(const Ort::MemoryInfo &memInfo) {
+        try {
+            if (this->type == pek::Dtype::Float32) {
+                return Ort::Value::CreateTensor<float>(memInfo,
+                                                       reinterpret_cast<float *>(getData()),
+                                                       getElementCount(),
+                                                       this->onnxShape,
+                                                       this->shape.rank);
+            }
+            if (this->type == pek::Dtype::Int64) {
+                return Ort::Value::CreateTensor<int64_t>(memInfo,
+                                                         reinterpret_cast<int64_t *>(getData()),
+                                                         getElementCount(),
+                                                         onnxShape,
+                                                         this->shape.rank);
+            }
+        } catch (const Ort::Exception &error) {
+            const std::string message =
+                "Failed to create ONNX tensor: " + std::string(error.what());
+            pek::log::error("{}\n", message);
+            return tl::unexpected(PEK_ERROR(pek::ErrorFlag::TensorError, message));
         }
+
+        const std::string message =
+            "Unsupported ONNX tensor dtype " + std::to_string(static_cast<int>(this->type));
+        pek::log::error("{}\n", message);
+        return tl::unexpected(PEK_ERROR(pek::ErrorFlag::TensorError, message));
     }
 
   private:
@@ -138,7 +148,7 @@ struct Inference {
     std::unique_ptr<Ort::Session> session;
 
     Result<void> setupTensorsForModel();
-    void recreateInputTensor(size_t index, const pek::Shape &shape, pek::Dtype valueType);
+    Result<void> recreateInputTensor(size_t index, const pek::Shape &shape, pek::Dtype valueType);
 
     pek::ModelDescriptor modelDescriptor;
     pek::Model model;

@@ -56,6 +56,12 @@ surface_painter_tests = executable(
   'surface_painter_tests',
   ['surface_painter_test.cpp', '../elements/pekosd/DebugOverlayRenderer.cpp'],
   include_directories : [common_include, include_directories('../elements/pekosd')],
+
+gst_meta_wrapper_tests = executable(
+  'gst_meta_wrapper_tests',
+  ['gst_meta_wrapper_test.cpp'],
+  include_directories : [common_include],
+
   dependencies : [gtest_main_dep, gtest_dep, pek_deps],
   link_with : [common],
 )
@@ -99,6 +105,17 @@ if python_ops_enabled
     'python_classification_demo_tests',
     test_python,
     args : [files('python_classification_demo_test.py')],
+  )
+  byom_blazeface_example_test_env = environment()
+  byom_blazeface_example_test_env.prepend(
+    'PYTHONPATH',
+    meson.project_source_root() / '../generated/perception/python/src',
+  )
+  test(
+    'byom_blazeface_example_tests',
+    test_python,
+    args : [files('byom_blazeface_example_test.py')],
+    env : byom_blazeface_example_test_env,
   )
   python_classification_pipeline_test_env = environment()
   python_classification_pipeline_test_env.prepend(
@@ -166,6 +183,14 @@ yolo_parser_tests = executable(
   include_directories : [common_include, include_directories('../ops-std')],
   cpp_args: ['-DFMT_HEADER_ONLY'],
   dependencies : [gtest_main_dep, gtest_dep, pek_deps],
+  link_with : [common],
+)
+
+onnx_tensor_tests = executable(
+  'onnx_tensor_tests',
+  ['onnx_tensor_test.cpp'],
+  include_directories : [common_include, include_directories('../ops-onnx')],
+  dependencies : [gtest_main_dep, gtest_dep, pek_deps, onnx_dep],
   link_with : [common],
 )
 
@@ -347,7 +372,11 @@ test(
 )
 test('model_descriptor_tests', model_descriptor_tests)
 test('base64_tests', base64_tests)
+<<<<<<< HEAD
 test('surface_painter_tests', surface_painter_tests)
+=======
+test('gst_meta_wrapper_tests', gst_meta_wrapper_tests)
+>>>>>>> origin/develop
 test('model_registry_tests', model_registry_tests)
 test(
   'opchain_display_metadata_tests',
@@ -366,6 +395,7 @@ test('kalman_filter_tests', kalman_filter_tests)
 test('hungarian_tests', hungarian_tests)
 test('iou_tests', iou_tests)
 test('yolo_parser_tests', yolo_parser_tests)
+test('onnx_tensor_tests', onnx_tensor_tests)
 test('logging_tests', logging_tests)
 test('logger_tests', logger_tests)
 test(

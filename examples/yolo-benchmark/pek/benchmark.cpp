@@ -141,12 +141,12 @@ pek::runtime::Result<pek::runtime::VideoFrame> loadFrame(const std::string &imag
     std::size_t height = 0;
     auto bgraPixels = pek::runtime::Tools::loadImageFileBgra(imagePath, width, height);
     if (!bgraPixels) {
-        return tl::make_unexpected(bgraPixels.error());
+        return tl::unexpected(bgraPixels.error());
     }
 
     auto frame = pek::runtime::VideoFrame::moveBgra(std::move(*bgraPixels), width, height);
     if (!frame) {
-        return tl::make_unexpected(frame.error());
+        return tl::unexpected(frame.error());
     }
 
     return std::move(*frame);

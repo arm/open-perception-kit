@@ -1,0 +1,12 @@
+{
+  "description": "Run pinned BlazeFace ONNX inference and publish caller-owned JSON through FrameResults NDJSON.",
+  "pipeline": [
+    "filesrc location=\"${PEK_PROJECT_ROOT}/data/videos/GettyImages-1129703310.mov\" !",
+    "decodebin !",
+    "videoconvert !",
+    "video/x-raw,format=BGRA !",
+    "pekinfer opchain-path=\"${BYOM_EXAMPLE_DIR}/opchain.json\" active=true !",
+    "pekcomm method=file file-name=\"${BYOM_RESULTS}\" !",
+    "fakesink sync=false"
+  ]
+}

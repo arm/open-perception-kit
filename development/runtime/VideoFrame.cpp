@@ -24,10 +24,10 @@ bool fitsUint32(std::size_t value) noexcept {
 
 Result<std::size_t> normalizedBgraStride(std::size_t width, std::size_t strideBytes) {
     if (width == 0) {
-        return tl::make_unexpected(Error(ErrorFlag::InvalidArgument, "VideoFrame width is zero"));
+        return tl::unexpected(Error(ErrorFlag::InvalidArgument, "VideoFrame width is zero"));
     }
     if (width > std::numeric_limits<std::size_t>::max() / bgraBytesPerPixel) {
-        return tl::make_unexpected(
+        return tl::unexpected(
             Error(ErrorFlag::InvalidArgument, "VideoFrame width overflows BGRA stride"));
     }
 
@@ -36,7 +36,7 @@ Result<std::size_t> normalizedBgraStride(std::size_t width, std::size_t strideBy
         return tightStride;
     }
     if (strideBytes < tightStride) {
-        return tl::make_unexpected(
+        return tl::unexpected(
             Error(ErrorFlag::InvalidArgument,
                   fmt::format("VideoFrame BGRA stride {} is smaller than tight stride {}",
                               strideBytes,
@@ -50,21 +50,20 @@ Result<void> validateBgraBuffer(std::size_t byteCount,
                                 std::size_t height,
                                 std::size_t strideBytes) {
     if (height == 0) {
-        return tl::make_unexpected(Error(ErrorFlag::InvalidArgument, "VideoFrame height is zero"));
+        return tl::unexpected(Error(ErrorFlag::InvalidArgument, "VideoFrame height is zero"));
     }
     if (!fitsUint32(width) || !fitsUint32(height) || !fitsUint32(strideBytes)) {
-        return tl::make_unexpected(
-            Error(ErrorFlag::InvalidArgument,
-                  "VideoFrame dimensions or stride exceed the supported range"));
+        return tl::unexpected(Error(ErrorFlag::InvalidArgument,
+                                    "VideoFrame dimensions or stride exceed the supported range"));
     }
     if (height > std::numeric_limits<std::size_t>::max() / strideBytes) {
-        return tl::make_unexpected(
+        return tl::unexpected(
             Error(ErrorFlag::InvalidArgument, "VideoFrame byte size calculation overflow"));
     }
 
     const std::size_t requiredBytes = height * strideBytes;
     if (byteCount < requiredBytes) {
-        return tl::make_unexpected(
+        return tl::unexpected(
             Error(ErrorFlag::InvalidArgument,
                   fmt::format("VideoFrame BGRA buffer has {} bytes, but {} are required",
                               byteCount,
@@ -102,8 +101,7 @@ Result<VideoFrame> VideoFrame::copyBgra(const std::uint8_t *data,
                                         std::size_t height,
                                         std::size_t strideBytes) {
     if (data == nullptr) {
-        return tl::make_unexpected(
-            Error(ErrorFlag::InvalidArgument, "VideoFrame source data is null"));
+        return tl::unexpected(Error(ErrorFlag::InvalidArgument, "VideoFrame source data is null"));
     }
 
     std::vector<std::uint8_t> pixels(data, data + byteCount);
@@ -124,18 +122,17 @@ Result<VideoFrame> VideoFrame::borrowBgra(const std::uint8_t *data,
                                           std::size_t height,
                                           std::size_t strideBytes) {
     if (data == nullptr) {
-        return tl::make_unexpected(
-            Error(ErrorFlag::InvalidArgument, "VideoFrame source data is null"));
+        return tl::unexpected(Error(ErrorFlag::InvalidArgument, "VideoFrame source data is null"));
     }
 
     auto normalizedStride = normalizedBgraStride(width, strideBytes);
     if (!normalizedStride) {
-        return tl::make_unexpected(std::move(normalizedStride.error()));
+        return tl::unexpected(std::move(normalizedStride.error()));
     }
 
     auto validBuffer = validateBgraBuffer(byteCount, width, height, *normalizedStride);
     if (!validBuffer) {
-        return tl::make_unexpected(std::move(validBuffer.error()));
+        return tl::unexpected(std::move(validBuffer.error()));
     }
 
     auto internalFrame = pek::mediaio::makeReadOnlyPixelBufferVideoFrame(
@@ -147,7 +144,7 @@ Result<VideoFrame> VideoFrame::borrowBgra(const std::uint8_t *data,
         static_cast<std::uint32_t>(*normalizedStride));
 
     if (!internalFrame) {
-        return tl::make_unexpected(
+        return tl::unexpected(
             Error(ErrorFlag::InternalError, "Failed to create borrowed pixel-buffer VideoFrame"));
     }
 
@@ -172,12 +169,12 @@ Result<VideoFrame> VideoFrame::moveBgra(std::vector<std::uint8_t> &&pixels,
                                         std::size_t strideBytes) {
     auto normalizedStride = normalizedBgraStride(width, strideBytes);
     if (!normalizedStride) {
-        return tl::make_unexpected(std::move(normalizedStride.error()));
+        return tl::unexpected(std::move(normalizedStride.error()));
     }
 
     auto validBuffer = validateBgraBuffer(pixels.size(), width, height, *normalizedStride);
     if (!validBuffer) {
-        return tl::make_unexpected(std::move(validBuffer.error()));
+        return tl::unexpected(std::move(validBuffer.error()));
     }
 
     auto internalFrame =
@@ -189,7 +186,7 @@ Result<VideoFrame> VideoFrame::moveBgra(std::vector<std::uint8_t> &&pixels,
                                                      pek::AccessMode::Read);
 
     if (!internalFrame) {
-        return tl::make_unexpected(
+        return tl::unexpected(
             Error(ErrorFlag::InternalError, "Failed to create internal pixel-buffer VideoFrame"));
     }
 

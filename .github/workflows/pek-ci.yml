@@ -57,8 +57,7 @@ on:
   schedule:
     - cron: "0 2 * * *" # Every day at 2 AM UTC'
   push:
-    branches: [main, develop]
-    tags: ["v*"]
+    branches: [develop]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.inputs.pr_number || format('{0}-{1}-{2}-{3}-{4}', github.event_name, github.ref, github.event.inputs.checks || 'all', github.event.inputs.target_branch_name || 'current', github.event.inputs.target_branch_head_sha || 'current') }}-${{ github.event.inputs.pr_label || (github.event.action == 'labeled' && (!contains(github.event.label.name, 'run-pek-ci') || contains(github.event.pull_request.labels.*.name, 'run-macos-ci')) && github.run_id || 'validation') }}
@@ -119,6 +118,11 @@ jobs:
     runs-on: ubuntu-latest
     if: |
       always() &&
+      !(
+        github.event_name == 'pull_request' &&
+        github.event.pull_request.base.ref == 'main' &&
+        startsWith(github.event.pull_request.head.ref, 'release/')
+      ) &&
       (
         github.event_name != 'workflow_dispatch' ||
         inputs.pr_label == '' ||
@@ -749,6 +753,11 @@ jobs:
     # Same-repository non-draft PRs run automatically.
     if: |
       always() &&
+      !(
+        github.event_name == 'pull_request' &&
+        github.event.pull_request.base.ref == 'main' &&
+        startsWith(github.event.pull_request.head.ref, 'release/')
+      ) &&
       (
         github.event_name != 'workflow_dispatch' ||
         inputs.pr_label == '' ||
@@ -1077,6 +1086,7 @@ jobs:
       !cancelled() &&
       needs.build-ci-image.result == 'success' &&
       (
+        (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
         github.event_name == 'schedule' ||
         (github.event_name == 'workflow_dispatch' && contains(fromJSON('["all","quality"]'), inputs.checks)) ||
         (
@@ -1174,13 +1184,13 @@ jobs:
             pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-quality-
 
       - name: Check Repo Quality gate (nightly)
-        if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number == '') }}
+        if: ${{ github.event_name == 'push' || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number == '') }}
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: |
           docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-quality-check-full
 
       - name: Upload quality report artifact (nightly)
-        if: ${{ always() && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number == '')) }}
+        if: ${{ always() && (github.event_name == 'push' || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number == '')) }}
         uses: actions/upload-artifact@v7
         with:
           name: expkits-ci-quality-report-full
@@ -1189,7 +1199,7 @@ jobs:
           retention-days: 10
 
       - name: Upload documentation artifact
-        if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number == '') }}
+        if: ${{ github.event_name == 'push' || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number == '') }}
         uses: actions/upload-artifact@v7
         with:
           name: pek-doc
@@ -1224,14 +1234,14 @@ jobs:
 
       - name: Perception Experience Kit release build and unit test run
         id: release_build
-        if: ${{ !cancelled() && (github.event_name == 'pull_request' || github.event_name == 'schedule' ||
+        if: ${{ !cancelled() && (github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'schedule' ||
           github.event_name == 'workflow_dispatch') }}
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm
           pek-release-with-ut
 
       - name: Run clang-tidy baseline check
-        if: ${{ !cancelled() && (github.event_name == 'pull_request' || github.event_name == 'schedule' ||
+        if: ${{ !cancelled() && (github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'schedule' ||
           github.event_name == 'workflow_dispatch') }}
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
@@ -1253,7 +1263,7 @@ jobs:
           fi
 
       - name: Upload clang-tidy logs
-        if: always() && (github.event_name == 'pull_request' || github.event_name == 'schedule' ||
+        if: always() && (github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'schedule' ||
           github.event_name == 'workflow_dispatch')
         uses: actions/upload-artifact@v7
         with:

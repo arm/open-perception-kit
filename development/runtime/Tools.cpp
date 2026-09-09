@@ -66,7 +66,7 @@ Result<std::vector<std::uint8_t>>
 Tools::loadImageFileBgra(const std::string &path, std::size_t &outWidth, std::size_t &outHeight) {
     auto result = pek::Tools::loadImageFileBgra(path, outWidth, outHeight);
     if (!result) {
-        return tl::make_unexpected(mapInternalError(result.error()));
+        return tl::unexpected(mapInternalError(result.error()));
     }
     return std::move(*result);
 }

@@ -14,8 +14,8 @@ owns their GitHub Actions orchestration:
   Pi at the validated PR head
 - `expkits-ci --ci-pr-checks` and `expkits-ci --ci-full-checks` remain the
   repository-owned quality entrypoints
-- the required Sonar check keeps the `Run Sonar analysis in Docker` name;
-  release Sonar belongs to `release-packages.yml`
+- release pull requests skip the general PEK CI lanes; their package smokes and
+  disposable publication probes run in the dedicated release workflows
 
 Python dependency, Docker Scout, Black Duck, and workflow dependency checks
 remain reusable workflows. `.github/workflows/valgrind.yml` is the trusted
@@ -34,12 +34,11 @@ pull-request code.
 | Arm64 development BuildKit cache | GHCR `buildcache`; used by macOS, Raspberry Pi, and YOLO after an exact-image miss or when platform build arguments differ |
 | YOLO compiler cache | Existing benchmark Docker volume shared by video and image-set setup |
 | Native deployment BuildKit caches | GHCR architecture-specific `buildcache-*` tags |
-| Release Sonar BuildKit cache | GHCR `buildcache-release-sonar-amd64` |
-| Sonar CFamily server cache | Updated by `main` and `develop` analysis |
+| Sonar CFamily server cache | Updated by `develop` analysis |
 | Valgrind baseline | Artifactory, managed by the trusted baseline publisher |
 
-The `develop` branch is the only writer of the PEK CI BuildKit cache; `main`,
-pull requests, tags, and manual runs only read it.
+The `develop` branch is the only writer of the PEK CI BuildKit cache; ordinary
+pull requests and manual runs only read it.
 
 - Pull requests write only their lane-specific Quality, Sonar, Valgrind, Black
   Duck, and Raspberry Pi compiler caches under the PR merge ref; reruns of the
@@ -83,9 +82,9 @@ and Sonar [incremental analysis](https://docs.sonarsource.com/sonarqube-server/2
 | Event | Candidate validation | Publication validation | Package publication |
 | --- | --- | --- | --- |
 | Pull request targeting `main` | Builds and smoke-tests the two architecture snapshot images | Uploads, verifies, and deletes the generic Artifactory, Artifactory PyPI, and GitHub Release probes | Not run |
-| Push to `main` | Not run | Not run | Builds all three archives, smoke-tests and publishes one multi-architecture GHCR image, publishes the archives to GitHub Release and generic Artifactory, and publishes the wheel to Artifactory PyPI |
+| Push to `main` | Not run | Not run | Builds all three archives, smoke-tests and publishes one multi-architecture GHCR image, publishes the archives to GitHub Release and generic Artifactory, the wheel to Artifactory PyPI, and the verified crate to Artifactory Cargo with byte-for-byte download and bounded sparse-index visibility checks |
 | Manual release validation | Resolves any commit, tag, or branch `source_ref`, builds and smoke-tests the two temporary architecture images | Uploads, verifies, and deletes the generic Artifactory, Artifactory PyPI, and GitHub Release probes | Not run |
-| Manual package publication | Not run | Not run | Resolves `source_ref`, builds all three archives, smoke-tests and publishes one multi-architecture GHCR snapshot, then publishes the archives and wheel to one generic Artifactory snapshot folder |
+| Manual package publication | Not run | Not run | Resolves `source_ref`, builds all three archives, smoke-tests and publishes one multi-architecture GHCR snapshot, then publishes the archives, wheel, and crate to one generic Artifactory snapshot folder |
 
 For release builds, `pek-deployment-base` runs its smoke inside the existing
 Dockerfile with networking disabled. The non-root runtime extracts the generated
@@ -93,9 +92,7 @@ archive, discovers its installed plugins, executes YOLov11 with ONNX Runtime and
 YOLOX with ExecuTorch, requires non-empty output from `pekcomm`, and starts the
 packaged `peksink` web surface. No separate smoke image or Dockerfile is built.
 Push and manual publication jobs cannot start unless both native image builds
-pass.
-Each native archive must also pass its Black Duck policy scan before GitHub
-Release, GHCR index, or Artifactory publication can start.
+and their embedded integration smokes pass.
 The native jobs push the existing `pek-deployment-base` outputs by digest and a
 small merge job publishes those exact amd64 and arm64 digests as
 `ghcr.io/arm-debug/amp-dev-forge-deployment:<tag>` without rebuilding. Stable
@@ -106,10 +103,8 @@ job to succeed. An existing `v<version>` therefore prevents publication to both
 release destinations. Manual snapshots do not create or depend on a GitHub
 Release.
 
-Release Sonar and the staging documentation deployment are independent jobs on
-pushes to `main`. Their failures make the workflow red without blocking the
-GitHub Release or Artifactory publication jobs. Release Sonar keeps its
-`pek-ci` BuildKit graph in the dedicated GHCR registry cache above.
+The staging documentation deployment remains an independent job on pushes to
+`main`; package publication does not depend on it.
 
 Automatic `main` publication writes to `releases/<version>/`; manual
 publication writes to
@@ -117,9 +112,9 @@ publication writes to
 `https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci`.
 The same URL is used for uploads and generated download links.
 The final Artifactory workflow log and `$GITHUB_STEP_SUMMARY` expose the folder,
-the three stable archive links or four snapshot links, and their SHA-256 values.
-If GHCR or GitHub Release publication succeeds but a later publication fails,
-repair or remove the partial publication before rerunning the workflow.
+the three stable archive links or five snapshot links, and their SHA-256 values.
+See the [release process](../docs/arch/release-process.md) for language-package
+routing and partial-publication recovery.
 
 Each native architecture build uses the existing `pek-models` Docker artifact
 stage to resolve the selected commit's pinned `hfDownload` descriptors. Both
@@ -149,7 +144,15 @@ Release image builds get their model and runtime inputs from these sources:
 | `ONNXRUNTIME_VERSION` | Defaulted and consumed by `pek-deployment-build` |
 | `EXECUTORCH_VERSION`, `EXECUTORCH_DEB_REVISION` | Defaulted and consumed by `pek-deployment-build` |
 | `HF_TOKEN` | Read-only repository secret; exposed to `pek-models` only as a BuildKit secret while checked-in models require authentication |
-| `PEK_ARTIFACTORY_USERNAME`, `PEK_ARTIFACTORY_API_KEY` | Existing repository secrets used to read the ExecuTorch Debian package and publish release archives |
+| `PEK_ARTIFACTORY_USERNAME`, `PEK_ARTIFACTORY_API_KEY` | Existing repository secrets used to read the ExecuTorch Debian package and publish release archives and Python wheels |
+
+Before public release, `amp-dev-forge-runner-ubuntu-x64` checks the Cargo version
+on the explicit eu02 registry route. Generic Artifactory and PyPI publication
+stay on `self-hosted-ubuntu-latest-x64`; after that job succeeds, the physical
+runner publishes the Rust crate with Cargo's native protocol and the existing
+anonymous principal. A clean Cargo 1.85 consumer then resolves and builds the
+exact published version through the global registry on x86_64 and ARM64 without
+FlatBuffers generation.
 
 `Dockerfile` remains the version authority. Release jobs build its existing
 `pek-deployment-base` target for the native architecture and copy the archive

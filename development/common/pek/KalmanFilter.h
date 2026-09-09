@@ -115,21 +115,27 @@ template <uint32_t STATE_DIM, uint32_t MEAS_DIM, typename T = double> class Kalm
      * @param measurement Measurement vector.
      * @param observationMatrix Observation matrix.
      * @param measurementNoise Measurement noise covariance.
+     * @return true when the correction was applied, false when the covariance is singular.
      */
-    void update(const MeasurementVector &measurement,
+    bool update(const MeasurementVector &measurement,
                 const ObservationMatrix &observationMatrix,
                 const MeasurementMatrix &measurementNoise) {
         const MeasurementVector innovation = measurement - observationMatrix * stateValue;
         const MeasurementMatrix innovationCovariance =
             observationMatrix * covarianceValue * observationMatrix.transpose() + measurementNoise;
 
+        const auto inverseInnovationCovariance = innovationCovariance.inv();
+        if (!inverseInnovationCovariance)
+            return false;
+
         const KalmanGainMatrix kalmanGain =
-            covarianceValue * observationMatrix.transpose() * innovationCovariance.inv();
+            covarianceValue * observationMatrix.transpose() * *inverseInnovationCovariance;
 
         stateValue = stateValue + kalmanGain * innovation;
 
         const StateMatrix identity = StateMatrix::template identity<STATE_DIM, STATE_DIM>();
         covarianceValue = (identity - kalmanGain * observationMatrix) * covarianceValue;
+        return true;
     }
 
   private:
