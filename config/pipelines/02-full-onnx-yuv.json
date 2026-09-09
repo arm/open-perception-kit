@@ -1,5 +1,5 @@
 {
-  "description": "Every available ONNX model with YUV video source, WebSocket metadata streaming, and peksink video sink.",
+  "description": "Every available ONNX model with YUV video source and peksink video sink.",
   "loop": true,
   "pipeline": [
     "filesrc location=\"${PEK_PROJECT_ROOT:-/work}/data/videos/GettyImages-1140581459.mov\" !",
