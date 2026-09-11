@@ -1,0 +1,1272 @@
+name: PEK release post-publication validation
+run-name: Validate published release from run ${{ github.event.workflow_run.id || inputs.release_run_id }}
+
+on:
+  workflow_run:
+    workflows: [PEK release packages]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      release_run_id:
+        description: Completed PEK release packages run ID to validate
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: release-post-publication-${{ github.event.workflow_run.id || inputs.release_run_id }}
+  cancel-in-progress: false
+
+env:
+  CCACHE_SCHEMA_VERSION: v2
+
+jobs:
+  resolve:
+    name: Resolve completed publication
+    runs-on: ubuntu-24.04
+    outputs:
+      arm_archive: ${{ steps.receipt.outputs.arm_archive }}
+      blackduck_version: ${{ steps.receipt.outputs.blackduck_version }}
+      cargo_package_version: ${{ steps.receipt.outputs.cargo_package_version }}
+      commit: ${{ steps.receipt.outputs.commit }}
+      crate: ${{ steps.receipt.outputs.crate }}
+      docs_archive: ${{ steps.receipt.outputs.docs_archive }}
+      folder: ${{ steps.receipt.outputs.folder }}
+      image_digest: ${{ steps.receipt.outputs.image_digest }}
+      image_reference: ${{ steps.receipt.outputs.image_reference }}
+      kind: ${{ steps.receipt.outputs.kind }}
+      python_package_version: ${{ steps.receipt.outputs.python_package_version }}
+      published: ${{ steps.source.outputs.published }}
+      receipt_artifact: ${{ steps.source.outputs.receipt_artifact }}
+      run_attempt: ${{ steps.source.outputs.run_attempt }}
+      run_id: ${{ steps.source.outputs.run_id }}
+      sonar_branch: ${{ steps.receipt.outputs.sonar_branch }}
+      version: ${{ steps.receipt.outputs.version }}
+      wheel: ${{ steps.receipt.outputs.wheel }}
+      x86_archive: ${{ steps.receipt.outputs.x86_archive }}
+    steps:
+      - name: Validate source workflow run
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id || inputs.release_run_id }}
+        run: |
+          set -euo pipefail
+          case "$SOURCE_RUN_ID" in ''|*[!0-9]*) exit 1 ;; esac
+          run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID")"
+          IFS=$'\t' read -r name path repository status event < <(
+            jq -r '[.name, .path, .repository.full_name, .status, .event] | @tsv' <<< "$run"
+          )
+          test "$name" = 'PEK release packages'
+          test "${path%%@*}" = '.github/workflows/release-packages.yml'
+          test "$repository" = "$GITHUB_REPOSITORY"
+          test "$status" = completed
+          case "$event" in push|workflow_dispatch) ;; *) exit 1 ;; esac
+          artifact_prefix="pek-release-publication-$SOURCE_RUN_ID-"
+          artifacts="$(gh api \
+            "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID/artifacts?per_page=100")"
+          IFS=$'\t' read -r artifact_name receipt_attempt < <(
+            jq -r --arg prefix "$artifact_prefix" '
+              (([.artifacts[] |
+                 select(.expired == false and (.name | startswith($prefix))) |
+                 select((.name | ltrimstr($prefix)) | test("^[0-9]+$")) |
+                 {name, attempt: (.name | ltrimstr($prefix) | tonumber)}] |
+                sort_by(.attempt) | last) // {name: "", attempt: ""}) |
+              [.name, (.attempt | tostring)] | @tsv
+            ' <<< "$artifacts"
+          )
+          published=false
+          [[ -z "$artifact_name" ]] || published=true
+          {
+            echo "event=$event"
+            echo "published=$published"
+            echo "receipt_artifact=$artifact_name"
+            echo "run_attempt=$receipt_attempt"
+            echo "run_id=$SOURCE_RUN_ID"
+          } >> "$GITHUB_OUTPUT"
+          if [[ "$published" != true ]]; then
+            echo 'Publication receipt is absent; post-publication validation is not applicable.' \
+              >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Download publication receipt
+        if: steps.source.outputs.published == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ steps.source.outputs.receipt_artifact }}
+          path: ${{ runner.temp }}/publication-receipt
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.source.outputs.run_id }}
+
+      - name: Validate publication receipt
+        if: steps.source.outputs.published == 'true'
+        id: receipt
+        env:
+          SOURCE_EVENT: ${{ steps.source.outputs.event }}
+          SOURCE_RUN_ATTEMPT: ${{ steps.source.outputs.run_attempt }}
+          SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          receipt="$RUNNER_TEMP/publication-receipt/publication.json"
+          sums="$RUNNER_TEMP/publication-receipt/SHA256SUMS"
+          jq --exit-status \
+            --arg event "$SOURCE_EVENT" \
+            --arg attempt "$SOURCE_RUN_ATTEMPT" \
+            --arg run_id "$SOURCE_RUN_ID" \
+            '.schema == 1 and .source_event == $event and
+             .source_run_attempt == $attempt and .source_run_id == $run_id' \
+            "$receipt" >/dev/null
+          test "$(wc -l < "$sums")" -eq 5
+
+          commit="$(jq -r .commit "$receipt")"
+          version="$(jq -r .version "$receipt")"
+          kind="$(jq -r .kind "$receipt")"
+          cargo_package_version="$(jq -r '.cargo_package_version // .version' "$receipt")"
+          python_package_version="$(jq -r '.python_package_version // .version' "$receipt")"
+          folder="$(jq -r .artifactory_folder "$receipt")"
+          image_reference="$(jq -r .image_reference "$receipt")"
+          image_digest="$(jq -r .image_digest "$receipt")"
+          [[ "$commit" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$image_reference" == ghcr.io/arm-debug/amp-dev-forge-deployment:* ]]
+          [[ "$image_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          case "$SOURCE_EVENT:$kind:$folder" in
+            "push:stable:releases/$version") ;;
+            "workflow_dispatch:prerelease:prereleases/$version") ;;
+            *) exit 1 ;;
+          esac
+          if jq -e 'has("cargo_package_version") and has("python_package_version")' \
+            "$receipt" >/dev/null; then
+            case "$kind:$cargo_package_version:$python_package_version" in
+              "stable:$version:$version") ;;
+              "prerelease:$version-dev.0:$version.dev0") ;;
+              *) exit 1 ;;
+            esac
+          fi
+          test "$(jq -r .artifacts.crate "$receipt")" = \
+            "perception-$cargo_package_version.crate"
+          test "$(jq -r .artifacts.wheel "$receipt")" = \
+            "opk_perception_sdk-$python_package_version-py3-none-any.whl"
+
+          for key in x86_archive arm_archive docs_archive wheel crate; do
+            artifact="$(jq -r ".artifacts.$key" "$receipt")"
+            test -n "$artifact"
+            test "$artifact" = "${artifact##*/}"
+            hash="$(awk -v artifact="$artifact" '$2 == artifact {print $1}' "$sums")"
+            [[ "$hash" =~ ^[0-9a-f]{64}$ ]]
+            echo "$key=$artifact" >> "$GITHUB_OUTPUT"
+          done
+          for key in blackduck_version commit image_digest image_reference kind sonar_branch version; do
+            value="$(jq -r ".$key" "$receipt")"
+            test -n "$value"
+            echo "$key=$value" >> "$GITHUB_OUTPUT"
+          done
+          {
+            echo "cargo_package_version=$cargo_package_version"
+            echo "python_package_version=$python_package_version"
+            echo "folder=$folder"
+          } >> "$GITHUB_OUTPUT"
+
+  build-ci-image:
+    name: Build shared validation image
+    needs: resolve
+    if: needs.resolve.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_ref: ${{ steps.image.outputs.image_ref }}
+    steps:
+      - name: Checkout published source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          ref: ${{ needs.resolve.outputs.commit }}
+          persist-credentials: false
+
+      - name: Prepare private submodules
+        env:
+          DEPLOY_KEY_FLOWDATA_SDK: ${{ secrets.DEPLOY_KEY_FLOWDATA_SDK }}
+        run: |
+          source .github/scripts/configure_workspace_ssh.sh
+          git submodule update --init --recursive
+
+      - name: Resolve validation image
+        id: image
+        run: echo "image_ref=ghcr.io/${GITHUB_REPOSITORY,,}-ci:pek-ci-run-$GITHUB_RUN_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker builder
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build PEK CI image once for the fan-out
+        uses: docker/build-push-action@v7
+        with:
+          cache-from: type=gha,scope=pek-ci
+          context: .
+          file: Dockerfile
+          labels: |
+            org.opencontainers.image.revision=${{ needs.resolve.outputs.commit }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ needs.resolve.outputs.version }}
+          provenance: false
+          pull: true
+          push: true
+          tags: ${{ steps.image.outputs.image_ref }}
+          target: pek-ci
+
+  consume-tar-gz:
+    name: Consume published tar.gz (${{ matrix.variant }})
+    needs: resolve
+    if: needs.resolve.outputs.published == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: linux-x86_64
+            runner: self-hosted-ubuntu-latest-x64
+            receipt_key: x86_archive
+            runtime_receipt_key: x86_archive
+          - variant: linux-aarch64
+            runner: self-hosted-ubuntu-latest-arm64
+            receipt_key: arm_archive
+            runtime_receipt_key: arm_archive
+          - variant: docs
+            runner: self-hosted-ubuntu-latest-x64
+            receipt_key: docs_archive
+            runtime_receipt_key: x86_archive
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout validation scripts
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Download publication receipt
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.resolve.outputs.receipt_artifact }}
+          path: ${{ runner.temp }}/publication-receipt
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.resolve.outputs.run_id }}
+
+      - name: Download and verify tar.gz
+        id: artifact
+        env:
+          ARTIFACTORY_TOKEN: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
+          ARTIFACTORY_USERNAME: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
+          FOLDER: ${{ needs.resolve.outputs.folder }}
+          RECEIPT_KEY: ${{ matrix.receipt_key }}
+          RUNTIME_RECEIPT_KEY: ${{ matrix.runtime_receipt_key }}
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/published-release"
+          base="https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci/$FOLDER"
+          receipt="$RUNNER_TEMP/publication-receipt/publication.json"
+          artifact="$(jq -r ".artifacts.$RECEIPT_KEY" "$receipt")"
+          runtime_archive="$(jq -r ".artifacts.$RUNTIME_RECEIPT_KEY" "$receipt")"
+          mkdir -p "$output"
+          for candidate in "$artifact" "$runtime_archive"; do
+            test -f "$output/$candidate" || curl --fail --silent --show-error \
+              --retry 5 --retry-all-errors \
+              --user "$ARTIFACTORY_USERNAME:$ARTIFACTORY_TOKEN" \
+              --output "$output/$candidate" "$base/$candidate"
+            hash="$(awk -v artifact="$candidate" '$2 == artifact {print $1}' \
+              "$RUNNER_TEMP/publication-receipt/SHA256SUMS")"
+            [[ "$hash" =~ ^[0-9a-f]{64}$ ]]
+            printf '%s  %s\n' "$hash" "$output/$candidate" | sha256sum --check
+          done
+          echo "archive=$artifact" >> "$GITHUB_OUTPUT"
+          echo "runtime_archive=$runtime_archive" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Run full OPK inference with the matching release tar.gz
+        env:
+          ARCHIVE: ${{ steps.artifact.outputs.runtime_archive }}
+          COMMIT: ${{ needs.resolve.outputs.commit }}
+          IMAGE: ${{ needs.resolve.outputs.image_reference }}@${{ needs.resolve.outputs.image_digest }}
+        run: |
+          scripts/release/smoke-published-opk.sh \
+            "$IMAGE" "$COMMIT" "$RUNNER_TEMP/published-release/$ARCHIVE"
+
+      - name: Inspect the published docs tar.gz
+        if: matrix.variant == 'docs'
+        env:
+          ARCHIVE: ${{ steps.artifact.outputs.archive }}
+        run: |
+          package="${ARCHIVE%.tar.gz}"
+          tar -tzf "$RUNNER_TEMP/published-release/$ARCHIVE" \
+            "$package/html/index.html" \
+            "$package/doxygen/index.html" > /dev/null
+
+  consume-wheel:
+    name: Consume published wheel (${{ matrix.source }})
+    needs: resolve
+    if: needs.resolve.outputs.published == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        source: [generic-artifact, pypi-index]
+    runs-on: self-hosted-ubuntu-latest-x64
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout validation scripts
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Download publication receipt
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.resolve.outputs.receipt_artifact }}
+          path: ${{ runner.temp }}/publication-receipt
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.resolve.outputs.run_id }}
+
+      - name: Download and verify x86_64 OPK runtime
+        env:
+          ARTIFACTORY_TOKEN: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
+          ARTIFACTORY_USERNAME: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
+          FOLDER: ${{ needs.resolve.outputs.folder }}
+          RUNTIME_ARCHIVE: ${{ needs.resolve.outputs.x86_archive }}
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/published-release"
+          mkdir -p "$output"
+          curl --fail --silent --show-error --retry 5 --retry-all-errors \
+            --user "$ARTIFACTORY_USERNAME:$ARTIFACTORY_TOKEN" \
+            --output "$output/$RUNTIME_ARCHIVE" \
+            "https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci/$FOLDER/$RUNTIME_ARCHIVE"
+          hash="$(awk -v artifact="$RUNTIME_ARCHIVE" '$2 == artifact {print $1}' \
+            "$RUNNER_TEMP/publication-receipt/SHA256SUMS")"
+          [[ "$hash" =~ ^[0-9a-f]{64}$ ]]
+          printf '%s  %s\n' "$hash" "$output/$RUNTIME_ARCHIVE" | sha256sum --check
+
+      - name: Set up locked uv and Python
+        uses: astral-sh/setup-uv@v10.0.1
+        with:
+          version: '0.8.15'
+          python-version: '3.14'
+
+      - name: Install and run the published wheel
+        env:
+          ARTIFACTORY_TOKEN: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
+          ARTIFACTORY_USERNAME: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
+          FOLDER: ${{ needs.resolve.outputs.folder }}
+          KIND: ${{ needs.resolve.outputs.kind }}
+          SOURCE: ${{ matrix.source }}
+          VERSION: ${{ needs.resolve.outputs.python_package_version }}
+          WHEEL: ${{ needs.resolve.outputs.wheel }}
+        run: |
+          set -euo pipefail
+          venv="$RUNNER_TEMP/wheel-$SOURCE"
+          uv venv "$venv"
+          case "$SOURCE" in
+            generic-artifact)
+              if [[ "$KIND" != prerelease ]]; then
+                echo 'Stable releases publish the wheel through the PyPI index only.'
+                exit 0
+              fi
+              base="https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci/$FOLDER"
+              curl --fail --silent --show-error --retry 5 --retry-all-errors \
+                --user "$ARTIFACTORY_USERNAME:$ARTIFACTORY_TOKEN" \
+                --output "$RUNNER_TEMP/$WHEEL" "$base/$WHEEL"
+              hash="$(awk -v artifact="$WHEEL" '$2 == artifact {print $1}' \
+                "$RUNNER_TEMP/publication-receipt/SHA256SUMS")"
+              printf '%s  %s\n' "$hash" "$RUNNER_TEMP/$WHEEL" | sha256sum --check
+              uv pip install --python "$venv/bin/python" "$RUNNER_TEMP/$WHEEL"
+              ;;
+            pypi-index)
+              printf '%s' "$ARTIFACTORY_TOKEN" \
+                | XDG_DATA_HOME="$RUNNER_TEMP/uv-data" uv auth login artifactory.arm.com \
+                  --username "$ARTIFACTORY_USERNAME" --password -
+              hash="$(awk -v artifact="$WHEEL" '$2 == artifact {print $1}' \
+                "$RUNNER_TEMP/publication-receipt/SHA256SUMS")"
+              [[ "$hash" =~ ^[0-9a-f]{64}$ ]]
+              for attempt in {1..6}; do
+                if printf 'opk-perception-sdk==%s --hash=sha256:%s\n' "$VERSION" "$hash" \
+                  | XDG_DATA_HOME="$RUNNER_TEMP/uv-data" uv pip install \
+                  --python "$venv/bin/python" --no-deps --require-hashes \
+                  --index-url https://artifactory.arm.com/artifactory/api/pypi/edge-ai-tooling.pypi/simple \
+                  --refresh --requirements -; then
+                  break
+                fi
+                test "$attempt" -lt 6
+                sleep 5
+              done
+              "$venv/bin/python" -c \
+                'from importlib.metadata import requires; print(*(requires("opk-perception-sdk") or []), sep="\n")' \
+                > "$RUNNER_TEMP/wheel-dependencies.txt"
+              if [[ -s "$RUNNER_TEMP/wheel-dependencies.txt" ]]; then
+                uv pip install --python "$venv/bin/python" \
+                  --index-url https://pypi.org/simple \
+                  --requirements "$RUNNER_TEMP/wheel-dependencies.txt"
+              fi
+              ;;
+            *) exit 1 ;;
+          esac
+          "$venv/bin/python" - <<'PY'
+          import importlib.metadata as metadata
+          import os
+
+          from perception.sdk import Envelope, external_key
+
+          assert metadata.version("opk-perception-sdk") == os.environ["VERSION"]
+          key = external_key("com.arm.opk.release-smoke")
+          envelope = Envelope()
+          envelope.add(key, b"hello from published artifact")
+          decoded = Envelope(envelope.serialize())
+          assert decoded.valid(), decoded.error()
+          assert decoded.get(key) == b"hello from published artifact"
+          PY
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Run full OPK inference with the matching release tar.gz
+        env:
+          ARCHIVE: ${{ needs.resolve.outputs.x86_archive }}
+          COMMIT: ${{ needs.resolve.outputs.commit }}
+          IMAGE: ${{ needs.resolve.outputs.image_reference }}@${{ needs.resolve.outputs.image_digest }}
+        run: |
+          scripts/release/smoke-published-opk.sh \
+            "$IMAGE" "$COMMIT" "$RUNNER_TEMP/published-release/$ARCHIVE"
+
+  consume-cargo:
+    name: Consume published Cargo crate (${{ matrix.architecture }})
+    needs: resolve
+    if: needs.resolve.outputs.published == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: x86_64
+            runner: self-hosted-ubuntu-latest-x64
+            runtime_receipt_key: x86_archive
+          - architecture: aarch64
+            runner: self-hosted-ubuntu-latest-arm64
+            runtime_receipt_key: arm_archive
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout validation scripts
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Download publication receipt
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.resolve.outputs.receipt_artifact }}
+          path: ${{ runner.temp }}/publication-receipt
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.resolve.outputs.run_id }}
+
+      - name: Download and verify architecture-matched OPK runtime
+        id: runtime
+        env:
+          ARTIFACTORY_TOKEN: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
+          ARTIFACTORY_USERNAME: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
+          FOLDER: ${{ needs.resolve.outputs.folder }}
+          RUNTIME_RECEIPT_KEY: ${{ matrix.runtime_receipt_key }}
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/published-release"
+          receipt="$RUNNER_TEMP/publication-receipt/publication.json"
+          archive="$(jq -r ".artifacts.$RUNTIME_RECEIPT_KEY" "$receipt")"
+          mkdir -p "$output"
+          curl --fail --silent --show-error --retry 5 --retry-all-errors \
+            --user "$ARTIFACTORY_USERNAME:$ARTIFACTORY_TOKEN" \
+            --output "$output/$archive" \
+            "https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci/$FOLDER/$archive"
+          hash="$(awk -v artifact="$archive" '$2 == artifact {print $1}' \
+            "$RUNNER_TEMP/publication-receipt/SHA256SUMS")"
+          [[ "$hash" =~ ^[0-9a-f]{64}$ ]]
+          printf '%s  %s\n' "$hash" "$output/$archive" | sha256sum --check
+          echo "archive=$archive" >> "$GITHUB_OUTPUT"
+
+      - name: Set up pinned Rust
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+        with:
+          toolchain: 1.85.0
+          cache: false
+
+      - name: Build a clean exact-pinned consumer
+        env:
+          CARGO_HOME: ${{ runner.temp }}/perception-cargo-consumer-home
+          PACKAGE_VERSION: ${{ needs.resolve.outputs.cargo_package_version }}
+          SDK_VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          consumer="$RUNNER_TEMP/perception-cargo-consumer"
+          rm -rf -- "$CARGO_HOME" "$consumer"
+          mkdir -p "$CARGO_HOME" "$consumer/bin" "$consumer/src"
+          printf '#!/bin/sh\nexit 99\n' > "$consumer/bin/flatc"
+          chmod +x "$consumer/bin/flatc"
+          export PATH="$consumer/bin:$PATH"
+          cat > "$CARGO_HOME/config.toml" <<'EOF'
+          [registries.artifactory]
+          index = "sparse+https://artifactory.arm.com/artifactory/api/cargo/edge-ai-tooling.cargo/index/"
+          EOF
+          cat > "$consumer/Cargo.toml" <<EOF
+          [package]
+          name = "perception-release-consumer"
+          version = "0.0.0"
+          edition = "2021"
+
+          [dependencies]
+          perception = { version = "=$PACKAGE_VERSION", registry = "artifactory" }
+          EOF
+          cat > "$consumer/src/main.rs" <<EOF
+          use perception::{external_key, external_payload, Envelope};
+
+          fn main() {
+              assert_eq!(perception::PERCEPTION_VERSION, "$SDK_VERSION");
+              let key = external_key("com.arm.opk.release-smoke");
+              let mut envelope = Envelope::new();
+              envelope.add(external_payload(
+                  key,
+                  b"hello from published artifact".to_vec(),
+              ));
+              let decoded = Envelope::decode(envelope.serialize()).expect("valid round trip");
+              assert_eq!(
+                  decoded.get(key, 0),
+                  Some(b"hello from published artifact".as_slice()),
+              );
+          }
+          EOF
+          (cd "$consumer" && cargo generate-lockfile)
+          (cd "$consumer" && cargo run --locked)
+          test -z "$(find "$CARGO_HOME/registry/src" \
+            -path "*/perception-$PACKAGE_VERSION/build.rs" -print -quit)"
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Run full OPK inference with the matching release tar.gz
+        env:
+          ARCHIVE: ${{ steps.runtime.outputs.archive }}
+          COMMIT: ${{ needs.resolve.outputs.commit }}
+          IMAGE: ${{ needs.resolve.outputs.image_reference }}@${{ needs.resolve.outputs.image_digest }}
+        run: |
+          scripts/release/smoke-published-opk.sh \
+            "$IMAGE" "$COMMIT" "$RUNNER_TEMP/published-release/$ARCHIVE"
+
+  rpi5-playwright:
+    name: Quick-start and Playwright on Raspberry Pi 5
+    needs: resolve
+    if: needs.resolve.outputs.published == 'true'
+    runs-on: [self-hosted, Linux, ARM64, amp-dev-forge-runner-rpi5]
+    timeout-minutes: 240
+    outputs:
+      artifact_name: ${{ steps.report-artifact.outputs.name }}
+    permissions:
+      contents: read
+      packages: read
+    env:
+      PEK_QUICK_START_CI_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      PEK_DEV_CACHE_FROM: type=registry,ref=ghcr.io/arm-debug/amp-dev-forge-dev:buildcache
+      PEK_CCACHE_PATH: ${{ github.workspace }}/.cache/ccache-rpi5
+    steps:
+      - name: Name RPI browser smoke artifact
+        id: report-artifact
+        run: echo "name=rpi-browser-smoke-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout published source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve.outputs.commit }}
+          path: ${{ env.CI_CHECKOUT_PATH }}
+          persist-credentials: false
+
+      - name: Prepare private submodules
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          DEPLOY_KEY_FLOWDATA_SDK: ${{ secrets.DEPLOY_KEY_FLOWDATA_SDK }}
+        run: |
+          source .github/scripts/configure_workspace_ssh.sh
+          git submodule update --init --recursive
+
+      - name: Select GNU tar for Actions cache
+        run: |
+          rm -rf -- "$PEK_CCACHE_PATH"
+          mkdir -p "$RUNNER_TEMP/gnu-tar" "$PEK_CCACHE_PATH"
+          tar_path="$(command -v gtar || command -v tar)"
+          ln -sf "$tar_path" "$RUNNER_TEMP/gnu-tar/tar"
+          [[ "$("$RUNNER_TEMP/gnu-tar/tar" --version)" == *'GNU tar'* ]]
+          echo "$RUNNER_TEMP/gnu-tar" >> "$GITHUB_PATH"
+
+      - name: Restore RPI compiler cache
+        id: compiler-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: .cache/ccache-rpi5
+          key: pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-rpi5-${{ needs.resolve.outputs.commit }}
+          restore-keys: |
+            pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-rpi5-
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Clean stale browser smoke containers
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: ./scripts/playwright/browser-smoke/run.sh --cleanup-stale
+
+      - name: Show detected quick-start platform
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: ./scripts/quick-start/detect-environment.sh
+
+      - name: Build and start quick-start container
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: ./scripts/quick-start/start-container.sh --recreate
+
+      - name: Build PEK in quick-start container
+        id: pek-build
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: |
+          docker exec -u dev "${PEK_QUICK_START_CI_NAME}-dev" ccache --zero-stats
+          ./scripts/build.sh
+          docker exec -u dev "${PEK_QUICK_START_CI_NAME}-dev" ccache --show-stats
+
+      - name: Browser smoke test with local data
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          BROWSER_SMOKE_BROWSERS: chromium,firefox,webkit
+          BROWSER_SMOKE_COVERAGE: "1"
+          BROWSER_SMOKE_REBUILD: "1"
+          NUM_FRAMES: "45000"
+        run: |
+          docker exec --user dev --workdir /work --env PEK_WEB_COVERAGE=1 \
+            "${PEK_QUICK_START_CI_NAME}-dev" ./scripts/peksink-web.sh generate
+          exec ./scripts/playwright/browser-smoke/run.sh
+
+      - name: Verify Playwright coverage
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: test -s test-results/playwright/coverage/lcov.info
+
+      - name: Save RPI compiler cache
+        if: ${{ !cancelled() && steps.pek-build.outcome == 'success' && steps.compiler-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: .cache/ccache-rpi5
+          key: ${{ steps.compiler-cache.outputs.cache-primary-key }}
+
+      - name: Upload RPI browser smoke artifacts
+        if: ${{ always() && !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.report-artifact.outputs.name }}
+          path: |
+            ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/test-results/playwright
+            ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/playwright-report
+          if-no-files-found: ignore
+          retention-days: 10
+
+      - name: Clean quick-start workspace
+        if: always()
+        run: |
+          checkout_path="${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}"
+          cleanup_status=0
+          if [[ -x "$checkout_path/scripts/playwright/browser-smoke/run.sh" ]]; then
+            "$checkout_path/scripts/playwright/browser-smoke/run.sh" --cleanup-stale || cleanup_status=$?
+          fi
+          if [[ -x "$checkout_path/scripts/quick-start/cleanup-container.sh" ]]; then
+            "$checkout_path/scripts/quick-start/cleanup-container.sh" || cleanup_status=$?
+          fi
+          rm -rf -- "$PEK_CCACHE_PATH" "$checkout_path"
+          exit "$cleanup_status"
+
+  valgrind:
+    name: Run full published-release Valgrind analysis
+    needs: [resolve, build-ci-image]
+    if: needs.resolve.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+    defaults:
+      run:
+        working-directory: ./valgrind-source
+    env:
+      DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
+      COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      CCACHE_PATH: ${{ github.workspace }}/.cache/ccache-valgrind
+      PEK_CI_IMAGE: ${{ needs.build-ci-image.outputs.image_ref }}
+    steps:
+      - name: Checkout published source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          ref: ${{ needs.resolve.outputs.commit }}
+          path: valgrind-source
+          persist-credentials: false
+
+      - name: Download publication receipt
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.resolve.outputs.receipt_artifact }}
+          path: ${{ runner.temp }}/publication-receipt
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.resolve.outputs.run_id }}
+
+      - name: Prepare private submodules
+        env:
+          DEPLOY_KEY_FLOWDATA_SDK: ${{ secrets.DEPLOY_KEY_FLOWDATA_SDK }}
+        run: |
+          source .github/scripts/configure_workspace_ssh.sh
+          git submodule update --init --recursive
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Pull shared validation image
+        working-directory: ${{ github.workspace }}
+        env:
+          COMMIT: ${{ needs.resolve.outputs.commit }}
+        run: |
+          docker pull "$PEK_CI_IMAGE"
+          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$PEK_CI_IMAGE")" = "$COMMIT"
+
+      - name: Restore published release models
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+          X86_ARCHIVE: ${{ needs.resolve.outputs.x86_archive }}
+        run: |
+          set -euo pipefail
+          release_dir="$RUNNER_TEMP/valgrind-release"
+          extracted_dir="$release_dir/extracted"
+          mkdir -p "$extracted_dir"
+          gh release download "v$VERSION" --pattern "$X86_ARCHIVE" --dir "$release_dir"
+          hash="$(awk -v artifact="$X86_ARCHIVE" '$2 == artifact {print $1}' \
+            "$RUNNER_TEMP/publication-receipt/SHA256SUMS")"
+          [[ "$hash" =~ ^[0-9a-f]{64}$ ]]
+          printf '%s  %s\n' "$hash" "$release_dir/$X86_ARCHIVE" | sha256sum --check
+          tar -xzf "$release_dir/$X86_ARCHIVE" -C "$extracted_dir" --strip-components=1
+          cp -a "$extracted_dir/share/pek/models/." config/models/
+          chmod ugo+w config/models/{mobilenetv2,rvm}
+          docker compose -f "$DOCKER_COMPOSE_FILE" run --rm pek-valgrind-check \
+            python3 scripts/download-models.py --models-dir config/models/mobilenetv2
+          docker compose -f "$DOCKER_COMPOSE_FILE" run --rm --env HF_TOKEN pek-valgrind-check \
+            python3 scripts/download-models.py --models-dir config/models/rvm
+          test -s config/models/gaze-detection/l2cs_mobilegaze_mobilenetv2-a8w8-2-ort-quantized.onnx
+          test -s config/models/mobilenetv2/mobilenet_v2_1.4_224.onnx
+          test -s config/models/osnet_x0_25/osnet_x0_25_msmt17_opset21.onnx
+          test -s config/models/rvm/rvm_mobilenetv3_fp32.onnx
+          test -s config/models/ultraface/version-RFB-320.onnx
+
+      - name: Generate Hugging Face download cache key
+        run: |
+          cache_key="$(scripts/private/generate-hf-download-cachebust.sh)"
+          echo "HF_DOWNLOAD_CACHEBUST=${cache_key}" >> "$GITHUB_ENV"
+
+      - name: Prepare compiler cache
+        working-directory: ${{ github.workspace }}
+        run: test -d "$CCACHE_PATH" || install -d -m 0777 "$CCACHE_PATH"
+
+      - name: Restore compiler cache
+        id: compiler-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ env.CCACHE_PATH }}
+          key: pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-valgrind-full-${{ needs.resolve.outputs.commit }}
+          restore-keys: |
+            pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-valgrind-full-
+
+      - name: Run every Valgrind pipeline
+        id: valgrind-checks
+        run: |
+          docker compose -f "$DOCKER_COMPOSE_FILE" run --rm pek-valgrind-check bash -c '
+            .devcontainer/setup.sh &&
+            .devcontainer/platform_init.sh pek-dev disabled &&
+            ccache --zero-stats &&
+            ./scripts/testing/valgrind/test-elements-with-valgrind.sh clean &&
+            ccache --show-stats
+          '
+
+      - name: Generate full Valgrind report
+        id: valgrind-summary
+        if: always() && steps.valgrind-checks.outcome != 'skipped'
+        run: docker compose -f "$DOCKER_COMPOSE_FILE" run --rm pek-generate-valgrind-summary
+
+      - name: Summarize full-release Valgrind findings
+        if: steps.valgrind-checks.outcome == 'success' && steps.valgrind-summary.outcome == 'success'
+        run: |
+          python3 - <<'PY'
+          import collections
+          import os
+          import xml.etree.ElementTree as ET
+
+          errors = ET.parse(
+              "scripts/testing/valgrind/valgrind-error-summary.xml"
+          ).getroot().findall("error")
+          repository_errors = sum(
+              any(
+                  (value := frame.findtext(tag)) == "/work"
+                  or (value or "").startswith("/work/")
+                  for frame in error.findall(".//stack/frame")
+                  for tag in ("obj", "dir", "file")
+              )
+              for error in errors
+          )
+          kinds = collections.Counter(error.findtext("kind", "Unknown") for error in errors)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as report:
+              print("### Full-release Valgrind analysis", file=report)
+              print(f"- Findings: {len(errors)}", file=report)
+              print(f"- Repository-attributed findings: {repository_errors}", file=report)
+              for kind, count in sorted(kinds.items()):
+                  print(f"- {kind}: {count}", file=report)
+          PY
+
+      - name: Upload full-release Valgrind report
+        if: always() && !cancelled()
+        uses: actions/upload-artifact@v7
+        with:
+          name: valgrind-release-${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.run_id }}
+          path: |
+            valgrind-source/scripts/testing/valgrind/valgrind-error-summary.xml
+            valgrind-source/scripts/testing/valgrind/logs
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Save compiler cache
+        if: ${{ !cancelled() && steps.valgrind-checks.outcome == 'success' && steps.valgrind-summary.outcome == 'success' && steps.compiler-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ env.CCACHE_PATH }}
+          key: ${{ steps.compiler-cache.outputs.cache-primary-key }}
+
+  sonar:
+    name: Analyze published source in SonarQube
+    needs: [resolve, build-ci-image, rpi5-playwright]
+    if: >-
+      needs.resolve.outputs.published == 'true' &&
+      needs.rpi5-playwright.result == 'success'
+    runs-on: self-hosted-ubuntu-latest-x64
+    permissions:
+      contents: read
+      packages: read
+    env:
+      DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
+      CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      CCACHE_PATH: ${{ github.workspace }}/.cache/ccache-sonar
+      PEK_CI_IMAGE: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-pek-ci
+      PEK_CI_IMAGE_SOURCE: ${{ needs.build-ci-image.outputs.image_ref }}
+    steps:
+      - name: Checkout published source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          ref: ${{ needs.resolve.outputs.commit }}
+          path: ${{ env.CI_CHECKOUT_PATH }}
+          persist-credentials: false
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Pull shared validation image
+        env:
+          COMMIT: ${{ needs.resolve.outputs.commit }}
+        run: |
+          docker pull "$PEK_CI_IMAGE_SOURCE"
+          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$PEK_CI_IMAGE_SOURCE")" = "$COMMIT"
+          docker tag "$PEK_CI_IMAGE_SOURCE" "$PEK_CI_IMAGE"
+          docker image rm "$PEK_CI_IMAGE_SOURCE" || true
+
+      - name: Prepare workspace
+        run: |
+          echo "WORKSPACE_ROOT=${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}" >> "$GITHUB_ENV"
+          test -d "$CCACHE_PATH" || install -d -m 0777 "$CCACHE_PATH"
+
+      - name: Download RPI Playwright coverage
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.rpi5-playwright.outputs.artifact_name }}
+          path: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+
+      - name: Verify RPI Playwright coverage
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: test -s test-results/playwright/coverage/lcov.info
+
+      - name: Prepare private submodules
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          DEPLOY_KEY_FLOWDATA_SDK: ${{ secrets.DEPLOY_KEY_FLOWDATA_SDK }}
+        run: |
+          source .github/scripts/configure_workspace_ssh.sh
+          git submodule update --init --recursive
+
+      - name: Restore compiler cache
+        id: compiler-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ env.CCACHE_PATH }}
+          key: pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-sonar-${{ needs.resolve.outputs.commit }}
+          restore-keys: |
+            pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-sonar-
+
+      - name: Run SonarQube release analysis
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_BRANCH: ${{ needs.resolve.outputs.sonar_branch }}
+          SONAR_PROJECT_VERSION: ${{ needs.resolve.outputs.version }}
+          SONAR_QUALITYGATE_WAIT: "true"
+          BUILD_STRING: ${{ needs.resolve.outputs.commit }}
+        run: docker compose -f "$DOCKER_COMPOSE_FILE" run --rm pek-sonar-check-release
+
+      - name: Save compiler cache
+        if: ${{ success() && steps.compiler-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ env.CCACHE_PATH }}
+          key: ${{ steps.compiler-cache.outputs.cache-primary-key }}
+
+      - name: Cleanup isolated workspace
+        if: always()
+        run: |
+          workspace_root="${WORKSPACE_ROOT:-}"
+          case "$workspace_root" in "$GITHUB_WORKSPACE"/repo-*) ;; *) exit 0 ;; esac
+          if [[ -d "$workspace_root" ]]; then
+            (
+              cd "$workspace_root"
+              docker compose -f "$DOCKER_COMPOSE_FILE" down --remove-orphans --rmi local || true
+            )
+            sudo chown -R "$(id -u):$(id -g)" "$workspace_root" || true
+            chmod -R u+rwX "$workspace_root" || true
+            rm -rf "$workspace_root" || sudo rm -rf "$workspace_root" || true
+          fi
+          docker image rm "$PEK_CI_IMAGE" 2>/dev/null || true
+
+  blackduck-release-retention:
+    name: Reserve Black Duck release slot
+    needs: resolve
+    if: needs.resolve.outputs.published == 'true'
+    runs-on: self-hosted-ubuntu-latest-x64
+    concurrency:
+      group: blackduck-release-retention
+      cancel-in-progress: false
+    steps:
+      - name: Checkout cleanup helper
+        if: needs.resolve.outputs.kind == 'stable'
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve.outputs.commit }}
+          persist-credentials: false
+
+      - name: Keep three Black Duck releases
+        if: needs.resolve.outputs.kind == 'stable'
+        env:
+          BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }} # pragma: allowlist secret
+          BLACKDUCK_URL: ${{ vars.BLACKDUCK_URL }}
+          VERSION_NAME: ${{ needs.resolve.outputs.blackduck_version }}
+        run: .github/scripts/blackduck_version_cleanup.sh rotate-release "$VERSION_NAME"
+
+  blackduck:
+    name: Full published-release Black Duck gate
+    needs: [resolve, build-ci-image, blackduck-release-retention]
+    if: needs.resolve.outputs.published == 'true'
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+    uses: ./.github/workflows/blackduck-scan.yml
+    with:
+      checkout_ref: ${{ needs.resolve.outputs.commit }}
+      ci_image_ref: ${{ needs.build-ci-image.outputs.image_ref }}
+      scan_mode: full
+      version_name: ${{ needs.resolve.outputs.blackduck_version }}
+    secrets:
+      BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }} # pragma: allowlist secret
+      DEPLOY_KEY_FLOWDATA_SDK: ${{ secrets.DEPLOY_KEY_FLOWDATA_SDK }} # pragma: allowlist secret
+
+  publish-validation-reports:
+    name: Publish validation reports to GitHub release
+    if: >-
+      always() &&
+      !cancelled() &&
+      needs.resolve.result == 'success' &&
+      needs.resolve.outputs.published == 'true'
+    needs:
+      - resolve
+      - consume-tar-gz
+      - consume-wheel
+      - consume-cargo
+      - rpi5-playwright
+      - valgrind
+      - sonar
+      - blackduck
+    runs-on: self-hosted-ubuntu-latest-x64
+    timeout-minutes: 30
+    permissions:
+      actions: read
+      contents: write
+    outputs:
+      artifact_name: ${{ steps.assets.outputs.artifact_name }}
+      folder: ${{ steps.assets.outputs.folder }}
+      version: ${{ steps.assets.outputs.version }}
+    env:
+      BLACKDUCK_BUILT_URL: ${{ needs.blackduck.outputs.built_output_report_url }}
+      BLACKDUCK_DEPENDENCY_URL: ${{ needs.blackduck.outputs.dependency_report_url }}
+      BLACKDUCK_SNIPPET_URL: ${{ needs.blackduck.outputs.snippet_report_url }}
+      BLACKDUCK_RESULT: ${{ needs.blackduck.result }}
+      CARGO_RESULT: ${{ needs.consume-cargo.result }}
+      PLAYWRIGHT_RESULT: ${{ needs.rpi5-playwright.result }}
+      SONAR_RESULT: ${{ needs.sonar.result }}
+      TAR_RESULT: ${{ needs.consume-tar-gz.result }}
+      VALGRIND_RESULT: ${{ needs.valgrind.result }}
+      WHEEL_RESULT: ${{ needs.consume-wheel.result }}
+    steps:
+      - name: Copy report artifacts to the GitHub release
+        id: assets
+        env:
+          ARTIFACTORY_FOLDER: ${{ needs.resolve.outputs.folder }}
+          GH_TOKEN: ${{ github.token }}
+          COMMIT: ${{ needs.resolve.outputs.commit }}
+          PLAYWRIGHT_ARTIFACT_NAME: ${{ needs.rpi5-playwright.outputs.artifact_name }}
+          SOURCE_RUN_ID: ${{ needs.resolve.outputs.run_id }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          tag="v$VERSION"
+          asset_base="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$tag"
+          {
+            echo "folder=$ARTIFACTORY_FOLDER"
+            echo "artifact_name=release-validation-reports-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+            echo "version=$VERSION"
+          } >> "$GITHUB_OUTPUT"
+          rm -rf -- reports
+          mkdir reports
+          artifacts="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?per_page=100")"
+
+          copy_report() {
+            local artifact_name="$1"
+            local asset_name="$2"
+            local output_name="$3"
+            local artifact_id
+            # shellcheck disable=SC2016
+            artifact_id="$(jq -r --arg name "$artifact_name" '.artifacts[] | select(.name == $name and .expired == false) | .id' <<< "$artifacts" | head -n 1)"
+            if [[ -n "$artifact_id" ]]; then
+              gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id/zip" > "reports/$asset_name"
+              python3 -m zipfile -t "reports/$asset_name"
+              echo "$output_name=$asset_base/$asset_name" >> "$GITHUB_OUTPUT"
+            fi
+          }
+
+          copy_report "$PLAYWRIGHT_ARTIFACT_NAME" \
+            "PEK-$VERSION-rpi-playwright-report.zip" playwright_url
+          copy_report "valgrind-release-$VERSION-$SOURCE_RUN_ID" \
+            "PEK-$VERSION-valgrind-report.zip" valgrind_url
+          copy_report blackduck-full-built-output \
+            "PEK-$VERSION-blackduck-built-output-report.zip" blackduck_built_asset_url
+          copy_report blackduck-full-dependencies \
+            "PEK-$VERSION-blackduck-dependencies-report.zip" blackduck_dependency_asset_url
+          copy_report blackduck-full-snippets \
+            "PEK-$VERSION-blackduck-snippets-report.zip" blackduck_snippet_asset_url
+
+          jobs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?filter=all&per_page=100")"
+
+          {
+            echo "# PEK $VERSION validation summary"
+            echo
+            echo "- Source commit: \`$COMMIT\`"
+            echo "- [Publication workflow]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID)"
+            echo "- [Post-publication validation workflow]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)"
+            echo
+            echo '| Test job | Result | Duration |'
+            echo '|---|---:|---:|'
+            jq -r '.jobs[] |
+              select(.name != "Publish validation reports to GitHub release" and
+                     .name != "Publish validation reports to Artifactory") | [
+                .name,
+                .conclusion,
+                (if .started_at and .completed_at then
+                   ((.completed_at | fromdateiso8601) - (.started_at | fromdateiso8601) | tostring) + "s"
+                 else "-" end),
+                .html_url
+              ] | @tsv' <<< "$jobs" |
+              while IFS=$'\t' read -r name conclusion duration url; do
+                # shellcheck disable=SC2016
+                printf '| [%s](%s) | `%s` | %s |\n' "${name//|/\\|}" "$url" "$conclusion" "$duration"
+              done
+          } > "reports/PEK-$VERSION-validation-summary.md"
+          echo "summary_url=$asset_base/PEK-$VERSION-validation-summary.md" >> "$GITHUB_OUTPUT"
+
+          mapfile -t report_assets < <(find reports -maxdepth 1 -type f | sort)
+          if ((${#report_assets[@]})); then
+            gh release upload "$tag" "${report_assets[@]}" \
+              --repo "$GITHUB_REPOSITORY" --clobber
+          fi
+
+      - name: Prepare exact report links
+        env:
+          SONAR_BRANCH: ${{ needs.resolve.outputs.sonar_branch }}
+          SONAR_URL: ${{ vars.SONAR_URL }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+          BLACKDUCK_BUILT_ASSET_URL: ${{ steps.assets.outputs.blackduck_built_asset_url }}
+          BLACKDUCK_DEPENDENCY_ASSET_URL: ${{ steps.assets.outputs.blackduck_dependency_asset_url }}
+          BLACKDUCK_SNIPPET_ASSET_URL: ${{ steps.assets.outputs.blackduck_snippet_asset_url }}
+          ARTIFACTORY_SUMMARY_URL: https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci/${{ needs.resolve.outputs.folder }}/reports/PEK-${{ needs.resolve.outputs.version }}-validation-summary.md
+          PLAYWRIGHT_ASSET_URL: ${{ steps.assets.outputs.playwright_url }}
+          SUMMARY_URL: ${{ steps.assets.outputs.summary_url }}
+          VALGRIND_ASSET_URL: ${{ steps.assets.outputs.valgrind_url }}
+        run: |
+          set -euo pipefail
+          test -n "$SONAR_URL"
+          sonar_branch="$(jq -rn --arg value "$SONAR_BRANCH" '$value | @uri')"
+          sonar_report="${SONAR_URL%/}/dashboard?id=LinuxVisionKitPek&branch=$sonar_branch"
+          start='<!-- release-validation-reports:start -->'
+          end='<!-- release-validation-reports:end -->'
+
+          {
+            echo "$start"
+            echo '### Validation reports'
+            echo
+            echo "- [Post-publication workflow]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)"
+            echo "- [Full validation summary]($SUMMARY_URL) ([Artifactory mirror]($ARTIFACTORY_SUMMARY_URL))"
+            echo "- [SonarQube branch analysis]($sonar_report) — \`$SONAR_RESULT\`"
+            [[ -z "$BLACKDUCK_BUILT_URL" ]] || echo "- [Black Duck built output]($BLACKDUCK_BUILT_URL) — \`$BLACKDUCK_RESULT\`"
+            [[ -z "$BLACKDUCK_DEPENDENCY_URL" ]] || echo "- [Black Duck dependencies]($BLACKDUCK_DEPENDENCY_URL) — \`$BLACKDUCK_RESULT\`"
+            [[ -z "$BLACKDUCK_SNIPPET_URL" ]] || echo "- [Black Duck snippets]($BLACKDUCK_SNIPPET_URL) — \`$BLACKDUCK_RESULT\`"
+            [[ -z "$VALGRIND_ASSET_URL" ]] || echo "- [Valgrind report asset]($VALGRIND_ASSET_URL) — \`$VALGRIND_RESULT\`"
+            [[ -z "$PLAYWRIGHT_ASSET_URL" ]] || echo "- [RPi Playwright report asset]($PLAYWRIGHT_ASSET_URL) — \`$PLAYWRIGHT_RESULT\`"
+            [[ -z "$BLACKDUCK_BUILT_ASSET_URL" ]] || echo "- [Black Duck built output archive]($BLACKDUCK_BUILT_ASSET_URL)"
+            [[ -z "$BLACKDUCK_DEPENDENCY_ASSET_URL" ]] || echo "- [Black Duck dependency archive]($BLACKDUCK_DEPENDENCY_ASSET_URL)"
+            [[ -z "$BLACKDUCK_SNIPPET_ASSET_URL" ]] || echo "- [Black Duck snippet archive]($BLACKDUCK_SNIPPET_ASSET_URL)"
+            echo "- Published artifact consumption: tar.gz \`$TAR_RESULT\`, wheel \`$WHEEL_RESULT\`, Cargo \`$CARGO_RESULT\`"
+            echo "$end"
+          } > validation-reports.md
+
+      - name: Stage reports for Artifactory
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.assets.outputs.artifact_name }}
+          path: |
+            reports
+            validation-reports.md
+          retention-days: 1
+
+  publish-validation-reports-artifactory:
+    name: Publish validation reports to Artifactory
+    needs: publish-validation-reports
+    runs-on: self-hosted-ubuntu-latest-x64
+    timeout-minutes: 30
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Download validated reports
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.publish-validation-reports.outputs.artifact_name }}
+          path: ${{ runner.temp }}/release-validation-reports
+
+      - name: Publish reports to Artifactory
+        env:
+          ARTIFACTORY_FOLDER: ${{ needs.publish-validation-reports.outputs.folder }}
+          ARTIFACTORY_TOKEN: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
+          ARTIFACTORY_USER: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
+        run: |
+          set -euo pipefail
+          reports="$RUNNER_TEMP/release-validation-reports/reports"
+          mapfile -t report_assets < <(find "$reports" -maxdepth 1 -type f | sort)
+          artifactory_base="https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci/$ARTIFACTORY_FOLDER/reports"
+          for report in "${report_assets[@]}"; do
+            hash="$(sha256sum "$report" | cut -d' ' -f1)"
+            response="$(curl --fail-with-body --silent --show-error \
+              --retry 3 --retry-all-errors \
+              --user "$ARTIFACTORY_USER:$ARTIFACTORY_TOKEN" \
+              --upload-file "$report" "$artifactory_base/$(basename "$report")")"
+            test "$(jq -r .checksums.sha256 <<< "$response")" = "$hash"
+          done
+
+      - name: Add exact report links to the GitHub release
+        working-directory: ${{ runner.temp }}/release-validation-reports
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.publish-validation-reports.outputs.version }}
+        run: |
+          set -euo pipefail
+          tag="v$VERSION"
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" \
+            --json body --jq .body > release-body.md
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          body = Path("release-body.md").read_text(encoding="utf-8").rstrip()
+          block = Path("validation-reports.md").read_text(encoding="utf-8").rstrip()
+          start = "<!-- release-validation-reports:start -->"
+          end = "<!-- release-validation-reports:end -->"
+          if start in body and end in body:
+              before, rest = body.split(start, 1)
+              _, after = rest.split(end, 1)
+              body = before.rstrip() + "\n\n" + block + after
+          else:
+              body += "\n\n" + block + "\n"
+          Path("release-body.md").write_text(body, encoding="utf-8")
+          PY
+          gh release edit "$tag" --repo "$GITHUB_REPOSITORY" \
+            --notes-file release-body.md

@@ -2312,26 +2312,6 @@
 }
 
 {
-   pek_reachable_pekosd_plugin_init_malloc_gst_debug_category_new_g_type_class_get_nested_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:g_malloc
-   fun:_gst_debug_category_new
-   obj:/usr/lib/x86_64-linux-gnu/libgstvideo-1.0.so.*
-   fun:g_type_class_get
-   fun:g_type_class_get
-   fun:gst_element_register
-   fun:_ZL18pekosd_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
    pek_reachable_pekosd_plugin_init_malloc_g_slist_copy_deep_g_type_class_get_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
@@ -2431,28 +2411,6 @@
 }
 
 {
-   pek_reachable_gst_pek_osd_get_type_once_realloc
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:realloc
-   fun:g_realloc
-   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
-   fun:g_type_register_static
-   fun:g_type_register_static_simple
-   obj:/usr/lib/x86_64-linux-gnu/libgstvideo-1.0.so.*
-   fun:gst_video_filter_get_type
-   fun:_ZL25gst_pek_osd_get_type_oncev
-   fun:gst_pek_osd_get_type
-   fun:_ZL18pekosd_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
    pek_reachable_pekosd_plugin_init_malloc_g_object_weak_ref_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
@@ -2477,24 +2435,6 @@
    match-leak-kinds: reachable
    fun:calloc
    fun:g_malloc0
-   fun:g_type_class_get
-   fun:gst_element_register
-   fun:_ZL18pekosd_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
-   pek_reachable_pekosd_plugin_init_calloc_g_type_class_get_nested_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:calloc
-   fun:g_malloc0
-   fun:g_type_class_get
    fun:g_type_class_get
    fun:gst_element_register
    fun:_ZL18pekosd_plugin_initP10_GstPlugin
@@ -2563,27 +2503,6 @@
 }
 
 {
-   pek_reachable_pekosd_plugin_init_calloc_gst_structure_copy_g_type_class_get_nested_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:calloc
-   fun:g_malloc0
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:gst_structure_copy
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:g_type_class_get
-   fun:g_type_class_get
-   fun:gst_element_register
-   fun:_ZL18pekosd_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
    pek_reachable_gst_pek_osd_class_init_realloc
    Memcheck:Leak
    match-leak-kinds: reachable
@@ -2632,47 +2551,6 @@
    fun:g_param_spec_boolean
    fun:_ZL22gst_pek_osd_class_initP15_GstPekOsdClass
    fun:_ZL29gst_pek_osd_class_intern_initPv
-   fun:g_type_class_get
-   fun:gst_element_register
-   fun:_ZL18pekosd_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
-   pek_reachable_pekosd_plugin_init_malloc_g_slist_copy_deep_g_type_class_get_nested_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:g_malloc
-   fun:g_slist_copy_deep
-   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
-   fun:g_type_class_get
-   fun:g_type_class_get
-   fun:gst_element_register
-   fun:_ZL18pekosd_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
-   pek_reachable_pekosd_plugin_init_malloc_g_slist_prepend_gst_debug_category_new_g_type_class_get_nested_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:g_malloc
-   fun:g_slist_prepend
-   fun:_gst_debug_category_new
-   obj:/usr/lib/x86_64-linux-gnu/libgstvideo-1.0.so.*
-   fun:g_type_class_get
    fun:g_type_class_get
    fun:gst_element_register
    fun:_ZL18pekosd_plugin_initP10_GstPlugin
@@ -2819,27 +2697,6 @@
    fun:g_param_spec_string
    fun:_ZL22gst_pek_osd_class_initP15_GstPekOsdClass
    fun:_ZL29gst_pek_osd_class_intern_initPv
-   fun:g_type_class_get
-   fun:gst_element_register
-   fun:_ZL18pekosd_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
-   pek_reachable_pekosd_plugin_init_malloc_g_strdup_gst_debug_category_new_g_type_class_get_nested_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:g_malloc
-   fun:g_strdup
-   fun:_gst_debug_category_new
-   obj:/usr/lib/x86_64-linux-gnu/libgstvideo-1.0.so.*
-   fun:g_type_class_get
    fun:g_type_class_get
    fun:gst_element_register
    fun:_ZL18pekosd_plugin_initP10_GstPlugin
@@ -3020,28 +2877,6 @@
    fun:_ZL29gst_pek_osd_class_intern_initPv
    fun:g_type_class_get
    fun:gst_element_register
-   fun:_ZL18pekosd_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
-   pek_reachable_gst_pek_osd_get_type_once_calloc_g_type_register_static_g_type_register_static_simple_gst_video_filter_get_type_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:calloc
-   fun:g_malloc0
-   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
-   fun:g_type_register_static
-   fun:g_type_register_static_simple
-   obj:/usr/lib/x86_64-linux-gnu/libgstvideo-1.0.so.*
-   fun:gst_video_filter_get_type
-   fun:_ZL25gst_pek_osd_get_type_oncev
-   fun:gst_pek_osd_get_type
    fun:_ZL18pekosd_plugin_initP10_GstPlugin
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
@@ -3306,26 +3141,6 @@
 }
 
 {
-   pek_reachable_gst_pek_performance_class_init_g_type_create_instance_g_param_spec_int_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:g_type_create_instance
-   fun:g_param_spec_internal
-   fun:g_param_spec_int
-   fun:_ZL30gst_pek_performance_class_initP23_GstPekPerformanceClass
-   fun:_ZL37gst_pek_performance_class_intern_initPv
-   fun:g_type_class_get
-   fun:gst_element_register
-   fun:_ZL26pekperformance_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
    pek_reachable_gst_pek_performance_class_init_g_type_create_instance_g_param_spec_uint_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
@@ -3393,27 +3208,6 @@
    fun:g_malloc0
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
    fun:gst_structure_copy
-   fun:gst_element_register
-   fun:_ZL26pekperformance_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
-   pek_reachable_gst_pek_performance_class_init_malloc_g_strdup_g_param_spec_string_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:g_malloc
-   fun:g_strdup
-   fun:g_param_spec_string
-   fun:_ZL30gst_pek_performance_class_initP23_GstPekPerformanceClass
-   fun:_ZL37gst_pek_performance_class_intern_initPv
-   fun:g_type_class_get
    fun:gst_element_register
    fun:_ZL26pekperformance_plugin_initP10_GstPlugin
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
@@ -3544,26 +3338,6 @@
 }
 
 {
-   pek_reachable_gst_pek_performance_class_init_g_type_create_instance_g_param_spec_string_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:g_type_create_instance
-   fun:g_param_spec_internal
-   fun:g_param_spec_string
-   fun:_ZL30gst_pek_performance_class_initP23_GstPekPerformanceClass
-   fun:_ZL37gst_pek_performance_class_intern_initPv
-   fun:g_type_class_get
-   fun:gst_element_register
-   fun:_ZL26pekperformance_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
    pek_reachable_gst_pek_performance_class_init_malloc_g_array_sized_new_scanner
    Memcheck:Leak
    match-leak-kinds: reachable
@@ -3681,26 +3455,6 @@
    fun:g_type_register_static_simple
    fun:_ZL33gst_pek_performance_get_type_oncev
    fun:gst_pek_performance_get_type
-   fun:_ZL26pekperformance_plugin_initP10_GstPlugin
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
-   fun:_gst_plugin_loader_client_run
-   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
-   fun:(below main)
-}
-
-{
-   pek_reachable_gst_pek_performance_class_init_g_type_create_instance_g_param_spec_double_scanner
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:g_type_create_instance
-   fun:g_param_spec_internal
-   fun:g_param_spec_double
-   fun:_ZL30gst_pek_performance_class_initP23_GstPekPerformanceClass
-   fun:_ZL37gst_pek_performance_class_intern_initPv
-   fun:g_type_class_get
-   fun:gst_element_register
    fun:_ZL26pekperformance_plugin_initP10_GstPlugin
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
    obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*

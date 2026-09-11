@@ -30,12 +30,20 @@ on:
         required: true
         type: string
     secrets:
-      BLACKDUCK_URL:
-        required: true
       BLACKDUCK_TOKEN:
         required: true
       DEPLOY_KEY_FLOWDATA_SDK:
         required: true
+    outputs:
+      built_output_report_url:
+        description: Black Duck built output report URL.
+        value: ${{ jobs.built-output.outputs.report_url }}
+      dependency_report_url:
+        description: Black Duck dependency report URL.
+        value: ${{ jobs.dependencies.outputs.report_url }}
+      snippet_report_url:
+        description: Black Duck snippet report URL.
+        value: ${{ jobs.snippets.outputs.report_url }}
 
 permissions:
   contents: read
@@ -52,6 +60,8 @@ jobs:
   built-output:
     name: Built output scan
     needs: detect-wrapper
+    outputs:
+      report_url: ${{ steps.report.outputs.url }}
     runs-on: self-hosted-ubuntu-latest-x64
     timeout-minutes: 45
     permissions:
@@ -134,7 +144,7 @@ jobs:
       - name: Scan release build output and enforce policy
         env:
           BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }}
-          BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
+          BLACKDUCK_URL: ${{ vars.BLACKDUCK_URL }}
         run: |
           set -euo pipefail
           test -n "${BLACKDUCK_TOKEN:-}"
@@ -160,12 +170,15 @@ jobs:
             --logging.level.detect=INFO 2>&1 | tee "$scanner_dir/scan.log"
 
       - name: Report built output scan
+        id: report
         if: always()
         env:
-          BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
+          BLACKDUCK_URL: ${{ vars.BLACKDUCK_URL }}
         run: |
           scan_log="${RUNNER_TEMP}/blackduck-built/scan.log"
           scan_link="$(grep -Eo 'https://[^[:space:]]+/api/(projects/[0-9a-f-]+/versions/[0-9a-f-]+/(components|source-trees)|developer-scans/[0-9a-f-]+)' "$scan_log" 2>/dev/null | tail -n 1 || true)"
+          scan_link="${scan_link/\/api\//\/ui\/}"
+          echo "url=${scan_link:-$BLACKDUCK_URL}" >> "$GITHUB_OUTPUT"
           {
             echo '### Black Duck built output scan'
             echo
@@ -178,7 +191,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload built output scan details
-        if: always()
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
           name: blackduck-${{ inputs.scan_mode }}-built-output
@@ -211,8 +224,10 @@ jobs:
   dependencies:
     name: ${{ inputs.scan_mode == 'delta' && 'Delta dependency scan' || 'Full dependency scan' }}
     needs: detect-wrapper
+    outputs:
+      report_url: ${{ steps.report.outputs.url }}
     runs-on: self-hosted-ubuntu-latest-x64
-    timeout-minutes: 45
+    timeout-minutes: 60
     permissions:
       actions: read
       contents: read
@@ -271,7 +286,7 @@ jobs:
         working-directory: ${{ env.WORKSPACE_ROOT }}
         env:
           BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }}
-          BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
+          BLACKDUCK_URL: ${{ vars.BLACKDUCK_URL }}
         run: |
           set -euo pipefail
           test -n "${BLACKDUCK_TOKEN:-}"
@@ -304,7 +319,7 @@ jobs:
         if: ${{ inputs.scan_mode == 'full' }}
         env:
           BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }}
-          BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
+          BLACKDUCK_URL: ${{ vars.BLACKDUCK_URL }}
         run: |
           set -euo pipefail
           test -n "${BLACKDUCK_TOKEN:-}"
@@ -323,7 +338,7 @@ jobs:
             --env PEK_PROJECT_ROOT="$WORKSPACE_ROOT" \
             --env PROJECT_NAME="$project_name" \
             --env VERSION_NAME="$version_name" \
-            --volume "$WORKSPACE_ROOT:$WORKSPACE_ROOT:ro" \
+            --volume "$WORKSPACE_ROOT:$WORKSPACE_ROOT:rw" \
             --volume "$scanner_dir:/blackduck" \
             --workdir "$WORKSPACE_ROOT" \
             --entrypoint bash \
@@ -341,7 +356,7 @@ jobs:
                 --detect.output.path=/blackduck/output
                 --detect.python.path=/usr/bin/python3
                 "--detect.source.path=${PEK_PROJECT_ROOT}"
-                --detect.timeout=1800
+                --detect.timeout=2700
                 --detect.tools=DETECTOR
                 --logging.level.detect=INFO
                 --detect.policy.check.fail.on.severities=ALL
@@ -350,12 +365,15 @@ jobs:
             ' 2>&1 | tee "$scanner_dir/scan.log"
 
       - name: Report dependency scan
+        id: report
         if: always()
         env:
-          BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
+          BLACKDUCK_URL: ${{ vars.BLACKDUCK_URL }}
         run: |
           scan_log="${RUNNER_TEMP}/blackduck-dependencies/scan.log"
           scan_link="$(grep -Eo 'https://[^[:space:]]+/api/(projects/[0-9a-f-]+/versions/[0-9a-f-]+/(components|source-trees)|developer-scans/[0-9a-f-]+)' "$scan_log" 2>/dev/null | tail -n 1 || true)"
+          scan_link="${scan_link/\/api\//\/ui\/}"
+          echo "url=${scan_link:-$BLACKDUCK_URL}" >> "$GITHUB_OUTPUT"
           {
             echo "### Black Duck ${SCAN_MODE} dependency scan"
             echo
@@ -370,7 +388,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload dependency scan details
-        if: always()
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
           name: blackduck-${{ inputs.scan_mode }}-dependencies
@@ -394,6 +412,8 @@ jobs:
   snippets:
     name: ${{ inputs.scan_mode == 'delta' && 'Delta snippet scan' || 'Full snippet scan' }}
     needs: detect-wrapper
+    outputs:
+      report_url: ${{ steps.report.outputs.url }}
     runs-on: self-hosted-ubuntu-latest-x64
     timeout-minutes: 45
     permissions:
@@ -490,7 +510,7 @@ jobs:
         working-directory: ${{ runner.temp }}
         env:
           BLACKDUCK_API_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }}
-          BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
+          BLACKDUCK_URL: ${{ vars.BLACKDUCK_URL }}
           GIT_DIR: ${{ env.WORKSPACE_ROOT }}/.git
           GIT_WORK_TREE: ${{ env.WORKSPACE_ROOT }}
         run: |
@@ -515,7 +535,7 @@ jobs:
         if: ${{ inputs.scan_mode == 'full' }}
         env:
           BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }}
-          BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
+          BLACKDUCK_URL: ${{ vars.BLACKDUCK_URL }}
         run: |
           set -euo pipefail
           test -n "${BLACKDUCK_TOKEN:-}"
@@ -560,12 +580,15 @@ jobs:
             ' 2>&1 | tee "$scanner_dir/scan.log"
 
       - name: Report snippet scan
+        id: report
         if: always()
         env:
-          BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
+          BLACKDUCK_URL: ${{ vars.BLACKDUCK_URL }}
         run: |
           scan_log="${RUNNER_TEMP}/blackduck-snippets/scan.log"
           scan_link="$(grep -Eo 'https://[^[:space:]]+/api/(projects/[0-9a-f-]+/versions/[0-9a-f-]+/(components|source-trees)|developer-scans/[0-9a-f-]+)' "$scan_log" 2>/dev/null | tail -n 1 || true)"
+          scan_link="${scan_link/\/api\//\/ui\/}"
+          echo "url=${scan_link:-$BLACKDUCK_URL}" >> "$GITHUB_OUTPUT"
           {
             echo "### Black Duck ${SCAN_MODE} snippet scan"
             echo
@@ -578,7 +601,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload snippet scan details
-        if: always()
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
           name: blackduck-${{ inputs.scan_mode }}-snippets
@@ -601,7 +624,7 @@ jobs:
 
   quality-gate:
     name: Black Duck quality gate
-    if: always()
+    if: ${{ always() && !cancelled() }}
     needs: [built-output, dependencies, snippets]
     runs-on: ubuntu-latest
     permissions: {}

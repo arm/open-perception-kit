@@ -249,8 +249,10 @@ RUN set -eux; \
   actionlint_archive="actionlint_${ACTIONLINT_VERSION}_linux_${actionlint_arch}.tar.gz"; \
   actionlint_base_url="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"; \
   tmp_dir="$(mktemp -d)"; \
-  curl --location -fsSLo "${tmp_dir}/${actionlint_archive}" "${actionlint_base_url}/${actionlint_archive}"; \
-  curl --location -fsSLo "${tmp_dir}/checksums.txt" "${actionlint_base_url}/actionlint_${ACTIONLINT_VERSION}_checksums.txt"; \
+  curl --location --retry 3 --retry-all-errors --retry-delay 2 -fsSLo \
+    "${tmp_dir}/${actionlint_archive}" "${actionlint_base_url}/${actionlint_archive}"; \
+  curl --location --retry 3 --retry-all-errors --retry-delay 2 -fsSLo \
+    "${tmp_dir}/checksums.txt" "${actionlint_base_url}/actionlint_${ACTIONLINT_VERSION}_checksums.txt"; \
   cd "${tmp_dir}"; \
   grep " ${actionlint_archive}$" checksums.txt | sha256sum -c -; \
   tar -xzf "${actionlint_archive}" actionlint; \
@@ -279,7 +281,8 @@ RUN set -eux; \
   chown "${USERNAME}" /tmp/pekcomm
 
 RUN set -eux; \
-  curl --proto "=https" -LsSf https://astral.sh/uv/install.sh | \
+  curl --proto "=https" --retry 3 --retry-all-errors --retry-delay 2 \
+    -LsSf https://astral.sh/uv/install.sh | \
   env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh; \
   uv --version
 

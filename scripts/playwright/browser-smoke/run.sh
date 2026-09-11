@@ -305,7 +305,7 @@ merge_reports() {
 }
 
 generate_coverage_report() {
-    [ "${BROWSER_SMOKE_COVERAGE}" = "1" ] || return
+    [ "${BROWSER_SMOKE_COVERAGE}" = "1" ] || return 0
     local status=0
 
     ACTIVE_BROWSER_CONTAINER="${PEK_CONTAINER_NAME}-browser-coverage"
