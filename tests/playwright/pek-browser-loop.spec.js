@@ -1,4 +1,4 @@
-const { expect, test } = require('@playwright/test');
+const { expect, test } = require('./pek-browser-coverage');
 
 const {
   expectVideoKeepsPlaying,
@@ -11,6 +11,7 @@ const STOCK_VIDEO_LOOP_TIMEOUT_MS = Number(process.env.STOCK_VIDEO_LOOP_TIMEOUT_
 const STOCK_VIDEO_LOOPS_TO_SURVIVE = 2;
 const PAUSE_OBSERVATION_MS = 2000;
 const HEALTH_CHECK_VIDEO_SAMPLES = 2;
+const SELECTED_TEST = process.env.BROWSER_SMOKE_TEST || '';
 
 test.setTimeout(STOCK_VIDEO_LOOP_TIMEOUT_MS + 180000);
 
@@ -71,8 +72,13 @@ async function expectRemainsPaused(page, durationMs) {
 }
 
 test.describe('Stock video pause and loop recovery', () => {
-  test.afterEach(async ({ page }) => {
-    await expectNoWebRtcErrors(page);
+  test.beforeEach(async ({}, testInfo) => {
+    test.skip(SELECTED_TEST !== '' && testInfo.title !== SELECTED_TEST);
+  });
+
+  test.afterEach(async ({ page }, testInfo) => {
+    if (SELECTED_TEST === '' || testInfo.title === SELECTED_TEST)
+      await expectNoWebRtcErrors(page);
   });
 
   test('pause, resume, and pause remain stable', async ({ page }) => {

@@ -1,4 +1,4 @@
-const { expect, test } = require('@playwright/test');
+const { expect, test } = require('./pek-browser-coverage');
 
 const { expectSinkOnlyData, openPekUi } = require('./pek-browser-helpers');
 
