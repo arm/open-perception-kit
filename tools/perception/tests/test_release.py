@@ -333,6 +333,21 @@ class ArtifactCacheTests(unittest.TestCase):
 
 
 class GenerationReceiptTests(unittest.TestCase):
+    def test_prerelease_package_versions_keep_the_sdk_version(self) -> None:
+        config = replace(
+            release_package.perception_config.load_sdk_config(),
+            version="20260914.1123456.34831718470001",
+            package_prerelease=True,
+        )
+        self.assertEqual(
+            config.python_package_version,
+            "20260914.1123456.34831718470001.dev0",
+        )
+        self.assertEqual(
+            config.cargo_package_version,
+            "20260914.1123456.34831718470001-dev.0",
+        )
+
     def test_generator_sets_the_single_product_version_source(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             meson = Path(tmp) / "meson.build"
@@ -435,16 +450,16 @@ class PythonPackagingTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            release_package.perception_generate.set_python_distribution_name(
-                project, "perception"
+            release_package.perception_generate.prepare_python_package(
+                project, "perception", "1.2.3", "1.2.3.dev0"
             )
             self.assertEqual(
                 pyproject.read_text(encoding="utf-8"),
-                '[project]\nname = "opk-perception-sdk"\nversion = "1.2.3"\n',
+                '[project]\nname = "opk-perception-sdk"\nversion = "1.2.3.dev0"\n',
             )
             with self.assertRaisesRegex(RuntimeError, "project name is unexpected"):
-                release_package.perception_generate.set_python_distribution_name(
-                    project, "perception"
+                release_package.perception_generate.prepare_python_package(
+                    project, "perception", "1.2.3", "1.2.3.dev0"
                 )
 
 

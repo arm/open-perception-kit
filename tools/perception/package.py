@@ -306,7 +306,7 @@ def build_perception_wheel(
 
 def write_requirements(python_dir: Path, config: perception_config.SdkConfig) -> None:
     (python_dir / "requirements.txt").write_text(
-        f"{PYTHON_DISTRIBUTION_NAME}=={config.version}\n"
+        f"{PYTHON_DISTRIBUTION_NAME}=={config.python_package_version}\n"
         f"flatbuffers=={config.flatbuffers_wheel.version}\n",
         encoding="utf-8",
     )
@@ -360,7 +360,7 @@ producer identity match before typed payload access.
 
 ```bash
 npm install ./typescript/flatbuffers-{config.typescript_runtime.version}.tgz \\
-  ./typescript/{config.name}-{config.version}.tgz
+  ./typescript/{config.name}-{config.cargo_package_version}.tgz
 ```
 
 Import `Envelope` and generated payload classes from `{config.name}`. Require an
@@ -566,6 +566,7 @@ def write_bundle_manifest(
             "python_package": {
                 **python_manifest["python_package"],
                 "distribution_name": PYTHON_DISTRIBUTION_NAME,
+                "version": config.python_package_version,
             },
             "schemas": True,
         },
@@ -654,7 +655,7 @@ def _verify_source_identities(
     artifact: dict[str, object],
     schema_set_sha256: object,
     manifest_flatbuffers: object,
-) -> None:
+) -> dict[str, object]:
     if not isinstance(source, dict):
         raise RuntimeError("release manifest source metadata is malformed")
     metadata: dict[str, dict[str, object]] = {}
@@ -692,6 +693,7 @@ def _verify_source_identities(
     _verify_descriptor_flatbuffers_locks(
         descriptor, manifest_flatbuffers, bundle_root
     )
+    return descriptor
 
 
 def _descriptor_flatbuffers_locks(
@@ -849,7 +851,7 @@ def verify_bundle(bundle_root: Path) -> None:
         raise RuntimeError("release manifest artifact identity is malformed")
     require_semantic_version(artifact["version"])
     file_entries = _verify_manifest_files(bundle_root, manifest_path, manifest.get("files"))
-    _verify_source_identities(
+    descriptor = _verify_source_identities(
         bundle_root,
         manifest.get("source"),
         artifact,
@@ -858,7 +860,7 @@ def verify_bundle(bundle_root: Path) -> None:
     )
     _verify_packaged_artifact_records(bundle_root, manifest, file_entries)
 
-    verify_manifest_semantics(bundle_root, manifest, file_entries)
+    verify_manifest_semantics(bundle_root, manifest, file_entries, descriptor)
 
 
 def wheel_metadata(path: Path) -> tuple[dict[str, str], list[str], list[str]]:
@@ -942,11 +944,11 @@ def _verify_python_package_identity(manifest: dict[str, object], version: object
 
 def _verify_python_packages(
     bundle_root: Path,
-    artifact: dict[str, object],
     manifest: dict[str, object],
     file_entries: dict[str, dict[str, object]],
+    package_version: str,
 ) -> dict[str, object]:
-    _verify_python_package_identity(manifest, artifact["version"])
+    _verify_python_package_identity(manifest, package_version)
     perception = manifest.get("perception_wheel")
     flatbuffers = manifest.get("flatbuffers")
     if not isinstance(perception, dict) or not isinstance(flatbuffers, dict):
@@ -955,7 +957,7 @@ def _verify_python_packages(
     if not isinstance(flatbuffers_wheel, dict):
         raise RuntimeError("release FlatBuffers wheel metadata is malformed")
     for label, record, expected_name, expected_version in (
-        ("Perception", perception, PYTHON_DISTRIBUTION_NAME, artifact["version"]),
+        ("Perception", perception, PYTHON_DISTRIBUTION_NAME, package_version),
         ("FlatBuffers", flatbuffers_wheel, "flatbuffers", flatbuffers_wheel.get("version")),
     ):
         path_value = record.get("path")
@@ -977,10 +979,10 @@ def _verify_python_packages(
 
 def _verify_typescript_packages(
     bundle_root: Path,
-    artifact: dict[str, object],
     manifest: dict[str, object],
     flatbuffers: dict[str, object],
     file_entries: dict[str, dict[str, object]],
+    package_version: str,
 ) -> None:
     perception_npm = manifest.get("perception_npm_package")
     flatbuffers_npm = flatbuffers.get("typescript_package")
@@ -997,7 +999,7 @@ def _verify_typescript_packages(
     perception_package = npm_package_metadata(
         bundle_root / validate_relative_path(perception_npm["path"])
     )
-    if perception_package.get("name") != "perception" or perception_package.get("version") != artifact["version"]:
+    if perception_package.get("name") != "perception" or perception_package.get("version") != package_version:
         raise RuntimeError("Perception TypeScript package identity is invalid")
     if perception_package.get("dependencies", {}).get("flatbuffers") != flatbuffers_npm.get("version"):
         raise RuntimeError("Perception TypeScript package does not declare locked FlatBuffers")
@@ -1093,16 +1095,15 @@ def _verify_rust_file_receipt(
 
 
 def _verify_rust_package_identity(
-    bundle_root: Path, artifact: dict[str, object]
+    bundle_root: Path, artifact: dict[str, object], package_version: str
 ) -> None:
     cargo_toml = (bundle_root / "rust" / "Cargo.toml").read_text(encoding="utf-8")
     expected_name = str(artifact.get("name", "")).removesuffix("-sdk")
-    expected_version = artifact.get("version")
     package_section = cargo_toml.split("[dependencies]", 1)[0]
     if (
         re.search(rf'^name\s*=\s*"{re.escape(expected_name)}"\s*$', package_section, re.MULTILINE)
         is None
-        or re.search(rf'^version\s*=\s*"{re.escape(str(expected_version))}"\s*$', package_section, re.MULTILINE)
+        or re.search(rf'^version\s*=\s*"{re.escape(package_version)}"\s*$', package_section, re.MULTILINE)
         is None
     ):
         raise RuntimeError("release Rust crate identity is invalid")
@@ -1188,13 +1189,14 @@ def _verify_rust_crate(
     artifact: dict[str, object],
     manifest: dict[str, object],
     file_entries: dict[str, dict[str, object]],
+    package_version: str,
 ) -> None:
     _, rust_receipt, generated = _rust_release_receipts(bundle_root, manifest)
     _verify_rust_runtime_metadata(manifest, rust_receipt)
     _verify_rust_file_receipt(
         bundle_root, _rust_generated_files(generated), file_entries
     )
-    _verify_rust_package_identity(bundle_root, artifact)
+    _verify_rust_package_identity(bundle_root, artifact, package_version)
     _verify_rust_vendor(bundle_root, manifest, file_entries)
 
 
@@ -1202,6 +1204,7 @@ def verify_manifest_semantics(
     bundle_root: Path,
     manifest: dict[str, object],
     file_entries: dict[str, dict[str, object]],
+    descriptor: dict[str, object],
 ) -> None:
     artifact = manifest["artifact"]
     if not isinstance(artifact, dict) or artifact.get("name") != "perception-sdk":
@@ -1209,11 +1212,27 @@ def verify_manifest_semantics(
     source = manifest["source"]
     if not isinstance(source, dict):
         raise RuntimeError("release manifest source metadata is malformed")
+    package_prerelease = descriptor.get("package_prerelease", False)
+    if not isinstance(package_prerelease, bool):
+        raise RuntimeError("release package_prerelease flag is malformed")
+    version = str(artifact["version"])
+    python_package_version = f"{version}.dev0" if package_prerelease else version
+    cargo_package_version = f"{version}-dev.0" if package_prerelease else version
     _verify_release_tools(source)
     _verify_schema_semantics(bundle_root, manifest)
-    flatbuffers = _verify_python_packages(bundle_root, artifact, manifest, file_entries)
-    _verify_rust_crate(bundle_root, artifact, manifest, file_entries)
-    _verify_typescript_packages(bundle_root, artifact, manifest, flatbuffers, file_entries)
+    flatbuffers = _verify_python_packages(
+        bundle_root, manifest, file_entries, python_package_version
+    )
+    _verify_rust_crate(
+        bundle_root, artifact, manifest, file_entries, cargo_package_version
+    )
+    _verify_typescript_packages(
+        bundle_root,
+        manifest,
+        flatbuffers,
+        file_entries,
+        cargo_package_version,
+    )
 
 
 def write_deterministic_zip(bundle_root: Path, destination: Path) -> None:
@@ -1408,7 +1427,7 @@ def build_bundle(args: argparse.Namespace) -> Path:
         )
         perception_wheel = build_perception_wheel(
             python=build_python, python_project=python_project, wheel_dir=python_dir,
-            name=PYTHON_WHEEL_NAME, version=config.version,
+            name=PYTHON_WHEEL_NAME, version=config.python_package_version,
         )
         flatbuffers_wheel = acquire_flatbuffers_wheel(
             generated_manifest=generated_manifest, wheel_dir=python_dir,
@@ -1416,7 +1435,9 @@ def build_bundle(args: argparse.Namespace) -> Path:
             artifact_dir=args.artifact_dir,
         )
         typescript_dir = bundle_root / "typescript"
-        perception_npm_package = typescript_dir / f"{config.name}-{config.version}.tgz"
+        perception_npm_package = (
+            typescript_dir / f"{config.name}-{config.cargo_package_version}.tgz"
+        )
         write_deterministic_npm_package(config.generated_root / "ts", perception_npm_package)
         flatbuffers_npm_package = acquire_artifact(
             config.typescript_runtime,

@@ -25,6 +25,7 @@ from sdk_config import (
     PRODUCT_VERSION_PATH,
     PYTHON_DISTRIBUTION_NAME,
     REPO_ROOT,
+    SDK_CONFIG_PATH,
     SEMVER,
     SdkConfig,
     load_sdk_config,
@@ -74,6 +75,18 @@ def set_product_version(path: Path, version: str) -> None:
     path.write_text(f"{text[:start]}{version}{text[end:]}", encoding="utf-8")
 
 
+def set_package_prerelease(path: Path, enabled: bool) -> None:
+    descriptor = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(descriptor.get("package_prerelease"), bool):
+        raise RuntimeError("package_prerelease must be boolean")
+    if descriptor["package_prerelease"] != enabled:
+        descriptor["package_prerelease"] = enabled
+        path.write_text(
+            json.dumps(descriptor, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+
 def command_version(cmd: list[str]) -> str:
     result = subprocess.run(cmd, check=True, text=True, capture_output=True)
     return result.stdout.strip() or result.stderr.strip()
@@ -118,12 +131,20 @@ def generate_sdk(config: SdkConfig, generated_root: Path, flatc: str, python: st
     run([*common, "--sdk", "ts"])
 
 
-def set_python_distribution_name(python_project: Path, source_name: str) -> None:
+def prepare_python_package(
+    python_project: Path,
+    source_name: str,
+    source_version: str,
+    package_version: str,
+) -> None:
     pyproject = python_project / "pyproject.toml"
     text = pyproject.read_text(encoding="utf-8")
-    source = f'[project]\nname = "{source_name}"\n'
+    source = (
+        f'[project]\nname = "{source_name}"\nversion = "{source_version}"\n'
+    )
     target = (
         f'[project]\nname = "{PYTHON_DISTRIBUTION_NAME}"\n'
+        f'version = "{package_version}"\n'
     )
     if text.count(source) != 1:
         raise RuntimeError("generated Python project name is unexpected")
@@ -150,7 +171,7 @@ def synchronize_plumber_dependency(path: Path, version: str, check: bool) -> boo
 
 def synchronize_project_consumers(config: SdkConfig, node: str, check: bool) -> bool:
     plumber_current = synchronize_plumber_dependency(
-        PLUMBER_PROJECT, config.version, check
+        PLUMBER_PROJECT, config.python_package_version, check
     )
     run([node, str(WEB_BUILD), "check" if check else "generate"])
     return plumber_current
@@ -226,6 +247,7 @@ def prepare_typescript_package(config: SdkConfig, generated_root: Path) -> None:
     package["devDependencies"] = {"typescript": config.typescript_compiler.version}
     package["engines"] = {"node": f">={config.node_minimum_major}"}
     package["files"] = ["dist", "src"]
+    package["version"] = config.cargo_package_version
     package_path.write_text(
         json.dumps(package, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
@@ -235,8 +257,19 @@ def prepare_rust_tests(config: SdkConfig, generated_root: Path) -> None:
     rust_root = generated_root / "rust"
     cargo_toml = rust_root / "Cargo.toml"
     expected_name = f'name = "{config.name}"'
-    if expected_name not in cargo_toml.read_text(encoding="utf-8"):
+    cargo = cargo_toml.read_text(encoding="utf-8")
+    if expected_name not in cargo:
         raise RuntimeError("generated Rust package name does not match sdk.json")
+    source_version = f'version = "{config.version}"'
+    if cargo.count(source_version) != 1:
+        raise RuntimeError("generated Rust package version is unexpected")
+    cargo_toml.write_text(
+        cargo.replace(
+            source_version,
+            f'version = "{config.cargo_package_version}"',
+        ),
+        encoding="utf-8",
+    )
     fixture_target = rust_root / "tests" / "fixtures" / RUST_FIXTURE.name
     fixture_target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(RUST_FIXTURE, fixture_target)
@@ -759,7 +792,12 @@ def prepare_sdk(
 ) -> None:
     verify_flowdata_manifests(config, generated_root, python)
     flowdata_manifests = read_flowdata_manifests(generated_root)
-    set_python_distribution_name(generated_root / "python", config.name)
+    prepare_python_package(
+        generated_root / "python",
+        config.name,
+        config.version,
+        config.python_package_version,
+    )
     python_receipt = flowdata_manifests["python"]
     python_package = (
         python_receipt.get("python_package")
@@ -933,6 +971,11 @@ def parse_args() -> argparse.Namespace:
         help="set the product version before regenerating every consumer",
     )
     parser.add_argument(
+        "--package-prerelease",
+        action="store_true",
+        help="mark generated language packages as development prereleases",
+    )
+    parser.add_argument(
         "--flatc",
         default="flatc",
         metavar="EXECUTABLE",
@@ -975,10 +1018,15 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     try:
-        if args.check and args.version:
-            raise RuntimeError("--version cannot be combined with --check")
+        if args.check and (args.version or args.package_prerelease):
+            raise RuntimeError(
+                "--version and --package-prerelease cannot be combined with --check"
+            )
+        if args.package_prerelease and not args.version:
+            raise RuntimeError("--package-prerelease requires --version")
         if args.version:
             set_product_version(PRODUCT_VERSION_PATH, args.version)
+            set_package_prerelease(SDK_CONFIG_PATH, args.package_prerelease)
         config = load_sdk_config()
         node_modules = args.node_modules
         if node_modules is None:

@@ -849,6 +849,31 @@ def read_version(repo_root: Path) -> str:
     return match.group(1)
 
 
+def read_package_versions(repo_root: Path, version: str) -> tuple[str, str]:
+    paths = {
+        "Python": repo_root / "generated/perception/python/pyproject.toml",
+        "Cargo": repo_root / "generated/perception/rust/Cargo.toml",
+    }
+    versions: dict[str, str] = {}
+    for language, path in paths.items():
+        match = re.search(
+            r'^version\s*=\s*"([^"]+)"',
+            path.read_text(encoding="utf-8"),
+            re.MULTILINE,
+        )
+        if match is None:
+            fail(f"Generated Perception {language} package version is missing")
+        versions[language] = match.group(1)
+    expected = {
+        (version, version),
+        (f"{version}.dev0", f"{version}-dev.0"),
+    }
+    result = (versions["Python"], versions["Cargo"])
+    if result not in expected:
+        fail("Generated Perception package versions do not match the product version")
+    return result
+
+
 def changelog_section(repo_root: Path, version: str) -> str:
     content = (repo_root / "CHANGELOG.md").read_text(encoding="utf-8")
     match = re.search(
@@ -906,8 +931,15 @@ def prepare_prerelease(args: argparse.Namespace) -> None:
 def prepare(args: argparse.Namespace) -> None:
     repo_root = Path(args.repo_root).resolve()
     version = read_version(repo_root)
+    python_package_version, cargo_package_version = read_package_versions(
+        repo_root, version
+    )
     if not args.build_label:
         changelog_section(repo_root, version)
+        if (python_package_version, cargo_package_version) != (version, version):
+            fail("Stable releases require stable Perception package versions")
+    elif (python_package_version, cargo_package_version) == (version, version):
+        fail("Prereleases require prerelease Perception package versions")
     commit = args.commit
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
         fail("Source commit must be a full SHA")
@@ -920,6 +952,8 @@ def prepare(args: argparse.Namespace) -> None:
     write_github_output(
         {
             "version": version,
+            "python_package_version": python_package_version,
+            "cargo_package_version": cargo_package_version,
             "commit": commit,
             "build_id": build_id,
             "x86_archive": f"pek-{build_id}-linux-x86_64.tar.gz",
