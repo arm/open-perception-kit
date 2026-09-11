@@ -810,6 +810,7 @@ COPY development/web /work/development/web
 COPY --from=pek-deployment-build /opt/pek-app/development/build /work/development/build
 COPY --from=pek-deployment-build /opt/pek-app/tools /work/tools
 COPY --from=pek-deployment-build /opt/pek-app/scripts /work/scripts
+COPY --chmod=0755 scripts/release/smoke-opk-package.sh /work/scripts/release/smoke-opk-package.sh
 COPY --from=pek-deployment-build /opt/pek-release-artifacts /opt/pek-release-artifacts
 
 RUN set -eux; \
@@ -856,48 +857,9 @@ RUN --network=none \
     *) exit 1 ;; \
   esac; \
   package_name="pek-${PEK_RELEASE_BUILD_ID}-linux-${architecture}"; \
-  smoke_root=/tmp/pek-release-smoke; \
-  package_root="${smoke_root}/${package_name}"; \
-  mkdir -p "${smoke_root}"; \
-  tar -C "${smoke_root}" -xzf \
-    "/opt/pek-release-artifacts/${package_name}.tar.gz"; \
-  export GST_PLUGIN_PATH="${package_root}/lib/gstreamer-1.0"; \
-  export LD_LIBRARY_PATH="${package_root}/lib/pek"; \
-  registry="${smoke_root}/gstreamer-registry.bin"; \
-  for element in fakesink opusenc pekcomm pekinfer pekosd pekperformance \
-      peksink pektracker videoconvert videotestsrc vp8enc webrtcbin; do \
-    GST_REGISTRY="${registry}" gst-inspect-1.0 "${element}" >/dev/null; \
-  done; \
-  for model in yolov11 yolox; do \
-    output="${smoke_root}/${model}.jsonl"; \
-    GST_REGISTRY="${registry}" timeout 120s gst-launch-1.0 -q \
-      videotestsrc pattern=ball num-buffers=5 ! \
-      video/x-raw,format=BGRA,width=320,height=320,framerate=5/1 ! \
-      pekinfer opchain-path="${package_root}/share/pek/models/${model}/opchain.json" ! \
-      pekperformance show-all-metrics=true update-interval=1 ! \
-      pekcomm method=file file-name="${output}" ! \
-      pekosd enabled=true ! fakesink sync=false; \
-    test -s "${output}"; \
-  done; \
-  python_smoke_root="${package_root}/share/pek/models/yolov11"; \
-  cp /tmp/runtime_environment.py \
-    "${python_smoke_root}/"; \
-  python3 -c \
-    'import json, sys; opchain=json.load(open(sys.argv[1], encoding="utf-8")); opchain["ops"].insert(0, {"id": "pek-python-ops/PythonScript", "attributes": {"script": "runtime_environment.py"}}); json.dump(opchain, open(sys.argv[2], "w", encoding="utf-8"))' \
-    "${python_smoke_root}/opchain.json" \
-    "${python_smoke_root}/opchain-python-smoke.json"; \
-  env -u PEK_DEVTOOLS_VENV -u PEK_PYTHON_RUNTIME_VENV \
-    GST_REGISTRY="${registry}" timeout 120s gst-launch-1.0 -q \
-    videotestsrc pattern=ball num-buffers=1 ! \
-    video/x-raw,format=BGRA,width=320,height=320,framerate=5/1 ! \
-    pekinfer \
-      opchain-path="${python_smoke_root}/opchain-python-smoke.json" ! \
-    fakesink sync=false; \
-  GST_REGISTRY="${registry}" timeout 120s gst-launch-1.0 -q \
-    videotestsrc pattern=ball num-buffers=5 ! \
-    video/x-raw,format=BGRA,width=320,height=320,framerate=5/1 ! \
-    peksink; \
-  rm -rf "${smoke_root}"
+  /work/scripts/release/smoke-opk-package.sh \
+    "/opt/pek-release-artifacts/${package_name}.tar.gz" \
+    /tmp/runtime_environment.py
 
 ENTRYPOINT ["/work/scripts/private/deployment-runtime.sh"]
 
