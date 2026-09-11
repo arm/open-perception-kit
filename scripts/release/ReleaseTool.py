@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import filecmp
 import importlib.metadata
 import json
@@ -871,6 +872,37 @@ def write_github_output(values: dict[str, str]) -> None:
             stream.write(f"{key}={value}\n")
 
 
+def prerelease_identity(
+    commit: str,
+    run_id: str,
+    run_attempt: str,
+    now: datetime | None = None,
+) -> dict[str, str]:
+    if not GIT_COMMIT_PATTERN.fullmatch(commit):
+        fail("Source commit must be a full SHA")
+    if not re.fullmatch(r"[1-9]\d*", run_id):
+        fail("GitHub run ID must be a positive integer")
+    if not re.fullmatch(r"[1-9]\d*", run_attempt):
+        fail("GitHub run attempt must be a positive integer")
+    timestamp = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    version = (
+        f"{timestamp:%Y%m%d}."
+        f"{1_000_000 + int(timestamp.strftime('%H%M%S'))}."
+        f"{int(run_id) * 1000 + int(run_attempt)}"
+    )
+    return {
+        "version": version,
+        "build_label": f"prerelease-g{commit[:12]}",
+        "source_branch": f"sandbox/prerelease-source/{run_id}-{run_attempt}",
+    }
+
+
+def prepare_prerelease(args: argparse.Namespace) -> None:
+    write_github_output(
+        prerelease_identity(args.commit, args.run_id, args.run_attempt)
+    )
+
+
 def prepare(args: argparse.Namespace) -> None:
     repo_root = Path(args.repo_root).resolve()
     version = read_version(repo_root)
@@ -919,6 +951,11 @@ def main() -> int:
     prepare_parser.add_argument("--commit", required=True)
     prepare_parser.add_argument("--build-label", default="")
 
+    prerelease_parser = subparsers.add_parser("prepare-prerelease")
+    prerelease_parser.add_argument("--commit", required=True)
+    prerelease_parser.add_argument("--run-id", required=True)
+    prerelease_parser.add_argument("--run-attempt", required=True)
+
     args = parser.parse_args()
     try:
         if args.command == "stage-models":
@@ -929,6 +966,8 @@ def main() -> int:
             validate_package(args)
         elif args.command == "prepare":
             prepare(args)
+        elif args.command == "prepare-prerelease":
+            prepare_prerelease(args)
         return 0
     except (OSError, RuntimeError, subprocess.CalledProcessError, ValueError) as error:
         print(f"release error: {error}", file=sys.stderr)

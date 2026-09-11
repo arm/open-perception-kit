@@ -986,7 +986,7 @@
   ],
   "generation": {
     "flowdata_sdk": {
-      "commit": "25924bd9b369a7a400099e912858e2760c720f92",
+      "commit": "c057c6888703688af5ebc99975d4639ee98270c7",
       "generator": {
         "name": "flowdata-sdk",
         "version": "0.6.0"
@@ -995,8 +995,8 @@
     "tools": [
       {
         "path": "tools/perception/generate.py",
-        "sha256": "4ef7a6bd808615aed72b057a82018a5a3cbc732de326c6fea1709ad1fd57a468",
-        "size": 38212
+        "sha256": "b9175ba030d30b57bc94a5b85a916517accebd2e18cc110f5ee9b2de9802809c",
+        "size": 40385
       },
       {
         "path": "tools/perception/release_common.py",

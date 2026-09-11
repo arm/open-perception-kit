@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -105,6 +106,41 @@ class ReleaseToolTests(unittest.TestCase):
             stderr=subprocess.PIPE,
             text=True,
         )
+
+    def test_prerelease_identity_is_sortable_unique_and_source_bound(self) -> None:
+        identity = release_tool.prerelease_identity(
+            SOURCE_COMMIT,
+            "34458724856",
+            "2",
+            datetime(2026, 9, 10, 9, 12, 34, tzinfo=timezone.utc),
+        )
+        self.assertEqual(identity["version"], "20260910.1091234.34458724856002")
+        self.assertEqual(identity["build_label"], "prerelease-gaaaaaaaaaaaa")
+        self.assertEqual(
+            identity["source_branch"], "sandbox/prerelease-source/34458724856-2"
+        )
+
+    def test_package_versions_match_the_product_version(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            add_release_identity(root)
+            self.assertEqual(
+                release_tool.read_package_versions(root, "0.1.0"),
+                ("0.1.0", "0.1.0"),
+            )
+
+            python = root / "generated/perception/python/pyproject.toml"
+            cargo = root / "generated/perception/rust/Cargo.toml"
+            python.write_text('[project]\nversion = "0.1.0.dev0"\n', encoding="utf-8")
+            cargo.write_text('[package]\nversion = "0.1.0-dev.0"\n', encoding="utf-8")
+            self.assertEqual(
+                release_tool.read_package_versions(root, "0.1.0"),
+                ("0.1.0.dev0", "0.1.0-dev.0"),
+            )
+
+            cargo.write_text('[package]\nversion = "0.2.0-dev.0"\n', encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, "do not match"):
+                release_tool.read_package_versions(root, "0.1.0")
 
     def test_stages_and_validates_private_python_runtime(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

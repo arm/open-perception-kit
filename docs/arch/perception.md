@@ -35,6 +35,8 @@ used by generation, packaging, tests, and development installation. Generation f
 flowdata manifests, then applies AMP-owned copyright and formatting decoration. The final
 generated SDK manifest embeds the raw generator manifests and records the
 descriptor hash, decorated file hashes, and derived project integrations.
+Generation also refreshes the exact Plumber SDK dependency and the checked-in
+WebUI bundle that consumes the TypeScript SDK; `check` verifies both.
 
 The generated Python package exposes endpoint ownership through
 `perception.packet` and live C++ guest access through `perception.guest`. The

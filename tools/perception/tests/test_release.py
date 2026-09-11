@@ -333,6 +333,41 @@ class ArtifactCacheTests(unittest.TestCase):
 
 
 class GenerationReceiptTests(unittest.TestCase):
+    def test_generator_sets_the_single_product_version_source(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            meson = Path(tmp) / "meson.build"
+            meson.write_text(
+                "project('demo', version: '0.3.0')\n", encoding="utf-8"
+            )
+            release_package.perception_generate.set_product_version(
+                meson, "20260910.1091234.34458724856"
+            )
+            self.assertEqual(
+                meson.read_text(encoding="utf-8"),
+                "project('demo', version: '20260910.1091234.34458724856')\n",
+            )
+
+    def test_synchronizes_plumber_dependency_with_the_product_version(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp) / "pyproject.toml"
+            project.write_text(
+                '[project]\ndependencies = [\n    "opk-perception-sdk==0.3.0",\n]\n',
+                encoding="utf-8",
+            )
+
+            with redirect_stdout(io.StringIO()):
+                self.assertFalse(
+                    release_package.perception_generate.synchronize_plumber_dependency(
+                        project, "0.0.4309101", True
+                    )
+                )
+            self.assertTrue(
+                release_package.perception_generate.synchronize_plumber_dependency(
+                    project, "0.0.4309101", False
+                )
+            )
+            self.assertIn("opk-perception-sdk==0.0.4309101", project.read_text())
+
     def test_typescript_declaration_headers_are_idempotent(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             generated = Path(tmp)

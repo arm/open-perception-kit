@@ -20,7 +20,15 @@ import tempfile
 from pathlib import Path
 
 from release_common import sha256
-from sdk_config import PYTHON_DISTRIBUTION_NAME, REPO_ROOT, SdkConfig, load_sdk_config
+from sdk_config import (
+    PRODUCT_VERSION,
+    PRODUCT_VERSION_PATH,
+    PYTHON_DISTRIBUTION_NAME,
+    REPO_ROOT,
+    SEMVER,
+    SdkConfig,
+    load_sdk_config,
+)
 
 FLOWDATA_MANIFEST_FILENAME = "flowdata-manifest.json"
 PERCEPTION_MANIFEST_FILENAME = "perception-sdk-manifest.json"
@@ -47,10 +55,23 @@ MESON_BUILD_FILENAME = "meson.build"
 RUST_FIXTURE = REPO_ROOT / "tools/perception/tests/fixtures/opk-box-detections-v0.2.1.hex"
 RUST_FIXTURE_SDK_VERSION = "0.2.1"
 RUST_FIXTURE_SCHEMA_SET_SHA256 = "0ba6dfe959e1453ce12c7a8707623bc15d94d52c9235c26f7e27f31dda0775c5"
+PLUMBER_PROJECT = REPO_ROOT / "tools/plumber/pyproject.toml"
+WEB_BUILD = REPO_ROOT / "development/web/build.mjs"
 
 
 def run(cmd: list[str]) -> None:
     subprocess.run(cmd, check=True)
+
+
+def set_product_version(path: Path, version: str) -> None:
+    if SEMVER.fullmatch(version) is None:
+        raise RuntimeError("product version must use MAJOR.MINOR.PATCH form")
+    text = path.read_text(encoding="utf-8")
+    matches = list(PRODUCT_VERSION.finditer(text))
+    if len(matches) != 1:
+        raise RuntimeError("product Meson file must contain exactly one version")
+    start, end = matches[0].span(1)
+    path.write_text(f"{text[:start]}{version}{text[end:]}", encoding="utf-8")
 
 
 def command_version(cmd: list[str]) -> str:
@@ -107,6 +128,32 @@ def set_python_distribution_name(python_project: Path, source_name: str) -> None
     if text.count(source) != 1:
         raise RuntimeError("generated Python project name is unexpected")
     pyproject.write_text(text.replace(source, target), encoding="utf-8")
+
+
+def synchronize_plumber_dependency(path: Path, version: str, check: bool) -> bool:
+    text = path.read_text(encoding="utf-8")
+    expected, count = re.subn(
+        r'(?m)^(\s*"opk-perception-sdk==)[^"]+(",)$',
+        rf"\g<1>{version}\g<2>",
+        text,
+    )
+    if count != 1:
+        raise RuntimeError("plumber must declare one exact Perception SDK dependency")
+    if expected == text:
+        return True
+    if check:
+        print("tools/plumber/pyproject.toml Perception SDK dependency is stale")
+        return False
+    path.write_text(expected, encoding="utf-8")
+    return True
+
+
+def synchronize_project_consumers(config: SdkConfig, node: str, check: bool) -> bool:
+    plumber_current = synchronize_plumber_dependency(
+        PLUMBER_PROJECT, config.version, check
+    )
+    run([node, str(WEB_BUILD), "check" if check else "generate"])
+    return plumber_current
 
 
 def verify_flowdata_manifests(
@@ -881,6 +928,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--check", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument(
+        "--version",
+        metavar="MAJOR.MINOR.PATCH",
+        help="set the product version before regenerating every consumer",
+    )
+    parser.add_argument(
         "--flatc",
         default="flatc",
         metavar="EXECUTABLE",
@@ -923,15 +975,21 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     try:
+        if args.check and args.version:
+            raise RuntimeError("--version cannot be combined with --check")
+        if args.version:
+            set_product_version(PRODUCT_VERSION_PATH, args.version)
         config = load_sdk_config()
         node_modules = args.node_modules
         if node_modules is None:
             node_modules = Path(command_version(["npm", "root", "--global"]))
         if args.check:
-            return 0 if check_generated(
+            generated_current = check_generated(
                 config, args.flatc, args.python, args.clang_format, args.formatter_python,
                 args.node, node_modules,
-            ) else 1
+            )
+            consumers_current = synchronize_project_consumers(config, args.node, True)
+            return 0 if generated_current and consumers_current else 1
         with tempfile.TemporaryDirectory(prefix=".perception-generate-", dir=REPO_ROOT) as tmp:
             workspace = Path(tmp)
             generated, internal = generate_candidate(
@@ -939,6 +997,7 @@ def main() -> int:
                 args.clang_format, args.formatter_python, args.node, node_modules,
             )
             install_candidate(config, generated, internal, workspace)
+        synchronize_project_consumers(config, args.node, False)
         verify_perception_manifest(config)
         print(f"Generated {config.name} SDK {config.version} in {config.generated_root}")
         return 0
