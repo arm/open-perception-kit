@@ -450,7 +450,10 @@ def command_build_markdown(args: argparse.Namespace) -> int:
     return 0
 
 
-def command_package_repository_changes(args: argparse.Namespace) -> int:
+# CLI handlers use process exit codes.
+def command_package_repository_changes(  # NOSONAR
+    args: argparse.Namespace,
+) -> int:
     run_command(["git", "add", "-A"])
 
     diff_check = run_command(["git", "diff", "--cached", "--quiet"], check=False)

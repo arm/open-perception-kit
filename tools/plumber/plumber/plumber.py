@@ -10,6 +10,7 @@ import os
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import List, Optional
@@ -285,7 +286,10 @@ def build_arg_parser(project_root: Optional[Path] = None) -> argparse.ArgumentPa
         help="NDJSON file path: output file in save mode, input file in check mode.",
     )
 
-    p.add_argument("--fifo", default="/tmp/pekcomm", help="Path to FIFO used by pekcomm.")
+    p.add_argument(
+        "--fifo",
+        help="Path to FIFO used by pekcomm (default: a private per-run FIFO).",
+    )
     p.add_argument(
         "--pek-menu",
         default=str(project_root / "tools/pek-menu"),
@@ -321,10 +325,12 @@ def main() -> int:
     # normalize limit: 0 means "no limit"
     args.limit = args.limit if args.limit != 0 else None
 
-    if args.mode == "save":
-        return run_save_mode(args)
-    else:
-        return run_check_mode(args)
+    if args.fifo is None:
+        with tempfile.TemporaryDirectory(prefix="pekcomm-") as temp_dir:
+            args.fifo = str(Path(temp_dir) / "fifo")
+            return run_save_mode(args) if args.mode == "save" else run_check_mode(args)
+
+    return run_save_mode(args) if args.mode == "save" else run_check_mode(args)
 
 
 if __name__ == "__main__":

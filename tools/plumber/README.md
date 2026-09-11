@@ -32,7 +32,7 @@ PekComm (GStreamer element)
    +--> file/FIFO mode
    |      |  NDJSON over FIFO
    |      v
-   |   /tmp/pekcomm
+   |   private per-run FIFO
    |      |
    |      v
    |   Plumber
@@ -67,7 +67,7 @@ Relevant properties:
 - `file-name`
   - output target path used when `method=file`
   - can be a normal file path, an existing FIFO path, or `-` for stdout
-  - Plumber uses `/tmp/pekcomm`, which is already created as a FIFO in the devcontainer
+  - Plumber creates a private per-run FIFO unless `--fifo` selects another path
 - `ws-port`
   - TCP port used when `method=websocket`
   - default: `8002`
@@ -186,7 +186,7 @@ export PEK_PROJECT_ROOT="$(pwd)"
 
 - `--fifo`
   - path to FIFO used by PekComm
-  - default: `/tmp/pekcomm`
+  - default: a private per-run temporary FIFO
 
 - `--pek-menu`
   - path to the `pek-menu` executable
