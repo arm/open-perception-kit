@@ -187,7 +187,7 @@ template <typename Emit> void emitSimplifiedGlyphs(char32_t codepoint, Emit &emi
     }
 }
 
-template <typename Emit> void forEachTextGlyph(std::string_view text, Emit &&emit) noexcept {
+template <typename Emit> void forEachTextGlyph(std::string_view text, Emit emit) noexcept {
     const char *current = text.data();
     const char *end = current + text.size();
 

@@ -208,7 +208,7 @@ std::uint8_t maskBlockCoverageAlpha(const MaskView &mask,
                                     std::uint32_t width,
                                     std::uint32_t height,
                                     std::uint8_t threshold) noexcept {
-    unsigned covered = 0U;
+    std::uint32_t covered = 0U;
     for (std::uint32_t y = 0; y < height; ++y) {
         const auto *maskRow =
             mask.data +
@@ -221,7 +221,7 @@ std::uint8_t maskBlockCoverageAlpha(const MaskView &mask,
             }
         }
     }
-    const auto total = static_cast<unsigned>(width) * static_cast<unsigned>(height);
+    const auto total = width * height;
     return total == 0U ? 0U : static_cast<std::uint8_t>((covered * 255U + total / 2U) / total);
 }
 
