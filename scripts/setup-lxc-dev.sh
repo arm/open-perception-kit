@@ -113,7 +113,7 @@ apt-get install -y --no-install-recommends \
     gstreamer1.0-plugins-bad gstreamer1.0-plugins-base \
     gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly gstreamer1.0-tools \
     gstreamer1.0-x iproute2 iputils-arping iputils-ping less libfftw3-dev \
-    libcairo2-dev libfmt-dev libgstreamer-plugins-bad1.0-dev \
+    libfmt-dev libgstreamer-plugins-bad1.0-dev \
     libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev libjson-glib-dev \
     libsoup-3.0-dev libssl-dev lldb-17 locales lua5.1 luarocks mc meson nano \
     neovim net-tools ninja-build nmap nodejs openssh-client pkg-config \

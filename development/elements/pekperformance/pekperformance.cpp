@@ -6,8 +6,6 @@
 #include "gst/gstpad.h"
 #include "pek/Tools.h"
 
-#include <cairo.h>
-
 #include <gst/gst.h>
 #include <gst/video/gstvideofilter.h>
 #include <gst/video/video.h>
@@ -83,6 +81,9 @@ GST_DEBUG_CATEGORY_STATIC(gst_pek_performance_debug);
 #define DEFAULT_UPDATE_INTERVAL 5
 #define DEFAULT_SHOW_ALL_METRICS FALSE
 #define DEFAULT_ENABLED TRUE
+
+static constexpr const char *PEK_SUPPORTED_RAW_VIDEO_CAPS =
+    "video/x-raw, format=(string){BGRA,RGB,I420,NV12,YUY2}";
 
 // Property IDs
 enum class PropertyId : guint {
@@ -179,7 +180,7 @@ static void gst_pek_performance_class_init(GstPekPerformanceClass *klass) {
         "PEK Team <pek@example.com>");
 
     // Set pad templates
-    GstCaps *caps = gst_caps_from_string("video/x-raw, format=(string){BGRA}");
+    GstCaps *caps = gst_caps_from_string(PEK_SUPPORTED_RAW_VIDEO_CAPS);
     GstPadTemplate *src_template = gst_pad_template_new("src", GST_PAD_SRC, GST_PAD_ALWAYS, caps);
     GstPadTemplate *sink_template =
         gst_pad_template_new("sink", GST_PAD_SINK, GST_PAD_ALWAYS, caps);
@@ -288,7 +289,8 @@ static gboolean gst_pek_performance_stop(GstBaseTransform *trans) {
 }
 
 // Helper function to render overlay to cached surface
-static std::vector<std::string> get_performance_data(GstPekPerformance *self) {
+static std::vector<std::string> get_performance_data(GstPekPerformance *self,
+                                                     const char *pixel_format) {
     std::vector<pek::perf::ScopeIntervalMetrics> scope_interval_metrics;
     gboolean show_all_metrics;
     gdouble fps_average;
@@ -305,7 +307,7 @@ static std::vector<std::string> get_performance_data(GstPekPerformance *self) {
     GST_OBJECT_UNLOCK(self);
 
     std::vector<std::string> lines;
-    lines.push_back("═══ Performance Metrics ═══");
+    lines.emplace_back(std::format("{:<24}: {}", "Pixel format", pixel_format));
 
     if (show_all_metrics) {
         for (const auto &metric : scope_interval_metrics) {
@@ -323,7 +325,8 @@ static std::vector<std::string> get_performance_data(GstPekPerformance *self) {
 
         std::array stage_interval_totals = {StageIntervalTotals{"PreProc", "/GenImgPre/"},
                                             StageIntervalTotals{"Inference", "/Infer/"},
-                                            StageIntervalTotals{"PostProc", "/Post/"}};
+                                            StageIntervalTotals{"PostProc", "/Post/"},
+                                            StageIntervalTotals{"OSD", "osd/render"}};
         for (const auto &metric : scope_interval_metrics) {
             const auto stage =
                 std::ranges::find_if(stage_interval_totals, [&metric](const auto &item) {
@@ -355,7 +358,6 @@ static std::vector<std::string> get_performance_data(GstPekPerformance *self) {
         lines.emplace_back("Pipeline                :    --.- FPS");
     }
 
-    lines.push_back("═══════════════════════════════════════════════");
     return lines;
 }
 
@@ -392,7 +394,9 @@ static GstFlowReturn gst_pek_performance_transform_frame_ip(GstVideoFilter *filt
 
     if (cache_should_be_updated) {
         // Update cache every N frames
-        self->cached_lines = get_performance_data(self);
+        const auto format = GST_VIDEO_INFO_FORMAT(&frame->info);
+        const char *format_name = gst_video_format_to_string(format);
+        self->cached_lines = get_performance_data(self, format_name ? format_name : "unknown");
     }
 
     // Ensure generated FrameResults metadata exists so performance is a standalone payload.

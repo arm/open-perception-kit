@@ -176,7 +176,7 @@ stages inherit everything from their parent unless noted otherwise.
 
 - `pek-build-base`: `ca-certificates`, `curl`, `git`, `build-essential`,
   `meson`, `ninja-build`, `pkg-config`, `cmake`, `unzip`, `python3` with venv,
-  OpenSSL, fmt, FFTW, libsoup, JSON-GLib, Cairo, and GStreamer development
+  OpenSSL, fmt, FFTW, libsoup, JSON-GLib, and GStreamer development
   headers.
 - `pek-cross-build-base`: currently inherits `pek-build-base` and gives the
   deployment build lane a named cross-build root.
@@ -237,7 +237,7 @@ stages inherit everything from their parent unless noted otherwise.
   Python virtual environment from the pinned target-architecture NumPy wheel,
   the pinned FlatBuffers wheel, and the generated Perception Python package.
 - `pek-deployment-base`: contains only the selected deployment outputs and
-  runtime dependencies: OpenSSL, fmt, FFTW, libsoup, JSON-GLib, Cairo,
+  runtime dependencies: OpenSSL, fmt, FFTW, libsoup, JSON-GLib,
   libusb, zlib, GStreamer runtime/tools/plugins, optional Raspberry Pi camera
   packages, ONNX Runtime libraries, the target-platform Python operation
   runtime, the PEK app, and any release tarball copied from

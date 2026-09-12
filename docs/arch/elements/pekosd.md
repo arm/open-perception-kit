@@ -5,7 +5,7 @@ sidebar_label: pekosd
 
 # pekosd
 
-`pekosd` is a `GstVideoFilter` that renders `FrameResults` payloads onto BGRA video
+`pekosd` is a `GstVideoFilter` that renders `FrameResults` payloads onto PEK video
 frames. It is a presentation/debugging stage and does not modify `FrameResults`
 itself.
 
@@ -13,7 +13,7 @@ itself.
 
 - Base class: `GstVideoFilter`
 - Processing mode: in-place `transform_frame_ip`
-- Pad caps: `video/x-raw, format=BGRA`
+- Pad caps: `video/x-raw, format={BGRA,RGB,I420,NV12,YUY2}`
 - Metadata dependency: `FrameResultsMeta`
 - Main property: `enabled`
 
@@ -21,12 +21,10 @@ If no `FrameResultsMeta` is attached, the frame passes through unchanged.
 
 ## Execution Model
 
-For each frame, `pekosd` reads the immutable `FrameResults` envelope, creates one or
-more Cairo-backed overlay layers, composites those layers onto the input frame,
-and returns the modified frame downstream.
-
-The current implementation uses CPU-based Cairo rendering over linear BGRA memory.
-Future DMABUF/Vulkan-style rendering is a planned direction, not the current path.
+For each frame, `pekosd` reads the immutable `FrameResults` envelope, draws supported
+overlays directly onto the negotiated input frame, and returns the modified frame
+downstream. Future DMABUF/Vulkan-style rendering is a planned direction, not the
+current path.
 
 ## Rendering Model
 
@@ -48,8 +46,7 @@ object, such as gaze vectors anchored to face rectangles.
 ## Memory And Performance
 
 - Frames are modified in place.
-- Overlay layers are temporary Cairo ARGB32 surfaces.
-- No full-frame copy is required for the final canvas.
+- No full-frame overlay canvas is allocated.
 - Rendering is CPU-bound and assumes linear image memory.
 
 Treat `pekosd` as a debugging overlay rather than the long-term application UI

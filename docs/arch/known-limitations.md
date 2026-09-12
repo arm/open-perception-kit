@@ -49,8 +49,9 @@ runtime. Treat these as constraints when extending the system.
 
 ## Media Support
 
-- Main runtime elements assume linear, tightly packed BGRA video frames.
-- Padded stride, multi-planar formats, DMABUF, and zero-copy paths are not handled
+- Main GStreamer elements negotiate linear CPU video frames in `BGRA`, `RGB`,
+  `I420`, `NV12`, and `YUY2`.
+- Padded stride, multi-planar drawing details, DMABUF, and zero-copy paths are not handled
   consistently yet.
 - `peksink` can transport audio, but audio inference is not integrated.
 
