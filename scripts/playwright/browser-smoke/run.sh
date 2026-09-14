@@ -22,6 +22,7 @@ Prerequisites:
 Environment:
   PLAYWRIGHT_BASE_URL  PEK browser URL. Default: http://127.0.0.1:9999
   BROWSER_SMOKE_BROWSERS  Comma-separated browser list. Default: chromium
+  BROWSER_SMOKE_COVERAGE=1  Write Chromium WebUI coverage as LCOV.
   BROWSER_SMOKE_MAX_FAILURES  Stop a phase after this many failures. Default: 2
   BROWSER_SMOKE_IMAGE_NAME  Runtime image tag override.
   BROWSER_SMOKE_REBUILD=1  Force rebuild of the Playwright runtime image.
@@ -57,6 +58,7 @@ RUNTIME_DOCKERFILE="${SCRIPT_DIR}/Dockerfile"
 PLAYWRIGHT_VERSION="1.61.0"
 PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL:-http://127.0.0.1:9999}"
 BROWSER_SMOKE_BROWSERS="${BROWSER_SMOKE_BROWSERS:-chromium}"
+BROWSER_SMOKE_COVERAGE="${BROWSER_SMOKE_COVERAGE:-0}"
 BROWSER_SMOKE_MAX_FAILURES="${BROWSER_SMOKE_MAX_FAILURES:-2}"
 NUM_FRAMES="${NUM_FRAMES:-12000}"
 STOCK_VIDEO_LOOP_TIMEOUT_MS="${STOCK_VIDEO_LOOP_TIMEOUT_MS:-900000}"
@@ -169,7 +171,7 @@ fi
 
 eval "$("${REPO_ROOT}/scripts/quick-start/detect-environment.sh" --shell)"
 
-if ! docker inspect -f '{{.State.Running}}' "${PEK_CONTAINER_NAME}" 2> /dev/null | grep -q '^true$'; then
+if [ "$(docker inspect -f '{{.State.Running}}' "${PEK_CONTAINER_NAME}" 2> /dev/null)" != true ]; then
     echo "Error: quick-start container is not running: ${PEK_CONTAINER_NAME}" >&2
     echo "Run ./scripts/quick-start/start-container.sh --recreate first." >&2
     exit 1
@@ -183,6 +185,12 @@ fi
 
 rm -rf playwright-report test-results/playwright
 mkdir -p test-results/playwright/blob-report
+coverage_dir=""
+if [ "${BROWSER_SMOKE_COVERAGE}" = "1" ]; then
+    coverage_dir="test-results/playwright/coverage"
+elif [ "${BROWSER_SMOKE_COVERAGE}" != "0" ]; then
+    repo_checks_die "BROWSER_SMOKE_COVERAGE must be 0 or 1."
+fi
 
 image_name="$(browser_smoke_image_name)"
 build_browser_smoke_image_if_needed "${image_name}"
@@ -208,6 +216,7 @@ run_phase() {
     local pipeline="$2"
     local spec="$3"
     local browsers="${4:-${BROWSER_SMOKE_BROWSERS}}"
+    local selected_test="${5:-}"
     local status=0
     local browser_pid=""
     local pid_file="/tmp/pek-browser-smoke-${phase}.pid"
@@ -246,6 +255,8 @@ run_phase() {
         -e CI=true \
         -e PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL}" \
         -e BROWSER_SMOKE_BROWSERS="${browsers}" \
+        -e BROWSER_SMOKE_TEST="${selected_test}" \
+        -e PLAYWRIGHT_COVERAGE_DIR="${coverage_dir:+${coverage_dir}/raw}" \
         -e STOCK_VIDEO_LOOP_TIMEOUT_MS="${STOCK_VIDEO_LOOP_TIMEOUT_MS}" \
         -e PLAYWRIGHT_BLOB_OUTPUT_DIR="test-results/playwright/blob-report" \
         -e PLAYWRIGHT_BLOB_OUTPUT_NAME="${phase}.zip" \
@@ -290,6 +301,24 @@ merge_reports() {
         rm -rf test-results/playwright/blob-report
     fi
 
+    return "${status}"
+}
+
+generate_coverage_report() {
+    [ "${BROWSER_SMOKE_COVERAGE}" = "1" ] || return 0
+    local status=0
+
+    ACTIVE_BROWSER_CONTAINER="${PEK_CONTAINER_NAME}-browser-coverage"
+    docker rm -f "${ACTIVE_BROWSER_CONTAINER}" > /dev/null 2>&1 || true
+    docker run --rm --name "${ACTIVE_BROWSER_CONTAINER}" "${browser_smoke_labels[@]}" \
+        --user "$(id -u):$(id -g)" \
+        -e HOME=/tmp \
+        -w "${REPO_ROOT}" \
+        "${mount_args[@]}" \
+        "${image_name}" \
+        node scripts/playwright/browser-smoke/v8-coverage-to-lcov.js \
+        "${coverage_dir}/raw" "${coverage_dir}/lcov.info" || status=$?
+    cleanup_active_browser_container
     return "${status}"
 }
 
@@ -382,12 +411,18 @@ browser_smoke_browsers="$(
 )"
 
 [ -n "${browser_smoke_browsers}" ] || repo_checks_die "BROWSER_SMOKE_BROWSERS did not contain any browser."
+has_chromium=0
 while IFS= read -r browser; do
     case "${browser}" in
-        chromium | firefox | webkit) ;;
+        chromium) has_chromium=1 ;;
+        firefox | webkit) ;;
         *) repo_checks_die "Unsupported BROWSER_SMOKE_BROWSERS entry: ${browser}" ;;
     esac
 done <<< "${browser_smoke_browsers}"
+
+if [ "${BROWSER_SMOKE_COVERAGE}" = "1" ] && [ "${has_chromium}" = "0" ]; then
+    repo_checks_die "BROWSER_SMOKE_COVERAGE requires Chromium."
+fi
 
 run_smoke_phases() {
     while IFS= read -r browser; do
@@ -405,15 +440,23 @@ run_smoke_phases() {
                 "${browser}" || return
         done <<< "${browser_smoke_browsers}"
 
-        run_phase "stock-video-loop-chromium" \
-            "config/pipelines/01-full-onnx.json" \
-            "tests/playwright/pek-browser-loop.spec.js" \
-            "chromium" || return
+        while IFS='|' read -r phase selected_test; do
+            run_phase "stock-video-${phase}" \
+                "config/pipelines/01-full-onnx.json" \
+                "tests/playwright/pek-browser-loop.spec.js" \
+                "chromium" "${selected_test}" || return
+        done << 'EOF'
+pause-resume|pause, resume, and pause remain stable
+pause-visibility|pause hides video and detections
+pause-watchdog|pause beyond the watchdog keeps the same PeerConnection
+loop-recovery|visible video survives two stock video loops
+EOF
     fi
 }
 
 run_smoke_phases || browser_smoke_status=$?
 
 merge_reports || browser_smoke_status=$?
+generate_coverage_report || browser_smoke_status=$?
 
 exit "${browser_smoke_status}"

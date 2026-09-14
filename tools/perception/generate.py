@@ -20,7 +20,16 @@ import tempfile
 from pathlib import Path
 
 from release_common import sha256
-from sdk_config import PYTHON_DISTRIBUTION_NAME, REPO_ROOT, SdkConfig, load_sdk_config
+from sdk_config import (
+    PRODUCT_VERSION,
+    PRODUCT_VERSION_PATH,
+    PYTHON_DISTRIBUTION_NAME,
+    REPO_ROOT,
+    SDK_CONFIG_PATH,
+    SEMVER,
+    SdkConfig,
+    load_sdk_config,
+)
 
 FLOWDATA_MANIFEST_FILENAME = "flowdata-manifest.json"
 PERCEPTION_MANIFEST_FILENAME = "perception-sdk-manifest.json"
@@ -47,10 +56,35 @@ MESON_BUILD_FILENAME = "meson.build"
 RUST_FIXTURE = REPO_ROOT / "tools/perception/tests/fixtures/opk-box-detections-v0.2.1.hex"
 RUST_FIXTURE_SDK_VERSION = "0.2.1"
 RUST_FIXTURE_SCHEMA_SET_SHA256 = "0ba6dfe959e1453ce12c7a8707623bc15d94d52c9235c26f7e27f31dda0775c5"
+PLUMBER_PROJECT = REPO_ROOT / "tools/plumber/pyproject.toml"
+WEB_BUILD = REPO_ROOT / "development/web/build.mjs"
 
 
 def run(cmd: list[str]) -> None:
     subprocess.run(cmd, check=True)
+
+
+def set_product_version(path: Path, version: str) -> None:
+    if SEMVER.fullmatch(version) is None:
+        raise RuntimeError("product version must use MAJOR.MINOR.PATCH form")
+    text = path.read_text(encoding="utf-8")
+    matches = list(PRODUCT_VERSION.finditer(text))
+    if len(matches) != 1:
+        raise RuntimeError("product Meson file must contain exactly one version")
+    start, end = matches[0].span(1)
+    path.write_text(f"{text[:start]}{version}{text[end:]}", encoding="utf-8")
+
+
+def set_package_prerelease(path: Path, enabled: bool) -> None:
+    descriptor = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(descriptor.get("package_prerelease"), bool):
+        raise RuntimeError("package_prerelease must be boolean")
+    if descriptor["package_prerelease"] != enabled:
+        descriptor["package_prerelease"] = enabled
+        path.write_text(
+            json.dumps(descriptor, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
 
 
 def command_version(cmd: list[str]) -> str:
@@ -97,16 +131,50 @@ def generate_sdk(config: SdkConfig, generated_root: Path, flatc: str, python: st
     run([*common, "--sdk", "ts"])
 
 
-def set_python_distribution_name(python_project: Path, source_name: str) -> None:
+def prepare_python_package(
+    python_project: Path,
+    source_name: str,
+    source_version: str,
+    package_version: str,
+) -> None:
     pyproject = python_project / "pyproject.toml"
     text = pyproject.read_text(encoding="utf-8")
-    source = f'[project]\nname = "{source_name}"\n'
+    source = (
+        f'[project]\nname = "{source_name}"\nversion = "{source_version}"\n'
+    )
     target = (
         f'[project]\nname = "{PYTHON_DISTRIBUTION_NAME}"\n'
+        f'version = "{package_version}"\n'
     )
     if text.count(source) != 1:
         raise RuntimeError("generated Python project name is unexpected")
     pyproject.write_text(text.replace(source, target), encoding="utf-8")
+
+
+def synchronize_plumber_dependency(path: Path, version: str, check: bool) -> bool:
+    text = path.read_text(encoding="utf-8")
+    expected, count = re.subn(
+        r'(?m)^(\s*"opk-perception-sdk==)[^"]+(",)$',
+        rf"\g<1>{version}\g<2>",
+        text,
+    )
+    if count != 1:
+        raise RuntimeError("plumber must declare one exact Perception SDK dependency")
+    if expected == text:
+        return True
+    if check:
+        print("tools/plumber/pyproject.toml Perception SDK dependency is stale")
+        return False
+    path.write_text(expected, encoding="utf-8")
+    return True
+
+
+def synchronize_project_consumers(config: SdkConfig, node: str, check: bool) -> bool:
+    plumber_current = synchronize_plumber_dependency(
+        PLUMBER_PROJECT, config.python_package_version, check
+    )
+    run([node, str(WEB_BUILD), "check" if check else "generate"])
+    return plumber_current
 
 
 def verify_flowdata_manifests(
@@ -179,6 +247,7 @@ def prepare_typescript_package(config: SdkConfig, generated_root: Path) -> None:
     package["devDependencies"] = {"typescript": config.typescript_compiler.version}
     package["engines"] = {"node": f">={config.node_minimum_major}"}
     package["files"] = ["dist", "src"]
+    package["version"] = config.cargo_package_version
     package_path.write_text(
         json.dumps(package, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
@@ -188,8 +257,19 @@ def prepare_rust_tests(config: SdkConfig, generated_root: Path) -> None:
     rust_root = generated_root / "rust"
     cargo_toml = rust_root / "Cargo.toml"
     expected_name = f'name = "{config.name}"'
-    if expected_name not in cargo_toml.read_text(encoding="utf-8"):
+    cargo = cargo_toml.read_text(encoding="utf-8")
+    if expected_name not in cargo:
         raise RuntimeError("generated Rust package name does not match sdk.json")
+    source_version = f'version = "{config.version}"'
+    if cargo.count(source_version) != 1:
+        raise RuntimeError("generated Rust package version is unexpected")
+    cargo_toml.write_text(
+        cargo.replace(
+            source_version,
+            f'version = "{config.cargo_package_version}"',
+        ),
+        encoding="utf-8",
+    )
     fixture_target = rust_root / "tests" / "fixtures" / RUST_FIXTURE.name
     fixture_target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(RUST_FIXTURE, fixture_target)
@@ -712,7 +792,12 @@ def prepare_sdk(
 ) -> None:
     verify_flowdata_manifests(config, generated_root, python)
     flowdata_manifests = read_flowdata_manifests(generated_root)
-    set_python_distribution_name(generated_root / "python", config.name)
+    prepare_python_package(
+        generated_root / "python",
+        config.name,
+        config.version,
+        config.python_package_version,
+    )
     python_receipt = flowdata_manifests["python"]
     python_package = (
         python_receipt.get("python_package")
@@ -881,6 +966,16 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--check", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument(
+        "--version",
+        metavar="MAJOR.MINOR.PATCH",
+        help="set the product version before regenerating every consumer",
+    )
+    parser.add_argument(
+        "--package-prerelease",
+        action="store_true",
+        help="mark generated language packages as development prereleases",
+    )
+    parser.add_argument(
         "--flatc",
         default="flatc",
         metavar="EXECUTABLE",
@@ -923,15 +1018,26 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     try:
+        if args.check and (args.version or args.package_prerelease):
+            raise RuntimeError(
+                "--version and --package-prerelease cannot be combined with --check"
+            )
+        if args.package_prerelease and not args.version:
+            raise RuntimeError("--package-prerelease requires --version")
+        if args.version:
+            set_product_version(PRODUCT_VERSION_PATH, args.version)
+            set_package_prerelease(SDK_CONFIG_PATH, args.package_prerelease)
         config = load_sdk_config()
         node_modules = args.node_modules
         if node_modules is None:
             node_modules = Path(command_version(["npm", "root", "--global"]))
         if args.check:
-            return 0 if check_generated(
+            generated_current = check_generated(
                 config, args.flatc, args.python, args.clang_format, args.formatter_python,
                 args.node, node_modules,
-            ) else 1
+            )
+            consumers_current = synchronize_project_consumers(config, args.node, True)
+            return 0 if generated_current and consumers_current else 1
         with tempfile.TemporaryDirectory(prefix=".perception-generate-", dir=REPO_ROOT) as tmp:
             workspace = Path(tmp)
             generated, internal = generate_candidate(
@@ -939,6 +1045,7 @@ def main() -> int:
                 args.clang_format, args.formatter_python, args.node, node_modules,
             )
             install_candidate(config, generated, internal, workspace)
+        synchronize_project_consumers(config, args.node, False)
         verify_perception_manifest(config)
         print(f"Generated {config.name} SDK {config.version} in {config.generated_root}")
         return 0

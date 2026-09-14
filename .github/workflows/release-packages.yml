@@ -9,10 +9,6 @@ on:
         description: Commit, tag, or branch to package
         required: true
         type: string
-      build_label:
-        description: Lower-case Artifactory snapshot folder label
-        required: true
-        type: string
 
 permissions:
   contents: read
@@ -23,12 +19,18 @@ env:
 jobs:
   prepare:
     name: Resolve release source
-    runs-on: ubuntu-24.04
+    runs-on: self-hosted-ubuntu-latest-x64
+    permissions:
+      contents: write
     outputs:
       version: ${{ steps.release.outputs.version }}
+      cargo_package_version: ${{ steps.release.outputs.cargo_package_version }}
+      python_package_version: ${{ steps.release.outputs.python_package_version }}
       commit: ${{ steps.release.outputs.commit }}
       flowdata_commit: ${{ steps.release.outputs.flowdata_commit }}
       build_id: ${{ steps.release.outputs.build_id }}
+      kind: ${{ steps.mode.outputs.kind }}
+      source_branch: ${{ steps.prerelease.outputs.source_branch }}
       image_tag: ${{ steps.image.outputs.tag }}
       x86_archive: ${{ steps.release.outputs.x86_archive }}
       arm_archive: ${{ steps.release.outputs.arm_archive }}
@@ -49,19 +51,116 @@ jobs:
           ref: ${{ github.event.inputs.source_ref || github.sha }}
           path: source
 
+      - name: Resolve publication mode
+        id: mode
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
+            echo "kind=prerelease" >> "$GITHUB_OUTPUT"
+          else
+            echo "kind=stable" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Prepare private submodules for prerelease generation
+        if: steps.mode.outputs.kind == 'prerelease'
+        env:
+          DEPLOY_KEY_FLOWDATA_SDK: ${{ secrets.DEPLOY_KEY_FLOWDATA_SDK }}
+        run: |
+          source .github/scripts/configure_workspace_ssh.sh
+          git -C source submodule update --init --recursive
+
+      - name: Resolve generated prerelease identity
+        if: steps.mode.outputs.kind == 'prerelease'
+        id: prerelease
+        run: |
+          python3 scripts/release/ReleaseTool.py prepare-prerelease \
+            --commit "$(git -C source rev-parse HEAD)" \
+            --run-id "$GITHUB_RUN_ID" \
+            --run-attempt "$GITHUB_RUN_ATTEMPT"
+
+      - name: Set up prerelease generator builder
+        if: steps.mode.outputs.kind == 'prerelease'
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build prerelease generator image
+        if: steps.mode.outputs.kind == 'prerelease'
+        uses: docker/build-push-action@v7
+        with:
+          cache-from: type=gha,scope=pek-ci
+          context: source
+          load: true
+          pull: true
+          tags: pek-prerelease-generator:${{ github.run_id }}
+          target: pek-ci
+
+      - name: Generate and commit the prerelease version
+        if: steps.mode.outputs.kind == 'prerelease'
+        id: materialize
+        working-directory: source
+        env:
+          PRERELEASE_BRANCH: ${{ steps.prerelease.outputs.source_branch }}
+          PRERELEASE_VERSION: ${{ steps.prerelease.outputs.version }}
+        run: |
+          set -euo pipefail
+          docker run --rm --network none --entrypoint bash \
+            --user "$(id -u):$(id -g)" \
+            --env HOME=/tmp \
+            --env PEK_PERCEPTION_IN_CONTAINER=1 \
+            --env PRERELEASE_VERSION \
+            --mount "type=bind,source=$PWD,target=$PWD" \
+            --workdir "$PWD" \
+            "pek-prerelease-generator:$GITHUB_RUN_ID" -euxc \
+            './scripts/perception-sdk.sh generate --version "$PRERELEASE_VERSION" --package-prerelease &&
+             detect-secrets scan --baseline .secrets.baseline'
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add --all
+          if git diff --cached --quiet; then
+            echo "prerelease generation produced no changes" >&2
+            exit 1
+          fi
+          git -c core.hooksPath=/dev/null commit -m "Generate prerelease $PRERELEASE_VERSION"
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Push generated prerelease branch
+        if: steps.mode.outputs.kind == 'prerelease'
+        env:
+          GENERATED_COMMIT: ${{ steps.materialize.outputs.commit }}
+          GH_TOKEN: ${{ github.token }}
+          PRERELEASE_BRANCH: ${{ steps.prerelease.outputs.source_branch }}
+        run: |
+          set -euo pipefail
+          test "$PRERELEASE_BRANCH" = "sandbox/prerelease-source/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          git fetch --no-tags ./source "$GENERATED_COMMIT"
+          test "$(git rev-parse FETCH_HEAD)" = "$GENERATED_COMMIT"
+          git -c credential.https://github.com.helper= \
+            -c 'credential.https://github.com.helper=!gh auth git-credential' \
+            -c core.hooksPath=/dev/null push --no-verify \
+            origin "FETCH_HEAD:refs/heads/$PRERELEASE_BRANCH"
+
       - name: Prepare release identity
         id: release
         env:
-          BUILD_LABEL: ${{ github.event.inputs.build_label }}
+          BUILD_LABEL: ${{ steps.prerelease.outputs.build_label }}
+          PRERELEASE_COMMIT: ${{ steps.materialize.outputs.commit }}
         run: |
           set -euo pipefail
-          commit="$(git -C source rev-parse HEAD)"
+          commit="${PRERELEASE_COMMIT:-$(git -C source rev-parse HEAD)}"
           python3 scripts/release/ReleaseTool.py prepare \
             --repo-root source \
             --commit "$commit" \
             --build-label "${BUILD_LABEL:-}"
           echo "flowdata_commit=$(git -C source rev-parse HEAD:tools/flowdata-sdk)" \
             >> "$GITHUB_OUTPUT"
+
+      - name: Reject an existing GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "Release v$VERSION already exists." >&2
+            exit 1
+          fi
 
       - name: Resolve image tag
         id: image
@@ -73,6 +172,10 @@ jobs:
             tag="$tag-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Remove prerelease generator image
+        if: always() && steps.mode.outputs.kind == 'prerelease'
+        run: docker image rm "pek-prerelease-generator:$GITHUB_RUN_ID" 2>/dev/null || true
 
   build:
     name: Build ${{ matrix.architecture }} package
@@ -146,7 +249,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      - name: Build release snapshot image
+      - name: Build release image
         id: build
         uses: docker/build-push-action@v7
         with:
@@ -172,7 +275,7 @@ jobs:
             "executorch_artifactory_password=${{ secrets.PEK_ARTIFACTORY_API_KEY }}"
           target: pek-deployment-base
 
-      - name: Extract package from release snapshot
+      - name: Extract package from release image
         working-directory: ${{ env.SOURCE_DIR }}
         env:
           ARCHIVE: ${{ matrix.architecture == 'x86_64' && needs.prepare.outputs.x86_archive || needs.prepare.outputs.arm_archive }}
@@ -210,6 +313,8 @@ jobs:
         if: matrix.architecture == 'aarch64'
         working-directory: ${{ env.SOURCE_DIR }}
         env:
+          CARGO_PACKAGE_VERSION: ${{ needs.prepare.outputs.cargo_package_version }}
+          PYTHON_PACKAGE_VERSION: ${{ needs.prepare.outputs.python_package_version }}
           RUSTUP_TOOLCHAIN: 1.85.0
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
@@ -223,10 +328,16 @@ jobs:
             -e '/^\[package\]$/a exclude = ["vendor/**", ".cargo/**", "crates/**"]' \
             -e 's/^flatbuffers = "\(=[^"]*\)"$/flatbuffers = { version = "\1", registry = "crates-io" }/' \
             "$rust/Cargo.toml"
-          grep -Fqx 'exclude = ["vendor/**", ".cargo/**", "crates/**"]' \
-            "$rust/Cargo.toml"
-          grep -Eq '^flatbuffers = \{ version = "=[^"]+", registry = "crates-io" \}$' \
-            "$rust/Cargo.toml"
+          python3 - "$rust/Cargo.toml" <<'PY'
+          import sys
+          import tomllib
+
+          with open(sys.argv[1], "rb") as manifest_file:
+              manifest = tomllib.load(manifest_file)
+          assert manifest["package"]["exclude"] == ["vendor/**", ".cargo/**", "crates/**"]
+          assert manifest["dependencies"]["flatbuffers"]["registry"] == "crates-io"
+          assert manifest["dependencies"]["flatbuffers"]["version"].startswith("=")
+          PY
           printf '\n[registries.crates-io]\nindex = "sparse+https://index.crates.io/"\n' \
             >> "$rust/.cargo/config.toml"
           (cd "$rust" && cargo package --offline --locked)
@@ -254,11 +365,11 @@ jobs:
             CARGO_HOME="$publish_cargo_home" \
               cargo package --locked
           )
-          cp "$publish_source/target/package/perception-$VERSION.crate" \
+          cp "$publish_source/target/package/perception-$CARGO_PACKAGE_VERSION.crate" \
             dist/perception-sdk-input/
           rm -rf -- "$publish_source/target"
           mv "$publish_source" dist/perception-sdk-input/
-          cp "$export_root/python/opk_perception_sdk-$VERSION-py3-none-any.whl" \
+          cp "$export_root/python/opk_perception_sdk-$PYTHON_PACKAGE_VERSION-py3-none-any.whl" \
             dist/perception-sdk-input/
 
       - name: Upload Perception SDK input
@@ -292,13 +403,13 @@ jobs:
           rm -rf -- "$SOURCE_DIR"
 
   release-image:
-    name: Publish multi-architecture snapshot image
+    name: Publish multi-architecture release image
     needs: [prepare, build, perception-cargo-preflight]
     if: >-
       always() &&
       needs.prepare.result == 'success' &&
       needs.build.result == 'success' &&
-      (github.event_name != 'push' || needs.perception-cargo-preflight.result == 'success')
+      needs.perception-cargo-preflight.result == 'success'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -407,7 +518,7 @@ jobs:
 
   release-docs-staging:
     name: Publish release docs to staging
-    if: github.event_name == 'push'
+    if: needs.prepare.outputs.kind == 'stable'
     needs: prepare
     permissions:
       contents: read
@@ -419,7 +530,6 @@ jobs:
   perception-cargo-preflight:
     name: Check Perception Cargo version is available
     needs: prepare
-    if: github.event_name == 'push'
     runs-on: amp-dev-forge-runner-ubuntu-x64
     timeout-minutes: 5
     env:
@@ -427,7 +537,7 @@ jobs:
     steps:
       - name: Check Cargo registry
         env:
-          VERSION: ${{ needs.prepare.outputs.version }}
+          VERSION: ${{ needs.prepare.outputs.cargo_package_version }}
         run: |
           set -euo pipefail
           registry="https://artifactory.eu02.arm.com/artifactory/api/cargo/edge-ai-tooling.cargo"
@@ -463,13 +573,13 @@ jobs:
             *) echo "Unexpected Cargo index response: $index_status" >&2; exit 1 ;;
           esac
 
+
   github-release:
     name: Publish one GitHub release
-    if: github.event_name == 'push'
     needs: [prepare, build, build-docs, release-image, perception-cargo-preflight]
     runs-on: ubuntu-24.04
     permissions:
-      actions: write
+      actions: read
       contents: write
     steps:
       - name: Checkout released source
@@ -492,13 +602,20 @@ jobs:
           COMMIT: ${{ needs.prepare.outputs.commit }}
           IMAGE_REFERENCE: ${{ needs.release-image.outputs.reference }}
           IMAGE_DIGEST: ${{ needs.release-image.outputs.digest }}
+          KIND: ${{ needs.prepare.outputs.kind }}
         run: |
           set -euo pipefail
           mapfile -t archives < <(find release -maxdepth 1 -type f -name "*.tar.gz" | sort)
           test "${#archives[@]}" -eq 3
           hashes="$(sha256sum "${archives[@]}")"
-          sed -n "/^## \\[$VERSION\\]/,/^## \\[/p" CHANGELOG.md |
-            sed "\$d" > release-body.md
+          if [[ "$KIND" == stable ]]; then
+            sed -n "/^## \\[$VERSION\\]/,/^## \\[/p" CHANGELOG.md |
+              sed "\$d" > release-body.md
+          else
+            # shellcheck disable=SC2016
+            printf 'Automated prerelease `%s` from `%s`.\n' \
+              "$VERSION" "$COMMIT" > release-body.md
+          fi
           {
             # shellcheck disable=SC2016
             printf '\nSource commit: `%s`\n\n### Archives\n\n' "$COMMIT"
@@ -510,12 +627,12 @@ jobs:
           # shellcheck disable=SC2016
           printf '\n### Container image\n\n`%s@%s`\n' \
             "$IMAGE_REFERENCE" "$IMAGE_DIGEST" >> release-body.md
-          if gh release view "v$VERSION" >/dev/null 2>&1; then
-            echo "Release v$VERSION already exists." >&2
-            exit 1
+          release_args=(--draft --target "$COMMIT" --title "PEK $VERSION" \
+            --notes-file release-body.md)
+          if [[ "$KIND" == prerelease ]]; then
+            release_args+=(--prerelease)
           fi
-          gh release create "v$VERSION" --draft --target "$COMMIT" \
-            --title "PEK $VERSION" --notes-file release-body.md
+          gh release create "v$VERSION" "${release_args[@]}"
           gh release upload "v$VERSION" "${archives[@]}"
           gh release edit "v$VERSION" --draft=false
 
@@ -528,8 +645,7 @@ jobs:
           needs.build.result == 'success' &&
           needs.build-docs.result == 'success' &&
           needs.release-image.result == 'success' &&
-          (github.event_name == 'workflow_dispatch' ||
-           needs.github-release.result == 'success') }}
+          needs.github-release.result == 'success' }}
     runs-on: self-hosted-ubuntu-latest-x64
     steps:
       - name: Download release packages
@@ -548,27 +664,29 @@ jobs:
       - name: Stage Perception language packages
         env:
           ARTIFACTS_DIR: ${{ runner.temp }}/pek-release-artifacts
+          CARGO_PACKAGE_VERSION: ${{ needs.prepare.outputs.cargo_package_version }}
+          PYTHON_PACKAGE_VERSION: ${{ needs.prepare.outputs.python_package_version }}
           SDK_DIR: ${{ runner.temp }}/pek-perception-sdk-input
-          VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           set -euo pipefail
-          cp "$SDK_DIR/opk_perception_sdk-$VERSION-py3-none-any.whl" \
+          cp "$SDK_DIR/opk_perception_sdk-$PYTHON_PACKAGE_VERSION-py3-none-any.whl" \
             "$ARTIFACTS_DIR/"
-          cp "$SDK_DIR/perception-$VERSION.crate" "$ARTIFACTS_DIR/"
+          cp "$SDK_DIR/perception-$CARGO_PACKAGE_VERSION.crate" "$ARTIFACTS_DIR/"
 
       - name: Accept exactly three archives and two language packages
         env:
           ARTIFACTS_DIR: ${{ runner.temp }}/pek-release-artifacts
           BUILD_ID: ${{ needs.prepare.outputs.build_id }}
-          VERSION: ${{ needs.prepare.outputs.version }}
+          CARGO_PACKAGE_VERSION: ${{ needs.prepare.outputs.cargo_package_version }}
+          PYTHON_PACKAGE_VERSION: ${{ needs.prepare.outputs.python_package_version }}
         run: |
           set -euo pipefail
           expected=(
             "pek-$BUILD_ID-linux-x86_64.tar.gz"
             "pek-$BUILD_ID-linux-aarch64.tar.gz"
             "pek-docs-$BUILD_ID.tar.gz"
-            "opk_perception_sdk-$VERSION-py3-none-any.whl"
-            "perception-$VERSION.crate"
+            "opk_perception_sdk-$PYTHON_PACKAGE_VERSION-py3-none-any.whl"
+            "perception-$CARGO_PACKAGE_VERSION.crate"
           )
           test -z "$(find "$ARTIFACTS_DIR" -type l -print -quit)"
           mapfile -d '' -t files < <(
@@ -617,18 +735,17 @@ jobs:
           ARTIFACTORY_TOKEN: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
           ARTIFACTORY_ARTIFACTS_NAME: ai-expkits-internal.opk-ci
           # The publisher joins RELEASE_VERSION directly below DOWNLOAD_BASE.
-          RELEASE_VERSION: ${{ github.event_name == 'workflow_dispatch' && 'snapshots' || format('releases/{0}', needs.prepare.outputs.version) }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.kind == 'prerelease' && format('prereleases/{0}', needs.prepare.outputs.version) || format('releases/{0}', needs.prepare.outputs.version) }}
           DOWNLOAD_BASE: https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci
-          SUBDIR_PATH: ${{ github.event_name == 'workflow_dispatch' && format('{0}/{1}-{2}-{3}', github.event.inputs.build_label, needs.prepare.outputs.commit, github.run_id, github.run_attempt) || '' }}
+          SUBDIR_PATH: ''
           TIMEOUT_SECONDS: 300
-          ARTIFACT_PATTERN: ${{ github.event_name == 'workflow_dispatch' && 'pek-release-artifacts/*' || 'pek-release-artifacts/*.tar.gz' }}
+          ARTIFACT_PATTERN: ${{ needs.prepare.outputs.kind == 'prerelease' && 'pek-release-artifacts/*' || 'pek-release-artifacts/*.tar.gz' }}
         run: >-
           "$GITHUB_WORKSPACE/publisher/.venv/bin/python"
           -m publisher.actions.publish_to_artifactory_action
           "$ARTIFACT_PATTERN"
 
       - name: Publish Perception Python package to Artifactory PyPI
-        if: github.event_name == 'push'
         env:
           UV_PUBLISH_CHECK_URL: https://artifactory.arm.com/artifactory/api/pypi/edge-ai-tooling.pypi/simple
           UV_PUBLISH_URL: https://artifactory.arm.com/artifactory/api/pypi/edge-ai-tooling.pypi
@@ -642,17 +759,15 @@ jobs:
       - name: Print links and hashes
         env:
           ARTIFACTS_DIR: ${{ runner.temp }}/pek-release-artifacts
-          EVENT_NAME: ${{ github.event_name }}
+          KIND: ${{ needs.prepare.outputs.kind }}
           VERSION: ${{ needs.prepare.outputs.version }}
-          LABEL: ${{ github.event.inputs.build_label }}
-          COMMIT: ${{ needs.prepare.outputs.commit }}
           IMAGE_REFERENCE: ${{ needs.release-image.outputs.reference }}
           IMAGE_DIGEST: ${{ needs.release-image.outputs.digest }}
         run: |
           set -euo pipefail
-          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
-            folder="snapshots/$LABEL/$COMMIT-${{ github.run_id }}-${{ github.run_attempt }}"
-            title="PEK Artifactory snapshot"
+          if [[ "$KIND" == prerelease ]]; then
+            folder="prereleases/$VERSION"
+            title="PEK Artifactory prerelease"
             artifacts=("$ARTIFACTS_DIR"/*)
           else
             folder="releases/$VERSION"
@@ -682,8 +797,7 @@ jobs:
     name: Publish and verify Perception crate
     needs: [prepare, artifactory]
     if: >-
-      ${{ github.event_name == 'push' &&
-          needs.prepare.result == 'success' &&
+      ${{ needs.prepare.result == 'success' &&
           needs.artifactory.result == 'success' }}
     runs-on: amp-dev-forge-runner-ubuntu-x64
     timeout-minutes: 10
@@ -705,17 +819,17 @@ jobs:
       - name: Publish and verify Perception crate
         env:
           CARGO_HOME: ${{ runner.temp }}/perception-cargo-home
+          CARGO_PACKAGE_VERSION: ${{ needs.prepare.outputs.cargo_package_version }}
           RUSTUP_TOOLCHAIN: 1.85.0
           SDK_DIR: ${{ runner.temp }}/pek-perception-sdk-input
-          VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           set -euo pipefail
           export no_proxy="$NO_PROXY"
-          crate="$SDK_DIR/perception-$VERSION.crate"
-          publish_source="$SDK_DIR/perception-cargo-source-$VERSION"
+          crate="$SDK_DIR/perception-$CARGO_PACKAGE_VERSION.crate"
+          publish_source="$SDK_DIR/perception-cargo-source-${{ needs.prepare.outputs.version }}"
           registry="https://artifactory.eu02.arm.com/artifactory/api/cargo/edge-ai-tooling.cargo"
-          url="https://artifactory.eu02.arm.com/artifactory/edge-ai-tooling.cargo/crates/perception/perception-$VERSION.crate"
-          storage_url="https://artifactory.eu02.arm.com/artifactory/api/storage/edge-ai-tooling.cargo/crates/perception/perception-$VERSION.crate"
+          url="https://artifactory.eu02.arm.com/artifactory/edge-ai-tooling.cargo/crates/perception/perception-$CARGO_PACKAGE_VERSION.crate"
+          storage_url="https://artifactory.eu02.arm.com/artifactory/api/storage/edge-ai-tooling.cargo/crates/perception/perception-$CARGO_PACKAGE_VERSION.crate"
           index_url="$registry/index/pe/rc/perception"
           curl_direct=(curl --noproxy "$NO_PROXY" --connect-timeout 10 --max-time 30)
 
@@ -732,10 +846,10 @@ jobs:
           anonymous_token="$(printf 'anonymous:' | base64 -w0)"
           export CARGO_REGISTRIES_ARTIFACTORY_TOKEN="Basic $anonymous_token"
           (cd "$publish_source" && cargo package --locked --no-verify)
-          cmp "$crate" "$publish_source/target/package/perception-$VERSION.crate"
+          cmp "$crate" "$publish_source/target/package/perception-$CARGO_PACKAGE_VERSION.crate"
           (cd "$publish_source" && cargo publish --locked --no-verify --registry artifactory)
 
-          published="$RUNNER_TEMP/perception-$VERSION.published.crate"
+          published="$RUNNER_TEMP/perception-$CARGO_PACKAGE_VERSION.published.crate"
           for attempt in {1..12}; do
             if "${curl_direct[@]}" --fail-with-body --silent --show-error \
               --output "$published" "$url" && \
@@ -757,7 +871,7 @@ jobs:
           for attempt in {1..12}; do
             if "${curl_direct[@]}" --fail --silent --show-error "$index_url" | \
               jq --exit-status --slurp \
-                --arg version "$VERSION" --arg checksum "$checksum" \
+                --arg version "$CARGO_PACKAGE_VERSION" --arg checksum "$checksum" \
                 'any(.[]; .name == "perception" and .vers == $version and .cksum == $checksum and .yanked == false)' \
                 > /dev/null; then
               break
@@ -771,60 +885,118 @@ jobs:
           printf "### Perception Cargo\n\n- URL: %s\n- SHA-256: \`%s\`\n- Sparse index: %s\n" \
             "$url" "$checksum" "$index_url" >> "$GITHUB_STEP_SUMMARY"
 
-  perception-cargo-consumer:
-    name: Consume Perception crate (${{ matrix.architecture }})
-    needs: [prepare, perception-cargo-publish]
+  publication-complete:
+    name: Record completed publication
+    needs: [prepare, release-image, github-release, artifactory, perception-cargo-publish]
     if: >-
-      ${{ github.event_name == 'push' &&
+      ${{ always() &&
           needs.prepare.result == 'success' &&
+          needs.release-image.result == 'success' &&
+          needs.artifactory.result == 'success' &&
+          needs.github-release.result == 'success' &&
           needs.perception-cargo-publish.result == 'success' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - architecture: x86_64
-            runner: self-hosted-ubuntu-latest-x64
-          - architecture: aarch64
-            runner: self-hosted-ubuntu-latest-arm64
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: write
     steps:
-      - name: Set up pinned Rust
-        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+      - name: Download published build outputs
+        uses: actions/download-artifact@v8
         with:
-          toolchain: 1.85.0
-          cache: false
+          pattern: pek-release-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/publication-input
+          merge-multiple: true
 
-      - name: Build a clean exact-pinned consumer
+      - name: Download Perception language packages
+        uses: actions/download-artifact@v8
+        with:
+          name: pek-perception-sdk-input-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/perception-input
+
+      - name: Create publication receipt
         env:
-          CARGO_HOME: ${{ runner.temp }}/perception-cargo-consumer-home
+          ARM_ARCHIVE: ${{ needs.prepare.outputs.arm_archive }}
+          BUILD_ID: ${{ needs.prepare.outputs.build_id }}
+          COMMIT: ${{ needs.prepare.outputs.commit }}
+          DOCS_ARCHIVE: ${{ needs.prepare.outputs.docs_archive }}
+          EVENT_NAME: ${{ github.event_name }}
+          IMAGE_DIGEST: ${{ needs.release-image.outputs.digest }}
+          IMAGE_REFERENCE: ${{ needs.release-image.outputs.reference }}
+          KIND: ${{ needs.prepare.outputs.kind }}
           VERSION: ${{ needs.prepare.outputs.version }}
+          CARGO_PACKAGE_VERSION: ${{ needs.prepare.outputs.cargo_package_version }}
+          PYTHON_PACKAGE_VERSION: ${{ needs.prepare.outputs.python_package_version }}
+          X86_ARCHIVE: ${{ needs.prepare.outputs.x86_archive }}
         run: |
           set -euo pipefail
-          consumer="$RUNNER_TEMP/perception-cargo-consumer"
-          rm -rf -- "$CARGO_HOME" "$consumer"
-          mkdir -p "$CARGO_HOME" "$consumer/bin" "$consumer/src"
-          printf '#!/bin/sh\nexit 99\n' > "$consumer/bin/flatc"
-          chmod +x "$consumer/bin/flatc"
-          export PATH="$consumer/bin:$PATH"
-          cat > "$CARGO_HOME/config.toml" <<'EOF'
-          [registries.artifactory]
-          index = "sparse+https://artifactory.arm.com/artifactory/api/cargo/edge-ai-tooling.cargo/index/"
-          EOF
-          cat > "$consumer/Cargo.toml" <<EOF
-          [package]
-          name = "perception-release-consumer"
-          version = "0.0.0"
-          edition = "2021"
+          input="$RUNNER_TEMP/publication-input"
+          receipt="$RUNNER_TEMP/publication-receipt"
+          wheel="opk_perception_sdk-$PYTHON_PACKAGE_VERSION-py3-none-any.whl"
+          crate="perception-$CARGO_PACKAGE_VERSION.crate"
+          cp "$RUNNER_TEMP/perception-input/$wheel" "$input/"
+          cp "$RUNNER_TEMP/perception-input/$crate" "$input/"
+          expected=("$X86_ARCHIVE" "$ARM_ARCHIVE" "$DOCS_ARCHIVE" "$wheel" "$crate")
+          for artifact in "${expected[@]}"; do
+            test -f "$input/$artifact"
+          done
 
-          [dependencies]
-          perception = { version = "=$VERSION", registry = "artifactory" }
-          EOF
-          cat > "$consumer/src/main.rs" <<EOF
-          fn main() {
-              assert_eq!(perception::PERCEPTION_VERSION, "$VERSION");
-          }
-          EOF
-          (cd "$consumer" && cargo generate-lockfile)
-          (cd "$consumer" && cargo run --locked)
-          test -z "$(find "$CARGO_HOME/registry/src" \
-            -path "*/perception-$VERSION/build.rs" -print -quit)"
+          if [[ "$KIND" == prerelease ]]; then
+            folder="prereleases/$VERSION"
+            blackduck_version="prerelease-$VERSION"
+            sonar_branch="release-prereleases/$VERSION"
+          else
+            folder="releases/$VERSION"
+            blackduck_version="v$VERSION"
+            sonar_branch="tags/v$VERSION"
+          fi
+
+          mkdir -p "$receipt"
+          (
+            cd "$input"
+            sha256sum "${expected[@]}" > "$receipt/SHA256SUMS"
+          )
+          jq -n \
+            --arg arm_archive "$ARM_ARCHIVE" \
+            --arg blackduck_version "$blackduck_version" \
+            --arg build_id "$BUILD_ID" \
+            --arg commit "$COMMIT" \
+            --arg crate "$crate" \
+            --arg docs_archive "$DOCS_ARCHIVE" \
+            --arg event "$EVENT_NAME" \
+            --arg folder "$folder" \
+            --arg image_digest "$IMAGE_DIGEST" \
+            --arg image_reference "$IMAGE_REFERENCE" \
+            --arg kind "$KIND" \
+            --arg cargo_package_version "$CARGO_PACKAGE_VERSION" \
+            --arg python_package_version "$PYTHON_PACKAGE_VERSION" \
+            --arg run_attempt "$GITHUB_RUN_ATTEMPT" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            --arg sonar_branch "$sonar_branch" \
+            --arg version "$VERSION" \
+            --arg wheel "$wheel" \
+            --arg x86_archive "$X86_ARCHIVE" \
+            '{schema: 1, source_run_id: $run_id, source_run_attempt: $run_attempt,
+              source_event: $event, kind: $kind, commit: $commit, version: $version,
+              cargo_package_version: $cargo_package_version,
+              python_package_version: $python_package_version,
+              build_id: $build_id, artifactory_folder: $folder,
+              image_reference: $image_reference, image_digest: $image_digest,
+              sonar_branch: $sonar_branch, blackduck_version: $blackduck_version,
+              artifacts: {x86_archive: $x86_archive, arm_archive: $arm_archive,
+                docs_archive: $docs_archive, wheel: $wheel, crate: $crate}}' \
+            > "$receipt/publication.json"
+
+      - name: Upload publication receipt
+        uses: actions/upload-artifact@v7
+        with:
+          name: pek-release-publication-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/publication-receipt/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Remove generated prerelease source branch
+        if: needs.prepare.outputs.kind == 'prerelease'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_BRANCH: ${{ needs.prepare.outputs.source_branch }}
+        run: gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$SOURCE_BRANCH"

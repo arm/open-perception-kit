@@ -22,7 +22,7 @@ struct Point2f {
     float y = 0.0f;
 };
 
-struct TrackState {
+struct TrackState { // NOSONAR: std::deque move construction is not noexcept.
     using Kalman = pek::KalmanFilter<4, 2, float>;
     uint64_t trackId = 0;
     perception::metadata::BoxDetectionT lastDetection;

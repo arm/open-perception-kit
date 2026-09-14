@@ -62,14 +62,17 @@ succeeds, the physical runner uses Cargo's native publish protocol with the
 existing anonymous principal for `edge-ai-tooling.cargo`. After native
 publication, it waits for the registered crate and its anonymous ownership,
 compares it byte-for-byte with the Arm build's package, and waits for the
-matching sparse index checksum. Clean, exact-pinned Cargo 1.85 consumer
-builds then run on x86_64 and ARM64 without FlatBuffers generation. A red
-release must be restored to its pre-release state by the release owner before
-retrying.
+matching sparse index checksum. The post-publication workflow then runs clean,
+exact-pinned Cargo 1.85 consumers on x86_64 and ARM64 without FlatBuffers
+generation. A red release must be restored to its pre-release state by the
+release owner before retrying.
 Public distribution must use authenticated, server-enforced immutable
-publication instead. Manual snapshots place the wheel and crate beside those
-archives in their immutable generic Artifactory snapshot folder. GitHub Release
-assets remain the three archives.
+publication instead. Manual publication generates a unique prerelease version,
+places the wheel and crate beside the archives in its generic Artifactory
+prerelease folder, and publishes the language packages to their registries.
+The publisher initially attaches only the three product archives to the GitHub
+Release. Post-publication validation later adds named report assets without
+replacing the published product files.
 
 The architecture tarballs keep their seven-model allowlist. The image is the
 full existing deployment snapshot, including the resolved configuration, model,
@@ -79,17 +82,44 @@ runtimes are not installed by the release build.
 
 ## Event routing
 
-Release validation and publication use three workflows:
+Release validation and publication use four workflows:
 
-| Event | `release-tests.yml` | `release-publication-tests.yml` | `release-packages.yml` |
-| --- | --- | --- | --- |
-| Pull request to `main` | Builds temporary x86_64 and Arm snapshot images, runs their native offline integration smokes, and emits the validated archives plus embedded Perception wheel | Uploads the archives and wheel to disposable Artifactory and the archives to a draft GitHub Release, verifies them, and deletes them | Not run |
-| Push to `main` | Not run | Not run | Builds all three archives, smoke-tests both architecture images, publishes their multi-architecture GHCR image, then publishes the archives to one `v<version>` GitHub release and generic Artifactory, the Perception wheel to Artifactory PyPI, and the Perception crate to Artifactory Cargo |
-| Manual release validation | Resolves `source_ref`, builds temporary x86_64 and Arm snapshot images, runs their native offline integration smokes, and emits the validated archives plus embedded Perception wheel | Uploads the archives and wheel to disposable Artifactory and the archives to a draft GitHub Release, verifies them, and deletes them | Not run |
-| Manual package publication | Not run | Not run | Resolves `source_ref`, builds all three archives, smoke-tests both architecture images, publishes their multi-architecture GHCR snapshot, and publishes the archives, Perception wheel, and Perception crate only to an immutable generic Artifactory snapshot folder |
+| Event | `release-tests.yml` | `release-publication-tests.yml` | `release-packages.yml` | `release-post-publication.yml` |
+| --- | --- | --- | --- | --- |
+| Pull request to `main` | Builds temporary x86_64 and Arm snapshot images, runs their native offline integration smokes, and emits the validated archives plus embedded Perception wheel | Uploads the archives and wheel to disposable Artifactory and the archives to a draft GitHub Release, verifies them, and deletes them | Not run | Not run |
+| Push to `main` | Not run | Not run | Builds all three archives, smoke-tests both architecture images, publishes their multi-architecture GHCR image, then publishes the archives to one `v<version>` GitHub release and generic Artifactory, the Perception wheel to Artifactory PyPI, and the Perception crate to Artifactory Cargo | Consumes every published package variant, runs the common full OPK smoke, RPi5 Playwright, release Sonar with the Playwright LCOV artifact, all eight Valgrind pipelines, and full Black Duck built-output, dependency, source, and snippet scans; attaches their reports to the GitHub release |
+| Manual release validation | Resolves `source_ref`, builds temporary x86_64 and Arm snapshot images, runs their native offline integration smokes, and emits the validated archives plus embedded Perception wheel | Uploads the archives and wheel to disposable Artifactory and the archives to a draft GitHub Release, verifies them, and deletes them | Not run | Not run |
+| Manual package publication | Not run | Not run | Resolves `source_ref`, derives a sortable prerelease version, regenerates and commits every version consumer, then publishes the full GHCR, GitHub prerelease, generic Artifactory, PyPI, and Cargo release set | Performs the same full package-consumer, OPK, RPi5 Playwright, Sonar, Valgrind, Black Duck, and report-attachment fan-out as a stable release |
 
-On a push to `main`, the staging docs deployment runs as an independent
-release-package job. Package publication does not depend on it.
+After every completed package-publication run, `workflow_run` starts the
+post-publication workflow. The publisher records an Actions receipt only after
+all required destinations succeed. The receipt binds the source run, commit,
+version, Artifactory folder, artifact SHA-256 values, and GHCR digest. The
+downstream workflow accepts only a completed `release-packages.yml` run from
+this repository and validates the publication receipt before fan-out. The same
+workflow can be replayed manually with the completed publisher run ID.
+
+The fan-out builds one run-tagged `pek-ci` image for the exact published commit.
+The full Black Duck built-output, dependency, source, and snippet scans consume
+that shared image. A separate release Valgrind job runs every enabled pipeline
+plus the failed-start/retry regression and retains the complete findings as a
+report without turning individual findings into a release gate.
+RPi5 runs the existing three-browser Playwright smoke.
+Playwright uploads its LCOV report; release Sonar cannot start until it has
+downloaded and validated that report, then imports it alongside the native
+coverage. Artifactory artifacts are downloaded from their published folder and
+compared with the receipt. The published x86_64 archive is extracted and its
+packaged GStreamer elements, inference pipelines, and web sink are exercised
+offline. Manual prereleases install and import both the exact generic wheel and
+the exact PyPI package; Python and Cargo consumers resolve the published
+version. Stable Sonar uses `tags/v<version>` while manual prereleases use
+`release-prereleases/<version>`, so a test publication cannot replace the stable
+release analysis.
+After every fan-out leg finishes, the workflow adds a Markdown job/result/time
+summary and the available Valgrind, Playwright, and Black Duck report archives
+to the existing GitHub Release and mirrors the same files below the release's
+Artifactory `reports/` folder. Its generated release-notes block links those
+assets, the exact Sonar branch, the Black Duck reports, and the workflow run.
 
 Credentialed publication probes run only after an unprivileged pull-request or
 manual validation workflow succeeds. The trusted `workflow_run` workflow does
@@ -103,35 +133,39 @@ deletes the release and tag. The workflow reports a
 only when both publication probes pass.
 
 GitHub loads `workflow_run` definitions from the default `develop` branch.
-After a hotfix adds or changes this probe on `main`, back-merge it to `develop`
-before relying on the new validation for later release pull requests.
+After a hotfix adds or changes a downstream publication workflow on `main`,
+back-merge it to `develop` before relying on the new trigger.
 
 Each workflow resolves one immutable commit and uses it for every image build.
-Push and manual publication cannot start unless both native snapshot images
+Push and manual publication cannot start unless both native release images
 pass the same embedded integration smoke used for pull requests.
 The native jobs import the nightly deployment lane's architecture-specific
 BuildKit registry graph and fall back to its shared compiler cache. Release
 builds do not export a second full BuildKit graph.
 The native jobs push their existing image outputs by digest; one final manifest
 combines those exact amd64 and arm64 digests without rebuilding. Stable releases
-use the product version as the GHCR tag. Manual snapshots append the workflow
-run ID and attempt to their build ID. The workflow summary and stable GitHub
-Release notes record the pullable reference and immutable manifest digest.
+use the product version as the GHCR tag. Manual prereleases derive
+`YYYYMMDD.1HHMMSS.<run-id-and-attempt>` and include the selected commit in their build label;
+the generator updates every checked-in version consumer before publication.
+Their GHCR tag also includes the workflow run ID and attempt. The workflow
+summary and GitHub Release notes record the pullable reference and immutable
+manifest digest.
 Manual release validation emits only temporary Actions artifacts and activates
 the same disposable publication probes; no uploaded package, release, or tag is
 retained.
-For a push, Artifactory additionally depends on successful GitHub Release
-publication, so the existing-version guard protects both release destinations.
-Manual snapshots bypass the skipped GitHub Release job and continue to publish
-only to Artifactory.
+Artifactory depends on successful GitHub Release publication, so the
+existing-version guard protects both release destinations. Manual releases are
+marked as GitHub prereleases and also publish and verify the exact PyPI and Cargo
+versions. Their Python package uses `<generated-version>.dev0` and their Cargo
+crate uses `<generated-version>-dev.0`, so package managers do not select a
+test publication as the latest stable SDK.
 
 Automatic `main` archives are stored under `releases/<version>/`; manual
-artifacts are stored under
-`snapshots/<label>/<full-sha>-<run-id>-<attempt>/` below
+artifacts are stored under `prereleases/<generated-version>/` below
 `https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci`. The same
 URL is used for uploads and generated download links. The publisher job uses
 the locked `Arm-Debug/publisher` package from its synchronized runtime-only
-environment, prints the three stable generic URLs or five snapshot URLs, and
+environment, prints the three stable generic URLs or five prerelease URLs, and
 adds links and SHA-256 values to the workflow summary. Stable crates are
 published below
 `https://artifactory.arm.com/artifactory/edge-ai-tooling.cargo/crates/perception/`.

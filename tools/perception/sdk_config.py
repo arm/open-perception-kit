@@ -38,6 +38,7 @@ class LockedArtifact:
 class SdkConfig:
     name: str
     version: str
+    package_prerelease: bool
     schema_dir: Path
     generated_root: Path
     flatbuffers_version: str
@@ -57,6 +58,14 @@ class SdkConfig:
     @property
     def python_project(self) -> Path:
         return self.generated_root / "python"
+
+    @property
+    def python_package_version(self) -> str:
+        return f"{self.version}.dev0" if self.package_prerelease else self.version
+
+    @property
+    def cargo_package_version(self) -> str:
+        return f"{self.version}-dev.0" if self.package_prerelease else self.version
 
 
 def _relative_path(value: object, field: str, base: Path = REPO_ROOT) -> Path:
@@ -192,6 +201,7 @@ def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
     raw = json.loads(path.read_text(encoding="utf-8"))
     expected = {
         "name",
+        "package_prerelease",
         "schema_dir",
         "generated_dir",
         "flatbuffers",
@@ -206,6 +216,9 @@ def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
     name = raw["name"]
     if not isinstance(name, str) or PACKAGE_NAME_RE.fullmatch(name) is None:
         raise RuntimeError("SDK name must be a lowercase package identifier")
+    package_prerelease = raw["package_prerelease"]
+    if not isinstance(package_prerelease, bool):
+        raise RuntimeError("package_prerelease must be boolean")
 
     flatbuffers = raw["flatbuffers"]
     if not isinstance(flatbuffers, dict) or set(flatbuffers) != {
@@ -257,6 +270,7 @@ def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
     return SdkConfig(
         name=name,
         version=product_version(),
+        package_prerelease=package_prerelease,
         schema_dir=schema_dir,
         generated_root=generated_root,
         flatbuffers_version=flatbuffers_version,

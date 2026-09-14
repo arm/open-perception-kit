@@ -60,6 +60,7 @@ try {
         minify: false,
         outfile: candidate,
         platform: 'browser',
+        sourcemap: process.env.PEK_WEB_COVERAGE === '1' ? 'inline' : false,
         target: ['es2020'],
     });
 

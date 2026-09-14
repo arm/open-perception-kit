@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT / "tools" / "plumber"))
 
 from plumber.plumber import (  # noqa: E402
     build_arg_parser,
+    main,
     resolve_project_root,
     start_pipeline,
 )
@@ -31,6 +32,25 @@ class PlumberProjectRootTests(unittest.TestCase):
         self.assertEqual(project_root, Path("/work"))
         self.assertEqual(args.project_root, Path("/work"))
         self.assertEqual(args.pek_menu, "/work/tools/pek-menu")
+        self.assertIsNone(args.fifo)
+
+    @mock.patch("plumber.plumber.run_save_mode")
+    def test_main_uses_private_fifo_by_default(self, run_save_mode: mock.Mock) -> None:
+        def check_fifo(args) -> int:
+            fifo = Path(args.fifo)
+            self.assertFalse(fifo.exists())
+            self.assertEqual(fifo.parent.stat().st_mode & 0o777, 0o700)
+            return 0
+
+        run_save_mode.side_effect = check_fifo
+        with mock.patch.object(
+            sys,
+            "argv",
+            ["plumber", "pipeline", "save", "ground-truth.ndjson"],
+        ):
+            self.assertEqual(main(), 0)
+
+        run_save_mode.assert_called_once()
 
     def test_uses_environment_project_root_for_defaults(self) -> None:
         checkout = Path("/home/developer/amp-dev-forge")

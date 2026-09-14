@@ -139,7 +139,7 @@ jobs:
       - name: Delete Black Duck PR version
         env:
           BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }} # pragma: allowlist secret
-          BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
+          BLACKDUCK_URL: ${{ vars.BLACKDUCK_URL }}
           VERSION_NAME: pr-${{ needs.resolve-blackduck-pr-context.outputs.number }}
         run: blackduck-cleanup/.github/scripts/blackduck_version_cleanup.sh delete "$VERSION_NAME"
 

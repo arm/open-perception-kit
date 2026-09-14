@@ -5,7 +5,7 @@
   },
   "descriptor": {
     "path": "tools/perception/sdk.json",
-    "sha256": "17fbc1126e2f52432efe07c408918ca357c16c0366f1f02501a7876aba3b7547"
+    "sha256": "9e8a17c13097a59d207f8e22363073c79d6dc5642a3330b2107613cd439b8288"
   },
   "files": [
     {
@@ -986,7 +986,7 @@
   ],
   "generation": {
     "flowdata_sdk": {
-      "commit": "25924bd9b369a7a400099e912858e2760c720f92",
+      "commit": "c057c6888703688af5ebc99975d4639ee98270c7",
       "generator": {
         "name": "flowdata-sdk",
         "version": "0.6.0"
@@ -995,8 +995,8 @@
     "tools": [
       {
         "path": "tools/perception/generate.py",
-        "sha256": "4ef7a6bd808615aed72b057a82018a5a3cbc732de326c6fea1709ad1fd57a468",
-        "size": 38212
+        "sha256": "9759d15bd69d699483387ae5bae8a2f4f823cd9045caf97fbfaeb4bbf2de26b9",
+        "size": 42023
       },
       {
         "path": "tools/perception/release_common.py",
@@ -1005,8 +1005,8 @@
       },
       {
         "path": "tools/perception/sdk_config.py",
-        "sha256": "35f679797d9b32fb35c4bef14f025ba88dc170265c53ae6a1b44a3d7def0f776",
-        "size": 11436
+        "sha256": "05e38b5a6e86ffa2c4f6fab2a8f8f892f5b74a9edc07ffd2e65de2f25da71d4e",
+        "size": 11993
       },
       {
         "path": ".clang-format",

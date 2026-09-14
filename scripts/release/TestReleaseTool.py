@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -90,10 +91,16 @@ def add_perception_sdk(
 
 def add_release_identity(repo_root: Path) -> None:
     development_root = repo_root / "development"
-    development_root.mkdir(parents=True)
+    development_root.mkdir(parents=True, exist_ok=True)
     (development_root / "meson.build").write_text(
         "project('demo', version: '0.1.0')\n", encoding="utf-8"
     )
+    python = repo_root / "generated/perception/python/pyproject.toml"
+    cargo = repo_root / "generated/perception/rust/Cargo.toml"
+    python.parent.mkdir(parents=True, exist_ok=True)
+    cargo.parent.mkdir(parents=True, exist_ok=True)
+    python.write_text('[project]\nversion = "0.1.0"\n', encoding="utf-8")
+    cargo.write_text('[package]\nversion = "0.1.0"\n', encoding="utf-8")
 
 
 class ReleaseToolTests(unittest.TestCase):
@@ -105,6 +112,41 @@ class ReleaseToolTests(unittest.TestCase):
             stderr=subprocess.PIPE,
             text=True,
         )
+
+    def test_prerelease_identity_is_sortable_unique_and_source_bound(self) -> None:
+        identity = release_tool.prerelease_identity(
+            SOURCE_COMMIT,
+            "34458724856",
+            "2",
+            datetime(2026, 9, 10, 9, 12, 34, tzinfo=timezone.utc),
+        )
+        self.assertEqual(identity["version"], "20260910.1091234.34458724856002")
+        self.assertEqual(identity["build_label"], "prerelease-gaaaaaaaaaaaa")
+        self.assertEqual(
+            identity["source_branch"], "sandbox/prerelease-source/34458724856-2"
+        )
+
+    def test_package_versions_match_the_product_version(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            add_release_identity(root)
+            self.assertEqual(
+                release_tool.read_package_versions(root, "0.1.0"),
+                ("0.1.0", "0.1.0"),
+            )
+
+            python = root / "generated/perception/python/pyproject.toml"
+            cargo = root / "generated/perception/rust/Cargo.toml"
+            python.write_text('[project]\nversion = "0.1.0.dev0"\n', encoding="utf-8")
+            cargo.write_text('[package]\nversion = "0.1.0-dev.0"\n', encoding="utf-8")
+            self.assertEqual(
+                release_tool.read_package_versions(root, "0.1.0"),
+                ("0.1.0.dev0", "0.1.0-dev.0"),
+            )
+
+            cargo.write_text('[package]\nversion = "0.2.0-dev.0"\n', encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, "do not match"):
+                release_tool.read_package_versions(root, "0.1.0")
 
     def test_stages_and_validates_private_python_runtime(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -729,9 +771,20 @@ class ReleaseToolTests(unittest.TestCase):
             )
 
             manual = self.run_tool(*arguments, "--build-label", "test")
+            self.assertNotEqual(manual.returncode, 0)
+            self.assertIn("require prerelease", manual.stderr)
+
+            (root / "generated/perception/python/pyproject.toml").write_text(
+                '[project]\nversion = "0.1.0.dev0"\n', encoding="utf-8"
+            )
+            (root / "generated/perception/rust/Cargo.toml").write_text(
+                '[package]\nversion = "0.1.0-dev.0"\n', encoding="utf-8"
+            )
+            manual = self.run_tool(*arguments, "--build-label", "test")
             self.assertEqual(manual.returncode, 0, manual.stderr)
             self.assertIn("build_id=0.1.0-test-aaaaaaaaaaaa", manual.stdout)
 
+            add_release_identity(root)
             final = self.run_tool(*arguments)
             self.assertNotEqual(final.returncode, 0)
             self.assertIn("no non-empty 0.1.0 section", final.stderr)

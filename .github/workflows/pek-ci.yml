@@ -91,17 +91,18 @@ jobs:
           case "$PR_NUMBER" in *[!0-9]*) exit 1 ;; esac
           test "${#PR_HEAD_SHA}" = 40
           case "$PR_HEAD_SHA" in *[!0-9a-f]*) exit 1 ;; esac
+          pull_request="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")"
           read -r actual_base_ref actual_head_ref actual_head_sha head_repository author < <(
-            gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
-              --jq '[.base.ref, .head.ref, .head.sha, .head.repo.full_name, .user.login] | @tsv'
+            jq -r '[.base.ref, .head.ref, .head.sha, .head.repo.full_name, .user.login] | @tsv' \
+              <<< "$pull_request"
           )
           test "$actual_base_ref" = "$PR_BASE_REF"
           test "$actual_head_ref" = "$PR_HEAD_REF"
           test "$actual_head_sha" = "$PR_HEAD_SHA"
           test "$head_repository" = "$GITHUB_REPOSITORY"
           test "$author" != 'dependabot[bot]'
-          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
-            --jq '.labels[].name' | grep -Fxq "$PR_LABEL"
+          jq -e --arg label "$PR_LABEL" \
+            'any(.labels[]; .name == $label)' <<< "$pull_request" >/dev/null
           if [ "$PR_LABEL" = run-pek-ci ]; then
             test "$CHECKS" = all
           else
@@ -198,6 +199,7 @@ jobs:
             --head-ref-override "${{ github.event.inputs.pr_head_ref }}" \
             --head-sha-override "${{ github.event.inputs.pr_head_sha }}" \
             --github-output "${GITHUB_OUTPUT}"
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${{ github.event.inputs.pr_number }}" --jq .user.login)" != 'dependabot[bot]'
 
       - name: Checkout source
         uses: actions/checkout@v7
@@ -623,7 +625,6 @@ jobs:
       scan_mode: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.pr_label == '' && contains(fromJSON('["all","blackduck"]'), inputs.checks)) || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))) && 'full' || 'delta' }}
       version_name: ${{ github.event_name == 'schedule' && 'nightly' || ((github.event_name == 'workflow_dispatch' && inputs.pr_label == '' && contains(fromJSON('["all","blackduck"]'), inputs.checks)) || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))) && github.ref_name || format('pr-{0}', needs.build-ci-image.outputs.pr_number) }}
     secrets:
-      BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
       BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }} # pragma: allowlist secret
       DEPLOY_KEY_FLOWDATA_SDK: ${{ secrets.DEPLOY_KEY_FLOWDATA_SDK }} # pragma: allowlist secret
 
@@ -742,7 +743,9 @@ jobs:
 
   rpi5-quick-start-build-test:
     name: Quick-start and Playwright on Raspberry Pi 5
-    needs: validate-label-dispatch
+    needs:
+      - validate-label-dispatch
+      - build-ci-image
     runs-on: [self-hosted, Linux, ARM64, amp-dev-forge-runner-rpi5]
     timeout-minutes: 240
     permissions:
@@ -753,6 +756,7 @@ jobs:
     # Same-repository non-draft PRs run automatically.
     if: |
       always() &&
+      needs.build-ci-image.result == 'success' &&
       !(
         github.event_name == 'pull_request' &&
         github.event.pull_request.base.ref == 'main' &&
@@ -767,13 +771,21 @@ jobs:
         github.event_name == 'schedule' ||
         (
           github.event_name == 'workflow_dispatch' &&
-          inputs.checks == 'all' &&
           (
-            (inputs.pr_number == '' && inputs.pr_label == '') ||
             (
+              inputs.checks == 'all' &&
+              inputs.pr_label == ''
+            ) ||
+            (
+              inputs.checks == 'all' &&
               inputs.pr_number != '' &&
               inputs.pr_label == 'run-pek-ci' &&
               needs.validate-label-dispatch.result == 'success'
+            ) ||
+            (
+              inputs.checks == 'sonar' &&
+              inputs.pr_number != '' &&
+              inputs.pr_label == ''
             )
           )
         ) ||
@@ -800,35 +812,10 @@ jobs:
       PEK_DEV_CACHE_FROM: type=registry,ref=ghcr.io/arm-debug/amp-dev-forge-dev:buildcache
       PEK_CCACHE_PATH: ${{ github.workspace }}/.cache/ccache-rpi5
     steps:
-      - name: Checkout manual-run helper
-        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 1
-          ref: ${{ github.event.repository.default_branch }}
-          path: ${{ env.CI_CHECKOUT_PATH }}
-          persist-credentials: false
-
-      - name: Resolve manual PR
-        id: manual_pr
-        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
-        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          python3 scripts/private/github_pr_context.py \
-            --pr-number "${{ github.event.inputs.pr_number }}" \
-            --repo "${{ github.repository }}" \
-            --base-ref-override "${{ github.event.inputs.pr_base_ref }}" \
-            --head-ref-override "${{ github.event.inputs.pr_head_ref }}" \
-            --head-sha-override "${{ github.event.inputs.pr_head_sha }}" \
-            --github-output "${GITHUB_OUTPUT}"
-
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ needs.build-ci-image.outputs.head_sha }}
           path: ${{ env.CI_CHECKOUT_PATH }}
           persist-credentials: false
 
@@ -846,7 +833,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/gnu-tar" "$PEK_CCACHE_PATH"
           tar_path="$(command -v gtar || command -v tar)"
           ln -sf "$tar_path" "$RUNNER_TEMP/gnu-tar/tar"
-          "$RUNNER_TEMP/gnu-tar/tar" --version | grep -F 'GNU tar'
+          [[ "$("$RUNNER_TEMP/gnu-tar/tar" --version)" == *'GNU tar'* ]]
           echo "$RUNNER_TEMP/gnu-tar" >> "$GITHUB_PATH"
 
       - name: Restore RPI compiler cache
@@ -854,7 +841,7 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           path: .cache/ccache-rpi5
-          key: pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-rpi5-${{ steps.manual_pr.outputs.head_sha || github.event.pull_request.head.sha || github.sha }}
+          key: pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-rpi5-${{ needs.build-ci-image.outputs.head_sha }}
           restore-keys: |
             pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-rpi5-
 
@@ -891,9 +878,13 @@ jobs:
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
           BROWSER_SMOKE_BROWSERS: chromium,firefox,webkit
+          BROWSER_SMOKE_COVERAGE: "1"
           BROWSER_SMOKE_REBUILD: "1"
           NUM_FRAMES: "45000"
-        run: exec ./scripts/playwright/browser-smoke/run.sh
+        run: |
+          docker exec --user dev --workdir /work --env PEK_WEB_COVERAGE=1 \
+            "${PEK_QUICK_START_CI_NAME}-dev" ./scripts/peksink-web.sh generate
+          exec ./scripts/playwright/browser-smoke/run.sh
 
       - name: Save RPI compiler cache
         if: ${{ !cancelled() && steps.pek-build.outcome == 'success' && steps.compiler-cache.outputs.cache-hit != 'true' && (github.event_name == 'schedule' || startsWith(github.ref, 'refs/pull/')) }}

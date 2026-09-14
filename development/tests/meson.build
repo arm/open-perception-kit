@@ -335,6 +335,7 @@ test(
   'build_script_tests',
   python,
   args : [files('build_script_test.py'), pek_repository_root],
+  timeout : 60,
 )
 test(
   'setup_lxc_dev_script_tests',

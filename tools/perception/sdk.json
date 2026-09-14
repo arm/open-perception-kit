@@ -48,6 +48,7 @@
   },
   "generated_dir": "generated/perception",
   "name": "perception",
+  "package_prerelease": false,
   "project_generated_files": {
     "internal_meson": "development/perception/meson.build"
   },
