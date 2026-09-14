@@ -2,9 +2,9 @@ name: Public PEK CI
 
 on:
   pull_request:
-    branches: [develop]
+    branches: [main]
   push:
-    branches: [develop]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -25,7 +25,18 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v7
         with:
+          fetch-depth: 2
           persist-credentials: false
+
+      - name: Prepare pull request base
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git check-ref-format --branch "$BASE_REF"
+          git cat-file -e "$BASE_SHA^{commit}"
+          git update-ref "refs/remotes/origin/$BASE_REF" "$BASE_SHA"
 
       - name: Build PEK CI image
         run: |
@@ -46,4 +57,9 @@ jobs:
           '
 
       - name: Run clang-tidy baseline check
-        run: docker compose -f .github/compose.ci.yaml run --rm pek-clang-tidy-baseline-check
+        env:
+          PULL_REQUEST_TARGET_BRANCH: ${{ github.base_ref }}
+        run: |
+          docker compose -f .github/compose.ci.yaml run --rm \
+            -e PULL_REQUEST_TARGET_BRANCH \
+            pek-clang-tidy-baseline-check
