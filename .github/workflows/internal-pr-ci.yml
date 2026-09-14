@@ -1,0 +1,47 @@
+name: Internal PR CI
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions: {}
+
+concurrency:
+  group: internal-pr-ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  dispatch:
+    name: Dispatch and wait for internal CI
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Create internal CI token
+        id: internal-ci-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          app-id: ${{ secrets.TOPO_DEBUG_ACCESS_APP_ID }}
+          private-key: ${{ secrets.TOPO_ACCESS_APP_PRIVATE_KEY }}
+          owner: Arm-Debug
+          repositories: amp-dev-forge
+
+      - name: Dispatch internal CI and wait
+        env:
+          GH_TOKEN: ${{ steps.internal-ci-token.outputs.token }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          # ponytail: use the PR branch until the receiver is merged and registered on develop.
+          run_url="$(gh workflow run opk-internal-pr-ci.yml \
+            --repo Arm-Debug/amp-dev-forge \
+            --ref feature/EXPKITS-778/internal-ci-dispatcher \
+            --field source_repository=Arm/open-perception-kit \
+            --field pr_number="$PR_NUMBER" \
+            --field pr_head_sha="$PR_HEAD_SHA" \
+            --field checks=all)"
+          test -n "$run_url"
+          printf 'Internal CI run: %s\n' "$run_url" | tee -a "$GITHUB_STEP_SUMMARY"
+          gh run watch "${run_url##*/}" \
+            --repo Arm-Debug/amp-dev-forge \
+            --exit-status
