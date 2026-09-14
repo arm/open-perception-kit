@@ -1,0 +1,49 @@
+name: Public PEK CI
+
+on:
+  pull_request:
+    branches: [develop]
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-pek-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-ci-image:
+    name: Build PEK CI image locally
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      PEK_CI_IMAGE: pek-ci:local
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Build PEK CI image
+        run: |
+          docker build --pull --target pek-ci --tag pek-ci:local . ||
+            { sleep 10; docker build --pull --target pek-ci --tag pek-ci:local .; } ||
+            { sleep 30; docker build --pull --target pek-ci --tag pek-ci:local .; }
+
+      - name: Verify local image
+        run: docker image inspect pek-ci:local
+
+      - name: Build PEK for clang-tidy
+        run: |
+          install -d -m 0777 .cache/ccache
+          docker compose -f .github/compose.ci.yaml run --rm pek-ci bash -c '
+            .devcontainer/setup.sh &&
+            .devcontainer/platform_init.sh pek-dev disabled &&
+            ./scripts/build.sh release false
+          '
+
+      - name: Run clang-tidy baseline check
+        run: docker compose -f .github/compose.ci.yaml run --rm pek-clang-tidy-baseline-check

@@ -15,6 +15,7 @@ import subprocess
 import tempfile
 import requests
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 from git import Repo, GitCommandError
 
 from expkits_ci.license_template_manager import LicenseTemplateManager
@@ -917,6 +918,96 @@ class QualityChecks:
 
         return compiled_files
 
+    def _clang_tidy_files_in_compile_database(
+            self, files, compile_commands_path, project_root):
+        """Return requested files covered by the current compile database."""
+        compiled_files = self._compile_database_files(
+            compile_commands_path, project_root)
+        normalized_files = []
+        for f in files:
+            abs_path = f if os.path.isabs(f) else os.path.join(project_root, f)
+            abs_path = os.path.realpath(abs_path)
+            try:
+                rel_path = os.path.normpath(os.path.relpath(abs_path, project_root))
+            except ValueError:
+                continue
+            normalized_files.append((f, abs_path, rel_path))
+
+        skipped_files = sorted({
+            orig for (orig, _abs, rel_path) in normalized_files
+            if rel_path not in compiled_files
+        })
+        if skipped_files:
+            logger.info(
+                "Skipping %d C/C++ file(s) not listed in the active compile database.",
+                len(skipped_files))
+            for skipped_file in skipped_files:
+                logger.debug(f"Skipped clang-tidy file not in compile database: {skipped_file}")
+
+        return [
+            abs_path for (_orig, abs_path, rel_path) in normalized_files
+            if rel_path in compiled_files
+        ]
+
+    @staticmethod
+    def _run_clang_tidy_files(
+            files, clang_tidy, filtered_compile_config_path, project_root):
+        """Run clang-tidy in parallel and report progress."""
+        project_clang_tidy_config = os.path.join(project_root, ".clang-tidy")
+        config_file_args = []
+        # Pin the root config so nested files cannot shadow the project policy.
+        if os.path.isfile(project_clang_tidy_config):
+            config_file_args = [f"--config-file={project_clang_tidy_config}"]
+        else:
+            logger.warning(
+                "No .clang-tidy config file found at project root; "
+                "HeaderFilterRegex may not apply.")
+
+        # Keep diagnostics scoped to project sources, including analyzer notes.
+        line_filter_arg = "--line-filter=" + json.dumps([
+            {"name": QualityChecks.CLANG_TIDY_PROJECT_FILE_FILTER}
+        ])
+
+        def run_clang_tidy(f):
+            try:
+                cmd = [
+                    clang_tidy,
+                    f,
+                    "-p",
+                    filtered_compile_config_path,
+                    *config_file_args,
+                    line_filter_arg,
+                    "--extra-arg=-DFMT_CONSTEVAL="
+                ]
+                return f, subprocess.run(
+                    cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8"), None
+            except Exception as e:
+                return f, None, e
+
+        result = True
+        workers = min(len(files), os.cpu_count() or 1)
+        logger.info(
+            "Running clang-tidy on %d file(s) with %d worker(s).",
+            len(files), workers)
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            for completed, (f, proc, error) in enumerate(
+                    executor.map(run_clang_tidy, files), start=1):
+                if error:
+                    logger.error(f"Failed to run clang-tidy on {f}: {error}")
+                    result = False
+                elif proc.returncode != 0:
+                    logger.error(f"clang-tidy check failed for {f}.")
+                    logger.error(proc.stdout)
+                    logger.error(proc.stderr)
+                    result = False
+                elif proc.stdout:
+                    logger.debug(f"clang-tidy output for {f}:\n{proc.stdout}")
+                logger.info(
+                    "clang-tidy progress: %d/%d file(s) completed.",
+                    completed, len(files))
+
+        return result
+
     def check_clang_tidy(self, files, compile_commands_dir=None, clang_tidy_binary=None) -> bool:
         """Check clang-tidy validity to files under folder."""
         logger.info("Checking clang-tidy validity...")
@@ -941,37 +1032,12 @@ class QualityChecks:
         project_root = self.file_utils.get_project_root()
 
         try:
-            compiled_files = self._compile_database_files(
+            files = self._clang_tidy_files_in_compile_database(
+                files,
                 compile_commands_path, project_root)
         except Exception as e:
             logger.error(f"Failed to read clang-tidy compile database files: {e}")
             return False
-
-        normalized_files = []
-        for f in files:
-            abs_path = f if os.path.isabs(f) else os.path.join(project_root, f)
-            abs_path = os.path.realpath(abs_path)
-            try:
-                rel_path = os.path.normpath(os.path.relpath(abs_path, project_root))
-            except ValueError:
-                continue
-            normalized_files.append((f, abs_path, rel_path))
-
-        compile_database_files = [
-            abs_path for (_orig, abs_path, rel_path) in normalized_files
-            if rel_path in compiled_files
-        ]
-        skipped_files = sorted({
-            orig for (orig, _abs, rel_path) in normalized_files
-            if rel_path not in compiled_files
-        })
-        if skipped_files:
-            logger.info(
-                "Skipping %d C/C++ file(s) not listed in the active compile database.",
-                len(skipped_files))
-            for skipped_file in skipped_files:
-                logger.debug(f"Skipped clang-tidy file not in compile database: {skipped_file}")
-        files = compile_database_files
 
         if not files:
             logger.info("No C/C++ files listed in the active compile database.")
@@ -985,53 +1051,8 @@ class QualityChecks:
                 logger.error(f"Failed to prepare clang-tidy compile database: {e}")
                 return False
 
-            # Pass --config-file explicitly so the project's .clang-tidy at the
-            # repo root is always used, regardless of clang-tidy's auto-discovery
-            # walk from the source file directory. This protects against stray
-            # nested .clang-tidy files shadowing the root one and makes the
-            # effective config deterministic.
-            project_clang_tidy_config = os.path.join(project_root, ".clang-tidy")
-            config_file_args = []
-            if os.path.isfile(project_clang_tidy_config):
-                config_file_args = [f"--config-file={project_clang_tidy_config}"]
-            else:
-                logger.warning(
-                    "No .clang-tidy config file found at project root; "
-                    "HeaderFilterRegex may not apply.")
-
-            # Static-analyzer diagnostics can originate in a third-party header
-            # but remain visible when their path contains a note in the main
-            # source file. Filter on diagnostic locations as well as headers so
-            # only project-owned development sources are reported.
-            line_filter_arg = "--line-filter=" + json.dumps([
-                {"name": self.CLANG_TIDY_PROJECT_FILE_FILTER}
-            ])
-
-            for f in files:
-                try:
-                    cmd = [
-                        clang_tidy,
-                        f,
-                        "-p",
-                        filtered_compile_config_path,
-                        *config_file_args,
-                        line_filter_arg,
-                        "--extra-arg=-DFMT_CONSTEVAL="
-                    ]
-
-                    proc = subprocess.run(
-                        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8")
-
-                    if proc.returncode != 0:
-                        logger.error(f"clang-tidy check failed for {f}.")
-                        logger.error(proc.stdout)
-                        logger.error(proc.stderr)
-                        result = False
-                    elif proc.stdout:
-                        logger.debug(f"clang-tidy output for {f}:\n{proc.stdout}")
-                except Exception as e:
-                    logger.error(f"Failed to run clang-tidy on {f}: {e}")
-                    result = False
+            result = self._run_clang_tidy_files(
+                files, clang_tidy, filtered_compile_config_path, project_root)
 
         if result:
             logger.info("All files passed clang-tidy check.")

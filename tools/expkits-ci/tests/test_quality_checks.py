@@ -10,6 +10,7 @@ import re
 import shutil
 import sys
 import tempfile
+import threading
 import types
 import unittest
 from pathlib import Path
@@ -498,6 +499,59 @@ class TestQualityChecks(unittest.TestCase):
         self.assertRegex("/work/development/runtime/Result.cpp", project_file_pattern)
         self.assertRegex("../ops-onnx/Inference.cpp", project_file_pattern)
         self.assertNotRegex("../subprojects/fmt/include/fmt/base.h", project_file_pattern)
+
+    def test_clang_tidy_runs_files_in_parallel(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project_root = Path(temp_dir)
+            build_dir = project_root / "development" / "build"
+            source_files = [
+                project_root / "development" / "common" / f"source-{index}.cpp"
+                for index in range(2)
+            ]
+            build_dir.mkdir(parents=True)
+            for source_file in source_files:
+                source_file.parent.mkdir(parents=True, exist_ok=True)
+                source_file.write_text("", encoding="utf-8")
+            (project_root / ".clang-tidy").write_text("---\nChecks: '-*'\n", encoding="utf-8")
+            (build_dir / "compile_commands.json").write_text(
+                json.dumps([
+                    {
+                        "directory": str(build_dir),
+                        "file": str(source_file),
+                        "command": f"c++ -c {source_file}",
+                    }
+                    for source_file in source_files
+                ]),
+                encoding="utf-8",
+            )
+            self.quality_checks.file_utils.get_project_root = Mock(
+                return_value=str(project_root)
+            )
+            barrier = threading.Barrier(2, timeout=2)
+
+            def run_clang_tidy(*_args, **_kwargs):
+                barrier.wait()
+                return Mock(returncode=0, stdout="", stderr="")
+
+            with patch.object(
+                self.quality_checks,
+                "_resolve_clang_tidy_binary",
+                return_value="/usr/bin/clang-tidy",
+            ), patch.object(
+                quality_checks_module.os,
+                "cpu_count",
+                return_value=2,
+            ), patch.object(
+                quality_checks_module.subprocess,
+                "run",
+                side_effect=run_clang_tidy,
+            ):
+                result = self.quality_checks.check_clang_tidy(
+                    [str(source_file.relative_to(project_root)) for source_file in source_files],
+                    compile_commands_dir=str(build_dir),
+                )
+
+        self.assertTrue(result)
 
     def test_check_secrets_batches_files_and_uses_resolved_command(self):
         files = [f"file-{index}.txt" for index in range(55)]
