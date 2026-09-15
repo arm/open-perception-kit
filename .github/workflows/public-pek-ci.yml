@@ -35,7 +35,9 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           git check-ref-format --branch "$BASE_REF"
-          git cat-file -e "$BASE_SHA^{commit}"
+          if ! git cat-file -e "$BASE_SHA^{commit}"; then
+            BASE_SHA="$(git rev-parse HEAD^1)"
+          fi
           git update-ref "refs/remotes/origin/$BASE_REF" "$BASE_SHA"
 
       - name: Build PEK CI image
@@ -53,7 +55,7 @@ jobs:
           docker compose -f .github/compose.ci.yaml run --rm pek-ci bash -c '
             .devcontainer/setup.sh &&
             .devcontainer/platform_init.sh pek-dev disabled &&
-            ./scripts/build.sh release false
+            ./scripts/build.sh release true
           '
 
       - name: Run clang-tidy baseline check

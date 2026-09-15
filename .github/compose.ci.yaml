@@ -94,7 +94,24 @@ services:
         .devcontainer/platform_init.sh pek-dev disabled &&
         source /work/tools/.venv/bin/activate &&
         rm -f clang-tidy.log clang-tidy-stats.log clang-tidy-stats.json &&
+        clang_tidy_baseline=.github/ci/baselines/clang-tidy-baseline.json &&
         if [ -n "$${PULL_REQUEST_TARGET_BRANCH:-}" ]; then
+          full_tree_delta="$$(git diff --name-only "origin/$${PULL_REQUEST_TARGET_BRANCH}...HEAD" -- \
+            "*.h" "*.hh" "*.hpp" "*.hxx" "*.tpp" \
+            ".clang-tidy" ".github/ci/baselines/clang-tidy-baseline.json" \
+            ".github/compose.ci.yaml" ".github/workflows/public-pek-ci.yml" \
+            ".devcontainer" "Dockerfile" "scripts/build.sh" "tools/expkits-ci" \
+            ":(glob)development/**/meson.build" "development/meson.options" \
+            ":(glob)development/**/*.wrap")";
+          if [ -n "$${full_tree_delta}" ]; then
+            echo "Clang-tidy policy or compile configuration delta detected; running full-tree clang-tidy.";
+            PULL_REQUEST_TARGET_BRANCH=;
+          fi;
+        fi &&
+        if [ -n "$${PULL_REQUEST_TARGET_BRANCH:-}" ]; then
+          printf "%s\n" "{\"checks\": {}}" > /tmp/clang-tidy-pr-baseline.json &&
+          clang_tidy_baseline=/tmp/clang-tidy-pr-baseline.json &&
+          echo "PR delta uses a zero-diagnostic clang-tidy baseline." &&
           expkits-ci \
             --clang-tidy \
             --pr-target-branch "$${PULL_REQUEST_TARGET_BRANCH}" \
@@ -111,7 +128,7 @@ services:
         expkits-ci \
           --clang-tidy-stats clang-tidy.log \
           --clang-tidy-stats-output clang-tidy-stats.json \
-          --clang-tidy-baseline .github/ci/baselines/clang-tidy-baseline.json \
+          --clang-tidy-baseline "$${clang_tidy_baseline}" \
           --clang-tidy-baseline-mode enforce \
           | tee clang-tidy-stats.log
       '

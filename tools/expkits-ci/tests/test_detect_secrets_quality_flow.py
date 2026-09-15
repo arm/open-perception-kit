@@ -295,6 +295,29 @@ class StaticQualityConfigTests(unittest.TestCase):
         self.assertIn('"pyflakes==3.3.2"', pyproject)
         self.assertIn('"vulture==2.14"', pyproject)
 
+    def test_clang_tidy_policy_inputs_force_full_tree(self):
+        compose = CI_COMPOSE_FILE.read_text(encoding="utf-8")
+
+        self.assertIn("full_tree_delta=", compose)
+        for full_tree_input in (
+            ".clang-tidy",
+            ".github/ci/baselines/clang-tidy-baseline.json",
+            ".github/compose.ci.yaml",
+            ".github/workflows/public-pek-ci.yml",
+            ".devcontainer",
+            "Dockerfile",
+            "scripts/build.sh",
+            "tools/expkits-ci",
+            ":(glob)development/**/meson.build",
+            "development/meson.options",
+            ":(glob)development/**/*.wrap",
+        ):
+            self.assertIn(f'"{full_tree_input}"', compose)
+        self.assertIn(
+            "Clang-tidy policy or compile configuration delta detected",
+            compose,
+        )
+
     def test_execution_report_annotations_match_declared_python_floor(self):
         pyproject = PYPROJECT_FILE.read_text(encoding="utf-8")
         self.assertIn('requires-python = ">=3.8"', pyproject)
