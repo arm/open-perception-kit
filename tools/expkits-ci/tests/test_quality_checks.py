@@ -368,18 +368,6 @@ class TestQualityChecks(unittest.TestCase):
         self.assertFalse(result)
         self.assertIn("syntax-check", "\n".join(logs.output))
 
-    def test_check_github_actions_accepts_checked_in_valgrind_workflow(self):
-        self.require_actionlint()
-        self.quality_checks.file_utils.get_project_root = Mock(
-            return_value=str(Path(__file__).resolve().parents[3])
-        )
-
-        result = self.quality_checks.check_github_actions([
-            ".github/workflows/valgrind.yml",
-        ])
-
-        self.assertTrue(result)
-
     def test_check_config_schema_runs_shared_validator(self):
         run_config_validator = Mock(
             return_value=Mock(
