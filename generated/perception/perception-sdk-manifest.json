@@ -1,16 +1,16 @@
 {
   "artifact": {
     "name": "perception-sdk",
-    "version": "0.3.0"
+    "version": "0.3.1"
   },
   "descriptor": {
     "path": "tools/perception/sdk.json",
-    "sha256": "9e8a17c13097a59d207f8e22363073c79d6dc5642a3330b2107613cd439b8288"
+    "sha256": "5848d58eddb126fcdc4abe469bcc90de4da92ea5e75fdc356e3243f841ea3e12"
   },
   "files": [
     {
       "path": "cpp/cmake/perception.cmake",
-      "sha256": "d540ef8887464a8fb233deddb212cbf0e63958b7a77848d2a0e9c9f32927cac3",
+      "sha256": "7162d3167708fcdf2fa416eaf9a88a740e89e06326a653467eec45dc620b7174",
       "size": 3404
     },
     {
@@ -70,7 +70,7 @@
     },
     {
       "path": "cpp/meson/perception/meson.build",
-      "sha256": "a53c3c6ecb76faf5009a6f0192be6f66c4d4c4c7e0b5cb07e19bffb037bfc38e",
+      "sha256": "7fcaa0dade3d9af493c75a373b03cf43cce4b9417e7ca6b6ed78cc54426121c3",
       "size": 3163
     },
     {
@@ -80,7 +80,7 @@
     },
     {
       "path": "cpp/perception.h",
-      "sha256": "142058c6dc617d5f58ebe4f2e283a680819aa61c596fcbd8ad13bbb3ff711895",
+      "sha256": "ddfeb23943ad08bb452d9c93194ce7449658a77c71519ebe43cac35b0995fd31",
       "size": 31215
     },
     {
@@ -95,12 +95,12 @@
     },
     {
       "path": "python/pyproject.toml",
-      "sha256": "ff6b6885e241d113ba3f9009950d9ba9add4fac3ebaea1d8f381b8e6c971a68c",
+      "sha256": "f967535444f7392bef63a076e2ccbe77c2e05d5c29d869a0bdb4a2a5b7649876",
       "size": 478
     },
     {
       "path": "python/src/perception/__init__.py",
-      "sha256": "c88251eae85b4249fb40bfb4d1789c899dd32fc103b8ee85076fdafa7be82eaf",
+      "sha256": "2c6578d6fe9f61a3fa4f1376b1f1ba581ed5a1b78a69c9fc49ad207a7b3afd89",
       "size": 655
     },
     {
@@ -290,12 +290,12 @@
     },
     {
       "path": "python/src/perception/sdk.py",
-      "sha256": "aad4449dad7ff9a52327ab3dc775e28e1be44fb30336c2adbfae6f3e7aa522f3",
+      "sha256": "13f9a6fd583ca4b3e6517bd3cde4acb76c721fea3bb80dd72a801f77fdc55d52",
       "size": 15472
     },
     {
       "path": "rust/Cargo.toml",
-      "sha256": "addc625094b318dedf2d10cf467b33c35120c8ce1dfb2222595692f9c608a5b3",
+      "sha256": "f6e89b16831d1877377ac811c8c1d29ae242b42b5e5b85b327c36d4e27212daf",
       "size": 152
     },
     {
@@ -465,7 +465,7 @@
     },
     {
       "path": "rust/src/lib.rs",
-      "sha256": "32f9371253715e5b4ea4abefee39177e520b03be53353b3e62f97195560a92ce",
+      "sha256": "22762ae82002377dad7a335689275fda58b87d768e5ab76142458f9585cdcc93",
       "size": 42718
     },
     {
@@ -480,12 +480,12 @@
     },
     {
       "path": "ts/dist/perception/envelope.d.ts",
-      "sha256": "975a2910d2dbde5c58cd3429119212ac431113fa1923a32f6afec243ca3f3a32",
+      "sha256": "9b8a5f8194b7843759877887a5041d842dc60f532cc256710f7e1634b2b04a84",
       "size": 2307
     },
     {
       "path": "ts/dist/perception/envelope.js",
-      "sha256": "8af44a77002ea50b94c830794b589615332e2cc26b76a2d92b39950032df7d3a",
+      "sha256": "80ca3f0629c2c00a375d1e7a45b93f099d2f172f8ff043229b534c1e84588482",
       "size": 13723
     },
     {
@@ -790,12 +790,12 @@
     },
     {
       "path": "ts/dist/perception/index.d.ts",
-      "sha256": "2b0dd06790037259bd927f263e0d66233f503ac6d397930475ec42c25857d318",
+      "sha256": "a7be14113b7beda2af529b0019c4580bd23b907042d44af0ffbe06dec4464102",
       "size": 583
     },
     {
       "path": "ts/dist/perception/index.js",
-      "sha256": "72645cab52011aa4c7466fd93c864d154e65ad435bfcd2d6e5e1ed243584314c",
+      "sha256": "8db75a9d5734c91c12d4dd3e493a5ba041ecaf69c7fd1463ad17af232f4a397f",
       "size": 551
     },
     {
@@ -810,12 +810,12 @@
     },
     {
       "path": "ts/package.json",
-      "sha256": "8e20cee96364a6d184caa1879a431d7254e6fda6e20cfc52309931f2b6cb269d",
+      "sha256": "b75260ae71ecc174ad806af052a5a1341c0e709e565b3db4e582f3d23b1f02ef",
       "size": 746
     },
     {
       "path": "ts/src/perception/envelope.ts",
-      "sha256": "ee32424a898009e0d89c21b4f0a5b490b136ef02420986a3c85cc6d2a4c7a472",
+      "sha256": "fd6e566b68e84f73d1e6442684750e9de8a9f981dcda6b6fc5a4da8e9af8d5a6",
       "size": 12350
     },
     {
@@ -970,7 +970,7 @@
     },
     {
       "path": "ts/src/perception/index.ts",
-      "sha256": "78a311c11549f9dabd6d626f19d3bf20cb1e53c96ed61d7279291d470df4af7f",
+      "sha256": "a88092f4ef05a15b2316f66cf17765288e4041cbd2db47804854c8324de3135a",
       "size": 564
     },
     {
@@ -986,17 +986,173 @@
   ],
   "generation": {
     "flowdata_sdk": {
-      "commit": "c057c6888703688af5ebc99975d4639ee98270c7",
       "generator": {
         "name": "flowdata-sdk",
         "version": "0.6.0"
-      }
+      },
+      "sources": [
+        {
+          "path": "tools/flowdata/engine/__init__.py",
+          "sha256": "9f9848c7f6f42a4341ae2e98400774c89ac07b42c8bf189c3e824eff83c6f79b",
+          "size": 185
+        },
+        {
+          "path": "tools/flowdata/engine/app.py",
+          "sha256": "45e6ee0cf51a87136cf3873849e063ac3c5f83d0003337660a5a6b4a7d6af9f0",
+          "size": 12196
+        },
+        {
+          "path": "tools/flowdata/engine/cpp/__init__.py",
+          "sha256": "c559ef637d18df26f723df838c0619b9361c6df2d758c7104f6a0c4e3a5cd472",
+          "size": 790
+        },
+        {
+          "path": "tools/flowdata/engine/cpp/base.py",
+          "sha256": "d22bad9fb09c641999d0799b9e3b8d1156bdcd0695c4c8c834109deb3a58c20f",
+          "size": 631
+        },
+        {
+          "path": "tools/flowdata/engine/cpp/cmake.py",
+          "sha256": "e870879e4083c04ccbeab42c704fe13dfd16c9cfb2257ff9cda41eacb0798fff",
+          "size": 5981
+        },
+        {
+          "path": "tools/flowdata/engine/cpp/cpp_sdk_codegen.py",
+          "sha256": "310d55d78fc49e9e39247c9caa42f1469e911507556eadbfc01a6aaeaeaffcf5",
+          "size": 30587
+        },
+        {
+          "path": "tools/flowdata/engine/cpp/meson.py",
+          "sha256": "1123db100f0939d1840f15e79b2a6089b7175a02f601529961375a30bb08f385",
+          "size": 6538
+        },
+        {
+          "path": "tools/flowdata/engine/cpp/python_bridge.py",
+          "sha256": "28bccbd18467b5c612f35bb9db1ed94e5992e76735e9a5d00f6b0d5787bf2c4b",
+          "size": 62541
+        },
+        {
+          "path": "tools/flowdata/engine/discovery.py",
+          "sha256": "792adcfd02847d5f1c9319e9038bbc166fcefe9f9dee785bce14b195e372e0ec",
+          "size": 7847
+        },
+        {
+          "path": "tools/flowdata/engine/errors.py",
+          "sha256": "fae963251752a4ae629b6ec2b3584d3928187f73a1436c075027b52cad505c96",
+          "size": 608
+        },
+        {
+          "path": "tools/flowdata/engine/flatbuffers_compat.py",
+          "sha256": "be9877e1a42dab36bde54a62be239885f2bf8f9c9f6e14507c95a440184de40f",
+          "size": 3733
+        },
+        {
+          "path": "tools/flowdata/engine/generators/__init__.py",
+          "sha256": "a61ef437308c6da7a46c10f762251d513d463cb88ea789c747e514dbdf7e9058",
+          "size": 766
+        },
+        {
+          "path": "tools/flowdata/engine/generators/base.py",
+          "sha256": "e5dfacb5978c5a2b4a110610e3b5b940594a6bd048a676aab20a41a6ddfb2d3a",
+          "size": 525
+        },
+        {
+          "path": "tools/flowdata/engine/generators/cpp.py",
+          "sha256": "79799197a7089c2e36cc9d097b9877e1de62eb8f1c4bf387bd8f0f1b6e8916b6",
+          "size": 1482
+        },
+        {
+          "path": "tools/flowdata/engine/generators/python.py",
+          "sha256": "ab556cce62e6f06bdcecd56485923b054adf440554f2ddc53738b4921cfbb363",
+          "size": 560
+        },
+        {
+          "path": "tools/flowdata/engine/generators/rust.py",
+          "sha256": "a0fc75c0190eb22caba196d620c507b63002466cfaf22f9916f40b4926d99bd7",
+          "size": 564
+        },
+        {
+          "path": "tools/flowdata/engine/generators/typescript.py",
+          "sha256": "6ac3cb59445ce054df7856591f0d7edf91014f16f4b1cf90f616c70f764bca2f",
+          "size": 592
+        },
+        {
+          "path": "tools/flowdata/engine/manifest.py",
+          "sha256": "cdb9ba0ffd96bf92fb8ae1545953db7179d91a087f65f8187001ccc5794dde20",
+          "size": 23830
+        },
+        {
+          "path": "tools/flowdata/engine/python/__init__.py",
+          "sha256": "9f9848c7f6f42a4341ae2e98400774c89ac07b42c8bf189c3e824eff83c6f79b",
+          "size": 185
+        },
+        {
+          "path": "tools/flowdata/engine/python/python_sdk_codegen.py",
+          "sha256": "7c563c24bf396b4989b942d31c5cad7e7618a7b262f76f7fc1c510d8f96c54a6",
+          "size": 30637
+        },
+        {
+          "path": "tools/flowdata/engine/python_compat.py",
+          "sha256": "2fa5506efd15f00382c1d8034aa5e03c4c228a11234646bd11de8e7f5d4bd1d6",
+          "size": 305
+        },
+        {
+          "path": "tools/flowdata/engine/rust/__init__.py",
+          "sha256": "e3c3d3a9c1e6ccf217073e6d37af6c5d3a2e550e855442d03cbdffe7cb59d282",
+          "size": 267
+        },
+        {
+          "path": "tools/flowdata/engine/rust/identifiers.py",
+          "sha256": "9e4142eda9ba6232620e9f1b12b2f640512f8ac8542182221cb3c4864d7885ee",
+          "size": 675
+        },
+        {
+          "path": "tools/flowdata/engine/rust/rust_sdk_codegen.py",
+          "sha256": "a5daee82118c69aa539e44b216c7ccde0a20fc3af36045828a8f27f80a8327e2",
+          "size": 41099
+        },
+        {
+          "path": "tools/flowdata/engine/schema_set.py",
+          "sha256": "19e283c0eccf3bd722617993469213156b57c33314af954dee8c11eaca58a3ab",
+          "size": 6720
+        },
+        {
+          "path": "tools/flowdata/engine/types.py",
+          "sha256": "344c83ff321b1f962b75244428d0fe69b717649a7622d075f53c547f767a10dd",
+          "size": 1746
+        },
+        {
+          "path": "tools/flowdata/engine/typescript/__init__.py",
+          "sha256": "e5f8b42a85eb2e0ef711072bd5cf8b46e27f2f1bd869fa4318f2ebc1346281c3",
+          "size": 277
+        },
+        {
+          "path": "tools/flowdata/engine/typescript/ts_sdk_codegen.py",
+          "sha256": "349f4225637eed2cc737f9e6a75e99b995c34fbea7393e809551ddb699c7f2ed",
+          "size": 23312
+        },
+        {
+          "path": "tools/flowdata/engine/validation.py",
+          "sha256": "9e112b3c34496e55a7a49ce2133b52a83374a3f294e40eabd316a724fb655bf9",
+          "size": 4924
+        },
+        {
+          "path": "tools/flowdata/engine/version.py",
+          "sha256": "1a2df0b90e3b20d3ffea89a1d365d506faf53478bf5f1d5c7746d6acf78e8ff9",
+          "size": 214
+        },
+        {
+          "path": "tools/flowdata/gen.py",
+          "sha256": "0ec130c093d36a42a593edb936d6510c30504db2e2042651429622f6929d5c82",
+          "size": 294
+        }
+      ]
     },
     "tools": [
       {
         "path": "tools/perception/generate.py",
-        "sha256": "9759d15bd69d699483387ae5bae8a2f4f823cd9045caf97fbfaeb4bbf2de26b9",
-        "size": 42023
+        "sha256": "750bbc41be1cf986fb73da08f0b064cb3c48d6926c5ce3a152cb61fc301830d5",
+        "size": 44933
       },
       {
         "path": "tools/perception/release_common.py",
@@ -1005,8 +1161,8 @@
       },
       {
         "path": "tools/perception/sdk_config.py",
-        "sha256": "05e38b5a6e86ffa2c4f6fab2a8f8f892f5b74a9edc07ffd2e65de2f25da71d4e",
-        "size": 11993
+        "sha256": "a1d3c7f393480a3db861052a32507e512006080d41df182898f90137f5afcfec",
+        "size": 11449
       },
       {
         "path": ".clang-format",
@@ -1039,7 +1195,7 @@
   "project_files": [
     {
       "path": "development/perception/meson.build",
-      "sha256": "8fc60debc51e061a441ada55a1bd7101a296626ee17aa47648577c54b8651548",
+      "sha256": "0c6539b6cfea763940dab61c2032054568fe075a979a776605d31f5a8d207dea",
       "size": 1135
     }
   ],
@@ -1048,7 +1204,7 @@
       "files": [
         {
           "path": "cmake/perception.cmake",
-          "sha256": "7a54d48973f0c1c746b89e16ed6094b932cd29971cc613a9917081143e1e0096",
+          "sha256": "e5498b63e5985a41971fbc8bedb5db1e9e02e3d9ce47c419f2ce98b4cd3f62ff",
           "size": 3149
         },
         {
@@ -1108,7 +1264,7 @@
         },
         {
           "path": "meson/perception/meson.build",
-          "sha256": "8a662b0cbf3b91be7c870c74d24b0b2e0c6b08bc369860c3df89d71cb2eaf872",
+          "sha256": "c5df2590565466154a475dc442e7da03396054b48ec936063ec147f3f34950df",
           "size": 3164
         },
         {
@@ -1118,7 +1274,7 @@
         },
         {
           "path": "perception.h",
-          "sha256": "2a08208a902bec45e90cdfaa6fe9e9f3441cccae3e00245c1ceb50b26b006afb",
+          "sha256": "53e9f4a08f5a2ba2cecc7ff13db848398c4b4ce32919b71e70c1dc4ad35e8e27",
           "size": 30840
         },
         {
@@ -1281,19 +1437,19 @@
       "schema_set_sha256": "5a2f77909600d6458a707fba68cff1a7dc5f610dec58174456bb97d16596c383",
       "sdk": {
         "name": "perception",
-        "version": "0.3.0"
+        "version": "0.3.1"
       }
     },
     "python": {
       "files": [
         {
           "path": "pyproject.toml",
-          "sha256": "f6567a4fc02773e39ffa8875d97b930e0c79e5ab6f352bb9ecc9b6ffc8b09132",
+          "sha256": "1d7362ecf3d2067f15ac53356de252369e9dc6ff21be66503e3865836075364f",
           "size": 470
         },
         {
           "path": "src/perception/__init__.py",
-          "sha256": "57719dbafc794661dcc32bce87147a8ebc9d19757143fdf80d302797f38a8fe7",
+          "sha256": "4d54584ab949b153f1e94e12e4291b986dc768976d227ab09aca96a7da0dcec2",
           "size": 470
         },
         {
@@ -1483,7 +1639,7 @@
         },
         {
           "path": "src/perception/sdk.py",
-          "sha256": "5378aa4fb5abd70da5de306d47f1f4267f37d23d4323649231cbaf118fcb466b",
+          "sha256": "660e6b363382e82050dc4f6c23142de352bdcf104cb12bd4bb5d5349582e6bb0",
           "size": 15286
         }
       ],
@@ -1576,7 +1732,7 @@
             "src/perception/guest.pyi"
           ]
         },
-        "version": "0.3.0",
+        "version": "0.3.1",
         "wheel_tag": "py3-none-any"
       },
       "schema_files": [
@@ -1634,14 +1790,14 @@
       "schema_set_sha256": "5a2f77909600d6458a707fba68cff1a7dc5f610dec58174456bb97d16596c383",
       "sdk": {
         "name": "perception",
-        "version": "0.3.0"
+        "version": "0.3.1"
       }
     },
     "rust": {
       "files": [
         {
           "path": "Cargo.toml",
-          "sha256": "addc625094b318dedf2d10cf467b33c35120c8ce1dfb2222595692f9c608a5b3",
+          "sha256": "f6e89b16831d1877377ac811c8c1d29ae242b42b5e5b85b327c36d4e27212daf",
           "size": 152
         },
         {
@@ -1811,7 +1967,7 @@
         },
         {
           "path": "src/lib.rs",
-          "sha256": "6233af59e7ef9665e173fe4bc2fc0fccfc71c16b1765fc4c5c7e3689ef9447cb",
+          "sha256": "542a4191f12fb47ef85507787cb42dad19f84c211dc3c4c994b54d5ca5e98c31",
           "size": 42662
         }
       ],
@@ -1947,19 +2103,19 @@
       "schema_set_sha256": "5a2f77909600d6458a707fba68cff1a7dc5f610dec58174456bb97d16596c383",
       "sdk": {
         "name": "perception",
-        "version": "0.3.0"
+        "version": "0.3.1"
       }
     },
     "ts": {
       "files": [
         {
           "path": "package.json",
-          "sha256": "c767716a30d7fb5e4c5bd69a819ecf06714b795180f68a2a410caf5ea7d1861e",
+          "sha256": "b581d54b4f9707b6068bef4b040b215182d0c33960eceb51e591cff01ff7e768",
           "size": 678
         },
         {
           "path": "src/perception/envelope.ts",
-          "sha256": "5921c48f1bc4754b2901420e5096ff6ff9d531785d319739f215247f95023441",
+          "sha256": "ff9035fae001b620f748afa81168978d09bf4e9d99970d13610a2c8f1908c82c",
           "size": 12294
         },
         {
@@ -2114,7 +2270,7 @@
         },
         {
           "path": "src/perception/index.ts",
-          "sha256": "282bb60a9a89c8ce5ae233235fa2d47428f3255a1011f74ddec60373b76ec394",
+          "sha256": "d2dc27f138f58f5947404318f1397726e94ad10bfc404f611e0c97702e242c17",
           "size": 508
         },
         {
@@ -2260,7 +2416,7 @@
       "schema_set_sha256": "5a2f77909600d6458a707fba68cff1a7dc5f610dec58174456bb97d16596c383",
       "sdk": {
         "name": "perception",
-        "version": "0.3.0"
+        "version": "0.3.1"
       }
     }
   }

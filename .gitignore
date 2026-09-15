@@ -130,6 +130,7 @@ data/videos/SHA256SUMS
 coverage.xml
 python-coverage.xml
 development/web/coverage/
+development/web/node_modules/
 
 # -------------------------
 # Valgrind output xml files and error summary xml file

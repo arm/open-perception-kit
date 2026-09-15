@@ -15,7 +15,7 @@ import tarfile
 import tempfile
 import unittest
 import zipfile
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
@@ -217,13 +217,24 @@ class SemanticVersionTests(unittest.TestCase):
             with self.subTest(version=version), self.assertRaises(RuntimeError):
                 release_package.require_semantic_version(version)
 
-    def test_detached_source_commits_require_a_valid_pair(self) -> None:
-        self.assertEqual(
-            release_package.detached_source_commits("a" * 40, "b" * 40),
-            ("a" * 40, "b" * 40),
-        )
-        with self.assertRaisesRegex(RuntimeError, "must be supplied together"):
-            release_package.detached_source_commits("a" * 40, None)
+    def test_repository_commit_is_accepted_alone(self) -> None:
+        args = release_package.parse_args(["package", "--repository-commit", "a" * 40])
+        self.assertEqual(args.repository_commit, "a" * 40)
+        self.assertFalse(hasattr(args, "flowdata_commit"))
+
+    def test_flowdata_commit_flag_is_removed(self) -> None:
+        with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            release_package.parse_args(["package", "--flowdata-commit", "a" * 40])
+
+    def test_rejects_invalid_repository_commit_before_packaging(self) -> None:
+        for commit in ("", "abc123", "g" * 40, "a" * 39, "a" * 41, "a" * 40 + "\n"):
+            with self.subTest(commit=commit), patch.object(
+                release_package.perception_generate, "verify_perception_manifest"
+            ) as verify:
+                args = release_package.parse_args(["--repository-commit", commit])
+                with self.assertRaisesRegex(RuntimeError, "full Git SHA"):
+                    release_package.build_bundle(args)
+                verify.assert_not_called()
 
 
 class SdkDescriptorTests(unittest.TestCase):
@@ -271,6 +282,11 @@ class SdkDescriptorTests(unittest.TestCase):
             descriptor["flowdata_sdk"]["generator"],
         )
         self.assertEqual(
+            config.flowdata_root.relative_to(release_package.REPO_ROOT).as_posix(),
+            descriptor["flowdata_sdk"]["root"],
+        )
+        self.assertEqual(set(descriptor["flowdata_sdk"]), {"root", "generator"})
+        self.assertEqual(
             config.internal_meson_path.relative_to(config.generated_root.parents[1]).as_posix(),
             descriptor["project_generated_files"]["internal_meson"],
         )
@@ -296,6 +312,34 @@ class SdkDescriptorTests(unittest.TestCase):
             path.write_text(json.dumps(descriptor), encoding="utf-8")
             with self.assertRaises(RuntimeError):
                 release_package.perception_config.load_sdk_config(path)
+
+    def test_descriptor_does_not_read_gitmodules(self) -> None:
+        original = Path.open
+
+        def open_without_gitmodules(path, *args, **kwargs):
+            self.assertNotEqual(path.name, ".gitmodules")
+            return original(path, *args, **kwargs)
+
+        with patch.object(Path, "open", open_without_gitmodules):
+            release_package.perception_config.load_sdk_config()
+
+    def test_descriptor_rejects_submodule_and_escaping_paths(self) -> None:
+        descriptor = json.loads(
+            release_package.perception_config.SDK_CONFIG_PATH.read_text(encoding="utf-8")
+        )
+        for flowdata in (
+            {"submodule": "tools/flowdata-sdk", "generator": "tools/flowdata/gen.py"},
+            {"root": "../outside", "generator": "gen.py"},
+            {"root": "/outside", "generator": "gen.py"},
+            {"root": "tools/flowdata-sdk", "generator": "../gen.py"},
+            {"root": "tools/flowdata-sdk", "generator": "/gen.py"},
+        ):
+            with self.subTest(flowdata=flowdata), tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / "sdk.json"
+                descriptor["flowdata_sdk"] = flowdata
+                path.write_text(json.dumps(descriptor), encoding="utf-8")
+                with self.assertRaises(RuntimeError):
+                    release_package.perception_config.load_sdk_config(path)
 
 
 class ArtifactCacheTests(unittest.TestCase):
@@ -404,40 +448,228 @@ class GenerationReceiptTests(unittest.TestCase):
                 f"{expected_header}export {{}};\n",
             )
 
-    def test_validates_detached_flowdata_identity(self) -> None:
-        config = release_package.perception_config.load_sdk_config()
-        manifest = json.loads(
-            (config.generated_root / "perception-sdk-manifest.json").read_text(
-                encoding="utf-8"
-            )
+
+class LocalSourceReceiptTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.generate = release_package.perception_generate
+        temporary = tempfile.TemporaryDirectory(
+            prefix=".perception-source-test-", dir=release_package.REPO_ROOT
         )
-        commit = manifest["generation"]["flowdata_sdk"]["commit"]
-        release_package.verify_detached_manifest(config, commit)
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        config = release_package.perception_config.load_sdk_config()
+        flowdata_root = self.root / "tools/flowdata-sdk"
+        self.tree = flowdata_root / "tools/flowdata"
+        for relative in (
+            "gen.py", "engine/__init__.py", "engine/app.py", "engine/manifest.py",
+            "engine/version.py", "engine/generators/extra.py", ".hidden/module.py",
+        ):
+            path = self.tree / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(
+                'GENERATOR_VERSION = "0.6.0"\n' if relative == "engine/version.py"
+                else 'raise AssertionError("generator must not execute")\n',
+                encoding="utf-8",
+            )
+        schema_dir = self.root / "schemas"
+        schema_dir.mkdir()
+        (schema_dir / "payload.fbs").write_text("table Payload {}\n", encoding="utf-8")
+        descriptor = self.root / "sdk.json"
+        shutil.copyfile(config.descriptor_path, descriptor)
+        generated = self.root / "generated"
+        generated.mkdir()
+        internal = self.root / "meson.build"
+        internal.write_text("# integration\n", encoding="utf-8")
+        self.config = replace(
+            config, flowdata_root=flowdata_root, flowdata_generator=self.tree / "gen.py",
+            descriptor_path=descriptor, generated_root=generated,
+            internal_meson_path=internal, schema_dir=schema_dir,
+        )
+        self.identity = self.generate.flowdata_source_identity(self.config)
+        receipts = {
+            sdk: {
+                "sdk": {"name": config.name, "version": config.version},
+                "generator": self.identity["generator"],
+                "flatc": {"semantic_version": config.flatbuffers_version},
+                "schema_files": self.generate._schema_records(schema_dir),
+                "schema_set_sha256": self.generate._schema_set_sha256(schema_dir),
+                "payloads": [],
+                "outputs": {
+                    "sdk": sdk, "cpp_python_bridge": sdk == "cpp",
+                    "integrations": ["cmake", "meson"] if sdk == "cpp" else [],
+                },
+            }
+            for sdk in ("cpp", "python", "rust", "ts")
+        }
+        receipts["python"]["python_package"] = {
+            "distribution_name": release_package.PYTHON_DISTRIBUTION_NAME,
+        }
+        with (
+            patch.object(self.generate, "command_version", return_value="test formatter"),
+            patch.object(self.generate, "rustfmt_version", return_value="rustfmt 1.8.0"),
+        ):
+            self.generate.write_perception_manifest(
+                self.config, generated, internal, receipts, "clang-format", "python", "node"
+            )
+        self.manifest_path = generated / self.generate.PERCEPTION_MANIFEST_FILENAME
+        self.manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
+
+    def test_records_all_local_python_sources_without_git_or_execution(self) -> None:
+        self.assertFalse((self.config.flowdata_root / ".git").exists())
+        self.assertFalse((self.root / ".gitmodules").exists())
+        with patch.object(subprocess, "run", side_effect=AssertionError("no commands")):
+            verified = self.generate.verify_perception_manifest(self.config)
+        self.assertEqual(verified["generation"]["flowdata_sdk"], self.identity)
+        self.assertEqual(set(self.identity), {"generator", "sources"})
+        self.assertEqual(self.identity["generator"], {"name": "flowdata-sdk", "version": "0.6.0"})
+        self.assertEqual(
+            self.identity["sources"],
+            [
+                {"path": path.relative_to(self.config.flowdata_root).as_posix(),
+                 "sha256": digest(path), "size": path.stat().st_size}
+                for path in sorted(self.tree.rglob("*.py"))
+            ],
+        )
+        self.assertEqual(verified["upstream_receipts"], self.manifest["upstream_receipts"])
+
+    def test_source_edits_missing_and_extra_modules_require_regeneration(self) -> None:
+        module = self.tree / "engine/generators/extra.py"
+        original = module.read_bytes()
+        for mutation in ("modified", "missing", "extra", "version"):
+            with self.subTest(mutation=mutation):
+                version = self.tree / "engine/version.py"
+                version_text = version.read_bytes()
+                extra = self.tree / "new.py"
+                try:
+                    if mutation == "modified":
+                        module.write_bytes(original + b"\n")
+                    elif mutation == "missing":
+                        module.unlink()
+                    elif mutation == "extra":
+                        extra.write_text("# new module\n", encoding="utf-8")
+                    else:
+                        version.write_text('GENERATOR_VERSION = "0.6.1"\n', encoding="utf-8")
+                    with self.assertRaisesRegex(RuntimeError, "flowdata-sdk changed"):
+                        self.generate.verify_perception_manifest(self.config)
+                finally:
+                    module.write_bytes(original)
+                    version.write_bytes(version_text)
+                    extra.unlink(missing_ok=True)
+
+    def test_ignores_only_python_cache_directories(self) -> None:
+        cache = self.tree / "engine/__pycache__"
+        cache.mkdir()
+        (cache / "ignored.py").write_text("# cache\n", encoding="utf-8")
+        self.generate.verify_perception_manifest(self.config)
+        hidden = self.tree / ".hidden/module.py"
+        hidden.write_text("# changed\n", encoding="utf-8")
         with self.assertRaisesRegex(RuntimeError, "flowdata-sdk changed"):
-            release_package.verify_detached_manifest(config, "0" * 40)
+            self.generate.verify_perception_manifest(self.config)
+
+    def test_rejects_missing_essential_sources(self) -> None:
+        for relative in ("gen.py", "engine/app.py", "engine/__init__.py",
+                         "engine/version.py", "engine/manifest.py"):
+            with self.subTest(relative=relative):
+                path = self.tree / relative
+                content = path.read_bytes()
+                path.unlink()
+                try:
+                    with self.assertRaisesRegex(RuntimeError, "tracked flowdata-sdk.*missing"):
+                        self.generate.verify_perception_manifest(self.config)
+                finally:
+                    path.write_bytes(content)
+
+    def test_rejects_symlinked_files_directories_and_vendor_root(self) -> None:
+        for target in (self.tree / "gen.py", self.tree / "engine", self.root / "absent"):
+            with self.subTest(target=target):
+                link = self.tree / "link"
+                link.symlink_to(target)
+                try:
+                    with self.assertRaisesRegex(RuntimeError, "symlinks"):
+                        self.generate.verify_perception_manifest(self.config)
+                finally:
+                    link.unlink()
+        alias = self.root / "alias"
+        alias.symlink_to(self.config.flowdata_root, target_is_directory=True)
+        with self.assertRaisesRegex(RuntimeError, "symlinks"):
+            self.generate.flowdata_source_identity(replace(
+                self.config, flowdata_root=alias,
+                flowdata_generator=alias / "tools/flowdata/gen.py",
+            ))
+
+    def test_rejects_escaping_generator(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "inside the repository"):
+            self.generate.flowdata_source_identity(replace(
+                self.config, flowdata_generator=self.root / "outside.py"
+            ))
+
+    def test_version_is_static_and_semantic(self) -> None:
+        for value in ('"next"', '"0.6.0" + ""', '__import__("missing_module")'):
+            with self.subTest(value=value):
+                (self.tree / "engine/version.py").write_text(
+                    f"GENERATOR_VERSION = {value}\n", encoding="utf-8"
+                )
+                with self.assertRaisesRegex(RuntimeError, "literal GENERATOR_VERSION"):
+                    self.generate.flowdata_source_identity(self.config)
+
+    def test_rejects_old_commit_receipt(self) -> None:
+        self.manifest["generation"]["flowdata_sdk"] = {
+            "commit": "a" * 40, "generator": self.identity["generator"],
+        }
+        self.manifest_path.write_text(json.dumps(self.manifest), encoding="utf-8")
+        with self.assertRaisesRegex(RuntimeError, "flowdata-sdk changed"):
+            self.generate.verify_perception_manifest(self.config)
+
+    def test_rejects_descriptor_receipt_mismatch(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "descriptor identity"):
+            self.generate.verify_perception_manifest(replace(self.config, descriptor_sha256="0" * 64))
 
     def test_rejects_schema_changes_without_regeneration(self) -> None:
-        config = release_package.perception_config.load_sdk_config()
-        manifest = json.loads(
-            (config.generated_root / "perception-sdk-manifest.json").read_text(
-                encoding="utf-8"
-            )
-        )
-        flowdata_commit = manifest["generation"]["flowdata_sdk"]["commit"]
-        with tempfile.TemporaryDirectory() as tmp:
-            schema_dir = Path(tmp) / "metadata"
-            shutil.copytree(config.schema_dir, schema_dir)
-            schema = next(schema_dir.rglob("*.fbs"))
-            schema.write_bytes(schema.read_bytes() + b"\n")
-            with patch.object(
-                release_package.perception_generate,
-                "git_commit",
-                return_value=flowdata_commit,
-            ):
-                with self.assertRaisesRegex(RuntimeError, "schema inputs are stale"):
-                    release_package.perception_generate.verify_perception_manifest(
-                        replace(config, schema_dir=schema_dir)
-                    )
+        (self.config.schema_dir / "payload.fbs").write_text("table Changed {}\n", encoding="utf-8")
+        with self.assertRaisesRegex(RuntimeError, "schema inputs are stale"):
+            self.generate.verify_perception_manifest(self.config)
+
+    def test_all_raw_receipts_must_identify_the_local_generator(self) -> None:
+        for sdk in ("cpp", "python", "rust", "ts"):
+            with self.subTest(sdk=sdk):
+                manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
+                manifest["upstream_receipts"][sdk]["generator"]["version"] = "0.5.0"
+                with self.assertRaisesRegex(RuntimeError, "generator identity is stale"):
+                    self.generate._verify_upstream_receipts(self.config, manifest, self.identity)
+        receipts = json.loads(json.dumps(self.manifest["upstream_receipts"]))
+        for receipt in receipts.values():
+            receipt["generator"]["version"] = "0.5.0"
+        with self.assertRaisesRegex(RuntimeError, "does not match local sources"):
+            self.generate.validate_flowdata_manifests(self.config, receipts)
+
+    def test_git_free_packaging_still_validates_local_sources(self) -> None:
+        args = release_package.parse_args(["--repository-commit", "a" * 40])
+        with (
+            patch.object(release_package.perception_config, "load_sdk_config", return_value=self.config),
+            patch.object(subprocess, "run", side_effect=AssertionError("no commands")),
+            patch.object(shutil, "copytree", side_effect=RuntimeError("packaging reached")),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "packaging reached"):
+                release_package.build_bundle(args)
+            (self.tree / "new.py").write_text("# extra\n", encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, "flowdata-sdk changed"):
+                release_package.build_bundle(args)
+
+    def test_checkout_packaging_preserves_dirty_check(self) -> None:
+        args = release_package.parse_args([])
+        with (
+            patch.object(release_package.perception_config, "load_sdk_config", return_value=self.config),
+            patch.object(release_package, "git_commit", return_value="a" * 40) as commit,
+            patch.object(release_package, "repository_git_status", return_value=" M sdk.json") as status,
+            patch.object(shutil, "copytree", side_effect=RuntimeError("packaging reached")),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "inputs or outputs are dirty"):
+                release_package.build_bundle(args)
+            commit.assert_called_once_with()
+            status.assert_called_once_with()
+            args.allow_dirty = True
+            with self.assertRaisesRegex(RuntimeError, "packaging reached"):
+                release_package.build_bundle(args)
 
 
 class PythonPackagingTests(unittest.TestCase):
@@ -514,6 +746,10 @@ class BundleVerificationTests(unittest.TestCase):
 
     def create_bundle(self, root: Path) -> Path:
         bundle = root / "perception-sdk-1.2.3"
+        generator = {
+            "generator": {"name": "flowdata-sdk", "version": "0.6.0"},
+            "sources": [{"path": "tools/flowdata/gen.py", "sha256": "0" * 64, "size": 10}],
+        }
         flatbuffers_wheel_path = bundle / "python/flatbuffers.whl"
         flatbuffers_typescript_path = bundle / "typescript/flatbuffers-25.9.23.tgz"
         generated_rust_files = {
@@ -654,6 +890,7 @@ class BundleVerificationTests(unittest.TestCase):
         (bundle / "metadata/perception-sdk-manifest.json").write_text(
             json.dumps({
                 "artifact": {"name": "perception-sdk", "version": "1.2.3"},
+                "generation": {"flowdata_sdk": generator},
                 "descriptor": {
                     "path": "tools/perception/sdk.json",
                     "sha256": descriptor_sha256,
@@ -703,11 +940,7 @@ class BundleVerificationTests(unittest.TestCase):
                 "top_level_directory": bundle.name,
             },
             "artifact": {"name": "perception-sdk", "version": "1.2.3"},
-            "generator": {
-                "commit": "0" * 40,
-                "name": "flowdata-sdk",
-                "version": "0.2.0",
-            },
+            "generator": generator,
             "files": [
                 {
                     "path": relative_path,
@@ -905,6 +1138,36 @@ class BundleVerificationTests(unittest.TestCase):
             (bundle / "cpp" / "perception.h").write_text("changed\n", encoding="utf-8")
             with self.assertRaises(RuntimeError):
                 release_package.verify_bundle(bundle)
+
+    def test_rejects_generator_identity_mismatch(self) -> None:
+        for field in ("generator", "sources"):
+            with self.subTest(field=field), tempfile.TemporaryDirectory() as tmp:
+                bundle = self.create_bundle(Path(tmp))
+                path = bundle / release_package.MANIFEST_FILENAME
+                manifest = json.loads(path.read_text(encoding="utf-8"))
+                manifest["generator"][field] = []
+                path.write_text(json.dumps(manifest), encoding="utf-8")
+                with self.assertRaisesRegex(RuntimeError, "generator identity.*generation receipt"):
+                    release_package.verify_bundle(bundle)
+
+    def test_verifies_consistent_historical_bundle_generator_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle = self.create_bundle(Path(tmp))
+            path = bundle / "metadata/perception-sdk-manifest.json"
+            generated = json.loads(path.read_text(encoding="utf-8"))
+            identity = {
+                "commit": "a" * 40,
+                "generator": {"name": "flowdata-sdk", "version": "0.5.0"},
+            }
+            generated["generation"]["flowdata_sdk"] = identity
+            path.write_text(json.dumps(generated), encoding="utf-8")
+            path = bundle / release_package.MANIFEST_FILENAME
+            manifest = json.loads(path.read_text(encoding="utf-8"))
+            manifest["generator"] = identity
+            path.write_text(json.dumps(manifest), encoding="utf-8")
+            descriptor = json.loads((bundle / "metadata/sdk.json").read_text(encoding="utf-8"))
+            self.rewrite_descriptor_identity(bundle, descriptor)
+            release_package.verify_bundle(bundle)
 
     def test_rejects_modified_rust_crate(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

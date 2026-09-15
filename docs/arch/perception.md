@@ -38,6 +38,12 @@ descriptor hash, decorated file hashes, and derived project integrations.
 Generation also refreshes the exact Plumber SDK dependency and the checked-in
 WebUI bundle that consumes the TypeScript SDK; `check` verifies both.
 
+The Flowdata generator sources are normal tracked files under
+`tools/flowdata-sdk`. Updates are manual source changes, reviewed together with
+regenerated SDK outputs. Generation receipts identify the local generator
+content by hashes; no separate Git checkout, remote reference, or automated
+fetch/update step is required.
+
 The generated Python package exposes endpoint ownership through
 `perception.packet` and live C++ guest access through `perception.guest`. The
 generated internal Meson adapter is derived from the public SDK integration and

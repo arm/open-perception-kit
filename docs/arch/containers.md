@@ -226,8 +226,11 @@ stages inherit everything from their parent unless noted otherwise.
   videos from `pek-demo-media`, builds PEK release outputs, and collects
   `/opt/pek-app`. Native release builds install the ExecuTorch toolchain and
   enable the Python operation module for the runnable deployment image. They use
-  the selected source and flowdata-sdk gitlink identities to package the
-  checked-in Perception SDK snapshot and reuse the same Meson build to create
+  the selected repository commit and local content hashes of the normal tracked
+  `tools/flowdata-sdk` sources to verify and package the checked-in Perception SDK
+  snapshot without Git metadata. Generator sources are copied beside
+  `tools/perception` and updated manually, not fetched during the build.
+  Release builds reuse the same Meson build to create
   the validated architecture tarball in `/opt/pek-release-artifacts`. The native
   archive contains the Python operation module and copies its locked runtime
   packages into `share/pek/python`. Cross builds omit the embedded Python

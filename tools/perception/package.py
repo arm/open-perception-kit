@@ -451,48 +451,6 @@ def repository_git_status() -> str:
     ])
 
 
-def detached_source_commits(
-    repository_commit: str | None, flowdata_commit: str | None
-) -> tuple[str, str] | None:
-    if repository_commit is None and flowdata_commit is None:
-        return None
-    if (
-        repository_commit is None
-        or flowdata_commit is None
-        or not GIT_COMMIT_RE.fullmatch(repository_commit)
-        or not GIT_COMMIT_RE.fullmatch(flowdata_commit)
-    ):
-        raise RuntimeError(
-            "repository and flowdata commits must be supplied together as full Git SHAs"
-        )
-    return repository_commit, flowdata_commit
-
-
-def verify_detached_manifest(
-    config: perception_config.SdkConfig, flowdata_commit: str
-) -> dict[str, object]:
-    path = config.generated_root / perception_generate.PERCEPTION_MANIFEST_FILENAME
-    manifest = load_json(path)
-    perception_generate._verify_manifest_identity(
-        config, config.generated_root, config.internal_meson_path, path, manifest
-    )
-    generation = manifest.get("generation")
-    if not isinstance(generation, dict):
-        raise RuntimeError("Perception SDK generation identity is missing")
-    if generation.get("tools") != perception_generate._generation_tool_records():
-        raise RuntimeError("Perception SDK generation tools changed; regenerate the SDK")
-    flowdata_identity = generation.get("flowdata_sdk")
-    if (
-        not isinstance(flowdata_identity, dict)
-        or flowdata_identity.get("commit") != flowdata_commit
-    ):
-        raise RuntimeError("flowdata-sdk changed; regenerate the Perception SDK")
-    perception_generate._verify_upstream_receipts(
-        config, manifest, flowdata_identity
-    )
-    return manifest
-
-
 def content_digest(value: object) -> str:
     encoded = json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
@@ -649,15 +607,7 @@ def _verify_manifest_files(
     return file_entries
 
 
-def _verify_source_identities(
-    bundle_root: Path,
-    source: object,
-    artifact: dict[str, object],
-    schema_set_sha256: object,
-    manifest_flatbuffers: object,
-) -> dict[str, object]:
-    if not isinstance(source, dict):
-        raise RuntimeError("release manifest source metadata is malformed")
+def _bundled_source_metadata(bundle_root: Path, source: dict[str, object]) -> dict[str, dict[str, object]]:
     metadata: dict[str, dict[str, object]] = {}
     for key in ("descriptor", "generated_manifest"):
         identity = source.get(key)
@@ -667,6 +617,20 @@ def _verify_source_identities(
         if not path.is_file() or sha256(path) != identity["sha256"]:
             raise RuntimeError(f"release manifest {key} hash does not match bundled metadata")
         metadata[key] = load_json(path)
+    return metadata
+
+
+def _verify_source_identities(
+    bundle_root: Path,
+    source: object,
+    artifact: dict[str, object],
+    schema_set_sha256: object,
+    manifest_flatbuffers: object,
+    manifest_generator: object,
+) -> dict[str, object]:
+    if not isinstance(source, dict):
+        raise RuntimeError("release manifest source metadata is malformed")
+    metadata = _bundled_source_metadata(bundle_root, source)
 
     expected_input_tree = content_digest({
         "descriptor": source["descriptor"]["sha256"],
@@ -689,6 +653,11 @@ def _verify_source_identities(
         or generated_descriptor.get("sha256") != source["descriptor"]["sha256"]
     ):
         raise RuntimeError("generated SDK manifest does not identify the bundled descriptor")
+
+    generation = generated_manifest.get("generation")
+    generator = generation.get("flowdata_sdk") if isinstance(generation, dict) else None
+    if not isinstance(generator, dict) or manifest_generator != generator:
+        raise RuntimeError("release generator identity does not match generation receipt")
 
     _verify_descriptor_flatbuffers_locks(
         descriptor, manifest_flatbuffers, bundle_root
@@ -857,6 +826,7 @@ def verify_bundle(bundle_root: Path) -> None:
         artifact,
         manifest.get("schema_set_sha256"),
         manifest.get("flatbuffers"),
+        manifest.get("generator"),
     )
     _verify_packaged_artifact_records(bundle_root, manifest, file_entries)
 
@@ -1378,14 +1348,12 @@ def build_bundle(args: argparse.Namespace) -> Path:
         raise RuntimeError(
             f"expected PEK version {args.expect_version}, product contains {config.version}"
         )
-    detached_commits = detached_source_commits(
-        args.repository_commit, args.flowdata_commit
-    )
-    if detached_commits:
-        generated_manifest = verify_detached_manifest(config, detached_commits[1])
-        repository_commit, dirty = detached_commits[0], False
+    if args.repository_commit is not None and not GIT_COMMIT_RE.fullmatch(args.repository_commit):
+        raise RuntimeError("repository commit must be a full Git SHA")
+    generated_manifest = perception_generate.verify_perception_manifest(config)
+    if args.repository_commit is not None:
+        repository_commit, dirty = args.repository_commit, False
     else:
-        generated_manifest = perception_generate.verify_perception_manifest(config)
         repository_commit = git_commit()
         status = repository_git_status()
         dirty = bool(status)
@@ -1542,10 +1510,6 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     package_parser.add_argument(
         "--repository-commit",
         help="selected repository commit when packaging from a Git-free build context",
-    )
-    package_parser.add_argument(
-        "--flowdata-commit",
-        help="selected flowdata-sdk gitlink when packaging from a Git-free build context",
     )
     package_parser.add_argument(
         "--flatbuffers-wheel",

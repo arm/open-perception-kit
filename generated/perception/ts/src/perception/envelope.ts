@@ -23,7 +23,7 @@ type NativePayload = {
 };
 
 export const SDK_NAME = 'perception';
-export const SDK_VERSION = '0.3.0';
+export const SDK_VERSION = '0.3.1';
 export const SCHEMA_SET_SHA256 = '5a2f77909600d6458a707fba68cff1a7dc5f610dec58174456bb97d16596c383';
 export const EXTERNAL_KEY_MIN = BigInt('9223372036854775808');
 const EXTERNAL_KEY_MASK = EXTERNAL_KEY_MIN - BigInt(1);
