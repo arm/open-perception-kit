@@ -588,7 +588,6 @@ ARG NO_EXAMPLE_CONTENT=false
 ARG ONNXRUNTIME_VERSION
 ARG PEK_RELEASE_BUILD=false
 ARG PEK_RELEASE_SOURCE_COMMIT=""
-ARG PEK_FLOWDATA_SDK_COMMIT=""
 
 COPY --chmod=0755 scripts/private/install-target-sysroot.sh /usr/local/bin/install-target-sysroot
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -632,8 +631,8 @@ COPY --chmod=0755 scripts/perception-sdk.sh scripts/perception-sdk.sh
 COPY --chmod=0755 scripts/private/run-perception-sdk.sh scripts/private/run-perception-sdk.sh
 COPY scripts/release/ReleaseTool.py scripts/release/ReleaseTool.py
 COPY .clang-format .cmake-format.yaml ./
-COPY .gitmodules .gitmodules
 COPY tools/perception tools/perception
+COPY tools/flowdata-sdk tools/flowdata-sdk
 COPY schemas/perception/metadata schemas/perception/metadata
 COPY development development
 COPY generated generated
@@ -687,12 +686,10 @@ RUN --mount=type=cache,id=pek-deployment-ccache,target=/work/.cache/ccache,shari
     esac; \
     package_root=/opt/pek-release-root; \
     test -n "${PEK_RELEASE_SOURCE_COMMIT}"; \
-    test -n "${PEK_FLOWDATA_SDK_COMMIT}"; \
     /work/scripts/perception-sdk.sh package \
       --output-dir /tmp/perception-sdk-input \
       --artifact-dir /opt/pek-deps/perception-sdk-artifacts \
-      --repository-commit "${PEK_RELEASE_SOURCE_COMMIT}" \
-      --flowdata-commit "${PEK_FLOWDATA_SDK_COMMIT}"; \
+      --repository-commit "${PEK_RELEASE_SOURCE_COMMIT}"; \
     mkdir -p \
       "${package_root}/lib/pek" \
       "${package_root}/share/pek/licenses/libexecutorch-dev" \

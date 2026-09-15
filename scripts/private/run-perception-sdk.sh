@@ -39,11 +39,9 @@ if [[ "${PEK_PERCEPTION_IN_CONTAINER:-0}" != "1" && ! -f /.dockerenv && "${repo_
         "${container}" ./scripts/perception-sdk.sh "$@"
 fi
 
-export GIT_CONFIG_COUNT=2
+export GIT_CONFIG_COUNT=1
 export GIT_CONFIG_KEY_0=safe.directory
 export GIT_CONFIG_VALUE_0="${repo_root}"
-export GIT_CONFIG_KEY_1=safe.directory
-export GIT_CONFIG_VALUE_1="${repo_root}/tools/flowdata-sdk"
 
 cd "${repo_root}"
 exec python3 tools/perception/cli.py "$@"

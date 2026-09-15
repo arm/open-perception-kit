@@ -32,8 +32,11 @@ The unified command surface is `./scripts/perception-sdk.sh`; it provides
 script is the only supported SDK command surface.
 
 The command verifies `tools/perception/sdk.json`, the checked-in generated SDK,
-internal Meson adapter, and generation receipt without invoking flowdata-sdk,
-`flatc`, or formatters. It builds the Python wheels from the canonical snapshot
+internal Meson adapter, generation receipt, and local generator content hashes
+without invoking flowdata-sdk, `flatc`, or formatters. The generator sources are
+normal tracked files in `tools/flowdata-sdk`, updated manually alongside the
+regenerated snapshot; SDK commands do not fetch or update them.
+It builds the Python wheels from the canonical snapshot
 and creates `artifacts/perception-sdk-<pek-version>.zip`.
 
 After changing the PEK product version in `development/meson.build`, run
@@ -198,8 +201,8 @@ configuring the application.
 
 `perception-sdk-release-manifest.json` records the repository commit and dirty
 state in the external provenance sidecar, while the reproducible archive records
-descriptor and generation-manifest hashes, SDK and flowdata-sdk identities,
-exact FlatBuffers compiler and wheel, schema-set digest, generated payload
+descriptor and generation-manifest hashes, SDK identity and local generator
+content hashes, exact FlatBuffers compiler and wheel, schema-set digest, generated payload
 identities, locked build tools, and every bundle file hash. The descriptor and
 source-generation manifest are retained under `metadata/`.
 

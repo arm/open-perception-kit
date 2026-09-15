@@ -39,9 +39,11 @@ without shipping ExecuTorch SDK files.
 
 `pek-deployment-build` creates the architecture-neutral Perception SDK triplet
 directly from the selected commit's checked-in, CI-validated SDK snapshot. The
-release source and `tools/flowdata-sdk` gitlink SHAs are scalar build inputs, so
-release jobs neither initialize the private submodule nor exchange a parallel
-SDK build input. The stage embeds the triplet under `share/pek/perception-sdk`
+release source commit is a scalar build input. The normal tracked generator
+sources in `tools/flowdata-sdk` enter the Docker build context so packaging can
+verify their local content hashes without Git metadata or generator execution.
+Generator updates are manual source changes; CI does not fetch or update them.
+The stage embeds the triplet under `share/pek/perception-sdk`
 and checks its provenance against the release commit. The Arm snapshot job
 also uploads that exact embedded triplet as the existing temporary
 `pek-perception-sdk-input-*` or `pek-test-perception-sdk-input-*` Actions

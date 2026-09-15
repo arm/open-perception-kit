@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import configparser
 import json
 import re
 from dataclasses import dataclass
@@ -75,17 +74,6 @@ def _relative_path(value: object, field: str, base: Path = REPO_ROOT) -> Path:
     if path.is_absolute() or ".." in path.parts or "." in path.parts:
         raise RuntimeError(f"{field} must be a normalized relative path")
     return base.joinpath(*path.parts)
-
-
-def _submodule_path(name: object) -> Path:
-    if not isinstance(name, str) or not name:
-        raise RuntimeError("flowdata_sdk.submodule must be a non-empty string")
-    modules = configparser.ConfigParser()
-    modules.read(REPO_ROOT / ".gitmodules", encoding="utf-8")
-    section = f'submodule "{name}"'
-    if section not in modules or "path" not in modules[section]:
-        raise RuntimeError(f"unknown flowdata-sdk submodule: {name}")
-    return _relative_path(modules[section]["path"], f".gitmodules {section}.path")
 
 
 def _artifact(value: object, field: str, name: str, version: str) -> LockedArtifact:
@@ -248,9 +236,9 @@ def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
     )
 
     flowdata = raw["flowdata_sdk"]
-    if not isinstance(flowdata, dict) or set(flowdata) != {"submodule", "generator"}:
-        raise RuntimeError("flowdata_sdk fields must be exactly: ['generator', 'submodule']")
-    flowdata_root = _submodule_path(flowdata["submodule"])
+    if not isinstance(flowdata, dict) or set(flowdata) != {"root", "generator"}:
+        raise RuntimeError("flowdata_sdk fields must be exactly: ['generator', 'root']")
+    flowdata_root = _relative_path(flowdata["root"], "flowdata_sdk.root")
     flowdata_generator = _relative_path(
         flowdata["generator"], "flowdata_sdk.generator", flowdata_root
     )

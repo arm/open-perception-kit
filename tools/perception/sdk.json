@@ -44,7 +44,7 @@
   },
   "flowdata_sdk": {
     "generator": "tools/flowdata/gen.py",
-    "submodule": "tools/flowdata-sdk"
+    "root": "tools/flowdata-sdk"
   },
   "generated_dir": "generated/perception",
   "name": "perception",

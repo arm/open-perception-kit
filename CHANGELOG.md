@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.1] - 2026-09-15
+
+### Perception SDK integration
+
+- Track all SDK generator sources in the repository instead of using a private
+  submodule. Generation and packaging validate local source hashes without a
+  separate checkout, deploy key, or generator download (EXPKITS-1319).
+- Regenerate the C++, Python, Rust, and TypeScript Perception SDKs at 0.3.1 with
+  unchanged schemas and payload identities.
+
 ## [0.3.0] - 2026-09-07
 
 ### Perception SDK distribution

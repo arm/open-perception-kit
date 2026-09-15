@@ -4,7 +4,6 @@
 !Dockerfile.pre-commit
 !Dockerfile.pages
 !.dockerignore
-!.gitmodules
 !.clang-format
 !.clang-tidy
 !.cmake-format.yaml
@@ -49,6 +48,8 @@ config/models/**/*.pte
 !tools/expkits-ci/**
 !tools/plumber/
 !tools/plumber/**
+!tools/flowdata-sdk/
+!tools/flowdata-sdk/**
 !tools/perception/
 !tools/perception/artifacts.py
 !tools/perception/cli.py

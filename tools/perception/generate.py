@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import difflib
 import hashlib
 import json
@@ -100,21 +101,88 @@ def rustfmt_version() -> str:
     return f"rustfmt {match.group(1)}"
 
 
-def git_commit(repository: Path) -> str:
-    return command_version(["git", "-C", str(repository), "rev-parse", "HEAD"])
+def _validate_flowdata_location(root: Path, generator: Path) -> None:
+    if (
+        not root.is_relative_to(REPO_ROOT)
+        or not generator.is_relative_to(root)
+        or ".." in generator.parts
+        or ".." in root.parts
+    ):
+        raise RuntimeError("flowdata-sdk sources must stay inside the repository")
+    for path in (generator, *generator.parents):
+        if path == REPO_ROOT:
+            break
+        if path.is_symlink():
+            raise RuntimeError(f"flowdata-sdk sources must not contain symlinks: {path}")
 
 
-def require_perception_generator(config: SdkConfig) -> None:
-    if not config.flowdata_generator.is_file():
-        flowdata_path = config.flowdata_root.relative_to(REPO_ROOT).as_posix()
-        raise RuntimeError(
-            "Perception generator is missing. Initialize the submodule with:\n"
-            f"  git submodule update --init --recursive {flowdata_path}"
-        )
+def _flowdata_directory_entries(directory: Path) -> tuple[list[Path], list[Path]]:
+    directories: list[Path] = []
+    sources: list[Path] = []
+    for path in directory.iterdir():
+        if path.is_symlink():
+            raise RuntimeError(f"flowdata-sdk sources must not contain symlinks: {path}")
+        if path.name == "__pycache__":
+            continue
+        if path.is_dir():
+            directories.append(path)
+        elif path.suffix == ".py":
+            if not path.is_file():
+                raise RuntimeError(f"flowdata-sdk source is not a regular file: {path}")
+            sources.append(path)
+    return directories, sources
+
+
+def _flowdata_source_version(version_path: Path) -> str:
+    # Read the constant without importing or executing the generator during verification.
+    try:
+        statements = ast.parse(version_path.read_text(encoding="utf-8")).body
+    except SyntaxError as exc:
+        raise RuntimeError("flowdata-sdk engine/version.py is invalid") from exc
+    if (
+        len(statements) != 1
+        or not isinstance(statements[0], ast.Assign)
+        or len(statements[0].targets) != 1
+        or not isinstance(statements[0].targets[0], ast.Name)
+        or statements[0].targets[0].id != "GENERATOR_VERSION"
+        or not isinstance(statements[0].value, ast.Constant)
+        or not isinstance(statements[0].value.value, str)
+        or not SEMVER.fullmatch(statements[0].value.value)
+    ):
+        raise RuntimeError("flowdata-sdk engine/version.py must define a literal GENERATOR_VERSION")
+    return statements[0].value.value
+
+
+def flowdata_source_identity(config: SdkConfig) -> dict[str, object]:
+    root = config.flowdata_root
+    generator = config.flowdata_generator
+    _validate_flowdata_location(root, generator)
+    tree = generator.parent
+    if not tree.is_dir():
+        raise RuntimeError(f"tracked flowdata-sdk generator sources are missing: {tree}")
+    sources: list[Path] = []
+    directories = [tree]
+    while directories:
+        children, files = _flowdata_directory_entries(directories.pop())
+        directories.extend(children)
+        sources.extend(files)
+    essential = (generator, tree / "engine/app.py", tree / "engine/__init__.py",
+                 tree / "engine/version.py", tree / "engine/manifest.py")
+    for path in essential:
+        if path not in sources:
+            raise RuntimeError(f"tracked flowdata-sdk generator source is missing: {path}")
+    return {
+        "generator": {"name": "flowdata-sdk", "version": _flowdata_source_version(tree / "engine/version.py")},
+        "sources": [
+            {"path": path.relative_to(root).as_posix(), "sha256": sha256(path),
+             "size": path.stat().st_size}
+            for path in sorted(sources)
+        ],
+    }
 
 
 def generate_sdk(config: SdkConfig, generated_root: Path, flatc: str, python: str) -> None:
-    require_perception_generator(config)
+    flowdata_source_identity(config)
     common = [
         python, str(config.flowdata_generator), "generate",
         "--name", config.name,
@@ -491,6 +559,8 @@ def validate_flowdata_manifests(
         if not all(cpp.get(field) == manifest.get(field) for manifest in manifests_by_language[1:]):
             raise RuntimeError(f"flowdata manifests disagree on {field}")
     expected_sdk = {"name": config.name, "version": config.version}
+    if cpp.get("generator") != flowdata_source_identity(config)["generator"]:
+        raise RuntimeError("flowdata manifest generator identity does not match local sources")
     if cpp.get("sdk") != expected_sdk:
         raise RuntimeError("flowdata manifest SDK identity does not match sdk.json")
     if cpp.get("flatc", {}).get("semantic_version") != config.flatbuffers_version:
@@ -651,10 +721,7 @@ def write_perception_manifest(
         },
         "files": _file_records(generated_root, {manifest_path}),
         "generation": {
-            "flowdata_sdk": {
-                "commit": git_commit(config.flowdata_root),
-                "generator": flowdata_manifests["cpp"]["generator"],
-            },
+            "flowdata_sdk": flowdata_source_identity(config),
             "tools": _generation_tool_records(),
         },
         "upstream_receipts": flowdata_manifests,
@@ -724,7 +791,7 @@ def _verify_generation_identity(config: SdkConfig, manifest: dict[str, object]) 
     flowdata_identity = generation.get("flowdata_sdk")
     if not isinstance(flowdata_identity, dict):
         raise RuntimeError("Perception SDK flowdata identity is missing")
-    if flowdata_identity.get("commit") != git_commit(config.flowdata_root):
+    if flowdata_identity != flowdata_source_identity(config):
         raise RuntimeError("flowdata-sdk changed; regenerate the Perception SDK")
     return flowdata_identity
 
@@ -752,6 +819,7 @@ def _verify_upstream_receipts(
         if sdk_manifest.get("schema_set_sha256") != _schema_set_sha256(config.schema_dir):
             raise RuntimeError(f"{sdk} schema-set digest is stale")
     _verify_python_receipt(flowdata["python"])
+    validate_flowdata_manifests(config, flowdata)
 
 
 def _verify_python_receipt(python_receipt: object) -> None:

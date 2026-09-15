@@ -1,4 +1,0 @@
-[submodule "tools/flowdata-sdk"]
-	path = tools/flowdata-sdk
-	url = https://github.com/Arm-Debug/flowdata-sdk.git
-	branch = main
