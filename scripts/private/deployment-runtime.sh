@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-OPK_PIPELINE=${OPK_PIPELINE:-"yolov11-onnx"}
+OPK_PIPELINE=${OPK_PIPELINE:-"yolo26-onnx"}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"/../../
 

@@ -5,6 +5,11 @@ sidebar_label: Release packages
 
 # Release packages
 
+The release workflow descriptions below document the legacy release process;
+those workflows have not been migrated into this repository. In particular,
+the legacy CI image and its post-publication verification lane are no longer
+available. See [current CI workflows](../../.github/CI-README.md).
+
 `development/meson.build` is the product-version authority. A stable
 `MAJOR.MINOR.PATCH` version must have a non-empty matching `CHANGELOG.md`
 section before a pull request can target `main`.

@@ -70,7 +70,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
                 with self.subTest(name=name, version=version):
                     self.assertFalse(validator.is_valid(version))
 
-    def test_tokenless_defaults_use_bundled_yolov11(self) -> None:
+    def test_tokenless_defaults_use_bundled_yolo26(self) -> None:
         pipeline = json.loads(
             (REPO_ROOT / "config/pipelines/yolo26-onnx.json").read_text()
         )
@@ -81,7 +81,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
             inference_steps,
             [
                 'opkinfer opchain-path="${OPK_PROJECT_ROOT:-/work}/config/models/'
-                'yolov11/opchain.json" active=true !'
+                'yolo26/opchain.json" active=true !'
             ],
         )
         self.assertIn(
@@ -107,7 +107,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
         self.assertTrue(
             (
                 REPO_ROOT
-                / "config/models/yolov11/yolo11n-fp32-320.onnx"
+                / "config/models/yolo26/yolo26n.onnx"
             ).is_file()
         )
 
@@ -122,9 +122,9 @@ class ModelArtifactBuildTest(unittest.TestCase):
         dev_tools_stage = dockerfile.split(" AS opk-dev-tools", 1)[1].split(
             "FROM opk-dev-tools AS opk-dev", 1
         )[0]
-        self.assertIn("huggingface_hub==1.18.0", runtime_stage)
+        self.assertIn("-r /opt/opk-deps/requirements/models.txt", runtime_stage)
         self.assertRegex(dev_tools_stage, r"\bffmpeg\b")
-        self.assertEqual(dockerfile.count("jsonschema==4.26.0"), 2)
+        self.assertIn("-r /opt/opk-deps/requirements/common.txt", runtime_stage)
         self.assertIn(
             "COPY --from=opk-models \\\n"
             "  /work/config/models /opt/opk-app/config/models",
@@ -167,8 +167,6 @@ class ModelArtifactBuildTest(unittest.TestCase):
         for name, service in (
             (COMPOSE_FILE, "opk-model-image"),
             (".devcontainer/compose.devcont.yaml", "opk-common-dev-model-image"),
-            (".github/compose.ci.yaml", "opk-model-image"),
-            (".github/compose.ci.yaml", "opk-common-dev-model-image"),
         ):
             self.assertIn(
                 f"service: {service}",
@@ -183,48 +181,6 @@ class ModelArtifactBuildTest(unittest.TestCase):
                 "scripts/private/generate-hf-download-cachebust.sh",
                 (REPO_ROOT / name).read_text(),
             )
-        workflow_step = (
-            "      - name: Generate Hugging Face download cache key\n"
-            "        working-directory: ${{ github.workspace }}/"
-            "${{ env.CI_CHECKOUT_PATH }}\n"
-            "        run: |\n"
-            "          set -euo pipefail\n"
-            "          cache_key=\"$(scripts/private/"
-            "generate-hf-download-cachebust.sh)\"\n"
-            "          echo \"HF_DOWNLOAD_CACHEBUST=${cache_key}\" "
-            ">> \"$GITHUB_ENV\""
-        )
-        docker_scout = REPO_ROOT / ".github/workflows/docker-scout-image-audit.yml"
-        self.assertIn(workflow_step, docker_scout.read_text())
-
-        opk_ci = (REPO_ROOT / ".github/workflows/opk-ci.yml").read_text()
-        self.assertIn(
-            "      - name: Validate model cache key guard\n"
-            "        env:\n"
-            '          OPK_REQUIRE_DOCKER_BUILD_TEST: "1"\n'
-            "        run: >-\n"
-            "          python3 development/tests/model_artifact_build_test.py\n"
-            "          ModelArtifactBuildTest."
-            "test_raw_model_build_requires_cache_key\n"
-            "          ModelArtifactBuildTest."
-            "test_main_compose_uses_model_bearing_target",
-            opk_ci,
-        )
-        self.assertIn(
-            "env -u HF_TOKEN -u HF_DOWNLOAD_CACHEBUST docker compose "
-            "-f compose.yaml config --quiet",
-            opk_ci,
-        )
-        self.assertIn(
-            "      - name: Generate Hugging Face download cache key\n"
-            "        run: |\n"
-            "          set -euo pipefail\n"
-            "          cache_key=\"$(scripts/private/"
-            "generate-hf-download-cachebust.sh)\"\n"
-            "          echo \"HF_DOWNLOAD_CACHEBUST=${cache_key}\" "
-            ">> \"$GITHUB_ENV\"",
-            opk_ci,
-        )
 
     def test_tokenless_compose_config(self) -> None:
         docker = shutil.which("docker")
@@ -339,6 +295,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             context = Path(temporary_directory)
             shutil.copy2(REPO_ROOT / "Dockerfile", context / "Dockerfile")
+            shutil.copytree(REPO_ROOT / "requirements", context / "requirements")
             shutil.copytree(
                 REPO_ROOT / SCHEMAS_DIR,
                 context / SCHEMAS_DIR,
@@ -472,6 +429,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
             "config/models/**/*.pte",
             "!config/models/paddleocr/classification.onnx",
             "!config/models/paddleocr/recognition.onnx",
+            "!config/models/yolo26/yolo26n.onnx",
             "!config/models/yolov11/yolo11n-fp32-320.onnx",
             "!config/models/yolox/yolox_nano.pte",
         ]

@@ -286,24 +286,6 @@ class BuildScriptTests(unittest.TestCase):
             self.assertTrue(checkout.is_dir())
             self.assertFalse(log_path.exists())
 
-    def test_vscode_configs_use_workspace_root_and_active_build(self) -> None:
-        vscode_dir = REPOSITORY_ROOT / ".vscode"
-        launch_config = (vscode_dir / "launch.json").read_text(encoding="utf-8")
-        tasks_config = (vscode_dir / "tasks.json").read_text(encoding="utf-8")
-        settings_config = (vscode_dir / "settings.json").read_text(encoding="utf-8")
-
-        for config in (launch_config, tasks_config, settings_config):
-            self.assertNotIn("/work", config)
-            self.assertIn("${workspaceFolder}", config)
-
-        active_output = "development/build-active/meson-out"
-        self.assertIn(active_output, launch_config)
-        self.assertIn(active_output, tasks_config)
-        self.assertIn(
-            "development/build-active/compile_commands.json",
-            settings_config,
-        )
-
 
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

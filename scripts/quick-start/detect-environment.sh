@@ -23,6 +23,7 @@ Detects the quick-start host environment.
 Supported host classes:
   rpi5         Raspberry Pi 5 running Linux
   linux-x86_64 Generic x86_64 Linux host
+  linux-aarch64 Debian or Ubuntu Arm64 Linux host
   wsl          Windows Subsystem for Linux
   macos        macOS host
 
@@ -126,8 +127,15 @@ detect_environment() {
                 OPK_CONTAINER_SERVICE="opk-dev"
                 OPK_CONTAINER_NAME="${OPK_DEV_CONTAINER_NAME:-open-perception-kit}"
                 OPK_SUPPORTED="true"
+            elif [[ "$OPK_UNAME_M" == "aarch64" || "$OPK_UNAME_M" == "arm64" ]] &&
+                [[ "$OPK_OS_ID" == "debian" || "$OPK_OS_ID" == "ubuntu" ]]; then
+                OPK_PLATFORM_ID="linux-aarch64"
+                OPK_PLATFORM_NAME="Linux Arm64"
+                OPK_CONTAINER_SERVICE="opk-dev"
+                OPK_CONTAINER_NAME="${OPK_DEV_CONTAINER_NAME:-open-perception-kit}"
+                OPK_SUPPORTED="true"
             else
-                OPK_UNSUPPORTED_REASON="Linux host is not Raspberry Pi 5 or x86_64."
+                OPK_UNSUPPORTED_REASON="Linux host is not Raspberry Pi 5, x86_64, or Debian/Ubuntu Arm64."
             fi
             ;;
         *)

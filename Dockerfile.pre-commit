@@ -41,8 +41,9 @@ RUN set -eux; \
   shellcheck --version
 
 COPY tools/opk-ci /tmp/opk-tools/opk-ci
+COPY requirements/sdk.txt /tmp/opk-requirements/sdk.txt
 
-RUN python3 -m pip install --no-cache-dir /tmp/opk-tools/opk-ci && \
+RUN python3 -m pip install --no-cache-dir -c /tmp/opk-requirements/sdk.txt /tmp/opk-tools/opk-ci && \
   rm -rf /tmp/opk-tools && \
   groupadd --system repo-checks && \
   useradd \

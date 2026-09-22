@@ -94,7 +94,6 @@ id "$DEV_USER" > /dev/null 2>&1 || die "development user does not exist: $DEV_US
 
 DEV_HOME="$(getent passwd "$DEV_USER" | cut -d: -f6)"
 DEV_GROUP="$(id -gn "$DEV_USER")"
-ONNXRUNTIME_VERSION=1.24.4
 ACTIONLINT_VERSION=1.7.12
 UV_VERSION=0.12.3
 NVIM_VERSION=v0.12.1
@@ -166,11 +165,11 @@ log "Installing the pinned Perception FlatBuffers toolchain"
 bash "$OPK_PROJECT_ROOT/scripts/private/install-perception-flatbuffers.sh" \
     "$OPK_PROJECT_ROOT/tools/perception/sdk.json"
 
-log "Installing ONNX Runtime ${ONNXRUNTIME_VERSION}"
+log "Installing the pinned ONNX Runtime"
 bash "$OPK_PROJECT_ROOT/scripts/private/install-onnxruntime.sh" \
-    "$ONNXRUNTIME_VERSION"
+    "$OPK_PROJECT_ROOT/requirements/build.json"
 bash "$OPK_PROJECT_ROOT/scripts/private/install-onnxruntime.sh" \
-    "$ONNXRUNTIME_VERSION" arm64 /opt/opk-deps/onnxruntime-arm64
+    "$OPK_PROJECT_ROOT/requirements/build.json" arm64 /opt/opk-deps/onnxruntime-arm64
 
 log "Installing ExecuTorch when a local package or Artifactory credentials are available"
 EXECUTORCH_DEB_PACKAGE_DIR="$OPK_PROJECT_ROOT/var" \
@@ -256,7 +255,7 @@ log "Installing uv and the OPK development-tool environment"
 curl --proto '=https' --tlsv1.2 -LsSf \
     "https://releases.astral.sh/github/uv/releases/download/${UV_VERSION}/uv-installer.sh" |
     env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh
-uv pip install --system --break-system-packages jsonschema==4.26.0
+uv pip install --system --break-system-packages -r "$OPK_PROJECT_ROOT/requirements/common.txt"
 flatbuffers_wheel="$(python3 -c '
 import json
 import os
@@ -268,10 +267,12 @@ print(wheel["url"] + "#sha256=" + wheel["sha256"])
 ')"
 uv venv --clear --system-site-packages /opt/opk-venvs/devtools
 uv pip install --python /opt/opk-venvs/devtools/bin/python \
+    -c "$OPK_PROJECT_ROOT/requirements/sdk.txt" \
     "$OPK_PROJECT_ROOT/tools/opk-ci" \
     "$OPK_PROJECT_ROOT/generated/perception/python" \
     --editable "$OPK_PROJECT_ROOT/tools/plumber" \
-    huggingface_hub==1.18.0 \
+    -r "$OPK_PROJECT_ROOT/requirements/models.txt" \
+    -r "$OPK_PROJECT_ROOT/requirements/meson.txt" \
     "$flatbuffers_wheel"
 env --chdir=/tmp \
     /opt/opk-venvs/devtools/bin/python -c 'import perception, plumber'

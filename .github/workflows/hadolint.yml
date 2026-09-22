@@ -1,0 +1,35 @@
+name: Hadolint
+
+on:
+  pull_request:
+    paths:
+      - '**Dockerfile*'
+      - '.hadolint.yaml'
+      - '.hadolint.yml'
+      - '.github/workflows/hadolint.yml'
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  hadolint:
+    name: Lint Dockerfiles
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+
+      - name: Lint Dockerfiles
+        uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387
+        with:
+          dockerfile: >-
+            Dockerfile
+            Dockerfile.pre-commit
+            .devcontainer/rich/Dockerfile

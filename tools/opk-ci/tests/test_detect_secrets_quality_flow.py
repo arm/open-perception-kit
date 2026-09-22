@@ -17,8 +17,6 @@ PACKAGE_ROOT = REPO_ROOT / "tools/opk-ci"
 PYPROJECT_FILE = PACKAGE_ROOT / "pyproject.toml"
 OPK_CI_SOURCE = PACKAGE_ROOT / "opk_ci/opk_ci.py"
 PRE_COMMIT_CONFIG = REPO_ROOT / ".pre-commit-config.yaml"
-CI_COMPOSE_FILE = REPO_ROOT / ".github/compose.ci.yaml"
-OPK_CI_WORKFLOW = REPO_ROOT / ".github/workflows/opk-ci.yml"
 HOST_PRE_COMMIT_RUN = REPO_ROOT / "scripts/pre-commit/run.sh"
 BASELINE_FILE = REPO_ROOT / ".secrets.baseline"
 
@@ -248,10 +246,8 @@ class StaticQualityConfigTests(unittest.TestCase):
         )
         self.assertNotIn("source /work/tools/.venv/bin/activate", pre_commit)
 
-    def test_repo_configs_enable_secret_scan_and_quality_report_artifacts(self):
+    def test_repo_configs_enable_pre_commit_checks(self):
         pre_commit = PRE_COMMIT_CONFIG.read_text(encoding="utf-8")
-        compose = CI_COMPOSE_FILE.read_text(encoding="utf-8")
-        workflow = OPK_CI_WORKFLOW.read_text(encoding="utf-8")
         host_pre_commit = HOST_PRE_COMMIT_RUN.read_text(encoding="utf-8")
 
         self.assertIn("- id: pre-commit-checks", pre_commit)
@@ -259,64 +255,12 @@ class StaticQualityConfigTests(unittest.TestCase):
         self.assertIn("--pre-commit-fix", host_pre_commit)
         self.assertNotIn("- id: agent-runtime-static-analysis", pre_commit)
         self.assertNotIn("--agent-runtime-static-analysis", pre_commit)
-        self.assertIn("opk-ci --ci-pr-checks --pr-target-branch ${PULL_REQUEST_TARGET_BRANCH}", compose)
-        self.assertIn("opk-ci --ci-full-checks", compose)
-        self.assertNotIn("--pre-commit-check --branch-naming", compose)
-        self.assertNotIn("--pre-commit-check --agent-runtime-static-analysis", compose)
-        self.assertIn('if [ -n "$${PULL_REQUEST_TARGET_BRANCH:-}" ]; then', compose)
-        self.assertIn('--pr-target-branch "$${PULL_REQUEST_TARGET_BRANCH}"', compose)
-        self.assertIn("--report-file /work/.github/artifacts/opk-ci-pr-report.txt", compose)
-        self.assertIn("--report-file /work/.github/artifacts/opk-ci-full-report.txt", compose)
-        self.assertIn("Upload quality report artifact (PR)", workflow)
-        self.assertIn("Upload quality report artifact (nightly)", workflow)
-        self.assertIn("opk-ci-quality-report-pr", workflow)
-        self.assertIn("opk-ci-quality-report-full", workflow)
-        self.assertNotIn("pr-quality-gate:", workflow)
-        self.assertNotIn("Finalize PR quality gate result", workflow)
-        self.assertNotIn("git_basic_auth=", workflow)
-        self.assertIn("source scripts/private/ci_git_auth_env.sh", workflow)
-        self.assertIn("Resolve manual PR context", workflow)
-        self.assertIn("python3 scripts/private/github_pr_context.py", workflow)
-        self.assertNotIn("gh pr view", workflow)
-        self.assertIn(
-            "export PULL_REQUEST_TARGET_BRANCH=\"${{ steps.manual_pr.outputs.base_ref || github.base_ref }}\"",
-            workflow,
-        )
-        self.assertIn("-e PULL_REQUEST_TARGET_BRANCH", workflow)
-        self.assertIn(
-            "if: ${{ !cancelled() && (github.event_name == 'pull_request' || github.event_name == 'schedule' ||",
-            workflow,
-        )
-        self.assertNotIn("Run Valgrind checks", workflow)
         self.assertEqual(pre_commit.count('--list-of-files "$@"'), 3)
 
         pyproject = PYPROJECT_FILE.read_text(encoding="utf-8")
         self.assertIn('"mypy==1.16.1"', pyproject)
         self.assertIn('"pyflakes==3.3.2"', pyproject)
         self.assertIn('"vulture==2.14"', pyproject)
-
-    def test_clang_tidy_policy_inputs_force_full_tree(self):
-        compose = CI_COMPOSE_FILE.read_text(encoding="utf-8")
-
-        self.assertIn("full_tree_delta=", compose)
-        for full_tree_input in (
-            ".clang-tidy",
-            ".github/ci/baselines/clang-tidy-baseline.json",
-            ".github/compose.ci.yaml",
-            ".github/workflows/public-opk-ci.yml",
-            ".devcontainer",
-            "Dockerfile",
-            "scripts/build.sh",
-            "tools/opk-ci",
-            ":(glob)development/**/meson.build",
-            "development/meson.options",
-            ":(glob)development/**/*.wrap",
-        ):
-            self.assertIn(f'"{full_tree_input}"', compose)
-        self.assertIn(
-            "Clang-tidy policy or compile configuration delta detected",
-            compose,
-        )
 
     def test_execution_report_annotations_match_declared_python_floor(self):
         pyproject = PYPROJECT_FILE.read_text(encoding="utf-8")

@@ -1,0 +1,58 @@
+name: Generate Perception SDKs
+description: Install the locked SDK toolchain and generate all language bindings.
+
+runs:
+  using: composite
+  steps:
+    - name: Read dependency versions
+      id: dependencies
+      shell: bash
+      run: jq -r 'to_entries[] | "\(.key)=\(.value)"' requirements/build.json >> "$GITHUB_OUTPUT"
+
+    - name: Set up Python
+      uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+      with:
+        python-version: ${{ steps.dependencies.outputs.python }}
+        cache: pip
+        cache-dependency-path: |
+          requirements/**
+          tools/perception/sdk.json
+          development/ops-python/runtime.json
+
+    - name: Set up Node
+      uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
+      with:
+        node-version: ${{ steps.dependencies.outputs.node }}
+        cache: npm
+        cache-dependency-path: development/web/package-lock.json
+
+    - name: Install SDK toolchain
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends build-essential cmake curl
+        cargo --version
+        rustfmt --version
+        sudo bash scripts/private/install-perception-flatbuffers.sh tools/perception/sdk.json
+        python3 -m pip install -r requirements/sdk.txt
+        PYTHONPATH=tools/perception python3 - <<'PY'
+        import os
+        import subprocess
+        from pathlib import Path
+        from artifacts import acquire_artifact
+        from sdk_config import load_sdk_config
+
+        config = load_sdk_config()
+        destination = Path(os.environ['RUNNER_TEMP']) / 'opk-sdk'
+        packages = [acquire_artifact(artifact, destination) for artifact in
+                    (config.typescript_runtime, config.typescript_compiler)]
+        subprocess.run(['npm', 'install', '--global', '--ignore-scripts', '--no-audit',
+                        '--no-fund', *map(str, packages)], check=True)
+        PY
+        npm --prefix development/web ci --ignore-scripts --no-audit --no-fund
+
+    - name: Generate SDKs
+      shell: bash
+      env:
+        OPK_PERCEPTION_IN_CONTAINER: '1'
+      run: ./scripts/perception-sdk.sh generate
