@@ -467,47 +467,6 @@ USER ${USERNAME}
 WORKDIR /work
 
 # ==============================================================================
-# CI Image Lane
-# ==============================================================================
-
-FROM opk-dev-base AS opk-ci
-
-ARG USERNAME=dev
-ARG PLANTUML_VERSION=1.2026.2
-ARG SONAR_SCANNER_VERSION=8.0.1.6346
-
-USER root
-
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-  --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
-  set -eux; \
-  apt-get update; \
-  apt-get install -y --no-install-recommends \
-  doxygen gcovr graphviz libbz2-dev libffi-dev liblzma-dev libsqlite3-dev \
-  openjdk-25-jdk pandoc python3-dev python3-gi python3-gst-1.0 \
-  zlib1g-dev
-
-RUN set -eux; \
-  mkdir -p /opt/opk-deps; \
-  plantuml_jar="plantuml-mit-${PLANTUML_VERSION}.jar"; \
-  plantuml_base_url="https://github.com/plantuml/plantuml/releases/download/v${PLANTUML_VERSION}"; \
-  curl --location -fsSLo "/opt/opk-deps/${plantuml_jar}" "${plantuml_base_url}/${plantuml_jar}"
-
-RUN set -eux; \
-  mkdir -p /opt/sonar; \
-  curl --proto "=https" -fsSLo /tmp/sonar-scanner.zip \
-  "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_SCANNER_VERSION}.zip"; \
-  unzip -q /tmp/sonar-scanner.zip -d /opt/sonar; \
-  rm -f /tmp/sonar-scanner.zip
-
-COPY --from=opk-demo-media /work/data/videos /opt/opk-app/data/videos
-
-ENV PATH=/opt/sonar/sonar-scanner-${SONAR_SCANNER_VERSION}/bin:${PATH}
-
-USER ${USERNAME}
-WORKDIR /work
-
-# ==============================================================================
 # Deployment Build and Runtime Images
 # ==============================================================================
 

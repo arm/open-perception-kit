@@ -167,8 +167,6 @@ class ModelArtifactBuildTest(unittest.TestCase):
         for name, service in (
             (COMPOSE_FILE, "opk-model-image"),
             (".devcontainer/compose.devcont.yaml", "opk-common-dev-model-image"),
-            (".github/compose.ci.yaml", "opk-model-image"),
-            (".github/compose.ci.yaml", "opk-common-dev-model-image"),
         ):
             self.assertIn(
                 f"service: {service}",

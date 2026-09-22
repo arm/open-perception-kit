@@ -23,19 +23,17 @@ with all 218 remaining suppressions exercised.
 
 ## Procedure
 
-1. Read `.github/compose.ci.yaml`, the Valgrind job in
-   `.github/workflows/opk-ci.yml`, and the scripts under
-   `scripts/testing/valgrind/`. Reuse their pipeline, summary, and comparison
-   commands.
+1. Read `.github/workflows/valgrind-tests.yml`,
+   `.github/actions/setup-build/action.yml`, and the scripts under
+   `scripts/testing/valgrind/`. CI runs native Meson tests under Valgrind;
+   the pipeline runner and summary tools provide additional local diagnostics.
 
-2. Use a cached CI image when the host lacks Valgrind or runtime dependencies.
-   Select the image used by the relevant CI run, then use it consistently for the
-   feature and target runs:
-
-   ```bash
-   docker image ls --format '{{.Repository}}:{{.Tag}}' | rg 'open-perception-kit-ci|opk-ci'
-   export OPK_CI_IMAGE='<selected-cached-image>'
-   ```
+2. Reproduce CI failures with the native runner environment and commands from
+   that workflow. For local pipeline diagnostics, use the existing `opk-dev`
+   development container, which includes Valgrind and the runtime dependencies.
+   Run the commands below inside its shell. Use the same environment for the
+   feature and target runs; the development container is not identical to the
+   native Ubuntu CI runner.
 
 3. In the feature checkout, extract the target branch's suppression file. Use it
    for the diagnostic feature run so suppression churn cannot masquerade as a
@@ -47,14 +45,9 @@ with all 218 remaining suppressions exercised.
    git show "$target_ref:scripts/testing/valgrind/suppressed-warnings" \
      > .cache/valgrind-analysis/target-suppressions
    find scripts/testing/valgrind/logs -name '*.valgrind.*.xml' -delete 2>/dev/null || true
-   docker compose -f .github/compose.ci.yaml run --rm --no-deps \
-     opk-valgrind-check bash -c '
-       .devcontainer/setup.sh &&
-       .devcontainer/platform_init.sh opk-dev disabled &&
-       ./scripts/testing/valgrind/test-elements-with-valgrind.sh clean \
-         --pipeline only-onnx-yolo \
-         --suppressions-file /work/.cache/valgrind-analysis/target-suppressions
-     '
+   ./scripts/testing/valgrind/test-elements-with-valgrind.sh clean \
+     --pipeline only-onnx-yolo \
+     --suppressions-file "$PWD/.cache/valgrind-analysis/target-suppressions"
    python3 scripts/testing/valgrind/summarize-valgrind-output.py \
      --logs-dir scripts/testing/valgrind/logs \
      --output /tmp/feature-valgrind-summary.xml
@@ -90,19 +83,22 @@ with all 218 remaining suppressions exercised.
      still requires this review.
 
 7. After each fix, keep `scripts/testing/valgrind/suppressed-warnings` minimal.
-   Clear the XML logs and run the default services against the proposed feature
+   Clear the XML logs and run the pipeline tools against the proposed feature
    suppression file:
 
    ```bash
    find scripts/testing/valgrind/logs -name '*.valgrind.*.xml' -delete 2>/dev/null || true
-   docker compose -f .github/compose.ci.yaml run --rm --no-deps opk-valgrind-check
-   docker compose -f .github/compose.ci.yaml run --rm --no-deps opk-generate-valgrind-summary
+   ./scripts/testing/valgrind/test-elements-with-valgrind.sh clean --pipeline only-onnx-yolo
+   python3 scripts/testing/valgrind/summarize-valgrind-output.py \
+     --logs-dir scripts/testing/valgrind/logs \
+     --output scripts/testing/valgrind/valgrind-error-summary.xml \
+     --suppressions-file scripts/testing/valgrind/suppressed-warnings
    ```
 
    Then:
 
    - remove a suppression when its warning is fixed or no longer exercised;
-   - rerun `opk-generate-valgrind-summary` until it reports that every remaining
+   - rerun the summary command until it reports that every remaining
      suppression was used;
    - rerun the comparison until it reports no new repository errors.
 
@@ -145,7 +141,7 @@ PASSED: All 218 Valgrind suppressions were used.
   comparison is authoritative.
 - A stack is not third-party-only merely because its top frames are in GLib or
   GStreamer. Review the entire stack, including plugin registration callbacks.
-- Generate target and feature results with the same CI image, pipeline, frame
+- Generate target and feature results with the same environment, pipeline, frame
   count, and suppression baseline. Otherwise fingerprint differences are not
   attributable to the source change.
 - Keep raw logs from the two checkouts separate; stale XML files change summary
@@ -154,8 +150,8 @@ PASSED: All 218 Valgrind suppressions were used.
 ## What didn't work
 
 - Running the host script directly failed when host Valgrind and ONNX dependencies
-  were absent. Installing ad hoc host packages would diverge from CI; the cached
-  `opk-valgrind-check` image is the reproducible route.
+  were absent. Use the development container for local pipeline diagnostics or
+  the workflow's native setup when reproducing CI.
 - Comparing raw totals suggested thousands of warnings and obscured that there
   were zero new normalized repository errors.
 - Copying `--gen-suppressions` output blindly hid scanner stacks containing
