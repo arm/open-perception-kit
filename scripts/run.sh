@@ -17,7 +17,7 @@ Usage:
 Runs /work/tools/opk-menu inside the OPK quick-start container.
 
 Defaults:
-  ./scripts/run.sh              Runs the bundled YOLOv11 sample: yolo26-onnx
+  ./scripts/run.sh              Runs the bundled YOLO26 sample: yolo26-onnx
   ./scripts/run.sh --menu       Opens the interactive opk-menu
   ./scripts/run.sh -l           Runs the last selected pipeline
   ./scripts/run.sh <pipeline>   Runs a pipeline by ID or JSON path
