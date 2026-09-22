@@ -1,0 +1,34 @@
+{
+  "version": "1.0.1",
+  "name": "BYOM BlazeFace JSON",
+  "displayName": "BYOM BlazeFace JSON",
+  "task": "Face detection",
+  "runtime": "ONNX + Python",
+  "description": "BlazeFace inference with caller-owned JSON postprocessing.",
+  "ops": [
+    {
+      "id": "opk-std-ops/InferenceController",
+      "attributes": {}
+    },
+    {
+      "id": "opk-std-ops/GenericImagePreprocess",
+      "attributes": {
+        "inputImageTensorIndex": 0,
+        "inputImageSourceName": "pipelineVideoFrame"
+      }
+    },
+    {
+      "id": "opk-onnx-ops/Inference",
+      "attributes": {
+        "modelDescriptor": "model.json"
+      }
+    },
+    {
+      "id": "opk-python-ops/PythonScript",
+      "instanceId": "blazeface-json-postprocessor",
+      "attributes": {
+        "script": "postprocess.py"
+      }
+    }
+  ]
+}
