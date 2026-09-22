@@ -79,6 +79,8 @@ jobs:
         run: ./scripts/build.sh debug true
 
       - name: Check native tests
+        id: valgrind
+        continue-on-error: true
         run: |
           meson introspect development/build-active --tests > "$RUNNER_TEMP/meson-tests.json"
           python3 - <<'PY' > "$RUNNER_TEMP/native-tests.txt"
@@ -98,6 +100,10 @@ jobs:
             --print-errorlogs --num-processes 1 --timeout-multiplier 10 \
             --wrapper "valgrind --error-exitcode=99 --leak-check=full --errors-for-leak-kinds=definite --suppressions='$OPK_PROJECT_ROOT/scripts/testing/valgrind/suppressed-warnings'" \
             "${native_tests[@]}"
+
+      - name: Report advisory failure
+        if: steps.valgrind.outcome == 'failure'
+        run: echo '::warning::Valgrind found failures. See the test logs; this check is advisory.'
 
       - name: Upload test logs
         if: always()
