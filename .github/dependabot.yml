@@ -1,0 +1,40 @@
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: daily
+      timezone: Europe/London
+    open-pull-requests-limit: 10
+    rebase-strategy: disabled
+    labels:
+      - dependencies
+      - python
+      - run-opk-ci
+    commit-message:
+      prefix: "EXPKITS-1124"
+  - package-ecosystem: docker
+    directory: "/platforms/arm/corstone"
+    schedule:
+      interval: daily
+      timezone: Europe/London
+    open-pull-requests-limit: 10
+    rebase-strategy: disabled
+    labels:
+      - dependencies
+      - run-opk-ci
+    commit-message:
+      prefix: "EXPKITS-1124"
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: daily
+      timezone: Europe/London
+    open-pull-requests-limit: 10
+    rebase-strategy: disabled
+    labels:
+      - dependencies
+      - github_actions
+      - run-opk-ci
+    commit-message:
+      prefix: "EXPKITS-1124"

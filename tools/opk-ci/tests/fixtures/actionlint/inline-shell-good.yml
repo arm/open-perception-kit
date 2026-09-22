@@ -1,0 +1,11 @@
+name: inline shell good
+
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          value="ok"
+          printf '%s\n' "${value}"

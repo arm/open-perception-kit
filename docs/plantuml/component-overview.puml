@@ -1,0 +1,80 @@
+@startuml
+!include opk-style.puml
+
+title Open Perception Kit Container Component Overview
+
+top to bottom direction
+skinparam packageStyle rectangle
+skinparam componentStyle rectangle
+skinparam ranksep 80
+skinparam nodesep 70
+skinparam linetype ortho
+
+component "External application /\nservice" as External
+interface "FrameResults packet" as IPerception
+
+rectangle "Open Perception Kit Container" {
+  package "Open Perception Kit element chain" as CHAIN {
+    component "opkinfer" as OPKINFER
+    component "opktracker" as OPKTRACKER
+    component "opkperformance" as OPKPERF
+    component "opkosd" as OPKOSD
+    component "opksink" as OPKSINK
+  }
+
+  package "Inference execution inside opkinfer" as INFERBOX {
+    component "OpChain / Op system\n(JSON descriptors,\nconfigure -> bind -> process,\nloopId-based execution)" as OPC
+    component "Preprocess Ops" as PRE
+    component "Inference Ops\n(ONNX / ExecuTorch)" as INF
+    component "Postprocess Parsers" as POST
+  }
+
+  package "Stable runtime contract" as CONTRACT {
+    component "FrameResultsMeta /\nFrameResults" as PERC
+    component "Generated packet serializer /\npublisher boundary" as PERCSER
+  }
+
+  package "Current pipeline host layer" as HOST {
+    component "GStreamer runtime\n(current media transport,\nscheduling, and metadata carrier)" as GST
+  }
+}
+
+OPKINFER -down-> OPKTRACKER
+OPKTRACKER -down-> OPKPERF
+OPKPERF -down-> OPKOSD
+OPKOSD -down-> OPKSINK
+
+OPC -down-> PRE
+PRE -down-> INF
+INF -down-> POST
+OPC ..> OPKINFER : executes inside
+
+CHAIN --> PERC
+
+PERC -down-> PERCSER
+PERCSER -down-> IPerception
+IPerception -down-> External
+
+GST -up-> CHAIN
+
+INFERBOX -[hidden]right-> CHAIN
+CHAIN -[hidden]right-> CONTRACT
+CHAIN -[hidden]down-> HOST
+INFERBOX -[hidden]down-> HOST
+CONTRACT -[hidden]down-> HOST
+CONTRACT -[hidden]down-> IPerception
+IPerception -[hidden]down-> External
+
+legend bottom
+- GStreamer is the current pipeline/orchestration host layer.
+  It handles media transport, scheduling, and metadata carriage.
+- OpChain is the inference-specific glue inside opkinfer.
+  It binds preprocess, backend execution, and postprocess stages.
+- FrameResults is the generated runtime contract passed between Open Perception Kit components
+  and published to external applications.
+- opkinfer creates and enriches that contract via OpChain execution.
+- opktracker and opkperformance append more structured runtime data.
+- opkosd and opksink consume it for rendering and publication.
+endlegend
+
+@enduml

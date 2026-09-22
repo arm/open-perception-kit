@@ -1,0 +1,14 @@
+{
+  "version": "1.0.1",
+  "description": "Test ONNX pipeline",
+  "pipeline": [
+    "filesrc location=\"${OPK_PROJECT_ROOT:-/work}/data/images/GettyImages-1140581459-thumbnail.jpg\" !",
+    "jpegdec !",
+    "imagefreeze !",
+    "videoconvert ! video/x-raw,format=BGRA !",
+    "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/opchains/gaze-detection/opchain.json\" active=true !",
+    "opkperformance show-all-metrics=true update-interval=1 !",
+    "opkosd enabled=true !",
+    "opksink name=sink"
+  ]
+}

@@ -1,0 +1,35 @@
+{
+	"version": "1.0.1",
+	"name": "ImageNet",
+	"displayName": "MobileNetV2",
+	"task": "Image classification",
+	"runtime": "ONNX",
+	"description": "Whole-frame ImageNet classifier.",
+	"ops": [
+		{
+			"id": "opk-std-ops/InferenceController",
+			"attributes": {}
+		},
+		{
+			"id": "opk-std-ops/GenericImagePreprocess",
+			"attributes": {
+				"inputImageTensorIndex": 0,
+				"inputImageSourceName": "pipelineVideoFrame"
+			}
+		},
+		{
+			"id": "opk-onnx-ops/Inference",
+			"attributes": {
+				"modelDescriptor": "model.json"
+			}
+		},
+		{
+			"id": "opk-std-ops/GenericPostprocess",
+			"attributes": {
+				"parser": "ImageNetClassificationParser",
+				"topK": 5,
+				"confidenceThreshold": 0.001
+			}
+		}
+	]
+}

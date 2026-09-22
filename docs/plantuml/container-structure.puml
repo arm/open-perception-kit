@@ -1,0 +1,183 @@
+@startuml
+title Current Container Structure: Dockerfile Targets and Helper Dockerfiles
+
+skinparam backgroundColor #ffffff
+skinparam shadowing false
+skinparam defaultFontName DejaVu Sans
+skinparam ArrowColor #4b5563
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+
+skinparam component {
+  BorderColor #374151
+  BackgroundColor #f9fafb
+  FontColor #111827
+}
+
+skinparam database {
+  BorderColor #1f2937
+  BackgroundColor #e5e7eb
+}
+
+skinparam note {
+  BorderColor #9ca3af
+  BackgroundColor #fff7ed
+}
+
+left to right direction
+
+legend right
+  |= Color |= Meaning |
+  |<#bbf7d0> | Final usable image target |
+  |<#bfdbfe> | Reusable stage inherited by other targets |
+  |<#fed7aa> | Build or artifact stage that produces selected outputs |
+  |<#fef3c7> | CI service/job using a built image |
+  |<#e5e7eb> | External base image |
+endlegend
+
+package "External Base Images" {
+  database "debian:trixie-slim" as debian
+  database "python:3.14-slim-trixie" as py314
+}
+
+package "Dockerfile\ncore cross-lane stage graph" {
+  package "Shared Artifact Stages\n(selected outputs copied into other lanes)" {
+    component "opk-models\nHugging Face model artifact stage" as models #fed7aa
+    component "opk-demo-media\ndemo video artifact stage" as demo_media #fed7aa
+
+    py314 --> models : FROM
+    debian --> demo_media : FROM
+  }
+
+  package "Development Tooling Images\n(no OPK binaries built into opk-dev)" {
+    component "opk-build-base\nshared native build tools" as build_base #bfdbfe
+    component "opk-dev-base\nshared build/runtime + checkout entrypoint" as dev_base #bfdbfe
+    component "opk-dev-tools\nshell, editor, debugger, network tools" as dev_tools #bfdbfe
+    component "opk-dev\ndevcontainer target\nrepo at OPK_PROJECT_ROOT" as dev_image #bbf7d0
+    component "opk-dev-macos-cache-build\nnative Arm64 ccache seed" as dev_cache #fed7aa
+    component "opk-dev-macos-ci\nArm64 development image + ccache seed" as dev_ci #bbf7d0
+
+    py314 --> build_base : FROM
+    build_base --> dev_base : FROM
+    dev_base --> dev_tools : FROM
+    dev_tools --> dev_image : FROM
+    dev_image --> dev_cache : FROM + build checkout
+    dev_image --> dev_ci : FROM
+    dev_cache ..> dev_ci : COPY ccache seed
+    models ..> dev_image : COPY model artifacts\n/opt/opk-app/config/models
+    demo_media ..> dev_image : COPY demo videos\n/opt/opk-app/data/videos
+  }
+
+  package "Documentation Image Lane" {
+    component "opk-docs\ndocs-focused target" as docs_image #bbf7d0
+
+    dev_base --> docs_image : FROM
+  }
+
+  package "CI Image Lane" {
+    component "opk-ci\nbroad verification target" as ci_image #bbf7d0
+
+    dev_base --> ci_image : FROM
+    demo_media ..> ci_image : COPY demo videos\n/opt/opk-app/data/videos
+  }
+
+  package "Deployment Build and Runtime Images" {
+    component "opk-cross-build-base\ncross-build root" as cross_base #bfdbfe
+    component "opk-deployment-build\nrelease toolchain and builder\ncollects app + SDK + tarball" as deployment_build #fed7aa
+    component "opk-deployment-base\nrunnable release snapshot\nprebuilt OPK + tarball" as deployment_image #bbf7d0
+
+    build_base --> cross_base : FROM
+    cross_base --> deployment_build : FROM
+    models ..> deployment_build : COPY resolved config\nand model artifacts
+    demo_media ..> deployment_build : COPY demo videos
+    py314 --> deployment_image : FROM
+    deployment_build ..> deployment_image : COPY selected outputs\n/opt/opk-app, release tarball, ONNX Runtime libs
+  }
+}
+
+package "Helper Dockerfiles\nindependent workflow runtimes" {
+  component "Dockerfile.pre-commit\nopk-pre-commit-runtime" as pre_commit #bbf7d0
+  component "Dockerfile.pages\nopk-playwright-pages" as pages #bbf7d0
+
+  py314 --> pre_commit : FROM
+  py314 --> pages : FROM
+}
+
+package "CI Service Mapping" {
+  component "CI: opk-build-base" as ci_build_base #fef3c7
+  component "Nightly: opk-deployment-base\namd64 + arm64 image and full cache" as ci_deploy #fef3c7
+  component "Arm64 CI: development image\nexact SHA or registry layer cache" as ci_dev #fef3c7
+  component "CI: opk-release-with-ut" as ci_release #fef3c7
+  component "CI: opk-valgrind-check" as ci_valgrind #fef3c7
+  component "CI: opk-generate-valgrind-summary" as ci_valgrind_summary #fef3c7
+  component "CI: opk-quality-check-full" as ci_quality_full #fef3c7
+  component "CI: opk-sonar-check" as ci_sonar #fef3c7
+  component "CI: opk-sonar-check-release" as ci_sonar_release #fef3c7
+  component "CI: opk-quality-check-pull-request" as ci_quality_pr #fef3c7
+  component "CI: opk-clang-tidy-baseline-check" as ci_clang_tidy #fef3c7
+  component "CI: opk-pre-commit-runtime" as ci_pre_commit #fef3c7
+  component "CI: opk-playwright-pages" as ci_pages #fef3c7
+
+  build_base ..> ci_build_base : image target
+  deployment_image ..> ci_deploy : image target
+  dev_ci ..> ci_dev : image target
+  ci_image ..> ci_release : runs build/tests\nfrom checkout
+  ci_image ..> ci_valgrind : runs valgrind tests\nfrom checkout
+  ci_image ..> ci_valgrind_summary : parses valgrind logs
+  ci_image ..> ci_quality_full : quality checks + docs
+  ci_image ..> ci_sonar : coverage + sonar scan
+  ci_image ..> ci_sonar_release : coverage + release scan
+  ci_image ..> ci_quality_pr : PR checks
+  ci_image ..> ci_clang_tidy : clang-tidy baseline
+  pre_commit ..> ci_pre_commit : repo checks
+  pages ..> ci_pages : report page publishing
+  yolo_dataset ..> ci_pages : pull benchmark inputs
+}
+
+note right of dev_image
+  Contract: tools and dependency libraries plus
+  optional downloaded model and demo media artifacts. The
+  repository is mounted at OPK_PROJECT_ROOT; OPK binaries are
+  built from that checkout, not copied into this image.
+end note
+
+note right of dev_ci
+  macOS and YOLO use the exact-SHA image when available.
+  Missing images and the Raspberry Pi camera-enabled target
+  rebuild from the same registry layer cache.
+end note
+
+note bottom of deployment_build
+  Deployment is the only core lane that builds OPK
+  during image creation. It consumes model and demo
+  media artifact stages. Native release builds also package
+  the checked-in Perception SDK snapshot and create the
+  validated architecture tarball. The runtime target
+  copies selected outputs, not compilers or build scratch state.
+end note
+
+note bottom of deployment_image
+  Native release builds publish the existing amd64
+  and arm64 outputs by digest, then combine them as
+  one GHCR multi-architecture snapshot. The tarball
+  remains available inside each image and separately.
+end note
+
+note bottom of docs_image
+  Release documentation uses this existing tool image
+  directly, then archives generated HTML with system tar.
+  No release-specific docs image or entrypoint exists.
+end note
+
+note bottom of yolo_dataset
+  The immutable GHCR tag covers the COCO image archive,
+  annotations, and pinned video checksums. Source archives
+  and annotations are excluded from the final data image.
+end note
+
+note bottom of pre_commit
+  Helper Dockerfiles are separate because they do not
+  inherit from the shared Debian build graph.
+end note
+
+@enduml

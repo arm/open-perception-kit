@@ -1,0 +1,146 @@
+# -------------------------
+# Python / uv
+# -------------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pkl
+*.egg-info/
+.eggs/
+**/.venv
+.uv/
+.uv-cache/
+.uv-lock/
+*.lock
+.codex
+.agent-runtime/
+
+# -------------------------
+# Meson / Ninja / CMake / Make
+# -------------------------
+build/
+_build/
+*.ninja
+.ninja_log
+.ninja_deps
+compile_commands.json
+meson-logs/
+meson-private/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.o
+*.a
+*.la
+*.lo
+*.so
+*.so.*
+
+# -------------------------
+# Editor / IDE
+# -------------------------
+.vscode/
+\!.vscode/launch.json
+\!.vscode/settings.json
+\!.vscode/tasks.json
+.idea/
+*.swp
+*~
+
+# -------------------------
+# OS junk
+# -------------------------
+.DS_Store
+Thumbs.db
+
+# -------------------------
+# Devcontainer / Docker
+# -------------------------
+.env
+devices.env
+.devcontainer/.env
+.devcontainer/devices.env
+.devcontainer/cameras.env
+.devcontainer/*.video.yaml
+.devcontainer/*.audio.yaml
+.devcontainer/*.shared_memory.yaml
+.devcontainer/*.network.yaml
+.devcontainer/pc/devcontainer-lock.json
+
+
+# -------------------------
+# Log files
+# -------------------------
+*.log
+playwright-report/
+test-results/
+
+uv.lock
+# -------------------------
+# External dependencies
+# -------------------------
+deps/
+development/subprojects/uniflow-dev
+onnxruntime-linux-aarch64-*
+onnxruntime-linux-x64-*
+
+
+.cache
+
+
+graphs/
+
+tools/opk-menu
+tools/opk-config-check
+tools/opchain-exec
+tools/pipeline-exec
+tools/libopk-common.so
+
+core.*
+
+gstshark*/
+
+config/pipelines/.last_selected_pipeline_id
+
+# Model artifacts; keep the checked-in local models.
+config/models/**/*.hef
+config/models/**/*.onnx
+config/models/**/*.pte
+!config/models/paddleocr/classification.onnx
+!config/models/paddleocr/recognition.onnx
+!config/models/yolov11/yolo11n-fp32-320.onnx
+!config/models/yolox/yolox_nano.pte
+
+docs/html
+todo.md
+
+# -------------------------
+# Demo video assets (provided by the opk-demo-media stage)
+# -------------------------
+data/videos/*.mov
+data/videos/*.mp4
+data/videos/SHA256SUMS
+
+
+# -------------------------
+# Sonar files
+# -------------------------
+.scannerwork
+.coverage
+coverage.xml
+python-coverage.xml
+development/web/coverage/
+development/web/node_modules/
+
+# -------------------------
+# Valgrind output xml files and error summary xml file
+# -------------------------
+scripts/testing/valgrind/logs/*.xml
+scripts/testing/valgrind/logs/.gstreamer-registry.bin
+**/valgrind-error-summary*.xml
+
+# Generated artifacts
+artifacts/
+datasets/

@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:arm:opk:schema:opchain-op:v1",
+  "title": "OPK OpChain operation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^(?=[^/]*[^\\s/][^/]*/)(?=[^/]*/[^/]*[^\\s/][^/]*$)[^/]+/[^/]+$"
+    },
+    "instanceId": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "loopId": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "attributes": {
+      "type": "object"
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "urn:arm:opk:schema:inference-controller-op:v1"
+    },
+    {
+      "$ref": "urn:arm:opk:schema:generic-image-preprocess-op:v1"
+    },
+    {
+      "$ref": "urn:arm:opk:schema:inference-op:v1"
+    },
+    {
+      "$ref": "urn:arm:opk:schema:generic-postprocess-op:v1"
+    },
+    {
+      "$ref": "urn:arm:opk:schema:python-script-op:v1"
+    }
+  ]
+}

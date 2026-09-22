@@ -1,0 +1,4 @@
+interface:
+  display_name: "Author OPK Python Postprocessor"
+  short_description: "Build trusted Python tensor postprocessors"
+  default_prompt: "Use $author-opk-python-postprocessor to add a model-local Python postprocessor, integrate it into an OpChain, and validate its pipeline."

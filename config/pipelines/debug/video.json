@@ -1,0 +1,15 @@
+{
+    "version": "1.0.1",
+    "description": "Test Inference on video",
+    "pipeline": [
+        "filesrc location=\"${OPK_PROJECT_ROOT:-/work}/data/videos/GettyImages-1140581459.mov\" !",
+        "decodebin name=dec",
+        "dec. ! queue ! videoconvert ! videoscale ! video/x-raw,framerate=24/1,format=BGRA !",
+        "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/yolov11/opchain.json\" active=true !",
+        "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/ultraface/opchain.json\" active=true !",
+        "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/gaze-detection/opchain.json\" active=true !",
+        "opkosd enabled=true !",
+        "opksink name=sink",
+        "dec. ! queue ! audioconvert ! audioresample ! audio/x-raw,channels=2 ! sink.audiosink"
+    ]
+}

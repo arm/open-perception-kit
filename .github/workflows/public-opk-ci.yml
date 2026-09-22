@@ -1,0 +1,75 @@
+name: Public OPK CI
+
+on:
+  pull_request:
+    branches: [develop]
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-opk-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-ci-image:
+    name: Build OPK CI image locally
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      OPK_CI_IMAGE: opk-ci:local
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Prepare pull request base
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git check-ref-format --branch "$BASE_REF"
+          if ! git cat-file -e "$BASE_SHA^{commit}"; then
+            BASE_SHA="$(git rev-parse HEAD^1)"
+          fi
+          git update-ref "refs/remotes/origin/$BASE_REF" "$BASE_SHA"
+
+      - name: Build OPK CI image
+        run: |
+          docker build --pull --target opk-ci --tag opk-ci:local . ||
+            { sleep 10; docker build --pull --target opk-ci --tag opk-ci:local .; } ||
+            { sleep 30; docker build --pull --target opk-ci --tag opk-ci:local .; }
+
+      - name: Verify local image
+        run: docker image inspect opk-ci:local
+
+      - name: Build OPK for clang-tidy
+        run: |
+          install -d -m 0777 .cache/ccache
+          docker compose -f .github/compose.ci.yaml run --rm opk-ci bash -c '
+            .devcontainer/setup.sh &&
+            .devcontainer/platform_init.sh opk-dev disabled &&
+            ./scripts/build.sh release true
+          '
+
+      - name: Run clang-tidy baseline check
+        env:
+          PULL_REQUEST_TARGET_BRANCH: ${{ github.base_ref }}
+        run: |
+          docker compose -f .github/compose.ci.yaml run --rm \
+            -e PULL_REQUEST_TARGET_BRANCH \
+            opk-clang-tidy-baseline-check
+
+      - name: Run code quality checks
+        env:
+          PULL_REQUEST_TARGET_BRANCH: ${{ github.base_ref }}
+        run: |
+          docker compose -f .github/compose.ci.yaml run --rm \
+            -e PULL_REQUEST_TARGET_BRANCH \
+            opk-quality-check-pull-request

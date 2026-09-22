@@ -1,0 +1,20 @@
+include "common.fbs";
+
+namespace perception.metadata;
+
+table PoseEstimation {
+  object:perception.metadata.ObjectMeta;
+  confidence:float;
+  yaw:float;
+  pitch:float;
+}
+
+table PoseEstimations {
+  schema_major:ushort = 1;
+  schema_minor:ushort = 0;
+  layer:perception.metadata.LayerInfo;
+  poses:[perception.metadata.PoseEstimation];
+}
+
+root_type PoseEstimations;
+file_identifier "POSE";

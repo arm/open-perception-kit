@@ -1,0 +1,156 @@
+@startuml
+' Structural overview of the future metadata architecture.
+!include opk-style.puml
+allowmixing
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam classAttributeIconSize 0
+skinparam wrapWidth 320
+skinparam linetype default
+
+package "OPK" as runtime_pkg {
+  class FrameMetadataEnvelope {
+    +frame: FrameEnvelope
+    +records: [MetadataRecord]
+  }
+
+  class FrameEnvelope {
+    +frame_id: ulong
+    +ts_ns: ulong
+    +width: uint
+    +height: uint
+    +source: string
+  }
+
+  class MetadataRecord {
+    +record_id: string
+    +record_sequence: ulong
+    +producer_element: string
+    +record_type: string
+    +objects: [ObjectEnvelope]
+    +style_overrides: [StyleOverride]
+    +perf_items: [PerfItem]
+  }
+
+  class ObjectEnvelope {
+    +object_id: ulong
+    +parent_id: ulong
+    +ts_ns: ulong
+    +type_name: string
+    +payload: ObjectPayload
+  }
+
+  class ObjectPayload <<union>>
+
+  class GenericObjectPayload {
+    +label: string
+    +confidence: float
+    +attrs: [Attr]
+  }
+
+  class BBoxPayload {
+    +bbox: Rect2D
+    +coordinate_space: string
+  }
+
+  class SegmentationPayload {
+    +mask_ref: string
+    +width: uint
+    +height: uint
+    +placement: Rect2D
+  }
+
+  class TracePayload {
+    +points: [Point2D]
+  }
+
+  class EmbeddingPayload {
+    +values: [float]
+  }
+
+  class CustomPayload {
+    +schema_ref: string
+    +payload: [ubyte]
+  }
+
+  class StyleOverride {
+    +style_id: string
+    +target_kind: StyleTargetKind
+    +target_id: string
+    +stroke_color: ColorRGBA
+    +fill_color: ColorRGBA
+    +text_color: ColorRGBA
+    +stroke_width: float
+    +point_size: float
+    +opacity: float
+    +line_style: LineStyle
+  }
+
+  component "Built-in postprocessing" as builtin_postproc
+  component "Injected Python postprocessing" as python_postproc
+
+  FrameMetadataEnvelope *-- FrameEnvelope
+  FrameMetadataEnvelope *-- MetadataRecord
+  MetadataRecord *-- ObjectEnvelope
+  MetadataRecord *-- StyleOverride
+  ObjectEnvelope *-- ObjectPayload
+  ObjectEnvelope --> ObjectEnvelope : parent_id
+
+  ObjectPayload <|.. GenericObjectPayload
+  ObjectPayload <|.. BBoxPayload
+  ObjectPayload <|.. SegmentationPayload
+  ObjectPayload <|.. TracePayload
+  ObjectPayload <|.. EmbeddingPayload
+  ObjectPayload <|.. CustomPayload
+}
+
+package "User-Provided Extension Assets" as producer_pkg {
+  artifact "User-provided Python\npostprocessing snippet" as postproc_snippet
+  artifact "User-provided graph\nrender mapping" as custom_yaml_artifact
+}
+
+component "GstBuffer metadata" as gst_meta
+component "opkcomm" as opkcomm
+package "User-Side Rendering" as renderer_pkg {
+  artifact "Built-in schema definitions" as builtin_schema_defs
+  component "Built-in graph render rules" as builtin_yaml
+  component "Custom graph render rules" as custom_yaml
+
+  class Renderer {
+    +walk object graph
+    +emit primitives from nodes
+    +apply style overrides
+  }
+}
+
+builtin_postproc --> MetadataRecord : appends built-in objects
+python_postproc --> MetadataRecord : appends custom objects
+python_postproc --> CustomPayload : writes opaque payload
+
+postproc_snippet --> python_postproc
+custom_yaml_artifact --> custom_yaml
+
+builtin_schema_defs ..> FrameMetadataEnvelope : defines envelope schema
+builtin_schema_defs ..> MetadataRecord : defines record schema
+builtin_schema_defs ..> ObjectEnvelope : defines graph node schema
+builtin_schema_defs ..> ObjectPayload : defines payload union
+builtin_schema_defs ..> StyleOverride : defines style schema
+
+StyleOverride ..> MetadataRecord : target_kind=Record
+StyleOverride ..> ObjectEnvelope : target_kind=Object
+FrameMetadataEnvelope --> gst_meta : attach to buffer
+
+gst_meta --> opkcomm : publish envelope
+opkcomm --> Renderer : deliver envelope
+builtin_schema_defs --> Renderer : decode contract
+builtin_yaml --> Renderer : built-in rules
+custom_yaml --> Renderer : user rules
+
+note left of renderer_pkg
+Rendering follows the object graph.
+Known payload nodes emit primitives.
+Custom payloads render only when graph rules exist.
+end note
+
+@enduml

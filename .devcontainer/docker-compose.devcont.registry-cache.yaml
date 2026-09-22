@@ -1,0 +1,9 @@
+services:
+  opk-build-base:
+    build:
+      cache_from:
+        - ${OPK_DEV_CACHE_FROM}
+  opk-dev:
+    build:
+      cache_from:
+        - ${OPK_DEV_CACHE_FROM}

@@ -1,0 +1,32 @@
+services:
+  opk-build-base:
+    image: ${OPK_BUILD_BASE_IMAGE:-perception-experience-kit-build-base}
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: opk-build-base
+
+  opk-dev:
+    extends:
+      file: ../compose.base.yaml
+      service: opk-common-dev-model-image
+    image: ${OPK_DEV_IMAGE:-perception-experience-kit-dev}
+    container_name: ${OPK_DEV_CONTAINER_NAME:-perception-experience-kit}
+    hostname: ${OPK_DEV_CONTAINER_NAME:-perception-experience-kit}
+    extra_hosts:
+      - "${OPK_DEV_CONTAINER_NAME:-perception-experience-kit}:127.0.0.1"
+    command: sleep infinity
+    build:
+      network: ${BUILD_NETWORK_MODE:-default}
+      target: opk-dev
+      args:
+        USER_UID: ${HOST_UID:-1000}
+        USER_GID: ${HOST_GID:-1000}
+        OPK_PICAMERA: ${OPK_PICAMERA:-disabled}
+        EXECUTORCH_ARTIFACTORY_USERNAME: ${EXECUTORCH_ARTIFACTORY_USERNAME:-}
+        EXECUTORCH_ARTIFACTORY_PASSWORD: ${EXECUTORCH_ARTIFACTORY_PASSWORD:-}
+        EXECUTORCH_VERSION: ${EXECUTORCH_VERSION:-}
+        EXECUTORCH_DEB_REVISION: ${EXECUTORCH_DEB_REVISION:-}
+secrets:
+  huggingface_token:
+    environment: HF_TOKEN

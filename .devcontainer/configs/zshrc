@@ -1,0 +1,16 @@
+export ZSH="${HOME}/.oh-my-zsh"
+ZSH_THEME="robbyrussell"
+plugins=(git)
+[[ -f "${ZSH}/oh-my-zsh.sh" ]] && source "${ZSH}/oh-my-zsh.sh"
+
+if [[ -o interactive ]]; then
+  if [[ -z "${VIRTUAL_ENV:-}" && -f /work/tools/.venv/bin/activate ]]; then
+    source /work/tools/.venv/bin/activate
+  fi
+
+  if [[ -f /work/scripts/private/opk-terminal-init.sh ]]; then
+    OPK_TERMINAL_INIT_SKIP_BASHRC=1 bash /work/scripts/private/opk-terminal-init.sh
+  fi
+fi
+
+eval "$(register-python-argcomplete opk-ci)" 2>/dev/null || true

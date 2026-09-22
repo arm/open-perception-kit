@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+################################################################
+# Copyright (C) 2025 Arm Limited. All rights reserved.
+################################################################
+
+set -euo pipefail
+
+OPK_PROJECT_ROOT="$(cd "${OPK_PROJECT_ROOT:-.}" && pwd -P)"
+export OPK_PROJECT_ROOT
+
+# ---------- helpers ----------
+log() { echo -e "[setup.sh] $*"; }
+die() {
+    echo -e "[setup.sh] ERROR: $*" >&2
+    exit 1
+}
+
+trap 'die "failed at line $LINENO"' ERR
+
+# !!! WARNING: HOST WORKSPACE OWNERSHIP HAZARD !!!
+# This line recursively rewrites ownership of the project root. In CI, it is
+# often a bind-mounted checkout from the self-hosted runner host.
+# Reusing this pattern without isolating the checkout path and the compose
+# project can poison later jobs and break actions/checkout with permission
+# errors such as .git/index.lock or unlink failures on tracked files.
+# Read the full incident note before changing or reusing this line:
+#   .github/ci/self-hosted-runner-workspace-isolation.md
+sudo chown -R "$(id -u):$(id -g)" "${OPK_PROJECT_ROOT}/" || true
+if [[ -x /usr/local/bin/development-entrypoint ]]; then
+    /usr/local/bin/development-entrypoint --seed-artifacts
+fi
+
+# ---------- basic info ----------
+log "Executing ./.devcontainer/setup.sh (base setup)"
+ARCH=$(uname -m)
+log "Container architecture: $ARCH"
+
+# ---------- ONNX Runtime (verify only) ----------
+ORT_DIR="/opt/opk-deps/onnxruntime"
+
+if [[ -d "$ORT_DIR/include" && -d "$ORT_DIR/lib" ]]; then
+    log "Found ONNX Runtime in image: $ORT_DIR"
+else
+    die "ONNX Runtime not found at $ORT_DIR. Install it via Dockerfile."
+fi
+
+# ---------- PlantUML JAR (verify only) ----------
+WORK_PLANTUML_JAR="${OPK_PROJECT_ROOT}/deps/plantuml-mit-1.2026.2.jar"
+IMAGE_PLANTUML_JAR="/opt/opk-deps/plantuml-mit-1.2026.2.jar"
+
+if [[ -f "$WORK_PLANTUML_JAR" ]]; then
+    log "Found PlantUML JAR in workspace: $WORK_PLANTUML_JAR"
+elif [[ -f "$IMAGE_PLANTUML_JAR" ]]; then
+    log "Found PlantUML JAR in image: $IMAGE_PLANTUML_JAR"
+else
+    log "PlantUML JAR not found in workspace or image. Docs generation may skip PlantUML figures."
+fi
+
+log "Base setup.sh finished."

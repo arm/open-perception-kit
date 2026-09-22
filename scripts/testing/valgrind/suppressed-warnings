@@ -1,0 +1,3688 @@
+# Add suppressions only when the complete stack contains no OPK-owned function.
+# Remove a suppression when its warning is fixed or no longer observed.
+
+{
+   glib_loader_startup_definite_16k
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:malloc
+   fun:g_malloc
+   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.*
+   fun:call_init
+   fun:call_init
+   fun:_dl_init
+}
+
+{
+   opk_reachable_gst_opk_comm_class_init_malloc_g_strdup_g_param_spec_string_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   fun:g_param_spec_string
+   fun:_ZL23gst_opk_comm_class_initP15GstOpkCommClass
+   fun:_ZL30gst_opk_comm_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL19opkcomm_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkcomm_plugin_init_malloc_g_list_append_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_list_append
+   fun:gst_element_register
+   fun:_ZL19opkcomm_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkcomm_plugin_init_malloc_g_strdup_gst_object_set_name_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_object_set_name
+   fun:gst_element_register
+   fun:_ZL19opkcomm_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_comm_class_init_malloc_g_array_sized_new_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_array_sized_new
+   fun:gst_caps_new_empty
+   fun:gst_caps_from_string
+   fun:gst_static_caps_get
+   fun:gst_static_pad_template_get
+   fun:_ZL23gst_opk_comm_class_initP15GstOpkCommClass
+   fun:_ZL30gst_opk_comm_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL19opkcomm_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkcomm_plugin_init_malloc_g_strdup_gst_structure_copy_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:gst_structure_copy
+   fun:gst_element_register
+   fun:_ZL19opkcomm_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_comm_class_init_malloc_g_strdup_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_object_new_valist
+   fun:g_object_new
+   fun:gst_static_pad_template_get
+   fun:_ZL23gst_opk_comm_class_initP15GstOpkCommClass
+   fun:_ZL30gst_opk_comm_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL19opkcomm_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_comm_class_init_g_type_create_instance_g_param_spec_uint_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:g_type_create_instance
+   fun:g_param_spec_internal
+   fun:g_param_spec_uint
+   fun:_ZL23gst_opk_comm_class_initP15GstOpkCommClass
+   fun:_ZL30gst_opk_comm_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL19opkcomm_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_comm_class_init_calloc_direct_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   fun:g_type_create_instance
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_object_new_valist
+   fun:g_object_new
+   fun:gst_static_pad_template_get
+   fun:_ZL23gst_opk_comm_class_initP15GstOpkCommClass
+   fun:_ZL30gst_opk_comm_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL19opkcomm_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkcomm_plugin_init_realloc_g_type_set_qdata_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:realloc
+   fun:g_realloc
+   fun:g_type_set_qdata
+   fun:gst_element_register
+   fun:_ZL19opkcomm_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_comm_class_init_g_type_create_instance_g_param_spec_string_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:g_type_create_instance
+   fun:g_param_spec_internal
+   fun:g_param_spec_string
+   fun:_ZL23gst_opk_comm_class_initP15GstOpkCommClass
+   fun:_ZL30gst_opk_comm_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL19opkcomm_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkcomm_plugin_init_calloc_g_object_new_with_properties_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   fun:g_type_create_instance
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_object_new_with_properties
+   fun:g_object_new
+   fun:gst_element_register
+   fun:_ZL19opkcomm_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_comm_class_init_g_type_create_instance_g_param_spec_enum_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:g_type_create_instance
+   fun:g_param_spec_internal
+   fun:g_param_spec_enum
+   fun:_ZL23gst_opk_comm_class_initP15GstOpkCommClass
+   fun:_ZL30gst_opk_comm_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL19opkcomm_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_comm_class_init_malloc_gst_caps_new_empty_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:gst_caps_new_empty
+   fun:gst_caps_from_string
+   fun:gst_static_caps_get
+   fun:gst_static_pad_template_get
+   fun:_ZL23gst_opk_comm_class_initP15GstOpkCommClass
+   fun:_ZL30gst_opk_comm_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL19opkcomm_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkcomm_plugin_init_malloc_direct_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:gst_element_register
+   fun:_ZL19opkcomm_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkcomm_plugin_init_calloc_direct_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL19opkcomm_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkcomm_plugin_init_realloc_g_object_weak_ref_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:realloc
+   fun:g_realloc
+   fun:g_object_weak_ref
+   fun:gst_element_register
+   fun:_ZL19opkcomm_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_comm_method_get_type_realloc
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:realloc
+   fun:g_realloc
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_type_register_static
+   fun:g_enum_register_static
+   fun:_ZL28gst_opk_comm_method_get_typev
+   fun:_ZL23gst_opk_comm_class_initP15GstOpkCommClass
+   fun:_ZL30gst_opk_comm_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL19opkcomm_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkcomm_plugin_init_malloc_g_object_weak_ref_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.*
+   fun:g_object_weak_ref
+   fun:gst_element_register
+   fun:_ZL19opkcomm_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkcomm_plugin_init_calloc_gst_structure_copy_direct_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_structure_copy
+   fun:gst_element_register
+   fun:_ZL19opkcomm_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_comm_class_init_malloc_g_list_append_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_list_append
+   fun:gst_element_class_add_pad_template
+   fun:_ZL23gst_opk_comm_class_initP15GstOpkCommClass
+   fun:_ZL30gst_opk_comm_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL19opkcomm_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkcomm_plugin_init_malloc_g_slist_copy_deep_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_slist_copy_deep
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL19opkcomm_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_comm_class_init_malloc_g_strdup_gst_structure_set_value_static_str_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:gst_structure_set_value_static_str
+   fun:gst_element_class_set_static_metadata
+   fun:_ZL23gst_opk_comm_class_initP15GstOpkCommClass
+   fun:_ZL30gst_opk_comm_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL19opkcomm_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkcomm_plugin_init_calloc_gst_structure_copy_g_type_class_get_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_structure_copy
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL19opkcomm_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_comm_method_get_type_calloc
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_type_register_static
+   fun:g_enum_register_static
+   fun:_ZL28gst_opk_comm_method_get_typev
+   fun:_ZL23gst_opk_comm_class_initP15GstOpkCommClass
+   fun:_ZL30gst_opk_comm_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL19opkcomm_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_comm_get_type_once_calloc
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_type_register_static
+   fun:g_type_register_static_simple
+   fun:_ZL26gst_opk_comm_get_type_oncev
+   fun:_Z21gst_opk_comm_get_typev
+   fun:_ZL19opkcomm_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_comm_class_init_calloc_g_param_spec_enum_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   fun:g_type_class_get
+   fun:g_param_spec_enum
+   fun:_ZL23gst_opk_comm_class_initP15GstOpkCommClass
+   fun:_ZL30gst_opk_comm_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL19opkcomm_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkcomm_plugin_init_malloc_g_list_prepend_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_list_prepend
+   fun:gst_registry_add_feature
+   fun:gst_element_register
+   fun:_ZL19opkcomm_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opkinfer_class_init_malloc_g_strdup_g_param_spec_string_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   fun:g_param_spec_string
+   fun:_ZL23gst_opkinfer_class_initP16GstOpkInferClass
+   fun:_ZL30gst_opkinfer_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL20opkinfer_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_meta_api_type_calloc
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_type_register_static
+   fun:g_pointer_type_register_static
+   fun:gst_meta_api_type_register
+   fun:_ZN3opk4MetaINS_22FrameResultsMetaTraitsEE8api_typeEv
+   fun:_ZN3opk4MetaINS_22FrameResultsMetaTraitsEE3getEP10_GstBuffer
+   fun:_ZL25gst_opkinfer_transform_ipP17_GstBaseTransformP10_GstBuffer
+   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_pad_push
+   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_pad_push
+   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_pad_push
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer-1.0/libgstimagefreeze.so
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.*
+   fun:start_thread
+   fun:clone
+}
+
+{
+   opk_reachable_opkinfer_plugin_init_malloc_g_strdup_gst_structure_copy_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:gst_structure_copy
+   fun:gst_element_register
+   fun:_ZL20opkinfer_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkinfer_plugin_init_malloc_g_strdup_gst_object_set_name_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_object_set_name
+   fun:gst_element_register
+   fun:_ZL20opkinfer_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opkinfer_class_init_g_type_create_instance_g_param_spec_uint64_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:g_type_create_instance
+   fun:g_param_spec_internal
+   fun:g_param_spec_uint64
+   fun:_ZL23gst_opkinfer_class_initP16GstOpkInferClass
+   fun:_ZL30gst_opkinfer_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL20opkinfer_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opkinfer_class_init_malloc_g_array_sized_new_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_array_sized_new
+   fun:gst_caps_new_empty
+   fun:gst_caps_from_string
+   fun:gst_static_caps_get
+   fun:gst_static_pad_template_get
+   fun:gst_element_class_add_static_pad_template
+   fun:_ZL23gst_opkinfer_class_initP16GstOpkInferClass
+   fun:_ZL30gst_opkinfer_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL20opkinfer_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opkinfer_class_init_g_type_create_instance_g_param_spec_string_direct_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:g_type_create_instance
+   fun:g_param_spec_internal
+   fun:g_param_spec_string
+   fun:_ZL23gst_opkinfer_class_initP16GstOpkInferClass
+   fun:_ZL30gst_opkinfer_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL20opkinfer_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkinfer_plugin_init_malloc_g_object_weak_ref_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.*
+   fun:g_object_weak_ref
+   fun:gst_element_register
+   fun:_ZL20opkinfer_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opkinfer_class_init_malloc_g_strdup_g_value_set_string_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   fun:g_value_set_string
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_caps_from_string
+   fun:gst_static_caps_get
+   fun:gst_static_pad_template_get
+   fun:gst_element_class_add_static_pad_template
+   fun:_ZL23gst_opkinfer_class_initP16GstOpkInferClass
+   fun:_ZL30gst_opkinfer_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL20opkinfer_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opkinfer_class_init_calloc_g_type_create_instance_pad_template_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   fun:g_type_create_instance
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_object_new_valist
+   fun:g_object_new
+   fun:gst_static_pad_template_get
+   fun:gst_element_class_add_static_pad_template
+   fun:_ZL23gst_opkinfer_class_initP16GstOpkInferClass
+   fun:_ZL30gst_opkinfer_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL20opkinfer_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opkinfer_class_init_malloc_g_list_append_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_list_append
+   fun:gst_element_class_add_pad_template
+   fun:_ZL23gst_opkinfer_class_initP16GstOpkInferClass
+   fun:_ZL30gst_opkinfer_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL20opkinfer_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opkinfer_class_init_malloc_g_strdup_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_object_new_valist
+   fun:g_object_new
+   fun:gst_static_pad_template_get
+   fun:gst_element_class_add_static_pad_template
+   fun:_ZL23gst_opkinfer_class_initP16GstOpkInferClass
+   fun:_ZL30gst_opkinfer_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL20opkinfer_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_meta_info_realloc
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:realloc
+   fun:g_realloc
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_type_register_static
+   fun:g_pointer_type_register_static
+   fun:gst_meta_info_new
+   fun:gst_meta_register
+   fun:_ZN3opk4MetaINS_22FrameResultsMetaTraitsEE4infoEv
+   fun:_ZN3opk4MetaINS_22FrameResultsMetaTraitsEE3addEP10_GstBufferSt10shared_ptrIN10perception9container8envelopeEE
+   fun:_ZL25gst_opkinfer_transform_ipP17_GstBaseTransformP10_GstBuffer
+   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_pad_push
+   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_pad_push
+   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_pad_push
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer-1.0/libgstimagefreeze.so
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.*
+   fun:start_thread
+   fun:clone
+}
+
+{
+   opk_reachable_opkinfer_plugin_init_malloc_g_list_append_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_list_append
+   fun:gst_element_register
+   fun:_ZL20opkinfer_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opkinfer_class_init_realloc_g_array_append_vals_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:realloc
+   fun:g_realloc
+   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.*
+   fun:g_array_append_vals
+   fun:gst_caps_from_string
+   fun:gst_static_caps_get
+   fun:gst_static_pad_template_get
+   fun:gst_element_class_add_static_pad_template
+   fun:_ZL23gst_opkinfer_class_initP16GstOpkInferClass
+   fun:_ZL30gst_opkinfer_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL20opkinfer_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opkinfer_class_init_calloc_g_value_init_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:g_value_init
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_caps_from_string
+   fun:gst_static_caps_get
+   fun:gst_static_pad_template_get
+   fun:gst_element_class_add_static_pad_template
+   fun:_ZL23gst_opkinfer_class_initP16GstOpkInferClass
+   fun:_ZL30gst_opkinfer_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL20opkinfer_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_meta_api_type_malloc_g_strdup_thread
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   fun:g_strdupv
+   fun:gst_meta_api_type_register
+   fun:_ZN3opk4MetaINS_22FrameResultsMetaTraitsEE8api_typeEv
+   fun:_ZN3opk4MetaINS_22FrameResultsMetaTraitsEE3getEP10_GstBuffer
+   fun:_ZL25gst_opkinfer_transform_ipP17_GstBaseTransformP10_GstBuffer
+   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_pad_push
+   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_pad_push
+   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_pad_push
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer-1.0/libgstimagefreeze.so
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.*
+   fun:start_thread
+   fun:clone
+}
+
+{
+   opk_reachable_gst_opkinfer_class_init_malloc_gst_caps_new_empty_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:gst_caps_new_empty
+   fun:gst_caps_from_string
+   fun:gst_static_caps_get
+   fun:gst_static_pad_template_get
+   fun:gst_element_class_add_static_pad_template
+   fun:_ZL23gst_opkinfer_class_initP16GstOpkInferClass
+   fun:_ZL30gst_opkinfer_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL20opkinfer_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opkinfer_class_init_malloc_g_strdup_gst_structure_set_value_static_str_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:gst_structure_set_value_static_str
+   fun:gst_element_class_set_static_metadata
+   fun:_ZL23gst_opkinfer_class_initP16GstOpkInferClass
+   fun:_ZL30gst_opkinfer_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL20opkinfer_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_meta_api_type_malloc_g_strdupv_thread
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdupv
+   fun:gst_meta_api_type_register
+   fun:_ZN3opk4MetaINS_22FrameResultsMetaTraitsEE8api_typeEv
+   fun:_ZN3opk4MetaINS_22FrameResultsMetaTraitsEE3getEP10_GstBuffer
+   fun:_ZL25gst_opkinfer_transform_ipP17_GstBaseTransformP10_GstBuffer
+   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_pad_push
+   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_pad_push
+   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_pad_push
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer-1.0/libgstimagefreeze.so
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.*
+   fun:start_thread
+   fun:clone
+}
+
+{
+   opk_reachable_opkinfer_plugin_init_realloc_g_type_set_qdata_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:realloc
+   fun:g_realloc
+   fun:g_type_set_qdata
+   fun:gst_element_register
+   fun:_ZL20opkinfer_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opkinfer_class_init_calloc_gst_structure_new_empty_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_structure_new_empty
+   fun:gst_caps_from_string
+   fun:gst_static_caps_get
+   fun:gst_static_pad_template_get
+   fun:gst_element_class_add_static_pad_template
+   fun:_ZL23gst_opkinfer_class_initP16GstOpkInferClass
+   fun:_ZL30gst_opkinfer_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL20opkinfer_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opkinfer_get_type_once_calloc_g_type_register_static_g_type_register_static_simple_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_type_register_static
+   fun:g_type_register_static_simple
+   fun:_ZL26gst_opkinfer_get_type_oncev
+   fun:gst_opkinfer_get_type
+   fun:_ZL20opkinfer_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkinfer_plugin_init_calloc_g_object_new_with_properties_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   fun:g_type_create_instance
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_object_new_with_properties
+   fun:g_object_new
+   fun:gst_element_register
+   fun:_ZL20opkinfer_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkinfer_plugin_init_realloc_g_object_weak_ref_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:realloc
+   fun:g_realloc
+   fun:g_object_weak_ref
+   fun:gst_element_register
+   fun:_ZL20opkinfer_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_meta_info_calloc
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_type_register_static
+   fun:g_pointer_type_register_static
+   fun:gst_meta_info_new
+   fun:gst_meta_register
+   fun:_ZN3opk4MetaINS_22FrameResultsMetaTraitsEE4infoEv
+   fun:_ZN3opk4MetaINS_22FrameResultsMetaTraitsEE3addEP10_GstBufferSt10shared_ptrIN10perception9container8envelopeEE
+   fun:_ZL25gst_opkinfer_transform_ipP17_GstBaseTransformP10_GstBuffer
+   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_pad_push
+   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_pad_push
+   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_pad_push
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer-1.0/libgstimagefreeze.so
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.*
+   fun:start_thread
+   fun:clone
+}
+
+{
+   opk_reachable_opkinfer_plugin_init_malloc_g_slist_copy_deep_g_type_class_get_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_slist_copy_deep
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL20opkinfer_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkinfer_plugin_init_calloc_gst_structure_copy_direct_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_structure_copy
+   fun:gst_element_register
+   fun:_ZL20opkinfer_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkinfer_plugin_init_calloc_g_type_class_get_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL20opkinfer_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_meta_api_type_realloc
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:realloc
+   fun:g_realloc
+   fun:g_type_set_qdata
+   fun:gst_meta_api_type_register
+   fun:_ZN3opk4MetaINS_22FrameResultsMetaTraitsEE8api_typeEv
+   fun:_ZN3opk4MetaINS_22FrameResultsMetaTraitsEE3getEP10_GstBuffer
+   fun:_ZL25gst_opkinfer_transform_ipP17_GstBaseTransformP10_GstBuffer
+   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_pad_push
+   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_pad_push
+   obj:/usr/lib/x86_64-linux-gnu/libgstbase-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_pad_push
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer-1.0/libgstimagefreeze.so
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.*
+   fun:start_thread
+   fun:clone
+}
+
+{
+   opk_reachable_opkinfer_plugin_init_calloc_gst_structure_copy_g_type_class_get_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_structure_copy
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL20opkinfer_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkinfer_plugin_init_malloc_g_list_prepend_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_list_prepend
+   fun:gst_registry_add_feature
+   fun:gst_element_register
+   fun:_ZL20opkinfer_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opkinfer_class_init_g_type_create_instance_g_param_spec_boolean_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:g_type_create_instance
+   fun:g_param_spec_internal
+   fun:g_param_spec_boolean
+   fun:_ZL23gst_opkinfer_class_initP16GstOpkInferClass
+   fun:_ZL30gst_opkinfer_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL20opkinfer_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkinfer_plugin_init_malloc_direct_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:gst_element_register
+   fun:_ZL20opkinfer_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_osd_class_init_calloc_gst_pad_template_new_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   fun:g_type_create_instance
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_object_new_valist
+   fun:g_object_new
+   fun:gst_pad_template_new
+   fun:_ZL22gst_opk_osd_class_initP15_GstOpkOsdClass
+   fun:_ZL29gst_opk_osd_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL18opkosd_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkosd_plugin_init_malloc_g_slist_copy_deep_g_type_class_get_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_slist_copy_deep
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL18opkosd_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkosd_plugin_init_calloc_g_object_new_with_properties_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   fun:g_type_create_instance
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_object_new_with_properties
+   fun:g_object_new
+   fun:gst_element_register
+   fun:_ZL18opkosd_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_osd_class_init_malloc_g_strdup_g_param_spec_string_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   fun:g_param_spec_string
+   fun:_ZL22gst_opk_osd_class_initP15_GstOpkOsdClass
+   fun:_ZL29gst_opk_osd_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL18opkosd_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_osd_class_init_malloc_g_array_sized_new_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_array_sized_new
+   fun:gst_caps_new_empty
+   fun:gst_caps_from_string
+   fun:_ZL22gst_opk_osd_class_initP15_GstOpkOsdClass
+   fun:_ZL29gst_opk_osd_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL18opkosd_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkosd_plugin_init_malloc_g_strdup_gst_debug_category_new_direct_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   fun:_gst_debug_category_new
+   fun:_ZL18opkosd_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkosd_plugin_init_malloc_g_object_weak_ref_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.*
+   fun:g_object_weak_ref
+   fun:gst_element_register
+   fun:_ZL18opkosd_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkosd_plugin_init_calloc_g_type_class_get_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL18opkosd_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkosd_plugin_init_malloc_gst_debug_category_new_direct_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:_gst_debug_category_new
+   fun:_ZL18opkosd_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkosd_plugin_init_malloc_g_strdup_gst_object_set_name_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_object_set_name
+   fun:gst_element_register
+   fun:_ZL18opkosd_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_osd_class_init_malloc_gst_caps_new_empty_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:gst_caps_new_empty
+   fun:gst_caps_from_string
+   fun:_ZL22gst_opk_osd_class_initP15_GstOpkOsdClass
+   fun:_ZL29gst_opk_osd_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL18opkosd_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_osd_class_init_realloc
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:realloc
+   fun:g_realloc
+   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.*
+   fun:g_array_append_vals
+   fun:gst_caps_from_string
+   fun:_ZL22gst_opk_osd_class_initP15_GstOpkOsdClass
+   fun:_ZL29gst_opk_osd_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL18opkosd_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkosd_plugin_init_calloc_gst_structure_copy_direct_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_structure_copy
+   fun:gst_element_register
+   fun:_ZL18opkosd_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_osd_class_init_g_type_create_instance_g_param_spec_boolean_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:g_type_create_instance
+   fun:g_param_spec_internal
+   fun:g_param_spec_boolean
+   fun:_ZL22gst_opk_osd_class_initP15_GstOpkOsdClass
+   fun:_ZL29gst_opk_osd_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL18opkosd_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_osd_class_init_malloc_g_strdup_g_value_set_string_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   fun:g_value_set_string
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_caps_from_string
+   fun:_ZL22gst_opk_osd_class_initP15_GstOpkOsdClass
+   fun:_ZL29gst_opk_osd_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL18opkosd_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkosd_plugin_init_malloc_g_list_append_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_list_append
+   fun:gst_element_register
+   fun:_ZL18opkosd_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_osd_class_init_calloc_gst_structure_new_empty_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_structure_new_empty
+   fun:gst_caps_from_string
+   fun:_ZL22gst_opk_osd_class_initP15_GstOpkOsdClass
+   fun:_ZL29gst_opk_osd_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL18opkosd_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkosd_plugin_init_malloc_g_strdup_gst_structure_copy_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:gst_structure_copy
+   fun:gst_element_register
+   fun:_ZL18opkosd_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_osd_class_init_malloc_g_strdup_gst_structure_set_value_static_str_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:gst_structure_set_value_static_str
+   fun:gst_element_class_set_static_metadata
+   fun:_ZL22gst_opk_osd_class_initP15_GstOpkOsdClass
+   fun:_ZL29gst_opk_osd_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL18opkosd_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkosd_plugin_init_malloc_g_list_prepend_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_list_prepend
+   fun:gst_registry_add_feature
+   fun:gst_element_register
+   fun:_ZL18opkosd_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_osd_class_init_g_type_create_instance_g_param_spec_string_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:g_type_create_instance
+   fun:g_param_spec_internal
+   fun:g_param_spec_string
+   fun:_ZL22gst_opk_osd_class_initP15_GstOpkOsdClass
+   fun:_ZL29gst_opk_osd_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL18opkosd_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkosd_plugin_init_malloc_g_slist_prepend_gst_debug_category_new_direct_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_slist_prepend
+   fun:_gst_debug_category_new
+   fun:_ZL18opkosd_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkosd_plugin_init_realloc_g_type_set_qdata_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:realloc
+   fun:g_realloc
+   fun:g_type_set_qdata
+   fun:gst_element_register
+   fun:_ZL18opkosd_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkosd_plugin_init_malloc_direct_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:gst_element_register
+   fun:_ZL18opkosd_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_osd_class_init_malloc_g_list_append_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_list_append
+   fun:gst_element_class_add_pad_template
+   fun:_ZL22gst_opk_osd_class_initP15_GstOpkOsdClass
+   fun:_ZL29gst_opk_osd_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL18opkosd_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_osd_class_init_malloc_g_strdup_gst_pad_template_new_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_object_new_valist
+   fun:g_object_new
+   fun:gst_pad_template_new
+   fun:_ZL22gst_opk_osd_class_initP15_GstOpkOsdClass
+   fun:_ZL29gst_opk_osd_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL18opkosd_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkosd_plugin_init_realloc_g_object_weak_ref_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:realloc
+   fun:g_realloc
+   fun:g_object_weak_ref
+   fun:gst_element_register
+   fun:_ZL18opkosd_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_osd_get_type_once_calloc_g_type_register_static_g_type_register_static_simple_gst_opk_osd_get_type_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_type_register_static
+   fun:g_type_register_static_simple
+   fun:_ZL25gst_opk_osd_get_type_oncev
+   fun:gst_opk_osd_get_type
+   fun:_ZL18opkosd_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkosd_plugin_init_calloc_gst_structure_copy_g_type_class_get_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_structure_copy
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL18opkosd_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_osd_class_init_calloc_g_value_init_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:g_value_init
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_caps_from_string
+   fun:_ZL22gst_opk_osd_class_initP15_GstOpkOsdClass
+   fun:_ZL29gst_opk_osd_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL18opkosd_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkperformance_plugin_init_calloc_direct_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL26opkperformance_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkperformance_plugin_init_malloc_g_strdup_gst_object_set_name_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_object_set_name
+   fun:gst_element_register
+   fun:_ZL26opkperformance_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_performance_class_init_malloc_g_strdup_g_value_set_string_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   fun:g_value_set_string
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_caps_from_string
+   fun:_ZL30gst_opk_performance_class_initP23_GstOpkPerformanceClass
+   fun:_ZL37gst_opk_performance_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL26opkperformance_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkperformance_plugin_init_realloc_g_object_weak_ref_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:realloc
+   fun:g_realloc
+   fun:g_object_weak_ref
+   fun:gst_element_register
+   fun:_ZL26opkperformance_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkperformance_plugin_init_realloc_g_type_set_qdata_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:realloc
+   fun:g_realloc
+   fun:g_type_set_qdata
+   fun:gst_element_register
+   fun:_ZL26opkperformance_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkperformance_plugin_init_malloc_g_slist_prepend_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_slist_prepend
+   fun:_gst_debug_category_new
+   fun:_ZL26opkperformance_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkperformance_plugin_init_malloc_g_slist_copy_deep_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_slist_copy_deep
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL26opkperformance_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkperformance_plugin_init_malloc_g_strdup_gst_debug_category_new_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   fun:_gst_debug_category_new
+   fun:_ZL26opkperformance_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkperformance_plugin_init_malloc_g_list_prepend_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_list_prepend
+   fun:gst_registry_add_feature
+   fun:gst_element_register
+   fun:_ZL26opkperformance_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkperformance_plugin_init_malloc_direct_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:gst_element_register
+   fun:_ZL26opkperformance_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_performance_class_init_malloc_g_strdup_gst_pad_template_new_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_object_new_valist
+   fun:g_object_new
+   fun:gst_pad_template_new
+   fun:_ZL30gst_opk_performance_class_initP23_GstOpkPerformanceClass
+   fun:_ZL37gst_opk_performance_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL26opkperformance_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_performance_class_init_g_type_create_instance_g_param_spec_boolean_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:g_type_create_instance
+   fun:g_param_spec_internal
+   fun:g_param_spec_boolean
+   fun:_ZL30gst_opk_performance_class_initP23_GstOpkPerformanceClass
+   fun:_ZL37gst_opk_performance_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL26opkperformance_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_performance_class_init_calloc_gst_pad_template_new_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   fun:g_type_create_instance
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_object_new_valist
+   fun:g_object_new
+   fun:gst_pad_template_new
+   fun:_ZL30gst_opk_performance_class_initP23_GstOpkPerformanceClass
+   fun:_ZL37gst_opk_performance_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL26opkperformance_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_performance_class_init_g_type_create_instance_g_param_spec_uint_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:g_type_create_instance
+   fun:g_param_spec_internal
+   fun:g_param_spec_uint
+   fun:_ZL30gst_opk_performance_class_initP23_GstOpkPerformanceClass
+   fun:_ZL37gst_opk_performance_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL26opkperformance_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkperformance_plugin_init_malloc_g_strdup_gst_structure_copy_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:gst_structure_copy
+   fun:gst_element_register
+   fun:_ZL26opkperformance_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_performance_class_init_malloc_gst_caps_new_empty_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:gst_caps_new_empty
+   fun:gst_caps_from_string
+   fun:_ZL30gst_opk_performance_class_initP23_GstOpkPerformanceClass
+   fun:_ZL37gst_opk_performance_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL26opkperformance_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkperformance_plugin_init_calloc_gst_structure_copy_direct_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_structure_copy
+   fun:gst_element_register
+   fun:_ZL26opkperformance_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_performance_class_init_malloc_g_strdup_gst_structure_set_value_static_str_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:gst_structure_set_value_static_str
+   fun:gst_element_class_set_static_metadata
+   fun:_ZL30gst_opk_performance_class_initP23_GstOpkPerformanceClass
+   fun:_ZL37gst_opk_performance_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL26opkperformance_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkperformance_plugin_init_malloc_gst_debug_category_new_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:_gst_debug_category_new
+   fun:_ZL26opkperformance_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkperformance_plugin_init_calloc_gst_structure_copy_g_type_class_get_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_structure_copy
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL26opkperformance_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkperformance_plugin_init_calloc_g_object_new_with_properties_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   fun:g_type_create_instance
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_object_new_with_properties
+   fun:g_object_new
+   fun:gst_element_register
+   fun:_ZL26opkperformance_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_performance_class_init_malloc_g_list_append_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_list_append
+   fun:gst_element_class_add_pad_template
+   fun:_ZL30gst_opk_performance_class_initP23_GstOpkPerformanceClass
+   fun:_ZL37gst_opk_performance_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL26opkperformance_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkperformance_plugin_init_malloc_g_object_weak_ref_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.*
+   fun:g_object_weak_ref
+   fun:gst_element_register
+   fun:_ZL26opkperformance_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_performance_class_init_malloc_g_array_sized_new_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_array_sized_new
+   fun:gst_caps_new_empty
+   fun:gst_caps_from_string
+   fun:_ZL30gst_opk_performance_class_initP23_GstOpkPerformanceClass
+   fun:_ZL37gst_opk_performance_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL26opkperformance_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_performance_class_init_calloc_g_value_init_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:g_value_init
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_caps_from_string
+   fun:_ZL30gst_opk_performance_class_initP23_GstOpkPerformanceClass
+   fun:_ZL37gst_opk_performance_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL26opkperformance_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opkperformance_plugin_init_malloc_g_list_append_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_list_append
+   fun:gst_element_register
+   fun:_ZL26opkperformance_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_performance_class_init_calloc_gst_structure_new_empty_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_structure_new_empty
+   fun:gst_caps_from_string
+   fun:_ZL30gst_opk_performance_class_initP23_GstOpkPerformanceClass
+   fun:_ZL37gst_opk_performance_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL26opkperformance_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_performance_class_init_realloc
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:realloc
+   fun:g_realloc
+   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.*
+   fun:g_array_append_vals
+   fun:gst_caps_from_string
+   fun:_ZL30gst_opk_performance_class_initP23_GstOpkPerformanceClass
+   fun:_ZL37gst_opk_performance_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL26opkperformance_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_performance_get_type_once_calloc
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_type_register_static
+   fun:g_type_register_static_simple
+   fun:_ZL33gst_opk_performance_get_type_oncev
+   fun:gst_opk_performance_get_type
+   fun:_ZL26opkperformance_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opksink_plugin_init_calloc_gst_structure_copy_g_type_class_get_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_structure_copy
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL19opksink_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opksink_plugin_init_calloc_g_object_new_with_properties_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   fun:g_type_create_instance
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_object_new_with_properties
+   fun:g_object_new
+   fun:gst_element_register
+   fun:_ZL19opksink_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opksink_plugin_init_malloc_g_slist_copy_deep_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_slist_copy_deep
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL19opksink_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_sink_class_init_malloc_g_strdup_gst_structure_set_value_static_str_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:gst_structure_set_value_static_str
+   fun:gst_element_class_set_static_metadata
+   fun:_ZL23gst_opk_sink_class_initP16_GstOpkSinkClass
+   fun:_ZL30gst_opk_sink_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL19opksink_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opksink_plugin_init_calloc_direct_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL19opksink_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_sink_class_init_realloc
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:realloc
+   fun:g_realloc
+   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.*
+   fun:g_array_append_vals
+   fun:gst_caps_from_string
+   fun:gst_static_caps_get
+   fun:gst_static_pad_template_get
+   fun:gst_element_class_add_static_pad_template
+   fun:_ZL23gst_opk_sink_class_initP16_GstOpkSinkClass
+   fun:_ZL30gst_opk_sink_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL19opksink_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opksink_plugin_init_calloc_gst_structure_copy_direct_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_structure_copy
+   fun:gst_element_register
+   fun:_ZL19opksink_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_sink_class_init_calloc_gst_structure_new_empty_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_structure_new_empty
+   fun:gst_caps_from_string
+   fun:gst_static_caps_get
+   fun:gst_static_pad_template_get
+   fun:gst_element_class_add_static_pad_template
+   fun:_ZL23gst_opk_sink_class_initP16_GstOpkSinkClass
+   fun:_ZL30gst_opk_sink_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL19opksink_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opksink_plugin_init_malloc_g_strdup_gst_object_set_name_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_object_set_name
+   fun:gst_element_register
+   fun:_ZL19opksink_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opksink_plugin_init_realloc_g_type_set_qdata_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:realloc
+   fun:g_realloc
+   fun:g_type_set_qdata
+   fun:gst_element_register
+   fun:_ZL19opksink_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_sink_class_init_g_type_create_instance_g_param_spec_boolean_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:g_type_create_instance
+   fun:g_param_spec_internal
+   fun:g_param_spec_boolean
+   fun:_ZL23gst_opk_sink_class_initP16_GstOpkSinkClass
+   fun:_ZL30gst_opk_sink_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL19opksink_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opksink_plugin_init_malloc_g_list_prepend_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_list_prepend
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_element_register
+   fun:_ZL19opksink_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_sink_class_init_g_type_create_instance_g_param_spec_int_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:g_type_create_instance
+   fun:g_param_spec_internal
+   fun:g_param_spec_int
+   fun:_ZL23gst_opk_sink_class_initP16_GstOpkSinkClass
+   fun:_ZL30gst_opk_sink_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL19opksink_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_sink_class_init_malloc_g_strdup_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_object_new_valist
+   fun:g_object_new
+   fun:gst_static_pad_template_get
+   fun:gst_element_class_add_static_pad_template
+   fun:_ZL23gst_opk_sink_class_initP16_GstOpkSinkClass
+   fun:_ZL30gst_opk_sink_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL19opksink_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opksink_plugin_init_malloc_g_object_weak_ref_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.*
+   fun:g_object_weak_ref
+   fun:gst_element_register
+   fun:_ZL19opksink_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_sink_class_init_g_type_create_instance_g_param_spec_string_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:g_type_create_instance
+   fun:g_param_spec_internal
+   fun:g_param_spec_string
+   fun:_ZL23gst_opk_sink_class_initP16_GstOpkSinkClass
+   fun:_ZL30gst_opk_sink_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL19opksink_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_sink_class_init_malloc_gst_caps_new_empty_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:gst_caps_new_empty
+   fun:gst_caps_from_string
+   fun:gst_static_caps_get
+   fun:gst_static_pad_template_get
+   fun:gst_element_class_add_static_pad_template
+   fun:_ZL23gst_opk_sink_class_initP16_GstOpkSinkClass
+   fun:_ZL30gst_opk_sink_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL19opksink_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_sink_get_type_once_calloc
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_type_register_static
+   fun:g_type_register_static_simple
+   fun:_ZL26gst_opk_sink_get_type_oncev
+   fun:_Z21gst_opk_sink_get_typev
+   fun:_ZL19opksink_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opksink_plugin_init_malloc_g_strdup_gst_structure_copy_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:gst_structure_copy
+   fun:gst_element_register
+   fun:_ZL19opksink_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_sink_class_init_malloc_g_list_append_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_list_append
+   fun:gst_element_class_add_pad_template
+   fun:_ZL23gst_opk_sink_class_initP16_GstOpkSinkClass
+   fun:_ZL30gst_opk_sink_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL19opksink_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opksink_plugin_init_malloc_direct_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:gst_element_register
+   fun:_ZL19opksink_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opksink_plugin_init_realloc_g_object_weak_ref_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:realloc
+   fun:g_realloc
+   fun:g_object_weak_ref
+   fun:gst_element_register
+   fun:_ZL19opksink_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_sink_class_init_malloc_g_array_sized_new_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_array_sized_new
+   fun:gst_caps_new_empty
+   fun:gst_caps_from_string
+   fun:gst_static_caps_get
+   fun:gst_static_pad_template_get
+   fun:gst_element_class_add_static_pad_template
+   fun:_ZL23gst_opk_sink_class_initP16_GstOpkSinkClass
+   fun:_ZL30gst_opk_sink_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL19opksink_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_sink_class_init_malloc_g_strdup_g_param_spec_string_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   fun:g_param_spec_string
+   fun:_ZL23gst_opk_sink_class_initP16_GstOpkSinkClass
+   fun:_ZL30gst_opk_sink_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL19opksink_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_sink_class_init_calloc_direct_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   fun:g_type_create_instance
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_object_new_valist
+   fun:g_object_new
+   fun:gst_static_pad_template_get
+   fun:gst_element_class_add_static_pad_template
+   fun:_ZL23gst_opk_sink_class_initP16_GstOpkSinkClass
+   fun:_ZL30gst_opk_sink_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL19opksink_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opksink_plugin_init_malloc_g_list_append_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_list_append
+   fun:gst_element_register
+   fun:_ZL19opksink_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opk_sink_get_type_once_g_type_register_static
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_type_register_static
+   fun:g_type_register_static_simple
+   fun:_ZL26gst_opk_sink_get_type_oncev
+   fun:_Z21gst_opk_sink_get_typev
+   fun:_ZL19opksink_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opktracker_class_init_g_type_create_instance_g_param_spec_float_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:g_type_create_instance
+   fun:g_param_spec_internal
+   fun:g_param_spec_float
+   fun:_ZL25gst_opktracker_class_initP18GstOpkTrackerClass
+   fun:_ZL32gst_opktracker_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL22opktracker_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opktracker_class_init_calloc_g_value_init_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:g_value_init
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_caps_from_string
+   fun:gst_static_caps_get
+   fun:gst_static_pad_template_get
+   fun:gst_element_class_add_static_pad_template
+   fun:_ZL25gst_opktracker_class_initP18GstOpkTrackerClass
+   fun:_ZL32gst_opktracker_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL22opktracker_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opktracker_class_init_calloc_gst_structure_new_empty_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_structure_new_empty
+   fun:gst_caps_from_string
+   fun:gst_static_caps_get
+   fun:gst_static_pad_template_get
+   fun:gst_element_class_add_static_pad_template
+   fun:_ZL25gst_opktracker_class_initP18GstOpkTrackerClass
+   fun:_ZL32gst_opktracker_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL22opktracker_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opktracker_plugin_init_calloc_gst_structure_copy_g_type_class_get_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_structure_copy
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL22opktracker_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opktracker_plugin_init_calloc_direct_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL22opktracker_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opktracker_class_init_calloc_direct_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   fun:g_type_create_instance
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_object_new_valist
+   fun:g_object_new
+   fun:gst_static_pad_template_get
+   fun:gst_element_class_add_static_pad_template
+   fun:_ZL25gst_opktracker_class_initP18GstOpkTrackerClass
+   fun:_ZL32gst_opktracker_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL22opktracker_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opktracker_class_init_malloc_gst_caps_new_empty_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:gst_caps_new_empty
+   fun:gst_caps_from_string
+   fun:gst_static_caps_get
+   fun:gst_static_pad_template_get
+   fun:gst_element_class_add_static_pad_template
+   fun:_ZL25gst_opktracker_class_initP18GstOpkTrackerClass
+   fun:_ZL32gst_opktracker_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL22opktracker_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opktracker_class_init_malloc_g_strdup_g_param_spec_string_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   fun:g_param_spec_string
+   fun:_ZL25gst_opktracker_class_initP18GstOpkTrackerClass
+   fun:_ZL32gst_opktracker_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL22opktracker_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opktracker_plugin_init_malloc_g_list_prepend_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_list_prepend
+   fun:gst_registry_add_feature
+   fun:gst_element_register
+   fun:_ZL22opktracker_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opktracker_class_init_g_type_create_instance_g_param_spec_int_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:g_type_create_instance
+   fun:g_param_spec_internal
+   fun:g_param_spec_int
+   fun:_ZL25gst_opktracker_class_initP18GstOpkTrackerClass
+   fun:_ZL32gst_opktracker_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL22opktracker_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opktracker_class_init_malloc_g_array_sized_new_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_array_sized_new
+   fun:gst_caps_new_empty
+   fun:gst_caps_from_string
+   fun:gst_static_caps_get
+   fun:gst_static_pad_template_get
+   fun:gst_element_class_add_static_pad_template
+   fun:_ZL25gst_opktracker_class_initP18GstOpkTrackerClass
+   fun:_ZL32gst_opktracker_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL22opktracker_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opktracker_plugin_init_malloc_g_list_append_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_list_append
+   fun:gst_element_register
+   fun:_ZL22opktracker_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opktracker_class_init_realloc
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:realloc
+   fun:g_realloc
+   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.*
+   fun:g_array_append_vals
+   fun:gst_caps_from_string
+   fun:gst_static_caps_get
+   fun:gst_static_pad_template_get
+   fun:gst_element_class_add_static_pad_template
+   fun:_ZL25gst_opktracker_class_initP18GstOpkTrackerClass
+   fun:_ZL32gst_opktracker_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL22opktracker_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opktracker_plugin_init_malloc_direct_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:gst_element_register
+   fun:_ZL22opktracker_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opktracker_plugin_init_malloc_g_strdup_gst_structure_copy_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:gst_structure_copy
+   fun:gst_element_register
+   fun:_ZL22opktracker_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opktracker_plugin_init_malloc_g_strdup_gst_object_set_name_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_object_set_name
+   fun:gst_element_register
+   fun:_ZL22opktracker_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opktracker_class_init_malloc_g_strdup_gst_structure_set_value_static_str_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:gst_structure_set_value_static_str
+   fun:gst_element_class_set_static_metadata
+   fun:_ZL25gst_opktracker_class_initP18GstOpkTrackerClass
+   fun:_ZL32gst_opktracker_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL22opktracker_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opktracker_plugin_init_malloc_g_slist_copy_deep_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_slist_copy_deep
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL22opktracker_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opktracker_class_init_malloc_g_strdup_g_value_set_string_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   fun:g_value_set_string
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_caps_from_string
+   fun:gst_static_caps_get
+   fun:gst_static_pad_template_get
+   fun:gst_element_class_add_static_pad_template
+   fun:_ZL25gst_opktracker_class_initP18GstOpkTrackerClass
+   fun:_ZL32gst_opktracker_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL22opktracker_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opktracker_plugin_init_calloc_gst_structure_copy_direct_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:gst_structure_copy
+   fun:gst_element_register
+   fun:_ZL22opktracker_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opktracker_plugin_init_calloc_g_object_new_with_properties_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   fun:g_type_create_instance
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_object_new_with_properties
+   fun:g_object_new
+   fun:gst_element_register
+   fun:_ZL22opktracker_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opktracker_class_init_malloc_g_list_append_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_list_append
+   fun:gst_element_class_add_pad_template
+   fun:_ZL25gst_opktracker_class_initP18GstOpkTrackerClass
+   fun:_ZL32gst_opktracker_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL22opktracker_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opktracker_plugin_init_realloc_g_type_set_qdata_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:realloc
+   fun:g_realloc
+   fun:g_type_set_qdata
+   fun:gst_element_register
+   fun:_ZL22opktracker_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opktracker_plugin_init_malloc_g_object_weak_ref_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.*
+   fun:g_object_weak_ref
+   fun:gst_element_register
+   fun:_ZL22opktracker_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opktracker_get_type_once_calloc
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:g_malloc0
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_type_register_static
+   fun:g_type_register_static_simple
+   fun:_ZL28gst_opktracker_get_type_oncev
+   fun:gst_opktracker_get_type
+   fun:_ZL22opktracker_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opktracker_class_init_g_type_create_instance_g_param_spec_boolean_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:g_type_create_instance
+   fun:g_param_spec_internal
+   fun:g_param_spec_boolean
+   fun:_ZL25gst_opktracker_class_initP18GstOpkTrackerClass
+   fun:_ZL32gst_opktracker_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL22opktracker_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_opktracker_plugin_init_realloc_g_object_weak_ref_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:realloc
+   fun:g_realloc
+   fun:g_object_weak_ref
+   fun:gst_element_register
+   fun:_ZL22opktracker_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opktracker_class_init_malloc_g_strdup_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.*
+   fun:g_object_new_valist
+   fun:g_object_new
+   fun:gst_static_pad_template_get
+   fun:gst_element_class_add_static_pad_template
+   fun:_ZL25gst_opktracker_class_initP18GstOpkTrackerClass
+   fun:_ZL32gst_opktracker_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL22opktracker_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}
+
+{
+   opk_reachable_gst_opktracker_class_init_g_type_create_instance_g_param_spec_string_scanner
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:g_type_create_instance
+   fun:g_param_spec_internal
+   fun:g_param_spec_string
+   fun:_ZL25gst_opktracker_class_initP18GstOpkTrackerClass
+   fun:_ZL32gst_opktracker_class_intern_initPv
+   fun:g_type_class_get
+   fun:gst_element_register
+   fun:_ZL22opktracker_plugin_initP10_GstPlugin
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   obj:/usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so.*
+   fun:_gst_plugin_loader_client_run
+   obj:/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+   fun:(below main)
+}

@@ -1,0 +1,9 @@
+{
+  "version": "1.0.1",
+  "description": "Test the opk-menu launcher with a simple pipeline that decodes a JPEG image and discards the output.",
+  "pipeline": [
+    "filesrc location=\"${OPK_PROJECT_ROOT:-/work}/data/images/GettyImages-1140581459-thumbnail.jpg\" !",
+    "jpegdec !",
+    "fakesink sync=true"
+  ]
+}

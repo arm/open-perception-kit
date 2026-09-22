@@ -1,0 +1,33 @@
+{
+	"version": "1.0.1",
+	"name": "MobileNetV3RVM",
+	"displayName": "RVM MobileNetV3",
+	"task": "Video matting",
+	"runtime": "ONNX",
+	"description": "MobileNetV3 based RVM for real-time background removal.",
+	"ops": [
+		{
+			"id": "opk-std-ops/InferenceController",
+			"attributes": {}
+		},
+		{
+			"id": "opk-std-ops/GenericImagePreprocess",
+			"attributes": {
+				"inputImageTensorIndex": 0,
+				"inputImageSourceName": "pipelineVideoFrame"
+			}
+		},
+		{
+			"id": "opk-onnx-ops/Inference",
+			"attributes": {
+				"modelDescriptor": "model.json"
+			}
+		},
+		{
+			"id": "opk-std-ops/GenericPostprocess",
+			"attributes": {
+				"parser": "RvmParser"
+			}
+		}
+	]
+}

@@ -1,0 +1,37 @@
+{
+	"version": "1.0.1",
+	"name": "YoloV11",
+	"displayName": "YOLOv11n",
+	"task": "Object detection",
+	"runtime": "ONNX",
+	"description": "YoloV11 object detection model.",
+	"ops": [
+		{
+			"id": "opk-std-ops/InferenceController",
+			"attributes": {}
+		},
+		{
+			"id": "opk-std-ops/GenericImagePreprocess",
+			"attributes": {
+				"inputImageTensorIndex": 0,
+				"inputImageSourceName": "pipelineVideoFrame"
+			}
+		},
+		{
+			"id": "opk-onnx-ops/Inference",
+			"attributes": {
+				"modelDescriptor": "model.json"
+			}
+		},
+		{
+			"id": "opk-std-ops/GenericPostprocess",
+			"attributes": {
+				"parser": "YoloParser",
+				"normalizeOutputCoordinates": false,
+				"applyNms": true,
+				"confidenceThreshold": 0.25,
+				"iouThreshold": 0.45
+			}
+		}
+	]
+}

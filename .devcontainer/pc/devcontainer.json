@@ -1,0 +1,47 @@
+{
+  "name": "PC perception-experience-kit",
+  "dockerComposeFile": [
+    "${localWorkspaceFolder}/.devcontainer/compose.devcont.yaml",
+    "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.video.yaml",
+    "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.audio.yaml",
+    "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.shared_memory.yaml",
+    "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.network.yaml"
+  ],
+  "service": "opk-dev",
+  "runServices": [
+    "opk-dev"
+  ],
+  "remoteUser": "dev",
+  "workspaceFolder": "/work",
+  "initializeCommand": "bash .devcontainer/platform_init.sh opk-dev disabled auto && bash scripts/private/build-dev-base.sh",
+  "containerEnv": {
+    "CONTAINER_TYPE": "default",
+    "HOST_OS": "${localEnv:OSTYPE}",
+    "HOST_DISPLAY": "${localEnv:DISPLAY}"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/sshd:1": {}
+  },
+  "overrideCommand": true,
+  "postCreateCommand": "bash .devcontainer/devsetup.sh",
+  "init": true,
+  "shutdownAction": "stopCompose",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-vscode.cpptools-extension-pack",
+        "matepek.vscode-catch2-test-adapter",
+        "ms-python.python",
+        "ms-python.autopep8",
+        "cheshirekow.cmake-format",
+        "mkhl.shfmt",
+        "jebbs.plantuml",
+        "vadimcn.vscode-lldb"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/work/tools/.venv/bin/python"
+      }
+    }
+  }
+}

@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/arm/topo/refs/heads/main/docs/project-specification/schema/topo-project-specification.json
+
+name: opk-dev
+
+services:
+  opk-dev:
+    extends:
+      file: compose.base.yaml
+      service: opk-model-image
+    platform: linux/arm64
+    container_name: perception-experience-kit
+    hostname: perception-experience-kit
+    privileged: true
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+    network_mode: host
+    init: true
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    volumes:
+      - /run/udev:/run/udev:ro
+    environment:
+      OPK_PIPELINE: ${OPK_PIPELINE:-yolov11-onnx}
+    build:
+      target: opk-deployment-base
+      args:
+        OPK_PICAMERA: ${OPK_PICAMERA:-disabled}
+        NO_EXAMPLE_CONTENT: ${NO_EXAMPLE_CONTENT:-false}
+
+secrets:
+  huggingface_token:
+    environment: HF_TOKEN
+
+x-topo:
+  name: perception-experience-kit
+  description: |
+    Run Open Perception Kit on an ARM64 target with an optional
+    Raspberry Pi camera pipeline.
+  args:
+    OPK_PIPELINE:
+      description: |
+        Pipeline ID or path to run. Use yolov11-onnx for the bundled sample
+        video, full-onnx-raspicam for the Pi camera, or
+        full-onnx-usb-cam for a USB camera.
+      default: "yolov11-onnx"
+    OPK_PICAMERA:
+      description: |
+        Set to enabled only when the selected pipeline uses a Raspberry Pi
+        camera.
+      default: "disabled"
+    NO_EXAMPLE_CONTENT:
+      description: |
+        Skip packaging demo videos. Set this only when the selected pipeline
+        uses a camera or other supplied media.
+      default: "false"
+  deployment_success_message: |
+    The OPK server is starting on port 9999.

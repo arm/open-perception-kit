@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:arm:opk:schema:pipeline-descriptor:v1",
+  "title": "OPK pipeline preset v1",
+  "x-opk-supported-version": "1.0.0",
+  "type": "object",
+  "required": ["version", "description", "pipeline"],
+  "properties": {
+    "version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?![\\s\\S])"},
+    "description": {"type": "string"},
+    "sourceInfo": {"type": "string"},
+    "loop": {"type": "boolean"},
+    "pipeline": {
+      "oneOf": [
+        {"$ref": "#/$defs/command"},
+        {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^[^\u0000]*$"},
+          "contains": {"$ref": "#/$defs/command"}
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "command": {
+      "type": "string",
+      "pattern": "^[^\u0000]*$",
+      "allOf": [{"pattern": "\\S"}]
+    }
+  }
+}

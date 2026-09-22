@@ -1,0 +1,20 @@
+{
+  "version": "1.0.3",
+  "description": "Test the ONNX model pipeline with a bundled image, OPKOSD overlay, and opksink video sink.",
+  "pipeline": [
+    "filesrc location=\"${OPK_PROJECT_ROOT:-/work}/data/images/GettyImages-1140581459-thumbnail.jpg\" !",
+    "jpegdec !",
+    "imagefreeze num-buffers=${NUM_FRAMES:-30} !",
+    "videoconvert ! video/x-raw,format=BGRA,framerate=30/1 !",
+    "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/yolov11/opchain.json\" active=true !",
+    "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/ultraface/opchain.json\" active=true !",
+    "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/opchains/gaze-detection/opchain.json\" active=true !",
+    "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/mobilenetv2/opchain.json\" active=true !",
+    "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/osnet_x0_25/opchain.json\" active=true !",
+    "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/rvm/opchain.json\" active=true !",
+    "opktracker content-type=genericObject !",
+    "opkperformance show-all-metrics=true update-interval=1 !",
+    "opkosd enabled=true bg-image=\"${OPK_PROJECT_ROOT:-/work}/data/images/GettyImages-1298072556-thumbnail.jpg\" !",
+    "opksink name=sink"
+  ]
+}
