@@ -23,6 +23,9 @@
 !scripts/
 !scripts/**
 
+!requirements/
+!requirements/**
+
 !development/
 !development/**
 

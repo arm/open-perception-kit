@@ -14,7 +14,6 @@ ARG TARGETARCH
 
 FROM --platform=${BUILDPLATFORM} python:3.14-slim-trixie AS opk-build-base
 
-ARG ONNXRUNTIME_VERSION=1.24.4
 ARG EXECUTORCH_VERSION=1.3.1
 ARG EXECUTORCH_DEB_REVISION=2
 ARG EXECUTORCH_ARTIFACTORY_SERVER=https://artifactory.arm.com:443
@@ -54,7 +53,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   libjson-glib-dev \
   libsoup-3.0-dev \
   libssl-dev \
-  meson \
   ninja-build \
   pkg-config \
   python3 \
@@ -64,6 +62,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   rustfmt \
   unzip; \
   update-ca-certificates
+
+COPY requirements/build.json requirements/meson.txt /opt/opk-deps/requirements/
+RUN python3 -m pip install --no-cache-dir -r /opt/opk-deps/requirements/meson.txt
 
 COPY tools/perception/sdk.json /tmp/perception-sdk.json
 COPY development/ops-python/runtime.json /tmp/python-ops-runtime.json
@@ -134,9 +135,8 @@ FROM --platform=${BUILDPLATFORM} python:3.14-slim-trixie AS opk-models
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
   PYTHONDONTWRITEBYTECODE=1
 
-RUN python3 -m pip install --no-cache-dir \
-  huggingface_hub==1.18.0 \
-  jsonschema==4.26.0
+COPY requirements/common.txt requirements/models.txt /opt/opk-deps/requirements/
+RUN python3 -m pip install --no-cache-dir -r /opt/opk-deps/requirements/models.txt
 
 WORKDIR /work
 COPY config config
@@ -158,7 +158,6 @@ RUN --mount=type=cache,target=/root/.cache/huggingface \
 # outputs come from the mounted checkout, not from this image.
 FROM opk-build-base AS opk-dev-base
 
-ARG ONNXRUNTIME_VERSION
 ARG NPM_FALLBACK_REGISTRY=https://artifactory.arm.com:443/artifactory/api/npm/mirrors.npmjs_org
 ARG USERNAME=dev
 ARG USER_UID=1000
@@ -244,7 +243,7 @@ RUN set -eux; \
   shellcheck --version
 
 COPY --chmod=0755 scripts/private/install-onnxruntime.sh /usr/local/bin/install-onnxruntime
-RUN install-onnxruntime "${ONNXRUNTIME_VERSION}"
+RUN install-onnxruntime /opt/opk-deps/requirements/build.json
 
 RUN set -eux; \
   getent group "${USER_GID}" >/dev/null || groupadd --gid "${USER_GID}" "${USERNAME}"; \
@@ -270,18 +269,20 @@ RUN set -eux; \
 COPY tools/opk-ci /tmp/opk-tools/opk-ci
 COPY tools/plumber /tmp/opk-tools/plumber
 COPY generated/perception/python /tmp/opk-tools/perception
+COPY requirements/common.txt requirements/models.txt requirements/sdk.txt /opt/opk-deps/requirements/
 RUN set -eux; \
-  uv pip install --system --break-system-packages jsonschema==4.26.0; \
+  uv pip install --system --break-system-packages -r /opt/opk-deps/requirements/common.txt; \
   runtime_arch="$(dpkg --print-architecture)"; \
   case "${runtime_arch}" in amd64) runtime_arch=x86_64 ;; arm64) runtime_arch=aarch64 ;; *) exit 1 ;; esac; \
   numpy_wheel="$(python3 -c 'import json, sys; wheel=json.load(open(sys.argv[1]))["numpy"]["wheels"][sys.argv[2]]; print(wheel["url"] + "#sha256=" + wheel["sha256"])' /tmp/python-ops-runtime.json "${runtime_arch}")"; \
   flatbuffers_wheel="$(python3 -c 'import json; wheel=json.load(open("/tmp/perception-sdk.json"))["flatbuffers"]["python_wheel"]; print(wheel["url"] + "#sha256=" + wheel["sha256"])')"; \
   uv venv --system-site-packages /opt/opk-venvs/devtools; \
   uv pip install --python /opt/opk-venvs/devtools/bin/python \
+  -c /opt/opk-deps/requirements/sdk.txt \
   /tmp/opk-tools/opk-ci \
   /tmp/opk-tools/perception \
   /tmp/opk-tools/plumber \
-  huggingface_hub==1.18.0 \
+  -r /opt/opk-deps/requirements/models.txt \
   "${numpy_wheel}" \
   "${flatbuffers_wheel}"; \
   cd /tmp; \
@@ -388,7 +389,6 @@ ENV LANG=en_US.UTF-8 \
 FROM opk-dev-tools AS opk-dev
 
 ARG USERNAME=dev
-ARG ONNXRUNTIME_VERSION
 ARG OPK_PICAMERA=disabled
 
 USER root
@@ -410,7 +410,7 @@ RUN set -eux; \
   if [ "$(dpkg --print-architecture)" = arm64 ]; then \
     ln -s onnxruntime /opt/opk-deps/onnxruntime-arm64; \
   else \
-    install-onnxruntime "${ONNXRUNTIME_VERSION}" arm64 /opt/opk-deps/onnxruntime-arm64; \
+    install-onnxruntime /opt/opk-deps/requirements/build.json arm64 /opt/opk-deps/onnxruntime-arm64; \
   fi
 
 USER ${USERNAME}
@@ -486,8 +486,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   doxygen gcovr graphviz libbz2-dev libffi-dev liblzma-dev libsqlite3-dev \
   openjdk-25-jdk pandoc python3-dev python3-gi python3-gst-1.0 \
   zlib1g-dev
-
-RUN uv pip install --python /opt/opk-venvs/devtools/bin/python coverage==7.10.7
 
 RUN set -eux; \
   mkdir -p /opt/opk-deps; \
@@ -570,7 +568,6 @@ FROM opk-cross-build-base AS opk-deployment-build
 
 ARG TARGETARCH
 ARG NO_EXAMPLE_CONTENT=false
-ARG ONNXRUNTIME_VERSION
 ARG OPK_RELEASE_BUILD=false
 ARG OPK_RELEASE_SOURCE_COMMIT=""
 
@@ -589,7 +586,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 COPY --chmod=0755 scripts/private/install-onnxruntime.sh /usr/local/bin/install-onnxruntime
 RUN install-onnxruntime \
-  "${ONNXRUNTIME_VERSION}" "${TARGETARCH}" /opt/opk-deps/onnxruntime
+  /opt/opk-deps/requirements/build.json "${TARGETARCH}" /opt/opk-deps/onnxruntime
 
 RUN --mount=type=bind,source=var,target=/tmp/opk-executorch-packages,ro \
     --mount=type=bind,source=scripts/private/executorch/install-executorch-deb.sh,target=/tmp/install-executorch-deb.sh,ro \
@@ -686,9 +683,10 @@ RUN --mount=type=cache,id=opk-deployment-ccache,target=/work/.cache/ccache,shari
     /opt/opk-venvs/python-ops-runtime/bin/python \
       /work/scripts/release/ReleaseTool.py stage-python-runtime \
       --stage-root "${package_root}"; \
-    cp /opt/opk-deps/onnxruntime/lib/libonnxruntime.so.1.24.4 \
+    onnxruntime_version="$(python3 -c 'import json; print(json.load(open("/opt/opk-deps/requirements/build.json"))["onnxruntime"])')"; \
+    cp "/opt/opk-deps/onnxruntime/lib/libonnxruntime.so.${onnxruntime_version}" \
       "${package_root}/lib/opk/"; \
-    ln -s libonnxruntime.so.1.24.4 \
+    ln -s "libonnxruntime.so.${onnxruntime_version}" \
       "${package_root}/lib/opk/libonnxruntime.so.1"; \
     cp -a /opt/opk-deps/onnxruntime/share/doc/onnxruntime/. \
       "${package_root}/share/opk/licenses/"; \
@@ -856,7 +854,6 @@ ENTRYPOINT ["/work/scripts/private/deployment-runtime.sh"]
 FROM opk-build-base AS opk-cairn-build
 
 ARG TARGETARCH
-ARG ONNXRUNTIME_VERSION
 
 WORKDIR /work
 COPY development development
@@ -869,7 +866,7 @@ COPY scripts/private/shtools.sh scripts/private/shtools.sh
 RUN set -eux; \
   mkdir -p tools; \
   scripts/private/install-onnxruntime.sh \
-    "${ONNXRUNTIME_VERSION}" "${TARGETARCH}" /opt/opk-deps/onnxruntime; \
+    /opt/opk-deps/requirements/build.json "${TARGETARCH}" /opt/opk-deps/onnxruntime; \
   OPK_EXECUTORCH=disabled \
   OPK_ONNXRUNTIME_ROOT=/opt/opk-deps/onnxruntime \
     scripts/build.sh release false

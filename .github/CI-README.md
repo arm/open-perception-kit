@@ -194,7 +194,7 @@ Release image builds get their model and runtime inputs from these sources:
 
 | Variables | Set or referenced in |
 | --- | --- |
-| `ONNXRUNTIME_VERSION` | Defaulted and consumed by `opk-deployment-build` |
+| `requirements/build.json` | ONNX Runtime version and architecture-specific checksums used by the shared installer |
 | `EXECUTORCH_VERSION`, `EXECUTORCH_DEB_REVISION` | Defaulted and consumed by `opk-deployment-build` |
 | `HF_TOKEN` | Read-only repository secret; exposed to `opk-models` only as a BuildKit secret while checked-in models require authentication |
 | `SONAR_URL` | Non-sensitive repository variable used for unmasked report links; set to the same origin as `SONAR_HOST_URL`, without a trailing slash |

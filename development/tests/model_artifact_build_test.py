@@ -122,9 +122,9 @@ class ModelArtifactBuildTest(unittest.TestCase):
         dev_tools_stage = dockerfile.split(" AS opk-dev-tools", 1)[1].split(
             "FROM opk-dev-tools AS opk-dev", 1
         )[0]
-        self.assertIn("huggingface_hub==1.18.0", runtime_stage)
+        self.assertIn("-r /opt/opk-deps/requirements/models.txt", runtime_stage)
         self.assertRegex(dev_tools_stage, r"\bffmpeg\b")
-        self.assertEqual(dockerfile.count("jsonschema==4.26.0"), 2)
+        self.assertIn("-r /opt/opk-deps/requirements/common.txt", runtime_stage)
         self.assertIn(
             "COPY --from=opk-models \\\n"
             "  /work/config/models /opt/opk-app/config/models",
@@ -297,6 +297,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             context = Path(temporary_directory)
             shutil.copy2(REPO_ROOT / "Dockerfile", context / "Dockerfile")
+            shutil.copytree(REPO_ROOT / "requirements", context / "requirements")
             shutil.copytree(
                 REPO_ROOT / SCHEMAS_DIR,
                 context / SCHEMAS_DIR,
