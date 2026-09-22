@@ -1,4 +1,4 @@
 -r meson.txt
-pycairo==1.27.0
+pycairo==1.29.1
 PyGObject==3.50.0
 -r common.txt
