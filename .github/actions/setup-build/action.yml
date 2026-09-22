@@ -1,0 +1,90 @@
+name: Set up OPK build environment
+description: Set up native OPK builds on Ubuntu 24.04.
+
+runs:
+  using: composite
+  steps:
+    - name: Read dependency versions
+      id: dependencies
+      shell: bash
+      run: jq -r 'to_entries[] | "\(.key)=\(.value)"' requirements/build.json >> "$GITHUB_OUTPUT"
+
+    - name: Generate SDKs
+      uses: ./.github/actions/setup-sdk
+
+    - name: Cache compiler output
+      uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306
+      with:
+        path: |
+          .cache/ccache
+          development/subprojects/packagecache
+        key: opk-build-${{ runner.os }}-${{ runner.arch }}-ubuntu24-${{ hashFiles('.github/actions/setup-build/action.yml', 'requirements/**', 'scripts/setup-python-ops-runtime.sh', 'scripts/private/install-perception-flatbuffers.sh', 'scripts/private/install-onnxruntime.sh', 'tools/perception/sdk.json', 'development/ops-python/runtime.json', 'development/subprojects/*.wrap') }}-${{ github.job }}-${{ github.sha }}
+        restore-keys: |
+          opk-build-${{ runner.os }}-${{ runner.arch }}-ubuntu24-${{ hashFiles('.github/actions/setup-build/action.yml', 'requirements/**', 'scripts/setup-python-ops-runtime.sh', 'scripts/private/install-perception-flatbuffers.sh', 'scripts/private/install-onnxruntime.sh', 'tools/perception/sdk.json', 'development/ops-python/runtime.json', 'development/subprojects/*.wrap') }}-${{ github.job }}-
+          opk-build-${{ runner.os }}-${{ runner.arch }}-ubuntu24-${{ hashFiles('.github/actions/setup-build/action.yml', 'requirements/**', 'scripts/setup-python-ops-runtime.sh', 'scripts/private/install-perception-flatbuffers.sh', 'scripts/private/install-onnxruntime.sh', 'tools/perception/sdk.json', 'development/ops-python/runtime.json', 'development/subprojects/*.wrap') }}-
+
+    - name: Install build dependencies
+      shell: bash
+      env:
+        CC: gcc-${{ steps.dependencies.outputs.gcc }}
+        CXX: g++-${{ steps.dependencies.outputs.gcc }}
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends \
+          build-essential "$CC" "$CXX" ccache cmake ninja-build pkg-config \
+          libcairo2-dev libfftw3-dev libgirepository1.0-dev python-gi-dev \
+          libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev \
+          libjson-glib-dev libsoup-3.0-dev libssl-dev \
+          gstreamer1.0-tools gstreamer1.0-nice gstreamer1.0-plugins-base \
+          gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly
+        {
+          echo "CC=$CC"
+          echo "CXX=$CXX"
+        } >> "$GITHUB_ENV"
+        bash scripts/private/install-onnxruntime.sh '${{ steps.dependencies.outputs.onnxruntime }}' "$(uname -m)" "$RUNNER_TEMP/onnxruntime"
+
+    - name: Install Python dependencies
+      shell: bash
+      run: |
+        sdk_python="$(PYTHONPATH=tools/perception python3 -c 'from sdk_config import load_sdk_config; print(load_sdk_config().python_project)')"
+        bash scripts/setup-python-ops-runtime.sh \
+          --python "$(command -v python3)" --venv "$RUNNER_TEMP/opk-python" \
+          --perception-sdk "$sdk_python"
+        "$RUNNER_TEMP/opk-python/bin/pip" install -r requirements/build.txt
+        echo "$RUNNER_TEMP/opk-python/bin" >> "$GITHUB_PATH"
+
+    - name: Build GStreamer bindings
+      shell: bash
+      working-directory: ${{ runner.temp }}
+      env:
+        GST_PYTHON_VERSION: ${{ steps.dependencies.outputs.gst-python }}
+        GST_PYTHON_SHA256: ${{ steps.dependencies.outputs.gst-python-sha256 }}
+      run: |
+        curl --fail --location --retry 3 \
+          "https://gstreamer.freedesktop.org/src/gst-python/gst-python-$GST_PYTHON_VERSION.tar.xz" \
+          --output gst-python.tar.xz
+        echo "$GST_PYTHON_SHA256  gst-python.tar.xz" | sha256sum -c -
+        tar -xf gst-python.tar.xz
+        overrides="$(python3 -c 'import gi.overrides; print(gi.overrides.__path__[0])')"
+        meson setup gst-python-build "gst-python-$GST_PYTHON_VERSION" \
+          --prefix="$RUNNER_TEMP/opk-python" -Dpython="$(command -v python3)" \
+          -Dpygi-overrides-dir="$overrides" -Dplugin=disabled -Dtests=disabled
+        meson compile -C gst-python-build
+        meson install -C gst-python-build
+        python3 -c 'import gi; gi.require_version("Gst", "1.0"); from gi.repository import Gst; from gi.overrides import _gi_gst; Gst.init(None)'
+
+    - name: Configure build environment
+      shell: bash
+      run: |
+        {
+          echo "OPK_PROJECT_ROOT=$GITHUB_WORKSPACE"
+          echo 'OPK_EXECUTORCH=disabled'
+          echo 'OPK_PYTHON_OPS=enabled'
+          echo "OPK_PYTHON_RUNTIME_VENV=$RUNNER_TEMP/opk-python"
+          echo "OPK_DEVTOOLS_VENV=$RUNNER_TEMP/opk-python"
+          echo "OPK_ONNXRUNTIME_ROOT=$RUNNER_TEMP/onnxruntime"
+          echo 'OPK_WEB_IN_CONTAINER=1'
+          echo "LD_LIBRARY_PATH=$RUNNER_TEMP/onnxruntime/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+          echo "CCACHE_DIR=$GITHUB_WORKSPACE/.cache/ccache"
+        } >> "$GITHUB_ENV"
+        CCACHE_DIR="$GITHUB_WORKSPACE/.cache/ccache" ccache --max-size=2G
