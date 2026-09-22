@@ -8,7 +8,7 @@ dependencies = [
     "setuptools>=65.0",
     "autopep8==2.3.2",
     "pycodestyle==2.12.1",
-    "pre-commit==3.5.0",
+    "pre-commit==4.6.2",
     "GitPython==3.1.59",
     "requests==2.33.0",
     "argcomplete==3.6.2",
