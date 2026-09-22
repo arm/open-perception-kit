@@ -12,7 +12,7 @@ updates:
       - python
       - run-opk-ci
     commit-message:
-      prefix: "EXPKITS-1124"
+      prefix: "chore(deps)"
   - package-ecosystem: docker
     directory: "/platforms/arm/corstone"
     schedule:
@@ -24,7 +24,7 @@ updates:
       - dependencies
       - run-opk-ci
     commit-message:
-      prefix: "EXPKITS-1124"
+      prefix: "chore(deps)"
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
@@ -37,4 +37,4 @@ updates:
       - github_actions
       - run-opk-ci
     commit-message:
-      prefix: "EXPKITS-1124"
+      prefix: "chore(deps)"
