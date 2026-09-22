@@ -7,14 +7,14 @@ on:
   workflow_dispatch:
     inputs:
       scope:
-        description: Analyse changed PR files or all files.
+        description: Analyse changed files or all files (manual runs always analyse all).
         type: choice
         options: [changed, all]
         default: changed
   workflow_call:
     inputs:
       scope:
-        description: Analyse changed PR files or all files.
+        description: Analyse changed files or all files.
         type: string
         default: changed
 
@@ -31,75 +31,84 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Find changed files
         id: changes
-        if: github.event_name == 'pull_request' && inputs.scope != 'all' && github.event.pull_request.changed_files < 3000
-        uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad
+        if: inputs.scope != 'all' && (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.changed_files < 3000))
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d
         with:
+          base: ${{ github.event_name == 'push' && github.ref || '' }}
           list-files: json
           filters: |
             sources:
-              - 'development/**/*.{c,cc,cpp,cxx,C}'
+              - added|modified: 'development/**/*.{c,cc,cpp,cxx,C}'
             full:
-              - '**/*.{h,hh,hpp,hxx,H,tpp,inl,inc,ipp,h.in,hpp.in}'
+              - 'development/**/*.{h,hh,hpp,hxx,H,tpp,inl,inc,ipp,h.in,hpp.in}'
+              - 'development/subprojects/**'
               - '**/meson.build'
               - '**/meson.options'
               - '**/meson_options.txt'
-              - '**/*.wrap'
               - '.clang-tidy'
+              - '.clang-format'
+              - 'setup.cfg'
               - '.github/workflows/clang-tidy.yml'
               - '.github/actions/setup-build/**'
               - '.github/actions/setup-sdk/**'
+              - 'requirements/build.json'
+              - 'requirements/meson.txt'
+              - 'requirements/sdk.txt'
               - 'tools/flowdata-sdk/**'
-              - 'requirements/**'
-              - 'scripts/build.sh'
-              - 'scripts/setup-python-ops-runtime.sh'
-              - 'scripts/private/install-*.sh'
-              - 'schemas/**'
               - 'tools/perception/**'
+              - 'schemas/perception/**'
+              - 'generated/perception/**'
+              - 'config/schemas/**'
+              - 'scripts/build.sh'
+              - 'scripts/perception-sdk.sh'
+              - 'scripts/private/shtools.sh'
+              - 'scripts/private/run-perception-sdk.sh'
+              - 'scripts/private/install-perception-flatbuffers.sh'
+              - 'scripts/private/install-onnxruntime.sh'
+              - 'scripts/setup-python-ops-runtime.sh'
               - 'development/ops-python/runtime.json'
               - 'development/web/package*.json'
 
       - name: Select scan scope
-        id: scan
-        shell: bash
+        id: scope
         env:
           SCOPE: ${{ inputs.scope || 'changed' }}
-          SCAN_ALL: ${{ inputs.scope == 'all' || github.event_name != 'pull_request' || steps.changes.outputs.full == 'true' || github.event.pull_request.changed_files >= 3000 }}
+          SCAN_ALL: ${{ inputs.scope == 'all' || (github.event_name != 'pull_request' && github.event_name != 'push') || github.event.pull_request.changed_files >= 3000 || steps.changes.outputs.full == 'true' }}
           HAS_SOURCES: ${{ steps.changes.outputs.sources == 'true' }}
         run: |
           [[ "$SCOPE" == changed || "$SCOPE" == all ]]
-          mkdir -p "$RUNNER_TEMP/clang-tidy"
           echo "all=$SCAN_ALL" >> "$GITHUB_OUTPUT"
           if [[ "$SCAN_ALL" == true || "$HAS_SOURCES" == true ]]; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "run=false" >> "$GITHUB_OUTPUT"
-            echo 'No relevant changes; skipping clang-tidy.' > "$RUNNER_TEMP/clang-tidy/summary.txt"
+            echo 'run=true' >> "$GITHUB_OUTPUT"
           fi
 
       - name: Set up build environment
-        if: steps.scan.outputs.run == 'true'
+        if: steps.scope.outputs.run == 'true'
         uses: ./.github/actions/setup-build
 
       - name: Install clang-tidy
-        if: steps.scan.outputs.run == 'true'
+        if: steps.scope.outputs.run == 'true'
         run: python3 -m pip install clang-tidy==20.1.0
 
       - name: Build
-        if: steps.scan.outputs.run == 'true'
+        if: steps.scope.outputs.run == 'true'
         run: ./scripts/build.sh debug true
 
       - name: Run clang-tidy
-        if: steps.scan.outputs.run == 'true'
+        if: steps.scope.outputs.run == 'true'
+        id: scan
         working-directory: development/build-active
         shell: bash
         env:
-          SCAN_ALL: ${{ steps.scan.outputs.all }}
+          SCAN_ALL: ${{ steps.scope.outputs.all }}
           CHANGED_FILES: ${{ steps.changes.outputs.sources_files || '[]' }}
         run: |
+          mkdir -p "$RUNNER_TEMP/clang-tidy"
           jq --argjson all "$SCAN_ALL" --argjson changed "$CHANGED_FILES" '
             [.[] | select(.file | startswith("../") and
               (startswith("../subprojects/") | not) and
@@ -120,14 +129,14 @@ jobs:
           ' _ < "$RUNNER_TEMP/clang-tidy-sources.txt"
 
       - name: Collect clang-tidy report
-        if: always() && steps.scan.outcome == 'success'
+        if: always() && (steps.scan.outcome == 'success' || steps.scan.outcome == 'failure')
         shell: bash
         run: |
           find "$RUNNER_TEMP/clang-tidy" -name '*.txt' -exec cat {} + \
             | tee "$GITHUB_WORKSPACE/clang-tidy.txt"
 
       - name: Upload clang-tidy report
-        if: always() && steps.scan.outcome == 'success'
+        if: always() && (steps.scan.outcome == 'success' || steps.scan.outcome == 'failure')
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: clang-tidy-report

@@ -2,61 +2,14 @@ name: Valgrind
 
 on:
   pull_request:
-    paths:
-      - '**.c'
-      - '**.cc'
-      - '**.cpp'
-      - '**.cxx'
-      - '**.h'
-      - '**.hh'
-      - '**.hpp'
-      - '**.hxx'
-      - '**.tpp'
-      - '**/meson.build'
-      - '**/meson.options'
-      - '**/meson_options.txt'
-      - '**.wrap'
-      - 'config/**'
-      - 'schemas/**'
-      - 'development/tests/**'
-      - '.github/actions/setup-build/**'
-      - '.github/actions/setup-sdk/**'
-      - 'tools/flowdata-sdk/**'
-      - 'requirements/**'
-      - 'scripts/setup-python-ops-runtime.sh'
-      - 'scripts/private/install-perception-flatbuffers.sh'
-      - 'scripts/private/install-onnxruntime.sh'
-      - 'tools/perception/sdk.json'
-      - 'tools/perception/sdk_config.py'
-      - 'development/ops-python/runtime.json'
-      - 'development/web/package-lock.json'
-      - 'scripts/build.sh'
-      - 'scripts/testing/valgrind/**'
-      - '.github/workflows/valgrind-tests.yml'
   push:
     branches: [main, develop]
-    paths:
-      - 'development/**'
-      - 'generated/perception/cpp/**'
-      - 'config/**'
-      - 'schemas/**'
-      - '.github/actions/setup-build/**'
-      - '.github/actions/setup-sdk/**'
-      - 'tools/flowdata-sdk/**'
-      - 'requirements/**'
-      - 'scripts/setup-python-ops-runtime.sh'
-      - 'scripts/private/install-perception-flatbuffers.sh'
-      - 'scripts/private/install-onnxruntime.sh'
-      - 'tools/perception/sdk.json'
-      - 'tools/perception/sdk_config.py'
-      - 'scripts/build.sh'
-      - 'scripts/testing/valgrind/**'
-      - '.github/workflows/valgrind-tests.yml'
   workflow_dispatch:
   workflow_call:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   valgrind:
@@ -67,18 +20,76 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
+          fetch-depth: 0
           persist-credentials: false
 
+      - name: Find relevant changes
+        id: changes
+        if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.changed_files < 3000)
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d
+        with:
+          base: ${{ github.event_name == 'push' && github.ref || '' }}
+          filters: |
+            relevant:
+              - 'development/**/*.c'
+              - 'development/**/*.cc'
+              - 'development/**/*.cpp'
+              - 'development/**/*.cxx'
+              - 'development/**/*.C'
+              - 'development/**/*.h'
+              - 'development/**/*.hh'
+              - 'development/**/*.hpp'
+              - 'development/**/*.hxx'
+              - 'development/**/*.H'
+              - 'development/**/*.tpp'
+              - 'development/**/*.inl'
+              - 'development/**/*.inc'
+              - 'development/**/*.ipp'
+              - 'development/**/*.h.in'
+              - 'development/**/*.hpp.in'
+              - 'development/subprojects/**'
+              - 'development/tests/**'
+              - 'development/ops-python/runtime.json'
+              - 'development/web/package*.json'
+              - '**/meson.build'
+              - '**/meson.options'
+              - '**/meson_options.txt'
+              - 'config/**'
+              - 'schemas/perception/**'
+              - 'generated/perception/**'
+              - 'tools/perception/**'
+              - 'tools/flowdata-sdk/**'
+              - 'requirements/build.json'
+              - 'requirements/meson.txt'
+              - 'requirements/sdk.txt'
+              - 'scripts/build.sh'
+              - 'scripts/perception-sdk.sh'
+              - 'scripts/private/shtools.sh'
+              - 'scripts/private/run-perception-sdk.sh'
+              - 'scripts/private/install-perception-flatbuffers.sh'
+              - 'scripts/private/install-onnxruntime.sh'
+              - 'scripts/setup-python-ops-runtime.sh'
+              - 'scripts/testing/valgrind/**'
+              - '.clang-format'
+              - 'setup.cfg'
+              - '.github/actions/setup-build/**'
+              - '.github/actions/setup-sdk/**'
+              - '.github/workflows/valgrind-tests.yml'
+
       - name: Set up build environment
+        if: &run_checks steps.changes.outcome == 'skipped' || steps.changes.outputs.relevant == 'true'
         uses: ./.github/actions/setup-build
 
       - name: Install Valgrind
+        if: *run_checks
         run: sudo apt-get install -y valgrind
 
       - name: Build
+        if: *run_checks
         run: ./scripts/build.sh debug true
 
       - name: Check native tests
+        if: *run_checks
         run: |
           meson introspect development/build-active --tests > "$RUNNER_TEMP/meson-tests.json"
           python3 - <<'PY' > "$RUNNER_TEMP/native-tests.txt"
@@ -100,7 +111,7 @@ jobs:
             "${native_tests[@]}"
 
       - name: Upload test logs
-        if: always()
+        if: always() && (steps.changes.outcome == 'skipped' || steps.changes.outputs.relevant == 'true')
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: valgrind-test-logs
