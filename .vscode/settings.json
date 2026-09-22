@@ -1,0 +1,57 @@
+{
+    "search.useIgnoreFiles": true,
+    "editor.formatOnSave": true,
+    "editor.insertSpaces": true,
+    "editor.tabSize": 4,
+    "debug.hideSlowPreLaunchWarning": true,
+    "terminal.integrated.scrollback": 10000,
+    "json.format.enable": true,
+    "C_Cpp.default.browse.limitSymbolsToIncludedHeaders": false,
+    "C_Cpp.clang_format_style": "file",
+    "C_Cpp.codeAnalysis.clangTidy.codeAction.formatFixes": true,
+    "C_Cpp.codeAnalysis.clangTidy.enabled": false,
+    "C_Cpp.codeAnalysis.clangTidy.useBuildPath": true,
+    "C_Cpp.codeAnalysis.clangTidy.path": "${workspaceFolder}/tools/.venv/bin/clang-tidy",
+    "C_Cpp.clang_format_path": "${workspaceFolder}/tools/.venv/bin/clang-format",
+    "C_Cpp.formatting": "clangFormat",
+    "plantuml.jar": "${workspaceFolder}/deps/plantuml-mit-1.2026.2.jar",
+    "C_Cpp.default.compileCommands": [
+        "${workspaceFolder}/development/build-active/compile_commands.json"
+    ],
+    "[cpp]": {
+        "editor.defaultFormatter": "ms-vscode.cpptools"
+    },
+    "[cmake]": {
+        "editor.defaultFormatter": "cheshirekow.cmake-format"
+    },
+    "cmakeFormat.exePath": "${workspaceFolder}/tools/.venv/bin/cmake-format",
+    "cmakeFormat.args": [
+        "--config-files",
+        "${workspaceFolder}/.cmake-format.yaml"
+    ],
+    "[shellscript]": {
+        "editor.defaultFormatter": "mkhl.shfmt"
+    },
+    "shfmt.executableArgs": [
+        "-i",
+        "4",
+        "-ci",
+        "-sr",
+        "-kp"
+    ],
+    "autopep8.path": [
+        "${workspaceFolder}/tools/.venv/bin/python3",
+        "-m",
+        "autopep8"
+    ],
+    "python.defaultInterpreterPath": "${workspaceFolder}/tools/.venv/bin/python",
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.autopep8"
+    },
+    "testMate.cpp.test.executables": "development/build-active/**/*{test,Test,TEST}*",
+    "lldb.executable": "/usr/local/bin/lldb",
+    "lldb.library": "/lib/aarch64-linux-gnu/liblldb-17.so.1",
+    "lldb.server": "/usr/local/bin/lldb-server",
+    "lldb.verboseLogging": true,
+    "cmake.sourceDirectory": "${workspaceFolder}//deps/executorch-intel-full-build"
+}

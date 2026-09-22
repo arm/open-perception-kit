@@ -1,0 +1,187 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "00 Build Project",
+            "type": "shell",
+            "command": "${workspaceFolder}/scripts/build.sh",
+            "args": [
+                "debug"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "OPK_PROJECT_ROOT": "${workspaceFolder}"
+                }
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": [
+                {
+                    "base": "$gcc",
+                    "fileLocation": [
+                        "relative",
+                        "${workspaceFolder}/development/build-active"
+                    ]
+                }
+            ]
+        },
+        {
+            "label": "00 Run project with menu",
+            "type": "shell",
+            "command": "${workspaceFolder}/tools/opk-menu",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "GST_PLUGIN_PATH": "${workspaceFolder}/development/build-active/meson-out",
+                    "OPK_PROJECT_ROOT": "${workspaceFolder}"
+                }
+            },
+            "args": [],
+            "problemMatcher": []
+        },
+        {
+            "label": "00 Run project with latest pipeline",
+            "type": "shell",
+            "command": "${workspaceFolder}/tools/opk-menu",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "GST_PLUGIN_PATH": "${workspaceFolder}/development/build-active/meson-out",
+                    "OPK_PROJECT_ROOT": "${workspaceFolder}"
+                }
+            },
+            "args": [
+                "-l"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "00 Run project and select pipeline",
+            "type": "shell",
+            "command": "${workspaceFolder}/tools/opk-menu",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "GST_PLUGIN_PATH": "${workspaceFolder}/development/build-active/meson-out",
+                    "OPK_PROJECT_ROOT": "${workspaceFolder}"
+                }
+            },
+            "args": [
+                "${input:selectedPipeline}"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "01 Clean Project",
+            "type": "shell",
+            "command": "${workspaceFolder}/scripts/build.sh",
+            "args": [
+                "clean"
+            ],
+            "group": "build",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "OPK_PROJECT_ROOT": "${workspaceFolder}"
+                }
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "02 Build Tests",
+            "type": "shell",
+            "command": "${workspaceFolder}/scripts/build.sh",
+            "args": [
+                "debug",
+                "true"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "OPK_PROJECT_ROOT": "${workspaceFolder}"
+                }
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": [
+                {
+                    "base": "$gcc",
+                    "fileLocation": [
+                        "relative",
+                        "${workspaceFolder}/development/build-active"
+                    ]
+                }
+            ]
+        },
+        {
+            "label": "03 Run Tests",
+            "type": "shell",
+            "command": "meson",
+            "args": [
+                "test",
+                "-C",
+                "${workspaceFolder}/development/build-active",
+                "--print-errorlogs"
+            ],
+            "group": "test",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "OPK_PROJECT_ROOT": "${workspaceFolder}"
+                }
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": []
+        }
+    ],
+    "inputs": [
+        {
+            "id": "buildType",
+            "description": "Build Type:",
+            "type": "pickString",
+            "options": [
+                "debug",
+                "release"
+            ]
+        },
+        {
+            "id": "selectedPipeline",
+            "description": "Pipeline:",
+            "type": "pickString",
+            "default": "yolov11-onnx",
+            "options": [
+                "yolov11-onnx",
+                "01-full-onnx",
+                "cam-connect",
+                "gaze-detection",
+                "tracker-pc"
+            ]
+        }
+    ]
+}
