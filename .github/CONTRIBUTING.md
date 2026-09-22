@@ -9,7 +9,8 @@
   - first line: short description
   - second line: `Task: EXPKITS-1234`
   - remaining lines: optional details
-- Use a pull request title in the form `EXPKITS-1234: short summary`.
+- Use a Conventional Commit pull request title, for example
+  `ci: EXPKITS-1234 simplify CI workflows`. Titles are validated for pull requests targeting `main`.
 - Fill out the pull request template with `Goal`, `Change`, and `Testing`.
 - For pull requests, CI can be rerun by adding the `run-opk-ci` label.
 - A pull request targeting `main` must set a new stable version in
