@@ -70,7 +70,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
                 with self.subTest(name=name, version=version):
                     self.assertFalse(validator.is_valid(version))
 
-    def test_tokenless_defaults_use_bundled_yolov11(self) -> None:
+    def test_tokenless_defaults_use_bundled_yolo26(self) -> None:
         pipeline = json.loads(
             (REPO_ROOT / "config/pipelines/yolo26-onnx.json").read_text()
         )
@@ -81,7 +81,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
             inference_steps,
             [
                 'opkinfer opchain-path="${OPK_PROJECT_ROOT:-/work}/config/models/'
-                'yolov11/opchain.json" active=true !'
+                'yolo26/opchain.json" active=true !'
             ],
         )
         self.assertIn(
@@ -107,7 +107,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
         self.assertTrue(
             (
                 REPO_ROOT
-                / "config/models/yolov11/yolo11n-fp32-320.onnx"
+                / "config/models/yolo26/yolo26n.onnx"
             ).is_file()
         )
 
@@ -430,6 +430,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
             "config/models/**/*.pte",
             "!config/models/paddleocr/classification.onnx",
             "!config/models/paddleocr/recognition.onnx",
+            "!config/models/yolo26/yolo26n.onnx",
             "!config/models/yolov11/yolo11n-fp32-320.onnx",
             "!config/models/yolox/yolox_nano.pte",
         ]
