@@ -74,13 +74,6 @@ package "Dockerfile\ncore cross-lane stage graph" {
     dev_base --> docs_image : FROM
   }
 
-  package "CI Image Lane" {
-    component "opk-ci\nbroad verification target" as ci_image #bbf7d0
-
-    dev_base --> ci_image : FROM
-    demo_media ..> ci_image : COPY demo videos\n/opt/opk-app/data/videos
-  }
-
   package "Deployment Build and Runtime Images" {
     component "opk-cross-build-base\ncross-build root" as cross_base #bfdbfe
     component "opk-deployment-build\nrelease toolchain and builder\ncollects app + SDK + tarball" as deployment_build #fed7aa
@@ -107,28 +100,12 @@ package "CI Service Mapping" {
   component "CI: opk-build-base" as ci_build_base #fef3c7
   component "Nightly: opk-deployment-base\namd64 + arm64 image and full cache" as ci_deploy #fef3c7
   component "Arm64 CI: development image\nexact SHA or registry layer cache" as ci_dev #fef3c7
-  component "CI: opk-release-with-ut" as ci_release #fef3c7
-  component "CI: opk-valgrind-check" as ci_valgrind #fef3c7
-  component "CI: opk-generate-valgrind-summary" as ci_valgrind_summary #fef3c7
-  component "CI: opk-quality-check-full" as ci_quality_full #fef3c7
-  component "CI: opk-sonar-check" as ci_sonar #fef3c7
-  component "CI: opk-sonar-check-release" as ci_sonar_release #fef3c7
-  component "CI: opk-quality-check-pull-request" as ci_quality_pr #fef3c7
-  component "CI: opk-clang-tidy-baseline-check" as ci_clang_tidy #fef3c7
   component "CI: opk-pre-commit-runtime" as ci_pre_commit #fef3c7
   component "CI: opk-playwright-pages" as ci_pages #fef3c7
 
   build_base ..> ci_build_base : image target
   deployment_image ..> ci_deploy : image target
   dev_ci ..> ci_dev : image target
-  ci_image ..> ci_release : runs build/tests\nfrom checkout
-  ci_image ..> ci_valgrind : runs valgrind tests\nfrom checkout
-  ci_image ..> ci_valgrind_summary : parses valgrind logs
-  ci_image ..> ci_quality_full : quality checks + docs
-  ci_image ..> ci_sonar : coverage + sonar scan
-  ci_image ..> ci_sonar_release : coverage + release scan
-  ci_image ..> ci_quality_pr : PR checks
-  ci_image ..> ci_clang_tidy : clang-tidy baseline
   pre_commit ..> ci_pre_commit : repo checks
   pages ..> ci_pages : report page publishing
   yolo_dataset ..> ci_pages : pull benchmark inputs

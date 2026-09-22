@@ -20,7 +20,6 @@ AGENT_STATIC_PYTHON_PATHS = (
     "scripts/private/github_actions.py",
     "scripts/private/github_api.py",
     "scripts/private/github_pr_context.py",
-    "scripts/private/sonar_quality_gate_workflow.py",
     "scripts/private/agent_runtime",
     "scripts/private/agent_repair_orchestrator",
     "scripts/private/agent_stabilization_orchestrator",
