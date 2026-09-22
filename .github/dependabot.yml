@@ -5,14 +5,21 @@ updates:
       - "/"
       - "/tools/opk-ci"
     groups:
-      shared-sdk-tools:
+      python-minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+      python-major:
         group-by: dependency-name
         patterns:
-          - autopep8
-          - pycodestyle
-          - clang-format
+          - "*"
+        update-types:
+          - major
     schedule:
-      interval: daily
+      interval: weekly
+      day: monday
       timezone: Europe/London
     open-pull-requests-limit: 10
     rebase-strategy: disabled
