@@ -1,0 +1,77 @@
+name: Formatting
+
+on:
+  pull_request:
+    paths:
+      - '**.c'
+      - '**.cc'
+      - '**.cpp'
+      - '**.cxx'
+      - '**.h'
+      - '**.hh'
+      - '**.hpp'
+      - '**.hxx'
+      - '**.tpp'
+      - '**.py'
+      - '**.pyi'
+      - '**.sh'
+      - '**.cmake'
+      - '**/CMakeLists.txt'
+      - '.clang-format'
+      - '.cmake-format.yaml'
+      - 'setup.cfg'
+      - 'requirements/sdk.txt'
+      - '.github/workflows/formatting.yml'
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  formatting:
+    name: Format (${{ matrix.language }})
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: C and C++
+            install: python3 -m pip install -r requirements/sdk.txt
+            files: "'*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hh' '*.hpp' '*.hxx' '*.tpp'"
+            check: clang-format --dry-run --Werror
+          - language: Python
+            install: python3 -m pip install -r requirements/sdk.txt
+            files: "'*.py' '*.pyi'"
+            check: autopep8 --diff --exit-code
+          - language: CMake
+            install: python3 -m pip install -r requirements/sdk.txt
+            files: "'*.cmake' '**/CMakeLists.txt' 'CMakeLists.txt'"
+            check: cmake-format -c .cmake-format.yaml --check
+          - language: Shell
+            install: GOBIN="$HOME/.local/bin" go install mvdan.cc/sh/v3/cmd/shfmt@v3.8.0
+            files: "'*.sh'"
+            check: shfmt -i 4 -ci -sr -kp -d
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+
+      - name: Install formatter
+        run: |
+          python3 -m venv "$RUNNER_TEMP/formatting"
+          echo "$RUNNER_TEMP/formatting/bin" >> "$GITHUB_PATH"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          source "$RUNNER_TEMP/formatting/bin/activate"
+          ${{ matrix.install }}
+
+      - name: Check formatting
+        run: |
+          git ls-files -z -- ${{ matrix.files }} \
+            ':!:generated/**' ':!:deps/**' ':!:development/subprojects/**' \
+            ':!:development/build/**' ':!:tools/opk-ci/tests/fixtures/**' |
+            xargs -0 -r ${{ matrix.check }}

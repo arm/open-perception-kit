@@ -1,0 +1,10 @@
+{
+  "gcc": "14",
+  "python": "3.14.7",
+  "node": "22.23.2",
+  "onnxruntime": "1.24.4",
+  "onnxruntime-sha256-x64": "3a211fbea252c1e66290658f1b735b772056149f28321e71c308942cdb54b747",
+  "onnxruntime-sha256-aarch64": "866109a9248d057671a039b9d725be4bd86888e3754140e6701ec621be9d4d7e",
+  "gst-python": "1.24.12",
+  "gst-python-sha256": "d679e2ca3e655a7328627c4670c324fc22f588d2cb8ecd2fa7a6a42df51132cc"
+}

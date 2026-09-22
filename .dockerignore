@@ -23,6 +23,9 @@
 !scripts/
 !scripts/**
 
+!requirements/
+!requirements/**
+
 !development/
 !development/**
 
@@ -41,6 +44,7 @@ config/models/**/*.onnx
 config/models/**/*.pte
 !config/models/paddleocr/classification.onnx
 !config/models/paddleocr/recognition.onnx
+!config/models/yolo26/yolo26n.onnx
 !config/models/yolov11/yolo11n-fp32-320.onnx
 !config/models/yolox/yolox_nano.pte
 !tools/

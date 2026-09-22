@@ -1,0 +1,12 @@
+################################################################
+# Copyright (C) 2026 Arm Limited. All rights reserved.
+################################################################
+
+line_ending: unix
+line_width: 220
+tab_size: 4
+separate_ctrl_name_with_space: false
+separate_fn_name_with_space: false
+dangle_parens: false
+max_pargs_hwrap: 32
+first_comment_is_literal: true

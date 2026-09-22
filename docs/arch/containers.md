@@ -5,7 +5,7 @@ sidebar_label: Containers
 
 # Container Structure
 
-OPK uses separate container image lanes for development, CI, documentation,
+OPK uses separate container image lanes for development, documentation,
 pre-commit checks, and deployment. The structure keeps tool-heavy images away
 from runtime images while still giving each workflow a reproducible environment.
 
@@ -13,7 +13,7 @@ from runtime images while still giving each workflow a reproducible environment.
 
 ## Architecture
 
-The container graph is organized into five lanes. The arrows below mirror the
+The container graph is organized into four lanes. The arrows below mirror the
 current Dockerfile `FROM` and artifact-copy relationships.
 
 ```text
@@ -44,12 +44,6 @@ Development tooling lane
 Documentation lane
   opk-dev-base
     -> opk-docs
-
-CI lane
-  opk-dev-base
-    -> opk-ci
-  opk-demo-media
-    --copy demo videos--> opk-ci
 
 Deployment lane
   opk-build-base
@@ -87,11 +81,9 @@ development image and its full registry cache. macOS and YOLO use the exact
 image when it exists and rebuild from that cache otherwise. Raspberry Pi
 quick-start imports the same cache while rebuilding the camera-enabled
 `opk-dev` target.
-`opk-release-with-ut`, `opk-valgrind-check`,
-`opk-generate-valgrind-summary`, `opk-quality-check-full`, `opk-sonar-check`,
-`opk-sonar-check-release`, `opk-quality-check-pull-request`, and
-`opk-clang-tidy-baseline-check` run in the `opk-ci` image. Repository-check and
-report-page jobs use their helper images. Deployment build/audit jobs use
+Native Meson, Valgrind, and clang-tidy workflows use the shared
+`.github/actions/setup-build` action. Quick-start smoke uses `opk-dev`.
+Host pre-commit hooks build `Dockerfile.pre-commit` directly. Deployment build/audit jobs use
 `opk-build-base` and `opk-deployment-base`. Binary release jobs build the
 existing `opk-deployment-base` target natively, export its validated archive,
 and combine the native digests into one published multi-architecture image.
@@ -208,11 +200,6 @@ stages inherit everything from their parent unless noted otherwise.
   does not copy the repository or prebuilt OPK binaries into the image.
 - `opk-docs`: adds `openjdk-25-jdk`, Graphviz, Pandoc, Doxygen, and the
   PlantUML JAR.
-- `opk-ci`: adds the docs toolchain plus `gcovr`, Python development and
-  GObject/GStreamer bindings, compression/database development
-  libraries, the PlantUML JAR, and Sonar Scanner. It copies demo videos from
-  `opk-demo-media`; the inherited entrypoint verifies and seeds them into the
-  mounted checkout.
 - `opk-deployment-build`: inherits `opk-cross-build-base`, adds the target
   sysroot when cross-building, installs target ONNX Runtime, downloads Meson
   subprojects, consumes resolved model artifacts from `opk-models` and demo
@@ -259,9 +246,9 @@ a mounted checkout. It may carry resolved model artifacts for first-run setup,
 but it should contain tools and dependency libraries, not a prebuilt copy of OPK
 from the repository.
 
-The CI lane reuses the development base and adds broad verification tools. CI
-jobs build and test the checked-out source at job runtime instead of depending
-on OPK binaries baked into the CI image.
+CI jobs build and test the checked-out source at job runtime. There is no
+separate general-purpose CI image. The `opk-ci` Python tool remains installed
+in the development and pre-commit images.
 
 The documentation lane is separate from general CI. The `opk-docs` image reuses
 the development base and adds documentation tools such as Doxygen, Pandoc,
@@ -288,8 +275,8 @@ running the kit from a mounted checkout. Binary release jobs build
 `opk-deployment-base`, publish its native digests as one GHCR image, and extract
 its prebuilt architecture archives.
 
-Use the CI image for unit tests, coverage, Valgrind, Sonar, clang-tidy baseline
-checks, and PR quality gates.
+Use the development container for local tests, Valgrind, and `opk-ci` commands.
+See [CI workflows](../../.github/CI-README.md) for the standalone CI checks.
 
 Use the documentation image when generating public docs, Doxygen output, and
 PlantUML diagrams.

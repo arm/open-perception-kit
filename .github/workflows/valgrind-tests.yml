@@ -1,0 +1,109 @@
+name: Valgrind
+
+on:
+  pull_request:
+    paths:
+      - '**.c'
+      - '**.cc'
+      - '**.cpp'
+      - '**.cxx'
+      - '**.h'
+      - '**.hh'
+      - '**.hpp'
+      - '**.hxx'
+      - '**.tpp'
+      - '**/meson.build'
+      - '**/meson.options'
+      - '**/meson_options.txt'
+      - '**.wrap'
+      - 'config/**'
+      - 'schemas/**'
+      - 'development/tests/**'
+      - '.github/actions/setup-build/**'
+      - '.github/actions/setup-sdk/**'
+      - 'tools/flowdata-sdk/**'
+      - 'requirements/**'
+      - 'scripts/setup-python-ops-runtime.sh'
+      - 'scripts/private/install-perception-flatbuffers.sh'
+      - 'scripts/private/install-onnxruntime.sh'
+      - 'tools/perception/sdk.json'
+      - 'tools/perception/sdk_config.py'
+      - 'development/ops-python/runtime.json'
+      - 'development/web/package-lock.json'
+      - 'scripts/build.sh'
+      - 'scripts/testing/valgrind/**'
+      - '.github/workflows/valgrind-tests.yml'
+  push:
+    branches: [main, develop]
+    paths:
+      - 'development/**'
+      - 'generated/perception/cpp/**'
+      - 'config/**'
+      - 'schemas/**'
+      - '.github/actions/setup-build/**'
+      - '.github/actions/setup-sdk/**'
+      - 'tools/flowdata-sdk/**'
+      - 'requirements/**'
+      - 'scripts/setup-python-ops-runtime.sh'
+      - 'scripts/private/install-perception-flatbuffers.sh'
+      - 'scripts/private/install-onnxruntime.sh'
+      - 'tools/perception/sdk.json'
+      - 'tools/perception/sdk_config.py'
+      - 'scripts/build.sh'
+      - 'scripts/testing/valgrind/**'
+      - '.github/workflows/valgrind-tests.yml'
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  valgrind:
+    name: Valgrind
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+
+      - name: Set up build environment
+        uses: ./.github/actions/setup-build
+
+      - name: Install Valgrind
+        run: sudo apt-get install -y valgrind
+
+      - name: Build
+        run: ./scripts/build.sh debug true
+
+      - name: Check native tests
+        run: |
+          meson introspect development/build-active --tests > "$RUNNER_TEMP/meson-tests.json"
+          python3 - <<'PY' > "$RUNNER_TEMP/native-tests.txt"
+          import json
+          import os
+          from pathlib import Path
+
+          build = Path('development/build-active').resolve()
+          tests = Path(os.environ['RUNNER_TEMP']) / 'meson-tests.json'
+          for test in json.loads(tests.read_text()):
+              if Path(test['cmd'][0]).resolve().is_relative_to(build):
+                  print(test['name'])
+          PY
+          mapfile -t native_tests < "$RUNNER_TEMP/native-tests.txt"
+          test "${#native_tests[@]}" -gt 0
+          meson test -C development/build-active --no-rebuild \
+            --print-errorlogs --num-processes 1 --timeout-multiplier 10 \
+            --wrapper "valgrind --error-exitcode=99 --leak-check=full --errors-for-leak-kinds=definite --suppressions='$OPK_PROJECT_ROOT/scripts/testing/valgrind/suppressed-warnings'" \
+            "${native_tests[@]}"
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: valgrind-test-logs
+          path: development/build-active/meson-logs/
+          if-no-files-found: warn
+          retention-days: 7

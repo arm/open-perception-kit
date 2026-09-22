@@ -1,0 +1,44 @@
+name: SDK tests
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  python-tests:
+    name: SDK Python tests
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+
+      - name: Generate SDKs
+        uses: ./.github/actions/setup-sdk
+
+      - name: Run Python tests
+        run: python3 -m unittest discover -s tools/perception/tests -v
+
+  rust-tests:
+    name: SDK Rust tests
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+
+      - name: Generate SDKs
+        uses: ./.github/actions/setup-sdk
+
+      - name: Run Rust tests
+        run: cargo test --manifest-path generated/perception/rust/Cargo.toml
