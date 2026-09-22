@@ -1,4 +1,4 @@
-name: Valgrind tests
+name: Valgrind
 
 on:
   pull_request:
@@ -59,8 +59,8 @@ permissions:
   contents: read
 
 jobs:
-  valgrind-tests:
-    name: Valgrind tests
+  valgrind:
+    name: Valgrind
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 60
     steps:
