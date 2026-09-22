@@ -6,6 +6,7 @@
 """Focused checks for release model discovery and staging."""
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -105,9 +106,12 @@ def add_release_identity(repo_root: Path) -> None:
 
 class ReleaseToolTests(unittest.TestCase):
     def run_tool(self, *arguments: str, cwd: Path = REPO_ROOT) -> subprocess.CompletedProcess[str]:
+        environment = os.environ.copy()
+        environment.pop("GITHUB_OUTPUT", None)
         return subprocess.run(
             ["python3", str(TOOL), *arguments],
             cwd=cwd,
+            env=environment,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,

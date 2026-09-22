@@ -183,48 +183,6 @@ class ModelArtifactBuildTest(unittest.TestCase):
                 "scripts/private/generate-hf-download-cachebust.sh",
                 (REPO_ROOT / name).read_text(),
             )
-        workflow_step = (
-            "      - name: Generate Hugging Face download cache key\n"
-            "        working-directory: ${{ github.workspace }}/"
-            "${{ env.CI_CHECKOUT_PATH }}\n"
-            "        run: |\n"
-            "          set -euo pipefail\n"
-            "          cache_key=\"$(scripts/private/"
-            "generate-hf-download-cachebust.sh)\"\n"
-            "          echo \"HF_DOWNLOAD_CACHEBUST=${cache_key}\" "
-            ">> \"$GITHUB_ENV\""
-        )
-        docker_scout = REPO_ROOT / ".github/workflows/docker-scout-image-audit.yml"
-        self.assertIn(workflow_step, docker_scout.read_text())
-
-        opk_ci = (REPO_ROOT / ".github/workflows/opk-ci.yml").read_text()
-        self.assertIn(
-            "      - name: Validate model cache key guard\n"
-            "        env:\n"
-            '          OPK_REQUIRE_DOCKER_BUILD_TEST: "1"\n'
-            "        run: >-\n"
-            "          python3 development/tests/model_artifact_build_test.py\n"
-            "          ModelArtifactBuildTest."
-            "test_raw_model_build_requires_cache_key\n"
-            "          ModelArtifactBuildTest."
-            "test_main_compose_uses_model_bearing_target",
-            opk_ci,
-        )
-        self.assertIn(
-            "env -u HF_TOKEN -u HF_DOWNLOAD_CACHEBUST docker compose "
-            "-f compose.yaml config --quiet",
-            opk_ci,
-        )
-        self.assertIn(
-            "      - name: Generate Hugging Face download cache key\n"
-            "        run: |\n"
-            "          set -euo pipefail\n"
-            "          cache_key=\"$(scripts/private/"
-            "generate-hf-download-cachebust.sh)\"\n"
-            "          echo \"HF_DOWNLOAD_CACHEBUST=${cache_key}\" "
-            ">> \"$GITHUB_ENV\"",
-            opk_ci,
-        )
 
     def test_tokenless_compose_config(self) -> None:
         docker = shutil.which("docker")

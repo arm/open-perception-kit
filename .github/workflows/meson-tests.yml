@@ -27,6 +27,9 @@ jobs:
       - name: Build
         run: ./scripts/build.sh release true
 
+      - name: Install test dependencies
+        run: python3 -m pip install -r requirements/tests.txt
+
       - name: Run tests
         run: meson test -C development/build-active --print-errorlogs
 
