@@ -1,7 +1,16 @@
 version: 2
 updates:
   - package-ecosystem: pip
-    directory: "/"
+    directories:
+      - "/"
+      - "/tools/opk-ci"
+    groups:
+      shared-sdk-tools:
+        group-by: dependency-name
+        patterns:
+          - autopep8
+          - pycodestyle
+          - clang-format
     schedule:
       interval: daily
       timezone: Europe/London
