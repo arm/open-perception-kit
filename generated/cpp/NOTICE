@@ -1,0 +1,4 @@
+Perception SDK
+Copyright (C) 2025-2026 Arm Limited.
+
+Third-party runtime dependencies retain their own licences and notices.

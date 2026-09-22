@@ -1,0 +1,9 @@
+[package]
+name = "perception"
+version = "0.3.1"
+license = "Apache-2.0"
+edition = "2021"
+description = "Generated perception Rust SDK"
+
+[dependencies]
+flatbuffers = "=25.9.23"
