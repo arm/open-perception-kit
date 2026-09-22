@@ -79,13 +79,13 @@ The easiest path is HTTPS cloning. It does not require an SSH key.
 Run in the **WSL shell**:
 
 ```bash
-git clone https://github.com/Arm-Debug/amp-dev-forge.git
-cd amp-dev-forge
+git clone https://github.com/arm/open-perception-kit.git
+cd open-perception-kit
 ```
 
 If you must clone with SSH, set up your key first: [GitHub SSH Key Setup](github-ssh-key.md).
 
-Expected result: you are in the `amp-dev-forge` folder in WSL.
+Expected result: you are in the `open-perception-kit` folder in WSL.
 
 ### Optional private or gated model access
 
@@ -115,7 +115,7 @@ Run these commands in the **WSL shell**, from the repository folder:
 ```
 
 The scripts create or reuse the development container, build OPK inside it,
-and run the bundled `yolov11-onnx` sample. Keep the last command running and
+and run the bundled `yolo26-onnx` sample. Keep the last command running and
 continue to [Open The Web UI](#7-open-the-web-ui).
 
 Expected result: the build prints
@@ -134,7 +134,7 @@ This is optional; `build.sh` and `run.sh` work directly from the WSL shell.
 
 Skip this section if you used the command-line-only workflow.
 
-Run in the **WSL shell**, from the `amp-dev-forge` folder:
+Run in the **WSL shell**, from the `open-perception-kit` folder:
 
 ```bash
 code .
@@ -149,7 +149,7 @@ VS Code should open the folder through WSL. In VS Code:
 
 ![VS Code command palette showing Reopen in Container](/img/05-reopen-in-container.png)
 
-3. Choose **PC perception-experience-kit**.
+3. Choose **PC open-perception-kit**.
 
 ![VS Code Dev Container selection dialog](/img/06-reopen-in-container2.png)
 
@@ -184,10 +184,10 @@ Expected result: the build finishes without errors and `tools/opk-menu` exists.
 Run in the **Docker shell** (either in VSCode devcontainer or in WSL after entering with `enter_cli.sh`):
 
 ```bash
-./tools/opk-menu yolov11-onnx
+./tools/opk-menu yolo26-onnx
 ```
 
-You can also use the VS Code task **00 Run project and select pipeline** and choose `yolov11-onnx`.
+You can also use the VS Code task **00 Run project and select pipeline** and choose `yolo26-onnx`.
 
 ![OPK pipeline selection view](/img/09-select-pipeline.png)
 
@@ -224,10 +224,10 @@ To run the last selected pipeline again, run in the **Docker shell**:
 - If container initialization reports that host-address loopback is required,
   update `%UserProfile%\.wslconfig`, run **wsl --shutdown** from Windows
   PowerShell, and reopen WSL.
-- If Docker reports that `/perception-experience-kit` is already in use, check
-  `docker ps -a --filter name='^/perception-experience-kit$'`. If it is an old
+- If Docker reports that `/open-perception-kit` is already in use, check
+  `docker ps -a --filter name='^/open-perception-kit$'`. If it is an old
   OPK container you no longer need, remove it with
-  `docker rm --force perception-experience-kit`, then rerun
+  `docker rm --force open-perception-kit`, then rerun
   `./scripts/quick_start.sh`. This removes the container, not repository files.
 - If VS Code says the container cannot start, make sure Docker Desktop is open.
 - If Docker commands fail in WSL, check Docker Desktop WSL integration.

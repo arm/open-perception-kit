@@ -103,8 +103,8 @@ If these checks fail, fix them before opening the project in VS Code. The Dev Co
 Run in the **Raspberry Pi shell**:
 
 ```bash
-git clone https://github.com/Arm-Debug/amp-dev-forge.git
-cd amp-dev-forge
+git clone https://github.com/arm/open-perception-kit.git
+cd open-perception-kit
 ```
 
 HTTPS cloning is the simplest first path. If you must clone with SSH, use [GitHub SSH Key Setup](github-ssh-key.md).
@@ -112,7 +112,7 @@ HTTPS cloning is the simplest first path. If you must clone with SSH, use [GitHu
 Until OPK is not released to a public repository, the SSH method has to be used:
 
 ```bash
-git clone git@github.com:Arm-Debug/amp-dev-forge.git
+git clone git@github.com:arm/open-perception-kit.git
 
 ```
 
@@ -185,7 +185,7 @@ In the VS Code remote window:
 
 ![VS Code reopening the Raspberry Pi project in a Dev Container](/img/20-reopen-in-container.png)
 
-4. Choose **Raspberry Pi 5 perception-experience-kit**.
+4. Choose **Raspberry Pi 5 open-perception-kit**.
 
 VS Code may say that it is building the container. Think of this as preparing the OPK environment. It can take several minutes on the first run.
 
@@ -219,7 +219,7 @@ Run in the **Docker shell on the Raspberry Pi**:
 ./tools/opk-menu full-onnx-raspicam
 ```
 
-For a USB camera exposed as `/dev/video0`, run `./tools/opk-menu full-onnx-usb-cam` instead. Use `./tools/opk-menu yolov11-onnx` when you want the bundled video-file source.
+For a USB camera exposed as `/dev/video0`, run `./tools/opk-menu full-onnx-usb-cam` instead. Use `./tools/opk-menu yolo26-onnx` when you want the bundled video-file source.
 
 Leave this terminal open. The pipeline is running while this command is active.
 

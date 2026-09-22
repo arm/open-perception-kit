@@ -94,13 +94,13 @@ use the target Pi IP address.
 In the Raspberry Pi 5 terminal run:
 
 ```bash
-git clone https://github.com/Arm-Debug/amp-dev-forge.git
-cd amp-dev-forge
+git clone https://github.com/arm/open-perception-kit.git
+cd open-perception-kit
 ```
 
 ### 2. Install prerequisites, build and start the Docker Container
 
-Enter the `amp-dev-forge` folder in the terminal and run:
+Enter the `open-perception-kit` folder in the terminal and run:
 
 ```bash
 ./scripts/quick_start.sh
@@ -225,7 +225,7 @@ Pick your next step.
 | `docker info` fails | Confirm Docker Engine is installed and running from Docker's Debian installation guide. If it reports a permissions error, run `sudo usermod -aG docker "$USER"`, reconnect, and try again. |
 | Docker Compose cannot find the service | Rerun `./scripts/quick_start.sh` to regenerate the container configuration. |
 | Build fails | Fix the first missing package, permission, or container error shown in the build output. |
-| Pipeline exits immediately | Rerun `./scripts/run.sh yolov11-onnx` and inspect the first missing plugin, model, or file. |
+| Pipeline exits immediately | Rerun `./scripts/run.sh yolo26-onnx` and inspect the first missing plugin, model, or file. |
 | Viewer does not load | Keep the pipeline terminal running, use the target Pi IP address, and check port `9999`. |
 | A model produces no overlay | Confirm the model and any upstream dependencies are enabled, then check the debug log or model state in the viewer. |
 

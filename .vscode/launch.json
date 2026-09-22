@@ -1,0 +1,117 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Open Perception Kit Debug latest",
+            "preLaunchTask": "00 Build Project",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/tools/opk-menu",
+            "args": [
+                "-l"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [
+                {
+                    "name": "OPK_PROJECT_ROOT",
+                    "value": "${workspaceFolder}"
+                },
+                {
+                    "name": "GST_PLUGIN_PATH",
+                    "value": "${workspaceFolder}/development/build-active/meson-out"
+                }
+            ],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set disassembly flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "Open Perception Kit Debug selection",
+            "preLaunchTask": "00 Build Project",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/tools/opk-menu",
+            "args": [
+                "${input:selectedPipeline}"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [
+                {
+                    "name": "OPK_PROJECT_ROOT",
+                    "value": "${workspaceFolder}"
+                },
+                {
+                    "name": "GST_PLUGIN_PATH",
+                    "value": "${workspaceFolder}/development/build-active/meson-out"
+                }
+            ],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set disassembly flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "Open Perception Kit Debug for Colima (LLDB)",
+            "preLaunchTask": "00 Build Project",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/tools/opk-menu",
+            "args": [
+                "-l"
+            ],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "OPK_PROJECT_ROOT": "${workspaceFolder}",
+                "GST_PLUGIN_PATH": "${workspaceFolder}/development/build-active/meson-out"
+            }
+        },
+        {
+            "name": "Attach to PyBind",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 5678
+            },
+            "justMyCode": false
+        }
+    ],
+    "inputs": [
+        {
+            "id": "selectedPipeline",
+            "type": "pickString",
+            "description": "Selected pipeline to debug.",
+            "default": "yolov11-onnx",
+            "options": [
+                "yolov11-onnx",
+                "01-full-onnx",
+                "cam-connect",
+                "gaze-detection",
+                "tracker-pc"
+            ]
+        }
+    ]
+}

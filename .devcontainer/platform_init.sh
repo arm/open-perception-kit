@@ -12,7 +12,7 @@ TARGET_SERVICE_KIND="${1:-opk-dev}"
 OPK_PICAMERA="${2:-disabled}"
 OPK_WEBRTC_TURN="${3:-disabled}"
 TARGET_CONTAINER_KIND="${4:-devcont}"
-OPK_BUILD_BASE_IMAGE="${OPK_BUILD_BASE_IMAGE:-${OPK_DEV_CONTAINER_NAME:-perception-experience-kit}-build-base}"
+OPK_BUILD_BASE_IMAGE="${OPK_BUILD_BASE_IMAGE:-${OPK_DEV_CONTAINER_NAME:-open-perception-kit}-build-base}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"

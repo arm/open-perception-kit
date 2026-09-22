@@ -20,7 +20,7 @@ import urllib.request
 import zipfile
 
 GITHUB_API_VERSION = "2022-11-28"
-GITHUB_USER_AGENT = "amp-dev-forge-github-api"
+GITHUB_USER_AGENT = "open-perception-kit-github-api"
 
 GITHUB_ARCHIVE_REDIRECT_HOST_SUFFIXES = (
     ".actions.githubusercontent.com",

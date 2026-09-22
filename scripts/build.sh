@@ -29,7 +29,7 @@ Optional backend feature environment variables:
   OPK_PYTHON_OPS=enabled|disabled|auto  or  python_ops=enabled|disabled|auto
 
 Project location:
-  OPK_PROJECT_ROOT=/absolute/path/to/amp-dev-forge
+  OPK_PROJECT_ROOT=/absolute/path/to/open-perception-kit
       Selects a native build from that checkout. Container builds continue to
       use /work when the variable is unset.
 EOF

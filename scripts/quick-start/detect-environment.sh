@@ -103,7 +103,7 @@ detect_environment() {
             OPK_PLATFORM_ID="macos"
             OPK_PLATFORM_NAME="macOS"
             OPK_CONTAINER_SERVICE="opk-dev"
-            OPK_CONTAINER_NAME="${OPK_DEV_CONTAINER_NAME:-perception-experience-kit}"
+            OPK_CONTAINER_NAME="${OPK_DEV_CONTAINER_NAME:-open-perception-kit}"
             OPK_SUPPORTED="true"
             ;;
         Linux)
@@ -111,20 +111,20 @@ detect_environment() {
                 OPK_PLATFORM_ID="wsl"
                 OPK_PLATFORM_NAME="Windows Subsystem for Linux"
                 OPK_CONTAINER_SERVICE="opk-dev"
-                OPK_CONTAINER_NAME="${OPK_DEV_CONTAINER_NAME:-perception-experience-kit}"
+                OPK_CONTAINER_NAME="${OPK_DEV_CONTAINER_NAME:-open-perception-kit}"
                 OPK_SUPPORTED="true"
             elif grep -qi "raspberry pi 5" <<< "$OPK_RPI_MODEL"; then
                 OPK_PICAMERA="enabled"
                 OPK_PLATFORM_ID="rpi5"
                 OPK_PLATFORM_NAME="Raspberry Pi 5"
                 OPK_CONTAINER_SERVICE="opk-dev"
-                OPK_CONTAINER_NAME="${OPK_DEV_CONTAINER_NAME:-perception-experience-kit}"
+                OPK_CONTAINER_NAME="${OPK_DEV_CONTAINER_NAME:-open-perception-kit}"
                 OPK_SUPPORTED="true"
             elif [[ "$OPK_UNAME_M" == "x86_64" || "$OPK_UNAME_M" == "amd64" ]]; then
                 OPK_PLATFORM_ID="linux-x86_64"
                 OPK_PLATFORM_NAME="Linux x86_64"
                 OPK_CONTAINER_SERVICE="opk-dev"
-                OPK_CONTAINER_NAME="${OPK_DEV_CONTAINER_NAME:-perception-experience-kit}"
+                OPK_CONTAINER_NAME="${OPK_DEV_CONTAINER_NAME:-open-perception-kit}"
                 OPK_SUPPORTED="true"
             else
                 OPK_UNSUPPORTED_REASON="Linux host is not Raspberry Pi 5 or x86_64."

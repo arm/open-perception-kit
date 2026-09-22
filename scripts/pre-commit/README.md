@@ -1,6 +1,6 @@
 # pre-commit scripts
 
-This folder owns the host-side pre-commit container flow for `amp-dev-forge`.
+This folder owns the host-side pre-commit container flow for `open-perception-kit`.
 
 ## Scope
 

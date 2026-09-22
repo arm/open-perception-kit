@@ -21,7 +21,7 @@ The same native builds are also available as one multi-architecture runnable
 image. Docker selects the matching amd64 or arm64 manifest automatically:
 
 ```bash
-docker pull ghcr.io/arm-debug/amp-dev-forge-deployment:<version>
+docker pull ghcr.io/arm/open-perception-kit-deployment:<version>
 ```
 
 Release notes provide the immutable image digest. Use the digest-qualified

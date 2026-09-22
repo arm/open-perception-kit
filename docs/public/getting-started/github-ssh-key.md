@@ -10,13 +10,13 @@ description: Create and register a GitHub SSH key when you need to clone Open Pe
 This page is only needed if you want to clone OPK with an SSH URL such as:
 
 ```text
-git@github.com:Arm-Debug/amp-dev-forge.git
+git@github.com:arm/open-perception-kit.git
 ```
 
 For the quickest first run, you can skip this page and clone with HTTPS instead:
 
 ```text
-https://github.com/Arm-Debug/amp-dev-forge.git
+https://github.com/arm/open-perception-kit.git
 ```
 
 ## 1. Check Whether You Already Have A Key
@@ -85,7 +85,7 @@ Expected result: GitHub says that you successfully authenticated. It may also sa
 You can now clone with SSH:
 
 ```bash
-git clone git@github.com:Arm-Debug/amp-dev-forge.git
+git clone git@github.com:arm/open-perception-kit.git
 ```
 
 [Back to Get Started](/getting-started)

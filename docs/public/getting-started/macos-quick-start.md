@@ -40,8 +40,8 @@ The easiest path is HTTPS cloning. It does not require an SSH key.
 Run in the **host shell**:
 
 ```bash
-git clone https://github.com/Arm-Debug/amp-dev-forge.git
-cd amp-dev-forge
+git clone https://github.com/arm/open-perception-kit.git
+cd open-perception-kit
 ```
 
 If you must clone with SSH, set up your key first: [GitHub SSH Key Setup](github-ssh-key.md).
@@ -79,7 +79,7 @@ In VS Code:
 
 ![VS Code command palette showing Reopen in Container](/img/05-reopen-in-container.png)
 
-3. Choose **PC perception-experience-kit**.
+3. Choose **PC open-perception-kit**.
 
 ![VS Code Dev Container selection dialog](/img/06-reopen-in-container2.png)
 
@@ -110,10 +110,10 @@ Expected result: the build finishes without errors and `tools/opk-menu` exists.
 Run in the **Docker shell**:
 
 ```bash
-./tools/opk-menu yolov11-onnx
+./tools/opk-menu yolo26-onnx
 ```
 
-You can also use the VS Code task **00 Run project and select pipeline** and choose `yolov11-onnx`.
+You can also use the VS Code task **00 Run project and select pipeline** and choose `yolo26-onnx`.
 
 ![OPK pipeline selection view](/img/09-select-pipeline.png)
 

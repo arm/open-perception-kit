@@ -20,7 +20,7 @@ It ensures consistent code quality, formatting, and license compliance for all c
 - Optional plain-text report artifact via `--report-file`
 - Run on all files, changed files, or a custom file list
 - Verbose logging and configurable output (stdout, file, both)
-- Integration with pre-commit hooks and CI pipelines is available in the ![Open Perception Kit repository](https://github.com/Arm-Debug/amp-dev-forge/)
+- Integration with pre-commit hooks and CI pipelines is available in the ![Open Perception Kit repository](https://github.com/arm/open-perception-kit/)
 
 ## Usage
 
