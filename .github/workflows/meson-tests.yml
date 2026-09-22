@@ -2,59 +2,14 @@ name: Meson tests
 
 on:
   pull_request:
-    paths: &paths
-      - 'development/**'
-      - 'config/**'
-      - 'schemas/perception/**'
-      - 'generated/perception/**'
-      - 'tools/perception/**'
-      - 'tools/flowdata-sdk/**'
-      - 'tools/config_versions.py'
-      - 'tools/opk-menu'
-      - '**/meson.build'
-      - '**/meson.options'
-      - '**/meson_options.txt'
-      - 'requirements/build.json'
-      - 'requirements/meson.txt'
-      - 'requirements/sdk.txt'
-      - 'scripts/build.sh'
-      - 'scripts/perception-sdk.sh'
-      - 'scripts/setup-python-ops-runtime.sh'
-      - 'scripts/setup-lxc-dev.sh'
-      - 'scripts/quick_start.sh'
-      - 'scripts/quick-start/**'
-      - 'scripts/download-models.py'
-      - 'scripts/opksink-web.sh'
-      - 'scripts/run.sh'
-      - 'scripts/release/**'
-      - 'scripts/private/shtools.sh'
-      - 'scripts/private/run-perception-sdk.sh'
-      - 'scripts/private/install-perception-flatbuffers.sh'
-      - 'scripts/private/install-onnxruntime.sh'
-      - 'scripts/private/clang-tidy-report.py'
-      - 'scripts/private/deployment-*.sh'
-      - 'scripts/private/development-entrypoint.sh'
-      - 'scripts/private/generate-hf-download-cachebust.sh'
-      - 'scripts/private/download-demo-videos.sh'
-      - 'scripts/private/demo-videos.manifest'
-      - 'scripts/private/detect-webrtc-host-ip.sh'
-      - 'scripts/private/select-webrtc-turn-mode.sh'
-      - 'Dockerfile'
-      - 'compose*.yaml'
-      - '.devcontainer/compose*.yaml'
-      - '.clang-format'
-      - 'setup.cfg'
-      - '.github/actions/setup-build/**'
-      - '.github/actions/setup-sdk/**'
-      - '.github/workflows/meson-tests.yml'
   push:
     branches: [main, develop]
-    paths: *paths
   workflow_dispatch:
   workflow_call:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   meson-tests:
@@ -65,22 +20,80 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
+          fetch-depth: 0
           persist-credentials: false
 
+      - name: Find relevant changes
+        id: changes
+        if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.changed_files < 3000)
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d
+        with:
+          base: ${{ github.event_name == 'push' && github.ref || '' }}
+          filters: |
+            relevant:
+              - 'development/**'
+              - 'config/**'
+              - 'schemas/perception/**'
+              - 'generated/perception/**'
+              - 'tools/perception/**'
+              - 'tools/flowdata-sdk/**'
+              - 'tools/config_versions.py'
+              - 'tools/opk-menu'
+              - '**/meson.build'
+              - '**/meson.options'
+              - '**/meson_options.txt'
+              - 'requirements/build.json'
+              - 'requirements/meson.txt'
+              - 'requirements/sdk.txt'
+              - 'scripts/build.sh'
+              - 'scripts/perception-sdk.sh'
+              - 'scripts/setup-python-ops-runtime.sh'
+              - 'scripts/setup-lxc-dev.sh'
+              - 'scripts/quick_start.sh'
+              - 'scripts/quick-start/**'
+              - 'scripts/download-models.py'
+              - 'scripts/opksink-web.sh'
+              - 'scripts/run.sh'
+              - 'scripts/release/**'
+              - 'scripts/private/shtools.sh'
+              - 'scripts/private/run-perception-sdk.sh'
+              - 'scripts/private/install-perception-flatbuffers.sh'
+              - 'scripts/private/install-onnxruntime.sh'
+              - 'scripts/private/clang-tidy-report.py'
+              - 'scripts/private/deployment-*.sh'
+              - 'scripts/private/development-entrypoint.sh'
+              - 'scripts/private/generate-hf-download-cachebust.sh'
+              - 'scripts/private/download-demo-videos.sh'
+              - 'scripts/private/demo-videos.manifest'
+              - 'scripts/private/detect-webrtc-host-ip.sh'
+              - 'scripts/private/select-webrtc-turn-mode.sh'
+              - 'Dockerfile'
+              - 'compose*.yaml'
+              - '.devcontainer/compose*.yaml'
+              - '.clang-format'
+              - 'setup.cfg'
+              - '.github/actions/setup-build/**'
+              - '.github/actions/setup-sdk/**'
+              - '.github/workflows/meson-tests.yml'
+
       - name: Set up build environment
+        if: &run_checks steps.changes.outcome == 'skipped' || steps.changes.outputs.relevant == 'true'
         uses: ./.github/actions/setup-build
 
       - name: Build
+        if: *run_checks
         run: ./scripts/build.sh release true
 
       - name: Install test dependencies
+        if: *run_checks
         run: python3 -m pip install -r requirements/tests.txt
 
       - name: Run tests
+        if: *run_checks
         run: meson test -C development/build-active --print-errorlogs
 
       - name: Upload test logs
-        if: always()
+        if: always() && (steps.changes.outcome == 'skipped' || steps.changes.outputs.relevant == 'true')
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: meson-test-logs
