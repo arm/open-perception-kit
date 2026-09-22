@@ -33,7 +33,7 @@ with all 218 remaining suppressions exercised.
    feature and target runs:
 
    ```bash
-   docker image ls --format '{{.Repository}}:{{.Tag}}' | rg 'amp-dev-forge-ci|opk-ci'
+   docker image ls --format '{{.Repository}}:{{.Tag}}' | rg 'open-perception-kit-ci|opk-ci'
    export OPK_CI_IMAGE='<selected-cached-image>'
    ```
 

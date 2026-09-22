@@ -40,8 +40,8 @@ The easiest path is HTTPS cloning. It does not require an SSH key.
 Run in the **host shell**:
 
 ```bash
-git clone https://github.com/Arm-Debug/amp-dev-forge.git
-cd amp-dev-forge
+git clone https://github.com/arm/open-perception-kit.git
+cd open-perception-kit
 ```
 
 If you must clone with SSH, set up your key first: [GitHub SSH Key Setup](github-ssh-key.md).
@@ -79,7 +79,7 @@ In VS Code:
 
 ![VS Code command palette showing Reopen in Container](/img/05-reopen-in-container.png)
 
-3. Choose **PC perception-experience-kit**.
+3. Choose **PC open-perception-kit**.
 
 ![VS Code Dev Container selection dialog](/img/06-reopen-in-container2.png)
 

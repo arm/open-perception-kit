@@ -79,13 +79,13 @@ The easiest path is HTTPS cloning. It does not require an SSH key.
 Run in the **WSL shell**:
 
 ```bash
-git clone https://github.com/Arm-Debug/amp-dev-forge.git
-cd amp-dev-forge
+git clone https://github.com/arm/open-perception-kit.git
+cd open-perception-kit
 ```
 
 If you must clone with SSH, set up your key first: [GitHub SSH Key Setup](github-ssh-key.md).
 
-Expected result: you are in the `amp-dev-forge` folder in WSL.
+Expected result: you are in the `open-perception-kit` folder in WSL.
 
 ### Optional private or gated model access
 
@@ -134,7 +134,7 @@ This is optional; `build.sh` and `run.sh` work directly from the WSL shell.
 
 Skip this section if you used the command-line-only workflow.
 
-Run in the **WSL shell**, from the `amp-dev-forge` folder:
+Run in the **WSL shell**, from the `open-perception-kit` folder:
 
 ```bash
 code .
@@ -149,7 +149,7 @@ VS Code should open the folder through WSL. In VS Code:
 
 ![VS Code command palette showing Reopen in Container](/img/05-reopen-in-container.png)
 
-3. Choose **PC perception-experience-kit**.
+3. Choose **PC open-perception-kit**.
 
 ![VS Code Dev Container selection dialog](/img/06-reopen-in-container2.png)
 
@@ -224,10 +224,10 @@ To run the last selected pipeline again, run in the **Docker shell**:
 - If container initialization reports that host-address loopback is required,
   update `%UserProfile%\.wslconfig`, run **wsl --shutdown** from Windows
   PowerShell, and reopen WSL.
-- If Docker reports that `/perception-experience-kit` is already in use, check
-  `docker ps -a --filter name='^/perception-experience-kit$'`. If it is an old
+- If Docker reports that `/open-perception-kit` is already in use, check
+  `docker ps -a --filter name='^/open-perception-kit$'`. If it is an old
   OPK container you no longer need, remove it with
-  `docker rm --force perception-experience-kit`, then rerun
+  `docker rm --force open-perception-kit`, then rerun
   `./scripts/quick_start.sh`. This removes the container, not repository files.
 - If VS Code says the container cannot start, make sure Docker Desktop is open.
 - If Docker commands fail in WSL, check Docker Desktop WSL integration.

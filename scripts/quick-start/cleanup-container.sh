@@ -31,7 +31,7 @@ if [[ -n "$detect_output" ]]; then
         COMPOSE_FILES+=(-f .devcontainer/docker-compose.devcont.turn.yaml)
     fi
 fi
-OPK_BUILD_BASE_IMAGE="${OPK_BUILD_BASE_IMAGE:-${OPK_DEV_CONTAINER_NAME:-perception-experience-kit}-build-base}"
+OPK_BUILD_BASE_IMAGE="${OPK_BUILD_BASE_IMAGE:-${OPK_DEV_CONTAINER_NAME:-open-perception-kit}-build-base}"
 
 for compose_file in \
     .devcontainer/docker-compose.devcont.video.yaml \

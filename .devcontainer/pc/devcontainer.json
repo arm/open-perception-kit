@@ -1,5 +1,5 @@
 {
-  "name": "PC perception-experience-kit",
+  "name": "PC open-perception-kit",
   "dockerComposeFile": [
     "${localWorkspaceFolder}/.devcontainer/compose.devcont.yaml",
     "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.video.yaml",

@@ -94,13 +94,13 @@ use the target Pi IP address.
 In the Raspberry Pi 5 terminal run:
 
 ```bash
-git clone https://github.com/Arm-Debug/amp-dev-forge.git
-cd amp-dev-forge
+git clone https://github.com/arm/open-perception-kit.git
+cd open-perception-kit
 ```
 
 ### 2. Install prerequisites, build and start the Docker Container
 
-Enter the `amp-dev-forge` folder in the terminal and run:
+Enter the `open-perception-kit` folder in the terminal and run:
 
 ```bash
 ./scripts/quick_start.sh

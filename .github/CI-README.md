@@ -134,7 +134,7 @@ After publication, the post-publication fan-out runs full Black Duck policy
 scans and records their result and report links without changing product files.
 The native jobs push the existing `opk-deployment-base` outputs by digest and a
 small merge job publishes those exact amd64 and arm64 digests as
-`ghcr.io/arm-debug/amp-dev-forge-deployment:<tag>` without rebuilding. Stable
+`ghcr.io/arm/open-perception-kit-deployment:<tag>` without rebuilding. Stable
 tags are the product version; manual prereleases derive
 `YYYYMMDD.1HHMMSS.<run-id-and-attempt>`, include the selected commit in their build label,
 and add the run ID and attempt to the image tag.
@@ -198,9 +198,9 @@ Release image builds get their model and runtime inputs from these sources:
 | `EXECUTORCH_VERSION`, `EXECUTORCH_DEB_REVISION` | Defaulted and consumed by `opk-deployment-build` |
 | `HF_TOKEN` | Read-only repository secret; exposed to `opk-models` only as a BuildKit secret while checked-in models require authentication |
 | `SONAR_URL` | Non-sensitive repository variable used for unmasked report links; set to the same origin as `SONAR_HOST_URL`, without a trailing slash |
-| `PEK_ARTIFACTORY_USERNAME`, `PEK_ARTIFACTORY_API_KEY` | Existing repository secrets used to read the ExecuTorch Debian package and publish release archives and Python wheels |
+| `OPK_ARTIFACTORY_USERNAME`, `OPK_ARTIFACTORY_API_KEY` | Existing repository secrets used to read the ExecuTorch Debian package and publish release archives and Python wheels |
 
-Before public release, `amp-dev-forge-runner-ubuntu-x64` checks the Cargo version
+Before public release, `open-perception-kit-runner-ubuntu-x64` checks the Cargo version
 on the explicit eu02 registry route. Generic Artifactory and PyPI publication
 stay on `self-hosted-ubuntu-latest-x64`; after that job succeeds, the physical
 runner publishes the Rust crate with Cargo's native protocol and the existing
@@ -221,8 +221,8 @@ runs `scripts/gen-doc.sh` in that container, and archives the generated HTML
 with system `tar`. There is no separate release documentation image or package
 script.
 
-Configured GitHub Actions secrets supply `HF_TOKEN`, `PEK_ARTIFACTORY_USERNAME`,
-and `PEK_ARTIFACTORY_API_KEY`. Once the workflow is registered on the default `develop`
+Configured GitHub Actions secrets supply `HF_TOKEN`, `OPK_ARTIFACTORY_USERNAME`,
+and `OPK_ARTIFACTORY_API_KEY`. Once the workflow is registered on the default `develop`
 branch, a manual run may select a feature branch for release testing. GitHub
 cannot manually dispatch a new workflow before it exists on the default branch.
 

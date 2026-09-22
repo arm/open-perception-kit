@@ -33,7 +33,7 @@ are stored as one current reference per branch at
 Pull-request jobs resolve the current target-branch head when validation starts
 and accept the reference only when its recorded newest reference SHA matches
 that head. Downloads and publication use the existing
-`PEK_ARTIFACTORY_USERNAME` and `PEK_ARTIFACTORY_API_KEY` secrets. If the
+`OPK_ARTIFACTORY_USERNAME` and `OPK_ARTIFACTORY_API_KEY` secrets. If the
 reference is missing, invalid, or outdated, the trusted baseline
 workflow schedules a backfill and the job waits for publication. Publishing a
 new branch head replaces the previous reference; the GitHub Actions

@@ -52,7 +52,7 @@ def build_zip_archive_with_symlink(*, link_name: str, link_target: str, files: d
 class GitHubApiTests(unittest.TestCase):
     def test_download_github_archive_follows_redirect_location(self):
         redirect_error = urllib.error.HTTPError(
-            url="https://api.github.com/repos/Arm-Debug/amp-dev-forge/actions/artifacts/1/zip",
+            url="https://api.github.com/repos/arm/open-perception-kit/actions/artifacts/1/zip",
             code=302,
             msg="Found",
             hdrs=http_headers({"Location": "https://objects.githubusercontent.com/archive.zip"}),
@@ -69,7 +69,7 @@ class GitHubApiTests(unittest.TestCase):
             with mock.patch("urllib.request.build_opener", return_value=opener):
                 with mock.patch("http.client.HTTPSConnection", return_value=redirect_connection) as connection:
                     result = github_api.download_github_archive(
-                        "https://api.github.com/repos/Arm-Debug/amp-dev-forge/actions/artifacts/1/zip",
+                        "https://api.github.com/repos/arm/open-perception-kit/actions/artifacts/1/zip",
                     )
 
         self.assertEqual(result, b"zip-bytes")
@@ -91,7 +91,7 @@ class GitHubApiTests(unittest.TestCase):
         ):
             with self.subTest(location=location):
                 redirect_error = urllib.error.HTTPError(
-                    url="https://api.github.com/repos/Arm-Debug/amp-dev-forge/actions/artifacts/1/zip",
+                    url="https://api.github.com/repos/arm/open-perception-kit/actions/artifacts/1/zip",
                     code=302,
                     msg="Found",
                     hdrs=http_headers({"Location": location}),
@@ -104,7 +104,7 @@ class GitHubApiTests(unittest.TestCase):
                     with mock.patch("urllib.request.build_opener", return_value=opener):
                         with self.assertRaisesRegex(ValueError, "GitHub archive redirect URL"):
                             github_api.download_github_archive(
-                                "https://api.github.com/repos/Arm-Debug/amp-dev-forge/actions/artifacts/1/zip",
+                                "https://api.github.com/repos/arm/open-perception-kit/actions/artifacts/1/zip",
                             )
 
     def test_github_api_json_requires_relative_endpoint(self):
@@ -124,13 +124,13 @@ class GitHubApiTests(unittest.TestCase):
 
     def test_github_api_query_endpoint_encodes_parameters(self):
         endpoint = github_api.github_api_query_endpoint(
-            "repos/Arm-Debug/amp-dev-forge/actions/workflows/agent-review.yml/runs",
+            "repos/arm/open-perception-kit/actions/workflows/agent-review.yml/runs",
             {"branch": "feature/with space&marker", "per_page": 20},
         )
 
         self.assertEqual(
             endpoint,
-            "repos/Arm-Debug/amp-dev-forge/actions/workflows/agent-review.yml/runs"
+            "repos/arm/open-perception-kit/actions/workflows/agent-review.yml/runs"
             "?branch=feature%2Fwith+space%26marker&per_page=20",
         )
 

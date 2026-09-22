@@ -98,7 +98,7 @@ class SonarQualityGateWorkflowTests(unittest.TestCase):
                     [
                         "serverUrl=https://sonar.example.invalid",
                         "ceTaskId=task-1",
-                        "projectKey=amp-dev-forge",
+                        "projectKey=open-perception-kit",
                     ]
                 )
                 + "\n",

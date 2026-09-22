@@ -49,12 +49,12 @@ class GithubPrContextTests(unittest.TestCase):
         ) as read_pr_details:
             context = github_pr_context.resolve_pr_context(
                 pr_number="101",
-                repo="Arm-Debug/amp-dev-forge",
+                repo="arm/open-perception-kit",
             )
 
         self.assertEqual(
             read_pr_details.call_args,
-            mock.call("101", repository="Arm-Debug/amp-dev-forge"),
+            mock.call("101", repository="arm/open-perception-kit"),
         )
         self.assertEqual(
             context,
@@ -75,7 +75,7 @@ class GithubPrContextTests(unittest.TestCase):
         ):
             context = github_pr_context.resolve_pr_context(
                 pr_number="102",
-                repo="Arm-Debug/amp-dev-forge",
+                repo="arm/open-perception-kit",
             )
 
         self.assertEqual(context["base_ref"], "feature/parent")
@@ -95,7 +95,7 @@ class GithubPrContextTests(unittest.TestCase):
         ):
             context = github_pr_context.resolve_pr_context(
                 pr_number="101",
-                repo="Arm-Debug/amp-dev-forge",
+                repo="arm/open-perception-kit",
                 base_ref_override="release/next",
                 head_ref_override="repair/pr-sample",
                 head_sha_override="feedface",
@@ -112,7 +112,7 @@ class GithubPrContextTests(unittest.TestCase):
             },
         )
         github_api_json.assert_called_once_with(
-            "repos/Arm-Debug/amp-dev-forge/commits/release%2Fnext"
+            "repos/arm/open-perception-kit/commits/release%2Fnext"
         )
 
     def test_resolve_pr_context_prefers_a_head_ref_override_without_a_sha(self):
@@ -123,7 +123,7 @@ class GithubPrContextTests(unittest.TestCase):
         ):
             context = github_pr_context.resolve_pr_context(
                 pr_number="101",
-                repo="Arm-Debug/amp-dev-forge",
+                repo="arm/open-perception-kit",
                 head_ref_override="repair/pr-sample",
             )
 
@@ -139,7 +139,7 @@ class GithubPrContextTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "head-ref-override"):
                 github_pr_context.resolve_pr_context(
                     pr_number="101",
-                    repo="Arm-Debug/amp-dev-forge",
+                    repo="arm/open-perception-kit",
                     head_sha_override="feedface",
                 )
 
@@ -159,7 +159,7 @@ class GithubPrContextTests(unittest.TestCase):
                     with self.assertRaisesRegex(RuntimeError, "Incomplete pull request refs"):
                         github_pr_context.resolve_pr_context(
                             pr_number="101",
-                            repo="Arm-Debug/amp-dev-forge",
+                            repo="arm/open-perception-kit",
                         )
 
     def test_write_outputs_uses_github_output_format(self):

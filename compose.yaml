@@ -8,8 +8,8 @@ services:
       file: compose.base.yaml
       service: opk-model-image
     platform: linux/arm64
-    container_name: perception-experience-kit
-    hostname: perception-experience-kit
+    container_name: open-perception-kit
+    hostname: open-perception-kit
     privileged: true
     cap_add:
       - SYS_PTRACE
@@ -35,7 +35,7 @@ secrets:
     environment: HF_TOKEN
 
 x-topo:
-  name: perception-experience-kit
+  name: open-perception-kit
   description: |
     Run Open Perception Kit on an ARM64 target with an optional
     Raspberry Pi camera pipeline.

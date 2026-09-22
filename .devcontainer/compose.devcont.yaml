@@ -1,6 +1,6 @@
 services:
   opk-build-base:
-    image: ${OPK_BUILD_BASE_IMAGE:-perception-experience-kit-build-base}
+    image: ${OPK_BUILD_BASE_IMAGE:-open-perception-kit-build-base}
     build:
       context: ..
       dockerfile: Dockerfile
@@ -10,11 +10,11 @@ services:
     extends:
       file: ../compose.base.yaml
       service: opk-common-dev-model-image
-    image: ${OPK_DEV_IMAGE:-perception-experience-kit-dev}
-    container_name: ${OPK_DEV_CONTAINER_NAME:-perception-experience-kit}
-    hostname: ${OPK_DEV_CONTAINER_NAME:-perception-experience-kit}
+    image: ${OPK_DEV_IMAGE:-open-perception-kit-dev}
+    container_name: ${OPK_DEV_CONTAINER_NAME:-open-perception-kit}
+    hostname: ${OPK_DEV_CONTAINER_NAME:-open-perception-kit}
     extra_hosts:
-      - "${OPK_DEV_CONTAINER_NAME:-perception-experience-kit}:127.0.0.1"
+      - "${OPK_DEV_CONTAINER_NAME:-open-perception-kit}:127.0.0.1"
     command: sleep infinity
     build:
       network: ${BUILD_NETWORK_MODE:-default}

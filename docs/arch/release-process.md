@@ -30,7 +30,7 @@ parent owns the toolchain, installs the Dockerfile-pinned ONNX Runtime and
 ExecuTorch Debian package, builds the runnable snapshot, and creates the
 validated architecture tarball. The workflow publishes those same native image
 digests as one multi-architecture
-`ghcr.io/arm-debug/amp-dev-forge-deployment` image and copies the tarball from
+`ghcr.io/arm/open-perception-kit-deployment` image and copies the tarball from
 each finished image. Hugging Face and ExecuTorch credentials are BuildKit
 secrets and are not stored in image layers or published artifacts. Release
 builds package ONNX Runtime 1.24.4 with its
@@ -56,7 +56,7 @@ prepared source that produced it beside both language packages in
 `opk-perception-sdk-input-*`. It recreates the retained crate from that source
 with Cargo 1.85 and a clean sparse crates.io configuration so native publication
 produces the same bytes. For stable release pushes, an early job on
-`amp-dev-forge-runner-ubuntu-x64` checks that the Cargo version is available on
+`open-perception-kit-runner-ubuntu-x64` checks that the Cargo version is available on
 the explicit eu02 route before any public release mutation. The existing
 `self-hosted-ubuntu-latest-x64` Artifactory job then publishes the three OPK
 archives and the unchanged wheel to `edge-ai-tooling.pypi`. After that job
