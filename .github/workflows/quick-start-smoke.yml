@@ -15,6 +15,7 @@ permissions:
 
 jobs:
   quick-start-smoke:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     name: quick-start-smoke (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 120
@@ -37,7 +38,7 @@ jobs:
 
       - name: Run quick-start
         env:
-          HF_TOKEN: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && secrets.HF_TOKEN || '' }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: ./scripts/quick_start.sh
 
       - name: Build
