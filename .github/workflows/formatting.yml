@@ -24,6 +24,26 @@ on:
       - '.github/workflows/formatting.yml'
   push:
     branches: [main, develop]
+    paths:
+      - '**.c'
+      - '**.cc'
+      - '**.cpp'
+      - '**.cxx'
+      - '**.h'
+      - '**.hh'
+      - '**.hpp'
+      - '**.hxx'
+      - '**.tpp'
+      - '**.py'
+      - '**.pyi'
+      - '**.sh'
+      - '**.cmake'
+      - '**/CMakeLists.txt'
+      - '.clang-format'
+      - '.cmake-format.yaml'
+      - 'setup.cfg'
+      - 'requirements/sdk.txt'
+      - '.github/workflows/formatting.yml'
   workflow_dispatch:
   workflow_call:
 

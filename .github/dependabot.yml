@@ -7,10 +7,7 @@ updates:
       timezone: Europe/London
     open-pull-requests-limit: 10
     rebase-strategy: disabled
-    labels:
-      - dependencies
-      - python
-      - run-opk-ci
+    labels: []
     commit-message:
       prefix: "chore(deps)"
   - package-ecosystem: docker
@@ -20,9 +17,7 @@ updates:
       timezone: Europe/London
     open-pull-requests-limit: 10
     rebase-strategy: disabled
-    labels:
-      - dependencies
-      - run-opk-ci
+    labels: []
     commit-message:
       prefix: "chore(deps)"
   - package-ecosystem: github-actions
@@ -32,9 +27,6 @@ updates:
       timezone: Europe/London
     open-pull-requests-limit: 10
     rebase-strategy: disabled
-    labels:
-      - dependencies
-      - github_actions
-      - run-opk-ci
+    labels: []
     commit-message:
       prefix: "chore(deps)"

@@ -9,9 +9,15 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
+  changes:
+    uses: ./.github/workflows/changes.yml
+
   python-tests:
+    needs: changes
+    if: needs.changes.outputs.sdk == 'true'
     name: SDK Python tests
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
@@ -28,6 +34,8 @@ jobs:
         run: python3 -m unittest discover -s tools/perception/tests -v
 
   rust-tests:
+    needs: changes
+    if: needs.changes.outputs.sdk == 'true'
     name: SDK Rust tests
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30

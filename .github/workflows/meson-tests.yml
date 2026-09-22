@@ -9,9 +9,15 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
+  changes:
+    uses: ./.github/workflows/changes.yml
+
   meson-tests:
+    needs: changes
+    if: needs.changes.outputs.meson == 'true'
     name: Meson tests
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 60

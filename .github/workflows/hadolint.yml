@@ -9,6 +9,11 @@ on:
       - '.github/workflows/hadolint.yml'
   push:
     branches: [main, develop]
+    paths:
+      - '**Dockerfile*'
+      - '.hadolint.yaml'
+      - '.hadolint.yml'
+      - '.github/workflows/hadolint.yml'
   workflow_dispatch:
   workflow_call:
 
