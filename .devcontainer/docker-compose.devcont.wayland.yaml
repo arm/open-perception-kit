@@ -1,0 +1,7 @@
+services:
+  opk-dev:
+    volumes:
+      - ${XDG_RUNTIME_DIR}:${XDG_RUNTIME_DIR}
+    environment:
+      WAYLAND_DISPLAY: ${WAYLAND_DISPLAY}
+      XDG_RUNTIME_DIR: ${XDG_RUNTIME_DIR}

@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:arm:opk:schema:opchain-descriptor:v1",
+  "title": "OPK OpChain descriptor v1",
+  "x-opk-supported-version": "1.0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "name",
+    "description",
+    "ops"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?![\\s\\S])"
+    },
+    "name": {
+      "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/trimNonEmptyString"
+    },
+    "description": {
+      "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/trimNonEmptyString"
+    },
+    "displayName": {
+      "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/trimNonEmptyString"
+    },
+    "task": {
+      "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/trimNonEmptyString"
+    },
+    "runtime": {
+      "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/trimNonEmptyString"
+    },
+    "ops": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "urn:arm:opk:schema:opchain-op:v1"
+      }
+    }
+  }
+}

@@ -1,0 +1,29 @@
+# ------------------------------------------------------------
+# Build output
+# ------------------------------------------------------------
+
+build/
+build-active
+build-native/
+build-native-test/
+
+# ------------------------------------------------------------
+# Meson subprojects
+# ------------------------------------------------------------
+
+# Ignore all downloaded subproject directories
+subprojects/*/
+
+# Keep wrap definitions (dependency descriptors)
+!subprojects/*.wrap
+
+# ------------------------------------------------------------
+# Allow custom packagefiles overrides
+# ------------------------------------------------------------
+
+# Re-include packagefiles directory structure
+!subprojects/packagefiles/
+!subprojects/packagefiles/**/
+
+# Allow specific override build files
+!subprojects/packagefiles/**/meson.build

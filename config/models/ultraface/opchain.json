@@ -1,0 +1,36 @@
+{
+	"version": "1.0.1",
+	"name": "Ultraface",
+	"displayName": "UltraFace",
+	"task": "Face detection",
+	"runtime": "ONNX",
+	"description": "Ultraface face detection model.",
+	"ops": [
+		{
+			"id": "opk-std-ops/InferenceController",
+			"attributes": {}
+		},
+		{
+			"id": "opk-std-ops/GenericImagePreprocess",
+			"attributes": {
+				"inputImageTensorIndex": 0,
+				"inputImageSourceName": "pipelineVideoFrame"
+			}
+		},
+		{
+			"id": "opk-onnx-ops/Inference",
+			"attributes": {
+				"modelDescriptor": "model.json"
+			}
+		},
+		{
+			"id": "opk-std-ops/GenericPostprocess",
+			"attributes": {
+				"parser": "UltrafaceParser",
+				"normalizeOutputCoordinates": false,
+				"confidenceThreshold": 0.3,
+				"iouThreshold": 0.1
+			}
+		}
+	]
+}

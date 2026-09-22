@@ -1,0 +1,120 @@
+' Open Perception Kit dark style for PlantUML diagrams
+
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam dpi 150
+skinparam linetype ortho
+
+skinparam backgroundColor #080225
+skinparam defaultFontName "Arial, Helvetica, sans-serif"
+skinparam defaultFontColor #FFFFFF
+skinparam defaultTextAlignment center
+
+skinparam titleFontColor #C8EAFF
+skinparam titleFontSize 18
+skinparam titleFontStyle bold
+
+skinparam legendBackgroundColor #1B3982
+skinparam legendBorderColor #C8EAFF
+skinparam legendFontColor #FFFFFF
+
+skinparam ArrowColor #FFFFFF
+skinparam ArrowThickness 1
+skinparam ArrowFontColor #FFFFFF
+
+skinparam LineColor #C8EAFF
+skinparam packagePadding 0
+
+skinparam package {
+  BackgroundColor #1B3982
+  BorderColor #C8EAFF
+  FontColor #FFFFFF
+  FontStyle bold
+}
+
+skinparam artifact {
+  BackgroundColor #1B3982
+  BorderColor #C8EAFF
+  FontColor #FFFFFF
+}
+
+skinparam component {
+  BackgroundColor #1B3982
+  BorderColor #C8EAFF
+  FontColor #FFFFFF
+}
+
+skinparam class {
+  BackgroundColor #1B3982
+  BorderColor #C8EAFF
+  FontColor #FFFFFF
+  AttributeFontColor #FFFFFF
+  StereotypeFontColor #6E42D6
+}
+
+skinparam note {
+  BackgroundColor #C8EAFF
+  BorderColor #FFFFFF
+  FontColor #080225
+}
+
+skinparam sequence {
+  LifeLineBorderColor #C8EAFF
+  LifeLineBackgroundColor #6E42D6
+  ParticipantBorderColor #C8EAFF
+  ParticipantBackgroundColor #1B3982
+  ParticipantFontColor #FFFFFF
+  BoxBackgroundColor #1B3982
+  BoxBorderColor #C8EAFF
+  ActorBorderColor #C8EAFF
+  ActorFontColor #FFFFFF
+}
+
+skinparam activity {
+  BackgroundColor #1B3982
+  BorderColor #C8EAFF
+  FontColor #FFFFFF
+  DiamondBackgroundColor #C8EAFF
+  DiamondBorderColor #FFFFFF
+  DiamondFontColor #080225
+  StartColor #C8EAFF
+  EndColor #C8EAFF
+}
+
+skinparam actor {
+  BackgroundColor #6E42D6
+  BorderColor #C8EAFF
+  FontColor #FFFFFF
+}
+
+skinparam usecase {
+  BackgroundColor #1B3982
+  BorderColor #C8EAFF
+  FontColor #FFFFFF
+}
+
+skinparam state {
+  BackgroundColor #1B3982
+  BorderColor #C8EAFF
+  FontColor #FFFFFF
+  StartColor #C8EAFF
+  EndColor #C8EAFF
+}
+
+skinparam rectangle {
+  BackgroundColor #1B3982
+  BorderColor #C8EAFF
+  FontColor #FFFFFF
+}
+
+skinparam queue {
+  BackgroundColor #1B3982
+  BorderColor #C8EAFF
+  FontColor #FFFFFF
+}
+
+skinparam database {
+  BackgroundColor #1B3982
+  BorderColor #C8EAFF
+  FontColor #FFFFFF
+}

@@ -1,0 +1,66 @@
+{
+    "version": "1.0.1",
+    "name": "FullTrackingOnnx",
+    "displayName": "YOLOv11n + OSNet x0.25",
+    "task": "Object tracking",
+    "runtime": "ONNX",
+    "description": "Detector + ReID micropipeline for `opktracker`.",
+    "ops": [
+        {
+            "id": "opk-std-ops/InferenceController",
+            "attributes": {}
+        },
+        {
+            "id": "opk-std-ops/GenericImagePreprocess",
+            "attributes": {
+                "inputImageTensorIndex": 0,
+                "inputImageSourceName": "pipelineVideoFrame"
+            }
+        },
+        {
+            "id": "opk-onnx-ops/Inference",
+            "attributes": {
+                "modelDescriptor": "../../models/yolov11/model.json"
+            }
+        },
+        {
+            "id": "opk-std-ops/GenericPostprocess",
+            "attributes": {
+                "parser": "YoloParser",
+                "normalizeOutputCoordinates": false,
+                "applyNms": true,
+                "confidenceThreshold": 0.25,
+                "iouThreshold": 0.45
+            }
+        },
+        {
+            "id": "opk-std-ops/InferenceController",
+            "loopId": 2,
+            "attributes": {
+                "contentType": "genericObject"
+            }
+        },
+        {
+            "id": "opk-std-ops/GenericImagePreprocess",
+            "loopId": 2,
+            "attributes": {
+                "inputImageTensorIndex": 0,
+                "inputImageSourceName": "pipelineVideoFrame"
+            }
+        },
+        {
+            "id": "opk-onnx-ops/Inference",
+            "loopId": 2,
+            "attributes": {
+                "modelDescriptor": "../../models/osnet_x0_25/model.json"
+            }
+        },
+        {
+            "id": "opk-std-ops/GenericPostprocess",
+            "loopId": 2,
+            "attributes": {
+                "parser": "ObjectEmbeddingParser"
+            }
+        }
+    ]
+}

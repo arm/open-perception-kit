@@ -1,0 +1,303 @@
+---
+title: Custom Postprocessing
+sidebar_position: 5
+sidebar_label: Custom Postprocessing
+description: Add a parser when a model's output tensors do not fit an existing Open Perception Kit postprocessor.
+---
+
+# Custom Postprocessing
+
+This page covers the next step after the normal model-integration path: writing or generating a parser when the built-in postprocessors are not enough.
+
+## What will you learn from this documentation?
+
+If you follow this page successfully, you will learn when custom postprocessing is the right extension point and how to turn a model-specific output tensor contract into a parser that produces meaningful FrameResults.
+
+At the end of this page, you should know what custom code belongs in a parser, how to register it, how to reference it from an `opchain.json`, and how to judge whether the result is ready for visualization.
+
+Only continue with this page after you have already established that:
+
+- the normal `opchain.json` structure is correct for your model
+- an existing parser will not fit your outputs cleanly
+- the built-in preprocessing path is already sufficient for your input preparation
+
+In practice, preprocessing is often the easy part. Resizing, color conversion, normalization, and writing an input image tensor are usually covered by the normal flow.
+
+In this codebase, the part that most often differs from model to model is postprocessing, because it depends on the exact output tensor shape and on what the tensor values mean.
+
+At that point, the place you usually need to extend is `development/ops-std/postproc/`, together with the parser selection inside `GenericPostprocessOp`.
+
+That is also why custom postprocessing is the default extension path before any deeper runtime work. If the model already runs and only the meaning of the outputs is missing, the intended interface is the parser layer plus the matching `opchain.json` reference.
+
+## Why custom postprocessing is usually the right extension point
+
+That is the right level for most model-specific work because:
+
+- preprocessing and inference are already done
+- `GenericPostprocessOp` already collects the output tensors into a parser input
+- the parser already receives `inferenceInfo`, and `GenericPostprocessOp` links parsed results back to the current inference source
+- you only need to translate model outputs into generated Perception schema payloads
+
+Those FrameResults payloads are the structured results that the rest of Open Perception Kit consumes downstream. In the normal flow, the parser is the step that turns raw tensor output into the app-usable runtime format.
+
+The best example to follow is the camera-contact flow used by the `cam-connect` pipeline:
+
+1. a first model detects faces on the full frame
+2. `InferenceController` collects those face rectangles into `inferenceImageCrops`
+3. the standard preprocessing step prepares each detected face crop for inference
+4. the classifier produces a `[1,2]` output tensor for contact vs no-contact
+5. `CameraContactParser` interprets those logits and appends the result to FrameResults
+
+This is exactly the kind of problem a custom postprocessor should solve.
+
+## What the built-in postprocessor already does
+
+`GenericPostprocessOp` in `development/ops-std/` is the dispatcher that selects a tensor parser by name.
+
+Its current contract is:
+
+- it reads the configured `parser` attribute
+- it constructs the matching parser implementation, such as `YoloParser` or `CameraContactParser`
+- during `process()` it passes the active output tensors and `inferenceInfo` into that parser
+- it expects the parser to append generated `perception::metadata::*T` payloads to `perception::FrameResults`
+- it leaves those parsed results attached to the current frame through `FrameResultsMeta`
+
+If your model output does not match any of the built-in parsers, this is the point where you add a new one.
+
+## Easiest implementation path
+
+The shortest practical path is:
+
+1. copy a parser that is close to your output format, such as `CameraContactParser.cpp`, `ImageNetClassificationParser.cpp`, or `YoloParser.cpp`
+2. rename it to something model-specific
+3. keep the same `parse()` structure
+4. change the tensor shape checks and tensor decoding logic to match your model
+5. add the new parser source file under `development/ops-std/postproc/`
+6. add that source file to `development/ops-std/meson.build`
+7. register the parser name in `GenericPostprocessOp.cpp`
+8. reuse or add its closed local `$defs` entry in
+   `config/schemas/v1/opchain/ops/generic-postprocess.schema.json`
+9. add that `$defs` entry to the schema's dispatcher `oneOf`
+10. reference that parser name from the relevant `opchain.json`
+11. run `opk-ci --config-schema-check` in the development container
+
+This keeps the change local to the inference chain and avoids touching `opkinfer` or the outer GStreamer pipeline.
+
+That local change is usually a good sign that you are still within the intended extension surface.
+When the work can stay inside parser code, build wiring, and `opchain.json`, you usually do not need a new Op.
+For normal model onboarding, adding a parser is the intended path; changing inference Ops or deeper runtime code is outside the common user extension surface.
+
+## Alternative path: use a well-specified integration prompt
+
+You do not always have to hand-write the parser first.
+
+An alternative is to give an agent a prompt similar to the integration prompt used for camera contact and ask it to generate the needed postprocessing changes.
+
+This can work well, but only if the prompt is filled in with technically correct model details. The most important inputs are:
+
+- the exact output tensor shapes
+- the output tensor value type
+- which tensor index contains which data
+- what each tensor value means
+- class ordering, thresholds, anchors, or decoding rules if they exist
+- the target FrameResults payload type you want to produce
+
+If those details are vague or wrong, the generated postprocessor will also be wrong.
+
+For example, the camera-contact prompt works because it clearly states that the model output is `FLOAT[1,2]` and that those two values represent the `no contact` and `contact` classes. That is the kind of information an agent needs in order to generate a correct parser.
+
+In short: if you want an agent to create the postprocessor for you, give it the exact tensor contract, not just the model name.
+
+## How to think about the cam-connect example
+
+For camera contact, the model-specific job is not “prepare one image”. The model-specific job is “interpret the classifier output correctly”.
+
+That means your parser should usually:
+
+- verify that the output tensor shape is what the model actually emits
+- read the tensor values in the correct order
+- apply any confidence logic, thresholding, class index mapping, or decoding rules required by that model
+- create the right generated schema payload type
+- produce results that can be linked back to the source face or source detection
+
+In other words, preprocessing prepares pixels, but postprocessing explains meaning. That meaning is what usually changes from one model to another.
+
+## What usually belongs in the custom code
+
+In this codebase, “custom code” usually means a small and specific set of files, not a broad runtime rewrite.
+
+If you can reuse an existing Perception schema payload such as `BoxDetectionsT`, `ClassificationsT`, `PoseEstimationsT`, `SegmentationMasksT`, or `ObjectEmbeddingsT`, the usual files to touch are:
+
+1. create a new parser header under `development/ops-std/postproc/<YourParser>.h`
+2. create a new parser implementation under `development/ops-std/postproc/<YourParser>.cpp`
+3. add that `.cpp` file to `development/ops-std/meson.build`
+4. include and register the parser in `development/ops-std/GenericPostprocessOp.cpp`
+5. reuse or add the parser's closed local `$defs` entry and dispatcher `$ref` in `generic-postprocess.schema.json`
+6. reference the parser name from the model's `opchain.json`
+7. run the descriptor gate
+
+That is the normal path when the output tensor meaning is new, but the result still fits an existing schema payload type.
+
+If you need a genuinely new runtime result because none of the existing schema payloads matches your result cleanly, the usual path is:
+
+1. add the new schema definition in the Perception schema area
+	- model the payload as a generated `perception::metadata::*T` type
+	- include layer and object metadata fields where downstream routing or parent links are needed
+2. regenerate the Perception SDK bindings
+	- run `./scripts/perception-sdk.sh generate`; generation always executes inside the OPK container
+	- if called from the host, the wrapper re-enters the running OPK container before generation
+	- do not recreate the old hand-written `Perception` container or serializer
+3. `development/ops-std/postproc/<YourParser>.h`
+	- declare the parser that produces the new structure
+4. `development/ops-std/postproc/<YourParser>.cpp`
+	- create and fill the new generated payload
+	- set `payload.layer->content_type` to the content type you want downstream code to look for
+5. `development/ops-std/meson.build`
+	- compile the new parser source file
+6. `development/ops-std/GenericPostprocessOp.cpp`
+	- include the parser header
+	- instantiate it from the `parser` attribute string
+8. the parser's closed local `$defs` entry and dispatcher `$ref` in `generic-postprocess.schema.json`
+9. the relevant `config/models/<model>/opchain.json` or `config/opchains/.../opchain.json`
+	- route inference output into that parser by name
+10. `opk-ci --config-schema-check`
+	- verify the new contract and every checked-in descriptor
+
+If another downstream element needs to understand the new `content_type`, you may also need to update that element. The common example is `development/elements/opkosd/DebugOverlayRenderer.cpp` for native overlay rendering.
+
+The generated FrameResults SDK also supports external opaque payloads for caller-owned
+byte protocols. That is useful for data whose schema is intentionally managed outside
+Open Perception Kit, but it is not the normal model-result path. Model outputs that should
+be rendered, tracked, published, or compared should use known generated schema payloads.
+
+So the routing path is usually:
+
+- parser implementation appends a generated FrameResults payload
+- `payload.layer->content_type` names the semantic result category where the payload has layer metadata
+- `GenericPostprocessOp` passes the active FrameResults to the parser
+- downstream elements such as `opkosd` or `opktracker` look for that content type
+
+If your model output already matches one of the built-in parsers, prefer reusing that parser instead of creating a new one.
+
+## Visualizing the result in the current runtime
+
+Once your parser writes the right FrameResults, those results can be visualized by `opkosd` when server-side overlays are enabled.
+
+`opkosd` is the element that currently does server-side drawing. It reads `FrameResultsMeta` from the video buffer and renders supported payloads onto the negotiated video frame.
+
+That means the usual flow is:
+
+1. your parser converts raw tensors into generated FrameResults payloads
+2. each object that needs lineage gets linked back to the current inference source through `parent_id`
+3. `GenericPostprocessOp` gives the parser the active `perception::FrameResults`
+4. `FrameResultsMeta` carries that structured data downstream with the buffer
+5. when enabled, `opkosd` reads the resulting payloads and decides what to draw based on payload type and `layer.content_type`
+
+This is how the checked-in camera-contact flow works as well: the parser produces a `cameraContact` result, and `opkosd` can render that as a green or red status dot when enabled.
+
+So when bringing your own model, you should think about two separate questions:
+
+- how do I convert the output tensor into the right Perception schema payload?
+- does `opkosd` already know how to draw that structure?
+
+If the answer to the second question is yes, then you only need the parser.
+
+If the answer is no, then the parser may still be correct, but you will also need to extend `opkosd` so the new result type has a visible overlay.
+
+In practice, “make the data make sense” means:
+
+- pick the right generated schema payload for the meaning of the output
+- fill its fields in normalized image coordinates or the expected runtime units
+- make sure the OpChain is feeding the correct source object so the parser can set `parent_id` correctly
+- choose a stable `layer.content_type` string that downstream code can match on
+
+Then, for visualization, choose the overlay style that matches the semantics of the data:
+
+- boxes or circles for detections tied to image regions
+- text lists for classifications
+- arrows or vectors for directional values such as gaze
+- mask overlays for segmentation
+- custom symbols only when the existing styles do not fit the meaning well
+
+For a new visualization path, the file to extend is usually `development/elements/opkosd/DebugOverlayRenderer.cpp`. Keep `development/elements/opkosd/opkosd.cpp` focused on GStreamer element plumbing unless the element contract itself needs to change.
+
+The usual pattern there is:
+
+1. check the payload type and `layer.content_type`
+2. read the expected generated schema object from the payload
+3. find the parent region if the drawing depends on an earlier detection
+4. draw the overlay with the existing debug-overlay and `opk::raster` helpers
+
+So the practical rule is:
+
+- if the parser output already matches an existing `opkosd` branch, reuse that path
+- if the parser output is structurally new, add a new drawing branch in `DebugOverlayRenderer.cpp`
+- if the result is meaningful for machines but not useful as an overlay, it is acceptable to keep it in FrameResults without drawing it immediately
+
+## Minimal opchain shape for this pattern
+
+The usual chain shape is still:
+
+```json
+{
+	"version": "1.0.0",
+	"name": "CameraContact",
+	"description": "Estimate camera contact for each detected face.",
+	"ops": [
+		{
+			"id": "opk-std-ops/InferenceController",
+			"loopId": 1,
+			"attributes": {
+				"contentType": "humanFace"
+			}
+		},
+		{
+			"id": "opk-std-ops/GenericImagePreprocess",
+			"loopId": 1,
+			"attributes": {
+				"inputImageTensorIndex": 0,
+				"inputImageSourceName": "pipelineVideoFrame"
+			}
+		},
+		{
+			"id": "opk-onnx-ops/Inference",
+			"loopId": 1,
+			"attributes": {
+				"modelDescriptor": "model.json"
+			}
+		},
+		{
+			"id": "opk-std-ops/GenericPostprocess",
+			"loopId": 1,
+			"attributes": {
+				"parser": "CameraContactParser",
+				"contactClassIndex": 1,
+				"noContactClassIndex": 0
+			}
+		}
+	]
+}
+```
+
+The important part is the division of responsibility:
+
+- `InferenceController` chooses the image regions
+- `GenericImagePreprocess` converts those regions into model input tensors
+- the inference Op runs the model
+- the parser inside `GenericPostprocess` turns outputs into FrameResults
+- This is an absolutely minimal opchain and it still requires a different operation to create the humanFace content.
+
+If you stay within that structure, a custom postprocessor is usually a small and contained change.
+
+## What should you have at the end of this document?
+
+By the end of this page, you should have:
+
+- a clear reason why the built-in parsers are not sufficient
+- a concrete parser implementation or a precise parser-generation prompt
+- the parser registered in `GenericPostprocessOp`
+- the parser's local `$defs` entry registered in the `GenericPostprocess` dispatcher
+- an `opchain.json` that references the new parser name
+- a successful `opk-ci --config-schema-check`
+
+Success looks like this: your model outputs are translated into the right FrameResults payloads, and the runtime can consume those results without guessing.

@@ -1,0 +1,28 @@
+{
+  "checks": {
+    "bugprone-empty-catch": 8,
+    "bugprone-implicit-widening-of-multiplication-result": 11,
+    "bugprone-multi-level-implicit-pointer-conversion": 15,
+    "bugprone-narrowing-conversions": 83,
+    "bugprone-return-const-ref-from-parameter": 49,
+    "clang-analyzer-deadcode.DeadStores": 5,
+    "clang-analyzer-optin.portability.UnixAPI": 2,
+    "clang-analyzer-unix.Errno": 2,
+    "concurrency-mt-unsafe": 9,
+    "modernize-avoid-bind": 5,
+    "modernize-avoid-c-arrays": 109,
+    "modernize-deprecated-headers": 3,
+    "modernize-loop-convert": 8,
+    "modernize-macro-to-enum": 6,
+    "modernize-pass-by-value": 10,
+    "modernize-raw-string-literal": 2,
+    "modernize-redundant-void-arg": 3,
+    "modernize-use-default-member-init": 45,
+    "modernize-use-emplace": 23,
+    "modernize-use-nullptr": 5,
+    "performance-avoid-endl": 9,
+    "performance-for-range-copy": 2,
+    "performance-inefficient-vector-operation": 2,
+    "performance-unnecessary-value-param": 24
+  }
+}

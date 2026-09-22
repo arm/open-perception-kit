@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+################################################################
+# Copyright (C) 2026 Arm Limited. All rights reserved.
+################################################################
+
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+
+class OpkConfigCheckCliTest(unittest.TestCase):
+    executable: Path
+    repository_root: Path
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.executable = Path(sys.argv[1]).resolve()
+        cls.repository_root = Path(sys.argv[2]).resolve()
+
+    def run_cli(self, *args: str) -> subprocess.CompletedProcess[str]:
+        environment = dict(os.environ) | {
+            "OPK_LOG_LEVEL": "3",
+            "OPK_LOG_TARGETS": "stderr",
+        }
+        return subprocess.run(
+            [str(self.executable), *args],
+            check=False,
+            capture_output=True,
+            env=environment,
+            text=True,
+        )
+
+    def test_help_is_written_to_stdout(self) -> None:
+        result = self.run_cli("--help")
+
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("Usage:", result.stdout)
+        self.assertEqual(result.stderr, "")
+
+    def test_invocation_error_is_written_to_stderr(self) -> None:
+        result = self.run_cli()
+
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("E: opk-config-check:", result.stderr)
+        self.assertIn("--root is required", result.stderr)
+        self.assertIn("Usage:", result.stderr)
+
+    def test_validation_failure_is_written_to_stderr(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            shutil.copytree(
+                self.repository_root / "config/schemas",
+                root / "config/schemas",
+            )
+            model_dir = root / "config/models/invalid"
+            model_dir.mkdir(parents=True)
+            (root / "config/opchains").mkdir(parents=True)
+            (root / "config/pipelines").mkdir(parents=True)
+            (model_dir / "model.json").write_text("{}")
+
+            result = self.run_cli("--root", str(root))
+
+            self.assertEqual(result.returncode, 1)
+            self.assertEqual(result.stdout, "")
+            self.assertIn(
+                "E: config/models/invalid/model.json",
+                result.stderr,
+            )
+
+    def test_version_compatibility_for_each_contract(self) -> None:
+        sources = {
+            "models/model.json": "models/yolov11/model.json",
+            "opchains/opchain.json": "models/yolov11/opchain.json",
+            "pipelines/demo.json": "pipelines/testing/only-opkmenu.json",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(self.repository_root / "config/schemas", root / "config/schemas")
+            for name in ("models", "opchains", "pipelines"):
+                (root / "config" / name).mkdir()
+            for target, source in sources.items():
+                path = root / "config" / target
+                document = json.loads((self.repository_root / "config" / source).read_text())
+                for version in ("1.0.0", "1.0.37", "1.4.2", "0.9.0", "2.0.0"):
+                    with self.subTest(target=target, version=version):
+                        document["version"] = version
+                        path.write_text(json.dumps(document))
+                        result = self.run_cli("--root", str(root))
+                        if not version.startswith("1."):
+                            self.assertEqual(result.returncode, 1, result.stdout)
+                            self.assertIn("incompatible descriptor major", result.stderr)
+                        else:
+                            self.assertEqual(result.returncode, 0, result.stderr)
+                            if version == "1.4.2":
+                                self.assertIn("W:", result.stderr)
+                                self.assertIn("minor version differs", result.stderr)
+                                self.assertIn(target + ":/version", result.stderr)
+                            else:
+                                self.assertEqual(result.stderr, "")
+                path.unlink()
+
+
+if __name__ == "__main__":
+    unittest.main(argv=[sys.argv[0]])

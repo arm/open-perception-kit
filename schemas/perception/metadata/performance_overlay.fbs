@@ -1,0 +1,10 @@
+namespace perception.metadata;
+
+table PerformanceOverlay {
+  schema_major:ushort = 1;
+  schema_minor:ushort = 0;
+  lines:[string];
+}
+
+root_type PerformanceOverlay;
+file_identifier "PERF";

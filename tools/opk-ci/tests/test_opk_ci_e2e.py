@@ -1,0 +1,329 @@
+#!/usr/bin/env python3
+################################################################
+# Copyright (C) 2026 Arm Limited. All rights reserved.
+################################################################
+
+from __future__ import annotations
+
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import unittest
+from dataclasses import dataclass
+from pathlib import Path
+
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+PACKAGE_ROOT = REPO_ROOT / "tools/opk-ci"
+FIXTURE_ROOT = Path(__file__).resolve().parent / "fixtures"
+
+
+@dataclass(frozen=True)
+class FixtureCase:
+    target_path: str
+    input_fixture: str
+    expected_fixture: str
+
+
+FORMATTER_CASES = (
+    FixtureCase("python/good.py", "python/good.py", "python/good.py"),
+    FixtureCase("python/bad.py", "python/bad.py.input", "python/bad.py.expected"),
+    FixtureCase("src/good.c", "c/good.c", "c/good.c"),
+    FixtureCase("src/bad.c", "c/bad.c.input", "c/bad.c.expected"),
+    FixtureCase("src/good.cpp", "cxx/good.cpp", "cxx/good.cpp"),
+    FixtureCase("src/bad.cpp", "cxx/bad.cpp.input", "cxx/bad.cpp.expected"),
+    FixtureCase("include/good.h", "c/good.h", "c/good.h"),
+    FixtureCase("include/bad.h", "c/bad.h.input", "c/bad.h.expected"),
+    FixtureCase("include/good.hpp", "cxx/good.hpp", "cxx/good.hpp"),
+    FixtureCase("include/bad.hpp", "cxx/bad.hpp.input", "cxx/bad.hpp.expected"),
+    FixtureCase("cmake/good.cmake", "cmake/good.cmake", "cmake/good.cmake"),
+    FixtureCase("cmake/bad.cmake", "cmake/bad.cmake.input", "cmake/bad.cmake.expected"),
+    FixtureCase("cmake-good/CMakeLists.txt", "cmake/good.CMakeLists.txt", "cmake/good.CMakeLists.txt"),
+    FixtureCase("cmake-bad/CMakeLists.txt", "cmake/bad.CMakeLists.txt.input", "cmake/bad.CMakeLists.txt.expected"),
+    FixtureCase("scripts/good.sh", "shell/good.sh", "shell/good.sh"),
+    FixtureCase("scripts/bad.sh", "shell/bad.sh.input", "shell/bad.sh.expected"),
+)
+
+
+def make_private_key_fixture():
+    """Build a detectable synthetic private-key payload without checking in a PEM fixture."""
+    payload_line = "".join([
+        "MIIEvQIBADANBgkq",
+        "hkiG9w0BAQEFAASC",
+        "BKcwggSjAgEAAoIB",
+        "AQDArandomlookin",
+        "gsecret",
+    ])
+    return "\n".join([
+        "-----BEGIN " + "PRIVATE KEY-----",
+        payload_line,
+        "-----END PRIVATE KEY-----",
+        "",
+    ])
+
+
+class TestOpkCiE2E(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.test_python = os.environ.get("OPK_CI_TEST_PYTHON", sys.executable)
+        cls.runtime_bin_dir = Path(cls.test_python).absolute().parent
+        cls.runtime_path = str(cls.runtime_bin_dir) + os.pathsep + os.environ.get("PATH", "")
+
+        runtime_probe = subprocess.run(
+            [
+                cls.test_python,
+                "-c",
+                "import argcomplete, git, autopep8, detect_secrets.pre_commit_hook",
+            ],
+            capture_output=True,
+            text=True,
+            env={**os.environ, "PATH": cls.runtime_path},
+        )
+        required_binaries = [
+            name for name in ("clang-format", "shfmt", "cmake-format")
+            if shutil.which(name, path=cls.runtime_path) is None
+        ]
+        if runtime_probe.returncode != 0 or required_binaries:
+            missing_parts = []
+            if runtime_probe.returncode != 0:
+                missing_parts.append(
+                    "python runtime missing argcomplete/GitPython/autopep8/detect-secrets"
+                )
+            if required_binaries:
+                missing_parts.append(f"missing binaries: {', '.join(required_binaries)}")
+            raise unittest.SkipTest("opk-ci fixture e2e runtime is unavailable; " + "; ".join(missing_parts))
+
+    def setUp(self):
+        self.tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tempdir.cleanup)
+        self.repo_root = Path(self.tempdir.name) / "repo"
+        self.repo_root.mkdir()
+        self.copy_runtime_inputs()
+        self.init_git_repo()
+
+    def runtime_env(self):
+        env = os.environ.copy()
+        env["PATH"] = self.runtime_path
+        env["PYTHONPATH"] = str(PACKAGE_ROOT) + os.pathsep + env.get("PYTHONPATH", "")
+        env["HOME"] = str(self.repo_root)
+        return env
+
+    def copy_runtime_inputs(self):
+        for relative_path in (".clang-format", ".cmake-format.yaml", ".secrets.baseline"):
+            source = REPO_ROOT / relative_path
+            if source.exists():
+                destination = self.repo_root / relative_path
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, destination)
+
+        source_header_root = REPO_ROOT / "tools" / "templates" / "header"
+        destination_header_root = self.repo_root / "tools" / "templates" / "header"
+        destination_header_root.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(source_header_root, destination_header_root, dirs_exist_ok=True)
+
+    def init_git_repo(self):
+        self.run_cmd(["git", "init", "-b", "main"], check=True)
+        self.run_cmd(["git", "config", "user.name", "opk-ci E2E"], check=True)
+        self.run_cmd(["git", "config", "user.email", "opk-ci-e2e@example.com"], check=True)
+
+    def run_cmd(self, args, check=False):
+        return subprocess.run(
+            args,
+            cwd=self.repo_root,
+            env=self.runtime_env(),
+            check=check,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+
+    def run_opk_ci(self, *args):
+        return self.run_cmd([self.test_python, "-m", "opk_ci", *args], check=False)
+
+    def require_actionlint(self):
+        missing = [
+            tool for tool in ("actionlint", "shellcheck", "pyflakes")
+            if shutil.which(tool, path=self.runtime_path) is None
+        ]
+        if missing:
+            self.skipTest(f"actionlint toolchain is unavailable: {', '.join(missing)}")
+
+    def read_fixture(self, relative_path: str) -> str:
+        return (FIXTURE_ROOT / relative_path).read_text(encoding="utf-8")
+
+    def write_fixture_files(self, cases: tuple[FixtureCase, ...]) -> None:
+        for case in cases:
+            destination = self.repo_root / case.target_path
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_text(self.read_fixture(case.input_fixture), encoding="utf-8")
+
+    def assert_case_matches_expected(self, case: FixtureCase) -> None:
+        self.assertEqual(
+            (self.repo_root / case.target_path).read_text(encoding="utf-8"),
+            self.read_fixture(case.expected_fixture),
+            case.target_path,
+        )
+
+    def test_autofix_run_rewrites_fixture_corpus_and_check_run_passes_afterwards(self):
+        tracked_paths = [case.target_path for case in FORMATTER_CASES]
+        self.write_fixture_files(FORMATTER_CASES)
+        report_file = self.repo_root / "artifacts" / "opk-ci-report.txt"
+
+        first_run = self.run_opk_ci(
+            "--clang-format",
+            "--python-format",
+            "--cmake-format",
+            "--license-header",
+            "--shell-format",
+            "--report-file",
+            str(report_file),
+            "--list-of-files",
+            *tracked_paths,
+        )
+
+        self.assertNotEqual(first_run.returncode, 0, first_run.stdout)
+        self.assertIn("Repo checks updated files in place.", first_run.stdout)
+        self.assertTrue(report_file.is_file())
+        self.assertIn("overall: NOK", report_file.read_text(encoding="utf-8"))
+        for case in FORMATTER_CASES:
+            self.assert_case_matches_expected(case)
+
+        second_run = self.run_opk_ci(
+            "--clang-format-check",
+            "--python-format-check",
+            "--cmake-format-check",
+            "--license-header-check",
+            "--shell-format-check",
+            "--list-of-files",
+            *tracked_paths,
+        )
+
+        self.assertEqual(second_run.returncode, 0, second_run.stdout)
+        self.assertIn("[INFO]   OK   clang-format", second_run.stdout)
+        self.assertIn("[INFO]   OK   python format", second_run.stdout)
+        self.assertIn("[INFO]   OK   cmake format", second_run.stdout)
+        self.assertIn("[INFO]   OK   license header", second_run.stdout)
+        self.assertIn("[INFO]   OK   shell format", second_run.stdout)
+        for case in FORMATTER_CASES:
+            self.assert_case_matches_expected(case)
+
+    def test_fixture_based_secret_payload_fails_check_secrets(self):
+        secret_path = self.repo_root / "secrets" / "bad.pem"
+        secret_path.parent.mkdir(parents=True, exist_ok=True)
+        secret_path.write_text(make_private_key_fixture(), encoding="utf-8")
+
+        result = self.run_opk_ci(
+            "--check-secrets",
+            "--list-of-files",
+            "secrets/bad.pem",
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("Secret Type: Private Key", result.stdout)
+        self.assertIn("Location:    secrets/bad.pem:1", result.stdout)
+        self.assertIn("[INFO]   NOK  secrets", result.stdout)
+
+    def test_actionlint_scope_ignores_non_workflow_yaml(self):
+        self.require_actionlint()
+        bad_workflow = self.read_fixture("actionlint/bad-workflow.yml")
+        generic_yaml = self.repo_root / "config" / "not-workflow.yaml"
+        generic_yaml.parent.mkdir(parents=True, exist_ok=True)
+        generic_yaml.write_text(bad_workflow, encoding="utf-8")
+
+        result = self.run_opk_ci(
+            "--verbose",
+            "--actionlint",
+            "--list-of-files",
+            "config/not-workflow.yaml",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("No GitHub Actions workflow files found to check.", result.stdout)
+        self.assertIn("[INFO]   OK   actionlint", result.stdout)
+
+    def test_actionlint_config_change_lints_existing_workflows(self):
+        self.require_actionlint()
+        bad_workflow = self.read_fixture("actionlint/bad-workflow.yml")
+        workflow = self.repo_root / ".github" / "workflows" / "bad.yml"
+        workflow.parent.mkdir(parents=True, exist_ok=True)
+        workflow.write_text(bad_workflow, encoding="utf-8")
+        actionlint_config = self.repo_root / ".github" / "actionlint.yaml"
+        actionlint_config.write_text("self-hosted-runner:\n  labels: []\n", encoding="utf-8")
+
+        result = self.run_opk_ci(
+            "--actionlint",
+            "--list-of-files",
+            ".github/actionlint.yaml",
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn(".github/workflows/bad.yml", result.stdout)
+        self.assertIn("[INFO]   NOK  actionlint", result.stdout)
+
+    def test_actionlint_scope_lints_changed_workflow_only(self):
+        self.require_actionlint()
+        bad_workflow = self.read_fixture("actionlint/bad-workflow.yml")
+        workflow = self.repo_root / ".github" / "workflows" / "bad.yml"
+        workflow.parent.mkdir(parents=True, exist_ok=True)
+        workflow.write_text(bad_workflow, encoding="utf-8")
+        generic_yaml = self.repo_root / "config" / "not-workflow.yaml"
+        generic_yaml.parent.mkdir(parents=True, exist_ok=True)
+        generic_yaml.write_text(bad_workflow, encoding="utf-8")
+
+        result = self.run_opk_ci(
+            "--actionlint",
+            "--list-of-files",
+            ".github/workflows/bad.yml",
+            "config/not-workflow.yaml",
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn(".github/workflows/bad.yml", result.stdout)
+        self.assertNotIn("config/not-workflow.yaml", result.stdout)
+        self.assertIn("[INFO]   NOK  actionlint", result.stdout)
+
+    def run_actionlint_fixture(self, fixture_name):
+        self.require_actionlint()
+        workflow = self.repo_root / ".github" / "workflows" / fixture_name
+        workflow.parent.mkdir(parents=True, exist_ok=True)
+        workflow.write_text(
+            self.read_fixture(f"actionlint/{fixture_name}"),
+            encoding="utf-8",
+        )
+        return self.run_opk_ci(
+            "--actionlint",
+            "--list-of-files",
+            f".github/workflows/{fixture_name}",
+        )
+
+    def test_actionlint_accepts_inline_shell_fixture(self):
+        result = self.run_actionlint_fixture("inline-shell-good.yml")
+
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("[INFO]   OK   actionlint", result.stdout)
+
+    def test_actionlint_rejects_inline_shell_fixture(self):
+        result = self.run_actionlint_fixture("inline-shell-bad.yml")
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("SC2086", result.stdout)
+        self.assertIn("[INFO]   NOK  actionlint", result.stdout)
+
+    def test_actionlint_accepts_inline_python_fixture(self):
+        result = self.run_actionlint_fixture("inline-python-good.yml")
+
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("[INFO]   OK   actionlint", result.stdout)
+
+    def test_actionlint_rejects_inline_python_fixture(self):
+        result = self.run_actionlint_fixture("inline-python-bad.yml")
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("undefined name 'missing_value'", result.stdout)
+        self.assertIn("[INFO]   NOK  actionlint", result.stdout)
+
+
+if __name__ == "__main__":
+    unittest.main()

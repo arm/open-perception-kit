@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:arm:opk:schema:opchain-common:v1",
+  "title": "OPK OpChain shared definitions v1",
+  "$defs": {
+    "trimNonEmptyString": {
+      "type": "string",
+      "pattern": "^[^\\t\\n\\r ](?:[\\s\\S]*[^\\t\\n\\r ])?$"
+    },
+    "localPath": {
+      "$ref": "#/$defs/trimNonEmptyString",
+      "pattern": "^(?![A-Za-z][A-Za-z0-9+.-]*:)(?!(?:\\./)*(?:\\.)?/?$).+$"
+    },
+    "probability": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "positiveFiniteFloat": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 3.4028234663852886e+38
+    },
+    "positiveCount": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    }
+  }
+}

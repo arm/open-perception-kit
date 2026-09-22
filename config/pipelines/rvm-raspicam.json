@@ -1,0 +1,48 @@
+{
+  "version": "1.0.3",
+  "description": "RVM segmentation on Raspberry Pi camera with OPKOSD overlay and opksink video sink.",
+  "sourceInfo": "Raspberry Pi camera required",
+  "pipeline": [
+    "libcamerasrc !",
+    "video/x-raw,format=RGB,width=1536,height=864,framerate=60/1 !",
+    "videoconvert ! video/x-raw,format=BGRA !",
+    "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/rvm/opchain.json\" active=true !",
+    "opktracker content-type=genericObject !",
+    "opkperformance show-all-metrics=true update-interval=1 !",
+    "opkosd enabled=true bg-image=\"${OPK_PROJECT_ROOT:-/work}/data/images/GettyImages-1298072556-thumbnail.jpg\" !",
+    "opkcomm method=websocket endpoint=/ws !",
+    "opksink name=sink"
+  ],
+  "alternative-source-image": [
+    "filesrc location=\"${OPK_PROJECT_ROOT:-/work}/data/images/GettyImages-1140581459-thumbnail.jpg\" !",
+    "jpegdec !",
+    "imagefreeze !",
+    "videoconvert ! video/x-raw,format=BGRA !"
+  ],
+  "alternative-source-usbcam": [
+    "v4l2src device=/dev/video0 ! \"image/jpeg,width=1280,height=720,framerate=60/1\"  !",
+    "jpegdec !",
+    "videoconvert ! video/x-raw,format=BGRA !"
+  ],
+  "alternative-source-raspicam": [
+    "libcamerasrc !",
+    "video/x-raw,format=RGB,width=1536,height=864,framerate=60/1 !",
+    "videoconvert ! video/x-raw,format=BGRA !"
+  ],
+  "alternative-source-video": [
+    "filesrc location=\"${OPK_PROJECT_ROOT:-/work}/data/videos/GettyImages-1298072556.mov\" !",
+    "decodebin !",
+    "videoconvert !",
+    "video/x-raw,format=BGRA !"
+  ],
+  "alternative-sink": [
+    "filesink location=\"${OPK_PROJECT_ROOT:-/work}/data/output/full-dev.mp4\""
+  ],
+  "alternative-sink-opksink-with-audio": [
+    "opksink name=sink",
+    "alsasrc device=hw:2,0 do-timestamp=true !",
+    "audioconvert ! audioresample !",
+    "audio/x-raw,rate=48000,channels=2 !",
+    "sink.audiosink"
+  ]
+}

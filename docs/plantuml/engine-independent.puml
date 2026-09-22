@@ -1,0 +1,39 @@
+@startuml
+!include opk-style.puml
+
+title Open Perception Kit Engine Independent Inference Overview
+
+skinparam package<<inference-container>> {
+  BackgroundColor transparent
+  BorderColor transparent
+  StereotypeFontColor transparent
+}
+
+package " " <<inference-container>>{
+    package "Open Perception Kit model representation\n\nAPI agnostic generic model descriptor\n- input/output formats\n- pre/post-processor types\n- inference configs" as OPKModel
+    package "Inference" as Inference {
+    together {
+        component "ONNX Runtime" as ONNX
+        component "ExecuTorch" as EXEC
+    }
+
+    ONNX -[hidden]right-> EXEC
+    }
+
+    package "Inference result metadata\n\nSimple user friendly outputs:\n- bounding boxes\n- text\n- scalars\n- etc." as ResultMeta
+
+    rectangle "ONNX runtime resource\n(.onnx file)" as ResOnnx
+    rectangle "ExecuTorch resource\n(.pte file)" as ResPte
+
+    ResOnnx -[hidden]right-> ResPte
+
+    ResOnnx -[dashed]-> OPKModel : represented as\n(config: ONNX)
+    ResPte  -[dashed]-> OPKModel : represented as\n(config: ExecuTorch)
+
+    OPKModel -down[hidden]-> Inference
+    OPKModel -down-> Inference
+
+    Inference -down[hidden]-> ResultMeta
+    Inference -down-> ResultMeta : produces
+}
+@enduml

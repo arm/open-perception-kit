@@ -1,0 +1,34 @@
+name: opk-rich
+
+services:
+  opk-dev-rich:
+    extends:
+      file: ../compose.base.yaml
+      service: opk-common-dev
+    image: opk-dev-rich:local
+    container_name: ${OPK_RICH_CONTAINER_NAME:-opk-dev-rich}
+    hostname: opk
+    user: "0:0"
+    command:
+      - /usr/local/bin/opk-rich-start
+    build:
+      context: ..
+      dockerfile: .devcontainer/rich/Dockerfile
+      target: opk-dev-rich
+      additional_contexts:
+        opk-dev: service:opk-dev
+    environment:
+      USERNAME: dev
+      HOST_UID: ${HOST_UID:-1000}
+      HOST_GID: ${HOST_GID:-1000}
+      XDG_RUNTIME_DIR: /run/user/${HOST_UID:-1000}
+      OPKCOMM_FILE: /tmp/opkcomm
+      SSH_AUTH_SOCK: /ssh-agent
+    volumes:
+      - ${OPK_RICH_RUNTIME_DIR:-/tmp}:/run/user/${HOST_UID:-1000}
+      - ${OPK_RICH_CONFIGS_MOUNT:-opk-rich-configs}:/home/dev/configs
+      - ${OPK_RICH_WORK_TREE_MOUNT:-opk-rich-work-tree}:/opk-work-tree
+      - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent
+volumes:
+  opk-rich-configs:
+  opk-rich-work-tree:

@@ -1,0 +1,41 @@
+{
+	"version": "1.0.1",
+	"name": "CameraContact",
+	"displayName": "Nitec_rs18_Q",
+	"task": "Camera contact",
+	"runtime": "ONNX",
+	"description": "Model to detect if a person is looking into the camera or not.",
+	"ops": [
+		{
+			"id": "opk-std-ops/InferenceController",
+			"loopId": 1,
+			"attributes": {
+				"contentType": "humanFace"
+			}
+		},
+		{
+			"id": "opk-std-ops/GenericImagePreprocess",
+			"loopId": 1,
+			"attributes": {
+				"inputImageTensorIndex": 0,
+				"inputImageSourceName": "pipelineVideoFrame"
+			}
+		},
+		{
+			"id": "opk-onnx-ops/Inference",
+			"loopId": 1,
+			"attributes": {
+				"modelDescriptor": "model.json"
+			}
+		},
+		{
+			"id": "opk-std-ops/GenericPostprocess",
+			"loopId": 1,
+			"attributes": {
+				"parser": "CameraContactParser",
+				"contactClassIndex": 1,
+				"noContactClassIndex": 0
+			}
+		}
+	]
+}

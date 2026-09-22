@@ -1,0 +1,18 @@
+repos:
+  - repo: local
+    hooks:
+      - id: branch-naming
+        name: Branch Naming Convention
+        entry: bash -c 'source "${OPK_PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/tools/.venv/bin/activate" && opk-ci --verbose --branch-naming --list-of-files "$@"' _
+        language: system
+        stages: [pre-commit]
+      - id: commit-msg
+        name: Commit Message Format
+        entry: bash -c 'source "${OPK_PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/tools/.venv/bin/activate" && opk-ci --verbose --commit-msg --list-of-files "$@"' _
+        language: system
+        stages: [commit-msg]
+      - id: pre-commit-checks
+        name: Pre-commit checks
+        entry: bash -c 'source "${OPK_PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/tools/.venv/bin/activate" && opk-ci --verbose --pre-commit-fix --list-of-files "$@"' _
+        language: system
+        stages: [pre-commit]

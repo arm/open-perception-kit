@@ -1,0 +1,33 @@
+{
+  "version": "1.0.0",
+  "name": "byom-blazeface",
+  "modelFile": "face_detector.onnx",
+  "hfDownload": {
+    "repo_id": "fernandotonon/QtMeshEditor-blazeface-onnx",
+    "revision": "50f2c66ffbdf84beae8c267df2b49e5c5a5162e9",
+    "filename": "face_detector.onnx",
+    "sha256": "02a04d5d37c3558dc4d5274f7f8f0f0f01ac94e46c5ffb2cee82395d47e23181"
+  },
+  "dynamicOutput": false,
+  "inputTensors": [
+    {
+      "shape": [1, 128, 128, 3],
+      "dataKind": "ImageRgbHwc",
+      "valueType": "Float32",
+      "mean": [0.5, 0.5, 0.5],
+      "std": [0.5, 0.5, 0.5]
+    }
+  ],
+  "outputTensors": [
+    {
+      "shape": [1, 896, 16],
+      "dataKind": "RawTensorData",
+      "valueType": "Float32"
+    },
+    {
+      "shape": [1, 896, 1],
+      "dataKind": "RawTensorData",
+      "valueType": "Float32"
+    }
+  ]
+}

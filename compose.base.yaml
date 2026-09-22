@@ -1,0 +1,61 @@
+x-opk-runtime-environment: &opk-runtime-environment
+  USERNAME: dev
+
+x-opk-development-environment: &opk-development-environment
+  DISPLAY: ${DISPLAY:-}
+  CCACHE_DIR: /work/.cache/ccache
+  CCACHE_MAXSIZE: 2G
+
+x-opk-model-image-build: &opk-model-image-build
+  context: .
+  dockerfile: Dockerfile
+  secrets:
+    - huggingface_token
+  args:
+    HF_DOWNLOAD_CACHEBUST: ${HF_DOWNLOAD_CACHEBUST:-}
+
+services:
+  opk-common: &opk-common
+    cap_add:
+      - SYS_PTRACE
+
+    security_opt:
+      - seccomp:unconfined
+
+    privileged: true
+
+    environment:
+      <<: *opk-runtime-environment
+
+    # <agent-review:suppress-begin>
+    # The env_file object form (path + required) is a Compose feature, which is available since 2.24 (released on 20.12.2023).
+    # We are not supporting older releases.
+    env_file:
+      - path: devices.env
+        required: false
+    # <agent-review:suppress-end>
+
+    network_mode: host
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+  opk-common-dev: &opk-common-dev
+    <<: *opk-common
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - .:/work
+      - ${OPK_CCACHE_PATH:-./.cache/ccache}:/work/.cache/ccache
+      - /run/udev:/run/udev:ro
+
+    environment:
+      <<:
+        - *opk-runtime-environment
+        - *opk-development-environment
+
+  opk-model-image:
+    build: *opk-model-image-build
+
+  opk-common-dev-model-image:
+    <<: *opk-common-dev
+    build: *opk-model-image-build

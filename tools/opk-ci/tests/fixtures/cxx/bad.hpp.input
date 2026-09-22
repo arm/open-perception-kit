@@ -1,0 +1,2 @@
+#pragma once
+int divide_values(int lhs,int rhs);

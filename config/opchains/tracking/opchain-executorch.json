@@ -1,0 +1,70 @@
+{
+    "version": "1.0.1",
+    "name": "FullTrackingExecutorch",
+    "displayName": "YOLOX Nano + OSNet x0.25",
+    "task": "Object tracking",
+    "runtime": "ExecuTorch + ONNX",
+    "description": "Detector + ReID micropipeline for `opktracker`.",
+    "ops": [
+        {
+            "id": "opk-std-ops/InferenceController",
+            "attributes": {}
+        },
+        {
+            "id": "opk-std-ops/GenericImagePreprocess",
+            "attributes": {
+                "inputImageTensorIndex": 0,
+                "inputImageSourceName": "pipelineVideoFrame"
+            }
+        },
+        {
+            "id": "opk-executorch-ops/Inference",
+            "attributes": {
+                "modelDescriptor": "../../models/yolox/model.json"
+            }
+        },
+        {
+            "id": "opk-std-ops/GenericPostprocess",
+            "attributes": {
+                "parser": "YoloXParser",
+                "decoded": false,
+                "scoresAreLogits": false,
+                "scoreMode": "classOnly",
+                "normalizeOutputCoordinates": false,
+                "applyNms": true,
+                "maxDetections": 16,
+                "confidenceThreshold": 0.7,
+                "iouThreshold": 0.45
+            }
+        },
+        {
+            "id": "opk-std-ops/InferenceController",
+            "loopId": 2,
+            "attributes": {
+                "contentType": "genericObject"
+            }
+        },
+        {
+            "id": "opk-std-ops/GenericImagePreprocess",
+            "loopId": 2,
+            "attributes": {
+                "inputImageTensorIndex": 0,
+                "inputImageSourceName": "pipelineVideoFrame"
+            }
+        },
+        {
+            "id": "opk-onnx-ops/Inference",
+            "loopId": 2,
+            "attributes": {
+                "modelDescriptor": "../../models/osnet_x0_25/model.json"
+            }
+        },
+        {
+            "id": "opk-std-ops/GenericPostprocess",
+            "loopId": 2,
+            "attributes": {
+                "parser": "ObjectEmbeddingParser"
+            }
+        }
+    ]
+}

@@ -1,0 +1,30 @@
+[project]
+name = "opk-ci"
+version = "0.1.0"
+description = "CI and development tools for Open Perception Kit"
+authors = [{name = "Arm Limited"}]
+requires-python = ">=3.8"
+dependencies = [
+    "setuptools>=65.0",
+    "autopep8==2.3.1",
+    "pycodestyle==2.12.1",
+    "pre-commit==3.5.0",
+    "GitPython==3.1.59",
+    "requests==2.33.0",
+    "argcomplete==3.6.2",
+    "cmake-format==0.6.13",
+    "coverage==7.15.4",
+    "clang-format==20.1.8",
+    "clang-tidy==20.1.0",
+    "detect-secrets==1.5.0",
+    "mypy==1.16.1",
+    "pyflakes==3.3.2",
+    "types-PyYAML==6.0.12.20250516",
+    "vulture==2.14",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[project.scripts]
+opk-ci = "opk_ci:main"

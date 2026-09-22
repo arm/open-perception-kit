@@ -1,0 +1,44 @@
+services:
+  coturn:
+    image: coturn/coturn:4.13.1
+    network_mode: bridge
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+      - "${OPK_WEBRTC_TURN_MIN_PORT:-49000}-${OPK_WEBRTC_TURN_MAX_PORT:-49050}:${OPK_WEBRTC_TURN_MIN_PORT:-49000}-${OPK_WEBRTC_TURN_MAX_PORT:-49050}/udp"
+    command:
+      - --listening-port=3478
+      - --fingerprint
+      - --lt-cred-mech
+      - --user=${OPK_WEBRTC_TURN_USERNAME:-test}:${OPK_WEBRTC_TURN_CREDENTIAL:-test123}
+      - --realm=opk.local
+      - --external-ip=${WEBRTC_HOST_IP}
+      - --min-port=${OPK_WEBRTC_TURN_MIN_PORT:-49000}
+      - --max-port=${OPK_WEBRTC_TURN_MAX_PORT:-49050}
+      - --no-cli
+      - --no-tls
+      - --no-dtls
+      - --log-file=stdout
+
+  opk-dev:
+    network_mode: bridge
+    ports:
+      - "8000:8000"
+      - "8080:8080"
+      - "8001:8001"
+      - "8002:8002"
+      # <agent-review:suppress-begin> Port 7001 is intentionally published for
+      # local/demo metadata workflows; transport auth/TLS is out of scope for
+      # these checked-in demo compose defaults.
+      - "7001:7001"
+      # <agent-review:suppress-end>
+      - "9999:9999"
+      - "2222:2222"
+    depends_on:
+      - coturn
+    environment:
+      WEBRTC_HOST_IP: ${WEBRTC_HOST_IP}
+      OPK_WEBRTC_TURN_USERNAME: ${OPK_WEBRTC_TURN_USERNAME:-test}
+      OPK_WEBRTC_TURN_CREDENTIAL: ${OPK_WEBRTC_TURN_CREDENTIAL:-test123}
+      OPK_WEBRTC_TURN_MIN_PORT: ${OPK_WEBRTC_TURN_MIN_PORT:-49000}
+      OPK_WEBRTC_TURN_MAX_PORT: ${OPK_WEBRTC_TURN_MAX_PORT:-49050}

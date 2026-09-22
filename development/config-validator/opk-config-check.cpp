@@ -1,0 +1,72 @@
+/*************************************************************
+ * Copyright (C) 2026 Arm Limited. All rights reserved.
+ *************************************************************/
+
+#include "Log.h"
+#include "RepositoryValidatorInternal.h"
+
+#include <filesystem>
+#include <format>
+#include <string>
+#include <string_view>
+#include <system_error>
+#include <tl/expected.hpp>
+
+namespace {
+
+struct Arguments {
+    std::filesystem::path root;
+    bool help = false;
+};
+
+constexpr std::string_view Usage = "Usage: opk-config-check --root <repo-root>\n";
+
+tl::expected<Arguments, std::string> parseArguments(int argc, char **argv) {
+    Arguments arguments;
+    int index = 1;
+    while (index < argc) {
+        const std::string option = argv[index++];
+        if (option == "--help") {
+            arguments.help = true;
+            return arguments;
+        }
+        if (option == "--root" && index < argc) {
+            arguments.root = argv[index++];
+            continue;
+        }
+        return tl::unexpected{std::format("unknown or incomplete argument: {}", option)};
+    }
+    if (arguments.root.empty())
+        return tl::unexpected{std::string("--root is required")};
+    return arguments;
+}
+
+} // namespace
+
+int main(int argc, char **argv) {
+    auto arguments = parseArguments(argc, argv);
+    if (!arguments.has_value()) {
+        opk::log::error("opk-config-check: {}\n{}", arguments.error(), Usage);
+        opk::log::flush();
+        return 2;
+    }
+    if (arguments->help) {
+        opk::log::instantInfo("{}", Usage);
+        return 0;
+    }
+    if (std::error_code error; !std::filesystem::is_directory(arguments->root, error)) {
+        opk::log::error("opk-config-check: repository root is not a directory\n");
+        opk::log::flush();
+        return 2;
+    }
+
+    const opk::config::ValidationReport report =
+        opk::config::detail::validateRepository(arguments->root);
+    if (report.ok()) {
+        opk::log::instantInfo("{}", report.toText());
+    } else {
+        opk::log::error("{}", report.toText());
+        opk::log::flush();
+    }
+    return report.ok() ? 0 : 1;
+}

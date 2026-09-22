@@ -1,0 +1,35 @@
+include "common.fbs";
+
+namespace perception.metadata;
+
+table ClassificationCandidate {
+  confidence:float;
+  class_id:int = -1;
+  text:string;
+  x:float;
+  y:float;
+  w:float;
+  h:float;
+}
+
+table Classification {
+  object:perception.metadata.ObjectMeta;
+  candidates:[perception.metadata.ClassificationCandidate];
+}
+
+table PersonPresence {
+  object:perception.metadata.ObjectMeta;
+  yes_confidence:float;
+  no_confidence:float;
+}
+
+table Classifications {
+  schema_major:ushort = 1;
+  schema_minor:ushort = 0;
+  layer:perception.metadata.LayerInfo;
+  classifications:[perception.metadata.Classification];
+  person_presence:[perception.metadata.PersonPresence];
+}
+
+root_type Classifications;
+file_identifier "CLSF";

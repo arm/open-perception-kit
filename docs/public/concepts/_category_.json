@@ -1,0 +1,10 @@
+{
+  "position": 3,
+  "label": "Concepts",
+  "link": {
+    "type": "generated-index",
+    "slug": "/concepts",
+    "title": "Concepts",
+    "description": "Understand the repository structure and runtime concepts behind Open Perception Kit."
+  }
+}

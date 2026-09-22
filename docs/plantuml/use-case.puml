@@ -1,0 +1,93 @@
+@startuml
+!include opk-style.puml
+
+title Open Perception Kit Use Case Overview
+
+top to bottom direction
+skinparam packageStyle rectangle
+skinparam ranksep 48
+skinparam nodesep 26
+skinparam linetype ortho
+
+actor "Deployment engineer" as Deploy
+actor "Model integrator" as Modeler
+actor "Pipeline developer" as Dev
+
+rectangle "Open Perception Kit" {
+  usecase "Prepare shared\ncontainer environment" as UC_env
+  usecase "Integrate and extend\nmodels" as UC_model
+  usecase "Use backend-agnostic\ninference" as UC_backend
+  usecase "Carry structured\nPerception" as UC_perception
+  usecase "Deliver and inspect\nruntime results" as UC_runtime
+
+  usecase "Topo-oriented\ndeployment" as UC_topo #8A6A00
+  usecase "Custom parser /\ncustom Op" as UC_customext
+  usecase "ExecuTorch" as UC_exec #8A6A00
+  usecase "Schema-based Perception\n+ entities" as UC_schema #8A6A00
+  usecase "Browser mapping /\nGPU OSD / separate web app" as UC_runtimefuture #7A1F1F
+
+  usecase "PC / Raspberry Pi\ndevcontainers + passthrough" as UC_envcurrent
+  usecase "Model config + preset +\nJSON OpChain" as UC_modelcurrent
+  usecase "ONNX Runtime" as UC_mainbackends
+  usecase "Current C++ contract +\nserialization" as UC_cpp
+  usecase "opksink + opkosd +\ntracking + perf / profiling" as UC_runtimecurrent
+
+  usecase "Python / automatic\nparser integration" as UC_pyext #8A6A00
+  usecase "Additional backends" as UC_morebackends #8A6A00
+}
+
+Deploy -right-> UC_env
+Modeler -left-> UC_model
+Dev -right-> UC_runtime
+
+UC_env .left.> UC_topo : <<include>>
+UC_env .right.> UC_envcurrent : <<include>>
+
+UC_model .left.> UC_customext : <<include>>
+UC_model .right.> UC_modelcurrent : <<include>>
+UC_model .right.> UC_pyext : <<include>>
+
+UC_backend .left.> UC_exec : <<include>>
+UC_backend .right.> UC_mainbackends : <<include>>
+UC_backend .right.> UC_morebackends : <<include>>
+
+UC_perception .left.> UC_schema : <<include>>
+UC_perception .right.> UC_cpp : <<include>>
+
+UC_runtime .left.> UC_runtimefuture : <<include>>
+UC_runtime .right.> UC_runtimecurrent : <<include>>
+
+
+UC_env -[hidden]down-> UC_model
+UC_model -[hidden]down-> UC_backend
+UC_backend -[hidden]down-> UC_perception
+UC_perception -[hidden]down-> UC_runtime
+
+UC_topo -[hidden]right-> UC_env
+UC_customext -[hidden]right-> UC_model
+UC_exec -[hidden]right-> UC_backend
+UC_schema -[hidden]right-> UC_perception
+UC_runtimefuture -[hidden]right-> UC_runtime
+
+UC_env -[hidden]right-> UC_envcurrent
+UC_model -[hidden]right-> UC_modelcurrent
+UC_customext -[hidden]left-> UC_pyext
+UC_backend -[hidden]right-> UC_mainbackends
+UC_mainbackends -[hidden]right-> UC_morebackends
+UC_perception -[hidden]right-> UC_cpp
+UC_runtime -[hidden]right-> UC_runtimecurrent
+
+UC_envcurrent -[hidden]down-> UC_modelcurrent
+UC_modelcurrent -[hidden]down-> UC_mainbackends
+UC_mainbackends -[hidden]down-> UC_cpp
+UC_cpp -[hidden]down-> UC_runtimecurrent
+UC_pyext -[hidden]down-> UC_morebackends
+
+legend bottom
+|= Color |= Status |
+|<#1B3982> Current | Checked-in and documented current path |
+|<#8A6A00> Experimental | In tree and partly working, but still evolving |
+|<#7A1F1F> Planned | Roadmap item or intentionally not finished yet |
+endlegend
+
+@enduml
