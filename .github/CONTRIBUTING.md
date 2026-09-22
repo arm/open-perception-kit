@@ -12,7 +12,6 @@
 - Use a Conventional Commit pull request title, for example
   `ci: EXPKITS-1234 simplify CI workflows`. Titles are validated for pull requests targeting `main`.
 - Fill out the pull request template with `Goal`, `Change`, and `Testing`.
-- For pull requests, CI can be rerun by adding the `run-opk-ci` label.
 - A pull request targeting `main` must set a new stable version in
   `development/meson.build` and add the matching non-empty `CHANGELOG.md`
   section. Published `v<MAJOR.MINOR.PATCH>` assets are immutable.

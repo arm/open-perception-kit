@@ -2,26 +2,6 @@ name: Formatting
 
 on:
   pull_request:
-    paths:
-      - '**.c'
-      - '**.cc'
-      - '**.cpp'
-      - '**.cxx'
-      - '**.h'
-      - '**.hh'
-      - '**.hpp'
-      - '**.hxx'
-      - '**.tpp'
-      - '**.py'
-      - '**.pyi'
-      - '**.sh'
-      - '**.cmake'
-      - '**/CMakeLists.txt'
-      - '.clang-format'
-      - '.cmake-format.yaml'
-      - 'setup.cfg'
-      - 'requirements/sdk.txt'
-      - '.github/workflows/formatting.yml'
   push:
     branches: [main, develop]
   workflow_dispatch:
@@ -29,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   formatting:
@@ -59,9 +40,39 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
+          fetch-depth: 0
           persist-credentials: false
 
+      - name: Find relevant changes
+        id: changes
+        if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.changed_files < 3000)
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d
+        with:
+          base: ${{ github.event_name == 'push' && github.ref || '' }}
+          filters: |
+            relevant:
+              - '**.c'
+              - '**.cc'
+              - '**.cpp'
+              - '**.cxx'
+              - '**.h'
+              - '**.hh'
+              - '**.hpp'
+              - '**.hxx'
+              - '**.tpp'
+              - '**.py'
+              - '**.pyi'
+              - '**.sh'
+              - '**.cmake'
+              - '**/CMakeLists.txt'
+              - '.clang-format'
+              - '.cmake-format.yaml'
+              - 'setup.cfg'
+              - 'requirements/sdk.txt'
+              - '.github/workflows/formatting.yml'
+
       - name: Install formatter
+        if: &run_checks steps.changes.outcome == 'skipped' || steps.changes.outputs.relevant == 'true'
         run: |
           python3 -m venv "$RUNNER_TEMP/formatting"
           echo "$RUNNER_TEMP/formatting/bin" >> "$GITHUB_PATH"
@@ -70,6 +81,7 @@ jobs:
           ${{ matrix.install }}
 
       - name: Check formatting
+        if: *run_checks
         run: |
           git ls-files -z -- ${{ matrix.files }} \
             ':!:generated/**' ':!:deps/**' ':!:development/subprojects/**' \

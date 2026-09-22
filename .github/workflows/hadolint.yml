@@ -2,11 +2,6 @@ name: Hadolint
 
 on:
   pull_request:
-    paths:
-      - '**Dockerfile*'
-      - '.hadolint.yaml'
-      - '.hadolint.yml'
-      - '.github/workflows/hadolint.yml'
   push:
     branches: [main, develop]
   workflow_dispatch:
@@ -14,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   hadolint:
@@ -24,9 +20,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
+          fetch-depth: 0
           persist-credentials: false
 
+      - name: Find relevant changes
+        id: changes
+        if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.changed_files < 3000)
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d
+        with:
+          base: ${{ github.event_name == 'push' && github.ref || '' }}
+          filters: |
+            relevant:
+              - '**Dockerfile*'
+              - '.hadolint.yaml'
+              - '.hadolint.yml'
+              - '.github/workflows/hadolint.yml'
+
       - name: Lint Dockerfiles
+        if: steps.changes.outcome == 'skipped' || steps.changes.outputs.relevant == 'true'
         uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387
         with:
           dockerfile: >-

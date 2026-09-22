@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   python-tests:
@@ -19,12 +20,38 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
+          fetch-depth: 0
           persist-credentials: false
 
+      - &find_changes
+        name: Find relevant changes
+        id: changes
+        if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.changed_files < 3000)
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d
+        with:
+          base: ${{ github.event_name == 'push' && github.ref || '' }}
+          filters: |
+            relevant:
+              - '.github/actions/setup-sdk/**'
+              - '.github/workflows/sdk-tests.yml'
+              - 'requirements/sdk.txt'
+              - 'requirements/build.json'
+              - 'schemas/perception/**'
+              - 'tools/perception/**'
+              - 'tools/flowdata-sdk/**'
+              - 'generated/perception/**'
+              - 'scripts/perception-sdk.sh'
+              - 'scripts/private/run-perception-sdk.sh'
+              - 'scripts/private/install-perception-flatbuffers.sh'
+              - '.clang-format'
+              - 'setup.cfg'
+
       - name: Generate SDKs
+        if: &run_checks steps.changes.outcome == 'skipped' || steps.changes.outputs.relevant == 'true'
         uses: ./.github/actions/setup-sdk
 
       - name: Run Python tests
+        if: *run_checks
         run: python3 -m unittest discover -s tools/perception/tests -v
 
   rust-tests:
@@ -35,10 +62,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
+          fetch-depth: 0
           persist-credentials: false
 
+      - *find_changes
+
       - name: Generate SDKs
+        if: *run_checks
         uses: ./.github/actions/setup-sdk
 
       - name: Run Rust tests
+        if: *run_checks
         run: cargo test --manifest-path generated/perception/rust/Cargo.toml
