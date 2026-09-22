@@ -1,0 +1,20 @@
+{
+  "python": {
+    "version": "3.14"
+  },
+  "numpy": {
+    "version": "2.4.2",
+    "wheels": {
+      "aarch64": {
+        "filename": "numpy-2.4.2-cp314-cp314-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl",
+        "sha256": "d30291931c915b2ab5717c2974bb95ee891a1cf22ebc16a8006bd59cd210d40a",
+        "url": "https://files.pythonhosted.org/packages/09/63/c66418c2e0268a31a4cf8a8b512685748200f8e8e8ec6c507ce14e773529/numpy-2.4.2-cp314-cp314-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl"
+      },
+      "x86_64": {
+        "filename": "numpy-2.4.2-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+        "sha256": "bba37bc29d4d85761deed3954a1bc62be7cf462b9510b51d367b769a8c8df325",
+        "url": "https://files.pythonhosted.org/packages/5d/6c/7f237821c9642fb2a04d2f1e88b4295677144ca93285fd76eff3bcba858d/numpy-2.4.2-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl"
+      }
+    }
+  }
+}

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Open Perception Kit</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href="/assets/open-perception-kit-favicon.svg" />
+    <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css" />
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+    <div class="card">
+        <div class="card-body">
+            <div id="sidePanel" class="sidebar">
+                <div class="sidebar-sticky-header">
+                    <div class="sidebar-title">
+                        <img class="sidebar-title-icon" src="/assets/open-perception-kit-icon.svg" alt="" aria-hidden="true" />
+                        <span>Open Perception Kit</span>
+                    </div>
+
+                    <div class="sidebar-section sidebar-section--controls">
+                        <div class="controls-row">
+                            <div id="status-line" class="status-line status-line--compact connecting">
+                                <span class="status-line-dot" aria-hidden="true"></span>
+                                <span class="status-line-text">WebRTC connecting</span>
+                            </div>
+                            <div class="controls-actions">
+                                <button id="playPauseBtn" class="control-button control-button--primary" type="button"
+                                    aria-label="Pause pipeline">
+                                    <i id="playPauseIcon" class="video-control-icon fa-solid fa-pause" aria-hidden="true"></i>
+                                    <span class="video-control-text">Pause</span>
+                                </button>
+                                <button id="muteUnmuteBtn" type="button" aria-label="Unmute" style="display:none">
+                                    <span id="muteUnmuteIcon" class="video-control-icon">🔇</span>
+                                    <span class="video-control-text">Unmute</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sidebar-scroll-area">
+                    <div class="sidebar-section sidebar-section--grow sidebar-section--models" data-model-selector-section>
+                        <div class="model-selector-header">
+                            <span class="sidebar-section-title">Model Selector</span>
+                        </div>
+                        <div id="modelSelectorPanel" class="model-selector-panel">
+                            <p class="sidebar-section-description">
+                                Select which models from the current pipeline are running on the source.
+                            </p>
+                            <div id="models-container" class="models-container">
+                                <div class="models-loading">
+                                    <div class="spinner"></div>
+                                    <span>Loading models...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="sidePanelResizeHandle" class="side-panel-resize-handle" aria-hidden="true"></div>
+            </div>
+
+            <main class="main-content">
+                <div class="video-wrapper">
+                    <video id="video" autoplay playsinline muted></video>
+                    <canvas id="clientOsdCanvas" class="client-osd-canvas"></canvas>
+                    <div id="video-overlay" class="video-overlay">
+                        <div class="overlay-chip">
+                            <div class="spinner"></div>
+                            <div id="overlay-text">Waiting for stream...</div>
+                        </div>
+                    </div>
+                    <div class="video-control-buttons" aria-label="Video display controls">
+                        <button id="clientOsdControlsBtn"
+                            class="video-control-button client-osd-controls-button" type="button"
+                            aria-label="Client renderer controls" data-tooltip="Client renderer"
+                            aria-expanded="false" aria-pressed="false">
+                            <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
+                        </button>
+                        <button id="toggleVideoFeedBtn"
+                            class="video-control-button video-feed-toggle-button" type="button"
+                            aria-label="Hide video feed"
+                            data-tooltip="Hide video feed" aria-pressed="false">
+                            <i id="toggleVideoFeedIcon" class="fa-solid fa-eye-slash"
+                                aria-hidden="true"></i>
+                        </button>
+                        <button id="sidebarVisibilityBtn" class="video-control-button video-sidebar-button"
+                            type="button" aria-label="Toggle sidebar" data-tooltip="Toggle sidebar"
+                            aria-pressed="true">
+                            <i class="fa-solid fa-table-columns"
+                                aria-hidden="true"></i>
+                        </button>
+                        <button id="outputsVisibilityBtn"
+                            class="video-control-button video-outputs-button" type="button"
+                            aria-label="Toggle outputs"
+                            data-tooltip="Toggle outputs" aria-pressed="true">
+                            <i class="fa-solid fa-rectangle-list" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <div id="clientOsdControlsPanel" class="client-osd-controls-panel" hidden>
+                        <div class="client-osd-controls-title">Renderer</div>
+                        <label class="client-osd-toggle">
+                            <input id="clientOsdRenderObjects" type="checkbox" checked>
+                            <span>Objects</span>
+                            <input id="clientOsdColorObjects" class="client-osd-color" type="color" value="#ff3030"
+                                aria-label="Objects color">
+                        </label>
+                        <label class="client-osd-toggle">
+                            <input id="clientOsdRenderFaces" type="checkbox" checked>
+                            <span>Faces</span>
+                            <input id="clientOsdColorFaces" class="client-osd-color" type="color" value="#2600ff"
+                                aria-label="Faces color">
+                        </label>
+                        <label class="client-osd-toggle">
+                            <input id="clientOsdRenderGaze" type="checkbox" checked>
+                            <span>Gaze</span>
+                            <input id="clientOsdColorGaze" class="client-osd-color" type="color" value="#fafad2"
+                                aria-label="Gaze color">
+                        </label>
+                        <label class="client-osd-toggle">
+                            <input id="clientOsdRenderCameraContact" type="checkbox" checked>
+                            <span>Camera contact</span>
+                            <input id="clientOsdColorCameraContact" class="client-osd-color" type="color" value="#66ff00"
+                                aria-label="Camera contact color">
+                        </label>
+                        <label class="client-osd-toggle">
+                            <input id="clientOsdRenderTrackTraces" type="checkbox" checked>
+                            <span>Track traces</span>
+                            <input id="clientOsdColorTrackTraces" class="client-osd-color" type="color" value="#ffff00"
+                                aria-label="Track traces color">
+                        </label>
+                        <label class="client-osd-toggle">
+                            <input id="clientOsdRenderClassification" type="checkbox" checked>
+                            <span>Classification</span>
+                            <input id="clientOsdColorClassification" class="client-osd-color" type="color" value="#ffffff"
+                                aria-label="Classification color">
+                        </label>
+                        <label class="client-osd-toggle">
+                            <input id="clientOsdRenderPersonStatus" type="checkbox" checked>
+                            <span>Person status</span>
+                            <input id="clientOsdColorPersonStatus" class="client-osd-color" type="color" value="#66ff00"
+                                aria-label="Person status color">
+                        </label>
+                    </div>
+                </div>
+
+                <div class="bottom-dock" aria-label="Pipeline data panels">
+                    <div id="bottomDockResizeHandle" class="bottom-dock-resize-handle" aria-hidden="true"></div>
+                    <div class="bottom-dock-header">
+                        <span class="bottom-dock-title">Outputs</span>
+                        <div class="output-panel-toggles" aria-label="Output panels">
+                            <button id="toggleInferenceOutput" class="output-panel-toggle" type="button"
+                                aria-pressed="true">
+                                <i class="fa-solid fa-eye" aria-hidden="true"></i>
+                                <span>Inference Output</span>
+                            </button>
+                            <button id="togglePerformanceOutput" class="output-panel-toggle" type="button"
+                                aria-pressed="false">
+                                <i class="fa-solid fa-eye-slash" aria-hidden="true"></i>
+                                <span>Performance Metrics</span>
+                            </button>
+                            <button id="toggleDebugOutput" class="output-panel-toggle" type="button"
+                                aria-pressed="false">
+                                <i class="fa-solid fa-eye-slash" aria-hidden="true"></i>
+                                <span>Debug Log</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="bottom-dock-panels">
+                        <div class="sidebar-section inference-output-section" data-inference-output-section>
+                            <div class="inference-output-header">
+                                <span class="sidebar-section-title">Inference Output</span>
+                                <button id="copyInferenceOutputBtn" class="section-copy-button" type="button"
+                                    aria-label="Copy inference output" title="Copy inference output">
+                                    <i class="fa-solid fa-copy" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <div class="inference-output-description">
+                                Inference output for the currently rendered frame, updating in real time.
+                            </div>
+                            <div id="inferenceOutputPanel" class="inference-output-panel">
+                                <div id="inferenceOutputBody" class="inference-output-body">
+                                    <div class="inference-output-empty">No inference output yet, enable a model to see inference here.</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bottom-dock-column-resize-handle" data-bottom-column-resize="inference-metrics"
+                            aria-hidden="true"></div>
+
+                        <div class="sidebar-section performance-metrics-section" data-performance-metrics-section>
+                            <div class="performance-metrics-header">
+                                <span class="sidebar-section-title">Performance Metrics</span>
+                                <button id="copyPerformanceMetricsBtn" class="section-copy-button" type="button"
+                                    aria-label="Copy performance metrics" title="Copy performance metrics">
+                                    <i class="fa-solid fa-copy" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <div id="performanceMetricsPanel" class="performance-metrics-panel">
+                                <table class="performance-metrics-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Stage</th>
+                                            <th>Current</th>
+                                            <th>P95</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="performanceMetricsBody">
+                                        <tr>
+                                            <td colspan="3" class="performance-metrics-empty">No metrics yet</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="bottom-dock-column-resize-handle" data-bottom-column-resize="metrics-debug"
+                            aria-hidden="true"></div>
+
+                        <div class="sidebar-section debug-log-section" data-debug-log-section>
+                            <div class="debug-log-header">
+                                <span class="sidebar-section-title">Debug Log</span>
+                                <button id="copyDebugLogBtn" class="section-copy-button" type="button"
+                                    aria-label="Copy debug log" title="Copy debug log">
+                                    <i class="fa-solid fa-copy" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <div id="log" class="log"></div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Logic -->
+    <script src="/opk-config.js"></script>
+    <script type="module" src="/opk-web.js"></script>
+</body>
+
+</html>
