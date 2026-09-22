@@ -17,7 +17,7 @@ Usage:
 Runs /work/tools/opk-menu inside the OPK quick-start container.
 
 Defaults:
-  ./scripts/run.sh              Runs the bundled YOLOv11 sample: yolov11-onnx
+  ./scripts/run.sh              Runs the bundled YOLOv11 sample: yolo26-onnx
   ./scripts/run.sh --menu       Opens the interactive opk-menu
   ./scripts/run.sh -l           Runs the last selected pipeline
   ./scripts/run.sh <pipeline>   Runs a pipeline by ID or JSON path
@@ -40,7 +40,7 @@ START_CONTAINER_SCRIPT="${REPO_ROOT}/scripts/quick-start/start-container.sh"
 
 OPK_MENU_ARGS=("$@")
 if [[ $# -eq 0 ]]; then
-    OPK_MENU_ARGS=(yolov11-onnx)
+    OPK_MENU_ARGS=(yolo26-onnx)
 elif [[ "${1:-}" == "--menu" ]]; then
     shift
     if [[ $# -gt 0 ]]; then

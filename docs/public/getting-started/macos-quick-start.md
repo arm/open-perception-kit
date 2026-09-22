@@ -110,10 +110,10 @@ Expected result: the build finishes without errors and `tools/opk-menu` exists.
 Run in the **Docker shell**:
 
 ```bash
-./tools/opk-menu yolov11-onnx
+./tools/opk-menu yolo26-onnx
 ```
 
-You can also use the VS Code task **00 Run project and select pipeline** and choose `yolov11-onnx`.
+You can also use the VS Code task **00 Run project and select pipeline** and choose `yolo26-onnx`.
 
 ![OPK pipeline selection view](/img/09-select-pipeline.png)
 

@@ -72,7 +72,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
 
     def test_tokenless_defaults_use_bundled_yolov11(self) -> None:
         pipeline = json.loads(
-            (REPO_ROOT / "config/pipelines/yolov11-onnx.json").read_text()
+            (REPO_ROOT / "config/pipelines/yolo26-onnx.json").read_text()
         )
         inference_steps = [
             step for step in pipeline["pipeline"] if "opkinfer" in step
@@ -85,15 +85,15 @@ class ModelArtifactBuildTest(unittest.TestCase):
             ],
         )
         self.assertIn(
-            "OPK_MENU_ARGS=(yolov11-onnx)",
+            "OPK_MENU_ARGS=(yolo26-onnx)",
             (REPO_ROOT / "scripts/run.sh").read_text(),
         )
         self.assertIn(
-            "OPK_PIPELINE: ${OPK_PIPELINE:-yolov11-onnx}",
+            "OPK_PIPELINE: ${OPK_PIPELINE:-yolo26-onnx}",
             (REPO_ROOT / COMPOSE_FILE).read_text(),
         )
         self.assertIn(
-            "ARG OPK_PIPELINE=yolov11-onnx",
+            "ARG OPK_PIPELINE=yolo26-onnx",
             (REPO_ROOT / "Dockerfile").read_text(),
         )
         for script in (
@@ -101,7 +101,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
             "scripts/private/deployment-runtime.sh",
         ):
             self.assertIn(
-                'OPK_PIPELINE=${OPK_PIPELINE:-"yolov11-onnx"}',
+                'OPK_PIPELINE=${OPK_PIPELINE:-"yolo26-onnx"}',
                 (REPO_ROOT / script).read_text(),
             )
         self.assertTrue(

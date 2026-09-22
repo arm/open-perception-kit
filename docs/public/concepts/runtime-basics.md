@@ -67,7 +67,7 @@ between loop iterations until the pipeline is stopped.
 stdout, stderr, and file log targets applied when playback starts. Its defaults
 select the `Error` level and stderr only. `opk-menu` accepts `--log-level` and
 `--log-targets` to override those defaults for a selected pipeline, for example
-`./tools/opk-menu --log-level debug --log-targets stdout,stderr yolov11-onnx`.
+`./tools/opk-menu --log-level debug --log-targets stdout,stderr yolo26-onnx`.
 Because the logger is process-wide, starting a second pipeline with different
 options replaces the logging settings used by the first one as well.
 
@@ -227,7 +227,7 @@ Common presets include:
 - `tracker-executorch.json` - ExecuTorch tracking demo on bundled video.
 - `tracker-pc.json` - ONNX tracking demo on bundled video.
 - `yolo26-onnx.json` - YOLO26 object detection demo on bundled video.
-- `yolov11-onnx.json` - YOLOv11 object detection demo on bundled video.
+- `yolo26-onnx.json` - YOLOv11 object detection demo on bundled video.
 
 Pipeline files often contain `alternative-source-*` and `alternative-sink-*` sections. Use those as templates when switching from the default sample media to a camera, video file, or different sink.
 
