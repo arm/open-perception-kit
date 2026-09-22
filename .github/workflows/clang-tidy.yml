@@ -1,0 +1,136 @@
+name: Clang-tidy
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: Analyse changed PR files or all files.
+        type: choice
+        options: [changed, all]
+        default: changed
+  workflow_call:
+    inputs:
+      scope:
+        description: Analyse changed PR files or all files.
+        type: string
+        default: changed
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  clang-tidy:
+    name: Clang-tidy
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+
+      - name: Find changed files
+        id: changes
+        if: github.event_name == 'pull_request' && inputs.scope != 'all' && github.event.pull_request.changed_files < 3000
+        uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad
+        with:
+          list-files: json
+          filters: |
+            sources:
+              - 'development/**/*.{c,cc,cpp,cxx,C}'
+            full:
+              - '**/*.{h,hh,hpp,hxx,H,tpp,inl,inc,ipp,h.in,hpp.in}'
+              - '**/meson.build'
+              - '**/meson.options'
+              - '**/meson_options.txt'
+              - '**/*.wrap'
+              - '.clang-tidy'
+              - '.github/workflows/clang-tidy.yml'
+              - '.github/actions/setup-build/**'
+              - '.github/actions/setup-sdk/**'
+              - 'tools/flowdata-sdk/**'
+              - 'requirements/**'
+              - 'scripts/build.sh'
+              - 'scripts/setup-python-ops-runtime.sh'
+              - 'scripts/private/install-*.sh'
+              - 'schemas/**'
+              - 'tools/perception/**'
+              - 'development/ops-python/runtime.json'
+              - 'development/web/package*.json'
+
+      - name: Select scan scope
+        id: scan
+        shell: bash
+        env:
+          SCOPE: ${{ inputs.scope || 'changed' }}
+          SCAN_ALL: ${{ inputs.scope == 'all' || github.event_name != 'pull_request' || steps.changes.outputs.full == 'true' || github.event.pull_request.changed_files >= 3000 }}
+          HAS_SOURCES: ${{ steps.changes.outputs.sources == 'true' }}
+        run: |
+          [[ "$SCOPE" == changed || "$SCOPE" == all ]]
+          mkdir -p "$RUNNER_TEMP/clang-tidy"
+          echo "all=$SCAN_ALL" >> "$GITHUB_OUTPUT"
+          if [[ "$SCAN_ALL" == true || "$HAS_SOURCES" == true ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo 'No relevant changes; skipping clang-tidy.' > "$RUNNER_TEMP/clang-tidy/summary.txt"
+          fi
+
+      - name: Set up build environment
+        if: steps.scan.outputs.run == 'true'
+        uses: ./.github/actions/setup-build
+
+      - name: Install clang-tidy
+        if: steps.scan.outputs.run == 'true'
+        run: python3 -m pip install clang-tidy==20.1.0
+
+      - name: Build
+        if: steps.scan.outputs.run == 'true'
+        run: ./scripts/build.sh debug true
+
+      - name: Run clang-tidy
+        if: steps.scan.outputs.run == 'true'
+        working-directory: development/build-active
+        shell: bash
+        env:
+          SCAN_ALL: ${{ steps.scan.outputs.all }}
+          CHANGED_FILES: ${{ steps.changes.outputs.sources_files || '[]' }}
+        run: |
+          jq --argjson all "$SCAN_ALL" --argjson changed "$CHANGED_FILES" '
+            [.[] | select(.file | startswith("../") and
+              (startswith("../subprojects/") | not) and
+              (startswith("../../") | not)) |
+              select($all or (.file | ltrimstr("../") | "development/" + . |
+                . as $source | $changed | index($source) != null))] | unique_by(.file)' \
+            compile_commands.json > "$RUNNER_TEMP/clang-tidy/compile_commands.json"
+          jq -r '"Selected \(length) source files for analysis."' \
+            "$RUNNER_TEMP/clang-tidy/compile_commands.json" > "$RUNNER_TEMP/clang-tidy/summary.txt"
+          jq -r '.[].file' "$RUNNER_TEMP/clang-tidy/compile_commands.json" \
+            > "$RUNNER_TEMP/clang-tidy-sources.txt"
+          # shellcheck disable=SC2016
+          xargs -r -d '\n' -P 4 -n 1 bash -ec '
+            report="$RUNNER_TEMP/clang-tidy/${1#../}.txt"
+            mkdir -p "$(dirname "$report")"
+            clang-tidy -p "$RUNNER_TEMP/clang-tidy" --config-file=../../.clang-tidy "$1" \
+              > "$report" 2>&1
+          ' _ < "$RUNNER_TEMP/clang-tidy-sources.txt"
+
+      - name: Collect clang-tidy report
+        if: always() && steps.scan.outcome == 'success'
+        shell: bash
+        run: |
+          find "$RUNNER_TEMP/clang-tidy" -name '*.txt' -exec cat {} + \
+            | tee "$GITHUB_WORKSPACE/clang-tidy.txt"
+
+      - name: Upload clang-tidy report
+        if: always() && steps.scan.outcome == 'success'
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: clang-tidy-report
+          path: clang-tidy.txt
+          if-no-files-found: warn
+          retention-days: 7
