@@ -1,1 +1,1 @@
-huggingface_hub==1.18.0
+-r models.txt

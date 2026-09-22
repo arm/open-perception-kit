@@ -41,7 +41,7 @@ runs:
           echo "CC=$CC"
           echo "CXX=$CXX"
         } >> "$GITHUB_ENV"
-        bash scripts/private/install-onnxruntime.sh '${{ steps.dependencies.outputs.onnxruntime }}' "$(uname -m)" "$RUNNER_TEMP/onnxruntime"
+        bash scripts/private/install-onnxruntime.sh requirements/build.json "$(uname -m)" "$RUNNER_TEMP/onnxruntime"
 
     - name: Install Python dependencies
       shell: bash

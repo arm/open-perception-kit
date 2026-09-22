@@ -20,6 +20,7 @@ on:
       - '.clang-format'
       - '.cmake-format.yaml'
       - 'setup.cfg'
+      - 'requirements/sdk.txt'
       - '.github/workflows/formatting.yml'
   push:
     branches: [main, develop]
@@ -39,15 +40,15 @@ jobs:
       matrix:
         include:
           - language: C and C++
-            install: python3 -m pip install clang-format==20.1.8
+            install: python3 -m pip install -r requirements/sdk.txt
             files: "'*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hh' '*.hpp' '*.hxx' '*.tpp'"
             check: clang-format --dry-run --Werror
           - language: Python
-            install: python3 -m pip install autopep8==2.3.1 pycodestyle==2.12.1
+            install: python3 -m pip install -r requirements/sdk.txt
             files: "'*.py' '*.pyi'"
             check: autopep8 --diff --exit-code
           - language: CMake
-            install: python3 -m pip install cmakelang==0.6.13 PyYAML==6.0.3
+            install: python3 -m pip install -r requirements/sdk.txt
             files: "'*.cmake' '**/CMakeLists.txt' 'CMakeLists.txt'"
             check: cmake-format -c .cmake-format.yaml --check
           - language: Shell
