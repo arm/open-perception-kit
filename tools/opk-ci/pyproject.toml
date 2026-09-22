@@ -14,7 +14,7 @@ dependencies = [
     "argcomplete==3.6.2",
     "cmake-format==0.6.13",
     "coverage==7.15.4",
-    "clang-format==20.1.8",
+    "clang-format==23.1.1",
     "clang-tidy==20.1.0",
     "detect-secrets==1.5.0",
     "mypy==1.16.1",
