@@ -2,22 +2,31 @@ name: SDK tests
 
 on:
   pull_request:
+    paths: &paths
+      - '.github/actions/setup-sdk/**'
+      - '.github/workflows/sdk-tests.yml'
+      - 'requirements/sdk.txt'
+      - 'requirements/build.json'
+      - 'schemas/perception/**'
+      - 'tools/perception/**'
+      - 'tools/flowdata-sdk/**'
+      - 'generated/perception/**'
+      - 'scripts/perception-sdk.sh'
+      - 'scripts/private/run-perception-sdk.sh'
+      - 'scripts/private/install-perception-flatbuffers.sh'
+      - '.clang-format'
+      - 'setup.cfg'
   push:
     branches: [main, develop]
+    paths: *paths
   workflow_dispatch:
   workflow_call:
 
 permissions:
   contents: read
-  pull-requests: read
 
 jobs:
-  changes:
-    uses: ./.github/workflows/changes.yml
-
   python-tests:
-    needs: changes
-    if: needs.changes.outputs.sdk == 'true'
     name: SDK Python tests
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
@@ -34,8 +43,6 @@ jobs:
         run: python3 -m unittest discover -s tools/perception/tests -v
 
   rust-tests:
-    needs: changes
-    if: needs.changes.outputs.sdk == 'true'
     name: SDK Rust tests
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30

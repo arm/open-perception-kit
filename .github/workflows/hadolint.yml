@@ -2,18 +2,14 @@ name: Hadolint
 
 on:
   pull_request:
-    paths:
+    paths: &paths
       - '**Dockerfile*'
       - '.hadolint.yaml'
       - '.hadolint.yml'
       - '.github/workflows/hadolint.yml'
   push:
     branches: [main, develop]
-    paths:
-      - '**Dockerfile*'
-      - '.hadolint.yaml'
-      - '.hadolint.yml'
-      - '.github/workflows/hadolint.yml'
+    paths: *paths
   workflow_dispatch:
   workflow_call:
 
