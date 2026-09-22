@@ -7,7 +7,7 @@ requires-python = ">=3.8"
 dependencies = [
     "setuptools>=65.0",
     "autopep8==2.3.2",
-    "pycodestyle==2.12.1",
+    "pycodestyle==2.14.0",
     "pre-commit==3.5.0",
     "GitPython==3.1.59",
     "requests==2.33.0",
