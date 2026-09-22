@@ -1,0 +1,68 @@
+name: quick-start-smoke
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+  workflow_call:
+    secrets:
+      HF_TOKEN:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  quick-start-smoke:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    name: quick-start-smoke (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+
+      - name: Generate SDKs
+        uses: ./.github/actions/setup-sdk
+
+      - name: Run quick-start
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: ./scripts/quick_start.sh
+
+      - name: Build
+        run: ./scripts/build.sh debug false
+
+      - name: Install Chromium smoke-test dependencies
+        working-directory: .github/scripts/quick-start-smoke
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps --only-shell chromium
+
+      - name: Run browser smoke test
+        working-directory: .github/scripts/quick-start-smoke
+        run: npm test
+
+      - name: Upload smoke-test results
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: quick-start-smoke-${{ matrix.arch }}-results
+          path: test-results/quick-start-smoke/
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Stop quick-start container
+        if: always()
+        run: ./scripts/quick-start/cleanup-container.sh

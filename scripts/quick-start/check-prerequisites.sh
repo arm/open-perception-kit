@@ -73,17 +73,17 @@ check_docker_access() {
 # Platform prerequisite lists. Keep most of these empty until the minimal sets
 # are known. A requirement can have no fallback package when it needs user action
 # instead of package installation, for example Docker group membership.
-PREREQS_DEBIAN_13_X86=(
+PREREQS_DEBIAN_13=(
     "docker-cli|check_docker_cli|docker.io|Docker CLI"
     "docker-compose|check_docker_compose|docker-compose|Docker Compose plugin"
     "docker-access|check_docker_access||Docker daemon reachable by the current user"
 )
-PREREQS_UBUNTU_24_04_X86=(
+PREREQS_UBUNTU_24_04=(
     "docker-cli|check_docker_cli|docker.io|Docker CLI"
     "docker-compose|check_docker_compose|docker-compose-v2|Docker Compose plugin"
     "docker-access|check_docker_access||Docker daemon reachable by the current user"
 )
-PREREQS_UBUNTU_26_04_X86=(
+PREREQS_UBUNTU_26_04=(
     "docker-cli|check_docker_cli|docker.io|Docker CLI"
     "docker-compose|check_docker_compose|docker-compose-v2|Docker Compose plugin"
     "docker-access|check_docker_access||Docker daemon reachable by the current user"
@@ -109,6 +109,11 @@ PREREQS_MACOS=(
     "docker-access|check_docker_access||Docker Desktop engine reachable by the current user"
 )
 PREREQS_LINUX_X86=()
+PREREQS_LINUX_ARM=(
+    "docker-cli|check_docker_cli|docker.io|Docker CLI"
+    "docker-compose|check_docker_compose||Docker Compose plugin (install it before running quick-start)"
+    "docker-access|check_docker_access||Docker daemon reachable by the current user"
+)
 
 PACKAGE_MANAGER=""
 SELECTED_PREREQ_ARRAYS=()
@@ -133,14 +138,16 @@ select_prereq_arrays() {
                 SELECTED_PREREQ_ARRAYS+=(PREREQS_WSL_DEBIAN_13)
             fi
             ;;
-        linux-x86_64)
+        linux-x86_64 | linux-aarch64)
             PACKAGE_MANAGER="apt"
             if [[ "$OPK_OS_ID" == "ubuntu" && "$OPK_OS_VERSION_ID" == "24.04" ]]; then
-                SELECTED_PREREQ_ARRAYS=(PREREQS_UBUNTU_24_04_X86)
+                SELECTED_PREREQ_ARRAYS=(PREREQS_UBUNTU_24_04)
             elif [[ "$OPK_OS_ID" == "ubuntu" && "$OPK_OS_VERSION_ID" == "26.04" ]]; then
-                SELECTED_PREREQ_ARRAYS=(PREREQS_UBUNTU_26_04_X86)
+                SELECTED_PREREQ_ARRAYS=(PREREQS_UBUNTU_26_04)
             elif [[ "$OPK_OS_ID" == "debian" && "$OPK_OS_VERSION_CODENAME" == "trixie" ]]; then
-                SELECTED_PREREQ_ARRAYS=(PREREQS_DEBIAN_13_X86)
+                SELECTED_PREREQ_ARRAYS=(PREREQS_DEBIAN_13)
+            elif [[ "$OPK_PLATFORM_ID" == "linux-aarch64" ]]; then
+                SELECTED_PREREQ_ARRAYS=(PREREQS_LINUX_ARM)
             else
                 SELECTED_PREREQ_ARRAYS=(PREREQS_LINUX_X86)
             fi
@@ -319,7 +326,7 @@ print_manual_failures() {
             fi
         elif [[ "$requirement_id" == "docker-access" ]]; then
             echo "    Start Docker and confirm 'docker info' works without sudo."
-            if [[ "$OPK_PLATFORM_ID" == "linux-x86_64" || "$OPK_PLATFORM_ID" == rpi5* ]]; then
+            if [[ "$OPK_PLATFORM_ID" == linux-* || "$OPK_PLATFORM_ID" == rpi5* ]]; then
                 echo "    On Linux, this often means: sudo usermod -aG docker \"\$USER\""
                 echo "    Then log out and log back in."
             fi
