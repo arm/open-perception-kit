@@ -19,14 +19,19 @@ services:
     build:
       network: ${BUILD_NETWORK_MODE:-default}
       target: opk-dev
+      secrets:
+        - executorch_artifactory_username
+        - executorch_artifactory_password
       args:
         USER_UID: ${HOST_UID:-1000}
         USER_GID: ${HOST_GID:-1000}
         OPK_PICAMERA: ${OPK_PICAMERA:-disabled}
-        EXECUTORCH_ARTIFACTORY_USERNAME: ${EXECUTORCH_ARTIFACTORY_USERNAME:-}
-        EXECUTORCH_ARTIFACTORY_PASSWORD: ${EXECUTORCH_ARTIFACTORY_PASSWORD:-}
         EXECUTORCH_VERSION: ${EXECUTORCH_VERSION:-}
         EXECUTORCH_DEB_REVISION: ${EXECUTORCH_DEB_REVISION:-}
 secrets:
   huggingface_token:
     environment: HF_TOKEN
+  executorch_artifactory_username:
+    environment: EXECUTORCH_ARTIFACTORY_USERNAME
+  executorch_artifactory_password:
+    environment: EXECUTORCH_ARTIFACTORY_PASSWORD
