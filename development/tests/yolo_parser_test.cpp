@@ -65,6 +65,58 @@ TEST(YoloParser, StoresBestClassIdOnRectOutput) {
     EXPECT_FLOAT_EQ(detections[0]->confidence, 0.9f);
 }
 
+TEST(YoloParser, ParsesCornerScoreClassOutput) {
+    opk::AttributeMap attrs;
+    attrs.set("outputFormat", "cornerScoreClass");
+    attrs.set("normalizeOutputCoordinates", false);
+    attrs.set("applyNms", false);
+
+    std::vector<float> tensorData{
+        10.0f,
+        20.0f,
+        30.0f,
+        40.0f,
+        0.9f,
+        2.0f,
+        50.0f,
+        50.0f,
+        60.0f,
+        60.0f,
+        0.1f,
+        3.0f,
+    };
+    opk::TensorView tensor(tensorData.data(),
+                           tensorData.size() * sizeof(float),
+                           opk::Shape(1, 2, 6),
+                           opk::Dtype::Float32,
+                           1.0f,
+                           0.0f);
+
+    opk::TensorParser::Input input(attrs);
+    input.tensors[0] = &tensor;
+    input.inferenceInfo.image = {
+        .width = 100, .height = 100, .modelWidth = 100, .modelHeight = 100};
+
+    perception::FrameResults output;
+    opk::stdop::postproc::YoloParser parser;
+    const auto result = parser.parse(input, output);
+
+    ASSERT_TRUE(result.has_value()) << result.error().toString();
+    const auto detectionsRef = output.get<perception::metadata::BoxDetectionsT>();
+    if (!detectionsRef.has_value()) {
+        ADD_FAILURE() << "missing BoxDetections payload";
+        return;
+    }
+    const auto &detections = detectionsRef.value().value().detections;
+    ASSERT_EQ(detections.size(), 1U);
+    EXPECT_EQ(detections[0]->class_id, 2);
+    EXPECT_FLOAT_EQ(detections[0]->confidence, 0.9f);
+    EXPECT_FLOAT_EQ(detections[0]->box->x, 10.0f);
+    EXPECT_FLOAT_EQ(detections[0]->box->y, 20.0f);
+    EXPECT_FLOAT_EQ(detections[0]->box->width, 20.0f);
+    EXPECT_FLOAT_EQ(detections[0]->box->height, 20.0f);
+}
+
 TEST(YoloParser, RejectsMissingTensor) {
     opk::AttributeMap attrs;
     opk::TensorParser::Input input(attrs);

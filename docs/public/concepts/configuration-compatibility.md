@@ -189,6 +189,11 @@ validated when the pipeline starts.
 
 ## Migrating existing configurations
 
+OpChain `1.0.2` adds the optional YoloParser `outputFormat` attribute. Existing
+OpChains keep the `centerClassScores` behavior when it is omitted. Models that
+produce `[1,N,6]` rows containing corner coordinates, confidence, and class ID
+must set `"outputFormat": "cornerScoreClass"`.
+
 Earlier pipeline presets had no version, or used the integer `1`. Preserve
 their command and options and set `"version": "1.0.0"`. If an external preset used only the C++ loader and
 omitted `description`, add a string description as well:

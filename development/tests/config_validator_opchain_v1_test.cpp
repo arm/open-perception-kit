@@ -171,6 +171,7 @@ TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {
                        {"noContactClassIndex", 1}},
         nlohmann::json{{"parser", "GazeDetectionParser"}, {"angleBinWidthDeg", 4}},
         nlohmann::json{{"parser", "YoloParser"}, {"applyNms", false}},
+        nlohmann::json{{"parser", "YoloParser"}, {"outputFormat", "cornerScoreClass"}},
         nlohmann::json{{"parser", "YoloXParser"}, {"applyNms", false}},
     };
     for (const auto &validAttributes : validConditionalAttributes) {
@@ -189,6 +190,7 @@ TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {
                        {"noContactClassIndex", 0}},
         nlohmann::json{{"parser", "PaddleOcrDetectionParser"}, {"gamma", 0}},
         nlohmann::json{{"parser", "YoloParser"}, {"applyNms", false}, {"iouThreshold", 0.4}},
+        nlohmann::json{{"parser", "YoloParser"}, {"outputFormat", "xyxy"}},
         nlohmann::json{{"parser", "YoloXParser"}, {"applyNms", false}, {"iouThreshold", 0.4}},
     };
     for (const auto &invalid : invalidAttributes) {

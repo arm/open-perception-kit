@@ -20,6 +20,11 @@ struct Det {
     int cls;
 };
 
+enum class OutputFormat {
+    CenterClassScores,
+    CornerScoreClass,
+};
+
 static float iou(const Det &a, const Det &b) {
     float xx1 = std::max(a.x1, b.x1), yy1 = std::max(a.y1, b.y1);
     float xx2 = std::min(a.x2, b.x2), yy2 = std::min(a.y2, b.y2);
@@ -129,9 +134,9 @@ static void processDetection(const opk::TensorParser::Input &input,
     d.y2 = clampf(d.y2, 0.0f, static_cast<float>(image.height - 1));
 }
 
-static std::vector<Det> parseUltralyticsDetections(const opk::TensorParser::Input &input,
-                                                   const TensorView &tensor,
-                                                   const opk::Shape &shape) {
+static std::vector<Det> parseCenterClassScoresDetections(const opk::TensorParser::Input &input,
+                                                         const TensorView &tensor,
+                                                         const opk::Shape &shape) {
     const auto confThreshold =
         static_cast<float>(input.attributes.getDoubleOrDefault("confidenceThreshold", 0.25));
     const bool channelsFirst = shape.dims[1] <= shape.dims[2];
@@ -172,6 +177,36 @@ static std::vector<Det> parseUltralyticsDetections(const opk::TensorParser::Inpu
     return detections;
 }
 
+static std::vector<Det> parseCornerScoreClassDetections(const opk::TensorParser::Input &input,
+                                                        const TensorView &tensor,
+                                                        const opk::Shape &shape) {
+    const auto confThreshold =
+        static_cast<float>(input.attributes.getDoubleOrDefault("confidenceThreshold", 0.25));
+    const size_t candidates = shape.dims[1];
+
+    std::vector<Det> detections;
+    detections.reserve(candidates);
+    for (size_t index = 0; index < candidates; ++index) {
+        const size_t base = index * 6U;
+        const float topLeftX = tensor.get(base);
+        const float topLeftY = tensor.get(base + 1U);
+        const float bottomRightX = tensor.get(base + 2U);
+        const float bottomRightY = tensor.get(base + 3U);
+        const float confidence = tensor.get(base + 4U);
+        const float classId = tensor.get(base + 5U);
+
+        if (confidence < confThreshold) {
+            continue;
+        }
+
+        Det detection{
+            topLeftX, topLeftY, bottomRightX, bottomRightY, confidence, static_cast<int>(classId)};
+        processDetection(input, detection, input.inferenceInfo.image);
+        detections.push_back(detection);
+    }
+    return detections;
+}
+
 // ----------------------------------------------------------------------------
 
 opk::Result<void> YoloParser::parse(const opk::TensorParser::Input &input,
@@ -182,6 +217,18 @@ opk::Result<void> YoloParser::parse(const opk::TensorParser::Input &input,
     const bool normalizeOutputCoordinates =
         input.attributes.getBoolOrDefault("normalizeOutputCoordinates", true);
     const bool applyNms = input.attributes.getBoolOrDefault("applyNms", true);
+    const auto outputFormatAttribute =
+        input.attributes.getStringOrDefault("outputFormat", "centerClassScores");
+    OutputFormat outputFormat;
+    if (outputFormatAttribute == "centerClassScores") {
+        outputFormat = OutputFormat::CenterClassScores;
+    } else if (outputFormatAttribute == "cornerScoreClass") {
+        outputFormat = OutputFormat::CornerScoreClass;
+    } else {
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::InvalidData,
+                      "YoloParser: unsupported outputFormat " + outputFormatAttribute));
+    }
 
     const auto &image = input.inferenceInfo.image;
     const size_t frameWidth = image.width;
@@ -221,7 +268,15 @@ opk::Result<void> YoloParser::parse(const opk::TensorParser::Input &input,
                           shape.toString()));
     }
 
-    if (std::min(shape.dims[1], shape.dims[2]) < 5) {
+    if (outputFormat == OutputFormat::CornerScoreClass && shape.dims[2] != 6) {
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::InvalidData,
+                      "YoloParser: cornerScoreClass tensor must have shape [1,N,6], got " +
+                          shape.toString()));
+    }
+
+    if (outputFormat == OutputFormat::CenterClassScores &&
+        std::min(shape.dims[1], shape.dims[2]) < 5) {
         opk::log::error("YoloParser: tensor needs at least 5 values per candidate, got {}\n",
                         shape.toString());
         return tl::unexpected(OPK_ERROR(
@@ -235,7 +290,10 @@ opk::Result<void> YoloParser::parse(const opk::TensorParser::Input &input,
             OPK_ERROR(opk::ErrorFlag::InvalidData, "YoloParser: input tensor view is invalid"));
     }
 
-    if (auto dets = parseUltralyticsDetections(input, tensor, shape); !dets.empty()) {
+    auto dets = outputFormat == OutputFormat::CornerScoreClass
+                    ? parseCornerScoreClassDetections(input, tensor, shape)
+                    : parseCenterClassScoresDetections(input, tensor, shape);
+    if (!dets.empty()) {
         if (applyNms)
             nms(dets, iouThreshold);
 
