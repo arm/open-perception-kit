@@ -78,7 +78,7 @@ jobs:
         id: scope
         env:
           SCOPE: ${{ inputs.scope || 'changed' }}
-          SCAN_ALL: ${{ inputs.scope == 'all' || (github.event_name != 'pull_request' && github.event_name != 'push') || github.event.pull_request.changed_files >= 3000 || steps.changes.outputs.full == 'true' }}
+          SCAN_ALL: ${{ inputs.scope == 'all' || (github.event_name != 'pull_request' && github.event_name != 'push') || github.event.pull_request.changed_files >= 3000 || steps.changes.outputs.full == 'true' || steps.changes.outputs.sources == 'true' }}
           HAS_SOURCES: ${{ steps.changes.outputs.sources == 'true' }}
         run: |
           [[ "$SCOPE" == changed || "$SCOPE" == all ]]
@@ -93,7 +93,7 @@ jobs:
 
       - name: Install clang-tidy
         if: steps.scope.outputs.run == 'true'
-        run: python3 -m pip install clang-tidy==20.1.0
+        run: python3 -m pip install clang-tidy==20.1.0 ./tools/opk-ci
 
       - name: Build
         if: steps.scope.outputs.run == 'true'
@@ -134,6 +134,10 @@ jobs:
         run: |
           find "$RUNNER_TEMP/clang-tidy" -name '*.txt' -exec cat {} + \
             | tee "$GITHUB_WORKSPACE/clang-tidy.txt"
+
+      - name: Check clang-tidy baseline
+        if: steps.scan.outcome == 'success'
+        run: PYTHONPATH=tools/opk-ci python3 -m opk_ci --clang-tidy-stats clang-tidy.txt --clang-tidy-baseline .github/ci/baselines/clang-tidy-baseline.json --clang-tidy-baseline-mode enforce
 
       - name: Upload clang-tidy report
         if: always() && (steps.scan.outcome == 'success' || steps.scan.outcome == 'failure')
