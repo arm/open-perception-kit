@@ -1,4 +1,4 @@
-name: PEK release packages
+name: Release
 
 on:
   workflow_dispatch:
@@ -58,16 +58,22 @@ jobs:
   quick-start-smoke:
     name: Quick-start smoke test
     uses: ./.github/workflows/quick-start-smoke.yml
+    with:
+      ref: ${{ github.event.inputs.source_ref }}
     secrets:
       HF_TOKEN: ${{ secrets.HF_TOKEN }}
 
   sdk-tests:
     name: SDK tests
     uses: ./.github/workflows/sdk-tests.yml
+    with:
+      ref: ${{ github.event.inputs.source_ref }}
 
   meson-tests:
     name: Meson tests
     uses: ./.github/workflows/meson-tests.yml
+    with:
+      ref: ${{ github.event.inputs.source_ref }}
 
   build:
     name: Build ${{ matrix.architecture }} package
@@ -109,10 +115,10 @@ jobs:
         uses: actions/cache@v6
         with:
           path: .cache/ccache-release
-          key: pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-release-${{ needs.prepare.outputs.commit }}
+          key: opk-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-release-${{ needs.prepare.outputs.commit }}
           restore-keys: |
-            pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-release-
-            pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-deployment-
+            opk-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-release-
+            opk-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-deployment-
 
       - name: Attach compiler cache to Docker builder
         uses: reproducible-containers/buildkit-cache-dance@5422eac04292c961a382e0f584ea0f03ad9da723 # v3.4.0
@@ -122,7 +128,7 @@ jobs:
             {
               ".cache/ccache-release": {
                 "target": "/work/.cache/ccache",
-                "id": "pek-deployment-ccache",
+                "id": "opk-deployment-ccache",
                 "sharing": "locked"
               }
             }
@@ -147,10 +153,10 @@ jobs:
         with:
           build-args: |
             HF_DOWNLOAD_CACHEBUST=github-${{ github.run_id }}-${{ github.run_attempt }}
-            PEK_RELEASE_BUILD=true
-            PEK_RELEASE_BUILD_ID=${{ needs.prepare.outputs.build_id }}
-            PEK_RELEASE_SOURCE_COMMIT=${{ needs.prepare.outputs.commit }}
-            PEK_FLOWDATA_SDK_COMMIT=${{ needs.prepare.outputs.flowdata_commit }}
+            OPK_RELEASE_BUILD=true
+            OPK_RELEASE_BUILD_ID=${{ needs.prepare.outputs.build_id }}
+            OPK_RELEASE_SOURCE_COMMIT=${{ needs.prepare.outputs.commit }}
+            OPK_FLOWDATA_SDK_COMMIT=${{ needs.prepare.outputs.flowdata_commit }}
           cache-from: type=registry,ref=${{ env.RELEASE_IMAGE }}:buildcache-${{ matrix.cache_tag }}
           context: ${{ env.SOURCE_DIR }}
           labels: |
@@ -165,7 +171,7 @@ jobs:
             "huggingface_token=${{ secrets.HF_TOKEN }}"
             "executorch_artifactory_username=${{ secrets.PEK_ARTIFACTORY_USERNAME }}"
             "executorch_artifactory_password=${{ secrets.PEK_ARTIFACTORY_API_KEY }}"
-          target: pek-deployment-base
+          target: opk-deployment-base
 
       - name: Extract package from release snapshot
         working-directory: ${{ env.SOURCE_DIR }}
@@ -179,18 +185,18 @@ jobs:
           container_id="$(docker create "$RELEASE_IMAGE@$IMAGE_DIGEST")"
           trap 'docker rm -f "$container_id" >/dev/null' EXIT
           docker cp \
-            "$container_id:/opt/pek-release-artifacts/$ARCHIVE" "dist/$ARCHIVE"
+            "$container_id:/opt/opk-release-artifacts/$ARCHIVE" "dist/$ARCHIVE"
           if [[ "${{ matrix.architecture }}" == aarch64 ]]; then
             mkdir -p dist/perception-sdk-input
             package="${ARCHIVE%.tar.gz}"
             tar -C dist/perception-sdk-input --strip-components=4 -xzf "dist/$ARCHIVE" \
-              "$package/share/pek/perception-sdk"
+              "$package/share/opk/perception-sdk"
           fi
 
       - name: Upload package
         uses: actions/upload-artifact@v7
         with:
-          name: pek-release-${{ matrix.artifact_label }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: opk-release-${{ matrix.artifact_label }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ env.SOURCE_DIR }}/dist/${{ matrix.architecture == 'x86_64' && needs.prepare.outputs.x86_archive || needs.prepare.outputs.arm_archive }}
           if-no-files-found: error
           retention-days: 7
@@ -253,7 +259,7 @@ jobs:
         if: matrix.architecture == 'aarch64'
         uses: actions/upload-artifact@v7
         with:
-          name: pek-perception-sdk-input-${{ github.run_id }}-${{ github.run_attempt }}
+          name: opk-perception-sdk-input-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ env.SOURCE_DIR }}/dist/perception-sdk-input/
           if-no-files-found: error
           retention-days: 7
@@ -266,7 +272,7 @@ jobs:
       - name: Upload image digest
         uses: actions/upload-artifact@v7
         with:
-          name: pek-image-digest-${{ matrix.artifact_label }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: opk-image-digest-${{ matrix.artifact_label }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/image-digest-${{ matrix.artifact_label }}
           if-no-files-found: error
           retention-days: 7
@@ -305,7 +311,7 @@ jobs:
       - name: Download image digests
         uses: actions/download-artifact@v8
         with:
-          pattern: pek-image-digest-*-${{ github.run_id }}-${{ github.run_attempt }}
+          pattern: opk-image-digest-*-${{ github.run_id }}-${{ github.run_attempt }}
           path: digests
           merge-multiple: true
 
@@ -332,8 +338,40 @@ jobs:
           echo "reference=$reference" >> "$GITHUB_OUTPUT"
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
           # shellcheck disable=SC2016
-          printf '### PEK deployment image\n\n- `%s@%s`\n' \
+          printf '### OPK deployment image\n\n- `%s@%s`\n' \
             "$reference" "$digest" >> "$GITHUB_STEP_SUMMARY"
+
+  sbom-source:
+    name: Generate source SBOM
+    needs: prepare
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout selected source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          persist-credentials: false
+
+      - name: Generate CycloneDX SBOM with cdxgen
+        env:
+          CDXGEN_IMAGE: ghcr.io/cyclonedx/cdxgen@sha256:6d1583144c0062692af1a2658ba290dc44c1cc412860099edccc3f079ccbc1a8 # v13.2
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -e FETCH_LICENSE=true \
+            -v "$PWD:/app:rw" \
+            "$CDXGEN_IMAGE" \
+            -r /app -o /app/opk-sbom-source.json
+
+      - name: Add Arm SBOM disclaimer
+        run: scripts/release/add-sbom-disclaimer.sh opk-sbom-source.json
+
+      - name: Upload source SBOM
+        uses: actions/upload-artifact@v7
+        with:
+          name: opk-sbom-source-${{ github.run_id }}-${{ github.run_attempt }}
+          path: opk-sbom-source.json
+          if-no-files-found: error
 
   artifactory:
     name: Publish to Artifactory
@@ -343,22 +381,22 @@ jobs:
       - name: Download release packages
         uses: actions/download-artifact@v8
         with:
-          pattern: pek-release-*-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/pek-release-artifacts
+          pattern: opk-release-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/opk-release-artifacts
           merge-multiple: true
 
       - name: Download Perception SDK input
         uses: actions/download-artifact@v8
         with:
-          name: pek-perception-sdk-input-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/pek-perception-sdk-input
+          name: opk-perception-sdk-input-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/opk-perception-sdk-input
 
       - name: Stage Perception language packages
         env:
-          ARTIFACTS_DIR: ${{ runner.temp }}/pek-release-artifacts
+          ARTIFACTS_DIR: ${{ runner.temp }}/opk-release-artifacts
           CARGO_PACKAGE_VERSION: ${{ needs.prepare.outputs.cargo_package_version }}
           PYTHON_PACKAGE_VERSION: ${{ needs.prepare.outputs.python_package_version }}
-          SDK_DIR: ${{ runner.temp }}/pek-perception-sdk-input
+          SDK_DIR: ${{ runner.temp }}/opk-perception-sdk-input
         run: |
           set -euo pipefail
           cp "$SDK_DIR/opk_perception_sdk-$PYTHON_PACKAGE_VERSION-py3-none-any.whl" \
@@ -367,7 +405,7 @@ jobs:
 
       - name: Accept exactly two archives and two language packages
         env:
-          ARTIFACTS_DIR: ${{ runner.temp }}/pek-release-artifacts
+          ARTIFACTS_DIR: ${{ runner.temp }}/opk-release-artifacts
           BUILD_ID: ${{ needs.prepare.outputs.build_id }}
           CARGO_PACKAGE_VERSION: ${{ needs.prepare.outputs.cargo_package_version }}
           PYTHON_PACKAGE_VERSION: ${{ needs.prepare.outputs.python_package_version }}
@@ -391,8 +429,8 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: pek-release-artifacts
-          path: ${{ runner.temp }}/pek-release-artifacts
+          name: opk-release-artifacts
+          path: ${{ runner.temp }}/opk-release-artifacts
           if-no-files-found: error
 
       - name: Create GitHub App token for publisher
@@ -415,7 +453,7 @@ jobs:
             --repo Arm-Debug/amp-dev-forge-publisher \
             --ref main \
             --field source-run-id="$GITHUB_RUN_ID" \
-            --field artifact-name="pek-release-artifacts" \
+            --field artifact-name="opk-release-artifacts" \
             --field release-version="v$VERSION")"
 
           publisher_run_id="${publisher_run_url##*/}"
@@ -446,13 +484,13 @@ jobs:
       - name: Upload Artifactory links
         uses: actions/upload-artifact@v7
         with:
-          name: pek-artifactory-links
+          name: opk-artifactory-links
           path: publisher-artifacts/artifact-urls.txt
           if-no-files-found: error
 
   github-release:
     name: Publish one GitHub release
-    needs: [prepare, build, release-image, artifactory, perception-cargo-publish]
+    needs: [prepare, build, release-image, artifactory, perception-cargo-publish, sbom-source]
     runs-on: ubuntu-24.04
     permissions:
       actions: read
@@ -467,15 +505,22 @@ jobs:
       - name: Download release packages
         uses: actions/download-artifact@v8
         with:
-          pattern: pek-release-*-${{ github.run_id }}-${{ github.run_attempt }}
+          pattern: opk-release-*-${{ github.run_id }}-${{ github.run_attempt }}
           path: release
           merge-multiple: true
 
       - name: Download Artifactory links
         uses: actions/download-artifact@v8
         with:
-          name: pek-artifactory-links
+          name: opk-artifactory-links
           path: publisher-artifacts
+
+      - name: Download SBOMs
+        uses: actions/download-artifact@v8
+        with:
+          pattern: opk-sbom-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release
+          merge-multiple: true
 
       - name: Publish release after all uploads succeed
         env:
@@ -488,6 +533,8 @@ jobs:
           set -euo pipefail
           mapfile -t archives < <(find release -maxdepth 1 -type f -name "*.tar.gz" | sort)
           test "${#archives[@]}" -eq 2
+          mapfile -t sboms < <(find release -maxdepth 1 -type f -name "opk-sbom-*.json" | sort)
+          test "${#sboms[@]}" -eq 2
           hashes="$(sha256sum "${archives[@]}")"
           sed -n "/^## \\[$VERSION\\]/,/^## \\[/p" CHANGELOG.md |
             sed "\$d" > release-body.md
@@ -505,14 +552,19 @@ jobs:
               "$IMAGE_REFERENCE" "$IMAGE_DIGEST"
             printf '\n### Artifactory\n\n'
             cat publisher-artifacts/artifact-urls.txt
+            printf '\n### Software Bill of Materials\n\n'
+            for sbom in "${sboms[@]}"; do
+              # shellcheck disable=SC2016
+              printf -- '- `%s`\n' "$(basename "$sbom")"
+            done
           } >> release-body.md
           if gh release view "v$VERSION" >/dev/null 2>&1; then
             echo "Release v$VERSION already exists." >&2
             exit 1
           fi
           gh release create "v$VERSION" --draft --target "$COMMIT" \
-            --title "PEK $VERSION" --notes-file release-body.md
-          gh release upload "v$VERSION" "${archives[@]}"
+            --title "OPK $VERSION" --notes-file release-body.md
+          gh release upload "v$VERSION" "${archives[@]}" "${sboms[@]}"
           gh release edit "v$VERSION" --draft=false
 
   perception-cargo-publish:
@@ -524,8 +576,8 @@ jobs:
       - name: Download Perception SDK input
         uses: actions/download-artifact@v8
         with:
-          name: pek-perception-sdk-input-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/pek-perception-sdk-input
+          name: opk-perception-sdk-input-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/opk-perception-sdk-input
 
       - name: Set up pinned Rust for Perception package verification
         uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
@@ -550,13 +602,36 @@ jobs:
         env:
           CARGO_PACKAGE_VERSION: ${{ needs.prepare.outputs.cargo_package_version }}
           RUSTUP_TOOLCHAIN: 1.85.0
-          SDK_DIR: ${{ runner.temp }}/pek-perception-sdk-input
+          SDK_DIR: ${{ runner.temp }}/opk-perception-sdk-input
         run: |
           set -euo pipefail
           crate="$SDK_DIR/perception-$CARGO_PACKAGE_VERSION.crate"
           publish_source="$SDK_DIR/perception-cargo-source-$CARGO_PACKAGE_VERSION"
           (cd "$publish_source" && cargo package --locked --no-verify)
           cmp "$crate" "$publish_source/target/package/perception-$CARGO_PACKAGE_VERSION.crate"
+
+      - name: Install cargo-sbom
+        run: cargo install cargo-sbom --version 0.10.0 --locked
+
+      - name: Generate Cargo CycloneDX SBOM
+        working-directory: ${{ runner.temp }}/opk-perception-sdk-input/perception-cargo-source-${{ needs.prepare.outputs.cargo_package_version }}
+        run: |
+          set -euo pipefail
+          cargo sbom \
+            --cargo-package perception \
+            --project-directory . \
+            --output-format cyclone_dx_json_1_6 \
+            > "$GITHUB_WORKSPACE/opk-sbom-perception-crate.json"
+
+      - name: Add Arm SBOM disclaimer
+        run: scripts/release/add-sbom-disclaimer.sh opk-sbom-perception-crate.json
+
+      - name: Upload Perception crate SBOM
+        uses: actions/upload-artifact@v7
+        with:
+          name: opk-sbom-perception-crate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: opk-sbom-perception-crate.json
+          if-no-files-found: error
 
       - name: Create GitHub App token for publisher
         id: publisher-token
@@ -578,7 +653,7 @@ jobs:
             --repo Arm-Debug/amp-dev-forge-publisher \
             --ref cargo \
             --field source-run-id="$GITHUB_RUN_ID" \
-            --field artifact-name="pek-perception-sdk-input-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
+            --field artifact-name="opk-perception-sdk-input-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
             --field cargo-package-version="$CARGO_PACKAGE_VERSION")"
 
           publisher_run_id="${publisher_run_url##*/}"
