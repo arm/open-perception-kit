@@ -2,6 +2,12 @@
 	"version": "1.0.0",
 	"name": "yolox",
 	"modelFile": "yolox_nano.pte",
+	"hfDownload": {
+		"repo_id": "wirthual/yolox-executorch",
+		"revision": "0f97331103336af84392b51092dfb0cb3d576ef5",
+		"filename": "yolox_nano.pte",
+		"sha256": "6f5bb210bafbde38ea21220d54bcf121892b39239cbc7121180fa483cefa4d19"
+	},
 	"dynamicOutput": true,
 	"inputTensors": [
 		{
