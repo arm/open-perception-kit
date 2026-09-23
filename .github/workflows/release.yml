@@ -77,11 +77,13 @@ jobs:
             cache_tag: amd64
             platform: linux/amd64
             runner: ubuntu-24.04
+            executorch_deb_sha256: 3cc106a358af12d26e0cb0a1af70899533e594b0d0c460a28da5a732f8251505
           - architecture: aarch64
             artifact_label: arm
             cache_tag: arm64
             platform: linux/arm64
             runner: ubuntu-24.04-arm
+            executorch_deb_sha256: d41fd4f78c1a7ca7d84c761ae4652121719c3d8d5daafd6091b5a6df6638647b
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
@@ -89,6 +91,7 @@ jobs:
     env:
       RELEASE_IMAGE: ghcr.io/arm-debug/amp-dev-forge-deployment
       SOURCE_DIR: source-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-${{ matrix.artifact_label }}
+      EXECUTORCH_DEB_BASE_URL: https://artifacts.tools.arm.com/open-perception-kit/executorch
     steps:
       - name: Free runner disk space
         uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
@@ -108,6 +111,18 @@ jobs:
           ref: ${{ needs.prepare.outputs.commit }}
           path: ${{ env.SOURCE_DIR }}
           persist-credentials: false
+
+      - name: Fetch ExecuTorch package
+        working-directory: ${{ env.SOURCE_DIR }}
+        env:
+          DEB_ARCH: ${{ matrix.cache_tag }}
+          DEB_SHA256: ${{ matrix.executorch_deb_sha256 }}
+        run: |
+          set -euo pipefail
+          deb="libexecutorch-dev-1.3.1-2-${DEB_ARCH}.deb"
+          curl --fail --location --retry 3 --output "var/${deb}" \
+            "${EXECUTORCH_DEB_BASE_URL}/${deb}"
+          echo "${DEB_SHA256}  var/${deb}" | sha256sum --check -
 
       - name: Set up Docker builder
         id: builder
@@ -166,8 +181,6 @@ jobs:
           pull: true
           secrets: |
             "huggingface_token=${{ secrets.HF_TOKEN }}"
-            "executorch_artifactory_username=${{ secrets.PEK_ARTIFACTORY_USERNAME }}"
-            "executorch_artifactory_password=${{ secrets.PEK_ARTIFACTORY_API_KEY }}"
           target: opk-deployment-base
 
       - name: Extract package from release snapshot
