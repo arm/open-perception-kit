@@ -16,7 +16,7 @@ services:
       dockerfile: .devcontainer/rich/Dockerfile
       target: opk-dev-rich
       additional_contexts:
-        opk-dev: service:opk-dev
+        opk-dev:local: service:opk-dev
     environment:
       USERNAME: dev
       HOST_UID: ${HOST_UID:-1000}
