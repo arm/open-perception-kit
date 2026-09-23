@@ -4,9 +4,11 @@ FROM opk-dev:local AS opk-dev-rich
 
 ARG PLANTUML_VERSION=1.2026.2
 ARG SONAR_SCANNER_VERSION=8.0.1.6346
+# Container account name, not an authentication credential.
+# hadolint ignore=DL3064
 ARG USERNAME=dev
 
-USER root
+USER 0
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \

@@ -167,6 +167,8 @@ FROM opk-build-base AS opk-dev-base
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ARG NPM_FALLBACK_REGISTRY=https://artifactory.arm.com:443/artifactory/api/npm/mirrors.npmjs_org
+# Container account name, not an authentication credential.
+# hadolint ignore=DL3064
 ARG USERNAME=dev
 ARG USER_UID=1000
 ARG USER_GID=1000
@@ -193,6 +195,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   valgrind=1:3.24.0-3 wget=1.25.0-2 zip=3.0-15+deb13u1; \
   update-ca-certificates
 
+# SHELL selects Bash; hadolint 2.15.1 misclassifies this derived stage as sh.
+# hadolint ignore=SC3043
 RUN set -eux; \
   esbuild_url="$(node -e 'const lock=require("/tmp/opk-web-package-lock.json"); console.log(lock.packages["node_modules/esbuild-wasm"].resolved)')"; \
   esbuild_integrity="$(node -e 'const lock=require("/tmp/opk-web-package-lock.json"); console.log(lock.packages["node_modules/esbuild-wasm"].integrity)')"; \
@@ -317,19 +321,21 @@ ENTRYPOINT ["/usr/local/bin/development-entrypoint"]
 # Developer shell, editor, debugger, and network tooling.
 FROM opk-dev-base AS opk-dev-tools
 
+# Container account name, not an authentication credential.
+# hadolint ignore=DL3064
 ARG USERNAME=dev
 ARG USER_UID=1000
 ARG USER_GID=1000
 ARG NVIM_VERSION=v0.12.1
 ARG CPP_TOOLS_VERSION=v1.29.3
 ARG TARGETARCH
-ARG EXECUTORCH_ARTIFACTORY_USERNAME=""
-ARG EXECUTORCH_ARTIFACTORY_PASSWORD=""
 
-USER root
+USER 0
 
 RUN --mount=type=bind,source=var,target=/tmp/opk-executorch-packages,ro \
     --mount=type=bind,source=scripts/private/executorch/install-executorch-deb.sh,target=/tmp/install-executorch-deb.sh,ro \
+    --mount=type=secret,id=executorch_artifactory_username,env=EXECUTORCH_ARTIFACTORY_USERNAME \
+    --mount=type=secret,id=executorch_artifactory_password,env=EXECUTORCH_ARTIFACTORY_PASSWORD \
   bash /tmp/install-executorch-deb.sh
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -406,10 +412,12 @@ USER ${USERNAME}
 # repository is mounted at /work; OPK binaries are built from that checkout.
 FROM opk-dev-tools AS opk-dev
 
+# Container account name, not an authentication credential.
+# hadolint ignore=DL3064
 ARG USERNAME=dev
 ARG OPK_PICAMERA=disabled
 
-USER root
+USER 0
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
@@ -441,7 +449,7 @@ COPY --from=opk-models \
 # Prewarm the macOS CI compiler cache on the native Arm64 image publisher.
 FROM opk-dev AS opk-dev-macos-cache-build
 
-USER root
+USER 0
 RUN install -d /opt/opk-ccache
 
 ENV CCACHE_DIR=/opt/opk-ccache \
@@ -449,12 +457,16 @@ ENV CCACHE_DIR=/opt/opk-ccache \
 
 RUN --mount=type=bind,source=.,target=/work,rw \
   ./scripts/build.sh && ccache --show-stats
+# The account is created in the parent image and supports configurable UIDs.
+# hadolint ignore=DL3066
 USER dev
 
 FROM opk-dev AS opk-dev-macos-ci
 
-USER root
+USER 0
 COPY --from=opk-dev-macos-cache-build /opt/opk-ccache /opt/opk-ccache
+# The account is created in the parent image and supports configurable UIDs.
+# hadolint ignore=DL3066
 USER dev
 
 # ==============================================================================
@@ -463,10 +475,12 @@ USER dev
 
 FROM opk-dev-base AS opk-docs
 
+# Container account name, not an authentication credential.
+# hadolint ignore=DL3064
 ARG USERNAME=dev
 ARG PLANTUML_VERSION=1.2026.2
 
-USER root
+USER 0
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
@@ -603,6 +617,8 @@ COPY development development
 COPY generated generated
 COPY --from=opk-models /work/config config
 
+# SHELL selects Bash; hadolint 2.15.1 misclassifies this derived stage as sh.
+# hadolint ignore=SC3054
 RUN --mount=type=cache,id=opk-deployment-ccache,target=/work/.cache/ccache,sharing=locked \
   set -eux; \
   export CCACHE_DIR=/work/.cache/ccache; \
@@ -706,6 +722,8 @@ RUN set -eux; \
 
 FROM opk-python-ops-runtime AS opk-deployment-base
 
+# Container account name, not an authentication credential.
+# hadolint ignore=DL3064
 ARG USERNAME=opk
 ARG USER_UID=1000
 ARG USER_GID=1000
@@ -855,6 +873,8 @@ RUN set -eux; \
 
 FROM opk-gstreamer-runtime-base AS opk-cairn-runtime
 
+# Container account name, not an authentication credential.
+# hadolint ignore=DL3064
 ARG USERNAME=opk
 ARG USER_UID=1000
 ARG USER_GID=1000
