@@ -590,8 +590,8 @@ RUN --mount=type=bind,source=var,target=/tmp/opk-executorch-packages,ro \
   set -eu; \
   if [ "${OPK_RELEASE_BUILD}" = true ]; then \
     test "${TARGETARCH}" = "$(dpkg --print-architecture)"; \
-    EXECUTORCH_ARTIFACTORY_USERNAME="$(cat /run/secrets/executorch_artifactory_username)"; \
-    EXECUTORCH_ARTIFACTORY_PASSWORD="$(cat /run/secrets/executorch_artifactory_password)"; \
+    EXECUTORCH_ARTIFACTORY_USERNAME="$(cat /run/secrets/executorch_artifactory_username 2>/dev/null || true)"; \
+    EXECUTORCH_ARTIFACTORY_PASSWORD="$(cat /run/secrets/executorch_artifactory_password 2>/dev/null || true)"; \
     export EXECUTORCH_ARTIFACTORY_USERNAME EXECUTORCH_ARTIFACTORY_PASSWORD; \
     bash /tmp/install-executorch-deb.sh; \
   fi
