@@ -107,7 +107,7 @@ jobs:
           test "${#native_tests[@]}" -gt 0
           meson test -C development/build-active --no-rebuild \
             --print-errorlogs --num-processes 1 --timeout-multiplier 10 \
-            --wrapper "valgrind --xml=yes --xml-file='$OPK_PROJECT_ROOT/development/build-active/meson-logs/native.valgrind.%p.xml' --leak-check=full --errors-for-leak-kinds=definite --suppressions='$OPK_PROJECT_ROOT/scripts/testing/valgrind/suppressed-warnings'" \
+            --wrapper "valgrind --xml=yes --xml-file='$OPK_PROJECT_ROOT/development/build-active/meson-logs/native.valgrind.%p.xml' --leak-check=full --show-leak-kinds=definite --errors-for-leak-kinds=definite --suppressions='$OPK_PROJECT_ROOT/scripts/testing/valgrind/suppressed-warnings'" \
             "${native_tests[@]}"
           python3 scripts/testing/valgrind/summarize-valgrind-output.py --logs-dir development/build-active/meson-logs --output "$RUNNER_TEMP/valgrind-current.xml"
           sed -i "s|$GITHUB_WORKSPACE|/work|g" "$RUNNER_TEMP/valgrind-current.xml"
