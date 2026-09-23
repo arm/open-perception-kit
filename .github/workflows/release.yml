@@ -20,6 +20,8 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.release.outputs.version }}
+      cargo_package_version: ${{ steps.release.outputs.cargo_package_version }}
+      python_package_version: ${{ steps.release.outputs.python_package_version }}
       commit: ${{ steps.release.outputs.commit }}
       flowdata_commit: ${{ steps.release.outputs.flowdata_commit }}
       build_id: ${{ steps.release.outputs.build_id }}
@@ -333,12 +335,127 @@ jobs:
           printf '### PEK deployment image\n\n- `%s@%s`\n' \
             "$reference" "$digest" >> "$GITHUB_STEP_SUMMARY"
 
+  artifactory:
+    name: Publish to Artifactory
+    needs: [prepare, build, release-image]
+    runs-on: self-hosted-ubuntu-latest-x64
+    steps:
+      - name: Download release packages
+        uses: actions/download-artifact@v8
+        with:
+          pattern: pek-release-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/pek-release-artifacts
+          merge-multiple: true
+
+      - name: Download Perception SDK input
+        uses: actions/download-artifact@v8
+        with:
+          name: pek-perception-sdk-input-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/pek-perception-sdk-input
+
+      - name: Stage Perception language packages
+        env:
+          ARTIFACTS_DIR: ${{ runner.temp }}/pek-release-artifacts
+          CARGO_PACKAGE_VERSION: ${{ needs.prepare.outputs.cargo_package_version }}
+          PYTHON_PACKAGE_VERSION: ${{ needs.prepare.outputs.python_package_version }}
+          SDK_DIR: ${{ runner.temp }}/pek-perception-sdk-input
+        run: |
+          set -euo pipefail
+          cp "$SDK_DIR/opk_perception_sdk-$PYTHON_PACKAGE_VERSION-py3-none-any.whl" \
+            "$ARTIFACTS_DIR/"
+          cp "$SDK_DIR/perception-$CARGO_PACKAGE_VERSION.crate" "$ARTIFACTS_DIR/"
+
+      - name: Accept exactly two archives and two language packages
+        env:
+          ARTIFACTS_DIR: ${{ runner.temp }}/pek-release-artifacts
+          BUILD_ID: ${{ needs.prepare.outputs.build_id }}
+          CARGO_PACKAGE_VERSION: ${{ needs.prepare.outputs.cargo_package_version }}
+          PYTHON_PACKAGE_VERSION: ${{ needs.prepare.outputs.python_package_version }}
+        run: |
+          set -euo pipefail
+          expected=(
+            "opk-$BUILD_ID-linux-x86_64.tar.gz"
+            "opk-$BUILD_ID-linux-aarch64.tar.gz"
+            "opk_perception_sdk-$PYTHON_PACKAGE_VERSION-py3-none-any.whl"
+            "perception-$CARGO_PACKAGE_VERSION.crate"
+          )
+          test -z "$(find "$ARTIFACTS_DIR" -type l -print -quit)"
+          mapfile -d '' -t files < <(
+            find "$ARTIFACTS_DIR" -mindepth 1 -maxdepth 1 -type f -print0 | sort -z
+          )
+          test "${#files[@]}" -eq "${#expected[@]}"
+          for artifact in "${expected[@]}"; do
+            test -f "$ARTIFACTS_DIR/$artifact"
+          done
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: pek-release-artifacts
+          path: ${{ runner.temp }}/pek-release-artifacts
+          if-no-files-found: error
+
+      - name: Create GitHub App token for publisher
+        id: publisher-token
+        uses: actions/create-github-app-token@v3.2.0
+        with:
+          app-id: ${{ secrets.OPK_DEBUG_ACCESS_APP_ID }}
+          private-key: ${{ secrets.OPK_DEBUG_ACCESS_APP_PRIVATE_KEY }}
+          owner: Arm-Debug
+          repositories: amp-dev-forge-publisher
+
+      - name: Trigger Artifactory publisher
+        id: trigger_artifactory_publisher
+        env:
+          GH_TOKEN: ${{ steps.publisher-token.outputs.token }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          publisher_run_url="$(gh workflow run upload-to-artifactory.yaml \
+            --repo Arm-Debug/amp-dev-forge-publisher \
+            --ref main \
+            --field source-run-id="$GITHUB_RUN_ID" \
+            --field artifact-name="pek-release-artifacts" \
+            --field release-version="v$VERSION")"
+
+          publisher_run_id="${publisher_run_url##*/}"
+          if [[ ! "$publisher_run_id" =~ ^[0-9]+$ ]]; then
+            echo "::error::Could not extract a run ID from: $publisher_run_url"
+            exit 1
+          fi
+
+          echo "publisher_run_id=$publisher_run_id" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for publisher release links artifact
+        env:
+          GH_TOKEN: ${{ steps.publisher-token.outputs.token }}
+          PUBLISHER_RUN_ID: ${{ steps.trigger_artifactory_publisher.outputs.publisher_run_id }}
+        run: |
+          set -euo pipefail
+          gh run watch "$PUBLISHER_RUN_ID" \
+            --repo Arm-Debug/amp-dev-forge-publisher \
+            --compact \
+            --interval 60 \
+            --exit-status
+
+          gh run download "$PUBLISHER_RUN_ID" \
+            --repo Arm-Debug/amp-dev-forge-publisher \
+            --name artifactory-links \
+            --dir publisher-artifacts
+
+      - name: Upload Artifactory links
+        uses: actions/upload-artifact@v7
+        with:
+          name: pek-artifactory-links
+          path: publisher-artifacts/artifact-urls.txt
+          if-no-files-found: error
+
   github-release:
     name: Publish one GitHub release
-    needs: [prepare, build, release-image]
+    needs: [prepare, build, release-image, artifactory, perception-cargo-publish]
     runs-on: ubuntu-24.04
     permissions:
-      actions: write
+      actions: read
       contents: write
     steps:
       - name: Checkout released source
@@ -353,6 +470,12 @@ jobs:
           pattern: pek-release-*-${{ github.run_id }}-${{ github.run_attempt }}
           path: release
           merge-multiple: true
+
+      - name: Download Artifactory links
+        uses: actions/download-artifact@v8
+        with:
+          name: pek-artifactory-links
+          path: publisher-artifacts
 
       - name: Publish release after all uploads succeed
         env:
@@ -376,9 +499,13 @@ jobs:
               printf -- '- `%s` — `%s`\n' "$(basename "$file")" "$hash"
             done <<< "$hashes"
           } >> release-body.md
-          # shellcheck disable=SC2016
-          printf '\n### Container image\n\n`%s@%s`\n' \
-            "$IMAGE_REFERENCE" "$IMAGE_DIGEST" >> release-body.md
+          {
+            # shellcheck disable=SC2016
+            printf '\n### Container image\n\n`%s@%s`\n' \
+              "$IMAGE_REFERENCE" "$IMAGE_DIGEST"
+            printf '\n### Artifactory\n\n'
+            cat publisher-artifacts/artifact-urls.txt
+          } >> release-body.md
           if gh release view "v$VERSION" >/dev/null 2>&1; then
             echo "Release v$VERSION already exists." >&2
             exit 1
@@ -388,145 +515,87 @@ jobs:
           gh release upload "v$VERSION" "${archives[@]}"
           gh release edit "v$VERSION" --draft=false
 
-  artifactory:
-    name: Publish one Artifactory release
-    needs: [prepare, build, release-image, github-release]
-    runs-on: self-hosted-ubuntu-latest-x64
+  perception-cargo-publish:
+    name: Publish and verify Perception crate
+    needs: [prepare, artifactory]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
-      - name: Download release packages
-        uses: actions/download-artifact@v8
-        with:
-          pattern: pek-release-*-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/pek-release-artifacts
-          merge-multiple: true
-
       - name: Download Perception SDK input
         uses: actions/download-artifact@v8
         with:
           name: pek-perception-sdk-input-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/pek-perception-sdk-input
 
-      - name: Stage Perception language packages
-        env:
-          ARTIFACTS_DIR: ${{ runner.temp }}/pek-release-artifacts
-          SDK_DIR: ${{ runner.temp }}/pek-perception-sdk-input
-          VERSION: ${{ needs.prepare.outputs.version }}
-        run: |
-          set -euo pipefail
-          cp "$SDK_DIR/opk_perception_sdk-$VERSION-py3-none-any.whl" \
-            "$ARTIFACTS_DIR/"
-          cp "$SDK_DIR/perception-$VERSION.crate" "$ARTIFACTS_DIR/"
-
-      - name: Accept exactly two archives and two language packages
-        env:
-          ARTIFACTS_DIR: ${{ runner.temp }}/pek-release-artifacts
-          BUILD_ID: ${{ needs.prepare.outputs.build_id }}
-          VERSION: ${{ needs.prepare.outputs.version }}
-        run: |
-          set -euo pipefail
-          expected=(
-            "pek-$BUILD_ID-linux-x86_64.tar.gz"
-            "pek-$BUILD_ID-linux-aarch64.tar.gz"
-            "opk_perception_sdk-$VERSION-py3-none-any.whl"
-            "perception-$VERSION.crate"
-          )
-          test -z "$(find "$ARTIFACTS_DIR" -type l -print -quit)"
-          mapfile -d '' -t files < <(
-            find "$ARTIFACTS_DIR" -mindepth 1 -maxdepth 1 -type f -print0 | sort -z
-          )
-          test "${#files[@]}" -eq "${#expected[@]}"
-          for artifact in "${expected[@]}"; do
-            test -f "$ARTIFACTS_DIR/$artifact"
-          done
-
-      - name: Set up locked uv and Python
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - name: Set up pinned Rust for Perception package verification
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
         with:
-          version: '0.8.15'
-          python-version: '3.14'
+          toolchain: 1.85.0
+          cache: false
 
-      - name: Create read-only publisher token
+      - name: Configure Cargo home
+        run: echo "CARGO_HOME=$RUNNER_TEMP/perception-cargo-home" >> "$GITHUB_ENV"
+
+      - name: Configure Cargo for Perception package verification
+        run: |
+          set -euo pipefail
+          rm -rf -- "$CARGO_HOME"
+          mkdir -p "$CARGO_HOME"
+          cat > "$CARGO_HOME/config.toml" <<'EOF'
+          [registries.crates-io]
+          index = "sparse+https://index.crates.io/"
+          EOF
+
+      - name: Verify Perception crate package
+        env:
+          CARGO_PACKAGE_VERSION: ${{ needs.prepare.outputs.cargo_package_version }}
+          RUSTUP_TOOLCHAIN: 1.85.0
+          SDK_DIR: ${{ runner.temp }}/pek-perception-sdk-input
+        run: |
+          set -euo pipefail
+          crate="$SDK_DIR/perception-$CARGO_PACKAGE_VERSION.crate"
+          publish_source="$SDK_DIR/perception-cargo-source-$CARGO_PACKAGE_VERSION"
+          (cd "$publish_source" && cargo package --locked --no-verify)
+          cmp "$crate" "$publish_source/target/package/perception-$CARGO_PACKAGE_VERSION.crate"
+
+      - name: Create GitHub App token for publisher
         id: publisher-token
         uses: actions/create-github-app-token@v3.2.0
         with:
-          app-id: ${{ secrets.OPK_RELEASE_APP_ID }}
-          private-key: ${{ secrets.OPK_RELEASE_APP_PRIVATE_KEY }}
+          app-id: ${{ secrets.OPK_DEBUG_ACCESS_APP_ID }}
+          private-key: ${{ secrets.OPK_DEBUG_ACCESS_APP_PRIVATE_KEY }}
           owner: Arm-Debug
-          repositories: publisher
-          permission-contents: read
+          repositories: amp-dev-forge-publisher
 
-      - name: Checkout publisher
-        uses: actions/checkout@v7
-        with:
-          repository: Arm-Debug/publisher
-          ref: cd16aa5aa6771b32d62466c974f0f2526d000013 # pragma: allowlist secret
-          token: ${{ steps.publisher-token.outputs.token }}
-          path: publisher
-          persist-credentials: false
-
-      - name: Install locked publisher
-        working-directory: publisher
-        run: uv sync --frozen --no-dev
-
-      - name: Publish to Artifactory
-        id: publish
-        working-directory: ${{ runner.temp }}
+      - name: Trigger Perception Cargo publisher
+        id: trigger_cargo_publisher
         env:
-          ARTIFACTORY_HOST: https://arm.jfrog.io
-          ARTIFACTORY_TOKEN: ${{ secrets.PUBLIC_ARTIFACTORY_TOKEN }}
-          ARTIFACTORY_ARTIFACTS_NAME: devx-open-perception-kit
-          # The publisher joins RELEASE_VERSION directly below DOWNLOAD_BASE.
-          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
-          DOWNLOAD_BASE: https://artifacts.tools.arm.com/open-perception-kit
-          TIMEOUT_SECONDS: 300
-          ARTIFACT_PATTERN: pek-release-artifacts/*.tar.gz
-        run: >-
-          "$GITHUB_WORKSPACE/publisher/.venv/bin/python"
-          -m publisher.actions.publish_to_artifactory_action
-          "$ARTIFACT_PATTERN"
-
-      - name: Publish Perception Python package to Artifactory PyPI
-        env:
-          UV_PUBLISH_CHECK_URL: https://artifactory.arm.com/artifactory/api/pypi/edge-ai-tooling.pypi/simple
-          UV_PUBLISH_URL: https://artifactory.arm.com/artifactory/api/pypi/edge-ai-tooling.pypi
-          UV_PUBLISH_USERNAME: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
-          UV_PUBLISH_PASSWORD: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
-        run: >-
-          uv publish
-          "${{ runner.temp }}"/pek-release-artifacts/opk_perception_sdk-*-py3-none-any.whl
-
-      # This step is only here to make the created package easier to access
-      - name: Print links and hashes
-        env:
-          ARTIFACTS_DIR: ${{ runner.temp }}/pek-release-artifacts
-          VERSION: ${{ needs.prepare.outputs.version }}
-          IMAGE_REFERENCE: ${{ needs.release-image.outputs.reference }}
-          IMAGE_DIGEST: ${{ needs.release-image.outputs.digest }}
+          CARGO_PACKAGE_VERSION: ${{ needs.prepare.outputs.cargo_package_version }}
+          GH_TOKEN: ${{ steps.publisher-token.outputs.token }}
         run: |
           set -euo pipefail
-          folder="$VERSION"
-          base="https://artifacts.tools.arm.com/open-perception-kit/$folder"
-          echo "Artifactory folder: $folder"
-          {
-            echo "### PEK Artifactory release"
-            echo
-            echo "Folder: \`$folder\`"
-            echo
-            echo "Container image: \`$IMAGE_REFERENCE@$IMAGE_DIGEST\`"
-            echo
-            for artifact in "$ARTIFACTS_DIR"/*.tar.gz; do
-              name="$(basename "$artifact")"
-              hash="$(sha256sum "$artifact" | cut -d' ' -f1)"
-              url="$base/$name"
-              echo "$url"
-              # shellcheck disable=SC2016
-              printf -- '- [%s](%s) — `%s`\n' "$name" "$url" "$hash"
-            done
-          } | tee -a "$GITHUB_STEP_SUMMARY"
+          publisher_run_url="$(gh workflow run cargo-publish.yaml \
+            --repo Arm-Debug/amp-dev-forge-publisher \
+            --ref cargo \
+            --field source-run-id="$GITHUB_RUN_ID" \
+            --field artifact-name="pek-perception-sdk-input-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
+            --field cargo-package-version="$CARGO_PACKAGE_VERSION")"
 
-  perception-crate:
-    name: Publish Perception crate
-    needs: [prepare, build, artifactory]
-    uses: ./.github/workflows/perception-crate.yml
-    with:
-      version: ${{ needs.prepare.outputs.version }}
+          publisher_run_id="${publisher_run_url##*/}"
+          if [[ ! "$publisher_run_id" =~ ^[0-9]+$ ]]; then
+            echo "::error::Could not extract a run ID from: $publisher_run_url"
+            exit 1
+          fi
+
+          echo "publisher_run_id=$publisher_run_id" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for Perception Cargo publisher
+        env:
+          GH_TOKEN: ${{ steps.publisher-token.outputs.token }}
+          PUBLISHER_RUN_ID: ${{ steps.trigger_cargo_publisher.outputs.publisher_run_id }}
+        run: |
+          gh run watch "$PUBLISHER_RUN_ID" \
+            --repo Arm-Debug/amp-dev-forge-publisher \
+            --compact \
+            --interval 60 \
+            --exit-status
