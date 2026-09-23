@@ -2,11 +2,6 @@ name: Release
 
 on:
   workflow_dispatch:
-    inputs:
-      source_ref:
-        description: Commit, tag, or branch to package and release
-        required: true
-        type: string
 
 permissions:
   contents: read
@@ -29,51 +24,37 @@ jobs:
       x86_archive: ${{ steps.release.outputs.x86_archive }}
       arm_archive: ${{ steps.release.outputs.arm_archive }}
     steps:
-      - name: Checkout release tooling
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
-
-      - name: Checkout selected source
+      - name: Checkout release source
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
           persist-credentials: false
-          ref: ${{ github.event.inputs.source_ref }}
-          path: source
 
       - name: Prepare release identity
         id: release
         run: |
           set -euo pipefail
-          commit="$(git -C source rev-parse HEAD)"
+          commit="$(git rev-parse HEAD)"
           python3 scripts/release/ReleaseTool.py prepare \
-            --repo-root source \
+            --repo-root . \
             --commit "$commit"
-          echo "flowdata_commit=$(git -C source rev-parse HEAD:tools/flowdata-sdk)" \
+          echo "flowdata_commit=$(git rev-parse HEAD:tools/flowdata-sdk)" \
             >> "$GITHUB_OUTPUT"
 
   quick-start-smoke:
     name: Quick-start smoke test
     uses: ./.github/workflows/quick-start-smoke.yml
-    with:
-      ref: ${{ github.event.inputs.source_ref }}
     secrets:
       HF_TOKEN: ${{ secrets.HF_TOKEN }}
 
   sdk-tests:
     name: SDK tests
     uses: ./.github/workflows/sdk-tests.yml
-    with:
-      ref: ${{ github.event.inputs.source_ref }}
 
   meson-tests:
     name: Meson tests
     uses: ./.github/workflows/meson-tests.yml
-    with:
-      ref: ${{ github.event.inputs.source_ref }}
 
   build:
     name: Build ${{ matrix.architecture }} package
@@ -99,7 +80,7 @@ jobs:
       RELEASE_IMAGE: ghcr.io/arm-debug/amp-dev-forge-deployment
       SOURCE_DIR: source-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-${{ matrix.artifact_label }}
     steps:
-      - name: Checkout selected source
+      - name: Checkout release source
         uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.commit }}
@@ -340,7 +321,7 @@ jobs:
     needs: prepare
     runs-on: ubuntu-24.04
     steps:
-      - name: Checkout selected source
+      - name: Checkout release source
         uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.commit }}
