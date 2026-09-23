@@ -665,7 +665,7 @@ jobs:
           set -euo pipefail
           publisher_run_url="$(gh workflow run cargo-publish.yaml \
             --repo Arm-Debug/amp-dev-forge-publisher \
-            --ref cargo \
+            --ref main \
             --field source-run-id="$GITHUB_RUN_ID" \
             --field artifact-name="opk-perception-sdk-input-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
             --field cargo-package-version="$CARGO_PACKAGE_VERSION")"
