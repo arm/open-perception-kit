@@ -345,6 +345,8 @@ jobs:
           docker run --rm \
             --user "$(id -u):$(id -g)" \
             -e FETCH_LICENSE=true \
+            -e HOME=/tmp \
+            -v /tmp:/tmp \
             -v "$PWD:/app:rw" \
             "$CDXGEN_IMAGE" \
             -r /app -o /app/opk-sbom-source.json
