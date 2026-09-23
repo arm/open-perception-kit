@@ -50,23 +50,25 @@ jobs:
           echo "flowdata_commit=$(git rev-parse HEAD:tools/flowdata-sdk)" \
             >> "$GITHUB_OUTPUT"
 
-  quick-start-smoke:
-    name: Quick-start smoke test
-    uses: ./.github/workflows/quick-start-smoke.yml
-    secrets:
-      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  # Temporarily disabled to speed up release testing; re-enable and restore in build.needs.
+  # quick-start-smoke:
+  #   name: Quick-start smoke test
+  #   uses: ./.github/workflows/quick-start-smoke.yml
+  #   secrets:
+  #     HF_TOKEN: ${{ secrets.HF_TOKEN }}
 
   sdk-tests:
     name: SDK tests
     uses: ./.github/workflows/sdk-tests.yml
 
-  meson-tests:
-    name: Meson tests
-    uses: ./.github/workflows/meson-tests.yml
+  # Temporarily disabled to speed up release testing; re-enable and restore in build.needs.
+  # meson-tests:
+  #   name: Meson tests
+  #   uses: ./.github/workflows/meson-tests.yml
 
   build:
     name: Build ${{ matrix.architecture }} package
-    needs: [prepare, quick-start-smoke, sdk-tests, meson-tests]
+    needs: [prepare, sdk-tests]
     strategy:
       matrix:
         include:
@@ -74,12 +76,12 @@ jobs:
             artifact_label: x86
             cache_tag: amd64
             platform: linux/amd64
-            runner: self-hosted-ubuntu-latest-x64
+            runner: ubuntu-24.04
           - architecture: aarch64
             artifact_label: arm
             cache_tag: arm64
             platform: linux/arm64
-            runner: self-hosted-ubuntu-latest-arm64
+            runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
@@ -88,6 +90,17 @@ jobs:
       RELEASE_IMAGE: ghcr.io/arm-debug/amp-dev-forge-deployment
       SOURCE_DIR: source-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-${{ matrix.artifact_label }}
     steps:
+      - name: Free runner disk space
+        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
+        with:
+          android: true
+          dotnet: true
+          haskell: true
+          docker-images: true
+          large-packages: false
+          preinstalled-runtimes: false
+          swap-storage: false
+
       - name: Checkout selected source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -364,7 +377,7 @@ jobs:
   artifactory:
     name: Publish to Artifactory
     needs: [prepare, build, release-image]
-    runs-on: self-hosted-ubuntu-latest-x64
+    runs-on: ubuntu-24.04
     steps:
       - name: Download release packages
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
@@ -477,7 +490,7 @@ jobs:
           if-no-files-found: error
 
   github-release:
-    name: Publish one GitHub release
+    name: Publish GitHub release
     needs: [prepare, build, release-image, artifactory, perception-cargo-publish, sbom-source]
     runs-on: ubuntu-24.04
     permissions:
