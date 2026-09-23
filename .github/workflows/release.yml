@@ -343,6 +343,7 @@ jobs:
         run: |
           set -euo pipefail
           docker run --rm \
+            --user "$(id -u):$(id -g)" \
             -e FETCH_LICENSE=true \
             -v "$PWD:/app:rw" \
             "$CDXGEN_IMAGE" \
