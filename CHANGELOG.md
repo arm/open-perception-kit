@@ -6,4 +6,4 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [0.3.1]
 
-Initial releas
+Initial release
