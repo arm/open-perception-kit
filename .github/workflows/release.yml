@@ -1,0 +1,532 @@
+name: PEK release packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Commit, tag, or branch to package and release
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  CCACHE_SCHEMA_VERSION: v2
+
+jobs:
+  prepare:
+    name: Resolve release source
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      commit: ${{ steps.release.outputs.commit }}
+      flowdata_commit: ${{ steps.release.outputs.flowdata_commit }}
+      build_id: ${{ steps.release.outputs.build_id }}
+      image_tag: ${{ steps.release.outputs.build_id }}
+      x86_archive: ${{ steps.release.outputs.x86_archive }}
+      arm_archive: ${{ steps.release.outputs.arm_archive }}
+    steps:
+      - name: Checkout release tooling
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Checkout selected source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+          ref: ${{ github.event.inputs.source_ref }}
+          path: source
+
+      - name: Prepare release identity
+        id: release
+        run: |
+          set -euo pipefail
+          commit="$(git -C source rev-parse HEAD)"
+          python3 scripts/release/ReleaseTool.py prepare \
+            --repo-root source \
+            --commit "$commit"
+          echo "flowdata_commit=$(git -C source rev-parse HEAD:tools/flowdata-sdk)" \
+            >> "$GITHUB_OUTPUT"
+
+  quick-start-smoke:
+    name: Quick-start smoke test
+    uses: ./.github/workflows/quick-start-smoke.yml
+    secrets:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+
+  sdk-tests:
+    name: SDK tests
+    uses: ./.github/workflows/sdk-tests.yml
+
+  meson-tests:
+    name: Meson tests
+    uses: ./.github/workflows/meson-tests.yml
+
+  build:
+    name: Build ${{ matrix.architecture }} package
+    needs: [prepare, quick-start-smoke, sdk-tests, meson-tests]
+    strategy:
+      matrix:
+        include:
+          - architecture: x86_64
+            artifact_label: x86
+            cache_tag: amd64
+            platform: linux/amd64
+            runner: self-hosted-ubuntu-latest-x64
+          - architecture: aarch64
+            artifact_label: arm
+            cache_tag: arm64
+            platform: linux/arm64
+            runner: self-hosted-ubuntu-latest-arm64
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    env:
+      RELEASE_IMAGE: ghcr.io/arm-debug/amp-dev-forge-deployment
+      SOURCE_DIR: source-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-${{ matrix.artifact_label }}
+    steps:
+      - name: Checkout selected source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          path: ${{ env.SOURCE_DIR }}
+          persist-credentials: false
+
+      - name: Set up Docker builder
+        id: builder
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+
+      - name: Restore compiler cache
+        id: compiler-cache
+        uses: actions/cache@v6
+        with:
+          path: .cache/ccache-release
+          key: pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-release-${{ needs.prepare.outputs.commit }}
+          restore-keys: |
+            pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-release-
+            pek-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-deployment-
+
+      - name: Attach compiler cache to Docker builder
+        uses: reproducible-containers/buildkit-cache-dance@5422eac04292c961a382e0f584ea0f03ad9da723 # v3.4.0
+        with:
+          builder: ${{ steps.builder.outputs.name }}
+          cache-map: |
+            {
+              ".cache/ccache-release": {
+                "target": "/work/.cache/ccache",
+                "id": "pek-deployment-ccache",
+                "sharing": "locked"
+              }
+            }
+          skip-extraction: ${{ steps.compiler-cache.outputs.cache-hit }}
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build release snapshot image
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          build-args: |
+            HF_DOWNLOAD_CACHEBUST=github-${{ github.run_id }}-${{ github.run_attempt }}
+            PEK_RELEASE_BUILD=true
+            PEK_RELEASE_BUILD_ID=${{ needs.prepare.outputs.build_id }}
+            PEK_RELEASE_SOURCE_COMMIT=${{ needs.prepare.outputs.commit }}
+            PEK_FLOWDATA_SDK_COMMIT=${{ needs.prepare.outputs.flowdata_commit }}
+          cache-from: type=registry,ref=${{ env.RELEASE_IMAGE }}:buildcache-${{ matrix.cache_tag }}
+          context: ${{ env.SOURCE_DIR }}
+          labels: |
+            org.opencontainers.image.revision=${{ needs.prepare.outputs.commit }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ needs.prepare.outputs.image_tag }}
+          outputs: type=image,name=${{ env.RELEASE_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          platforms: ${{ matrix.platform }}
+          provenance: false
+          pull: true
+          secrets: |
+            "huggingface_token=${{ secrets.HF_TOKEN }}"
+            "executorch_artifactory_username=${{ secrets.PEK_ARTIFACTORY_USERNAME }}"
+            "executorch_artifactory_password=${{ secrets.PEK_ARTIFACTORY_API_KEY }}"
+          target: pek-deployment-base
+
+      - name: Extract package from release snapshot
+        working-directory: ${{ env.SOURCE_DIR }}
+        env:
+          ARCHIVE: ${{ matrix.architecture == 'x86_64' && needs.prepare.outputs.x86_archive || needs.prepare.outputs.arm_archive }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          docker pull "$RELEASE_IMAGE@$IMAGE_DIGEST"
+          container_id="$(docker create "$RELEASE_IMAGE@$IMAGE_DIGEST")"
+          trap 'docker rm -f "$container_id" >/dev/null' EXIT
+          docker cp \
+            "$container_id:/opt/pek-release-artifacts/$ARCHIVE" "dist/$ARCHIVE"
+          if [[ "${{ matrix.architecture }}" == aarch64 ]]; then
+            mkdir -p dist/perception-sdk-input
+            package="${ARCHIVE%.tar.gz}"
+            tar -C dist/perception-sdk-input --strip-components=4 -xzf "dist/$ARCHIVE" \
+              "$package/share/pek/perception-sdk"
+          fi
+
+      - name: Upload package
+        uses: actions/upload-artifact@v7
+        with:
+          name: pek-release-${{ matrix.artifact_label }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.SOURCE_DIR }}/dist/${{ matrix.architecture == 'x86_64' && needs.prepare.outputs.x86_archive || needs.prepare.outputs.arm_archive }}
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Set up pinned Rust for Perception packaging
+        if: matrix.architecture == 'aarch64'
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+        with:
+          toolchain: 1.85.0
+
+      - name: Package Perception Rust crate
+        if: matrix.architecture == 'aarch64'
+        working-directory: ${{ env.SOURCE_DIR }}
+        env:
+          RUSTUP_TOOLCHAIN: 1.85.0
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          export_root="$RUNNER_TEMP/perception-sdk-$VERSION"
+          rm -rf -- "$export_root"
+          python3 -m zipfile -e \
+            "dist/perception-sdk-input/perception-sdk-$VERSION.zip" "$RUNNER_TEMP"
+          rust="$export_root/rust"
+          scripts/release/patch-perception-cargo-toml.sh "$rust/Cargo.toml"
+          printf '\n[registries.crates-io]\nindex = "sparse+https://index.crates.io/"\n' \
+            >> "$rust/.cargo/config.toml"
+          (cd "$rust" && cargo package --offline --locked)
+          publish_source="$RUNNER_TEMP/perception-cargo-source-$VERSION"
+          rm -rf -- "$publish_source"
+          python3 - "$rust" "$publish_source" <<'PY'
+          import shutil
+          import sys
+
+          shutil.copytree(
+              sys.argv[1],
+              sys.argv[2],
+              ignore=shutil.ignore_patterns(".cargo", "crates", "target", "vendor"),
+          )
+          PY
+          publish_cargo_home="$RUNNER_TEMP/perception-publish-cargo-home"
+          rm -rf -- "$publish_cargo_home"
+          mkdir -p "$publish_cargo_home"
+          cat > "$publish_cargo_home/config.toml" <<'EOF'
+          [registries.crates-io]
+          index = "sparse+https://index.crates.io/"
+          EOF
+          (
+            cd "$publish_source"
+            CARGO_HOME="$publish_cargo_home" \
+              cargo package --locked
+          )
+          cp "$publish_source/target/package/perception-$VERSION.crate" \
+            dist/perception-sdk-input/
+          rm -rf -- "$publish_source/target"
+          mv "$publish_source" dist/perception-sdk-input/
+          cp "$export_root/python/opk_perception_sdk-$VERSION-py3-none-any.whl" \
+            dist/perception-sdk-input/
+
+      - name: Upload Perception SDK input
+        if: matrix.architecture == 'aarch64'
+        uses: actions/upload-artifact@v7
+        with:
+          name: pek-perception-sdk-input-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.SOURCE_DIR }}/dist/perception-sdk-input/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Record image digest
+        env:
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+        run: printf '%s\n' "$IMAGE_DIGEST" > "$RUNNER_TEMP/image-digest-${{ matrix.artifact_label }}"
+
+      - name: Upload image digest
+        uses: actions/upload-artifact@v7
+        with:
+          name: pek-image-digest-${{ matrix.artifact_label }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/image-digest-${{ matrix.artifact_label }}
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Clean isolated build workspace
+        if: always()
+        env:
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          docker image rm "$RELEASE_IMAGE@$IMAGE_DIGEST" 2>/dev/null || true
+          rm -rf -- "$SOURCE_DIR"
+
+  release-image:
+    name: Publish multi-architecture snapshot image
+    needs: [prepare, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.publish.outputs.digest }}
+      reference: ${{ steps.publish.outputs.reference }}
+    env:
+      RELEASE_IMAGE: ghcr.io/arm-debug/amp-dev-forge-deployment
+    steps:
+      - name: Set up Docker builder
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Download image digests
+        uses: actions/download-artifact@v8
+        with:
+          pattern: pek-image-digest-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: digests
+          merge-multiple: true
+
+      - name: Publish image index
+        id: publish
+        env:
+          IMAGE_TAG: ${{ needs.prepare.outputs.image_tag }}
+        run: |
+          set -euo pipefail
+          X86_DIGEST="$(<digests/image-digest-x86)"
+          ARM_DIGEST="$(<digests/image-digest-arm)"
+          reference="$RELEASE_IMAGE:$IMAGE_TAG"
+          if docker buildx imagetools inspect "$reference" >/dev/null 2>&1; then
+            echo "Image $reference already exists." >&2
+            exit 1
+          fi
+          docker buildx imagetools create \
+            --tag "$reference" \
+            --metadata-file image-metadata.json \
+            "$RELEASE_IMAGE@$X86_DIGEST" \
+            "$RELEASE_IMAGE@$ARM_DIGEST"
+          digest="$(jq -er '."containerimage.descriptor".digest' image-metadata.json)"
+          docker buildx imagetools inspect "$reference"
+          echo "reference=$reference" >> "$GITHUB_OUTPUT"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          # shellcheck disable=SC2016
+          printf '### PEK deployment image\n\n- `%s@%s`\n' \
+            "$reference" "$digest" >> "$GITHUB_STEP_SUMMARY"
+
+  github-release:
+    name: Publish one GitHub release
+    needs: [prepare, build, release-image]
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+      contents: write
+    steps:
+      - name: Checkout released source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          persist-credentials: false
+
+      - name: Download release packages
+        uses: actions/download-artifact@v8
+        with:
+          pattern: pek-release-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release
+          merge-multiple: true
+
+      - name: Publish release after all uploads succeed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          COMMIT: ${{ needs.prepare.outputs.commit }}
+          IMAGE_REFERENCE: ${{ needs.release-image.outputs.reference }}
+          IMAGE_DIGEST: ${{ needs.release-image.outputs.digest }}
+        run: |
+          set -euo pipefail
+          mapfile -t archives < <(find release -maxdepth 1 -type f -name "*.tar.gz" | sort)
+          test "${#archives[@]}" -eq 2
+          hashes="$(sha256sum "${archives[@]}")"
+          sed -n "/^## \\[$VERSION\\]/,/^## \\[/p" CHANGELOG.md |
+            sed "\$d" > release-body.md
+          {
+            # shellcheck disable=SC2016
+            printf '\nSource commit: `%s`\n\n### Archives\n\n' "$COMMIT"
+            while read -r hash file; do
+              # shellcheck disable=SC2016
+              printf -- '- `%s` — `%s`\n' "$(basename "$file")" "$hash"
+            done <<< "$hashes"
+          } >> release-body.md
+          # shellcheck disable=SC2016
+          printf '\n### Container image\n\n`%s@%s`\n' \
+            "$IMAGE_REFERENCE" "$IMAGE_DIGEST" >> release-body.md
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "Release v$VERSION already exists." >&2
+            exit 1
+          fi
+          gh release create "v$VERSION" --draft --target "$COMMIT" \
+            --title "PEK $VERSION" --notes-file release-body.md
+          gh release upload "v$VERSION" "${archives[@]}"
+          gh release edit "v$VERSION" --draft=false
+
+  artifactory:
+    name: Publish one Artifactory release
+    needs: [prepare, build, release-image, github-release]
+    runs-on: self-hosted-ubuntu-latest-x64
+    steps:
+      - name: Download release packages
+        uses: actions/download-artifact@v8
+        with:
+          pattern: pek-release-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/pek-release-artifacts
+          merge-multiple: true
+
+      - name: Download Perception SDK input
+        uses: actions/download-artifact@v8
+        with:
+          name: pek-perception-sdk-input-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/pek-perception-sdk-input
+
+      - name: Stage Perception language packages
+        env:
+          ARTIFACTS_DIR: ${{ runner.temp }}/pek-release-artifacts
+          SDK_DIR: ${{ runner.temp }}/pek-perception-sdk-input
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          cp "$SDK_DIR/opk_perception_sdk-$VERSION-py3-none-any.whl" \
+            "$ARTIFACTS_DIR/"
+          cp "$SDK_DIR/perception-$VERSION.crate" "$ARTIFACTS_DIR/"
+
+      - name: Accept exactly two archives and two language packages
+        env:
+          ARTIFACTS_DIR: ${{ runner.temp }}/pek-release-artifacts
+          BUILD_ID: ${{ needs.prepare.outputs.build_id }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          expected=(
+            "pek-$BUILD_ID-linux-x86_64.tar.gz"
+            "pek-$BUILD_ID-linux-aarch64.tar.gz"
+            "opk_perception_sdk-$VERSION-py3-none-any.whl"
+            "perception-$VERSION.crate"
+          )
+          test -z "$(find "$ARTIFACTS_DIR" -type l -print -quit)"
+          mapfile -d '' -t files < <(
+            find "$ARTIFACTS_DIR" -mindepth 1 -maxdepth 1 -type f -print0 | sort -z
+          )
+          test "${#files[@]}" -eq "${#expected[@]}"
+          for artifact in "${expected[@]}"; do
+            test -f "$ARTIFACTS_DIR/$artifact"
+          done
+
+      - name: Set up locked uv and Python
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.8.15'
+          python-version: '3.14'
+
+      - name: Create read-only publisher token
+        id: publisher-token
+        uses: actions/create-github-app-token@v3.2.0
+        with:
+          app-id: ${{ secrets.OPK_RELEASE_APP_ID }}
+          private-key: ${{ secrets.OPK_RELEASE_APP_PRIVATE_KEY }}
+          owner: Arm-Debug
+          repositories: publisher
+          permission-contents: read
+
+      - name: Checkout publisher
+        uses: actions/checkout@v7
+        with:
+          repository: Arm-Debug/publisher
+          ref: cd16aa5aa6771b32d62466c974f0f2526d000013 # pragma: allowlist secret
+          token: ${{ steps.publisher-token.outputs.token }}
+          path: publisher
+          persist-credentials: false
+
+      - name: Install locked publisher
+        working-directory: publisher
+        run: uv sync --frozen --no-dev
+
+      - name: Publish to Artifactory
+        id: publish
+        working-directory: ${{ runner.temp }}
+        env:
+          ARTIFACTORY_HOST: https://arm.jfrog.io
+          ARTIFACTORY_TOKEN: ${{ secrets.PUBLIC_ARTIFACTORY_TOKEN }}
+          ARTIFACTORY_ARTIFACTS_NAME: devx-open-perception-kit
+          # The publisher joins RELEASE_VERSION directly below DOWNLOAD_BASE.
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          DOWNLOAD_BASE: https://artifacts.tools.arm.com/open-perception-kit
+          TIMEOUT_SECONDS: 300
+          ARTIFACT_PATTERN: pek-release-artifacts/*.tar.gz
+        run: >-
+          "$GITHUB_WORKSPACE/publisher/.venv/bin/python"
+          -m publisher.actions.publish_to_artifactory_action
+          "$ARTIFACT_PATTERN"
+
+      - name: Publish Perception Python package to Artifactory PyPI
+        env:
+          UV_PUBLISH_CHECK_URL: https://artifactory.arm.com/artifactory/api/pypi/edge-ai-tooling.pypi/simple
+          UV_PUBLISH_URL: https://artifactory.arm.com/artifactory/api/pypi/edge-ai-tooling.pypi
+          UV_PUBLISH_USERNAME: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
+          UV_PUBLISH_PASSWORD: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
+        run: >-
+          uv publish
+          "${{ runner.temp }}"/pek-release-artifacts/opk_perception_sdk-*-py3-none-any.whl
+
+      # This step is only here to make the created package easier to access
+      - name: Print links and hashes
+        env:
+          ARTIFACTS_DIR: ${{ runner.temp }}/pek-release-artifacts
+          VERSION: ${{ needs.prepare.outputs.version }}
+          IMAGE_REFERENCE: ${{ needs.release-image.outputs.reference }}
+          IMAGE_DIGEST: ${{ needs.release-image.outputs.digest }}
+        run: |
+          set -euo pipefail
+          folder="$VERSION"
+          base="https://artifacts.tools.arm.com/open-perception-kit/$folder"
+          echo "Artifactory folder: $folder"
+          {
+            echo "### PEK Artifactory release"
+            echo
+            echo "Folder: \`$folder\`"
+            echo
+            echo "Container image: \`$IMAGE_REFERENCE@$IMAGE_DIGEST\`"
+            echo
+            for artifact in "$ARTIFACTS_DIR"/*.tar.gz; do
+              name="$(basename "$artifact")"
+              hash="$(sha256sum "$artifact" | cut -d' ' -f1)"
+              url="$base/$name"
+              echo "$url"
+              # shellcheck disable=SC2016
+              printf -- '- [%s](%s) — `%s`\n' "$name" "$url" "$hash"
+            done
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+  perception-crate:
+    name: Publish Perception crate
+    needs: [prepare, build, artifactory]
+    uses: ./.github/workflows/perception-crate.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
