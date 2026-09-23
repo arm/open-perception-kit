@@ -30,13 +30,13 @@ jobs:
       arm_archive: ${{ steps.release.outputs.arm_archive }}
     steps:
       - name: Checkout release tooling
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
 
       - name: Checkout selected source
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -100,7 +100,7 @@ jobs:
       SOURCE_DIR: source-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-${{ matrix.artifact_label }}
     steps:
       - name: Checkout selected source
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ needs.prepare.outputs.commit }}
           path: ${{ env.SOURCE_DIR }}
@@ -112,7 +112,7 @@ jobs:
 
       - name: Restore compiler cache
         id: compiler-cache
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: .cache/ccache-release
           key: opk-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-release-${{ needs.prepare.outputs.commit }}
@@ -188,7 +188,7 @@ jobs:
           fi
 
       - name: Upload package
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: opk-release-${{ matrix.artifact_label }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ env.SOURCE_DIR }}/dist/${{ matrix.architecture == 'x86_64' && needs.prepare.outputs.x86_archive || needs.prepare.outputs.arm_archive }}
@@ -251,7 +251,7 @@ jobs:
 
       - name: Upload Perception SDK input
         if: matrix.architecture == 'aarch64'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: opk-perception-sdk-input-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ env.SOURCE_DIR }}/dist/perception-sdk-input/
@@ -264,7 +264,7 @@ jobs:
         run: printf '%s\n' "$IMAGE_DIGEST" > "$RUNNER_TEMP/image-digest-${{ matrix.artifact_label }}"
 
       - name: Upload image digest
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: opk-image-digest-${{ matrix.artifact_label }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/image-digest-${{ matrix.artifact_label }}
@@ -303,7 +303,7 @@ jobs:
           password: ${{ github.token }}
 
       - name: Download image digests
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           pattern: opk-image-digest-*-${{ github.run_id }}-${{ github.run_attempt }}
           path: digests
@@ -341,7 +341,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout selected source
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ needs.prepare.outputs.commit }}
           persist-credentials: false
@@ -361,7 +361,7 @@ jobs:
         run: scripts/release/add-sbom-disclaimer.sh opk-sbom-source.json
 
       - name: Upload source SBOM
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: opk-sbom-source-${{ github.run_id }}-${{ github.run_attempt }}
           path: opk-sbom-source.json
@@ -373,14 +373,14 @@ jobs:
     runs-on: self-hosted-ubuntu-latest-x64
     steps:
       - name: Download release packages
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           pattern: opk-release-*-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/opk-release-artifacts
           merge-multiple: true
 
       - name: Download Perception SDK input
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: opk-perception-sdk-input-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/opk-perception-sdk-input
@@ -421,7 +421,7 @@ jobs:
           done
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: opk-release-artifacts
           path: ${{ runner.temp }}/opk-release-artifacts
@@ -429,7 +429,7 @@ jobs:
 
       - name: Create GitHub App token for publisher
         id: publisher-token
-        uses: actions/create-github-app-token@v3.2.0
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           app-id: ${{ secrets.OPK_DEBUG_ACCESS_APP_ID }}
           private-key: ${{ secrets.OPK_DEBUG_ACCESS_APP_PRIVATE_KEY }}
@@ -476,7 +476,7 @@ jobs:
             --dir publisher-artifacts
 
       - name: Upload Artifactory links
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: opk-artifactory-links
           path: publisher-artifacts/artifact-urls.txt
@@ -491,26 +491,26 @@ jobs:
       contents: write
     steps:
       - name: Checkout released source
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ needs.prepare.outputs.commit }}
           persist-credentials: false
 
       - name: Download release packages
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           pattern: opk-release-*-${{ github.run_id }}-${{ github.run_attempt }}
           path: release
           merge-multiple: true
 
       - name: Download Artifactory links
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: opk-artifactory-links
           path: publisher-artifacts
 
       - name: Download SBOMs
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           pattern: opk-sbom-*-${{ github.run_id }}-${{ github.run_attempt }}
           path: release
@@ -568,7 +568,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Download Perception SDK input
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: opk-perception-sdk-input-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/opk-perception-sdk-input
@@ -621,7 +621,7 @@ jobs:
         run: scripts/release/add-sbom-disclaimer.sh opk-sbom-perception-crate.json
 
       - name: Upload Perception crate SBOM
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: opk-sbom-perception-crate-${{ github.run_id }}-${{ github.run_attempt }}
           path: opk-sbom-perception-crate.json
@@ -629,7 +629,7 @@ jobs:
 
       - name: Create GitHub App token for publisher
         id: publisher-token
-        uses: actions/create-github-app-token@v3.2.0
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           app-id: ${{ secrets.OPK_DEBUG_ACCESS_APP_ID }}
           private-key: ${{ secrets.OPK_DEBUG_ACCESS_APP_PRIVATE_KEY }}
