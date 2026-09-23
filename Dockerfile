@@ -36,31 +36,36 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
   set -eux; \
+  case "$(dpkg --print-architecture)" in \
+    amd64) ninja_version=1.12.1-1 ;; \
+    arm64) ninja_version=1.12.1-1+b1 ;; \
+    *) echo "Unsupported build architecture" >&2; exit 1 ;; \
+  esac; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-  build-essential \
-  ca-certificates \
-  cargo \
-  ccache \
-  cmake \
-  curl \
-  git \
-  libfftw3-dev \
-  libfmt-dev \
-  libgstreamer-plugins-bad1.0-dev \
-  libgstreamer-plugins-base1.0-dev \
-  libgstreamer1.0-dev \
-  libjson-glib-dev \
-  libsoup-3.0-dev \
-  libssl-dev \
-  ninja-build \
-  pkg-config \
-  python3 \
-  python3-dev \
-  python3-venv \
-  rustc \
-  rustfmt \
-  unzip; \
+  build-essential=12.12 \
+  ca-certificates=20250419 \
+  cargo=1.85.1+dfsg1-1+deb13u1 \
+  ccache=4.11.2-2 \
+  cmake=3.31.6-2 \
+  curl=8.14.1-2+deb13u5 \
+  git=1:2.47.3-0+deb13u1 \
+  libfftw3-dev=3.3.10-2+b1 \
+  libfmt-dev=10.1.1+ds1-4 \
+  libgstreamer-plugins-bad1.0-dev=1.26.2-3+deb13u3 \
+  libgstreamer-plugins-base1.0-dev=1.26.2-1+deb13u2 \
+  libgstreamer1.0-dev=1.26.2-2 \
+  libjson-glib-dev=1.10.6+ds-2 \
+  libsoup-3.0-dev=3.6.5-3 \
+  libssl-dev=3.5.7-1~deb13u2 \
+  ninja-build="${ninja_version}" \
+  pkg-config=1.8.1-4 \
+  python3=3.13.5-1 \
+  python3-dev=3.13.5-1 \
+  python3-venv=3.13.5-1 \
+  rustc=1.85.1+dfsg1-1+deb13u1 \
+  rustfmt=1.85.1+dfsg1-1+deb13u1 \
+  unzip=6.0-29+deb13u1; \
   update-ca-certificates
 
 COPY requirements/build.json requirements/meson.txt /opt/opk-deps/requirements/
@@ -114,7 +119,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
   set -eux; \
   apt-get update; \
-  apt-get install -y --no-install-recommends bash ca-certificates curl; \
+  apt-get install -y --no-install-recommends \
+    bash=5.2.37-2+b10 ca-certificates=20250419 curl=8.14.1-2+deb13u5; \
   update-ca-certificates
 
 ARG NO_EXAMPLE_CONTENT=false
@@ -158,6 +164,8 @@ RUN --mount=type=cache,target=/root/.cache/huggingface \
 # outputs come from the mounted checkout, not from this image.
 FROM opk-build-base AS opk-dev-base
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 ARG NPM_FALLBACK_REGISTRY=https://artifactory.arm.com:443/artifactory/api/npm/mirrors.npmjs_org
 ARG USERNAME=dev
 ARG USER_UID=1000
@@ -174,11 +182,15 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-  file gnupg gosu gstreamer1.0-gl gstreamer1.0-nice gstreamer1.0-pipewire \
-  gstreamer1.0-plugins-bad gstreamer1.0-plugins-base \
-  gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
-  gstreamer1.0-tools gstreamer1.0-x lldb-17 nodejs npm pre-commit python3-gi python3-pip \
-  shellcheck shfmt sudo valgrind wget zip; \
+  file=1:5.46-5 gnupg=2.4.7-21+deb13u1 gosu=1.17-3+b4 \
+  gstreamer1.0-gl=1.26.2-1+deb13u2 gstreamer1.0-nice=0.1.22-1 gstreamer1.0-pipewire=1.4.2-1 \
+  gstreamer1.0-plugins-bad=1.26.2-3+deb13u3 gstreamer1.0-plugins-base=1.26.2-1+deb13u2 \
+  gstreamer1.0-plugins-good=1.26.2-1+deb13u2 gstreamer1.0-plugins-ugly=1.26.3-4+deb13u1 \
+  gstreamer1.0-tools=1.26.2-2 gstreamer1.0-x=1.26.2-1+deb13u2 lldb-17=1:17.0.6-22+b2 \
+  nodejs=20.19.2+dfsg-1+deb13u2 npm=9.2.0~ds1-3 pre-commit=4.2.0-2 \
+  python3-gi=3.50.0-4+b1 python3-pip=25.1.1+dfsg-1 \
+  shellcheck=0.10.0-1 shfmt=3.8.0-1+b8 sudo=1.9.16p2-3+deb13u2 \
+  valgrind=1:3.24.0-3 wget=1.25.0-2 zip=3.0-15+deb13u1; \
   update-ca-certificates
 
 RUN set -eux; \
@@ -206,8 +218,7 @@ RUN set -eux; \
   ESBUILD_INTEGRITY="${esbuild_integrity}" node -e 'const crypto=require("crypto"); const fs=require("fs"); const [algorithm, expected]=process.env.ESBUILD_INTEGRITY.split("-", 2); const actual=crypto.createHash(algorithm).update(fs.readFileSync("/tmp/esbuild-wasm.tgz")).digest("base64"); if (actual !== expected) throw new Error("esbuild-wasm integrity mismatch")'; \
   echo "${flatbuffers_sha256}  /tmp/flatbuffers.tgz" | sha256sum --check --strict; \
   echo "${typescript_sha256}  /tmp/typescript.tgz" | sha256sum --check --strict; \
-  npm_args=(--global --ignore-scripts --no-audit --no-fund); \
-  npm install "${npm_args[@]}" \
+  npm install --global --ignore-scripts --no-audit --no-fund \
     /tmp/esbuild-wasm.tgz /tmp/flatbuffers.tgz /tmp/typescript.tgz; \
   rm -f /tmp/esbuild-wasm.tgz /tmp/flatbuffers.tgz /tmp/typescript.tgz \
     /tmp/opk-web-package-lock.json
@@ -233,11 +244,10 @@ RUN set -eux; \
     "${tmp_dir}/${actionlint_archive}" "${actionlint_base_url}/${actionlint_archive}"; \
   curl --location --retry 3 --retry-all-errors --retry-delay 2 -fsSLo \
     "${tmp_dir}/checksums.txt" "${actionlint_base_url}/actionlint_${ACTIONLINT_VERSION}_checksums.txt"; \
-  cd "${tmp_dir}"; \
-  grep " ${actionlint_archive}$" checksums.txt | sha256sum -c -; \
-  tar -xzf "${actionlint_archive}" actionlint; \
-  install -m 0755 actionlint /usr/local/bin/actionlint; \
-  cd /; \
+  checksum="$(grep " ${actionlint_archive}$" "${tmp_dir}/checksums.txt")"; \
+  echo "${checksum%% *}  ${tmp_dir}/${actionlint_archive}" | sha256sum --check --strict; \
+  tar -xzf "${tmp_dir}/${actionlint_archive}" -C "${tmp_dir}" actionlint; \
+  install -m 0755 "${tmp_dir}/actionlint" /usr/local/bin/actionlint; \
   rm -rf "${tmp_dir}"; \
   actionlint -version; \
   shellcheck --version
@@ -247,7 +257,7 @@ RUN install-onnxruntime /opt/opk-deps/requirements/build.json
 
 RUN set -eux; \
   getent group "${USER_GID}" >/dev/null || groupadd --gid "${USER_GID}" "${USERNAME}"; \
-  id -u "${USERNAME}" >/dev/null 2>&1 || useradd -m -u "${USER_UID}" -g "${USER_GID}" -s /bin/bash "${USERNAME}"; \
+  id -u "${USERNAME}" >/dev/null 2>&1 || useradd -l -m -u "${USER_UID}" -g "${USER_GID}" -s /bin/bash "${USERNAME}"; \
   getent group video >/dev/null 2>&1 || groupadd video; \
   getent group render >/dev/null 2>&1 || groupadd render; \
   getent group audio >/dev/null 2>&1 || groupadd audio; \
@@ -285,8 +295,7 @@ RUN set -eux; \
   -r /opt/opk-deps/requirements/models.txt \
   "${numpy_wheel}" \
   "${flatbuffers_wheel}"; \
-  cd /tmp; \
-  /opt/opk-venvs/devtools/bin/python -c 'import perception, plumber'; \
+  /opt/opk-venvs/devtools/bin/python -I -c 'import perception, plumber'; \
   chown -R "${USER_UID}:${USER_GID}" /opt/opk-venvs/devtools; \
   rm -rf /tmp/opk-tools /tmp/perception-sdk.json /tmp/python-ops-runtime.json
 
@@ -328,13 +337,19 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-  bash-completion bat clangd dnsutils eza fd-find ffmpeg firefox-esr fonts-powerline \
-  gdb gcovr iproute2 iputils-arping iputils-ping less locales lua5.1 \
-  luarocks mc nano neovim net-tools nmap openssh-client powerline ripgrep \
-  tcpdump tmux traceroute tree-sitter-cli v4l-utils vim wl-clipboard \
-  xz-utils zsh; \
-  if apt-get install -y --no-install-recommends --dry-run gstreamer1.0-libav; then \
-    apt-get install -y --no-install-recommends gstreamer1.0-libav; \
+  bash-completion=1:2.16.0-7 bat=0.25.0-2+b2 clangd=1:19.0-63 \
+  bind9-dnsutils=1:9.20.29-1~deb13u1 eza=0.21.0-1+b1 fd-find=10.2.0-1+b5 \
+  ffmpeg=7:7.1.5-0+deb13u1 firefox-esr=140.16.0esr-1~deb13u1 fonts-powerline=2.8.4-1 \
+  gdb=16.3-1 gcovr=7.2+really-1.1 iproute2=6.15.0-1 \
+  iputils-arping=3:20240905-3 iputils-ping=3:20240905-3 less=668-1 \
+  locales=2.41-12+deb13u4 lua5.1=5.1.5-11 luarocks=3.8.0+dfsg1-1 \
+  mc=3:4.8.33-1+deb13u1 nano=8.4-1+deb13u1 neovim=0.10.4-8 net-tools=2.10-1.3 \
+  nmap=7.95+dfsg-3 openssh-client=1:10.0p1-7+deb13u4 powerline=2.8.4-1 ripgrep=14.1.1-1+b4 \
+  tcpdump=4.99.5-2 tmux=3.5a-3 traceroute=1:2.1.6-1 tree-sitter-cli=0.22.6-6+b1 \
+  v4l-utils=1.30.1-1 vim=2:9.1.1230-2 wl-clipboard=2.2.1-2 \
+  xz-utils=5.8.1-1+deb13u1 zsh=5.9-8+b24; \
+  if apt-get install -y --no-install-recommends --dry-run gstreamer1.0-libav=1.26.2-1+deb13u1; then \
+    apt-get install -y --no-install-recommends gstreamer1.0-libav=1.26.2-1+deb13u1; \
   else \
     echo 'NOTE: gstreamer1.0-libav not available on this image/mirror'; \
   fi; \
@@ -371,7 +386,8 @@ RUN set -eux; \
   update-alternatives --set vi /usr/local/bin/nvim; \
   chmod +x "/home/${USERNAME}/bin/cpptools/extension/debugAdapters/bin/OpenDebugAD7"; \
   ln -sf "/home/${USERNAME}/bin/cpptools/extension/debugAdapters/bin/OpenDebugAD7" /usr/local/bin/OpenDebugAD7; \
-  su - "${USERNAME}" -c 'git clone --quiet --depth 1 https://github.com/ohmyzsh/ohmyzsh.git "$HOME/.oh-my-zsh"'; \
+  runuser -u "${USERNAME}" -- \
+    git clone --quiet --depth 1 https://github.com/ohmyzsh/ohmyzsh.git "/home/${USERNAME}/.oh-my-zsh"; \
   mkdir -p "/home/${USERNAME}/.config" "/home/${USERNAME}/configs"; \
   ln -sfn "/home/${USERNAME}/configs/zshrc" "/home/${USERNAME}/.zshrc"; \
   ln -sfn "/home/${USERNAME}/configs/nvchad_2026_04" "/home/${USERNAME}/.config/nvim"; \
@@ -383,6 +399,8 @@ ENV LANG=en_US.UTF-8 \
   LC_ALL=en_US.UTF-8 \
   SHELL=/bin/zsh \
   SSH_AUTH_SOCK=/ssh-agent
+
+USER ${USERNAME}
 
 # Final devcontainer image. Contract: tools and dependency libraries only. The
 # repository is mounted at /work; OPK binaries are built from that checkout.
@@ -402,7 +420,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     > /etc/apt/sources.list.d/raspberrypi.list; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-    gstreamer1.0-libcamera libcamera-ipa; \
+    gstreamer1.0-libcamera=0.7.2+rpt20260817-1 libcamera-ipa=0.7.2+rpt20260817-1; \
   fi
 
 RUN set -eux; \
@@ -455,7 +473,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-  doxygen graphviz openjdk-25-jdk pandoc
+  doxygen=1.9.8+ds-2.1 graphviz=2.42.4-3 \
+  openjdk-25-jdk=25.0.4.1+1-1~deb13u1 pandoc=3.1.11.1+ds-2
 
 RUN set -eux; \
   mkdir -p /opt/opk-deps; \
@@ -481,10 +500,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-  ca-certificates \
-  gstreamer1.0-plugins-base \
-  gstreamer1.0-tools \
-  libgstreamer1.0-0; \
+  ca-certificates=20250419 \
+  gstreamer1.0-plugins-base=1.26.2-1+deb13u2 \
+  gstreamer1.0-tools=1.26.2-2 \
+  libgstreamer1.0-0=1.26.2-2; \
   update-ca-certificates; \
   rm -rf /var/lib/apt/lists/*
 
@@ -498,8 +517,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-    python3 \
-    python3-venv; \
+    python3=3.13.5-1 \
+    python3-venv=3.13.5-1; \
   update-ca-certificates; \
   rm -rf /var/lib/apt/lists/*
 
@@ -525,6 +544,8 @@ RUN set -eux; \
 
 FROM opk-cross-build-base AS opk-deployment-build
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 ARG TARGETARCH
 ARG NO_EXAMPLE_CONTENT=false
 ARG OPK_RELEASE_BUILD=false
@@ -540,7 +561,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     install-target-sysroot "${TARGETARCH}"; \
   elif [ "${OPK_RELEASE_BUILD}" = true ]; then \
     apt-get update; \
-    apt-get install -y --no-install-recommends binutils libusb-1.0-0-dev zlib1g-dev; \
+    apt-get install -y --no-install-recommends \
+      binutils=2.44-3 libusb-1.0-0-dev=2:1.0.28-1 zlib1g-dev=1:1.3.dfsg+really1.3.1-1+b1; \
   fi
 
 COPY --chmod=0755 scripts/private/install-onnxruntime.sh /usr/local/bin/install-onnxruntime
@@ -554,8 +576,9 @@ RUN --mount=type=bind,source=var,target=/tmp/opk-executorch-packages,ro \
   set -eu; \
   if [ "${OPK_RELEASE_BUILD}" = true ]; then \
     test "${TARGETARCH}" = "$(dpkg --print-architecture)"; \
-    export EXECUTORCH_ARTIFACTORY_USERNAME="$(cat /run/secrets/executorch_artifactory_username)"; \
-    export EXECUTORCH_ARTIFACTORY_PASSWORD="$(cat /run/secrets/executorch_artifactory_password)"; \
+    EXECUTORCH_ARTIFACTORY_USERNAME="$(cat /run/secrets/executorch_artifactory_username)"; \
+    EXECUTORCH_ARTIFACTORY_PASSWORD="$(cat /run/secrets/executorch_artifactory_password)"; \
+    export EXECUTORCH_ARTIFACTORY_USERNAME EXECUTORCH_ARTIFACTORY_PASSWORD; \
     bash /tmp/install-executorch-deb.sh; \
   fi
 
@@ -707,25 +730,25 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-  gstreamer1.0-nice \
-  gstreamer1.0-pipewire \
-  gstreamer1.0-plugins-bad \
-  gstreamer1.0-plugins-good \
-  libfftw3-single3 \
-  libfmt10 \
-  libjson-glib-1.0-0 \
-  libsoup-3.0-0 \
-  libssl3t64 \
-  libusb-1.0-0 \
-  python3 \
-  zlib1g; \
+  gstreamer1.0-nice=0.1.22-1 \
+  gstreamer1.0-pipewire=1.4.2-1 \
+  gstreamer1.0-plugins-bad=1.26.2-3+deb13u3 \
+  gstreamer1.0-plugins-good=1.26.2-1+deb13u2 \
+  libfftw3-single3=3.3.10-2+b1 \
+  libfmt10=10.1.1+ds1-4 \
+  libjson-glib-1.0-0=1.10.6+ds-2 \
+  libsoup-3.0-0=3.6.5-3 \
+  libssl3t64=3.5.7-1~deb13u2 \
+  libusb-1.0-0=2:1.0.28-1 \
+  python3=3.13.5-1 \
+  zlib1g=1:1.3.dfsg+really1.3.1-1+b1; \
   if [ "${OPK_PICAMERA}" = enabled ]; then \
     test "$(dpkg --print-architecture)" = arm64; \
     echo "deb [arch=arm64 trusted=yes] https://archive.raspberrypi.com/debian trixie main" \
     > /etc/apt/sources.list.d/raspberrypi.list; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-    gstreamer1.0-libcamera libcamera-ipa; \
+    gstreamer1.0-libcamera=0.7.2+rpt20260817-1 libcamera-ipa=0.7.2+rpt20260817-1; \
   fi; \
   ptp_helpers=(/usr/lib/*-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-ptp-helper); \
   test "${#ptp_helpers[@]}" -eq 1; \
@@ -736,7 +759,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 RUN set -eux; \
   getent group "${USER_GID}" >/dev/null || groupadd --gid "${USER_GID}" "${USERNAME}"; \
-  id -u "${USERNAME}" >/dev/null 2>&1 || useradd -m -u "${USER_UID}" -g "${USER_GID}" -s /bin/bash "${USERNAME}"; \
+  id -u "${USERNAME}" >/dev/null 2>&1 || useradd -l -m -u "${USER_UID}" -g "${USER_GID}" -s /bin/bash "${USERNAME}"; \
   getent group video >/dev/null 2>&1 || groupadd video; \
   getent group render >/dev/null 2>&1 || groupadd render; \
   getent group audio >/dev/null 2>&1 || groupadd audio; \
@@ -847,17 +870,17 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-  gir1.2-glib-2.0 \
-  gir1.2-gstreamer-1.0 \
-  libgirepository-2.0-0 \
-  python3 \
-  python3-gi \
-  python3-gst-1.0; \
+  gir1.2-glib-2.0=2.84.4-3~deb13u5 \
+  gir1.2-gstreamer-1.0=1.26.2-2 \
+  libgirepository-2.0-0=2.84.4-3~deb13u5 \
+  python3=3.13.5-1 \
+  python3-gi=3.50.0-4+b1 \
+  python3-gst-1.0=1.26.2-1; \
   rm -rf /var/lib/apt/lists/*
 
 RUN set -eux; \
   getent group "${USER_GID}" >/dev/null || groupadd --gid "${USER_GID}" "${USERNAME}"; \
-  id -u "${USERNAME}" >/dev/null 2>&1 || useradd -m -u "${USER_UID}" -g "${USER_GID}" -s /bin/bash "${USERNAME}"
+  id -u "${USERNAME}" >/dev/null 2>&1 || useradd -l -m -u "${USER_UID}" -g "${USER_GID}" -s /bin/bash "${USERNAME}"
 
 WORKDIR /work
 COPY --from=opk-cairn-build /opt/opk-deps/onnxruntime/lib/ runtime/

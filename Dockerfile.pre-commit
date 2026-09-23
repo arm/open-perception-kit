@@ -9,14 +9,16 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 ARG ACTIONLINT_VERSION=1.7.12
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 RUN set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-  ca-certificates \
-  curl \
-  git \
-  shellcheck \
-  shfmt; \
+  ca-certificates=20250419 \
+  curl=8.14.1-2+deb13u5 \
+  git=1:2.47.3-0+deb13u1 \
+  shellcheck=0.10.0-1 \
+  shfmt=3.8.0-1+b8; \
   rm -rf /var/lib/apt/lists/*; \
   arch="$(dpkg --print-architecture)"; \
   case "${arch}" in \
@@ -31,11 +33,10 @@ RUN set -eux; \
   tmp_dir="$(mktemp -d)"; \
   curl --location -fsSLo "${tmp_dir}/${actionlint_archive}" "${actionlint_base_url}/${actionlint_archive}"; \
   curl --location -fsSLo "${tmp_dir}/checksums.txt" "${actionlint_base_url}/actionlint_${ACTIONLINT_VERSION}_checksums.txt"; \
-  cd "${tmp_dir}"; \
-  grep " ${actionlint_archive}$" checksums.txt | sha256sum -c -; \
-  tar -xzf "${actionlint_archive}" actionlint; \
-  install -m 0755 actionlint /usr/local/bin/actionlint; \
-  cd /; \
+  checksum="$(grep " ${actionlint_archive}$" "${tmp_dir}/checksums.txt")"; \
+  echo "${checksum%% *}  ${tmp_dir}/${actionlint_archive}" | sha256sum --check --strict; \
+  tar -xzf "${tmp_dir}/${actionlint_archive}" -C "${tmp_dir}" actionlint; \
+  install -m 0755 "${tmp_dir}/actionlint" /usr/local/bin/actionlint; \
   rm -rf "${tmp_dir}"; \
   actionlint -version; \
   shellcheck --version
