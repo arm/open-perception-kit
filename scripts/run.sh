@@ -51,14 +51,8 @@ elif [[ "${1:-}" == "--menu" ]]; then
     OPK_MENU_ARGS=()
 fi
 
-if ! detect_output="$("${DETECT_SCRIPT}" --shell)"; then
-    eval "$detect_output"
-    echo "Error: unsupported quick-start platform: ${OPK_PLATFORM_NAME:-unknown}" >&2
-    if [[ -n "${OPK_UNSUPPORTED_REASON:-}" ]]; then
-        echo "Reason: ${OPK_UNSUPPORTED_REASON}" >&2
-    fi
-    exit 1
-fi
+detect_status=0
+detect_output="$("${DETECT_SCRIPT}" --shell)" || detect_status=$?
 eval "$detect_output"
 
 if [[ "${OPK_IN_CONTAINER}" == "true" ]]; then
@@ -70,6 +64,14 @@ if [[ "${OPK_IN_CONTAINER}" == "true" ]]; then
 
     cd /work
     exec /work/tools/opk-menu "${OPK_MENU_ARGS[@]}"
+fi
+
+if ((detect_status != 0)); then
+    echo "Error: unsupported quick-start platform: ${OPK_PLATFORM_NAME:-unknown}" >&2
+    if [[ -n "${OPK_UNSUPPORTED_REASON:-}" ]]; then
+        echo "Reason: ${OPK_UNSUPPORTED_REASON}" >&2
+    fi
+    exit 1
 fi
 
 cd "${REPO_ROOT}"
