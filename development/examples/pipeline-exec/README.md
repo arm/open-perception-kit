@@ -45,7 +45,7 @@ export OPK_PROJECT_ROOT="$(pwd -P)"
 
 ```sh
 ./tools/pipeline-exec \
-  "$OPK_PROJECT_ROOT/config/pipelines/debug/video.json"
+  "$OPK_PROJECT_ROOT/config/pipelines/yolo26n-320.json"
 ```
 
 To collect performance spans:
@@ -53,7 +53,7 @@ To collect performance spans:
 ```sh
 ./tools/pipeline-exec \
   --perf-csv "$OPK_PROJECT_ROOT/var/pipeline-perf.csv" \
-  "$OPK_PROJECT_ROOT/config/pipelines/debug/video.json"
+  "$OPK_PROJECT_ROOT/config/pipelines/yolo26n-320.json"
 ```
 
 The CSV is written by `opk::runtime::PerformanceMetrics::writeCsv()`. It
@@ -68,5 +68,5 @@ Override plugin discovery with `OPK_PLUGIN_PATH` when needed:
 ```sh
 OPK_PLUGIN_PATH=/path/to/plugins \
   ./tools/pipeline-exec \
-  "$OPK_PROJECT_ROOT/config/pipelines/debug/video.json"
+  "$OPK_PROJECT_ROOT/config/pipelines/yolo26n-320.json"
 ```

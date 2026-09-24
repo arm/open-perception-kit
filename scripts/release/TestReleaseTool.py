@@ -282,7 +282,7 @@ class ReleaseToolTests(unittest.TestCase):
             root = Path(temporary)
             (root / OPCHAINS_DIR).mkdir(parents=True)
             add_release_models(root)
-            model_root = root / "config/models/cam-contact"
+            model_root = root / "config/models/nitec-resnet-18"
             (model_root / "secondary.onnx").write_bytes(b"secondary")
             (model_root / "unreferenced.onnx").write_bytes(b"unreferenced")
             (model_root / "secondary.json").write_text(
@@ -298,12 +298,12 @@ class ReleaseToolTests(unittest.TestCase):
             )
             self.assertEqual(completed.returncode, 0, completed.stderr)
             descriptor = json.loads(
-                (stage_root / "share/opk/models/cam-contact/model.json").read_text(
+                (stage_root / "share/opk/models/nitec-resnet-18/model.json").read_text(
                     encoding="utf-8"
                 )
             )
             opchain = json.loads(
-                (stage_root / "share/opk/models/cam-contact/opchain.json").read_text(
+                (stage_root / "share/opk/models/nitec-resnet-18/opchain.json").read_text(
                     encoding="utf-8"
                 )
             )
@@ -312,14 +312,14 @@ class ReleaseToolTests(unittest.TestCase):
                 opchain["ops"][0]["attributes"]["modelDescriptor"], MODEL_DESCRIPTOR
             )
             self.assertTrue(
-                (stage_root / "share/opk/models/cam-contact/secondary.json").is_file()
+                (stage_root / "share/opk/models/nitec-resnet-18/secondary.json").is_file()
             )
             self.assertEqual(
-                (stage_root / "share/opk/models/cam-contact/secondary.onnx").read_bytes(),
+                (stage_root / "share/opk/models/nitec-resnet-18/secondary.onnx").read_bytes(),
                 b"secondary",
             )
             self.assertEqual(
-                (stage_root / "share/opk/models/cam-contact/unreferenced.onnx").read_bytes(),
+                (stage_root / "share/opk/models/nitec-resnet-18/unreferenced.onnx").read_bytes(),
                 b"unreferenced",
             )
 
@@ -346,45 +346,45 @@ class ReleaseToolTests(unittest.TestCase):
                 release_tool.RELEASE_MODEL_NAMES,
             )
 
-    def test_stages_executorch_model_bytes_and_backend(self) -> None:
+    def test_stages_onnx_model_bytes_and_backend(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             (root / OPCHAINS_DIR).mkdir(parents=True)
             add_release_models(root)
-            source_model = root / "config/models/yolox/model.pte"
-            source_model.write_bytes(b"pte\x00payload")
+            source_model = root / "config/models/yolo26n-320/model.onnx"
+            source_model.write_bytes(b"onnx\x00payload")
 
             stage_root = root / "stage"
             release_tool.stage_models(
                 SimpleNamespace(repo_root=str(root), stage_root=str(stage_root))
             )
 
-            staged_model = stage_root / "share/opk/models/yolox/model.pte"
-            self.assertEqual(staged_model.read_bytes(), b"pte\x00payload")
+            staged_model = stage_root / "share/opk/models/yolo26n-320/model.onnx"
+            self.assertEqual(staged_model.read_bytes(), b"onnx\x00payload")
             opchain = json.loads(
-                (stage_root / "share/opk/models/yolox/opchain.json").read_text(
+                (stage_root / "share/opk/models/yolo26n-320/opchain.json").read_text(
                     encoding="utf-8"
                 )
             )
-            self.assertEqual(opchain["ops"][0]["id"], EXECUTORCH_INFERENCE_OP)
+            self.assertEqual(opchain["ops"][0]["id"], ONNX_INFERENCE_OP)
 
     def test_rejects_wrong_release_model_backend_or_suffix(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             (root / OPCHAINS_DIR).mkdir(parents=True)
             add_release_models(root)
-            yolox_opchain = root / "config/models/yolox/opchain.json"
-            opchain = json.loads(yolox_opchain.read_text(encoding="utf-8"))
-            opchain["ops"][0]["id"] = "opk-onnx-ops/Inference"
-            yolox_opchain.write_text(json.dumps(opchain), encoding="utf-8")
-            with self.assertRaisesRegex(RuntimeError, EXECUTORCH_INFERENCE_OP):
+            yolo26n_opchain = root / "config/models/yolo26n-320/opchain.json"
+            opchain = json.loads(yolo26n_opchain.read_text(encoding="utf-8"))
+            opchain["ops"][0]["id"] = EXECUTORCH_INFERENCE_OP
+            yolo26n_opchain.write_text(json.dumps(opchain), encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, ONNX_INFERENCE_OP):
                 release_tool.discover_models(root)
 
-            opchain["ops"][0]["id"] = EXECUTORCH_INFERENCE_OP
-            yolox_opchain.write_text(json.dumps(opchain), encoding="utf-8")
-            descriptor = root / "config/models/yolox/model.json"
-            descriptor.write_text(json.dumps({"modelFile": "model.onnx"}), encoding="utf-8")
-            (root / "config/models/yolox/model.onnx").write_bytes(b"onnx")
+            opchain["ops"][0]["id"] = ONNX_INFERENCE_OP
+            yolo26n_opchain.write_text(json.dumps(opchain), encoding="utf-8")
+            descriptor = root / "config/models/yolo26n-320/model.json"
+            descriptor.write_text(json.dumps({"modelFile": "model.pte"}), encoding="utf-8")
+            (root / "config/models/yolo26n-320/model.pte").write_bytes(b"onnx")
             with self.assertRaisesRegex(RuntimeError, "unsupported model file"):
                 release_tool.discover_models(root)
 
@@ -539,7 +539,7 @@ class ReleaseToolTests(unittest.TestCase):
                                 "id": ONNX_INFERENCE_OP,
                                 "attributes": {
                                     "modelDescriptor": (
-                                        "../../models/yolov11/model.json"
+                                        "../../models/yolo26n-320/model.json"
                                     )
                                 },
                             },
@@ -547,7 +547,7 @@ class ReleaseToolTests(unittest.TestCase):
                                 "id": ONNX_INFERENCE_OP,
                                 "attributes": {
                                     "modelDescriptor": (
-                                        "/work/config/models/osnet_x0_25/model.json"
+                                        "/work/config/models/osnet-x0-25/model.json"
                                     )
                                 },
                             }
@@ -575,13 +575,13 @@ class ReleaseToolTests(unittest.TestCase):
                     for op in staged_opchain["ops"]
                 ],
                 [
-                    "../../models/yolov11/model.json",
-                    "../../models/osnet_x0_25/model.json",
+                    "../../models/yolo26n-320/model.json",
+                    "../../models/osnet-x0-25/model.json",
                 ],
             )
             release_tool.validate_release_payload(package_root, repo_root)
 
-            model_path = package_root / "share/opk/models/yolov11" / ONNX_MODEL_FILE
+            model_path = package_root / "share/opk/models/yolo26n-320" / ONNX_MODEL_FILE
             model = model_path.read_bytes()
             model_path.unlink()
             with self.assertRaisesRegex(RuntimeError, "models payload"):
@@ -595,10 +595,10 @@ class ReleaseToolTests(unittest.TestCase):
                 release_tool.validate_release_payload(package_root, repo_root)
             opchain_path.write_bytes(opchain)
 
-            model_opchain = package_root / "share/opk/models/yolov11/opchain.json"
+            model_opchain = package_root / "share/opk/models/yolo26n-320/opchain.json"
             model_opchain.write_text(
                 json.dumps(
-                    {"modelDescriptor": "/work/config/models/yolov11/model.json"}
+                    {"modelDescriptor": "/work/config/models/yolo26n-320/model.json"}
                 ),
                 encoding="utf-8",
             )
@@ -796,7 +796,7 @@ class ReleaseToolTests(unittest.TestCase):
     def test_model_path_cannot_escape_its_directory(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            model_root = root / "config/models/cam-contact"
+            model_root = root / "config/models/mobilegaze-mobilenet-v2"
             model_root.mkdir(parents=True)
             (root / OPCHAINS_DIR).mkdir(parents=True)
             (root / "config/models/escape.onnx").write_bytes(b"model")

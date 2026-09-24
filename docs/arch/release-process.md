@@ -19,8 +19,8 @@ section before a pull request can target `main`.
 Packaging discovers model directories directly under `config/models/`. The
 existing `opk-models` stage runs `scripts/download-models.py`; descriptor
 `hfDownload` entries pin the repository, revision, and filename. Both packages
-include the six ONNX models `cam-contact`, `gaze-detection`, `osnet_x0_25`,
-`ultraface`, `yolo26`, and `yolov11`, plus the checked-in ExecuTorch `yolox`
+include all ten ONNX releases: MobileGaze, NITEC, OSNet, UltraFace, and the
+six YOLO26 size and resolution variants
 model.
 
 The dedicated read-only `HF_TOKEN` is an accepted release-CI dependency while

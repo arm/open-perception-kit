@@ -1,0 +1,20 @@
+{
+  "version": "1.0.1",
+  "name": "osnet-x0-25-int8-reid",
+  "modelFile": "osnet_x0_25_raspberry_onnx_optimized.onnx",
+  "hfDownload": {
+    "repo_id": "Arm/osnet-x0-25-int8-mlas-onnx-raspberrypi5",
+    "revision": "2b3f3c6484dc4a566d79e5b97cae84127702fc37",
+    "filename": "osnet_x0_25_raspberry_onnx_optimized.onnx",
+    "sha256": "9414f0477ed743e475f5ce82932bced8845389c76e2aa5c683fce291471bf167"
+  },
+  "dynamicOutput": true,
+  "contentType": "genericObject",
+  "inputTensors": [{
+    "shape": [1, 3, 256, 128],
+    "dataKind": "ImageRgbChw",
+    "mean": [0.485, 0.456, 0.406, 0.0],
+    "std": [0.229, 0.224, 0.225, 1.0]
+  }]
+}
+

@@ -108,8 +108,8 @@ Read first:
 
 Useful checked-in examples:
 
-- `config/models/cam-contact/`
-- `config/models/yolov11/`
+- `config/models/nitec-resnet-18/`
+- `config/models/yolo26n-320/`
 
 ### Add custom postprocessing
 Start in:
@@ -143,8 +143,8 @@ Read first:
 
 - [Python script Op](docs/public/how-to/python-script-op.md)
 
-Use `config/models/mobilenetv2/scripts/python_classification.py` and
-`config/models/mobilenetv2/opchain-python-classification.json` as the primary
+Use `development/examples/byom-blazeface/postprocess.py` and
+`development/examples/byom-blazeface/opchain.json` as the primary
 checked-in example. Prefer existing generated Perception payloads and the
 official container runtime; do not begin by changing the Python bridge or core
 runtime.
