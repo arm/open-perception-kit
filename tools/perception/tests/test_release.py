@@ -409,22 +409,22 @@ class GenerationReceiptTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             project = Path(tmp) / "pyproject.toml"
             project.write_text(
-                '[project]\ndependencies = [\n    "opk-perception-sdk==0.3.0",\n]\n',
+                '[project]\ndependencies = [\n    "open_perception_kit==0.3.0",\n]\n',
                 encoding="utf-8",
             )
 
             with redirect_stdout(io.StringIO()):
                 self.assertFalse(
                     release_package.perception_generate.synchronize_plumber_dependency(
-                        project, "0.0.4309101", True
+                        project, "open_perception_kit", "0.0.4309101", True
                     )
                 )
             self.assertTrue(
                 release_package.perception_generate.synchronize_plumber_dependency(
-                    project, "0.0.4309101", False
+                    project, "open_perception_kit", "0.0.4309101", False
                 )
             )
-            self.assertIn("opk-perception-sdk==0.0.4309101", project.read_text())
+            self.assertIn("open_perception_kit==0.0.4309101", project.read_text())
 
     def test_typescript_declaration_headers_are_idempotent(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -501,7 +501,11 @@ class LocalSourceReceiptTests(unittest.TestCase):
             for sdk in ("cpp", "python", "rust", "ts")
         }
         receipts["python"]["python_package"] = {
-            "distribution_name": release_package.PYTHON_DISTRIBUTION_NAME,
+            "distribution_name": config.python_package_name,
+            "import_name": config.python_package_name,
+        }
+        receipts["cpp"]["python_bridge"] = {
+            "sdk_import_name": config.python_package_name,
         }
         with (
             patch.object(self.generate, "command_version", return_value="test formatter"),
@@ -672,26 +676,26 @@ class LocalSourceReceiptTests(unittest.TestCase):
 
 
 class PythonPackagingTests(unittest.TestCase):
-    def test_generated_distribution_name_is_rewritten_once(self) -> None:
+    def test_generated_python_package_metadata_is_decorated_once(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             project = Path(tmp)
             pyproject = project / "pyproject.toml"
             pyproject.write_text(
-                '[project]\nname = "perception"\nversion = "1.2.3"\n',
+                '[project]\nname = "open_perception_kit"\nversion = "1.2.3"\n',
                 encoding="utf-8",
             )
 
             release_package.perception_generate.prepare_python_package(
-                project, "perception", "1.2.3", "1.2.3.dev0"
+                project, "open_perception_kit", "1.2.3", "1.2.3.dev0"
             )
             self.assertEqual(
                 pyproject.read_text(encoding="utf-8"),
-                '[project]\nname = "opk-perception-sdk"\nversion = "1.2.3.dev0"\n'
+                '[project]\nname = "open_perception_kit"\nversion = "1.2.3.dev0"\n'
                 'license = "Apache-2.0"\nlicense-files = ["LICENSE", "NOTICE"]\n',
             )
             with self.assertRaisesRegex(RuntimeError, "project name is unexpected"):
                 release_package.perception_generate.prepare_python_package(
-                    project, "perception", "1.2.3", "1.2.3.dev0"
+                    project, "open_perception_kit", "1.2.3", "1.2.3.dev0"
                 )
 
 
@@ -825,8 +829,8 @@ class BundleVerificationTests(unittest.TestCase):
             path.write_bytes(content)
         self.create_wheel(flatbuffers_wheel_path, "flatbuffers", "25.9.23")
         self.create_wheel(
-            bundle / "python/opk_perception_sdk.whl",
-            "opk-perception-sdk",
+            bundle / "python/open_perception_kit.whl",
+            "open_perception_kit",
             "1.2.3",
             ["flatbuffers>=24.3.25,<26.0.0"],
         )
@@ -882,7 +886,7 @@ class BundleVerificationTests(unittest.TestCase):
         files["metadata/sdk.json"] = b""
         files.update({
             "python/flatbuffers.whl": b"",
-            "python/opk_perception_sdk.whl": b"",
+            "python/open_perception_kit.whl": b"",
             "typescript/flatbuffers-25.9.23.tgz": b"",
             "typescript/perception-1.2.3.tgz": b"",
         })
@@ -1000,16 +1004,16 @@ class BundleVerificationTests(unittest.TestCase):
                 "typescript": {"sdk": "ts"},
                 "python_bridge": {},
                 "python_package": {
-                    "distribution_name": "opk-perception-sdk",
-                    "import_name": "perception",
+                    "distribution_name": "open_perception_kit",
+                    "import_name": "open_perception_kit",
                     "version": "1.2.3",
                 },
                 "schemas": True,
             },
             "payloads": [],
             "perception_wheel": {
-                "path": "python/opk_perception_sdk.whl",
-                "sha256": digest(bundle / "python/opk_perception_sdk.whl"),
+                "path": "python/open_perception_kit.whl",
+                "sha256": digest(bundle / "python/open_perception_kit.whl"),
             },
             "perception_npm_package": {
                 "path": "typescript/perception-1.2.3.tgz",
@@ -1466,7 +1470,7 @@ class GeneratedSdkTests(unittest.TestCase):
         self.assertEqual(manifest["upstream_receipts"]["ts"]["outputs"]["sdk"], "ts")
         self.assertEqual(
             manifest["upstream_receipts"]["python"]["python_package"]["distribution_name"],
-            release_package.perception_config.PYTHON_DISTRIBUTION_NAME,
+            config.python_package_name,
         )
         self.assertEqual(
             manifest["postprocessing"]["typescript"]["flatbuffers_runtime"],
@@ -1486,8 +1490,8 @@ class GeneratedSdkTests(unittest.TestCase):
         self.assertEqual(
             manifest["upstream_receipts"]["python"]["python_package"]["typing"],
             {
-                "marker": "src/perception/py.typed",
-                "stubs": ["src/perception/guest.pyi"],
+                "marker": "src/open_perception_kit/py.typed",
+                "stubs": ["src/open_perception_kit/guest.pyi"],
             },
         )
 

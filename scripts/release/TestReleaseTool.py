@@ -179,14 +179,14 @@ class ReleaseToolTests(unittest.TestCase):
                         "numpy-2.4.2.dist-info/METADATA",
                     ],
                 ),
-                "opk-perception-sdk": FakeDistribution(
+                "open-perception-kit": FakeDistribution(
                     source_root,
-                    "opk_perception_sdk",
+                    "open_perception_kit",
                     "0.3.0",
                     [
-                        "perception/__init__.py",
-                        "opk_perception_sdk-0.3.0.dist-info/METADATA",
-                        "opk_perception_sdk-0.3.0.dist-info/direct_url.json",
+                        "open_perception_kit/__init__.py",
+                        "open_perception_kit-0.3.0.dist-info/METADATA",
+                        "open_perception_kit-0.3.0.dist-info/direct_url.json",
                     ],
                 ),
             }
@@ -217,7 +217,7 @@ class ReleaseToolTests(unittest.TestCase):
                 (runtime_root / "flatbuffers-25.9.23.dist-info/RECORD").exists()
             )
             self.assertFalse(
-                (runtime_root / "opk_perception_sdk-0.3.0.dist-info/direct_url.json").exists()
+                (runtime_root / "open_perception_kit-0.3.0.dist-info/direct_url.json").exists()
             )
             release_tool.validate_python_runtime(stage_root)
 

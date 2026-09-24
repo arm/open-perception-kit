@@ -34,8 +34,6 @@ import sdk_config as perception_config
 REPO_ROOT = perception_config.REPO_ROOT
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "artifacts"
 MANIFEST_FILENAME = "perception-sdk-release-manifest.json"
-PYTHON_DISTRIBUTION_NAME = perception_config.PYTHON_DISTRIBUTION_NAME
-PYTHON_WHEEL_NAME = "opk_perception_sdk"
 SOURCE_DATE_EPOCH = "315532800"
 ZIP_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 SEMANTIC_VERSION_RE = re.compile(
@@ -306,7 +304,7 @@ def build_perception_wheel(
 
 def write_requirements(python_dir: Path, config: perception_config.SdkConfig) -> None:
     (python_dir / "requirements.txt").write_text(
-        f"{PYTHON_DISTRIBUTION_NAME}=={config.python_package_version}\n"
+        f"{config.python_package_name}=={config.python_package_version}\n"
         f"flatbuffers=={config.flatbuffers_wheel.version}\n",
         encoding="utf-8",
     )
@@ -326,7 +324,7 @@ release metadata.
 python3 -m pip install --no-index --find-links python -r python/requirements.txt
 ```
 
-Use `perception.packet` for serialized packets. `perception.guest` is available
+Use `open_perception_kit.packet` for serialized packets. `open_perception_kit.guest` is available
 only inside a C++ host that registers the generated live-envelope bridge.
 
 ## C++
@@ -523,7 +521,8 @@ def write_bundle_manifest(
             "python_bridge": cpp_manifest["python_bridge"],
             "python_package": {
                 **python_manifest["python_package"],
-                "distribution_name": PYTHON_DISTRIBUTION_NAME,
+                "distribution_name": config.python_package_name,
+                "import_name": config.python_package_name,
                 "version": config.python_package_version,
             },
             "schemas": True,
@@ -901,15 +900,21 @@ def _verify_schema_semantics(
     return schema_files, schema_digest
 
 
-def _verify_python_package_identity(manifest: dict[str, object], version: object) -> None:
+def _verify_python_package_identity(
+    manifest: dict[str, object], version: object
+) -> str:
     outputs = manifest.get("outputs")
     python_package = outputs.get("python_package") if isinstance(outputs, dict) else None
-    if not isinstance(python_package, dict) or (
-        python_package.get("distribution_name") != PYTHON_DISTRIBUTION_NAME
-        or python_package.get("import_name") != "perception"
+    if not isinstance(python_package, dict):
+        raise RuntimeError("release Python package identity is invalid")
+    distribution_name = python_package.get("distribution_name")
+    if (
+        not isinstance(distribution_name, str)
+        or python_package.get("import_name") != distribution_name
         or python_package.get("version") != version
     ):
         raise RuntimeError("release Python package identity is invalid")
+    return distribution_name
 
 
 def _verify_python_packages(
@@ -918,7 +923,7 @@ def _verify_python_packages(
     file_entries: dict[str, dict[str, object]],
     package_version: str,
 ) -> dict[str, object]:
-    _verify_python_package_identity(manifest, package_version)
+    python_package_name = _verify_python_package_identity(manifest, package_version)
     perception = manifest.get("perception_wheel")
     flatbuffers = manifest.get("flatbuffers")
     if not isinstance(perception, dict) or not isinstance(flatbuffers, dict):
@@ -927,7 +932,7 @@ def _verify_python_packages(
     if not isinstance(flatbuffers_wheel, dict):
         raise RuntimeError("release FlatBuffers wheel metadata is malformed")
     for label, record, expected_name, expected_version in (
-        ("Perception", perception, PYTHON_DISTRIBUTION_NAME, package_version),
+        ("Perception", perception, python_package_name, package_version),
         ("FlatBuffers", flatbuffers_wheel, "flatbuffers", flatbuffers_wheel.get("version")),
     ):
         path_value = record.get("path")
@@ -1395,7 +1400,7 @@ def build_bundle(args: argparse.Namespace) -> Path:
         )
         perception_wheel = build_perception_wheel(
             python=build_python, python_project=python_project, wheel_dir=python_dir,
-            name=PYTHON_WHEEL_NAME, version=config.python_package_version,
+            name=config.python_package_name, version=config.python_package_version,
         )
         flatbuffers_wheel = acquire_flatbuffers_wheel(
             generated_manifest=generated_manifest, wheel_dir=python_dir,

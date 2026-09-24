@@ -52,6 +52,9 @@
   "project_generated_files": {
     "internal_meson": "development/perception/meson.build"
   },
+  "python_package": {
+    "name": "open_perception_kit"
+  },
   "python_build": {
     "tools": [
       {

@@ -18,8 +18,8 @@ from release_common import sha256
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SDK_CONFIG_PATH = Path(__file__).with_name("sdk.json")
 PRODUCT_VERSION_PATH = REPO_ROOT / "development/meson.build"
-PYTHON_DISTRIBUTION_NAME = "opk-perception-sdk"
 PACKAGE_NAME_RE = re.compile(r"[a-z][a-z0-9_-]*")
+PYTHON_PACKAGE_NAME_RE = re.compile(r"[a-z][a-z0-9_]*")
 SEMVER = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 PRODUCT_VERSION = re.compile(r"project\([^)]*version:\s*'([^']+)'", re.DOTALL)
 
@@ -36,6 +36,7 @@ class LockedArtifact:
 @dataclass(frozen=True)
 class SdkConfig:
     name: str
+    python_package_name: str
     version: str
     package_prerelease: bool
     schema_dir: Path
@@ -195,6 +196,7 @@ def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
         "flatbuffers",
         "flowdata_sdk",
         "project_generated_files",
+        "python_package",
         "python_build",
         "typescript_build",
     }
@@ -207,6 +209,16 @@ def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
     package_prerelease = raw["package_prerelease"]
     if not isinstance(package_prerelease, bool):
         raise RuntimeError("package_prerelease must be boolean")
+
+    python_package = raw["python_package"]
+    if not isinstance(python_package, dict) or set(python_package) != {"name"}:
+        raise RuntimeError("python_package must contain only name")
+    python_package_name = python_package["name"]
+    if (
+        not isinstance(python_package_name, str)
+        or PYTHON_PACKAGE_NAME_RE.fullmatch(python_package_name) is None
+    ):
+        raise RuntimeError("python_package.name must match [a-z][a-z0-9_]*")
 
     flatbuffers = raw["flatbuffers"]
     if not isinstance(flatbuffers, dict) or set(flatbuffers) != {
@@ -257,6 +269,7 @@ def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
 
     return SdkConfig(
         name=name,
+        python_package_name=python_package_name,
         version=product_version(),
         package_prerelease=package_prerelease,
         schema_dir=schema_dir,

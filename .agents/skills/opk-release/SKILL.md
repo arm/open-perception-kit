@@ -38,7 +38,7 @@ Report the predecessor, proposed version, classification, and short rationale be
 1. Update exactly three authored active-version surfaces:
    - `development/meson.build`: authoritative product version.
    - `CHANGELOG.md`: one non-empty section for the same version.
-   - `tools/plumber/pyproject.toml`: the exact `opk-perception-sdk==<version>` dependency.
+   - `tools/plumber/pyproject.toml`: the exact `open_perception_kit==<version>` dependency.
    Do not rewrite historical examples or release records.
 2. Regenerate both derived version surfaces, in this order:
    - `./scripts/perception-sdk.sh generate`

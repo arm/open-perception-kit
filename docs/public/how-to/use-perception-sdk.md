@@ -74,7 +74,7 @@ Declare the OPK release version and named index:
 
 ```toml
 [project]
-dependencies = ["opk-perception-sdk==<opk-version>"]
+dependencies = ["open_perception_kit==<opk-version>"]
 
 [[tool.uv.index]]
 name = "edge-ai-tooling"
@@ -83,7 +83,7 @@ explicit = true
 authenticate = "always"
 
 [tool.uv.sources]
-opk-perception-sdk = { index = "edge-ai-tooling" }
+open_perception_kit = { index = "edge-ai-tooling" }
 ```
 
 Manual integration snapshots are not published as stable PyPI versions. Their
@@ -109,11 +109,11 @@ python3 -m pip install \
   -r python/requirements.txt
 ```
 
-Use `perception.packet` for serialized packets. The installed package includes
+Use `open_perception_kit.packet` for serialized packets. The installed package includes
 `guest.pyi` and `py.typed`, so editors can provide completion and type
 information for guest scripts without importing the live bridge.
 
-`perception.guest` intentionally raises an import error in a normal Python
+`open_perception_kit.guest` intentionally raises an import error in a normal Python
 process. It becomes available only when a C++ host registers the generated
 `perception_bridge` module before starting Python.
 

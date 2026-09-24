@@ -24,7 +24,6 @@ from release_common import sha256
 from sdk_config import (
     PRODUCT_VERSION,
     PRODUCT_VERSION_PATH,
-    PYTHON_DISTRIBUTION_NAME,
     REPO_ROOT,
     SDK_CONFIG_PATH,
     SEMVER,
@@ -194,6 +193,7 @@ def generate_sdk(config: SdkConfig, generated_root: Path, flatc: str, python: st
         "--schema-dir", str(config.schema_dir),
         "--generated-root", str(generated_root),
         "--flatc", flatc,
+        "--python-package-name", config.python_package_name,
     ]
     run([
         *common, "--sdk", "cpp", "--cpp-python-bridge", "--cmake", "--meson",
@@ -215,7 +215,7 @@ def prepare_python_package(
         f'[project]\nname = "{source_name}"\nversion = "{source_version}"\n'
     )
     target = (
-        f'[project]\nname = "{PYTHON_DISTRIBUTION_NAME}"\n'
+        f'[project]\nname = "{source_name}"\n'
         f'version = "{package_version}"\n'
         f'license = "{SDK_LICENSE}"\n'
         'license-files = ["LICENSE", "NOTICE"]\n'
@@ -225,10 +225,12 @@ def prepare_python_package(
     pyproject.write_text(text.replace(source, target), encoding="utf-8")
 
 
-def synchronize_plumber_dependency(path: Path, version: str, check: bool) -> bool:
+def synchronize_plumber_dependency(
+    path: Path, distribution_name: str, version: str, check: bool
+) -> bool:
     text = path.read_text(encoding="utf-8")
     expected, count = re.subn(
-        r'(?m)^(\s*"opk-perception-sdk==)[^"]+(",)$',
+        rf'(?m)^(\s*"{re.escape(distribution_name)}==)[^"]+(",)$',
         rf"\g<1>{version}\g<2>",
         text,
     )
@@ -245,7 +247,10 @@ def synchronize_plumber_dependency(path: Path, version: str, check: bool) -> boo
 
 def synchronize_project_consumers(config: SdkConfig, node: str, check: bool) -> bool:
     plumber_current = synchronize_plumber_dependency(
-        PLUMBER_PROJECT, config.python_package_version, check
+        PLUMBER_PROJECT,
+        config.python_package_name,
+        config.python_package_version,
+        check,
     )
     run([node, str(WEB_BUILD), "check" if check else "generate"])
     return plumber_current
@@ -832,17 +837,23 @@ def _verify_upstream_receipts(
             raise RuntimeError(f"{sdk} schema inputs are stale")
         if sdk_manifest.get("schema_set_sha256") != _schema_set_sha256(config.schema_dir):
             raise RuntimeError(f"{sdk} schema-set digest is stale")
-    _verify_python_receipt(flowdata["python"])
+    cpp_bridge = flowdata["cpp"].get("python_bridge")
+    if not isinstance(cpp_bridge, dict) or (
+        cpp_bridge.get("sdk_import_name") != config.python_package_name
+    ):
+        raise RuntimeError("C++ Python bridge import name is stale")
+    _verify_python_receipt(config, flowdata["python"])
     validate_flowdata_manifests(config, flowdata)
 
 
-def _verify_python_receipt(python_receipt: object) -> None:
+def _verify_python_receipt(config: SdkConfig, python_receipt: object) -> None:
     python_package = (
         python_receipt.get("python_package")
         if isinstance(python_receipt, dict) else None
     )
     if not isinstance(python_package, dict) or (
-        python_package.get("distribution_name") != PYTHON_DISTRIBUTION_NAME
+        python_package.get("distribution_name") != config.python_package_name
+        or python_package.get("import_name") != config.python_package_name
     ):
         raise RuntimeError("Python receipt distribution name is stale")
 
@@ -876,7 +887,7 @@ def prepare_sdk(
     flowdata_manifests = read_flowdata_manifests(generated_root)
     prepare_python_package(
         generated_root / "python",
-        config.name,
+        config.python_package_name,
         config.version,
         config.python_package_version,
     )
@@ -886,10 +897,10 @@ def prepare_sdk(
         if isinstance(python_receipt, dict) else None
     )
     if not isinstance(python_package, dict) or (
-        python_package.get("distribution_name") != config.name
+        python_package.get("distribution_name") != config.python_package_name
+        or python_package.get("import_name") != config.python_package_name
     ):
         raise RuntimeError("generated Python package metadata is unexpected")
-    python_package["distribution_name"] = PYTHON_DISTRIBUTION_NAME
     prepare_rust_tests(config, generated_root)
     add_license_headers(generated_root)
     prepare_typescript_package(config, generated_root)

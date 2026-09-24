@@ -50,12 +50,12 @@ OP_MODULE_NAMES = {
 PYTHON_RUNTIME_DISTRIBUTIONS = {
     "flatbuffers",
     "numpy",
-    "opk-perception-sdk",
+    "open-perception-kit",
 }
 PYTHON_RUNTIME_MODULES = {
     "flatbuffers",
     "numpy",
-    "perception",
+    "open_perception_kit",
 }
 PYTHON_RUNTIME_ROOT = Path("share/opk/python")
 PYTHON_RUNTIME_MANIFEST = "opk-runtime.json"
@@ -478,7 +478,7 @@ def expected_python_runtime_versions(repo_root: Path) -> dict[str, str]:
     return {
         "flatbuffers": configured_version(sdk, "flatbuffers", sdk_path),
         "numpy": configured_version(runtime, "numpy", runtime_path),
-        "opk-perception-sdk": version_match.group(1),
+        "open-perception-kit": version_match.group(1),
     }
 
 
@@ -491,7 +491,7 @@ def validate_python_runtime(package_root: Path, repo_root: Path | None = None) -
     )
     if missing_modules:
         fail(f"Packaged Python runtime modules are missing: {missing_modules}")
-    allowed_prefixes = ("flatbuffers", "numpy", "opk_perception_sdk", "perception")
+    allowed_prefixes = ("flatbuffers", "numpy", "open_perception_kit")
     allowed_files = {PYTHON_OPS_TYPE_STUB, PYTHON_RUNTIME_MANIFEST}
     unexpected = sorted(
         path.name

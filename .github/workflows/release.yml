@@ -249,7 +249,7 @@ jobs:
             dist/perception-sdk-input/
           rm -rf -- "$publish_source/target"
           mv "$publish_source" dist/perception-sdk-input/
-          cp "$export_root/python/opk_perception_sdk-$VERSION-py3-none-any.whl" \
+          cp "$export_root/python/open_perception_kit-$VERSION-py3-none-any.whl" \
             dist/perception-sdk-input/
 
       - name: Upload Perception SDK input
@@ -329,7 +329,7 @@ jobs:
           SDK_DIR: ${{ runner.temp }}/opk-perception-sdk-input
         run: |
           set -euo pipefail
-          cp "$SDK_DIR/opk_perception_sdk-$PYTHON_PACKAGE_VERSION-py3-none-any.whl" \
+          cp "$SDK_DIR/open_perception_kit-$PYTHON_PACKAGE_VERSION-py3-none-any.whl" \
             "$ARTIFACTS_DIR/"
           cp "$SDK_DIR/perception-$CARGO_PACKAGE_VERSION.crate" "$ARTIFACTS_DIR/"
 
@@ -344,7 +344,7 @@ jobs:
           expected=(
             "opk-$BUILD_ID-linux-x86_64.tar.gz"
             "opk-$BUILD_ID-linux-aarch64.tar.gz"
-            "opk_perception_sdk-$PYTHON_PACKAGE_VERSION-py3-none-any.whl"
+            "open_perception_kit-$PYTHON_PACKAGE_VERSION-py3-none-any.whl"
             "perception-$CARGO_PACKAGE_VERSION.crate"
           )
           test -z "$(find "$ARTIFACTS_DIR" -type l -print -quit)"
