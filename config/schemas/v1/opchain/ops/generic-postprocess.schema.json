@@ -258,6 +258,13 @@
         "parser": {
           "const": "YoloParser"
         },
+        "outputFormat": {
+          "enum": [
+            "centerClassScores",
+            "cornerScoreClass"
+          ],
+          "default": "centerClassScores"
+        },
         "confidenceThreshold": {
           "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/probability",
           "default": 0.25
