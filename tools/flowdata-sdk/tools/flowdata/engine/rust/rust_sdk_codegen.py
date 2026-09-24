@@ -362,7 +362,7 @@ def _lib_rs(
         pub const {sdk_upper}_VERSION: &str = "{ctx.sdk_version}";
         /// SHA-256 identity of the complete schema set used for generation.
         pub const SCHEMA_SET_SHA256: &str =
-            "{schema_set_sha256(ctx)}"; // pragma: allowlist secret
+            "{schema_set_sha256(ctx)}";
         /// Exact FlatBuffers runtime version required by this crate.
         pub const FLATBUFFERS_VERSION_REQUIREMENT: &str = "=={ctx.flatc_version}";
         /// Lowest numeric key reserved for application-defined external payloads.

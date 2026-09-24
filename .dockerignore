@@ -24,7 +24,6 @@
 !.cmake-format.yaml
 !.gitignore
 !.pre-commit-config.yaml
-!.secrets.baseline
 !AGENTS.md
 !CHANGELOG.md
 !README.md

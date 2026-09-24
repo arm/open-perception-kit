@@ -53,10 +53,10 @@ OPK_SUPPRESSION_FUNCTIONS = {
     "_ZL32gst_opktracker_class_intern_initPv",
     "_ZL33gst_opk_performance_get_type_oncev",
     "_ZL37gst_opk_performance_class_intern_initPv",
-    "_ZN3opk4MetaINS_22FrameResultsMetaTraitsEE3addEP10_GstBufferSt10shared_ptrIN10perception9container8envelopeEE",  # pragma: allowlist secret
-    "_ZN3opk4MetaINS_22FrameResultsMetaTraitsEE3getEP10_GstBuffer",  # pragma: allowlist secret
-    "_ZN3opk4MetaINS_22FrameResultsMetaTraitsEE4infoEv",  # pragma: allowlist secret
-    "_ZN3opk4MetaINS_22FrameResultsMetaTraitsEE8api_typeEv",  # pragma: allowlist secret
+    "_ZN3opk4MetaINS_22FrameResultsMetaTraitsEE3addEP10_GstBufferSt10shared_ptrIN10perception9container8envelopeEE",
+    "_ZN3opk4MetaINS_22FrameResultsMetaTraitsEE3getEP10_GstBuffer",
+    "_ZN3opk4MetaINS_22FrameResultsMetaTraitsEE4infoEv",
+    "_ZN3opk4MetaINS_22FrameResultsMetaTraitsEE8api_typeEv",
     "gst_opk_osd_get_type",
     "gst_opk_performance_get_type",
     "gst_opkinfer_get_type",

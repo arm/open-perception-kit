@@ -185,7 +185,7 @@ class TestQualityChecks(unittest.TestCase):
         valid_branches = [
             "develop",
             "feature/EXPKITS-4242",
-            "feature/EXPKITS-4242/ticket-description",  # pragma: allowlist secret
+            "feature/EXPKITS-4242/ticket-description",
             "bugfix/EXPKITS-4242/fix-timeout",
             "hotfix/EXPKITS-4242/fix-release",
             "release/EXPKITS-4242-create-release-1.2.3",
@@ -199,20 +199,6 @@ class TestQualityChecks(unittest.TestCase):
 
                 with patch.object(quality_checks_module, "Repo", return_value=fake_repo):
                     self.assertTrue(QualityChecks.check_branch_naming())
-
-    def test_get_detect_secrets_command_prefers_path_binary(self):
-        with patch("opk_ci.quality_checks.shutil.which", return_value="/usr/bin/detect-secrets-hook"):
-            self.assertEqual(
-                self.quality_checks.get_detect_secrets_command(),
-                ["/usr/bin/detect-secrets-hook"],
-            )
-
-    def test_get_detect_secrets_command_falls_back_to_active_python(self):
-        with patch("opk_ci.quality_checks.shutil.which", return_value=None):
-            self.assertEqual(
-                self.quality_checks.get_detect_secrets_command(),
-                [sys.executable, "-m", "detect_secrets.pre_commit_hook"],
-            )
 
     def test_check_github_actions_runs_actionlint_on_workflow_files(self):
         self.quality_checks.file_utils.get_project_root = Mock(return_value="/work")
@@ -576,29 +562,6 @@ class TestQualityChecks(unittest.TestCase):
                 )
 
         self.assertTrue(result)
-
-    def test_check_secrets_batches_files_and_uses_resolved_command(self):
-        files = [f"file-{index}.txt" for index in range(55)]
-
-        with patch("opk_ci.quality_checks.os.path.isfile", return_value=True):
-            with patch.object(self.quality_checks, "get_detect_secrets_command", return_value=["detect-secrets-hook"]):
-                with patch(
-                    "opk_ci.quality_checks.subprocess.run",
-                    side_effect=[
-                        Mock(returncode=0, stdout="", stderr=""),
-                        Mock(returncode=0, stdout="", stderr=""),
-                    ],
-                ) as subprocess_run:
-                    result = self.quality_checks.check_secrets(files=files)
-
-        self.assertTrue(result)
-        self.assertEqual(subprocess_run.call_count, 2)
-        first_cmd = subprocess_run.call_args_list[0].args[0]
-        second_cmd = subprocess_run.call_args_list[1].args[0]
-        self.assertEqual(first_cmd[:2], ["detect-secrets-hook", "--baseline"])
-        self.assertEqual(second_cmd[:2], ["detect-secrets-hook", "--baseline"])
-        self.assertEqual(len(first_cmd) - 3, 50)
-        self.assertEqual(len(second_cmd) - 3, 5)
 
     def test_agent_runtime_static_analysis_runs_shared_script_for_pr_target(self):
         with patch.object(quality_checks_module.FileUtils, "get_project_root", return_value="/work"):

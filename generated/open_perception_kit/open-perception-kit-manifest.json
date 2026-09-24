@@ -495,8 +495,8 @@
     },
     {
       "path": "rust/src/lib.rs",
-      "sha256": "1a447220510ead85fdd189d61d1cbe6aa920a8bf276381b26dbc370058682745",
-      "size": 44297
+      "sha256": "4f55d69cc37d1131fdf3292d27e50bd56f2c0284b40e4eb5e8e4fd49d6ec7be2",
+      "size": 44269
     },
     {
       "path": "rust/tests/fixtures/opk-box-detections-v0.2.1.hex",
@@ -1148,8 +1148,8 @@
         },
         {
           "path": "tools/flowdata/engine/rust/rust_sdk_codegen.py",
-          "sha256": "b97100c2fe602468d76012c77c4798e4086a415e623fe1fe07321ce3a661b139",
-          "size": 41672
+          "sha256": "d1e5863e5ee45fc2420a30e262dc14dc8c1c646e23b8fab79d75ed4e0285c6cc",
+          "size": 41644
         },
         {
           "path": "tools/flowdata/engine/schema_set.py",
@@ -1230,7 +1230,7 @@
     "cmake_formatter": "0.6.13",
     "copyright_headers": "SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates",
     "cpp_formatter": "clang-format version 20.1.8",
-    "python_formatter": "autopep8 2.3.2 (pycodestyle: 2.12.1)",
+    "python_formatter": "autopep8 2.3.2 (pycodestyle: 2.14.0)",
     "rust": {
       "flatbuffers_runtime": "25.9.23",
       "formatter": "rustfmt 1.8.0",
@@ -2018,8 +2018,8 @@
         },
         {
           "path": "src/lib.rs",
-          "sha256": "7cd4d78494195e8c9bcd4d363304a4a475a24b1d07a21dd87ad2ba92e66e8ca6",
-          "size": 43616
+          "sha256": "a3e600bc6425af1b8cff9683a804e04863ead428182c997e6c993ed3c31c2bf1",
+          "size": 43588
         }
       ],
       "flatbuffers_runtimes": [

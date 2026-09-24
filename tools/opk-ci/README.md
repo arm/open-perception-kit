@@ -12,7 +12,6 @@ It ensures consistent code quality, formatting, and license compliance for all c
 - CMake formatting and checks
 - Shell script formatting and checks
 - License header checks and insertion
-- Secret scanning with `detect-secrets` and `.secrets.baseline`
 - Branch naming checks 
 - Commit message checks
 - GitHub Actions workflow linting with `actionlint`
@@ -41,7 +40,6 @@ opk-ci --ci-pr-checks --pr-target-branch main
 opk-ci --ci-full-checks
 opk-ci --python-format-check --cmake-format-check
 opk-ci --actionlint
-opk-ci --check-secrets --list-of-files .github/workflows/opk-ci.yml
 opk-ci --ci-pr-checks --pr-target-branch main --report-file artifacts/opk-ci-report.txt
 opk-ci --license-header --list-of-files src/main.cpp src/util.py
 ```
@@ -53,8 +51,8 @@ copy the same check list in multiple places.
 
 | Flag | Checks | Intended use |
 | --- | --- | --- |
-| `--pre-commit-fix` | `--clang-format`, `--python-format`, `--cmake-format`, `--shell-format`, `--license-header`, `--check-secrets`, `--actionlint` | Local/container and host pre-commit paths that may update files in place. |
-| `--pre-commit-check` | `--clang-format-check`, `--python-format-check`, `--cmake-format-check`, `--shell-format-check`, `--license-header-check`, `--check-secrets`, `--actionlint` | Check-only equivalent of the pre-commit bundle, useful for manual verification and CI. |
+| `--pre-commit-fix` | `--clang-format`, `--python-format`, `--cmake-format`, `--shell-format`, `--license-header`, `--actionlint` | Local/container and host pre-commit paths that may update files in place. |
+| `--pre-commit-check` | `--clang-format-check`, `--python-format-check`, `--cmake-format-check`, `--shell-format-check`, `--license-header-check`, `--actionlint` | Check-only equivalent of the pre-commit bundle, useful for manual verification and CI. |
 | `--ci-pr-checks` | `--pre-commit-check`, `--branch-naming`, `--commit-msg-ci`, `--agent-runtime-static-analysis`, `--config-schema-check` | Pull request quality gate. The descriptor check delegates to the shared C++ parse, schema, and semantic validator. Pair with `--pr-target-branch <branch>` for PR delta scope. |
 | `--ci-full-checks` | `--pre-commit-check`, `--agent-runtime-static-analysis`, `--config-schema-check` | Full/nightly quality gate. The descriptor check delegates to the shared C++ parse, schema, and semantic validator. Without an explicit file or PR scope, this checks the tracked tree. |
 

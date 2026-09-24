@@ -59,7 +59,7 @@ The host-only wrapper keeps the existing local hook intent through shared
 `opk-ci` presets:
 
 - `--pre-commit-fix`: `clang-format`, `python-format`, `cmake-format`,
-  `shell-format`, `license-header`, `check-secrets`, and `actionlint`.
+  `shell-format`, `license-header`, and `actionlint`.
 - `--pre-commit-check`: the check-only equivalent used by CI and manual
   verification.
 - `--ci-pr-checks`: PR quality gate, adding branch naming, CI commit-message,
