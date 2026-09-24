@@ -164,7 +164,12 @@ def _registry_text(entries: list[SchemaEntry], sdk_name: str) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _sdk_text(sdk_name: str, sdk_version: str, schema_set_digest: str) -> str:
+def _sdk_text(
+    sdk_name: str,
+    python_package_name: str,
+    sdk_version: str,
+    schema_set_digest: str,
+) -> str:
     return PYTHON_GENERATED_BANNER + textwrap.dedent(
         """
         from __future__ import annotations
@@ -362,11 +367,15 @@ def _sdk_text(sdk_name: str, sdk_version: str, schema_set_digest: str) -> str:
 
 
         def _fb_envelope_module():
-            return importlib.import_module("__SDK_NAME__.internalfb.WireEnvelope")
+            return importlib.import_module(
+                "__PYTHON_PACKAGE_NAME__.internalfb.WireEnvelope"
+            )
 
 
         def _fb_payload_module():
-            return importlib.import_module("__SDK_NAME__.internalfb.WirePayload")
+            return importlib.import_module(
+                "__PYTHON_PACKAGE_NAME__.internalfb.WirePayload"
+            )
 
 
         def _copy_payload_blob(payload: Any) -> bytes:
@@ -622,6 +631,8 @@ def _sdk_text(sdk_name: str, sdk_version: str, schema_set_digest: str) -> str:
             return Envelope(packet)
         """
     ).lstrip().replace("__SDK_NAME__", sdk_name).replace(
+        "__PYTHON_PACKAGE_NAME__", python_package_name
+    ).replace(
         "__SDK_VERSION__", sdk_version
     ).replace(
         "__SCHEMA_SET_SHA256__", schema_set_digest
@@ -657,7 +668,7 @@ def _packet_text() -> str:
     ).lstrip()
 
 
-def _guest_text(sdk_name: str) -> str:
+def _guest_text(sdk_name: str, python_package_name: str) -> str:
     return PYTHON_GENERATED_BANNER + textwrap.dedent(
         """
         from .sdk import EXTERNAL_KEY_MIN, ExternalKey, ProducerIdentityStatus, external_key, is_external_key
@@ -681,7 +692,7 @@ def _guest_text(sdk_name: str) -> str:
             "is_external_key",
         ]
         """
-    ).lstrip().replace("__SDK_NAME__", sdk_name).replace(
+    ).lstrip().replace("__SDK_NAME__", python_package_name).replace(
         "__BRIDGE_MODULE__",
         f"{sdk_name}_bridge",
     )
@@ -748,7 +759,8 @@ def generate_python_sdk(entries: list[SchemaEntry], ctx: GenerationContext) -> l
     schema_set_digest = schema_set_sha256(ctx)
     project_root = _python_project_root(ctx)
     src_root = project_root / "src"
-    package_root = src_root / ctx.sdk_name
+    python_package_name = ctx.effective_python_package_name
+    package_root = src_root / python_package_name
     fb_root = package_root / "fb"
     if src_root.exists():
         shutil.rmtree(src_root)
@@ -759,14 +771,14 @@ def generate_python_sdk(entries: list[SchemaEntry], ctx: GenerationContext) -> l
     with tempfile.TemporaryDirectory(prefix=f"{ctx.sdk_name}-python-envelope-") as tmp:
         envelope_schema = Path(tmp) / "envelope.fbs"
         envelope_schema.write_text(
-            ENVELOPE_SCHEMA_TEMPLATE.replace("__SDK_NAME__", ctx.sdk_name),
+            ENVELOPE_SCHEMA_TEMPLATE.replace("__SDK_NAME__", python_package_name),
             encoding="utf-8",
         )
         _run_flatc_python([envelope_schema], src_root, ctx.flatc_bin)
 
     fb_root.mkdir(parents=True, exist_ok=True)
     _run_flatc_python(ctx.schema_paths, fb_root, ctx.flatc_bin, include_dirs=[ctx.schema_dir])
-    _rewrite_schema_imports(fb_root, ctx.sdk_name)
+    _rewrite_schema_imports(fb_root, python_package_name)
 
     generated.extend(sorted(path for path in src_root.rglob("*.py") if "__pycache__" not in path.parts))
     generated.extend(_ensure_init_files(src_root))
@@ -796,7 +808,9 @@ def generate_python_sdk(entries: list[SchemaEntry], ctx: GenerationContext) -> l
     generated.append(packet_path)
 
     guest_path = package_root / "guest.py"
-    guest_path.write_text(_guest_text(ctx.sdk_name), encoding="utf-8")
+    guest_path.write_text(
+        _guest_text(ctx.sdk_name, python_package_name), encoding="utf-8"
+    )
     generated.append(guest_path)
 
     guest_stub_path = package_root / "guest.pyi"
@@ -809,14 +823,19 @@ def generate_python_sdk(entries: list[SchemaEntry], ctx: GenerationContext) -> l
 
     registry_path = package_root / "registry.py"
     registry_path.write_text(
-        _registry_text(entries, ctx.sdk_name),
+        _registry_text(entries, python_package_name),
         encoding="utf-8",
     )
     generated.append(registry_path)
 
     sdk_path = package_root / "sdk.py"
     sdk_path.write_text(
-        _sdk_text(ctx.sdk_name, str(ctx.sdk_version), schema_set_digest),
+        _sdk_text(
+            ctx.sdk_name,
+            python_package_name,
+            str(ctx.sdk_version),
+            schema_set_digest,
+        ),
         encoding="utf-8",
     )
     generated.append(sdk_path)
@@ -844,7 +863,7 @@ def generate_python_sdk(entries: list[SchemaEntry], ctx: GenerationContext) -> l
             [tool.setuptools.package-data]
             "*" = ["*.pyi", "py.typed"]
             """
-        ).lstrip().replace("__SDK_NAME__", ctx.sdk_name).replace(
+        ).lstrip().replace("__SDK_NAME__", python_package_name).replace(
             "__SDK_VERSION__", str(ctx.sdk_version)
         ).replace(
             "__PYTHON_VERSION_REQUIREMENT__", PYTHON_VERSION_REQUIREMENT

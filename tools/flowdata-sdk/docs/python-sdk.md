@@ -27,6 +27,7 @@ The generated Python package requires Python 3.10 or newer.
 ```bash
 python3 tools/flowdata/gen.py generate \
   --name metapoc \
+  --python-package-name metapoc_python \
   --version 1.2.3 \
   --sdk python \
   --flatc "$(which flatc)" \
@@ -37,12 +38,15 @@ python3 tools/flowdata/gen.py generate \
 pip install -e generated/python
 ```
 
+Omit `--python-package-name` when the Python distribution and import name
+should match the language-independent SDK identity supplied by `--name`.
+
 The package metadata and runtime constant use the supplied release version:
 
 ```python
-import metapoc
+import metapoc_python
 
-assert metapoc.METAPOC_VERSION == "1.2.3"
+assert metapoc_python.METAPOC_VERSION == "1.2.3"
 assert metapoc.__version__ == metapoc.METAPOC_VERSION
 assert metapoc.FLATBUFFERS_VERSION_REQUIREMENT == ">=24.3.25,<26.0.0"
 ```

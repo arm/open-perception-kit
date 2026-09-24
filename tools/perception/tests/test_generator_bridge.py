@@ -397,8 +397,9 @@ class GeneratorBridgeTests(unittest.TestCase):
         self.assertEqual(bridge._python_fb_module("fixture", global_type), "fixture.fb.Global")
 
     def test_emitted_bridge_structures_without_writing_files(self) -> None:
+        context = replace(self.context, python_package_name="fixture_python")
         with patch.object(Path, "read_text", return_value=SCHEMA), patch.object(Path, "mkdir") as mkdir, patch.object(Path, "write_text") as write_text:
-            paths = bridge.generate_python_bridge(self.context, [self.entry])
+            paths = bridge.generate_python_bridge(context, [self.entry])
         directory = self.context.cpp_root / "python_bridge"
         self.assertEqual(paths, [directory / "fixture_python_bridge.h", directory / "fixture_python_bridge.cpp"])
         mkdir.assert_called_once_with(parents=True, exist_ok=True)
@@ -408,7 +409,7 @@ class GeneratorBridgeTests(unittest.TestCase):
         for snippet in ('#include "fixture.h"', "namespace fixture::python_bridge", "class scoped_envelope"):
             self.assertIn(snippet, header)
         snippets = (
-            '#include "fixture_python_bridge.h"', "kind_Demo_Payload", '"fixture.fb.Demo.Payload", "PayloadT"',
+            '#include "fixture_python_bridge.h"', "kind_Demo_Payload", '"fixture_python.fb.Demo.Payload", "PayloadT"',
             'add_known_payload<Demo::PayloadT>(*live->envelope, value, "TEST")',
             "std::vector<std::unique_ptr<Demo::ChildT>>", "std::vector<Demo::Point>",
             "std::vector<Demo::State>", "std::vector<std::string>", "std::vector<std::int16_t>",
@@ -425,7 +426,7 @@ class GeneratorBridgeTests(unittest.TestCase):
             with self.subTest(snippet=snippet):
                 self.assertIn(snippet, source)
         self.assertNotIn("pytype_Demo_State()", source)
-        for token in ("__SDK_NAME__", "__MODULE_NAME__", "__KNOWN_PROXY", "__KNOWN_PAYLOAD", "__BRIDGE_HEADER__"):
+        for token in ("__SDK_NAME__", "__PYTHON_PACKAGE_NAME__", "__MODULE_NAME__", "__KNOWN_PROXY", "__KNOWN_PAYLOAD", "__BRIDGE_HEADER__"):
             self.assertNotIn(token, source)
 
     def test_root_payload_validation_does_not_write_files(self) -> None:

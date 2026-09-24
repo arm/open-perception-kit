@@ -38,29 +38,37 @@ _SUPPORTED_SDKS = {"cpp", "python", "rust", "ts"}
 _SUPPORTED_INTEGRATIONS = {"cmake", "meson"}
 
 
-def python_package_descriptor(sdk_name: str, sdk_version: str) -> dict[str, Any]:
+def python_package_descriptor(
+    sdk_name: str,
+    sdk_version: str,
+    python_package_name: str | None = None,
+) -> dict[str, Any]:
+    package_name = python_package_name or sdk_name
     return {
         "build_backend": PYTHON_BUILD_BACKEND,
-        "distribution_name": sdk_name,
-        "import_name": sdk_name,
+        "distribution_name": package_name,
+        "import_name": package_name,
         "pure_python": True,
         "requires_python": PYTHON_VERSION_REQUIREMENT,
         "typing": {
-            "marker": f"src/{sdk_name}/py.typed",
-            "stubs": [f"src/{sdk_name}/guest.pyi"],
+            "marker": f"src/{package_name}/py.typed",
+            "stubs": [f"src/{package_name}/guest.pyi"],
         },
         "version": sdk_version,
         "wheel_tag": PYTHON_WHEEL_TAG,
     }
 
 
-def python_bridge_descriptor(sdk_name: str) -> dict[str, Any]:
+def python_bridge_descriptor(
+    sdk_name: str,
+    python_package_name: str | None = None,
+) -> dict[str, Any]:
     return {
         "header": f"python_bridge/{sdk_name}_python_bridge.h",
         "module_name": f"{sdk_name}_bridge",
         "registration_function": f"{sdk_name}::python_bridge::append_inittab",
         "requires_python": PYTHON_VERSION_REQUIREMENT,
-        "sdk_import_name": sdk_name,
+        "sdk_import_name": python_package_name or sdk_name,
         "source": f"python_bridge/{sdk_name}_python_bridge.cpp",
         "wrapper_type": f"{sdk_name}::python_bridge::scoped_envelope",
     }
@@ -194,12 +202,21 @@ def verify_generation_manifest(
     )
     sdk_kind, bridge, integrations = _verify_outputs(manifest.get("outputs"))
     _verify_flatbuffers(manifest, flatc, flatc_output, sdk_kind, bridge)
-    _verify_python_descriptors(manifest, sdk_name, sdk_version, sdk_kind, bridge)
+    python_package_name = _verify_python_descriptors(
+        manifest, sdk_name, sdk_version, sdk_kind, bridge
+    )
     _verify_payloads(manifest.get("payloads"), schema_file_paths)
     seen_files, meson_output_found = _verify_generated_files(
         manifest.get("files"), manifest_path
     )
-    _verify_descriptor_files(seen_files, sdk_name, sdk_version, sdk_kind, bridge)
+    _verify_descriptor_files(
+        seen_files,
+        sdk_name,
+        sdk_version,
+        sdk_kind,
+        bridge,
+        python_package_name,
+    )
     _verify_sdk_root(manifest_path, seen_files, integrations, meson_output_found)
     return manifest
 
@@ -369,18 +386,60 @@ def _verify_python_descriptors(
     sdk_version: str,
     sdk_kind: str,
     bridge: bool,
-) -> None:
-    expected_python_package = (
-        python_package_descriptor(sdk_name, sdk_version)
-        if sdk_kind == "python"
-        else None
-    )
+) -> str:
+    python_package_name = sdk_name
+    python_package = manifest.get("python_package")
+    if sdk_kind == "python":
+        if not isinstance(python_package, dict):
+            raise ValueError(
+                "python_package does not match the generated Python SDK"
+            )
+        package = python_package
+        distribution_name = package.get("distribution_name")
+        import_name = package.get("import_name")
+        if not isinstance(distribution_name, str) or not isinstance(import_name, str):
+            raise ValueError(
+                "python_package does not match the generated Python SDK"
+            )
+        if distribution_name != import_name:
+            raise ValueError(
+                "python_package distribution_name and import_name must match"
+            )
+        if _SDK_NAME_RE.fullmatch(import_name) is None:
+            raise ValueError("python_package.import_name must match [a-z][a-z0-9_]*")
+        python_package_name = import_name
+        expected_python_package = python_package_descriptor(
+            sdk_name, sdk_version, python_package_name
+        )
+    else:
+        expected_python_package = None
     if manifest.get("python_package") != expected_python_package:
         raise ValueError("python_package does not match the generated Python SDK")
 
-    expected_python_bridge = python_bridge_descriptor(sdk_name) if bridge else None
+    python_bridge = manifest.get("python_bridge")
+    if bridge:
+        if not isinstance(python_bridge, dict):
+            raise ValueError(
+                "python_bridge does not match the generated C++ bridge"
+            )
+        bridge_metadata = python_bridge
+        python_package_name = bridge_metadata.get("sdk_import_name")
+        if not isinstance(python_package_name, str):
+            raise ValueError(
+                "python_bridge does not match the generated C++ bridge"
+            )
+        if _SDK_NAME_RE.fullmatch(python_package_name) is None:
+            raise ValueError(
+                "python_bridge.sdk_import_name must match [a-z][a-z0-9_]*"
+            )
+        expected_python_bridge = python_bridge_descriptor(
+            sdk_name, python_package_name
+        )
+    else:
+        expected_python_bridge = None
     if manifest.get("python_bridge") != expected_python_bridge:
         raise ValueError("python_bridge does not match the generated C++ bridge")
+    return python_package_name
 
 
 def _verify_payload(
@@ -494,15 +553,18 @@ def _verify_descriptor_files(
     sdk_version: str,
     sdk_kind: str,
     bridge: bool,
+    python_package_name: str,
 ) -> None:
     descriptor_files: set[str] = set()
     if sdk_kind == "python":
-        package = python_package_descriptor(sdk_name, sdk_version)
+        package = python_package_descriptor(
+            sdk_name, sdk_version, python_package_name
+        )
         typing = package["typing"]
         descriptor_files.add(str(typing["marker"]))
         descriptor_files.update(str(path) for path in typing["stubs"])
     if bridge:
-        bridge_metadata = python_bridge_descriptor(sdk_name)
+        bridge_metadata = python_bridge_descriptor(sdk_name, python_package_name)
         descriptor_files.add(str(bridge_metadata["header"]))
         descriptor_files.add(str(bridge_metadata["source"]))
     missing_descriptor_files = descriptor_files - seen_files
@@ -606,9 +668,12 @@ def write_generation_manifest(
         manifest["python_package"] = python_package_descriptor(
             context.sdk_name,
             str(context.sdk_version),
+            context.effective_python_package_name,
         )
     if context.cpp_python_bridge:
-        manifest["python_bridge"] = python_bridge_descriptor(context.sdk_name)
+        manifest["python_bridge"] = python_bridge_descriptor(
+            context.sdk_name, context.effective_python_package_name
+        )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(

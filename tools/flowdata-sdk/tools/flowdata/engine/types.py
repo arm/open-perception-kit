@@ -57,6 +57,11 @@ class GenerationContext:
     flatc_version_output: str
     tool_sources: list[Path]
     cpp_python_bridge: bool = False
+    python_package_name: str | None = None
+
+    @property
+    def effective_python_package_name(self) -> str:
+        return self.python_package_name or self.sdk_name
 
     @property
     def cpp_root(self) -> Path:

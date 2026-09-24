@@ -17,12 +17,19 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "tools" / "flowdata-sdk" / "tools" / "flowdata"))
 generator_manifest = importlib.import_module("engine.manifest")
+python_codegen = importlib.import_module("engine.python.python_sdk_codegen")
 
 
 class ManifestFixture:
     """Small raw manifest, independent of flatc and the manifest writer."""
 
-    def __init__(self, root: Path, sdk: str = "cpp", bridge: bool = False) -> None:
+    def __init__(
+        self,
+        root: Path,
+        sdk: str = "cpp",
+        bridge: bool = False,
+        python_package_name: str = "example",
+    ) -> None:
         self.sdk_root = root / "sdk"
         self.schema_root = root / "schemas"
         self.path = self.sdk_root / "flowdata-manifest.json"
@@ -76,19 +83,19 @@ class ManifestFixture:
         if sdk == "python":
             self.manifest["python_package"] = {
                 "build_backend": "setuptools.build_meta",
-                "distribution_name": "example",
-                "import_name": "example",
+                "distribution_name": python_package_name,
+                "import_name": python_package_name,
                 "pure_python": True,
                 "requires_python": ">=3.10",
                 "typing": {
-                    "marker": "src/example/py.typed",
-                    "stubs": ["src/example/guest.pyi"],
+                    "marker": f"src/{python_package_name}/py.typed",
+                    "stubs": [f"src/{python_package_name}/guest.pyi"],
                 },
                 "version": "1.2.3",
                 "wheel_tag": "py3-none-any",
             }
-            self.add_output("src/example/py.typed")
-            self.add_output("src/example/guest.pyi")
+            self.add_output(f"src/{python_package_name}/py.typed")
+            self.add_output(f"src/{python_package_name}/guest.pyi")
         if bridge:
             runtimes.append(
                 {
@@ -102,7 +109,7 @@ class ManifestFixture:
                 "module_name": "example_bridge",
                 "registration_function": "example::python_bridge::append_inittab",
                 "requires_python": ">=3.10",
-                "sdk_import_name": "example",
+                "sdk_import_name": python_package_name,
                 "source": "python_bridge/example_python_bridge.cpp",
                 "wrapper_type": "example::python_bridge::scoped_envelope",
             }
@@ -153,6 +160,17 @@ class GeneratorManifestTests(unittest.TestCase):
                 )
                 for with_root in (False, True):
                     self.assertEqual(fixture.verify(with_root), fixture.manifest)
+
+    def test_python_package_name_can_differ_from_sdk_identity(self) -> None:
+        for sdk, bridge in (("python", False), ("cpp", True)):
+            with self.subTest(sdk=sdk, bridge=bridge):
+                fixture = ManifestFixture(
+                    self.root / f"custom-{sdk}",
+                    sdk,
+                    bridge,
+                    python_package_name="example_python",
+                )
+                self.assertEqual(fixture.verify(), fixture.manifest)
 
     def test_valid_meson_output(self) -> None:
         self.fixture.manifest["outputs"]["integrations"] = ["cmake", "meson"]
@@ -455,6 +473,33 @@ class GeneratorManifestTests(unittest.TestCase):
         self.fixture = ManifestFixture(self.root / "order")
         self.fixture.manifest["files"][0].update(path="missing.txt", size=-1)
         self.assert_invalid(f"files[0] does not exist: {self.fixture.sdk_root / 'missing.txt'}")
+
+
+class PythonPackageNamingTests(unittest.TestCase):
+    def test_import_name_is_independent_from_wire_sdk_identity(self) -> None:
+        source = python_codegen._sdk_text(
+            "perception",
+            "open_perception_kit",
+            "1.2.3",
+            "0" * 64,
+        )
+
+        self.assertIn('SDK_NAME = "perception"', source)
+        self.assertIn(
+            '"open_perception_kit.internalfb.WireEnvelope"', source
+        )
+        self.assertIn(
+            '"open_perception_kit.internalfb.WirePayload"', source
+        )
+        self.assertNotIn('"perception.internalfb.', source)
+
+    def test_guest_uses_python_package_and_existing_bridge_module(self) -> None:
+        source = python_codegen._guest_text(
+            "perception", "open_perception_kit"
+        )
+
+        self.assertIn("from perception_bridge import Envelope", source)
+        self.assertIn("open_perception_kit.guest is available", source)
 
 
 if __name__ == "__main__":
