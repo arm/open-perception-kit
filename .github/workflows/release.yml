@@ -49,25 +49,23 @@ jobs:
           echo "flowdata_commit=$(git rev-parse HEAD:tools/flowdata-sdk)" \
             >> "$GITHUB_OUTPUT"
 
-  # Temporarily disabled to speed up release testing; re-enable and restore in build.needs.
-  # quick-start-smoke:
-  #   name: Quick-start smoke test
-  #   uses: ./.github/workflows/quick-start-smoke.yml
-  #   secrets:
-  #     HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  quick-start-smoke:
+    name: Quick-start smoke test
+    uses: ./.github/workflows/quick-start-smoke.yml
+    secrets:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
 
   sdk-tests:
     name: SDK tests
     uses: ./.github/workflows/sdk-tests.yml
 
-  # Temporarily disabled to speed up release testing; re-enable and restore in build.needs.
-  # meson-tests:
-  #   name: Meson tests
-  #   uses: ./.github/workflows/meson-tests.yml
+  meson-tests:
+    name: Meson tests
+    uses: ./.github/workflows/meson-tests.yml
 
   build:
     name: Build ${{ matrix.architecture }} package
-    needs: [prepare, sdk-tests]
+    needs: prepare
     strategy:
       matrix:
         include:
@@ -307,7 +305,7 @@ jobs:
 
   artifactory:
     name: Publish to Artifactory
-    needs: [prepare, build]
+    needs: [prepare, quick-start-smoke, sdk-tests, meson-tests, build, sbom-source]
     runs-on: ubuntu-24.04
     steps:
       - name: Download release packages
