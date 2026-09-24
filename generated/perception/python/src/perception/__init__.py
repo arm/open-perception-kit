@@ -12,7 +12,7 @@ from .sdk import (
     external_key,
     is_external_key,
 )
-PERCEPTION_VERSION = "0.3.1"
+PERCEPTION_VERSION = "0.1.0"
 PERCEPTION_NAME = "perception"
 SCHEMA_SET_SHA256 = "5a2f77909600d6458a707fba68cff1a7dc5f610dec58174456bb97d16596c383"
 FLATBUFFERS_VERSION_REQUIREMENT = ">=24.3.25,<26.0.0"
