@@ -2,6 +2,7 @@
  * Copyright (C) 2025 Arm Limited. All rights reserved.
  *************************************************************/
 
+#include "Tools.h"
 
 using namespace gst;
 
