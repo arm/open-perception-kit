@@ -70,6 +70,9 @@ static std::filesystem::path project_root() {
 OpkSinkHttpServerError OpkSinkHttpServer::setup() {
 
     http_server = std::make_unique<Server>();
+    // Override httplib's SO_REUSEPORT default to prevent sinks sharing an HTTP port.
+    http_server->set_socket_options(
+        [](socket_t sock) { set_socket_opt(sock, SOL_SOCKET, SO_REUSEADDR, 1); });
 
     // Dynamic config endpoint
     http_server->Get("/opk-config.js",
@@ -120,6 +123,7 @@ OpkSinkHttpServerError OpkSinkHttpServer::stop() {
     if (http_server_thread.joinable()) {
         http_server_thread.join();
     }
+    http_server.reset();
 
     return OpkSinkHttpServerError::OK;
 }

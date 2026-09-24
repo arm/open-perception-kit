@@ -126,6 +126,15 @@ WebRtcSockerError WebRtcWebSocket::start() {
 WebRtcSockerError WebRtcWebSocket::stop() {
     stopping = true;
 
+    if (ws) {
+        websocketpp::lib::error_code ec;
+        ws->stop_listening(ec);
+        ws->stop();
+    }
+    if (ws_server_thread.joinable()) {
+        ws_server_thread.join();
+    }
+
     std::vector<std::shared_ptr<SessionContext>> sessions;
     {
         std::lock_guard<std::mutex> mutex_guard(webrtc_session_mutex);
@@ -142,13 +151,7 @@ WebRtcSockerError WebRtcWebSocket::stop() {
         }
     }
 
-    if (ws) {
-        ws->stop();
-    }
-
-    if (ws_server_thread.joinable()) {
-        ws_server_thread.join();
-    }
+    ws.reset();
 
     return WebRtcSockerError::OK;
 }

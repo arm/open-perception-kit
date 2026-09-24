@@ -9,6 +9,8 @@ follow [Semantic Versioning](https://semver.org/).
 ### Fixed
 
 - Harden WebSocket input handling and diagnostics.
+- Fix `opksink` port handling for multiple pipelines, failed startup and restart
+  ([#63](https://github.com/arm/open-perception-kit/pull/63)).
 
 ## [0.1.0]
 
