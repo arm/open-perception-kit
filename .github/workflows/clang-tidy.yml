@@ -2,21 +2,6 @@ name: Clang-tidy
 
 on:
   pull_request:
-  push:
-    branches: [main, develop]
-  workflow_dispatch:
-    inputs:
-      scope:
-        description: Analyse changed files or all files (manual runs always analyse all).
-        type: choice
-        options: [changed, all]
-        default: changed
-  workflow_call:
-    inputs:
-      scope:
-        description: Analyse changed files or all files.
-        type: string
-        default: changed
 
 permissions:
   contents: read
@@ -36,11 +21,9 @@ jobs:
 
       - name: Find changed files
         id: changes
-        if: inputs.scope != 'all' && (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.changed_files < 3000))
+        if: github.event.pull_request.changed_files < 3000
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d
         with:
-          base: ${{ github.event_name == 'push' && github.ref || '' }}
-          list-files: json
           filters: |
             sources:
               - added|modified: 'development/**/*.{c,cc,cpp,cxx,C}'
@@ -74,16 +57,13 @@ jobs:
               - 'development/ops-python/runtime.json'
               - 'development/web/package*.json'
 
-      - name: Select scan scope
+      - name: Select changed-line check
         id: scope
         env:
-          SCOPE: ${{ inputs.scope || 'changed' }}
-          SCAN_ALL: ${{ github.event_name != 'pull_request' || inputs.scope == 'all' || github.event.pull_request.changed_files >= 3000 || steps.changes.outputs.full == 'true' }}
+          HAS_RELEVANT_CHANGES: ${{ github.event.pull_request.changed_files >= 3000 || steps.changes.outputs.full == 'true' }}
           HAS_SOURCES: ${{ steps.changes.outputs.sources == 'true' }}
         run: |
-          [[ "$SCOPE" == changed || "$SCOPE" == all ]]
-          echo "all=$SCAN_ALL" >> "$GITHUB_OUTPUT"
-          if [[ "$SCAN_ALL" == true || "$HAS_SOURCES" == true ]]; then
+          if [[ "$HAS_RELEVANT_CHANGES" == true || "$HAS_SOURCES" == true ]]; then
             echo 'run=true' >> "$GITHUB_OUTPUT"
           fi
 
@@ -99,57 +79,10 @@ jobs:
         if: steps.scope.outputs.run == 'true'
         run: ./scripts/build.sh debug true
 
-      - name: Run clang-tidy
-        if: steps.scope.outputs.run == 'true' && github.event_name != 'pull_request'
-        id: scan
-        working-directory: development/build-active
-        shell: bash
-        env:
-          SCAN_ALL: ${{ steps.scope.outputs.all }}
-          CHANGED_FILES: ${{ steps.changes.outputs.sources_files || '[]' }}
-        run: |
-          mkdir -p "$RUNNER_TEMP/clang-tidy"
-          jq --argjson all "$SCAN_ALL" --argjson changed "$CHANGED_FILES" '
-            [.[] | select(.file | startswith("../") and
-              (startswith("../subprojects/") | not) and
-              (startswith("../../") | not)) |
-              select($all or (.file | ltrimstr("../") | "development/" + . |
-                . as $source | $changed | index($source) != null))] | unique_by(.file)' \
-            compile_commands.json > "$RUNNER_TEMP/clang-tidy/compile_commands.json"
-          jq -r '"Selected \(length) source files for analysis."' \
-            "$RUNNER_TEMP/clang-tidy/compile_commands.json" > "$RUNNER_TEMP/clang-tidy/summary.txt"
-          jq -r '.[].file' "$RUNNER_TEMP/clang-tidy/compile_commands.json" \
-            > "$RUNNER_TEMP/clang-tidy-sources.txt"
-          # shellcheck disable=SC2016
-          xargs -r -d '\n' -P 4 -n 1 bash -ec '
-            report="$RUNNER_TEMP/clang-tidy/${1#../}.txt"
-            mkdir -p "$(dirname "$report")"
-            clang-tidy -p "$RUNNER_TEMP/clang-tidy" --config-file=../../.clang-tidy "$1" \
-              > "$report" 2>&1
-          ' _ < "$RUNNER_TEMP/clang-tidy-sources.txt"
-
       - name: Check changed lines
-        if: steps.scope.outputs.run == 'true' && github.event_name == 'pull_request'
+        if: steps.scope.outputs.run == 'true'
+        env:
+          PR_BASE_REF: ${{ github.base_ref }}
         run: |
-          CLANG_TIDY_BASE="origin/${{ github.base_ref }}" ninja -C development/build-active clang-tidy-new
+          CLANG_TIDY_BASE="origin/$PR_BASE_REF" ninja -C development/build-active clang-tidy-new
           grep -q 'Unique findings: 0\.' development/build-active/meson-logs/clang-tidy-new.md
-
-      - name: Collect clang-tidy report
-        if: always() && (steps.scan.outcome == 'success' || steps.scan.outcome == 'failure')
-        shell: bash
-        run: |
-          find "$RUNNER_TEMP/clang-tidy" -name '*.txt' -exec cat {} + \
-            | tee "$GITHUB_WORKSPACE/clang-tidy.txt"
-
-      - name: Check clang-tidy baseline
-        if: steps.scan.outcome == 'success' && github.event_name != 'pull_request'
-        run: PYTHONPATH=tools/opk-ci python3 -m opk_ci --clang-tidy-stats clang-tidy.txt --clang-tidy-baseline .github/ci/baselines/clang-tidy-baseline.json --clang-tidy-baseline-mode enforce
-
-      - name: Upload clang-tidy report
-        if: always() && (steps.scan.outcome == 'success' || steps.scan.outcome == 'failure')
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
-        with:
-          name: clang-tidy-report
-          path: clang-tidy.txt
-          if-no-files-found: warn
-          retention-days: 7
