@@ -7,11 +7,11 @@ from pathlib import Path
 import numpy
 
 from opk_python_ops import Context, Tensor, python_script
-from perception.fb.perception.metadata.Classification import ClassificationT
-from perception.fb.perception.metadata.ClassificationCandidate import ClassificationCandidateT
-from perception.fb.perception.metadata.Classifications import ClassificationsT
-from perception.fb.perception.metadata.LayerInfo import LayerInfoT
-from perception.guest import Envelope
+from open_perception_kit.fb.perception.metadata.Classification import ClassificationT
+from open_perception_kit.fb.perception.metadata.ClassificationCandidate import ClassificationCandidateT
+from open_perception_kit.fb.perception.metadata.Classifications import ClassificationsT
+from open_perception_kit.fb.perception.metadata.LayerInfo import LayerInfoT
+from open_perception_kit.guest import Envelope
 
 
 EXPECTED_OUTPUT_SHAPE = (1, 1001)

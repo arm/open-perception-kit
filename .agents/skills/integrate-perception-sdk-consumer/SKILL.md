@@ -54,7 +54,7 @@ SHA-256, and source commit in the consuming project or deployment metadata.
 
 ## Integrate Python Consumers
 
-Use `perception.packet.Envelope` or `perception.packet.decode` for serialized
+Use `open_perception_kit.packet.Envelope` or `open_perception_kit.packet.decode` for serialized
 packets. Follow the checked-in Plumber pattern in
 `tools/plumber/plumber/frame_results_decode.py` when available:
 
@@ -65,9 +65,9 @@ packets. Follow the checked-in Plumber pattern in
 5. Iterate known generated native types with `for_each(TypeT)`.
 6. Route payloads by generated type and semantic metadata, not envelope order.
 
-Import `perception.guest` only inside a C++ host that registers the generated
+Import `open_perception_kit.guest` only inside a C++ host that registers the generated
 `perception_bridge` module. A normal standalone Python process must use
-`perception.packet`; the guest module intentionally fails outside its host.
+`open_perception_kit.packet`; the guest module intentionally fails outside its host.
 
 ## Integrate C++ Consumers
 

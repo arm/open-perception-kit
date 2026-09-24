@@ -10,8 +10,8 @@ import textwrap
 import unittest
 from pathlib import Path
 
-from perception.fb.perception.metadata.BoxDetections import BoxDetectionsT
-from perception.packet import decode
+from open_perception_kit.fb.perception.metadata.BoxDetections import BoxDetectionsT
+from open_perception_kit.packet import decode
 
 EXECUTOR = Path(sys.argv.pop(1)).resolve()
 SEED_SCRIPT = Path(sys.argv.pop(1)).resolve()

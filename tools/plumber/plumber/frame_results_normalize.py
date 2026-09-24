@@ -9,14 +9,14 @@ from typing import Any
 
 from .frame_results_sdk import FrameResults
 
-from perception.fb.perception.metadata.BoxDetections import BoxDetectionsT
-from perception.fb.perception.metadata.Classifications import ClassificationsT
-from perception.fb.perception.metadata.FrameContext import FrameContextT
-from perception.fb.perception.metadata.ObjectEmbeddings import ObjectEmbeddingsT
-from perception.fb.perception.metadata.ObjectTracks import ObjectTracksT
-from perception.fb.perception.metadata.PoseEstimations import PoseEstimationsT
-from perception.fb.perception.metadata.SegmentationMasks import SegmentationMasksT
-from perception.fb.perception.metadata.TrackTraces import TrackTracesT
+from open_perception_kit.fb.perception.metadata.BoxDetections import BoxDetectionsT
+from open_perception_kit.fb.perception.metadata.Classifications import ClassificationsT
+from open_perception_kit.fb.perception.metadata.FrameContext import FrameContextT
+from open_perception_kit.fb.perception.metadata.ObjectEmbeddings import ObjectEmbeddingsT
+from open_perception_kit.fb.perception.metadata.ObjectTracks import ObjectTracksT
+from open_perception_kit.fb.perception.metadata.PoseEstimations import PoseEstimationsT
+from open_perception_kit.fb.perception.metadata.SegmentationMasks import SegmentationMasksT
+from open_perception_kit.fb.perception.metadata.TrackTraces import TrackTracesT
 
 
 @dataclass(frozen=True, order=True)

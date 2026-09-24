@@ -20,12 +20,12 @@ from plumber.frame_results_decode import (  # noqa: E402
     decode_frame_results_record,
 )
 from plumber.frame_results_sdk import FrameResults  # noqa: E402
-from perception import (  # noqa: E402
+from open_perception_kit import (  # noqa: E402
     PERCEPTION_NAME,
     PERCEPTION_VERSION,
     SCHEMA_SET_SHA256,
 )
-import perception.internalfb.WireEnvelope as WireEnvelope  # noqa: E402
+import open_perception_kit.internalfb.WireEnvelope as WireEnvelope  # noqa: E402
 
 
 def make_record(packet: bytes) -> dict:

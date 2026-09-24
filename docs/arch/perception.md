@@ -45,7 +45,7 @@ content by hashes; no separate Git checkout, remote reference, or automated
 fetch/update step is required.
 
 The generated Python package exposes endpoint ownership through
-`perception.packet` and live C++ guest access through `perception.guest`. The
+`open_perception_kit.packet` and live C++ guest access through `open_perception_kit.guest`. The
 generated internal Meson adapter is derived from the public SDK integration and
 carries the same version requirements.
 
@@ -150,7 +150,7 @@ Scripts import the generated guest type for annotations and append results with
 the generated Python object API:
 
 ```python
-from perception.guest import Envelope
+from open_perception_kit.guest import Envelope
 
 
 def process(env: Envelope) -> None:
@@ -160,7 +160,7 @@ def process(env: Envelope) -> None:
 Existing payloads are read-only through the bridge. A transformation therefore
 reads its input payloads and appends new payloads rather than mutating entries in
 place. After all scripts return successfully, the executor writes a raw
-Perception packet that tests can decode with `perception.packet.decode`.
+Perception packet that tests can decode with `open_perception_kit.packet.decode`.
 `--python-path` can be repeated to add script dependencies to the embedded
 interpreter's module search path. The embedded runtime uses the same Python
 installation selected by Meson, including that installation's virtualenv

@@ -14,26 +14,26 @@ sys.path.insert(0, str(ROOT / "tools" / "plumber"))
 from plumber.frame_results_normalize import PayloadKey, normalize_frame_results  # noqa: E402
 from plumber.frame_results_sdk import FrameResults  # noqa: E402
 
-from perception.fb.perception.metadata.BoundingBox import BoundingBoxT  # noqa: E402
-from perception.fb.perception.metadata.BoxDetection import BoxDetectionT  # noqa: E402
-from perception.fb.perception.metadata.BoxDetections import BoxDetectionsT  # noqa: E402
-from perception.fb.perception.metadata.Classification import ClassificationT  # noqa: E402
-from perception.fb.perception.metadata.ClassificationCandidate import (  # noqa: E402
+from open_perception_kit.fb.perception.metadata.BoundingBox import BoundingBoxT  # noqa: E402
+from open_perception_kit.fb.perception.metadata.BoxDetection import BoxDetectionT  # noqa: E402
+from open_perception_kit.fb.perception.metadata.BoxDetections import BoxDetectionsT  # noqa: E402
+from open_perception_kit.fb.perception.metadata.Classification import ClassificationT  # noqa: E402
+from open_perception_kit.fb.perception.metadata.ClassificationCandidate import (  # noqa: E402
     ClassificationCandidateT,
 )
-from perception.fb.perception.metadata.Classifications import ClassificationsT  # noqa: E402
-from perception.fb.perception.metadata.FrameContext import FrameContextT  # noqa: E402
-from perception.fb.perception.metadata.LayerInfo import LayerInfoT  # noqa: E402
-from perception.fb.perception.metadata.ObjectEmbedding import ObjectEmbeddingT  # noqa: E402
-from perception.fb.perception.metadata.ObjectEmbeddings import ObjectEmbeddingsT  # noqa: E402
-from perception.fb.perception.metadata.ObjectMeta import ObjectMetaT  # noqa: E402
-from perception.fb.perception.metadata.Point2f import Point2fT  # noqa: E402
-from perception.fb.perception.metadata.PoseEstimation import PoseEstimationT  # noqa: E402
-from perception.fb.perception.metadata.PoseEstimations import PoseEstimationsT  # noqa: E402
-from perception.fb.perception.metadata.ProducerInfo import ProducerInfoT  # noqa: E402
-from perception.fb.perception.metadata.TrackTrace import TrackTraceT  # noqa: E402
-from perception.fb.perception.metadata.TrackTraces import TrackTracesT  # noqa: E402
-from perception.fb.perception.metadata.VideoFrameContext import VideoFrameContextT  # noqa: E402
+from open_perception_kit.fb.perception.metadata.Classifications import ClassificationsT  # noqa: E402
+from open_perception_kit.fb.perception.metadata.FrameContext import FrameContextT  # noqa: E402
+from open_perception_kit.fb.perception.metadata.LayerInfo import LayerInfoT  # noqa: E402
+from open_perception_kit.fb.perception.metadata.ObjectEmbedding import ObjectEmbeddingT  # noqa: E402
+from open_perception_kit.fb.perception.metadata.ObjectEmbeddings import ObjectEmbeddingsT  # noqa: E402
+from open_perception_kit.fb.perception.metadata.ObjectMeta import ObjectMetaT  # noqa: E402
+from open_perception_kit.fb.perception.metadata.Point2f import Point2fT  # noqa: E402
+from open_perception_kit.fb.perception.metadata.PoseEstimation import PoseEstimationT  # noqa: E402
+from open_perception_kit.fb.perception.metadata.PoseEstimations import PoseEstimationsT  # noqa: E402
+from open_perception_kit.fb.perception.metadata.ProducerInfo import ProducerInfoT  # noqa: E402
+from open_perception_kit.fb.perception.metadata.TrackTrace import TrackTraceT  # noqa: E402
+from open_perception_kit.fb.perception.metadata.TrackTraces import TrackTracesT  # noqa: E402
+from open_perception_kit.fb.perception.metadata.VideoFrameContext import VideoFrameContextT  # noqa: E402
 
 
 def layer(content_type: str, infer_element_id: str = "infer0") -> LayerInfoT:

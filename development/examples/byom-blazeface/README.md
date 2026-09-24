@@ -129,7 +129,7 @@ keeps the pipeline independent of a display, server, tracker, or overlay.
 `support/results.py`:
 
 1. validates the `opkcomm` record and encoding
-2. decodes the packet with `perception.packet`
+2. decodes the packet with `open_perception_kit.packet`
 3. verifies the producer identity
 4. retrieves bytes using the same external key
 5. validates the caller-owned JSON

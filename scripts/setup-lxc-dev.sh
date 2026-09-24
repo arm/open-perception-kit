@@ -275,7 +275,7 @@ uv pip install --python /opt/opk-venvs/devtools/bin/python \
     -r "$OPK_PROJECT_ROOT/requirements/meson.txt" \
     "$flatbuffers_wheel"
 env --chdir=/tmp \
-    /opt/opk-venvs/devtools/bin/python -c 'import perception, plumber'
+    /opt/opk-venvs/devtools/bin/python -c 'import open_perception_kit, plumber'
 chown -R "$DEV_USER:$DEV_GROUP" /opt/opk-venvs/devtools
 
 if [[ "$SKIP_SHELL" == false ]]; then

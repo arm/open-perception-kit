@@ -335,8 +335,8 @@ def _python_ops_runtime() -> Path:
 
 def _current_python_has_perception_sdk() -> bool:
     try:
-        from perception import ProducerIdentityStatus
-        from perception.packet import decode, external_key
+        from open_perception_kit import ProducerIdentityStatus
+        from open_perception_kit.packet import decode, external_key
     except ImportError:
         return False
     return (
@@ -354,8 +354,8 @@ def interpreter_has_perception_sdk(interpreter: Path) -> bool:
             [
                 str(interpreter),
                 "-c",
-                "from perception import ProducerIdentityStatus; "
-                "from perception.packet import decode, external_key",
+                "from open_perception_kit import ProducerIdentityStatus; "
+                "from open_perception_kit.packet import decode, external_key",
             ],
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,

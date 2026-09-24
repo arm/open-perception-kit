@@ -40,9 +40,9 @@ tensor_module.Tensor = object
 tensor_module.python_script = python_script
 sys.modules["opk_python_ops"] = tensor_module
 
-guest_module = types.ModuleType("perception.guest")
+guest_module = types.ModuleType("open_perception_kit.guest")
 guest_module.Envelope = object
-sys.modules["perception.guest"] = guest_module
+sys.modules["open_perception_kit.guest"] = guest_module
 
 spec = importlib.util.spec_from_file_location("python_classification", SCRIPT_PATH)
 demo = importlib.util.module_from_spec(spec)

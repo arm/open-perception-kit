@@ -28,7 +28,7 @@ Place model-specific scripts under `config/models/<model>/scripts/` and use the
 supported callback:
 
 ```python
-from perception.guest import Envelope
+from open_perception_kit.guest import Envelope
 from opk_python_ops import Context, Tensor
 
 
@@ -64,7 +64,7 @@ checked-in example.
 - Add a top-level pipeline only when the feature needs a runnable `opk-menu`
   preset or demonstrational workflow.
 - Run the script only through a native OPK pipeline in the official quick-start
-  or deployment container. `perception.guest` intentionally does not import in
+  or deployment container. `open_perception_kit.guest` intentionally does not import in
   a normal standalone Python process.
 
 ## Test the Result

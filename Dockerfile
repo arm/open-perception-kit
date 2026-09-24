@@ -299,7 +299,7 @@ RUN set -eux; \
   -r /opt/opk-deps/requirements/models.txt \
   "${numpy_wheel}" \
   "${flatbuffers_wheel}"; \
-  /opt/opk-venvs/devtools/bin/python -I -c 'import perception, plumber'; \
+  /opt/opk-venvs/devtools/bin/python -I -c 'import open_perception_kit, plumber'; \
   chown -R "${USER_UID}:${USER_GID}" /opt/opk-venvs/devtools; \
   rm -rf /tmp/opk-tools /tmp/perception-sdk.json /tmp/python-ops-runtime.json
 
@@ -553,7 +553,7 @@ COPY generated/perception/python /tmp/perception-python
 RUN set -eux; \
   /opt/opk-venvs/python-ops-runtime/bin/pip install --no-cache-dir --no-deps \
     /tmp/perception-python; \
-  /opt/opk-venvs/python-ops-runtime/bin/python -c 'import perception'; \
+  /opt/opk-venvs/python-ops-runtime/bin/python -c 'import open_perception_kit'; \
   rm -rf /tmp/perception-python
 
 FROM opk-cross-build-base AS opk-deployment-build

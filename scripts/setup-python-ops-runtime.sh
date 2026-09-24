@@ -180,7 +180,7 @@ if flatbuffers.__version__ != expected_flatbuffers:
     raise SystemExit(f"unexpected FlatBuffers version: {flatbuffers.__version__}")' \
     "${numpy_version}" "${flatbuffers_version}"
 if [[ -n "${perception_sdk}" ]]; then
-    "${venv}/bin/python" -c 'import perception'
+    "${venv}/bin/python" -c 'import open_perception_kit'
 fi
 
 printf 'Python Ops runtime ready.\n'
