@@ -23,9 +23,19 @@ from pathlib import Path
 ARCHITECTURES = {"x86_64", "aarch64"}
 ONNX_INFERENCE_OP = "opk-onnx-ops/Inference"
 ONNX_MODEL_SUFFIX = ".onnx"
+EXECUTORCH_INFERENCE_OP = "opk-executorch-ops/Inference"
+EXECUTORCH_MODEL_SUFFIX = ".pte"
 RELEASE_MODELS = {
     "mobilegaze-mobilenet-v2": (ONNX_INFERENCE_OP, ONNX_MODEL_SUFFIX),
+    "mobilegaze-mobilenet-v2-executorch": (
+        EXECUTORCH_INFERENCE_OP,
+        EXECUTORCH_MODEL_SUFFIX,
+    ),
     "nitec-resnet-18": (ONNX_INFERENCE_OP, ONNX_MODEL_SUFFIX),
+    "nitec-resnet-18-executorch": (
+        EXECUTORCH_INFERENCE_OP,
+        EXECUTORCH_MODEL_SUFFIX,
+    ),
     "osnet-x0-25": (ONNX_INFERENCE_OP, ONNX_MODEL_SUFFIX),
     "ultraface-rfb-320": (ONNX_INFERENCE_OP, ONNX_MODEL_SUFFIX),
     "yolo26n-320": (ONNX_INFERENCE_OP, ONNX_MODEL_SUFFIX),

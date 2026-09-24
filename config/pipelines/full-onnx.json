@@ -1,6 +1,6 @@
 {
   "version": "1.0.2",
-  "description": "All EXPKITS-780 model releases on bundled video, with YOLO26n-320 enabled by default.",
+  "description": "All supported ONNX models on bundled video, with YOLO26n-320 enabled by default.",
   "sourceInfo": "bundled video file",
   "loop": true,
   "pipeline": [

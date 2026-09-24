@@ -1,8 +1,8 @@
 # Model catalog
 
-This directory contains the supported ONNX model configurations. Model artifacts
-are downloaded from pinned Hugging Face revisions during the container build;
-binaries are not committed.
+This directory contains the supported ONNX and ExecuTorch model configurations.
+Model artifacts are downloaded from pinned Hugging Face revisions during the
+container build; binaries are not committed.
 
 - [UltraFace RFB-320 INT8](https://huggingface.co/Arm/ultraface-rfb-320-onnx-raspberry)
 - [YOLO26n INT8, 320 pixels](https://huggingface.co/Arm/yolo26n-320-int8-onnx-raspberrypi5)
@@ -12,5 +12,5 @@ binaries are not committed.
 - [YOLO26s INT8, 480 pixels](https://huggingface.co/Arm/yolo26s-480-int8-onnx-raspberrypi5)
 - [YOLO26s INT8, 640 pixels](https://huggingface.co/Arm/yolo26s-640-int8-onnx-raspberrypi5)
 - [OSNet x0.25 INT8](https://huggingface.co/Arm/osnet-x0-25-int8-mlas-onnx-raspberrypi5)
-- [NITEC ResNet-18 INT8](https://huggingface.co/Arm/nitec-resnet-18-int8-onnx)
-- [MobileGaze MobileNetV2 INT8](https://huggingface.co/Arm/mobilegaze-mobilenet-v2-int8-onnx)
+- NITEC ResNet-18 INT8: [ONNX](https://huggingface.co/Arm/nitec-resnet-18-int8-onnx), [ExecuTorch/XNNPACK](https://huggingface.co/Arm/nitec-resnet-18-int8-xnnpack-executorch)
+- MobileGaze MobileNetV2 INT8: [ONNX](https://huggingface.co/Arm/mobilegaze-mobilenet-v2-int8-onnx), [ExecuTorch/XNNPACK](https://huggingface.co/Arm/mobilegaze-mobilenet-v2-int8-xnnpack-executorch)

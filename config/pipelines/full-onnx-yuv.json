@@ -1,6 +1,6 @@
 {
   "version": "1.0.3",
-  "description": "All EXPKITS-780 ONNX models on bundled video with the decoded pixel format preserved.",
+  "description": "All supported ONNX models on bundled video with the decoded pixel format preserved.",
   "sourceInfo": "bundled video file",
   "loop": true,
   "pipeline": [

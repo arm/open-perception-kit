@@ -46,7 +46,7 @@ def add_model(
     repo_root: Path, model_id: str, filename: str, op_id: str, content: bytes = b"model"
 ) -> None:
     model_root = repo_root / "config/models" / model_id
-    model_root.mkdir(parents=True)
+    model_root.mkdir(parents=True, exist_ok=True)
     (model_root / filename).write_bytes(content)
     (model_root / MODEL_DESCRIPTOR).write_text(
         json.dumps({"modelFile": filename}), encoding="utf-8"
@@ -367,6 +367,57 @@ class ReleaseToolTests(unittest.TestCase):
                 )
             )
             self.assertEqual(opchain["ops"][0]["id"], ONNX_INFERENCE_OP)
+
+    def test_stages_executorch_model_bytes_and_backend(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / OPCHAINS_DIR).mkdir(parents=True)
+            add_release_models(root)
+            source_model = (
+                root / "config/models/nitec-resnet-18-executorch/model.pte"
+            )
+            source_model.write_bytes(b"pte\x00payload")
+
+            stage_root = root / "stage"
+            release_tool.stage_models(
+                SimpleNamespace(repo_root=str(root), stage_root=str(stage_root))
+            )
+
+            staged_model = (
+                stage_root
+                / "share/opk/models/nitec-resnet-18-executorch/model.pte"
+            )
+            self.assertEqual(staged_model.read_bytes(), b"pte\x00payload")
+            opchain = json.loads(
+                (
+                    stage_root
+                    / "share/opk/models/nitec-resnet-18-executorch/opchain.json"
+                ).read_text(encoding="utf-8")
+            )
+            self.assertEqual(opchain["ops"][0]["id"], EXECUTORCH_INFERENCE_OP)
+
+    def test_rejects_wrong_executorch_backend_or_suffix(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / OPCHAINS_DIR).mkdir(parents=True)
+            add_release_models(root)
+            model_root = root / "config/models/nitec-resnet-18-executorch"
+            opchain_path = model_root / "opchain.json"
+            opchain = json.loads(opchain_path.read_text(encoding="utf-8"))
+            opchain["ops"][0]["id"] = ONNX_INFERENCE_OP
+            opchain_path.write_text(json.dumps(opchain), encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, EXECUTORCH_INFERENCE_OP):
+                release_tool.discover_models(root)
+
+            opchain["ops"][0]["id"] = EXECUTORCH_INFERENCE_OP
+            opchain_path.write_text(json.dumps(opchain), encoding="utf-8")
+            descriptor = model_root / "model.json"
+            descriptor.write_text(
+                json.dumps({"modelFile": "model.onnx"}), encoding="utf-8"
+            )
+            (model_root / "model.onnx").write_bytes(b"onnx")
+            with self.assertRaisesRegex(RuntimeError, "unsupported model file"):
+                release_tool.discover_models(root)
 
     def test_rejects_wrong_release_model_backend_or_suffix(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

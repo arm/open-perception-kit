@@ -1,6 +1,6 @@
 {
   "version": "1.0.2",
-  "description": "All EXPKITS-780 ONNX models on a USB camera, with YOLO26n-320 enabled by default.",
+  "description": "All supported ONNX models on a USB camera, with YOLO26n-320 enabled by default.",
   "sourceInfo": "USB camera required",
   "pipeline": [
     "v4l2src device=/dev/video0 ! image/jpeg,width=1280,height=720,framerate=30/1 !",

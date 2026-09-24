@@ -74,8 +74,12 @@ Focused detector and cascade presets:
 - `ultraface-rfb-320` — UltraFace face detection on bundled video.
 - `nitec-resnet-18` — UltraFace followed by NITEC camera-contact inference on
   detected face crops.
+- `nitec-resnet-18-executorch` — UltraFace ONNX followed by NITEC
+  ExecuTorch/XNNPACK inference.
 - `mobilegaze-mobilenet-v2` — UltraFace followed by MobileGaze inference on
   detected face crops.
+- `mobilegaze-mobilenet-v2-executorch` — UltraFace ONNX followed by MobileGaze
+  ExecuTorch/XNNPACK inference.
 - `osnet-x0-25` — YOLO26n-320 followed by OSNet embeddings and object tracking.
 - `yolo26n-320`, `yolo26n-480`, and `yolo26n-640` — YOLO26n at the selected
   input resolution on bundled video.
