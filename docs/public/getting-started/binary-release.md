@@ -17,11 +17,11 @@ Choose the architecture archive that matches `uname -m`. The documentation
 archive is architecture-neutral and contains the offline public site in
 `html/` and the generated API reference in `doxygen/`.
 
-The same native builds are also available as one multi-architecture runnable
-image. Docker selects the matching amd64 or arm64 manifest automatically:
+The same native builds can be downloaded from the commandline as well:
 
 ```bash
-docker pull ghcr.io/arm/open-perception-kit-deployment:<version>
+gh auth login
+gh release download <version> --repo arm/open-perception-kit --pattern 'opk-<version>-linux-<architecture>.tar.gz'
 ```
 
 Release notes provide the immutable image digest. Use the digest-qualified

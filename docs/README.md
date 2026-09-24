@@ -8,7 +8,7 @@ PlantUML sources live in `docs/plantuml`. Generated PNGs are written to `docs/pu
 
 ## Run Locally
 
-First, make sure you can authenticate with your container engine by following [this guide](https://docs.staging.devplatform.arm.com/arm-docs-github-action/getting-started/docker-auth/).
+First, make sure you can authenticate with your container engine by following [this guide](https://qa.developer.arm.com/dev-docs/arm-docs-github-action/getting-started/docker-auth/).
 
 Make sure you are logged in and authenticated with Docker or Podman:
 
@@ -52,4 +52,4 @@ For shared images, put files in `docs/public/static/img` and reference them from
 
 For generated diagrams, put the `.puml` source in `docs/plantuml` and run `./scripts/gen-doc.sh`.
 
-See [the docs system docs](https://docs.staging.devplatform.arm.com/arm-docs-github-action/) for more information.
+See [the docs system docs](https://qa.developer.arm.com/dev-docs/arm-docs-github-action/) for more information.

@@ -108,12 +108,10 @@ cd open-perception-kit
 ```
 
 HTTPS cloning is the simplest first path. If you must clone with SSH, use [GitHub SSH Key Setup](github-ssh-key.md).
-
-Until OPK is not released to a public repository, the SSH method has to be used:
+After your SSH key is configured in git you can clone the repository:
 
 ```bash
 git clone git@github.com:arm/open-perception-kit.git
-
 ```
 
 Expected result: the `opk` folder exists on the Raspberry Pi.
