@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Open Perception Kit Debug latest",
+            "name": "OPK Debug latest",
             "preLaunchTask": "00 Build Project",
             "type": "cppdbg",
             "request": "launch",
@@ -38,7 +38,7 @@
             ]
         },
         {
-            "name": "Open Perception Kit Debug selection",
+            "name": "OPK Debug selection",
             "preLaunchTask": "00 Build Project",
             "type": "cppdbg",
             "request": "launch",
@@ -74,7 +74,7 @@
             ]
         },
         {
-            "name": "Open Perception Kit Debug for Colima (LLDB)",
+            "name": "OPK Debug for Colima (LLDB)",
             "preLaunchTask": "00 Build Project",
             "type": "lldb",
             "request": "launch",

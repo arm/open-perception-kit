@@ -2,127 +2,221 @@
 title: Raspberry Pi SSH Setup
 sidebar_position: 5
 sidebar_label: Raspberry Pi SSH
-description: Enable and test SSH so VS Code and terminal sessions can connect to a Raspberry Pi target.
+description: Set up SSH keys so terminal sessions and VS Code can connect to a Raspberry Pi without repeated password prompts.
 ---
 
 # Raspberry Pi SSH Setup
 
-Use this page when you want to control the Raspberry Pi from your normal computer. SSH lets you open a Raspberry Pi terminal over the network, and VS Code uses the same connection for **Remote - SSH**.
+This guide sets up **SSH key authentication** so you can connect from your normal
+computer without entering the Raspberry Pi account password each time. VS Code
+**Remote - SSH** can use the same key. For this path, start at section 2.
 
-The best time to enable SSH is when you write the Raspberry Pi OS image to the SD card or SSD. That avoids needing a monitor and keyboard on the Pi later.
+If you are happy to type the Pi password each time, follow the optional section 1
+and return to Get Started immediately afterwards.
 
-## 1. Enable SSH In Raspberry Pi Imager
+Run host commands in a Linux/macOS terminal or **Windows PowerShell**. If you use
+VS Code on Windows, use PowerShell so the key is available to Windows OpenSSH.
+WSL has a separate SSH setup; a key created only in WSL is not automatically
+available to Windows VS Code.
 
-Do this on your normal computer before the first Raspberry Pi boot.
+Replace `<username>` with your Pi username throughout. The examples use the
+hostname `raspberrypi`. If `raspberrypi.local` does not resolve, replace it with
+the Pi IP address from your router's device list, or from `hostname -I` in a
+terminal on the Pi.
 
-1. Open **Raspberry Pi Imager**.
-2. Choose the Raspberry Pi OS image.
-3. Choose the SD card or SSD.
-4. Open the advanced settings.
-5. Set the hostname to:
+On the first connection, SSH asks you to trust the Pi's host key. Compare the
+displayed fingerprint with `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` run
+on the Pi's local console before accepting it. This one-time identity check is
+separate from your login password.
 
-```text
-raspberrypi
+## 1. Optional: Use Password Authentication
+
+For a new installation:
+
+1. Open **Raspberry Pi Imager** on your normal computer and select Raspberry Pi OS
+   and the SD card or SSD.
+2. In OS customisation, set the hostname to `raspberrypi`, choose a username and
+   password, and configure Wi-Fi if you are not using Ethernet.
+3. Under **Remote Access**, enable SSH and select **Use password authentication**.
+4. Write the image, boot the Pi, and wait a few minutes for it to join the network.
+
+If Raspberry Pi OS is already installed, keep that installation. If SSH is
+disabled, use a monitor and keyboard to run this in a **Pi terminal**:
+
+```bash
+sudo systemctl enable --now ssh
 ```
 
-6. Enable SSH.
-7. Choose password authentication for the first setup.
-8. Set the username and password.
-9. Configure Wi-Fi if you are not using Ethernet.
-10. Write the image.
-
-Expected result: after the Raspberry Pi boots, it should accept SSH connections at `raspberrypi.local`.
-
-## 2. Boot And Find The Raspberry Pi
-
-Connect power and wait a few minutes for the first boot.
-
-Run on your normal computer in the **host shell**:
+From your **host shell**, connect:
 
 ```bash
 ssh <username>@raspberrypi.local
 ```
 
-Replace `<username>` with the username you set in Raspberry Pi Imager.
+Enter the Pi account password when prompted. Nothing appears while you type.
+Expected result: a shell on the Raspberry Pi. Future connections can prompt for
+the same password; VS Code may ask more than once.
 
-When the terminal asks for a password, enter the password you set in Raspberry Pi Imager. The password may not visibly appear while you type. That is normal.
+**If that is fine for you, SSH setup is complete. Return to
+[Get Started](/getting-started).** The remaining sections set up key-based login.
 
-If that works, continue with the quick start.
+## 2. Create Or Reuse An SSH Key On Your Computer
 
-## 3. If `raspberrypi.local` Does Not Work
+Keep the private key on the computer you connect **from**. Only its public
+`.pub` file belongs on the Pi.
 
-Use the Raspberry Pi IP address instead.
+Check for an existing key pair in your **host shell**:
 
-The easiest ways to find it are:
-
-- Check your router's connected devices page.
-- Connect a monitor and run `hostname -I` on the Raspberry Pi.
-
-Then connect from your normal computer:
-
-```bash
-ssh <username>@<raspberry-pi-ip-address>
-```
-
-Expected result: your terminal logs into the Raspberry Pi.
-
-## 4. If SSH Was Not Enabled During Imaging
-
-If you have a monitor and keyboard connected to the Raspberry Pi, open Terminal on the Pi and run:
+Linux/macOS:
 
 ```bash
-sudo systemctl enable ssh
-sudo systemctl start ssh
+ls ~/.ssh
 ```
 
-Then test again from your normal computer:
+Windows PowerShell:
 
-```bash
-ssh <username>@raspberrypi.local
+```powershell
+Get-ChildItem "$env:USERPROFILE\.ssh"
 ```
 
-## 5. Add The Raspberry Pi To VS Code
+If `id_ed25519` and `id_ed25519.pub` already exist, reuse them and skip key
+generation. A missing directory is normal if you have never created a key.
+If you use another key filename, substitute it in the commands below.
 
-After terminal SSH works, open VS Code on your normal computer.
-
-1. Install the **Remote - SSH** extension.
-2. Open the Command Palette.
-   - Windows/Linux: `Ctrl+Shift+P`.
-   - macOS: `Cmd+Shift+P`.
-3. Run **Remote-SSH: Connect to Host...**.
-4. Enter:
-
-```text
-<username>@raspberrypi.local
-```
-
-If `.local` did not work in the terminal, use the IP address instead:
-
-```text
-<username>@<raspberry-pi-ip-address>
-```
-
-Expected result: VS Code opens a new remote window connected to the Raspberry Pi.
-
-If VS Code asks for a password, enter the same Raspberry Pi password you used in the terminal SSH test.
-
-## 6. Optional: Switch To SSH Keys Later
-
-Password authentication is fine for the first setup. After the quick start works, you can switch to SSH keys if you want a cleaner login flow.
-
-Run on your normal computer:
+Otherwise, generate a key on your **host**, using the same command on all three
+platforms:
 
 ```bash
 ssh-keygen -t ed25519
-ssh-copy-id <username>@raspberrypi.local
 ```
 
-Then test:
+Accept the default file location. Do not overwrite an existing private key.
+Choose a passphrase to protect the private key; section 4
+shows how to unlock it once for repeated connections. This passphrase protects
+your local key and is separate from the Pi account password.
+
+## 3. Authorize The Public Key On The Raspberry Pi
+
+Choose the path matching your Pi's current state.
+
+### New Installation: Add The Key In Raspberry Pi Imager
+
+1. Open **Raspberry Pi Imager** and select Raspberry Pi OS and the SD card or SSD.
+2. In OS customisation, set the hostname to `raspberrypi`, choose a username and
+   account password, and configure Wi-Fi if needed.
+3. Under **Remote Access**, enable SSH and select **Use public key authentication**.
+4. Browse to the public key created in section 2: `~/.ssh/id_ed25519.pub` on
+   Linux/macOS, or `%USERPROFILE%\.ssh\id_ed25519.pub` on Windows. Check that
+   Imager uses this key if it has prefilled a different one.
+5. Write the image, boot the Pi, and wait for it to join the network.
+
+The public key is installed during imaging, so no initial SSH password login is
+needed. Continue to section 4. See the official
+[Raspberry Pi SSH instructions](https://www.raspberrypi.com/documentation/computers/remote-access.html#configure-ssh-without-a-password)
+for the Imager options.
+
+### Existing Installation: Copy The Key Over SSH
+
+Use the working password connection from section 1 to install your public key.
+You do not need to reimage the Pi.
+
+Run on your **host**, using Linux/macOS:
+
+```bash
+ssh-copy-id -i ~/.ssh/id_ed25519.pub <username>@raspberrypi.local
+```
+
+On **Windows PowerShell**, use:
+
+```powershell
+Get-Content "$env:USERPROFILE\.ssh\id_ed25519.pub" | ssh <username>@raspberrypi.local 'umask 077; mkdir -p ~/.ssh && echo >> ~/.ssh/authorized_keys && cat >> ~/.ssh/authorized_keys && chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys'
+```
+
+If `ssh-copy-id` is unavailable on Linux/macOS, use:
+
+```bash
+cat ~/.ssh/id_ed25519.pub | ssh <username>@raspberrypi.local 'umask 077; mkdir -p ~/.ssh && echo >> ~/.ssh/authorized_keys && cat >> ~/.ssh/authorized_keys && chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys'
+```
+
+Enter the **Pi account password** when prompted for this installation step.
+These commands append the public key to that user's `authorized_keys` file and
+preserve existing keys. Adding a key does not disable password authentication;
+the final check below confirms that your connection actually uses a key.
+
+## 4. Load The Key Into Your SSH Agent
+
+The SSH agent keeps the unlocked key available so you do not need to enter its
+passphrase for every connection.
+
+### Linux And macOS
+
+Run in your **host shell**:
+
+```bash
+ssh-add ~/.ssh/id_ed25519
+```
+
+If this reports that it cannot connect to an authentication agent, start one in
+the same shell and try again:
+
+```bash
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_ed25519
+```
+
+Enter the **key passphrase** when asked. The key stays unlocked while that agent
+retains it; after a reboot or agent restart, you may need to add it again.
+If you started the agent manually, launch VS Code from that shell with `code`
+after closing existing VS Code windows so it inherits the agent environment.
+
+### Windows PowerShell
+
+Once, open **PowerShell as Administrator** and enable the Windows agent:
+
+```powershell
+Set-Service ssh-agent -StartupType Automatic
+Start-Service ssh-agent
+```
+
+Return to your **normal, non-administrator PowerShell** and add your key:
+
+```powershell
+ssh-add "$env:USERPROFILE\.ssh\id_ed25519"
+```
+
+Enter the **key passphrase** when asked, then restart VS Code if it was open.
+The service setup follows
+[Microsoft's Windows SSH agent guidance](https://learn.microsoft.com/en-us/windows-server/administration/openssh/openssh_keymanagement#user-key-generation).
+
+On any platform, `ssh-add -l` lists loaded keys. For VS Code, run it in a
+**local** VS Code terminal to confirm the editor can access the same agent.
+See [VS Code's SSH agent guidance](https://code.visualstudio.com/docs/remote/troubleshooting#setting-up-the-ssh-agent)
+if terminal login works but the editor still asks for a passphrase.
+
+## 5. Verify Login Without Password Prompts
+
+From your **host shell**, connect normally and complete the host-key check if
+this is your first connection:
 
 ```bash
 ssh <username>@raspberrypi.local
 ```
 
-Do this only after the password-based connection already works.
+Expected result: a Pi shell without a Pi password or key-passphrase prompt.
+Run `exit` to return to your host, then explicitly verify key authentication
+with interactive prompts disabled:
 
-[Back to Get Started](/getting-started)
+```bash
+ssh -o BatchMode=yes -o PreferredAuthentications=publickey -o ControlPath=none <username>@raspberrypi.local whoami
+```
+
+Expected result: your Pi username is printed with no password prompt. If this
+fails, check that the public key was installed for the correct Pi user and that
+`ssh-add -l` lists the matching key on your host. A key with a custom filename
+must also be loaded into the agent or selected with `ssh -i <private-key-path>`.
+
+You can now use `ssh <username>@raspberrypi.local` for normal sessions and the
+same `username@hostname` in VS Code Remote - SSH. Commands such as `sudo` on the
+Pi may still ask for your Pi password; that is separate from SSH login.
+
+**SSH key setup is complete. Return to [Get Started](/getting-started).**

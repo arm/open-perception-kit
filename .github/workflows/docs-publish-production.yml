@@ -1,0 +1,89 @@
+name: Publish Docs (Production)
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      publish_ref:
+        description: Commit SHA or ref contained in main to publish publicly; review on staging first.
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      publish_ref:
+        description: Release commit to publish publicly.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish-docs:
+    name: Publish production docs site
+    if: github.event_name != 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: eu-west-1
+      AWS_ROLE_ARN: arn:aws:iam::930800959236:role/Proj-GHA-open-perception-kit-s3-upload
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.publish_ref || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Require source from main
+        shell: bash
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && "$GITHUB_REF" != refs/heads/main ]]; then
+            echo "::error::Run the production workflow from main."
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor HEAD refs/remotes/origin/main; then
+            echo "::error::The selected documentation commit is not contained in main."
+            exit 1
+          fi
+
+      - name: Inject published build info
+        shell: bash
+        run: |
+          python3 scripts/private/inject_docs_build_info.py --target docs/public/index.md
+
+      - name: Validate docs site
+        uses: ARM-software/docs-action/validate@3c5412fd76d4b2d67fd42d69d350abf29a6241c2
+        with:
+          docs-root: docs/public
+          site-id: open-perception-kit
+
+      - name: AWS GitHub OIDC Login
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: "930800959236"
+
+      - name: Publish docs site
+        uses: ARM-software/docs-action/publish@3c5412fd76d4b2d67fd42d69d350abf29a6241c2
+        with:
+          docs-root: docs/public
+          site-id: open-perception-kit
+          environment: production
+
+      - name: Write publish summary
+        shell: bash
+        env:
+          PUBLISHED_REF: ${{ inputs.publish_ref || github.sha }}
+        run: |
+          printf '%s\n' \
+            '## Summary' \
+            '' \
+            "- Published ref: $PUBLISHED_REF" \
+            "- Published commit: $(git rev-parse HEAD)" \
+            '- Site URL: [Open Perception Kit](https://developer.arm.com/dev-docs/open-perception-kit/)' \
+            >> "$GITHUB_STEP_SUMMARY"
