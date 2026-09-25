@@ -9,15 +9,24 @@ permissions:
 
 jobs:
   tools:
-    name: Complete Python tooling suites
+    name: Python tooling (${{ matrix.variant }})
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: pr39-fixed
+            ref: 2c4428237ea9448e8a13f9573e11490fb5f7daf4
+          - variant: main-baseline
+            ref: 6daacd565ba3a6c3d103fb996da67f5aa49539bf
     env:
       PYTHONPATH: tools/opk-ci:tools/plumber:scripts/private
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
+          ref: ${{ matrix.ref }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -58,6 +67,10 @@ jobs:
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: coverage run --parallel-mode -m unittest discover -s scripts/private/tests -v
 
+      - name: Diagnose repository secret check
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+        run: python3 -m opk_ci --check-secrets
+
       - name: Collect Python coverage
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: |
@@ -68,7 +81,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
-          name: pr39-supplemental-coverage
+          name: pr39-supplemental-coverage-${{ matrix.variant }}
           path: supplemental-coverage.xml
           if-no-files-found: warn
           retention-days: 7
