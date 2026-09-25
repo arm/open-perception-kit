@@ -1,4 +1,4 @@
-name: Generate Perception SDKs
+name: Generate open-perception-kits
 description: Install the locked SDK toolchain and generate all language bindings.
 
 runs:

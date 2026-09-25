@@ -17,12 +17,19 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "tools" / "flowdata-sdk" / "tools" / "flowdata"))
 generator_manifest = importlib.import_module("engine.manifest")
+python_codegen = importlib.import_module("engine.python.python_sdk_codegen")
 
 
 class ManifestFixture:
     """Small raw manifest, independent of flatc and the manifest writer."""
 
-    def __init__(self, root: Path, sdk: str = "cpp", bridge: bool = False) -> None:
+    def __init__(
+        self,
+        root: Path,
+        sdk: str = "cpp",
+        bridge: bool = False,
+        public_name: str = "example",
+    ) -> None:
         self.sdk_root = root / "sdk"
         self.schema_root = root / "schemas"
         self.path = self.sdk_root / "flowdata-manifest.json"
@@ -71,24 +78,26 @@ class ManifestFixture:
             "payloads": payloads,
             "schema_files": schema_files,
             "schema_set_sha256": schema_digest.hexdigest(),
-            "sdk": {"name": "example", "version": "1.2.3"},
+            "sdk": {"name": public_name, "version": "1.2.3"},
         }
+        if public_name != "example":
+            self.manifest["sdk"]["schema_namespace"] = "example"
         if sdk == "python":
             self.manifest["python_package"] = {
                 "build_backend": "setuptools.build_meta",
-                "distribution_name": "example",
-                "import_name": "example",
+                "distribution_name": public_name,
+                "import_name": public_name,
                 "pure_python": True,
                 "requires_python": ">=3.10",
                 "typing": {
-                    "marker": "src/example/py.typed",
-                    "stubs": ["src/example/guest.pyi"],
+                    "marker": f"src/{public_name}/py.typed",
+                    "stubs": [f"src/{public_name}/guest.pyi"],
                 },
                 "version": "1.2.3",
                 "wheel_tag": "py3-none-any",
             }
-            self.add_output("src/example/py.typed")
-            self.add_output("src/example/guest.pyi")
+            self.add_output(f"src/{public_name}/py.typed")
+            self.add_output(f"src/{public_name}/guest.pyi")
         if bridge:
             runtimes.append(
                 {
@@ -98,16 +107,16 @@ class ManifestFixture:
                 }
             )
             self.manifest["python_bridge"] = {
-                "header": "python_bridge/example_python_bridge.h",
-                "module_name": "example_bridge",
-                "registration_function": "example::python_bridge::append_inittab",
+                "header": f"python_bridge/{public_name}_python_bridge.h",
+                "module_name": f"{public_name}_bridge",
+                "registration_function": f"{public_name}::python_bridge::append_inittab",
                 "requires_python": ">=3.10",
-                "sdk_import_name": "example",
-                "source": "python_bridge/example_python_bridge.cpp",
-                "wrapper_type": "example::python_bridge::scoped_envelope",
+                "sdk_import_name": public_name,
+                "source": f"python_bridge/{public_name}_python_bridge.cpp",
+                "wrapper_type": f"{public_name}::python_bridge::scoped_envelope",
             }
-            self.add_output("python_bridge/example_python_bridge.h")
-            self.add_output("python_bridge/example_python_bridge.cpp")
+            self.add_output(f"python_bridge/{public_name}_python_bridge.h")
+            self.add_output(f"python_bridge/{public_name}_python_bridge.cpp")
 
     @staticmethod
     def create_file(root: Path, relative: str, content: bytes = b"") -> dict[str, object]:
@@ -153,6 +162,22 @@ class GeneratorManifestTests(unittest.TestCase):
                 )
                 for with_root in (False, True):
                     self.assertEqual(fixture.verify(with_root), fixture.manifest)
+
+    def test_public_name_can_differ_from_schema_namespace(self) -> None:
+        for sdk, bridge in (("python", False), ("cpp", True)):
+            with self.subTest(sdk=sdk, bridge=bridge):
+                fixture = ManifestFixture(
+                    self.root / f"custom-{sdk}",
+                    sdk,
+                    bridge,
+                    public_name="open_perception_kit",
+                )
+                self.assertEqual(fixture.verify(), fixture.manifest)
+                descriptor = "python_package" if sdk == "python" else "python_bridge"
+                field = "import_name" if sdk == "python" else "sdk_import_name"
+                fixture.manifest[descriptor][field] = "perception"
+                with self.assertRaisesRegex(ValueError, f"{descriptor} does not match"):
+                    fixture.verify()
 
     def test_valid_meson_output(self) -> None:
         self.fixture.manifest["outputs"]["integrations"] = ["cmake", "meson"]
@@ -455,6 +480,31 @@ class GeneratorManifestTests(unittest.TestCase):
         self.fixture = ManifestFixture(self.root / "order")
         self.fixture.manifest["files"][0].update(path="missing.txt", size=-1)
         self.assert_invalid(f"files[0] does not exist: {self.fixture.sdk_root / 'missing.txt'}")
+
+
+class PythonPackageNamingTests(unittest.TestCase):
+    def test_public_name_is_used_for_wire_sdk_identity(self) -> None:
+        source = python_codegen._sdk_text(
+            "open_perception_kit",
+            "open_perception_kit",
+            "1.2.3",
+            "0" * 64,
+        )
+
+        self.assertIn('SDK_NAME = "open_perception_kit"', source)
+        self.assertIn(
+            '"open_perception_kit.internalfb.WireEnvelope"', source
+        )
+        self.assertIn(
+            '"open_perception_kit.internalfb.WirePayload"', source
+        )
+        self.assertNotIn('"perception.internalfb.', source)
+
+    def test_guest_uses_public_bridge_module(self) -> None:
+        source = python_codegen._guest_text("open_perception_kit")
+
+        self.assertIn("from open_perception_kit_bridge import Envelope", source)
+        self.assertIn("open_perception_kit.guest is available", source)
 
 
 if __name__ == "__main__":

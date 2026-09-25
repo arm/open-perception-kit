@@ -12,8 +12,8 @@ import json
 import math
 from typing import Any
 
-from perception import ProducerIdentityStatus
-from perception.packet import decode, external_key
+from open_perception_kit import ProducerIdentityStatus
+from open_perception_kit.packet import decode, external_key
 
 from support.runtime import ExampleError
 

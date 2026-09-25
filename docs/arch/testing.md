@@ -133,4 +133,4 @@ their location. The source-only mode does not check unchanged translation units.
 
 Known gaps are tracked in [Known Limitations](known-limitations.md). The main
 areas needing stronger coverage are parser behavior against known tensors,
-GStreamer element lifecycle behavior, and expected `Perception` output contracts.
+GStreamer element lifecycle behavior, and expected `FrameResults` output contracts.

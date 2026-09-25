@@ -98,7 +98,7 @@ void Writer::run() {
 
         j["frame_counter"] = job.frame_counter;
         if (job.frameResults) {
-            const auto packet = perception::serialize(*job.frameResults);
+            const auto packet = open_perception_kit::serialize(*job.frameResults);
             j["frame_results_encoding"] = "perception-frame-results+base64";
             j["frame_results_packet_b64"] = opk::base64Encode(packet);
         } else {

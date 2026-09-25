@@ -1,12 +1,12 @@
 include "common.fbs";
 
-namespace perception.metadata;
+namespace open_perception_kit.metadata;
 
 table ObjectTrack {
-  object:perception.metadata.ObjectMeta;
+  object:open_perception_kit.metadata.ObjectMeta;
   source_id:ulong;
   track_id:ulong;
-  box:perception.metadata.BoundingBox;
+  box:open_perception_kit.metadata.BoundingBox;
   confidence:float;
   class_id:int = -1;
   text:string;
@@ -17,8 +17,8 @@ table ObjectTrack {
 table ObjectTracks {
   schema_major:ushort = 1;
   schema_minor:ushort = 0;
-  layer:perception.metadata.LayerInfo;
-  tracks:[perception.metadata.ObjectTrack];
+  layer:open_perception_kit.metadata.LayerInfo;
+  tracks:[open_perception_kit.metadata.ObjectTrack];
 }
 
 root_type ObjectTracks;

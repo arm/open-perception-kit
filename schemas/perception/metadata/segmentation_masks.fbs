@@ -1,17 +1,17 @@
 include "common.fbs";
 
-namespace perception.metadata;
+namespace open_perception_kit.metadata;
 
 table SegmentationMask {
-  object:perception.metadata.ObjectMeta;
-  bitmap:perception.metadata.BitmapData;
+  object:open_perception_kit.metadata.ObjectMeta;
+  bitmap:open_perception_kit.metadata.BitmapData;
 }
 
 table SegmentationMasks {
   schema_major:ushort = 1;
   schema_minor:ushort = 0;
-  layer:perception.metadata.LayerInfo;
-  masks:[perception.metadata.SegmentationMask];
+  layer:open_perception_kit.metadata.LayerInfo;
+  masks:[open_perception_kit.metadata.SegmentationMask];
 }
 
 root_type SegmentationMasks;

@@ -8,7 +8,7 @@
 
 namespace opk::tracker::frameinputs {
 
-EmbeddingBatch collectEmbeddings(const perception::FrameResults &frameResults,
+EmbeddingBatch collectEmbeddings(const open_perception_kit::FrameResults &frameResults,
                                  const Config &config) {
     EmbeddingBatch embeddings;
 
@@ -16,7 +16,7 @@ EmbeddingBatch collectEmbeddings(const perception::FrameResults &frameResults,
         return embeddings;
     }
 
-    frameResults.for_each<perception::metadata::ObjectEmbeddingsT>(
+    frameResults.for_each<open_perception_kit::metadata::ObjectEmbeddingsT>(
         [&embeddings, &config](const auto &payload) {
             if (!payload.layer || payload.layer->content_type != config.embeddingContentType) {
                 return;
@@ -35,11 +35,11 @@ EmbeddingBatch collectEmbeddings(const perception::FrameResults &frameResults,
     return embeddings;
 }
 
-DetectionBatch collectDetections(const perception::FrameResults &frameResults,
+DetectionBatch collectDetections(const open_perception_kit::FrameResults &frameResults,
                                  const Config &config) {
     DetectionBatch detections;
 
-    frameResults.for_each<perception::metadata::BoxDetectionsT>(
+    frameResults.for_each<open_perception_kit::metadata::BoxDetectionsT>(
         [&detections, &config](const auto &payload) {
             if (!payload.layer || payload.layer->content_type != config.contentType) {
                 return;

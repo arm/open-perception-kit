@@ -213,7 +213,7 @@ if get_option('tests') or not python_ops_option.disabled()
 endif
 
 subdir('perception')
-opk_deps += [perception_dep]
+opk_deps += [open_perception_kit_dep]
 
 # gtest dependencies
 cmake = import('cmake')

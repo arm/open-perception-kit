@@ -18,7 +18,7 @@ struct _GstOpkComm;
 
 struct OpkCommJob {
     uint64_t frame_counter = 0;
-    std::shared_ptr<const perception::FrameResults> frameResults;
+    std::shared_ptr<const open_perception_kit::FrameResults> frameResults;
 };
 
 class JobQueue {

@@ -62,12 +62,12 @@ OP_MODULE_NAMES = {
 PYTHON_RUNTIME_DISTRIBUTIONS = {
     "flatbuffers",
     "numpy",
-    "opk-perception-sdk",
+    "open-perception-kit",
 }
 PYTHON_RUNTIME_MODULES = {
     "flatbuffers",
     "numpy",
-    "perception",
+    "open_perception_kit",
 }
 PYTHON_RUNTIME_ROOT = Path("share/opk/python")
 PYTHON_RUNTIME_MANIFEST = "opk-runtime.json"
@@ -129,7 +129,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 GIT_COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$", re.ASCII)
 PERCEPTION_SDK_ARCHIVE_PATTERN = re.compile(
-    r"^perception-sdk-(\d+\.\d+\.\d+)\.zip$", re.ASCII
+    r"^open-perception-kit-(\d+\.\d+\.\d+)\.zip$", re.ASCII
 )
 
 
@@ -481,15 +481,15 @@ def expected_python_runtime_versions(repo_root: Path) -> dict[str, str]:
     runtime = json_mapping(runtime_path)
     sdk = json_mapping(sdk_path)
     pyproject = (
-        repo_root / "generated/perception/python/pyproject.toml"
+        repo_root / "generated/open_perception_kit/python/pyproject.toml"
     ).read_text(encoding="utf-8")
     version_match = re.search(r'^version\s*=\s*"([^"]+)"', pyproject, re.MULTILINE)
     if version_match is None:
-        fail("Generated Perception Python package version is missing")
+        fail("Generated open-perception-kit Python package version is missing")
     return {
         "flatbuffers": configured_version(sdk, "flatbuffers", sdk_path),
         "numpy": configured_version(runtime, "numpy", runtime_path),
-        "opk-perception-sdk": version_match.group(1),
+        "open-perception-kit": version_match.group(1),
     }
 
 
@@ -502,7 +502,7 @@ def validate_python_runtime(package_root: Path, repo_root: Path | None = None) -
     )
     if missing_modules:
         fail(f"Packaged Python runtime modules are missing: {missing_modules}")
-    allowed_prefixes = ("flatbuffers", "numpy", "opk_perception_sdk", "perception")
+    allowed_prefixes = ("flatbuffers", "numpy", "open_perception_kit")
     allowed_files = {PYTHON_OPS_TYPE_STUB, PYTHON_RUNTIME_MANIFEST}
     unexpected = sorted(
         path.name
@@ -595,10 +595,10 @@ def validate_release_payload(package_root: Path, repo_root: Path | None) -> None
 
 def perception_sdk_archive(perception_sdk_root: Path) -> Path:
     if perception_sdk_root.is_symlink() or not perception_sdk_root.is_dir():
-        fail(f"Perception SDK directory is missing or invalid: {perception_sdk_root}")
+        fail(f"open-perception-kit directory is missing or invalid: {perception_sdk_root}")
     entries = list(perception_sdk_root.iterdir())
     if any(path.is_symlink() or not path.is_file() for path in entries):
-        fail("Perception SDK directory must contain only regular files")
+        fail("open-perception-kit directory must contain only regular files")
 
     archives = [
         path
@@ -606,7 +606,7 @@ def perception_sdk_archive(perception_sdk_root: Path) -> Path:
         if PERCEPTION_SDK_ARCHIVE_PATTERN.fullmatch(path.name)
     ]
     if len(archives) != 1:
-        fail("Perception SDK directory must contain exactly one versioned ZIP")
+        fail("open-perception-kit directory must contain exactly one versioned ZIP")
     archive = archives[0]
     expected_names = {
         archive.name,
@@ -614,7 +614,7 @@ def perception_sdk_archive(perception_sdk_root: Path) -> Path:
         f"{archive.name}.provenance.json",
     }
     if {path.name for path in entries} != expected_names:
-        fail("Perception SDK directory must contain exactly the matching triplet")
+        fail("open-perception-kit directory must contain exactly the matching triplet")
     return archive
 
 
@@ -624,11 +624,11 @@ def validate_perception_sdk(
     repo_root: Path | None = None,
 ) -> None:
     archive = perception_sdk_archive(perception_sdk_root)
-    version = archive.name.removeprefix("perception-sdk-").removesuffix(".zip")
+    version = archive.name.removeprefix("open-perception-kit-").removesuffix(".zip")
 
     verification_root = repo_root or REPO_ROOT
     if repo_root is not None and read_version(repo_root) != version:
-        fail("Perception SDK version does not match the selected source")
+        fail("open-perception-kit version does not match the selected source")
     subprocess.run(
         [
             str(verification_root / "scripts/perception-sdk.sh"),
@@ -642,14 +642,14 @@ def validate_perception_sdk(
 
     provenance = load_json(perception_sdk_root / f"{archive.name}.provenance.json")
     if not isinstance(provenance, dict) or provenance.get("dirty") is not False:
-        fail("Perception SDK provenance must record dirty=false")
+        fail("open-perception-kit provenance must record dirty=false")
     commit = provenance.get("repository_commit")
     if not isinstance(commit, str) or not GIT_COMMIT_PATTERN.fullmatch(commit):
-        fail("Perception SDK provenance commit is invalid")
+        fail("open-perception-kit provenance commit is invalid")
     if not GIT_COMMIT_PATTERN.fullmatch(expected_commit):
-        fail("Expected Perception SDK commit is invalid")
+        fail("Expected open-perception-kit commit is invalid")
     if commit != expected_commit:
-        fail("Perception SDK provenance commit does not match the selected source")
+        fail("open-perception-kit provenance commit does not match the selected source")
 
 
 def read_elf(path: Path, *arguments: str) -> str:
@@ -844,7 +844,7 @@ def validate_package(args: argparse.Namespace) -> None:
     validate_legal_documentation(package_root)
     validate_release_payload(package_root, repo_root)
     validate_perception_sdk(
-        package_root / "share/opk/perception-sdk",
+        package_root / "share/opk/open-perception-kit",
         args.expected_commit,
         repo_root,
     )
@@ -876,8 +876,8 @@ def read_version(repo_root: Path) -> str:
 
 def read_package_versions(repo_root: Path, version: str) -> tuple[str, str]:
     paths = {
-        "Python": repo_root / "generated/perception/python/pyproject.toml",
-        "Cargo": repo_root / "generated/perception/rust/Cargo.toml",
+        "Python": repo_root / "generated/open_perception_kit/python/pyproject.toml",
+        "Cargo": repo_root / "generated/open_perception_kit/rust/Cargo.toml",
     }
     versions: dict[str, str] = {}
     for language, path in paths.items():

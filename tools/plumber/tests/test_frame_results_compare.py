@@ -16,13 +16,13 @@ from plumber.frame_results_compare import compare_frame_results_frame  # noqa: E
 from plumber.frame_results_decode import FrameResultsFrame  # noqa: E402
 from plumber.frame_results_sdk import FrameResults  # noqa: E402
 
-from perception.fb.perception.metadata.BoundingBox import BoundingBoxT  # noqa: E402
-from perception.fb.perception.metadata.BoxDetection import BoxDetectionT  # noqa: E402
-from perception.fb.perception.metadata.BoxDetections import BoxDetectionsT  # noqa: E402
-from perception.fb.perception.metadata.FrameContext import FrameContextT  # noqa: E402
-from perception.fb.perception.metadata.LayerInfo import LayerInfoT  # noqa: E402
-from perception.fb.perception.metadata.ObjectMeta import ObjectMetaT  # noqa: E402
-from perception.fb.perception.metadata.VideoFrameContext import VideoFrameContextT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.BoundingBox import BoundingBoxT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.BoxDetection import BoxDetectionT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.BoxDetections import BoxDetectionsT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.FrameContext import FrameContextT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.LayerInfo import LayerInfoT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta import ObjectMetaT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.VideoFrameContext import VideoFrameContextT  # noqa: E402
 
 
 def layer(content_type: str, infer_element_id: str) -> LayerInfoT:

@@ -16,7 +16,7 @@ model.json
         -> postprocess.py
             -> caller-owned JSON in FrameResults
                 -> opkcomm NDJSON
-                    -> Perception SDK consumer
+                    -> Open Perception Kit SDK consumer
 ```
 
 OPK owns preprocessing, inference execution, and result transport. The model
@@ -33,8 +33,8 @@ The files are separated so the reusable BYOM contract stays visible:
 - `pipeline.json` is the minimal runnable media flow used to exercise that
   integration through `opkinfer` and transport results through `opkcomm`.
 - `support/results.py` is the standalone application-side consumer. It shows
-  how a user retrieves and validates the external payload with the Perception
-  SDK.
+  how a user retrieves and validates the external payload with the Open
+  Perception Kit SDK.
 - `run.py` and the remaining `support/` modules are demonstration support.
   They provision the model, manage processes and shutdown, follow NDJSON, and
   optionally render a verification video. Applications normally replace this
@@ -107,7 +107,7 @@ producer and consumer own the schema, validation, and versioning; the `.v1`
 suffix identifies this contract version.
 
 Use an external payload for application-specific or independently versioned
-data. Use a generated Perception type when the result must become a shared,
+data. Use a generated FrameResults payload type when the result must become a shared,
 framework-supported contract.
 
 ## 4. Run the media pipeline
@@ -129,13 +129,13 @@ keeps the pipeline independent of a display, server, tracker, or overlay.
 `support/results.py`:
 
 1. validates the `opkcomm` record and encoding
-2. decodes the packet with `perception.packet`
+2. decodes the packet with `open_perception_kit.packet`
 3. verifies the producer identity
 4. retrieves bytes using the same external key
 5. validates the caller-owned JSON
 6. prints normalized face rectangles
 
-The Perception SDK owns safe packet access. The application owns the semantics
+The Open Perception Kit SDK owns safe packet access. The application owns the semantics
 of its external payload.
 
 ## Run the example
@@ -171,8 +171,8 @@ To integrate another ONNX model:
 1. Describe its exact tensor and preprocessing contract in `model.json`.
 2. Reference that descriptor from the inference operation in `opchain.json`.
 3. Implement model-specific tensor validation and decoding in `postprocess.py`.
-4. Choose a generated Perception type or a caller-owned external payload.
-5. Consume and validate the FrameResults packet with a matching Perception SDK.
+4. Choose a generated FrameResults payload type or a caller-owned external payload.
+5. Consume and validate the FrameResults packet with a matching Open Perception Kit SDK.
 6. Test the complete flow with representative input data.
 
 The BlazeFace decoder, anchors, thresholds, and JSON schema are model-specific.

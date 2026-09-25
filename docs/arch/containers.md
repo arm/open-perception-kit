@@ -207,7 +207,7 @@ stages inherit everything from their parent unless noted otherwise.
   `/opt/opk-app`. Native release builds install the ExecuTorch toolchain and
   enable the Python operation module for the runnable deployment image. They use
   the selected repository commit and local content hashes of the normal tracked
-  `tools/flowdata-sdk` sources to verify and package the checked-in Perception SDK
+  `tools/flowdata-sdk` sources to verify and package the checked-in open-perception-kit
   snapshot without Git metadata. Generator sources are copied beside
   `tools/perception` and updated manually, not fetched during the build.
   Release builds reuse the same Meson build to create
@@ -218,7 +218,7 @@ stages inherit everything from their parent unless noted otherwise.
   discovered through the current cross file.
 - `opk-python-ops-runtime`: runs on the target platform and creates the embedded
   Python virtual environment from the pinned target-architecture NumPy wheel,
-  the pinned FlatBuffers wheel, and the generated Perception Python package.
+  the pinned FlatBuffers wheel, and the generated Open Perception Kit Python package.
 - `opk-deployment-base`: contains only the selected deployment outputs and
   runtime dependencies: OpenSSL, fmt, FFTW, libsoup, JSON-GLib,
   libusb, zlib, GStreamer runtime/tools/plugins, optional Raspberry Pi camera
@@ -258,7 +258,7 @@ this same image rather than a second release-specific container or wrapper.
 The deployment lane has two roles plus shared artifact inputs.
 `opk-deployment-build` inherits the cross-build base, consumes model artifacts
 and demo media, compiles OPK, and collects `/opt/opk-app`. For a native release
-it also packages the checked-in Perception SDK snapshot and creates the
+it also packages the checked-in Open Perception Kit snapshot and creates the
 architecture archive. `opk-python-ops-runtime` creates the Python environment
 on the target platform. `opk-deployment-base` is the runnable release snapshot
 that receives the application and archive from the builder and the Python

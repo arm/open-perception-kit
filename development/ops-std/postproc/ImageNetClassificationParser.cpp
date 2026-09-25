@@ -42,7 +42,7 @@ static void softmax(const std::span<float> input, std::span<float> output) {
 }
 
 opk::Result<void> ImageNetClassificationParser::parse(const opk::TensorParser::Input &input,
-                                                      perception::FrameResults &results) {
+                                                      open_perception_kit::FrameResults &results) {
 
     if (!input.tensors[0]) {
         return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidData,
@@ -102,15 +102,16 @@ opk::Result<void> ImageNetClassificationParser::parse(const opk::TensorParser::I
                           scoredIndices.end(),
                           std::greater<>());
 
-        perception::metadata::ClassificationsT payload;
-        payload.layer =
-            perception::makeLayerInfo({.model = input.inferenceInfo.modelName,
-                                       .inferElementId = input.inferenceInfo.inferElementId,
-                                       .contentType = k_content_type,
-                                       .producer = &input.producerInfo});
+        open_perception_kit::metadata::ClassificationsT payload;
+        payload.layer = open_perception_kit::makeLayerInfo(
+            {.model = input.inferenceInfo.modelName,
+             .inferElementId = input.inferenceInfo.inferElementId,
+             .contentType = k_content_type,
+             .producer = &input.producerInfo});
 
-        auto classification = std::make_unique<perception::metadata::ClassificationT>();
-        classification->object = perception::makeObjectMeta(0U, input.inferenceInfo.parentId);
+        auto classification = std::make_unique<open_perception_kit::metadata::ClassificationT>();
+        classification->object =
+            open_perception_kit::makeObjectMeta(0U, input.inferenceInfo.parentId);
 
         classification->candidates.reserve(numResults);
         for (int i = 0; i < numResults; ++i) {
@@ -119,7 +120,8 @@ opk::Result<void> ImageNetClassificationParser::parse(const opk::TensorParser::I
             // Store classification result as DetectionRect
             // x,y will be used to position the label in lower-right corner
             // w,h are not used for classification (no actual bounding box)
-            auto candidate = std::make_unique<perception::metadata::ClassificationCandidateT>();
+            auto candidate =
+                std::make_unique<open_perception_kit::metadata::ClassificationCandidateT>();
             candidate->x = 0.0f;                  // Position will be calculated by renderer
             candidate->y = static_cast<float>(i); // Store index for rendering
             candidate->w = 0.0f;                  // Not used

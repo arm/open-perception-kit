@@ -32,7 +32,7 @@ float parseAngleForBin(std::size_t bin, const opk::AttributeMap &attributes) {
     input.tensors[0] = &yaw;
     input.tensors[1] = &pitch;
 
-    perception::FrameResults output;
+    open_perception_kit::FrameResults output;
     opk::stdop::postproc::GazeDetectionParser parser;
     const auto result = parser.parse(input, output);
     if (!result) {
@@ -40,7 +40,7 @@ float parseAngleForBin(std::size_t bin, const opk::AttributeMap &attributes) {
         return std::numeric_limits<float>::quiet_NaN();
     }
 
-    const auto posesRef = output.get<perception::metadata::PoseEstimationsT>();
+    const auto posesRef = output.get<open_perception_kit::metadata::PoseEstimationsT>();
     if (!posesRef) {
         ADD_FAILURE() << "missing PoseEstimations payload";
         return std::numeric_limits<float>::quiet_NaN();

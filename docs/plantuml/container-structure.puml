@@ -128,7 +128,7 @@ note bottom of deployment_build
   Deployment is the only core lane that builds OPK
   during image creation. It consumes model and demo
   media artifact stages. Native release builds also package
-  the checked-in Perception SDK snapshot and create the
+  the checked-in open-perception-kit snapshot and create the
   validated architecture tarball. The runtime target
   copies selected outputs, not compilers or build scratch state.
 end note

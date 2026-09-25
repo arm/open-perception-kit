@@ -382,7 +382,7 @@ void appendDetections(const std::vector<Det> &dets,
                       const ParserSettings &settings,
                       const ImageGeometry &geometry,
                       uint64_t parentId,
-                      perception::metadata::BoxDetectionsT &payload) {
+                      open_perception_kit::metadata::BoxDetectionsT &payload) {
     for (const auto &det : dets) {
         float x = det.x1;
         float y = det.y1;
@@ -396,9 +396,9 @@ void appendDetections(const std::vector<Det> &dets,
             height /= static_cast<float>(geometry.frameHeight);
         }
 
-        auto detection = std::make_unique<perception::metadata::BoxDetectionT>();
-        detection->object = perception::makeObjectMeta(0U, parentId);
-        detection->box = perception::makeBoundingBox(x, y, width, height);
+        auto detection = std::make_unique<open_perception_kit::metadata::BoxDetectionT>();
+        detection->object = open_perception_kit::makeObjectMeta(0U, parentId);
+        detection->box = open_perception_kit::makeBoundingBox(x, y, width, height);
         detection->confidence = det.conf;
         detection->class_id = det.cls;
         detection->text =
@@ -410,7 +410,7 @@ void appendDetections(const std::vector<Det> &dets,
 } // namespace
 
 Result<void> YoloXParser::parse(const opk::TensorParser::Input &input,
-                                perception::FrameResults &results) {
+                                open_perception_kit::FrameResults &results) {
     if (!input.tensors[0]) {
         return tl::unexpected(
             OPK_ERROR(opk::ErrorFlag::InvalidData, "YoloXParser: input tensor is null"));
@@ -463,12 +463,13 @@ Result<void> YoloXParser::parse(const opk::TensorParser::Input &input,
         tensor, candidateCount, static_cast<size_t>(classCount) + classValueOffset, rowMajor};
     auto dets = collectDetections(reader, processedCandidateCount, grid, settings, geometry);
     finalizeDetections(dets, settings);
-    perception::metadata::BoxDetectionsT payload;
-    payload.layer = perception::makeLayerInfo({.model = input.inferenceInfo.modelName,
-                                               .inferElementId = input.inferenceInfo.inferElementId,
-                                               .contentType = k_content_type,
-                                               .labelFamily = "coco",
-                                               .producer = &input.producerInfo});
+    open_perception_kit::metadata::BoxDetectionsT payload;
+    payload.layer =
+        open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
+                                            .inferElementId = input.inferenceInfo.inferElementId,
+                                            .contentType = k_content_type,
+                                            .labelFamily = "coco",
+                                            .producer = &input.producerInfo});
     appendDetections(dets, settings, geometry, input.inferenceInfo.parentId, payload);
     if (!payload.detections.empty()) {
         results.add(std::move(payload));

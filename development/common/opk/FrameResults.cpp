@@ -8,7 +8,7 @@
 
 #include <utility>
 
-namespace perception {
+namespace open_perception_kit {
 
 std::unique_ptr<metadata::ObjectMetaT>
 makeObjectMeta(uint64_t id, uint64_t parentId, uint64_t creationTsNs) {
@@ -74,4 +74,4 @@ std::vector<uint8_t> serialize(const FrameResults &frameResults) {
     return {packet.data(), packet.data() + packet.size()};
 }
 
-} // namespace perception
+} // namespace open_perception_kit

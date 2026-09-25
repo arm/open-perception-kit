@@ -745,13 +745,13 @@ def _generate_known_payload_helpers(
 ) -> str:
     enum_values = "\n".join(f"    {_known_kind_name(entry)}," for entry in entries)
     type_matches = "\n".join(
-        f"""    if (py_type_matches(type_object, "{_python_fb_module('__SDK_NAME__', root_types[entry.qualified_root_type])}", "{root_types[entry.qualified_root_type].py_type_name}")) {{
+        f"""    if (py_type_matches(type_object, "{_python_fb_module('__PYTHON_PACKAGE_NAME__', root_types[entry.qualified_root_type])}", "{root_types[entry.qualified_root_type].py_type_name}")) {{
         return known_payload_kind::{_known_kind_name(entry)};
     }}"""
         for entry in entries
     )
     value_matches = "\n".join(
-        f"""    if (py_object_type_matches(value, "{_python_fb_module('__SDK_NAME__', root_types[entry.qualified_root_type])}", "{root_types[entry.qualified_root_type].py_type_name}")) {{
+        f"""    if (py_object_type_matches(value, "{_python_fb_module('__PYTHON_PACKAGE_NAME__', root_types[entry.qualified_root_type])}", "{root_types[entry.qualified_root_type].py_type_name}")) {{
         return known_payload_kind::{_known_kind_name(entry)};
     }}"""
         for entry in entries
@@ -1548,7 +1548,7 @@ PyObject* producer_identity_status_object(container::producer_identity_status st
         break;
     }
 
-    PyObject* sdk_module = PyImport_ImportModule("__SDK_NAME__.sdk");
+    PyObject* sdk_module = PyImport_ImportModule("__PYTHON_PACKAGE_NAME__.sdk");
     if (sdk_module == nullptr) {
         return nullptr;
     }
@@ -1618,7 +1618,7 @@ std::optional<bool> is_external_key_python(PyObject* object) {
         return false;
     }
 
-    PyObject* sdk_module = PyImport_ImportModule("__SDK_NAME__");
+    PyObject* sdk_module = PyImport_ImportModule("__PYTHON_PACKAGE_NAME__");
     if (sdk_module == nullptr) {
         PyErr_SetString(PyExc_TypeError, "__SDK_NAME__ ExternalKey requires the generated Python SDK to be importable");
         return std::nullopt;
@@ -1980,14 +1980,17 @@ PyObject* scoped_envelope::py_object() const noexcept {
 
 
 def _render(text: str, context: GenerationContext, replacements: dict[str, str] | None = None) -> str:
-    module_name = f"{context.sdk_name}_bridge"
+    module_name = f"{context.effective_public_name}_bridge"
     result = text
     for key, value in (replacements or {}).items():
         result = result.replace(key, value)
-    result = result.replace("__SDK_NAME__", context.sdk_name)
-    result = result.replace("__SDK_HEADER__", f"{context.sdk_name}.h")
+    result = result.replace("__SDK_NAME__", context.effective_public_name)
+    result = result.replace(
+        "__PYTHON_PACKAGE_NAME__", context.effective_public_name
+    )
+    result = result.replace("__SDK_HEADER__", f"{context.effective_public_name}.h")
     result = result.replace("__MODULE_NAME__", module_name)
-    result = result.replace("__BRIDGE_HEADER__", f"{context.sdk_name}_python_bridge.h")
+    result = result.replace("__BRIDGE_HEADER__", f"{context.effective_public_name}_python_bridge.h")
     return result
 
 
@@ -2026,8 +2029,8 @@ def generate_python_bridge(context: GenerationContext, entries: list[SchemaEntry
     bridge_dir = context.cpp_root / "python_bridge"
     bridge_dir.mkdir(parents=True, exist_ok=True)
 
-    header_path = bridge_dir / f"{context.sdk_name}_python_bridge.h"
-    source_path = bridge_dir / f"{context.sdk_name}_python_bridge.cpp"
+    header_path = bridge_dir / f"{context.effective_public_name}_python_bridge.h"
+    source_path = bridge_dir / f"{context.effective_public_name}_python_bridge.cpp"
 
     header_path.write_text(_render(HEADER_TEMPLATE, context), encoding="utf-8")
     source_path.write_text(_render(SOURCE_TEMPLATE, context, replacements), encoding="utf-8")

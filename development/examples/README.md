@@ -1,7 +1,7 @@
 # Development Examples
 
 This directory contains proof-of-concept applications that are tightly coupled
-to the checked-in OPK/OPK runtime, configuration, pipeline, and Perception SDK
+to the checked-in Open Perception Kit runtime, configuration, pipeline, and SDK
 surfaces.
 
 The C++ runtime API examples are part of the main Meson build. Running
@@ -15,7 +15,7 @@ stages their binaries into `tools/` beside `opk-menu`.
   an OpChain through `opk::runtime::OpChain`, and prints the serialized result.
 - `pipeline-exec`: C++ application facade proof of concept for loading an OPK
   pipeline JSON through `opk::runtime::Pipeline` and receiving serialized
-  Perception packet callbacks.
+  FrameResults packet callbacks.
 - `byom-blazeface`: Python/config application sketch that brings a BlazeFace
   model through OPK model, OpChain, pipeline, Python postprocessing, and
-  Perception packet consumption surfaces.
+  FrameResults packet consumption surfaces.

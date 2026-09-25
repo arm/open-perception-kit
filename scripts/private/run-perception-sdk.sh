@@ -11,7 +11,7 @@ detect_script="${repo_root}/scripts/quick-start/detect-environment.sh"
 
 if [[ "${OPK_PERCEPTION_IN_CONTAINER:-0}" != "1" && ! -f /.dockerenv && "${repo_root}" != "/work" ]]; then
     if ! command -v docker > /dev/null 2>&1; then
-        echo "docker is required on the host; Perception SDK commands run inside the OPK container" >&2
+        echo "docker is required on the host; open-perception-kit commands run inside the OPK container" >&2
         exit 127
     fi
 

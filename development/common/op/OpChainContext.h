@@ -98,7 +98,7 @@ struct OpChainContext {
      * Postprocessing operations write detection results, classifications, segmentations,
      * and other perception data into this structure.
      */
-    perception::FrameResults *frameResults = nullptr;
+    open_perception_kit::FrameResults *frameResults = nullptr;
 };
 
 } // namespace opk::op

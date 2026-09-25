@@ -24,7 +24,7 @@ struct ObjectEmbeddingParser : public TensorParser {
     }
 
     Result<void> parse(const TensorParser::Input &input,
-                       perception::FrameResults &results) override;
+                       open_perception_kit::FrameResults &results) override;
 };
 
 } // namespace opk::stdop::postproc

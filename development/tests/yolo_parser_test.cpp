@@ -45,15 +45,15 @@ TEST(YoloParser, StoresBestClassIdOnRectOutput) {
     input.inferenceInfo.image.modelWidth = 100;
     input.inferenceInfo.image.modelHeight = 100;
 
-    perception::FrameResults output;
+    open_perception_kit::FrameResults output;
     opk::stdop::postproc::YoloParser parser;
 
     const auto result = parser.parse(input, output);
 
     ASSERT_TRUE(result.has_value()) << result.error().toString();
-    ASSERT_EQ(output.count<perception::metadata::BoxDetectionsT>(), 1U);
+    ASSERT_EQ(output.count<open_perception_kit::metadata::BoxDetectionsT>(), 1U);
 
-    const auto detectionsRef = output.get<perception::metadata::BoxDetectionsT>();
+    const auto detectionsRef = output.get<open_perception_kit::metadata::BoxDetectionsT>();
     if (!detectionsRef.has_value()) {
         ADD_FAILURE() << "missing BoxDetections payload";
         return;
@@ -97,12 +97,12 @@ TEST(YoloParser, ParsesCornerScoreClassOutput) {
     input.inferenceInfo.image = {
         .width = 100, .height = 100, .modelWidth = 100, .modelHeight = 100};
 
-    perception::FrameResults output;
+    open_perception_kit::FrameResults output;
     opk::stdop::postproc::YoloParser parser;
     const auto result = parser.parse(input, output);
 
     ASSERT_TRUE(result.has_value()) << result.error().toString();
-    const auto detectionsRef = output.get<perception::metadata::BoxDetectionsT>();
+    const auto detectionsRef = output.get<open_perception_kit::metadata::BoxDetectionsT>();
     if (!detectionsRef.has_value()) {
         ADD_FAILURE() << "missing BoxDetections payload";
         return;
@@ -123,7 +123,7 @@ TEST(YoloParser, RejectsMissingTensor) {
     input.inferenceInfo.image = {
         .width = 100, .height = 100, .modelWidth = 100, .modelHeight = 100};
 
-    perception::FrameResults output;
+    open_perception_kit::FrameResults output;
     opk::stdop::postproc::YoloParser parser;
 
     EXPECT_FALSE(parser.parse(input, output).has_value());
@@ -143,7 +143,7 @@ TEST(YoloParser, RejectsMalformedTensorShape) {
     input.inferenceInfo.image = {
         .width = 100, .height = 100, .modelWidth = 100, .modelHeight = 100};
 
-    perception::FrameResults output;
+    open_perception_kit::FrameResults output;
     opk::stdop::postproc::YoloParser parser;
 
     EXPECT_FALSE(parser.parse(input, output).has_value());
@@ -154,7 +154,7 @@ TEST(YoloParser, RejectsInvalidImageSize) {
     opk::TensorParser::Input input(attrs);
     input.inferenceInfo.image = {.width = 100, .height = 100, .modelWidth = 100, .modelHeight = 0};
 
-    perception::FrameResults output;
+    open_perception_kit::FrameResults output;
     opk::stdop::postproc::YoloParser parser;
 
     EXPECT_FALSE(parser.parse(input, output).has_value());
@@ -174,7 +174,7 @@ TEST(YoloParser, RejectsTensorWithTooFewValuesPerCandidate) {
     input.inferenceInfo.image = {
         .width = 100, .height = 100, .modelWidth = 100, .modelHeight = 100};
 
-    perception::FrameResults output;
+    open_perception_kit::FrameResults output;
     opk::stdop::postproc::YoloParser parser;
 
     EXPECT_FALSE(parser.parse(input, output).has_value());
@@ -188,7 +188,7 @@ TEST(YoloParser, RejectsInvalidTensorView) {
     input.inferenceInfo.image = {
         .width = 100, .height = 100, .modelWidth = 100, .modelHeight = 100};
 
-    perception::FrameResults output;
+    open_perception_kit::FrameResults output;
     opk::stdop::postproc::YoloParser parser;
 
     EXPECT_FALSE(parser.parse(input, output).has_value());
