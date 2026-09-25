@@ -45,7 +45,7 @@ The files are separated so the reusable BYOM contract stays visible:
 The three configuration JSON files use `"version": "1.0.0"`. Increment an
 edited file's patch within its current major/minor contract. A major mismatch
 fails, a minor mismatch warns and continues, and patch differences are ignored
-at runtime; see [Configuration compatibility](../../docs/public/concepts/configuration-compatibility.md).
+at runtime; see [Configuration compatibility](../../../docs/public/concepts/configuration-compatibility.md).
 
 `model.json` defines the contract between BlazeFace and OPK:
 

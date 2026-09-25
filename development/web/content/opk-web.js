@@ -715,11 +715,11 @@ function enableAudioButton(enable) {
 
 // development/web/src/models.js
 var PREFERRED_MODEL_ORDER = [
-  "YoloV11",
-  "OsnetX025Reid",
-  "Ultraface",
-  "CameraContact",
-  "GazeDetection"
+  "Yolo26n320Int8",
+  "OsnetX025Int8Reid",
+  "UltraFaceRfb320Int8",
+  "NitecResnet18Int8",
+  "MobileGazeMobilenetV2Int8"
 ];
 function modelKey(modelOrName) {
   return String(modelOrName?.name || modelOrName || "").toLowerCase();

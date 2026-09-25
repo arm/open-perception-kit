@@ -276,7 +276,7 @@ running the kit from a mounted checkout. Binary release jobs build
 its prebuilt architecture archives.
 
 Use the development container for local tests, Valgrind, and `opk-ci` commands.
-See [CI workflows](../../.github/CI-README.md) for the standalone CI checks.
+See the [CI workflow definitions](../../.github/workflows/) for the standalone CI checks.
 
 Use the documentation image when generating public docs, Doxygen output, and
 PlantUML diagrams.

@@ -116,6 +116,20 @@ class ModelArtifactBuildTest(unittest.TestCase):
             "yolo26n_raspberry_onnx_optimized.onnx",
         )
 
+    def test_vscode_pipeline_choices_match_catalog(self) -> None:
+        for filename in (".vscode/tasks.json", ".vscode/launch.json"):
+            with self.subTest(filename=filename):
+                config = json.loads((REPO_ROOT / filename).read_text())
+                picker = next(item for item in config["inputs"]
+                              if item["id"] == "selectedPipeline")
+                self.assertEqual(picker["default"], "yolo26n-320")
+                self.assertIn(picker["default"], picker["options"])
+                for pipeline in picker["options"]:
+                    self.assertTrue(
+                        (REPO_ROOT / "config/pipelines" / f"{pipeline}.json").is_file(),
+                        pipeline,
+                    )
+
     def test_dev_container_seeds_downloaded_artifacts(self) -> None:
         dockerfile = (REPO_ROOT / "Dockerfile").read_text()
         entrypoint = (
