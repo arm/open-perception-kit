@@ -26,6 +26,12 @@ bool WebSocketWriter::validate(const OpkCommConnectionHdl &hdl) {
 }
 
 void WebSocketWriter::on_open(const OpkCommConnectionHdl &hdl) {
+    // A handshake accepted before stop_listening() can complete during shutdown.
+    if (!m_ws->is_listening()) {
+        websocketpp::lib::error_code ec;
+        m_ws->close(hdl, websocketpp::close::status::going_away, "", ec);
+        return;
+    }
     std::lock_guard<std::mutex> lock(m_connection_lock);
     m_connections.insert(hdl);
     GST_INFO_OBJECT(self(), "opkcomm WebSocket client connected");
@@ -70,21 +76,25 @@ bool WebSocketWriter::io_open() {
 }
 
 void WebSocketWriter::io_close() {
-    {
-        std::lock_guard<std::mutex> lock(m_connection_lock);
-        m_connections.clear();
-    }
-
     if (m_ws) {
-        websocketpp::lib::error_code ec;
-        m_ws->stop_listening(ec);
-        m_ws->stop();
+        m_ws->get_io_service().post([this] {
+            websocketpp::lib::error_code ec;
+            m_ws->stop_listening(ec);
+            std::lock_guard<std::mutex> lock(m_connection_lock);
+            for (const auto &hdl : m_connections) {
+                m_ws->close(hdl, websocketpp::close::status::going_away, "", ec);
+            }
+        });
     }
 
     if (m_ws_thread.joinable()) {
         m_ws_thread.join();
+    } else if (m_ws) {
+        m_ws->run(); // Startup may have failed before the worker was created.
     }
 
+    std::lock_guard<std::mutex> lock(m_connection_lock);
+    m_connections.clear();
     m_ws.reset();
 }
 
@@ -94,16 +104,11 @@ bool WebSocketWriter::publish(const std::string &json_str) {
     }
 
     std::lock_guard<std::mutex> lock(m_connection_lock);
-    for (auto it = m_connections.begin(); it != m_connections.end();) {
+    for (const auto &hdl : m_connections) {
         websocketpp::lib::error_code ec;
-        m_ws->send(*it, json_str, websocketpp::frame::opcode::text, ec);
+        m_ws->send(hdl, json_str, websocketpp::frame::opcode::text, ec);
         if (ec) {
-            GST_INFO_OBJECT(self(),
-                            "Dropping opkcomm WebSocket client after send error: %s",
-                            ec.message().c_str());
-            it = m_connections.erase(it);
-        } else {
-            ++it;
+            GST_INFO_OBJECT(self(), "opkcomm WebSocket send failed: %s", ec.message().c_str());
         }
     }
 

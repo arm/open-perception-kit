@@ -91,21 +91,23 @@ def main() -> None:
             check_endpoints(new_ports)
             port_sets[index] = new_ports
 
-        # Two sinks must not share an HTTP listener, even with distinct WS ports.
+        # Failed HTTP startup must leave the other pipeline usable and allow retry.
         pipeline = pipelines[1]
         sink = pipeline.get_by_name("sink")
-        release_pipeline(pipeline, gst)
-        sink.set_property("http-port", port_sets[0][0])
-        assert pipeline.set_state(gst.State.READY) == gst.StateChangeReturn.FAILURE
-        assert pipeline.get_bus().timed_pop_filtered(gst.SECOND, gst.MessageType.ERROR)
-        assert pipelines[0].get_state(0)[1] == gst.State.PLAYING
-        check_endpoints(port_sets[0])
-        check_released_ports(port_sets[1])
-        release_pipeline(pipeline, gst)
-        sink.set_property("http-port", port_sets[1][0])
-        assert pipeline.set_state(gst.State.PLAYING) != gst.StateChangeReturn.FAILURE
-        assert pipeline.get_state(5 * gst.SECOND)[1] == gst.State.PLAYING
-        check_endpoints(port_sets[1])
+        for name, value in (("host", None), ("http-port", port_sets[0][0])):
+            release_pipeline(pipeline, gst)
+            original = sink.get_property(name)
+            sink.set_property(name, value)
+            assert pipeline.set_state(gst.State.READY) == gst.StateChangeReturn.FAILURE
+            assert pipeline.get_bus().timed_pop_filtered(gst.SECOND, gst.MessageType.ERROR)
+            assert pipelines[0].get_state(0)[1] == gst.State.PLAYING
+            check_endpoints(port_sets[0])
+            check_released_ports(port_sets[1])
+            release_pipeline(pipeline, gst)
+            sink.set_property(name, original)
+            assert pipeline.set_state(gst.State.PLAYING) != gst.StateChangeReturn.FAILURE
+            assert pipeline.get_state(5 * gst.SECOND)[1] == gst.State.PLAYING
+            check_endpoints(port_sets[1])
 
         for conflict in range(3):
             with ExitStack() as reservations:

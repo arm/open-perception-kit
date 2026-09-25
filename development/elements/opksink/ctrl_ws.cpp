@@ -74,13 +74,20 @@ CtrlSockerError CtrlWebSocket::start() {
 
 CtrlSockerError CtrlWebSocket::stop() {
     if (ws) {
-        websocketpp::lib::error_code ec;
-        ws->stop_listening(ec);
-        ws->stop();
+        ws->get_io_service().post([this] {
+            websocketpp::lib::error_code ec;
+            ws->stop_listening(ec);
+            std::lock_guard<std::mutex> g(hdl_lock);
+            for (const auto &hdl : hdls) {
+                ws->close(hdl, websocketpp::close::status::going_away, "", ec);
+            }
+        });
     }
 
     if (ws_server_thread.joinable()) {
         ws_server_thread.join();
+    } else if (ws) {
+        ws->run(); // Startup may have failed before the worker was created.
     }
 
     std::lock_guard<std::mutex> g(hdl_lock);
@@ -97,18 +104,19 @@ void CtrlWebSocket::send_to_all(const std::string &text) {
         return;
     }
 
-    for (auto it = hdls.begin(); it != hdls.end();) {
+    for (const auto &hdl : hdls) {
         websocketpp::lib::error_code ec;
-        ws->send(*it, text, websocketpp::frame::opcode::text, ec);
-        if (ec) {
-            it = hdls.erase(it);
-        } else {
-            ++it;
-        }
+        ws->send(hdl, text, websocketpp::frame::opcode::text, ec);
     }
 }
 
 void CtrlWebSocket::on_open(const connection_hdl &hdl) {
+    // A handshake accepted before stop_listening() can complete during shutdown.
+    if (!ws->is_listening()) {
+        websocketpp::lib::error_code ec;
+        ws->close(hdl, websocketpp::close::status::going_away, "", ec);
+        return;
+    }
     {
         std::lock_guard<std::mutex> g(hdl_lock);
         hdls.insert(hdl);

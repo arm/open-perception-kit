@@ -14,6 +14,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <thread>
 
 #define ASIO_STANDALONE
@@ -58,6 +59,9 @@ class WebRtcWebSocket {
     std::shared_ptr<ws_server> ws = nullptr;
     std::atomic_bool stopping = false;
 
+    // I/O-thread connections, including clients whose session setup failed.
+    std::set<connection_hdl, std::owner_less<connection_hdl>> connections;
+
     mutable std::mutex webrtc_session_mutex;
     WebRtcSessions webrtc_sessions;
 
@@ -84,6 +88,7 @@ class WebRtcWebSocket {
     void on_message(const connection_hdl &hdl, const ws_server::message_ptr &msg);
 
     std::shared_ptr<SessionContext> get_session(const connection_hdl &hdl);
+    void cleanup_session_on_io(const std::weak_ptr<SessionContext> &session);
 
     WebRtcSockerError setup();
 

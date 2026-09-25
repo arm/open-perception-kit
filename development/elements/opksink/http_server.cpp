@@ -97,6 +97,11 @@ OpkSinkHttpServerError OpkSinkHttpServer::setup() {
 }
 
 OpkSinkHttpServerError OpkSinkHttpServer::start() {
+    if (!self_->host) {
+        opk::log::error("HTTP server host must not be null\n");
+        return OpkSinkHttpServerError::CANNOT_BIND_SERVER_PORT;
+    }
+
     if (auto error = setup(); error != OpkSinkHttpServerError::OK) {
         return error;
     }
