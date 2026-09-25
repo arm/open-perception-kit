@@ -6,7 +6,7 @@
 
 #include "runtime/Result.h"
 
-#include "perception.h"
+#include "open_perception_kit.h"
 
 #include <cstdint>
 #include <span>
@@ -15,15 +15,16 @@
 
 class PerceptionPacket {
   public:
-    static opk::runtime::Result<perception::container::envelope>
+    static opk::runtime::Result<open_perception_kit::container::envelope>
     decodeFrameResultsPacket(std::span<const std::uint8_t> packet);
 
-    static opk::runtime::Result<perception::container::envelope>
+    static opk::runtime::Result<open_perception_kit::container::envelope>
     decodeFrameResultsPacket(const std::vector<std::uint8_t> &packet);
 
     template <typename Payload, typename Fn>
-    static void visitFrameResultsPayloads(const perception::container::envelope &frameResults,
-                                          Fn &&visitor) {
+    static void
+    visitFrameResultsPayloads(const open_perception_kit::container::envelope &frameResults,
+                              Fn &&visitor) {
         frameResults.for_each<Payload>(std::forward<Fn>(visitor));
     }
 

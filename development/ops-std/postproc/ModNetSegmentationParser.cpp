@@ -11,7 +11,7 @@ using namespace opk;
 using namespace opk::stdop::postproc;
 
 Result<void> ModNetSegmentationParser::parse(const Input &input,
-                                             perception::FrameResults &results) {
+                                             open_perception_kit::FrameResults &results) {
     const float thresholdLow = (float)input.attributes.getDoubleOrDefault("thresholdLow", 0.2f);
     const float thresholdHigh = (float)input.attributes.getDoubleOrDefault("thresholdHigh", 0.8f);
 
@@ -51,16 +51,17 @@ Result<void> ModNetSegmentationParser::parse(const Input &input,
         }
     }
 
-    auto mask = std::make_unique<perception::metadata::SegmentationMaskT>();
-    mask->object = perception::makeObjectMeta(0U, input.inferenceInfo.parentId);
-    mask->bitmap = perception::makeBitmapData(alphaMatte);
+    auto mask = std::make_unique<open_perception_kit::metadata::SegmentationMaskT>();
+    mask->object = open_perception_kit::makeObjectMeta(0U, input.inferenceInfo.parentId);
+    mask->bitmap = open_perception_kit::makeBitmapData(alphaMatte);
 
-    perception::metadata::SegmentationMasksT payload;
-    payload.layer = perception::makeLayerInfo({.model = input.inferenceInfo.modelName,
-                                               .inferElementId = input.inferenceInfo.inferElementId,
-                                               .contentType = k_content_type,
-                                               .compositingMode = "backgroundReplacement",
-                                               .producer = &input.producerInfo});
+    open_perception_kit::metadata::SegmentationMasksT payload;
+    payload.layer =
+        open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
+                                            .inferElementId = input.inferenceInfo.inferElementId,
+                                            .contentType = k_content_type,
+                                            .compositingMode = "backgroundReplacement",
+                                            .producer = &input.producerInfo});
     payload.masks.push_back(std::move(mask));
     results.add(std::move(payload));
     return {};

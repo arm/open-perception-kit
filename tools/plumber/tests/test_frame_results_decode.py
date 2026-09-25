@@ -20,12 +20,12 @@ from plumber.frame_results_decode import (  # noqa: E402
     decode_frame_results_record,
 )
 from plumber.frame_results_sdk import FrameResults  # noqa: E402
-from perception import (  # noqa: E402
-    PERCEPTION_NAME,
-    PERCEPTION_VERSION,
+from open_perception_kit import (  # noqa: E402
+    OPEN_PERCEPTION_KIT_NAME,
+    OPEN_PERCEPTION_KIT_VERSION,
     SCHEMA_SET_SHA256,
 )
-import perception.internalfb.WireEnvelope as WireEnvelope  # noqa: E402
+import open_perception_kit.internalfb.WireEnvelope as WireEnvelope  # noqa: E402
 
 
 def make_record(packet: bytes) -> dict:
@@ -107,10 +107,10 @@ class FrameResultsDecodeTests(unittest.TestCase):
     def test_rejects_nonmatching_producer_identity(self) -> None:
         cases = [
             (None, None, None, "missing"),
-            (PERCEPTION_NAME, PERCEPTION_VERSION, "bad", "malformed"),
-            ("other_sdk", PERCEPTION_VERSION, SCHEMA_SET_SHA256, "sdk_name_mismatch"),
-            (PERCEPTION_NAME, "9.9.9", SCHEMA_SET_SHA256, "sdk_version_mismatch"),
-            (PERCEPTION_NAME, PERCEPTION_VERSION, "0" * 64, "schema_set_mismatch"),
+            (OPEN_PERCEPTION_KIT_NAME, OPEN_PERCEPTION_KIT_VERSION, "bad", "malformed"),
+            ("other_sdk", OPEN_PERCEPTION_KIT_VERSION, SCHEMA_SET_SHA256, "sdk_name_mismatch"),
+            (OPEN_PERCEPTION_KIT_NAME, "9.9.9", SCHEMA_SET_SHA256, "sdk_version_mismatch"),
+            (OPEN_PERCEPTION_KIT_NAME, OPEN_PERCEPTION_KIT_VERSION, "0" * 64, "schema_set_mismatch"),
         ]
 
         for name, version, schema_set_sha256, expected_status in cases:

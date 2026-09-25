@@ -46,16 +46,16 @@ InferenceControllerOp::process(opk::op::OpChainContext &opChainContext) {
     opChainContext.inferenceInfo.modelName.clear();
 
     if (contentType.empty()) {
-        auto object = perception::makeObjectMeta();
+        auto object = open_perception_kit::makeObjectMeta();
         const uint64_t frameId = object->id;
 
-        perception::metadata::FrameContextT frameContext;
+        open_perception_kit::metadata::FrameContextT frameContext;
         const auto producer = producerInfo(
             opChainContext.inferenceInfo.inferElementId, opName, "opk-std-ops/InferenceController");
         const auto rootLayerId = "rootLayer_" + opChainContext.inferenceInfo.inferElementId;
-        frameContext.layer = perception::makeLayerInfo(
+        frameContext.layer = open_perception_kit::makeLayerInfo(
             {.inferElementId = rootLayerId, .contentType = "frameContext", .producer = &producer});
-        frameContext.video = std::make_unique<perception::metadata::VideoFrameContextT>();
+        frameContext.video = std::make_unique<open_perception_kit::metadata::VideoFrameContextT>();
         frameContext.video->object = std::move(object);
         frameContext.video->original_width = pipelineVideoFrame->width();
         frameContext.video->original_height = pipelineVideoFrame->height();
@@ -70,7 +70,7 @@ InferenceControllerOp::process(opk::op::OpChainContext &opChainContext) {
 
         opChainContext.inferenceImageCropIds.push_back(frameId);
     } else {
-        perception::forEachBoxDetectionWithContentType(
+        open_perception_kit::forEachBoxDetectionWithContentType(
             *opChainContext.frameResults, contentType, [&opChainContext](const auto &r) {
                 if (!r.box || !r.object) {
                     return;

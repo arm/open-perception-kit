@@ -219,7 +219,7 @@ TEST(PythonScriptOp, PreservesStateAndExposesReadOnlyTensors) {
     ASSERT_TRUE(script.configure(attributes("stateful_tensors.py")));
     ASSERT_TRUE(script.bind(1, ops));
 
-    perception::FrameResults results;
+    open_perception_kit::FrameResults results;
     std::array<float, 4> scores = {1.0F, 2.0F, 3.0F, 4.0F};
     std::array<int8_t, 2> classes = {1, 2};
     opk::op::OpChainContext context;
@@ -241,7 +241,7 @@ TEST(PythonScriptOp, AllowsPlacementWithoutInferenceOutputs) {
     ASSERT_TRUE(script.configure(attributes("empty_tensors.py")));
     ASSERT_TRUE(script.bind(0, ops));
 
-    perception::FrameResults results;
+    open_perception_kit::FrameResults results;
     opk::op::OpChainContext context;
     context.frameResults = &results;
 
@@ -336,7 +336,7 @@ TEST(PythonScriptOp, SupportsLazyImportsFromConfiguredPythonPaths) {
     ASSERT_TRUE(script.configure(configuration));
     ASSERT_TRUE(script.bind(0, ops));
 
-    perception::FrameResults results;
+    open_perception_kit::FrameResults results;
     opk::op::OpChainContext context;
     context.frameResults = &results;
 
@@ -349,7 +349,7 @@ TEST(PythonScriptOp, AcceptsCompatibleVariadicProcessSignature) {
     ASSERT_TRUE(script.configure(attributes("variadic_signature.py")));
     ASSERT_TRUE(script.bind(0, ops));
 
-    perception::FrameResults results;
+    open_perception_kit::FrameResults results;
     opk::op::OpChainContext context;
     context.frameResults = &results;
 
@@ -362,7 +362,7 @@ TEST(PythonScriptOp, FailedReconfigurationKeepsLoadedScript) {
     ASSERT_TRUE(script.configure(attributes("empty_tensors.py")));
     ASSERT_TRUE(script.bind(0, ops));
 
-    perception::FrameResults results;
+    open_perception_kit::FrameResults results;
     opk::op::OpChainContext context;
     context.frameResults = &results;
     ASSERT_TRUE(script.process(context));
@@ -384,7 +384,7 @@ TEST(PythonScriptOp, RemovesLoadedModuleOnDestruction) {
 }
 
 TEST(PythonScriptOp, RestoresSysPathAfterScriptMutation) {
-    perception::FrameResults results;
+    open_perception_kit::FrameResults results;
     opk::op::OpChainContext context;
     context.frameResults = &results;
 
@@ -407,7 +407,7 @@ TEST(PythonScriptOp, UsesFreshSysPathForEveryProcessCall) {
     ASSERT_TRUE(script.configure(attributes("mutate_sys_path_repeatedly.py")));
     ASSERT_TRUE(script.bind(0, ops));
 
-    perception::FrameResults results;
+    open_perception_kit::FrameResults results;
     opk::op::OpChainContext context;
     context.frameResults = &results;
 
@@ -421,7 +421,7 @@ TEST(PythonScriptOp, UsesConfiguredContainerRuntime) {
     ASSERT_TRUE(script.configure(attributes("runtime_environment.py")));
     ASSERT_TRUE(script.bind(0, ops));
 
-    perception::FrameResults results;
+    open_perception_kit::FrameResults results;
     opk::op::OpChainContext context;
     context.frameResults = &results;
 
@@ -437,7 +437,7 @@ TEST(PythonScriptOp, RecordsWholeOperationTiming) {
     ASSERT_TRUE(script.configure(attributes("empty_tensors.py")));
     ASSERT_TRUE(script.bind(0, ops));
 
-    perception::FrameResults results;
+    open_perception_kit::FrameResults results;
     opk::op::OpChainContext context;
     context.frameResults = &results;
     context.inferenceInfo.modelName = "test-model";
@@ -459,7 +459,7 @@ TEST(PythonScriptOp, ReturnsPythonTracebackAsRuntimeError) {
     ASSERT_TRUE(script.configure(attributes("failing.py")));
     ASSERT_TRUE(script.bind(0, ops));
 
-    perception::FrameResults results;
+    open_perception_kit::FrameResults results;
     opk::op::OpChainContext context;
     context.frameResults = &results;
     const auto result = script.process(context);
@@ -475,7 +475,7 @@ TEST(PythonScriptOp, RejectsNonNoneProcessResult) {
     ASSERT_TRUE(script.configure(attributes("returns_value.py")));
     ASSERT_TRUE(script.bind(0, ops));
 
-    perception::FrameResults results;
+    open_perception_kit::FrameResults results;
     opk::op::OpChainContext context;
     context.frameResults = &results;
     const auto result = script.process(context);
@@ -515,7 +515,7 @@ TEST(PythonScriptOp, RejectsTensorCountBeyondContextCapacity) {
     ASSERT_TRUE(script.configure(attributes("empty_tensors.py")));
     ASSERT_TRUE(script.bind(0, ops));
 
-    perception::FrameResults results;
+    open_perception_kit::FrameResults results;
     opk::op::OpChainContext context;
     context.frameResults = &results;
     context.inferenceOutputTensorCount = context.inferenceOutputTensors.size() + 1;
@@ -532,7 +532,7 @@ TEST(PythonScriptOp, RejectsInvalidTensorViews) {
     ASSERT_TRUE(script.configure(attributes("empty_tensors.py")));
     ASSERT_TRUE(script.bind(0, ops));
 
-    perception::FrameResults results;
+    open_perception_kit::FrameResults results;
     opk::op::OpChainContext context;
     context.frameResults = &results;
     context.inferenceOutputTensorCount = 1;

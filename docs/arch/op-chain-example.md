@@ -35,12 +35,12 @@ detected face.
 ## Data Flow
 
 1. A video frame is exposed as `bitmapViews["pipelineVideoFrame"]`.
-2. `InferenceController` creates crop rectangles from existing `Perception`
+2. `InferenceController` creates crop rectangles from existing `FrameResults`
    content.
 3. `GenericImagePreprocess` builds the input tensor for the current crop.
 4. `Inference` runs the model using the selected backend.
 5. `GenericPostprocess` parses output tensors and writes results into
-   `Perception`.
+   `FrameResults`.
 
 ## JSON Descriptor Example
 

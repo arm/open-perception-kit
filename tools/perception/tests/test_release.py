@@ -241,7 +241,7 @@ class SdkDescriptorTests(unittest.TestCase):
     def test_descriptor_and_product_version_are_the_release_configuration(self) -> None:
         config = release_package.perception_config.load_sdk_config()
         descriptor = json.loads(config.descriptor_path.read_text(encoding="utf-8"))
-        self.assertEqual(config.name, descriptor["name"])
+        self.assertEqual(config.public_name, descriptor["public_name"])
         self.assertIsNotNone(release_package.SEMANTIC_VERSION_RE.fullmatch(config.version))
         self.assertEqual(config.flatbuffers_version, descriptor["flatbuffers"]["version"])
         self.assertEqual(
@@ -409,27 +409,27 @@ class GenerationReceiptTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             project = Path(tmp) / "pyproject.toml"
             project.write_text(
-                '[project]\ndependencies = [\n    "opk-perception-sdk==0.3.0",\n]\n',
+                '[project]\ndependencies = [\n    "open_perception_kit==0.3.0",\n]\n',
                 encoding="utf-8",
             )
 
             with redirect_stdout(io.StringIO()):
                 self.assertFalse(
                     release_package.perception_generate.synchronize_plumber_dependency(
-                        project, "0.0.4309101", True
+                        project, "open_perception_kit", "0.0.4309101", True
                     )
                 )
             self.assertTrue(
                 release_package.perception_generate.synchronize_plumber_dependency(
-                    project, "0.0.4309101", False
+                    project, "open_perception_kit", "0.0.4309101", False
                 )
             )
-            self.assertIn("opk-perception-sdk==0.0.4309101", project.read_text())
+            self.assertIn("open_perception_kit==0.0.4309101", project.read_text())
 
     def test_typescript_declaration_headers_are_idempotent(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             generated = Path(tmp)
-            declaration = generated / "ts/dist/perception/index.d.ts"
+            declaration = generated / "ts/dist/open_perception_kit/index.d.ts"
             declaration.parent.mkdir(parents=True)
             declaration.write_text("export {};\n", encoding="utf-8")
 
@@ -487,7 +487,10 @@ class LocalSourceReceiptTests(unittest.TestCase):
         self.identity = self.generate.flowdata_source_identity(self.config)
         receipts = {
             sdk: {
-                "sdk": {"name": config.name, "version": config.version},
+                "sdk": {
+                    "name": config.public_name,
+                    "version": config.version,
+                },
                 "generator": self.identity["generator"],
                 "flatc": {"semantic_version": config.flatbuffers_version},
                 "schema_files": self.generate._schema_records(schema_dir),
@@ -501,7 +504,11 @@ class LocalSourceReceiptTests(unittest.TestCase):
             for sdk in ("cpp", "python", "rust", "ts")
         }
         receipts["python"]["python_package"] = {
-            "distribution_name": release_package.PYTHON_DISTRIBUTION_NAME,
+            "distribution_name": config.public_name,
+            "import_name": config.public_name,
+        }
+        receipts["cpp"]["python_bridge"] = {
+            "sdk_import_name": config.public_name,
         }
         with (
             patch.object(self.generate, "command_version", return_value="test formatter"),
@@ -672,26 +679,26 @@ class LocalSourceReceiptTests(unittest.TestCase):
 
 
 class PythonPackagingTests(unittest.TestCase):
-    def test_generated_distribution_name_is_rewritten_once(self) -> None:
+    def test_generated_python_package_metadata_is_decorated_once(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             project = Path(tmp)
             pyproject = project / "pyproject.toml"
             pyproject.write_text(
-                '[project]\nname = "perception"\nversion = "1.2.3"\n',
+                '[project]\nname = "open_perception_kit"\nversion = "1.2.3"\n',
                 encoding="utf-8",
             )
 
             release_package.perception_generate.prepare_python_package(
-                project, "perception", "1.2.3", "1.2.3.dev0"
+                project, "open_perception_kit", "1.2.3", "1.2.3.dev0"
             )
             self.assertEqual(
                 pyproject.read_text(encoding="utf-8"),
-                '[project]\nname = "opk-perception-sdk"\nversion = "1.2.3.dev0"\n'
+                '[project]\nname = "open_perception_kit"\nversion = "1.2.3.dev0"\n'
                 'license = "Apache-2.0"\nlicense-files = ["LICENSE", "NOTICE"]\n',
             )
             with self.assertRaisesRegex(RuntimeError, "project name is unexpected"):
                 release_package.perception_generate.prepare_python_package(
-                    project, "perception", "1.2.3", "1.2.3.dev0"
+                    project, "open_perception_kit", "1.2.3", "1.2.3.dev0"
                 )
 
 
@@ -747,7 +754,7 @@ class BundleVerificationTests(unittest.TestCase):
             )
 
     def create_bundle(self, root: Path) -> Path:
-        bundle = root / "perception-sdk-1.2.3"
+        bundle = root / "open-perception-kit-1.2.3"
         generator = {
             "generator": {"name": "flowdata-sdk", "version": "0.6.0"},
             "sources": [{"path": "tools/flowdata/gen.py", "sha256": "0" * 64, "size": 10}],
@@ -759,14 +766,14 @@ class BundleVerificationTests(unittest.TestCase):
             "rust/src/lib.rs",
         }
         files = {
-            "cpp/perception.h": b"header\n",
-            "metadata/perception-sdk-manifest.json": b"{}\n",
+            "cpp/open_perception_kit.h": b"header\n",
+            "metadata/open-perception-kit-manifest.json": b"{}\n",
             "rust/Cargo.toml": (
-                b'[package]\nname = "perception"\nversion = "1.2.3"\n'
+                b'[package]\nname = "open_perception_kit"\nversion = "1.2.3"\n'
                 b'edition = "2021"\n\n[dependencies]\nflatbuffers = "=25.9.23"\n'
             ),
             "rust/src/lib.rs": b"pub struct Envelope;\n",
-            "schemas/payload.fbs": b"namespace perception.metadata;\n",
+            "schemas/payload.fbs": b"namespace open_perception_kit.metadata;\n",
         }
         rust_crates = [
             ("flatbuffers", "25.9.23"),
@@ -817,7 +824,7 @@ class BundleVerificationTests(unittest.TestCase):
             "# This file is automatically @generated by Cargo.\n"
             "version = 4\n\n"
             + "\n".join(lock_packages)
-            + '\n[[package]]\nname = "perception"\nversion = "1.2.3"\n'
+            + '\n[[package]]\nname = "open_perception_kit"\nversion = "1.2.3"\n'
         ).encode()
         for relative_path, content in files.items():
             path = bundle / relative_path
@@ -825,8 +832,8 @@ class BundleVerificationTests(unittest.TestCase):
             path.write_bytes(content)
         self.create_wheel(flatbuffers_wheel_path, "flatbuffers", "25.9.23")
         self.create_wheel(
-            bundle / "python/opk_perception_sdk.whl",
-            "opk-perception-sdk",
+            bundle / "python/open_perception_kit-1.2.3-py3-none-any.whl",
+            "open_perception_kit",
             "1.2.3",
             ["flatbuffers>=24.3.25,<26.0.0"],
         )
@@ -838,8 +845,8 @@ class BundleVerificationTests(unittest.TestCase):
         )
         self.create_npm_package(
             root,
-            bundle / "typescript/perception-1.2.3.tgz",
-            "perception",
+            bundle / "typescript/open-perception-kit-1.2.3.tgz",
+            "open-perception-kit",
             "1.2.3",
             {"flatbuffers": "25.9.23"},
         )
@@ -866,7 +873,7 @@ class BundleVerificationTests(unittest.TestCase):
                     ],
                     "version": "25.9.23",
                 },
-                "name": "perception",
+                "public_name": "open_perception_kit",
                 "typescript_build": {
                     "flatbuffers_runtime": {
                         "filename": flatbuffers_typescript_path.name,
@@ -882,17 +889,17 @@ class BundleVerificationTests(unittest.TestCase):
         files["metadata/sdk.json"] = b""
         files.update({
             "python/flatbuffers.whl": b"",
-            "python/opk_perception_sdk.whl": b"",
+            "python/open_perception_kit-1.2.3-py3-none-any.whl": b"",
             "typescript/flatbuffers-25.9.23.tgz": b"",
-            "typescript/perception-1.2.3.tgz": b"",
+            "typescript/open-perception-kit-1.2.3.tgz": b"",
         })
         schema_root = bundle / "schemas"
         schema_files = release_package.perception_generate._schema_records(schema_root)
         schema_digest = release_package.perception_generate._schema_set_sha256(schema_root)
         descriptor_sha256 = digest(bundle / "metadata/sdk.json")
-        (bundle / "metadata/perception-sdk-manifest.json").write_text(
+        (bundle / "metadata/open-perception-kit-manifest.json").write_text(
             json.dumps({
-                "artifact": {"name": "perception-sdk", "version": "1.2.3"},
+                "artifact": {"name": "open-perception-kit", "version": "1.2.3"},
                 "generation": {"flowdata_sdk": generator},
                 "descriptor": {
                     "path": "tools/perception/sdk.json",
@@ -942,7 +949,7 @@ class BundleVerificationTests(unittest.TestCase):
                 "timestamp": "1980-01-01T00:00:00Z",
                 "top_level_directory": bundle.name,
             },
-            "artifact": {"name": "perception-sdk", "version": "1.2.3"},
+            "artifact": {"name": "open-perception-kit", "version": "1.2.3"},
             "generator": generator,
             "files": [
                 {
@@ -1000,20 +1007,21 @@ class BundleVerificationTests(unittest.TestCase):
                 "typescript": {"sdk": "ts"},
                 "python_bridge": {},
                 "python_package": {
-                    "distribution_name": "opk-perception-sdk",
-                    "import_name": "perception",
+                    "distribution_name": "open_perception_kit",
+                    "import_name": "open_perception_kit",
                     "version": "1.2.3",
                 },
                 "schemas": True,
             },
             "payloads": [],
             "perception_wheel": {
-                "path": "python/opk_perception_sdk.whl",
-                "sha256": digest(bundle / "python/opk_perception_sdk.whl"),
+                "filename": "open_perception_kit-1.2.3-py3-none-any.whl",
+                "path": "python/open_perception_kit-1.2.3-py3-none-any.whl",
+                "sha256": digest(bundle / "python/open_perception_kit-1.2.3-py3-none-any.whl"),
             },
             "perception_npm_package": {
-                "path": "typescript/perception-1.2.3.tgz",
-                "sha256": digest(bundle / "typescript/perception-1.2.3.tgz"),
+                "path": "typescript/open-perception-kit-1.2.3.tgz",
+                "sha256": digest(bundle / "typescript/open-perception-kit-1.2.3.tgz"),
             },
             "postprocessing": {},
             "schemas": {
@@ -1029,13 +1037,13 @@ class BundleVerificationTests(unittest.TestCase):
                 },
                 "dirty": False,
                 "generated_manifest": {
-                    "path": "metadata/perception-sdk-manifest.json",
-                    "sha256": digest(bundle / "metadata/perception-sdk-manifest.json"),
+                    "path": "metadata/open-perception-kit-manifest.json",
+                    "sha256": digest(bundle / "metadata/open-perception-kit-manifest.json"),
                 },
                 "input_tree_sha256": release_package.content_digest({
                     "descriptor": descriptor_sha256,
                     "generated_manifest": digest(
-                        bundle / "metadata/perception-sdk-manifest.json"
+                        bundle / "metadata/open-perception-kit-manifest.json"
                     ),
                     "schema_set": schema_digest,
                 }),
@@ -1055,7 +1063,7 @@ class BundleVerificationTests(unittest.TestCase):
         descriptor_path.write_text(json.dumps(descriptor), encoding="utf-8")
         descriptor_sha256 = digest(descriptor_path)
 
-        generated_path = bundle / "metadata/perception-sdk-manifest.json"
+        generated_path = bundle / "metadata/open-perception-kit-manifest.json"
         generated = json.loads(generated_path.read_text(encoding="utf-8"))
         generated["descriptor"]["sha256"] = descriptor_sha256
         generated_path.write_text(json.dumps(generated), encoding="utf-8")
@@ -1072,7 +1080,7 @@ class BundleVerificationTests(unittest.TestCase):
         })
         for relative, digest_value in (
             ("metadata/sdk.json", descriptor_sha256),
-            ("metadata/perception-sdk-manifest.json", generated_sha256),
+            ("metadata/open-perception-kit-manifest.json", generated_sha256),
         ):
             record = next(
                 entry for entry in manifest["files"] if entry["path"] == relative
@@ -1099,7 +1107,7 @@ class BundleVerificationTests(unittest.TestCase):
                     "descriptor_sha256": digest(bundle / "metadata/sdk.json"),
                     "dirty": False,
                     "generated_manifest_sha256": digest(
-                        bundle / "metadata/perception-sdk-manifest.json"
+                        bundle / "metadata/open-perception-kit-manifest.json"
                     ),
                     "repository_commit": "0" * 40,
                 }),
@@ -1113,9 +1121,9 @@ class BundleVerificationTests(unittest.TestCase):
             root = Path(tmp)
             first = root / "first.tgz"
             second = root / "second.tgz"
-            self.create_npm_package(root, first, "perception", "1.2.3")
-            shutil.rmtree(root / "perception-npm-source")
-            self.create_npm_package(root, second, "perception", "1.2.3")
+            self.create_npm_package(root, first, "open-perception-kit", "1.2.3")
+            shutil.rmtree(root / "open-perception-kit-npm-source")
+            self.create_npm_package(root, second, "open-perception-kit", "1.2.3")
             self.assertEqual(first.read_bytes(), second.read_bytes())
             with tarfile.open(first, "r:gz") as archive:
                 for legal in release_package.perception_generate.SDK_LEGAL_FILES:
@@ -1125,7 +1133,7 @@ class BundleVerificationTests(unittest.TestCase):
                             (release_package.perception_generate.SDK_LEGAL_INPUT_DIR / legal).read_bytes(),
                         )
             self.assertEqual(
-                release_package.npm_package_metadata(first)["name"], "perception"
+                release_package.npm_package_metadata(first)["name"], "open-perception-kit"
             )
 
     def test_rejects_oversized_npm_metadata(self) -> None:
@@ -1165,7 +1173,7 @@ class BundleVerificationTests(unittest.TestCase):
     def test_verifies_consistent_historical_bundle_generator_identity(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             bundle = self.create_bundle(Path(tmp))
-            path = bundle / "metadata/perception-sdk-manifest.json"
+            path = bundle / "metadata/open-perception-kit-manifest.json"
             generated = json.loads(path.read_text(encoding="utf-8"))
             identity = {
                 "commit": "a" * 40,
@@ -1265,7 +1273,7 @@ class BundleVerificationTests(unittest.TestCase):
             bundle = self.create_bundle(Path(tmp))
             descriptor_path = bundle / "metadata/sdk.json"
             descriptor = json.loads(descriptor_path.read_text(encoding="utf-8"))
-            descriptor["name"] = "other_sdk"
+            descriptor["public_name"] = "other_sdk"
             descriptor_path.write_text(json.dumps(descriptor), encoding="utf-8")
 
             manifest_path = bundle / release_package.MANIFEST_FILENAME
@@ -1297,6 +1305,69 @@ class BundleVerificationTests(unittest.TestCase):
             manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
             with self.assertRaisesRegex(RuntimeError, "Python package identity"):
+                release_package.verify_bundle(bundle)
+
+    def test_rejects_wheel_name_that_differs_from_descriptor(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle = self.create_bundle(Path(tmp))
+            wheel_path = bundle / "python/open_perception_kit-1.2.3-py3-none-any.whl"
+            self.create_wheel(
+                wheel_path, "other_sdk", "1.2.3", ["flatbuffers>=24.3.25,<26.0.0"]
+            )
+            manifest_path = bundle / release_package.MANIFEST_FILENAME
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["outputs"]["python_package"]["distribution_name"] = "other_sdk"
+            manifest["outputs"]["python_package"]["import_name"] = "other_sdk"
+            manifest["perception_wheel"]["sha256"] = digest(wheel_path)
+            wheel_record = next(
+                record for record in manifest["files"]
+                if record["path"] == "python/open_perception_kit-1.2.3-py3-none-any.whl"
+            )
+            wheel_record["sha256"] = digest(wheel_path)
+            wheel_record["size"] = wheel_path.stat().st_size
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            with self.assertRaisesRegex(RuntimeError, "Python package identity"):
+                release_package.verify_bundle(bundle)
+
+    def test_rejects_wheel_filename_that_differs_from_descriptor(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle = self.create_bundle(Path(tmp))
+            wheel_path = bundle / "python/open_perception_kit-1.2.3-py3-none-any.whl"
+            renamed_path = bundle / "python/other_sdk-1.2.3-py3-none-any.whl"
+            wheel_path.rename(renamed_path)
+            manifest_path = bundle / release_package.MANIFEST_FILENAME
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["perception_wheel"]["filename"] = renamed_path.name
+            manifest["perception_wheel"]["path"] = "python/" + renamed_path.name
+            wheel_record = next(
+                record for record in manifest["files"]
+                if record["path"] == "python/open_perception_kit-1.2.3-py3-none-any.whl"
+            )
+            wheel_record["path"] = "python/" + renamed_path.name
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            with self.assertRaisesRegex(RuntimeError, "wheel filename"):
+                release_package.verify_bundle(bundle)
+
+    def test_rejects_wheel_filename_with_extra_tag(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle = self.create_bundle(Path(tmp))
+            wheel_path = bundle / "python/open_perception_kit-1.2.3-py3-none-any.whl"
+            renamed_path = bundle / "python/open_perception_kit-1.2.3-py3-none-any-extra.whl"
+            wheel_path.rename(renamed_path)
+            manifest_path = bundle / release_package.MANIFEST_FILENAME
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["perception_wheel"]["filename"] = renamed_path.name
+            manifest["perception_wheel"]["path"] = "python/" + renamed_path.name
+            wheel_record = next(
+                record for record in manifest["files"]
+                if record["path"] == "python/open_perception_kit-1.2.3-py3-none-any.whl"
+            )
+            wheel_record["path"] = "python/" + renamed_path.name
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            with self.assertRaisesRegex(RuntimeError, "wheel filename"):
                 release_package.verify_bundle(bundle)
 
     def test_rejects_descriptor_flatbuffers_version_mismatch(self) -> None:
@@ -1431,23 +1502,28 @@ class GeneratedSdkTests(unittest.TestCase):
         repository = Path(__file__).resolve().parents[3]
         config = release_package.perception_config.load_sdk_config()
         generated = config.generated_root
-        self.assertTrue((generated / "cpp" / "cmake" / "perception.cmake").is_file())
-        self.assertTrue((generated / "cpp" / "meson" / "perception" / "meson.build").is_file())
-        self.assertTrue((generated / "python" / "src" / "perception" / "guest.pyi").is_file())
-        self.assertTrue((generated / "python" / "src" / "perception" / "py.typed").is_file())
-        self.assertTrue((generated / "ts" / "src" / "perception" / "index.ts").is_file())
-        self.assertTrue((generated / "ts" / "dist" / "perception" / "index.js").is_file())
-        self.assertTrue((generated / "ts" / "dist" / "perception" / "index.d.ts").is_file())
+        self.assertTrue((generated / "cpp" / "open_perception_kit.h").is_file())
+        self.assertTrue((generated / "cpp" / "cmake" / "open_perception_kit.cmake").is_file())
+        self.assertTrue((generated / "cpp" / "meson" / "open_perception_kit" / "meson.build").is_file())
+        self.assertTrue((generated / "python" / "src" / "open_perception_kit" / "guest.pyi").is_file())
+        self.assertTrue((generated / "python" / "src" / "open_perception_kit" / "py.typed").is_file())
+        self.assertTrue((generated / "ts" / "src" / "open_perception_kit" / "index.ts").is_file())
+        self.assertTrue((generated / "ts" / "dist" / "open_perception_kit" / "index.js").is_file())
+        self.assertTrue((generated / "ts" / "dist" / "open_perception_kit" / "index.d.ts").is_file())
+        self.assertEqual(
+            json.loads((generated / "ts" / "package.json").read_text(encoding="utf-8"))["name"],
+            "open-perception-kit",
+        )
         self.assertTrue((generated / "rust" / "Cargo.toml").is_file())
         self.assertTrue((generated / "rust" / "src" / "lib.rs").is_file())
         self.assertTrue((generated / "rust" / "tests" / "opk_packet.rs").is_file())
         self.assertIn(
-            f'name = "{config.name}"',
+            f'name = "{config.public_name}"',
             (generated / "rust" / "Cargo.toml").read_text(encoding="utf-8"),
         )
 
         manifest = json.loads(
-            (generated / "perception-sdk-manifest.json").read_text(encoding="utf-8")
+            (generated / "open-perception-kit-manifest.json").read_text(encoding="utf-8")
         )
         self.assertNotIn("manifest_version", manifest)
         self.assertEqual(
@@ -1466,7 +1542,7 @@ class GeneratedSdkTests(unittest.TestCase):
         self.assertEqual(manifest["upstream_receipts"]["ts"]["outputs"]["sdk"], "ts")
         self.assertEqual(
             manifest["upstream_receipts"]["python"]["python_package"]["distribution_name"],
-            release_package.perception_config.PYTHON_DISTRIBUTION_NAME,
+            config.public_name,
         )
         self.assertEqual(
             manifest["postprocessing"]["typescript"]["flatbuffers_runtime"],
@@ -1481,13 +1557,13 @@ class GeneratedSdkTests(unittest.TestCase):
         )
         self.assertIs(rust_postprocessing["standard_library"], True)
         self.assertTrue(
-            (generated / "cpp" / "meson" / "perception" / "python_bridge" / "meson.build").is_file()
+            (generated / "cpp" / "meson" / "open_perception_kit" / "python_bridge" / "meson.build").is_file()
         )
         self.assertEqual(
             manifest["upstream_receipts"]["python"]["python_package"]["typing"],
             {
-                "marker": "src/perception/py.typed",
-                "stubs": ["src/perception/guest.pyi"],
+                "marker": "src/open_perception_kit/py.typed",
+                "stubs": ["src/open_perception_kit/guest.pyi"],
             },
         )
 

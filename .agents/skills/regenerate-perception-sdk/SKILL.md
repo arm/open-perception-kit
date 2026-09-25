@@ -1,9 +1,9 @@
 ---
 name: regenerate-perception-sdk
-description: Regenerate and validate the canonical checked-in Perception C++, Python, Rust, and TypeScript SDK snapshot during implementation. Use when schemas, tools/perception/sdk.json, flowdata-sdk, formatting rules, generated build integrations, or generator behavior require updates under generated/perception or development/perception/meson.build; when the SDK drift check fails; or when generated SDK sources must be prepared for a normal source commit. Do not use this skill to create release ZIP bundles.
+description: Regenerate and validate the canonical checked-in Open Perception Kit C++, Python, Rust, and TypeScript SDK snapshot during implementation. Use when schemas, tools/perception/sdk.json, flowdata-sdk, formatting rules, generated build integrations, or generator behavior require updates under generated/open_perception_kit or development/perception/meson.build; when the SDK drift check fails; or when generated SDK sources must be prepared for a normal source commit. Do not use this skill to create release ZIP bundles.
 ---
 
-# Regenerate Perception SDK
+# Regenerate Open Perception Kit
 
 Update the repository's generated SDK snapshot from authored inputs and leave a
 reviewable, commit-ready source diff. Do not create release artifacts.
@@ -16,7 +16,7 @@ with the authored inputs that produced them.
 
 Do not use `package` as a substitute for regeneration. Packaging consumes the
 checked-in snapshot and never updates generated source files. Use
-`$package-perception-sdk-release` only after the implementation snapshot is
+`$package-open-perception-kit-release` only after the implementation snapshot is
 committed and ready to release.
 
 ## Inspect Inputs
@@ -45,11 +45,11 @@ non-default container.
 
 Generation atomically replaces:
 
-- `generated/perception/`
+- `generated/open_perception_kit/`
 - `development/perception/meson.build`
 
 It also verifies raw FlowData manifests, applies project formatting and license
-decoration, writes the Perception generation receipt, and validates the final
+decoration, writes the SDK generation receipt, and validates the final
 snapshot. Never edit these outputs by hand.
 
 ## Review the Generated Diff
@@ -61,14 +61,14 @@ git status --short -- \
   schemas/perception \
   tools/perception/sdk.json \
   tools/flowdata-sdk \
-  generated/perception \
+  generated/open_perception_kit \
   development/perception/meson.build
 
 git diff --stat -- \
   schemas/perception \
   tools/perception/sdk.json \
   tools/flowdata-sdk \
-  generated/perception \
+  generated/open_perception_kit \
   development/perception/meson.build
 
 git diff --check
@@ -108,7 +108,7 @@ Keep these files in the same normal source commit when they changed together:
 
 - authored schemas and `tools/perception/sdk.json`
 - the tracked `tools/flowdata-sdk` sources when manually updated
-- `generated/perception/`
+- `generated/open_perception_kit/`
 - `development/perception/meson.build`
 - runtime integrations, tests, and documentation
 

@@ -2,7 +2,7 @@
 # Copyright (C) 2026 Arm Limited. All rights reserved.
 ################################################################
 
-from perception.guest import Envelope
+from open_perception_kit.guest import Envelope
 from opk_python_ops import Context, Tensor
 
 

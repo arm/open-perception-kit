@@ -397,18 +397,20 @@ class GeneratorBridgeTests(unittest.TestCase):
         self.assertEqual(bridge._python_fb_module("fixture", global_type), "fixture.fb.Global")
 
     def test_emitted_bridge_structures_without_writing_files(self) -> None:
+        context = replace(self.context, public_name="fixture_python")
         with patch.object(Path, "read_text", return_value=SCHEMA), patch.object(Path, "mkdir") as mkdir, patch.object(Path, "write_text") as write_text:
-            paths = bridge.generate_python_bridge(self.context, [self.entry])
+            paths = bridge.generate_python_bridge(context, [self.entry])
         directory = self.context.cpp_root / "python_bridge"
-        self.assertEqual(paths, [directory / "fixture_python_bridge.h", directory / "fixture_python_bridge.cpp"])
+        self.assertEqual(paths, [directory / "fixture_python_python_bridge.h",
+                         directory / "fixture_python_python_bridge.cpp"])
         mkdir.assert_called_once_with(parents=True, exist_ok=True)
         self.assertEqual(write_text.call_count, 2)
         header, source = [item.args[0] for item in write_text.call_args_list]
         self.assertEqual([item.kwargs for item in write_text.call_args_list], [{"encoding": "utf-8"}] * 2)
-        for snippet in ('#include "fixture.h"', "namespace fixture::python_bridge", "class scoped_envelope"):
+        for snippet in ('#include "fixture_python.h"', "namespace fixture_python::python_bridge", "class scoped_envelope"):
             self.assertIn(snippet, header)
         snippets = (
-            '#include "fixture_python_bridge.h"', "kind_Demo_Payload", '"fixture.fb.Demo.Payload", "PayloadT"',
+            '#include "fixture_python_python_bridge.h"', "kind_Demo_Payload", '"fixture_python.fb.Demo.Payload", "PayloadT"',
             'add_known_payload<Demo::PayloadT>(*live->envelope, value, "TEST")',
             "std::vector<std::unique_ptr<Demo::ChildT>>", "std::vector<Demo::Point>",
             "std::vector<Demo::State>", "std::vector<std::string>", "std::vector<std::int16_t>",
@@ -418,14 +420,14 @@ class GeneratorBridgeTests(unittest.TestCase):
             "const auto* nested = value->child.get();", "const auto* nested = value->point.get();",
             "make_Demo_Child_proxy(item.get(),", "make_Demo_Point_proxy(std::addressof(item),",
             "proxy_anchor<Demo::PayloadT>(self)", "return py_string_from_std(value->label);",
-            "sequence.sq_item = item_Demo_Payload_points_vector;", 'type.tp_name = "fixture_bridge.Demo_Payload";',
+            "sequence.sq_item = item_Demo_Payload_points_vector;", 'type.tp_name = "fixture_python_bridge.Demo_Payload";',
             "ensure_known_proxy_types()", "type.tp_new = nullptr;", "PyExc_IndexError",
         )
         for snippet in snippets:
             with self.subTest(snippet=snippet):
                 self.assertIn(snippet, source)
         self.assertNotIn("pytype_Demo_State()", source)
-        for token in ("__SDK_NAME__", "__MODULE_NAME__", "__KNOWN_PROXY", "__KNOWN_PAYLOAD", "__BRIDGE_HEADER__"):
+        for token in ("__SDK_NAME__", "__PYTHON_PACKAGE_NAME__", "__MODULE_NAME__", "__KNOWN_PROXY", "__KNOWN_PAYLOAD", "__BRIDGE_HEADER__"):
             self.assertNotIn(token, source)
 
     def test_root_payload_validation_does_not_write_files(self) -> None:

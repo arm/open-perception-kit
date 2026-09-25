@@ -25,9 +25,9 @@ struct Point2f {
 struct TrackState { // NOSONAR: std::deque move construction is not noexcept.
     using Kalman = opk::KalmanFilter<4, 2, float>;
     uint64_t trackId = 0;
-    perception::metadata::BoxDetectionT lastDetection;
+    open_perception_kit::metadata::BoxDetectionT lastDetection;
     std::string lastMatchDiagnostic = "NEW";
-    std::deque<perception::metadata::Point2fT> traceHistoryPoints;
+    std::deque<open_perception_kit::metadata::Point2fT> traceHistoryPoints;
     bool kalmanInitialized = false;
     bool predictedThisFrame = false;
     Kalman kalman;
@@ -40,7 +40,7 @@ struct TrackState { // NOSONAR: std::deque move construction is not noexcept.
 
 struct DormantTrackState {
     uint64_t trackId = 0;
-    perception::metadata::BoxDetectionT lastDetection;
+    open_perception_kit::metadata::BoxDetectionT lastDetection;
     std::vector<float> lastEmbedding;
     double storedAtTrackerTimeMs = 0.0;
 };
@@ -72,7 +72,7 @@ Point2f predictCenter(TrackState &track, float kalmanDt, const Config &config);
  * @return Corrected/smoothed center point after measurement update.
  */
 Point2f correctCenterWithMeasurement(TrackState &track,
-                                     const perception::metadata::BoxDetectionT &detection,
+                                     const open_perception_kit::metadata::BoxDetectionT &detection,
                                      float kalmanDt,
                                      const Config &config);
 

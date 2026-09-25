@@ -7,7 +7,7 @@ sidebar_label: Inference Engines
 
 Inference backends are isolated behind backend-specific Ops and shared libraries.
 The current goal is to keep model loading and forward execution backend-specific
-while preserving generic preprocessing, postprocessing, and `Perception` output.
+while preserving generic preprocessing, postprocessing, and `FrameResults` output.
 
 ## Status Summary
 

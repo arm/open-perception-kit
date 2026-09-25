@@ -23,7 +23,7 @@ const KalmanDeltaTimeTracking &Tracker::kalmanDeltaTimeTracking() const {
     return kalmanDeltaTime;
 }
 
-void Tracker::process(perception::FrameResults &frameResults,
+void Tracker::process(open_perception_kit::FrameResults &frameResults,
                       const Config &config,
                       std::optional<uint64_t> runningTimeMs) {
     // Advance the internal frame counter for the current processing step.

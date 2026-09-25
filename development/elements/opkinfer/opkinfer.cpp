@@ -475,7 +475,7 @@ static GstFlowReturn gst_opkinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
 
     // Keep the downstream metadata contract even when QoS skips inference.
     if (auto frameResultsMeta = opk::FrameResultsMeta::get(buf); !frameResultsMeta) {
-        auto frameResults = std::make_shared<perception::FrameResults>();
+        auto frameResults = std::make_shared<open_perception_kit::FrameResults>();
         if (!opk::FrameResultsMeta::add(buf, frameResults)) {
             GST_WARNING_OBJECT(self, "Failed to attach FrameResultsMeta");
             return GST_FLOW_OK;

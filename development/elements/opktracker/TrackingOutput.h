@@ -14,7 +14,7 @@ struct TrackingResult {
     const TrackIdList &predictedOnlyTrackIds;
 };
 
-void appendTrackingPayloads(perception::FrameResults &frameResults,
+void appendTrackingPayloads(open_perception_kit::FrameResults &frameResults,
                             const DetectionBatch &detections,
                             const ActiveTrackMap &activeTracks,
                             const Config &config,

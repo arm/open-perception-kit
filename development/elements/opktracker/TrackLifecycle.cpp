@@ -49,15 +49,16 @@ struct LifecycleResult {
     TrackIdList tracksToRemove;
 };
 
-perception::metadata::BoundingBoxT &ensureBox(perception::metadata::BoxDetectionT &detection) {
+open_perception_kit::metadata::BoundingBoxT &
+ensureBox(open_perception_kit::metadata::BoxDetectionT &detection) {
     if (!detection.box) {
-        detection.box = std::make_unique<perception::metadata::BoundingBoxT>();
+        detection.box = std::make_unique<open_perception_kit::metadata::BoundingBoxT>();
     }
     return *detection.box;
 }
 
-const perception::metadata::BoxDetectionT &detectionAt(const DetectionBatch &detections,
-                                                       DetectionIndex detectionIndex) {
+const open_perception_kit::metadata::BoxDetectionT &detectionAt(const DetectionBatch &detections,
+                                                                DetectionIndex detectionIndex) {
     assert(detectionIndex < detections.size());
     assert(detections[detectionIndex] != nullptr);
     return *detections[detectionIndex];

@@ -139,7 +139,7 @@ using ActiveTrackMap = std::map<TrackId, TrackState>;
 using DormantTrackMap = std::map<TrackId, DormantTrackState>;
 
 using EmbeddingBatch = std::map<uint64_t, const std::vector<float> *>;
-using DetectionBatch = std::vector<const perception::metadata::BoxDetectionT *>;
+using DetectionBatch = std::vector<const open_perception_kit::metadata::BoxDetectionT *>;
 using TrackMatch = std::pair<DetectionIndex, TrackId>;
 
 struct AssociationResult {
@@ -162,7 +162,7 @@ class Tracker {
      * @param frameResults Generated metadata for the current frame.
      * @param config Tracker runtime configuration.
      */
-    void process(perception::FrameResults &frameResults,
+    void process(open_perception_kit::FrameResults &frameResults,
                  const Config &config,
                  std::optional<uint64_t> runningTimeMs);
 

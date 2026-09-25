@@ -1,0 +1,4 @@
+interface:
+  display_name: "Package Open Perception Kit release"
+  short_description: "Build and verify the SDK release bundle"
+  default_prompt: "Use $package-open-perception-kit-release to build and verify an Open Perception Kit release ZIP from a clean committed snapshot."

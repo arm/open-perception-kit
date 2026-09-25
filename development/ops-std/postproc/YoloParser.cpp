@@ -82,7 +82,7 @@ static inline float modelToFrameY(float y, const opk::ImageInferenceMetadata &im
 
 static void fillDetection(const std::vector<Det> &dets,
                           const opk::TensorParser::Input &input,
-                          perception::metadata::BoxDetectionsT &detectionResult,
+                          open_perception_kit::metadata::BoxDetectionsT &detectionResult,
                           bool normalizeOutputCoordinates) {
     const float frameWidth = static_cast<float>(input.inferenceInfo.image.width);
     const float frameHeight = static_cast<float>(input.inferenceInfo.image.height);
@@ -100,9 +100,9 @@ static void fillDetection(const std::vector<Det> &dets,
             height /= frameHeight;
         }
 
-        auto detection = std::make_unique<perception::metadata::BoxDetectionT>();
-        detection->object = perception::makeObjectMeta(0U, input.inferenceInfo.parentId);
-        detection->box = perception::makeBoundingBox(x, y, width, height);
+        auto detection = std::make_unique<open_perception_kit::metadata::BoxDetectionT>();
+        detection->object = open_perception_kit::makeObjectMeta(0U, input.inferenceInfo.parentId);
+        detection->box = open_perception_kit::makeBoundingBox(x, y, width, height);
         detection->confidence = a.conf;
         detection->class_id = a.cls;
         detection->text = opk::resources::Labels::getLabel(opk::resources::LabelType::Coco, a.cls);
@@ -210,7 +210,7 @@ static std::vector<Det> parseCornerScoreClassDetections(const opk::TensorParser:
 // ----------------------------------------------------------------------------
 
 opk::Result<void> YoloParser::parse(const opk::TensorParser::Input &input,
-                                    perception::FrameResults &results) {
+                                    open_perception_kit::FrameResults &results) {
 
     const auto iouThreshold =
         static_cast<float>(input.attributes.getDoubleOrDefault("iouThreshold", 0.45));
@@ -297,13 +297,13 @@ opk::Result<void> YoloParser::parse(const opk::TensorParser::Input &input,
         if (applyNms)
             nms(dets, iouThreshold);
 
-        perception::metadata::BoxDetectionsT payload;
-        payload.layer =
-            perception::makeLayerInfo({.model = input.inferenceInfo.modelName,
-                                       .inferElementId = input.inferenceInfo.inferElementId,
-                                       .contentType = k_content_type,
-                                       .labelFamily = "coco",
-                                       .producer = &input.producerInfo});
+        open_perception_kit::metadata::BoxDetectionsT payload;
+        payload.layer = open_perception_kit::makeLayerInfo(
+            {.model = input.inferenceInfo.modelName,
+             .inferElementId = input.inferenceInfo.inferElementId,
+             .contentType = k_content_type,
+             .labelFamily = "coco",
+             .producer = &input.producerInfo});
         fillDetection(dets, input, payload, normalizeOutputCoordinates);
         if (!payload.detections.empty()) {
             results.add(std::move(payload));

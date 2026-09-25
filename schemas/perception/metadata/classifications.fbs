@@ -1,6 +1,6 @@
 include "common.fbs";
 
-namespace perception.metadata;
+namespace open_perception_kit.metadata;
 
 table ClassificationCandidate {
   confidence:float;
@@ -13,12 +13,12 @@ table ClassificationCandidate {
 }
 
 table Classification {
-  object:perception.metadata.ObjectMeta;
-  candidates:[perception.metadata.ClassificationCandidate];
+  object:open_perception_kit.metadata.ObjectMeta;
+  candidates:[open_perception_kit.metadata.ClassificationCandidate];
 }
 
 table PersonPresence {
-  object:perception.metadata.ObjectMeta;
+  object:open_perception_kit.metadata.ObjectMeta;
   yes_confidence:float;
   no_confidence:float;
 }
@@ -26,9 +26,9 @@ table PersonPresence {
 table Classifications {
   schema_major:ushort = 1;
   schema_minor:ushort = 0;
-  layer:perception.metadata.LayerInfo;
-  classifications:[perception.metadata.Classification];
-  person_presence:[perception.metadata.PersonPresence];
+  layer:open_perception_kit.metadata.LayerInfo;
+  classifications:[open_perception_kit.metadata.Classification];
+  person_presence:[open_perception_kit.metadata.PersonPresence];
 }
 
 root_type Classifications;

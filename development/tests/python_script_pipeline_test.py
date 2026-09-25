@@ -13,8 +13,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from perception import ProducerIdentityStatus
-from perception.packet import decode, external_key
+from open_perception_kit import ProducerIdentityStatus
+from open_perception_kit.packet import decode, external_key
 
 
 class PythonScriptPipelineTest(unittest.TestCase):
@@ -44,7 +44,7 @@ class PythonScriptPipelineTest(unittest.TestCase):
             output = temporary_path / "frame-results.ndjson"
             script = temporary_path / "terminal_postprocess.py"
             script.write_text(
-                "from perception.guest import Envelope, external_key\n"
+                "from open_perception_kit.guest import Envelope, external_key\n"
                 "from opk_python_ops import Context, Tensor, python_script\n"
                 "KEY = external_key('com.arm.example.terminal-test.v1')\n"
                 "@python_script\n"
