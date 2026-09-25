@@ -97,7 +97,9 @@ jobs:
 
       - name: Install test dependencies
         if: *run_checks
-        run: python3 -m pip install -r requirements/tests.txt
+        run: |
+          python3 -m pip install -r requirements/tests.txt
+          python3 scripts/download-models.py --models-dir config/models/yolo26n-320
 
       - name: Run tests
         if: *run_checks
