@@ -702,15 +702,15 @@ RUN --mount=type=cache,id=opk-deployment-ccache,target=/work/.cache/ccache,shari
   fi; \
   rm -rf /work/development/build
 
-ARG OPK_RELEASE_BUILD_ID=""
+ARG OPK_RELEASE_VERSION=""
 RUN set -eux; \
-  if [ -n "${OPK_RELEASE_BUILD_ID}" ]; then \
+  if [ -n "${OPK_RELEASE_VERSION}" ]; then \
     test "${OPK_RELEASE_BUILD}" = true; \
     case "${TARGETARCH}" in \
       amd64) architecture=x86_64 ;; \
       arm64) architecture=aarch64 ;; \
     esac; \
-    package_name="opk-${OPK_RELEASE_BUILD_ID}-linux-${architecture}"; \
+    package_name="opk-${OPK_RELEASE_VERSION}-linux-${architecture}"; \
     package_root="/tmp/opk-release/${package_name}"; \
     mkdir -p /tmp/opk-release; \
     cp -a /opt/opk-release-root "${package_root}"; \
@@ -820,11 +820,11 @@ USER ${USERNAME}
 WORKDIR /work
 
 ARG TARGETARCH
-ARG OPK_RELEASE_BUILD_ID=""
+ARG OPK_RELEASE_VERSION=""
 RUN --network=none \
   --mount=type=bind,source=development/tests/python_script_op/runtime_environment.py,target=/tmp/runtime_environment.py,readonly \
   set -eux; \
-  if [ -z "${OPK_RELEASE_BUILD_ID}" ]; then \
+  if [ -z "${OPK_RELEASE_VERSION}" ]; then \
     exit 0; \
   fi; \
   case "${TARGETARCH}" in \
@@ -832,7 +832,7 @@ RUN --network=none \
     arm64) architecture=aarch64 ;; \
     *) exit 1 ;; \
   esac; \
-  package_name="opk-${OPK_RELEASE_BUILD_ID}-linux-${architecture}"; \
+  package_name="opk-${OPK_RELEASE_VERSION}-linux-${architecture}"; \
   /work/scripts/release/smoke-opk-package.sh \
     "/opt/opk-release-artifacts/${package_name}.tar.gz" \
     /tmp/runtime_environment.py
