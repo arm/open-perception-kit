@@ -259,8 +259,8 @@ class StaticQualityConfigTests(unittest.TestCase):
 
         pyproject = PYPROJECT_FILE.read_text(encoding="utf-8")
         self.assertIn('"mypy==1.16.1"', pyproject)
-        self.assertIn('"pyflakes==3.3.2"', pyproject)
-        self.assertIn('"vulture==2.14"', pyproject)
+        self.assertIn('"pyflakes==3.4.0"', pyproject)
+        self.assertIn('"vulture==2.16"', pyproject)
 
     def test_execution_report_annotations_match_declared_python_floor(self):
         pyproject = PYPROJECT_FILE.read_text(encoding="utf-8")
