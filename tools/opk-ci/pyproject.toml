@@ -7,20 +7,20 @@ requires-python = ">=3.8"
 dependencies = [
     "setuptools>=65.0",
     "autopep8==2.3.2",
-    "pycodestyle==2.12.1",
+    "pycodestyle==2.14.0",
     "pre-commit==3.5.0",
-    "GitPython==3.1.59",
-    "requests==2.33.0",
-    "argcomplete==3.6.2",
+    "GitPython==3.1.62",
+    "requests==2.34.2",
+    "argcomplete==3.7.2",
     "cmake-format==0.6.13",
-    "coverage==7.15.4",
+    "coverage==7.16.1",
     "clang-format==20.1.8",
     "clang-tidy==20.1.0",
     "detect-secrets==1.5.0",
     "mypy==1.16.1",
-    "pyflakes==3.3.2",
+    "pyflakes==3.4.0",
     "types-PyYAML==6.0.12.20250516",
-    "vulture==2.14",
+    "vulture==2.16",
 ]
 
 [tool.setuptools.packages.find]

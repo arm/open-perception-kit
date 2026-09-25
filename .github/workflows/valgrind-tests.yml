@@ -105,7 +105,8 @@ jobs:
           PY
           mapfile -t native_tests < "$RUNNER_TEMP/native-tests.txt"
           test "${#native_tests[@]}" -gt 0
-          meson test -C development/build-active --no-rebuild \
+          # Override Meson 1.12's --error-exitcode=1 so Valgrind findings reach the baseline check.
+          VALGRIND_OPTS=--error-exitcode=0 meson test -C development/build-active --no-rebuild \
             --print-errorlogs --num-processes 1 --timeout-multiplier 10 \
             --wrapper "valgrind --xml=yes --xml-file='$OPK_PROJECT_ROOT/development/build-active/meson-logs/native.valgrind.%p.xml' --leak-check=full --show-leak-kinds=definite --errors-for-leak-kinds=definite --suppressions='$OPK_PROJECT_ROOT/scripts/testing/valgrind/suppressed-warnings'" \
             "${native_tests[@]}"
