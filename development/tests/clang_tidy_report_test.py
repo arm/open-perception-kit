@@ -192,11 +192,10 @@ class ClangTidyReportTests(unittest.TestCase):
             self.assertNotIn("shared.h:3:7", output)
         self.assertIn("processed: 1/1", report)
 
-    def test_deleted_or_renamed_header_forces_full_scan_when_source_changes(self):
+    def test_deleted_or_renamed_header_forces_full_scan_without_source_changes(self):
         header = self.source / "shared.h"
         header.write_text("// header\n")
         self.init_git()
-        (self.source / "a.cpp").write_text("int main() { return 1; }\n")
         renamed = self.source / "renamed.h"
         self.git("mv", str(header), str(renamed))
         result, terminal = self.invoke()

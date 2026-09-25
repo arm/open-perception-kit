@@ -148,10 +148,10 @@ def header_filter(repository, build_directory):
 
 def select_new_files(files, changes, headers_changed, repository):
     """Avoid launching clang-tidy on unchanged TUs unless headers may affect them."""
-    if not changes:
-        return [], "No added or modified C/C++ lines; skipping analysis."
     if headers_changed:
         return files, f"Header changes detected; analyzing all {len(files)} configured translation units."
+    if not changes:
+        return [], "No added or modified C/C++ lines; skipping analysis."
     selected = [(path, directory) for path, directory in files
                 if path.relative_to(repository).as_posix() in changes]
     message = f"Source-only changes: selected {len(selected)} of {len(files)} configured translation units."
