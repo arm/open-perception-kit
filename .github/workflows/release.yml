@@ -479,6 +479,16 @@ jobs:
           gh release upload "v$VERSION" "${archives[@]}" "${sboms[@]}"
           gh release edit "v$VERSION" --draft=false
 
+  publish-docs:
+    name: Publish production release docs
+    needs: [prepare, github-release]
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/docs-publish-production.yml
+    with:
+      publish_ref: ${{ needs.prepare.outputs.commit }}
+
   perception-cargo-publish:
     name: Publish and verify Perception crate
     needs: [prepare, artifactory]

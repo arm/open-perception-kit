@@ -42,7 +42,7 @@ docker compose version
 docker info
 ```
 
-If `docker` does not work, open Docker Desktop and confirm that WSL integration is enabled for your Ubuntu distribution.
+If `docker` does not work, open Docker Desktop and confirm that WSL integration is enabled for your Ubuntu distribution or make sure docker CLI is installed in WSL.
 
 For the optional VS Code workflow, also check:
 
