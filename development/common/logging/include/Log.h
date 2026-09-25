@@ -34,9 +34,7 @@ template <typename T> decltype(auto) escapeArgument(T &&value) {
 
 template <typename... Args>
 std::string formatMessage(fmt::format_string<Args...> format, Args &&...args) {
-    return [&format](auto &&...values) {
-        return fmt::vformat(format, fmt::make_format_args(values...));
-    }(escapeArgument(std::forward<Args>(args))...);
+    return fmt::format(fmt::runtime(format), escapeArgument(std::forward<Args>(args))...);
 }
 
 template <typename... Args> struct FormatWithLocation {

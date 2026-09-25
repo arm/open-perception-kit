@@ -122,8 +122,7 @@ The file target is disabled unless the exact `file` token is selected or the C++
 
 The file is opened only when the first enabled message is written. It is opened in binary append
 mode, so existing content is preserved and messages contain exactly the formatted log record:
-no target-added severity prefix, ANSI styling, timestamp, or line ending. String arguments are
-escaped before records enter the buffer. Debug records already
+no target-added severity prefix, ANSI styling, timestamp, or line ending. Debug records already
 contain their cyan/reset ANSI bytes, source prefix, and line ending; those bytes are preserved in
 the raw file. Disabling the target closes the file immediately. Re-enabling opens it lazily on the
 next message. Parent directories are not created automatically.
@@ -159,30 +158,19 @@ All severity functions require compile-time-checked format strings. For example:
 opk::log::debug("WebSocket server listening on port {}", port);
 ```
 
-The five severity functions automatically escape string arguments before formatting. Newlines,
-terminal controls, Unicode line separators, quotes and backslashes become visible escape sequences
-using fmt's debug-string representation without surrounding quotes. Ordinary Unicode text remains
-readable. Format-string line breaks and the logger's own styling are preserved. This also means
-that a multiline string passed as an argument is logged on one line; put intended line breaks in
-the format string. Callers should pass the original string, without escaping it first.
-
-For a separate logging API such as GStreamer's, use `opk::log::escape(text)` at that boundary.
-It does not modify protocol data and is not an HTML, JSON or filesystem-path encoder.
+These functions escape control characters, quotes and backslashes in string arguments.
+Pass original strings and put intended line breaks in the format string.
+For other logging APIs, such as GStreamer's, use `opk::log::escape(text)`.
 
 Debug calls are present in both debug and release builds. Arguments are evaluated and the message
 is formatted before level filtering, so avoid expensive expressions in frequently reached Debug
 calls. One Debug call enqueues one complete record, preventing its prefix, payload, and newline
 from interleaving with other records.
 
-`opk::log::instantInfo()` writes synchronously and unconditionally to stdout.
-`opk::log::instantError()` does the same for stderr. They bypass the log level, asynchronous
-buffer, and target states.
-They also work before the asynchronous logger has been initialized. `opk-menu`
-uses them for UI output and early diagnostics; logger configuration must not
-redirect or suppress that output.
-These two UI-output functions retain raw formatting, including intentional ANSI styling and
-multiline reports. They are not escaped log sinks; use the severity functions for external
-diagnostics, or `opk::log::escape()` when inserting external text into this UI output.
+`opk::log::instantInfo()` and `opk::log::instantError()` write synchronously to stdout and stderr,
+even before logger initialization. They bypass log levels, buffering and configured targets.
+`opk-menu` uses them for UI output and early diagnostics. They preserve raw text, including ANSI
+styling and line breaks; use `opk::log::escape()` when inserting external text.
 
 ## Buffering and overload
 
