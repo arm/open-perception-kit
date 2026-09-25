@@ -174,13 +174,12 @@
             "id": "selectedPipeline",
             "description": "Pipeline:",
             "type": "pickString",
-            "default": "yolov11-onnx",
+            "default": "yolo26n-320",
             "options": [
-                "yolov11-onnx",
-                "01-full-onnx",
-                "cam-connect",
-                "gaze-detection",
-                "tracker-pc"
+                "yolo26n-320",
+                "full-onnx",
+                "full-onnx-raspicam",
+                "full-onnx-usb-cam"
             ]
         }
     ]

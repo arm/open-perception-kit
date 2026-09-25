@@ -8,7 +8,7 @@ sidebar_label: Release packages
 The release workflow descriptions below document the legacy release process;
 those workflows have not been migrated into this repository. In particular,
 the legacy CI image and its post-publication verification lane are no longer
-available. See [current CI workflows](../../.github/CI-README.md).
+available. See the [current CI workflow definitions](../../.github/workflows/).
 
 `development/meson.build` is the product-version authority. A stable
 `MAJOR.MINOR.PATCH` version must have a non-empty matching `CHANGELOG.md`
@@ -149,8 +149,7 @@ candidate images and packages without publishing a release or changing a tag.
 Candidate builds have read-only registry access. A manual-only job publishes the
 exported images; it neither checks out nor executes the selected source.
 Candidate and published inputs share `blackduck-artifacts.yml`; documentation
-packaging is owned by `release-docs-build.yml`. See the
-[Black Duck input contract](../../.github/CI-README.md#black-duck-inputs).
+packaging is owned by `release-docs-build.yml`.
 Push and manual publication cannot start unless both native release images
 pass the same embedded integration smoke used for pull requests.
 The native jobs import the nightly deployment lane's architecture-specific

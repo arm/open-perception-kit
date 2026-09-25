@@ -176,12 +176,13 @@ You can use the hostname instead if it resolves reliably on your network:
 > connection status, controls, the **Model Selector** panel, and the
 > debug log.
 
-#### 5.3 Check YoloV11
+#### 5.3 Check YOLO26n-320
 
-In the WebRTC browser viewer, find **YoloV11** in the **Model Selector** panel.
-If the toggle is off, enable it.
+In the WebRTC browser viewer, find **Object detection** in the **Model Selector**
+panel, with model **YOLO26n INT8 (320x320)**. It is enabled by default; enable it
+if you previously turned it off.
 
-> **Expected outcome:** YoloV11 identifies objects in the stock video stream by
+> **Expected outcome:** YOLO26n-320 identifies objects in the stock video stream by
 > drawing detection overlays in the viewer.
 
 ![Final WebRTC success view showing inference overlays on the sample video stream](/img/10-browser-ui.png)
