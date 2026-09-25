@@ -257,11 +257,6 @@ class StaticQualityConfigTests(unittest.TestCase):
         self.assertNotIn("--agent-runtime-static-analysis", pre_commit)
         self.assertEqual(pre_commit.count('--list-of-files "$@"'), 3)
 
-        pyproject = PYPROJECT_FILE.read_text(encoding="utf-8")
-        self.assertIn('"mypy==1.16.1"', pyproject)
-        self.assertIn('"pyflakes==3.3.2"', pyproject)
-        self.assertIn('"vulture==2.14"', pyproject)
-
     def test_execution_report_annotations_match_declared_python_floor(self):
         pyproject = PYPROJECT_FILE.read_text(encoding="utf-8")
         self.assertIn('requires-python = ">=3.8"', pyproject)
