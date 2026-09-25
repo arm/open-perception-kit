@@ -57,7 +57,7 @@ launched from a host checkout. Working-directory-relative locations remain as
 fallbacks.
 
 The browser receives serialized FrameResults records on the metadata WebSocket.
-Its committed `opk-web.js` bundle contains the generated TypeScript Perception
+Its committed `opk-web.js` bundle contains the generated TypeScript Open Perception Kit
 SDK and FlatBuffers runtime. The client requires the
 `perception-frame-results+base64` encoding marker, validates exact producer
 identity, and maps typed payloads into the existing OSD, inference-output, and

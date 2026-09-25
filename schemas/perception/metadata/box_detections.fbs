@@ -1,10 +1,10 @@
 include "common.fbs";
 
-namespace perception.metadata;
+namespace open_perception_kit.metadata;
 
 table BoxDetection {
-  object:perception.metadata.ObjectMeta;
-  box:perception.metadata.BoundingBox;
+  object:open_perception_kit.metadata.ObjectMeta;
+  box:open_perception_kit.metadata.BoundingBox;
   confidence:float;
   class_id:int = -1;
   text:string;
@@ -13,8 +13,8 @@ table BoxDetection {
 table BoxDetections {
   schema_major:ushort = 1;
   schema_minor:ushort = 0;
-  layer:perception.metadata.LayerInfo;
-  detections:[perception.metadata.BoxDetection];
+  layer:open_perception_kit.metadata.LayerInfo;
+  detections:[open_perception_kit.metadata.BoxDetection];
 }
 
 root_type BoxDetections;

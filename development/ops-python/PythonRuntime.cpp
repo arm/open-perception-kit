@@ -15,7 +15,7 @@
 
 #include "PythonBridgeError.h"
 #include "TensorBridge.h"
-#include "python_bridge/perception_python_bridge.h"
+#include "python_bridge/open_perception_kit_python_bridge.h"
 
 #ifndef OPK_PYTHON_EXECUTABLE
 #define OPK_PYTHON_EXECUTABLE ""
@@ -56,7 +56,7 @@ std::filesystem::path pythonExecutable() {
 
 void initializeRuntime() {
     exposePythonSymbols();
-    perception::python_bridge::append_inittab();
+    open_perception_kit::python_bridge::append_inittab();
     appendTensorModuleInittab();
 
     PyConfig config;

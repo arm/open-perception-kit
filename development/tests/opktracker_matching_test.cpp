@@ -12,18 +12,19 @@
 
 namespace {
 
-perception::metadata::BoxDetectionT
+open_perception_kit::metadata::BoxDetectionT
 makeDetection(uint64_t id, float x, float y, float width, float height) {
-    perception::metadata::BoxDetectionT detection;
-    detection.object = perception::makeObjectMeta(id);
-    detection.box = perception::makeBoundingBox(x, y, width, height);
+    open_perception_kit::metadata::BoxDetectionT detection;
+    detection.object = open_perception_kit::makeObjectMeta(id);
+    detection.box = open_perception_kit::makeBoundingBox(x, y, width, height);
     detection.confidence = 1.0f;
     return detection;
 }
 
-opk::tracker::TrackState makeTrack(opk::tracker::TrackId trackId,
-                                   const perception::metadata::BoxDetectionT &lastDetection,
-                                   const std::vector<float> &embedding) {
+opk::tracker::TrackState
+makeTrack(opk::tracker::TrackId trackId,
+          const open_perception_kit::metadata::BoxDetectionT &lastDetection,
+          const std::vector<float> &embedding) {
     opk::tracker::TrackState track;
     track.trackId = trackId;
     track.lastDetection = lastDetection;

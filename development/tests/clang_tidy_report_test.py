@@ -126,7 +126,8 @@ class ClangTidyReportTests(unittest.TestCase):
              "command": "c++ '-DOTHER=a b' -fno-reorder-functions ../common/a.cpp"},
             {"directory": str(self.build), "file": "../subprojects/vendor.cpp", "arguments": ["c++"]},
             {"directory": str(self.build), "file": "generated.cpp", "arguments": ["c++"]},
-            {"directory": str(self.build), "file": "../../generated/perception/bridge.cpp", "arguments": ["c++"]},
+            {"directory": str(self.build), "file": "../../generated/open_perception_kit/bridge.cpp",
+             "arguments": ["c++"]},
         ])
         self.save_database()
         destination = self.root / "filtered"

@@ -3,7 +3,7 @@
 # Copyright (C) 2026 Arm Limited. All rights reserved.
 ################################################################
 
-"""Generate the canonical checked-in Perception SDK snapshot."""
+"""Generate the canonical checked-in open-perception-kit snapshot."""
 
 from __future__ import annotations
 
@@ -24,7 +24,6 @@ from release_common import sha256
 from sdk_config import (
     PRODUCT_VERSION,
     PRODUCT_VERSION_PATH,
-    PYTHON_DISTRIBUTION_NAME,
     REPO_ROOT,
     SDK_CONFIG_PATH,
     SEMVER,
@@ -33,7 +32,7 @@ from sdk_config import (
 )
 
 FLOWDATA_MANIFEST_FILENAME = "flowdata-manifest.json"
-PERCEPTION_MANIFEST_FILENAME = "perception-sdk-manifest.json"
+PERCEPTION_MANIFEST_FILENAME = "open-perception-kit-manifest.json"
 SDK_LICENSE = "Apache-2.0"
 SDK_LEGAL_FILES = ("LICENSE", "NOTICE")
 # Authored inputs copied into each generated language package.
@@ -189,7 +188,7 @@ def generate_sdk(config: SdkConfig, generated_root: Path, flatc: str, python: st
     flowdata_source_identity(config)
     common = [
         python, str(config.flowdata_generator), "generate",
-        "--name", config.name,
+        "--name", config.public_name,
         "--version", config.version,
         "--schema-dir", str(config.schema_dir),
         "--generated-root", str(generated_root),
@@ -215,7 +214,7 @@ def prepare_python_package(
         f'[project]\nname = "{source_name}"\nversion = "{source_version}"\n'
     )
     target = (
-        f'[project]\nname = "{PYTHON_DISTRIBUTION_NAME}"\n'
+        f'[project]\nname = "{source_name}"\n'
         f'version = "{package_version}"\n'
         f'license = "{SDK_LICENSE}"\n'
         'license-files = ["LICENSE", "NOTICE"]\n'
@@ -225,19 +224,21 @@ def prepare_python_package(
     pyproject.write_text(text.replace(source, target), encoding="utf-8")
 
 
-def synchronize_plumber_dependency(path: Path, version: str, check: bool) -> bool:
+def synchronize_plumber_dependency(
+    path: Path, distribution_name: str, version: str, check: bool
+) -> bool:
     text = path.read_text(encoding="utf-8")
     expected, count = re.subn(
-        r'(?m)^(\s*"opk-perception-sdk==)[^"]+(",)$',
+        rf'(?m)^(\s*"{re.escape(distribution_name)}==)[^"]+(",)$',
         rf"\g<1>{version}\g<2>",
         text,
     )
     if count != 1:
-        raise RuntimeError("plumber must declare one exact Perception SDK dependency")
+        raise RuntimeError("plumber must declare one exact open-perception-kit dependency")
     if expected == text:
         return True
     if check:
-        print("tools/plumber/pyproject.toml Perception SDK dependency is stale")
+        print("tools/plumber/pyproject.toml open-perception-kit dependency is stale")
         return False
     path.write_text(expected, encoding="utf-8")
     return True
@@ -245,7 +246,10 @@ def synchronize_plumber_dependency(path: Path, version: str, check: bool) -> boo
 
 def synchronize_project_consumers(config: SdkConfig, node: str, check: bool) -> bool:
     plumber_current = synchronize_plumber_dependency(
-        PLUMBER_PROJECT, config.python_package_version, check
+        PLUMBER_PROJECT,
+        config.public_name,
+        config.python_package_version,
+        check,
     )
     run([node, str(WEB_BUILD), "check" if check else "generate"])
     return plumber_current
@@ -337,7 +341,7 @@ def prepare_typescript_package(config: SdkConfig, generated_root: Path) -> None:
 def prepare_rust_tests(config: SdkConfig, generated_root: Path) -> None:
     rust_root = generated_root / "rust"
     cargo_toml = rust_root / "Cargo.toml"
-    expected_name = f'name = "{config.name}"'
+    expected_name = f'name = "{config.public_name}"'
     cargo = cargo_toml.read_text(encoding="utf-8")
     if expected_name not in cargo:
         raise RuntimeError("generated Rust package name does not match sdk.json")
@@ -354,17 +358,18 @@ def prepare_rust_tests(config: SdkConfig, generated_root: Path) -> None:
     fixture_target = rust_root / "tests" / "fixtures" / RUST_FIXTURE.name
     fixture_target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(RUST_FIXTURE, fixture_target)
-    crate_name = config.name.replace("-", "_")
+    crate_name = config.public_name
     test_source = f'''\
 // Generated file. Do not edit.
 // SDK users: change schemas or generator inputs, then regenerate this file.
 
-use {crate_name}::fb::perception::metadata::BoxDetectionsT;
+use {crate_name}::fb::open_perception_kit::metadata::BoxDetectionsT;
 use {crate_name}::{{
-    external_key, payload, EntryRef, Envelope, ProducerIdentityStatus, {config.name.upper()}_NAME,
-    {config.name.upper()}_VERSION, SCHEMA_SET_SHA256,
+    external_key, payload, EntryRef, Envelope, ProducerIdentityStatus, {config.public_name.upper()}_NAME,
+    {config.public_name.upper()}_VERSION, SCHEMA_SET_SHA256,
 }};
 
+const FIXTURE_SDK_NAME: &str = "perception";
 const FIXTURE_SDK_VERSION: &str = "{RUST_FIXTURE_SDK_VERSION}";
 const FIXTURE_SCHEMA_SET_SHA256: &str = "{RUST_FIXTURE_SCHEMA_SET_SHA256}";
 
@@ -386,13 +391,15 @@ fn decodes_python_produced_box_detections_packet() {{
     let packet = decode_hex(include_str!("fixtures/{RUST_FIXTURE.name}"));
     let envelope = Envelope::decode(packet).expect("pinned OPK packet must decode");
 
-    assert_eq!(envelope.producer_sdk_name(), {config.name.upper()}_NAME);
+    assert_eq!(envelope.producer_sdk_name(), FIXTURE_SDK_NAME);
     assert_eq!(envelope.producer_sdk_version(), FIXTURE_SDK_VERSION);
     assert_eq!(
         envelope.producer_schema_set_sha256(),
         FIXTURE_SCHEMA_SET_SHA256
     );
-    let expected_identity = if {config.name.upper()}_VERSION != FIXTURE_SDK_VERSION {{
+    let expected_identity = if {config.public_name.upper()}_NAME != FIXTURE_SDK_NAME {{
+        ProducerIdentityStatus::SdkNameMismatch
+    }} else if {config.public_name.upper()}_VERSION != FIXTURE_SDK_VERSION {{
         ProducerIdentityStatus::SdkVersionMismatch
     }} else if SCHEMA_SET_SHA256 != FIXTURE_SCHEMA_SET_SHA256 {{
         ProducerIdentityStatus::SchemaSetMismatch
@@ -571,7 +578,10 @@ def validate_flowdata_manifests(
     for field in shared_fields:
         if not all(cpp.get(field) == manifest.get(field) for manifest in manifests_by_language[1:]):
             raise RuntimeError(f"flowdata manifests disagree on {field}")
-    expected_sdk = {"name": config.name, "version": config.version}
+    expected_sdk = {
+        "name": config.public_name,
+        "version": config.version,
+    }
     if cpp.get("generator") != flowdata_source_identity(config)["generator"]:
         raise RuntimeError("flowdata manifest generator identity does not match local sources")
     if cpp.get("sdk") != expected_sdk:
@@ -587,32 +597,32 @@ def validate_flowdata_manifests(
         "integrations": ["cmake", "meson"],
         "sdk": "cpp",
     }:
-        raise RuntimeError("flowdata C++ outputs do not match the Perception SDK contract")
+        raise RuntimeError("flowdata C++ outputs do not match the open-perception-kit contract")
     if python_outputs != {
         "cpp_python_bridge": False,
         "integrations": [],
         "sdk": "python",
     }:
-        raise RuntimeError("flowdata Python outputs do not match the Perception SDK contract")
+        raise RuntimeError("flowdata Python outputs do not match the open-perception-kit contract")
     if typescript_manifest.get("outputs") != {
         "cpp_python_bridge": False,
         "integrations": [],
         "sdk": "ts",
     }:
-        raise RuntimeError("flowdata TypeScript outputs do not match the Perception SDK contract")
+        raise RuntimeError("flowdata TypeScript outputs do not match the open-perception-kit contract")
     if rust_manifest.get("outputs") != {
         "cpp_python_bridge": False,
         "integrations": [],
         "sdk": "rust",
     }:
-        raise RuntimeError("flowdata Rust outputs do not match the Perception SDK contract")
+        raise RuntimeError("flowdata Rust outputs do not match the open-perception-kit contract")
 
 
 def normalize_integration_files(config: SdkConfig, generated_root: Path) -> None:
     paths = (
-        generated_root / "cpp" / "cmake" / f"{config.name}.cmake",
-        generated_root / "cpp" / "meson" / config.name / MESON_BUILD_FILENAME,
-        generated_root / "cpp" / "meson" / config.name / "python_bridge" / MESON_BUILD_FILENAME,
+        generated_root / "cpp" / "cmake" / f"{config.public_name}.cmake",
+        generated_root / "cpp" / "meson" / config.public_name / MESON_BUILD_FILENAME,
+        generated_root / "cpp" / "meson" / config.public_name / "python_bridge" / MESON_BUILD_FILENAME,
     )
     for path in paths:
         path.write_text(path.read_text(encoding="utf-8").rstrip() + "\n", encoding="utf-8")
@@ -623,34 +633,34 @@ def write_internal_meson(config: SdkConfig, target: Path) -> None:
     content = (
         "# Generated project adapter. Do not edit.\n"
         "# Regenerate with ./scripts/perception-sdk.sh generate.\n\n"
-        f"{config.name}_version = '{config.version}'\n"
-        f"{config.name}_flatbuffers_version_requirement = '=={config.flatbuffers_version}'\n\n"
-        f"_{config.name}_flatbuffers_dep = dependency(\n"
+        f"{config.public_name}_version = '{config.version}'\n"
+        f"{config.public_name}_flatbuffers_version_requirement = '=={config.flatbuffers_version}'\n\n"
+        f"_{config.public_name}_flatbuffers_dep = dependency(\n"
         "  'flatbuffers',\n"
         "  required : true,\n"
-        f"  version : {config.name}_flatbuffers_version_requirement,\n"
+        f"  version : {config.public_name}_flatbuffers_version_requirement,\n"
         ")\n"
-        f"_{config.name}_inc = include_directories('{cpp_root}')\n\n"
-        f"{config.name}_dep = declare_dependency(\n"
-        f"  include_directories : [_{config.name}_inc],\n"
+        f"_{config.public_name}_inc = include_directories('{cpp_root}')\n\n"
+        f"{config.public_name}_dep = declare_dependency(\n"
+        f"  include_directories : [_{config.public_name}_inc],\n"
         "  compile_args : ['-std=c++20'],\n"
-        f"  dependencies : [_{config.name}_flatbuffers_dep],\n"
+        f"  dependencies : [_{config.public_name}_flatbuffers_dep],\n"
         ")\n"
         "\n"
         "if get_option('tests') or python_ops_enabled\n"
-        f"  _{config.name}_python = opk_python\n"
-        f"  _{config.name}_python_embed_dep = _{config.name}_python.dependency(\n"
+        f"  _{config.public_name}_python = opk_python\n"
+        f"  _{config.public_name}_python_embed_dep = _{config.public_name}_python.dependency(\n"
         "    embed : true,\n"
         "    required : true,\n"
         "  )\n"
-        f"  _{config.name}_python_bridge_sources = files(\n"
-        f"    '{cpp_root}/python_bridge/{config.name}_python_bridge.cpp',\n"
+        f"  _{config.public_name}_python_bridge_sources = files(\n"
+        f"    '{cpp_root}/python_bridge/{config.public_name}_python_bridge.cpp',\n"
         "  )\n\n"
-        f"  {config.name}_python_bridge_dep = declare_dependency(\n"
-        f"    include_directories : [_{config.name}_inc],\n"
+        f"  {config.public_name}_python_bridge_dep = declare_dependency(\n"
+        f"    include_directories : [_{config.public_name}_inc],\n"
         "    compile_args : ['-std=c++20'],\n"
-        f"    dependencies : [{config.name}_dep, _{config.name}_python_embed_dep],\n"
-        f"    sources : _{config.name}_python_bridge_sources,\n"
+        f"    dependencies : [{config.public_name}_dep, _{config.public_name}_python_embed_dep],\n"
+        f"    sources : _{config.public_name}_python_bridge_sources,\n"
         "  )\n"
         "endif\n"
     )
@@ -728,7 +738,7 @@ def write_perception_manifest(
 ) -> None:
     manifest_path = generated_root / PERCEPTION_MANIFEST_FILENAME
     manifest = {
-        "artifact": {"name": f"{config.name}-sdk", "version": config.version},
+        "artifact": {"name": config.public_name.replace('_', '-'), "version": config.version},
         "descriptor": {
             "path": config.descriptor_path.relative_to(REPO_ROOT).as_posix(),
             "sha256": config.descriptor_sha256,
@@ -776,37 +786,37 @@ def _verify_manifest_identity(
         "project_files", "upstream_receipts",
     }
     if set(manifest) != expected_fields:
-        raise RuntimeError("Perception SDK manifest fields are stale")
-    if manifest.get("artifact") != {"name": f"{config.name}-sdk", "version": config.version}:
-        raise RuntimeError("Perception SDK manifest identity does not match sdk.json")
+        raise RuntimeError("open-perception-kit manifest fields are stale")
+    if manifest.get("artifact") != {"name": config.public_name.replace('_', '-'), "version": config.version}:
+        raise RuntimeError("open-perception-kit manifest identity does not match sdk.json")
     expected_descriptor = {
         "path": config.descriptor_path.relative_to(REPO_ROOT).as_posix(),
         "sha256": config.descriptor_sha256,
     }
     if manifest.get("descriptor") != expected_descriptor:
-        raise RuntimeError("Perception SDK manifest descriptor identity does not match sdk.json")
+        raise RuntimeError("open-perception-kit manifest descriptor identity does not match sdk.json")
     if manifest.get("files") != _file_records(generated_root, {path}):
-        raise RuntimeError("Perception SDK manifest file list or hashes are stale")
+        raise RuntimeError("open-perception-kit manifest file list or hashes are stale")
     expected_project = [{
         "path": config.internal_meson_path.relative_to(REPO_ROOT).as_posix(),
         "sha256": sha256(internal_meson),
         "size": internal_meson.stat().st_size,
     }]
     if manifest.get("project_files") != expected_project:
-        raise RuntimeError("Perception SDK project integration is stale")
+        raise RuntimeError("open-perception-kit project integration is stale")
 
 
 def _verify_generation_identity(config: SdkConfig, manifest: dict[str, object]) -> dict[str, object]:
     generation = manifest.get("generation")
     if not isinstance(generation, dict):
-        raise RuntimeError("Perception SDK generation identity is missing")
+        raise RuntimeError("open-perception-kit generation identity is missing")
     if generation.get("tools") != _generation_tool_records():
-        raise RuntimeError("Perception SDK generation tools changed; regenerate the SDK")
+        raise RuntimeError("open-perception-kit generation tools changed; regenerate the SDK")
     flowdata_identity = generation.get("flowdata_sdk")
     if not isinstance(flowdata_identity, dict):
-        raise RuntimeError("Perception SDK flowdata identity is missing")
+        raise RuntimeError("open-perception-kit flowdata identity is missing")
     if flowdata_identity != flowdata_source_identity(config):
-        raise RuntimeError("flowdata-sdk changed; regenerate the Perception SDK")
+        raise RuntimeError("flowdata-sdk changed; regenerate the open-perception-kit")
     return flowdata_identity
 
 
@@ -817,32 +827,40 @@ def _verify_upstream_receipts(
 ) -> None:
     flowdata = manifest.get("upstream_receipts")
     if not isinstance(flowdata, dict) or set(flowdata) != {"cpp", "python", "rust", "ts"}:
-        raise RuntimeError("Perception SDK manifest has incomplete flowdata metadata")
+        raise RuntimeError("open-perception-kit manifest has incomplete flowdata metadata")
+    expected_sdk = {
+        "name": config.public_name,
+        "version": config.version,
+    }
     for sdk in ("cpp", "python", "rust", "ts"):
         sdk_manifest = flowdata[sdk]
         if not isinstance(sdk_manifest, dict):
             raise RuntimeError(f"{sdk} manifest metadata is malformed")
-        if sdk_manifest.get("sdk", {}).get("name") != config.name:
-            raise RuntimeError(f"{sdk} manifest SDK name does not match sdk.json")
-        if sdk_manifest.get("sdk", {}).get("version") != config.version:
-            raise RuntimeError(f"{sdk} manifest SDK version does not match the OPK version")
+        if sdk_manifest.get("sdk") != expected_sdk:
+            raise RuntimeError(f"{sdk} manifest SDK identity does not match sdk.json")
         if sdk_manifest.get("generator") != flowdata_identity.get("generator"):
             raise RuntimeError(f"{sdk} generator identity is stale")
         if sdk_manifest.get("schema_files") != _schema_records(config.schema_dir):
             raise RuntimeError(f"{sdk} schema inputs are stale")
         if sdk_manifest.get("schema_set_sha256") != _schema_set_sha256(config.schema_dir):
             raise RuntimeError(f"{sdk} schema-set digest is stale")
-    _verify_python_receipt(flowdata["python"])
+    cpp_bridge = flowdata["cpp"].get("python_bridge")
+    if not isinstance(cpp_bridge, dict) or (
+        cpp_bridge.get("sdk_import_name") != config.public_name
+    ):
+        raise RuntimeError("C++ Python bridge import name is stale")
+    _verify_python_receipt(config, flowdata["python"])
     validate_flowdata_manifests(config, flowdata)
 
 
-def _verify_python_receipt(python_receipt: object) -> None:
+def _verify_python_receipt(config: SdkConfig, python_receipt: object) -> None:
     python_package = (
         python_receipt.get("python_package")
         if isinstance(python_receipt, dict) else None
     )
     if not isinstance(python_package, dict) or (
-        python_package.get("distribution_name") != PYTHON_DISTRIBUTION_NAME
+        python_package.get("distribution_name") != config.public_name
+        or python_package.get("import_name") != config.public_name
     ):
         raise RuntimeError("Python receipt distribution name is stale")
 
@@ -876,7 +894,7 @@ def prepare_sdk(
     flowdata_manifests = read_flowdata_manifests(generated_root)
     prepare_python_package(
         generated_root / "python",
-        config.name,
+        config.public_name,
         config.version,
         config.python_package_version,
     )
@@ -886,10 +904,10 @@ def prepare_sdk(
         if isinstance(python_receipt, dict) else None
     )
     if not isinstance(python_package, dict) or (
-        python_package.get("distribution_name") != config.name
+        python_package.get("distribution_name") != config.public_name
+        or python_package.get("import_name") != config.public_name
     ):
         raise RuntimeError("generated Python package metadata is unexpected")
-    python_package["distribution_name"] = PYTHON_DISTRIBUTION_NAME
     prepare_rust_tests(config, generated_root)
     add_license_headers(generated_root)
     prepare_typescript_package(config, generated_root)
@@ -980,7 +998,7 @@ def check_generated(
             differences += "\ninternal Meson integration differs"
         if differences.strip():
             print(differences.strip())
-            print("Perception generated SDKs are stale. Run ./scripts/perception-sdk.sh generate in the container.")
+            print("Generated open-perception-kit SDKs are stale. Run ./scripts/perception-sdk.sh generate in the container.")
             return False
     verify_perception_manifest(config)
     return True
@@ -1130,7 +1148,7 @@ def main() -> int:
             install_candidate(config, generated, internal, workspace)
         synchronize_project_consumers(config, args.node, False)
         verify_perception_manifest(config)
-        print(f"Generated {config.name} SDK {config.version} in {config.generated_root}")
+        print(f"Generated {config.public_name} SDK {config.version} in {config.generated_root}")
         return 0
     except (OSError, RuntimeError, subprocess.CalledProcessError, json.JSONDecodeError) as exc:
         print(f"error: {exc}", file=sys.stderr)

@@ -9,7 +9,7 @@ from pathlib import Path
 import flatbuffers
 import numpy
 
-from perception.guest import Envelope
+from open_perception_kit.guest import Envelope
 from opk_python_ops import Context, Tensor
 
 

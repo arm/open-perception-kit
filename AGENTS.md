@@ -145,7 +145,7 @@ Read first:
 
 Use `development/examples/byom-blazeface/postprocess.py` and
 `development/examples/byom-blazeface/opchain.json` as the primary
-checked-in example. Prefer existing generated Perception payloads and the
+checked-in example. Prefer existing generated FrameResults payloads and the
 official container runtime; do not begin by changing the Python bridge or core
 runtime.
 
@@ -163,27 +163,27 @@ Start in:
 - `docs/arch/perception.md`
 - `scripts/perception-sdk.sh`
 
-Add persistent result shapes to the Perception schema, then regenerate the checked-in
+Add persistent result shapes to the Open Perception Kit schema, then regenerate the checked-in
 C++, Python, Rust, and TypeScript SDKs through the container workflow with
 `./scripts/perception-sdk.sh generate`.
 Do not recreate hand-written `Perception` containers or serializers. Continue into
 parser, visualization, tracking, or publishing code only if the new schema payload
 needs runtime support.
 
-The Perception SDK identity, repository paths, enabled outputs, and FlatBuffers
+The Open Perception Kit SDK identity, repository paths, enabled outputs, and FlatBuffers
 runtime artifact locks are owned only by `tools/perception/sdk.json`. All scripts load that
 descriptor through `tools/perception/sdk_config.py`; generated integrations and
 manifests are derived outputs and must not be edited independently. Raw flowdata
 manifests are verified before OPK-specific copyright and formatting decoration.
 
-### Regenerate the Perception SDK snapshot
+### Regenerate the Open Perception Kit snapshot
 Use `$regenerate-perception-sdk` during implementation when authored SDK inputs
 change or `./scripts/perception-sdk.sh check` reports drift. This workflow
 updates tracked generated sources and prepares them for a normal source commit.
 It does not create release ZIPs.
 
-### Package a Perception SDK release
-Use `$package-perception-sdk-release` only after the authored and generated SDK
+### Package an Open Perception Kit release
+Use `$package-open-perception-kit-release` only after the authored and generated SDK
 snapshot is committed. This workflow creates and verifies the deterministic ZIP,
 checksum, and provenance sidecar without regenerating checked-in sources.
 
@@ -192,7 +192,7 @@ Start in:
 
 - `development/elements/opkosd/opkosd.cpp`
 
-Only do this after the Perception schema payload and parser output are clear.
+Only do this after the FrameResults schema payload and parser output are clear.
 
 ### Add or modify an app under `apps/`
 Start in:

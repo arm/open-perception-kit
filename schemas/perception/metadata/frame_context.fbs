@@ -1,9 +1,9 @@
 include "common.fbs";
 
-namespace perception.metadata;
+namespace open_perception_kit.metadata;
 
 table VideoFrameContext {
-  object:perception.metadata.ObjectMeta;
+  object:open_perception_kit.metadata.ObjectMeta;
   original_width:ulong;
   original_height:ulong;
   source_crop_left:ulong;
@@ -17,7 +17,7 @@ table VideoFrameContext {
 }
 
 table AudioFrameContext {
-  object:perception.metadata.ObjectMeta;
+  object:open_perception_kit.metadata.ObjectMeta;
   original_channels:ulong;
   original_frequency:ulong;
   original_sample_count:ulong;
@@ -28,9 +28,9 @@ table AudioFrameContext {
 table FrameContext {
   schema_major:ushort = 1;
   schema_minor:ushort = 0;
-  layer:perception.metadata.LayerInfo;
-  video:perception.metadata.VideoFrameContext;
-  audio:perception.metadata.AudioFrameContext;
+  layer:open_perception_kit.metadata.LayerInfo;
+  video:open_perception_kit.metadata.VideoFrameContext;
+  audio:open_perception_kit.metadata.AudioFrameContext;
 }
 
 root_type FrameContext;

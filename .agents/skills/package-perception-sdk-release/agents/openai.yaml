@@ -1,4 +1,0 @@
-interface:
-  display_name: "Package Perception SDK Release"
-  short_description: "Build and verify the SDK release bundle"
-  default_prompt: "Use $package-perception-sdk-release to build and verify a Perception SDK release ZIP from a clean committed snapshot."

@@ -18,7 +18,7 @@ namespace opk::tracker::frameinputs {
  * @param config Tracker configuration used to validate embedding usage.
  * @return EmbeddingBatch Mapping of parent ID to embedding vector view.
  */
-EmbeddingBatch collectEmbeddings(const perception::FrameResults &frameResults,
+EmbeddingBatch collectEmbeddings(const open_perception_kit::FrameResults &frameResults,
                                  const Config &config);
 
 /**
@@ -31,7 +31,7 @@ EmbeddingBatch collectEmbeddings(const perception::FrameResults &frameResults,
  * @param config Tracker configuration controlling detection selection.
  * @return DetectionBatch Ordered detection view batch.
  */
-DetectionBatch collectDetections(const perception::FrameResults &frameResults,
+DetectionBatch collectDetections(const open_perception_kit::FrameResults &frameResults,
                                  const Config &config);
 
 } // namespace opk::tracker::frameinputs

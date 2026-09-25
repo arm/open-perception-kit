@@ -1,4 +1,4 @@
-namespace perception.metadata;
+namespace open_perception_kit.metadata;
 
 table ObjectMeta {
   id:ulong;

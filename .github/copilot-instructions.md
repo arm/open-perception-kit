@@ -10,8 +10,8 @@ Follow the repository root `AGENTS.md` first.
   - `config/pipelines/`
   - `development/ops-std/postproc/`
 - Shared types: `development/common/opk/`
-- Perception SDK descriptor: `tools/perception/sdk.json`
-- Perception schemas and generated SDKs: use the paths declared by the descriptor
+- Open Perception Kit SDK descriptor: `tools/perception/sdk.json`
+- Open Perception Kit schemas and generated SDKs: use the paths declared by the descriptor
 - Op system: `development/common/op/`
 - GStreamer metadata: `development/common/gst/`
 - Launcher: `development/opk-menu/`

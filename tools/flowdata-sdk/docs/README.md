@@ -46,8 +46,8 @@ bounding boxes, positions, and vectors. It has no `root_type`, so it is generate
 as shared support code rather than as an envelope payload.
 
 Demo schemas, applications, and their test harness are not included here.
-For the repository's supported Perception workflow, use
-[Use the Perception SDK](../../../docs/public/how-to/use-perception-sdk.md).
+For the repository's supported Open Perception Kit workflow, use
+[Use the Open Perception Kit SDK](../../../docs/public/how-to/use-perception-sdk.md).
 
 In another project, the same API shape applies, but the generated namespaces,
 classes, and imports follow that project's FlatBuffers schemas.

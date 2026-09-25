@@ -1,6 +1,6 @@
 ---
 name: author-opk-python-postprocessor
-description: Author and integrate trusted, model-local Python postprocessors using `opk-python-ops/PythonScript`. Use when adding or modifying an OPK PythonScript Op, Python guest postprocessor, tensor-processing script, stateful Python inference callback, model opchain integration, demonstrational pipeline, or related tests and documentation. Do not use for embedded Python runtime or bridge implementation changes, external SDK consumers, or new Perception payload schemas.
+description: Author and integrate trusted, model-local Python postprocessors using `opk-python-ops/PythonScript`. Use when adding or modifying an OPK PythonScript Op, Python guest postprocessor, tensor-processing script, stateful Python inference callback, model opchain integration, demonstrational pipeline, or related tests and documentation. Do not use for embedded Python runtime or bridge implementation changes, external SDK consumers, or new Open Perception Kit payload schemas.
 ---
 
 # Author OPK Python Postprocessor
@@ -15,7 +15,7 @@ validation inside the official OPK containers.
    opchain being extended.
 2. Inspect the inference output tensor names, shapes, value types, and
    quantization metadata.
-3. Select an existing generated Perception payload type for the result.
+3. Select an existing generated FrameResults payload type for the result.
 4. Use `$evolve-perception-schema` and `$regenerate-perception-sdk` before
    continuing if no existing payload represents the required persistent data.
 
@@ -28,7 +28,7 @@ Place model-specific scripts under `config/models/<model>/scripts/` and use the
 supported callback:
 
 ```python
-from perception.guest import Envelope
+from open_perception_kit.guest import Envelope
 from opk_python_ops import Context, Tensor
 
 
@@ -64,7 +64,7 @@ checked-in example.
 - Add a top-level pipeline only when the feature needs a runnable `opk-menu`
   preset or demonstrational workflow.
 - Run the script only through a native OPK pipeline in the official quick-start
-  or deployment container. `perception.guest` intentionally does not import in
+  or deployment container. `open_perception_kit.guest` intentionally does not import in
   a normal standalone Python process.
 
 ## Test the Result

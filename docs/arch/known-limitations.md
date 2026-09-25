@@ -27,7 +27,7 @@ runtime. Treat these as constraints when extending the system.
 
 ## Perception And Postprocessing Contracts
 
-- New persistent result shapes require a Perception schema update and regenerated
+- New persistent result shapes require an Open Perception Kit schema update and regenerated
   SDK. Parser, tracker, publishing, or visualization changes are still required
   when those components need to produce or consume the new payload semantics.
 - Native custom postprocessing is registered through `GenericPostprocessOp`.

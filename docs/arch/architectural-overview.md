@@ -40,14 +40,14 @@ backend choices, thresholds, parser settings, and cascade behavior. This keeps
 pipeline composition and model swapping in configuration instead of requiring a
 rebuild for common changes.
 
-## Perception Data Model
+## FrameResults Data Model
 
-Perception is the schema and SDK domain; `FrameResults` is its persistent runtime
+The Open Perception Kit schema defines `FrameResults`, the persistent runtime
 result envelope. It travels downstream with the media buffer and aggregates
 typed payloads produced by postprocessing, tracking, and performance elements.
 This supports cascades, parallel branches, and incremental enrichment across the
 pipeline. See
-[Perception](perception.md).
+[FrameResults schema](perception.md).
 
 ## End-to-End Flow
 

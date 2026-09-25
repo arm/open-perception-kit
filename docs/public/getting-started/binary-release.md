@@ -44,7 +44,7 @@ contain the experimental ExecuTorch operation module, the PythonScript operation
 module, the YOLOX ExecuTorch model, and a private locked Python package directory
 at `share/opk/python`, plus these two distinct payloads:
 
-- `share/opk/perception-sdk/` contains the Perception SDK ZIP, checksum, and
+- `share/opk/open-perception-kit/` contains the open-perception-kit ZIP, checksum, and
   provenance sidecar;
 - `share/opk/schemas/json/v1/` contains the model and OpChain descriptor JSON
   schemas copied from the released source.
@@ -67,7 +67,7 @@ C/C++ runtimes, and any required accelerator driver and firmware remain host
 dependencies. The Arm package also requires the system `libusb-1.0` runtime.
 PythonScript OpChains require the `python3.14` executable on `PATH` and the
 corresponding `libpython3.14.so.1.0` shared library available to the system
-dynamic loader. NumPy, FlatBuffers, and the Perception guest package are already
+dynamic loader. NumPy, FlatBuffers, and the Open Perception Kit guest package are already
 included privately in the OPK archive. Python applications that drive GStreamer
 directly also need the system PyGObject bindings, available as
 `python3-gst-1.0`.
@@ -120,14 +120,14 @@ GStreamer element, but the OPK C++ performance-metrics API is not part of the
 binary release.
 
 To consume serialized `FrameResults`, Cairn can verify and extract the nested
-Perception SDK with the matching release tooling:
+the Open Perception Kit SDK with the matching release tooling:
 
 ```bash
-sdk_root="$OPK_PACKAGE_ROOT/share/opk/perception-sdk"
+sdk_root="$OPK_PACKAGE_ROOT/share/opk/open-perception-kit"
 ./scripts/perception-sdk.sh verify \
-  "$sdk_root/perception-sdk-<opk-version>.zip" \
+  "$sdk_root/open-perception-kit-<opk-version>.zip" \
   --require-sidecars
-unzip "$sdk_root/perception-sdk-<opk-version>.zip" -d perception-sdk
+unzip "$sdk_root/open-perception-kit-<opk-version>.zip" -d open-perception-kit
 ```
 
 Use the C++, Python, Rust, or TypeScript package from that extracted SDK. The SDK
@@ -188,7 +188,7 @@ intentionally not part of the binary release.
 The same smoke path is run natively for x86_64 and Arm packages on pull
 requests targeting `main`. Pushes to `main` publish the three matching archives
 on one GitHub Release and together in generic Artifactory under
-`releases/<version>/`, the Perception wheel to Artifactory PyPI, the Perception
+`releases/<version>/`, the open-perception-kit wheel to Artifactory PyPI, the Open Perception Kit
 crate to Artifactory Cargo, and the matching multi-architecture image in GHCR.
 Manual runs publish the archives, wheel, and crate only to generic Artifactory
 under `snapshots/<label>/<full-sha>-<run-id>-<attempt>/`. The generic archive

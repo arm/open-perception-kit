@@ -4,8 +4,8 @@
 
 #pragma once
 
+#include "open_perception_kit.h"
 #include "opk/Bitmap.h"
-#include "perception.h"
 
 #include <cstdint>
 #include <memory>
@@ -14,7 +14,7 @@
 #include <utility>
 #include <vector>
 
-namespace perception {
+namespace open_perception_kit {
 
 using FrameResults = container::envelope;
 
@@ -76,4 +76,4 @@ void forEachBoxDetectionWithContentType(const FrameResults &frameResults,
 
 std::vector<uint8_t> serialize(const FrameResults &frameResults);
 
-} // namespace perception
+} // namespace open_perception_kit
