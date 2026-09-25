@@ -269,7 +269,7 @@ void CtrlWebSocket::model_toggle(const json &jsn) {
     try {
         auto element_name = jsn.at("name").get<std::string>();
 
-        // TODO: Revisit this check when control message schema validation is enabled.
+        // TODO(EXPKITS-1382): Revisit when control message schema validation is enabled.
         if (element_name.empty() || element_name.find('\0') != std::string::npos) {
             opk::log::debug("Dropping invalid model toggle name");
             return;

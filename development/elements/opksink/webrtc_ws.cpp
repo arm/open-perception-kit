@@ -538,7 +538,7 @@ void WebRtcWebSocket::process_offer(const std::shared_ptr<SessionContext> &ctx, 
     ctx->offer_received = true;
 
     auto sdp = jsn.at("sdp").get<std::string>();
-    // TODO: Revisit this check when signaling schema validation is enabled.
+    // TODO(EXPKITS-1382): Revisit when signaling schema validation is enabled.
     if (sdp.find('\0') != std::string::npos) {
         cleanup_session(ctx->hdl, "invalid offer sdp");
         return;
@@ -586,7 +586,7 @@ void WebRtcWebSocket::process_canditate(const std::shared_ptr<SessionContext> &c
                                         const json &jsn) {
     opk::log::debug("Received ICE candidate");
 
-    // TODO: Revisit these checks when signaling schema validation is enabled.
+    // TODO(EXPKITS-1382): Revisit when signaling schema validation is enabled.
     const auto &ice = jsn.at("ice");
     auto candidate = ice.at("candidate").get<std::string>();
     // ICE candidates are single SDP lines passed through a C string API.
