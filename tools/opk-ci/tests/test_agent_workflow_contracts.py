@@ -8,14 +8,12 @@ from pathlib import Path
 import sys
 import unittest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts/private"))
-from test_support.agent_workflow import load_quality_checks_module  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tools/opk-ci"))
+from opk_ci.quality_checks import QualityChecks  # noqa: E402
 
 
 class AgentWorkflowBehaviorTests(unittest.TestCase):
     def test_agent_runtime_static_analysis_trigger_paths(self):
-        quality_checks = load_quality_checks_module()
-
         for path in (
             "scripts/download-models.py",
             "scripts/private/agent_repair_orchestrator/cli.py",
@@ -30,13 +28,13 @@ class AgentWorkflowBehaviorTests(unittest.TestCase):
         ):
             with self.subTest(path=path):
                 self.assertTrue(
-                    quality_checks.QualityChecks.should_run_agent_runtime_static_analysis(
+                    QualityChecks.should_run_agent_runtime_static_analysis(
                         [path]
                     )
                 )
 
         self.assertFalse(
-            quality_checks.QualityChecks.should_run_agent_runtime_static_analysis(
+            QualityChecks.should_run_agent_runtime_static_analysis(
                 ["scripts/private/unrelated_helper.py"]
             )
         )

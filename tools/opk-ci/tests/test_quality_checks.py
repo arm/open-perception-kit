@@ -376,7 +376,7 @@ class TestQualityChecks(unittest.TestCase):
         )
 
         result = self.quality_checks.check_github_actions([
-            ".github/workflows/valgrind.yml",
+            ".github/workflows/valgrind-tests.yml",
         ])
 
         self.assertTrue(result)

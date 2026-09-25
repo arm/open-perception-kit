@@ -84,12 +84,12 @@ class DetectSecretsQualityFlowTests(unittest.TestCase):
         env["PYTHONPATH"] = str(PACKAGE_ROOT) + os.pathsep + env.get("PYTHONPATH", "")
         return self.run_cmd([self.test_python, "-m", "opk_ci", *args], check=check, env=env)
 
-    def run_repo_python(self, code):
+    def run_python(self, code):
         env = os.environ.copy()
         env["PYTHONPATH"] = str(PACKAGE_ROOT) + os.pathsep + env.get("PYTHONPATH", "")
         return subprocess.run(
             [self.test_python, "-c", code],
-            cwd=REPO_ROOT,
+            cwd=self.repo_dir,
             env=env,
             check=False,
             capture_output=True,
@@ -201,8 +201,11 @@ class DetectSecretsQualityFlowTests(unittest.TestCase):
         self.assertIn("[INFO]   resolved files: 2", result.stdout)
         self.assertIn("[INFO]   OK   secrets", result.stdout)
 
-    def test_repo_check_secrets_without_scope_returns_bool(self):
-        result = self.run_repo_python(
+    def test_check_secrets_without_scope_returns_bool(self):
+        self.write_file("safe.txt", "safe\n")
+        self.commit_all()
+
+        result = self.run_python(
             "from opk_ci.quality_checks import QualityChecks; "
             "scan_result = QualityChecks().check_secrets(files=None, baseline='.secrets.baseline'); "
             "print(type(scan_result).__name__); "
