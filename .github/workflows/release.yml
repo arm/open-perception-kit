@@ -19,23 +19,14 @@ jobs:
       cargo_package_version: ${{ steps.release.outputs.cargo_package_version }}
       python_package_version: ${{ steps.release.outputs.python_package_version }}
       commit: ${{ steps.release.outputs.commit }}
-      flowdata_commit: ${{ steps.release.outputs.flowdata_commit }}
       build_id: ${{ steps.release.outputs.build_id }}
       x86_archive: ${{ steps.release.outputs.x86_archive }}
       arm_archive: ${{ steps.release.outputs.arm_archive }}
     steps:
-      - name: Checkout release tooling
+      - name: Checkout selected source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.sha }}
-          persist-credentials: false
-
-      - name: Checkout selected source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-        with:
-          fetch-depth: 0
-          fetch-tags: true
           persist-credentials: false
 
       - name: Prepare release identity
@@ -46,8 +37,6 @@ jobs:
           python3 scripts/release/ReleaseTool.py prepare \
             --repo-root . \
             --commit "$commit"
-          echo "flowdata_commit=$(git rev-parse HEAD:tools/flowdata-sdk)" \
-            >> "$GITHUB_OUTPUT"
 
   quick-start-smoke:
     name: Quick-start smoke test
@@ -157,7 +146,6 @@ jobs:
             OPK_RELEASE_BUILD=true
             OPK_RELEASE_BUILD_ID=${{ needs.prepare.outputs.build_id }}
             OPK_RELEASE_SOURCE_COMMIT=${{ needs.prepare.outputs.commit }}
-            OPK_FLOWDATA_SDK_COMMIT=${{ needs.prepare.outputs.flowdata_commit }}
           context: ${{ env.SOURCE_DIR }}
           labels: |
             org.opencontainers.image.revision=${{ needs.prepare.outputs.commit }}
@@ -491,6 +479,16 @@ jobs:
             --title "OPK $VERSION" --notes-file release-body.md
           gh release upload "v$VERSION" "${archives[@]}" "${sboms[@]}"
           gh release edit "v$VERSION" --draft=false
+
+  publish-docs:
+    name: Publish production release docs
+    needs: [prepare, github-release]
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/docs-publish-production.yml
+    with:
+      publish_ref: ${{ needs.prepare.outputs.commit }}
 
   perception-cargo-publish:
     name: Publish and verify open-perception-kit crate

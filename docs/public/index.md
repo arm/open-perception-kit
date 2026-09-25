@@ -65,8 +65,9 @@ Use this target Pi setup before you start:
 
 - Raspberry Pi 5 with at least 8GB RAM and 64-bit Raspberry Pi OS based on
   Debian Trixie.
-- SSH enabled on the Raspberry Pi, with a username and password you can use from
-  the host machine.
+- SSH enabled on the Raspberry Pi, with a working login from the host machine.
+  Follow [Raspberry Pi SSH Setup](getting-started/raspberry-pi-ssh.md) for key-based
+  login without repeated password prompts, or its optional password-based path.
 - Known target Pi hostname or IP address.
 - Permission to run `sudo` on the target Pi.
 - Internet access from the target Pi to GitHub, package repositories, and
