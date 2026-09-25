@@ -3,12 +3,11 @@
 # Copyright (C) 2025 Arm Limited. All rights reserved.
 ################################################################
 
-"""Build-time checks and staging for the three OPK release archives."""
+"""Build-time checks and staging for OPK release packages."""
 
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
 import filecmp
 import importlib.metadata
 import json
@@ -124,7 +123,6 @@ SYSTEM_LIBRARY_PREFIXES = (
     "libz.so.",
     "libzstd.so.",
 )
-BUILD_LABEL_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$")
 VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+$", re.ASCII)
 JSON_GLOB = "*.json"
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -891,12 +889,8 @@ def read_package_versions(repo_root: Path, version: str) -> tuple[str, str]:
         if match is None:
             fail(f"Generated Perception {language} package version is missing")
         versions[language] = match.group(1)
-    expected = {
-        (version, version),
-        (f"{version}.dev0", f"{version}-dev.0"),
-    }
     result = (versions["Python"], versions["Cargo"])
-    if result not in expected:
+    if result != (version, version):
         fail("Generated Perception package versions do not match the product version")
     return result
 
@@ -924,68 +918,24 @@ def write_github_output(values: dict[str, str]) -> None:
             stream.write(f"{key}={value}\n")
 
 
-def prerelease_identity(
-    commit: str,
-    run_id: str,
-    run_attempt: str,
-    now: datetime | None = None,
-) -> dict[str, str]:
-    if not GIT_COMMIT_PATTERN.fullmatch(commit):
-        fail("Source commit must be a full SHA")
-    if not re.fullmatch(r"[1-9]\d*", run_id):
-        fail("GitHub run ID must be a positive integer")
-    if not re.fullmatch(r"[1-9]\d*", run_attempt):
-        fail("GitHub run attempt must be a positive integer")
-    timestamp = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
-    version = (
-        f"{timestamp:%Y%m%d}."
-        f"{1_000_000 + int(timestamp.strftime('%H%M%S'))}."
-        f"{int(run_id) * 1000 + int(run_attempt)}"
-    )
-    return {
-        "version": version,
-        "build_label": f"prerelease-g{commit[:12]}",
-        "source_branch": f"sandbox/prerelease-source/{run_id}-{run_attempt}",
-    }
-
-
-def prepare_prerelease(args: argparse.Namespace) -> None:
-    write_github_output(
-        prerelease_identity(args.commit, args.run_id, args.run_attempt)
-    )
-
-
 def prepare(args: argparse.Namespace) -> None:
     repo_root = Path(args.repo_root).resolve()
     version = read_version(repo_root)
     python_package_version, cargo_package_version = read_package_versions(
         repo_root, version
     )
-    if not args.build_label:
-        changelog_section(repo_root, version)
-        if (python_package_version, cargo_package_version) != (version, version):
-            fail("Stable releases require stable Perception package versions")
-    elif (python_package_version, cargo_package_version) == (version, version):
-        fail("Prereleases require prerelease Perception package versions")
+    changelog_section(repo_root, version)
     commit = args.commit
-    if not re.fullmatch(r"[0-9a-f]{40}", commit):
+    if not GIT_COMMIT_PATTERN.fullmatch(commit):
         fail("Source commit must be a full SHA")
-    if args.build_label:
-        if not BUILD_LABEL_PATTERN.fullmatch(args.build_label):
-            fail("build_label does not match the required policy")
-        build_id = f"{version}-{args.build_label}-{commit[:12]}"
-    else:
-        build_id = version
     write_github_output(
         {
             "version": version,
             "python_package_version": python_package_version,
             "cargo_package_version": cargo_package_version,
             "commit": commit,
-            "build_id": build_id,
-            "x86_archive": f"opk-{build_id}-linux-x86_64.tar.gz",
-            "arm_archive": f"opk-{build_id}-linux-aarch64.tar.gz",
-            "docs_archive": f"opk-docs-{build_id}.tar.gz",
+            "x86_archive": f"opk-{version}-linux-x86_64.tar.gz",
+            "arm_archive": f"opk-{version}-linux-aarch64.tar.gz",
         }
     )
 
@@ -1010,12 +960,6 @@ def main() -> int:
     prepare_parser = subparsers.add_parser("prepare")
     prepare_parser.add_argument("--repo-root", default=".")
     prepare_parser.add_argument("--commit", required=True)
-    prepare_parser.add_argument("--build-label", default="")
-
-    prerelease_parser = subparsers.add_parser("prepare-prerelease")
-    prerelease_parser.add_argument("--commit", required=True)
-    prerelease_parser.add_argument("--run-id", required=True)
-    prerelease_parser.add_argument("--run-attempt", required=True)
 
     args = parser.parse_args()
     try:
@@ -1027,8 +971,6 @@ def main() -> int:
             validate_package(args)
         elif args.command == "prepare":
             prepare(args)
-        elif args.command == "prepare-prerelease":
-            prepare_prerelease(args)
         return 0
     except (OSError, RuntimeError, subprocess.CalledProcessError, ValueError) as error:
         print(f"release error: {error}", file=sys.stderr)
