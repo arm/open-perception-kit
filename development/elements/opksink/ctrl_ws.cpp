@@ -137,7 +137,7 @@ void CtrlWebSocket::on_message(const connection_hdl &hdl, const ws_server::messa
     try {
         auto payload = msg->get_payload();
         auto jsn = json::parse(payload);
-        auto type = jsn["type"].get<std::string>();
+        auto type = jsn.at("type").get<std::string>();
 
         if (auto it = message_types.find(type); it != message_types.end()) {
             (*it).second(jsn);
@@ -267,10 +267,11 @@ void CtrlWebSocket::model_toggle(const json &jsn) {
     opk::log::debug("model_toggle: {}", jsn.dump());
 
     try {
-        std::string element_name = jsn["name"];
+        auto element_name = jsn.at("name").get<std::string>();
 
-        if (element_name.empty()) {
-            GST_ERROR_OBJECT(self_, "element_name can't be empty");
+        // TODO: Revisit this check when control message schema validation is enabled.
+        if (element_name.empty() || element_name.find('\0') != std::string::npos) {
+            opk::log::debug("Dropping invalid model toggle name");
             return;
         }
 
@@ -301,6 +302,6 @@ void CtrlWebSocket::model_toggle(const json &jsn) {
             self_, "Set element %s active=%d", opk::log::escape(element_name).c_str(), active);
 
     } catch (const json::exception &e) {
-        GST_ERROR_OBJECT(self_, "JSON parse error: %s", opk::log::escape(e.what()).c_str());
+        opk::log::debug("Dropping invalid model toggle: {}", e.what());
     }
 }

@@ -537,7 +537,12 @@ void WebRtcWebSocket::process_offer(const std::shared_ptr<SessionContext> &ctx, 
     }
     ctx->offer_received = true;
 
-    auto sdp = jsn["sdp"].get<std::string>();
+    auto sdp = jsn.at("sdp").get<std::string>();
+    // TODO: Revisit this check when signaling schema validation is enabled.
+    if (sdp.find('\0') != std::string::npos) {
+        cleanup_session(ctx->hdl, "invalid offer sdp");
+        return;
+    }
     GstSDPMessage *sdp_message = nullptr;
     if (gst_sdp_message_new_from_text(sdp.c_str(), &sdp_message) != GST_SDP_OK) {
         opk::log::debug("Failed to parse SDP offer");
@@ -581,9 +586,22 @@ void WebRtcWebSocket::process_canditate(const std::shared_ptr<SessionContext> &c
                                         const json &jsn) {
     opk::log::debug("Received ICE candidate");
 
-    auto ice = jsn["ice"];
-    auto candidate = ice["candidate"].get<std::string>();
-    auto sdpMLineIndex = static_cast<guint>(ice["sdpMLineIndex"].get<int>());
+    // TODO: Revisit these checks when signaling schema validation is enabled.
+    const auto &ice = jsn.at("ice");
+    auto candidate = ice.at("candidate").get<std::string>();
+    // ICE candidates are single SDP lines passed through a C string API.
+    if (candidate.find_first_of("\r\n") != std::string::npos ||
+        candidate.find('\0') != std::string::npos) {
+        cleanup_session(ctx->hdl, "invalid ICE candidate");
+        return;
+    }
+    const auto &index = ice.at("sdpMLineIndex");
+    // JSON numeric conversions do not check the target type's range.
+    if (!index.is_number_unsigned() || index.get<uint64_t>() > G_MAXUINT) {
+        cleanup_session(ctx->hdl, "invalid ICE media line index");
+        return;
+    }
+    auto sdpMLineIndex = index.get<guint>();
 
     if (candidate.find(".local ") != std::string::npos &&
         candidate.find(" typ host") != std::string::npos) {
@@ -613,7 +631,7 @@ void WebRtcWebSocket::on_message(const connection_hdl &hdl, const ws_server::mes
         const std::string payload = msg->get_payload();
         json jsn = json::parse(payload);
 
-        auto type = jsn["type"].get<std::string>();
+        auto type = jsn.at("type").get<std::string>();
 
         if (type == "offer") {
             process_offer(ctx, jsn);
