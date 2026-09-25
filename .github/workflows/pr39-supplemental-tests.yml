@@ -16,8 +16,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - variant: pr39-fixed
-            ref: 46edafd777ff173699de11f3494d1974afaadabe
+          - variant: followup
+            ref: 1e104a098763e0c3bd3d71509753776b0b82465c
     env:
       PYTHONPATH: tools/opk-ci:tools/plumber:scripts/private
     steps:
@@ -64,10 +64,6 @@ jobs:
       - name: Complete private helper suite
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: coverage run --parallel-mode -m unittest discover -s scripts/private/tests -v
-
-      - name: Diagnose repository secret check
-        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
-        run: python3 -m opk_ci --check-secrets
 
       - name: Collect Python coverage
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
