@@ -88,17 +88,22 @@ void ValidationReport::sort() {
     });
 }
 
+std::string ValidationIssue::toText() const {
+    std::ostringstream output;
+    output << file;
+    if (!instanceLocation.empty())
+        output << ':' << instanceLocation;
+    output << ": " << phaseName(phase) << ' ' << rule << ": " << message;
+    return output.str();
+}
+
 std::string ValidationReport::toText() const {
     if (issues.empty())
         return "Configuration descriptors are valid.\n";
 
     std::ostringstream output;
     for (const auto &issue : issues) {
-        output << issue.file;
-        if (!issue.instanceLocation.empty())
-            output << ':' << issue.instanceLocation;
-        output << ": " << phaseName(issue.phase) << ' ' << issue.rule << ": " << issue.message
-               << '\n';
+        output << issue.toText() << '\n';
     }
     return output.str();
 }

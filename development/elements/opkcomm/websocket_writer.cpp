@@ -4,6 +4,8 @@
 
 #include "websocket_writer.h"
 
+#include "Log.h"
+
 #include <utility>
 
 #include <gst/gst.h>
@@ -19,8 +21,8 @@ bool WebSocketWriter::validate(const OpkCommConnectionHdl &hdl) {
     if (!ok) {
         GST_INFO_OBJECT(self(),
                         "Rejected opkcomm WebSocket connection for endpoint '%s' (expected '%s')",
-                        resource.c_str(),
-                        m_endpoint.c_str());
+                        opk::log::escape(resource).c_str(),
+                        opk::log::escape(m_endpoint).c_str());
     }
     return ok;
 }
@@ -45,7 +47,8 @@ void WebSocketWriter::on_close(const OpkCommConnectionHdl &hdl) {
 
 bool WebSocketWriter::io_open() {
     if (m_endpoint.empty() || m_endpoint.front() != '/') {
-        GST_WARNING_OBJECT(self(), "endpoint must start with '/': '%s'", m_endpoint.c_str());
+        GST_WARNING_OBJECT(
+            self(), "endpoint must start with '/': '%s'", opk::log::escape(m_endpoint).c_str());
         return false;
     }
 
@@ -66,10 +69,12 @@ bool WebSocketWriter::io_open() {
         GST_INFO_OBJECT(self(),
                         "opkcomm WebSocket server listening on port %u endpoint '%s'",
                         static_cast<unsigned>(m_port),
-                        m_endpoint.c_str());
+                        opk::log::escape(m_endpoint).c_str());
         return true;
     } catch (const std::exception &e) {
-        GST_WARNING_OBJECT(self(), "Failed to start opkcomm WebSocket server: %s", e.what());
+        GST_WARNING_OBJECT(self(),
+                           "Failed to start opkcomm WebSocket server: %s",
+                           opk::log::escape(e.what()).c_str());
         io_close();
         return false;
     }
@@ -108,7 +113,9 @@ bool WebSocketWriter::publish(const std::string &json_str) {
         websocketpp::lib::error_code ec;
         m_ws->send(hdl, json_str, websocketpp::frame::opcode::text, ec);
         if (ec) {
-            GST_INFO_OBJECT(self(), "opkcomm WebSocket send failed: %s", ec.message().c_str());
+            GST_INFO_OBJECT(self(),
+                            "opkcomm WebSocket send failed: %s",
+                            opk::log::escape(ec.message()).c_str());
         }
     }
 

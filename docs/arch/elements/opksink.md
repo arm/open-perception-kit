@@ -48,6 +48,8 @@ serves the same non-blocking role as the video path.
 
 Control messages with malformed JSON or a missing/non-string `type` are dropped
 with a debug log. The connection stays open and subsequent commands remain usable.
+The shared OPK logger escapes string arguments automatically. Control diagnostics
+using GStreamer use the same escaping helper, without changing protocol data.
 
 `opkinfer` emits `opk-model-register` events, and `opksink` records the model
 state and declared required/provided content types for browser-side visibility.

@@ -286,7 +286,8 @@ void CtrlWebSocket::model_toggle(const json &jsn) {
         gst_object_unref(pipeline);
 
         if (!target_element) {
-            GST_WARNING_OBJECT(self_, "Element not found: %s", element_name.c_str());
+            GST_WARNING_OBJECT(
+                self_, "Element not found: %s", opk::log::escape(element_name).c_str());
             return;
         }
 
@@ -296,9 +297,10 @@ void CtrlWebSocket::model_toggle(const json &jsn) {
         g_object_set(target_element, "active", active, NULL);
         gst_object_unref(target_element);
 
-        GST_INFO_OBJECT(self_, "Set element %s active=%d", element_name.c_str(), active);
+        GST_INFO_OBJECT(
+            self_, "Set element %s active=%d", opk::log::escape(element_name).c_str(), active);
 
     } catch (const json::exception &e) {
-        GST_ERROR_OBJECT(self_, "JSON parse error: %s", e.what());
+        GST_ERROR_OBJECT(self_, "JSON parse error: %s", opk::log::escape(e.what()).c_str());
     }
 }
