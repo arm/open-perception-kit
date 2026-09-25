@@ -49,7 +49,7 @@ Report the predecessor, proposed version, classification, and short rationale be
 6. Rely on the release PR workflows for architecture packaging and smoke coverage that is unavailable locally.
 7. Follow the current contribution rules for branch names, commits, PR titles, descriptions, and labels.
 
-Failure pattern: changing only `development/meson.build` produces a stale Perception SDK identity; regenerating the SDK without updating plumber makes the Docker dependency solve unsatisfiable. This sequence was verified by clean Perception SDK and WebUI checks plus a successful local uv dependency solve. The ruled-out shortcut is a manual single-file version bump.
+Failure pattern: changing only `development/meson.build` produces a stale Open Perception Kit SDK identity; regenerating the SDK without updating plumber makes the Docker dependency solve unsatisfiable. This sequence was verified by clean Open Perception Kit SDK and WebUI checks plus a successful local uv dependency solve. The ruled-out shortcut is a manual single-file version bump.
 
 ## Handle PRs, CI, and follow-ups
 

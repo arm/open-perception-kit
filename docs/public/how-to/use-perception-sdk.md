@@ -1,27 +1,27 @@
 ---
-title: Build and use the Perception SDK bundle
-sidebar_label: Perception SDK bundle
-description: Build a reproducible Perception C++, Python, Rust, and TypeScript SDK archive and integrate it into an application.
+title: Build and use the Open Perception Kit bundle
+sidebar_label: Open Perception Kit bundle
+description: Build a reproducible Open Perception Kit C++, Python, Rust, and TypeScript archive and integrate it into an application.
 ---
 
-# Build and use the Perception SDK bundle
+# Build and use the Open Perception Kit bundle
 
 The release bundle contains the generated C++ SDK, installable Python and
 TypeScript packages, a Rust crate, matching FlatBuffers runtimes, the source
 schemas, and a manifest describing every file and compatibility requirement.
 
 Released OPK architecture packages carry the unchanged ZIP, checksum, and
-provenance sidecar under `share/opk/open-perception-kit-sdk/`. SDK packages use the OPK
+provenance sidecar under `share/opk/open-perception-kit/`. SDK packages use the OPK
 product version from `development/meson.build`.
 
-The Perception SDK is licensed under Apache-2.0. Each language package includes
+Open Perception Kit is licensed under Apache-2.0. Each language package includes
 the licence text and Arm copyright notice, including the standalone wheel and
 Cargo crate. Bundled third-party runtimes retain their own licences and notices.
 
 This is the release-packaging workflow. During implementation, use
 `$regenerate-perception-sdk` or `./scripts/perception-sdk.sh generate` to update
 the tracked generated SDK snapshot and commit it normally. Use
-`$package-perception-sdk-release` only after that snapshot is committed.
+`$package-open-perception-kit-release` only after that snapshot is committed.
 
 ## Build the bundle
 
@@ -41,7 +41,7 @@ without invoking flowdata-sdk, `flatc`, or formatters. The generator sources are
 normal tracked files in `tools/flowdata-sdk`, updated manually alongside the
 regenerated snapshot; SDK commands do not fetch or update them.
 It builds the Python wheels from the canonical snapshot
-and creates `artifacts/open-perception-kit-sdk-<opk-version>.zip`.
+and creates `artifacts/open-perception-kit-<opk-version>.zip`.
 
 After changing the OPK product version in `development/meson.build`, run
 `./scripts/perception-sdk.sh generate`. The archive
@@ -66,7 +66,7 @@ descriptor also locks the C++ source archive used by the Docker images.
 
 ## Install the Python SDK
 
-Stable OPK releases publish the same verified Perception wheel that is embedded
+Stable OPK releases publish the same verified open-perception-kit wheel that is embedded
 in the SDK ZIP to the existing `edge-ai-tooling` Artifactory PyPI repository.
 Python-only consumers can lock it as a normal package dependency.
 
@@ -115,7 +115,7 @@ information for guest scripts without importing the live bridge.
 
 `open_perception_kit.guest` intentionally raises an import error in a normal Python
 process. It becomes available only when a C++ host registers the generated
-`perception_bridge` module before starting Python.
+`open_perception_kit_bridge` module before starting Python.
 
 ## Install the TypeScript SDK
 
@@ -146,7 +146,7 @@ Stable OPK releases publish the `open_perception_kit` crate at the OPK version t
 index = "sparse+https://artifactory.arm.com/artifactory/api/cargo/edge-ai-tooling.cargo/index/"
 ```
 
-Select that registry only for Perception. The published crate metadata assigns
+Select that registry only for the Open Perception Kit crate. The published crate metadata assigns
 its FlatBuffers dependency to crates.io explicitly:
 
 ```toml
@@ -162,7 +162,7 @@ and a `rust/vendor/` directory:
 
 ```toml
 [dependencies]
-open_perception_kit = { path = "/path/to/open-perception-kit-sdk-<opk-version>/rust" }
+open_perception_kit = { path = "/path/to/open-perception-kit-<opk-version>/rust" }
 ```
 
 Copy `rust/.cargo/config.toml` into the consumer's `.cargo/config.toml` and
@@ -203,7 +203,7 @@ configuring the application.
 
 ## Verify provenance
 
-`perception-sdk-release-manifest.json` records the repository commit and dirty
+`open-perception-kit-release-manifest.json` records the repository commit and dirty
 state in the external provenance sidecar, while the reproducible archive records
 descriptor and generation-manifest hashes, SDK identity and local generator
 content hashes, exact FlatBuffers compiler and wheel, schema-set digest, generated payload
@@ -214,7 +214,7 @@ Verify an archive and its checksum/provenance sidecars with:
 
 ```bash
 ./scripts/perception-sdk.sh verify \
-  artifacts/open-perception-kit-sdk-<opk-version>.zip \
+  artifacts/open-perception-kit-<opk-version>.zip \
   --require-sidecars
 ```
 

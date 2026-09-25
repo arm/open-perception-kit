@@ -1,17 +1,17 @@
 ---
 sidebar_position: 10
-sidebar_label: Perception
+sidebar_label: FrameResults schema
 ---
 
-# Perception
+# FrameResults schema
 
-Perception is the schema and SDK domain for structured runtime results.
+The `open_perception_kit.metadata` schema defines structured runtime results.
 `open_perception_kit::FrameResults` is the concrete C++ runtime container: a generated,
 typed envelope that travels downstream with a media buffer and accumulates
 payloads from postprocessing, tracking, and performance elements.
 
-**Perception** identifies the schema set and remains the packet producer identity.
-The public SDK packages and C++ facade use **Open Perception Kit** names;
+The public SDK packages and C++ facade use **open-perception-kit** names;
+`open_perception_kit` is the packet producer identity.
 **FrameResults** identifies one frame's runtime result envelope.
 
 ## Generated SDKs
@@ -23,7 +23,7 @@ regenerate the checked-in C++, Python, Rust, and TypeScript SDKs; use
 
 Development generation and release packaging are intentionally separate.
 `$regenerate-perception-sdk` updates tracked generated sources during
-implementation. `$package-perception-sdk-release` consumes an already committed
+implementation. `$package-open-perception-kit-release` consumes an already committed
 snapshot and creates distributable artifacts without regenerating it.
 
 `tools/perception/sdk.json` is the only hand-edited SDK release descriptor. It
@@ -50,9 +50,9 @@ generated internal Meson adapter is derived from the public SDK integration and
 carries the same version requirements.
 
 Run `./scripts/perception-sdk.sh package --output-dir artifacts` to create a
-reproducible release archive containing the C++ SDK and integrations, Perception
+reproducible release archive containing the C++ SDK and integrations, open-perception-kit
 and FlatBuffers Python wheels, schemas, and release manifest. See
-[Build and use the Perception SDK bundle](../public/how-to/use-perception-sdk.md)
+[Build and use the Open Perception Kit bundle](../public/how-to/use-perception-sdk.md)
 for the archive layout and consumer workflow.
 
 Release packaging verifies the checked-in generation receipt and never invokes
@@ -127,7 +127,7 @@ payloads; and `opkosd` reads supported payload types for visualization.
 At application boundaries, the generated wire envelope is serialized as bytes.
 `opkcomm` publishes those bytes in the `frame_results_packet_b64` field with the
 `perception-frame-results+base64` encoding marker. External consumers must use a
-compatible released Perception SDK to decode and access the typed payloads.
+compatible released Open Perception Kit SDK to decode and access the typed payloads.
 The embedded `opksink` WebUI uses the generated TypeScript SDK at this boundary;
 it validates producer identity and converts typed payloads into its established
 OSD and output-panel presentation model.
@@ -160,7 +160,7 @@ def process(env: Envelope) -> None:
 Existing payloads are read-only through the bridge. A transformation therefore
 reads its input payloads and appends new payloads rather than mutating entries in
 place. After all scripts return successfully, the executor writes a raw
-Perception packet that tests can decode with `open_perception_kit.packet.decode`.
+FrameResults packet that tests can decode with `open_perception_kit.packet.decode`.
 `--python-path` can be repeated to add script dependencies to the embedded
 interpreter's module search path. The embedded runtime uses the same Python
 installation selected by Meson, including that installation's virtualenv

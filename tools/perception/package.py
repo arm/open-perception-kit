@@ -3,7 +3,7 @@
 # Copyright (C) 2025 Arm Limited. All rights reserved.
 ################################################################
 
-"""Build a deterministic release from the canonical Perception SDK snapshot."""
+"""Build a deterministic release from the canonical open-perception-kit snapshot."""
 
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ import sdk_config as perception_config
 
 REPO_ROOT = perception_config.REPO_ROOT
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "artifacts"
-MANIFEST_FILENAME = "perception-sdk-release-manifest.json"
+MANIFEST_FILENAME = "open-perception-kit-release-manifest.json"
 SOURCE_DATE_EPOCH = "315532800"
 ZIP_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 SEMANTIC_VERSION_RE = re.compile(
@@ -51,9 +51,9 @@ MAX_RUST_CRATE_EXPANDED_BYTES = 64 * 1024 * 1024
 MAX_RUST_CRATE_MEMBERS = 10_000
 RUST_CARGO_CONFIG = """\
 [source.crates-io]
-replace-with = "open-perception-kit-sdk-vendor"
+replace-with = "open-perception-kit-vendor"
 
-[source.open-perception-kit-sdk-vendor]
+[source.open-perception-kit-vendor]
 directory = "vendor"
 
 [net]
@@ -296,15 +296,16 @@ def build_perception_wheel(
         python, "-m", "pip", "wheel", "--no-deps", "--no-build-isolation",
         "--wheel-dir", str(wheel_dir), str(python_project),
     ], env=env)
-    wheels = sorted(wheel_dir.glob(f"{name}-{version}-*.whl"))
-    if len(wheels) != 1:
-        raise RuntimeError(f"expected one {name} wheel, found: {wheels}")
+    wheels = sorted(wheel_dir.glob("*.whl"))
+    expected_name = f"{name}-{version}-py3-none-any.whl"
+    if len(wheels) != 1 or wheels[0].name != expected_name:
+        raise RuntimeError(f"expected wheel {expected_name}, found: {wheels}")
     return wheels[0]
 
 
 def write_requirements(python_dir: Path, config: perception_config.SdkConfig) -> None:
     (python_dir / "requirements.txt").write_text(
-        f"{config.python_package_name}=={config.python_package_version}\n"
+        f"{config.public_name}=={config.python_package_version}\n"
         f"flatbuffers=={config.flatbuffers_wheel.version}\n",
         encoding="utf-8",
     )
@@ -312,7 +313,7 @@ def write_requirements(python_dir: Path, config: perception_config.SdkConfig) ->
 
 def write_readme(bundle_root: Path, config: perception_config.SdkConfig) -> None:
     (bundle_root / "README.md").write_text(
-        f"""# Perception SDK {config.version}
+        f"""# open-perception-kit {config.version}
 
 This archive contains the generated C++ SDK, Python SDK wheel, Rust crate,
 TypeScript SDK package, matching FlatBuffers runtimes, source schemas, and
@@ -338,7 +339,7 @@ Add the extracted `rust/` directory as a path dependency:
 
 ```toml
 [dependencies]
-{config.public_name} = {{ path = "/path/to/{config.public_name.replace('_', '-')}-sdk-{config.version}/rust" }}
+{config.public_name} = {{ path = "/path/to/{config.public_name.replace('_', '-')}-{config.version}/rust" }}
 ```
 
 For an offline consumer build, copy `rust/.cargo/config.toml` into the
@@ -491,7 +492,7 @@ def write_bundle_manifest(
             "compression": "stored", "file_mode": "0644",
             "timestamp": "1980-01-01T00:00:00Z", "top_level_directory": bundle_root.name,
         },
-        "artifact": {"name": f"{config.public_name.replace('_', '-')}-sdk", "version": config.version},
+        "artifact": {"name": config.public_name.replace('_', '-'), "version": config.version},
         "files": bundle_files(bundle_root),
         "flatbuffers": {
             "compiler": cpp_manifest["flatc"],
@@ -521,8 +522,8 @@ def write_bundle_manifest(
             "python_bridge": cpp_manifest["python_bridge"],
             "python_package": {
                 **python_manifest["python_package"],
-                "distribution_name": config.python_package_name,
-                "import_name": config.python_package_name,
+                "distribution_name": config.public_name,
+                "import_name": config.public_name,
                 "version": config.python_package_version,
             },
             "schemas": True,
@@ -642,7 +643,7 @@ def _verify_source_identities(
     descriptor = metadata["descriptor"]
     generated_manifest = metadata["generated_manifest"]
     if (
-        artifact.get("name") != f"{str(descriptor.get('public_name', '')).replace('_', '-')}-sdk"
+        artifact.get("name") != str(descriptor.get('public_name', '')).replace('_', '-')
         or generated_manifest.get("artifact") != artifact
     ):
         raise RuntimeError("release descriptor, generated manifest, and artifact identities differ")
@@ -813,7 +814,7 @@ def verify_bundle(bundle_root: Path) -> None:
         "schema_set_sha256", "source", "tools",
     }
     if set(manifest) != expected_fields:
-        raise RuntimeError("Perception release manifest fields are stale")
+        raise RuntimeError("open-perception-kit release manifest fields are stale")
     artifact = manifest.get("artifact")
     if not isinstance(artifact, dict) or not isinstance(artifact.get("version"), str):
         raise RuntimeError("release manifest artifact identity is malformed")
@@ -901,7 +902,7 @@ def _verify_schema_semantics(
 
 
 def _verify_python_package_identity(
-    manifest: dict[str, object], version: object
+    manifest: dict[str, object], version: object, expected_name: str
 ) -> str:
     outputs = manifest.get("outputs")
     python_package = outputs.get("python_package") if isinstance(outputs, dict) else None
@@ -909,7 +910,7 @@ def _verify_python_package_identity(
         raise RuntimeError("release Python package identity is invalid")
     distribution_name = python_package.get("distribution_name")
     if (
-        not isinstance(distribution_name, str)
+        distribution_name != expected_name
         or python_package.get("import_name") != distribution_name
         or python_package.get("version") != version
     ):
@@ -922,12 +923,21 @@ def _verify_python_packages(
     manifest: dict[str, object],
     file_entries: dict[str, dict[str, object]],
     package_version: str,
+    public_name: str,
 ) -> dict[str, object]:
-    python_package_name = _verify_python_package_identity(manifest, package_version)
+    python_package_name = _verify_python_package_identity(
+        manifest, package_version, public_name
+    )
     perception = manifest.get("perception_wheel")
     flatbuffers = manifest.get("flatbuffers")
     if not isinstance(perception, dict) or not isinstance(flatbuffers, dict):
         raise RuntimeError("release wheel metadata is missing")
+    perception_path = validate_relative_path(perception.get("path"))
+    if (
+        perception.get("filename") != perception_path.name
+        or perception_path.name != f"{public_name}-{package_version}-py3-none-any.whl"
+    ):
+        raise RuntimeError("release open-perception-kit wheel filename does not match SDK descriptor")
     flatbuffers_wheel = flatbuffers.get("python_wheel")
     if not isinstance(flatbuffers_wheel, dict):
         raise RuntimeError("release FlatBuffers wheel metadata is malformed")
@@ -948,7 +958,7 @@ def _verify_python_packages(
         if label == "Perception" and not any(
             requirement.lower().startswith("flatbuffers") for requirement in requirements
         ):
-            raise RuntimeError("Perception wheel does not declare FlatBuffers")
+            raise RuntimeError("open-perception-kit wheel does not declare FlatBuffers")
     return flatbuffers
 
 
@@ -965,7 +975,7 @@ def _verify_typescript_packages(
     if not isinstance(perception_npm, dict) or not isinstance(flatbuffers_npm, dict):
         raise RuntimeError("release TypeScript package metadata is missing")
     for label, record in (
-        ("Perception TypeScript", perception_npm),
+        ("open-perception-kit TypeScript", perception_npm),
         ("FlatBuffers TypeScript", flatbuffers_npm),
     ):
         relative = validate_relative_path(record.get("path"))
@@ -976,9 +986,9 @@ def _verify_typescript_packages(
         bundle_root / validate_relative_path(perception_npm["path"])
     )
     if perception_package.get("name") != public_name.replace("_", "-") or perception_package.get("version") != package_version:
-        raise RuntimeError("Perception TypeScript package identity is invalid")
+        raise RuntimeError("open-perception-kit TypeScript package identity is invalid")
     if perception_package.get("dependencies", {}).get("flatbuffers") != flatbuffers_npm.get("version"):
-        raise RuntimeError("Perception TypeScript package does not declare locked FlatBuffers")
+        raise RuntimeError("open-perception-kit TypeScript package does not declare locked FlatBuffers")
     flatbuffers_package = npm_package_metadata(
         bundle_root / validate_relative_path(flatbuffers_npm["path"])
     )
@@ -1183,7 +1193,12 @@ def verify_manifest_semantics(
     descriptor: dict[str, object],
 ) -> None:
     artifact = manifest["artifact"]
-    if not isinstance(artifact, dict) or artifact.get("name") != f"{str(descriptor.get('public_name', '')).replace('_', '-')}-sdk":
+    public_name = descriptor.get("public_name")
+    if (
+        not isinstance(public_name, str)
+        or not isinstance(artifact, dict)
+        or artifact.get("name") != public_name.replace("_", "-")
+    ):
         raise RuntimeError("release manifest artifact name is invalid")
     source = manifest["source"]
     if not isinstance(source, dict):
@@ -1197,7 +1212,7 @@ def verify_manifest_semantics(
     _verify_release_tools(source)
     _verify_schema_semantics(bundle_root, manifest)
     flatbuffers = _verify_python_packages(
-        bundle_root, manifest, file_entries, python_package_version
+        bundle_root, manifest, file_entries, python_package_version, public_name
     )
     _verify_rust_crate(
         bundle_root, artifact, manifest, file_entries, cargo_package_version
@@ -1208,7 +1223,7 @@ def verify_manifest_semantics(
         flatbuffers,
         file_entries,
         cargo_package_version,
-        str(descriptor["public_name"]),
+        public_name,
     )
 
 
@@ -1238,7 +1253,7 @@ def verify_zip(bundle_root: Path, archive_path: Path) -> None:
     with zipfile.ZipFile(archive_path) as archive:
         names = archive.namelist()
         if len(names) != len(set(names)) or set(names) != expected:
-            raise RuntimeError("Perception release ZIP entries do not match staged bundle")
+            raise RuntimeError("open-perception-kit release ZIP entries do not match staged bundle")
         for info in archive.infolist():
             if (
                 info.date_time != ZIP_TIMESTAMP
@@ -1250,7 +1265,7 @@ def verify_zip(bundle_root: Path, archive_path: Path) -> None:
                 raise RuntimeError(f"non-deterministic ZIP metadata: {info.filename}")
             staged = bundle_root.parent / validate_relative_path(info.filename)
             if archive.read(info) != staged.read_bytes():
-                raise RuntimeError(f"Perception release ZIP content mismatch: {info.filename}")
+                raise RuntimeError(f"open-perception-kit release ZIP content mismatch: {info.filename}")
 
 
 def write_provenance(
@@ -1368,10 +1383,10 @@ def build_bundle(args: argparse.Namespace) -> Path:
             raise RuntimeError(f"SDK inputs or outputs are dirty:\n{status}")
 
     output_dir = args.output_dir.resolve()
-    archive_path = output_dir / f"{config.public_name.replace('_', '-')}-sdk-{config.version}.zip"
+    archive_path = output_dir / f"{config.public_name.replace('_', '-')}-{config.version}.zip"
     with tempfile.TemporaryDirectory(prefix="perception-sdk-release-") as tmp:
         workspace = Path(tmp)
-        bundle_root = workspace / f"{config.public_name.replace('_', '-')}-sdk-{config.version}"
+        bundle_root = workspace / f"{config.public_name.replace('_', '-')}-{config.version}"
         shutil.copytree(config.generated_root / "cpp", bundle_root / "cpp")
         copy_rust_sdk(config.generated_root / "rust", bundle_root / "rust")
         rust_crates = prepare_rust_vendor(
@@ -1402,7 +1417,7 @@ def build_bundle(args: argparse.Namespace) -> Path:
         )
         perception_wheel = build_perception_wheel(
             python=build_python, python_project=python_project, wheel_dir=python_dir,
-            name=config.python_package_name, version=config.python_package_version,
+            name=config.public_name, version=config.python_package_version,
         )
         flatbuffers_wheel = acquire_flatbuffers_wheel(
             generated_manifest=generated_manifest, wheel_dir=python_dir,
@@ -1553,7 +1568,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         epilog=(
             "example:\n"
             "  ./scripts/perception-sdk.sh verify "
-            "artifacts/open-perception-kit-sdk-MAJOR.MINOR.PATCH.zip --require-sidecars"
+            "artifacts/open-perception-kit-MAJOR.MINOR.PATCH.zip --require-sidecars"
         ),
     )
     verify_parser.add_argument(

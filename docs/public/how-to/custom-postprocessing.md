@@ -36,7 +36,7 @@ That is the right level for most model-specific work because:
 - preprocessing and inference are already done
 - `GenericPostprocessOp` already collects the output tensors into a parser input
 - the parser already receives `inferenceInfo`, and `GenericPostprocessOp` links parsed results back to the current inference source
-- you only need to translate model outputs into generated Perception schema payloads
+- you only need to translate model outputs into generated FrameResults payloads
 
 Those FrameResults payloads are the structured results that the rest of Open Perception Kit consumes downstream. In the normal flow, the parser is the step that turns raw tensor output into the app-usable runtime format.
 
@@ -126,7 +126,7 @@ In other words, preprocessing prepares pixels, but postprocessing explains meani
 
 In this codebase, “custom code” usually means a small and specific set of files, not a broad runtime rewrite.
 
-If you can reuse an existing Perception schema payload such as `BoxDetectionsT`, `ClassificationsT`, `PoseEstimationsT`, `SegmentationMasksT`, or `ObjectEmbeddingsT`, the usual files to touch are:
+If you can reuse an existing FrameResults schema payload such as `BoxDetectionsT`, `ClassificationsT`, `PoseEstimationsT`, `SegmentationMasksT`, or `ObjectEmbeddingsT`, the usual files to touch are:
 
 1. create a new parser header under `development/ops-std/postproc/<YourParser>.h`
 2. create a new parser implementation under `development/ops-std/postproc/<YourParser>.cpp`
@@ -140,10 +140,10 @@ That is the normal path when the output tensor meaning is new, but the result st
 
 If you need a genuinely new runtime result because none of the existing schema payloads matches your result cleanly, the usual path is:
 
-1. add the new schema definition in the Perception schema area
+1. add the new schema definition in the FrameResults schema area
 	- model the payload as a generated `open_perception_kit::metadata::*T` type
 	- include layer and object metadata fields where downstream routing or parent links are needed
-2. regenerate the Perception SDK bindings
+2. regenerate the Open Perception Kit bindings
 	- run `./scripts/perception-sdk.sh generate`; generation always executes inside the OPK container
 	- if called from the host, the wrapper re-enters the running OPK container before generation
 	- do not recreate the old hand-written `Perception` container or serializer
@@ -197,7 +197,7 @@ This is how the checked-in camera-contact flow works as well: the parser produce
 
 So when bringing your own model, you should think about two separate questions:
 
-- how do I convert the output tensor into the right Perception schema payload?
+- how do I convert the output tensor into the right FrameResults schema payload?
 - does `opkosd` already know how to draw that structure?
 
 If the answer to the second question is yes, then you only need the parser.

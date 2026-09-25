@@ -57,9 +57,10 @@ HEADER_TEMPLATE = """// Generated file. Do not edit.
 {includes}
 
 namespace __SDK_NAME__ {{
+{namespace_aliases}
 
 inline constexpr std::string_view __SDK_NAME_UPPER___VERSION = "__SDK_VERSION__";
-inline constexpr std::string_view __SDK_NAME_UPPER___NAME = "__SDK_NAME__";
+inline constexpr std::string_view __SDK_NAME_UPPER___NAME = "__PUBLIC_SDK_NAME__";
 inline constexpr std::string_view __SDK_NAME_UPPER___SCHEMA_SET_SHA256 = "__SCHEMA_SET_SHA256__";
 inline constexpr std::string_view __SDK_NAME_UPPER___FLATBUFFERS_VERSION_REQUIREMENT =
     "__FLATBUFFERS_VERSION_REQUIREMENT__";
@@ -789,6 +790,7 @@ def generate_header(
     sdk_version: SemanticVersion,
     flatc_version: SemanticVersion,
     schema_set_digest: str,
+    public_name: str | None = None,
 ) -> str:
     includes = "\n".join(f'#include "{entry.generated_header_path.as_posix()}"' for entry in entries)
 
@@ -814,8 +816,24 @@ struct native_traits<{entry.native_type}> {{
 
     payload_variant_types = "".join(f",\n        {entry.native_type}" for entry in entries)
 
+    sdk_namespace = public_name or sdk_name
+    namespace_aliases = ""
+    if sdk_namespace != sdk_name:
+        child_namespaces = sorted({
+            parts[0]
+            for entry in entries
+            if entry.native_type.startswith(f"{sdk_name}::")
+            for parts in [entry.native_type[len(sdk_name) + 2:].split("::")]
+            if len(parts) > 1 and parts[0] != "internalfb"
+        })
+        namespace_aliases = "\n".join(
+            f"namespace {child} = ::{sdk_name}::{child};"
+            for child in ["internalfb", *child_namespaces]
+        )
+
     result = HEADER_TEMPLATE
     result = result.replace('{includes}', includes)
+    result = result.replace('{namespace_aliases}', namespace_aliases)
     result = result.replace('{trait_specializations}', trait_specializations)
     result = result.replace('{payload_variant_types}', payload_variant_types)
     result = result.replace('{external_key_min}', str(RESERVED_PAYLOAD_ID_MIN))
@@ -825,8 +843,9 @@ struct native_traits<{entry.native_type}> {{
         '__FLATBUFFERS_VERSION_REQUIREMENT__',
         cpp_flatbuffers_requirement(flatc_version),
     )
-    result = result.replace('__SDK_NAME_UPPER__', sdk_name.upper())
-    result = result.replace('__SDK_NAME__', sdk_name)
+    result = result.replace('__SDK_NAME_UPPER__', (public_name or sdk_name).upper())
+    result = result.replace('__PUBLIC_SDK_NAME__', public_name or sdk_name)
+    result = result.replace('__SDK_NAME__', sdk_namespace)
     # format-style template used doubled braces for literal '{' and '}'.
     result = result.replace('{{', '{').replace('}}', '}')
     return result

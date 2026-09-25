@@ -4,16 +4,18 @@ The Python SDK is generated into `generated/python`. Endpoint clients use the
 packet-owning API:
 
 ```python
-from metapoc.packet import Envelope
+from metapoc_python.packet import Envelope
 ```
 
-Embedded guest scripts use the separate `metapoc.guest` API documented in
+Embedded guest scripts use the separate `metapoc_python.guest` API documented in
 [C++ Python Bridge Guest Script API](cpp-python-bridge.md). Both APIs reuse the
-same generated `*T` payload classes.
+same generated `*T` payload classes. That guide uses the default `metapoc`
+public name; pass `--public-name metapoc_python` when generating its C++ bridge
+to use the Python package shown here.
 
 The generated source tree is wheel-ready. Its `pyproject.toml` includes
 `guest.pyi` and `py.typed` as package data, so an installed wheel provides guest
-API completion in editors even though importing `metapoc.guest` still requires
+API completion in editors even though importing `metapoc_python.guest` still requires
 the registered C++ bridge at runtime.
 
 Known payload ids are generated internally and are not part of the public API.
@@ -27,7 +29,7 @@ The generated Python package requires Python 3.10 or newer.
 ```bash
 python3 tools/flowdata/gen.py generate \
   --name metapoc \
-  --python-package-name metapoc_python \
+  --public-name metapoc_python \
   --version 1.2.3 \
   --sdk python \
   --flatc "$(which flatc)" \
@@ -38,17 +40,17 @@ python3 tools/flowdata/gen.py generate \
 pip install -e generated/python
 ```
 
-Omit `--python-package-name` when the Python distribution and import name
-should match the language-independent SDK identity supplied by `--name`.
+Omit `--public-name` when the SDK name should match the schema namespace
+supplied by `--name`. The public name applies to every generated language.
 
 The package metadata and runtime constant use the supplied release version:
 
 ```python
 import metapoc_python
 
-assert metapoc_python.METAPOC_VERSION == "1.2.3"
-assert metapoc.__version__ == metapoc.METAPOC_VERSION
-assert metapoc.FLATBUFFERS_VERSION_REQUIREMENT == ">=24.3.25,<26.0.0"
+assert metapoc_python.METAPOC_PYTHON_VERSION == "1.2.3"
+assert metapoc_python.__version__ == metapoc_python.METAPOC_PYTHON_VERSION
+assert metapoc_python.FLATBUFFERS_VERSION_REQUIREMENT == ">=24.3.25,<26.0.0"
 ```
 
 The generated package declares the same FlatBuffers runtime range in
@@ -57,12 +59,12 @@ The generated package declares the same FlatBuffers runtime range in
 ## Important Generated Names
 
 ```python
-from metapoc.packet import Envelope
-from metapoc.fb.demo.common.BoundingBox import BoundingBoxT
-from metapoc.fb.demo.common.GeoPoint import GeoPointT
-from metapoc.fb.demo.common.Vector3 import Vector3T
-from metapoc.fb.demo.perception.Perception import PerceptionT
-from metapoc.fb.demo.telemetry.Telemetry import TelemetryT
+from metapoc_python.packet import Envelope
+from metapoc_python.fb.demo.common.BoundingBox import BoundingBoxT
+from metapoc_python.fb.demo.common.GeoPoint import GeoPointT
+from metapoc_python.fb.demo.common.Vector3 import Vector3T
+from metapoc_python.fb.demo.perception.Perception import PerceptionT
+from metapoc_python.fb.demo.telemetry.Telemetry import TelemetryT
 ```
 
 The `*T` classes are FlatBuffers object API native classes. Field names follow
@@ -72,9 +74,9 @@ the FlatBuffers Python generator style, such as `sensorId`, `frameId`, and
 ## Build A Packet
 
 ```python
-from metapoc.fb.demo.perception.Perception import PerceptionT
-from metapoc.fb.demo.telemetry.Telemetry import TelemetryT
-from metapoc.packet import Envelope
+from metapoc_python.fb.demo.perception.Perception import PerceptionT
+from metapoc_python.fb.demo.telemetry.Telemetry import TelemetryT
+from metapoc_python.packet import Envelope
 
 front = PerceptionT()
 front.sensorId = "front_camera"
@@ -106,9 +108,9 @@ type. Read them back with occurrence indexes `0` and `1`.
 ## Read A Packet
 
 ```python
-from metapoc.fb.demo.perception.Perception import PerceptionT
-from metapoc.fb.demo.telemetry.Telemetry import TelemetryT
-from metapoc.packet import Envelope
+from metapoc_python.fb.demo.perception.Perception import PerceptionT
+from metapoc_python.fb.demo.telemetry.Telemetry import TelemetryT
+from metapoc_python.packet import Envelope
 
 envelope = Envelope(packet)
 if not envelope.valid():
@@ -135,7 +137,7 @@ public envelope APIs do not accept bare strings or integers for external
 payload access:
 
 ```python
-from metapoc.packet import external_key
+from metapoc_python.packet import external_key
 
 tracks_key = external_key("com.example.tracker.tracks")
 envelope.add(tracks_key, b"...")
@@ -183,7 +185,7 @@ Producer identity:
 - `producer_schema_set_sha256: str`
 - `producer_identity() -> ProducerIdentityStatus`
 
-Import `ProducerIdentityStatus` from `metapoc.packet`. Parsing does not reject a
+Import `ProducerIdentityStatus` from `metapoc_python.packet`. Parsing does not reject a
 missing or mismatched identity. `serialize()` stamps the current generated SDK
 identity, including when forwarding an envelope produced by another SDK.
 

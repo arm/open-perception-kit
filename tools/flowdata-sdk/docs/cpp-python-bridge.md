@@ -4,14 +4,14 @@ The C++ Python bridge is an optional generated add-on for C++ hosts that embed
 CPython. It exposes a temporary live Python object named by the host, usually
 `env`, which wraps an existing C++ `container::envelope&`.
 
-This is separate from the generated `metapoc.packet` API, which owns serialized
-packet bytes. Guest scripts import `Envelope` from `metapoc.guest`; the host
+This is separate from the generated `metapoc_python.packet` API, which owns serialized
+packet bytes. Guest scripts import `Envelope` from `metapoc_python.guest`; the host
 supplies the actual C++-owned envelope wrapper for the callback.
 
-The generated Python package includes `metapoc/guest.pyi` and `metapoc/py.typed`
+The generated Python package includes `metapoc_python/guest.pyi` and `metapoc_python/py.typed`
 for editor completion and static analysis. Type checkers read the stub without
-executing `metapoc.guest`. A normal Python runtime import still raises the
-documented error until a C++ host registers `metapoc_bridge`.
+executing `metapoc_python.guest`. A normal Python runtime import still raises the
+documented error until a C++ host registers `metapoc_python_bridge`.
 
 ## Where The API Comes From
 
@@ -23,14 +23,14 @@ The API is implemented as a generated CPython extension type. The generator
 source is:
 
 ```text
-tools/flowdata/engine/cpp/python_bridge.py
+tools/flowdata-sdk/tools/flowdata/engine/cpp/python_bridge.py
 ```
 
 Generated C++ output is written to:
 
 ```text
-generated/cpp/python_bridge/<sdk>_python_bridge.h
-generated/cpp/python_bridge/<sdk>_python_bridge.cpp
+generated/cpp/python_bridge/<public_name>_python_bridge.h
+generated/cpp/python_bridge/<public_name>_python_bridge.cpp
 ```
 
 The generated method table defines the callable guest API. At runtime, scripts
@@ -54,7 +54,7 @@ env
 The script imports the guest API for the envelope type and shared helpers:
 
 ```python
-from metapoc.guest import Envelope, external_key
+from metapoc_python.guest import Envelope, external_key
 
 
 def process(results: Envelope) -> None:
@@ -73,7 +73,7 @@ changing the live envelope's stored metadata.
 The script imports generated Python payload classes from the normal Python SDK:
 
 ```python
-from metapoc.fb.demo.perception.Perception import PerceptionT
+from metapoc_python.fb.demo.perception.Perception import PerceptionT
 ```
 
 For another SDK name or schema namespace, use that project's generated Python
@@ -98,7 +98,7 @@ env.for_each(PayloadT) -> list[PayloadProxy]
 Example:
 
 ```python
-from metapoc.fb.demo.perception.Perception import PerceptionT
+from metapoc_python.fb.demo.perception.Perception import PerceptionT
 
 if env.contains(PerceptionT):
     first = env.get(PerceptionT)
@@ -145,9 +145,9 @@ env.add(payload_t) -> None
 Example:
 
 ```python
-from metapoc.fb.demo.common.BoundingBox import BoundingBoxT
-from metapoc.fb.demo.perception.Detection import DetectionT
-from metapoc.fb.demo.perception.Perception import PerceptionT
+from metapoc_python.fb.demo.common.BoundingBox import BoundingBoxT
+from metapoc_python.fb.demo.perception.Detection import DetectionT
+from metapoc_python.fb.demo.perception.Perception import PerceptionT
 
 box = BoundingBoxT()
 box.x, box.y, box.w, box.h = 5.0, 6.0, 7.0, 8.0
@@ -188,7 +188,7 @@ ids are rejected by envelope methods.
 Example:
 
 ```python
-from metapoc.guest import external_key
+from metapoc_python.guest import external_key
 
 key = external_key("com.example.bridge.demo")
 
@@ -242,8 +242,8 @@ The bridge is intentionally append/read only.
 ## Minimal Complete Script
 
 ```python
-from metapoc.guest import Envelope, external_key
-from metapoc.fb.demo.perception.Perception import PerceptionT
+from metapoc_python.guest import Envelope, external_key
+from metapoc_python.fb.demo.perception.Perception import PerceptionT
 
 
 def main(results: Envelope) -> None:

@@ -307,7 +307,7 @@ def _lib_rs(
     entries: list[SchemaEntry],
     bindings: dict[str, RustPayloadBinding],
 ) -> str:
-    sdk_upper = ctx.sdk_name.upper()
+    sdk_upper = ctx.effective_public_name.upper()
     payload_data = _payload_data(entries, bindings)
     native_impls = "\n".join(
         _native_payload_impl(entry, index, len(entries) == 1, bindings)
@@ -326,7 +326,7 @@ def _lib_rs(
         )]
         #![warn(missing_docs)]
 
-        //! Owning Rust API for the generated `{ctx.sdk_name}` FlowData SDK.
+        //! Owning Rust API for the generated `{ctx.effective_public_name}` FlowData SDK.
         //!
         //! Use [`Envelope`] to decode, inspect, modify, and serialize FlowData packets.
         //! Known payloads use [`payload`], while application-defined byte payloads use
@@ -346,7 +346,7 @@ def _lib_rs(
         use crate::flowdata_internal::internalfb as wire;
 
         /// Generated SDK name written into serialized producer identity metadata.
-        pub const {sdk_upper}_NAME: &str = "{ctx.sdk_name}";
+        pub const {sdk_upper}_NAME: &str = "{ctx.effective_public_name}";
         /// Generated SDK version written into serialized producer identity metadata.
         pub const {sdk_upper}_VERSION: &str = "{ctx.sdk_version}";
         /// SHA-256 identity of the complete schema set used for generation.
@@ -883,6 +883,7 @@ def _tests(
     entries: list[SchemaEntry],
     bindings: dict[str, RustPayloadBinding],
 ) -> str:
+    sdk_upper = ctx.effective_public_name.upper()
     first = entries[0]
     first_type = _type_path(first, bindings)
     unknown_id = next(value for value in range(1, 1024) if all(e.numeric_id != value for e in entries))
@@ -903,8 +904,8 @@ def _tests(
                     blob: Some(blob),
                 }});
                 let payloads = builder.create_vector(&[payload]);
-                let producer_name = builder.create_string({ctx.sdk_name.upper()}_NAME);
-                let producer_version = builder.create_string({ctx.sdk_name.upper()}_VERSION);
+                let producer_name = builder.create_string({sdk_upper}_NAME);
+                let producer_version = builder.create_string({sdk_upper}_VERSION);
                 let producer_digest = builder.create_string(SCHEMA_SET_SHA256);
                 let root = wire::WireEnvelope::create(&mut builder, &wire::WireEnvelopeArgs {{
                     payloads: Some(payloads),

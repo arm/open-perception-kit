@@ -107,11 +107,11 @@ endfunction()
                 python_version_requirement=PYTHON_VERSION_REQUIREMENT,
                 python_bridge_available="TRUE" if context.cpp_python_bridge else "FALSE",
                 python_bridge_module=(
-                    f"{context.sdk_name}_bridge" if context.cpp_python_bridge else ""
+                    f"{context.effective_public_name}_bridge" if context.cpp_python_bridge else ""
                 ),
-                sdk_root_var=f"_{context.sdk_name.upper()}_SDK_ROOT",
-                flatbuffers_include_var=f"{context.sdk_name.upper()}_FLATBUFFERS_INCLUDE_DIR",
-                python_bridge_block=_python_bridge_block(context.effective_public_name, context.sdk_name)
+                sdk_root_var=f"_{context.effective_public_name.upper()}_SDK_ROOT",
+                flatbuffers_include_var=f"{context.effective_public_name.upper()}_FLATBUFFERS_INCLUDE_DIR",
+                python_bridge_block=_python_bridge_block(context.effective_public_name, context.effective_public_name)
                 if context.cpp_python_bridge
                 else "",
             ),

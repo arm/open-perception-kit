@@ -2,7 +2,7 @@
 
 This directory contains ordinary tracked source files for the SDK generator,
 including C++, Python, Rust, TypeScript, CMake, Meson, and the embedded Python
-bridge. The generator identity is 0.6.0, independent of the generated Perception
+bridge. The generator identity is 0.6.0, independent of the generated Open Perception Kit
 SDK's product version.
 
 No separate checkout, credentials, or generator download is required. Source
@@ -19,10 +19,10 @@ python3 tools/perception/tests/test_release.py
 ```
 
 The descriptor at `tools/perception/sdk.json` selects this directory, the
-generator entrypoint, the Perception schema set, and output locations. Do not
+generator entrypoint, the Open Perception Kit schema set, and output locations. Do not
 edit generated SDK files or receipts by hand.
 
-- [Perception SDK workflow](../../docs/public/how-to/use-perception-sdk.md)
+- [Open Perception Kit SDK workflow](../../docs/public/how-to/use-perception-sdk.md)
 - [Generator commands and contracts](tools/flowdata/README.md)
 - [Language API guides](docs/README.md)
 - [Container model](HETEROGENEOUS_CONTAINER.md)

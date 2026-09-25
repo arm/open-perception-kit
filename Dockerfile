@@ -78,7 +78,7 @@ COPY --chmod=0755 scripts/setup-python-ops-runtime.sh /usr/local/bin/setup-pytho
 
 RUN set -eux; \
   install-perception-flatbuffers /tmp/perception-sdk.json; \
-  mkdir -p /opt/opk-deps/open-perception-kit-sdk-artifacts; \
+  mkdir -p /opt/opk-deps/open-perception-kit-artifacts; \
   python3 -c 'import json; d=json.load(open("/tmp/perception-sdk.json")); artifacts=[*d["python_build"]["tools"], d["flatbuffers"]["python_wheel"], *d["flatbuffers"]["rust_crates"], d["typescript_build"]["flatbuffers_runtime"]]; [print(a["filename"], a["url"], a["sha256"], a.get("name", ""), a.get("version", ""), sep="\t") for a in artifacts]' | \
   while IFS=$'\t' read -r filename url sha256 name version; do \
     fallback_user_agent='curl'; \
@@ -90,9 +90,9 @@ RUN set -eux; \
         fallback_user_agent='cargo' ;; \
       https://registry.npmjs.org/*) \
         fallback_url="${NPM_FALLBACK_REGISTRY}/${url#https://registry.npmjs.org/}" ;; \
-      *) echo "Unsupported Perception SDK artifact URL: ${url}" >&2; exit 1 ;; \
+      *) echo "Unsupported open-perception-kit artifact URL: ${url}" >&2; exit 1 ;; \
     esac; \
-    destination="/opt/opk-deps/open-perception-kit-sdk-artifacts/${filename}"; \
+    destination="/opt/opk-deps/open-perception-kit-artifacts/${filename}"; \
     timeout 30s curl \
       --fail --location --proto '=https' --proto-redir '=https' \
       --retry 1 --output "${destination}" "${url}" || \
@@ -282,7 +282,7 @@ RUN set -eux; \
 
 COPY tools/opk-ci /tmp/opk-tools/opk-ci
 COPY tools/plumber /tmp/opk-tools/plumber
-COPY generated/perception/python /tmp/opk-tools/perception
+COPY generated/open_perception_kit/python /tmp/opk-tools/perception
 COPY requirements/common.txt requirements/models.txt requirements/sdk.txt /opt/opk-deps/requirements/
 RUN set -eux; \
   uv pip install --system --break-system-packages -r /opt/opk-deps/requirements/common.txt; \
@@ -549,7 +549,7 @@ RUN set -eux; \
     /tmp/perception-sdk.json \
     /tmp/python-ops-runtime.json
 
-COPY generated/perception/python /tmp/perception-python
+COPY generated/open_perception_kit/python /tmp/perception-python
 RUN set -eux; \
   /opt/opk-venvs/python-ops-runtime/bin/pip install --no-cache-dir --no-deps \
     /tmp/perception-python; \
@@ -626,9 +626,9 @@ RUN --mount=type=cache,id=opk-deployment-ccache,target=/work/.cache/ccache,shari
   export CCACHE_UMASK=000; \
   ccache --zero-stats; \
   /opt/opk-venvs/python-ops-runtime/bin/pip install --no-cache-dir --no-deps \
-    /work/generated/perception/python; \
+    /work/generated/open_perception_kit/python; \
   /opt/opk-venvs/python-ops-runtime/bin/python -c \
-    'import flatbuffers, numpy, perception'; \
+    'import flatbuffers, numpy, open_perception_kit'; \
   native_arch="$(dpkg --print-architecture)"; \
   extra_setup_args=(); \
   if [ "${OPK_RELEASE_BUILD}" = true ]; then \
@@ -668,13 +668,13 @@ RUN --mount=type=cache,id=opk-deployment-ccache,target=/work/.cache/ccache,shari
     package_root=/opt/opk-release-root; \
     test -n "${OPK_RELEASE_SOURCE_COMMIT}"; \
     /work/scripts/perception-sdk.sh package \
-      --output-dir /tmp/open-perception-kit-sdk-input \
-      --artifact-dir /opt/opk-deps/open-perception-kit-sdk-artifacts \
+      --output-dir /tmp/open-perception-kit-input \
+      --artifact-dir /opt/opk-deps/open-perception-kit-artifacts \
       --repository-commit "${OPK_RELEASE_SOURCE_COMMIT}"; \
     mkdir -p \
       "${package_root}/lib/opk" \
       "${package_root}/share/opk/licenses/libexecutorch-dev" \
-      "${package_root}/share/opk/open-perception-kit-sdk"; \
+      "${package_root}/share/opk/open-perception-kit"; \
     /work/tools/opk-config-check --root /work; \
     DESTDIR="${package_root}" meson install \
       -C /work/development/build --skip-subprojects; \
@@ -690,15 +690,15 @@ RUN --mount=type=cache,id=opk-deployment-ccache,target=/work/.cache/ccache,shari
       "${package_root}/share/opk/licenses/"; \
     cp -a /opt/opk-deps/executorch-legal-documentation/. \
       "${package_root}/share/opk/licenses/libexecutorch-dev/"; \
-    cp -a /tmp/open-perception-kit-sdk-input/. \
-      "${package_root}/share/opk/open-perception-kit-sdk/"; \
+    cp -a /tmp/open-perception-kit-input/. \
+      "${package_root}/share/opk/open-perception-kit/"; \
     python3 /work/scripts/release/ReleaseTool.py stage-models \
       --repo-root /work --stage-root "${package_root}"; \
     python3 /work/scripts/release/ReleaseTool.py validate-package \
       --architecture "${architecture}" \
       --expected-commit "${OPK_RELEASE_SOURCE_COMMIT}" \
       --repo-root /work --package-root "${package_root}"; \
-    rm -rf /tmp/open-perception-kit-sdk-input; \
+    rm -rf /tmp/open-perception-kit-input; \
   fi; \
   rm -rf /work/development/build
 
@@ -799,7 +799,7 @@ COPY --from=opk-deployment-build /opt/opk-release-artifacts /opt/opk-release-art
 
 RUN set -eux; \
   /opt/opk-venvs/python-ops-runtime/bin/python -c \
-    'import flatbuffers, numpy, perception'; \
+    'import flatbuffers, numpy, open_perception_kit'; \
   python_ops=/work/development/build/meson-out/opk-python-ops.so; \
   if [ "${BUILDARCH}" = "${TARGETARCH}" ]; then \
     test -f "${python_ops}"; \

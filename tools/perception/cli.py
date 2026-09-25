@@ -3,7 +3,7 @@
 # Copyright (C) 2025 Arm Limited. All rights reserved.
 ################################################################
 
-"""Unified Perception SDK development and release command."""
+"""Unified open-perception-kit development and release command."""
 
 from __future__ import annotations
 
@@ -49,7 +49,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
             "  ./scripts/perception-sdk.sh check\n"
             "  ./scripts/perception-sdk.sh package --expect-version MAJOR.MINOR.PATCH\n"
             "  ./scripts/perception-sdk.sh verify "
-            "artifacts/open-perception-kit-sdk-MAJOR.MINOR.PATCH.zip "
+            "artifacts/open-perception-kit-MAJOR.MINOR.PATCH.zip "
             "--require-sidecars"
         )
         parser.print_help()

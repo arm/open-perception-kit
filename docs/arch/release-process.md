@@ -42,23 +42,22 @@ builds package ONNX Runtime 1.24.4 with its
 required SONAME link, and statically link ExecuTorch into its operation module
 without shipping ExecuTorch SDK files.
 
-`opk-deployment-build` creates the architecture-neutral Perception SDK triplet
+`opk-deployment-build` creates the architecture-neutral open-perception-kit triplet
 directly from the selected commit's checked-in, CI-validated SDK snapshot. The
 release source commit is a scalar build input. The normal tracked generator
 sources in `tools/flowdata-sdk` enter the Docker build context so packaging can
 verify their local content hashes without Git metadata or generator execution.
 Generator updates are manual source changes; CI does not fetch or update them.
-The stage embeds the triplet under `share/opk/open-perception-kit-sdk`
+The stage embeds the triplet under `share/opk/open-perception-kit`
 and checks its provenance against the release commit. The Arm snapshot job
-also uploads that exact embedded triplet as the existing temporary
-`open-perception-kit-sdk-input-*` or `opk-test-open-perception-kit-sdk-input-*` Actions
-artifact; it does not rebuild it. For OPK publication, the Arm build extracts
+also uploads that exact embedded triplet as a temporary Actions artifact;
+it does not rebuild it. For OPK publication, the Arm build extracts
 the verified Python wheel and packages the prepared Rust tree from that triplet
 using its locked offline Cargo vendor directory. The release-only crate manifest
 records FlatBuffers as a crates.io dependency so consumers do not look for it in
 the private registry. The Arm build verifies the packaged crate and stages the
-prepared source that produced it beside both language packages in
-`open-perception-kit-sdk-input-*`. It recreates the retained crate from that source
+prepared source that produced it beside both language packages in that
+artifact. It recreates the retained crate from that source
 with Cargo 1.85 and a clean sparse crates.io configuration so native publication
 produces the same bytes. For stable release pushes, an early job on
 `open-perception-kit-runner-ubuntu-x64` checks that the Cargo version is available on
@@ -93,9 +92,9 @@ Release validation and publication use four workflows:
 
 | Event | `release-tests.yml` | `release-publication-tests.yml` | `release-packages.yml` | `release-post-publication.yml` |
 | --- | --- | --- | --- | --- |
-| Pull request to `main` | Builds temporary x86_64 and Arm snapshot images, runs their native offline integration smokes, and emits the validated archives plus embedded Perception wheel | Uploads the archives and wheel to disposable Artifactory and the archives to a draft GitHub Release, verifies them, and deletes them | Not run | Not run |
-| Push to `main` | Not run | Not run | Builds all three archives, smoke-tests both architecture images, publishes their multi-architecture GHCR image, then publishes the archives to one `v<version>` GitHub release and generic Artifactory, the Perception wheel to Artifactory PyPI, and the Perception crate to Artifactory Cargo | Consumes every published package variant, runs the common full OPK smoke, RPi5 Playwright, release Sonar with the Playwright LCOV artifact, all eight Valgrind pipelines, and full Black Duck built-output, dependency, source, and snippet scans; attaches their reports to the GitHub release |
-| Manual release validation | Resolves `source_ref`, builds temporary x86_64 and Arm snapshot images, runs their native offline integration smokes, and emits the validated archives plus embedded Perception wheel | Uploads the archives and wheel to disposable Artifactory and the archives to a draft GitHub Release, verifies them, and deletes them | Not run | Not run |
+| Pull request to `main` | Builds temporary x86_64 and Arm snapshot images, runs their native offline integration smokes, and emits the validated archives plus embedded open-perception-kit wheel | Uploads the archives and wheel to disposable Artifactory and the archives to a draft GitHub Release, verifies them, and deletes them | Not run | Not run |
+| Push to `main` | Not run | Not run | Builds all three archives, smoke-tests both architecture images, publishes their multi-architecture GHCR image, then publishes the archives to one `v<version>` GitHub release and generic Artifactory, the open-perception-kit wheel to Artifactory PyPI, and the open-perception-kit crate to Artifactory Cargo | Consumes every published package variant, runs the common full OPK smoke, RPi5 Playwright, release Sonar with the Playwright LCOV artifact, all eight Valgrind pipelines, and full Black Duck built-output, dependency, source, and snippet scans; attaches their reports to the GitHub release |
+| Manual release validation | Resolves `source_ref`, builds temporary x86_64 and Arm snapshot images, runs their native offline integration smokes, and emits the validated archives plus embedded open-perception-kit wheel | Uploads the archives and wheel to disposable Artifactory and the archives to a draft GitHub Release, verifies them, and deletes them | Not run | Not run |
 | Manual package publication | Not run | Not run | Resolves `source_ref`, derives a sortable prerelease version, regenerates and commits every version consumer, then publishes the full GHCR, GitHub prerelease, generic Artifactory, PyPI, and Cargo release set | Performs the same full package-consumer, OPK, RPi5 Playwright, Sonar, Valgrind, Black Duck, and report-attachment fan-out as a stable release |
 
 After every completed package-publication run, `workflow_run` starts the
@@ -182,7 +181,7 @@ the locked `Arm-Debug/publisher` package from its synchronized runtime-only
 environment, prints the three stable generic URLs or five prerelease URLs, and
 adds links and SHA-256 values to the workflow summary. Stable crates are
 published below
-`https://artifactory.arm.com/artifactory/edge-ai-tooling.cargo/crates/perception/`.
+`https://artifactory.arm.com/artifactory/edge-ai-tooling.cargo/crates/open_perception_kit/`.
 Once this
 workflow exists on the default `develop` branch, a manual run may select a
 feature branch while the release process is being tested. GitHub does not
@@ -199,7 +198,7 @@ internal repository does not provide atomic overwrite protection.
 Inside `opk-deployment-build`, the `scripts/build.sh release` build
 enables Meson's package install surface. The same Docker stage installs that
 build into a cacheable staging root, adds the resolved models and pinned
-runtimes, stages the locked NumPy, FlatBuffers, and Perception Python packages,
+runtimes, stages the locked NumPy, FlatBuffers, and open-perception-kit Python packages,
 and validates every ELF. A final identity-only layer names and archives that
 payload with system `tar` and `gzip`; it does not call a release-build wrapper
 or configure a second build tree.
@@ -224,7 +223,7 @@ The validator checks:
 - one ONNX Runtime binary and its `libonnxruntime.so.1` link;
 - the standard, ONNX, and experimental ExecuTorch operation modules;
 - exactly the twelve release model directories;
-- the exact clean Perception SDK ZIP and its checksum/provenance sidecars;
+- the exact clean open-perception-kit ZIP and its checksum/provenance sidecars;
 - the selected source's descriptor schemas under `share/opk/schemas/json/v1`;
 - ExecuTorch and third-party legal documentation, with no ExecuTorch SDK files;
 - local relative model and OpChain references.

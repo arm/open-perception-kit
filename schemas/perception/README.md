@@ -1,6 +1,6 @@
-# Perception Schema Evolution Workflow
+# Open Perception Kit Schema Evolution Workflow
 
-This directory contains the FlatBuffers schemas used to generate the Perception
+This directory contains the FlatBuffers schemas used to generate the Open Perception Kit
 C++, Python, Rust, and TypeScript SDKs. This document defines how to add or evolve schemas, choose
 versions, evaluate compatibility, regenerate the SDKs, and validate a change.
 
@@ -11,8 +11,8 @@ versions, evaluate compatibility, regenerate the SDKs, and validate a change.
   output paths, FlowData generator location, exact FlatBuffers version, and
   release-tool checksums.
 - `development/meson.build` owns the shared OPK and SDK package version.
-- `generated/perception/` contains derived C++, Python, Rust, and TypeScript SDK output.
-- `generated/perception/perception-sdk-manifest.json` is the generation receipt.
+- `generated/open_perception_kit/` contains derived C++, Python, Rust, and TypeScript SDK output.
+- `generated/open_perception_kit/open-perception-kit-manifest.json` is the generation receipt.
 - `scripts/perception-sdk.sh` is the supported command surface for generation,
   drift checking, packaging, verification, and development installation.
 - `tools/perception/evaluate_schema_change.py` evaluates schema compatibility
@@ -23,14 +23,14 @@ hand. Change the schemas or `tools/perception/sdk.json`, then regenerate them.
 
 ## Workflow Boundaries
 
-Perception SDK work has three separate concerns:
+Open Perception Kit work has three separate concerns:
 
 1. Use `$evolve-perception-schema` to design or change authored schemas, assess
    compatibility, record the required OPK release impact, and update runtime semantics.
 2. Use `$regenerate-perception-sdk` during implementation to materialize and
    validate the tracked C++, Python, Rust, and TypeScript SDK snapshot. Commit these generated
    files normally with their authored inputs.
-3. Use `$package-perception-sdk-release` only from a committed release snapshot
+3. Use `$package-open-perception-kit-release` only from a committed release snapshot
    to create and verify the distributable ZIP and sidecars. Packaging never
    regenerates checked-in files.
 
@@ -91,7 +91,7 @@ Every new transportable root must have:
 - one `root_type`
 - one unique four-character ASCII `file_identifier`
 - initial `schema_major:ushort = 1` and `schema_minor:ushort = 0` fields
-- a namespace under `perception.metadata`
+- a namespace under `open_perception_kit.metadata`
 
 Never reuse an existing file identifier for another root. Keep the root type and
 file identifier stable for the lifetime of a payload family. If a new contract
@@ -131,7 +131,7 @@ provenance and diagnostics only, not for semantic payload routing.
 ## Add a New Payload
 
 1. Confirm that the result is persistent runtime data and belongs in the shared
-   Perception contract rather than in model-local configuration or temporary
+   FrameResults contract rather than in model-local configuration or temporary
    operation state.
 2. Reuse suitable tables from `common.fbs`. Add a shared definition only when
    multiple payload families have the same semantics.
@@ -163,18 +163,18 @@ Example root shape:
 ```flatbuffers
 include "common.fbs";
 
-namespace perception.metadata;
+namespace open_perception_kit.metadata;
 
 table ExampleResult {
-  object:perception.metadata.ObjectMeta;
+  object:open_perception_kit.metadata.ObjectMeta;
   value:float;
 }
 
 table ExampleResults {
   schema_major:ushort = 1;
   schema_minor:ushort = 0;
-  layer:perception.metadata.LayerInfo;
-  results:[perception.metadata.ExampleResult];
+  layer:open_perception_kit.metadata.LayerInfo;
+  results:[open_perception_kit.metadata.ExampleResult];
 }
 
 root_type ExampleResults;
@@ -213,7 +213,7 @@ Run the fastest schema-specific checks first:
 ```bash
 ./scripts/perception-sdk.sh check
 python3 tools/perception/tests/test_release.py
-PYTHONPATH="generated/perception/python/src:tools/plumber" \
+PYTHONPATH="generated/open_perception_kit/python/src:tools/plumber" \
   python3 -m unittest discover \
   -s tools/plumber/tests \
   -p 'test_frame_results_*.py'
@@ -227,7 +227,7 @@ meson test -C ./development/build-active --print-errorlogs
 ```
 
 After the complete authored and generated snapshot is committed, hand off to
-`$package-perception-sdk-release` to create and verify the release bundle:
+`$package-open-perception-kit-release` to create and verify the release bundle:
 
 ```bash
 ./scripts/perception-sdk.sh package \
@@ -235,7 +235,7 @@ After the complete authored and generated snapshot is committed, hand off to
   --expect-version <MAJOR.MINOR.PATCH>
 
 ./scripts/perception-sdk.sh verify \
-  artifacts/open-perception-kit-sdk-<MAJOR.MINOR.PATCH>.zip \
+  artifacts/open-perception-kit-<MAJOR.MINOR.PATCH>.zip \
   --require-sidecars
 ```
 

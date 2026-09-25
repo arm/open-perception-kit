@@ -194,7 +194,7 @@ tar -xzf "$actionlint_archive" actionlint
 popd > /dev/null
 install -m 0755 "${temporary_directory}/actionlint" /usr/local/bin/actionlint
 
-log "Installing the pinned web and Perception TypeScript tools"
+log "Installing the pinned web and open-perception-kit TypeScript tools"
 readarray -t typescript_tools < <(
     node -e '
 const path = require("path");
@@ -269,7 +269,7 @@ uv venv --clear --system-site-packages /opt/opk-venvs/devtools
 uv pip install --python /opt/opk-venvs/devtools/bin/python \
     -c "$OPK_PROJECT_ROOT/requirements/sdk.txt" \
     "$OPK_PROJECT_ROOT/tools/opk-ci" \
-    "$OPK_PROJECT_ROOT/generated/perception/python" \
+    "$OPK_PROJECT_ROOT/generated/open_perception_kit/python" \
     --editable "$OPK_PROJECT_ROOT/tools/plumber" \
     -r "$OPK_PROJECT_ROOT/requirements/models.txt" \
     -r "$OPK_PROJECT_ROOT/requirements/meson.txt" \

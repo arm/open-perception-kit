@@ -24,7 +24,7 @@ class CppSdkGenerator(SdkGenerator):
             context.flatc_bin,
         )
 
-        header_path = context.cpp_root / f"{context.sdk_name}.h"
+        header_path = context.cpp_root / f"{context.effective_public_name}.h"
         header_path.parent.mkdir(parents=True, exist_ok=True)
         header_path.write_text(
             generate_header(
@@ -33,21 +33,13 @@ class CppSdkGenerator(SdkGenerator):
                 context.sdk_version,
                 context.flatc_version,
                 schema_set_sha256(context),
+                context.effective_public_name,
             ),
             encoding="utf-8",
         )
-
-        public_header = context.cpp_root / f"{context.effective_public_name}.h"
-        if public_header != header_path:
-            public_header.write_text(
-                "// Generated file. Do not edit.\n#pragma once\n"
-                f'#include "{context.sdk_name}.h"\n'
-                f"namespace {context.effective_public_name} = {context.sdk_name};\n",
-                encoding="utf-8",
-            )
 
         bridge_artifacts = []
         if context.cpp_python_bridge:
             bridge_artifacts = generate_python_bridge(context, entries)
 
-        return [header_path, public_header, *artifacts, *bridge_artifacts]
+        return [header_path, *artifacts, *bridge_artifacts]

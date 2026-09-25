@@ -5,7 +5,7 @@
 from typing import Final, Protocol
 
 import numpy
-from open_perception_kit.fb.perception.metadata.ProducerInfo import ProducerInfoT
+from open_perception_kit.fb.open_perception_kit.metadata.ProducerInfo import ProducerInfoT
 from open_perception_kit.guest import Envelope
 
 

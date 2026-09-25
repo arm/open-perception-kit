@@ -9,14 +9,14 @@ from typing import Any
 
 from .frame_results_sdk import FrameResults
 
-from open_perception_kit.fb.perception.metadata.BoxDetections import BoxDetectionsT
-from open_perception_kit.fb.perception.metadata.Classifications import ClassificationsT
-from open_perception_kit.fb.perception.metadata.FrameContext import FrameContextT
-from open_perception_kit.fb.perception.metadata.ObjectEmbeddings import ObjectEmbeddingsT
-from open_perception_kit.fb.perception.metadata.ObjectTracks import ObjectTracksT
-from open_perception_kit.fb.perception.metadata.PoseEstimations import PoseEstimationsT
-from open_perception_kit.fb.perception.metadata.SegmentationMasks import SegmentationMasksT
-from open_perception_kit.fb.perception.metadata.TrackTraces import TrackTracesT
+from open_perception_kit.fb.open_perception_kit.metadata.BoxDetections import BoxDetectionsT
+from open_perception_kit.fb.open_perception_kit.metadata.Classifications import ClassificationsT
+from open_perception_kit.fb.open_perception_kit.metadata.FrameContext import FrameContextT
+from open_perception_kit.fb.open_perception_kit.metadata.ObjectEmbeddings import ObjectEmbeddingsT
+from open_perception_kit.fb.open_perception_kit.metadata.ObjectTracks import ObjectTracksT
+from open_perception_kit.fb.open_perception_kit.metadata.PoseEstimations import PoseEstimationsT
+from open_perception_kit.fb.open_perception_kit.metadata.SegmentationMasks import SegmentationMasksT
+from open_perception_kit.fb.open_perception_kit.metadata.TrackTraces import TrackTracesT
 
 
 @dataclass(frozen=True, order=True)
@@ -348,7 +348,7 @@ def _normalize_frame_contexts(frame_results: FrameResults, snapshot: FrameResult
             items.append(_normalize_audio_frame(payload.audio))
         _add_payload_items(
             snapshot,
-            _payload_key("perception.metadata.FrameContext", payload.layer),
+            _payload_key("open_perception_kit.metadata.FrameContext", payload.layer),
             payload.layer,
             items,
         )
@@ -368,7 +368,7 @@ def _normalize_classifications(frame_results: FrameResults, snapshot: FrameResul
         )
         _add_payload_items(
             snapshot,
-            _payload_key("perception.metadata.Classifications", payload.layer),
+            _payload_key("open_perception_kit.metadata.Classifications", payload.layer),
             payload.layer,
             items,
         )
@@ -401,27 +401,27 @@ def normalize_frame_results(frame_results: FrameResults, frame_counter: int | No
     _normalize_frame_contexts(frame_results, snapshot)
     _normalize_payload_collection(
         frame_results, snapshot, BoxDetectionsT,
-        "perception.metadata.BoxDetections", "detections", _normalize_box_detection,
+        "open_perception_kit.metadata.BoxDetections", "detections", _normalize_box_detection,
     )
     _normalize_classifications(frame_results, snapshot)
     _normalize_payload_collection(
         frame_results, snapshot, PoseEstimationsT,
-        "perception.metadata.PoseEstimations", "poses", _normalize_pose_estimation,
+        "open_perception_kit.metadata.PoseEstimations", "poses", _normalize_pose_estimation,
     )
     _normalize_payload_collection(
         frame_results, snapshot, SegmentationMasksT,
-        "perception.metadata.SegmentationMasks", "masks", _normalize_segmentation_mask,
+        "open_perception_kit.metadata.SegmentationMasks", "masks", _normalize_segmentation_mask,
     )
     _normalize_payload_collection(
         frame_results, snapshot, ObjectEmbeddingsT,
-        "perception.metadata.ObjectEmbeddings", "embeddings", _normalize_object_embedding,
+        "open_perception_kit.metadata.ObjectEmbeddings", "embeddings", _normalize_object_embedding,
     )
     _normalize_payload_collection(
         frame_results, snapshot, ObjectTracksT,
-        "perception.metadata.ObjectTracks", "tracks", _normalize_object_track,
+        "open_perception_kit.metadata.ObjectTracks", "tracks", _normalize_object_track,
     )
     _normalize_payload_collection(
         frame_results, snapshot, TrackTracesT,
-        "perception.metadata.TrackTraces", "traces", _normalize_track_trace,
+        "open_perception_kit.metadata.TrackTraces", "traces", _normalize_track_trace,
     )
     return snapshot

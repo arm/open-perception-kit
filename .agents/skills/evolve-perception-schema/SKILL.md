@@ -1,9 +1,9 @@
 ---
 name: evolve-perception-schema
-description: Evaluate, add, or evolve Perception FlatBuffers schemas and integrate their runtime semantics. Use for changes under schemas/perception, new FrameResults payloads, compatibility reviews, release-impact decisions, or complex features that require schema updates. This skill owns authored schema design and compatibility; use regenerate-perception-sdk for checked-in generated outputs and package-perception-sdk-release for distributable ZIP bundles.
+description: Evaluate, add, or evolve Open Perception Kit FlatBuffers schemas and integrate their runtime semantics. Use for changes under schemas/perception, new FrameResults payloads, compatibility reviews, release-impact decisions, or complex features that require schema updates. This skill owns authored schema design and compatibility; use regenerate-perception-sdk for checked-in generated outputs and package-open-perception-kit-release for distributable ZIP bundles.
 ---
 
-# Evolve Perception Schema
+# Evolve Open Perception Kit Schema
 
 Apply the repository's schema policy, make the smallest compatible authored
 change, and define its runtime semantics before regenerating derived SDK files.
@@ -49,7 +49,7 @@ identities. Do not claim mixed-version typed compatibility without fixture tests
    documentation.
 6. Add old/new fixture tests when mixed-version behavior matters.
 
-Do not edit `generated/perception/`, generated build integrations, or manifests
+Do not edit `generated/open_perception_kit/`, generated build integrations, or manifests
 in this workflow.
 
 ## Hand Off Generation
@@ -61,7 +61,7 @@ together through the normal repository workflow.
 
 Do not build a release ZIP during implementation. After the complete snapshot
 is committed and explicitly selected for release, apply
-`$package-perception-sdk-release`.
+`$package-open-perception-kit-release`.
 
 ## Validate Schema Decisions
 

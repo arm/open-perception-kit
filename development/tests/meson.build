@@ -117,7 +117,7 @@ if python_ops_enabled
   byom_blazeface_example_test_env = environment()
   byom_blazeface_example_test_env.prepend(
     'PYTHONPATH',
-    meson.project_source_root() / '../generated/perception/python/src',
+    meson.project_source_root() / '../generated/open_perception_kit/python/src',
   )
   test(
     'byom_blazeface_example_tests',
@@ -128,7 +128,7 @@ if python_ops_enabled
   python_script_pipeline_test_env = environment()
   python_script_pipeline_test_env.prepend(
     'PYTHONPATH',
-    meson.project_source_root() / '../generated/perception/python/src',
+    meson.project_source_root() / '../generated/open_perception_kit/python/src',
   )
   test(
     'python_script_pipeline_tests',
@@ -299,7 +299,7 @@ image_conversion_oracle_test = executable(
 python = test_python
 # The distro GStreamer bindings use the distro Python ABI, not the Python Ops venv.
 gst_python = import('python').find_installation('/usr/bin/python3', modules : ['gi'])
-perception_python_sdk_path = meson.project_source_root() / '../generated/perception/python/src'
+perception_python_sdk_path = meson.project_source_root() / '../generated/open_perception_kit/python/src'
 python_guest_script_test_env = environment()
 python_guest_script_test_env.prepend('PYTHONPATH', perception_python_sdk_path)
 python_guest_script_executor = executable(

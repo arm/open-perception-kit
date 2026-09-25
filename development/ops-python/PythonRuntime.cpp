@@ -15,7 +15,7 @@
 
 #include "PythonBridgeError.h"
 #include "TensorBridge.h"
-#include "python_bridge/perception_python_bridge.h"
+#include "python_bridge/open_perception_kit_python_bridge.h"
 
 #ifndef OPK_PYTHON_EXECUTABLE
 #define OPK_PYTHON_EXECUTABLE ""

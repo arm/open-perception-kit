@@ -1,7 +1,7 @@
 python_embed_dep = opk_python.dependency(embed : true, required : true)
 python_runtime_path = ''
 if not release_package
-  python_runtime_path = meson.project_source_root() / '../generated/perception/python/src'
+  python_runtime_path = meson.project_source_root() / '../generated/open_perception_kit/python/src'
 endif
 
 python_ops_sources = [

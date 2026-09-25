@@ -123,14 +123,14 @@ Current FrameResults wrapper example:
 {"frame_counter":0,"frame_results_encoding":"perception-frame-results+base64","frame_results_packet_b64":"..."}
 ```
 
-The `frame_results_packet_b64` value is a serialized Perception FrameResults packet
+The `frame_results_packet_b64` value is a serialized FrameResults packet
 encoded as base64. Plumber decodes it with the generated Python SDK and compares normalized
 payload snapshots built from generated schema types such as:
 
 Plumber uses the owning endpoint API from `open_perception_kit.packet`; the mutually
 exclusive `open_perception_kit.guest` API is reserved for scripts attached to a live
 C++ envelope. It requires the packet producer SDK name, semantic version, and
-schema-set SHA-256 to exactly match the generated Perception SDK used by
+schema-set SHA-256 to exactly match the generated Open Perception Kit SDK used by
 Plumber. Legacy packets without producer metadata and packets produced by a
 different SDK revision are rejected before payload comparison.
 
@@ -282,7 +282,7 @@ Plumber does not compare raw FlatBuffers bytes directly. It:
 7. compares payload items with type-specific distance functions
 
 External opaque payloads are outside the current comparison model because their byte
-protocol is owned by the producer and not interpreted by the Perception schema set.
+protocol is owned by the producer and not interpreted by the Open Perception Kit schema set.
 
 The internal comparison vocabulary follows FrameResults terms:
 

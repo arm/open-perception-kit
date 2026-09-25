@@ -17,7 +17,7 @@
 #include <vector>
 
 #include "open_perception_kit.h"
-#include "python_bridge/perception_python_bridge.h"
+#include "python_bridge/open_perception_kit_python_bridge.h"
 
 #ifndef PERCEPTION_PYTHON_SDK_PATH
 #define PERCEPTION_PYTHON_SDK_PATH ""

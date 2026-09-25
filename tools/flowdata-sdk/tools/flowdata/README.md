@@ -42,10 +42,10 @@ python3 tools/flowdata/gen.py verify-manifest \
 
 ## Inputs
 
-- `--name` is the generated package, namespace, and build-variable prefix. It
+- `--name` is the schema namespace and the default public SDK name. It
   must match `[a-z][a-z0-9_]*` and cannot be a target-language keyword.
-- `--python-package-name` optionally overrides both the Python distribution and
-  import name for the Python SDK and C++ Python bridge. It defaults to `--name`.
+- `--public-name` sets the package, namespace, and build-variable prefix for
+  every generated language. It defaults to `--name`.
 - `--version` is the generated SDK release version and must be stable semantic
   versioning in `MAJOR.MINOR.PATCH` form.
 - `--schema-dir` is the complete schema-set root. Every transportable payload

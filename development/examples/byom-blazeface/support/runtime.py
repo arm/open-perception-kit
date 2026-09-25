@@ -86,7 +86,7 @@ class OptionalTools:
 
 
 def ensure_sdk_python(script_path: Path, shutdown: ShutdownState) -> None:
-    """Re-execute once with a supported Perception SDK interpreter if needed."""
+    """Re-execute once with a supported open-perception-kit interpreter if needed."""
 
     runtime_interpreter = _python_ops_runtime()
     shutdown.check()
@@ -96,7 +96,7 @@ def ensure_sdk_python(script_path: Path, shutdown: ShutdownState) -> None:
 
     if os.environ.get(REEXEC_MARKER) == "1":
         raise ExampleError(
-            "the selected Python interpreter does not provide the Perception SDK: "
+            "the selected Python interpreter does not provide the open-perception-kit: "
             f"{current_interpreter}"
         )
 
@@ -118,7 +118,7 @@ def ensure_sdk_python(script_path: Path, shutdown: ShutdownState) -> None:
     )
     if interpreter is None:
         raise ExampleError(
-            "no supported Python interpreter provides the standalone Perception SDK; "
+            "no supported Python interpreter provides the standalone open-perception-kit; "
             "use an official OPK development container or binary release"
         )
 

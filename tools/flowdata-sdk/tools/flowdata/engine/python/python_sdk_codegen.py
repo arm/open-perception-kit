@@ -668,7 +668,7 @@ def _packet_text() -> str:
     ).lstrip()
 
 
-def _guest_text(sdk_name: str, python_package_name: str) -> str:
+def _guest_text(public_name: str) -> str:
     return PYTHON_GENERATED_BANNER + textwrap.dedent(
         """
         from .sdk import EXTERNAL_KEY_MIN, ExternalKey, ProducerIdentityStatus, external_key, is_external_key
@@ -692,9 +692,9 @@ def _guest_text(sdk_name: str, python_package_name: str) -> str:
             "is_external_key",
         ]
         """
-    ).lstrip().replace("__SDK_NAME__", python_package_name).replace(
+    ).lstrip().replace("__SDK_NAME__", public_name).replace(
         "__BRIDGE_MODULE__",
-        f"{sdk_name}_bridge",
+        f"{public_name}_bridge",
     )
 
 
@@ -759,7 +759,7 @@ def generate_python_sdk(entries: list[SchemaEntry], ctx: GenerationContext) -> l
     schema_set_digest = schema_set_sha256(ctx)
     project_root = _python_project_root(ctx)
     src_root = project_root / "src"
-    python_package_name = ctx.effective_python_package_name
+    python_package_name = ctx.effective_public_name
     package_root = src_root / python_package_name
     fb_root = package_root / "fb"
     if src_root.exists():
@@ -784,11 +784,11 @@ def generate_python_sdk(entries: list[SchemaEntry], ctx: GenerationContext) -> l
     generated.extend(_ensure_init_files(src_root))
 
     init_path = package_root / "__init__.py"
-    version_constant = f"{ctx.sdk_name.upper()}_VERSION"
+    version_constant = f"{ctx.effective_public_name.upper()}_VERSION"
     init_path.write_text(
         PYTHON_GENERATED_BANNER
         + f'{version_constant} = "{ctx.sdk_version}"\n'
-        + f'{ctx.sdk_name.upper()}_NAME = "{ctx.sdk_name}"\n'
+        + f'{ctx.effective_public_name.upper()}_NAME = "{ctx.effective_public_name}"\n'
         + f'SCHEMA_SET_SHA256 = "{schema_set_digest}"\n'
         + f'FLATBUFFERS_VERSION_REQUIREMENT = "{FLATBUFFERS_PYTHON_REQUIREMENT}"\n'
         + f"__version__ = {version_constant}\n\n"
@@ -809,7 +809,7 @@ def generate_python_sdk(entries: list[SchemaEntry], ctx: GenerationContext) -> l
 
     guest_path = package_root / "guest.py"
     guest_path.write_text(
-        _guest_text(ctx.sdk_name, python_package_name), encoding="utf-8"
+        _guest_text(python_package_name), encoding="utf-8"
     )
     generated.append(guest_path)
 
@@ -831,7 +831,7 @@ def generate_python_sdk(entries: list[SchemaEntry], ctx: GenerationContext) -> l
     sdk_path = package_root / "sdk.py"
     sdk_path.write_text(
         _sdk_text(
-            ctx.sdk_name,
+            ctx.effective_public_name,
             python_package_name,
             str(ctx.sdk_version),
             schema_set_digest,

@@ -17,7 +17,7 @@
 #include "TensorBridge.h"
 #include "op/OpChainDescriptor.h"
 #include "perf/PerformanceMetrics.h"
-#include "python_bridge/perception_python_bridge.h"
+#include "python_bridge/open_perception_kit_python_bridge.h"
 
 #ifndef OPK_DEVELOPMENT_PYTHON_PATH
 #define OPK_DEVELOPMENT_PYTHON_PATH ""
@@ -54,7 +54,7 @@ PyObjectPtr makePythonProducerInfo(const std::string &instanceId,
                                    const std::string &component,
                                    const std::string &implementation) {
     PyObjectPtr producerModule(
-        PyImport_ImportModule("open_perception_kit.fb.perception.metadata.ProducerInfo"));
+        PyImport_ImportModule("open_perception_kit.fb.open_perception_kit.metadata.ProducerInfo"));
     PyObjectPtr producerType(
         producerModule ? PyObject_GetAttrString(producerModule.get(), "ProducerInfoT") : nullptr);
     if (!producerType || !PyCallable_Check(producerType.get()))

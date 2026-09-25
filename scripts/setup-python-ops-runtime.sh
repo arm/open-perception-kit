@@ -24,8 +24,8 @@ Options:
   --python PATH                Python interpreter used to create the environment
   --venv PATH                  Destination virtual environment
   --runtime-json PATH          Python Ops runtime dependency descriptor
-  --sdk-json PATH              Perception SDK descriptor
-  --perception-sdk PATH        Install a local generated Perception Python SDK
+  --sdk-json PATH              open-perception-kit descriptor
+  --perception-sdk PATH        Install a local generated open-perception-kit Python SDK
   --architecture ARCH          Target architecture: aarch64 or x86_64
   --dry-run                    Validate inputs and print the resolved setup
   -h, --help                   Show this help
@@ -87,7 +87,7 @@ if [[ ! -f "${sdk_descriptor}" ]]; then
     exit 1
 fi
 if [[ -n "${perception_sdk}" && ! -f "${perception_sdk}/pyproject.toml" ]]; then
-    echo "Perception Python SDK not found: ${perception_sdk}" >&2
+    echo "open-perception-kit Python SDK not found: ${perception_sdk}" >&2
     exit 1
 fi
 if ! command -v "${python}" > /dev/null 2>&1 && [[ ! -x "${python}" ]]; then

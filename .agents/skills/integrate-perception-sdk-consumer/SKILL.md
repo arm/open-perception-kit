@@ -1,9 +1,9 @@
 ---
 name: integrate-perception-sdk-consumer
-description: Integrate external C++, Python, Rust, or TypeScript applications with a released Perception SDK and serialized FrameResults packets. Use for consumer-side proof of concepts, Plumber-like decoders, browser clients, Cairn adapters, build integration, package installation, producer identity and compatibility checks, payload routing, or SDK upgrade work. Do not use this skill to modify schemas, regenerate checked-in SDK sources, or create release bundles.
+description: Integrate external C++, Python, Rust, or TypeScript applications with a released Open Perception Kit package and serialized FrameResults packets. Use for consumer-side proof of concepts, Plumber-like decoders, browser clients, Cairn adapters, build integration, package installation, producer identity and compatibility checks, payload routing, or SDK upgrade work. Do not use this skill to modify schemas, regenerate checked-in SDK sources, or create release bundles.
 ---
 
-# Integrate Perception SDK Consumer
+# Integrate an Open Perception Kit consumer
 
 Build consumers against a verified released SDK, validate the producer identity
 before typed access, and keep transport handling separate from application
@@ -13,10 +13,10 @@ semantics.
 
 1. Read `docs/public/how-to/use-perception-sdk.md` and
    `docs/arch/perception.md` when working in the OPK repository.
-2. Inspect the received bundle's `perception-sdk-release-manifest.json` and
-   `metadata/perception-sdk-manifest.json`.
+2. Inspect the received bundle's `open-perception-kit-release-manifest.json` and
+   `metadata/open-perception-kit-manifest.json`.
 3. Identify how results arrive:
-   - a `opkcomm` JSON or NDJSON record
+   - an `opkcomm` JSON or NDJSON record
    - raw serialized envelope bytes
    - an embedded Python guest bridge
    - an application-specific transport such as a Cairn service
@@ -36,7 +36,7 @@ producer repository is available, verify them with:
 
 ```bash
 ./scripts/perception-sdk.sh verify \
-  /path/to/perception-sdk-<MAJOR.MINOR.PATCH>.zip \
+  /path/to/open-perception-kit-<MAJOR.MINOR.PATCH>.zip \
   --require-sidecars
 ```
 
@@ -66,7 +66,7 @@ packets. Follow the checked-in Plumber pattern in
 6. Route payloads by generated type and semantic metadata, not envelope order.
 
 Import `open_perception_kit.guest` only inside a C++ host that registers the generated
-`perception_bridge` module. A normal standalone Python process must use
+`open_perception_kit_bridge` module. A normal standalone Python process must use
 `open_perception_kit.packet`; the guest module intentionally fails outside its host.
 
 ## Integrate C++ Consumers
@@ -75,23 +75,23 @@ Vendor the complete `cpp/` directory from the release bundle. Do not copy
 individual generated headers or depend on OPK-internal headers under
 `development/common/`.
 
-- **CMake:** include `cpp/cmake/perception.cmake`, call
-  `perception_enable_sdk()`, and link `perception::sdk`.
-- **Meson:** call `subdir('path/to/cpp/meson/perception')` and use
-  `perception_dep`.
+- **CMake:** include `cpp/cmake/open_perception_kit.cmake`, call
+  `open_perception_kit_enable_sdk()`, and link `open_perception_kit::sdk`.
+- **Meson:** call `subdir('path/to/cpp/meson/open_perception_kit')` and use
+  `open_perception_kit_dep`.
 - **Embedded Python:** use the generated bridge integration in addition to the
   core SDK integration.
 
 Use C++20 and the exact compatible FlatBuffers headers required by the bundle.
-Construct `perception::container::envelope` from packet bytes, require
+Construct `open_perception_kit::container::envelope` from packet bytes, require
 `valid()`, check `producer_identity()`, then use `for_each<T>()` for known
-generated payload types. The `perception::FrameResults` name used inside OPK is
+generated payload types. The `open_perception_kit::FrameResults` name used inside OPK is
 an internal convenience alias and is not the external SDK contract.
 
 ## Integrate TypeScript Consumers
 
-Install the Perception and FlatBuffers npm-compatible tarballs from the release
-bundle. Import `Envelope` and generated payload classes from `perception`,
+Install the open-perception-kit and FlatBuffers npm-compatible tarballs from the release
+bundle. Import `Envelope` and generated payload classes from `open-perception-kit`,
 require a valid envelope and exact producer identity, then iterate typed payloads
 with `for_each(TypeT)`. Browser applications should bundle the SDK and runtime
 rather than serving unresolved npm imports directly.
@@ -99,7 +99,7 @@ rather than serving unresolved npm imports directly.
 ## Integrate Rust Consumers
 
 Add the extracted `rust/` directory as a path dependency. Import `Envelope`,
-`payload`, and generated native payload types from `perception`. Require
+`payload`, and generated native payload types from `open_perception_kit`. Require
 successful `Envelope::decode(...)` and an exact `producer_identity()` match
 before typed access. Reuse a typed selector with `count`, `contains`, `get`, and `for_each`; use
 `external_key` for external payloads. Unknown, changed, and malformed entries
@@ -177,7 +177,7 @@ consumer work and hand off appropriately:
 
 - use `$evolve-perception-schema` for schema design and compatibility decisions
 - use `$regenerate-perception-sdk` for checked-in generated source updates
-- use `$package-perception-sdk-release` for a new verified release bundle
+- use `$package-open-perception-kit-release` for a new verified release bundle
 
 ## Report
 

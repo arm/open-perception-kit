@@ -140,7 +140,7 @@ _{sdk_name}_python_bridge_sources = files('{rel_cpp_root}/python_bridge/{bridge_
             python_version_requirement=PYTHON_VERSION_REQUIREMENT,
             python_bridge_available="true" if context.cpp_python_bridge else "false",
             python_bridge_module=(
-                f"{context.sdk_name}_bridge" if context.cpp_python_bridge else ""
+                f"{context.effective_public_name}_bridge" if context.cpp_python_bridge else ""
             ),
             rel_cpp_root=rel_cpp_root,
         )
@@ -152,7 +152,7 @@ _{sdk_name}_python_bridge_sources = files('{rel_cpp_root}/python_bridge/{bridge_
                 bridge_module,
                 self._python_bridge_template.format(
                     sdk_name=context.effective_public_name,
-                    bridge_source_name=context.sdk_name,
+                    bridge_source_name=context.effective_public_name,
                     rel_cpp_root="../../..",
                 ),
             )

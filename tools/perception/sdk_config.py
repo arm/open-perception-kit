@@ -3,7 +3,7 @@
 # Copyright (C) 2025 Arm Limited. All rights reserved.
 ################################################################
 
-"""Load and validate the authoritative Perception SDK descriptor."""
+"""Load and validate the authoritative open-perception-kit descriptor."""
 
 from __future__ import annotations
 
@@ -35,9 +35,7 @@ class LockedArtifact:
 
 @dataclass(frozen=True)
 class SdkConfig:
-    name: str
     public_name: str
-    python_package_name: str
     version: str
     package_prerelease: bool
     schema_dir: Path
@@ -190,7 +188,6 @@ def product_version(path: Path = PRODUCT_VERSION_PATH) -> str:
 def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
     raw = json.loads(path.read_text(encoding="utf-8"))
     expected = {
-        "name",
         "public_name",
         "package_prerelease",
         "schema_dir",
@@ -198,34 +195,18 @@ def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
         "flatbuffers",
         "flowdata_sdk",
         "project_generated_files",
-        "python_package",
         "python_build",
         "typescript_build",
     }
     if not isinstance(raw, dict) or set(raw) != expected:
         raise RuntimeError(f"SDK descriptor fields must be exactly: {sorted(expected)}")
 
-    name = raw["name"]
-    if not isinstance(name, str) or PACKAGE_NAME_RE.fullmatch(name) is None:
-        raise RuntimeError("SDK name must be a lowercase package identifier")
     public_name = raw["public_name"]
     if not isinstance(public_name, str) or PYTHON_PACKAGE_NAME_RE.fullmatch(public_name) is None:
         raise RuntimeError("SDK public_name must match [a-z][a-z0-9_]*")
     package_prerelease = raw["package_prerelease"]
     if not isinstance(package_prerelease, bool):
         raise RuntimeError("package_prerelease must be boolean")
-
-    python_package = raw["python_package"]
-    if not isinstance(python_package, dict) or set(python_package) != {"name"}:
-        raise RuntimeError("python_package must contain only name")
-    python_package_name = python_package["name"]
-    if (
-        not isinstance(python_package_name, str)
-        or PYTHON_PACKAGE_NAME_RE.fullmatch(python_package_name) is None
-    ):
-        raise RuntimeError("python_package.name must match [a-z][a-z0-9_]*")
-    if python_package_name != public_name:
-        raise RuntimeError("python_package.name must match public_name")
 
     flatbuffers = raw["flatbuffers"]
     if not isinstance(flatbuffers, dict) or set(flatbuffers) != {
@@ -275,9 +256,7 @@ def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
         raise RuntimeError(f"schema directory does not exist: {schema_dir}")
 
     return SdkConfig(
-        name=name,
         public_name=public_name,
-        python_package_name=python_package_name,
         version=product_version(),
         package_prerelease=package_prerelease,
         schema_dir=schema_dir,

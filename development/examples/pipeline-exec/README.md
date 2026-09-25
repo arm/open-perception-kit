@@ -2,7 +2,7 @@
 
 `pipeline-exec` is a proof-of-concept application for embedding an OPK GStreamer
 pipeline through the public C++ `opk::runtime::Pipeline` wrapper, then consuming
-FrameResults packets with the generated Perception C++ SDK.
+FrameResults packets with the generated Open Perception Kit C++ SDK.
 
 It accepts one OPK pipeline JSON file, loads the `pipeline` definition from that
 file, starts the pipeline, prints a terminal-friendly dump for every serialized
@@ -21,7 +21,7 @@ The source intentionally keeps GStreamer and internal `opk/` implementation
 types behind `opk::runtime::Pipeline`, but it does include generated
 `open_perception_kit::metadata::*` payload types because typed result consumption is part
 of the example. Each packet is validated through the example-local
-`PerceptionPacket` helper, visited with typed Perception SDK lambdas, and
+`PerceptionPacket` helper, visited with typed Open Perception Kit lambdas, and
 displayed through the example-local `TextDisplay` helper. Unknown payload types
 are reported as `Unknown payload type`.
 

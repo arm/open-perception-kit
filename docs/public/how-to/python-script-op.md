@@ -13,7 +13,7 @@ so module globals persist between calls.
 Python postprocessors are supported when a native OPK pipeline runs inside the
 official quick-start or deployment container, or from an extracted OPK binary
 release on its supported Debian platform. The containers supply the compatible
-CPython interpreter, NumPy, FlatBuffers runtime, and generated Perception guest
+CPython interpreter, NumPy, FlatBuffers runtime, and generated Open Perception Kit guest
 bridge; no Python installation from the development host is used.
 
 ## Developer workflow
@@ -96,7 +96,7 @@ IDEs and type checkers the reusable `ProcessCallback` contract. The decorated
 `process` function must accept the envelope, tensor tuple, and call-scoped
 context and return `None`. Existing FrameResults payloads are read-only bridge
 proxies. Use `env.add(...)` with the generated object API to append new payloads,
-following the same pattern as a generated Perception SDK consumer.
+following the same pattern as a generated Open Perception Kit consumer.
 
 `context.producer_info` contains the generated `ProducerInfoT` for the current
 Python Op. Attach it to the `LayerInfoT` of payloads created by the script:
@@ -200,7 +200,7 @@ The runtime requires:
 - the architecture-specific NumPy wheel locked in
   `development/ops-python/runtime.json`
 - the FlatBuffers Python runtime locked in `tools/perception/sdk.json`
-- the generated Perception Python package when scripts import `open_perception_kit`
+- the generated Open Perception Kit Python package when scripts import `open_perception_kit`
 
 The native `opk_python_ops` module is produced by the OPK native build; it is
 not installed by pip or by this initializer. Installing the Python dependencies
@@ -211,14 +211,14 @@ To create the locked runtime in such a Linux environment, run:
 ```bash
 ./scripts/setup-python-ops-runtime.sh \
   --venv .venv-python-ops \
-  --perception-sdk generated/perception/python
+  --perception-sdk generated/open_perception_kit/python
 export OPK_PYTHON_RUNTIME_VENV="$PWD/.venv-python-ops"
 ```
 
 The initializer selects the architecture-specific NumPy wheel from
 `development/ops-python/runtime.json`, selects the FlatBuffers wheel from
 `tools/perception/sdk.json`, verifies their checksums through pip, installs the
-generated Perception Python package when requested, and validates the installed
+generated Open Perception Kit Python package when requested, and validates the installed
 versions. It does not support a native macOS or Windows developer workflow.
 
 - Module globals persist for the lifetime of the OpChain and reset when the

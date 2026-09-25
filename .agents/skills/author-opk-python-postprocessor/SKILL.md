@@ -1,6 +1,6 @@
 ---
 name: author-opk-python-postprocessor
-description: Author and integrate trusted, model-local Python postprocessors using `opk-python-ops/PythonScript`. Use when adding or modifying an OPK PythonScript Op, Python guest postprocessor, tensor-processing script, stateful Python inference callback, model opchain integration, demonstrational pipeline, or related tests and documentation. Do not use for embedded Python runtime or bridge implementation changes, external SDK consumers, or new Perception payload schemas.
+description: Author and integrate trusted, model-local Python postprocessors using `opk-python-ops/PythonScript`. Use when adding or modifying an OPK PythonScript Op, Python guest postprocessor, tensor-processing script, stateful Python inference callback, model opchain integration, demonstrational pipeline, or related tests and documentation. Do not use for embedded Python runtime or bridge implementation changes, external SDK consumers, or new Open Perception Kit payload schemas.
 ---
 
 # Author OPK Python Postprocessor
@@ -15,7 +15,7 @@ validation inside the official OPK containers.
    opchain being extended.
 2. Inspect the inference output tensor names, shapes, value types, and
    quantization metadata.
-3. Select an existing generated Perception payload type for the result.
+3. Select an existing generated FrameResults payload type for the result.
 4. Use `$evolve-perception-schema` and `$regenerate-perception-sdk` before
    continuing if no existing payload represents the required persistent data.
 

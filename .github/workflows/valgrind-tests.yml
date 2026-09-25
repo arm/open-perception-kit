@@ -56,7 +56,7 @@ jobs:
               - '**/meson_options.txt'
               - 'config/**'
               - 'schemas/perception/**'
-              - 'generated/perception/**'
+              - 'generated/open_perception_kit/**'
               - 'tools/perception/**'
               - 'tools/flowdata-sdk/**'
               - 'requirements/build.json'

@@ -14,26 +14,26 @@ sys.path.insert(0, str(ROOT / "tools" / "plumber"))
 from plumber.frame_results_normalize import PayloadKey, normalize_frame_results  # noqa: E402
 from plumber.frame_results_sdk import FrameResults  # noqa: E402
 
-from open_perception_kit.fb.perception.metadata.BoundingBox import BoundingBoxT  # noqa: E402
-from open_perception_kit.fb.perception.metadata.BoxDetection import BoxDetectionT  # noqa: E402
-from open_perception_kit.fb.perception.metadata.BoxDetections import BoxDetectionsT  # noqa: E402
-from open_perception_kit.fb.perception.metadata.Classification import ClassificationT  # noqa: E402
-from open_perception_kit.fb.perception.metadata.ClassificationCandidate import (  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.BoundingBox import BoundingBoxT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.BoxDetection import BoxDetectionT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.BoxDetections import BoxDetectionsT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.Classification import ClassificationT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.ClassificationCandidate import (  # noqa: E402
     ClassificationCandidateT,
 )
-from open_perception_kit.fb.perception.metadata.Classifications import ClassificationsT  # noqa: E402
-from open_perception_kit.fb.perception.metadata.FrameContext import FrameContextT  # noqa: E402
-from open_perception_kit.fb.perception.metadata.LayerInfo import LayerInfoT  # noqa: E402
-from open_perception_kit.fb.perception.metadata.ObjectEmbedding import ObjectEmbeddingT  # noqa: E402
-from open_perception_kit.fb.perception.metadata.ObjectEmbeddings import ObjectEmbeddingsT  # noqa: E402
-from open_perception_kit.fb.perception.metadata.ObjectMeta import ObjectMetaT  # noqa: E402
-from open_perception_kit.fb.perception.metadata.Point2f import Point2fT  # noqa: E402
-from open_perception_kit.fb.perception.metadata.PoseEstimation import PoseEstimationT  # noqa: E402
-from open_perception_kit.fb.perception.metadata.PoseEstimations import PoseEstimationsT  # noqa: E402
-from open_perception_kit.fb.perception.metadata.ProducerInfo import ProducerInfoT  # noqa: E402
-from open_perception_kit.fb.perception.metadata.TrackTrace import TrackTraceT  # noqa: E402
-from open_perception_kit.fb.perception.metadata.TrackTraces import TrackTracesT  # noqa: E402
-from open_perception_kit.fb.perception.metadata.VideoFrameContext import VideoFrameContextT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.Classifications import ClassificationsT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.FrameContext import FrameContextT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.LayerInfo import LayerInfoT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.ObjectEmbedding import ObjectEmbeddingT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.ObjectEmbeddings import ObjectEmbeddingsT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta import ObjectMetaT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.Point2f import Point2fT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.PoseEstimation import PoseEstimationT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.PoseEstimations import PoseEstimationsT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.ProducerInfo import ProducerInfoT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.TrackTrace import TrackTraceT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.TrackTraces import TrackTracesT  # noqa: E402
+from open_perception_kit.fb.open_perception_kit.metadata.VideoFrameContext import VideoFrameContextT  # noqa: E402
 
 
 def layer(content_type: str, infer_element_id: str = "infer0") -> LayerInfoT:
@@ -81,13 +81,13 @@ class FrameResultsNormalizeTests(unittest.TestCase):
         snapshot = normalize_frame_results(frame_results, frame_counter=42)
 
         frame_key = PayloadKey(
-            "perception.metadata.FrameContext",
+            "open_perception_kit.metadata.FrameContext",
             infer_element_id="camera",
             content_type="frameContext",
             model="model-a",
         )
         box_key = PayloadKey(
-            "perception.metadata.BoxDetections",
+            "open_perception_kit.metadata.BoxDetections",
             infer_element_id="infer0",
             content_type="humanFace",
             model="model-a",

@@ -1980,17 +1980,17 @@ PyObject* scoped_envelope::py_object() const noexcept {
 
 
 def _render(text: str, context: GenerationContext, replacements: dict[str, str] | None = None) -> str:
-    module_name = f"{context.sdk_name}_bridge"
+    module_name = f"{context.effective_public_name}_bridge"
     result = text
     for key, value in (replacements or {}).items():
         result = result.replace(key, value)
-    result = result.replace("__SDK_NAME__", context.sdk_name)
+    result = result.replace("__SDK_NAME__", context.effective_public_name)
     result = result.replace(
-        "__PYTHON_PACKAGE_NAME__", context.effective_python_package_name
+        "__PYTHON_PACKAGE_NAME__", context.effective_public_name
     )
-    result = result.replace("__SDK_HEADER__", f"{context.sdk_name}.h")
+    result = result.replace("__SDK_HEADER__", f"{context.effective_public_name}.h")
     result = result.replace("__MODULE_NAME__", module_name)
-    result = result.replace("__BRIDGE_HEADER__", f"{context.sdk_name}_python_bridge.h")
+    result = result.replace("__BRIDGE_HEADER__", f"{context.effective_public_name}_python_bridge.h")
     return result
 
 
@@ -2029,8 +2029,8 @@ def generate_python_bridge(context: GenerationContext, entries: list[SchemaEntry
     bridge_dir = context.cpp_root / "python_bridge"
     bridge_dir.mkdir(parents=True, exist_ok=True)
 
-    header_path = bridge_dir / f"{context.sdk_name}_python_bridge.h"
-    source_path = bridge_dir / f"{context.sdk_name}_python_bridge.cpp"
+    header_path = bridge_dir / f"{context.effective_public_name}_python_bridge.h"
+    source_path = bridge_dir / f"{context.effective_public_name}_python_bridge.cpp"
 
     header_path.write_text(_render(HEADER_TEMPLATE, context), encoding="utf-8")
     source_path.write_text(_render(SOURCE_TEMPLATE, context, replacements), encoding="utf-8")

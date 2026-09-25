@@ -9,7 +9,7 @@ _open_perception_kit_flatbuffers_dep = dependency(
   required : true,
   version : open_perception_kit_flatbuffers_version_requirement,
 )
-_open_perception_kit_inc = include_directories('../../generated/perception/cpp')
+_open_perception_kit_inc = include_directories('../../generated/open_perception_kit/cpp')
 
 open_perception_kit_dep = declare_dependency(
   include_directories : [_open_perception_kit_inc],
@@ -24,7 +24,7 @@ if get_option('tests') or python_ops_enabled
     required : true,
   )
   _open_perception_kit_python_bridge_sources = files(
-    '../../generated/perception/cpp/python_bridge/perception_python_bridge.cpp',
+    '../../generated/open_perception_kit/cpp/python_bridge/open_perception_kit_python_bridge.cpp',
   )
 
   open_perception_kit_python_bridge_dep = declare_dependency(
