@@ -88,6 +88,10 @@ jobs:
         if: *run_checks
         run: ./scripts/build.sh debug true
 
+      - name: Prove unchanged Valgrind failure policy
+        if: *run_checks
+        run: python3 .github/ci/pr39-valgrind-policy-probe.py
+
       - name: Check native tests
         if: *run_checks
         run: |
