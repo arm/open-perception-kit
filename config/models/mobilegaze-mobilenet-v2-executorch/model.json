@@ -1,0 +1,18 @@
+{
+  "version": "1.0.0",
+  "name": "mobilegaze-mobilenet-v2-int8-xnnpack",
+  "modelFile": "l2cs_mobilegaze_mobilenetv2-a8w8-2-xnnpack.pte",
+  "hfDownload": {
+    "repo_id": "Arm/mobilegaze-mobilenet-v2-int8-xnnpack-executorch",
+    "revision": "8466b5fb9d138eef9e004e52b7c263287f22b17d",
+    "filename": "l2cs_mobilegaze_mobilenetv2-a8w8-2-xnnpack.pte",
+    "sha256": "eec432891b173384c8122988a0bebec004419fa9374db15d936844845ea2dd42"
+  },
+  "dynamicOutput": false,
+  "contentType": "eyeYawPitch",
+  "inputTensors": [{"shape": [1, 3, 448, 448], "dataKind": "ImageRgbChw", "valueType": "Float32", "mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225]}],
+  "outputTensors": [
+    {"shape": [1, 90], "dataKind": "RawTensorData", "valueType": "Float32"},
+    {"shape": [1, 90], "dataKind": "RawTensorData", "valueType": "Float32"}
+  ]
+}

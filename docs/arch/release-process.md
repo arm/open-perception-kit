@@ -19,9 +19,9 @@ section before a pull request can target `main`.
 Packaging discovers model directories directly under `config/models/`. The
 existing `opk-models` stage runs `scripts/download-models.py`; descriptor
 `hfDownload` entries pin the repository, revision, and filename. Both packages
-include the six ONNX models `cam-contact`, `gaze-detection`, `osnet_x0_25`,
-`ultraface`, `yolo26`, and `yolov11`, plus the checked-in ExecuTorch `yolox`
-model.
+include all ten ONNX releases—MobileGaze, NITEC, OSNet, UltraFace, and the six
+YOLO26 size and resolution variants—plus the ExecuTorch/XNNPACK variants of
+MobileGaze and NITEC.
 
 The dedicated read-only `HF_TOKEN` is an accepted release-CI dependency while
 this repository and required model sources remain private. It is confined to
@@ -81,7 +81,7 @@ The publisher initially attaches only the three product archives to the GitHub
 Release. Post-publication validation later adds named report assets without
 replacing the published product files.
 
-The architecture tarballs keep their seven-model allowlist. The image is the
+The architecture tarballs keep their twelve-model-directory allowlist. The image is the
 full existing deployment snapshot, including the resolved configuration, model,
 pipeline, and demo-media inputs copied by the deployment lane. Configuration
 for disabled backends may be present, but their operation modules, SDKs, and
@@ -223,7 +223,7 @@ The validator checks:
 - no fmt DSO, source, tests, examples, or pipeline presets;
 - one ONNX Runtime binary and its `libonnxruntime.so.1` link;
 - the standard, ONNX, and experimental ExecuTorch operation modules;
-- exactly the seven release model directories;
+- exactly the twelve release model directories;
 - the exact clean Perception SDK ZIP and its checksum/provenance sidecars;
 - the selected source's descriptor schemas under `share/opk/schemas/json/v1`;
 - ExecuTorch and third-party legal documentation, with no ExecuTorch SDK files;
@@ -235,7 +235,7 @@ do not duplicate raw or generated documentation.
 For every event path, the native x86_64 and Arm `opk-deployment-base` builds run
 the same offline, non-root integration smoke inside the existing Dockerfile. It
 extracts the generated archive and discovers its installed elements before
-separate pipelines cover YOLov11 with ONNX Runtime and YOLOX with experimental
-ExecuTorch. Both must reach EOS and emit non-empty output through `opkcomm`; a
-final pipeline starts `opksink` from the package and its installed web root. The
-validated archive is then published without rebuilding.
+separate pipelines cover YOLO26n-320 and UltraFace with ONNX Runtime, plus NITEC
+with ExecuTorch. All must reach EOS and emit non-empty output through `opkcomm`;
+a final pipeline starts `opksink` from the package and its installed web root.
+The validated archive is then published without rebuilding.

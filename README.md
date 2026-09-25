@@ -1,11 +1,5 @@
 # Open Perception Kit CLI quick start
 
-[![Python Dependency Audit](https://github.com/arm/open-perception-kit/actions/workflows/python-dependency-audit.yml/badge.svg?branch=develop&event=schedule)](https://github.com/arm/open-perception-kit/actions/workflows/python-dependency-audit.yml?query=branch%3Adevelop+event%3Aschedule)
-[![Docker Scout Image Audit](https://github.com/arm/open-perception-kit/actions/workflows/docker-scout-image-audit.yml/badge.svg?branch=develop&event=schedule)](https://github.com/arm/open-perception-kit/actions/workflows/docker-scout-image-audit.yml?query=branch%3Adevelop+event%3Aschedule)
-[![Workflow Dependency Freshness](https://github.com/arm/open-perception-kit/actions/workflows/workflow-audit.yml/badge.svg?branch=develop&event=schedule)](https://github.com/arm/open-perception-kit/actions/workflows/workflow-audit.yml?query=branch%3Adevelop+event%3Aschedule)
-
-The workflow dependency freshness badge links to the workflow runs, where each run publishes a simple Markdown report and lightweight JSON snapshot in the `workflow-dependency-freshness` artifact.
-
 The Open Perception Kit helps Raspberry Pi developers get from setup to
 edge-vision inference without building the whole perception stack from scratch.
 It gives you a fast path from a ready Raspberry Pi 5 to visible inference and
@@ -219,7 +213,7 @@ Pick your next step.
 | `docker info` fails | Confirm Docker Engine is installed and running from Docker's Debian installation guide. If it reports a permissions error, run `sudo usermod -aG docker "$USER"`, reconnect, and try again. |
 | Docker Compose cannot find the service | Rerun `./scripts/quick_start.sh` to regenerate the container configuration. |
 | Build fails | Fix the first missing package, permission, or container error shown in the build output. |
-| Pipeline exits immediately | Rerun `./scripts/run.sh yolo26-onnx` and inspect the first missing plugin, model, or file. |
+| Pipeline exits immediately | Rerun `./scripts/run.sh yolo26n-320` and inspect the first missing plugin, model, or file. |
 | Viewer does not load | Keep the pipeline terminal running, use the target Pi IP address, and check port `9999`. |
 | A model produces no overlay | Confirm the model and any upstream dependencies are enabled, then check the debug log or model state in the viewer. |
 

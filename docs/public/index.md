@@ -225,7 +225,7 @@ Pick your next step.
 | `docker info` fails | Confirm Docker Engine is installed and running from Docker's Debian installation guide. If it reports a permissions error, run `sudo usermod -aG docker "$USER"`, reconnect, and try again. |
 | Docker Compose cannot find the service | Rerun `./scripts/quick_start.sh` to regenerate the container configuration. |
 | Build fails | Fix the first missing package, permission, or container error shown in the build output. |
-| Pipeline exits immediately | Rerun `./scripts/run.sh yolo26-onnx` and inspect the first missing plugin, model, or file. |
+| Pipeline exits immediately | Rerun `./scripts/run.sh yolo26n-320` and inspect the first missing plugin, model, or file. |
 | Viewer does not load | Keep the pipeline terminal running, use the target Pi IP address, and check port `9999`. |
 | A model produces no overlay | Confirm the model and any upstream dependencies are enabled, then check the debug log or model state in the viewer. |
 

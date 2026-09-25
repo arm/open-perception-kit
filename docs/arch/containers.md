@@ -174,9 +174,9 @@ stages inherit everything from their parent unless noted otherwise.
   deployment build lane a named cross-build root.
 - `opk-demo-media`: starts from `debian:trixie-slim`, adds `ca-certificates`,
   `curl`, and `bash`, then runs `scripts/private/download-demo-videos.sh` unless
-  `NO_EXAMPLE_CONTENT=true`. The checked-in manifest locks each Box file by
-  SHA-256, and the stage emits `data/videos/SHA256SUMS` beside the verified
-  media.
+  `NO_EXAMPLE_CONTENT=true`. The checked-in manifest locks each file from the
+  Arm Multimedia Hugging Face bucket by SHA-256, and the stage emits
+  `data/videos/SHA256SUMS` beside the verified media.
 - `opk-models`: starts from `python:3.14-slim-trixie`, adds
   `huggingface_hub==1.18.0` and `jsonschema==4.26.0`, then runs
   `scripts/download-models.py` with the optional Hugging Face build secret to

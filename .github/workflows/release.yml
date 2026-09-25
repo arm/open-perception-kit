@@ -1,0 +1,608 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  CCACHE_SCHEMA_VERSION: v2
+
+jobs:
+  prepare:
+    name: Resolve release source
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      cargo_package_version: ${{ steps.release.outputs.cargo_package_version }}
+      python_package_version: ${{ steps.release.outputs.python_package_version }}
+      commit: ${{ steps.release.outputs.commit }}
+      flowdata_commit: ${{ steps.release.outputs.flowdata_commit }}
+      build_id: ${{ steps.release.outputs.build_id }}
+      x86_archive: ${{ steps.release.outputs.x86_archive }}
+      arm_archive: ${{ steps.release.outputs.arm_archive }}
+    steps:
+      - name: Checkout release tooling
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Checkout selected source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Prepare release identity
+        id: release
+        run: |
+          set -euo pipefail
+          commit="$(git rev-parse HEAD)"
+          python3 scripts/release/ReleaseTool.py prepare \
+            --repo-root . \
+            --commit "$commit"
+          echo "flowdata_commit=$(git rev-parse HEAD:tools/flowdata-sdk)" \
+            >> "$GITHUB_OUTPUT"
+
+  quick-start-smoke:
+    name: Quick-start smoke test
+    uses: ./.github/workflows/quick-start-smoke.yml
+    secrets:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+
+  sdk-tests:
+    name: SDK tests
+    uses: ./.github/workflows/sdk-tests.yml
+
+  meson-tests:
+    name: Meson tests
+    uses: ./.github/workflows/meson-tests.yml
+
+  build:
+    name: Build ${{ matrix.architecture }} package
+    needs: prepare
+    strategy:
+      matrix:
+        include:
+          - architecture: x86_64
+            artifact_label: x86
+            cache_tag: amd64
+            platform: linux/amd64
+            runner: ubuntu-24.04
+            executorch_deb_sha256: 3cc106a358af12d26e0cb0a1af70899533e594b0d0c460a28da5a732f8251505
+          - architecture: aarch64
+            artifact_label: arm
+            cache_tag: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            executorch_deb_sha256: d41fd4f78c1a7ca7d84c761ae4652121719c3d8d5daafd6091b5a6df6638647b
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    env:
+      RELEASE_IMAGE: opk-release-snapshot:${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.artifact_label }}
+      SOURCE_DIR: source-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-${{ matrix.artifact_label }}
+      EXECUTORCH_DEB_BASE_URL: https://artifacts.tools.arm.com/open-perception-kit/executorch
+    steps:
+      - name: Free runner disk space
+        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
+        with:
+          android: true
+          dotnet: true
+          haskell: true
+          docker-images: true
+          large-packages: false
+          preinstalled-runtimes: false
+          swap-storage: false
+
+      - name: Checkout selected source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          path: ${{ env.SOURCE_DIR }}
+          persist-credentials: false
+
+      - name: Fetch ExecuTorch package
+        working-directory: ${{ env.SOURCE_DIR }}
+        env:
+          DEB_ARCH: ${{ matrix.cache_tag }}
+          DEB_SHA256: ${{ matrix.executorch_deb_sha256 }}
+        run: |
+          set -euo pipefail
+          deb="libexecutorch-dev-1.3.1-2-${DEB_ARCH}.deb"
+          curl --fail --location --retry 3 --output "var/${deb}" \
+            "${EXECUTORCH_DEB_BASE_URL}/${deb}"
+          echo "${DEB_SHA256}  var/${deb}" | sha256sum --check -
+
+      - name: Set up Docker builder
+        id: builder
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+
+      - name: Restore compiler cache
+        id: compiler-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .cache/ccache-release
+          key: opk-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-release-${{ needs.prepare.outputs.commit }}
+          restore-keys: |
+            opk-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-release-
+            opk-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-deployment-
+
+      - name: Attach compiler cache to Docker builder
+        uses: reproducible-containers/buildkit-cache-dance@5422eac04292c961a382e0f584ea0f03ad9da723 # v3.4.0
+        with:
+          builder: ${{ steps.builder.outputs.name }}
+          cache-map: |
+            {
+              ".cache/ccache-release": {
+                "target": "/work/.cache/ccache",
+                "id": "opk-deployment-ccache",
+                "sharing": "locked"
+              }
+            }
+          skip-extraction: ${{ steps.compiler-cache.outputs.cache-hit }}
+
+      - name: Build release snapshot image
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          build-args: |
+            HF_DOWNLOAD_CACHEBUST=github-${{ github.run_id }}-${{ github.run_attempt }}
+            OPK_RELEASE_BUILD=true
+            OPK_RELEASE_BUILD_ID=${{ needs.prepare.outputs.build_id }}
+            OPK_RELEASE_SOURCE_COMMIT=${{ needs.prepare.outputs.commit }}
+            OPK_FLOWDATA_SDK_COMMIT=${{ needs.prepare.outputs.flowdata_commit }}
+          context: ${{ env.SOURCE_DIR }}
+          labels: |
+            org.opencontainers.image.revision=${{ needs.prepare.outputs.commit }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ needs.prepare.outputs.build_id }}
+          load: true
+          tags: ${{ env.RELEASE_IMAGE }}
+          platforms: ${{ matrix.platform }}
+          provenance: false
+          pull: true
+          secrets: |
+            "huggingface_token=${{ secrets.HF_TOKEN }}"
+          target: opk-deployment-base
+
+      - name: Extract package from release snapshot
+        working-directory: ${{ env.SOURCE_DIR }}
+        env:
+          ARCHIVE: ${{ matrix.architecture == 'x86_64' && needs.prepare.outputs.x86_archive || needs.prepare.outputs.arm_archive }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          container_id="$(docker create "$RELEASE_IMAGE")"
+          trap 'docker rm -f "$container_id" >/dev/null' EXIT
+          docker cp \
+            "$container_id:/opt/opk-release-artifacts/$ARCHIVE" "dist/$ARCHIVE"
+          if [[ "${{ matrix.architecture }}" == aarch64 ]]; then
+            mkdir -p dist/perception-sdk-input
+            package="${ARCHIVE%.tar.gz}"
+            tar -C dist/perception-sdk-input --strip-components=4 -xzf "dist/$ARCHIVE" \
+              "$package/share/opk/perception-sdk"
+          fi
+
+      - name: Upload package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: opk-release-${{ matrix.artifact_label }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.SOURCE_DIR }}/dist/${{ matrix.architecture == 'x86_64' && needs.prepare.outputs.x86_archive || needs.prepare.outputs.arm_archive }}
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Set up pinned Rust for Perception packaging
+        if: matrix.architecture == 'aarch64'
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+        with:
+          toolchain: 1.85.0
+
+      - name: Package Perception Rust crate
+        if: matrix.architecture == 'aarch64'
+        working-directory: ${{ env.SOURCE_DIR }}
+        env:
+          RUSTUP_TOOLCHAIN: 1.85.0
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          export_root="$RUNNER_TEMP/perception-sdk-$VERSION"
+          rm -rf -- "$export_root"
+          python3 -m zipfile -e \
+            "dist/perception-sdk-input/perception-sdk-$VERSION.zip" "$RUNNER_TEMP"
+          rust="$export_root/rust"
+          scripts/release/patch-perception-cargo-toml.sh "$rust/Cargo.toml"
+          printf '\n[registries.crates-io]\nprotocol = "sparse"\n' \
+            >> "$rust/.cargo/config.toml"
+          (cd "$rust" && cargo package --offline --locked)
+          publish_source="$RUNNER_TEMP/perception-cargo-source-$VERSION"
+          rm -rf -- "$publish_source"
+          python3 - "$rust" "$publish_source" <<'PY'
+          import shutil
+          import sys
+
+          shutil.copytree(
+              sys.argv[1],
+              sys.argv[2],
+              ignore=shutil.ignore_patterns(".cargo", "crates", "target", "vendor"),
+          )
+          PY
+          publish_cargo_home="$RUNNER_TEMP/perception-publish-cargo-home"
+          rm -rf -- "$publish_cargo_home"
+          mkdir -p "$publish_cargo_home"
+          cat > "$publish_cargo_home/config.toml" <<'EOF'
+          [registries.crates-io]
+          protocol = "sparse"
+          EOF
+          (
+            cd "$publish_source"
+            CARGO_HOME="$publish_cargo_home" \
+              cargo package --locked
+          )
+          cp "$publish_source/target/package/perception-$VERSION.crate" \
+            dist/perception-sdk-input/
+          rm -rf -- "$publish_source/target"
+          mv "$publish_source" dist/perception-sdk-input/
+          cp "$export_root/python/opk_perception_sdk-$VERSION-py3-none-any.whl" \
+            dist/perception-sdk-input/
+
+      - name: Upload Perception SDK input
+        if: matrix.architecture == 'aarch64'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: opk-perception-sdk-input-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.SOURCE_DIR }}/dist/perception-sdk-input/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Clean isolated build workspace
+        if: always()
+        run: |
+          docker image rm "$RELEASE_IMAGE" 2>/dev/null || true
+          rm -rf -- "$SOURCE_DIR"
+
+  sbom-source:
+    name: Generate source SBOM
+    needs: prepare
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout selected source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          persist-credentials: false
+
+      - name: Generate CycloneDX SBOM with cdxgen
+        env:
+          CDXGEN_IMAGE: ghcr.io/cyclonedx/cdxgen@sha256:6d1583144c0062692af1a2658ba290dc44c1cc412860099edccc3f079ccbc1a8 # v13.2
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            -e FETCH_LICENSE=true \
+            -e HOME=/tmp \
+            -v /tmp:/tmp \
+            -v "$PWD:/app:rw" \
+            "$CDXGEN_IMAGE" \
+            -r /app -o /app/opk-sbom-source.json
+
+      - name: Add Arm SBOM disclaimer
+        run: scripts/release/add-sbom-disclaimer.sh opk-sbom-source.json
+
+      - name: Upload source SBOM
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: opk-sbom-source-${{ github.run_id }}-${{ github.run_attempt }}
+          path: opk-sbom-source.json
+          if-no-files-found: error
+
+  artifactory:
+    name: Publish to Artifactory
+    needs: [prepare, quick-start-smoke, sdk-tests, meson-tests, build, sbom-source]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download release packages
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: opk-release-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/opk-release-artifacts
+          merge-multiple: true
+
+      - name: Download Perception SDK input
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: opk-perception-sdk-input-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/opk-perception-sdk-input
+
+      - name: Stage Perception language packages
+        env:
+          ARTIFACTS_DIR: ${{ runner.temp }}/opk-release-artifacts
+          CARGO_PACKAGE_VERSION: ${{ needs.prepare.outputs.cargo_package_version }}
+          PYTHON_PACKAGE_VERSION: ${{ needs.prepare.outputs.python_package_version }}
+          SDK_DIR: ${{ runner.temp }}/opk-perception-sdk-input
+        run: |
+          set -euo pipefail
+          cp "$SDK_DIR/opk_perception_sdk-$PYTHON_PACKAGE_VERSION-py3-none-any.whl" \
+            "$ARTIFACTS_DIR/"
+          cp "$SDK_DIR/perception-$CARGO_PACKAGE_VERSION.crate" "$ARTIFACTS_DIR/"
+
+      - name: Accept exactly two archives and two language packages
+        env:
+          ARTIFACTS_DIR: ${{ runner.temp }}/opk-release-artifacts
+          BUILD_ID: ${{ needs.prepare.outputs.build_id }}
+          CARGO_PACKAGE_VERSION: ${{ needs.prepare.outputs.cargo_package_version }}
+          PYTHON_PACKAGE_VERSION: ${{ needs.prepare.outputs.python_package_version }}
+        run: |
+          set -euo pipefail
+          expected=(
+            "opk-$BUILD_ID-linux-x86_64.tar.gz"
+            "opk-$BUILD_ID-linux-aarch64.tar.gz"
+            "opk_perception_sdk-$PYTHON_PACKAGE_VERSION-py3-none-any.whl"
+            "perception-$CARGO_PACKAGE_VERSION.crate"
+          )
+          test -z "$(find "$ARTIFACTS_DIR" -type l -print -quit)"
+          mapfile -d '' -t files < <(
+            find "$ARTIFACTS_DIR" -mindepth 1 -maxdepth 1 -type f -print0 | sort -z
+          )
+          test "${#files[@]}" -eq "${#expected[@]}"
+          for artifact in "${expected[@]}"; do
+            test -f "$ARTIFACTS_DIR/$artifact"
+          done
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: opk-release-artifacts
+          path: ${{ runner.temp }}/opk-release-artifacts
+          if-no-files-found: error
+
+      - name: Create GitHub App token for publisher
+        id: publisher-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.OPK_DEBUG_ACCESS_APP_ID }}
+          private-key: ${{ secrets.OPK_DEBUG_ACCESS_APP_PRIVATE_KEY }}
+          owner: Arm-Debug
+          repositories: amp-dev-forge-publisher
+
+      - name: Trigger Artifactory publisher
+        id: trigger_artifactory_publisher
+        env:
+          GH_TOKEN: ${{ steps.publisher-token.outputs.token }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          publisher_run_url="$(gh workflow run upload-to-artifactory.yaml \
+            --repo Arm-Debug/amp-dev-forge-publisher \
+            --ref main \
+            --field source-run-id="$GITHUB_RUN_ID" \
+            --field artifact-name="opk-release-artifacts" \
+            --field release-version="v$VERSION")"
+
+          publisher_run_id="${publisher_run_url##*/}"
+          if [[ ! "$publisher_run_id" =~ ^[0-9]+$ ]]; then
+            echo "::error::Could not extract a run ID from: $publisher_run_url"
+            exit 1
+          fi
+
+          echo "publisher_run_id=$publisher_run_id" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for publisher release links artifact
+        env:
+          GH_TOKEN: ${{ steps.publisher-token.outputs.token }}
+          PUBLISHER_RUN_ID: ${{ steps.trigger_artifactory_publisher.outputs.publisher_run_id }}
+        run: |
+          set -euo pipefail
+          gh run watch "$PUBLISHER_RUN_ID" \
+            --repo Arm-Debug/amp-dev-forge-publisher \
+            --compact \
+            --interval 60 \
+            --exit-status
+
+          gh run download "$PUBLISHER_RUN_ID" \
+            --repo Arm-Debug/amp-dev-forge-publisher \
+            --name artifactory-links \
+            --dir publisher-artifacts
+
+      - name: Upload Artifactory links
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: opk-artifactory-links
+          path: publisher-artifacts/artifact-urls.txt
+          if-no-files-found: error
+
+  github-release:
+    name: Publish GitHub release
+    needs: [prepare, build, artifactory, perception-cargo-publish, sbom-source]
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Checkout released source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          persist-credentials: false
+
+      - name: Download release packages
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: opk-release-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release
+          merge-multiple: true
+
+      - name: Download Artifactory links
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: opk-artifactory-links
+          path: publisher-artifacts
+
+      - name: Download SBOMs
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: opk-sbom-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release
+          merge-multiple: true
+
+      - name: Publish release after all uploads succeed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          COMMIT: ${{ needs.prepare.outputs.commit }}
+        run: |
+          set -euo pipefail
+          mapfile -t archives < <(find release -maxdepth 1 -type f -name "*.tar.gz" | sort)
+          test "${#archives[@]}" -eq 2
+          mapfile -t sboms < <(find release -maxdepth 1 -type f -name "opk-sbom-*.json" | sort)
+          test "${#sboms[@]}" -eq 2
+          hashes="$(sha256sum "${archives[@]}")"
+          sed -n "/^## \\[$VERSION\\]/,/^## \\[/p" CHANGELOG.md |
+            sed "\$d" > release-body.md
+          {
+            # shellcheck disable=SC2016
+            printf '\nSource commit: `%s`\n\n### Archives\n\n' "$COMMIT"
+            while read -r hash file; do
+              # shellcheck disable=SC2016
+              printf -- '- `%s` — `%s`\n' "$(basename "$file")" "$hash"
+            done <<< "$hashes"
+          } >> release-body.md
+          {
+            printf '\n### Artifactory\n\n'
+            cat publisher-artifacts/artifact-urls.txt
+            printf '\n### Software Bill of Materials\n\n'
+            for sbom in "${sboms[@]}"; do
+              # shellcheck disable=SC2016
+              printf -- '- `%s`\n' "$(basename "$sbom")"
+            done
+          } >> release-body.md
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "Release v$VERSION already exists." >&2
+            exit 1
+          fi
+          gh release create "v$VERSION" --draft --target "$COMMIT" \
+            --title "OPK $VERSION" --notes-file release-body.md
+          gh release upload "v$VERSION" "${archives[@]}" "${sboms[@]}"
+          gh release edit "v$VERSION" --draft=false
+
+  perception-cargo-publish:
+    name: Publish and verify Perception crate
+    needs: [prepare, artifactory]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout release scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          sparse-checkout: scripts/release
+          persist-credentials: false
+
+      - name: Download Perception SDK input
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: opk-perception-sdk-input-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/opk-perception-sdk-input
+
+      - name: Set up pinned Rust for Perception package verification
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+        with:
+          toolchain: 1.85.0
+          cache: false
+
+      - name: Configure Cargo home
+        run: echo "CARGO_HOME=$RUNNER_TEMP/perception-cargo-home" >> "$GITHUB_ENV"
+
+      - name: Configure Cargo for Perception package verification
+        run: |
+          set -euo pipefail
+          rm -rf -- "$CARGO_HOME"
+          mkdir -p "$CARGO_HOME"
+          cat > "$CARGO_HOME/config.toml" <<'EOF'
+          [registries.crates-io]
+          protocol = "sparse"
+          EOF
+
+      - name: Verify Perception crate package
+        env:
+          CARGO_PACKAGE_VERSION: ${{ needs.prepare.outputs.cargo_package_version }}
+          RUSTUP_TOOLCHAIN: 1.85.0
+          SDK_DIR: ${{ runner.temp }}/opk-perception-sdk-input
+        run: |
+          set -euo pipefail
+          crate="$SDK_DIR/perception-$CARGO_PACKAGE_VERSION.crate"
+          publish_source="$SDK_DIR/perception-cargo-source-$CARGO_PACKAGE_VERSION"
+          (cd "$publish_source" && cargo package --locked --no-verify)
+          cmp "$crate" "$publish_source/target/package/perception-$CARGO_PACKAGE_VERSION.crate"
+
+      - name: Install cargo-sbom
+        run: cargo install cargo-sbom --version 0.10.0 --locked
+
+      - name: Generate Cargo CycloneDX SBOM
+        working-directory: ${{ runner.temp }}/opk-perception-sdk-input/perception-cargo-source-${{ needs.prepare.outputs.cargo_package_version }}
+        run: |
+          set -euo pipefail
+          cargo sbom \
+            --cargo-package perception \
+            --project-directory . \
+            --output-format cyclone_dx_json_1_6 \
+            > "$GITHUB_WORKSPACE/opk-sbom-perception-crate.json"
+
+      - name: Add Arm SBOM disclaimer
+        run: scripts/release/add-sbom-disclaimer.sh opk-sbom-perception-crate.json
+
+      - name: Upload Perception crate SBOM
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: opk-sbom-perception-crate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: opk-sbom-perception-crate.json
+          if-no-files-found: error
+
+      - name: Create GitHub App token for publisher
+        id: publisher-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.OPK_DEBUG_ACCESS_APP_ID }}
+          private-key: ${{ secrets.OPK_DEBUG_ACCESS_APP_PRIVATE_KEY }}
+          owner: Arm-Debug
+          repositories: amp-dev-forge-publisher
+
+      - name: Trigger Perception Cargo publisher
+        id: trigger_cargo_publisher
+        env:
+          CARGO_PACKAGE_VERSION: ${{ needs.prepare.outputs.cargo_package_version }}
+          GH_TOKEN: ${{ steps.publisher-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          publisher_run_url="$(gh workflow run cargo-publish.yaml \
+            --repo Arm-Debug/amp-dev-forge-publisher \
+            --ref main \
+            --field source-run-id="$GITHUB_RUN_ID" \
+            --field artifact-name="opk-perception-sdk-input-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
+            --field cargo-package-version="$CARGO_PACKAGE_VERSION")"
+
+          publisher_run_id="${publisher_run_url##*/}"
+          if [[ ! "$publisher_run_id" =~ ^[0-9]+$ ]]; then
+            echo "::error::Could not extract a run ID from: $publisher_run_url"
+            exit 1
+          fi
+
+          echo "publisher_run_id=$publisher_run_id" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for Perception Cargo publisher
+        env:
+          GH_TOKEN: ${{ steps.publisher-token.outputs.token }}
+          PUBLISHER_RUN_ID: ${{ steps.trigger_cargo_publisher.outputs.publisher_run_id }}
+        run: |
+          gh run watch "$PUBLISHER_RUN_ID" \
+            --repo Arm-Debug/amp-dev-forge-publisher \
+            --compact \
+            --interval 60 \
+            --exit-status

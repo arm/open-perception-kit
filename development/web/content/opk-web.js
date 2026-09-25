@@ -5577,7 +5577,7 @@ var __classPrivateFieldGet = function(receiver, state, kind, f) {
 };
 var _ExternalKey_value;
 var SDK_NAME = "perception";
-var SDK_VERSION = "0.3.1";
+var SDK_VERSION = "0.1.0";
 var SCHEMA_SET_SHA256 = "5a2f77909600d6458a707fba68cff1a7dc5f610dec58174456bb97d16596c383";
 var EXTERNAL_KEY_MIN = BigInt("9223372036854775808");
 var EXTERNAL_KEY_MASK = EXTERNAL_KEY_MIN - BigInt(1);

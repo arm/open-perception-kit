@@ -186,10 +186,8 @@ The Dockerfile accepts these build arguments:
 | `EXECUTORCH_ARTIFACTORY_REPOSITORY` | `ai-expkits-internal.opk-deb` | Artifactory Debian repository. |
 | `EXECUTORCH_ARTIFACTORY_DISTRIBUTION` | `trixie` | Debian distribution. |
 | `EXECUTORCH_ARTIFACTORY_COMPONENT` | `main` | Debian component. |
-| `EXECUTORCH_ARTIFACTORY_USERNAME` | Empty | Artifactory username. |
-| `EXECUTORCH_ARTIFACTORY_PASSWORD` | Empty | Artifactory access token. |
 
-The Artifactory fallback requires both credential arguments. Store them in the
+The Artifactory fallback requires a username and access token. Store them in the
 ignored repository-root `.env` file rather than committing them:
 
 ```dotenv
@@ -198,9 +196,12 @@ EXECUTORCH_ARTIFACTORY_PASSWORD='<access-token>'
 ```
 
 `EXECUTORCH_ARTIFACTORY_PASSWORD` is intended to contain an access token, not a
-long-lived account password. The credentials are passed as Docker build
-arguments and may be visible in build metadata or caches, so use a suitably
-scoped token and do not share the resulting build metadata.
+long-lived account password. Docker Compose passes these values as the
+`executorch_artifactory_username` and `executorch_artifactory_password`
+BuildKit secrets. They are available only to the package-installation step,
+not stored as image environment variables or build arguments. Both secrets
+are optional; without credentials, only a local package can be installed.
+Direct Docker builds can supply the same secret IDs with `--secret`.
 
 Both container launch paths pass the root `.env` file to Docker Compose when it
 exists:

@@ -2,7 +2,8 @@
 ################################################################
 # Copyright (C) 2025 Arm Limited. All rights reserved.
 ################################################################
-# Downloads checksum-locked demo videos from the OPK public Box folder.
+# Downloads checksum-locked demo videos from the Arm Multimedia
+# Hugging Face bucket.
 #
 # Usage: ./scripts/private/download-demo-videos.sh [--check]
 ################################################################
@@ -12,18 +13,45 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 videos_dir="$(cd "${script_dir}/../.." && pwd)/data/videos"
 manifest="${script_dir}/demo-videos.manifest"
-BOX_SHARED_TOKEN="yk3v2zpd10s9skbmlrv1lbn82hinga5u"
+bucket_url="https://huggingface.co/buckets/Arm/Multimedia/resolve/sample-videos"
 
 sha256=(sha256sum)
 command -v sha256sum > /dev/null 2>&1 || sha256=(shasum -a 256)
 
 checksums() {
-    awk '$1 !~ /^#/ { print $1 "  " $3 }' "$manifest"
+    awk '$1 !~ /^#/ { print $1 "  " $2 }' "$manifest"
+}
+
+checksum_matches() {
+    local expected="$1"
+    local file="$2"
+    [[ -f "$file" ]] &&
+        printf '%s  %s\n' "$expected" "$file" |
+            "${sha256[@]}" --check --strict --quiet > /dev/null 2>&1
 }
 
 check_all() {
-    [[ -d "$videos_dir" ]] || return 1
-    checksums | (cd "$videos_dir" && "${sha256[@]}" --check --strict --quiet)
+    local missing=0
+    local mismatched=0
+    local errors
+    local file
+    while read -r expected filename; do
+        [[ "$expected" == \#* ]] && continue
+        file="${videos_dir}/${filename}"
+        if [[ ! -f "$file" ]]; then
+            echo "MISSING: ${filename}"
+            ((missing += 1))
+        elif ! checksum_matches "$expected" "$file"; then
+            echo "CHECKSUM MISMATCH: ${filename}"
+            ((mismatched += 1))
+        fi
+    done < "$manifest"
+
+    errors=$((missing + mismatched))
+    if ((errors > 0)); then
+        echo "ERROR: verification failed for ${errors} files (missing: ${missing}, checksum mismatches: ${mismatched})" >&2
+        return 1
+    fi
 }
 
 case "${1:-}" in
@@ -39,18 +67,19 @@ case "${1:-}" in
 esac
 
 mkdir -p "$videos_dir"
-while read -r expected file_id filename; do
+while read -r expected filename; do
     [[ "$expected" == \#* ]] && continue
     destination="${videos_dir}/${filename}"
-    if printf '%s  %s\n' "$expected" "$destination" | "${sha256[@]}" --check --strict --quiet 2> /dev/null; then
+    if checksum_matches "$expected" "$destination"; then
         continue
     fi
 
     temporary="${destination}.part"
     rm -f "$temporary"
-    url="https://arm.app.box.com/index.php?rm=box_download_shared_file&shared_link=${BOX_SHARED_TOKEN}&shared_name=${BOX_SHARED_TOKEN}&file_id=${file_id}"
+    url="${bucket_url}/${filename}"
     if ! curl -fsSL --retry 3 --retry-delay 2 -o "$temporary" "$url" ||
-        ! printf '%s  %s\n' "$expected" "$temporary" | "${sha256[@]}" --check --strict --quiet; then
+        ! checksum_matches "$expected" "$temporary"; then
+        echo "ERROR: failed to download or verify ${filename}" >&2
         rm -f "$temporary"
         exit 1
     fi

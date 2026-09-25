@@ -1,0 +1,18 @@
+{
+  "version": "1.0.0",
+  "name": "UltraFaceNitecResnet18Executorch",
+  "displayName": "UltraFace + NITEC ResNet-18 INT8 (ExecuTorch)",
+  "task": "Camera contact",
+  "runtime": "ONNX + ExecuTorch (XNNPACK)",
+  "description": "Detects faces, then evaluates camera contact on each face crop.",
+  "ops": [
+    {"id": "opk-std-ops/InferenceController", "attributes": {}},
+    {"id": "opk-std-ops/GenericImagePreprocess", "attributes": {"inputImageTensorIndex": 0, "inputImageSourceName": "pipelineVideoFrame"}},
+    {"id": "opk-onnx-ops/Inference", "attributes": {"modelDescriptor": "../../models/ultraface-rfb-320/model.json"}},
+    {"id": "opk-std-ops/GenericPostprocess", "attributes": {"parser": "UltrafaceParser", "normalizeOutputCoordinates": false, "confidenceThreshold": 0.1, "iouThreshold": 0.3}},
+    {"id": "opk-std-ops/InferenceController", "loopId": 2, "attributes": {"contentType": "humanFace"}},
+    {"id": "opk-std-ops/GenericImagePreprocess", "loopId": 2, "attributes": {"inputImageTensorIndex": 0, "inputImageSourceName": "pipelineVideoFrame"}},
+    {"id": "opk-executorch-ops/Inference", "loopId": 2, "attributes": {"modelDescriptor": "../../models/nitec-resnet-18-executorch/model.json"}},
+    {"id": "opk-std-ops/GenericPostprocess", "loopId": 2, "attributes": {"parser": "CameraContactParser", "contactClassIndex": 1, "noContactClassIndex": 0}}
+  ]
+}

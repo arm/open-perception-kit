@@ -293,11 +293,10 @@ If you need to go beyond that and change elements or core runtime behavior, the 
 
 ## Good examples to copy from
 
-- `config/models/yolov11/` for a simple object detector
-- `config/opchains/tracking/` for a detector + embedding cascade
-- `config/models/mobilenetv2/` for a simple classifier
-- `config/models/modnet/` for segmentation
-- `config/models/osnet_x0_25/` for embeddings
+- `config/models/yolo26n-320/` for a simple object detector
+- `config/models/ultraface-rfb-320/` for a simple face detector
+- `config/opchains/mobilegaze-mobilenet-v2/` for a detector + gaze cascade
+- `config/opchains/osnet-x0-25/` for a detector + embedding cascade
 
 ## If the built-in parsers are not enough
 
