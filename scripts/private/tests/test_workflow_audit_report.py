@@ -10,9 +10,7 @@ import unittest
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from test_support.agent_workflow import (  # noqa: E402
-    WORKFLOW_AUDIT_REPORT,
-)
+import workflow_audit_report as WORKFLOW_AUDIT_REPORT  # noqa: E402
 
 
 class WorkflowAuditReportTests(unittest.TestCase):
