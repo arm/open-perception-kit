@@ -2,8 +2,6 @@ name: Clang-tidy
 
 on:
   pull_request:
-  push:
-    branches: [bugfix/PR-39-python-deps-ci-01a0d7ba]
 
 permissions:
   contents: read
@@ -23,7 +21,7 @@ jobs:
 
       - name: Find changed files
         id: changes
-        if: github.event_name == 'pull_request' && github.event.pull_request.changed_files < 3000
+        if: github.event.pull_request.changed_files < 3000
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d
         with:
           filters: |
@@ -62,7 +60,7 @@ jobs:
       - name: Select changed-line check
         id: scope
         env:
-          HAS_RELEVANT_CHANGES: ${{ github.event_name != 'pull_request' || github.event.pull_request.changed_files >= 3000 || steps.changes.outputs.full == 'true' }}
+          HAS_RELEVANT_CHANGES: ${{ github.event.pull_request.changed_files >= 3000 || steps.changes.outputs.full == 'true' }}
           HAS_SOURCES: ${{ steps.changes.outputs.sources == 'true' }}
         run: |
           if [[ "$HAS_RELEVANT_CHANGES" == true || "$HAS_SOURCES" == true ]]; then
@@ -84,7 +82,7 @@ jobs:
       - name: Check changed lines
         if: steps.scope.outputs.run == 'true'
         env:
-          PR_BASE_REF: ${{ github.base_ref || 'main' }}
+          PR_BASE_REF: ${{ github.base_ref }}
         run: |
           CLANG_TIDY_BASE="origin/$PR_BASE_REF" ninja -C development/build-active clang-tidy-new
           grep -q 'Unique findings: 0\.' development/build-active/meson-logs/clang-tidy-new.md

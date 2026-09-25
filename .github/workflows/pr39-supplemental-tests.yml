@@ -17,9 +17,7 @@ jobs:
       matrix:
         include:
           - variant: pr39-fixed
-            ref: 2c4428237ea9448e8a13f9573e11490fb5f7daf4
-          - variant: main-baseline
-            ref: 6daacd565ba3a6c3d103fb996da67f5aa49539bf
+            ref: d6495a95b6d7f9c40d47f2935b008ddc89247fab
     env:
       PYTHONPATH: tools/opk-ci:tools/plumber:scripts/private
     steps:
