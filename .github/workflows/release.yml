@@ -19,7 +19,6 @@ jobs:
       cargo_package_version: ${{ steps.release.outputs.cargo_package_version }}
       python_package_version: ${{ steps.release.outputs.python_package_version }}
       commit: ${{ steps.release.outputs.commit }}
-      build_id: ${{ steps.release.outputs.build_id }}
       x86_archive: ${{ steps.release.outputs.x86_archive }}
       arm_archive: ${{ steps.release.outputs.arm_archive }}
     steps:
@@ -144,13 +143,13 @@ jobs:
           build-args: |
             HF_DOWNLOAD_CACHEBUST=github-${{ github.run_id }}-${{ github.run_attempt }}
             OPK_RELEASE_BUILD=true
-            OPK_RELEASE_BUILD_ID=${{ needs.prepare.outputs.build_id }}
+            OPK_RELEASE_VERSION=${{ needs.prepare.outputs.version }}
             OPK_RELEASE_SOURCE_COMMIT=${{ needs.prepare.outputs.commit }}
           context: ${{ env.SOURCE_DIR }}
           labels: |
             org.opencontainers.image.revision=${{ needs.prepare.outputs.commit }}
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
-            org.opencontainers.image.version=${{ needs.prepare.outputs.build_id }}
+            org.opencontainers.image.version=${{ needs.prepare.outputs.version }}
           load: true
           tags: ${{ env.RELEASE_IMAGE }}
           platforms: ${{ matrix.platform }}
@@ -324,14 +323,14 @@ jobs:
       - name: Accept exactly two archives and two language packages
         env:
           ARTIFACTS_DIR: ${{ runner.temp }}/opk-release-artifacts
-          BUILD_ID: ${{ needs.prepare.outputs.build_id }}
+          VERSION: ${{ needs.prepare.outputs.version }}
           CARGO_PACKAGE_VERSION: ${{ needs.prepare.outputs.cargo_package_version }}
           PYTHON_PACKAGE_VERSION: ${{ needs.prepare.outputs.python_package_version }}
         run: |
           set -euo pipefail
           expected=(
-            "opk-$BUILD_ID-linux-x86_64.tar.gz"
-            "opk-$BUILD_ID-linux-aarch64.tar.gz"
+            "opk-$VERSION-linux-x86_64.tar.gz"
+            "opk-$VERSION-linux-aarch64.tar.gz"
             "opk_perception_sdk-$PYTHON_PACKAGE_VERSION-py3-none-any.whl"
             "perception-$CARGO_PACKAGE_VERSION.crate"
           )
