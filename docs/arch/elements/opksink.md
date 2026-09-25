@@ -72,9 +72,18 @@ with `./scripts/opksink-web.sh generate`, `check`, and `test` respectively.
 
 ## Lifecycle
 
-Initialization constructs the media chains, starts WebRTC/control/HTTP services,
-and registers status reporters. Disposal stops the services, releases request
-pads, clears selector references, and frees private state.
+Initialization constructs the media chains. Each `NULL` to `READY` transition
+starts WebRTC, HTTP, then control using the configured properties. `READY` to
+`NULL` stops control, HTTP, then WebRTC, closing connections and releasing ports.
+Both run before the parent state change. Set new ports while in `NULL`, then
+restart the same element to apply them. The services
+remain available while paused; restarting from `NULL` requires the application.
+
+The server objects and their status reporters are retained across restarts.
+Pending play/pause commands from a stopped control server are discarded. If a
+service or the `NULL` to `READY` transition fails, partially started services are
+stopped so startup can be retried. Disposal also stops the services, releases
+request pads, clears selector references, and frees private state.
 
 Teardown order is important because request pads, selector active pads, and server
 threads can otherwise retain references longer than expected.

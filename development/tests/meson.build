@@ -444,6 +444,19 @@ foreach endpoint : ['control', 'webrtc']
     timeout : 20,
   )
 endforeach
+test(
+  'opksink_configured_ports',
+  gst_python,
+  args : [files('opksink_configured_ports_test.py'), opkinferpre.full_path()],
+  depends : opkinferpre,
+)
+test(
+  'websocket_shutdown',
+  gst_python,
+  args : [files('websocket_shutdown_test.py'), opkinferpre.full_path(), opkcomm.full_path()],
+  depends : [opkinferpre, opkcomm],
+  env : ['G_DEBUG=fatal-criticals'],
+)
 foreach failed_element : [
   'vconv',
   'rtp_tee',
