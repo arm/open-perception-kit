@@ -1,0 +1,19 @@
+{
+  "version": "1.0.1",
+  "name": "mobilegaze-mobilenet-v2-int8",
+  "modelFile": "l2cs_mobilegaze_mobilenetv2-a8w8-2-ort-quantized.onnx",
+  "hfDownload": {
+    "repo_id": "Arm/mobilegaze-mobilenet-v2-int8-onnx",
+    "revision": "7e48ffa8eaa1e970f98d11204adea4f72b0954a3",
+    "filename": "l2cs_mobilegaze_mobilenetv2-a8w8-2-ort-quantized.onnx",
+    "sha256": "7367559b5d95ca3d74d85cb117b38ccd6bb0f0ca5eb0311ecef4129baa9b8fbc"
+  },
+  "dynamicOutput": false,
+  "contentType": "eyeYawPitch",
+  "inputTensors": [{"shape": [1, 3, 448, 448], "dataKind": "ImageRgbChw", "valueType": "Float32", "mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225]}],
+  "outputTensors": [
+    {"shape": [1, 90], "dataKind": "RawTensorData", "valueType": "Float32"},
+    {"shape": [1, 90], "dataKind": "RawTensorData", "valueType": "Float32"}
+  ]
+}
+

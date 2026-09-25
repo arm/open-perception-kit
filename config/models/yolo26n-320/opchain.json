@@ -1,0 +1,38 @@
+{
+  "version": "1.0.2",
+  "name": "Yolo26n320Int8",
+  "displayName": "YOLO26n INT8 (320x320)",
+  "task": "Object detection",
+  "runtime": "ONNX",
+  "description": "Runs the Arm-optimized YOLO26n INT8 object detector at 320x320.",
+  "ops": [
+    {
+      "id": "opk-std-ops/InferenceController",
+      "attributes": {}
+    },
+    {
+      "id": "opk-std-ops/GenericImagePreprocess",
+      "attributes": {
+        "inputImageTensorIndex": 0,
+        "inputImageSourceName": "pipelineVideoFrame"
+      }
+    },
+    {
+      "id": "opk-onnx-ops/Inference",
+      "attributes": {
+        "modelDescriptor": "model.json"
+      }
+    },
+    {
+      "id": "opk-std-ops/GenericPostprocess",
+      "attributes": {
+        "parser": "YoloParser",
+        "outputFormat": "cornerScoreClass",
+        "normalizeOutputCoordinates": false,
+        "applyNms": false,
+        "confidenceThreshold": 0.4
+      }
+    }
+  ]
+}
+

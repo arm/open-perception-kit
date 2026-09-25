@@ -218,7 +218,7 @@ jobs:
             "dist/perception-sdk-input/perception-sdk-$VERSION.zip" "$RUNNER_TEMP"
           rust="$export_root/rust"
           scripts/release/patch-perception-cargo-toml.sh "$rust/Cargo.toml"
-          printf '\n[registries.crates-io]\nindex = "sparse+https://index.crates.io/"\n' \
+          printf '\n[registries.crates-io]\nprotocol = "sparse"\n' \
             >> "$rust/.cargo/config.toml"
           (cd "$rust" && cargo package --offline --locked)
           publish_source="$RUNNER_TEMP/perception-cargo-source-$VERSION"
@@ -238,7 +238,7 @@ jobs:
           mkdir -p "$publish_cargo_home"
           cat > "$publish_cargo_home/config.toml" <<'EOF'
           [registries.crates-io]
-          index = "sparse+https://index.crates.io/"
+          protocol = "sparse"
           EOF
           (
             cd "$publish_source"
@@ -527,7 +527,7 @@ jobs:
           mkdir -p "$CARGO_HOME"
           cat > "$CARGO_HOME/config.toml" <<'EOF'
           [registries.crates-io]
-          index = "sparse+https://index.crates.io/"
+          protocol = "sparse"
           EOF
 
       - name: Verify Perception crate package

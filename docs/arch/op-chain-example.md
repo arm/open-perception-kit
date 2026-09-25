@@ -98,7 +98,7 @@ detected face.
       "id": "opk-onnx-ops/Inference",
       "loopId": 1,
       "attributes": {
-        "modelDescriptor": "../../models/gaze-detection/model.json"
+        "modelDescriptor": "../../models/mobilegaze-mobilenet-v2/model.json"
       }
     },
     {

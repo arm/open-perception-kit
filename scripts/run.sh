@@ -17,7 +17,7 @@ Usage:
 Runs /work/tools/opk-menu inside the OPK quick-start container.
 
 Defaults:
-  ./scripts/run.sh              Runs the bundled YOLO26 sample: yolo26-onnx
+  ./scripts/run.sh              Runs the bundled YOLO26 sample: yolo26n-320
   ./scripts/run.sh --menu       Opens the interactive opk-menu
   ./scripts/run.sh -l           Runs the last selected pipeline
   ./scripts/run.sh <pipeline>   Runs a pipeline by ID or JSON path
@@ -40,7 +40,7 @@ START_CONTAINER_SCRIPT="${REPO_ROOT}/scripts/quick-start/start-container.sh"
 
 OPK_MENU_ARGS=("$@")
 if [[ $# -eq 0 ]]; then
-    OPK_MENU_ARGS=(yolo26-onnx)
+    OPK_MENU_ARGS=(yolo26n-320)
 elif [[ "${1:-}" == "--menu" ]]; then
     shift
     if [[ $# -gt 0 ]]; then
@@ -51,14 +51,8 @@ elif [[ "${1:-}" == "--menu" ]]; then
     OPK_MENU_ARGS=()
 fi
 
-if ! detect_output="$("${DETECT_SCRIPT}" --shell)"; then
-    eval "$detect_output"
-    echo "Error: unsupported quick-start platform: ${OPK_PLATFORM_NAME:-unknown}" >&2
-    if [[ -n "${OPK_UNSUPPORTED_REASON:-}" ]]; then
-        echo "Reason: ${OPK_UNSUPPORTED_REASON}" >&2
-    fi
-    exit 1
-fi
+detect_status=0
+detect_output="$("${DETECT_SCRIPT}" --shell)" || detect_status=$?
 eval "$detect_output"
 
 if [[ "${OPK_IN_CONTAINER}" == "true" ]]; then
@@ -70,6 +64,14 @@ if [[ "${OPK_IN_CONTAINER}" == "true" ]]; then
 
     cd /work
     exec /work/tools/opk-menu "${OPK_MENU_ARGS[@]}"
+fi
+
+if ((detect_status != 0)); then
+    echo "Error: unsupported quick-start platform: ${OPK_PLATFORM_NAME:-unknown}" >&2
+    if [[ -n "${OPK_UNSUPPORTED_REASON:-}" ]]; then
+        echo "Reason: ${OPK_UNSUPPORTED_REASON}" >&2
+    fi
+    exit 1
 fi
 
 cd "${REPO_ROOT}"

@@ -115,7 +115,7 @@ Run these commands in the **WSL shell**, from the repository folder:
 ```
 
 The scripts create or reuse the development container, build OPK inside it,
-and run the bundled `yolo26-onnx` sample. Keep the last command running and
+and run the bundled `yolo26n-320` sample. Keep the last command running and
 continue to [Open The Web UI](#7-open-the-web-ui).
 
 Expected result: the build prints
@@ -184,10 +184,10 @@ Expected result: the build finishes without errors and `tools/opk-menu` exists.
 Run in the **Docker shell** (either in VSCode devcontainer or in WSL after entering with `enter_cli.sh`):
 
 ```bash
-./tools/opk-menu yolo26-onnx
+./tools/opk-menu yolo26n-320
 ```
 
-You can also use the VS Code task **00 Run project and select pipeline** and choose `yolo26-onnx`.
+You can also use the VS Code task **00 Run project and select pipeline** and choose `yolo26n-320`.
 
 ![OPK pipeline selection view](/img/09-select-pipeline.png)
 

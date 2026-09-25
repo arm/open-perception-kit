@@ -71,7 +71,7 @@ TEST(OpkMenuDiscover, FindsUniqueSupportedModelFilesFromOpChain) {
 TEST(OpkMenuDiscover, FindsOpChainsAndMediaFilesFromPipelineString) {
     const std::string pipeline =
         R"(filesrc location="/work/data/videos/sample movie.MOV" ! decodebin ! )"
-        R"(opkinfer opchain-path='/work/config/models/yolov11/opchain.json' ! )"
+        R"(opkinfer opchain-path='/work/config/models/yolo26n-320/opchain.json' ! )"
         R"(opkosd bg-image=file:///work/data/images/background.JPG ! )"
         R"(filesrc location=https://example.com/remote.mp4?token=abc ! )"
         R"(multifilesrc location=/work/data/images/frame.png ! )"
@@ -82,7 +82,7 @@ TEST(OpkMenuDiscover, FindsOpChainsAndMediaFilesFromPipelineString) {
     const auto media_files = opk::menu::discover_media_files(pipeline);
 
     ASSERT_EQ(opchains.size(), 1U);
-    EXPECT_EQ(opchains[0], "/work/config/models/yolov11/opchain.json");
+    EXPECT_EQ(opchains[0], "/work/config/models/yolo26n-320/opchain.json");
 
     ASSERT_EQ(media_files.size(), 4U);
     EXPECT_EQ(media_files[0], "/work/data/videos/sample movie.MOV");

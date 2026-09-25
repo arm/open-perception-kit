@@ -26,7 +26,7 @@ for element in fakesink opusenc opkcomm opkinfer opkosd opkperformance \
     gst-inspect-1.0 "$element" > /dev/null
 done
 
-for model in yolov11 yolox; do
+for model in yolo26n-320 ultraface-rfb-320; do
     output="$smoke_root/$model.jsonl"
     timeout 120s gst-launch-1.0 -q \
         videotestsrc pattern=ball num-buffers=5 ! \
@@ -38,7 +38,27 @@ for model in yolov11 yolox; do
     test -s "$output"
 done
 
-python_smoke_root="$package_root/share/opk/models/yolov11"
+executorch_root="$package_root/share/opk/models/nitec-resnet-18-executorch"
+executorch_opchain="$executorch_root/opchain-smoke.json"
+executorch_output="$smoke_root/nitec-resnet-18-executorch.jsonl"
+python3 -c 'import json, sys
+opchain = json.load(open(sys.argv[1], encoding="utf-8"))
+for op in opchain["ops"]:
+    op.pop("loopId", None)
+    if op["id"] == "opk-std-ops/InferenceController":
+        op["attributes"] = {}
+json.dump(opchain, open(sys.argv[2], "w", encoding="utf-8"))' \
+    "$executorch_root/opchain.json" "$executorch_opchain"
+timeout 120s gst-launch-1.0 -q \
+    videotestsrc pattern=ball num-buffers=5 ! \
+    video/x-raw,format=BGRA,width=224,height=224,framerate=5/1 ! \
+    opkinfer opchain-path="$executorch_opchain" ! \
+    opkperformance show-all-metrics=true update-interval=1 ! \
+    opkcomm method=file file-name="$executorch_output" ! \
+    fakesink sync=false
+test -s "$executorch_output"
+
+python_smoke_root="$package_root/share/opk/models/yolo26n-320"
 cp "$python_operation" "$python_smoke_root/runtime_environment.py"
 python3 -c \
     'import json, sys; opchain=json.load(open(sys.argv[1], encoding="utf-8")); opchain["ops"].insert(0, {"id": "opk-python-ops/PythonScript", "attributes": {"script": "runtime_environment.py"}}); json.dump(opchain, open(sys.argv[2], "w", encoding="utf-8"))' \

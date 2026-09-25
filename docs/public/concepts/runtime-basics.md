@@ -67,7 +67,7 @@ between loop iterations until the pipeline is stopped.
 stdout, stderr, and file log targets applied when playback starts. Its defaults
 select the `Error` level and stderr only. `opk-menu` accepts `--log-level` and
 `--log-targets` to override those defaults for a selected pipeline, for example
-`./tools/opk-menu --log-level debug --log-targets stdout,stderr yolo26-onnx`.
+`./tools/opk-menu --log-level debug --log-targets stdout,stderr yolo26n-320`.
 Because the logger is process-wide, starting a second pipeline with different
 options replaces the logging settings used by the first one as well.
 
@@ -213,21 +213,14 @@ If it does not match an existing postprocessor, you will usually need to add you
 
 ## Common pipeline presets
 
-The checked-in pipeline presets live under `config/pipelines/`.
+The checked-in pipeline presets live under `config/pipelines/`. Common presets include:
 
-Common presets include:
-
-- `cam-connect.json` - camera-contact demo on bundled video.
-- `full-onnx.json` - integrated ONNX model pipelines on bundled video.
-- `full-onnx-raspicam.json` - integrated ONNX pipelines on the Raspberry Pi camera source.
-- `full-onnx-usb-cam.json` - integrated ONNX pipelines on the USB camera source at `/dev/video0`.
-- `full-onnx-yuv.json` - integrated ONNX pipelines on bundled video with original pixel format.
-- `gaze-detection.json` - gaze-estimation demo on bundled video.
-- `mobilenet-python-classification.json` - MobileNetV2 classification on bundled image with C++ and Python results.
-- `tracker-executorch.json` - ExecuTorch tracking demo on bundled video.
-- `tracker-pc.json` - ONNX tracking demo on bundled video.
-- `yolo26-onnx.json` - YOLO26 object detection demo on bundled video.
-- `yolo26-onnx.json` - YOLOv11 object detection demo on bundled video.
+- `full-onnx.json` - all ten ONNX releases on bundled video.
+- `full-onnx-raspicam.json` - all ten ONNX releases on a Raspberry Pi camera.
+- `full-onnx-usb-cam.json` - all ten ONNX releases on a USB camera at `/dev/video0`.
+- `full-onnx-yuv.json` - all ten ONNX releases on bundled video with the decoded pixel format preserved.
+- `yolo26n-320.json` - YOLO26n-320 on bundled video.
+- The remaining focused presets run one release or its required detector cascade.
 
 Pipeline files often contain `alternative-source-*` and `alternative-sink-*` sections. Use those as templates when switching from the default sample media to a camera, video file, or different sink.
 

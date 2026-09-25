@@ -6,7 +6,7 @@
 set -euo pipefail
 # Ensure we are in the scripts directory
 
-OPK_PIPELINE=${OPK_PIPELINE:-"yolo26-onnx"}
+OPK_PIPELINE=${OPK_PIPELINE:-"yolo26n-320"}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"/../../
 

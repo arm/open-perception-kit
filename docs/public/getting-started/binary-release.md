@@ -144,8 +144,7 @@ Hugging Face token.
 
 | Package | Backend | Model directories |
 | --- | --- | --- |
-| x86_64 and Arm | ONNX | `cam-contact`, `gaze-detection`, `osnet_x0_25`, `ultraface`, `yolo26`, `yolov11` |
-| x86_64 and Arm | ExecuTorch (experimental) | `yolox` |
+| x86_64 and Arm | ONNX | `mobilegaze-mobilenet-v2`, `nitec-resnet-18`, `osnet-x0-25`, `ultraface-rfb-320`, and the six `yolo26{n,s}-{320,480,640}` variants |
 
 ## Run packaged inference
 
@@ -170,7 +169,7 @@ pipeline = Gst.parse_launch(
     "video/x-raw,format=BGRA ! opkinfer name=infer ! fakesink"
 )
 pipeline.get_by_name("infer").set_property(
-    "opchain-path", str(package_root / "share/opk/models/yolov11/opchain.json")
+    "opchain-path", str(package_root / "share/opk/models/yolo26n-320/opchain.json")
 )
 pipeline.set_state(Gst.State.PLAYING)
 message = pipeline.get_bus().timed_pop_filtered(
