@@ -49,7 +49,7 @@ jobs:
               - 'tools/flowdata-sdk/**'
               - 'tools/perception/**'
               - 'schemas/perception/**'
-              - 'generated/perception/**'
+              - 'generated/open_perception_kit/**'
               - 'config/schemas/**'
               - 'scripts/build.sh'
               - 'scripts/perception-sdk.sh'

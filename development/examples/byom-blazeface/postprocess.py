@@ -7,7 +7,7 @@ import math
 
 import numpy
 
-from perception.guest import Envelope, external_key
+from open_perception_kit.guest import Envelope, external_key
 from opk_python_ops import Context, Tensor, python_script
 
 

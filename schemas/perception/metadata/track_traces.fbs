@@ -1,18 +1,18 @@
 include "common.fbs";
 
-namespace perception.metadata;
+namespace open_perception_kit.metadata;
 
 table TrackTrace {
-  object:perception.metadata.ObjectMeta;
+  object:open_perception_kit.metadata.ObjectMeta;
   track_id:ulong;
-  points:[perception.metadata.Point2f];
+  points:[open_perception_kit.metadata.Point2f];
 }
 
 table TrackTraces {
   schema_major:ushort = 1;
   schema_minor:ushort = 0;
-  layer:perception.metadata.LayerInfo;
-  traces:[perception.metadata.TrackTrace];
+  layer:open_perception_kit.metadata.LayerInfo;
+  traces:[open_perception_kit.metadata.TrackTrace];
 }
 
 root_type TrackTraces;

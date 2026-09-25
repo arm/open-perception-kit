@@ -80,7 +80,7 @@ def add_perception_sdk(
     dirty: bool = False,
 ) -> Path:
     root.mkdir(parents=True)
-    archive = root / f"perception-sdk-{version}.zip"
+    archive = root / f"open-perception-kit-{version}.zip"
     archive.write_bytes(b"sdk")
     (root / f"{archive.name}.sha256").write_text("checksum\n", encoding="utf-8")
     (root / f"{archive.name}.provenance.json").write_text(
@@ -95,8 +95,8 @@ def add_release_identity(repo_root: Path) -> None:
     (development_root / "meson.build").write_text(
         "project('demo', version: '0.1.0')\n", encoding="utf-8"
     )
-    python = repo_root / "generated/perception/python/pyproject.toml"
-    cargo = repo_root / "generated/perception/rust/Cargo.toml"
+    python = repo_root / "generated/open_perception_kit/python/pyproject.toml"
+    cargo = repo_root / "generated/open_perception_kit/rust/Cargo.toml"
     python.parent.mkdir(parents=True, exist_ok=True)
     cargo.parent.mkdir(parents=True, exist_ok=True)
     python.write_text('[project]\nversion = "0.1.0"\n', encoding="utf-8")
@@ -125,8 +125,8 @@ class ReleaseToolTests(unittest.TestCase):
                 ("0.1.0", "0.1.0"),
             )
 
-            python = root / "generated/perception/python/pyproject.toml"
-            cargo = root / "generated/perception/rust/Cargo.toml"
+            python = root / "generated/open_perception_kit/python/pyproject.toml"
+            cargo = root / "generated/open_perception_kit/rust/Cargo.toml"
             python.write_text('[project]\nversion = "0.1.0.dev0"\n', encoding="utf-8")
             cargo.write_text('[package]\nversion = "0.1.0-dev.0"\n', encoding="utf-8")
             with self.assertRaisesRegex(RuntimeError, "do not match"):
@@ -164,14 +164,14 @@ class ReleaseToolTests(unittest.TestCase):
                         "numpy-2.4.2.dist-info/METADATA",
                     ],
                 ),
-                "opk-perception-sdk": FakeDistribution(
+                "open-perception-kit": FakeDistribution(
                     source_root,
-                    "opk_perception_sdk",
+                    "open_perception_kit",
                     "0.3.0",
                     [
-                        "perception/__init__.py",
-                        "opk_perception_sdk-0.3.0.dist-info/METADATA",
-                        "opk_perception_sdk-0.3.0.dist-info/direct_url.json",
+                        "open_perception_kit/__init__.py",
+                        "open_perception_kit-0.3.0.dist-info/METADATA",
+                        "open_perception_kit-0.3.0.dist-info/direct_url.json",
                     ],
                 ),
             }
@@ -202,14 +202,14 @@ class ReleaseToolTests(unittest.TestCase):
                 (runtime_root / "flatbuffers-25.9.23.dist-info/RECORD").exists()
             )
             self.assertFalse(
-                (runtime_root / "opk_perception_sdk-0.3.0.dist-info/direct_url.json").exists()
+                (runtime_root / "open_perception_kit-0.3.0.dist-info/direct_url.json").exists()
             )
             release_tool.validate_python_runtime(stage_root)
 
             repo_root = root / "source"
             (repo_root / "development/ops-python").mkdir(parents=True)
             (repo_root / "tools/perception").mkdir(parents=True)
-            (repo_root / "generated/perception/python").mkdir(parents=True)
+            (repo_root / "generated/open_perception_kit/python").mkdir(parents=True)
             (repo_root / "development/ops-python/runtime.json").write_text(
                 json.dumps({"numpy": {"version": "2.4.2"}}), encoding="utf-8"
             )
@@ -217,7 +217,7 @@ class ReleaseToolTests(unittest.TestCase):
                 json.dumps({"version": "1.0.0", "flatbuffers": {"version": "25.9.23"}}),
                 encoding="utf-8",
             )
-            (repo_root / "generated/perception/python/pyproject.toml").write_text(
+            (repo_root / "generated/open_perception_kit/python/pyproject.toml").write_text(
                 '[project]\nversion = "0.3.0"\n', encoding="utf-8"
             )
             release_tool.validate_python_runtime(stage_root, repo_root)

@@ -93,7 +93,7 @@ PluginPath pluginPath() {
 }
 
 template <typename Payload>
-void printPayloadBranch(const perception::container::envelope &frameResults,
+void printPayloadBranch(const open_perception_kit::container::envelope &frameResults,
                         std::size_t &printedPayloads) {
     PerceptionPacket::visitFrameResultsPayloads<Payload>(
         frameResults, [&printedPayloads](const Payload &payload) {
@@ -102,22 +102,28 @@ void printPayloadBranch(const perception::container::envelope &frameResults,
         });
 }
 
-void printTypedPayloadText(const perception::container::envelope &frameResults) {
+void printTypedPayloadText(const open_perception_kit::container::envelope &frameResults) {
     std::size_t printedPayloads = 0;
 
     // The packet has already been validated by the example-local PerceptionPacket helper.
     // Each visitor call selects one generated payload root type, and the lambda
     // runs once for every payload of that type in this frame. The display helper
     // formats that one decoded payload into terminal-friendly text.
-    printPayloadBranch<perception::metadata::FrameContextT>(frameResults, printedPayloads);
-    printPayloadBranch<perception::metadata::BoxDetectionsT>(frameResults, printedPayloads);
-    printPayloadBranch<perception::metadata::ObjectTracksT>(frameResults, printedPayloads);
-    printPayloadBranch<perception::metadata::ClassificationsT>(frameResults, printedPayloads);
-    printPayloadBranch<perception::metadata::PoseEstimationsT>(frameResults, printedPayloads);
-    printPayloadBranch<perception::metadata::SegmentationMasksT>(frameResults, printedPayloads);
-    printPayloadBranch<perception::metadata::ObjectEmbeddingsT>(frameResults, printedPayloads);
-    printPayloadBranch<perception::metadata::TrackTracesT>(frameResults, printedPayloads);
-    printPayloadBranch<perception::metadata::PerformanceOverlayT>(frameResults, printedPayloads);
+    printPayloadBranch<open_perception_kit::metadata::FrameContextT>(frameResults, printedPayloads);
+    printPayloadBranch<open_perception_kit::metadata::BoxDetectionsT>(frameResults,
+                                                                      printedPayloads);
+    printPayloadBranch<open_perception_kit::metadata::ObjectTracksT>(frameResults, printedPayloads);
+    printPayloadBranch<open_perception_kit::metadata::ClassificationsT>(frameResults,
+                                                                        printedPayloads);
+    printPayloadBranch<open_perception_kit::metadata::PoseEstimationsT>(frameResults,
+                                                                        printedPayloads);
+    printPayloadBranch<open_perception_kit::metadata::SegmentationMasksT>(frameResults,
+                                                                          printedPayloads);
+    printPayloadBranch<open_perception_kit::metadata::ObjectEmbeddingsT>(frameResults,
+                                                                         printedPayloads);
+    printPayloadBranch<open_perception_kit::metadata::TrackTracesT>(frameResults, printedPayloads);
+    printPayloadBranch<open_perception_kit::metadata::PerformanceOverlayT>(frameResults,
+                                                                           printedPayloads);
 
     const auto totalPayloads = frameResults.size();
     if (printedPayloads == 0 && totalPayloads == 0) {

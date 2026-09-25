@@ -2,12 +2,12 @@
 # Copyright (C) 2026 Arm Limited. All rights reserved.
 ################################################################
 
-from perception.fb.perception.metadata.BoundingBox import BoundingBoxT
-from perception.fb.perception.metadata.BoxDetection import BoxDetectionT
-from perception.fb.perception.metadata.BoxDetections import BoxDetectionsT
-from perception.fb.perception.metadata.LayerInfo import LayerInfoT
-from perception.fb.perception.metadata.ObjectMeta import ObjectMetaT
-from perception.guest import Envelope
+from open_perception_kit.fb.open_perception_kit.metadata.BoundingBox import BoundingBoxT
+from open_perception_kit.fb.open_perception_kit.metadata.BoxDetection import BoxDetectionT
+from open_perception_kit.fb.open_perception_kit.metadata.BoxDetections import BoxDetectionsT
+from open_perception_kit.fb.open_perception_kit.metadata.LayerInfo import LayerInfoT
+from open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta import ObjectMetaT
+from open_perception_kit.guest import Envelope
 
 
 def process(env: Envelope) -> None:

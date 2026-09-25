@@ -42,8 +42,8 @@ for example, returns it when there are no more crops to process.
 `inferenceImageCropUuids` stores the matching parent object UUIDs. Multi-crop
 flows consume one crop per loop iteration until the list is empty.
 
-## Perception Pointer
+## FrameResults Pointer
 
-`perception` points to the persistent metadata object for the current buffer. Ops
+`frameResults` points to the persistent metadata object for the current buffer. Ops
 write durable outputs there, including detections, layer metadata, and other
 results that downstream elements need.

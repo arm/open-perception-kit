@@ -18,7 +18,7 @@ from support import runtime
 def run_example(script_path: Path, shutdown: runtime.ShutdownState) -> int:
     """Verify the model, run OPK, consume results, and render detections."""
 
-    # These modules use the standalone Perception SDK, so import them only after
+    # These modules use the standalone open-perception-kit, so import them only after
     # runtime.ensure_sdk_python() has selected a compatible interpreter.
     from support import pipeline
     from support import video

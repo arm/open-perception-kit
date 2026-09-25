@@ -24,7 +24,7 @@ coverage run --parallel-mode --branch --source=tools/perception,scripts/release 
 coverage run --parallel-mode --branch --source=tools/flowdata-sdk/tools/flowdata \
     -m unittest discover -s tools/perception/tests -p 'test_generator*.py'
 coverage run --parallel-mode development/tests/python_classification_demo_test.py
-PYTHONPATH="generated/perception/python/src${PYTHONPATH:+:${PYTHONPATH}}" \
+PYTHONPATH="generated/open_perception_kit/python/src${PYTHONPATH:+:${PYTHONPATH}}" \
     coverage run --parallel-mode --branch --source=development/examples/byom-blazeface \
     development/tests/byom_blazeface_example_test.py
 PYTHONPATH="tools/opk-ci:tools/opk-ci/tests${PYTHONPATH:+:${PYTHONPATH}}" \

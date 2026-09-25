@@ -14,7 +14,7 @@ using namespace opk;
 using namespace opk::stdop::postproc;
 
 opk::Result<void> DummyParser::parse(const opk::TensorParser::Input &input,
-                                     perception::FrameResults &results) {
+                                     open_perception_kit::FrameResults &results) {
     (void)results;
 
     bool log = input.attributes.getBoolOrDefault("log", false);

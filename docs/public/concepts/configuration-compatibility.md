@@ -11,7 +11,7 @@ Every pipeline preset, OpChain, and model descriptor must declare a string
 version in `MAJOR.MINOR.PATCH` form, initially
 `"version": "1.0.0"`. This configuration version is independent of the OPK
 product version, model artifact format, dependency package versions, and
-Perception payload format.
+FrameResults payload format.
 
 ## Where to update the supported version
 
@@ -53,7 +53,7 @@ releases remain independently versioned in `development/meson.build`.
 | SDK descriptor JSON | `tools/perception/sdk.json` and `tools/perception/sdk_config.py` | SDK tooling maintainers own its dependency locks, generator inputs, and release fields. It has no configuration-format version. |
 | OPK runtime, native plugins, and SDK package version | `development/meson.build` | OPK maintainers version and distribute these together. Use components from the same release or source checkout. |
 | Inference frameworks | `Dockerfile` dependency versions and `development/ops-*/meson.build` build integration | Backend maintainers select the packaged framework. Exported models must be supported by that framework. |
-| Perception SDK and FlatBuffers | `schemas/perception/`, `tools/perception/sdk.json`, and the generated SDK manifest | Schema maintainers own payload semantics; the SDK descriptor owns generator inputs and exact FlatBuffers artifacts. |
+| Open Perception Kit and FlatBuffers | `schemas/perception/`, `tools/perception/sdk.json`, and the generated SDK manifest | Schema maintainers own payload semantics; the SDK descriptor owns generator inputs and exact FlatBuffers artifacts. |
 | Embedded Python dependencies | `development/ops-python/runtime.json` and `tools/perception/sdk.json` | Python Op maintainers own NumPy; the SDK descriptor owns FlatBuffers. Use the supplied container or matching binary release runtime. |
 
 JSON Schema resources are embedded into the native validator at build time.
@@ -143,11 +143,11 @@ native ABI compatibility or install Python packages. For reproducible
 deployments, keep the configuration, model artifacts, scripts, and matching
 OPK container image or binary release together.
 
-External consumers should start with the Perception SDK shipped with their
+External consumers should start with the Open Perception Kit SDK shipped with their
 producer. FlatBuffers wire compatibility, generated payload identity, and
 SDK API compatibility are separate checks: an additive schema change can
 produce a new payload ID that an older SDK cannot decode through its typed API.
-See the Perception schema compatibility policy beside the schema definitions.
+See the FrameResults schema compatibility policy beside the schema definitions.
 Changing a configuration `version` does not change the SDK or payload identity.
 
 ## Validation before execution

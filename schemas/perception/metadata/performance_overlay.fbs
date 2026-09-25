@@ -1,4 +1,4 @@
-namespace perception.metadata;
+namespace open_perception_kit.metadata;
 
 table PerformanceOverlay {
   schema_major:ushort = 1;

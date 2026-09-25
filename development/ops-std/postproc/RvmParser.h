@@ -24,7 +24,7 @@ struct RvmParser : public opk::TensorParser {
     }
 
     opk::Result<void> parse(const opk::TensorParser::Input &input,
-                            perception::FrameResults &results) override;
+                            open_perception_kit::FrameResults &results) override;
 };
 
 } // namespace opk::stdop::postproc

@@ -1,9 +1,9 @@
 include "common.fbs";
 
-namespace perception.metadata;
+namespace open_perception_kit.metadata;
 
 table PoseEstimation {
-  object:perception.metadata.ObjectMeta;
+  object:open_perception_kit.metadata.ObjectMeta;
   confidence:float;
   yaw:float;
   pitch:float;
@@ -12,8 +12,8 @@ table PoseEstimation {
 table PoseEstimations {
   schema_major:ushort = 1;
   schema_minor:ushort = 0;
-  layer:perception.metadata.LayerInfo;
-  poses:[perception.metadata.PoseEstimation];
+  layer:open_perception_kit.metadata.LayerInfo;
+  poses:[open_perception_kit.metadata.PoseEstimation];
 }
 
 root_type PoseEstimations;

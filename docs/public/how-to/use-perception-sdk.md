@@ -1,27 +1,27 @@
 ---
-title: Build and use the Perception SDK bundle
-sidebar_label: Perception SDK bundle
-description: Build a reproducible Perception C++, Python, Rust, and TypeScript SDK archive and integrate it into an application.
+title: Build and use the Open Perception Kit bundle
+sidebar_label: Open Perception Kit bundle
+description: Build a reproducible Open Perception Kit C++, Python, Rust, and TypeScript archive and integrate it into an application.
 ---
 
-# Build and use the Perception SDK bundle
+# Build and use the Open Perception Kit bundle
 
 The release bundle contains the generated C++ SDK, installable Python and
 TypeScript packages, a Rust crate, matching FlatBuffers runtimes, the source
 schemas, and a manifest describing every file and compatibility requirement.
 
 Released OPK architecture packages carry the unchanged ZIP, checksum, and
-provenance sidecar under `share/opk/perception-sdk/`. SDK packages use the OPK
+provenance sidecar under `share/opk/open-perception-kit/`. SDK packages use the OPK
 product version from `development/meson.build`.
 
-The Perception SDK is licensed under Apache-2.0. Each language package includes
+Open Perception Kit is licensed under Apache-2.0. Each language package includes
 the licence text and Arm copyright notice, including the standalone wheel and
 Cargo crate. Bundled third-party runtimes retain their own licences and notices.
 
 This is the release-packaging workflow. During implementation, use
 `$regenerate-perception-sdk` or `./scripts/perception-sdk.sh generate` to update
 the tracked generated SDK snapshot and commit it normally. Use
-`$package-perception-sdk-release` only after that snapshot is committed.
+`$package-open-perception-kit-release` only after that snapshot is committed.
 
 ## Build the bundle
 
@@ -41,7 +41,7 @@ without invoking flowdata-sdk, `flatc`, or formatters. The generator sources are
 normal tracked files in `tools/flowdata-sdk`, updated manually alongside the
 regenerated snapshot; SDK commands do not fetch or update them.
 It builds the Python wheels from the canonical snapshot
-and creates `artifacts/perception-sdk-<opk-version>.zip`.
+and creates `artifacts/open-perception-kit-<opk-version>.zip`.
 
 After changing the OPK product version in `development/meson.build`, run
 `./scripts/perception-sdk.sh generate`. The archive
@@ -66,7 +66,7 @@ descriptor also locks the C++ source archive used by the Docker images.
 
 ## Install the Python SDK
 
-Stable OPK releases publish the same verified Perception wheel that is embedded
+Stable OPK releases publish the same verified open-perception-kit wheel that is embedded
 in the SDK ZIP to the existing `edge-ai-tooling` Artifactory PyPI repository.
 Python-only consumers can lock it as a normal package dependency.
 
@@ -74,7 +74,7 @@ Declare the OPK release version and named index:
 
 ```toml
 [project]
-dependencies = ["opk-perception-sdk==<opk-version>"]
+dependencies = ["open_perception_kit==<opk-version>"]
 
 [[tool.uv.index]]
 name = "edge-ai-tooling"
@@ -83,7 +83,7 @@ explicit = true
 authenticate = "always"
 
 [tool.uv.sources]
-opk-perception-sdk = { index = "edge-ai-tooling" }
+open_perception_kit = { index = "edge-ai-tooling" }
 ```
 
 Manual integration snapshots are not published as stable PyPI versions. Their
@@ -109,13 +109,13 @@ python3 -m pip install \
   -r python/requirements.txt
 ```
 
-Use `perception.packet` for serialized packets. The installed package includes
+Use `open_perception_kit.packet` for serialized packets. The installed package includes
 `guest.pyi` and `py.typed`, so editors can provide completion and type
 information for guest scripts without importing the live bridge.
 
-`perception.guest` intentionally raises an import error in a normal Python
+`open_perception_kit.guest` intentionally raises an import error in a normal Python
 process. It becomes available only when a C++ host registers the generated
-`perception_bridge` module before starting Python.
+`open_perception_kit_bridge` module before starting Python.
 
 ## Install the TypeScript SDK
 
@@ -124,11 +124,11 @@ Install both npm-compatible tarballs directly from the extracted bundle:
 ```bash
 npm install \
   ./typescript/flatbuffers-25.9.23.tgz \
-  ./typescript/perception-<opk-version>.tgz
+  ./typescript/open-perception-kit-<opk-version>.tgz
 ```
 
 Import `Envelope`, `ProducerIdentityStatus`, and generated payload classes from
-the `perception` package. Require `Envelope.valid()` and an `exact_match`
+the `open-perception-kit` package. Require `Envelope.valid()` and an `exact_match`
 producer identity before typed access. The package contains compiled ES modules,
 TypeScript declarations, and generated sources; consumers do not regenerate it.
 
@@ -138,7 +138,7 @@ browser asset after SDK or WebUI changes.
 
 ## Integrate the Rust SDK
 
-Stable OPK releases publish the `perception` crate at the OPK version to the
+Stable OPK releases publish the `open_perception_kit` crate at the OPK version to the
 `edge-ai-tooling` Cargo registry. Configure its sparse index:
 
 ```toml
@@ -146,12 +146,12 @@ Stable OPK releases publish the `perception` crate at the OPK version to the
 index = "sparse+https://artifactory.arm.com/artifactory/api/cargo/edge-ai-tooling.cargo/index/"
 ```
 
-Select that registry only for Perception. The published crate metadata assigns
+Select that registry only for the Open Perception Kit crate. The published crate metadata assigns
 its FlatBuffers dependency to crates.io explicitly:
 
 ```toml
 [dependencies]
-perception = { version = "=<opk-version>", registry = "edge-ai-tooling" }
+open_perception_kit = { version = "=<opk-version>", registry = "edge-ai-tooling" }
 ```
 
 Manual snapshots do not publish to the Cargo registry. For a snapshot or an
@@ -162,7 +162,7 @@ and a `rust/vendor/` directory:
 
 ```toml
 [dependencies]
-perception = { path = "/path/to/perception-sdk-<opk-version>/rust" }
+open_perception_kit = { path = "/path/to/open-perception-kit-<opk-version>/rust" }
 ```
 
 Copy `rust/.cargo/config.toml` into the consumer's `.cargo/config.toml` and
@@ -179,7 +179,7 @@ Cargo configuration and the consumer lockfile are resolved from the consumer
 workspace, not from path dependencies.
 
 Import `Envelope`, `payload`, and generated native payload types from
-`perception`. Construct an envelope with `Envelope::decode(...)`, require a
+`open_perception_kit`. Construct an envelope with `Envelope::decode(...)`, require a
 successful result, and check `producer_identity()` before typed access. Use the
 same selector for `count`, `contains`, `get`, and `for_each`; use `external_key`
 for external
@@ -187,13 +187,13 @@ payloads. Unknown or changed payloads remain preserved across serialization.
 
 ## Integrate the C++ SDK
 
-For CMake, include `cpp/cmake/perception.cmake`, call
-`perception_enable_sdk()`, and link the application to `perception::sdk`.
+For CMake, include `cpp/cmake/open_perception_kit.cmake`, call
+`open_perception_kit_enable_sdk()`, and link the application to `open_perception_kit::sdk`.
 
 For Meson, vendor the complete `cpp/` directory into the project, call
-`subdir('path/to/cpp/meson/perception')`, and use `perception_dep`. Bridge hosts
-also call `subdir('path/to/cpp/meson/perception/python_bridge')` and use
-`perception_python_bridge_dep`. The complete
+`subdir('path/to/cpp/meson/open_perception_kit')`, and use `open_perception_kit_dep`. Bridge hosts
+also call `subdir('path/to/cpp/meson/open_perception_kit/python_bridge')` and use
+`open_perception_kit_python_bridge_dep`. The complete
 tree is required because the integration references the generated headers and
 optional Python bridge sources relative to its location.
 
@@ -203,7 +203,7 @@ configuring the application.
 
 ## Verify provenance
 
-`perception-sdk-release-manifest.json` records the repository commit and dirty
+`open-perception-kit-release-manifest.json` records the repository commit and dirty
 state in the external provenance sidecar, while the reproducible archive records
 descriptor and generation-manifest hashes, SDK identity and local generator
 content hashes, exact FlatBuffers compiler and wheel, schema-set digest, generated payload
@@ -214,7 +214,7 @@ Verify an archive and its checksum/provenance sidecars with:
 
 ```bash
 ./scripts/perception-sdk.sh verify \
-  artifacts/perception-sdk-<opk-version>.zip \
+  artifacts/open-perception-kit-<opk-version>.zip \
   --require-sidecars
 ```
 

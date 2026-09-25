@@ -3,7 +3,7 @@
 # Copyright (C) 2025 Arm Limited. All rights reserved.
 ################################################################
 
-"""Acquire checksum-locked Perception SDK build artifacts."""
+"""Acquire checksum-locked open-perception-kit build artifacts."""
 
 from __future__ import annotations
 

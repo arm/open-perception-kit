@@ -1,17 +1,17 @@
 include "common.fbs";
 
-namespace perception.metadata;
+namespace open_perception_kit.metadata;
 
 table ObjectEmbedding {
-  object:perception.metadata.ObjectMeta;
+  object:open_perception_kit.metadata.ObjectMeta;
   values:[float];
 }
 
 table ObjectEmbeddings {
   schema_major:ushort = 1;
   schema_minor:ushort = 0;
-  layer:perception.metadata.LayerInfo;
-  embeddings:[perception.metadata.ObjectEmbedding];
+  layer:open_perception_kit.metadata.LayerInfo;
+  embeddings:[open_perception_kit.metadata.ObjectEmbedding];
 }
 
 root_type ObjectEmbeddings;
