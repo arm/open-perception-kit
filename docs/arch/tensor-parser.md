@@ -53,4 +53,4 @@ Adding a parser normally means:
 Python-based postprocessing is not part of the current runtime. See
 [Known Limitations](known-limitations.md).
 
-![Postprocessor types](/docs/public/static/img/postprocessor-types.png)
+![Postprocessor types](../public/static/img/postprocessor-types.png)

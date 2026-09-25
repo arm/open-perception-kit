@@ -152,7 +152,7 @@ On your normal computer, open VS Code.
    - macOS: `Cmd+Shift+P`.
 2. Run **Remote-SSH: Connect to Host...**.
 
-![VS Code Remote SSH open remote window command](/docs/public/static/img/16-open-remote-window.png)
+![VS Code Remote SSH open remote window command](../assets/16-open-remote-window.png)
 
 3. Choose or enter:
 
@@ -166,7 +166,7 @@ If `.local` did not work in the terminal, use the IP address instead:
 <username>@<raspberry-pi-ip-address>
 ```
 
-![VS Code SSH host selection](/docs/public/static/img/18-select-ssh-configuration.png)
+![VS Code SSH host selection](../assets/18-select-ssh-configuration.png)
 
 Expected result: VS Code opens a remote window connected to the Raspberry Pi.
 
@@ -176,12 +176,12 @@ In the VS Code remote window:
 
 1. Open the `opk` folder on the Raspberry Pi.
 
-![VS Code opening the OPK folder on the Raspberry Pi](/docs/public/static/img/19-reopen-folder.png)
+![VS Code opening the OPK folder on the Raspberry Pi](../assets/19-reopen-folder.png)
 
 2. Open the Command Palette.
 3. Run **Dev Containers: Reopen in Container**.
 
-![VS Code reopening the Raspberry Pi project in a Dev Container](/docs/public/static/img/20-reopen-in-container.png)
+![VS Code reopening the Raspberry Pi project in a Dev Container](../assets/20-reopen-in-container.png)
 
 4. Choose **Raspberry Pi 5 open-perception-kit**.
 
@@ -203,7 +203,7 @@ You can also use the VS Code task:
 2. Run **Tasks: Run Task**.
 3. Choose **00 Build Project**.
 
-![VS Code build task for OPK](/docs/public/static/img/08-build-project.png)
+![VS Code build task for OPK](../assets/08-build-project.png)
 
 Expected result: the build finishes without errors and `tools/opk-menu` exists.
 
@@ -223,7 +223,7 @@ Leave this terminal open. The pipeline is running while this command is active.
 
 Expected result: OPK starts the selected ONNX pipeline.
 
-![OPK pipeline selection view](/docs/public/static/img/09-select-pipeline.png)
+![OPK pipeline selection view](../assets/09-select-pipeline.png)
 
 ## 12. Open The Web UI
 
@@ -241,7 +241,7 @@ http://<raspberry-pi-ip-address>:9999
 
 In the **Model Selector** panel, enable a model to start inference.
 
-![OPK browser UI after opening the web view](/docs/public/static/img/10-browser-ui.png)
+![OPK browser UI after opening the web view](../assets/10-browser-ui.png)
 
 Expected result: the page shows the OPK view and enabling a model produces an overlay or result. If you chose `full-onnx-raspicam` or `full-onnx-usb-cam`, the browser shows live camera input.
 

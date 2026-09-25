@@ -72,22 +72,22 @@ refreshes the model-download cache key.
 
 In VS Code:
 
-![VS Code opened in the OPK repository](/docs/public/static/img/04-starting-point-vscode.png)
+![VS Code opened in the OPK repository](../assets/04-starting-point-vscode.png)
 
 1. Open the Command Palette with `Cmd+Shift+P`.
 2. Run **Dev Containers: Reopen in Container**.
 
-![VS Code command palette showing Reopen in Container](/docs/public/static/img/05-reopen-in-container.png)
+![VS Code command palette showing Reopen in Container](../assets/05-reopen-in-container.png)
 
 3. Choose **PC open-perception-kit**.
 
-![VS Code Dev Container selection dialog](/docs/public/static/img/06-reopen-in-container2.png)
+![VS Code Dev Container selection dialog](../assets/06-reopen-in-container2.png)
 
 4. Wait for the container to finish building.
 
 Expected result: VS Code reloads into the Dev Container.
 
-![VS Code terminal inside the Dev Container](/docs/public/static/img/07-in-container-new-console.png)
+![VS Code terminal inside the Dev Container](../assets/07-in-container-new-console.png)
 
 ## 4. Build OPK
 
@@ -101,7 +101,7 @@ Run in the **Docker shell**:
 
 You can also use the VS Code task **00 Build Project**.
 
-![VS Code build task for OPK](/docs/public/static/img/08-build-project.png)
+![VS Code build task for OPK](../assets/08-build-project.png)
 
 Expected result: the build finishes without errors and `tools/opk-menu` exists.
 
@@ -115,7 +115,7 @@ Run in the **Docker shell**:
 
 You can also use the VS Code task **00 Run project and select pipeline** and choose `yolo26n-320`.
 
-![OPK pipeline selection view](/docs/public/static/img/09-select-pipeline.png)
+![OPK pipeline selection view](../assets/09-select-pipeline.png)
 
 Expected result: the pipeline starts and keeps running in the terminal. Leave that terminal open.
 
@@ -129,7 +129,7 @@ http://localhost:9999
 
 In the **Model Selector** panel, enable a model to start inference.
 
-![OPK browser UI after opening the web view](/docs/public/static/img/10-browser-ui.png)
+![OPK browser UI after opening the web view](../assets/10-browser-ui.png)
 
 Expected result: the page shows the OPK view and enabling a model produces an overlay or result. The default quick-start pipeline uses checked-in sample media, not a live camera.
 
