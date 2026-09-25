@@ -82,10 +82,11 @@ ssh -T git@github.com
 
 Expected result: GitHub says that you successfully authenticated. It may also say that GitHub does not provide shell access. That is normal.
 
-You can now clone with SSH:
+You can now clone with SSH and open the folder:
 
 ```bash
 git clone git@github.com:arm/open-perception-kit.git
+cd open-perception-kit
 ```
 
 [Back to Get Started](/getting-started)
