@@ -44,7 +44,7 @@ contain the experimental ExecuTorch operation module, the PythonScript operation
 module, the YOLOX ExecuTorch model, and a private locked Python package directory
 at `share/opk/python`, plus these two distinct payloads:
 
-- `share/opk/perception-sdk/` contains the Perception SDK ZIP, checksum, and
+- `share/opk/open-perception-kit-sdk/` contains the Perception SDK ZIP, checksum, and
   provenance sidecar;
 - `share/opk/schemas/json/v1/` contains the model and OpChain descriptor JSON
   schemas copied from the released source.
@@ -123,11 +123,11 @@ To consume serialized `FrameResults`, Cairn can verify and extract the nested
 Perception SDK with the matching release tooling:
 
 ```bash
-sdk_root="$OPK_PACKAGE_ROOT/share/opk/perception-sdk"
+sdk_root="$OPK_PACKAGE_ROOT/share/opk/open-perception-kit-sdk"
 ./scripts/perception-sdk.sh verify \
-  "$sdk_root/perception-sdk-<opk-version>.zip" \
+  "$sdk_root/open-perception-kit-sdk-<opk-version>.zip" \
   --require-sidecars
-unzip "$sdk_root/perception-sdk-<opk-version>.zip" -d perception-sdk
+unzip "$sdk_root/open-perception-kit-sdk-<opk-version>.zip" -d perception-sdk
 ```
 
 Use the C++, Python, Rust, or TypeScript package from that extracted SDK. The SDK

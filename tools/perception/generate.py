@@ -189,6 +189,7 @@ def generate_sdk(config: SdkConfig, generated_root: Path, flatc: str, python: st
     common = [
         python, str(config.flowdata_generator), "generate",
         "--name", config.name,
+        "--public-name", config.public_name,
         "--version", config.version,
         "--schema-dir", str(config.schema_dir),
         "--generated-root", str(generated_root),
@@ -342,7 +343,7 @@ def prepare_typescript_package(config: SdkConfig, generated_root: Path) -> None:
 def prepare_rust_tests(config: SdkConfig, generated_root: Path) -> None:
     rust_root = generated_root / "rust"
     cargo_toml = rust_root / "Cargo.toml"
-    expected_name = f'name = "{config.name}"'
+    expected_name = f'name = "{config.public_name}"'
     cargo = cargo_toml.read_text(encoding="utf-8")
     if expected_name not in cargo:
         raise RuntimeError("generated Rust package name does not match sdk.json")
@@ -359,7 +360,7 @@ def prepare_rust_tests(config: SdkConfig, generated_root: Path) -> None:
     fixture_target = rust_root / "tests" / "fixtures" / RUST_FIXTURE.name
     fixture_target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(RUST_FIXTURE, fixture_target)
-    crate_name = config.name.replace("-", "_")
+    crate_name = config.public_name
     test_source = f'''\
 // Generated file. Do not edit.
 // SDK users: change schemas or generator inputs, then regenerate this file.
@@ -615,9 +616,9 @@ def validate_flowdata_manifests(
 
 def normalize_integration_files(config: SdkConfig, generated_root: Path) -> None:
     paths = (
-        generated_root / "cpp" / "cmake" / f"{config.name}.cmake",
-        generated_root / "cpp" / "meson" / config.name / MESON_BUILD_FILENAME,
-        generated_root / "cpp" / "meson" / config.name / "python_bridge" / MESON_BUILD_FILENAME,
+        generated_root / "cpp" / "cmake" / f"{config.public_name}.cmake",
+        generated_root / "cpp" / "meson" / config.public_name / MESON_BUILD_FILENAME,
+        generated_root / "cpp" / "meson" / config.public_name / "python_bridge" / MESON_BUILD_FILENAME,
     )
     for path in paths:
         path.write_text(path.read_text(encoding="utf-8").rstrip() + "\n", encoding="utf-8")
@@ -628,34 +629,34 @@ def write_internal_meson(config: SdkConfig, target: Path) -> None:
     content = (
         "# Generated project adapter. Do not edit.\n"
         "# Regenerate with ./scripts/perception-sdk.sh generate.\n\n"
-        f"{config.name}_version = '{config.version}'\n"
-        f"{config.name}_flatbuffers_version_requirement = '=={config.flatbuffers_version}'\n\n"
-        f"_{config.name}_flatbuffers_dep = dependency(\n"
+        f"{config.public_name}_version = '{config.version}'\n"
+        f"{config.public_name}_flatbuffers_version_requirement = '=={config.flatbuffers_version}'\n\n"
+        f"_{config.public_name}_flatbuffers_dep = dependency(\n"
         "  'flatbuffers',\n"
         "  required : true,\n"
-        f"  version : {config.name}_flatbuffers_version_requirement,\n"
+        f"  version : {config.public_name}_flatbuffers_version_requirement,\n"
         ")\n"
-        f"_{config.name}_inc = include_directories('{cpp_root}')\n\n"
-        f"{config.name}_dep = declare_dependency(\n"
-        f"  include_directories : [_{config.name}_inc],\n"
+        f"_{config.public_name}_inc = include_directories('{cpp_root}')\n\n"
+        f"{config.public_name}_dep = declare_dependency(\n"
+        f"  include_directories : [_{config.public_name}_inc],\n"
         "  compile_args : ['-std=c++20'],\n"
-        f"  dependencies : [_{config.name}_flatbuffers_dep],\n"
+        f"  dependencies : [_{config.public_name}_flatbuffers_dep],\n"
         ")\n"
         "\n"
         "if get_option('tests') or python_ops_enabled\n"
-        f"  _{config.name}_python = opk_python\n"
-        f"  _{config.name}_python_embed_dep = _{config.name}_python.dependency(\n"
+        f"  _{config.public_name}_python = opk_python\n"
+        f"  _{config.public_name}_python_embed_dep = _{config.public_name}_python.dependency(\n"
         "    embed : true,\n"
         "    required : true,\n"
         "  )\n"
-        f"  _{config.name}_python_bridge_sources = files(\n"
+        f"  _{config.public_name}_python_bridge_sources = files(\n"
         f"    '{cpp_root}/python_bridge/{config.name}_python_bridge.cpp',\n"
         "  )\n\n"
-        f"  {config.name}_python_bridge_dep = declare_dependency(\n"
-        f"    include_directories : [_{config.name}_inc],\n"
+        f"  {config.public_name}_python_bridge_dep = declare_dependency(\n"
+        f"    include_directories : [_{config.public_name}_inc],\n"
         "    compile_args : ['-std=c++20'],\n"
-        f"    dependencies : [{config.name}_dep, _{config.name}_python_embed_dep],\n"
-        f"    sources : _{config.name}_python_bridge_sources,\n"
+        f"    dependencies : [{config.public_name}_dep, _{config.public_name}_python_embed_dep],\n"
+        f"    sources : _{config.public_name}_python_bridge_sources,\n"
         "  )\n"
         "endif\n"
     )
@@ -733,7 +734,7 @@ def write_perception_manifest(
 ) -> None:
     manifest_path = generated_root / PERCEPTION_MANIFEST_FILENAME
     manifest = {
-        "artifact": {"name": f"{config.name}-sdk", "version": config.version},
+        "artifact": {"name": f"{config.public_name.replace('_', '-')}-sdk", "version": config.version},
         "descriptor": {
             "path": config.descriptor_path.relative_to(REPO_ROOT).as_posix(),
             "sha256": config.descriptor_sha256,
@@ -782,7 +783,7 @@ def _verify_manifest_identity(
     }
     if set(manifest) != expected_fields:
         raise RuntimeError("Perception SDK manifest fields are stale")
-    if manifest.get("artifact") != {"name": f"{config.name}-sdk", "version": config.version}:
+    if manifest.get("artifact") != {"name": f"{config.public_name.replace('_', '-')}-sdk", "version": config.version}:
         raise RuntimeError("Perception SDK manifest identity does not match sdk.json")
     expected_descriptor = {
         "path": config.descriptor_path.relative_to(REPO_ROOT).as_posix(),

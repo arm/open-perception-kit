@@ -505,7 +505,7 @@ PyObject *producer_identity_status_object(container::producer_identity_status st
         break;
     }
 
-    PyObject *sdk_module = PyImport_ImportModule("perception.sdk");
+    PyObject *sdk_module = PyImport_ImportModule("open_perception_kit.sdk");
     if (sdk_module == nullptr) {
         return nullptr;
     }
@@ -575,7 +575,7 @@ std::optional<bool> is_external_key_python(PyObject *object) {
         return false;
     }
 
-    PyObject *sdk_module = PyImport_ImportModule("perception");
+    PyObject *sdk_module = PyImport_ImportModule("open_perception_kit");
     if (sdk_module == nullptr) {
         PyErr_SetString(
             PyExc_TypeError,
@@ -770,43 +770,49 @@ std::optional<known_payload_kind> known_payload_kind_from_type(PyObject *type_ob
         return std::nullopt;
     }
 
-    if (py_type_matches(
-            type_object, "perception.fb.perception.metadata.BoxDetections", "BoxDetectionsT")) {
+    if (py_type_matches(type_object,
+                        "open_perception_kit.fb.perception.metadata.BoxDetections",
+                        "BoxDetectionsT")) {
         return known_payload_kind::kind_perception_metadata_BoxDetections;
     }
-    if (py_type_matches(
-            type_object, "perception.fb.perception.metadata.Classifications", "ClassificationsT")) {
+    if (py_type_matches(type_object,
+                        "open_perception_kit.fb.perception.metadata.Classifications",
+                        "ClassificationsT")) {
         return known_payload_kind::kind_perception_metadata_Classifications;
     }
-    if (py_type_matches(
-            type_object, "perception.fb.perception.metadata.FrameContext", "FrameContextT")) {
+    if (py_type_matches(type_object,
+                        "open_perception_kit.fb.perception.metadata.FrameContext",
+                        "FrameContextT")) {
         return known_payload_kind::kind_perception_metadata_FrameContext;
     }
     if (py_type_matches(type_object,
-                        "perception.fb.perception.metadata.ObjectEmbeddings",
+                        "open_perception_kit.fb.perception.metadata.ObjectEmbeddings",
                         "ObjectEmbeddingsT")) {
         return known_payload_kind::kind_perception_metadata_ObjectEmbeddings;
     }
-    if (py_type_matches(
-            type_object, "perception.fb.perception.metadata.ObjectTracks", "ObjectTracksT")) {
+    if (py_type_matches(type_object,
+                        "open_perception_kit.fb.perception.metadata.ObjectTracks",
+                        "ObjectTracksT")) {
         return known_payload_kind::kind_perception_metadata_ObjectTracks;
     }
     if (py_type_matches(type_object,
-                        "perception.fb.perception.metadata.PerformanceOverlay",
+                        "open_perception_kit.fb.perception.metadata.PerformanceOverlay",
                         "PerformanceOverlayT")) {
         return known_payload_kind::kind_perception_metadata_PerformanceOverlay;
     }
-    if (py_type_matches(
-            type_object, "perception.fb.perception.metadata.PoseEstimations", "PoseEstimationsT")) {
+    if (py_type_matches(type_object,
+                        "open_perception_kit.fb.perception.metadata.PoseEstimations",
+                        "PoseEstimationsT")) {
         return known_payload_kind::kind_perception_metadata_PoseEstimations;
     }
     if (py_type_matches(type_object,
-                        "perception.fb.perception.metadata.SegmentationMasks",
+                        "open_perception_kit.fb.perception.metadata.SegmentationMasks",
                         "SegmentationMasksT")) {
         return known_payload_kind::kind_perception_metadata_SegmentationMasks;
     }
-    if (py_type_matches(
-            type_object, "perception.fb.perception.metadata.TrackTraces", "TrackTracesT")) {
+    if (py_type_matches(type_object,
+                        "open_perception_kit.fb.perception.metadata.TrackTraces",
+                        "TrackTracesT")) {
         return known_payload_kind::kind_perception_metadata_TrackTraces;
     }
 
@@ -818,39 +824,44 @@ std::optional<known_payload_kind> known_payload_kind_from_type(PyObject *type_ob
 
 std::optional<known_payload_kind> known_payload_kind_from_value(PyObject *value) {
     if (py_object_type_matches(
-            value, "perception.fb.perception.metadata.BoxDetections", "BoxDetectionsT")) {
+            value, "open_perception_kit.fb.perception.metadata.BoxDetections", "BoxDetectionsT")) {
         return known_payload_kind::kind_perception_metadata_BoxDetections;
     }
-    if (py_object_type_matches(
-            value, "perception.fb.perception.metadata.Classifications", "ClassificationsT")) {
+    if (py_object_type_matches(value,
+                               "open_perception_kit.fb.perception.metadata.Classifications",
+                               "ClassificationsT")) {
         return known_payload_kind::kind_perception_metadata_Classifications;
     }
     if (py_object_type_matches(
-            value, "perception.fb.perception.metadata.FrameContext", "FrameContextT")) {
+            value, "open_perception_kit.fb.perception.metadata.FrameContext", "FrameContextT")) {
         return known_payload_kind::kind_perception_metadata_FrameContext;
     }
-    if (py_object_type_matches(
-            value, "perception.fb.perception.metadata.ObjectEmbeddings", "ObjectEmbeddingsT")) {
+    if (py_object_type_matches(value,
+                               "open_perception_kit.fb.perception.metadata.ObjectEmbeddings",
+                               "ObjectEmbeddingsT")) {
         return known_payload_kind::kind_perception_metadata_ObjectEmbeddings;
     }
     if (py_object_type_matches(
-            value, "perception.fb.perception.metadata.ObjectTracks", "ObjectTracksT")) {
+            value, "open_perception_kit.fb.perception.metadata.ObjectTracks", "ObjectTracksT")) {
         return known_payload_kind::kind_perception_metadata_ObjectTracks;
     }
-    if (py_object_type_matches(
-            value, "perception.fb.perception.metadata.PerformanceOverlay", "PerformanceOverlayT")) {
+    if (py_object_type_matches(value,
+                               "open_perception_kit.fb.perception.metadata.PerformanceOverlay",
+                               "PerformanceOverlayT")) {
         return known_payload_kind::kind_perception_metadata_PerformanceOverlay;
     }
-    if (py_object_type_matches(
-            value, "perception.fb.perception.metadata.PoseEstimations", "PoseEstimationsT")) {
+    if (py_object_type_matches(value,
+                               "open_perception_kit.fb.perception.metadata.PoseEstimations",
+                               "PoseEstimationsT")) {
         return known_payload_kind::kind_perception_metadata_PoseEstimations;
     }
-    if (py_object_type_matches(
-            value, "perception.fb.perception.metadata.SegmentationMasks", "SegmentationMasksT")) {
+    if (py_object_type_matches(value,
+                               "open_perception_kit.fb.perception.metadata.SegmentationMasks",
+                               "SegmentationMasksT")) {
         return known_payload_kind::kind_perception_metadata_SegmentationMasks;
     }
     if (py_object_type_matches(
-            value, "perception.fb.perception.metadata.TrackTraces", "TrackTracesT")) {
+            value, "open_perception_kit.fb.perception.metadata.TrackTraces", "TrackTracesT")) {
         return known_payload_kind::kind_perception_metadata_TrackTraces;
     }
 

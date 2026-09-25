@@ -1,9 +1,9 @@
 [package]
-name = "perception"
+name = "open_perception_kit"
 version = "0.1.0"
 license = "Apache-2.0"
 edition = "2021"
-description = "Generated perception Rust SDK"
+description = "Generated open_perception_kit Rust SDK"
 
 [dependencies]
 flatbuffers = "=25.9.23"

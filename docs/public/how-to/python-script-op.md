@@ -200,7 +200,7 @@ The runtime requires:
 - the architecture-specific NumPy wheel locked in
   `development/ops-python/runtime.json`
 - the FlatBuffers Python runtime locked in `tools/perception/sdk.json`
-- the generated Perception Python package when scripts import `perception`
+- the generated Perception Python package when scripts import `open_perception_kit`
 
 The native `opk_python_ops` module is produced by the OPK native build; it is
 not installed by pip or by this initializer. Installing the Python dependencies

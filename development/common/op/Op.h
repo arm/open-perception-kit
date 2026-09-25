@@ -112,7 +112,7 @@ struct Op {
      */
     virtual Result<OpSignal> process(OpChainContext &opChainContext) = 0;
 
-    [[nodiscard]] perception::metadata::ProducerInfoT
+    [[nodiscard]] open_perception_kit::metadata::ProducerInfoT
     producerInfo(std::string_view inferElementId,
                  std::string_view implementation,
                  std::string_view fallbackComponent) const;

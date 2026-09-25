@@ -1,13 +1,13 @@
-import {Envelope, ProducerIdentityStatus} from '../../../generated/perception/ts/dist/perception/index.js';
-import {BoxDetectionsT} from '../../../generated/perception/ts/dist/perception/fb/perception/metadata/box-detections.js';
-import {ClassificationsT} from '../../../generated/perception/ts/dist/perception/fb/perception/metadata/classifications.js';
-import {FrameContextT} from '../../../generated/perception/ts/dist/perception/fb/perception/metadata/frame-context.js';
-import {ObjectEmbeddingsT} from '../../../generated/perception/ts/dist/perception/fb/perception/metadata/object-embeddings.js';
-import {ObjectTracksT} from '../../../generated/perception/ts/dist/perception/fb/perception/metadata/object-tracks.js';
-import {PerformanceOverlayT} from '../../../generated/perception/ts/dist/perception/fb/perception/metadata/performance-overlay.js';
-import {PoseEstimationsT} from '../../../generated/perception/ts/dist/perception/fb/perception/metadata/pose-estimations.js';
-import {SegmentationMasksT} from '../../../generated/perception/ts/dist/perception/fb/perception/metadata/segmentation-masks.js';
-import {TrackTracesT} from '../../../generated/perception/ts/dist/perception/fb/perception/metadata/track-traces.js';
+import {Envelope, ProducerIdentityStatus} from '../../../generated/perception/ts/dist/open_perception_kit/index.js';
+import {BoxDetectionsT} from '../../../generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/box-detections.js';
+import {ClassificationsT} from '../../../generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/classifications.js';
+import {FrameContextT} from '../../../generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/frame-context.js';
+import {ObjectEmbeddingsT} from '../../../generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/object-embeddings.js';
+import {ObjectTracksT} from '../../../generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/object-tracks.js';
+import {PerformanceOverlayT} from '../../../generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/performance-overlay.js';
+import {PoseEstimationsT} from '../../../generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/pose-estimations.js';
+import {SegmentationMasksT} from '../../../generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/segmentation-masks.js';
+import {TrackTracesT} from '../../../generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/track-traces.js';
 
 export const FRAME_RESULTS_ENCODING = 'perception-frame-results+base64';
 

@@ -167,10 +167,10 @@ def _cargo_toml(ctx: GenerationContext) -> str:
     return textwrap.dedent(
         f"""\
         [package]
-        name = "{ctx.sdk_name}"
+        name = "{ctx.effective_public_name}"
         version = "{ctx.sdk_version}"
         edition = "2021"
-        description = "Generated {ctx.sdk_name} Rust SDK"
+        description = "Generated {ctx.effective_public_name} Rust SDK"
 
         [dependencies]
         flatbuffers = "={ctx.flatc_version}"

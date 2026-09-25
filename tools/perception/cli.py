@@ -49,7 +49,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
             "  ./scripts/perception-sdk.sh check\n"
             "  ./scripts/perception-sdk.sh package --expect-version MAJOR.MINOR.PATCH\n"
             "  ./scripts/perception-sdk.sh verify "
-            "artifacts/perception-sdk-MAJOR.MINOR.PATCH.zip "
+            "artifacts/open-perception-kit-sdk-MAJOR.MINOR.PATCH.zip "
             "--require-sidecars"
         )
         parser.print_help()

@@ -71,7 +71,7 @@ inline void logitsToAngleDegAndConfidence(const opk::TensorView *logits,
 } // namespace
 
 opk::Result<void> GazeDetectionParser::parse(const opk::TensorParser::Input &input,
-                                             perception::FrameResults &results) {
+                                             open_perception_kit::FrameResults &results) {
     // Validate tensor pointers.
     if (!input.tensors[0] || !input.tensors[1]) {
         return tl::unexpected(
@@ -106,8 +106,8 @@ opk::Result<void> GazeDetectionParser::parse(const opk::TensorParser::Input &inp
     logitsToAngleDegAndConfidence(input.tensors[0], yaw, yawConf, angleBinWidthDeg);
     logitsToAngleDegAndConfidence(input.tensors[1], pitch, pitchConf, angleBinWidthDeg);
 
-    auto result = std::make_unique<perception::metadata::PoseEstimationT>();
-    result->object = perception::makeObjectMeta(0U, input.inferenceInfo.parentId);
+    auto result = std::make_unique<open_perception_kit::metadata::PoseEstimationT>();
+    result->object = open_perception_kit::makeObjectMeta(0U, input.inferenceInfo.parentId);
     result->yaw = yaw;
     result->pitch = pitch;
 
@@ -116,11 +116,12 @@ opk::Result<void> GazeDetectionParser::parse(const opk::TensorParser::Input &inp
     // Using min makes it "both yaw and pitch must be confident".
     result->confidence = std::min(yawConf, pitchConf);
 
-    perception::metadata::PoseEstimationsT payload;
-    payload.layer = perception::makeLayerInfo({.model = input.inferenceInfo.modelName,
-                                               .inferElementId = input.inferenceInfo.inferElementId,
-                                               .contentType = k_content_type,
-                                               .producer = &input.producerInfo});
+    open_perception_kit::metadata::PoseEstimationsT payload;
+    payload.layer =
+        open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
+                                            .inferElementId = input.inferenceInfo.inferElementId,
+                                            .contentType = k_content_type,
+                                            .producer = &input.producerInfo});
     payload.poses.push_back(std::move(result));
     results.add(std::move(payload));
     return {};

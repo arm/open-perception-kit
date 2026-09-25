@@ -1030,7 +1030,7 @@ class Pipeline::Impl {
 
     // Copy std::function under the mutex, then call it unlocked. This avoids
     // holding our lock while user code runs.
-    void emitPerception(const perception::FrameResults &frameResults) {
+    void emitPerception(const open_perception_kit::FrameResults &frameResults) {
         Pipeline::FrameResultsCallback callback;
         Pipeline::FrameResultsPacketCallback packetCallback;
         {
@@ -1044,7 +1044,7 @@ class Pipeline::Impl {
         }
 
         try {
-            const auto packet = perception::serialize(frameResults);
+            const auto packet = open_perception_kit::serialize(frameResults);
             if (packetCallback) {
                 packetCallback(packet);
             }

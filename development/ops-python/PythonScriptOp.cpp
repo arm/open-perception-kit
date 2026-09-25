@@ -54,7 +54,7 @@ PyObjectPtr makePythonProducerInfo(const std::string &instanceId,
                                    const std::string &component,
                                    const std::string &implementation) {
     PyObjectPtr producerModule(
-        PyImport_ImportModule("perception.fb.perception.metadata.ProducerInfo"));
+        PyImport_ImportModule("open_perception_kit.fb.perception.metadata.ProducerInfo"));
     PyObjectPtr producerType(
         producerModule ? PyObject_GetAttrString(producerModule.get(), "ProducerInfoT") : nullptr);
     if (!producerType || !PyCallable_Check(producerType.get()))
@@ -313,7 +313,7 @@ opk::Result<opk::op::OpSignal> PythonScriptOp::process(opk::op::OpChainContext &
     try {
         GILGuard gil;
         PythonPathGuard pathGuard(loadedScript->pythonPathTemplate());
-        perception::python_bridge::scoped_envelope envelope(*context.frameResults);
+        open_perception_kit::python_bridge::scoped_envelope envelope(*context.frameResults);
         const auto producer = producerInfo(context.inferenceInfo.inferElementId,
                                            scriptPath.filename().string(),
                                            "opk-python-ops/PythonScript");

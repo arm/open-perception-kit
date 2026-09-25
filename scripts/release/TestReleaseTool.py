@@ -81,7 +81,7 @@ def add_perception_sdk(
     dirty: bool = False,
 ) -> Path:
     root.mkdir(parents=True)
-    archive = root / f"perception-sdk-{version}.zip"
+    archive = root / f"open-perception-kit-sdk-{version}.zip"
     archive.write_bytes(b"sdk")
     (root / f"{archive.name}.sha256").write_text("checksum\n", encoding="utf-8")
     (root / f"{archive.name}.provenance.json").write_text(

@@ -11,7 +11,7 @@ TypeScript packages, a Rust crate, matching FlatBuffers runtimes, the source
 schemas, and a manifest describing every file and compatibility requirement.
 
 Released OPK architecture packages carry the unchanged ZIP, checksum, and
-provenance sidecar under `share/opk/perception-sdk/`. SDK packages use the OPK
+provenance sidecar under `share/opk/open-perception-kit-sdk/`. SDK packages use the OPK
 product version from `development/meson.build`.
 
 The Perception SDK is licensed under Apache-2.0. Each language package includes
@@ -41,7 +41,7 @@ without invoking flowdata-sdk, `flatc`, or formatters. The generator sources are
 normal tracked files in `tools/flowdata-sdk`, updated manually alongside the
 regenerated snapshot; SDK commands do not fetch or update them.
 It builds the Python wheels from the canonical snapshot
-and creates `artifacts/perception-sdk-<opk-version>.zip`.
+and creates `artifacts/open-perception-kit-sdk-<opk-version>.zip`.
 
 After changing the OPK product version in `development/meson.build`, run
 `./scripts/perception-sdk.sh generate`. The archive
@@ -124,11 +124,11 @@ Install both npm-compatible tarballs directly from the extracted bundle:
 ```bash
 npm install \
   ./typescript/flatbuffers-25.9.23.tgz \
-  ./typescript/perception-<opk-version>.tgz
+  ./typescript/open-perception-kit-<opk-version>.tgz
 ```
 
 Import `Envelope`, `ProducerIdentityStatus`, and generated payload classes from
-the `perception` package. Require `Envelope.valid()` and an `exact_match`
+the `open-perception-kit` package. Require `Envelope.valid()` and an `exact_match`
 producer identity before typed access. The package contains compiled ES modules,
 TypeScript declarations, and generated sources; consumers do not regenerate it.
 
@@ -138,7 +138,7 @@ browser asset after SDK or WebUI changes.
 
 ## Integrate the Rust SDK
 
-Stable OPK releases publish the `perception` crate at the OPK version to the
+Stable OPK releases publish the `open_perception_kit` crate at the OPK version to the
 `edge-ai-tooling` Cargo registry. Configure its sparse index:
 
 ```toml
@@ -151,7 +151,7 @@ its FlatBuffers dependency to crates.io explicitly:
 
 ```toml
 [dependencies]
-perception = { version = "=<opk-version>", registry = "edge-ai-tooling" }
+open_perception_kit = { version = "=<opk-version>", registry = "edge-ai-tooling" }
 ```
 
 Manual snapshots do not publish to the Cargo registry. For a snapshot or an
@@ -162,7 +162,7 @@ and a `rust/vendor/` directory:
 
 ```toml
 [dependencies]
-perception = { path = "/path/to/perception-sdk-<opk-version>/rust" }
+open_perception_kit = { path = "/path/to/open-perception-kit-sdk-<opk-version>/rust" }
 ```
 
 Copy `rust/.cargo/config.toml` into the consumer's `.cargo/config.toml` and
@@ -179,7 +179,7 @@ Cargo configuration and the consumer lockfile are resolved from the consumer
 workspace, not from path dependencies.
 
 Import `Envelope`, `payload`, and generated native payload types from
-`perception`. Construct an envelope with `Envelope::decode(...)`, require a
+`open_perception_kit`. Construct an envelope with `Envelope::decode(...)`, require a
 successful result, and check `producer_identity()` before typed access. Use the
 same selector for `count`, `contains`, `get`, and `for_each`; use `external_key`
 for external
@@ -187,13 +187,13 @@ payloads. Unknown or changed payloads remain preserved across serialization.
 
 ## Integrate the C++ SDK
 
-For CMake, include `cpp/cmake/perception.cmake`, call
-`perception_enable_sdk()`, and link the application to `perception::sdk`.
+For CMake, include `cpp/cmake/open_perception_kit.cmake`, call
+`open_perception_kit_enable_sdk()`, and link the application to `open_perception_kit::sdk`.
 
 For Meson, vendor the complete `cpp/` directory into the project, call
-`subdir('path/to/cpp/meson/perception')`, and use `perception_dep`. Bridge hosts
-also call `subdir('path/to/cpp/meson/perception/python_bridge')` and use
-`perception_python_bridge_dep`. The complete
+`subdir('path/to/cpp/meson/open_perception_kit')`, and use `open_perception_kit_dep`. Bridge hosts
+also call `subdir('path/to/cpp/meson/open_perception_kit/python_bridge')` and use
+`open_perception_kit_python_bridge_dep`. The complete
 tree is required because the integration references the generated headers and
 optional Python bridge sources relative to its location.
 
@@ -214,7 +214,7 @@ Verify an archive and its checksum/provenance sidecars with:
 
 ```bash
 ./scripts/perception-sdk.sh verify \
-  artifacts/perception-sdk-<opk-version>.zip \
+  artifacts/open-perception-kit-sdk-<opk-version>.zip \
   --require-sidecars
 ```
 

@@ -3,7 +3,7 @@ import {createRequire} from 'node:module';
 import {mkdirSync, rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
-import {fileURLToPath, pathToFileURL} from 'node:url';
+import {fileURLToPath} from 'node:url';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(root, '..', '..');
@@ -22,23 +22,23 @@ function resolvePackage(name, fallback) {
 
 const esbuildPath = resolvePackage('esbuild-wasm', 'esbuild-wasm/lib/main.js');
 const flatbuffersPath = resolvePackage('flatbuffers', 'flatbuffers/mjs/flatbuffers.js');
-const {build} = await import(pathToFileURL(esbuildPath));
+const esbuildBin = path.join(path.dirname(path.dirname(esbuildPath)), 'bin', 'esbuild');
 const outputDirectory = process.env.OPK_WEB_TEST_OUTPUT_DIR || tmpdir();
 const output = path.resolve(outputDirectory, `opk-frame-results-test-${process.pid}.mjs`);
 
 mkdirSync(outputDirectory, {recursive: true});
 try {
-    await build({
-        absWorkingDir: repoRoot,
-        alias: {flatbuffers: flatbuffersPath},
-        bundle: true,
-        entryPoints: [path.join(root, 'tests', 'frame-results.test.mjs')],
-        format: 'esm',
-        outfile: output,
-        platform: 'node',
-        sourcemap: 'inline',
-        target: ['node20'],
-    });
+    execFileSync(process.execPath, [
+        esbuildBin,
+        path.join(root, 'tests', 'frame-results.test.mjs'),
+        '--bundle',
+        '--format=esm',
+        '--platform=node',
+        '--sourcemap=inline',
+        '--target=node20',
+        `--alias:flatbuffers=${flatbuffersPath}`,
+        `--outfile=${output}`,
+    ], {cwd: repoRoot, stdio: 'inherit'});
 
     execFileSync(process.execPath, ['--test', ...process.argv.slice(2), output], {stdio: 'inherit'});
 } finally {

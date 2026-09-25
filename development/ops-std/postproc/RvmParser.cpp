@@ -17,7 +17,7 @@ using namespace opk;
 using namespace opk::stdop::postproc;
 
 opk::Result<void> RvmParser::parse(const opk::TensorParser::Input &input,
-                                   perception::FrameResults &results) {
+                                   open_perception_kit::FrameResults &results) {
 
     if (!input.tensors[0] || !input.tensors[1]) {
         return tl::unexpected(
@@ -62,16 +62,17 @@ opk::Result<void> RvmParser::parse(const opk::TensorParser::Input &input,
         }
     }
 
-    auto mask = std::make_unique<perception::metadata::SegmentationMaskT>();
-    mask->object = perception::makeObjectMeta(0U, input.inferenceInfo.parentId);
-    mask->bitmap = perception::makeBitmapData(bitmap);
+    auto mask = std::make_unique<open_perception_kit::metadata::SegmentationMaskT>();
+    mask->object = open_perception_kit::makeObjectMeta(0U, input.inferenceInfo.parentId);
+    mask->bitmap = open_perception_kit::makeBitmapData(bitmap);
 
-    perception::metadata::SegmentationMasksT payload;
-    payload.layer = perception::makeLayerInfo({.model = input.inferenceInfo.modelName,
-                                               .inferElementId = input.inferenceInfo.inferElementId,
-                                               .contentType = k_content_type,
-                                               .compositingMode = "backgroundReplacement",
-                                               .producer = &input.producerInfo});
+    open_perception_kit::metadata::SegmentationMasksT payload;
+    payload.layer =
+        open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
+                                            .inferElementId = input.inferenceInfo.inferElementId,
+                                            .contentType = k_content_type,
+                                            .compositingMode = "backgroundReplacement",
+                                            .producer = &input.producerInfo});
     payload.masks.push_back(std::move(mask));
     results.add(std::move(payload));
 

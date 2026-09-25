@@ -401,13 +401,13 @@ static GstFlowReturn gst_opk_performance_transform_frame_ip(GstVideoFilter *filt
 
     // Ensure generated FrameResults metadata exists so performance is a standalone payload.
     if (auto frameResultsMeta = opk::FrameResultsMeta::get(frame->buffer); !frameResultsMeta) {
-        auto frameResults = std::make_shared<perception::FrameResults>();
+        auto frameResults = std::make_shared<open_perception_kit::FrameResults>();
         opk::FrameResultsMeta::add(frame->buffer, frameResults);
     }
 
     auto ret =
         opk::FrameResultsMeta::mutate<GstFlowReturn>(frame->buffer, [self](auto &frameResults) {
-            perception::appendPerformanceOverlay(frameResults, self->cached_lines);
+            open_perception_kit::appendPerformanceOverlay(frameResults, self->cached_lines);
             return GST_FLOW_OK;
         });
 

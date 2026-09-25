@@ -59,7 +59,7 @@ Its current contract is:
 - it reads the configured `parser` attribute
 - it constructs the matching parser implementation, such as `YoloParser` or `CameraContactParser`
 - during `process()` it passes the active output tensors and `inferenceInfo` into that parser
-- it expects the parser to append generated `perception::metadata::*T` payloads to `perception::FrameResults`
+- it expects the parser to append generated `open_perception_kit::metadata::*T` payloads to `open_perception_kit::FrameResults`
 - it leaves those parsed results attached to the current frame through `FrameResultsMeta`
 
 If your model output does not match any of the built-in parsers, this is the point where you add a new one.
@@ -141,7 +141,7 @@ That is the normal path when the output tensor meaning is new, but the result st
 If you need a genuinely new runtime result because none of the existing schema payloads matches your result cleanly, the usual path is:
 
 1. add the new schema definition in the Perception schema area
-	- model the payload as a generated `perception::metadata::*T` type
+	- model the payload as a generated `open_perception_kit::metadata::*T` type
 	- include layer and object metadata fields where downstream routing or parent links are needed
 2. regenerate the Perception SDK bindings
 	- run `./scripts/perception-sdk.sh generate`; generation always executes inside the OPK container
@@ -189,7 +189,7 @@ That means the usual flow is:
 
 1. your parser converts raw tensors into generated FrameResults payloads
 2. each object that needs lineage gets linked back to the current inference source through `parent_id`
-3. `GenericPostprocessOp` gives the parser the active `perception::FrameResults`
+3. `GenericPostprocessOp` gives the parser the active `open_perception_kit::FrameResults`
 4. `FrameResultsMeta` carries that structured data downstream with the buffer
 5. when enabled, `opkosd` reads the resulting payloads and decides what to draw based on payload type and `layer.content_type`
 

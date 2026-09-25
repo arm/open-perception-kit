@@ -1,8 +1,9 @@
+import {spawn} from 'node:child_process';
 import {cp, mkdir, readFile, rm} from 'node:fs/promises';
 import {createRequire} from 'node:module';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
-import {fileURLToPath, pathToFileURL} from 'node:url';
+import {fileURLToPath} from 'node:url';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(root, '..', '..');
@@ -39,7 +40,7 @@ const flatbuffersRoot = localFlatbuffers
     : path.join(modulesRoot, 'flatbuffers');
 const stagedFlatbuffersRoot = path.join(dependencyStage, 'flatbuffers');
 const flatbuffersPath = path.join(stagedFlatbuffersRoot, 'mjs', 'flatbuffers.js');
-const {build} = await import(pathToFileURL(esbuildPath));
+const esbuildBin = path.join(path.dirname(path.dirname(esbuildPath)), 'bin', 'esbuild');
 const candidate = command === 'check'
     ? path.join(tmpdir(), `opk-web-${process.pid}.js`)
     : output;
@@ -49,19 +50,27 @@ try {
     await mkdir(dependencyStage, {recursive: true});
     await cp(flatbuffersRoot, stagedFlatbuffersRoot, {recursive: true});
 
-    await build({
-        absWorkingDir: repoRoot,
-        alias: {flatbuffers: flatbuffersPath},
-        banner: {js: '// Copyright (C) 2025 Arm Limited. All rights reserved.'},
-        bundle: true,
-        entryPoints: [path.join(root, 'src', 'app.js')],
-        format: 'esm',
-        legalComments: 'none',
-        minify: false,
-        outfile: candidate,
-        platform: 'browser',
-        sourcemap: process.env.OPK_WEB_COVERAGE === '1' ? 'inline' : false,
-        target: ['es2020'],
+    const args = [
+        esbuildBin,
+        path.join(root, 'src', 'app.js'),
+        '--bundle',
+        '--format=esm',
+        '--legal-comments=none',
+        '--platform=browser',
+        '--target=es2020',
+        `--alias:flatbuffers=${flatbuffersPath}`,
+        '--banner:js=// Copyright (C) 2025 Arm Limited. All rights reserved.',
+        `--outfile=${candidate}`,
+    ];
+    if (process.env.OPK_WEB_COVERAGE === '1') {
+        args.push('--sourcemap=inline');
+    }
+    await new Promise((resolve, reject) => {
+        const child = spawn(process.execPath, args, {cwd: repoRoot, stdio: 'inherit'});
+        child.once('error', reject);
+        child.once('exit', (code) => code === 0
+            ? resolve()
+            : reject(new Error(`esbuild exited with status ${code}`)));
     });
 
     if (command === 'check') {

@@ -284,11 +284,11 @@ template <typename Container> static size_t count_present_entries(const Containe
         std::ranges::count_if(entries, [](const auto &entry) { return entry != nullptr; }));
 }
 
-static size_t count_display_detections(const perception::FrameResults &frame_results) {
+static size_t count_display_detections(const open_perception_kit::FrameResults &frame_results) {
     size_t count = 0;
-    frame_results.for_each<perception::metadata::BoxDetectionsT>(
+    frame_results.for_each<open_perception_kit::metadata::BoxDetectionsT>(
         [&count](const auto &payload) { count += count_present_entries(payload.detections); });
-    frame_results.for_each<perception::metadata::SegmentationMasksT>(
+    frame_results.for_each<open_perception_kit::metadata::SegmentationMasksT>(
         [&count](const auto &payload) { count += count_present_entries(payload.masks); });
     return count;
 }
@@ -617,7 +617,7 @@ int run_pipeline(const std::string &pipeline_description,
         });
         pipeline_result->onFrameResultsPacket([&](const std::vector<std::uint8_t> &packet) {
             try {
-                perception::FrameResults frame_results(
+                open_perception_kit::FrameResults frame_results(
                     std::span<const std::uint8_t>{packet.data(), packet.size()});
                 if (!frame_results.valid()) {
                     return;

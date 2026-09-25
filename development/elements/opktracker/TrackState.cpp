@@ -74,7 +74,7 @@ Point2f predictCenter(TrackState &track, float kalmanDt, const Config &config) {
 }
 
 Point2f correctCenterWithMeasurement(TrackState &track,
-                                     const perception::metadata::BoxDetectionT &detection,
+                                     const open_perception_kit::metadata::BoxDetectionT &detection,
                                      float kalmanDt,
                                      const Config &config) {
     using MeasurementVector = TrackState::Kalman::MeasurementVector;

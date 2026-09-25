@@ -2711,7 +2711,7 @@ var Builder = class _Builder {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/internalfb/wire-payload.js
+// generated/perception/ts/dist/open_perception_kit/fb/perception/internalfb/wire-payload.js
 var WirePayload = class _WirePayload {
   constructor() {
     this.bb = null;
@@ -2793,7 +2793,7 @@ var WirePayloadT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/internalfb/wire-envelope.js
+// generated/perception/ts/dist/open_perception_kit/fb/perception/internalfb/wire-envelope.js
 var WireEnvelope = class _WireEnvelope {
   constructor() {
     this.bb = null;
@@ -2903,7 +2903,7 @@ var WireEnvelopeT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/bounding-box.js
+// generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/bounding-box.js
 var BoundingBox = class _BoundingBox {
   constructor() {
     this.bb = null;
@@ -2986,7 +2986,7 @@ var BoundingBoxT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/object-meta.js
+// generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/object-meta.js
 var ObjectMeta = class _ObjectMeta {
   constructor() {
     this.bb = null;
@@ -3059,7 +3059,7 @@ var ObjectMetaT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/box-detection.js
+// generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/box-detection.js
 var BoxDetection = class _BoxDetection {
   constructor() {
     this.bb = null;
@@ -3152,7 +3152,7 @@ var BoxDetectionT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/producer-info.js
+// generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/producer-info.js
 var ProducerInfo = class _ProducerInfo {
   constructor() {
     this.bb = null;
@@ -3228,7 +3228,7 @@ var ProducerInfoT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/layer-info.js
+// generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/layer-info.js
 var LayerInfo = class _LayerInfo {
   constructor() {
     this.bb = null;
@@ -3356,7 +3356,7 @@ var LayerInfoT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/box-detections.js
+// generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/box-detections.js
 var BoxDetections = class _BoxDetections {
   constructor() {
     this.bb = null;
@@ -3461,7 +3461,7 @@ var BoxDetectionsT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/classification-candidate.js
+// generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/classification-candidate.js
 var ClassificationCandidate = class _ClassificationCandidate {
   constructor() {
     this.bb = null;
@@ -3575,7 +3575,7 @@ var ClassificationCandidateT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/classification.js
+// generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/classification.js
 var Classification = class _Classification {
   constructor() {
     this.bb = null;
@@ -3654,7 +3654,7 @@ var ClassificationT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/person-presence.js
+// generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/person-presence.js
 var PersonPresence = class _PersonPresence {
   constructor() {
     this.bb = null;
@@ -3728,7 +3728,7 @@ var PersonPresenceT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/classifications.js
+// generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/classifications.js
 var Classifications = class _Classifications {
   constructor() {
     this.bb = null;
@@ -3858,7 +3858,7 @@ var ClassificationsT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/audio-frame-context.js
+// generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/audio-frame-context.js
 var AudioFrameContext = class _AudioFrameContext {
   constructor() {
     this.bb = null;
@@ -3962,7 +3962,7 @@ var AudioFrameContextT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/video-frame-context.js
+// generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/video-frame-context.js
 var VideoFrameContext = class _VideoFrameContext {
   constructor() {
     this.bb = null;
@@ -4116,7 +4116,7 @@ var VideoFrameContextT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/frame-context.js
+// generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/frame-context.js
 var FrameContext = class _FrameContext {
   constructor() {
     this.bb = null;
@@ -4218,7 +4218,7 @@ var FrameContextT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/object-embedding.js
+// generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/object-embedding.js
 var ObjectEmbedding = class _ObjectEmbedding {
   constructor() {
     this.bb = null;
@@ -4301,7 +4301,7 @@ var ObjectEmbeddingT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/object-embeddings.js
+// generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/object-embeddings.js
 var ObjectEmbeddings = class _ObjectEmbeddings {
   constructor() {
     this.bb = null;
@@ -4406,7 +4406,7 @@ var ObjectEmbeddingsT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/object-track.js
+// generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/object-track.js
 var ObjectTrack = class _ObjectTrack {
   constructor() {
     this.bb = null;
@@ -4540,7 +4540,7 @@ var ObjectTrackT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/object-tracks.js
+// generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/object-tracks.js
 var ObjectTracks = class _ObjectTracks {
   constructor() {
     this.bb = null;
@@ -4645,7 +4645,7 @@ var ObjectTracksT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/performance-overlay.js
+// generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/performance-overlay.js
 var PerformanceOverlay = class _PerformanceOverlay {
   constructor() {
     this.bb = null;
@@ -4742,7 +4742,7 @@ var PerformanceOverlayT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/pose-estimation.js
+// generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/pose-estimation.js
 var PoseEstimation = class _PoseEstimation {
   constructor() {
     this.bb = null;
@@ -4826,7 +4826,7 @@ var PoseEstimationT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/pose-estimations.js
+// generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/pose-estimations.js
 var PoseEstimations = class _PoseEstimations {
   constructor() {
     this.bb = null;
@@ -4931,7 +4931,7 @@ var PoseEstimationsT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/bitmap-data.js
+// generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/bitmap-data.js
 var BitmapData = class _BitmapData {
   constructor() {
     this.bb = null;
@@ -5034,7 +5034,7 @@ var BitmapDataT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/segmentation-mask.js
+// generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/segmentation-mask.js
 var SegmentationMask = class _SegmentationMask {
   constructor() {
     this.bb = null;
@@ -5096,7 +5096,7 @@ var SegmentationMaskT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/segmentation-masks.js
+// generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/segmentation-masks.js
 var SegmentationMasks = class _SegmentationMasks {
   constructor() {
     this.bb = null;
@@ -5201,7 +5201,7 @@ var SegmentationMasksT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/point2f.js
+// generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/point2f.js
 var Point2f = class _Point2f {
   constructor() {
     this.bb = null;
@@ -5264,7 +5264,7 @@ var Point2fT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/track-trace.js
+// generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/track-trace.js
 var TrackTrace = class _TrackTrace {
   constructor() {
     this.bb = null;
@@ -5353,7 +5353,7 @@ var TrackTraceT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/track-traces.js
+// generated/perception/ts/dist/open_perception_kit/fb/perception/metadata/track-traces.js
 var TrackTraces = class _TrackTraces {
   constructor() {
     this.bb = null;
@@ -5458,7 +5458,7 @@ var TrackTracesT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/registry.js
+// generated/perception/ts/dist/open_perception_kit/registry.js
 var decode_928609632921539799 = (blob) => BoxDetections.getRootAsBoxDetections(new ByteBuffer(blob)).unpack();
 var verify_928609632921539799 = (blob) => BoxDetections.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_94127366257443529 = (blob) => Classifications.getRootAsClassifications(new ByteBuffer(blob)).unpack();
@@ -5563,7 +5563,7 @@ var _CLASS_TO_ID = /* @__PURE__ */ new Map([
   [TrackTracesT, 8745337222662207869n]
 ]);
 
-// generated/perception/ts/dist/perception/envelope.js
+// generated/perception/ts/dist/open_perception_kit/envelope.js
 var __classPrivateFieldSet = function(receiver, state, value, kind, f) {
   if (kind === "m") throw new TypeError("Private method is not writable");
   if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a setter");

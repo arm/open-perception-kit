@@ -37,7 +37,7 @@ struct TensorParser {
         /// Runtime inference information for parser decisions/diagnostics.
         opk::InferenceInfo inferenceInfo;
         /// Identity of the operation and implementation producing result payloads.
-        perception::metadata::ProducerInfoT producerInfo;
+        open_perception_kit::metadata::ProducerInfoT producerInfo;
     };
 
     /**
@@ -57,6 +57,6 @@ struct TensorParser {
      * @return Success or error.
      */
     virtual opk::Result<void> parse(const opk::TensorParser::Input &input,
-                                    perception::FrameResults &results) = 0;
+                                    open_perception_kit::FrameResults &results) = 0;
 };
 } // namespace opk

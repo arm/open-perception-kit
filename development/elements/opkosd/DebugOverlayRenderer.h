@@ -60,7 +60,7 @@ struct DebugOverlayRequest {
     DebugOverlaySurface surface{};
 
     /** @brief FrameResults metadata that drives overlay rendering. */
-    const perception::FrameResults *frameResults = nullptr;
+    const open_perception_kit::FrameResults *frameResults = nullptr;
 
     /** @brief Debug overlay rendering options. */
     DebugOverlayOptions options{};

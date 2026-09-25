@@ -195,6 +195,7 @@ def _build_context(
     flatc_bin: str,
     cpp_python_bridge: bool = False,
     python_package_name: str | None = None,
+    public_name: str | None = None,
 ) -> GenerationContext:
     package_dir = Path(__file__).resolve().parent
     entrypoint_path = package_dir.parent / "gen.py"
@@ -221,6 +222,7 @@ def _build_context(
         tool_sources=tool_sources,
         cpp_python_bridge=cpp_python_bridge,
         python_package_name=python_package_name,
+        public_name=public_name,
     )
 
 
@@ -302,6 +304,11 @@ def _build_parser() -> argparse.ArgumentParser:
             "Python distribution and import name. Defaults to --name. Used by "
             "the Python SDK and optional C++ Python bridge."
         ),
+    )
+    generate_parser.add_argument(
+        "--public-name",
+        type=_python_package_name_arg,
+        help="Public C++, Rust, and TypeScript package name. Defaults to --name.",
     )
     verify_parser = subparsers.add_parser(
         "verify-manifest",
@@ -438,6 +445,7 @@ def main(argv: list[str] | None = None) -> int:
             flatc_bin,
             cpp_python_bridge,
             args.python_package_name,
+            args.public_name,
         )
         sdk_kind = args.sdk or DEFAULT_SDK
         integration_names: list[str] = []

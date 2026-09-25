@@ -51,9 +51,9 @@ MAX_RUST_CRATE_EXPANDED_BYTES = 64 * 1024 * 1024
 MAX_RUST_CRATE_MEMBERS = 10_000
 RUST_CARGO_CONFIG = """\
 [source.crates-io]
-replace-with = "perception-sdk-vendor"
+replace-with = "open-perception-kit-sdk-vendor"
 
-[source.perception-sdk-vendor]
+[source.open-perception-kit-sdk-vendor]
 directory = "vendor"
 
 [net]
@@ -329,8 +329,8 @@ only inside a C++ host that registers the generated live-envelope bridge.
 
 ## C++
 
-Use `cpp/cmake/perception.cmake` directly. For Meson, vendor the complete `cpp/`
-directory and call `subdir('path/to/cpp/meson/perception')`.
+Use `cpp/cmake/{config.public_name}.cmake` directly. For Meson, vendor the complete `cpp/`
+directory and call `subdir('path/to/cpp/meson/{config.public_name}')`.
 
 ## Rust
 
@@ -338,7 +338,7 @@ Add the extracted `rust/` directory as a path dependency:
 
 ```toml
 [dependencies]
-perception = {{ path = "/path/to/perception-sdk-{config.version}/rust" }}
+{config.public_name} = {{ path = "/path/to/{config.public_name.replace('_', '-')}-sdk-{config.version}/rust" }}
 ```
 
 For an offline consumer build, copy `rust/.cargo/config.toml` into the
@@ -351,17 +351,17 @@ cargo build --offline --locked
 ```
 
 Import `Envelope`, `payload`, and generated native payload types from the
-`perception` crate. Require successful `Envelope::decode(...)` and an exact
+`{config.public_name}` crate. Require successful `Envelope::decode(...)` and an exact
 producer identity match before typed payload access.
 
 ## TypeScript
 
 ```bash
 npm install ./typescript/flatbuffers-{config.typescript_runtime.version}.tgz \\
-  ./typescript/{config.name}-{config.cargo_package_version}.tgz
+  ./typescript/{config.public_name.replace('_', '-')}-{config.cargo_package_version}.tgz
 ```
 
-Import `Envelope` and generated payload classes from `{config.name}`. Require an
+Import `Envelope` and generated payload classes from `{config.public_name.replace('_', '-')}`. Require an
 exact producer identity match before typed payload access.
 """,
         encoding="utf-8",
@@ -491,7 +491,7 @@ def write_bundle_manifest(
             "compression": "stored", "file_mode": "0644",
             "timestamp": "1980-01-01T00:00:00Z", "top_level_directory": bundle_root.name,
         },
-        "artifact": {"name": f"{config.name}-sdk", "version": config.version},
+        "artifact": {"name": f"{config.public_name.replace('_', '-')}-sdk", "version": config.version},
         "files": bundle_files(bundle_root),
         "flatbuffers": {
             "compiler": cpp_manifest["flatc"],
@@ -642,7 +642,7 @@ def _verify_source_identities(
     descriptor = metadata["descriptor"]
     generated_manifest = metadata["generated_manifest"]
     if (
-        artifact.get("name") != f"{descriptor.get('name')}-sdk"
+        artifact.get("name") != f"{str(descriptor.get('public_name', '')).replace('_', '-')}-sdk"
         or generated_manifest.get("artifact") != artifact
     ):
         raise RuntimeError("release descriptor, generated manifest, and artifact identities differ")
@@ -958,6 +958,7 @@ def _verify_typescript_packages(
     flatbuffers: dict[str, object],
     file_entries: dict[str, dict[str, object]],
     package_version: str,
+    public_name: str,
 ) -> None:
     perception_npm = manifest.get("perception_npm_package")
     flatbuffers_npm = flatbuffers.get("typescript_package")
@@ -974,7 +975,7 @@ def _verify_typescript_packages(
     perception_package = npm_package_metadata(
         bundle_root / validate_relative_path(perception_npm["path"])
     )
-    if perception_package.get("name") != "perception" or perception_package.get("version") != package_version:
+    if perception_package.get("name") != public_name.replace("_", "-") or perception_package.get("version") != package_version:
         raise RuntimeError("Perception TypeScript package identity is invalid")
     if perception_package.get("dependencies", {}).get("flatbuffers") != flatbuffers_npm.get("version"):
         raise RuntimeError("Perception TypeScript package does not declare locked FlatBuffers")
@@ -1073,7 +1074,7 @@ def _verify_rust_package_identity(
     bundle_root: Path, artifact: dict[str, object], package_version: str
 ) -> None:
     cargo_toml = (bundle_root / "rust" / "Cargo.toml").read_text(encoding="utf-8")
-    expected_name = str(artifact.get("name", "")).removesuffix("-sdk")
+    expected_name = str(artifact.get("name", "")).removesuffix("-sdk").replace("-", "_")
     package_section = cargo_toml.split("[dependencies]", 1)[0]
     if (
         re.search(rf'^name\s*=\s*"{re.escape(expected_name)}"\s*$', package_section, re.MULTILINE)
@@ -1182,7 +1183,7 @@ def verify_manifest_semantics(
     descriptor: dict[str, object],
 ) -> None:
     artifact = manifest["artifact"]
-    if not isinstance(artifact, dict) or artifact.get("name") != "perception-sdk":
+    if not isinstance(artifact, dict) or artifact.get("name") != f"{str(descriptor.get('public_name', '')).replace('_', '-')}-sdk":
         raise RuntimeError("release manifest artifact name is invalid")
     source = manifest["source"]
     if not isinstance(source, dict):
@@ -1207,6 +1208,7 @@ def verify_manifest_semantics(
         flatbuffers,
         file_entries,
         cargo_package_version,
+        str(descriptor["public_name"]),
     )
 
 
@@ -1366,10 +1368,10 @@ def build_bundle(args: argparse.Namespace) -> Path:
             raise RuntimeError(f"SDK inputs or outputs are dirty:\n{status}")
 
     output_dir = args.output_dir.resolve()
-    archive_path = output_dir / f"{config.name}-sdk-{config.version}.zip"
+    archive_path = output_dir / f"{config.public_name.replace('_', '-')}-sdk-{config.version}.zip"
     with tempfile.TemporaryDirectory(prefix="perception-sdk-release-") as tmp:
         workspace = Path(tmp)
-        bundle_root = workspace / f"{config.name}-sdk-{config.version}"
+        bundle_root = workspace / f"{config.public_name.replace('_', '-')}-sdk-{config.version}"
         shutil.copytree(config.generated_root / "cpp", bundle_root / "cpp")
         copy_rust_sdk(config.generated_root / "rust", bundle_root / "rust")
         rust_crates = prepare_rust_vendor(
@@ -1409,7 +1411,7 @@ def build_bundle(args: argparse.Namespace) -> Path:
         )
         typescript_dir = bundle_root / "typescript"
         perception_npm_package = (
-            typescript_dir / f"{config.name}-{config.cargo_package_version}.tgz"
+            typescript_dir / f"{config.public_name.replace('_', '-')}-{config.cargo_package_version}.tgz"
         )
         write_deterministic_npm_package(config.generated_root / "ts", perception_npm_package)
         flatbuffers_npm_package = acquire_artifact(
@@ -1551,7 +1553,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         epilog=(
             "example:\n"
             "  ./scripts/perception-sdk.sh verify "
-            "artifacts/perception-sdk-MAJOR.MINOR.PATCH.zip --require-sidecars"
+            "artifacts/open-perception-kit-sdk-MAJOR.MINOR.PATCH.zip --require-sidecars"
         ),
     )
     verify_parser.add_argument(

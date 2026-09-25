@@ -56,7 +56,7 @@ std::filesystem::path pythonExecutable() {
 
 void initializeRuntime() {
     exposePythonSymbols();
-    perception::python_bridge::append_inittab();
+    open_perception_kit::python_bridge::append_inittab();
     appendTensorModuleInittab();
 
     PyConfig config;

@@ -2,8 +2,8 @@
 // Generated file. Do not edit.
 // SDK users: change schemas or generator inputs, then regenerate this file.
 
-use perception::fb::perception::metadata::BoxDetectionsT;
-use perception::{
+use open_perception_kit::fb::perception::metadata::BoxDetectionsT;
+use open_perception_kit::{
     external_key, payload, EntryRef, Envelope, ProducerIdentityStatus, PERCEPTION_NAME,
     PERCEPTION_VERSION, SCHEMA_SET_SHA256,
 };

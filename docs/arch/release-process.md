@@ -48,17 +48,17 @@ release source commit is a scalar build input. The normal tracked generator
 sources in `tools/flowdata-sdk` enter the Docker build context so packaging can
 verify their local content hashes without Git metadata or generator execution.
 Generator updates are manual source changes; CI does not fetch or update them.
-The stage embeds the triplet under `share/opk/perception-sdk`
+The stage embeds the triplet under `share/opk/open-perception-kit-sdk`
 and checks its provenance against the release commit. The Arm snapshot job
 also uploads that exact embedded triplet as the existing temporary
-`opk-perception-sdk-input-*` or `opk-test-perception-sdk-input-*` Actions
+`open-perception-kit-sdk-input-*` or `opk-test-open-perception-kit-sdk-input-*` Actions
 artifact; it does not rebuild it. For OPK publication, the Arm build extracts
 the verified Python wheel and packages the prepared Rust tree from that triplet
 using its locked offline Cargo vendor directory. The release-only crate manifest
 records FlatBuffers as a crates.io dependency so consumers do not look for it in
 the private registry. The Arm build verifies the packaged crate and stages the
 prepared source that produced it beside both language packages in
-`opk-perception-sdk-input-*`. It recreates the retained crate from that source
+`open-perception-kit-sdk-input-*`. It recreates the retained crate from that source
 with Cargo 1.85 and a clean sparse crates.io configuration so native publication
 produces the same bytes. For stable release pushes, an early job on
 `open-perception-kit-runner-ubuntu-x64` checks that the Cargo version is available on

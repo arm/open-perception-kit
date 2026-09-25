@@ -626,7 +626,8 @@ def _index_text(sdk_name: str, sdk_version: str, schema_set_digest: str) -> str:
     ).lstrip()
 
 
-def _package_json_text(sdk_name: str, sdk_version: str) -> str:
+def _package_json_text(sdk_name: str, sdk_version: str, public_name: str | None = None) -> str:
+    package_name = public_name or sdk_name
     return textwrap.dedent(
         """
         {
@@ -658,8 +659,11 @@ def _package_json_text(sdk_name: str, sdk_version: str) -> str:
           }
         }
         """
-    ).lstrip().replace("__SDK_NAME__", sdk_name).replace("__SDK_VERSION__", sdk_version).replace(
+    ).lstrip().replace("__SDK_NAME__", package_name).replace("__SDK_VERSION__", sdk_version).replace(
         "__FLATBUFFERS_VERSION_REQUIREMENT__", FLATBUFFERS_TYPESCRIPT_REQUIREMENT
+    ).replace(
+        f'"name": "{package_name}"',
+        f'"name": "{package_name.replace("_", "-")}"',
     )
 
 
@@ -696,7 +700,7 @@ def generate_typescript_sdk(entries: list[SchemaEntry], ctx: GenerationContext) 
     schema_set_digest = schema_set_sha256(ctx)
     project_root = _ts_project_root(ctx)
     src_root = project_root / "src"
-    package_root = src_root / ctx.sdk_name
+    package_root = src_root / ctx.effective_public_name
     fb_root = package_root / "fb"
     if src_root.exists():
         shutil.rmtree(src_root)
@@ -732,7 +736,7 @@ def generate_typescript_sdk(entries: list[SchemaEntry], ctx: GenerationContext) 
     generated.append(
         _write_text(
             project_root / "package.json",
-            _package_json_text(ctx.sdk_name, str(ctx.sdk_version)),
+            _package_json_text(ctx.sdk_name, str(ctx.sdk_version), ctx.effective_public_name),
         )
     )
     generated.append(_write_text(project_root / "tsconfig.json", _tsconfig_text()))

@@ -131,7 +131,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 GIT_COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$", re.ASCII)
 PERCEPTION_SDK_ARCHIVE_PATTERN = re.compile(
-    r"^perception-sdk-(\d+\.\d+\.\d+)\.zip$", re.ASCII
+    r"^open-perception-kit-sdk-(\d+\.\d+\.\d+)\.zip$", re.ASCII
 )
 
 
@@ -626,7 +626,7 @@ def validate_perception_sdk(
     repo_root: Path | None = None,
 ) -> None:
     archive = perception_sdk_archive(perception_sdk_root)
-    version = archive.name.removeprefix("perception-sdk-").removesuffix(".zip")
+    version = archive.name.removeprefix("open-perception-kit-sdk-").removesuffix(".zip")
 
     verification_root = repo_root or REPO_ROOT
     if repo_root is not None and read_version(repo_root) != version:
@@ -846,7 +846,7 @@ def validate_package(args: argparse.Namespace) -> None:
     validate_legal_documentation(package_root)
     validate_release_payload(package_root, repo_root)
     validate_perception_sdk(
-        package_root / "share/opk/perception-sdk",
+        package_root / "share/opk/open-perception-kit-sdk",
         args.expected_commit,
         repo_root,
     )

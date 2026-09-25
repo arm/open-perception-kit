@@ -89,12 +89,12 @@ endfunction()
 
     def write_outputs(self, context: GenerationContext, entries: list[SchemaEntry]) -> list[Path]:
         del entries
-        cmake_module_path = context.cpp_root / "cmake" / f"{context.sdk_name}.cmake"
+        cmake_module_path = context.cpp_root / "cmake" / f"{context.effective_public_name}.cmake"
         _write_text(
             cmake_module_path,
             self._template.format(
-                sdk_name=context.sdk_name,
-                sdk_name_upper=context.sdk_name.upper(),
+                sdk_name=context.effective_public_name,
+                sdk_name_upper=context.effective_public_name.upper(),
                 sdk_version=str(context.sdk_version),
                 flatbuffers_version_requirement=cpp_flatbuffers_requirement(
                     context.flatc_version
@@ -111,7 +111,7 @@ endfunction()
                 ),
                 sdk_root_var=f"_{context.sdk_name.upper()}_SDK_ROOT",
                 flatbuffers_include_var=f"{context.sdk_name.upper()}_FLATBUFFERS_INCLUDE_DIR",
-                python_bridge_block=_python_bridge_block(context.sdk_name)
+                python_bridge_block=_python_bridge_block(context.effective_public_name, context.sdk_name)
                 if context.cpp_python_bridge
                 else "",
             ),
@@ -119,7 +119,7 @@ endfunction()
         return [cmake_module_path]
 
 
-def _python_bridge_block(sdk_name: str) -> str:
+def _python_bridge_block(sdk_name: str, bridge_source_name: str) -> str:
     sdk_name_upper = sdk_name.upper()
     return f"""\
 function({sdk_name}_enable_python_bridge target)
@@ -134,7 +134,7 @@ function({sdk_name}_enable_python_bridge target)
   find_package(Python3 3.10 COMPONENTS Development REQUIRED)
 
   set(_{sdk_name_upper}_PYTHON_BRIDGE_SOURCE
-    "${{_{sdk_name_upper}_SDK_ROOT}}/cpp/python_bridge/{sdk_name}_python_bridge.cpp")
+    "${{_{sdk_name_upper}_SDK_ROOT}}/cpp/python_bridge/{bridge_source_name}_python_bridge.cpp")
   if(NOT EXISTS "${{_{sdk_name_upper}_PYTHON_BRIDGE_SOURCE}}")
     message(FATAL_ERROR "{sdk_name} Python bridge was not generated")
   endif()

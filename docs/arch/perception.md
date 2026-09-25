@@ -6,13 +6,13 @@ sidebar_label: Perception
 # Perception
 
 Perception is the schema and SDK domain for structured runtime results.
-`perception::FrameResults` is the concrete C++ runtime container: a generated,
+`open_perception_kit::FrameResults` is the concrete C++ runtime container: a generated,
 typed envelope that travels downstream with a media buffer and accumulates
 payloads from postprocessing, tracking, and performance elements.
 
-The naming boundary is intentional. **Perception** identifies the schema set,
-generated SDK, package, and namespace; **FrameResults** identifies one frame's
-runtime result envelope.
+**Perception** identifies the schema set and remains the packet producer identity.
+The public SDK packages and C++ facade use **Open Perception Kit** names;
+**FrameResults** identifies one frame's runtime result envelope.
 
 ## Generated SDKs
 
@@ -27,7 +27,7 @@ implementation. `$package-perception-sdk-release` consumes an already committed
 snapshot and creates distributable artifacts without regenerating it.
 
 `tools/perception/sdk.json` is the only hand-edited SDK release descriptor. It
-defines the SDK identity, canonical schema and generated directories,
+defines the wire identity, public package name, canonical schema and generated directories,
 flowdata-sdk location, generated project integrations, and checksum-locked
 FlatBuffers and Python wheel-build artifacts. The SDK packages share the OPK
 product version from `development/meson.build`. `tools/perception/sdk_config.py` is the shared loader

@@ -10,7 +10,7 @@ file through `opk::runtime::OpChain`, validates the binary Perception packet
 through the example-local `PerceptionPacket` helper, and demonstrates typed
 generated Perception SDK payload handling with lambdas. The source intentionally
 avoids direct `op/`, `mediaio/`, and internal `opk/Perception` headers, but it
-does include generated `perception::metadata::*` payload types because typed
+does include generated `open_perception_kit::metadata::*` payload types because typed
 result consumption is part of the example.
 
 ## Build

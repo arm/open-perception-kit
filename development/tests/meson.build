@@ -309,7 +309,7 @@ python_guest_script_executor = executable(
     '-DPERCEPTION_PYTHON_EXECUTABLE="' + opk_python.full_path() + '"',
     '-DPERCEPTION_PYTHON_SDK_PATH="' + perception_python_sdk_path + '"',
   ],
-  dependencies : [perception_python_bridge_dep],
+  dependencies : [open_perception_kit_python_bridge_dep],
   install : false,
 )
 

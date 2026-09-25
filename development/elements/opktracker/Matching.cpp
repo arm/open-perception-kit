@@ -29,14 +29,14 @@ struct AssociationMatrices {
     SimilarityMatrix similarity;
 };
 
-const perception::metadata::BoxDetectionT &detectionAt(const DetectionBatch &detections,
-                                                       size_t index) {
+const open_perception_kit::metadata::BoxDetectionT &detectionAt(const DetectionBatch &detections,
+                                                                size_t index) {
     assert(index < detections.size());
     assert(detections[index] != nullptr);
     return *detections[index];
 }
 
-uint64_t idOf(const perception::metadata::BoxDetectionT &detection) {
+uint64_t idOf(const open_perception_kit::metadata::BoxDetectionT &detection) {
     return detection.object ? detection.object->id : 0U;
 }
 
@@ -56,9 +56,9 @@ TrackIdList collectActiveTrackIds(const ActiveTrackMap &activeTracks) {
     return trackIds;
 }
 
-std::vector<perception::metadata::BoundingBoxT>
+std::vector<open_perception_kit::metadata::BoundingBoxT>
 predictTrackBoxes(ActiveTrackMap &activeTracks, float kalmanDt, const Config &config) {
-    std::vector<perception::metadata::BoundingBoxT> predictedTrackBoxes;
+    std::vector<open_perception_kit::metadata::BoundingBoxT> predictedTrackBoxes;
     predictedTrackBoxes.reserve(activeTracks.size());
 
     for (auto &[trackId, track] : activeTracks) {
@@ -162,13 +162,13 @@ bool isAssignmentAccepted(float iou, const std::optional<float> &similarity, con
     return false;
 }
 
-AssociationMatrices
-buildAssociationMatrices(const DetectionBatch &detections,
-                         const TrackIdList &trackIds,
-                         const std::vector<perception::metadata::BoundingBoxT> &predictedTrackBoxes,
-                         const EmbeddingBatch &embeddings,
-                         const ActiveTrackMap &activeTracks,
-                         const Config &config) {
+AssociationMatrices buildAssociationMatrices(
+    const DetectionBatch &detections,
+    const TrackIdList &trackIds,
+    const std::vector<open_perception_kit::metadata::BoundingBoxT> &predictedTrackBoxes,
+    const EmbeddingBatch &embeddings,
+    const ActiveTrackMap &activeTracks,
+    const Config &config) {
     AssociationMatrices matrices{
         .iou = CostMatrix(detections.size(), std::vector<float>(trackIds.size(), 0.0f)),
         .cost = CostMatrix(detections.size(), std::vector<float>(trackIds.size(), 1.0f)),

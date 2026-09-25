@@ -235,7 +235,7 @@ After the complete authored and generated snapshot is committed, hand off to
   --expect-version <MAJOR.MINOR.PATCH>
 
 ./scripts/perception-sdk.sh verify \
-  artifacts/perception-sdk-<MAJOR.MINOR.PATCH>.zip \
+  artifacts/open-perception-kit-sdk-<MAJOR.MINOR.PATCH>.zip \
   --require-sidecars
 ```
 

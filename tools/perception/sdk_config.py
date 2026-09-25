@@ -36,6 +36,7 @@ class LockedArtifact:
 @dataclass(frozen=True)
 class SdkConfig:
     name: str
+    public_name: str
     python_package_name: str
     version: str
     package_prerelease: bool
@@ -190,6 +191,7 @@ def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
     raw = json.loads(path.read_text(encoding="utf-8"))
     expected = {
         "name",
+        "public_name",
         "package_prerelease",
         "schema_dir",
         "generated_dir",
@@ -206,6 +208,9 @@ def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
     name = raw["name"]
     if not isinstance(name, str) or PACKAGE_NAME_RE.fullmatch(name) is None:
         raise RuntimeError("SDK name must be a lowercase package identifier")
+    public_name = raw["public_name"]
+    if not isinstance(public_name, str) or PYTHON_PACKAGE_NAME_RE.fullmatch(public_name) is None:
+        raise RuntimeError("SDK public_name must match [a-z][a-z0-9_]*")
     package_prerelease = raw["package_prerelease"]
     if not isinstance(package_prerelease, bool):
         raise RuntimeError("package_prerelease must be boolean")
@@ -219,6 +224,8 @@ def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
         or PYTHON_PACKAGE_NAME_RE.fullmatch(python_package_name) is None
     ):
         raise RuntimeError("python_package.name must match [a-z][a-z0-9_]*")
+    if python_package_name != public_name:
+        raise RuntimeError("python_package.name must match public_name")
 
     flatbuffers = raw["flatbuffers"]
     if not isinstance(flatbuffers, dict) or set(flatbuffers) != {
@@ -269,6 +276,7 @@ def load_sdk_config(path: Path = SDK_CONFIG_PATH) -> SdkConfig:
 
     return SdkConfig(
         name=name,
+        public_name=public_name,
         python_package_name=python_package_name,
         version=product_version(),
         package_prerelease=package_prerelease,

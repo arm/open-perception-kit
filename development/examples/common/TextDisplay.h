@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "perception.h"
+#include "open_perception_kit.h"
 
 #include <string>
 #include <vector>
@@ -12,23 +12,23 @@
 class TextDisplay {
   public:
     static void appendLines(std::vector<std::string> &lines,
-                            const perception::metadata::FrameContextT &payload);
+                            const open_perception_kit::metadata::FrameContextT &payload);
     static void appendLines(std::vector<std::string> &lines,
-                            const perception::metadata::BoxDetectionsT &payload);
+                            const open_perception_kit::metadata::BoxDetectionsT &payload);
     static void appendLines(std::vector<std::string> &lines,
-                            const perception::metadata::ObjectTracksT &payload);
+                            const open_perception_kit::metadata::ObjectTracksT &payload);
     static void appendLines(std::vector<std::string> &lines,
-                            const perception::metadata::ClassificationsT &payload);
+                            const open_perception_kit::metadata::ClassificationsT &payload);
     static void appendLines(std::vector<std::string> &lines,
-                            const perception::metadata::PoseEstimationsT &payload);
+                            const open_perception_kit::metadata::PoseEstimationsT &payload);
     static void appendLines(std::vector<std::string> &lines,
-                            const perception::metadata::SegmentationMasksT &payload);
+                            const open_perception_kit::metadata::SegmentationMasksT &payload);
     static void appendLines(std::vector<std::string> &lines,
-                            const perception::metadata::ObjectEmbeddingsT &payload);
+                            const open_perception_kit::metadata::ObjectEmbeddingsT &payload);
     static void appendLines(std::vector<std::string> &lines,
-                            const perception::metadata::TrackTracesT &payload);
+                            const open_perception_kit::metadata::TrackTracesT &payload);
     static void appendLines(std::vector<std::string> &lines,
-                            const perception::metadata::PerformanceOverlayT &payload);
+                            const open_perception_kit::metadata::PerformanceOverlayT &payload);
 
     template <typename Payload>
     static std::vector<std::string> formatLines(const Payload &payload) {

@@ -78,7 +78,7 @@ COPY --chmod=0755 scripts/setup-python-ops-runtime.sh /usr/local/bin/setup-pytho
 
 RUN set -eux; \
   install-perception-flatbuffers /tmp/perception-sdk.json; \
-  mkdir -p /opt/opk-deps/perception-sdk-artifacts; \
+  mkdir -p /opt/opk-deps/open-perception-kit-sdk-artifacts; \
   python3 -c 'import json; d=json.load(open("/tmp/perception-sdk.json")); artifacts=[*d["python_build"]["tools"], d["flatbuffers"]["python_wheel"], *d["flatbuffers"]["rust_crates"], d["typescript_build"]["flatbuffers_runtime"]]; [print(a["filename"], a["url"], a["sha256"], a.get("name", ""), a.get("version", ""), sep="\t") for a in artifacts]' | \
   while IFS=$'\t' read -r filename url sha256 name version; do \
     fallback_user_agent='curl'; \
@@ -92,7 +92,7 @@ RUN set -eux; \
         fallback_url="${NPM_FALLBACK_REGISTRY}/${url#https://registry.npmjs.org/}" ;; \
       *) echo "Unsupported Perception SDK artifact URL: ${url}" >&2; exit 1 ;; \
     esac; \
-    destination="/opt/opk-deps/perception-sdk-artifacts/${filename}"; \
+    destination="/opt/opk-deps/open-perception-kit-sdk-artifacts/${filename}"; \
     timeout 30s curl \
       --fail --location --proto '=https' --proto-redir '=https' \
       --retry 1 --output "${destination}" "${url}" || \
@@ -668,13 +668,13 @@ RUN --mount=type=cache,id=opk-deployment-ccache,target=/work/.cache/ccache,shari
     package_root=/opt/opk-release-root; \
     test -n "${OPK_RELEASE_SOURCE_COMMIT}"; \
     /work/scripts/perception-sdk.sh package \
-      --output-dir /tmp/perception-sdk-input \
-      --artifact-dir /opt/opk-deps/perception-sdk-artifacts \
+      --output-dir /tmp/open-perception-kit-sdk-input \
+      --artifact-dir /opt/opk-deps/open-perception-kit-sdk-artifacts \
       --repository-commit "${OPK_RELEASE_SOURCE_COMMIT}"; \
     mkdir -p \
       "${package_root}/lib/opk" \
       "${package_root}/share/opk/licenses/libexecutorch-dev" \
-      "${package_root}/share/opk/perception-sdk"; \
+      "${package_root}/share/opk/open-perception-kit-sdk"; \
     /work/tools/opk-config-check --root /work; \
     DESTDIR="${package_root}" meson install \
       -C /work/development/build --skip-subprojects; \
@@ -690,15 +690,15 @@ RUN --mount=type=cache,id=opk-deployment-ccache,target=/work/.cache/ccache,shari
       "${package_root}/share/opk/licenses/"; \
     cp -a /opt/opk-deps/executorch-legal-documentation/. \
       "${package_root}/share/opk/licenses/libexecutorch-dev/"; \
-    cp -a /tmp/perception-sdk-input/. \
-      "${package_root}/share/opk/perception-sdk/"; \
+    cp -a /tmp/open-perception-kit-sdk-input/. \
+      "${package_root}/share/opk/open-perception-kit-sdk/"; \
     python3 /work/scripts/release/ReleaseTool.py stage-models \
       --repo-root /work --stage-root "${package_root}"; \
     python3 /work/scripts/release/ReleaseTool.py validate-package \
       --architecture "${architecture}" \
       --expected-commit "${OPK_RELEASE_SOURCE_COMMIT}" \
       --repo-root /work --package-root "${package_root}"; \
-    rm -rf /tmp/perception-sdk-input; \
+    rm -rf /tmp/open-perception-kit-sdk-input; \
   fi; \
   rm -rf /work/development/build
 

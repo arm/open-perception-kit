@@ -19,7 +19,7 @@ Applications that need different process-wide logging can populate
 
 The source intentionally keeps GStreamer and internal `opk/` implementation
 types behind `opk::runtime::Pipeline`, but it does include generated
-`perception::metadata::*` payload types because typed result consumption is part
+`open_perception_kit::metadata::*` payload types because typed result consumption is part
 of the example. Each packet is validated through the example-local
 `PerceptionPacket` helper, visited with typed Perception SDK lambdas, and
 displayed through the example-local `TextDisplay` helper. Unknown payload types
