@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
 import test from "node:test";
 
 class FakeClassList {
@@ -157,6 +158,24 @@ globalThis.WebSocket = class {
 };
 
 const {modelsManager} = await import("../src/models.js");
+
+test("selector keeps the current default detector first in the preferred model order", () => {
+  const models = [
+    "yolo26n-320",
+    "osnet-x0-25",
+    "ultraface-rfb-320",
+    "nitec-resnet-18",
+    "mobilegaze-mobilenet-v2",
+  ].map((id) => JSON.parse(readFileSync(
+    new URL(`../../../config/models/${id}/opchain.json`, import.meta.url), "utf8")));
+
+  modelsManager.render([...models].reverse());
+
+  assert.deepEqual(
+    modelsContainer.children.map((item) => item.getAttribute("data-model-name")),
+    models.map((model) => model.name),
+  );
+});
 
 test("selector renders task and model details from descriptor metadata", () => {
   const model = {
