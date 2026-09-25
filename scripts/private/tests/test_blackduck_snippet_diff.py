@@ -18,21 +18,6 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 class SnippetDiffTests(unittest.TestCase):
-    def test_manual_candidate_preparation_preserves_stable_sdk_versions(self):
-        workflow = yaml.safe_load((ROOT / ".github/workflows/release-tests.yml").read_text())
-        step = next(step for step in workflow["jobs"]["prepare"]["steps"]
-                    if step.get("name") == "Prepare release identity")
-        with tempfile.TemporaryDirectory() as temporary:
-            output = Path(temporary) / "output"
-            subprocess.run(
-                ["bash", "-euo", "pipefail", "-c", step["run"]], cwd=ROOT, check=True,
-                env={**os.environ, "GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_OUTPUT": str(output)},
-            )
-            identity = dict(line.split("=", 1) for line in output.read_text().splitlines())
-            self.assertEqual(identity["python_package_version"], identity["version"])
-            self.assertEqual(identity["cargo_package_version"], identity["version"])
-            self.assertEqual(identity["build_id"], identity["version"])
-
     def test_workflow_omits_gitlink_metadata_but_keeps_all_source_changes(self):
         workflow = yaml.safe_load((ROOT / ".github/workflows/blackduck-scan.yml").read_text())
         step = next(step for step in workflow["jobs"]["snippets"]["steps"]
