@@ -38,8 +38,8 @@ runs:
           gstreamer1.0-tools gstreamer1.0-nice gstreamer1.0-plugins-base \
           gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly
         {
-          echo "CC=$CC"
-          echo "CXX=$CXX"
+          echo "CC=ccache $CC"
+          echo "CXX=ccache $CXX"
         } >> "$GITHUB_ENV"
         bash scripts/private/install-onnxruntime.sh requirements/build.json "$(uname -m)" "$RUNNER_TEMP/onnxruntime"
 
