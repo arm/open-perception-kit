@@ -3,6 +3,10 @@ name: Clang-tidy
 on:
   pull_request:
 
+concurrency:
+  group: clang-tidy-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   pull-requests: read
