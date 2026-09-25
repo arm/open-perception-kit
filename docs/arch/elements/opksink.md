@@ -46,6 +46,9 @@ serves the same non-blocking role as the video path.
 - an HTTP server for static browser content
 - a model registry exposed through the control channel
 
+Control messages with malformed JSON or a missing/non-string `type` are dropped
+with a debug log. The connection stays open and subsequent commands remain usable.
+
 `opkinfer` emits `opk-model-register` events, and `opksink` records the model
 state and declared required/provided content types for browser-side visibility.
 It also handles unregister events if an upstream component emits them.

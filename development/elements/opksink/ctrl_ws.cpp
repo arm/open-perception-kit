@@ -112,12 +112,16 @@ void CtrlWebSocket::on_close(const connection_hdl &hdl) {
 
 void CtrlWebSocket::on_message(const connection_hdl &hdl, const ws_server::message_ptr &msg) {
     opk::log::debug("on_message");
-    auto payload = msg->get_payload();
-    auto jsn = json::parse(payload);
-    auto type = jsn["type"].get<std::string>();
+    try {
+        auto payload = msg->get_payload();
+        auto jsn = json::parse(payload);
+        auto type = jsn["type"].get<std::string>();
 
-    if (auto it = message_types.find(type); it != message_types.end()) {
-        (*it).second(jsn);
+        if (auto it = message_types.find(type); it != message_types.end()) {
+            (*it).second(jsn);
+        }
+    } catch (const json::exception &) {
+        opk::log::debug("Dropping invalid control message");
     }
 }
 
