@@ -1,0 +1,28 @@
+{
+  "version": "1.0.1",
+  "name": "yolo26n-320-int8",
+  "modelFile": "yolo26n_raspberry_onnx_optimized.onnx",
+  "hfDownload": {
+    "repo_id": "Arm/yolo26n-320-int8-onnx-raspberrypi5",
+    "revision": "0a78551c6225bb4947a6397a3d46cfaf91c00812",
+    "filename": "yolo26n_raspberry_onnx_optimized.onnx",
+    "sha256": "a64a843197d4e7697c2d834d610fba88a7ebd81a62f39d1270ea7ad1aed687fc"
+  },
+  "dynamicOutput": true,
+  "inputTensors": [
+    {
+      "shape": [
+        1,
+        3,
+        320,
+        320
+      ],
+      "dataKind": "ImageRgbChw",
+      "keepAspectRatio": true,
+      "letterboxRed": 0.4470588235294118,
+      "letterboxGreen": 0.4470588235294118,
+      "letterboxBlue": 0.4470588235294118
+    }
+  ]
+}
+

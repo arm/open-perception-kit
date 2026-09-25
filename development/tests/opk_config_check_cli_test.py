@@ -75,9 +75,9 @@ class OpkConfigCheckCliTest(unittest.TestCase):
 
     def test_version_compatibility_for_each_contract(self) -> None:
         sources = {
-            "models/model.json": "models/yolov11/model.json",
-            "opchains/opchain.json": "models/yolov11/opchain.json",
-            "pipelines/demo.json": "pipelines/testing/only-opkmenu.json",
+            "models/model.json": "models/yolo26n-320/model.json",
+            "opchains/opchain.json": "models/yolo26n-320/opchain.json",
+            "pipelines/demo.json": "pipelines/yolo26n-320.json",
         }
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

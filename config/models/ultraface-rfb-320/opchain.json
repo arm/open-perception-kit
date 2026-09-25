@@ -1,0 +1,15 @@
+{
+  "version": "1.0.1",
+  "name": "UltraFaceRfb320Int8",
+  "displayName": "UltraFace RFB-320 INT8",
+  "task": "Face detection",
+  "runtime": "ONNX",
+  "description": "Runs the Arm-optimized UltraFace RFB-320 INT8 face detector.",
+  "ops": [
+    {"id": "opk-std-ops/InferenceController", "attributes": {}},
+    {"id": "opk-std-ops/GenericImagePreprocess", "attributes": {"inputImageTensorIndex": 0, "inputImageSourceName": "pipelineVideoFrame"}},
+    {"id": "opk-onnx-ops/Inference", "attributes": {"modelDescriptor": "model.json"}},
+    {"id": "opk-std-ops/GenericPostprocess", "attributes": {"parser": "UltrafaceParser", "normalizeOutputCoordinates": false, "confidenceThreshold": 0.1, "iouThreshold": 0.3}}
+  ]
+}
+

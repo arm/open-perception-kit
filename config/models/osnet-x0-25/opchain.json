@@ -1,0 +1,15 @@
+{
+  "version": "1.0.2",
+  "name": "OsnetX025Int8Reid",
+  "displayName": "OSNet x0.25 INT8",
+  "task": "Object re-identification",
+  "runtime": "ONNX",
+  "description": "Runs OSNet on generic-object crops and produces embeddings.",
+  "ops": [
+    {"id": "opk-std-ops/InferenceController", "loopId": 1, "attributes": {"contentType": "genericObject"}},
+    {"id": "opk-std-ops/GenericImagePreprocess", "loopId": 1, "attributes": {"inputImageTensorIndex": 0, "inputImageSourceName": "pipelineVideoFrame"}},
+    {"id": "opk-onnx-ops/Inference", "loopId": 1, "attributes": {"modelDescriptor": "model.json"}},
+    {"id": "opk-std-ops/GenericPostprocess", "loopId": 1, "attributes": {"parser": "ObjectEmbeddingParser"}}
+  ]
+}
+

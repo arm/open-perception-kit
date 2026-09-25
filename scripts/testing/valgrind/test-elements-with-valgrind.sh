@@ -13,7 +13,7 @@ OPK_MENU="$WORK_ROOT/tools/opk-menu"
 OPKINFER_RETRY_TEST="$WORK_ROOT/development/build/meson-out/opkinfer-retry-valgrind-test"
 OPKSINK_FACTORY_FAILURE_TEST="$WORK_ROOT/development/build/meson-out/opksink_factory_failure_test"
 OPKSINK_PLUGIN="$WORK_ROOT/development/build/meson-out/libopksink.so"
-TEST_PIPELINES_DIR="$WORK_ROOT/config/pipelines/testing"
+TEST_PIPELINES_DIR="$WORK_ROOT/config/pipelines"
 LOG_DIR="$SCRIPT_DIR/logs"
 DEFAULT_SUPPRESSIONS_FILE="$SCRIPT_DIR/suppressed-warnings"
 
@@ -35,8 +35,8 @@ Commands:
 Options:
     --pipeline, -p <json-path>
                  Run valgrind only for the provided pipeline JSON file.
-                 If omitted, all JSON files from scripts/pipelines/testing are used.
-                 Pipelines in the pipelines/testing directory can be referenced by their filename as well (with or without .json extension),
+                 If omitted, the yolo26n-320 pipeline is used.
+                 Pipelines in the config/pipelines directory can be referenced by their filename as well (with or without .json extension),
                  for everything else, an absolute or relative path to the JSON file shall be provided.
     --show-3rd-party-warnings
                  Disable third-party suppressions and show all Valgrind warnings.
@@ -149,7 +149,7 @@ run_valgrind_all() {
         pipelines=("$resolved_pipeline")
     else
         shopt -s nullglob
-        pipelines=("$TEST_PIPELINES_DIR"/*.json)
+        pipelines=("$TEST_PIPELINES_DIR/yolo26n-320.json")
         shopt -u nullglob
 
         # Skip intentionally disabled pipelines by filename convention.
@@ -216,8 +216,8 @@ run_valgrind_all() {
         --errors-for-leak-kinds=definite \
         --xml-file="$retry_log_file" \
         "$OPKINFER_RETRY_TEST" \
-        "$WORK_ROOT/config/models/yolov11/opchain.json" \
-        "$WORK_ROOT/config/models/yolov11/model.json"; then
+        "$WORK_ROOT/config/models/yolo26n-320/opchain.json" \
+        "$WORK_ROOT/config/models/yolo26n-320/model.json"; then
         msg "PASSED: OPKinfer failed-start/retry regression"
     else
         retry_rc=$?

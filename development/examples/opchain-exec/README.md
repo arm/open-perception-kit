@@ -28,7 +28,7 @@ The example is part of the main Meson build and is staged to
 
 ```sh
 ./tools/opchain-exec \
-  config/models/ultraface/opchain.json \
+  config/models/ultraface-rfb-320/opchain.json \
   data/images/my-image.jpg
 ```
 

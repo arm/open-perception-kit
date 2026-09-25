@@ -95,9 +95,9 @@ TEST(ConfigValidator, RepositoryRejectsEmptyModelVariant) {
     EXPECT_FALSE(hasRule(report, "dispatch.version"));
 }
 
-TEST(ConfigValidator, RepositoryLoadsPaddleRecognitionWithOnnxCompatibleInput) {
+TEST(ConfigValidator, RepositoryLoadsMobileGazeWithStaticOutputs) {
     const auto path = std::filesystem::path(OPK_REPOSITORY_ROOT) /
-                      "config/models/paddleocr/model-recognition.json";
+                      "config/models/mobilegaze-mobilenet-v2/model.json";
     std::ifstream input(path);
     std::ostringstream content;
     content << input.rdbuf();
@@ -106,7 +106,9 @@ TEST(ConfigValidator, RepositoryLoadsPaddleRecognitionWithOnnxCompatibleInput) {
 
     ASSERT_TRUE(descriptor) << (descriptor ? "" : descriptor.error().toText());
     ASSERT_EQ(descriptor->inputTensors.size(), 1U);
-    EXPECT_EQ(descriptor->inputTensors.front().shape, opk::Shape(1, 3, 48, 640));
+    EXPECT_EQ(descriptor->inputTensors.front().shape, opk::Shape(1, 3, 448, 448));
+    ASSERT_EQ(descriptor->outputTensors.size(), 2U);
+    EXPECT_EQ(descriptor->outputTensors.front().shape, opk::Shape(1, 90));
 }
 
 TEST(ConfigValidator, CheckedInRepositoryIsValidAndCanonicalRoundTrips) {

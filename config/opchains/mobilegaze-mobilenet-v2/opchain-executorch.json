@@ -1,0 +1,18 @@
+{
+  "version": "1.0.0",
+  "name": "UltraFaceMobileGazeMobilenetV2Executorch",
+  "displayName": "UltraFace + MobileGaze MobileNetV2 INT8 (ExecuTorch)",
+  "task": "Gaze estimation",
+  "runtime": "ONNX + ExecuTorch (XNNPACK)",
+  "description": "Detects faces, then estimates gaze on each face crop.",
+  "ops": [
+    {"id": "opk-std-ops/InferenceController", "attributes": {}},
+    {"id": "opk-std-ops/GenericImagePreprocess", "attributes": {"inputImageTensorIndex": 0, "inputImageSourceName": "pipelineVideoFrame"}},
+    {"id": "opk-onnx-ops/Inference", "attributes": {"modelDescriptor": "../../models/ultraface-rfb-320/model.json"}},
+    {"id": "opk-std-ops/GenericPostprocess", "attributes": {"parser": "UltrafaceParser", "normalizeOutputCoordinates": false, "confidenceThreshold": 0.1, "iouThreshold": 0.3}},
+    {"id": "opk-std-ops/InferenceController", "loopId": 2, "attributes": {"contentType": "humanFace"}},
+    {"id": "opk-std-ops/GenericImagePreprocess", "loopId": 2, "attributes": {"inputImageTensorIndex": 0, "inputImageSourceName": "pipelineVideoFrame"}},
+    {"id": "opk-executorch-ops/Inference", "loopId": 2, "attributes": {"modelDescriptor": "../../models/mobilegaze-mobilenet-v2-executorch/model.json"}},
+    {"id": "opk-std-ops/GenericPostprocess", "loopId": 2, "attributes": {"parser": "GazeDetectionParser", "angleBinWidthDeg": 4}}
+  ]
+}

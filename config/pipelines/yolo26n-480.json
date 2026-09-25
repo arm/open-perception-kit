@@ -1,0 +1,49 @@
+{
+  "version": "1.0.0",
+  "description": "YOLO26n-480 INT8 object detection on bundled video.",
+  "sourceInfo": "bundled video file",
+  "loop": true,
+  "pipeline": [
+    "filesrc location=\"${OPK_PROJECT_ROOT:-/work}/data/videos/GettyImages-1140581459.mov\" !",
+    "decodebin !",
+    "videoconvert !",
+    "video/x-raw,format=BGRA !",
+    "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/yolo26n-480/opchain.json\" active=true !",
+    "opktracker content-type=genericObject !",
+    "opkperformance show-all-metrics=true update-interval=1 !",
+    "opkcomm method=websocket endpoint=/ws !",
+    "opksink name=sink"
+  ],
+  "alternative-source-image": [
+    "filesrc location=\"${OPK_PROJECT_ROOT:-/work}/data/images/GettyImages-1140581459-thumbnail.jpg\" !",
+    "jpegdec !",
+    "imagefreeze !",
+    "videoconvert ! video/x-raw,format=BGRA !"
+  ],
+  "alternative-source-usbcam": [
+    "v4l2src device=/dev/video0 ! \"image/jpeg,width=1280,height=720,framerate=60/1\" !",
+    "jpegdec !",
+    "videoconvert ! video/x-raw,format=BGRA !"
+  ],
+  "alternative-source-raspicam": [
+    "libcamerasrc camera-name=\"/base/axi/pcie@1000120000/rp1/i2c@80000/imx708@1a\" !",
+    "video/x-raw,format=RGB,width=1536,height=864,framerate=60/1 !",
+    "videoconvert ! video/x-raw,format=BGRA !"
+  ],
+  "alternative-source-video": [
+    "filesrc location=\"${OPK_PROJECT_ROOT:-/work}/data/videos/GettyImages-1298072556.mov\" !",
+    "decodebin !",
+    "videoconvert !",
+    "video/x-raw,format=BGRA !"
+  ],
+  "alternative-sink": [
+    "filesink location=\"${OPK_PROJECT_ROOT:-/work}/data/output/yolo26n-480.mp4\""
+  ],
+  "alternative-sink-opksink-with-audio": [
+    "opksink name=sink",
+    "alsasrc device=hw:2,0 do-timestamp=true !",
+    "audioconvert ! audioresample !",
+    "audio/x-raw,rate=48000,channels=2 !",
+    "sink.audiosink"
+  ]
+}

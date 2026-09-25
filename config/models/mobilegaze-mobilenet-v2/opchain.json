@@ -1,0 +1,15 @@
+{
+  "version": "1.0.2",
+  "name": "MobileGazeMobilenetV2Int8",
+  "displayName": "MobileGaze MobileNetV2 INT8",
+  "task": "Gaze estimation",
+  "runtime": "ONNX",
+  "description": "Estimates gaze direction from human-face crops.",
+  "ops": [
+    {"id": "opk-std-ops/InferenceController", "loopId": 1, "attributes": {"contentType": "humanFace"}},
+    {"id": "opk-std-ops/GenericImagePreprocess", "loopId": 1, "attributes": {"inputImageTensorIndex": 0, "inputImageSourceName": "pipelineVideoFrame"}},
+    {"id": "opk-onnx-ops/Inference", "loopId": 1, "attributes": {"modelDescriptor": "model.json"}},
+    {"id": "opk-std-ops/GenericPostprocess", "loopId": 1, "attributes": {"parser": "GazeDetectionParser", "angleBinWidthDeg": 4}}
+  ]
+}
+

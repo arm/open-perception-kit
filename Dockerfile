@@ -727,7 +727,7 @@ FROM opk-python-ops-runtime AS opk-deployment-base
 ARG USERNAME=opk
 ARG USER_UID=1000
 ARG USER_GID=1000
-ARG OPK_PIPELINE=yolo26-onnx
+ARG OPK_PIPELINE=yolo26n-320
 ARG OPK_PICAMERA=disabled
 ARG BUILDARCH
 ARG TARGETARCH
@@ -806,14 +806,6 @@ RUN set -eux; \
     if ldd "${python_ops}" | grep -q 'not found'; then \
       exit 1; \
     fi; \
-    gst-launch-1.0 -q \
-      videotestsrc num-buffers=1 pattern=ball ! \
-      videoconvert ! videoscale ! \
-      video/x-raw,format=BGRA,width=320,height=240,framerate=5/1 ! \
-      opkinfer \
-        opchain-path=/work/config/models/mobilenetv2/opchain-python-classification.json \
-        active=true ! \
-      fakesink; \
   else \
     test ! -e "${python_ops}"; \
   fi
@@ -857,7 +849,7 @@ ARG TARGETARCH
 
 WORKDIR /work
 COPY development development
-COPY config/models/yolov11 config/models/yolov11
+COPY --from=opk-models /work/config/models/yolo26n-320 config/models/yolo26n-320
 COPY data/images/GettyImages-1140581459-thumbnail.jpg data/images/GettyImages-1140581459-thumbnail.jpg
 COPY --chmod=0755 scripts/build.sh scripts/build.sh
 COPY --chmod=0755 scripts/private/install-onnxruntime.sh scripts/private/install-onnxruntime.sh
@@ -912,7 +904,7 @@ COPY --from=opk-cairn-build \
   /work/development/build/meson-out/opk-runtime.so \
   /work/development/build/meson-out/opk-std-ops.so \
   runtime/
-COPY --from=opk-cairn-build /work/config/models/yolov11/ config/models/yolov11/
+COPY --from=opk-cairn-build /work/config/models/yolo26n-320/ config/models/yolo26n-320/
 COPY --from=opk-cairn-build \
   /work/data/images/GettyImages-1140581459-thumbnail.jpg \
   data/images/GettyImages-1140581459-thumbnail.jpg

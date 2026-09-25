@@ -33,7 +33,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             descriptor = Path(directory) / MODEL_DESCRIPTOR
             schema = Path(directory) / "model.schema.json"
-            model = json.loads((REPO_ROOT / "config/models/yolov11/model.json").read_text())
+            model = json.loads((REPO_ROOT / "config/models/yolo26n-320/model.json").read_text())
             schema_document = json.loads((REPO_ROOT / MODEL_SCHEMA).read_text())
             schema_document["x-opk-supported-version"] = "2.3.4"
             schema.write_text(json.dumps(schema_document))
@@ -70,9 +70,9 @@ class ModelArtifactBuildTest(unittest.TestCase):
                 with self.subTest(name=name, version=version):
                     self.assertFalse(validator.is_valid(version))
 
-    def test_tokenless_defaults_use_bundled_yolo26(self) -> None:
+    def test_defaults_use_yolo26n_320(self) -> None:
         pipeline = json.loads(
-            (REPO_ROOT / "config/pipelines/yolo26-onnx.json").read_text()
+            (REPO_ROOT / "config/pipelines/yolo26n-320.json").read_text()
         )
         inference_steps = [
             step for step in pipeline["pipeline"] if "opkinfer" in step
@@ -81,19 +81,19 @@ class ModelArtifactBuildTest(unittest.TestCase):
             inference_steps,
             [
                 'opkinfer opchain-path="${OPK_PROJECT_ROOT:-/work}/config/models/'
-                'yolo26/opchain.json" active=true !'
+                'yolo26n-320/opchain.json" active=true !'
             ],
         )
         self.assertIn(
-            "OPK_MENU_ARGS=(yolo26-onnx)",
+            "OPK_MENU_ARGS=(yolo26n-320)",
             (REPO_ROOT / "scripts/run.sh").read_text(),
         )
         self.assertIn(
-            "OPK_PIPELINE: ${OPK_PIPELINE:-yolo26-onnx}",
+            "OPK_PIPELINE: ${OPK_PIPELINE:-yolo26n-320}",
             (REPO_ROOT / COMPOSE_FILE).read_text(),
         )
         self.assertIn(
-            "ARG OPK_PIPELINE=yolo26-onnx",
+            "ARG OPK_PIPELINE=yolo26n-320",
             (REPO_ROOT / "Dockerfile").read_text(),
         )
         for script in (
@@ -101,14 +101,19 @@ class ModelArtifactBuildTest(unittest.TestCase):
             "scripts/private/deployment-runtime.sh",
         ):
             self.assertIn(
-                'OPK_PIPELINE=${OPK_PIPELINE:-"yolo26-onnx"}',
+                'OPK_PIPELINE=${OPK_PIPELINE:-"yolo26n-320"}',
                 (REPO_ROOT / script).read_text(),
             )
-        self.assertTrue(
-            (
-                REPO_ROOT
-                / "config/models/yolo26/yolo26n.onnx"
-            ).is_file()
+        descriptor = json.loads(
+            (REPO_ROOT / "config/models/yolo26n-320/model.json").read_text()
+        )
+        self.assertEqual(
+            descriptor["hfDownload"]["repo_id"],
+            "Arm/yolo26n-320-int8-onnx-raspberrypi5",
+        )
+        self.assertEqual(
+            descriptor["modelFile"],
+            "yolo26n_raspberry_onnx_optimized.onnx",
         )
 
     def test_dev_container_seeds_downloaded_artifacts(self) -> None:
@@ -427,11 +432,6 @@ class ModelArtifactBuildTest(unittest.TestCase):
             "config/models/**/*.hef",
             "config/models/**/*.onnx",
             "config/models/**/*.pte",
-            "!config/models/paddleocr/classification.onnx",
-            "!config/models/paddleocr/recognition.onnx",
-            "!config/models/yolo26/yolo26n.onnx",
-            "!config/models/yolov11/yolo11n-fp32-320.onnx",
-            "!config/models/yolox/yolox_nano.pte",
         ]
         for ignore_file in (".dockerignore", ".gitignore"):
             rules = [
