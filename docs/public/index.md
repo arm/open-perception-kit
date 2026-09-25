@@ -30,7 +30,7 @@ development, and feedback.
 <!-- BEGIN GENERATED DOCS BUILD INFO -->
 <!-- END GENERATED DOCS BUILD INFO -->
 
-![Example WebRTC viewer showing sample video inference, model controls, performance metrics, and debug log](/img/10-browser-ui.png)
+![Example WebRTC viewer showing sample video inference, model controls, performance metrics, and debug log](./assets/10-browser-ui.png)
 
 ## Quick start: first inference on Raspberry Pi 5
 
@@ -186,7 +186,7 @@ if you previously turned it off.
 > **Expected outcome:** YOLO26n-320 identifies objects in the stock video stream by
 > drawing detection overlays in the viewer.
 
-![Final WebRTC success view showing inference overlays on the sample video stream](/img/10-browser-ui.png)
+![Final WebRTC success view showing inference overlays on the sample video stream](./assets/10-browser-ui.png)
 
 Congratulations, you have run your first Open Perception Kit pipeline!
 
