@@ -1,0 +1,73 @@
+name: Publish Docs (Staging)
+
+on:
+  push:
+    branches:
+      - main
+    tags-ignore:
+      - "**"
+  workflow_dispatch:
+    inputs:
+      publish_ref:
+        description: Commit SHA or ref to publish.
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish-docs:
+    name: Publish staging docs site
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: eu-west-1
+      AWS_ROLE_ARN: arn:aws:iam::529607359382:role/Proj-GHA-open-perception-kit-s3-upload
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.publish_ref || github.sha }}
+          persist-credentials: false
+
+      - name: Inject published build info
+        shell: bash
+        run: |
+          python3 scripts/private/inject_docs_build_info.py --target docs/public/index.md
+
+      - name: Validate docs site
+        uses: ARM-software/docs-action/validate@3c5412fd76d4b2d67fd42d69d350abf29a6241c2
+        with:
+          docs-root: docs/public
+          site-id: open-perception-kit
+
+      - name: AWS GitHub OIDC Login
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: "529607359382"
+
+      - name: Publish docs site
+        uses: ARM-software/docs-action/publish@3c5412fd76d4b2d67fd42d69d350abf29a6241c2
+        with:
+          docs-root: docs/public
+          site-id: open-perception-kit
+          environment: staging
+
+      - name: Write publish summary
+        shell: bash
+        env:
+          PUBLISHED_REF: ${{ inputs.publish_ref || github.sha }}
+        run: |
+          printf '%s\n' \
+            '## Summary' \
+            '' \
+            "- Published ref: $PUBLISHED_REF" \
+            "- Published commit: $(git rev-parse HEAD)" \
+            '- Site URL: [Open Perception Kit](https://qa.developer.arm.com/dev-docs/open-perception-kit/)' \
+            >> "$GITHUB_STEP_SUMMARY"
