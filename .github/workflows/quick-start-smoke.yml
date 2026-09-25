@@ -51,6 +51,13 @@ jobs:
       - name: Generate SDKs
         uses: ./.github/actions/setup-sdk
 
+      - name: Cache compiler output
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .cache/ccache
+          key: quick-start-ccache-v1-${{ matrix.arch }}-${{ github.sha }}
+          restore-keys: quick-start-ccache-v1-${{ matrix.arch }}-
+
       - name: Run quick-start
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
