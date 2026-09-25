@@ -54,7 +54,8 @@ function appendLog(message, type = 'info') {
     const div = document.createElement('div');
     div.className = 'log-line' + (type === 'error' ? ' error' : '');
     const time = new Date().toLocaleTimeString();
-    div.innerHTML = `<span>[${time}]</span> <span class="log-tag">${type === 'error' ? 'ERR' : 'LOG'}</span>${message}`;
+    div.innerHTML = `<span>[${time}]</span> <span class="log-tag">${type === 'error' ? 'ERR' : 'LOG'}</span>`;
+    div.append(String(message));
     logEl.appendChild(div);
     logEl.scrollTop = logEl.scrollHeight;
 
