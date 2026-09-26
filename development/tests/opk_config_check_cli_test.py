@@ -50,6 +50,7 @@ class OpkConfigCheckCliTest(unittest.TestCase):
         self.assertIn("E: opk-config-check:", result.stderr)
         self.assertIn("--root is required", result.stderr)
         self.assertIn("Usage:", result.stderr)
+        self.assertTrue(result.stderr.endswith("\n"))
 
     def test_validation_failure_is_written_to_stderr(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -58,11 +59,12 @@ class OpkConfigCheckCliTest(unittest.TestCase):
                 self.repository_root / "config/schemas",
                 root / "config/schemas",
             )
-            model_dir = root / "config/models/invalid"
-            model_dir.mkdir(parents=True)
+            for name in ("invalid", "bad\nmodel"):
+                model_dir = root / "config/models" / name
+                model_dir.mkdir(parents=True)
+                (model_dir / "model.json").write_text("{}")
             (root / "config/opchains").mkdir(parents=True)
             (root / "config/pipelines").mkdir(parents=True)
-            (model_dir / "model.json").write_text("{}")
 
             result = self.run_cli("--root", str(root))
 
@@ -72,6 +74,9 @@ class OpkConfigCheckCliTest(unittest.TestCase):
                 "E: config/models/invalid/model.json",
                 result.stderr,
             )
+            self.assertEqual(len(result.stderr.splitlines()), 2)
+            self.assertIn(r"config/models/bad\nmodel/model.json", result.stderr)
+            self.assertTrue(result.stderr.endswith("\n"))
 
     def test_version_compatibility_for_each_contract(self) -> None:
         sources = {

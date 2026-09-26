@@ -120,6 +120,13 @@ Logger &processLogger() {
 
 } // namespace
 
+std::string escape(std::string_view text) {
+    auto quoted = fmt::format("{:?}", text);
+    quoted.erase(0, 1);
+    quoted.pop_back();
+    return quoted;
+}
+
 namespace private_ {
 
 void write(Level level, std::string &&message) {

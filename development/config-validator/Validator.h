@@ -26,6 +26,8 @@ struct ValidationIssue {
     std::string instanceLocation;
     std::optional<std::string> relatedInstanceLocation;
     std::string message;
+
+    [[nodiscard]] std::string toText() const;
 };
 
 struct ValidationReport {
