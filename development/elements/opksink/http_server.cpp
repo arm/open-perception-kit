@@ -13,9 +13,6 @@
 #include "http_server.h"
 #include "nlohmann/json_fwd.hpp"
 #include "opksink.h"
-#include <cstdlib>
-#include <filesystem>
-#include <fstream>
 
 using namespace httplib;
 using namespace nlohmann;
@@ -62,11 +59,6 @@ static json browser_ice_server_from_url(const char *server_url) {
     return ice_server;
 }
 
-static std::filesystem::path project_root() {
-    const char *configured_root = std::getenv("OPK_PROJECT_ROOT");
-    return configured_root != nullptr && configured_root[0] != '\0' ? configured_root : "/work";
-}
-
 OpkSinkHttpServerError OpkSinkHttpServer::setup() {
 
     http_server = std::make_unique<Server>();
@@ -77,12 +69,6 @@ OpkSinkHttpServerError OpkSinkHttpServer::setup() {
     // Dynamic config endpoint
     http_server->Get("/opk-config.js",
                      [this](const Request &req, Response &res) { get_dynamic_config(req, res); });
-
-    // API to return model.json for a named model. The handler will search
-    // common config locations for a matching model directory or a model.json
-    // whose `name` field matches the requested name.
-    http_server->Get("/api/model-info",
-                     [this](const Request &req, Response &res) { get_model_info(req, res); });
 
     auto ret = http_server->set_mount_point("/", self_->static_files_location);
     if (!ret) {
@@ -154,200 +140,4 @@ void OpkSinkHttpServer::get_dynamic_config(const Request &req, Response &res) {
 
     std::string js = "window.OPK_CONFIG = " + config.dump() + ";";
     res.set_content(js, "application/javascript");
-}
-
-void OpkSinkHttpServer::get_model_info(const Request &req, Response &res) {
-    std::string name;
-    if (req.has_param("name")) {
-        name = req.get_param_value("name");
-    }
-    nlohmann::json out;
-
-    if (name.empty()) {
-        out["error"] = "missing 'name' query parameter";
-        res.set_content(out.dump(), "application/json");
-        return;
-    }
-
-    const auto configured_project_root = project_root();
-
-    // Candidate directories to search for model.json and opchain.json
-    std::vector<std::filesystem::path> model_bases = {
-        configured_project_root / "config" / "models",
-        std::filesystem::current_path() / "config" / "models",
-        std::filesystem::current_path() / ".." / "config" / "models",
-    };
-
-    std::vector<std::filesystem::path> opchain_bases = {
-        configured_project_root / "config" / "opchains",
-        std::filesystem::current_path() / "config" / "opchains",
-        std::filesystem::current_path() / ".." / "config" / "opchains",
-    };
-
-    bool found = false;
-    for (const auto &base : model_bases) {
-        if (!std::filesystem::exists(base) || !std::filesystem::is_directory(base))
-            continue;
-
-        // 1) try directory named as `name` for model.json
-        std::filesystem::path p1 = base / name;
-        std::filesystem::path jpath = p1 / "model.json";
-        if (std::filesystem::exists(jpath)) {
-            std::ifstream ifs(jpath);
-            try {
-                nlohmann::json j = nlohmann::json::parse(ifs);
-                out = j;
-                // continue searching for opchain/opchain description later
-                found = true;
-                // don't break; we want to allow opchain discovery below
-            } catch (...) {
-                // parse error, continue
-            }
-        }
-
-        // 2) scan all model.json files looking for matching `name` field
-        for (auto &entry : std::filesystem::directory_iterator(base)) {
-            if (!entry.is_directory())
-                continue;
-            std::filesystem::path mj = entry.path() / "model.json";
-            if (!std::filesystem::exists(mj))
-                continue;
-            std::ifstream ifs(mj);
-            try {
-                nlohmann::json j = nlohmann::json::parse(ifs);
-                if (j.contains("name") && j["name"].is_string() &&
-                    j["name"].get<std::string>() == name) {
-                    out = j;
-                    found = true;
-                    break;
-                }
-            } catch (...) {
-                // ignore
-            }
-        }
-
-        // 3) scan all opchain.json files inside model directories for matching `name` field
-        if (!found) {
-            for (auto &entry : std::filesystem::directory_iterator(base)) {
-                if (!entry.is_directory())
-                    continue;
-                std::filesystem::path oj = entry.path() / "opchain.json";
-                if (!std::filesystem::exists(oj))
-                    continue;
-                std::ifstream ifs(oj);
-                try {
-                    nlohmann::json j = nlohmann::json::parse(ifs);
-                    if (j.contains("name") && j["name"].is_string() &&
-                        j["name"].get<std::string>() == name) {
-                        out = j;
-                        found = true;
-                        break;
-                    }
-                } catch (...) {
-                    // ignore
-                }
-            }
-        }
-
-        if (found)
-            break;
-    }
-
-    if (!found) {
-        // Not found in model.json; still attempt to find opchain by name
-        // Search opchain bases for matching opchain.json name field or directory.
-        for (const auto &base : opchain_bases) {
-            if (!std::filesystem::exists(base) || !std::filesystem::is_directory(base))
-                continue;
-
-            // try directory named as `name`
-            std::filesystem::path p1 = base / name;
-            std::filesystem::path opj = p1 / "opchain.json";
-            if (std::filesystem::exists(opj)) {
-                std::ifstream ifs(opj);
-                try {
-                    nlohmann::json j = nlohmann::json::parse(ifs);
-                    out = j;
-                    found = true;
-                    break;
-                } catch (...) {
-                }
-            }
-
-            // scan all opchain.json for name field
-            for (auto &entry : std::filesystem::directory_iterator(base)) {
-                if (!entry.is_directory())
-                    continue;
-                std::filesystem::path mj = entry.path() / "opchain.json";
-                if (!std::filesystem::exists(mj))
-                    continue;
-                std::ifstream ifs(mj);
-                try {
-                    nlohmann::json j = nlohmann::json::parse(ifs);
-                    if (j.contains("name") && j["name"].is_string() &&
-                        j["name"].get<std::string>() == name) {
-                        out = j;
-                        found = true;
-                        break;
-                    }
-                } catch (...) {
-                    // ignore
-                }
-            }
-
-            if (found)
-                break;
-        }
-
-        if (!found) {
-            out["error"] = "model.json or opchain.json not found";
-            res.set_content(out.dump(), "application/json");
-            return;
-        }
-    }
-
-    // If we found model.json earlier but prefer opchain description, try to
-    // discover an opchain in model directory or opchains that matches and
-    // merge its fields (so description placed in opchain.json is returned).
-    {
-        // try model dirs for opchain.json
-        for (const auto &base : model_bases) {
-            std::filesystem::path p = base / name / "opchain.json";
-            if (std::filesystem::exists(p)) {
-                std::ifstream ifs(p);
-                try {
-                    nlohmann::json oc = nlohmann::json::parse(ifs);
-                    // prefer opchain 'description' if present
-                    if (oc.contains("description")) {
-                        out["description"] = oc["description"];
-                    }
-                    // expose opchain under key for frontend if needed
-                    out["opchain"] = oc;
-                } catch (...) {
-                }
-                break;
-            }
-        }
-
-        // try opchain bases as well
-        if (!out.contains("description")) {
-            for (const auto &base : opchain_bases) {
-                std::filesystem::path p = base / name / "opchain.json";
-                if (std::filesystem::exists(p)) {
-                    std::ifstream ifs(p);
-                    try {
-                        nlohmann::json oc = nlohmann::json::parse(ifs);
-                        if (oc.contains("description")) {
-                            out["description"] = oc["description"];
-                        }
-                        out["opchain"] = oc;
-                    } catch (...) {
-                    }
-                    break;
-                }
-            }
-        }
-    }
-
-    res.set_content(out.dump(), "application/json");
 }
