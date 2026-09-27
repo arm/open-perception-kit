@@ -70,42 +70,73 @@ def check_control(session, pipeline, gst):
     sink = pipeline.get_by_name("sink")
     model = pipeline.get_by_name("model")
     websocket = connect_websocket(session, sink.get_property("ctrl-port"))
+    observer = connect_websocket(session, sink.get_property("ctrl-port"))
     reports = deque()
+    observed = deque()
     websocket.connect("message", lambda _, kind, data: reports.append(
         json.loads(data.get_data())["pipeline_state"]["playing"]
     ))
+    observer.connect("message", lambda _, kind, data: observed.append(
+        json.loads(data.get_data())["pipeline_state"]["playing"]
+    ))
 
-    def check_play_pause_after(message):
+    def send_and_wait(message, playing):
+        reports.clear()
+        observed.clear()
+        websocket.send_text(message)
+        expected = gst.State.PLAYING if playing else gst.State.PAUSED
+        wait_for(
+            lambda: playing in reports and playing in observed
+            and pipeline.get_state(0)[1] == expected,
+            f"pipeline and observer state after {len(message)}-byte message",
+        )
+
+    def check_play_pause():
         for playing in (False, True):
-            websocket.send_text('{"type":"play_pause"}')
-            wait_for(lambda: reports, f"pipeline state after {message!r}")
-            while reports.popleft() != playing:
-                wait_for(lambda: reports, f"pipeline state after {message!r}")
-            assert pipeline.get_state(0)[1] == (
-                gst.State.PLAYING if playing else gst.State.PAUSED
-            ), f"Unexpected pipeline state after {message!r}"
+            send_and_wait('{"type":"play_pause"}', playing)
 
     try:
         # JSON
         message = "{"
         websocket.send_text(message)
-        check_play_pause_after(message)
+        check_play_pause()
 
         # type
         message = '{"type":1}'
         websocket.send_text(message)
-        check_play_pause_after(message)
+        check_play_pause()
 
         # name: valid toggles the model; invalid leaves it unchanged.
         valid = json.dumps({"type": "model_toggle", "name": "model"})
         invalid = json.dumps({"type": "model_toggle", "name": "model\0extra"})
         websocket.send_text(valid)
-        check_play_pause_after(valid)
+        check_play_pause()
         assert model.props.active, f"Unexpected model state after {valid!r}"
         websocket.send_text(invalid)
-        check_play_pause_after(invalid)
+        check_play_pause()
         assert model.props.active, f"Unexpected model state after {invalid!r}"
+
+        depth = 23_900
+        deep_play_pause = (
+            '{"type":"play_pause","padding":' + "[" * depth + "0" + "]" * depth + "}"
+        )
+        assert len(deep_play_pause) == 47_833
+        send_and_wait(deep_play_pause, False)
+        send_and_wait('{"type":"play_pause"}', True)
+
+        deep_model_toggle = (
+            '{"type":"model_toggle","name":'
+            + "[" * depth + '"model"' + "]" * depth + "}"
+        )
+        assert len(deep_model_toggle) == 47_838
+        websocket.send_text(deep_model_toggle)
+        send_and_wait('{"type":"play_pause"}', False)
+        assert model.props.active, "Deep invalid model name changed model state"
+        websocket.send_text(valid)
+        wait_for(lambda: not model.props.active, "valid model toggle recovery")
+        send_and_wait('{"type":"play_pause"}', True)
     finally:
+        observer.close(1000, "done")
         websocket.close(1000, "done")
 
 

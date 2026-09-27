@@ -247,8 +247,8 @@ static void destroy_box(gpointer user_data) {
 }
 
 // handle the play button presses on the html frontend
-void CtrlWebSocket::play_pause(const json &jsn) {
-    opk::log::debug("play-pause: {}", jsn.dump());
+void CtrlWebSocket::play_pause(const json &) {
+    opk::log::debug("play-pause");
 
     auto request = std::make_shared<ToggleStateRequest>();
     auto *box = new ToggleInvokeBox{request, ws};
@@ -264,8 +264,6 @@ void CtrlWebSocket::play_pause(const json &jsn) {
 }
 
 void CtrlWebSocket::model_toggle(const json &jsn) {
-    opk::log::debug("model_toggle: {}", jsn.dump());
-
     try {
         auto element_name = jsn.at("name").get<std::string>();
 
