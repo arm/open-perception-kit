@@ -445,6 +445,14 @@ foreach endpoint : ['control', 'webrtc']
   )
 endforeach
 test(
+  'opksink_signaling_admission',
+  gst_python,
+  args : [files('opksink_signaling_admission_test.py'), opkinferpre.full_path()],
+  depends : opkinferpre,
+  is_parallel : false,
+  timeout : 40,
+)
+test(
   'opksink_configured_ports',
   gst_python,
   args : [files('opksink_configured_ports_test.py'), opkinferpre.full_path()],
