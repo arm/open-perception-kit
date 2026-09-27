@@ -86,9 +86,9 @@ def check_control(session, pipeline, gst):
         json.loads(data.get_data())["pipeline_state"]["playing"]
     ))
 
-    def check_play_pause_after(message):
+    def check_play_pause_after(message, command='{"type":"play_pause"}'):
         for playing in (False, True):
-            websocket.send_text('{"type":"play_pause"}')
+            websocket.send_text(command)
             wait_for(lambda: reports, f"pipeline state after {message!r}")
             while reports.popleft() != playing:
                 wait_for(lambda: reports, f"pipeline state after {message!r}")
@@ -116,6 +116,15 @@ def check_control(session, pipeline, gst):
         websocket.send_text(invalid)
         check_play_pause_after(invalid)
         assert model.props.active, f"Unexpected model state after {invalid!r}"
+
+        nested = "[" * 23_900 + "0" + "]" * 23_900
+        check_play_pause_after("deep play_pause", '{"type":"play_pause","padding":' + nested + "}")
+        websocket.send_text('{"type":"model_toggle","name":' + nested + "}")
+        check_play_pause_after("deep invalid model name")
+        assert model.props.active, "Invalid model name changed model state"
+        websocket.send_text('{"type":"model_toggle","name":"model","padding":' + nested + "}")
+        check_play_pause_after("deep valid model toggle")
+        assert not model.props.active, "Valid model toggle did not recover"
     finally:
         websocket.close(1000, "done")
 
