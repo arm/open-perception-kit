@@ -129,6 +129,13 @@ jobs:
         if: *run_checks
         run: meson test -C development/build-active --print-errorlogs
 
+      - name: Check file output ownership boundaries
+        if: *run_checks
+        run: |
+          sudo env "LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-}" G_DEBUG=fatal-criticals \
+            /usr/bin/python3 development/tests/opkcomm_file_boundary_test.py \
+            development/build-active/meson-out/libopkcomm.so
+
       - name: Upload test logs
         if: always() && (steps.changes.outcome == 'skipped' || steps.changes.outputs.relevant == 'true')
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9

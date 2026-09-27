@@ -585,6 +585,13 @@ test(
   depends : [opkinferpre, opkcomm],
   env : ['G_DEBUG=fatal-criticals'],
 )
+test(
+  'opkcomm_file_boundary',
+  gst_python,
+  args : [files('opkcomm_file_boundary_test.py'), opkcomm.full_path()],
+  depends : opkcomm,
+  timeout : 30,
+)
 foreach failed_element : [
   'vconv',
   'rtp_tee',
