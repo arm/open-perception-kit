@@ -182,11 +182,6 @@ RUN set -eux; uname -a; cat /etc/os-release; dpkg --print-architecture
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
   set -eux; \
-  case "$(dpkg --print-architecture)" in \
-    amd64) nodejs_version=20.19.2+dfsg-1+deb13u3 ;; \
-    arm64) nodejs_version=20.19.2+dfsg-1+deb13u2 ;; \
-    *) echo "Unsupported build architecture" >&2; exit 1 ;; \
-  esac; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
   file=1:5.46-5 gnupg=2.4.7-21+deb13u1 gosu=1.17-3+b4 \
@@ -194,7 +189,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   gstreamer1.0-plugins-bad=1.26.2-3+deb13u3 gstreamer1.0-plugins-base=1.26.2-1+deb13u2 \
   gstreamer1.0-plugins-good=1.26.2-1+deb13u2 gstreamer1.0-plugins-ugly=1.26.3-4+deb13u1 \
   gstreamer1.0-tools=1.26.2-2 gstreamer1.0-x=1.26.2-1+deb13u2 lldb-17=1:17.0.6-22+b2 \
-  libnode115="${nodejs_version}" nodejs="${nodejs_version}" npm=9.2.0~ds1-3 pre-commit=4.2.0-2 \
+  nodejs='20.19.*' npm=9.2.0~ds1-3 pre-commit=4.2.0-2 \
   python3-gi=3.50.0-4+b1 python3-pip=25.1.1+dfsg-1 \
   shellcheck=0.10.0-1 shfmt=3.8.0-1+b8 sudo=1.9.16p2-3+deb13u2 \
   valgrind=1:3.24.0-3 wget=1.25.0-2 zip=3.0-15+deb13u1; \
