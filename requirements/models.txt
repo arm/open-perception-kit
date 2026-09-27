@@ -1,2 +1,2 @@
 -r common.txt
-huggingface_hub==1.32.0
+huggingface_hub==2.0.0
