@@ -5451,24 +5451,95 @@ var TrackTracesT = class {
 };
 
 // generated/open_perception_kit/ts/dist/open_perception_kit/registry.js
-var decode_556103652012567315 = (blob) => BoxDetections.getRootAsBoxDetections(new ByteBuffer(blob)).unpack();
-var verify_556103652012567315 = (blob) => BoxDetections.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_2852697023809600655 = (blob) => Classifications.getRootAsClassifications(new ByteBuffer(blob)).unpack();
-var verify_2852697023809600655 = (blob) => Classifications.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_2065478860695108412 = (blob) => FrameContext.getRootAsFrameContext(new ByteBuffer(blob)).unpack();
-var verify_2065478860695108412 = (blob) => FrameContext.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_5972661533224817501 = (blob) => ObjectEmbeddings.getRootAsObjectEmbeddings(new ByteBuffer(blob)).unpack();
-var verify_5972661533224817501 = (blob) => ObjectEmbeddings.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_2960585987463094496 = (blob) => ObjectTracks.getRootAsObjectTracks(new ByteBuffer(blob)).unpack();
-var verify_2960585987463094496 = (blob) => ObjectTracks.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_7749401259036278028 = (blob) => PerformanceOverlay.getRootAsPerformanceOverlay(new ByteBuffer(blob)).unpack();
-var verify_7749401259036278028 = (blob) => PerformanceOverlay.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_9114952555105892553 = (blob) => PoseEstimations.getRootAsPoseEstimations(new ByteBuffer(blob)).unpack();
-var verify_9114952555105892553 = (blob) => PoseEstimations.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_1998909987238011535 = (blob) => SegmentationMasks.getRootAsSegmentationMasks(new ByteBuffer(blob)).unpack();
-var verify_1998909987238011535 = (blob) => SegmentationMasks.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_238211229389337861 = (blob) => TrackTraces.getRootAsTrackTraces(new ByteBuffer(blob)).unpack();
-var verify_238211229389337861 = (blob) => TrackTraces.bufferHasIdentifier(new ByteBuffer(blob));
+var _CheckedByteBuffer = class extends ByteBuffer {
+  constructor(bytes) {
+    super(bytes);
+    this.remainingDecodeWork = bytes.byteLength;
+  }
+  requireRange(offset, size) {
+    if (!Number.isSafeInteger(offset) || !Number.isSafeInteger(size) || offset < 0 || size < 0 || offset > this.capacity() - size) {
+      throw new RangeError("FlatBuffer read outside buffer");
+    }
+  }
+  consumeDecodeWork(size) {
+    if (!Number.isSafeInteger(size) || size < 0 || size > this.remainingDecodeWork) {
+      throw new RangeError("FlatBuffer decode work exceeds buffer");
+    }
+    this.remainingDecodeWork -= size;
+  }
+  relativeTarget(offset, minimumSize) {
+    this.requireRange(offset, 4);
+    const relative = this.readUint32(offset);
+    if (relative < 4) {
+      throw new RangeError("invalid FlatBuffer relative offset");
+    }
+    const target = offset + relative;
+    this.requireRange(target, minimumSize);
+    return target;
+  }
+  readUint8(offset) {
+    this.requireRange(offset, 1);
+    return super.readUint8(offset);
+  }
+  readUint16(offset) {
+    this.requireRange(offset, 2);
+    return super.readUint16(offset);
+  }
+  readInt32(offset) {
+    this.requireRange(offset, 4);
+    return super.readInt32(offset);
+  }
+  __indirect(offset) {
+    return this.relativeTarget(offset, 4);
+  }
+  __vector(offset) {
+    return this.relativeTarget(offset, 4) + 4;
+  }
+  __vector_len(offset) {
+    const data = this.__vector(offset);
+    const length = this.readInt32(data - 4);
+    if (length < 0 || length > this.capacity() - data) {
+      throw new RangeError("invalid FlatBuffer vector length");
+    }
+    return length;
+  }
+  __string(offset, encoding) {
+    const start = this.relativeTarget(offset, 4);
+    const length = this.readInt32(start);
+    if (length < 0) {
+      throw new RangeError("invalid FlatBuffer string length");
+    }
+    this.requireRange(start + 4, length);
+    this.consumeDecodeWork(length);
+    return super.__string(offset, encoding);
+  }
+  createScalarList(listAccessor, listLength) {
+    this.consumeDecodeWork(listLength);
+    return super.createScalarList(listAccessor, listLength);
+  }
+  createObjList(listAccessor, listLength) {
+    this.consumeDecodeWork(listLength);
+    return super.createObjList(listAccessor, listLength);
+  }
+};
+var decode_556103652012567315 = (blob) => BoxDetections.getRootAsBoxDetections(new _CheckedByteBuffer(blob)).unpack();
+var verify_556103652012567315 = (blob) => BoxDetections.bufferHasIdentifier(new _CheckedByteBuffer(blob));
+var decode_2852697023809600655 = (blob) => Classifications.getRootAsClassifications(new _CheckedByteBuffer(blob)).unpack();
+var verify_2852697023809600655 = (blob) => Classifications.bufferHasIdentifier(new _CheckedByteBuffer(blob));
+var decode_2065478860695108412 = (blob) => FrameContext.getRootAsFrameContext(new _CheckedByteBuffer(blob)).unpack();
+var verify_2065478860695108412 = (blob) => FrameContext.bufferHasIdentifier(new _CheckedByteBuffer(blob));
+var decode_5972661533224817501 = (blob) => ObjectEmbeddings.getRootAsObjectEmbeddings(new _CheckedByteBuffer(blob)).unpack();
+var verify_5972661533224817501 = (blob) => ObjectEmbeddings.bufferHasIdentifier(new _CheckedByteBuffer(blob));
+var decode_2960585987463094496 = (blob) => ObjectTracks.getRootAsObjectTracks(new _CheckedByteBuffer(blob)).unpack();
+var verify_2960585987463094496 = (blob) => ObjectTracks.bufferHasIdentifier(new _CheckedByteBuffer(blob));
+var decode_7749401259036278028 = (blob) => PerformanceOverlay.getRootAsPerformanceOverlay(new _CheckedByteBuffer(blob)).unpack();
+var verify_7749401259036278028 = (blob) => PerformanceOverlay.bufferHasIdentifier(new _CheckedByteBuffer(blob));
+var decode_9114952555105892553 = (blob) => PoseEstimations.getRootAsPoseEstimations(new _CheckedByteBuffer(blob)).unpack();
+var verify_9114952555105892553 = (blob) => PoseEstimations.bufferHasIdentifier(new _CheckedByteBuffer(blob));
+var decode_1998909987238011535 = (blob) => SegmentationMasks.getRootAsSegmentationMasks(new _CheckedByteBuffer(blob)).unpack();
+var verify_1998909987238011535 = (blob) => SegmentationMasks.bufferHasIdentifier(new _CheckedByteBuffer(blob));
+var decode_238211229389337861 = (blob) => TrackTraces.getRootAsTrackTraces(new _CheckedByteBuffer(blob)).unpack();
+var verify_238211229389337861 = (blob) => TrackTraces.bufferHasIdentifier(new _CheckedByteBuffer(blob));
 var _TYPE_REGISTRY = /* @__PURE__ */ new Map([
   [556103652012567315n, {
     name: "open_perception_kit::metadata::BoxDetections",
@@ -5649,12 +5720,15 @@ function resolveNativePayload(value) {
   }
   return id;
 }
-function copyBlob(payload) {
+function copyBlob(payload, maxBytes) {
+  const len = payload.blobLength();
+  if (len < 0 || len > maxBytes) {
+    throw new Error(`invalid ${SDK_NAME} payload blob length`);
+  }
   const blobArray = payload.blobArray();
   if (blobArray) {
     return new Uint8Array(blobArray);
   }
-  const len = payload.blobLength();
   const out = new Uint8Array(len);
   for (let i = 0; i < len; i += 1) {
     out[i] = payload.blob(i) ?? 0;
@@ -5696,7 +5770,7 @@ var Envelope = class {
     this.producerSchemaDigest = "";
     const bytes = packet instanceof Uint8Array ? packet : new Uint8Array(packet);
     try {
-      const bb = new ByteBuffer(bytes);
+      const bb = new _CheckedByteBuffer(bytes);
       if (!WireEnvelope.bufferHasIdentifier(bb)) {
         this.errorMessage = `invalid ${SDK_NAME} envelope file_identifier`;
         return;
@@ -5706,15 +5780,22 @@ var Envelope = class {
       this.producerVersion = envelope.producerSdkVersion() ?? "";
       this.producerSchemaDigest = envelope.producerSchemaSetSha256() ?? "";
       const count = envelope.payloadsLength();
+      if (count < 0 || count > Math.floor(bytes.byteLength / 4)) {
+        this.errorMessage = `invalid ${SDK_NAME} envelope payload count`;
+        return;
+      }
+      let remainingPayloadBytes = bytes.byteLength;
       for (let i = 0; i < count; i += 1) {
         const payload = envelope.payloads(i, new WirePayload());
         if (payload === null) {
           continue;
         }
         const id = payload.id();
+        const blob = copyBlob(payload, remainingPayloadBytes);
+        remainingPayloadBytes -= blob.byteLength;
         this.payloadEntries.push({
           id,
-          blob: copyBlob(payload)
+          blob
         });
       }
       this.validEnvelope = true;
@@ -5786,9 +5867,9 @@ var Envelope = class {
     if (!info)
       return null;
     const blobCopy = new Uint8Array(blob);
-    if (info.verify && !info.verify(blobCopy))
-      return null;
     try {
+      if (info.verify && !info.verify(blobCopy))
+        return null;
       return info.decode(blobCopy);
     } catch {
       return null;

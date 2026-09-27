@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {Builder} from 'flatbuffers';
-import {Envelope} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/index.js';
+import {Builder, ByteBuffer} from 'flatbuffers';
+import {Envelope, OPEN_PERCEPTION_KIT_NAME, OPEN_PERCEPTION_KIT_VERSION, SCHEMA_SET_SHA256} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/index.js';
 import {WireEnvelope, WireEnvelopeT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/internalfb/wire-envelope.js';
+import {WirePayload, WirePayloadT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/internalfb/wire-payload.js';
 import {BoundingBoxT, LayerInfoT, ObjectMetaT, Point2fT, ProducerInfoT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata.js';
 import {BoxDetectionT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/box-detection.js';
 import {BoxDetectionsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/box-detections.js';
@@ -13,12 +14,13 @@ import {ClassificationsT} from '../../../generated/open_perception_kit/ts/dist/o
 import {FrameContextT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/frame-context.js';
 import {ObjectTrackT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-track.js';
 import {ObjectTracksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-tracks.js';
-import {PerformanceOverlayT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-overlay.js';
+import {PerformanceOverlay, PerformanceOverlayT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-overlay.js';
 import {PoseEstimationT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimation.js';
 import {PoseEstimationsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimations.js';
 import {TrackTraceT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-trace.js';
 import {TrackTracesT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-traces.js';
 import {VideoFrameContextT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/video-frame-context.js';
+import {_CLASS_TO_ID} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/registry.js';
 import {decodeFrameResultsMessage, FRAME_RESULTS_ENCODING, FrameResultsDecodeError} from '../src/frame-results.js';
 import {findParentRect, findVideoFrame} from '../src/osd-renderer.js';
 
@@ -120,6 +122,70 @@ function trackedFixture() {
     return Buffer.from(envelope.serialize()).toString('base64');
 }
 
+function replacePayloadCount(encoded, count) {
+    const packet = Buffer.from(encoded, 'base64');
+    const view = new DataView(packet.buffer, packet.byteOffset, packet.byteLength);
+    const root = view.getUint32(0, true);
+    const vtable = root - view.getInt32(root, true);
+    const payloadsOffset = view.getUint16(vtable + 4, true);
+    assert.notEqual(payloadsOffset, 0);
+    const payloadsField = root + payloadsOffset;
+    const payloadsVector = payloadsField + view.getUint32(payloadsField, true);
+    view.setInt32(payloadsVector, count, true);
+    return packet.toString('base64');
+}
+
+function replaceNestedVectorCount(encoded, identifier, vtableField) {
+    const packet = Buffer.from(encoded, 'base64');
+    const envelope = WireEnvelope.getRootAsWireEnvelope(new ByteBuffer(packet));
+    for (let index = 0; index < envelope.payloadsLength(); index += 1) {
+        const payload = envelope.payloads(index, new WirePayload());
+        const blob = payload?.blobArray();
+        if (!blob || String.fromCharCode(...blob.subarray(4, 8)) !== identifier) continue;
+
+        const view = new DataView(blob.buffer, blob.byteOffset, blob.byteLength);
+        const root = view.getUint32(0, true);
+        const vtable = root - view.getInt32(root, true);
+        const fieldOffset = view.getUint16(vtable + vtableField, true);
+        assert.notEqual(fieldOffset, 0);
+        const field = root + fieldOffset;
+        const vector = field + view.getUint32(field, true);
+        view.setInt32(vector, blob.byteLength + 1, true);
+        return packet;
+    }
+    throw new Error(`missing ${identifier} payload fixture`);
+}
+
+function registeredPerformanceOverlayFixture(blob) {
+    const payloadId = _CLASS_TO_ID.get(PerformanceOverlayT);
+    assert.notEqual(payloadId, undefined);
+    const envelopeBuilder = new Builder(512);
+    const envelope = new WireEnvelopeT(
+        [new WirePayloadT(payloadId, [...blob])],
+        OPEN_PERCEPTION_KIT_NAME,
+        OPEN_PERCEPTION_KIT_VERSION,
+        SCHEMA_SET_SHA256,
+    ).pack(envelopeBuilder);
+    WireEnvelope.finishWireEnvelopeBuffer(envelopeBuilder, envelope);
+    return envelopeBuilder.asUint8Array();
+}
+
+function aliasedPerformanceOverlayFixture() {
+    const payloadBuilder = new Builder(256);
+    const shared = payloadBuilder.createString('blue'.repeat(16));
+    const lines = PerformanceOverlay.createLinesVector(
+        payloadBuilder,
+        Array(16).fill(shared),
+    );
+    PerformanceOverlay.startPerformanceOverlay(payloadBuilder);
+    PerformanceOverlay.addLines(payloadBuilder, lines);
+    const payload = PerformanceOverlay.endPerformanceOverlay(payloadBuilder);
+    PerformanceOverlay.finishPerformanceOverlayBuffer(payloadBuilder, payload);
+    const blob = payloadBuilder.asUint8Array();
+    assert.ok(blob.byteLength < 512);
+    return registeredPerformanceOverlayFixture(blob);
+}
+
 test('decodes typed FrameResults into the established WebUI view model', () => {
     const decoded = decodeFrameResultsMessage({
         frame_counter: 42,
@@ -204,4 +270,71 @@ test('rejects unsupported encoding and malformed base64', () => {
         }),
         FrameResultsDecodeError,
     );
+});
+
+test('rejects impossible payload counts and recovers', () => {
+    const valid = encodedFixture();
+    const decode = (packet) => decodeFrameResultsMessage({
+        frame_results_encoding: FRAME_RESULTS_ENCODING,
+        frame_results_packet_b64: packet,
+    });
+
+    assert.doesNotThrow(() => decode(valid));
+    for (const count of [0x7fffffff, -1]) {
+        assert.throws(
+            () => decode(replacePayloadCount(valid, count)),
+            FrameResultsDecodeError,
+        );
+        assert.doesNotThrow(() => decode(valid));
+    }
+});
+
+test('rejects out-of-range nested vectors and recovers', () => {
+    const valid = Buffer.from(encodedFixture(), 'base64');
+    for (const [payloadType, identifier, vtableField] of [
+        [PerformanceOverlayT, 'PERF', 8],
+        [BoxDetectionsT, 'BDET', 10],
+    ]) {
+        const baseline = new Envelope(valid);
+        assert.equal(baseline.count(payloadType), 1);
+
+        const malformed = new Envelope(
+            replaceNestedVectorCount(valid.toString('base64'), identifier, vtableField),
+        );
+        assert.equal(malformed.valid(), true);
+        assert.equal(malformed.count(payloadType), 0);
+        assert.equal(malformed.get(payloadType), null);
+
+        const recovered = new Envelope(valid);
+        assert.equal(recovered.count(payloadType), 1);
+    }
+});
+
+test('isolates short registered payload blobs and recovers', () => {
+    const valid = Buffer.from(encodedFixture(), 'base64');
+    assert.equal(new Envelope(valid).count(PerformanceOverlayT), 1);
+
+    for (const length of [0, 4]) {
+        const malformed = new Envelope(
+            registeredPerformanceOverlayFixture(new Uint8Array(length)),
+        );
+        assert.equal(malformed.valid(), true);
+        assert.equal(malformed.count(PerformanceOverlayT), 0);
+        assert.equal(malformed.contains(PerformanceOverlayT), false);
+        assert.equal(malformed.get(PerformanceOverlayT), null);
+        assert.deepEqual([...malformed.for_each(PerformanceOverlayT)], []);
+        assert.equal(new Envelope(valid).count(PerformanceOverlayT), 1);
+    }
+});
+
+test('bounds aggregate decode work for aliased strings and recovers', () => {
+    const valid = Buffer.from(encodedFixture(), 'base64');
+    assert.equal(new Envelope(valid).count(PerformanceOverlayT), 1);
+
+    const aliased = new Envelope(aliasedPerformanceOverlayFixture());
+    assert.equal(aliased.valid(), true);
+    assert.equal(aliased.count(PerformanceOverlayT), 0);
+    assert.equal(aliased.get(PerformanceOverlayT), null);
+
+    assert.equal(new Envelope(valid).count(PerformanceOverlayT), 1);
 });

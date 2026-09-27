@@ -13,10 +13,10 @@ var __classPrivateFieldGet = (this && this.__classPrivateFieldGet) || function (
     return kind === "m" ? f : kind === "a" ? f.call(receiver) : f ? f.value : state.get(receiver);
 };
 var _ExternalKey_value;
-import { Builder, ByteBuffer } from 'flatbuffers';
+import { Builder } from 'flatbuffers';
 import { WireEnvelope as FbEnvelope } from './fb/open-perception-kit/internalfb/wire-envelope.js';
 import { WirePayload as Payload } from './fb/open-perception-kit/internalfb/wire-payload.js';
-import { _CLASS_TO_ID, _TYPE_REGISTRY, } from './registry.js';
+import { _CheckedByteBuffer, _CLASS_TO_ID, _TYPE_REGISTRY, } from './registry.js';
 export const SDK_NAME = 'open_perception_kit';
 export const SDK_VERSION = '0.1.0';
 export const SCHEMA_SET_SHA256 = '1b19418d8a0d34038a3c99895fa93a1140c25af910f6bc63c0e11978e12c2876';
@@ -101,12 +101,15 @@ function resolveNativePayload(value) {
     }
     return id;
 }
-function copyBlob(payload) {
+function copyBlob(payload, maxBytes) {
+    const len = payload.blobLength();
+    if (len < 0 || len > maxBytes) {
+        throw new Error(`invalid ${SDK_NAME} payload blob length`);
+    }
     const blobArray = payload.blobArray();
     if (blobArray) {
         return new Uint8Array(blobArray);
     }
-    const len = payload.blobLength();
     const out = new Uint8Array(len);
     for (let i = 0; i < len; i += 1) {
         out[i] = payload.blob(i) ?? 0;
@@ -148,7 +151,7 @@ export class Envelope {
         this.producerSchemaDigest = '';
         const bytes = packet instanceof Uint8Array ? packet : new Uint8Array(packet);
         try {
-            const bb = new ByteBuffer(bytes);
+            const bb = new _CheckedByteBuffer(bytes);
             if (!FbEnvelope.bufferHasIdentifier(bb)) {
                 this.errorMessage = `invalid ${SDK_NAME} envelope file_identifier`;
                 return;
@@ -158,15 +161,22 @@ export class Envelope {
             this.producerVersion = envelope.producerSdkVersion() ?? '';
             this.producerSchemaDigest = envelope.producerSchemaSetSha256() ?? '';
             const count = envelope.payloadsLength();
+            if (count < 0 || count > Math.floor(bytes.byteLength / 4)) {
+                this.errorMessage = `invalid ${SDK_NAME} envelope payload count`;
+                return;
+            }
+            let remainingPayloadBytes = bytes.byteLength;
             for (let i = 0; i < count; i += 1) {
                 const payload = envelope.payloads(i, new Payload());
                 if (payload === null) {
                     continue;
                 }
                 const id = payload.id();
+                const blob = copyBlob(payload, remainingPayloadBytes);
+                remainingPayloadBytes -= blob.byteLength;
                 this.payloadEntries.push({
                     id,
-                    blob: copyBlob(payload),
+                    blob,
                 });
             }
             this.validEnvelope = true;
@@ -241,9 +251,9 @@ export class Envelope {
         if (!info)
             return null;
         const blobCopy = new Uint8Array(blob);
-        if (info.verify && !info.verify(blobCopy))
-            return null;
         try {
+            if (info.verify && !info.verify(blobCopy))
+                return null;
             return info.decode(blobCopy);
         }
         catch {
