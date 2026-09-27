@@ -451,6 +451,13 @@ test(
   depends : opkinferpre,
 )
 test(
+  'opksink_http_body',
+  gst_python,
+  args : [files('opksink_http_body_test.py'), opkinferpre.full_path()],
+  depends : opkinferpre,
+  is_parallel : false,
+)
+test(
   'websocket_shutdown',
   gst_python,
   args : [files('websocket_shutdown_test.py'), opkinferpre.full_path(), opkcomm.full_path()],
