@@ -15,6 +15,7 @@
 #include <cstring>
 #include <format>
 #include <iostream>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -696,6 +697,29 @@ int rejectConflictingPlaneAccess(const Fixture &fixture, const Variant &variant)
     return 2;
 }
 
+int rejectOverflowingRect(const Fixture &fixture, const Variant &variant) {
+    auto src = sourceDesc(fixture, {0, 0, 5, 3}, YuvColorMatrix::Bt601, YuvRange::Limited);
+    ImageOpDesc dst;
+    dst.surfaceWidth = 5;
+    dst.surfaceHeight = 3;
+    dst.rect = {0, 0, 5, 3};
+    dst.kind = variant.kind;
+    dst.type = variant.type;
+    dst.planeCount = 1;
+    std::vector<uint8_t> output(sizeof(float) * 5 * 3 * 3);
+    dst.planes[0] = {nullptr, output.data(), output.size(), 0};
+
+    src.rect = {std::numeric_limits<size_t>::max(), 0, 2, 1};
+    if (variant.rect(src, dst, Sampling::Nearest))
+        fail("overflowing source rectangle accepted");
+
+    src.rect = {0, 0, 5, 3};
+    dst.rect = {std::numeric_limits<size_t>::max(), 0, 2, 1};
+    if (variant.rect(src, dst, Sampling::Nearest))
+        fail("overflowing destination rectangle accepted");
+    return 2;
+}
+
 int main() {
     using enum RawImagePixelFormat;
     const std::array formats{
@@ -713,6 +737,8 @@ int main() {
         cases += runYuvMatrixCases(fixture, formatVariants);
         cases += rejectUndersizedPlane(fixture, formatVariants.front());
         cases += rejectConflictingPlaneAccess(fixture, formatVariants.front());
+        if (format == Bgra)
+            cases += rejectOverflowingRect(fixture, formatVariants.front());
     }
     std::cout << "PASS conversion-cases=" << cases << '\n';
 }
