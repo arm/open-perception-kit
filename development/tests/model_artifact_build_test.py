@@ -453,6 +453,56 @@ class ModelArtifactBuildTest(unittest.TestCase):
                 {"Dockerfile", ".dockerignore", "config/models/example/model.json"},
             )
 
+    def test_images_exclude_configured_models_and_keep_support_files(self) -> None:
+        docker = shutil.which("docker")
+        if docker is None:
+            self.skipTest(DOCKER_UNAVAILABLE)
+        copies = (
+            "COPY --from=opk-deployment-build /opt/opk-app/config /work/config",
+            "COPY --from=opk-cairn-build /opt/opk-app/config/models/yolo26n-320/ config/models/yolo26n-320/",
+        )
+        dockerfile = (REPO_ROOT / "Dockerfile").read_text()
+        for line in copies:
+            self.assertIn(line, dockerfile)
+        self.assertEqual(dockerfile.count("stage-config --repo-root /work --stage-root /opt/opk-app"), 2)
+        with tempfile.TemporaryDirectory() as temporary:
+            context = Path(temporary) / "context"
+            model_root = context / "config/models/yolo26n-320"
+            model_root.mkdir(parents=True)
+            expected = {"labels.txt": "cat\n", "scripts/post.py": "result = []\n"}
+            for index, filename in enumerate(("weights.dat", "weights", "weights.ONNX", "nested/weights", "0weights.json")):
+                expected[f"model-{index}.json"] = json.dumps({"modelFile": filename})
+                model = model_root / filename
+                model.parent.mkdir(parents=True, exist_ok=True)
+                model.write_bytes(b"model payload")
+                model.with_name(model.name + ".part").write_bytes(b"partial model")
+            for relative, content in expected.items():
+                path = model_root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(content)
+            shutil.copy2(REPO_ROOT / ".dockerignore", context / ".dockerignore")
+            script = context / "scripts/release/ReleaseTool.py"
+            script.parent.mkdir(parents=True)
+            shutil.copy2(REPO_ROOT / "scripts/release/ReleaseTool.py", script)
+            (context / "Dockerfile").write_text(
+                "FROM python:3.13-slim-trixie AS opk-deployment-build\n"
+                "WORKDIR /work\nCOPY config config\nCOPY scripts scripts\n"
+                "RUN python3 scripts/release/ReleaseTool.py stage-config --repo-root /work --stage-root /opt/opk-app\n"
+                "FROM opk-deployment-build AS opk-cairn-build\n"
+                "FROM scratch\nWORKDIR /cairn\n" + "\n".join(copies) + "\n"
+            )
+            output = Path(temporary) / "output"
+            result = subprocess.run(
+                [docker, "buildx", "build", "--output", f"type=local,dest={output}", str(context)],
+                text=True, capture_output=True, check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            for image in ("work", "cairn"):
+                packaged = output / image / "config/models/yolo26n-320"
+                actual = {path.relative_to(packaged).as_posix(): path.read_text()
+                          for path in packaged.rglob("*") if path.is_file()}
+                self.assertEqual(actual, expected)
+
     def test_release_smoke_needs_no_model_downloads(self) -> None:
         docker = shutil.which("docker")
         if docker is None:
@@ -474,11 +524,15 @@ class ModelArtifactBuildTest(unittest.TestCase):
                     "version": "test", "licence": "test", "repository": f"https://example.invalid/{name}",
                     "notices": [f"{name}/LICENSE"],
                 }
-            for name, relative in release["SOURCE_LEGAL_NOTICES"].items():
-                notice = legal / name / relative
-                notice.parent.mkdir(parents=True, exist_ok=True)
-                notice.write_text("Test fixture embedded upstream notice\n")
-                inventory[name]["notices"].append(f"{name}/{relative}")
+            inventory["opk"]["notices"] = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICE.md", "README.md"]
+            for name in inventory["opk"]["notices"]:
+                (legal / name).write_text(f"Test fixture OPK {name}\n")
+            for name, relatives in release["SOURCE_LEGAL_NOTICES"].items():
+                for relative in relatives:
+                    notice = legal / name / relative
+                    notice.parent.mkdir(parents=True, exist_ok=True)
+                    notice.write_text("Test fixture embedded upstream notice\n")
+                    inventory[name]["notices"].append(f"{name}/{relative}")
             (legal / "onnxruntime/ThirdPartyNotices.txt").write_text("Test transitive notice\n")
             (legal / "components.json").write_text(json.dumps(inventory))
             (legal / "THIRD_PARTY_LICENSES.md").write_text(release["legal_report"](inventory))

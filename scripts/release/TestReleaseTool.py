@@ -40,10 +40,11 @@ EXECUTORCH_INFERENCE_OP = "opk-executorch-ops/Inference"
 OPCHAINS_DIR = Path("config/opchains")
 PLUGIN_DIR = Path("lib/gstreamer-1.0")
 SOURCE_COMMIT = "a" * 40
-SOURCE_NOTICES = {
-    "jsoncons": "include/jsoncons/detail/grisu3.hpp",
-    "nlohmann_json": "include/nlohmann/detail/conversions/to_chars.hpp",
-}
+SOURCE_NOTICES = (
+    ("jsoncons", "include/jsoncons/detail/grisu3.hpp"),
+    ("nlohmann_json", "include/nlohmann/detail/conversions/to_chars.hpp"),
+    ("nlohmann_json", "include/nlohmann/thirdparty/hedley/hedley.hpp"),
+)
 SOURCE_NOTICE_CONTENT = (
     b"// Synthetic upstream fixture\r\n"
     b"// SPDX-FileCopyrightText: 2009 Florian Loitsch\r\n"
@@ -72,7 +73,10 @@ def add_legal_payload(package_root: Path) -> None:
         path.write_text(f"Original {name} licence\n")
         inventory[name] = {"version": "test", "licence": "test", "repository": "https://example.com/",
                            "notices": [f"{name}/LICENSE"]}
-    for name, relative in SOURCE_NOTICES.items():
+    inventory["opk"]["notices"] = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICE.md", "README.md"]
+    for name in inventory["opk"]["notices"]:
+        (legal / name).write_text(f"Original OPK {name}\n")
+    for name, relative in SOURCE_NOTICES:
         path = legal / name / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(SOURCE_NOTICE_CONTENT)
@@ -540,6 +544,25 @@ class ReleaseToolTests(unittest.TestCase):
             ):
                 release_tool.validate_package(arguments)
 
+    def test_stage_config_preserves_external_and_relative_model_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            models = root / "source/config/models"
+            (models / "example").mkdir(parents=True)
+            (models / "shared").mkdir()
+            descriptors = {"external": "/opt/models/external.onnx", "relative": "../shared/weights.dat",
+                           "absolute": "/work/config/models/shared/weights.dat"}
+            for name, model_file in descriptors.items():
+                (models / "example" / f"{name}.json").write_text(json.dumps({"modelFile": model_file}))
+            for name in ("weights.dat", "weights.dat.part"):
+                (models / "shared" / name).write_bytes(b"model payload")
+            release_tool.stage_config(SimpleNamespace(repo_root=root / "source", stage_root=root / "stage"))
+            packaged = root / "stage/config/models"
+            self.assertEqual(list((packaged / "shared").iterdir()), [])
+            for name in descriptors:
+                self.assertEqual((packaged / "example" / f"{name}.json").read_bytes(),
+                                 (models / "example" / f"{name}.json").read_bytes())
+
     def test_requires_complete_original_legal_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             package_root = Path(temporary)
@@ -557,6 +580,46 @@ class ReleaseToolTests(unittest.TestCase):
             (legal_root / "onnxruntime/ThirdPartyNotices.txt").unlink()
             with self.assertRaisesRegex(RuntimeError, "ONNX Runtime licence"):
                 release_tool.validate_legal_documentation(package_root)
+
+    def test_requires_opk_notices_even_with_regenerated_report(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            legal = root / "share/opk/licenses"
+            for name in ("LICENSE", "NOTICE", "THIRD_PARTY_NOTICE.md", "README.md"):
+                with self.subTest(notice=name):
+                    add_legal_payload(root)
+                    inventory = json.loads((legal / "components.json").read_text())
+                    inventory["opk"]["notices"].remove(name)
+                    (legal / name).unlink()
+                    (legal / "components.json").write_text(json.dumps(inventory))
+                    (legal / "THIRD_PARTY_LICENSES.md").write_text(release_tool.legal_report(inventory))
+                    with self.assertRaisesRegex(RuntimeError, "OPK licence notice list"):
+                        release_tool.validate_legal_documentation(root, require_backends=False)
+
+    def test_requires_notices_for_installed_image_runtimes(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            add_legal_payload(root)
+            legal = root / "share/opk/licenses"
+            inventory = json.loads((legal / "components.json").read_text())
+            for name in ("python-numpy", "python-flatbuffers", "executorch"):
+                del inventory[name]
+                shutil.rmtree(legal / name)
+            (legal / "components.json").write_text(json.dumps(inventory))
+            (legal / "THIRD_PARTY_LICENSES.md").write_text(release_tool.legal_report(inventory))
+            # Cairn ships neither the OPK Python environment nor ExecuTorch.
+            release_tool.validate_legal_documentation(root, require_backends=False)
+            python_runtime = root / "opt/opk-venvs/python-ops-runtime"
+            python_runtime.mkdir(parents=True)
+            with self.assertRaisesRegex(RuntimeError, "python-flatbuffers.*python-numpy"):
+                release_tool.validate_legal_documentation(root, require_backends=False)
+            python_runtime.rmdir()
+
+            executorch = root / "work/development/build/meson-out/opk-executorch-ops.so"
+            executorch.parent.mkdir(parents=True)
+            executorch.touch()
+            with self.assertRaisesRegex(RuntimeError, "executorch"):
+                release_tool.validate_legal_documentation(root, require_backends=False)
 
     def test_stage_legal_requires_version_review_and_emits_report(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -576,10 +639,11 @@ class ReleaseToolTests(unittest.TestCase):
                 source.mkdir(parents=True)
                 shutil.copyfile(REPO_ROOT / "development/subprojects" / f"{name}.wrap", subprojects / f"{name}.wrap")
                 (source / "LICENSE").write_bytes(b"Synthetic upstream owner\r\nOriginal terms\r\n")
-                if name in SOURCE_NOTICES:
-                    embedded_notice = source / SOURCE_NOTICES[name]
-                    embedded_notice.parent.mkdir(parents=True)
-                    embedded_notice.write_bytes(SOURCE_NOTICE_CONTENT)
+                for component, relative in SOURCE_NOTICES:
+                    if component == name:
+                        embedded_notice = source / relative
+                        embedded_notice.parent.mkdir(parents=True)
+                        embedded_notice.write_bytes(SOURCE_NOTICE_CONTENT)
             for name, filename in (("flatbuffers", "LICENSE"), ("fontawesome", "LICENSE.txt")):
                 source = repo / "development/web/content/vendor" / name
                 source.mkdir(parents=True)
@@ -603,7 +667,7 @@ class ReleaseToolTests(unittest.TestCase):
             # Original source evidence belongs only in the legal-documentation tree.
             release_tool.validate_release_tree(args.stage_root)
             inventory = json.loads((legal / "components.json").read_text())
-            for name, relative in SOURCE_NOTICES.items():
+            for name, relative in SOURCE_NOTICES:
                 notice = f"{name}/{relative}"
                 self.assertIn(notice, inventory[name]["notices"])
                 self.assertEqual((legal / notice).read_bytes(), SOURCE_NOTICE_CONTENT)
@@ -615,7 +679,7 @@ class ReleaseToolTests(unittest.TestCase):
                             source_notice.unlink()
                         else:
                             source_notice.write_bytes(content)
-                        args.stage_root = root / f"invalid-{name}-{content is None}"
+                        args.stage_root = root / f"invalid-{name}-{Path(relative).stem}-{content is None}"
                         with self.assertRaisesRegex(RuntimeError, "licence evidence"):
                             release_tool.stage_legal(args)
                 source_notice.write_bytes(SOURCE_NOTICE_CONTENT)
@@ -650,7 +714,7 @@ class ReleaseToolTests(unittest.TestCase):
     def test_requires_embedded_upstream_notices_even_with_regenerated_report(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            for name, relative in SOURCE_NOTICES.items():
+            for name, relative in SOURCE_NOTICES:
                 for remove_file in (False, True):
                     with self.subTest(component=name, remove_file=remove_file):
                         add_legal_payload(root)

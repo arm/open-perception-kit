@@ -1526,6 +1526,8 @@ class QualityChecks:
 
     def get_license_header(self, filename):
         """Get the license header for a file based on its extension."""
+        if os.path.basename(filename) == "meson.build":
+            return self.license_template_manager.get("py")
         for group, exts in self.file_utils.file_endings.items():
             if self.file_utils.is_file_in_group(filename, exts):
                 return self.license_template_manager.get("cpp" if group == "web" else group)

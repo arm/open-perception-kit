@@ -41,10 +41,14 @@ LEGAL_PREFIXES = ("license", "licence", "copying", "notice", "copyright", "third
 # These source files carry upstream attributions absent from the top-level licences.
 # Preserve their complete original bytes in the legal tree, including embedded terms.
 SOURCE_LEGAL_NOTICES = {
-    "jsoncons": "include/jsoncons/detail/grisu3.hpp",
-    "nlohmann_json": "include/nlohmann/detail/conversions/to_chars.hpp",
+    "jsoncons": ("include/jsoncons/detail/grisu3.hpp",),
+    "nlohmann_json": (
+        "include/nlohmann/detail/conversions/to_chars.hpp",
+        "include/nlohmann/thirdparty/hedley/hedley.hpp",
+    ),
 }
 CORE_LEGAL_COMPONENTS = MESON_COMPONENTS | {"opk", "onnxruntime", "flatbuffers", "fontawesome"}
+OPK_LEGAL_FILES = ("LICENSE", "NOTICE", "THIRD_PARTY_NOTICE.md", "README.md")
 ONNX_INFERENCE_OP = "opk-onnx-ops/Inference"
 ONNX_MODEL_SUFFIX = ".onnx"
 EXECUTORCH_INFERENCE_OP = "opk-executorch-ops/Inference"
@@ -344,6 +348,46 @@ def rewrite_shared_opchain(
     return opchain
 
 
+def stage_config(args: argparse.Namespace) -> None:
+    source = Path(args.repo_root).resolve() / "config"
+    excluded = set()
+    invalid_json = []
+    for descriptor in sorted((source / "models").rglob(JSON_GLOB)):
+        try:
+            config = load_json(descriptor)
+        except (ValueError, UnicodeError):
+            # A model payload may itself have a .json filename.
+            invalid_json.append(descriptor)
+            continue
+        if isinstance(config, dict) and "modelFile" in config:
+            if not isinstance(config["modelFile"], str) or not config["modelFile"]:
+                fail(f"modelFile must be a path: {descriptor}")
+            model = Path(config["modelFile"])
+            if model.is_relative_to("/work/config"):
+                model = source / model.relative_to("/work/config")
+            model = (descriptor.parent / model).resolve()
+            if not model.is_relative_to(source):
+                continue
+            if model.exists() and not model.is_file():
+                fail(f"Model payload is not a file: {model}")
+            excluded.update((model, model.with_name(model.name + ".part")))
+    for descriptor in invalid_json:
+        if descriptor.resolve() not in excluded:
+            fail(f"Invalid model configuration: {descriptor}")
+
+    def ignore(directory: str, names: list[str]) -> list[str]:
+        omitted = []
+        for name in names:
+            path = Path(directory) / name
+            if path.resolve() in excluded:
+                omitted.append(name)
+            elif path.is_symlink():
+                fail(f"Image configuration must not contain symlinks: {path}")
+        return omitted
+
+    shutil.copytree(source, Path(args.stage_root) / "config", ignore=ignore)
+
+
 def stage_models(args: argparse.Namespace) -> None:
     repo_root = Path(args.repo_root).resolve()
     stage_root = Path(args.stage_root).resolve()
@@ -606,7 +650,7 @@ def stage_legal(args: argparse.Namespace) -> None:
         if version != record["version"]:
             fail(f"{name} version changed from {record['version']} to {version}; "
                  f"review its licence and notices and update {catalogue_path}")
-        required = (SOURCE_LEGAL_NOTICES[name],) if name in SOURCE_LEGAL_NOTICES else ()
+        required = SOURCE_LEGAL_NOTICES.get(name, ())
         notices = copy_legal_files(source, legal_root / name, required)
         components[name] = {
             **record,
@@ -619,7 +663,7 @@ def stage_legal(args: argparse.Namespace) -> None:
     components["opk"] = {
         "version": read_version(repo_root), "licence": "Apache-2.0",
         "repository": "https://github.com/arm/open-perception-kit",
-        "notices": ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICE.md", "README.md"],
+        "notices": list(OPK_LEGAL_FILES),
     }
     subprojects = repo_root / "development/subprojects"
     if {path.stem for path in subprojects.glob("*.wrap")} != MESON_COMPONENTS:
@@ -695,8 +739,10 @@ def validate_legal_documentation(package_root: Path, *, require_backends: bool =
     legal_root = package_root / "share/opk/licenses"
     inventory = load_json(legal_root / "components.json")
     required = CORE_LEGAL_COMPONENTS.copy()
-    if require_backends:
-        required.update(("executorch", "python-numpy", "python-flatbuffers"))
+    if require_backends or (package_root / "work/development/build/meson-out/opk-executorch-ops.so").is_file():
+        required.add("executorch")
+    if require_backends or (package_root / "opt/opk-venvs/python-ops-runtime").is_dir():
+        required.update(("python-numpy", "python-flatbuffers"))
     if any((package_root / "work/data").rglob("GettyImages-*")):
         required.add("getty")
     if not isinstance(inventory, dict):
@@ -716,9 +762,13 @@ def validate_legal_documentation(package_root: Path, *, require_backends: bool =
             path = legal_root / check_safe_relative(relative, "licence notice")
             if not path.resolve().is_relative_to(legal_root.resolve()) or not path.is_file() or not path.stat().st_size:
                 fail(f"Packaged licence evidence is missing or empty: {name}/{relative}")
-    for name, relative in SOURCE_LEGAL_NOTICES.items():
-        if f"{name}/{relative}" not in inventory[name]["notices"]:
-            fail(f"Packaged licence notice list is missing required upstream attribution: {name}/{relative}")
+    for relative in OPK_LEGAL_FILES:
+        if relative not in inventory["opk"]["notices"]:
+            fail(f"Packaged OPK licence notice list is missing required file: {relative}")
+    for name, relatives in SOURCE_LEGAL_NOTICES.items():
+        for relative in relatives:
+            if f"{name}/{relative}" not in inventory[name]["notices"]:
+                fail(f"Packaged licence notice list is missing required upstream attribution: {name}/{relative}")
     for name in ("onnxruntime/LICENSE", "onnxruntime/ThirdPartyNotices.txt"):
         if not (legal_root / name).is_file() or not (legal_root / name).stat().st_size:
             fail(f"Packaged ONNX Runtime licence evidence is missing: {name}")
@@ -1114,6 +1164,10 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    stage_config_parser = subparsers.add_parser("stage-config")
+    stage_config_parser.add_argument("--repo-root", default=".")
+    stage_config_parser.add_argument("--stage-root", required=True)
+
     stage_models_parser = subparsers.add_parser("stage-models")
     stage_models_parser.add_argument("--repo-root", default=".")
     stage_models_parser.add_argument("--stage-root", required=True)
@@ -1143,7 +1197,9 @@ def main() -> int:
 
     args = parser.parse_args()
     try:
-        if args.command == "stage-models":
+        if args.command == "stage-config":
+            stage_config(args)
+        elif args.command == "stage-models":
             stage_models(args)
         elif args.command == "stage-python-runtime":
             stage_python_runtime(args)

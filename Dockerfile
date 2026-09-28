@@ -650,6 +650,7 @@ RUN --mount=type=cache,id=opk-deployment-ccache,target=/work/.cache/ccache,shari
     /work/generated/open_perception_kit/python; \
   /opt/opk-venvs/python-ops-runtime/bin/python -c \
     'import flatbuffers, numpy, open_perception_kit'; \
+  python3 scripts/release/ReleaseTool.py stage-config --repo-root /work --stage-root /opt/opk-app; \
   native_arch="$(dpkg --print-architecture)"; \
   extra_setup_args=(); \
   if [ "${OPK_RELEASE_BUILD}" = true ]; then \
@@ -808,7 +809,7 @@ RUN set -eux; \
   chown -R "${USER_UID}:${USER_GID}" /work /tmp/opkcomm
 
 COPY --from=opk-deployment-build /opt/opk-deps/onnxruntime/lib /opt/opk-deps/onnxruntime/lib
-COPY --from=opk-deployment-build /work/config /work/config
+COPY --from=opk-deployment-build /opt/opk-app/config /work/config
 COPY data /work/data
 COPY --from=opk-demo-media /work/data/videos /work/data/videos
 COPY development/web /work/development/web
@@ -892,6 +893,7 @@ RUN set -eux; \
   OPK_EXECUTORCH=disabled \
   OPK_ONNXRUNTIME_ROOT=/opt/opk-deps/onnxruntime \
     scripts/build.sh release false; \
+  python3 scripts/release/ReleaseTool.py stage-config --repo-root /work --stage-root /opt/opk-app; \
   python3 scripts/release/ReleaseTool.py stage-legal \
     --repo-root /work --stage-root /opt/opk-app
 
@@ -938,7 +940,7 @@ COPY --from=opk-cairn-build \
   /work/development/build/meson-out/opk-runtime.so \
   /work/development/build/meson-out/opk-std-ops.so \
   runtime/
-COPY --from=opk-cairn-build /work/config/models/yolo26n-320/ config/models/yolo26n-320/
+COPY --from=opk-cairn-build /opt/opk-app/config/models/yolo26n-320/ config/models/yolo26n-320/
 COPY --from=opk-cairn-build \
   /work/data/images/GettyImages-1140581459-thumbnail.jpg \
   data/images/GettyImages-1140581459-thumbnail.jpg

@@ -34,6 +34,7 @@ class FileUtils:
             "web": [".js", ".mjs", ".cjs", ".ts", ".tsx", ".css"],
         }
         self.file_endings["license"] = list(itertools.chain.from_iterable(self.file_endings.values()))
+        self.file_endings["license"].append("meson.build")
 
     @staticmethod
     def get_project_root():
@@ -98,10 +99,14 @@ class FileUtils:
     @staticmethod
     def is_ignored_file(file_path, ignore_folder):
         normalized = FileUtils.normalize_repo_path(file_path)
+        local_adapter = normalized in (
+            "development/subprojects/packagefiles/jsoncons/meson.build",
+            "development/subprojects/packagefiles/stb/meson.build",
+        )
         return any(
             normalized == skip or normalized.startswith(f"{skip}/")
             for skip in (FileUtils.normalize_repo_path(folder) for folder in ignore_folder)
-            if skip
+            if skip and not (local_adapter and skip == "development/subprojects")
         )
 
     @staticmethod

@@ -762,6 +762,25 @@ class TestQualityChecks(unittest.TestCase):
                 self.assertTrue(self.quality_checks.check_license_header([str(vendor)]))
                 self.assertEqual(vendor.read_text(encoding="utf-8"), original)
 
+    def test_license_check_covers_meson_without_selecting_formatters(self):
+        self.quality_checks.file_utils = FileUtils()
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            with patch.object(self.quality_checks.file_utils, "get_project_root", return_value=str(root)):
+                for name, content in (("jsoncons", "project('jsoncons', 'cpp')\n"),
+                                      ("stb", "project('stb', 'c', license: 'MIT OR Unlicense')\n")):
+                    path = root / name / "meson.build"
+                    path.parent.mkdir()
+                    path.write_text(content)
+                    with self.subTest(adapter=name):
+                        self.assertFalse(self.quality_checks.check_license_header([str(path)], format=False))
+                        self.assertFalse(self.quality_checks.check_license_header([str(path)]))
+                        self.assertTrue(self.quality_checks.check_license_header([str(path)], format=False))
+                        self.assertTrue(path.read_text().endswith(content))
+        for group in ("py", "cpp", "cmake", "sh", "web"):
+            self.assertEqual(FileUtils.filter_by_path_ending(["meson.build"],
+                                                             self.quality_checks.file_utils.file_endings[group]), [])
+
     def test_apply_license_header_reformats_cmake_file_when_config_is_available(self):
         input_content = (FIXTURE_ROOT / "cmake" / "bad.CMakeLists.txt.input").read_text(encoding="utf-8")
 

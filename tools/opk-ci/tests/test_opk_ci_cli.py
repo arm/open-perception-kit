@@ -86,6 +86,19 @@ class TestOpkCiCli(unittest.TestCase):
 
         self.assertIn("development/subprojects", args.ignore_folder)
 
+    def test_default_ignore_keeps_local_meson_adapters(self):
+        parser = opk_ci_module.argparse.ArgumentParser()
+        opk_ci_module.setup_argument_parser(parser)
+        args = parser.parse_args(["--license-header-check"])
+        file_utils = opk_ci_module.QualityChecks().file_utils
+        adapters = [f"development/subprojects/packagefiles/{name}/meson.build" for name in ("jsoncons", "stb")]
+        upstream = ["development/subprojects/jsoncons/meson.build", "development/subprojects/stb/stb_image.h"]
+        with patch.object(opk_ci_module.os.path, "exists", return_value=True):
+            self.assertEqual(file_utils.get_related_files(files=adapters + upstream,
+                                                          ignore_folder=args.ignore_folder), adapters)
+            self.assertEqual(file_utils.get_related_files(files=adapters,
+                                                          ignore_folder=["development/subprojects/packagefiles"]), [])
+
     def test_main_applies_all_checks_before_running_perform_checks(self):
         checker = Mock()
         checker.file_utils.get_related_files.return_value = []

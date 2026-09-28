@@ -143,6 +143,8 @@ selected directories under `config/models/`. Their `hfDownload` entries retain
 the pinned repository, revision, filename, and SHA-256 for user downloads.
 Model binaries are excluded from release archives, deployment images, and
 Cairn images, and are not required to build those artifacts.
+Image builds use `ReleaseTool.py stage-config` to omit each descriptor's
+`modelFile` and partial download while keeping labels and postprocessing scripts.
 
 The existing quick-start development flow uses the `opk-models` stage and
 `scripts/download-models.py`. The standard OPK model sources are public;

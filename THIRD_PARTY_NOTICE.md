@@ -53,7 +53,7 @@ notices for dependencies embedded in these projects and Meson build patches.
 | [GoogleTest](https://github.com/google/googletest) | 1.17.0 | BSD-3-Clause | `gtest/LICENSE` | Build and test dependency; notice collection |
 | [jsoncons](https://github.com/danielaparker/jsoncons) | cb54cdc3134a62634466bf7bcd24f1a906f4ef25 | BSL-1.0 AND MIT | `jsoncons/LICENSE`, `jsoncons/include/jsoncons/detail/grisu3.hpp` (Florian Loitsch attribution and MIT terms) | Architecture packages, deployment, Cairn |
 | [magic_enum](https://github.com/Neargye/magic_enum) | 0.9.7 | MIT | `magic_enum/LICENSE` | Architecture packages, deployment, Cairn |
-| [nlohmann/json](https://github.com/nlohmann/json) | 3.12.0 | MIT | `nlohmann_json/LICENSE.MIT`, `nlohmann_json/include/nlohmann/detail/conversions/to_chars.hpp` (Florian Loitsch attribution) | Architecture packages, deployment, Cairn |
+| [nlohmann/json](https://github.com/nlohmann/json) | 3.12.0 | MIT | `nlohmann_json/LICENSE.MIT`, `nlohmann_json/include/nlohmann/detail/conversions/to_chars.hpp` (Florian Loitsch attribution), `nlohmann_json/include/nlohmann/thirdparty/hedley/hedley.hpp` (Evan Nemerson attribution) | Architecture packages, deployment, Cairn |
 | [stb](https://github.com/nothings/stb) | 2c980bb59875b0d32144a71867fbdebb2f77cd20 | MIT OR Unlicense | `stb/LICENSE` | Architecture packages, deployment, Cairn |
 | [tl::expected](https://github.com/TartanLlama/expected) | 1.3.1 | CC0-1.0 | `tl-expected/COPYING` | Architecture packages, deployment, Cairn |
 | [WebSocket++](https://github.com/zaphoyd/websocketpp) | 0.8.2 | BSD-3-Clause, Zlib, MIT for bundled code | `websocketpp/COPYING` | Architecture packages, deployment, Cairn notice collection |
@@ -110,8 +110,8 @@ libsoup, libnice, OpenSSL and their dependencies. These system libraries retain
 their upstream terms, which include licences other than Apache-2.0. Architecture
 packages require the documented host GStreamer and system-library installation;
 they do not incorporate that installation into the OPK tarball.
-The deployment image's CPython 3.14.7 installation also retains its original
-PSF and incorporated-component terms in `/usr/local/lib/python3.14/LICENSE.txt`.
+The deployment image's CPython 3.13.15 installation also retains its original
+PSF and incorporated-component terms in `/usr/local/lib/python3.13/LICENSE.txt`.
 
 A successful build or this inventory does not establish IP review approval.
 Release preparation must reconcile the actual artifact with the scan and record
