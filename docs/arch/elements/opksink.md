@@ -46,8 +46,10 @@ serves the same non-blocking role as the video path.
 - an HTTP server for static browser content
 - a model registry exposed through the control channel
 
-Control messages with malformed JSON or a missing/non-string `type` are dropped
-with a debug log. The connection stays open and subsequent commands remain usable.
+Control messages with malformed JSON, an invalid `type`, or an invalid
+`model_toggle` name are dropped with a debug log. The connection stays open and
+subsequent commands remain usable. Invalid WebRTC message fields remove only the
+affected session.
 Browser diagnostics insert message text as DOM text, preserving HTML-like input literally.
 
 `opkinfer` emits `opk-model-register` events, and `opksink` records the model
