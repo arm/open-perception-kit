@@ -37,7 +37,7 @@ endlegend
 
 package "External Base Images" {
   database "debian:trixie-slim" as debian
-  database "python:3.14-slim-trixie" as py314
+  database "python:3.13-slim-trixie" as py313
 }
 
 package "Dockerfile\ncore cross-lane stage graph" {
@@ -45,7 +45,7 @@ package "Dockerfile\ncore cross-lane stage graph" {
     component "opk-models\nHugging Face model artifact stage" as models #fed7aa
     component "opk-demo-media\ndemo video artifact stage" as demo_media #fed7aa
 
-    py314 --> models : FROM
+    py313 --> models : FROM
     debian --> demo_media : FROM
   }
 
@@ -57,7 +57,7 @@ package "Dockerfile\ncore cross-lane stage graph" {
     component "opk-dev-macos-cache-build\nnative Arm64 ccache seed" as dev_cache #fed7aa
     component "opk-dev-macos-ci\nArm64 development image + ccache seed" as dev_ci #bbf7d0
 
-    py314 --> build_base : FROM
+    py313 --> build_base : FROM
     build_base --> dev_base : FROM
     dev_base --> dev_tools : FROM
     dev_tools --> dev_image : FROM
@@ -83,7 +83,7 @@ package "Dockerfile\ncore cross-lane stage graph" {
     cross_base --> deployment_build : FROM
     models ..> deployment_build : COPY resolved config\nand model artifacts
     demo_media ..> deployment_build : COPY demo videos
-    py314 --> deployment_image : FROM
+    py313 --> deployment_image : FROM
     deployment_build ..> deployment_image : COPY selected outputs\n/opt/opk-app, release tarball, ONNX Runtime libs
   }
 }
@@ -92,8 +92,8 @@ package "Helper Dockerfiles\nindependent workflow runtimes" {
   component "Dockerfile.pre-commit\nopk-pre-commit-runtime" as pre_commit #bbf7d0
   component "Dockerfile.pages\nopk-playwright-pages" as pages #bbf7d0
 
-  py314 --> pre_commit : FROM
-  py314 --> pages : FROM
+  py313 --> pre_commit : FROM
+  py313 --> pages : FROM
 }
 
 package "CI Service Mapping" {

@@ -111,7 +111,7 @@ SYSTEM_LIBRARY_PREFIXES = (
     "liborc-0.4.so.",
     "libpcre2-8.so.",
     "libpthread.so.",
-    "libpython3.14.so.",
+    "libpython3.13.so.",
     "libresolv.so.",
     "librt.so.",
     "libselinux.so.",
@@ -769,9 +769,9 @@ def validate_python_operation_runtime(private_root: Path) -> None:
         for library in dynamic_values(python_operation, "NEEDED")
         if library.startswith("libpython")
     )
-    if python_libraries != ["libpython3.14.so.1.0"]:
+    if python_libraries != ["libpython3.13.so.1.0"]:
         fail(
-            "Python operation must depend on exactly libpython3.14.so.1.0: "
+            "Python operation must depend on exactly libpython3.13.so.1.0: "
             f"{python_libraries}"
         )
 

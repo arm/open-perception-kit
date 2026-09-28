@@ -4,7 +4,7 @@ version = "0.1.1"
 description = "Automated test system for Open Perception Kit"
 authors = [{name = "Arm Limited"}]
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.13"
 dependencies = [
     "jmespath==1.1.0",
     "numpy==2.4.2",

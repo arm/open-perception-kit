@@ -19,12 +19,12 @@ current Dockerfile `FROM` and artifact-copy relationships.
 ```text
 External bases
   debian:trixie-slim
-  python:3.14-slim-trixie
+  python:3.13-slim-trixie
 
 Shared base and artifact stages
   debian:trixie-slim
     -> opk-demo-media
-  python:3.14-slim-trixie
+  python:3.13-slim-trixie
     -> opk-build-base
        -> opk-cross-build-base
     -> opk-models
@@ -55,13 +55,13 @@ Deployment lane
     --copy demo videos--> opk-deployment-build
   opk-deployment-build
     --copy selected /opt/opk-app, release archive, and ONNX Runtime outputs-->
-  python:3.14-slim-trixie
+  python:3.13-slim-trixie
     -> opk-gstreamer-runtime-base
        -> opk-python-ops-runtime
           -> opk-deployment-base
 
 Helper lane
-  python:3.14-slim-trixie
+  python:3.13-slim-trixie
     -> opk-pre-commit-runtime
     -> opk-playwright-pages
 ```
@@ -177,7 +177,7 @@ stages inherit everything from their parent unless noted otherwise.
   `NO_EXAMPLE_CONTENT=true`. The checked-in manifest locks each file from the
   Arm Multimedia Hugging Face bucket by SHA-256, and the stage emits
   `data/videos/SHA256SUMS` beside the verified media.
-- `opk-models`: starts from `python:3.14-slim-trixie`, adds
+- `opk-models`: starts from `python:3.13-slim-trixie`, adds
   `huggingface_hub==1.18.0` and `jsonschema==4.26.0`, then runs
   `scripts/download-models.py` with the optional Hugging Face build secret to
   resolve model artifacts under `config/models`.
@@ -225,9 +225,9 @@ stages inherit everything from their parent unless noted otherwise.
   packages, ONNX Runtime libraries, the target-platform Python operation
   runtime, the OPK app, and any release tarball copied from
   `opk-deployment-build`.
-- `opk-pre-commit-runtime`: starts from `python:3.14-slim-trixie` and adds
+- `opk-pre-commit-runtime`: starts from `python:3.13-slim-trixie` and adds
   `ca-certificates`, `curl`, `git`, `shfmt`, `actionlint`, and `opk-ci`.
-- `opk-playwright-pages`: starts from `python:3.14-slim-trixie` and adds
+- `opk-playwright-pages`: starts from `python:3.13-slim-trixie` and adds
   `ca-certificates`, GitHub CLI `gh`, and `git`.
 
 Quick-start builds mount a compiler cache at `$OPK_PROJECT_ROOT/.cache/ccache`. The native
