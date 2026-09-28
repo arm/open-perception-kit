@@ -1,7 +1,7 @@
 {
   "artifact": {
     "name": "open-perception-kit",
-    "version": "0.1.0"
+    "version": "0.1.1"
   },
   "descriptor": {
     "path": "tools/perception/sdk.json",
@@ -20,7 +20,7 @@
     },
     {
       "path": "cpp/cmake/open_perception_kit.cmake",
-      "sha256": "5e7ed603e1a534e7eea5dfe48a9a45ea53c101b7a7b2268308a9e0b4ecd507aa",
+      "sha256": "af9b9df9b8943c8f1e9ddd24972df45aa36b45abf912fb88e99ce84e752efaae",
       "size": 4293
     },
     {
@@ -80,7 +80,7 @@
     },
     {
       "path": "cpp/meson/open_perception_kit/meson.build",
-      "sha256": "568be8273bb0d9ef1ac79339526edd8e839f27968621204cddf14701b729c971",
+      "sha256": "92ed316ffee5c8c119858f830d0e975f0b050fa7f5d5f3a193496fc3c08b6191",
       "size": 4165
     },
     {
@@ -90,7 +90,7 @@
     },
     {
       "path": "cpp/open_perception_kit.h",
-      "sha256": "cb388a6e5a76c807346a5493a11d5c9830999f821c386c2b473de174c91b0d9b",
+      "sha256": "cab1b3bb01db18ed4952e007fbafbcb8b7e7b79b0639f1b8c9ac3c6a3809b913",
       "size": 33115
     },
     {
@@ -115,12 +115,12 @@
     },
     {
       "path": "python/pyproject.toml",
-      "sha256": "6ae8ad6e69ce1e12e2415a7f81e4a85b42b4d182be28074ffe21fd1714d4d84b",
+      "sha256": "f22bb593b2c09d611bac404692f8ba25af3f0ee95f95d309372894d9f19311a3",
       "size": 1236
     },
     {
       "path": "python/src/open_perception_kit/__init__.py",
-      "sha256": "914e77881f62dbf15becc1306e235c8e94f812a8d999aef1b8688b91bc26af5a",
+      "sha256": "c1571fc57968eb646ec714f6235813e8188c1033c5ab65b30992b184119b80b1",
       "size": 1193
     },
     {
@@ -310,12 +310,12 @@
     },
     {
       "path": "python/src/open_perception_kit/sdk.py",
-      "sha256": "5cf340c8021a42e3350c1ca573090a30fdef03337631a4edbe1cd19c55ba7441",
+      "sha256": "6433064acf63dc21611c62309fb8baa69f873e0bfe5c5839d93211c48d5ec48e",
       "size": 16029
     },
     {
       "path": "rust/Cargo.toml",
-      "sha256": "510005bbb1ba2d39d290956f767840ca3af93903d56be07eb98ed2db2e300216",
+      "sha256": "c7de03431cbeb6ed0f33489cc793eb24d4841a880794eb47117cc183eb759325",
       "size": 880
     },
     {
@@ -495,7 +495,7 @@
     },
     {
       "path": "rust/src/lib.rs",
-      "sha256": "3f3bf09c9d5257d0ba0839182a90c885dd52c2c7a434326a1964251e231b92db",
+      "sha256": "3d74e7953f07ed1fcdca3f7387ad12f7bb31d28aa5d112f8ffc1b1026d450da9",
       "size": 44324
     },
     {
@@ -520,12 +520,12 @@
     },
     {
       "path": "ts/dist/open_perception_kit/envelope.d.ts",
-      "sha256": "4bd8ee094b3ac102b6aab92504b0603085b6792a19626e0fca940797a56b603c",
+      "sha256": "5abc54fa567ba9db533318047533ee97004580edc7a5464094e15869f6d2dafa",
       "size": 2968
     },
     {
       "path": "ts/dist/open_perception_kit/envelope.js",
-      "sha256": "ec4a83fdd0b44faab89c3b64ba570dec6d619ea5c4e83f99d2e45c10c7f970e8",
+      "sha256": "40a3dbce44dc7bbaafe407f5a2d756b177fcdece522b0f28475e034f24924b75",
       "size": 14402
     },
     {
@@ -830,12 +830,12 @@
     },
     {
       "path": "ts/dist/open_perception_kit/index.d.ts",
-      "sha256": "54da2128aabfcf5fa57a151b8f5455335402d8f228361cfbc8927954a2591823",
+      "sha256": "00eca3f859a875a19aebbeaeb710c30827c8103dc762e469fca9539df4007bd5",
       "size": 1262
     },
     {
       "path": "ts/dist/open_perception_kit/index.js",
-      "sha256": "1e1024e1ec229e89bf30e4190bb9f0b913773a69109bd5b63488690aec2eb02b",
+      "sha256": "3a86d3405ddc64a5b79f92fc3a0a79351a1ce774dc012547f625ac886bcdeae3",
       "size": 1230
     },
     {
@@ -850,12 +850,12 @@
     },
     {
       "path": "ts/package.json",
-      "sha256": "7d702a699649bfee4e78fe489e0f5c7706253dbb9add206aadf50dec9ef19f2f",
+      "sha256": "6e40433c050feb75e0121277565dabf1e50f4a2304f5f0f5c00abeb963b31baf",
       "size": 874
     },
     {
       "path": "ts/src/open_perception_kit/envelope.ts",
-      "sha256": "02054f4a1720e48f0a03f5e200627129373a8f6bf8c6a899c89fd455091876df",
+      "sha256": "87417688ec9e4da2b7c05ab1affa05963d1c626b32e9ee0298b5f9fed6d13c9e",
       "size": 13029
     },
     {
@@ -1010,7 +1010,7 @@
     },
     {
       "path": "ts/src/open_perception_kit/index.ts",
-      "sha256": "c464cad94917dccef3c857b6cb366220e3f07691ab26992fcfa9fdcf49f7395b",
+      "sha256": "ef210bb2075220f636a92f52b961bb70028e111bcbf6f89708522cff10790c23",
       "size": 1243
     },
     {
@@ -1245,7 +1245,7 @@
   "project_files": [
     {
       "path": "development/perception/meson.build",
-      "sha256": "e7661061dc87869d3055b7bfb0484c8107e02961ab718712adf01e1736823e43",
+      "sha256": "d8dd0e5431e2353ddd31381df3e9cfa4305dec90eca9c279b3271859f352fa00",
       "size": 2003
     }
   ],
@@ -1254,7 +1254,7 @@
       "files": [
         {
           "path": "cmake/open_perception_kit.cmake",
-          "sha256": "4b31a8d0c8b95f6303394c8069bec59af315755a39e07362ab817436b9f28c0f",
+          "sha256": "4e037597c6a820e9a19d2b7b8a8b4fbe471c315977040cac75d133655cde305e",
           "size": 3536
         },
         {
@@ -1314,7 +1314,7 @@
         },
         {
           "path": "meson/open_perception_kit/meson.build",
-          "sha256": "e1e1e9efc99b6020a28e2cb7c23626086b645bf791d88744b8e9b543344b58e1",
+          "sha256": "080dd3b7aec0980d11837b5c8fa130897a5e21a2649f72334a635364a7982969",
           "size": 3479
         },
         {
@@ -1324,7 +1324,7 @@
         },
         {
           "path": "open_perception_kit.h",
-          "sha256": "f58aecbf50154e7968473a7948a9d6f344f4836f4eb22b43a5be880000410456",
+          "sha256": "1bd52e55de2f390e6a7577ca670772bcc2db3b40bd49ba6871d16355da606c52",
           "size": 31923
         },
         {
@@ -1488,19 +1488,19 @@
       "schema_set_sha256": "1b19418d8a0d34038a3c99895fa93a1140c25af910f6bc63c0e11978e12c2876",
       "sdk": {
         "name": "open_perception_kit",
-        "version": "0.1.0"
+        "version": "0.1.1"
       }
     },
     "python": {
       "files": [
         {
           "path": "pyproject.toml",
-          "sha256": "41bef29a5dde79f663af8ea32f2f94da5c8d982fd375118e60946df53642122b",
+          "sha256": "f66a47b0d8cbea2b28f13ffb88cf8f90f56bfa1b314464caf0488b69bef10f2b",
           "size": 488
         },
         {
           "path": "src/open_perception_kit/__init__.py",
-          "sha256": "4b7b5590eb8989dbfee262751a847746a1e4e387762822d4ae19340431c0765b",
+          "sha256": "f3441728eaf4e0a83fc6c385e3968d370c029e61be345f7191c7f9ed71f0c79e",
           "size": 506
         },
         {
@@ -1690,7 +1690,7 @@
         },
         {
           "path": "src/open_perception_kit/sdk.py",
-          "sha256": "26940126da84588e417bcffdd354d57948285772f20ddae29fb57763a1752e99",
+          "sha256": "d45999981fb6cb49c6ba47f1c897516efe02de65103044b2491c370ef005f3f6",
           "size": 15341
         }
       ],
@@ -1783,7 +1783,7 @@
             "src/open_perception_kit/guest.pyi"
           ]
         },
-        "version": "0.1.0",
+        "version": "0.1.1",
         "wheel_tag": "py3-none-any"
       },
       "schema_files": [
@@ -1841,14 +1841,14 @@
       "schema_set_sha256": "1b19418d8a0d34038a3c99895fa93a1140c25af910f6bc63c0e11978e12c2876",
       "sdk": {
         "name": "open_perception_kit",
-        "version": "0.1.0"
+        "version": "0.1.1"
       }
     },
     "rust": {
       "files": [
         {
           "path": "Cargo.toml",
-          "sha256": "4b3d148eef5feafa6c89fbbe18b49512ad3c67c4ee368a6553f85fbdf5f51806",
+          "sha256": "cd3de56f34084d90716f65b8a8edda4d617ea1a7b69ff5fc5e9bd0cea3d8d799",
           "size": 170
         },
         {
@@ -2018,7 +2018,7 @@
         },
         {
           "path": "src/lib.rs",
-          "sha256": "f48a76d409860bf1adf9c03814eb8aab1532bedfe17e5616cfc30a5266fe3711",
+          "sha256": "7cd4d78494195e8c9bcd4d363304a4a475a24b1d07a21dd87ad2ba92e66e8ca6",
           "size": 43616
         }
       ],
@@ -2154,19 +2154,19 @@
       "schema_set_sha256": "1b19418d8a0d34038a3c99895fa93a1140c25af910f6bc63c0e11978e12c2876",
       "sdk": {
         "name": "open_perception_kit",
-        "version": "0.1.0"
+        "version": "0.1.1"
       }
     },
     "ts": {
       "files": [
         {
           "path": "package.json",
-          "sha256": "ad9fecb45faaed70d496f031f05b452b3f633e55323aabdf90c7c3c3b439e2ab",
+          "sha256": "ffad1cae871c6b2cb963e3f218b5edae33456c36fd66958d51f30149d4af53d7",
           "size": 750
         },
         {
           "path": "src/open_perception_kit/envelope.ts",
-          "sha256": "df2384d89b20a67105871e0203ca9502b47d37da275b1440603b46c2a7215b51",
+          "sha256": "4988cd03ac17d0feccc6e7d68f4106c81fb3103c104e208acf0be8e1cfb2ee87",
           "size": 12321
         },
         {
@@ -2321,7 +2321,7 @@
         },
         {
           "path": "src/open_perception_kit/index.ts",
-          "sha256": "382db776796a424cc6af278672f7420c15b2f2454993f8b0d3b545ba2b746472",
+          "sha256": "fcdb245e083399438d4888d1836fe4ac0cb305c6ce7284ed7752fb00a3bab128",
           "size": 535
         },
         {
@@ -2467,7 +2467,7 @@
       "schema_set_sha256": "1b19418d8a0d34038a3c99895fa93a1140c25af910f6bc63c0e11978e12c2876",
       "sdk": {
         "name": "open_perception_kit",
-        "version": "0.1.0"
+        "version": "0.1.1"
       }
     }
   }

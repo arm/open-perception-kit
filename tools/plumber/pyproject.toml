@@ -23,7 +23,7 @@ requires-python = ">=3.13"
 dependencies = [
     "jmespath==1.1.0",
     "numpy==2.4.2",
-    "open_perception_kit==0.1.0",
+    "open_perception_kit==0.1.1",
     "pillow==12.3.0",
     "pyright==1.1.408"
 ]

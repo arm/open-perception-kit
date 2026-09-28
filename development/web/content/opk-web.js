@@ -5584,7 +5584,7 @@ var __classPrivateFieldGet = function(receiver, state, kind, f) {
 };
 var _ExternalKey_value;
 var SDK_NAME = "open_perception_kit";
-var SDK_VERSION = "0.1.0";
+var SDK_VERSION = "0.1.1";
 var SCHEMA_SET_SHA256 = "1b19418d8a0d34038a3c99895fa93a1140c25af910f6bc63c0e11978e12c2876";
 var EXTERNAL_KEY_MIN = BigInt("9223372036854775808");
 var EXTERNAL_KEY_MASK = EXTERNAL_KEY_MIN - BigInt(1);
