@@ -1327,6 +1327,7 @@ HEADER_TEMPLATE = """// Generated file. Do not edit.
 namespace __SDK_NAME__::python_bridge {
 
 void append_inittab();
+[[nodiscard]] bool initialize_module();
 
 [[nodiscard]] PyObject* wrap(container::envelope& envelope);
 bool invalidate(PyObject* object) noexcept;
@@ -1891,6 +1892,25 @@ void append_inittab() {
     if (PyImport_AppendInittab("__MODULE_NAME__", &PyInit___MODULE_NAME__) != 0) {
         throw std::runtime_error("failed to register __MODULE_NAME__ Python bridge module");
     }
+}
+
+bool initialize_module() {
+    if (!Py_IsInitialized()) {
+        return false;
+    }
+
+    PyObject* modules = PyImport_GetModuleDict();
+    if (PyDict_GetItemString(modules, "__MODULE_NAME__") != nullptr) {
+        return true;
+    }
+
+    PyObject* module = init_module_impl();
+    if (module == nullptr) {
+        return false;
+    }
+    const int result = PyDict_SetItemString(modules, "__MODULE_NAME__", module);
+    Py_DECREF(module);
+    return result == 0;
 }
 
 PyObject* wrap(container::envelope& envelope) {

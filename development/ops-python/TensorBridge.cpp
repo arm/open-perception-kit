@@ -10,6 +10,7 @@
 #include <array>
 
 #include "PythonBridgeError.h"
+#include "PythonRuntime.h"
 
 extern "C" PyObject *PyInit_opk_python_ops();
 
@@ -352,6 +353,27 @@ PyObject *initializeModule() {
 void appendTensorModuleInittab() {
     if (PyImport_AppendInittab("opk_python_ops", &::PyInit_opk_python_ops) != 0)
         throw PythonBridgeError("Failed to register opk_python_ops Python module");
+}
+
+void initializeTensorModule() {
+    if (!Py_IsInitialized())
+        throw PythonBridgeError("Cannot initialize opk_python_ops without a Python interpreter");
+
+    PyObject *modules = PyImport_GetModuleDict();
+    if (PyDict_GetItemString(modules, "opk_python_ops") != nullptr)
+        return;
+
+    PyObject *module = ::PyInit_opk_python_ops();
+    if (module == nullptr)
+        throw PythonBridgeError("Failed to initialize opk_python_ops Python module: " +
+                                formatPythonError());
+    if (PyDict_SetItemString(modules, "opk_python_ops", module) < 0) {
+        Py_DECREF(module);
+        bridgeState() = {};
+        throw PythonBridgeError("Failed to register opk_python_ops in sys.modules: " +
+                                formatPythonError());
+    }
+    Py_DECREF(module);
 }
 
 PyObject *wrapTensors(const opk::op::OpChainContext &context, const opk::Model *model) {

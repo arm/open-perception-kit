@@ -5503,6 +5503,25 @@ void append_inittab() {
     }
 }
 
+bool initialize_module() {
+    if (!Py_IsInitialized()) {
+        return false;
+    }
+
+    PyObject *modules = PyImport_GetModuleDict();
+    if (PyDict_GetItemString(modules, "open_perception_kit_bridge") != nullptr) {
+        return true;
+    }
+
+    PyObject *module = init_module_impl();
+    if (module == nullptr) {
+        return false;
+    }
+    const int result = PyDict_SetItemString(modules, "open_perception_kit_bridge", module);
+    Py_DECREF(module);
+    return result == 0;
+}
+
 PyObject *wrap(container::envelope &envelope) {
     if (!Py_IsInitialized()) {
         return nullptr;

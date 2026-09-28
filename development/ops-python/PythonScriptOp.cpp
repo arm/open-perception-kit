@@ -262,7 +262,7 @@ opk::Result<void> PythonScriptOp::configure(const opk::AttributeMap &attributes)
         if (instanceId.empty())
             instanceId = opk::op::makeDefaultInstanceId("opk-python-ops/PythonScript", 0);
 
-        ensureRuntime();
+        ensureRuntime(candidatePythonPaths);
         auto candidateScript =
             LoadedScript::load(candidateScriptPath,
                                candidatePythonPaths,
