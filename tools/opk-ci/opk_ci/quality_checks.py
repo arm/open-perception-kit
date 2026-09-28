@@ -1,6 +1,17 @@
-################################################################
 # SPDX-FileCopyrightText: Copyright 2025-2026 Arm Limited and/or its affiliates
-################################################################
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 import os
 import glob
@@ -1517,7 +1528,7 @@ class QualityChecks:
         """Get the license header for a file based on its extension."""
         for group, exts in self.file_utils.file_endings.items():
             if self.file_utils.is_file_in_group(filename, exts):
-                return self.license_template_manager.get("cpp" if group == "web" else group)
+                return self.license_template_manager.get({"web": "cpp", "meson": "py"}.get(group, group))
 
         return None
 
@@ -1548,8 +1559,22 @@ class QualityChecks:
             logger.error(proc.stdout)
         return False
 
+    @staticmethod
+    def existing_license_notices(content):
+        """Recognize existing notices before changing or validating a file's licence."""
+        lines = (line.strip(" #/*!\t") for line in content.splitlines())
+        return [line for line in lines if re.match(
+            r"SPDX-(?:FileCopyrightText|License-Identifier):", line, re.IGNORECASE)
+            or re.search(r"\bcopyright\b", line, re.IGNORECASE)]
+
     def apply_license_header(self, filename, content):
         """Apply license header to a file, preserving shebang if present."""
+        if self.existing_license_notices(content):
+            self.record_manual_fix(
+                filename, "license-header",
+                "Existing copyright or licence notices require manual review; preserve their original terms.",
+            )
+            return False
         header = self.get_license_header(filename)
         if not header:
             logger.error(f"No license template for file: {filename}")
@@ -1609,18 +1634,34 @@ class QualityChecks:
                 continue
 
             top_lines = content.splitlines()[:5]
-            found = any(copyright_pattern.search(line) for line in top_lines)
+            identifiers = [line.partition(":")[2].strip() for line in self.existing_license_notices(content)
+                           if line.lower().startswith("spdx-license-identifier:")]
+            template = self.get_license_header(filename)
+            if not template or "Licensed under the Apache License" not in template:
+                logger.error(f"Combined Apache licence template is missing for {filename}")
+                result = False
+                continue
+            notice = "\n".join(line.strip(" #/*\t") for line in template.splitlines())
+            notice = notice[notice.index("Licensed under the Apache License"):].strip()
+            header = "\n".join(line.strip(" #/*\t") for line in content.splitlines()[:25])
+            found = (
+                any(copyright_pattern.search(line) for line in top_lines)
+                and any(line.strip(" #/*\t") == "SPDX-License-Identifier: Apache-2.0" for line in top_lines)
+                and set(identifiers) == {"Apache-2.0"}
+                and notice in header
+            )
 
             if found:
                 logger.debug(f"License header already present in {filename}")
-            elif format and not any("Copyright" in line for line in top_lines):
+            elif format:
                 result = False
                 self.apply_license_header(filename, content)
             else:
                 self.record_manual_fix(
                     filename,
                     "license-header",
-                    "Add the Arm SPDX copyright notice; preserve existing copyright holders and contribution years.",
+                    "Use the combined SPDX and Apache short notice from tools/templates/header; "
+                    "preserve existing copyright holders, contribution years, and licence terms.",
                 )
                 result = False
 
