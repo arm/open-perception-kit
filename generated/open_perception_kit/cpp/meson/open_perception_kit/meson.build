@@ -28,7 +28,7 @@
 #   executable('host', 'host.cpp', dependencies: [open_perception_kit_python_bridge_dep])
 
 _open_perception_kit_cpp = meson.get_compiler('cpp')
-open_perception_kit_version = '0.1.0'
+open_perception_kit_version = '0.1.1'
 open_perception_kit_flatbuffers_version_requirement = '==25.9.23'
 open_perception_kit_python_version_requirement = '>=3.10'
 open_perception_kit_python_bridge_available = true

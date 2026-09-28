@@ -17,7 +17,7 @@
 
 [project]
 name = "open_perception_kit"
-version = "0.1.0"
+version = "0.1.1"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
 description = "Generated open_perception_kit Python SDK"
