@@ -629,7 +629,7 @@ COPY --from=opk-release-sources /work/scripts/private/shtools.sh scripts/private
 COPY --from=opk-release-sources /work/scripts/private/deployment-runtime.sh scripts/private/deployment-runtime.sh
 COPY --from=opk-release-sources --chmod=0755 /work/scripts/perception-sdk.sh scripts/perception-sdk.sh
 COPY --from=opk-release-sources --chmod=0755 /work/scripts/private/run-perception-sdk.sh scripts/private/run-perception-sdk.sh
-COPY --from=opk-release-sources /work/scripts/release/ReleaseTool.py scripts/release/ReleaseTool.py
+COPY --from=opk-release-sources /work/scripts/release/ReleaseTool.py /work/scripts/release/third-party-licenses.json scripts/release/
 COPY --from=opk-release-sources /work/.clang-format /work/.cmake-format.yaml ./
 COPY --from=opk-release-sources /work/tools/config_versions.py tools/config_versions.py
 COPY --from=opk-release-sources /work/tools/perception tools/perception
@@ -637,6 +637,10 @@ COPY --from=opk-release-sources /work/tools/flowdata-sdk tools/flowdata-sdk
 COPY --from=opk-release-sources /work/schemas/perception/metadata schemas/perception/metadata
 COPY --from=opk-release-sources /work/development development
 COPY --from=opk-release-sources /work/generated generated
+COPY --from=opk-release-sources /work/LICENSE /work/NOTICE /work/THIRD_PARTY_NOTICE.md ./
+COPY --from=opk-release-sources /work/docs/public/licensing.md docs/public/licensing.md
+COPY --from=opk-release-sources /work/requirements/build.json requirements/build.json
+COPY --from=opk-release-sources /work/data data
 # Release and deployment images contain descriptors only. Users download models
 # through the quick-start development flow with their own Hugging Face access.
 COPY --from=opk-release-sources /work/config config
@@ -682,6 +686,9 @@ RUN --mount=type=cache,id=opk-deployment-ccache,target=/work/.cache/ccache,shari
     -type f -name "*.so" -exec cp {} /opt/opk-app/development/build/meson-out/ \; ; \
   cp /work/tools/opk-menu /opt/opk-app/tools/; \
   cp /work/scripts/private/deployment-runtime.sh /opt/opk-app/scripts/private/; \
+  /opt/opk-venvs/python-ops-runtime/bin/python \
+    /work/scripts/release/ReleaseTool.py stage-legal \
+    --repo-root /work --stage-root /opt/opk-app --include-python; \
   chmod +x /opt/opk-app/tools/opk-menu /opt/opk-app/scripts/private/deployment-runtime.sh; \
   mkdir -p /opt/opk-release-artifacts; \
   if [ "${OPK_RELEASE_BUILD}" = true ]; then \
@@ -697,7 +704,7 @@ RUN --mount=type=cache,id=opk-deployment-ccache,target=/work/.cache/ccache,shari
       --repository-commit "${OPK_RELEASE_SOURCE_COMMIT}"; \
     mkdir -p \
       "${package_root}/lib/opk" \
-      "${package_root}/share/opk/licenses/libexecutorch-dev" \
+      "${package_root}/share/opk" \
       "${package_root}/share/opk/open-perception-kit"; \
     /work/tools/opk-config-check --root /work; \
     DESTDIR="${package_root}" meson install \
@@ -710,10 +717,7 @@ RUN --mount=type=cache,id=opk-deployment-ccache,target=/work/.cache/ccache,shari
       "${package_root}/lib/opk/"; \
     ln -s "libonnxruntime.so.${onnxruntime_version}" \
       "${package_root}/lib/opk/libonnxruntime.so.1"; \
-    cp -a /opt/opk-deps/onnxruntime/share/doc/onnxruntime/. \
-      "${package_root}/share/opk/licenses/"; \
-    cp -a /opt/opk-deps/executorch-legal-documentation/. \
-      "${package_root}/share/opk/licenses/libexecutorch-dev/"; \
+    cp -a /opt/opk-app/share/opk/licenses "${package_root}/share/opk/"; \
     cp -a /tmp/open-perception-kit-input/. \
       "${package_root}/share/opk/open-perception-kit/"; \
     python3 /work/scripts/release/ReleaseTool.py stage-models \
@@ -818,10 +822,14 @@ COPY --from=opk-release-sources /work/development/web /work/development/web
 COPY --from=opk-deployment-build /opt/opk-app/development/build /work/development/build
 COPY --from=opk-deployment-build /opt/opk-app/tools /work/tools
 COPY --from=opk-deployment-build /opt/opk-app/scripts /work/scripts
+COPY --from=opk-deployment-build /opt/opk-app/share/opk/licenses /share/opk/licenses
+COPY --from=opk-release-sources /work/scripts/release/ReleaseTool.py /work/scripts/release/ReleaseTool.py
 COPY --from=opk-release-sources --chmod=0755 /work/scripts/release/smoke-opk-package.sh /work/scripts/release/smoke-opk-package.sh
 COPY --from=opk-deployment-build /opt/opk-release-artifacts /opt/opk-release-artifacts
 
 RUN set -eux; \
+  python3 /work/scripts/release/ReleaseTool.py validate-legal --package-root / --require-python; \
+  dpkg-query -W -f='${Package}\t${Version}\n' > /share/opk/licenses/debian-packages.tsv; \
   /opt/opk-venvs/python-ops-runtime/bin/python -c \
     'import flatbuffers, numpy, open_perception_kit'; \
   python_ops=/work/development/build/meson-out/opk-python-ops.so; \
@@ -873,8 +881,13 @@ ARG TARGETARCH
 
 WORKDIR /work
 COPY --from=opk-release-sources /work/development development
+COPY --from=opk-release-sources /work/LICENSE /work/NOTICE /work/THIRD_PARTY_NOTICE.md ./
+COPY --from=opk-release-sources /work/docs/public/licensing.md docs/public/licensing.md
+COPY --from=opk-release-sources /work/requirements/build.json requirements/build.json
+COPY --from=opk-release-sources /work/tools/perception/sdk.json tools/perception/sdk.json
+COPY --from=opk-release-sources /work/scripts/release/ReleaseTool.py /work/scripts/release/third-party-licenses.json scripts/release/
+COPY --from=opk-release-sources /work/data data
 COPY --from=opk-release-sources /work/config/models/yolo26n-320 config/models/yolo26n-320
-COPY --from=opk-release-sources /work/data/images/GettyImages-1140581459-thumbnail.jpg data/images/GettyImages-1140581459-thumbnail.jpg
 COPY --from=opk-release-sources --chmod=0755 /work/scripts/build.sh scripts/build.sh
 COPY --from=opk-release-sources --chmod=0755 /work/scripts/private/install-onnxruntime.sh scripts/private/install-onnxruntime.sh
 COPY --from=opk-release-sources /work/scripts/private/shtools.sh scripts/private/shtools.sh
@@ -885,7 +898,9 @@ RUN set -eux; \
     /opt/opk-deps/requirements/build.json "${TARGETARCH}" /opt/opk-deps/onnxruntime; \
   OPK_EXECUTORCH=disabled \
   OPK_ONNXRUNTIME_ROOT=/opt/opk-deps/onnxruntime \
-    scripts/build.sh release false
+    scripts/build.sh release false; \
+  python3 scripts/release/ReleaseTool.py stage-legal \
+    --repo-root /work --stage-root /opt/opk-app
 
 FROM opk-gstreamer-runtime-base AS opk-cairn-runtime
 
@@ -919,6 +934,8 @@ RUN set -eux; \
   id -u "${USERNAME}" >/dev/null 2>&1 || useradd -l -m -u "${USER_UID}" -g "${USER_GID}" -s /bin/bash "${USERNAME}"
 
 WORKDIR /work
+COPY --from=opk-cairn-build /opt/opk-app/share/opk/licenses /share/opk/licenses
+COPY --from=opk-release-sources /work/scripts/release/ReleaseTool.py scripts/release/ReleaseTool.py
 COPY --from=opk-cairn-build /opt/opk-deps/onnxruntime/lib/ runtime/
 COPY --from=opk-cairn-build \
   /work/development/build/meson-out/libfmt.so \
@@ -932,5 +949,8 @@ COPY --from=opk-cairn-build /work/config/models/yolo26n-320/ config/models/yolo2
 COPY --from=opk-cairn-build \
   /work/data/images/GettyImages-1140581459-thumbnail.jpg \
   data/images/GettyImages-1140581459-thumbnail.jpg
+
+RUN python3 scripts/release/ReleaseTool.py validate-legal --package-root / && \
+  dpkg-query -W -f='${Package}\t${Version}\n' > /share/opk/licenses/debian-packages.tsv
 
 USER ${USERNAME}

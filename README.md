@@ -304,3 +304,12 @@ Copyright 2025-2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
 Open Perception Kit is licensed under the [Apache License, Version 2.0](LICENSE),
 except where individual files or accompanying notices state otherwise.
 See [Licensing](docs/public/licensing.md) for the licence and notice locations.
+
+Third-party components retain their own licences. The
+[third-party inventory](THIRD_PARTY_NOTICE.md) identifies the projects, versions,
+licences, and release surfaces. This includes FlatBuffers (Apache-2.0), ONNX
+Runtime (MIT), ExecuTorch (BSD-3-Clause), and the Font Awesome CSS (MIT) and
+font (OFL-1.1). Their original notices accompany the distributed files.
+
+The [TPIP report](docs/third-party-licenses.md) preserves all 1,111 entries from
+the supplied Black Duck SBOM, with its scan revision and reported review status.

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+ * SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -65,6 +65,11 @@ try {
     await rm(dependencyStage, {force: true, recursive: true});
     await mkdir(dependencyStage, {recursive: true});
     await cp(flatbuffersRoot, stagedFlatbuffersRoot, {recursive: true});
+    const runtimeLicense = await readFile(path.join(flatbuffersRoot, 'LICENSE'));
+    const bundledLicense = await readFile(path.join(root, 'content/vendor/flatbuffers/LICENSE'));
+    if (!runtimeLicense.equals(bundledLicense)) {
+        throw new Error('FlatBuffers licence changed; update content/vendor/flatbuffers/LICENSE');
+    }
 
     await build({
         absWorkingDir: repoRoot,
@@ -88,7 +93,7 @@ try {
         bundle: true,
         entryPoints: [path.join(root, 'src', 'app.js')],
         format: 'esm',
-        legalComments: 'none',
+        legalComments: 'inline',
         minify: false,
         outfile: candidate,
         platform: 'browser',

@@ -497,11 +497,32 @@ class ModelArtifactBuildTest(unittest.TestCase):
             release["stage_models"](
                 SimpleNamespace(repo_root=str(REPO_ROOT), stage_root=str(package))
             )
+            legal = package / "share/opk/licenses"
+            inventory = {}
+            for name in release["CORE_LEGAL_COMPONENTS"] | {"executorch", "python-numpy", "python-flatbuffers"}:
+                notices = list(release["OPK_LEGAL_NOTICES"]) if name == "opk" else [f"{name}/LICENSE"]
+                for relative in notices:
+                    notice = legal / relative
+                    notice.parent.mkdir(parents=True, exist_ok=True)
+                    notice.write_text("Test fixture licence\n")
+                inventory[name] = {
+                    "version": "test", "licence": "test", "repository": f"https://example.invalid/{name}",
+                    "notices": notices,
+                }
+            for name, relative in release["SOURCE_LEGAL_NOTICES"]:
+                notice = legal / name / relative
+                notice.parent.mkdir(parents=True, exist_ok=True)
+                notice.write_text("Test fixture embedded upstream notice\n")
+                inventory[name]["notices"].append(f"{name}/{relative}")
+            (legal / "onnxruntime/ThirdPartyNotices.txt").write_text("Test transitive notice\n")
+            (legal / "components.json").write_text(json.dumps(inventory))
+            (legal / "THIRD_PARTY_LICENSES.md").write_text(release["legal_report"](inventory))
             archive = context / "package.tar.gz"
             with tarfile.open(archive, "w:gz") as stream:
                 stream.add(package, arcname=package.name)
             digest = hashlib.sha256(archive.read_bytes()).hexdigest()
             shutil.copy2(REPO_ROOT / "scripts/release/smoke-opk-package.sh", context / "smoke.sh")
+            shutil.copy2(REPO_ROOT / "scripts/release/ReleaseTool.py", context / "ReleaseTool.py")
             operation = context / "development/tests/python_script_op/runtime_environment.py"
             operation.parent.mkdir(parents=True)
             operation.touch()
@@ -531,6 +552,7 @@ for arg in sys.argv:
                 "FROM python:3.13-slim-trixie AS opk-deployment-base\n"
                 "COPY package.tar.gz /opt/opk-release-artifacts/opk-1.0.0-linux-x86_64.tar.gz\n"
                 "COPY smoke.sh /work/scripts/release/smoke-opk-package.sh\n"
+                "COPY ReleaseTool.py /work/scripts/release/ReleaseTool.py\n"
                 "COPY gst-stub /usr/local/bin/gst-inspect-1.0\n"
                 "COPY gst-stub /usr/local/bin/gst-launch-1.0\n"
                 "USER 65534:65534\n"

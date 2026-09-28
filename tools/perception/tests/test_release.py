@@ -777,6 +777,9 @@ class BundleVerificationTests(unittest.TestCase):
             "rust/src/lib.rs",
         }
         files = {
+            "LICENSE": b"Original OPK licence\n",
+            "NOTICE": b"Original OPK notices\n",
+            "LICENSING.md": b"Licence page\n",
             "cpp/open_perception_kit.h": b"header\n",
             "metadata/open-perception-kit-manifest.json": b"{}\n",
             "rust/Cargo.toml": (
@@ -1468,6 +1471,14 @@ class BundleVerificationTests(unittest.TestCase):
 
 
 class GeneratedSdkTests(unittest.TestCase):
+    def test_sdk_release_requires_licence_page_and_original_notices(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for name in ("LICENSE", "NOTICE", "LICENSING.md"):
+                with self.assertRaisesRegex(RuntimeError, f"licence evidence is missing: {name}"):
+                    release_package.verify_bundle(root)
+                (root / name).write_text("Original licence evidence\n")
+
     def test_release_readme_bootstraps_consumer_lockfile(self) -> None:
         config = release_package.perception_config.load_sdk_config()
         with tempfile.TemporaryDirectory() as tmp:

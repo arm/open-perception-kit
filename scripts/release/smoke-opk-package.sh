@@ -28,6 +28,8 @@ trap 'rm -rf "$smoke_root"' EXIT
 package_root="$smoke_root/$(basename "$archive" .tar.gz)"
 tar -C "$smoke_root" -xzf "$archive"
 test -d "$package_root"
+python3 "$(dirname "${BASH_SOURCE[0]}")/ReleaseTool.py" validate-legal \
+    --package-root "$package_root" --require-backends
 
 export GST_PLUGIN_PATH="$package_root/lib/gstreamer-1.0"
 export LD_LIBRARY_PATH="$package_root/lib/opk"
