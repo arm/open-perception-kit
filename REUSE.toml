@@ -22,12 +22,12 @@ path = ["**/*.json", ".secrets.baseline", "tools/perception/tests/fixtures/*.hex
         "development/tests/python_script_op/invalid_syntax.txt",
         "tools/opk-ci/tests/fixtures/**"]
 precedence = "closest"
-SPDX-FileCopyrightText = "Copyright 2026 Arm Limited and/or its affiliates"
+SPDX-FileCopyrightText = "Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>"
 SPDX-License-Identifier = "Apache-2.0"
 
 # Project documentation screenshots and generated project diagrams.
 [[annotations]]
 path = ["docs/public/assets/*.png", "docs/public/assets/*.jpg", "docs/public/static/img/*.png"]
 precedence = "closest"
-SPDX-FileCopyrightText = "Copyright 2026 Arm Limited and/or its affiliates"
+SPDX-FileCopyrightText = "Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>"
 SPDX-License-Identifier = "Apache-2.0"

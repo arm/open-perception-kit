@@ -5,7 +5,7 @@ sidebar_position: 13
 description: Open Perception Kit licence, copyright, and third-party notices.
 ---
 <!--
-SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
 SPDX-License-Identifier: Apache-2.0
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,7 +23,8 @@ limitations under the License.
 
 # Licensing
 
-Copyright 2025-2026 Arm Limited and/or its affiliates.
+Copyright 2025-2026 Arm Limited and/or its affiliates
+[perception-fdbck@arm.com](mailto:perception-fdbck@arm.com).
 
 Open Perception Kit is licensed under the Apache License, Version 2.0, except
 where a file or its accompanying notice identifies different terms. The full
@@ -42,3 +43,5 @@ Keep these notices with the files when copying or redistributing them.
 Third-party components retain their own licences and copyright notices.
 The project licence does not grant rights to third-party model weights,
 photographs, video, fonts, or other content.
+
+For OPK questions, contact [perception-fdbck@arm.com](mailto:perception-fdbck@arm.com).

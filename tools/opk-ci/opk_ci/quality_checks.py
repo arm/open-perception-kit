@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2025-2026 Arm Limited and/or its affiliates
+# SPDX-FileCopyrightText: Copyright 2025-2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -1619,7 +1619,7 @@ class QualityChecks:
             os.path.relpath(filename, project_root), ["development/web/content/vendor"])]
         copyright_pattern = re.compile(
             r"SPDX-FileCopyrightText: Copyright \d{4}(?:-\d{4})?"
-            r"(?:, \d{4}(?:-\d{4})?)* Arm Limited and/or its affiliates")
+            r"(?:, \d{4}(?:-\d{4})?)* Arm Limited and/or its affiliates <perception-fdbck@arm\.com>")
 
         for filename in files:
             content = ""

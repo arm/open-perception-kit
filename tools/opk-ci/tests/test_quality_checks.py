@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -687,7 +687,7 @@ class TestQualityChecks(unittest.TestCase):
     def test_get_license_header_uses_combined_apache_notice_for_cmake_files(self):
         self.assertEqual(
             self.quality_checks.get_license_header("CMakeLists.txt"),
-            f"# SPDX-FileCopyrightText: Copyright {date.today().year} Arm Limited and/or its affiliates\n"
+            f"# SPDX-FileCopyrightText: Copyright {date.today().year} Arm Limited and/or its affiliates <perception-fdbck@arm.com>\n"
             "# SPDX-License-Identifier: Apache-2.0\n"
             "#\n"
             '# Licensed under the Apache License, Version 2.0 (the "License");\n'
@@ -705,7 +705,7 @@ class TestQualityChecks(unittest.TestCase):
 
     def test_copyright_check_preserves_disjoint_years_and_foreign_notices(self):
         notices = [
-            ("# SPDX-FileCopyrightText: Copyright 2001-2003, 2015 Arm Limited and/or its affiliates\n", True),
+            ("# SPDX-FileCopyrightText: Copyright 2001-2003, 2015 Arm Limited and/or its affiliates <perception-fdbck@arm.com>\n", True),
             ("# Copyright 2020 Another contributor\n", False),
         ]
         with tempfile.TemporaryDirectory() as temp_dir:
