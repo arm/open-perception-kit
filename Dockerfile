@@ -673,7 +673,8 @@ RUN --mount=type=cache,id=opk-deployment-ccache,target=/work/.cache/ccache,shari
       --repository-commit "${OPK_RELEASE_SOURCE_COMMIT}"; \
     mkdir -p \
       "${package_root}/lib/opk" \
-      "${package_root}/share/opk/licenses/libexecutorch-dev" \
+      "${package_root}/share/opk/licenses/onnxruntime" \
+      "${package_root}/share/opk/licenses/executorch" \
       "${package_root}/share/opk/open-perception-kit"; \
     /work/tools/opk-config-check --root /work; \
     DESTDIR="${package_root}" meson install \
@@ -687,9 +688,9 @@ RUN --mount=type=cache,id=opk-deployment-ccache,target=/work/.cache/ccache,shari
     ln -s "libonnxruntime.so.${onnxruntime_version}" \
       "${package_root}/lib/opk/libonnxruntime.so.1"; \
     cp -a /opt/opk-deps/onnxruntime/share/doc/onnxruntime/. \
-      "${package_root}/share/opk/licenses/"; \
+      "${package_root}/share/opk/licenses/onnxruntime/"; \
     cp -a /opt/opk-deps/executorch-legal-documentation/. \
-      "${package_root}/share/opk/licenses/libexecutorch-dev/"; \
+      "${package_root}/share/opk/licenses/executorch/"; \
     cp -a /tmp/open-perception-kit-input/. \
       "${package_root}/share/opk/open-perception-kit/"; \
     python3 /work/scripts/release/ReleaseTool.py stage-models \

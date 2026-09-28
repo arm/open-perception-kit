@@ -546,18 +546,53 @@ class ReleaseToolTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             package_root = Path(temporary)
             legal_root = package_root / "share/opk/licenses"
-            legal_root.mkdir(parents=True)
-            (legal_root / "LICENSE").write_text("ONNX Runtime", encoding="utf-8")
+            onnxruntime_root = legal_root / "onnxruntime"
+            onnxruntime_root.mkdir(parents=True)
+            for name in (
+                "LICENSE",
+                "ThirdPartyNotices.txt",
+                "GIT_COMMIT_ID",
+                "VERSION_NUMBER",
+            ):
+                (onnxruntime_root / name).write_text(
+                    "ONNX Runtime", encoding="utf-8"
+                )
 
             with self.assertRaisesRegex(RuntimeError, "ExecuTorch legal documentation"):
                 release_tool.validate_legal_documentation(package_root)
 
-            executorch_legal_root = legal_root / "libexecutorch-dev"
-            executorch_legal_root.mkdir()
-            (executorch_legal_root / "LICENSE").write_text(
-                "ExecuTorch", encoding="utf-8"
+            executorch_legal_root = legal_root / "executorch"
+            (executorch_legal_root / "third-party/example").mkdir(parents=True)
+            for name in ("LICENSE", "GIT_COMMIT_ID", "VERSION_NUMBER"):
+                (executorch_legal_root / name).write_text(
+                    "ExecuTorch", encoding="utf-8"
+                )
+            (executorch_legal_root / "third-party/example/LICENSE").write_text(
+                "Example", encoding="utf-8"
             )
             release_tool.validate_legal_documentation(package_root)
+
+    def test_requires_complete_onnxruntime_legal_documentation(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            package_root = Path(temporary)
+            legal_root = package_root / "share/opk/licenses"
+            onnxruntime_root = legal_root / "onnxruntime"
+            onnxruntime_root.mkdir(parents=True)
+            (onnxruntime_root / "LICENSE").write_text(
+                "ONNX Runtime", encoding="utf-8"
+            )
+            executorch_legal_root = legal_root / "executorch"
+            (executorch_legal_root / "third-party/example").mkdir(parents=True)
+            for name in ("LICENSE", "GIT_COMMIT_ID", "VERSION_NUMBER"):
+                (executorch_legal_root / name).write_text(
+                    "ExecuTorch", encoding="utf-8"
+                )
+            (executorch_legal_root / "third-party/example/LICENSE").write_text(
+                "Example", encoding="utf-8"
+            )
+
+            with self.assertRaisesRegex(RuntimeError, "ONNX Runtime"):
+                release_tool.validate_legal_documentation(package_root)
 
     def test_validates_selected_model_and_opchain_payload(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

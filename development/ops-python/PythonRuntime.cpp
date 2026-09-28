@@ -246,7 +246,16 @@ std::filesystem::path packagedPythonPath() {
         info.dli_fname == nullptr) {
         return {};
     }
-    return std::filesystem::path(info.dli_fname).parent_path() / "../../share/opk/python";
+    const auto libraryDirectory = std::filesystem::path(info.dli_fname).parent_path();
+    const std::array<std::filesystem::path, 2> candidates = {
+        libraryDirectory / "../../share/opk/python",
+        libraryDirectory / "../../../share/opk/python",
+    };
+    for (const auto &candidate : candidates) {
+        if (std::filesystem::is_directory(candidate))
+            return candidate;
+    }
+    return candidates[0];
 }
 
 } // namespace opk::python

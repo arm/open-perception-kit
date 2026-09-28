@@ -447,5 +447,5 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   opkcomm_plugin_init,
                   "0.1.0",
                   "LGPL",
-                  PACKAGE,
-                  "https://example.com")
+                  "Open Perception Kit",
+                  "https://www.arm.com/")

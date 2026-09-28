@@ -177,7 +177,7 @@ static void gst_opk_performance_class_init(GstOpkPerformanceClass *klass) {
         "OPK Performance Overlay",
         "Filter/Effect/Video",
         "Overlays real-time performance metrics from Performance Metrics",
-        "OPK Team <opk@example.com>");
+        "Arm Limited");
 
     // Set pad templates
     GstCaps *caps = gst_caps_from_string(OPK_SUPPORTED_RAW_VIDEO_CAPS);
@@ -475,5 +475,5 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   opkperformance_plugin_init,
                   "1.0",
                   "LGPL",
-                  PACKAGE,
-                  "https://example.com")
+                  "Open Perception Kit",
+                  "https://www.arm.com/")

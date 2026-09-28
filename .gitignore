@@ -135,6 +135,8 @@ development/web/node_modules/
 # -------------------------
 scripts/testing/valgrind/logs/*.xml
 scripts/testing/valgrind/logs/.gstreamer-registry.bin
+scripts/setup-container-dev.sh
+scripts/refresh-container-dns.sh
 **/valgrind-error-summary*.xml
 
 # Generated artifacts

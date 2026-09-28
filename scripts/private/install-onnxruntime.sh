@@ -45,4 +45,6 @@ cp -r "${temporary_directory}/${archive_directory}/include" "${destination}/"
 cp -r "${temporary_directory}/${archive_directory}/lib" "${destination}/"
 cp "${temporary_directory}/${archive_directory}/LICENSE" \
     "${temporary_directory}/${archive_directory}/ThirdPartyNotices.txt" \
+    "${temporary_directory}/${archive_directory}/GIT_COMMIT_ID" \
+    "${temporary_directory}/${archive_directory}/VERSION_NUMBER" \
     "${destination}/share/doc/onnxruntime/"

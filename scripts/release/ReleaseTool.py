@@ -558,8 +558,25 @@ def validate_legal_documentation(package_root: Path) -> None:
     legal_root = package_root / "share/opk/licenses"
     if not payload_files(legal_root):
         fail("Packaged legal documentation is missing or empty")
-    if not payload_files(legal_root / "libexecutorch-dev"):
-        fail("Packaged ExecuTorch legal documentation is missing or empty")
+    onnxruntime_root = legal_root / "onnxruntime"
+    required_onnxruntime_files = {
+        Path("GIT_COMMIT_ID"),
+        Path("LICENSE"),
+        Path("ThirdPartyNotices.txt"),
+        Path("VERSION_NUMBER"),
+    }
+    if payload_files(onnxruntime_root) != required_onnxruntime_files:
+        fail("Packaged ONNX Runtime legal documentation or provenance is incomplete")
+    executorch_files = payload_files(legal_root / "executorch")
+    required_executorch_files = {
+        Path("GIT_COMMIT_ID"),
+        Path("LICENSE"),
+        Path("VERSION_NUMBER"),
+    }
+    if not required_executorch_files.issubset(executorch_files):
+        fail("Packaged ExecuTorch legal documentation or provenance is incomplete")
+    if not any(path.parts[0] == "third-party" for path in executorch_files):
+        fail("Packaged ExecuTorch third-party legal documentation is missing")
 
 
 def validate_release_payload(package_root: Path, repo_root: Path | None) -> None:
