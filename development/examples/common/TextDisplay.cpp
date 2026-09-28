@@ -16,10 +16,10 @@
 
 namespace {
 
-using perception::metadata::BitmapDataT;
-using perception::metadata::BoundingBoxT;
-using perception::metadata::LayerInfoT;
-using perception::metadata::ObjectMetaT;
+using open_perception_kit::metadata::BitmapDataT;
+using open_perception_kit::metadata::BoundingBoxT;
+using open_perception_kit::metadata::LayerInfoT;
+using open_perception_kit::metadata::ObjectMetaT;
 
 std::string textOr(std::string_view value, std::string_view fallback = "-") {
     return value.empty() ? std::string(fallback) : std::string(value);
@@ -98,7 +98,7 @@ std::string bitmapRange(const BitmapDataT *bitmap) {
 } // namespace
 
 void TextDisplay::appendLines(std::vector<std::string> &lines,
-                              const perception::metadata::FrameContextT &payload) {
+                              const open_perception_kit::metadata::FrameContextT &payload) {
     lines.push_back(fmt::format("FrameContext: {}", layerLabel(payload.layer.get())));
     if (payload.video) {
         lines.push_back(fmt::format(
@@ -125,7 +125,7 @@ void TextDisplay::appendLines(std::vector<std::string> &lines,
 }
 
 void TextDisplay::appendLines(std::vector<std::string> &lines,
-                              const perception::metadata::BoxDetectionsT &payload) {
+                              const open_perception_kit::metadata::BoxDetectionsT &payload) {
     lines.push_back(fmt::format(
         "BoxDetections: {} count={}", layerLabel(payload.layer.get()), payload.detections.size()));
     std::size_t index = 0U;
@@ -147,7 +147,7 @@ void TextDisplay::appendLines(std::vector<std::string> &lines,
 }
 
 void TextDisplay::appendLines(std::vector<std::string> &lines,
-                              const perception::metadata::ObjectTracksT &payload) {
+                              const open_perception_kit::metadata::ObjectTracksT &payload) {
     lines.push_back(fmt::format(
         "ObjectTracks: {} count={}", layerLabel(payload.layer.get()), payload.tracks.size()));
     std::size_t index = 0U;
@@ -174,7 +174,7 @@ void TextDisplay::appendLines(std::vector<std::string> &lines,
 }
 
 void TextDisplay::appendLines(std::vector<std::string> &lines,
-                              const perception::metadata::ClassificationsT &payload) {
+                              const open_perception_kit::metadata::ClassificationsT &payload) {
     lines.push_back(fmt::format("Classifications: {} classifications={} person_presence={}",
                                 layerLabel(payload.layer.get()),
                                 payload.classifications.size(),
@@ -229,7 +229,7 @@ void TextDisplay::appendLines(std::vector<std::string> &lines,
 }
 
 void TextDisplay::appendLines(std::vector<std::string> &lines,
-                              const perception::metadata::PoseEstimationsT &payload) {
+                              const open_perception_kit::metadata::PoseEstimationsT &payload) {
     lines.push_back(fmt::format(
         "PoseEstimations: {} count={}", layerLabel(payload.layer.get()), payload.poses.size()));
     std::size_t index = 0U;
@@ -250,7 +250,7 @@ void TextDisplay::appendLines(std::vector<std::string> &lines,
 }
 
 void TextDisplay::appendLines(std::vector<std::string> &lines,
-                              const perception::metadata::SegmentationMasksT &payload) {
+                              const open_perception_kit::metadata::SegmentationMasksT &payload) {
     lines.push_back(fmt::format(
         "SegmentationMasks: {} count={}", layerLabel(payload.layer.get()), payload.masks.size()));
     std::size_t index = 0U;
@@ -275,7 +275,7 @@ void TextDisplay::appendLines(std::vector<std::string> &lines,
 }
 
 void TextDisplay::appendLines(std::vector<std::string> &lines,
-                              const perception::metadata::ObjectEmbeddingsT &payload) {
+                              const open_perception_kit::metadata::ObjectEmbeddingsT &payload) {
     lines.push_back(fmt::format("ObjectEmbeddings: {} count={}",
                                 layerLabel(payload.layer.get()),
                                 payload.embeddings.size()));
@@ -295,7 +295,7 @@ void TextDisplay::appendLines(std::vector<std::string> &lines,
 }
 
 void TextDisplay::appendLines(std::vector<std::string> &lines,
-                              const perception::metadata::TrackTracesT &payload) {
+                              const open_perception_kit::metadata::TrackTracesT &payload) {
     lines.push_back(fmt::format(
         "TrackTraces: {} count={}", layerLabel(payload.layer.get()), payload.traces.size()));
     std::size_t index = 0U;
@@ -315,7 +315,7 @@ void TextDisplay::appendLines(std::vector<std::string> &lines,
 }
 
 void TextDisplay::appendLines(std::vector<std::string> &lines,
-                              const perception::metadata::PerformanceOverlayT &payload) {
+                              const open_perception_kit::metadata::PerformanceOverlayT &payload) {
     lines.push_back(fmt::format("PerformanceOverlay: lines={}", payload.lines.size()));
     std::size_t index = 0U;
     for (const auto &line : payload.lines) {

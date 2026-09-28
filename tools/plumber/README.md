@@ -6,7 +6,7 @@ This system is used to record and compare pipeline metadata output from an Open 
 
 Current status: `opkcomm` publishes serialized FrameResults packets in a JSON wrapper.
 Plumber records that NDJSON unchanged in `save` mode and decodes
-`frame_results_packet_b64` with the generated `perception` Python SDK in `check` mode.
+`frame_results_packet_b64` with the generated `open_perception_kit` Python SDK in `check` mode.
 Plumber imports the installed package normally; the devcontainer installs the
 descriptor-selected checked-in Python package in editable mode.
 
@@ -123,14 +123,14 @@ Current FrameResults wrapper example:
 {"frame_counter":0,"frame_results_encoding":"perception-frame-results+base64","frame_results_packet_b64":"..."}
 ```
 
-The `frame_results_packet_b64` value is a serialized Perception FrameResults packet
+The `frame_results_packet_b64` value is a serialized FrameResults packet
 encoded as base64. Plumber decodes it with the generated Python SDK and compares normalized
 payload snapshots built from generated schema types such as:
 
-Plumber uses the owning endpoint API from `perception.packet`; the mutually
-exclusive `perception.guest` API is reserved for scripts attached to a live
+Plumber uses the owning endpoint API from `open_perception_kit.packet`; the mutually
+exclusive `open_perception_kit.guest` API is reserved for scripts attached to a live
 C++ envelope. It requires the packet producer SDK name, semantic version, and
-schema-set SHA-256 to exactly match the generated Perception SDK used by
+schema-set SHA-256 to exactly match the generated Open Perception Kit SDK used by
 Plumber. Legacy packets without producer metadata and packets produced by a
 different SDK revision are rejected before payload comparison.
 
@@ -229,7 +229,7 @@ This will:
 
 - start `opk-menu onnx`
 - read NDJSON from `/tmp/opkcomm`
-- decode the incoming FrameResults packets with `perception`
+- decode the incoming FrameResults packets with `open_perception_kit`
 - compare the decoded payloads with `gt.ndjson`
 
 ## OpkComm Configuration Examples
@@ -274,7 +274,7 @@ Plumber does not compare raw FlatBuffers bytes directly. It:
 
 1. validates the NDJSON wrapper
 2. base64-decodes `frame_results_packet_b64`
-3. constructs a `FrameResults` object through the generated `perception` SDK
+3. constructs a `FrameResults` object through the generated `open_perception_kit` SDK
 4. validates the exact producer SDK name, version, and schema-set SHA-256
 5. normalizes generated payload objects into payload snapshots
 6. matches payload snapshots by generated payload type and stable `LayerInfo`
@@ -282,7 +282,7 @@ Plumber does not compare raw FlatBuffers bytes directly. It:
 7. compares payload items with type-specific distance functions
 
 External opaque payloads are outside the current comparison model because their byte
-protocol is owned by the producer and not interpreted by the Perception schema set.
+protocol is owned by the producer and not interpreted by the Open Perception Kit schema set.
 
 The internal comparison vocabulary follows FrameResults terms:
 

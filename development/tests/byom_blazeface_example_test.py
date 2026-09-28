@@ -3,10 +3,10 @@
 ################################################################
 
 from __future__ import annotations
-import perception.sdk as perception_sdk
-from perception.packet import external_key
-from perception.packet import Envelope as PacketEnvelope
-from perception import ProducerIdentityStatus
+import open_perception_kit.sdk as perception_sdk
+from open_perception_kit.packet import external_key
+from open_perception_kit.packet import Envelope as PacketEnvelope
+from open_perception_kit import ProducerIdentityStatus
 
 import base64
 import hashlib
@@ -42,10 +42,10 @@ def _python_script(callback):
     return callback
 
 
-guest_module = types.ModuleType("perception.guest")
+guest_module = types.ModuleType("open_perception_kit.guest")
 guest_module.Envelope = object
 guest_module.external_key = lambda name: name
-sys.modules["perception.guest"] = guest_module
+sys.modules["open_perception_kit.guest"] = guest_module
 
 python_ops_module = types.ModuleType("opk_python_ops")
 python_ops_module.Context = object

@@ -112,7 +112,7 @@ _{sdk_name}_inc = include_directories('{rel_cpp_root}')
 
 _{sdk_name}_python = import('python').find_installation()
 _{sdk_name}_python_dep = _{sdk_name}_python.dependency(embed : true, required : true)
-_{sdk_name}_python_bridge_sources = files('{rel_cpp_root}/python_bridge/{sdk_name}_python_bridge.cpp')
+_{sdk_name}_python_bridge_sources = files('{rel_cpp_root}/python_bridge/{bridge_source_name}_python_bridge.cpp')
 
 {sdk_name}_python_bridge_dep = declare_dependency(
   include_directories : [_{sdk_name}_inc],
@@ -124,11 +124,11 @@ _{sdk_name}_python_bridge_sources = files('{rel_cpp_root}/python_bridge/{sdk_nam
 
     def write_outputs(self, context: GenerationContext, entries: list[SchemaEntry]) -> list[Path]:
         del entries
-        meson_module = context.cpp_root / "meson" / context.sdk_name / "meson.build"
+        meson_module = context.cpp_root / "meson" / context.effective_public_name / "meson.build"
         rel_cpp_root = "../.."
 
         content = self._template.format(
-            sdk_name=context.sdk_name,
+            sdk_name=context.effective_public_name,
             sdk_version=str(context.sdk_version),
             flatbuffers_version_requirement=cpp_flatbuffers_requirement(
                 context.flatc_version
@@ -140,7 +140,7 @@ _{sdk_name}_python_bridge_sources = files('{rel_cpp_root}/python_bridge/{sdk_nam
             python_version_requirement=PYTHON_VERSION_REQUIREMENT,
             python_bridge_available="true" if context.cpp_python_bridge else "false",
             python_bridge_module=(
-                f"{context.sdk_name}_bridge" if context.cpp_python_bridge else ""
+                f"{context.effective_public_name}_bridge" if context.cpp_python_bridge else ""
             ),
             rel_cpp_root=rel_cpp_root,
         )
@@ -151,7 +151,8 @@ _{sdk_name}_python_bridge_sources = files('{rel_cpp_root}/python_bridge/{sdk_nam
             _write_text(
                 bridge_module,
                 self._python_bridge_template.format(
-                    sdk_name=context.sdk_name,
+                    sdk_name=context.effective_public_name,
+                    bridge_source_name=context.effective_public_name,
                     rel_cpp_root="../../..",
                 ),
             )

@@ -1,0 +1,38 @@
+{
+  "dependencies": {
+    "flatbuffers": "25.9.23"
+  },
+  "description": "Generated open_perception_kit TypeScript SDK",
+  "devDependencies": {
+    "typescript": "5.9.2"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/open_perception_kit/index.js",
+      "types": "./dist/open_perception_kit/index.d.ts"
+    },
+    "./fb/*.js": {
+      "import": "./dist/open_perception_kit/fb/*.js",
+      "types": "./dist/open_perception_kit/fb/*.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "license": "Apache-2.0",
+  "main": "./dist/open_perception_kit/index.js",
+  "name": "open-perception-kit",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "type": "module",
+  "types": "./dist/open_perception_kit/index.d.ts",
+  "version": "0.1.0"
+}

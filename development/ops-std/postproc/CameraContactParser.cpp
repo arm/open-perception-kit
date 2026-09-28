@@ -32,7 +32,7 @@ std::array<float, 2> softmax2(const opk::TensorView &tensor) {
 } // namespace
 
 opk::Result<void> CameraContactParser::parse(const opk::TensorParser::Input &input,
-                                             perception::FrameResults &results) {
+                                             open_perception_kit::FrameResults &results) {
     if (!input.tensors[0]) {
         return tl::unexpected(
             OPK_ERROR(opk::ErrorFlag::InvalidData, "CameraContactParser: input tensor is null"));
@@ -66,21 +66,22 @@ opk::Result<void> CameraContactParser::parse(const opk::TensorParser::Input &inp
     const bool isContact = probabilities[static_cast<size_t>(contactClassIndex)] >=
                            probabilities[static_cast<size_t>(noContactClassIndex)];
 
-    auto classification = std::make_unique<perception::metadata::ClassificationT>();
-    classification->object = perception::makeObjectMeta(0U, input.inferenceInfo.parentId);
+    auto classification = std::make_unique<open_perception_kit::metadata::ClassificationT>();
+    classification->object = open_perception_kit::makeObjectMeta(0U, input.inferenceInfo.parentId);
 
-    auto candidate = std::make_unique<perception::metadata::ClassificationCandidateT>();
+    auto candidate = std::make_unique<open_perception_kit::metadata::ClassificationCandidateT>();
     candidate->class_id = isContact ? contactClassIndex : noContactClassIndex;
     candidate->confidence = isContact ? probabilities[static_cast<size_t>(contactClassIndex)]
                                       : probabilities[static_cast<size_t>(noContactClassIndex)];
     candidate->text = isContact ? "contact" : "no contact";
     classification->candidates.push_back(std::move(candidate));
 
-    perception::metadata::ClassificationsT payload;
-    payload.layer = perception::makeLayerInfo({.model = input.inferenceInfo.modelName,
-                                               .inferElementId = input.inferenceInfo.inferElementId,
-                                               .contentType = k_content_type,
-                                               .producer = &input.producerInfo});
+    open_perception_kit::metadata::ClassificationsT payload;
+    payload.layer =
+        open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
+                                            .inferElementId = input.inferenceInfo.inferElementId,
+                                            .contentType = k_content_type,
+                                            .producer = &input.producerInfo});
     payload.classifications.push_back(std::move(classification));
     results.add(std::move(payload));
 

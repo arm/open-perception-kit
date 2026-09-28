@@ -1,4 +1,4 @@
 interface:
-  display_name: "Integrate Perception SDK Consumer"
+  display_name: "Integrate Open Perception Kit Consumer"
   short_description: "Integrate external FrameResults consumers safely"
-  default_prompt: "Use $integrate-perception-sdk-consumer to integrate a C++, Python, Rust, or TypeScript application with a released Perception SDK and FrameResults packets."
+  default_prompt: "Use $integrate-perception-sdk-consumer to integrate a C++, Python, Rust, or TypeScript application with a released Open Perception Kit package and FrameResults packets."

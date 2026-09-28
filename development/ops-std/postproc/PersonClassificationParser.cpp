@@ -14,7 +14,7 @@ using namespace opk;
 using namespace opk::stdop::postproc;
 
 opk::Result<void> PersonClassificationParser::parse(const opk::TensorParser::Input &input,
-                                                    perception::FrameResults &results) {
+                                                    open_perception_kit::FrameResults &results) {
 
     if (!input.tensors[0]) {
         return tl::unexpected(
@@ -63,16 +63,17 @@ opk::Result<void> PersonClassificationParser::parse(const opk::TensorParser::Inp
         }
     }
 
-    auto result = std::make_unique<perception::metadata::PersonPresenceT>();
-    result->object = perception::makeObjectMeta(0U, input.inferenceInfo.parentId);
+    auto result = std::make_unique<open_perception_kit::metadata::PersonPresenceT>();
+    result->object = open_perception_kit::makeObjectMeta(0U, input.inferenceInfo.parentId);
     result->yes_confidence = yesConfidence;
     result->no_confidence = noConfidence;
 
-    perception::metadata::ClassificationsT payload;
-    payload.layer = perception::makeLayerInfo({.model = input.inferenceInfo.modelName,
-                                               .inferElementId = input.inferenceInfo.inferElementId,
-                                               .contentType = k_content_type,
-                                               .producer = &input.producerInfo});
+    open_perception_kit::metadata::ClassificationsT payload;
+    payload.layer =
+        open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
+                                            .inferElementId = input.inferenceInfo.inferElementId,
+                                            .contentType = k_content_type,
+                                            .producer = &input.producerInfo});
     payload.person_presence.push_back(std::move(result));
     results.add(std::move(payload));
 

@@ -1,4 +1,4 @@
-# Perception Rust Cross-Language Fixture
+# Open Perception Kit Rust Cross-Language Fixture
 
 `opk-box-detections-v0.2.1.hex` is the hexadecimal encoding of a 496-byte
 `FLWD` packet produced by the checked-in OPK Python SDK version `0.2.1` on
@@ -10,4 +10,4 @@ When the current schema changes that payload's generated ID, the Rust test
 requires the historical payload to remain preserved as an unknown entry.
 
 The fixture is OPK-owned test data. The generic FlowData generator does not
-contain Perception schemas, values, or product-specific compatibility tests.
+contain Open Perception Kit schemas, values, or product-specific compatibility tests.

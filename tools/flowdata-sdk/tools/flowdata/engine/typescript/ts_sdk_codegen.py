@@ -200,7 +200,9 @@ def _sdk_namespace_module_path(sdk_name: str) -> str:
     return "/".join(_ts_file_stem(part) for part in sdk_name.split("::"))
 
 
-def _envelope_text(sdk_name: str, sdk_version: str, schema_set_digest: str) -> str:
+def _envelope_text(
+    sdk_name: str, sdk_version: str, schema_set_digest: str, public_name: str | None = None
+) -> str:
     return TS_GENERATED_BANNER + textwrap.dedent(
         """
 import { Builder, ByteBuffer } from 'flatbuffers';
@@ -594,7 +596,7 @@ export class Envelope {
   }
 }
     """
-    ).lstrip().replace("__SDK_NAME__", sdk_name).replace(
+    ).lstrip().replace("__SDK_NAME__", public_name or sdk_name).replace(
         "__SDK_VERSION__", sdk_version
     ).replace(
         "__SCHEMA_SET_SHA256__", schema_set_digest
@@ -607,11 +609,12 @@ export class Envelope {
     )
 
 
-def _index_text(sdk_name: str, sdk_version: str, schema_set_digest: str) -> str:
+def _index_text(sdk_name: str, sdk_version: str, schema_set_digest: str, public_name: str | None = None) -> str:
+    identity_name = public_name or sdk_name
     return TS_GENERATED_BANNER + textwrap.dedent(
         f"""
-  export const {sdk_name.upper()}_VERSION = '{sdk_version}';
-  export const {sdk_name.upper()}_NAME = '{sdk_name}';
+  export const {identity_name.upper()}_VERSION = '{sdk_version}';
+  export const {identity_name.upper()}_NAME = '{identity_name}';
   export const SCHEMA_SET_SHA256 = '{schema_set_digest}';
   export const FLATBUFFERS_VERSION_REQUIREMENT = '{FLATBUFFERS_TYPESCRIPT_REQUIREMENT}';
   export {{
@@ -626,7 +629,8 @@ def _index_text(sdk_name: str, sdk_version: str, schema_set_digest: str) -> str:
     ).lstrip()
 
 
-def _package_json_text(sdk_name: str, sdk_version: str) -> str:
+def _package_json_text(sdk_name: str, sdk_version: str, public_name: str | None = None) -> str:
+    package_name = public_name or sdk_name
     return textwrap.dedent(
         """
         {
@@ -658,8 +662,11 @@ def _package_json_text(sdk_name: str, sdk_version: str) -> str:
           }
         }
         """
-    ).lstrip().replace("__SDK_NAME__", sdk_name).replace("__SDK_VERSION__", sdk_version).replace(
+    ).lstrip().replace("__SDK_NAME__", package_name).replace("__SDK_VERSION__", sdk_version).replace(
         "__FLATBUFFERS_VERSION_REQUIREMENT__", FLATBUFFERS_TYPESCRIPT_REQUIREMENT
+    ).replace(
+        f'"name": "{package_name}"',
+        f'"name": "{package_name.replace("_", "-")}"',
     )
 
 
@@ -696,7 +703,7 @@ def generate_typescript_sdk(entries: list[SchemaEntry], ctx: GenerationContext) 
     schema_set_digest = schema_set_sha256(ctx)
     project_root = _ts_project_root(ctx)
     src_root = project_root / "src"
-    package_root = src_root / ctx.sdk_name
+    package_root = src_root / ctx.effective_public_name
     fb_root = package_root / "fb"
     if src_root.exists():
         shutil.rmtree(src_root)
@@ -720,19 +727,19 @@ def generate_typescript_sdk(entries: list[SchemaEntry], ctx: GenerationContext) 
     generated.append(
         _write_text(
             package_root / "envelope.ts",
-            _envelope_text(ctx.sdk_name, str(ctx.sdk_version), schema_set_digest),
+            _envelope_text(ctx.sdk_name, str(ctx.sdk_version), schema_set_digest, ctx.effective_public_name),
         )
     )
     generated.append(
         _write_text(
             package_root / "index.ts",
-            _index_text(ctx.sdk_name, str(ctx.sdk_version), schema_set_digest),
+            _index_text(ctx.sdk_name, str(ctx.sdk_version), schema_set_digest, ctx.effective_public_name),
         )
     )
     generated.append(
         _write_text(
             project_root / "package.json",
-            _package_json_text(ctx.sdk_name, str(ctx.sdk_version)),
+            _package_json_text(ctx.sdk_name, str(ctx.sdk_version), ctx.effective_public_name),
         )
     )
     generated.append(_write_text(project_root / "tsconfig.json", _tsconfig_text()))

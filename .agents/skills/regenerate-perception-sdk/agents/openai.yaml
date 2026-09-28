@@ -1,4 +1,4 @@
 interface:
-  display_name: "Regenerate Perception SDK"
+  display_name: "Regenerate Open Perception Kit"
   short_description: "Regenerate and validate checked-in SDK sources"
-  default_prompt: "Use $regenerate-perception-sdk to regenerate and validate the checked-in Perception SDK snapshot."
+  default_prompt: "Use $regenerate-perception-sdk to regenerate and validate the checked-in Open Perception Kit snapshot."

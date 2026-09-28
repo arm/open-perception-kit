@@ -164,6 +164,18 @@ def _sdk_name_arg(value: str) -> str:
     return value
 
 
+def _public_name_arg(value: str) -> str:
+    if not _SDK_NAME_RE.fullmatch(value):
+        raise argparse.ArgumentTypeError(
+            "--public-name must match [a-z][a-z0-9_]*"
+        )
+    if value in _RESERVED_SDK_NAMES:
+        raise argparse.ArgumentTypeError(
+            f"--public-name '{value}' is reserved; choose a non-keyword name"
+        )
+    return value
+
+
 def _semantic_version_arg(value: str) -> SemanticVersion:
     match = _SEMANTIC_VERSION_RE.fullmatch(value)
     if match is None:
@@ -181,6 +193,7 @@ def _build_context(
     generated_root: Path,
     flatc_bin: str,
     cpp_python_bridge: bool = False,
+    public_name: str | None = None,
 ) -> GenerationContext:
     package_dir = Path(__file__).resolve().parent
     entrypoint_path = package_dir.parent / "gen.py"
@@ -206,6 +219,7 @@ def _build_context(
         flatc_version_output=flatc.output,
         tool_sources=tool_sources,
         cpp_python_bridge=cpp_python_bridge,
+        public_name=public_name,
     )
 
 
@@ -214,7 +228,7 @@ def _add_common_arguments(parser: argparse.ArgumentParser) -> None:
         "--name",
         required=True,
         type=_sdk_name_arg,
-        help="Generated SDK name. Must match [a-z][a-z0-9_]*.",
+        help="Schema namespace and default public SDK name. Must match [a-z][a-z0-9_]*.",
     )
     parser.add_argument(
         "--schema-dir",
@@ -279,6 +293,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--cpp-python-bridge",
         action="store_true",
         help="Generate the optional embedded-Python live bridge (cpp only)",
+    )
+    generate_parser.add_argument(
+        "--public-name",
+        type=_public_name_arg,
+        help="Public SDK name for all languages. Defaults to --name.",
     )
     verify_parser = subparsers.add_parser(
         "verify-manifest",
@@ -414,6 +433,7 @@ def main(argv: list[str] | None = None) -> int:
             generated_root,
             flatc_bin,
             cpp_python_bridge,
+            args.public_name,
         )
         sdk_kind = args.sdk or DEFAULT_SDK
         integration_names: list[str] = []

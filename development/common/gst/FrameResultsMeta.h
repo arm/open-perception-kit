@@ -16,7 +16,7 @@
 namespace opk {
 
 struct FrameResultsMetaTraits {
-    using Payload = perception::FrameResults;
+    using Payload = open_perception_kit::FrameResults;
 
     static const std::string_view api_name() {
         return "com_arm_opk_meta_FrameResultsAPI_v1";

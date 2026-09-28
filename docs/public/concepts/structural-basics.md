@@ -45,7 +45,8 @@ These contain the project documentation.
 - `docs/public/getting-started/binary-release.md` documents direct integration
   of the three release archives.
 - `docs/public/docs-config.json` defines the docs site label, navigation, and sidebar grouping.
-- `docs/public/static/` contains shared images and other static assets used by the docs site.
+- `docs/public/assets/` contains images referenced by public Markdown pages.
+- `docs/public/static/` contains generated diagrams and assets served at site-root URLs.
 - `docs/arch/` contains developer-facing architecture notes.
 - `docs/plantuml/` contains shared PlantUML diagram sources.
 

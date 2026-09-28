@@ -405,7 +405,7 @@ static std::size_t debugOverlayPlaneByteSize(const GstVideoFrame &frame, guint p
 static Osd::DebugOverlayRequest
 makeDebugOverlayRequest(GstOpkOsd *self,
                         const GstVideoFrame *frame,
-                        const perception::FrameResults &frameResults,
+                        const open_perception_kit::FrameResults &frameResults,
                         std::array<opk::ImagePlaneDesc, opk::MaxImagePlaneCount> &planes) noexcept {
     const auto &info = frame->info;
     const auto format = rawImagePixelFormatFromGst(GST_VIDEO_INFO_FORMAT(&info));

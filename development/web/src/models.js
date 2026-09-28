@@ -235,17 +235,6 @@ class ModelsManager {
         }
     }
 
-    renderError(message) {
-        if (!this.container) return;
-
-        this.container.innerHTML = `
-            <div class="models-error">
-                <strong>Error loading models:</strong><br>
-                ${message}
-            </div>
-        `;
-    }
-
     destroy() {
         if (this.updateInterval) {
             clearInterval(this.updateInterval);

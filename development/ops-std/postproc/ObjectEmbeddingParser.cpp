@@ -13,7 +13,7 @@ using namespace opk;
 using namespace opk::stdop::postproc;
 
 Result<void> ObjectEmbeddingParser::parse(const TensorParser::Input &input,
-                                          perception::FrameResults &results) {
+                                          open_perception_kit::FrameResults &results) {
 
     if (!input.tensors[0]) {
         return tl::unexpected(
@@ -30,8 +30,8 @@ Result<void> ObjectEmbeddingParser::parse(const TensorParser::Input &input,
 
     const size_t embeddingSize = shape.dims[1];
 
-    auto embedding = std::make_unique<perception::metadata::ObjectEmbeddingT>();
-    embedding->object = perception::makeObjectMeta(0U, input.inferenceInfo.parentId);
+    auto embedding = std::make_unique<open_perception_kit::metadata::ObjectEmbeddingT>();
+    embedding->object = open_perception_kit::makeObjectMeta(0U, input.inferenceInfo.parentId);
     embedding->values.resize(embeddingSize);
 
     float l2Norm = 0.0f;
@@ -49,11 +49,12 @@ Result<void> ObjectEmbeddingParser::parse(const TensorParser::Input &input,
         }
     }
 
-    perception::metadata::ObjectEmbeddingsT payload;
-    payload.layer = perception::makeLayerInfo({.model = input.inferenceInfo.modelName,
-                                               .inferElementId = input.inferenceInfo.inferElementId,
-                                               .contentType = k_content_type,
-                                               .producer = &input.producerInfo});
+    open_perception_kit::metadata::ObjectEmbeddingsT payload;
+    payload.layer =
+        open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
+                                            .inferElementId = input.inferenceInfo.inferElementId,
+                                            .contentType = k_content_type,
+                                            .producer = &input.producerInfo});
     payload.embeddings.push_back(std::move(embedding));
     results.add(std::move(payload));
 

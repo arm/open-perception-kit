@@ -1,0 +1,2473 @@
+{
+  "artifact": {
+    "name": "open-perception-kit",
+    "version": "0.1.0"
+  },
+  "descriptor": {
+    "path": "tools/perception/sdk.json",
+    "sha256": "44b6ee01580844463201b82adbf613e842cf2108bdb6028152ecc727372e725f"
+  },
+  "files": [
+    {
+      "path": "cpp/LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "size": 11358
+    },
+    {
+      "path": "cpp/NOTICE",
+      "sha256": "a95c15cfb7500b24dae9eff7293eec622315e1333c782e47afbec40898e76344",
+      "size": 130
+    },
+    {
+      "path": "cpp/cmake/open_perception_kit.cmake",
+      "sha256": "2cfc447ae132ca8804d24db7269757cc8f6f3919e6a589e34109e5d95980da62",
+      "size": 3791
+    },
+    {
+      "path": "cpp/fb/box_detections_generated.h",
+      "sha256": "051520f58748f4d4f96d5150cc7eb157741fd7284a61641362451631d2f046ed",
+      "size": 20724
+    },
+    {
+      "path": "cpp/fb/classifications_generated.h",
+      "sha256": "8a6e8a8092ac16f240e13c68537739efc7716fdf37d24ca9645ac3902c4c6bcd",
+      "size": 37887
+    },
+    {
+      "path": "cpp/fb/common_generated.h",
+      "sha256": "220446b86028f890315aa95e106f852a52b9e4d0e573d58173e3aa80b0cbe717",
+      "size": 38755
+    },
+    {
+      "path": "cpp/fb/frame_context_generated.h",
+      "sha256": "d68b74eebd51af0ca484b81f1d85a50df0073d3c14d8cbfb91d962989ff731c3",
+      "size": 34681
+    },
+    {
+      "path": "cpp/fb/internal/wire_envelope_generated.h",
+      "sha256": "373069c13e071bd07b18956b8be1881bfbe3694806a3a6810e149ecead3f6611",
+      "size": 18439
+    },
+    {
+      "path": "cpp/fb/object_embeddings_generated.h",
+      "sha256": "97bdc635143163c75a4525a25609f547330fc86bb70fce4a30161f731db9b10f",
+      "size": 19054
+    },
+    {
+      "path": "cpp/fb/object_tracks_generated.h",
+      "sha256": "4a39b2a0a0658ab201325012931aa00b378d4c1f9b5db0f30d21245d21f8788c",
+      "size": 24567
+    },
+    {
+      "path": "cpp/fb/performance_overlay_generated.h",
+      "sha256": "880a7bbea0ec66b3bb71a160b9bf3b17dc71fead0bd0261cb664257fc3fe534d",
+      "size": 9603
+    },
+    {
+      "path": "cpp/fb/pose_estimations_generated.h",
+      "sha256": "993b10fff1a52d7ac629c7a9abc614d1846b659acb21b9db6d34f8512e4c452a",
+      "size": 18907
+    },
+    {
+      "path": "cpp/fb/segmentation_masks_generated.h",
+      "sha256": "f1f6709c8d713181ab80187e952f97d8a733baaa00146b8147286c764a0b0634",
+      "size": 18904
+    },
+    {
+      "path": "cpp/fb/track_traces_generated.h",
+      "sha256": "dcc7a218ac860db450301cfe27ef0d4d487f3127607498a135d9c98c3fcee03c",
+      "size": 19927
+    },
+    {
+      "path": "cpp/meson/open_perception_kit/meson.build",
+      "sha256": "955125e4d642ecb597934ed7fc6041b87346dc349865568d23283ba86e8a7f62",
+      "size": 3478
+    },
+    {
+      "path": "cpp/meson/open_perception_kit/python_bridge/meson.build",
+      "sha256": "c2c375273b1bdc9de6772a469f03371d138fdd7cf47ea4823b28a862cf7e93af",
+      "size": 802
+    },
+    {
+      "path": "cpp/open_perception_kit.h",
+      "sha256": "72fe7f7a39f110f51f7cead99a1f08bd53e2ae25e8d4b068411f058b5c804808",
+      "size": 32590
+    },
+    {
+      "path": "cpp/python_bridge/open_perception_kit_python_bridge.cpp",
+      "sha256": "fcd62a94e283d66a261bcfe7b37dc8b42f86e2eb6ed2b0745d30930de7e88e41",
+      "size": 226014
+    },
+    {
+      "path": "cpp/python_bridge/open_perception_kit_python_bridge.h",
+      "sha256": "48ec40c851c24252daf5504655faa73356c061488e020694388fd9495d3c9e8f",
+      "size": 1058
+    },
+    {
+      "path": "python/LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "size": 11358
+    },
+    {
+      "path": "python/NOTICE",
+      "sha256": "a95c15cfb7500b24dae9eff7293eec622315e1333c782e47afbec40898e76344",
+      "size": 130
+    },
+    {
+      "path": "python/pyproject.toml",
+      "sha256": "7954d0f005c3d332e476ec568d72b358aa117d3f4632f9bc7a2e0c0fe7b5e5d8",
+      "size": 549
+    },
+    {
+      "path": "python/src/open_perception_kit/__init__.py",
+      "sha256": "93536d90aad678ac42be64ea976097b1fb8a83af2693cc00ea190e2fe9f7cced",
+      "size": 691
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/__init__.py",
+      "sha256": "7c55d57724c8a5011c910aa20ceb77e2ef38c104dc22ab46e7c247e4cf3e8e87",
+      "size": 185
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/__init__.py",
+      "sha256": "7c55d57724c8a5011c910aa20ceb77e2ef38c104dc22ab46e7c247e4cf3e8e87",
+      "size": 185
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/AudioFrameContext.py",
+      "sha256": "d071d67bc9675debb1361a3d66715ed5d19dd15365351cdf45f6e7ad9740047b",
+      "size": 7511
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/BitmapData.py",
+      "sha256": "e58a8770af4fb5be0a09ca4972da4a5985702c564aa25dba12df0c16b4330a93",
+      "size": 6115
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/BoundingBox.py",
+      "sha256": "2ac66975949649c7bded25f64de0a2d7243482cfd2899c6edd96eca5b6aa4b3a",
+      "size": 4106
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/BoxDetection.py",
+      "sha256": "0f25a19af3f0284cb4aa74aa4064ef61eab363cd8d83678eb43bbdfa61a77779",
+      "size": 6575
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/BoxDetections.py",
+      "sha256": "f21f27be4f4d2d63c755484def6e621753114613a199bdb03aaffe1c00ce22f9",
+      "size": 7445
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/Classification.py",
+      "sha256": "5eaddd83006f7f8a1133ae2e2e25a3c2dbb446b253ec4fdcd218d84bc21fab1b",
+      "size": 6330
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/ClassificationCandidate.py",
+      "sha256": "edef7b274d973c970565df8153ac4d5f934c61a5a98ecaf6cab15fb812d28901",
+      "size": 6829
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/Classifications.py",
+      "sha256": "e6561c38b42d3573a62b121cb7cc1e8eead230905a61e0776f0d06aaa252cd76",
+      "size": 10602
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/FrameContext.py",
+      "sha256": "5175e413a608ffac7071ee2e4276369577ff230f69f1b1cb31a87bcb2fc0a096",
+      "size": 7260
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/LayerInfo.py",
+      "sha256": "bb2f0d19c2310579303579f069770e5f5b6a8d5c4157463bca33f568ee5d1e12",
+      "size": 8741
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/ObjectEmbedding.py",
+      "sha256": "53be07f59ddb57a2b2af50f0b52015b0846d395713310f5ce00b7425e2087d17",
+      "size": 5891
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/ObjectEmbeddings.py",
+      "sha256": "1ee5ca42adf0d384d7d74540e342e3f2841baae4479f83a91911389900c01fee",
+      "size": 7640
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/ObjectMeta.py",
+      "sha256": "820cd74a05776224ec131dd704d898eebb42ff140f9afde227679617fd2ea822",
+      "size": 3684
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/ObjectTrack.py",
+      "sha256": "3b3c63d44ab62d568f0b4ff11deacb7ddb1e06a0b31ad8bd1edb6ebac541b7e5",
+      "size": 9192
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/ObjectTracks.py",
+      "sha256": "735a9d3a887af0f878f57e08f2f834a34a96e46cd68e6158c4d9682f49be61fc",
+      "size": 7236
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/PerformanceOverlay.py",
+      "sha256": "003d0e34027435aa40341c1d194a839b5a6bc02055453bcb90708d16b6db0a52",
+      "size": 5659
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/PersonPresence.py",
+      "sha256": "5211430ca6a5a12c6bc7d8756b602f253e9afc76e9d0889cdb968f4b4c0589ae",
+      "size": 4924
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/Point2f.py",
+      "sha256": "10baa1a8869ab0617996cbd086f7d0d0ab80f11209f62364744e8101c7834a96",
+      "size": 2828
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/PoseEstimation.py",
+      "sha256": "5100aa60d262be34a05b7b534bcd6d46caf7da2a3a1ddea15c602a8481a84300",
+      "size": 5321
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/PoseEstimations.py",
+      "sha256": "b85f51934abf19e7bc5eb1e8bc907430cf578dd3287721f6f95003abe8f3b9b1",
+      "size": 7395
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/ProducerInfo.py",
+      "sha256": "366bc84a4ab52b980e1addb01b75ab4a8d08f61f6d3d823ecff2072cd9b580b2",
+      "size": 4484
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/SegmentationMask.py",
+      "sha256": "e6b12dce5ce08f96977d90764b4250ff855f7b12f5cf791f3ac05d6fb3ef7985",
+      "size": 4858
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/SegmentationMasks.py",
+      "sha256": "7cb9a2ad8f97a7e4a203243f7fbf9e60a53da7a8915285c9ee9a580a13051dc4",
+      "size": 7525
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/TrackTrace.py",
+      "sha256": "6d70b8ad4388463949e346408e01bc57473377c802a4fea2e8f27e5941705d3f",
+      "size": 6422
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/TrackTraces.py",
+      "sha256": "3d2d305929c7a083603924b6bca22e1cb1bfa4ec50ef97ef6d6101831c03f1bb",
+      "size": 7171
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/VideoFrameContext.py",
+      "sha256": "1e0bfc7c72d87b0c9f576ee00683fdef800b81255d18b843f517258b2b6f1908",
+      "size": 10798
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/__init__.py",
+      "sha256": "7c55d57724c8a5011c910aa20ceb77e2ef38c104dc22ab46e7c247e4cf3e8e87",
+      "size": 185
+    },
+    {
+      "path": "python/src/open_perception_kit/guest.py",
+      "sha256": "2b1a9ac8f5765f7692eb64a1671c37e3d096e863350603900d94e965c6d53841",
+      "size": 884
+    },
+    {
+      "path": "python/src/open_perception_kit/guest.pyi",
+      "sha256": "3f6e33ff5005bff6a5f579753a53c9ba700fbaa300e138d5a54a30624edb73b8",
+      "size": 1608
+    },
+    {
+      "path": "python/src/open_perception_kit/internalfb/WireEnvelope.py",
+      "sha256": "a9c89bcbcd47b84eb82fe0364fa3cf8e71690fcae6a9c7c3321edea045c77a32",
+      "size": 7657
+    },
+    {
+      "path": "python/src/open_perception_kit/internalfb/WirePayload.py",
+      "sha256": "ec2152a9c1bd972baa82a5251548afa8c5b3721ae14451a1ceef6dab63d54d45",
+      "size": 4908
+    },
+    {
+      "path": "python/src/open_perception_kit/internalfb/__init__.py",
+      "sha256": "7c55d57724c8a5011c910aa20ceb77e2ef38c104dc22ab46e7c247e4cf3e8e87",
+      "size": 185
+    },
+    {
+      "path": "python/src/open_perception_kit/packet.py",
+      "sha256": "5347ebe0ab0149b3f2c3a7c62616c87c7d5b0302c49d64d932b63247f2c7f8ff",
+      "size": 608
+    },
+    {
+      "path": "python/src/open_perception_kit/py.typed",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "python/src/open_perception_kit/registry.py",
+      "sha256": "29b952e8f1670798a48766516bc4ae80e35c77ac85e4f340b5f8c37d2fa9b04b",
+      "size": 3756
+    },
+    {
+      "path": "python/src/open_perception_kit/sdk.py",
+      "sha256": "8e9bf16f7f9263e4c10114b82fc9201b986455e332078e9d93da9546152c6616",
+      "size": 15527
+    },
+    {
+      "path": "rust/Cargo.toml",
+      "sha256": "bb88720bbc89da80e0f20f95b5d230fd9a0b194083f2c83490380aeeb6c43843",
+      "size": 193
+    },
+    {
+      "path": "rust/LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "size": 11358
+    },
+    {
+      "path": "rust/NOTICE",
+      "sha256": "a95c15cfb7500b24dae9eff7293eec622315e1333c782e47afbec40898e76344",
+      "size": 130
+    },
+    {
+      "path": "rust/src/fb/mod.rs",
+      "sha256": "6091f47c5ad1c4b5846ff83f4afb65966285670c7a03a7cc1d3ef0ca7f27ebfb",
+      "size": 99
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/audio_frame_context_generated.rs",
+      "sha256": "ee3a58278db6a6adf0973a40f4f1e09790af2d68e644cf58e3b40e518b9d7d02",
+      "size": 11144
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/bitmap_data_generated.rs",
+      "sha256": "9ddd0773290e67d1b6bd0c4caf9f3e11eb4422009d1aa98fdf028d771cd062b9",
+      "size": 7565
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/bounding_box_generated.rs",
+      "sha256": "cf6c9762e103e8b181cf00c68548b4dc8c4e94193a78173d296fe61269bdea8b",
+      "size": 6424
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/box_detection_generated.rs",
+      "sha256": "ea53b1e208c4086b9576e236f5c9fa9d7ae0e92bc28de326ff1a0fe8794fb577",
+      "size": 8754
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/box_detections_generated.rs",
+      "sha256": "af4c980f4409b9e18f5ab3f986addec9c59cdf8ebd315cb68d3d33d82fe42954",
+      "size": 12197
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/classification_candidate_generated.rs",
+      "sha256": "7904888cd60b88ea946900d13fc11eaca75bf47c0c0f8e5cff0b4044cafa89bf",
+      "size": 9851
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/classification_generated.rs",
+      "sha256": "b6de4f4a30cccca6c58b7b118a1b37627ef8d4bba4ccf459a43a23840c0b09ee",
+      "size": 6512
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/classifications_generated.rs",
+      "sha256": "05e6aaa1657cf1c7ec41240ff4a8f191682317ecbd499f894fcf1da7ecec414d",
+      "size": 14513
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/frame_context_generated.rs",
+      "sha256": "14b88ceaf68cdc34506032266359ab7734b9615bae72eda921cac132a579a976",
+      "size": 13009
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/layer_info_generated.rs",
+      "sha256": "a262401214cb2139d6cc3d2191ed3edfba4268d83daa04d872d8ef1805355ff8",
+      "size": 13552
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/mod.rs",
+      "sha256": "eb33c86bbd963ff388f3de93b9d095ecdb3567d8a9cb2f5dd1e591c89ffc0c01",
+      "size": 1994
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/object_embedding_generated.rs",
+      "sha256": "307ad845b36618f1f8e72c151b53990c79a11e10effc733e76f9dc6829e10565",
+      "size": 5985
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/object_embeddings_generated.rs",
+      "sha256": "c95d6def8e15ff3369a97bf5d9a05289bc79e4e06f86e2dddef89654ff3c041e",
+      "size": 12500
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/object_meta_generated.rs",
+      "sha256": "e970ecc6d24f6f7473be30bdc619c04e80c279ea8b4faab3db6798bfb2cbe499",
+      "size": 5966
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/object_track_generated.rs",
+      "sha256": "65b5cf145e2d84b99375fefa049428e31fde7a4c541075b7c64a1070a29208bb",
+      "size": 12896
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/object_tracks_generated.rs",
+      "sha256": "9d6887c04e0cd3327d2613d68f0cf8fdc45a1dee8a1e76f94e30ba9db4e8b4a5",
+      "size": 12000
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/performance_overlay_generated.rs",
+      "sha256": "b1b83ab11a743e1f7a137aaf148068fab6e18466bee4a1d2e30ae2aa0e800ee3",
+      "size": 11224
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/person_presence_generated.rs",
+      "sha256": "bfe233fba422e2154e45dcec7a953b7755f3abe1163317888d23c993a0110b2f",
+      "size": 6802
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/point_2f_generated.rs",
+      "sha256": "5cc66e5338dd6cb2b4b70c30ece2b0a462d0f9a99c99c835916b5ca5c532d2bc",
+      "size": 4364
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/pose_estimation_generated.rs",
+      "sha256": "4906494f0c97f757e40cff1f479c31a7027bae30b2213efce41e6133d6c5a6fc",
+      "size": 7331
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/pose_estimations_generated.rs",
+      "sha256": "7689230dad6a990213f91484671898ffaa2117993cdb7b99253c54e085e5237b",
+      "size": 12254
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/producer_info_generated.rs",
+      "sha256": "c552b7b11e30f0af94cbbdb9771f9cc2bf54ab50e720c89cfe5eb37e3e68807d",
+      "size": 7330
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/segmentation_mask_generated.rs",
+      "sha256": "e85fb36bfb32ff924524e145f3021addab90be30c7634c77ac3635c3cb278787",
+      "size": 5932
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/segmentation_masks_generated.rs",
+      "sha256": "799fa4e1835f0f0ee3e5aa992b1ce077cea0e34b93c75b96e5031c51530dbd91",
+      "size": 12420
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/track_trace_generated.rs",
+      "sha256": "f42e3172f72c97435e38ab3151df8c9d6a37b80d1903386588c984c1208fa347",
+      "size": 7129
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/track_traces_generated.rs",
+      "sha256": "0794776d7aafdc9a58a00b40b8de52ce37994d35824ea0e751d25b87a1c6b5b4",
+      "size": 11917
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/video_frame_context_generated.rs",
+      "sha256": "716ca4b81c91ca096a858be1f351f4be567d50936499975faa29fb4bf0bdc3b5",
+      "size": 15830
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/mod.rs",
+      "sha256": "2f8cbee27e76e3a100283b9b0526e6450d1f8284a0424743dd9bbf5004bafd7e",
+      "size": 88
+    },
+    {
+      "path": "rust/src/flowdata_internal/internalfb/mod.rs",
+      "sha256": "b0e6c52ffefa9562ba4f1a76641c2373b40a589c496ee34180e32450607c1001",
+      "size": 210
+    },
+    {
+      "path": "rust/src/flowdata_internal/internalfb/wire_envelope_generated.rs",
+      "sha256": "12af8dc5c34483d8a4ec91ff72b2b0de0f882d7b26aade60b78df7b5ae5921e8",
+      "size": 13814
+    },
+    {
+      "path": "rust/src/flowdata_internal/internalfb/wire_payload_generated.rs",
+      "sha256": "dbb10c65d9020d97e58da121b319def67456bd8ffc438819b2a24600f33b5b99",
+      "size": 5162
+    },
+    {
+      "path": "rust/src/flowdata_internal/mod.rs",
+      "sha256": "56c6c77b8cb49fbb815c91e1a0875b5823fe756d8ad324588cf24b1474a51c13",
+      "size": 97
+    },
+    {
+      "path": "rust/src/lib.rs",
+      "sha256": "3f015cf6babebaed0a42e2547e1f43f44814c025db75faaa3dc6a640076884e0",
+      "size": 43672
+    },
+    {
+      "path": "rust/tests/fixtures/opk-box-detections-v0.2.1.hex",
+      "sha256": "67cef1b807e574f7c1a79689fd4b9ae83f3cd8b32faf78a44ff4de58914fb467",
+      "size": 993
+    },
+    {
+      "path": "rust/tests/opk_packet.rs",
+      "sha256": "5959d3e63e6cb99138b7690600791dc78209f8f6caea19fe84c83891e2e352ee",
+      "size": 4240
+    },
+    {
+      "path": "ts/LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "size": 11358
+    },
+    {
+      "path": "ts/NOTICE",
+      "sha256": "a95c15cfb7500b24dae9eff7293eec622315e1333c782e47afbec40898e76344",
+      "size": 130
+    },
+    {
+      "path": "ts/dist/open_perception_kit/envelope.d.ts",
+      "sha256": "d2dd2197a21920d40beb61b41db98dfaebc61dd84498c1b5ee1ef0d5c148e24e",
+      "size": 2316
+    },
+    {
+      "path": "ts/dist/open_perception_kit/envelope.js",
+      "sha256": "be55756edf7268e22671236f5ff34396e377a0e72be816d8b762618c0b0fae6b",
+      "size": 13750
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/internalfb/wire-envelope.d.ts",
+      "sha256": "1438e62b7bb9b911c78ce7bfefae5fc82b5a57563c46ccf0da08eb10f5f2d472",
+      "size": 3151
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/internalfb/wire-envelope.js",
+      "sha256": "e7527bf5cd24aa67575d4e9b5e00283f0466cf0d49a6343a29154fecb1f978cc",
+      "size": 5385
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/internalfb/wire-payload.d.ts",
+      "sha256": "69643d0fdc0f3940cdc64cf7326c699c35bd110a4505f117eac4dbec62374411",
+      "size": 1643
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/internalfb/wire-payload.js",
+      "sha256": "6b47b6411c45f11c1446628b6e4a84b3e529043cb0dbdd0300befe28f0826b71",
+      "size": 3157
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/internalfb.d.ts",
+      "sha256": "70fc6e8a8b3ffbbb3d893f24a42d41cf53f7264dfdda9ff7a6004a6557658a89",
+      "size": 316
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/internalfb.js",
+      "sha256": "296f3e2495657a1fefaccd5d8f071cc05af3049786c65e7ad16c34713e287741",
+      "size": 410
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/audio-frame-context.d.ts",
+      "sha256": "f3bb51ca06a678882eb6083bfed77936583661580ad0c91a6630d3951c010c93",
+      "size": 2583
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/audio-frame-context.js",
+      "sha256": "73c2be500df4c3489d584ccec07f9dbf289d5daa26af1e3e675900414ce5cdd5",
+      "size": 5255
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/bitmap-data.d.ts",
+      "sha256": "9e45b08da87fd0f02c3490ba8499b13532ec97b78ce53cc02d0fa12691fc36f9",
+      "size": 2148
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/bitmap-data.js",
+      "sha256": "efd50ae8070f642f60e6ef478b238f06376eb67c35e56c2781d6602bdf9e0ae9",
+      "size": 4193
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/bounding-box.d.ts",
+      "sha256": "2607a2431d514096d1fa4d2b1b142c2df3b095dedbafcd1f25518b393260b773",
+      "size": 1595
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/bounding-box.js",
+      "sha256": "cac4b893c82412c9ea4bb0ed3446da0f7edfaba78c7bbeb4ce0a9d1fca7d7737",
+      "size": 2910
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/box-detection.d.ts",
+      "sha256": "1394d00790a7d351d5592b075347e2a4bcab53194a299723e19950601bddf89d",
+      "size": 2138
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/box-detection.js",
+      "sha256": "4cab80ca85351972544ae6684624a4ec4fa9b201a1f97f9add84d33ee686ee3f",
+      "size": 4002
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/box-detections.d.ts",
+      "sha256": "09d5ad9bb3304b6f909524cc62abcc8241d8086a949480c5c1daaf0f134c2e76",
+      "size": 2468
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/box-detections.js",
+      "sha256": "07cf5df761ad7fa8b85c602ca4ba6bcbe945445ab75c9181fcef700402da949c",
+      "size": 4587
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classification-candidate.d.ts",
+      "sha256": "1e2d818b2132a1a72e19df30b6458ab2e558646687daec3ea292ac3472142dbe",
+      "size": 2347
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classification-candidate.js",
+      "sha256": "c06826d9cfd640bf81c62e31b08065cdacf2481a47e77e098a1620bc9e3729a7",
+      "size": 4455
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classification.d.ts",
+      "sha256": "e72007678e45cab221d182d2d8a1de94dd410d6c3fe12e0f200cab6d836ee6eb",
+      "size": 2125
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classification.js",
+      "sha256": "3e1c1dbf0ff54451df0aa94c6a66dcddb11df6d1a251c5a92402a170336a406a",
+      "size": 3627
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classifications.d.ts",
+      "sha256": "cb5eb79dddc4a5a9f96915b9e089bfd6f40068bebc52b106ba548bccce719c56",
+      "size": 3170
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classifications.js",
+      "sha256": "f57efdf16f9c1978699049ee518d3ce2317677e3bc166beed518e4ff4fcc4069",
+      "size": 6185
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/frame-context.d.ts",
+      "sha256": "e026bf9dcd3c32d8b0beecefd1eeb515dd4d2e4ee4b5eae1d59e20f0a8f579ea",
+      "size": 2561
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/frame-context.js",
+      "sha256": "05fb8a98483206b1518ba47f93d90561eaf47cbef78c78c834185188d591d3cf",
+      "size": 4598
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/layer-info.d.ts",
+      "sha256": "15e8f4d34feeccfbba5ce477ba19a58ffe66f22d6704520e557429bd5a2d401a",
+      "size": 3366
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/layer-info.js",
+      "sha256": "3260f9d5628017ad1973482a5f0f999b7fee60be715eac22bb19940385fba325",
+      "size": 5997
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-embedding.d.ts",
+      "sha256": "a52df09b6d6419db64ed99e8b5dc87f471182c5baf94e6544b4b338234457315",
+      "size": 2132
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-embedding.js",
+      "sha256": "07f2b0ed296be4ba85a9a0741e8f8109b4203b830146a48194a5fa0e2239227c",
+      "size": 3633
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-embeddings.d.ts",
+      "sha256": "d83d5280bc5fbb267b0e04e49834ac17a5d8d79f3327cfcf111f0db76ff4a6f0",
+      "size": 2537
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-embeddings.js",
+      "sha256": "d31066603885c3c0bcb0728b74d671686166786e3302d5e236dcde27161f09c7",
+      "size": 4656
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-meta.d.ts",
+      "sha256": "5363f6733fce80cbed0061fb3c4c1314eba2ee82b9f44fe434ac1b85ea63723a",
+      "size": 1521
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-meta.js",
+      "sha256": "8bec5f6de40ce7bc197db53f5d75ac13711a948a5376de40d2c7e4895b732236",
+      "size": 2754
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-track.d.ts",
+      "sha256": "e1e6a88f233ef73a8ad47ac193e617db91cc2f880767b53ab89688d803b91cdc",
+      "size": 2879
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-track.js",
+      "sha256": "e3da6ead5abfdf1d068ecc3d5b07367ec536f02d908683f969a9193f069fa13a",
+      "size": 5910
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-tracks.d.ts",
+      "sha256": "2dda2fc2984beddbe68699bba240b1554b65d65e37e8ff9f136fd1c81770dce7",
+      "size": 2413
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-tracks.js",
+      "sha256": "e9f7ba94fed462412ffc9191c6983582cb4747d92e5a1dc992c389be19757fbb",
+      "size": 4484
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-overlay.d.ts",
+      "sha256": "b8be24716b63ffe1347a52c43beb1c3f5920f026e66fb3495ca2661e36ae0a25",
+      "size": 2328
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-overlay.js",
+      "sha256": "cc8f4b5f4bbcad102a4bfcecefa691aa1dce03007cbdb5a9d348ebe21fed13de",
+      "size": 4015
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/person-presence.d.ts",
+      "sha256": "117e3389df2a08a5731635d5e7060417cfdb854b9addc3017e2e93df648e378f",
+      "size": 1815
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/person-presence.js",
+      "sha256": "a095846e14dfc300b4709639cee8e09696fdd31ae59def9dd4f865b4dd5e3e67",
+      "size": 3201
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/point2f.d.ts",
+      "sha256": "f4a16fd8b7e17ed44ddb155b30b73acbb4d65d1b5dca85371d1b24bd33e875c5",
+      "size": 1243
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/point2f.js",
+      "sha256": "7cd8a60ce119ba9daf7980b87f128ffef21d0d0ff9298e5e41a807b43350332b",
+      "size": 2033
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimation.d.ts",
+      "sha256": "f9d14f5320849b09d6bb48b561eeca7b2ef7a58ed8d1cdb3abcbcf6311bee14b",
+      "size": 1886
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimation.js",
+      "sha256": "fb70b795b63874599bef482e0f581134600a3cecd3952e8f0907b65b038e1ca8",
+      "size": 3432
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimations.d.ts",
+      "sha256": "0f27f7fb442915c6ab937e484657592140d1b8a07e711470f38663bfc06c9253",
+      "size": 2474
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimations.js",
+      "sha256": "1c1403f41693b59c2e4909cbb8e9381103c07847bb50cddb7807c7968ce271d5",
+      "size": 4533
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/producer-info.d.ts",
+      "sha256": "2e75638a7c4ebfbc5aa027edaae63c8eec48b065289f0ba67185dfbd11634650",
+      "size": 2121
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/producer-info.js",
+      "sha256": "3c7ac11bd226ceea1551a23a71f456e711d7db7d3719d38ac8482bf5c7ee3cab",
+      "size": 3336
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-mask.d.ts",
+      "sha256": "69a0a5ff6476230a2e716e58aaf5958d860c27e8ce923d41fb77c5587af47b82",
+      "size": 1645
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-mask.js",
+      "sha256": "eb79d418e78e071e3586ef6ada552dc49216c511b28b95f0581290e0562f162f",
+      "size": 2779
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-masks.d.ts",
+      "sha256": "b47ef7377942fd0161bf48d323ea608aa8856576e6a89bf714885cbeecf50b32",
+      "size": 2520
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-masks.js",
+      "sha256": "6a1a17256ce203dd6854c772748b8c67e35aae9c9ab903624989700293dc0b9f",
+      "size": 4579
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-trace.d.ts",
+      "sha256": "a9fb8fee7c2d93c8ed9a1faf9a0946de5905424b66cbb97f195c76b95a1295fd",
+      "size": 2071
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-trace.js",
+      "sha256": "e8941dfc3b8897f2495e21f902f01e70c7fea3e4d692e6a18b184f708d1c379f",
+      "size": 3857
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-traces.d.ts",
+      "sha256": "0e3b388f848a658b0ada921377ce71a74095dcd0568d0e197d426f8e0289179c",
+      "size": 2390
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-traces.js",
+      "sha256": "9b8acaf80b9ca113c329fe4d0c62788eaf1996de6869b23d945512edebf5d9ee",
+      "size": 4461
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/video-frame-context.d.ts",
+      "sha256": "f1140180f157b1bb12bf3ee6be076461fcd23e5e79d6b739708f9b2dcc984f99",
+      "size": 3448
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/video-frame-context.js",
+      "sha256": "695e0d82215756297bfcd6b6e00a594c10c9ee609b186579e4ceaf5d0ae27950",
+      "size": 7722
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata.d.ts",
+      "sha256": "baccb403503a8839fe8da6af8d3f6d8316b00926754a01fbfca79031115a494e",
+      "size": 716
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata.js",
+      "sha256": "dd8092116b0f82ca4aee0260257524cc5a8d8e1484d60987f621b49c3e1ed8e0",
+      "size": 810
+    },
+    {
+      "path": "ts/dist/open_perception_kit/index.d.ts",
+      "sha256": "7f844ee6a87fb20d4c75e22957f0ba8d85db341ef77903b6c7d908ba09c51536",
+      "size": 610
+    },
+    {
+      "path": "ts/dist/open_perception_kit/index.js",
+      "sha256": "09ae7ce1e5c6fc3f74e095d5aba871f615d58bed6a06c5e4f0a07d97aa64baaa",
+      "size": 578
+    },
+    {
+      "path": "ts/dist/open_perception_kit/registry.d.ts",
+      "sha256": "651fa0fe86b18c51961e24d6b9dc43bd0052afbb4522dad1aeff727d20dacc5f",
+      "size": 588
+    },
+    {
+      "path": "ts/dist/open_perception_kit/registry.js",
+      "sha256": "7a4d2b85480639d3d7e770c9e1d415d856e7afd6eda8b9cd04d8575641686461",
+      "size": 8109
+    },
+    {
+      "path": "ts/package.json",
+      "sha256": "7d702a699649bfee4e78fe489e0f5c7706253dbb9add206aadf50dec9ef19f2f",
+      "size": 874
+    },
+    {
+      "path": "ts/src/open_perception_kit/envelope.ts",
+      "sha256": "872703642a6b371643f039fe4cda6955b3ae6fa91372b074a1622e63a6da403e",
+      "size": 12377
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/internalfb/wire-envelope.ts",
+      "sha256": "ad7bd0106f6d541f531326ce9e6f71427fd023d24caeb63f9856f8d277eb68c8",
+      "size": 6284
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/internalfb/wire-payload.ts",
+      "sha256": "93e03a5969a484c65a72501a2f670c54a7f6095c1435a550804fc775bae87358",
+      "size": 3492
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/internalfb.ts",
+      "sha256": "f033c44c988a50b457c92248a6bf0c96fbbc9d9f81b8266f58be54de089bd15d",
+      "size": 412
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/audio-frame-context.ts",
+      "sha256": "02197a2e5f20733673749208b4ad2a02c47b8d8c57eb42ee17f898ed471b7ba0",
+      "size": 5469
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/bitmap-data.ts",
+      "sha256": "2ae051c793d24d4042cfc1c182340b348cf3119cdc63a35bc2dd29881d82f66b",
+      "size": 4644
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/bounding-box.ts",
+      "sha256": "5b19a71668abb23debc74c4295c9a07ec9fc212738fb6e59b89b2d40b51f241c",
+      "size": 3161
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/box-detection.ts",
+      "sha256": "8d7341295a76a55bcbf3b353a59ba34dda4c5507d443cffa884d0fb49ee1c690",
+      "size": 4394
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/box-detections.ts",
+      "sha256": "35aafec6517f6b1c2c12f11af493c20970dc6d799d8c1e008ab2e945750ed845",
+      "size": 5009
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/classification-candidate.ts",
+      "sha256": "8b692cfbb5790c7b850a81e706da94b20ee9a02ba91a83ec473176b56a937c6c",
+      "size": 4939
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/classification.ts",
+      "sha256": "32b183ed98cd1296d75015cb2714b9d33e4b1082322f5f23a6643944a5902a83",
+      "size": 4204
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/classifications.ts",
+      "sha256": "1e90c3deb35774f85a88e986a788e13ce771a5c15d5588d2258982022db81880",
+      "size": 6765
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/frame-context.ts",
+      "sha256": "77d29136ddf9d2a52741d8706a9737a783e1d5942fda664bb0d5304f434da09d",
+      "size": 5018
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/layer-info.ts",
+      "sha256": "18f78508365198ad72b9fee9ae5e2a05bc557e546bd4b85bfeeb047264961ba6",
+      "size": 7068
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/object-embedding.ts",
+      "sha256": "8d903d833f91fcfd61ad08c53aac9337f4c2ad8ed3de1c562181d6d652832698",
+      "size": 4352
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/object-embeddings.ts",
+      "sha256": "757ae58159a991055b647e967e228aca91b255b6a22a06b1f329f3a63ebc4960",
+      "size": 5126
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/object-meta.ts",
+      "sha256": "660082dfe0e4039bad51a81d9fe8e08586a035392b5442ad97c02000f97b3278",
+      "size": 2973
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/object-track.ts",
+      "sha256": "a671d7c66394f52769aeeb486f2a332e2b034b2f1ef260a7a0efe805261d0c81",
+      "size": 6343
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/object-tracks.ts",
+      "sha256": "d9236f8fb79ed03068c643e9d1c97e05b9e051acd3796a3ee5eb82395eab6c5d",
+      "size": 4898
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/performance-overlay.ts",
+      "sha256": "2afd1df29180eedda5609dbb2212d9512cfcdd20762e1cb402578f274cddd9f5",
+      "size": 4559
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/person-presence.ts",
+      "sha256": "633a9e451367ff76b9657b91ae74f74d60904921e642ee286b3b21650385ae90",
+      "size": 3501
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/point2f.ts",
+      "sha256": "bad0835c02a36c8cf05b3a781d5bdb17af1e9b8af106f26855fb4ccedc972e1b",
+      "size": 2262
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/pose-estimation.ts",
+      "sha256": "f17d0edf6b2b6057e93f781137330c7f0e162f3ebcb778c5fc4763ccc341ee1b",
+      "size": 3752
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/pose-estimations.ts",
+      "sha256": "840bac5c83e5f76514ae8f2a3ca2a5696a27e23480a90667ff4403eb937e1ac5",
+      "size": 4997
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/producer-info.ts",
+      "sha256": "01e9315312af38d61ef13090678169aa590c58b6d13f096bb096a436788c09c5",
+      "size": 4018
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/segmentation-mask.ts",
+      "sha256": "63fc2fd9de5e523a642b4f218c70e355f9ff106f4dbbbd1342bfe428b74b2f93",
+      "size": 3120
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/segmentation-masks.ts",
+      "sha256": "97a345acfa863e6a1dc51dc091b6158241dc4250cbf81b77751afbdd430b187d",
+      "size": 5075
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/track-trace.ts",
+      "sha256": "b58fe8098fa1c6c17af2427b2bd0640ed0779b3dbc290f1f5f8e78de0ef80c6b",
+      "size": 4274
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/track-traces.ts",
+      "sha256": "b998b675d91c3285f967d6ab9d9d0b012a94c7580e6ee841edd552a693506854",
+      "size": 4859
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/video-frame-context.ts",
+      "sha256": "e8f2670195f2d456ae49fb16a625bc45b8f651eb63e29f022b1186cd321b5751",
+      "size": 7866
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata.ts",
+      "sha256": "4c4688d48d4dfdc4a66cfb427606ce2039e51be4b898781b6adbd063a93cd05c",
+      "size": 812
+    },
+    {
+      "path": "ts/src/open_perception_kit/index.ts",
+      "sha256": "e5f32e45e7b6156dc9f84f1c189c931a130630f99827e0d36a0de4f25dc4f3de",
+      "size": 591
+    },
+    {
+      "path": "ts/src/open_perception_kit/registry.ts",
+      "sha256": "3262da0533abc04d799fd7893d60f46aa804e7020ccd68820811ed87e20e55b3",
+      "size": 8283
+    },
+    {
+      "path": "ts/tsconfig.json",
+      "sha256": "bff82dfa6a098456d3546a8d13bd54bf5de2da197123c1bdaa1bf04f295ce600",
+      "size": 304
+    }
+  ],
+  "generation": {
+    "flowdata_sdk": {
+      "generator": {
+        "name": "flowdata-sdk",
+        "version": "0.6.0"
+      },
+      "sources": [
+        {
+          "path": "tools/flowdata/engine/__init__.py",
+          "sha256": "9f9848c7f6f42a4341ae2e98400774c89ac07b42c8bf189c3e824eff83c6f79b",
+          "size": 185
+        },
+        {
+          "path": "tools/flowdata/engine/app.py",
+          "sha256": "a6d19a8df44c7ae5c8537c708c4941d3a7140c0be97dc47e2dc6bbe3773e0d51",
+          "size": 12864
+        },
+        {
+          "path": "tools/flowdata/engine/cpp/__init__.py",
+          "sha256": "c559ef637d18df26f723df838c0619b9361c6df2d758c7104f6a0c4e3a5cd472",
+          "size": 790
+        },
+        {
+          "path": "tools/flowdata/engine/cpp/base.py",
+          "sha256": "d22bad9fb09c641999d0799b9e3b8d1156bdcd0695c4c8c834109deb3a58c20f",
+          "size": 631
+        },
+        {
+          "path": "tools/flowdata/engine/cpp/cmake.py",
+          "sha256": "182ebafaf30131125e0231aa26445b16c52cbd90be053842089f9a2dffc6505e",
+          "size": 6138
+        },
+        {
+          "path": "tools/flowdata/engine/cpp/cpp_sdk_codegen.py",
+          "sha256": "e18af57f9a9fb360452220dbf7e5ec7dbac7f363d5e54b91995f7b74a5b8aad6",
+          "size": 31388
+        },
+        {
+          "path": "tools/flowdata/engine/cpp/meson.py",
+          "sha256": "517042f31f3a8891f9c25d214b63541ba9eddda72de4648f29b4f0734cc2a559",
+          "size": 6670
+        },
+        {
+          "path": "tools/flowdata/engine/cpp/python_bridge.py",
+          "sha256": "6b711205c74696c840117f20ad40b2c1cc2942883ba2944ba52b5c65d67b97e1",
+          "size": 62763
+        },
+        {
+          "path": "tools/flowdata/engine/discovery.py",
+          "sha256": "792adcfd02847d5f1c9319e9038bbc166fcefe9f9dee785bce14b195e372e0ec",
+          "size": 7847
+        },
+        {
+          "path": "tools/flowdata/engine/errors.py",
+          "sha256": "fae963251752a4ae629b6ec2b3584d3928187f73a1436c075027b52cad505c96",
+          "size": 608
+        },
+        {
+          "path": "tools/flowdata/engine/flatbuffers_compat.py",
+          "sha256": "be9877e1a42dab36bde54a62be239885f2bf8f9c9f6e14507c95a440184de40f",
+          "size": 3733
+        },
+        {
+          "path": "tools/flowdata/engine/generators/__init__.py",
+          "sha256": "a61ef437308c6da7a46c10f762251d513d463cb88ea789c747e514dbdf7e9058",
+          "size": 766
+        },
+        {
+          "path": "tools/flowdata/engine/generators/base.py",
+          "sha256": "e5dfacb5978c5a2b4a110610e3b5b940594a6bd048a676aab20a41a6ddfb2d3a",
+          "size": 525
+        },
+        {
+          "path": "tools/flowdata/engine/generators/cpp.py",
+          "sha256": "15c9883c9b9a7c5e56f87903f9c2d0668585ea3c57c6bd2d4fcb917f9b65e6b4",
+          "size": 1542
+        },
+        {
+          "path": "tools/flowdata/engine/generators/python.py",
+          "sha256": "ab556cce62e6f06bdcecd56485923b054adf440554f2ddc53738b4921cfbb363",
+          "size": 560
+        },
+        {
+          "path": "tools/flowdata/engine/generators/rust.py",
+          "sha256": "a0fc75c0190eb22caba196d620c507b63002466cfaf22f9916f40b4926d99bd7",
+          "size": 564
+        },
+        {
+          "path": "tools/flowdata/engine/generators/typescript.py",
+          "sha256": "6ac3cb59445ce054df7856591f0d7edf91014f16f4b1cf90f616c70f764bca2f",
+          "size": 592
+        },
+        {
+          "path": "tools/flowdata/engine/manifest.py",
+          "sha256": "c6eba9b4ba966ef5191efc0c8562844997d5e6bc4cf791e602e62cc04e58157c",
+          "size": 24494
+        },
+        {
+          "path": "tools/flowdata/engine/python/__init__.py",
+          "sha256": "9f9848c7f6f42a4341ae2e98400774c89ac07b42c8bf189c3e824eff83c6f79b",
+          "size": 185
+        },
+        {
+          "path": "tools/flowdata/engine/python/python_sdk_codegen.py",
+          "sha256": "630cf95d3ce70a90fdc4ab66ea6ea75e6452d426ed49be07d6b804aded0f6564",
+          "size": 31083
+        },
+        {
+          "path": "tools/flowdata/engine/python_compat.py",
+          "sha256": "2fa5506efd15f00382c1d8034aa5e03c4c228a11234646bd11de8e7f5d4bd1d6",
+          "size": 305
+        },
+        {
+          "path": "tools/flowdata/engine/rust/__init__.py",
+          "sha256": "e3c3d3a9c1e6ccf217073e6d37af6c5d3a2e550e855442d03cbdffe7cb59d282",
+          "size": 267
+        },
+        {
+          "path": "tools/flowdata/engine/rust/identifiers.py",
+          "sha256": "9e4142eda9ba6232620e9f1b12b2f640512f8ac8542182221cb3c4864d7885ee",
+          "size": 675
+        },
+        {
+          "path": "tools/flowdata/engine/rust/rust_sdk_codegen.py",
+          "sha256": "aaba7c6d95f21afdddda66fdd720fd97f367301562272ea616a0ea0e025d1768",
+          "size": 41192
+        },
+        {
+          "path": "tools/flowdata/engine/schema_set.py",
+          "sha256": "19e283c0eccf3bd722617993469213156b57c33314af954dee8c11eaca58a3ab",
+          "size": 6720
+        },
+        {
+          "path": "tools/flowdata/engine/types.py",
+          "sha256": "a0da6e819798e3541f8b2e2c093c2d0c7835692c9568fd7bedc372fab21e74e0",
+          "size": 1889
+        },
+        {
+          "path": "tools/flowdata/engine/typescript/__init__.py",
+          "sha256": "e5f8b42a85eb2e0ef711072bd5cf8b46e27f2f1bd869fa4318f2ebc1346281c3",
+          "size": 277
+        },
+        {
+          "path": "tools/flowdata/engine/typescript/ts_sdk_codegen.py",
+          "sha256": "5c6aef71d815a7b11a53ac21480a551b4fa3073faee0bfcb16ae8a42cc639036",
+          "size": 23736
+        },
+        {
+          "path": "tools/flowdata/engine/validation.py",
+          "sha256": "9e112b3c34496e55a7a49ce2133b52a83374a3f294e40eabd316a724fb655bf9",
+          "size": 4924
+        },
+        {
+          "path": "tools/flowdata/engine/version.py",
+          "sha256": "1a2df0b90e3b20d3ffea89a1d365d506faf53478bf5f1d5c7746d6acf78e8ff9",
+          "size": 214
+        },
+        {
+          "path": "tools/flowdata/gen.py",
+          "sha256": "0ec130c093d36a42a593edb936d6510c30504db2e2042651429622f6929d5c82",
+          "size": 294
+        }
+      ]
+    },
+    "tools": [
+      {
+        "path": "tools/perception/generate.py",
+        "sha256": "a2c0f58f479cb2888395c63ae6e347dc3e0c5cc3655a49ec1bb998d3c30a4676",
+        "size": 46461
+      },
+      {
+        "path": "tools/perception/release_common.py",
+        "sha256": "88536e05220cb2bd7aba3dd4ad42ba993d5fc676fa2fc02404cd7b192f79299a",
+        "size": 1487
+      },
+      {
+        "path": "tools/perception/sdk_config.py",
+        "sha256": "18703d997d4eaa99d6d81a37e2118bf81357fdaa07866dad548ee5825cfa80ab",
+        "size": 11520
+      },
+      {
+        "path": "tools/perception/generator-inputs/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "size": 11358
+      },
+      {
+        "path": "tools/perception/generator-inputs/NOTICE",
+        "sha256": "a95c15cfb7500b24dae9eff7293eec622315e1333c782e47afbec40898e76344",
+        "size": 130
+      },
+      {
+        "path": ".clang-format",
+        "sha256": "fa130370f59deb3040c7a8ae61ca9991647f7420d1ee7be7072e5f2be3ec71be",
+        "size": 396
+      },
+      {
+        "path": ".cmake-format.yaml",
+        "sha256": "0ef60b649ad3b79de7cf778c4aec05f7401b8337e8ef0f9f84eeccb757124f37",
+        "size": 376
+      }
+    ]
+  },
+  "postprocessing": {
+    "cmake_formatter": "0.6.13",
+    "copyright_headers": "Arm Limited 2025",
+    "cpp_formatter": "clang-format version 20.1.8",
+    "python_formatter": "autopep8 2.3.2 (pycodestyle: 2.12.1)",
+    "rust": {
+      "flatbuffers_runtime": "25.9.23",
+      "formatter": "rustfmt 1.8.0",
+      "standard_library": true
+    },
+    "typescript": {
+      "compiler": "5.9.2",
+      "flatbuffers_runtime": "25.9.23",
+      "node": ">=20"
+    }
+  },
+  "project_files": [
+    {
+      "path": "development/perception/meson.build",
+      "sha256": "e0d83a3fa77784978dc6d66e5baf36b9eee4dd1720fca366d0cd9035ab1148ac",
+      "size": 1315
+    }
+  ],
+  "upstream_receipts": {
+    "cpp": {
+      "files": [
+        {
+          "path": "cmake/open_perception_kit.cmake",
+          "sha256": "4b31a8d0c8b95f6303394c8069bec59af315755a39e07362ab817436b9f28c0f",
+          "size": 3536
+        },
+        {
+          "path": "fb/box_detections_generated.h",
+          "sha256": "abacfcf8330524fd386ab69388b9311fc42ed599103e26abb4673ac28f685678",
+          "size": 18638
+        },
+        {
+          "path": "fb/classifications_generated.h",
+          "sha256": "57be4abf4157fc179ea49b05e1e3f1f4722837727f6c52d5a424cb794a16ff64",
+          "size": 33115
+        },
+        {
+          "path": "fb/common_generated.h",
+          "sha256": "13b48bf7d8a881da2c3178dccb637bdbe8d276236a5b5f64528bb0411970ca0a",
+          "size": 34280
+        },
+        {
+          "path": "fb/frame_context_generated.h",
+          "sha256": "1ea55dae053d559d5a4ee28ae8705ddc22b410c7abcca6da1168bf74f7dc405f",
+          "size": 30519
+        },
+        {
+          "path": "fb/internal/wire_envelope_generated.h",
+          "sha256": "66f3f729756e1080f48dec013d81fcdd1a6f4aac250eb992232a408dc27ed76d",
+          "size": 16245
+        },
+        {
+          "path": "fb/object_embeddings_generated.h",
+          "sha256": "c9a44de420901284d4ac6cebc87ae27b7cdf048808b378b9d991f66630747c13",
+          "size": 17085
+        },
+        {
+          "path": "fb/object_tracks_generated.h",
+          "sha256": "cda78a286c5acf4a8c2b5d9d54dbdd99241bad048e1504daf977f588d3cbcb0f",
+          "size": 21112
+        },
+        {
+          "path": "fb/performance_overlay_generated.h",
+          "sha256": "d94fddb88d8b48b33d9715279fc2f8e96ddee6abe593ee47656ec09b913118e5",
+          "size": 8817
+        },
+        {
+          "path": "fb/pose_estimations_generated.h",
+          "sha256": "83523efc284279d02ac20690ba4a28e73a6aae68b5285f1c1abfb70889169c23",
+          "size": 16898
+        },
+        {
+          "path": "fb/segmentation_masks_generated.h",
+          "sha256": "08e9254aaa72f3ac8f733b9603def90cb1ef5b3220217c616e72882ea532c212",
+          "size": 16856
+        },
+        {
+          "path": "fb/track_traces_generated.h",
+          "sha256": "8311591de21e0aac90fd90413d90ad9fad9a4f2a1a7c79d763a7045a81a9e2c1",
+          "size": 17657
+        },
+        {
+          "path": "meson/open_perception_kit/meson.build",
+          "sha256": "e1e1e9efc99b6020a28e2cb7c23626086b645bf791d88744b8e9b543344b58e1",
+          "size": 3479
+        },
+        {
+          "path": "meson/open_perception_kit/python_bridge/meson.build",
+          "sha256": "c2c375273b1bdc9de6772a469f03371d138fdd7cf47ea4823b28a862cf7e93af",
+          "size": 802
+        },
+        {
+          "path": "open_perception_kit.h",
+          "sha256": "f58aecbf50154e7968473a7948a9d6f344f4836f4eb22b43a5be880000410456",
+          "size": 31923
+        },
+        {
+          "path": "python_bridge/open_perception_kit_python_bridge.cpp",
+          "sha256": "fb3d2852a45bbd8a8ab56fc34e919b32bb992c72f1dffdbdfd3a8b04974cd9a4",
+          "size": 216900
+        },
+        {
+          "path": "python_bridge/open_perception_kit_python_bridge.h",
+          "sha256": "bdc5db9188a200f6b049b0db2afa47f090cf648aa26141e87166501185ad08e3",
+          "size": 868
+        }
+      ],
+      "flatbuffers_runtimes": [
+        {
+          "language": "cpp",
+          "package": "flatbuffers",
+          "version_requirement": "==25.9.23"
+        },
+        {
+          "language": "python",
+          "package": "flatbuffers",
+          "version_requirement": ">=24.3.25,<26.0.0"
+        }
+      ],
+      "flatc": {
+        "semantic_version": "25.9.23",
+        "version": "flatc version 25.9.23",
+        "version_requirement": ">=24.3.25,<26.0.0"
+      },
+      "generator": {
+        "name": "flowdata-sdk",
+        "version": "0.6.0"
+      },
+      "outputs": {
+        "cpp_python_bridge": true,
+        "integrations": [
+          "cmake",
+          "meson"
+        ],
+        "sdk": "cpp"
+      },
+      "payloads": [
+        {
+          "file_identifier": "BDET",
+          "payload_id": "0x07b7ad533c81ab13",
+          "qualified_root_type": "open_perception_kit.metadata.BoxDetections",
+          "schema": "box_detections.fbs"
+        },
+        {
+          "file_identifier": "CLSF",
+          "payload_id": "0x2796d0d433fc3c8f",
+          "qualified_root_type": "open_perception_kit.metadata.Classifications",
+          "schema": "classifications.fbs"
+        },
+        {
+          "file_identifier": "FCTX",
+          "payload_id": "0x1caa0e1496cf7b3c",
+          "qualified_root_type": "open_perception_kit.metadata.FrameContext",
+          "schema": "frame_context.fbs"
+        },
+        {
+          "file_identifier": "EMBE",
+          "payload_id": "0x52e328051b81535d",
+          "qualified_root_type": "open_perception_kit.metadata.ObjectEmbeddings",
+          "schema": "object_embeddings.fbs"
+        },
+        {
+          "file_identifier": "TRKS",
+          "payload_id": "0x29161d450dbca0e0",
+          "qualified_root_type": "open_perception_kit.metadata.ObjectTracks",
+          "schema": "object_tracks.fbs"
+        },
+        {
+          "file_identifier": "PERF",
+          "payload_id": "0x6b8b676312d27d0c",
+          "qualified_root_type": "open_perception_kit.metadata.PerformanceOverlay",
+          "schema": "performance_overlay.fbs"
+        },
+        {
+          "file_identifier": "POSE",
+          "payload_id": "0x7e7ed10e47a038c9",
+          "qualified_root_type": "open_perception_kit.metadata.PoseEstimations",
+          "schema": "pose_estimations.fbs"
+        },
+        {
+          "file_identifier": "SGMS",
+          "payload_id": "0x1bbd8e0aef4d628f",
+          "qualified_root_type": "open_perception_kit.metadata.SegmentationMasks",
+          "schema": "segmentation_masks.fbs"
+        },
+        {
+          "file_identifier": "TRCE",
+          "payload_id": "0x034e4bd9dd42b505",
+          "qualified_root_type": "open_perception_kit.metadata.TrackTraces",
+          "schema": "track_traces.fbs"
+        }
+      ],
+      "python_bridge": {
+        "header": "python_bridge/open_perception_kit_python_bridge.h",
+        "module_name": "open_perception_kit_bridge",
+        "registration_function": "open_perception_kit::python_bridge::append_inittab",
+        "requires_python": ">=3.10",
+        "sdk_import_name": "open_perception_kit",
+        "source": "python_bridge/open_perception_kit_python_bridge.cpp",
+        "wrapper_type": "open_perception_kit::python_bridge::scoped_envelope"
+      },
+      "schema_files": [
+        {
+          "path": "box_detections.fbs",
+          "sha256": "983c380e982b82a6decb1c8f7e4f54e67c1e89ce6349cbcebedf48cac0b0fb98",
+          "size": 476
+        },
+        {
+          "path": "classifications.fbs",
+          "sha256": "8be9524d0563fb7f1067f1ef7d0d2678025d31c20ca4d8fe335ddbf306737e01",
+          "size": 777
+        },
+        {
+          "path": "common.fbs",
+          "sha256": "2a9c0c7dcee911a3885650632e434eb05a46e622241a40ebc544e38d85c5ddc2",
+          "size": 609
+        },
+        {
+          "path": "frame_context.fbs",
+          "sha256": "af06b7edf56d48288ad71b92b8d44d9205e14e2eaf44ded58ed4932d7eba535c",
+          "size": 910
+        },
+        {
+          "path": "object_embeddings.fbs",
+          "sha256": "aa14c4af249e7da12b363756276b4e9121625a65ac52b58a2c60c7467c18dc04",
+          "size": 402
+        },
+        {
+          "path": "object_tracks.fbs",
+          "sha256": "3178219ea2284c9687551f58b5ea936c2b4323b9e326ce9da155299ac60990d7",
+          "size": 549
+        },
+        {
+          "path": "performance_overlay.fbs",
+          "sha256": "9e71b75f64c563ce21d81e5c8dccf5cafe75129ec574424e8c77d67ff1dc1e01",
+          "size": 197
+        },
+        {
+          "path": "pose_estimations.fbs",
+          "sha256": "66b9a99168366ce8c9d0bc9f22767899ed318cafa7ada67c2851d5c3b85cb0ee",
+          "size": 423
+        },
+        {
+          "path": "segmentation_masks.fbs",
+          "sha256": "b49b4e548d78b296c356534d32a07cce6a2e37ead0a3179daae3b29cc2905c78",
+          "size": 433
+        },
+        {
+          "path": "track_traces.fbs",
+          "sha256": "7406e0a0a32a1f3a1461963a7017e761331c154ea99ce1ab53f4d5bc400f919c",
+          "size": 427
+        }
+      ],
+      "schema_set_sha256": "1b19418d8a0d34038a3c99895fa93a1140c25af910f6bc63c0e11978e12c2876",
+      "sdk": {
+        "name": "open_perception_kit",
+        "version": "0.1.0"
+      }
+    },
+    "python": {
+      "files": [
+        {
+          "path": "pyproject.toml",
+          "sha256": "41bef29a5dde79f663af8ea32f2f94da5c8d982fd375118e60946df53642122b",
+          "size": 488
+        },
+        {
+          "path": "src/open_perception_kit/__init__.py",
+          "sha256": "4b7b5590eb8989dbfee262751a847746a1e4e387762822d4ae19340431c0765b",
+          "size": 506
+        },
+        {
+          "path": "src/open_perception_kit/fb/__init__.py",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/__init__.py",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/AudioFrameContext.py",
+          "sha256": "99121acecfdd74300b8d5ab0d134c033bd93b0c2edb8ee41a668463844d32288",
+          "size": 7293
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/BitmapData.py",
+          "sha256": "53f70939334d92ae32baded3a0ef26df4ba46fb1de60a58d6b19d499a083af06",
+          "size": 5919
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/BoundingBox.py",
+          "sha256": "e791c595e17301e1c8f042ce98f9cb69b1347306e8f4c9e4c02a85882ba1a47f",
+          "size": 3914
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/BoxDetection.py",
+          "sha256": "c9128f7c398fda1872ffde5508f9aee8f8caa2cf6caa7e4163698d8100dcf7af",
+          "size": 6340
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/BoxDetections.py",
+          "sha256": "40634c881546e4bae346f610f3f14cdb860a7c629c13cf465d9e618324d42337",
+          "size": 7200
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/Classification.py",
+          "sha256": "5872f5ab794dac36db71de9dda0bc23efba25016d08dc7f8ed83089d7bdcf801",
+          "size": 6078
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/ClassificationCandidate.py",
+          "sha256": "def8b7149b74071ce86f93837bf362724beeb086a3e16f3b8bd2aa04da02792a",
+          "size": 6637
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/Classifications.py",
+          "sha256": "bb23d8c0691b12c1ef26ef18ab38966a426c5b6fae348b0e34027b2c9a4f9129",
+          "size": 10323
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/FrameContext.py",
+          "sha256": "e331bdf2c74e6430c101dcff0fb080790efe82d3bea3a8c0e03864592cb7ee25",
+          "size": 7001
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/LayerInfo.py",
+          "sha256": "0e96828df1ed6c910e0c3b7f3ee12e18dd5d504122c1042bbd215bb32df38b32",
+          "size": 8523
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/ObjectEmbedding.py",
+          "sha256": "e72b4b7921b1a45e26e4dacd12ad6701222e603a2368850729ae95185127022e",
+          "size": 5671
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/ObjectEmbeddings.py",
+          "sha256": "328fc6345637e6c8074d289dbe630f41c8e7d293c68a98de5b2bd91b63e17054",
+          "size": 7395
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/ObjectMeta.py",
+          "sha256": "62549936175a4ad0d5a3f276469e2a2ad6ac3ef757d1deda2724d0ef6a95ed43",
+          "size": 3492
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/ObjectTrack.py",
+          "sha256": "0d870ea6a6eea4fdf4a693496cc26691c85190a7634957b17ddc93594f75014b",
+          "size": 8957
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/ObjectTracks.py",
+          "sha256": "79932c34b895bd1f46d6fed2d4d6fb737e80219809799b1588977b03c5cfdc52",
+          "size": 6991
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/PerformanceOverlay.py",
+          "sha256": "0ee3e5e63f991a32e619dba3ac2e73971e428c977c8081aa6e6ccf446ed2503a",
+          "size": 5463
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/PersonPresence.py",
+          "sha256": "caf342689ae1220707cea6e80d29ee2348102563fc3af5d9585f8bf0de9f71ef",
+          "size": 4706
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/Point2f.py",
+          "sha256": "f2c86389f548235e821962de0bdf55cdcc99e174b44562f3418073b825aad492",
+          "size": 2636
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/PoseEstimation.py",
+          "sha256": "f13c2af5891096e1a89c9554e1f73e696511fbf5680356eacb648101677def60",
+          "size": 5103
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/PoseEstimations.py",
+          "sha256": "3bbf13458a3b869ca03d43e9a2dfb0536fb581f62a8359d9b8ace6212fb66196",
+          "size": 7150
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/ProducerInfo.py",
+          "sha256": "4be5b5ade0a1cda0b8977a8695baa5fbfcce5ec1416c4d7b79d06ca38b0fc735",
+          "size": 4292
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/SegmentationMask.py",
+          "sha256": "23e90bb18a8cbc0fd03d95deae6ac0d26ee1887e1f9bac086599e4d114d9fc65",
+          "size": 4616
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/SegmentationMasks.py",
+          "sha256": "175cc4e4d88b145591e2afa8633b48598a0525f0cec45b22b2f717b5cc1fb466",
+          "size": 7280
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/TrackTrace.py",
+          "sha256": "c7b8190bfd4065dc3f09144c6d226e76be07ebdc3db4902ad9669e8fd7d00bbf",
+          "size": 6170
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/TrackTraces.py",
+          "sha256": "3845994d3d99db38dcbd056ca6062ec93e3ddcf037884f9e1eca6a346ad23ba8",
+          "size": 6926
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/VideoFrameContext.py",
+          "sha256": "d200559bfd554083dd5d4a547e0a2eee9f100257ff7d7fd572b9e7b27dafa026",
+          "size": 10580
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/__init__.py",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "src/open_perception_kit/guest.py",
+          "sha256": "bd3ba90a58043bac5fb5c781c84c07d962921e3b2fbd311098dac2bb9f066189",
+          "size": 698
+        },
+        {
+          "path": "src/open_perception_kit/guest.pyi",
+          "sha256": "e1c74a4f241bc0c6846aca4c40f5fbe37296921e72b8461b3ff8fbce829e79b0",
+          "size": 1421
+        },
+        {
+          "path": "src/open_perception_kit/internalfb/WireEnvelope.py",
+          "sha256": "dacf68e812c2a1bc420b94b6d468388ba7053efbfac5e58e8da2792be27dfea9",
+          "size": 7436
+        },
+        {
+          "path": "src/open_perception_kit/internalfb/WirePayload.py",
+          "sha256": "8fe8a642297f0b1b4d1838f0563195cc79b7c2652512bac08996579fb5ec398c",
+          "size": 4712
+        },
+        {
+          "path": "src/open_perception_kit/internalfb/__init__.py",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "src/open_perception_kit/packet.py",
+          "sha256": "f823e8eb6e135d84aace9ae13508a48673412459341ccc98ff4a7e3c0f71f6d3",
+          "size": 422
+        },
+        {
+          "path": "src/open_perception_kit/py.typed",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "src/open_perception_kit/registry.py",
+          "sha256": "9ed6f03fbfe5620ea34091866bf8903b08e60351b44b806692f187ac78bd1bdc",
+          "size": 3570
+        },
+        {
+          "path": "src/open_perception_kit/sdk.py",
+          "sha256": "26940126da84588e417bcffdd354d57948285772f20ddae29fb57763a1752e99",
+          "size": 15341
+        }
+      ],
+      "flatbuffers_runtimes": [
+        {
+          "language": "python",
+          "package": "flatbuffers",
+          "version_requirement": ">=24.3.25,<26.0.0"
+        }
+      ],
+      "flatc": {
+        "semantic_version": "25.9.23",
+        "version": "flatc version 25.9.23",
+        "version_requirement": ">=24.3.25,<26.0.0"
+      },
+      "generator": {
+        "name": "flowdata-sdk",
+        "version": "0.6.0"
+      },
+      "outputs": {
+        "cpp_python_bridge": false,
+        "integrations": [],
+        "sdk": "python"
+      },
+      "payloads": [
+        {
+          "file_identifier": "BDET",
+          "payload_id": "0x07b7ad533c81ab13",
+          "qualified_root_type": "open_perception_kit.metadata.BoxDetections",
+          "schema": "box_detections.fbs"
+        },
+        {
+          "file_identifier": "CLSF",
+          "payload_id": "0x2796d0d433fc3c8f",
+          "qualified_root_type": "open_perception_kit.metadata.Classifications",
+          "schema": "classifications.fbs"
+        },
+        {
+          "file_identifier": "FCTX",
+          "payload_id": "0x1caa0e1496cf7b3c",
+          "qualified_root_type": "open_perception_kit.metadata.FrameContext",
+          "schema": "frame_context.fbs"
+        },
+        {
+          "file_identifier": "EMBE",
+          "payload_id": "0x52e328051b81535d",
+          "qualified_root_type": "open_perception_kit.metadata.ObjectEmbeddings",
+          "schema": "object_embeddings.fbs"
+        },
+        {
+          "file_identifier": "TRKS",
+          "payload_id": "0x29161d450dbca0e0",
+          "qualified_root_type": "open_perception_kit.metadata.ObjectTracks",
+          "schema": "object_tracks.fbs"
+        },
+        {
+          "file_identifier": "PERF",
+          "payload_id": "0x6b8b676312d27d0c",
+          "qualified_root_type": "open_perception_kit.metadata.PerformanceOverlay",
+          "schema": "performance_overlay.fbs"
+        },
+        {
+          "file_identifier": "POSE",
+          "payload_id": "0x7e7ed10e47a038c9",
+          "qualified_root_type": "open_perception_kit.metadata.PoseEstimations",
+          "schema": "pose_estimations.fbs"
+        },
+        {
+          "file_identifier": "SGMS",
+          "payload_id": "0x1bbd8e0aef4d628f",
+          "qualified_root_type": "open_perception_kit.metadata.SegmentationMasks",
+          "schema": "segmentation_masks.fbs"
+        },
+        {
+          "file_identifier": "TRCE",
+          "payload_id": "0x034e4bd9dd42b505",
+          "qualified_root_type": "open_perception_kit.metadata.TrackTraces",
+          "schema": "track_traces.fbs"
+        }
+      ],
+      "python_package": {
+        "build_backend": "setuptools.build_meta",
+        "distribution_name": "open_perception_kit",
+        "import_name": "open_perception_kit",
+        "pure_python": true,
+        "requires_python": ">=3.10",
+        "typing": {
+          "marker": "src/open_perception_kit/py.typed",
+          "stubs": [
+            "src/open_perception_kit/guest.pyi"
+          ]
+        },
+        "version": "0.1.0",
+        "wheel_tag": "py3-none-any"
+      },
+      "schema_files": [
+        {
+          "path": "box_detections.fbs",
+          "sha256": "983c380e982b82a6decb1c8f7e4f54e67c1e89ce6349cbcebedf48cac0b0fb98",
+          "size": 476
+        },
+        {
+          "path": "classifications.fbs",
+          "sha256": "8be9524d0563fb7f1067f1ef7d0d2678025d31c20ca4d8fe335ddbf306737e01",
+          "size": 777
+        },
+        {
+          "path": "common.fbs",
+          "sha256": "2a9c0c7dcee911a3885650632e434eb05a46e622241a40ebc544e38d85c5ddc2",
+          "size": 609
+        },
+        {
+          "path": "frame_context.fbs",
+          "sha256": "af06b7edf56d48288ad71b92b8d44d9205e14e2eaf44ded58ed4932d7eba535c",
+          "size": 910
+        },
+        {
+          "path": "object_embeddings.fbs",
+          "sha256": "aa14c4af249e7da12b363756276b4e9121625a65ac52b58a2c60c7467c18dc04",
+          "size": 402
+        },
+        {
+          "path": "object_tracks.fbs",
+          "sha256": "3178219ea2284c9687551f58b5ea936c2b4323b9e326ce9da155299ac60990d7",
+          "size": 549
+        },
+        {
+          "path": "performance_overlay.fbs",
+          "sha256": "9e71b75f64c563ce21d81e5c8dccf5cafe75129ec574424e8c77d67ff1dc1e01",
+          "size": 197
+        },
+        {
+          "path": "pose_estimations.fbs",
+          "sha256": "66b9a99168366ce8c9d0bc9f22767899ed318cafa7ada67c2851d5c3b85cb0ee",
+          "size": 423
+        },
+        {
+          "path": "segmentation_masks.fbs",
+          "sha256": "b49b4e548d78b296c356534d32a07cce6a2e37ead0a3179daae3b29cc2905c78",
+          "size": 433
+        },
+        {
+          "path": "track_traces.fbs",
+          "sha256": "7406e0a0a32a1f3a1461963a7017e761331c154ea99ce1ab53f4d5bc400f919c",
+          "size": 427
+        }
+      ],
+      "schema_set_sha256": "1b19418d8a0d34038a3c99895fa93a1140c25af910f6bc63c0e11978e12c2876",
+      "sdk": {
+        "name": "open_perception_kit",
+        "version": "0.1.0"
+      }
+    },
+    "rust": {
+      "files": [
+        {
+          "path": "Cargo.toml",
+          "sha256": "4b3d148eef5feafa6c89fbbe18b49512ad3c67c4ee368a6553f85fbdf5f51806",
+          "size": 170
+        },
+        {
+          "path": "src/fb/mod.rs",
+          "sha256": "852ffdd454320cd84d19508aff1dc4dbd621ca94aa96d77e14c06dc5110a61ce",
+          "size": 43
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/audio_frame_context_generated.rs",
+          "sha256": "b7e82eab7ea449dc58e2f480fd892ba7f4e9e8ece6a0afc467b433a43d5000e5",
+          "size": 11088
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/bitmap_data_generated.rs",
+          "sha256": "c83facad20eb2753d676b7934657f526e5c0a4f64392d7be8eaaf2a48f0b0230",
+          "size": 7509
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/bounding_box_generated.rs",
+          "sha256": "092f6b2707fb753a205aee37a8bc8ad927fd95faa3f63cd260b90cb7f173e05b",
+          "size": 6368
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/box_detection_generated.rs",
+          "sha256": "4f123a30c620b95a82fef2ad4a33c6a9c295f44d8a48c3a2fac86a759031fe54",
+          "size": 8698
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/box_detections_generated.rs",
+          "sha256": "3c1271d7e5544e07d580b338a0400621e3d8f5275da3403a15c57ef754725bd2",
+          "size": 12141
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/classification_candidate_generated.rs",
+          "sha256": "9142b225e9cd37cf4755f6a755250bf90937ddff672b3d6694799f7709fba6df",
+          "size": 9795
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/classification_generated.rs",
+          "sha256": "151fed4775fcf361c740702b7b66d05d79b589e73674d7b1dbbab31e1504b637",
+          "size": 6456
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/classifications_generated.rs",
+          "sha256": "21157fcdc436d12d5b7d304ebaef4dabba621922a535857adad82ac7be096b8c",
+          "size": 14457
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/frame_context_generated.rs",
+          "sha256": "191e24d5028b45f1f7431f0548f7985677dcb0b37820db13c578b7030b69f8ec",
+          "size": 12953
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/layer_info_generated.rs",
+          "sha256": "183b5ea0394133d606c9c8ebd0c1511dc4a21fbb299949d7917b3cec7025ea06",
+          "size": 13496
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/mod.rs",
+          "sha256": "92d73414297c5ede663824e2b92c85a58abcf72e07b2631f640b6178bd353351",
+          "size": 1938
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/object_embedding_generated.rs",
+          "sha256": "ab6493edad7549f57125eebad4132f7b148c5abfbbc7bd9e7d130e4c04ac6114",
+          "size": 5929
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/object_embeddings_generated.rs",
+          "sha256": "3a375bf6072b4015a7dc5fe782793d93f1f91a6718d576722f41e5f33f34e879",
+          "size": 12444
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/object_meta_generated.rs",
+          "sha256": "e0c6403626b4498aea6345c6b7956ad36b764cc136f099ce98d3b376aff606e5",
+          "size": 5910
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/object_track_generated.rs",
+          "sha256": "2f32593da8746ef9de90487fe420fafbcdbd8bbb5ea41e0ce163d6adee477d7b",
+          "size": 12840
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/object_tracks_generated.rs",
+          "sha256": "4b663193a8b6c625b2c68e9358b496ef2cc1657b08a2b4293645c13a31f5fcce",
+          "size": 11944
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/performance_overlay_generated.rs",
+          "sha256": "dae82cab88d7527df1c0e476131087163b85bb1c27a647da2b4ef3d9f5799537",
+          "size": 11168
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/person_presence_generated.rs",
+          "sha256": "60fbe77d58e9f3d58cd1f1dad220d44a866cf16193c281e3a6bb402b02bde9cd",
+          "size": 6746
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/point_2f_generated.rs",
+          "sha256": "56211396e4a9d2eb4fd2ba5fbb98804ec4353b0e1992b296a70f7d9c79db4e74",
+          "size": 4308
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/pose_estimation_generated.rs",
+          "sha256": "ad51b523f523362f259870174713460994aa4e3612a337a7eb5cd44513f22246",
+          "size": 7275
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/pose_estimations_generated.rs",
+          "sha256": "0a176e519151c95278ba04f9c5e9cb3fb7e8548eb702ec5da14325ecf3d5f38b",
+          "size": 12198
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/producer_info_generated.rs",
+          "sha256": "cb65e8f585f5e4a1555835c2e594baa79b218b65f653e71ed6f80998b5314048",
+          "size": 7274
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/segmentation_mask_generated.rs",
+          "sha256": "3ee5842f1d4b3f96a7ee005378768a7630d92f0dbdd95d98d3e8a7204b9c2d90",
+          "size": 5876
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/segmentation_masks_generated.rs",
+          "sha256": "5a94a2f4cf20949bbe0ee64852811715106f3217f87698424b03cb5b5534fc42",
+          "size": 12364
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/track_trace_generated.rs",
+          "sha256": "c7c0d586e64a8c774cdc3ad93d1fb396a4fad9f5bff3cff45fc02f27e714e3a6",
+          "size": 7073
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/track_traces_generated.rs",
+          "sha256": "324ea50b5c6140c407ab6f66dffd6ba975b19d697f598be8e5a70b1b387ab037",
+          "size": 11861
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/video_frame_context_generated.rs",
+          "sha256": "a582e3503150ada8624dcaf70ddfabc4df92c381921a6e947f176b0ed1832df3",
+          "size": 15774
+        },
+        {
+          "path": "src/fb/open_perception_kit/mod.rs",
+          "sha256": "872289c00b2b64c5c62892261add2e0337129da5824cd323ec0e5a29b33fc41b",
+          "size": 32
+        },
+        {
+          "path": "src/flowdata_internal/internalfb/mod.rs",
+          "sha256": "990b0912d7227050942823597f9f03edd33a723b3ba6633488a3b6dbfd853b99",
+          "size": 154
+        },
+        {
+          "path": "src/flowdata_internal/internalfb/wire_envelope_generated.rs",
+          "sha256": "e1021b7aedfb67be11339775a153f23ab075e3d8ce9bd3ec94356cc70031f240",
+          "size": 13758
+        },
+        {
+          "path": "src/flowdata_internal/internalfb/wire_payload_generated.rs",
+          "sha256": "1ddea51a9901d5b3bf558cd7cd638c686c35c51a5a30dcb320e677ef108fa35f",
+          "size": 5106
+        },
+        {
+          "path": "src/flowdata_internal/mod.rs",
+          "sha256": "38bf045bec7ce82af3f2ac4f9520ca09128a476e62084e02123b29bc5254152d",
+          "size": 41
+        },
+        {
+          "path": "src/lib.rs",
+          "sha256": "f48a76d409860bf1adf9c03814eb8aab1532bedfe17e5616cfc30a5266fe3711",
+          "size": 43616
+        }
+      ],
+      "flatbuffers_runtimes": [
+        {
+          "language": "rust",
+          "package": "flatbuffers",
+          "version_requirement": "==25.9.23"
+        }
+      ],
+      "flatc": {
+        "semantic_version": "25.9.23",
+        "version": "flatc version 25.9.23",
+        "version_requirement": ">=24.3.25,<26.0.0"
+      },
+      "generator": {
+        "name": "flowdata-sdk",
+        "version": "0.6.0"
+      },
+      "outputs": {
+        "cpp_python_bridge": false,
+        "integrations": [],
+        "sdk": "rust"
+      },
+      "payloads": [
+        {
+          "file_identifier": "BDET",
+          "payload_id": "0x07b7ad533c81ab13",
+          "qualified_root_type": "open_perception_kit.metadata.BoxDetections",
+          "schema": "box_detections.fbs"
+        },
+        {
+          "file_identifier": "CLSF",
+          "payload_id": "0x2796d0d433fc3c8f",
+          "qualified_root_type": "open_perception_kit.metadata.Classifications",
+          "schema": "classifications.fbs"
+        },
+        {
+          "file_identifier": "FCTX",
+          "payload_id": "0x1caa0e1496cf7b3c",
+          "qualified_root_type": "open_perception_kit.metadata.FrameContext",
+          "schema": "frame_context.fbs"
+        },
+        {
+          "file_identifier": "EMBE",
+          "payload_id": "0x52e328051b81535d",
+          "qualified_root_type": "open_perception_kit.metadata.ObjectEmbeddings",
+          "schema": "object_embeddings.fbs"
+        },
+        {
+          "file_identifier": "TRKS",
+          "payload_id": "0x29161d450dbca0e0",
+          "qualified_root_type": "open_perception_kit.metadata.ObjectTracks",
+          "schema": "object_tracks.fbs"
+        },
+        {
+          "file_identifier": "PERF",
+          "payload_id": "0x6b8b676312d27d0c",
+          "qualified_root_type": "open_perception_kit.metadata.PerformanceOverlay",
+          "schema": "performance_overlay.fbs"
+        },
+        {
+          "file_identifier": "POSE",
+          "payload_id": "0x7e7ed10e47a038c9",
+          "qualified_root_type": "open_perception_kit.metadata.PoseEstimations",
+          "schema": "pose_estimations.fbs"
+        },
+        {
+          "file_identifier": "SGMS",
+          "payload_id": "0x1bbd8e0aef4d628f",
+          "qualified_root_type": "open_perception_kit.metadata.SegmentationMasks",
+          "schema": "segmentation_masks.fbs"
+        },
+        {
+          "file_identifier": "TRCE",
+          "payload_id": "0x034e4bd9dd42b505",
+          "qualified_root_type": "open_perception_kit.metadata.TrackTraces",
+          "schema": "track_traces.fbs"
+        }
+      ],
+      "schema_files": [
+        {
+          "path": "box_detections.fbs",
+          "sha256": "983c380e982b82a6decb1c8f7e4f54e67c1e89ce6349cbcebedf48cac0b0fb98",
+          "size": 476
+        },
+        {
+          "path": "classifications.fbs",
+          "sha256": "8be9524d0563fb7f1067f1ef7d0d2678025d31c20ca4d8fe335ddbf306737e01",
+          "size": 777
+        },
+        {
+          "path": "common.fbs",
+          "sha256": "2a9c0c7dcee911a3885650632e434eb05a46e622241a40ebc544e38d85c5ddc2",
+          "size": 609
+        },
+        {
+          "path": "frame_context.fbs",
+          "sha256": "af06b7edf56d48288ad71b92b8d44d9205e14e2eaf44ded58ed4932d7eba535c",
+          "size": 910
+        },
+        {
+          "path": "object_embeddings.fbs",
+          "sha256": "aa14c4af249e7da12b363756276b4e9121625a65ac52b58a2c60c7467c18dc04",
+          "size": 402
+        },
+        {
+          "path": "object_tracks.fbs",
+          "sha256": "3178219ea2284c9687551f58b5ea936c2b4323b9e326ce9da155299ac60990d7",
+          "size": 549
+        },
+        {
+          "path": "performance_overlay.fbs",
+          "sha256": "9e71b75f64c563ce21d81e5c8dccf5cafe75129ec574424e8c77d67ff1dc1e01",
+          "size": 197
+        },
+        {
+          "path": "pose_estimations.fbs",
+          "sha256": "66b9a99168366ce8c9d0bc9f22767899ed318cafa7ada67c2851d5c3b85cb0ee",
+          "size": 423
+        },
+        {
+          "path": "segmentation_masks.fbs",
+          "sha256": "b49b4e548d78b296c356534d32a07cce6a2e37ead0a3179daae3b29cc2905c78",
+          "size": 433
+        },
+        {
+          "path": "track_traces.fbs",
+          "sha256": "7406e0a0a32a1f3a1461963a7017e761331c154ea99ce1ab53f4d5bc400f919c",
+          "size": 427
+        }
+      ],
+      "schema_set_sha256": "1b19418d8a0d34038a3c99895fa93a1140c25af910f6bc63c0e11978e12c2876",
+      "sdk": {
+        "name": "open_perception_kit",
+        "version": "0.1.0"
+      }
+    },
+    "ts": {
+      "files": [
+        {
+          "path": "package.json",
+          "sha256": "ad9fecb45faaed70d496f031f05b452b3f633e55323aabdf90c7c3c3b439e2ab",
+          "size": 750
+        },
+        {
+          "path": "src/open_perception_kit/envelope.ts",
+          "sha256": "df2384d89b20a67105871e0203ca9502b47d37da275b1440603b46c2a7215b51",
+          "size": 12321
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/internalfb.ts",
+          "sha256": "a16073343bf4aead1be6dd8727c093d82a6b9b4efd5061ecc040083f5cb16053",
+          "size": 356
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/internalfb/wire-envelope.ts",
+          "sha256": "c6d1f8fb00b3ae433818a445f7cb9b9145f55cb1aa5d5266378caf2b45f6ca99",
+          "size": 6228
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/internalfb/wire-payload.ts",
+          "sha256": "ef0ae0af7a01479063117ac251a8b066302da50e608c3ec0a06cdb1075d98992",
+          "size": 3436
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata.ts",
+          "sha256": "1fd89b8ae1f4e2f8c905085d5bca687464474cb0249743ec529d21d1ba68ae78",
+          "size": 756
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/audio-frame-context.ts",
+          "sha256": "6603a05b739e5d0f332f1c12af7e8a948fc37eba663fb1752e7d88efadfb1a16",
+          "size": 5413
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/bitmap-data.ts",
+          "sha256": "e9c586c2eabc2f3b5c184114d4714feae8ad6107a71f0005de8ce7cee08c8673",
+          "size": 4588
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/bounding-box.ts",
+          "sha256": "528b7a9f4b2bdc21056eadb66932ea8cb3e294c3749f8be5cfe82be33237efdd",
+          "size": 3105
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/box-detection.ts",
+          "sha256": "c2cc2029a1d3301cb492a68e1a45740e812019cfedf79ec465e609cb79fc14e4",
+          "size": 4338
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/box-detections.ts",
+          "sha256": "5d6bb28443763a08e74b0dc5c92863a39cdf11b2e49193da4a82f9a5e5ca41b8",
+          "size": 4953
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/classification-candidate.ts",
+          "sha256": "1d8c2f42b09fe43b581d5f9887cc163e3166975fd3accf0f956539eed98bc0f2",
+          "size": 4883
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/classification.ts",
+          "sha256": "70870532cd1ef059909e5d97c18a3c21a435c34cf8f83e488e5c19ca2ea272a7",
+          "size": 4148
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/classifications.ts",
+          "sha256": "db8506f0bc7a51ff57ca9855be846edd7901e45bfb695925ff972cab45ea1107",
+          "size": 6709
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/frame-context.ts",
+          "sha256": "b38181c1f3c3643525ff836e9691f0fc35091d6eeca2d7d1c8e2cd9a88120245",
+          "size": 4962
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/layer-info.ts",
+          "sha256": "ffffc2f459d898653cf3b29e00b4ecf15096ee18d6c99c8d5e39b80d165892b8",
+          "size": 7012
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/object-embedding.ts",
+          "sha256": "83dd201f8e4e8e1b861263c70022018bb2efd9f00a30e71b5ad45d3ccd99cd78",
+          "size": 4296
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/object-embeddings.ts",
+          "sha256": "4cd1f031b05c01be915246c33df227589e39d19b7c7fcf55ed814fc3d90e3cf7",
+          "size": 5070
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/object-meta.ts",
+          "sha256": "7d180dd8fbfc5f308a97ceef82a7e21f5561d5f75513b05ef8fb01cc42ec0055",
+          "size": 2917
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/object-track.ts",
+          "sha256": "2e8b4642913823913f98ee90d0610d0779a6370e3034e021c99630c2986ec059",
+          "size": 6287
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/object-tracks.ts",
+          "sha256": "9fd0ab276e205d3048dd4d1d70cf65ae77f9fa796af094a45e803b2b1a2244be",
+          "size": 4842
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/performance-overlay.ts",
+          "sha256": "42a727a362a86afd91ca9e6f22b70840d20423565551787ec377190f76a3897c",
+          "size": 4503
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/person-presence.ts",
+          "sha256": "ecc48f62aadbe9a05fef5112b86c734e3e92bb79a3ca09e298f884afb2ced2da",
+          "size": 3445
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/point2f.ts",
+          "sha256": "838c60d2e4fcddcd8e972f881edc6feb51dba0b18f9134856cae505952f3e508",
+          "size": 2206
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/pose-estimation.ts",
+          "sha256": "1c670e475798fcedf8be83f6b8d9e280690a1e3cf779a7a6d7f605465ac25158",
+          "size": 3696
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/pose-estimations.ts",
+          "sha256": "751a7a6c553220d0c09ef594ffbd0876ac0cdf4ba8754314cf3bc37947aaaa56",
+          "size": 4941
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/producer-info.ts",
+          "sha256": "bd896ee2fda4b075d8c45e00897d53b70e7caec774be5815189884deebb4abfe",
+          "size": 3962
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/segmentation-mask.ts",
+          "sha256": "7784e8e6240042726c1bb6453f4a4552a5e8fb33442c448a23d64250c8e42801",
+          "size": 3064
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/segmentation-masks.ts",
+          "sha256": "057475fa809afe1c1f1632eea04a74b57727f415a0339e0a6cc7343d1cbd206e",
+          "size": 5019
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/track-trace.ts",
+          "sha256": "71c4695cedb212abdf2db9693e90ed4bc625a757e659ffc7ac5a0315595b8b7a",
+          "size": 4218
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/track-traces.ts",
+          "sha256": "efb266dc25479f181c06c296fe028694c90694ea0ffa9cf788b1f8d3bb969989",
+          "size": 4803
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/video-frame-context.ts",
+          "sha256": "89e094407dcfe98d8fc40c303091127e8c5b03a79c226e7e057f71f2a80d87f5",
+          "size": 7810
+        },
+        {
+          "path": "src/open_perception_kit/index.ts",
+          "sha256": "382db776796a424cc6af278672f7420c15b2f2454993f8b0d3b545ba2b746472",
+          "size": 535
+        },
+        {
+          "path": "src/open_perception_kit/registry.ts",
+          "sha256": "2f85a2b7a716366762615cf136c5fad10c2c32ecde8622e8a467f42431a2d3bf",
+          "size": 8227
+        },
+        {
+          "path": "tsconfig.json",
+          "sha256": "bff82dfa6a098456d3546a8d13bd54bf5de2da197123c1bdaa1bf04f295ce600",
+          "size": 304
+        }
+      ],
+      "flatbuffers_runtimes": [
+        {
+          "language": "typescript",
+          "package": "flatbuffers",
+          "version_requirement": ">=24.3.25,<26.0.0"
+        }
+      ],
+      "flatc": {
+        "semantic_version": "25.9.23",
+        "version": "flatc version 25.9.23",
+        "version_requirement": ">=24.3.25,<26.0.0"
+      },
+      "generator": {
+        "name": "flowdata-sdk",
+        "version": "0.6.0"
+      },
+      "outputs": {
+        "cpp_python_bridge": false,
+        "integrations": [],
+        "sdk": "ts"
+      },
+      "payloads": [
+        {
+          "file_identifier": "BDET",
+          "payload_id": "0x07b7ad533c81ab13",
+          "qualified_root_type": "open_perception_kit.metadata.BoxDetections",
+          "schema": "box_detections.fbs"
+        },
+        {
+          "file_identifier": "CLSF",
+          "payload_id": "0x2796d0d433fc3c8f",
+          "qualified_root_type": "open_perception_kit.metadata.Classifications",
+          "schema": "classifications.fbs"
+        },
+        {
+          "file_identifier": "FCTX",
+          "payload_id": "0x1caa0e1496cf7b3c",
+          "qualified_root_type": "open_perception_kit.metadata.FrameContext",
+          "schema": "frame_context.fbs"
+        },
+        {
+          "file_identifier": "EMBE",
+          "payload_id": "0x52e328051b81535d",
+          "qualified_root_type": "open_perception_kit.metadata.ObjectEmbeddings",
+          "schema": "object_embeddings.fbs"
+        },
+        {
+          "file_identifier": "TRKS",
+          "payload_id": "0x29161d450dbca0e0",
+          "qualified_root_type": "open_perception_kit.metadata.ObjectTracks",
+          "schema": "object_tracks.fbs"
+        },
+        {
+          "file_identifier": "PERF",
+          "payload_id": "0x6b8b676312d27d0c",
+          "qualified_root_type": "open_perception_kit.metadata.PerformanceOverlay",
+          "schema": "performance_overlay.fbs"
+        },
+        {
+          "file_identifier": "POSE",
+          "payload_id": "0x7e7ed10e47a038c9",
+          "qualified_root_type": "open_perception_kit.metadata.PoseEstimations",
+          "schema": "pose_estimations.fbs"
+        },
+        {
+          "file_identifier": "SGMS",
+          "payload_id": "0x1bbd8e0aef4d628f",
+          "qualified_root_type": "open_perception_kit.metadata.SegmentationMasks",
+          "schema": "segmentation_masks.fbs"
+        },
+        {
+          "file_identifier": "TRCE",
+          "payload_id": "0x034e4bd9dd42b505",
+          "qualified_root_type": "open_perception_kit.metadata.TrackTraces",
+          "schema": "track_traces.fbs"
+        }
+      ],
+      "schema_files": [
+        {
+          "path": "box_detections.fbs",
+          "sha256": "983c380e982b82a6decb1c8f7e4f54e67c1e89ce6349cbcebedf48cac0b0fb98",
+          "size": 476
+        },
+        {
+          "path": "classifications.fbs",
+          "sha256": "8be9524d0563fb7f1067f1ef7d0d2678025d31c20ca4d8fe335ddbf306737e01",
+          "size": 777
+        },
+        {
+          "path": "common.fbs",
+          "sha256": "2a9c0c7dcee911a3885650632e434eb05a46e622241a40ebc544e38d85c5ddc2",
+          "size": 609
+        },
+        {
+          "path": "frame_context.fbs",
+          "sha256": "af06b7edf56d48288ad71b92b8d44d9205e14e2eaf44ded58ed4932d7eba535c",
+          "size": 910
+        },
+        {
+          "path": "object_embeddings.fbs",
+          "sha256": "aa14c4af249e7da12b363756276b4e9121625a65ac52b58a2c60c7467c18dc04",
+          "size": 402
+        },
+        {
+          "path": "object_tracks.fbs",
+          "sha256": "3178219ea2284c9687551f58b5ea936c2b4323b9e326ce9da155299ac60990d7",
+          "size": 549
+        },
+        {
+          "path": "performance_overlay.fbs",
+          "sha256": "9e71b75f64c563ce21d81e5c8dccf5cafe75129ec574424e8c77d67ff1dc1e01",
+          "size": 197
+        },
+        {
+          "path": "pose_estimations.fbs",
+          "sha256": "66b9a99168366ce8c9d0bc9f22767899ed318cafa7ada67c2851d5c3b85cb0ee",
+          "size": 423
+        },
+        {
+          "path": "segmentation_masks.fbs",
+          "sha256": "b49b4e548d78b296c356534d32a07cce6a2e37ead0a3179daae3b29cc2905c78",
+          "size": 433
+        },
+        {
+          "path": "track_traces.fbs",
+          "sha256": "7406e0a0a32a1f3a1461963a7017e761331c154ea99ce1ab53f4d5bc400f919c",
+          "size": 427
+        }
+      ],
+      "schema_set_sha256": "1b19418d8a0d34038a3c99895fa93a1140c25af910f6bc63c0e11978e12c2876",
+      "sdk": {
+        "name": "open_perception_kit",
+        "version": "0.1.0"
+      }
+    }
+  }
+}

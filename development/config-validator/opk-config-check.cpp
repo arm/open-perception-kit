@@ -46,7 +46,8 @@ tl::expected<Arguments, std::string> parseArguments(int argc, char **argv) {
 int main(int argc, char **argv) {
     auto arguments = parseArguments(argc, argv);
     if (!arguments.has_value()) {
-        opk::log::error("opk-config-check: {}\n{}", arguments.error(), Usage);
+        opk::log::error("opk-config-check: {}\n", arguments.error());
+        opk::log::error(Usage);
         opk::log::flush();
         return 2;
     }
@@ -65,7 +66,9 @@ int main(int argc, char **argv) {
     if (report.ok()) {
         opk::log::instantInfo("{}", report.toText());
     } else {
-        opk::log::error("{}", report.toText());
+        for (const auto &issue : report.issues) {
+            opk::log::error("{}\n", issue.toText());
+        }
         opk::log::flush();
     }
     return report.ok() ? 0 : 1;

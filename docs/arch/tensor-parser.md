@@ -20,14 +20,14 @@ Typical parser responsibilities are:
 - read output tensors through `TensorView`
 - use `InferenceInfo` for coordinate and provenance context
 - decode model-specific tensor layouts
-- append structured generated payloads to `perception::FrameResults`
+- append structured generated payloads to `open_perception_kit::FrameResults`
 - return explicit success or failure
 
 Parsers must not own or modify tensor memory.
 
 ## Execution Contract
 
-`parse(const Input&, perception::FrameResults&)` receives the tensor outputs,
+`parse(const Input&, open_perception_kit::FrameResults&)` receives the tensor outputs,
 parser attributes, inference context, and destination envelope. The parser
 appends only the typed payloads that belong to that inference step.
 

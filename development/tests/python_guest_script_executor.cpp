@@ -16,8 +16,8 @@
 #include <utility>
 #include <vector>
 
-#include "perception.h"
-#include "python_bridge/perception_python_bridge.h"
+#include "open_perception_kit.h"
+#include "python_bridge/open_perception_kit_python_bridge.h"
 
 #ifndef PERCEPTION_PYTHON_SDK_PATH
 #define PERCEPTION_PYTHON_SDK_PATH ""
@@ -79,7 +79,7 @@ class PyObjectPtr {
 class PythonRuntime {
   public:
     PythonRuntime() {
-        perception::python_bridge::append_inittab();
+        open_perception_kit::python_bridge::append_inittab();
 
         PyConfig config;
         PyConfig_InitPythonConfig(&config);
@@ -282,7 +282,7 @@ bool executeScript(const std::filesystem::path &path, size_t index, PyObject *en
 }
 
 bool writePacket(const std::filesystem::path &path,
-                 const perception::container::envelope &envelope) {
+                 const open_perception_kit::container::envelope &envelope) {
     const auto packet = envelope.serialize();
     std::ofstream output(path, std::ios::binary | std::ios::trunc);
     if (!output) {
@@ -305,9 +305,9 @@ int run(const Options &options) {
         return EXIT_PYTHON_SETUP;
     }
 
-    perception::container::envelope frameResults;
+    open_perception_kit::container::envelope frameResults;
     {
-        perception::python_bridge::scoped_envelope live(frameResults);
+        open_perception_kit::python_bridge::scoped_envelope live(frameResults);
         for (size_t index = 0; index < options.scripts.size(); ++index) {
             if (!executeScript(options.scripts[index], index, live.py_object())) {
                 return EXIT_SCRIPT;

@@ -14,7 +14,7 @@
 using namespace opk;
 using namespace opk::stdop::postproc;
 
-using FaceDetection = perception::metadata::BoxDetectionT;
+using FaceDetection = open_perception_kit::metadata::BoxDetectionT;
 
 // IoU between two boxes (x,y = top-left, w,h = size)
 inline float iou(const FaceDetection &a, const FaceDetection &b) {
@@ -274,7 +274,7 @@ validateParseInput(const opk::TensorParser::Input &input) {
 // ----------------------------------------------------------------------------
 
 opk::Result<void> UltraFaceParser::parse(const opk::TensorParser::Input &input,
-                                         perception::FrameResults &results) {
+                                         open_perception_kit::FrameResults &results) {
 
     const float confThreshold =
         (float)input.attributes.getDoubleOrDefault("confidenceThreshold", 0.5);
@@ -353,8 +353,8 @@ opk::Result<void> UltraFaceParser::parse(const opk::TensorParser::Input &input,
         // ---
 
         FaceDetection detection;
-        detection.object = perception::makeObjectMeta(0U, input.inferenceInfo.parentId);
-        detection.box = perception::makeBoundingBox(x1, y1, x2 - x1, y2 - y1);
+        detection.object = open_perception_kit::makeObjectMeta(0U, input.inferenceInfo.parentId);
+        detection.box = open_perception_kit::makeBoundingBox(x1, y1, x2 - x1, y2 - y1);
         detection.class_id = 0;
         detection.confidence = face;
         detection.text = "";
@@ -363,11 +363,12 @@ opk::Result<void> UltraFaceParser::parse(const opk::TensorParser::Input &input,
 
     detections = nonMaxSuppression(detections, confThreshold, iouThreshold);
 
-    perception::metadata::BoxDetectionsT payload;
-    payload.layer = perception::makeLayerInfo({.model = input.inferenceInfo.modelName,
-                                               .inferElementId = input.inferenceInfo.inferElementId,
-                                               .contentType = k_content_type,
-                                               .producer = &input.producerInfo});
+    open_perception_kit::metadata::BoxDetectionsT payload;
+    payload.layer =
+        open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
+                                            .inferElementId = input.inferenceInfo.inferElementId,
+                                            .contentType = k_content_type,
+                                            .producer = &input.producerInfo});
     for (auto &detection : detections) {
         payload.detections.push_back(std::make_unique<FaceDetection>(std::move(detection)));
     }

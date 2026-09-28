@@ -38,6 +38,8 @@ void remove_or_unref_element(GstElement *owner_bin, GstElement **element) noexce
         return;
     }
 
+    // A concurrent parent state change must not restart an element being removed.
+    gst_element_set_locked_state(*element, TRUE);
     gst_element_set_state(*element, GST_STATE_NULL);
 
     GstObject *parent = gst_object_get_parent(GST_OBJECT(*element));

@@ -171,10 +171,10 @@ jobs:
           docker cp \
             "$container_id:/opt/opk-release-artifacts/$ARCHIVE" "dist/$ARCHIVE"
           if [[ "${{ matrix.architecture }}" == aarch64 ]]; then
-            mkdir -p dist/perception-sdk-input
+            mkdir -p dist/open-perception-kit-input
             package="${ARCHIVE%.tar.gz}"
-            tar -C dist/perception-sdk-input --strip-components=4 -xzf "dist/$ARCHIVE" \
-              "$package/share/opk/perception-sdk"
+            tar -C dist/open-perception-kit-input --strip-components=4 -xzf "dist/$ARCHIVE" \
+              "$package/share/opk/open-perception-kit"
           fi
 
       - name: Upload package
@@ -185,13 +185,13 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      - name: Set up pinned Rust for Perception packaging
+      - name: Set up pinned Rust for open-perception-kit packaging
         if: matrix.architecture == 'aarch64'
         uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
         with:
           toolchain: 1.85.0
 
-      - name: Package Perception Rust crate
+      - name: Package open-perception-kit Rust crate
         if: matrix.architecture == 'aarch64'
         working-directory: ${{ env.SOURCE_DIR }}
         env:
@@ -199,16 +199,16 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           set -euo pipefail
-          export_root="$RUNNER_TEMP/perception-sdk-$VERSION"
+          export_root="$RUNNER_TEMP/open-perception-kit-$VERSION"
           rm -rf -- "$export_root"
           python3 -m zipfile -e \
-            "dist/perception-sdk-input/perception-sdk-$VERSION.zip" "$RUNNER_TEMP"
+            "dist/open-perception-kit-input/open-perception-kit-$VERSION.zip" "$RUNNER_TEMP"
           rust="$export_root/rust"
           scripts/release/patch-perception-cargo-toml.sh "$rust/Cargo.toml"
           printf '\n[registries.crates-io]\nprotocol = "sparse"\n' \
             >> "$rust/.cargo/config.toml"
           (cd "$rust" && cargo package --offline --locked)
-          publish_source="$RUNNER_TEMP/perception-cargo-source-$VERSION"
+          publish_source="$RUNNER_TEMP/open_perception_kit-cargo-source-$VERSION"
           rm -rf -- "$publish_source"
           python3 - "$rust" "$publish_source" <<'PY'
           import shutil
@@ -220,7 +220,7 @@ jobs:
               ignore=shutil.ignore_patterns(".cargo", "crates", "target", "vendor"),
           )
           PY
-          publish_cargo_home="$RUNNER_TEMP/perception-publish-cargo-home"
+          publish_cargo_home="$RUNNER_TEMP/open_perception_kit-publish-cargo-home"
           rm -rf -- "$publish_cargo_home"
           mkdir -p "$publish_cargo_home"
           cat > "$publish_cargo_home/config.toml" <<'EOF'
@@ -232,19 +232,19 @@ jobs:
             CARGO_HOME="$publish_cargo_home" \
               cargo package --locked
           )
-          cp "$publish_source/target/package/perception-$VERSION.crate" \
-            dist/perception-sdk-input/
+          cp "$publish_source/target/package/open_perception_kit-$VERSION.crate" \
+            dist/open-perception-kit-input/
           rm -rf -- "$publish_source/target"
-          mv "$publish_source" dist/perception-sdk-input/
-          cp "$export_root/python/opk_perception_sdk-$VERSION-py3-none-any.whl" \
-            dist/perception-sdk-input/
+          mv "$publish_source" dist/open-perception-kit-input/
+          cp "$export_root/python/open_perception_kit-$VERSION-py3-none-any.whl" \
+            dist/open-perception-kit-input/
 
-      - name: Upload Perception SDK input
+      - name: Upload open-perception-kit input
         if: matrix.architecture == 'aarch64'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: opk-perception-sdk-input-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ env.SOURCE_DIR }}/dist/perception-sdk-input/
+          name: open-perception-kit-input-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.SOURCE_DIR }}/dist/open-perception-kit-input/
           if-no-files-found: error
           retention-days: 7
 
@@ -302,23 +302,23 @@ jobs:
           path: ${{ runner.temp }}/opk-release-artifacts
           merge-multiple: true
 
-      - name: Download Perception SDK input
+      - name: Download open-perception-kit input
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
-          name: opk-perception-sdk-input-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/opk-perception-sdk-input
+          name: open-perception-kit-input-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/open-perception-kit-input
 
-      - name: Stage Perception language packages
+      - name: Stage open-perception-kit language packages
         env:
           ARTIFACTS_DIR: ${{ runner.temp }}/opk-release-artifacts
           CARGO_PACKAGE_VERSION: ${{ needs.prepare.outputs.cargo_package_version }}
           PYTHON_PACKAGE_VERSION: ${{ needs.prepare.outputs.python_package_version }}
-          SDK_DIR: ${{ runner.temp }}/opk-perception-sdk-input
+          SDK_DIR: ${{ runner.temp }}/open-perception-kit-input
         run: |
           set -euo pipefail
-          cp "$SDK_DIR/opk_perception_sdk-$PYTHON_PACKAGE_VERSION-py3-none-any.whl" \
+          cp "$SDK_DIR/open_perception_kit-$PYTHON_PACKAGE_VERSION-py3-none-any.whl" \
             "$ARTIFACTS_DIR/"
-          cp "$SDK_DIR/perception-$CARGO_PACKAGE_VERSION.crate" "$ARTIFACTS_DIR/"
+          cp "$SDK_DIR/open_perception_kit-$CARGO_PACKAGE_VERSION.crate" "$ARTIFACTS_DIR/"
 
       - name: Accept exactly two archives and two language packages
         env:
@@ -331,8 +331,8 @@ jobs:
           expected=(
             "opk-$VERSION-linux-x86_64.tar.gz"
             "opk-$VERSION-linux-aarch64.tar.gz"
-            "opk_perception_sdk-$PYTHON_PACKAGE_VERSION-py3-none-any.whl"
-            "perception-$CARGO_PACKAGE_VERSION.crate"
+            "open_perception_kit-$PYTHON_PACKAGE_VERSION-py3-none-any.whl"
+            "open_perception_kit-$CARGO_PACKAGE_VERSION.crate"
           )
           test -z "$(find "$ARTIFACTS_DIR" -type l -print -quit)"
           mapfile -d '' -t files < <(
@@ -490,7 +490,7 @@ jobs:
       publish_ref: ${{ needs.prepare.outputs.commit }}
 
   perception-cargo-publish:
-    name: Publish and verify Perception crate
+    name: Publish and verify open-perception-kit crate
     needs: [prepare, artifactory]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -502,22 +502,22 @@ jobs:
           sparse-checkout: scripts/release
           persist-credentials: false
 
-      - name: Download Perception SDK input
+      - name: Download open-perception-kit input
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
-          name: opk-perception-sdk-input-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/opk-perception-sdk-input
+          name: open-perception-kit-input-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/open-perception-kit-input
 
-      - name: Set up pinned Rust for Perception package verification
+      - name: Set up pinned Rust for open-perception-kit package verification
         uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
         with:
           toolchain: 1.85.0
           cache: false
 
       - name: Configure Cargo home
-        run: echo "CARGO_HOME=$RUNNER_TEMP/perception-cargo-home" >> "$GITHUB_ENV"
+        run: echo "CARGO_HOME=$RUNNER_TEMP/open_perception_kit-cargo-home" >> "$GITHUB_ENV"
 
-      - name: Configure Cargo for Perception package verification
+      - name: Configure Cargo for open-perception-kit package verification
         run: |
           set -euo pipefail
           rm -rf -- "$CARGO_HOME"
@@ -527,39 +527,39 @@ jobs:
           protocol = "sparse"
           EOF
 
-      - name: Verify Perception crate package
+      - name: Verify open-perception-kit crate package
         env:
           CARGO_PACKAGE_VERSION: ${{ needs.prepare.outputs.cargo_package_version }}
           RUSTUP_TOOLCHAIN: 1.85.0
-          SDK_DIR: ${{ runner.temp }}/opk-perception-sdk-input
+          SDK_DIR: ${{ runner.temp }}/open-perception-kit-input
         run: |
           set -euo pipefail
-          crate="$SDK_DIR/perception-$CARGO_PACKAGE_VERSION.crate"
-          publish_source="$SDK_DIR/perception-cargo-source-$CARGO_PACKAGE_VERSION"
+          crate="$SDK_DIR/open_perception_kit-$CARGO_PACKAGE_VERSION.crate"
+          publish_source="$SDK_DIR/open_perception_kit-cargo-source-$CARGO_PACKAGE_VERSION"
           (cd "$publish_source" && cargo package --locked --no-verify)
-          cmp "$crate" "$publish_source/target/package/perception-$CARGO_PACKAGE_VERSION.crate"
+          cmp "$crate" "$publish_source/target/package/open_perception_kit-$CARGO_PACKAGE_VERSION.crate"
 
       - name: Install cargo-sbom
         run: cargo install cargo-sbom --version 0.10.0 --locked
 
       - name: Generate Cargo CycloneDX SBOM
-        working-directory: ${{ runner.temp }}/opk-perception-sdk-input/perception-cargo-source-${{ needs.prepare.outputs.cargo_package_version }}
+        working-directory: ${{ runner.temp }}/open-perception-kit-input/open_perception_kit-cargo-source-${{ needs.prepare.outputs.cargo_package_version }}
         run: |
           set -euo pipefail
           cargo sbom \
-            --cargo-package perception \
+            --cargo-package open_perception_kit \
             --project-directory . \
             --output-format cyclone_dx_json_1_6 \
-            > "$GITHUB_WORKSPACE/opk-sbom-perception-crate.json"
+            > "$GITHUB_WORKSPACE/opk-sbom-open-perception-kit-crate.json"
 
       - name: Add Arm SBOM disclaimer
-        run: scripts/release/add-sbom-disclaimer.sh opk-sbom-perception-crate.json
+        run: scripts/release/add-sbom-disclaimer.sh opk-sbom-open-perception-kit-crate.json
 
-      - name: Upload Perception crate SBOM
+      - name: Upload open-perception-kit crate SBOM
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: opk-sbom-perception-crate-${{ github.run_id }}-${{ github.run_attempt }}
-          path: opk-sbom-perception-crate.json
+          name: opk-sbom-open-perception-kit-crate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: opk-sbom-open-perception-kit-crate.json
           if-no-files-found: error
 
       - name: Create GitHub App token for publisher
@@ -571,7 +571,7 @@ jobs:
           owner: Arm-Debug
           repositories: amp-dev-forge-publisher
 
-      - name: Trigger Perception Cargo publisher
+      - name: Trigger open-perception-kit Cargo publisher
         id: trigger_cargo_publisher
         env:
           CARGO_PACKAGE_VERSION: ${{ needs.prepare.outputs.cargo_package_version }}
@@ -582,7 +582,7 @@ jobs:
             --repo Arm-Debug/amp-dev-forge-publisher \
             --ref main \
             --field source-run-id="$GITHUB_RUN_ID" \
-            --field artifact-name="opk-perception-sdk-input-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
+            --field artifact-name="open-perception-kit-input-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
             --field cargo-package-version="$CARGO_PACKAGE_VERSION")"
 
           publisher_run_id="${publisher_run_url##*/}"
@@ -593,7 +593,7 @@ jobs:
 
           echo "publisher_run_id=$publisher_run_id" >> "$GITHUB_OUTPUT"
 
-      - name: Wait for Perception Cargo publisher
+      - name: Wait for open-perception-kit Cargo publisher
         env:
           GH_TOKEN: ${{ steps.publisher-token.outputs.token }}
           PUBLISHER_RUN_ID: ${{ steps.trigger_cargo_publisher.outputs.publisher_run_id }}

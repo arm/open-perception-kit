@@ -117,7 +117,7 @@ if python_ops_enabled
   byom_blazeface_example_test_env = environment()
   byom_blazeface_example_test_env.prepend(
     'PYTHONPATH',
-    meson.project_source_root() / '../generated/perception/python/src',
+    meson.project_source_root() / '../generated/open_perception_kit/python/src',
   )
   test(
     'byom_blazeface_example_tests',
@@ -128,7 +128,7 @@ if python_ops_enabled
   python_script_pipeline_test_env = environment()
   python_script_pipeline_test_env.prepend(
     'PYTHONPATH',
-    meson.project_source_root() / '../generated/perception/python/src',
+    meson.project_source_root() / '../generated/open_perception_kit/python/src',
   )
   test(
     'python_script_pipeline_tests',
@@ -299,7 +299,7 @@ image_conversion_oracle_test = executable(
 python = test_python
 # The distro GStreamer bindings use the distro Python ABI, not the Python Ops venv.
 gst_python = import('python').find_installation('/usr/bin/python3', modules : ['gi'])
-perception_python_sdk_path = meson.project_source_root() / '../generated/perception/python/src'
+perception_python_sdk_path = meson.project_source_root() / '../generated/open_perception_kit/python/src'
 python_guest_script_test_env = environment()
 python_guest_script_test_env.prepend('PYTHONPATH', perception_python_sdk_path)
 python_guest_script_executor = executable(
@@ -309,7 +309,7 @@ python_guest_script_executor = executable(
     '-DPERCEPTION_PYTHON_EXECUTABLE="' + opk_python.full_path() + '"',
     '-DPERCEPTION_PYTHON_SDK_PATH="' + perception_python_sdk_path + '"',
   ],
-  dependencies : [perception_python_bridge_dep],
+  dependencies : [open_perception_kit_python_bridge_dep],
   install : false,
 )
 
@@ -434,6 +434,29 @@ test('performance_metrics_tests', performance_metrics_tests)
 test('opktracker_matching_tests', opktracker_matching_tests)
 test('opktracker_tracking_output_tests', opktracker_tracking_output_tests)
 test('webrtc_session_tests', webrtc_session_tests)
+foreach endpoint : ['control', 'webrtc']
+  test(
+    'opksink_websocket_json_' + endpoint,
+    gst_python,
+    args : [files('opksink_websocket_json_test.py'), opkinferpre.full_path(), endpoint],
+    depends : opkinferpre,
+    is_parallel : false,
+    timeout : 20,
+  )
+endforeach
+test(
+  'opksink_configured_ports',
+  gst_python,
+  args : [files('opksink_configured_ports_test.py'), opkinferpre.full_path()],
+  depends : opkinferpre,
+)
+test(
+  'websocket_shutdown',
+  gst_python,
+  args : [files('websocket_shutdown_test.py'), opkinferpre.full_path(), opkcomm.full_path()],
+  depends : [opkinferpre, opkcomm],
+  env : ['G_DEBUG=fatal-criticals'],
+)
 foreach failed_element : [
   'vconv',
   'rtp_tee',

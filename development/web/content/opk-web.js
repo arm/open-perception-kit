@@ -565,7 +565,8 @@ function appendLog(message, type = "info") {
   const div = document.createElement("div");
   div.className = "log-line" + (type === "error" ? " error" : "");
   const time = (/* @__PURE__ */ new Date()).toLocaleTimeString();
-  div.innerHTML = `<span>[${time}]</span> <span class="log-tag">${type === "error" ? "ERR" : "LOG"}</span>${message}`;
+  div.innerHTML = `<span>[${time}]</span> <span class="log-tag">${type === "error" ? "ERR" : "LOG"}</span>`;
+  div.append(String(message));
   logEl.appendChild(div);
   logEl.scrollTop = logEl.scrollHeight;
   console[type === "error" ? "error" : "log"]("[WebRTC UI]", message);
@@ -895,15 +896,6 @@ var ModelsManager = class {
       toggle.disabled = false;
       item.classList.remove("model-pending");
     }
-  }
-  renderError(message) {
-    if (!this.container) return;
-    this.container.innerHTML = `
-            <div class="models-error">
-                <strong>Error loading models:</strong><br>
-                ${message}
-            </div>
-        `;
   }
   destroy() {
     if (this.updateInterval) {
@@ -2711,7 +2703,7 @@ var Builder = class _Builder {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/internalfb/wire-payload.js
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/internalfb/wire-payload.js
 var WirePayload = class _WirePayload {
   constructor() {
     this.bb = null;
@@ -2793,7 +2785,7 @@ var WirePayloadT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/internalfb/wire-envelope.js
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/internalfb/wire-envelope.js
 var WireEnvelope = class _WireEnvelope {
   constructor() {
     this.bb = null;
@@ -2903,7 +2895,7 @@ var WireEnvelopeT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/bounding-box.js
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/bounding-box.js
 var BoundingBox = class _BoundingBox {
   constructor() {
     this.bb = null;
@@ -2986,7 +2978,7 @@ var BoundingBoxT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/object-meta.js
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-meta.js
 var ObjectMeta = class _ObjectMeta {
   constructor() {
     this.bb = null;
@@ -3059,7 +3051,7 @@ var ObjectMetaT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/box-detection.js
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/box-detection.js
 var BoxDetection = class _BoxDetection {
   constructor() {
     this.bb = null;
@@ -3152,7 +3144,7 @@ var BoxDetectionT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/producer-info.js
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/producer-info.js
 var ProducerInfo = class _ProducerInfo {
   constructor() {
     this.bb = null;
@@ -3228,7 +3220,7 @@ var ProducerInfoT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/layer-info.js
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/layer-info.js
 var LayerInfo = class _LayerInfo {
   constructor() {
     this.bb = null;
@@ -3356,7 +3348,7 @@ var LayerInfoT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/box-detections.js
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/box-detections.js
 var BoxDetections = class _BoxDetections {
   constructor() {
     this.bb = null;
@@ -3461,7 +3453,7 @@ var BoxDetectionsT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/classification-candidate.js
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classification-candidate.js
 var ClassificationCandidate = class _ClassificationCandidate {
   constructor() {
     this.bb = null;
@@ -3575,7 +3567,7 @@ var ClassificationCandidateT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/classification.js
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classification.js
 var Classification = class _Classification {
   constructor() {
     this.bb = null;
@@ -3654,7 +3646,7 @@ var ClassificationT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/person-presence.js
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/person-presence.js
 var PersonPresence = class _PersonPresence {
   constructor() {
     this.bb = null;
@@ -3728,7 +3720,7 @@ var PersonPresenceT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/classifications.js
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classifications.js
 var Classifications = class _Classifications {
   constructor() {
     this.bb = null;
@@ -3858,7 +3850,7 @@ var ClassificationsT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/audio-frame-context.js
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/audio-frame-context.js
 var AudioFrameContext = class _AudioFrameContext {
   constructor() {
     this.bb = null;
@@ -3962,7 +3954,7 @@ var AudioFrameContextT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/video-frame-context.js
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/video-frame-context.js
 var VideoFrameContext = class _VideoFrameContext {
   constructor() {
     this.bb = null;
@@ -4116,7 +4108,7 @@ var VideoFrameContextT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/frame-context.js
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/frame-context.js
 var FrameContext = class _FrameContext {
   constructor() {
     this.bb = null;
@@ -4218,7 +4210,7 @@ var FrameContextT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/object-embedding.js
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-embedding.js
 var ObjectEmbedding = class _ObjectEmbedding {
   constructor() {
     this.bb = null;
@@ -4301,7 +4293,7 @@ var ObjectEmbeddingT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/object-embeddings.js
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-embeddings.js
 var ObjectEmbeddings = class _ObjectEmbeddings {
   constructor() {
     this.bb = null;
@@ -4406,7 +4398,7 @@ var ObjectEmbeddingsT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/object-track.js
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-track.js
 var ObjectTrack = class _ObjectTrack {
   constructor() {
     this.bb = null;
@@ -4540,7 +4532,7 @@ var ObjectTrackT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/object-tracks.js
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-tracks.js
 var ObjectTracks = class _ObjectTracks {
   constructor() {
     this.bb = null;
@@ -4645,7 +4637,7 @@ var ObjectTracksT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/performance-overlay.js
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-overlay.js
 var PerformanceOverlay = class _PerformanceOverlay {
   constructor() {
     this.bb = null;
@@ -4742,7 +4734,7 @@ var PerformanceOverlayT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/pose-estimation.js
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimation.js
 var PoseEstimation = class _PoseEstimation {
   constructor() {
     this.bb = null;
@@ -4826,7 +4818,7 @@ var PoseEstimationT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/pose-estimations.js
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimations.js
 var PoseEstimations = class _PoseEstimations {
   constructor() {
     this.bb = null;
@@ -4931,7 +4923,7 @@ var PoseEstimationsT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/bitmap-data.js
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/bitmap-data.js
 var BitmapData = class _BitmapData {
   constructor() {
     this.bb = null;
@@ -5034,7 +5026,7 @@ var BitmapDataT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/segmentation-mask.js
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-mask.js
 var SegmentationMask = class _SegmentationMask {
   constructor() {
     this.bb = null;
@@ -5096,7 +5088,7 @@ var SegmentationMaskT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/segmentation-masks.js
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-masks.js
 var SegmentationMasks = class _SegmentationMasks {
   constructor() {
     this.bb = null;
@@ -5201,7 +5193,7 @@ var SegmentationMasksT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/point2f.js
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/point2f.js
 var Point2f = class _Point2f {
   constructor() {
     this.bb = null;
@@ -5264,7 +5256,7 @@ var Point2fT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/track-trace.js
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-trace.js
 var TrackTrace = class _TrackTrace {
   constructor() {
     this.bb = null;
@@ -5353,7 +5345,7 @@ var TrackTraceT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/fb/perception/metadata/track-traces.js
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-traces.js
 var TrackTraces = class _TrackTraces {
   constructor() {
     this.bb = null;
@@ -5458,112 +5450,112 @@ var TrackTracesT = class {
   }
 };
 
-// generated/perception/ts/dist/perception/registry.js
-var decode_928609632921539799 = (blob) => BoxDetections.getRootAsBoxDetections(new ByteBuffer(blob)).unpack();
-var verify_928609632921539799 = (blob) => BoxDetections.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_94127366257443529 = (blob) => Classifications.getRootAsClassifications(new ByteBuffer(blob)).unpack();
-var verify_94127366257443529 = (blob) => Classifications.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_6405170853304169454 = (blob) => FrameContext.getRootAsFrameContext(new ByteBuffer(blob)).unpack();
-var verify_6405170853304169454 = (blob) => FrameContext.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_3474598619102273931 = (blob) => ObjectEmbeddings.getRootAsObjectEmbeddings(new ByteBuffer(blob)).unpack();
-var verify_3474598619102273931 = (blob) => ObjectEmbeddings.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_930392077708082693 = (blob) => ObjectTracks.getRootAsObjectTracks(new ByteBuffer(blob)).unpack();
-var verify_930392077708082693 = (blob) => ObjectTracks.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_4179744154867129599 = (blob) => PerformanceOverlay.getRootAsPerformanceOverlay(new ByteBuffer(blob)).unpack();
-var verify_4179744154867129599 = (blob) => PerformanceOverlay.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_8795139052133278924 = (blob) => PoseEstimations.getRootAsPoseEstimations(new ByteBuffer(blob)).unpack();
-var verify_8795139052133278924 = (blob) => PoseEstimations.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_1102215109093226736 = (blob) => SegmentationMasks.getRootAsSegmentationMasks(new ByteBuffer(blob)).unpack();
-var verify_1102215109093226736 = (blob) => SegmentationMasks.bufferHasIdentifier(new ByteBuffer(blob));
-var decode_8745337222662207869 = (blob) => TrackTraces.getRootAsTrackTraces(new ByteBuffer(blob)).unpack();
-var verify_8745337222662207869 = (blob) => TrackTraces.bufferHasIdentifier(new ByteBuffer(blob));
+// generated/open_perception_kit/ts/dist/open_perception_kit/registry.js
+var decode_556103652012567315 = (blob) => BoxDetections.getRootAsBoxDetections(new ByteBuffer(blob)).unpack();
+var verify_556103652012567315 = (blob) => BoxDetections.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_2852697023809600655 = (blob) => Classifications.getRootAsClassifications(new ByteBuffer(blob)).unpack();
+var verify_2852697023809600655 = (blob) => Classifications.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_2065478860695108412 = (blob) => FrameContext.getRootAsFrameContext(new ByteBuffer(blob)).unpack();
+var verify_2065478860695108412 = (blob) => FrameContext.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_5972661533224817501 = (blob) => ObjectEmbeddings.getRootAsObjectEmbeddings(new ByteBuffer(blob)).unpack();
+var verify_5972661533224817501 = (blob) => ObjectEmbeddings.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_2960585987463094496 = (blob) => ObjectTracks.getRootAsObjectTracks(new ByteBuffer(blob)).unpack();
+var verify_2960585987463094496 = (blob) => ObjectTracks.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_7749401259036278028 = (blob) => PerformanceOverlay.getRootAsPerformanceOverlay(new ByteBuffer(blob)).unpack();
+var verify_7749401259036278028 = (blob) => PerformanceOverlay.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_9114952555105892553 = (blob) => PoseEstimations.getRootAsPoseEstimations(new ByteBuffer(blob)).unpack();
+var verify_9114952555105892553 = (blob) => PoseEstimations.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_1998909987238011535 = (blob) => SegmentationMasks.getRootAsSegmentationMasks(new ByteBuffer(blob)).unpack();
+var verify_1998909987238011535 = (blob) => SegmentationMasks.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_238211229389337861 = (blob) => TrackTraces.getRootAsTrackTraces(new ByteBuffer(blob)).unpack();
+var verify_238211229389337861 = (blob) => TrackTraces.bufferHasIdentifier(new ByteBuffer(blob));
 var _TYPE_REGISTRY = /* @__PURE__ */ new Map([
-  [928609632921539799n, {
-    name: "perception::metadata::BoxDetections",
+  [556103652012567315n, {
+    name: "open_perception_kit::metadata::BoxDetections",
     root_type: "BoxDetections",
-    qualified_root_type: "perception.metadata.BoxDetections",
+    qualified_root_type: "open_perception_kit.metadata.BoxDetections",
     file_identifier: "BDET",
-    decode: decode_928609632921539799,
-    verify: verify_928609632921539799
+    decode: decode_556103652012567315,
+    verify: verify_556103652012567315
   }],
-  [94127366257443529n, {
-    name: "perception::metadata::Classifications",
+  [2852697023809600655n, {
+    name: "open_perception_kit::metadata::Classifications",
     root_type: "Classifications",
-    qualified_root_type: "perception.metadata.Classifications",
+    qualified_root_type: "open_perception_kit.metadata.Classifications",
     file_identifier: "CLSF",
-    decode: decode_94127366257443529,
-    verify: verify_94127366257443529
+    decode: decode_2852697023809600655,
+    verify: verify_2852697023809600655
   }],
-  [6405170853304169454n, {
-    name: "perception::metadata::FrameContext",
+  [2065478860695108412n, {
+    name: "open_perception_kit::metadata::FrameContext",
     root_type: "FrameContext",
-    qualified_root_type: "perception.metadata.FrameContext",
+    qualified_root_type: "open_perception_kit.metadata.FrameContext",
     file_identifier: "FCTX",
-    decode: decode_6405170853304169454,
-    verify: verify_6405170853304169454
+    decode: decode_2065478860695108412,
+    verify: verify_2065478860695108412
   }],
-  [3474598619102273931n, {
-    name: "perception::metadata::ObjectEmbeddings",
+  [5972661533224817501n, {
+    name: "open_perception_kit::metadata::ObjectEmbeddings",
     root_type: "ObjectEmbeddings",
-    qualified_root_type: "perception.metadata.ObjectEmbeddings",
+    qualified_root_type: "open_perception_kit.metadata.ObjectEmbeddings",
     file_identifier: "EMBE",
-    decode: decode_3474598619102273931,
-    verify: verify_3474598619102273931
+    decode: decode_5972661533224817501,
+    verify: verify_5972661533224817501
   }],
-  [930392077708082693n, {
-    name: "perception::metadata::ObjectTracks",
+  [2960585987463094496n, {
+    name: "open_perception_kit::metadata::ObjectTracks",
     root_type: "ObjectTracks",
-    qualified_root_type: "perception.metadata.ObjectTracks",
+    qualified_root_type: "open_perception_kit.metadata.ObjectTracks",
     file_identifier: "TRKS",
-    decode: decode_930392077708082693,
-    verify: verify_930392077708082693
+    decode: decode_2960585987463094496,
+    verify: verify_2960585987463094496
   }],
-  [4179744154867129599n, {
-    name: "perception::metadata::PerformanceOverlay",
+  [7749401259036278028n, {
+    name: "open_perception_kit::metadata::PerformanceOverlay",
     root_type: "PerformanceOverlay",
-    qualified_root_type: "perception.metadata.PerformanceOverlay",
+    qualified_root_type: "open_perception_kit.metadata.PerformanceOverlay",
     file_identifier: "PERF",
-    decode: decode_4179744154867129599,
-    verify: verify_4179744154867129599
+    decode: decode_7749401259036278028,
+    verify: verify_7749401259036278028
   }],
-  [8795139052133278924n, {
-    name: "perception::metadata::PoseEstimations",
+  [9114952555105892553n, {
+    name: "open_perception_kit::metadata::PoseEstimations",
     root_type: "PoseEstimations",
-    qualified_root_type: "perception.metadata.PoseEstimations",
+    qualified_root_type: "open_perception_kit.metadata.PoseEstimations",
     file_identifier: "POSE",
-    decode: decode_8795139052133278924,
-    verify: verify_8795139052133278924
+    decode: decode_9114952555105892553,
+    verify: verify_9114952555105892553
   }],
-  [1102215109093226736n, {
-    name: "perception::metadata::SegmentationMasks",
+  [1998909987238011535n, {
+    name: "open_perception_kit::metadata::SegmentationMasks",
     root_type: "SegmentationMasks",
-    qualified_root_type: "perception.metadata.SegmentationMasks",
+    qualified_root_type: "open_perception_kit.metadata.SegmentationMasks",
     file_identifier: "SGMS",
-    decode: decode_1102215109093226736,
-    verify: verify_1102215109093226736
+    decode: decode_1998909987238011535,
+    verify: verify_1998909987238011535
   }],
-  [8745337222662207869n, {
-    name: "perception::metadata::TrackTraces",
+  [238211229389337861n, {
+    name: "open_perception_kit::metadata::TrackTraces",
     root_type: "TrackTraces",
-    qualified_root_type: "perception.metadata.TrackTraces",
+    qualified_root_type: "open_perception_kit.metadata.TrackTraces",
     file_identifier: "TRCE",
-    decode: decode_8745337222662207869,
-    verify: verify_8745337222662207869
+    decode: decode_238211229389337861,
+    verify: verify_238211229389337861
   }]
 ]);
 var _CLASS_TO_ID = /* @__PURE__ */ new Map([
-  [BoxDetectionsT, 928609632921539799n],
-  [ClassificationsT, 94127366257443529n],
-  [FrameContextT, 6405170853304169454n],
-  [ObjectEmbeddingsT, 3474598619102273931n],
-  [ObjectTracksT, 930392077708082693n],
-  [PerformanceOverlayT, 4179744154867129599n],
-  [PoseEstimationsT, 8795139052133278924n],
-  [SegmentationMasksT, 1102215109093226736n],
-  [TrackTracesT, 8745337222662207869n]
+  [BoxDetectionsT, 556103652012567315n],
+  [ClassificationsT, 2852697023809600655n],
+  [FrameContextT, 2065478860695108412n],
+  [ObjectEmbeddingsT, 5972661533224817501n],
+  [ObjectTracksT, 2960585987463094496n],
+  [PerformanceOverlayT, 7749401259036278028n],
+  [PoseEstimationsT, 9114952555105892553n],
+  [SegmentationMasksT, 1998909987238011535n],
+  [TrackTracesT, 238211229389337861n]
 ]);
 
-// generated/perception/ts/dist/perception/envelope.js
+// generated/open_perception_kit/ts/dist/open_perception_kit/envelope.js
 var __classPrivateFieldSet = function(receiver, state, value, kind, f) {
   if (kind === "m") throw new TypeError("Private method is not writable");
   if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a setter");
@@ -5576,9 +5568,9 @@ var __classPrivateFieldGet = function(receiver, state, kind, f) {
   return kind === "m" ? f : kind === "a" ? f.call(receiver) : f ? f.value : state.get(receiver);
 };
 var _ExternalKey_value;
-var SDK_NAME = "perception";
+var SDK_NAME = "open_perception_kit";
 var SDK_VERSION = "0.1.0";
-var SCHEMA_SET_SHA256 = "5a2f77909600d6458a707fba68cff1a7dc5f610dec58174456bb97d16596c383";
+var SCHEMA_SET_SHA256 = "1b19418d8a0d34038a3c99895fa93a1140c25af910f6bc63c0e11978e12c2876";
 var EXTERNAL_KEY_MIN = BigInt("9223372036854775808");
 var EXTERNAL_KEY_MASK = EXTERNAL_KEY_MIN - BigInt(1);
 var EXTERNAL_HASH_OFFSET = BigInt("14695981039346656037");

@@ -211,8 +211,8 @@ opk::Bitmap makeBackgroundImage() {
     return bitmap;
 }
 
-std::unique_ptr<perception::metadata::BitmapDataT> makeSegmentationMaskBitmap() {
-    auto bitmap = std::make_unique<perception::metadata::BitmapDataT>();
+std::unique_ptr<open_perception_kit::metadata::BitmapDataT> makeSegmentationMaskBitmap() {
+    auto bitmap = std::make_unique<open_perception_kit::metadata::BitmapDataT>();
     bitmap->width = 2U;
     bitmap->height = 2U;
     bitmap->value_type = "Uint8";
@@ -225,204 +225,205 @@ std::unique_ptr<perception::metadata::BitmapDataT> makeSegmentationMaskBitmap() 
     return bitmap;
 }
 
-perception::FrameResults makeSegmentationFrameResults(const char *compositingMode = nullptr) {
-    perception::metadata::SegmentationMasksT payload;
+open_perception_kit::FrameResults
+makeSegmentationFrameResults(const char *compositingMode = nullptr) {
+    open_perception_kit::metadata::SegmentationMasksT payload;
 
-    perception::LayerInfoDescriptor layerDescriptor;
+    open_perception_kit::LayerInfoDescriptor layerDescriptor;
     layerDescriptor.contentType = "segmentation";
     if (compositingMode != nullptr) {
         layerDescriptor.compositingMode = compositingMode;
     }
-    payload.layer = perception::makeLayerInfo(layerDescriptor);
+    payload.layer = open_perception_kit::makeLayerInfo(layerDescriptor);
 
-    auto mask = std::make_unique<perception::metadata::SegmentationMaskT>();
+    auto mask = std::make_unique<open_perception_kit::metadata::SegmentationMaskT>();
     mask->bitmap = makeSegmentationMaskBitmap();
     payload.masks.push_back(std::move(mask));
 
-    perception::FrameResults frameResults;
+    open_perception_kit::FrameResults frameResults;
     frameResults.add(std::move(payload));
     return frameResults;
 }
 
-perception::FrameResults makeTrackTraceFrameResults() {
-    perception::metadata::TrackTracesT payload;
+open_perception_kit::FrameResults makeTrackTraceFrameResults() {
+    open_perception_kit::metadata::TrackTracesT payload;
 
-    auto trace = std::make_unique<perception::metadata::TrackTraceT>();
+    auto trace = std::make_unique<open_perception_kit::metadata::TrackTraceT>();
     trace->track_id = 3U;
 
-    auto first = std::make_unique<perception::metadata::Point2fT>();
+    auto first = std::make_unique<open_perception_kit::metadata::Point2fT>();
     first->x = 4.0f;
     first->y = 5.0f;
     trace->points.push_back(std::move(first));
 
-    auto second = std::make_unique<perception::metadata::Point2fT>();
+    auto second = std::make_unique<open_perception_kit::metadata::Point2fT>();
     second->x = 36.0f;
     second->y = 18.0f;
     trace->points.push_back(std::move(second));
 
-    auto third = std::make_unique<perception::metadata::Point2fT>();
+    auto third = std::make_unique<open_perception_kit::metadata::Point2fT>();
     third->x = 60.0f;
     third->y = 30.0f;
     trace->points.push_back(std::move(third));
 
     payload.traces.push_back(std::move(trace));
 
-    perception::FrameResults frameResults;
+    open_perception_kit::FrameResults frameResults;
     frameResults.add(std::move(payload));
     return frameResults;
 }
 
-perception::FrameResults makeGenericObjectFrameResults() {
-    perception::metadata::BoxDetectionsT payload;
+open_perception_kit::FrameResults makeGenericObjectFrameResults() {
+    open_perception_kit::metadata::BoxDetectionsT payload;
 
-    perception::LayerInfoDescriptor layerDescriptor;
+    open_perception_kit::LayerInfoDescriptor layerDescriptor;
     layerDescriptor.contentType = "genericObject";
-    payload.layer = perception::makeLayerInfo(layerDescriptor);
+    payload.layer = open_perception_kit::makeLayerInfo(layerDescriptor);
 
-    auto detection = std::make_unique<perception::metadata::BoxDetectionT>();
-    detection->object = perception::makeObjectMeta(42U);
-    detection->box = perception::makeBoundingBox(-3.4f, 1.2f, 10.8f, 4.6f);
+    auto detection = std::make_unique<open_perception_kit::metadata::BoxDetectionT>();
+    detection->object = open_perception_kit::makeObjectMeta(42U);
+    detection->box = open_perception_kit::makeBoundingBox(-3.4f, 1.2f, 10.8f, 4.6f);
     detection->confidence = 0.8f;
     detection->class_id = 1;
     detection->text = "car";
     payload.detections.push_back(std::move(detection));
 
-    perception::FrameResults frameResults;
+    open_perception_kit::FrameResults frameResults;
     frameResults.add(std::move(payload));
     return frameResults;
 }
 
-perception::FrameResults makeHumanFaceAndGazeFrameResults(float yaw = 20.0f) {
-    perception::metadata::BoxDetectionsT facePayload;
+open_perception_kit::FrameResults makeHumanFaceAndGazeFrameResults(float yaw = 20.0f) {
+    open_perception_kit::metadata::BoxDetectionsT facePayload;
 
-    perception::LayerInfoDescriptor faceLayerDescriptor;
+    open_perception_kit::LayerInfoDescriptor faceLayerDescriptor;
     faceLayerDescriptor.contentType = "humanFace";
-    facePayload.layer = perception::makeLayerInfo(faceLayerDescriptor);
+    facePayload.layer = open_perception_kit::makeLayerInfo(faceLayerDescriptor);
 
-    auto face = std::make_unique<perception::metadata::BoxDetectionT>();
-    face->object = perception::makeObjectMeta(7U);
-    face->box = perception::makeBoundingBox(28.0f, 18.0f, 24.0f, 24.0f);
+    auto face = std::make_unique<open_perception_kit::metadata::BoxDetectionT>();
+    face->object = open_perception_kit::makeObjectMeta(7U);
+    face->box = open_perception_kit::makeBoundingBox(28.0f, 18.0f, 24.0f, 24.0f);
     face->confidence = 0.9f;
     facePayload.detections.push_back(std::move(face));
 
-    perception::metadata::PoseEstimationsT gazePayload;
+    open_perception_kit::metadata::PoseEstimationsT gazePayload;
 
-    perception::LayerInfoDescriptor gazeLayerDescriptor;
+    open_perception_kit::LayerInfoDescriptor gazeLayerDescriptor;
     gazeLayerDescriptor.contentType = "eyeYawPitch";
-    gazePayload.layer = perception::makeLayerInfo(gazeLayerDescriptor);
+    gazePayload.layer = open_perception_kit::makeLayerInfo(gazeLayerDescriptor);
 
-    auto gaze = std::make_unique<perception::metadata::PoseEstimationT>();
-    gaze->object = perception::makeObjectMeta(8U, 7U);
+    auto gaze = std::make_unique<open_perception_kit::metadata::PoseEstimationT>();
+    gaze->object = open_perception_kit::makeObjectMeta(8U, 7U);
     gaze->confidence = 0.95f;
     gaze->yaw = yaw;
     gaze->pitch = -10.0f;
     gazePayload.poses.push_back(std::move(gaze));
 
-    perception::FrameResults frameResults;
+    open_perception_kit::FrameResults frameResults;
     frameResults.add(std::move(facePayload));
     frameResults.add(std::move(gazePayload));
     return frameResults;
 }
 
-perception::FrameResults makeCameraContactFrameResults() {
-    perception::metadata::BoxDetectionsT facePayload;
+open_perception_kit::FrameResults makeCameraContactFrameResults() {
+    open_perception_kit::metadata::BoxDetectionsT facePayload;
 
-    perception::LayerInfoDescriptor faceLayerDescriptor;
+    open_perception_kit::LayerInfoDescriptor faceLayerDescriptor;
     faceLayerDescriptor.contentType = "humanFace";
-    facePayload.layer = perception::makeLayerInfo(faceLayerDescriptor);
+    facePayload.layer = open_perception_kit::makeLayerInfo(faceLayerDescriptor);
 
-    auto face = std::make_unique<perception::metadata::BoxDetectionT>();
-    face->object = perception::makeObjectMeta(11U);
-    face->box = perception::makeBoundingBox(34.0f, 16.0f, 60.0f, 60.0f);
+    auto face = std::make_unique<open_perception_kit::metadata::BoxDetectionT>();
+    face->object = open_perception_kit::makeObjectMeta(11U);
+    face->box = open_perception_kit::makeBoundingBox(34.0f, 16.0f, 60.0f, 60.0f);
     face->confidence = 0.9f;
     facePayload.detections.push_back(std::move(face));
 
-    perception::metadata::ClassificationsT contactPayload;
+    open_perception_kit::metadata::ClassificationsT contactPayload;
 
-    perception::LayerInfoDescriptor contactLayerDescriptor;
+    open_perception_kit::LayerInfoDescriptor contactLayerDescriptor;
     contactLayerDescriptor.contentType = "cameraContact";
-    contactPayload.layer = perception::makeLayerInfo(contactLayerDescriptor);
+    contactPayload.layer = open_perception_kit::makeLayerInfo(contactLayerDescriptor);
 
-    auto classification = std::make_unique<perception::metadata::ClassificationT>();
-    classification->object = perception::makeObjectMeta(12U, 11U);
+    auto classification = std::make_unique<open_perception_kit::metadata::ClassificationT>();
+    classification->object = open_perception_kit::makeObjectMeta(12U, 11U);
 
-    auto candidate = std::make_unique<perception::metadata::ClassificationCandidateT>();
+    auto candidate = std::make_unique<open_perception_kit::metadata::ClassificationCandidateT>();
     candidate->confidence = 0.95f;
     candidate->class_id = 1;
     candidate->text = "contact";
     classification->candidates.push_back(std::move(candidate));
     contactPayload.classifications.push_back(std::move(classification));
 
-    perception::FrameResults frameResults;
+    open_perception_kit::FrameResults frameResults;
     frameResults.add(std::move(facePayload));
     frameResults.add(std::move(contactPayload));
     return frameResults;
 }
 
-perception::FrameResults makePersonClassificationFrameResults() {
-    perception::metadata::ClassificationsT payload;
+open_perception_kit::FrameResults makePersonClassificationFrameResults() {
+    open_perception_kit::metadata::ClassificationsT payload;
 
-    perception::LayerInfoDescriptor layerDescriptor;
+    open_perception_kit::LayerInfoDescriptor layerDescriptor;
     layerDescriptor.contentType = "personClassification";
-    payload.layer = perception::makeLayerInfo(layerDescriptor);
+    payload.layer = open_perception_kit::makeLayerInfo(layerDescriptor);
 
-    auto presence = std::make_unique<perception::metadata::PersonPresenceT>();
-    presence->object = perception::makeObjectMeta(21U);
+    auto presence = std::make_unique<open_perception_kit::metadata::PersonPresenceT>();
+    presence->object = open_perception_kit::makeObjectMeta(21U);
     presence->yes_confidence = 0.9f;
     presence->no_confidence = 0.1f;
     payload.person_presence.push_back(std::move(presence));
 
-    perception::FrameResults frameResults;
+    open_perception_kit::FrameResults frameResults;
     frameResults.add(std::move(payload));
     return frameResults;
 }
 
-std::unique_ptr<perception::metadata::ClassificationCandidateT>
+std::unique_ptr<open_perception_kit::metadata::ClassificationCandidateT>
 makeClassificationCandidate(int classId, const char *text, float confidence) {
-    auto candidate = std::make_unique<perception::metadata::ClassificationCandidateT>();
+    auto candidate = std::make_unique<open_perception_kit::metadata::ClassificationCandidateT>();
     candidate->class_id = classId;
     candidate->text = text;
     candidate->confidence = confidence;
     return candidate;
 }
 
-perception::FrameResults makeImageClassificationFrameResults() {
-    perception::metadata::ClassificationsT leftPayload;
-    auto leftProducer = perception::makeProducerInfo("left", "test", "cpp-classifier");
-    perception::LayerInfoDescriptor leftLayerDescriptor;
+open_perception_kit::FrameResults makeImageClassificationFrameResults() {
+    open_perception_kit::metadata::ClassificationsT leftPayload;
+    auto leftProducer = open_perception_kit::makeProducerInfo("left", "test", "cpp-classifier");
+    open_perception_kit::LayerInfoDescriptor leftLayerDescriptor;
     leftLayerDescriptor.contentType = "classification";
     leftLayerDescriptor.producer = leftProducer.get();
-    leftPayload.layer = perception::makeLayerInfo(leftLayerDescriptor);
+    leftPayload.layer = open_perception_kit::makeLayerInfo(leftLayerDescriptor);
 
-    auto leftClassification = std::make_unique<perception::metadata::ClassificationT>();
+    auto leftClassification = std::make_unique<open_perception_kit::metadata::ClassificationT>();
     leftClassification->candidates.push_back(makeClassificationCandidate(1, "car", 0.8f));
     leftPayload.classifications.push_back(std::move(leftClassification));
 
-    perception::metadata::ClassificationsT rightPayload;
-    auto rightProducer = perception::makeProducerInfo("right", "test", "python-script");
-    perception::LayerInfoDescriptor rightLayerDescriptor;
+    open_perception_kit::metadata::ClassificationsT rightPayload;
+    auto rightProducer = open_perception_kit::makeProducerInfo("right", "test", "python-script");
+    open_perception_kit::LayerInfoDescriptor rightLayerDescriptor;
     rightLayerDescriptor.contentType = "classification";
     rightLayerDescriptor.compositingMode = "bottomRight";
     rightLayerDescriptor.producer = rightProducer.get();
-    rightPayload.layer = perception::makeLayerInfo(rightLayerDescriptor);
+    rightPayload.layer = open_perception_kit::makeLayerInfo(rightLayerDescriptor);
 
-    auto rightClassification = std::make_unique<perception::metadata::ClassificationT>();
+    auto rightClassification = std::make_unique<open_perception_kit::metadata::ClassificationT>();
     rightClassification->candidates.push_back(makeClassificationCandidate(2, "street", 0.7f));
     rightPayload.classifications.push_back(std::move(rightClassification));
 
-    perception::FrameResults frameResults;
+    open_perception_kit::FrameResults frameResults;
     frameResults.add(std::move(leftPayload));
     frameResults.add(std::move(rightPayload));
     return frameResults;
 }
 
-perception::FrameResults makePerformanceOverlayFrameResults() {
-    perception::FrameResults frameResults;
-    perception::appendPerformanceOverlay(frameResults,
-                                         {
-                                             "OSD                     :    1.23ms",
-                                             "Pipeline                :   60.0 FPS",
-                                         });
+open_perception_kit::FrameResults makePerformanceOverlayFrameResults() {
+    open_perception_kit::FrameResults frameResults;
+    open_perception_kit::appendPerformanceOverlay(frameResults,
+                                                  {
+                                                      "OSD                     :    1.23ms",
+                                                      "Pipeline                :   60.0 FPS",
+                                                  });
     return frameResults;
 }
 
@@ -900,13 +901,13 @@ TEST(DebugOverlayRendererTest, DrawsPerformanceOverlayInAllSupportedFormats) {
 }
 
 TEST(DebugOverlayRendererTest, DrawsPerformanceOverlayAsRectangularBlock) {
-    perception::FrameResults frameResults;
-    perception::appendPerformanceOverlay(frameResults,
-                                         {
-                                             "A: 1",
-                                             "STD/GENIMGPRE/YOLO-OBJDET:   1.18ms",
-                                             "Pipeline:  26.0 FPS",
-                                         });
+    open_perception_kit::FrameResults frameResults;
+    open_perception_kit::appendPerformanceOverlay(frameResults,
+                                                  {
+                                                      "A: 1",
+                                                      "STD/GENIMGPRE/YOLO-OBJDET:   1.18ms",
+                                                      "Pipeline:  26.0 FPS",
+                                                  });
     auto surface = makeSurface(RawImagePixelFormat::Bgra, 360, 80);
 
     opk::osd::DebugOverlayRequest request;

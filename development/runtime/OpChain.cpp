@@ -84,8 +84,8 @@ struct OpChain::Impl {
     opk::op::OpChain chain;
     bool loaded = false;
 
-    Result<perception::FrameResults> runFrameResults(const VideoFrame &frame,
-                                                     const std::string &inferElementId);
+    Result<open_perception_kit::FrameResults> runFrameResults(const VideoFrame &frame,
+                                                              const std::string &inferElementId);
 };
 
 OpChain::OpChain() = default;
@@ -106,8 +106,8 @@ Result<OpChain> OpChain::fromJsonFile(const std::string &path) {
     return OpChain(std::move(implValue));
 }
 
-Result<perception::FrameResults> OpChain::Impl::runFrameResults(const VideoFrame &frame,
-                                                                const std::string &inferElementId) {
+Result<open_perception_kit::FrameResults>
+OpChain::Impl::runFrameResults(const VideoFrame &frame, const std::string &inferElementId) {
     if (!loaded) {
         return tl::unexpected(Error(ErrorFlag::InvalidArgument, "No OpChain has been loaded"));
     }
@@ -115,7 +115,7 @@ Result<perception::FrameResults> OpChain::Impl::runFrameResults(const VideoFrame
         return tl::unexpected(Error(ErrorFlag::InvalidArgument, "VideoFrame is empty"));
     }
 
-    perception::FrameResults frameResults;
+    open_perception_kit::FrameResults frameResults;
     opk::op::OpChainContext context;
     context.inferenceInfo.inferElementId = inferElementId.empty() ? "runtime" : inferElementId;
     context.frameResults = &frameResults;
@@ -157,7 +157,7 @@ Result<std::vector<std::uint8_t>> OpChain::runPacket(const VideoFrame &frame,
     }
 
     try {
-        return perception::serialize(*frameResults);
+        return open_perception_kit::serialize(*frameResults);
     } catch (const std::exception &e) {
         return tl::unexpected(
             Error(ErrorFlag::RuntimeError,

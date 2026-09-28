@@ -13,6 +13,7 @@
 
 #include <cctype>
 #include <exception>
+#include <functional>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -126,6 +127,23 @@ WebRtcSockerError WebRtcWebSocket::start() {
 WebRtcSockerError WebRtcWebSocket::stop() {
     stopping = true;
 
+    if (ws) {
+        ws->get_io_service().post([this] {
+            websocketpp::lib::error_code ec;
+            ws->stop_listening(ec);
+            for (const auto &hdl : connections) {
+                ws->close(hdl, websocketpp::close::status::going_away, "", ec);
+            }
+        });
+    }
+    // Close handshakes need the I/O loop; silent peers hit the close timeout.
+    if (ws_server_thread.joinable()) {
+        ws_server_thread.join();
+    } else if (ws) {
+        ws->run(); // Startup may have failed before the worker was created.
+    }
+    connections.clear();
+
     std::vector<std::shared_ptr<SessionContext>> sessions;
     {
         std::lock_guard<std::mutex> mutex_guard(webrtc_session_mutex);
@@ -135,6 +153,7 @@ WebRtcSockerError WebRtcWebSocket::stop() {
         webrtc_sessions.clear();
     }
 
+    // Holding the map mutex during cleanup would block signaling callbacks we wait for.
     for (auto &ctx : sessions) {
         if (ctx) {
             opk::log::debug("Cleaning WebRTC session during stop");
@@ -142,13 +161,7 @@ WebRtcSockerError WebRtcWebSocket::stop() {
         }
     }
 
-    if (ws) {
-        ws->stop();
-    }
-
-    if (ws_server_thread.joinable()) {
-        ws_server_thread.join();
-    }
+    ws.reset();
 
     return WebRtcSockerError::OK;
 }
@@ -162,23 +175,34 @@ std::shared_ptr<SessionContext> WebRtcWebSocket::get_session(const connection_hd
     return it->second;
 }
 
-bool WebRtcWebSocket::cleanup_session(const connection_hdl &hdl, const char *reason) {
-    std::shared_ptr<SessionContext> ctx;
-    {
-        std::lock_guard<std::mutex> mutex_guard(webrtc_session_mutex);
-        auto it = webrtc_sessions.find(hdl);
-        if (it == webrtc_sessions.end()) {
-            return false;
-        }
-        ctx = it->second;
-        webrtc_sessions.erase(it);
-    }
-
+void WebRtcWebSocket::cleanup_session_on_io(const SessionWeakPtr &session) {
+    auto ctx = session.lock();
+    bool removed = false;
     if (ctx) {
-        opk::log::debug("Cleaning WebRTC session: {}", reason ? reason : "unknown");
+        std::lock_guard<std::mutex> mutex_guard(webrtc_session_mutex);
+        auto it = webrtc_sessions.find(ctx->hdl);
+        // Once shutdown starts, stop() owns cleanup after joining this worker.
+        removed = !stopping && it != webrtc_sessions.end() && it->second == ctx;
+        if (removed) {
+            webrtc_sessions.erase(it);
+        }
+    }
+    if (removed) {
         ctx->cleanup();
     }
-    return true;
+}
+
+bool WebRtcWebSocket::cleanup_session(const connection_hdl &hdl, const char *reason) {
+    auto ctx = get_session(hdl);
+    if (ctx) {
+        opk::log::debug("Cleaning WebRTC session: {}", reason ? reason : "unknown");
+        // WebRTC callbacks cannot stop their own signaling thread. Dispatch keeps
+        // cleanup on the WebSocket worker; calls from that worker still run inline.
+        asio::dispatch(
+            ctx->ws->get_io_service(),
+            std::bind_front(&WebRtcWebSocket::cleanup_session_on_io, this, SessionWeakPtr(ctx)));
+    }
+    return ctx != nullptr;
 }
 
 std::size_t WebRtcWebSocket::active_session_count() const {
@@ -372,8 +396,10 @@ bool WebRtcWebSocket::attach_audio(SessionContext *ctx) {
 void WebRtcWebSocket::on_open(const connection_hdl &hdl) {
 
     opk::log::debug("WebSocket connection opened");
+    connections.insert(hdl);
     if (stopping) {
-        opk::log::debug("Ignoring WebSocket open while stopping");
+        websocketpp::lib::error_code ec;
+        ws->close(hdl, websocketpp::close::status::going_away, "", ec);
         return;
     }
 
@@ -399,7 +425,7 @@ void WebRtcWebSocket::on_open(const connection_hdl &hdl) {
     g_object_set(rtpbin, "rtcp-sync-send-time", FALSE, nullptr);
     gst_object_unref(rtpbin);
 
-    g_object_set(ctx->webrtcbin, "latency", 200u, "reuse-source-pads", FALSE, nullptr);
+    g_object_set(ctx->webrtcbin, "latency", 200u, nullptr);
     if (self_->webrtc_stun_server && self_->webrtc_stun_server[0] != '\0') {
         g_object_set(ctx->webrtcbin, "stun-server", self_->webrtc_stun_server, nullptr);
     }
@@ -437,7 +463,9 @@ void WebRtcWebSocket::on_open(const connection_hdl &hdl) {
 
 void WebRtcWebSocket::on_close(const connection_hdl &hdl) {
     opk::log::debug("WebSocket connection closed");
-    if (cleanup_session(hdl, "websocket close")) {
+    connections.erase(hdl);
+    // During stop(), the state-change thread cleans up sessions after joining us.
+    if (!stopping && cleanup_session(hdl, "websocket close")) {
         dump_pipeline_graph(GST_ELEMENT(self_), "pipeline_on_close");
     }
 }
@@ -509,7 +537,12 @@ void WebRtcWebSocket::process_offer(const std::shared_ptr<SessionContext> &ctx, 
     }
     ctx->offer_received = true;
 
-    auto sdp = jsn["sdp"].get<std::string>();
+    auto sdp = jsn.at("sdp").get<std::string>();
+    // TODO(EXPKITS-1382): Revisit when signaling schema validation is enabled.
+    if (sdp.find('\0') != std::string::npos) {
+        cleanup_session(ctx->hdl, "invalid offer sdp");
+        return;
+    }
     GstSDPMessage *sdp_message = nullptr;
     if (gst_sdp_message_new_from_text(sdp.c_str(), &sdp_message) != GST_SDP_OK) {
         opk::log::debug("Failed to parse SDP offer");
@@ -553,9 +586,22 @@ void WebRtcWebSocket::process_canditate(const std::shared_ptr<SessionContext> &c
                                         const json &jsn) {
     opk::log::debug("Received ICE candidate");
 
-    auto ice = jsn["ice"];
-    auto candidate = ice["candidate"].get<std::string>();
-    auto sdpMLineIndex = static_cast<guint>(ice["sdpMLineIndex"].get<int>());
+    // TODO(EXPKITS-1382): Revisit when signaling schema validation is enabled.
+    const auto &ice = jsn.at("ice");
+    auto candidate = ice.at("candidate").get<std::string>();
+    // ICE candidates are single SDP lines passed through a C string API.
+    if (candidate.find_first_of("\r\n") != std::string::npos ||
+        candidate.find('\0') != std::string::npos) {
+        cleanup_session(ctx->hdl, "invalid ICE candidate");
+        return;
+    }
+    const auto &index = ice.at("sdpMLineIndex");
+    // JSON numeric conversions do not check the target type's range.
+    if (!index.is_number_unsigned() || index.get<uint64_t>() > G_MAXUINT) {
+        cleanup_session(ctx->hdl, "invalid ICE media line index");
+        return;
+    }
+    auto sdpMLineIndex = index.get<guint>();
 
     if (candidate.find(".local ") != std::string::npos &&
         candidate.find(" typ host") != std::string::npos) {
@@ -585,7 +631,7 @@ void WebRtcWebSocket::on_message(const connection_hdl &hdl, const ws_server::mes
         const std::string payload = msg->get_payload();
         json jsn = json::parse(payload);
 
-        auto type = jsn["type"].get<std::string>();
+        auto type = jsn.at("type").get<std::string>();
 
         if (type == "offer") {
             process_offer(ctx, jsn);

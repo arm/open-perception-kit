@@ -4,12 +4,15 @@
 
 #include "glib.h"
 #include "gst/gstelement.h"
+#include <condition_variable>
 #include <functional>
 #include <nlohmann/json_fwd.hpp>
 
 #include <mutex>
+#include <ranges>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 // WebRTC in GST is unstable: this macro disables the warning
 #define GST_USE_UNSTABLE_API
@@ -31,6 +34,7 @@ CtrlWebSocket::CtrlWebSocket(_GstOpkSink *self) : self_(self) {
 }
 
 CtrlSockerError CtrlWebSocket::setup() {
+    std::lock_guard<std::mutex> g(hdl_lock);
     ws = std::make_shared<ws_server>();
 
     ws->init_asio();
@@ -70,12 +74,25 @@ CtrlSockerError CtrlWebSocket::start() {
 
 CtrlSockerError CtrlWebSocket::stop() {
     if (ws) {
-        ws->stop();
+        ws->get_io_service().post([this] {
+            websocketpp::lib::error_code ec;
+            ws->stop_listening(ec);
+            std::lock_guard<std::mutex> g(hdl_lock);
+            for (const auto &hdl : hdls) {
+                ws->close(hdl, websocketpp::close::status::going_away, "", ec);
+            }
+        });
     }
 
     if (ws_server_thread.joinable()) {
         ws_server_thread.join();
+    } else if (ws) {
+        ws->run(); // Startup may have failed before the worker was created.
     }
+
+    std::lock_guard<std::mutex> g(hdl_lock);
+    hdls.clear();
+    ws.reset();
 
     return CtrlSockerError::OK;
 }
@@ -83,18 +100,23 @@ CtrlSockerError CtrlWebSocket::stop() {
 void CtrlWebSocket::send_to_all(const std::string &text) {
     std::lock_guard<std::mutex> g(hdl_lock);
 
-    for (auto it = hdls.begin(); it != hdls.end();) {
+    if (!ws) {
+        return;
+    }
+
+    for (const auto &hdl : hdls) {
         websocketpp::lib::error_code ec;
-        ws->send(*it, text, websocketpp::frame::opcode::text, ec);
-        if (ec) {
-            it = hdls.erase(it);
-        } else {
-            ++it;
-        }
+        ws->send(hdl, text, websocketpp::frame::opcode::text, ec);
     }
 }
 
 void CtrlWebSocket::on_open(const connection_hdl &hdl) {
+    // A handshake accepted before stop_listening() can complete during shutdown.
+    if (!ws->is_listening()) {
+        websocketpp::lib::error_code ec;
+        ws->close(hdl, websocketpp::close::status::going_away, "", ec);
+        return;
+    }
     {
         std::lock_guard<std::mutex> g(hdl_lock);
         hdls.insert(hdl);
@@ -112,12 +134,16 @@ void CtrlWebSocket::on_close(const connection_hdl &hdl) {
 
 void CtrlWebSocket::on_message(const connection_hdl &hdl, const ws_server::message_ptr &msg) {
     opk::log::debug("on_message");
-    auto payload = msg->get_payload();
-    auto jsn = json::parse(payload);
-    auto type = jsn["type"].get<std::string>();
+    try {
+        auto payload = msg->get_payload();
+        auto jsn = json::parse(payload);
+        auto type = jsn.at("type").get<std::string>();
 
-    if (auto it = message_types.find(type); it != message_types.end()) {
-        (*it).second(jsn);
+        if (auto it = message_types.find(type); it != message_types.end()) {
+            (*it).second(jsn);
+        }
+    } catch (const json::exception &) {
+        opk::log::debug("Dropping invalid control message");
     }
 }
 
@@ -157,48 +183,66 @@ struct ToggleStateRequest {
 
 struct ToggleInvokeBox {
     std::shared_ptr<ToggleStateRequest> req;
+    // Track the originating server without keeping it alive. After stop() joins
+    // its worker and resets ws, expired() lets the callback discard this request
+    // so a delayed play/pause command cannot restart a stopped pipeline.
+    std::weak_ptr<ws_server> server;
 };
 
-gboolean toggle_on_main(gpointer user_data) {
-
-    opk::log::info("invoked\n");
+static void toggle_state_async(GstElement *sink, gpointer user_data) {
     auto *box = static_cast<ToggleInvokeBox *>(user_data);
-    auto tsr = box->req; // copy shared_ptr
+    auto request = box->req;
 
-    GstState cur = GST_STATE_NULL, pending = GST_STATE_NULL;
-    gst_element_get_state(tsr->element, &cur, &pending, 0);
+    // Keep the sink and its parents alive while applying the request.
+    std::vector<GstElement *> state_elements{GST_ELEMENT(gst_object_ref(sink))};
+    while (GstElement *parent = GST_ELEMENT(gst_element_get_parent(state_elements.back()))) {
+        state_elements.push_back(parent);
+        if (GST_IS_PIPELINE(parent)) { // NOSONAR
+            break;
+        }
+    }
+    request->element = GST_IS_PIPELINE(state_elements.back()) ? state_elements.back() : sink;
 
-    // Decide target more robustly (treat "pending PLAYING" as playing)
-    const bool is_playingish = (cur == GST_STATE_PLAYING) || (pending == GST_STATE_PLAYING);
-    const GstState target = is_playingish ? GST_STATE_PAUSED : GST_STATE_PLAYING;
+    // Lock pipeline -> bins -> sink so play/pause cannot race shutdown.
+    for (GstElement *state_element : std::views::reverse(state_elements)) {
+        GST_STATE_LOCK(state_element);
+    }
 
-    gst_element_set_state(tsr->element, target);
+    bool state_change_ok = false;
+    // A queued command from a stopped server must not restart the pipeline.
+    if (!box->server.expired()) {
+        GstState current = GST_STATE_NULL, pending = GST_STATE_NULL;
+        gst_element_get_state(request->element, &current, &pending, 0);
+        const bool playing = current == GST_STATE_PLAYING || pending == GST_STATE_PLAYING;
+        const GstState next_state = playing ? GST_STATE_PAUSED : GST_STATE_PLAYING;
+        state_change_ok =
+            gst_element_set_state(request->element, next_state) != GST_STATE_CHANGE_FAILURE;
+    }
 
-    // Optionally wait a bit for the state to settle
-    GstState after = GST_STATE_NULL, after_pending = GST_STATE_NULL;
-    gst_element_get_state(tsr->element, &after, &after_pending, 200 * GST_MSECOND);
+    for (GstElement *state_element : state_elements) {
+        GST_STATE_UNLOCK(state_element);
+    }
+
+    // Wait without holding state locks, then release the references.
+    GstState resulting = GST_STATE_NULL, pending = GST_STATE_NULL;
+    if (state_change_ok) {
+        gst_element_get_state(request->element, &resulting, &pending, 200 * GST_MSECOND);
+    }
+    request->element = nullptr;
+    for (GstElement *state_element : state_elements) {
+        gst_object_unref(state_element);
+    }
 
     {
-        std::lock_guard<std::mutex> lk(tsr->m);
-        tsr->resulting = after; // <- write under lock
-        tsr->ok = true;
-        tsr->done = true;
+        std::lock_guard<std::mutex> lock(request->m);
+        request->resulting = resulting;
+        request->ok = state_change_ok;
+        request->done = true;
     }
-    tsr->cv.notify_one();
-
-    opk::log::info("check is_pipeline\n");
-
-    // GST_IS_PIPELINE() is a macro performing a type check with no side effects
-    if (tsr->element && GST_IS_PIPELINE(tsr->element)) { // NOSONAR
-        opk::log::info("is_pipeline\n");
-        gst_object_unref(tsr->element);
-        tsr->element = nullptr;
-    }
-
-    return G_SOURCE_REMOVE;
+    request->cv.notify_one();
 }
 
-void destroy_box(gpointer user_data) {
+static void destroy_box(gpointer user_data) {
     delete static_cast<ToggleInvokeBox *>(user_data);
 }
 
@@ -206,17 +250,13 @@ void destroy_box(gpointer user_data) {
 void CtrlWebSocket::play_pause(const json &jsn) {
     opk::log::debug("play-pause: {}", jsn.dump());
 
-    auto tsr = std::make_shared<ToggleStateRequest>();
-
-    GstElement *pipeline = get_top_pipeline(GST_ELEMENT(self_));
-    tsr->element = pipeline ? pipeline : GST_ELEMENT(self_); // if pipeline, ref is held
-
-    auto *box = new ToggleInvokeBox{tsr};
-    g_main_context_invoke_full(nullptr, G_PRIORITY_DEFAULT, toggle_on_main, box, destroy_box);
+    auto request = std::make_shared<ToggleStateRequest>();
+    auto *box = new ToggleInvokeBox{request, ws};
+    gst_element_call_async(GST_ELEMENT(self_), toggle_state_async, box, destroy_box);
 
     {
-        std::unique_lock<std::mutex> lk(tsr->m);
-        tsr->cv.wait_for(lk, std::chrono::milliseconds(800), [&] { return tsr->done; });
+        std::unique_lock<std::mutex> lock(request->m);
+        request->cv.wait_for(lock, std::chrono::milliseconds(800), [&] { return request->done; });
     }
 
     // send the current pipeline state back to browser
@@ -227,10 +267,11 @@ void CtrlWebSocket::model_toggle(const json &jsn) {
     opk::log::debug("model_toggle: {}", jsn.dump());
 
     try {
-        std::string element_name = jsn["name"];
+        auto element_name = jsn.at("name").get<std::string>();
 
-        if (element_name.empty()) {
-            GST_ERROR_OBJECT(self_, "element_name can't be empty");
+        // TODO(EXPKITS-1382): Revisit when control message schema validation is enabled.
+        if (element_name.empty() || element_name.find('\0') != std::string::npos) {
+            opk::log::debug("Dropping invalid model toggle name");
             return;
         }
 
@@ -246,7 +287,8 @@ void CtrlWebSocket::model_toggle(const json &jsn) {
         gst_object_unref(pipeline);
 
         if (!target_element) {
-            GST_WARNING_OBJECT(self_, "Element not found: %s", element_name.c_str());
+            GST_WARNING_OBJECT(
+                self_, "Element not found: %s", opk::log::escape(element_name).c_str());
             return;
         }
 
@@ -256,9 +298,10 @@ void CtrlWebSocket::model_toggle(const json &jsn) {
         g_object_set(target_element, "active", active, NULL);
         gst_object_unref(target_element);
 
-        GST_INFO_OBJECT(self_, "Set element %s active=%d", element_name.c_str(), active);
+        GST_INFO_OBJECT(
+            self_, "Set element %s active=%d", opk::log::escape(element_name).c_str(), active);
 
     } catch (const json::exception &e) {
-        GST_ERROR_OBJECT(self_, "JSON parse error: %s", e.what());
+        opk::log::debug("Dropping invalid model toggle: {}", e.what());
     }
 }
