@@ -1365,15 +1365,6 @@ body.is-resizing-bottom-column * {
   font-size: 0.9rem;
 }
 
-.models-error {
-  padding: 12px;
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  border-radius: 8px;
-  color: var(--danger);
-  font-size: 0.85rem;
-}
-
 .model-item {
   position: relative;
   display: grid;

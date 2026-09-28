@@ -166,6 +166,17 @@ TEST_F(OpkLogTest, WritesUnconditionalOutputToOneStream) {
     EXPECT_EQ(testing::internal::GetCapturedStderr(), "stderr 2\n");
 }
 
+TEST_F(OpkLogTest, EscapesControlCharactersInLogArguments) {
+    testing::internal::CaptureStdout();
+
+    opk::log::info("input: {}\n", "camera {} árvíz");
+    opk::log::info("input: {}\n", "line\r\n\033\u2028next");
+    opk::log::flush();
+
+    EXPECT_EQ(testing::internal::GetCapturedStdout(),
+              "input: camera {} árvíz\ninput: line\\r\\n\\x1b\\u2028next\n");
+}
+
 TEST_F(OpkLogTest, ClampsLogLevelToSupportedRange) {
     opk::log::setLogLevel(-1);
     EXPECT_EQ(opk::log::getLogLevel(), 0);

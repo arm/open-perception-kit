@@ -20,6 +20,10 @@ on:
       HF_TOKEN:
         required: false
 
+concurrency:
+  group: quick-start-smoke-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -46,6 +50,13 @@ jobs:
 
       - name: Generate SDKs
         uses: ./.github/actions/setup-sdk
+
+      - name: Cache compiler output
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .cache/ccache
+          key: quick-start-ccache-v1-${{ matrix.arch }}-${{ github.sha }}
+          restore-keys: quick-start-ccache-v1-${{ matrix.arch }}-
 
       - name: Run quick-start
         env:

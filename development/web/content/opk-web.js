@@ -565,7 +565,8 @@ function appendLog(message, type = "info") {
   const div = document.createElement("div");
   div.className = "log-line" + (type === "error" ? " error" : "");
   const time = (/* @__PURE__ */ new Date()).toLocaleTimeString();
-  div.innerHTML = `<span>[${time}]</span> <span class="log-tag">${type === "error" ? "ERR" : "LOG"}</span>${message}`;
+  div.innerHTML = `<span>[${time}]</span> <span class="log-tag">${type === "error" ? "ERR" : "LOG"}</span>`;
+  div.append(String(message));
   logEl.appendChild(div);
   logEl.scrollTop = logEl.scrollHeight;
   console[type === "error" ? "error" : "log"]("[WebRTC UI]", message);
@@ -895,15 +896,6 @@ var ModelsManager = class {
       toggle.disabled = false;
       item.classList.remove("model-pending");
     }
-  }
-  renderError(message) {
-    if (!this.container) return;
-    this.container.innerHTML = `
-            <div class="models-error">
-                <strong>Error loading models:</strong><br>
-                ${message}
-            </div>
-        `;
   }
   destroy() {
     if (this.updateInterval) {

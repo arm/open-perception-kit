@@ -34,6 +34,7 @@ g++ -fPIC -shared -o libgstopksink.so opksink.cpp \
 
 #include <cstdlib>
 #include <dlfcn.h>
+#include <exception>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -141,6 +142,73 @@ GType gst_opk_sink_get_type(void);
 #define GST_OPK_SINK(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), GST_TYPE_OPK_SINK, GstOpkSink))
 G_DEFINE_TYPE(GstOpkSink, gst_opk_sink, GST_TYPE_BIN)
 
+static void gst_opk_sink_stop_servers(GstOpkSink *self) {
+    GstOpkPrivate *private_data = self->private_data;
+    if (private_data->ctrl_websocket) {
+        private_data->ctrl_websocket->stop();
+    }
+    if (private_data->http_server) {
+        private_data->http_server->stop();
+    }
+    if (private_data->webrtc_websocket) {
+        private_data->webrtc_websocket->stop();
+    }
+}
+
+static bool gst_opk_sink_start_servers(GstOpkSink *self) {
+    GstOpkPrivate *private_data = self->private_data;
+    bool started = false;
+
+    try {
+        if (!private_data->webrtc_websocket) {
+            private_data->webrtc_websocket = std::make_unique<WebRtcWebSocket>(self);
+        }
+        private_data->webrtc_websocket->start();
+
+        if (!private_data->http_server) {
+            private_data->http_server = std::make_unique<OpkSinkHttpServer>(self);
+        }
+        if (private_data->http_server->start() == OpkSinkHttpServerError::OK) {
+            // Keep reporters attached to the same control object across restarts.
+            if (!private_data->ctrl_websocket) {
+                private_data->ctrl_websocket = std::make_unique<CtrlWebSocket>(self);
+                private_data->ctrl_websocket->register_status_reporter(
+                    "models", private_data->model_registry);
+                private_data->ctrl_websocket->register_status_reporter(
+                    "pipeline_state", private_data->pipeline_state_reporter);
+            }
+            private_data->ctrl_websocket->start();
+            started = true;
+        } else {
+            GST_ELEMENT_ERROR(
+                self,
+                RESOURCE,
+                OPEN_READ_WRITE,
+                ("Unable to start HTTP server on port %d with static files from '%s'",
+                 self->http_port,
+                 self->static_files_location ? self->static_files_location : "(null)"),
+                (nullptr));
+        }
+    } catch (const std::exception &error) {
+        GST_ELEMENT_ERROR(
+            self,
+            RESOURCE,
+            OPEN_READ_WRITE,
+            ("Unable to start OpkSink servers (HTTP=%d, WebSocket=%d, control=%d): %s",
+             self->http_port,
+             self->ws_port,
+             self->ctrl_port,
+             error.what()),
+            (nullptr));
+    }
+
+    if (!started) {
+        gst_opk_sink_stop_servers(self);
+    }
+
+    return started;
+}
+
 static void gst_opk_sink_report_state_async(GstElement *element, gpointer user_data) {
     auto *self = reinterpret_cast<GstOpkSink *>(element);
     if (self->private_data && self->private_data->pipeline_state_reporter) {
@@ -156,8 +224,20 @@ static GstStateChangeReturn gst_opk_sink_change_state(GstElement *element,
         return GST_STATE_CHANGE_FAILURE;
     }
 
+    // gst_parse_launch() applies element properties after instance initialization.
+    if (transition == GST_STATE_CHANGE_NULL_TO_READY && !gst_opk_sink_start_servers(self)) {
+        return GST_STATE_CHANGE_FAILURE;
+    }
+    if (transition == GST_STATE_CHANGE_READY_TO_NULL) {
+        gst_opk_sink_stop_servers(self);
+    }
+
     const auto result =
         GST_ELEMENT_CLASS(gst_opk_sink_parent_class)->change_state(element, transition);
+
+    if (transition == GST_STATE_CHANGE_NULL_TO_READY && result == GST_STATE_CHANGE_FAILURE) {
+        gst_opk_sink_stop_servers(self);
+    }
 
     if (result != GST_STATE_CHANGE_FAILURE && self->private_data &&
         self->private_data->pipeline_state_reporter) {
@@ -402,24 +482,8 @@ static void gst_opk_sink_dispose(GObject *object) {
     auto *self = reinterpret_cast<GstOpkSink *>(object);
 
     if (self->private_data) {
-        // Stop ctrl_websocket first to ensure callbacks are no longer active before destroying
-        // the pipeline state reporter
-        if (self->private_data->ctrl_websocket) {
-            self->private_data->ctrl_websocket->stop();
-            self->private_data->ctrl_websocket.reset();
-        }
-        // Now reset the reporter after ctrl_websocket is destroyed (no more callbacks referencing
-        // it)
+        gst_opk_sink_stop_servers(self);
         self->private_data->pipeline_state_reporter.reset();
-
-        if (self->private_data->http_server) {
-            self->private_data->http_server->stop();
-            self->private_data->http_server.reset();
-        }
-        if (self->private_data->webrtc_websocket) {
-            self->private_data->webrtc_websocket->stop();
-            self->private_data->webrtc_websocket.reset();
-        }
     }
 
     // IMPORTANT: selector may be holding a ref via active-pad
@@ -780,29 +844,7 @@ static void gst_opk_sink_init(GstOpkSink *self) {
 
     // private data
     self->private_data->model_registry = std::make_shared<ModelRegistry>();
-
-    self->private_data->webrtc_websocket = std::make_unique<WebRtcWebSocket>(self);
-    self->private_data->webrtc_websocket->start();
-
-    self->private_data->ctrl_websocket = std::make_unique<CtrlWebSocket>(self);
-    self->private_data->ctrl_websocket->start();
-
-    self->private_data->http_server = std::make_unique<OpkSinkHttpServer>(self);
-    if (self->private_data->http_server->start() != OpkSinkHttpServerError::OK) {
-        GST_ELEMENT_ERROR(self,
-                          RESOURCE,
-                          NOT_FOUND,
-                          ("Unable to start the HTTP server with static files from '%s'",
-                           self->static_files_location ? self->static_files_location : "(null)"),
-                          (nullptr));
-    }
-
     self->private_data->pipeline_state_reporter = std::make_shared<PipelineStateReporter>(self);
-
-    self->private_data->ctrl_websocket->register_status_reporter(
-        "models", self->private_data->model_registry);
-    self->private_data->ctrl_websocket->register_status_reporter(
-        "pipeline_state", self->private_data->pipeline_state_reporter);
 
     self->private_data->initialized = true;
 }

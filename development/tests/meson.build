@@ -434,6 +434,29 @@ test('performance_metrics_tests', performance_metrics_tests)
 test('opktracker_matching_tests', opktracker_matching_tests)
 test('opktracker_tracking_output_tests', opktracker_tracking_output_tests)
 test('webrtc_session_tests', webrtc_session_tests)
+foreach endpoint : ['control', 'webrtc']
+  test(
+    'opksink_websocket_json_' + endpoint,
+    gst_python,
+    args : [files('opksink_websocket_json_test.py'), opkinferpre.full_path(), endpoint],
+    depends : opkinferpre,
+    is_parallel : false,
+    timeout : 20,
+  )
+endforeach
+test(
+  'opksink_configured_ports',
+  gst_python,
+  args : [files('opksink_configured_ports_test.py'), opkinferpre.full_path()],
+  depends : opkinferpre,
+)
+test(
+  'websocket_shutdown',
+  gst_python,
+  args : [files('websocket_shutdown_test.py'), opkinferpre.full_path(), opkcomm.full_path()],
+  depends : [opkinferpre, opkcomm],
+  env : ['G_DEBUG=fatal-criticals'],
+)
 foreach failed_element : [
   'vconv',
   'rtp_tee',
