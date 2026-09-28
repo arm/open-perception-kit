@@ -353,7 +353,7 @@ jobs:
           app-id: ${{ secrets.OPK_DEBUG_ACCESS_APP_ID }}
           private-key: ${{ secrets.OPK_DEBUG_ACCESS_APP_PRIVATE_KEY }}
           owner: Arm-Debug
-          repositories: amp-dev-forge-publisher
+          repositories: open-perception-kit-publisher
 
       - name: Trigger Artifactory publisher
         id: trigger_artifactory_publisher
@@ -363,7 +363,7 @@ jobs:
         run: |
           set -euo pipefail
           publisher_run_url="$(gh workflow run upload-to-artifactory.yaml \
-            --repo Arm-Debug/amp-dev-forge-publisher \
+            --repo Arm-Debug/open-perception-kit-publisher \
             --ref main \
             --field source-run-id="$GITHUB_RUN_ID" \
             --field artifact-name="opk-release-artifacts" \
@@ -384,13 +384,13 @@ jobs:
         run: |
           set -euo pipefail
           gh run watch "$PUBLISHER_RUN_ID" \
-            --repo Arm-Debug/amp-dev-forge-publisher \
+            --repo Arm-Debug/open-perception-kit-publisher \
             --compact \
             --interval 60 \
             --exit-status
 
           gh run download "$PUBLISHER_RUN_ID" \
-            --repo Arm-Debug/amp-dev-forge-publisher \
+            --repo Arm-Debug/open-perception-kit-publisher \
             --name artifactory-links \
             --dir publisher-artifacts
 
@@ -565,7 +565,7 @@ jobs:
           app-id: ${{ secrets.OPK_DEBUG_ACCESS_APP_ID }}
           private-key: ${{ secrets.OPK_DEBUG_ACCESS_APP_PRIVATE_KEY }}
           owner: Arm-Debug
-          repositories: amp-dev-forge-publisher
+          repositories: open-perception-kit-publisher
 
       - name: Trigger open-perception-kit Cargo publisher
         id: trigger_cargo_publisher
@@ -575,7 +575,7 @@ jobs:
         run: |
           set -euo pipefail
           publisher_run_url="$(gh workflow run cargo-publish.yaml \
-            --repo Arm-Debug/amp-dev-forge-publisher \
+            --repo Arm-Debug/open-perception-kit-publisher \
             --ref main \
             --field source-run-id="$GITHUB_RUN_ID" \
             --field artifact-name="open-perception-kit-input-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
@@ -595,7 +595,7 @@ jobs:
           PUBLISHER_RUN_ID: ${{ steps.trigger_cargo_publisher.outputs.publisher_run_id }}
         run: |
           gh run watch "$PUBLISHER_RUN_ID" \
-            --repo Arm-Debug/amp-dev-forge-publisher \
+            --repo Arm-Debug/open-perception-kit-publisher \
             --compact \
             --interval 60 \
             --exit-status
