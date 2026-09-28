@@ -23,11 +23,11 @@ include all ten ONNX releases—MobileGaze, NITEC, OSNet, UltraFace, and the six
 YOLO26 size and resolution variants—plus the ExecuTorch/XNNPACK variants of
 MobileGaze and NITEC.
 
-The dedicated read-only `HF_TOKEN` is an accepted release-CI dependency while
-this repository and required model sources remain private. It is confined to
-the existing `opk-models` artifact stage and is not included in release images
-or archives. A future public transition requires anonymously readable model
-sources and removal of the workflow secret references.
+The standard OPK model sources are public. Release and quick-start CI download
+the pinned artifacts anonymously and do not require an `HF_TOKEN` secret.
+Release users run the packaged model files without Hugging Face credentials or
+network access. Optional authentication for custom private or gated models is
+described in [Bring your model](../public/how-to/bring-your-model.md).
 
 Package builds reuse the selected source's existing deployment lane. Native
 x86_64 and Arm jobs build `opk-deployment-base`; its `opk-deployment-build`
@@ -36,9 +36,7 @@ ExecuTorch Debian package, builds the runnable snapshot, and creates the
 validated architecture tarball. The workflow publishes those same native image
 digests as one multi-architecture
 `ghcr.io/arm/open-perception-kit-deployment` image and copies the tarball from
-each finished image. Hugging Face and ExecuTorch credentials are BuildKit
-secrets and are not stored in image layers or published artifacts. Release
-builds package ONNX Runtime 1.24.4 with its
+each finished image. Release builds package ONNX Runtime 1.24.4 with its
 required SONAME link, and statically link ExecuTorch into its operation module
 without shipping ExecuTorch SDK files.
 

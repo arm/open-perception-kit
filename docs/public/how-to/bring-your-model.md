@@ -86,6 +86,22 @@ consumes against `config/schemas/v1/model.schema.json` before starting any
 remote download. Schema, JSON, and destination validation failures are reported
 through Python logging and stop the build without a traceback.
 
+Public models, including all standard OPK models, download without a Hugging
+Face account or token. For your own private or gated model, export a read-only
+`HF_TOKEN` with access to that model in the host shell before building:
+
+```bash
+export HF_TOKEN="hf_your_token_here"
+./scripts/quick_start.sh
+```
+
+For VS Code, make the token available in the host environment used to start the
+Dev Container, on the Pi when using Remote SSH. After changing the token, run
+**Dev Containers: Rebuild Container**. Docker passes it only to the model-download
+build step, not the runtime container. Direct Compose and Topo builds use the
+same secret and require a fresh `HF_DOWNLOAD_CACHEBUST` from
+`scripts/private/generate-hf-download-cachebust.sh` before each build.
+
 Important input metadata includes:
 - shape
 - data kind, such as `ImageRgbChw` or `ImageRgbHwc`

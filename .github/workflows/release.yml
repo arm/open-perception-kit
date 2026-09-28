@@ -40,8 +40,6 @@ jobs:
   quick-start-smoke:
     name: Quick-start smoke test
     uses: ./.github/workflows/quick-start-smoke.yml
-    secrets:
-      HF_TOKEN: ${{ secrets.HF_TOKEN }}
 
   sdk-tests:
     name: SDK tests
@@ -155,8 +153,6 @@ jobs:
           platforms: ${{ matrix.platform }}
           provenance: false
           pull: true
-          secrets: |
-            "huggingface_token=${{ secrets.HF_TOKEN }}"
           target: opk-deployment-base
 
       - name: Extract package from release snapshot
