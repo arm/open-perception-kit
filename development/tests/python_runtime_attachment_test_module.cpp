@@ -4,6 +4,7 @@
 
 #include <Python.h>
 
+#include <array>
 #include <filesystem>
 #include <string>
 #include <string_view>
@@ -62,17 +63,17 @@ PyObject *run(PyObject *, PyObject *) {
     }
 }
 
-PyMethodDef moduleMethods[] = {
+std::array<PyMethodDef, 2> moduleMethods = {{
     {"run", run, METH_NOARGS, "Create and execute PythonScript Ops in the host interpreter."},
     {nullptr, nullptr, 0, nullptr},
-};
+}};
 
 PyModuleDef moduleDefinition = {
     PyModuleDef_HEAD_INIT,
     "opk_python_runtime_attachment_test",
     "Python-hosted OPK runtime attachment regression fixture.",
     -1,
-    moduleMethods,
+    moduleMethods.data(),
     nullptr,
     nullptr,
     nullptr,

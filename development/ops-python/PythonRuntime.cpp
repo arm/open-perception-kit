@@ -97,10 +97,33 @@ void initializeRuntime(const std::vector<std::filesystem::path> &pythonPaths) {
     initializeOwnedRuntime();
 }
 
+class ScopedGILRelease {
+  public:
+    ScopedGILRelease() {
+        if (Py_IsInitialized() && PyThreadState_GetUnchecked() != nullptr)
+            threadState = PyEval_SaveThread();
+    }
+
+    ScopedGILRelease(const ScopedGILRelease &) = delete;
+    ScopedGILRelease &operator=(const ScopedGILRelease &) = delete;
+
+    ~ScopedGILRelease() {
+        if (threadState != nullptr)
+            PyEval_RestoreThread(threadState);
+    }
+
+  private:
+    PyThreadState *threadState = nullptr;
+};
+
 } // namespace
 
 void ensureRuntime(const std::vector<std::filesystem::path> &pythonPaths) {
-    std::call_once(initializationFlag, [&pythonPaths] { initializeRuntime(pythonPaths); });
+    auto runtimePythonPaths = pythonPaths;
+    ScopedGILRelease gilRelease;
+    std::call_once(initializationFlag, [runtimePythonPaths = std::move(runtimePythonPaths)] {
+        initializeRuntime(runtimePythonPaths);
+    });
 }
 
 GILGuard::~GILGuard() {
