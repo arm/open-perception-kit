@@ -615,7 +615,9 @@ COPY tools/flowdata-sdk tools/flowdata-sdk
 COPY schemas/perception/metadata schemas/perception/metadata
 COPY development development
 COPY generated generated
-COPY --from=opk-models /work/config config
+# Release and deployment images contain descriptors only. Users download models
+# through the quick-start development flow with their own Hugging Face access.
+COPY config config
 
 # SHELL selects Bash; hadolint 2.15.1 misclassifies this derived stage as sh.
 # hadolint ignore=SC3054
@@ -849,7 +851,7 @@ ARG TARGETARCH
 
 WORKDIR /work
 COPY development development
-COPY --from=opk-models /work/config/models/yolo26n-320 config/models/yolo26n-320
+COPY config/models/yolo26n-320 config/models/yolo26n-320
 COPY data/images/GettyImages-1140581459-thumbnail.jpg data/images/GettyImages-1140581459-thumbnail.jpg
 COPY --chmod=0755 scripts/build.sh scripts/build.sh
 COPY --chmod=0755 scripts/private/install-onnxruntime.sh scripts/private/install-onnxruntime.sh

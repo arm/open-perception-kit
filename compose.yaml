@@ -4,9 +4,6 @@ name: opk-dev
 
 services:
   opk-dev:
-    extends:
-      file: compose.base.yaml
-      service: opk-model-image
     platform: linux/arm64
     container_name: open-perception-kit
     hostname: open-perception-kit
@@ -22,17 +19,16 @@ services:
     tty: true
     volumes:
       - /run/udev:/run/udev:ro
+      - ./config/models:/work/config/models:ro
     environment:
       OPK_PIPELINE: ${OPK_PIPELINE:-yolo26n-320}
     build:
+      context: .
+      dockerfile: Dockerfile
       target: opk-deployment-base
       args:
         OPK_PICAMERA: ${OPK_PICAMERA:-disabled}
         NO_EXAMPLE_CONTENT: ${NO_EXAMPLE_CONTENT:-false}
-
-secrets:
-  huggingface_token:
-    environment: HF_TOKEN
 
 x-topo:
   name: open-perception-kit

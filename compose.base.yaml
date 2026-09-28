@@ -53,9 +53,6 @@ services:
         - *opk-runtime-environment
         - *opk-development-environment
 
-  opk-model-image:
-    build: *opk-model-image-build
-
   opk-common-dev-model-image:
     <<: *opk-common-dev
     build: *opk-model-image-build

@@ -215,16 +215,20 @@ when you need direct deployment control or remote deployment with Topo.
 
 ### Build a deployment container directly with Docker Compose
 
-Generate a cache key before invoking Compose:
+Download models through quick start first. Export your read-only Hugging Face
+token when private or gated models are needed:
 
 ```bash
-export HF_DOWNLOAD_CACHEBUST="$(./scripts/private/generate-hf-download-cachebust.sh)"
+# Optional: export HF_TOKEN="hf_your_token_here"
+./scripts/quick_start.sh
+./scripts/quick-start/cleanup-container.sh
 docker compose up --build
 ```
 
-Generate a fresh cache key before every direct Compose build. The model stage
-rejects builds when the key is omitted, preventing an authenticated build from
-silently reusing a cached anonymous model layer.
+Quick start downloads models into `config/models`. The deployment container
+mounts that directory read-only; its image contains descriptors but no model
+binaries. Stopping the quick-start container frees the container name and ports
+while preserving the downloaded files in the checkout.
 
 ### Deploy with Topo
 
@@ -235,12 +239,23 @@ check that the target is ready:
 topo health --target <raspberry-pi-ip-address>
 ```
 
-Deploy the default sample-video pipeline from the repository root:
+On the target, use the same OPK source revision and run quick start with your
+Hugging Face access, then stop its container as above. In the host's
+`compose.yaml`, set the model volume's source to the **absolute target path**
+containing those downloaded models, for example:
+
+```yaml
+- /home/<target-user>/open-perception-kit/config/models:/work/config/models:ro
+```
+
+Deploy from the repository root on the host:
 
 ```bash
-export HF_DOWNLOAD_CACHEBUST="$(./scripts/private/generate-hf-download-cachebust.sh)"
 topo deploy --target <raspberry-pi-ip-address>
 ```
+
+The deployment uses the target's model files. Hugging Face credentials are used
+by quick start and are not forwarded to the deployment image or container.
 
 When the deployment has started, open:
 
