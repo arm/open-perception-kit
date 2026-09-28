@@ -14,7 +14,7 @@ from opk_python_ops import Context, Tensor
 
 
 def process(env: Envelope, tensors: tuple[Tensor, ...], context: Context) -> None:
-    assert sys.version_info[:2] == (3, 14)
+    assert sys.version_info[:2] == (3, 13)
     assert env is not None
     assert tensors == ()
     assert context.producer_info.implementation == "runtime_environment.py"

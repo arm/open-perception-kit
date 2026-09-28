@@ -12,7 +12,7 @@ ARG TARGETARCH
 # Development Tooling Images
 # ==============================================================================
 
-FROM --platform=${BUILDPLATFORM} python:3.14-slim-trixie AS opk-build-base
+FROM --platform=${BUILDPLATFORM} python:3.13-slim-trixie AS opk-build-base
 
 ARG EXECUTORCH_VERSION=1.3.1
 ARG EXECUTORCH_DEB_REVISION=2
@@ -136,7 +136,7 @@ RUN if [ "${NO_EXAMPLE_CONTENT}" != "true" ]; then \
 
 # Model artifacts are resolved in a dedicated stage so Hugging Face tokens stay
 # scoped to build-time model download.
-FROM --platform=${BUILDPLATFORM} python:3.14-slim-trixie AS opk-models
+FROM --platform=${BUILDPLATFORM} python:3.13-slim-trixie AS opk-models
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
   PYTHONDONTWRITEBYTECODE=1
@@ -503,7 +503,7 @@ WORKDIR /work
 # Deployment Build and Runtime Images
 # ==============================================================================
 
-FROM python:3.14-slim-trixie AS opk-gstreamer-runtime-base
+FROM python:3.13-slim-trixie AS opk-gstreamer-runtime-base
 
 ENV DEBIAN_FRONTEND=noninteractive \
   LANG=C.UTF-8 \

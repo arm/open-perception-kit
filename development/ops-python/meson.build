@@ -12,7 +12,7 @@ python_ops_sources = [
 
 python_executable = opk_python.full_path()
 if release_package
-  python_executable = 'python3.14'
+  python_executable = 'python3.13'
 endif
 
 python_ops_cpp_args = [

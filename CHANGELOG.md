@@ -8,6 +8,7 @@ follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Align the supported Python runtime with Debian Trixie's Python 3.13.
 - Harden WebSocket input handling and diagnostics.
 - Fix server lifecycle across pipeline state changes ([#63](https://github.com/arm/open-perception-kit/pull/63)).
 

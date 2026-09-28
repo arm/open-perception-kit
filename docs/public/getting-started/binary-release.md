@@ -65,8 +65,8 @@ tools with the Base, Good, and Bad plugin sets, including Nice and the WebRTC
 plugins. GLib, OpenSSL, zlib, Brotli, zstd, libsoup 3, json-glib, the
 C/C++ runtimes, and any required accelerator driver and firmware remain host
 dependencies. The Arm package also requires the system `libusb-1.0` runtime.
-PythonScript OpChains require the `python3.14` executable on `PATH` and the
-corresponding `libpython3.14.so.1.0` shared library available to the system
+PythonScript OpChains require the `python3.13` executable on `PATH` and the
+corresponding `libpython3.13.so.1.0` shared library available to the system
 dynamic loader. NumPy, FlatBuffers, and the Open Perception Kit guest package are already
 included privately in the OPK archive. Python applications that drive GStreamer
 directly also need the system PyGObject bindings, available as
