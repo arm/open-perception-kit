@@ -31,7 +31,6 @@ legend right
   |<#bbf7d0> | Final usable image target |
   |<#bfdbfe> | Reusable stage inherited by other targets |
   |<#fed7aa> | Build or artifact stage that produces selected outputs |
-  |<#fef3c7> | CI service/job using a built image |
   |<#e5e7eb> | External base image |
 endlegend
 
@@ -77,7 +76,7 @@ package "Dockerfile\ncore cross-lane stage graph" {
   package "Deployment Build and Runtime Images" {
     component "opk-cross-build-base\ncross-build root" as cross_base #bfdbfe
     component "opk-deployment-build\nrelease toolchain and builder\ncollects app + SDK + tarball" as deployment_build #fed7aa
-    component "opk-deployment-base\nrunnable release snapshot\nprebuilt OPK + tarball" as deployment_image #bbf7d0
+    component "opk-deployment-base\nrunnable deployment image\nprebuilt OPK + tarball" as deployment_image #bbf7d0
 
     build_base --> cross_base : FROM
     cross_base --> deployment_build : FROM
@@ -94,19 +93,6 @@ package "Helper Dockerfiles\nindependent workflow runtimes" {
   py313 --> pre_commit : FROM
 }
 
-package "CI Service Mapping" {
-  component yolo_dataset
-  component "CI: opk-build-base" as ci_build_base #fef3c7
-  component "Nightly: opk-deployment-base\namd64 + arm64 image and full cache" as ci_deploy #fef3c7
-  component "Arm64 CI: development image\nexact SHA or registry layer cache" as ci_dev #fef3c7
-  component "CI: opk-pre-commit-runtime" as ci_pre_commit #fef3c7
-
-  build_base ..> ci_build_base : image target
-  deployment_image ..> ci_deploy : image target
-  dev_ci ..> ci_dev : image target
-  pre_commit ..> ci_pre_commit : repo checks
-}
-
 note right of dev_image
   Contract: tools and dependency libraries plus
   optional downloaded model and demo media artifacts. The
@@ -115,9 +101,8 @@ note right of dev_image
 end note
 
 note right of dev_ci
-  macOS and YOLO use the exact-SHA image when available.
-  Missing images and the Raspberry Pi camera-enabled target
-  rebuild from the same registry layer cache.
+  Local macOS quick-start selects this target
+  through its Compose override.
 end note
 
 note bottom of deployment_build
@@ -127,25 +112,6 @@ note bottom of deployment_build
   the checked-in open-perception-kit snapshot and create the
   validated architecture tarball. The runtime target
   copies selected outputs, not compilers or build scratch state.
-end note
-
-note bottom of deployment_image
-  Native release builds publish the existing amd64
-  and arm64 outputs by digest, then combine them as
-  one GHCR multi-architecture snapshot. The tarball
-  remains available inside each image and separately.
-end note
-
-note bottom of docs_image
-  Release documentation uses this existing tool image
-  directly, then archives generated HTML with system tar.
-  No release-specific docs image or entrypoint exists.
-end note
-
-note bottom of yolo_dataset
-  The immutable GHCR tag covers the COCO image archive,
-  annotations, and pinned video checksums. Source archives
-  and annotations are excluded from the final data image.
 end note
 
 note bottom of pre_commit

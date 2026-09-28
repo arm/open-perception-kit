@@ -72,25 +72,13 @@ development and deployment can consume the same resolved inputs without
 inheriting artifact-stage tools. The helper runtime uses a separate top-level
 Dockerfile because it does not share the core Debian build graph.
 
-The CI service mapping uses these image lanes without creating new image
-contracts for each job. The nightly OPK CI schedule publishes native amd64 and
-arm64 `opk-deployment-base` images and their full BuildKit registry caches.
-The native Arm64 publisher also publishes an exact-SHA `opk-dev-macos-ci`
-development image and its full registry cache. macOS and YOLO use the exact
-image when it exists and rebuild from that cache otherwise. Raspberry Pi
-quick-start imports the same cache while rebuilding the camera-enabled
-`opk-dev` target.
 Native Meson, Valgrind, and clang-tidy workflows use the shared
 `.github/actions/setup-build` action. Quick-start smoke uses `opk-dev`.
-Host pre-commit hooks build `Dockerfile.pre-commit` directly. Deployment build/audit jobs use
-`opk-build-base` and `opk-deployment-base`. Binary release jobs build the
-existing `opk-deployment-base` target natively, export its validated archive,
-and combine the native digests into one published multi-architecture image.
+Host pre-commit hooks build `Dockerfile.pre-commit` directly.
 
-The published deployment image is the complete runnable snapshot. The binary
-release archives remain a narrower integration surface: users extract the
-matching architecture package and set only its plugin directory in
-`GST_PLUGIN_PATH`.
+Binary release jobs build `opk-deployment-base` locally and export its validated
+architecture archives. Users extract the matching architecture package and set
+its plugin directory in `GST_PLUGIN_PATH`.
 
 ## Runtime Contracts
 
@@ -226,13 +214,11 @@ stages inherit everything from their parent unless noted otherwise.
 - `opk-pre-commit-runtime`: starts from `python:3.13-slim-trixie` and adds
   `ca-certificates`, `curl`, `git`, `shfmt`, `actionlint`, and `opk-ci`.
 
-Quick-start builds mount a compiler cache at `$OPK_PROJECT_ROOT/.cache/ccache`. The native
-Arm64 publisher prewarms this cache in the exact-SHA development image. The
-container entrypoint maps the runner's UID/GID at runtime and copies the seed
-into temporary, project-scoped compiler-cache and build-output volumes. macOS
-CI then deletes Colima. Publisher and Raspberry Pi build layers are reused
-through the current GHCR `buildcache` tag; only the newest 20 exact-SHA images
-are kept.
+Quick-start builds mount a compiler cache at `$OPK_PROJECT_ROOT/.cache/ccache`.
+On macOS, the Compose override selects `opk-dev-macos-ci` and mounts project-scoped
+compiler cache and build output volumes. The container entrypoint maps the host
+UID/GID and seeds the compiler cache from `/opt/opk-ccache`, which is populated
+by `opk-dev-macos-cache-build`.
 
 ## Image Lanes
 
@@ -246,17 +232,16 @@ CI jobs build and test the checked-out source at job runtime. There is no
 separate general-purpose CI image. The `opk-ci` Python tool remains installed
 in the development and pre-commit images.
 
-The documentation lane is separate from general CI. The `opk-docs` image reuses
-the development base and adds documentation tools such as Doxygen, Pandoc,
-Graphviz, and PlantUML. Release documentation is generated and archived from
-this same image rather than a second release-specific container or wrapper.
+The `opk-docs` image reuses the development base and adds documentation tools
+such as Doxygen, Pandoc, Graphviz, and PlantUML. For release documentation
+publishing, see [Publish From GitHub Actions](../README.md#publish-from-github-actions).
 
 The deployment lane has two roles plus shared artifact inputs.
 `opk-deployment-build` inherits the cross-build base, consumes model artifacts
 and demo media, compiles OPK, and collects `/opt/opk-app`. For a native release
 it also packages the checked-in Open Perception Kit snapshot and creates the
 architecture archive. `opk-python-ops-runtime` creates the Python environment
-on the target platform. `opk-deployment-base` is the runnable release snapshot
+on the target platform. `opk-deployment-base` is the runnable deployment image
 that receives the application and archive from the builder and the Python
 environment from the target runtime stage.
 
@@ -266,15 +251,13 @@ checks from the host Git hook.
 ## Use Cases
 
 Use the development images for interactive work, local builds, debugging, and
-running the kit from a mounted checkout. Binary release jobs build
-`opk-deployment-base`, publish its native digests as one GHCR image, and extract
-its prebuilt architecture archives.
+running the kit from a mounted checkout.
 
 Use the development container for local tests, Valgrind, and `opk-ci` commands.
 See the [CI workflow definitions](../../.github/workflows/) for the standalone CI checks.
 
-Use the documentation image when generating public docs, Doxygen output, and
-PlantUML diagrams.
+Use the documentation image for local generation of public docs, Doxygen output,
+and PlantUML diagrams.
 
 Use the deployment build and runtime images when producing a runnable deployment
 image. This lane combines downloaded model artifacts, demo media, compiled OPK
