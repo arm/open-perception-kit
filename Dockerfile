@@ -299,7 +299,10 @@ RUN set -eux; \
   -r /opt/opk-deps/requirements/models.txt \
   "${numpy_wheel}" \
   "${flatbuffers_wheel}"; \
+  uv pip install --python /opt/opk-venvs/python-ops-runtime/bin/python \
+    --no-deps /tmp/opk-tools/perception; \
   /opt/opk-venvs/devtools/bin/python -I -c 'import open_perception_kit, plumber'; \
+  /opt/opk-venvs/python-ops-runtime/bin/python -I -c 'import open_perception_kit'; \
   chown -R "${USER_UID}:${USER_GID}" /opt/opk-venvs/devtools; \
   rm -rf /tmp/opk-tools /tmp/perception-sdk.json /tmp/python-ops-runtime.json
 
