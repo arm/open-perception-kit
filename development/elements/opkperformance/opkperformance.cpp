@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright 2025-2026 Arm Limited and/or its affiliates
+ * SPDX-FileCopyrightText: Copyright 2025-2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -189,7 +189,7 @@ static void gst_opk_performance_class_init(GstOpkPerformanceClass *klass) {
         "OPK Performance Overlay",
         "Filter/Effect/Video",
         "Overlays real-time performance metrics from Performance Metrics",
-        "OPK Team <opk@example.com>");
+        "Arm Limited <perception-fdbck@arm.com>");
 
     // Set pad templates
     GstCaps *caps = gst_caps_from_string(OPK_SUPPORTED_RAW_VIDEO_CAPS);

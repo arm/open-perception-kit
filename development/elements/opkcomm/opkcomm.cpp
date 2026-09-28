@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright 2025-2026 Arm Limited and/or its affiliates
+ * SPDX-FileCopyrightText: Copyright 2025-2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -427,7 +427,7 @@ static void gst_opk_comm_class_init(GstOpkCommClass *klass) {
         "OpkComm metadata publisher",
         "Filter/Metadata",
         "Reads buffer metadata and publishes it (FIFO/file/WebSocket/TCP)",
-        "Arm Limited");
+        "Arm Limited <perception-fdbck@arm.com>");
 }
 
 static void gst_opk_comm_init(GstOpkComm *self) {

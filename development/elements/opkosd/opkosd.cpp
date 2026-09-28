@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright 2025-2026 Arm Limited and/or its affiliates
+ * SPDX-FileCopyrightText: Copyright 2025-2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -155,7 +155,7 @@ static void gst_opk_osd_class_init(GstOpkOsdClass *klass) {
                                           "OPK OSD Overlay",
                                           "Filter/Video",
                                           "On-Screen Display overlay for OPK video frames",
-                                          "OPK Development Team");
+                                          "Arm Limited <perception-fdbck@arm.com>");
 
     GstCaps *caps = gst_caps_from_string(OPK_SUPPORTED_RAW_VIDEO_CAPS);
     GstPadTemplate *src_template = gst_pad_template_new("src", GST_PAD_SRC, GST_PAD_ALWAYS, caps);

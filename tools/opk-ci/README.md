@@ -162,4 +162,4 @@ eval "$($WORKSPACE_DIR/.venv/bin/register-python-argcomplete opk-ci)"
 
 ## License
 
-Copyright 2025-2026 Arm Limited and/or its affiliates
+Copyright 2025-2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>

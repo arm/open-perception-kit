@@ -297,7 +297,7 @@ OPK_PIPELINE=full-onnx-usb-cam \
 
 ## Copyright
 
-Copyright 2025-2026 Arm Limited and/or its affiliates.
+Copyright 2025-2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>.
 
 ## Licence
 
