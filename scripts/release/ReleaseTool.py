@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import argparse
+import configparser
 import filecmp
 import importlib.metadata
 import json
@@ -29,8 +30,21 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from urllib.parse import quote
 
 ARCHITECTURES = {"x86_64", "aarch64"}
+MESON_COMPONENTS = {
+    "asio", "cpp-httplib", "fmt", "gtest", "jsoncons", "magic_enum",
+    "nlohmann_json", "stb", "tl-expected", "websocketpp",
+}
+LEGAL_PREFIXES = ("license", "licence", "copying", "notice", "copyright", "thirdpartynotices")
+# These source files carry upstream attributions absent from the top-level licences.
+# Preserve their complete original bytes in the legal tree, including embedded terms.
+SOURCE_LEGAL_NOTICES = {
+    "jsoncons": "include/jsoncons/detail/grisu3.hpp",
+    "nlohmann_json": "include/nlohmann/detail/conversions/to_chars.hpp",
+}
+CORE_LEGAL_COMPONENTS = MESON_COMPONENTS | {"opk", "onnxruntime", "flatbuffers", "fontawesome"}
 ONNX_INFERENCE_OP = "opk-onnx-ops/Inference"
 ONNX_MODEL_SUFFIX = ".onnx"
 EXECUTORCH_INFERENCE_OP = "opk-executorch-ops/Inference"
@@ -553,12 +567,164 @@ def validate_schema_tree(root: Path) -> set[Path]:
     return files
 
 
-def validate_legal_documentation(package_root: Path) -> None:
+def copy_legal_files(source: Path, destination: Path, required: tuple[str, ...] = ()) -> list[str]:
+    files = {path for path in source.rglob("*")
+             if path.is_file() and path.name.lower().startswith(LEGAL_PREFIXES)}
+    files.update(source / check_safe_relative(relative, "licence notice") for relative in required)
+    if not files:
+        fail(f"Required licence evidence is missing: {source}")
+    copied = []
+    for path in sorted(files):
+        if not path.resolve().is_relative_to(source.resolve()) or not path.is_file() or not path.stat().st_size:
+            fail(f"Invalid, missing or empty licence evidence: {path}")
+        relative = path.relative_to(source)
+        target = destination / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(path, target)
+        copied.append(relative.as_posix())
+    return copied
+
+
+def stage_legal(args: argparse.Namespace) -> None:
+    repo_root = Path(args.repo_root).resolve()
+    deps_root = Path(args.deps_root).resolve()
+    stage_root = Path(args.stage_root).resolve()
+    legal_root = stage_root / "share/opk/licenses"
+    legal_root.mkdir(parents=True, exist_ok=False)
+    components = {}
+    catalogue_path = repo_root / "scripts/release/third-party-licenses.json"
+    catalogue = load_json(catalogue_path)
+    if not isinstance(catalogue, dict):
+        fail(f"Third-party licence catalogue must be an object: {catalogue_path}")
+
+    def collect(name: str, version: str, source: Path) -> None:
+        record = catalogue.get(name)
+        if not isinstance(record, dict) or not all(
+            isinstance(record.get(key), str) and record[key] for key in ("version", "licence", "repository")
+        ):
+            fail(f"Missing third-party licence information for {name}; update {catalogue_path}")
+        if version != record["version"]:
+            fail(f"{name} version changed from {record['version']} to {version}; "
+                 f"review its licence and notices and update {catalogue_path}")
+        required = (SOURCE_LEGAL_NOTICES[name],) if name in SOURCE_LEGAL_NOTICES else ()
+        notices = copy_legal_files(source, legal_root / name, required)
+        components[name] = {
+            **record,
+            "notices": [f"{name}/{notice}" for notice in notices],
+        }
+
+    for name in ("LICENSE", "NOTICE", "THIRD_PARTY_NOTICE.md"):
+        shutil.copyfile(repo_root / name, legal_root / name)
+    shutil.copyfile(repo_root / "docs/public/licensing.md", legal_root / "README.md")
+    components["opk"] = {
+        "version": read_version(repo_root), "licence": "Apache-2.0",
+        "repository": "https://github.com/arm/open-perception-kit",
+        "notices": ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICE.md", "README.md"],
+    }
+    subprojects = repo_root / "development/subprojects"
+    if {path.stem for path in subprojects.glob("*.wrap")} != MESON_COMPONENTS:
+        fail("Meson dependencies changed; update the licence inventory before releasing")
+    for name in sorted(MESON_COMPONENTS):
+        wrap = configparser.ConfigParser(interpolation=None)
+        wrap.read(subprojects / f"{name}.wrap")
+        directory = check_safe_relative(wrap["wrap-file"]["directory"], "wrap directory")
+        collect(name, str(directory), subprojects / directory)
+
+    build = load_json(repo_root / "requirements/build.json")
+    for name in ("LICENSE", "ThirdPartyNotices.txt"):
+        if not (deps_root / "onnxruntime/share/doc/onnxruntime" / name).is_file():
+            fail(f"ONNX Runtime is missing required licence evidence: {name}")
+    collect("onnxruntime", build["onnxruntime"], deps_root / "onnxruntime/share/doc/onnxruntime")
+    sdk = load_json(repo_root / "tools/perception/sdk.json")
+    vendor = repo_root / "development/web/content/vendor"
+    collect("flatbuffers", sdk["flatbuffers"]["version"], vendor / "flatbuffers")
+    fontawesome = vendor / "fontawesome"
+    font_version = re.search(r"Font Awesome Free ([\d.]+)",
+                             (fontawesome / "css/all.min.css").read_text(encoding="utf-8")[:256])
+    if font_version is None:
+        fail("Cannot identify the bundled Font Awesome version")
+    collect("fontawesome", font_version.group(1), fontawesome)
+
+    executorch = deps_root / "executorch-legal-documentation"
+    if executorch.is_dir():
+        version = subprocess.check_output(
+            ["dpkg-query", "--show", "--showformat=${Version}", "libexecutorch-dev"], text=True).strip()
+        collect("executorch", version, executorch)
+    if args.include_python:
+        for name in ("numpy", "flatbuffers"):
+            distribution = importlib.metadata.distribution(name)
+            metadata_files = [entry for entry in distribution.files or ()
+                              if ".dist-info/" in str(entry) and entry.name == "METADATA"]
+            if len(metadata_files) != 1:
+                fail(f"Cannot locate installed {name} distribution metadata")
+            source = Path(distribution.locate_file(metadata_files[0])).parent
+            collect(f"python-{name}", distribution.version, source)
+
+    getty_terms = repo_root / "data/GETTY-LICENSE.txt"
+    if getty_terms.is_file():
+        shutil.copyfile(getty_terms, legal_root / "GETTY-LICENSE.txt")
+        components["getty"] = {
+            "version": "asset IDs in data/images and scripts/private/demo-videos.manifest",
+            "licence": "See original Getty redistribution terms",
+            "repository": "https://www.gettyimages.com/",
+            "notices": ["GETTY-LICENSE.txt"],
+        }
+    write_json(legal_root / "components.json", components)
+    (legal_root / "THIRD_PARTY_LICENSES.md").write_text(legal_report(components), encoding="utf-8")
+    validate_legal_documentation(stage_root, require_backends=False)
+
+
+def legal_report(components: dict) -> str:
+    lines = [
+        "# Open Perception Kit licence report", "",
+        f"Generated for OPK release: {components['opk']['version']}", "",
+        "This report covers the collected component notices. A listed component may be a",
+        "build dependency rather than part of every executable. Original texts are linked",
+        "below and remain authoritative, including bundled dependencies' separate terms.", "",
+        "| Component | Version or source revision | Repository | Licence | Original notices |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for name, component in sorted(components.items()):
+        notices = ", ".join(f"[{path}](<{quote(path, safe='/')}>)" for path in component["notices"])
+        cells = [name, component["version"], component["repository"], component["licence"], notices]
+        lines.append("| " + " | ".join(cell.replace("|", r"\|").replace("\n", " ") for cell in cells) + " |")
+    return "\n".join(lines) + "\n"
+
+
+def validate_legal_documentation(package_root: Path, *, require_backends: bool = True) -> None:
     legal_root = package_root / "share/opk/licenses"
-    if not payload_files(legal_root):
-        fail("Packaged legal documentation is missing or empty")
-    if not payload_files(legal_root / "libexecutorch-dev"):
-        fail("Packaged ExecuTorch legal documentation is missing or empty")
+    inventory = load_json(legal_root / "components.json")
+    required = CORE_LEGAL_COMPONENTS.copy()
+    if require_backends:
+        required.update(("executorch", "python-numpy", "python-flatbuffers"))
+    if any((package_root / "work/data").rglob("GettyImages-*")):
+        required.add("getty")
+    if not isinstance(inventory, dict):
+        fail("Packaged licence inventory must be an object")
+    if required - inventory.keys():
+        fail(f"Packaged licence inventory is missing required components: {sorted(required - inventory.keys())}")
+    for name, component in inventory.items():
+        if not isinstance(component, dict) or not all(
+            isinstance(component.get(key), str) and component[key] for key in ("version", "licence", "repository")
+        ):
+            fail(f"Packaged licence record is incomplete: {name}")
+        if not isinstance(component.get("notices"), list) or not component["notices"]:
+            fail(f"Packaged licence notice list is invalid: {name}")
+        for relative in component["notices"]:
+            if not isinstance(relative, str):
+                fail(f"Packaged licence notice path is invalid: {name}")
+            path = legal_root / check_safe_relative(relative, "licence notice")
+            if not path.resolve().is_relative_to(legal_root.resolve()) or not path.is_file() or not path.stat().st_size:
+                fail(f"Packaged licence evidence is missing or empty: {name}/{relative}")
+    for name, relative in SOURCE_LEGAL_NOTICES.items():
+        if f"{name}/{relative}" not in inventory[name]["notices"]:
+            fail(f"Packaged licence notice list is missing required upstream attribution: {name}/{relative}")
+    for name in ("onnxruntime/LICENSE", "onnxruntime/ThirdPartyNotices.txt"):
+        if not (legal_root / name).is_file() or not (legal_root / name).stat().st_size:
+            fail(f"Packaged ONNX Runtime licence evidence is missing: {name}")
+    report = legal_root / "THIRD_PARTY_LICENSES.md"
+    if not report.is_file() or report.read_text(encoding="utf-8") != legal_report(inventory):
+        fail("Packaged third-party licence report is missing or differs from components.json")
 
 
 def validate_release_payload(package_root: Path, repo_root: Path | None) -> None:
@@ -955,6 +1121,16 @@ def main() -> int:
     stage_python_runtime_parser = subparsers.add_parser("stage-python-runtime")
     stage_python_runtime_parser.add_argument("--stage-root", required=True)
 
+    stage_legal_parser = subparsers.add_parser("stage-legal")
+    stage_legal_parser.add_argument("--repo-root", default=".")
+    stage_legal_parser.add_argument("--deps-root", default="/opt/opk-deps")
+    stage_legal_parser.add_argument("--stage-root", required=True)
+    stage_legal_parser.add_argument("--include-python", action="store_true")
+
+    validate_legal_parser = subparsers.add_parser("validate-legal")
+    validate_legal_parser.add_argument("--package-root", required=True)
+    validate_legal_parser.add_argument("--require-backends", action="store_true")
+
     validate_package_parser = subparsers.add_parser("validate-package")
     validate_package_parser.add_argument("--architecture", choices=sorted(ARCHITECTURES), required=True)
     validate_package_parser.add_argument("--package-root", required=True)
@@ -971,6 +1147,10 @@ def main() -> int:
             stage_models(args)
         elif args.command == "stage-python-runtime":
             stage_python_runtime(args)
+        elif args.command == "stage-legal":
+            stage_legal(args)
+        elif args.command == "validate-legal":
+            validate_legal_documentation(Path(args.package_root), require_backends=args.require_backends)
         elif args.command == "validate-package":
             validate_package(args)
         elif args.command == "prepare":

@@ -28,6 +28,12 @@
 !AGENTS.md
 !CHANGELOG.md
 !README.md
+!LICENSE
+!LICENSES/
+!LICENSES/**
+!NOTICE
+!THIRD_PARTY_NOTICE.md
+!REUSE.toml
 !compose.base.yaml
 !compose.yaml
 !compose.dev.yaml

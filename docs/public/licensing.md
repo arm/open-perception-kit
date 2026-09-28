@@ -44,4 +44,27 @@ Third-party components retain their own licences and copyright notices.
 The project licence does not grant rights to third-party model weights,
 photographs, video, fonts, or other content.
 
+## Notices in release artifacts
+
+- Architecture packages: `share/opk/licenses/README.md`, the original texts,
+  and `THIRD_PARTY_LICENSES.md` in the same directory. This report lists each
+  collected component's version, repository, licence and local notice files;
+  `components.json` contains the same information in machine-readable form.
+- Deployment and Cairn images: `/share/opk/licenses/`. System package notices
+  remain in `/usr/share/doc/` and `/usr/share/common-licenses/`; the installed
+  package versions are recorded in `debian-packages.tsv` in the OPK notice directory.
+- SDK ZIP: `LICENSING.md`, `LICENSE`, and `NOTICE` at the root. The SDK's Python
+  wheels, TypeScript archives and Rust vendor tree retain original runtime notices.
+  Each OPK language package also includes its own `LICENSE` and `NOTICE`.
+- Source checkout: the [third-party inventory](https://github.com/arm/open-perception-kit/blob/main/THIRD_PARTY_NOTICE.md)
+  identifies projects, versions, licences and where their original notices are kept.
+
+Font Awesome's CSS is MIT-licensed and its bundled font uses OFL-1.1. Their
+original `LICENSE.txt` accompanies the files under `development/web/content/vendor/fontawesome/`.
+FlatBuffers' Apache-2.0 text is under `development/web/content/vendor/flatbuffers/`.
+
+Model binaries are downloaded separately using the user's Hugging Face access;
+they are not included in releases. Getty photographs and demo videos have
+separate redistribution terms. OPK's licence grants no rights to those assets.
+
 For OPK questions, contact [perception-fdbck@arm.com](mailto:perception-fdbck@arm.com).
