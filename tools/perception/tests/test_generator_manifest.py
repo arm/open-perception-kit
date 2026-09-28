@@ -108,6 +108,7 @@ class ManifestFixture:
             )
             self.manifest["python_bridge"] = {
                 "header": f"python_bridge/{public_name}_python_bridge.h",
+                "initialization_function": f"{public_name}::python_bridge::initialize_module",
                 "module_name": f"{public_name}_bridge",
                 "registration_function": f"{public_name}::python_bridge::append_inittab",
                 "requires_python": ">=3.10",

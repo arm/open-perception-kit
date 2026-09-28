@@ -54,8 +54,7 @@ std::filesystem::path pythonExecutable() {
     return OPK_PYTHON_EXECUTABLE;
 }
 
-void initializeRuntime() {
-    exposePythonSymbols();
+void initializeOwnedRuntime() {
     open_perception_kit::python_bridge::append_inittab();
     appendTensorModuleInittab();
 
@@ -77,10 +76,54 @@ void initializeRuntime() {
     PyEval_SaveThread();
 }
 
+void attachToRuntime(const std::vector<std::filesystem::path> &pythonPaths) {
+    GILGuard gil;
+    PythonPathTemplate pathTemplate(pythonPaths);
+    PythonPathGuard pathGuard(pathTemplate);
+
+    if (!open_perception_kit::python_bridge::initialize_module()) {
+        throw PythonBridgeError("Failed to initialize open_perception_kit_bridge Python module: " +
+                                formatPythonError());
+    }
+    initializeTensorModule();
+}
+
+void initializeRuntime(const std::vector<std::filesystem::path> &pythonPaths) {
+    if (Py_IsInitialized()) {
+        attachToRuntime(pythonPaths);
+        return;
+    }
+    exposePythonSymbols();
+    initializeOwnedRuntime();
+}
+
+class ScopedGILRelease {
+  public:
+    ScopedGILRelease() {
+        if (Py_IsInitialized() && PyThreadState_GetUnchecked() != nullptr)
+            threadState = PyEval_SaveThread();
+    }
+
+    ScopedGILRelease(const ScopedGILRelease &) = delete;
+    ScopedGILRelease &operator=(const ScopedGILRelease &) = delete;
+
+    ~ScopedGILRelease() {
+        if (threadState != nullptr)
+            PyEval_RestoreThread(threadState);
+    }
+
+  private:
+    PyThreadState *threadState = nullptr;
+};
+
 } // namespace
 
-void ensureRuntime() {
-    std::call_once(initializationFlag, initializeRuntime);
+void ensureRuntime(const std::vector<std::filesystem::path> &pythonPaths) {
+    auto runtimePythonPaths = pythonPaths;
+    ScopedGILRelease gilRelease;
+    std::call_once(initializationFlag, [runtimePythonPaths = std::move(runtimePythonPaths)] {
+        initializeRuntime(runtimePythonPaths);
+    });
 }
 
 GILGuard::~GILGuard() {

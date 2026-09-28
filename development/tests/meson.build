@@ -114,6 +114,16 @@ if python_ops_enabled
     ],
     dependencies : [gtest_main_dep, gtest_dep, python_ops_test_dep],
   )
+  python_runtime_attachment_test_module = shared_module(
+    'opk_python_runtime_attachment_test',
+    ['python_runtime_attachment_test_module.cpp'],
+    include_directories : [common_include, include_directories('../ops-python')],
+    cpp_args : [
+      '-DPYTHON_SCRIPT_OP_FIXTURES="' + meson.current_source_dir() / 'python_script_op' + '"',
+    ],
+    dependencies : [python_ops_test_dep],
+    name_prefix : '',
+  )
   byom_blazeface_example_test_env = environment()
   byom_blazeface_example_test_env.prepend(
     'PYTHONPATH',
@@ -334,6 +344,15 @@ test('opk_menu_discover_tests', opk_menu_discover_tests)
 test('standard_content_type_tests', standard_content_type_tests, depends : stdops)
 if python_ops_enabled
   test('python_script_op_tests', python_script_op_tests)
+  test(
+    'python_runtime_attachment_tests',
+    opk_python,
+    args : [
+      files('python_runtime_attachment_test.py'),
+      python_runtime_attachment_test_module.full_path(),
+    ],
+    depends : python_runtime_attachment_test_module,
+  )
 endif
 test(
   'opk_menu_cli_tests',
