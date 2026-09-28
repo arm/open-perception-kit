@@ -70,19 +70,9 @@ Run in the **host shell**, from the `opk` folder:
 code .
 ```
 
-If the build needs private or gated models, export a read-only `HF_TOKEN`
-before opening VS Code:
-
-```bash
-export HF_TOKEN="hf_your_token_here"
-code .
-```
-
-Docker supplies the token only to the pinned model-download build step; it is
-not added to the runtime container environment. Failed downloads are logged and
-skipped, so the image can build without every configured model. After
-correcting a token, run **Dev Containers: Rebuild Container**; initialization
-refreshes the model-download cache key.
+The standard OPK models download without a Hugging Face account or token.
+For your own private or gated models, see
+[Bring your model](../how-to/bring-your-model.md).
 
 In VS Code:
 
