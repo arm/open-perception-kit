@@ -89,11 +89,11 @@ void attachToRuntime(const std::vector<std::filesystem::path> &pythonPaths) {
 }
 
 void initializeRuntime(const std::vector<std::filesystem::path> &pythonPaths) {
-    exposePythonSymbols();
     if (Py_IsInitialized()) {
         attachToRuntime(pythonPaths);
         return;
     }
+    exposePythonSymbols();
     initializeOwnedRuntime();
 }
 
