@@ -90,25 +90,21 @@ package "Dockerfile\ncore cross-lane stage graph" {
 
 package "Helper Dockerfiles\nindependent workflow runtimes" {
   component "Dockerfile.pre-commit\nopk-pre-commit-runtime" as pre_commit #bbf7d0
-  component "Dockerfile.pages\nopk-playwright-pages" as pages #bbf7d0
 
   py313 --> pre_commit : FROM
-  py313 --> pages : FROM
 }
 
 package "CI Service Mapping" {
+  component yolo_dataset
   component "CI: opk-build-base" as ci_build_base #fef3c7
   component "Nightly: opk-deployment-base\namd64 + arm64 image and full cache" as ci_deploy #fef3c7
   component "Arm64 CI: development image\nexact SHA or registry layer cache" as ci_dev #fef3c7
   component "CI: opk-pre-commit-runtime" as ci_pre_commit #fef3c7
-  component "CI: opk-playwright-pages" as ci_pages #fef3c7
 
   build_base ..> ci_build_base : image target
   deployment_image ..> ci_deploy : image target
   dev_ci ..> ci_dev : image target
   pre_commit ..> ci_pre_commit : repo checks
-  pages ..> ci_pages : report page publishing
-  yolo_dataset ..> ci_pages : pull benchmark inputs
 }
 
 note right of dev_image

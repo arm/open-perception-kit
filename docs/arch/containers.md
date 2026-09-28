@@ -63,15 +63,14 @@ Deployment lane
 Helper lane
   python:3.13-slim-trixie
     -> opk-pre-commit-runtime
-    -> opk-playwright-pages
 ```
 
 The main `Dockerfile` owns the cross-lane stage graph where tool stages inherit
 from `opk-build-base`, `opk-cross-build-base`, or `opk-dev-base`. The same file
 also contains narrow artifact stages for model downloads and demo media so
 development and deployment can consume the same resolved inputs without
-inheriting artifact-stage tools. Helper runtimes are intentionally separate
-top-level Dockerfiles because they do not share the core Debian build graph.
+inheriting artifact-stage tools. The helper runtime uses a separate top-level
+Dockerfile because it does not share the core Debian build graph.
 
 The CI service mapping uses these image lanes without creating new image
 contracts for each job. The nightly OPK CI schedule publishes native amd64 and
@@ -158,8 +157,7 @@ then copy them into the images that need them.
 - Deployment build stages compile and package OPK during image creation.
 - Deployment runtime images copy only selected runtime outputs from deployment
 build stages.
-- Helper images stay narrow and support one workflow, such as pre-commit checks
-or report-page publishing.
+- Helper images stay narrow and support one workflow, such as pre-commit checks.
 
 ## Installed Tools By Layer
 
@@ -227,8 +225,6 @@ stages inherit everything from their parent unless noted otherwise.
   `opk-deployment-build`.
 - `opk-pre-commit-runtime`: starts from `python:3.13-slim-trixie` and adds
   `ca-certificates`, `curl`, `git`, `shfmt`, `actionlint`, and `opk-ci`.
-- `opk-playwright-pages`: starts from `python:3.13-slim-trixie` and adds
-  `ca-certificates`, GitHub CLI `gh`, and `git`.
 
 Quick-start builds mount a compiler cache at `$OPK_PROJECT_ROOT/.cache/ccache`. The native
 Arm64 publisher prewarms this cache in the exact-SHA development image. The
@@ -264,9 +260,8 @@ on the target platform. `opk-deployment-base` is the runnable release snapshot
 that receives the application and archive from the builder and the Python
 environment from the target runtime stage.
 
-The helper lane contains small workflow-specific images. `opk-pre-commit-runtime`
-runs local repository checks from the host Git hook, and `opk-playwright-pages`
-supports report-page publishing.
+The helper lane contains `opk-pre-commit-runtime`, which runs local repository
+checks from the host Git hook.
 
 ## Use Cases
 
