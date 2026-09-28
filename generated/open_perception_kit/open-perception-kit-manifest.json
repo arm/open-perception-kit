@@ -525,8 +525,8 @@
     },
     {
       "path": "ts/dist/open_perception_kit/envelope.js",
-      "sha256": "be55756edf7268e22671236f5ff34396e377a0e72be816d8b762618c0b0fae6b",
-      "size": 13750
+      "sha256": "35c04435a611d31d2168c7282210bb5389be0b6a6b75bd4ad5c6ad28d15a14af",
+      "size": 14256
     },
     {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/internalfb/wire-envelope.d.ts",
@@ -840,13 +840,13 @@
     },
     {
       "path": "ts/dist/open_perception_kit/registry.d.ts",
-      "sha256": "651fa0fe86b18c51961e24d6b9dc43bd0052afbb4522dad1aeff727d20dacc5f",
-      "size": 588
+      "sha256": "b3f6c2c776bd70f4edd0f5f91db7a32e092d71ef9f882b89cd44689f5bdf1782",
+      "size": 1484
     },
     {
       "path": "ts/dist/open_perception_kit/registry.js",
-      "sha256": "7a4d2b85480639d3d7e770c9e1d415d856e7afd6eda8b9cd04d8575641686461",
-      "size": 8109
+      "sha256": "7b58fd5f4d46216896b0fc45f38fc6e8f6d817b3c31ab219fa0a49005db005c1",
+      "size": 10804
     },
     {
       "path": "ts/package.json",
@@ -855,8 +855,8 @@
     },
     {
       "path": "ts/src/open_perception_kit/envelope.ts",
-      "sha256": "872703642a6b371643f039fe4cda6955b3ae6fa91372b074a1622e63a6da403e",
-      "size": 12377
+      "sha256": "e08561bb36298acf09c2078a2bcf7d238614b5aeb251d7272b5680bc4fe2503e",
+      "size": 12829
     },
     {
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/internalfb/wire-envelope.ts",
@@ -1015,8 +1015,8 @@
     },
     {
       "path": "ts/src/open_perception_kit/registry.ts",
-      "sha256": "3262da0533abc04d799fd7893d60f46aa804e7020ccd68820811ed87e20e55b3",
-      "size": 8283
+      "sha256": "b6fd1aa50f54af46ece020d066e2342fe032b8aac83c0085c40a818fc46fac51",
+      "size": 11354
     },
     {
       "path": "ts/tsconfig.json",
@@ -1168,8 +1168,8 @@
         },
         {
           "path": "tools/flowdata/engine/typescript/ts_sdk_codegen.py",
-          "sha256": "5c6aef71d815a7b11a53ac21480a551b4fa3073faee0bfcb16ae8a42cc639036",
-          "size": 23736
+          "sha256": "628885ef175448b4e200f37db1f58b4b2c5b80a0027b8b460e3554f17550a060",
+          "size": 27929
         },
         {
           "path": "tools/flowdata/engine/validation.py",
@@ -2165,8 +2165,8 @@
         },
         {
           "path": "src/open_perception_kit/envelope.ts",
-          "sha256": "df2384d89b20a67105871e0203ca9502b47d37da275b1440603b46c2a7215b51",
-          "size": 12321
+          "sha256": "68926df85f6a719050d9d16f5f53acbcfdeb6ae333789517ecb04967406220ae",
+          "size": 12773
         },
         {
           "path": "src/open_perception_kit/fb/open-perception-kit/internalfb.ts",
@@ -2325,8 +2325,8 @@
         },
         {
           "path": "src/open_perception_kit/registry.ts",
-          "sha256": "2f85a2b7a716366762615cf136c5fad10c2c32ecde8622e8a467f42431a2d3bf",
-          "size": 8227
+          "sha256": "c7c21e9a6359a3fcee7e1923469b57585ac7b1a8d337976f61ade847e3d0a538",
+          "size": 11298
         },
         {
           "path": "tsconfig.json",

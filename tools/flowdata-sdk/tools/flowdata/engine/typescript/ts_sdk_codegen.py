@@ -127,7 +127,8 @@ def _entrypoint_module_path(entry: SchemaEntry) -> str:
 def _registry_text(entries: list[SchemaEntry]) -> str:
     import_lines: list[str] = [
         TS_GENERATED_BANNER.rstrip(),
-        "import { ByteBuffer } from 'flatbuffers';",
+        "import { ByteBuffer, Encoding } from 'flatbuffers';",
+        "import type { IGeneratedObject, IUnpackableObject } from 'flatbuffers';",
     ]
     factory_lines: list[str] = []
     types_map_lines: list[str] = ["export const _TYPE_REGISTRY = new Map<bigint, TypeInfo>(["]
@@ -147,13 +148,13 @@ def _registry_text(entries: list[SchemaEntry]) -> str:
         factory_name = f"decode_{entry.numeric_id}"
         factory_lines.append(
             f"const {factory_name} = (blob: Uint8Array): unknown => "
-            f"{root_alias}.getRootAs{import_name}(new ByteBuffer(blob)).unpack();"
+            f"{root_alias}.getRootAs{import_name}(new _CheckedByteBuffer(blob)).unpack();"
         )
         # verify function using bufferHasIdentifier
         verify_name = f"verify_{entry.numeric_id}"
         factory_lines.append(
             f"const {verify_name} = (blob: Uint8Array): boolean => "
-            f"{root_alias}.bufferHasIdentifier(new ByteBuffer(blob));"
+            f"{root_alias}.bufferHasIdentifier(new _CheckedByteBuffer(blob));"
         )
 
         types_map_lines.extend(
@@ -173,6 +174,106 @@ def _registry_text(entries: list[SchemaEntry]) -> str:
     types_map_lines.append("]);")
     class_map_lines.append("]);")
 
+    checked_buffer_text = textwrap.dedent(
+        """\
+        export class _CheckedByteBuffer extends ByteBuffer {
+          private remainingDecodeWork: number;
+
+          constructor(bytes: Uint8Array) {
+            super(bytes);
+            this.remainingDecodeWork = bytes.byteLength;
+          }
+
+          private requireRange(offset: number, size: number): void {
+            if (!Number.isSafeInteger(offset)
+                || !Number.isSafeInteger(size)
+                || offset < 0
+                || size < 0
+                || offset > this.capacity() - size) {
+              throw new RangeError('FlatBuffer read outside buffer');
+            }
+          }
+
+          private consumeDecodeWork(size: number): void {
+            if (!Number.isSafeInteger(size) || size < 0 || size > this.remainingDecodeWork) {
+              throw new RangeError('FlatBuffer decode work exceeds buffer');
+            }
+            this.remainingDecodeWork -= size;
+          }
+
+          private relativeTarget(offset: number, minimumSize: number): number {
+            this.requireRange(offset, 4);
+            const relative = this.readUint32(offset);
+            if (relative < 4) {
+              throw new RangeError('invalid FlatBuffer relative offset');
+            }
+            const target = offset + relative;
+            this.requireRange(target, minimumSize);
+            return target;
+          }
+
+          override readUint8(offset: number): number {
+            this.requireRange(offset, 1);
+            return super.readUint8(offset);
+          }
+
+          override readUint16(offset: number): number {
+            this.requireRange(offset, 2);
+            return super.readUint16(offset);
+          }
+
+          override readInt32(offset: number): number {
+            this.requireRange(offset, 4);
+            return super.readInt32(offset);
+          }
+
+          override __indirect(offset: number): number {
+            return this.relativeTarget(offset, 4);
+          }
+
+          override __vector(offset: number): number {
+            return this.relativeTarget(offset, 4) + 4;
+          }
+
+          override __vector_len(offset: number): number {
+            const data = this.__vector(offset);
+            const length = this.readInt32(data - 4);
+            if (length < 0 || length > this.capacity() - data) {
+              throw new RangeError('invalid FlatBuffer vector length');
+            }
+            return length;
+          }
+
+          override __string(offset: number, encoding?: Encoding): string | Uint8Array {
+            const start = this.relativeTarget(offset, 4);
+            const length = this.readInt32(start);
+            if (length < 0) {
+              throw new RangeError('invalid FlatBuffer string length');
+            }
+            this.requireRange(start + 4, length);
+            this.consumeDecodeWork(length);
+            return super.__string(offset, encoding);
+          }
+
+          override createScalarList<T>(
+            listAccessor: (index: number) => T | null,
+            listLength: number,
+          ): T[] {
+            this.consumeDecodeWork(listLength);
+            return super.createScalarList(listAccessor, listLength);
+          }
+
+          override createObjList<T1 extends IUnpackableObject<T2>, T2 extends IGeneratedObject>(
+            listAccessor: (index: number) => T1 | null,
+            listLength: number,
+          ): T2[] {
+            this.consumeDecodeWork(listLength);
+            return super.createObjList(listAccessor, listLength);
+          }
+        }
+        """
+    ).strip()
+
     return "\n".join(
         [
             *import_lines,
@@ -186,6 +287,8 @@ def _registry_text(entries: list[SchemaEntry]) -> str:
             "  decode: (blob: Uint8Array) => unknown;",
             "  verify?: (blob: Uint8Array) => boolean;",
             "};",
+            "",
+            checked_buffer_text,
             "",
             *factory_lines,
             "",
@@ -205,12 +308,13 @@ def _envelope_text(
 ) -> str:
     return TS_GENERATED_BANNER + textwrap.dedent(
         """
-import { Builder, ByteBuffer } from 'flatbuffers';
+import { Builder } from 'flatbuffers';
 
 import { WireEnvelope as FbEnvelope } from './fb/__SDK_INTERNAL_NS_PATH__/internalfb/wire-envelope.js';
 import { WirePayload as Payload } from './fb/__SDK_INTERNAL_NS_PATH__/internalfb/wire-payload.js';
 import {
   PayloadClass,
+  _CheckedByteBuffer,
   _CLASS_TO_ID,
   _TYPE_REGISTRY,
 } from './registry.js';
@@ -321,13 +425,16 @@ function resolveNativePayload(value: NativePayload): bigint {
   return id;
 }
 
-function copyBlob(payload: Payload): Uint8Array {
+function copyBlob(payload: Payload, maxBytes: number): Uint8Array {
+  const len = payload.blobLength();
+  if (len < 0 || len > maxBytes) {
+    throw new Error(`invalid ${SDK_NAME} payload blob length`);
+  }
   const blobArray = payload.blobArray();
   if (blobArray) {
     return new Uint8Array(blobArray);
   }
 
-  const len = payload.blobLength();
   const out = new Uint8Array(len);
   for (let i = 0; i < len; i += 1) {
     out[i] = payload.blob(i) ?? 0;
@@ -376,7 +483,7 @@ export class Envelope {
     const bytes = packet instanceof Uint8Array ? packet : new Uint8Array(packet);
 
     try {
-      const bb = new ByteBuffer(bytes);
+      const bb = new _CheckedByteBuffer(bytes);
       if (!FbEnvelope.bufferHasIdentifier(bb)) {
         this.errorMessage = `invalid ${SDK_NAME} envelope file_identifier`;
         return;
@@ -387,15 +494,22 @@ export class Envelope {
       this.producerSchemaDigest = envelope.producerSchemaSetSha256() ?? '';
 
       const count = envelope.payloadsLength();
+      if (count < 0 || count > Math.floor(bytes.byteLength / 4)) {
+        this.errorMessage = `invalid ${SDK_NAME} envelope payload count`;
+        return;
+      }
+      let remainingPayloadBytes = bytes.byteLength;
       for (let i = 0; i < count; i += 1) {
         const payload = envelope.payloads(i, new Payload());
         if (payload === null) {
           continue;
         }
         const id = payload.id();
+        const blob = copyBlob(payload, remainingPayloadBytes);
+        remainingPayloadBytes -= blob.byteLength;
         this.payloadEntries.push({
           id,
-          blob: copyBlob(payload),
+          blob,
         });
       }
 
@@ -476,8 +590,8 @@ export class Envelope {
     const info = _TYPE_REGISTRY.get(id);
     if (!info) return null;
     const blobCopy = new Uint8Array(blob);
-    if (info.verify && !info.verify(blobCopy)) return null;
     try {
+      if (info.verify && !info.verify(blobCopy)) return null;
       return info.decode(blobCopy) as T;
     } catch {
       return null;
