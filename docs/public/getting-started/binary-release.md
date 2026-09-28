@@ -57,17 +57,17 @@ sha256sum opk-<version>-linux-<architecture>.tar.gz
 Architecture packages contain the six OPK plugins, the private
 `lib/opk/opk-runtime.so` and common libraries, model descriptors and
 OpChains, `opksink` web assets, approved notices, and ONNX Runtime. They also
-contain the experimental ExecuTorch operation module, the PythonScript operation
-module and a private locked Python package directory
-at `share/opk/python`, plus these two distinct payloads:
+contain the experimental ExecuTorch and PythonScript operation modules, plus
+the SDK and descriptor schemas:
 
 - `share/opk/open-perception-kit/` contains the open-perception-kit ZIP, checksum, and
   provenance sidecar;
 - `share/opk/schemas/json/v1/` contains the model and OpChain descriptor JSON
   schemas copied from the released source.
 
-The descriptor schemas are direct OPK package content, not files in the SDK
-ZIP. Retired `metadata/api` schemas are not included.
+The descriptor schemas are direct OPK package content, separate from the SDK
+ZIP. The archive includes the PythonScript type stub under `share/opk/python`;
+PythonScript's Python packages are installed in a host environment.
 
 They deliberately exclude model binaries, `opk-menu`, pipeline presets, examples, sample
 media, documentation, source, tests, debug files, public C++ headers,
@@ -82,12 +82,21 @@ tools with the Base, Good, and Bad plugin sets, including Nice and the WebRTC
 plugins. GLib, OpenSSL, zlib, Brotli, zstd, libsoup 3, json-glib, the
 C/C++ runtimes, and any required accelerator driver and firmware remain host
 dependencies. The Arm package also requires the system `libusb-1.0` runtime.
-PythonScript OpChains require the `python3.13` executable on `PATH` and the
-corresponding `libpython3.13.so.1.0` shared library available to the system
-dynamic loader. NumPy, FlatBuffers, and the Open Perception Kit guest package are already
-included privately in the OPK archive. Python applications that drive GStreamer
-directly also need the system PyGObject bindings, available as
-`python3-gst-1.0`.
+PythonScript OpChains require Python 3.13 and its shared library. From a
+checkout at the release's source revision, install the Python runtime
+dependencies into a virtual environment and point OPK at it:
+
+```bash
+./scripts/setup-python-ops-runtime.sh --python python3.13 \
+  --venv "$PWD/.venv-python-ops" \
+  --perception-sdk generated/open_perception_kit/python
+export OPK_PYTHON_RUNTIME_VENV="$PWD/.venv-python-ops"
+```
+
+The setup script installs the versions recorded in the runtime and SDK
+descriptors. The virtual environment stays outside the extracted archive.
+Python applications that drive GStreamer directly also need the system
+PyGObject bindings, available as `python3-gst-1.0`.
 
 ## Extract and discover the plugins
 
@@ -111,6 +120,11 @@ The package has one ONNX Runtime binary, `libonnxruntime.so.1.24.4`.
 runtime. The link is required because the runtime's upstream SONAME is recorded
 as `DT_NEEDED=libonnxruntime.so.1` in `opk-onnx-ops.so`; the dynamic loader
 looks up that exact name.
+
+For source and licence review, the archive keeps third-party notices under
+`share/opk/licenses/`. The ONNX Runtime library also has an adjacent
+`.provenance.json` recording its download and file hashes. ExecuTorch source
+identity is included with its notices when provided by the build input.
 
 ExecuTorch is statically linked into `lib/opk/opk-executorch-ops.so`. It remains
 experimental and does not add a public SDK surface to the binary release.

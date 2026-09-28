@@ -53,17 +53,6 @@ SOURCE_NOTICE_CONTENT = (
 )
 
 
-class FakeDistribution:
-    def __init__(self, root: Path, name: str, version: str, files: list[str]) -> None:
-        self.root = root
-        self.metadata = {"Name": name}
-        self.version = version
-        self.files = [Path(path) for path in files]
-
-    def locate_file(self, path: object) -> Path:
-        return self.root / str(path)
-
-
 def add_legal_payload(package_root: Path) -> None:
     legal = package_root / "share/opk/licenses"
     inventory = {}
@@ -178,107 +167,67 @@ class ReleaseToolTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "do not match"):
                 release_tool.read_package_versions(root, "0.1.0")
 
-    def test_stages_and_validates_private_python_runtime(self) -> None:
+    def test_release_tree_rejects_redistributed_python_packages(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            source_root = root / "site-packages"
-            distributions = {
-                "flatbuffers": FakeDistribution(
-                    source_root,
-                    "flatbuffers",
-                    "25.9.23",
-                    [
-                        "flatbuffers/__init__.py",
-                        "flatbuffers-25.9.23.dist-info/METADATA",
-                        "flatbuffers-25.9.23.dist-info/RECORD",
-                    ],
-                ),
-                "numpy": FakeDistribution(
-                    source_root,
-                    "numpy",
-                    "2.4.2",
-                    [
-                        "numpy/__init__.py",
-                        "numpy/_core/module.so",
-                        "numpy/_core/include/numpy.h",
-                        "numpy/tests/test_runtime.py",
-                        "numpy-2.4.2.dist-info/METADATA",
-                    ],
-                ),
-                "open-perception-kit": FakeDistribution(
-                    source_root,
-                    "open_perception_kit",
-                    "0.3.0",
-                    [
-                        "open_perception_kit/__init__.py",
-                        "open_perception_kit-0.3.0.dist-info/METADATA",
-                        "open_perception_kit-0.3.0.dist-info/direct_url.json",
-                    ],
-                ),
-            }
-            for distribution in distributions.values():
-                for entry in distribution.files:
-                    path = distribution.locate_file(entry)
-                    path.parent.mkdir(parents=True, exist_ok=True)
-                    path.write_text(str(entry), encoding="utf-8")
-
-            stage_root = root / "stage"
-            stale_runtime_root = stage_root / release_tool.PYTHON_RUNTIME_ROOT
-            stale_runtime_root.mkdir(parents=True)
-            (stale_runtime_root / "stale-package.py").write_text("stale", encoding="utf-8")
-            with patch.object(
-                release_tool.importlib.metadata,
-                "distribution",
-                side_effect=lambda name: distributions[name],
+            for relative in (
+                "lib/opk/opk-python-ops.so",
+                "share/opk/models/example/postprocess.py",
+                "share/opk/python/opk_python_ops.pyi",
+                "share/opk/open-perception-kit/open-perception-kit-0.1.0.zip",
             ):
-                release_tool.stage_python_runtime(SimpleNamespace(stage_root=str(stage_root)))
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.touch()
+            release_tool.validate_release_tree(root)
 
-            runtime_root = stage_root / release_tool.PYTHON_RUNTIME_ROOT
-            self.assertFalse((runtime_root / "stale-package.py").exists())
-            (runtime_root / "opk_python_ops.pyi").write_text("", encoding="utf-8")
-            self.assertTrue((runtime_root / "numpy/_core/module.so").is_file())
-            self.assertFalse((runtime_root / "numpy/_core/include/numpy.h").exists())
-            self.assertFalse((runtime_root / "numpy/tests/test_runtime.py").exists())
-            self.assertFalse(
-                (runtime_root / "flatbuffers-25.9.23.dist-info/RECORD").exists()
-            )
-            self.assertFalse(
-                (runtime_root / "open_perception_kit-0.3.0.dist-info/direct_url.json").exists()
-            )
-            release_tool.validate_python_runtime(stage_root)
+            package = root / "share/opk/python/numpy/__init__.py"
+            package.parent.mkdir(parents=True)
+            package.touch()
+            with self.assertRaisesRegex(RuntimeError, "Redistributed Python package"):
+                release_tool.validate_release_tree(root)
 
+    def test_onnxruntime_provenance_requires_locked_source_and_notices(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            package_root = root / "package"
+            library = package_root / "lib/opk/libonnxruntime.so.1.24.4"
+            library.parent.mkdir(parents=True)
+            library.write_bytes(b"onnxruntime")
+            legal_root = package_root / "share/opk/licenses/onnxruntime"
+            legal_root.mkdir(parents=True)
+            (legal_root / "LICENSE").write_text("license", encoding="utf-8")
+            notice = legal_root / "ThirdPartyNotices.txt"
+            notice.write_text("notices", encoding="utf-8")
             repo_root = root / "source"
-            (repo_root / "development/ops-python").mkdir(parents=True)
-            (repo_root / "tools/perception").mkdir(parents=True)
-            (repo_root / "generated/open_perception_kit/python").mkdir(parents=True)
-            (repo_root / "development/ops-python/runtime.json").write_text(
-                json.dumps({"numpy": {"version": "2.4.2"}}), encoding="utf-8"
+            descriptor = repo_root / "requirements/build.json"
+            descriptor.parent.mkdir(parents=True)
+            descriptor.write_text(json.dumps({
+                "onnxruntime": "1.24.4",
+                "onnxruntime-sha256-x64": "a" * 64,
+            }), encoding="utf-8")
+            import hashlib
+            receipt = release_tool.onnxruntime_archive_source(descriptor, "x86_64")
+            receipt["library_sha256"] = hashlib.sha256(library.read_bytes()).hexdigest()
+            library.with_name(f"{library.name}.provenance.json").write_text(
+                json.dumps(receipt), encoding="utf-8"
             )
-            (repo_root / "tools/perception/sdk.json").write_text(
-                json.dumps({"version": "1.0.0", "flatbuffers": {"version": "25.9.23"}}),
-                encoding="utf-8",
-            )
-            (repo_root / "generated/open_perception_kit/python/pyproject.toml").write_text(
-                '[project]\nversion = "0.3.0"\n', encoding="utf-8"
-            )
-            release_tool.validate_python_runtime(stage_root, repo_root)
-
-            (runtime_root / "requests").mkdir()
-            with self.assertRaisesRegex(RuntimeError, "unexpected entries"):
-                release_tool.validate_python_runtime(stage_root)
-            (runtime_root / "requests").rmdir()
-
-            (runtime_root / release_tool.PYTHON_RUNTIME_MANIFEST).write_text(
-                json.dumps({"distributions": {"numpy": "2.4.2"}}),
-                encoding="utf-8",
-            )
-            with self.assertRaisesRegex(RuntimeError, "release contract"):
-                release_tool.validate_python_runtime(stage_root)
+            release_tool.validate_onnxruntime_provenance(package_root, repo_root, "x86_64")
+            (library.parent / "libonnxruntime.so.1").symlink_to(library.name)
+            with patch.object(release_tool, "dynamic_values", return_value=["libonnxruntime.so.1"]):
+                release_tool.validate_onnx_runtime(library.parent)
+            notice.unlink()
+            with self.assertRaisesRegex(RuntimeError, "legal file"):
+                release_tool.validate_onnxruntime_provenance(package_root, repo_root, "x86_64")
+            notice.write_text("notices", encoding="utf-8")
+            library.write_bytes(b"changed")
+            with self.assertRaisesRegex(RuntimeError, "library SHA-256 mismatch"):
+                release_tool.validate_onnxruntime_provenance(package_root, repo_root, "x86_64")
 
     def test_elf_dependencies_can_resolve_through_rpath(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             package_root = Path(temporary)
-            library_root = package_root / "share/opk/python/numpy.libs"
+            library_root = package_root / "share/opk/testlibs"
             library_root.mkdir(parents=True)
             extension = library_root / "libextension.so"
             dependency = library_root / "libdependency.so"
@@ -548,18 +497,66 @@ class ReleaseToolTests(unittest.TestCase):
             package_root = Path(temporary)
             legal_root = package_root / "share/opk/licenses"
             add_legal_payload(package_root)
-            release_tool.validate_legal_documentation(package_root)
+            release_tool.validate_legal_documentation(package_root, require_python=True)
             original = (legal_root / "components.json").read_text()
             for name in release_tool.CORE_LEGAL_COMPONENTS | {"executorch", "python-numpy", "python-flatbuffers"}:
                 inventory = json.loads(original)
                 del inventory[name]
                 (legal_root / "components.json").write_text(json.dumps(inventory))
                 with self.subTest(component=name), self.assertRaisesRegex(RuntimeError, "missing required components"):
-                    release_tool.validate_legal_documentation(package_root)
+                    release_tool.validate_legal_documentation(package_root, require_python=True)
             (legal_root / "components.json").write_text(original)
             (legal_root / "onnxruntime/ThirdPartyNotices.txt").unlink()
             with self.assertRaisesRegex(RuntimeError, "ONNX Runtime licence"):
                 release_tool.validate_legal_documentation(package_root)
+
+    def test_requires_opk_notices_even_with_regenerated_report(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            legal = root / "share/opk/licenses"
+            for name in ("LICENSE", "NOTICE", "THIRD_PARTY_NOTICE.md", "README.md"):
+                with self.subTest(notice=name):
+                    add_legal_payload(root)
+                    inventory = json.loads((legal / "components.json").read_text())
+                    inventory["opk"]["notices"].remove(name)
+                    (legal / name).unlink()
+                    (legal / "components.json").write_text(json.dumps(inventory))
+                    (legal / "THIRD_PARTY_LICENSES.md").write_text(release_tool.legal_report(inventory))
+                    with self.assertRaisesRegex(RuntimeError, "required OPK notice"):
+                        release_tool.validate_legal_documentation(root, require_backends=False)
+
+    def test_release_legal_validation_does_not_require_host_python_notices(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            add_legal_payload(root)
+            legal = root / "share/opk/licenses"
+            inventory = json.loads((legal / "components.json").read_text())
+            for name in ("python-numpy", "python-flatbuffers"):
+                del inventory[name]
+                shutil.rmtree(legal / name)
+            (legal / "components.json").write_text(json.dumps(inventory))
+            (legal / "THIRD_PARTY_LICENSES.md").write_text(release_tool.legal_report(inventory))
+            release_tool.validate_legal_documentation(root)
+
+    def test_requires_notices_for_installed_image_runtimes(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            add_legal_payload(root)
+            legal = root / "share/opk/licenses"
+            inventory = json.loads((legal / "components.json").read_text())
+            for name in ("python-numpy", "python-flatbuffers", "executorch"):
+                del inventory[name]
+                shutil.rmtree(legal / name)
+            (legal / "components.json").write_text(json.dumps(inventory))
+            (legal / "THIRD_PARTY_LICENSES.md").write_text(release_tool.legal_report(inventory))
+            # Cairn ships neither the OPK Python environment nor ExecuTorch.
+            release_tool.validate_legal_documentation(root, require_backends=False)
+            with self.assertRaisesRegex(RuntimeError, "python-flatbuffers.*python-numpy"):
+                release_tool.validate_legal_documentation(
+                    root, require_backends=False, require_python=True
+                )
+            with self.assertRaisesRegex(RuntimeError, "executorch"):
+                release_tool.validate_legal_documentation(root, require_backends=True)
 
     def test_stage_legal_requires_version_review_and_emits_report(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -607,6 +604,8 @@ class ReleaseToolTests(unittest.TestCase):
             # Original source evidence belongs only in the legal-documentation tree.
             release_tool.validate_release_tree(args.stage_root)
             inventory = json.loads((legal / "components.json").read_text())
+            self.assertNotIn("python-numpy", inventory)
+            self.assertNotIn("python-flatbuffers", inventory)
             for name, relative in SOURCE_NOTICES:
                 notice = f"{name}/{relative}"
                 self.assertIn(notice, inventory[name]["notices"])
@@ -643,6 +642,7 @@ class ReleaseToolTests(unittest.TestCase):
             executorch = root / "deps/executorch-legal-documentation"
             executorch.mkdir()
             (executorch / "LICENSE").write_text("Synthetic ExecuTorch evidence\n")
+            (executorch / "GIT_COMMIT_ID").write_text("a" * 40 + "\n")
             args.stage_root = root / "with-executorch"
             with patch.object(release_tool.subprocess, "check_output", return_value="1.3.1-2") as query:
                 release_tool.stage_legal(args)
@@ -650,6 +650,13 @@ class ReleaseToolTests(unittest.TestCase):
                     ["dpkg-query", "--show", "--showformat=${Version}", "libexecutorch-dev"], text=True)
             inventory = json.loads((args.stage_root / "share/opk/licenses/components.json").read_text())
             self.assertEqual(inventory["executorch"]["version"], "1.3.1-2")
+            self.assertEqual(
+                (args.stage_root / "share/opk/licenses/executorch/GIT_COMMIT_ID").read_text(), "a" * 40 + "\n")
+            (executorch / "GIT_COMMIT_ID").unlink()
+            args.stage_root = root / "without-executorch-provenance"
+            with patch.object(release_tool.subprocess, "check_output", return_value="1.3.1-2"):
+                release_tool.stage_legal(args)
+            self.assertFalse((args.stage_root / "share/opk/licenses/executorch/GIT_COMMIT_ID").exists())
 
     def test_requires_embedded_upstream_notices_even_with_regenerated_report(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
