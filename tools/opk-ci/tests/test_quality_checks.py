@@ -1,7 +1,18 @@
 #!/usr/bin/env python3
-################################################################
 # SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
-################################################################
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 import importlib
 import json
@@ -661,12 +672,23 @@ class TestQualityChecks(unittest.TestCase):
             "added a missing header to",
         )
 
-    def test_get_license_header_uses_literal_hash_borders_for_cmake_files(self):
+    def test_get_license_header_uses_combined_apache_notice_for_cmake_files(self):
         self.assertEqual(
             self.quality_checks.get_license_header("CMakeLists.txt"),
-            "################################################################\n"
             f"# SPDX-FileCopyrightText: Copyright {date.today().year} Arm Limited and/or its affiliates\n"
-            "################################################################\n",
+            "# SPDX-License-Identifier: Apache-2.0\n"
+            "#\n"
+            '# Licensed under the Apache License, Version 2.0 (the "License");\n'
+            "# you may not use this file except in compliance with the License.\n"
+            "# You may obtain a copy of the License at\n"
+            "#\n"
+            "#     https://www.apache.org/licenses/LICENSE-2.0\n"
+            "#\n"
+            "# Unless required by applicable law or agreed to in writing, software\n"
+            '# distributed under the License is distributed on an "AS IS" BASIS,\n'
+            "# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n"
+            "# See the License for the specific language governing permissions and\n"
+            "# limitations under the License.\n",
         )
 
     def test_copyright_check_preserves_disjoint_years_and_foreign_notices(self):
@@ -678,10 +700,49 @@ class TestQualityChecks(unittest.TestCase):
             target_file = Path(temp_dir) / "source.py"
             for notice, accepted in notices:
                 with self.subTest(notice=notice):
-                    content = notice + "pass\n"
+                    body = "".join(self.quality_checks.get_license_header("source.py").splitlines(keepends=True)[1:])
+                    content = notice + body + "pass\n"
                     target_file.write_text(content, encoding="utf-8")
                     self.assertEqual(self.quality_checks.check_license_header([str(target_file)]), accepted)
                     self.assertEqual(target_file.read_text(encoding="utf-8"), content)
+                    if accepted:
+                        target_file.write_text(content.replace(
+                            "# limitations under the License.\n", ""), encoding="utf-8")
+                        self.assertFalse(self.quality_checks.check_license_header([str(target_file)], format=False))
+                        target_file.write_text(notice + "pass\n", encoding="utf-8")
+                        self.assertFalse(self.quality_checks.check_license_header([str(target_file)]))
+                        self.assertEqual(target_file.read_text(encoding="utf-8"), notice + "pass\n")
+
+    def test_license_autofix_preserves_existing_notices_without_arm_copyright(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            for suffix, marker in ((".py", "#"), (".cpp", "//"), (".css", "/*"), (".css", "/*!"), (".cpp", "//!")):
+                target = Path(temp_dir) / f"source{suffix}"
+                for notice in ("SPDX-License-Identifier: MIT", "SPDX-FileCopyrightText: 2009 Another author",
+                               "copyright 2009 Another author", "Upstream: Copyright 2009 Another author"):
+                    with self.subTest(marker=marker, notice=notice):
+                        content = f"\n\n\n\n\n{marker} {notice}" + (" */\n" if marker.startswith("/*") else "\n")
+                        target.write_text(content, encoding="utf-8")
+                        with patch.object(self.quality_checks, "record_autofix") as autofix:
+                            for _ in range(2):
+                                self.assertFalse(self.quality_checks.check_license_header([str(target)]))
+                                self.assertEqual(target.read_text(encoding="utf-8"), content)
+                            self.assertFalse(self.quality_checks.apply_license_header(str(target), content))
+                            self.assertEqual(target.read_text(encoding="utf-8"), content)
+                            autofix.assert_not_called()
+
+    def test_license_check_rejects_conflicting_or_compound_spdx_identifiers(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            for filename, conflicting_notice in (("source.py", "# SPDX-License-Identifier: MIT"),
+                                                 ("source.css", "/*! SPDX-License-Identifier: MIT */")):
+                target = Path(temp_dir) / filename
+                header = self.quality_checks.get_license_header(str(target))
+                for content in (header + f"\n{conflicting_notice}\n",
+                                header.replace("SPDX-License-Identifier: Apache-2.0", "SPDX-License-Identifier: Apache-2.0 OR MIT")):
+                    for autofix in (False, True):
+                        with self.subTest(filename=filename, content=content, autofix=autofix):
+                            target.write_text(content, encoding="utf-8")
+                            self.assertFalse(self.quality_checks.check_license_header([str(target)], format=autofix))
+                            self.assertEqual(target.read_text(encoding="utf-8"), content)
 
     def test_copyright_check_covers_browser_and_cpp_variants_but_preserves_vendor(self):
         with tempfile.TemporaryDirectory() as temp_dir:
