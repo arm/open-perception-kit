@@ -5,154 +5,76 @@ sidebar_label: Branching Policy
 
 # Branching Policy
 
-This repository uses a simplified gitflow-style branching model.
+`main` is the default branch and integration branch. There is no active
+`develop` branch. Normal development, fixes, and release preparation reach
+`main` through pull requests.
 
-The goals are:
+## Branch names and purpose
 
-- keep active development on `develop`
-- keep releasable history on `main`
-- separate new work, normal fixes, and post-release hotfixes
-- enforce the naming and protection rules through manually maintained GitHub
-  rulesets
+Use a ticketed branch name for contributor work:
 
-## Allowed branch names
+| Branch family | Purpose | Example |
+| --- | --- | --- |
+| `feature/EXPKITS-*` | Planned development | `feature/EXPKITS-1234/add-camera-contact-parser` |
+| `bugfix/EXPKITS-*` | Normal fixes | `bugfix/EXPKITS-5678/fix-ui-timeout` |
+| `hotfix/EXPKITS-*` | Urgent fixes to released behavior | `hotfix/EXPKITS-9012/fix-release-crash` |
+| `release/EXPKITS-*` | Release preparation | `release/EXPKITS-1234-create-release-1.2.3` |
 
-The branch naming ruleset allows these branch families:
+Branch from `main` and target `main` for each of these flows. Dependabot manages
+its own `dependabot/*` branches. Ticketed naming is the contribution convention;
+the repository does not currently have a global branch-name ruleset.
 
-- `main`
-- `develop`
-- `feature/EXPKITS-<integer>...`
-- `bugfix/EXPKITS-<integer>...`
-- `hotfix/EXPKITS-<integer>...`
-- `release/EXPKITS-<integer>...`
-- `dependabot/<name>...`
-- `sandbox/<name>...`
-Examples:
+## Development flow
 
-- `feature/EXPKITS-1234/add-camera-contact-parser`
-- `bugfix/EXPKITS-5678/fix-ui-timeout`
-- `hotfix/EXPKITS-9012/fix-release-crash`
-- `release/EXPKITS-1234-create-release-1.2.3`
-- `sandbox/agent-review-smoke`
+1. Create a ticketed branch from the current `main`.
+2. Implement and validate the change using the repository's checks.
+3. Open a pull request into `main` with a Conventional Commit title and the
+   `Goal`, `Change`, and `Testing` sections from the PR template.
+4. Rebase onto the target branch when an update is needed. Do not merge `main`
+   into the feature branch.
+5. Resolve review threads, obtain the required approvals, and pass the required
+   checks before squash-merging.
 
-## Branch purpose
+Sign every commit cryptographically and include a DCO `Signed-off-by` trailer;
+these are separate requirements. For example, use `git commit -S -s`,
+`git rebase --gpg-sign --signoff`, and `git cherry-pick -S -s`. Verify signatures
+and sign-offs again after rewriting commits.
 
-Use each branch type for a specific kind of work.
-
-### `main`
-
-`main` is the protected release branch.
-
-- Changes reach `main` through pull requests only.
-- `main` should always represent the current release line.
-- Each pull request targeting `main` sets a new stable version in
-  `development/meson.build` and adds its `CHANGELOG.md` section.
-- A push to `main` publishes the x86_64, Arm, and documentation archives to one
-  immutable `v<MAJOR.MINOR.PATCH>` GitHub Release and Artifactory's `releases`
-  folder, plus the matching multi-architecture deployment image in GHCR.
-
-### `develop`
-
-`develop` is the protected integration branch.
-
-- Normal day-to-day work merges into `develop`.
-- `develop` is the source branch for new features and normal bug fixes.
-
-### `feature/EXPKITS-*`
-
-Use `feature/*` for planned development work tied to a task.
-
-- Branch from `develop`
-- Open the pull request back into `develop`
-
-### `bugfix/EXPKITS-*`
-
-Use `bugfix/*` for normal fixes discovered during ongoing development.
-
-- Branch from `develop`
-- Open the pull request back into `develop`
-
-### `hotfix/EXPKITS-*`
-
-Use `hotfix/*` only for urgent fixes to something already released on `main`.
-
-- Branch from `main`
-- Open a pull request into `main`
-- After the fix reaches `main`, merge the same change back into `develop`
-
-### `release/EXPKITS-*`
-
-Use `release/*` to prepare an integrated release.
-
-- Branch from `develop`
-- Make only release-preparation changes and required integration fixes
-- Open the pull request into `main`
-- After the release reaches `main`, merge it back into `develop`
-
-### `sandbox/*`
-
-Use `sandbox/*` for temporary CI, workflow, or integration experiments that
-still need repository automation to run.
-
-- Branch from `develop` unless the experiment requires a different base
-- Do not treat `sandbox/*` as a long-lived branch family
-- Open the pull request into the branch that matches the experiment goal
-
-## Normal flow
-
-The normal development flow is:
-
-1. branch from `develop` using `feature/*` or `bugfix/*`
-2. implement the change
-3. open a pull request into `develop`
-4. when the integrated work is ready to ship, create a ticketed `release/*`
-   branch from `develop`
-5. prepare the stable version and changelog on that branch
-6. open a pull request from the release branch into `main`
-
-## Hotfix flow
-
-The post-release hotfix flow is:
-
-1. branch from `main` using `hotfix/*`
-2. implement the urgent fix
-3. open a pull request into `main`
-4. after it is merged, back-merge the fix into `develop`
-
-This keeps `main` stable while preventing hotfix-only drift between the release
-line and ongoing development.
+Hotfixes follow the same PR flow into `main`. There is no back-merge to a second
+integration branch. For a native PR stack, only the bottom PR targets `main`;
+each upper PR targets the branch immediately below it. Rebase the stack as its
+base changes and merge from bottom to top.
 
 ## Release flow
 
-When integrated work is ready to ship, create a ticketed `release/*` branch
-from `develop`, prepare the stable version and changelog, and open a pull
-request into `main`.
+An ordinary PR into `main` does not require a new product version, and merging
+it does not publish a product release.
+
+When the integrated changes are ready to ship, prepare the version, changelog,
+and generated version consumers on a ticketed `release/*` branch and merge
+that PR into `main`. Then manually start the **Release** workflow from `main`.
+It uses the version already committed in the selected source; it has no version
+override or automatic prerelease version. Published versions must not be
+overwritten.
+
+See the repository's
+[release process](https://github.com/arm/open-perception-kit/blob/main/docs/arch/release-process.md#release-packages)
+for the exact inputs, artifacts, validation, and publication order.
 
 ## Enforcement
 
-GitHub rulesets are maintained manually in the repository settings.
+The active `main` ruleset targets the default branch. It requires:
 
-The branch naming ruleset applies to all branches and allows names matching:
+- pull requests with one approval, code-owner review for owned paths, and all
+  review threads resolved;
+- dismissal of stale approvals after new commits, approval of the latest push
+  by someone other than its author, and extra approval for unattributed changes;
+- required status checks to pass with the branch up to date;
+- signed commits and a DCO sign-off in commit messages;
+- linear history and squash merges, with branch creation, deletion, and force
+  pushes restricted on the protected ref.
 
-```text
-^(main|develop|feature/EXPKITS-[0-9]+.*|bugfix/EXPKITS-[0-9]+.*|hotfix/EXPKITS-[0-9]+.*|release/EXPKITS-[0-9]+.*|dependabot/.+|sandbox/.+)$
-```
-
-The branch protection ruleset applies to `main` and `develop` and:
-
-- prevents branch deletion and force pushes
-- requires changes to arrive through pull requests
-- requires one approval, code-owner review for owned paths, and resolution of
-  all review threads
-- dismisses stale approvals when new commits are pushed
-- does not separately require the latest push to be approved by someone other
-  than its author
-- permits merge commits and rebase merges
-- requires the `Run Sonar analysis in Docker` and
-  `Run quality checks in Docker` status checks, without requiring the branch to
-  be up to date before merging
-- additionally requires `Release publication validation` for pull requests to
-  `main`
-
-No bypass actors are configured. Repository administrators must keep the
-GitHub settings aligned with this policy.
+Repository administrators have a configured bypass. GitHub settings are
+maintained manually; inspect the
+[current ruleset](https://github.com/arm/open-perception-kit/rules/23838289)
+for the required check names and current settings.
