@@ -32,10 +32,11 @@ runtime. Treat these as constraints when extending the system.
   when those components need to produce or consume the new payload semantics.
 - Native custom postprocessing is registered through `GenericPostprocessOp`.
   The Python script Op can inspect inference outputs and append FrameResults,
-  but it is supported only in native OPK pipelines inside the official
-  containers or from a matching binary release on Debian Trixie. It executes
-  trusted code in process and its zero-copy tensor arrays are valid only during
-  the current call.
+  but it is supported only in native OPK pipelines and Python-hosted GStreamer
+  applications inside the official containers or from a matching binary release
+  on Debian Trixie. A Python host must already use the compatible OPK runtime.
+  It executes trusted code in process and its zero-copy tensor arrays are valid
+  only during the current call.
 - `opkosd` rendering is hardcoded around known content types, so it is best
   treated as a debugging overlay rather than the long-term visualization layer.
 

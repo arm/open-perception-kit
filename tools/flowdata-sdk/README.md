@@ -2,7 +2,7 @@
 
 This directory contains ordinary tracked source files for the SDK generator,
 including C++, Python, Rust, TypeScript, CMake, Meson, and the embedded Python
-bridge. The generator identity is 0.6.0, independent of the generated Open Perception Kit
+bridge. The generator identity is 0.6.1, independent of the generated Open Perception Kit
 SDK's product version.
 
 No separate checkout, credentials, or generator download is required. Source

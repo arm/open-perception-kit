@@ -2,4 +2,4 @@
 # Copyright (C) 2025 Arm Limited. All rights reserved.
 ################################################################
 
-GENERATOR_VERSION = "0.6.0"
+GENERATOR_VERSION = "0.6.1"

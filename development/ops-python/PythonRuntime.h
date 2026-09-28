@@ -12,7 +12,7 @@
 
 namespace opk::python {
 
-void ensureRuntime();
+void ensureRuntime(const std::vector<std::filesystem::path> &pythonPaths = {});
 std::string formatPythonError();
 
 class GILGuard {

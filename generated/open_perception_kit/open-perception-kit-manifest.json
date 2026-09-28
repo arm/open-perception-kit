@@ -95,13 +95,13 @@
     },
     {
       "path": "cpp/python_bridge/open_perception_kit_python_bridge.cpp",
-      "sha256": "fcd62a94e283d66a261bcfe7b37dc8b42f86e2eb6ed2b0745d30930de7e88e41",
-      "size": 226014
+      "sha256": "3d24425871aeca2b6da947e22746197edb51b2e4cb1f9070dd2f3ea3929ba375",
+      "size": 226503
     },
     {
       "path": "cpp/python_bridge/open_perception_kit_python_bridge.h",
-      "sha256": "48ec40c851c24252daf5504655faa73356c061488e020694388fd9495d3c9e8f",
-      "size": 1058
+      "sha256": "89245dc1355d03b6a22afecad9f19a452de99214a760b8c134511f6889712ad5",
+      "size": 1098
     },
     {
       "path": "python/LICENSE",
@@ -1028,7 +1028,7 @@
     "flowdata_sdk": {
       "generator": {
         "name": "flowdata-sdk",
-        "version": "0.6.0"
+        "version": "0.6.1"
       },
       "sources": [
         {
@@ -1068,8 +1068,8 @@
         },
         {
           "path": "tools/flowdata/engine/cpp/python_bridge.py",
-          "sha256": "6b711205c74696c840117f20ad40b2c1cc2942883ba2944ba52b5c65d67b97e1",
-          "size": 62763
+          "sha256": "53985e8cd11e0fb9b4c1b18fb618758a237d78de78f5814f15056ffea55d6fb0",
+          "size": 63270
         },
         {
           "path": "tools/flowdata/engine/discovery.py",
@@ -1118,8 +1118,8 @@
         },
         {
           "path": "tools/flowdata/engine/manifest.py",
-          "sha256": "c6eba9b4ba966ef5191efc0c8562844997d5e6bc4cf791e602e62cc04e58157c",
-          "size": 24494
+          "sha256": "afc1635d87fea5ce580a905a527bfb67627016a243d6f9b02c16ab6f442888b0",
+          "size": 24581
         },
         {
           "path": "tools/flowdata/engine/python/__init__.py",
@@ -1178,7 +1178,7 @@
         },
         {
           "path": "tools/flowdata/engine/version.py",
-          "sha256": "1a2df0b90e3b20d3ffea89a1d365d506faf53478bf5f1d5c7746d6acf78e8ff9",
+          "sha256": "be3f136d47f65cc87187118088e6111d5da62cbcf1344d86afa315ea6ebc338e",
           "size": 214
         },
         {
@@ -1329,13 +1329,13 @@
         },
         {
           "path": "python_bridge/open_perception_kit_python_bridge.cpp",
-          "sha256": "fb3d2852a45bbd8a8ab56fc34e919b32bb992c72f1dffdbdfd3a8b04974cd9a4",
-          "size": 216900
+          "sha256": "386dab1287bf6dee3c1e4de6ad5f492d81d70cce4693111a76cf5c43eb06a8be",
+          "size": 217389
         },
         {
           "path": "python_bridge/open_perception_kit_python_bridge.h",
-          "sha256": "bdc5db9188a200f6b049b0db2afa47f090cf648aa26141e87166501185ad08e3",
-          "size": 868
+          "sha256": "26680e311c7cf9153109f11c218896f4da8367e58c56198a460b8d2bdd4a69df",
+          "size": 908
         }
       ],
       "flatbuffers_runtimes": [
@@ -1357,7 +1357,7 @@
       },
       "generator": {
         "name": "flowdata-sdk",
-        "version": "0.6.0"
+        "version": "0.6.1"
       },
       "outputs": {
         "cpp_python_bridge": true,
@@ -1425,6 +1425,7 @@
       ],
       "python_bridge": {
         "header": "python_bridge/open_perception_kit_python_bridge.h",
+        "initialization_function": "open_perception_kit::python_bridge::initialize_module",
         "module_name": "open_perception_kit_bridge",
         "registration_function": "open_perception_kit::python_bridge::append_inittab",
         "requires_python": ">=3.10",
@@ -1707,7 +1708,7 @@
       },
       "generator": {
         "name": "flowdata-sdk",
-        "version": "0.6.0"
+        "version": "0.6.1"
       },
       "outputs": {
         "cpp_python_bridge": false,
@@ -2035,7 +2036,7 @@
       },
       "generator": {
         "name": "flowdata-sdk",
-        "version": "0.6.0"
+        "version": "0.6.1"
       },
       "outputs": {
         "cpp_python_bridge": false,
@@ -2348,7 +2349,7 @@
       },
       "generator": {
         "name": "flowdata-sdk",
-        "version": "0.6.0"
+        "version": "0.6.1"
       },
       "outputs": {
         "cpp_python_bridge": false,

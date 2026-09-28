@@ -10,7 +10,7 @@ Show the generator identity:
 
 ```bash
 python3 tools/flowdata/gen.py --version
-# sdkgen 0.6.0
+# sdkgen 0.6.1
 ```
 
 Generate one language SDK:

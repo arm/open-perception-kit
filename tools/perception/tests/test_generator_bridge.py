@@ -407,7 +407,12 @@ class GeneratorBridgeTests(unittest.TestCase):
         self.assertEqual(write_text.call_count, 2)
         header, source = [item.args[0] for item in write_text.call_args_list]
         self.assertEqual([item.kwargs for item in write_text.call_args_list], [{"encoding": "utf-8"}] * 2)
-        for snippet in ('#include "fixture_python.h"', "namespace fixture_python::python_bridge", "class scoped_envelope"):
+        for snippet in (
+            '#include "fixture_python.h"',
+            "namespace fixture_python::python_bridge",
+            "[[nodiscard]] bool initialize_module();",
+            "class scoped_envelope",
+        ):
             self.assertIn(snippet, header)
         snippets = (
             '#include "fixture_python_python_bridge.h"', "kind_Demo_Payload", '"fixture_python.fb.Demo.Payload", "PayloadT"',
@@ -422,6 +427,8 @@ class GeneratorBridgeTests(unittest.TestCase):
             "proxy_anchor<Demo::PayloadT>(self)", "return py_string_from_std(value->label);",
             "sequence.sq_item = item_Demo_Payload_points_vector;", 'type.tp_name = "fixture_python_bridge.Demo_Payload";',
             "ensure_known_proxy_types()", "type.tp_new = nullptr;", "PyExc_IndexError",
+            'PyDict_GetItemString(modules, "fixture_python_bridge")',
+            'PyDict_SetItemString(modules, "fixture_python_bridge", module)',
         )
         for snippet in snippets:
             with self.subTest(snippet=snippet):

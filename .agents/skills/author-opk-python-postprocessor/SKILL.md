@@ -63,8 +63,9 @@ checked-in example.
 - Keep `script` and `pythonPaths` relative to the opchain when possible.
 - Add a top-level pipeline only when the feature needs a runnable `opk-menu`
   preset or demonstrational workflow.
-- Run the script only through a native OPK pipeline in the official quick-start
-  or deployment container. `open_perception_kit.guest` intentionally does not import in
+- Run the script through a native OPK pipeline in the official quick-start
+  or deployment container or Python-hosted GStreamer application.
+  `open_perception_kit.guest` intentionally does not import in
   a normal standalone Python process.
 
 ## Test the Result
