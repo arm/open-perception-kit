@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+
 import {renderOsd, resizeCanvasToDisplaySize} from './osd-renderer.js';
 
 const canvas = document.getElementById('clientOsdCanvas');

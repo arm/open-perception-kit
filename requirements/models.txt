@@ -1,2 +1,4 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+
 -r common.txt
 huggingface_hub==1.32.0

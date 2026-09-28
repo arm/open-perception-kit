@@ -1,3 +1,5 @@
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 # Contributing
 
 ## Contribution rules
@@ -31,3 +33,22 @@
 - Include implementation details only when they explain behavior or constraints;
   keep internal helper descriptions and code walkthroughs in source comments.
 - Keep explanations concise. Document shared behavior once and link to it.
+
+## Copyright and licence notices
+
+Use the existing `tools/templates/header/` templates for new OPK source files.
+`opk-ci --license-header-check` checks native, Python, shell, CMake and browser
+source headers; `--license-header` adds missing headers using the current year.
+The browser assets under `development/web/content/vendor/` retain upstream notices.
+
+When modifying a file, preserve its existing copyright holders and contribution
+years. Add the year of the new contribution; use a range only for consecutive
+years (for example, `2022-2024, 2026`). A rename alone does not add a copyright
+year. Do not update every file just because the calendar year changed.
+
+OPK uses `SPDX-FileCopyrightText` and `SPDX-License-Identifier` notices, with
+`Arm Limited and/or its affiliates <perception-fdbck@arm.com>` as the Arm holder
+and contact. Keep each SPDX notice on one line. For formats that cannot carry
+comments, follow the existing `.license` sidecars and `REUSE.toml` annotations
+described in [Licensing](../docs/public/licensing.md). Edit generator inputs
+and regenerate generated files through their existing owner scripts.

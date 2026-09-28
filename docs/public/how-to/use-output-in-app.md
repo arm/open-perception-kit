@@ -4,6 +4,8 @@ sidebar_position: 6
 sidebar_label: App Output
 description: Placeholder for the planned workflow to consume Open Perception Kit inference results from an application.
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # Feed Inference Into An Application
 

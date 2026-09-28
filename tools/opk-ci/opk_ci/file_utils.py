@@ -1,5 +1,5 @@
 ################################################################
-# Copyright (C) 2025 Arm Limited. All rights reserved.
+# SPDX-FileCopyrightText: Copyright 2025-2026 Arm Limited and/or its affiliates
 ################################################################
 
 import os
@@ -16,10 +16,11 @@ class FileUtils:
     def __init__(self):
         """Initialize the FileUtils class."""
         self.file_endings = {
-            "cpp": [".c", ".cpp", ".h", ".hpp", ".tpp", "*.cc", "*.cxx", "*.hxx", "*.hh"],
+            "cpp": [".c", ".cpp", ".h", ".hpp", ".tpp", ".cc", ".cxx", ".hxx", ".hh"],
             "py": [".py", ".pyi", ".ipynb"],
             "cmake": [".cmake", "CMakeLists.txt"],
-            "sh": [".sh"]
+            "sh": [".sh"],
+            "web": [".js", ".mjs", ".cjs", ".ts", ".tsx", ".css"],
         }
         self.file_endings["license"] = list(itertools.chain.from_iterable(self.file_endings.values()))
 

@@ -7,6 +7,8 @@ description: >
   branch, fix repository-owned stacks, and keep only exercised third-party-only
   suppressions.
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # Validate Valgrind regressions
 

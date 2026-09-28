@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+
 import {execFileSync} from 'node:child_process';
 import {createRequire} from 'node:module';
 import {mkdirSync, rmSync} from 'node:fs';

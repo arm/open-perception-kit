@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 ################################################################
-# Copyright (C) 2026 Arm Limited. All rights reserved.
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 ################################################################
 
 from __future__ import annotations
@@ -12,6 +12,7 @@ import sys
 import tempfile
 import unittest
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
 
@@ -151,7 +152,7 @@ class TestOpkCiE2E(unittest.TestCase):
             self.skipTest(f"actionlint toolchain is unavailable: {', '.join(missing)}")
 
     def read_fixture(self, relative_path: str) -> str:
-        return (FIXTURE_ROOT / relative_path).read_text(encoding="utf-8")
+        return (FIXTURE_ROOT / relative_path).read_text(encoding="utf-8").replace('[year]', str(date.today().year))
 
     def write_fixture_files(self, cases: tuple[FixtureCase, ...]) -> None:
         for case in cases:

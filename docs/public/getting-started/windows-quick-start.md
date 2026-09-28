@@ -4,6 +4,8 @@ sidebar_position: 2
 sidebar_label: Windows
 description: Set up Open Perception Kit on Windows with WSL and Docker Desktop from the command line or VS Code.
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # Windows Quick Start
 

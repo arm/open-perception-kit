@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+
 const sidebarButton = document.getElementById('sidebarVisibilityBtn');
 const outputsButton = document.getElementById('outputsVisibilityBtn');
 const videoFeedButton = document.getElementById('toggleVideoFeedBtn');

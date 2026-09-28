@@ -2,6 +2,8 @@
 name: opk-release
 description: Prepare, validate, and troubleshoot releases for this repository, including Semantic Version selection, changelog reconstruction, version updates, release pull requests, release-related Jira follow-ups, and release CI failures. Use for release branches, release PRs to main or develop, and investigations of release workflows; do not use for ordinary development or generic Semantic Versioning advice.
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # Release workflow
 

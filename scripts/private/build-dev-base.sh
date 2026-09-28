@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 ################################################################
-# Copyright (C) 2026 Arm Limited. All rights reserved.
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 ################################################################
 # Builds the shared base image used by the consolidated Dockerfile targets.
 ################################################################

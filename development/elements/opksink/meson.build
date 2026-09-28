@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+
 
 asio_dep = dependency('asio', required: true,
                              fallback: ['asio', 'asio_dep'])

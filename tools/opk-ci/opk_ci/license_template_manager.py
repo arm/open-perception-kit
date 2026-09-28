@@ -1,9 +1,10 @@
 ################################################################
-# Copyright (C) 2025 Arm Limited. All rights reserved.
+# SPDX-FileCopyrightText: Copyright 2025-2026 Arm Limited and/or its affiliates
 ################################################################
 
 import logging
 import os
+from datetime import date
 
 from opk_ci.file_utils import FileUtils
 
@@ -23,7 +24,7 @@ class LicenseTemplateManager:
         if key not in self.templates:
             try:
                 with open(os.path.join(self.TEMPLATE_ROOT, f"{key}.template"), 'r', encoding='utf-8') as f:
-                    self.templates[key] = f.read().rstrip() + '\n'
+                    self.templates[key] = f.read().replace('[year]', str(date.today().year)).rstrip() + '\n'
                     logger.debug(
                         f"{key.capitalize()} license template loaded: {self.templates[key]}")
             except Exception as e:

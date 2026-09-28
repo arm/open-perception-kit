@@ -4,6 +4,8 @@ sidebar_position: 1
 sidebar_label: Use Your Own Media
 description: Replace sample media with your own images, videos, or streams while keeping a known-good pipeline intact.
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # Use Your Own Media
 

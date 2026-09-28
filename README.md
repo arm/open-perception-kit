@@ -1,3 +1,5 @@
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 # Open Perception Kit CLI quick start
 
 The Open Perception Kit helps Raspberry Pi developers get from setup to
@@ -277,3 +279,7 @@ For a USB camera exposed as `/dev/video0` on the target:
 OPK_PIPELINE=full-onnx-usb-cam \
   topo deploy --target <raspberry-pi-ip-address>
 ```
+
+## Copyright
+
+Copyright 2025-2026 Arm Limited and/or its affiliates.

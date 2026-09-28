@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 ################################################################
-# Copyright (C) 2026 Arm Limited. All rights reserved.
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 ################################################################
 # Stops quick-start containers for the current checkout.
 ################################################################

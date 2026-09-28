@@ -1,5 +1,5 @@
 ################################################################
-# Copyright (C) 2025 Arm Limited. All rights reserved.
+# SPDX-FileCopyrightText: Copyright 2025-2026 Arm Limited and/or its affiliates
 ################################################################
 
 import os
@@ -1517,7 +1517,7 @@ class QualityChecks:
         """Get the license header for a file based on its extension."""
         for group, exts in self.file_utils.file_endings.items():
             if self.file_utils.is_file_in_group(filename, exts):
-                return self.license_template_manager.get(group)
+                return self.license_template_manager.get("cpp" if group == "web" else group)
 
         return None
 
@@ -1588,8 +1588,13 @@ class QualityChecks:
         result = True
         files = self.file_utils.filter_by_path_ending(
             files, self.file_utils.file_endings["license"])
+        # Vendored browser assets retain their upstream notices and licence terms.
+        project_root = self.file_utils.get_project_root()
+        files = [filename for filename in files if not self.file_utils.is_ignored_file(
+            os.path.relpath(filename, project_root), ["development/web/content/vendor"])]
         copyright_pattern = re.compile(
-            r"Copyright \(C\) \d{4} Arm Limited\. All rights reserved\.")
+            r"SPDX-FileCopyrightText: Copyright \d{4}(?:-\d{4})?"
+            r"(?:, \d{4}(?:-\d{4})?)* Arm Limited and/or its affiliates")
 
         for filename in files:
             content = ""
@@ -1608,14 +1613,14 @@ class QualityChecks:
 
             if found:
                 logger.debug(f"License header already present in {filename}")
-            elif format:
+            elif format and not any("Copyright" in line for line in top_lines):
                 result = False
                 self.apply_license_header(filename, content)
             else:
                 self.record_manual_fix(
                     filename,
                     "license-header",
-                    "Add the missing Arm license header to the file.",
+                    "Add the Arm SPDX copyright notice; preserve existing copyright holders and contribution years.",
                 )
                 result = False
 

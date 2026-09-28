@@ -1,5 +1,5 @@
 ################################################################
-# Copyright (C) 2025 Arm Limited. All rights reserved.
+# SPDX-FileCopyrightText: Copyright [year] Arm Limited and/or its affiliates
 ################################################################
 cmake_minimum_required(VERSION 3.20)
 project(opk_ci_fixture LANGUAGES C CXX)

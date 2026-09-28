@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+
 import {setPlayPause} from "./video-controls.js"
 import {enableAudioButton} from "./audio.js"
 import {modelsManager} from "./models.js"

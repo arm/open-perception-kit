@@ -1,3 +1,5 @@
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 # Python SDK Guide
 
 The Python SDK is generated into `generated/python`. Endpoint clients use the

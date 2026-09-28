@@ -2,6 +2,8 @@
 sidebar_position: 4
 sidebar_label: Containers
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # Container Structure
 

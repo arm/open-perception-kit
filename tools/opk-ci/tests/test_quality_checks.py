@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 ################################################################
-# Copyright (C) 2026 Arm Limited. All rights reserved.
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 ################################################################
 
 import importlib
@@ -13,6 +13,7 @@ import tempfile
 import threading
 import types
 import unittest
+from datetime import date
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -664,9 +665,41 @@ class TestQualityChecks(unittest.TestCase):
         self.assertEqual(
             self.quality_checks.get_license_header("CMakeLists.txt"),
             "################################################################\n"
-            "# Copyright (C) 2025 Arm Limited. All rights reserved.\n"
+            f"# SPDX-FileCopyrightText: Copyright {date.today().year} Arm Limited and/or its affiliates\n"
             "################################################################\n",
         )
+
+    def test_copyright_check_preserves_disjoint_years_and_foreign_notices(self):
+        notices = [
+            ("# SPDX-FileCopyrightText: Copyright 2001-2003, 2015 Arm Limited and/or its affiliates\n", True),
+            ("# Copyright 2020 Another contributor\n", False),
+        ]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            target_file = Path(temp_dir) / "source.py"
+            for notice, accepted in notices:
+                with self.subTest(notice=notice):
+                    content = notice + "pass\n"
+                    target_file.write_text(content, encoding="utf-8")
+                    self.assertEqual(self.quality_checks.check_license_header([str(target_file)]), accepted)
+                    self.assertEqual(target_file.read_text(encoding="utf-8"), content)
+
+    def test_copyright_check_covers_browser_and_cpp_variants_but_preserves_vendor(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            with patch.object(self.quality_checks.file_utils, "get_project_root", return_value=str(root)):
+                for suffix in (".js", ".mjs", ".cjs", ".ts", ".tsx", ".css", ".cc", ".cxx", ".hh", ".hxx"):
+                    with self.subTest(suffix=suffix):
+                        source = root / f"source{suffix}"
+                        source.write_text("/* OPK source */\n", encoding="utf-8")
+                        self.assertFalse(self.quality_checks.check_license_header([str(source)], format=False))
+                        self.assertFalse(self.quality_checks.check_license_header([str(source)]))
+                        self.assertTrue(self.quality_checks.check_license_header([str(source)], format=False))
+                vendor = root / "development/web/content/vendor/library.js"
+                vendor.parent.mkdir(parents=True)
+                original = "/* Copyright 2020 Another contributor; MIT */\n"
+                vendor.write_text(original, encoding="utf-8")
+                self.assertTrue(self.quality_checks.check_license_header([str(vendor)]))
+                self.assertEqual(vendor.read_text(encoding="utf-8"), original)
 
     def test_apply_license_header_reformats_cmake_file_when_config_is_available(self):
         input_content = (FIXTURE_ROOT / "cmake" / "bad.CMakeLists.txt.input").read_text(encoding="utf-8")

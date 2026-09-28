@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+
 services:
   opk-build-base:
     image: ${OPK_BUILD_BASE_IMAGE:-open-perception-kit-build-base}

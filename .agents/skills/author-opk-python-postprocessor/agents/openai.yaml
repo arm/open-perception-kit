@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+
 interface:
   display_name: "Author OPK Python Postprocessor"
   short_description: "Build trusted Python tensor postprocessors"

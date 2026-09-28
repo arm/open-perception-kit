@@ -1,3 +1,5 @@
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 # MobileGaze MobileNetV2 INT8 for ExecuTorch
 
 ExecuTorch/XNNPACK variant of the MobileGaze face-level gaze estimator.

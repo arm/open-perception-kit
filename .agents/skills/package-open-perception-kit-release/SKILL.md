@@ -2,6 +2,8 @@
 name: package-open-perception-kit-release
 description: Build and verify the deterministic Open Perception Kit release ZIP, checksum, and provenance sidecar from an already committed canonical generated snapshot. Use for release candidates, pre-release deployment artifacts, reproducibility checks, offline bundle creation, verification of an existing open-perception-kit bundle, or handoff into OPK product package assembly. Do not use this skill to modify schemas or regenerate checked-in SDK sources.
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # Package an Open Perception Kit release
 

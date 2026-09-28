@@ -4,6 +4,8 @@ sidebar_position: 2
 sidebar_label: Runtime Basics
 description: Understand how GStreamer pipelines, OpChains, model descriptors, and FrameResults fit together at runtime.
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # Runtime Basics
 

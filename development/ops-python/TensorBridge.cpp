@@ -1,5 +1,5 @@
 /*************************************************************
- * Copyright (C) 2026 Arm Limited. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
  *************************************************************/
 
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION

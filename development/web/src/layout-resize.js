@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+
 const root = document.documentElement;
 const sidePanel = document.getElementById('sidePanel');
 const sideHandle = document.getElementById('sidePanelResizeHandle');

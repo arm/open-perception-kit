@@ -4,6 +4,8 @@ sidebar_position: 5
 sidebar_label: Raspberry Pi SSH
 description: Set up SSH keys so terminal sessions and VS Code can connect to a Raspberry Pi without repeated password prompts.
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # Raspberry Pi SSH Setup
 

@@ -1,3 +1,5 @@
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 # SDK Generator Sources
 
 This directory contains ordinary tracked source files for the SDK generator,

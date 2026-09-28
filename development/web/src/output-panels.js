@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+
 const STORAGE_KEY = 'opk-layout:output-panels:v1';
 
 const panels = {

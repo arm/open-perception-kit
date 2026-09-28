@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+
 interface:
   display_name: "Package Open Perception Kit release"
   short_description: "Build and verify the SDK release bundle"

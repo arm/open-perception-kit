@@ -2,6 +2,8 @@
 sidebar_position: 7
 sidebar_label: Inference Process
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # Inference Execution Flow
 

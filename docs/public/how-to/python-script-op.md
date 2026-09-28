@@ -2,6 +2,8 @@
 sidebar_position: 9
 sidebar_label: Python script Op
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # Run a stateful Python script in an OpChain
 

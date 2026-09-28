@@ -1,3 +1,5 @@
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 # Open Perception Kit Schema Evolution Workflow
 
 This directory contains the FlatBuffers schemas used to generate the Open Perception Kit

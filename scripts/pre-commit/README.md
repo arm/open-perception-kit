@@ -1,3 +1,5 @@
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 # pre-commit scripts
 
 This folder owns the host-side pre-commit container flow for `open-perception-kit`.

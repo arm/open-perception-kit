@@ -2,6 +2,8 @@
 name: integrate-perception-sdk-consumer
 description: Integrate external C++, Python, Rust, or TypeScript applications with a released Open Perception Kit package and serialized FrameResults packets. Use for consumer-side proof of concepts, Plumber-like decoders, browser clients, Cairn adapters, build integration, package installation, producer identity and compatibility checks, payload routing, or SDK upgrade work. Do not use this skill to modify schemas, regenerate checked-in SDK sources, or create release bundles.
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # Integrate an Open Perception Kit consumer
 

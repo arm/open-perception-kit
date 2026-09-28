@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 ################################################################
-# Copyright (C) 2025 Arm Limited. All rights reserved.
+# SPDX-FileCopyrightText: Copyright 2025-2026 Arm Limited and/or its affiliates
 ################################################################
 
 """Build-time checks and staging for OPK release packages."""

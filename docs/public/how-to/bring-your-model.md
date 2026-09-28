@@ -4,6 +4,8 @@ sidebar_position: 4
 sidebar_label: Bring Your Model
 description: Add a model through descriptors, OpChains, parser selection, and pipeline presets before changing runtime code.
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # Bring Your Model
 

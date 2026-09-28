@@ -1,3 +1,5 @@
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 # TypeScript SDK Guide
 
 The TypeScript SDK is generated into `generated/ts`. It exposes an envelope API

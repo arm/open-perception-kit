@@ -52,7 +52,7 @@ try {
     await build({
         absWorkingDir: repoRoot,
         alias: {flatbuffers: flatbuffersPath},
-        banner: {js: '// Copyright (C) 2025 Arm Limited. All rights reserved.'},
+        banner: {js: '// SPDX-FileCopyrightText: Copyright 2025-2026 Arm Limited and/or its affiliates'},
         bundle: true,
         entryPoints: [path.join(root, 'src', 'app.js')],
         format: 'esm',

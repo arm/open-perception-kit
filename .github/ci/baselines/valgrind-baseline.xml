@@ -1,2 +1,4 @@
 <?xml version='1.0' encoding='utf-8'?>
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 <valgrindoutput source_logs="41" raw_errors="0" duplicate_errors="0" collected_errors="0" />

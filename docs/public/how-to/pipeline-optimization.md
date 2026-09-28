@@ -4,6 +4,8 @@ sidebar_position: 7
 sidebar_label: Pipeline Optimization
 description: Choose pixel formats, model inputs, model size, thread count, and tracking strategy for CPU-only OPK pipelines.
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # Optimize A CPU Pipeline
 

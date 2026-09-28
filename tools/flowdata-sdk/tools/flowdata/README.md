@@ -1,3 +1,5 @@
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 # flowdata SDK Generator
 
 `gen.py` generates project-named C++, Python, Rust, and TypeScript SDKs from one

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 ################################################################
-# Copyright (C) 2026 Arm Limited. All rights reserved.
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 ################################################################
 
 set -euo pipefail
@@ -98,7 +98,7 @@ assert_case_matches_expected() {
     local expected_fixture=""
 
     IFS='|' read -r target_path _input_fixture expected_fixture <<< "${case_entry}"
-    cmp -s "${FIXTURE_ROOT}/${expected_fixture}" "${SMOKE_REPO}/${target_path}" || {
+    cmp -s <(sed "s/\[year\]/$(date +%Y)/g" "${FIXTURE_ROOT}/${expected_fixture}") "${SMOKE_REPO}/${target_path}" || {
         echo "Expected ${target_path} to match ${expected_fixture}." >&2
         exit 1
     }

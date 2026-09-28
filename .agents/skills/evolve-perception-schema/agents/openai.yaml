@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+
 interface:
   display_name: "Evolve Open Perception Kit Schema"
   short_description: "Evaluate and evolve Open Perception Kit schemas safely"

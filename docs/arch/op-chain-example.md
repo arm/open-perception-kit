@@ -2,6 +2,8 @@
 sidebar_position: 14
 sidebar_label: OpChain Example
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # Example OpChain In opkinfer
 

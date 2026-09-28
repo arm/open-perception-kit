@@ -2,6 +2,8 @@
 sidebar_position: 3
 sidebar_label: Architectural overview
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # Architectural Overview
 

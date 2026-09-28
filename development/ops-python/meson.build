@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+
 python_embed_dep = opk_python.dependency(embed : true, required : true)
 python_runtime_path = ''
 if not release_package
