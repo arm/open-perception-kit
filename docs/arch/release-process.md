@@ -60,14 +60,27 @@ Native Ubuntu 24.04 jobs build the `opk-deployment-base` target in the
 [Dockerfile](../../Dockerfile) for `linux/amd64` and `linux/arm64`, then extract
 the release packages from the local images.
 
-The `opk-models` stage downloads models through
-`scripts/download-models.py` and the descriptors' pinned `hfDownload` entries.
+Packaging stages only the JSON descriptors and OpChains from the twelve
+selected directories under `config/models/`. Their `hfDownload` entries retain
+the pinned repository, revision, filename, and SHA-256 for user downloads.
+Model binaries are excluded from release archives, deployment images, and
+Cairn images, and are not required to build those artifacts.
 
-The standard OPK model sources are public. Release and quick-start CI download
-the pinned artifacts anonymously and do not require an `HF_TOKEN` secret.
-Release users run the packaged model files without Hugging Face credentials or
-network access. Optional authentication for custom private or gated models is
-described in [Bring your model](../public/how-to/bring-your-model.md).
+The existing quick-start development flow uses the `opk-models` stage and
+`scripts/download-models.py`. The standard OPK model sources are public;
+quick-start CI downloads the pinned artifacts anonymously, without an `HF_TOKEN`
+secret. Release builds and smoke checks do not use `opk-models`, download models
+or receive Hugging Face credentials. Optional authentication for custom private or gated models
+remains available through the existing downloader; see
+[Bring your model](../public/how-to/bring-your-model.md).
+
+Users download models separately before running a release; see
+[Download models](../public/getting-started/binary-release.md#download-models).
+Deployment containers mount the user's downloaded model directory read-only.
+The shared `opk-release-sources` Docker stage excludes each descriptor's
+`modelFile` path and its `.part` file before copying build inputs. This covers
+custom filenames regardless of extension; `.dockerignore` also excludes known
+model formats. Deployment and Cairn copies use those filtered inputs.
 
 The build verifies ExecuTorch package checksums and embeds the checked-in SDK
 ZIP, checksum, and provenance under `share/opk/open-perception-kit`. It checks
@@ -124,12 +137,21 @@ the staged payload before archiving:
 
 - Native plugins and runtimes, architecture, RUNPATH, and ELF dependencies.
 - Private Python runtime and distribution manifest.
-- Model files and their local model/OpChain references.
+- Exactly twelve model descriptor directories and their local model/OpChain references, without model binaries.
 - SDK ZIP, checksum, provenance, and descriptor schemas.
 - Legal documents and exclusion of source headers and SDK build files.
 
 Both architecture images run the same
-[package smoke](../../scripts/release/smoke-opk-package.sh) without network
-access as a non-root user. It checks plugin discovery, YOLO26n-320 and UltraFace
-with ONNX Runtime, NITEC with ExecuTorch, Python-operation dependencies, and
-`opksink` startup. The workflow publishes the tested archive without rebuilding.
+[package smoke](../../scripts/release/smoke-opk-package.sh) in the
+`opk-deployment-base` stage without network access, as a non-root user:
+
+```bash
+scripts/release/smoke-opk-package.sh \
+  opk-<version>-linux-<architecture>.tar.gz python-operation.py
+```
+
+The smoke checks required licence evidence, plugin discovery, Python-operation
+dependencies through an OpChain containing only the Python test Op, and `opksink`
+startup. It needs no model files and performs no inference. Model-dependent
+runtime tests remain in the development and quick-start test suites. The archive
+remains unchanged and is published without rebuilding.

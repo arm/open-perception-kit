@@ -228,13 +228,17 @@ when you need direct deployment control.
 
 ### Build a deployment container directly with Docker Compose
 
-Generate a cache key before invoking Compose:
+Download models through quick start first. Export your read-only Hugging Face
+token when private or gated models are needed:
 
 ```bash
-export HF_DOWNLOAD_CACHEBUST="$(./scripts/private/generate-hf-download-cachebust.sh)"
+# Optional: export HF_TOKEN="hf_your_token_here"
+./scripts/quick_start.sh
+./scripts/quick-start/cleanup-container.sh
 docker compose up --build
 ```
 
-Generate a fresh cache key before every direct Compose build. The model stage
-rejects builds when the key is omitted, preventing an authenticated build from
-silently reusing a cached anonymous model layer.
+Quick start downloads models into `config/models`. The deployment container
+mounts that directory read-only; its image contains descriptors but no model
+binaries. Stopping the quick-start container frees the container name and ports
+while preserving the downloaded files in the checkout.

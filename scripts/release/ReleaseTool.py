@@ -203,32 +203,25 @@ def find_primary_descriptor(model_root: Path, model_id: str) -> Path:
 
 def collect_model_files(
     model_root: Path, model_id: str, primary_descriptor: Path
-) -> tuple[list[Path], list[Path]]:
+) -> list[Path]:
     config_paths = sorted(model_root.rglob(JSON_GLOB))
     model_suffix = RELEASE_MODELS[model_id][1]
-    model_paths = {
-        resolve_model_path(
-            model_root, str(path.relative_to(model_root)), f"{model_id}.{path.name}"
-        )
-        for path in model_root.rglob("*")
-        if path.is_file() and path.suffix == model_suffix
-    }
     for config_path in config_paths:
         config = load_json(config_path)
         if not isinstance(config, dict):
             fail(f"{model_id}: invalid model config: {config_path.name}")
         if "modelFile" not in config:
+            if config_path == primary_descriptor:
+                fail(f"{model_id}: modelDescriptor is not a model config")
             continue
         model_path = resolve_model_path(
             model_root, config["modelFile"], f"{model_id}.{config_path.name}.modelFile"
         )
-        if not model_path.is_file():
-            fail(f"{model_id}: resolved model is missing: {model_path}")
-        if model_path not in model_paths:
+        if model_path.suffix != model_suffix:
             fail(f"{model_id}: unsupported model file: {model_path.name}")
-    if primary_descriptor not in config_paths or not model_paths:
+    if primary_descriptor not in config_paths:
         fail(f"{model_id}: modelDescriptor is not a model config")
-    return config_paths, sorted(model_paths)
+    return config_paths
 
 
 def discover_models(repo_root: Path) -> dict[str, dict[str, object]]:
@@ -240,12 +233,11 @@ def discover_models(repo_root: Path) -> dict[str, dict[str, object]]:
         model_root = models_root / model_id
         if not model_root.is_dir():
             fail(f"Release model directory does not exist: {model_root}")
-        config_paths, model_paths = collect_model_files(
+        config_paths = collect_model_files(
             model_root, model_id, find_primary_descriptor(model_root, model_id)
         )
         models[model_id] = {
             "config_paths": config_paths,
-            "model_paths": model_paths,
             "root": model_root,
         }
     return models
@@ -336,10 +328,6 @@ def stage_models(args: argparse.Namespace) -> None:
         source_root = entry["root"]
         model_root = stage_root / "share/opk/models" / model_id
         model_root.mkdir(parents=True, exist_ok=False)
-        for source_path in entry["model_paths"]:
-            destination_path = model_root / source_path.relative_to(source_root)
-            destination_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source_path, destination_path)
         for source_path in entry["config_paths"]:
             destination_path = model_root / source_path.relative_to(source_root)
             config = load_json(source_path)
@@ -563,6 +551,9 @@ def validate_legal_documentation(package_root: Path) -> None:
 
 
 def validate_release_payload(package_root: Path, repo_root: Path | None) -> None:
+    for path in (package_root / "share/opk/models").rglob("*"):
+        if path.is_symlink() or (path.is_file() and path.suffix != ".json"):
+            fail(f"Packaged model payload must contain only configuration files: {path}")
     packaged_schema_root = package_root / "share/opk/schemas/json/v1"
     validate_schema_tree(packaged_schema_root)
     if repo_root is None:
@@ -690,6 +681,8 @@ def validate_release_tree(package_root: Path) -> None:
     legal_root = package_root / "share/opk/licenses"
     for path in package_root.rglob("*"):
         relative = path.relative_to(package_root)
+        if path.name.casefold().endswith((".onnx", ".onnx.part", ".pte", ".pte.part", ".bin", ".bin.part")):
+            fail(f"Forbidden model binary in release: {relative}")
         if legal_root in path.parents:
             continue
         if forbidden_parts & set(relative.parts):

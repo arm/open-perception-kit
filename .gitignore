@@ -105,6 +105,8 @@ gstshark*/
 config/pipelines/.last_selected_pipeline_id
 
 # Model artifacts; keep the checked-in local models.
+config/models/**/*.bin
+config/models/**/*.bin.part
 config/models/**/*.hef
 config/models/**/*.onnx
 config/models/**/*.pte

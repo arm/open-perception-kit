@@ -28,6 +28,7 @@ Shared base and artifact stages
     -> opk-build-base
        -> opk-cross-build-base
     -> opk-models
+    -> opk-release-sources
 
 Development tooling lane
   opk-build-base
@@ -46,11 +47,11 @@ Documentation lane
     -> opk-docs
 
 Deployment lane
+  opk-release-sources
+    --copy sources without model artifacts--> deployment and Cairn stages
   opk-build-base
     -> opk-cross-build-base
     -> opk-deployment-build
-  opk-models
-    --copy resolved config and model artifacts--> opk-deployment-build
   opk-demo-media
     --copy demo videos--> opk-deployment-build
   opk-deployment-build
@@ -167,6 +168,10 @@ stages inherit everything from their parent unless noted otherwise.
   `huggingface_hub==1.18.0` and `jsonschema==4.26.0`, then runs
   `scripts/download-models.py` with the optional Hugging Face build secret to
   resolve model artifacts under `config/models`.
+- `opk-release-sources`: copies the build context through
+  `scripts/private/copy-without-models.py`, excluding descriptor-referenced
+  model files and partial downloads. Deployment and Cairn stages consume this
+  output; the stage has no download dependencies.
 - `opk-dev-base`: adds `wget`, `sudo`, `gnupg`, `shfmt`, `zip`, `python3-pip`,
   `pre-commit`, `lldb-17`, `valgrind`, `ccache`, `file`, GStreamer runtime plugins,
   `actionlint`, ONNX Runtime, `uv`, the `opk-ci` tool, `plumber`, and
@@ -188,7 +193,7 @@ stages inherit everything from their parent unless noted otherwise.
   PlantUML JAR.
 - `opk-deployment-build`: inherits `opk-cross-build-base`, adds the target
   sysroot when cross-building, installs target ONNX Runtime, downloads Meson
-  subprojects, consumes resolved model artifacts from `opk-models` and demo
+  subprojects, copies model configurations from the checkout and demo
   videos from `opk-demo-media`, builds OPK release outputs, and collects
   `/opt/opk-app`. Native release builds install the ExecuTorch toolchain and
   enable the Python operation module for the runnable deployment image. They use
@@ -237,7 +242,7 @@ such as Doxygen, Pandoc, Graphviz, and PlantUML. For release documentation
 publishing, see [Publish From GitHub Actions](../README.md#publish-from-github-actions).
 
 The deployment lane has two roles plus shared artifact inputs.
-`opk-deployment-build` inherits the cross-build base, consumes model artifacts
+`opk-deployment-build` inherits the cross-build base, copies model configurations
 and demo media, compiles OPK, and collects `/opt/opk-app`. For a native release
 it also packages the checked-in Open Perception Kit snapshot and creates the
 architecture archive. `opk-python-ops-runtime` creates the Python environment
@@ -260,8 +265,9 @@ Use the documentation image for local generation of public docs, Doxygen output,
 and PlantUML diagrams.
 
 Use the deployment build and runtime images when producing a runnable deployment
-image. This lane combines downloaded model artifacts, demo media, compiled OPK
-outputs, and runtime libraries. It is the only lane where OPK binaries should be
+image. This lane combines model configurations, demo media, compiled OPK
+outputs, and runtime libraries. Users supply downloaded model files through a
+runtime mount. It is the only lane where OPK binaries should be
 built into an image as part of the image creation process.
 
 Use helper images for narrow automation that does not need the full development

@@ -3,10 +3,11 @@
 # Copyright (C) 2025 Arm Limited. All rights reserved.
 ################################################################
 
-"""Focused checks for release model discovery and staging."""
+"""Focused checks for release package staging and validation."""
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -41,12 +42,9 @@ class FakeDistribution:
         return self.root / str(path)
 
 
-def add_model(
-    repo_root: Path, model_id: str, filename: str, op_id: str, content: bytes = b"model"
-) -> None:
+def add_model(repo_root: Path, model_id: str, filename: str, op_id: str) -> None:
     model_root = repo_root / "config/models" / model_id
     model_root.mkdir(parents=True, exist_ok=True)
-    (model_root / filename).write_bytes(content)
     (model_root / MODEL_DESCRIPTOR).write_text(
         json.dumps({"modelFile": filename}), encoding="utf-8"
     )
@@ -262,7 +260,7 @@ class ReleaseToolTests(unittest.TestCase):
                     {dependency.name: [dependency]},
                 )
 
-    def test_stages_local_model_with_relative_references(self) -> None:
+    def test_stages_descriptors_without_local_model_binaries(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             (root / OPCHAINS_DIR).mkdir(parents=True)
@@ -299,14 +297,8 @@ class ReleaseToolTests(unittest.TestCase):
             self.assertTrue(
                 (stage_root / "share/opk/models/nitec-resnet-18/secondary.json").is_file()
             )
-            self.assertEqual(
-                (stage_root / "share/opk/models/nitec-resnet-18/secondary.onnx").read_bytes(),
-                b"secondary",
-            )
-            self.assertEqual(
-                (stage_root / "share/opk/models/nitec-resnet-18/unreferenced.onnx").read_bytes(),
-                b"unreferenced",
-            )
+            self.assertFalse(list(stage_root.rglob("*.onnx")))
+            self.assertFalse(list(stage_root.rglob("*.pte")))
 
     def test_stages_only_release_model_allowlist(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -331,56 +323,6 @@ class ReleaseToolTests(unittest.TestCase):
                 release_tool.RELEASE_MODEL_NAMES,
             )
 
-    def test_stages_onnx_model_bytes_and_backend(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            (root / OPCHAINS_DIR).mkdir(parents=True)
-            add_release_models(root)
-            source_model = root / "config/models/yolo26n-320/model.onnx"
-            source_model.write_bytes(b"onnx\x00payload")
-
-            stage_root = root / "stage"
-            release_tool.stage_models(
-                SimpleNamespace(repo_root=str(root), stage_root=str(stage_root))
-            )
-
-            staged_model = stage_root / "share/opk/models/yolo26n-320/model.onnx"
-            self.assertEqual(staged_model.read_bytes(), b"onnx\x00payload")
-            opchain = json.loads(
-                (stage_root / "share/opk/models/yolo26n-320/opchain.json").read_text(
-                    encoding="utf-8"
-                )
-            )
-            self.assertEqual(opchain["ops"][0]["id"], ONNX_INFERENCE_OP)
-
-    def test_stages_executorch_model_bytes_and_backend(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            (root / OPCHAINS_DIR).mkdir(parents=True)
-            add_release_models(root)
-            source_model = (
-                root / "config/models/nitec-resnet-18-executorch/model.pte"
-            )
-            source_model.write_bytes(b"pte\x00payload")
-
-            stage_root = root / "stage"
-            release_tool.stage_models(
-                SimpleNamespace(repo_root=str(root), stage_root=str(stage_root))
-            )
-
-            staged_model = (
-                stage_root
-                / "share/opk/models/nitec-resnet-18-executorch/model.pte"
-            )
-            self.assertEqual(staged_model.read_bytes(), b"pte\x00payload")
-            opchain = json.loads(
-                (
-                    stage_root
-                    / "share/opk/models/nitec-resnet-18-executorch/opchain.json"
-                ).read_text(encoding="utf-8")
-            )
-            self.assertEqual(opchain["ops"][0]["id"], EXECUTORCH_INFERENCE_OP)
-
     def test_rejects_wrong_executorch_backend_or_suffix(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -400,7 +342,6 @@ class ReleaseToolTests(unittest.TestCase):
             descriptor.write_text(
                 json.dumps({"modelFile": "model.onnx"}), encoding="utf-8"
             )
-            (model_root / "model.onnx").write_bytes(b"onnx")
             with self.assertRaisesRegex(RuntimeError, "unsupported model file"):
                 release_tool.discover_models(root)
 
@@ -420,7 +361,6 @@ class ReleaseToolTests(unittest.TestCase):
             yolo26n_opchain.write_text(json.dumps(opchain), encoding="utf-8")
             descriptor = root / "config/models/yolo26n-320/model.json"
             descriptor.write_text(json.dumps({"modelFile": "model.pte"}), encoding="utf-8")
-            (root / "config/models/yolo26n-320/model.pte").write_bytes(b"onnx")
             with self.assertRaisesRegex(RuntimeError, "unsupported model file"):
                 release_tool.discover_models(root)
 
@@ -440,6 +380,24 @@ class ReleaseToolTests(unittest.TestCase):
                     ):
                         release_tool.validate_release_tree(package_root)
                     payload.unlink()
+
+    def test_rejects_bundled_models_in_any_release_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for relative in (
+                "share/opk/models/example/model.onnx",
+                "lib/opk/model.pte",
+                "work/config/models/example/renamed.bin",
+                "work/config/models/example/renamed.bin.part",
+                "share/opk/licenses/model.ONNX",
+            ):
+                with self.subTest(relative=relative):
+                    path = root / relative
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.touch()
+                    with self.assertRaisesRegex(RuntimeError, "Forbidden model binary"):
+                        release_tool.validate_release_tree(root)
+                    path.unlink()
 
     def test_allows_source_named_legal_documentation_directories(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -617,12 +575,18 @@ class ReleaseToolTests(unittest.TestCase):
             )
             release_tool.validate_release_payload(package_root, repo_root)
 
-            model_path = package_root / "share/opk/models/yolo26n-320" / ONNX_MODEL_FILE
+            model_path = package_root / "share/opk/models/yolo26n-320" / MODEL_DESCRIPTOR
             model = model_path.read_bytes()
             model_path.unlink()
             with self.assertRaisesRegex(RuntimeError, "models payload"):
                 release_tool.validate_release_payload(package_root, repo_root)
             model_path.write_bytes(model)
+
+            unexpected_model = model_path.with_name("unexpected.bin")
+            unexpected_model.write_bytes(b"model")
+            with self.assertRaisesRegex(RuntimeError, "only configuration files"):
+                release_tool.validate_release_payload(package_root, None)
+            unexpected_model.unlink()
 
             opchain_path = package_root / "share/opk/opchains/tracking/demo.json"
             opchain = opchain_path.read_bytes()

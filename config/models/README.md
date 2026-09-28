@@ -1,8 +1,11 @@
 # Model catalog
 
 This directory contains the supported ONNX and ExecuTorch model configurations.
-Model artifacts are downloaded from pinned Hugging Face revisions during the
-container build; binaries are not committed.
+The quick-start development container downloads model artifacts from pinned
+Hugging Face revisions using the user's access. Binaries are neither committed
+nor included in release packages or deployment/Cairn images. See
+[Download models](../../docs/public/getting-started/binary-release.md#download-models)
+for using the existing downloader with a binary release.
 
 - [UltraFace RFB-320 INT8](https://huggingface.co/Arm/ultraface-rfb-320-onnx-raspberry)
 - [YOLO26n INT8, 320 pixels](https://huggingface.co/Arm/yolo26n-320-int8-onnx-raspberrypi5)

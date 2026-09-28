@@ -160,6 +160,13 @@ RUN --mount=type=cache,target=/root/.cache/huggingface \
   HF_DOWNLOAD_CACHEBUST="${HF_DOWNLOAD_CACHEBUST}" \
   ./scripts/download-models.py --models-dir config/models
 
+# Filter descriptor-resolved model paths before any release source COPY. The
+# read-only context mount keeps excluded bytes out of the resulting image layers.
+FROM --platform=${BUILDPLATFORM} python:3.13-slim-trixie AS opk-release-sources
+
+RUN --network=none --mount=type=bind,target=/source,readonly \
+  python3 /source/scripts/private/copy-without-models.py /source /work
+
 # Development base extends the shared native build tooling. OPK source and build
 # outputs come from the mounted checkout, not from this image.
 FROM opk-build-base AS opk-dev-base
@@ -549,7 +556,7 @@ RUN set -eux; \
     /tmp/perception-sdk.json \
     /tmp/python-ops-runtime.json
 
-COPY generated/open_perception_kit/python /tmp/perception-python
+COPY --from=opk-release-sources /work/generated/open_perception_kit/python /tmp/perception-python
 RUN set -eux; \
   /opt/opk-venvs/python-ops-runtime/bin/pip install --no-cache-dir --no-deps \
     /tmp/perception-python; \
@@ -565,7 +572,7 @@ ARG NO_EXAMPLE_CONTENT=false
 ARG OPK_RELEASE_BUILD=false
 ARG OPK_RELEASE_SOURCE_COMMIT=""
 
-COPY --chmod=0755 scripts/private/install-target-sysroot.sh /usr/local/bin/install-target-sysroot
+COPY --from=opk-release-sources --chmod=0755 /work/scripts/private/install-target-sysroot.sh /usr/local/bin/install-target-sysroot
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
   set -eux; \
@@ -579,7 +586,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       binutils=2.44-3 libusb-1.0-0-dev=2:1.0.28-1 zlib1g-dev=1:1.3.dfsg+really1.3.1-1+b1; \
   fi
 
-COPY --chmod=0755 scripts/private/install-onnxruntime.sh /usr/local/bin/install-onnxruntime
+COPY --from=opk-release-sources --chmod=0755 /work/scripts/private/install-onnxruntime.sh /usr/local/bin/install-onnxruntime
 RUN install-onnxruntime \
   /opt/opk-deps/requirements/build.json "${TARGETARCH}" /opt/opk-deps/onnxruntime
 
@@ -597,25 +604,27 @@ RUN --mount=type=bind,source=var,target=/tmp/opk-executorch-packages,ro \
   fi
 
 WORKDIR /work
-COPY development/meson.build development/meson.options development/
-COPY development/subprojects/*.wrap development/subprojects/
-COPY development/subprojects/packagefiles development/subprojects/packagefiles
+COPY --from=opk-release-sources /work/development/meson.build /work/development/meson.options development/
+COPY --from=opk-release-sources /work/development/subprojects/*.wrap development/subprojects/
+COPY --from=opk-release-sources /work/development/subprojects/packagefiles development/subprojects/packagefiles
 RUN meson subprojects download --sourcedir /work/development
 
-COPY scripts/build.sh scripts/build.sh
-COPY scripts/private/shtools.sh scripts/private/shtools.sh
-COPY scripts/private/deployment-runtime.sh scripts/private/deployment-runtime.sh
-COPY --chmod=0755 scripts/perception-sdk.sh scripts/perception-sdk.sh
-COPY --chmod=0755 scripts/private/run-perception-sdk.sh scripts/private/run-perception-sdk.sh
-COPY scripts/release/ReleaseTool.py scripts/release/ReleaseTool.py
-COPY .clang-format .cmake-format.yaml ./
-COPY tools/config_versions.py tools/config_versions.py
-COPY tools/perception tools/perception
-COPY tools/flowdata-sdk tools/flowdata-sdk
-COPY schemas/perception/metadata schemas/perception/metadata
-COPY development development
-COPY generated generated
-COPY --from=opk-models /work/config config
+COPY --from=opk-release-sources /work/scripts/build.sh scripts/build.sh
+COPY --from=opk-release-sources /work/scripts/private/shtools.sh scripts/private/shtools.sh
+COPY --from=opk-release-sources /work/scripts/private/deployment-runtime.sh scripts/private/deployment-runtime.sh
+COPY --from=opk-release-sources --chmod=0755 /work/scripts/perception-sdk.sh scripts/perception-sdk.sh
+COPY --from=opk-release-sources --chmod=0755 /work/scripts/private/run-perception-sdk.sh scripts/private/run-perception-sdk.sh
+COPY --from=opk-release-sources /work/scripts/release/ReleaseTool.py scripts/release/ReleaseTool.py
+COPY --from=opk-release-sources /work/.clang-format /work/.cmake-format.yaml ./
+COPY --from=opk-release-sources /work/tools/config_versions.py tools/config_versions.py
+COPY --from=opk-release-sources /work/tools/perception tools/perception
+COPY --from=opk-release-sources /work/tools/flowdata-sdk tools/flowdata-sdk
+COPY --from=opk-release-sources /work/schemas/perception/metadata schemas/perception/metadata
+COPY --from=opk-release-sources /work/development development
+COPY --from=opk-release-sources /work/generated generated
+# Release and deployment images contain descriptors only. Users download models
+# through the quick-start development flow with their own Hugging Face access.
+COPY --from=opk-release-sources /work/config config
 
 # SHELL selects Bash; hadolint 2.15.1 misclassifies this derived stage as sh.
 # hadolint ignore=SC3054
@@ -788,13 +797,13 @@ RUN set -eux; \
 
 COPY --from=opk-deployment-build /opt/opk-deps/onnxruntime/lib /opt/opk-deps/onnxruntime/lib
 COPY --from=opk-deployment-build /work/config /work/config
-COPY data /work/data
+COPY --from=opk-release-sources /work/data /work/data
 COPY --from=opk-demo-media /work/data/videos /work/data/videos
-COPY development/web /work/development/web
+COPY --from=opk-release-sources /work/development/web /work/development/web
 COPY --from=opk-deployment-build /opt/opk-app/development/build /work/development/build
 COPY --from=opk-deployment-build /opt/opk-app/tools /work/tools
 COPY --from=opk-deployment-build /opt/opk-app/scripts /work/scripts
-COPY --chmod=0755 scripts/release/smoke-opk-package.sh /work/scripts/release/smoke-opk-package.sh
+COPY --from=opk-release-sources --chmod=0755 /work/scripts/release/smoke-opk-package.sh /work/scripts/release/smoke-opk-package.sh
 COPY --from=opk-deployment-build /opt/opk-release-artifacts /opt/opk-release-artifacts
 
 RUN set -eux; \
@@ -848,12 +857,12 @@ FROM opk-build-base AS opk-cairn-build
 ARG TARGETARCH
 
 WORKDIR /work
-COPY development development
-COPY --from=opk-models /work/config/models/yolo26n-320 config/models/yolo26n-320
-COPY data/images/GettyImages-1140581459-thumbnail.jpg data/images/GettyImages-1140581459-thumbnail.jpg
-COPY --chmod=0755 scripts/build.sh scripts/build.sh
-COPY --chmod=0755 scripts/private/install-onnxruntime.sh scripts/private/install-onnxruntime.sh
-COPY scripts/private/shtools.sh scripts/private/shtools.sh
+COPY --from=opk-release-sources /work/development development
+COPY --from=opk-release-sources /work/config/models/yolo26n-320 config/models/yolo26n-320
+COPY --from=opk-release-sources /work/data/images/GettyImages-1140581459-thumbnail.jpg data/images/GettyImages-1140581459-thumbnail.jpg
+COPY --from=opk-release-sources --chmod=0755 /work/scripts/build.sh scripts/build.sh
+COPY --from=opk-release-sources --chmod=0755 /work/scripts/private/install-onnxruntime.sh scripts/private/install-onnxruntime.sh
+COPY --from=opk-release-sources /work/scripts/private/shtools.sh scripts/private/shtools.sh
 
 RUN set -eux; \
   mkdir -p tools; \
