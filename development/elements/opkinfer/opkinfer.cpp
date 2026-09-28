@@ -762,11 +762,8 @@ static void gst_opkinfer_class_init(GstOpkInferClass *klass) {
     gst_element_class_add_static_pad_template(ecls, &sink_t);
     gst_element_class_add_static_pad_template(ecls, &src_t);
 
-    gst_element_class_set_static_metadata(ecls,
-                                          "OPK Inference",
-                                          "Filter/Effect/Video",
-                                          "ONNX Runtime inference",
-                                          "You <you@example.com>");
+    gst_element_class_set_static_metadata(
+        ecls, "OPK Inference", "Filter/Effect/Video", "ONNX Runtime inference", "Arm Limited");
 
     bcls->start = gst_opkinfer_start;
     bcls->stop = gst_opkinfer_stop;
@@ -811,5 +808,5 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   opkinfer_plugin_init,
                   "1.0",
                   "LGPL",
-                  "opk-elements",
-                  "https://example.com")
+                  "Open Perception Kit",
+                  "https://www.arm.com/")

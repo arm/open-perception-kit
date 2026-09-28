@@ -142,7 +142,7 @@ static void gst_opk_osd_class_init(GstOpkOsdClass *klass) {
                                           "OPK OSD Overlay",
                                           "Filter/Video",
                                           "On-Screen Display overlay for OPK video frames",
-                                          "OPK Development Team");
+                                          "Arm Limited");
 
     GstCaps *caps = gst_caps_from_string(OPK_SUPPORTED_RAW_VIDEO_CAPS);
     GstPadTemplate *src_template = gst_pad_template_new("src", GST_PAD_SRC, GST_PAD_ALWAYS, caps);
@@ -517,5 +517,5 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   opkosd_plugin_init,
                   "1.0",
                   "LGPL",
-                  PACKAGE,
-                  "https://example.com")
+                  "Open Perception Kit",
+                  "https://www.arm.com/")

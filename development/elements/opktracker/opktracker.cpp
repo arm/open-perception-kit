@@ -705,7 +705,7 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *klass) {
         "OPK Tracker",
         "Filter/Effect/Video",
         "Tracks detections across frames using FrameResults metadata",
-        "OPK Development Team");
+        "Arm Limited");
 
     bcls->start = gst_opktracker_start;
     bcls->stop = gst_opktracker_stop;
@@ -761,5 +761,5 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   opktracker_plugin_init,
                   "1.0",
                   "LGPL",
-                  PACKAGE,
-                  "https://arm.com")
+                  "Open Perception Kit",
+                  "https://www.arm.com/")

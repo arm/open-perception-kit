@@ -27,7 +27,7 @@ opkinferpre = shared_module(
   gnu_symbol_visibility: 'hidden', 
   link_with: [ common ],
   install: release_package,
-  install_dir: 'lib/gstreamer-1.0',
+  install_dir: get_option('libdir') / 'gstreamer-1.0',
   install_rpath: '$ORIGIN/../opk',
 )
 

@@ -33,6 +33,6 @@ stdops = shared_module(
   name_prefix: '',
   gnu_symbol_visibility: 'default',
   install: release_package,
-  install_dir: 'lib/opk',
+  install_dir: get_option('libdir') / 'opk',
   install_rpath: '$ORIGIN',
 )

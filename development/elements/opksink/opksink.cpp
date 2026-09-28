@@ -110,12 +110,17 @@ static gchar *default_static_files_location() {
         return nullptr;
     }
 
-    // Both flat development builds and release packages keep web/content two levels above the
-    // plugin.
-    const auto path = (std::filesystem::absolute(libraryInfo.dli_fname).parent_path() / ".." /
-                       ".." / "web" / "content")
-                          .lexically_normal();
-    return g_strdup(path.c_str());
+    const auto pluginDirectory = std::filesystem::absolute(libraryInfo.dli_fname).parent_path();
+    const std::array<std::filesystem::path, 2> candidates = {
+        pluginDirectory / "../../web/content",
+        pluginDirectory / "../../../share/opk/web",
+    };
+    for (const auto &candidate : candidates) {
+        const auto path = candidate.lexically_normal();
+        if (std::filesystem::is_directory(path))
+            return g_strdup(path.c_str());
+    }
+    return g_strdup(candidates[0].lexically_normal().c_str());
 }
 
 nlohmann::json PipelineStateReporter::report() const {
@@ -926,7 +931,7 @@ static void gst_opk_sink_class_init(GstOpkSinkClass *klass) {
         "OpkSink (video+audio → raw video+audio -> VP8 -> WebRTC)",
         "Sink/Network/Bin",
         "Encodes & muxes raw video+audio and sends them to WebRTC",
-        "Your Name <you@example.com>");
+        "Arm Limited");
 }
 
 /* ===== Plugin boilerplate ===== */
@@ -941,5 +946,5 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   opksink_plugin_init,
                   "1.0",
                   "LGPL",
-                  PACKAGE,
-                  "https://example.com")
+                  "Open Perception Kit",
+                  "https://www.arm.com/")
