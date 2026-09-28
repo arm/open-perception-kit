@@ -1,17 +1,31 @@
 #!/usr/bin/env python3
-################################################################
-# Copyright (C) 2026 Arm Limited. All rights reserved.
-################################################################
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
+import hashlib
 import json
 import os
 import runpy
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -183,14 +197,10 @@ class ModelArtifactBuildTest(unittest.TestCase):
             ),
             1,
         )
-        for name, service in (
-            (COMPOSE_FILE, "opk-model-image"),
-            (".devcontainer/compose.devcont.yaml", "opk-common-dev-model-image"),
-        ):
-            self.assertIn(
-                f"service: {service}",
-                (REPO_ROOT / name).read_text(),
-            )
+        self.assertIn(
+            "service: opk-common-dev-model-image",
+            (REPO_ROOT / ".devcontainer/compose.devcont.yaml").read_text(),
+        )
         for name in (
             ".devcontainer/platform_init.sh",
             "scripts/quick-start/start-container.sh",
@@ -227,7 +237,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
         build_args = json.loads(config.stdout)["services"]["opk-dev"]["build"][
             "args"
         ]
-        self.assertEqual(build_args["HF_DOWNLOAD_CACHEBUST"], "")
+        self.assertNotIn("HF_DOWNLOAD_CACHEBUST", build_args)
 
         env["HF_TOKEN"] = "test-token"
         authenticated_config = subprocess.run(
@@ -242,9 +252,9 @@ class ModelArtifactBuildTest(unittest.TestCase):
         authenticated_args = json.loads(authenticated_config.stdout)["services"][
             "opk-dev"
         ]["build"]["args"]
-        self.assertEqual(authenticated_args["HF_DOWNLOAD_CACHEBUST"], "")
+        self.assertNotIn("HF_DOWNLOAD_CACHEBUST", authenticated_args)
 
-    def test_main_compose_uses_model_bearing_target(self) -> None:
+    def test_main_compose_build_does_not_download_models(self) -> None:
         docker = shutil.which("docker")
         docker_required = os.environ.get("OPK_REQUIRE_DOCKER_BUILD_TEST") == "1"
         if docker is None:
@@ -283,16 +293,21 @@ class ModelArtifactBuildTest(unittest.TestCase):
         output = outline.stdout + outline.stderr
         self.assertEqual(outline.returncode, 0, output)
         self.assertRegex(output, r"(?m)^TARGET:\s+opk-deployment-base$")
-        self.assertRegex(
-            output,
-            r"(?m)^HF_DOWNLOAD_CACHEBUST\s+outline-key\s+",
-        )
+        self.assertNotIn("HF_DOWNLOAD_CACHEBUST", output)
+        self.assertNotIn("huggingface_token", output)
 
         dockerfile = (REPO_ROOT / "Dockerfile").read_text()
         deployment_build = dockerfile.split(
             " AS opk-deployment-build", 1
         )[1].split(" AS opk-deployment-base", 1)[0]
-        self.assertIn("COPY --from=opk-models /work/config config", deployment_build)
+        self.assertIn("COPY --from=opk-release-sources /work/config config", deployment_build)
+        self.assertNotIn("--from=opk-models", deployment_build)
+        cairn_build = dockerfile.split(" AS opk-cairn-build", 1)[1]
+        self.assertNotIn("--from=opk-models", cairn_build)
+        for stage in (deployment_build, cairn_build):
+            for line in stage.splitlines():
+                if line.startswith("COPY "):
+                    self.assertIn("--from=", line)
 
     def test_raw_model_build_requires_cache_key(self) -> None:
         docker = shutil.which("docker")
@@ -406,6 +421,155 @@ class ModelArtifactBuildTest(unittest.TestCase):
                 authenticated.stdout + authenticated.stderr,
             )
 
+    def test_release_sources_exclude_user_models_everywhere(self) -> None:
+        docker = shutil.which("docker")
+        if docker is None:
+            self.skipTest(DOCKER_UNAVAILABLE)
+        with tempfile.TemporaryDirectory() as temporary:
+            context = Path(temporary) / "context"
+            context.mkdir()
+            shutil.copy2(REPO_ROOT / ".dockerignore", context / ".dockerignore")
+            dockerfile = (REPO_ROOT / "Dockerfile").read_text()
+            source_stage = next(
+                "FROM " + stage for stage in dockerfile.split("\nFROM ")
+                if stage.splitlines()[0].endswith(" AS opk-release-sources")
+            )
+            (context / "Dockerfile").write_text(
+                source_stage + "\nFROM scratch\nCOPY --from=opk-release-sources /work/ /\n"
+            )
+            copier = Path("scripts/private/copy-without-models.py")
+            (context / copier).parent.mkdir(parents=True)
+            shutil.copy2(REPO_ROOT / copier, context / copier)
+            for relative in (
+                "config/models/example/model.onnx",
+                "config/models/example/renamed.bin",
+                "config/models/example/renamed.bin.part",
+                "development/examples/example/model.pte",
+                "development/examples/example/renamed.bin",
+                "data/models/renamed.bin.part",
+                "tools/perception/model.onnx.part",
+                "var/downloads/model.pte",
+                "var/downloads/model.pte.part",
+            ):
+                path = context / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b"must not be published")
+            descriptor = context / "config/models/example/model.json"
+            descriptor.write_text("{}\n")
+            expected = {"Dockerfile", ".dockerignore", "config/models/example/model.json", str(copier)}
+            for directory, filename in (
+                ("config/models/custom", "weights.dat"),
+                ("development/examples/custom", "weights"),
+                ("data/models/custom", "weights.ONNX"),
+                ("config/models/nested", "nested/weights.dat"),
+            ):
+                model_root = context / directory
+                model_root.mkdir(parents=True)
+                (model_root / "model.json").write_text(json.dumps({"modelFile": filename}))
+                (model_root / filename).parent.mkdir(parents=True, exist_ok=True)
+                (model_root / filename).write_bytes(b"must not be published")
+                (model_root / f"{filename}.part").write_bytes(b"partial download")
+                expected.add(f"{directory}/model.json")
+                (model_root / "postprocess.py").write_text("# Keep model-local source files.\n")
+                expected.add(f"{directory}/postprocess.py")
+            (context / "config/models/custom/model.json").write_text(
+                json.dumps({"modelFile": "/work/../work/config/models/custom/weights.dat"})
+            )
+            output = Path(temporary) / "output"
+            result = subprocess.run(
+                [docker, "buildx", "build", "--output", f"type=local,dest={output}", str(context)],
+                text=True, capture_output=True, check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(
+                {str(path.relative_to(output)) for path in output.rglob("*") if path.is_file()},
+                expected,
+            )
+
+    def test_release_smoke_needs_no_model_downloads(self) -> None:
+        docker = shutil.which("docker")
+        if docker is None:
+            self.skipTest(DOCKER_UNAVAILABLE)
+        release = runpy.run_path(str(REPO_ROOT / "scripts/release/ReleaseTool.py"))
+        with tempfile.TemporaryDirectory() as temporary:
+            context = Path(temporary)
+            package = context / "opk-1.0.0-linux-x86_64"
+            release["stage_models"](
+                SimpleNamespace(repo_root=str(REPO_ROOT), stage_root=str(package))
+            )
+            legal = package / "share/opk/licenses"
+            inventory = {}
+            for name in release["CORE_LEGAL_COMPONENTS"] | {"executorch", "python-numpy", "python-flatbuffers"}:
+                notices = list(release["OPK_LEGAL_NOTICES"]) if name == "opk" else [f"{name}/LICENSE"]
+                for relative in notices:
+                    notice = legal / relative
+                    notice.parent.mkdir(parents=True, exist_ok=True)
+                    notice.write_text("Test fixture licence\n")
+                inventory[name] = {
+                    "version": "test", "licence": "test", "repository": f"https://example.invalid/{name}",
+                    "notices": notices,
+                }
+            for name, relative in release["SOURCE_LEGAL_NOTICES"]:
+                notice = legal / name / relative
+                notice.parent.mkdir(parents=True, exist_ok=True)
+                notice.write_text("Test fixture embedded upstream notice\n")
+                inventory[name]["notices"].append(f"{name}/{relative}")
+            (legal / "onnxruntime/ThirdPartyNotices.txt").write_text("Test transitive notice\n")
+            (legal / "components.json").write_text(json.dumps(inventory))
+            (legal / "THIRD_PARTY_LICENSES.md").write_text(release["legal_report"](inventory))
+            archive = context / "package.tar.gz"
+            with tarfile.open(archive, "w:gz") as stream:
+                stream.add(package, arcname=package.name)
+            digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+            shutil.copy2(REPO_ROOT / "scripts/release/smoke-opk-package.sh", context / "smoke.sh")
+            shutil.copy2(REPO_ROOT / "scripts/release/ReleaseTool.py", context / "ReleaseTool.py")
+            operation = context / "development/tests/python_script_op/runtime_environment.py"
+            operation.parent.mkdir(parents=True)
+            operation.touch()
+            gst_stub = context / "gst-stub"
+            gst_stub.write_text("""#!/usr/local/bin/python3
+import json
+import os
+import sys
+from pathlib import Path
+
+root = Path(os.environ['GST_PLUGIN_PATH']).parents[1] / 'share/opk/models'
+assert not [p for p in root.rglob('*') if p.suffix in ('.onnx', '.pte', '.bin')]
+for arg in sys.argv:
+    if arg.startswith('opchain-path='):
+        opchain = json.loads(Path(arg.removeprefix('opchain-path=')).read_text())
+        assert [op['id'] for op in opchain['ops']] == ['opk-python-ops/PythonScript']
+        script = Path(opchain['ops'][0]['attributes']['script'])
+        assert script.is_absolute() and script.is_file()
+""")
+            gst_stub.chmod(0o755)
+            dockerfile = (REPO_ROOT / "Dockerfile").read_text()
+            stage_start = 'ARG TARGETARCH\nARG OPK_RELEASE_VERSION=""\nRUN --network=none'
+            smoke_stage = stage_start + dockerfile.split(stage_start, 1)[1].split("\n# ===", 1)[0]
+            (context / "Dockerfile").write_text(
+                "FROM python:3.13-slim-trixie AS opk-models\n"
+                "RUN exit 99\n"
+                "FROM python:3.13-slim-trixie AS opk-deployment-base\n"
+                "COPY package.tar.gz /opt/opk-release-artifacts/opk-1.0.0-linux-x86_64.tar.gz\n"
+                "COPY smoke.sh /work/scripts/release/smoke-opk-package.sh\n"
+                "COPY ReleaseTool.py /work/scripts/release/ReleaseTool.py\n"
+                "COPY gst-stub /usr/local/bin/gst-inspect-1.0\n"
+                "COPY gst-stub /usr/local/bin/gst-launch-1.0\n"
+                "USER 65534:65534\n"
+                + smoke_stage
+                + "\nRUN python3 -c \"import hashlib; from pathlib import Path; "
+                "assert not [p for root in ('/tmp', '/work', '/opt') for p in Path(root).rglob('*') "
+                "if p.suffix in ('.onnx', '.pte')]; "
+                "assert hashlib.sha256(Path('/opt/opk-release-artifacts/"
+                f"opk-1.0.0-linux-x86_64.tar.gz').read_bytes()).hexdigest() == '{digest}'\"\n"
+            )
+            result = subprocess.run(
+                [docker, "buildx", "build", "--target", "opk-deployment-base", "--build-arg", "OPK_RELEASE_VERSION=1.0.0",
+                 "--build-arg", "TARGETARCH=amd64", "--output", "type=cacheonly", str(context)],
+                text=True, capture_output=True, check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_model_download_cache_bust_generator(self) -> None:
         generator = REPO_ROOT / "scripts/private/generate-hf-download-cachebust.sh"
         local_env = os.environ.copy()
@@ -441,19 +605,23 @@ class ModelArtifactBuildTest(unittest.TestCase):
             0,
         )
 
-    def test_model_artifacts_are_ignored_except_checked_in_models(self) -> None:
+    def test_model_artifacts_are_excluded_from_source_and_image_contexts(self) -> None:
         expected = [
+            "config/models/**/*.bin",
+            "config/models/**/*.bin.part",
             "config/models/**/*.hef",
             "config/models/**/*.onnx",
             "config/models/**/*.pte",
         ]
-        for ignore_file in (".dockerignore", ".gitignore"):
-            rules = [
-                line
-                for line in (REPO_ROOT / ignore_file).read_text().splitlines()
-                if line.startswith(("config/models/", "!config/models/"))
-            ]
-            self.assertEqual(rules, expected)
+        rules = [
+            line
+            for line in (REPO_ROOT / ".gitignore").read_text().splitlines()
+            if line.startswith(("config/models/", "!config/models/"))
+        ]
+        self.assertEqual(rules, expected)
+        dockerignore = (REPO_ROOT / ".dockerignore").read_text().splitlines()
+        for pattern in ("**/*.bin", "**/*.bin.part", "**/*.hef", "**/*.onnx", "**/*.pte", "**/*.onnx.part", "**/*.pte.part"):
+            self.assertIn(pattern, dockerignore)
 
     def test_byom_generated_artifacts_are_excluded_from_docker_context(self) -> None:
         dockerignore = (REPO_ROOT / ".dockerignore").read_text().splitlines()
@@ -464,8 +632,6 @@ class ModelArtifactBuildTest(unittest.TestCase):
                 if line.startswith("development/examples/byom-blazeface/")
             ],
             [
-                "development/examples/byom-blazeface/face_detector.onnx",
-                "development/examples/byom-blazeface/face_detector.onnx.part",
                 "development/examples/byom-blazeface/blazeface-detections.mp4",
                 "development/examples/byom-blazeface/.blazeface-detections.part.mp4",
             ],

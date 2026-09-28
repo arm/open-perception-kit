@@ -1,3 +1,20 @@
+/*
+ * SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import {cp, mkdir, readFile, rm} from 'node:fs/promises';
 import {createRequire} from 'node:module';
 import {tmpdir} from 'node:os';
@@ -48,15 +65,35 @@ try {
     await rm(dependencyStage, {force: true, recursive: true});
     await mkdir(dependencyStage, {recursive: true});
     await cp(flatbuffersRoot, stagedFlatbuffersRoot, {recursive: true});
+    const runtimeLicense = await readFile(path.join(flatbuffersRoot, 'LICENSE'));
+    const bundledLicense = await readFile(path.join(root, 'content/vendor/flatbuffers/LICENSE'));
+    if (!runtimeLicense.equals(bundledLicense)) {
+        throw new Error('FlatBuffers licence changed; update content/vendor/flatbuffers/LICENSE');
+    }
 
     await build({
         absWorkingDir: repoRoot,
         alias: {flatbuffers: flatbuffersPath},
-        banner: {js: '// Copyright (C) 2025 Arm Limited. All rights reserved.'},
+        banner: {js: `/*
+ * SPDX-FileCopyrightText: Copyright 2025-2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */`},
         bundle: true,
         entryPoints: [path.join(root, 'src', 'app.js')],
         format: 'esm',
-        legalComments: 'none',
+        legalComments: 'inline',
         minify: false,
         outfile: candidate,
         platform: 'browser',

@@ -1,6 +1,19 @@
-/*************************************************************
- * Copyright (C) 2025 Arm Limited. All rights reserved.
- *************************************************************/
+/*
+ * SPDX-FileCopyrightText: Copyright 2025-2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "Tracker.h"
 
@@ -705,7 +718,7 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *klass) {
         "OPK Tracker",
         "Filter/Effect/Video",
         "Tracks detections across frames using FrameResults metadata",
-        "OPK Development Team");
+        "Arm Limited <perception-fdbck@arm.com>");
 
     bcls->start = gst_opktracker_start;
     bcls->stop = gst_opktracker_stop;
@@ -760,6 +773,6 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   "OPK tracker based on FrameResults metadata",
                   opktracker_plugin_init,
                   "1.0",
-                  "LGPL",
+                  "Apache 2.0",
                   PACKAGE,
                   "https://arm.com")

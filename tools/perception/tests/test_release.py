@@ -1,6 +1,17 @@
-################################################################
-# Copyright (C) 2025 Arm Limited. All rights reserved.
-################################################################
+# SPDX-FileCopyrightText: Copyright 2025-2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 from __future__ import annotations
 
@@ -766,6 +777,9 @@ class BundleVerificationTests(unittest.TestCase):
             "rust/src/lib.rs",
         }
         files = {
+            "LICENSE": b"Original OPK licence\n",
+            "NOTICE": b"Original OPK notices\n",
+            "LICENSING.md": b"Licence page\n",
             "cpp/open_perception_kit.h": b"header\n",
             "metadata/open-perception-kit-manifest.json": b"{}\n",
             "rust/Cargo.toml": (
@@ -1457,6 +1471,14 @@ class BundleVerificationTests(unittest.TestCase):
 
 
 class GeneratedSdkTests(unittest.TestCase):
+    def test_sdk_release_requires_licence_page_and_original_notices(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for name in ("LICENSE", "NOTICE", "LICENSING.md"):
+                with self.assertRaisesRegex(RuntimeError, f"licence evidence is missing: {name}"):
+                    release_package.verify_bundle(root)
+                (root / name).write_text("Original licence evidence\n")
+
     def test_release_readme_bootstraps_consumer_lockfile(self) -> None:
         config = release_package.perception_config.load_sdk_config()
         with tempfile.TemporaryDirectory() as tmp:

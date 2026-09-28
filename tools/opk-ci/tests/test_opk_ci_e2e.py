@@ -1,7 +1,18 @@
 #!/usr/bin/env python3
-################################################################
-# Copyright (C) 2026 Arm Limited. All rights reserved.
-################################################################
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 from __future__ import annotations
 
@@ -12,6 +23,7 @@ import sys
 import tempfile
 import unittest
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
 
@@ -151,7 +163,7 @@ class TestOpkCiE2E(unittest.TestCase):
             self.skipTest(f"actionlint toolchain is unavailable: {', '.join(missing)}")
 
     def read_fixture(self, relative_path: str) -> str:
-        return (FIXTURE_ROOT / relative_path).read_text(encoding="utf-8")
+        return (FIXTURE_ROOT / relative_path).read_text(encoding="utf-8").replace('[year]', str(date.today().year))
 
     def write_fixture_files(self, cases: tuple[FixtureCase, ...]) -> None:
         for case in cases:

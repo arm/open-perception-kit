@@ -1,6 +1,17 @@
-################################################################
-# Copyright (C) 2025 Arm Limited. All rights reserved.
-################################################################
+# SPDX-FileCopyrightText: Copyright 2025-2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 import os
 import logging
@@ -16,10 +27,12 @@ class FileUtils:
     def __init__(self):
         """Initialize the FileUtils class."""
         self.file_endings = {
-            "cpp": [".c", ".cpp", ".h", ".hpp", ".tpp", "*.cc", "*.cxx", "*.hxx", "*.hh"],
+            "cpp": [".c", ".cpp", ".h", ".hpp", ".tpp", ".cc", ".cxx", ".hxx", ".hh"],
             "py": [".py", ".pyi", ".ipynb"],
             "cmake": [".cmake", "CMakeLists.txt"],
-            "sh": [".sh"]
+            "meson": ["meson.build", "meson.options"],
+            "sh": [".sh"],
+            "web": [".js", ".mjs", ".cjs", ".ts", ".tsx", ".css"],
         }
         self.file_endings["license"] = list(itertools.chain.from_iterable(self.file_endings.values()))
 
@@ -86,6 +99,10 @@ class FileUtils:
     @staticmethod
     def is_ignored_file(file_path, ignore_folder):
         normalized = FileUtils.normalize_repo_path(file_path)
+        # Repository-owned Meson adapters sit alongside downloaded subprojects.
+        if normalized.startswith("development/subprojects/packagefiles/"):
+            ignore_folder = [folder for folder in ignore_folder
+                             if FileUtils.normalize_repo_path(folder) != "development/subprojects"]
         return any(
             normalized == skip or normalized.startswith(f"{skip}/")
             for skip in (FileUtils.normalize_repo_path(folder) for folder in ignore_folder)

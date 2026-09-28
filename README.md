@@ -1,3 +1,20 @@
+<!--
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+SPDX-License-Identifier: Apache-2.0
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
 # Open Perception Kit CLI quick start
 
 The Open Perception Kit helps Raspberry Pi developers get from setup to
@@ -215,16 +232,20 @@ when you need direct deployment control or remote deployment with Topo.
 
 ### Build a deployment container directly with Docker Compose
 
-Generate a cache key before invoking Compose:
+Download models through quick start first. Export your read-only Hugging Face
+token when private or gated models are needed:
 
 ```bash
-export HF_DOWNLOAD_CACHEBUST="$(./scripts/private/generate-hf-download-cachebust.sh)"
+# Optional: export HF_TOKEN="hf_your_token_here"
+./scripts/quick_start.sh
+./scripts/quick-start/cleanup-container.sh
 docker compose up --build
 ```
 
-Generate a fresh cache key before every direct Compose build. The model stage
-rejects builds when the key is omitted, preventing an authenticated build from
-silently reusing a cached anonymous model layer.
+Quick start downloads models into `config/models`. The deployment container
+mounts that directory read-only; its image contains descriptors but no model
+binaries. Stopping the quick-start container frees the container name and ports
+while preserving the downloaded files in the checkout.
 
 ### Deploy with Topo
 
@@ -235,12 +256,23 @@ check that the target is ready:
 topo health --target <raspberry-pi-ip-address>
 ```
 
-Deploy the default sample-video pipeline from the repository root:
+On the target, use the same OPK source revision and run quick start with your
+Hugging Face access, then stop its container as above. In the host's
+`compose.yaml`, set the model volume's source to the **absolute target path**
+containing those downloaded models, for example:
+
+```yaml
+- /home/<target-user>/open-perception-kit/config/models:/work/config/models:ro
+```
+
+Deploy from the repository root on the host:
 
 ```bash
-export HF_DOWNLOAD_CACHEBUST="$(./scripts/private/generate-hf-download-cachebust.sh)"
 topo deploy --target <raspberry-pi-ip-address>
 ```
+
+The deployment uses the target's model files. Hugging Face credentials are used
+by quick start and are not forwarded to the deployment image or container.
 
 When the deployment has started, open:
 
@@ -262,3 +294,22 @@ For a USB camera exposed as `/dev/video0` on the target:
 OPK_PIPELINE=full-onnx-usb-cam \
   topo deploy --target <raspberry-pi-ip-address>
 ```
+
+## Copyright
+
+Copyright 2025-2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>.
+
+## Licence
+
+Open Perception Kit is licensed under the [Apache License, Version 2.0](LICENSE),
+except where individual files or accompanying notices state otherwise.
+See [Licensing](docs/public/licensing.md) for the licence and notice locations.
+
+Third-party components retain their own licences. The
+[third-party inventory](THIRD_PARTY_NOTICE.md) identifies the projects, versions,
+licences, and release surfaces. This includes FlatBuffers (Apache-2.0), ONNX
+Runtime (MIT), ExecuTorch (BSD-3-Clause), and the Font Awesome CSS (MIT) and
+font (OFL-1.1). Their original notices accompany the distributed files.
+
+The [TPIP report](docs/third-party-licenses.md) preserves all 1,111 entries from
+the supplied Black Duck SBOM, with its scan revision and reported review status.

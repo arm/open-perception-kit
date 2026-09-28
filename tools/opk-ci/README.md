@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # opk-ci
 
 ## Overview
@@ -160,4 +162,4 @@ eval "$($WORKSPACE_DIR/.venv/bin/register-python-argcomplete opk-ci)"
 
 ## License
 
-Copyright (C) 2025 Arm Limited. All rights reserved.
+Copyright 2025-2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>

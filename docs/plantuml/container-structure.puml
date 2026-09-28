@@ -1,3 +1,18 @@
+' SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+' SPDX-License-Identifier: Apache-2.0
+'
+' Licensed under the Apache License, Version 2.0 (the "License");
+' you may not use this file except in compliance with the License.
+' You may obtain a copy of the License at
+'
+'     https://www.apache.org/licenses/LICENSE-2.0
+'
+' Unless required by applicable law or agreed to in writing, software
+' distributed under the License is distributed on an "AS IS" BASIS,
+' WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+' See the License for the specific language governing permissions and
+' limitations under the License.
+
 @startuml
 title Current Container Structure: Dockerfile Targets and Helper Dockerfiles
 
@@ -43,8 +58,10 @@ package "Dockerfile\ncore cross-lane stage graph" {
   package "Shared Artifact Stages\n(selected outputs copied into other lanes)" {
     component "opk-models\nHugging Face model artifact stage" as models #fed7aa
     component "opk-demo-media\ndemo video artifact stage" as demo_media #fed7aa
+    component "opk-release-sources\nsources without model artifacts" as release_sources #fed7aa
 
     py313 --> models : FROM
+    py313 --> release_sources : FROM
     debian --> demo_media : FROM
   }
 
@@ -80,7 +97,8 @@ package "Dockerfile\ncore cross-lane stage graph" {
 
     build_base --> cross_base : FROM
     cross_base --> deployment_build : FROM
-    models ..> deployment_build : COPY resolved config\nand model artifacts
+    release_sources ..> deployment_build : COPY filtered sources
+    release_sources ..> deployment_image : COPY filtered runtime assets
     demo_media ..> deployment_build : COPY demo videos
     py313 --> deployment_image : FROM
     deployment_build ..> deployment_image : COPY selected outputs\n/opt/opk-app, release tarball, ONNX Runtime libs
@@ -107,8 +125,9 @@ end note
 
 note bottom of deployment_build
   Deployment is the only core lane that builds OPK
-  during image creation. It consumes model and demo
-  media artifact stages. Native release builds also package
+  during image creation. It copies model configurations
+  from the checkout and uses the demo media artifact stage.
+  Native release builds also package
   the checked-in open-perception-kit snapshot and create the
   validated architecture tarball. The runtime target
   copies selected outputs, not compilers or build scratch state.

@@ -6,6 +6,23 @@ sidebar_label: Overview
 displayed_sidebar: null
 slug: /
 ---
+<!--
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+SPDX-License-Identifier: Apache-2.0
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
 
 # Open Perception Kit CLI quick start
 
@@ -228,13 +245,17 @@ when you need direct deployment control.
 
 ### Build a deployment container directly with Docker Compose
 
-Generate a cache key before invoking Compose:
+Download models through quick start first. Export your read-only Hugging Face
+token when private or gated models are needed:
 
 ```bash
-export HF_DOWNLOAD_CACHEBUST="$(./scripts/private/generate-hf-download-cachebust.sh)"
+# Optional: export HF_TOKEN="hf_your_token_here"
+./scripts/quick_start.sh
+./scripts/quick-start/cleanup-container.sh
 docker compose up --build
 ```
 
-Generate a fresh cache key before every direct Compose build. The model stage
-rejects builds when the key is omitted, preventing an authenticated build from
-silently reusing a cached anonymous model layer.
+Quick start downloads models into `config/models`. The deployment container
+mounts that directory read-only; its image contains descriptors but no model
+binaries. Stopping the quick-start container frees the container name and ports
+while preserving the downloaded files in the checkout.

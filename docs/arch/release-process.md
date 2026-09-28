@@ -2,12 +2,89 @@
 sidebar_position: 15
 sidebar_label: Release packages
 ---
+<!--
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+SPDX-License-Identifier: Apache-2.0
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
 
 # Release packages
 
 The [Release workflow](../../.github/workflows/release.yml) builds and publishes
 OPK packages through a manual `workflow_dispatch` run. Merging a pull request
 or pushing to `main` does not start a product release.
+
+## Licence evidence before publication
+
+`ReleaseTool.py stage-legal` collects original notices from the resolved Meson
+sources, ONNX Runtime, the ExecuTorch SDK's existing legal tree, installed Python
+wheel metadata and the checked-in browser assets. It checks the collected
+versions against `scripts/release/third-party-licenses.json`; new or upgraded
+components require a catalogue update after their licences and original notices
+have been reconciled. The catalogue records the source directory/revision for
+Meson dependencies and the installed Debian package version for ExecuTorch.
+`stage-legal` writes `components.json` with the revision/version, repository,
+licence and notice paths, plus a sorted `THIRD_PARTY_LICENSES.md` report for the
+OPK release. The same collection is
+copied into architecture packages, deployment images and Cairn images.
+`validate-package`, the offline archive smoke, and image `validate-legal` checks
+reject missing or empty required notices and a missing or stale report.
+Architecture packages and images require OPK's `LICENSE`, `NOTICE`, `THIRD_PARTY_NOTICE.md` and
+licence-page copy. Deployment validation also requires NumPy and FlatBuffers
+Python notices; Cairn uses the native component set. Architecture archives
+additionally require the ExecuTorch notices.
+SDK bundle verification also requires
+the licence page, `LICENSE` and `NOTICE`.
+
+Before publication, reconcile [the supplied OPK SBOM](https://confluence.arm.com/spaces/edgeaiexpkits/pages/3186688252/OPK+SBOM+%E2%80%94+a096f677d)
+against the actual release inventory. That page's scan references revision
+`8d8d38bf8d1513b197ce6fedf1c615f1e7731e3d`, with a 2026-09-21 results snapshot;
+it does not describe every dependency at the current source revision. Known
+differences include cpp-httplib 0.56.0 and ONNX Runtime 1.24.4. The pinned stb
+source supplies MIT OR Unlicense terms, resolving its unknown entry for this
+inventory. ExecuTorch and Font Awesome require additional evidence beyond
+that scan. Preserve transitive notices supplied with the actual backend binaries
+and runtime wheels rather than copying the scan's version list as release truth.
+
+Record the required IP review link in [EXPKITS-1229](https://jira.arm.com/browse/EXPKITS-1229)
+before publication. Review licences outside Arm's compatibility table and any
+cryptography/trade-compliance questions through the process linked from
+[EXPKITS-1388](https://jira.arm.com/browse/EXPKITS-1388). The supplied scan is
+marked "Licence review required"; successful technical checks do not replace
+that review. The Concordia GitLab example requires access that was unavailable
+during this implementation; this inventory follows the Arm notice requirements.
+
+### Reference strategy
+
+The public [CMSIS Solution extension](https://github.com/Open-CMSIS-Pack/vscode-cmsis-solution/tree/1e71906aa81d3a018b0d30abe7e7e09e0017d765)
+provides the reference for OPK's licence overview, automated source-header checks,
+and dependency reports. Its `LICENSE` links to the dependency report and retains
+the full Apache text; `LICENSE-Apache-2.0` provides a standalone copy. Its
+`scripts/update-tpip.ts` flags new dependencies and changed licence metadata for
+manual attention, and `scripts/tpip-reporter.ts` produces a release-versioned
+Markdown report. The released `v1.72.0` Linux x64 VSIX was also inspected: it
+contains these reports, the licence files and extracted JavaScript bundle notices.
+
+OPK implements these practices through its existing `opk-ci` checks and
+`ReleaseTool.py` collector. It uses Arm's combined copyright, SPDX and Apache
+short-notice header and the required `perception-fdbck@arm.com` contact.
+Copyright years reflect actual
+contributions; upstream ownership is preserved. OPK keeps full original
+dependency texts available offline, including backend transitive notices, and
+uses `LICENSES/Apache-2.0.txt` for its standalone licence text. See the
+[contribution rules](../../.github/CONTRIBUTING.md#copyright-and-licence-notices).
 
 ## Source and version
 
@@ -60,14 +137,27 @@ Native Ubuntu 24.04 jobs build the `opk-deployment-base` target in the
 [Dockerfile](../../Dockerfile) for `linux/amd64` and `linux/arm64`, then extract
 the release packages from the local images.
 
-The `opk-models` stage downloads models through
-`scripts/download-models.py` and the descriptors' pinned `hfDownload` entries.
+Packaging stages only the JSON descriptors and OpChains from the twelve
+selected directories under `config/models/`. Their `hfDownload` entries retain
+the pinned repository, revision, filename, and SHA-256 for user downloads.
+Model binaries are excluded from release archives, deployment images, and
+Cairn images, and are not required to build those artifacts.
 
-The standard OPK model sources are public. Release and quick-start CI download
-the pinned artifacts anonymously and do not require an `HF_TOKEN` secret.
-Release users run the packaged model files without Hugging Face credentials or
-network access. Optional authentication for custom private or gated models is
-described in [Bring your model](../public/how-to/bring-your-model.md).
+The existing quick-start development flow uses the `opk-models` stage and
+`scripts/download-models.py`. The standard OPK model sources are public;
+quick-start CI downloads the pinned artifacts anonymously, without an `HF_TOKEN`
+secret. Release builds and smoke checks do not use `opk-models`, download models
+or receive Hugging Face credentials. Optional authentication for custom private or gated models
+remains available through the existing downloader; see
+[Bring your model](../public/how-to/bring-your-model.md).
+
+Users download models separately before running a release; see
+[Download models](../public/getting-started/binary-release.md#download-models).
+Deployment containers mount the user's downloaded model directory read-only.
+The shared `opk-release-sources` Docker stage excludes each descriptor's
+`modelFile` path and its `.part` file before copying build inputs. This covers
+custom filenames regardless of extension; `.dockerignore` also excludes known
+model formats. Deployment and Cairn copies use those filtered inputs.
 
 The build verifies ExecuTorch package checksums and embeds the checked-in SDK
 ZIP, checksum, and provenance under `share/opk/open-perception-kit`. It checks
@@ -124,12 +214,21 @@ the staged payload before archiving:
 
 - Native plugins and runtimes, architecture, RUNPATH, and ELF dependencies.
 - Private Python runtime and distribution manifest.
-- Model files and their local model/OpChain references.
+- Exactly twelve model descriptor directories and their local model/OpChain references, without model binaries.
 - SDK ZIP, checksum, provenance, and descriptor schemas.
 - Legal documents and exclusion of source headers and SDK build files.
 
 Both architecture images run the same
-[package smoke](../../scripts/release/smoke-opk-package.sh) without network
-access as a non-root user. It checks plugin discovery, YOLO26n-320 and UltraFace
-with ONNX Runtime, NITEC with ExecuTorch, Python-operation dependencies, and
-`opksink` startup. The workflow publishes the tested archive without rebuilding.
+[package smoke](../../scripts/release/smoke-opk-package.sh) in the
+`opk-deployment-base` stage without network access, as a non-root user:
+
+```bash
+scripts/release/smoke-opk-package.sh \
+  opk-<version>-linux-<architecture>.tar.gz python-operation.py
+```
+
+The smoke checks required licence evidence, plugin discovery, Python-operation
+dependencies through an OpChain containing only the Python test Op, and `opksink`
+startup. It needs no model files and performs no inference. Model-dependent
+runtime tests remain in the development and quick-start test suites. The archive
+remains unchanged and is published without rebuilding.

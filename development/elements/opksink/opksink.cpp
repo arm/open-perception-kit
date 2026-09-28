@@ -1,6 +1,19 @@
-/*************************************************************
- * Copyright (C) 2026 Arm Limited. All rights reserved.
- *************************************************************/
+/*
+ * SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 /* Build:
 g++ -fPIC -shared -o libgstopksink.so opksink.cpp \
@@ -926,7 +939,7 @@ static void gst_opk_sink_class_init(GstOpkSinkClass *klass) {
         "OpkSink (video+audio → raw video+audio -> VP8 -> WebRTC)",
         "Sink/Network/Bin",
         "Encodes & muxes raw video+audio and sends them to WebRTC",
-        "Your Name <you@example.com>");
+        "Arm Limited <perception-fdbck@arm.com>");
 }
 
 /* ===== Plugin boilerplate ===== */
@@ -940,6 +953,6 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   "OpkSink bin: raw video+audio -> VP8 -> WebRTC ",
                   opksink_plugin_init,
                   "1.0",
-                  "LGPL",
+                  "Apache 2.0",
                   PACKAGE,
                   "https://example.com")

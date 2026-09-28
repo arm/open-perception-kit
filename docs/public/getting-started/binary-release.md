@@ -4,6 +4,23 @@ sidebar_position: 3
 sidebar_label: Binary Release
 description: Install and integrate an OPK architecture package without an OPK-specific loader wrapper.
 ---
+<!--
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+SPDX-License-Identifier: Apache-2.0
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
 
 # Use an OPK binary release
 
@@ -38,10 +55,10 @@ sha256sum opk-<version>-linux-<architecture>.tar.gz
 ```
 
 Architecture packages contain the six OPK plugins, the private
-`lib/opk/opk-runtime.so` and common libraries, compatible model binaries and
+`lib/opk/opk-runtime.so` and common libraries, model descriptors and
 OpChains, `opksink` web assets, approved notices, and ONNX Runtime. They also
 contain the experimental ExecuTorch operation module, the PythonScript operation
-module, the YOLOX ExecuTorch model, and a private locked Python package directory
+module and a private locked Python package directory
 at `share/opk/python`, plus these two distinct payloads:
 
 - `share/opk/open-perception-kit/` contains the open-perception-kit ZIP, checksum, and
@@ -52,7 +69,7 @@ at `share/opk/python`, plus these two distinct payloads:
 The descriptor schemas are direct OPK package content, not files in the SDK
 ZIP. Retired `metadata/api` schemas are not included.
 
-They deliberately exclude `opk-menu`, pipeline presets, examples, sample
+They deliberately exclude model binaries, `opk-menu`, pipeline presets, examples, sample
 media, documentation, source, tests, debug files, public C++ headers,
 unused ONNX provider libraries, and accelerator drivers or firmware.
 ExecuTorch SDK headers and static libraries
@@ -133,23 +150,49 @@ unzip "$sdk_root/open-perception-kit-<opk-version>.zip" -d open-perception-kit
 Use the C++, Python, Rust, or TypeScript package from that extracted SDK. The SDK
 version matches the OPK product version.
 
-## Packaged models
+## Download models
 
-All packaged model references are local. During release creation, pinned
-`hfDownload` metadata from the selected source commit is resolved once and the
-model binaries are packaged with their JSON configuration. The model descriptor
-defines its tensor shape, and the accompanying OpChain converts the pipeline's
-video frame into that input. Release users need neither network access nor a
-Hugging Face token.
+Releases contain model descriptors and OpChains, with pinned `hfDownload`
+metadata, but no model binaries. Download the models using your own Hugging Face
+access before running inference. Private or gated repositories require a
+read-only `HF_TOKEN` with access to those models.
 
-| Package | Backend | Model directories |
+The existing quick-start setup downloads models into the checkout's
+`config/models` directory. Use a checkout at the release's source revision and
+set `HF_TOKEN` in your host shell before running `./scripts/quick_start.sh`.
+The local development image uses that token only during its model-download
+build step and seeds the downloaded files into the checkout at startup.
+
+For an extracted binary package, reuse the same downloader to populate the
+package's model directory. Put the extracted package under the checkout's
+`var/` directory so it is accessible in the quick-start container, then run
+from the host shell with `HF_TOKEN` still exported:
+
+```bash
+docker exec -u dev -e HF_TOKEN open-perception-kit \
+  python3 /work/scripts/download-models.py \
+  --models-dir /work/var/opk-<version>-linux-<architecture>/share/opk/models
+```
+
+Downloads are checked against the descriptor's SHA-256. Failed or inaccessible
+downloads are reported and skipped; check the output before starting inference.
+Inference then uses the local files and needs no Hugging Face token.
+
+| Package | Backend | Descriptor directories |
 | --- | --- | --- |
 | x86_64 and Arm | ONNX | `mobilegaze-mobilenet-v2`, `nitec-resnet-18`, `osnet-x0-25`, `ultraface-rfb-320`, and the six `yolo26{n,s}-{320,480,640}` variants |
+| x86_64 and Arm | ExecuTorch | `mobilegaze-mobilenet-v2-executorch`, `nitec-resnet-18-executorch` |
+
+Deployment and Cairn images also contain no model binaries. The top-level
+`compose.yaml` mounts the checkout's `config/models` into the deployment
+container. Download the models through quick start first. When creating a
+container directly, mount the downloaded model directories at
+`/work/config/models`; Cairn needs `yolo26n-320`.
 
 ## Run packaged inference
 
-Model descriptors, binaries, and compatible OpChains are under `share/opk`.
-They are local and require no runtime download. For example:
+After downloading the models, descriptors, binaries, and compatible OpChains
+are under `share/opk`. For example:
 
 ```python
 import os
