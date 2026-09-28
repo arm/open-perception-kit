@@ -33,3 +33,6 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "*" = ["*.pyi", "py.typed"]
+
+[project.optional-dependencies]
+numpy = ["numpy"]

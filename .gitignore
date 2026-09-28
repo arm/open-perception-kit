@@ -157,3 +157,4 @@ scripts/testing/valgrind/logs/.gstreamer-registry.bin
 # Generated artifacts
 artifacts/
 datasets/
+/dist

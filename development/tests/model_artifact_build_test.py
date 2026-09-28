@@ -555,6 +555,8 @@ for arg in sys.argv:
                 "COPY ReleaseTool.py /work/scripts/release/ReleaseTool.py\n"
                 "COPY gst-stub /usr/local/bin/gst-inspect-1.0\n"
                 "COPY gst-stub /usr/local/bin/gst-launch-1.0\n"
+                "RUN python3 -m venv /opt/opk-venvs/python-ops-runtime\n"
+                "ENV OPK_PYTHON_RUNTIME_VENV=/opt/opk-venvs/python-ops-runtime\n"
                 "USER 65534:65534\n"
                 + smoke_stage
                 + "\nRUN python3 -c \"import hashlib; from pathlib import Path; "
