@@ -116,22 +116,9 @@ git clone git@github.com:arm/open-perception-kit.git
 
 Expected result: the `opk` folder exists on the Raspberry Pi.
 
-If the build needs private or gated models, export a read-only `HF_TOKEN` in
-the Pi login environment used by VS Code Remote SSH, then reconnect VS Code to
-the Pi:
-
-```bash
-touch ~/.profile &&
-  chmod 600 ~/.profile &&
-  printf '%s\n' 'export HF_TOKEN="hf_your_token_here"' >> ~/.profile
-```
-
-The owner-only permission keeps the persisted credential private. Docker
-supplies the token only to the pinned model-download build step; it is not added
-to the runtime container environment. Failed downloads are logged and skipped,
-so the image can build without every configured model. After correcting a
-token, run **Dev Containers: Rebuild Container**; initialization refreshes the
-model-download cache key.
+The standard OPK models download without a Hugging Face account or token.
+For your own private or gated models, see
+[Bring your model](../how-to/bring-your-model.md).
 
 ## 7. Check VS Code Prerequisites On Your Computer
 

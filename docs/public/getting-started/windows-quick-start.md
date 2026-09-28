@@ -87,22 +87,9 @@ If you must clone with SSH, set up your key first: [GitHub SSH Key Setup](github
 
 Expected result: you are in the `open-perception-kit` folder in WSL.
 
-### Optional private or gated model access
-
-Accessible public models download anonymously. If the build also needs private
-or gated models, export a read-only Hugging Face token in the WSL shell before
-starting either workflow:
-
-```bash
-export HF_TOKEN="hf_your_token_here"
-```
-
-Docker supplies the token only to the model-download build step. It is not
-added to the runtime container environment. Failed model downloads are logged
-and skipped, so the image can still build.
-
-You can add this line to the .bashrc of your user, so the token will be 
-automatically added at the start of the shell.
+The standard OPK models download without a Hugging Face account or token.
+For your own private or gated models, see
+[Bring your model](../how-to/bring-your-model.md).
 
 ## 3. Command-Line-Only Workflow
 

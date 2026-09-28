@@ -72,8 +72,6 @@ Use this target Pi setup before you start:
 - Permission to run `sudo` on the target Pi.
 - Internet access from the target Pi to GitHub, package repositories, and
   container or source locations used during the first container build.
-- An optional read-only Hugging Face `HF_TOKEN` for private or gated OPK
-  models.
 
 ### 1. Connect to the target Pi
 
@@ -107,20 +105,12 @@ Enter the `open-perception-kit` folder in the terminal and run:
 ./scripts/quick_start.sh
 ```
 
-When `HF_TOKEN` is unset, accessible public models download anonymously. Export
-`HF_TOKEN` before the quick-start when the build also needs private or gated
-models:
+The standard OPK models are public and download without a Hugging Face account
+or token. For your own private or gated models, see
+[Bring your model](how-to/bring-your-model.md).
 
-```bash
-export HF_TOKEN="hf_your_token_here"
-./scripts/quick_start.sh
-```
-
-Compose exposes the value only to the Docker model-download build step. The
-image contains each successfully downloaded model file, but neither the token
-nor a runtime Hugging Face credential. Failed downloads are logged and skipped,
-so the image build still succeeds. A pipeline that references a missing model
-fails while its OpChain starts, even when that `opkinfer` has `active=false`.
+Failed model downloads are logged and skipped. Check the build output if a
+pipeline fails to start because a model is missing.
 
 ### 3. Enter the container command line
 
@@ -238,12 +228,10 @@ when you need direct deployment control.
 
 ### Build a deployment container directly with Docker Compose
 
-Generate a cache key before invoking Compose. Export a token too only when
-private or gated models are needed:
+Generate a cache key before invoking Compose:
 
 ```bash
 export HF_DOWNLOAD_CACHEBUST="$(./scripts/private/generate-hf-download-cachebust.sh)"
-# Optional: export HF_TOKEN="hf_your_token_here"
 docker compose up --build
 ```
 
