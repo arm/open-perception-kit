@@ -84,6 +84,18 @@ Use CPython 3.10 or newer. The generated Python SDK and
 including for read-only guest scripts. Known-payload appends also use the
 FlatBuffers builder to pack the Python object-api value.
 
+## Register The Bridge Module
+
+When the C++ host owns interpreter startup, call `append_inittab()` before
+`Py_Initialize()` and import the generated guest package normally after startup.
+
+When the host interpreter is already initialized, do not call
+`append_inittab()`. Hold the GIL and call `initialize_module()` instead. It
+creates the generated bridge module dynamically and installs it in
+`sys.modules`, so the generated guest package can import it. The generated
+Python SDK and FlatBuffers runtime must already be discoverable on `sys.path`.
+The host retains ownership of the interpreter.
+
 ## Known Payload Reads
 
 Known payloads are accessed by generated Python payload type, not by payload id.

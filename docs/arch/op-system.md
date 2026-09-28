@@ -114,10 +114,13 @@ OpChain whose model descriptors occupy multiple directories must use absolute
 Python paths. It is a generic hook: before inference it receives an empty tensor
 tuple, while after inference it receives the latest output tensors as read-only
 NumPy views. The views are zero-copy and valid only for the duration of the call.
-The operation is supported by native pipelines in the official OPK containers
-and by extracted OPK binary releases on Debian Trixie. Containers use their
-locked virtual environment; binary releases use the system CPython interpreter
-and package-relative locked Python dependencies.
+The operation is supported by native and Python-hosted pipelines in the official
+OPK containers and by extracted OPK binary releases on Debian Trixie. A native
+host initializes the configured interpreter while a Python host must already use the
+compatible interpreter and the operation attaches its modules without assuming
+interpreter ownership. Containers use their locked virtual environment;
+binary releases use the system CPython interpreter and package-relative
+locked Python dependencies.
 
 ## Inference and Postprocessing Interfaces
 

@@ -339,6 +339,12 @@ int run_python(metapoc::container::envelope& envelope) {
 }
 ```
 
+If the interpreter is already running, hold the GIL and call
+`metapoc::python_bridge::initialize_module()` instead of `append_inittab()` and
+`Py_Initialize()`. This creates the bridge dynamically and registers it in
+`sys.modules` without taking interpreter ownership. The generated Python SDK
+and its FlatBuffers dependency must be importable before this call.
+
 The host must hold the Python GIL when constructing `scoped_envelope` and when
 exposing or using its Python object.
 

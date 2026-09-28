@@ -10,11 +10,13 @@ inference output tensors or append schema-defined data to `FrameResults`. The
 script runs inside the pipeline process and is loaded once for each Op instance,
 so module globals persist between calls.
 
-Python postprocessors are supported when a native OPK pipeline runs inside the
+Python postprocessors are supported when an OPK pipeline runs inside the
 official quick-start or deployment container, or from an extracted OPK binary
-release on its supported Debian platform. The containers supply the compatible
-CPython interpreter, NumPy, FlatBuffers runtime, and generated Open Perception Kit guest
-bridge; no Python installation from the development host is used.
+release on its supported Debian platform. The pipeline host may be native or
+may already be running the compatible CPython interpreter supplied by the OPK
+environment. The containers supply NumPy, the FlatBuffers runtime, and the
+generated Open Perception Kit guest bridge; no Python installation from the development
+host is used.
 
 ## Developer workflow
 
@@ -31,9 +33,11 @@ already provides the locked Python runtime and sets
 `OPK_PYTHON_RUNTIME_VENV`; do not create a Python Op virtual environment or
 install NumPy and FlatBuffers on the host.
 
-The script is not launched by the host Python interpreter. It is loaded by the
-native `opk-python-ops` component and runs in its embedded interpreter while the
-pipeline is processing frames.
+The script is loaded by the native `opk-python-ops` component while the pipeline
+is processing frames. A native host causes the component to initialize its
+locked interpreter. A Python-hosted GStreamer application instead causes the
+component to acquire the GIL and attach its bridge modules to the existing
+interpreter; it does not reinitialize or take ownership of that interpreter.
 
 ## Configure the Op
 
@@ -229,7 +233,8 @@ versions. It does not support a native macOS or Windows developer workflow.
 - Scripts are not sandboxed. They can access the process, filesystem, network,
   and imported native modules. A slow script blocks the streaming thread.
 - Build with `-Dpython_ops=enabled`, or set `OPK_PYTHON_OPS=enabled` when using
-  `scripts/build.sh`. Run the resulting pipeline through a native OPK launcher
-  inside an official OPK container or with the matching extracted OPK binary
-  release on Debian Trixie. Python-hosted GStreamer applications and other
-  deployment platforms are not part of the current support contract.
+  `scripts/build.sh`. Run the resulting pipeline inside an official OPK
+  container or with the matching extracted OPK binary release on Debian Trixie.
+  A Python-hosted GStreamer application must use the compatible CPython runtime
+  and locked dependencies from that same environment. Other deployment
+  platforms are not part of the current support contract.

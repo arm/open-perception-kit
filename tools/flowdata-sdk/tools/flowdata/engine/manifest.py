@@ -60,6 +60,7 @@ def python_package_descriptor(
 def python_bridge_descriptor(public_name: str) -> dict[str, Any]:
     return {
         "header": f"python_bridge/{public_name}_python_bridge.h",
+        "initialization_function": f"{public_name}::python_bridge::initialize_module",
         "module_name": f"{public_name}_bridge",
         "registration_function": f"{public_name}::python_bridge::append_inittab",
         "requires_python": PYTHON_VERSION_REQUIREMENT,
