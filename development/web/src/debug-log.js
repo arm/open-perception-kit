@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+
 import { copyTextWithFeedback, setCopyButtonAvailable } from './copy-utils.js?v=icon-copy-buttons-20260608';
 
 const copyButton = document.getElementById('copyDebugLogBtn');

@@ -1,3 +1,5 @@
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 # Open Perception Kit Rust Cross-Language Fixture
 
 `opk-box-detections-v0.2.1.hex` is the hexadecimal encoding of a 496-byte

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+
 opchain_exec = executable(
   'opchain-exec',
   'main.cpp',

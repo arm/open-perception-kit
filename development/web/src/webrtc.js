@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+
 import {createWebRtcClient} from './webrtc_client.js';
 import {resolveWebRtcIceConfig, resolveWebRtcTimingConfig} from './webrtc_config.js';
 

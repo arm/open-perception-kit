@@ -1,3 +1,5 @@
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 # Open Perception Kit – Copilot Instructions
 
 Follow the repository root `AGENTS.md` first.

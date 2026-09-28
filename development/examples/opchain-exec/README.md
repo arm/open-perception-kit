@@ -1,3 +1,5 @@
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 # opchain-exec
 
 `opchain-exec` is a proof-of-concept command-line application for running one OPK

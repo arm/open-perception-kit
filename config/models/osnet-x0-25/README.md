@@ -1,3 +1,5 @@
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 # OSNet x0.25 INT8
 
 Object re-identification model for embedding detected object crops.

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+
 executorch_opt = get_option('executorch')
 
 if executorch_opt.disabled()

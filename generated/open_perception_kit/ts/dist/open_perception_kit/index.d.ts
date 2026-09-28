@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Arm Limited. All rights reserved.
+// SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 // Generated file. Do not edit.
 // SDK users: change schemas or generator inputs, then regenerate this file.
 export declare const OPEN_PERCEPTION_KIT_VERSION = "0.1.0";

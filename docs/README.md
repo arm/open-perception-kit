@@ -1,3 +1,5 @@
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 # Open Perception Kit Docs
 
 The public Arm docs site source lives in `docs/public`. The docs config is `docs/public/docs-config.json`, Markdown image assets live under `docs/public/assets`, and site-root static assets live under `docs/public/static`.

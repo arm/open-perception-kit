@@ -4,6 +4,8 @@ sidebar_position: 2
 sidebar_label: Use A Camera
 description: Switch a working Open Perception Kit pipeline to a USB camera or Raspberry Pi camera source.
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # Use A Camera
 

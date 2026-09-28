@@ -2,6 +2,8 @@
 sidebar_position: 12
 sidebar_label: C++ Coding Guidelines
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # C++ Coding Guidelines
 

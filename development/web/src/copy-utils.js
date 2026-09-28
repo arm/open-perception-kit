@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+
 async function writeClipboard(text) {
     if (navigator.clipboard?.writeText) {
         try {

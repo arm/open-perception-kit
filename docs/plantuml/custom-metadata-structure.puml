@@ -1,3 +1,5 @@
+' SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+
 @startuml
 ' Structural overview of the future metadata architecture.
 !include opk-style.puml

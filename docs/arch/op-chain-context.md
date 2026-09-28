@@ -2,6 +2,8 @@
 sidebar_position: 13
 sidebar_label: OpChain Context
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # OpChainContext
 

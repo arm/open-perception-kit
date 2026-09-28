@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+
 # Analysis uses configured headers and the compilation database, not object files.
 foreach scope : ['all', 'new']
   run_target(

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 ################################################################
-# Copyright (C) 2026 Arm Limited. All rights reserved.
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 ################################################################
 
 """Generate the canonical checked-in open-perception-kit snapshot."""
@@ -39,16 +39,16 @@ SDK_LEGAL_FILES = ("LICENSE", "NOTICE")
 SDK_LEGAL_INPUT_DIR = Path(__file__).with_name("generator-inputs")
 CPP_LICENSE_HEADER = """\
 /*************************************************************
- * Copyright (C) 2026 Arm Limited. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
  *************************************************************/
 """
 PY_LICENSE_HEADER = """\
 ################################################################
-# Copyright (C) 2026 Arm Limited. All rights reserved.
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 ################################################################
 """
 CMAKE_LICENSE_HEADER = PY_LICENSE_HEADER
-TS_LICENSE_HEADER = "// Copyright (C) 2026 Arm Limited. All rights reserved.\n"
+TS_LICENSE_HEADER = "// SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates\n"
 RUST_LICENSE_HEADER = TS_LICENSE_HEADER
 TS_GENERATED_HEADER = """\
 // Generated file. Do not edit.
@@ -315,6 +315,12 @@ def add_license_headers(generated_root: Path) -> None:
         sorted((generated_root / "rust").rglob("*.rs")),
         RUST_LICENSE_HEADER,
         RUST_LICENSE_HEADER,
+    )
+    _add_license_headers_to(
+        [*sorted(generated_root.rglob("*.toml")),
+         *sorted(generated_root.rglob(MESON_BUILD_FILENAME))],
+        PY_LICENSE_HEADER,
+        PY_LICENSE_HEADER,
     )
 
 
@@ -631,6 +637,8 @@ def normalize_integration_files(config: SdkConfig, generated_root: Path) -> None
 def write_internal_meson(config: SdkConfig, target: Path) -> None:
     cpp_root = os.path.relpath(config.generated_root / "cpp", config.internal_meson_path.parent)
     content = (
+        PY_LICENSE_HEADER
+        + "\n"
         "# Generated project adapter. Do not edit.\n"
         "# Regenerate with ./scripts/perception-sdk.sh generate.\n\n"
         f"{config.public_name}_version = '{config.version}'\n"
@@ -750,7 +758,7 @@ def write_perception_manifest(
         },
         "upstream_receipts": flowdata_manifests,
         "postprocessing": {
-            "copyright_headers": "Arm Limited 2025",
+            "copyright_headers": "SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates",
             "cmake_formatter": command_version([CMAKE_FORMAT, "--version"]),
             "cpp_formatter": command_version([clang_format, "--version"]),
             "python_formatter": command_version([formatter_python, "-m", "autopep8", "--version"]),

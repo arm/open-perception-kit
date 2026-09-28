@@ -1,4 +1,4 @@
-# Copyright (C) 2026 Arm Limited. All rights reserved.
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 
 set(CMAKE_SYSTEM_NAME Linux)
 set(CMAKE_SYSTEM_PROCESSOR aarch64)

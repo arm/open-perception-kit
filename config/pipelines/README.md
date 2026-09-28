@@ -1,3 +1,5 @@
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 # Pipelines
 
 Top-level pipeline presets used by `opk-menu`.

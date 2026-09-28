@@ -4,6 +4,8 @@ sidebar_position: 3
 sidebar_label: Linux
 description: Set up Open Perception Kit on Linux with Docker Engine and a local VS Code Dev Container.
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # Linux Quick Start
 

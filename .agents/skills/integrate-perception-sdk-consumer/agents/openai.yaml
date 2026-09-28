@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+
 interface:
   display_name: "Integrate Open Perception Kit Consumer"
   short_description: "Integrate external FrameResults consumers safely"

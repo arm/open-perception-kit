@@ -4,6 +4,8 @@ sidebar_position: 3
 sidebar_label: Logging
 description: Configure OPK log levels and targets, and understand asynchronous delivery and flushing.
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # Logging
 

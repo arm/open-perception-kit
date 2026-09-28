@@ -2,6 +2,8 @@
 sidebar_position: 2
 sidebar_label: Project Overview
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # Project Overview
 

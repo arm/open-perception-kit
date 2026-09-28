@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+
 name: Set up OPK build environment
 description: Set up native OPK builds on Ubuntu 24.04.
 

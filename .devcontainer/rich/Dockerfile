@@ -1,4 +1,6 @@
 # syntax=docker/dockerfile:1
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+
 
 FROM opk-dev:local AS opk-dev-rich
 

@@ -2,6 +2,8 @@
 sidebar_position: 10
 sidebar_label: FrameResults schema
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # FrameResults schema
 

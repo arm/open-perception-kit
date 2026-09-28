@@ -1,3 +1,5 @@
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 # ExecuTorch Dependency Scripts
 
 These scripts prepare ExecuTorch C/C++ development files for OPK. They keep

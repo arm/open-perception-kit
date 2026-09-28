@@ -1,3 +1,5 @@
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 # NITEC ResNet-18 INT8
 
 Binary camera-contact classifier for detected face crops.

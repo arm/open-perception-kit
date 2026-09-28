@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+
 project('opk_elements', ['c', 'cpp'],
     version: '0.1.0',
   default_options: [

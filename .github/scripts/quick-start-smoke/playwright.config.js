@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+
 const { defineConfig } = require('@playwright/test');
 
 module.exports = defineConfig({

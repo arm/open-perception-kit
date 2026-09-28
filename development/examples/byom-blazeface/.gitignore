@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+
 face_detector.onnx
 face_detector.onnx.part
 blazeface-detections.mp4

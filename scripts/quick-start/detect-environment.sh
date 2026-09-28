@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 ################################################################
-# Copyright (C) 2025 Arm Limited. All rights reserved.
+# SPDX-FileCopyrightText: Copyright 2025-2026 Arm Limited and/or its affiliates
 ################################################################
 # Detects the host platform used by the public quick-start flow.
 #

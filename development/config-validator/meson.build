@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+
 config_validator_fs = import('fs')
 jsoncons_dep = dependency(
   'jsoncons',

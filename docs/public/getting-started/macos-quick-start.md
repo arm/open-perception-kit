@@ -4,6 +4,8 @@ sidebar_position: 4
 sidebar_label: macOS
 description: Set up Open Perception Kit on macOS with Docker Desktop and a local VS Code Dev Container.
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # macOS Quick Start
 

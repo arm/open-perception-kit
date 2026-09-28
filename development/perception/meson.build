@@ -1,3 +1,7 @@
+################################################################
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+################################################################
+
 # Generated project adapter. Do not edit.
 # Regenerate with ./scripts/perception-sdk.sh generate.
 

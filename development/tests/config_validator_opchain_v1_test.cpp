@@ -1,5 +1,5 @@
 /*************************************************************
- * Copyright (C) 2026 Arm Limited. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
  *************************************************************/
 
 #include "config_validator_test_support.h"

@@ -2,6 +2,8 @@
 sidebar_position: 16
 sidebar_label: Tensor Parser
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # TensorParser
 

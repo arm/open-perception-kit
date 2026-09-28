@@ -4,6 +4,8 @@ sidebar_position: 3
 sidebar_label: Binary Release
 description: Install and integrate an OPK architecture package without an OPK-specific loader wrapper.
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # Use an OPK binary release
 

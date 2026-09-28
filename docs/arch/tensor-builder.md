@@ -2,6 +2,8 @@
 sidebar_position: 15
 sidebar_label: Tensor Builder
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # TensorBuilder
 

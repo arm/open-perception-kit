@@ -4,6 +4,8 @@ sidebar_position: 8
 sidebar_label: Performance Measurement
 description: Set up SSH access and use Performix to measure an Open Perception Kit pipeline on the target device.
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # Performance Measurement With Performix
 

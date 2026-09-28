@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+
 runtime_include = include_directories('..')
 
 opk_runtime = shared_library(

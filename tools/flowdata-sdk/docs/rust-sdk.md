@@ -1,3 +1,5 @@
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 # Rust SDK Guide
 
 The Rust target generates an owning, standard-library crate in

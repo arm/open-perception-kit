@@ -4,6 +4,8 @@ sidebar_position: 1
 sidebar_label: Structural Basics
 description: Learn where Open Perception Kit stores models, opchains, pipelines, media, scripts, source code, and docs.
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # Structural Basics
 

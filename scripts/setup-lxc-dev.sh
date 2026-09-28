@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 ################################################################
-# Copyright (C) 2026 Arm Limited. All rights reserved.
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 ################################################################
 # Installs the OPK Docker development-image contract into an existing LXC.
 ################################################################

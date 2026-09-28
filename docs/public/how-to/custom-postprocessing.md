@@ -4,6 +4,8 @@ sidebar_position: 5
 sidebar_label: Custom Postprocessing
 description: Add a parser when a model's output tensors do not fit an existing Open Perception Kit postprocessor.
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # Custom Postprocessing
 

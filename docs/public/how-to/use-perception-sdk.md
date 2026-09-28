@@ -3,6 +3,8 @@ title: Build and use the Open Perception Kit bundle
 sidebar_label: Open Perception Kit bundle
 description: Build a reproducible Open Perception Kit C++, Python, Rust, and TypeScript archive and integrate it into an application.
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # Build and use the Open Perception Kit bundle
 

@@ -1,3 +1,5 @@
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 # Bring Your Own Model: BlazeFace
 
 This example shows how to run an external ONNX model with the OPK

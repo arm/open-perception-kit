@@ -2,6 +2,8 @@
 sidebar_position: 8
 sidebar_label: Types
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # Types, Tensor Metadata, and Shape
 

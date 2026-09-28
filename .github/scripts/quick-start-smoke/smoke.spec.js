@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+
 const { expect, test } = require('@playwright/test');
 
 test('signaling diagnostics render as text', async ({ page }) => {

@@ -1,3 +1,5 @@
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 # AGENTS.md
 
 This file is the starting point for coding agents working in Open Perception Kit.

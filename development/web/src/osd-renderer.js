@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+
 const DEFAULT_COLORS = {
   objects: "#ff3030",
   faces: "#2600ff",

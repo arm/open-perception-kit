@@ -1,3 +1,5 @@
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 # Development Examples
 
 This directory contains proof-of-concept applications that are tightly coupled

@@ -1,3 +1,5 @@
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 # Known Limitations
 
 This project is intended for controlled internal SDK generation and integration.

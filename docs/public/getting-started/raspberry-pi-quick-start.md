@@ -4,6 +4,8 @@ sidebar_position: 1
 sidebar_label: Raspberry Pi 5
 description: Run Open Perception Kit on a Raspberry Pi 5 target with VS Code, Dev Containers, and the browser viewer.
 ---
+<!-- SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates -->
+
 
 # Raspberry Pi 5 Tutorial
 
