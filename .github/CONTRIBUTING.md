@@ -18,11 +18,9 @@
 - Use a Conventional Commit pull request title, for example
   `ci: EXPKITS-1234 simplify CI workflows`. Titles are validated for pull requests targeting `main`.
 - Fill out the pull request template with `Goal`, `Change`, and `Testing`.
-- Ordinary PRs do not require a release version bump. Release-preparation PRs
-  update the product version, matching changelog section, plumber dependency,
-  and generated version consumers together. The manual Release workflow
-  validates the committed stable version and publishes it; merging into `main`
-  does not trigger a product release. Do not overwrite published versions.
+- Bump the product version only when preparing a release. Merge the preparation
+  PR into `main`, then start the manual Release workflow. Do not overwrite
+  published versions.
 - Follow the [branching policy](../docs/public/branching-policy.md) and
   [release process](../docs/arch/release-process.md) for the complete flow.
 

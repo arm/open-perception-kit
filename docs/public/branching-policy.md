@@ -5,9 +5,8 @@ sidebar_label: Branching Policy
 
 # Branching Policy
 
-`main` is the default branch and integration branch. There is no active
-`develop` branch. Normal development, fixes, and release preparation reach
-`main` through pull requests.
+`main` is the default and integration branch. Development, fixes, and release
+preparation use pull requests into `main`.
 
 ## Branch names and purpose
 
@@ -20,9 +19,7 @@ Use a ticketed branch name for contributor work:
 | `hotfix/EXPKITS-*` | Urgent fixes to released behavior | `hotfix/EXPKITS-9012/fix-release-crash` |
 | `release/EXPKITS-*` | Release preparation | `release/EXPKITS-1234-create-release-1.2.3` |
 
-Branch from `main` and target `main` for each of these flows. Dependabot manages
-its own `dependabot/*` branches. Ticketed naming is the contribution convention;
-the repository does not currently have a global branch-name ruleset.
+Dependabot manages its own `dependabot/*` branches.
 
 ## Development flow
 
@@ -35,31 +32,26 @@ the repository does not currently have a global branch-name ruleset.
 5. Resolve review threads, obtain the required approvals, and pass the required
    checks before squash-merging.
 
-Sign every commit cryptographically and include a DCO `Signed-off-by` trailer;
-these are separate requirements. For example, use `git commit -S -s`,
-`git rebase --gpg-sign --signoff`, and `git cherry-pick -S -s`. Verify signatures
-and sign-offs again after rewriting commits.
+Sign every commit and include a DCO `Signed-off-by` trailer. Use
+`git commit -S -s`, `git rebase --gpg-sign --signoff`, and `git cherry-pick -S -s`.
+Verify both the signature and sign-off after rewriting commits.
 
-Hotfixes follow the same PR flow into `main`. There is no back-merge to a second
-integration branch. For a native PR stack, only the bottom PR targets `main`;
-each upper PR targets the branch immediately below it. Rebase the stack as its
-base changes and merge from bottom to top.
+Hotfixes follow the same flow. In a native PR stack, the bottom PR targets `main`
+and each upper PR targets the branch below it. Rebase when the base changes
+and merge from bottom to top.
 
 ## Release flow
 
-An ordinary PR into `main` does not require a new product version, and merging
-it does not publish a product release.
+Ordinary PRs do not require a version bump or publish a release.
 
-When the integrated changes are ready to ship, prepare the version, changelog,
-and generated version consumers on a ticketed `release/*` branch and merge
-that PR into `main`. Then manually start the **Release** workflow from `main`.
-It uses the version already committed in the selected source; it has no version
-override or automatic prerelease version. Published versions must not be
-overwritten.
+To release, prepare the version, changelog, and generated version consumers on
+a ticketed `release/*` branch. Merge the PR into `main`, then manually start the
+**Release** workflow from `main`. It publishes the committed version.
+Do not overwrite published versions.
 
 See the repository's
 [release process](https://github.com/arm/open-perception-kit/blob/main/docs/arch/release-process.md#release-packages)
-for the exact inputs, artifacts, validation, and publication order.
+for preparation commands, artifacts, checks, and publication order.
 
 ## Enforcement
 
