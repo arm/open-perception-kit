@@ -49,6 +49,11 @@
     "repository": "https://github.com/nlohmann/json",
     "version": "nlohmann_json-3.12.0"
   },
+  "numpy-headers": {
+    "licence": "BSD-3-Clause",
+    "repository": "https://github.com/numpy/numpy",
+    "version": "2.4.2"
+  },
   "onnxruntime": {
     "licence": "MIT; see transitive notices",
     "repository": "https://github.com/microsoft/onnxruntime",

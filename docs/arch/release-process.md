@@ -28,17 +28,21 @@ or pushing to `main` does not start a product release.
 
 ## Licence evidence before publication
 
-`ReleaseTool.py stage-legal` collects original notices from the resolved Meson
-sources, ONNX Runtime, the ExecuTorch SDK's existing legal tree, installed Python
-wheel metadata and the checked-in browser assets. It checks the collected
-versions against `scripts/release/third-party-licenses.json`; new or upgraded
+`ReleaseTool.py stage-legal` collects original notices for the dependencies
+present in each artifact: resolved Meson sources, native backends, installed
+Python packages where applicable, and checked-in browser assets. It checks the
+collected versions against `scripts/release/third-party-licenses.json`; new or upgraded
 components require a catalogue update after their licences and original notices
 have been reconciled. The catalogue records the source directory/revision for
 Meson dependencies and the installed Debian package version for ExecuTorch.
 `stage-legal` writes `components.json` with the revision/version, repository,
 licence and notice paths, plus a sorted `THIRD_PARTY_LICENSES.md` report for the
-OPK release. The same collection is
-copied into architecture packages, deployment images and Cairn images.
+OPK release. Each artifact's inventory records the dependencies used to build
+or populate it. Deployment images also record installed Python packages;
+architecture archives leave out packages supplied by the host but keep the
+NumPy BSD notice for headers compiled into the PythonScript module. The SDK ZIP
+carries its own wheel notices.
+
 `validate-package`, the offline archive smoke, and image `validate-legal` checks
 reject missing or empty required notices and a missing or stale report.
 Architecture packages and images require OPK's `LICENSE`, `NOTICE`, `THIRD_PARTY_NOTICE.md` and
@@ -160,9 +164,11 @@ custom filenames regardless of extension; `.dockerignore` also excludes known
 model formats. Deployment and Cairn copies use those filtered inputs.
 
 The build verifies ExecuTorch package checksums and embeds the checked-in SDK
-ZIP, checksum, and provenance under `share/opk/open-perception-kit`. It checks
-SDK provenance against the source commit without regenerating the SDK.
-The Arm job extracts the Python wheel and prepares the Rust crate for publication.
+ZIP, checksum, and provenance under `share/opk/open-perception-kit`. Legal
+files from the ExecuTorch Debian input are copied into the archive, including
+its source commit when available. The build checks SDK provenance
+against the source commit without regenerating the SDK. The Arm job extracts
+the Python wheel and prepares the Rust crate for publication.
 
 For product version `<version>`, the release produces:
 
@@ -213,7 +219,7 @@ runs before retrying.
 the staged payload before archiving:
 
 - Native plugins and runtimes, architecture, RUNPATH, and ELF dependencies.
-- Private Python runtime and distribution manifest.
+- PythonScript's native module and type stub, with Python packages supplied by the host environment.
 - Exactly twelve model descriptor directories and their local model/OpChain references, without model binaries.
 - SDK ZIP, checksum, provenance, and descriptor schemas.
 - Legal documents and exclusion of source headers and SDK build files.
@@ -223,12 +229,14 @@ Both architecture images run the same
 `opk-deployment-base` stage without network access, as a non-root user:
 
 ```bash
-scripts/release/smoke-opk-package.sh \
-  opk-<version>-linux-<architecture>.tar.gz python-operation.py
+OPK_PYTHON_RUNTIME_VENV=/path/to/venv scripts/release/smoke-opk-package.sh \
+  opk-<version>-linux-<architecture>.tar.gz \
+  development/tests/python_script_op/runtime_environment.py
 ```
 
-The smoke checks required licence evidence, plugin discovery, Python-operation
-dependencies through an OpChain containing only the Python test Op, and `opksink`
+The deployment image prepares the Python virtual environment before the
+network-disabled smoke runs. The smoke checks licence evidence, plugin
+discovery, PythonScript execution with that host environment, and `opksink`
 startup. It needs no model files and performs no inference. Model-dependent
-runtime tests remain in the development and quick-start test suites. The archive
-remains unchanged and is published without rebuilding.
+runtime tests remain in the development and quick-start test suites. The
+archive remains unchanged and is published without rebuilding.

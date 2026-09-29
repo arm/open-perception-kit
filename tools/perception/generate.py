@@ -46,6 +46,7 @@ FLOWDATA_MANIFEST_FILENAME = "flowdata-manifest.json"
 PERCEPTION_MANIFEST_FILENAME = "open-perception-kit-manifest.json"
 SDK_LICENSE = "Apache-2.0"
 SDK_LEGAL_FILES = ("LICENSE", "NOTICE")
+PYTHON_OPTIONAL_DEPENDENCIES = {"numpy": ["numpy"]}
 # Authored inputs copied into each generated language package.
 SDK_LEGAL_INPUT_DIR = Path(__file__).with_name("generator-inputs")
 CPP_LICENSE_HEADER = """\
@@ -256,7 +257,15 @@ def prepare_python_package(
     )
     if text.count(source) != 1:
         raise RuntimeError("generated Python project name is unexpected")
-    pyproject.write_text(text.replace(source, target), encoding="utf-8")
+    optional_dependencies = "\n".join(
+        f"{name} = {json.dumps(packages)}"
+        for name, packages in PYTHON_OPTIONAL_DEPENDENCIES.items()
+    )
+    pyproject.write_text(
+        text.replace(source, target)
+        + f"\n[project.optional-dependencies]\n{optional_dependencies}\n",
+        encoding="utf-8",
+    )
 
 
 def synchronize_plumber_dependency(

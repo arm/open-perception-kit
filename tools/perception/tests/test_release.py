@@ -699,13 +699,19 @@ class PythonPackagingTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            release_package.perception_generate.prepare_python_package(
-                project, "open_perception_kit", "1.2.3", "1.2.3.dev0"
-            )
+            with patch.dict(
+                release_package.perception_generate.PYTHON_OPTIONAL_DEPENDENCIES,
+                {"image": ["Pillow>=11"]},
+            ):
+                release_package.perception_generate.prepare_python_package(
+                    project, "open_perception_kit", "1.2.3", "1.2.3.dev0"
+                )
             self.assertEqual(
                 pyproject.read_text(encoding="utf-8"),
                 '[project]\nname = "open_perception_kit"\nversion = "1.2.3.dev0"\n'
-                'license = "Apache-2.0"\nlicense-files = ["LICENSE", "NOTICE"]\n',
+                'license = "Apache-2.0"\nlicense-files = ["LICENSE", "NOTICE"]\n'
+                '\n[project.optional-dependencies]\nnumpy = ["numpy"]\n'
+                'image = ["Pillow>=11"]\n',
             )
             with self.assertRaisesRegex(RuntimeError, "project name is unexpected"):
                 release_package.perception_generate.prepare_python_package(

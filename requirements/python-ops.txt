@@ -12,27 +12,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# Generated file. Do not edit.
-# SDK users: change schemas or generator inputs, then regenerate this file.
 
-[project]
-name = "open_perception_kit"
-version = "0.1.1"
-license = "Apache-2.0"
-license-files = ["LICENSE", "NOTICE"]
-description = "Generated open_perception_kit Python SDK"
-requires-python = ">=3.10"
-dependencies = ["flatbuffers>=24.3.25,<26.0.0"]
-
-[build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools.packages.find]
-where = ["src"]
-
-[tool.setuptools.package-data]
-"*" = ["*.pyi", "py.typed"]
-
-[project.optional-dependencies]
-numpy = ["numpy"]
+# PythonScript host packages for Python 3.13 on x86_64 or aarch64.
+# The Open Perception Kit SDK wheel is supplied separately in the SDK ZIP.
+numpy==2.4.2
+flatbuffers==25.9.23

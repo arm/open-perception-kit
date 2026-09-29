@@ -115,8 +115,8 @@
     },
     {
       "path": "python/pyproject.toml",
-      "sha256": "f22bb593b2c09d611bac404692f8ba25af3f0ee95f95d309372894d9f19311a3",
-      "size": 1236
+      "sha256": "8c34db1436e7b1220349036b030b8ad85260a92a75ac2fbe1f8db1c088be12d3",
+      "size": 1287
     },
     {
       "path": "python/src/open_perception_kit/__init__.py",
@@ -1191,8 +1191,8 @@
     "tools": [
       {
         "path": "tools/perception/generate.py",
-        "sha256": "4bcbe320612a41b42e2c5fe25c14f819589e02266d90503019881ce40a4b56eb",
-        "size": 48275
+        "sha256": "83246d6bbb8566940c79757d50f8f2425e73385cf98f1525f05e9f17364a5108",
+        "size": 48579
       },
       {
         "path": "tools/perception/release_common.py",

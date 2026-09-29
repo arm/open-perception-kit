@@ -220,8 +220,9 @@ stages inherit everything from their parent unless noted otherwise.
   `tools/perception` and updated manually, not fetched during the build.
   Release builds reuse the same Meson build to create
   the validated architecture tarball in `/opt/opk-release-artifacts`. The native
-  archive contains the Python operation module and copies its locked runtime
-  packages into `share/opk/python`. Cross builds omit the embedded Python
+  archive contains the Python operation module and its type stub under
+  `share/opk/python`. Python runtime packages are installed in a host environment
+  outside the archive. Cross builds omit the embedded Python
   operation module because its target Python development dependency cannot be
   discovered through the current cross file.
 - `opk-python-ops-runtime`: runs on the target platform and creates the embedded

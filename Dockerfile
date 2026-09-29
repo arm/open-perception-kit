@@ -639,7 +639,7 @@ COPY --from=opk-release-sources /work/development development
 COPY --from=opk-release-sources /work/generated generated
 COPY --from=opk-release-sources /work/LICENSE /work/NOTICE /work/THIRD_PARTY_NOTICE.md ./
 COPY --from=opk-release-sources /work/docs/public/licensing.md docs/public/licensing.md
-COPY --from=opk-release-sources /work/requirements/build.json requirements/build.json
+COPY --from=opk-release-sources /work/requirements/build.json /work/requirements/python-ops.txt requirements/
 COPY --from=opk-release-sources /work/data data
 # Release and deployment images contain descriptors only. Users download models
 # through the quick-start development flow with their own Hugging Face access.
@@ -709,17 +709,21 @@ RUN --mount=type=cache,id=opk-deployment-ccache,target=/work/.cache/ccache,shari
     /work/tools/opk-config-check --root /work; \
     DESTDIR="${package_root}" meson install \
       -C /work/development/build --skip-subprojects; \
-    /opt/opk-venvs/python-ops-runtime/bin/python \
-      /work/scripts/release/ReleaseTool.py stage-python-runtime \
-      --stage-root "${package_root}"; \
     onnxruntime_version="$(python3 -c 'import json; print(json.load(open("/opt/opk-deps/requirements/build.json"))["onnxruntime"])')"; \
     cp "/opt/opk-deps/onnxruntime/lib/libonnxruntime.so.${onnxruntime_version}" \
       "${package_root}/lib/opk/"; \
     ln -s "libonnxruntime.so.${onnxruntime_version}" \
       "${package_root}/lib/opk/libonnxruntime.so.1"; \
-    cp -a /opt/opk-app/share/opk/licenses "${package_root}/share/opk/"; \
+    /opt/opk-venvs/python-ops-runtime/bin/python /work/scripts/release/ReleaseTool.py stage-legal \
+      --repo-root /work --stage-root "${package_root}"; \
     cp -a /tmp/open-perception-kit-input/. \
       "${package_root}/share/opk/open-perception-kit/"; \
+    cp /work/generated/open_perception_kit/python/pyproject.toml \
+      "${package_root}/share/opk/python/"; \
+    cp /work/requirements/python-ops.txt \
+      "${package_root}/share/opk/python/requirements.txt"; \
+    cp /opt/opk-deps/onnxruntime/provenance.json \
+      "${package_root}/lib/opk/libonnxruntime.so.${onnxruntime_version}.provenance.json"; \
     python3 /work/scripts/release/ReleaseTool.py stage-models \
       --repo-root /work --stage-root "${package_root}"; \
     python3 /work/scripts/release/ReleaseTool.py validate-package \
