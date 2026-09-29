@@ -28,9 +28,9 @@ from gi.repository import GLib, GObject
 from pipeline_test_utils import load_gstreamer_plugins, release_pipeline
 
 
-def wait_for(predicate, context="WebSocket activity"):
-    deadline = monotonic() + 5
-    timer = GLib.timeout_add(5000, lambda: True)
+def wait_for(predicate, context="WebSocket activity", *, timeout=5):
+    deadline = monotonic() + timeout
+    timer = GLib.timeout_add(20, lambda: True)
     try:
         while not predicate():
             assert monotonic() < deadline, f"Timed out waiting for {context}"
@@ -56,6 +56,8 @@ def create_sdp_offer(gst):
     from gi.repository import GstWebRTC
 
     peer = gst.ElementFactory.make("webrtcbin")
+    # GI exposes borrowed negotiation data, so retain the transceivers until SDP is copied.
+    transceivers = []
     try:
         for media, codec, rate, payload in (
             ("video", "VP8", 90000, 96),
@@ -65,14 +67,20 @@ def create_sdp_offer(gst):
                 f"application/x-rtp,media={media},encoding-name={codec},"
                 f"clock-rate={rate},payload={payload}"
             )
-            peer.emit("add-transceiver", GstWebRTC.WebRTCRTPTransceiverDirection.RECVONLY, caps)
+            transceivers.append(
+                peer.emit(
+                    "add-transceiver", GstWebRTC.WebRTCRTPTransceiverDirection.RECVONLY, caps
+                )
+            )
         peer.set_state(gst.State.PLAYING)
         promise = gst.Promise.new()
         peer.emit("create-offer", None, promise)
         assert promise.wait() == gst.PromiseResult.REPLIED
         reply = promise.get_reply()
         description = reply.get_value("offer")
-        return description.sdp.as_text()
+        offer = description.sdp.as_text()
+        assert "m=video" in offer and "m=audio" in offer
+        return offer
     finally:
         peer.set_state(gst.State.NULL)
 
