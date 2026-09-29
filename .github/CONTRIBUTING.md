@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 SPDX-License-Identifier: Apache-2.0
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -64,8 +64,8 @@ year. Do not update every file just because the calendar year changed.
 OPK uses the [combined notice from Arm's License Notices guidance](https://confluence.arm.com/pages/viewpage.action?pageId=994831055):
 `SPDX-FileCopyrightText`, `SPDX-License-Identifier` and the Apache short notice,
 including the licence URL and warranty disclaimer. Use
-`Arm Limited and/or its affiliates <perception-fdbck@arm.com>` as the Arm holder
-and contact. Keep each SPDX notice on one line. For formats that cannot carry
+`Arm Limited and/or its affiliates` as the Arm holder, without an email address.
+Keep each SPDX notice on one line. For formats that cannot carry
 comments, follow the existing `.license` sidecars and `REUSE.toml` annotations
 described in [Licensing](../docs/public/licensing.md). Edit generator inputs
 and regenerate generated files through their existing owner scripts.

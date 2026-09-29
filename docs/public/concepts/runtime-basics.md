@@ -5,7 +5,7 @@ sidebar_label: Runtime Basics
 description: Understand how GStreamer pipelines, OpChains, model descriptors, and FrameResults fit together at runtime.
 ---
 <!--
-SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 SPDX-License-Identifier: Apache-2.0
 
 Licensed under the Apache License, Version 2.0 (the "License");
