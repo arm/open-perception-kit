@@ -30,8 +30,8 @@ from runtime images while still giving each workflow a reproducible environment.
 
 ## Architecture
 
-The container graph is organized into four lanes. The arrows below mirror the
-current Dockerfile `FROM` and artifact-copy relationships.
+The arrows below mirror the current Dockerfile `FROM` and artifact-copy
+relationships.
 
 ```text
 External bases
@@ -259,7 +259,7 @@ The `opk-docs` image reuses the development base and adds documentation tools
 such as Doxygen, Pandoc, Graphviz, and PlantUML. For release documentation
 publishing, see [Publish From GitHub Actions](../README.md#publish-from-github-actions).
 
-The deployment lane has two roles plus shared artifact inputs.
+The deployment lane combines build and runtime roles with shared artifact inputs.
 `opk-deployment-build` inherits the cross-build base, copies model configurations
 and demo media, compiles OPK, and collects `/opt/opk-app`. For a native release
 it also packages the checked-in Open Perception Kit snapshot and creates the

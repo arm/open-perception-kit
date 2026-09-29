@@ -127,7 +127,7 @@ const auto enabledTargets = opk::log::getEnabledLogTargets();
 `opk::log::setLogTargetState()` returns `false` when the requested target is unavailable. A buffered record
 uses the target states that are active when the worker dispatches it.
 
-`Pipeline::StartOptions` exposes the same three target states as
+`Pipeline::StartOptions` exposes the same target states as
 `logToStdout`, `logToStderr`, and `logToFile`. Its defaults disable stdout and
 file output and enable stderr. As with the direct logging API, these settings
 are process-wide rather than private to one pipeline. Starting another pipeline

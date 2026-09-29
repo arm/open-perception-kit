@@ -32,7 +32,7 @@ that particular executable. See the [licence page](docs/public/licensing.md).
 
 The [TPIP report](https://github.com/arm/open-perception-kit/blob/main/docs/third-party-licenses.md)
 preserves the supplied Black Duck SBOM snapshot and its review status. It includes
-1,111 component/version entries across the scanned environment. Its scan revision
+component/version entries across the scanned environment. Its scan revision
 is recorded separately from the versions collected for a release below.
 
 ## Native components

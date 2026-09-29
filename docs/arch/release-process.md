@@ -141,7 +141,7 @@ Native Ubuntu 24.04 jobs build the `opk-deployment-base` target in the
 [Dockerfile](../../Dockerfile) for `linux/amd64` and `linux/arm64`, then extract
 the release packages from the local images.
 
-Packaging stages only the JSON descriptors and OpChains from the twelve
+Packaging stages only the JSON descriptors and OpChains from the
 selected directories under `config/models/`. Their `hfDownload` entries retain
 the pinned repository, revision, filename, and SHA-256 for user downloads.
 Model binaries are excluded from release archives, deployment images, and
@@ -188,8 +188,8 @@ in each architecture archive. Documentation is published as a site.
 
 1. `prepare` validates the version and source commit. Native builds and source
    SBOM generation follow. Quick-start smoke, SDK tests, and Meson tests also run.
-2. `artifactory` waits for both builds, the source SBOM, and all three test
-   workflows. It collects exactly two archives, the wheel, and the crate in
+2. `artifactory` waits for the builds, the source SBOM, and all required test
+   workflows. It collects the architecture archives, the wheel, and the crate in
    `opk-release-artifacts`, then calls `upload-to-artifactory.yaml` in
    `Arm-Debug/amp-dev-forge-publisher`. It waits for success and retrieves the
    published download URLs.
@@ -198,7 +198,7 @@ in each architecture archive. Documentation is published as a site.
    It waits for publication to succeed. The publisher owns registry credentials
    and destinations.
 4. `github-release` waits for both publishers, rejects an existing `v<version>`
-   release, and publishes the two archives and two SBOMs at the selected commit.
+   release, and publishes the architecture archives and SBOMs at the selected commit.
    Release notes include the changelog entry, source commit, archive SHA-256
    values, and Artifactory links.
 5. `publish-docs` calls
@@ -220,7 +220,7 @@ the staged payload before archiving:
 
 - Native plugins and runtimes, architecture, RUNPATH, and ELF dependencies.
 - PythonScript's native module and type stub, with Python packages supplied by the host environment.
-- Exactly twelve model descriptor directories and their local model/OpChain references, without model binaries.
+- Selected model descriptor directories and their local model/OpChain references, without model binaries.
 - SDK ZIP, checksum, provenance, and descriptor schemas.
 - Legal documents and exclusion of source headers and SDK build files.
 

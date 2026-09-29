@@ -52,7 +52,7 @@ Report the predecessor, proposed version, classification, and short rationale be
 
 ## Prepare and validate
 
-1. Update exactly three authored active-version surfaces:
+1. Update the authored active-version surfaces:
    - `development/meson.build`: authoritative product version.
    - `CHANGELOG.md`: one non-empty section for the same version.
    - `tools/plumber/pyproject.toml`: the exact `open_perception_kit==<version>` dependency.

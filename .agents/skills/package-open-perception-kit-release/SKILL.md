@@ -100,7 +100,7 @@ Require both release sidecars:
   --require-sidecars
 ```
 
-Confirm that these three files exist:
+Confirm that these files exist:
 
 - `open-perception-kit-${sdk_version}.zip`
 - `open-perception-kit-${sdk_version}.zip.sha256`
@@ -138,7 +138,7 @@ Choose one handoff mode:
   without FlatBuffers generation. A red release
   requires release-owner cleanup before retry. Public distribution must use
   authenticated, server-enforced immutable publication instead.
-  Generic Artifactory keeps the three OPK archives. Manual snapshots instead
+  Generic Artifactory keeps the OPK archives. Manual snapshots instead
   place the wheel and crate beside those archives in their immutable generic
   Artifactory folder.
   Do not publish the rest of the triplet as separate top-level OPK release
