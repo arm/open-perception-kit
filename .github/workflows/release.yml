@@ -417,7 +417,7 @@ jobs:
 
   github-release:
     name: Publish GitHub release
-    needs: [prepare, build, artifactory, perception-cargo-publish, perception-crates-io-dry-run, sbom-source]
+    needs: [prepare, build, artifactory, perception-crates-io-publish, sbom-source]
     runs-on: ubuntu-24.04
     permissions:
       actions: read
@@ -499,8 +499,8 @@ jobs:
     with:
       publish_ref: ${{ needs.prepare.outputs.commit }}
 
-  perception-cargo-publish:
-    name: Publish and verify open-perception-kit crate
+  perception-crates-io-publish:
+    name: Verify and publish open-perception-kit crate to crates.io
     needs: [prepare, artifactory]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -572,70 +572,9 @@ jobs:
           path: opk-sbom-open-perception-kit-crate.json
           if-no-files-found: error
 
-      - name: Create GitHub App token for publisher
-        id: publisher-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        with:
-          app-id: ${{ secrets.OPK_DEBUG_ACCESS_APP_ID }}
-          private-key: ${{ secrets.OPK_DEBUG_ACCESS_APP_PRIVATE_KEY }}
-          owner: Arm-Debug
-          repositories: open-perception-kit-publisher
-
-      - name: Trigger open-perception-kit Cargo publisher
-        id: trigger_cargo_publisher
-        env:
-          CARGO_PACKAGE_VERSION: ${{ needs.prepare.outputs.cargo_package_version }}
-          GH_TOKEN: ${{ steps.publisher-token.outputs.token }}
-        run: |
-          set -euo pipefail
-          publisher_run_url="$(gh workflow run cargo-publish.yaml \
-            --repo Arm-Debug/open-perception-kit-publisher \
-            --ref main \
-            --field source-run-id="$GITHUB_RUN_ID" \
-            --field artifact-name="open-perception-kit-input-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
-            --field cargo-package-version="$CARGO_PACKAGE_VERSION")"
-
-          publisher_run_id="${publisher_run_url##*/}"
-          if [[ ! "$publisher_run_id" =~ ^[0-9]+$ ]]; then
-            echo "::error::Could not extract a run ID from: $publisher_run_url"
-            exit 1
-          fi
-
-          echo "publisher_run_id=$publisher_run_id" >> "$GITHUB_OUTPUT"
-
-      - name: Wait for open-perception-kit Cargo publisher
-        env:
-          GH_TOKEN: ${{ steps.publisher-token.outputs.token }}
-          PUBLISHER_RUN_ID: ${{ steps.trigger_cargo_publisher.outputs.publisher_run_id }}
-        run: |
-          gh run watch "$PUBLISHER_RUN_ID" \
-            --repo Arm-Debug/open-perception-kit-publisher \
-            --compact \
-            --interval 60 \
-            --exit-status
-
-  perception-crates-io-dry-run:
-    name: Dry-run open-perception-kit crate publication to crates.io
-    needs: [prepare, build]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - name: Download open-perception-kit input
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: open-perception-kit-input-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/open-perception-kit-input
-
-      - name: Set up pinned Rust for open-perception-kit publication dry run
-        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
-        with:
-          toolchain: 1.85.0
-          cache: false
-
-      - name: Dry-run open-perception-kit crate publication to crates.io
+      - name: Publish open-perception-kit crate to crates.io
         working-directory: ${{ runner.temp }}/open-perception-kit-input/open_perception_kit-cargo-source-${{ needs.prepare.outputs.cargo_package_version }}
         env:
-          CARGO_HOME: ${{ runner.temp }}/open_perception_kit-crates-io-cargo-home
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
           RUSTUP_TOOLCHAIN: 1.85.0
-        run: cargo publish --dry-run --locked --registry crates-io
+        run: cargo publish --locked --registry crates-io

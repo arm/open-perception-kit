@@ -37,8 +37,7 @@ permissions:
 jobs:
   publish-docs:
     name: Publish production docs site
-    # Temporarily disabled; remove `&& false` to restore production publication.
-    if: github.event_name != 'release' && false
+    if: github.event_name != 'release'
     runs-on: ubuntu-latest
     permissions:
       contents: read
