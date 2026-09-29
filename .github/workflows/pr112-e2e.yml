@@ -1,0 +1,290 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: PR112 prerelease packages
+
+on:
+  push:
+    branches:
+      - feature/EXPKITS-1318/pr112-e2e-01a0ebde
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  CCACHE_SCHEMA_VERSION: v2
+
+jobs:
+  prepare:
+    if: github.repository == 'arm/open-perception-kit' && github.ref == 'refs/heads/feature/EXPKITS-1318/pr112-e2e-01a0ebde'
+    name: Resolve release source
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      cargo_package_version: ${{ steps.release.outputs.cargo_package_version }}
+      python_package_version: ${{ steps.release.outputs.python_package_version }}
+      commit: ${{ steps.release.outputs.commit }}
+      x86_archive: ${{ steps.release.outputs.x86_archive }}
+      arm_archive: ${{ steps.release.outputs.arm_archive }}
+    steps:
+      - name: Checkout selected source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: 79d33fd5acb8f46e65f78a2fd07491740cf6925b # pragma: allowlist secret
+          persist-credentials: false
+
+      - name: Prepare release identity
+        id: release
+        run: |
+          set -euo pipefail
+          commit="$(git rev-parse HEAD)"
+          python3 scripts/release/ReleaseTool.py prepare \
+            --repo-root . \
+            --commit "$commit"
+
+  build:
+    name: Build ${{ matrix.architecture }} package
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: x86_64
+            artifact_label: x86
+            cache_tag: amd64
+            platform: linux/amd64
+            runner: ubuntu-24.04
+            executorch_deb_sha256: 3cc106a358af12d26e0cb0a1af70899533e594b0d0c460a28da5a732f8251505 # pragma: allowlist secret
+          - architecture: aarch64
+            artifact_label: arm
+            cache_tag: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            executorch_deb_sha256: d41fd4f78c1a7ca7d84c761ae4652121719c3d8d5daafd6091b5a6df6638647b # pragma: allowlist secret
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    env:
+      RELEASE_IMAGE: opk-release-snapshot:${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.artifact_label }}
+      SOURCE_DIR: source-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-${{ matrix.artifact_label }}
+      EXECUTORCH_DEB_BASE_URL: https://artifacts.tools.arm.com/open-perception-kit/executorch
+    steps:
+      - name: Free runner disk space
+        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
+        with:
+          android: true
+          dotnet: true
+          haskell: true
+          docker-images: true
+          large-packages: false
+          preinstalled-runtimes: false
+          swap-storage: false
+
+      - name: Checkout selected source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          path: ${{ env.SOURCE_DIR }}
+          persist-credentials: false
+
+      - name: Fetch ExecuTorch package
+        working-directory: ${{ env.SOURCE_DIR }}
+        env:
+          DEB_ARCH: ${{ matrix.cache_tag }}
+          DEB_SHA256: ${{ matrix.executorch_deb_sha256 }}
+        run: |
+          set -euo pipefail
+          deb="libexecutorch-dev-1.3.1-2-${DEB_ARCH}.deb"
+          curl --fail --location --retry 3 --output "var/${deb}" \
+            "${EXECUTORCH_DEB_BASE_URL}/${deb}"
+          echo "${DEB_SHA256}  var/${deb}" | sha256sum --check -
+
+      - name: Set up Docker builder
+        id: builder
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+
+      - name: Restore compiler cache
+        id: compiler-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .cache/ccache-release
+          key: opk-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-release-${{ needs.prepare.outputs.commit }}
+          restore-keys: |
+            opk-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-release-
+            opk-ccache-${{ env.CCACHE_SCHEMA_VERSION }}-${{ runner.os }}-${{ runner.arch }}-deployment-
+
+      - name: Attach compiler cache to Docker builder
+        uses: reproducible-containers/buildkit-cache-dance@5422eac04292c961a382e0f584ea0f03ad9da723 # v3.4.0
+        with:
+          builder: ${{ steps.builder.outputs.name }}
+          cache-map: |
+            {
+              ".cache/ccache-release": {
+                "target": "/work/.cache/ccache",
+                "id": "opk-deployment-ccache",
+                "sharing": "locked"
+              }
+            }
+          skip-extraction: ${{ steps.compiler-cache.outputs.cache-hit }}
+
+      - name: Build release snapshot image
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          build-args: |
+            OPK_RELEASE_BUILD=true
+            OPK_RELEASE_VERSION=${{ needs.prepare.outputs.version }}
+            OPK_RELEASE_SOURCE_COMMIT=${{ needs.prepare.outputs.commit }}
+          context: ${{ env.SOURCE_DIR }}
+          labels: |
+            org.opencontainers.image.revision=${{ needs.prepare.outputs.commit }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ needs.prepare.outputs.version }}
+          load: true
+          tags: ${{ env.RELEASE_IMAGE }}
+          platforms: ${{ matrix.platform }}
+          provenance: false
+          pull: true
+          target: opk-deployment-base
+
+      - name: Extract package from release snapshot
+        working-directory: ${{ env.SOURCE_DIR }}
+        env:
+          ARCHIVE: ${{ matrix.architecture == 'x86_64' && needs.prepare.outputs.x86_archive || needs.prepare.outputs.arm_archive }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          container_id="$(docker create "$RELEASE_IMAGE")"
+          trap 'docker rm -f "$container_id" >/dev/null' EXIT
+          docker cp \
+            "$container_id:/opt/opk-release-artifacts/$ARCHIVE" "dist/$ARCHIVE"
+          if [[ "${{ matrix.architecture }}" == aarch64 ]]; then
+            mkdir -p dist/open-perception-kit-input
+            package="${ARCHIVE%.tar.gz}"
+            tar -C dist/open-perception-kit-input --strip-components=4 -xzf "dist/$ARCHIVE" \
+              "$package/share/opk/open-perception-kit"
+          fi
+
+      - name: Upload package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: opk-release-${{ matrix.artifact_label }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.SOURCE_DIR }}/dist/${{ matrix.architecture == 'x86_64' && needs.prepare.outputs.x86_archive || needs.prepare.outputs.arm_archive }}
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Set up pinned Rust for open-perception-kit packaging
+        if: matrix.architecture == 'aarch64'
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+        with:
+          toolchain: 1.85.0
+
+      - name: Package open-perception-kit Rust crate
+        if: matrix.architecture == 'aarch64'
+        working-directory: ${{ env.SOURCE_DIR }}
+        env:
+          RUSTUP_TOOLCHAIN: 1.85.0
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          export_root="$RUNNER_TEMP/open-perception-kit-$VERSION"
+          rm -rf -- "$export_root"
+          python3 -m zipfile -e \
+            "dist/open-perception-kit-input/open-perception-kit-$VERSION.zip" "$RUNNER_TEMP"
+          rust="$export_root/rust"
+          scripts/release/patch-perception-cargo-toml.sh "$rust/Cargo.toml"
+          printf '\n[registries.crates-io]\nprotocol = "sparse"\n' \
+            >> "$rust/.cargo/config.toml"
+          (cd "$rust" && cargo package --offline --locked)
+          publish_source="$RUNNER_TEMP/open_perception_kit-cargo-source-$VERSION"
+          rm -rf -- "$publish_source"
+          python3 - "$rust" "$publish_source" <<'PY'
+          import shutil
+          import sys
+
+          shutil.copytree(
+              sys.argv[1],
+              sys.argv[2],
+              ignore=shutil.ignore_patterns(".cargo", "crates", "target", "vendor"),
+          )
+          PY
+          publish_cargo_home="$RUNNER_TEMP/open_perception_kit-publish-cargo-home"
+          rm -rf -- "$publish_cargo_home"
+          mkdir -p "$publish_cargo_home"
+          cat > "$publish_cargo_home/config.toml" <<'EOF'
+          [registries.crates-io]
+          protocol = "sparse"
+          EOF
+          (
+            cd "$publish_source"
+            CARGO_HOME="$publish_cargo_home" \
+              cargo package --locked
+          )
+          cp "$publish_source/target/package/open_perception_kit-$VERSION.crate" \
+            dist/open-perception-kit-input/
+          rm -rf -- "$publish_source/target"
+          mv "$publish_source" dist/open-perception-kit-input/
+          cp "$export_root/python/open_perception_kit-$VERSION-py3-none-any.whl" \
+            dist/open-perception-kit-input/
+
+      - name: Upload open-perception-kit input
+        if: matrix.architecture == 'aarch64'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: open-perception-kit-input-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.SOURCE_DIR }}/dist/open-perception-kit-input/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Clean isolated build workspace
+        if: always()
+        run: |
+          docker image rm "$RELEASE_IMAGE" 2>/dev/null || true
+          rm -rf -- "$SOURCE_DIR"
+
+  stage-artifacts:
+    name: Stage prerelease artifacts
+    needs: [prepare, build]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download native packages
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: opk-release-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: opk-release-artifacts
+          merge-multiple: true
+
+      - name: Download SDK packages
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: open-perception-kit-input-${{ github.run_id }}-${{ github.run_attempt }}
+          path: sdk
+
+      - name: Stage language packages and checksums
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          cp "sdk/open_perception_kit-$VERSION-py3-none-any.whl" "sdk/open_perception_kit-$VERSION.crate" opk-release-artifacts/
+          cd opk-release-artifacts && sha256sum ./* > SHA256SUMS
+
+      - name: Upload publisher input
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: opk-release-artifacts
+          path: opk-release-artifacts/
+          if-no-files-found: error
+          retention-days: 14
