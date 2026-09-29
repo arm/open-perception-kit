@@ -60,7 +60,7 @@ These contain the project documentation.
 - `docs/public/how-to/` contains practical task guides.
 - `docs/public/concepts/` contains conceptual background pages.
 - `docs/public/getting-started/binary-release.md` documents direct integration
-  of the three release archives.
+  of the release archives.
 - `docs/public/docs-config.json` defines the docs site label, navigation, and sidebar grouping.
 - `docs/public/assets/` contains images referenced by public Markdown pages.
 - `docs/public/static/` contains generated diagrams and assets served at site-root URLs.

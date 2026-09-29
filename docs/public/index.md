@@ -215,7 +215,7 @@ Pick your next step.
 | --- | --- |
 | [Use your own input or output path](how-to/media-input.md) | Keep the known pipeline and change the input or output. |
 | [Use live camera input](how-to/camera-input.md) | Move from packaged media to a USB or Raspberry Pi camera. |
-| [Use a binary release](getting-started/binary-release.md) | Integrate the six packaged GStreamer plugins without an OPK loader wrapper. |
+| [Use a binary release](getting-started/binary-release.md) | Integrate the packaged GStreamer plugins without an OPK loader wrapper. |
 | [Add or adapt a model and OpChain](how-to/bring-your-model.md) | Change the model after the source and output path work. |
 | [**Coming Soon:** Feed inference into an application](how-to/use-output-in-app.md) | Capture inference output for downstream logic. |
 | [Understanding the repository structure](concepts/structural-basics.md) | How to get started with new components |

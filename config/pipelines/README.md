@@ -67,9 +67,9 @@ pipeline. The exact target value `none` disables all asynchronous log output.
 
 ## Model activation
 
-Focused presets enable their model or complete detector cascade. The four
-`full-onnx` presets register all ten models in dependency-safe order with
-YOLO26n-320 active by default. The remaining models can be enabled from the
+Focused presets enable their model or complete detector cascade. The
+`full-onnx` presets register all supported ONNX models in dependency-safe order
+with YOLO26n-320 active by default. The remaining models can be enabled from the
 Open Perception Kit web UI's **Model Selector** panel.
 
 Setting `active=false` skips per-frame inference only. Each `opkinfer` still
@@ -80,10 +80,10 @@ selected pipeline must be present.
 
 Full catalog presets:
 
-- `full-onnx` — all ten ONNX models on bundled video.
-- `full-onnx-raspicam` — all ten ONNX models on a Raspberry Pi camera.
-- `full-onnx-usb-cam` — all ten ONNX models on a USB camera at `/dev/video0`.
-- `full-onnx-yuv` — all ten ONNX models on bundled video while preserving the
+- `full-onnx` — all supported ONNX models on bundled video.
+- `full-onnx-raspicam` — all supported ONNX models on a Raspberry Pi camera.
+- `full-onnx-usb-cam` — all supported ONNX models on a USB camera at `/dev/video0`.
+- `full-onnx-yuv` — all supported ONNX models on bundled video while preserving the
   decoded pixel format, with an OPKOSD overlay.
 
 Focused detector and cascade presets:

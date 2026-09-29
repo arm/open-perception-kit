@@ -100,7 +100,7 @@ If `id_ed25519` and `id_ed25519.pub` already exist, reuse them and skip key
 generation. A missing directory is normal if you have never created a key.
 If you use another key filename, substitute it in the commands below.
 
-Otherwise, generate a key on your **host**, using the same command on all three
+Otherwise, generate a key on your **host**, using the same command on all
 platforms:
 
 ```bash

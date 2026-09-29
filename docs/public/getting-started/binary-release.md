@@ -24,7 +24,7 @@ limitations under the License.
 
 # Use an OPK binary release
 
-Each release contains exactly three archives:
+Each release contains these archives:
 
 - `opk-<version>-linux-x86_64.tar.gz`
 - `opk-<version>-linux-aarch64.tar.gz`
@@ -54,7 +54,7 @@ workflow summary before extracting it:
 sha256sum opk-<version>-linux-<architecture>.tar.gz
 ```
 
-Architecture packages contain the six OPK plugins, the private
+Architecture packages contain the OPK plugins, the private
 `lib/opk/opk-runtime.so` and common libraries, model descriptors and
 OpChains, `opksink` web assets, approved notices, and ONNX Runtime. They also
 contain the experimental ExecuTorch and PythonScript operation modules, plus
@@ -149,7 +149,7 @@ identity is included with its notices when provided by the build input.
 ExecuTorch is statically linked into `lib/opk/opk-executorch-ops.so`. It remains
 experimental and does not add a public SDK surface to the binary release.
 
-The plugin directory contains the six supported plugins:
+The plugin directory contains these supported plugins:
 
 - `libopkcomm.so`
 - `libopkinfer.so`
@@ -214,7 +214,7 @@ Inference then uses the local files and needs no Hugging Face token.
 
 | Package | Backend | Descriptor directories |
 | --- | --- | --- |
-| x86_64 and Arm | ONNX | `mobilegaze-mobilenet-v2`, `nitec-resnet-18`, `ultraface-rfb-320`, and the six `yolo26{n,s}-{320,480,640}` variants |
+| x86_64 and Arm | ONNX | `mobilegaze-mobilenet-v2`, `nitec-resnet-18`, `ultraface-rfb-320`, and the `yolo26{n,s}-{320,480,640}` variants |
 | x86_64 and Arm | ExecuTorch | `mobilegaze-mobilenet-v2-executorch`, `nitec-resnet-18-executorch` |
 
 Deployment and Cairn images also contain no model binaries. The top-level
@@ -263,7 +263,7 @@ web root. Top-level `opk-menu` pipeline presets and sample media are
 intentionally not part of the binary release.
 
 The same smoke path is run natively for x86_64 and Arm packages on pull
-requests targeting `main`. Pushes to `main` publish the three matching archives
+requests targeting `main`. Pushes to `main` publish the matching archives
 on one GitHub Release and together in generic Artifactory under
 `releases/<version>/`, the open-perception-kit wheel to Artifactory PyPI, the Open Perception Kit
 crate to Artifactory Cargo, and the matching multi-architecture image in GHCR.

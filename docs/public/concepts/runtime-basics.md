@@ -232,10 +232,10 @@ If it does not match an existing postprocessor, you will usually need to add you
 
 The checked-in pipeline presets live under `config/pipelines/`. Common presets include:
 
-- `full-onnx.json` - all ten ONNX releases on bundled video.
-- `full-onnx-raspicam.json` - all ten ONNX releases on a Raspberry Pi camera.
-- `full-onnx-usb-cam.json` - all ten ONNX releases on a USB camera at `/dev/video0`.
-- `full-onnx-yuv.json` - all ten ONNX releases on bundled video with the decoded pixel format preserved.
+- `full-onnx.json` - all supported ONNX releases on bundled video.
+- `full-onnx-raspicam.json` - all supported ONNX releases on a Raspberry Pi camera.
+- `full-onnx-usb-cam.json` - all supported ONNX releases on a USB camera at `/dev/video0`.
+- `full-onnx-yuv.json` - all supported ONNX releases on bundled video with the decoded pixel format preserved.
 - `yolo26n-320.json` - YOLO26n-320 on bundled video.
 - The remaining focused presets run one release or its required detector cascade.
 

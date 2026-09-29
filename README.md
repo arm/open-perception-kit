@@ -202,7 +202,7 @@ Pick your next step.
 | --- | --- |
 | [Use your own input or output path](docs/public/how-to/media-input.md) | Keep the known pipeline and change the input or output. |
 | [Use live camera input](docs/public/how-to/camera-input.md) | Move from packaged media to a USB or Raspberry Pi camera. |
-| [Use a binary release](docs/public/getting-started/binary-release.md) | Integrate the six packaged GStreamer plugins without an OPK loader wrapper. |
+| [Use a binary release](docs/public/getting-started/binary-release.md) | Integrate the packaged GStreamer plugins without an OPK loader wrapper. |
 | [Add or adapt a model and OpChain](docs/public/how-to/bring-your-model.md) | Change the model after the source and output path work. |
 | [**Coming Soon:** Feed inference into an application](docs/public/how-to/use-output-in-app.md) | Capture inference output for downstream logic. |
 | [Understanding the repository structure](docs/public/concepts/structural-basics.md) | How to get started with new components |
@@ -311,5 +311,5 @@ licences, and release surfaces. This includes FlatBuffers (Apache-2.0), ONNX
 Runtime (MIT), ExecuTorch (BSD-3-Clause), and the Font Awesome CSS (MIT) and
 font (OFL-1.1). Their original notices accompany the distributed files.
 
-The [TPIP report](docs/third-party-licenses.md) preserves all 1,111 entries from
+The [TPIP report](docs/third-party-licenses.md) preserves all entries from
 the supplied Black Duck SBOM, with its scan revision and reported review status.

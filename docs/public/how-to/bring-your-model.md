@@ -158,7 +158,7 @@ pipeline preset, Model descriptor, and OpChain with:
 opk-ci --config-schema-check
 ```
 
-All three JSON contracts use `MAJOR.MINOR.PATCH` string versions, initially
+These JSON contracts use `MAJOR.MINOR.PATCH` string versions, initially
 `"version": "1.0.0"`. Increment an existing file's patch whenever editing it
 within the same major/minor contract. Major mismatches fail, minor mismatches
 warn and continue, and patch differences are ignored at runtime. See

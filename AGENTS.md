@@ -232,6 +232,10 @@ For browser apps that consume metadata:
 ### Update docs
 Ground doc changes in checked-in code and config.
 
+Avoid hardcoded counts of changing inventories such as models, plugins,
+packages, or files. Refer to the list or supported set instead of restating its
+size. Preserve numerical contracts, generated statistics, and dated measurements.
+
 - `docs/public/index.md`
 - `docs/public/concepts/structural-basics.md`
 - `docs/public/how-to/bring-your-model.md`
