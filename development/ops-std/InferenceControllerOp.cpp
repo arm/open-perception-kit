@@ -17,6 +17,7 @@
 
 #include "InferenceControllerOp.h"
 
+#include <cmath>
 #include <fmt/core.h>
 #include <memory>
 #include <utility>
@@ -83,17 +84,39 @@ InferenceControllerOp::process(opk::op::OpChainContext &opChainContext) {
 
         opChainContext.inferenceImageCropIds.push_back(frameId);
     } else {
+        const auto surfaceWidth = pipelineVideoFrame->width();
+        const auto surfaceHeight = pipelineVideoFrame->height();
         open_perception_kit::forEachBoxDetectionWithContentType(
-            *opChainContext.frameResults, contentType, [&opChainContext](const auto &r) {
+            *opChainContext.frameResults,
+            contentType,
+            [&opChainContext, surfaceWidth, surfaceHeight](const auto &r) {
                 if (!r.box || !r.object) {
                     return;
                 }
 
-                opk::PixelRect rect;
-                rect.x = static_cast<size_t>(r.box->x);
-                rect.y = static_cast<size_t>(r.box->y);
-                rect.width = static_cast<size_t>(r.box->width);
-                rect.height = static_cast<size_t>(r.box->height);
+                const long double x = r.box->x;
+                const long double y = r.box->y;
+                const long double width = r.box->width;
+                const long double height = r.box->height;
+                const long double frameWidth = surfaceWidth;
+                const long double frameHeight = surfaceHeight;
+                if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(width) ||
+                    !std::isfinite(height) || x < 0 || y < 0 || width <= 0 || height <= 0 ||
+                    x > frameWidth || y > frameHeight || width > frameWidth - x ||
+                    height > frameHeight - y) {
+                    return;
+                }
+
+                // Frame containment bounds every value to size_t before conversion.
+                opk::PixelRect rect{
+                    static_cast<size_t>(x),
+                    static_cast<size_t>(y),
+                    static_cast<size_t>(width),
+                    static_cast<size_t>(height),
+                };
+                if (rect.isEmpty() || !rect.fitsWithin(surfaceWidth, surfaceHeight)) {
+                    return;
+                }
 
                 opChainContext.inferenceImageCrops.push_back(rect);
                 opChainContext.inferenceImageCropIds.push_back(r.object->id);
