@@ -54,6 +54,9 @@ jobs:
 
   quick-start-smoke:
     name: Quick-start smoke test
+    permissions:
+      contents: read
+      packages: write
     uses: ./.github/workflows/quick-start-smoke.yml
 
   sdk-tests:

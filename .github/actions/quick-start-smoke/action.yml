@@ -1,0 +1,93 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Quick-start smoke
+description: Build the quick-start container and run browser smoke tests.
+
+inputs:
+  arch:
+    description: Architecture used in compiler-cache keys and artifact names.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Free runner disk space
+      shell: bash
+      run: |
+        df -h /
+        # These unused runner SDKs are installed outside apt.
+        sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
+        df -h /
+
+    - name: Generate SDKs
+      uses: ./.github/actions/setup-sdk
+
+    - name: Cache compiler output
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      with:
+        path: .cache/ccache
+        key: quick-start-ccache-v1-${{ inputs.arch }}-${{ github.sha }}
+        restore-keys: quick-start-ccache-v1-${{ inputs.arch }}-
+
+    - name: Set up registry-capable builder
+      id: builder
+      uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      with:
+        driver-opts: default-load=true
+        cache-binary: false
+
+    - name: Log in to cache registry
+      uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
+
+    - name: Run quick-start
+      env:
+        BUILDX_BUILDER: ${{ steps.builder.outputs.name }}
+      shell: bash
+      run: ./scripts/quick_start.sh
+
+    - name: Build
+      shell: bash
+      run: ./scripts/build.sh debug false
+
+    - name: Install Chromium smoke-test dependencies
+      working-directory: .github/scripts/quick-start-smoke
+      shell: bash
+      run: |
+        npm ci --ignore-scripts --no-audit --no-fund
+        npx playwright install --with-deps --only-shell chromium
+
+    - name: Run browser smoke test
+      working-directory: .github/scripts/quick-start-smoke
+      shell: bash
+      run: npm test
+
+    - name: Upload smoke-test results
+      if: always()
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+      with:
+        name: quick-start-smoke-${{ inputs.arch }}-results
+        path: test-results/quick-start-smoke/
+        if-no-files-found: warn
+        retention-days: 7
+
+    - name: Stop quick-start container
+      if: always()
+      shell: bash
+      run: ./scripts/quick-start/cleanup-container.sh

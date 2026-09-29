@@ -41,9 +41,16 @@ permissions:
 
 jobs:
   quick-start-smoke:
+    if: github.event_name != 'push' || github.ref != 'refs/heads/main' || inputs.ref != ''
     name: quick-start-smoke (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 120
+    permissions:
+      contents: read
+      packages: read
+    env:
+      OPK_BUILD_BASE_CACHE_FROM: ghcr.io/arm/open-perception-kit-quick-start-cache:base-${{ matrix.arch }}
+      OPK_DEV_CACHE_FROM: ghcr.io/arm/open-perception-kit-quick-start-cache:dev-${{ matrix.arch }}
     strategy:
       fail-fast: false
       matrix:
@@ -59,41 +66,40 @@ jobs:
           ref: ${{ inputs.ref || github.sha }}
           persist-credentials: false
 
-      - name: Generate SDKs
-        uses: ./.github/actions/setup-sdk
-
-      - name: Cache compiler output
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      - name: Run quick-start smoke
+        uses: ./.github/actions/quick-start-smoke
         with:
-          path: .cache/ccache
-          key: quick-start-ccache-v1-${{ matrix.arch }}-${{ github.sha }}
-          restore-keys: quick-start-ccache-v1-${{ matrix.arch }}-
+          arch: ${{ matrix.arch }}
 
-      - name: Run quick-start
-        run: ./scripts/quick_start.sh
-
-      - name: Build
-        run: ./scripts/build.sh debug false
-
-      - name: Install Chromium smoke-test dependencies
-        working-directory: .github/scripts/quick-start-smoke
-        run: |
-          npm ci --ignore-scripts --no-audit --no-fund
-          npx playwright install --with-deps --only-shell chromium
-
-      - name: Run browser smoke test
-        working-directory: .github/scripts/quick-start-smoke
-        run: npm test
-
-      - name: Upload smoke-test results
-        if: always()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+  publish-cache:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && inputs.ref == ''
+    name: quick-start-smoke (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      packages: write
+    env:
+      OPK_BUILD_BASE_CACHE_FROM: ghcr.io/arm/open-perception-kit-quick-start-cache:base-${{ matrix.arch }}
+      OPK_DEV_CACHE_FROM: ghcr.io/arm/open-perception-kit-quick-start-cache:dev-${{ matrix.arch }}
+      OPK_BUILD_BASE_CACHE_TO: type=registry,ref=ghcr.io/arm/open-perception-kit-quick-start-cache:base-${{ matrix.arch }},mode=max
+      OPK_DEV_CACHE_TO: type=registry,ref=ghcr.io/arm/open-perception-kit-quick-start-cache:dev-${{ matrix.arch }},mode=max
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
-          name: quick-start-smoke-${{ matrix.arch }}-results
-          path: test-results/quick-start-smoke/
-          if-no-files-found: warn
-          retention-days: 7
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
 
-      - name: Stop quick-start container
-        if: always()
-        run: ./scripts/quick-start/cleanup-container.sh
+      - name: Run quick-start smoke
+        uses: ./.github/actions/quick-start-smoke
+        with:
+          arch: ${{ matrix.arch }}

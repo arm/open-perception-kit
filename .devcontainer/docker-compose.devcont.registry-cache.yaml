@@ -17,8 +17,12 @@ services:
   opk-build-base:
     build:
       cache_from:
-        - ${OPK_DEV_CACHE_FROM}
+        - ${OPK_BUILD_BASE_CACHE_FROM:-${OPK_DEV_CACHE_FROM}}
+      cache_to:
+        - ${OPK_BUILD_BASE_CACHE_TO:-${OPK_DEV_CACHE_TO:-}}
   opk-dev:
     build:
       cache_from:
         - ${OPK_DEV_CACHE_FROM}
+      cache_to:
+        - ${OPK_DEV_CACHE_TO:-}

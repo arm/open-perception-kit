@@ -22,4 +22,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 cd "${REPO_ROOT}"
-exec docker compose -f .devcontainer/compose.devcont.yaml build opk-build-base
+COMPOSE_FILES=(-f .devcontainer/compose.devcont.yaml)
+if [[ -n "${OPK_DEV_CACHE_FROM:-}" ]]; then
+    COMPOSE_FILES+=(-f .devcontainer/docker-compose.devcont.registry-cache.yaml)
+fi
+exec docker compose "${COMPOSE_FILES[@]}" build opk-build-base
