@@ -5,7 +5,7 @@ sidebar_label: Raspberry Pi 5
 description: Run Open Perception Kit on a Raspberry Pi 5 target with VS Code, Dev Containers, and the browser viewer.
 ---
 <!--
-SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 SPDX-License-Identifier: Apache-2.0
 
 Licensed under the Apache License, Version 2.0 (the "License");

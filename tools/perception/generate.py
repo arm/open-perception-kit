@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -51,7 +51,7 @@ PYTHON_OPTIONAL_DEPENDENCIES = {"numpy": ["numpy"]}
 SDK_LEGAL_INPUT_DIR = Path(__file__).with_name("generator-inputs")
 CPP_LICENSE_HEADER = """\
 /*
- * SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+ * SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -68,7 +68,7 @@ CPP_LICENSE_HEADER = """\
  */
 """
 PY_LICENSE_HEADER = """\
-# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -802,7 +802,7 @@ def write_perception_manifest(
         },
         "upstream_receipts": flowdata_manifests,
         "postprocessing": {
-            "copyright_headers": "SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>",
+            "copyright_headers": "SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates",
             "cmake_formatter": command_version([CMAKE_FORMAT, "--version"]),
             "cpp_formatter": command_version([clang_format, "--version"]),
             "python_formatter": command_version([formatter_python, "-m", "autopep8", "--version"]),

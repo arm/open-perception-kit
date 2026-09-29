@@ -5,7 +5,7 @@ sidebar_position: 13
 description: Open Perception Kit licence, copyright, and third-party notices.
 ---
 <!--
-SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 SPDX-License-Identifier: Apache-2.0
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,8 +23,7 @@ limitations under the License.
 
 # Licensing
 
-Copyright 2025-2026 Arm Limited and/or its affiliates
-[perception-fdbck@arm.com](mailto:perception-fdbck@arm.com).
+Copyright 2025-2026 Arm Limited and/or its affiliates.
 
 Open Perception Kit is licensed under the Apache License, Version 2.0, except
 where a file or its accompanying notice identifies different terms. The full
@@ -47,17 +46,17 @@ photographs, video, fonts, or other content.
 ## Notices in release artifacts
 
 - Architecture packages: `share/opk/licenses/README.md`, the original texts,
-  and `THIRD_PARTY_LICENSES.md` in the same directory. This report lists each
-  collected component's version, repository, licence and local notice files;
-  `components.json` contains the same information in machine-readable form.
+  and `third-party-licenses.md` in the same directory. The third-party document
+  is copied unchanged from the source.
 - Deployment and Cairn images: `/share/opk/licenses/`. System package notices
   remain in `/usr/share/doc/` and `/usr/share/common-licenses/`; the installed
   package versions are recorded in `debian-packages.tsv` in the OPK notice directory.
 - SDK ZIP: `LICENSING.md`, `LICENSE`, and `NOTICE` at the root. The SDK's Python
   wheels, TypeScript archives and Rust vendor tree retain original runtime notices.
   Each OPK language package also includes its own `LICENSE` and `NOTICE`.
-- Source checkout: the [third-party inventory](https://github.com/arm/open-perception-kit/blob/main/THIRD_PARTY_NOTICE.md)
-  identifies projects, versions, licences and where their original notices are kept.
+- Source checkout: the maintained [third-party component inventory](https://github.com/arm/open-perception-kit/blob/main/docs/third-party-licenses.md)
+  lists projects, versions, licences and origins. It was initialized from the
+  supplied Black Duck scan and requires reconciliation with each release.
 
 Font Awesome's CSS is MIT-licensed and its bundled font uses OFL-1.1. Their
 original `LICENSE.txt` accompanies the files under `development/web/content/vendor/fontawesome/`.

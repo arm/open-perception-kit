@@ -5,7 +5,7 @@ sidebar_label: Use Your Own Media
 description: Replace sample media with your own images, videos, or streams while keeping a known-good pipeline intact.
 ---
 <!--
-SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 SPDX-License-Identifier: Apache-2.0
 
 Licensed under the Apache License, Version 2.0 (the "License");
