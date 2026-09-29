@@ -28,7 +28,6 @@ dependencies = [
     "requests==2.34.2",
     "argcomplete==3.7.2",
     "cmake-format==0.6.13",
-    "coverage==7.16.2",
     "clang-format==23.1.1",
     "clang-tidy==22.1.8",
     "pyflakes==4.0.0",

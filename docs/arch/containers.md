@@ -190,7 +190,7 @@ stages inherit everything from their parent unless noted otherwise.
   model files and partial downloads. Deployment and Cairn stages consume this
   output; the stage has no download dependencies.
 - `opk-dev-base`: adds `wget`, `sudo`, `gnupg`, `shfmt`, `zip`, `python3-pip`,
-  `pre-commit`, `lldb-17`, `valgrind`, `ccache`, `file`, GStreamer runtime plugins,
+  `pre-commit`, `lldb-17`, `ccache`, `file`, GStreamer runtime plugins,
   `actionlint`, ONNX Runtime, `uv`, the `opk-ci` tool, `plumber`, and
   `huggingface_hub==1.32.0` in the devtools venv, with
   `jsonschema==4.26.0` inherited from its system-site packages. It also owns
@@ -276,7 +276,7 @@ checks from the host Git hook.
 Use the development images for interactive work, local builds, debugging, and
 running the kit from a mounted checkout.
 
-Use the development container for local tests, Valgrind, and `opk-ci` commands.
+Use the development container for local tests and `opk-ci` commands.
 See the [CI workflow definitions](../../.github/workflows/) for the standalone CI checks.
 
 Use the documentation image for local generation of public docs, Doxygen output,
