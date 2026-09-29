@@ -21,6 +21,7 @@ import errno
 from pathlib import Path
 import socket
 import sys
+from urllib.error import HTTPError
 from urllib.request import urlopen
 
 from pipeline_test_utils import load_gstreamer_plugins, release_pipeline
@@ -48,6 +49,14 @@ def check_endpoints(ports):
         config = response.read().decode()
     assert f'"wsPort":{ws}' in config
     assert f'"ctrlPort":{ctrl}' in config
+    try:
+        urlopen(f"http://127.0.0.1:{http}/api/model-info?name=anything", timeout=2)
+    except HTTPError as error:
+        assert error.code == 404
+    else:
+        raise AssertionError("removed model-info endpoint still responds")
+    with urlopen(f"http://127.0.0.1:{http}/opk-config.js", timeout=2) as response:
+        assert response.read().decode() == config
     for port in (ws, ctrl):
         with socket.create_connection(("127.0.0.1", port), timeout=2):
             pass
