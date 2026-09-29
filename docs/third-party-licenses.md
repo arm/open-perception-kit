@@ -123,7 +123,7 @@ release, commit or package version. Origin identifies the ecosystem matched by t
 | [semver](https://github.com/dtolnay/semver) | [1.0.28](https://docs.rs/crate/semver/1.0.28) | MIT OR Apache-2.0 | crates.io |
 | [shellingham](https://github.com/sarugaku/shellingham) | [1.5.4](https://pypi.org/project/shellingham/1.5.4/) | ISC | PyPI |
 | [smmap](https://github.com/gitpython-developers/smmap) | [5.0.3](https://pypi.org/project/smmap/5.0.3/) | BSD-3-Clause | PyPI |
-| [stb](https://github.com/nothings/stb) | [20260802-snapshot-2c980bb5](https://github.com/nothings/stb/tree/2c980bb59875b0d32144a71867fbdebb2f77cd20) | **Unknown** | GitHub |
+| [stb](https://github.com/nothings/stb) | [20260802-snapshot-2c980bb5](https://github.com/nothings/stb/tree/2c980bb59875b0d32144a71867fbdebb2f77cd20) | MIT | GitHub |
 | [TartanLlama/expected](https://github.com/TartanLlama/expected) | [v1.3.1](https://github.com/TartanLlama/expected/tree/v1.3.1) | CC0-1.0 | GitHub |
 | [rich](https://github.com/Textualize/rich) | [15.0.0](https://pypi.org/project/rich/15.0.0/) | MIT | PyPI |
 | [tqdm](https://github.com/tqdm/tqdm) | [4.70.1](https://pypi.org/project/tqdm/4.70.1/) | MIT AND MPL-2.0 | PyPI |
