@@ -4,7 +4,7 @@ sidebar_label: Open Perception Kit bundle
 description: Build a reproducible Open Perception Kit C++, Python, Rust, and TypeScript archive and integrate it into an application.
 ---
 <!--
-SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 SPDX-License-Identifier: Apache-2.0
 
 Licensed under the Apache License, Version 2.0 (the "License");

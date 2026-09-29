@@ -3,7 +3,7 @@ sidebar_position: 15
 sidebar_label: Release packages
 ---
 <!--
-SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 SPDX-License-Identifier: Apache-2.0
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -84,7 +84,7 @@ contains these reports, the licence files and extracted JavaScript bundle notice
 
 OPK implements these practices through its existing `opk-ci` checks and
 `ReleaseTool.py` collector. It uses Arm's combined copyright, SPDX and Apache
-short-notice header and the required `perception-fdbck@arm.com` contact.
+short-notice header without an email address in the copyright notice.
 Copyright years reflect actual
 contributions; upstream ownership is preserved. OPK keeps full original
 dependency texts available offline, including backend transitive notices, and

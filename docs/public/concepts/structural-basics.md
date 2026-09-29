@@ -5,7 +5,7 @@ sidebar_label: Structural Basics
 description: Learn where Open Perception Kit stores models, opchains, pipelines, media, scripts, source code, and docs.
 ---
 <!--
-SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 SPDX-License-Identifier: Apache-2.0
 
 Licensed under the Apache License, Version 2.0 (the "License");

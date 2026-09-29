@@ -5,7 +5,7 @@ sidebar_label: GitHub SSH Key
 description: Create and register a GitHub SSH key when you need to clone Open Perception Kit with SSH.
 ---
 <!--
-SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 SPDX-License-Identifier: Apache-2.0
 
 Licensed under the Apache License, Version 2.0 (the "License");
