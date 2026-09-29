@@ -66,7 +66,8 @@ the SDK and descriptor schemas:
   schemas copied from the released source.
 
 The descriptor schemas are direct OPK package content, separate from the SDK
-ZIP. The archive includes the PythonScript type stub under `share/opk/python`;
+ZIP. The archive includes the PythonScript type stub and generated Python SDK
+`pyproject.toml` and `requirements.txt` under `share/opk/python`;
 PythonScript's Python packages are installed in a host environment.
 
 They deliberately exclude model binaries, `opk-menu`, pipeline presets, examples, sample
@@ -82,21 +83,39 @@ tools with the Base, Good, and Bad plugin sets, including Nice and the WebRTC
 plugins. GLib, OpenSSL, zlib, Brotli, zstd, libsoup 3, json-glib, the
 C/C++ runtimes, and any required accelerator driver and firmware remain host
 dependencies. The Arm package also requires the system `libusb-1.0` runtime.
-PythonScript OpChains require Python 3.13 and its shared library. From a
-checkout at the release's source revision, install the Python runtime
-dependencies into a virtual environment and point OPK at it:
+PythonScript OpChains require Python 3.13 and its shared library. Install
+Debian's `python3.13-venv` and `python3-gst-1.0` packages. From a checkout at
+the release's source revision, create a virtual environment with access to
+the system PyGObject bindings, then install the Python runtime dependencies:
 
 ```bash
-./scripts/setup-python-ops-runtime.sh --python python3.13 \
+/usr/bin/python3.13 -m venv --system-site-packages "$PWD/.venv-python-ops"
+./scripts/setup-python-ops-runtime.sh --python /usr/bin/python3.13 \
   --venv "$PWD/.venv-python-ops" \
   --perception-sdk generated/open_perception_kit/python
 export OPK_PYTHON_RUNTIME_VENV="$PWD/.venv-python-ops"
 ```
 
-The setup script installs the versions recorded in the runtime and SDK
-descriptors. The virtual environment stays outside the extracted archive.
-Python applications that drive GStreamer directly also need the system
-PyGObject bindings, available as `python3-gst-1.0`.
+The setup script reuses this environment and installs the versions recorded in
+the runtime and SDK descriptors. For manual installation, use
+`requirements/python-ops.txt`, also included in the archive as
+`share/opk/python/requirements.txt`:
+
+```bash
+"$OPK_PYTHON_RUNTIME_VENV/bin/python" -m pip install -r requirements/python-ops.txt
+```
+
+Install the Open Perception Kit SDK wheel separately from the bundled SDK ZIP.
+The virtual environment stays outside the extracted archive. Launch Python
+applications with its interpreter so both PyGObject and the PythonScript
+dependencies are available:
+
+```bash
+"$OPK_PYTHON_RUNTIME_VENV/bin/python" your_app.py
+```
+
+`OPK_PYTHON_RUNTIME_VENV` selects the interpreter for native hosts such as
+`gst-launch-1.0`. It cannot switch an already running Python interpreter.
 
 ## Extract and discover the plugins
 

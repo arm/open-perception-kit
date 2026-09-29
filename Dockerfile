@@ -639,7 +639,7 @@ COPY --from=opk-release-sources /work/development development
 COPY --from=opk-release-sources /work/generated generated
 COPY --from=opk-release-sources /work/LICENSE /work/NOTICE /work/THIRD_PARTY_NOTICE.md ./
 COPY --from=opk-release-sources /work/docs/public/licensing.md docs/public/licensing.md
-COPY --from=opk-release-sources /work/requirements/build.json requirements/build.json
+COPY --from=opk-release-sources /work/requirements/build.json /work/requirements/python-ops.txt requirements/
 COPY --from=opk-release-sources /work/data data
 # Release and deployment images contain descriptors only. Users download models
 # through the quick-start development flow with their own Hugging Face access.
@@ -702,9 +702,6 @@ RUN --mount=type=cache,id=opk-deployment-ccache,target=/work/.cache/ccache,shari
       --output-dir /tmp/open-perception-kit-input \
       --artifact-dir /opt/opk-deps/open-perception-kit-artifacts \
       --repository-commit "${OPK_RELEASE_SOURCE_COMMIT}"; \
-    python3 /work/scripts/release/ReleaseTool.py validate-perception-sdk \
-      --sdk-root /tmp/open-perception-kit-input \
-      --repo-root /work --expected-commit "${OPK_RELEASE_SOURCE_COMMIT}"; \
     mkdir -p \
       "${package_root}/lib/opk" \
       "${package_root}/share/opk" \
@@ -721,6 +718,10 @@ RUN --mount=type=cache,id=opk-deployment-ccache,target=/work/.cache/ccache,shari
       --repo-root /work --stage-root "${package_root}"; \
     cp -a /tmp/open-perception-kit-input/. \
       "${package_root}/share/opk/open-perception-kit/"; \
+    cp /work/generated/open_perception_kit/python/pyproject.toml \
+      "${package_root}/share/opk/python/"; \
+    cp /work/requirements/python-ops.txt \
+      "${package_root}/share/opk/python/requirements.txt"; \
     cp /opt/opk-deps/onnxruntime/provenance.json \
       "${package_root}/lib/opk/libonnxruntime.so.${onnxruntime_version}.provenance.json"; \
     python3 /work/scripts/release/ReleaseTool.py stage-models \

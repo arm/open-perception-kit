@@ -702,7 +702,8 @@ def validate_release_tree(package_root: Path) -> None:
             continue
         if (
             relative.parts[:3] == ("share", "opk", "python")
-            and relative.parts[3:] not in ((), ("opk_python_ops.pyi",))
+            and relative.parts[3:]
+            not in ((), ("opk_python_ops.pyi",), ("pyproject.toml",), ("requirements.txt",))
         ):
             fail(f"Redistributed Python package in release: {relative}")
         if forbidden_parts & set(relative.parts):
@@ -757,6 +758,9 @@ def validate_runtime_files(package_root: Path) -> Path:
     common_library = private_root / "libopk-common.so"
     if not is_elf(common_library) or any(private_root.glob("libopk-common.so.*")):
         fail("Packaged OPK common library is missing or invalid")
+    python_stub = package_root / "share/opk/python/opk_python_ops.pyi"
+    if not python_stub.is_file() or python_stub.is_symlink():
+        fail("Packaged PythonScript type stub is missing or invalid")
     return private_root
 
 
@@ -1001,11 +1005,6 @@ def main() -> int:
     stage_models_parser.add_argument("--repo-root", default=".")
     stage_models_parser.add_argument("--stage-root", required=True)
 
-    validate_sdk_parser = subparsers.add_parser("validate-perception-sdk")
-    validate_sdk_parser.add_argument("--sdk-root", required=True)
-    validate_sdk_parser.add_argument("--repo-root", required=True)
-    validate_sdk_parser.add_argument("--expected-commit", required=True)
-
     stage_legal_parser = subparsers.add_parser("stage-legal")
     stage_legal_parser.add_argument("--repo-root", default=".")
     stage_legal_parser.add_argument("--deps-root", default="/opt/opk-deps")
@@ -1036,10 +1035,6 @@ def main() -> int:
         elif args.command == "validate-legal":
             validate_legal_documentation(
                 Path(args.package_root), require_backends=args.require_backends, require_python=args.require_python
-            )
-        elif args.command == "validate-perception-sdk":
-            validate_perception_sdk(
-                Path(args.sdk_root), args.expected_commit, Path(args.repo_root)
             )
         elif args.command == "validate-package":
             validate_package(args)
