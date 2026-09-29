@@ -214,7 +214,7 @@ Inference then uses the local files and needs no Hugging Face token.
 
 | Package | Backend | Descriptor directories |
 | --- | --- | --- |
-| x86_64 and Arm | ONNX | `mobilegaze-mobilenet-v2`, `nitec-resnet-18`, `osnet-x0-25`, `ultraface-rfb-320`, and the six `yolo26{n,s}-{320,480,640}` variants |
+| x86_64 and Arm | ONNX | `mobilegaze-mobilenet-v2`, `nitec-resnet-18`, `ultraface-rfb-320`, and the six `yolo26{n,s}-{320,480,640}` variants |
 | x86_64 and Arm | ExecuTorch | `mobilegaze-mobilenet-v2-executorch`, `nitec-resnet-18-executorch` |
 
 Deployment and Cairn images also contain no model binaries. The top-level

@@ -179,7 +179,6 @@ const {modelsManager} = await import("../src/models.js");
 test("selector keeps the current default detector first in the preferred model order", () => {
   const models = [
     "yolo26n-320",
-    "osnet-x0-25",
     "ultraface-rfb-320",
     "nitec-resnet-18",
     "mobilegaze-mobilenet-v2",
