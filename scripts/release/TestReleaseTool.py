@@ -492,6 +492,35 @@ class ReleaseToolTests(unittest.TestCase):
             ):
                 release_tool.validate_package(arguments)
 
+    def test_requires_regular_python_stub(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for name in release_tool.PLUGIN_NAMES:
+                path = root / PLUGIN_DIR / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b"\x7fELF")
+            for name in release_tool.OP_MODULE_NAMES | {release_tool.RUNTIME_LIBRARY_NAME, "libopk-common.so"}:
+                path = root / "lib/opk" / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b"\x7fELF")
+            for name in release_tool.RELEASE_MODEL_NAMES:
+                (root / "share/opk/models" / name).mkdir(parents=True)
+            stub = root / "share/opk/python/opk_python_ops.pyi"
+            stub.parent.mkdir()
+            stub.write_text("# PythonScript types\n")
+            release_tool.validate_runtime_files(root)
+
+            stub.unlink()
+            with self.assertRaisesRegex(RuntimeError, "PythonScript type stub"):
+                release_tool.validate_runtime_files(root)
+            stub.mkdir()
+            with self.assertRaisesRegex(RuntimeError, "PythonScript type stub"):
+                release_tool.validate_runtime_files(root)
+            stub.rmdir()
+            stub.symlink_to(root / "lib/opk/libopk-common.so")
+            with self.assertRaisesRegex(RuntimeError, "PythonScript type stub"):
+                release_tool.validate_runtime_files(root)
+
     def test_requires_complete_original_legal_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             package_root = Path(temporary)

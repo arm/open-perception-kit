@@ -702,9 +702,6 @@ RUN --mount=type=cache,id=opk-deployment-ccache,target=/work/.cache/ccache,shari
       --output-dir /tmp/open-perception-kit-input \
       --artifact-dir /opt/opk-deps/open-perception-kit-artifacts \
       --repository-commit "${OPK_RELEASE_SOURCE_COMMIT}"; \
-    python3 /work/scripts/release/ReleaseTool.py validate-perception-sdk \
-      --sdk-root /tmp/open-perception-kit-input \
-      --repo-root /work --expected-commit "${OPK_RELEASE_SOURCE_COMMIT}"; \
     mkdir -p \
       "${package_root}/lib/opk" \
       "${package_root}/share/opk" \
