@@ -141,7 +141,8 @@ as `DT_NEEDED=libonnxruntime.so.1` in `opk-onnx-ops.so`; the dynamic loader
 looks up that exact name.
 
 For source and licence review, the archive keeps third-party notices under
-`share/opk/licenses/`. The ONNX Runtime library also has an adjacent
+`share/opk/licenses/`, including the NumPy header licence for PythonScript.
+The ONNX Runtime library also has an adjacent
 `.provenance.json` recording its download and file hashes. ExecuTorch source
 identity is included with its notices when provided by the build input.
 

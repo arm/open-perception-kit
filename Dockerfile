@@ -714,7 +714,7 @@ RUN --mount=type=cache,id=opk-deployment-ccache,target=/work/.cache/ccache,shari
       "${package_root}/lib/opk/"; \
     ln -s "libonnxruntime.so.${onnxruntime_version}" \
       "${package_root}/lib/opk/libonnxruntime.so.1"; \
-    python3 /work/scripts/release/ReleaseTool.py stage-legal \
+    /opt/opk-venvs/python-ops-runtime/bin/python /work/scripts/release/ReleaseTool.py stage-legal \
       --repo-root /work --stage-root "${package_root}"; \
     cp -a /tmp/open-perception-kit-input/. \
       "${package_root}/share/opk/open-perception-kit/"; \

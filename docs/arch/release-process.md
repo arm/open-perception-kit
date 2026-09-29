@@ -39,7 +39,8 @@ Meson dependencies and the installed Debian package version for ExecuTorch.
 licence and notice paths, plus a sorted `THIRD_PARTY_LICENSES.md` report for the
 OPK release. Each artifact's inventory records the dependencies used to build
 or populate it. Deployment images also record installed Python packages;
-architecture archives leave out packages supplied by the host. The SDK ZIP
+architecture archives leave out packages supplied by the host but keep the
+NumPy BSD notice for headers compiled into the PythonScript module. The SDK ZIP
 carries its own wheel notices.
 
 `validate-package`, the offline archive smoke, and image `validate-legal` checks

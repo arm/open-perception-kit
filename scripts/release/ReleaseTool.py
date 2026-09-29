@@ -427,6 +427,16 @@ def copy_legal_files(source: Path, destination: Path, required: tuple[str, ...] 
     return copied
 
 
+def has_python_op_module(stage_root: Path) -> bool:
+    return any(
+        (stage_root / relative).is_file()
+        for relative in (
+            "lib/opk/opk-python-ops.so",
+            "development/build/meson-out/opk-python-ops.so",
+        )
+    )
+
+
 def stage_legal(args: argparse.Namespace) -> None:
     repo_root = Path(args.repo_root).resolve()
     deps_root = Path(args.deps_root).resolve()
@@ -492,15 +502,19 @@ def stage_legal(args: argparse.Namespace) -> None:
         version = subprocess.check_output(
             ["dpkg-query", "--show", "--showformat=${Version}", "libexecutorch-dev"], text=True).strip()
         collect("executorch", version, executorch)
-    if args.include_python:
+    needs_numpy_headers = has_python_op_module(stage_root) and not args.include_python
+    if needs_numpy_headers or args.include_python:
         for name in ("numpy", "flatbuffers"):
+            if name == "flatbuffers" and not args.include_python:
+                continue
             distribution = importlib.metadata.distribution(name)
             metadata_files = [entry for entry in distribution.files or ()
                               if ".dist-info/" in str(entry) and entry.name == "METADATA"]
             if len(metadata_files) != 1:
                 fail(f"Cannot locate installed {name} distribution metadata")
             source = Path(distribution.locate_file(metadata_files[0])).parent
-            collect(f"python-{name}", distribution.version, source)
+            collect(f"python-{name}" if args.include_python else "numpy-headers",
+                    distribution.version, source)
 
     write_json(legal_root / "components.json", components)
     (legal_root / "THIRD_PARTY_LICENSES.md").write_text(legal_report(components), encoding="utf-8")
@@ -534,6 +548,8 @@ def validate_legal_documentation(
         required.add("executorch")
     if require_python:
         required.update(("python-numpy", "python-flatbuffers"))
+    if has_python_op_module(package_root) and not require_python:
+        required.add("numpy-headers")
     if not isinstance(inventory, dict):
         fail("Packaged licence inventory must be an object")
     if required - inventory.keys():

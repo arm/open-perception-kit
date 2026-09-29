@@ -56,7 +56,7 @@ SOURCE_NOTICE_CONTENT = (
 def add_legal_payload(package_root: Path) -> None:
     legal = package_root / "share/opk/licenses"
     inventory = {}
-    for name in release_tool.CORE_LEGAL_COMPONENTS | {"executorch", "python-numpy", "python-flatbuffers"}:
+    for name in release_tool.CORE_LEGAL_COMPONENTS | {"executorch", "numpy-headers", "python-numpy", "python-flatbuffers"}:
         notices = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICE.md", "README.md"] if name == "opk" else [f"{name}/LICENSE"]
         for relative in notices:
             path = legal / relative
@@ -569,6 +569,23 @@ class ReleaseToolTests(unittest.TestCase):
             (legal / "THIRD_PARTY_LICENSES.md").write_text(release_tool.legal_report(inventory))
             release_tool.validate_legal_documentation(root)
 
+    def test_python_module_requires_numpy_header_notice(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            add_legal_payload(root)
+            plugin = root / "lib/opk/opk-python-ops.so"
+            plugin.parent.mkdir(parents=True)
+            plugin.touch()
+            release_tool.validate_legal_documentation(root, require_backends=False)
+
+            legal = root / "share/opk/licenses"
+            inventory = json.loads((legal / "components.json").read_text())
+            del inventory["numpy-headers"]
+            (legal / "components.json").write_text(json.dumps(inventory))
+            (legal / "THIRD_PARTY_LICENSES.md").write_text(release_tool.legal_report(inventory))
+            with self.assertRaisesRegex(RuntimeError, "numpy-headers"):
+                release_tool.validate_legal_documentation(root, require_backends=False)
+
     def test_requires_notices_for_installed_image_runtimes(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -625,7 +642,19 @@ class ReleaseToolTests(unittest.TestCase):
                 (onnx / filename).write_text("Synthetic ONNX Runtime evidence\n")
             args = SimpleNamespace(repo_root=repo, deps_root=root / "deps",
                                    stage_root=root / "stage", include_python=False)
-            release_tool.stage_legal(args)
+            plugin = args.stage_root / "lib/opk/opk-python-ops.so"
+            plugin.parent.mkdir(parents=True)
+            plugin.touch()
+            wheel_metadata = root / "installed/numpy-2.4.2.dist-info"
+            (wheel_metadata / "licenses").mkdir(parents=True)
+            (wheel_metadata / "licenses/LICENSE.txt").write_text("Synthetic installed NumPy terms\n")
+            distribution = SimpleNamespace(
+                version="2.4.2",
+                files=[Path("numpy-2.4.2.dist-info/METADATA")],
+                locate_file=lambda _: wheel_metadata / "METADATA",
+            )
+            with patch.object(release_tool.importlib.metadata, "distribution", return_value=distribution):
+                release_tool.stage_legal(args)
             legal = args.stage_root / "share/opk/licenses"
             release_tool.validate_legal_documentation(args.stage_root, require_backends=False)
             self.assertEqual((legal / "asio/LICENSE").read_bytes(), b"Synthetic upstream owner\r\nOriginal terms\r\n")
@@ -637,6 +666,11 @@ class ReleaseToolTests(unittest.TestCase):
             inventory = json.loads((legal / "components.json").read_text())
             self.assertNotIn("python-numpy", inventory)
             self.assertNotIn("python-flatbuffers", inventory)
+            self.assertEqual(inventory["numpy-headers"]["notices"], ["numpy-headers/licenses/LICENSE.txt"])
+            self.assertEqual(
+                (legal / "numpy-headers/licenses/LICENSE.txt").read_bytes(),
+                (wheel_metadata / "licenses/LICENSE.txt").read_bytes(),
+            )
             for name, relative in SOURCE_NOTICES:
                 notice = f"{name}/{relative}"
                 self.assertIn(notice, inventory[name]["notices"])
