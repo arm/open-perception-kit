@@ -38,7 +38,7 @@ python_ops_cpp_args = [
 python_ops = shared_module(
   'opk-python-ops',
   sources : python_ops_sources + ['Plugin.cpp'],
-  include_directories : [common_include, include_directories(opk_numpy_include)],
+  include_directories : [common_include],
   dependencies : [opk_deps, open_perception_kit_python_bridge_dep, python_embed_dep],
   link_with : [common],
   cpp_args : python_ops_cpp_args,
@@ -50,7 +50,7 @@ python_ops = shared_module(
 )
 
 python_ops_test_dep = declare_dependency(
-  include_directories : [include_directories('.'), include_directories(opk_numpy_include)],
+  include_directories : [include_directories('.')],
   dependencies : [opk_deps, open_perception_kit_python_bridge_dep, python_embed_dep],
   link_with : [common],
   sources : python_ops_sources,

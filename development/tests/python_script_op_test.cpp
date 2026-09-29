@@ -164,7 +164,7 @@ TEST(TensorBridge, PythonScriptDecoratorRejectsNoncallables) {
     EXPECT_NE(opk::python::formatPythonError().find("expects a callable"), std::string::npos);
 }
 
-TEST(TensorBridge, WrapsAllSupportedAdditionalTensorTypes) {
+TEST(TensorBridge, WrapsAllSupportedTensorTypesWithoutCopying) {
     opk::python::ensureRuntime();
     opk::python::GILGuard gil;
     opk::python::PyObjectPtr runtimeModule(PyImport_ImportModule("opk_python_ops"));
@@ -173,8 +173,10 @@ TEST(TensorBridge, WrapsAllSupportedAdditionalTensorTypes) {
     std::array<uint8_t, 1> uint8Values = {1};
     std::array<uint16_t, 1> float16Values = {0};
     std::array<int64_t, 1> int64Values = {2};
+    std::array<float, 4> float32Values = {1.0F, 2.0F, 3.0F, 4.0F};
+    std::array<int8_t, 2> int8Values = {-1, 2};
     opk::op::OpChainContext context;
-    context.inferenceOutputTensorCount = 3;
+    context.inferenceOutputTensorCount = 5;
     context.inferenceOutputTensors[0] = opk::TensorView(
         uint8Values.data(), sizeof(uint8Values), opk::Shape(1), opk::Dtype::Uint8, 0.5F, 1.0F);
     context.inferenceOutputTensors[1] = opk::TensorView(float16Values.data(),
@@ -185,11 +187,42 @@ TEST(TensorBridge, WrapsAllSupportedAdditionalTensorTypes) {
                                                         0.0F);
     context.inferenceOutputTensors[2] = opk::TensorView(
         int64Values.data(), sizeof(int64Values), opk::Shape(1), opk::Dtype::Int64, 1.0F, 0.0F);
+    context.inferenceOutputTensors[3] = opk::TensorView(float32Values.data(),
+                                                        sizeof(float32Values),
+                                                        opk::Shape(2, 2),
+                                                        opk::Dtype::Float32,
+                                                        1.0F,
+                                                        0.0F);
+    context.inferenceOutputTensors[4] = opk::TensorView(
+        int8Values.data(), sizeof(int8Values), opk::Shape(2), opk::Dtype::Int8, 1.0F, 0.0F);
 
     opk::python::PyObjectPtr tensors(opk::python::wrapTensors(context, nullptr));
 
     ASSERT_TRUE(tensors) << opk::python::formatPythonError();
-    EXPECT_EQ(PyTuple_Size(tensors.get()), 3);
+    ASSERT_EQ(PyTuple_Size(tensors.get()), 5);
+    const std::array expectedTypes = {"uint8", "float16", "int64", "float32", "int8"};
+    for (size_t index = 0; index < expectedTypes.size(); ++index) {
+        opk::python::PyObjectPtr array(PyObject_GetAttrString(
+            PyTuple_GetItem(tensors.get(), static_cast<Py_ssize_t>(index)), "array"));
+        ASSERT_TRUE(array) << opk::python::formatPythonError();
+        Py_buffer buffer{};
+        ASSERT_EQ(PyObject_GetBuffer(array.get(), &buffer, PyBUF_ND), 0)
+            << opk::python::formatPythonError();
+        const auto &view = context.inferenceOutputTensors[index];
+        EXPECT_EQ(buffer.buf, view.getData());
+        EXPECT_EQ(buffer.len, static_cast<Py_ssize_t>(view.getByteCount()));
+        EXPECT_TRUE(buffer.readonly);
+        EXPECT_EQ(buffer.ndim, view.getShape().rank);
+        for (int dimension = 0; dimension < buffer.ndim; ++dimension)
+            EXPECT_EQ(buffer.shape[dimension], view.getShape().dims[dimension]);
+        PyBuffer_Release(&buffer);
+
+        opk::python::PyObjectPtr dtype(PyObject_GetAttrString(array.get(), "dtype"));
+        ASSERT_TRUE(dtype) << opk::python::formatPythonError();
+        opk::python::PyObjectPtr name(PyObject_Str(dtype.get()));
+        ASSERT_TRUE(name) << opk::python::formatPythonError();
+        EXPECT_STREQ(PyUnicode_AsUTF8(name.get()), expectedTypes[index]);
+    }
 }
 
 TEST(TensorBridge, RejectsNonpositiveRuntimeDimensions) {

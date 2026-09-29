@@ -70,7 +70,7 @@ contact addresses or asserting Arm ownership.
 | [ONNX Runtime](https://github.com/microsoft/onnxruntime) | 1.24.4 | MIT; bundled dependencies have separate terms | `onnxruntime/LICENSE`, `onnxruntime/ThirdPartyNotices.txt` | Architecture packages, deployment, Cairn |
 | [ExecuTorch](https://github.com/pytorch/executorch) | 1.3.1 | BSD-3-Clause; bundled dependencies have separate terms | `executorch/` preserves the complete legal tree from the SDK package | Architecture packages and deployments that include the backend |
 | [FlatBuffers](https://github.com/google/flatbuffers) | 25.9.23 | Apache-2.0 | `flatbuffers/LICENSE`; original wheel/npm/crate notices | Native artifacts, browser UI, SDK |
-| [NumPy](https://numpy.org/) | 2.4.2 | BSD-3-Clause; bundled libraries have separate terms | `python-numpy/` preserves wheel licences, including its bundled-library notices | Architecture packages and Python-enabled deployment runtime |
+| [NumPy](https://numpy.org/) | 2.4.2 | BSD-3-Clause; bundled libraries have separate terms | `python-numpy/` preserves wheel licences, including its bundled-library notices | Python-enabled deployment runtime; installed separately for architecture packages |
 | [bitflags](https://crates.io/crates/bitflags) | 2.13.1 | MIT OR Apache-2.0 | Original crate and `rust/vendor/bitflags-2.13.1/` | SDK Rust runtime |
 | [rustc_version](https://crates.io/crates/rustc_version) | 0.4.1 | MIT OR Apache-2.0 | Original crate and `rust/vendor/rustc_version-0.4.1/` | SDK Rust runtime |
 | [semver](https://crates.io/crates/semver) | 1.0.28 | MIT OR Apache-2.0 | Original crate and `rust/vendor/semver-1.0.28/` | SDK Rust runtime |

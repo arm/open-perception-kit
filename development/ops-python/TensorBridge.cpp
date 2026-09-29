@@ -15,9 +15,6 @@
  * limitations under the License.
  */
 
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
-#include <numpy/arrayobject.h>
-
 #include "TensorBridge.h"
 
 #include <array>
@@ -216,22 +213,22 @@ PyType_Spec &contextSpec() {
     return spec;
 }
 
-int numpyType(opk::Dtype type) {
+const char *numpyType(opk::Dtype type) {
     using enum opk::Dtype;
 
     switch (type) {
     case Uint8:
-        return NPY_UINT8;
+        return "uint8";
     case Int8:
-        return NPY_INT8;
+        return "int8";
     case Float16:
-        return NPY_FLOAT16;
+        return "float16";
     case Float32:
-        return NPY_FLOAT32;
+        return "float32";
     case Int64:
-        return NPY_INT64;
+        return "int64";
     }
-    return NPY_NOTYPE;
+    return nullptr;
 }
 
 PyObject *createTensor(size_t index, const opk::TensorView &view, const opk::Model *model) {
@@ -242,7 +239,9 @@ PyObject *createTensor(size_t index, const opk::TensorView &view, const opk::Mod
     }
 
     const auto shape = view.getShape();
-    std::array<npy_intp, 8> dimensions{};
+    PyObjectPtr dimensions(PyTuple_New(static_cast<Py_ssize_t>(shape.rank)));
+    if (!dimensions)
+        return nullptr;
     for (size_t dimension = 0; dimension < shape.rank; ++dimension) {
         if (shape.dims[dimension] <= 0) {
             PyErr_Format(PyExc_ValueError,
@@ -251,33 +250,31 @@ PyObject *createTensor(size_t index, const opk::TensorView &view, const opk::Mod
                          shape.toString().c_str());
             return nullptr;
         }
-        dimensions[dimension] = shape.dims[dimension];
+        PyObject *size = PyLong_FromLongLong(shape.dims[dimension]);
+        if (size == nullptr)
+            return nullptr;
+        PyTuple_SET_ITEM(dimensions.get(), static_cast<Py_ssize_t>(dimension), size);
     }
 
-    const int type = numpyType(view.getValueType());
-    if (type == NPY_NOTYPE) {
+    const char *type = numpyType(view.getValueType());
+    if (type == nullptr) {
         PyErr_Format(PyExc_TypeError, "Tensor %zu has an unsupported element type", index);
         return nullptr;
     }
 
-    PyObject *array = PyArray_SimpleNewFromData(static_cast<int>(shape.rank),
-                                                dimensions.data(),
-                                                type,
-                                                const_cast<uint8_t *>(view.getData()));
-    if (array == nullptr)
-        return nullptr;
-
-    PyObject *readOnlyMemory =
+    PyObjectPtr readOnlyMemory(
         PyMemoryView_FromMemory(reinterpret_cast<char *>(const_cast<uint8_t *>(view.getData())),
                                 static_cast<Py_ssize_t>(view.getByteCount()),
-                                PyBUF_READ);
-    if (readOnlyMemory == nullptr ||
-        PyArray_SetBaseObject(reinterpret_cast<PyArrayObject *>(array), readOnlyMemory) < 0) {
-        Py_XDECREF(readOnlyMemory);
-        Py_DECREF(array);
+                                PyBUF_READ));
+    if (!readOnlyMemory)
         return nullptr;
-    }
-    PyArray_CLEARFLAGS(reinterpret_cast<PyArrayObject *>(array), NPY_ARRAY_WRITEABLE);
+    PyObjectPtr numpy(PyImport_ImportModule("numpy"));
+    if (!numpy)
+        return nullptr;
+    PyObject *array = PyObject_CallMethod(
+        numpy.get(), "ndarray", "OsO", dimensions.get(), type, readOnlyMemory.get());
+    if (array == nullptr)
+        return nullptr;
 
     auto *tensor = reinterpret_cast<TensorObject *>(tensorType->tp_alloc(tensorType, 0));
     if (tensor == nullptr) {
@@ -319,9 +316,6 @@ PyModuleDef &moduleDefinition() {
 }
 
 PyObject *initializeModule() {
-    if (_import_array() < 0)
-        return nullptr;
-
     PyObject *pythonModule = PyModule_Create(&moduleDefinition());
     if (pythonModule == nullptr)
         return nullptr;

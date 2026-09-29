@@ -180,7 +180,6 @@ common_include = include_directories('common', 'common/logging/include')
 python_ops_option = get_option('python_ops')
 python_ops_enabled = false
 opk_python = disabler()
-opk_numpy_include = ''
 test_python = disabler()
 
 if get_option('tests')
@@ -211,17 +210,7 @@ if get_option('tests') or not python_ops_option.disabled()
   endif
 
   if opk_python.found()
-    numpy_probe = run_command(
-      opk_python,
-      ['-c', 'import numpy; print(numpy.get_include())'],
-      check : false,
-    )
-    if numpy_probe.returncode() == 0
-      opk_numpy_include = numpy_probe.stdout().strip()
-      python_ops_enabled = not python_ops_option.disabled()
-    elif python_ops_option.enabled()
-      error('python_ops requires NumPy for the selected Python installation.')
-    endif
+    python_ops_enabled = not python_ops_option.disabled()
   elif get_option('tests') or python_ops_option.enabled()
     error('A Python development installation is required.')
   endif
