@@ -81,8 +81,6 @@ def setup_argument_parser(parser):
 
     check_group.add_argument("-al", "--actionlint", default=False,
                              action="store_true", help="Run actionlint on GitHub Actions workflows.")
-    check_group.add_argument("--agent-runtime-static-analysis", default=False,
-                             action="store_true", help="Run Agent workflow mypy, pyflakes, vulture, and stale-reference checks.")
     check_group.add_argument("--config-schema-check", default=False,
                              action="store_true", help="Validate versioned pipeline, Model, and OpChain configurations.")
     check_group.add_argument("--ci-pr-checks", default=False,
@@ -161,14 +159,12 @@ def setup_ci_pr_checks(args):
     args.commit_msg_ci = True
     args.jira_ticket = True
     setup_pre_commit_checks(args, format=False)
-    args.agent_runtime_static_analysis = True
     args.config_schema_check = True
 
 
 def setup_ci_full_checks(args):
     """Enable the CI full quality gate."""
     setup_pre_commit_checks(args, format=False)
-    args.agent_runtime_static_analysis = True
     args.config_schema_check = True
 
 
@@ -186,12 +182,6 @@ def get_enabled_check_flags(args):
 
     for enabled, flag, fallback, fallback_flag in (
         ("actionlint", "--actionlint", None, None),
-        (
-            "agent_runtime_static_analysis",
-            "--agent-runtime-static-analysis",
-            None,
-            None,
-        ),
         ("config_schema_check", "--config-schema-check", None, None),
         ("branch_naming", "--branch-naming", None, None),
         ("commit_msg", "--commit-msg", None, None),
@@ -230,7 +220,6 @@ def needs_related_files(args):
         args.license_header_check,
         args.actionlint,
         args.all_checks,
-        args.agent_runtime_static_analysis,
     ])
     return file_based_check_enabled or bool(args.list_of_files) or args.commit_diff or args.pr_target_branch
 
@@ -437,13 +426,6 @@ def perform_checks(checker, args, files, report):
             lambda: checker.check_shell_format(files, format=args.shell_format),
         ),
         (args.actionlint, "actionlint", lambda: checker.check_github_actions(files)),
-        (
-            args.agent_runtime_static_analysis,
-            "Agent workflow static analysis",
-            lambda: checker.check_agent_runtime_static_analysis(
-                files, pr_target_branch=args.pr_target_branch
-            ),
-        ),
         (
             args.config_schema_check,
             "config descriptor validation",

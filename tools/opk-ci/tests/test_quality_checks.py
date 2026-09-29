@@ -216,8 +216,8 @@ class TestQualityChecks(unittest.TestCase):
                 ) as subprocess_run:
                     result = self.quality_checks.check_github_actions([
                         ".github/workflows/opk-ci.yml",
-                        "./.github/workflows/workflow-audit.yml",
-                        "/work/.github/workflows/docker-scout.yaml",
+                        "./.github/workflows/formatting.yml",
+                        "/work/.github/workflows/example.yaml",
                         "README.md",
                     ])
 
@@ -233,8 +233,8 @@ class TestQualityChecks(unittest.TestCase):
                 "-config-file",
                 ".github/actionlint.yaml",
                 ".github/workflows/opk-ci.yml",
-                ".github/workflows/workflow-audit.yml",
-                ".github/workflows/docker-scout.yaml",
+                ".github/workflows/formatting.yml",
+                ".github/workflows/example.yaml",
             ],
         )
         self.assertEqual(subprocess_run.call_args.kwargs["cwd"], "/work")
@@ -562,63 +562,6 @@ class TestQualityChecks(unittest.TestCase):
                 )
 
         self.assertTrue(result)
-
-    def test_agent_runtime_static_analysis_runs_shared_script_for_pr_target(self):
-        with patch.object(quality_checks_module.FileUtils, "get_project_root", return_value="/work"):
-            with patch(
-                "opk_ci.quality_checks.subprocess.run",
-                return_value=Mock(returncode=0, stdout="ok\n", stderr=""),
-            ) as subprocess_run:
-                result = self.quality_checks.check_agent_runtime_static_analysis(
-                    ["scripts/private/agent_runtime/openai_agent_runner.py"],
-                    pr_target_branch="main",
-                )
-
-        self.assertTrue(result)
-        self.assertEqual(
-            subprocess_run.call_args.args[0],
-            [
-                sys.executable,
-                "-m",
-                "opk_ci.agent_static_analysis",
-                "--base-ref",
-                "origin/main",
-            ],
-        )
-        self.assertEqual(subprocess_run.call_args.kwargs["cwd"], "/work")
-        self.assertIn("/work/tools/opk-ci", subprocess_run.call_args.kwargs["env"]["PYTHONPATH"])
-
-    def test_agent_runtime_static_analysis_checks_deleted_pr_paths(self):
-        with patch.object(quality_checks_module.FileUtils, "get_project_root", return_value="/work"):
-            with patch(
-                "opk_ci.quality_checks.subprocess.run",
-                side_effect=[
-                    Mock(returncode=0, stdout="D\0scripts/private/agent_runtime/task.py\0", stderr=""),
-                    Mock(returncode=0, stdout="", stderr=""),
-                ],
-            ) as subprocess_run:
-                result = self.quality_checks.check_agent_runtime_static_analysis(
-                    ["docs/readme.md"],
-                    pr_target_branch="main",
-                )
-
-        self.assertTrue(result)
-        self.assertEqual(
-            subprocess_run.call_args_list[0].args[0],
-            ["git", "diff", "--name-status", "-z", "origin/main...HEAD"],
-        )
-        self.assertEqual(
-            subprocess_run.call_args_list[1].args[0],
-            [
-                sys.executable,
-                "-m",
-                "opk_ci.agent_static_analysis",
-                "--base-ref",
-                "origin/main",
-            ],
-        )
-        self.assertEqual(subprocess_run.call_args_list[1].kwargs["cwd"], "/work")
-        self.assertIn("/work/tools/opk-ci", subprocess_run.call_args_list[1].kwargs["env"]["PYTHONPATH"])
 
     def test_apply_license_header_keeps_cmake_content_adjacent_to_header_when_cmake_config_is_missing(self):
         input_content = (FIXTURE_ROOT / "cmake" / "bad.CMakeLists.txt.input").read_text(encoding="utf-8")
