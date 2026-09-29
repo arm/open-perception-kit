@@ -748,7 +748,7 @@ class ReleaseToolTests(unittest.TestCase):
                                 "id": ONNX_INFERENCE_OP,
                                 "attributes": {
                                     "modelDescriptor": (
-                                        "/work/config/models/osnet-x0-25/model.json"
+                                        "/work/config/models/ultraface-rfb-320/model.json"
                                     )
                                 },
                             }
@@ -777,7 +777,7 @@ class ReleaseToolTests(unittest.TestCase):
                 ],
                 [
                     "../../models/yolo26n-320/model.json",
-                    "../../models/osnet-x0-25/model.json",
+                    "../../models/ultraface-rfb-320/model.json",
                 ],
             )
             release_tool.validate_release_payload(package_root, repo_root)

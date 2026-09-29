@@ -25,7 +25,7 @@ Compact full-frame object detector optimized for ONNX Runtime on Raspberry Pi 5.
 - Output: decoded corner coordinates, score, and COCO class ID
 - Postprocessor: `YoloParser` using `cornerScoreClass`; model output already includes NMS
 - FrameResults payload: `BoxDetectionsT` with `contentType` set to `genericObject`
-- Typical use: default object detector and first stage for OSNet embeddings
+- Typical use: default object detector
 
 This is the default YOLO preset because the previous single-YOLO pipeline used
 320x320 input. The model binary is downloaded from the pinned `hfDownload`

@@ -97,7 +97,6 @@ Focused detector and cascade presets:
   detected face crops.
 - `mobilegaze-mobilenet-v2-executorch` — UltraFace ONNX followed by MobileGaze
   ExecuTorch/XNNPACK inference.
-- `osnet-x0-25` — YOLO26n-320 followed by OSNet embeddings and object tracking.
 - `yolo26n-320`, `yolo26n-480`, and `yolo26n-640` — YOLO26n at the selected
   input resolution on bundled video.
 - `yolo26s-320`, `yolo26s-480`, and `yolo26s-640` — YOLO26s at the selected

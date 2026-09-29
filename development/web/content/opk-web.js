@@ -732,7 +732,6 @@ function enableAudioButton(enable) {
 // development/web/src/models.js
 var PREFERRED_MODEL_ORDER = [
   "Yolo26n320Int8",
-  "OsnetX025Int8Reid",
   "UltraFaceRfb320Int8",
   "NitecResnet18Int8",
   "MobileGazeMobilenetV2Int8"
