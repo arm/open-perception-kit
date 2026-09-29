@@ -30,44 +30,45 @@ or pushing to `main` does not start a product release.
 
 `ReleaseTool.py stage-legal` collects original notices for the dependencies
 present in each artifact: resolved Meson sources, native backends, installed
-Python packages where applicable, and checked-in browser assets. It checks the
-collected versions against `scripts/release/third-party-licenses.json`; new or upgraded
-components require a catalogue update after their licences and original notices
-have been reconciled. The catalogue records the source directory/revision for
-Meson dependencies and the installed Debian package version for ExecuTorch.
-`stage-legal` writes `components.json` with the revision/version, repository,
-licence and notice paths, plus a sorted `THIRD_PARTY_LICENSES.md` report for the
-OPK release. Each artifact's inventory records the dependencies used to build
-or populate it. Deployment images also record installed Python packages;
-architecture archives leave out packages supplied by the host but keep the
-NumPy BSD notice for headers compiled into the PythonScript module. The SDK ZIP
-carries its own wheel notices.
+Python packages where applicable, and checked-in browser assets. The maintained
+component inventory is [`docs/third-party-licenses.md`](../third-party-licenses.md),
+copied unchanged as `third-party-licenses.md`. Deployment images include original
+notices from installed Python packages; architecture archives leave out packages
+supplied by the host but keep the NumPy BSD notice for headers compiled into the
+PythonScript module. The SDK ZIP carries its own wheel notices.
 
-`validate-package`, the offline archive smoke, and image `validate-legal` checks
-reject missing or empty required notices and a missing or stale report.
-Architecture packages and images require OPK's `LICENSE`, `NOTICE`, `THIRD_PARTY_NOTICE.md` and
-licence-page copy. Deployment validation also requires NumPy and FlatBuffers
+`validate-package`, the offline archive smoke, and image `validate-legal`
+check the staged original notice files directly, including embedded upstream
+attributions, and reject missing required files, empty files and symlinks.
+The Markdown inventory was initialized from a historical scan; component,
+version and licence reconciliation requires review before publication.
+Architecture packages and images require OPK's `LICENSE`, `NOTICE`,
+`third-party-licenses.md` and licence-page copy. Deployment validation also requires NumPy and FlatBuffers
 Python notices; Cairn uses the native component set. Architecture archives
 additionally require the ExecuTorch notices.
 SDK bundle verification also requires
 the licence page, `LICENSE` and `NOTICE`.
 
-Before publication, reconcile [the supplied OPK SBOM](https://confluence.arm.com/spaces/edgeaiexpkits/pages/3186688252/OPK+SBOM+%E2%80%94+a096f677d)
-against the actual release inventory. That page's scan references revision
-`8d8d38bf8d1513b197ce6fedf1c615f1e7731e3d`, with a 2026-09-21 results snapshot;
-it does not describe every dependency at the current source revision. Known
-differences include cpp-httplib 0.56.0 and ONNX Runtime 1.24.4. The pinned stb
-source supplies MIT OR Unlicense terms, resolving its unknown entry for this
-inventory. ExecuTorch and Font Awesome require additional evidence beyond
+Before publication, reconcile [the supplied OPK SBOM](https://confluence.arm.com/pages/viewpage.action?pageId=3186688252)
+and the maintained Markdown inventory against the actual release dependencies.
+The imported table comes from page version 1, dated 2026-09-18, for baseline
+`v0.4.0-bd-base` at revision `07fa85eaf`. It is a partial inventory: CI-image
+scanning timed out, and deployment-image/package coverage was not established.
+GStreamer, CPython, GLib, OpenSSL, libusb and zlib are absent from that scan.
+The detected versions and origins do not establish installed or shipped identity.
+Known differences from current source pins include cpp-httplib 0.56.0 and
+native ONNX Runtime 1.24.4. The pinned stb source supplies MIT OR Unlicense terms,
+resolving its unknown entry for this inventory. ExecuTorch and Font Awesome
+require additional evidence beyond
 that scan. Preserve transitive notices supplied with the actual backend binaries
 and runtime wheels rather than copying the scan's version list as release truth.
 
 Record the required IP review link in [EXPKITS-1229](https://jira.arm.com/browse/EXPKITS-1229)
 before publication. Review licences outside Arm's compatibility table and any
 cryptography/trade-compliance questions through the process linked from
-[EXPKITS-1388](https://jira.arm.com/browse/EXPKITS-1388). The supplied scan is
-marked "Licence review required"; successful technical checks do not replace
-that review. The Concordia GitLab example requires access that was unavailable
+[EXPKITS-1388](https://jira.arm.com/browse/EXPKITS-1388). The supplied scan requires
+licence review; successful technical checks do not replace that review.
+The Concordia GitLab example requires access that was unavailable
 during this implementation; this inventory follows the Arm notice requirements.
 
 ### Reference strategy

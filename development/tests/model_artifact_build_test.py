@@ -498,25 +498,16 @@ class ModelArtifactBuildTest(unittest.TestCase):
                 SimpleNamespace(repo_root=str(REPO_ROOT), stage_root=str(package))
             )
             legal = package / "share/opk/licenses"
-            inventory = {}
-            for name in release["CORE_LEGAL_COMPONENTS"] | {"executorch", "python-numpy", "python-flatbuffers"}:
-                notices = list(release["OPK_LEGAL_NOTICES"]) if name == "opk" else [f"{name}/LICENSE"]
-                for relative in notices:
-                    notice = legal / relative
-                    notice.parent.mkdir(parents=True, exist_ok=True)
-                    notice.write_text("Test fixture licence\n")
-                inventory[name] = {
-                    "version": "test", "licence": "test", "repository": f"https://example.invalid/{name}",
-                    "notices": notices,
-                }
+            document = REPO_ROOT / "docs/third-party-licenses.md"
+            for relative in (*release["OPK_LEGAL_NOTICES"], *release["CORE_LEGAL_NOTICES"], "executorch/LICENSE"):
+                notice = legal / relative
+                notice.parent.mkdir(parents=True, exist_ok=True)
+                notice.write_text("Test fixture licence\n")
             for name, relative in release["SOURCE_LEGAL_NOTICES"]:
                 notice = legal / name / relative
                 notice.parent.mkdir(parents=True, exist_ok=True)
                 notice.write_text("Test fixture embedded upstream notice\n")
-                inventory[name]["notices"].append(f"{name}/{relative}")
-            (legal / "onnxruntime/ThirdPartyNotices.txt").write_text("Test transitive notice\n")
-            (legal / "components.json").write_text(json.dumps(inventory))
-            (legal / "THIRD_PARTY_LICENSES.md").write_text(release["legal_report"](inventory))
+            shutil.copyfile(document, legal / document.name)
             archive = context / "package.tar.gz"
             with tarfile.open(archive, "w:gz") as stream:
                 stream.add(package, arcname=package.name)
