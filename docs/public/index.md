@@ -57,7 +57,7 @@ In this quick start, you will:
 - Run the first pipeline.
 - Open the browser viewer and confirm inference.
 
-The Open Perception Kit is hardware agnostic across Arm Linux devices. The table
+The Open Perception Kit is hardware agnostic. The table
 below lists the configurations validated so far; other devices and operating
 systems have not been validated.
 
