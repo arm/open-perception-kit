@@ -16,12 +16,14 @@
  */
 
 import { copyTextWithFeedback, setCopyButtonAvailable } from './copy-utils.js?v=icon-copy-buttons-20260608';
+import {createPerformanceLowPass} from './performance-low-pass.js';
 
 const body = document.getElementById('performanceMetricsBody');
 const copyButton = document.getElementById('copyPerformanceMetricsBtn');
 
 const MAX_METRIC_LINE_LENGTH = 240;
 let currentRows = [];
+const filterMetrics = createPerformanceLowPass();
 
 function decimalText(value) {
     const parts = String(value || '').split('.');
@@ -128,7 +130,8 @@ function renderRows(rows) {
 
 export function renderPerformanceMetrics(performance) {
     const lines = Array.isArray(performance?.lines) ? performance.lines : [];
-    renderRows(lines.map(parseMetricLine).filter(Boolean));
+    const rows = filterMetrics(lines.map(parseMetricLine).filter(Boolean));
+    if (rows !== null) renderRows(rows);
 }
 
 function updateCopyButtonState() {
