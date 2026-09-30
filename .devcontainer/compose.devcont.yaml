@@ -15,6 +15,7 @@
 
 services:
   opk-build-base:
+    profiles: [build]
     image: ${OPK_BUILD_BASE_IMAGE:-open-perception-kit-build-base}
     build:
       context: ..
