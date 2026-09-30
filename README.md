@@ -26,8 +26,6 @@ The Open Perception Kit is aimed at Arm Linux developers, providing a fast path 
 It uses a container-based workflow with a packaged pipeline, browser viewer, model controls, debug signals, and output paths you can adapt for your own
 application.
 
-**Note**: This developer preview is for evaluation, early application development, and feedback.
-
 ![Example WebRTC viewer showing sample video inference, model controls, performance metrics, and debug log](docs/public/assets/10-browser-ui.png)
 
 ## Quick start: first inference on Raspberry Pi 5

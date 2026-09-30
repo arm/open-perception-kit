@@ -35,8 +35,6 @@ The Open Perception Kit is aimed at Arm Linux developers, providing a fast path 
 It uses a container-based workflow with a packaged pipeline, browser viewer, model controls, debug signals, and output paths you can adapt for your own
 application.
 
-**Note**: This developer preview is for evaluation, early application development, and feedback.
-
 <!-- BEGIN GENERATED DOCS BUILD INFO -->
 <!-- END GENERATED DOCS BUILD INFO -->
 
