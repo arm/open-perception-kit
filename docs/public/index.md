@@ -63,7 +63,7 @@ systems have not been validated.
 
 | Component          | Validated configuration         |
 | ------------------ | ------------------------------- |
-| Device             | Raspberry Pi (at least 8GB RAM)                            |
+| Device             | Raspberry Pi (at least 8GB RAM) |
 | Operating system   | Raspberry Pi OS 64-bit (Trixie) |
 | Container platform | Linux ARM64                     |
 | CSI camera         | Raspberry Pi Camera Module 3    |
