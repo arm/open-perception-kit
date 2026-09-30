@@ -74,7 +74,6 @@ systems have not been validated.
 Host machine:
 - Windows, macOS or Linux machine.
 - Network access to the target Pi.
-- [Docker](https://docs.docker.com/get-started/get-docker/)
 
 Target (Raspberry Pi 5)
 - SSH enabled, with a username and password you can use from
@@ -83,7 +82,6 @@ Target (Raspberry Pi 5)
 - Permission to run `sudo`.
 - Internet access to GitHub, package repositories, and
   container or source locations used during the first container build.
-- [Docker](https://docs.docker.com/get-started/get-docker/)
 
 ### 1. Connect to the target Pi
 
