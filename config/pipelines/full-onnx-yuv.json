@@ -20,6 +20,8 @@
     "opkperformance show-all-metrics=true update-interval=1 !",
     "opkosd enabled=true bg-image=\"${OPK_PROJECT_ROOT:-/work}/data/images/GettyImages-1298072556-thumbnail.jpg\" !",
     "opkcomm method=websocket endpoint=/ws !",
+    "videorate drop-only=true ! videoscale !",
+    "video/x-raw,format=BGRA,width=960,height=540,framerate=24/1 !",
     "opksink name=sink"
   ],
   "alternative-source-image": [

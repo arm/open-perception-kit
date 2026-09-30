@@ -610,7 +610,7 @@ static bool init_video(GstOpkSink *self) {
     g_object_set(self->vclock, "sync", TRUE, nullptr);
     g_object_set(self->vp8enc, "deadline", 1, nullptr); // the frame shall be rendered realtime
     g_object_set(self->vp8enc, "target-bitrate", 0, nullptr);
-    g_object_set(self->vp8enc, "cpu-used", 4, nullptr);
+    g_object_set(self->vp8enc, "cpu-used", 8, nullptr);
     g_object_set(self->vp8enc, "keyframe-max-dist", 60, nullptr); // max frames between key frames
     g_object_set(self->vp8enc, "threads", static_cast<gint>(vp8_encoder_thread_count()), nullptr);
     g_object_set(self->vp8enc, "error-resilient", 1, nullptr);
