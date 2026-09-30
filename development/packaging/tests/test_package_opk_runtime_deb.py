@@ -48,9 +48,18 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
         runpath: str,
         soname: str = "",
         link_library: Path | None = None,
+        cxx: bool = False,
     ) -> None:
-        source = output.with_suffix(".c")
-        if link_library is None:
+        source = output.with_suffix(".cpp" if cxx else ".c")
+        if cxx:
+            source.write_text(
+                "#include <string>\n"
+                'extern "C" unsigned long opk_package_fixture(void) {\n'
+                '    return std::string{"opk"}.size();\n'
+                "}\n",
+                encoding="utf-8",
+            )
+        elif link_library is None:
             source.write_text(
                 '#include <stdio.h>\nvoid opk_package_fixture(void) { puts("opk"); }\n',
                 encoding="utf-8",
@@ -62,7 +71,7 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
                 encoding="utf-8",
             )
         command = [
-            "cc",
+            "c++" if cxx else "cc",
             "-shared",
             "-fPIC",
             str(source),
@@ -97,11 +106,11 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
             onnx_license_dir = root / "onnxruntime-licenses"
             executorch_license_dir = root / "executorch-licenses"
             flatbuffers_schema_dir = root / "flatbuffers-schemas"
-            open_perception_kit_dir = root / "open-perception-kit"
             repo_root = root / "repo"
             docs_root = repo_root / "docs"
             output = root / f"opk-runtime_0.3.1-1_{architecture}.deb"
             extracted = root / "extracted"
+            control_root = root / "control"
             build_dir.mkdir()
             plugin_root.mkdir(parents=True)
             private_root.mkdir(parents=True)
@@ -110,7 +119,6 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
             onnx_license_dir.mkdir()
             (executorch_license_dir / "third-party/example").mkdir(parents=True)
             flatbuffers_schema_dir.mkdir()
-            open_perception_kit_dir.mkdir()
             (repo_root / "scripts").mkdir(parents=True)
             (docs_root / "public/how-to").mkdir(parents=True)
             (docs_root / "arch").mkdir()
@@ -164,7 +172,11 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
                 "opk-python-ops.so",
                 "opk-std-ops.so",
             ):
-                self.compile_library(private_root / name, "$ORIGIN")
+                self.compile_library(
+                    private_root / name,
+                    "$ORIGIN",
+                    cxx=name == "libopk-common.so",
+                )
             self.compile_library(
                 private_root / "opk-onnx-ops.so",
                 "$ORIGIN",
@@ -191,9 +203,6 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
                 ]
             )
 
-            verifier = repo_root / "scripts/perception-sdk.sh"
-            verifier.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
-            verifier.chmod(0o755)
             release_tool = repo_root / "scripts/release/ReleaseTool.py"
             release_tool.parent.mkdir(parents=True)
             release_tool.write_text(
@@ -201,18 +210,56 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
                 "root = pathlib.Path(sys.argv[sys.argv.index('--stage-root') + 1])\n"
                 "target = root / 'share/opk/python'\n"
                 "target.mkdir(parents=True, exist_ok=True)\n"
-                "for module in ('flatbuffers', 'numpy', 'open_perception_kit'):\n"
+                "modules = ('open_perception_kit',) if '--distribution' in sys.argv "
+                "else ('flatbuffers', 'numpy', 'open_perception_kit')\n"
+                "for module in modules:\n"
                 "    (target / module).mkdir(exist_ok=True)\n"
-                "(target / 'numpy/_core').mkdir()\n"
-                "shutil.copy2(os.environ['OPK_TEST_PYTHON_EXTENSION'], "
+                "if 'numpy' in modules:\n"
+                "    (target / 'numpy/_core').mkdir()\n"
+                "    shutil.copy2(os.environ['OPK_TEST_PYTHON_EXTENSION'], "
                 "target / 'numpy/_core/_fixture.so')\n"
                 "(target / 'opk-runtime.json').write_text(json.dumps({\n"
                 "    'distributions': {\n"
-                "        'flatbuffers': '25.9.23',\n"
-                "        'numpy': '2.4.2',\n"
                 "        'open-perception-kit': '0.3.1',\n"
                 "    }\n"
                 "}) + '\\n')\n",
+                encoding="utf-8",
+            )
+            (repo_root / "development/ops-python").mkdir(parents=True)
+            (repo_root / "tools/perception").mkdir(parents=True)
+            (repo_root / "development/ops-python/runtime.json").write_text(
+                json.dumps(
+                    {
+                        "python": {"version": "3.13"},
+                        "numpy": {
+                            "version": "2.4.2",
+                            "wheels": {
+                                "x86_64": {
+                                    "url": "https://example.test/numpy-amd64.whl",
+                                    "sha256": "a" * 64,
+                                },
+                                "aarch64": {
+                                    "url": "https://example.test/numpy-arm64.whl",
+                                    "sha256": "b" * 64,
+                                },
+                            },
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (repo_root / "tools/perception/sdk.json").write_text(
+                json.dumps(
+                    {
+                        "flatbuffers": {
+                            "version": "25.9.23",
+                            "python_wheel": {
+                                "url": "https://example.test/flatbuffers.whl",
+                                "sha256": "c" * 64,
+                            },
+                        }
+                    }
+                ),
                 encoding="utf-8",
             )
             (python_share / "opk_python_ops.pyi").write_text(
@@ -222,37 +269,6 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
                 "<!doctype html><title>OPK</title>\n", encoding="utf-8"
             )
             (web_root / "opk-web.js").write_text("", encoding="utf-8")
-            self.run_command(["git", "init", "-q"], cwd=repo_root)
-            self.run_command(
-                [
-                    "git",
-                    "-c",
-                    "user.name=Test",
-                    "-c",
-                    "user.email=test@example.com",
-                    "commit",
-                    "--allow-empty",
-                    "-qm",
-                    "fixture",
-                ],
-                cwd=repo_root,
-            )
-            commit = self.run_command(
-                ["git", "rev-parse", "HEAD"], cwd=repo_root
-            ).stdout.strip()
-
-            archive = open_perception_kit_dir / "open-perception-kit-0.3.1.zip"
-            archive.write_bytes(b"fixture")
-            (open_perception_kit_dir / f"{archive.name}.sha256").write_text(
-                "fixture\n", encoding="utf-8"
-            )
-            (
-                open_perception_kit_dir / f"{archive.name}.provenance.json"
-            ).write_text(
-                json.dumps({"dirty": False, "repository_commit": commit}) + "\n",
-                encoding="utf-8",
-            )
-
             fake_meson = root / "meson"
             fake_meson.write_text(
                 "#!/usr/bin/env bash\ncp -a \"${OPK_TEST_INSTALL_FIXTURE}/.\" \"${DESTDIR}/\"\n",
@@ -280,8 +296,6 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
                     installed_libdir,
                     "--python-runtime",
                     os.sys.executable,
-                    "--open-perception-kit-dir",
-                    str(open_perception_kit_dir),
                     "--onnx-runtime",
                     str(onnx_runtime),
                     "--onnx-license-dir",
@@ -308,15 +322,20 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
             self.run_command(
                 ["dpkg-deb", "--extract", str(output), str(extracted)]
             )
+            self.run_command(
+                ["dpkg-deb", "--control", str(output), str(control_root)]
+            )
             control = self.run_command(
                 ["dpkg-deb", "--field", str(output)]
             ).stdout
             self.assertIn("Package: opk-runtime", control)
             self.assertIn("Version: 0.3.1-1", control)
             self.assertIn(f"Architecture: {architecture}", control)
+            self.assertIn("ca-certificates", control)
             self.assertIn("gstreamer1.0-plugins-bad", control)
             self.assertIn("libpython3.13", control)
             self.assertIn("python3.13", control)
+            self.assertIn("python3-pip", control)
             self.assertIn("libstdc++6", control)
             self.assertNotIn("libonnxruntime", control)
 
@@ -355,14 +374,11 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
                     / f"usr/lib/{multiarch}/opk/opk-python-ops.so"
                 ).is_file()
             )
-            self.assertTrue(
-                (extracted / "usr/share/opk/python/numpy").is_dir()
+            self.assertFalse(
+                (extracted / "usr/share/opk/python/numpy").exists()
             )
-            self.assertTrue(
-                (
-                    extracted
-                    / "usr/share/opk/python/numpy/_core/_fixture.so"
-                ).is_file()
+            self.assertFalse(
+                (extracted / "usr/share/opk/python/flatbuffers").exists()
             )
             self.assertTrue(
                 (extracted / "usr/share/opk/python/open_perception_kit").is_dir()
@@ -370,6 +386,17 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
             self.assertTrue(
                 (extracted / "usr/share/opk/python/opk_python_ops.pyi").is_file()
             )
+            postinst = (control_root / "postinst").read_text(encoding="utf-8")
+            self.run_command(["sh", "-n", str(control_root / "postinst")])
+            self.assertIn("/usr/bin/python3.13 -m pip install", postinst)
+            self.assertIn("numpy-amd64.whl", postinst)
+            self.assertIn("flatbuffers.whl", postinst)
+            self.assertIn("/var/lib/opk/python", postinst)
+            self.assertIn(".opk-runtime-contract", postinst)
+            self.assertTrue(os.access(control_root / "postinst", os.X_OK))
+            postrm = (control_root / "postrm").read_text(encoding="utf-8")
+            self.run_command(["sh", "-n", str(control_root / "postrm")])
+            self.assertIn("/var/lib/opk/python", postrm)
             self.assertTrue(
                 (extracted / "usr/share/opk/web/index.html").is_file()
             )
@@ -383,15 +410,8 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
                 ),
                 "libonnxruntime.so.1.24.4",
             )
-            self.assertEqual(
-                len(
-                    list(
-                        (
-                            extracted / "usr/share/opk/open-perception-kit"
-                        ).iterdir()
-                    )
-                ),
-                3,
+            self.assertFalse(
+                (extracted / "usr/share/opk/open-perception-kit").exists()
             )
             packaged_onnx_files = {
                 path.name

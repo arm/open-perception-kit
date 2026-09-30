@@ -24,12 +24,6 @@ option('deb_package_revision',
   description : 'Debian revision appended to the OPK product version'
 )
 
-option('open_perception_kit_dir',
-  type : 'string',
-  value : '',
-  description : 'Directory containing a verified Open Perception Kit ZIP, checksum, and provenance triplet'
-)
-
 option('executorch',
   type : 'feature',
   value : 'auto',

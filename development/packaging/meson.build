@@ -6,14 +6,6 @@ if not python_ops_enabled
   error('deb_package requires -Dpython_ops=enabled and the locked Python Ops runtime.')
 endif
 
-open_perception_kit_dir = get_option('open_perception_kit_dir')
-if open_perception_kit_dir == ''
-  error('deb_package requires -Dopen_perception_kit_dir=/path/to/a/verified/sdk/triplet.')
-endif
-if not open_perception_kit_dir.startswith('/')
-  error('open_perception_kit_dir must be an absolute path.')
-endif
-
 deb_revision = get_option('deb_package_revision')
 if deb_revision == ''
   error('deb_package_revision must not be empty.')
@@ -50,7 +42,6 @@ opk_runtime_deb = custom_target(
     '--installed-prefix', get_option('prefix'),
     '--installed-libdir', get_option('libdir'),
     '--python-runtime', opk_python.full_path(),
-    '--open-perception-kit-dir', open_perception_kit_dir,
     '--onnx-runtime', onnx_libdir / 'libonnxruntime.so.1.24.4',
     '--onnx-license-dir', onnx_root / 'share/doc/onnxruntime',
     '--executorch-license-dir', executorch_root / '..' / 'executorch-legal-documentation',

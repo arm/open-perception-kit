@@ -25,6 +25,18 @@
 #define OPK_DEVELOPMENT_PYTHON_PATH ""
 #endif
 
+#ifndef OPK_INSTALLED_PYTHON_PATH
+#define OPK_INSTALLED_PYTHON_PATH ""
+#endif
+
+#ifndef OPK_EXPECTED_NUMPY_VERSION
+#define OPK_EXPECTED_NUMPY_VERSION ""
+#endif
+
+#ifndef OPK_EXPECTED_FLATBUFFERS_VERSION
+#define OPK_EXPECTED_FLATBUFFERS_VERSION ""
+#endif
+
 namespace opk::python {
 namespace {
 
@@ -88,13 +100,58 @@ void attachToRuntime(const std::vector<std::filesystem::path> &pythonPaths) {
     initializeTensorModule();
 }
 
+void validateInstalledModule(const char *moduleName,
+                             const char *expectedVersion,
+                             const std::filesystem::path &runtimeRoot) {
+    PyObjectPtr module(PyImport_ImportModule(moduleName));
+    if (!module)
+        throw PythonBridgeError(std::string("Failed to import required Python module ") +
+                                moduleName + ": " + formatPythonError());
+
+    PyObjectPtr version(PyObject_GetAttrString(module.get(), "__version__"));
+    const char *actualVersion = version ? PyUnicode_AsUTF8(version.get()) : nullptr;
+    if (actualVersion == nullptr || actualVersion != std::string_view(expectedVersion))
+        throw PythonBridgeError(std::string("Python module ") + moduleName + " has version " +
+                                (actualVersion == nullptr ? "unknown" : actualVersion) +
+                                "; expected " + expectedVersion);
+
+    PyObjectPtr file(PyObject_GetAttrString(module.get(), "__file__"));
+    const char *moduleFile = file ? PyUnicode_AsUTF8(file.get()) : nullptr;
+    if (moduleFile == nullptr)
+        throw PythonBridgeError(std::string("Python module has no file path: ") + moduleName);
+
+    const auto canonicalRoot = std::filesystem::weakly_canonical(runtimeRoot);
+    const auto canonicalFile = std::filesystem::weakly_canonical(moduleFile);
+    const auto relative = canonicalFile.lexically_relative(canonicalRoot);
+    if (relative.empty() || *relative.begin() == "..")
+        throw PythonBridgeError(std::string("Python module was loaded outside the OPK runtime: ") +
+                                moduleName + " (" + canonicalFile.string() + ")");
+}
+
+void validateInstalledRuntime() {
+    const auto runtimeRoot = installedPythonRuntimePath();
+    if (runtimeRoot.empty())
+        return;
+    if (!std::filesystem::is_directory(runtimeRoot))
+        throw PythonBridgeError("OPK Python runtime dependencies are not installed: " +
+                                runtimeRoot.string());
+
+    GILGuard gil;
+    PythonPathTemplate pathTemplate({runtimeRoot});
+    PythonPathGuard pathGuard(pathTemplate);
+    validateInstalledModule("numpy", OPK_EXPECTED_NUMPY_VERSION, runtimeRoot);
+    validateInstalledModule("flatbuffers", OPK_EXPECTED_FLATBUFFERS_VERSION, runtimeRoot);
+}
+
 void initializeRuntime(const std::vector<std::filesystem::path> &pythonPaths) {
     if (Py_IsInitialized()) {
+        validateInstalledRuntime();
         attachToRuntime(pythonPaths);
         return;
     }
     exposePythonSymbols();
     initializeOwnedRuntime();
+    validateInstalledRuntime();
 }
 
 class ScopedGILRelease {
@@ -256,6 +313,10 @@ std::filesystem::path packagedPythonPath() {
             return candidate;
     }
     return candidates[0];
+}
+
+std::filesystem::path installedPythonRuntimePath() {
+    return OPK_INSTALLED_PYTHON_PATH;
 }
 
 } // namespace opk::python
