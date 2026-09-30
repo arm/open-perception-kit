@@ -22,7 +22,7 @@ The Open Perception Kit is aimed at Arm Linux developers, providing a fast path 
 - GStreamer-based media pipeline integration.
 - An Op-based execution model for preprocessing, inference, and postprocessing.
 - Schema-defined FrameResults that downstream elements can render, track, or publish
-  
+
 It uses a container-based workflow with a packaged pipeline, browser viewer, model controls, debug signals, and output paths you can adapt for your own
 application.
 
@@ -62,7 +62,7 @@ systems have not been validated.
 Host machine:
 - Windows, macOS or Linux machine.
 - Network access to the target Pi.
-- [Docker](https://docs.docker.com/get-started/get-docker/) 
+- [Docker](https://docs.docker.com/get-started/get-docker/)
 
 Target (Raspberry Pi 5)
 - SSH enabled, with a username and password you can use from
@@ -72,7 +72,7 @@ Target (Raspberry Pi 5)
 - Internet access to GitHub, package repositories, and
   container or source locations used during the first container build.
 - [Docker](https://docs.docker.com/get-started/get-docker/)
- 
+
 ### 1. Connect to the target Pi
 
 #### 1.1 Start the SSH session
@@ -88,7 +88,7 @@ use the target Pi IP address.
 
 > **Expected outcome:** the host machine opens a shell on the target Pi.
 
-#### 1.2 Clone the repository 
+#### 1.2 Clone the repository
 
 In the Raspberry Pi 5 terminal run:
 
