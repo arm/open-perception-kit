@@ -54,7 +54,6 @@ REPO_ROOT=""
 INSTALLED_PREFIX=""
 INSTALLED_LIBDIR=""
 PYTHON_RUNTIME=""
-OPEN_PERCEPTION_KIT_DIR=""
 ONNX_RUNTIME=""
 ONNX_LICENSE_DIR=""
 EXECUTORCH_LICENSE_DIR=""
@@ -68,7 +67,7 @@ OUTPUT=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --build-dir | --meson | --repo-root | --installed-prefix | --installed-libdir | \
-            --python-runtime | --open-perception-kit-dir | --onnx-runtime | --onnx-license-dir | \
+            --python-runtime | --onnx-runtime | --onnx-license-dir | \
             --executorch-license-dir | --version | \
             --flatbuffers-schema-dir | \
             --revision | --architecture | --multiarch | --output)
@@ -107,7 +106,6 @@ esac
 BUILD_DIR="$(resolve_existing_directory "${BUILD_DIR}")"
 REPO_ROOT="$(resolve_existing_directory "${REPO_ROOT}")"
 DOCS_DIR="$(resolve_existing_directory "${REPO_ROOT}/docs")"
-OPEN_PERCEPTION_KIT_DIR="$(resolve_existing_directory "${OPEN_PERCEPTION_KIT_DIR}")"
 ONNX_RUNTIME="$(resolve_existing_file "${ONNX_RUNTIME}")"
 ONNX_LICENSE_DIR="$(resolve_existing_directory "${ONNX_LICENSE_DIR}")"
 EXECUTORCH_LICENSE_DIR="$(resolve_existing_directory "${EXECUTORCH_LICENSE_DIR}")"
@@ -116,8 +114,6 @@ OUTPUT="$(resolve_output "${OUTPUT}")"
 
 [[ -x "${MESON}" ]] || die "Meson executable does not exist: ${MESON}"
 [[ -x "${PYTHON_RUNTIME}" ]] || die "Python Ops runtime does not exist: ${PYTHON_RUNTIME}"
-[[ -x "${REPO_ROOT}/scripts/perception-sdk.sh" ]] ||
-    die "repository Perception SDK command is missing"
 [[ -f "${REPO_ROOT}/scripts/release/ReleaseTool.py" ]] ||
     die "repository release tool is missing"
 
@@ -134,7 +130,6 @@ package_root="${work_root}/debian/opk-runtime"
 package_lib_root="${package_root}/usr/lib/${MULTIARCH}"
 plugin_root="${package_lib_root}/gstreamer-1.0"
 private_root="${package_lib_root}/opk"
-open_perception_kit_root="${package_root}/usr/share/opk/open-perception-kit"
 web_root="${package_root}/usr/share/opk/web"
 onnx_license_root="${package_root}/usr/share/opk/licenses/onnxruntime"
 executorch_license_root="${package_root}/usr/share/opk/licenses/executorch"
@@ -170,8 +165,7 @@ private_libraries=(
     opk-std-ops.so
 )
 
-mkdir -p "${package_root}/DEBIAN" "${plugin_root}" "${private_root}" \
-    "${open_perception_kit_root}"
+mkdir -p "${package_root}/DEBIAN" "${plugin_root}" "${private_root}"
 for library in "${plugins[@]}"; do
     [[ -f "${installed_plugin_root}/${library}" ]] ||
         die "Meson install is missing plugin: ${library}"
@@ -217,7 +211,137 @@ mkdir -p "${package_root}/usr/share/opk/python"
 install -m 0644 "${installed_python_root}/opk_python_ops.pyi" \
     "${package_root}/usr/share/opk/python/opk_python_ops.pyi"
 "${PYTHON_RUNTIME}" "${REPO_ROOT}/scripts/release/ReleaseTool.py" \
-    stage-python-runtime --stage-root "${package_root}/usr"
+    stage-python-runtime --stage-root "${package_root}/usr" \
+    --distribution open-perception-kit
+
+runtime_architecture=x86_64
+if [[ "${ARCHITECTURE}" == arm64 ]]; then
+    runtime_architecture=aarch64
+fi
+mapfile -t python_dependency_lock < <(
+    python3 -c \
+        'import json, sys
+runtime = json.load(open(sys.argv[1], encoding="utf-8"))
+sdk = json.load(open(sys.argv[2], encoding="utf-8"))
+numpy = runtime["numpy"]
+numpy_wheel = numpy["wheels"][sys.argv[3]]
+flatbuffers = sdk["flatbuffers"]
+flatbuffers_wheel = flatbuffers["python_wheel"]
+for value in (
+    numpy["version"], numpy_wheel["url"], numpy_wheel["sha256"],
+    flatbuffers["version"], flatbuffers_wheel["url"], flatbuffers_wheel["sha256"],
+):
+    print(value)' \
+        "${REPO_ROOT}/development/ops-python/runtime.json" \
+        "${REPO_ROOT}/tools/perception/sdk.json" \
+        "${runtime_architecture}"
+)
+[[ ${#python_dependency_lock[@]} -eq 6 ]] ||
+    die "invalid Python runtime dependency descriptors"
+numpy_version="${python_dependency_lock[0]}"
+numpy_wheel="${python_dependency_lock[1]}"
+numpy_sha256="${python_dependency_lock[2]}"
+flatbuffers_version="${python_dependency_lock[3]}"
+flatbuffers_wheel="${python_dependency_lock[4]}"
+flatbuffers_sha256="${python_dependency_lock[5]}"
+
+cat > "${package_root}/DEBIAN/postinst" << EOF
+#!/bin/sh
+set -eu
+
+if [ "\${1:-}" != configure ]; then
+    exit 0
+fi
+
+target=/var/lib/opk/python
+parent=\$(dirname "\${target}")
+contract='numpy=${numpy_version}:${numpy_sha256};flatbuffers=${flatbuffers_version}:${flatbuffers_sha256}'
+umask 022
+mkdir -p -- "\${parent}"
+if [ -f "\${target}/.opk-runtime-contract" ] && \
+    [ "\$(cat "\${target}/.opk-runtime-contract")" = "\${contract}" ]; then
+    echo "OPK Python runtime dependencies are already installed."
+    exit 0
+fi
+temporary=\$(mktemp -d "\${parent}/.python.XXXXXX")
+backup="\${parent}/.python.previous"
+cleanup() {
+    status=\$?
+    trap - EXIT HUP INT TERM
+    rm -rf -- "\${temporary}"
+    if [ "\${status}" -ne 0 ] && [ ! -e "\${target}" ] && [ ! -L "\${target}" ] && \
+        { [ -e "\${backup}" ] || [ -L "\${backup}" ]; }; then
+        mv -- "\${backup}" "\${target}"
+    fi
+    if [ "\${status}" -ne 0 ]; then
+        echo "ERROR: OPK Python dependencies could not be installed." >&2
+        echo "Restore network access, then retry: sudo dpkg --configure opk-runtime" >&2
+    fi
+    exit "\${status}"
+}
+trap cleanup EXIT HUP INT TERM
+
+if [ ! -e "\${target}" ] && [ ! -L "\${target}" ] && \
+    { [ -e "\${backup}" ] || [ -L "\${backup}" ]; }; then
+    mv -- "\${backup}" "\${target}"
+fi
+
+echo "Installing OPK Python runtime dependencies..."
+/usr/bin/python3.13 -m pip install \
+    --disable-pip-version-check \
+    --no-cache-dir \
+    --no-compile \
+    --no-deps \
+    --only-binary :all: \
+    --target "\${temporary}" \
+    '${numpy_wheel}#sha256=${numpy_sha256}' \
+    '${flatbuffers_wheel}#sha256=${flatbuffers_sha256}'
+
+/usr/bin/python3.13 - "\${temporary}" '${numpy_version}' '${flatbuffers_version}' << 'PYTHON'
+import importlib
+import importlib.metadata
+import pathlib
+import sys
+
+root = pathlib.Path(sys.argv[1]).resolve()
+expected = {"numpy": sys.argv[2], "flatbuffers": sys.argv[3]}
+sys.path.insert(0, str(root))
+for name, version in expected.items():
+    module = importlib.import_module(name)
+    actual = importlib.metadata.version(name)
+    if actual != version:
+        raise SystemExit(f"unexpected {name} version: {actual}; expected {version}")
+    module_path = pathlib.Path(module.__file__).resolve()
+    if not module_path.is_relative_to(root):
+        raise SystemExit(f"{name} was loaded outside the OPK runtime: {module_path}")
+PYTHON
+
+printf '%s\n' "\${contract}" > "\${temporary}/.opk-runtime-contract"
+
+rm -rf -- "\${backup}"
+if [ -e "\${target}" ] || [ -L "\${target}" ]; then
+    mv -- "\${target}" "\${backup}"
+fi
+if ! mv -- "\${temporary}" "\${target}"; then
+    if [ -e "\${backup}" ] || [ -L "\${backup}" ]; then
+        mv -- "\${backup}" "\${target}"
+    fi
+    exit 1
+fi
+rm -rf -- "\${backup}"
+trap - EXIT HUP INT TERM
+echo "OPK Python runtime dependencies are ready."
+EOF
+
+cat > "${package_root}/DEBIAN/postrm" << 'EOF'
+#!/bin/sh
+set -eu
+
+if [ "${1:-}" = purge ]; then
+    rm -rf -- /var/lib/opk/python /var/lib/opk/.python.previous
+    rmdir --ignore-fail-on-non-empty /var/lib/opk 2> /dev/null || true
+fi
+EOF
 
 installed_web_root="${install_root}${INSTALLED_PREFIX%/}/web/content"
 [[ -f "${installed_web_root}/index.html" ]] ||
@@ -246,37 +370,6 @@ for legal_file in "${onnx_legal_files[@]}"; do
     install -m 0644 "${ONNX_LICENSE_DIR}/${legal_file}" \
         "${onnx_license_root}/${legal_file}"
 done
-
-mapfile -t open_perception_kit_archives < <(
-    find "${OPEN_PERCEPTION_KIT_DIR}" -maxdepth 1 -type f \
-        -name "open-perception-kit-${VERSION}.zip" -print
-)
-[[ ${#open_perception_kit_archives[@]} -eq 1 ]] ||
-    die "Open Perception Kit directory must contain open-perception-kit-${VERSION}.zip"
-open_perception_kit_archive="${open_perception_kit_archives[0]}"
-open_perception_kit_checksum="${open_perception_kit_archive}.sha256"
-open_perception_kit_provenance="${open_perception_kit_archive}.provenance.json"
-[[ -f "${open_perception_kit_checksum}" && -f "${open_perception_kit_provenance}" ]] ||
-    die "Open Perception Kit checksum or provenance sidecar is missing"
-[[ "$(find "${OPEN_PERCEPTION_KIT_DIR}" -maxdepth 1 -type f | wc -l)" -eq 3 ]] ||
-    die "Open Perception Kit directory must contain exactly the ZIP, checksum, and provenance triplet"
-
-"${REPO_ROOT}/scripts/perception-sdk.sh" verify \
-    "${open_perception_kit_archive}" --require-sidecars
-python3 -c \
-    'import json, pathlib, subprocess, sys
-p = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
-if p.get("dirty") is not False:
-    raise SystemExit("Open Perception Kit provenance must record dirty=false")
-commit = subprocess.check_output(["git", "-C", sys.argv[2], "rev-parse", "HEAD"], text=True).strip()
-if p.get("repository_commit") != commit:
-    raise SystemExit("Open Perception Kit provenance does not match the repository commit")' \
-    "${open_perception_kit_provenance}" "${REPO_ROOT}"
-install -m 0644 \
-    "${open_perception_kit_archive}" \
-    "${open_perception_kit_checksum}" \
-    "${open_perception_kit_provenance}" \
-    "${open_perception_kit_root}/"
 
 expected_machine="Advanced Micro Devices X86-64"
 if [[ "${ARCHITECTURE}" == arm64 ]]; then
@@ -356,12 +449,14 @@ shlibs_depends="${shlibs_output#shlibs:Depends=}"
     die "dpkg-shlibdeps did not produce shlibs:Depends"
 
 runtime_depends=(
+    ca-certificates
     gstreamer1.0-nice
     gstreamer1.0-plugins-bad
     gstreamer1.0-plugins-base
     gstreamer1.0-plugins-good
     libpython3.13
     python3.13
+    python3-pip
 )
 for dependency in "${runtime_depends[@]}"; do
     shlibs_depends+=", ${dependency}"
@@ -383,10 +478,11 @@ Depends: ${shlibs_depends}
 Recommends: gstreamer1.0-tools
 Description: Open Perception Kit GStreamer inference runtime
  OPK GStreamer plugins, private ONNX and ExecuTorch operation modules,
- ONNX Runtime, and the matching Open Perception Kit SDK bundle.
+ ONNX Runtime, and the generated Open Perception Kit Python package.
 EOF
 
 find "${package_root}" -type d -exec chmod 0755 {} +
 chmod 0644 "${package_root}/DEBIAN/control"
+chmod 0755 "${package_root}/DEBIAN/postinst" "${package_root}/DEBIAN/postrm"
 dpkg-deb --root-owner-group --build "${package_root}" "${OUTPUT}"
 printf 'Created %s\n' "${OUTPUT}"

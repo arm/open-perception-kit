@@ -446,8 +446,11 @@ def stage_python_runtime(args: argparse.Namespace) -> None:
     target_root = Path(args.stage_root).resolve() / PYTHON_RUNTIME_ROOT
     target_root.mkdir(parents=True, exist_ok=True)
     clear_python_runtime(target_root)
+    requested_distributions = set(
+        getattr(args, "distribution", None) or PYTHON_RUNTIME_DISTRIBUTIONS
+    )
     versions: dict[str, str] = {}
-    for requested_name in sorted(PYTHON_RUNTIME_DISTRIBUTIONS):
+    for requested_name in sorted(requested_distributions):
         name, distribution = installed_python_runtime_distribution(requested_name)
         if stage_python_distribution(distribution, target_root) == 0:
             fail(f"Python runtime distribution has no package files: {name}")
@@ -967,6 +970,11 @@ def main() -> int:
 
     stage_python_runtime_parser = subparsers.add_parser("stage-python-runtime")
     stage_python_runtime_parser.add_argument("--stage-root", required=True)
+    stage_python_runtime_parser.add_argument(
+        "--distribution",
+        action="append",
+        choices=sorted(PYTHON_RUNTIME_DISTRIBUTIONS),
+    )
 
     validate_package_parser = subparsers.add_parser("validate-package")
     validate_package_parser.add_argument("--architecture", choices=sorted(ARCHITECTURES), required=True)

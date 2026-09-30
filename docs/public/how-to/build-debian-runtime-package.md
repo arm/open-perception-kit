@@ -8,12 +8,15 @@ description: Build the architecture-specific OPK GStreamer runtime package throu
 
 The `opk-runtime` Debian package contains the six OPK GStreamer plugins, their
 private common and operation modules, ONNX Runtime, the statically linked
-ExecuTorch operation module, the PythonScript operation with its locked private
-NumPy, FlatBuffers, and Open Perception Kit packages, and the matching SDK
-release triplet. It also contains the browser assets required by `opksink` under
-`/usr/share/opk/web` and the canonical Perception FlatBuffers schemas under
-`/usr/share/opk/schemas/flatbuffers`. The complete checked-in documentation tree
-is available under `/usr/share/opk/docs`.
+ExecuTorch operation module, the PythonScript operation, and the generated Open
+Perception Kit Python package. NumPy and the FlatBuffers Python runtime are not
+distributed in the Debian archive. The package's `postinst` downloads their
+exact checksum-locked upstream wheels into
+`/var/lib/opk/python`; package configuration fails if those downloads or their
+version and location checks fail. It also contains the browser assets required
+by `opksink` under `/usr/share/opk/web` and the canonical Perception FlatBuffers
+schemas under `/usr/share/opk/schemas/flatbuffers`. The complete checked-in
+documentation tree is available under `/usr/share/opk/docs`.
 It deliberately excludes models, model descriptors, OpChains, pipelines,
 sample media, and the OPK launcher. Those architecture-independent runtime
 resources belong in a separate data package.
@@ -70,24 +73,6 @@ legal tree, tag commit, and version under:
 /usr/share/opk/licenses/executorch/third-party/
 ```
 
-## Prepare the Open Perception Kit SDK
-
-Create the Open Perception Kit SDK triplet from the same clean commit that will build
-the Debian package:
-
-```bash
-mkdir -p "$PWD/artifacts/open-perception-kit"
-
-./scripts/perception-sdk.sh package \
-  --output-dir "$PWD/artifacts/open-perception-kit" \
-  --expect-version "$(sed -n "s/^[[:space:]]*version: '\([^']*\)'.*/\1/p" development/meson.build)" \
-  --artifact-dir /opt/opk-deps/open-perception-kit-artifacts
-```
-
-The directory must contain exactly the versioned SDK ZIP, its SHA-256 sidecar,
-and its provenance sidecar. Package assembly verifies the triplet and rejects
-dirty provenance or a repository commit mismatch.
-
 ## Verify the Python Ops runtime
 
 The supported development container installs the generated Open Perception Kit Python
@@ -135,13 +120,12 @@ meson setup "$PWD/development/build-deb" "$PWD/development" \
   -Drelease_package=true \
   -Ddeb_package=true \
   -Ddeb_package_revision=1 \
-  -Dopen_perception_kit_dir="$PWD/artifacts/open-perception-kit" \
   -Dexecutorch=enabled \
   -Dpython_ops=enabled
 ```
 
-`open_perception_kit_dir` must be an absolute path. The package revision is appended
-to the OPK product version using Debian's `<upstream>-<revision>` format. Python
+The package revision is appended to the OPK product version using Debian's
+`<upstream>-<revision>` format. Python
 Ops uses Debian Trixie's Python 3.13 runtime and the locked environment selected
 through `OPK_PYTHON_RUNTIME_VENV` when Meson is configured.
 
@@ -162,12 +146,21 @@ development/build-deb/packaging/opk-runtime_0.3.1-1_amd64.deb
 The assembler derives shared-library dependencies with `dpkg-shlibdeps` and
 adds the GStreamer Base, Good, Bad, and Nice runtime plugin packages explicitly.
 It validates the ELF architecture, private-library and plugin RUNPATHs, ONNX
-Runtime SONAME link, SDK provenance, and the allowlisted package contents before
-calling `dpkg-deb`.
+Runtime SONAME link, and the allowlisted package contents before calling
+`dpkg-deb`.
 
 Inspect the result without installing it:
 
 ```bash
 dpkg-deb --info development/build-deb/packaging/opk-runtime_*.deb
 dpkg-deb --contents development/build-deb/packaging/opk-runtime_*.deb
+```
+
+Installing the package requires network access to `files.pythonhosted.org`.
+APT installs `python3-pip`, then the package's `postinst` downloads and verifies
+the locked NumPy and FlatBuffers wheels. If this step fails, the package remains
+unconfigured. Restore network access and retry the same idempotent configuration:
+
+```bash
+sudo dpkg --configure opk-runtime
 ```
