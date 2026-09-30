@@ -5,7 +5,8 @@
     "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.video.yaml",
     "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.audio.yaml",
     "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.shared_memory.yaml",
-    "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.network.yaml"
+    "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.network.yaml",
+    "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.workspace.yaml"
   ],
   "service": "opk-dev",
   "runServices": [
