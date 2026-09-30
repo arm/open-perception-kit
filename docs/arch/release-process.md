@@ -57,11 +57,13 @@ Before publication, download both built archives, the SDK packages, and
 components, versions, licences, notices, and any corresponding-source
 obligations. The source SBOM scans the checkout; the built artifacts establish
 what is actually distributed.
+Update the [Apache-2.0 release evidence](apache-2.0-release-evidence.md) for
+the selected commit and built artifacts before answering the licence check.
 
 The protected `release` environment now pauses the first publishing job after
 the archives and source SBOM are built. Its reviewer must inspect those
-artifacts, complete the inventory review, and verify the IP review
-link in EXPKITS-1229 before approving publication.
+artifacts, complete the inventory review, and verify the intellectual property
+review link in EXPKITS-1229 before approving publication.
 
 ### Reference strategy
 
