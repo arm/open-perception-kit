@@ -17,7 +17,10 @@ limitations under the License.
 
 # Third-party components
 
-List of software components used by OPK.
+List of software components used by OPK, including development tools and
+components in distributed artifacts. A row does not by itself mean that its
+package ships in every artifact; see the [release notice locations](public/licensing.md#notices-in-release-artifacts)
+and check the built artifacts before publication.
 
 | Component | Version or source pin | License | Origin |
 | --- | --- | --- | --- |
@@ -142,3 +145,12 @@ List of software components used by OPK.
 | [WebSocket++](https://github.com/zaphoyd/websocketpp) | [0.8.2](https://github.com/zaphoyd/websocketpp/tree/0.8.2) | BSD-3-Clause | Debian |
 | [cpp-httplib](https://github.com/yhirose/cpp-httplib) | [0.56.0](https://github.com/yhirose/cpp-httplib/tree/v0.56.0) | MIT | GitHub |
 | [zipp](https://github.com/jaraco/zipp) | [3.21.0](https://pypi.org/project/zipp/3.21.0/) | MIT | PyPI |
+
+The published architecture archives and SDK packages do not bundle
+cmake-format, cmakelang, autocommand, pathspec, certifi, tqdm, ultralytics,
+`rusty_link`, PyGObject or pycairo. The PyPI PyGObject and pycairo entries are
+build requirements; Cairn instead uses Debian's `python3-gi`, whose copyright
+file remains in the image at `/usr/share/doc/python3-gi/copyright` and whose
+LGPL text is at `/usr/share/common-licenses/LGPL-2`. The Python SDK permits
+`flatbuffers>=24.3.25,<26.0.0`; 24.3.25 is a lower bound, while 25.9.23 is
+the checked-in runtime pin.
