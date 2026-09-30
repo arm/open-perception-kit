@@ -29,8 +29,8 @@ limitations under the License.
 The Open Perception Kit is aimed at Arm Linux developers, providing a fast path for early application development including vision inference without needing to build your perception stack from scratch by combining:
 
 - GStreamer-based media pipeline integration.
-- An Op-based execution model for preprocessing, inference, and postprocessing.
-- Schema-defined FrameResults that downstream elements can render, track, or publish
+- Reusable processing steps for preparing images for inference, running models, and interpreting their outputs.
+- Schema-defined inference results that can be displayed, used to track objects, or shared with other applications.
 
 It uses a container-based workflow with a packaged pipeline, browser viewer, model controls, debug signals, and output paths you can adapt for your own
 application.
