@@ -26,23 +26,16 @@ limitations under the License.
 
 # Open Perception Kit CLI quick start
 
-The Open Perception Kit helps Raspberry Pi developers get from setup to
-edge-vision inference without building the whole perception stack from scratch.
-It gives you a fast path from a ready Raspberry Pi 5 to visible inference and
-a starting point for a vision application.
+The Open Perception Kit is aimed at Arm Linux developers, providing a fast path for early application development including vision inference without needing to build your perception stack from scratch by combining:
 
-It uses a container-based workflow with a packaged pipeline, browser viewer,
-model controls, debug signals, and output paths you can adapt for your own
+- GStreamer-based media pipeline integration.
+- An Op-based execution model for preprocessing, inference, and postprocessing.
+- Schema-defined FrameResults that downstream elements can render, track, or publish
+  
+It uses a container-based workflow with a packaged pipeline, browser viewer, model controls, debug signals, and output paths you can adapt for your own
 application.
 
-At a high level, it combines:
-
-- GStreamer-based media pipeline integration
-- an Op-based execution model for preprocessing, inference, and postprocessing
-- schema-defined FrameResults that downstream elements can render, track, or publish
-
-**Note:** This developer preview is for evaluation, early application
-development, and feedback.
+**Note**: This developer preview is for evaluation, early application development, and feedback.
 
 <!-- BEGIN GENERATED DOCS BUILD INFO -->
 <!-- END GENERATED DOCS BUILD INFO -->
@@ -53,14 +46,7 @@ development, and feedback.
 
 ### What to expect
 
-Plan for around 45 minutes from starting these steps with the prerequisites
-ready to first inference.
-
-This guide uses a host machine and a target Pi:
-
-- The host machine: the computer used for SSH and the browser viewer.
-- The target Pi: the Raspberry Pi 5, where you clone the repository, build the
-  container, build the kit, and run your first pipeline.
+Plan for around 45 minutes to get to first inference after meeting all prerequisites.
 
 In this quick start, you will:
 
@@ -71,25 +57,34 @@ In this quick start, you will:
 - Run the first pipeline.
 - Open the browser viewer and confirm inference.
 
+The Open Perception Kit is hardware agnostic across Arm Linux devices. The table
+below lists the configurations validated so far; other devices and operating
+systems have not been validated.
+
+| Component          | Validated configuration         |
+| ------------------ | ------------------------------- |
+| Device             | Raspberry Pi (at least 8GB RAM)                            |
+| Operating system   | Raspberry Pi OS 64-bit (Trixie) |
+| Container platform | Linux ARM64                     |
+| CSI camera         | Raspberry Pi Camera Module 3    |
+| USB webcam         | UVC (USB Video Class) webcam    |
+
 ### Starting prerequisites
 
-Have these on the host machine before you start:
+Host machine:
+- Windows, macOS or Linux machine.
+- Network access to the target Pi.
+- [Docker](https://docs.docker.com/get-started/get-docker/) 
 
-- Windows, macOS, or Linux.
-- Network access from the host machine to the target Pi.
-
-Use this target Pi setup before you start:
-
-- Raspberry Pi 5 with at least 8GB RAM and 64-bit Raspberry Pi OS based on
-  Debian Trixie.
-- SSH enabled on the Raspberry Pi, with a working login from the host machine.
-  Follow [Raspberry Pi SSH Setup](getting-started/raspberry-pi-ssh.md) for key-based
-  login without repeated password prompts, or its optional password-based path.
+Target (Raspberry Pi 5)
+- SSH enabled, with a username and password you can use from
+  the host machine.
 - Known target Pi hostname or IP address.
-- Permission to run `sudo` on the target Pi.
-- Internet access from the target Pi to GitHub, package repositories, and
+- Permission to run `sudo`.
+- Internet access to GitHub, package repositories, and
   container or source locations used during the first container build.
-
+- [Docker](https://docs.docker.com/get-started/get-docker/)
+ 
 ### 1. Connect to the target Pi
 
 #### 1.1 Start the SSH session
