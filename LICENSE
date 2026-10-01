@@ -16,8 +16,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 Third-party components retain the terms in their accompanying notices.
-See docs/third-party-licenses.md for the third-party scan report.
-Release packages and images include that report as
+See docs/third-party-licenses.md for the third-party component inventory.
+Release packages and images include that inventory as
 share/opk/licenses/third-party-licenses.md alongside the original licence texts.
 
 Online licence and notice information:

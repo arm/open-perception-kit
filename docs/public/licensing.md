@@ -55,8 +55,8 @@ photographs, video, fonts, or other content.
   wheels, TypeScript archives and Rust vendor tree retain original runtime notices.
   Each OPK language package also includes its own `LICENSE` and `NOTICE`.
 - Source checkout: the maintained [third-party component inventory](https://github.com/arm/open-perception-kit/blob/main/docs/third-party-licenses.md)
-  lists projects, versions, licences and origins. It was initialized from the
-  supplied Black Duck scan and requires reconciliation with each release.
+  lists projects, versions, licences and origins. Release packaging stages the
+  original notices from the resolved dependencies.
 
 Font Awesome's CSS is MIT-licensed and its bundled font uses OFL-1.1. Their
 original `LICENSE.txt` accompanies the files under `development/web/content/vendor/fontawesome/`.

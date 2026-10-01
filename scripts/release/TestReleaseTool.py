@@ -183,6 +183,17 @@ class ReleaseToolTests(unittest.TestCase):
             package.touch()
             with self.assertRaisesRegex(RuntimeError, "Redistributed Python package"):
                 release_tool.validate_release_tree(root)
+            shutil.rmtree(package.parent)
+
+            wheel = root / "lib/opk/numpy-2.4.2.whl"
+            wheel.parent.mkdir(parents=True, exist_ok=True)
+            wheel.touch()
+            with self.assertRaisesRegex(RuntimeError, "Python wheel"):
+                release_tool.validate_release_tree(root)
+            wheel.unlink()
+            wheel.symlink_to("missing.whl")
+            with self.assertRaisesRegex(RuntimeError, "Python wheel"):
+                release_tool.validate_release_tree(root)
 
     def test_onnxruntime_provenance_requires_locked_source_and_notices(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -367,6 +378,18 @@ class ReleaseToolTests(unittest.TestCase):
                     with self.assertRaisesRegex(
                         RuntimeError, "Forbidden retired release path"
                     ):
+                        release_tool.validate_release_tree(package_root)
+                    payload.unlink()
+
+    def test_rejects_bundled_gnu_runtimes_without_source_review(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            package_root = Path(temporary)
+            for name in ("libgfortran.so.5", "libquadmath.so.0"):
+                with self.subTest(name=name):
+                    payload = package_root / "lib/opk" / name
+                    payload.parent.mkdir(parents=True, exist_ok=True)
+                    payload.touch()
+                    with self.assertRaisesRegex(RuntimeError, "source review"):
                         release_tool.validate_release_tree(package_root)
                     payload.unlink()
 

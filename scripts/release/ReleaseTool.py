@@ -645,6 +645,10 @@ def validate_release_tree(package_root: Path) -> None:
         relative = path.relative_to(package_root)
         if path.name.casefold().endswith((".onnx", ".onnx.part", ".pte", ".pte.part", ".bin", ".bin.part")):
             fail(f"Forbidden model binary in release: {relative}")
+        if path.is_file() and path.name.startswith(("libgfortran", "libquadmath")) and ".so" in path.name:
+            fail(f"GNU runtime library needs separate source review before release: {relative}")
+        if path.suffix.casefold() == ".whl":
+            fail(f"Python wheel is forbidden in release archive: {relative}")
         if legal_root in path.parents:
             continue
         if (
