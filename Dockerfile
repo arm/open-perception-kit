@@ -367,7 +367,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   apt-get install -y --no-install-recommends \
   bash-completion=1:2.16.0-7 bat=0.25.0-2+b2 clangd=1:19.0-63 \
   bind9-dnsutils=1:9.20.29-1~deb13u1 eza=0.21.0-1+b1 fd-find=10.2.0-1+b5 \
-  ffmpeg=7:7.1.5-0+deb13u1 firefox-esr=140.16.0esr-1~deb13u1 fonts-powerline=2.8.4-1 \
+  ffmpeg=7:7.1.5-0+deb13u1 firefox-esr=153.4.0esr-1~deb13u1 fonts-powerline=2.8.4-1 \
   gdb=16.3-1 gcovr=7.2+really-1.1 iproute2=6.15.0-1 \
   iputils-arping=3:20240905-3 iputils-ping=3:20240905-3 less=668-1 \
   locales=2.41-12+deb13u4 lua5.1=5.1.5-11 luarocks=3.8.0+dfsg1-1 \
