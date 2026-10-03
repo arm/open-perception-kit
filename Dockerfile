@@ -72,7 +72,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   libgstreamer1.0-dev=1.26.2-2 \
   libjson-glib-dev=1.10.6+ds-2 \
   libsoup-3.0-dev=3.6.5-3 \
-  libssl-dev=3.5.7-1~deb13u2 \
+  libssl-dev=3.5.7-1~deb13u3 \
   ninja-build="${ninja_version}" \
   pkg-config=1.8.1-4 \
   python3=3.13.5-1 \
@@ -367,7 +367,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   apt-get install -y --no-install-recommends \
   bash-completion=1:2.16.0-7 bat=0.25.0-2+b2 clangd=1:19.0-63 \
   bind9-dnsutils=1:9.20.29-1~deb13u1 eza=0.21.0-1+b1 fd-find=10.2.0-1+b5 \
-  ffmpeg=7:7.1.5-0+deb13u1 firefox-esr=140.16.0esr-1~deb13u1 fonts-powerline=2.8.4-1 \
+  ffmpeg=7:7.1.5-0+deb13u1 firefox-esr=153.4.0esr-1~deb13u1 fonts-powerline=2.8.4-1 \
   gdb=16.3-1 gcovr=7.2+really-1.1 iproute2=6.15.0-1 \
   iputils-arping=3:20240905-3 iputils-ping=3:20240905-3 less=668-1 \
   locales=2.41-12+deb13u4 lua5.1=5.1.5-11 luarocks=3.8.0+dfsg1-1 \
@@ -789,7 +789,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   libfmt10=10.1.1+ds1-4 \
   libjson-glib-1.0-0=1.10.6+ds-2 \
   libsoup-3.0-0=3.6.5-3 \
-  libssl3t64=3.5.7-1~deb13u2 \
+  libssl3t64=3.5.7-1~deb13u3 \
   libusb-1.0-0=2:1.0.28-1 \
   python3=3.13.5-1 \
   zlib1g=1:1.3.dfsg+really1.3.1-1+b1; \
