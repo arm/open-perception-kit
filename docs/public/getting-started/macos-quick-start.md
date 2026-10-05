@@ -5,7 +5,7 @@ sidebar_label: macOS
 description: Set up Open Perception Kit on macOS with Docker Desktop and a local VS Code Dev Container.
 ---
 <!--
-SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 SPDX-License-Identifier: Apache-2.0
 
 Licensed under the Apache License, Version 2.0 (the "License");

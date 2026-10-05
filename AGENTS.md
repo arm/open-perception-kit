@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 SPDX-License-Identifier: Apache-2.0
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -231,6 +231,10 @@ For browser apps that consume metadata:
 
 ### Update docs
 Ground doc changes in checked-in code and config.
+
+Avoid hardcoded counts of changing inventories such as models, plugins,
+packages, or files. Refer to the list or supported set instead of restating its
+size. Preserve numerical contracts, generated statistics, and dated measurements.
 
 - `docs/public/index.md`
 - `docs/public/concepts/structural-basics.md`

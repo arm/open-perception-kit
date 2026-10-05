@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 SPDX-License-Identifier: Apache-2.0
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,6 +31,5 @@ for using the existing downloader with a binary release.
 - [YOLO26s INT8, 320 pixels](https://huggingface.co/Arm/yolo26s-320-int8-onnx-raspberrypi5)
 - [YOLO26s INT8, 480 pixels](https://huggingface.co/Arm/yolo26s-480-int8-onnx-raspberrypi5)
 - [YOLO26s INT8, 640 pixels](https://huggingface.co/Arm/yolo26s-640-int8-onnx-raspberrypi5)
-- [OSNet x0.25 INT8](https://huggingface.co/Arm/osnet-x0-25-int8-mlas-onnx-raspberrypi5)
 - NITEC ResNet-18 INT8: [ONNX](https://huggingface.co/Arm/nitec-resnet-18-int8-onnx), [ExecuTorch/XNNPACK](https://huggingface.co/Arm/nitec-resnet-18-int8-xnnpack-executorch)
 - MobileGaze MobileNetV2 INT8: [ONNX](https://huggingface.co/Arm/mobilegaze-mobilenet-v2-int8-onnx), [ExecuTorch/XNNPACK](https://huggingface.co/Arm/mobilegaze-mobilenet-v2-int8-xnnpack-executorch)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -46,11 +46,12 @@ FLOWDATA_MANIFEST_FILENAME = "flowdata-manifest.json"
 PERCEPTION_MANIFEST_FILENAME = "open-perception-kit-manifest.json"
 SDK_LICENSE = "Apache-2.0"
 SDK_LEGAL_FILES = ("LICENSE", "NOTICE")
+PYTHON_OPTIONAL_DEPENDENCIES = {"numpy": ["numpy"]}
 # Authored inputs copied into each generated language package.
 SDK_LEGAL_INPUT_DIR = Path(__file__).with_name("generator-inputs")
 CPP_LICENSE_HEADER = """\
 /*
- * SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+ * SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -67,7 +68,7 @@ CPP_LICENSE_HEADER = """\
  */
 """
 PY_LICENSE_HEADER = """\
-# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -256,7 +257,15 @@ def prepare_python_package(
     )
     if text.count(source) != 1:
         raise RuntimeError("generated Python project name is unexpected")
-    pyproject.write_text(text.replace(source, target), encoding="utf-8")
+    optional_dependencies = "\n".join(
+        f"{name} = {json.dumps(packages)}"
+        for name, packages in PYTHON_OPTIONAL_DEPENDENCIES.items()
+    )
+    pyproject.write_text(
+        text.replace(source, target)
+        + f"\n[project.optional-dependencies]\n{optional_dependencies}\n",
+        encoding="utf-8",
+    )
 
 
 def synchronize_plumber_dependency(
@@ -793,7 +802,7 @@ def write_perception_manifest(
         },
         "upstream_receipts": flowdata_manifests,
         "postprocessing": {
-            "copyright_headers": "SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>",
+            "copyright_headers": "SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates",
             "cmake_formatter": command_version([CMAKE_FORMAT, "--version"]),
             "cpp_formatter": command_version([clang_format, "--version"]),
             "python_formatter": command_version([formatter_python, "-m", "autopep8", "--version"]),

@@ -3,7 +3,7 @@ name: author-opk-python-postprocessor
 description: Author and integrate trusted, model-local Python postprocessors using `opk-python-ops/PythonScript`. Use when adding or modifying an OPK PythonScript Op, Python guest postprocessor, tensor-processing script, stateful Python inference callback, model opchain integration, demonstrational pipeline, or related tests and documentation. Do not use for embedded Python runtime or bridge implementation changes, external SDK consumers, or new Open Perception Kit payload schemas.
 ---
 <!--
-SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 SPDX-License-Identifier: Apache-2.0
 
 Licensed under the Apache License, Version 2.0 (the "License");

@@ -3,7 +3,7 @@ name: evolve-perception-schema
 description: Evaluate, add, or evolve Open Perception Kit FlatBuffers schemas and integrate their runtime semantics. Use for changes under schemas/perception, new FrameResults payloads, compatibility reviews, release-impact decisions, or complex features that require schema updates. This skill owns authored schema design and compatibility; use regenerate-perception-sdk for checked-in generated outputs and package-open-perception-kit-release for distributable ZIP bundles.
 ---
 <!--
-SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 SPDX-License-Identifier: Apache-2.0
 
 Licensed under the Apache License, Version 2.0 (the "License");

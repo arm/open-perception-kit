@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -57,3 +57,20 @@ cp -r "${temporary_directory}/${archive_directory}/lib" "${destination}/"
 cp "${temporary_directory}/${archive_directory}/LICENSE" \
     "${temporary_directory}/${archive_directory}/ThirdPartyNotices.txt" \
     "${destination}/share/doc/onnxruntime/"
+
+python3 - "${destination}/provenance.json" "${archive_url}" "${archive_sha256}" \
+    "${destination}/lib/libonnxruntime.so.${version}" << 'PYTHON'
+import hashlib
+import json
+import sys
+from pathlib import Path
+
+receipt, url, archive_sha256, library = sys.argv[1:]
+library = Path(library)
+Path(receipt).write_text(json.dumps({
+    "archive_url": url,
+    "archive_sha256": archive_sha256,
+    "library": library.name,
+    "library_sha256": hashlib.sha256(library.read_bytes()).hexdigest(),
+}, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PYTHON

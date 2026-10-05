@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+ * SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -179,7 +179,6 @@ const {modelsManager} = await import("../src/models.js");
 test("selector keeps the current default detector first in the preferred model order", () => {
   const models = [
     "yolo26n-320",
-    "osnet-x0-25",
     "ultraface-rfb-320",
     "nitec-resnet-18",
     "mobilegaze-mobilenet-v2",

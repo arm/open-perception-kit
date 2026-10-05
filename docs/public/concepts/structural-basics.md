@@ -5,7 +5,7 @@ sidebar_label: Structural Basics
 description: Learn where Open Perception Kit stores models, opchains, pipelines, media, scripts, source code, and docs.
 ---
 <!--
-SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 SPDX-License-Identifier: Apache-2.0
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -60,7 +60,7 @@ These contain the project documentation.
 - `docs/public/how-to/` contains practical task guides.
 - `docs/public/concepts/` contains conceptual background pages.
 - `docs/public/getting-started/binary-release.md` documents direct integration
-  of the three release archives.
+  of the release archives.
 - `docs/public/docs-config.json` defines the docs site label, navigation, and sidebar grouping.
 - `docs/public/assets/` contains images referenced by public Markdown pages.
 - `docs/public/static/` contains generated diagrams and assets served at site-root URLs.

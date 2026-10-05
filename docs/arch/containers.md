@@ -3,7 +3,7 @@ sidebar_position: 4
 sidebar_label: Containers
 ---
 <!--
-SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 SPDX-License-Identifier: Apache-2.0
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -30,8 +30,8 @@ from runtime images while still giving each workflow a reproducible environment.
 
 ## Architecture
 
-The container graph is organized into four lanes. The arrows below mirror the
-current Dockerfile `FROM` and artifact-copy relationships.
+The arrows below mirror the current Dockerfile `FROM` and artifact-copy
+relationships.
 
 ```text
 External bases
@@ -182,7 +182,7 @@ stages inherit everything from their parent unless noted otherwise.
   Arm Multimedia Hugging Face bucket by SHA-256, and the stage emits
   `data/videos/SHA256SUMS` beside the verified media.
 - `opk-models`: starts from `python:3.13-slim-trixie`, adds
-  `huggingface_hub==1.18.0` and `jsonschema==4.26.0`, then runs
+  `huggingface_hub==1.32.0` and `jsonschema==4.26.0`, then runs
   `scripts/download-models.py` with the optional Hugging Face build secret to
   resolve model artifacts under `config/models`.
 - `opk-release-sources`: copies the build context through
@@ -192,7 +192,7 @@ stages inherit everything from their parent unless noted otherwise.
 - `opk-dev-base`: adds `wget`, `sudo`, `gnupg`, `shfmt`, `zip`, `python3-pip`,
   `pre-commit`, `lldb-17`, `valgrind`, `ccache`, `file`, GStreamer runtime plugins,
   `actionlint`, ONNX Runtime, `uv`, the `opk-ci` tool, `plumber`, and
-  `huggingface_hub==1.18.0` in the devtools venv, with
+  `huggingface_hub==1.32.0` in the devtools venv, with
   `jsonschema==4.26.0` inherited from its system-site packages. It also owns
   the shared mounted-checkout entrypoint used by development and CI targets.
 - `opk-dev-tools`: adds ExecuTorch packages, locale support, shell/editor tools
@@ -220,8 +220,9 @@ stages inherit everything from their parent unless noted otherwise.
   `tools/perception` and updated manually, not fetched during the build.
   Release builds reuse the same Meson build to create
   the validated architecture tarball in `/opt/opk-release-artifacts`. The native
-  archive contains the Python operation module and copies its locked runtime
-  packages into `share/opk/python`. Cross builds omit the embedded Python
+  archive contains the Python operation module and its type stub under
+  `share/opk/python`. Python runtime packages are installed in a host environment
+  outside the archive. Cross builds omit the embedded Python
   operation module because its target Python development dependency cannot be
   discovered through the current cross file.
 - `opk-python-ops-runtime`: runs on the target platform and creates the embedded
@@ -258,7 +259,7 @@ The `opk-docs` image reuses the development base and adds documentation tools
 such as Doxygen, Pandoc, Graphviz, and PlantUML. For release documentation
 publishing, see [Publish From GitHub Actions](../README.md#publish-from-github-actions).
 
-The deployment lane has two roles plus shared artifact inputs.
+The deployment lane combines build and runtime roles with shared artifact inputs.
 `opk-deployment-build` inherits the cross-build base, copies model configurations
 and demo media, compiles OPK, and collects `/opt/opk-app`. For a native release
 it also packages the checked-in Open Perception Kit snapshot and creates the

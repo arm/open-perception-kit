@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright 2025-2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+ * SPDX-FileCopyrightText: Copyright 2025-2026 Arm Limited and/or its affiliates
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -732,7 +732,6 @@ function enableAudioButton(enable) {
 // development/web/src/models.js
 var PREFERRED_MODEL_ORDER = [
   "Yolo26n320Int8",
-  "OsnetX025Int8Reid",
   "UltraFaceRfb320Int8",
   "NitecResnet18Int8",
   "MobileGazeMobilenetV2Int8"

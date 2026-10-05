@@ -5,7 +5,7 @@ sidebar_label: Custom Postprocessing
 description: Add a parser when a model's output tensors do not fit an existing Open Perception Kit postprocessor.
 ---
 <!--
-SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 SPDX-License-Identifier: Apache-2.0
 
 Licensed under the Apache License, Version 2.0 (the "License");

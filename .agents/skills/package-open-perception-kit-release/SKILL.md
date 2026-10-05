@@ -3,7 +3,7 @@ name: package-open-perception-kit-release
 description: Build and verify the deterministic Open Perception Kit release ZIP, checksum, and provenance sidecar from an already committed canonical generated snapshot. Use for release candidates, pre-release deployment artifacts, reproducibility checks, offline bundle creation, verification of an existing open-perception-kit bundle, or handoff into OPK product package assembly. Do not use this skill to modify schemas or regenerate checked-in SDK sources.
 ---
 <!--
-SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 SPDX-License-Identifier: Apache-2.0
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -100,7 +100,7 @@ Require both release sidecars:
   --require-sidecars
 ```
 
-Confirm that these three files exist:
+Confirm that these files exist:
 
 - `open-perception-kit-${sdk_version}.zip`
 - `open-perception-kit-${sdk_version}.zip.sha256`
@@ -138,7 +138,7 @@ Choose one handoff mode:
   without FlatBuffers generation. A red release
   requires release-owner cleanup before retry. Public distribution must use
   authenticated, server-enforced immutable publication instead.
-  Generic Artifactory keeps the three OPK archives. Manual snapshots instead
+  Generic Artifactory keeps the OPK archives. Manual snapshots instead
   place the wheel and crate beside those archives in their immutable generic
   Artifactory folder.
   Do not publish the rest of the triplet as separate top-level OPK release

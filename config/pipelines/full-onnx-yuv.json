@@ -1,5 +1,5 @@
 {
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "All supported ONNX models on bundled video with the decoded pixel format preserved.",
   "sourceInfo": "bundled video file",
   "loop": true,
@@ -13,7 +13,6 @@
     "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/yolo26s-320/opchain.json\" active=false !",
     "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/yolo26s-480/opchain.json\" active=false !",
     "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/yolo26s-640/opchain.json\" active=false !",
-    "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/osnet-x0-25/opchain.json\" active=false !",
     "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/nitec-resnet-18/opchain.json\" active=false !",
     "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/mobilegaze-mobilenet-v2/opchain.json\" active=false !",
     "opktracker content-type=genericObject !",

@@ -5,7 +5,7 @@ sidebar_label: Bring Your Model
 description: Add a model through descriptors, OpChains, parser selection, and pipeline presets before changing runtime code.
 ---
 <!--
-SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 SPDX-License-Identifier: Apache-2.0
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -158,7 +158,7 @@ pipeline preset, Model descriptor, and OpChain with:
 opk-ci --config-schema-check
 ```
 
-All three JSON contracts use `MAJOR.MINOR.PATCH` string versions, initially
+These JSON contracts use `MAJOR.MINOR.PATCH` string versions, initially
 `"version": "1.0.0"`. Increment an existing file's patch whenever editing it
 within the same major/minor contract. Major mismatches fail, minor mismatches
 warn and continue, and patch differences are ignored at runtime. See
@@ -329,7 +329,7 @@ If you need to go beyond that and change elements or core runtime behavior, the 
 - `config/models/yolo26n-320/` for a simple object detector
 - `config/models/ultraface-rfb-320/` for a simple face detector
 - `config/opchains/mobilegaze-mobilenet-v2/` for a detector + gaze cascade
-- `config/opchains/osnet-x0-25/` for a detector + embedding cascade
+- `config/opchains/nitec-resnet-18/` for a detector + classification cascade
 
 ## If the built-in parsers are not enough
 

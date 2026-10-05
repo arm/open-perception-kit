@@ -3,7 +3,7 @@ name: opk-release
 description: Prepare, validate, and troubleshoot releases for this repository, including Semantic Version selection, changelog reconstruction, version updates, release pull requests, release-related Jira follow-ups, and release CI failures. Use for release branches, release PRs to main or develop, and investigations of release workflows; do not use for ordinary development or generic Semantic Versioning advice.
 ---
 <!--
-SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 SPDX-License-Identifier: Apache-2.0
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -52,7 +52,7 @@ Report the predecessor, proposed version, classification, and short rationale be
 
 ## Prepare and validate
 
-1. Update exactly three authored active-version surfaces:
+1. Update the authored active-version surfaces:
    - `development/meson.build`: authoritative product version.
    - `CHANGELOG.md`: one non-empty section for the same version.
    - `tools/plumber/pyproject.toml`: the exact `open_perception_kit==<version>` dependency.

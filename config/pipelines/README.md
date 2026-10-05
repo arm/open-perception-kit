@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates <perception-fdbck@arm.com>
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
 SPDX-License-Identifier: Apache-2.0
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -67,9 +67,9 @@ pipeline. The exact target value `none` disables all asynchronous log output.
 
 ## Model activation
 
-Focused presets enable their model or complete detector cascade. The four
-`full-onnx` presets register all ten models in dependency-safe order with
-YOLO26n-320 active by default. The remaining models can be enabled from the
+Focused presets enable their model or complete detector cascade. The
+`full-onnx` presets register all supported ONNX models in dependency-safe order
+with YOLO26n-320 active by default. The remaining models can be enabled from the
 Open Perception Kit web UI's **Model Selector** panel.
 
 Setting `active=false` skips per-frame inference only. Each `opkinfer` still
@@ -80,10 +80,10 @@ selected pipeline must be present.
 
 Full catalog presets:
 
-- `full-onnx` — all ten ONNX models on bundled video.
-- `full-onnx-raspicam` — all ten ONNX models on a Raspberry Pi camera.
-- `full-onnx-usb-cam` — all ten ONNX models on a USB camera at `/dev/video0`.
-- `full-onnx-yuv` — all ten ONNX models on bundled video while preserving the
+- `full-onnx` — all supported ONNX models on bundled video.
+- `full-onnx-raspicam` — all supported ONNX models on a Raspberry Pi camera.
+- `full-onnx-usb-cam` — all supported ONNX models on a USB camera at `/dev/video0`.
+- `full-onnx-yuv` — all supported ONNX models on bundled video while preserving the
   decoded pixel format, with an OPKOSD overlay.
 
 Focused detector and cascade presets:
@@ -97,7 +97,6 @@ Focused detector and cascade presets:
   detected face crops.
 - `mobilegaze-mobilenet-v2-executorch` — UltraFace ONNX followed by MobileGaze
   ExecuTorch/XNNPACK inference.
-- `osnet-x0-25` — YOLO26n-320 followed by OSNet embeddings and object tracking.
 - `yolo26n-320`, `yolo26n-480`, and `yolo26n-640` — YOLO26n at the selected
   input resolution on bundled video.
 - `yolo26s-320`, `yolo26s-480`, and `yolo26s-640` — YOLO26s at the selected
