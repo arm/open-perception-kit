@@ -505,6 +505,9 @@ jobs:
     needs: [prepare, artifactory]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Checkout release scripts
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -573,9 +576,13 @@ jobs:
           path: opk-sbom-open-perception-kit-crate.json
           if-no-files-found: error
 
+      - name: Authenticate to crates.io
+        id: crates-auth
+        uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18
+
       - name: Publish open-perception-kit crate to crates.io
         working-directory: ${{ runner.temp }}/open-perception-kit-input/open_perception_kit-cargo-source-${{ needs.prepare.outputs.cargo_package_version }}
         env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates-auth.outputs.token }}
           RUSTUP_TOOLCHAIN: 1.85.0
         run: cargo publish --locked --registry crates-io
