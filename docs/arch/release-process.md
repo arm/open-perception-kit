@@ -175,7 +175,7 @@ For product version `<version>`, the release produces:
 | `opk-<version>-linux-x86_64.tar.gz` | Actions, Artifactory, GitHub Release |
 | `opk-<version>-linux-aarch64.tar.gz` | Actions, Artifactory, GitHub Release |
 | `open_perception_kit-<version>-py3-none-any.whl` | Actions and Artifactory publisher input |
-| `open_perception_kit-<version>.crate` | Actions, Artifactory publisher input, and Cargo publication |
+| `open_perception_kit-<version>.crate` | Actions, Artifactory publisher input, and crates.io |
 | `opk-sbom-source.json` | Actions and GitHub Release |
 | `opk-sbom-open-perception-kit-crate.json` | Actions and GitHub Release |
 
@@ -195,12 +195,10 @@ published as a site.
 2. `artifactory` waits for the builds, the source SBOM, and all required test
    workflows. It collects the architecture archives, the wheel, and the crate in
    `opk-release-artifacts`, then calls `upload-to-artifactory.yaml` in
-   `Arm-Debug/amp-dev-forge-publisher`. It waits for success and retrieves the
+   `Arm-Debug/open-perception-kit-publisher`. It waits for success and retrieves the
    published download URLs.
-3. `perception-cargo-publish` rebuilds and byte-compares the crate, generates its
-   SBOM, and calls `cargo-publish.yaml` in the same publisher repository.
-   It waits for publication to succeed. The publisher owns registry credentials
-   and destinations.
+3. `perception-crates-io-publish` verifies the crate, generates its SBOM, and
+   publishes it to crates.io.
 4. `github-release` waits for both publishers, rejects an existing `v<version>`
    release, and publishes the architecture archives and SBOMs at the selected commit.
    Release notes include the changelog entry, source commit, archive SHA-256
@@ -213,7 +211,7 @@ A push to `main` separately starts the
 [staging documentation workflow](../../.github/workflows/docs-publish.yml).
 
 Do not overwrite published versions. The existing-release check runs after
-Artifactory and Cargo publication. A failed run can leave packages or a GitHub
+Artifactory and crates.io publication. A failed run can leave packages or a GitHub
 Release behind, with no automatic rollback. Check completed jobs and publisher
 runs before retrying.
 
