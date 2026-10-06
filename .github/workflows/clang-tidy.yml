@@ -92,7 +92,7 @@ jobs:
 
       - name: Install clang-tidy
         if: steps.scope.outputs.run == 'true'
-        run: python3 -m pip install clang-tidy==20.1.0 ./tools/opk-ci
+        run: python3 -m pip install ./tools/opk-ci
 
       - name: Build
         if: steps.scope.outputs.run == 'true'

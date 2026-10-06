@@ -197,9 +197,10 @@ jobs:
 
       - name: Set up pinned Rust for open-perception-kit packaging
         if: matrix.architecture == 'aarch64'
-        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+        uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
         with:
           toolchain: 1.85.0
+          rustflags: "-D warnings"
 
       - name: Package open-perception-kit Rust crate
         if: matrix.architecture == 'aarch64'
@@ -523,9 +524,10 @@ jobs:
           path: ${{ runner.temp }}/open-perception-kit-input
 
       - name: Set up pinned Rust for open-perception-kit package verification
-        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+        uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
         with:
           toolchain: 1.85.0
+          rustflags: "-D warnings"
           cache: false
 
       - name: Configure Cargo home
