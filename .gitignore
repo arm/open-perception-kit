@@ -81,6 +81,7 @@ devices.env
 .devcontainer/*.audio.yaml
 .devcontainer/*.shared_memory.yaml
 .devcontainer/*.network.yaml
+.devcontainer/*.workspace.yaml
 .devcontainer/pc/devcontainer-lock.json
 
 

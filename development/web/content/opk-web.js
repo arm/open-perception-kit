@@ -1651,11 +1651,50 @@ function setCopyButtonAvailable(button, available) {
   button.setAttribute("aria-disabled", available ? "false" : "true");
 }
 
+// development/web/src/performance-low-pass.js
+var DISPLAY_INTERVAL_MS = 1e3;
+var SMOOTHING_WEIGHT = 0.5;
+var METRIC_VALUE = /^(\d+(?:\.\d+)?)(ms| FPS)$/;
+function smoothValue(value, previous) {
+  const currentMatch = METRIC_VALUE.exec(value);
+  const previousMatch = METRIC_VALUE.exec(previous || "");
+  if (!currentMatch || !previousMatch || currentMatch[2] !== previousMatch[2]) return value;
+  const current = Number(currentMatch[1]);
+  const old = Number(previousMatch[1]);
+  const decimals = currentMatch[1].split(".")[1]?.length || 0;
+  if (!Number.isFinite(current) || !Number.isFinite(old) || decimals > 10) return value;
+  return `${(old * (1 - SMOOTHING_WEIGHT) + current * SMOOTHING_WEIGHT).toFixed(decimals)}${currentMatch[2]}`;
+}
+function createPerformanceLowPass() {
+  let lastDisplayAt = -Infinity;
+  let previousRows = /* @__PURE__ */ new Map();
+  return (rows, now = performance.now()) => {
+    if (!rows.length) {
+      lastDisplayAt = -Infinity;
+      previousRows.clear();
+      return [];
+    }
+    if (now - lastDisplayAt < DISPLAY_INTERVAL_MS) return null;
+    const filtered = rows.map((row) => {
+      const previous = previousRows.get(row.stage);
+      return {
+        ...row,
+        current: smoothValue(row.current, previous?.current),
+        p95: smoothValue(row.p95, previous?.p95)
+      };
+    });
+    previousRows = new Map(filtered.map((row) => [row.stage, row]));
+    lastDisplayAt = now;
+    return filtered;
+  };
+}
+
 // development/web/src/performance-metrics.js
 var body = document.getElementById("performanceMetricsBody");
 var copyButton = document.getElementById("copyPerformanceMetricsBtn");
 var MAX_METRIC_LINE_LENGTH = 240;
 var currentRows = [];
+var filterMetrics = createPerformanceLowPass();
 function decimalText(value) {
   const parts = String(value || "").split(".");
   if (parts.length > 2 || parts.some((part) => part.length === 0)) {
@@ -1742,7 +1781,8 @@ function renderRows(rows) {
 }
 function renderPerformanceMetrics(performance2) {
   const lines = Array.isArray(performance2?.lines) ? performance2.lines : [];
-  renderRows(lines.map(parseMetricLine).filter(Boolean));
+  const rows = filterMetrics(lines.map(parseMetricLine).filter(Boolean));
+  if (rows !== null) renderRows(rows);
 }
 function updateCopyButtonState() {
   setCopyButtonAvailable(copyButton, currentRows.length > 0);
