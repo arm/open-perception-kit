@@ -53,8 +53,8 @@ copy the same check list in multiple places.
 | --- | --- | --- |
 | `--pre-commit-fix` | `--clang-format`, `--python-format`, `--cmake-format`, `--shell-format`, `--license-header`, `--actionlint` | Local/container and host pre-commit paths that may update files in place. |
 | `--pre-commit-check` | `--clang-format-check`, `--python-format-check`, `--cmake-format-check`, `--shell-format-check`, `--license-header-check`, `--actionlint` | Check-only equivalent of the pre-commit bundle, useful for manual verification and CI. |
-| `--ci-pr-checks` | `--pre-commit-check`, `--branch-naming`, `--commit-msg-ci`, `--agent-runtime-static-analysis`, `--config-schema-check` | Pull request quality gate. The descriptor check delegates to the shared C++ parse, schema, and semantic validator. Pair with `--pr-target-branch <branch>` for PR delta scope. |
-| `--ci-full-checks` | `--pre-commit-check`, `--agent-runtime-static-analysis`, `--config-schema-check` | Full/nightly quality gate. The descriptor check delegates to the shared C++ parse, schema, and semantic validator. Without an explicit file or PR scope, this checks the tracked tree. |
+| `--ci-pr-checks` | `--pre-commit-check`, `--branch-naming`, `--commit-msg-ci`, `--config-schema-check` | Pull request quality gate. The descriptor check delegates to the shared C++ parse, schema, and semantic validator. Pair with `--pr-target-branch <branch>` for PR delta scope. |
+| `--ci-full-checks` | `--pre-commit-check`, `--config-schema-check` | Full/nightly quality gate. The descriptor check delegates to the shared C++ parse, schema, and semantic validator. Without an explicit file or PR scope, this checks the tracked tree. |
 
 `--all-checks` is kept for compatibility. New workflow wiring should prefer
 the explicit CI presets above.
