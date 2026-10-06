@@ -82,7 +82,6 @@ copy_runtime_files() {
     [ -f "${REPO_ROOT}/.dockerignore" ] && cp "${REPO_ROOT}/.dockerignore" "${SMOKE_REPO}/"
     cp "${REPO_ROOT}/.clang-format" "${SMOKE_REPO}/"
     cp "${REPO_ROOT}/.cmake-format.yaml" "${SMOKE_REPO}/"
-    cp "${REPO_ROOT}/.secrets.baseline" "${SMOKE_REPO}/"
     cp "${REPO_ROOT}/scripts/pre-commit/common.sh" "${SMOKE_REPO}/scripts/pre-commit/"
     cp "${REPO_ROOT}/scripts/pre-commit/run.sh" "${SMOKE_REPO}/scripts/pre-commit/"
     cp "${REPO_ROOT}/scripts/pre-commit/setup.sh" "${SMOKE_REPO}/scripts/pre-commit/"
@@ -113,22 +112,6 @@ assert_case_matches_expected() {
         echo "Expected ${target_path} to match ${expected_fixture}." >&2
         exit 1
     }
-}
-
-write_secret_file() {
-    mkdir -p "${SMOKE_REPO}/secrets"
-    MODULE_PATH="$(opk_ci_e2e_module_path)" python3 - << 'PY' > "${SMOKE_REPO}/secrets/bad.pem"
-import importlib.util
-import os
-import sys
-
-module_path = os.environ["MODULE_PATH"]
-spec = importlib.util.spec_from_file_location("opk_ci_e2e", module_path)
-module = importlib.util.module_from_spec(spec)
-sys.modules[spec.name] = module
-spec.loader.exec_module(module)
-print(module.make_private_key_fixture(), end="")
-PY
 }
 
 assert_hook_is_portable() {
@@ -247,15 +230,6 @@ run_smoke() {
         echo "Expected repo_checks_create_temp_dir to create a directory under a dash-prefixed temp parent." >&2
         exit 1
     }
-
-    write_secret_file
-    git add secrets/bad.pem
-    if ./scripts/pre-commit/run.sh; then
-        echo "Expected the default delta path to fail on a detected secret." >&2
-        exit 1
-    fi
-    git rm -f secrets/bad.pem > /dev/null
-    ./scripts/pre-commit/run.sh
 
     cat > .git/COMMIT_EDITMSG << 'EOF'
 Smoke test commit

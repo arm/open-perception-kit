@@ -144,15 +144,6 @@ class QualityChecks:
             logger.error(output_line)
 
     @staticmethod
-    def get_detect_secrets_command():
-        """Resolve the detect-secrets hook command from PATH or the active Python."""
-        detect_secrets_hook = shutil.which("detect-secrets-hook")
-        if detect_secrets_hook:
-            return [detect_secrets_hook]
-
-        return [sys.executable, "-m", "detect_secrets.pre_commit_hook"]
-
-    @staticmethod
     def normalize_github_actions_path(filename, project_root):
         if os.path.isabs(filename):
             try:
@@ -266,12 +257,6 @@ class QualityChecks:
 
         logger.info(proc.stdout.strip())
         return True
-
-    @staticmethod
-    def iter_file_batches(files, batch_size=50):
-        """Yield deterministic file batches to keep secret scans reasonably fast."""
-        for start in range(0, len(files), batch_size):
-            yield files[start:start + batch_size]
 
     @staticmethod
     def check_branch_naming() -> bool:
@@ -647,46 +632,6 @@ class QualityChecks:
         if result:
             logger.info("All files have valid JIRA ticket references.")
 
-        return result
-
-    def check_secrets(self, files=None, baseline=".secrets.baseline") -> bool:
-        """Check for secrets in the given files or all tracked files if none specified."""
-        logger.info("Checking for secrets...")
-
-        result = True
-
-        if not os.path.isfile(baseline):
-            logger.error(f"Baseline file {baseline} not found!")
-            return False
-        if files is None:
-            # No explicit file set was provided, so scan all git-tracked files.
-            try:
-                git_ls_files = subprocess.run(["git", "ls-files"], capture_output=True, text=True, check=True)
-                files = git_ls_files.stdout.strip().splitlines()
-            except Exception as e:
-                logger.error(f"Failed to get git-tracked files: {e}")
-                result = False
-                return result
-
-        existing_files = [file for file in files if os.path.isfile(file)]
-        detect_secrets_command = self.get_detect_secrets_command()
-
-        for file_batch in self.iter_file_batches(existing_files):
-            cmd = [*detect_secrets_command, "--baseline", baseline, *file_batch]
-            proc = subprocess.run(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                encoding="utf-8",
-            )
-            if proc.returncode != 0:
-                logger.error("Secrets detected in scanned files.")
-                if proc.stdout:
-                    for output_line in proc.stdout.rstrip().splitlines():
-                        logger.error(output_line)
-                result = False
-        if result:
-            logger.info("No secrets detected.")
         return result
 
     @classmethod

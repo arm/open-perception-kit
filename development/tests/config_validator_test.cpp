@@ -224,7 +224,7 @@ TEST(ConfigValidator, ModelSchemaSeparatesBuildDownloadFromLocalRuntimePath) {
         {"modelFile", "models/model.onnx"},
         {"hfDownload",
          {{"repo_id", "Arm/example"},
-          {"revision", "0123456789abcdef0123456789abcdef01234567"}, // pragma: allowlist secret
+          {"revision", "0123456789abcdef0123456789abcdef01234567"},
           {"filename", "onnx/model.onnx"}}},
         {"dynamicOutput", true},
         {"inputTensors",

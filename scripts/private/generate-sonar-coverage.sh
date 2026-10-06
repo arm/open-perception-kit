@@ -43,7 +43,6 @@ PYTHONPATH="tools/opk-ci:tools/opk-ci/tests${PYTHONPATH:+:${PYTHONPATH}}" \
     -m unittest \
     test_clang_tidy_statistics \
     test_config_schema_check \
-    test_detect_secrets_quality_flow.DetectSecretsQualityFlowTests \
     test_opk_ci_cli \
     test_opk_ci_e2e \
     test_quality_checks

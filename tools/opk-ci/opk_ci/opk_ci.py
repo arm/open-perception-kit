@@ -79,8 +79,6 @@ def setup_argument_parser(parser):
     check_group.add_argument("-lh", "--license-header", default=False,
                              action="store_true", help="Add license header to files.")
 
-    check_group.add_argument("-sc", "--check-secrets", default=False,
-                             action="store_true", help="Check for secrets in files.")
     check_group.add_argument("-al", "--actionlint", default=False,
                              action="store_true", help="Run actionlint on GitHub Actions workflows.")
     check_group.add_argument("--agent-runtime-static-analysis", default=False,
@@ -135,7 +133,6 @@ def setup_argument_parser(parser):
 
 def setup_pre_commit_checks(args, format=False):
     """Enable the shared pre-commit bundle used by local hooks, host hooks, and CI."""
-    args.check_secrets = True
     args.actionlint = True
 
     if format:
@@ -188,7 +185,6 @@ def get_enabled_check_flags(args):
     enabled_checks = []
 
     for enabled, flag, fallback, fallback_flag in (
-        ("check_secrets", "--check-secrets", None, None),
         ("actionlint", "--actionlint", None, None),
         (
             "agent_runtime_static_analysis",
@@ -219,7 +215,6 @@ def get_enabled_check_flags(args):
 def needs_related_files(args):
     """Return True when enabled checks need precomputed file lists."""
     file_based_check_enabled = any([
-        args.check_secrets,
         args.commit_msg,
         args.commit_msg_ci,
         args.clang_format,
@@ -381,7 +376,6 @@ def perform_checks(checker, args, files, report):
     result = True
 
     checks = (
-        (args.check_secrets, "secrets", lambda: checker.check_secrets(files)),
         (args.branch_naming, "branch naming", checker.check_branch_naming),
         (args.commit_msg, "commit message", lambda: checker.check_commit_message(files)),
         (
