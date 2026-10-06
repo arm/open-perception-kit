@@ -110,10 +110,10 @@ RUN set -eux; \
     destination="/opt/opk-deps/open-perception-kit-artifacts/${filename}"; \
     timeout 30s curl \
       --fail --location --proto '=https' --proto-redir '=https' \
-      --retry 1 --output "${destination}" "${url}" || \
+      --retry 1 --retry-all-errors --output "${destination}" "${url}" || \
       timeout 180s curl \
         --fail --location --proto '=https' --proto-redir '=https' \
-        --retry 3 --user-agent "${fallback_user_agent}" \
+        --retry 3 --retry-all-errors --user-agent "${fallback_user_agent}" \
         --output "${destination}" "${fallback_url}"; \
     echo "${sha256}  ${destination}" | sha256sum --check --strict; \
   done; \
@@ -230,7 +230,7 @@ RUN set -eux; \
     local max_time="$1"; local retries="$2"; local url="$3"; local destination="$4"; \
     timeout "${max_time}" curl \
       --fail --location --proto '=https' --proto-redir '=https' \
-      --retry "${retries}" --output "${destination}" "${url}"; \
+      --retry "${retries}" --retry-all-errors --output "${destination}" "${url}"; \
   }; \
   download() { \
     local url="$1"; local destination="$2"; \
@@ -393,12 +393,12 @@ RUN set -eux; \
     *) echo "Unsupported development-tools architecture: ${TARGETARCH}" >&2; exit 1 ;; \
   esac; \
   nvim_archive="nvim-linux-${nvim_arch}.tar.gz"; \
-  curl --proto "=https" -fsSLo "/tmp/${nvim_archive}" \
+  curl --proto "=https" --retry 3 --retry-all-errors --retry-delay 2 -fsSLo "/tmp/${nvim_archive}" \
   "https://github.com/neovim/neovim/releases/download/${NVIM_VERSION}/${nvim_archive}"; \
   mkdir -p /opt/nvim; \
   tar -xzf "/tmp/${nvim_archive}" --strip-components=1 -C /opt/nvim; \
   cpptools_archive="cpptools-linux-${cpptools_arch}.vsix"; \
-  curl --proto "=https" -fsSLo "/tmp/${cpptools_archive}" \
+  curl --proto "=https" --retry 3 --retry-all-errors --retry-delay 2 -fsSLo "/tmp/${cpptools_archive}" \
   "https://github.com/microsoft/vscode-cpptools/releases/download/${CPP_TOOLS_VERSION}/${cpptools_archive}"; \
   mkdir -p "/home/${USERNAME}/bin/cpptools"; \
   unzip -q "/tmp/${cpptools_archive}" -d "/home/${USERNAME}/bin/cpptools"; \
@@ -516,7 +516,7 @@ RUN set -eux; \
   mkdir -p /opt/opk-deps; \
   plantuml_jar="plantuml-mit-${PLANTUML_VERSION}.jar"; \
   plantuml_base_url="https://github.com/plantuml/plantuml/releases/download/v${PLANTUML_VERSION}"; \
-  curl --location -fsSLo "/opt/opk-deps/${plantuml_jar}" "${plantuml_base_url}/${plantuml_jar}"
+  curl --location --retry 3 --retry-all-errors --retry-delay 2 -fsSLo "/opt/opk-deps/${plantuml_jar}" "${plantuml_base_url}/${plantuml_jar}"
 
 USER ${USERNAME}
 WORKDIR /work
