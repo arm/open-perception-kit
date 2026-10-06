@@ -1,6 +1,19 @@
-/*************************************************************
- * Copyright (C) 2025 Arm Limited. All rights reserved.
- *************************************************************/
+/*
+ * SPDX-FileCopyrightText: Copyright 2025-2026 Arm Limited and/or its affiliates
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "gst/gstelement.h"
 #include "gst/gstpad.h"
 #include <gst/base/gstbasetransform.h>
@@ -762,8 +775,11 @@ static void gst_opkinfer_class_init(GstOpkInferClass *klass) {
     gst_element_class_add_static_pad_template(ecls, &sink_t);
     gst_element_class_add_static_pad_template(ecls, &src_t);
 
-    gst_element_class_set_static_metadata(
-        ecls, "OPK Inference", "Filter/Effect/Video", "ONNX Runtime inference", "Arm Limited");
+    gst_element_class_set_static_metadata(ecls,
+                                          "OPK Inference",
+                                          "Filter/Effect/Video",
+                                          "ONNX Runtime inference",
+                                          "Arm Limited <perception-fdbck@arm.com>");
 
     bcls->start = gst_opkinfer_start;
     bcls->stop = gst_opkinfer_stop;
@@ -807,6 +823,6 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   "OPK inference (YOLO + ONNX Runtime)",
                   opkinfer_plugin_init,
                   "1.0",
-                  "LGPL",
-                  "Open Perception Kit",
+                  "Apache 2.0",
+                  "opk-elements",
                   "https://www.arm.com/")

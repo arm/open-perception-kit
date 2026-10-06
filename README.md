@@ -1,22 +1,30 @@
+<!--
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+SPDX-License-Identifier: Apache-2.0
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
 # Open Perception Kit CLI quick start
 
-The Open Perception Kit helps Raspberry Pi developers get from setup to
-edge-vision inference without building the whole perception stack from scratch.
-It gives you a fast path from a ready Raspberry Pi 5 to visible inference and
-a starting point for a vision application.
+The Open Perception Kit is aimed at Arm Linux developers, providing a fast path for early application development including vision inference without needing to build your perception stack from scratch by combining:
 
-It uses a container-based workflow with a packaged pipeline, browser viewer,
-model controls, debug signals, and output paths you can adapt for your own
+- GStreamer-based media pipeline integration.
+- Reusable processing steps for preparing images for inference, running models, and interpreting their outputs.
+- Schema-defined inference results that can be displayed, used to track objects, or shared with other applications.
+
+It uses a container-based workflow with a packaged pipeline, browser viewer, model controls, debug signals, and output paths you can adapt for your own
 application.
-
-At a high level, it combines:
-
-- GStreamer-based media pipeline integration
-- an Op-based execution model for preprocessing, inference, and postprocessing
-- schema-defined FrameResults that downstream elements can render, track, or publish
-
-**Note:** This developer preview is for evaluation, early application
-development, and feedback.
 
 ![Example WebRTC viewer showing sample video inference, model controls, performance metrics, and debug log](docs/public/assets/10-browser-ui.png)
 
@@ -24,14 +32,7 @@ development, and feedback.
 
 ### What to expect
 
-Plan for around 45 minutes from starting these steps with the prerequisites
-ready to first inference.
-
-This guide uses a host machine and a target Pi:
-
-- The host machine: the computer used for SSH and the browser viewer.
-- The target Pi: the Raspberry Pi 5, where you clone the repository, build the
-  container, build the kit, and run your first pipeline.
+Plan for around 45 minutes to get to first inference after meeting all prerequisites.
 
 In this quick start, you will:
 
@@ -42,22 +43,30 @@ In this quick start, you will:
 - Run the first pipeline.
 - Open the browser viewer and confirm inference.
 
+The Open Perception Kit is hardware agnostic. The table
+below lists the configurations validated so far; other devices and operating
+systems have not been validated.
+
+| Component          | Validated configuration         |
+| ------------------ | ------------------------------- |
+| Device             | Raspberry Pi (at least 8GB RAM) |
+| Operating system   | Raspberry Pi OS 64-bit (Trixie) |
+| Container platform | Linux ARM64                     |
+| CSI camera         | Raspberry Pi Camera Module 3    |
+| USB webcam         | UVC (USB Video Class) webcam    |
+
 ### Starting prerequisites
 
-Have these on the host machine before you start:
+Host machine:
+- Windows, macOS or Linux machine.
+- Network access to the target Pi.
 
-- Windows, macOS, or Linux.
-- Network access from the host machine to the target Pi.
-
-Use this target Pi setup before you start:
-
-- Raspberry Pi 5 with at least 8GB RAM and 64-bit Raspberry Pi OS based on
-  Debian Trixie.
-- SSH enabled on the Raspberry Pi, with a username and password you can use from
+Target (Raspberry Pi 5)
+- SSH enabled, with a username and password you can use from
   the host machine.
 - Known target Pi hostname or IP address.
-- Permission to run `sudo` on the target Pi.
-- Internet access from the target Pi to GitHub, package repositories, and
+- Permission to run `sudo`.
+- Internet access to GitHub, package repositories, and
   container or source locations used during the first container build.
 
 ### 1. Connect to the target Pi
@@ -75,7 +84,7 @@ use the target Pi IP address.
 
 > **Expected outcome:** the host machine opens a shell on the target Pi.
 
-#### 1.2 Clone the repository 
+#### 1.2 Clone the repository
 
 In the Raspberry Pi 5 terminal run:
 
@@ -169,7 +178,7 @@ Congratulations, you have run your first Open Perception Kit pipeline!
 
 ## Platform-specific setup
 
-Use these guides for platform prerequisites and command-line or VS Code setup:
+We recommend you start with the Raspberry Pi 5 guide above, however the following guides are available for other platforms or VS Code setup:
 
 * [Raspberry Pi 5](docs/public/getting-started/raspberry-pi-quick-start.md)
 * [Windows](docs/public/getting-started/windows-quick-start.md)
@@ -185,7 +194,7 @@ Pick your next step.
 | --- | --- |
 | [Use your own input or output path](docs/public/how-to/media-input.md) | Keep the known pipeline and change the input or output. |
 | [Use live camera input](docs/public/how-to/camera-input.md) | Move from packaged media to a USB or Raspberry Pi camera. |
-| [Use a binary release](docs/public/getting-started/binary-release.md) | Integrate the six packaged GStreamer plugins without an OPK loader wrapper. |
+| [Use a binary release](docs/public/getting-started/binary-release.md) | Integrate the packaged GStreamer plugins without an OPK loader wrapper. |
 | [Add or adapt a model and OpChain](docs/public/how-to/bring-your-model.md) | Change the model after the source and output path work. |
 | [**Coming Soon:** Feed inference into an application](docs/public/how-to/use-output-in-app.md) | Capture inference output for downstream logic. |
 | [Understanding the repository structure](docs/public/concepts/structural-basics.md) | How to get started with new components |
@@ -215,16 +224,20 @@ when you need direct deployment control or remote deployment with Topo.
 
 ### Build a deployment container directly with Docker Compose
 
-Generate a cache key before invoking Compose:
+Download models through quick start first. Export your read-only Hugging Face
+token when private or gated models are needed:
 
 ```bash
-export HF_DOWNLOAD_CACHEBUST="$(./scripts/private/generate-hf-download-cachebust.sh)"
+# Optional: export HF_TOKEN="hf_your_token_here"
+./scripts/quick_start.sh
+./scripts/quick-start/cleanup-container.sh
 docker compose up --build
 ```
 
-Generate a fresh cache key before every direct Compose build. The model stage
-rejects builds when the key is omitted, preventing an authenticated build from
-silently reusing a cached anonymous model layer.
+Quick start downloads models into `config/models`. The deployment container
+mounts that directory read-only; its image contains descriptors but no model
+binaries. Stopping the quick-start container frees the container name and ports
+while preserving the downloaded files in the checkout.
 
 ### Deploy with Topo
 
@@ -235,12 +248,23 @@ check that the target is ready:
 topo health --target <raspberry-pi-ip-address>
 ```
 
-Deploy the default sample-video pipeline from the repository root:
+On the target, use the same OPK source revision and run quick start with your
+Hugging Face access, then stop its container as above. In the host's
+`compose.yaml`, set the model volume's source to the **absolute target path**
+containing those downloaded models, for example:
+
+```yaml
+- /home/<target-user>/open-perception-kit/config/models:/work/config/models:ro
+```
+
+Deploy from the repository root on the host:
 
 ```bash
-export HF_DOWNLOAD_CACHEBUST="$(./scripts/private/generate-hf-download-cachebust.sh)"
 topo deploy --target <raspberry-pi-ip-address>
 ```
+
+The deployment uses the target's model files. Hugging Face credentials are used
+by quick start and are not forwarded to the deployment image or container.
 
 When the deployment has started, open:
 
@@ -262,3 +286,21 @@ For a USB camera exposed as `/dev/video0` on the target:
 OPK_PIPELINE=full-onnx-usb-cam \
   topo deploy --target <raspberry-pi-ip-address>
 ```
+
+## Copyright
+
+Copyright 2025-2026 Arm Limited and/or its affiliates.
+
+## Licence
+
+Open Perception Kit is licensed under the [Apache License, Version 2.0](LICENSE),
+except where individual files or accompanying notices state otherwise.
+See [Licensing](docs/public/licensing.md) for the licence and notice locations.
+
+Third-party components retain their own licences. These include FlatBuffers (Apache-2.0), ONNX
+Runtime (MIT), ExecuTorch (BSD-3-Clause), and the Font Awesome CSS (MIT) and
+font (OFL-1.1). Their original notices accompany the distributed files.
+
+The maintained [third-party component inventory](docs/third-party-licenses.md)
+lists versions, licence labels and origins. It was initialized from the supplied
+Black Duck scan.

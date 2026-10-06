@@ -4,10 +4,27 @@ sidebar_position: 3
 sidebar_label: Binary Release
 description: Install and integrate an OPK architecture package without an OPK-specific loader wrapper.
 ---
+<!--
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+SPDX-License-Identifier: Apache-2.0
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
 
 # Use an OPK binary release
 
-Each release contains exactly three archives:
+Each release contains these archives:
 
 - `opk-<version>-linux-x86_64.tar.gz`
 - `opk-<version>-linux-aarch64.tar.gz`
@@ -37,22 +54,23 @@ workflow summary before extracting it:
 sha256sum opk-<version>-linux-<architecture>.tar.gz
 ```
 
-Architecture packages contain the six OPK plugins, the private
-`lib/opk/opk-runtime.so` and common libraries, compatible model binaries and
+Architecture packages contain the OPK plugins, the private
+`lib/opk/opk-runtime.so` and common libraries, model descriptors and
 OpChains, `opksink` web assets, approved notices, and ONNX Runtime. They also
-contain the experimental ExecuTorch operation module, the PythonScript operation
-module, the YOLOX ExecuTorch model, and a private locked Python package directory
-at `share/opk/python`, plus these two distinct payloads:
+contain the experimental ExecuTorch and PythonScript operation modules, plus
+the SDK and descriptor schemas:
 
 - `share/opk/open-perception-kit/` contains the open-perception-kit ZIP, checksum, and
   provenance sidecar;
 - `share/opk/schemas/json/v1/` contains the model and OpChain descriptor JSON
   schemas copied from the released source.
 
-The descriptor schemas are direct OPK package content, not files in the SDK
-ZIP. Retired `metadata/api` schemas are not included.
+The descriptor schemas are direct OPK package content, separate from the SDK
+ZIP. The archive includes the PythonScript type stub and generated Python SDK
+`pyproject.toml` and `requirements.txt` under `share/opk/python`;
+PythonScript's Python packages are installed in a host environment.
 
-They deliberately exclude `opk-menu`, pipeline presets, examples, sample
+They deliberately exclude model binaries, `opk-menu`, pipeline presets, examples, sample
 media, documentation, source, tests, debug files, public C++ headers,
 unused ONNX provider libraries, and accelerator drivers or firmware.
 ExecuTorch SDK headers and static libraries
@@ -65,12 +83,39 @@ tools with the Base, Good, and Bad plugin sets, including Nice and the WebRTC
 plugins. GLib, OpenSSL, zlib, Brotli, zstd, libsoup 3, json-glib, the
 C/C++ runtimes, and any required accelerator driver and firmware remain host
 dependencies. The Arm package also requires the system `libusb-1.0` runtime.
-PythonScript OpChains require the `python3.13` executable on `PATH` and the
-corresponding `libpython3.13.so.1.0` shared library available to the system
-dynamic loader. NumPy, FlatBuffers, and the Open Perception Kit guest package are already
-included privately in the OPK archive. Python applications that drive GStreamer
-directly also need the system PyGObject bindings, available as
-`python3-gst-1.0`.
+PythonScript OpChains require Python 3.13 and its shared library. Install
+Debian's `python3.13-venv` and `python3-gst-1.0` packages. From a checkout at
+the release's source revision, create a virtual environment with access to
+the system PyGObject bindings, then install the Python runtime dependencies:
+
+```bash
+/usr/bin/python3.13 -m venv --system-site-packages "$PWD/.venv-python-ops"
+./scripts/setup-python-ops-runtime.sh --python /usr/bin/python3.13 \
+  --venv "$PWD/.venv-python-ops" \
+  --perception-sdk generated/open_perception_kit/python
+export OPK_PYTHON_RUNTIME_VENV="$PWD/.venv-python-ops"
+```
+
+The setup script reuses this environment and installs the versions recorded in
+the runtime and SDK descriptors. For manual installation, use
+`requirements/python-ops.txt`, also included in the archive as
+`share/opk/python/requirements.txt`:
+
+```bash
+"$OPK_PYTHON_RUNTIME_VENV/bin/python" -m pip install -r requirements/python-ops.txt
+```
+
+Install the Open Perception Kit SDK wheel separately from the bundled SDK ZIP.
+The virtual environment stays outside the extracted archive. Launch Python
+applications with its interpreter so both PyGObject and the PythonScript
+dependencies are available:
+
+```bash
+"$OPK_PYTHON_RUNTIME_VENV/bin/python" your_app.py
+```
+
+`OPK_PYTHON_RUNTIME_VENV` selects the interpreter for native hosts such as
+`gst-launch-1.0`. It cannot switch an already running Python interpreter.
 
 ## Extract and discover the plugins
 
@@ -95,10 +140,16 @@ runtime. The link is required because the runtime's upstream SONAME is recorded
 as `DT_NEEDED=libonnxruntime.so.1` in `opk-onnx-ops.so`; the dynamic loader
 looks up that exact name.
 
+For source and licence review, the archive keeps third-party notices under
+`share/opk/licenses/`, including the NumPy header licence for PythonScript.
+The ONNX Runtime library also has an adjacent
+`.provenance.json` recording its download and file hashes. ExecuTorch source
+identity is included with its notices when provided by the build input.
+
 ExecuTorch is statically linked into `lib/opk/opk-executorch-ops.so`. It remains
 experimental and does not add a public SDK surface to the binary release.
 
-The plugin directory contains the six supported plugins:
+The plugin directory contains these supported plugins:
 
 - `libopkcomm.so`
 - `libopkinfer.so`
@@ -133,23 +184,49 @@ unzip "$sdk_root/open-perception-kit-<opk-version>.zip" -d open-perception-kit
 Use the C++, Python, Rust, or TypeScript package from that extracted SDK. The SDK
 version matches the OPK product version.
 
-## Packaged models
+## Download models
 
-All packaged model references are local. During release creation, pinned
-`hfDownload` metadata from the selected source commit is resolved once and the
-model binaries are packaged with their JSON configuration. The model descriptor
-defines its tensor shape, and the accompanying OpChain converts the pipeline's
-video frame into that input. Release users need neither network access nor a
-Hugging Face token.
+Releases contain model descriptors and OpChains, with pinned `hfDownload`
+metadata, but no model binaries. Download the models using your own Hugging Face
+access before running inference. Private or gated repositories require a
+read-only `HF_TOKEN` with access to those models.
 
-| Package | Backend | Model directories |
+The existing quick-start setup downloads models into the checkout's
+`config/models` directory. Use a checkout at the release's source revision and
+set `HF_TOKEN` in your host shell before running `./scripts/quick_start.sh`.
+The local development image uses that token only during its model-download
+build step and seeds the downloaded files into the checkout at startup.
+
+For an extracted binary package, reuse the same downloader to populate the
+package's model directory. Put the extracted package under the checkout's
+`var/` directory so it is accessible in the quick-start container, then run
+from the host shell with `HF_TOKEN` still exported:
+
+```bash
+docker exec -u dev -e HF_TOKEN open-perception-kit \
+  python3 /work/scripts/download-models.py \
+  --models-dir /work/var/opk-<version>-linux-<architecture>/share/opk/models
+```
+
+Downloads are checked against the descriptor's SHA-256. Failed or inaccessible
+downloads are reported and skipped; check the output before starting inference.
+Inference then uses the local files and needs no Hugging Face token.
+
+| Package | Backend | Descriptor directories |
 | --- | --- | --- |
-| x86_64 and Arm | ONNX | `mobilegaze-mobilenet-v2`, `nitec-resnet-18`, `osnet-x0-25`, `ultraface-rfb-320`, and the six `yolo26{n,s}-{320,480,640}` variants |
+| x86_64 and Arm | ONNX | `mobilegaze-mobilenet-v2`, `nitec-resnet-18`, `ultraface-rfb-320`, and the `yolo26{n,s}-{320,480,640}` variants |
+| x86_64 and Arm | ExecuTorch | `mobilegaze-mobilenet-v2-executorch`, `nitec-resnet-18-executorch` |
+
+Deployment and Cairn images also contain no model binaries. The top-level
+`compose.yaml` mounts the checkout's `config/models` into the deployment
+container. Download the models through quick start first. When creating a
+container directly, mount the downloaded model directories at
+`/work/config/models`; Cairn needs `yolo26n-320`.
 
 ## Run packaged inference
 
-Model descriptors, binaries, and compatible OpChains are under `share/opk`.
-They are local and require no runtime download. For example:
+After downloading the models, descriptors, binaries, and compatible OpChains
+are under `share/opk`. For example:
 
 ```python
 import os
@@ -186,7 +263,7 @@ web root. Top-level `opk-menu` pipeline presets and sample media are
 intentionally not part of the binary release.
 
 The same smoke path is run natively for x86_64 and Arm packages on pull
-requests targeting `main`. Pushes to `main` publish the three matching archives
+requests targeting `main`. Pushes to `main` publish the matching archives
 on one GitHub Release and together in generic Artifactory under
 `releases/<version>/`, the open-perception-kit wheel to Artifactory PyPI, the Open Perception Kit
 crate to Artifactory Cargo, and the matching multi-architecture image in GHCR.

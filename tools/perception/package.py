@@ -1,7 +1,18 @@
 #!/usr/bin/env python3
-################################################################
-# Copyright (C) 2025 Arm Limited. All rights reserved.
-################################################################
+# SPDX-FileCopyrightText: Copyright 2025-2026 Arm Limited and/or its affiliates
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 """Build a deterministic release from the canonical open-perception-kit snapshot."""
 
@@ -364,6 +375,12 @@ npm install ./typescript/flatbuffers-{config.typescript_runtime.version}.tgz \\
 
 Import `Envelope` and generated payload classes from `{config.public_name.replace('_', '-')}`. Require an
 exact producer identity match before typed payload access.
+
+## Licensing
+
+See [Licensing](LICENSING.md), [LICENSE](LICENSE), and [NOTICE](NOTICE).
+The Python wheels, npm archives, and Rust vendor directories retain the original
+licences and notices of FlatBuffers and its runtime dependencies.
 """,
         encoding="utf-8",
     )
@@ -806,6 +823,10 @@ def _verify_packaged_artifact_records(
 
 
 def verify_bundle(bundle_root: Path) -> None:
+    for name in ("LICENSE", "NOTICE", "LICENSING.md"):
+        path = bundle_root / name
+        if not path.is_file() or not path.stat().st_size:
+            raise RuntimeError(f"SDK release licence evidence is missing: {name}")
     manifest_path = bundle_root / MANIFEST_FILENAME
     manifest = load_json(manifest_path)
     expected_fields = {
@@ -1388,6 +1409,9 @@ def build_bundle(args: argparse.Namespace) -> Path:
         workspace = Path(tmp)
         bundle_root = workspace / f"{config.public_name.replace('_', '-')}-{config.version}"
         shutil.copytree(config.generated_root / "cpp", bundle_root / "cpp")
+        for name in perception_generate.SDK_LEGAL_FILES:
+            shutil.copy2(config.generated_root / "cpp" / name, bundle_root / name)
+        shutil.copy2(REPO_ROOT / "docs/public/licensing.md", bundle_root / "LICENSING.md")
         copy_rust_sdk(config.generated_root / "rust", bundle_root / "rust")
         rust_crates = prepare_rust_vendor(
             rust_root=bundle_root / "rust",

@@ -1,22 +1,37 @@
 #!/usr/bin/env bash
-################################################################
-# Copyright (C) 2026 Arm Limited. All rights reserved.
-################################################################
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 set -euo pipefail
 
 if [ "$#" -ne 2 ]; then
-    echo "Usage: $0 <archive.tar.gz> <python-operation.py>" >&2
+    echo "Usage: OPK_PYTHON_RUNTIME_VENV=<venv> $0 <archive.tar.gz> <python-operation.py>" >&2
     exit 2
 fi
 
 archive="$(realpath "$1")"
 python_operation="$(realpath "$2")"
+: "${OPK_PYTHON_RUNTIME_VENV:?Set OPK_PYTHON_RUNTIME_VENV to a Python Ops virtual environment}"
+test -x "$OPK_PYTHON_RUNTIME_VENV/bin/python"
 smoke_root="$(mktemp -d)"
 trap 'rm -rf "$smoke_root"' EXIT
 package_root="$smoke_root/$(basename "$archive" .tar.gz)"
 tar -C "$smoke_root" -xzf "$archive"
 test -d "$package_root"
+python3 "$(dirname "${BASH_SOURCE[0]}")/ReleaseTool.py" validate-legal \
+    --package-root "$package_root" --require-backends
 
 export GST_PLUGIN_PATH="$package_root/lib/gstreamer-1.0"
 export LD_LIBRARY_PATH="$package_root/lib/opk"
@@ -26,49 +41,15 @@ for element in fakesink opusenc opkcomm opkinfer opkosd opkperformance \
     gst-inspect-1.0 "$element" > /dev/null
 done
 
-for model in yolo26n-320 ultraface-rfb-320; do
-    output="$smoke_root/$model.jsonl"
-    timeout 120s gst-launch-1.0 -q \
-        videotestsrc pattern=ball num-buffers=5 ! \
-        video/x-raw,format=BGRA,width=320,height=320,framerate=5/1 ! \
-        opkinfer opchain-path="$package_root/share/opk/models/$model/opchain.json" ! \
-        opkperformance show-all-metrics=true update-interval=1 ! \
-        opkcomm method=file file-name="$output" ! \
-        opkosd enabled=true ! fakesink sync=false
-    test -s "$output"
-done
-
-executorch_root="$package_root/share/opk/models/nitec-resnet-18-executorch"
-executorch_opchain="$executorch_root/opchain-smoke.json"
-executorch_output="$smoke_root/nitec-resnet-18-executorch.jsonl"
-python3 -c 'import json, sys
-opchain = json.load(open(sys.argv[1], encoding="utf-8"))
-for op in opchain["ops"]:
-    op.pop("loopId", None)
-    if op["id"] == "opk-std-ops/InferenceController":
-        op["attributes"] = {}
-json.dump(opchain, open(sys.argv[2], "w", encoding="utf-8"))' \
-    "$executorch_root/opchain.json" "$executorch_opchain"
-timeout 120s gst-launch-1.0 -q \
-    videotestsrc pattern=ball num-buffers=5 ! \
-    video/x-raw,format=BGRA,width=224,height=224,framerate=5/1 ! \
-    opkinfer opchain-path="$executorch_opchain" ! \
-    opkperformance show-all-metrics=true update-interval=1 ! \
-    opkcomm method=file file-name="$executorch_output" ! \
-    fakesink sync=false
-test -s "$executorch_output"
-
-python_smoke_root="$package_root/share/opk/models/yolo26n-320"
-cp "$python_operation" "$python_smoke_root/runtime_environment.py"
+cp "$python_operation" "$smoke_root/runtime_environment.py"
 python3 -c \
-    'import json, sys; opchain=json.load(open(sys.argv[1], encoding="utf-8")); opchain["ops"].insert(0, {"id": "opk-python-ops/PythonScript", "attributes": {"script": "runtime_environment.py"}}); json.dump(opchain, open(sys.argv[2], "w", encoding="utf-8"))' \
-    "$python_smoke_root/opchain.json" \
-    "$python_smoke_root/opchain-python-smoke.json"
-env -u OPK_DEVTOOLS_VENV -u OPK_PYTHON_RUNTIME_VENV \
+    'import json, os, sys; json.dump({"version": "1.0.0", "name": "Python runtime smoke", "description": "Check PythonScript with host dependencies.", "ops": [{"id": "opk-python-ops/PythonScript", "attributes": {"script": os.path.abspath(sys.argv[2])}}]}, open(sys.argv[1], "w", encoding="utf-8"))' \
+    "$smoke_root/opchain-python-smoke.json" "$smoke_root/runtime_environment.py"
+env -u OPK_DEVTOOLS_VENV \
     timeout 120s gst-launch-1.0 -q \
     videotestsrc pattern=ball num-buffers=1 ! \
     video/x-raw,format=BGRA,width=320,height=320,framerate=5/1 ! \
-    opkinfer opchain-path="$python_smoke_root/opchain-python-smoke.json" ! \
+    opkinfer opchain-path="$smoke_root/opchain-python-smoke.json" ! \
     fakesink sync=false
 
 timeout 120s gst-launch-1.0 -q \
