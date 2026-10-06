@@ -266,7 +266,7 @@ size. Preserve numerical contracts, generated statistics, and dated measurements
 - Increment the individual file's patch with every edit within the same major/minor,
   including annotations or dependency changes. New major/minor contracts reset patch
   to zero and require matching readers, schemas, tests, and migration notes.
-- CI/agent configs and profiles, the clang-tidy baseline, and
+- CI configs and profiles, the clang-tidy baseline, and
   `development/ops-python/runtime.json` are intentionally not versioned.
 - Follow [Configuration compatibility](docs/public/concepts/configuration-compatibility.md)
   and preserve the full version when serializing descriptors.

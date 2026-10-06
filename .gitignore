@@ -29,7 +29,6 @@ __pycache__/
 .uv-lock/
 *.lock
 .codex
-.agent-runtime/
 
 # -------------------------
 # Meson / Ninja / CMake / Make

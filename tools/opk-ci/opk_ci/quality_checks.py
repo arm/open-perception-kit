@@ -70,29 +70,6 @@ class QualityChecks:
         r"^(%s)-\d+\b.+" % "|".join(JIRA_PROJECTS),
         re.IGNORECASE,
     )
-    AGENT_RUNTIME_STATIC_TRIGGER_PREFIXES = (
-        ".github/agent-runtime/",
-        "scripts/private/github_actions.py",
-        "scripts/private/github_api.py",
-        "scripts/private/agent_runtime/",
-        "scripts/private/agent_repair_orchestrator/",
-        "scripts/private/agent_stabilization_orchestrator/",
-        "scripts/private/agent_workflow_common/",
-        "scripts/private/test_support/",
-        "scripts/private/tests/",
-        ".github/workflows/agent-review.yml",
-        ".github/workflows/agent-repair-source-run",
-        ".github/workflows/agent-stabilize-pr",
-    )
-    AGENT_RUNTIME_STATIC_TRIGGER_FILES = (
-        "scripts/download-models.py",
-        "tools/opk-ci/agent-workflows-mypy.ini",
-        "tools/opk-ci/opk_ci/agent_static_analysis.py",
-        "tools/opk-ci/opk_ci/config_schema.py",
-        "tools/opk-ci/tests/test_agent_static_analysis.py",
-        "tools/opk-ci/tests/test_agent_workflow_contracts.py",
-        "tools/opk-ci/pyproject.toml",
-    )
 
     def __init__(self):
         self.license_template_manager = LicenseTemplateManager()
@@ -633,104 +610,6 @@ class QualityChecks:
             logger.info("All files have valid JIRA ticket references.")
 
         return result
-
-    @classmethod
-    def is_agent_runtime_static_file(cls, filename):
-        normalized = filename.replace(os.sep, "/")
-        return normalized in cls.AGENT_RUNTIME_STATIC_TRIGGER_FILES or any(
-            normalized.startswith(prefix)
-            for prefix in cls.AGENT_RUNTIME_STATIC_TRIGGER_PREFIXES
-        )
-
-    @classmethod
-    def should_run_agent_runtime_static_analysis(cls, files):
-        return any(cls.is_agent_runtime_static_file(filename) for filename in files or [])
-
-    @staticmethod
-    def name_status_paths(name_status_output):
-        tokens = [token for token in name_status_output.split("\0") if token]
-        paths = []
-        index = 0
-        while index < len(tokens):
-            status = tokens[index]
-            index += 1
-            if status.startswith("R") or status.startswith("C"):
-                if index + 1 >= len(tokens):
-                    break
-                paths.extend([tokens[index], tokens[index + 1]])
-                index += 2
-                continue
-            if index >= len(tokens):
-                break
-            paths.append(tokens[index])
-            index += 1
-        return paths
-
-    @classmethod
-    def should_run_agent_runtime_static_analysis_for_name_status_command(cls, command, failure_message):
-        proc = subprocess.run(
-            command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            encoding="utf-8",
-        )
-        if proc.returncode != 0:
-            if proc.stdout:
-                cls.log_captured_tool_output(proc.stdout)
-            logger.error(failure_message)
-            return True
-        return cls.should_run_agent_runtime_static_analysis(cls.name_status_paths(proc.stdout))
-
-    @classmethod
-    def should_run_agent_runtime_static_analysis_for_base_ref(cls, pr_target_branch):
-        return cls.should_run_agent_runtime_static_analysis_for_name_status_command(
-            ["git", "diff", "--name-status", "-z", f"origin/{pr_target_branch}...HEAD"],
-            "Could not inspect PR diff for Agent runtime static analysis.",
-        )
-
-    @staticmethod
-    def check_agent_runtime_static_analysis(files=None, pr_target_branch=None) -> bool:
-        """Run the shared Agent runtime static analysis gate when relevant files changed."""
-        files = files or []
-        should_run = QualityChecks.should_run_agent_runtime_static_analysis(files)
-        if not should_run and pr_target_branch:
-            should_run = QualityChecks.should_run_agent_runtime_static_analysis_for_base_ref(pr_target_branch)
-        if not should_run:
-            logger.info("No Agent runtime files found for static analysis.")
-            return True
-
-        logger.info("Running Agent workflow static analysis...")
-        project_root = FileUtils.get_project_root()
-        command = [sys.executable, "-m", "opk_ci.agent_static_analysis"]
-        if pr_target_branch:
-            command.extend(["--base-ref", f"origin/{pr_target_branch}"])
-
-        environment = os.environ.copy()
-        opk_ci_root = os.path.join(project_root, "tools", "opk-ci")
-        environment["PYTHONPATH"] = (
-            opk_ci_root
-            if not environment.get("PYTHONPATH")
-            else os.pathsep.join([opk_ci_root, environment["PYTHONPATH"]])
-        )
-        proc = subprocess.run(
-            command,
-            cwd=project_root,
-            env=environment,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            encoding="utf-8",
-        )
-        if proc.returncode != 0:
-            if proc.stdout:
-                QualityChecks.log_captured_tool_output(proc.stdout)
-            logger.error("Agent workflow static analysis failed.")
-            return False
-        if proc.stdout:
-            for output_line in proc.stdout.rstrip().splitlines():
-                logger.info(output_line)
-
-        logger.info("Agent workflow static analysis passed.")
-        return True
 
     def check_clang_format(self, files, format, verbose=False) -> bool:
         """Check clang-format validity to files under folder using clang-format."""

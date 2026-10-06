@@ -82,8 +82,6 @@ and check the built artifacts before publication.
 | [mdurl](https://github.com/executablebooks/mdurl) | [0.1.2](https://pypi.org/project/mdurl/0.1.2/) | MIT | PyPI |
 | [meson](https://github.com/mesonbuild/meson) | [1.12.1](https://pypi.org/project/meson/1.12.1/) | Apache-2.0 | PyPI |
 | [more-itertools](https://github.com/more-itertools/more-itertools) | [10.7.0](https://pypi.org/project/more-itertools/10.7.0/) | MIT | PyPI |
-| [mypy](https://github.com/python/mypy) | [2.3.1](https://pypi.org/project/mypy/2.3.1/) | MIT | PyPI |
-| [mypy-extensions](https://github.com/python/mypy_extensions) | [1.1.0](https://pypi.org/project/mypy-extensions/1.1.0/) | MIT | PyPI |
 | [magic\_enum](https://github.com/Neargye/magic_enum) | [v0.9.7](https://github.com/Neargye/magic_enum/tree/v0.9.7) | MIT | Debian |
 | [nodeenv](https://github.com/ekalinin/nodeenv) | [1.10.0](https://pypi.org/project/nodeenv/1.10.0/) | BSD-3-Clause | PyPI |
 | [NumPy](https://github.com/numpy/numpy) | [2.4.2](https://pypi.org/project/numpy/2.4.2/) (build), [2.5.3](https://pypi.org/project/numpy/2.5.3/) (host Python) | BSD-3-Clause and [wheel terms](https://github.com/numpy/numpy/blob/v2.4.2/pyproject.toml), including GPL-3.0-or-later WITH GCC-exception-3.1 (libgfortran) and LGPL-2.1-or-later (x86_64 libquadmath) | PyPI |
@@ -92,7 +90,6 @@ and check the built artifacts before publication.
 | [openai](https://github.com/openai/openai-python) | [2.44.0](https://pypi.org/project/openai/2.44.0/) | Apache-2.0 | PyPI |
 | [openai-agents](https://github.com/openai/openai-agents-python) | [0.17.7](https://pypi.org/project/openai-agents/0.17.7/) | MIT | PyPI |
 | [packaging](https://github.com/pypa/packaging) | [26.3](https://pypi.org/project/packaging/26.3/) | BSD-2-Clause AND Apache-2.0 | PyPI |
-| [pathspec](https://github.com/cpburnz/python-pathspec) | [1.1.1](https://pypi.org/project/pathspec/1.1.1/) | MPL-2.0 | PyPI |
 | [Pillow](https://github.com/python-pillow/Pillow) | [12.3.0](https://pypi.org/project/pillow/12.3.0/) | CMU License | PyPI |
 | [pip](https://github.com/pypa/pip) | [25.1.1](https://pypi.org/project/pip/25.1.1/) | MIT | PyPI |
 | [platformdirs](https://github.com/tox-dev/platformdirs) | [4.11.9](https://pypi.org/project/platformdirs/4.11.9/) | MIT | PyPI |
@@ -136,12 +133,10 @@ and check the built artifacts before publication.
 | [typer](https://github.com/fastapi/typer) | [0.25.1](https://pypi.org/project/typer/0.25.1/) | MIT | PyPI |
 | [TypeScript](https://github.com/microsoft/TypeScript) | [5.9.2](https://www.npmjs.com/package/typescript/v/5.9.2) | Apache-2.0 | npm |
 | [@types/istanbul-lib-coverage](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/istanbul-lib-coverage) | [2.0.6](https://www.npmjs.com/package/@types/istanbul-lib-coverage/v/2.0.6) | MIT | npm |
-| [types-PyYAML](https://github.com/python/typeshed) | [6.0.12.20250516](https://pypi.org/project/types-PyYAML/6.0.12.20250516/) | Apache-2.0 | PyPI |
 | [ultralytics](https://github.com/ultralytics/ultralytics) | [8.4.90](https://pypi.org/project/ultralytics/8.4.90/) | AGPLv3 | PyPI |
 | [urllib3](https://github.com/urllib3/urllib3) | [2.8.0](https://pypi.org/project/urllib3/2.8.0/) | MIT | PyPI |
 | [v8-to-istanbul](https://github.com/istanbuljs/v8-to-istanbul) | [9.3.0](https://www.npmjs.com/package/v8-to-istanbul/v/9.3.0) | ISC | npm |
 | [virtualenv](https://github.com/pypa/virtualenv) | [21.7.10](https://pypi.org/project/virtualenv/21.7.10/) | MIT | PyPI |
-| [vulture](https://github.com/jendrikseipp/vulture) | [2.14](https://pypi.org/project/vulture/2.14/) | MIT | PyPI |
 | [WebSocket++](https://github.com/zaphoyd/websocketpp) | [0.8.2](https://github.com/zaphoyd/websocketpp/tree/0.8.2) | BSD-3-Clause | Debian |
 | [cpp-httplib](https://github.com/yhirose/cpp-httplib) | [0.56.0](https://github.com/yhirose/cpp-httplib/tree/v0.56.0) | MIT | GitHub |
 | [zipp](https://github.com/jaraco/zipp) | [3.21.0](https://pypi.org/project/zipp/3.21.0/) | MIT | PyPI |
