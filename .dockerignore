@@ -1,3 +1,18 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 *
 
 !Dockerfile
@@ -13,6 +28,11 @@
 !AGENTS.md
 !CHANGELOG.md
 !README.md
+!LICENSE
+!LICENSES/
+!LICENSES/**
+!NOTICE
+!REUSE.toml
 !compose.base.yaml
 !compose.yaml
 !compose.dev.yaml
@@ -38,10 +58,6 @@
 !data/**
 # Demo video assets are downloaded in a dedicated Docker build stage.
 data/videos/
-# Model artifacts; keep the checked-in local models.
-config/models/**/*.hef
-config/models/**/*.onnx
-config/models/**/*.pte
 !tools/
 !tools/config_versions.py
 !tools/opk-ci/
@@ -76,8 +92,6 @@ config/models/**/*.pte
 !apps/**
 !docs/
 !docs/**
-development/examples/byom-blazeface/face_detector.onnx
-development/examples/byom-blazeface/face_detector.onnx.part
 development/examples/byom-blazeface/blazeface-detections.mp4
 development/examples/byom-blazeface/.blazeface-detections.part.mp4
 !metadata/
@@ -99,3 +113,13 @@ __pycache__/
 *.log
 *.tmp
 .DS_Store
+
+# Known model formats; keep these after every inclusion rule. Release images
+# also exclude descriptor-resolved modelFile paths in opk-release-sources.
+**/*.bin
+**/*.bin.part
+**/*.hef
+**/*.onnx
+**/*.onnx.part
+**/*.pte
+**/*.pte.part

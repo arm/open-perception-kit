@@ -1,3 +1,20 @@
+<!--
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+SPDX-License-Identifier: Apache-2.0
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
 # Open Perception Kit Schema Evolution Workflow
 
 This directory contains the FlatBuffers schemas used to generate the Open Perception Kit
@@ -23,7 +40,7 @@ hand. Change the schemas or `tools/perception/sdk.json`, then regenerate them.
 
 ## Workflow Boundaries
 
-Open Perception Kit work has three separate concerns:
+Open Perception Kit work has separate concerns:
 
 1. Use `$evolve-perception-schema` to design or change authored schemas, assess
    compatibility, record the required OPK release impact, and update runtime semantics.
@@ -39,7 +56,7 @@ release bundle merely to validate implementation drift.
 
 ## Compatibility Model
 
-Compatibility has three distinct layers:
+Compatibility has distinct layers:
 
 1. **FlatBuffers wire compatibility** determines whether old and new schema
    definitions can interpret the same payload bytes.

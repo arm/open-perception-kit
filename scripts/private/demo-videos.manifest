@@ -1,3 +1,17 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 # sha256 filename
 d45a88e31e932265fa1e00a59b71ff12a2e0c2888764b8eaaed10bea171be483 GettyImages-1129703310.mov
 ea5960f81984b6ad4fc59b402de7b22a08ba297666a2dc3f3538ac18bf9be45a GettyImages-1140581459.mov

@@ -1,5 +1,5 @@
 {
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "All supported ONNX models on a Raspberry Pi camera, with YOLO26n-320 enabled by default.",
   "sourceInfo": "Raspberry Pi camera required",
   "pipeline": [
@@ -13,7 +13,6 @@
     "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/yolo26s-320/opchain.json\" active=false !",
     "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/yolo26s-480/opchain.json\" active=false !",
     "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/yolo26s-640/opchain.json\" active=false !",
-    "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/osnet-x0-25/opchain.json\" active=false !",
     "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/nitec-resnet-18/opchain.json\" active=false !",
     "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/mobilegaze-mobilenet-v2/opchain.json\" active=false !",
     "opktracker content-type=genericObject !",

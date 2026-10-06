@@ -1,12 +1,24 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 # yaml-language-server: $schema=https://raw.githubusercontent.com/arm/topo/refs/heads/main/docs/project-specification/schema/topo-project-specification.json
 
 name: opk-dev
 
 services:
   opk-dev:
-    extends:
-      file: compose.base.yaml
-      service: opk-model-image
     platform: linux/arm64
     container_name: open-perception-kit
     hostname: open-perception-kit
@@ -22,17 +34,16 @@ services:
     tty: true
     volumes:
       - /run/udev:/run/udev:ro
+      - ./config/models:/work/config/models:ro
     environment:
       OPK_PIPELINE: ${OPK_PIPELINE:-yolo26n-320}
     build:
+      context: .
+      dockerfile: Dockerfile
       target: opk-deployment-base
       args:
         OPK_PICAMERA: ${OPK_PICAMERA:-disabled}
         NO_EXAMPLE_CONTENT: ${NO_EXAMPLE_CONTENT:-false}
-
-secrets:
-  huggingface_token:
-    environment: HF_TOKEN
 
 x-topo:
   name: open-perception-kit

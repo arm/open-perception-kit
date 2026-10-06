@@ -4,6 +4,23 @@ sidebar_position: 5
 sidebar_label: Raspberry Pi SSH
 description: Set up SSH keys so terminal sessions and VS Code can connect to a Raspberry Pi without repeated password prompts.
 ---
+<!--
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+SPDX-License-Identifier: Apache-2.0
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
 
 # Raspberry Pi SSH Setup
 
@@ -83,7 +100,7 @@ If `id_ed25519` and `id_ed25519.pub` already exist, reuse them and skip key
 generation. A missing directory is normal if you have never created a key.
 If you use another key filename, substitute it in the commands below.
 
-Otherwise, generate a key on your **host**, using the same command on all three
+Otherwise, generate a key on your **host**, using the same command on all
 platforms:
 
 ```bash

@@ -1,3 +1,18 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 name: Release
 
 on:
@@ -139,7 +154,6 @@ jobs:
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           build-args: |
-            HF_DOWNLOAD_CACHEBUST=github-${{ github.run_id }}-${{ github.run_attempt }}
             OPK_RELEASE_BUILD=true
             OPK_RELEASE_VERSION=${{ needs.prepare.outputs.version }}
             OPK_RELEASE_SOURCE_COMMIT=${{ needs.prepare.outputs.commit }}
@@ -290,6 +304,7 @@ jobs:
     name: Publish to Artifactory
     needs: [prepare, quick-start-smoke, sdk-tests, meson-tests, build, sbom-source]
     runs-on: ubuntu-24.04
+    environment: release
     steps:
       - name: Download release packages
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
@@ -403,7 +418,7 @@ jobs:
 
   github-release:
     name: Publish GitHub release
-    needs: [prepare, build, artifactory, perception-cargo-publish, perception-crates-io-dry-run, sbom-source]
+    needs: [prepare, build, artifactory, perception-crates-io-publish, sbom-source]
     runs-on: ubuntu-24.04
     permissions:
       actions: read
@@ -485,11 +500,14 @@ jobs:
     with:
       publish_ref: ${{ needs.prepare.outputs.commit }}
 
-  perception-cargo-publish:
-    name: Publish and verify open-perception-kit crate
+  perception-crates-io-publish:
+    name: Verify and publish open-perception-kit crate to crates.io
     needs: [prepare, artifactory]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Checkout release scripts
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -558,70 +576,13 @@ jobs:
           path: opk-sbom-open-perception-kit-crate.json
           if-no-files-found: error
 
-      - name: Create GitHub App token for publisher
-        id: publisher-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        with:
-          app-id: ${{ secrets.OPK_DEBUG_ACCESS_APP_ID }}
-          private-key: ${{ secrets.OPK_DEBUG_ACCESS_APP_PRIVATE_KEY }}
-          owner: Arm-Debug
-          repositories: open-perception-kit-publisher
+      - name: Authenticate to crates.io
+        id: crates-auth
+        uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18
 
-      - name: Trigger open-perception-kit Cargo publisher
-        id: trigger_cargo_publisher
-        env:
-          CARGO_PACKAGE_VERSION: ${{ needs.prepare.outputs.cargo_package_version }}
-          GH_TOKEN: ${{ steps.publisher-token.outputs.token }}
-        run: |
-          set -euo pipefail
-          publisher_run_url="$(gh workflow run cargo-publish.yaml \
-            --repo Arm-Debug/open-perception-kit-publisher \
-            --ref main \
-            --field source-run-id="$GITHUB_RUN_ID" \
-            --field artifact-name="open-perception-kit-input-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
-            --field cargo-package-version="$CARGO_PACKAGE_VERSION")"
-
-          publisher_run_id="${publisher_run_url##*/}"
-          if [[ ! "$publisher_run_id" =~ ^[0-9]+$ ]]; then
-            echo "::error::Could not extract a run ID from: $publisher_run_url"
-            exit 1
-          fi
-
-          echo "publisher_run_id=$publisher_run_id" >> "$GITHUB_OUTPUT"
-
-      - name: Wait for open-perception-kit Cargo publisher
-        env:
-          GH_TOKEN: ${{ steps.publisher-token.outputs.token }}
-          PUBLISHER_RUN_ID: ${{ steps.trigger_cargo_publisher.outputs.publisher_run_id }}
-        run: |
-          gh run watch "$PUBLISHER_RUN_ID" \
-            --repo Arm-Debug/open-perception-kit-publisher \
-            --compact \
-            --interval 60 \
-            --exit-status
-
-  perception-crates-io-dry-run:
-    name: Dry-run open-perception-kit crate publication to crates.io
-    needs: [prepare, build]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - name: Download open-perception-kit input
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: open-perception-kit-input-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/open-perception-kit-input
-
-      - name: Set up pinned Rust for open-perception-kit publication dry run
-        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
-        with:
-          toolchain: 1.85.0
-          cache: false
-
-      - name: Dry-run open-perception-kit crate publication to crates.io
+      - name: Publish open-perception-kit crate to crates.io
         working-directory: ${{ runner.temp }}/open-perception-kit-input/open_perception_kit-cargo-source-${{ needs.prepare.outputs.cargo_package_version }}
         env:
-          CARGO_HOME: ${{ runner.temp }}/open_perception_kit-crates-io-cargo-home
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates-auth.outputs.token }}
           RUSTUP_TOOLCHAIN: 1.85.0
-        run: cargo publish --dry-run --locked --registry crates-io
+        run: cargo publish --locked --registry crates-io

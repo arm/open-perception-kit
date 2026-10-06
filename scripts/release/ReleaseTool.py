@@ -1,14 +1,27 @@
 #!/usr/bin/env python3
-################################################################
-# Copyright (C) 2025 Arm Limited. All rights reserved.
-################################################################
+# SPDX-FileCopyrightText: Copyright 2025-2026 Arm Limited and/or its affiliates
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 """Build-time checks and staging for OPK release packages."""
 
 from __future__ import annotations
 
 import argparse
+import configparser
 import filecmp
+import hashlib
 import importlib.metadata
 import json
 import os
@@ -20,6 +33,27 @@ import tempfile
 from pathlib import Path
 
 ARCHITECTURES = {"x86_64", "aarch64"}
+MESON_COMPONENTS = {
+    "asio", "cpp-httplib", "fmt", "gtest", "jsoncons", "magic_enum",
+    "nlohmann_json", "stb", "tl-expected", "websocketpp",
+}
+LEGAL_PREFIXES = ("license", "licence", "copying", "notice", "copyright", "thirdpartynotices", "git_commit_id")
+# These source files carry upstream attributions absent from the top-level licences.
+# Preserve their complete original bytes in the legal tree, including embedded terms.
+SOURCE_LEGAL_NOTICES = (
+    ("jsoncons", "include/jsoncons/detail/grisu3.hpp"),
+    ("nlohmann_json", "include/nlohmann/detail/conversions/to_chars.hpp"),
+    ("nlohmann_json", "include/nlohmann/thirdparty/hedley/hedley.hpp"),
+)
+OPK_LEGAL_NOTICES = ("LICENSE", "NOTICE", "third-party-licenses.md", "README.md")
+# Required original files in the staged notice tree.
+CORE_LEGAL_NOTICES = (
+    "asio/COPYING", "asio/LICENSE_1_0.txt", "cpp-httplib/LICENSE", "fmt/LICENSE",
+    "gtest/LICENSE", "jsoncons/LICENSE", "magic_enum/LICENSE", "nlohmann_json/LICENSE.MIT",
+    "stb/LICENSE", "tl-expected/COPYING", "websocketpp/COPYING",
+    "onnxruntime/LICENSE", "onnxruntime/ThirdPartyNotices.txt",
+    "flatbuffers/LICENSE", "fontawesome/LICENSE.txt",
+)
 ONNX_INFERENCE_OP = "opk-onnx-ops/Inference"
 ONNX_MODEL_SUFFIX = ".onnx"
 EXECUTORCH_INFERENCE_OP = "opk-executorch-ops/Inference"
@@ -35,7 +69,6 @@ RELEASE_MODELS = {
         EXECUTORCH_INFERENCE_OP,
         EXECUTORCH_MODEL_SUFFIX,
     ),
-    "osnet-x0-25": (ONNX_INFERENCE_OP, ONNX_MODEL_SUFFIX),
     "ultraface-rfb-320": (ONNX_INFERENCE_OP, ONNX_MODEL_SUFFIX),
     "yolo26n-320": (ONNX_INFERENCE_OP, ONNX_MODEL_SUFFIX),
     "yolo26n-480": (ONNX_INFERENCE_OP, ONNX_MODEL_SUFFIX),
@@ -59,16 +92,7 @@ OP_MODULE_NAMES = {
     "opk-python-ops.so",
     "opk-std-ops.so",
 }
-PYTHON_RUNTIME_DISTRIBUTIONS = {
-    "flatbuffers",
-    "numpy",
-    "open-perception-kit",
-}
-PYTHON_RUNTIME_MODULES = {
-    "flatbuffers",
-    "numpy",
-    "open_perception_kit",
-}
+PYTHON_RUNTIME_DISTRIBUTIONS = {"open-perception-kit"}
 PYTHON_RUNTIME_ROOT = Path("share/opk/python")
 PYTHON_RUNTIME_MANIFEST = "opk-runtime.json"
 PYTHON_OPS_TYPE_STUB = "opk_python_ops.pyi"
@@ -203,32 +227,25 @@ def find_primary_descriptor(model_root: Path, model_id: str) -> Path:
 
 def collect_model_files(
     model_root: Path, model_id: str, primary_descriptor: Path
-) -> tuple[list[Path], list[Path]]:
+) -> list[Path]:
     config_paths = sorted(model_root.rglob(JSON_GLOB))
     model_suffix = RELEASE_MODELS[model_id][1]
-    model_paths = {
-        resolve_model_path(
-            model_root, str(path.relative_to(model_root)), f"{model_id}.{path.name}"
-        )
-        for path in model_root.rglob("*")
-        if path.is_file() and path.suffix == model_suffix
-    }
     for config_path in config_paths:
         config = load_json(config_path)
         if not isinstance(config, dict):
             fail(f"{model_id}: invalid model config: {config_path.name}")
         if "modelFile" not in config:
+            if config_path == primary_descriptor:
+                fail(f"{model_id}: modelDescriptor is not a model config")
             continue
         model_path = resolve_model_path(
             model_root, config["modelFile"], f"{model_id}.{config_path.name}.modelFile"
         )
-        if not model_path.is_file():
-            fail(f"{model_id}: resolved model is missing: {model_path}")
-        if model_path not in model_paths:
+        if model_path.suffix != model_suffix:
             fail(f"{model_id}: unsupported model file: {model_path.name}")
-    if primary_descriptor not in config_paths or not model_paths:
+    if primary_descriptor not in config_paths:
         fail(f"{model_id}: modelDescriptor is not a model config")
-    return config_paths, sorted(model_paths)
+    return config_paths
 
 
 def discover_models(repo_root: Path) -> dict[str, dict[str, object]]:
@@ -240,12 +257,11 @@ def discover_models(repo_root: Path) -> dict[str, dict[str, object]]:
         model_root = models_root / model_id
         if not model_root.is_dir():
             fail(f"Release model directory does not exist: {model_root}")
-        config_paths, model_paths = collect_model_files(
+        config_paths = collect_model_files(
             model_root, model_id, find_primary_descriptor(model_root, model_id)
         )
         models[model_id] = {
             "config_paths": config_paths,
-            "model_paths": model_paths,
             "root": model_root,
         }
     return models
@@ -336,10 +352,6 @@ def stage_models(args: argparse.Namespace) -> None:
         source_root = entry["root"]
         model_root = stage_root / "share/opk/models" / model_id
         model_root.mkdir(parents=True, exist_ok=False)
-        for source_path in entry["model_paths"]:
-            destination_path = model_root / source_path.relative_to(source_root)
-            destination_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source_path, destination_path)
         for source_path in entry["config_paths"]:
             destination_path = model_root / source_path.relative_to(source_root)
             config = load_json(source_path)
@@ -460,75 +472,11 @@ def stage_python_runtime(args: argparse.Namespace) -> None:
         encoding="utf-8",
     )
 
-
 def json_mapping(path: Path) -> dict[str, object]:
     value = load_json(path)
     if not isinstance(value, dict):
         fail(f"Expected a JSON object in {path}")
     return value
-
-
-def configured_version(config: dict[str, object], package_name: str, path: Path) -> str:
-    package = config.get(package_name)
-    if not isinstance(package, dict):
-        fail(f"Missing {package_name} configuration in {path}")
-    version = package.get("version")
-    if not isinstance(version, str) or not version:
-        fail(f"Missing {package_name} version in {path}")
-    return version
-
-
-def expected_python_runtime_versions(repo_root: Path) -> dict[str, str]:
-    runtime_path = repo_root / "development/ops-python/runtime.json"
-    sdk_path = repo_root / "tools/perception/sdk.json"
-    runtime = json_mapping(runtime_path)
-    sdk = json_mapping(sdk_path)
-    pyproject = (
-        repo_root / "generated/open_perception_kit/python/pyproject.toml"
-    ).read_text(encoding="utf-8")
-    version_match = re.search(r'^version\s*=\s*"([^"]+)"', pyproject, re.MULTILINE)
-    if version_match is None:
-        fail("Generated open-perception-kit Python package version is missing")
-    return {
-        "flatbuffers": configured_version(sdk, "flatbuffers", sdk_path),
-        "numpy": configured_version(runtime, "numpy", runtime_path),
-        "open-perception-kit": version_match.group(1),
-    }
-
-
-def validate_python_runtime(package_root: Path, repo_root: Path | None = None) -> None:
-    runtime_root = package_root / PYTHON_RUNTIME_ROOT
-    if not runtime_root.is_dir() or runtime_root.is_symlink():
-        fail("Packaged Python runtime is missing or invalid")
-    missing_modules = sorted(
-        module for module in PYTHON_RUNTIME_MODULES if not (runtime_root / module).is_dir()
-    )
-    if missing_modules:
-        fail(f"Packaged Python runtime modules are missing: {missing_modules}")
-    allowed_prefixes = ("flatbuffers", "numpy", "open_perception_kit")
-    allowed_files = {PYTHON_OPS_TYPE_STUB, PYTHON_RUNTIME_MANIFEST}
-    unexpected = sorted(
-        path.name
-        for path in runtime_root.iterdir()
-        if path.name not in allowed_files
-        and not path.name.startswith(allowed_prefixes)
-    )
-    if unexpected:
-        fail(f"Packaged Python runtime contains unexpected entries: {unexpected}")
-    type_stub = runtime_root / PYTHON_OPS_TYPE_STUB
-    if not type_stub.is_file() or type_stub.is_symlink():
-        fail("Packaged Python operation type stub is missing or invalid")
-    manifest_path = runtime_root / PYTHON_RUNTIME_MANIFEST
-    if not manifest_path.is_file() or manifest_path.is_symlink():
-        fail("Packaged Python runtime manifest is missing or invalid")
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    distributions = manifest.get("distributions")
-    if not isinstance(distributions, dict) or set(distributions) != PYTHON_RUNTIME_DISTRIBUTIONS:
-        fail("Packaged Python runtime distributions do not match the release contract")
-    if any(not isinstance(version, str) or not version for version in distributions.values()):
-        fail("Packaged Python runtime contains an invalid distribution version")
-    if repo_root is not None and distributions != expected_python_runtime_versions(repo_root):
-        fail("Packaged Python runtime versions do not match the selected source")
 
 
 def payload_files(root: Path) -> set[Path]:
@@ -557,32 +505,108 @@ def validate_schema_tree(root: Path) -> set[Path]:
     return files
 
 
-def validate_legal_documentation(package_root: Path) -> None:
+def copy_legal_files(source: Path, destination: Path, required: tuple[str, ...] = ()) -> None:
+    files = {path for path in source.rglob("*")
+             if path.is_file() and path.name.lower().startswith(LEGAL_PREFIXES)}
+    files.update(source / check_safe_relative(relative, "licence notice") for relative in required)
+    if not files:
+        fail(f"Required licence evidence is missing: {source}")
+    for path in sorted(files):
+        if not path.resolve().is_relative_to(source.resolve()) or not path.is_file() or not path.stat().st_size:
+            fail(f"Invalid, missing or empty licence evidence: {path}")
+        relative = path.relative_to(source)
+        target = destination / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(path, target)
+
+
+def has_python_op_module(stage_root: Path) -> bool:
+    return any(
+        (stage_root / relative).is_file()
+        for relative in (
+            "lib/opk/opk-python-ops.so",
+            "development/build/meson-out/opk-python-ops.so",
+        )
+    )
+
+
+def stage_legal(args: argparse.Namespace) -> None:
+    repo_root = Path(args.repo_root).resolve()
+    deps_root = Path(args.deps_root).resolve()
+    stage_root = Path(args.stage_root).resolve()
+    legal_root = stage_root / "share/opk/licenses"
+    legal_root.mkdir(parents=True, exist_ok=False)
+    document = repo_root / "docs/third-party-licenses.md"
+
+    def collect(name: str, source: Path) -> None:
+        required = tuple(relative for component, relative in SOURCE_LEGAL_NOTICES if component == name)
+        copy_legal_files(source, legal_root / name, required)
+
+    for name in ("LICENSE", "NOTICE"):
+        shutil.copyfile(repo_root / name, legal_root / name)
+    shutil.copyfile(document, legal_root / document.name)
+    shutil.copyfile(repo_root / "docs/public/licensing.md", legal_root / "README.md")
+    subprojects = repo_root / "development/subprojects"
+    if {path.stem for path in subprojects.glob("*.wrap")} != MESON_COMPONENTS:
+        fail("Meson dependencies changed; update the third-party report and required notices before releasing")
+    for name in sorted(MESON_COMPONENTS):
+        wrap = configparser.ConfigParser(interpolation=None)
+        wrap.read(subprojects / f"{name}.wrap")
+        directory = check_safe_relative(wrap["wrap-file"]["directory"], "wrap directory")
+        collect(name, subprojects / directory)
+
+    collect("onnxruntime", deps_root / "onnxruntime/share/doc/onnxruntime")
+    vendor = repo_root / "development/web/content/vendor"
+    collect("flatbuffers", vendor / "flatbuffers")
+    collect("fontawesome", vendor / "fontawesome")
+
+    executorch = deps_root / "executorch-legal-documentation"
+    if executorch.is_dir():
+        collect("executorch", executorch)
+    needs_numpy_headers = has_python_op_module(stage_root) and not args.include_python
+    if needs_numpy_headers or args.include_python:
+        for name in ("numpy", "flatbuffers"):
+            if name == "flatbuffers" and not args.include_python:
+                continue
+            distribution = importlib.metadata.distribution(name)
+            metadata_files = [entry for entry in distribution.files or ()
+                              if ".dist-info/" in str(entry) and entry.name == "METADATA"]
+            if len(metadata_files) != 1:
+                fail(f"Cannot locate installed {name} distribution metadata")
+            source = Path(distribution.locate_file(metadata_files[0])).parent
+            collect(f"python-{name}" if args.include_python else "numpy-headers", source)
+
+    validate_legal_documentation(stage_root, require_backends=False, require_python=args.include_python)
+
+
+def validate_legal_documentation(
+    package_root: Path, *, require_backends: bool = True, require_python: bool = False
+) -> None:
     legal_root = package_root / "share/opk/licenses"
-    if not payload_files(legal_root):
-        fail("Packaged legal documentation is missing or empty")
-    onnxruntime_root = legal_root / "onnxruntime"
-    required_onnxruntime_files = {
-        Path("GIT_COMMIT_ID"),
-        Path("LICENSE"),
-        Path("ThirdPartyNotices.txt"),
-        Path("VERSION_NUMBER"),
-    }
-    if payload_files(onnxruntime_root) != required_onnxruntime_files:
-        fail("Packaged ONNX Runtime legal documentation or provenance is incomplete")
-    executorch_files = payload_files(legal_root / "executorch")
-    required_executorch_files = {
-        Path("GIT_COMMIT_ID"),
-        Path("LICENSE"),
-        Path("VERSION_NUMBER"),
-    }
-    if not required_executorch_files.issubset(executorch_files):
-        fail("Packaged ExecuTorch legal documentation or provenance is incomplete")
-    if not any(path.parts[0] == "third-party" for path in executorch_files):
-        fail("Packaged ExecuTorch third-party legal documentation is missing")
+    files = payload_files(legal_root)
+    required = set(OPK_LEGAL_NOTICES) | set(CORE_LEGAL_NOTICES)
+    required.update(f"{name}/{relative}" for name, relative in SOURCE_LEGAL_NOTICES)
+    if require_python:
+        required.update(("python-numpy/licenses/LICENSE.txt", "python-flatbuffers/LICENSE"))
+    if has_python_op_module(package_root) and not require_python:
+        required.add("numpy-headers/licenses/LICENSE.txt")
+    missing = required - {path.as_posix() for path in files}
+    if missing:
+        fail(f"Packaged licence evidence is missing: {sorted(missing)}")
+    if require_backends or (legal_root / "executorch").exists():
+        if not any(path.parts[0] == "executorch" and not path.name.lower().startswith("git_commit_id")
+                   and path.name.lower().startswith(LEGAL_PREFIXES)
+                   for path in files):
+            fail("Packaged licence evidence is missing: executorch")
+    for relative in files:
+        if not (legal_root / relative).stat().st_size:
+            fail(f"Packaged licence evidence is empty: {relative}")
 
 
 def validate_release_payload(package_root: Path, repo_root: Path | None) -> None:
+    for path in (package_root / "share/opk/models").rglob("*"):
+        if path.is_symlink() or (path.is_file() and path.suffix != ".json"):
+            fail(f"Packaged model payload must contain only configuration files: {path}")
     packaged_schema_root = package_root / "share/opk/schemas/json/v1"
     validate_schema_tree(packaged_schema_root)
     if repo_root is None:
@@ -710,8 +734,20 @@ def validate_release_tree(package_root: Path) -> None:
     legal_root = package_root / "share/opk/licenses"
     for path in package_root.rglob("*"):
         relative = path.relative_to(package_root)
+        if path.name.casefold().endswith((".onnx", ".onnx.part", ".pte", ".pte.part", ".bin", ".bin.part")):
+            fail(f"Forbidden model binary in release: {relative}")
+        if path.is_file() and path.name.startswith(("libgfortran", "libquadmath")) and ".so" in path.name:
+            fail(f"GNU runtime library needs separate source review before release: {relative}")
+        if path.suffix.casefold() == ".whl":
+            fail(f"Python wheel is forbidden in release archive: {relative}")
         if legal_root in path.parents:
             continue
+        if (
+            relative.parts[:3] == ("share", "opk", "python")
+            and relative.parts[3:]
+            not in ((), ("opk_python_ops.pyi",), ("pyproject.toml",), ("requirements.txt",))
+        ):
+            fail(f"Redistributed Python package in release: {relative}")
         if forbidden_parts & set(relative.parts):
             fail(f"Forbidden release path: {relative}")
         if path.suffix.casefold() in RETIRED_RELEASE_SUFFIXES or any(
@@ -764,7 +800,49 @@ def validate_runtime_files(package_root: Path) -> Path:
     common_library = private_root / "libopk-common.so"
     if not is_elf(common_library) or any(private_root.glob("libopk-common.so.*")):
         fail("Packaged OPK common library is missing or invalid")
+    python_stub = package_root / "share/opk/python/opk_python_ops.pyi"
+    if not python_stub.is_file() or python_stub.is_symlink():
+        fail("Packaged PythonScript type stub is missing or invalid")
     return private_root
+
+
+def onnxruntime_archive_source(descriptor: Path, architecture: str) -> dict[str, str]:
+    config = json_mapping(descriptor)
+    version = config["onnxruntime"]
+    archive_arch = {"x86_64": "x64", "aarch64": "aarch64"}[architecture]
+    archive = f"onnxruntime-linux-{archive_arch}-{version}.tgz"
+    return {
+        "archive_url": f"https://github.com/microsoft/onnxruntime/releases/download/v{version}/{archive}",
+        "archive_sha256": config[f"onnxruntime-sha256-{archive_arch}"],
+        "library": f"libonnxruntime.so.{version}",
+    }
+
+
+def validate_onnxruntime_provenance(
+    package_root: Path, repo_root: Path | None, architecture: str
+) -> None:
+    private_root = package_root / "lib/opk"
+    library = private_root / "libonnxruntime.so.1.24.4"
+    receipt_path = library.with_name(f"{library.name}.provenance.json")
+    if not receipt_path.is_file() or receipt_path.is_symlink():
+        fail("Packaged ONNX Runtime provenance receipt is missing or invalid")
+    receipt = json_mapping(receipt_path)
+    if receipt.get("library") != library.name or receipt.get("library_sha256") != hashlib.sha256(library.read_bytes()).hexdigest():
+        fail("Packaged ONNX Runtime library SHA-256 mismatch")
+    if repo_root is not None:
+        expected = onnxruntime_archive_source(repo_root / "requirements/build.json", architecture)
+        if {key: receipt.get(key) for key in expected} != expected:
+            fail("Packaged ONNX Runtime source does not match the selected source")
+    else:
+        if not isinstance(receipt.get("archive_url"), str) or not receipt["archive_url"].startswith("https://"):
+            fail("Packaged ONNX Runtime archive URL is invalid")
+        if not isinstance(receipt.get("archive_sha256"), str) or not re.fullmatch(r"[0-9a-f]{64}", receipt["archive_sha256"]):
+            fail("Packaged ONNX Runtime archive SHA-256 is invalid")
+    legal_root = package_root / "share/opk/licenses/onnxruntime"
+    for filename in ("LICENSE", "ThirdPartyNotices.txt"):
+        path = legal_root / filename
+        if not path.is_file() or path.is_symlink() or not path.stat().st_size:
+            fail(f"Packaged ONNX Runtime legal file is missing or invalid: {filename}")
 
 
 def validate_onnx_runtime(private_root: Path) -> None:
@@ -772,6 +850,7 @@ def validate_onnx_runtime(private_root: Path) -> None:
         path
         for path in private_root.glob("libonnxruntime.so.*")
         if path.is_file() and not path.is_symlink()
+        and not path.name.endswith(".provenance.json")
     ]
     soname_link = private_root / "libonnxruntime.so.1"
     if [path.name for path in regular_onnx] != ["libonnxruntime.so.1.24.4"]:
@@ -868,8 +947,8 @@ def validate_package(args: argparse.Namespace) -> None:
         args.expected_commit,
         repo_root,
     )
-    validate_python_runtime(package_root, repo_root)
     validate_onnx_runtime(private_root)
+    validate_onnxruntime_provenance(package_root, repo_root, architecture)
     validate_python_operation_runtime(private_root)
 
     elf_paths = [path for path in package_root.rglob("*") if is_elf(path)]
@@ -976,6 +1055,17 @@ def main() -> int:
         choices=sorted(PYTHON_RUNTIME_DISTRIBUTIONS),
     )
 
+    stage_legal_parser = subparsers.add_parser("stage-legal")
+    stage_legal_parser.add_argument("--repo-root", default=".")
+    stage_legal_parser.add_argument("--deps-root", default="/opt/opk-deps")
+    stage_legal_parser.add_argument("--stage-root", required=True)
+    stage_legal_parser.add_argument("--include-python", action="store_true")
+
+    validate_legal_parser = subparsers.add_parser("validate-legal")
+    validate_legal_parser.add_argument("--package-root", required=True)
+    validate_legal_parser.add_argument("--require-backends", action="store_true")
+    validate_legal_parser.add_argument("--require-python", action="store_true")
+
     validate_package_parser = subparsers.add_parser("validate-package")
     validate_package_parser.add_argument("--architecture", choices=sorted(ARCHITECTURES), required=True)
     validate_package_parser.add_argument("--package-root", required=True)
@@ -992,6 +1082,12 @@ def main() -> int:
             stage_models(args)
         elif args.command == "stage-python-runtime":
             stage_python_runtime(args)
+        elif args.command == "stage-legal":
+            stage_legal(args)
+        elif args.command == "validate-legal":
+            validate_legal_documentation(
+                Path(args.package_root), require_backends=args.require_backends, require_python=args.require_python
+            )
         elif args.command == "validate-package":
             validate_package(args)
         elif args.command == "prepare":
