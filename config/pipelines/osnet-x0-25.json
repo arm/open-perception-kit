@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "description": "YOLO26s-320 INT8 object detection on bundled video.",
+  "description": "YOLO26n-320 detection and OSNet x0.25 INT8 embeddings for tracking.",
   "sourceInfo": "bundled video file",
   "loop": true,
   "pipeline": [
@@ -8,7 +8,7 @@
     "decodebin !",
     "videoconvert !",
     "video/x-raw,format=BGRA !",
-    "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/yolo26s-320/opchain.json\" active=true !",
+    "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/opchains/osnet-x0-25/opchain.json\" active=true !",
     "opktracker content-type=genericObject !",
     "opkperformance show-all-metrics=true update-interval=1 !",
     "opkcomm method=websocket endpoint=/ws !",
@@ -17,7 +17,7 @@
     "opksink name=sink"
   ],
   "alternative-source-image": [
-    "filesrc location=\"${OPK_PROJECT_ROOT:-/work}/data/images/GettyImages-1140581459-thumbnail.jpg\" !",
+    "filesrc location=\"${OPK_PROJECT_ROOT:-/work}/data/images/GettyImages-1465682313-thumbnail.jpg\" !",
     "jpegdec !",
     "imagefreeze !",
     "videoconvert ! video/x-raw,format=BGRA !"
@@ -39,7 +39,7 @@
     "video/x-raw,format=BGRA !"
   ],
   "alternative-sink": [
-    "filesink location=\"${OPK_PROJECT_ROOT:-/work}/data/output/yolo26s-320.mp4\""
+    "filesink location=\"${OPK_PROJECT_ROOT:-/work}/data/output/osnet-x0-25.mp4\""
   ],
   "alternative-sink-opksink-with-audio": [
     "opksink name=sink",

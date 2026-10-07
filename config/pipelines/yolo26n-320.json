@@ -12,6 +12,8 @@
     "opktracker content-type=genericObject !",
     "opkperformance show-all-metrics=true update-interval=1 !",
     "opkcomm method=websocket endpoint=/ws !",
+    "videorate drop-only=true ! videoscale !",
+    "video/x-raw,format=BGRA,width=960,height=540,framerate=24/1 !",
     "opksink name=sink"
   ],
   "alternative-source-image": [
