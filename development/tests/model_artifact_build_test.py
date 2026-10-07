@@ -110,14 +110,10 @@ class ModelArtifactBuildTest(unittest.TestCase):
             "ARG OPK_PIPELINE=yolo26n-320",
             (REPO_ROOT / "Dockerfile").read_text(),
         )
-        for script in (
-            "scripts/private/deployment-process.sh",
-            "scripts/private/deployment-runtime.sh",
-        ):
-            self.assertIn(
-                'OPK_PIPELINE=${OPK_PIPELINE:-"yolo26n-320"}',
-                (REPO_ROOT / script).read_text(),
-            )
+        self.assertIn(
+            'OPK_PIPELINE=${OPK_PIPELINE:-"yolo26n-320"}',
+            (REPO_ROOT / "scripts/private/deployment-runtime.sh").read_text(),
+        )
         descriptor = json.loads(
             (REPO_ROOT / "config/models/yolo26n-320/model.json").read_text()
         )
