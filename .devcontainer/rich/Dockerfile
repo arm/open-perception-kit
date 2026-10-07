@@ -40,9 +40,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 RUN set -eux; \
   mkdir -p /opt/opk-deps /opt/sonar; \
   plantuml_jar="plantuml-mit-${PLANTUML_VERSION}.jar"; \
-  curl --location -fsSLo "/opt/opk-deps/${plantuml_jar}" \
+  curl --location --retry 3 --retry-all-errors --retry-delay 2 -fsSLo "/opt/opk-deps/${plantuml_jar}" \
     "https://github.com/plantuml/plantuml/releases/download/v${PLANTUML_VERSION}/${plantuml_jar}"; \
-  curl --proto "=https" -fsSLo /tmp/sonar-scanner.zip \
+  curl --proto "=https" --retry 3 --retry-all-errors --retry-delay 2 -fsSLo /tmp/sonar-scanner.zip \
     "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_SCANNER_VERSION}.zip"; \
   unzip -q /tmp/sonar-scanner.zip -d /opt/sonar; \
   rm -f /tmp/sonar-scanner.zip; \

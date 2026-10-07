@@ -117,7 +117,7 @@ jobs:
         run: |
           set -euo pipefail
           deb="libexecutorch-dev-1.3.1-2-${DEB_ARCH}.deb"
-          curl --fail --location --retry 3 --output "var/${deb}" \
+          curl --fail --location --retry 3 --retry-all-errors --output "var/${deb}" \
             "${EXECUTORCH_DEB_BASE_URL}/${deb}"
           echo "${DEB_SHA256}  var/${deb}" | sha256sum --check -
 
