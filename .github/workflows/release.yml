@@ -52,6 +52,15 @@ jobs:
             --repo-root . \
             --commit "$commit"
 
+      - name: Reject an already published version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          python3 scripts/release/ReleaseTool.py check-version \
+            --version "$VERSION" \
+            --repository "$GITHUB_REPOSITORY"
+
   quick-start-smoke:
     name: Quick-start smoke test
     uses: ./.github/workflows/quick-start-smoke.yml
