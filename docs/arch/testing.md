@@ -35,42 +35,10 @@ it automatically.
 
 ## Valgrind Checks
 
-`scripts/testing/valgrind/test-elements-with-valgrind.sh` builds debug artifacts,
-runs selected testing pipelines under Valgrind, and writes logs under
-`scripts/testing/valgrind/logs/`.
-
-The runner supports all testing pipelines, a single pipeline by name or path,
-clean builds, verbose output, third-party suppression control, and generated
-suppression candidates. Run `--help` for the current option set.
-
-Current CI runs Valgrind nightly, uploads raw logs as artifacts, and publishes
-the collected baseline record count. Successful `main` and `develop` summaries
-are stored as one current reference per branch at
-`https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci/ci/valgrind-baselines/<branch>/valgrind-error-summary.xml`.
-Pull-request jobs resolve the current target-branch head when validation starts
-and accept the reference only when its recorded newest reference SHA matches
-that head. Downloads and publication use the existing
-`OPK_ARTIFACTORY_USERNAME` and `OPK_ARTIFACTORY_API_KEY` secrets. If the
-reference is missing, invalid, or outdated, the trusted baseline
-workflow schedules a backfill and the job waits for publication. Publishing a
-new branch head replaces the previous reference; the GitHub Actions
-`valgrind-baseline` artifact is only a one-day handoff between jobs.
-
-These checks are not yet a hard quality gate because existing issues still
-need to be addressed.
-
-## Debugging Failures
-
-For a failing pipeline, rerun only that pipeline and inspect the matching log:
-
-```bash
-./scripts/testing/valgrind/test-elements-with-valgrind.sh --pipeline only-onnx-yolo
-less ./scripts/testing/valgrind/logs/only-onnx-yolo.valgrind.log.*
-```
-
-Search for Valgrind summary lines and prioritize call stacks rooted in project
-sources such as `development/elements/` or `development/common/`. Frames entirely
-inside framework or system libraries may belong in suppression tuning.
+CI runs native Meson tests under Valgrind on relevant pull requests and pushes.
+It compares normalized results against `.github/ci/baselines/valgrind-baseline.xml`
+and fails when new repository-owned errors appear. Raw logs are uploaded as the
+`valgrind-test-logs` artifact.
 
 ## Local Test Coverage
 

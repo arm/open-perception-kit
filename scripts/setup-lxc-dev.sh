@@ -129,7 +129,7 @@ apt-get install -y --no-install-recommends \
     neovim net-tools ninja-build nmap nodejs openssh-client pkg-config \
     powerline pre-commit python3 python3-dev python3-gi python3-pip \
     python3-venv ripgrep shellcheck shfmt sudo tcpdump tmux traceroute \
-    tree-sitter-cli unzip v4l-utils valgrind vim wget wl-clipboard xz-utils \
+    tree-sitter-cli unzip v4l-utils vim wget wl-clipboard xz-utils \
     zip zsh
 
 # Debian packages npm separately, while packages from repositories such as

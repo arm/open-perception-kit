@@ -138,21 +138,12 @@ data/videos/SHA256SUMS
 
 
 # -------------------------
-# Sonar files
+# Coverage files and web dependencies
 # -------------------------
-.scannerwork
 .coverage
 coverage.xml
-python-coverage.xml
 development/web/coverage/
 development/web/node_modules/
-
-# -------------------------
-# Valgrind output xml files and error summary xml file
-# -------------------------
-scripts/testing/valgrind/logs/*.xml
-scripts/testing/valgrind/logs/.gstreamer-registry.bin
-**/valgrind-error-summary*.xml
 
 # Generated artifacts
 artifacts/

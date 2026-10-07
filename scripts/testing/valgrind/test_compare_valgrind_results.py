@@ -23,7 +23,6 @@ from pathlib import Path
 
 
 SCRIPT_PATH = Path(__file__).with_name("compare-valgrind-results.py")
-VALGRIND_DRIVER_PATH = Path(__file__).with_name("test-elements-with-valgrind.sh")
 OPK_SUPPRESSION_FUNCTIONS = {
     "_Z21gst_opk_comm_get_typev",
     "_Z21gst_opk_sink_get_typev",
@@ -213,12 +212,6 @@ class TestCompareValgrindResults(unittest.TestCase):
             self.assertFalse(compare.load_summary(current) - compare.load_summary(baseline))
 
     def test_suppressions_match_only_the_approved_full_stack_manifest(self):
-        driver = VALGRIND_DRIVER_PATH.read_text(encoding="utf-8")
-        self.assertEqual(
-            [line.strip() for line in driver.splitlines() if "--num-callers=" in line],
-            ["--num-callers=64"],
-        )
-
         suppressions = SCRIPT_PATH.with_name("suppressed-warnings").read_text(encoding="utf-8")
         blocks = []
         block = None

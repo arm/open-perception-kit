@@ -38,7 +38,6 @@ and check the built artifacts before publication.
 | [Click](https://github.com/pallets/click) | [8.5.0](https://pypi.org/project/click/8.5.0/) | BSD-3-Clause | PyPI |
 | [cmakelang](https://github.com/cheshirekow/cmake_format) | [0.6.13](https://pypi.org/project/cmakelang/0.6.13/) | GPL-3.0-or-later | PyPI |
 | [convert-source-map](https://github.com/thlorenz/convert-source-map) | [2.0.0](https://www.npmjs.com/package/convert-source-map/v/2.0.0) | MIT | npm |
-| [coverage](https://github.com/coveragepy/coveragepy) | [7.16.2](https://pypi.org/project/coverage/7.16.2/) | Apache-2.0 | PyPI |
 | [detect-secrets](https://github.com/Yelp/detect-secrets) | [1.5.0](https://pypi.org/project/detect-secrets/1.5.0/) | Apache-2.0 | PyPI |
 | [esbuild-wasm](https://github.com/evanw/esbuild) | [0.28.2](https://www.npmjs.com/package/esbuild-wasm/v/0.28.2) | MIT | npm |
 | [ExecuTorch](https://github.com/pytorch/executorch) | 1.3.1-2 | BSD-3-Clause and bundled terms | Debian package |

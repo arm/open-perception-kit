@@ -214,7 +214,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   nodejs='20.19.*' npm=9.2.0~ds1-3 pre-commit=4.2.0-2 \
   python3-gi=3.50.0-4+b1 python3-pip=25.1.1+dfsg-1 \
   shellcheck=0.10.0-1 shfmt=3.8.0-1+b8 sudo=1.9.16p2-3+deb13u2 \
-  valgrind=1:3.24.0-3 wget=1.25.0-2 zip=3.0-15+deb13u1; \
+  wget=1.25.0-2 zip=3.0-15+deb13u1; \
   update-ca-certificates
 
 # SHELL selects Bash; hadolint 2.15.1 misclassifies this derived stage as sh.
