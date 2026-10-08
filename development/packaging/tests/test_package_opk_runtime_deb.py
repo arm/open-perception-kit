@@ -389,7 +389,11 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
             postinst = (control_root / "postinst").read_text(encoding="utf-8")
             self.run_command(["sh", "-n", str(control_root / "postinst")])
             self.assertIn("/usr/bin/python3.13 -m pip install", postinst)
-            self.assertIn("numpy-amd64.whl", postinst)
+            expected_numpy_wheel = {
+                "amd64": "numpy-amd64.whl",
+                "arm64": "numpy-arm64.whl",
+            }[architecture]
+            self.assertIn(expected_numpy_wheel, postinst)
             self.assertIn("flatbuffers.whl", postinst)
             self.assertIn("/var/lib/opk/python", postinst)
             self.assertIn(".opk-runtime-contract", postinst)
