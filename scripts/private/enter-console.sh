@@ -42,7 +42,7 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-DEV_ENV_FILE="devices.env" # agent-static-analysis: allow-generated-path
+DEV_ENV_FILE="devices.env"
 DC_KIND="rich"
 CONTAINER_NAME="${OPK_RICH_CONTAINER_NAME:-opk-dev-rich}"
 

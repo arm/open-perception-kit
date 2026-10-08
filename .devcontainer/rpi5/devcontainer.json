@@ -4,12 +4,10 @@
     "${localWorkspaceFolder}/.devcontainer/compose.devcont.yaml",
     "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.video.yaml",
     "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.audio.yaml",
-    "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.shared_memory.yaml"
+    "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.shared_memory.yaml",
+    "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.workspace.yaml"
   ],
   "service": "opk-dev",
-  "runServices": [
-    "opk-dev"
-  ],
   "remoteUser": "dev",
   "workspaceFolder": "/work",
   "initializeCommand": "bash .devcontainer/platform_init.sh opk-dev enabled && bash scripts/private/build-dev-base.sh",

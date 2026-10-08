@@ -104,9 +104,7 @@ class TestOpkCiCli(unittest.TestCase):
         parsed_args = perform_checks_mock.call_args.args[1]
         self.assertTrue(parsed_args.branch_naming)
         self.assertTrue(parsed_args.commit_msg_ci)
-        self.assertTrue(parsed_args.check_secrets)
         self.assertTrue(parsed_args.actionlint)
-        self.assertTrue(parsed_args.agent_runtime_static_analysis)
         self.assertTrue(parsed_args.config_schema_check)
         self.assertTrue(parsed_args.commit_diff)
 
@@ -130,11 +128,9 @@ class TestOpkCiCli(unittest.TestCase):
         self.assertTrue(parsed_args.cmake_format)
         self.assertTrue(parsed_args.shell_format)
         self.assertTrue(parsed_args.license_header)
-        self.assertTrue(parsed_args.check_secrets)
         self.assertTrue(parsed_args.actionlint)
         self.assertFalse(parsed_args.config_schema_check)
         self.assertFalse(parsed_args.clang_format_check)
-        self.assertFalse(parsed_args.agent_runtime_static_analysis)
 
     def test_pre_commit_check_preset_enables_shared_check_only_bundle(self):
         checker = Mock()
@@ -156,10 +152,8 @@ class TestOpkCiCli(unittest.TestCase):
         self.assertTrue(parsed_args.cmake_format_check)
         self.assertTrue(parsed_args.shell_format_check)
         self.assertTrue(parsed_args.license_header_check)
-        self.assertTrue(parsed_args.check_secrets)
         self.assertTrue(parsed_args.actionlint)
         self.assertFalse(parsed_args.clang_format)
-        self.assertFalse(parsed_args.agent_runtime_static_analysis)
         self.assertFalse(parsed_args.config_schema_check)
 
     def test_ci_pr_checks_preset_enables_pr_gate(self):
@@ -179,9 +173,7 @@ class TestOpkCiCli(unittest.TestCase):
         parsed_args = perform_checks_mock.call_args.args[1]
         self.assertTrue(parsed_args.branch_naming)
         self.assertTrue(parsed_args.commit_msg_ci)
-        self.assertTrue(parsed_args.agent_runtime_static_analysis)
         self.assertTrue(parsed_args.clang_format_check)
-        self.assertTrue(parsed_args.check_secrets)
         self.assertTrue(parsed_args.actionlint)
         self.assertTrue(parsed_args.config_schema_check)
 
@@ -200,9 +192,7 @@ class TestOpkCiCli(unittest.TestCase):
 
         self.assertEqual(result, 0)
         parsed_args = perform_checks_mock.call_args.args[1]
-        self.assertTrue(parsed_args.agent_runtime_static_analysis)
         self.assertTrue(parsed_args.clang_format_check)
-        self.assertTrue(parsed_args.check_secrets)
         self.assertTrue(parsed_args.actionlint)
         self.assertFalse(parsed_args.branch_naming)
         self.assertFalse(parsed_args.commit_msg_ci)
@@ -213,7 +203,6 @@ class TestOpkCiCli(unittest.TestCase):
         checker.check_github_actions.return_value = False
         checker.check_config_schema.return_value = True
         args = Mock(
-            check_secrets=False,
             branch_naming=False,
             commit_msg=False,
             commit_msg_ci=False,
@@ -230,7 +219,6 @@ class TestOpkCiCli(unittest.TestCase):
             shell_format=False,
             shell_format_check=False,
             actionlint=True,
-            agent_runtime_static_analysis=False,
             config_schema_check=True,
         )
         report = opk_ci_module.ExecutionReport("custom selection", "explicit", 1, ["--actionlint"])
@@ -257,7 +245,6 @@ class TestOpkCiCli(unittest.TestCase):
         checker = Mock()
         checker.check_config_schema.return_value = False
         args = Mock(
-            check_secrets=False,
             branch_naming=False,
             commit_msg=False,
             commit_msg_ci=False,
@@ -274,7 +261,6 @@ class TestOpkCiCli(unittest.TestCase):
             shell_format=False,
             shell_format_check=False,
             actionlint=False,
-            agent_runtime_static_analysis=False,
             config_schema_check=True,
         )
         report = opk_ci_module.ExecutionReport(
@@ -301,7 +287,7 @@ class TestOpkCiCli(unittest.TestCase):
                 patch.object(opk_ci_module, "perform_checks", return_value=False), \
                 patch.object(opk_ci_module, "setup_opk_logger", return_value=logger), \
                 patch.object(opk_ci_module.argcomplete, "autocomplete", return_value=None), \
-                patch.object(sys, "argv", ["opk-ci", "--check-secrets", "--list-of-files", "safe.txt"]):
+                patch.object(sys, "argv", ["opk-ci", "--actionlint", "--list-of-files", "safe.txt"]):
             result = opk_ci_module.main()
 
         self.assertEqual(result, 1)

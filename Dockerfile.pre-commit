@@ -46,8 +46,8 @@ RUN set -eux; \
   actionlint_archive="actionlint_${ACTIONLINT_VERSION}_linux_${actionlint_arch}.tar.gz"; \
   actionlint_base_url="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"; \
   tmp_dir="$(mktemp -d)"; \
-  curl --location -fsSLo "${tmp_dir}/${actionlint_archive}" "${actionlint_base_url}/${actionlint_archive}"; \
-  curl --location -fsSLo "${tmp_dir}/checksums.txt" "${actionlint_base_url}/actionlint_${ACTIONLINT_VERSION}_checksums.txt"; \
+  curl --location --retry 3 --retry-all-errors --retry-delay 2 -fsSLo "${tmp_dir}/${actionlint_archive}" "${actionlint_base_url}/${actionlint_archive}"; \
+  curl --location --retry 3 --retry-all-errors --retry-delay 2 -fsSLo "${tmp_dir}/checksums.txt" "${actionlint_base_url}/actionlint_${ACTIONLINT_VERSION}_checksums.txt"; \
   checksum="$(grep " ${actionlint_archive}$" "${tmp_dir}/checksums.txt")"; \
   echo "${checksum%% *}  ${tmp_dir}/${actionlint_archive}" | sha256sum --check --strict; \
   tar -xzf "${tmp_dir}/${actionlint_archive}" -C "${tmp_dir}" actionlint; \

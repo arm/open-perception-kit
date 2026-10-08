@@ -88,7 +88,7 @@ while read -r expected filename; do
     temporary="${destination}.part"
     rm -f "$temporary"
     url="${bucket_url}/${filename}"
-    if ! curl -fsSL --retry 3 --retry-delay 2 -o "$temporary" "$url" ||
+    if ! curl -fsSL --retry 3 --retry-all-errors --retry-delay 2 -o "$temporary" "$url" ||
         ! checksum_matches "$expected" "$temporary"; then
         echo "ERROR: failed to download or verify ${filename}" >&2
         rm -f "$temporary"

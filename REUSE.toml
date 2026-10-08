@@ -17,7 +17,7 @@ version = 1
 
 # JSON and binary fixtures cannot contain comments. Keep their formats intact.
 [[annotations]]
-path = ["**/*.json", ".secrets.baseline", "tools/perception/tests/fixtures/*.hex",
+path = ["**/*.json", "tools/perception/tests/fixtures/*.hex",
         "generated/open_perception_kit/rust/tests/fixtures/*.hex",
         "development/tests/python_script_op/invalid_syntax.txt",
         "tools/opk-ci/tests/fixtures/**"]
