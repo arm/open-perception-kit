@@ -605,8 +605,8 @@ populate_executorch_submodules() {
         return 0
     fi
 
-    [[ -f "${EXECUTORCH_DIR}/.gitmodules" ]] || # agent-static-analysis: allow-generated-path (external source archive)
-        die "ExecuTorch source is missing .gitmodules; cannot recover third-party sources" # agent-static-analysis: allow-generated-path (external source archive)
+    [[ -f "${EXECUTORCH_DIR}/.gitmodules" ]] ||
+        die "ExecuTorch source is missing .gitmodules; cannot recover third-party sources"
 
     log "Populating ExecuTorch ${EXECUTORCH_VERSION} third-party sources from pinned tag metadata"
     (   

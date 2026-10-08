@@ -29,7 +29,6 @@ __pycache__/
 .uv-lock/
 *.lock
 .codex
-.agent-runtime/
 
 # -------------------------
 # Meson / Ninja / CMake / Make
@@ -82,6 +81,7 @@ devices.env
 .devcontainer/*.audio.yaml
 .devcontainer/*.shared_memory.yaml
 .devcontainer/*.network.yaml
+.devcontainer/*.workspace.yaml
 .devcontainer/pc/devcontainer-lock.json
 
 
@@ -138,12 +138,10 @@ data/videos/SHA256SUMS
 
 
 # -------------------------
-# Sonar files
+# Coverage files and web dependencies
 # -------------------------
-.scannerwork
 .coverage
 coverage.xml
-python-coverage.xml
 development/web/coverage/
 development/web/node_modules/
 

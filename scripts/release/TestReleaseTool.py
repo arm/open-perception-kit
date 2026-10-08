@@ -23,9 +23,11 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
+from urllib.error import HTTPError, URLError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -1121,6 +1123,47 @@ class ReleaseToolTests(unittest.TestCase):
             final = self.run_tool(*arguments)
             self.assertEqual(final.returncode, 0, final.stderr)
             self.assertIn("version=0.1.0", final.stdout.splitlines())
+
+    def test_published_version_check_rejects_each_destination(self) -> None:
+        destinations = ("GitHub tag", "GitHub release", "crates.io crate", "Artifactory destination")
+        for existing in range(len(destinations)):
+            with self.subTest(destination=destinations[existing]):
+                checked = 0
+
+                def open_version(request, timeout):
+                    nonlocal checked
+                    self.assertEqual(timeout, 15)
+                    current = checked
+                    checked += 1
+                    if current == existing:
+                        return nullcontext()
+                    raise HTTPError(request.full_url, 404, "Not Found", {}, None)
+
+                with patch.object(release_tool, "urlopen", side_effect=open_version):
+                    with self.assertRaisesRegex(RuntimeError, destinations[existing]):
+                        release_tool.check_published_version("0.1.0", "arm/open-perception-kit", "token")
+                self.assertEqual(checked, existing + 1)
+
+        seen = []
+
+        def missing_version(request, timeout):
+            seen.append(request.full_url)
+            raise HTTPError(request.full_url, 404, "Not Found", {}, None)
+
+        with patch.object(release_tool, "urlopen", side_effect=missing_version):
+            release_tool.check_published_version("0.1.0", "arm/open-perception-kit", "token")
+        self.assertEqual(len(seen), len(destinations))
+        self.assertTrue(seen[0].endswith("/git/ref/tags/v0.1.0"))
+        self.assertTrue(seen[1].endswith("/releases/tags/v0.1.0"))
+        self.assertTrue(seen[2].endswith("/open_perception_kit/0.1.0"))
+        self.assertTrue(seen[3].endswith("/v0.1.0/"))
+
+    def test_published_version_check_fails_on_unavailable_destination(self) -> None:
+        for error in (HTTPError("url", 403, "Forbidden", {}, None), URLError("offline")):
+            with self.subTest(error=error):
+                with patch.object(release_tool, "urlopen", side_effect=error):
+                    with self.assertRaisesRegex(RuntimeError, "Could not check GitHub tag"):
+                        release_tool.check_published_version("0.1.0", "arm/open-perception-kit", "token")
 
     def test_model_path_cannot_escape_its_directory(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

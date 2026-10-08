@@ -28,7 +28,7 @@ tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
 
 archive="$tmp_dir/$filename"
-curl -fsSLo "$archive" "$url"
+curl --retry 3 --retry-all-errors --retry-delay 2 -fsSLo "$archive" "$url"
 printf '%s  %s\n' "$expected_sha256" "$archive" | sha256sum -c -
 tar -xzf "$archive" -C "$tmp_dir"
 cmake -S "$tmp_dir/flatbuffers-${version}" -B "$tmp_dir/build" \

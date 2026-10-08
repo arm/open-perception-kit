@@ -18,7 +18,6 @@
 FROM opk-dev:local AS opk-dev-rich
 
 ARG PLANTUML_VERSION=1.2026.2
-ARG SONAR_SCANNER_VERSION=8.0.1.6346
 # Container account name, not an authentication credential.
 # hadolint ignore=DL3064
 ARG USERNAME=dev
@@ -38,20 +37,13 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   libbz2-dev=1.0.8-6 liblzma-dev=5.8.1-1+deb13u1 libsqlite3-dev=3.46.1-7+deb13u2
 
 RUN set -eux; \
-  mkdir -p /opt/opk-deps /opt/sonar; \
+  mkdir -p /opt/opk-deps; \
   plantuml_jar="plantuml-mit-${PLANTUML_VERSION}.jar"; \
-  curl --location -fsSLo "/opt/opk-deps/${plantuml_jar}" \
+  curl --location --retry 3 --retry-all-errors --retry-delay 2 -fsSLo "/opt/opk-deps/${plantuml_jar}" \
     "https://github.com/plantuml/plantuml/releases/download/v${PLANTUML_VERSION}/${plantuml_jar}"; \
-  curl --proto "=https" -fsSLo /tmp/sonar-scanner.zip \
-    "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_SCANNER_VERSION}.zip"; \
-  unzip -q /tmp/sonar-scanner.zip -d /opt/sonar; \
-  rm -f /tmp/sonar-scanner.zip; \
   touch /container_env
 
 COPY --chmod=0755 .devcontainer/rich/start.sh /usr/local/bin/opk-rich-start
-
-ENV SONAR_HOST_URL=https://sonarqube.mobilestudio.aws.arm.com \
-  PATH=/opt/sonar/sonar-scanner-${SONAR_SCANNER_VERSION}/bin:${PATH}
 
 USER ${USERNAME}
 WORKDIR /work
