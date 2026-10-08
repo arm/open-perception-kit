@@ -474,6 +474,7 @@ def stage_python_runtime(args: argparse.Namespace) -> None:
         encoding="utf-8",
     )
 
+
 def json_mapping(path: Path) -> dict[str, object]:
     value = load_json(path)
     if not isinstance(value, dict):
