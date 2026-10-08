@@ -41,6 +41,14 @@ function detectionSummary(detection) {
         };
     }
 
+    if (type === 'OrientedBox') {
+        return {
+            title: data.text || `Class ${data.classId ?? '-'}`,
+            detail: `box cx ${number(data.centerX)} cy ${number(data.centerY)} w ${number(data.width)} h ${number(data.height)} angle ${number(data.angleRadians)} rad`,
+            meta: number(data.confidence),
+        };
+    }
+
     if (type === 'YawPitch') {
         return {
             title: 'Yaw / pitch',

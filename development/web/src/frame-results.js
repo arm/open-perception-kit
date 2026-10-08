@@ -21,6 +21,7 @@ import {ClassificationsT} from '../../../generated/open_perception_kit/ts/dist/o
 import {FrameContextT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/frame-context.js';
 import {ObjectEmbeddingsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-embeddings.js';
 import {ObjectTracksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-tracks.js';
+import {OrientedBoxDetectionsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/oriented-box-detections.js';
 import {PerformanceOverlayT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-overlay.js';
 import {PoseEstimationsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimations.js';
 import {SegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-masks.js';
@@ -193,6 +194,22 @@ export function decodeFrameResultsMessage(message) {
             .filter((item) => !sourceIds?.has(identifier(item.object?.id)))
             .map((item) => ({type: 'Rect', data: boxData(item)}));
     }, layers);
+
+    addPayloadLayers(envelope, OrientedBoxDetectionsT, (payload) =>
+        payload.detections.map((item) => ({
+            type: 'OrientedBox',
+            data: {
+                ...objectData(item.object),
+                centerX: Number(item.box?.centerX || 0),
+                centerY: Number(item.box?.centerY || 0),
+                width: Number(item.box?.width || 0),
+                height: Number(item.box?.height || 0),
+                angleRadians: Number(item.box?.angleRadians || 0),
+                confidence: Number(item.confidence || 0),
+                classId: Number(item.classId ?? -1),
+                text: text(item.text),
+            },
+        })), layers);
 
     addPayloadLayers(envelope, ObjectTracksT, (payload) =>
         payload.tracks.map((item) => ({

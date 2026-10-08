@@ -56,6 +56,8 @@ runtime. Treat these as constraints when extending the system.
   only during the current call.
 - `opkosd` rendering is hardcoded around known content types, so it is best
   treated as a debugging overlay rather than the long-term visualization layer.
+- `opktracker` and server-side `opkosd` do not consume oriented box detections;
+  the `opksink` browser OSD renders them directly.
 
 ## Runtime Failure Handling
 

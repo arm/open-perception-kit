@@ -43,11 +43,41 @@ function createCanvasContext() {
       return {width: text.length * 8};
     },
     fillRect() {},
+    beginPath() {},
+    moveTo(x, y) { calls.push({x, y}); },
+    lineTo(x, y) { calls.push({x, y}); },
+    closePath() {},
+    stroke() {},
     fillText(text, x, y) {
       calls.push({text, x, y});
     },
   };
 }
+
+test("oriented boxes follow their angle in frame pixels", () => {
+  globalThis.window = {devicePixelRatio: 1};
+  const context = createCanvasContext();
+  const canvas = {
+    clientWidth: 200,
+    clientHeight: 200,
+    width: 0,
+    height: 0,
+    getContext: () => context,
+  };
+  renderOsd(canvas, {videoWidth: 200, videoHeight: 200}, {
+    layers: [{
+      contentType: "genericObject",
+      detections: [{type: "OrientedBox", data: {
+        centerX: 100, centerY: 100, width: 40, height: 20,
+        angleRadians: Math.PI / 2, text: "ship",
+      }}],
+    }],
+  }, {performance: false});
+
+  assert.deepEqual(context.calls.filter((call) => !call.text).map(({x, y}) => [x, y]), [
+    [110, 80], [110, 120], [90, 120], [90, 80],
+  ]);
+});
 
 test("gaze projection does not reverse across 90 degrees", () => {
   const start = {x: 160, y: 120};

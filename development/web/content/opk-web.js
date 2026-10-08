@@ -1825,6 +1825,13 @@ function detectionSummary(detection) {
       meta: confidence ? `${confidence}` : ""
     };
   }
+  if (type === "OrientedBox") {
+    return {
+      title: data.text || `Class ${data.classId ?? "-"}`,
+      detail: `box cx ${number(data.centerX)} cy ${number(data.centerY)} w ${number(data.width)} h ${number(data.height)} angle ${number(data.angleRadians)} rad`,
+      meta: number(data.confidence)
+    };
+  }
   if (type === "YawPitch") {
     return {
       title: "Yaw / pitch",
@@ -4691,6 +4698,297 @@ var ObjectTracksT = class {
   }
 };
 
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/oriented-bounding-box.js
+var OrientedBoundingBox = class _OrientedBoundingBox {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsOrientedBoundingBox(bb, obj) {
+    return (obj || new _OrientedBoundingBox()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsOrientedBoundingBox(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _OrientedBoundingBox()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  centerX() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
+  }
+  centerY() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
+  }
+  width() {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
+  }
+  height() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
+  }
+  angleRadians() {
+    const offset = this.bb.__offset(this.bb_pos, 12);
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
+  }
+  static startOrientedBoundingBox(builder) {
+    builder.startObject(5);
+  }
+  static addCenterX(builder, centerX) {
+    builder.addFieldFloat32(0, centerX, 0);
+  }
+  static addCenterY(builder, centerY) {
+    builder.addFieldFloat32(1, centerY, 0);
+  }
+  static addWidth(builder, width) {
+    builder.addFieldFloat32(2, width, 0);
+  }
+  static addHeight(builder, height) {
+    builder.addFieldFloat32(3, height, 0);
+  }
+  static addAngleRadians(builder, angleRadians) {
+    builder.addFieldFloat32(4, angleRadians, 0);
+  }
+  static endOrientedBoundingBox(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createOrientedBoundingBox(builder, centerX, centerY, width, height, angleRadians) {
+    _OrientedBoundingBox.startOrientedBoundingBox(builder);
+    _OrientedBoundingBox.addCenterX(builder, centerX);
+    _OrientedBoundingBox.addCenterY(builder, centerY);
+    _OrientedBoundingBox.addWidth(builder, width);
+    _OrientedBoundingBox.addHeight(builder, height);
+    _OrientedBoundingBox.addAngleRadians(builder, angleRadians);
+    return _OrientedBoundingBox.endOrientedBoundingBox(builder);
+  }
+  unpack() {
+    return new OrientedBoundingBoxT(this.centerX(), this.centerY(), this.width(), this.height(), this.angleRadians());
+  }
+  unpackTo(_o) {
+    _o.centerX = this.centerX();
+    _o.centerY = this.centerY();
+    _o.width = this.width();
+    _o.height = this.height();
+    _o.angleRadians = this.angleRadians();
+  }
+};
+var OrientedBoundingBoxT = class {
+  constructor(centerX = 0, centerY = 0, width = 0, height = 0, angleRadians = 0) {
+    this.centerX = centerX;
+    this.centerY = centerY;
+    this.width = width;
+    this.height = height;
+    this.angleRadians = angleRadians;
+  }
+  pack(builder) {
+    return OrientedBoundingBox.createOrientedBoundingBox(builder, this.centerX, this.centerY, this.width, this.height, this.angleRadians);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/oriented-box-detection.js
+var OrientedBoxDetection = class _OrientedBoxDetection {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsOrientedBoxDetection(bb, obj) {
+    return (obj || new _OrientedBoxDetection()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsOrientedBoxDetection(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _OrientedBoxDetection()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  object(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? (obj || new ObjectMeta()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  box(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? (obj || new OrientedBoundingBox()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  confidence() {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
+  }
+  classId() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.readInt32(this.bb_pos + offset) : -1;
+  }
+  text(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 12);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  static startOrientedBoxDetection(builder) {
+    builder.startObject(5);
+  }
+  static addObject(builder, objectOffset) {
+    builder.addFieldOffset(0, objectOffset, 0);
+  }
+  static addBox(builder, boxOffset) {
+    builder.addFieldOffset(1, boxOffset, 0);
+  }
+  static addConfidence(builder, confidence) {
+    builder.addFieldFloat32(2, confidence, 0);
+  }
+  static addClassId(builder, classId) {
+    builder.addFieldInt32(3, classId, -1);
+  }
+  static addText(builder, textOffset) {
+    builder.addFieldOffset(4, textOffset, 0);
+  }
+  static endOrientedBoxDetection(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  unpack() {
+    return new OrientedBoxDetectionT(this.object() !== null ? this.object().unpack() : null, this.box() !== null ? this.box().unpack() : null, this.confidence(), this.classId(), this.text());
+  }
+  unpackTo(_o) {
+    _o.object = this.object() !== null ? this.object().unpack() : null;
+    _o.box = this.box() !== null ? this.box().unpack() : null;
+    _o.confidence = this.confidence();
+    _o.classId = this.classId();
+    _o.text = this.text();
+  }
+};
+var OrientedBoxDetectionT = class {
+  constructor(object = null, box = null, confidence = 0, classId = -1, text2 = null) {
+    this.object = object;
+    this.box = box;
+    this.confidence = confidence;
+    this.classId = classId;
+    this.text = text2;
+  }
+  pack(builder) {
+    const object = this.object !== null ? this.object.pack(builder) : 0;
+    const box = this.box !== null ? this.box.pack(builder) : 0;
+    const text2 = this.text !== null ? builder.createString(this.text) : 0;
+    OrientedBoxDetection.startOrientedBoxDetection(builder);
+    OrientedBoxDetection.addObject(builder, object);
+    OrientedBoxDetection.addBox(builder, box);
+    OrientedBoxDetection.addConfidence(builder, this.confidence);
+    OrientedBoxDetection.addClassId(builder, this.classId);
+    OrientedBoxDetection.addText(builder, text2);
+    return OrientedBoxDetection.endOrientedBoxDetection(builder);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/oriented-box-detections.js
+var OrientedBoxDetections = class _OrientedBoxDetections {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsOrientedBoxDetections(bb, obj) {
+    return (obj || new _OrientedBoxDetections()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsOrientedBoxDetections(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _OrientedBoxDetections()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static bufferHasIdentifier(bb) {
+    return bb.__has_identifier("OBBD");
+  }
+  schemaMajor() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.readUint16(this.bb_pos + offset) : 1;
+  }
+  schemaMinor() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readUint16(this.bb_pos + offset) : 0;
+  }
+  layer(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? (obj || new LayerInfo()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  detections(index, obj) {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? (obj || new OrientedBoxDetection()).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos + offset) + index * 4), this.bb) : null;
+  }
+  detectionsLength() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
+  }
+  static startOrientedBoxDetections(builder) {
+    builder.startObject(4);
+  }
+  static addSchemaMajor(builder, schemaMajor) {
+    builder.addFieldInt16(0, schemaMajor, 1);
+  }
+  static addSchemaMinor(builder, schemaMinor) {
+    builder.addFieldInt16(1, schemaMinor, 0);
+  }
+  static addLayer(builder, layerOffset) {
+    builder.addFieldOffset(2, layerOffset, 0);
+  }
+  static addDetections(builder, detectionsOffset) {
+    builder.addFieldOffset(3, detectionsOffset, 0);
+  }
+  static createDetectionsVector(builder, data) {
+    builder.startVector(4, data.length, 4);
+    for (let i = data.length - 1; i >= 0; i--) {
+      builder.addOffset(data[i]);
+    }
+    return builder.endVector();
+  }
+  static startDetectionsVector(builder, numElems) {
+    builder.startVector(4, numElems, 4);
+  }
+  static endOrientedBoxDetections(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static finishOrientedBoxDetectionsBuffer(builder, offset) {
+    builder.finish(offset, "OBBD");
+  }
+  static finishSizePrefixedOrientedBoxDetectionsBuffer(builder, offset) {
+    builder.finish(offset, "OBBD", true);
+  }
+  unpack() {
+    return new OrientedBoxDetectionsT(this.schemaMajor(), this.schemaMinor(), this.layer() !== null ? this.layer().unpack() : null, this.bb.createObjList(this.detections.bind(this), this.detectionsLength()));
+  }
+  unpackTo(_o) {
+    _o.schemaMajor = this.schemaMajor();
+    _o.schemaMinor = this.schemaMinor();
+    _o.layer = this.layer() !== null ? this.layer().unpack() : null;
+    _o.detections = this.bb.createObjList(this.detections.bind(this), this.detectionsLength());
+  }
+};
+var OrientedBoxDetectionsT = class {
+  constructor(schemaMajor = 1, schemaMinor = 0, layer2 = null, detections = []) {
+    this.schemaMajor = schemaMajor;
+    this.schemaMinor = schemaMinor;
+    this.layer = layer2;
+    this.detections = detections;
+  }
+  pack(builder) {
+    const layer2 = this.layer !== null ? this.layer.pack(builder) : 0;
+    const detections = OrientedBoxDetections.createDetectionsVector(builder, builder.createObjectOffsetList(this.detections));
+    OrientedBoxDetections.startOrientedBoxDetections(builder);
+    OrientedBoxDetections.addSchemaMajor(builder, this.schemaMajor);
+    OrientedBoxDetections.addSchemaMinor(builder, this.schemaMinor);
+    OrientedBoxDetections.addLayer(builder, layer2);
+    OrientedBoxDetections.addDetections(builder, detections);
+    return OrientedBoxDetections.endOrientedBoxDetections(builder);
+  }
+};
+
 // generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-overlay.js
 var PerformanceOverlay = class _PerformanceOverlay {
   constructor() {
@@ -5515,6 +5813,8 @@ var decode_5972661533224817501 = (blob) => ObjectEmbeddings.getRootAsObjectEmbed
 var verify_5972661533224817501 = (blob) => ObjectEmbeddings.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_2960585987463094496 = (blob) => ObjectTracks.getRootAsObjectTracks(new ByteBuffer(blob)).unpack();
 var verify_2960585987463094496 = (blob) => ObjectTracks.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_5554605185828553022 = (blob) => OrientedBoxDetections.getRootAsOrientedBoxDetections(new ByteBuffer(blob)).unpack();
+var verify_5554605185828553022 = (blob) => OrientedBoxDetections.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_7749401259036278028 = (blob) => PerformanceOverlay.getRootAsPerformanceOverlay(new ByteBuffer(blob)).unpack();
 var verify_7749401259036278028 = (blob) => PerformanceOverlay.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_9114952555105892553 = (blob) => PoseEstimations.getRootAsPoseEstimations(new ByteBuffer(blob)).unpack();
@@ -5564,6 +5864,14 @@ var _TYPE_REGISTRY = /* @__PURE__ */ new Map([
     decode: decode_2960585987463094496,
     verify: verify_2960585987463094496
   }],
+  [5554605185828553022n, {
+    name: "open_perception_kit::metadata::OrientedBoxDetections",
+    root_type: "OrientedBoxDetections",
+    qualified_root_type: "open_perception_kit.metadata.OrientedBoxDetections",
+    file_identifier: "OBBD",
+    decode: decode_5554605185828553022,
+    verify: verify_5554605185828553022
+  }],
   [7749401259036278028n, {
     name: "open_perception_kit::metadata::PerformanceOverlay",
     root_type: "PerformanceOverlay",
@@ -5603,6 +5911,7 @@ var _CLASS_TO_ID = /* @__PURE__ */ new Map([
   [FrameContextT, 2065478860695108412n],
   [ObjectEmbeddingsT, 5972661533224817501n],
   [ObjectTracksT, 2960585987463094496n],
+  [OrientedBoxDetectionsT, 5554605185828553022n],
   [PerformanceOverlayT, 7749401259036278028n],
   [PoseEstimationsT, 9114952555105892553n],
   [SegmentationMasksT, 1998909987238011535n],
@@ -5624,7 +5933,7 @@ var __classPrivateFieldGet = function(receiver, state, kind, f) {
 var _ExternalKey_value;
 var SDK_NAME = "open_perception_kit";
 var SDK_VERSION = "0.1.1";
-var SCHEMA_SET_SHA256 = "1b19418d8a0d34038a3c99895fa93a1140c25af910f6bc63c0e11978e12c2876";
+var SCHEMA_SET_SHA256 = "a3412ce8bff796ba2304295a6e53c16ecdbfbe15fe5d98606e2a20ac86cd1209";
 var EXTERNAL_KEY_MIN = BigInt("9223372036854775808");
 var EXTERNAL_KEY_MASK = EXTERNAL_KEY_MIN - BigInt(1);
 var EXTERNAL_HASH_OFFSET = BigInt("14695981039346656037");
@@ -6096,6 +6405,20 @@ function decodeFrameResultsMessage(message) {
     const sourceIds = trackedSourceIds.get(text(payload.layer?.contentType));
     return payload.detections.filter((item) => !sourceIds?.has(identifier(item.object?.id))).map((item) => ({ type: "Rect", data: boxData(item) }));
   }, layers);
+  addPayloadLayers(envelope, OrientedBoxDetectionsT, (payload) => payload.detections.map((item) => ({
+    type: "OrientedBox",
+    data: {
+      ...objectData(item.object),
+      centerX: Number(item.box?.centerX || 0),
+      centerY: Number(item.box?.centerY || 0),
+      width: Number(item.box?.width || 0),
+      height: Number(item.box?.height || 0),
+      angleRadians: Number(item.box?.angleRadians || 0),
+      confidence: Number(item.confidence || 0),
+      classId: Number(item.classId ?? -1),
+      text: text(item.text)
+    }
+  })), layers);
   addPayloadLayers(envelope, ObjectTracksT, (payload) => payload.tracks.map((item) => ({
     type: "Rect",
     data: {
@@ -6443,6 +6766,12 @@ function drawLayers(ctx, perception, mapper, renderOptions, now) {
       draw: (data) => drawObjectBox(ctx, data, mapper, renderOptions.colors.objects)
     },
     {
+      enabled: renderOptions.objects,
+      contentType: "genericObject",
+      detectionType: "OrientedBox",
+      draw: (data) => drawOrientedBox(ctx, data, mapper, renderOptions.colors.objects)
+    },
+    {
       enabled: renderOptions.faces,
       contentType: "humanFace",
       detectionType: "Rect",
@@ -6492,6 +6821,32 @@ function drawObjectBox(ctx, rect, mapper, color) {
   if (label) {
     drawTextChip(ctx, label, box.x, Math.max(2, box.y - 22), 13, color);
   }
+  ctx.restore();
+}
+function drawOrientedBox(ctx, box, mapper, color) {
+  if (box.width <= 0 || box.height <= 0) return;
+  const angle = box.angleRadians;
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  const corners = [
+    [-box.width / 2, -box.height / 2],
+    [box.width / 2, -box.height / 2],
+    [box.width / 2, box.height / 2],
+    [-box.width / 2, box.height / 2]
+  ].map(([x, y]) => mapper.point(
+    box.centerX + x * cos - y * sin,
+    box.centerY + x * sin + y * cos
+  ));
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(corners[0].x, corners[0].y);
+  for (const corner of corners.slice(1)) ctx.lineTo(corner.x, corner.y);
+  ctx.closePath();
+  ctx.stroke();
+  const label = box.label || box.text || confidenceLabel(box.confidence);
+  if (label) drawTextChip(ctx, label, corners[0].x, Math.max(2, corners[0].y - 22), 13, color);
   ctx.restore();
 }
 function drawFace(ctx, rect, mapper, colors) {

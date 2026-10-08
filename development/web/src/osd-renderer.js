@@ -215,6 +215,12 @@ function drawLayers(ctx, perception, mapper, renderOptions, now) {
       draw: (data) => drawObjectBox(ctx, data, mapper, renderOptions.colors.objects),
     },
     {
+      enabled: renderOptions.objects,
+      contentType: "genericObject",
+      detectionType: "OrientedBox",
+      draw: (data) => drawOrientedBox(ctx, data, mapper, renderOptions.colors.objects),
+    },
+    {
       enabled: renderOptions.faces,
       contentType: "humanFace",
       detectionType: "Rect",
@@ -267,6 +273,33 @@ function drawObjectBox(ctx, rect, mapper, color) {
   if (label) {
     drawTextChip(ctx, label, box.x, Math.max(2, box.y - 22), 13, color);
   }
+  ctx.restore();
+}
+
+function drawOrientedBox(ctx, box, mapper, color) {
+  if (box.width <= 0 || box.height <= 0) return;
+
+  const angle = box.angleRadians;
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  const corners = [
+    [-box.width / 2, -box.height / 2],
+    [box.width / 2, -box.height / 2],
+    [box.width / 2, box.height / 2],
+    [-box.width / 2, box.height / 2],
+  ].map(([x, y]) => mapper.point(box.centerX + x * cos - y * sin,
+                                 box.centerY + x * sin + y * cos));
+
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(corners[0].x, corners[0].y);
+  for (const corner of corners.slice(1)) ctx.lineTo(corner.x, corner.y);
+  ctx.closePath();
+  ctx.stroke();
+  const label = box.label || box.text || confidenceLabel(box.confidence);
+  if (label) drawTextChip(ctx, label, corners[0].x, Math.max(2, corners[0].y - 22), 13, color);
   ctx.restore();
 }
 

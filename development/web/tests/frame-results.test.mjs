@@ -30,6 +30,9 @@ import {ClassificationsT} from '../../../generated/open_perception_kit/ts/dist/o
 import {FrameContextT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/frame-context.js';
 import {ObjectTrackT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-track.js';
 import {ObjectTracksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-tracks.js';
+import {OrientedBoundingBoxT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/oriented-bounding-box.js';
+import {OrientedBoxDetectionT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/oriented-box-detection.js';
+import {OrientedBoxDetectionsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/oriented-box-detections.js';
 import {PerformanceOverlayT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-overlay.js';
 import {PoseEstimationT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimation.js';
 import {PoseEstimationsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimations.js';
@@ -70,6 +73,18 @@ function encodedFixture() {
             0.9,
             1,
             'face',
+        )],
+    ));
+    envelope.add(new OrientedBoxDetectionsT(
+        1,
+        0,
+        layer('genericObject'),
+        [new OrientedBoxDetectionT(
+            new ObjectMetaT(60n),
+            new OrientedBoundingBoxT(100, 80, 40, 20, 0.5),
+            0.8,
+            1,
+            'ship',
         )],
     ));
     envelope.add(new ClassificationsT(
@@ -170,6 +185,11 @@ test('decodes typed FrameResults into the established WebUI view model', () => {
     assert.equal(gaze.detections[0].data.parentUuid, '20');
     assert.equal(findVideoFrame(decoded.frame_results).originalHeight, 480);
     assert.equal(findParentRect(decoded.frame_results, 'humanFace', '20').text, 'face');
+    const oriented = decoded.frame_results.layers.find((item) => item.contentType === 'genericObject');
+    assert.equal(oriented.detections[0].type, 'OrientedBox');
+    assert.equal(oriented.detections[0].data.text, 'ship');
+    assert.equal(oriented.detections[0].data.centerX, 100);
+    assert.ok(Math.abs(oriented.detections[0].data.angleRadians - 0.5) < 1e-6);
 });
 
 test('suppresses detector boxes replaced by tracker output', () => {
