@@ -80,7 +80,7 @@ bool write_all(int file_descriptor, std::string_view text) {
 }
 
 bool colors_enabled() {
-    const char *no_color = std::getenv("NO_COLOR");
+    const char *no_color = std::getenv("NO_COLOR"); // NOLINT(concurrency-mt-unsafe)
     return no_color == nullptr || no_color[0] == '\0';
 }
 
@@ -88,7 +88,7 @@ bool supports_interactive_menu() {
     if (isatty(STDIN_FILENO) == 0 || isatty(STDOUT_FILENO) == 0)
         return false;
 
-    const char *term = std::getenv("TERM");
+    const char *term = std::getenv("TERM"); // NOLINT(concurrency-mt-unsafe)
     return term == nullptr || std::strcmp(term, "dumb") != 0;
 }
 

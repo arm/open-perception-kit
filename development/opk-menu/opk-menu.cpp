@@ -100,13 +100,16 @@ struct PluginPath {
 };
 
 static void configure_default_project_root() {
+    // NOLINTNEXTLINE(concurrency-mt-unsafe)
     const char *configured_root = std::getenv("OPK_PROJECT_ROOT");
-    if (configured_root == nullptr || configured_root[0] == '\0')
+    if (configured_root == nullptr || configured_root[0] == '\0') {
+        // NOLINTNEXTLINE(concurrency-mt-unsafe)
         setenv("OPK_PROJECT_ROOT", kDefaultProjectRoot.c_str(), 1);
+    }
 }
 
 static fs::path pipelines_directory() {
-    const char *configured_root = std::getenv("OPK_PROJECT_ROOT");
+    const char *configured_root = std::getenv("OPK_PROJECT_ROOT"); // NOLINT(concurrency-mt-unsafe)
     const fs::path project_root = configured_root != nullptr && configured_root[0] != '\0'
                                       ? configured_root
                                       : kDefaultProjectRoot;
@@ -114,7 +117,8 @@ static fs::path pipelines_directory() {
 }
 
 static PluginPath plugin_path() {
-    if (const char *configured_path = std::getenv("OPK_PLUGIN_PATH")) {
+    if (const char *configured_path =
+            std::getenv("OPK_PLUGIN_PATH")) { // NOLINT(concurrency-mt-unsafe)
         if (configured_path[0] != '\0')
             return {configured_path, true};
     }
@@ -122,7 +126,7 @@ static PluginPath plugin_path() {
     if (std::string_view{OPK_DEFAULT_PLUGIN_PATH}.empty() == false)
         return {OPK_DEFAULT_PLUGIN_PATH, false};
 
-    const char *configured_root = std::getenv("OPK_PROJECT_ROOT");
+    const char *configured_root = std::getenv("OPK_PROJECT_ROOT"); // NOLINT(concurrency-mt-unsafe)
     const fs::path project_root = configured_root != nullptr && configured_root[0] != '\0'
                                       ? configured_root
                                       : kDefaultProjectRoot;
@@ -133,7 +137,8 @@ static PluginPath plugin_path() {
 }
 
 static std::string ops_path() {
-    if (const char *configured_path = std::getenv("OPK_OPS_PATH")) {
+    if (const char *configured_path =
+            std::getenv("OPK_OPS_PATH")) { // NOLINT(concurrency-mt-unsafe)
         if (configured_path[0] != '\0')
             return configured_path;
     }
@@ -162,7 +167,7 @@ static bool pipeline_back_key_enabled() {
 }
 
 static bool terminal_style_enabled() {
-    const char *no_color = std::getenv("NO_COLOR");
+    const char *no_color = std::getenv("NO_COLOR"); // NOLINT(concurrency-mt-unsafe)
     return no_color == nullptr || no_color[0] == '\0';
 }
 
@@ -480,11 +485,14 @@ class TerminationSignalHandlers {
 
 static fs::path last_selection_path() {
 #if OPK_USE_XDG_STATE
-    if (const char *configured = std::getenv("OPK_STATE_DIR"); configured && configured[0] != '\0')
+    if (const char *configured = std::getenv("OPK_STATE_DIR"); // NOLINT(concurrency-mt-unsafe)
+        configured && configured[0] != '\0')
         return fs::path{configured} / kLastSelectionFileName;
-    if (const char *xdg = std::getenv("XDG_STATE_HOME"); xdg && xdg[0] != '\0')
+    if (const char *xdg = std::getenv("XDG_STATE_HOME"); // NOLINT(concurrency-mt-unsafe)
+        xdg && xdg[0] != '\0')
         return fs::path{xdg} / "opk" / kLastSelectionFileName;
-    if (const char *home = std::getenv("HOME"); home && home[0] != '\0')
+    if (const char *home = std::getenv("HOME"); // NOLINT(concurrency-mt-unsafe)
+        home && home[0] != '\0')
         return fs::path{home} / ".local/state/opk" / kLastSelectionFileName;
 #endif
     return pipelines_directory() / kLastSelectionFileName;
