@@ -308,6 +308,30 @@ PyObject *make_open_perception_kit_metadata_ObjectTracks_proxy(
     const open_perception_kit::metadata::ObjectTracksT *value,
     std::shared_ptr<const native_proxy_anchor> anchor);
 
+PyTypeObject &pytype_open_perception_kit_metadata_OrientedBoundingBox() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+PyObject *make_open_perception_kit_metadata_OrientedBoundingBox_proxy(
+    const open_perception_kit::metadata::OrientedBoundingBoxT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor);
+
+PyTypeObject &pytype_open_perception_kit_metadata_OrientedBoxDetection() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+PyObject *make_open_perception_kit_metadata_OrientedBoxDetection_proxy(
+    const open_perception_kit::metadata::OrientedBoxDetectionT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor);
+
+PyTypeObject &pytype_open_perception_kit_metadata_OrientedBoxDetections() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+PyObject *make_open_perception_kit_metadata_OrientedBoxDetections_proxy(
+    const open_perception_kit::metadata::OrientedBoxDetectionsT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor);
+
 PyTypeObject &pytype_open_perception_kit_metadata_PerformanceOverlay() {
     static PyTypeObject type = make_py_type_object();
     return type;
@@ -432,6 +456,15 @@ PySequenceMethods &seq_open_perception_kit_metadata_ObjectTracks_tracks_vector()
     return methods;
 }
 PyTypeObject &pytype_open_perception_kit_metadata_ObjectTracks_tracks_vector() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+
+PySequenceMethods &seq_open_perception_kit_metadata_OrientedBoxDetections_detections_vector() {
+    static PySequenceMethods methods = {};
+    return methods;
+}
+PyTypeObject &pytype_open_perception_kit_metadata_OrientedBoxDetections_detections_vector() {
     static PyTypeObject type = make_py_type_object();
     return type;
 }
@@ -689,6 +722,7 @@ enum class known_payload_kind {
     kind_open_perception_kit_metadata_FrameContext,
     kind_open_perception_kit_metadata_ObjectEmbeddings,
     kind_open_perception_kit_metadata_ObjectTracks,
+    kind_open_perception_kit_metadata_OrientedBoxDetections,
     kind_open_perception_kit_metadata_PerformanceOverlay,
     kind_open_perception_kit_metadata_PoseEstimations,
     kind_open_perception_kit_metadata_SegmentationMasks,
@@ -813,6 +847,11 @@ std::optional<known_payload_kind> known_payload_kind_from_type(PyObject *type_ob
         return known_payload_kind::kind_open_perception_kit_metadata_ObjectTracks;
     }
     if (py_type_matches(type_object,
+                        "open_perception_kit.fb.open_perception_kit.metadata.OrientedBoxDetections",
+                        "OrientedBoxDetectionsT")) {
+        return known_payload_kind::kind_open_perception_kit_metadata_OrientedBoxDetections;
+    }
+    if (py_type_matches(type_object,
                         "open_perception_kit.fb.open_perception_kit.metadata.PerformanceOverlay",
                         "PerformanceOverlayT")) {
         return known_payload_kind::kind_open_perception_kit_metadata_PerformanceOverlay;
@@ -866,6 +905,12 @@ std::optional<known_payload_kind> known_payload_kind_from_value(PyObject *value)
                                "open_perception_kit.fb.open_perception_kit.metadata.ObjectTracks",
                                "ObjectTracksT")) {
         return known_payload_kind::kind_open_perception_kit_metadata_ObjectTracks;
+    }
+    if (py_object_type_matches(
+            value,
+            "open_perception_kit.fb.open_perception_kit.metadata.OrientedBoxDetections",
+            "OrientedBoxDetectionsT")) {
+        return known_payload_kind::kind_open_perception_kit_metadata_OrientedBoxDetections;
     }
     if (py_object_type_matches(
             value,
@@ -1070,6 +1115,9 @@ PyObject *live_envelope_count(PyObject *self, PyObject *args) {
     case known_payload_kind::kind_open_perception_kit_metadata_ObjectTracks:
         return PyLong_FromSize_t(
             live->envelope->count<open_perception_kit::metadata::ObjectTracksT>());
+    case known_payload_kind::kind_open_perception_kit_metadata_OrientedBoxDetections:
+        return PyLong_FromSize_t(
+            live->envelope->count<open_perception_kit::metadata::OrientedBoxDetectionsT>());
     case known_payload_kind::kind_open_perception_kit_metadata_PerformanceOverlay:
         return PyLong_FromSize_t(
             live->envelope->count<open_perception_kit::metadata::PerformanceOverlayT>());
@@ -1137,6 +1185,11 @@ PyObject *live_envelope_contains(PyObject *self, PyObject *args) {
         Py_RETURN_FALSE;
     case known_payload_kind::kind_open_perception_kit_metadata_ObjectTracks:
         if (live->envelope->contains<open_perception_kit::metadata::ObjectTracksT>()) {
+            Py_RETURN_TRUE;
+        }
+        Py_RETURN_FALSE;
+    case known_payload_kind::kind_open_perception_kit_metadata_OrientedBoxDetections:
+        if (live->envelope->contains<open_perception_kit::metadata::OrientedBoxDetectionsT>()) {
             Py_RETURN_TRUE;
         }
         Py_RETURN_FALSE;
@@ -1216,6 +1269,9 @@ PyObject *live_envelope_get(PyObject *self, PyObject *args, PyObject *kwargs) {
     case known_payload_kind::kind_open_perception_kit_metadata_ObjectTracks:
         return get_known_payload<open_perception_kit::metadata::ObjectTracksT>(
             *live->envelope, pytype_open_perception_kit_metadata_ObjectTracks(), index);
+    case known_payload_kind::kind_open_perception_kit_metadata_OrientedBoxDetections:
+        return get_known_payload<open_perception_kit::metadata::OrientedBoxDetectionsT>(
+            *live->envelope, pytype_open_perception_kit_metadata_OrientedBoxDetections(), index);
     case known_payload_kind::kind_open_perception_kit_metadata_PerformanceOverlay:
         return get_known_payload<open_perception_kit::metadata::PerformanceOverlayT>(
             *live->envelope, pytype_open_perception_kit_metadata_PerformanceOverlay(), index);
@@ -1297,6 +1353,9 @@ PyObject *live_envelope_for_each(PyObject *self, PyObject *args) {
     case known_payload_kind::kind_open_perception_kit_metadata_ObjectTracks:
         return list_known_payloads<open_perception_kit::metadata::ObjectTracksT>(
             *live->envelope, pytype_open_perception_kit_metadata_ObjectTracks());
+    case known_payload_kind::kind_open_perception_kit_metadata_OrientedBoxDetections:
+        return list_known_payloads<open_perception_kit::metadata::OrientedBoxDetectionsT>(
+            *live->envelope, pytype_open_perception_kit_metadata_OrientedBoxDetections());
     case known_payload_kind::kind_open_perception_kit_metadata_PerformanceOverlay:
         return list_known_payloads<open_perception_kit::metadata::PerformanceOverlayT>(
             *live->envelope, pytype_open_perception_kit_metadata_PerformanceOverlay());
@@ -1381,6 +1440,9 @@ PyObject *live_envelope_add(PyObject *self, PyObject *args) {
     case known_payload_kind::kind_open_perception_kit_metadata_ObjectTracks:
         return add_known_payload<open_perception_kit::metadata::ObjectTracksT>(
             *live->envelope, value, "TRKS");
+    case known_payload_kind::kind_open_perception_kit_metadata_OrientedBoxDetections:
+        return add_known_payload<open_perception_kit::metadata::OrientedBoxDetectionsT>(
+            *live->envelope, value, "OBBD");
     case known_payload_kind::kind_open_perception_kit_metadata_PerformanceOverlay:
         return add_known_payload<open_perception_kit::metadata::PerformanceOverlayT>(
             *live->envelope, value, "PERF");
@@ -1850,6 +1912,73 @@ bool ensure_open_perception_kit_metadata_ObjectTracks_tracks_vector_type() {
         type.tp_itemsize = 0;
         type.tp_dealloc = native_proxy_dealloc<
             std::vector<std::unique_ptr<open_perception_kit::metadata::ObjectTrackT>>>;
+        type.tp_as_sequence = &sequence;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live vector proxy";
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+Py_ssize_t
+len_open_perception_kit_metadata_OrientedBoxDetections_detections_vector(PyObject *self) {
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
+        std::vector<std::unique_ptr<open_perception_kit::metadata::OrientedBoxDetectionT>>> *>(
+        self);
+    const auto *vector = proxy->value;
+    if (vector == nullptr) {
+        return 0;
+    }
+    return static_cast<Py_ssize_t>(vector->size());
+}
+
+PyObject *
+item_open_perception_kit_metadata_OrientedBoxDetections_detections_vector(PyObject *self,
+                                                                          Py_ssize_t index) {
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
+        std::vector<std::unique_ptr<open_perception_kit::metadata::OrientedBoxDetectionT>>> *>(
+        self);
+    const auto *vector = proxy->value;
+    if (vector == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit vector proxy is invalid");
+        return nullptr;
+    }
+    if (index < 0 || static_cast<std::size_t>(index) >= vector->size()) {
+        PyErr_SetString(PyExc_IndexError, "open_perception_kit vector proxy index out of range");
+        return nullptr;
+    }
+    const auto &item = (*vector)[static_cast<std::size_t>(index)];
+    if (!item) {
+        Py_RETURN_NONE;
+    }
+    return make_open_perception_kit_metadata_OrientedBoxDetection_proxy(
+        item.get(),
+        proxy_anchor<
+            std::vector<std::unique_ptr<open_perception_kit::metadata::OrientedBoxDetectionT>>>(
+            self));
+}
+
+bool ensure_open_perception_kit_metadata_OrientedBoxDetections_detections_vector_type() {
+    auto &type = pytype_open_perception_kit_metadata_OrientedBoxDetections_detections_vector();
+    auto &sequence = seq_open_perception_kit_metadata_OrientedBoxDetections_detections_vector();
+    if (type.tp_name == nullptr) {
+        sequence.sq_length =
+            len_open_perception_kit_metadata_OrientedBoxDetections_detections_vector;
+        sequence.sq_item =
+            item_open_perception_kit_metadata_OrientedBoxDetections_detections_vector;
+        type.tp_name = "open_perception_kit_bridge.open_perception_kit_metadata_"
+                       "OrientedBoxDetections_detections_vector";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<std::vector<
+                       std::unique_ptr<open_perception_kit::metadata::OrientedBoxDetectionT>>>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc = native_proxy_dealloc<
+            std::vector<std::unique_ptr<open_perception_kit::metadata::OrientedBoxDetectionT>>>;
         type.tp_as_sequence = &sequence;
         type.tp_flags = Py_TPFLAGS_DEFAULT;
         type.tp_doc = "open_perception_kit read-only live vector proxy";
@@ -4468,6 +4597,367 @@ PyObject *make_open_perception_kit_metadata_ObjectTracks_proxy(
         pytype_open_perception_kit_metadata_ObjectTracks(), value, std::move(anchor));
 }
 
+PyObject *get_open_perception_kit_metadata_OrientedBoundingBox_center_x(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::OrientedBoundingBoxT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return PyFloat_FromDouble(static_cast<double>(value->center_x));
+}
+
+PyObject *get_open_perception_kit_metadata_OrientedBoundingBox_center_y(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::OrientedBoundingBoxT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return PyFloat_FromDouble(static_cast<double>(value->center_y));
+}
+
+PyObject *get_open_perception_kit_metadata_OrientedBoundingBox_width(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::OrientedBoundingBoxT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return PyFloat_FromDouble(static_cast<double>(value->width));
+}
+
+PyObject *get_open_perception_kit_metadata_OrientedBoundingBox_height(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::OrientedBoundingBoxT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return PyFloat_FromDouble(static_cast<double>(value->height));
+}
+
+PyObject *get_open_perception_kit_metadata_OrientedBoundingBox_angle_radians(PyObject *self,
+                                                                             void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::OrientedBoundingBoxT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return PyFloat_FromDouble(static_cast<double>(value->angle_radians));
+}
+
+PyGetSetDef *getsets_open_perception_kit_metadata_OrientedBoundingBox() {
+    static PyGetSetDef definitions[] = {
+        {"centerX",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_OrientedBoundingBox_center_x),
+         nullptr,
+         "read-only center_x",
+         nullptr},
+        {"centerY",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_OrientedBoundingBox_center_y),
+         nullptr,
+         "read-only center_y",
+         nullptr},
+        {"width",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_OrientedBoundingBox_width),
+         nullptr,
+         "read-only width",
+         nullptr},
+        {"height",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_OrientedBoundingBox_height),
+         nullptr,
+         "read-only height",
+         nullptr},
+        {"angleRadians",
+         reinterpret_cast<getter>(
+             get_open_perception_kit_metadata_OrientedBoundingBox_angle_radians),
+         nullptr,
+         "read-only angle_radians",
+         nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr},
+    };
+    return definitions;
+}
+
+bool ensure_open_perception_kit_metadata_OrientedBoundingBox_type() {
+    auto &type = pytype_open_perception_kit_metadata_OrientedBoundingBox();
+    if (type.tp_name == nullptr) {
+        type.tp_name =
+            "open_perception_kit_bridge.open_perception_kit_metadata_OrientedBoundingBox";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<open_perception_kit::metadata::OrientedBoundingBoxT>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc = native_proxy_dealloc<open_perception_kit::metadata::OrientedBoundingBoxT>;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live payload proxy";
+        type.tp_getset = getsets_open_perception_kit_metadata_OrientedBoundingBox();
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+PyObject *make_open_perception_kit_metadata_OrientedBoundingBox_proxy(
+    const open_perception_kit::metadata::OrientedBoundingBoxT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor) {
+    return make_native_proxy<open_perception_kit::metadata::OrientedBoundingBoxT>(
+        pytype_open_perception_kit_metadata_OrientedBoundingBox(), value, std::move(anchor));
+}
+
+PyObject *get_open_perception_kit_metadata_OrientedBoxDetection_object(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::OrientedBoxDetectionT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    const auto *nested = value->object.get();
+    if (nested == nullptr) {
+        Py_RETURN_NONE;
+    }
+    return make_open_perception_kit_metadata_ObjectMeta_proxy(
+        nested, proxy_anchor<open_perception_kit::metadata::OrientedBoxDetectionT>(self));
+}
+
+PyObject *get_open_perception_kit_metadata_OrientedBoxDetection_box(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::OrientedBoxDetectionT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    const auto *nested = value->box.get();
+    if (nested == nullptr) {
+        Py_RETURN_NONE;
+    }
+    return make_open_perception_kit_metadata_OrientedBoundingBox_proxy(
+        nested, proxy_anchor<open_perception_kit::metadata::OrientedBoxDetectionT>(self));
+}
+
+PyObject *get_open_perception_kit_metadata_OrientedBoxDetection_confidence(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::OrientedBoxDetectionT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return PyFloat_FromDouble(static_cast<double>(value->confidence));
+}
+
+PyObject *get_open_perception_kit_metadata_OrientedBoxDetection_class_id(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::OrientedBoxDetectionT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_signed(value->class_id);
+}
+
+PyObject *get_open_perception_kit_metadata_OrientedBoxDetection_text(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::OrientedBoxDetectionT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_string_from_std(value->text);
+}
+
+PyGetSetDef *getsets_open_perception_kit_metadata_OrientedBoxDetection() {
+    static PyGetSetDef definitions[] = {
+        {"object",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_OrientedBoxDetection_object),
+         nullptr,
+         "read-only object",
+         nullptr},
+        {"box",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_OrientedBoxDetection_box),
+         nullptr,
+         "read-only box",
+         nullptr},
+        {"confidence",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_OrientedBoxDetection_confidence),
+         nullptr,
+         "read-only confidence",
+         nullptr},
+        {"classId",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_OrientedBoxDetection_class_id),
+         nullptr,
+         "read-only class_id",
+         nullptr},
+        {"text",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_OrientedBoxDetection_text),
+         nullptr,
+         "read-only text",
+         nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr},
+    };
+    return definitions;
+}
+
+bool ensure_open_perception_kit_metadata_OrientedBoxDetection_type() {
+    auto &type = pytype_open_perception_kit_metadata_OrientedBoxDetection();
+    if (type.tp_name == nullptr) {
+        type.tp_name =
+            "open_perception_kit_bridge.open_perception_kit_metadata_OrientedBoxDetection";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<open_perception_kit::metadata::OrientedBoxDetectionT>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc =
+            native_proxy_dealloc<open_perception_kit::metadata::OrientedBoxDetectionT>;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live payload proxy";
+        type.tp_getset = getsets_open_perception_kit_metadata_OrientedBoxDetection();
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+PyObject *make_open_perception_kit_metadata_OrientedBoxDetection_proxy(
+    const open_perception_kit::metadata::OrientedBoxDetectionT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor) {
+    return make_native_proxy<open_perception_kit::metadata::OrientedBoxDetectionT>(
+        pytype_open_perception_kit_metadata_OrientedBoxDetection(), value, std::move(anchor));
+}
+
+PyObject *get_open_perception_kit_metadata_OrientedBoxDetections_schema_major(PyObject *self,
+                                                                              void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::OrientedBoxDetectionsT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_unsigned(value->schema_major);
+}
+
+PyObject *get_open_perception_kit_metadata_OrientedBoxDetections_schema_minor(PyObject *self,
+                                                                              void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::OrientedBoxDetectionsT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_unsigned(value->schema_minor);
+}
+
+PyObject *get_open_perception_kit_metadata_OrientedBoxDetections_layer(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::OrientedBoxDetectionsT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    const auto *nested = value->layer.get();
+    if (nested == nullptr) {
+        Py_RETURN_NONE;
+    }
+    return make_open_perception_kit_metadata_LayerInfo_proxy(
+        nested, proxy_anchor<open_perception_kit::metadata::OrientedBoxDetectionsT>(self));
+}
+
+PyObject *get_open_perception_kit_metadata_OrientedBoxDetections_detections(PyObject *self,
+                                                                            void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::OrientedBoxDetectionsT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return make_native_vector_proxy<
+        std::vector<std::unique_ptr<open_perception_kit::metadata::OrientedBoxDetectionT>>>(
+        pytype_open_perception_kit_metadata_OrientedBoxDetections_detections_vector(),
+        std::addressof(value->detections),
+        proxy_anchor<open_perception_kit::metadata::OrientedBoxDetectionsT>(self));
+}
+
+PyGetSetDef *getsets_open_perception_kit_metadata_OrientedBoxDetections() {
+    static PyGetSetDef definitions[] = {
+        {"schemaMajor",
+         reinterpret_cast<getter>(
+             get_open_perception_kit_metadata_OrientedBoxDetections_schema_major),
+         nullptr,
+         "read-only schema_major",
+         nullptr},
+        {"schemaMinor",
+         reinterpret_cast<getter>(
+             get_open_perception_kit_metadata_OrientedBoxDetections_schema_minor),
+         nullptr,
+         "read-only schema_minor",
+         nullptr},
+        {"layer",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_OrientedBoxDetections_layer),
+         nullptr,
+         "read-only layer",
+         nullptr},
+        {"detections",
+         reinterpret_cast<getter>(
+             get_open_perception_kit_metadata_OrientedBoxDetections_detections),
+         nullptr,
+         "read-only detections",
+         nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr},
+    };
+    return definitions;
+}
+
+bool ensure_open_perception_kit_metadata_OrientedBoxDetections_type() {
+    auto &type = pytype_open_perception_kit_metadata_OrientedBoxDetections();
+    if (type.tp_name == nullptr) {
+        type.tp_name =
+            "open_perception_kit_bridge.open_perception_kit_metadata_OrientedBoxDetections";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<open_perception_kit::metadata::OrientedBoxDetectionsT>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc =
+            native_proxy_dealloc<open_perception_kit::metadata::OrientedBoxDetectionsT>;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live payload proxy";
+        type.tp_getset = getsets_open_perception_kit_metadata_OrientedBoxDetections();
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+PyObject *make_open_perception_kit_metadata_OrientedBoxDetections_proxy(
+    const open_perception_kit::metadata::OrientedBoxDetectionsT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor) {
+    return make_native_proxy<open_perception_kit::metadata::OrientedBoxDetectionsT>(
+        pytype_open_perception_kit_metadata_OrientedBoxDetections(), value, std::move(anchor));
+}
+
 PyObject *get_open_perception_kit_metadata_PerformanceOverlay_schema_major(PyObject *self, void *) {
     const auto *proxy = reinterpret_cast<
         const native_proxy_object<open_perception_kit::metadata::PerformanceOverlayT> *>(self);
@@ -5166,6 +5656,7 @@ bool ensure_known_proxy_types() {
         !ensure_open_perception_kit_metadata_ObjectEmbedding_values_vector_type() ||
         !ensure_open_perception_kit_metadata_ObjectEmbeddings_embeddings_vector_type() ||
         !ensure_open_perception_kit_metadata_ObjectTracks_tracks_vector_type() ||
+        !ensure_open_perception_kit_metadata_OrientedBoxDetections_detections_vector_type() ||
         !ensure_open_perception_kit_metadata_PerformanceOverlay_lines_vector_type() ||
         !ensure_open_perception_kit_metadata_PoseEstimations_poses_vector_type() ||
         !ensure_open_perception_kit_metadata_SegmentationMasks_masks_vector_type() ||
@@ -5190,6 +5681,9 @@ bool ensure_known_proxy_types() {
         !ensure_open_perception_kit_metadata_ObjectEmbeddings_type() ||
         !ensure_open_perception_kit_metadata_ObjectTrack_type() ||
         !ensure_open_perception_kit_metadata_ObjectTracks_type() ||
+        !ensure_open_perception_kit_metadata_OrientedBoundingBox_type() ||
+        !ensure_open_perception_kit_metadata_OrientedBoxDetection_type() ||
+        !ensure_open_perception_kit_metadata_OrientedBoxDetections_type() ||
         !ensure_open_perception_kit_metadata_PerformanceOverlay_type() ||
         !ensure_open_perception_kit_metadata_PoseEstimation_type() ||
         !ensure_open_perception_kit_metadata_PoseEstimations_type() ||
@@ -5305,6 +5799,21 @@ bool add_known_proxy_types(PyObject *python_module) {
     if (!add_python_type(python_module,
                          pytype_open_perception_kit_metadata_ObjectTracks(),
                          "open_perception_kit_metadata_ObjectTracks")) {
+        return false;
+    }
+    if (!add_python_type(python_module,
+                         pytype_open_perception_kit_metadata_OrientedBoundingBox(),
+                         "open_perception_kit_metadata_OrientedBoundingBox")) {
+        return false;
+    }
+    if (!add_python_type(python_module,
+                         pytype_open_perception_kit_metadata_OrientedBoxDetection(),
+                         "open_perception_kit_metadata_OrientedBoxDetection")) {
+        return false;
+    }
+    if (!add_python_type(python_module,
+                         pytype_open_perception_kit_metadata_OrientedBoxDetections(),
+                         "open_perception_kit_metadata_OrientedBoxDetections")) {
         return false;
     }
     if (!add_python_type(python_module,

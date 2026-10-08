@@ -59,6 +59,11 @@
       "size": 25065
     },
     {
+      "path": "cpp/fb/oriented_box_detections_generated.h",
+      "sha256": "2be3f9d47e8ba87be31dce05d270f55a4f25597805cc73fc40532fccc672ec81",
+      "size": 28723
+    },
+    {
       "path": "cpp/fb/performance_overlay_generated.h",
       "sha256": "d39302d4f897f1e303ca2139cc4ccf86e17c148ca777a0ea67fb430f1dd91be5",
       "size": 10101
@@ -90,13 +95,13 @@
     },
     {
       "path": "cpp/open_perception_kit.h",
-      "sha256": "fc4997b3073c569f7fea30b41cdfb2f7368e980f090ac29b40733a872049d89c",
-      "size": 33088
+      "sha256": "6ef50deaea1b519b747ee8cb55afb29b9f21a08f0dbb1ea1262c286e4d51f8a0",
+      "size": 33922
     },
     {
       "path": "cpp/python_bridge/open_perception_kit_python_bridge.cpp",
-      "sha256": "96d8c60abab80b259f6b4b343c456cc4d5d9653f793a6a5c10839b003d344b09",
-      "size": 227001
+      "sha256": "0c0fb88368d721502cd48185c5dce45fa7b15c729d0393bc74ba4f011c3a2eea",
+      "size": 249439
     },
     {
       "path": "cpp/python_bridge/open_perception_kit_python_bridge.h",
@@ -120,7 +125,7 @@
     },
     {
       "path": "python/src/open_perception_kit/__init__.py",
-      "sha256": "6f9470c610a6f139b568e77cd601c369a64c87ab9d35537c5f2c0b1da2420adc",
+      "sha256": "5f88fa9427f9d3d7dee710fa661522966d14f6fcf71b92663e324bb0ec50c0b6",
       "size": 1166
     },
     {
@@ -207,6 +212,21 @@
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/ObjectTracks.py",
       "sha256": "935dbf632d05846d4330dff5ad23bc212a3380c9a12e109200f7484156bd5c73",
       "size": 7711
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/OrientedBoundingBox.py",
+      "sha256": "3ae60ab2ad1d27c33dcbf4919c507694d0817cf30cfc85523d7c590b816b1506",
+      "size": 6048
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/OrientedBoxDetection.py",
+      "sha256": "b058521c12b325074a7c907ad118c2d4fef3c8597f896e54105380b582db7cb3",
+      "size": 7545
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/OrientedBoxDetections.py",
+      "sha256": "d2daf08398e203d4b8cae326e4ee41ac74e2afc9746e8e9f9bb8143ca4940860",
+      "size": 8440
     },
     {
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/PerformanceOverlay.py",
@@ -305,12 +325,12 @@
     },
     {
       "path": "python/src/open_perception_kit/registry.py",
-      "sha256": "4670bb113bedb40eb0feb4dc26c14f32df6f18c9fca1d371e07eac279488997f",
-      "size": 4231
+      "sha256": "bb274573f4e6de9416f013edfa34d27ca242d4b757dc972b1ad1eb082e2579a1",
+      "size": 4647
     },
     {
       "path": "python/src/open_perception_kit/sdk.py",
-      "sha256": "638d230c552e2b09861d40be1dcf70239b807bbb2d909235cde3c45853aadfac",
+      "sha256": "5dd7c579f0b1705f9600cbc089bd1d2f01f59429b8ba971747b62a5573d8b869",
       "size": 16002
     },
     {
@@ -385,8 +405,8 @@
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/mod.rs",
-      "sha256": "0396a1b272fc8a3453f76b1817a9a8fd53b99d069fae50c78b1d343e65009f1f",
-      "size": 2619
+      "sha256": "79d76077d56cef3a5828b029659baaf33f874fb6aec76868617ee50397fc9b71",
+      "size": 2886
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/object_embedding_generated.rs",
@@ -412,6 +432,21 @@
       "path": "rust/src/fb/open_perception_kit/metadata/object_tracks_generated.rs",
       "sha256": "78d47c9fe753a474ddd6bb0d9a8eb0d5ef5a6665962981e0745186b2621230bf",
       "size": 12625
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/oriented_bounding_box_generated.rs",
+      "sha256": "5a07dac7239c440701fd23ef80b725d5a871c55b2eacaf24aba7a3c15e21bc1f",
+      "size": 8851
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/oriented_box_detection_generated.rs",
+      "sha256": "30a2be43bd0f38824a1844260885e155ed5b719386d10dd663ce181c3be1a8e7",
+      "size": 9938
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/oriented_box_detections_generated.rs",
+      "sha256": "dc0751cd9065909588ed515407cfa272eb0d2804d3904ef7993abeb4abb913e6",
+      "size": 13615
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/performance_overlay_generated.rs",
@@ -495,8 +530,8 @@
     },
     {
       "path": "rust/src/lib.rs",
-      "sha256": "4f55d69cc37d1131fdf3292d27e50bd56f2c0284b40e4eb5e8e4fd49d6ec7be2",
-      "size": 44269
+      "sha256": "35ec9ca368f2f061d669022ec3ad56b50542c50faf7d6b0e804604ac997dcddb",
+      "size": 46452
     },
     {
       "path": "rust/tests/fixtures/opk-box-detections-v0.2.1.hex",
@@ -520,12 +555,12 @@
     },
     {
       "path": "ts/dist/open_perception_kit/envelope.d.ts",
-      "sha256": "9ba5f0b30f11dca185923f5245d71efbeab369e6a39216a8f61ff0b0fbbbee26",
+      "sha256": "9038b0b4bf3ff5799670d451d38599652f2af1973baba49bdc8cfa6ac27a01ac",
       "size": 2941
     },
     {
       "path": "ts/dist/open_perception_kit/envelope.js",
-      "sha256": "8f37ffc06e1f38d45409d7a3c57a7e04aff0a08f5d5aab6b2ebb10d2ca271b38",
+      "sha256": "f0e25d8ecbf99cceba89f40dd5a47bf4ae5b3de5a4d5be92e5320178c568d45d",
       "size": 14375
     },
     {
@@ -709,6 +744,36 @@
       "size": 5109
     },
     {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/oriented-bounding-box.d.ts",
+      "sha256": "dc53ae4dfcfd10cd26a43a562a1369d70a1a86a3b2a903a8690ce6ba1008b4ee",
+      "size": 2597
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/oriented-bounding-box.js",
+      "sha256": "e908166e6bc4d812615c8f054aa8563053c6f3117177adaeac28607859902991",
+      "size": 4365
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/oriented-box-detection.d.ts",
+      "sha256": "294ff6decb1d165f2fe1fbcb4a65588918083e4d7b44cd5f8ed37696ee01aca3",
+      "size": 2932
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/oriented-box-detection.js",
+      "sha256": "42423603b050463143230a0e149ff954230484dc88e628faf1430872696ce3e8",
+      "size": 4796
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/oriented-box-detections.d.ts",
+      "sha256": "fe7a9982a5169380de6cc319e39543bc899017a54db99252cb0d0bf0227c75e7",
+      "size": 3278
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/oriented-box-detections.js",
+      "sha256": "9761d1cd4ded5a775536e141922a952ed29c3731b80708d67f9814cea07721ff",
+      "size": 5397
+    },
+    {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-overlay.d.ts",
       "sha256": "0d40bf90229b5aaecfa1b61bfe2387a763fa1af9043c314761b1f8ab7ef03798",
       "size": 2953
@@ -830,12 +895,12 @@
     },
     {
       "path": "ts/dist/open_perception_kit/index.d.ts",
-      "sha256": "90448657259f6d27885528423e68fa5a45afbee6320d832522b163a8d787ff88",
+      "sha256": "7ce7c82d3eeae4f702d60eb17104b84cd702ad196fa6cd79403bb0bf70060de1",
       "size": 1235
     },
     {
       "path": "ts/dist/open_perception_kit/index.js",
-      "sha256": "f3e87cbb355296196a581b5722920ba0d93e86bc2de7569af0a4c35037deac07",
+      "sha256": "4a57a9e7cb980f32806fae653479b06dc4d53fcdbb941a1a23c77eec8de39d7a",
       "size": 1203
     },
     {
@@ -845,8 +910,8 @@
     },
     {
       "path": "ts/dist/open_perception_kit/registry.js",
-      "sha256": "ed0fe379831c5bda0dac60f2f1a65d7aaa0f48e58e4dae4df0863b0ca024e74e",
-      "size": 8734
+      "sha256": "2a6e52da7f9061b0871c5f73dfea4af9878f42bb2242b7c03b15f389068b8527",
+      "size": 9686
     },
     {
       "path": "ts/package.json",
@@ -855,7 +920,7 @@
     },
     {
       "path": "ts/src/open_perception_kit/envelope.ts",
-      "sha256": "1e55defc2c636ce31fa2ec6b7e01c8691fa5e5086a944cfbd2bb023136d0a21d",
+      "sha256": "ec700f9f0566b448801b0522c9bedb9041894929cca048aa72187d6c4e85b384",
       "size": 13002
     },
     {
@@ -949,6 +1014,21 @@
       "size": 5523
     },
     {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/oriented-bounding-box.ts",
+      "sha256": "9b5f3a806da79bf8dbd5427196eedb628522b3a948fd8749253831e17c723195",
+      "size": 4638
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/oriented-box-detection.ts",
+      "sha256": "6130c7ab4367021866e35f73a81f9a934791e9844dbb11db37677f0201cbdd6c",
+      "size": 5284
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/oriented-box-detections.ts",
+      "sha256": "c929d075085715d7758aab6ef96ca9288cce77fe62f29f784eebe0dbaeaf5f09",
+      "size": 5947
+    },
+    {
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/performance-overlay.ts",
       "sha256": "6ce3d116ee9816e56c001f776b89a2093243034183c4f9d0f61cb91ebe41252d",
       "size": 5184
@@ -1010,13 +1090,13 @@
     },
     {
       "path": "ts/src/open_perception_kit/index.ts",
-      "sha256": "dc4cce8d56ec217fd02c2f278e41c352cd512c017b4a6c0156376aa1d85d4dca",
+      "sha256": "23723a139739aec9aeb9c5f9de00442b2f0704582926458494037ded3344cadc",
       "size": 1216
     },
     {
       "path": "ts/src/open_perception_kit/registry.ts",
-      "sha256": "53495291cc3b9f5d2c2f99f270a44824630ce8da70c8577294c5a4fc75d60a00",
-      "size": 8908
+      "sha256": "feaea534a1037f8d4d9e63474e7133a5efcd3a416c00e5fa6c699a77ad08a8b3",
+      "size": 9844
     },
     {
       "path": "ts/tsconfig.json",
@@ -1229,8 +1309,8 @@
   "postprocessing": {
     "cmake_formatter": "0.6.13",
     "copyright_headers": "SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates",
-    "cpp_formatter": "clang-format version 23.1.1",
-    "python_formatter": "autopep8 2.3.2 (pycodestyle: 2.15.0)",
+    "cpp_formatter": "clang-format version 20.1.8",
+    "python_formatter": "autopep8 2.3.2 (pycodestyle: 2.14.0)",
     "rust": {
       "flatbuffers_runtime": "25.9.23",
       "formatter": "rustfmt 1.8.0",
@@ -1293,6 +1373,11 @@
           "size": 21112
         },
         {
+          "path": "fb/oriented_box_detections_generated.h",
+          "sha256": "9ea7657bc4b34dfcc7bdc991d1977358dcb9cde08eea404da0181ffabbed4162",
+          "size": 25386
+        },
+        {
           "path": "fb/performance_overlay_generated.h",
           "sha256": "d94fddb88d8b48b33d9715279fc2f8e96ddee6abe593ee47656ec09b913118e5",
           "size": 8817
@@ -1324,13 +1409,13 @@
         },
         {
           "path": "open_perception_kit.h",
-          "sha256": "1bd52e55de2f390e6a7577ca670772bcc2db3b40bd49ba6871d16355da606c52",
-          "size": 31923
+          "sha256": "9a84b44feccf9856ac694fef13793a4dcc56528ac408f62d73006b0eb8e055cf",
+          "size": 32723
         },
         {
           "path": "python_bridge/open_perception_kit_python_bridge.cpp",
-          "sha256": "386dab1287bf6dee3c1e4de6ad5f492d81d70cce4693111a76cf5c43eb06a8be",
-          "size": 217389
+          "sha256": "d25a90789660a69a07fc753d7353fc0f655e3b528229a799c4a6e6a45efc72bb",
+          "size": 238694
         },
         {
           "path": "python_bridge/open_perception_kit_python_bridge.h",
@@ -1399,6 +1484,12 @@
           "schema": "object_tracks.fbs"
         },
         {
+          "file_identifier": "OBBD",
+          "payload_id": "0x4d15ebfca8da813e",
+          "qualified_root_type": "open_perception_kit.metadata.OrientedBoxDetections",
+          "schema": "oriented_box_detections.fbs"
+        },
+        {
           "file_identifier": "PERF",
           "payload_id": "0x6b8b676312d27d0c",
           "qualified_root_type": "open_perception_kit.metadata.PerformanceOverlay",
@@ -1465,6 +1556,11 @@
           "size": 549
         },
         {
+          "path": "oriented_box_detections.fbs",
+          "sha256": "cc29a9146955a80c670b21d1441c0cdd106d9d5510b3df25ba8b3b27c88e992c",
+          "size": 738
+        },
+        {
           "path": "performance_overlay.fbs",
           "sha256": "9e71b75f64c563ce21d81e5c8dccf5cafe75129ec574424e8c77d67ff1dc1e01",
           "size": 197
@@ -1485,7 +1581,7 @@
           "size": 427
         }
       ],
-      "schema_set_sha256": "1b19418d8a0d34038a3c99895fa93a1140c25af910f6bc63c0e11978e12c2876",
+      "schema_set_sha256": "a3412ce8bff796ba2304295a6e53c16ecdbfbe15fe5d98606e2a20ac86cd1209",
       "sdk": {
         "name": "open_perception_kit",
         "version": "0.1.1"
@@ -1500,7 +1596,7 @@
         },
         {
           "path": "src/open_perception_kit/__init__.py",
-          "sha256": "f3441728eaf4e0a83fc6c385e3968d370c029e61be345f7191c7f9ed71f0c79e",
+          "sha256": "508f30f04fe85588dd200e4a887101852ffd8a7ad9a391a17bd6bad3ddc881b9",
           "size": 506
         },
         {
@@ -1587,6 +1683,21 @@
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/ObjectTracks.py",
           "sha256": "79932c34b895bd1f46d6fed2d4d6fb737e80219809799b1588977b03c5cfdc52",
           "size": 6991
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/OrientedBoundingBox.py",
+          "sha256": "61456ff9bfe1f541e1ef46443c2e5b2f92b1bbc242e4ae2e5a75afbedcfc45e9",
+          "size": 5381
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/OrientedBoxDetection.py",
+          "sha256": "a81c0ebf955a89d4cb4a213089ab6c25bc8b3d83a4d137523ad0bb43cc5bf3da",
+          "size": 6828
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/OrientedBoxDetections.py",
+          "sha256": "a5606f38bf61cba6d67014a6c44960509d568232f356ba00ab42f152f1ca8105",
+          "size": 7720
         },
         {
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/PerformanceOverlay.py",
@@ -1685,12 +1796,12 @@
         },
         {
           "path": "src/open_perception_kit/registry.py",
-          "sha256": "9ed6f03fbfe5620ea34091866bf8903b08e60351b44b806692f187ac78bd1bdc",
-          "size": 3570
+          "sha256": "bbad6c8ec9cac36b82584e7bdd7415492577ff411246c0959e503f6c70f160d9",
+          "size": 3986
         },
         {
           "path": "src/open_perception_kit/sdk.py",
-          "sha256": "d45999981fb6cb49c6ba47f1c897516efe02de65103044b2491c370ef005f3f6",
+          "sha256": "6bddee49eb05249c2afb0c5c82fa4923656fe8d95ff27058b35546fc4cf4398a",
           "size": 15341
         }
       ],
@@ -1745,6 +1856,12 @@
           "payload_id": "0x29161d450dbca0e0",
           "qualified_root_type": "open_perception_kit.metadata.ObjectTracks",
           "schema": "object_tracks.fbs"
+        },
+        {
+          "file_identifier": "OBBD",
+          "payload_id": "0x4d15ebfca8da813e",
+          "qualified_root_type": "open_perception_kit.metadata.OrientedBoxDetections",
+          "schema": "oriented_box_detections.fbs"
         },
         {
           "file_identifier": "PERF",
@@ -1818,6 +1935,11 @@
           "size": 549
         },
         {
+          "path": "oriented_box_detections.fbs",
+          "sha256": "cc29a9146955a80c670b21d1441c0cdd106d9d5510b3df25ba8b3b27c88e992c",
+          "size": 738
+        },
+        {
           "path": "performance_overlay.fbs",
           "sha256": "9e71b75f64c563ce21d81e5c8dccf5cafe75129ec574424e8c77d67ff1dc1e01",
           "size": 197
@@ -1838,7 +1960,7 @@
           "size": 427
         }
       ],
-      "schema_set_sha256": "1b19418d8a0d34038a3c99895fa93a1140c25af910f6bc63c0e11978e12c2876",
+      "schema_set_sha256": "a3412ce8bff796ba2304295a6e53c16ecdbfbe15fe5d98606e2a20ac86cd1209",
       "sdk": {
         "name": "open_perception_kit",
         "version": "0.1.1"
@@ -1908,8 +2030,8 @@
         },
         {
           "path": "src/fb/open_perception_kit/metadata/mod.rs",
-          "sha256": "92d73414297c5ede663824e2b92c85a58abcf72e07b2631f640b6178bd353351",
-          "size": 1938
+          "sha256": "c525b30dd3b52f9029d96270a1fb7a2ddf83337ca979449647ebf62b9f697638",
+          "size": 2205
         },
         {
           "path": "src/fb/open_perception_kit/metadata/object_embedding_generated.rs",
@@ -1935,6 +2057,21 @@
           "path": "src/fb/open_perception_kit/metadata/object_tracks_generated.rs",
           "sha256": "4b663193a8b6c625b2c68e9358b496ef2cc1657b08a2b4293645c13a31f5fcce",
           "size": 11944
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/oriented_bounding_box_generated.rs",
+          "sha256": "adf6db55815626598a95b8cb1be8ce6c4b9c97a36a6e2dc39e334a358c698620",
+          "size": 8170
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/oriented_box_detection_generated.rs",
+          "sha256": "9d7bb7376a898f42fe37a1a68d2036f1a5466604d9bda6fafd588283f50d06ab",
+          "size": 9257
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/oriented_box_detections_generated.rs",
+          "sha256": "4db0f3701633d7c9e086b0fc3583928b8d11ac3c4f6dcad8086a247a90690e8e",
+          "size": 12934
         },
         {
           "path": "src/fb/open_perception_kit/metadata/performance_overlay_generated.rs",
@@ -2018,8 +2155,8 @@
         },
         {
           "path": "src/lib.rs",
-          "sha256": "a3e600bc6425af1b8cff9683a804e04863ead428182c997e6c993ed3c31c2bf1",
-          "size": 43588
+          "sha256": "295b04134bd42c869d900e28dd605e92acec3d0d204bfde7ca6d2492b42311d7",
+          "size": 45771
         }
       ],
       "flatbuffers_runtimes": [
@@ -2073,6 +2210,12 @@
           "payload_id": "0x29161d450dbca0e0",
           "qualified_root_type": "open_perception_kit.metadata.ObjectTracks",
           "schema": "object_tracks.fbs"
+        },
+        {
+          "file_identifier": "OBBD",
+          "payload_id": "0x4d15ebfca8da813e",
+          "qualified_root_type": "open_perception_kit.metadata.OrientedBoxDetections",
+          "schema": "oriented_box_detections.fbs"
         },
         {
           "file_identifier": "PERF",
@@ -2131,6 +2274,11 @@
           "size": 549
         },
         {
+          "path": "oriented_box_detections.fbs",
+          "sha256": "cc29a9146955a80c670b21d1441c0cdd106d9d5510b3df25ba8b3b27c88e992c",
+          "size": 738
+        },
+        {
           "path": "performance_overlay.fbs",
           "sha256": "9e71b75f64c563ce21d81e5c8dccf5cafe75129ec574424e8c77d67ff1dc1e01",
           "size": 197
@@ -2151,7 +2299,7 @@
           "size": 427
         }
       ],
-      "schema_set_sha256": "1b19418d8a0d34038a3c99895fa93a1140c25af910f6bc63c0e11978e12c2876",
+      "schema_set_sha256": "a3412ce8bff796ba2304295a6e53c16ecdbfbe15fe5d98606e2a20ac86cd1209",
       "sdk": {
         "name": "open_perception_kit",
         "version": "0.1.1"
@@ -2166,7 +2314,7 @@
         },
         {
           "path": "src/open_perception_kit/envelope.ts",
-          "sha256": "4988cd03ac17d0feccc6e7d68f4106c81fb3103c104e208acf0be8e1cfb2ee87",
+          "sha256": "8c426d2540d4a6822488ae32d6f7afc7547d1bfcab6c5a09e77f475c477d8b1a",
           "size": 12321
         },
         {
@@ -2265,6 +2413,21 @@
           "size": 4842
         },
         {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/oriented-bounding-box.ts",
+          "sha256": "7e476554d0cf68096383109deff38b42fe9211b07a2aee3e4076bebe5eb4075d",
+          "size": 3957
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/oriented-box-detection.ts",
+          "sha256": "ca389d049e2e4e078a37d0fb28d504520d9f0d07b4dc321a7db6b44526606a36",
+          "size": 4603
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/oriented-box-detections.ts",
+          "sha256": "466cf3f15f6fbbfc28f04c2f8ce67a81654ba4552397a52ec03de3fb6d75d4ca",
+          "size": 5266
+        },
+        {
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/performance-overlay.ts",
           "sha256": "42a727a362a86afd91ca9e6f22b70840d20423565551787ec377190f76a3897c",
           "size": 4503
@@ -2321,13 +2484,13 @@
         },
         {
           "path": "src/open_perception_kit/index.ts",
-          "sha256": "fcdb245e083399438d4888d1836fe4ac0cb305c6ce7284ed7752fb00a3bab128",
+          "sha256": "2b10e8b9b1a68cbb7a22a50aa05db969049916fec0b1db3552990851e53a2764",
           "size": 535
         },
         {
           "path": "src/open_perception_kit/registry.ts",
-          "sha256": "2f85a2b7a716366762615cf136c5fad10c2c32ecde8622e8a467f42431a2d3bf",
-          "size": 8227
+          "sha256": "f7b5d65e3947435ba144a16fd466ac13377ae9b5f8eda26b30d1170efd3c32e5",
+          "size": 9163
         },
         {
           "path": "tsconfig.json",
@@ -2388,6 +2551,12 @@
           "schema": "object_tracks.fbs"
         },
         {
+          "file_identifier": "OBBD",
+          "payload_id": "0x4d15ebfca8da813e",
+          "qualified_root_type": "open_perception_kit.metadata.OrientedBoxDetections",
+          "schema": "oriented_box_detections.fbs"
+        },
+        {
           "file_identifier": "PERF",
           "payload_id": "0x6b8b676312d27d0c",
           "qualified_root_type": "open_perception_kit.metadata.PerformanceOverlay",
@@ -2444,6 +2613,11 @@
           "size": 549
         },
         {
+          "path": "oriented_box_detections.fbs",
+          "sha256": "cc29a9146955a80c670b21d1441c0cdd106d9d5510b3df25ba8b3b27c88e992c",
+          "size": 738
+        },
+        {
           "path": "performance_overlay.fbs",
           "sha256": "9e71b75f64c563ce21d81e5c8dccf5cafe75129ec574424e8c77d67ff1dc1e01",
           "size": 197
@@ -2464,7 +2638,7 @@
           "size": 427
         }
       ],
-      "schema_set_sha256": "1b19418d8a0d34038a3c99895fa93a1140c25af910f6bc63c0e11978e12c2876",
+      "schema_set_sha256": "a3412ce8bff796ba2304295a6e53c16ecdbfbe15fe5d98606e2a20ac86cd1209",
       "sdk": {
         "name": "open_perception_kit",
         "version": "0.1.1"

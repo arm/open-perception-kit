@@ -22,6 +22,7 @@ import { Classifications as Classifications_2852697023809600655, Classifications
 import { FrameContext as FrameContext_2065478860695108412, FrameContextT as FrameContextT_2065478860695108412 } from './fb/open-perception-kit/metadata/frame-context.js';
 import { ObjectEmbeddings as ObjectEmbeddings_5972661533224817501, ObjectEmbeddingsT as ObjectEmbeddingsT_5972661533224817501 } from './fb/open-perception-kit/metadata/object-embeddings.js';
 import { ObjectTracks as ObjectTracks_2960585987463094496, ObjectTracksT as ObjectTracksT_2960585987463094496 } from './fb/open-perception-kit/metadata/object-tracks.js';
+import { OrientedBoxDetections as OrientedBoxDetections_5554605185828553022, OrientedBoxDetectionsT as OrientedBoxDetectionsT_5554605185828553022 } from './fb/open-perception-kit/metadata/oriented-box-detections.js';
 import { PerformanceOverlay as PerformanceOverlay_7749401259036278028, PerformanceOverlayT as PerformanceOverlayT_7749401259036278028 } from './fb/open-perception-kit/metadata/performance-overlay.js';
 import { PoseEstimations as PoseEstimations_9114952555105892553, PoseEstimationsT as PoseEstimationsT_9114952555105892553 } from './fb/open-perception-kit/metadata/pose-estimations.js';
 import { SegmentationMasks as SegmentationMasks_1998909987238011535, SegmentationMasksT as SegmentationMasksT_1998909987238011535 } from './fb/open-perception-kit/metadata/segmentation-masks.js';
@@ -47,6 +48,8 @@ const decode_5972661533224817501 = (blob: Uint8Array): unknown => ObjectEmbeddin
 const verify_5972661533224817501 = (blob: Uint8Array): boolean => ObjectEmbeddings_5972661533224817501.bufferHasIdentifier(new ByteBuffer(blob));
 const decode_2960585987463094496 = (blob: Uint8Array): unknown => ObjectTracks_2960585987463094496.getRootAsObjectTracks(new ByteBuffer(blob)).unpack();
 const verify_2960585987463094496 = (blob: Uint8Array): boolean => ObjectTracks_2960585987463094496.bufferHasIdentifier(new ByteBuffer(blob));
+const decode_5554605185828553022 = (blob: Uint8Array): unknown => OrientedBoxDetections_5554605185828553022.getRootAsOrientedBoxDetections(new ByteBuffer(blob)).unpack();
+const verify_5554605185828553022 = (blob: Uint8Array): boolean => OrientedBoxDetections_5554605185828553022.bufferHasIdentifier(new ByteBuffer(blob));
 const decode_7749401259036278028 = (blob: Uint8Array): unknown => PerformanceOverlay_7749401259036278028.getRootAsPerformanceOverlay(new ByteBuffer(blob)).unpack();
 const verify_7749401259036278028 = (blob: Uint8Array): boolean => PerformanceOverlay_7749401259036278028.bufferHasIdentifier(new ByteBuffer(blob));
 const decode_9114952555105892553 = (blob: Uint8Array): unknown => PoseEstimations_9114952555105892553.getRootAsPoseEstimations(new ByteBuffer(blob)).unpack();
@@ -97,6 +100,14 @@ export const _TYPE_REGISTRY = new Map<bigint, TypeInfo>([
     decode: decode_2960585987463094496,
     verify: verify_2960585987463094496,
   }],
+  [5554605185828553022n, {
+    name: 'open_perception_kit::metadata::OrientedBoxDetections',
+    root_type: 'OrientedBoxDetections',
+    qualified_root_type: 'open_perception_kit.metadata.OrientedBoxDetections',
+    file_identifier: 'OBBD',
+    decode: decode_5554605185828553022,
+    verify: verify_5554605185828553022,
+  }],
   [7749401259036278028n, {
     name: 'open_perception_kit::metadata::PerformanceOverlay',
     root_type: 'PerformanceOverlay',
@@ -137,6 +148,7 @@ export const _CLASS_TO_ID = new Map<PayloadClass, bigint>([
   [FrameContextT_2065478860695108412, 2065478860695108412n],
   [ObjectEmbeddingsT_5972661533224817501, 5972661533224817501n],
   [ObjectTracksT_2960585987463094496, 2960585987463094496n],
+  [OrientedBoxDetectionsT_5554605185828553022, 5554605185828553022n],
   [PerformanceOverlayT_7749401259036278028, 7749401259036278028n],
   [PoseEstimationsT_9114952555105892553, 9114952555105892553n],
   [SegmentationMasksT_1998909987238011535, 1998909987238011535n],

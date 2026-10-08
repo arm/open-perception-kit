@@ -41,6 +41,7 @@
 #include "fb/internal/wire_envelope_generated.h"
 #include "fb/object_embeddings_generated.h"
 #include "fb/object_tracks_generated.h"
+#include "fb/oriented_box_detections_generated.h"
 #include "fb/performance_overlay_generated.h"
 #include "fb/pose_estimations_generated.h"
 #include "fb/segmentation_masks_generated.h"
@@ -52,7 +53,7 @@ namespace open_perception_kit {
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_VERSION = "0.1.1";
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_NAME = "open_perception_kit";
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_SCHEMA_SET_SHA256 =
-    "1b19418d8a0d34038a3c99895fa93a1140c25af910f6bc63c0e11978e12c2876";
+    "a3412ce8bff796ba2304295a6e53c16ecdbfbe15fe5d98606e2a20ac86cd1209";
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_FLATBUFFERS_VERSION_REQUIREMENT = "==25.9.23";
 
 namespace detail {
@@ -146,6 +147,23 @@ template <> struct native_traits<open_perception_kit::metadata::ObjectTracksT> {
     }
 };
 
+template <> struct native_traits<open_perception_kit::metadata::OrientedBoxDetectionsT> {
+    using table_type = open_perception_kit::metadata::OrientedBoxDetections;
+    using native_type = open_perception_kit::metadata::OrientedBoxDetectionsT;
+
+    static constexpr id_t id = 5554605185828553022ULL;
+    static constexpr std::string_view qualified_root_type =
+        "open_perception_kit.metadata.OrientedBoxDetections";
+
+    static constexpr const char *file_identifier() {
+        return "OBBD";
+    }
+
+    static auto pack(flatbuffers::FlatBufferBuilder &builder, const native_type *obj) {
+        return open_perception_kit::metadata::CreateOrientedBoxDetections(builder, obj);
+    }
+};
+
 template <> struct native_traits<open_perception_kit::metadata::PerformanceOverlayT> {
     using table_type = open_perception_kit::metadata::PerformanceOverlay;
     using native_type = open_perception_kit::metadata::PerformanceOverlayT;
@@ -224,6 +242,7 @@ using payload_data = std::variant<encoded_payload,
                                   open_perception_kit::metadata::FrameContextT,
                                   open_perception_kit::metadata::ObjectEmbeddingsT,
                                   open_perception_kit::metadata::ObjectTracksT,
+                                  open_perception_kit::metadata::OrientedBoxDetectionsT,
                                   open_perception_kit::metadata::PerformanceOverlayT,
                                   open_perception_kit::metadata::PoseEstimationsT,
                                   open_perception_kit::metadata::SegmentationMasksT,

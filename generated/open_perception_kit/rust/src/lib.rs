@@ -51,7 +51,7 @@ pub const OPEN_PERCEPTION_KIT_NAME: &str = "open_perception_kit";
 pub const OPEN_PERCEPTION_KIT_VERSION: &str = "0.1.1";
 /// SHA-256 identity of the complete schema set used for generation.
 pub const SCHEMA_SET_SHA256: &str =
-    "1b19418d8a0d34038a3c99895fa93a1140c25af910f6bc63c0e11978e12c2876";
+    "a3412ce8bff796ba2304295a6e53c16ecdbfbe15fe5d98606e2a20ac86cd1209";
 /// Exact FlatBuffers runtime version required by this crate.
 pub const FLATBUFFERS_VERSION_REQUIREMENT: &str = "==25.9.23";
 /// Lowest numeric key reserved for application-defined external payloads.
@@ -202,10 +202,11 @@ pub enum PayloadData {
     Payload2(crate::fb::open_perception_kit::metadata::FrameContextT),
     Payload3(crate::fb::open_perception_kit::metadata::ObjectEmbeddingsT),
     Payload4(crate::fb::open_perception_kit::metadata::ObjectTracksT),
-    Payload5(crate::fb::open_perception_kit::metadata::PerformanceOverlayT),
-    Payload6(crate::fb::open_perception_kit::metadata::PoseEstimationsT),
-    Payload7(crate::fb::open_perception_kit::metadata::SegmentationMasksT),
-    Payload8(crate::fb::open_perception_kit::metadata::TrackTracesT),
+    Payload5(crate::fb::open_perception_kit::metadata::OrientedBoxDetectionsT),
+    Payload6(crate::fb::open_perception_kit::metadata::PerformanceOverlayT),
+    Payload7(crate::fb::open_perception_kit::metadata::PoseEstimationsT),
+    Payload8(crate::fb::open_perception_kit::metadata::SegmentationMasksT),
+    Payload9(crate::fb::open_perception_kit::metadata::TrackTracesT),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -617,10 +618,10 @@ impl EnvelopeValue for crate::fb::open_perception_kit::metadata::ObjectTracksT {
     }
 }
 
-impl private::SealedPayload for crate::fb::open_perception_kit::metadata::PerformanceOverlayT {}
+impl private::SealedPayload for crate::fb::open_perception_kit::metadata::OrientedBoxDetectionsT {}
 
-impl NativePayload for crate::fb::open_perception_kit::metadata::PerformanceOverlayT {
-    const NAME: &'static str = "open_perception_kit.metadata.PerformanceOverlay";
+impl NativePayload for crate::fb::open_perception_kit::metadata::OrientedBoxDetectionsT {
+    const NAME: &'static str = "open_perception_kit.metadata.OrientedBoxDetections";
 
     fn into_payload_data(self) -> PayloadData {
         PayloadData::Payload5(self)
@@ -629,6 +630,54 @@ impl NativePayload for crate::fb::open_perception_kit::metadata::PerformanceOver
     fn from_payload_data(data: &PayloadData) -> Option<&Self> {
         match data {
             PayloadData::Payload5(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    fn decode_payload(bytes: &[u8]) -> Result<Self, PayloadDecodeError> {
+        use crate::fb::open_perception_kit::metadata as generated;
+        if bytes.len() < 8 || !generated::oriented_box_detections_buffer_has_identifier(bytes) {
+            return Err(PayloadDecodeError::InvalidIdentifier { expected: "OBBD" });
+        }
+        generated::root_as_oriented_box_detections(bytes)
+            .map(|value| value.unpack())
+            .map_err(|error| PayloadDecodeError::InvalidFlatbuffer(error.to_string()))
+    }
+
+    fn encode_payload(&self) -> Vec<u8> {
+        use crate::fb::open_perception_kit::metadata as generated;
+        let mut builder = flatbuffers::FlatBufferBuilder::new();
+        let root = self.pack(&mut builder);
+        generated::finish_oriented_box_detections_buffer(&mut builder, root);
+        builder.finished_data().to_vec()
+    }
+}
+
+impl private::SealedEnvelopeValue
+    for crate::fb::open_perception_kit::metadata::OrientedBoxDetectionsT
+{
+}
+
+impl EnvelopeValue for crate::fb::open_perception_kit::metadata::OrientedBoxDetectionsT {
+    fn append_to(self, envelope: &mut Envelope) {
+        envelope
+            .entries
+            .push(Entry::Known(self.into_payload_data()));
+    }
+}
+
+impl private::SealedPayload for crate::fb::open_perception_kit::metadata::PerformanceOverlayT {}
+
+impl NativePayload for crate::fb::open_perception_kit::metadata::PerformanceOverlayT {
+    const NAME: &'static str = "open_perception_kit.metadata.PerformanceOverlay";
+
+    fn into_payload_data(self) -> PayloadData {
+        PayloadData::Payload6(self)
+    }
+
+    fn from_payload_data(data: &PayloadData) -> Option<&Self> {
+        match data {
+            PayloadData::Payload6(value) => Some(value),
             _ => None,
         }
     }
@@ -671,12 +720,12 @@ impl NativePayload for crate::fb::open_perception_kit::metadata::PoseEstimations
     const NAME: &'static str = "open_perception_kit.metadata.PoseEstimations";
 
     fn into_payload_data(self) -> PayloadData {
-        PayloadData::Payload6(self)
+        PayloadData::Payload7(self)
     }
 
     fn from_payload_data(data: &PayloadData) -> Option<&Self> {
         match data {
-            PayloadData::Payload6(value) => Some(value),
+            PayloadData::Payload7(value) => Some(value),
             _ => None,
         }
     }
@@ -716,12 +765,12 @@ impl NativePayload for crate::fb::open_perception_kit::metadata::SegmentationMas
     const NAME: &'static str = "open_perception_kit.metadata.SegmentationMasks";
 
     fn into_payload_data(self) -> PayloadData {
-        PayloadData::Payload7(self)
+        PayloadData::Payload8(self)
     }
 
     fn from_payload_data(data: &PayloadData) -> Option<&Self> {
         match data {
-            PayloadData::Payload7(value) => Some(value),
+            PayloadData::Payload8(value) => Some(value),
             _ => None,
         }
     }
@@ -761,12 +810,12 @@ impl NativePayload for crate::fb::open_perception_kit::metadata::TrackTracesT {
     const NAME: &'static str = "open_perception_kit.metadata.TrackTraces";
 
     fn into_payload_data(self) -> PayloadData {
-        PayloadData::Payload8(self)
+        PayloadData::Payload9(self)
     }
 
     fn from_payload_data(data: &PayloadData) -> Option<&Self> {
         match data {
-            PayloadData::Payload8(value) => Some(value),
+            PayloadData::Payload9(value) => Some(value),
             _ => None,
         }
     }
@@ -829,6 +878,9 @@ fn decode_known(id: u64, bytes: Vec<u8>) -> Entry {
         2960585987463094496 => {
             decode_entry::<crate::fb::open_perception_kit::metadata::ObjectTracksT>(id, bytes)
         }
+        5554605185828553022 => decode_entry::<
+            crate::fb::open_perception_kit::metadata::OrientedBoxDetectionsT,
+        >(id, bytes),
         7749401259036278028 => {
             decode_entry::<crate::fb::open_perception_kit::metadata::PerformanceOverlayT>(id, bytes)
         }
@@ -853,10 +905,11 @@ fn known_type_name(data: &PayloadData) -> &'static str {
         PayloadData::Payload2(_) => "open_perception_kit.metadata.FrameContext",
         PayloadData::Payload3(_) => "open_perception_kit.metadata.ObjectEmbeddings",
         PayloadData::Payload4(_) => "open_perception_kit.metadata.ObjectTracks",
-        PayloadData::Payload5(_) => "open_perception_kit.metadata.PerformanceOverlay",
-        PayloadData::Payload6(_) => "open_perception_kit.metadata.PoseEstimations",
-        PayloadData::Payload7(_) => "open_perception_kit.metadata.SegmentationMasks",
-        PayloadData::Payload8(_) => "open_perception_kit.metadata.TrackTraces",
+        PayloadData::Payload5(_) => "open_perception_kit.metadata.OrientedBoxDetections",
+        PayloadData::Payload6(_) => "open_perception_kit.metadata.PerformanceOverlay",
+        PayloadData::Payload7(_) => "open_perception_kit.metadata.PoseEstimations",
+        PayloadData::Payload8(_) => "open_perception_kit.metadata.SegmentationMasks",
+        PayloadData::Payload9(_) => "open_perception_kit.metadata.TrackTraces",
     }
 }
 
@@ -1103,10 +1156,11 @@ fn encode_known(data: &PayloadData) -> (u64, Vec<u8>) {
         PayloadData::Payload2(value) => (2065478860695108412, value.encode_payload()),
         PayloadData::Payload3(value) => (5972661533224817501, value.encode_payload()),
         PayloadData::Payload4(value) => (2960585987463094496, value.encode_payload()),
-        PayloadData::Payload5(value) => (7749401259036278028, value.encode_payload()),
-        PayloadData::Payload6(value) => (9114952555105892553, value.encode_payload()),
-        PayloadData::Payload7(value) => (1998909987238011535, value.encode_payload()),
-        PayloadData::Payload8(value) => (238211229389337861, value.encode_payload()),
+        PayloadData::Payload5(value) => (5554605185828553022, value.encode_payload()),
+        PayloadData::Payload6(value) => (7749401259036278028, value.encode_payload()),
+        PayloadData::Payload7(value) => (9114952555105892553, value.encode_payload()),
+        PayloadData::Payload8(value) => (1998909987238011535, value.encode_payload()),
+        PayloadData::Payload9(value) => (238211229389337861, value.encode_payload()),
     }
 }
 

@@ -95,6 +95,8 @@ The currently generated payload roots are:
 
 - `FrameContext` for video or audio frame geometry and crop/letterbox context
 - `BoxDetections` for localized detections
+- `OrientedBoxDetections` for rotated rectangles with center, size, and clockwise
+  angle in radians; coordinates and dimensions use original-frame pixels
 - `Classifications` for classification candidates and person-presence output
 - `PoseEstimations` for yaw and pitch estimates
 - `SegmentationMasks` for bitmap-backed masks

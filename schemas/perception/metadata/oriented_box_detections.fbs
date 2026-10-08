@@ -1,0 +1,30 @@
+include "common.fbs";
+
+namespace open_perception_kit.metadata;
+
+// Coordinates and dimensions are in frame pixels; positive radians rotate clockwise in image space.
+table OrientedBoundingBox {
+  center_x:float;
+  center_y:float;
+  width:float;
+  height:float;
+  angle_radians:float;
+}
+
+table OrientedBoxDetection {
+  object:open_perception_kit.metadata.ObjectMeta;
+  box:open_perception_kit.metadata.OrientedBoundingBox;
+  confidence:float;
+  class_id:int = -1;
+  text:string;
+}
+
+table OrientedBoxDetections {
+  schema_major:ushort = 1;
+  schema_minor:ushort = 0;
+  layer:open_perception_kit.metadata.LayerInfo;
+  detections:[open_perception_kit.metadata.OrientedBoxDetection];
+}
+
+root_type OrientedBoxDetections;
+file_identifier "OBBD";

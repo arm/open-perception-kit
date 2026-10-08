@@ -56,6 +56,14 @@ _TYPE_REGISTRY = {
         'qualified_root_type': 'open_perception_kit.metadata.ObjectTracks',
         'file_identifier': 'TRKS',
     },
+    5554605185828553022: {
+        'name': 'open_perception_kit::metadata::OrientedBoxDetections',
+        'module': 'open_perception_kit.fb.open_perception_kit.metadata.OrientedBoxDetections',
+        'root_type': 'OrientedBoxDetections',
+        'native_type': 'OrientedBoxDetectionsT',
+        'qualified_root_type': 'open_perception_kit.metadata.OrientedBoxDetections',
+        'file_identifier': 'OBBD',
+    },
     7749401259036278028: {
         'name': 'open_perception_kit::metadata::PerformanceOverlay',
         'module': 'open_perception_kit.fb.open_perception_kit.metadata.PerformanceOverlay',
