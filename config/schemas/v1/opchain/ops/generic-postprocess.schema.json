@@ -261,7 +261,8 @@
         "outputFormat": {
           "enum": [
             "centerClassScores",
-            "cornerScoreClass"
+            "cornerScoreClass",
+            "centerSizeScoreClassAngle"
           ],
           "default": "centerClassScores"
         },

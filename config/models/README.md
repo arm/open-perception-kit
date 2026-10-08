@@ -28,6 +28,7 @@ for using the existing downloader with a binary release.
 - [YOLO26n INT8, 320 pixels](https://huggingface.co/Arm/yolo26n-320-int8-onnx-raspberrypi5)
 - [YOLO26n INT8, 480 pixels](https://huggingface.co/Arm/yolo26n-480-int8-onnx-raspberrypi5)
 - [YOLO26n INT8, 640 pixels](https://huggingface.co/Arm/yolo26n-640-int8-onnx-raspberrypi5)
+- [YOLO26n oriented boxes](https://huggingface.co/prithivMLmods/YOLO26-ONNX)
 - [YOLO26s INT8, 320 pixels](https://huggingface.co/Arm/yolo26s-320-int8-onnx-raspberrypi5)
 - [YOLO26s INT8, 480 pixels](https://huggingface.co/Arm/yolo26s-480-int8-onnx-raspberrypi5)
 - [YOLO26s INT8, 640 pixels](https://huggingface.co/Arm/yolo26s-640-int8-onnx-raspberrypi5)

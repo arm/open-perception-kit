@@ -185,6 +185,7 @@ TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {
         nlohmann::json{{"parser", "GazeDetectionParser"}, {"angleBinWidthDeg", 4}},
         nlohmann::json{{"parser", "YoloParser"}, {"applyNms", false}},
         nlohmann::json{{"parser", "YoloParser"}, {"outputFormat", "cornerScoreClass"}},
+        nlohmann::json{{"parser", "YoloParser"}, {"outputFormat", "centerSizeScoreClassAngle"}},
         nlohmann::json{{"parser", "YoloXParser"}, {"applyNms", false}},
     };
     for (const auto &validAttributes : validConditionalAttributes) {

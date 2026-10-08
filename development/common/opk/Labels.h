@@ -24,13 +24,15 @@
 extern const std::array<const char *, 1001U> imageNetLabels;
 /** @brief COCO class labels (index-aligned). */
 extern const std::array<const char *, 80U> cocoLabels;
+/** @brief DOTA class labels (index-aligned). */
+extern const std::array<const char *, 15U> dotaLabels;
 
 namespace opk::resources {
 
 /**
  * @brief Supported predefined label sets.
  */
-enum class LabelType { ImageNet, Coco };
+enum class LabelType { ImageNet, Coco, Dota };
 
 /**
  * @brief Helper accessors for built-in label sets.
@@ -48,6 +50,8 @@ struct Labels {
             return std::tuple_size_v<decltype(imageNetLabels)>;
         case LabelType::Coco:
             return std::tuple_size_v<decltype(cocoLabels)>;
+        case LabelType::Dota:
+            return std::tuple_size_v<decltype(dotaLabels)>;
         };
         return 0U;
     }
@@ -67,6 +71,8 @@ struct Labels {
             return imageNetLabels[index];
         case LabelType::Coco:
             return cocoLabels[index];
+        case LabelType::Dota:
+            return dotaLabels[index];
         };
         return "?";
     }

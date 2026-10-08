@@ -327,6 +327,7 @@ If you need to go beyond that and change elements or core runtime behavior, the 
 ## Good examples to copy from
 
 - `config/models/yolo26n-320/` for a simple object detector
+- `config/models/yolo26n-obb/` for oriented object detection
 - `config/models/ultraface-rfb-320/` for a simple face detector
 - `config/opchains/mobilegaze-mobilenet-v2/` for a detector + gaze cascade
 - `config/opchains/nitec-resnet-18/` for a detector + classification cascade

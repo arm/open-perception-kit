@@ -130,6 +130,60 @@ TEST(YoloParser, ParsesCornerScoreClassOutput) {
     EXPECT_FLOAT_EQ(detections[0]->box->height, 20.0f);
 }
 
+TEST(YoloParser, ParsesOrientedBoxesInFramePixels) {
+    opk::AttributeMap attrs;
+    attrs.set("outputFormat", "centerSizeScoreClassAngle");
+    attrs.set("normalizeOutputCoordinates", false);
+    attrs.set("applyNms", false);
+    std::vector<float> tensorData{
+        320.0f,
+        320.0f,
+        80.0f,
+        40.0f,
+        0.9f,
+        1.0f,
+        0.5f,
+        100.0f,
+        100.0f,
+        20.0f,
+        10.0f,
+        0.8f,
+        1.5f,
+        0.0f,
+    };
+    opk::TensorView tensor(tensorData.data(),
+                           tensorData.size() * sizeof(float),
+                           opk::Shape(1, 2, 7),
+                           opk::Dtype::Float32,
+                           1.0f,
+                           0.0f);
+    opk::TensorParser::Input input(attrs);
+    input.tensors[0] = &tensor;
+    input.inferenceInfo.image = {.width = 800,
+                                 .height = 400,
+                                 .modelWidth = 640,
+                                 .modelHeight = 640,
+                                 .letterboxTop = 160,
+                                 .letterboxBottom = 160};
+
+    open_perception_kit::FrameResults output;
+    opk::stdop::postproc::YoloParser parser;
+    const auto result = parser.parse(input, output);
+
+    ASSERT_TRUE(result.has_value()) << result.error().toString();
+    const auto payload = output.get<open_perception_kit::metadata::OrientedBoxDetectionsT>();
+    ASSERT_TRUE(payload.has_value());
+    const auto &detections = payload.value().value().detections;
+    ASSERT_EQ(detections.size(), 1U);
+    EXPECT_EQ(detections[0]->class_id, 1);
+    EXPECT_EQ(detections[0]->text, "ship");
+    EXPECT_FLOAT_EQ(detections[0]->box->center_x, 400.0f);
+    EXPECT_FLOAT_EQ(detections[0]->box->center_y, 200.0f);
+    EXPECT_FLOAT_EQ(detections[0]->box->width, 100.0f);
+    EXPECT_FLOAT_EQ(detections[0]->box->height, 50.0f);
+    EXPECT_FLOAT_EQ(detections[0]->box->angle_radians, 0.5f);
+}
+
 TEST(YoloParser, RejectsMissingTensor) {
     opk::AttributeMap attrs;
     opk::TensorParser::Input input(attrs);

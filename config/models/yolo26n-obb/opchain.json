@@ -1,0 +1,37 @@
+{
+  "version": "1.0.0",
+  "name": "Yolo26nObb",
+  "displayName": "YOLO26n OBB (640x640)",
+  "task": "Oriented object detection",
+  "runtime": "ONNX",
+  "description": "Detects oriented objects with YOLO26n-OBB at 640x640.",
+  "ops": [
+    {
+      "id": "opk-std-ops/InferenceController",
+      "attributes": {}
+    },
+    {
+      "id": "opk-std-ops/GenericImagePreprocess",
+      "attributes": {
+        "inputImageTensorIndex": 0,
+        "inputImageSourceName": "pipelineVideoFrame"
+      }
+    },
+    {
+      "id": "opk-onnx-ops/Inference",
+      "attributes": {
+        "modelDescriptor": "model.json"
+      }
+    },
+    {
+      "id": "opk-std-ops/GenericPostprocess",
+      "attributes": {
+        "parser": "YoloParser",
+        "outputFormat": "centerSizeScoreClassAngle",
+        "normalizeOutputCoordinates": false,
+        "applyNms": false,
+        "confidenceThreshold": 0.25
+      }
+    }
+  ]
+}

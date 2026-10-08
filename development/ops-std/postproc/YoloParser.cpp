@@ -36,6 +36,7 @@ struct Det {
 enum class OutputFormat {
     CenterClassScores,
     CornerScoreClass,
+    CenterSizeScoreClassAngle,
 };
 
 static float iou(const Det &a, const Det &b) {
@@ -220,6 +221,61 @@ static std::vector<Det> parseCornerScoreClassDetections(const opk::TensorParser:
     return detections;
 }
 
+static void parseOrientedDetections(const opk::TensorParser::Input &input,
+                                    const TensorView &tensor,
+                                    const opk::Shape &shape,
+                                    open_perception_kit::FrameResults &results) {
+    const auto &image = input.inferenceInfo.image;
+    const float confidenceThreshold =
+        static_cast<float>(input.attributes.getDoubleOrDefault("confidenceThreshold", 0.25));
+    open_perception_kit::metadata::OrientedBoxDetectionsT payload;
+    payload.layer =
+        open_perception_kit::makeLayerInfo({.model = input.inferenceInfo.modelName,
+                                            .inferElementId = input.inferenceInfo.inferElementId,
+                                            .contentType = YoloParser::k_content_type,
+                                            .labelFamily = "dota",
+                                            .producer = &input.producerInfo});
+
+    for (size_t index = 0; index < static_cast<size_t>(shape.dims[1]); ++index) {
+        const size_t base = index * 7U;
+        const float confidence = tensor.get(base + 4U);
+        if (!std::isfinite(confidence) || confidence < confidenceThreshold)
+            continue;
+
+        const float centerX = tensor.get(base);
+        const float centerY = tensor.get(base + 1U);
+        const float width = tensor.get(base + 2U);
+        const float height = tensor.get(base + 3U);
+        const float classId = tensor.get(base + 5U);
+        const float angle = tensor.get(base + 6U);
+        if (!std::isfinite(centerX) || !std::isfinite(centerY) || !std::isfinite(width) ||
+            !std::isfinite(height) || !std::isfinite(classId) || !std::isfinite(angle) ||
+            width <= 0.0f || height <= 0.0f || classId < 0.0f ||
+            classId >=
+                static_cast<float>(resources::Labels::getLabelCount(resources::LabelType::Dota)) ||
+            std::trunc(classId) != classId)
+            continue;
+
+        auto detection = std::make_unique<open_perception_kit::metadata::OrientedBoxDetectionT>();
+        detection->object = open_perception_kit::makeObjectMeta(0U, input.inferenceInfo.parentId);
+        detection->box = std::make_unique<open_perception_kit::metadata::OrientedBoundingBoxT>();
+        detection->box->center_x = modelToFrameX(centerX, image);
+        detection->box->center_y = modelToFrameY(centerY, image);
+        detection->box->width =
+            width * static_cast<float>(image.width) / static_cast<float>(activeModelWidth(image));
+        detection->box->height = height * static_cast<float>(image.height) /
+                                 static_cast<float>(activeModelHeight(image));
+        detection->box->angle_radians = angle;
+        detection->confidence = confidence;
+        detection->class_id = static_cast<int>(classId);
+        detection->text =
+            resources::Labels::getLabel(resources::LabelType::Dota, detection->class_id);
+        payload.detections.push_back(std::move(detection));
+    }
+    if (!payload.detections.empty())
+        results.add(std::move(payload));
+}
+
 // ----------------------------------------------------------------------------
 
 opk::Result<void> YoloParser::parse(const opk::TensorParser::Input &input,
@@ -237,6 +293,8 @@ opk::Result<void> YoloParser::parse(const opk::TensorParser::Input &input,
         outputFormat = OutputFormat::CenterClassScores;
     } else if (outputFormatAttribute == "cornerScoreClass") {
         outputFormat = OutputFormat::CornerScoreClass;
+    } else if (outputFormatAttribute == "centerSizeScoreClassAngle") {
+        outputFormat = OutputFormat::CenterSizeScoreClassAngle;
     } else {
         return tl::unexpected(
             OPK_ERROR(opk::ErrorFlag::InvalidData,
@@ -288,6 +346,13 @@ opk::Result<void> YoloParser::parse(const opk::TensorParser::Input &input,
                           shape.toString()));
     }
 
+    if (outputFormat == OutputFormat::CenterSizeScoreClassAngle && shape.dims[2] != 7) {
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::InvalidData,
+                      "YoloParser: centerSizeScoreClassAngle tensor must have shape [1,N,7], got " +
+                          shape.toString()));
+    }
+
     if (outputFormat == OutputFormat::CenterClassScores &&
         std::min(shape.dims[1], shape.dims[2]) < 5) {
         opk::log::error("YoloParser: tensor needs at least 5 values per candidate, got {}\n",
@@ -301,6 +366,19 @@ opk::Result<void> YoloParser::parse(const opk::TensorParser::Input &input,
         opk::log::error("YoloParser: input tensor view is invalid\n");
         return tl::unexpected(
             OPK_ERROR(opk::ErrorFlag::InvalidData, "YoloParser: input tensor view is invalid"));
+    }
+
+    if (outputFormat == OutputFormat::CenterSizeScoreClassAngle) {
+        // ponytail: Add rotated IoU before enabling NMS for non-end-to-end OBB exports.
+        if (applyNms || normalizeOutputCoordinates ||
+            input.attributes.getBoolOrDefault("coordinatesAreNormalized", false)) {
+            return tl::unexpected(
+                OPK_ERROR(opk::ErrorFlag::InvalidData,
+                          "YoloParser: OBB output requires applyNms=false, "
+                          "normalizeOutputCoordinates=false, and coordinatesAreNormalized=false"));
+        }
+        parseOrientedDetections(input, tensor, shape, results);
+        return {};
     }
 
     auto dets = outputFormat == OutputFormat::CornerScoreClass

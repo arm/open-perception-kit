@@ -99,6 +99,8 @@ Focused detector and cascade presets:
   ExecuTorch/XNNPACK inference.
 - `yolo26n-320`, `yolo26n-480`, and `yolo26n-640` — YOLO26n at the selected
   input resolution on bundled video.
+- `yolo26n-obb` — YOLO26n oriented object detection on bundled video; use aerial
+  imagery to exercise its DOTA classes.
 - `yolo26s-320`, `yolo26s-480`, and `yolo26s-640` — YOLO26s at the selected
   input resolution on bundled video.
 
