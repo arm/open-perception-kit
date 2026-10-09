@@ -808,7 +808,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     > /etc/apt/sources.list.d/raspberrypi.list; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-    gstreamer1.0-libcamera libcamera-ipa \
+    gstreamer1.0-libcamera libcamera-ipa; \
   fi; \
   ptp_helpers=(/usr/lib/*-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-ptp-helper); \
   test "${#ptp_helpers[@]}" -eq 1; \
