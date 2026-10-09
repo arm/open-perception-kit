@@ -48,6 +48,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+# ignore version pinning
+# hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
   set -eux; \
@@ -130,6 +132,8 @@ FROM opk-build-base AS opk-cross-build-base
 # reuse it without coupling it to source or tool layers.
 FROM --platform=${BUILDPLATFORM} debian:trixie-slim AS opk-demo-media
 
+# ignore version pinning
+# hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
   set -eux; \
@@ -201,6 +205,8 @@ COPY development/web/package-lock.json /tmp/opk-web-package-lock.json
 
 RUN set -eux; uname -a; cat /etc/os-release; dpkg --print-architecture
 
+# ignore version pinning
+# hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
   set -eux; \
@@ -363,6 +369,8 @@ RUN --mount=type=bind,source=var,target=/tmp/opk-executorch-packages,ro \
     --mount=type=secret,id=executorch_artifactory_password,env=EXECUTORCH_ARTIFACTORY_PASSWORD \
   bash /tmp/install-executorch-deb.sh
 
+# ignore version pinning
+# hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
   set -eux; \
@@ -444,6 +452,8 @@ ARG OPK_PICAMERA=disabled
 
 USER 0
 
+# ignore version pinning
+# hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
   set -eux; \
@@ -507,6 +517,8 @@ ARG PLANTUML_VERSION=1.2026.2
 
 USER 0
 
+# ignore version pinning
+# hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
   set -eux; \
@@ -534,6 +546,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
   LANG=C.UTF-8 \
   LC_ALL=C.UTF-8
 
+# ignore version pinning
+# hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
   set -eux; \
@@ -551,6 +565,8 @@ FROM opk-gstreamer-runtime-base AS opk-python-ops-runtime
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
   PYTHONDONTWRITEBYTECODE=1
 
+# ignore version pinning
+# hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
   set -eux; \
@@ -591,6 +607,8 @@ ARG OPK_RELEASE_BUILD=false
 ARG OPK_RELEASE_SOURCE_COMMIT=""
 
 COPY --from=opk-release-sources --chmod=0755 /work/scripts/private/install-target-sysroot.sh /usr/local/bin/install-target-sysroot
+# ignore version pinning
+# hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
   set -eux; \
@@ -785,6 +803,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+# ignore version pinning
+# hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
   set -eux; \
@@ -929,6 +949,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
   GST_PLUGIN_PATH=/work/runtime \
   LD_LIBRARY_PATH=/work/runtime
 
+# ignore version pinning
+# hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
   set -eux; \
