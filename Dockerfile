@@ -601,7 +601,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   elif [ "${OPK_RELEASE_BUILD}" = true ]; then \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-      binutils libusb-1.0-0-dev zlib1g-dev \
+      binutils libusb-1.0-0-dev zlib1g-dev; \
   fi
 
 COPY --from=opk-release-sources --chmod=0755 /work/scripts/private/install-onnxruntime.sh /usr/local/bin/install-onnxruntime
@@ -801,7 +801,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   libssl3t64 \
   libusb-1.0-0 \
   python3 \
-  zlib1g \
+  zlib1g; \
   if [ "${OPK_PICAMERA}" = enabled ]; then \
     test "$(dpkg --print-architecture)" = arm64; \
     echo "deb [arch=arm64 trusted=yes] https://archive.raspberrypi.com/debian trixie main" \
