@@ -531,4 +531,4 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   "1.0",
                   "Apache 2.0",
                   PACKAGE,
-                  "https://example.com")
+                  "https://www.arm.com/")

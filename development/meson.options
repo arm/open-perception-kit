@@ -21,6 +21,24 @@ option('release_package',
   description : 'Install only the redistributable OPK release surface'
 )
 
+option('deb_package',
+  type : 'boolean',
+  value : false,
+  description : 'Enable the Meson opk-runtime Debian package target'
+)
+
+option('demo_deb_package',
+  type : 'boolean',
+  value : false,
+  description : 'Enable the Meson opk-demo Debian package target'
+)
+
+option('deb_package_revision',
+  type : 'string',
+  value : '1',
+  description : 'Debian revision appended to the OPK product version'
+)
+
 option('executorch',
   type : 'feature',
   value : 'auto',

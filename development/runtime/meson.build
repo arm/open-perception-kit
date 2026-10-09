@@ -33,6 +33,6 @@ opk_runtime = shared_library(
   gnu_symbol_visibility: 'default',
   name_prefix: '',
   install: release_package,
-  install_dir: 'lib/opk',
+  install_dir: get_option('libdir') / 'opk',
   install_rpath: '$ORIGIN',
 )

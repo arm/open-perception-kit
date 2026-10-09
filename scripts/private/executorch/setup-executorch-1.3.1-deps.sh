@@ -54,7 +54,6 @@ Environment:
   EXECUTORCH_INSTALL_DIR  Default: $DEPS_DIR/executorch
   LIBTORCH_INSTALL_DIR    Default: $DEPS_DIR/libtorch
   VENV_DIR                Default: $WORK_DIR/.venv
-  PYTHON_VERSION          Default: 3.11
   JOBS                    Same as --jobs.
   CCACHE_DIR              Compiler cache directory. Default: $WORK_DIR/cache/ccache
   EXECUTORCH_X86_64_CC     x86_64 C compiler. Default: x86_64-linux-gnu-gcc-14
@@ -252,10 +251,11 @@ ORIGINAL_CWD="$(pwd -P)"
 WORK_DIR=""
 DEPS_DIR="${DEPS_DIR:-${OPK_PROJECT_ROOT}/deps}"
 EXECUTORCH_VERSION="1.3.1"
+EXECUTORCH_GIT_COMMIT="e2f18eb23c45bd22ca332b0b8b49a81de304b472"
 EXECUTORCH_ARCHIVE_URL="${EXECUTORCH_ARCHIVE_URL:-https://github.com/pytorch/executorch/archive/refs/tags/v1.3.1.tar.gz}"
 EXECUTORCH_GIT_URL="${EXECUTORCH_GIT_URL:-https://github.com/pytorch/executorch.git}"
 EXECUTORCH_ARCHIVE_SHA256="${EXECUTORCH_ARCHIVE_SHA256:-}"
-PYTHON_VERSION="${PYTHON_VERSION:-3.11}"
+EXECUTORCH_PYTHON_VERSION=3.11
 JOBS="${JOBS:-}"
 if [[ -n "${JOBS}" ]]; then
     JOBS_SOURCE="environment"
@@ -482,22 +482,22 @@ if [[ -n "${CCACHE_EXECUTABLE}" ]]; then
 fi
 
 create_venv() {
-    log "Preparing Python ${PYTHON_VERSION} venv: ${VENV_DIR}"
+    log "Preparing Python ${EXECUTORCH_PYTHON_VERSION} venv: ${VENV_DIR}"
     mkdir -p "${WORK_DIR}"
 
     if [[ -x "${VENV_DIR}/bin/python" ]] &&
         "${VENV_DIR}/bin/python" -c \
             'import sys; expected = tuple(map(int, sys.argv[1].split("."))); raise SystemExit(sys.version_info[:2] != expected)' \
-            "${PYTHON_VERSION}"; then
-        log "Reusing existing Python ${PYTHON_VERSION} venv"
+            "${EXECUTORCH_PYTHON_VERSION}"; then
+        log "Reusing existing Python ${EXECUTORCH_PYTHON_VERSION} venv"
     elif [[ -e "${VENV_DIR}" ]]; then
-        die "${VENV_DIR} exists but is not a Python ${PYTHON_VERSION} venv; rerun with --clean-work-dir or remove it"
+        die "${VENV_DIR} exists but is not a Python ${EXECUTORCH_PYTHON_VERSION} venv; rerun with --clean-work-dir or remove it"
     elif command -v uv > /dev/null 2>&1; then
-        (cd "${WORK_DIR}" && uv venv --no-project --python "${PYTHON_VERSION}" --seed "${VENV_DIR}")
+        (cd "${WORK_DIR}" && uv venv --no-project --python "${EXECUTORCH_PYTHON_VERSION}" --seed "${VENV_DIR}")
     else
         local pybin
-        pybin="$(command -v "python${PYTHON_VERSION}" || true)"
-        [[ -n "${pybin}" ]] || die "Python ${PYTHON_VERSION} not found and uv is unavailable"
+        pybin="$(command -v "python${EXECUTORCH_PYTHON_VERSION}" || true)"
+        [[ -n "${pybin}" ]] || die "Python ${EXECUTORCH_PYTHON_VERSION} not found and uv is unavailable"
         "${pybin}" -m venv "${VENV_DIR}"
     fi
 
@@ -624,6 +624,9 @@ populate_executorch_submodules() {
 
         git fetch --depth 1 origin "refs/tags/v${EXECUTORCH_VERSION}"
         git reset --mixed FETCH_HEAD
+        actual_commit="$(git rev-parse HEAD)"
+        [[ "${actual_commit}" == "${EXECUTORCH_GIT_COMMIT}" ]] ||
+            die "ExecuTorch v${EXECUTORCH_VERSION} resolved to unexpected commit: ${actual_commit}"
         git submodule sync --recursive
         git submodule update --init --recursive \
             third-party/json \
@@ -800,6 +803,9 @@ stage_legal_documentation() {
             \( -iname 'LICENSE*' -o -iname 'COPYING*' -o -iname 'NOTICE*' -o -iname 'COPYRIGHT*' \) \
             -print0
     )
+
+    cp "${EXECUTORCH_DIR}/version.txt" "${LEGAL_DOCUMENTATION_DIR}/VERSION_NUMBER"
+    printf '%s\n' "${EXECUTORCH_GIT_COMMIT}" > "${LEGAL_DOCUMENTATION_DIR}/GIT_COMMIT_ID"
 
     [[ -n "$(find "${LEGAL_DOCUMENTATION_DIR}" -type f -print -quit)" ]] ||
         die "ExecuTorch source contains no packageable licenses/copyright notices"

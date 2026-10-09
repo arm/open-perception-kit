@@ -94,6 +94,19 @@ OP_MODULE_NAMES = {
     "opk-python-ops.so",
     "opk-std-ops.so",
 }
+PYTHON_RUNTIME_DISTRIBUTIONS = {"open-perception-kit"}
+PYTHON_RUNTIME_ROOT = Path("share/opk/python")
+PYTHON_RUNTIME_MANIFEST = "opk-runtime.json"
+PYTHON_OPS_TYPE_STUB = "opk_python_ops.pyi"
+PYTHON_RUNTIME_EXCLUDED_PARTS = {
+    "__pycache__",
+    "examples",
+    "include",
+    "src",
+    "test",
+    "tests",
+}
+PYTHON_RUNTIME_EXCLUDED_SUFFIXES = {".a", ".h", ".hh", ".hpp", ".pyc", ".pyo"}
 RUNTIME_LIBRARY_NAME = "opk-runtime.so"
 # Temporary EXPKITS-1084 quality gate for retired release payloads.
 RETIRED_RELEASE_PATH_MARKERS = ("hailo",)
@@ -381,6 +394,85 @@ def stage_models(args: argparse.Namespace) -> None:
         content = json_path.read_text(encoding="utf-8")
         if "/work/" in content:
             fail(f"Build-machine path remains in {json_path}")
+
+
+def canonical_distribution_name(name: str) -> str:
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def stage_python_distribution(
+    distribution: importlib.metadata.Distribution,
+    target_root: Path,
+) -> int:
+    source_root = Path(distribution.locate_file("")).resolve()
+    copied = 0
+    for entry in distribution.files or ():
+        source = Path(distribution.locate_file(entry)).resolve()
+        try:
+            relative = source.relative_to(source_root)
+        except ValueError:
+            continue
+        if (
+            PYTHON_RUNTIME_EXCLUDED_PARTS & set(relative.parts)
+            or source.suffix.lower() in PYTHON_RUNTIME_EXCLUDED_SUFFIXES
+            or source.name in {"RECORD", "direct_url.json"}
+            or not source.is_file()
+        ):
+            continue
+        destination = target_root / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        if destination.exists():
+            if not filecmp.cmp(source, destination, shallow=False):
+                fail(f"Python runtime distribution collision: {relative}")
+            continue
+        shutil.copy2(source, destination)
+        copied += 1
+    return copied
+
+
+def clear_python_runtime(target_root: Path) -> None:
+    for path in target_root.iterdir():
+        if path.name == PYTHON_OPS_TYPE_STUB:
+            continue
+        if path.is_dir() and not path.is_symlink():
+            shutil.rmtree(path)
+        else:
+            path.unlink()
+
+
+def installed_python_runtime_distribution(
+    requested_name: str,
+) -> tuple[str, importlib.metadata.Distribution]:
+    try:
+        distribution = importlib.metadata.distribution(requested_name)
+    except importlib.metadata.PackageNotFoundError:
+        fail(f"Python runtime distribution is not installed: {requested_name}")
+    distribution_name = distribution.metadata["Name"]
+    if not distribution_name:
+        fail(f"Python runtime distribution has no name: {requested_name}")
+    name = canonical_distribution_name(distribution_name)
+    if name != requested_name:
+        fail(f"Unexpected Python runtime distribution: {name}")
+    return name, distribution
+
+
+def stage_python_runtime(args: argparse.Namespace) -> None:
+    target_root = Path(args.stage_root).resolve() / PYTHON_RUNTIME_ROOT
+    target_root.mkdir(parents=True, exist_ok=True)
+    clear_python_runtime(target_root)
+    requested_distributions = set(
+        getattr(args, "distribution", None) or PYTHON_RUNTIME_DISTRIBUTIONS
+    )
+    versions: dict[str, str] = {}
+    for requested_name in sorted(requested_distributions):
+        name, distribution = installed_python_runtime_distribution(requested_name)
+        if stage_python_distribution(distribution, target_root) == 0:
+            fail(f"Python runtime distribution has no package files: {name}")
+        versions[name] = distribution.version
+    (target_root / PYTHON_RUNTIME_MANIFEST).write_text(
+        json.dumps({"distributions": versions}, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
 
 def json_mapping(path: Path) -> dict[str, object]:
@@ -988,6 +1080,14 @@ def main() -> int:
     stage_models_parser.add_argument("--repo-root", default=".")
     stage_models_parser.add_argument("--stage-root", required=True)
 
+    stage_python_runtime_parser = subparsers.add_parser("stage-python-runtime")
+    stage_python_runtime_parser.add_argument("--stage-root", required=True)
+    stage_python_runtime_parser.add_argument(
+        "--distribution",
+        action="append",
+        choices=sorted(PYTHON_RUNTIME_DISTRIBUTIONS),
+    )
+
     stage_legal_parser = subparsers.add_parser("stage-legal")
     stage_legal_parser.add_argument("--repo-root", default=".")
     stage_legal_parser.add_argument("--deps-root", default="/opt/opk-deps")
@@ -1017,6 +1117,8 @@ def main() -> int:
     try:
         if args.command == "stage-models":
             stage_models(args)
+        elif args.command == "stage-python-runtime":
+            stage_python_runtime(args)
         elif args.command == "stage-legal":
             stage_legal(args)
         elif args.command == "validate-legal":

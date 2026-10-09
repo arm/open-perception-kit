@@ -183,6 +183,6 @@ executorchops = shared_module(
   link_with: [common],
 
   install: release_package,
-  install_dir: 'lib/opk',
+  install_dir: get_option('libdir') / 'opk',
   install_rpath: '$ORIGIN',
 )
