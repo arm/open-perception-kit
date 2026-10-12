@@ -485,6 +485,12 @@ test(
   depends : opkinferpre,
 )
 test(
+  'opksink_encoder_configuration',
+  gst_python,
+  args : [files('opksink_encoder_configuration_test.py'), opkinferpre.full_path()],
+  depends : opkinferpre,
+)
+test(
   'websocket_shutdown',
   gst_python,
   args : [files('websocket_shutdown_test.py'), opkinferpre.full_path(), opkcomm.full_path()],

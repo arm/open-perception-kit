@@ -45,6 +45,7 @@ g++ -fPIC -shared -o libgstopksink.so opksink.cpp \
 
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
 #include <cstdlib>
 #include <dlfcn.h>
 #include <exception>
@@ -60,6 +61,11 @@ g++ -fPIC -shared -o libgstopksink.so opksink.cpp \
 
 static constexpr const char *OPK_SUPPORTED_RAW_VIDEO_CAPS =
     "video/x-raw, format={BGRA,RGB,I420,NV12,YUY2}";
+static constexpr guint MAX_VP8_ENCODER_THREADS = 64;
+
+static guint vp8_encoder_thread_count() {
+    return std::clamp(g_get_num_processors() / 2, 1u, MAX_VP8_ENCODER_THREADS);
+}
 
 /* ===== Properties ===== */
 enum {
@@ -603,10 +609,10 @@ static bool init_video(GstOpkSink *self) {
 
     g_object_set(self->vclock, "sync", TRUE, nullptr);
     g_object_set(self->vp8enc, "deadline", 1, nullptr); // the frame shall be rendered realtime
-    g_object_set(self->vp8enc, "target-bitrate", 2500000, nullptr); // bits/sec
-    g_object_set(self->vp8enc, "cpu-used", 4, nullptr);
+    g_object_set(self->vp8enc, "target-bitrate", 0, nullptr);
+    g_object_set(self->vp8enc, "cpu-used", 8, nullptr);
     g_object_set(self->vp8enc, "keyframe-max-dist", 60, nullptr); // max frames between key frames
-    g_object_set(self->vp8enc, "threads", 4, nullptr);
+    g_object_set(self->vp8enc, "threads", static_cast<gint>(vp8_encoder_thread_count()), nullptr);
     g_object_set(self->vp8enc, "error-resilient", 1, nullptr);
 
     if (should_fail_opksink_operation("link_video_chain") ||
