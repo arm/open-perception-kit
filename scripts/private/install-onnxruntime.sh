@@ -47,7 +47,7 @@ temporary_directory="$(mktemp -d)"
 trap 'rm -rf "${temporary_directory}"' EXIT
 
 archive="${temporary_directory}/${archive_directory}.tgz"
-curl -fsSL -o "${archive}" "${archive_url}"
+curl -fsSL --retry 3 --retry-all-errors --retry-delay 2 -o "${archive}" "${archive_url}"
 echo "${archive_sha256}  ${archive}" | sha256sum -c -
 tar -xzf "${archive}" -C "${temporary_directory}"
 rm -rf "${destination}"

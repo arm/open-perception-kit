@@ -25,7 +25,7 @@ OPK_WEBRTC_TURN="${3:-disabled}"
 TARGET_CONTAINER_KIND="${4:-devcont}"
 OPK_BUILD_BASE_IMAGE="${OPK_BUILD_BASE_IMAGE:-${OPK_DEV_CONTAINER_NAME:-open-perception-kit}-build-base}"
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 cd "$ROOT_DIR"
 
 if [[ "${OPK_WEBRTC_TURN}" == auto ]]; then
@@ -75,6 +75,16 @@ remove_env_value() {
     sed -i.bak "/^${key}=/d" "$file"
     rm -f "${file}.bak"
 }
+
+if [[ "${TARGET_CONTAINER_KIND}" == devcont ]]; then
+    # Keep VS Code from reusing another checkout's container and /work mount.
+    workspace_id="$(printf '%s' "${ROOT_DIR}" | git hash-object --stdin | cut -c1-12)"
+    workspace_project="${COMPOSE_PROJECT_NAME:-opk-dev}-${workspace_id}"
+    workspace_container="${OPK_DEV_CONTAINER_NAME:-opk-dev}-${workspace_id}"
+    printf 'name: %s\nservices:\n  %s:\n    container_name: %s\n' \
+        "${workspace_project}" "${TARGET_SERVICE_KIND}" "${workspace_container}" > \
+        ".devcontainer/docker-compose.${TARGET_CONTAINER_KIND}.workspace.yaml"
+fi
 
 chmod +x scripts/private/dev-init.sh || true
 touch devices.env

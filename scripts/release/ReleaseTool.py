@@ -31,6 +31,8 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 ARCHITECTURES = {"x86_64", "aarch64"}
 MESON_COMPONENTS = {
@@ -948,6 +950,36 @@ def prepare(args: argparse.Namespace) -> None:
     )
 
 
+def check_published_version(version: str, repository: str, token: str) -> None:
+    if not VERSION_PATTERN.fullmatch(version):
+        fail("Release version must be stable MAJOR.MINOR.PATCH")
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
+        fail("GitHub repository must be OWNER/REPO")
+    if not token:
+        fail("GH_TOKEN is required to check GitHub releases")
+
+    checks = (
+        ("GitHub tag", f"https://api.github.com/repos/{repository}/git/ref/tags/v{version}"),
+        ("GitHub release", f"https://api.github.com/repos/{repository}/releases/tags/v{version}"),
+        ("crates.io crate", f"https://crates.io/api/v1/crates/open_perception_kit/{version}"),
+        ("Artifactory destination", f"https://artifacts.tools.arm.com/open-perception-kit/v{version}/"),
+    )
+    for destination, url in checks:
+        headers = {"User-Agent": "open-perception-kit-release-check"}
+        if url.startswith("https://api.github.com/"):
+            headers["Authorization"] = f"Bearer {token}"
+            headers["Accept"] = "application/vnd.github+json"
+        try:
+            with urlopen(Request(url, headers=headers), timeout=15):
+                fail(f"v{version} already exists at {destination}: {url}")
+        except HTTPError as error:
+            if error.code == 404:
+                continue
+            fail(f"Could not check {destination}: HTTP {error.code}")
+        except URLError as error:
+            fail(f"Could not check {destination}: {error.reason}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -977,6 +1009,10 @@ def main() -> int:
     prepare_parser.add_argument("--repo-root", default=".")
     prepare_parser.add_argument("--commit", required=True)
 
+    check_version_parser = subparsers.add_parser("check-version")
+    check_version_parser.add_argument("--version", required=True)
+    check_version_parser.add_argument("--repository", required=True)
+
     args = parser.parse_args()
     try:
         if args.command == "stage-models":
@@ -991,6 +1027,8 @@ def main() -> int:
             validate_package(args)
         elif args.command == "prepare":
             prepare(args)
+        elif args.command == "check-version":
+            check_published_version(args.version, args.repository, os.environ.get("GH_TOKEN", ""))
         return 0
     except (OSError, RuntimeError, subprocess.CalledProcessError, ValueError) as error:
         print(f"release error: {error}", file=sys.stderr)

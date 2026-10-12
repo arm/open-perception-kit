@@ -15,5 +15,5 @@
 
 # PythonScript host packages for Python 3.13 on x86_64 or aarch64.
 # The Open Perception Kit SDK wheel is supplied separately in the SDK ZIP.
-numpy==2.4.2
-flatbuffers==25.9.23
+numpy==2.5.3
+flatbuffers==25.12.19

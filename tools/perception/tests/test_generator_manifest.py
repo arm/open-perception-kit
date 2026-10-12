@@ -170,7 +170,7 @@ class GeneratorManifestTests(unittest.TestCase):
                 self.assertEqual(
                     fixture.manifest["files"][0]["sha256"],
                     # SHA-256 test vector for b"abc".
-                    "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",  # pragma: allowlist secret
+                    "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
                 )
                 for with_root in (False, True):
                     self.assertEqual(fixture.verify(with_root), fixture.manifest)

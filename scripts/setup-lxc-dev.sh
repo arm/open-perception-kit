@@ -129,7 +129,7 @@ apt-get install -y --no-install-recommends \
     neovim net-tools ninja-build nmap nodejs openssh-client pkg-config \
     powerline pre-commit python3 python3-dev python3-gi python3-pip \
     python3-venv ripgrep shellcheck shfmt sudo tcpdump tmux traceroute \
-    tree-sitter-cli unzip v4l-utils valgrind vim wget wl-clipboard xz-utils \
+    tree-sitter-cli unzip v4l-utils vim wget wl-clipboard xz-utils \
     zip zsh
 
 # Debian packages npm separately, while packages from repositories such as
@@ -195,9 +195,9 @@ temporary_directory="$(mktemp -d)"
 trap 'rm -rf "${temporary_directory}"' EXIT
 actionlint_archive="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
 actionlint_url="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"
-curl --location -fsSLo "${temporary_directory}/${actionlint_archive}" \
+curl --location --retry 3 --retry-all-errors --retry-delay 2 -fsSLo "${temporary_directory}/${actionlint_archive}" \
     "${actionlint_url}/${actionlint_archive}"
-curl --location -fsSLo "${temporary_directory}/checksums.txt" \
+curl --location --retry 3 --retry-all-errors --retry-delay 2 -fsSLo "${temporary_directory}/checksums.txt" \
     "${actionlint_url}/actionlint_${ACTIONLINT_VERSION}_checksums.txt"
 pushd "$temporary_directory" > /dev/null
 grep " ${actionlint_archive}$" checksums.txt | sha256sum -c -
@@ -233,10 +233,10 @@ download_npm_archive() {
 
     timeout 180s curl \
         --fail --location --proto '=https' --proto-redir '=https' \
-        --retry 1 --output "$destination" "$url" ||
+        --retry 1 --retry-all-errors --output "$destination" "$url" ||
         curl \
             --fail --location --proto '=https' --proto-redir '=https' \
-            --retry 3 --output "$destination" \
+            --retry 3 --retry-all-errors --output "$destination" \
             "${NPM_FALLBACK_REGISTRY}/${url#https://registry.npmjs.org/}"
 }
 
@@ -291,12 +291,12 @@ chown -R "$DEV_USER:$DEV_GROUP" /opt/opk-venvs/devtools
 
 if [[ "$SKIP_SHELL" == false ]]; then
     log "Installing the pinned editor and debugger tools"
-    curl --proto '=https' -fsSLo "${temporary_directory}/nvim.tar.gz" \
+    curl --proto '=https' --retry 3 --retry-all-errors --retry-delay 2 -fsSLo "${temporary_directory}/nvim.tar.gz" \
         "https://github.com/neovim/neovim/releases/download/${NVIM_VERSION}/nvim-linux-x86_64.tar.gz"
     rm -rf /opt/nvim
     install -d /opt/nvim
     tar -xzf "${temporary_directory}/nvim.tar.gz" --strip-components=1 -C /opt/nvim
-    curl --proto '=https' -fsSLo "${temporary_directory}/cpptools.vsix" \
+    curl --proto '=https' --retry 3 --retry-all-errors --retry-delay 2 -fsSLo "${temporary_directory}/cpptools.vsix" \
         "https://github.com/microsoft/vscode-cpptools/releases/download/${CPP_TOOLS_VERSION}/cpptools-linux-x64.vsix"
     rm -rf "${DEV_HOME}/bin/cpptools"
     install -d -o "$DEV_USER" -g "$DEV_GROUP" "${DEV_HOME}/bin/cpptools"

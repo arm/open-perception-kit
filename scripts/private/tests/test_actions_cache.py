@@ -24,7 +24,7 @@ class ActionsCacheTests(unittest.TestCase):
         caches = [
             {"id": 1, "key": f"opk-ccache-v2-Linux-X64-quality-{old}"},
             {"id": 2, "key": f"opk-ccache-v2-Linux-X64-quality-{current}"},
-            {"id": 3, "key": f"opk-ccache-v2-Linux-X64-sonar-{old}"},
+            {"id": 3, "key": f"opk-ccache-v2-Linux-X64-build-{old}"},
             {"id": 4, "key": f"buildkit-Linux-X64-{old}"},
         ]
 

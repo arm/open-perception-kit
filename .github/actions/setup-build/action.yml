@@ -75,7 +75,7 @@ runs:
         GST_PYTHON_VERSION: ${{ steps.dependencies.outputs.gst-python }}
         GST_PYTHON_SHA256: ${{ steps.dependencies.outputs.gst-python-sha256 }}
       run: |
-        curl --fail --location --retry 3 \
+        curl --fail --location --retry 3 --retry-all-errors \
           "https://gstreamer.freedesktop.org/src/gst-python/gst-python-$GST_PYTHON_VERSION.tar.xz" \
           --output gst-python.tar.xz
         echo "$GST_PYTHON_SHA256  gst-python.tar.xz" | sha256sum -c -

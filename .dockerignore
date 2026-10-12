@@ -17,14 +17,12 @@
 
 !Dockerfile
 !Dockerfile.pre-commit
-!Dockerfile.pages
 !.dockerignore
 !.clang-format
 !.clang-tidy
 !.cmake-format.yaml
 !.gitignore
 !.pre-commit-config.yaml
-!.secrets.baseline
 !AGENTS.md
 !CHANGELOG.md
 !README.md
@@ -38,7 +36,6 @@
 !compose.dev.yaml
 !devices.env
 !setup.cfg
-!sonar-project.properties
 
 !scripts/
 !scripts/**

@@ -105,6 +105,11 @@ checked-in inputs before packaging:
 | `generated/open_perception_kit/rust/Cargo.toml` | Cargo package version equals the product version |
 | `CHANGELOG.md` | Non-empty `## [<version>]` section for the product version |
 
+The `prepare` job then checks whether the version already has a GitHub tag or
+release, a crates.io `open_perception_kit` crate, or an Artifactory destination.
+An existing version or an unavailable version check stops the workflow before
+publication.
+
 In a release-preparation PR, update the product version, changelog section, and
 exact `open_perception_kit` dependency in `tools/plumber/pyproject.toml`.
 Check `docs/third-party-licenses.md` against current dependency pins and
@@ -175,7 +180,7 @@ For product version `<version>`, the release produces:
 | `opk-<version>-linux-x86_64.tar.gz` | Actions, Artifactory, GitHub Release |
 | `opk-<version>-linux-aarch64.tar.gz` | Actions, Artifactory, GitHub Release |
 | `open_perception_kit-<version>-py3-none-any.whl` | Actions and Artifactory publisher input |
-| `open_perception_kit-<version>.crate` | Actions, Artifactory publisher input, and Cargo publication |
+| `open_perception_kit-<version>.crate` | Actions, Artifactory publisher input, and crates.io |
 | `opk-sbom-source.json` | Actions and GitHub Release |
 | `opk-sbom-open-perception-kit-crate.json` | Actions and GitHub Release |
 
@@ -190,21 +195,20 @@ published as a site.
 
 ## Publication order
 
-1. `prepare` validates the version and source commit. Native builds and source
-   SBOM generation follow. Quick-start smoke, SDK tests, and Meson tests also run.
+1. `prepare` validates the version and source commit, then checks publication
+   destinations for the version. Native builds and source SBOM generation follow.
+   Quick-start smoke, SDK tests, and Meson tests also run.
 2. `artifactory` waits for the builds, the source SBOM, and all required test
    workflows. It collects the architecture archives, the wheel, and the crate in
    `opk-release-artifacts`, then calls `upload-to-artifactory.yaml` in
-   `Arm-Debug/amp-dev-forge-publisher`. It waits for success and retrieves the
+   `Arm-Debug/open-perception-kit-publisher`. It waits for success and retrieves the
    published download URLs.
-3. `perception-cargo-publish` rebuilds and byte-compares the crate, generates its
-   SBOM, and calls `cargo-publish.yaml` in the same publisher repository.
-   It waits for publication to succeed. The publisher owns registry credentials
-   and destinations.
-4. `github-release` waits for both publishers, rejects an existing `v<version>`
-   release, and publishes the architecture archives and SBOMs at the selected commit.
-   Release notes include the changelog entry, source commit, archive SHA-256
-   values, and Artifactory links.
+3. `perception-crates-io-publish` verifies the crate, generates its SBOM, and
+   publishes it to crates.io.
+4. `github-release` waits for both publishers, checks again for an existing
+   `v<version>` release, and publishes the architecture archives and SBOMs at
+   the selected commit. Release notes include the changelog entry, source
+   commit, archive SHA-256 values, and Artifactory links.
 5. `publish-docs` calls
    [Publish Docs (Production)](../../.github/workflows/docs-publish-production.yml)
    with the release commit to validate and publish the production site.
@@ -212,10 +216,10 @@ published as a site.
 A push to `main` separately starts the
 [staging documentation workflow](../../.github/workflows/docs-publish.yml).
 
-Do not overwrite published versions. The existing-release check runs after
-Artifactory and Cargo publication. A failed run can leave packages or a GitHub
-Release behind, with no automatic rollback. Check completed jobs and publisher
-runs before retrying.
+Do not overwrite published versions. The early check prevents known version
+reuse; the later GitHub check catches a release created during the run. A
+failed run can still leave packages or a GitHub Release behind, with no
+automatic rollback. Check completed jobs and publisher runs before retrying.
 
 ## Package validation
 

@@ -59,23 +59,6 @@ FORMATTER_CASES = (
 )
 
 
-def make_private_key_fixture():
-    """Build a detectable synthetic private-key payload without checking in a PEM fixture."""
-    payload_line = "".join([
-        "MIIEvQIBADANBgkq",
-        "hkiG9w0BAQEFAASC",
-        "BKcwggSjAgEAAoIB",
-        "AQDArandomlookin",
-        "gsecret",
-    ])
-    return "\n".join([
-        "-----BEGIN " + "PRIVATE KEY-----",
-        payload_line,
-        "-----END PRIVATE KEY-----",
-        "",
-    ])
-
-
 class TestOpkCiE2E(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -87,7 +70,7 @@ class TestOpkCiE2E(unittest.TestCase):
             [
                 cls.test_python,
                 "-c",
-                "import argcomplete, git, autopep8, detect_secrets.pre_commit_hook",
+                "import argcomplete, git, autopep8",
             ],
             capture_output=True,
             text=True,
@@ -101,7 +84,7 @@ class TestOpkCiE2E(unittest.TestCase):
             missing_parts = []
             if runtime_probe.returncode != 0:
                 missing_parts.append(
-                    "python runtime missing argcomplete/GitPython/autopep8/detect-secrets"
+                    "python runtime missing argcomplete/GitPython/autopep8"
                 )
             if required_binaries:
                 missing_parts.append(f"missing binaries: {', '.join(required_binaries)}")
@@ -123,7 +106,7 @@ class TestOpkCiE2E(unittest.TestCase):
         return env
 
     def copy_runtime_inputs(self):
-        for relative_path in (".clang-format", ".cmake-format.yaml", ".secrets.baseline"):
+        for relative_path in (".clang-format", ".cmake-format.yaml"):
             source = REPO_ROOT / relative_path
             if source.exists():
                 destination = self.repo_root / relative_path
@@ -220,22 +203,6 @@ class TestOpkCiE2E(unittest.TestCase):
         self.assertIn("[INFO]   OK   shell format", second_run.stdout)
         for case in FORMATTER_CASES:
             self.assert_case_matches_expected(case)
-
-    def test_fixture_based_secret_payload_fails_check_secrets(self):
-        secret_path = self.repo_root / "secrets" / "bad.pem"
-        secret_path.parent.mkdir(parents=True, exist_ok=True)
-        secret_path.write_text(make_private_key_fixture(), encoding="utf-8")
-
-        result = self.run_opk_ci(
-            "--check-secrets",
-            "--list-of-files",
-            "secrets/bad.pem",
-        )
-
-        self.assertNotEqual(result.returncode, 0, result.stdout)
-        self.assertIn("Secret Type: Private Key", result.stdout)
-        self.assertIn("Location:    secrets/bad.pem:1", result.stdout)
-        self.assertIn("[INFO]   NOK  secrets", result.stdout)
 
     def test_actionlint_scope_ignores_non_workflow_yaml(self):
         self.require_actionlint()
