@@ -32,7 +32,7 @@ Usage:
 Detects the quick-start host environment.
 
 Supported host classes:
-  rpi5         Raspberry Pi 5 running Linux
+  rpi5         Raspberry Pi 5 running Linux with apt-get
   linux-x86_64 Generic x86_64 Linux host
   linux-aarch64 Debian or Ubuntu Arm64 Linux host
   wsl          Windows Subsystem for Linux
@@ -110,6 +110,22 @@ detect_environment() {
         OPK_DEV_CONTAINER_NAME="${OPK_QUICK_START_CI_NAME}-dev"
     fi
 
+    if grep -qi "raspberry pi 5" <<< "$OPK_RPI_MODEL"; then
+        if [[ "$OPK_UNAME_S" != "Linux" ]]; then
+            OPK_UNSUPPORTED_REASON="Raspberry Pi quick-start requires Linux; detected kernel '${OPK_UNAME_S}'."
+        elif ! command -v apt-get > /dev/null 2>&1; then
+            OPK_UNSUPPORTED_REASON="Raspberry Pi quick-start requires the apt package manager (apt-get). Use Raspberry Pi OS."
+        else
+            OPK_PICAMERA="enabled"
+            OPK_PLATFORM_ID="rpi5"
+            OPK_PLATFORM_NAME="Raspberry Pi 5"
+            OPK_CONTAINER_SERVICE="opk-dev"
+            OPK_CONTAINER_NAME="${OPK_DEV_CONTAINER_NAME:-open-perception-kit}"
+            OPK_SUPPORTED="true"
+        fi
+        return
+    fi
+
     case "$OPK_UNAME_S" in
         Darwin)
             OPK_PLATFORM_ID="macos"
@@ -122,13 +138,6 @@ detect_environment() {
             if is_wsl; then
                 OPK_PLATFORM_ID="wsl"
                 OPK_PLATFORM_NAME="Windows Subsystem for Linux"
-                OPK_CONTAINER_SERVICE="opk-dev"
-                OPK_CONTAINER_NAME="${OPK_DEV_CONTAINER_NAME:-open-perception-kit}"
-                OPK_SUPPORTED="true"
-            elif grep -qi "raspberry pi 5" <<< "$OPK_RPI_MODEL"; then
-                OPK_PICAMERA="enabled"
-                OPK_PLATFORM_ID="rpi5"
-                OPK_PLATFORM_NAME="Raspberry Pi 5"
                 OPK_CONTAINER_SERVICE="opk-dev"
                 OPK_CONTAINER_NAME="${OPK_DEV_CONTAINER_NAME:-open-perception-kit}"
                 OPK_SUPPORTED="true"

@@ -49,6 +49,9 @@ You need:
 - Power supply suitable for Raspberry Pi 5 and attached hardware.
 - Optional camera. The first run uses checked-in sample media, so the camera is not required for first success.
 
+The Raspberry Pi quick-start path requires Linux and the `apt-get` package
+manager. A Pi running Windows cannot use this path.
+
 ## 2. Flash Raspberry Pi OS And Enable SSH
 
 The best way to enable SSH is during imaging. That lets you control the Pi from your normal computer without connecting a monitor and keyboard.
