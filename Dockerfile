@@ -63,7 +63,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   cargo=1.85.1+dfsg1-1+deb13u1 \
   ccache=4.11.2-2 \
   cmake=3.31.6-2 \
-  curl=8.14.1-2+deb13u5 \
+  curl=8.14.1-2+deb13u7 \
   git=1:2.47.3-0+deb13u1 \
   libfftw3-dev=3.3.10-2+b1 \
   libfmt-dev=10.1.1+ds1-4 \
@@ -135,7 +135,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-    bash=5.2.37-2+b10 ca-certificates=20250419 curl=8.14.1-2+deb13u5; \
+    bash=5.2.37-2+b10 ca-certificates=20250419 curl=8.14.1-2+deb13u7; \
   update-ca-certificates
 
 ARG NO_EXAMPLE_CONTENT=false
@@ -375,7 +375,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   nmap=7.95+dfsg-3 openssh-client=1:10.0p1-7+deb13u4 powerline=2.8.4-1 ripgrep=14.1.1-1+b4 \
   tcpdump=4.99.5-2 tmux=3.5a-3 traceroute=1:2.1.6-1 tree-sitter-cli=0.22.6-6+b1 \
   v4l-utils=1.30.1-1 vim=2:9.1.1230-2 wl-clipboard=2.2.1-2 \
-  xz-utils=5.8.1-1+deb13u1 zsh=5.9-8+b24; \
+  xz-utils=5.8.1-1+deb13u2 zsh=5.9-8+b24; \
   if apt-get install -y --no-install-recommends --dry-run gstreamer1.0-libav=1.26.2-1+deb13u1; then \
     apt-get install -y --no-install-recommends gstreamer1.0-libav=1.26.2-1+deb13u1; \
   else \
