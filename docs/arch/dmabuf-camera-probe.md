@@ -359,3 +359,89 @@ the lower-bandwidth mode does not establish uninterrupted 30 fps delivery.
 `GL_RENDERER` remained `llvmpipe`. This is proof of camera DMA buffer export and
 direct EGL import, with the same software-rendering and end-to-end zero-copy
 limitations described above. No OPK elements or decoder were used.
+
+### Attempt to require GPU DMA buffer import
+
+Full zero-copy display was **not achieved**. On the tested WSL stack, the Anker
+exports usable DMA buffers, but the hardware renderer cannot import them and
+the compositor does not expose a DMA buffer display protocol. These are separate
+from the camera's residual capture pauses.
+
+The stricter 60-frame probe makes the GL stages explicit and requires an external
+texture at the upload boundary:
+
+```bash
+GST_DEBUG_NO_COLOR=1 GST_DEBUG=glcontext:4,glupload:6,v4l2allocator:7 \
+  ./scripts/wsl-camera-gpu-import-probe.sh /dev/video4
+```
+
+It defaults to Mesa's `d3d12` renderer with Wayland/EGL/GLES and runs:
+
+```text
+v4l2src io-mode=dmabuf → YUY2 640×360 → drop corrupted frames → short queue
+  → glupload → GLMemory, texture-target=external-oes
+  → glcolorconvert → glimagesinkelement
+```
+
+The external texture requirement prevents a successful fallback to the raw
+pixel uploader in the tested GStreamer 1.24.2 implementation. GStreamer can
+still attempt that uploader before rejecting its output; this is a diagnostic,
+not a guarantee that a failed run never maps or uploads pixels. `glcolorconvert`
+allows the initial YUY2 caps to negotiate; the software control then renegotiates
+to RGBA/external-oes at both its pads after direct import. Successful import
+still does not prove that the camera buffer is scanned out unchanged. See the
+[versioned upload implementation](https://github.com/GStreamer/gstreamer/blob/1.24.2/subprojects/gst-plugins-base/gst-libs/gst/gl/gstglupload.c).
+
+Use the same script with the software renderer as a negotiation control:
+
+```bash
+GALLIUM_DRIVER=llvmpipe \
+  GST_DEBUG_NO_COLOR=1 GST_DEBUG=glcontext:4,glupload:6,v4l2allocator:7 \
+  ./scripts/wsl-camera-gpu-import-probe.sh /dev/video4
+```
+
+The software control must reach EOS with `DirectDmabufExternal returned 1` and
+`GL_RENDERER: llvmpipe`. On this host, the default GPU attempt instead reports
+`GL_RENDERER: D3D12 (Intel(R) Arc(TM) 140V GPU (16GB))`, attempts `Raw Data`, and
+exits with `not-negotiated (-4)`. That failure is expected with the installed
+backend; the working preview script remains available above.
+
+The saved script's 60-frame software control exported four DMA buffer file
+descriptors, made 61 direct import calls (including preroll), and used no
+`Raw Data` uploads. The GPU attempt exported four DMA buffer descriptors,
+made no direct imports, and attempted one raw upload before failing.
+
+Measured on 2026-10-13 with GStreamer 1.24.2, Mesa 25.2.8, WSLg 1.0.73.2, and
+kernel 6.18.33.2-microsoft-standard-WSL2:
+
+| Boundary or route | Observation | Consequence |
+| --- | --- | --- |
+| Anker capture | V4L2 exports DMA buffer file descriptors with complete raw frames | Camera capture supports DMA buffer export |
+| llvmpipe EGL | Both `EGL_EXT_image_dma_buf_import` and `EGL_EXT_image_dma_buf_import_modifiers` are present | Direct import works with software rendering |
+| D3D12 EGL | Neither import extension is present | The Intel GPU backend cannot import these camera buffers through EGL |
+| Direct `waylandsink` | Registry has `wl_shm`, no `zwp_linux_dmabuf_v1`; sink reports it cannot bind that protocol | No direct Wayland DMA buffer presentation on this compositor |
+| Direct `kmssink` | No `/dev/dri`; sink fails with `Could not open DRM module` | No Linux DRM/KMS display device for direct scanout |
+
+The EGL extension results came from `eglQueryString(EGL_EXTENSIONS)` after
+initializing a Wayland EGL display for each renderer, independently of GStreamer.
+The software control confirms that the strict caps can negotiate on an importer
+that supports them. Merely switching sinks or changing queue settings does not
+add the missing graphics interfaces. Microsoft's
+[WSLg rendering description](https://github.com/microsoft/wslg#opengl-accelerated-rendering-in-wslg)
+also describes system-memory interop with the compositor; GPU acceleration alone
+does not establish an end-to-end zero-copy path.
+
+Do not add a `memory:DMABuf` capsfilter immediately after this version of
+`v4l2src`: it exports linear DMA buffers under ordinary raw caps, and that filter
+fails negotiation here. GStreamer's
+[DMA buffer design](https://gstreamer.freedesktop.org/documentation/additional/design/dmabuf.html)
+allows linear DMA buffers without that caps feature. Check actual allocator and
+importer logs instead.
+
+A further zero-copy test needs a graphics stack that can import the camera's
+linear YUY2 DMA buffers and present them without a CPU transfer. Native Linux
+with a compatible GPU driver and Wayland compositor or KMS plane is a candidate,
+but was not tested. Direct scanout additionally requires plane format support;
+zero-copy import alone is insufficient. None of these tests establishes an
+absence of copies during USB/IP transport or UVC frame assembly before V4L2
+delivers a complete frame.
