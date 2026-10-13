@@ -27,6 +27,10 @@ The initial green image came from incomplete USB capture. Initializing the
 Windows USB driver's speed state fixed the main failure. Occasional damaged
 frames still occur; the script drops them, which can cause brief pauses.
 
+The [Raspberry Pi 5 test](#raspberry-pi-5-and-camera-module-3) uses a separate
+Camera Module 3 and a direct KMS display path. It verifies DMA buffer import and
+page flips on native Linux, independently of the WSL graphics limitations.
+
 ## Select the integrated camera
 
 Run on the WSL host with GStreamer's `v4l2src`, `glimagesink`, and `jpegdec`
@@ -445,3 +449,136 @@ but was not tested. Direct scanout additionally requires plane format support;
 zero-copy import alone is insufficient. None of these tests establishes an
 absence of copies during USB/IP transport or UVC frame assembly before V4L2
 delivers a complete frame.
+
+## Raspberry Pi 5 and Camera Module 3
+
+The native Pi pipeline sends the Camera Module 3's hardware ISP output directly
+to the VC4 KMS display engine:
+
+```text
+Camera Module 3 (imx708) → CSI capture / PiSP hardware ISP
+  → libcamerasrc (NV12 DMA buffers) → identity → kmssink
+```
+
+There is no decoder, GL upload, `videoconvert`, OPK element, leaky queue, or
+corrupt-frame filter. The probe preserves stream faults for inspection. The
+tested zero-copy boundary is the completed ISP output buffer through KMS
+scanout: KMS imports the camera buffer's file descriptor and presents that same
+allocation. Sensor processing and conversion from Bayer to NV12 happen in the
+Pi's camera hardware; this is not a claim that raw Bayer data is displayed.
+
+### Run the Pi probe
+
+Use a native Pi GStreamer installation or an existing Pi development container
+with the `libcamera` and `kms` plugins. Discover the camera name in that same
+environment, since different libcamera versions can report different names:
+
+```bash
+gst-device-monitor-1.0 Video
+```
+
+Select the device containing `imx708` and copy its `camera-name` value. Discover
+the desired HDMI connector ID on the host with `kmsprint -p`, or read its
+`connector_id` under `/sys/class/drm/card*-HDMI-A-*`. Do not assume a fixed camera
+path, DRM card number, or connector ID. With an available display and DRM access:
+
+```bash
+GST_DEBUG_NO_COLOR=1 \
+  GST_DEBUG=2,libcamerasrc:6,identity:7,kmssink:7,kmsallocator:7,GST_PERFORMANCE:6 \
+  GST_DEBUG_FILE=/tmp/rpi-dmabuf.gst.log \
+  ./scripts/rpi-camera-dmabuf-probe.sh "$camera_name" "$connector_id"
+```
+
+The script requests NV12 640×480 at 30 fps and sends EOS after 5,400 frames,
+roughly three minutes. It requires an available KMS connector and DRM master
+access; an active desktop compositor may own that device. The script does not
+change the host's connector configuration.
+
+The SSH test reused an existing repository development image with GStreamer
+1.26.2, libcamera `0.7.2+rpt20260817`, and libpisp 1.7.0. The host ran Debian 13.5
+and kernel `6.18.34+rpt-rpi-2712`. No packages were installed on the Pi. The
+container entrypoint was bypassed to run only GStreamer, with network access
+disabled. Device access covered `/dev/video*`, `/dev/media*`, `/dev/v4l-subdev*`,
+`/dev/dma_heap`, and `/dev/dri`, with `/run/udev` mounted read-only. The existing
+OPK containers and checkouts were not started or modified.
+
+### Headless KMS test
+
+Both HDMI connectors were disconnected. For each bounded test, the selected
+connector's sysfs `status` was temporarily set to `on`. This exposed fallback
+display modes, including 640×480. `kmssink force-modesetting=true` then drove the
+primary display plane without a Wayland compositor or SSH display forwarding.
+After the process exited, `status` was restored to `detect` in cleanup; the
+connector returned to disconnected and disabled. No boot configuration or
+persistent display setting was changed.
+
+The kernel implements these runtime connector overrides in
+[DRM sysfs](https://github.com/raspberrypi/linux/blob/rpi-6.18.y/drivers/gpu/drm/drm_sysfs.c).
+Only use a headless override on a connector confirmed disconnected and inactive,
+and restore detection after stopping capture. A connected monitor does not need
+this override. Successful page flips without a monitor verify the display
+engine path, not the visible image, colour accuracy, or physical HDMI output.
+
+### Verify zero-copy and stream health
+
+A successful process exit alone is insufficient: `kmssink` has a CPU frame-copy
+fallback. In the GStreamer log, require a DMA buffer import for every display
+call: `Found a dmabuf`, a new or cached `KMS mem` association, and `displaying fb`.
+Check that neither `frame copy` nor `draining` occurs and that `libcamerasrc`
+does not report `need to copy frame`. Enable `GST_PERFORMANCE` as above to make
+the sink's copy fallback visible. See the versioned
+[KMS sink implementation](https://github.com/GStreamer/gstreamer/blob/1.26.2/subprojects/gst-plugins-bad/sys/kms/gstkmssink.c)
+and [libcamera source](https://github.com/libcamera-org/libcamera/blob/v0.7.2/src/gstreamer/gstlibcamerasrc.cpp).
+
+Inspect `identity` buffer records for 460,800 bytes, continuous sequence offsets,
+monotonic timestamps, and absent corruption flags. Compute frame rate and maximum
+gaps from timestamps rather than the requested caps. The tested libcamera plugin
+uses driver frame sequence numbers for offsets, but does not propagate every
+driver error status to GStreamer's corruption flag. Check kernel V4L2 dequeue
+events as well before concluding that the driver returned no errored buffers.
+
+A separate 60-frame system-call trace verified successful
+`DRM_IOCTL_PRIME_FD_TO_HANDLE`, framebuffer creation, and 61 page flips, including
+preroll. Four camera DMA buffer allocations were reused, with two NV12 planes
+sharing each allocation. Libcamera mapped the buffers at startup; mapping an
+allocation into an address space does not itself copy its pixels. The direct
+imports prove that the original ISP output allocations reached KMS; these tests
+do not audit every CPU access inside the camera stack.
+
+Two three-minute runs of the saved script passed on 2026-10-13:
+
+| Run | Delivered frames | Measured rate | Longest sensor timestamp gap | Longest GStreamer arrival gap | Longest KMS completion gap |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| GStreamer diagnostics | 5,400 | 30.013 fps | 33.435 ms | 43.048 ms | Not traced |
+| Kernel trace repeat | 5,400 | 30.013 fps | 33.343 ms | 41.156 ms | 50.054 ms |
+
+Both runs had continuous sequence offsets 0–5,399, expected buffer sizes, and
+5,401 direct imports/display calls including preroll. Neither had GStreamer
+errors, source or sink copy fallbacks, or sink drain copies.
+
+The second run used a separate tracefs instance with `v4l2/v4l2_dqbuf`,
+`vb2/vb2_dqbuf`, and `drm/drm_vblank_event_delivered` enabled. All 59,411 driver
+dequeues across the camera/ISP queues had no `ERROR` flags and no sequence gaps.
+The ISP's selected NV12 output produced 5,401 buffers of 460,800 bytes, including
+the extra capture that triggers the identity element's EOS. For multi-planar
+devices, the top-level `v4l2_dqbuf` byte count was zero: the actual payload size
+was obtained by matching the preceding `vb2_dqbuf` event in the same thread and
+with the same buffer index. A zero top-level count here does not mean an empty
+frame. Discover the output node from the allocator trace, rather than assuming
+that `/dev/video0` is the processed image.
+
+There were exactly 5,401 KMS completion events for the sink's DRM file, separate
+from five setup/cleanup events with a null file. All 124,228 trace entries were
+retained, with zero overruns or dropped trace events. The trace instance was
+disabled and removed after collection. Assertions checked these counts, sequence
+continuity, payload sizes, copy-path logs, successful EOS, and connector cleanup.
+
+Startup logs included unsupported `Nc30`/`Nc12` enumeration warnings and a KMS
+default-fd warning; NV12 capture and import succeeded. The forced connector also
+produced HDMI audio `Unknown ELD version 0` messages without a monitor's EDID.
+No camera or ISP error was reported in the kernel log during these runs.
+
+This establishes a working zero-copy ISP-output-to-KMS configuration on the
+tested Pi. It does not verify the visible image or guarantee the absence of
+faults in longer runs, other modes, or other plugin/driver versions. Recheck the
+import and copy-path evidence when changing the pipeline or platform.
