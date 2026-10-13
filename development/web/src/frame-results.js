@@ -66,9 +66,11 @@ function layerData(layer) {
     };
 }
 
-function layer(payload, detections) {
+function layer(payload, payloadType, detections) {
     return {
         ...layerData(payload.layer),
+        payloadType,
+        payload,
         count: detections.length,
         detections,
     };
@@ -99,29 +101,10 @@ function candidateData(candidate) {
     };
 }
 
-function addPayloadLayers(envelope, payloadType, mapper, layers) {
+function addPayloadLayers(envelope, payloadType, name, mapper, layers) {
     for (const payload of envelope.for_each(payloadType)) {
-        layers.push(layer(payload, mapper(payload)));
+        layers.push(layer(payload, name, mapper(payload)));
     }
-}
-
-function collectTrackedSourceIds(envelope) {
-    const result = new Map();
-    for (const payload of envelope.for_each(ObjectTracksT)) {
-        const contentType = text(payload.layer?.contentType);
-        if (!contentType) continue;
-
-        let sourceIds = result.get(contentType);
-        if (!sourceIds) {
-            sourceIds = new Set();
-            result.set(contentType, sourceIds);
-        }
-        for (const item of payload.tracks) {
-            const sourceId = identifier(item.sourceId);
-            if (sourceId !== '0') sourceIds.add(sourceId);
-        }
-    }
-    return result;
 }
 
 function decodeBase64(value) {
@@ -162,9 +145,8 @@ export function decodeFrameResultsMessage(message) {
 
     const layers = [];
     const perfdata = [];
-    const trackedSourceIds = collectTrackedSourceIds(envelope);
 
-    addPayloadLayers(envelope, FrameContextT, (payload) => {
+    addPayloadLayers(envelope, FrameContextT, 'FrameContext', (payload) => {
         const detections = [];
         if (payload.video) {
             detections.push({
@@ -187,14 +169,10 @@ export function decodeFrameResultsMessage(message) {
         return detections;
     }, layers);
 
-    addPayloadLayers(envelope, BoxDetectionsT, (payload) => {
-        const sourceIds = trackedSourceIds.get(text(payload.layer?.contentType));
-        return payload.detections
-            .filter((item) => !sourceIds?.has(identifier(item.object?.id)))
-            .map((item) => ({type: 'Rect', data: boxData(item)}));
-    }, layers);
+    addPayloadLayers(envelope, BoxDetectionsT, 'BoxDetections', (payload) =>
+        payload.detections.map((item) => ({type: 'Rect', data: boxData(item)})), layers);
 
-    addPayloadLayers(envelope, ObjectTracksT, (payload) =>
+    addPayloadLayers(envelope, ObjectTracksT, 'ObjectTracks', (payload) =>
         payload.tracks.map((item) => ({
             type: 'Rect',
             data: {
@@ -206,7 +184,7 @@ export function decodeFrameResultsMessage(message) {
             },
         })), layers);
 
-    addPayloadLayers(envelope, ClassificationsT, (payload) => [
+    addPayloadLayers(envelope, ClassificationsT, 'Classifications', (payload) => [
         ...payload.classifications.map((item) => ({
             type: 'Classification',
             data: {
@@ -224,7 +202,7 @@ export function decodeFrameResultsMessage(message) {
         })),
     ], layers);
 
-    addPayloadLayers(envelope, PoseEstimationsT, (payload) =>
+    addPayloadLayers(envelope, PoseEstimationsT, 'PoseEstimations', (payload) =>
         payload.poses.map((item) => ({
             type: 'YawPitch',
             data: {
@@ -235,7 +213,7 @@ export function decodeFrameResultsMessage(message) {
             },
         })), layers);
 
-    addPayloadLayers(envelope, TrackTracesT, (payload) =>
+    addPayloadLayers(envelope, TrackTracesT, 'TrackTraces', (payload) =>
         payload.traces.map((item) => ({
             type: 'TrackTrace',
             data: {
@@ -245,7 +223,7 @@ export function decodeFrameResultsMessage(message) {
             },
         })), layers);
 
-    addPayloadLayers(envelope, SegmentationMasksT, (payload) =>
+    addPayloadLayers(envelope, SegmentationMasksT, 'SegmentationMasks', (payload) =>
         payload.masks.map((item) => ({
             type: 'SegmentationMask',
             data: {
@@ -253,10 +231,11 @@ export function decodeFrameResultsMessage(message) {
                 width: Number(item.bitmap?.width || 0),
                 height: Number(item.bitmap?.height || 0),
                 valueType: text(item.bitmap?.valueType),
+                pixels: item.bitmap?.pixels,
             },
         })), layers);
 
-    addPayloadLayers(envelope, ObjectEmbeddingsT, (payload) =>
+    addPayloadLayers(envelope, ObjectEmbeddingsT, 'ObjectEmbeddings', (payload) =>
         payload.embeddings.map((item) => ({
             type: 'ObjectEmbedding',
             data: {...objectData(item.object), values: [...item.values]},
@@ -264,6 +243,9 @@ export function decodeFrameResultsMessage(message) {
 
     for (const payload of envelope.for_each(PerformanceOverlayT)) {
         perfdata.push(...payload.lines.map(text));
+        layers.push(layer(payload, 'PerformanceOverlay', payload.lines.map((line) => ({
+            type: 'PerformanceLine', data: {text: text(line)},
+        }))));
     }
 
     return {

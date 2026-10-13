@@ -21,7 +21,7 @@ import test from 'node:test';
 import {Builder} from 'flatbuffers';
 import {Envelope} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/index.js';
 import {WireEnvelope, WireEnvelopeT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/internalfb/wire-envelope.js';
-import {BoundingBoxT, LayerInfoT, ObjectMetaT, Point2fT, ProducerInfoT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata.js';
+import {BitmapDataT, BoundingBoxT, LayerInfoT, ObjectMetaT, Point2fT, ProducerInfoT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata.js';
 import {BoxDetectionT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/box-detection.js';
 import {BoxDetectionsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/box-detections.js';
 import {ClassificationCandidateT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classification-candidate.js';
@@ -33,11 +33,14 @@ import {ObjectTracksT} from '../../../generated/open_perception_kit/ts/dist/open
 import {PerformanceOverlayT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-overlay.js';
 import {PoseEstimationT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimation.js';
 import {PoseEstimationsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimations.js';
+import {SegmentationMaskT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-mask.js';
+import {SegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-masks.js';
 import {TrackTraceT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-trace.js';
 import {TrackTracesT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-traces.js';
 import {VideoFrameContextT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/video-frame-context.js';
 import {decodeFrameResultsMessage, FRAME_RESULTS_ENCODING, FrameResultsDecodeError} from '../src/frame-results.js';
-import {findParentRect, findVideoFrame} from '../src/osd-renderer.js';
+import {findVideoFrame} from '../src/overlay-drawing.js';
+import {indexFrame} from '../src/overlay-sources.js';
 
 function layer(contentType) {
     return new LayerInfoT(
@@ -149,6 +152,8 @@ test('decodes typed FrameResults into the established WebUI view model', () => {
     const video = decoded.frame_results.layers.find((item) => item.contentType === 'videoFrame');
     assert.equal(video.detections[0].data.originalWidth, 640);
     const face = decoded.frame_results.layers.find((item) => item.contentType === 'humanFace');
+    assert.equal(face.payloadType, 'BoxDetections');
+    assert.ok(face.payload instanceof BoxDetectionsT);
     assert.deepEqual(face.producer, {
         instanceId: 'infer/parser',
         component: 'opk-std-ops/GenericPostprocess',
@@ -169,10 +174,10 @@ test('decodes typed FrameResults into the established WebUI view model', () => {
     const gaze = decoded.frame_results.layers.find((item) => item.contentType === 'eyeYawPitch');
     assert.equal(gaze.detections[0].data.parentUuid, '20');
     assert.equal(findVideoFrame(decoded.frame_results).originalHeight, 480);
-    assert.equal(findParentRect(decoded.frame_results, 'humanFace', '20').text, 'face');
+    assert.equal(indexFrame(decoded.frame_results).objects.get('20')[0].data.text, 'face');
 });
 
-test('suppresses detector boxes replaced by tracker output', () => {
+test('retains detector and tracker outputs for independent overlay selection', () => {
     const decoded = decodeFrameResultsMessage({
         frame_results_encoding: FRAME_RESULTS_ENCODING,
         frame_results_packet_b64: trackedFixture(),
@@ -184,10 +189,31 @@ test('suppresses detector boxes replaced by tracker output', () => {
         .filter((item) => item.type === 'Rect')
         .map((item) => item.data);
 
-    assert.deepEqual(rects.map((item) => item.uuid), ['21', '30']);
-    assert.equal(rects[0].text, 'untracked');
-    assert.equal(rects[1].sourceId, '20');
-    assert.equal(rects[1].trackId, '7');
+    assert.deepEqual(rects.map((item) => item.uuid), ['20', '21', '30']);
+    assert.equal(rects[1].text, 'untracked');
+    assert.equal(rects[2].sourceId, '20');
+    assert.equal(rects[2].trackId, '7');
+    assert.deepEqual(decoded.frame_results.layers.map((item) => item.payloadType), ['BoxDetections', 'ObjectTracks']);
+});
+
+test('retains empty outputs, mask bytes and performance payloads', () => {
+    const envelope = new Envelope();
+    envelope.add(new BoxDetectionsT(1, 0, layer('genericObject'), []));
+    envelope.add(new SegmentationMasksT(1, 0, layer('foreground'), [
+        new SegmentationMaskT(new ObjectMetaT(1n), new BitmapDataT(2, 2, 'uint8', [0, 64, 128, 255])),
+    ]));
+    envelope.add(new PerformanceOverlayT(1, 0, ['Pipeline: 30 FPS']));
+    const {frame_results: frame} = decodeFrameResultsMessage({
+        frame_results_encoding: FRAME_RESULTS_ENCODING,
+        frame_results_packet_b64: Buffer.from(envelope.serialize()).toString('base64'),
+    });
+    assert.equal(frame.layers[0].payloadType, 'BoxDetections');
+    assert.equal(frame.layers[0].count, 0);
+    const mask = frame.layers.find((item) => item.payloadType === 'SegmentationMasks');
+    assert.deepEqual([...mask.detections[0].data.pixels], [0, 64, 128, 255]);
+    assert.equal(mask.detections[0].data.pixels, mask.payload.masks[0].bitmap.pixels);
+    const performance = frame.layers.find((item) => item.payloadType === 'PerformanceOverlay');
+    assert.equal(performance.detections[0].data.text, frame.perfdata[0]);
 });
 
 test('rejects a packet from an incompatible producer identity', () => {
@@ -221,4 +247,55 @@ test('rejects unsupported encoding and malformed base64', () => {
         }),
         FrameResultsDecodeError,
     );
+});
+
+test('metadata connection reports disconnects and invalid packets clear the current frame', async () => {
+    const originals = Object.fromEntries(['window', 'location', 'WebSocket', 'CustomEvent']
+        .map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+    const events = [];
+    const listeners = new Map();
+    let socket;
+    globalThis.window = {OPK_CONFIG: {}, dispatchEvent: (event) => events.push(event),
+        addEventListener: (name, callback) => listeners.set(name, callback), setTimeout() {}};
+    globalThis.location = {protocol: 'http:', hostname: 'localhost'};
+    globalThis.CustomEvent = class {
+        constructor(type, options) { this.type = type; this.detail = options.detail; }
+    };
+    globalThis.WebSocket = class {
+        constructor() { socket = this; }
+    };
+    try {
+        await import('../src/metadata-ws.js');
+        socket.onopen();
+        assert.deepEqual(events.at(-1).detail, {connected: true});
+        socket.onmessage({data: JSON.stringify({
+            frame_results_encoding: FRAME_RESULTS_ENCODING,
+            frame_results_packet_b64: encodedFixture(),
+        })});
+        assert.ok(events.at(-1).detail.frame_results.layers.length > 0);
+        socket.onmessage({data: JSON.stringify({frame_results_encoding: 'unsupported'})});
+        assert.equal(events.at(-1).detail.frame_results, null);
+        assert.ok(events.at(-1).detail.decode_error);
+        socket.onmessage({data: '{'});
+        assert.equal(events.at(-1).detail.frame_results, null);
+        assert.equal(events.at(-1).detail.decode_error, 'Invalid metadata JSON');
+        socket.onclose();
+        assert.equal(events.at(-1).type, 'metadata-connection');
+        assert.deepEqual(events.at(-1).detail, {connected: false});
+        listeners.get('video-frame-metadata')({detail: {
+            frame_results_encoding: FRAME_RESULTS_ENCODING,
+            frame_results_packet_b64: encodedFixture(),
+        }});
+        assert.equal(events.at(-1).type, 'video-frame-results');
+        assert.ok(events.at(-1).detail.layers.length > 0);
+        listeners.get('video-frame-metadata')({detail: null});
+        assert.equal(events.at(-1).detail, null);
+        listeners.get('video-frame-metadata')({detail: {frame_results_encoding: 'invalid'}});
+        assert.equal(events.at(-1).detail, null);
+    } finally {
+        for (const [key, descriptor] of Object.entries(originals)) {
+            if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+            else delete globalThis[key];
+        }
+    }
 });
