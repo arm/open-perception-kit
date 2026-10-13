@@ -137,6 +137,12 @@ Check allocator logs for `exported DMABUF`, full-frame `bytesused: 614400`, and
 upload logs for `DirectDmabufExternal returned 1`. Confirm the whole image
 visually. Negotiated caps alone are insufficient. Stop with Ctrl+C.
 
+The script does not enforce direct import at the sink: `glimagesink` can fall
+back to uploading pixels with another graphics backend. Successful pipeline
+execution alone therefore does not establish zero-copy display. The measured
+direct import means the original capture DMA buffer feeds the GL renderer;
+it does not establish GPU rendering or direct scanout to the screen.
+
 The UVC `nodrop` parameter was `1` on this host, so damaged frames reached
 GStreamer. Dropping them prevents green regions and motion artifacts but cannot
 recover missing frames. Increasing `blocksize`, adding timestamps, disabling
@@ -248,3 +254,108 @@ pauses remain under investigation. The raw preview proves GStreamer camera
 DMA buffer export and direct GL import on this host. It does not establish
 zero-copy transport through Windows, USB/IP, the graphics driver, or the WSLg
 compositor, and does not exercise OPK runtime DMA buffer support.
+
+## Anker PowerConf C200
+
+The external Anker camera was also attached and tested on 2026-10-13. It uses
+USB 2 high-speed transport at 480 Mbit/s, like the integrated camera. Its raw
+DMA buffer preview shows the full image correctly; the user reported generally
+smooth movement with rare freezes.
+
+### Attach and select the Anker
+
+In Windows PowerShell **as Administrator**, resolve the connected camera by
+name, share it, and attach it to WSL:
+
+```powershell
+$state = usbipd.exe state | ConvertFrom-Json
+if ($LASTEXITCODE -ne 0) { throw 'Cannot read USB state.' }
+$cameras = @($state.Devices | Where-Object {
+    ($_.Description -split ',\s*') -contains 'Anker PowerConf C200'
+})
+if ($cameras.Count -ne 1 -or -not $cameras[0].BusId) {
+    throw 'Expected one connected Anker PowerConf C200.'
+}
+$camera = $cameras[0]
+if (-not $camera.PersistedGuid) {
+    usbipd.exe bind --busid $camera.BusId
+    if ($LASTEXITCODE -ne 0) { throw 'Sharing the Anker camera failed.' }
+}
+if (-not $camera.ClientIPAddress) {
+    usbipd.exe attach --wsl --busid $camera.BusId
+    if ($LASTEXITCODE -ne 0) { throw 'Attaching the Anker camera failed.' }
+}
+```
+
+Normal binding succeeded on the tested host. The first bind requires elevation;
+later attachments of a shared device can run without it. Attachment makes the
+camera available to WSL instead of Windows. See Microsoft's
+[USB attachment instructions](https://learn.microsoft.com/en-us/windows/wsl/connect-usb).
+The integrated camera can remain attached alongside it.
+
+In WSL, rediscover the capture node after attachment:
+
+```bash
+v4l2-ctl --list-devices
+v4l2-ctl -d /dev/video4 --list-formats-ext
+```
+
+In this attachment, `/dev/video4` is the Anker video capture node and
+`/dev/video5` is its metadata node. Replace `/dev/video4` in the commands below
+with the discovered capture node. YUYV raw modes are 640×480, 640×360, and
+320×240, all advertising 30 fps. Higher resolutions, through 2560×1440, are
+advertised only for MJPEG and H.264 and require decoding for display.
+
+### Run the direct raw probe
+
+The same Windows speed initialization is needed for this camera on the tested
+usbipd/VBoxUSB combination. From the WSL repository root:
+
+```bash
+powershell.exe -NoProfile -File "$(wslpath -w "$PWD/scripts/wsl-camera-speed-init.ps1")" \
+  -CameraName 'Anker PowerConf C200'
+GST_DEBUG_NO_COLOR=1 GST_DEBUG=v4l2allocator:7,glupload:6,glcontext:4 \
+  ./scripts/dmabuf-camera-probe.sh /dev/video4
+```
+
+Use `sg video -c 'COMMAND'` if this shell has not picked up video-group
+membership. No bandwidth quirk was applied to the Anker, and its exposure and
+image controls were left at their existing values.
+
+For the lower-bandwidth 640×360 mode used in the subsequent preview, run:
+
+```bash
+gst-launch-1.0 -v v4l2src device=/dev/video4 io-mode=dmabuf \
+  ! video/x-raw,format=YUY2,width=640,height=360,framerate=30/1 \
+  ! identity drop-buffer-flags=corrupted \
+  ! queue max-size-buffers=2 max-size-bytes=0 max-size-time=0 leaky=downstream \
+  ! glimagesink sync=false enable-last-sample=false
+```
+
+### Measured Anker result
+
+All tests used YUY2 raw capture. Every dequeued buffer below was complete and
+had no V4L2 error flag: 614,400 bytes at 640×480, or 460,800 bytes at 640×360.
+
+| Raw mode | Test | Complete frames | Delivered capture rate | Longest capture gap |
+| --- | --- | ---: | ---: | ---: |
+| 640×480 | Before speed initialization, 10-second capture | 31 | 3.24 fps | 0.32 s |
+| 640×480 | After initialization, 250-frame capture | 250 | 22.54 fps | 0.21 s |
+| 640×480 | After initialization, 60-second direct preview | 1,315 | 22.15 fps | 0.97 s |
+| 640×360 | After initialization, 30-second direct preview | 762 | 26.03 fps | 0.74 s |
+
+The 640×480 direct preview exported four DMA buffer file descriptors and used
+`DirectDmabufExternal`. Display import averaged about 22.17 calls/s; the same
+0.97-second pause was present in capture and import timestamps. This places
+that pause before GL import. The Anker avoided the integrated camera's damaged
+frames in this test, but did not deliver the requested 30 fps or eliminate
+freezes. The user confirmed a correct full image with rare pauses.
+
+The subsequent 640×360 preview also used `DirectDmabufExternal`, averaging
+about 26.07 import calls/s. The user described this preview as perfect. Its
+longest measured capture and import gaps were still about 0.74 seconds, so
+the lower-bandwidth mode does not establish uninterrupted 30 fps delivery.
+
+`GL_RENDERER` remained `llvmpipe`. This is proof of camera DMA buffer export and
+direct EGL import, with the same software-rendering and end-to-end zero-copy
+limitations described above. No OPK elements or decoder were used.

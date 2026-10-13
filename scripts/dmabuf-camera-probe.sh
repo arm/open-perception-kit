@@ -16,8 +16,9 @@
 
 set -euo pipefail
 
-device="${1:?Pass the Integrated Camera capture node, for example /dev/video0}"
+device="${1:?Pass the camera capture node, for example /dev/video0}"
 # WSL USB setup and measured limits: docs/arch/dmabuf-camera-probe.md.
+# DMA-BUF export does not guarantee zero-copy display; check the GL importer.
 # shortcut: damaged frames are dropped; remove the filter when USB/IP is reliable.
 exec gst-launch-1.0 -v v4l2src device="$device" io-mode=dmabuf \
     ! video/x-raw,format=YUY2,width=640,height=480,framerate=30/1 \
