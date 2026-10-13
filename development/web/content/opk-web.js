@@ -1026,27 +1026,27 @@ function persistVisibility() {
 function visiblePanelKeys() {
   return panelKeys.filter((key) => visibility[key] !== false);
 }
-function setPanelSectionVisibility(panel, visible) {
-  if (panel.section) {
-    panel.section.hidden = !visible;
+function setPanelSectionVisibility(panel2, visible) {
+  if (panel2.section) {
+    panel2.section.hidden = !visible;
   }
 }
-function setPanelButtonState(panel, visible) {
-  if (!panel.button) {
+function setPanelButtonState(panel2, visible) {
+  if (!panel2.button) {
     return;
   }
-  const icon = panel.button.querySelector("i");
-  panel.button.setAttribute("aria-pressed", visible ? "true" : "false");
-  panel.button.setAttribute("aria-label", (visible ? "Hide " : "Show ") + panel.label);
+  const icon = panel2.button.querySelector("i");
+  panel2.button.setAttribute("aria-pressed", visible ? "true" : "false");
+  panel2.button.setAttribute("aria-label", (visible ? "Hide " : "Show ") + panel2.label);
   if (icon) {
     icon.className = visible ? "fa-solid fa-eye" : "fa-solid fa-eye-slash";
   }
 }
 function applyPanelState(key) {
-  const panel = panels[key];
+  const panel2 = panels[key];
   const visible = visibility[key] !== false;
-  setPanelSectionVisibility(panel, visible);
-  setPanelButtonState(panel, visible);
+  setPanelSectionVisibility(panel2, visible);
+  setPanelButtonState(panel2, visible);
 }
 function dispatchVisibilityChange(visiblePanels) {
   document.body.classList.toggle("output-panels-empty", visiblePanels.length === 0);
@@ -1246,7 +1246,7 @@ function normalizeDockColumnWidths(widths) {
   }
   return next;
 }
-function setDockColumnWidths(widths, persist = false) {
+function setDockColumnWidths(widths, persist2 = false) {
   configureDockColumnHandles();
   if (!dockPanels || !visibleDockColumnKeys().length)
     return;
@@ -1254,7 +1254,7 @@ function setDockColumnWidths(widths, persist = false) {
   root.style.setProperty("--bottom-metrics-column", `${Math.round(next.metrics)}px`);
   root.style.setProperty("--bottom-inference-column", `${Math.round(next.inference)}px`);
   root.style.setProperty("--bottom-debug-column", `${Math.round(next.debug)}px`);
-  if (persist) {
+  if (persist2) {
     localStorage.setItem(dockColumnStorageKey, JSON.stringify({
       metrics: Math.round(next.metrics),
       inference: Math.round(next.inference),
@@ -1262,7 +1262,7 @@ function setDockColumnWidths(widths, persist = false) {
     }));
   }
 }
-function setEqualDockColumnWidths(persist = false) {
+function setEqualDockColumnWidths(persist2 = false) {
   configureDockColumnHandles();
   if (!dockPanels)
     return;
@@ -1276,7 +1276,7 @@ function setEqualDockColumnWidths(persist = false) {
   root.style.setProperty("--bottom-metrics-column", `${Math.round(next.metrics)}px`);
   root.style.setProperty("--bottom-inference-column", `${Math.round(next.inference)}px`);
   root.style.setProperty("--bottom-debug-column", `${Math.round(next.debug)}px`);
-  if (persist) {
+  if (persist2) {
     localStorage.setItem(dockColumnStorageKey, JSON.stringify({
       metrics: Math.round(next.metrics),
       inference: Math.round(next.inference),
@@ -1284,12 +1284,12 @@ function setEqualDockColumnWidths(persist = false) {
     }));
   }
 }
-function scheduleDockColumnFit(persist = false) {
+function scheduleDockColumnFit(persist2 = false) {
   if (dockColumnFitFrame)
     cancelAnimationFrame(dockColumnFitFrame);
   dockColumnFitFrame = requestAnimationFrame(() => {
     dockColumnFitFrame = null;
-    setDockColumnWidths(readDockColumnWidths(), persist);
+    setDockColumnWidths(readDockColumnWidths(), persist2);
   });
 }
 function fitDockColumnsDuringTransition(duration = 260) {
@@ -1307,20 +1307,20 @@ function fitDockColumnsDuringTransition(duration = 260) {
   };
   dockColumnTransitionFitFrame = requestAnimationFrame(fit);
 }
-function setSidebarWidth(width, persist = false) {
+function setSidebarWidth(width, persist2 = false) {
   const { min, max } = sidebarLimits();
   const nextWidth = clamp(width, min, max);
   root.style.setProperty("--sidebar-width", `${nextWidth}px`);
-  scheduleDockColumnFit(persist);
-  if (persist) {
+  scheduleDockColumnFit(persist2);
+  if (persist2) {
     localStorage.setItem(sidebarStorageKey, String(Math.round(nextWidth)));
   }
 }
-function setDockHeight(height, persist = false) {
+function setDockHeight(height, persist2 = false) {
   const { min, max } = dockLimits();
   const nextHeight = clamp(height, min, max);
   root.style.setProperty("--bottom-dock-height", `${nextHeight}px`);
-  if (persist) {
+  if (persist2) {
     localStorage.setItem(dockStorageKey, String(Math.round(nextHeight)));
   }
 }
@@ -1871,14 +1871,14 @@ function layerTitle(layer2) {
   return layer2.model || layer2.contentType || layer2.engine || "Layer";
 }
 function createNode(tag, className, text2) {
-  const node = document.createElement(tag);
+  const node2 = document.createElement(tag);
   if (className) {
-    node.className = className;
+    node2.className = className;
   }
   if (text2 !== void 0) {
-    node.textContent = String(text2);
+    node2.textContent = String(text2);
   }
-  return node;
+  return node2;
 }
 function renderEmpty(message) {
   return createNode("div", "inference-output-empty", message);
@@ -2738,10 +2738,10 @@ var Builder = class _Builder {
    *
    * @returns list of offsets of each non null object
    */
-  createObjectOffsetList(list) {
+  createObjectOffsetList(list2) {
     const ret = [];
-    for (let i = 0; i < list.length; ++i) {
-      const val = list[i];
+    for (let i = 0; i < list2.length; ++i) {
+      const val = list2[i];
       if (val !== null) {
         ret.push(this.createObjectOffset(val));
       } else {
@@ -2750,9 +2750,9 @@ var Builder = class _Builder {
     }
     return ret;
   }
-  createStructOffsetList(list, startFunc) {
-    startFunc(this, list.length);
-    this.createObjectOffsetList(list.slice().reverse());
+  createStructOffsetList(list2, startFunc) {
+    startFunc(this, list2.length);
+    this.createObjectOffsetList(list2.slice().reverse());
     return this.endVector();
   }
 };
@@ -5982,9 +5982,11 @@ function layerData(layer2) {
     } : null
   };
 }
-function layer(payload, detections) {
+function layer(payload, payloadType, detections) {
   return {
     ...layerData(payload.layer),
+    payloadType,
+    payload,
     count: detections.length,
     detections
   };
@@ -6012,27 +6014,10 @@ function candidateData(candidate) {
     h: Number(candidate.h || 0)
   };
 }
-function addPayloadLayers(envelope, payloadType, mapper, layers) {
+function addPayloadLayers(envelope, payloadType, name, mapper, layers) {
   for (const payload of envelope.for_each(payloadType)) {
-    layers.push(layer(payload, mapper(payload)));
+    layers.push(layer(payload, name, mapper(payload)));
   }
-}
-function collectTrackedSourceIds(envelope) {
-  const result = /* @__PURE__ */ new Map();
-  for (const payload of envelope.for_each(ObjectTracksT)) {
-    const contentType = text(payload.layer?.contentType);
-    if (!contentType) continue;
-    let sourceIds = result.get(contentType);
-    if (!sourceIds) {
-      sourceIds = /* @__PURE__ */ new Set();
-      result.set(contentType, sourceIds);
-    }
-    for (const item of payload.tracks) {
-      const sourceId = identifier(item.sourceId);
-      if (sourceId !== "0") sourceIds.add(sourceId);
-    }
-  }
-  return result;
 }
 function decodeBase64(value) {
   if (typeof value !== "string" || !value || value.length % 4 !== 0) {
@@ -6069,8 +6054,7 @@ function decodeFrameResultsMessage(message) {
   }
   const layers = [];
   const perfdata = [];
-  const trackedSourceIds = collectTrackedSourceIds(envelope);
-  addPayloadLayers(envelope, FrameContextT, (payload) => {
+  addPayloadLayers(envelope, FrameContextT, "FrameContext", (payload) => {
     const detections = [];
     if (payload.video) {
       detections.push({
@@ -6092,11 +6076,8 @@ function decodeFrameResultsMessage(message) {
     }
     return detections;
   }, layers);
-  addPayloadLayers(envelope, BoxDetectionsT, (payload) => {
-    const sourceIds = trackedSourceIds.get(text(payload.layer?.contentType));
-    return payload.detections.filter((item) => !sourceIds?.has(identifier(item.object?.id))).map((item) => ({ type: "Rect", data: boxData(item) }));
-  }, layers);
-  addPayloadLayers(envelope, ObjectTracksT, (payload) => payload.tracks.map((item) => ({
+  addPayloadLayers(envelope, BoxDetectionsT, "BoxDetections", (payload) => payload.detections.map((item) => ({ type: "Rect", data: boxData(item) })), layers);
+  addPayloadLayers(envelope, ObjectTracksT, "ObjectTracks", (payload) => payload.tracks.map((item) => ({
     type: "Rect",
     data: {
       ...boxData(item),
@@ -6106,7 +6087,7 @@ function decodeFrameResultsMessage(message) {
       predictedOnly: Boolean(item.predictedOnly)
     }
   })), layers);
-  addPayloadLayers(envelope, ClassificationsT, (payload) => [
+  addPayloadLayers(envelope, ClassificationsT, "Classifications", (payload) => [
     ...payload.classifications.map((item) => ({
       type: "Classification",
       data: {
@@ -6123,7 +6104,7 @@ function decodeFrameResultsMessage(message) {
       }
     }))
   ], layers);
-  addPayloadLayers(envelope, PoseEstimationsT, (payload) => payload.poses.map((item) => ({
+  addPayloadLayers(envelope, PoseEstimationsT, "PoseEstimations", (payload) => payload.poses.map((item) => ({
     type: "YawPitch",
     data: {
       ...objectData(item.object),
@@ -6132,7 +6113,7 @@ function decodeFrameResultsMessage(message) {
       pitch: Number(item.pitch || 0)
     }
   })), layers);
-  addPayloadLayers(envelope, TrackTracesT, (payload) => payload.traces.map((item) => ({
+  addPayloadLayers(envelope, TrackTracesT, "TrackTraces", (payload) => payload.traces.map((item) => ({
     type: "TrackTrace",
     data: {
       ...objectData(item.object),
@@ -6140,21 +6121,26 @@ function decodeFrameResultsMessage(message) {
       points: item.points.map((point) => ({ x: Number(point.x), y: Number(point.y) }))
     }
   })), layers);
-  addPayloadLayers(envelope, SegmentationMasksT, (payload) => payload.masks.map((item) => ({
+  addPayloadLayers(envelope, SegmentationMasksT, "SegmentationMasks", (payload) => payload.masks.map((item) => ({
     type: "SegmentationMask",
     data: {
       ...objectData(item.object),
       width: Number(item.bitmap?.width || 0),
       height: Number(item.bitmap?.height || 0),
-      valueType: text(item.bitmap?.valueType)
+      valueType: text(item.bitmap?.valueType),
+      pixels: item.bitmap?.pixels
     }
   })), layers);
-  addPayloadLayers(envelope, ObjectEmbeddingsT, (payload) => payload.embeddings.map((item) => ({
+  addPayloadLayers(envelope, ObjectEmbeddingsT, "ObjectEmbeddings", (payload) => payload.embeddings.map((item) => ({
     type: "ObjectEmbedding",
     data: { ...objectData(item.object), values: [...item.values] }
   })), layers);
   for (const payload of envelope.for_each(PerformanceOverlayT)) {
     perfdata.push(...payload.lines.map(text));
+    layers.push(layer(payload, "PerformanceOverlay", payload.lines.map((line) => ({
+      type: "PerformanceLine",
+      data: { text: text(line) }
+    }))));
   }
   return {
     frame_counter: Number.isInteger(message.frame_counter) ? message.frame_counter : void 0,
@@ -6195,24 +6181,28 @@ function normalisePerformance(frameResults) {
     lines: Array.isArray(frameResults?.perfdata) ? frameResults.perfdata : []
   };
 }
+function publishMetadata(frameCounter, frameResults, decodeError = null) {
+  window.dispatchEvent(new CustomEvent("metadata-message", {
+    detail: {
+      frame_counter: Number.isInteger(frameCounter) ? frameCounter : void 0,
+      frame_results: frameResults,
+      inference_output: normaliseInferenceOutput(frameResults),
+      performance: normalisePerformance(frameResults),
+      decode_error: decodeError
+    }
+  }));
+}
 function handleMetadataMessage(raw) {
   let message;
   try {
     message = JSON.parse(String(raw).trim());
   } catch (error) {
     console.warn("Invalid metadata WebSocket message", error);
+    publishMetadata(void 0, null, "Invalid metadata JSON");
     return;
   }
   if (message?.frame_results_encoding == null && message?.frame_results_packet_b64 == null) {
-    window.dispatchEvent(new CustomEvent("metadata-message", {
-      detail: {
-        frame_counter: Number.isInteger(message?.frame_counter) ? message.frame_counter : void 0,
-        frame_results: null,
-        inference_output: { layers: [] },
-        performance: { lines: [] },
-        decode_error: null
-      }
-    }));
+    publishMetadata(message?.frame_counter, null);
     return;
   }
   let decoded;
@@ -6220,28 +6210,10 @@ function handleMetadataMessage(raw) {
     decoded = decodeFrameResultsMessage(message);
   } catch (error) {
     console.warn("Invalid FrameResults metadata message", error);
-    window.dispatchEvent(new CustomEvent("metadata-message", {
-      detail: {
-        frame_counter: Number.isInteger(message?.frame_counter) ? message.frame_counter : void 0,
-        frame_results: null,
-        inference_output: { layers: [] },
-        performance: { lines: [] },
-        decode_error: error instanceof Error ? error.message : String(error)
-      }
-    }));
+    publishMetadata(message?.frame_counter, null, error instanceof Error ? error.message : String(error));
     return;
   }
-  const inference_output = normaliseInferenceOutput(decoded.frame_results);
-  const performance2 = normalisePerformance(decoded.frame_results);
-  window.dispatchEvent(new CustomEvent("metadata-message", {
-    detail: {
-      frame_counter: decoded.frame_counter,
-      frame_results: decoded.frame_results,
-      inference_output,
-      performance: performance2,
-      decode_error: null
-    }
-  }));
+  publishMetadata(decoded.frame_counter, decoded.frame_results);
 }
 var socket = null;
 var reconnectDelay = RECONNECT_DELAY_MS;
@@ -6252,6 +6224,7 @@ function connect() {
   socket = new WebSocket(metadataUrl());
   socket.onopen = () => {
     reconnectDelay = RECONNECT_DELAY_MS;
+    window.dispatchEvent(new CustomEvent("metadata-connection", { detail: { connected: true } }));
   };
   socket.onmessage = (event) => {
     handleMetadataMessage(event.data);
@@ -6260,6 +6233,7 @@ function connect() {
     ;
   };
   socket.onclose = () => {
+    window.dispatchEvent(new CustomEvent("metadata-connection", { detail: { connected: false } }));
     window.setTimeout(() => {
       reconnectDelay = Math.min(reconnectDelay * BACKOFF_FACTOR, RECONNECT_DELAY_MAX_MS);
       connect();
@@ -6268,72 +6242,7 @@ function connect() {
 }
 connect();
 
-// development/web/src/osd-renderer.js
-var DEFAULT_COLORS = {
-  objects: "#ff3030",
-  faces: "#2600ff",
-  text: "#ffffff",
-  textBg: "rgba(0, 0, 0, 0.78)",
-  performance: "#66ff00",
-  cameraContact: "#66ff00",
-  noContact: "#ff4040",
-  gaze: "#fafad2",
-  trackTraces: "#ffff00"
-};
-var DEFAULT_RENDER_OPTIONS = {
-  objects: true,
-  faces: true,
-  gaze: true,
-  cameraContact: true,
-  trackTraces: true,
-  classification: true,
-  personStatus: true,
-  performance: true
-};
-function resizeCanvasToDisplaySize(canvas2) {
-  const dpr = window.devicePixelRatio || 1;
-  const width = Math.max(1, Math.round(canvas2.clientWidth * dpr));
-  const height = Math.max(1, Math.round(canvas2.clientHeight * dpr));
-  if (canvas2.width !== width || canvas2.height !== height) {
-    canvas2.width = width;
-    canvas2.height = height;
-  }
-}
-function renderOsd(canvas2, video5, perception, options = {}) {
-  resizeCanvasToDisplaySize(canvas2);
-  const ctx = canvas2.getContext("2d");
-  const dpr = window.devicePixelRatio || 1;
-  const width = canvas2.width / dpr;
-  const height = canvas2.height / dpr;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.clearRect(0, 0, width, height);
-  if (!perception || !Array.isArray(perception.layers)) {
-    return;
-  }
-  const mapper = createCoordinateMapper({
-    canvasWidth: width,
-    canvasHeight: height,
-    videoWidth: video5.videoWidth,
-    videoHeight: video5.videoHeight,
-    perception
-  });
-  const renderOptions = {
-    ...DEFAULT_RENDER_OPTIONS,
-    ...options,
-    colors: { ...DEFAULT_COLORS, ...options.colors || {} }
-  };
-  const now = options.now ?? Date.now();
-  drawLayers(ctx, perception, mapper, renderOptions, now);
-  if (renderOptions.gaze) {
-    drawGazeVectors(ctx, perception, mapper, renderOptions.colors);
-  }
-  if (renderOptions.cameraContact) {
-    drawCameraContactMarkers(ctx, perception, mapper, renderOptions.colors);
-  }
-  if (renderOptions.performance) {
-    drawPerformance(ctx, perception, renderOptions.colors);
-  }
-}
+// development/web/src/overlay-drawing.js
 function createCoordinateMapper({ canvasWidth, canvasHeight, videoWidth, videoHeight, perception }) {
   const frame = findVideoFrame(perception);
   const sourceWidth = positiveNumber(frame?.originalWidth) || positiveNumber(videoWidth) || canvasWidth;
@@ -6393,423 +6302,667 @@ function findVideoFrame(perception) {
   }
   return null;
 }
-function collectRectsByContentType(perception, contentType) {
-  const rects = [];
-  for (const layer2 of perception?.layers || []) {
-    if (layer2.contentType !== contentType) {
-      continue;
-    }
-    for (const detection of layer2.detections || []) {
-      if (detection?.type === "Rect" && detection.data) {
-        rects.push(detection.data);
-      }
-    }
-  }
-  return rects;
-}
-function findParentRect(perception, contentType, parentUuid) {
-  return collectRectsByContentType(perception, contentType).find((rect) => rect.uuid === parentUuid) || null;
-}
-function layerDetectionData(layer2, detectionType) {
-  if (!Array.isArray(layer2.detections)) {
-    return [];
-  }
-  return layer2.detections.filter((detection) => detection?.type === detectionType).map((detection) => detection.data);
-}
-function drawLayerDetections(layer2, detectionType, drawDetection) {
-  for (const data of layerDetectionData(layer2, detectionType)) {
-    drawDetection(data);
-  }
-}
-function drawConfiguredLayer(layer2, renderer) {
-  if (!renderer.enabled || layer2.contentType !== renderer.contentType) {
-    return;
-  }
-  drawLayerDetections(layer2, renderer.detectionType, (data) => renderer.draw(data, layer2));
-}
-function drawLayers(ctx, perception, mapper, renderOptions, now) {
-  const classificationBottomOffsets = { left: 0, right: 0 };
-  const renderers = [
-    {
-      enabled: renderOptions.trackTraces,
-      contentType: "trackTrace",
-      detectionType: "TrackTrace",
-      draw: (data) => drawTrackTrace(ctx, data, mapper, renderOptions.colors)
-    },
-    {
-      enabled: renderOptions.objects,
-      contentType: "genericObject",
-      detectionType: "Rect",
-      draw: (data) => drawObjectBox(ctx, data, mapper, renderOptions.colors.objects)
-    },
-    {
-      enabled: renderOptions.faces,
-      contentType: "humanFace",
-      detectionType: "Rect",
-      draw: (data) => drawFace(ctx, data, mapper, renderOptions.colors)
-    },
-    {
-      enabled: renderOptions.classification,
-      contentType: "classification",
-      detectionType: "Classification",
-      draw: (data, layer2) => {
-        const alignRight = layer2.compositingMode === "bottomRight";
-        const side = alignRight ? "right" : "left";
-        classificationBottomOffsets[side] += drawClassification(
-          ctx,
-          data,
-          mapper.display,
-          renderOptions.colors,
-          classificationHeading(layer2),
-          alignRight,
-          classificationBottomOffsets[side]
-        );
-      }
-    },
-    {
-      enabled: renderOptions.personStatus,
-      contentType: "personClassification",
-      detectionType: "PersonClassification",
-      draw: (data) => drawPersonClassification(ctx, data, mapper.display, now, renderOptions.colors)
-    }
-  ];
-  for (const layer2 of perception.layers) {
-    for (const renderer of renderers) {
-      drawConfiguredLayer(layer2, renderer);
-    }
-  }
-}
-function drawObjectBox(ctx, rect, mapper, color) {
-  const box = mapper.rect(rect);
-  if (box.width <= 0 || box.height <= 0) {
-    return;
-  }
-  ctx.save();
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2;
-  ctx.strokeRect(box.x, box.y, box.width, box.height);
-  const label = rect.label || rect.text || confidenceLabel(rect.confidence);
-  if (label) {
-    drawTextChip(ctx, label, box.x, Math.max(2, box.y - 22), 13, color);
-  }
-  ctx.restore();
-}
-function drawFace(ctx, rect, mapper, colors) {
-  const box = mapper.rect(rect);
-  const cx = box.x + box.width / 2;
-  const cy = box.y + box.height / 2;
-  const radius = Math.abs(box.width) / 2;
-  ctx.save();
-  ctx.strokeStyle = colors.faces;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.restore();
-}
-function drawClassification(ctx, classification, display, colors, heading, alignRight = false, bottomOffset = 0) {
-  const candidates = Array.isArray(classification?.candidates) ? classification.candidates : [];
-  if (candidates.length === 0) {
-    return 0;
-  }
-  const fontSize = 14;
-  const lineHeight = fontSize * 1.5;
-  const padding = 10;
-  const startX = display.x + padding;
-  const startY = display.y + display.height - bottomOffset - candidates.length * lineHeight - 2 * padding;
-  const textX = classificationTextX(display, padding, alignRight);
-  if (heading) {
-    drawTextChip(
-      ctx,
-      heading,
-      textX,
-      Math.max(display.y + padding, startY - lineHeight),
-      fontSize,
-      colors.classification,
-      alignRight
-    );
-  }
-  candidates.forEach((candidate, index) => {
-    const text2 = `#${index + 1}: ${candidate.text || candidate.classId} (${((candidate.confidence || 0) * 100).toFixed(1)}%)`;
-    drawTextChip(
-      ctx,
-      text2,
-      textX,
-      startY + index * lineHeight,
-      fontSize,
-      colors.classification,
-      alignRight
-    );
-  });
-  return classificationPanelHeight(candidates.length, heading);
-}
-function classificationHeading(layer2) {
-  return layer2?.producer?.implementation || "";
-}
-function classificationTextX(display, padding, alignRight) {
-  if (!alignRight) {
-    return display.x + padding;
-  }
-  return display.x + display.width - padding;
-}
-function classificationPanelHeight(candidateCount, heading) {
-  const fontSize = 14;
-  const lineHeight = fontSize * 1.5;
-  const padding = 10;
-  return candidateCount * lineHeight + (heading ? lineHeight : 0) + 2 * padding;
-}
-function drawPersonClassification(ctx, personClassification, display, now, colors) {
-  if (now % 1e3 >= 800) {
-    return;
-  }
-  const isPerson = Number(personClassification?.yesConfidence || 0) > Number(personClassification?.noConfidence || 0);
-  const label = isPerson ? "PERSON" : "NON-PERSON";
-  const color = isPerson ? colors.personStatus : colors.noContact;
-  const fontSize = Math.max(28, Math.min(64, display.width / 12));
-  ctx.save();
-  ctx.font = `700 ${fontSize}px monospace`;
-  const metrics = ctx.measureText(label);
-  const x = display.x + (display.width - metrics.width) / 2;
-  const y = display.y + display.height / 2;
-  drawTextChip(ctx, label, x, y, fontSize, color);
-  ctx.restore();
-}
-function drawTrackTrace(ctx, trace, mapper, colors) {
-  const points = Array.isArray(trace?.points) ? trace.points : [];
-  if (points.length < 2) {
-    return;
-  }
-  const color = colors.trackTraces;
-  const segments = points.length - 1;
-  for (let i = 0; i < segments; i += 1) {
-    const from = mapper.point(points[i].x, points[i].y);
-    const to = mapper.point(points[i + 1].x, points[i + 1].y);
-    const alpha = 0.35 + 0.65 * ((i + 1) / segments);
-    drawArrow(ctx, from, to, hexToRgba(color, alpha), 4, 0);
-  }
-}
-function drawGazeVectors(ctx, perception, mapper, colors) {
-  for (const layer2 of perception.layers) {
-    if (layer2.contentType !== "eyeYawPitch") {
-      continue;
-    }
-    for (const detection of layer2.detections || []) {
-      if (detection?.type !== "YawPitch") {
-        continue;
-      }
-      const yp = detection.data;
-      const parent = findParentRect(perception, "humanFace", yp.parentUuid);
-      if (!parent || nearZero(yp.yaw) && nearZero(yp.pitch)) {
-        continue;
-      }
-      const parentBox = mapper.rect(parent);
-      const start = { x: parentBox.x + parentBox.width / 2, y: parentBox.y + parentBox.height / 2 };
-      const end = gazeEndpoint(start, yp.yaw, yp.pitch, 120);
-      drawArrow(ctx, start, end, colors.gaze, 3, 10);
-    }
-  }
-}
-function cameraContactClassifications(perception) {
-  const classifications = [];
-  for (const layer2 of perception.layers) {
-    if (layer2.contentType === "cameraContact") {
-      classifications.push(...layerDetectionData(layer2, "Classification"));
-    }
-  }
-  return classifications;
-}
-function drawCameraContactMarker(ctx, classification, perception, mapper, colors) {
-  const candidate = classification?.candidates?.[0];
-  const face = findParentRect(perception, "humanFace", classification?.parentUuid);
-  if (!candidate || !face) {
-    return;
-  }
-  const box = mapper.rect(face);
-  const cx = box.x + box.width / 2;
-  const cy = box.y + box.height / 2;
-  const hasContact = candidate.classId === 1;
-  const radiusBase = Math.min(Math.abs(box.width), Math.abs(box.height)) * 0.5;
-  const radius = hasContact ? clamp2(radiusBase * 0.65, 18, 80) : clamp2(radiusBase * 1.15, 28, 140);
-  const color = hasContact ? colors.cameraContact : colors.noContact;
-  ctx.save();
-  ctx.strokeStyle = color;
-  ctx.fillStyle = color;
-  ctx.lineWidth = hasContact ? 5 : 8;
-  ctx.beginPath();
-  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(cx, cy, hasContact ? 5 : 7, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-}
-function drawCameraContactMarkers(ctx, perception, mapper, colors) {
-  for (const classification of cameraContactClassifications(perception)) {
-    drawCameraContactMarker(ctx, classification, perception, mapper, colors);
-  }
-}
-function drawPerformance(ctx, perception, colors) {
-  const lines = Array.isArray(perception.perfdata) ? perception.perfdata : [];
-  let y = 10;
-  for (const line of lines) {
-    drawTextChip(ctx, String(line), 10, y, 16, colors.performance);
-    y += 16;
-  }
-}
-function drawTextChip(ctx, text2, x, y, fontSize, color = DEFAULT_COLORS.text, alignRight = false) {
-  ctx.save();
-  ctx.font = `${fontSize}px monospace`;
-  ctx.textBaseline = "top";
-  const paddingX = 4;
-  const paddingY = 2;
-  const metrics = ctx.measureText(text2);
-  const width = metrics.width + paddingX * 2;
-  const height = fontSize + paddingY * 2;
-  const drawX = alignRight ? x - width : x;
-  ctx.fillStyle = DEFAULT_COLORS.textBg;
-  ctx.fillRect(drawX, y, width, height);
-  ctx.fillStyle = color;
-  ctx.fillText(text2, drawX + paddingX, y + paddingY);
-  ctx.restore();
-}
-function drawArrow(ctx, from, to, color, width = 3, headSize = 10) {
-  ctx.save();
-  ctx.strokeStyle = color;
-  ctx.fillStyle = color;
-  ctx.lineWidth = width;
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(from.x, from.y);
-  ctx.lineTo(to.x, to.y);
-  ctx.stroke();
-  if (headSize > 0) {
-    const angle = Math.atan2(to.y - from.y, to.x - from.x);
-    ctx.beginPath();
-    ctx.moveTo(to.x, to.y);
-    ctx.lineTo(to.x - headSize * Math.cos(angle - Math.PI / 6), to.y - headSize * Math.sin(angle - Math.PI / 6));
-    ctx.lineTo(to.x - headSize * Math.cos(angle + Math.PI / 6), to.y - headSize * Math.sin(angle + Math.PI / 6));
-    ctx.closePath();
-    ctx.fill();
-  }
-  ctx.restore();
-}
-function gazeEndpoint(start, yawDeg, pitchDeg, lengthPx) {
-  const yaw = deg2rad(yawDeg);
-  const pitch = deg2rad(pitchDeg);
-  return {
-    x: start.x - Math.sin(yaw) * Math.cos(pitch) * lengthPx,
-    y: start.y - Math.sin(pitch) * lengthPx
-  };
-}
-function confidenceLabel(confidence) {
-  return Number.isFinite(confidence) ? `${(confidence * 100).toFixed(1)}%` : "";
-}
 function positiveNumber(value) {
   return Number.isFinite(Number(value)) && Number(value) > 0 ? Number(value) : 0;
 }
-function nearZero(value) {
-  return Number(value) < 0.1 && Number(value) > -0.1;
+
+// development/web/src/overlay-features.js
+var OVERLAY_FEATURES = [];
+function featureFor(id) {
+  return OVERLAY_FEATURES.find((feature) => feature.id === id);
 }
-function deg2rad(value) {
-  return Number(value || 0) * Math.PI / 180;
+function defaultSettings(id, source) {
+  const defaults = featureFor(id)?.defaults || { color: "#ffffff", opacity: 1 };
+  return typeof defaults === "function" ? defaults(source || {}) : { ...defaults };
 }
-function clamp2(value, min, max) {
-  return Math.min(max, Math.max(min, value));
+function resolveOverlay(index, overlay2) {
+  const feature = featureFor(overlay2.featureId);
+  if (!feature) return { state: "unsupported", message: "Unknown rendering feature." };
+  if (overlay2.selection.primary === null && feature.render) return { state: "waiting", message: "Waiting for source" };
+  const settings = { ...defaultSettings(feature.id, overlay2.selection.primary), ...overlay2.settings };
+  return { ...feature.resolve(index, overlay2.selection, settings), feature, settings };
 }
-function hexToRgba(hex, alpha) {
-  const clean = hex.replace("#", "");
-  const r = parseInt(clean.slice(0, 2), 16);
-  const g = parseInt(clean.slice(2, 4), 16);
-  const b = parseInt(clean.slice(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+function overlayStatus(index, overlay2, catalog, resolved = resolveOverlay(index, overlay2)) {
+  if (overlay2.selection.primary === null && catalog && featureFor(overlay2.featureId)?.discover(catalog).length > 1) {
+    return "Choose a source";
+  }
+  if (resolved.state === "unsupported") return `Unsupported \xB7 ${resolved.message}`;
+  if (resolved.state === "waiting") return "Waiting for source";
+  if (!overlay2.enabled) return "Hidden";
+  if (resolved.state === "partial") return `Partial \xB7 ${resolved.message}`;
+  if (resolved.state === "ambiguous") return `Ambiguous \xB7 ${resolved.message}`;
+  return resolved.items.length ? "Ready" : "Ready \xB7 no results";
+}
+
+// development/web/src/osd-renderer.js
+function renderOsd(canvas2, video5, index, overlays2 = [], { now = Date.now() } = {}) {
+  const dpr = window.devicePixelRatio || 1;
+  const pixelWidth = Math.max(1, Math.round(canvas2.clientWidth * dpr));
+  const pixelHeight = Math.max(1, Math.round(canvas2.clientHeight * dpr));
+  if (canvas2.width !== pixelWidth || canvas2.height !== pixelHeight) {
+    canvas2.width = pixelWidth;
+    canvas2.height = pixelHeight;
+  }
+  const ctx = canvas2.getContext("2d");
+  const width = canvas2.width / dpr;
+  const height = canvas2.height / dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, width, height);
+  if (!index.frame) return;
+  const mapper = createCoordinateMapper({
+    canvasWidth: width,
+    canvasHeight: height,
+    videoWidth: video5.videoWidth,
+    videoHeight: video5.videoHeight,
+    perception: index.frame
+  });
+  const target = { ctx, canvas: canvas2, video: video5, mapper, layout: { left: 0, right: 0, performanceY: 10 }, now };
+  for (const overlay2 of overlays2) {
+    if (!overlay2.enabled) continue;
+    const resolved = resolveOverlay(index, overlay2);
+    if (["waiting", "unsupported"].includes(resolved.state) || resolved.settings.opacity <= 0) continue;
+    ctx.save();
+    try {
+      ctx.globalAlpha = resolved.settings.opacity ?? 1;
+      resolved.feature.render(target, resolved, resolved.settings);
+    } finally {
+      ctx.restore();
+    }
+  }
+}
+
+// development/web/src/overlay-sources.js
+var SOURCE_FIELDS = [
+  "payloadType",
+  "contentType",
+  "engine",
+  "model",
+  "inferElementId",
+  "labelFamily",
+  "producerInstanceId",
+  "producerComponent",
+  "producerImplementation"
+];
+var SOURCE_FIELD_LABELS = {
+  payloadType: "Payload type",
+  contentType: "Content type",
+  engine: "Engine",
+  model: "Model",
+  inferElementId: "Inference element",
+  labelFamily: "Label family",
+  producerInstanceId: "Producer instance",
+  producerComponent: "Component",
+  producerImplementation: "Implementation"
+};
+function outputSource(layer2) {
+  return {
+    payloadType: layer2.payloadType || "",
+    contentType: layer2.contentType || "",
+    engine: layer2.engine || "",
+    model: layer2.model || "",
+    inferElementId: layer2.inferElementId || "",
+    labelFamily: layer2.labelFamily || "",
+    producerInstanceId: layer2.producer?.instanceId || "",
+    producerComponent: layer2.producer?.component || "",
+    producerImplementation: layer2.producer?.implementation || ""
+  };
+}
+function sourceKey(source) {
+  return JSON.stringify(SOURCE_FIELDS.map((field) => source[field]));
+}
+function validSource(source) {
+  return SOURCE_FIELDS.every((field) => typeof source?.[field] === "string") && source.payloadType.length > 0;
+}
+function producerKey(source) {
+  return source.producerInstanceId ? JSON.stringify([source.producerComponent, source.producerInstanceId]) : null;
+}
+function objectId(value) {
+  return value == null || String(value) === "0" ? "" : String(value);
+}
+function trackKey(source, id) {
+  const producer = producerKey(source);
+  return producer && objectId(id) ? JSON.stringify([producer, objectId(id)]) : null;
+}
+function sourceLabel(source) {
+  if (source.payloadType === "PerformanceOverlay") return "Pipeline performance";
+  return source.model || source.producerImplementation || source.producerInstanceId || source.inferElementId || source.producerComponent || "Unspecified source";
+}
+function sourceDetails(source) {
+  return SOURCE_FIELDS.map((field) => [SOURCE_FIELD_LABELS[field], source[field] || "Not provided"]);
+}
+function sourceLabels(sources, groupByPayload = true) {
+  const groups = /* @__PURE__ */ new Map();
+  for (const source of new Map([...sources].map((source2) => [sourceKey(source2), source2])).values()) {
+    const groupKey = JSON.stringify([groupByPayload ? source.payloadType : "", sourceLabel(source)]);
+    if (!groups.has(groupKey)) groups.set(groupKey, []);
+    groups.get(groupKey).push(source);
+  }
+  const labels = /* @__PURE__ */ new Map();
+  for (const group of groups.values()) {
+    if (group.length === 1) {
+      labels.set(sourceKey(group[0]), sourceLabel(group[0]));
+      continue;
+    }
+    const fields = SOURCE_FIELDS.filter((field) => new Set(group.map((source) => source[field])).size > 1);
+    const qualify = (source, selected) => selected.map((field) => source[field] || `${SOURCE_FIELD_LABELS[field]} not provided`).join(" \xB7 ");
+    const choices = [[]];
+    for (const field of fields) choices.push(...choices.map((choice2) => [...choice2, field]));
+    const length = (choice2) => group.reduce((total, source) => total + qualify(source, choice2).length, 0);
+    choices.sort((a, b) => a.length - b.length || length(a) - length(b));
+    const choice = choices.find((candidate) => new Set(group.map((source) => qualify(source, candidate))).size === group.length);
+    for (const source of group) {
+      const qualifier = choice ? qualify(source, choice) : JSON.stringify(Object.fromEntries(fields.map((field) => [SOURCE_FIELD_LABELS[field], source[field]])));
+      labels.set(sourceKey(source), `${sourceLabel(source)} (${qualifier})`);
+    }
+  }
+  return labels;
+}
+function collectOutputs(frame) {
+  const outputs = /* @__PURE__ */ new Map();
+  for (const layer2 of frame?.layers || []) {
+    if (!layer2.payloadType || layer2.payloadType === "FrameContext") continue;
+    const source = outputSource(layer2);
+    const key = sourceKey(source);
+    if (!outputs.has(key)) outputs.set(key, { key, source, layers: [] });
+    outputs.get(key).layers.push(layer2);
+  }
+  return outputs;
+}
+function append(index, key, value) {
+  if (!key) return;
+  if (!index.has(key)) index.set(key, []);
+  index.get(key).push(value);
+}
+function indexFrame(frame) {
+  const outputs = collectOutputs(frame);
+  const index = { frame, outputs, byPayload: /* @__PURE__ */ new Map(), byProducer: /* @__PURE__ */ new Map(), objects: /* @__PURE__ */ new Map(), byTrack: /* @__PURE__ */ new Map() };
+  for (const output of outputs.values()) {
+    append(index.byPayload, output.source.payloadType, output);
+    append(index.byProducer, producerKey(output.source), output);
+    output.items = [];
+    for (const layer2 of output.layers) {
+      for (const item of layer2.detections || []) {
+        if (!item?.data) continue;
+        const entry = { ...item, layer: layer2, source: output.source };
+        output.items.push(entry);
+        append(index.objects, objectId(item.data.uuid), entry);
+        append(index.byTrack, trackKey(output.source, item.data.trackId), entry);
+      }
+    }
+  }
+  return index;
+}
+
+// development/web/src/overlays.js
+var OVERLAY_STORAGE_KEY = "opk-overlays:v2";
+var LEGACY_STORAGE_KEY = "opk-overlays:v1";
+function legacyFeature(source) {
+  if (source.payloadType === "Classifications" && source.contentType === "cameraContact") return "camera-contact";
+  return {
+    BoxDetections: "bounding-boxes",
+    ObjectTracks: "tracked-objects",
+    TrackTraces: "movement-trails",
+    Classifications: "classifications",
+    PoseEstimations: "gaze",
+    PerformanceOverlay: "performance"
+  }[source.payloadType] || "unsupported";
+}
+function validLegacy(overlay2) {
+  return validSource(overlay2?.source) && typeof overlay2.enabled === "boolean" && typeof overlay2.settings?.color === "string" && /^#[0-9a-f]{6}$/i.test(overlay2.settings.color) && Number.isFinite(overlay2.settings?.opacity) && overlay2.settings.opacity >= 0 && overlay2.settings.opacity <= 1;
+}
+function migrateLegacy(overlay2, saved) {
+  if (!validLegacy(overlay2)) return null;
+  const featureId = legacyFeature(overlay2.source);
+  const settings = { ...overlay2.settings };
+  if (featureId === "tracked-objects") {
+    const oldTraceKey = sourceKey({ ...overlay2.source, payloadType: "TrackTraces", contentType: "trackTrace" });
+    settings.boxes = true;
+    settings.trails = !saved.some((entry) => validLegacy(entry) && sourceKey(entry.source) === oldTraceKey);
+  }
+  return { featureId, selection: { primary: overlay2.source }, enabled: overlay2.enabled, settings };
+}
+function normalizeOverlay(overlay2) {
+  const primary = overlay2?.selection?.primary;
+  if (!overlay2 || typeof overlay2.featureId !== "string" || !overlay2.featureId || typeof overlay2.enabled !== "boolean" || primary !== null && !validSource(primary)) return null;
+  const feature = featureFor(overlay2.featureId);
+  if (!overlay2.settings || typeof overlay2.settings !== "object" || Array.isArray(overlay2.settings)) return null;
+  const settings = feature ? feature.validateSettings(overlay2.settings) : overlay2.settings;
+  if (!settings) return null;
+  return { featureId: overlay2.featureId, selection: { primary: primary === null ? null : { ...primary } }, enabled: overlay2.enabled, settings };
+}
+function createOverlay(featureId, source = null) {
+  return { featureId, selection: { primary: source }, enabled: true, settings: defaultSettings(featureId, source) };
+}
+function bindPendingOverlays(overlays2, catalog) {
+  let changed = false;
+  for (const overlay2 of overlays2) {
+    if (overlay2.selection.primary !== null) continue;
+    const feature = featureFor(overlay2.featureId);
+    if (!feature?.render) continue;
+    const sources = feature.discover(catalog);
+    if (sources.length !== 1) continue;
+    overlay2.selection.primary = sources[0];
+    changed = true;
+  }
+  return changed;
+}
+function loadOverlays(storage2) {
+  try {
+    const current = storage2.getItem(OVERLAY_STORAGE_KEY);
+    const raw = current ?? storage2.getItem(LEGACY_STORAGE_KEY);
+    if (raw === null) return { overlays: [], notice: "" };
+    const saved = JSON.parse(raw);
+    const migrating = current === null;
+    if (saved?.version !== (migrating ? 1 : 2) || !Array.isArray(saved.overlays)) throw new Error("Unsupported settings");
+    const candidates = migrating ? saved.overlays.map((entry) => migrateLegacy(entry, saved.overlays)) : saved.overlays;
+    const overlays2 = candidates.map(normalizeOverlay).filter(Boolean);
+    let relabelled = false;
+    for (const overlay2 of overlays2) {
+      const source = overlay2.selection.primary;
+      if (overlay2.featureId === "bounding-boxes" && source?.contentType === "humanFace" && ["BoxDetections", "ObjectTracks"].includes(source.payloadType)) {
+        overlay2.featureId = "face-circles";
+        relabelled = true;
+      }
+    }
+    const notices = [];
+    if (overlays2.length !== candidates.length) notices.push("Some invalid saved overlays were skipped.");
+    if (migrating || relabelled) notices.push(saveOverlays(storage2, overlays2));
+    return { overlays: overlays2, notice: notices.filter(Boolean).join(" ") };
+  } catch {
+    return { overlays: [], notice: "Saved overlays could not be loaded. You can still add overlays." };
+  }
+}
+function saveOverlays(storage2, overlays2) {
+  try {
+    const saved = overlays2.map(normalizeOverlay);
+    if (saved.some((overlay2) => !overlay2)) throw new Error("Invalid overlay settings");
+    storage2.setItem(OVERLAY_STORAGE_KEY, JSON.stringify({ version: 2, overlays: saved }));
+    return "";
+  } catch {
+    return "Overlay settings could not be saved. Changes apply only to this page session.";
+  }
 }
 
 // development/web/src/client-osd.js
 var canvas = document.getElementById("clientOsdCanvas");
 var video4 = document.getElementById("video");
 var toggleButton = document.getElementById("clientOsdControlsBtn");
-var controlsPanel = document.getElementById("clientOsdControlsPanel");
-var latest = {
-  frameResults: null
-};
-var controlIds = {
-  objects: "clientOsdRenderObjects",
-  faces: "clientOsdRenderFaces",
-  gaze: "clientOsdRenderGaze",
-  cameraContact: "clientOsdRenderCameraContact",
-  trackTraces: "clientOsdRenderTrackTraces",
-  classification: "clientOsdRenderClassification",
-  personStatus: "clientOsdRenderPersonStatus"
-};
-var colorIds = {
-  objects: "clientOsdColorObjects",
-  faces: "clientOsdColorFaces",
-  gaze: "clientOsdColorGaze",
-  cameraContact: "clientOsdColorCameraContact",
-  trackTraces: "clientOsdColorTrackTraces",
-  classification: "clientOsdColorClassification",
-  personStatus: "clientOsdColorPersonStatus"
-};
-if (canvas && video4) {
-  window.addEventListener("metadata-message", (event) => {
-    latest.frameResults = event.detail?.frame_results || null;
-  });
-  window.addEventListener("resize", () => resizeCanvasToDisplaySize(canvas));
-  video4.addEventListener("loadedmetadata", () => resizeCanvasToDisplaySize(canvas));
-  video4.addEventListener("resize", () => resizeCanvasToDisplaySize(canvas));
-  requestAnimationFrame(renderFrame);
+var panel = document.getElementById("clientOsdControlsPanel");
+var list = document.getElementById("overlayList");
+var notice = document.getElementById("overlayNotice");
+var connection = document.getElementById("overlayConnection");
+var addButton = document.getElementById("addOverlayBtn");
+var dialog = document.getElementById("overlayDialog");
+var form = document.getElementById("overlayForm");
+var featureSelect = document.getElementById("overlayFeature");
+var outputSelect = document.getElementById("overlayOutput");
+var sourceField = document.getElementById("overlaySourceField");
+var sourceSummary = document.getElementById("overlaySourceSummary");
+var editorDetails = document.getElementById("overlaySourceDetails");
+var editorSettings = document.getElementById("overlayEditorSettings");
+var editorHint = document.getElementById("overlayEditorHint");
+var submitButton = document.getElementById("saveOverlayBtn");
+var storage;
+try {
+  storage = window.localStorage;
+} catch {
 }
-if (toggleButton && controlsPanel) {
-  toggleButton.addEventListener("click", () => {
-    const isOpen = toggleButton.getAttribute("aria-expanded") === "true";
-    setControlsOpen(!isOpen);
-  });
-  document.addEventListener("click", (event) => {
-    if (controlsPanel.hidden || controlsPanel.contains(event.target) || toggleButton.contains(event.target)) {
-      return;
-    }
-    setControlsOpen(false);
-  });
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      setControlsOpen(false);
-    }
-  });
+var restored = loadOverlays(storage);
+var overlays = restored.overlays;
+notice.textContent = restored.notice;
+var frameIndex = indexFrame(null);
+var knownOutputs = /* @__PURE__ */ new Map();
+var cardNodes = /* @__PURE__ */ new Map();
+var expandedOverlays = /* @__PURE__ */ new Set();
+var editing = null;
+var draft = null;
+var returnFocus = addButton;
+function node(tag, className, text2) {
+  const result = document.createElement(tag);
+  if (className) result.className = className;
+  if (text2 !== void 0) result.textContent = text2;
+  return result;
 }
+function persist() {
+  notice.textContent = saveOverlays(storage, overlays);
+}
+function setPanelOpen(open) {
+  panel.hidden = !open;
+  toggleButton.setAttribute("aria-expanded", String(open));
+  toggleButton.setAttribute("aria-pressed", String(open));
+  if (open) addButton.focus();
+}
+toggleButton.addEventListener("click", () => setPanelOpen(panel.hidden));
+function styleControls(featureId, settings, changed) {
+  const container = node("div", "overlay-style-controls");
+  for (const control of featureFor(featureId)?.controls || []) {
+    if (control.type === "checkbox") {
+      const label2 = node("label", "overlay-visibility");
+      const input2 = document.createElement("input");
+      input2.type = "checkbox";
+      input2.checked = settings[control.key];
+      input2.addEventListener("change", () => {
+        settings[control.key] = input2.checked;
+        changed();
+      });
+      label2.append(input2, node("span", "", control.label));
+      container.append(label2);
+      continue;
+    }
+    const label = node("label", "overlay-field");
+    label.append(node("span", "", control.label));
+    const row = node("span", "overlay-style-value");
+    const input = document.createElement("input");
+    input.type = control.type;
+    input.setAttribute("aria-label", control.label);
+    for (const attribute of ["min", "max", "step"]) {
+      if (control[attribute] !== void 0) input[attribute] = control[attribute];
+    }
+    input.value = settings[control.key];
+    const value = node("output");
+    const updateValue = () => {
+      value.textContent = control.type === "range" ? `${Math.round(Number(input.value) * 100)}%` : input.value;
+    };
+    input.addEventListener("input", () => {
+      settings[control.key] = control.type === "range" ? Number(input.value) : input.value;
+      updateValue();
+      changed();
+    });
+    updateValue();
+    row.append(input, value);
+    label.append(row);
+    container.append(label);
+  }
+  return container;
+}
+function technicalDetails(source) {
+  const description = node("dl", "overlay-metadata");
+  for (const [label, value] of sourceDetails(source)) {
+    description.append(node("dt", "", label), node("dd", "", value));
+  }
+  return description;
+}
+function selectionKey(overlay2) {
+  return overlay2?.selection.primary ? sourceKey(overlay2.selection.primary) : "";
+}
+function updateSourceLabels() {
+  const catalog = new Map(knownOutputs);
+  for (const overlay2 of overlays) {
+    if (overlay2.selection.primary) catalog.set(selectionKey(overlay2), overlay2.selection.primary);
+  }
+  for (const [overlay2, row] of cardNodes) {
+    const sources = featureFor(overlay2.featureId)?.discover(catalog) || [];
+    const labels = sourceLabels(overlay2.selection.primary ? [...sources, overlay2.selection.primary] : sources, false);
+    const source = overlay2.selection.primary ? labels.get(selectionKey(overlay2)) : "No source selected";
+    const title = `${row.featureLabel} \xB7 ${source}`;
+    row.title.textContent = title;
+    row.toggle.title = `${title}
+${row.status.textContent}`;
+    row.checkbox.setAttribute("aria-label", `Show ${title}`);
+    row.remove.setAttribute("aria-label", `Remove ${title} overlay`);
+    if (row.metadata.hidden && overlay2.selection.primary) {
+      row.metadata.replaceChildren(node("summary", "", "Details"), technicalDetails(overlay2.selection.primary));
+      row.metadata.hidden = false;
+    }
+  }
+}
+function renderList() {
+  cardNodes.clear();
+  list.replaceChildren();
+  if (!overlays.length) {
+    list.append(node("p", "overlay-hint", "No overlays. Add an overlay to draw pipeline outputs on the video."));
+  }
+  for (const [index, overlay2] of overlays.entries()) {
+    const card = node("article", "overlay-card");
+    const header = node("div", "overlay-card-header");
+    const featureLabel = featureFor(overlay2.featureId)?.label || overlay2.featureId;
+    const visibility2 = node("label", "overlay-visible");
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = overlay2.enabled;
+    checkbox.addEventListener("change", () => {
+      overlay2.enabled = checkbox.checked;
+      persist();
+      updateStatuses();
+    });
+    visibility2.append(checkbox);
+    const toggle = node("button", "overlay-toggle");
+    toggle.type = "button";
+    toggle.id = `overlay-toggle-${index}`;
+    const chevron = node("i", "fa-solid fa-chevron-right");
+    chevron.setAttribute("aria-hidden", "true");
+    const title = node("span", "overlay-title");
+    toggle.append(chevron, title);
+    const status = node("p", "overlay-hint");
+    status.id = `overlay-status-${index}`;
+    const settings = node("div", "overlay-settings");
+    settings.id = `overlay-settings-${index}`;
+    settings.hidden = !expandedOverlays.has(overlay2);
+    settings.setAttribute("role", "group");
+    settings.setAttribute("aria-labelledby", toggle.id);
+    toggle.setAttribute("aria-controls", settings.id);
+    toggle.setAttribute("aria-describedby", status.id);
+    toggle.setAttribute("aria-expanded", String(!settings.hidden));
+    toggle.addEventListener("click", () => {
+      settings.hidden = !settings.hidden;
+      toggle.setAttribute("aria-expanded", String(!settings.hidden));
+      if (settings.hidden) expandedOverlays.delete(overlay2);
+      else expandedOverlays.add(overlay2);
+    });
+    settings.append(status, styleControls(overlay2.featureId, overlay2.settings, () => {
+      persist();
+      updateStatuses();
+    }));
+    const actions = node("div", "overlay-actions");
+    const edit = node("button", "", "Change source\u2026");
+    edit.type = "button";
+    edit.addEventListener("click", () => openEditor(overlay2, edit));
+    const remove = node("button", "overlay-remove");
+    remove.type = "button";
+    remove.title = "Remove overlay";
+    remove.setAttribute("aria-label", `Remove ${featureLabel} overlay`);
+    const removeIcon = node("i", "fa-solid fa-trash-can");
+    removeIcon.setAttribute("aria-hidden", "true");
+    remove.append(removeIcon);
+    remove.addEventListener("click", () => {
+      expandedOverlays.delete(overlay2);
+      overlays.splice(overlays.indexOf(overlay2), 1);
+      persist();
+      renderList();
+      addButton.focus();
+    });
+    header.append(visibility2, toggle, remove);
+    actions.append(edit);
+    settings.append(actions);
+    const metadata = node("details", "overlay-details");
+    metadata.hidden = !overlay2.selection.primary;
+    if (overlay2.selection.primary) metadata.append(node("summary", "", "Details"), technicalDetails(overlay2.selection.primary));
+    settings.append(metadata);
+    card.append(header, settings);
+    cardNodes.set(overlay2, { card, toggle, title, checkbox, remove, status, metadata, featureLabel });
+    list.append(card);
+  }
+  updateStatuses();
+  updateSourceLabels();
+}
+function updateStatuses() {
+  for (const [overlay2, row] of cardNodes) {
+    const resolved = resolveOverlay(frameIndex, overlay2);
+    const state = overlayStatus(frameIndex, overlay2, knownOutputs, resolved);
+    if (row.status.textContent !== state) row.status.textContent = state;
+    const available = !["waiting", "unsupported"].includes(resolved.state);
+    const color = available && /^#[0-9a-f]{6}$/i.test(overlay2.settings.color) ? overlay2.settings.color : available ? "#ffffff" : "#d1d5db";
+    if (row.color !== color || row.available !== available) {
+      row.card.style.setProperty("--overlay-color", color);
+      row.card.style.setProperty("--overlay-foreground", available ? contrastingText(color) : "#4b5563");
+      row.card.setAttribute("data-unavailable", String(!available));
+      row.color = color;
+      row.available = available;
+    }
+    const tooltip = `${row.title.textContent}
+${state}`;
+    if (row.toggle.title !== tooltip) row.toggle.title = tooltip;
+  }
+}
+function contrastingText(color) {
+  const [r, g, b] = [1, 3, 5].map((offset) => {
+    const channel = parseInt(color.slice(offset, offset + 2), 16) / 255;
+    return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.179 ? "#000000" : "#ffffff";
+}
+function availableDescriptors() {
+  const descriptors = new Map(knownOutputs);
+  if (editing?.selection.primary) descriptors.set(selectionKey(editing), editing.selection.primary);
+  if (draft?.selection.primary) descriptors.set(selectionKey(draft), draft.selection.primary);
+  return descriptors;
+}
+function refreshFeatures() {
+  const previous = featureSelect.value;
+  const catalog = availableDescriptors();
+  const features = new Map(OVERLAY_FEATURES.filter((feature) => feature.render || feature.discover(catalog).length).map((feature) => [feature.id, feature.label]));
+  for (const overlay2 of [editing, draft]) {
+    if (overlay2 && !features.has(overlay2.featureId)) features.set(overlay2.featureId, featureFor(overlay2.featureId)?.label || overlay2.featureId);
+  }
+  featureSelect.replaceChildren();
+  for (const [id, label] of features) featureSelect.add(new Option(label, id));
+  if (!features.size) featureSelect.add(new Option("Waiting for pipeline outputs", ""));
+  if (features.has(previous)) featureSelect.value = previous;
+  featureSelect.disabled = !features.size;
+}
+function refreshOutputs() {
+  const previous = outputSelect.value;
+  const catalog = availableDescriptors();
+  const sources = featureFor(featureSelect.value)?.discover(catalog) || [];
+  const choices = new Map(sources.map((source) => [sourceKey(source), source]));
+  for (const overlay2 of [editing, draft]) {
+    if (overlay2?.featureId === featureSelect.value && overlay2.selection.primary) choices.set(selectionKey(overlay2), overlay2.selection.primary);
+  }
+  const descriptors = [...choices.values()];
+  const labels = sourceLabels(descriptors, false);
+  outputSelect.replaceChildren();
+  const hasChoice = descriptors.length > 1;
+  const waiting = draft?.featureId === featureSelect.value && !draft.selection.primary || !draft && editing?.featureId === featureSelect.value && !editing.selection.primary;
+  if (hasChoice && (waiting || !previous)) outputSelect.add(new Option("Choose a source", ""));
+  for (const source of descriptors) {
+    const key = sourceKey(source);
+    outputSelect.add(new Option(labels.get(key), key));
+  }
+  if ([...outputSelect.options].some((option) => option.value === previous)) outputSelect.value = previous;
+  sourceField.hidden = !hasChoice;
+  outputSelect.disabled = !hasChoice;
+  outputSelect.required = hasChoice;
+  sourceSummary.hidden = hasChoice;
+  sourceSummary.textContent = descriptors.length === 1 ? `From ${labels.get(sourceKey(descriptors[0]))}` : "Source will be selected when available.";
+  updateDraft();
+}
+function updateDraft() {
+  const source = availableDescriptors().get(outputSelect.value) || null;
+  if (!featureSelect.value) {
+    draft = null;
+    editorSettings.replaceChildren();
+    editorDetails.hidden = true;
+    editorHint.textContent = "Choose what to show.";
+    submitButton.disabled = true;
+    return;
+  }
+  const key = source ? sourceKey(source) : "";
+  if (!draft || draft.featureId !== featureSelect.value || selectionKey(draft) !== key) {
+    const previousDraft = draft;
+    draft = createOverlay(featureSelect.value, source);
+    draft.enabled = editing?.enabled ?? true;
+    if (previousDraft?.featureId === draft.featureId && !previousDraft.selection.primary) {
+      draft.settings = { ...previousDraft.settings };
+    } else if (editing?.featureId === draft.featureId && selectionKey(editing) === key) {
+      draft.settings = { ...editing.settings };
+    }
+    editorSettings.replaceChildren(styleControls(draft.featureId, draft.settings, updateDraft));
+    editorDetails.replaceChildren(node("summary", "", "Details"));
+    if (source) editorDetails.append(technicalDetails(source));
+  }
+  editorDetails.hidden = !source;
+  const resolved = resolveOverlay(frameIndex, draft);
+  const needsChoice = !source && !outputSelect.disabled;
+  const hint = needsChoice ? "Choose a source." : resolved.state === "ready" ? "" : resolved.message;
+  if (editorHint.textContent !== hint) editorHint.textContent = hint;
+  submitButton.disabled = resolved.state === "unsupported" || needsChoice;
+}
+function openEditor(overlay2, opener) {
+  editing = overlay2;
+  draft = null;
+  editorDetails.open = false;
+  returnFocus = opener;
+  document.getElementById("overlayDialogTitle").textContent = overlay2 ? "Edit overlay" : "Add overlay";
+  submitButton.textContent = overlay2 ? "Apply" : "Add";
+  refreshFeatures();
+  if (overlay2) featureSelect.value = overlay2.featureId;
+  refreshOutputs();
+  if (overlay2?.selection.primary) {
+    outputSelect.value = selectionKey(overlay2);
+    updateDraft();
+  }
+  dialog.showModal();
+}
+addButton.addEventListener("click", () => openEditor(null, addButton));
+featureSelect.addEventListener("change", refreshOutputs);
+outputSelect.addEventListener("change", updateDraft);
+document.getElementById("cancelOverlayBtn").addEventListener("click", () => dialog.close());
+dialog.addEventListener("close", () => {
+  editing = null;
+  draft = null;
+  if (returnFocus.isConnected) returnFocus.focus();
+  else addButton.focus();
+});
+form.addEventListener("submit", (event) => {
+  event.preventDefault();
+  if (!draft || submitButton.disabled || resolveOverlay(frameIndex, draft).state === "unsupported") return;
+  if (editing) Object.assign(editing, draft);
+  else overlays.push(draft);
+  persist();
+  renderList();
+  dialog.close();
+});
+window.addEventListener("metadata-message", (event) => {
+  const frame = event.detail?.frame_results || null;
+  frameIndex = indexFrame(frame);
+  connection.textContent = event.detail?.decode_error ? `Metadata unavailable: ${event.detail.decode_error}` : frame ? "" : "Waiting for pipeline outputs";
+  let changed = false;
+  if (event.detail?.decode_error) {
+    knownOutputs.clear();
+    changed = true;
+  }
+  for (const [key, output] of frameIndex.outputs) {
+    if (!knownOutputs.has(key)) {
+      knownOutputs.set(key, output.source);
+      changed = true;
+    }
+  }
+  const bound = bindPendingOverlays(overlays, knownOutputs);
+  if (bound) persist();
+  updateStatuses();
+  if (changed || bound) updateSourceLabels();
+  if (dialog.open) {
+    if (changed) {
+      refreshFeatures();
+      refreshOutputs();
+    } else updateDraft();
+  }
+});
+window.addEventListener("metadata-connection", (event) => {
+  if (event.detail.connected) return;
+  frameIndex = indexFrame(null);
+  knownOutputs.clear();
+  connection.textContent = "Metadata disconnected. Waiting for pipeline outputs.";
+  updateStatuses();
+  updateSourceLabels();
+  if (dialog.open) {
+    refreshFeatures();
+    refreshOutputs();
+  }
+});
 function renderFrame() {
-  renderOsd(canvas, video4, latest.frameResults, readRenderOptions());
-  requestAnimationFrame(renderFrame);
+  renderOsd(canvas, video4, frameIndex, overlays);
+  window.requestAnimationFrame(renderFrame);
 }
-function readRenderOptions() {
-  return {
-    objects: isChecked(controlIds.objects),
-    faces: isChecked(controlIds.faces),
-    gaze: isChecked(controlIds.gaze),
-    cameraContact: isChecked(controlIds.cameraContact),
-    trackTraces: isChecked(controlIds.trackTraces),
-    classification: isChecked(controlIds.classification),
-    personStatus: isChecked(controlIds.personStatus),
-    performance: false,
-    colors: {
-      objects: colorValue(colorIds.objects),
-      faces: colorValue(colorIds.faces),
-      gaze: colorValue(colorIds.gaze),
-      cameraContact: colorValue(colorIds.cameraContact),
-      trackTraces: colorValue(colorIds.trackTraces),
-      classification: colorValue(colorIds.classification),
-      personStatus: colorValue(colorIds.personStatus)
-    }
-  };
-}
-function isChecked(id) {
-  const element = document.getElementById(id);
-  return element ? element.checked : true;
-}
-function colorValue(id) {
-  return document.getElementById(id)?.value;
-}
-function setControlsOpen(isOpen) {
-  controlsPanel.hidden = !isOpen;
-  toggleButton.setAttribute("aria-expanded", String(isOpen));
-  toggleButton.setAttribute("aria-pressed", String(isOpen));
-}
+renderList();
+window.requestAnimationFrame(renderFrame);

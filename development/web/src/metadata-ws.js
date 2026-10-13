@@ -54,25 +54,30 @@ function normalisePerformance(frameResults) {
     };
 }
 
+function publishMetadata(frameCounter, frameResults, decodeError = null) {
+    window.dispatchEvent(new CustomEvent('metadata-message', {
+        detail: {
+            frame_counter: Number.isInteger(frameCounter) ? frameCounter : undefined,
+            frame_results: frameResults,
+            inference_output: normaliseInferenceOutput(frameResults),
+            performance: normalisePerformance(frameResults),
+            decode_error: decodeError,
+        },
+    }));
+}
+
 function handleMetadataMessage(raw) {
     let message;
     try {
         message = JSON.parse(String(raw).trim());
     } catch (error) {
         console.warn('Invalid metadata WebSocket message', error);
+        publishMetadata(undefined, null, 'Invalid metadata JSON');
         return;
     }
 
     if (message?.frame_results_encoding == null && message?.frame_results_packet_b64 == null) {
-        window.dispatchEvent(new CustomEvent('metadata-message', {
-            detail: {
-                frame_counter: Number.isInteger(message?.frame_counter) ? message.frame_counter : undefined,
-                frame_results: null,
-                inference_output: {layers: []},
-                performance: {lines: []},
-                decode_error: null,
-            },
-        }));
+        publishMetadata(message?.frame_counter, null);
         return;
     }
 
@@ -81,30 +86,11 @@ function handleMetadataMessage(raw) {
         decoded = decodeFrameResultsMessage(message);
     } catch (error) {
         console.warn('Invalid FrameResults metadata message', error);
-        window.dispatchEvent(new CustomEvent('metadata-message', {
-            detail: {
-                frame_counter: Number.isInteger(message?.frame_counter) ? message.frame_counter : undefined,
-                frame_results: null,
-                inference_output: { layers: [] },
-                performance: { lines: [] },
-                decode_error: error instanceof Error ? error.message : String(error),
-            },
-        }));
+        publishMetadata(message?.frame_counter, null, error instanceof Error ? error.message : String(error));
         return;
     }
 
-    const inference_output = normaliseInferenceOutput(decoded.frame_results);
-    const performance = normalisePerformance(decoded.frame_results);
-
-    window.dispatchEvent(new CustomEvent('metadata-message', {
-        detail: {
-            frame_counter: decoded.frame_counter,
-            frame_results: decoded.frame_results,
-            inference_output,
-            performance,
-            decode_error: null,
-        },
-    }));
+    publishMetadata(decoded.frame_counter, decoded.frame_results);
 }
 
 let socket = null;
@@ -119,6 +105,7 @@ function connect() {
 
     socket.onopen = () => {
         reconnectDelay = RECONNECT_DELAY_MS;
+        window.dispatchEvent(new CustomEvent('metadata-connection', {detail: {connected: true}}));
     };
 
     socket.onmessage = (event) => {
@@ -128,6 +115,7 @@ function connect() {
     socket.onerror = () => { ; };
 
     socket.onclose = () => {
+        window.dispatchEvent(new CustomEvent('metadata-connection', {detail: {connected: false}}));
         window.setTimeout(() => {
             reconnectDelay = Math.min(reconnectDelay * BACKOFF_FACTOR, RECONNECT_DELAY_MAX_MS);
             connect();
