@@ -4,7 +4,7 @@
   "sourceInfo": "bundled video file",
   "loop": true,
   "pipeline": [
-    "filesrc location=\"${OPK_PROJECT_ROOT:-/work}/data/videos/GettyImages-1140581459.mov\" !",
+    "filesrc location=\"${OPK_PROJECT_ROOT:-/work}/data/videos/3150502-hd_1280_720_60fps.mp4\" !",
     "decodebin !",
     "videoconvert !",
     "video/x-raw,format=BGRA !",

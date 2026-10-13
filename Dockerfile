@@ -375,7 +375,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   nmap=7.95+dfsg-3 openssh-client=1:10.0p1-7+deb13u4 powerline=2.8.4-1 ripgrep=14.1.1-1+b4 \
   tcpdump=4.99.5-2 tmux=3.5a-3 traceroute=1:2.1.6-1 tree-sitter-cli=0.22.6-6+b1 \
   v4l-utils=1.30.1-1 vim=2:9.1.1230-2 wl-clipboard=2.2.1-2 \
-  xz-utils=5.8.1-1+deb13u1 zsh=5.9-8+b24; \
+  xz-utils zsh=5.9-8+b24; \
   if apt-get install -y --no-install-recommends --dry-run gstreamer1.0-libav=1.26.2-1+deb13u1; then \
     apt-get install -y --no-install-recommends gstreamer1.0-libav=1.26.2-1+deb13u1; \
   else \
