@@ -20,6 +20,7 @@ import faceCircles from './features/face-circles.js';
 import trackedObjects from './features/tracked-objects.js';
 import movementTrails from './features/movement-trails.js';
 import classifications from './features/classifications.js';
+import gaze from './features/gaze.js';
 
 export const OVERLAY_FEATURES = [
     boundingBoxes,
@@ -27,6 +28,7 @@ export const OVERLAY_FEATURES = [
     trackedObjects,
     movementTrails,
     classifications,
+    gaze,
 ];
 
 export function featureFor(id) {

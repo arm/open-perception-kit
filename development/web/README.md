@@ -70,6 +70,7 @@ multiple related payloads, and one payload can support multiple features.
 | Tracked objects | `ObjectTracks` plus optional related `TrackTraces`: independently controlled **Boxes** and **Trails**, both enabled by default. |
 | Movement trails | `TrackTraces`: trajectories without boxes. |
 | Classifications | `Classifications`: candidate text or PERSON/NON-PERSON status. |
+| Gaze | `PoseEstimations` with `eyeYawPitch` semantics plus parent face geometry. |
 
 `FrameContext` supplies video geometry rather than a selectable visualization.
 

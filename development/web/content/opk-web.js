@@ -6408,6 +6408,12 @@ function drawTrackTrace(ctx, trace, mapper, color) {
     drawArrow(ctx, from, to, hexToRgba(color, alpha), 4, 0);
   }
 }
+function drawGazeVector(ctx, yp, parent, mapper, color) {
+  if (nearZero(yp.yaw) && nearZero(yp.pitch)) return;
+  const parentBox = mapper.rect(parent);
+  const start = { x: parentBox.x + parentBox.width / 2, y: parentBox.y + parentBox.height / 2 };
+  drawArrow(ctx, start, gazeEndpoint(start, yp.yaw, yp.pitch, 120), color, 3, 10);
+}
 function drawTextChip(ctx, text2, x, y, fontSize, color = "#ffffff", alignRight = false) {
   ctx.save();
   ctx.font = `${fontSize}px monospace`;
@@ -6445,11 +6451,25 @@ function drawArrow(ctx, from, to, color, width = 3, headSize = 10) {
   }
   ctx.restore();
 }
+function gazeEndpoint(start, yawDeg, pitchDeg, lengthPx) {
+  const yaw = deg2rad(yawDeg);
+  const pitch = deg2rad(pitchDeg);
+  return {
+    x: start.x - Math.sin(yaw) * Math.cos(pitch) * lengthPx,
+    y: start.y - Math.sin(pitch) * lengthPx
+  };
+}
 function confidenceLabel(confidence) {
   return Number.isFinite(confidence) ? `${(confidence * 100).toFixed(1)}%` : "";
 }
 function positiveNumber(value) {
   return Number.isFinite(Number(value)) && Number(value) > 0 ? Number(value) : 0;
+}
+function nearZero(value) {
+  return Number(value) < 0.1 && Number(value) > -0.1;
+}
+function deg2rad(value) {
+  return Number(value || 0) * Math.PI / 180;
 }
 function hexToRgba(hex, alpha) {
   const clean = hex.replace("#", "");
@@ -6631,6 +6651,21 @@ function defineFeature({ controls = STYLE_CONTROLS, defaults = {}, resolve = (re
     }
   };
 }
+function resolveFaceParents(result, index, type) {
+  const items = result.items.filter((item) => item.type === type);
+  const resolved = { ...result, items, attached: [] };
+  let missing = false;
+  let ambiguous = false;
+  for (const item of items) {
+    const candidates = (index.objects.get(objectId(item.data.parentUuid)) || []).filter((candidate) => ["BoxDetections", "ObjectTracks"].includes(candidate.source.payloadType) && candidate.source.contentType === "humanFace" && candidate.type === "Rect");
+    if (candidates.length > 1) ambiguous = true;
+    else if (candidates.length === 1) resolved.attached.push({ data: item.data, parent: candidates[0].data });
+    else missing = true;
+  }
+  if (ambiguous) return { ...resolved, state: "ambiguous", message: "Multiple parent faces match; ambiguous markers are omitted." };
+  if (missing) return { ...resolved, state: "partial", message: "Waiting for parent face geometry." };
+  return resolved;
+}
 
 // development/web/src/features/bounding-boxes.js
 var bounding_boxes_default = defineFeature({
@@ -6731,13 +6766,25 @@ var classifications_default = defineFeature({
   }
 });
 
+// development/web/src/features/gaze.js
+var gaze_default = defineFeature({
+  id: "gaze",
+  label: "Gaze",
+  accepts: (source) => source.payloadType === "PoseEstimations" && source.contentType === "eyeYawPitch",
+  resolve: (result, index) => resolveFaceParents(result, index, "YawPitch"),
+  render({ ctx, mapper }, resolved, settings) {
+    for (const { data, parent } of resolved.attached) drawGazeVector(ctx, data, parent, mapper, settings.color);
+  }
+});
+
 // development/web/src/overlay-features.js
 var OVERLAY_FEATURES = [
   bounding_boxes_default,
   face_circles_default,
   tracked_objects_default,
   movement_trails_default,
-  classifications_default
+  classifications_default,
+  gaze_default
 ];
 function featureFor(id) {
   return OVERLAY_FEATURES.find((feature) => feature.id === id);
