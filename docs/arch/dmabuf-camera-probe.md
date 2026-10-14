@@ -467,6 +467,40 @@ scanout: KMS imports the camera buffer's file descriptor and presents that same
 allocation. Sensor processing and conversion from Bayer to NV12 happen in the
 Pi's camera hardware; this is not a claim that raw Bayer data is displayed.
 
+### Reject CPU copy fallback
+
+`libcamerasrc` supplies DMA buffers through its own allocator; it has no
+`v4l2src`-style `io-mode` switch. Neither tested element offers a property that
+forbids copying. The Pi script therefore builds and loads
+[`dmabuf-no-copy.c`](../../scripts/private/dmabuf-no-copy.c) into its
+`gst-launch-1.0` process using `LD_PRELOAD`. This guard intercepts
+`gst_video_frame_copy()` and `gst_video_frame_copy_plane()` and exits with status
+1 **before copying pixels**. These APIs cover the tested libcamera stride-copy
+fallback, KMS import fallback, and KMS drain copy. The error is:
+
+```text
+DMA-BUF probe: CPU frame copy forbidden; stopping before copying.
+```
+
+The script checks that the guard loads before starting capture. A compiler or
+loader failure also stops the probe. The guard is confined to this process and
+its temporary build is removed on exit. It requires `cc`, `pkg-config`, and the
+GStreamer video development files, already present in the tested development
+container. Transfer the helper along with the shell script.
+
+This blocks the known fallback functions, not arbitrary copies or CPU accesses
+inside drivers or other libraries. Recheck the implementation and import logs
+when changing plugin versions. The guard deliberately terminates immediately
+on a forbidden copy; kernel file-descriptor cleanup releases the devices.
+
+The regression test checks both copy APIs against a shared destination buffer,
+successful execution without copying, and refusal to capture if the guard
+cannot build or load:
+
+```bash
+python3 scripts/private/tests/test_dmabuf_no_copy.py
+```
+
 ### Run the Pi probe
 
 Use a native Pi GStreamer installation or an existing Pi development container
@@ -477,8 +511,10 @@ environment, since different libcamera versions can report different names:
 gst-device-monitor-1.0 Video
 ```
 
-Select the device containing `imx708` and copy its `camera-name` value. Discover
-the desired HDMI connector ID on the host with `kmsprint -p`, or read its
+Select the device containing `imx708` and copy its `camera-name` value. If the
+runtime lacks `gst-device-monitor-1.0`, use the identifier in libcamera's
+`Adding camera '...'` startup message. Discover the desired HDMI connector ID
+on the host with `kmsprint -p`, or read its
 `connector_id` under `/sys/class/drm/card*-HDMI-A-*`. Do not assume a fixed camera
 path, DRM card number, or connector ID. With an available display and DRM access:
 
@@ -521,8 +557,9 @@ engine path, not the visible image, colour accuracy, or physical HDMI output.
 
 ### Verify zero-copy and stream health
 
-A successful process exit alone is insufficient: `kmssink` has a CPU frame-copy
-fallback. In the GStreamer log, require a DMA buffer import for every display
+The script rejects the tested copy fallbacks. Still check the actual buffer
+imports and stream health, especially after upgrades. In the GStreamer log,
+require a DMA buffer import for every display
 call: `Found a dmabuf`, a new or cached `KMS mem` association, and `displaying fb`.
 Check that neither `frame copy` nor `draining` occurs and that `libcamerasrc`
 does not report `need to copy frame`. Enable `GST_PERFORMANCE` as above to make
@@ -545,7 +582,7 @@ allocation into an address space does not itself copy its pixels. The direct
 imports prove that the original ISP output allocations reached KMS; these tests
 do not audit every CPU access inside the camera stack.
 
-Two three-minute runs of the saved script passed on 2026-10-13:
+Two three-minute runs before adding the copy guard passed on 2026-10-13:
 
 | Run | Delivered frames | Measured rate | Longest sensor timestamp gap | Longest GStreamer arrival gap | Longest KMS completion gap |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -582,3 +619,21 @@ This establishes a working zero-copy ISP-output-to-KMS configuration on the
 tested Pi. It does not verify the visible image or guarantee the absence of
 faults in longer runs, other modes, or other plugin/driver versions. Recheck the
 import and copy-path evidence when changing the pipeline or platform.
+
+### Copy guard validation
+
+On 2026-10-14, the four regression tests passed in both the development container
+and the Pi container. Live tests exercised both actual element fallbacks:
+
+| Fallback | Deliberate trigger | Without guard | With guard |
+| --- | --- | --- | --- |
+| `libcamerasrc` stride copy | NV12 642×480 with `identity drop-allocation=true` before `fakesink` | Copied and reached EOS | Exit 1 before the copy |
+| `kmssink` import copy | `videotestsrc` NV12 640×480 with `identity drop-allocation=true` before KMS | Copied and reached EOS | Exit 1 before the copy |
+
+The exact guarded camera script then delivered 5,400 complete frames at
+30.013 fps, with sequence offsets 0–5,399 and 5,401 direct DMA buffer
+imports/display calls including preroll. It reached EOS with exit 0 and no copy
+attempts or GStreamer errors. The longest sensor timestamp gap was 33.326 ms;
+the longest GStreamer arrival gap was 42.127 ms. The temporary connector override
+was restored, with no remaining test containers or capture/display owners.
+Kernel tracing and visual inspection were not repeated for this guard change.
