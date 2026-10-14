@@ -40,7 +40,9 @@ import {TrackTracesT} from '../../../generated/open_perception_kit/ts/dist/open_
 import {VideoFrameContextT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/video-frame-context.js';
 import {decodeFrameResultsMessage, FRAME_RESULTS_ENCODING, FrameResultsDecodeError} from '../src/frame-results.js';
 import {findVideoFrame} from '../src/overlay-drawing.js';
-import {indexFrame} from '../src/overlay-sources.js';
+import {indexFrame, outputSource} from '../src/overlay-sources.js';
+import {createOverlay} from '../src/overlays.js';
+import {resolveOverlay} from '../src/overlay-features.js';
 
 function layer(contentType) {
     return new LayerInfoT(
@@ -199,8 +201,10 @@ test('retains detector and tracker outputs for independent overlay selection', (
 test('retains empty outputs, mask bytes and performance payloads', () => {
     const envelope = new Envelope();
     envelope.add(new BoxDetectionsT(1, 0, layer('genericObject'), []));
-    envelope.add(new SegmentationMasksT(1, 0, layer('foreground'), [
-        new SegmentationMaskT(new ObjectMetaT(1n), new BitmapDataT(2, 2, 'uint8', [0, 64, 128, 255])),
+    const maskLayer = layer('segmentation');
+    maskLayer.compositingMode = 'backgroundReplacement';
+    envelope.add(new SegmentationMasksT(1, 0, maskLayer, [
+        new SegmentationMaskT(new ObjectMetaT(1n), new BitmapDataT(2, 2, 'Uint8', [0, 64, 128, 255])),
     ]));
     envelope.add(new PerformanceOverlayT(1, 0, ['Pipeline: 30 FPS']));
     const {frame_results: frame} = decodeFrameResultsMessage({
@@ -211,7 +215,9 @@ test('retains empty outputs, mask bytes and performance payloads', () => {
     assert.equal(frame.layers[0].count, 0);
     const mask = frame.layers.find((item) => item.payloadType === 'SegmentationMasks');
     assert.deepEqual([...mask.detections[0].data.pixels], [0, 64, 128, 255]);
-    assert.equal(mask.detections[0].data.pixels, mask.payload.masks[0].bitmap.pixels);
+    assert.ok(mask.detections[0].data.pixels instanceof Uint8Array);
+    assert.deepEqual([...mask.detections[0].data.pixels], mask.payload.masks[0].bitmap.pixels);
+    assert.equal(resolveOverlay(indexFrame(frame), createOverlay('background-replacement', outputSource(mask))).state, 'ready');
     const performance = frame.layers.find((item) => item.payloadType === 'PerformanceOverlay');
     assert.equal(performance.detections[0].data.text, frame.perfdata[0]);
 });
