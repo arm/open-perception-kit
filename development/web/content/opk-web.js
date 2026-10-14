@@ -6330,6 +6330,71 @@ function drawFace(ctx, rect, mapper, color) {
   ctx.stroke();
   ctx.restore();
 }
+function drawClassification(ctx, classification, display, color, heading, alignRight = false, bottomOffset = 0) {
+  const candidates = Array.isArray(classification?.candidates) ? classification.candidates : [];
+  if (candidates.length === 0) {
+    return 0;
+  }
+  const fontSize = 14;
+  const lineHeight = fontSize * 1.5;
+  const padding = 10;
+  const startY = display.y + display.height - bottomOffset - candidates.length * lineHeight - 2 * padding;
+  const textX = classificationTextX(display, padding, alignRight);
+  if (heading) {
+    drawTextChip(
+      ctx,
+      heading,
+      textX,
+      Math.max(display.y + padding, startY - lineHeight),
+      fontSize,
+      color,
+      alignRight
+    );
+  }
+  candidates.forEach((candidate, index) => {
+    const text2 = `#${index + 1}: ${candidate.text || candidate.classId} (${((candidate.confidence || 0) * 100).toFixed(1)}%)`;
+    drawTextChip(
+      ctx,
+      text2,
+      textX,
+      startY + index * lineHeight,
+      fontSize,
+      color,
+      alignRight
+    );
+  });
+  return classificationPanelHeight(candidates.length, heading);
+}
+function classificationHeading(layer2) {
+  return layer2?.producer?.implementation || "";
+}
+function classificationTextX(display, padding, alignRight) {
+  if (!alignRight) {
+    return display.x + padding;
+  }
+  return display.x + display.width - padding;
+}
+function classificationPanelHeight(candidateCount, heading) {
+  const fontSize = 14;
+  const lineHeight = fontSize * 1.5;
+  const padding = 10;
+  return candidateCount * lineHeight + (heading ? lineHeight : 0) + 2 * padding;
+}
+function drawPersonClassification(ctx, personClassification, display, now, color) {
+  if (now % 1e3 >= 800) {
+    return;
+  }
+  const isPerson = Number(personClassification?.yesConfidence || 0) > Number(personClassification?.noConfidence || 0);
+  const label = isPerson ? "PERSON" : "NON-PERSON";
+  const fontSize = Math.max(28, Math.min(64, display.width / 12));
+  ctx.save();
+  ctx.font = `700 ${fontSize}px monospace`;
+  const metrics = ctx.measureText(label);
+  const x = display.x + (display.width - metrics.width) / 2;
+  const y = display.y + display.height / 2;
+  drawTextChip(ctx, label, x, y, fontSize, color);
+  ctx.restore();
+}
 function drawTrackTrace(ctx, trace, mapper, color) {
   const points = Array.isArray(trace?.points) ? trace.points : [];
   if (points.length < 2) {
@@ -6642,12 +6707,37 @@ var movement_trails_default = defineFeature({
   }
 });
 
+// development/web/src/features/classifications.js
+var classifications_default = defineFeature({
+  id: "classifications",
+  label: "Classifications",
+  accepts: (source) => source.payloadType === "Classifications" && source.contentType !== "cameraContact",
+  render({ ctx, mapper, layout, now }, resolved, settings) {
+    for (const { type, data, layer: layer2 } of resolved.items) {
+      if (type === "PersonClassification") drawPersonClassification(ctx, data, mapper.display, now, settings.color);
+      if (type !== "Classification") continue;
+      const right = layer2.compositingMode === "bottomRight";
+      const side = right ? "right" : "left";
+      layout[side] += drawClassification(
+        ctx,
+        data,
+        mapper.display,
+        settings.color,
+        classificationHeading(layer2),
+        right,
+        layout[side]
+      );
+    }
+  }
+});
+
 // development/web/src/overlay-features.js
 var OVERLAY_FEATURES = [
   bounding_boxes_default,
   face_circles_default,
   tracked_objects_default,
-  movement_trails_default
+  movement_trails_default,
+  classifications_default
 ];
 function featureFor(id) {
   return OVERLAY_FEATURES.find((feature) => feature.id === id);
