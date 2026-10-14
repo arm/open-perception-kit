@@ -6317,6 +6317,19 @@ function drawObjectBox(ctx, rect, mapper, color) {
   }
   ctx.restore();
 }
+function drawFace(ctx, rect, mapper, color) {
+  const box = mapper.rect(rect);
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  const radius = Math.abs(box.width) / 2;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
 function drawTextChip(ctx, text2, x, y, fontSize, color = "#ffffff", alignRight = false) {
   ctx.save();
   ctx.font = `${fontSize}px monospace`;
@@ -6525,9 +6538,22 @@ var bounding_boxes_default = defineFeature({
   }
 });
 
+// development/web/src/features/face-circles.js
+var face_circles_default = defineFeature({
+  id: "face-circles",
+  label: "Face circles",
+  accepts: (source) => ["BoxDetections", "ObjectTracks"].includes(source.payloadType) && source.contentType === "humanFace",
+  render({ ctx, mapper }, resolved, settings) {
+    for (const { type, data } of resolved.items) {
+      if (type === "Rect") drawFace(ctx, data, mapper, settings.color);
+    }
+  }
+});
+
 // development/web/src/overlay-features.js
 var OVERLAY_FEATURES = [
-  bounding_boxes_default
+  bounding_boxes_default,
+  face_circles_default
 ];
 function featureFor(id) {
   return OVERLAY_FEATURES.find((feature) => feature.id === id);
