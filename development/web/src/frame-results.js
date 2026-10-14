@@ -19,11 +19,13 @@ import {Envelope, ProducerIdentityStatus} from '../../../generated/open_percepti
 import {BoxDetectionsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/box-detections.js';
 import {ClassificationsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classifications.js';
 import {FrameContextT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/frame-context.js';
+import {InstanceSegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/instance-segmentation-masks.js';
 import {ObjectEmbeddingsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-embeddings.js';
 import {ObjectTracksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-tracks.js';
 import {PerformanceOverlayT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-overlay.js';
 import {PoseEstimationsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimations.js';
 import {SegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-masks.js';
+import {SemanticSegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-masks.js';
 import {TrackTracesT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-traces.js';
 
 export const FRAME_RESULTS_ENCODING = 'perception-frame-results+base64';
@@ -96,6 +98,16 @@ function candidateData(candidate) {
         y: Number(candidate.y || 0),
         w: Number(candidate.w || 0),
         h: Number(candidate.h || 0),
+    };
+}
+
+function maskData(item) {
+    return {
+        ...objectData(item.object),
+        width: Number(item.bitmap?.width || 0),
+        height: Number(item.bitmap?.height || 0),
+        valueType: text(item.bitmap?.valueType),
+        pixels: Uint8Array.from(item.bitmap?.pixels || []),
     };
 }
 
@@ -248,11 +260,28 @@ export function decodeFrameResultsMessage(message) {
     addPayloadLayers(envelope, SegmentationMasksT, (payload) =>
         payload.masks.map((item) => ({
             type: 'SegmentationMask',
+            data: maskData(item),
+        })), layers);
+
+    addPayloadLayers(envelope, SemanticSegmentationMasksT, (payload) =>
+        payload.masks.map((item) => ({
+            type: 'SemanticSegmentationMask',
+            data: maskData(item),
+        })), layers);
+
+    addPayloadLayers(envelope, InstanceSegmentationMasksT, (payload) =>
+        payload.masks.map((item) => ({
+            type: 'InstanceSegmentationMask',
             data: {
-                ...objectData(item.object),
-                width: Number(item.bitmap?.width || 0),
-                height: Number(item.bitmap?.height || 0),
-                valueType: text(item.bitmap?.valueType),
+                ...maskData(item),
+                classId: Number(item.classId ?? -1),
+                confidence: Number(item.confidence || 0),
+                box: item.box ? {
+                    x: Number(item.box.x),
+                    y: Number(item.box.y),
+                    width: Number(item.box.width),
+                    height: Number(item.box.height),
+                } : null,
             },
         })), layers);
 

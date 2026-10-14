@@ -21,6 +21,7 @@ import test from 'node:test';
 import {Builder} from 'flatbuffers';
 import {Envelope} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/index.js';
 import {WireEnvelope, WireEnvelopeT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/internalfb/wire-envelope.js';
+import {BitmapDataT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/bitmap-data.js';
 import {BoundingBoxT, LayerInfoT, ObjectMetaT, Point2fT, ProducerInfoT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata.js';
 import {BoxDetectionT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/box-detection.js';
 import {BoxDetectionsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/box-detections.js';
@@ -28,11 +29,17 @@ import {ClassificationCandidateT} from '../../../generated/open_perception_kit/t
 import {ClassificationT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classification.js';
 import {ClassificationsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classifications.js';
 import {FrameContextT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/frame-context.js';
+import {InstanceSegmentationMaskT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/instance-segmentation-mask.js';
+import {InstanceSegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/instance-segmentation-masks.js';
 import {ObjectTrackT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-track.js';
 import {ObjectTracksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-tracks.js';
 import {PerformanceOverlayT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-overlay.js';
 import {PoseEstimationT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimation.js';
 import {PoseEstimationsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimations.js';
+import {SegmentationMaskT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-mask.js';
+import {SegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-masks.js';
+import {SemanticSegmentationMaskT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-mask.js';
+import {SemanticSegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-masks.js';
 import {TrackTraceT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-trace.js';
 import {TrackTracesT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-traces.js';
 import {VideoFrameContextT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/video-frame-context.js';
@@ -137,6 +144,29 @@ function trackedFixture() {
     return Buffer.from(envelope.serialize()).toString('base64');
 }
 
+function segmentationFixture(contentType, masks) {
+    const envelope = new Envelope();
+    envelope.add(new FrameContextT(
+        1,
+        0,
+        layer('frameContext'),
+        new VideoFrameContextT(new ObjectMetaT(10n), 4n, 3n),
+    ));
+    const segmentationLayer = layer(contentType);
+    if (contentType === 'instanceSegmentation') segmentationLayer.labelFamily = 'coco';
+    if (contentType === 'semanticSegmentation') segmentationLayer.labelFamily = 'cityscapes';
+    const payloadType = {
+        segmentation: SegmentationMasksT,
+        instanceSegmentation: InstanceSegmentationMasksT,
+        semanticSegmentation: SemanticSegmentationMasksT,
+    }[contentType];
+    envelope.add(new payloadType(1, 0, segmentationLayer, masks));
+    return {
+        frame_results_encoding: FRAME_RESULTS_ENCODING,
+        frame_results_packet_b64: Buffer.from(envelope.serialize()).toString('base64'),
+    };
+}
+
 test('decodes typed FrameResults into the established WebUI view model', () => {
     const decoded = decodeFrameResultsMessage({
         frame_counter: 42,
@@ -188,6 +218,170 @@ test('suppresses detector boxes replaced by tracker output', () => {
     assert.equal(rects[0].text, 'untracked');
     assert.equal(rects[1].sourceId, '20');
     assert.equal(rects[1].trackId, '7');
+});
+
+test('decodes overlapping instance masks with independent pixels, classes, and source boxes', () => {
+    const decoded = decodeFrameResultsMessage(segmentationFixture('instanceSegmentation', [
+        new InstanceSegmentationMaskT(
+            new ObjectMetaT(60n, 10n, 123n),
+            new BitmapDataT(4, 3, 'Uint8', [
+                0, 1, 1, 0,
+                0, 1, 1, 0,
+                0, 0, 0, 0,
+            ]),
+            0,
+            0.75,
+            new BoundingBoxT(0.25, 0.5, 2.5, 2),
+        ),
+        new InstanceSegmentationMaskT(
+            new ObjectMetaT(61n, 10n, 456n),
+            new BitmapDataT(4, 3, 'Uint8', [
+                0, 0, 0, 0,
+                0, 1, 1, 1,
+                0, 1, 1, 1,
+            ]),
+            79,
+            0.625,
+            new BoundingBoxT(1.25, 1, 2.25, 1.5),
+        ),
+    ]));
+    const maskLayer = decoded.frame_results.layers.find(
+        (item) => item.contentType === 'instanceSegmentation',
+    );
+
+    assert.equal(maskLayer.labelFamily, 'coco');
+    assert.equal(maskLayer.count, 2);
+    assert.deepEqual(maskLayer.detections.map((item) => item.type), [
+        'InstanceSegmentationMask', 'InstanceSegmentationMask',
+    ]);
+    const [first, second] = maskLayer.detections.map((item) => item.data);
+    assert.deepEqual(first, {
+        uuid: '60',
+        parentUuid: '10',
+        creationTsNs: '123',
+        width: 4,
+        height: 3,
+        valueType: 'Uint8',
+        pixels: Uint8Array.from([0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0]),
+        classId: 0,
+        confidence: 0.75,
+        box: {x: 0.25, y: 0.5, width: 2.5, height: 2},
+    });
+    assert.deepEqual(second, {
+        uuid: '61',
+        parentUuid: '10',
+        creationTsNs: '456',
+        width: 4,
+        height: 3,
+        valueType: 'Uint8',
+        pixels: Uint8Array.from([0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1]),
+        classId: 79,
+        confidence: 0.625,
+        box: {x: 1.25, y: 1, width: 2.25, height: 1.5},
+    });
+    assert.equal(first.pixels[5], 1);
+    assert.equal(second.pixels[5], 1);
+    assert.notEqual(first.pixels, second.pixels);
+    assert.equal(findVideoFrame(decoded.frame_results).uuid, first.parentUuid);
+    assert.equal(decoded.frame_results.layers.some(
+        (item) => item.detections.some((detection) => detection.type === 'Rect'),
+    ), false);
+});
+
+test('preserves an empty instance-segmentation layer', () => {
+    const decoded = decodeFrameResultsMessage(segmentationFixture('instanceSegmentation', []));
+    const maskLayer = decoded.frame_results.layers.find(
+        (item) => item.contentType === 'instanceSegmentation',
+    );
+
+    assert.equal(maskLayer.count, 0);
+    assert.equal(maskLayer.labelFamily, 'coco');
+    assert.deepEqual(maskLayer.detections, []);
+});
+
+test('preserves legacy segmentation alpha bytes without instance fields', () => {
+    const decoded = decodeFrameResultsMessage(segmentationFixture('segmentation', [
+        new SegmentationMaskT(
+            new ObjectMetaT(70n, 10n),
+            new BitmapDataT(2, 2, 'Uint8', [0, 127, 255, 3]),
+        ),
+    ]));
+    const maskLayer = decoded.frame_results.layers.find(
+        (item) => item.contentType === 'segmentation',
+    );
+
+    assert.equal(maskLayer.count, 1);
+    assert.deepEqual(maskLayer.detections[0], {
+        type: 'SegmentationMask',
+        data: {
+            uuid: '70',
+            parentUuid: '10',
+            creationTsNs: '0',
+            width: 2,
+            height: 2,
+            valueType: 'Uint8',
+            pixels: Uint8Array.from([0, 127, 255, 3]),
+        },
+    });
+});
+
+test('decodes semantic class zero and eighteen without instance metadata', () => {
+    const decoded = decodeFrameResultsMessage(segmentationFixture('semanticSegmentation', [
+        new SemanticSegmentationMaskT(
+            new ObjectMetaT(80n, 10n, 789n),
+            new BitmapDataT(4, 3, 'Uint8', [0, 18, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
+        ),
+    ]));
+    const maskLayer = decoded.frame_results.layers.find(
+        (item) => item.contentType === 'semanticSegmentation',
+    );
+
+    assert.equal(maskLayer.labelFamily, 'cityscapes');
+    assert.equal(maskLayer.count, 1);
+    assert.deepEqual(maskLayer.detections[0], {
+        type: 'SemanticSegmentationMask',
+        data: {
+            uuid: '80',
+            parentUuid: '10',
+            creationTsNs: '789',
+            width: 4,
+            height: 3,
+            valueType: 'Uint8',
+            pixels: Uint8Array.from([0, 18, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
+        },
+    });
+});
+
+test('keeps semantic, instance, and legacy mask payloads distinct in the same packet', () => {
+    const envelope = new Envelope();
+    const maskLayer = layer('segmentation');
+    envelope.add(new SegmentationMasksT(1, 0, maskLayer, [
+        new SegmentationMaskT(new ObjectMetaT(70n, 10n), new BitmapDataT(2, 1, 'Uint8', [0, 127])),
+    ]));
+    // Reuse identical layer metadata so dispatch must follow the generated root types.
+    envelope.add(new SemanticSegmentationMasksT(1, 0, maskLayer, [
+        new SemanticSegmentationMaskT(new ObjectMetaT(80n, 10n), new BitmapDataT(2, 1, 'Uint8', [0, 18])),
+    ]));
+    envelope.add(new InstanceSegmentationMasksT(1, 0, maskLayer, [
+        new InstanceSegmentationMaskT(
+            new ObjectMetaT(60n, 10n), new BitmapDataT(2, 1, 'Uint8', [0, 1]),
+            3, 0.5, new BoundingBoxT(0, 0, 2, 1),
+        ),
+    ]));
+    const decoded = decodeFrameResultsMessage({
+        frame_results_encoding: FRAME_RESULTS_ENCODING,
+        frame_results_packet_b64: Buffer.from(envelope.serialize()).toString('base64'),
+    });
+    const detections = decoded.frame_results.layers.flatMap((item) => item.detections);
+
+    assert.deepEqual(detections.map((item) => item.type), [
+        'SegmentationMask', 'SemanticSegmentationMask', 'InstanceSegmentationMask',
+    ]);
+    assert.deepEqual(detections.map((item) => [...item.data.pixels]), [[0, 127], [0, 18], [0, 1]]);
+    assert.equal('classId' in detections[0].data, false);
+    assert.equal('classId' in detections[1].data, false);
+    assert.equal(detections[2].data.classId, 3);
+    assert.equal(detections[2].data.confidence, 0.5);
 });
 
 test('rejects a packet from an incompatible producer identity', () => {

@@ -4264,6 +4264,307 @@ var FrameContextT = class {
   }
 };
 
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/bitmap-data.js
+var BitmapData = class _BitmapData {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsBitmapData(bb, obj) {
+    return (obj || new _BitmapData()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsBitmapData(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _BitmapData()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  width() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.readUint32(this.bb_pos + offset) : 0;
+  }
+  height() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readUint32(this.bb_pos + offset) : 0;
+  }
+  valueType(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  pixels(index) {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.readUint8(this.bb.__vector(this.bb_pos + offset) + index) : 0;
+  }
+  pixelsLength() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
+  }
+  pixelsArray() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? new Uint8Array(this.bb.bytes().buffer, this.bb.bytes().byteOffset + this.bb.__vector(this.bb_pos + offset), this.bb.__vector_len(this.bb_pos + offset)) : null;
+  }
+  static startBitmapData(builder) {
+    builder.startObject(4);
+  }
+  static addWidth(builder, width) {
+    builder.addFieldInt32(0, width, 0);
+  }
+  static addHeight(builder, height) {
+    builder.addFieldInt32(1, height, 0);
+  }
+  static addValueType(builder, valueTypeOffset) {
+    builder.addFieldOffset(2, valueTypeOffset, 0);
+  }
+  static addPixels(builder, pixelsOffset) {
+    builder.addFieldOffset(3, pixelsOffset, 0);
+  }
+  static createPixelsVector(builder, data) {
+    builder.startVector(1, data.length, 1);
+    for (let i = data.length - 1; i >= 0; i--) {
+      builder.addInt8(data[i]);
+    }
+    return builder.endVector();
+  }
+  static startPixelsVector(builder, numElems) {
+    builder.startVector(1, numElems, 1);
+  }
+  static endBitmapData(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createBitmapData(builder, width, height, valueTypeOffset, pixelsOffset) {
+    _BitmapData.startBitmapData(builder);
+    _BitmapData.addWidth(builder, width);
+    _BitmapData.addHeight(builder, height);
+    _BitmapData.addValueType(builder, valueTypeOffset);
+    _BitmapData.addPixels(builder, pixelsOffset);
+    return _BitmapData.endBitmapData(builder);
+  }
+  unpack() {
+    return new BitmapDataT(this.width(), this.height(), this.valueType(), this.bb.createScalarList(this.pixels.bind(this), this.pixelsLength()));
+  }
+  unpackTo(_o) {
+    _o.width = this.width();
+    _o.height = this.height();
+    _o.valueType = this.valueType();
+    _o.pixels = this.bb.createScalarList(this.pixels.bind(this), this.pixelsLength());
+  }
+};
+var BitmapDataT = class {
+  constructor(width = 0, height = 0, valueType = null, pixels = []) {
+    this.width = width;
+    this.height = height;
+    this.valueType = valueType;
+    this.pixels = pixels;
+  }
+  pack(builder) {
+    const valueType = this.valueType !== null ? builder.createString(this.valueType) : 0;
+    const pixels = BitmapData.createPixelsVector(builder, this.pixels);
+    return BitmapData.createBitmapData(builder, this.width, this.height, valueType, pixels);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/instance-segmentation-mask.js
+var InstanceSegmentationMask = class _InstanceSegmentationMask {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsInstanceSegmentationMask(bb, obj) {
+    return (obj || new _InstanceSegmentationMask()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsInstanceSegmentationMask(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _InstanceSegmentationMask()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  object(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? (obj || new ObjectMeta()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  bitmap(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? (obj || new BitmapData()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  classId() {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.readInt32(this.bb_pos + offset) : -1;
+  }
+  confidence() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
+  }
+  box(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 12);
+    return offset ? (obj || new BoundingBox()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  static startInstanceSegmentationMask(builder) {
+    builder.startObject(5);
+  }
+  static addObject(builder, objectOffset) {
+    builder.addFieldOffset(0, objectOffset, 0);
+  }
+  static addBitmap(builder, bitmapOffset) {
+    builder.addFieldOffset(1, bitmapOffset, 0);
+  }
+  static addClassId(builder, classId) {
+    builder.addFieldInt32(2, classId, -1);
+  }
+  static addConfidence(builder, confidence) {
+    builder.addFieldFloat32(3, confidence, 0);
+  }
+  static addBox(builder, boxOffset) {
+    builder.addFieldOffset(4, boxOffset, 0);
+  }
+  static endInstanceSegmentationMask(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  unpack() {
+    return new InstanceSegmentationMaskT(this.object() !== null ? this.object().unpack() : null, this.bitmap() !== null ? this.bitmap().unpack() : null, this.classId(), this.confidence(), this.box() !== null ? this.box().unpack() : null);
+  }
+  unpackTo(_o) {
+    _o.object = this.object() !== null ? this.object().unpack() : null;
+    _o.bitmap = this.bitmap() !== null ? this.bitmap().unpack() : null;
+    _o.classId = this.classId();
+    _o.confidence = this.confidence();
+    _o.box = this.box() !== null ? this.box().unpack() : null;
+  }
+};
+var InstanceSegmentationMaskT = class {
+  constructor(object = null, bitmap = null, classId = -1, confidence = 0, box = null) {
+    this.object = object;
+    this.bitmap = bitmap;
+    this.classId = classId;
+    this.confidence = confidence;
+    this.box = box;
+  }
+  pack(builder) {
+    const object = this.object !== null ? this.object.pack(builder) : 0;
+    const bitmap = this.bitmap !== null ? this.bitmap.pack(builder) : 0;
+    const box = this.box !== null ? this.box.pack(builder) : 0;
+    InstanceSegmentationMask.startInstanceSegmentationMask(builder);
+    InstanceSegmentationMask.addObject(builder, object);
+    InstanceSegmentationMask.addBitmap(builder, bitmap);
+    InstanceSegmentationMask.addClassId(builder, this.classId);
+    InstanceSegmentationMask.addConfidence(builder, this.confidence);
+    InstanceSegmentationMask.addBox(builder, box);
+    return InstanceSegmentationMask.endInstanceSegmentationMask(builder);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/instance-segmentation-masks.js
+var InstanceSegmentationMasks = class _InstanceSegmentationMasks {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsInstanceSegmentationMasks(bb, obj) {
+    return (obj || new _InstanceSegmentationMasks()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsInstanceSegmentationMasks(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _InstanceSegmentationMasks()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static bufferHasIdentifier(bb) {
+    return bb.__has_identifier("ISGM");
+  }
+  schemaMajor() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.readUint16(this.bb_pos + offset) : 1;
+  }
+  schemaMinor() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readUint16(this.bb_pos + offset) : 0;
+  }
+  layer(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? (obj || new LayerInfo()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  masks(index, obj) {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? (obj || new InstanceSegmentationMask()).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos + offset) + index * 4), this.bb) : null;
+  }
+  masksLength() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
+  }
+  static startInstanceSegmentationMasks(builder) {
+    builder.startObject(4);
+  }
+  static addSchemaMajor(builder, schemaMajor) {
+    builder.addFieldInt16(0, schemaMajor, 1);
+  }
+  static addSchemaMinor(builder, schemaMinor) {
+    builder.addFieldInt16(1, schemaMinor, 0);
+  }
+  static addLayer(builder, layerOffset) {
+    builder.addFieldOffset(2, layerOffset, 0);
+  }
+  static addMasks(builder, masksOffset) {
+    builder.addFieldOffset(3, masksOffset, 0);
+  }
+  static createMasksVector(builder, data) {
+    builder.startVector(4, data.length, 4);
+    for (let i = data.length - 1; i >= 0; i--) {
+      builder.addOffset(data[i]);
+    }
+    return builder.endVector();
+  }
+  static startMasksVector(builder, numElems) {
+    builder.startVector(4, numElems, 4);
+  }
+  static endInstanceSegmentationMasks(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static finishInstanceSegmentationMasksBuffer(builder, offset) {
+    builder.finish(offset, "ISGM");
+  }
+  static finishSizePrefixedInstanceSegmentationMasksBuffer(builder, offset) {
+    builder.finish(offset, "ISGM", true);
+  }
+  unpack() {
+    return new InstanceSegmentationMasksT(this.schemaMajor(), this.schemaMinor(), this.layer() !== null ? this.layer().unpack() : null, this.bb.createObjList(this.masks.bind(this), this.masksLength()));
+  }
+  unpackTo(_o) {
+    _o.schemaMajor = this.schemaMajor();
+    _o.schemaMinor = this.schemaMinor();
+    _o.layer = this.layer() !== null ? this.layer().unpack() : null;
+    _o.masks = this.bb.createObjList(this.masks.bind(this), this.masksLength());
+  }
+};
+var InstanceSegmentationMasksT = class {
+  constructor(schemaMajor = 1, schemaMinor = 0, layer2 = null, masks = []) {
+    this.schemaMajor = schemaMajor;
+    this.schemaMinor = schemaMinor;
+    this.layer = layer2;
+    this.masks = masks;
+  }
+  pack(builder) {
+    const layer2 = this.layer !== null ? this.layer.pack(builder) : 0;
+    const masks = InstanceSegmentationMasks.createMasksVector(builder, builder.createObjectOffsetList(this.masks));
+    InstanceSegmentationMasks.startInstanceSegmentationMasks(builder);
+    InstanceSegmentationMasks.addSchemaMajor(builder, this.schemaMajor);
+    InstanceSegmentationMasks.addSchemaMinor(builder, this.schemaMinor);
+    InstanceSegmentationMasks.addLayer(builder, layer2);
+    InstanceSegmentationMasks.addMasks(builder, masks);
+    return InstanceSegmentationMasks.endInstanceSegmentationMasks(builder);
+  }
+};
+
 // generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-embedding.js
 var ObjectEmbedding = class _ObjectEmbedding {
   constructor() {
@@ -4977,109 +5278,6 @@ var PoseEstimationsT = class {
   }
 };
 
-// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/bitmap-data.js
-var BitmapData = class _BitmapData {
-  constructor() {
-    this.bb = null;
-    this.bb_pos = 0;
-  }
-  __init(i, bb) {
-    this.bb_pos = i;
-    this.bb = bb;
-    return this;
-  }
-  static getRootAsBitmapData(bb, obj) {
-    return (obj || new _BitmapData()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
-  }
-  static getSizePrefixedRootAsBitmapData(bb, obj) {
-    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
-    return (obj || new _BitmapData()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
-  }
-  width() {
-    const offset = this.bb.__offset(this.bb_pos, 4);
-    return offset ? this.bb.readUint32(this.bb_pos + offset) : 0;
-  }
-  height() {
-    const offset = this.bb.__offset(this.bb_pos, 6);
-    return offset ? this.bb.readUint32(this.bb_pos + offset) : 0;
-  }
-  valueType(optionalEncoding) {
-    const offset = this.bb.__offset(this.bb_pos, 8);
-    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
-  }
-  pixels(index) {
-    const offset = this.bb.__offset(this.bb_pos, 10);
-    return offset ? this.bb.readUint8(this.bb.__vector(this.bb_pos + offset) + index) : 0;
-  }
-  pixelsLength() {
-    const offset = this.bb.__offset(this.bb_pos, 10);
-    return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
-  }
-  pixelsArray() {
-    const offset = this.bb.__offset(this.bb_pos, 10);
-    return offset ? new Uint8Array(this.bb.bytes().buffer, this.bb.bytes().byteOffset + this.bb.__vector(this.bb_pos + offset), this.bb.__vector_len(this.bb_pos + offset)) : null;
-  }
-  static startBitmapData(builder) {
-    builder.startObject(4);
-  }
-  static addWidth(builder, width) {
-    builder.addFieldInt32(0, width, 0);
-  }
-  static addHeight(builder, height) {
-    builder.addFieldInt32(1, height, 0);
-  }
-  static addValueType(builder, valueTypeOffset) {
-    builder.addFieldOffset(2, valueTypeOffset, 0);
-  }
-  static addPixels(builder, pixelsOffset) {
-    builder.addFieldOffset(3, pixelsOffset, 0);
-  }
-  static createPixelsVector(builder, data) {
-    builder.startVector(1, data.length, 1);
-    for (let i = data.length - 1; i >= 0; i--) {
-      builder.addInt8(data[i]);
-    }
-    return builder.endVector();
-  }
-  static startPixelsVector(builder, numElems) {
-    builder.startVector(1, numElems, 1);
-  }
-  static endBitmapData(builder) {
-    const offset = builder.endObject();
-    return offset;
-  }
-  static createBitmapData(builder, width, height, valueTypeOffset, pixelsOffset) {
-    _BitmapData.startBitmapData(builder);
-    _BitmapData.addWidth(builder, width);
-    _BitmapData.addHeight(builder, height);
-    _BitmapData.addValueType(builder, valueTypeOffset);
-    _BitmapData.addPixels(builder, pixelsOffset);
-    return _BitmapData.endBitmapData(builder);
-  }
-  unpack() {
-    return new BitmapDataT(this.width(), this.height(), this.valueType(), this.bb.createScalarList(this.pixels.bind(this), this.pixelsLength()));
-  }
-  unpackTo(_o) {
-    _o.width = this.width();
-    _o.height = this.height();
-    _o.valueType = this.valueType();
-    _o.pixels = this.bb.createScalarList(this.pixels.bind(this), this.pixelsLength());
-  }
-};
-var BitmapDataT = class {
-  constructor(width = 0, height = 0, valueType = null, pixels = []) {
-    this.width = width;
-    this.height = height;
-    this.valueType = valueType;
-    this.pixels = pixels;
-  }
-  pack(builder) {
-    const valueType = this.valueType !== null ? builder.createString(this.valueType) : 0;
-    const pixels = BitmapData.createPixelsVector(builder, this.pixels);
-    return BitmapData.createBitmapData(builder, this.width, this.height, valueType, pixels);
-  }
-};
-
 // generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-mask.js
 var SegmentationMask = class _SegmentationMask {
   constructor() {
@@ -5244,6 +5442,173 @@ var SegmentationMasksT = class {
     SegmentationMasks.addLayer(builder, layer2);
     SegmentationMasks.addMasks(builder, masks);
     return SegmentationMasks.endSegmentationMasks(builder);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-mask.js
+var SemanticSegmentationMask = class _SemanticSegmentationMask {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsSemanticSegmentationMask(bb, obj) {
+    return (obj || new _SemanticSegmentationMask()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsSemanticSegmentationMask(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _SemanticSegmentationMask()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  object(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? (obj || new ObjectMeta()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  bitmap(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? (obj || new BitmapData()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  static startSemanticSegmentationMask(builder) {
+    builder.startObject(2);
+  }
+  static addObject(builder, objectOffset) {
+    builder.addFieldOffset(0, objectOffset, 0);
+  }
+  static addBitmap(builder, bitmapOffset) {
+    builder.addFieldOffset(1, bitmapOffset, 0);
+  }
+  static endSemanticSegmentationMask(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  unpack() {
+    return new SemanticSegmentationMaskT(this.object() !== null ? this.object().unpack() : null, this.bitmap() !== null ? this.bitmap().unpack() : null);
+  }
+  unpackTo(_o) {
+    _o.object = this.object() !== null ? this.object().unpack() : null;
+    _o.bitmap = this.bitmap() !== null ? this.bitmap().unpack() : null;
+  }
+};
+var SemanticSegmentationMaskT = class {
+  constructor(object = null, bitmap = null) {
+    this.object = object;
+    this.bitmap = bitmap;
+  }
+  pack(builder) {
+    const object = this.object !== null ? this.object.pack(builder) : 0;
+    const bitmap = this.bitmap !== null ? this.bitmap.pack(builder) : 0;
+    SemanticSegmentationMask.startSemanticSegmentationMask(builder);
+    SemanticSegmentationMask.addObject(builder, object);
+    SemanticSegmentationMask.addBitmap(builder, bitmap);
+    return SemanticSegmentationMask.endSemanticSegmentationMask(builder);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-masks.js
+var SemanticSegmentationMasks = class _SemanticSegmentationMasks {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsSemanticSegmentationMasks(bb, obj) {
+    return (obj || new _SemanticSegmentationMasks()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsSemanticSegmentationMasks(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _SemanticSegmentationMasks()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static bufferHasIdentifier(bb) {
+    return bb.__has_identifier("SSGM");
+  }
+  schemaMajor() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.readUint16(this.bb_pos + offset) : 1;
+  }
+  schemaMinor() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readUint16(this.bb_pos + offset) : 0;
+  }
+  layer(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? (obj || new LayerInfo()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  masks(index, obj) {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? (obj || new SemanticSegmentationMask()).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos + offset) + index * 4), this.bb) : null;
+  }
+  masksLength() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
+  }
+  static startSemanticSegmentationMasks(builder) {
+    builder.startObject(4);
+  }
+  static addSchemaMajor(builder, schemaMajor) {
+    builder.addFieldInt16(0, schemaMajor, 1);
+  }
+  static addSchemaMinor(builder, schemaMinor) {
+    builder.addFieldInt16(1, schemaMinor, 0);
+  }
+  static addLayer(builder, layerOffset) {
+    builder.addFieldOffset(2, layerOffset, 0);
+  }
+  static addMasks(builder, masksOffset) {
+    builder.addFieldOffset(3, masksOffset, 0);
+  }
+  static createMasksVector(builder, data) {
+    builder.startVector(4, data.length, 4);
+    for (let i = data.length - 1; i >= 0; i--) {
+      builder.addOffset(data[i]);
+    }
+    return builder.endVector();
+  }
+  static startMasksVector(builder, numElems) {
+    builder.startVector(4, numElems, 4);
+  }
+  static endSemanticSegmentationMasks(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static finishSemanticSegmentationMasksBuffer(builder, offset) {
+    builder.finish(offset, "SSGM");
+  }
+  static finishSizePrefixedSemanticSegmentationMasksBuffer(builder, offset) {
+    builder.finish(offset, "SSGM", true);
+  }
+  unpack() {
+    return new SemanticSegmentationMasksT(this.schemaMajor(), this.schemaMinor(), this.layer() !== null ? this.layer().unpack() : null, this.bb.createObjList(this.masks.bind(this), this.masksLength()));
+  }
+  unpackTo(_o) {
+    _o.schemaMajor = this.schemaMajor();
+    _o.schemaMinor = this.schemaMinor();
+    _o.layer = this.layer() !== null ? this.layer().unpack() : null;
+    _o.masks = this.bb.createObjList(this.masks.bind(this), this.masksLength());
+  }
+};
+var SemanticSegmentationMasksT = class {
+  constructor(schemaMajor = 1, schemaMinor = 0, layer2 = null, masks = []) {
+    this.schemaMajor = schemaMajor;
+    this.schemaMinor = schemaMinor;
+    this.layer = layer2;
+    this.masks = masks;
+  }
+  pack(builder) {
+    const layer2 = this.layer !== null ? this.layer.pack(builder) : 0;
+    const masks = SemanticSegmentationMasks.createMasksVector(builder, builder.createObjectOffsetList(this.masks));
+    SemanticSegmentationMasks.startSemanticSegmentationMasks(builder);
+    SemanticSegmentationMasks.addSchemaMajor(builder, this.schemaMajor);
+    SemanticSegmentationMasks.addSchemaMinor(builder, this.schemaMinor);
+    SemanticSegmentationMasks.addLayer(builder, layer2);
+    SemanticSegmentationMasks.addMasks(builder, masks);
+    return SemanticSegmentationMasks.endSemanticSegmentationMasks(builder);
   }
 };
 
@@ -5511,6 +5876,8 @@ var decode_2852697023809600655 = (blob) => Classifications.getRootAsClassificati
 var verify_2852697023809600655 = (blob) => Classifications.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_2065478860695108412 = (blob) => FrameContext.getRootAsFrameContext(new ByteBuffer(blob)).unpack();
 var verify_2065478860695108412 = (blob) => FrameContext.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_3149752457626985059 = (blob) => InstanceSegmentationMasks.getRootAsInstanceSegmentationMasks(new ByteBuffer(blob)).unpack();
+var verify_3149752457626985059 = (blob) => InstanceSegmentationMasks.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_5972661533224817501 = (blob) => ObjectEmbeddings.getRootAsObjectEmbeddings(new ByteBuffer(blob)).unpack();
 var verify_5972661533224817501 = (blob) => ObjectEmbeddings.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_2960585987463094496 = (blob) => ObjectTracks.getRootAsObjectTracks(new ByteBuffer(blob)).unpack();
@@ -5521,6 +5888,8 @@ var decode_9114952555105892553 = (blob) => PoseEstimations.getRootAsPoseEstimati
 var verify_9114952555105892553 = (blob) => PoseEstimations.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_1998909987238011535 = (blob) => SegmentationMasks.getRootAsSegmentationMasks(new ByteBuffer(blob)).unpack();
 var verify_1998909987238011535 = (blob) => SegmentationMasks.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_1602571589628393389 = (blob) => SemanticSegmentationMasks.getRootAsSemanticSegmentationMasks(new ByteBuffer(blob)).unpack();
+var verify_1602571589628393389 = (blob) => SemanticSegmentationMasks.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_238211229389337861 = (blob) => TrackTraces.getRootAsTrackTraces(new ByteBuffer(blob)).unpack();
 var verify_238211229389337861 = (blob) => TrackTraces.bufferHasIdentifier(new ByteBuffer(blob));
 var _TYPE_REGISTRY = /* @__PURE__ */ new Map([
@@ -5547,6 +5916,14 @@ var _TYPE_REGISTRY = /* @__PURE__ */ new Map([
     file_identifier: "FCTX",
     decode: decode_2065478860695108412,
     verify: verify_2065478860695108412
+  }],
+  [3149752457626985059n, {
+    name: "open_perception_kit::metadata::InstanceSegmentationMasks",
+    root_type: "InstanceSegmentationMasks",
+    qualified_root_type: "open_perception_kit.metadata.InstanceSegmentationMasks",
+    file_identifier: "ISGM",
+    decode: decode_3149752457626985059,
+    verify: verify_3149752457626985059
   }],
   [5972661533224817501n, {
     name: "open_perception_kit::metadata::ObjectEmbeddings",
@@ -5588,6 +5965,14 @@ var _TYPE_REGISTRY = /* @__PURE__ */ new Map([
     decode: decode_1998909987238011535,
     verify: verify_1998909987238011535
   }],
+  [1602571589628393389n, {
+    name: "open_perception_kit::metadata::SemanticSegmentationMasks",
+    root_type: "SemanticSegmentationMasks",
+    qualified_root_type: "open_perception_kit.metadata.SemanticSegmentationMasks",
+    file_identifier: "SSGM",
+    decode: decode_1602571589628393389,
+    verify: verify_1602571589628393389
+  }],
   [238211229389337861n, {
     name: "open_perception_kit::metadata::TrackTraces",
     root_type: "TrackTraces",
@@ -5601,11 +5986,13 @@ var _CLASS_TO_ID = /* @__PURE__ */ new Map([
   [BoxDetectionsT, 556103652012567315n],
   [ClassificationsT, 2852697023809600655n],
   [FrameContextT, 2065478860695108412n],
+  [InstanceSegmentationMasksT, 3149752457626985059n],
   [ObjectEmbeddingsT, 5972661533224817501n],
   [ObjectTracksT, 2960585987463094496n],
   [PerformanceOverlayT, 7749401259036278028n],
   [PoseEstimationsT, 9114952555105892553n],
   [SegmentationMasksT, 1998909987238011535n],
+  [SemanticSegmentationMasksT, 1602571589628393389n],
   [TrackTracesT, 238211229389337861n]
 ]);
 
@@ -5624,7 +6011,7 @@ var __classPrivateFieldGet = function(receiver, state, kind, f) {
 var _ExternalKey_value;
 var SDK_NAME = "open_perception_kit";
 var SDK_VERSION = "0.1.1";
-var SCHEMA_SET_SHA256 = "1b19418d8a0d34038a3c99895fa93a1140c25af910f6bc63c0e11978e12c2876";
+var SCHEMA_SET_SHA256 = "798c1d2579c38da1e0fdbbaa25392205a7c8df0f39e30a0a28ff0a1d2a484e07";
 var EXTERNAL_KEY_MIN = BigInt("9223372036854775808");
 var EXTERNAL_KEY_MASK = EXTERNAL_KEY_MIN - BigInt(1);
 var EXTERNAL_HASH_OFFSET = BigInt("14695981039346656037");
@@ -6012,6 +6399,15 @@ function candidateData(candidate) {
     h: Number(candidate.h || 0)
   };
 }
+function maskData(item) {
+  return {
+    ...objectData(item.object),
+    width: Number(item.bitmap?.width || 0),
+    height: Number(item.bitmap?.height || 0),
+    valueType: text(item.bitmap?.valueType),
+    pixels: Uint8Array.from(item.bitmap?.pixels || [])
+  };
+}
 function addPayloadLayers(envelope, payloadType, mapper, layers) {
   for (const payload of envelope.for_each(payloadType)) {
     layers.push(layer(payload, mapper(payload)));
@@ -6142,11 +6538,24 @@ function decodeFrameResultsMessage(message) {
   })), layers);
   addPayloadLayers(envelope, SegmentationMasksT, (payload) => payload.masks.map((item) => ({
     type: "SegmentationMask",
+    data: maskData(item)
+  })), layers);
+  addPayloadLayers(envelope, SemanticSegmentationMasksT, (payload) => payload.masks.map((item) => ({
+    type: "SemanticSegmentationMask",
+    data: maskData(item)
+  })), layers);
+  addPayloadLayers(envelope, InstanceSegmentationMasksT, (payload) => payload.masks.map((item) => ({
+    type: "InstanceSegmentationMask",
     data: {
-      ...objectData(item.object),
-      width: Number(item.bitmap?.width || 0),
-      height: Number(item.bitmap?.height || 0),
-      valueType: text(item.bitmap?.valueType)
+      ...maskData(item),
+      classId: Number(item.classId ?? -1),
+      confidence: Number(item.confidence || 0),
+      box: item.box ? {
+        x: Number(item.box.x),
+        y: Number(item.box.y),
+        width: Number(item.box.width),
+        height: Number(item.box.height)
+      } : null
     }
   })), layers);
   addPayloadLayers(envelope, ObjectEmbeddingsT, (payload) => payload.embeddings.map((item) => ({
