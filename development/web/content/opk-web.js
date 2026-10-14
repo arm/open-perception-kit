@@ -6815,6 +6815,20 @@ var camera_contact_default = defineFeature({
   }
 });
 
+// development/web/src/features/performance.js
+var performance_default = defineFeature({
+  id: "performance",
+  label: "Performance text",
+  accepts: (source) => source.payloadType === "PerformanceOverlay",
+  render({ ctx, layout }, resolved, settings) {
+    for (const item of resolved.items) {
+      if (item.type !== "PerformanceLine") continue;
+      drawTextChip(ctx, item.data.text, 10, layout.performanceY, 16, settings.color);
+      layout.performanceY += 20;
+    }
+  }
+});
+
 // development/web/src/overlay-features.js
 var OVERLAY_FEATURES = [
   bounding_boxes_default,
@@ -6823,7 +6837,8 @@ var OVERLAY_FEATURES = [
   movement_trails_default,
   classifications_default,
   gaze_default,
-  camera_contact_default
+  camera_contact_default,
+  performance_default
 ];
 function featureFor(id) {
   return OVERLAY_FEATURES.find((feature) => feature.id === id);
