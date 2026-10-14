@@ -42,6 +42,8 @@ TEST(StandardContentTypes, ParsersAdvertiseTheirFrameResultsContent) {
         std::pair{"ScrfdParser", "humanFace"},
         std::pair{"UltrafaceParser", "humanFace"},
         std::pair{"YoloParser", "genericObject"},
+        std::pair{"Yolo26InstanceSegmentationParser", "instanceSegmentation"},
+        std::pair{"Yolo26SemanticSegmentationParser", "semanticSegmentation"},
         std::pair{"YoloXParser", "genericObject"},
     };
 

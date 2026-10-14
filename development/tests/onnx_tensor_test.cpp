@@ -19,6 +19,28 @@
 
 #include "Inference.h"
 
+#include <algorithm>
+#include <cstdint>
+#include <vector>
+
+TEST(OnnxTensor, CreatesUint8OutputTensorWithRawClassIds) {
+    const auto memoryInfo = Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU);
+    opk::onnx::Tensor tensor(opk::Shape(1, 2, 2), opk::Dtype::Uint8);
+    const std::vector<uint8_t> expected{0U, 18U, 255U, 7U};
+    std::copy(expected.begin(), expected.end(), tensor.getData());
+
+    const auto result = tensor.createOnnxTensor(memoryInfo);
+
+    ASSERT_TRUE(result.has_value());
+    const auto info = result->GetTensorTypeAndShapeInfo();
+    EXPECT_EQ(info.GetElementType(), ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8);
+    EXPECT_EQ(info.GetShape(), (std::vector<int64_t>{1, 2, 2}));
+    EXPECT_EQ(info.GetElementCount(), expected.size());
+    const auto *data = result->GetTensorData<uint8_t>();
+    EXPECT_EQ(data, tensor.getData());
+    EXPECT_EQ((std::vector<uint8_t>(data, data + expected.size())), expected);
+}
+
 TEST(OnnxTensor, ReturnsErrorForUnsupportedType) {
     const auto memoryInfo = Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU);
     opk::onnx::Tensor tensor(opk::Shape(1), opk::Dtype::Float16);

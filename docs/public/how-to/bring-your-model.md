@@ -247,6 +247,8 @@ What matters here is not only that the model runs, but that the last stage produ
 The built-in postprocessors currently registered in `GenericPostprocessOp` are:
 
 - `YoloParser`
+- `Yolo26InstanceSegmentationParser`
+- `Yolo26SemanticSegmentationParser`
 - `UltrafaceParser`
 - `GazeDetectionParser`
 - `CameraContactParser`
