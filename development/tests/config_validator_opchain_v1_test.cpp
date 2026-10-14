@@ -168,6 +168,8 @@ TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {
         "RvmParser",
         "ScrfdParser",
         "UltrafaceParser",
+        "Yolo26InstanceSegmentationParser",
+        "Yolo26SemanticSegmentationParser",
         "YoloParser",
         "YoloXParser",
     };
@@ -185,6 +187,8 @@ TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {
         nlohmann::json{{"parser", "GazeDetectionParser"}, {"angleBinWidthDeg", 4}},
         nlohmann::json{{"parser", "YoloParser"}, {"applyNms", false}},
         nlohmann::json{{"parser", "YoloParser"}, {"outputFormat", "cornerScoreClass"}},
+        nlohmann::json{{"parser", "Yolo26InstanceSegmentationParser"},
+                       {"confidenceThreshold", 0.5}},
         nlohmann::json{{"parser", "YoloXParser"}, {"applyNms", false}},
     };
     for (const auto &validAttributes : validConditionalAttributes) {
@@ -204,6 +208,13 @@ TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {
         nlohmann::json{{"parser", "PaddleOcrDetectionParser"}, {"gamma", 0}},
         nlohmann::json{{"parser", "YoloParser"}, {"applyNms", false}, {"iouThreshold", 0.4}},
         nlohmann::json{{"parser", "YoloParser"}, {"outputFormat", "xyxy"}},
+        nlohmann::json{{"parser", "Yolo26InstanceSegmentationParser"},
+                       {"confidenceThreshold", -0.1}},
+        nlohmann::json{{"parser", "Yolo26InstanceSegmentationParser"},
+                       {"confidenceThreshold", 1.1}},
+        nlohmann::json{{"parser", "Yolo26InstanceSegmentationParser"}, {"applyNms", true}},
+        nlohmann::json{{"parser", "Yolo26SemanticSegmentationParser"},
+                       {"confidenceThreshold", 0.5}},
         nlohmann::json{{"parser", "YoloXParser"}, {"applyNms", false}, {"iouThreshold", 0.4}},
     };
     for (const auto &invalid : invalidAttributes) {

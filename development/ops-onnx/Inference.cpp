@@ -484,10 +484,11 @@ opk::Result<opk::Model> Inference::inspectModel(const Ort::Session &session) {
         }
 
         if (opk::Dtype::Float32 != tensorValueType && opk::Dtype::Int64 != tensorValueType &&
-            opk::Dtype::Float16 != tensorValueType) {
+            opk::Dtype::Float16 != tensorValueType && opk::Dtype::Uint8 != tensorValueType) {
             return tl::unexpected{
                 OPK_ERROR(opk::ErrorFlag::ModelInspectError,
-                          "only float16, float32 or int64 input tensors are supported in ONNX")};
+                          "only float16, float32, int64 or uint8 output tensors are supported in "
+                          "ONNX")};
         }
         model.outputs[i].valueType = tensorValueType;
 
