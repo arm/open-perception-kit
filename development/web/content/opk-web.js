@@ -6663,11 +6663,24 @@ var tracked_objects_default = defineFeature({
   }
 });
 
+// development/web/src/features/movement-trails.js
+var movement_trails_default = defineFeature({
+  id: "movement-trails",
+  label: "Movement trails",
+  accepts: (source) => source.payloadType === "TrackTraces",
+  render({ ctx, mapper }, resolved, settings) {
+    for (const item of resolved.items) {
+      if (item.type === "TrackTrace") drawTrackTrace(ctx, item.data, mapper, settings.color);
+    }
+  }
+});
+
 // development/web/src/overlay-features.js
 var OVERLAY_FEATURES = [
   bounding_boxes_default,
   face_circles_default,
-  tracked_objects_default
+  tracked_objects_default,
+  movement_trails_default
 ];
 function featureFor(id) {
   return OVERLAY_FEATURES.find((feature) => feature.id === id);
