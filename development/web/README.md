@@ -71,6 +71,7 @@ multiple related payloads, and one payload can support multiple features.
 | Movement trails | `TrackTraces`: trajectories without boxes. |
 | Classifications | `Classifications`: candidate text or PERSON/NON-PERSON status. |
 | Gaze | `PoseEstimations` with `eyeYawPitch` semantics plus parent face geometry. |
+| Camera contact | `Classifications` with `cameraContact` semantics plus parent face geometry. A dashed ring denotes no contact; a solid ring denotes contact. |
 
 `FrameContext` supplies video geometry rather than a selectable visualization.
 

@@ -21,6 +21,7 @@ import trackedObjects from './features/tracked-objects.js';
 import movementTrails from './features/movement-trails.js';
 import classifications from './features/classifications.js';
 import gaze from './features/gaze.js';
+import cameraContact from './features/camera-contact.js';
 
 export const OVERLAY_FEATURES = [
     boundingBoxes,
@@ -29,6 +30,7 @@ export const OVERLAY_FEATURES = [
     movementTrails,
     classifications,
     gaze,
+    cameraContact,
 ];
 
 export function featureFor(id) {

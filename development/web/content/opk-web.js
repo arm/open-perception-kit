@@ -6414,6 +6414,30 @@ function drawGazeVector(ctx, yp, parent, mapper, color) {
   const start = { x: parentBox.x + parentBox.width / 2, y: parentBox.y + parentBox.height / 2 };
   drawArrow(ctx, start, gazeEndpoint(start, yp.yaw, yp.pitch, 120), color, 3, 10);
 }
+function drawCameraContactMarker(ctx, classification, face, mapper, color) {
+  const candidate = classification?.candidates?.[0];
+  if (!candidate || !face) {
+    return;
+  }
+  const box = mapper.rect(face);
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  const hasContact = candidate.classId === 1;
+  const radiusBase = Math.min(Math.abs(box.width), Math.abs(box.height)) * 0.5;
+  const radius = hasContact ? clamp2(radiusBase * 0.65, 18, 80) : clamp2(radiusBase * 1.15, 28, 140);
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = hasContact ? 5 : 8;
+  ctx.setLineDash(hasContact ? [] : [6, 4]);
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(cx, cy, hasContact ? 5 : 7, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
 function drawTextChip(ctx, text2, x, y, fontSize, color = "#ffffff", alignRight = false) {
   ctx.save();
   ctx.font = `${fontSize}px monospace`;
@@ -6470,6 +6494,9 @@ function nearZero(value) {
 }
 function deg2rad(value) {
   return Number(value || 0) * Math.PI / 180;
+}
+function clamp2(value, min, max) {
+  return Math.min(max, Math.max(min, value));
 }
 function hexToRgba(hex, alpha) {
   const clean = hex.replace("#", "");
@@ -6777,6 +6804,17 @@ var gaze_default = defineFeature({
   }
 });
 
+// development/web/src/features/camera-contact.js
+var camera_contact_default = defineFeature({
+  id: "camera-contact",
+  label: "Camera contact",
+  accepts: (source) => source.payloadType === "Classifications" && source.contentType === "cameraContact",
+  resolve: (result, index) => resolveFaceParents(result, index, "Classification"),
+  render({ ctx, mapper }, resolved, settings) {
+    for (const { data, parent } of resolved.attached) drawCameraContactMarker(ctx, data, parent, mapper, settings.color);
+  }
+});
+
 // development/web/src/overlay-features.js
 var OVERLAY_FEATURES = [
   bounding_boxes_default,
@@ -6784,7 +6822,8 @@ var OVERLAY_FEATURES = [
   tracked_objects_default,
   movement_trails_default,
   classifications_default,
-  gaze_default
+  gaze_default,
+  camera_contact_default
 ];
 function featureFor(id) {
   return OVERLAY_FEATURES.find((feature) => feature.id === id);
