@@ -23,6 +23,7 @@ import classifications from './features/classifications.js';
 import gaze from './features/gaze.js';
 import cameraContact from './features/camera-contact.js';
 import performance from './features/performance.js';
+import backgroundReplacement from './features/background-replacement.js';
 
 export const OVERLAY_FEATURES = [
     boundingBoxes,
@@ -33,6 +34,7 @@ export const OVERLAY_FEATURES = [
     gaze,
     cameraContact,
     performance,
+    backgroundReplacement,
 ];
 
 export function featureFor(id) {

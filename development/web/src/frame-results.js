@@ -231,7 +231,7 @@ export function decodeFrameResultsMessage(message) {
                 width: Number(item.bitmap?.width || 0),
                 height: Number(item.bitmap?.height || 0),
                 valueType: text(item.bitmap?.valueType),
-                pixels: item.bitmap?.pixels,
+                pixels: item.bitmap ? Uint8Array.from(item.bitmap.pixels) : undefined,
             },
         })), layers);
 

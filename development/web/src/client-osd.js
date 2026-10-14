@@ -19,6 +19,7 @@ import {renderOsd} from './osd-renderer.js';
 import {OVERLAY_FEATURES, featureFor, overlayStatus, resolveOverlay} from './overlay-features.js';
 import {bindPendingOverlays, createOverlay, loadOverlays, saveOverlays} from './overlays.js';
 import {indexFrame, sourceDetails, sourceKey, sourceLabels} from './overlay-sources.js';
+import {loadLocalImage} from './overlay-image.js';
 
 const canvas = document.getElementById('clientOsdCanvas');
 const video = document.getElementById('video');
@@ -95,6 +96,56 @@ function styleControls(featureId, settings, changed) {
         }
         const label = node('label', 'overlay-field');
         label.append(node('span', '', control.label));
+        if (control.type === 'image') {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/png,image/jpeg,image/webp';
+            input.setAttribute('aria-label', control.label);
+            const status = node('output', 'overlay-hint', settings[control.key] ? 'Image saved in this browser.' : 'No image selected.');
+            status.setAttribute('role', 'status');
+            const clear = node('button', '', 'Clear image');
+            clear.type = 'button';
+            let revision = 0;
+            clear.addEventListener('click', () => {
+                revision++;
+                input.value = '';
+                input.setCustomValidity('');
+                settings[control.key] = '';
+                status.textContent = 'No image selected.';
+                changed();
+            });
+            input.addEventListener('change', async () => {
+                const file = input.files[0];
+                if (!file) return;
+                const current = ++revision;
+                input.setCustomValidity('Wait for the image to finish loading.');
+                status.textContent = 'Preparing image…';
+                try {
+                    const image = await loadLocalImage(file);
+                    if (current !== revision || !input.isConnected) return;
+                    settings[control.key] = image;
+                    status.textContent = 'Image prepared locally; never uploaded.';
+                    changed();
+                } catch (error) {
+                    if (current === revision) status.textContent = error.message;
+                } finally {
+                    if (current === revision) input.setCustomValidity('');
+                }
+            });
+            label.append(input, status);
+            container.append(label, clear);
+            continue;
+        }
+        if (control.type === 'select') {
+            const input = document.createElement('select');
+            input.setAttribute('aria-label', control.label);
+            for (const option of control.options) input.add(new Option(option.label, option.value));
+            input.value = settings[control.key];
+            input.addEventListener('change', () => { settings[control.key] = input.value; changed(); });
+            label.append(input);
+            container.append(label);
+            continue;
+        }
         const row = node('span', 'overlay-style-value');
         const input = document.createElement('input');
         input.type = control.type;
@@ -327,11 +378,15 @@ function updateDraft() {
         draft = createOverlay(featureSelect.value, source);
         draft.enabled = editing?.enabled ?? true;
         if (previousDraft?.featureId === draft.featureId && !previousDraft.selection.primary) {
-            draft.settings = {...previousDraft.settings};
+            draft.settings = previousDraft.settings;
         } else if (editing?.featureId === draft.featureId && selectionKey(editing) === key) {
             draft.settings = {...editing.settings};
         }
-        editorSettings.replaceChildren(styleControls(draft.featureId, draft.settings, updateDraft));
+        // Discovery may bind a waiting source while a local image is decoding.
+        // Keep its controls and settings alive instead of abandoning that upload.
+        if (draft.settings !== previousDraft?.settings) {
+            editorSettings.replaceChildren(styleControls(draft.featureId, draft.settings, updateDraft));
+        }
         editorDetails.replaceChildren(node('summary', '', 'Details'));
         if (source) editorDetails.append(technicalDetails(source));
     }

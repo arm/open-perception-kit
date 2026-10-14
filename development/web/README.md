@@ -51,9 +51,10 @@ availability, so hiding a working overlay does not grey it out. Long titles stay
 on one line with an ellipsis; hover for the full title and status.
 
 Adjust controls immediately or choose **Change source…**. The editor applies
-changes only when submitted; Cancel or Escape discards them. Overlays draw in
-list order, with later entries on top. Adding overlapping features deliberately
-draws each one; they never implicitly change each other's settings.
+changes only when submitted; Cancel or Escape discards them. Background replacement
+draws before annotations; within each group, overlays draw in list order, with
+later entries on top. Adding overlapping features deliberately draws each one;
+they never implicitly change each other's settings.
 
 These controls affect browser drawing only. Decorations already encoded into
 the video by server-side `opkosd` cannot be hidden by browser controls.
@@ -73,6 +74,7 @@ multiple related payloads, and one payload can support multiple features.
 | Gaze | `PoseEstimations` with `eyeYawPitch` semantics plus parent face geometry. |
 | Camera contact | `Classifications` with `cameraContact` semantics plus parent face geometry. A dashed ring denotes no contact; a solid ring denotes contact. |
 | Performance text | `PerformanceOverlay`: combined pipeline text, since the schema has no source provenance to separate producers. |
+| Background replacement | Full-frame `SegmentationMasks` with `segmentation` semantics and `backgroundReplacement` compositing: graded background opacity over the original video. |
 
 `FrameContext` supplies video geometry rather than a selectable visualization.
 
@@ -101,9 +103,10 @@ Preferences are stored per browser origin under `opk-overlays:v2`:
 }
 ```
 
-Frames, resolved relationships, and bitmap data are never persisted. Settings
-load/save failures show a notice and leave in-memory controls usable. Invalid
-saved entries are skipped with a notice.
+Frames, resolved relationships, and inference mask bytes are never persisted.
+Selected background images are saved locally as bounded raster data in the overlay
+settings. Settings load/save failures show a notice and leave in-memory controls
+usable. Invalid saved entries are skipped with a notice.
 
 Before a source is known, `selection.primary` is `null`. That waiting selection
 survives reloads. Its full source descriptor is saved when uniquely discovered;
@@ -184,12 +187,13 @@ semantic resolution, rendering, and optional default overrides.
 | Member | Contract |
 | --- | --- |
 | `id`, `label` | Stable saved feature ID and friendly Show label. |
-| `controls` | Native checkbox, color, or range descriptors. |
+| `controls` | Native checkbox, color, range, select, or local image descriptors. |
+| `renderOrder` | Optional numeric drawing priority (default `0`); backgrounds use `-1`. Stable list order is preserved within a priority. |
 | `defaults` | Default settings object, or function receiving the source descriptor (an empty object before a source is known). |
 | `validateSettings(settings)` | Return normalized settings, or `null` for invalid saved data. |
 | `discover(catalog)` | Return compatible primary descriptors from the observed-source Map. Match semantic requirements as well as family, and support empty payloads. Also used for unique, one-time binding of waiting overlays. |
 | `resolve(index, selection, settings)` | Resolve current-frame inputs and relationships. Return `state`, `message`, `items`, and feature-specific resolved data. |
-| `render(target, resolved, settings)` | Draw resolved data. Target supplies canvas/context, video, mapper, shared layout state, and time. |
+| `render(target, resolved, settings)` | Draw resolved data. Target supplies canvas/context, video, mapper, shared layout state, time, and the owning overlay for resource caching. |
 
 The editor offers registered working features even before discovery. The host
 keeps unbound selections waiting; plugin resolvers receive selected sources.
@@ -197,10 +201,39 @@ The dispatcher knows only the plugin contract and overlay order. Feature-specifi
 resolver; reusable geometry/drawing belongs in `overlay-drawing.js`. A new plugin
 module can be imported into the registry without changing the editor or dispatcher.
 
-Future mask/compositing plugins can read the original decoded `payload` through
-their selected output's layers. Semantic/instance/panoptic segmentation and RVM
-still require agreed class/instance, coordinate, and continuous-alpha contracts;
-those meanings cannot be inferred from generic bitmap bytes.
+Semantic/instance/panoptic segmentation requires its own agreed class/instance and
+coordinate contracts; those meanings cannot be inferred from generic bitmap bytes.
+
+## Background replacement
+
+Select **Background replacement**, then choose **Solid color** or **Local image**.
+Images use a centered cover crop and retain their aspect ratio. The selected color
+fills transparent image areas and is the fallback while an image loads, if it fails
+to decode, or when no image is selected. **Clear image** removes the saved image.
+PNG, JPEG and WebP inputs up to 10 MiB and 40 megapixels are accepted. They are
+resized to a maximum side of 1920 pixels and encoded locally, capped at 2 MB of
+saved data. Nothing is uploaded. Browser storage quotas can still prevent saving;
+the normal save-failure notice then applies and the image works for this session.
+
+The renderer requires one tightly packed `Uint8` mask for the full source frame,
+without model-input letterboxing. A nonzero parent ID must resolve unambiguously
+to the current `VideoFrame`; cropped-object masks are not stretched across the
+frame. The mask is scaled into the contained video rectangle, leaving display
+letterboxing untouched. Missing, ambiguous, invalid or oversized masks draw nothing.
+
+Mask bytes are **background opacity**: `0` keeps the video, `255` replaces it,
+and intermediate values blend continuously. `RvmParser` converts foreground alpha
+with `round(255 * (1 - clamp(alpha, 0, 1)))` and rejects non-finite values. The
+browser applies no binary threshold; the Opacity control multiplies this alpha.
+The existing native `opkosd` replacement path still uses its binary mask threshold
+of 150. Omit that native replacement when testing browser backgrounds.
+
+The compositor uses the original video colors, not RVM's separate inferred
+foreground-color tensor. As with the other overlays, metadata is latest-arriving,
+not frame-synchronized, so motion may show edge lag. Hiding/removing the overlay,
+missing metadata and disconnects reveal the original video. Decoded images and
+scratch canvases are cached per overlay and become collectible when it is removed;
+replacing/clearing an image drops its old decoded resource.
 
 ## Module responsibilities
 

@@ -58,5 +58,14 @@ test('dispatcher isolates source, order, style and visibility without knowing th
         overlays[0].enabled = true;
         assert.equal(render({layers: [second]}, overlays).calls.length, 0);
         assert.equal(render(null, overlays).calls.length, 0);
+        // Background plugins run first even when added after annotations.
+        const background = {...plugin, id: 'test-background', renderOrder: -1};
+        OVERLAY_FEATURES.push(background);
+        try {
+            overlays[1].enabled = true;
+            overlays[1].settings.opacity = 1;
+            overlays[1].featureId = background.id;
+            assert.deepEqual(render(frame, overlays).calls.map((call) => call.rect[0]), [2, 1]);
+        } finally { OVERLAY_FEATURES.pop(); }
     } finally { OVERLAY_FEATURES.pop(); }
 });

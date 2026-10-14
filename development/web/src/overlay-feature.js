@@ -16,6 +16,7 @@
  */
 
 import {objectId, sourceKey} from './overlay-sources.js';
+import {validLocalImage} from './overlay-image.js';
 
 export const STYLE_CONTROLS = [
     {key: 'color', label: 'Color', type: 'color', value: '#ffffff'},
@@ -46,7 +47,9 @@ export function defineFeature({controls = STYLE_CONTROLS, defaults = {}, resolve
                 const value = Object.hasOwn(settings, control.key) ? settings[control.key] : control.value;
                 const valid = control.type === 'checkbox' ? typeof value === 'boolean'
                     : control.type === 'color' ? typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value)
-                        : Number.isFinite(value) && value >= control.min && value <= control.max;
+                        : control.type === 'select' ? control.options.some((option) => option.value === value)
+                            : control.type === 'image' ? validLocalImage(value)
+                                : Number.isFinite(value) && value >= control.min && value <= control.max;
                 if (!valid) return null;
                 result[control.key] = value;
             }

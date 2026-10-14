@@ -6128,7 +6128,7 @@ function decodeFrameResultsMessage(message) {
       width: Number(item.bitmap?.width || 0),
       height: Number(item.bitmap?.height || 0),
       valueType: text(item.bitmap?.valueType),
-      pixels: item.bitmap?.pixels
+      pixels: item.bitmap ? Uint8Array.from(item.bitmap.pixels) : void 0
     }
   })), layers);
   addPayloadLayers(envelope, ObjectEmbeddingsT, "ObjectEmbeddings", (payload) => payload.embeddings.map((item) => ({
@@ -6628,6 +6628,35 @@ function indexFrame(frame) {
   return index;
 }
 
+// development/web/src/overlay-image.js
+function validLocalImage(value) {
+  return typeof value === "string" && (value === "" || value.length <= 2e6 && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(value));
+}
+async function loadLocalImage(file) {
+  if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 10 * 1024 * 1024) {
+    throw new Error("Choose a PNG, JPEG or WebP image up to 10 MiB.");
+  }
+  let image;
+  try {
+    image = await createImageBitmap(file);
+    if (!image.width || !image.height || image.width * image.height > 4e7) {
+      throw new Error("Invalid image dimensions");
+    }
+    const scale = Math.min(1, 1920 / Math.max(image.width, image.height));
+    const canvas2 = document.createElement("canvas");
+    canvas2.width = Math.max(1, Math.round(image.width * scale));
+    canvas2.height = Math.max(1, Math.round(image.height * scale));
+    canvas2.getContext("2d").drawImage(image, 0, 0, canvas2.width, canvas2.height);
+    const data = canvas2.toDataURL("image/webp", 0.85);
+    if (!validLocalImage(data)) throw new Error("Image is too large to save");
+    return data;
+  } catch {
+    throw new Error("Could not prepare this image. Choose a smaller, valid raster image.");
+  } finally {
+    image?.close();
+  }
+}
+
 // development/web/src/overlay-feature.js
 var STYLE_CONTROLS = [
   { key: "color", label: "Color", type: "color", value: "#ffffff" },
@@ -6641,7 +6670,7 @@ var CONTENT_COLORS = {
   personClassification: "#66ff00",
   trackTrace: "#ffff00"
 };
-function defineFeature({ controls = STYLE_CONTROLS, defaults = {}, resolve = (result) => result, reason, ...definition }) {
+function defineFeature({ controls = STYLE_CONTROLS, defaults = {}, resolve: resolve2 = (result) => result, reason, ...definition }) {
   return {
     ...definition,
     controls,
@@ -6661,7 +6690,7 @@ function defineFeature({ controls = STYLE_CONTROLS, defaults = {}, resolve = (re
       const result = {};
       for (const control of controls) {
         const value = Object.hasOwn(settings, control.key) ? settings[control.key] : control.value;
-        const valid = control.type === "checkbox" ? typeof value === "boolean" : control.type === "color" ? typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value) : Number.isFinite(value) && value >= control.min && value <= control.max;
+        const valid = control.type === "checkbox" ? typeof value === "boolean" : control.type === "color" ? typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value) : control.type === "select" ? control.options.some((option) => option.value === value) : control.type === "image" ? validLocalImage(value) : Number.isFinite(value) && value >= control.min && value <= control.max;
         if (!valid) return null;
         result[control.key] = value;
       }
@@ -6674,7 +6703,7 @@ function defineFeature({ controls = STYLE_CONTROLS, defaults = {}, resolve = (re
       if (reason) return { state: "unsupported", message: reason };
       const output = index.outputs.get(sourceKey(selection.primary));
       if (!output) return { state: "waiting", message: "Waiting for source" };
-      return resolve({ state: "ready", message: "", output, items: output.items }, index, settings);
+      return resolve2({ state: "ready", message: "", output, items: output.items }, index, settings);
     }
   };
 }
@@ -6829,6 +6858,91 @@ var performance_default = defineFeature({
   }
 });
 
+// development/web/src/features/background-replacement.js
+var resources = /* @__PURE__ */ new WeakMap();
+function resolve(result, index) {
+  const masks = result.items.filter((item) => item.type === "SegmentationMask");
+  if (result.output.layers.some((layer2) => layer2.compositingMode !== "backgroundReplacement")) {
+    return { ...result, state: "unsupported", message: "Requires a background-opacity mask." };
+  }
+  if (masks.length > 1) return { ...result, items: [], state: "ambiguous", message: "Expected one full-frame mask." };
+  if (!masks.length) return { ...result, items: [] };
+  const { width, height, valueType, pixels, parentUuid } = masks[0].data;
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0 || width > 8192 || height > 8192 || width * height > 16777216 || valueType !== "Uint8" || !(pixels instanceof Uint8Array) || pixels.length !== width * height) {
+    return { ...result, items: [], state: "unsupported", message: "Invalid or oversized Uint8 mask." };
+  }
+  if (objectId(parentUuid)) {
+    const parents = index.frame.layers.flatMap((layer2) => layer2.detections || []).filter((item) => objectId(item.data?.uuid) === objectId(parentUuid));
+    if (parents.length !== 1 || parents[0].type !== "VideoFrame") {
+      return { ...result, items: [], state: "partial", message: "Waiting for unambiguous full-frame mask geometry." };
+    }
+  }
+  return { ...result, items: masks };
+}
+function render({ ctx, canvas: canvas2, mapper, overlay: overlay2 }, resolved, settings) {
+  if (!resolved.items.length) return;
+  const mask = resolved.items[0].data;
+  let cache = resources.get(overlay2);
+  if (!cache) {
+    cache = { mask: document.createElement("canvas"), composite: document.createElement("canvas") };
+    resources.set(overlay2, cache);
+  }
+  if (cache.pixels !== mask.pixels) {
+    cache.mask.width = mask.width;
+    cache.mask.height = mask.height;
+    const maskContext = cache.mask.getContext("2d");
+    const data = maskContext.createImageData(mask.width, mask.height);
+    for (let i = 0; i < mask.pixels.length; i++) data.data[i * 4 + 3] = mask.pixels[i];
+    maskContext.putImageData(data, 0, 0);
+    cache.pixels = mask.pixels;
+  }
+  const imageSource = settings.background === "image" ? settings.image : "";
+  if (cache.imageSource !== imageSource) {
+    cache.imageSource = imageSource;
+    cache.image = imageSource ? new Image() : null;
+    if (cache.image) cache.image.src = imageSource;
+  }
+  const { x, y, width, height } = mapper.display;
+  const dpr = canvas2.width / Math.max(1, canvas2.clientWidth);
+  const w = Math.max(1, Math.round(width * dpr));
+  const h = Math.max(1, Math.round(height * dpr));
+  if (cache.composite.width !== w || cache.composite.height !== h) {
+    cache.composite.width = w;
+    cache.composite.height = h;
+  }
+  const composite = cache.composite.getContext("2d");
+  composite.globalCompositeOperation = "source-over";
+  composite.clearRect(0, 0, w, h);
+  composite.fillStyle = settings.color;
+  composite.fillRect(0, 0, w, h);
+  if (cache.image?.complete && cache.image.naturalWidth && cache.image.naturalHeight) {
+    const scale = Math.max(w / cache.image.naturalWidth, h / cache.image.naturalHeight);
+    const iw = cache.image.naturalWidth * scale;
+    const ih = cache.image.naturalHeight * scale;
+    composite.drawImage(cache.image, (w - iw) / 2, (h - ih) / 2, iw, ih);
+  }
+  composite.globalCompositeOperation = "destination-in";
+  composite.drawImage(cache.mask, 0, 0, w, h);
+  ctx.drawImage(cache.composite, x, y, width, height);
+}
+var background_replacement_default = defineFeature({
+  id: "background-replacement",
+  label: "Background replacement",
+  renderOrder: -1,
+  accepts: (source) => source.payloadType === "SegmentationMasks" && source.contentType === "segmentation",
+  controls: [
+    { key: "background", label: "Background", type: "select", value: "color", options: [
+      { value: "color", label: "Solid color" },
+      { value: "image", label: "Local image" }
+    ] },
+    ...STYLE_CONTROLS,
+    { key: "image", label: "Background image", type: "image", value: "" }
+  ],
+  defaults: { color: "#00ffff" },
+  resolve,
+  render
+});
+
 // development/web/src/overlay-features.js
 var OVERLAY_FEATURES = [
   bounding_boxes_default,
@@ -6838,7 +6952,8 @@ var OVERLAY_FEATURES = [
   classifications_default,
   gaze_default,
   camera_contact_default,
-  performance_default
+  performance_default,
+  background_replacement_default
 ];
 function featureFor(id) {
   return OVERLAY_FEATURES.find((feature) => feature.id === id);
@@ -6889,14 +7004,15 @@ function renderOsd(canvas2, video5, index, overlays2 = [], { now = Date.now() } 
     perception: index.frame
   });
   const target = { ctx, canvas: canvas2, video: video5, mapper, layout: { left: 0, right: 0, performanceY: 10 }, now };
-  for (const overlay2 of overlays2) {
+  const ordered = [...overlays2].sort((a, b) => (featureFor(a.featureId)?.renderOrder ?? 0) - (featureFor(b.featureId)?.renderOrder ?? 0));
+  for (const overlay2 of ordered) {
     if (!overlay2.enabled) continue;
     const resolved = resolveOverlay(index, overlay2);
     if (["waiting", "unsupported"].includes(resolved.state) || resolved.settings.opacity <= 0) continue;
     ctx.save();
     try {
       ctx.globalAlpha = resolved.settings.opacity ?? 1;
-      resolved.feature.render(target, resolved, resolved.settings);
+      resolved.feature.render({ ...target, overlay: overlay2 }, resolved, resolved.settings);
     } finally {
       ctx.restore();
     }
@@ -7061,6 +7177,59 @@ function styleControls(featureId, settings, changed) {
     }
     const label = node("label", "overlay-field");
     label.append(node("span", "", control.label));
+    if (control.type === "image") {
+      const input2 = document.createElement("input");
+      input2.type = "file";
+      input2.accept = "image/png,image/jpeg,image/webp";
+      input2.setAttribute("aria-label", control.label);
+      const status = node("output", "overlay-hint", settings[control.key] ? "Image saved in this browser." : "No image selected.");
+      status.setAttribute("role", "status");
+      const clear = node("button", "", "Clear image");
+      clear.type = "button";
+      let revision = 0;
+      clear.addEventListener("click", () => {
+        revision++;
+        input2.value = "";
+        input2.setCustomValidity("");
+        settings[control.key] = "";
+        status.textContent = "No image selected.";
+        changed();
+      });
+      input2.addEventListener("change", async () => {
+        const file = input2.files[0];
+        if (!file) return;
+        const current = ++revision;
+        input2.setCustomValidity("Wait for the image to finish loading.");
+        status.textContent = "Preparing image\u2026";
+        try {
+          const image = await loadLocalImage(file);
+          if (current !== revision || !input2.isConnected) return;
+          settings[control.key] = image;
+          status.textContent = "Image prepared locally; never uploaded.";
+          changed();
+        } catch (error) {
+          if (current === revision) status.textContent = error.message;
+        } finally {
+          if (current === revision) input2.setCustomValidity("");
+        }
+      });
+      label.append(input2, status);
+      container.append(label, clear);
+      continue;
+    }
+    if (control.type === "select") {
+      const input2 = document.createElement("select");
+      input2.setAttribute("aria-label", control.label);
+      for (const option of control.options) input2.add(new Option(option.label, option.value));
+      input2.value = settings[control.key];
+      input2.addEventListener("change", () => {
+        settings[control.key] = input2.value;
+        changed();
+      });
+      label.append(input2);
+      container.append(label);
+      continue;
+    }
     const row = node("span", "overlay-style-value");
     const input = document.createElement("input");
     input.type = control.type;
@@ -7282,11 +7451,13 @@ function updateDraft() {
     draft = createOverlay(featureSelect.value, source);
     draft.enabled = editing?.enabled ?? true;
     if (previousDraft?.featureId === draft.featureId && !previousDraft.selection.primary) {
-      draft.settings = { ...previousDraft.settings };
+      draft.settings = previousDraft.settings;
     } else if (editing?.featureId === draft.featureId && selectionKey(editing) === key) {
       draft.settings = { ...editing.settings };
     }
-    editorSettings.replaceChildren(styleControls(draft.featureId, draft.settings, updateDraft));
+    if (draft.settings !== previousDraft?.settings) {
+      editorSettings.replaceChildren(styleControls(draft.featureId, draft.settings, updateDraft));
+    }
     editorDetails.replaceChildren(node("summary", "", "Details"));
     if (source) editorDetails.append(technicalDetails(source));
   }
