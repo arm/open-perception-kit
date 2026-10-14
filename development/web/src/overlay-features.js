@@ -16,9 +16,11 @@
  */
 
 import boundingBoxes from './features/bounding-boxes.js';
+import faceCircles from './features/face-circles.js';
 
 export const OVERLAY_FEATURES = [
     boundingBoxes,
+    faceCircles,
 ];
 
 export function featureFor(id) {

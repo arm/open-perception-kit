@@ -66,6 +66,7 @@ multiple related payloads, and one payload can support multiple features.
 | Feature | Inputs and presentation |
 | --- | --- |
 | Bounding boxes | Non-face `BoxDetections` or `ObjectTracks`: rectangular boxes and labels. |
+| Face circles | `BoxDetections` or `ObjectTracks` with `humanFace` semantics: circles around faces. |
 
 `FrameContext` supplies video geometry rather than a selectable visualization.
 
