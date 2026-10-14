@@ -23,10 +23,12 @@ from .frame_results_sdk import FrameResults
 from open_perception_kit.fb.open_perception_kit.metadata.BoxDetections import BoxDetectionsT
 from open_perception_kit.fb.open_perception_kit.metadata.Classifications import ClassificationsT
 from open_perception_kit.fb.open_perception_kit.metadata.FrameContext import FrameContextT
+from open_perception_kit.fb.open_perception_kit.metadata.InstanceSegmentationMasks import InstanceSegmentationMasksT
 from open_perception_kit.fb.open_perception_kit.metadata.ObjectEmbeddings import ObjectEmbeddingsT
 from open_perception_kit.fb.open_perception_kit.metadata.ObjectTracks import ObjectTracksT
 from open_perception_kit.fb.open_perception_kit.metadata.PoseEstimations import PoseEstimationsT
 from open_perception_kit.fb.open_perception_kit.metadata.SegmentationMasks import SegmentationMasksT
+from open_perception_kit.fb.open_perception_kit.metadata.SemanticSegmentationMasks import SemanticSegmentationMasksT
 from open_perception_kit.fb.open_perception_kit.metadata.TrackTraces import TrackTracesT
 
 
@@ -264,6 +266,25 @@ def _normalize_segmentation_mask(mask: Any) -> dict[str, Any]:
     }
 
 
+def _normalize_semantic_segmentation_mask(mask: Any) -> dict[str, Any]:
+    item = _normalize_segmentation_mask(mask)
+    item["item_type"] = "SemanticSegmentationMask"
+    return item
+
+
+def _normalize_instance_segmentation_mask(mask: Any) -> dict[str, Any]:
+    item = _normalize_segmentation_mask(mask)
+    item["item_type"] = "InstanceSegmentationMask"
+    item["data"].update(
+        {
+            "classId": int(mask.classId),
+            "confidence": float(mask.confidence),
+            "box": _box_data(mask.box) if mask.box is not None else None,
+        }
+    )
+    return item
+
+
 def _normalize_object_embedding(embedding: Any) -> dict[str, Any]:
     data = _object_data(embedding.object)
     data["values"] = [float(value) for value in _sequence(embedding.values)]
@@ -422,6 +443,14 @@ def normalize_frame_results(frame_results: FrameResults, frame_counter: int | No
     _normalize_payload_collection(
         frame_results, snapshot, SegmentationMasksT,
         "open_perception_kit.metadata.SegmentationMasks", "masks", _normalize_segmentation_mask,
+    )
+    _normalize_payload_collection(
+        frame_results, snapshot, SemanticSegmentationMasksT,
+        "open_perception_kit.metadata.SemanticSegmentationMasks", "masks", _normalize_semantic_segmentation_mask,
+    )
+    _normalize_payload_collection(
+        frame_results, snapshot, InstanceSegmentationMasksT,
+        "open_perception_kit.metadata.InstanceSegmentationMasks", "masks", _normalize_instance_segmentation_mask,
     )
     _normalize_payload_collection(
         frame_results, snapshot, ObjectEmbeddingsT,

@@ -346,6 +346,10 @@ static size_t count_display_detections(const open_perception_kit::FrameResults &
         [&count](const auto &payload) { count += count_present_entries(payload.detections); });
     frame_results.for_each<open_perception_kit::metadata::SegmentationMasksT>(
         [&count](const auto &payload) { count += count_present_entries(payload.masks); });
+    frame_results.for_each<open_perception_kit::metadata::SemanticSegmentationMasksT>(
+        [&count](const auto &payload) { count += count_present_entries(payload.masks); });
+    frame_results.for_each<open_perception_kit::metadata::InstanceSegmentationMasksT>(
+        [&count](const auto &payload) { count += count_present_entries(payload.masks); });
     return count;
 }
 

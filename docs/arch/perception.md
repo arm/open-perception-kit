@@ -97,7 +97,9 @@ The currently generated payload roots are:
 - `BoxDetections` for localized detections
 - `Classifications` for classification candidates and person-presence output
 - `PoseEstimations` for yaw and pitch estimates
-- `SegmentationMasks` for bitmap-backed masks
+- `SegmentationMasks` for compositing masks and alpha mattes
+- `SemanticSegmentationMasks` for per-pixel class maps
+- `InstanceSegmentationMasks` for individual object masks with class, confidence, and box
 - `ObjectEmbeddings` for embedding vectors
 - `ObjectTracks` for tracker output and predicted detections
 - `TrackTraces` for tracker history points
