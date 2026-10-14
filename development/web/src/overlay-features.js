@@ -18,11 +18,13 @@
 import boundingBoxes from './features/bounding-boxes.js';
 import faceCircles from './features/face-circles.js';
 import trackedObjects from './features/tracked-objects.js';
+import movementTrails from './features/movement-trails.js';
 
 export const OVERLAY_FEATURES = [
     boundingBoxes,
     faceCircles,
     trackedObjects,
+    movementTrails,
 ];
 
 export function featureFor(id) {

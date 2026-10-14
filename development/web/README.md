@@ -68,6 +68,7 @@ multiple related payloads, and one payload can support multiple features.
 | Bounding boxes | Non-face `BoxDetections` or `ObjectTracks`: rectangular boxes and labels. |
 | Face circles | `BoxDetections` or `ObjectTracks` with `humanFace` semantics: circles around faces. |
 | Tracked objects | `ObjectTracks` plus optional related `TrackTraces`: independently controlled **Boxes** and **Trails**, both enabled by default. |
+| Movement trails | `TrackTraces`: trajectories without boxes. |
 
 `FrameContext` supplies video geometry rather than a selectable visualization.
 
