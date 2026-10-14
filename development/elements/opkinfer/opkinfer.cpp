@@ -454,29 +454,25 @@ static GstOpkInferFramePolicy gst_opkinfer_get_frame_policy(GstOpkInfer *self,
 
 static std::shared_ptr<opk::mediaio::VideoFrame> gst_opkinfer_map_video_frame(GstOpkInfer *self,
                                                                               GstBuffer *buffer) {
-    if (opk::mediaio::gst::GstVideoFrame::hasDirectCpuAddress(buffer)) {
+    const bool dmaBuf = opk::mediaio::gst::GstVideoFrame::hasDmaBufContent(buffer);
+    if (dmaBuf || opk::mediaio::gst::GstVideoFrame::hasDirectCpuAddress(buffer)) {
         auto frame = opk::mediaio::gst::GstVideoFrame::mapGstBuffer(
             buffer, self->vinfo, opk::AccessMode::Read);
         if (!frame) {
-            GST_ELEMENT_ERROR(
-                self, RESOURCE, FAILED, ("Failed to map video buffer."), ("%s", self->opChainPath));
+            GST_ELEMENT_ERROR(self,
+                              RESOURCE,
+                              FAILED,
+                              ("Failed to map video buffer for CPU preprocessing."),
+                              ("%s: %s",
+                               self->opChainPath,
+                               dmaBuf ? "DMA-BUF input must be CPU-mappable and linear."
+                                      : "System-memory video mapping failed."));
         }
         return frame;
     }
 
-    if (opk::mediaio::gst::GstVideoFrame::hasDmaBufContent(buffer)) {
-        GST_ELEMENT_ERROR(self,
-                          RESOURCE,
-                          FAILED,
-                          ("DMA-BUF video buffers are not supported by opkinfer yet."),
-                          ("%s", self->opChainPath));
-    } else {
-        GST_ELEMENT_ERROR(self,
-                          RESOURCE,
-                          FAILED,
-                          ("Unsupported GstBuffer memory type."),
-                          ("%s", self->opChainPath));
-    }
+    GST_ELEMENT_ERROR(
+        self, RESOURCE, FAILED, ("Unsupported GstBuffer memory type."), ("%s", self->opChainPath));
     return nullptr;
 }
 
@@ -533,11 +529,8 @@ static GstFlowReturn gst_opkinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
     const GstClockTime processingStartedAt =
         framePolicy.qosEnabled ? gst_util_get_timestamp() : GST_CLOCK_TIME_NONE;
 
-    // Build the pipeline VideoFrame only from CPU-direct buffers for now. DMA-BUF-backed
-    // buffers are detected explicitly so future DMA-BUF support can be added without
-    // accidentally taking a slow or invalid CPU mapping path. Keep this after attaching
-    // FrameResultsMeta: GstVideoFrame holds its own GstBuffer ref, which makes adding
-    // new metadata fail because the buffer is no longer considered writable.
+    // Map after attaching FrameResultsMeta: the frame's buffer reference prevents
+    // adding metadata while the OpChain reads the mapped pixels.
     auto sharedMediaFrame = gst_opkinfer_map_video_frame(self, buf);
     if (!sharedMediaFrame) {
         return GST_FLOW_ERROR;
