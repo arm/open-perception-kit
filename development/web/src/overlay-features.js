@@ -17,10 +17,12 @@
 
 import boundingBoxes from './features/bounding-boxes.js';
 import faceCircles from './features/face-circles.js';
+import trackedObjects from './features/tracked-objects.js';
 
 export const OVERLAY_FEATURES = [
     boundingBoxes,
     faceCircles,
+    trackedObjects,
 ];
 
 export function featureFor(id) {
