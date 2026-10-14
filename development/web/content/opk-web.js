@@ -6363,6 +6363,19 @@ function drawFace(ctx, rect, mapper, color) {
   ctx.stroke();
   ctx.restore();
 }
+function drawTrackTrace(ctx, trace, mapper, color) {
+  const points = Array.isArray(trace?.points) ? trace.points : [];
+  if (points.length < 2) {
+    return;
+  }
+  const segments = points.length - 1;
+  for (let i = 0; i < segments; i += 1) {
+    const from = mapper.point(points[i].x, points[i].y);
+    const to = mapper.point(points[i + 1].x, points[i + 1].y);
+    const alpha = 0.35 + 0.65 * ((i + 1) / segments);
+    drawArrow(ctx, from, to, hexToRgba(color, alpha), 4, 0);
+  }
+}
 function drawTextChip(ctx, text2, x, y, fontSize, color = "#ffffff", alignRight = false) {
   ctx.save();
   ctx.font = `${fontSize}px monospace`;
@@ -6379,11 +6392,39 @@ function drawTextChip(ctx, text2, x, y, fontSize, color = "#ffffff", alignRight 
   ctx.fillText(text2, drawX + paddingX, y + paddingY);
   ctx.restore();
 }
+function drawArrow(ctx, from, to, color, width = 3, headSize = 10) {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = width;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(from.x, from.y);
+  ctx.lineTo(to.x, to.y);
+  ctx.stroke();
+  if (headSize > 0) {
+    const angle = Math.atan2(to.y - from.y, to.x - from.x);
+    ctx.beginPath();
+    ctx.moveTo(to.x, to.y);
+    ctx.lineTo(to.x - headSize * Math.cos(angle - Math.PI / 6), to.y - headSize * Math.sin(angle - Math.PI / 6));
+    ctx.lineTo(to.x - headSize * Math.cos(angle + Math.PI / 6), to.y - headSize * Math.sin(angle + Math.PI / 6));
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
 function confidenceLabel(confidence) {
   return Number.isFinite(confidence) ? `${(confidence * 100).toFixed(1)}%` : "";
 }
 function positiveNumber(value) {
   return Number.isFinite(Number(value)) && Number(value) > 0 ? Number(value) : 0;
+}
+function hexToRgba(hex, alpha) {
+  const clean = hex.replace("#", "");
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 // development/web/src/overlay-sources.js
@@ -6583,10 +6624,50 @@ var face_circles_default = defineFeature({
   }
 });
 
+// development/web/src/features/tracked-objects.js
+var tracked_objects_default = defineFeature({
+  id: "tracked-objects",
+  label: "Tracked objects",
+  accepts: (source) => source.payloadType === "ObjectTracks",
+  controls: [
+    { key: "boxes", label: "Boxes", type: "checkbox", value: true },
+    { key: "trails", label: "Trails", type: "checkbox", value: true },
+    ...STYLE_CONTROLS
+  ],
+  resolve(result, index, settings) {
+    const items = result.items.filter((item) => item.type === "Rect");
+    const resolved = { ...result, items, trails: [] };
+    if (!settings.trails || !items.length) return resolved;
+    const source = result.output.source;
+    if (!producerKey(source)) return { ...resolved, state: "partial", message: "Trail producer identity is missing." };
+    let missing = false;
+    let ambiguous = false;
+    for (const id of new Set(items.map((item) => objectId(item.data.trackId)))) {
+      const candidates = (index.byTrack.get(trackKey(source, id)) || []).filter((item) => item.source.payloadType === "TrackTraces" && item.source.contentType === "trackTrace" && item.type === "TrackTrace");
+      if (candidates.length > 1) ambiguous = true;
+      else if (candidates.length === 1 && candidates[0].data.points?.length >= 2) resolved.trails.push(candidates[0].data);
+      else missing = true;
+    }
+    if (ambiguous) return { ...resolved, state: "ambiguous", message: "Multiple trails match a track; ambiguous trails are omitted." };
+    if (missing) return { ...resolved, state: "partial", message: "Waiting for matching trail history." };
+    return resolved;
+  },
+  render({ ctx, mapper }, resolved, settings) {
+    if (settings.trails) {
+      for (const trace of resolved.trails) drawTrackTrace(ctx, trace, mapper, settings.color);
+    }
+    if (settings.boxes) {
+      const draw = resolved.output.source.contentType === "humanFace" ? drawFace : drawObjectBox;
+      for (const { data } of resolved.items) draw(ctx, data, mapper, settings.color);
+    }
+  }
+});
+
 // development/web/src/overlay-features.js
 var OVERLAY_FEATURES = [
   bounding_boxes_default,
-  face_circles_default
+  face_circles_default,
+  tracked_objects_default
 ];
 function featureFor(id) {
   return OVERLAY_FEATURES.find((feature) => feature.id === id);
