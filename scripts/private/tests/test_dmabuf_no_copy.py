@@ -27,6 +27,7 @@ COPY_PROGRAM = r"""
 #include <gst/video/video.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -36,6 +37,14 @@ int main(int argc, char **argv) {
     if (argc == 2 && strcmp(argv[1], "--version") == 0)
         return 0;
     const char *mode = getenv("OPK_DMABUF_TEST_MODE");
+    if (strcmp(mode, "hold") == 0) {
+        FILE *pids = fopen(getenv("OPK_DMABUF_TEST_PIDS"), "a");
+        g_assert(pids != NULL);
+        fprintf(pids, "%ld\n", (long)getpid());
+        fclose(pids);
+        for (;;)
+            pause();
+    }
     if (strcmp(mode, "none") == 0)
         return 0;
 
@@ -124,6 +133,37 @@ class DmabufNoCopyTests(unittest.TestCase):
         result = self.run_probe()
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_invalid_frame_counts_do_not_start_capture(self):
+        self.environment["OPK_DMABUF_TEST_MODE"] = "frame"
+        for frames in ("0", "-1", "2147483647", "999999999999", "1+1"):
+            with self.subTest(frames=frames):
+                result = self.run_command(["bash", str(PROBE), "unused", "unused", frames])
+                self.assertEqual(result.returncode, 2, result.stderr)
+                self.assertIn("Frame count must be", result.stderr)
+                self.assertEqual(self.destination.read_bytes(), self.original)
+
+    def test_stream_readback_failure_stops_camera_and_tcp_sink(self):
+        pids = self.directory / "stream-pids"
+        pids.unlink(missing_ok=True)
+        self.environment["OPK_DMABUF_TEST_MODE"] = "hold"
+        self.environment["OPK_DMABUF_TEST_PIDS"] = str(pids)
+        result = self.run_command(["bash", str(PROBE), "unused", "35", "90", "5000"])
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("KMS snapshot", result.stderr)
+        running = pids.read_text().splitlines()
+        self.assertEqual(len(running), 2)
+        for pid in running:
+            with self.assertRaises(ProcessLookupError):
+                os.kill(int(pid), 0)
+
+    def test_invalid_stream_port_does_not_start_capture(self):
+        self.environment["OPK_DMABUF_TEST_MODE"] = "frame"
+        for port in ("0", "65536", "-1", "1+1"):
+            with self.subTest(port=port):
+                result = self.run_command(["bash", str(PROBE), "unused", "35", "90", port])
+                self.assertEqual(result.returncode, 2, result.stderr)
+                self.assertEqual(self.destination.read_bytes(), self.original)
+
     def test_failed_guard_build_does_not_start_capture(self):
         with tempfile.TemporaryDirectory(prefix="opk-no-copy-compiler-") as temporary:
             compiler = Path(temporary) / "cc"
@@ -148,6 +188,75 @@ class DmabufNoCopyTests(unittest.TestCase):
             self.assertEqual(result.returncode, 1, result.stderr)
             self.assertIn("copy guard did not load", result.stderr)
             self.assertEqual(self.destination.read_bytes(), self.original)
+
+
+HARNESS = r"""
+#define main snapshot_main
+#include "kms-snapshot.c"
+#undef main
+#include <string.h>
+
+int main(int argc, char **argv) {
+    if (argc != 2)
+        return 2;
+    size_t size = 32 + 704 * 720;
+    unsigned char *data = calloc(1, size);
+    if (!data)
+        return 2;
+    drmModeFB2 fb = {.width = 640, .height = 480, .pixel_format = DRM_FORMAT_NV12,
+                    .handles = {1, 1}, .pitches = {704, 704},
+                    .offsets = {32, 32 + 704 * 480}};
+    for (size_t row = 0; row < 720; ++row)
+        memset(data + 32 + row * 704, row % 251, 640);
+    if (strcmp(argv[1], "truncated") == 0)
+        size = fb.offsets[1] + 239 * 704 + 639;
+    else if (strcmp(argv[1], "stride") == 0)
+        fb.pitches[1] = 639;
+    else if (strcmp(argv[1], "tiled") == 0) {
+        fb.flags = DRM_MODE_FB_MODIFIERS;
+        fb.modifier = 1;
+    } else if (strcmp(argv[1], "separate") == 0)
+        fb.handles[1] = 2;
+    else if (strcmp(argv[1], "dimensions") == 0)
+        fb.width = 642;
+    else if (strcmp(argv[1], "format") == 0)
+        fb.pixel_format = DRM_FORMAT_NV21;
+    int result = write_nv12(stdout, data, size, &fb);
+    free(data);
+    return result ? 1 : 0;
+}
+"""
+
+
+class KmsSnapshotTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.temporary = tempfile.TemporaryDirectory(prefix="opk-kms-test-")
+        cls.addClassCleanup(cls.temporary.cleanup)
+        cls.directory = Path(cls.temporary.name)
+        source = cls.directory / "layout.c"
+        source.write_text(HARNESS, encoding="utf-8")
+        cls.program = cls.directory / "layout"
+        flags = shlex.split(
+            subprocess.check_output(["pkg-config", "--cflags", "--libs", "libdrm"], text=True)
+        )
+        subprocess.run(
+            ["cc", "-std=c11", "-Wall", "-Wextra", "-Werror", "-I",
+             str(ROOT / "scripts/private"), str(source), *flags, "-o", str(cls.program)],
+            check=True,
+        )
+
+    def test_padded_planes_are_packed_without_padding_or_offset_bytes(self):
+        result = subprocess.run([str(self.program), "valid"], capture_output=True, check=True)
+        expected = b"".join(bytes([row % 251]) * 640 for row in range(720))
+        self.assertEqual(result.stdout, expected)
+
+    def test_unsupported_or_out_of_bounds_layout_writes_no_pixels(self):
+        for mode in ("truncated", "stride", "tiled", "separate", "dimensions", "format"):
+            with self.subTest(mode=mode):
+                result = subprocess.run([str(self.program), mode], capture_output=True)
+                self.assertEqual(result.returncode, 1)
+                self.assertEqual(result.stdout, b"")
 
 
 if __name__ == "__main__":

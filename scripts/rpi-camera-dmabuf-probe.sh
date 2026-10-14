@@ -18,16 +18,34 @@ set -euo pipefail
 
 camera="${1:?Pass the camera-name reported by gst-device-monitor-1.0 Video}"
 connector="${2:?Pass the DRM connector ID reported by kmsprint -p}"
+frames="${3:-5400}"
+if [[ ! "$frames" =~ ^[1-9][0-9]*$ || ${#frames} -gt 10 ]] || ((frames > 2147483646)); then
+    echo "Frame count must be between 1 and 2147483646." >&2
+    exit 2
+fi
+stream_port="${4:-}"
+if [[ -n "$stream_port" ]] && { [[ ! "$stream_port" =~ ^[1-9][0-9]*$ || ${#stream_port} -gt 5 ]] || ((stream_port > 65535)); }; then
+    echo "TCP port must be between 1 and 65535." >&2
+    exit 2
+fi
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 guard_dir="$(mktemp -d /tmp/opk-dmabuf-no-copy.XXXXXX)"
 probe_pid=""
+sink_pid=""
+reader_pid=""
 
 # shellcheck disable=SC2317 # Called by the EXIT trap.
 cleanup() {
-    if [[ -n "$probe_pid" ]]; then
-        kill -TERM "$probe_pid" 2> /dev/null || true
-        wait "$probe_pid" 2> /dev/null || true
-    fi
+    for pid in "$reader_pid" "$sink_pid" "$probe_pid"; do
+        if [[ -n "$pid" ]]; then
+            kill -TERM "$pid" 2> /dev/null || true
+        fi
+    done
+    for pid in "$reader_pid" "$sink_pid" "$probe_pid"; do
+        if [[ -n "$pid" ]]; then
+            wait "$pid" 2> /dev/null || true
+        fi
+    done
     rm -rf -- "$guard_dir"
 }
 trap 'cleanup' EXIT
@@ -48,16 +66,82 @@ if [[ "$guard_status" != 77 ]]; then
     exit 1
 fi
 
-# This requires an available KMS display; see docs/arch/dmabuf-camera-probe.md.
-# Keep all frames so the probe exposes corruption and gaps in the stream.
+if [[ -n "$stream_port" ]]; then
+    compile_flags="$(pkg-config --cflags --libs libdrm)"
+    # shellcheck disable=SC2086 # pkg-config returns separate compiler arguments.
+    cc -std=c11 -Wall -Wextra -Werror "$script_dir/private/kms-snapshot.c" \
+        $compile_flags -o "$guard_dir/capture"
+fi
+
+# Read back the connector used below; retries cover camera startup and shutdown.
+stream_frames() {
+    trap - EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+    exec 3> "$guard_dir/frames"
+    while true; do
+        ready=false
+        for ((attempt = 0; attempt < 100; ++attempt)); do
+            if "$guard_dir/capture" "$connector" "$guard_dir/frame.nv12" 2> "$guard_dir/readback.log"; then
+                ready=true
+                break
+            else
+                result=$?
+                if [[ "$result" != 3 ]]; then
+                    cat "$guard_dir/readback.log" >&2
+                    return "$result"
+                fi
+            fi
+            sleep 0.1
+        done
+        if [[ "$ready" != true ]]; then
+            cat "$guard_dir/readback.log" >&2
+            echo "Timed out waiting for the camera framebuffer." >&2
+            return 1
+        fi
+        cat "$guard_dir/readback.log" >&2
+        cat "$guard_dir/frame.nv12" >&3
+        rm "$guard_dir/frame.nv12"
+        sleep 0.1
+    done
+}
+
+# Camera/display path: the original DMA buffers go directly to KMS under the guard.
 OPK_DMABUF_GUARD_CHECK=0 LD_PRELOAD="$preload" \
     gst-launch-1.0 -e libcamerasrc camera-name="$camera" \
     ! video/x-raw,format=NV12,width=640,height=480,framerate=30/1 \
-    ! identity name=frames silent=false eos-after=5401 \
+    ! identity name=frames silent=false eos-after="$((frames + 1))" \
     ! kmssink driver-name=vc4 connector-id="$connector" force-modesetting=true \
         sync=false enable-last-sample=false &
 probe_pid=$!
 status=0
-wait "$probe_pid" || status=$?
-probe_pid=""
+if [[ -n "$stream_port" ]]; then
+    # Remote preview: copy only from the displayed framebuffer, then encode for TCP.
+    mkfifo "$guard_dir/frames"
+    GST_DEBUG=2 env -u GST_DEBUG_FILE gst-launch-1.0 -q fdsrc fd=0 \
+        ! rawvideoparse format=nv12 width=640 height=480 framerate=10/1 colorimetry=bt709 \
+        ! videoconvert ! jpegenc quality=85 ! multipartmux \
+        ! tcpserversink host=127.0.0.1 port="$stream_port" sync=false buffers-max=20 \
+        < "$guard_dir/frames" &
+    sink_pid=$!
+    stream_frames &
+    reader_pid=$!
+    echo "Camera → guarded kmssink (connector $connector); KMS readback → TCP 127.0.0.1:$stream_port" >&2
+    finished=""
+    wait -n -p finished "$probe_pid" "$sink_pid" "$reader_pid" || status=$?
+    if [[ "$finished" != "$probe_pid" && "$status" == 0 ]]; then
+        echo "Preview stopped before the camera probe finished." >&2
+        status=1
+    fi
+    if [[ "$finished" == "$probe_pid" ]]; then
+        probe_pid=""
+    elif [[ "$finished" == "$sink_pid" ]]; then
+        sink_pid=""
+    elif [[ "$finished" == "$reader_pid" ]]; then
+        reader_pid=""
+    fi
+else
+    wait "$probe_pid" || status=$?
+    probe_pid=""
+fi
 exit "$status"

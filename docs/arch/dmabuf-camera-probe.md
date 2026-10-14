@@ -530,6 +530,10 @@ roughly three minutes. It requires an available KMS connector and DRM master
 access; an active desktop compositor may own that device. The script does not
 change the host's connector configuration.
 
+An optional third argument sets a different positive frame count, for example
+`54000` for approximately thirty minutes of remote viewing. The default stays
+5,400 frames; the copy guard remains active for the entire run.
+
 The SSH test reused an existing repository development image with GStreamer
 1.26.2, libcamera `0.7.2+rpt20260817`, and libpisp 1.7.0. The host ran Debian 13.5
 and kernel `6.18.34+rpt-rpi-2712`. No packages were installed on the Pi. The
@@ -554,6 +558,116 @@ Only use a headless override on a connector confirmed disconnected and inactive,
 and restore detection after stopping capture. A connected monitor does not need
 this override. Successful page flips without a monitor verify the display
 engine path, not the visible image, colour accuracy, or physical HDMI output.
+
+### Run the camera probe with a TCP preview
+
+The camera and its remote preview are started by the **same probe command**.
+Pass a TCP port as the fourth argument to enable streaming:
+
+```bash
+./scripts/rpi-camera-dmabuf-probe.sh "$camera_name" "$connector_id" 54000 5000
+```
+
+This runs the camera for approximately thirty minutes. Omitting the fourth
+argument runs only the guarded camera/display test. An available connector is
+still required; for a Pi without a monitor, use the temporary headless connector
+override described above and restore detection after the probe exits.
+
+The [probe](../../scripts/rpi-camera-dmabuf-probe.sh) contains both GStreamer
+pipelines and manages their lifetime:
+
+```text
+libcamerasrc → NV12 camera DMA buffers → identity → guarded kmssink → KMS → HDMI
+                                                                    │
+                           same connector's active framebuffer ─────┘
+                                      ↓ read-only CPU snapshot
+                 rawvideoparse → videoconvert → jpegenc → multipartmux
+                                      ↓ tcpserversink on 127.0.0.1
+                                SSH tunnel → laptop GStreamer
+```
+
+The first pipeline captures the camera at a requested 30 fps and imports its
+original DMA buffers directly into KMS. The second samples the active
+framebuffer at up to ten frames per second, then copies and encodes that
+readback for transport. No converter, encoder, inference element, or tee is
+inserted in the camera/display path. The copy guard applies to that first
+pipeline; the preview's CPU read and conversion are intentional.
+
+The internal [readback helper](../../scripts/private/kms-snapshot.c) opens the
+same `vc4` driver as `kmssink`, resolves the requested connector to its active
+CRTC and NV12 plane, and exports that framebuffer with `drmModeGetFB2` and
+`drmPrimeHandleToFD`. It maps the actual DMA-BUF allocation length read-only,
+brackets CPU reads with `DMA_BUF_IOCTL_SYNC`, and packs visible NV12 rows. The
+probe waits for this camera framebuffer during startup; the user does not
+start another camera process or manually select a plane. Camera EOS, interruption,
+or failure stops the preview processes. Preview failure stops the camera probe
+and returns a failure rather than leaving a partial test running.
+
+Streaming requires `cc`, `pkg-config`, libdrm development files, and the
+GStreamer elements above, already present in the tested development image.
+Transfer `scripts/private/kms-snapshot.c` along with the probe and its copy guard.
+For a container, expose the camera and DRM devices as above, use host networking,
+and add `--cap-add=SYS_ADMIN`. Run as root so DRM exposes framebuffer handles.
+The helper does not acquire DRM master, modeset, or write the camera buffer.
+The TCP sink binds only to loopback and disconnects slow clients rather than
+accumulating unlimited buffers.
+
+On the laptop, open an SSH tunnel:
+
+```bash
+ssh -N -o ExitOnForwardFailure=yes \
+    -L 127.0.0.1:15000:127.0.0.1:5000 <user>@<pi-ip>
+```
+
+In another laptop terminal, start the receiving pipeline:
+
+```bash
+./scripts/view-kms-stream.sh 15000
+```
+
+The receiver uses `tcpclientsrc ! multipartdemux ! jpegdec ! videoconvert !
+autovideosink sync=false`. On Windows with WSLg, run it inside WSL with the
+normal display environment. Stop the probe, receiver, and tunnel with Ctrl+C
+when finished. Stop the probe before restoring a forced connector to `detect`.
+
+The readback supports the probe's linear NV12 640×480 image with both planes in
+one allocation. It respects row padding and plane offsets and uses the tested
+camera's BT.709 colorimetry. Unsupported layouts and out-of-bounds planes are
+rejected. The existing probe test file covers the guard, preview lifecycle,
+argument validation, and readback layout:
+
+```bash
+python3 scripts/private/tests/test_dmabuf_no_copy.py
+```
+
+On 2026-10-14, a guarded three-minute Pi 5 run delivered 5,400 frames and 5,401
+direct DMA-BUF import/display calls including preroll, reached EOS, and reported
+no copy attempts or GStreamer errors while a complete KMS image was captured.
+The connector was restored to disconnected/disabled afterward. A live readback
+stream subsequently reached the WSL laptop through SSH: its display receiver
+reached PLAYING and an independent receiver decoded three complete 640×480
+frames. Kernel driver tracing was not repeated for these visual checks.
+
+The combined probe subsequently passed a 900-frame run with 901 direct KMS
+imports/display calls, no copy attempts or GStreamer errors, and three received
+preview frames. It exited zero at EOS, closed the TCP listener, and allowed the
+headless connector override to be restored.
+
+Stock FFmpeg 7.1.5 `kmsgrab` found the correct framebuffer but failed to map it:
+its NV12 size calculation used full image height for the chroma plane, requesting
+614,400 bytes from a 475,136-byte allocation. Both `hwdownload` and direct
+`hwmap` failed with `EINVAL`. The helper uses the actual allocation length.
+See the tested [FFmpeg implementation](https://github.com/FFmpeg/FFmpeg/blob/n7.1.5/libavdevice/kmsgrab.c).
+
+This preview reads the selected scanout plane, not display-engine writeback or
+physical HDMI output. It excludes hardware plane transforms, composition,
+output colour processing, and monitor behaviour. The camera can reuse an
+allocation while it is being read: DMA cache synchronization does not freeze
+capture or synchronize the snapshot to a page flip. JPEG adds lossy compression.
+Use the preview to inspect image content alongside the guarded import/display
+evidence, not as a tear-free recording or performance measurement. A normal
+`opksink` browser preview or capture before `kmssink` does not establish this
+same display-path result.
 
 ### Verify zero-copy and stream health
 
