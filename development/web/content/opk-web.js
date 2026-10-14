@@ -6302,73 +6302,42 @@ function findVideoFrame(perception) {
   }
   return null;
 }
+function drawObjectBox(ctx, rect, mapper, color) {
+  const box = mapper.rect(rect);
+  if (box.width <= 0 || box.height <= 0) {
+    return;
+  }
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(box.x, box.y, box.width, box.height);
+  const label = rect.label || rect.text || confidenceLabel(rect.confidence);
+  if (label) {
+    drawTextChip(ctx, label, box.x, Math.max(2, box.y - 22), 13, color);
+  }
+  ctx.restore();
+}
+function drawTextChip(ctx, text2, x, y, fontSize, color = "#ffffff", alignRight = false) {
+  ctx.save();
+  ctx.font = `${fontSize}px monospace`;
+  ctx.textBaseline = "top";
+  const paddingX = 4;
+  const paddingY = 2;
+  const metrics = ctx.measureText(text2);
+  const width = metrics.width + paddingX * 2;
+  const height = fontSize + paddingY * 2;
+  const drawX = alignRight ? x - width : x;
+  ctx.fillStyle = "rgba(0, 0, 0, 0.78)";
+  ctx.fillRect(drawX, y, width, height);
+  ctx.fillStyle = color;
+  ctx.fillText(text2, drawX + paddingX, y + paddingY);
+  ctx.restore();
+}
+function confidenceLabel(confidence) {
+  return Number.isFinite(confidence) ? `${(confidence * 100).toFixed(1)}%` : "";
+}
 function positiveNumber(value) {
   return Number.isFinite(Number(value)) && Number(value) > 0 ? Number(value) : 0;
-}
-
-// development/web/src/overlay-features.js
-var OVERLAY_FEATURES = [];
-function featureFor(id) {
-  return OVERLAY_FEATURES.find((feature) => feature.id === id);
-}
-function defaultSettings(id, source) {
-  const defaults = featureFor(id)?.defaults || { color: "#ffffff", opacity: 1 };
-  return typeof defaults === "function" ? defaults(source || {}) : { ...defaults };
-}
-function resolveOverlay(index, overlay2) {
-  const feature = featureFor(overlay2.featureId);
-  if (!feature) return { state: "unsupported", message: "Unknown rendering feature." };
-  if (overlay2.selection.primary === null && feature.render) return { state: "waiting", message: "Waiting for source" };
-  const settings = { ...defaultSettings(feature.id, overlay2.selection.primary), ...overlay2.settings };
-  return { ...feature.resolve(index, overlay2.selection, settings), feature, settings };
-}
-function overlayStatus(index, overlay2, catalog, resolved = resolveOverlay(index, overlay2)) {
-  if (overlay2.selection.primary === null && catalog && featureFor(overlay2.featureId)?.discover(catalog).length > 1) {
-    return "Choose a source";
-  }
-  if (resolved.state === "unsupported") return `Unsupported \xB7 ${resolved.message}`;
-  if (resolved.state === "waiting") return "Waiting for source";
-  if (!overlay2.enabled) return "Hidden";
-  if (resolved.state === "partial") return `Partial \xB7 ${resolved.message}`;
-  if (resolved.state === "ambiguous") return `Ambiguous \xB7 ${resolved.message}`;
-  return resolved.items.length ? "Ready" : "Ready \xB7 no results";
-}
-
-// development/web/src/osd-renderer.js
-function renderOsd(canvas2, video5, index, overlays2 = [], { now = Date.now() } = {}) {
-  const dpr = window.devicePixelRatio || 1;
-  const pixelWidth = Math.max(1, Math.round(canvas2.clientWidth * dpr));
-  const pixelHeight = Math.max(1, Math.round(canvas2.clientHeight * dpr));
-  if (canvas2.width !== pixelWidth || canvas2.height !== pixelHeight) {
-    canvas2.width = pixelWidth;
-    canvas2.height = pixelHeight;
-  }
-  const ctx = canvas2.getContext("2d");
-  const width = canvas2.width / dpr;
-  const height = canvas2.height / dpr;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.clearRect(0, 0, width, height);
-  if (!index.frame) return;
-  const mapper = createCoordinateMapper({
-    canvasWidth: width,
-    canvasHeight: height,
-    videoWidth: video5.videoWidth,
-    videoHeight: video5.videoHeight,
-    perception: index.frame
-  });
-  const target = { ctx, canvas: canvas2, video: video5, mapper, layout: { left: 0, right: 0, performanceY: 10 }, now };
-  for (const overlay2 of overlays2) {
-    if (!overlay2.enabled) continue;
-    const resolved = resolveOverlay(index, overlay2);
-    if (["waiting", "unsupported"].includes(resolved.state) || resolved.settings.opacity <= 0) continue;
-    ctx.save();
-    try {
-      ctx.globalAlpha = resolved.settings.opacity ?? 1;
-      resolved.feature.render(target, resolved, resolved.settings);
-    } finally {
-      ctx.restore();
-    }
-  }
 }
 
 // development/web/src/overlay-sources.js
@@ -6491,6 +6460,136 @@ function indexFrame(frame) {
     }
   }
   return index;
+}
+
+// development/web/src/overlay-feature.js
+var STYLE_CONTROLS = [
+  { key: "color", label: "Color", type: "color", value: "#ffffff" },
+  { key: "opacity", label: "Opacity", type: "range", min: 0, max: 1, step: 0.01, value: 1 }
+];
+var CONTENT_COLORS = {
+  humanFace: "#2600ff",
+  genericObject: "#ff3030",
+  eyeYawPitch: "#fafad2",
+  cameraContact: "#66ff00",
+  personClassification: "#66ff00",
+  trackTrace: "#ffff00"
+};
+function defineFeature({ controls = STYLE_CONTROLS, defaults = {}, resolve = (result) => result, reason, ...definition }) {
+  return {
+    ...definition,
+    controls,
+    defaults(source) {
+      const settings = Object.fromEntries(controls.map((control) => [control.key, control.value]));
+      if (Object.hasOwn(settings, "color")) settings.color = CONTENT_COLORS[source.contentType] || settings.color;
+      return {
+        ...settings,
+        ...typeof defaults === "function" ? defaults(source) : defaults
+      };
+    },
+    discover(catalog) {
+      return [...catalog.values()].filter(definition.accepts);
+    },
+    validateSettings(settings) {
+      if (!settings || typeof settings !== "object" || Array.isArray(settings)) return null;
+      const result = {};
+      for (const control of controls) {
+        const value = Object.hasOwn(settings, control.key) ? settings[control.key] : control.value;
+        const valid = control.type === "checkbox" ? typeof value === "boolean" : control.type === "color" ? typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value) : Number.isFinite(value) && value >= control.min && value <= control.max;
+        if (!valid) return null;
+        result[control.key] = value;
+      }
+      return result;
+    },
+    resolve(index, selection, settings) {
+      if (!selection?.primary || !definition.accepts(selection.primary)) {
+        return { state: "unsupported", message: "This source cannot provide the selected feature." };
+      }
+      if (reason) return { state: "unsupported", message: reason };
+      const output = index.outputs.get(sourceKey(selection.primary));
+      if (!output) return { state: "waiting", message: "Waiting for source" };
+      return resolve({ state: "ready", message: "", output, items: output.items }, index, settings);
+    }
+  };
+}
+
+// development/web/src/features/bounding-boxes.js
+var bounding_boxes_default = defineFeature({
+  id: "bounding-boxes",
+  label: "Bounding boxes",
+  accepts: (source) => ["BoxDetections", "ObjectTracks"].includes(source.payloadType) && source.contentType !== "humanFace",
+  render({ ctx, mapper }, resolved, settings) {
+    for (const { type, data } of resolved.items) {
+      if (type === "Rect") drawObjectBox(ctx, data, mapper, settings.color);
+    }
+  }
+});
+
+// development/web/src/overlay-features.js
+var OVERLAY_FEATURES = [
+  bounding_boxes_default
+];
+function featureFor(id) {
+  return OVERLAY_FEATURES.find((feature) => feature.id === id);
+}
+function defaultSettings(id, source) {
+  const defaults = featureFor(id)?.defaults || { color: "#ffffff", opacity: 1 };
+  return typeof defaults === "function" ? defaults(source || {}) : { ...defaults };
+}
+function resolveOverlay(index, overlay2) {
+  const feature = featureFor(overlay2.featureId);
+  if (!feature) return { state: "unsupported", message: "Unknown rendering feature." };
+  if (overlay2.selection.primary === null && feature.render) return { state: "waiting", message: "Waiting for source" };
+  const settings = { ...defaultSettings(feature.id, overlay2.selection.primary), ...overlay2.settings };
+  return { ...feature.resolve(index, overlay2.selection, settings), feature, settings };
+}
+function overlayStatus(index, overlay2, catalog, resolved = resolveOverlay(index, overlay2)) {
+  if (overlay2.selection.primary === null && catalog && featureFor(overlay2.featureId)?.discover(catalog).length > 1) {
+    return "Choose a source";
+  }
+  if (resolved.state === "unsupported") return `Unsupported \xB7 ${resolved.message}`;
+  if (resolved.state === "waiting") return "Waiting for source";
+  if (!overlay2.enabled) return "Hidden";
+  if (resolved.state === "partial") return `Partial \xB7 ${resolved.message}`;
+  if (resolved.state === "ambiguous") return `Ambiguous \xB7 ${resolved.message}`;
+  return resolved.items.length ? "Ready" : "Ready \xB7 no results";
+}
+
+// development/web/src/osd-renderer.js
+function renderOsd(canvas2, video5, index, overlays2 = [], { now = Date.now() } = {}) {
+  const dpr = window.devicePixelRatio || 1;
+  const pixelWidth = Math.max(1, Math.round(canvas2.clientWidth * dpr));
+  const pixelHeight = Math.max(1, Math.round(canvas2.clientHeight * dpr));
+  if (canvas2.width !== pixelWidth || canvas2.height !== pixelHeight) {
+    canvas2.width = pixelWidth;
+    canvas2.height = pixelHeight;
+  }
+  const ctx = canvas2.getContext("2d");
+  const width = canvas2.width / dpr;
+  const height = canvas2.height / dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, width, height);
+  if (!index.frame) return;
+  const mapper = createCoordinateMapper({
+    canvasWidth: width,
+    canvasHeight: height,
+    videoWidth: video5.videoWidth,
+    videoHeight: video5.videoHeight,
+    perception: index.frame
+  });
+  const target = { ctx, canvas: canvas2, video: video5, mapper, layout: { left: 0, right: 0, performanceY: 10 }, now };
+  for (const overlay2 of overlays2) {
+    if (!overlay2.enabled) continue;
+    const resolved = resolveOverlay(index, overlay2);
+    if (["waiting", "unsupported"].includes(resolved.state) || resolved.settings.opacity <= 0) continue;
+    ctx.save();
+    try {
+      ctx.globalAlpha = resolved.settings.opacity ?? 1;
+      resolved.feature.render(target, resolved, resolved.settings);
+    } finally {
+      ctx.restore();
+    }
+  }
 }
 
 // development/web/src/overlays.js

@@ -15,7 +15,10 @@
  * limitations under the License.
  */
 
+import boundingBoxes from './features/bounding-boxes.js';
+
 export const OVERLAY_FEATURES = [
+    boundingBoxes,
 ];
 
 export function featureFor(id) {

@@ -63,6 +63,10 @@ the video by server-side `opkosd` cannot be hidden by browser controls.
 The UI selects a visualization, not a wire payload type. A feature can consume
 multiple related payloads, and one payload can support multiple features.
 
+| Feature | Inputs and presentation |
+| --- | --- |
+| Bounding boxes | Non-face `BoxDetections` or `ObjectTracks`: rectangular boxes and labels. |
+
 `FrameContext` supplies video geometry rather than a selectable visualization.
 
 Decoding requires the existing `perception-frame-results+base64` encoding and
