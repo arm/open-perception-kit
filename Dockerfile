@@ -142,12 +142,19 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   update-ca-certificates
 
 ARG NO_EXAMPLE_CONTENT=false
+ARG HF_DOWNLOAD_CACHEBUST
 
 WORKDIR /work
 COPY --chmod=0444 scripts/private/demo-videos.manifest scripts/private/demo-videos.manifest
 COPY --chmod=0755 scripts/private/download-demo-videos.sh scripts/private/download-demo-videos.sh
-RUN if [ "${NO_EXAMPLE_CONTENT}" != "true" ]; then \
-      ./scripts/private/download-demo-videos.sh; \
+# Secret values do not invalidate BuildKit caches; reuse quick-start's per-build key.
+RUN --mount=type=secret,id=huggingface_token,env=HF_TOKEN \
+    if [ "${NO_EXAMPLE_CONTENT}" != "true" ]; then \
+      if [ -n "${HF_TOKEN:-}" ] && [ -z "${HF_DOWNLOAD_CACHEBUST}" ]; then \
+        echo "HF_DOWNLOAD_CACHEBUST is required for authenticated demo media builds" >&2; \
+        exit 1; \
+      fi; \
+      HF_DOWNLOAD_CACHEBUST="${HF_DOWNLOAD_CACHEBUST}" ./scripts/private/download-demo-videos.sh; \
     else \
       mkdir -p data/videos; \
     fi

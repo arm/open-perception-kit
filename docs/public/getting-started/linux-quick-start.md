@@ -136,6 +136,9 @@ Expected result: the build finishes without errors and `tools/opk-menu` exists.
 
 ## 4. Start The First Pipeline
 
+> We are working on providing access to a set of demo videos. Until they are
+> available, please [use your own input videos](../how-to/media-input.md#use-a-video-file).
+
 Run in the **Docker shell**:
 
 ```bash

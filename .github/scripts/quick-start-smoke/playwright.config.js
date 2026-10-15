@@ -32,7 +32,7 @@ module.exports = defineConfig({
     trace: 'retain-on-failure',
   },
   webServer: {
-    command: 'docker exec -u dev open-perception-kit bash -lc "cd /work && exec ./tools/opk-menu yolo26n-320"',
+    command: 'docker exec -u dev open-perception-kit bash -lc "cd /work && exec ./tools/opk-menu .github/scripts/quick-start-smoke/pipeline.json"',
     url: 'http://127.0.0.1:9999/opk-config.js',
     timeout: 60000,
     reuseExistingServer: false,

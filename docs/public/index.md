@@ -110,6 +110,9 @@ cd open-perception-kit
 
 ### 2. Install prerequisites, build and start the Docker Container
 
+> We are working on providing access to a set of demo videos. Until they are
+> available, please [use your own input videos](how-to/media-input.md#use-a-video-file).
+
 Enter the `open-perception-kit` folder in the terminal and run:
 
 ```bash

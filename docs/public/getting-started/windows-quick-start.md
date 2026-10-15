@@ -189,6 +189,9 @@ Expected result: the build finishes without errors and `tools/opk-menu` exists.
 
 ## 6. Start The First Pipeline
 
+> We are working on providing access to a set of demo videos. Until they are
+> available, please [use your own input videos](../how-to/media-input.md#use-a-video-file).
+
 Run in the **Docker shell** (either in VSCode devcontainer or in WSL after entering with `enter_cli.sh`):
 
 ```bash

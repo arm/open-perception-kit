@@ -78,6 +78,12 @@ case "${1:-}" in
 esac
 
 mkdir -p "$videos_dir"
+# shortcut: require a token until anonymous access to the demo bucket is restored.
+if [[ -z "${HF_TOKEN:-}" ]]; then
+    echo "HF_TOKEN is not set; skipping demo video downloads. Existing videos are kept."
+    exit 0
+fi
+
 while read -r expected filename; do
     [[ "$expected" == \#* ]] && continue
     destination="${videos_dir}/${filename}"
@@ -88,7 +94,8 @@ while read -r expected filename; do
     temporary="${destination}.part"
     rm -f "$temporary"
     url="${bucket_url}/${filename}"
-    if ! curl -fsSL --retry 3 --retry-all-errors --retry-delay 2 -o "$temporary" "$url" ||
+    if ! printf 'Authorization: Bearer %s\n' "$HF_TOKEN" |
+        curl -fsSL --header @- --retry 3 --retry-all-errors --retry-delay 2 -o "$temporary" "$url" ||
         ! checksum_matches "$expected" "$temporary"; then
         echo "ERROR: failed to download or verify ${filename}" >&2
         rm -f "$temporary"

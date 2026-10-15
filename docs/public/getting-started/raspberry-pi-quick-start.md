@@ -229,7 +229,10 @@ Run in the **Docker shell on the Raspberry Pi**:
 ./tools/opk-menu full-onnx-raspicam
 ```
 
-For a USB camera exposed as `/dev/video0`, run `./tools/opk-menu full-onnx-usb-cam` instead. Use `./tools/opk-menu yolo26n-320` when you want the bundled video-file source.
+For a USB camera exposed as `/dev/video0`, run `./tools/opk-menu full-onnx-usb-cam` instead. Use `./tools/opk-menu yolo26n-320` when you want the video-file source.
+
+> We are working on providing access to a set of demo videos. Until they are
+> available, please [use your own input videos](../how-to/media-input.md#use-a-video-file).
 
 Leave this terminal open. The pipeline is running while this command is active.
 
