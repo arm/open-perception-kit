@@ -83,6 +83,12 @@ Helper lane
     -> opk-pre-commit-runtime
 ```
 
+APT packages follow the selected Debian or Raspberry Pi distribution without
+exact revision pins, allowing security updates and architecture-specific package
+rebuilds to resolve together. Python and native library ABI selections, SDK
+artifact locks, and shared validation tools retain their compatibility constraints;
+the Dockerfiles explain those constraints beside the retained versions.
+
 The main `Dockerfile` owns the cross-lane stage graph where tool stages inherit
 from `opk-build-base`, `opk-cross-build-base`, or `opk-dev-base`. The same file
 also contains narrow artifact stages for model downloads and demo media so
@@ -206,7 +212,7 @@ stages inherit everything from their parent unless noted otherwise.
   enabled, ensures an ARM64 ONNX Runtime path is available, and copies resolved
   model artifacts and demo videos into `/opt/opk-app` for first-run seeding. It
   does not copy the repository or prebuilt OPK binaries into the image.
-- `opk-docs`: adds `openjdk-25-jdk`, Graphviz, Pandoc, Doxygen, and the
+- `opk-docs`: adds `default-jdk`, Graphviz, Pandoc, Doxygen, and the
   PlantUML JAR.
 - `opk-deployment-build`: inherits `opk-cross-build-base`, adds the target
   sysroot when cross-building, installs target ONNX Runtime, downloads Meson
