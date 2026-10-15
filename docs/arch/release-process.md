@@ -91,7 +91,7 @@ Run the workflow from `main`. It uses `github.sha` and the committed version,
 with no custom dispatch inputs or generated prerelease versions. Package and
 publication jobs use the same resolved commit SHA.
 
-The final production-docs job requires the workflow ref to be `main` and the
+The production-docs job requires the workflow ref to be `main` and the
 source commit to be in `main`'s history. Selecting another branch or tag can
 publish packages before failing this check.
 
@@ -212,6 +212,10 @@ published as a site.
 5. `publish-docs` calls
    [Publish Docs (Production)](../../.github/workflows/docs-publish-production.yml)
    with the release commit to validate and publish the production site.
+6. `latest-release-tag` force-updates the `latest_release` Git tag to that commit
+   after production docs succeed. Setup guides clone this moving tag; numbered
+   `v<version>` tags remain unchanged. A failed release leaves `latest_release`
+   pointing to the previous successful release.
 
 A push to `main` separately starts the
 [staging documentation workflow](../../.github/workflows/docs-publish.yml).

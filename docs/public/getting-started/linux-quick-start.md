@@ -75,8 +75,11 @@ The easiest path is HTTPS cloning. It does not require an SSH key.
 
 Run in the **host shell**:
 
+The `latest_release` tag points to the latest successfully completed release.
+The detached HEAD message is expected when checking out a release tag.
+
 ```bash
-git clone https://github.com/arm/open-perception-kit.git
+git clone --branch latest_release https://github.com/arm/open-perception-kit.git
 cd open-perception-kit
 ```
 
@@ -132,6 +135,9 @@ You can also use the VS Code task **00 Build Project**.
 Expected result: the build finishes without errors and `tools/opk-menu` exists.
 
 ## 4. Start The First Pipeline
+
+> We are working on providing access to a set of demo videos. Until they are
+> available, please [use your own input videos](../how-to/media-input.md#use-a-video-file).
 
 Run in the **Docker shell**:
 

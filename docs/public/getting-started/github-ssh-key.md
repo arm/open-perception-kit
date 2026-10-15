@@ -101,8 +101,11 @@ Expected result: GitHub says that you successfully authenticated. It may also sa
 
 You can now clone with SSH and open the folder:
 
+The `latest_release` tag points to the latest successfully completed release.
+The detached HEAD message is expected when checking out a release tag.
+
 ```bash
-git clone git@github.com:arm/open-perception-kit.git
+git clone --branch latest_release git@github.com:arm/open-perception-kit.git
 cd open-perception-kit
 ```
 
