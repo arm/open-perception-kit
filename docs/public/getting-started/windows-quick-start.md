@@ -35,6 +35,7 @@ Install these before you start:
 - WSL with Ubuntu installed.
 - Git inside WSL.
 - Docker Desktop with WSL integration enabled.
+- Around 23 GB of free disk space for OPK on x86_64.
 
 For the optional VS Code workflow, also install:
 

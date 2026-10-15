@@ -77,32 +77,39 @@ check_docker_compose() {
     command -v docker > /dev/null 2>&1 && docker compose version > /dev/null 2>&1
 }
 
+check_docker_buildx() {
+    command -v docker > /dev/null 2>&1 && docker buildx version > /dev/null 2>&1
+}
+
 check_docker_access() {
     command -v docker > /dev/null 2>&1 && docker info > /dev/null 2>&1
 }
 
-# Platform prerequisite lists. Keep most of these empty until the minimal sets
-# are known. A requirement can have no fallback package when it needs user action
+# Platform prerequisite lists. A requirement can have no fallback package when it needs user action
 # instead of package installation, for example Docker group membership.
 PREREQS_DEBIAN_13=(
     "docker-cli|check_docker_cli|docker.io|Docker CLI"
     "docker-compose|check_docker_compose|docker-compose|Docker Compose plugin"
+    "docker-buildx|check_docker_buildx|docker-buildx|Docker Buildx plugin"
     "docker-access|check_docker_access||Docker daemon reachable by the current user"
 )
 PREREQS_UBUNTU_24_04=(
     "docker-cli|check_docker_cli|docker.io|Docker CLI"
     "docker-compose|check_docker_compose|docker-compose-v2|Docker Compose plugin"
+    "docker-buildx|check_docker_buildx|docker-buildx|Docker Buildx plugin"
     "docker-access|check_docker_access||Docker daemon reachable by the current user"
 )
 PREREQS_UBUNTU_26_04=(
     "docker-cli|check_docker_cli|docker.io|Docker CLI"
     "docker-compose|check_docker_compose|docker-compose-v2|Docker Compose plugin"
+    "docker-buildx|check_docker_buildx|docker-buildx|Docker Buildx plugin"
     "docker-access|check_docker_access||Docker daemon reachable by the current user"
 )
 
 PREREQS_WSL=(
     "docker-cli|check_docker_cli||Docker CLI from Docker Desktop WSL integration"
     "docker-compose|check_docker_compose||Docker Compose plugin from Docker Desktop WSL integration"
+    "docker-buildx|check_docker_buildx||Docker Buildx plugin from Docker Desktop WSL integration"
     "docker-access|check_docker_access||Docker Desktop engine reachable from WSL"
 )
 PREREQS_WSL_DEBIAN_13=()
@@ -112,17 +119,22 @@ PREREQS_WSL_UBUNTU_26_04=()
 PREREQS_RPI5=(
     "docker-cli|check_docker_cli|docker.io|Docker CLI"
     "docker-compose|check_docker_compose|docker-compose|Docker Compose plugin"
+    "docker-buildx|check_docker_buildx|docker-buildx|Docker Buildx plugin"
     "docker-access|check_docker_access||Docker daemon reachable by the current user"
 )
 PREREQS_MACOS=(
     "docker-cli|check_docker_cli||Docker CLI from Docker Desktop"
     "docker-compose|check_docker_compose||Docker Compose plugin from Docker Desktop"
+    "docker-buildx|check_docker_buildx||Docker Buildx plugin from Docker Desktop"
     "docker-access|check_docker_access||Docker Desktop engine reachable by the current user"
 )
-PREREQS_LINUX_X86=()
+PREREQS_LINUX_X86=(
+    "docker-buildx|check_docker_buildx||Docker Buildx plugin"
+)
 PREREQS_LINUX_ARM=(
-    "docker-cli|check_docker_cli|docker.io|Docker CLI"
+    "docker-cli|check_docker_cli||Docker CLI (install Docker Engine for your distribution)"
     "docker-compose|check_docker_compose||Docker Compose plugin (install it before running quick-start)"
+    "docker-buildx|check_docker_buildx||Docker Buildx plugin"
     "docker-access|check_docker_access||Docker daemon reachable by the current user"
 )
 
@@ -158,6 +170,7 @@ select_prereq_arrays() {
             elif [[ "$OPK_OS_ID" == "debian" && "$OPK_OS_VERSION_CODENAME" == "trixie" ]]; then
                 SELECTED_PREREQ_ARRAYS=(PREREQS_DEBIAN_13)
             elif [[ "$OPK_PLATFORM_ID" == "linux-aarch64" ]]; then
+                PACKAGE_MANAGER="manual"
                 SELECTED_PREREQ_ARRAYS=(PREREQS_LINUX_ARM)
             else
                 SELECTED_PREREQ_ARRAYS=(PREREQS_LINUX_X86)
@@ -312,7 +325,7 @@ print_wsl_docker_desktop_hint() {
     echo "    Enable Settings > General > Use WSL 2 based engine."
     echo "    Enable Settings > Resources > WSL Integration for this distro."
     echo "    Reopen WSL, or run: wsl.exe --shutdown"
-    echo "    Verify: docker info && docker compose version"
+    echo "    Verify: docker info && docker compose version && docker buildx version"
 }
 
 print_manual_failures() {
@@ -335,6 +348,9 @@ print_manual_failures() {
                 print_wsl_docker_desktop_hint
                 printed_wsl_docker_hint="true"
             fi
+        elif [[ "$requirement_id" == "docker-buildx" ]]; then
+            echo "    OPK image builds require BuildKit. Install Buildx so 'docker buildx version' works."
+            echo "    Installation: https://github.com/docker/buildx#installing"
         elif [[ "$requirement_id" == "docker-access" ]]; then
             echo "    Start Docker and confirm 'docker info' works without sudo."
             if [[ "$OPK_PLATFORM_ID" == linux-* || "$OPK_PLATFORM_ID" == rpi5* ]]; then
