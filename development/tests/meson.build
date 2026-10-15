@@ -219,6 +219,15 @@ yolo_parser_tests = executable(
   link_with : [common],
 )
 
+rvm_parser_tests = executable(
+  'rvm_parser_tests',
+  ['rvm_parser_test.cpp', '../ops-std/postproc/RvmParser.cpp'],
+  include_directories : [common_include, include_directories('../ops-std')],
+  cpp_args: ['-DFMT_HEADER_ONLY'],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+
 gaze_detection_parser_tests = executable(
   'gaze_detection_parser_tests',
   ['gaze_detection_parser_test.cpp', '../ops-std/postproc/GazeDetectionParser.cpp'],
@@ -455,6 +464,7 @@ test('hungarian_tests', hungarian_tests)
 test('iou_tests', iou_tests)
 test('yolo_parser_tests', yolo_parser_tests)
 test('gaze_detection_parser_tests', gaze_detection_parser_tests)
+test('rvm_parser_tests', rvm_parser_tests)
 test('onnx_tensor_tests', onnx_tensor_tests)
 test('logging_tests', logging_tests)
 test('logger_tests', logger_tests)

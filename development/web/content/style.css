@@ -391,7 +391,9 @@ video {
   right: 18px;
   bottom: 72px;
   z-index: 14;
-  width: min(270px, calc(100% - 36px));
+  width: min(380px, calc(100% - 36px));
+  max-height: calc(100% - 90px);
+  overflow-y: auto;
   padding: 12px;
   border: 1px solid rgba(226, 232, 240, 0.24);
   border-radius: 8px;
@@ -400,57 +402,216 @@ video {
   box-shadow: 0 18px 42px rgba(0, 0, 0, 0.52);
 }
 
-.client-osd-controls-title {
-  margin-bottom: 8px;
-  color: var(--muted);
-  font-size: 0.76rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.client-osd-toggle {
-  display: grid;
-  grid-template-columns: 16px minmax(0, 1fr) 28px;
+.overlay-panel-header,
+.overlay-actions,
+.overlay-style-value {
+  display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 26px;
-  font-size: 0.82rem;
-  line-height: 1.2;
+  gap: 12px;
 }
 
-.client-osd-toggle span {
+.overlay-panel-header {
+  justify-content: space-between;
+}
+
+.overlay-panel-header h2,
+.overlay-dialog h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.overlay-card {
+  margin-top: 8px;
+  border: 1px solid var(--panel-edge);
+  border-radius: 8px;
+}
+
+.overlay-card-header {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  min-height: 44px;
+  border-radius: 7px;
+  background: var(--overlay-color, #d1d5db);
+  color: var(--overlay-foreground, #4b5563);
+}
+
+.overlay-visible {
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.overlay-visible input {
+  margin: 0;
+  accent-color: var(--overlay-foreground);
+}
+
+.overlay-toggle {
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-weight: 600;
+  text-align: left;
+}
+
+.overlay-title {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.client-osd-toggle input[type="checkbox"] {
-  width: 14px;
-  height: 14px;
-  margin: 0;
+.overlay-toggle i {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+}
+
+.overlay-toggle[aria-expanded="true"] i {
+  transform: rotate(90deg);
+}
+
+.overlay-remove {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 0 7px 7px 0;
+  background: transparent;
+  color: inherit;
+  font-size: 1rem;
+}
+
+.overlay-toggle:not(:disabled):hover,
+.overlay-remove:not(:disabled):hover {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px currentColor;
+  transform: none;
+}
+
+.overlay-settings {
+  padding: 12px;
+}
+
+.overlay-visibility {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-weight: 600;
+}
+
+.overlay-visibility input {
   accent-color: var(--accent);
 }
 
-.client-osd-color {
-  width: 28px;
-  height: 20px;
-  min-width: 28px;
-  padding: 0;
-  border: 1px solid rgba(226, 232, 240, 0.24);
-  border-radius: 4px;
-  background: transparent;
+.overlay-source,
+.overlay-hint {
+  margin: 8px 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.overlay-hint:empty {
+  display: none;
+}
+
+.overlay-details summary {
   cursor: pointer;
+  font-size: 0.82rem;
 }
 
-.client-osd-color::-webkit-color-swatch-wrapper {
-  padding: 0;
+.overlay-details {
+  margin-top: 12px;
 }
 
-.client-osd-color::-webkit-color-swatch,
-.client-osd-color::-moz-color-swatch {
-  border: 0;
-  border-radius: 3px;
+.overlay-metadata {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 6px 12px;
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.overlay-metadata dt {
+  color: var(--text-muted);
+}
+
+.overlay-metadata dd {
+  margin: 0;
+}
+
+.overlay-field {
+  display: grid;
+  gap: 6px;
+  margin: 16px 0;
+  font-size: 0.85rem;
+}
+
+.overlay-dialog [hidden] {
+  display: none;
+}
+
+.overlay-field select {
+  width: 100%;
+  min-width: 0;
+  padding: 8px;
+  color: var(--text);
+  background: #111111;
+  border: 1px solid var(--panel-edge);
+  border-radius: 4px;
+}
+
+.overlay-style-value input[type="range"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.overlay-style-value input[type="color"] {
+  width: 44px;
+  height: 30px;
+  padding: 2px;
+}
+
+.overlay-actions {
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.overlay-dialog {
+  width: min(480px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 20px;
+  color: var(--text);
+  background: #080808;
+  border: 1px solid var(--panel-edge);
+  border-radius: 8px;
+}
+
+.overlay-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.overlay-dialog :focus-visible,
+.client-osd-controls-panel :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.overlay-card-header :focus-visible {
+  outline-color: var(--overlay-foreground);
+  outline-offset: -3px;
+}
+
+.overlay-card-header input:focus-visible {
+  outline-offset: 3px;
 }
 
 .video-overlay.hidden {
