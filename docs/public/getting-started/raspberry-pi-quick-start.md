@@ -124,8 +124,11 @@ If these checks fail, fix them before opening the project in VS Code. The Dev Co
 
 Run in the **Raspberry Pi shell**:
 
+The `latest_release` tag points to the latest successfully completed release.
+The detached HEAD message is expected when checking out a release tag.
+
 ```bash
-git clone https://github.com/arm/open-perception-kit.git
+git clone --branch latest_release https://github.com/arm/open-perception-kit.git
 cd open-perception-kit
 ```
 
@@ -133,7 +136,7 @@ HTTPS cloning is the simplest first path. If you must clone with SSH, use [GitHu
 After your SSH key is configured in git you can clone the repository:
 
 ```bash
-git clone git@github.com:arm/open-perception-kit.git
+git clone --branch latest_release git@github.com:arm/open-perception-kit.git
 ```
 
 Expected result: the `opk` folder exists on the Raspberry Pi.

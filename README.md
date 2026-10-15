@@ -88,8 +88,11 @@ use the target Pi IP address.
 
 In the Raspberry Pi 5 terminal run:
 
+The `latest_release` tag points to the latest successfully completed release.
+The detached HEAD message is expected when checking out a release tag.
+
 ```bash
-git clone https://github.com/arm/open-perception-kit.git
+git clone --branch latest_release https://github.com/arm/open-perception-kit.git
 cd open-perception-kit
 ```
 
