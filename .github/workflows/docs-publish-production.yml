@@ -71,7 +71,7 @@ jobs:
           python3 scripts/private/inject_docs_build_info.py --target docs/public/index.md
 
       - name: Validate docs site
-        uses: ARM-software/docs-action/validate@3c5412fd76d4b2d67fd42d69d350abf29a6241c2
+        uses: ARM-software/docs-action/validate@7e6e103e660b72b9ac33685a68b4f9b781f4e9ff
         with:
           docs-root: docs/public
           site-id: open-perception-kit
