@@ -33,15 +33,19 @@ Install these before you start:
 - Git.
 - Docker Engine.
 - Docker Compose.
+- Docker Buildx (required for BuildKit image builds).
+- Around 23 GB of free disk space for OPK on x86_64.
 - Visual Studio Code.
 - VS Code **Dev Containers** extension.
 - `v4l-utils`, optional for the first run but useful for camera work.
 
-Follow the instructions below to install Docker (the commands have to be executed in the **host shell**)
+Install Docker Engine and the Compose and Buildx plugins using the instructions for your
+distribution in the **host shell**:
 
- * [Ubuntu Installation Guide](https://docs.docker.com/engine/install/ubuntu/)
+- [Docker Engine installation](https://docs.docker.com/engine/install/)
 
- Install git and v4l-utils:
+Install Git and optionally `v4l-utils`
+On Debian or Ubuntu:
 
 ```bash
 sudo apt-get update
@@ -55,6 +59,7 @@ Check Docker in the **host shell**:
 ```bash
 docker --version
 docker compose version
+docker buildx version
 docker info
 ```
 
@@ -70,8 +75,11 @@ The easiest path is HTTPS cloning. It does not require an SSH key.
 
 Run in the **host shell**:
 
+The `latest_release` tag points to the latest successfully completed release.
+The detached HEAD message is expected when checking out a release tag.
+
 ```bash
-git clone https://github.com/arm/open-perception-kit.git
+git clone --branch latest_release https://github.com/arm/open-perception-kit.git
 cd open-perception-kit
 ```
 
@@ -128,6 +136,9 @@ Expected result: the build finishes without errors and `tools/opk-menu` exists.
 
 ## 4. Start The First Pipeline
 
+> We are working on providing access to a set of demo videos. Until they are
+> available, please [use your own input videos](../how-to/media-input.md#use-a-video-file).
+
 Run in the **Docker shell**:
 
 ```bash
@@ -167,6 +178,12 @@ To run the last selected pipeline again, run in the **Docker shell**:
 
 ## If Something Fails
 
+- If Buildx is missing, follow the [Buildx installation instructions](https://github.com/docker/buildx#installing).
+  Debian/Ubuntu distribution packages call it `docker-buildx`; Docker's package
+  repository calls it `docker-buildx-plugin`. On other distributions, use the
+  matching package or upstream installation method for your architecture.
+  Confirm `docker buildx version` works before rerunning quick-start. The classic
+  builder cannot build OPK images and can report an empty `BUILDPLATFORM` error.
 - If the container cannot start, check that `docker info` works in the host shell.
 - If the build command is not found, confirm that you are in the Docker shell and in `/work`.
 - If the browser opens but no result appears, enable a model in the **Model Selector** panel.

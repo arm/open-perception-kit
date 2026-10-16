@@ -83,6 +83,12 @@ Helper lane
     -> opk-pre-commit-runtime
 ```
 
+APT packages follow the selected Debian or Raspberry Pi distribution without
+exact revision pins, allowing security updates and architecture-specific package
+rebuilds to resolve together. Python and native library ABI selections, SDK
+artifact locks, and shared validation tools retain their compatibility constraints;
+the Dockerfiles explain those constraints beside the retained versions.
+
 The main `Dockerfile` owns the cross-lane stage graph where tool stages inherit
 from `opk-build-base`, `opk-cross-build-base`, or `opk-dev-base`. The same file
 also contains narrow artifact stages for model downloads and demo media so
@@ -178,9 +184,15 @@ stages inherit everything from their parent unless noted otherwise.
   deployment build lane a named cross-build root.
 - `opk-demo-media`: starts from `debian:trixie-slim`, adds `ca-certificates`,
   `curl`, and `bash`, then runs `scripts/private/download-demo-videos.sh` unless
-  `NO_EXAMPLE_CONTENT=true`. The checked-in manifest locks each file from the
-  Arm Multimedia Hugging Face bucket by SHA-256, and the stage emits
-  `data/videos/SHA256SUMS` beside the verified media.
+  `NO_EXAMPLE_CONTENT=true`. The optional `huggingface_token` build secret is
+  exposed as `HF_TOKEN` only to this download step. Without a nonempty token,
+  the downloader skips downloads and leaves an empty directory on a fresh build.
+  The stage consumes `HF_DOWNLOAD_CACHEBUST` so adding a token to a subsequent
+  quick start does not reuse a cached anonymous skip; authenticated direct Docker
+  builds must also supply a fresh value for that argument.
+  The checked-in manifest locks each file from the Arm Multimedia Hugging Face
+  bucket by SHA-256, and a completed download emits `data/videos/SHA256SUMS`
+  beside the verified media. `--check` remains strict even without a token.
 - `opk-models`: starts from `python:3.13-slim-trixie`, adds
   `huggingface_hub==1.32.0` and `jsonschema==4.26.0`, then runs
   `scripts/download-models.py` with the optional Hugging Face build secret to
@@ -206,7 +218,7 @@ stages inherit everything from their parent unless noted otherwise.
   enabled, ensures an ARM64 ONNX Runtime path is available, and copies resolved
   model artifacts and demo videos into `/opt/opk-app` for first-run seeding. It
   does not copy the repository or prebuilt OPK binaries into the image.
-- `opk-docs`: adds `openjdk-25-jdk`, Graphviz, Pandoc, Doxygen, and the
+- `opk-docs`: adds `default-jdk`, Graphviz, Pandoc, Doxygen, and the
   PlantUML JAR.
 - `opk-deployment-build`: inherits `opk-cross-build-base`, adds the target
   sysroot when cross-building, installs target ONNX Runtime, downloads Meson

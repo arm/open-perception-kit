@@ -597,3 +597,19 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ steps.crates-auth.outputs.token }}
           RUSTUP_TOOLCHAIN: 1.85.0
         run: cargo publish --locked --registry crates-io
+
+  latest-release-tag:
+    name: Update latest release tag
+    needs: [prepare, publish-docs]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout released source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          persist-credentials: true
+
+      - name: Move latest_release to the released commit
+        run: git push --force origin HEAD:refs/tags/latest_release

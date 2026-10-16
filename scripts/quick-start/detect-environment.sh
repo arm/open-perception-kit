@@ -29,14 +29,14 @@ usage() {
 Usage:
   detect-environment.sh [--shell] [-h|--help]
 
-Detects the quick-start host environment.
+Detects the computer where the quick-start container will run.
 
-Supported host classes:
-  rpi5         Raspberry Pi 5 running Linux
-  linux-x86_64 Generic x86_64 Linux host
-  linux-aarch64 Debian or Ubuntu Arm64 Linux host
-  wsl          Windows Subsystem for Linux
-  macos        macOS host
+Container host classes:
+  rpi5          Raspberry Pi 5 running Linux with apt-get
+  linux-x86_64  Generic x86_64 Linux host
+  linux-aarch64 Generic Arm64 Linux host
+  wsl           Windows Subsystem for Linux
+  macos         macOS host
 
 Options:
   --shell      Print shell assignments instead of human-readable output
@@ -110,6 +110,22 @@ detect_environment() {
         OPK_DEV_CONTAINER_NAME="${OPK_QUICK_START_CI_NAME}-dev"
     fi
 
+    if grep -qi "raspberry pi 5" <<< "$OPK_RPI_MODEL"; then
+        if [[ "$OPK_UNAME_S" != "Linux" ]]; then
+            OPK_UNSUPPORTED_REASON="Raspberry Pi quick-start requires Linux; detected kernel '${OPK_UNAME_S}'."
+        elif ! command -v apt-get > /dev/null 2>&1; then
+            OPK_UNSUPPORTED_REASON="Raspberry Pi quick-start requires the apt package manager (apt-get). Use Raspberry Pi OS."
+        else
+            OPK_PICAMERA="enabled"
+            OPK_PLATFORM_ID="rpi5"
+            OPK_PLATFORM_NAME="Raspberry Pi 5"
+            OPK_CONTAINER_SERVICE="opk-dev"
+            OPK_CONTAINER_NAME="${OPK_DEV_CONTAINER_NAME:-open-perception-kit}"
+            OPK_SUPPORTED="true"
+        fi
+        return
+    fi
+
     case "$OPK_UNAME_S" in
         Darwin)
             OPK_PLATFORM_ID="macos"
@@ -125,28 +141,20 @@ detect_environment() {
                 OPK_CONTAINER_SERVICE="opk-dev"
                 OPK_CONTAINER_NAME="${OPK_DEV_CONTAINER_NAME:-open-perception-kit}"
                 OPK_SUPPORTED="true"
-            elif grep -qi "raspberry pi 5" <<< "$OPK_RPI_MODEL"; then
-                OPK_PICAMERA="enabled"
-                OPK_PLATFORM_ID="rpi5"
-                OPK_PLATFORM_NAME="Raspberry Pi 5"
-                OPK_CONTAINER_SERVICE="opk-dev"
-                OPK_CONTAINER_NAME="${OPK_DEV_CONTAINER_NAME:-open-perception-kit}"
-                OPK_SUPPORTED="true"
             elif [[ "$OPK_UNAME_M" == "x86_64" || "$OPK_UNAME_M" == "amd64" ]]; then
                 OPK_PLATFORM_ID="linux-x86_64"
                 OPK_PLATFORM_NAME="Linux x86_64"
                 OPK_CONTAINER_SERVICE="opk-dev"
                 OPK_CONTAINER_NAME="${OPK_DEV_CONTAINER_NAME:-open-perception-kit}"
                 OPK_SUPPORTED="true"
-            elif [[ "$OPK_UNAME_M" == "aarch64" || "$OPK_UNAME_M" == "arm64" ]] &&
-                [[ "$OPK_OS_ID" == "debian" || "$OPK_OS_ID" == "ubuntu" ]]; then
+            elif [[ "$OPK_UNAME_M" == "aarch64" || "$OPK_UNAME_M" == "arm64" ]]; then
                 OPK_PLATFORM_ID="linux-aarch64"
                 OPK_PLATFORM_NAME="Linux Arm64"
                 OPK_CONTAINER_SERVICE="opk-dev"
                 OPK_CONTAINER_NAME="${OPK_DEV_CONTAINER_NAME:-open-perception-kit}"
                 OPK_SUPPORTED="true"
             else
-                OPK_UNSUPPORTED_REASON="Linux host is not Raspberry Pi 5, x86_64, or Debian/Ubuntu Arm64."
+                OPK_UNSUPPORTED_REASON="Linux CPU architecture '${OPK_UNAME_M}' is not supported by quick-start. Use x86_64 or Arm64 Linux."
             fi
             ;;
         *)
@@ -196,13 +204,17 @@ print_human() {
     echo "  Container shell: ${OPK_IN_CONTAINER}"
 
     if [[ "$OPK_SUPPORTED" == "true" ]]; then
+        if [[ "$OPK_PLATFORM_ID" == "linux-aarch64" ]]; then
+            echo
+            echo "Warning: This distribution is not fully supported and may not work as expected"
+        fi
         echo
         echo "Quick-start target:"
         echo "  Compose service: ${OPK_CONTAINER_SERVICE}"
         echo "  Container name:  ${OPK_CONTAINER_NAME}"
     else
         echo
-        echo "Unsupported platform."
+        echo "Unsupported platform for local OPK container startup."
         if [[ -n "$OPK_UNSUPPORTED_REASON" ]]; then
             echo "Reason: ${OPK_UNSUPPORTED_REASON}"
         fi

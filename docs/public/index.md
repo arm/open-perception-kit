@@ -100,12 +100,18 @@ use the target Pi IP address.
 
 In the Raspberry Pi 5 terminal run:
 
+The `latest_release` tag points to the latest successfully completed release.
+The detached HEAD message is expected when checking out a release tag.
+
 ```bash
-git clone https://github.com/arm/open-perception-kit.git
+git clone --branch latest_release https://github.com/arm/open-perception-kit.git
 cd open-perception-kit
 ```
 
 ### 2. Install prerequisites, build and start the Docker Container
+
+> We are working on providing access to a set of demo videos. Until they are
+> available, please [use your own input videos](how-to/media-input.md#use-a-video-file).
 
 Enter the `open-perception-kit` folder in the terminal and run:
 

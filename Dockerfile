@@ -15,6 +15,9 @@
 # limitations under the License.
 
 
+# APT revisions follow the selected distribution so security updates stay resolvable.
+# hadolint global ignore=DL3008
+
 ARG BUILDPLATFORM
 ARG TARGETPLATFORM
 ARG TARGETARCH
@@ -27,9 +30,12 @@ ARG TARGETARCH
 # Development Tooling Images
 # ==============================================================================
 
+# Trixie supplies the native library ABI; Python 3.13 matches the embedded runtime and cp313 wheels.
 FROM --platform=${BUILDPLATFORM} python:3.13-slim-trixie AS opk-build-base
 
+# Match the headers and libraries packaged by scripts/private/executorch/setup-executorch-1.3.1-deps.sh.
 ARG EXECUTORCH_VERSION=1.3.1
+# Match that SDK builder's Debian revision, including its dependency layout.
 ARG EXECUTORCH_DEB_REVISION=2
 ARG EXECUTORCH_ARTIFACTORY_SERVER=https://artifactory.arm.com:443
 ARG EXECUTORCH_ARTIFACTORY_REPOSITORY=ai-expkits-internal.opk-deb
@@ -53,11 +59,6 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
   set -eux; \
-  case "$(dpkg --print-architecture)" in \
-    amd64) ;; \
-    arm64) ;; \
-    *) echo "Unsupported build architecture" >&2; exit 1 ;; \
-  esac; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
   build-essential \
@@ -85,9 +86,11 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   unzip; \
   update-ca-certificates
 
+# Meson is shared with native builds; ONNX Runtime archives have version-specific SHA-256 locks.
 COPY requirements/build.json requirements/meson.txt /opt/opk-deps/requirements/
 RUN python3 -m pip install --no-cache-dir -r /opt/opk-deps/requirements/meson.txt
 
+# SDK generator/runtime versions and NumPy wheels must match their checksums and Python ABI.
 COPY tools/perception/sdk.json /tmp/perception-sdk.json
 COPY development/ops-python/runtime.json /tmp/python-ops-runtime.json
 COPY --chmod=0755 scripts/private/install-perception-flatbuffers.sh /usr/local/bin/install-perception-flatbuffers
@@ -143,12 +146,19 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   update-ca-certificates
 
 ARG NO_EXAMPLE_CONTENT=false
+ARG HF_DOWNLOAD_CACHEBUST
 
 WORKDIR /work
 COPY --chmod=0444 scripts/private/demo-videos.manifest scripts/private/demo-videos.manifest
 COPY --chmod=0755 scripts/private/download-demo-videos.sh scripts/private/download-demo-videos.sh
-RUN if [ "${NO_EXAMPLE_CONTENT}" != "true" ]; then \
-      ./scripts/private/download-demo-videos.sh; \
+# Secret values do not invalidate BuildKit caches; reuse quick-start's per-build key.
+RUN --mount=type=secret,id=huggingface_token,env=HF_TOKEN \
+    if [ "${NO_EXAMPLE_CONTENT}" != "true" ]; then \
+      if [ -n "${HF_TOKEN:-}" ] && [ -z "${HF_DOWNLOAD_CACHEBUST}" ]; then \
+        echo "HF_DOWNLOAD_CACHEBUST is required for authenticated demo media builds" >&2; \
+        exit 1; \
+      fi; \
+      HF_DOWNLOAD_CACHEBUST="${HF_DOWNLOAD_CACHEBUST}" ./scripts/private/download-demo-videos.sh; \
     else \
       mkdir -p data/videos; \
     fi
@@ -212,7 +222,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-  file gosu \
+  file gnupg gosu \
   gstreamer1.0-gl gstreamer1.0-nice gstreamer1.0-pipewire \
   gstreamer1.0-plugins-bad gstreamer1.0-plugins-base \
   gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
@@ -255,9 +265,11 @@ RUN set -eux; \
   rm -f /tmp/esbuild-wasm.tgz /tmp/flatbuffers.tgz /tmp/typescript.tgz \
     /tmp/opk-web-package-lock.json
 
+# .vscode/settings.json loads liblldb-17.so.1, so the debugger and server must stay on LLVM 17.
 RUN ln -sf /usr/bin/lldb-17 /usr/local/bin/lldb && \
   ln -sf /usr/bin/lldb-server-17 /usr/local/bin/lldb-server
 
+# Keep workflow diagnostics consistent with Dockerfile.pre-commit and scripts/setup-lxc-dev.sh.
 ARG ACTIONLINT_VERSION=1.7.12
 
 RUN set -eux; \
@@ -357,8 +369,6 @@ FROM opk-dev-base AS opk-dev-tools
 ARG USERNAME=dev
 ARG USER_UID=1000
 ARG USER_GID=1000
-ARG NVIM_VERSION=v0.12.1
-ARG CPP_TOOLS_VERSION=v1.29.3
 ARG TARGETARCH
 
 USER 0
@@ -371,6 +381,7 @@ RUN --mount=type=bind,source=var,target=/tmp/opk-executorch-packages,ro \
 
 # ignore version pinning
 # hadolint ignore=DL3008
+# Lua 5.1 matches Neovim's LuaJIT ABI for the jsregexp LuaRock installed below.
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
   set -eux; \
@@ -405,12 +416,12 @@ RUN set -eux; \
   esac; \
   nvim_archive="nvim-linux-${nvim_arch}.tar.gz"; \
   curl --proto "=https" --retry 3 --retry-all-errors --retry-delay 2 -fsSLo "/tmp/${nvim_archive}" \
-  "https://github.com/neovim/neovim/releases/download/${NVIM_VERSION}/${nvim_archive}"; \
+  "https://github.com/neovim/neovim/releases/latest/download/${nvim_archive}"; \
   mkdir -p /opt/nvim; \
   tar -xzf "/tmp/${nvim_archive}" --strip-components=1 -C /opt/nvim; \
   cpptools_archive="cpptools-linux-${cpptools_arch}.vsix"; \
   curl --proto "=https" --retry 3 --retry-all-errors --retry-delay 2 -fsSLo "/tmp/${cpptools_archive}" \
-  "https://github.com/microsoft/vscode-cpptools/releases/download/${CPP_TOOLS_VERSION}/${cpptools_archive}"; \
+  "https://github.com/microsoft/vscode-cpptools/releases/latest/download/${cpptools_archive}"; \
   mkdir -p "/home/${USERNAME}/bin/cpptools"; \
   unzip -q "/tmp/${cpptools_archive}" -d "/home/${USERNAME}/bin/cpptools"; \
   chown -R "${USER_UID}:${USER_GID}" "/home/${USERNAME}/bin"; \
@@ -513,6 +524,7 @@ FROM opk-dev-base AS opk-docs
 # Container account name, not an authentication credential.
 # hadolint ignore=DL3064
 ARG USERNAME=dev
+# Keep diagram output and the versioned JAR path used by gen-doc.sh, setup.sh and VS Code aligned.
 ARG PLANTUML_VERSION=1.2026.2
 
 USER 0
@@ -525,7 +537,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   apt-get update; \
   apt-get install -y --no-install-recommends \
   doxygen graphviz \
-  openjdk-25-jdk pandoc
+  default-jdk pandoc
 
 RUN set -eux; \
   mkdir -p /opt/opk-deps; \
@@ -556,7 +568,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   ca-certificates \
   gstreamer1.0-plugins-base \
   gstreamer1.0-tools \
-  libgstreamer1.0-0 \
+  libgstreamer1.0-0; \
   update-ca-certificates; \
   rm -rf /var/lib/apt/lists/*
 

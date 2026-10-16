@@ -40,7 +40,7 @@ Options:
 
 The LXC host remains responsible for networking and bind-mounting the checkout,
 /dev/dri, camera/audio devices, the user's configs, and SSH credentials.
-HF_TOKEN is exposed only to the model downloader.
+HF_TOKEN is exposed only to the model and demo video downloaders.
 EOF
 }
 
@@ -351,7 +351,8 @@ if [[ "$SKIP_ASSETS" == false ]]; then
         /opt/opk-venvs/devtools/bin/python \
         "$OPK_PROJECT_ROOT/scripts/download-models.py" \
         --models-dir "$OPK_PROJECT_ROOT/config/models"
-    sudo -u "$DEV_USER" -H \
+    HF_TOKEN="$hf_token" \
+        sudo --preserve-env=OPK_PROJECT_ROOT,HF_TOKEN -u "$DEV_USER" -H \
         "$OPK_PROJECT_ROOT/scripts/private/download-demo-videos.sh"
 fi
 unset hf_token

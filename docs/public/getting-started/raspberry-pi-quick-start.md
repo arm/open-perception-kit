@@ -45,9 +45,13 @@ You need:
 
 - Raspberry Pi 5.
 - Raspberry Pi OS based on Debian Trixie.
+- Around 15 GB of free disk space on the Pi for OPK.
 - Network connection between your normal computer and the Raspberry Pi.
 - Power supply suitable for Raspberry Pi 5 and attached hardware.
 - Optional camera. The first run uses checked-in sample media, so the camera is not required for first success.
+
+The Raspberry Pi quick-start path requires Linux and the `apt-get` package
+manager. A Pi running Windows cannot use this path.
 
 ## 2. Flash Raspberry Pi OS And Enable SSH
 
@@ -91,7 +95,7 @@ Follow the link below to install Docker:
 
 * [Debian Installation Guide](https://docs.docker.com/engine/install/debian/)
 
-Install both Docker Engine and the Docker Compose plugin from the Debian guide so `docker compose` is available for later steps.
+Install Docker Engine and the Docker Compose and Buildx plugins from the Debian guide. Buildx is required for OPK's BuildKit image builds.
 
 If the upgrade asks for a reboot, reconnect with SSH afterwards.
 
@@ -103,6 +107,7 @@ Run in the **Raspberry Pi shell**:
 docker info
 docker --version
 docker compose version
+docker buildx version
 ```
 
 If `docker info` fails with a permission error, add your user to the `docker` group and log out and back in:
@@ -111,7 +116,7 @@ If `docker info` fails with a permission error, add your user to the `docker` gr
 sudo usermod -aG docker "$USER"
 ```
 
-Expected result: Docker Engine and Docker Compose both print version information.
+Expected result: Docker Engine, Docker Compose, and Docker Buildx print version information.
 
 If these checks fail, fix them before opening the project in VS Code. The Dev Container depends on the Pi host setup.
 
@@ -119,8 +124,11 @@ If these checks fail, fix them before opening the project in VS Code. The Dev Co
 
 Run in the **Raspberry Pi shell**:
 
+The `latest_release` tag points to the latest successfully completed release.
+The detached HEAD message is expected when checking out a release tag.
+
 ```bash
-git clone https://github.com/arm/open-perception-kit.git
+git clone --branch latest_release https://github.com/arm/open-perception-kit.git
 cd open-perception-kit
 ```
 
@@ -128,7 +136,7 @@ HTTPS cloning is the simplest first path. If you must clone with SSH, use [GitHu
 After your SSH key is configured in git you can clone the repository:
 
 ```bash
-git clone git@github.com:arm/open-perception-kit.git
+git clone --branch latest_release git@github.com:arm/open-perception-kit.git
 ```
 
 Expected result: the `opk` folder exists on the Raspberry Pi.
@@ -221,7 +229,10 @@ Run in the **Docker shell on the Raspberry Pi**:
 ./tools/opk-menu full-onnx-raspicam
 ```
 
-For a USB camera exposed as `/dev/video0`, run `./tools/opk-menu full-onnx-usb-cam` instead. Use `./tools/opk-menu yolo26n-320` when you want the bundled video-file source.
+For a USB camera exposed as `/dev/video0`, run `./tools/opk-menu full-onnx-usb-cam` instead. Use `./tools/opk-menu yolo26n-320` when you want the video-file source.
+
+> We are working on providing access to a set of demo videos. Until they are
+> available, please [use your own input videos](../how-to/media-input.md#use-a-video-file).
 
 Leave this terminal open. The pipeline is running while this command is active.
 
