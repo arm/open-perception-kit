@@ -17,6 +17,8 @@
 
 #include "DebugOverlayRenderer.h"
 #include "gst/FrameResultsMeta.h"
+#include "gst/Tools.h"
+#include "mediaio/GstVideoFrame.h"
 #include "opk/Bitmap.h"
 #include "opk/FrameResults.h"
 #include "opk/Tools.h"
@@ -31,9 +33,9 @@
 #include <optional>
 #include <span>
 #include <utility>
+#include <vector>
 
 #include <gst/gst.h>
-#include <gst/video/gstvideofilter.h>
 #include <gst/video/video.h>
 
 #ifndef PACKAGE
@@ -53,10 +55,12 @@ typedef struct _GstOpkOsd GstOpkOsd;
 typedef struct _GstOpkOsdClass GstOpkOsdClass;
 
 struct _GstOpkOsd {
-    GstVideoFilter videofilter;
+    GstBaseTransform parent;
+    GstVideoInfo vinfo;
 
     // Properties
     gboolean enabled;
+    gboolean copyInput;
     gboolean performanceOverlayEnabled;
     gchar *bgImagePath;
 
@@ -66,7 +70,7 @@ struct _GstOpkOsd {
 };
 
 struct _GstOpkOsdClass {
-    GstVideoFilterClass parent_class;
+    GstBaseTransformClass parent_class;
 };
 
 GType gst_opk_osd_get_type(void);
@@ -92,6 +96,7 @@ enum class PropertyId : guint {
     Enabled,
     PerformanceOverlayEnabled,
     BgImage,
+    CopyInput,
 };
 
 // Function prototypes
@@ -100,25 +105,30 @@ gst_opk_osd_set_property(GObject *object, guint prop_id, const GValue *value, GP
 static void
 gst_opk_osd_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
 static void gst_opk_osd_finalize(GObject *object);
-static GstFlowReturn gst_opk_osd_transform_frame_ip(GstVideoFilter *filter, GstVideoFrame *frame);
+static GstFlowReturn
+gst_opk_osd_prepare_output_buffer(GstBaseTransform *base, GstBuffer *input, GstBuffer **output);
+static gboolean gst_opk_osd_set_caps(GstBaseTransform *base, GstCaps *caps, GstCaps *);
+static GstFlowReturn gst_opk_osd_transform_in_place(GstBaseTransform *base, GstBuffer *buffer);
+static GstFlowReturn gst_opk_osd_transform_frame_in_place(GstOpkOsd *filter, GstVideoFrame *frame);
 static gboolean gst_opk_osd_start(GstBaseTransform *trans);
 static gboolean gst_opk_osd_stop(GstBaseTransform *trans);
 static bool gst_opk_osd_load_bg_image(GstOpkOsd *self);
 
 #define gst_opk_osd_parent_class parent_class
-G_DEFINE_TYPE(GstOpkOsd, gst_opk_osd, GST_TYPE_VIDEO_FILTER);
+G_DEFINE_TYPE(GstOpkOsd, gst_opk_osd, GST_TYPE_BASE_TRANSFORM);
 
 static void gst_opk_osd_class_init(GstOpkOsdClass *klass) {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     GstElementClass *element_class = GST_ELEMENT_CLASS(klass);
-    GstVideoFilterClass *vfilter_class = GST_VIDEO_FILTER_CLASS(klass);
     GstBaseTransformClass *trans_class = GST_BASE_TRANSFORM_CLASS(klass);
 
     gobject_class->set_property = gst_opk_osd_set_property;
     gobject_class->get_property = gst_opk_osd_get_property;
     gobject_class->finalize = gst_opk_osd_finalize;
 
-    vfilter_class->transform_frame_ip = gst_opk_osd_transform_frame_ip;
+    trans_class->prepare_output_buffer = gst_opk_osd_prepare_output_buffer;
+    trans_class->set_caps = gst_opk_osd_set_caps;
+    trans_class->transform_ip = gst_opk_osd_transform_in_place;
     trans_class->start = gst_opk_osd_start;
     trans_class->stop = gst_opk_osd_stop;
 
@@ -151,6 +161,16 @@ static void gst_opk_osd_class_init(GstOpkOsdClass *klass) {
             DEFAULT_BG_IMAGE,
             static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
+    g_object_class_install_property(
+        gobject_class,
+        static_cast<guint>(PropertyId::CopyInput),
+        g_param_spec_boolean("copy-input",
+                             "Copy input",
+                             "Draw on a CPU copy instead of the original DMA-BUF",
+                             FALSE,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                                      GST_PARAM_MUTABLE_READY)));
+
     gst_element_class_set_static_metadata(element_class,
                                           "OPK OSD Overlay",
                                           "Filter/Video",
@@ -167,6 +187,9 @@ static void gst_opk_osd_class_init(GstOpkOsdClass *klass) {
 }
 
 static void gst_opk_osd_init(GstOpkOsd *self) {
+    gst_video_info_init(&self->vinfo);
+    gst_base_transform_set_in_place(GST_BASE_TRANSFORM(self), TRUE);
+    self->copyInput = FALSE;
     self->enabled = DEFAULT_ENABLED;
     self->performanceOverlayEnabled = DEFAULT_PERFORMANCE_OVERLAY_ENABLED;
     self->bgImagePath = g_strdup(DEFAULT_BG_IMAGE);
@@ -247,6 +270,9 @@ gst_opk_osd_set_property(GObject *object, guint prop_id, const GValue *value, GP
     auto *self = GST_OPK_OSD(object);
 
     switch (static_cast<PropertyId>(prop_id)) {
+    case PropertyId::CopyInput:
+        g_atomic_int_set(&self->copyInput, g_value_get_boolean(value));
+        break;
     case PropertyId::Enabled:
         self->enabled = g_value_get_boolean(value);
         GST_INFO_OBJECT(self, "Enabled set to: %d", self->enabled);
@@ -275,6 +301,9 @@ gst_opk_osd_get_property(GObject *object, guint prop_id, GValue *value, GParamSp
     auto *self = GST_OPK_OSD(object);
 
     switch (static_cast<PropertyId>(prop_id)) {
+    case PropertyId::CopyInput:
+        g_value_set_boolean(value, g_atomic_int_get(&self->copyInput));
+        break;
     case PropertyId::Enabled:
         g_value_set_boolean(value, self->enabled);
         break;
@@ -321,6 +350,70 @@ static gboolean gst_opk_osd_stop(GstBaseTransform *trans) {
     GST_INFO_OBJECT(self, "Stopping OpkOsd element - processed %u frames", self->frameCount);
 
     return TRUE;
+}
+
+static GstFlowReturn
+gst_opk_osd_prepare_output_buffer(GstBaseTransform *base, GstBuffer *input, GstBuffer **output) {
+    auto *self = GST_OPK_OSD(base);
+    if (!self->enabled || !opk::FrameResultsMeta::read(input)) {
+        *output = input;
+        return GST_FLOW_OK;
+    }
+    return gst::Tools::prepareVideoBuffer(
+        base, input, output, g_atomic_int_get(&self->copyInput), true);
+}
+
+static gboolean gst_opk_osd_set_caps(GstBaseTransform *base, GstCaps *caps, GstCaps *) {
+    return gst_video_info_from_caps(&GST_OPK_OSD(base)->vinfo, caps);
+}
+
+static GstFlowReturn gst_opk_osd_transform_in_place(GstBaseTransform *base, GstBuffer *buffer) {
+    auto *self = GST_OPK_OSD(base);
+    if (!self->enabled || !opk::FrameResultsMeta::read(buffer)) {
+        return GST_FLOW_OK;
+    }
+    std::vector<GstMemory *> memory;
+    if (opk::mediaio::gst::GstVideoFrame::hasDmaBufContent(buffer)) {
+        if (!gst_buffer_is_writable(buffer) || !gst_buffer_is_all_memory_writable(buffer)) {
+            GST_ELEMENT_ERROR(self,
+                              RESOURCE,
+                              WRITE,
+                              ("DMA-BUF is not writable. Set copy-input=true on opkosd."),
+                              (nullptr));
+            return GST_FLOW_ERROR;
+        }
+        for (guint i = 0; i < gst_buffer_n_memory(buffer); ++i) {
+            memory.push_back(gst_buffer_peek_memory(buffer, i));
+        }
+    }
+    const auto flags = static_cast<GstMapFlags>(
+        GST_MAP_READWRITE | static_cast<GstMapFlags>(GST_VIDEO_FRAME_MAP_FLAG_NO_REF));
+    GstVideoFrame frame; // Initialized by gst_video_frame_map on success.
+    if (!gst_video_frame_map(&frame, &self->vinfo, buffer, flags)) {
+        GST_ELEMENT_ERROR(self,
+                          RESOURCE,
+                          WRITE,
+                          ("Cannot map the video frame for drawing. Try copy-input=true "
+                           "on opkosd; non-mappable layouts require upstream conversion."),
+                          (nullptr));
+        return GST_FLOW_ERROR;
+    }
+    // A writable map can silently replace memory when the allocator cannot map it.
+    for (guint i = 0; i < memory.size(); ++i) {
+        if (memory.size() != gst_buffer_n_memory(buffer) ||
+            memory[i] != gst_buffer_peek_memory(buffer, i)) {
+            gst_video_frame_unmap(&frame);
+            GST_ELEMENT_ERROR(self,
+                              RESOURCE,
+                              WRITE,
+                              ("Drawing requires a pixel copy. Set copy-input=true on opkosd."),
+                              (nullptr));
+            return GST_FLOW_ERROR;
+        }
+    }
+    const auto result = gst_opk_osd_transform_frame_in_place(self, &frame);
+    gst_video_frame_unmap(&frame);
+    return result;
 }
 
 static opk::RawImagePixelFormat rawImagePixelFormatFromGst(GstVideoFormat format) noexcept {
@@ -486,7 +579,7 @@ static const char *debugOverlayStatusName(Osd::DebugOverlayStatus status) noexce
     }
 }
 
-static GstFlowReturn gst_opk_osd_transform_frame_ip(GstVideoFilter *filter, GstVideoFrame *frame) {
+static GstFlowReturn gst_opk_osd_transform_frame_in_place(GstOpkOsd *filter, GstVideoFrame *frame) {
     auto *self = GST_OPK_OSD(filter);
 
     if (!self->enabled) {

@@ -39,6 +39,7 @@
 
 #include "gst/ContentRequirementEvent.h"
 #include "gst/FrameResultsMeta.h"
+#include "gst/Tools.h"
 #include "mediaio/GstVideoFrame.h"
 
 struct GstOpkInferMembers {
@@ -77,6 +78,7 @@ struct _GstOpkInfer {
     // Properties
     gchar *opChainPath;
     gboolean active;
+    gboolean copyInput;
     gchar *format;
     gchar *inferId;
 
@@ -479,6 +481,12 @@ static std::shared_ptr<opk::mediaio::VideoFrame> gst_opkinfer_map_video_frame(Gs
     return nullptr;
 }
 
+static GstFlowReturn
+gst_opkinfer_prepare_output_buffer(GstBaseTransform *base, GstBuffer *input, GstBuffer **output) {
+    auto *self = GST_OPKINFER(base);
+    return gst::Tools::prepareVideoBuffer(base, input, output, g_atomic_int_get(&self->copyInput));
+}
+
 static GstFlowReturn gst_opkinfer_transform_ip(GstBaseTransform *b, GstBuffer *buf) {
     auto *self = (GstOpkInfer *)b;
 
@@ -605,10 +613,14 @@ constexpr guint PROP_FORMAT = 3;
 constexpr guint PROP_INFER_ID = 4;
 constexpr guint PROP_QOS_ENABLED = 5;
 constexpr guint PROP_QOS_ACCEPTED_EVENTS_DEBUG = 6;
+constexpr guint PROP_COPY_INPUT = 7;
 
 static void gst_opkinfer_set_property(GObject *o, guint id, const GValue *v, GParamSpec *ps) {
     auto *self = (GstOpkInfer *)o;
     switch (id) {
+    case PROP_COPY_INPUT:
+        g_atomic_int_set(&self->copyInput, g_value_get_boolean(v));
+        break;
     case PROP_OPCHAIN_PATH:
         g_free(self->opChainPath);
         self->opChainPath = g_value_dup_string(v);
@@ -653,6 +665,9 @@ static void gst_opkinfer_set_property(GObject *o, guint id, const GValue *v, GPa
 static void gst_opkinfer_get_property(GObject *o, guint id, GValue *v, GParamSpec *ps) {
     auto *self = (GstOpkInfer *)o;
     switch (id) {
+    case PROP_COPY_INPUT:
+        g_value_set_boolean(v, g_atomic_int_get(&self->copyInput));
+        break;
     case PROP_OPCHAIN_PATH:
         g_value_set_string(v, self->opChainPath);
         break;
@@ -757,6 +772,16 @@ static void gst_opkinfer_class_init(GstOpkInferClass *klass) {
                             0,
                             (GParamFlags)(G_PARAM_READABLE | G_PARAM_STATIC_STRINGS)));
 
+    g_object_class_install_property(
+        gobj,
+        PROP_COPY_INPUT,
+        g_param_spec_boolean("copy-input",
+                             "Copy input",
+                             "Copy video into CPU memory instead of retaining the input DMA-BUF",
+                             FALSE,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                                      GST_PARAM_MUTABLE_READY)));
+
     // Static pad templates (portable across GStreamer-1.0 versions)
     static GstStaticPadTemplate sink_t =
         GST_STATIC_PAD_TEMPLATE("sink",
@@ -783,12 +808,14 @@ static void gst_opkinfer_class_init(GstOpkInferClass *klass) {
     bcls->sink_event = gst_opkinfer_sink_event;
     bcls->src_event = gst_opkinfer_src_event;
     bcls->transform_ip = gst_opkinfer_transform_ip;
+    bcls->prepare_output_buffer = gst_opkinfer_prepare_output_buffer;
     ecls->change_state = gst_opkinfer_change_state;
 }
 
 static void gst_opkinfer_init(GstOpkInfer *self) {
     self->opChainPath = nullptr;
     self->active = true;
+    self->copyInput = false;
     self->m = nullptr;
     self->inferId = nullptr;
     self->qosEnabled = false;

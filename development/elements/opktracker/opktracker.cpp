@@ -23,6 +23,7 @@
 #include <gst/video/video.h>
 
 #include "Log.h"
+#include "gst/Tools.h"
 
 #ifndef PACKAGE
 #define PACKAGE "opk-elements"
@@ -724,6 +725,9 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *klass) {
     bcls->stop = gst_opktracker_stop;
     bcls->set_caps = gst_opktracker_set_caps;
     bcls->transform_ip = gst_opktracker_transform_ip;
+    bcls->prepare_output_buffer = [](GstBaseTransform *base, GstBuffer *input, GstBuffer **output) {
+        return gst::Tools::prepareVideoBuffer(base, input, output);
+    };
 }
 
 static void gst_opktracker_init(GstOpkTracker *self) {

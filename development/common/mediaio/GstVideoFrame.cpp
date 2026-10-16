@@ -341,6 +341,10 @@ std::unique_ptr<GstVideoFrame> GstVideoFrame::mapGstBufferUnique(GstBuffer *buff
         return nullptr;
     }
 
+    // A read map may merge memory blocks. Keep it from replacing the input's memory.
+    const std::unique_ptr<::GstBuffer, decltype(&gst_buffer_unref)> readReference{
+        needsWrite(accessMode) ? nullptr : gst_buffer_ref(buffer), gst_buffer_unref};
+
     const auto mapFlags =
         static_cast<GstMapFlags>(gstMapFlagsFromAccessMode(accessMode) |
                                  static_cast<GstMapFlags>(GST_VIDEO_FRAME_MAP_FLAG_NO_REF));

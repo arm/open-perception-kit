@@ -36,6 +36,7 @@ micropipeline.
 - Control property: `active`, which enables or disables per-frame OpChain execution
 - Experimental property: `qos-enabled`, disabled by default
 - Metadata output: `FrameResultsMeta`
+- `copy-input`: copy video into CPU memory; default `false` preserves input DMA-BUFs
 
 The element maps system memory and linear, CPU-mappable DMA-BUFs through
 `gst_video_frame_map`, respecting plane offsets and strides. CPU preprocessing

@@ -16,8 +16,72 @@
  */
 
 #include "Tools.h"
+#include "mediaio/GstVideoFrame.h"
 
 using namespace gst;
+
+GstFlowReturn Tools::prepareVideoBuffer(GstBaseTransform *transform,
+                                        GstBuffer *input,
+                                        GstBuffer **output,
+                                        bool copyPixels,
+                                        bool writePixels) {
+    *output = nullptr;
+    const bool dmaBuf = opk::mediaio::gst::GstVideoFrame::hasDmaBufContent(input);
+    if (copyPixels) {
+        *output = gst_buffer_copy_deep(input);
+    } else if (writePixels && dmaBuf &&
+               (!gst_buffer_is_writable(input) || !gst_buffer_is_all_memory_writable(input))) {
+        GST_ELEMENT_ERROR(transform,
+                          RESOURCE,
+                          WRITE,
+                          ("DMA-BUF is shared or read-only; drawing would require a copy. "
+                           "Set copy-input=true on opkosd to use a CPU copy."),
+                          (nullptr));
+        return GST_FLOW_ERROR;
+    } else if (gst_buffer_is_writable(input)) {
+        *output = input;
+    } else {
+        // Only the header and metadata need to be writable; retain the pixel allocation.
+        if (dmaBuf) {
+            for (guint i = 0; i < gst_buffer_n_memory(input); ++i) {
+                if (GST_MEMORY_IS_NO_SHARE(gst_buffer_peek_memory(input, i))) {
+                    GST_ELEMENT_ERROR(transform,
+                                      RESOURCE,
+                                      READ,
+                                      ("DMA-BUF cannot be shared. Set copy-input=true on the "
+                                       "first opkinfer to use CPU buffers."),
+                                      (nullptr));
+                    return GST_FLOW_ERROR;
+                }
+            }
+        }
+        *output = gst_buffer_copy(input);
+        if (dmaBuf && *output != nullptr) {
+            for (guint i = 0; i < gst_buffer_n_memory(input); ++i) {
+                if (gst_buffer_peek_memory(input, i) != gst_buffer_peek_memory(*output, i)) {
+                    gst_clear_buffer(output);
+                    GST_ELEMENT_ERROR(transform,
+                                      RESOURCE,
+                                      READ,
+                                      ("Could not preserve DMA-BUF memory. Set copy-input=true "
+                                       "on the first opkinfer to use CPU buffers."),
+                                      (nullptr));
+                    return GST_FLOW_ERROR;
+                }
+            }
+        }
+    }
+    if (*output == nullptr) {
+        GST_ELEMENT_ERROR(transform,
+                          RESOURCE,
+                          READ,
+                          ("Could not prepare the video buffer. The source must provide "
+                           "linear CPU-readable video; copying cannot fix an unmappable layout."),
+                          (nullptr));
+        return GST_FLOW_ERROR;
+    }
+    return GST_FLOW_OK;
+}
 
 GstElement *Tools::getOverlayElement(GstVideoFilter *videoFilter) {
     if (!videoFilter)
