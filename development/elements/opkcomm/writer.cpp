@@ -17,6 +17,7 @@
 
 #include "writer.h"
 
+#include <gst/gst.h>
 #include <mutex>
 #include <unistd.h>
 #include <utility>
@@ -101,28 +102,40 @@ void Writer::stop() {
     }
 }
 
-void Writer::run() {
-    using json = nlohmann::json;
+static std::string serializeJob(const OpkCommJob &job) {
+    nlohmann::json j;
+    j["frame_counter"] = job.frame_counter;
+    if (job.frameResults) {
+        const auto packet = open_perception_kit::serialize(*job.frameResults);
+        j["frame_results_encoding"] = "perception-frame-results+base64";
+        j["frame_results_packet_b64"] = opk::base64Encode(packet);
+    } else {
+        j["frame_results_encoding"] = nullptr;
+        j["frame_results_packet_b64"] = nullptr;
+    }
+    if (job.frame) {
+        const auto &frame = *job.frame;
+        j["frame"] = {{"encoding", "raw+base64"},
+                      {"pixel_format", "BGRA"},
+                      {"width", frame.width},
+                      {"height", frame.height},
+                      {"stride_bytes", size_t(frame.width) * 4},
+                      {"data_b64", opk::base64Encode(frame.pixels)}};
+    }
+    auto line = j.dump();
+    line.push_back('\n');
+    return line;
+}
 
+void Writer::run() {
     OpkCommJob job;
     while (q.pop(job)) {
-
-        json j;
-
-        j["frame_counter"] = job.frame_counter;
-        if (job.frameResults) {
-            const auto packet = open_perception_kit::serialize(*job.frameResults);
-            j["frame_results_encoding"] = "perception-frame-results+base64";
-            j["frame_results_packet_b64"] = opk::base64Encode(packet);
-        } else {
-            j["frame_results_encoding"] = nullptr;
-            j["frame_results_packet_b64"] = nullptr;
+        try {
+            publish(serializeJob(job));
+        } catch (const std::exception &error) {
+            GST_ERROR_OBJECT(m_self, "Failed to publish opkcomm record: %s", error.what());
         }
-
-        std::string line = j.dump();
-        line.push_back('\n');
-
-        publish(line);
+        job = {};
     }
 }
 
@@ -133,6 +146,5 @@ bool Writer::send(OpkCommJob &&job) {
     } else {
         ret = false;
     }
-
     return ret;
 }
