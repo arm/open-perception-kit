@@ -22,17 +22,28 @@
 #include <deque>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include <opk/FrameResults.h>
 
 struct _GstOpkComm;
 
+struct OpkCommFrame {
+    uint32_t width = 0;
+    uint32_t height = 0;
+    std::vector<uint8_t> pixels;
+};
+
 struct OpkCommJob {
     uint64_t frame_counter = 0;
     std::shared_ptr<const open_perception_kit::FrameResults> frameResults;
+    std::optional<OpkCommFrame> frame;
 };
+
+std::string serializeJob(const OpkCommJob &job);
 
 class JobQueue {
   public:
