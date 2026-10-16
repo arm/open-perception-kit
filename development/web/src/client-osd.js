@@ -16,15 +16,12 @@
  */
 
 import {renderOsd, resizeCanvasToDisplaySize} from './osd-renderer.js';
+import {decodeFrameResultsMessage} from './frame-results.js';
 
 const canvas = document.getElementById('clientOsdCanvas');
 const video = document.getElementById('video');
 const toggleButton = document.getElementById('clientOsdControlsBtn');
 const controlsPanel = document.getElementById('clientOsdControlsPanel');
-
-const latest = {
-    frameResults: null,
-};
 
 const controlIds = {
     objects: 'clientOsdRenderObjects',
@@ -47,15 +44,24 @@ const colorIds = {
 };
 
 if (canvas && video) {
-    window.addEventListener('metadata-message', (event) => {
-        latest.frameResults = event.detail?.frame_results || null;
+    window.addEventListener('video-frame-metadata', (event) => {
+        let frameResults = null;
+        if (event.detail) {
+            try {
+                frameResults = decodeFrameResultsMessage(event.detail).frame_results;
+            } catch (error) {
+                console.warn('Invalid video frame metadata', error);
+            }
+        }
+        renderOsd(canvas, video, frameResults, readRenderOptions());
     });
 
     window.addEventListener('resize', () => resizeCanvasToDisplaySize(canvas));
     video.addEventListener('loadedmetadata', () => resizeCanvasToDisplaySize(canvas));
     video.addEventListener('resize', () => resizeCanvasToDisplaySize(canvas));
-
-    requestAnimationFrame(renderFrame);
+    if (typeof video.requestVideoFrameCallback !== 'function') {
+        console.warn('Synchronized overlays require requestVideoFrameCallback; overlays are disabled.');
+    }
 }
 
 if (toggleButton && controlsPanel) {
@@ -80,11 +86,6 @@ if (toggleButton && controlsPanel) {
             setControlsOpen(false);
         }
     });
-}
-
-function renderFrame() {
-    renderOsd(canvas, video, latest.frameResults, readRenderOptions());
-    requestAnimationFrame(renderFrame);
 }
 
 function readRenderOptions() {

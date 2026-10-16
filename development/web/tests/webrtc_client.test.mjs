@@ -22,7 +22,11 @@ import {createWebRtcClient} from '../src/webrtc_client.js';
 
 test('frame heartbeat keeps the session alive', async () => {
     const env = createEnv();
-    const client = env.createClient({frameTimeoutMs: 1000, reconnectDelayMs: 0});
+    const frames = [];
+    const client = env.createClient({
+        frameTimeoutMs: 1000, reconnectDelayMs: 0,
+        onVideoFrame: (message) => frames.push(message),
+    });
 
     client.start();
     env.openLatestSocket();
@@ -30,7 +34,15 @@ test('frame heartbeat keeps the session alive', async () => {
     env.attachVideoTrack();
 
     env.clock.tick(900);
-    env.video.emitFrame();
+    const metadata = {type: 'frame-metadata', rtp_timestamp: 42};
+    env.latestSocket().receive(metadata);
+    env.latestSocket().receive({type: 'frame-metadata', rtp_timestamp: 43});
+    env.video.emitFrame(42);
+    assert.deepEqual(frames.at(-1), metadata);
+    env.video.emitFrame(44);
+    assert.equal(frames.at(-1), null);
+    env.video.emitFrame(42);
+    assert.equal(frames.at(-1), null);
     env.clock.tick(900);
 
     assert.equal(env.peerConnections.length, 1);
@@ -153,14 +165,25 @@ test('redundant playing report does not refresh the frame watchdog', async () =>
 
 test('frame timeout can be disabled without reconnect loop', async () => {
     const env = createEnv();
-    const client = env.createClient({frameTimeoutMs: 0, reconnectDelayMs: 0});
+    const frames = [];
+    const client = env.createClient({
+        frameTimeoutMs: 0, reconnectDelayMs: 0,
+        onVideoFrame: (message) => frames.push(message),
+    });
 
     client.start();
     env.openLatestSocket();
     await env.flush();
     env.attachVideoTrack();
 
-    env.clock.tick(1000);
+    const metadata = {type: 'frame-metadata', rtp_timestamp: 99};
+    env.latestSocket().receive(metadata);
+    env.video.emitFrame(99);
+    assert.deepEqual(frames.at(-1), metadata);
+    env.latestSocket().receive(metadata);
+    env.clock.tick(2100);
+    env.video.emitFrame(99);
+    assert.equal(frames.at(-1), null);
 
     assert.equal(env.peerConnections.length, 1);
     assert.equal(client.getDebugState().restartTimerCount, 0);
@@ -293,13 +316,17 @@ test('video track ended schedules one full restart', async () => {
 
 test('stale answer and candidate events cannot modify the new generation', async () => {
     const env = createEnv();
-    const client = env.createClient({reconnectDelayMs: 0});
+    const frames = [];
+    const client = env.createClient({
+        reconnectDelayMs: 0, onVideoFrame: (message) => frames.push(message),
+    });
 
     client.start();
     env.openLatestSocket();
     await env.flush();
 
     const oldSocket = env.latestSocket();
+    oldSocket.receive({type: 'frame-metadata', rtp_timestamp: 42});
     env.latestPeerConnection().setIceState('failed');
     env.clock.tick(0);
     env.openLatestSocket();
@@ -308,10 +335,16 @@ test('stale answer and candidate events cannot modify the new generation', async
     const newPc = env.latestPeerConnection();
     oldSocket.receive({type: 'answer', sdp: 'stale-answer'});
     oldSocket.receive({type: 'candidate', ice: {candidate: 'stale', sdpMLineIndex: 0}});
+    oldSocket.receive({type: 'frame-metadata', rtp_timestamp: 43});
     await env.flush();
 
     assert.equal(newPc.remoteDescriptions.length, 0);
     assert.equal(newPc.iceCandidates.length, 0);
+    env.attachVideoTrack();
+    env.video.emitFrame(42);
+    assert.equal(frames.at(-1), null);
+    env.video.emitFrame(43);
+    assert.equal(frames.at(-1), null);
 });
 
 test('rapid repeated failures do not create parallel peer connections', async () => {
@@ -411,12 +444,12 @@ class FakeVideo {
         this.frameCallbacks.delete(id);
     }
 
-    emitFrame() {
+    emitFrame(rtpTimestamp) {
         this.currentTime += 0.033;
         const callbacks = [...this.frameCallbacks.entries()];
         this.frameCallbacks.clear();
         for (const [, callback] of callbacks)
-            callback(this.currentTime, {mediaTime: this.currentTime});
+            callback(this.currentTime, {mediaTime: this.currentTime, rtpTimestamp});
     }
 }
 

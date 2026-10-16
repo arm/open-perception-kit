@@ -85,6 +85,8 @@ var WebRtcClient = class {
     });
     this.onRemoteTrack = config.onRemoteTrack || (() => {
     });
+    this.onVideoFrame = config.onVideoFrame || (() => {
+    });
     this.generation = 0;
     this.session = null;
     this.restartTimer = null;
@@ -151,7 +153,8 @@ var WebRtcClient = class {
       lastVideoTime: this.video.currentTime || 0,
       frameCallbackHandle: null,
       fallbackTimer: null,
-      frameWatchdogTimer: null
+      frameWatchdogTimer: null,
+      frameMetadata: /* @__PURE__ */ new Map()
     };
     this.session = session;
     this.resetVideoElement(remoteStream);
@@ -254,6 +257,16 @@ var WebRtcClient = class {
         this.scheduleRestart(session, "invalid signaling message");
         return;
       }
+      if (data.type === "frame-metadata") {
+        const timestamp = data.rtp_timestamp;
+        if (Number.isInteger(timestamp) && timestamp >= 0 && timestamp <= 4294967295) {
+          session.frameMetadata.set(timestamp, { message: data, receivedAt: this.now() });
+          while (session.frameMetadata.size > 64) {
+            session.frameMetadata.delete(session.frameMetadata.keys().next().value);
+          }
+        }
+        return;
+      }
       this.log(`Received signaling message: ${data.type}`);
       try {
         if (data.type === "answer") {
@@ -332,22 +345,23 @@ var WebRtcClient = class {
       this.log("Video track ended");
       this.scheduleRestart(session, "video track ended");
     };
-    if (this.frameTimeoutMs <= 0) {
-      return;
-    }
     if (typeof this.video.requestVideoFrameCallback === "function") {
       const watchFrames = () => {
         if (!this.isCurrent(session))
           return;
-        session.frameCallbackHandle = this.video.requestVideoFrameCallback(() => {
+        session.frameCallbackHandle = this.video.requestVideoFrameCallback((_now, frame) => {
           if (!this.isCurrent(session))
             return;
           this.markFrameHeartbeat(session, "video frame");
+          const timestamp = frame?.rtpTimestamp;
+          const match = session.frameMetadata.get(timestamp);
+          session.frameMetadata.delete(timestamp);
+          this.onVideoFrame(match && this.now() - match.receivedAt < 2e3 ? match.message : null);
           watchFrames();
         });
       };
       watchFrames();
-    } else {
+    } else if (this.frameTimeoutMs > 0) {
       this.observeCurrentTimeFallback(session);
     }
   }
@@ -419,6 +433,8 @@ var WebRtcClient = class {
       return;
     session.closed = true;
     session.intentionalClose = true;
+    session.frameMetadata.clear();
+    this.onVideoFrame(null);
     if (session.frameWatchdogTimer)
       this.clearTimeout(session.frameWatchdogTimer);
     if (session.fallbackTimer)
@@ -600,6 +616,9 @@ var client = createWebRtcClient({
   logger: appendLog,
   onStatus: setStatus,
   onStatusLine: setStatusLine,
+  onVideoFrame: (message) => {
+    window.dispatchEvent(new CustomEvent("video-frame-metadata", { detail: message }));
+  },
   onRemoteTrack: (track) => {
     if (track.kind === "audio")
       appendLog("Audio track attached. If muted=false, you should hear sound.");
@@ -6729,9 +6748,6 @@ var canvas = document.getElementById("clientOsdCanvas");
 var video4 = document.getElementById("video");
 var toggleButton = document.getElementById("clientOsdControlsBtn");
 var controlsPanel = document.getElementById("clientOsdControlsPanel");
-var latest = {
-  frameResults: null
-};
 var controlIds = {
   objects: "clientOsdRenderObjects",
   faces: "clientOsdRenderFaces",
@@ -6751,13 +6767,23 @@ var colorIds = {
   personStatus: "clientOsdColorPersonStatus"
 };
 if (canvas && video4) {
-  window.addEventListener("metadata-message", (event) => {
-    latest.frameResults = event.detail?.frame_results || null;
+  window.addEventListener("video-frame-metadata", (event) => {
+    let frameResults = null;
+    if (event.detail) {
+      try {
+        frameResults = decodeFrameResultsMessage(event.detail).frame_results;
+      } catch (error) {
+        console.warn("Invalid video frame metadata", error);
+      }
+    }
+    renderOsd(canvas, video4, frameResults, readRenderOptions());
   });
   window.addEventListener("resize", () => resizeCanvasToDisplaySize(canvas));
   video4.addEventListener("loadedmetadata", () => resizeCanvasToDisplaySize(canvas));
   video4.addEventListener("resize", () => resizeCanvasToDisplaySize(canvas));
-  requestAnimationFrame(renderFrame);
+  if (typeof video4.requestVideoFrameCallback !== "function") {
+    console.warn("Synchronized overlays require requestVideoFrameCallback; overlays are disabled.");
+  }
 }
 if (toggleButton && controlsPanel) {
   toggleButton.addEventListener("click", () => {
@@ -6775,10 +6801,6 @@ if (toggleButton && controlsPanel) {
       setControlsOpen(false);
     }
   });
-}
-function renderFrame() {
-  renderOsd(canvas, video4, latest.frameResults, readRenderOptions());
-  requestAnimationFrame(renderFrame);
 }
 function readRenderOptions() {
   return {
