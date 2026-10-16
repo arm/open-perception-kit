@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "description": "YOLO26n-320 on Raspberry Pi camera DMA-BUF input with local video output.",
+  "description": "YOLO26n-320 on Raspberry Pi camera DMA-BUF input with WebRTC output.",
   "sourceInfo": "Raspberry Pi CSI camera: NV12 640x480 at 30 fps",
   "pipeline": [
     "libcamerasrc !",

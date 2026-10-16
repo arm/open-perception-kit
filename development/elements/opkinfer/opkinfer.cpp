@@ -455,6 +455,9 @@ static GstOpkInferFramePolicy gst_opkinfer_get_frame_policy(GstOpkInfer *self,
 static std::shared_ptr<opk::mediaio::VideoFrame> gst_opkinfer_map_video_frame(GstOpkInfer *self,
                                                                               GstBuffer *buffer) {
     const bool dmaBuf = opk::mediaio::gst::GstVideoFrame::hasDmaBufContent(buffer);
+    if (dmaBuf) {
+        opk::log::info("DMA buffer was used.\n");
+    }
     if (dmaBuf || opk::mediaio::gst::GstVideoFrame::hasDirectCpuAddress(buffer)) {
         auto frame = opk::mediaio::gst::GstVideoFrame::mapGstBuffer(
             buffer, self->vinfo, opk::AccessMode::Read);

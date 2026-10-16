@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "description": "YOLO26n-320 on USB camera DMA-BUF input with local video output.",
+  "description": "YOLO26n-320 on USB camera DMA-BUF input with WebRTC output.",
   "sourceInfo": "USB camera at /dev/video0: raw YUY2 640x480 at 30 fps, DMA-BUF export required",
   "pipeline": [
     "v4l2src device=/dev/video0 io-mode=dmabuf !",
