@@ -150,6 +150,18 @@ when downstream accepts its layout. Caps alone do not prove the memory type.
 OPK accepts linear, CPU-mappable DMA-BUFs and retains CPU preprocessing. It does
 not accept tiled or non-mappable inputs. Preprocessing still writes model input
 tensors, and WebRTC output encodes video; these presets are not end-to-end zero-copy.
+
+OPK elements preserve the video allocation by default. These presets omit
+`opkosd` and draw overlays in the browser. For CPU drawing into the same DMA-BUF,
+insert `opkosd enabled=true !` after `opkcomm` and before `opksink` in the pipeline
+array, and disable browser overlays to avoid drawing them twice.
+Shared or non-writable buffers fail with a diagnostic. Set
+`copy-input=true` on the first `opkinfer` (or just `opkosd`) to allow a CPU copy.
+Copying still requires a readable linear layout.
+
+Each video buffer retains its accumulated FrameResults metadata, including after
+`opkosd` draws. No separate metadata pad or stream matching is needed between OPK elements.
+
 ## If The Camera Does Not Work
 
 - Confirm the sample-media pipeline worked before the camera edit.
