@@ -87,5 +87,6 @@ class PythonPathGuard {
 };
 
 std::filesystem::path packagedPythonPath();
+std::filesystem::path installedPythonRuntimePath();
 
 } // namespace opk::python

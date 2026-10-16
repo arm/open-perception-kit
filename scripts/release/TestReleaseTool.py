@@ -55,6 +55,17 @@ SOURCE_NOTICE_CONTENT = (
 )
 
 
+class FakeDistribution:
+    def __init__(self, root: Path, name: str, version: str, files: list[str]) -> None:
+        self.root = root
+        self.metadata = {"Name": name}
+        self.version = version
+        self.files = [Path(path) for path in files]
+
+    def locate_file(self, path: object) -> Path:
+        return self.root / str(path)
+
+
 def add_legal_payload(package_root: Path) -> None:
     legal = package_root / "share/opk/licenses"
     document = REPO_ROOT / "docs/third-party-licenses.md"
@@ -233,6 +244,50 @@ class ReleaseToolTests(unittest.TestCase):
             library.write_bytes(b"changed")
             with self.assertRaisesRegex(RuntimeError, "library SHA-256 mismatch"):
                 release_tool.validate_onnxruntime_provenance(package_root, repo_root, "x86_64")
+
+    def test_stages_selected_python_runtime_distribution(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source_root = root / "site-packages"
+            distribution = FakeDistribution(
+                source_root,
+                "open_perception_kit",
+                "0.3.0",
+                [
+                    "open_perception_kit/__init__.py",
+                    "open_perception_kit-0.3.0.dist-info/METADATA",
+                ],
+            )
+            for entry in distribution.files:
+                path = distribution.locate_file(entry)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(str(entry), encoding="utf-8")
+
+            stage_root = root / "stage"
+            with patch.object(
+                release_tool.importlib.metadata,
+                "distribution",
+                return_value=distribution,
+            ):
+                release_tool.stage_python_runtime(
+                    SimpleNamespace(
+                        stage_root=str(stage_root),
+                        distribution=["open-perception-kit"],
+                    )
+                )
+
+            runtime_root = stage_root / release_tool.PYTHON_RUNTIME_ROOT
+            self.assertTrue((runtime_root / "open_perception_kit").is_dir())
+            self.assertFalse((runtime_root / "numpy").exists())
+            self.assertFalse((runtime_root / "flatbuffers").exists())
+            manifest = json.loads(
+                (runtime_root / release_tool.PYTHON_RUNTIME_MANIFEST).read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(
+                manifest["distributions"], {"open-perception-kit": "0.3.0"}
+            )
 
     def test_elf_dependencies_can_resolve_through_rpath(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
