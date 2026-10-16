@@ -23,6 +23,33 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.2]
+
+### Changed
+
+- Smooth WebUI performance readings to reduce fluctuations in displayed metrics.
+- Allow quick-start setup on other Arm64 Linux hosts, with a warning that these
+  hosts are untested; require Linux and APT for Raspberry Pi setup.
+- Clone the latest released source in setup guides. Successful releases now move
+  the `latest_release` tag after documentation publication completes.
+- Update build and Python dependencies and their third-party licence inventory.
+- Run CI on Ubuntu 24.04, enable trusted crates.io publishing, and remove retired
+  analysis, secret-scanning, and agent tooling.
+
+### Fixed
+
+- Restore devcontainer builds by removing unnecessary package version pins while
+  retaining and documenting compatibility-sensitive versions.
+- Open devcontainers in the current checkout and release conflicting OPK
+  devcontainer ports before startup.
+- Check for Docker Buildx before quick-start builds and install it on supported
+  APT profiles; clarify platform storage requirements.
+- Retry artifact downloads after TLS connection failures.
+- Skip optional demo-video downloads when `HF_TOKEN` is absent or empty. Setup
+  guides explain how to supply input videos; browser smoke tests use a generated
+  ball video source instead of downloaded demo media.
+- Reject already-published release versions before building or publishing artifacts.
+
 ## [0.1.1]
 
 Initial release
