@@ -1,0 +1,15 @@
+{
+  "version": "1.0.0",
+  "description": "YOLO26n-320 on Raspberry Pi camera DMA-BUF input with WebRTC output.",
+  "sourceInfo": "Raspberry Pi CSI camera: NV12 640x480 at 30 fps",
+  "pipeline": [
+    "libcamerasrc !",
+    "video/x-raw,format=NV12,width=640,height=480,framerate=30/1 !",
+    "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/yolo26n-320/opchain.json\" active=true !",
+    "opktracker content-type=genericObject !",
+    "opkperformance show-all-metrics=true update-interval=1 !",
+    "opkosd enabled=true !",
+    "opkcomm method=websocket endpoint=/ws !",
+    "opksink name=sink"
+  ]
+}

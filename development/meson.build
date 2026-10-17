@@ -294,6 +294,9 @@ endif
 if get_option('tests')
   subdir('packaging/tests')
   subdir('tests')
+  if host_machine.system() == 'linux'
+    subdir('benchmarks')
+  endif
 endif
 
 subdir('quality')

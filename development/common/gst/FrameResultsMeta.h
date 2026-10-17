@@ -38,10 +38,9 @@ struct FrameResultsMetaTraits {
         return "com_arm_opk_meta_FrameResults";
     }
     static const std::span<const gchar *> tags() {
-        static std::array<const gchar *, 4> t = {
-            "frame-results",
-            "inference",
-            "metadata",
+        // Keep results attached to their frame through video encoders and RTP payloaders.
+        static std::array<const gchar *, 2> t = {
+            "video",
             nullptr,
         };
 

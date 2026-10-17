@@ -26,6 +26,12 @@ namespace gst {
 
 struct Tools {
 
+    static GstFlowReturn prepareVideoBuffer(GstBaseTransform *transform,
+                                            GstBuffer *input,
+                                            GstBuffer **output,
+                                            bool copyPixels = false,
+                                            bool writePixels = false);
+
     static GstElement *getOverlayElement(GstVideoFilter *videoFilter);
 
     static void releaseElement(GstElement *element) {

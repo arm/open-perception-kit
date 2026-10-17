@@ -33,6 +33,8 @@ camera presets first:
 
 - `full-onnx-raspicam` for a Raspberry Pi CSI camera.
 - `full-onnx-usb-cam` for a USB camera exposed as `/dev/video0`.
+- For DMA-BUF camera input, use the
+  [DMA-BUF presets](#dma-buf-input) below.
 
 Use the manual source-editing path below when your camera device, camera name,
 resolution, or pipeline preset needs to differ from those defaults.
@@ -129,6 +131,30 @@ http://raspberrypi.local:9999
 Enable one model in the **Model Selector** panel.
 
 Expected result: the browser shows camera input instead of the checked-in sample media.
+
+## DMA-BUF Input
+
+Run `./tools/opk-menu yolo26n-320-usb-cam-dmabuf` for a USB camera, or
+`./tools/opk-menu yolo26n-320-raspicam-dmabuf` for a Raspberry Pi CSI camera.
+Both presets publish video through `opksink`; open the device's web UI on port 9999.
+
+The USB preset uses `v4l2src io-mode=dmabuf` with YUY2 at 640×480. Set `device`
+to the camera's capture node and select a supported mode with `v4l2-ctl`.
+The CSI preset requests NV12 at 640×480 from `libcamerasrc`, which supplies DMA-BUFs
+when downstream accepts its layout. Caps alone do not prove the memory type.
+
+OPK accepts linear, CPU-mappable DMA-BUFs and retains CPU preprocessing. It does
+not accept tiled or non-mappable inputs. Preprocessing still writes model input
+tensors, and WebRTC output encodes video; these presets are not end-to-end zero-copy.
+
+OPK elements preserve the video allocation by default. To keep pixels untouched,
+leave `opkosd enabled=false`. For CPU drawing into the same DMA-BUF, set
+`enabled=true`; shared or non-writable buffers fail with a diagnostic. Set
+`copy-input=true` on the first `opkinfer` (or just `opkosd`) to allow a CPU copy.
+Copying still requires a readable linear layout.
+
+Each video buffer retains its accumulated FrameResults metadata, including after
+`opkosd` draws. No separate metadata pad or stream matching is needed between OPK elements.
 
 ## If The Camera Does Not Work
 

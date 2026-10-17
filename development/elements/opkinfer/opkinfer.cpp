@@ -39,6 +39,7 @@
 
 #include "gst/ContentRequirementEvent.h"
 #include "gst/FrameResultsMeta.h"
+#include "gst/Tools.h"
 #include "mediaio/GstVideoFrame.h"
 
 struct GstOpkInferMembers {
@@ -77,6 +78,7 @@ struct _GstOpkInfer {
     // Properties
     gchar *opChainPath;
     gboolean active;
+    gboolean copyInput;
     gchar *format;
     gchar *inferId;
 
@@ -454,30 +456,35 @@ static GstOpkInferFramePolicy gst_opkinfer_get_frame_policy(GstOpkInfer *self,
 
 static std::shared_ptr<opk::mediaio::VideoFrame> gst_opkinfer_map_video_frame(GstOpkInfer *self,
                                                                               GstBuffer *buffer) {
-    if (opk::mediaio::gst::GstVideoFrame::hasDirectCpuAddress(buffer)) {
+    const bool dmaBuf = opk::mediaio::gst::GstVideoFrame::hasDmaBufContent(buffer);
+    if (dmaBuf) {
+        opk::log::info("DMA buffer was used.\n");
+    }
+    if (dmaBuf || opk::mediaio::gst::GstVideoFrame::hasDirectCpuAddress(buffer)) {
         auto frame = opk::mediaio::gst::GstVideoFrame::mapGstBuffer(
             buffer, self->vinfo, opk::AccessMode::Read);
         if (!frame) {
-            GST_ELEMENT_ERROR(
-                self, RESOURCE, FAILED, ("Failed to map video buffer."), ("%s", self->opChainPath));
+            GST_ELEMENT_ERROR(self,
+                              RESOURCE,
+                              FAILED,
+                              ("Failed to map video buffer for CPU preprocessing."),
+                              ("%s: %s",
+                               self->opChainPath,
+                               dmaBuf ? "DMA-BUF input must be CPU-mappable and linear."
+                                      : "System-memory video mapping failed."));
         }
         return frame;
     }
 
-    if (opk::mediaio::gst::GstVideoFrame::hasDmaBufContent(buffer)) {
-        GST_ELEMENT_ERROR(self,
-                          RESOURCE,
-                          FAILED,
-                          ("DMA-BUF video buffers are not supported by opkinfer yet."),
-                          ("%s", self->opChainPath));
-    } else {
-        GST_ELEMENT_ERROR(self,
-                          RESOURCE,
-                          FAILED,
-                          ("Unsupported GstBuffer memory type."),
-                          ("%s", self->opChainPath));
-    }
+    GST_ELEMENT_ERROR(
+        self, RESOURCE, FAILED, ("Unsupported GstBuffer memory type."), ("%s", self->opChainPath));
     return nullptr;
+}
+
+static GstFlowReturn
+gst_opkinfer_prepare_output_buffer(GstBaseTransform *base, GstBuffer *input, GstBuffer **output) {
+    auto *self = GST_OPKINFER(base);
+    return gst::Tools::prepareVideoBuffer(base, input, output, g_atomic_int_get(&self->copyInput));
 }
 
 static GstFlowReturn gst_opkinfer_transform_ip(GstBaseTransform *b, GstBuffer *buf) {
@@ -533,11 +540,8 @@ static GstFlowReturn gst_opkinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
     const GstClockTime processingStartedAt =
         framePolicy.qosEnabled ? gst_util_get_timestamp() : GST_CLOCK_TIME_NONE;
 
-    // Build the pipeline VideoFrame only from CPU-direct buffers for now. DMA-BUF-backed
-    // buffers are detected explicitly so future DMA-BUF support can be added without
-    // accidentally taking a slow or invalid CPU mapping path. Keep this after attaching
-    // FrameResultsMeta: GstVideoFrame holds its own GstBuffer ref, which makes adding
-    // new metadata fail because the buffer is no longer considered writable.
+    // Map after attaching FrameResultsMeta: the frame's buffer reference prevents
+    // adding metadata while the OpChain reads the mapped pixels.
     auto sharedMediaFrame = gst_opkinfer_map_video_frame(self, buf);
     if (!sharedMediaFrame) {
         return GST_FLOW_ERROR;
@@ -609,10 +613,14 @@ constexpr guint PROP_FORMAT = 3;
 constexpr guint PROP_INFER_ID = 4;
 constexpr guint PROP_QOS_ENABLED = 5;
 constexpr guint PROP_QOS_ACCEPTED_EVENTS_DEBUG = 6;
+constexpr guint PROP_COPY_INPUT = 7;
 
 static void gst_opkinfer_set_property(GObject *o, guint id, const GValue *v, GParamSpec *ps) {
     auto *self = (GstOpkInfer *)o;
     switch (id) {
+    case PROP_COPY_INPUT:
+        g_atomic_int_set(&self->copyInput, g_value_get_boolean(v));
+        break;
     case PROP_OPCHAIN_PATH:
         g_free(self->opChainPath);
         self->opChainPath = g_value_dup_string(v);
@@ -657,6 +665,9 @@ static void gst_opkinfer_set_property(GObject *o, guint id, const GValue *v, GPa
 static void gst_opkinfer_get_property(GObject *o, guint id, GValue *v, GParamSpec *ps) {
     auto *self = (GstOpkInfer *)o;
     switch (id) {
+    case PROP_COPY_INPUT:
+        g_value_set_boolean(v, g_atomic_int_get(&self->copyInput));
+        break;
     case PROP_OPCHAIN_PATH:
         g_value_set_string(v, self->opChainPath);
         break;
@@ -761,6 +772,16 @@ static void gst_opkinfer_class_init(GstOpkInferClass *klass) {
                             0,
                             (GParamFlags)(G_PARAM_READABLE | G_PARAM_STATIC_STRINGS)));
 
+    g_object_class_install_property(
+        gobj,
+        PROP_COPY_INPUT,
+        g_param_spec_boolean("copy-input",
+                             "Copy input",
+                             "Copy video into CPU memory instead of retaining the input DMA-BUF",
+                             FALSE,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
+                                                      GST_PARAM_MUTABLE_READY)));
+
     // Static pad templates (portable across GStreamer-1.0 versions)
     static GstStaticPadTemplate sink_t =
         GST_STATIC_PAD_TEMPLATE("sink",
@@ -787,12 +808,14 @@ static void gst_opkinfer_class_init(GstOpkInferClass *klass) {
     bcls->sink_event = gst_opkinfer_sink_event;
     bcls->src_event = gst_opkinfer_src_event;
     bcls->transform_ip = gst_opkinfer_transform_ip;
+    bcls->prepare_output_buffer = gst_opkinfer_prepare_output_buffer;
     ecls->change_state = gst_opkinfer_change_state;
 }
 
 static void gst_opkinfer_init(GstOpkInfer *self) {
     self->opChainPath = nullptr;
     self->active = true;
+    self->copyInput = false;
     self->m = nullptr;
     self->inferId = nullptr;
     self->qosEnabled = false;
