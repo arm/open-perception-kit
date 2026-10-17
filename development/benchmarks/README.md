@@ -91,3 +91,34 @@ The current direct mode retained the original DMA memory in every measured
 frame. The previous implementation copied shared inputs into CPU memory.
 Forwarding is faster; YOLO's run ranges overlap, so there is no demonstrated
 inference speedup. Explicit `copy-input=true` also took about 33.6 ms with YOLO.
+
+## Local WSL video results, 2026-10-17
+
+Used `full-onnx` with its default YOLO26n-320 model and
+`GettyImages-1140581459.mov`: 417 frames, 1920×1080, 25 FPS. The laptop exposes
+eight Intel Core Ultra 7 268V CPUs to WSL. Both revisions used GCC 14.2,
+GStreamer 1.26.2, ONNX Runtime 1.24.4 and release `-O3`/LTO builds.
+
+| Revision / ONNX threads | With `opksink`, FPS | Without encoding, FPS |
+| --- | ---: | ---: |
+| Before (`b0dbdb4a`), default 7 | 6.5–8.3 | 16.0–19.5 |
+| Current (`c4de7803`), default 7 | 8.2–9.3 | 14.0–18.0 |
+| Current, experimental 1 | 16.4–16.6 | 24.9–27.7 |
+| Current, experimental 2 | 20.1–21.2 | 30.1–32.0 |
+
+[Individual runs](wsl-video-2026-10-17.csv). Old/current order was reversed on
+the second repetition. Each run checked all 417 frame timestamps at inference
+input, inference output and encoder output; FPS excludes the first 30 frames.
+The benchmark waited for encoder EOS because `opksink` posts pipeline EOS before
+its encoding queue has drained. The no-encoding control replaced `opksink` with
+`fakesink sync=false`; other processing stayed enabled. No browser was connected.
+
+The old/current ranges overlap. The larger improvement came from reducing ONNX
+threads competing with the four VP8 encoder threads. Two threads cut full-pipeline
+CPU time from 856–971 to 210–219 ms/frame. Restoring seven threads returned to
+9.1 FPS. These experimental changes only replaced `SetIntraOpNumThreads`'s argument
+in an isolated build; OPK's default remains unchanged.
+
+Decoded frames used system memory. This measures the normal file-video workflow,
+not DMA-BUF import or browser rendering. Local probe scripts, configs and logs are
+retained in `~/.cache/opk-benchmarks/wsl-video-2026-10-17/`.
