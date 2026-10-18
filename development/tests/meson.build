@@ -219,6 +219,20 @@ yolo_parser_tests = executable(
   link_with : [common],
 )
 
+inference_controller_crop_tests = executable(
+  'inference_controller_crop_tests',
+  [
+    'inference_controller_crop_test.cpp',
+    '../ops-std/InferenceControllerOp.cpp',
+    '../ops-std/postproc/UltrafaceParser.cpp',
+    '../ops-std/postproc/YoloParser.cpp',
+  ],
+  include_directories : [common_include, include_directories('../ops-std')],
+  cpp_args: ['-DFMT_HEADER_ONLY'],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+
 gaze_detection_parser_tests = executable(
   'gaze_detection_parser_tests',
   ['gaze_detection_parser_test.cpp', '../ops-std/postproc/GazeDetectionParser.cpp'],
@@ -454,6 +468,7 @@ test('kalman_filter_tests', kalman_filter_tests)
 test('hungarian_tests', hungarian_tests)
 test('iou_tests', iou_tests)
 test('yolo_parser_tests', yolo_parser_tests)
+test('inference_controller_crop_tests', inference_controller_crop_tests)
 test('gaze_detection_parser_tests', gaze_detection_parser_tests)
 test('onnx_tensor_tests', onnx_tensor_tests)
 test('logging_tests', logging_tests)

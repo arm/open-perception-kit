@@ -370,8 +370,7 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(const ImageOpDesc &src
     if (!srcView.data || !dstPtr || !hasTightDestinationStride(dst))
         return false;
 
-    if (srcRect.x + srcRect.width > srcWidth || srcRect.y + srcRect.height > srcHeight ||
-        dstRect.x + dstRect.width > dstWidth || dstRect.y + dstRect.height > dstHeight)
+    if (!srcRect.fitsWithin(srcWidth, srcHeight) || !dstRect.fitsWithin(dstWidth, dstHeight))
         return false;
 
     if (dst.keepAspectRatio) {
