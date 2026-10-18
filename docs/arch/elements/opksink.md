@@ -73,12 +73,6 @@ Browser diagnostics insert message text as DOM text, preserving HTML-like input 
 state and declared required/provided content types for browser-side visibility.
 It also handles unregister events if an upstream component emits them.
 
-The `/api/model-info` endpoint searches for model and OpChain descriptors under
-`${OPK_PROJECT_ROOT:-/work}/config`. Explicitly setting `OPK_PROJECT_ROOT`
-therefore keeps the browser's model information lookup aligned with pipelines
-launched from a host checkout. Working-directory-relative locations remain as
-fallbacks.
-
 The browser receives serialized FrameResults records on the metadata WebSocket.
 Its committed `opk-web.js` bundle contains the generated TypeScript Open Perception Kit
 SDK and FlatBuffers runtime. The client requires the

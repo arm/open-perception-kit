@@ -37,7 +37,7 @@ runtime. Treat these as constraints when extending the system.
 
 ## Security And Lifecycle
 
-- `opksink` control and model-info endpoints are not product APIs. Authentication,
+- `opksink` control is not a product API. Authentication,
   authorization, input validation, and network exposure need dedicated review.
 - `opksink` request pads, thread startup/shutdown, and teardown ordering need more
   lifecycle coverage.
