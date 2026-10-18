@@ -25,6 +25,7 @@
 #include <gst/sdp/sdp.h>
 
 #include <cctype>
+#include <chrono>
 #include <exception>
 #include <functional>
 #include <memory>
@@ -51,6 +52,8 @@ on_ice_candidate(GstElement *webrtc, guint mlineindex, gchar *candidate, gpointe
 // Leave enough room for SRTP, UDP and IP headers on VPN and TURN paths whose
 // MTU can be lower than Ethernet's 1500 bytes (for example WSL mirrored mode).
 constexpr guint kWebRtcRtpMtu = 1300;
+constexpr std::size_t kMaxWebRtcSessions = 16;
+constexpr auto kOfferTimeout = std::chrono::seconds(10);
 
 // SessionContext is private to this compilation unit
 struct SessionContext : OpkSinkWebRtcSession {
@@ -63,6 +66,7 @@ struct SessionContext : OpkSinkWebRtcSession {
     std::shared_ptr<ws_server> ws;
 
     bool offer_received = false;
+    std::unique_ptr<asio::steady_timer> offer_timeout;
 
     SessionContext() = default;
     SessionContext(_GstOpkSink *self_, WebRtcWebSocket *owner_)
@@ -144,6 +148,14 @@ WebRtcSockerError WebRtcWebSocket::stop() {
         ws->get_io_service().post([this] {
             websocketpp::lib::error_code ec;
             ws->stop_listening(ec);
+            {
+                std::lock_guard<std::mutex> mutex_guard(webrtc_session_mutex);
+                for (auto &[hdl, ctx] : webrtc_sessions) {
+                    if (ctx && ctx->offer_timeout) {
+                        ctx->offer_timeout->cancel();
+                    }
+                }
+            }
             for (const auto &hdl : connections) {
                 ws->close(hdl, websocketpp::close::status::going_away, "", ec);
             }
@@ -201,6 +213,10 @@ void WebRtcWebSocket::cleanup_session_on_io(const SessionWeakPtr &session) {
         }
     }
     if (removed) {
+        if (ctx->offer_timeout) {
+            ctx->offer_timeout->cancel();
+            ctx->offer_timeout.reset();
+        }
         ctx->cleanup();
     }
 }
@@ -422,17 +438,45 @@ void WebRtcWebSocket::on_open(const connection_hdl &hdl) {
     ctx->ws = ws;
     ctx->hdl = hdl;
 
+    bool admitted = false;
+    {
+        std::lock_guard<std::mutex> mutex_guard(webrtc_session_mutex);
+        if (webrtc_sessions.size() < kMaxWebRtcSessions) {
+            webrtc_sessions[hdl] = ctx;
+            admitted = true;
+        }
+    }
+    if (!admitted) {
+        websocketpp::lib::error_code ec;
+        ws->close(hdl, websocketpp::close::status::try_again_later, "session limit", ec);
+        return;
+    }
+
+    ctx->offer_timeout = std::make_unique<asio::steady_timer>(ws->get_io_service());
+    ctx->offer_timeout->expires_after(kOfferTimeout);
+    ctx->offer_timeout->async_wait([this, session = SessionWeakPtr(ctx)](const auto &error) {
+        auto timed_out = session.lock();
+        if (error || stopping || !timed_out || timed_out->offer_received) {
+            return;
+        }
+        const auto hdl = timed_out->hdl;
+        cleanup_session(hdl, "offer timeout");
+        websocketpp::lib::error_code ec;
+        ws->close(hdl, websocketpp::close::status::policy_violation, "offer timeout", ec);
+    });
+
     // ---- Per-client elements ----
     ctx->webrtcbin = gst_element_factory_make("webrtcbin", nullptr);
     if (!ctx->webrtcbin) {
         opk::log::debug("Failed to create per-client webrtcbin");
+        cleanup_session(hdl, "failed to create per-client webrtcbin");
         return;
     }
 
     auto rtpbin = gst_bin_get_by_name(GST_BIN(ctx->webrtcbin), "rtpbin");
     if (!rtpbin) {
         opk::log::debug("Failed to configure per-client rtpbin");
-        ctx->cleanup();
+        cleanup_session(hdl, "failed to configure per-client rtpbin");
         return;
     }
     g_object_set(rtpbin, "rtcp-sync-send-time", FALSE, nullptr);
@@ -464,14 +508,11 @@ void WebRtcWebSocket::on_open(const connection_hdl &hdl) {
     gst_bin_add_many(GST_BIN(self_), ctx->webrtcbin, nullptr);
 
     if (!attach_video(ctx.get()) || !attach_audio(ctx.get())) {
-        ctx->cleanup();
+        cleanup_session(hdl, "failed to attach per-client media");
         return;
     }
 
     dump_sink_pads(ctx->webrtcbin);
-
-    std::lock_guard<std::mutex> g(webrtc_session_mutex);
-    webrtc_sessions[hdl] = ctx;
 }
 
 void WebRtcWebSocket::on_close(const connection_hdl &hdl) {
@@ -549,6 +590,10 @@ void WebRtcWebSocket::process_offer(const std::shared_ptr<SessionContext> &ctx, 
         return;
     }
     ctx->offer_received = true;
+    if (ctx->offer_timeout) {
+        ctx->offer_timeout->cancel();
+        ctx->offer_timeout.reset();
+    }
 
     auto sdp = jsn.at("sdp").get<std::string>();
     // TODO(EXPKITS-1382): Revisit when signaling schema validation is enabled.
