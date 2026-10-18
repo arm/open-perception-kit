@@ -21,15 +21,10 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <span>
-#include <stdexcept>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "file_writer.h"
-
-class FileError : public std::runtime_error {
-  public:
-    explicit FileError(const std::string &err) : std::runtime_error(err) {}
-};
 
 static bool write_all(int fd, const std::span<const char> data) {
     size_t off = 0;
@@ -52,95 +47,50 @@ static bool write_all(int fd, const std::span<const char> data) {
     return true;
 }
 
-bool FileWriter::io_open_existing(const struct stat &st) {
-    if (S_ISFIFO(st.st_mode)) {
-        m_fd = open(m_file_name.c_str(), O_WRONLY | O_NONBLOCK);
-        if (m_fd < 0) {
-            /* ENXIO is normal when no reader is connected yet */
-            if (errno == ENXIO) {
-                GST_INFO_OBJECT(self(), "FIFO '%s' has no reader yet", m_file_name.c_str());
-            } else {
-                GST_INFO_OBJECT(
-                    self(), "Failed to open FIFO '%s': %s", m_file_name.c_str(), g_strerror(errno));
-            }
-
-            throw FileError("FIFO cannot be opened");
-        }
-        return true;
-
-    } else if (S_ISREG(st.st_mode)) {
-        m_fd = open(m_file_name.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0640);
-        if (m_fd < 0) {
-            GST_INFO_OBJECT(
-                self(), "Failed to open file '%s': %s", m_file_name.c_str(), g_strerror(errno));
-
-            throw FileError("File cannot be opened");
-        }
-
-        return true;
-
-    } else {
-        GST_WARNING_OBJECT(
-            self(), "'%s' exists but is not a FIFO or regular file", m_file_name.c_str());
-
-        throw FileError("Unknown file type");
-    }
-}
-
-bool FileWriter::io_create() {
-    if (errno != ENOENT) {
-        GST_INFO_OBJECT(self(), "stat('%s') failed: %s", m_file_name.c_str(), g_strerror(errno));
-
-        throw FileError("Cannot stat");
-    }
-
-    /* Doesn't exist -> create as regular file */
-    m_fd = open(m_file_name.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0640);
-    if (m_fd < 0) {
-        GST_INFO_OBJECT(
-            self(), "Failed to create file '%s': %s", m_file_name.c_str(), g_strerror(errno));
-
-        throw FileError("File cannot be created");
-    }
-
-    return true;
-}
-
 bool FileWriter::io_open() {
     std::lock_guard g(m_io_lock);
 
-    try {
-        auto ret = false;
-        if (m_file_name.empty()) {
-            GST_WARNING_OBJECT(self(), "file-name is not set");
-
-            throw FileError("file-name is not set");
-        }
-
-        /* "-" means stdout */
-        if ("-" == m_file_name) {
-            m_fd = STDOUT_FILENO;
-            ret = true;
-        } else {
-
-            // it is not stdout
-
-            struct stat st;
-            if (stat(m_file_name.c_str(), &st) == 0) {
-                /* Path exists: decide by type */
-                ret = io_open_existing(st);
-
-            } else {
-                /* Path doesn't exist or stat failed */
-                ret = io_create();
-            }
-        }
-
-        return ret;
-
-    } catch (FileError &) {
+    if (m_file_name.empty()) {
+        GST_WARNING_OBJECT(self(), "file-name is not set");
         return false;
     }
+
+    /* "-" means stdout */
+    if ("-" == m_file_name) {
+        m_fd = STDOUT_FILENO;
+        return true;
+    }
+
+    constexpr int flags = O_WRONLY | O_APPEND | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC | O_CREAT;
+    int fd = open(m_file_name.c_str(), flags, 0640);
+    if (fd < 0) {
+        if (errno == ENXIO) {
+            GST_INFO_OBJECT(self(), "FIFO '%s' has no reader yet", m_file_name.c_str());
+        } else {
+            GST_INFO_OBJECT(
+                self(), "Failed to open file '%s': %s", m_file_name.c_str(), g_strerror(errno));
+        }
+        return false;
+    }
+
+    struct stat st;
+    if (fstat(fd, &st) != 0) {
+        const int saved_errno = errno;
+        close(fd);
+        GST_WARNING_OBJECT(self(),
+                           "Failed to inspect file '%s': %s",
+                           m_file_name.c_str(),
+                           g_strerror(saved_errno));
+        return false;
+    }
+    if (!S_ISFIFO(st.st_mode) && !S_ISREG(st.st_mode)) {
+        close(fd);
+        GST_WARNING_OBJECT(self(), "'%s' is not a FIFO or regular file", m_file_name.c_str());
+        return false;
+    }
+
+    m_fd = fd;
+    return true;
 }
 
 void FileWriter::io_close() {
@@ -164,7 +114,7 @@ int FileWriter::check_open() {
     if (m_fd < 0)
         io_open();
     if (m_fd >= 0)
-        fd = dup(m_fd);
+        fd = fcntl(m_fd, F_DUPFD_CLOEXEC, 0);
 
     return fd;
 }
