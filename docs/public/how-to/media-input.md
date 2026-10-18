@@ -106,4 +106,33 @@ For ready-to-run live camera presets, use:
 - `full-onnx-raspicam` for a Raspberry Pi camera.
 - `full-onnx-usb-cam` for a USB camera at `/dev/video0`.
 
+## Publish the current image with results
+
+For a simple paired-image output, set the existing publisher fragment to:
+
+```text
+opkcomm method=websocket endpoint=/ws include-frame=true !
+```
+
+Keep BGRA video before inference, place the publisher after the desired result
+producers and before overlays, and restart the pipeline after changing the
+property. It exports the existing video dimensions without resizing. Frame
+export requires CPU system memory and is disabled by default. The option also
+works with the existing file/stdout/FIFO and TCP publishing methods.
+
+Each published JSON record includes the existing base64 FlatBuffers results
+packet plus an optional `frame` object: `encoding` is `raw+base64`, `pixel_format`
+is `BGRA`, `width` and `height` describe the image, `stride_bytes` is `width * 4`,
+and `data_b64` contains packed pixels without row padding. Decode both from the
+same message to preserve pairing. No FrameResults SDK update is needed to decode
+the unchanged results packet.
+
+This convenience path uses the existing five-job writer queue, which rejects new
+jobs when full. WebSocket transport buffering is unchanged and has no added byte
+limit; memory use can grow with large images or a slow consumer. A receiver must
+explicitly handle the extra image field and allow its message size; existing Cairn
+consumers need a separate integration update. A 640×480 BGRA image contributes about
+1.56 MiB of base64 before results, exceeding Cairn's currently inspected 1 MiB
+receiver default. Measure the cost at the intended resolution and frame rate.
+
 [Back to How-To Guides](/how-to)

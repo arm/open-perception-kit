@@ -561,3 +561,15 @@ if node.found() and npm.found()
     workdir : meson.project_source_root() / '..',
   )
 endif
+
+
+opkcomm_frame_tests = executable(
+  'opkcomm_frame_tests',
+  ['opkcomm_frame_test.cpp', '../elements/opkcomm/frame_export.cpp',
+   '../elements/opkcomm/writer.cpp'],
+  cpp_args : ['-DOPK_COMM_PLUGIN="' + opkcomm.full_path() + '"'],
+  include_directories : [common_include],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps, dependency('gstreamer-check-1.0')],
+  link_with : [common],
+)
+test('opkcomm_frame', opkcomm_frame_tests, depends : opkcomm, timeout : 30)

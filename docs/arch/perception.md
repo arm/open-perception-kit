@@ -149,6 +149,11 @@ The embedded `opksink` WebUI uses the generated TypeScript SDK at this boundary;
 it validates producer identity and converts typed payloads into its established
 OSD and output-panel presentation model.
 
+`opkcomm` can optionally attach packed BGRA pixels as a separate JSON `frame`
+member in the same published record for any existing method. This leaves the
+generated results packet unchanged. See [opkcomm](elements/opkcomm.md) for capture,
+ownership and buffering.
+
 ## Testing Python Guest Scripts
 
 When the development build enables tests, it provides the non-installed

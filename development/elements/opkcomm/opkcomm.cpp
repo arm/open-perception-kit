@@ -28,6 +28,7 @@
 #include <gst/gst.h>
 
 #include "file_writer.h"
+#include "frame_export.h"
 #include "tcp_writer.h"
 #include "websocket_writer.h"
 #include "writer.h"
@@ -54,6 +55,8 @@ struct GstOpkCommPrivate {
     std::unique_ptr<Writer> writer;
     bool started = false;
     bool writer_open = false;
+    bool include_frame = false;
+    GstVideoInfo video_info{};
 };
 
 struct _GstOpkComm {
@@ -89,6 +92,7 @@ enum class OpkCommProps : guint {
     PROP_ENDPOINT,
     PROP_TCP_HOST,
     PROP_TCP_PORT,
+    PROP_INCLUDE_FRAME,
 };
 
 static GType gst_opk_comm_method_get_type(void) {
@@ -233,23 +237,49 @@ static gboolean gst_opk_comm_stop(GstBaseTransform *trans) {
     return TRUE;
 }
 
-static GstFlowReturn gst_opk_comm_transform_ip(GstBaseTransform *trans, GstBuffer *buf) {
-    GstOpkComm *self = GST_OPK_COMM(trans);
-
-    if (self->priv && self->priv->writer_open && self->priv->writer &&
-        self->priv->writer->check_running()) {
-        auto frameResults = opk::FrameResultsMeta::read(buf);
-        OpkCommJob j = {
-            .frame_counter = self->frame_counter,
-            .frameResults = frameResults,
-        };
-
-        self->priv->writer->send(std::move(j));
+static gboolean gst_opk_comm_set_caps(GstBaseTransform *trans, GstCaps *input, GstCaps *) {
+    auto *self = GST_OPK_COMM(trans);
+    if (!self->priv->include_frame) {
+        return TRUE;
     }
+    if (!gst_video_info_from_caps(&self->priv->video_info, input) ||
+        GST_VIDEO_INFO_FORMAT(&self->priv->video_info) != GST_VIDEO_FORMAT_BGRA) {
+        GST_ELEMENT_ERROR(
+            self, CORE, NEGOTIATION, ("include-frame requires BGRA video caps"), (nullptr));
+        return FALSE;
+    }
+    return TRUE;
+}
 
+static GstFlowReturn gst_opk_comm_transform_ip(GstBaseTransform *trans, GstBuffer *buf) {
+    auto *self = GST_OPK_COMM(trans);
+    if (self->priv->writer_open && self->priv->writer && self->priv->writer->check_running()) {
+        OpkCommJob job{.frame_counter = self->frame_counter,
+                       .frameResults = opk::FrameResultsMeta::read(buf),
+                       .frame = std::nullopt};
+        if (self->priv->include_frame) {
+            if (!job.frameResults) {
+                GST_ELEMENT_ERROR(self,
+                                  STREAM,
+                                  FAILED,
+                                  ("include-frame requires FrameResults metadata"),
+                                  (nullptr));
+                return GST_FLOW_ERROR;
+            }
+            try {
+                job.frame = captureFrame(buf, self->priv->video_info);
+            } catch (const std::exception &error) {
+                GST_ELEMENT_ERROR(self,
+                                  STREAM,
+                                  FAILED,
+                                  ("Failed to capture opkcomm frame"),
+                                  ("%s", error.what()));
+                return GST_FLOW_ERROR;
+            }
+        }
+        self->priv->writer->send(std::move(job));
+    }
     ++self->frame_counter;
-
-    /* passthrough: do not modify buffer */
     return GST_FLOW_OK;
 }
 
@@ -259,7 +289,15 @@ static void
 gst_opk_comm_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec) {
     GstOpkComm *self = GST_OPK_COMM(object);
 
+    if (self->priv->started && OpkCommProps(prop_id) == OpkCommProps::PROP_INCLUDE_FRAME) {
+        GST_WARNING_OBJECT(self, "Stop opkcomm before changing include-frame");
+        return;
+    }
+
     switch (OpkCommProps(prop_id)) {
+    case OpkCommProps::PROP_INCLUDE_FRAME:
+        self->priv->include_frame = g_value_get_boolean(value);
+        break;
     case OpkCommProps::PROP_METHOD:
         self->method = (GstOpkCommMethod)g_value_get_enum(value);
 
@@ -317,6 +355,9 @@ gst_opk_comm_get_property(GObject *object, guint prop_id, GValue *value, GParamS
     const GstOpkComm *self = GST_OPK_COMM(object);
 
     switch (OpkCommProps(prop_id)) {
+    case OpkCommProps::PROP_INCLUDE_FRAME:
+        g_value_set_boolean(value, self->priv->include_frame);
+        break;
     case OpkCommProps::PROP_METHOD:
         g_value_set_enum(value, self->method);
         break;
@@ -412,6 +453,15 @@ static void gst_opk_comm_class_init(GstOpkCommClass *klass) {
         g_param_spec_uint(
             "tcp-port", "TCP port", "Listen port used when method=tcp", 1, 65535, 7001, kRW));
 
+    g_object_class_install_property(
+        gobject_class,
+        static_cast<guint>(OpkCommProps::PROP_INCLUDE_FRAME),
+        g_param_spec_boolean("include-frame",
+                             "Include frame",
+                             "Include packed BGRA pixels in published records (set before start)",
+                             FALSE,
+                             kRW));
+
     /* Add pad templates so the element has sink/src pads */
     gst_element_class_add_pad_template(element_class, gst_static_pad_template_get(&sink_template));
 
@@ -421,6 +471,7 @@ static void gst_opk_comm_class_init(GstOpkCommClass *klass) {
     bt_class->start = gst_opk_comm_start;
     bt_class->stop = gst_opk_comm_stop;
     bt_class->transform_ip = gst_opk_comm_transform_ip;
+    bt_class->set_caps = gst_opk_comm_set_caps;
 
     gst_element_class_set_static_metadata(
         element_class,

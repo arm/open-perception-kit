@@ -24,6 +24,7 @@ opkcomm = shared_module(
   sources: [
     'opkcomm.cpp',
     'writer.cpp',
+    'frame_export.cpp',
     'file_writer.cpp',
     'tcp_writer.cpp',
     'websocket_writer.cpp',
