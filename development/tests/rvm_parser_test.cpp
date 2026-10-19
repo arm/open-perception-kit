@@ -38,7 +38,10 @@ TEST(RvmParser, PreservesGradedBackgroundOpacityAndProvenance) {
     open_perception_kit::FrameResults output;
     ASSERT_TRUE(opk::stdop::postproc::RvmParser().parse(input, output));
     const auto payload = output.get<open_perception_kit::metadata::SegmentationMasksT>();
-    ASSERT_TRUE(payload);
+    if (!payload) {
+        ADD_FAILURE() << "Missing SegmentationMasks payload";
+        return;
+    }
     const auto &masks = payload.value().value();
     ASSERT_EQ(masks.masks.size(), 1U);
     EXPECT_EQ(masks.layer->compositing_mode, "backgroundReplacement");
