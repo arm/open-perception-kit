@@ -103,7 +103,13 @@ class OpkConfigCheckCliTest(unittest.TestCase):
             for target, source in sources.items():
                 path = root / "config" / target
                 document = json.loads((self.repository_root / "config" / source).read_text())
-                for version in ("1.0.0", "1.0.37", "1.4.2", "0.9.0", "2.0.0"):
+                kind = {"models": "model", "opchains": "opchain", "pipelines": "pipeline"}[target.split("/")[0]]
+                supported = json.loads((root / "config/schemas/v1" /
+                                       f"{kind}.schema.json").read_text())["x-opk-supported-version"]
+                major, minor, _ = supported.split(".")
+                current_patch = f"{major}.{minor}.37"
+                different_minor = f"{major}.{int(minor)+1}.2"
+                for version in (supported, current_patch, different_minor, "0.9.0", "2.0.0"):
                     with self.subTest(target=target, version=version):
                         document["version"] = version
                         path.write_text(json.dumps(document))
@@ -113,7 +119,7 @@ class OpkConfigCheckCliTest(unittest.TestCase):
                             self.assertIn("incompatible descriptor major", result.stderr)
                         else:
                             self.assertEqual(result.returncode, 0, result.stderr)
-                            if version == "1.4.2":
+                            if version == different_minor:
                                 self.assertIn("W:", result.stderr)
                                 self.assertIn("minor version differs", result.stderr)
                                 self.assertIn(target + ":/version", result.stderr)

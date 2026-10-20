@@ -43,3 +43,14 @@ def distance_person_presence(gt_item: dict, out_item: dict, _gt_parent_item: dic
     no_diff = abs(float(gt_data.get("noConfidence", 0.0)) -
                   float(out_data.get("noConfidence", 0.0)))
     return max(0.0, min(1.0, max(yes_diff, no_diff)))
+
+
+def distance_voice_activity(gt_item: dict, out_item: dict, _gt_parent_item: dict, _out_parent_item: dict) -> float:
+    gt = gt_item["data"]
+    out = out_item["data"]
+    # Match the analyzed interval and decision exactly; tolerate small score differences.
+    for key in ("speechActive", "windowStartSample", "windowEndSample",
+                "windowStartTsNs", "windowEndTsNs", "discontinuity"):
+        if gt[key] != out[key]:
+            return 1.0
+    return abs(gt["speechProbability"] - out["speechProbability"])

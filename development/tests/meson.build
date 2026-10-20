@@ -561,3 +561,58 @@ if node.found() and npm.found()
     workdir : meson.project_source_root() / '..',
   )
 endif
+
+
+pcm_ring_buffer_tests = executable(
+  'pcm_ring_buffer_tests',
+  ['pcm_ring_buffer_test.cpp', '../common/opk/PcmRingBuffer.cpp'],
+  include_directories : [common_include],
+  dependencies : [gtest_main_dep, gtest_dep],
+)
+test('pcm_ring_buffer_tests', pcm_ring_buffer_tests)
+
+# A model-free inference interface for testing audio scheduling through opkinfer.
+audio_window_op = shared_module(
+  'opk-test-audio-window',
+  ['audio_window_op.cpp'],
+  include_directories : [common_include],
+  dependencies : [opk_deps],
+  link_with : [common],
+  name_prefix : '',
+  gnu_symbol_visibility : 'default',
+  install : false,
+)
+test(
+  'audio_window_pipeline_tests',
+  gst_python,
+  args : [files('audio_window_pipeline_test.py'), audio_window_op.full_path(), gstopkinfer.full_path()],
+  depends : [gstopkinfer, audio_window_op],
+)
+
+silero_vad_parser_tests = executable(
+  'silero_vad_parser_tests',
+  ['silero_vad_parser_test.cpp', '../ops-std/postproc/SileroVadParser.cpp'],
+  include_directories : [common_include, include_directories('../ops-std')],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+test('silero_vad_parser_tests', silero_vad_parser_tests)
+
+generic_audio_preprocess_tests = executable(
+  'generic_audio_preprocess_tests',
+  ['generic_audio_preprocess_test.cpp', '../ops-std/GenericAudioPreprocessOp.cpp'],
+  include_directories : [common_include, include_directories('../ops-std')],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+test('generic_audio_preprocess_tests', generic_audio_preprocess_tests)
+
+silero_vad_inference_tests = executable(
+  'silero_vad_inference_tests',
+  ['silero_vad_inference_test.cpp', '../ops-onnx/Inference.cpp', '../ops-onnx/InferenceOp.cpp'],
+  include_directories : [common_include, include_directories('../ops-onnx')],
+  cpp_args : ['-DSILERO_MODEL_DESCRIPTOR="' + meson.project_source_root() / '../config/models/silero-vad/model.json' + '"'],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps, onnx_dep],
+  link_with : [common],
+)
+test('silero_vad_inference_tests', silero_vad_inference_tests)

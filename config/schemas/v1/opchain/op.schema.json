@@ -40,6 +40,9 @@
     },
     {
       "$ref": "urn:arm:opk:schema:python-script-op:v1"
+    },
+    {
+      "$ref": "urn:arm:opk:schema:generic-audio-preprocess-op:v1"
     }
   ]
 }

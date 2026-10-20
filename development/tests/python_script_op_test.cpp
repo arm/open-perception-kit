@@ -29,6 +29,7 @@
 #include "op/Op.h"
 #include "opk/FrameResults.h"
 #include "perf/PerformanceMetrics.h"
+#include "python_bridge/open_perception_kit_python_bridge.h"
 
 #ifndef PYTHON_SCRIPT_OP_FIXTURES
 #define PYTHON_SCRIPT_OP_FIXTURES ""
@@ -562,4 +563,40 @@ TEST(PythonScriptOp, RejectsMissingScript) {
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().flag, opk::ErrorFlag::FileNotFound);
+}
+
+TEST(TensorBridge, OptionalScalarTimestampsDistinguishZeroFromAbsent) {
+    opk::python::ensureRuntime();
+    opk::python::GILGuard gil;
+    open_perception_kit::FrameResults results;
+    open_perception_kit::metadata::VoiceActivityDetectionsT payload;
+    auto known = std::make_unique<open_perception_kit::metadata::VoiceActivityDetectionT>();
+    known->window_start_ts_ns = 0;
+    known->window_end_ts_ns = 20000000;
+    payload.detections.push_back(std::move(known));
+    payload.detections.push_back(
+        std::make_unique<open_perception_kit::metadata::VoiceActivityDetectionT>());
+    results.add(std::move(payload));
+    open_perception_kit::python_bridge::scoped_envelope live(results);
+    PyObject *globals = PyDict_New();
+    ASSERT_NE(globals, nullptr);
+    ASSERT_EQ(PyDict_SetItemString(globals, "__builtins__", PyEval_GetBuiltins()), 0);
+    ASSERT_EQ(PyDict_SetItemString(globals, "results", live.py_object()), 0);
+    const char *source = R"PY(
+# Select by generated module/type identity, independently of the installed SDK wheel.
+VoiceActivityDetectionsT = type("VoiceActivityDetectionsT", (), {
+    "__module__": "open_perception_kit.fb.open_perception_kit.metadata.VoiceActivityDetections"
+})
+detections = results.get(VoiceActivityDetectionsT).detections
+assert detections[0].windowStartTsNs == 0
+assert detections[0].windowEndTsNs == 20000000
+assert detections[1].windowStartTsNs is None
+assert detections[1].windowEndTsNs is None
+)PY";
+    PyObject *executed = PyRun_String(source, Py_file_input, globals, globals);
+    if (!executed)
+        PyErr_Print();
+    EXPECT_NE(executed, nullptr);
+    Py_XDECREF(executed);
+    Py_DECREF(globals);
 }

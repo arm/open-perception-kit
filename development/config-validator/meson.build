@@ -27,6 +27,7 @@ config_validator_schema_manifest = [
   ['urn:arm:opk:schema:opchain-common:v1', 'config/schemas/v1/opchain/common.schema.json'],
   ['urn:arm:opk:schema:opchain-op:v1', 'config/schemas/v1/opchain/op.schema.json'],
   ['urn:arm:opk:schema:inference-controller-op:v1', 'config/schemas/v1/opchain/ops/inference-controller.schema.json'],
+  ['urn:arm:opk:schema:generic-audio-preprocess-op:v1', 'config/schemas/v1/opchain/ops/generic-audio-preprocess.schema.json'],
   ['urn:arm:opk:schema:generic-image-preprocess-op:v1', 'config/schemas/v1/opchain/ops/generic-image-preprocess.schema.json'],
   ['urn:arm:opk:schema:inference-op:v1', 'config/schemas/v1/opchain/ops/inference.schema.json'],
   ['urn:arm:opk:schema:generic-postprocess-op:v1', 'config/schemas/v1/opchain/ops/generic-postprocess.schema.json'],

@@ -380,6 +380,40 @@
           }
         }
       ]
+    },
+    "sileroVad": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser"
+      ],
+      "properties": {
+        "parser": {
+          "const": "SileroVadParser"
+        },
+        "thresholdOn": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.6
+        },
+        "thresholdOff": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.45
+        },
+        "attackMs": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 50
+        },
+        "releaseMs": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 50
+        }
+      }
     }
   },
   "if": {
@@ -431,6 +465,9 @@
           },
           {
             "$ref": "#/$defs/yoloX"
+          },
+          {
+            "$ref": "#/$defs/sileroVad"
           }
         ]
       }

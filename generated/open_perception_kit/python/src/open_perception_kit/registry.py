@@ -88,4 +88,12 @@ _TYPE_REGISTRY = {
         'qualified_root_type': 'open_perception_kit.metadata.TrackTraces',
         'file_identifier': 'TRCE',
     },
+    7328253118381503000: {
+        'name': 'open_perception_kit::metadata::VoiceActivityDetections',
+        'module': 'open_perception_kit.fb.open_perception_kit.metadata.VoiceActivityDetections',
+        'root_type': 'VoiceActivityDetections',
+        'native_type': 'VoiceActivityDetectionsT',
+        'qualified_root_type': 'open_perception_kit.metadata.VoiceActivityDetections',
+        'file_identifier': 'VACT',
+    },
 }

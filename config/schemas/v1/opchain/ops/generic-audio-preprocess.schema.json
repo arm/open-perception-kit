@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:arm:opk:schema:generic-audio-preprocess-op:v1",
+  "title": "GenericAudioPreprocess Op v1",
+  "if": {
+    "properties": {
+      "id": {
+        "const": "opk-std-ops/GenericAudioPreprocess"
+      }
+    },
+    "required": [
+      "id"
+    ]
+  },
+  "then": {
+    "properties": {
+      "attributes": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "inputAudioSourceName": {
+            "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/trimNonEmptyString",
+            "default": "pipelineAudioData"
+          },
+          "inputAudioTensorIndex": {
+            "type": "integer",
+            "minimum": -1,
+            "maximum": 15
+          },
+          "contextSampleCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647,
+            "default": 0
+          }
+        }
+      }
+    }
+  }
+}

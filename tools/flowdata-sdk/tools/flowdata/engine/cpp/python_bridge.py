@@ -62,6 +62,7 @@ class BridgeField:
     py_name: str
     cpp_name: str
     type_ref: BridgeTypeRef
+    optional_scalar: bool = False
 
 
 @dataclass(frozen=True)
@@ -233,6 +234,7 @@ def _parse_fields(body: str, schema_path: Path, namespace: str, type_name: str) 
                 py_name=_schema_to_python_field_name(field_name),
                 cpp_name=field_name,
                 type_ref=_parse_type_ref(raw_type),
+                optional_scalar=bool(re.search(r"=\s*null\b", raw_rest)),
             )
         )
     return fields
@@ -383,6 +385,7 @@ def _schema_types(context: GenerationContext) -> dict[str, BridgeType]:
                 py_name=field.py_name,
                 cpp_name=field.cpp_name,
                 type_ref=_resolve_type_ref(field.type_ref, schema_type.namespace, parsed),
+                optional_scalar=field.optional_scalar,
             )
             for field in schema_type.fields
         ]
@@ -610,7 +613,11 @@ def _generate_field_getter(owner: BridgeType, field: BridgeField, types: dict[st
     cpp_type = _cpp_type(owner)
     access = _field_access(owner, field)
     anchor_expression = f"proxy_anchor<{cpp_type}>(self)"
-    if field.type_ref.kind == "vector":
+    if field.optional_scalar:
+        body = f"if (!{access}) {{ Py_RETURN_NONE; }}\n    " + _return_scalar_code(
+            field.type_ref, f"*{access}"
+        )
+    elif field.type_ref.kind == "vector":
         vector_type = _vector_cpp_type(field.type_ref, types)
         body = (
             f"return make_native_vector_proxy<{vector_type}>("

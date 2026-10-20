@@ -79,6 +79,11 @@
       "size": 20425
     },
     {
+      "path": "cpp/fb/voice_activity_detections_generated.h",
+      "sha256": "6308ec91ac0f6c3487c2cb4c7221ae45d718e8a0139a9e858c19bcc0d3d3869e",
+      "size": 25706
+    },
+    {
       "path": "cpp/meson/open_perception_kit/meson.build",
       "sha256": "7e54e1fe668c5f97ede0f7c93de5793fc71da2f03ccff26ecef43de05c4f5565",
       "size": 4138
@@ -90,13 +95,13 @@
     },
     {
       "path": "cpp/open_perception_kit.h",
-      "sha256": "cf28bb2d4a8b47b73747ff7abb3eb7ce1cab36bb019fa4d00f20a2da52af835c",
-      "size": 33088
+      "sha256": "497f14a2ea483c3f11960f89d81a5aba99bcee8ec2f405dc374d76a13f06e844",
+      "size": 33936
     },
     {
       "path": "cpp/python_bridge/open_perception_kit_python_bridge.cpp",
-      "sha256": "96d8c60abab80b259f6b4b343c456cc4d5d9653f793a6a5c10839b003d344b09",
-      "size": 227001
+      "sha256": "56dc8b0ce74e4396f2869d5cc3beba39a5e0a399dfd72ff585ba3c2430bc1cd1",
+      "size": 246975
     },
     {
       "path": "cpp/python_bridge/open_perception_kit_python_bridge.h",
@@ -120,7 +125,7 @@
     },
     {
       "path": "python/src/open_perception_kit/__init__.py",
-      "sha256": "636dd9c4a307fa3c946b201751481752a34840c4af2cc3c263aa3fdec23939a0",
+      "sha256": "da85692f7aec0acfe846c413509191d3996376e90d391e2bb6340e3c8768e6e2",
       "size": 1166
     },
     {
@@ -264,6 +269,16 @@
       "size": 11273
     },
     {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/VoiceActivityDetection.py",
+      "sha256": "abbf0c7caef435af620e1d705a1eb543e4a6ed2db11242574b89e819029902e8",
+      "size": 9600
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/VoiceActivityDetections.py",
+      "sha256": "f65a3a4d26810f02e1defb196f5f517522352aa5bd018d8782adecf1d28ff674",
+      "size": 8570
+    },
+    {
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/__init__.py",
       "sha256": "d3e7197ea35904c5d545f1ac44b87f2d118b6711cfc5d6e01e87cf9d7ea7cdad",
       "size": 660
@@ -305,12 +320,12 @@
     },
     {
       "path": "python/src/open_perception_kit/registry.py",
-      "sha256": "4670bb113bedb40eb0feb4dc26c14f32df6f18c9fca1d371e07eac279488997f",
-      "size": 4231
+      "sha256": "bd29e1f496cefb0702abbe4ffb8a12d70d644481fde562a206a111482f6ea357",
+      "size": 4657
     },
     {
       "path": "python/src/open_perception_kit/sdk.py",
-      "sha256": "94dd9e2450c87f1c832f9ff2ebf5fcff0d7171cd762d12f612a694c62a02b66a",
+      "sha256": "ed39e2f4db7ebc606b6b398441eb47e082a8396f7cf766203bb1dc3c6f419a4f",
       "size": 16002
     },
     {
@@ -385,8 +400,8 @@
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/mod.rs",
-      "sha256": "0396a1b272fc8a3453f76b1817a9a8fd53b99d069fae50c78b1d343e65009f1f",
-      "size": 2619
+      "sha256": "dd59b3d3fc6c69ff69cea077c4b573192c3e72892d0925402914655fc7f4e660",
+      "size": 2807
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/object_embedding_generated.rs",
@@ -469,6 +484,16 @@
       "size": 16455
     },
     {
+      "path": "rust/src/fb/open_perception_kit/metadata/voice_activity_detection_generated.rs",
+      "sha256": "054fe41f4226ff60fedb9e9972e7e792dc942e8c86b01212a37d4accd170560a",
+      "size": 13863
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/voice_activity_detections_generated.rs",
+      "sha256": "78033ae7314dccc2667e0a6af179320de77ad7446b516686e2e42aa8cde3d686",
+      "size": 13781
+    },
+    {
       "path": "rust/src/fb/open_perception_kit/mod.rs",
       "sha256": "40c70514a4e4ea15d65eac0f6ccfc2e3de24e053bc5c52418ee86fc3a7324dec",
       "size": 713
@@ -495,8 +520,8 @@
     },
     {
       "path": "rust/src/lib.rs",
-      "sha256": "63524ef4d49c76b898c57375acd3112341e8c155afdb1d83f418065446725348",
-      "size": 44269
+      "sha256": "bfa997f3dd59908edc1cc6ffc268b5758a4a437eedab97fab78d20ca5c56ebef",
+      "size": 46474
     },
     {
       "path": "rust/tests/fixtures/opk-box-detections-v0.2.1.hex",
@@ -520,12 +545,12 @@
     },
     {
       "path": "ts/dist/open_perception_kit/envelope.d.ts",
-      "sha256": "8b6cce6db8d99cc0c3f636f5607aa1e24c82cfeb62db5d13c07a882a087568fa",
+      "sha256": "c4cc2fec4df90178918344dfb1c960790a169e13c3ea595d6c33aa6ef37a1c0c",
       "size": 2941
     },
     {
       "path": "ts/dist/open_perception_kit/envelope.js",
-      "sha256": "24b3c3719294e81802fab650042c401b273e17ae413a5a82d8bb4adc61a81b86",
+      "sha256": "d0fb215bb0e901aaac25300a6c47eb0c62c214370e46a69535dd00bd28c2ba4a",
       "size": 14375
     },
     {
@@ -819,23 +844,43 @@
       "size": 8347
     },
     {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/voice-activity-detection.d.ts",
+      "sha256": "cd44ad1657da6b0e8bf6a81a200e8f12e04434c318d5b4cc58b0650a847f9b0a",
+      "size": 3653
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/voice-activity-detection.js",
+      "sha256": "a3a8218b553f0ea67b46839b611a00ec6a657330fa7ce9d28563e94342f60dd4",
+      "size": 6873
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/voice-activity-detections.d.ts",
+      "sha256": "f333afac2fc0e46af7508472a94706f8a53d8a88eeecc990800d11dbb250aaec",
+      "size": 3324
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/voice-activity-detections.js",
+      "sha256": "f5e98d7e9c8f8b9cb7a798ec995f359a7964dc1f01963aedeae844b243b900cf",
+      "size": 5443
+    },
+    {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata.d.ts",
-      "sha256": "3d77d5b0d6c972e0ef5113ade13d170fe7eed2fed6884887f42a1e318157023a",
-      "size": 1341
+      "sha256": "daf8888239ee3f086cf5aeb8ac5002701d36b4b2120791bd739473eae6339ad6",
+      "size": 1415
     },
     {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata.js",
-      "sha256": "170ed845f86330b7da937c1b07f748dc4809b7d91a530ddb7e5739cf309e8296",
-      "size": 1435
+      "sha256": "317491a314d6ff42c01ce9c3a94a76ab7c7c2b5cdffa6ef3d3ff350af9ae2897",
+      "size": 1509
     },
     {
       "path": "ts/dist/open_perception_kit/index.d.ts",
-      "sha256": "10d7a12a94c51c499ec82da40fa9802c32739eaf7fb006c62d3215e059e5affb",
+      "sha256": "facc427fc5177a1407134963fb360c47bb62efc1c838316d2c36c31a981c5968",
       "size": 1235
     },
     {
       "path": "ts/dist/open_perception_kit/index.js",
-      "sha256": "42ffdbbb92601328f49120d0ba10cc3da6683721ef2c7030f3d116fdecf170c8",
+      "sha256": "a796af5ed163243211703c705d287a8fb84512e6242485c12877cff860cacfe3",
       "size": 1203
     },
     {
@@ -845,8 +890,8 @@
     },
     {
       "path": "ts/dist/open_perception_kit/registry.js",
-      "sha256": "ed0fe379831c5bda0dac60f2f1a65d7aaa0f48e58e4dae4df0863b0ca024e74e",
-      "size": 8734
+      "sha256": "572c399ec4884544b8300828505268fb0eed9000a8616b2f507a074f15fab584",
+      "size": 9710
     },
     {
       "path": "ts/package.json",
@@ -855,7 +900,7 @@
     },
     {
       "path": "ts/src/open_perception_kit/envelope.ts",
-      "sha256": "dd14dace16b66402126480c179525d8e7eca250bdbdf069fc06b84649fae0176",
+      "sha256": "bee75927e05d861529d153dbb115f6aa4823e6ee31850eaa10c9f8582ce111c8",
       "size": 13002
     },
     {
@@ -1004,19 +1049,29 @@
       "size": 8491
     },
     {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/voice-activity-detection.ts",
+      "sha256": "6a1a07fb518fc71f69a59cf65638a3784a3eb0f63ce2a3a50623ae9dda93156a",
+      "size": 7135
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/voice-activity-detections.ts",
+      "sha256": "3d833f7c4fa4d428104c0682a61b47e5e35bb13c444490c7b180a17ec771dcc4",
+      "size": 6025
+    },
+    {
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata.ts",
-      "sha256": "331e678cda4a3c018ae86576b3bb3066313977c43a616c904b7bc1a9e2bd977c",
-      "size": 1437
+      "sha256": "65bda6f7f6067aad138f41395a6bb97bc308b37013faa30f5cf688f38c30b313",
+      "size": 1511
     },
     {
       "path": "ts/src/open_perception_kit/index.ts",
-      "sha256": "8a109ad785553691ec8f7a5ffffe9d57ccde3fa2a3db534e12f7ff14c2784aad",
+      "sha256": "6e44459f9b5c5d8edae6d188f147d91e83ad20fd55b95ebf82f4e124aaf08059",
       "size": 1216
     },
     {
       "path": "ts/src/open_perception_kit/registry.ts",
-      "sha256": "53495291cc3b9f5d2c2f99f270a44824630ce8da70c8577294c5a4fc75d60a00",
-      "size": 8908
+      "sha256": "fb00fbefc9fb790e1e23a6d9d692aab8ce8817cefe5a131d453fee41a77ff188",
+      "size": 9868
     },
     {
       "path": "ts/tsconfig.json",
@@ -1068,8 +1123,8 @@
         },
         {
           "path": "tools/flowdata/engine/cpp/python_bridge.py",
-          "sha256": "6dea47d0ba337288354522fe06ccce0a88453434324112cbb38c0922ba62daf6",
-          "size": 63750
+          "sha256": "d8361cc70faf6c114dce7f8ecb43d353ad30478fe2cb3ad07f57bc41d4b9a3b6",
+          "size": 64080
         },
         {
           "path": "tools/flowdata/engine/discovery.py",
@@ -1313,6 +1368,11 @@
           "size": 17657
         },
         {
+          "path": "fb/voice_activity_detections_generated.h",
+          "sha256": "005f2f67ff927da9def057bf5841bec27ff799dccebb8a9069e3f67b7bd27a30",
+          "size": 22213
+        },
+        {
           "path": "meson/open_perception_kit/meson.build",
           "sha256": "d3711603baf3da3adad3a585b496ad255a67b5f54b512024e14a0c2a5b695da8",
           "size": 3479
@@ -1324,13 +1384,13 @@
         },
         {
           "path": "open_perception_kit.h",
-          "sha256": "dbe148a54e1dc2f9b766119fe063be71292cf6668bd932322db9549450db6d46",
-          "size": 31923
+          "sha256": "49a3c835481910d7a0be71dddd3a7449403afa854279ad72072d0fbe924375e5",
+          "size": 32737
         },
         {
           "path": "python_bridge/open_perception_kit_python_bridge.cpp",
-          "sha256": "386dab1287bf6dee3c1e4de6ad5f492d81d70cce4693111a76cf5c43eb06a8be",
-          "size": 217389
+          "sha256": "8004ed4c75820f475ff2b844209a4d2873331c565d7f1e3d7213fa8d6af75c9b",
+          "size": 235738
         },
         {
           "path": "python_bridge/open_perception_kit_python_bridge.h",
@@ -1421,6 +1481,12 @@
           "payload_id": "0x034e4bd9dd42b505",
           "qualified_root_type": "open_perception_kit.metadata.TrackTraces",
           "schema": "track_traces.fbs"
+        },
+        {
+          "file_identifier": "VACT",
+          "payload_id": "0x65b32f6269473218",
+          "qualified_root_type": "open_perception_kit.metadata.VoiceActivityDetections",
+          "schema": "voice_activity_detections.fbs"
         }
       ],
       "python_bridge": {
@@ -1483,9 +1549,14 @@
           "path": "track_traces.fbs",
           "sha256": "7406e0a0a32a1f3a1461963a7017e761331c154ea99ce1ab53f4d5bc400f919c",
           "size": 427
+        },
+        {
+          "path": "voice_activity_detections.fbs",
+          "sha256": "9520451e7c847c5d9de5ea3d9fd44359e7919600be70d27f3e4d0c26abe4bb9e",
+          "size": 994
         }
       ],
-      "schema_set_sha256": "1b19418d8a0d34038a3c99895fa93a1140c25af910f6bc63c0e11978e12c2876",
+      "schema_set_sha256": "369791d6c9cb1049c18713e94524cb5b71d192b7570ba726e3b722aae4df47f4",
       "sdk": {
         "name": "open_perception_kit",
         "version": "0.1.2"
@@ -1500,7 +1571,7 @@
         },
         {
           "path": "src/open_perception_kit/__init__.py",
-          "sha256": "65c249932d25d2a6432b3f0becffde634de0426164433d1536fddfe10f8cb0f3",
+          "sha256": "c71443ff75ece486d3af3bb32bcf9bb70a0b13bf23c42f691f7f1ad3b404f133",
           "size": 506
         },
         {
@@ -1644,6 +1715,16 @@
           "size": 10580
         },
         {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/VoiceActivityDetection.py",
+          "sha256": "af21e8713ad75919607cd2233ad253c12f434dde604cca5e7d0ff68a60984e76",
+          "size": 8907
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/VoiceActivityDetections.py",
+          "sha256": "c33f7d820b8783de39ab1b324fd5c3d42b6a699fd5ba9c281d1052c9008f01ce",
+          "size": 7850
+        },
+        {
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/__init__.py",
           "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "size": 0
@@ -1685,12 +1766,12 @@
         },
         {
           "path": "src/open_perception_kit/registry.py",
-          "sha256": "9ed6f03fbfe5620ea34091866bf8903b08e60351b44b806692f187ac78bd1bdc",
-          "size": 3570
+          "sha256": "e58dcb93019edb4acdb2294214dcc355523a7830e9b3ce9a2801bebfcd82e825",
+          "size": 3996
         },
         {
           "path": "src/open_perception_kit/sdk.py",
-          "sha256": "322a349bc88d69b3e8103ae186ba8f65921445091d57233c5365ee760e5d0298",
+          "sha256": "264560c4b1a04f5e3c487be211c97dea84bec3747149f6e02224bb2c4d54b215",
           "size": 15341
         }
       ],
@@ -1769,6 +1850,12 @@
           "payload_id": "0x034e4bd9dd42b505",
           "qualified_root_type": "open_perception_kit.metadata.TrackTraces",
           "schema": "track_traces.fbs"
+        },
+        {
+          "file_identifier": "VACT",
+          "payload_id": "0x65b32f6269473218",
+          "qualified_root_type": "open_perception_kit.metadata.VoiceActivityDetections",
+          "schema": "voice_activity_detections.fbs"
         }
       ],
       "python_package": {
@@ -1836,9 +1923,14 @@
           "path": "track_traces.fbs",
           "sha256": "7406e0a0a32a1f3a1461963a7017e761331c154ea99ce1ab53f4d5bc400f919c",
           "size": 427
+        },
+        {
+          "path": "voice_activity_detections.fbs",
+          "sha256": "9520451e7c847c5d9de5ea3d9fd44359e7919600be70d27f3e4d0c26abe4bb9e",
+          "size": 994
         }
       ],
-      "schema_set_sha256": "1b19418d8a0d34038a3c99895fa93a1140c25af910f6bc63c0e11978e12c2876",
+      "schema_set_sha256": "369791d6c9cb1049c18713e94524cb5b71d192b7570ba726e3b722aae4df47f4",
       "sdk": {
         "name": "open_perception_kit",
         "version": "0.1.2"
@@ -1908,8 +2000,8 @@
         },
         {
           "path": "src/fb/open_perception_kit/metadata/mod.rs",
-          "sha256": "92d73414297c5ede663824e2b92c85a58abcf72e07b2631f640b6178bd353351",
-          "size": 1938
+          "sha256": "0ab3efdcba9a33857ac3f08670231c50349b14875811a61d753c5d36d55c9dd4",
+          "size": 2126
         },
         {
           "path": "src/fb/open_perception_kit/metadata/object_embedding_generated.rs",
@@ -1992,6 +2084,16 @@
           "size": 15774
         },
         {
+          "path": "src/fb/open_perception_kit/metadata/voice_activity_detection_generated.rs",
+          "sha256": "b5b5ed918a725b5165483b2e31b76d73a80bba13a4cfb84c53f80fea49a3dfc4",
+          "size": 13182
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/voice_activity_detections_generated.rs",
+          "sha256": "717f4c0c2427784701033d40bcf51b9f7721e50d81e69789654e771fbeec72dc",
+          "size": 13100
+        },
+        {
           "path": "src/fb/open_perception_kit/mod.rs",
           "sha256": "872289c00b2b64c5c62892261add2e0337129da5824cd323ec0e5a29b33fc41b",
           "size": 32
@@ -2018,8 +2120,8 @@
         },
         {
           "path": "src/lib.rs",
-          "sha256": "b0774e8c384708daa7206ceafdf0f97b287df391750f3ad125928e87a30e35ff",
-          "size": 43588
+          "sha256": "4998eb9fefa19adebd829135632019c1d37dcc59f7e50ddd78fda2e36f9dae08",
+          "size": 45793
         }
       ],
       "flatbuffers_runtimes": [
@@ -2097,6 +2199,12 @@
           "payload_id": "0x034e4bd9dd42b505",
           "qualified_root_type": "open_perception_kit.metadata.TrackTraces",
           "schema": "track_traces.fbs"
+        },
+        {
+          "file_identifier": "VACT",
+          "payload_id": "0x65b32f6269473218",
+          "qualified_root_type": "open_perception_kit.metadata.VoiceActivityDetections",
+          "schema": "voice_activity_detections.fbs"
         }
       ],
       "schema_files": [
@@ -2149,9 +2257,14 @@
           "path": "track_traces.fbs",
           "sha256": "7406e0a0a32a1f3a1461963a7017e761331c154ea99ce1ab53f4d5bc400f919c",
           "size": 427
+        },
+        {
+          "path": "voice_activity_detections.fbs",
+          "sha256": "9520451e7c847c5d9de5ea3d9fd44359e7919600be70d27f3e4d0c26abe4bb9e",
+          "size": 994
         }
       ],
-      "schema_set_sha256": "1b19418d8a0d34038a3c99895fa93a1140c25af910f6bc63c0e11978e12c2876",
+      "schema_set_sha256": "369791d6c9cb1049c18713e94524cb5b71d192b7570ba726e3b722aae4df47f4",
       "sdk": {
         "name": "open_perception_kit",
         "version": "0.1.2"
@@ -2166,7 +2279,7 @@
         },
         {
           "path": "src/open_perception_kit/envelope.ts",
-          "sha256": "89bb24bf0ae98b62bdd6a39d01e70663df51a425a3df96f7d2ea22f8c8c75c71",
+          "sha256": "9b2ef10019665c5277e677aa85462e4f806701e23f3db758075cdbad98cebf68",
           "size": 12321
         },
         {
@@ -2186,8 +2299,8 @@
         },
         {
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata.ts",
-          "sha256": "1fd89b8ae1f4e2f8c905085d5bca687464474cb0249743ec529d21d1ba68ae78",
-          "size": 756
+          "sha256": "d8a229676e08b81ac2636d9310f0663ec6b54cc186748b23e544f4459fdf713a",
+          "size": 830
         },
         {
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/audio-frame-context.ts",
@@ -2320,14 +2433,24 @@
           "size": 7810
         },
         {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/voice-activity-detection.ts",
+          "sha256": "abf3696ccd97bcbc130ce32fbaf59edc6c414c64d45b4d2589923dfe0ee5bf42",
+          "size": 6454
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/voice-activity-detections.ts",
+          "sha256": "a54e878fdf7de5d9e6408fa3093531298580ab9805392c4ef0b6bbd93245de1f",
+          "size": 5344
+        },
+        {
           "path": "src/open_perception_kit/index.ts",
-          "sha256": "4d6c46d7d67f91a77825b9546be677fb1c65ab475bb319f00b2c281ef9cc25c9",
+          "sha256": "5f3534b7984ff9d5e575102308a4522936a119d86842efc6ec2f12d741722d88",
           "size": 535
         },
         {
           "path": "src/open_perception_kit/registry.ts",
-          "sha256": "2f85a2b7a716366762615cf136c5fad10c2c32ecde8622e8a467f42431a2d3bf",
-          "size": 8227
+          "sha256": "c68405aef4725dcd43203de46713b86c54540318284bf1a9eed237502bea1c92",
+          "size": 9187
         },
         {
           "path": "tsconfig.json",
@@ -2410,6 +2533,12 @@
           "payload_id": "0x034e4bd9dd42b505",
           "qualified_root_type": "open_perception_kit.metadata.TrackTraces",
           "schema": "track_traces.fbs"
+        },
+        {
+          "file_identifier": "VACT",
+          "payload_id": "0x65b32f6269473218",
+          "qualified_root_type": "open_perception_kit.metadata.VoiceActivityDetections",
+          "schema": "voice_activity_detections.fbs"
         }
       ],
       "schema_files": [
@@ -2462,9 +2591,14 @@
           "path": "track_traces.fbs",
           "sha256": "7406e0a0a32a1f3a1461963a7017e761331c154ea99ce1ab53f4d5bc400f919c",
           "size": 427
+        },
+        {
+          "path": "voice_activity_detections.fbs",
+          "sha256": "9520451e7c847c5d9de5ea3d9fd44359e7919600be70d27f3e4d0c26abe4bb9e",
+          "size": 994
         }
       ],
-      "schema_set_sha256": "1b19418d8a0d34038a3c99895fa93a1140c25af910f6bc63c0e11978e12c2876",
+      "schema_set_sha256": "369791d6c9cb1049c18713e94524cb5b71d192b7570ba726e3b722aae4df47f4",
       "sdk": {
         "name": "open_perception_kit",
         "version": "0.1.2"

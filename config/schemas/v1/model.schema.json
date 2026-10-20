@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:arm:opk:schema:model-descriptor:v1",
   "title": "OPK Model descriptor v1",
-  "x-opk-supported-version": "1.0.0",
+  "x-opk-supported-version": "1.1.0",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -556,7 +556,10 @@
           "const": "Value"
         },
         "valueType": {
-          "const": "Float32",
+          "enum": [
+            "Float32",
+            "Int64"
+          ],
           "default": "Float32"
         },
         "valueInputs": {
@@ -567,7 +570,32 @@
             "$ref": "#/$defs/finiteFloat"
           }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "valueType": {
+                "const": "Int64"
+              }
+            },
+            "required": [
+              "valueType"
+            ]
+          },
+          "then": {
+            "properties": {
+              "valueInputs": {
+                "items": {
+                  "type": "integer",
+                  "minimum": -16777216,
+                  "maximum": 16777216
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "vector2Input": {
       "type": "object",
@@ -675,6 +703,9 @@
         },
         {
           "$ref": "#/$defs/vector4Input"
+        },
+        {
+          "$ref": "#/$defs/audioPcmInput"
         }
       ]
     },
@@ -719,6 +750,32 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 15
+        }
+      }
+    },
+    "audioPcmInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "shape",
+        "dataKind"
+      ],
+      "properties": {
+        "shape": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "dataKind": {
+          "const": "AudioPcm"
+        },
+        "valueType": {
+          "const": "Float32",
+          "default": "Float32"
         }
       }
     }

@@ -1,0 +1,33 @@
+{
+  "version": "1.1.1",
+  "name": "SileroVad",
+  "displayName": "Silero VAD",
+  "task": "Voice activity detection",
+  "runtime": "ONNX",
+  "description": "Detects voice activity in mono 16 kHz PCM using 512 fresh samples and 64 context samples.",
+  "ops": [
+    {
+      "id": "opk-std-ops/GenericAudioPreprocess",
+      "attributes": {
+        "inputAudioTensorIndex": 0,
+        "contextSampleCount": 64
+      }
+    },
+    {
+      "id": "opk-onnx-ops/Inference",
+      "attributes": {
+        "modelDescriptor": "model.json"
+      }
+    },
+    {
+      "id": "opk-std-ops/GenericPostprocess",
+      "attributes": {
+        "parser": "SileroVadParser",
+        "thresholdOn": 0.6,
+        "thresholdOff": 0.45,
+        "attackMs": 50,
+        "releaseMs": 50
+      }
+    }
+  ]
+}

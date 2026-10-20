@@ -24,7 +24,7 @@ type NativePayload = {
 };
 export declare const SDK_NAME = "open_perception_kit";
 export declare const SDK_VERSION = "0.1.2";
-export declare const SCHEMA_SET_SHA256 = "1b19418d8a0d34038a3c99895fa93a1140c25af910f6bc63c0e11978e12c2876";
+export declare const SCHEMA_SET_SHA256 = "369791d6c9cb1049c18713e94524cb5b71d192b7570ba726e3b722aae4df47f4";
 export declare const EXTERNAL_KEY_MIN: bigint;
 export declare enum ProducerIdentityStatus {
     ExactMatch = "exact_match",

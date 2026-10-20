@@ -658,6 +658,7 @@ for arg in sys.argv:
                 root / SCHEMAS_DIR,
             )
 
+            supported = json.loads((REPO_ROOT / MODEL_SCHEMA).read_text())["x-opk-supported-version"]
             for name, model_file, hub_file in (
                 ("first", "missing.onnx", "missing.onnx"),
                 ("second", "renamed.bin", "available.onnx"),
@@ -667,7 +668,7 @@ for arg in sys.argv:
                 (model_dir / MODEL_DESCRIPTOR).write_text(
                     json.dumps(
                         {
-                            "version": "1.0.0",
+                            "version": supported,
                             "name": name,
                             "modelFile": model_file,
                             "hfDownload": {
@@ -699,7 +700,7 @@ for arg in sys.argv:
             (externally_managed / MODEL_DESCRIPTOR).write_text(
                 json.dumps(
                     {
-                        "version": "1.0.0",
+                        "version": supported,
                         "name": "external",
                         "modelFile": "/opt/models/external.onnx",
                         "dynamicOutput": True,
@@ -809,14 +810,17 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
                     else:
                         self.assertIn("Invalid model descriptor", version_result.stderr)
                     self.assertFalse((root / "captured-token").exists())
-            for version in ("1.0.37", "1.4.2"):
+            supported = json.loads((REPO_ROOT / MODEL_SCHEMA).read_text())["x-opk-supported-version"]
+            major, minor, _ = supported.split(".")
+            different_minor = f"{major}.{int(minor)+1}.2"
+            for version in (f"{major}.{minor}.37", different_minor):
                 with self.subTest(version=version):
                     mismatched_model["version"] = version
                     verified_descriptor.write_text(json.dumps(mismatched_model))
                     version_result = run_download()
                     self.assertEqual(version_result.returncode, 0, version_result.stderr)
                     self.assertTrue((root / "captured-token").exists())
-                    self.assertEqual("different minor" in version_result.stderr, version == "1.4.2")
+                    self.assertEqual("different minor" in version_result.stderr, version == different_minor)
             mismatched_model["version"] = "1.0.0"
             mismatched_model["hfDownload"]["sha256"] = "0" * 64
             verified_descriptor.write_text(json.dumps(mismatched_model))

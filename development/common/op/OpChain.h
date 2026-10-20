@@ -73,6 +73,9 @@ class OpChain {
     const std::string &getRuntime() const;
     std::vector<std::string_view> getProvidedContentTypes() const;
     std::vector<std::string_view> getRequiredContentTypes() const;
+    /// PCM window required by the bound inference inputs; zero means no audio input.
+    /// Only static mono PCM shapes are supported. Conflicting sizes and log-mel fail.
+    opk::Result<size_t> getRequiredAudioSamples() const;
     /**
      * @brief Adds an operation reference to the chain.
      *

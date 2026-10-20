@@ -1,0 +1,29 @@
+include "common.fbs";
+
+namespace open_perception_kit.metadata;
+
+// One inference window, not a complete speech segment.
+table VoiceActivityDetection {
+  object:open_perception_kit.metadata.ObjectMeta;
+  speech_probability:float;
+  speech_active:bool;
+  // Exclusive end; positions count mono 16 kHz samples since the latest reset.
+  window_start_sample:ulong;
+  window_end_sample:ulong;
+  // Media presentation timestamps, not wall-clock or inference-completion time.
+  // Absent when no source timestamp is known or the window includes negative preroll.
+  window_start_ts_ns:ulong = null;
+  window_end_ts_ns:ulong = null;
+  // First result after a stream discontinuity; sample positions restart at zero.
+  discontinuity:bool;
+}
+
+table VoiceActivityDetections {
+  schema_major:ushort = 1;
+  schema_minor:ushort = 0;
+  layer:open_perception_kit.metadata.LayerInfo;
+  detections:[open_perception_kit.metadata.VoiceActivityDetection];
+}
+
+root_type VoiceActivityDetections;
+file_identifier "VACT";

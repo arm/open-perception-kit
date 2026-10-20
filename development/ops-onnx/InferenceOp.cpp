@@ -21,9 +21,6 @@
 #include <onnxruntime_cxx_api.h>
 
 #include "Inference.h"
-#include "glib-object.h"
-#include "glib.h"
-#include "gst/gstpad.h"
 #include "op/OpChainContext.h"
 #include "opk/AttributeMap.h"
 #include "opk/ModelDescriptor.h"
@@ -67,6 +64,12 @@ opk::Result<void> InferenceOp::configure(const opk::AttributeMap &attributes) {
 
 opk::Result<opk::op::OpSignal> InferenceOp::process(opk::op::OpChainContext &opChainContext) {
     OPK_PERF_SCOPE(fmt::format("onnx/Infer/{}", opChainContext.inferenceInfo.modelName));
+
+    if (opChainContext.inferenceInfo.audio.discontinuity) {
+        auto reset = inference->resetFeedbackState();
+        if (!reset)
+            return tl::unexpected(reset.error());
+    }
 
     // inference
     auto inferenceResult = inference->inference();

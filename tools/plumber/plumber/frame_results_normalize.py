@@ -28,6 +28,7 @@ from open_perception_kit.fb.open_perception_kit.metadata.ObjectTracks import Obj
 from open_perception_kit.fb.open_perception_kit.metadata.PoseEstimations import PoseEstimationsT
 from open_perception_kit.fb.open_perception_kit.metadata.SegmentationMasks import SegmentationMasksT
 from open_perception_kit.fb.open_perception_kit.metadata.TrackTraces import TrackTracesT
+from open_perception_kit.fb.open_perception_kit.metadata.VoiceActivityDetections import VoiceActivityDetectionsT
 
 
 @dataclass(frozen=True, order=True)
@@ -240,6 +241,20 @@ def _normalize_person_presence(person_presence: Any) -> dict[str, Any]:
     }
 
 
+def _normalize_voice_activity(detection: Any) -> dict[str, Any]:
+    data = _object_data(detection.object)
+    data.update({
+        "speechProbability": float(detection.speechProbability),
+        "speechActive": bool(detection.speechActive),
+        "windowStartSample": int(detection.windowStartSample),
+        "windowEndSample": int(detection.windowEndSample),
+        "windowStartTsNs": detection.windowStartTsNs,
+        "windowEndTsNs": detection.windowEndTsNs,
+        "discontinuity": bool(detection.discontinuity),
+    })
+    return {"item_type": "VoiceActivityDetection", "data": data}
+
+
 def _normalize_pose_estimation(pose: Any) -> dict[str, Any]:
     data = _object_data(pose.object)
     data.update(
@@ -415,6 +430,10 @@ def normalize_frame_results(frame_results: FrameResults, frame_counter: int | No
         "open_perception_kit.metadata.BoxDetections", "detections", _normalize_box_detection,
     )
     _normalize_classifications(frame_results, snapshot)
+    _normalize_payload_collection(
+        frame_results, snapshot, VoiceActivityDetectionsT,
+        "open_perception_kit.metadata.VoiceActivityDetections", "detections", _normalize_voice_activity,
+    )
     _normalize_payload_collection(
         frame_results, snapshot, PoseEstimationsT,
         "open_perception_kit.metadata.PoseEstimations", "poses", _normalize_pose_estimation,

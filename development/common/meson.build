@@ -28,6 +28,7 @@ common = shared_library(
     'opk/PipelinePreset.cpp',
 
     'opk/AudioBuffer.cpp',
+    'opk/PcmRingBuffer.cpp',
 
     'opk/Base64.cpp',
 

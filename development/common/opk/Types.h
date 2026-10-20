@@ -21,6 +21,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <stdexcept>
 #include <string>
 
@@ -255,6 +256,18 @@ struct ImageInferenceMetadata {
     size_t letterboxBottom = 0; ///< Bottom padding in model input pixels.
 };
 
+/// Timing of the selected mono 16 kHz audio window. Timestamps are media PTS,
+/// compensated for resampling delay, not wall-clock or processing timestamps.
+struct AudioInferenceMetadata {
+    /// First window after a stream reset; reset recurrent and audio parser state.
+    bool discontinuity = false;
+    size_t hopSampleCount = 0;
+    uint64_t windowStartSample = 0;
+    uint64_t windowEndSample = 0;
+    std::optional<uint64_t> windowStartTimestampNs;
+    std::optional<uint64_t> windowEndTimestampNs;
+};
+
 /**
  * @brief Contextual information about a single inference execution.
  */
@@ -264,6 +277,7 @@ struct InferenceInfo {
     std::string modelName;        ///< Model descriptor name.
     std::string inferElementId;   ///< GStreamer element id of the originating opkinfer.
     ImageInferenceMetadata image; ///< Image geometry for this inference.
+    AudioInferenceMetadata audio; ///< Audio window positions and presentation timing.
 };
 
 /**

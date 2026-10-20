@@ -5504,6 +5504,237 @@ var TrackTracesT = class {
   }
 };
 
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/voice-activity-detection.js
+var VoiceActivityDetection = class _VoiceActivityDetection {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsVoiceActivityDetection(bb, obj) {
+    return (obj || new _VoiceActivityDetection()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsVoiceActivityDetection(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _VoiceActivityDetection()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  object(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? (obj || new ObjectMeta()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  speechProbability() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
+  }
+  speechActive() {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? !!this.bb.readInt8(this.bb_pos + offset) : false;
+  }
+  windowStartSample() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
+  }
+  windowEndSample() {
+    const offset = this.bb.__offset(this.bb_pos, 12);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
+  }
+  windowStartTsNs() {
+    const offset = this.bb.__offset(this.bb_pos, 14);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : null;
+  }
+  windowEndTsNs() {
+    const offset = this.bb.__offset(this.bb_pos, 16);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : null;
+  }
+  discontinuity() {
+    const offset = this.bb.__offset(this.bb_pos, 18);
+    return offset ? !!this.bb.readInt8(this.bb_pos + offset) : false;
+  }
+  static startVoiceActivityDetection(builder) {
+    builder.startObject(8);
+  }
+  static addObject(builder, objectOffset) {
+    builder.addFieldOffset(0, objectOffset, 0);
+  }
+  static addSpeechProbability(builder, speechProbability) {
+    builder.addFieldFloat32(1, speechProbability, 0);
+  }
+  static addSpeechActive(builder, speechActive) {
+    builder.addFieldInt8(2, +speechActive, 0);
+  }
+  static addWindowStartSample(builder, windowStartSample) {
+    builder.addFieldInt64(3, windowStartSample, BigInt("0"));
+  }
+  static addWindowEndSample(builder, windowEndSample) {
+    builder.addFieldInt64(4, windowEndSample, BigInt("0"));
+  }
+  static addWindowStartTsNs(builder, windowStartTsNs) {
+    builder.addFieldInt64(5, windowStartTsNs, null);
+  }
+  static addWindowEndTsNs(builder, windowEndTsNs) {
+    builder.addFieldInt64(6, windowEndTsNs, null);
+  }
+  static addDiscontinuity(builder, discontinuity) {
+    builder.addFieldInt8(7, +discontinuity, 0);
+  }
+  static endVoiceActivityDetection(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createVoiceActivityDetection(builder, objectOffset, speechProbability, speechActive, windowStartSample, windowEndSample, windowStartTsNs, windowEndTsNs, discontinuity) {
+    _VoiceActivityDetection.startVoiceActivityDetection(builder);
+    _VoiceActivityDetection.addObject(builder, objectOffset);
+    _VoiceActivityDetection.addSpeechProbability(builder, speechProbability);
+    _VoiceActivityDetection.addSpeechActive(builder, speechActive);
+    _VoiceActivityDetection.addWindowStartSample(builder, windowStartSample);
+    _VoiceActivityDetection.addWindowEndSample(builder, windowEndSample);
+    if (windowStartTsNs !== null)
+      _VoiceActivityDetection.addWindowStartTsNs(builder, windowStartTsNs);
+    if (windowEndTsNs !== null)
+      _VoiceActivityDetection.addWindowEndTsNs(builder, windowEndTsNs);
+    _VoiceActivityDetection.addDiscontinuity(builder, discontinuity);
+    return _VoiceActivityDetection.endVoiceActivityDetection(builder);
+  }
+  unpack() {
+    return new VoiceActivityDetectionT(this.object() !== null ? this.object().unpack() : null, this.speechProbability(), this.speechActive(), this.windowStartSample(), this.windowEndSample(), this.windowStartTsNs(), this.windowEndTsNs(), this.discontinuity());
+  }
+  unpackTo(_o) {
+    _o.object = this.object() !== null ? this.object().unpack() : null;
+    _o.speechProbability = this.speechProbability();
+    _o.speechActive = this.speechActive();
+    _o.windowStartSample = this.windowStartSample();
+    _o.windowEndSample = this.windowEndSample();
+    _o.windowStartTsNs = this.windowStartTsNs();
+    _o.windowEndTsNs = this.windowEndTsNs();
+    _o.discontinuity = this.discontinuity();
+  }
+};
+var VoiceActivityDetectionT = class {
+  constructor(object = null, speechProbability = 0, speechActive = false, windowStartSample = BigInt("0"), windowEndSample = BigInt("0"), windowStartTsNs = null, windowEndTsNs = null, discontinuity = false) {
+    this.object = object;
+    this.speechProbability = speechProbability;
+    this.speechActive = speechActive;
+    this.windowStartSample = windowStartSample;
+    this.windowEndSample = windowEndSample;
+    this.windowStartTsNs = windowStartTsNs;
+    this.windowEndTsNs = windowEndTsNs;
+    this.discontinuity = discontinuity;
+  }
+  pack(builder) {
+    const object = this.object !== null ? this.object.pack(builder) : 0;
+    return VoiceActivityDetection.createVoiceActivityDetection(builder, object, this.speechProbability, this.speechActive, this.windowStartSample, this.windowEndSample, this.windowStartTsNs, this.windowEndTsNs, this.discontinuity);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/voice-activity-detections.js
+var VoiceActivityDetections = class _VoiceActivityDetections {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsVoiceActivityDetections(bb, obj) {
+    return (obj || new _VoiceActivityDetections()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsVoiceActivityDetections(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _VoiceActivityDetections()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static bufferHasIdentifier(bb) {
+    return bb.__has_identifier("VACT");
+  }
+  schemaMajor() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.readUint16(this.bb_pos + offset) : 1;
+  }
+  schemaMinor() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readUint16(this.bb_pos + offset) : 0;
+  }
+  layer(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? (obj || new LayerInfo()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  detections(index, obj) {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? (obj || new VoiceActivityDetection()).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos + offset) + index * 4), this.bb) : null;
+  }
+  detectionsLength() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
+  }
+  static startVoiceActivityDetections(builder) {
+    builder.startObject(4);
+  }
+  static addSchemaMajor(builder, schemaMajor) {
+    builder.addFieldInt16(0, schemaMajor, 1);
+  }
+  static addSchemaMinor(builder, schemaMinor) {
+    builder.addFieldInt16(1, schemaMinor, 0);
+  }
+  static addLayer(builder, layerOffset) {
+    builder.addFieldOffset(2, layerOffset, 0);
+  }
+  static addDetections(builder, detectionsOffset) {
+    builder.addFieldOffset(3, detectionsOffset, 0);
+  }
+  static createDetectionsVector(builder, data) {
+    builder.startVector(4, data.length, 4);
+    for (let i = data.length - 1; i >= 0; i--) {
+      builder.addOffset(data[i]);
+    }
+    return builder.endVector();
+  }
+  static startDetectionsVector(builder, numElems) {
+    builder.startVector(4, numElems, 4);
+  }
+  static endVoiceActivityDetections(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static finishVoiceActivityDetectionsBuffer(builder, offset) {
+    builder.finish(offset, "VACT");
+  }
+  static finishSizePrefixedVoiceActivityDetectionsBuffer(builder, offset) {
+    builder.finish(offset, "VACT", true);
+  }
+  unpack() {
+    return new VoiceActivityDetectionsT(this.schemaMajor(), this.schemaMinor(), this.layer() !== null ? this.layer().unpack() : null, this.bb.createObjList(this.detections.bind(this), this.detectionsLength()));
+  }
+  unpackTo(_o) {
+    _o.schemaMajor = this.schemaMajor();
+    _o.schemaMinor = this.schemaMinor();
+    _o.layer = this.layer() !== null ? this.layer().unpack() : null;
+    _o.detections = this.bb.createObjList(this.detections.bind(this), this.detectionsLength());
+  }
+};
+var VoiceActivityDetectionsT = class {
+  constructor(schemaMajor = 1, schemaMinor = 0, layer2 = null, detections = []) {
+    this.schemaMajor = schemaMajor;
+    this.schemaMinor = schemaMinor;
+    this.layer = layer2;
+    this.detections = detections;
+  }
+  pack(builder) {
+    const layer2 = this.layer !== null ? this.layer.pack(builder) : 0;
+    const detections = VoiceActivityDetections.createDetectionsVector(builder, builder.createObjectOffsetList(this.detections));
+    VoiceActivityDetections.startVoiceActivityDetections(builder);
+    VoiceActivityDetections.addSchemaMajor(builder, this.schemaMajor);
+    VoiceActivityDetections.addSchemaMinor(builder, this.schemaMinor);
+    VoiceActivityDetections.addLayer(builder, layer2);
+    VoiceActivityDetections.addDetections(builder, detections);
+    return VoiceActivityDetections.endVoiceActivityDetections(builder);
+  }
+};
+
 // generated/open_perception_kit/ts/dist/open_perception_kit/registry.js
 var decode_556103652012567315 = (blob) => BoxDetections.getRootAsBoxDetections(new ByteBuffer(blob)).unpack();
 var verify_556103652012567315 = (blob) => BoxDetections.bufferHasIdentifier(new ByteBuffer(blob));
@@ -5523,6 +5754,8 @@ var decode_1998909987238011535 = (blob) => SegmentationMasks.getRootAsSegmentati
 var verify_1998909987238011535 = (blob) => SegmentationMasks.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_238211229389337861 = (blob) => TrackTraces.getRootAsTrackTraces(new ByteBuffer(blob)).unpack();
 var verify_238211229389337861 = (blob) => TrackTraces.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_7328253118381503000 = (blob) => VoiceActivityDetections.getRootAsVoiceActivityDetections(new ByteBuffer(blob)).unpack();
+var verify_7328253118381503000 = (blob) => VoiceActivityDetections.bufferHasIdentifier(new ByteBuffer(blob));
 var _TYPE_REGISTRY = /* @__PURE__ */ new Map([
   [556103652012567315n, {
     name: "open_perception_kit::metadata::BoxDetections",
@@ -5595,6 +5828,14 @@ var _TYPE_REGISTRY = /* @__PURE__ */ new Map([
     file_identifier: "TRCE",
     decode: decode_238211229389337861,
     verify: verify_238211229389337861
+  }],
+  [7328253118381503000n, {
+    name: "open_perception_kit::metadata::VoiceActivityDetections",
+    root_type: "VoiceActivityDetections",
+    qualified_root_type: "open_perception_kit.metadata.VoiceActivityDetections",
+    file_identifier: "VACT",
+    decode: decode_7328253118381503000,
+    verify: verify_7328253118381503000
   }]
 ]);
 var _CLASS_TO_ID = /* @__PURE__ */ new Map([
@@ -5606,7 +5847,8 @@ var _CLASS_TO_ID = /* @__PURE__ */ new Map([
   [PerformanceOverlayT, 7749401259036278028n],
   [PoseEstimationsT, 9114952555105892553n],
   [SegmentationMasksT, 1998909987238011535n],
-  [TrackTracesT, 238211229389337861n]
+  [TrackTracesT, 238211229389337861n],
+  [VoiceActivityDetectionsT, 7328253118381503000n]
 ]);
 
 // generated/open_perception_kit/ts/dist/open_perception_kit/envelope.js
@@ -5624,7 +5866,7 @@ var __classPrivateFieldGet = function(receiver, state, kind, f) {
 var _ExternalKey_value;
 var SDK_NAME = "open_perception_kit";
 var SDK_VERSION = "0.1.2";
-var SCHEMA_SET_SHA256 = "1b19418d8a0d34038a3c99895fa93a1140c25af910f6bc63c0e11978e12c2876";
+var SCHEMA_SET_SHA256 = "369791d6c9cb1049c18713e94524cb5b71d192b7570ba726e3b722aae4df47f4";
 var EXTERNAL_KEY_MIN = BigInt("9223372036854775808");
 var EXTERNAL_KEY_MASK = EXTERNAL_KEY_MIN - BigInt(1);
 var EXTERNAL_HASH_OFFSET = BigInt("14695981039346656037");

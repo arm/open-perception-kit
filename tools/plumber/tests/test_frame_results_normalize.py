@@ -62,6 +62,29 @@ def layer(content_type: str, infer_element_id: str = "infer0") -> LayerInfoT:
 
 
 class FrameResultsNormalizeTests(unittest.TestCase):
+    def test_voice_activity_roundtrip_preserves_unknown_and_zero_timestamps(self):
+        from open_perception_kit.fb.open_perception_kit.metadata.VoiceActivityDetection import VoiceActivityDetectionT
+        from open_perception_kit.fb.open_perception_kit.metadata.VoiceActivityDetections import VoiceActivityDetectionsT
+        results = FrameResults()
+        results.add(VoiceActivityDetectionsT(layer=layer("voiceActivity"), detections=[
+            VoiceActivityDetectionT(object=ObjectMetaT(id=101), speechProbability=0.8,
+                                    speechActive=True, windowStartSample=0, windowEndSample=320,
+                                    windowStartTsNs=0, windowEndTsNs=20_000_000, discontinuity=True),
+            VoiceActivityDetectionT(object=ObjectMetaT(id=102), speechProbability=0.2,
+                                    windowStartSample=320, windowEndSample=640),
+        ]))
+        snapshot = normalize_frame_results(FrameResults(results.serialize()))
+        key = PayloadKey("open_perception_kit.metadata.VoiceActivityDetections", "infer0", "voiceActivity", "model-a")
+        items = snapshot.payloads[key].items
+        self.assertEqual(len(items), 2)
+        self.assertEqual(items[0]["data"]["windowStartTsNs"], 0)
+        self.assertEqual(items[0]["data"]["windowEndTsNs"], 20_000_000)
+        self.assertTrue(items[0]["data"]["speechActive"])
+        self.assertIsNone(items[1]["data"]["windowStartTsNs"])
+        from plumber.distance_classification import distance_voice_activity
+        self.assertEqual(distance_voice_activity(items[0], items[0], {}, {}), 0)
+        self.assertEqual(distance_voice_activity(items[0], items[1], {}, {}), 1)
+
     def test_normalizes_frame_and_box_detection_payloads(self) -> None:
         frame_results = FrameResults()
         frame_results.add(

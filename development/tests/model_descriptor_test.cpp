@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "../config-validator/Validator.h"
 #include "op/OpRef.h"
 #include "opk/Model.h"
 #include "opk/ModelDescriptor.h"
@@ -74,7 +75,9 @@ TEST(ModelDescriptor, RejectsUnsupportedVersionAtFileLoad) {
     std::filesystem::remove(path);
     ASSERT_FALSE(result);
     EXPECT_NE(result.error().info.find("dispatch.unsupported"), std::string::npos);
-    EXPECT_NE(result.error().info.find("supported version: 1.0.0"), std::string::npos);
+    const auto supported = opk::config::supportedModelVersion();
+    ASSERT_TRUE(supported);
+    EXPECT_NE(result.error().info.find("supported version: " + *supported), std::string::npos);
 }
 
 TEST(ModelDescriptor, ResolvesModelFileRelativeToDescriptor) {
