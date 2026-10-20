@@ -27,19 +27,12 @@ from plumber.frame_results_compare import compare_frame_results_frame  # noqa: E
 from plumber.frame_results_decode import FrameResultsFrame  # noqa: E402
 from plumber.frame_results_sdk import FrameResults  # noqa: E402
 
-from open_perception_kit.fb.open_perception_kit.metadata.BitmapData import BitmapDataT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.BoundingBox import BoundingBoxT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.BoxDetection import BoxDetectionT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.BoxDetections import BoxDetectionsT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.FrameContext import FrameContextT  # noqa: E402
-from open_perception_kit.fb.open_perception_kit.metadata.InstanceSegmentationMask import InstanceSegmentationMaskT  # noqa: E402
-from open_perception_kit.fb.open_perception_kit.metadata.InstanceSegmentationMasks import InstanceSegmentationMasksT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.LayerInfo import LayerInfoT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.ObjectMeta import ObjectMetaT  # noqa: E402
-from open_perception_kit.fb.open_perception_kit.metadata.SegmentationMask import SegmentationMaskT  # noqa: E402
-from open_perception_kit.fb.open_perception_kit.metadata.SegmentationMasks import SegmentationMasksT  # noqa: E402
-from open_perception_kit.fb.open_perception_kit.metadata.SemanticSegmentationMask import SemanticSegmentationMaskT  # noqa: E402
-from open_perception_kit.fb.open_perception_kit.metadata.SemanticSegmentationMasks import SemanticSegmentationMasksT  # noqa: E402
 from open_perception_kit.fb.open_perception_kit.metadata.VideoFrameContext import VideoFrameContextT  # noqa: E402
 
 
@@ -95,47 +88,9 @@ def frame_results_frame(frame_results: FrameResults) -> FrameResultsFrame:
     )
 
 
-def frame_results_with_masks(include_semantic: bool = True, changed_pixels: bool = False) -> FrameResults:
-    frame_results = FrameResults()
-    frame_results.add(frame_payload())
-    payload_types = [
-        (SegmentationMasksT, SegmentationMaskT),
-        (InstanceSegmentationMasksT, InstanceSegmentationMaskT),
-    ]
-    if include_semantic:
-        payload_types.append((SemanticSegmentationMasksT, SemanticSegmentationMaskT))
-    for index, (payload_type, mask_type) in enumerate(payload_types, start=2):
-        frame_results.add(payload_type(
-            layer=layer("segmentation", "infer0"),
-            masks=[mask_type(
-                object=ObjectMetaT(id=index, parentId=1),
-                bitmap=BitmapDataT(width=1, height=1, valueType="Uint8", pixels=[int(changed_pixels)]),
-            )],
-        ))
-    return frame_results
-
-
 class FrameResultsCompareTests(unittest.TestCase):
     def setUp(self) -> None:
         self.args = SimpleNamespace(verbose=False)
-
-    def test_accepts_all_typed_mask_payloads_with_pixel_comparison_still_disabled(self) -> None:
-        gt_frame = frame_results_frame(frame_results_with_masks())
-        out_frame = frame_results_frame(frame_results_with_masks(changed_pixels=True))
-
-        ok, msg = compare_frame_results_frame(self.args, gt_frame, out_frame)
-
-        self.assertTrue(ok, msg)
-
-    def test_reports_a_missing_semantic_payload_alongside_other_mask_types(self) -> None:
-        gt_frame = frame_results_frame(frame_results_with_masks())
-        out_frame = frame_results_frame(frame_results_with_masks(include_semantic=False))
-
-        ok, msg = compare_frame_results_frame(self.args, gt_frame, out_frame)
-
-        self.assertFalse(ok)
-        self.assertIn("payload mismatch", msg)
-        self.assertIn("SemanticSegmentationMasks", msg)
 
     def test_matches_equivalent_frame_results_frames(self) -> None:
         gt_frame = frame_results_frame(frame_results_with_boxes((2, 10.0, 10.0, 20.0, 20.0)))

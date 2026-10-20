@@ -47,8 +47,6 @@ DISTANCE_SPECS: dict[str, DistanceSpec] = {
     "ObjectTrack": DistanceSpec(dr.distance_rect, threshold=0.01),
     "PoseEstimation": DistanceSpec(dyp.distance_yawpitch, threshold=0.01),
     "SegmentationMask": DistanceSpec(dsm.distance_segmentation_map, threshold=0.1, skip=True),
-    "SemanticSegmentationMask": DistanceSpec(dsm.distance_segmentation_map, threshold=0.1, skip=True),
-    "InstanceSegmentationMask": DistanceSpec(dsm.distance_segmentation_map, threshold=0.1, skip=True),
     "Classification": DistanceSpec(dc.distance_classification, threshold=0.2),
     "PersonPresence": DistanceSpec(dc.distance_person_presence, threshold=0.2),
     "TrackTrace": DistanceSpec(dtt.distance_track_trace, threshold=0.1, skip=False),

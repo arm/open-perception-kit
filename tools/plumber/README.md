@@ -157,8 +157,6 @@ BoxDetectionsT
 ClassificationsT
 PoseEstimationsT
 SegmentationMasksT
-SemanticSegmentationMasksT
-InstanceSegmentationMasksT
 ObjectEmbeddingsT
 ObjectTracksT
 TrackTracesT
@@ -166,13 +164,6 @@ TrackTracesT
 
 `PerformanceOverlayT` is ignored by comparison because it is diagnostic runtime
 text rather than stable model output.
-
-Segmentation payloads retain distinct types: `SegmentationMasksT` carries legacy
-alpha/matte bitmaps, `SemanticSegmentationMasksT` carries class-ID maps, and
-`InstanceSegmentationMasksT` carries separate binary masks with class IDs,
-confidence scores, and boxes. Plumber preserves those instance fields when
-normalizing packets. Mask distance comparison remains disabled for these types;
-payload and item types are still checked.
 
 External opaque payloads, when present in the packet, are decoded by the generated SDK as
 external byte payloads. Plumber's current regression comparison intentionally normalizes

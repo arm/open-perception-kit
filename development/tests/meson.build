@@ -227,26 +227,6 @@ yolo_parser_tests = executable(
   link_with : [common],
 )
 
-yolo26_instance_segmentation_parser_tests = executable(
-  'yolo26_instance_segmentation_parser_tests',
-  ['yolo26_instance_segmentation_parser_test.cpp',
-   '../ops-std/postproc/Yolo26InstanceSegmentationParser.cpp'],
-  include_directories : [common_include, include_directories('../ops-std')],
-  cpp_args: ['-DFMT_HEADER_ONLY'],
-  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
-  link_with : [common],
-)
-
-yolo26_semantic_segmentation_parser_tests = executable(
-  'yolo26_semantic_segmentation_parser_tests',
-  ['yolo26_semantic_segmentation_parser_test.cpp',
-   '../ops-std/postproc/Yolo26SemanticSegmentationParser.cpp'],
-  include_directories : [common_include, include_directories('../ops-std')],
-  cpp_args: ['-DFMT_HEADER_ONLY'],
-  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
-  link_with : [common],
-)
-
 rvm_parser_tests = executable(
   'rvm_parser_tests',
   ['rvm_parser_test.cpp', '../ops-std/postproc/RvmParser.cpp'],
@@ -491,28 +471,6 @@ test('kalman_filter_tests', kalman_filter_tests)
 test('hungarian_tests', hungarian_tests)
 test('iou_tests', iou_tests)
 test('yolo_parser_tests', yolo_parser_tests)
-test('yolo26_instance_segmentation_parser_tests', yolo26_instance_segmentation_parser_tests)
-test(
-  'yolo26_instance_sdk_roundtrip_tests',
-  python,
-  args : [
-    files('yolo26_instance_sdk_roundtrip_test.py'),
-    yolo26_instance_segmentation_parser_tests.full_path(),
-  ],
-  depends : yolo26_instance_segmentation_parser_tests,
-  timeout : 60,
-)
-test('yolo26_semantic_segmentation_parser_tests', yolo26_semantic_segmentation_parser_tests)
-test(
-  'yolo26_semantic_sdk_roundtrip_tests',
-  python,
-  args : [
-    files('yolo26_semantic_sdk_roundtrip_test.py'),
-    yolo26_semantic_segmentation_parser_tests.full_path(),
-  ],
-  depends : yolo26_semantic_segmentation_parser_tests,
-  timeout : 60,
-)
 test('gaze_detection_parser_tests', gaze_detection_parser_tests)
 test('rvm_parser_tests', rvm_parser_tests)
 test('onnx_tensor_tests', onnx_tensor_tests)
