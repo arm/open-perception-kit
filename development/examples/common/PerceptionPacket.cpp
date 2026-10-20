@@ -100,10 +100,6 @@ bool validateKnownPayloadBlob(const open_perception_kit::internalfb::WirePayload
                payload, payloadIndex, error) ||
            validatePayloadBlobAsType<open_perception_kit::metadata::SegmentationMasksT>(
                payload, payloadIndex, error) ||
-           validatePayloadBlobAsType<open_perception_kit::metadata::SemanticSegmentationMasksT>(
-               payload, payloadIndex, error) ||
-           validatePayloadBlobAsType<open_perception_kit::metadata::InstanceSegmentationMasksT>(
-               payload, payloadIndex, error) ||
            validatePayloadBlobAsType<open_perception_kit::metadata::TrackTracesT>(
                payload, payloadIndex, error);
 }

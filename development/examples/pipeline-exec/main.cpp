@@ -132,10 +132,6 @@ void printTypedPayloadText(const open_perception_kit::container::envelope &frame
                                                                         printedPayloads);
     printPayloadBranch<open_perception_kit::metadata::SegmentationMasksT>(frameResults,
                                                                           printedPayloads);
-    printPayloadBranch<open_perception_kit::metadata::SemanticSegmentationMasksT>(frameResults,
-                                                                                  printedPayloads);
-    printPayloadBranch<open_perception_kit::metadata::InstanceSegmentationMasksT>(frameResults,
-                                                                                  printedPayloads);
     printPayloadBranch<open_perception_kit::metadata::ObjectEmbeddingsT>(frameResults,
                                                                          printedPayloads);
     printPayloadBranch<open_perception_kit::metadata::TrackTracesT>(frameResults, printedPayloads);

@@ -36,12 +36,6 @@ class TextDisplay {
                             const open_perception_kit::metadata::PoseEstimationsT &payload);
     static void appendLines(std::vector<std::string> &lines,
                             const open_perception_kit::metadata::SegmentationMasksT &payload);
-    static void
-    appendLines(std::vector<std::string> &lines,
-                const open_perception_kit::metadata::SemanticSegmentationMasksT &payload);
-    static void
-    appendLines(std::vector<std::string> &lines,
-                const open_perception_kit::metadata::InstanceSegmentationMasksT &payload);
     static void appendLines(std::vector<std::string> &lines,
                             const open_perception_kit::metadata::ObjectEmbeddingsT &payload);
     static void appendLines(std::vector<std::string> &lines,

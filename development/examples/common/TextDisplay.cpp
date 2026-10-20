@@ -287,63 +287,6 @@ void TextDisplay::appendLines(std::vector<std::string> &lines,
     }
 }
 
-void TextDisplay::appendLines(
-    std::vector<std::string> &lines,
-    const open_perception_kit::metadata::SemanticSegmentationMasksT &payload) {
-    lines.push_back(fmt::format("SemanticSegmentationMasks: {} count={}",
-                                layerLabel(payload.layer.get()),
-                                payload.masks.size()));
-    std::size_t index = 0U;
-    for (const auto &mask : payload.masks) {
-        ++index;
-        if (!mask) {
-            lines.push_back(fmt::format("  semantic segmentation #{}: <null>", index));
-            continue;
-        }
-
-        const auto *bitmap = mask->bitmap.get();
-        lines.push_back(fmt::format("  semantic segmentation #{}: {} class_map={}x{} "
-                                    "value_type={} bytes={} {}",
-                                    index,
-                                    objectLabel(mask->object.get()),
-                                    bitmap ? bitmap->width : 0U,
-                                    bitmap ? bitmap->height : 0U,
-                                    bitmap ? textOr(bitmap->value_type) : "-",
-                                    bitmap ? bitmap->pixels.size() : 0U,
-                                    bitmapRange(bitmap)));
-    }
-}
-
-void TextDisplay::appendLines(
-    std::vector<std::string> &lines,
-    const open_perception_kit::metadata::InstanceSegmentationMasksT &payload) {
-    lines.push_back(fmt::format("InstanceSegmentationMasks: {} count={}",
-                                layerLabel(payload.layer.get()),
-                                payload.masks.size()));
-    std::size_t index = 0U;
-    for (const auto &mask : payload.masks) {
-        ++index;
-        if (!mask) {
-            lines.push_back(fmt::format("  instance segmentation #{}: <null>", index));
-            continue;
-        }
-
-        const auto *bitmap = mask->bitmap.get();
-        lines.push_back(fmt::format("  instance segmentation #{}: {} class_id={} confidence={:.3f} "
-                                    "{} bitmap={}x{} value_type={} bytes={} {}",
-                                    index,
-                                    objectLabel(mask->object.get()),
-                                    mask->class_id,
-                                    mask->confidence,
-                                    boxLabel(mask->box.get()),
-                                    bitmap ? bitmap->width : 0U,
-                                    bitmap ? bitmap->height : 0U,
-                                    bitmap ? textOr(bitmap->value_type) : "-",
-                                    bitmap ? bitmap->pixels.size() : 0U,
-                                    bitmapRange(bitmap)));
-    }
-}
-
 void TextDisplay::appendLines(std::vector<std::string> &lines,
                               const open_perception_kit::metadata::ObjectEmbeddingsT &payload) {
     lines.push_back(fmt::format("ObjectEmbeddings: {} count={}",

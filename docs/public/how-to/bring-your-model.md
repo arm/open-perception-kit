@@ -276,8 +276,6 @@ The easiest models to integrate without code changes are models that fit one of 
 - `SegmentationMasksT` for compositing masks and alpha mattes with values `0` through `255`
 - `ObjectEmbeddingsT` for ReID / embedding outputs
 
-These are the structured result shapes that downstream Open Perception Kit code already consumes. In other words, when bringing a model into Open Perception Kit, you are usually trying to map raw tensors into one of these generated FrameResults payloads rather than inventing a model-specific application contract.
-
 If your output shape and meaning already match one of the existing parsers, integration is usually straightforward.
 
 If they do not, the model can still be integrated, but you should expect to add a postprocessor.
