@@ -26,7 +26,7 @@ and check the built artifacts before publication.
 | --- | --- | --- | --- |
 | [annotated-doc](https://github.com/fastapi/annotated-doc) | [0.0.5](https://pypi.org/project/annotated-doc/0.0.5/) | MIT | PyPI |
 | [anyio](https://github.com/agronholm/anyio) | [4.15.1](https://pypi.org/project/anyio/4.15.1/) | MIT | PyPI |
-| [argcomplete](https://github.com/kislyuk/argcomplete) | [3.6.2](https://pypi.org/project/argcomplete/3.6.2/) | Apache-2.0 | PyPI |
+| [argcomplete](https://github.com/kislyuk/argcomplete) | [3.7.2](https://pypi.org/project/argcomplete/3.7.2/) | Apache-2.0 | PyPI |
 | [Asio](https://github.com/chriskohlhoff/asio) | [1.30.2](https://github.com/chriskohlhoff/asio/tree/asio-1-30-2) | BSL-1.0 | Conan |
 | [autocommand](https://github.com/Lucretiel/autocommand) | [2.2.2](https://pypi.org/project/autocommand/2.2.2/) | LGPL-3.0-only | PyPI |
 | [autopep8](https://github.com/hhatto/autopep8) | [2.3.2](https://pypi.org/project/autopep8/2.3.2/) | MIT (Expat) | PyPI |
@@ -34,11 +34,10 @@ and check the built artifacts before publication.
 | [cfgv](https://github.com/asottile/cfgv) | [3.5.0](https://pypi.org/project/cfgv/3.5.0/) | MIT | PyPI |
 | [cmake-format](https://github.com/cheshirekow/cmake_format) | [0.6.13](https://pypi.org/project/cmake-format/0.6.13/) | GPL-3.0-or-later | PyPI |
 | [clang-tidy](https://github.com/ssciwr/clang-tidy-wheel) | [22.1.8](https://pypi.org/project/clang-tidy/22.1.8/) | Apache-2.0 | PyPI |
-| [clang-format](https://github.com/ssciwr/clang-format-wheel) | [23.1.1](https://pypi.org/project/clang-format/23.1.1/) | Apache-2.0 | PyPI |
+| [clang-format](https://github.com/ssciwr/clang-format-wheel) | [23.1.3](https://pypi.org/project/clang-format/23.1.3/) | Apache-2.0 | PyPI |
 | [Click](https://github.com/pallets/click) | [8.5.0](https://pypi.org/project/click/8.5.0/) | BSD-3-Clause | PyPI |
 | [cmakelang](https://github.com/cheshirekow/cmake_format) | [0.6.13](https://pypi.org/project/cmakelang/0.6.13/) | GPL-3.0-or-later | PyPI |
 | [convert-source-map](https://github.com/thlorenz/convert-source-map) | [2.0.0](https://www.npmjs.com/package/convert-source-map/v/2.0.0) | MIT | npm |
-| [detect-secrets](https://github.com/Yelp/detect-secrets) | [1.5.0](https://pypi.org/project/detect-secrets/1.5.0/) | Apache-2.0 | PyPI |
 | [esbuild-wasm](https://github.com/evanw/esbuild) | [0.28.2](https://www.npmjs.com/package/esbuild-wasm/v/0.28.2) | MIT | npm |
 | [ExecuTorch](https://github.com/pytorch/executorch) | 1.3.1-2 | BSD-3-Clause and bundled terms | Debian package |
 | [expected](https://github.com/TartanLlama/expected) | [1.3.1](https://github.com/TartanLlama/expected/tree/v1.3.1) | CC0-1.0 | Fedora |
@@ -52,16 +51,16 @@ and check the built artifacts before publication.
 | [fsevents](https://github.com/fsevents/fsevents) | [2.3.2](https://www.npmjs.com/package/fsevents/v/2.3.2) | MIT | npm |
 | [gcovr](https://github.com/gcovr/gcovr) | [7.2](https://pypi.org/project/gcovr/7.2/) | BSD-3-Clause | PyPI |
 | [gitdb](https://github.com/gitpython-developers/gitdb) | [4.0.12](https://pypi.org/project/gitdb/4.0.12/) | BSD-3-Clause | PyPI |
-| [GitPython](https://github.com/gitpython-developers/GitPython) | [3.2.0](https://pypi.org/project/GitPython/3.2.0/) | BSD-3-Clause | PyPI |
+| [GitPython](https://github.com/gitpython-developers/GitPython) | [3.2.1](https://pypi.org/project/GitPython/3.2.1/) | BSD-3-Clause | PyPI |
 | [PyGObject](https://gitlab.gnome.org/GNOME/pygobject) | [3.50.0-4+b1](https://packages.debian.org/trixie/python3-gi) | LGPL-2.1-or-later AND MIT (selected files; [Debian copyright](https://metadata.ftp-master.debian.org/changelogs/main/p/pygobject/pygobject_3.50.0-4_copyright)) | Debian (Cairn image) |
-| [PyGObject](https://gitlab.gnome.org/GNOME/pygobject) | [3.58.0](https://pypi.org/project/PyGObject/3.58.0/) | LGPL-2.1-or-later AND [MIT (selected files)](https://github.com/GNOME/pygobject/blob/3.58.0/gi/pygi-property.c) | PyPI (build requirements) |
+| [PyGObject](https://gitlab.gnome.org/GNOME/pygobject) | [3.58.1](https://pypi.org/project/PyGObject/3.58.1/) | LGPL-2.1-or-later AND [MIT (selected files)](https://github.com/GNOME/pygobject/blob/3.58.1/gi/pygi-property.c) | PyPI (build requirements) |
 | [GoogleTest](https://github.com/google/googletest) | [1.17.0](https://github.com/google/googletest/tree/v1.17.0) | BSD-3-Clause | Debian, Ubuntu |
 | [Google Mock](https://github.com/google/googletest) | [1.17.0](https://github.com/google/googletest/tree/v1.17.0) | BSD-3-Clause | Fedora |
 | [h11](https://github.com/python-hyper/h11) | [0.16.0](https://pypi.org/project/h11/0.16.0/) | MIT | PyPI |
 | [hf-xet](https://github.com/huggingface/xet-core) | [1.6.0](https://pypi.org/project/hf-xet/1.6.0/) | Apache-2.0 | PyPI |
 | [httpcore](https://github.com/encode/httpcore) | [1.0.9](https://pypi.org/project/httpcore/1.0.9/) | BSD-3-Clause | PyPI |
 | [httpx](https://github.com/encode/httpx) | [0.28.1](https://pypi.org/project/httpx/0.28.1/) | BSD-3-Clause | PyPI |
-| [huggingface-hub](https://github.com/huggingface/huggingface_hub) | [2.0.0](https://pypi.org/project/huggingface-hub/2.0.0/) | Apache-2.0 | PyPI |
+| [huggingface-hub](https://github.com/huggingface/huggingface_hub) | [2.2.0](https://pypi.org/project/huggingface-hub/2.2.0/) | Apache-2.0 | PyPI |
 | [identify](https://github.com/pre-commit/identify) | [2.6.19](https://pypi.org/project/identify/2.6.19/) | MIT | PyPI |
 | [idna](https://github.com/kjd/idna) | [3.19](https://pypi.org/project/idna/3.19/) | BSD-3-Clause | PyPI |
 | [inflect](https://github.com/jaraco/inflect) | [7.3.1](https://pypi.org/project/inflect/7.3.1/) | MIT | PyPI |
@@ -86,25 +85,25 @@ and check the built artifacts before publication.
 | [more-itertools](https://github.com/more-itertools/more-itertools) | [10.7.0](https://pypi.org/project/more-itertools/10.7.0/) | MIT | PyPI |
 | [magic\_enum](https://github.com/Neargye/magic_enum) | [v0.9.7](https://github.com/Neargye/magic_enum/tree/v0.9.7) | MIT | Debian |
 | [nodeenv](https://github.com/ekalinin/nodeenv) | [1.10.0](https://pypi.org/project/nodeenv/1.10.0/) | BSD-3-Clause | PyPI |
-| [NumPy](https://github.com/numpy/numpy) | [2.4.2](https://pypi.org/project/numpy/2.4.2/) (build), [2.5.3](https://pypi.org/project/numpy/2.5.3/) (host Python) | BSD-3-Clause and [wheel terms](https://github.com/numpy/numpy/blob/v2.4.2/pyproject.toml), including GPL-3.0-or-later WITH GCC-exception-3.1 (libgfortran) and LGPL-2.1-or-later (x86_64 libquadmath) | PyPI |
+| [NumPy](https://github.com/numpy/numpy) | [2.4.2](https://pypi.org/project/numpy/2.4.2/) (build), [2.5.4](https://pypi.org/project/numpy/2.5.4/) (host Python) | BSD-3-Clause and [wheel terms](https://github.com/numpy/numpy/blob/v2.4.2/pyproject.toml), including GPL-3.0-or-later WITH GCC-exception-3.1 (libgfortran) and LGPL-2.1-or-later (x86_64 libquadmath) | PyPI |
 | [onnx](https://github.com/onnx/onnx) | [1.22.0](https://pypi.org/project/onnx/1.22.0/) | Apache-2.0 | PyPI |
 | [onnxruntime](https://github.com/microsoft/onnxruntime) | [1.24.4](https://github.com/microsoft/onnxruntime/releases/tag/v1.24.4) | MIT and bundled terms | GitHub release |
 | [openai](https://github.com/openai/openai-python) | [2.44.0](https://pypi.org/project/openai/2.44.0/) | Apache-2.0 | PyPI |
 | [openai-agents](https://github.com/openai/openai-agents-python) | [0.17.7](https://pypi.org/project/openai-agents/0.17.7/) | MIT | PyPI |
 | [packaging](https://github.com/pypa/packaging) | [26.3](https://pypi.org/project/packaging/26.3/) | BSD-2-Clause AND Apache-2.0 | PyPI |
-| [Pillow](https://github.com/python-pillow/Pillow) | [12.3.0](https://pypi.org/project/pillow/12.3.0/) | CMU License | PyPI |
+| [Pillow](https://github.com/python-pillow/Pillow) | [13.0.0](https://pypi.org/project/pillow/13.0.0/) | CMU License | PyPI |
 | [pip](https://github.com/pypa/pip) | [25.1.1](https://pypi.org/project/pip/25.1.1/) | MIT | PyPI |
 | [platformdirs](https://github.com/tox-dev/platformdirs) | [4.11.9](https://pypi.org/project/platformdirs/4.11.9/) | MIT | PyPI |
 | [Playwright / playwright-core](https://github.com/microsoft/playwright) | [1.61.0](https://github.com/microsoft/playwright/tree/v1.61.0) | Apache-2.0 | npm |
 | [@playwright/test](https://github.com/microsoft/playwright) | [1.61.0](https://www.npmjs.com/package/@playwright/test/v/1.61.0) | Apache-2.0 | npm |
 | [pre-commit](https://github.com/pre-commit/pre-commit) | [4.6.2](https://pypi.org/project/pre-commit/4.6.2/) | MIT | PyPI |
-| [Requests](https://github.com/psf/requests) | [2.33.0](https://pypi.org/project/requests/2.33.0/) | Apache-2.0 | PyPI |
+| [Requests](https://github.com/psf/requests) | [2.34.2](https://pypi.org/project/requests/2.34.2/) | Apache-2.0 | PyPI |
 | [pycapio](https://github.com/High-Performance-IO/PyCAPIO) | [0.0.2](https://pypi.org/project/pycapio/0.0.2/) | MIT | PyPI |
-| [pycairo](https://github.com/pygobject/pycairo) | [1.29.1](https://pypi.org/project/pycairo/1.29.1/) | [LGPL-2.1-only OR MPL-1.1](https://github.com/pygobject/pycairo/blob/v1.29.1/COPYING) | PyPI (build requirements) |
+| [pycairo](https://github.com/pygobject/pycairo) | [1.29.2](https://pypi.org/project/pycairo/1.29.2/) | [LGPL-2.1-only OR MPL-1.1](https://github.com/pygobject/pycairo/blob/v1.29.2/COPYING) | PyPI (build requirements) |
 | [pycodestyle](https://github.com/PyCQA/pycodestyle) | [2.15.0](https://pypi.org/project/pycodestyle/2.15.0/) | MIT | PyPI |
 | [pydantic](https://github.com/pydantic/pydantic) | [2.13.4](https://pypi.org/project/pydantic/2.13.4/) | MIT | PyPI |
 | [filelock](https://github.com/tox-dev/filelock) | [3.32.7](https://pypi.org/project/filelock/3.32.7/) | MIT | PyPI |
-| [Pyflakes](https://github.com/PyCQA/pyflakes) | [4.0.0](https://pypi.org/project/pyflakes/4.0.0/) | MIT | PyPI |
+| [Pyflakes](https://github.com/PyCQA/pyflakes) | [4.0.3](https://pypi.org/project/pyflakes/4.0.3/) | MIT | PyPI |
 | [Pygments](https://github.com/pygments/pygments) | [2.21.0](https://pypi.org/project/Pygments/2.21.0/) | BSD-2-Clause | PyPI |
 | [setuptools](https://github.com/pypa/setuptools) | [80.9.0](https://pypi.org/project/setuptools/80.9.0/) | MIT | PyPI |
 | [pyright](https://github.com/RobertCraigie/pyright-python) | [1.1.408](https://pypi.org/project/pyright/1.1.408/) | MIT | PyPI |
