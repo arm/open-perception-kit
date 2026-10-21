@@ -86,6 +86,14 @@ gst_meta_wrapper_tests = executable(
   link_with : [common],
 )
 
+gst_video_buffer_tests = executable(
+  'gst_video_buffer_tests',
+  ['gst_video_buffer_test.cpp'],
+  include_directories : [common_include],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+
 model_registry_tests = executable(
   'model_registry_tests',
   ['model_registry_test.cpp', '../elements/opksink/model_reg.cpp'],
@@ -468,6 +476,7 @@ test('performance_metrics_tests', performance_metrics_tests)
 test('opktracker_matching_tests', opktracker_matching_tests)
 test('opktracker_tracking_output_tests', opktracker_tracking_output_tests)
 test('webrtc_session_tests', webrtc_session_tests)
+test('gst_video_buffer_tests', gst_video_buffer_tests)
 foreach endpoint : ['control', 'webrtc']
   test(
     'opksink_websocket_json_' + endpoint,

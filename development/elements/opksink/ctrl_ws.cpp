@@ -51,6 +51,7 @@ CtrlSockerError CtrlWebSocket::setup() {
     ws = std::make_shared<ws_server>();
 
     ws->init_asio();
+    ws->clear_access_channels(websocketpp::log::alevel::all);
     ws->clear_error_channels(websocketpp::log::elevel::all);
     ws->set_error_channels(websocketpp::log::elevel::fatal);
 

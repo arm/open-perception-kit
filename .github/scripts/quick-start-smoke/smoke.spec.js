@@ -17,6 +17,41 @@
 
 const { expect, test } = require('@playwright/test');
 
+const MIN_OBSERVED_FRAMES = 3;
+const MIN_FRAMES_DURING_ICE_SETUP = 10;
+const NORMAL_WEBSOCKET_CLOSE = 1000;
+
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    const NativeWebSocket = window.WebSocket;
+    window.smokeWebSockets = [];
+    window.WebSocket = class extends NativeWebSocket {
+      constructor(...args) {
+        super(...args);
+        const closed = new Promise((resolve) => {
+          this.addEventListener('close', (event) => {
+            resolve({ code: event.code, wasClean: event.wasClean });
+          }, { once: true });
+        });
+        window.smokeWebSockets.push({ socket: this, closed });
+      }
+    };
+  });
+});
+
+test.afterEach(async ({ page }) => {
+  // Finish close handshakes before disposing the browser context and its TCP connections.
+  const closedSockets = await page.evaluate((closeCode) =>
+    Promise.all(window.smokeWebSockets.map(({ socket, closed }) => {
+      if (socket.readyState !== WebSocket.CLOSED) socket.close(closeCode);
+      return closed;
+    })), NORMAL_WEBSOCKET_CLOSE);
+  expect(closedSockets.length).toBeGreaterThan(0);
+  for (const closed of closedSockets) {
+    expect(closed).toEqual({ code: NORMAL_WEBSOCKET_CLOSE, wasClean: true });
+  }
+});
+
 test('signaling diagnostics render as text', async ({ page }) => {
   const messages = ['camera ready', '<em>camera & light</em>'];
   await page.routeWebSocket('**/ws', async (ws) => {
@@ -37,15 +72,104 @@ test('signaling diagnostics render as text', async ({ page }) => {
 });
 
 test('quick-start plays video and displays an object detection', async ({ page }) => {
+  let dropFrameMetadata = false;
+  let holdIceCandidates = true;
+  let answerReceived = false;
+  let framesDuringIceSetup = 0;
+  let metadataBeforeIce = 0;
+  const pendingCandidates = [];
+  await page.routeWebSocket('**/ws', (ws) => {
+    const server = ws.connectToServer();
+    ws.onMessage((message) => {
+      if (holdIceCandidates && JSON.parse(message).type === 'candidate') {
+        pendingCandidates.push(() => server.send(message));
+        return;
+      }
+      server.send(message);
+    });
+    server.onMessage((message) => {
+      const data = JSON.parse(message);
+      if (data.type === 'answer') answerReceived = true;
+      if (holdIceCandidates && data.type === 'candidate') {
+        pendingCandidates.push(() => ws.send(message));
+        return;
+      }
+      if (data.type === 'frame-metadata') {
+        if (holdIceCandidates) metadataBeforeIce++;
+        if (dropFrameMetadata) return;
+      } else if (holdIceCandidates && answerReceived && data.frame_results_packet_b64) {
+        framesDuringIceSetup++;
+      }
+      ws.send(message);
+    });
+  });
+
+  await page.addInitScript(() => {
+    const RGBA_COMPONENTS = 4;
+    const ALPHA_COMPONENT = 3;
+    const observed = window.overlaySmoke = {
+      matchedFrames: 0,
+      mismatchedFrames: 0,
+      framesWithOverlay: 0,
+      consecutiveClearFrames: 0,
+    };
+    let currentTimestamp;
+    let frameMetadata;
+    window.addEventListener('video-frame-metadata', (event) => {
+      if (currentTimestamp === undefined) return;
+      frameMetadata = event.detail;
+      if (frameMetadata) {
+        if (frameMetadata.rtp_timestamp === currentTimestamp) observed.matchedFrames++;
+        else observed.mismatchedFrames++;
+      }
+    });
+
+    const requestFrame = HTMLVideoElement.prototype.requestVideoFrameCallback;
+    HTMLVideoElement.prototype.requestVideoFrameCallback = function (callback) {
+      return requestFrame.call(this, (now, frame) => {
+        currentTimestamp = frame.rtpTimestamp;
+        frameMetadata = undefined;
+        callback(now, frame);
+        const canvas = document.getElementById('clientOsdCanvas');
+        if (canvas?.width && canvas?.height) {
+          const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+          const hasOverlay = pixels.some((value, index) =>
+            index % RGBA_COMPONENTS === ALPHA_COMPONENT && value !== 0);
+          if (frameMetadata && hasOverlay) observed.framesWithOverlay++;
+          observed.consecutiveClearFrames = frameMetadata === null && !hasOverlay
+            ? observed.consecutiveClearFrames + 1 : 0;
+        }
+        currentTimestamp = undefined;
+      });
+    };
+  });
+
   const video = page.locator('#video');
   const objects = page.locator('#inferenceOutputBody .inference-layer').filter({
     has: page.locator('.inference-layer-kind', { hasText: /^genericObject$/ }),
   });
 
-  await page.goto('/');
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+
+  // Keep ICE incomplete while the pipeline runs: metadata must not delay signaling.
+  await expect.poll(() => framesDuringIceSetup).toBeGreaterThanOrEqual(MIN_FRAMES_DURING_ICE_SETUP);
+  expect(metadataBeforeIce).toBe(0);
+  holdIceCandidates = false;
+  for (const send of pendingCandidates) send();
 
   await expect.poll(() => video.evaluate((element) =>
     element.readyState >= 2 && element.videoWidth > 0 && element.currentTime > 0
   )).toBe(true);
   await expect(objects.locator('.inference-detection').first()).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.overlaySmoke.matchedFrames))
+    .toBeGreaterThanOrEqual(MIN_OBSERVED_FRAMES);
+  await expect.poll(() => page.evaluate(() => window.overlaySmoke.framesWithOverlay))
+    .toBeGreaterThan(0);
+  expect(await page.evaluate(() => window.overlaySmoke.mismatchedFrames)).toBe(0);
+
+  // Keep real video flowing but withhold its metadata: stale overlays must disappear.
+  dropFrameMetadata = true;
+  await page.evaluate(() => { window.overlaySmoke.consecutiveClearFrames = 0; });
+  await expect.poll(() => page.evaluate(() => window.overlaySmoke.consecutiveClearFrames))
+    .toBeGreaterThanOrEqual(MIN_OBSERVED_FRAMES);
 });

@@ -86,7 +86,7 @@ class WebRtcWebSocket {
     bool attach_audio(SessionContext *ctx);
 
     void set_video_pt(SessionContext *ctx);
-    bool attach_video(SessionContext *ctx);
+    bool attach_video(const std::shared_ptr<SessionContext> &ctx);
 
     bool link_per_client_elements(SessionContext *ctx);
 

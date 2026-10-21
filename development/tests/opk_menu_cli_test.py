@@ -802,7 +802,11 @@ class TestOpkMenuCliDiagnostics(unittest.TestCase):
             )
 
             try:
-                time.sleep(0.25)
+                # The startup command is printed after signal handlers are installed.
+                self.assertTrue(
+                    select.select([process.stdout], [], [], STARTUP_TIMEOUT_SECONDS)[0],
+                    "Runtime did not print its startup command",
+                )
                 self.assertIsNone(process.poll(), "Runtime pipeline exited before SIGINT")
 
                 process.send_signal(signal.SIGINT)
@@ -857,6 +861,10 @@ class TestOpkMenuCliDiagnostics(unittest.TestCase):
             )
 
             try:
+                self.assertTrue(
+                    select.select([process.stdout], [], [], STARTUP_TIMEOUT_SECONDS)[0],
+                    "Runtime did not print its startup command",
+                )
                 time.sleep(0.5)
                 self.assertIsNone(process.poll(), "looping Runtime pipeline stopped at EOS")
                 process.send_signal(signal.SIGTERM)
