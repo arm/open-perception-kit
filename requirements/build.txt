@@ -14,6 +14,6 @@
 # limitations under the License.
 
 -r meson.txt
-pycairo==1.29.1
-PyGObject==3.58.0
+pycairo==1.29.2
+PyGObject==3.58.1
 -r common.txt
