@@ -683,10 +683,12 @@ class ReleaseToolTests(unittest.TestCase):
                         embedded_notice = source / relative
                         embedded_notice.parent.mkdir(parents=True, exist_ok=True)
                         embedded_notice.write_bytes(SOURCE_NOTICE_CONTENT)
-            for name, filename in (("flatbuffers", "LICENSE"), ("fontawesome", "LICENSE.txt")):
-                source = repo / "development/web/content/vendor" / name
-                source.mkdir(parents=True)
-                shutil.copyfile(REPO_ROOT / "development/web/content/vendor" / name / filename, source / filename)
+            for notice in release_tool.CORE_LEGAL_NOTICES:
+                if notice.split("/")[0] not in {"flatbuffers", "lucide", "wafer"}:
+                    continue
+                source = repo / "development/web/content/vendor" / notice
+                source.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(REPO_ROOT / "development/web/content/vendor" / notice, source)
             onnx = root / "deps/onnxruntime/share/doc/onnxruntime"
             onnx.mkdir(parents=True)
             for filename in ("LICENSE", "ThirdPartyNotices.txt"):

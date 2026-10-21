@@ -19,6 +19,7 @@
 #include "opk/TensorParser.h"
 #include "opk/Types.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <fmt/core.h>
@@ -54,25 +55,26 @@ opk::Result<void> RvmParser::parse(const opk::TensorParser::Input &input,
                       fmt::format("RvmParser: expected 1 channel, got {}", shape.dims[1])));
     }
 
-    size_t maskHeight = shape.dims[2];
-    size_t maskWidth = shape.dims[3];
+    if (shape.dims[2] <= 0 || shape.dims[3] <= 0 || !input.tensors[1]->isValid()) {
+        return tl::unexpected(
+            OPK_ERROR(ErrorFlag::InvalidData, "RvmParser: invalid alpha dimensions or buffer"));
+    }
+
+    const size_t maskHeight = shape.dims[2];
+    const size_t maskWidth = shape.dims[3];
 
     opk::Bitmap bitmap(opk::Bitmap::Type::Uint8, maskWidth, maskHeight);
 
     auto *dst = bitmap.getMutableData();
 
-    // size_t planeSize = maskHeight * maskWidth;
-
-    for (size_t y = 0; y < maskHeight; y++) {
-        for (size_t x = 0; x < maskWidth; x++) {
-
-            /*float r = input.tensors[0]->get(0 * planeSize + y * maskWidth + x);
-            float g = input.tensors[0]->get(1 * planeSize + y * maskWidth + x);
-            float b = input.tensors[0]->get(2 * planeSize + y * maskWidth + x);*/
-            float a = input.tensors[1]->get(y * maskWidth + x);
-
-            dst[y * maskWidth + x] = (a > 0.5f) ? 0 : 255;
+    for (size_t i = 0; i < maskHeight * maskWidth; ++i) {
+        const float alpha = input.tensors[1]->get(i);
+        if (!std::isfinite(alpha)) {
+            return tl::unexpected(OPK_ERROR(ErrorFlag::InvalidData, "RvmParser: non-finite alpha"));
         }
+        // OPK masks describe background opacity, the inverse of RVM foreground alpha.
+        // Preserve soft edges; consumers can threshold the bytes when needed.
+        dst[i] = static_cast<uint8_t>(std::lround((1.0f - std::clamp(alpha, 0.0f, 1.0f)) * 255.0f));
     }
 
     auto mask = std::make_unique<open_perception_kit::metadata::SegmentationMaskT>();

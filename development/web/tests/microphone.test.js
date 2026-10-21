@@ -32,7 +32,8 @@ test('control availability gates microphone capture and hides it on disconnect',
         addEventListener(name, callback) { click = callback; },
     };
     const status = {hidden: true};
-    const elements = {microphoneBtn: button, microphoneStatus: status, microphoneIcon: {}};
+    const icon = {dataset: {icon: 'mic-off'}};
+    const elements = {microphoneBtn: button, microphoneStatus: status, microphoneIcon: icon};
     const mocks = {
         document: {getElementById: id => elements[id]},
         window: {addEventListener() {}},
@@ -54,7 +55,9 @@ test('control availability gates microphone capture and hides it on disconnect',
         assert.equal(status.hidden, false);
         click();
         assert.equal(requests, 1);
+        assert.equal(icon.dataset.icon, 'mic');
         enableMicrophoneButton(false);
+        assert.equal(icon.dataset.icon, 'mic-off');
         assert.equal(button.style.display, 'none');
         assert.equal(button.disabled, true);
         assert.equal(status.hidden, true);

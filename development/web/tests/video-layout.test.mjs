@@ -36,7 +36,7 @@ test('sidebar and outputs are independent rightmost toggles', async () => {
         sidebarVisibilityBtn: button(),
         outputsVisibilityBtn: button(),
         toggleVideoFeedBtn: button(),
-        toggleVideoFeedIcon: {},
+        toggleVideoFeedIcon: {dataset: {}},
     };
 
     Object.defineProperties(globalThis, {

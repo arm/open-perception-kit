@@ -69,8 +69,10 @@ runtime. Treat these as constraints when extending the system.
 
 - Main GStreamer elements negotiate linear CPU video frames in `BGRA`, `RGB`,
   `I420`, `NV12`, and `YUY2`.
-- Padded stride, multi-planar drawing details, DMABUF, and zero-copy paths are not handled
-  consistently yet.
+- `opkinfer` accepts linear, CPU-mappable DMA-BUF input through GStreamer, including
+  padded strides and separate planes. Preprocessing still creates separate model
+  input tensors; this is not end-to-end zero-copy inference. Tiled/compressed
+  DMA-BUF layouts and non-mappable device memory require upstream conversion.
 - `opksink` can transport audio, but audio inference is not integrated.
 
 ## Configuration And OpChain Contracts

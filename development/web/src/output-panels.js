@@ -21,17 +21,17 @@ const panels = {
     inference: {
         button: document.getElementById('toggleInferenceOutput'),
         section: document.querySelector('[data-inference-output-section]'),
-        label: 'Inference Output',
+        label: 'inference output',
     },
     metrics: {
         button: document.getElementById('togglePerformanceOutput'),
         section: document.querySelector('[data-performance-metrics-section]'),
-        label: 'Performance Metrics',
+        label: 'performance metrics',
     },
     debug: {
         button: document.getElementById('toggleDebugOutput'),
         section: document.querySelector('[data-debug-log-section]'),
-        label: 'Debug Log',
+        label: 'debug log',
     },
 };
 
@@ -82,12 +82,12 @@ function setPanelButtonState(panel, visible) {
         return;
     }
 
-    const icon = panel.button.querySelector('i');
+    const icon = panel.button.querySelector('[data-icon]');
     panel.button.setAttribute('aria-pressed', visible ? 'true' : 'false');
     panel.button.setAttribute('aria-label', (visible ? 'Hide ' : 'Show ') + panel.label);
 
     if (icon) {
-        icon.className = visible ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash';
+        icon.dataset.icon = visible ? 'eye' : 'eye-off';
     }
 }
 

@@ -40,8 +40,7 @@ const client = new MicrophoneClient({
         button.setAttribute('aria-pressed', String(active));
         button.setAttribute('aria-label', active ? 'Stop sharing microphone' : 'Share microphone');
         button.title = message;
-        icon.className = 'video-control-icon fa-solid ' +
-            (active ? 'fa-microphone' : 'fa-microphone-slash');
+        icon.dataset.icon = active ? 'mic' : 'mic-off';
         status.textContent = message;
     },
 });

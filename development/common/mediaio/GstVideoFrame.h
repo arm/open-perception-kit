@@ -91,6 +91,8 @@ class GstVideoFrame final : public opk::mediaio::VideoFrame {
      * The returned frame owns a GstBuffer reference and the GStreamer video map.
      * The map is released with gst_video_frame_unmap() and the buffer reference
      * with gst_buffer_unref() when the shared frame is destroyed.
+     * Linear, CPU-mappable DMA-BUF memory is exposed as host plane views, using
+     * GstVideoMeta offsets/strides and the allocator's CPU synchronization.
      *
      * @param buffer Buffer to map.
      * @param videoInfo Negotiated video layout for the buffer.

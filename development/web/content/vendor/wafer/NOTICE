@@ -1,0 +1,5 @@
+Wafer 2.0.2 — Copyright (C) 2025 Arm Limited.
+Source: https://github.com/Arm-Debug/design-system/tree/41ef08db5fb12c1aef580206bd452f9250d6152c
+Built by development/web/update-vendor.mjs.
+Only font-face family descriptors are normalized for browser compatibility.
+Lato and Cousine license texts are preserved in LICENSES/.
