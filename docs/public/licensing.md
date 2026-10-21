@@ -58,8 +58,12 @@ photographs, video, fonts, or other content.
   lists projects, versions, licences and origins. Release packaging stages the
   original notices from the resolved dependencies.
 
-Font Awesome's CSS is MIT-licensed and its bundled font uses OFL-1.1. Their
-original `LICENSE.txt` accompanies the files under `development/web/content/vendor/fontawesome/`.
+Lucide's ISC/MIT notice accompanies its SVG assets under
+`development/web/content/vendor/lucide/`. Wafer's Arm copyright notice and its
+bundled Lato (OFL-1.1) and Cousine (Apache-2.0) font notices are preserved under
+`development/web/content/vendor/wafer/`. Upstream Wafer does not declare a CSS
+licence identifier; the vendor notice records its source and the font-face
+compatibility adjustment without assigning it a different licence.
 FlatBuffers' Apache-2.0 text is under `development/web/content/vendor/flatbuffers/`.
 
 Model binaries are downloaded separately using the user's Hugging Face access;

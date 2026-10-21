@@ -54,7 +54,8 @@ CORE_LEGAL_NOTICES = (
     "gtest/LICENSE", "jsoncons/LICENSE", "magic_enum/LICENSE", "nlohmann_json/LICENSE.MIT",
     "stb/LICENSE", "tl-expected/COPYING", "websocketpp/COPYING",
     "onnxruntime/LICENSE", "onnxruntime/ThirdPartyNotices.txt",
-    "flatbuffers/LICENSE", "fontawesome/LICENSE.txt",
+    "flatbuffers/LICENSE", "lucide/LICENSE", "wafer/NOTICE",
+    "wafer/LICENSES/Lato.txt", "wafer/LICENSES/Cousine.txt",
 )
 ONNX_INFERENCE_OP = "opk-onnx-ops/Inference"
 ONNX_MODEL_SUFFIX = ".onnx"
@@ -561,7 +562,8 @@ def stage_legal(args: argparse.Namespace) -> None:
     collect("onnxruntime", deps_root / "onnxruntime/share/doc/onnxruntime")
     vendor = repo_root / "development/web/content/vendor"
     collect("flatbuffers", vendor / "flatbuffers")
-    collect("fontawesome", vendor / "fontawesome")
+    collect("lucide", vendor / "lucide")
+    copy_legal_files(vendor / "wafer", legal_root / "wafer", ("LICENSES/Lato.txt", "LICENSES/Cousine.txt"))
 
     executorch = deps_root / "executorch-legal-documentation"
     if executorch.is_dir():

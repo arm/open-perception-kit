@@ -45,7 +45,10 @@ and check the built artifacts before publication.
 | [fsspec](https://github.com/fsspec/filesystem_spec) | [2026.7.0](https://pypi.org/project/fsspec/2026.7.0/) | BSD-3-Clause | PyPI |
 | [FlatBuffers](https://github.com/google/flatbuffers) | [25.9.23](https://github.com/google/flatbuffers/tree/v25.9.23) (SDK/build), [25.12.19](https://pypi.org/project/flatbuffers/25.12.19/) (host Python) | Apache-2.0 | npm, crates.io, PyPI |
 | [fmt](https://github.com/fmtlib/fmt) | [12.0.0](https://github.com/fmtlib/fmt/tree/12.0.0) | MIT | openSUSE |
-| [Font Awesome Free](https://github.com/FortAwesome/Font-Awesome) | [6.5.2](https://www.npmjs.com/package/@fortawesome/fontawesome-free/v/6.5.2) | MIT (CSS), OFL-1.1 (fonts) | vendored assets |
+| [Lucide](https://lucide.dev/) | [1.61.0](https://www.npmjs.com/package/lucide-static/v/1.61.0) | ISC and MIT (Feather-derived icons) | vendored SVG assets |
+| [Wafer](https://github.com/Arm-Debug/design-system) | [2.0.2](https://github.com/Arm-Debug/design-system/tree/v2.0.2) | Arm copyright notice; upstream declares no CSS licence identifier | vendored CSS |
+| [Lato](https://www.latofonts.com/) | bundled with Wafer 2.0.2 | OFL-1.1 | vendored fonts; original notice in `vendor/wafer/LICENSES/Lato.txt` |
+| [Cousine](https://fonts.google.com/specimen/Cousine) | bundled with Wafer 2.0.2 | Apache-2.0 | vendored fonts; original notice in `vendor/wafer/LICENSES/Cousine.txt` |
 | [fsevents](https://github.com/fsevents/fsevents) | [2.3.2](https://www.npmjs.com/package/fsevents/v/2.3.2) | MIT | npm |
 | [gcovr](https://github.com/gcovr/gcovr) | [7.2](https://pypi.org/project/gcovr/7.2/) | BSD-3-Clause | PyPI |
 | [gitdb](https://github.com/gitpython-developers/gitdb) | [4.0.12](https://pypi.org/project/gitdb/4.0.12/) | BSD-3-Clause | PyPI |

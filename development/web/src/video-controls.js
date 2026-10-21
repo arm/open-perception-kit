@@ -32,7 +32,7 @@ const setBusy = (busy) => {
     if (!playBtn) return;
 
     playBtn.disabled = busy;
-    playBtn.style.opacity = busy ? "0.7" : "";
+    playBtn.setAttribute('aria-busy', String(busy));
 };
 
 const renderPlayPause = () => {
@@ -40,8 +40,7 @@ const renderPlayPause = () => {
 
     const isPaused = !isPipelinePlaying;
     document.body.classList.toggle("is-feed-paused", isPaused);
-    playIcon.classList.toggle("fa-pause", isPipelinePlaying);
-    playIcon.classList.toggle("fa-play", isPaused);
+    playIcon.dataset.icon = isPaused ? 'play' : 'pause';
     playText.textContent = isPaused ? "Resume" : "Pause";
     playBtn.setAttribute("aria-label", isPaused ? "Resume pipeline" : "Pause pipeline");
     setBusy(false);

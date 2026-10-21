@@ -52,7 +52,7 @@ function setVideoFeedHidden(hidden) {
     }
 
     if (videoFeedIcon) {
-        videoFeedIcon.className = videoFeedHidden ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash';
+        videoFeedIcon.dataset.icon = videoFeedHidden ? 'eye' : 'eye-off';
     }
 
     notifyVideoLayoutChange();
