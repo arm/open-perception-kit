@@ -729,6 +729,190 @@ function enableAudioButton(enable) {
   }
 }
 
+// development/web/src/microphone_client.js
+var MicrophoneClient = class {
+  constructor({
+    getUserMedia,
+    createPeer,
+    createSocket,
+    signalingUrl: signalingUrl2,
+    iceServers,
+    onStatus = () => {
+    },
+    timeoutMs = 15e3
+  }) {
+    Object.assign(this, {
+      getUserMedia,
+      createPeer,
+      createSocket,
+      signalingUrl: signalingUrl2,
+      iceServers,
+      onStatus,
+      timeoutMs
+    });
+    this.session = null;
+  }
+  stop(message = "Microphone off") {
+    const session = this.session;
+    this.session = null;
+    if (session) {
+      clearTimeout(session.timer);
+      session.stream?.getTracks().forEach((track) => track.stop());
+      session.pc?.close();
+      session.ws?.close();
+    }
+    this.onStatus(false, message);
+  }
+  async start() {
+    if (this.session)
+      return;
+    const session = { localIce: [], remoteIce: [], offered: false, messages: Promise.resolve() };
+    this.session = session;
+    const current = () => this.session === session;
+    const fail = (error) => {
+      if (current())
+        this.stop("Microphone: " + (error.message || String(error)));
+    };
+    this.onStatus(true, "Waiting for microphone permission\u2026");
+    try {
+      const stream = await this.getUserMedia({ audio: true, video: false });
+      if (!current()) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      session.stream = stream;
+      const tracks = stream.getAudioTracks();
+      if (!tracks.length)
+        throw new Error("No microphone audio track");
+      this.onStatus(true, "Connecting microphone\u2026");
+      const pc = session.pc = this.createPeer({ iceServers: this.iceServers });
+      for (const track of tracks) {
+        pc.addTransceiver(track, { direction: "sendonly", streams: [stream] });
+        track.onended = () => fail(new Error("Microphone disconnected"));
+      }
+      const ws = session.ws = this.createSocket(this.signalingUrl);
+      session.timer = setTimeout(() => fail(new Error("Connection timed out")), this.timeoutMs);
+      const send = (message) => ws.send(JSON.stringify(message));
+      pc.onicecandidate = (event) => {
+        if (!current() || !event.candidate)
+          return;
+        const message = { type: "candidate", ice: event.candidate };
+        try {
+          if (session.offered)
+            send(message);
+          else
+            session.localIce.push(message);
+        } catch (error) {
+          fail(error);
+        }
+      };
+      pc.onconnectionstatechange = () => {
+        if (!current())
+          return;
+        if (pc.connectionState === "connected") {
+          clearTimeout(session.timer);
+          this.onStatus(true, "Microphone sharing");
+        } else if (["failed", "closed", "disconnected"].includes(pc.connectionState)) {
+          fail(new Error("Connection lost"));
+        }
+      };
+      ws.onopen = async () => {
+        try {
+          if (!current())
+            return;
+          const offer = await pc.createOffer();
+          if (!current())
+            return;
+          await pc.setLocalDescription(offer);
+          if (!current())
+            return;
+          send({ type: "offer", sdp: pc.localDescription.sdp });
+          session.offered = true;
+          for (const message of session.localIce)
+            send(message);
+          session.localIce = [];
+        } catch (error) {
+          fail(error);
+        }
+      };
+      ws.onmessage = (event) => {
+        session.messages = session.messages.then(async () => {
+          if (!current())
+            return;
+          const message = JSON.parse(event.data);
+          if (message.type === "answer" && typeof message.sdp === "string") {
+            await pc.setRemoteDescription({ type: "answer", sdp: message.sdp });
+            for (const candidate of session.remoteIce) {
+              if (!current())
+                return;
+              await pc.addIceCandidate(candidate);
+            }
+            session.remoteIce = [];
+          } else if (message.type === "candidate" && message.ice) {
+            if (pc.remoteDescription)
+              await pc.addIceCandidate(message.ice);
+            else
+              session.remoteIce.push(message.ice);
+          } else {
+            throw new Error("Invalid signaling response");
+          }
+        }).catch(fail);
+      };
+      ws.onerror = () => fail(new Error("Signaling unavailable"));
+      ws.onclose = () => fail(new Error("Signaling disconnected"));
+    } catch (error) {
+      fail(error);
+    }
+  }
+};
+
+// development/web/src/microphone.js
+var button = document.getElementById("microphoneBtn");
+var icon = document.getElementById("microphoneIcon");
+var status = document.getElementById("microphoneStatus");
+var microphoneAvailable = false;
+var microphoneConfig = window.OPK_CONFIG || {};
+var signalingUrl = new URL(location.href);
+signalingUrl.protocol = location.protocol === "https:" ? "wss:" : "ws:";
+signalingUrl.port = String(microphoneConfig.micWsPort ?? 8003);
+signalingUrl.pathname = "/ws";
+signalingUrl.search = "";
+signalingUrl.hash = "";
+var client2 = new MicrophoneClient({
+  getUserMedia: (constraints) => navigator.mediaDevices.getUserMedia(constraints),
+  createPeer: (options) => new RTCPeerConnection(options),
+  createSocket: (url) => new WebSocket(url),
+  signalingUrl: signalingUrl.href,
+  ...resolveWebRtcIceConfig(microphoneConfig),
+  onStatus: (active, message) => {
+    button.setAttribute("aria-pressed", String(active));
+    button.setAttribute("aria-label", active ? "Stop sharing microphone" : "Share microphone");
+    button.title = message;
+    icon.className = "video-control-icon fa-solid " + (active ? "fa-microphone" : "fa-microphone-slash");
+    status.textContent = message;
+  }
+});
+function enableMicrophoneButton(enable) {
+  microphoneAvailable = enable === true;
+  button.style.display = microphoneAvailable ? "inline-flex" : "none";
+  button.disabled = !microphoneAvailable;
+  status.hidden = !microphoneAvailable;
+  if (!microphoneAvailable)
+    client2.stop();
+}
+button.addEventListener("click", () => {
+  if (!microphoneAvailable)
+    return;
+  if (client2.session) {
+    client2.stop();
+  } else if (!navigator.mediaDevices?.getUserMedia) {
+    status.textContent = "Microphone unavailable. Open this page through localhost.";
+  } else {
+    void client2.start();
+  }
+});
+window.addEventListener("pagehide", () => client2.stop());
+
 // development/web/src/models.js
 var PREFERRED_MODEL_ORDER = [
   "Yolo26n320Int8",
@@ -945,6 +1129,7 @@ function connectCtrl(manual = false) {
     const data = JSON.parse(event.data);
     console.log("ctrl.onmessage: " + event.data);
     enableAudioButton(data.pipeline_state.audio);
+    enableMicrophoneButton(data.pipeline_state.microphone);
     setPlayPause(data.pipeline_state.playing);
     modelsManager.render(data.models);
   };
@@ -952,6 +1137,7 @@ function connectCtrl(manual = false) {
     ;
   };
   ctrl.onclose = () => {
+    enableMicrophoneButton(false);
     setTimeout(() => {
       ctrlReconnectDelay = Math.min(ctrlReconnectDelay * CTRL_BACKOFF_FACTOR, CTRL_RECONNECT_DELAY_MAX);
       connectCtrl();
@@ -1035,11 +1221,11 @@ function setPanelButtonState(panel, visible) {
   if (!panel.button) {
     return;
   }
-  const icon = panel.button.querySelector("i");
+  const icon2 = panel.button.querySelector("i");
   panel.button.setAttribute("aria-pressed", visible ? "true" : "false");
   panel.button.setAttribute("aria-label", (visible ? "Hide " : "Show ") + panel.label);
-  if (icon) {
-    icon.className = visible ? "fa-solid fa-eye" : "fa-solid fa-eye-slash";
+  if (icon2) {
+    icon2.className = visible ? "fa-solid fa-eye" : "fa-solid fa-eye-slash";
   }
 }
 function applyPanelState(key) {
@@ -1612,43 +1798,43 @@ async function writeClipboard(text2) {
   }
   if (!copied) throw new Error("Clipboard write failed");
 }
-function setButtonIcon(button, iconName) {
-  const icon = button?.querySelector("i");
-  if (!icon)
+function setButtonIcon(button2, iconName) {
+  const icon2 = button2?.querySelector("i");
+  if (!icon2)
     return;
-  icon.className = `fa-solid fa-${iconName}`;
+  icon2.className = `fa-solid fa-${iconName}`;
 }
-function setButtonFeedback(button, state, label) {
-  button.dataset.copyState = state;
-  button.setAttribute("aria-label", label);
-  button.title = label;
-  setButtonIcon(button, state === "copied" ? "check" : "copy");
+function setButtonFeedback(button2, state, label) {
+  button2.dataset.copyState = state;
+  button2.setAttribute("aria-label", label);
+  button2.title = label;
+  setButtonIcon(button2, state === "copied" ? "check" : "copy");
 }
-async function copyTextWithFeedback(button, text2, emptyText = "Empty") {
-  if (!button) return;
+async function copyTextWithFeedback(button2, text2, emptyText = "Empty") {
+  if (!button2) return;
   if (!String(text2 || "").trim()) return;
-  const originalLabel = button.getAttribute("aria-label") || button.title || "Copy";
-  if (button.copyFeedbackTimer) {
-    clearTimeout(button.copyFeedbackTimer);
-    button.copyFeedbackTimer = null;
+  const originalLabel = button2.getAttribute("aria-label") || button2.title || "Copy";
+  if (button2.copyFeedbackTimer) {
+    clearTimeout(button2.copyFeedbackTimer);
+    button2.copyFeedbackTimer = null;
   }
-  button.dataset.copyState = "copying";
+  button2.dataset.copyState = "copying";
   try {
     await writeClipboard(text2);
-    setButtonFeedback(button, text2 ? "copied" : "empty", text2 ? "Copied" : emptyText);
+    setButtonFeedback(button2, text2 ? "copied" : "empty", text2 ? "Copied" : emptyText);
   } catch (error) {
     console.debug("Clipboard copy failed", error);
-    setButtonFeedback(button, "failed", "Copy failed");
+    setButtonFeedback(button2, "failed", "Copy failed");
   }
-  button.copyFeedbackTimer = setTimeout(() => {
-    setButtonFeedback(button, "idle", originalLabel);
-    button.copyFeedbackTimer = null;
+  button2.copyFeedbackTimer = setTimeout(() => {
+    setButtonFeedback(button2, "idle", originalLabel);
+    button2.copyFeedbackTimer = null;
   }, 1500);
 }
-function setCopyButtonAvailable(button, available) {
-  if (!button) return;
-  button.disabled = !available;
-  button.setAttribute("aria-disabled", available ? "false" : "true");
+function setCopyButtonAvailable(button2, available) {
+  if (!button2) return;
+  button2.disabled = !available;
+  button2.setAttribute("aria-disabled", available ? "false" : "true");
 }
 
 // development/web/src/performance-low-pass.js

@@ -26,6 +26,14 @@ limitations under the License.
 serving, and control channels into one GStreamer element. It is primarily used to
 make containerized or headless pipelines visible and controllable from a browser.
 
+The served webpage also has a microphone button that negotiates a separate
+audio connection to [opksrc](opksrc.md). Microphone reception and its signaling
+server belong to that source element; HTTP hosting remains in `opksink`.
+The control WebSocket's `pipeline_state.microphone` flag reports whether an
+`opksrc` exists in the pipeline, including nested bins. The microphone button
+stays hidden until that flag is true. Losing the control connection or receiving
+a false flag hides the button and stops any microphone capture.
+
 ## Element Contract
 
 - Base class: `GstBin`

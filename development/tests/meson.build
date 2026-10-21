@@ -468,6 +468,22 @@ test('performance_metrics_tests', performance_metrics_tests)
 test('opktracker_matching_tests', opktracker_matching_tests)
 test('opktracker_tracking_output_tests', opktracker_tracking_output_tests)
 test('webrtc_session_tests', webrtc_session_tests)
+test(
+  'opksrc_audio',
+  gst_python,
+  args : [files('opksrc_audio_test.py'), opksrc.full_path()],
+  depends : opksrc,
+  env : ['G_DEBUG=fatal-criticals'],
+  timeout : 20,
+)
+test(
+  'opksrc_signaling',
+  gst_python,
+  args : [files('opksrc_signaling_test.py'), opksrc.full_path()],
+  depends : opksrc,
+  env : ['G_DEBUG=fatal-criticals'],
+  timeout : 60,
+)
 foreach endpoint : ['control', 'webrtc']
   test(
     'opksink_websocket_json_' + endpoint,
@@ -478,6 +494,14 @@ foreach endpoint : ['control', 'webrtc']
     timeout : 20,
   )
 endforeach
+test(
+  'opksink_microphone_status',
+  gst_python,
+  args : [files('opksink_microphone_status_test.py'), opkinferpre.full_path(), opksrc.full_path()],
+  depends : [opkinferpre, opksrc],
+  env : ['G_DEBUG=fatal-criticals'],
+  timeout : 20,
+)
 test(
   'opksink_configured_ports',
   gst_python,
