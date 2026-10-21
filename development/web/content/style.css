@@ -101,9 +101,10 @@ h1, h2, h3, p, dl { margin-block: 0; }
 .sidebar-section-title { min-width: 0; }
 body.sidebar-hidden .card-body { grid-template-columns: 0 minmax(0, 1fr); }
 body.sidebar-hidden .sidebar { visibility: hidden; border: 0; }
-body.outputs-hidden .main-content { --bottom-dock-current-height: 0px; }
 body.outputs-hidden .bottom-dock { visibility: hidden; }
 body.output-panels-empty .main-content { --bottom-dock-current-height: var(--bottom-dock-collapsed-height); }
+/* Hidden takes precedence even when all individual output panels are off. */
+body.outputs-hidden .main-content { --bottom-dock-current-height: 0px; }
 body.output-panels-empty .bottom-dock-panels,
 body.output-panels-empty .bottom-dock-resize-handle { display: none; }
 

@@ -82,7 +82,7 @@ function setPanelOpen(open) {
 
 toggleButton.addEventListener('click', () => setPanelOpen(panel.hidden));
 
-function styleControls(featureId, settings, changed) {
+function styleControls(featureId, settings, changed, preview = changed) {
     const container = node('div', 'overlay-style-controls');
     for (const control of featureFor(featureId)?.controls || []) {
         if (control.type === 'checkbox') {
@@ -175,8 +175,9 @@ function styleControls(featureId, settings, changed) {
         input.addEventListener('input', () => {
             settings[control.key] = control.type === 'range' ? Number(input.value) : input.value;
             updateValue();
-            changed();
+            preview();
         });
+        input.addEventListener('change', changed);
         updateValue();
         row.append(input, value);
         label.append(row);
@@ -268,7 +269,8 @@ function renderList() {
             if (settings.hidden) expandedOverlays.delete(overlay);
             else expandedOverlays.add(overlay);
         });
-        settings.append(status, styleControls(overlay.featureId, overlay.settings, () => { persist(); updateStatuses(); }));
+        settings.append(status, styleControls(overlay.featureId, overlay.settings,
+            () => { persist(); updateStatuses(); }, updateStatuses));
         const actions = node('div', 'overlay-actions');
         const edit = node('button', '', 'Change source…');
         edit.type = 'button';
@@ -346,8 +348,7 @@ function refreshFeatures() {
     featureSelect.disabled = !features.size;
 }
 
-function refreshOutputs() {
-    const previous = outputSelect.value;
+function refreshOutputs(previous = outputSelect.value) {
     const catalog = availableDescriptors();
     const sources = featureFor(featureSelect.value)?.discover(catalog) || [];
     const choices = new Map(sources.map((source) => [sourceKey(source), source]));
@@ -420,16 +421,13 @@ function openEditor(overlay, opener) {
     submitButton.textContent = overlay ? 'Apply' : 'Add';
     refreshFeatures();
     if (overlay) featureSelect.value = overlay.featureId;
-    refreshOutputs();
-    if (overlay?.selection.primary) {
-        outputSelect.value = selectionKey(overlay);
-        updateDraft();
-    }
+    // Start from this overlay's saved choice, never the previous dialog's value.
+    refreshOutputs(selectionKey(overlay));
     dialog.showModal();
 }
 
 addButton.addEventListener('click', () => openEditor(null, addButton));
-featureSelect.addEventListener('change', refreshOutputs);
+featureSelect.addEventListener('change', () => refreshOutputs());
 outputSelect.addEventListener('change', updateDraft);
 document.getElementById('cancelOverlayBtn').addEventListener('click', () => dialog.close());
 dialog.addEventListener('close', () => {

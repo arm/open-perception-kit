@@ -222,3 +222,129 @@ test('Wafer controls work in both themes with keyboard and persisted overlays', 
   await page.locator('.overlay-remove').click();
   await expect(page.locator('.overlay-card')).toHaveCount(0);
 });
+
+test('cancelled source choices do not bind a waiting overlay', async ({ page }) => {
+  await page.routeWebSocket('**/ws', () => {});
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await page.getByRole('button', { name: 'Overlays', exact: true }).click();
+  await page.locator('#addOverlayBtn').click();
+  await page.locator('#overlayFeature').selectOption('gaze');
+  await page.locator('#saveOverlayBtn').click();
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('metadata-message', {
+    detail: { frame_results: { layers: ['gaze A', 'gaze B'].map(model => ({
+      payloadType: 'PoseEstimations', contentType: 'eyeYawPitch', model, detections: [],
+    })) } },
+  })));
+  await page.locator('#addOverlayBtn').click();
+  await page.locator('#overlayFeature').selectOption('gaze');
+  await page.locator('#overlayOutput').selectOption({ label: 'gaze B' });
+  await page.locator('#cancelOverlayBtn').click();
+  await page.locator('.overlay-toggle').click();
+  await page.getByRole('button', { name: 'Change source…', exact: true }).click();
+  await expect(page.locator('#overlayOutput')).toHaveValue('');
+  await expect(page.locator('#saveOverlayBtn')).toBeDisabled();
+  await page.locator('#overlayOutput').selectOption({ label: 'gaze A' });
+  await page.locator('#saveOverlayBtn').click();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('opk-overlays:v2'))
+    .overlays[0].selection.primary.model)).toBe('gaze A');
+});
+
+test('continuous controls preview without rewriting saved background images', async ({ page }) => {
+  await page.routeWebSocket('**/ws', () => {});
+  await page.addInitScript(() => {
+    window.overlayWrites = 0;
+    const setItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key === 'opk-overlays:v2') window.overlayWrites++;
+      return setItem.call(this, key, value);
+    };
+    const strokeRect = CanvasRenderingContext2D.prototype.strokeRect;
+    CanvasRenderingContext2D.prototype.strokeRect = function (...args) {
+      if (this.canvas.id === 'clientOsdCanvas') window.drawnOpacity = this.globalAlpha;
+      return strokeRect.apply(this, args);
+    };
+  });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await page.getByRole('button', { name: 'Overlays', exact: true }).click();
+  await page.locator('#addOverlayBtn').click();
+  await page.locator('#overlayFeature').selectOption('background-replacement');
+  await page.locator('#saveOverlayBtn').click();
+  await page.locator('.overlay-toggle').click();
+  const png = await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 1024;
+    const ctx = canvas.getContext('2d');
+    const image = ctx.createImageData(1024, 1024);
+    const bytes = new Uint8Array(image.data.buffer);
+    for (let i = 0; i < bytes.length; i += 65536) crypto.getRandomValues(bytes.subarray(i, i + 65536));
+    for (let i = 3; i < bytes.length; i += 4) bytes[i] = 255;
+    ctx.putImageData(image, 0, 0);
+    return canvas.toDataURL('image/png').split(',')[1];
+  });
+  await page.locator('.overlay-card').getByLabel('Background image', { exact: true })
+    .setInputFiles({ name: 'noise.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') });
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('opk-overlays:v2'))
+    .overlays[0].settings.image.length)).toBeGreaterThan(250000);
+  await page.evaluate(() => {
+    window.savedImage = JSON.parse(localStorage.getItem('opk-overlays:v2')).overlays[0].settings.image;
+    window.dispatchEvent(new CustomEvent('metadata-message', { detail: { frame_results: { layers: [{
+      payloadType: 'BoxDetections', contentType: 'genericObject', model: 'fixture',
+      detections: [{ type: 'Rect', data: { x: 10, y: 10, width: 50, height: 50 } }],
+    }] } } }));
+  });
+  await page.locator('#addOverlayBtn').click();
+  await page.locator('#overlayFeature').selectOption('bounding-boxes');
+  await page.locator('#saveOverlayBtn').click();
+  const card = page.locator('.overlay-card').last();
+  await card.locator('.overlay-toggle').click();
+  const opacity = card.getByLabel('Opacity', { exact: true });
+  await page.evaluate(() => { window.overlayWrites = 0; });
+  await opacity.evaluate(input => {
+    for (let i = 1; i <= 60; i++) {
+      input.value = String(i / 100);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  });
+  expect(await page.evaluate(() => window.overlayWrites)).toBe(0);
+  await expect.poll(() => page.evaluate(() => window.drawnOpacity)).toBe(0.6);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('opk-overlays:v2'))
+    .overlays[1].settings.opacity)).toBe(1);
+  await opacity.dispatchEvent('change');
+  expect(await page.evaluate(() => window.overlayWrites)).toBe(1);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('opk-overlays:v2'))
+    .overlays[1].settings.opacity)).toBe(0.6);
+  const color = card.getByLabel('Color', { exact: true });
+  await page.evaluate(() => { window.overlayWrites = 0; });
+  await color.evaluate(input => {
+    for (let i = 0; i < 60; i++) {
+      input.value = '#' + i.toString(16).padStart(6, '0');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  });
+  expect(await page.evaluate(() => window.overlayWrites)).toBe(0);
+  await expect(card.locator('.overlay-swatch')).toHaveCSS('background-color', 'rgb(0, 0, 59)');
+  await color.dispatchEvent('change');
+  expect(await page.evaluate(() => window.overlayWrites)).toBe(1);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('opk-overlays:v2'))
+    .overlays[0].settings.image === window.savedImage)).toBe(true);
+});
+
+test('hiding an empty output dock gives the full height to the video', async ({ page }) => {
+  await page.routeWebSocket('**/ws', () => {});
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await page.locator('#toggleInferenceOutput').click();
+  await expect(page.locator('body')).toHaveClass(/output-panels-empty/);
+  await page.locator('#outputsVisibilityBtn').click();
+  await expect(page.locator('body')).toHaveClass(/outputs-hidden/);
+  await expect.poll(() => page.locator('.main-content').evaluate(el =>
+    el.style.getPropertyValue('--bottom-dock-current-height'))).toBe('');
+  const heights = await page.evaluate(() => ({
+    video: document.querySelector('.video-wrapper').getBoundingClientRect().height,
+    main: document.querySelector('.main-content').getBoundingClientRect().height,
+  }));
+  expect(heights.video).toBeCloseTo(heights.main, 1);
+  await page.locator('#outputsVisibilityBtn').click();
+  await expect(page.locator('.bottom-dock')).toBeVisible();
+  await expect.poll(() => page.locator('.bottom-dock').evaluate(el => el.getBoundingClientRect().height)).toBe(48);
+});

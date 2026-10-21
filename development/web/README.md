@@ -86,7 +86,11 @@ text; their status is also written out. An available source with no detections
 retains its swatch color. Visibility is independent of source availability. Long
 titles stay on one line with an ellipsis; hover for the full title and status.
 
-Adjust controls immediately or choose **Change source…**. The editor applies
+In saved overlay rows, range and color controls preview immediately and save when
+the adjustment is committed (`change`), rather than rewriting saved images on each
+`input` event. Other row actions save immediately. Choose **Change source…** to edit the source.
+Each editor starts from that overlay's saved selection, so cancelled choices do
+not carry into another overlay. The editor applies
 changes only when submitted; Cancel or Escape discards them. Background replacement
 draws before annotations; within each group, overlays draw in list order, with
 later entries on top. Adding overlapping features deliberately draws each one;

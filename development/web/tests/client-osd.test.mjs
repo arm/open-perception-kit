@@ -78,8 +78,10 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
         }));
     const get = (id) => elements.get(id);
     const storage = new Map();
+    let storageWrites = 0;
     const window = new Element('window');
-    window.localStorage = {getItem: (key) => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value)};
+    window.localStorage = {getItem: (key) => storage.get(key) ?? null,
+        setItem: (key, value) => { storageWrites++; storage.set(key, value); }};
     window.requestAnimationFrame = () => {};
     globalThis.window = window;
     globalThis.document = Object.assign(new Element('document'), {getElementById: get, createElement: (tag) => new Element(tag)});
@@ -155,11 +157,32 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
         assert.equal(settings.hidden, false);
         assert.equal(disclosure['aria-expanded'], 'true');
         const rowColor = find(settings, (element) => element.tag === 'input' && element.type === 'color');
+        const beforeColor = storageWrites;
         rowColor.value = '#ffffff';
         rowColor.fire('input');
         assert.equal(firstCard.style['--overlay-color'], '#ffffff');
+        assert.equal(storageWrites, beforeColor);
+        assert.equal(saved()[0].settings.color, '#123456');
+        rowColor.fire('change');
+        assert.equal(storageWrites, beforeColor + 1);
+        assert.equal(saved()[0].settings.color, '#ffffff');
         rowColor.value = '#123456';
         rowColor.fire('input');
+        rowColor.fire('change');
+        const rowOpacity = find(settings, (element) => element.tag === 'input' && element.type === 'range');
+        const beforeDrag = storageWrites;
+        for (let i = 1; i <= 60; i++) {
+            rowOpacity.value = String(i / 100);
+            rowOpacity.fire('input');
+        }
+        assert.equal(storageWrites, beforeDrag);
+        assert.equal(saved()[0].settings.opacity, 0.42);
+        rowOpacity.fire('change');
+        assert.equal(storageWrites, beforeDrag + 1);
+        assert.equal(saved()[0].settings.opacity, 0.6);
+        rowOpacity.value = '0.42';
+        rowOpacity.fire('input');
+        rowOpacity.fire('change');
 
         // A second saved overlay makes ordering and edits of the first observable.
         get('addOverlayBtn').fire('click');
@@ -262,6 +285,30 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
         get('cancelOverlayBtn').fire('click');
         assert.equal(saved()[3].selection.primary, null);
         assert.equal(saved()[3].settings.opacity, 0.13);
+
+        // A cancelled editor must not bind another waiting overlay or a new one.
+        get('addOverlayBtn').fire('click');
+        get('overlayFeature').value = 'gaze';
+        get('overlayFeature').fire('change');
+        get('overlayOutput').value = sourceKey(outputSource(gazeB));
+        get('overlayOutput').fire('change');
+        get('cancelOverlayBtn').fire('click');
+        find(gazeCard, (element) => element.tag === 'button' && element.textContent === 'Change source…').fire('click');
+        assert.equal(get('overlayOutput').value, '');
+        assert.equal(get('saveOverlayBtn').disabled, true);
+        assert.equal(styleInput('range').value, '0.13');
+        get('overlayForm').fire('submit');
+        assert.equal(saved()[3].selection.primary, null);
+        get('overlayOutput').value = sourceKey(outputSource(gazeB));
+        get('overlayOutput').fire('change');
+        // Discovery within this editor session must preserve the explicit choice.
+        emit([gazeA, gazeB, {...gazeA, model: 'gaze C'}]);
+        assert.equal(get('overlayOutput').value, sourceKey(outputSource(gazeB)));
+        get('cancelOverlayBtn').fire('click');
+        get('addOverlayBtn').fire('click');
+        assert.equal(get('overlayOutput').value, '');
+        assert.equal(get('saveOverlayBtn').disabled, true);
+        get('cancelOverlayBtn').fire('click');
 
         // Automatic binding updates the saved source without resetting unsaved editor styles.
         get('addOverlayBtn').fire('click');
