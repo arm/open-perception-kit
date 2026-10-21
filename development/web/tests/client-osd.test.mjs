@@ -149,7 +149,8 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
         assert.equal(settings.hidden, true);
         assert.equal(disclosure['aria-expanded'], 'false');
         assert.equal(firstCard.style['--overlay-color'], '#123456');
-        assert.equal(firstCard.style['--overlay-foreground'], '#ffffff');
+        assert.equal(firstCard['data-unavailable'], 'false');
+        assert.ok(find(firstCard, (element) => element.className === 'overlay-swatch'));
         disclosure.fire('click');
         assert.equal(settings.hidden, false);
         assert.equal(disclosure['aria-expanded'], 'true');
@@ -157,7 +158,6 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
         rowColor.value = '#ffffff';
         rowColor.fire('input');
         assert.equal(firstCard.style['--overlay-color'], '#ffffff');
-        assert.equal(firstCard.style['--overlay-foreground'], '#000000');
         rowColor.value = '#123456';
         rowColor.fire('input');
 
@@ -175,8 +175,8 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
         assert.equal(get('overlayList').children[0].style['--overlay-color'], '#123456');
         const beforeEdit = storage.get(OVERLAY_STORAGE_KEY);
         window.fire('metadata-connection', {detail: {connected: false}});
-        assert.equal(get('overlayList').children[0].style['--overlay-color'], '#d1d5db');
-        assert.equal(get('overlayList').children[0].style['--overlay-foreground'], '#4b5563');
+        assert.equal(get('overlayList').children[0].style['--overlay-color'], '#123456');
+        assert.equal(get('overlayList').children[0]['data-unavailable'], 'true');
         cardButton('Change source…').fire('click');
         assert.equal(get('overlayOutput').value, firstKey);
         assert.equal(get('overlaySourceField').hidden, true);

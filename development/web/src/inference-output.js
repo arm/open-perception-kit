@@ -105,20 +105,20 @@ function createNode(tag, className, text) {
 }
 
 function renderEmpty(message) {
-    return createNode('div', 'inference-output-empty', message);
+    return createNode('div', 'inference-output-empty wfr-txt-empty-state', message);
 }
 
 function renderDetection(row) {
     const item = createNode('div', 'inference-detection');
     const main = createNode('div', 'inference-detection-main');
 
-    main.appendChild(createNode('span', 'inference-detection-title', row.title));
+    main.appendChild(createNode('span', 'inference-detection-title wfr-txt-label--sm', row.title));
     if (row.meta) {
-        main.appendChild(createNode('span', 'inference-detection-meta', row.meta));
+        main.appendChild(createNode('span', 'inference-detection-meta wfr-txt-caption', row.meta));
     }
 
     item.appendChild(main);
-    item.appendChild(createNode('div', 'inference-detection-detail', row.detail));
+    item.appendChild(createNode('div', 'inference-detection-detail wfr-txt-caption', row.detail));
     return item;
 }
 
@@ -129,10 +129,10 @@ function renderLayer(layer) {
     const container = createNode('div', 'inference-layer');
     const header = createNode('div', 'inference-layer-header');
 
-    header.appendChild(createNode('span', 'inference-layer-title', layerTitle(layer)));
-    header.appendChild(createNode('span', 'inference-layer-count', layer.count || 0));
+    header.appendChild(createNode('span', 'inference-layer-title wfr-txt-label', layerTitle(layer)));
+    header.appendChild(createNode('span', 'inference-layer-count wfr-txt-caption', layer.count || 0));
     container.appendChild(header);
-    container.appendChild(createNode('div', 'inference-layer-kind', layer.contentType || layer.labelFamily || 'output'));
+    container.appendChild(createNode('div', 'inference-layer-kind wfr-txt-caption', layer.contentType || layer.labelFamily || 'output'));
 
     if (rows.length) {
         const detectionsNode = createNode('div', 'inference-detections');

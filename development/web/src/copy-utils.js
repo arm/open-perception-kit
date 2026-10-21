@@ -47,11 +47,11 @@ async function writeClipboard(text) {
 }
 
 function setButtonIcon(button, iconName) {
-    const icon = button?.querySelector('i');
+    const icon = button?.querySelector('[data-icon]');
     if (!icon)
         return;
 
-    icon.className = `fa-solid fa-${iconName}`;
+    icon.dataset.icon = iconName;
 }
 
 function setButtonFeedback(button, state, label) {

@@ -60,6 +60,7 @@ const expandedOverlays = new Set();
 let editing = null;
 let draft = null;
 let returnFocus = addButton;
+let nextControlId = 0;
 
 function node(tag, className, text) {
     const result = document.createElement(tag);
@@ -93,19 +94,21 @@ function styleControls(featureId, settings, changed) {
                 settings[control.key] = input.checked;
                 changed();
             });
-            label.append(input, node('span', '', control.label));
+            label.append(input, node('span', 'wfr-txt-label', control.label));
             container.append(label);
             continue;
         }
         const label = node('label', 'overlay-field');
-        label.append(node('span', '', control.label));
+        label.append(node('span', 'wfr-txt-label', control.label));
         if (control.type === 'image') {
             const input = document.createElement('input');
             input.type = 'file';
             input.accept = 'image/png,image/jpeg,image/webp';
             input.setAttribute('aria-label', control.label);
-            const status = node('output', 'overlay-hint', settings[control.key] ? 'Image saved in this browser.' : 'No image selected.');
+            const status = node('output', 'overlay-hint wfr-txt-caption', settings[control.key] ? 'Image saved in this browser.' : 'No image selected.');
             status.setAttribute('role', 'status');
+            status.id = `overlay-image-${++nextControlId}`;
+            input.setAttribute('aria-describedby', status.id);
             const clear = node('button', '', 'Clear image');
             clear.type = 'button';
             let revision = 0;
@@ -113,6 +116,8 @@ function styleControls(featureId, settings, changed) {
                 revision++;
                 input.value = '';
                 input.setCustomValidity('');
+                input.setAttribute('aria-invalid', 'false');
+                status.setAttribute('data-state', 'info');
                 settings[control.key] = '';
                 status.textContent = 'No image selected.';
                 changed();
@@ -122,6 +127,8 @@ function styleControls(featureId, settings, changed) {
                 if (!file) return;
                 const current = ++revision;
                 input.setCustomValidity('Wait for the image to finish loading.');
+                input.setAttribute('aria-invalid', 'false');
+                status.setAttribute('data-state', 'info');
                 status.textContent = 'Preparing image…';
                 try {
                     const image = await loadLocalImage(file);
@@ -130,7 +137,11 @@ function styleControls(featureId, settings, changed) {
                     status.textContent = 'Image prepared locally; never uploaded.';
                     changed();
                 } catch (error) {
-                    if (current === revision) status.textContent = error.message;
+                    if (current === revision) {
+                        status.textContent = error.message;
+                        status.setAttribute('data-state', 'danger');
+                        input.setAttribute('aria-invalid', 'true');
+                    }
                 } finally {
                     if (current === revision) input.setCustomValidity('');
                 }
@@ -175,7 +186,7 @@ function styleControls(featureId, settings, changed) {
 }
 
 function technicalDetails(source) {
-    const description = node('dl', 'overlay-metadata');
+    const description = node('dl', 'overlay-metadata wfr-txt-code--sm');
     for (const [label, value] of sourceDetails(source)) {
         description.append(node('dt', '', label), node('dd', '', value));
     }
@@ -234,11 +245,14 @@ function renderList() {
         const toggle = node('button', 'overlay-toggle');
         toggle.type = 'button';
         toggle.id = `overlay-toggle-${index}`;
-        const chevron = node('i', 'fa-solid fa-chevron-right');
+        const chevron = node('span', 'icon');
+        chevron.setAttribute('data-icon', 'chevron-right');
         chevron.setAttribute('aria-hidden', 'true');
-        const title = node('span', 'overlay-title');
-        toggle.append(title, chevron);
-        const status = node('p', 'overlay-hint');
+        const swatch = node('span', 'overlay-swatch');
+        swatch.setAttribute('aria-hidden', 'true');
+        const title = node('span', 'overlay-title wfr-txt-label');
+        toggle.append(swatch, title, chevron);
+        const status = node('p', 'overlay-hint wfr-txt-caption');
         status.id = `overlay-status-${index}`;
         const settings = node('div', 'overlay-settings');
         settings.id = `overlay-settings-${index}`;
@@ -263,7 +277,8 @@ function renderList() {
         remove.type = 'button';
         remove.title = 'Remove overlay';
         remove.setAttribute('aria-label', `Remove ${featureLabel} overlay`);
-        const removeIcon = node('i', 'fa-solid fa-trash-can');
+        const removeIcon = node('span', 'icon');
+        removeIcon.setAttribute('data-icon', 'trash-2');
         removeIcon.setAttribute('aria-hidden', 'true');
         remove.append(removeIcon);
         remove.addEventListener('click', () => {
@@ -294,10 +309,10 @@ function updateStatuses() {
         const state = overlayStatus(frameIndex, overlay, knownOutputs, resolved);
         if (row.status.textContent !== state) row.status.textContent = state;
         const available = !['waiting', 'unsupported'].includes(resolved.state);
-        const color = available && /^#[0-9a-f]{6}$/i.test(overlay.settings.color) ? overlay.settings.color : available ? '#ffffff' : '#d1d5db';
+        // This is visualization data, used only by the swatch, not UI surfaces.
+        const color = /^#[0-9a-f]{6}$/i.test(overlay.settings.color) ? overlay.settings.color : 'transparent';
         if (row.color !== color || row.available !== available) {
             row.card.style.setProperty('--overlay-color', color);
-            row.card.style.setProperty('--overlay-foreground', available ? contrastingText(color) : '#4b5563');
             row.card.setAttribute('data-unavailable', String(!available));
             row.color = color;
             row.available = available;
@@ -305,15 +320,6 @@ function updateStatuses() {
         const tooltip = `${row.title.textContent}\n${state}`;
         if (row.toggle.title !== tooltip) row.toggle.title = tooltip;
     }
-}
-
-// Keep titles readable even when the chosen overlay color is very dark or light.
-function contrastingText(color) {
-    const [r, g, b] = [1, 3, 5].map((offset) => {
-        const channel = parseInt(color.slice(offset, offset + 2), 16) / 255;
-        return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-    });
-    return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.179 ? '#000000' : '#ffffff';
 }
 
 function availableDescriptors() {

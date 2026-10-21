@@ -17,6 +17,42 @@ limitations under the License.
 
 # WebUI rendering features
 
+## Visual design
+
+The entire WebUI uses [Wafer](https://github.com/Arm-Debug/design-system) as its
+visual source of truth: semantic colors and surfaces, Lato/Cousine typography,
+spacing, control sizes, corner radii, focus, and interaction states. The system
+light/dark preference is used automatically. An embedding can force a theme with
+`data-theme="light"` or `data-theme="dark"` on `body`.
+
+`content/style.css` is the single application stylesheet, not a skin over legacy
+styles. UI icons are official Lucide SVG assets, rendered as CSS masks with
+`currentColor`. Native buttons, selects, inputs, and the modal dialog retain
+their keyboard behavior. Small visibility switches and right-side disclosure
+arrows remain in the overlay list.
+
+### Design assets
+
+`npm run vendor` is the sole owner of the checked-in Wafer CSS/fonts and Lucide
+SVG snapshot. It requires Node 22+, npm, Git, and GitHub CLI access to the design
+system repository. It builds Wafer 2.0.2 at the pinned commit and verifies the
+Lucide 1.61.0 package integrity before staging assets and original notices.
+Normal builds and runtime are offline with respect to these assets; no CDN or
+GitHub Packages credentials are needed by the browser, container build, or CI.
+
+The only upstream CSS adjustment normalizes invalid multi-family `@font-face`
+descriptors in Wafer 2.0.2 to single family names. Token values and typography
+classes remain upstream-owned. The adjustment is recorded in `vendor/wafer/NOTICE`.
+
+Product-specific exceptions are limited to video/canvas pixel geometry and user
+visualization colors, resizable panel dimensions stored in pixels by
+`layout-resize.js`, viewport breakpoints, one/two-pixel borders and focus outlines,
+animation timing, native control rendering, and the OPK logo. Wafer has no tokens
+for these contracts. They are owned here; revisit them when upstream supplies
+corresponding patterns. Canvas annotation colors are data, not UI status colors.
+
+## Overlay controls
+
 Open **Overlays** (the layers button beside the video), then **Add overlay…**.
 The panel stays open while you use model switches and other controls. Only the
 Overlays button hides it; Escape still cancels an open add/edit dialog.
@@ -44,11 +80,11 @@ switch and an always-visible trash button for one-click removal. Click the row
 title (or use Enter/Space) to expand its controls, status, and metadata below it.
 Expanded rows stay open when metadata arrives or another overlay is added/removed.
 
-The row background uses the selected overlay color, with contrasting title text.
-Waiting and unsupported overlays use a light-grey row with grey text; an available
-source with no detections retains its color. Visibility is independent of source
-availability, so hiding a working overlay does not grey it out. Long titles stay
-on one line with an ellipsis; hover for the full title and status.
+The row uses a neutral Wafer surface and a small swatch of the selected overlay
+color. Waiting and unsupported sources use a neutral swatch and secondary title
+text; their status is also written out. An available source with no detections
+retains its swatch color. Visibility is independent of source availability. Long
+titles stay on one line with an ellipsis; hover for the full title and status.
 
 Adjust controls immediately or choose **Change source…**. The editor applies
 changes only when submitted; Cancel or Escape discards them. Background replacement

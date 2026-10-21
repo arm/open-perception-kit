@@ -650,14 +650,13 @@ var DUPLICATE_EVENT_MS = 350;
 var setBusy = (busy) => {
   if (!playBtn) return;
   playBtn.disabled = busy;
-  playBtn.style.opacity = busy ? "0.7" : "";
+  playBtn.setAttribute("aria-busy", String(busy));
 };
 var renderPlayPause = () => {
   if (!playBtn || !playIcon || !playText) return;
   const isPaused = !isPipelinePlaying;
   document.body.classList.toggle("is-feed-paused", isPaused);
-  playIcon.classList.toggle("fa-pause", isPipelinePlaying);
-  playIcon.classList.toggle("fa-play", isPaused);
+  playIcon.dataset.icon = isPaused ? "play" : "pause";
   playText.textContent = isPaused ? "Resume" : "Pause";
   playBtn.setAttribute("aria-label", isPaused ? "Resume pipeline" : "Pause pipeline");
   setBusy(false);
@@ -736,18 +735,18 @@ var muteText = muteBtn.querySelector(".video-control-text");
 muteBtn.addEventListener("click", () => {
   video3.muted = !video3.muted;
   if (video3.muted) {
-    muteIcon.textContent = "\u{1F507}";
+    muteIcon.dataset.icon = "volume-x";
     muteText.textContent = "Unmute";
     muteBtn.setAttribute("aria-label", "Unmute");
   } else {
-    muteIcon.textContent = "\u{1F50A}";
+    muteIcon.dataset.icon = "volume-2";
     muteText.textContent = "Mute";
     muteBtn.setAttribute("aria-label", "Mute");
   }
 });
 function enableAudioButton(enable) {
   if (muteBtn) {
-    muteBtn.style.display = enable ? "inline-flex" : "none";
+    muteBtn.hidden = !enable;
   }
 }
 
@@ -847,12 +846,12 @@ var ModelsManager = class {
     modelCopy.className = "model-copy";
     modelCopy.title = presentation.fullLabel;
     const modelTask = document.createElement("div");
-    modelTask.className = "model-task";
+    modelTask.className = "model-task wfr-txt-label";
     modelTask.textContent = presentation.primaryLabel;
     modelCopy.appendChild(modelTask);
     if (presentation.secondaryLabel) {
       const modelDetails = document.createElement("div");
-      modelDetails.className = "model-details";
+      modelDetails.className = "model-details wfr-txt-caption";
       modelDetails.textContent = presentation.secondaryLabel;
       modelCopy.appendChild(modelDetails);
     }
@@ -867,13 +866,12 @@ var ModelsManager = class {
       dependencyInfo.className = "model-dependency-info";
       dependencyInfo.setAttribute("tabindex", "0");
       dependencyInfo.setAttribute("aria-label", `Depends on: ${accessibleProviders}`);
-      const dependencyIcon = document.createElement("img");
-      dependencyIcon.className = "model-dependency-icon";
-      dependencyIcon.setAttribute("src", "/assets/information.svg");
-      dependencyIcon.setAttribute("alt", "");
+      const dependencyIcon = document.createElement("span");
+      dependencyIcon.className = "model-dependency-icon icon";
+      dependencyIcon.setAttribute("data-icon", "info");
       dependencyIcon.setAttribute("aria-hidden", "true");
       const dependencyPopup = document.createElement("div");
-      dependencyPopup.className = "model-dependency-popup";
+      dependencyPopup.className = "model-dependency-popup wfr-txt-caption";
       dependencyPopup.setAttribute("role", "tooltip");
       const dependencyHeading = document.createElement("div");
       dependencyHeading.className = "model-dependency-heading";
@@ -1004,17 +1002,17 @@ var panels = {
   inference: {
     button: document.getElementById("toggleInferenceOutput"),
     section: document.querySelector("[data-inference-output-section]"),
-    label: "Inference Output"
+    label: "inference output"
   },
   metrics: {
     button: document.getElementById("togglePerformanceOutput"),
     section: document.querySelector("[data-performance-metrics-section]"),
-    label: "Performance Metrics"
+    label: "performance metrics"
   },
   debug: {
     button: document.getElementById("toggleDebugOutput"),
     section: document.querySelector("[data-debug-log-section]"),
-    label: "Debug Log"
+    label: "debug log"
   }
 };
 var panelKeys = Object.keys(panels);
@@ -1057,11 +1055,11 @@ function setPanelButtonState(panel2, visible) {
   if (!panel2.button) {
     return;
   }
-  const icon = panel2.button.querySelector("i");
+  const icon = panel2.button.querySelector("[data-icon]");
   panel2.button.setAttribute("aria-pressed", visible ? "true" : "false");
   panel2.button.setAttribute("aria-label", (visible ? "Hide " : "Show ") + panel2.label);
   if (icon) {
-    icon.className = visible ? "fa-solid fa-eye" : "fa-solid fa-eye-slash";
+    icon.dataset.icon = visible ? "eye" : "eye-off";
   }
 }
 function applyPanelState(key) {
@@ -1576,7 +1574,7 @@ function setVideoFeedHidden(hidden) {
     videoFeedButton.dataset.tooltip = videoFeedHidden ? "Show video feed" : "Hide video feed";
   }
   if (videoFeedIcon) {
-    videoFeedIcon.className = videoFeedHidden ? "fa-solid fa-eye" : "fa-solid fa-eye-slash";
+    videoFeedIcon.dataset.icon = videoFeedHidden ? "eye" : "eye-off";
   }
   notifyVideoLayoutChange();
 }
@@ -1635,10 +1633,10 @@ async function writeClipboard(text2) {
   if (!copied) throw new Error("Clipboard write failed");
 }
 function setButtonIcon(button, iconName) {
-  const icon = button?.querySelector("i");
+  const icon = button?.querySelector("[data-icon]");
   if (!icon)
     return;
-  icon.className = `fa-solid fa-${iconName}`;
+  icon.dataset.icon = iconName;
 }
 function setButtonFeedback(button, state, label) {
   button.dataset.copyState = state;
@@ -1903,17 +1901,17 @@ function createNode(tag, className, text2) {
   return node2;
 }
 function renderEmpty(message) {
-  return createNode("div", "inference-output-empty", message);
+  return createNode("div", "inference-output-empty wfr-txt-empty-state", message);
 }
 function renderDetection(row) {
   const item = createNode("div", "inference-detection");
   const main = createNode("div", "inference-detection-main");
-  main.appendChild(createNode("span", "inference-detection-title", row.title));
+  main.appendChild(createNode("span", "inference-detection-title wfr-txt-label--sm", row.title));
   if (row.meta) {
-    main.appendChild(createNode("span", "inference-detection-meta", row.meta));
+    main.appendChild(createNode("span", "inference-detection-meta wfr-txt-caption", row.meta));
   }
   item.appendChild(main);
-  item.appendChild(createNode("div", "inference-detection-detail", row.detail));
+  item.appendChild(createNode("div", "inference-detection-detail wfr-txt-caption", row.detail));
   return item;
 }
 function renderLayer(layer2) {
@@ -1922,10 +1920,10 @@ function renderLayer(layer2) {
   const hiddenCount = Math.max(0, (layer2.count || 0) - rows.length);
   const container = createNode("div", "inference-layer");
   const header = createNode("div", "inference-layer-header");
-  header.appendChild(createNode("span", "inference-layer-title", layerTitle(layer2)));
-  header.appendChild(createNode("span", "inference-layer-count", layer2.count || 0));
+  header.appendChild(createNode("span", "inference-layer-title wfr-txt-label", layerTitle(layer2)));
+  header.appendChild(createNode("span", "inference-layer-count wfr-txt-caption", layer2.count || 0));
   container.appendChild(header);
-  container.appendChild(createNode("div", "inference-layer-kind", layer2.contentType || layer2.labelFamily || "output"));
+  container.appendChild(createNode("div", "inference-layer-kind wfr-txt-caption", layer2.contentType || layer2.labelFamily || "output"));
   if (rows.length) {
     const detectionsNode = createNode("div", "inference-detections");
     rows.forEach((row) => detectionsNode.appendChild(renderDetection(row)));
@@ -7177,6 +7175,7 @@ var expandedOverlays = /* @__PURE__ */ new Set();
 var editing = null;
 var draft = null;
 var returnFocus = addButton;
+var nextControlId = 0;
 function node(tag, className, text2) {
   const result = document.createElement(tag);
   if (className) result.className = className;
@@ -7205,19 +7204,21 @@ function styleControls(featureId, settings, changed) {
         settings[control.key] = input2.checked;
         changed();
       });
-      label2.append(input2, node("span", "", control.label));
+      label2.append(input2, node("span", "wfr-txt-label", control.label));
       container.append(label2);
       continue;
     }
     const label = node("label", "overlay-field");
-    label.append(node("span", "", control.label));
+    label.append(node("span", "wfr-txt-label", control.label));
     if (control.type === "image") {
       const input2 = document.createElement("input");
       input2.type = "file";
       input2.accept = "image/png,image/jpeg,image/webp";
       input2.setAttribute("aria-label", control.label);
-      const status = node("output", "overlay-hint", settings[control.key] ? "Image saved in this browser." : "No image selected.");
+      const status = node("output", "overlay-hint wfr-txt-caption", settings[control.key] ? "Image saved in this browser." : "No image selected.");
       status.setAttribute("role", "status");
+      status.id = `overlay-image-${++nextControlId}`;
+      input2.setAttribute("aria-describedby", status.id);
       const clear = node("button", "", "Clear image");
       clear.type = "button";
       let revision = 0;
@@ -7225,6 +7226,8 @@ function styleControls(featureId, settings, changed) {
         revision++;
         input2.value = "";
         input2.setCustomValidity("");
+        input2.setAttribute("aria-invalid", "false");
+        status.setAttribute("data-state", "info");
         settings[control.key] = "";
         status.textContent = "No image selected.";
         changed();
@@ -7234,6 +7237,8 @@ function styleControls(featureId, settings, changed) {
         if (!file) return;
         const current = ++revision;
         input2.setCustomValidity("Wait for the image to finish loading.");
+        input2.setAttribute("aria-invalid", "false");
+        status.setAttribute("data-state", "info");
         status.textContent = "Preparing image\u2026";
         try {
           const image = await loadLocalImage(file);
@@ -7242,7 +7247,11 @@ function styleControls(featureId, settings, changed) {
           status.textContent = "Image prepared locally; never uploaded.";
           changed();
         } catch (error) {
-          if (current === revision) status.textContent = error.message;
+          if (current === revision) {
+            status.textContent = error.message;
+            status.setAttribute("data-state", "danger");
+            input2.setAttribute("aria-invalid", "true");
+          }
         } finally {
           if (current === revision) input2.setCustomValidity("");
         }
@@ -7289,7 +7298,7 @@ function styleControls(featureId, settings, changed) {
   return container;
 }
 function technicalDetails(source) {
-  const description = node("dl", "overlay-metadata");
+  const description = node("dl", "overlay-metadata wfr-txt-code--sm");
   for (const [label, value] of sourceDetails(source)) {
     description.append(node("dt", "", label), node("dd", "", value));
   }
@@ -7346,11 +7355,14 @@ function renderList() {
     const toggle = node("button", "overlay-toggle");
     toggle.type = "button";
     toggle.id = `overlay-toggle-${index}`;
-    const chevron = node("i", "fa-solid fa-chevron-right");
+    const chevron = node("span", "icon");
+    chevron.setAttribute("data-icon", "chevron-right");
     chevron.setAttribute("aria-hidden", "true");
-    const title = node("span", "overlay-title");
-    toggle.append(title, chevron);
-    const status = node("p", "overlay-hint");
+    const swatch = node("span", "overlay-swatch");
+    swatch.setAttribute("aria-hidden", "true");
+    const title = node("span", "overlay-title wfr-txt-label");
+    toggle.append(swatch, title, chevron);
+    const status = node("p", "overlay-hint wfr-txt-caption");
     status.id = `overlay-status-${index}`;
     const settings = node("div", "overlay-settings");
     settings.id = `overlay-settings-${index}`;
@@ -7378,7 +7390,8 @@ function renderList() {
     remove.type = "button";
     remove.title = "Remove overlay";
     remove.setAttribute("aria-label", `Remove ${featureLabel} overlay`);
-    const removeIcon = node("i", "fa-solid fa-trash-can");
+    const removeIcon = node("span", "icon");
+    removeIcon.setAttribute("data-icon", "trash-2");
     removeIcon.setAttribute("aria-hidden", "true");
     remove.append(removeIcon);
     remove.addEventListener("click", () => {
@@ -7408,10 +7421,9 @@ function updateStatuses() {
     const state = overlayStatus(frameIndex, overlay2, knownOutputs, resolved);
     if (row.status.textContent !== state) row.status.textContent = state;
     const available = !["waiting", "unsupported"].includes(resolved.state);
-    const color = available && /^#[0-9a-f]{6}$/i.test(overlay2.settings.color) ? overlay2.settings.color : available ? "#ffffff" : "#d1d5db";
+    const color = /^#[0-9a-f]{6}$/i.test(overlay2.settings.color) ? overlay2.settings.color : "transparent";
     if (row.color !== color || row.available !== available) {
       row.card.style.setProperty("--overlay-color", color);
-      row.card.style.setProperty("--overlay-foreground", available ? contrastingText(color) : "#4b5563");
       row.card.setAttribute("data-unavailable", String(!available));
       row.color = color;
       row.available = available;
@@ -7420,13 +7432,6 @@ function updateStatuses() {
 ${state}`;
     if (row.toggle.title !== tooltip) row.toggle.title = tooltip;
   }
-}
-function contrastingText(color) {
-  const [r, g, b] = [1, 3, 5].map((offset) => {
-    const channel = parseInt(color.slice(offset, offset + 2), 16) / 255;
-    return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-  });
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.179 ? "#000000" : "#ffffff";
 }
 function availableDescriptors() {
   const descriptors = new Map(knownOutputs);

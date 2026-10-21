@@ -173,3 +173,52 @@ test('quick-start plays video and displays an object detection', async ({ page }
   await expect.poll(() => page.evaluate(() => window.overlaySmoke.consecutiveClearFrames))
     .toBeGreaterThanOrEqual(MIN_OBSERVED_FRAMES);
 });
+
+test('Wafer controls work in both themes with keyboard and persisted overlays', async ({ page }, testInfo) => {
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await page.evaluate(() => document.fonts.ready);
+  await expect(page.locator('body')).toHaveCSS('font-family', /Lato/);
+  expect(await page.evaluate(() => [...document.fonts].some(font =>
+    font.family === 'Lato' && font.status === 'loaded'))).toBe(true);
+  await expect(page.locator('#clientOsdControlsBtn [data-icon]')).toHaveCSS('mask-image', /layers\.svg/);
+  await page.getByRole('button', { name: 'Overlays', exact: true }).click();
+  await page.locator('#addOverlayBtn').click();
+  await page.locator('#overlayFeature').selectOption('background-replacement');
+  await page.locator('#saveOverlayBtn').click();
+  const toggle = page.getByRole('switch', { name: /^Show Background replacement/ });
+  await toggle.focus();
+  await page.keyboard.press('Space');
+  await expect(toggle).not.toBeChecked();
+  await expect(page.locator('.overlay-visible .model-toggle-track')).toHaveCSS('outline-style', 'solid');
+  await page.locator('.overlay-toggle').click();
+  const card = page.locator('.overlay-card');
+  await card.getByLabel('Background image', { exact: true }).setInputFiles({
+    name: 'invalid.png', mimeType: 'image/png', buffer: Buffer.from('not an image'),
+  });
+  await expect(card.locator('input[type=file]')).toHaveAttribute('aria-invalid', 'true');
+  await expect(card.locator('[data-state=danger]')).toContainText('Could not prepare');
+  await card.getByRole('button', { name: 'Clear image', exact: true }).click();
+  await expect(card.locator('input[type=file]')).toHaveAttribute('aria-invalid', 'false');
+
+  const surface = () => page.locator('.sidebar').evaluate(el => getComputedStyle(el).backgroundColor);
+  const darkSurface = await surface();
+  for (const theme of ['dark', 'light']) {
+    await page.emulateMedia({ colorScheme: theme });
+    if (theme === 'light') await expect.poll(surface).not.toBe(darkSurface);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+    await testInfo.attach(`wafer-${theme}`, { body: await page.screenshot(), contentType: 'image/png' });
+  }
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.getByRole('button', { name: 'Overlays', exact: true }).click();
+  await expect(toggle).not.toBeChecked();
+  await page.locator('#addOverlayBtn').click();
+  await expect(page.locator('#overlayFeature')).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#overlayDialog')).not.toBeVisible();
+  await expect(page.locator('#addOverlayBtn')).toBeFocused();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  await page.locator('.overlay-remove').click();
+  await expect(page.locator('.overlay-card')).toHaveCount(0);
+});

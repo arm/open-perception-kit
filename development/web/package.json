@@ -3,10 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "vendor": "node update-vendor.mjs",
     "build": "node build.mjs generate",
     "check": "node build.mjs check",
     "generate": "node build.mjs generate",
-    "test": "node --test tests/client-osd.test.mjs tests/copy-utils.test.mjs tests/osd-renderer.test.mjs tests/overlays.test.mjs tests/performance-low-pass.test.mjs tests/video-layout.test.mjs tests/webrtc_client.test.mjs tests/webrtc_config.test.mjs tests/features/*.test.mjs && node test-frame-results.mjs"
+    "test": "node --test tests/client-osd.test.mjs tests/copy-utils.test.mjs tests/osd-renderer.test.mjs tests/overlays.test.mjs tests/performance-low-pass.test.mjs tests/video-layout.test.mjs tests/wafer.test.mjs tests/webrtc_client.test.mjs tests/webrtc_config.test.mjs tests/features/*.test.mjs && node test-frame-results.mjs"
   },
   "dependencies": {
     "flatbuffers": "25.9.23"
