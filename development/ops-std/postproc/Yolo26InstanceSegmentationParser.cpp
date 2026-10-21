@@ -36,7 +36,6 @@ constexpr std::size_t RowSize = 38U;
 constexpr std::size_t PrototypeCount = 32U;
 constexpr std::size_t PrototypeSize = 160U;
 constexpr std::size_t PrototypePixels = PrototypeSize * PrototypeSize;
-constexpr std::size_t RoundedCropLimit = 50U;
 // FlatBuffers uses signed 32-bit offsets; leave room for mask tables and layer metadata.
 constexpr std::size_t MaxMaskBytes = std::numeric_limits<std::int32_t>::max() - 65536U;
 
@@ -56,14 +55,6 @@ struct Candidate {
     std::array<float, PrototypeCount> coefficients{};
 };
 
-// Usable image inside the prototype grid
-struct MaskGeometry {
-    std::size_t left = 0U;
-    std::size_t top = 0U;
-    std::size_t width = 0U;
-    std::size_t height = 0U;
-};
-
 // Describes how to interpolate one position along a prototype-grid axis
 struct AxisSample {
     std::size_t first = 0U;
@@ -71,21 +62,8 @@ struct AxisSample {
     float weight = 0.0F;
 };
 
-// PyTorch rounds box edges to nearest even on the CPU for fewer than 50 masks.
-double roundToEven(double value) {
-    const double lower = std::floor(value);
-    const double fraction = value - lower;
-    if (fraction < 0.5) {
-        return lower;
-    }
-    if (fraction > 0.5) {
-        return lower + 1.0;
-    }
-    return std::fmod(lower, 2.0) == 0.0 ? lower : lower + 1.0;
-}
-
-opk::Result<MaskGeometry> validateGeometry(const opk::TensorParser::Input &input,
-                                           const open_perception_kit::FrameResults &results) {
+opk::Result<void> validateGeometry(const opk::TensorParser::Input &input,
+                                   const open_perception_kit::FrameResults &results) {
     const auto &image = input.inferenceInfo.image;
     if (image.modelWidth != ModelSize || image.modelHeight != ModelSize) {
         return tl::unexpected(
@@ -127,21 +105,7 @@ opk::Result<MaskGeometry> validateGeometry(const opk::TensorParser::Input &input
             "parent; ROI inference is unsupported"));
     }
 
-    // Preserve the actual preprocessing padding, scaled into prototype coordinates.
-    // The +/- 0.1 bias follows scale_masks' asymmetric border rounding.
-    constexpr double scale = static_cast<double>(PrototypeSize) / ModelSize;
-    const auto left = static_cast<std::size_t>(roundToEven(image.letterboxLeft * scale - 0.1));
-    const auto top = static_cast<std::size_t>(roundToEven(image.letterboxTop * scale - 0.1));
-    const auto right =
-        PrototypeSize - static_cast<std::size_t>(roundToEven(image.letterboxRight * scale + 0.1));
-    const auto bottom =
-        PrototypeSize - static_cast<std::size_t>(roundToEven(image.letterboxBottom * scale + 0.1));
-    if (right <= left || bottom <= top) {
-        return tl::unexpected(OPK_ERROR(
-            opk::ErrorFlag::InvalidData,
-            "Yolo26InstanceSegmentationParser: letterboxing leaves no active mask prototypes"));
-    }
-    return MaskGeometry{left, top, right - left, bottom - top};
+    return {};
 }
 
 float restoreCoordinate(float value,
@@ -153,31 +117,28 @@ float restoreCoordinate(float value,
     return static_cast<float>(std::clamp(restored, 0.0, static_cast<double>(sourceSize)));
 }
 
-std::vector<AxisSample> makeAxisSamples(std::size_t inputSize, std::size_t outputSize) {
-    std::vector<AxisSample> samples(outputSize);
-    const float scale = static_cast<float>(inputSize) / static_cast<float>(outputSize);
-    for (std::size_t index = 0U; index < outputSize; ++index) {
-        const float coordinate = std::max(0.0F, (static_cast<float>(index) + 0.5F) * scale - 0.5F);
-        const auto first = std::min(static_cast<std::size_t>(coordinate), inputSize - 1U);
-        samples[index] = {
-            first, std::min(first + 1U, inputSize - 1U), coordinate - static_cast<float>(first)};
+std::vector<AxisSample>
+makeAxisSamples(std::size_t sourceSize, std::size_t activeModelSize, std::size_t paddingBefore) {
+    std::vector<AxisSample> samples(sourceSize);
+    const double scale = static_cast<double>(activeModelSize) / static_cast<double>(sourceSize);
+    constexpr double prototypeScale = static_cast<double>(PrototypeSize) / ModelSize;
+    for (std::size_t index = 0U; index < sourceSize; ++index) {
+        // Map source pixel centres through the recorded model-image geometry to the full
+        // prototype grid. Keep padding fractional here so masks align with restored boxes.
+        const double modelCoordinate =
+            (static_cast<double>(index) + 0.5) * scale + static_cast<double>(paddingBefore);
+        const double coordinate = std::clamp(
+            modelCoordinate * prototypeScale - 0.5, 0.0, static_cast<double>(PrototypeSize - 1U));
+        const auto first = static_cast<std::size_t>(coordinate);
+        samples[index] = {first,
+                          std::min(first + 1U, PrototypeSize - 1U),
+                          static_cast<float>(coordinate - static_cast<double>(first))};
     }
     return samples;
 }
 
-SourceBox cropBox(const SourceBox &box, bool roundEdges) {
-    if (!roundEdges) {
-        return box;
-    }
-    return {static_cast<float>(roundToEven(box.left)),
-            static_cast<float>(roundToEven(box.top)),
-            static_cast<float>(roundToEven(box.right)),
-            static_cast<float>(roundToEven(box.bottom))};
-}
-
 bool fillMask(opk::Bitmap &bitmap,
               const std::vector<float> &logits,
-              const MaskGeometry &geometry,
               const std::vector<AxisSample> &xSamples,
               const std::vector<AxisSample> &ySamples,
               const SourceBox &box) {
@@ -187,8 +148,8 @@ bool fillMask(opk::Bitmap &bitmap,
             continue;
         }
         const auto &sy = ySamples[y];
-        const auto firstRow = (geometry.top + sy.first) * PrototypeSize + geometry.left;
-        const auto secondRow = (geometry.top + sy.second) * PrototypeSize + geometry.left;
+        const auto firstRow = sy.first * PrototypeSize;
+        const auto secondRow = sy.second * PrototypeSize;
         for (std::size_t x = 0U; x < bitmap.getWidth(); ++x) {
             if (static_cast<float>(x) < box.left || static_cast<float>(x) >= box.right) {
                 continue;
@@ -313,9 +274,8 @@ Yolo26InstanceSegmentationParser::parse(const Input &input,
                                             .labelFamily = "coco",
                                             .producer = &input.producerInfo});
     if (!candidates.empty()) {
-        const auto xSamples = makeAxisSamples(geometry->width, image.width);
-        const auto ySamples = makeAxisSamples(geometry->height, image.height);
-        const bool roundEdges = candidates.size() < RoundedCropLimit;
+        const auto xSamples = makeAxisSamples(image.width, activeWidth, image.letterboxLeft);
+        const auto ySamples = makeAxisSamples(image.height, activeHeight, image.letterboxTop);
         std::vector<float> logits(PrototypePixels);
         const auto bitmapBytes = image.width * image.height;
         std::size_t payloadBytes = 0U;
@@ -340,8 +300,7 @@ Yolo26InstanceSegmentationParser::parse(const Input &input,
                     "Yolo26InstanceSegmentationParser: reconstructed mask logits must be finite"));
             }
             opk::Bitmap bitmap(opk::Bitmap::Type::Uint8, image.width, image.height);
-            if (!fillMask(
-                    bitmap, logits, *geometry, xSamples, ySamples, cropBox(box, roundEdges))) {
+            if (!fillMask(bitmap, logits, xSamples, ySamples, box)) {
                 continue;
             }
             if (bitmapBytes > MaxMaskBytes - payloadBytes) {
