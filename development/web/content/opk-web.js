@@ -7456,12 +7456,12 @@ function refreshOutputs() {
   outputSelect.replaceChildren();
   const hasChoice = descriptors.length > 1;
   const waiting = draft?.featureId === featureSelect.value && !draft.selection.primary || !draft && editing?.featureId === featureSelect.value && !editing.selection.primary;
-  if (hasChoice && (waiting || !previous)) outputSelect.add(new Option("Choose a source", ""));
+  if (hasChoice && (waiting || !choices.has(previous))) outputSelect.add(new Option("Choose a source", ""));
   for (const source of descriptors) {
     const key = sourceKey(source);
     outputSelect.add(new Option(labels.get(key), key));
   }
-  if ([...outputSelect.options].some((option) => option.value === previous)) outputSelect.value = previous;
+  if (choices.has(previous)) outputSelect.value = previous;
   sourceField.hidden = !hasChoice;
   outputSelect.disabled = !hasChoice;
   outputSelect.required = hasChoice;

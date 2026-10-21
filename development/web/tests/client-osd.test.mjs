@@ -287,6 +287,34 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
         remove.fire('click');
         assert.equal(saved().length, 4);
         assert.equal(find(get('overlayList').children[0], (element) => element.className === 'overlay-settings').hidden, false);
+
+        // A source from another feature must not silently select the first match.
+        window.fire('metadata-connection', {detail: {connected: false}});
+        emit([gazeA, first, second]);
+        get('addOverlayBtn').fire('click');
+        get('overlayFeature').value = 'gaze';
+        get('overlayFeature').fire('change');
+        assert.equal(get('overlayOutput').value, sourceKey(outputSource(gazeA)));
+        get('overlayFeature').value = 'bounding-boxes';
+        get('overlayFeature').fire('change');
+        assert.equal(get('overlayOutput').value, '');
+        assert.equal(get('overlayOutput').options[0].textContent, 'Choose a source');
+        assert.equal(get('saveOverlayBtn').disabled, true);
+        get('overlayForm').fire('submit');
+        assert.equal(saved().length, 4);
+        get('overlayOutput').value = secondKey;
+        get('overlayOutput').fire('change');
+        emit([gazeA, first, second, {...first, engine: 'third engine'}]);
+        assert.equal(get('overlayOutput').value, secondKey);
+        assert.equal(get('saveOverlayBtn').disabled, false);
+        get('overlayForm').fire('submit');
+        assert.equal(sourceKey(saved().at(-1).selection.primary), secondKey);
+        get('addOverlayBtn').fire('click');
+        get('overlayFeature').value = 'gaze';
+        get('overlayFeature').fire('change');
+        assert.equal(get('overlayOutput').value, sourceKey(outputSource(gazeA)));
+        assert.equal(get('saveOverlayBtn').disabled, false);
+        get('cancelOverlayBtn').fire('click');
     } finally {
         OVERLAY_FEATURES.splice(0, OVERLAY_FEATURES.length, ...registered);
         for (const [name, descriptor] of Object.entries(originals)) {
