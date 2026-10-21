@@ -1,0 +1,14 @@
+{
+  "version": "1.0.0",
+  "description": "YOLO26n-320 on USB camera DMA-BUF input with WebRTC output.",
+  "sourceInfo": "USB camera at /dev/video0: raw YUY2 640x480 at 30 fps, DMA-BUF export required",
+  "pipeline": [
+    "v4l2src device=/dev/video0 io-mode=dmabuf !",
+    "video/x-raw,format=YUY2,width=640,height=480,framerate=30/1 !",
+    "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/yolo26n-320/opchain.json\" active=true !",
+    "opktracker content-type=genericObject !",
+    "opkperformance show-all-metrics=true update-interval=1 !",
+    "opkcomm method=websocket endpoint=/ws !",
+    "opksink name=sink"
+  ]
+}

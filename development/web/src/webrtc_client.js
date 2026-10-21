@@ -15,6 +15,10 @@
  * limitations under the License.
  */
 
+const MAX_RTP_TIMESTAMP = 0xffffffff;
+const MAX_FRAME_METADATA_ENTRIES = 64;
+const FRAME_METADATA_MAX_AGE_MS = 2000;
+
 export function createWebRtcClient(config) {
     return new WebRtcClient(config);
 }
@@ -100,6 +104,7 @@ class WebRtcClient {
         this.onStatus = config.onStatus || (() => {});
         this.onStatusLine = config.onStatusLine || (() => {});
         this.onRemoteTrack = config.onRemoteTrack || (() => {});
+        this.onVideoFrame = config.onVideoFrame || (() => {});
 
         this.generation = 0;
         this.session = null;
@@ -179,6 +184,7 @@ class WebRtcClient {
             frameCallbackHandle: null,
             fallbackTimer: null,
             frameWatchdogTimer: null,
+            frameMetadata: new Map(),
         };
 
         this.session = session;
@@ -303,6 +309,17 @@ class WebRtcClient {
                 return;
             }
 
+            if (data.type === 'frame-metadata') {
+                const timestamp = data.rtp_timestamp;
+                if (Number.isInteger(timestamp) && timestamp >= 0 && timestamp <= MAX_RTP_TIMESTAMP) {
+                    session.frameMetadata.set(timestamp, {message: data, receivedAt: this.now()});
+                    while (session.frameMetadata.size > MAX_FRAME_METADATA_ENTRIES) {
+                        session.frameMetadata.delete(session.frameMetadata.keys().next().value);
+                    }
+                }
+                return;
+            }
+
             this.log(`Received signaling message: ${data.type}`);
 
             try {
@@ -394,23 +411,24 @@ class WebRtcClient {
             this.scheduleRestart(session, 'video track ended');
         };
 
-        if (this.frameTimeoutMs <= 0) {
-            return;
-        }
-
         if (typeof this.video.requestVideoFrameCallback === 'function') {
             const watchFrames = () => {
                 if (!this.isCurrent(session))
                     return;
-                session.frameCallbackHandle = this.video.requestVideoFrameCallback(() => {
+                session.frameCallbackHandle = this.video.requestVideoFrameCallback((_now, frame) => {
                     if (!this.isCurrent(session))
                         return;
                     this.markFrameHeartbeat(session, 'video frame');
+                    const timestamp = frame?.rtpTimestamp;
+                    const match = session.frameMetadata.get(timestamp);
+                    session.frameMetadata.delete(timestamp);
+                    this.onVideoFrame(match && this.now() - match.receivedAt < FRAME_METADATA_MAX_AGE_MS
+                        ? match.message : null);
                     watchFrames();
                 });
             };
             watchFrames();
-        } else {
+        } else if (this.frameTimeoutMs > 0) {
             this.observeCurrentTimeFallback(session);
         }
     }
@@ -502,6 +520,8 @@ class WebRtcClient {
 
         session.closed = true;
         session.intentionalClose = true;
+        session.frameMetadata.clear();
+        this.onVideoFrame(null);
 
         if (session.frameWatchdogTimer)
             this.clearTimeout(session.frameWatchdogTimer);
