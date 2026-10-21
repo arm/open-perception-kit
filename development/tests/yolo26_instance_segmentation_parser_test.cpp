@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -35,10 +36,16 @@ namespace {
 
 using Masks = open_perception_kit::metadata::InstanceSegmentationMasksT;
 constexpr std::uint64_t ParentId = 1000000U;
+constexpr std::size_t DetectionRows = 300U;
+constexpr std::size_t DetectionColumns = 38U;
+constexpr std::size_t PrototypeChannels = 32U;
+constexpr std::size_t PrototypeSize = 160U;
+constexpr std::size_t PrototypePixels = PrototypeSize * PrototypeSize;
+constexpr std::size_t ModelSize = 640U;
 
 struct ParserFixture {
-    std::vector<float> detections = std::vector<float>(300U * 38U, 0.0F);
-    std::vector<float> prototypes = std::vector<float>(32U * 160U * 160U, 0.0F);
+    std::vector<float> detections = std::vector<float>(DetectionRows * DetectionColumns, 0.0F);
+    std::vector<float> prototypes = std::vector<float>(PrototypeChannels * PrototypePixels, 0.0F);
     opk::TensorView detectionTensor{detections.data(),
                                     detections.size() * sizeof(float),
                                     opk::Shape(1, 300, 38),
@@ -93,7 +100,7 @@ struct ParserFixture {
                 float top = 0.0F,
                 float right = 640.0F,
                 float bottom = 640.0F) {
-        const auto base = row * 38U;
+        const auto base = row * DetectionColumns;
         detections[base] = left;
         detections[base + 1U] = top;
         detections[base + 2U] = right;
@@ -104,7 +111,11 @@ struct ParserFixture {
     }
 
     const Masks &masks() const {
-        return output.get<Masks>().value().value();
+        const auto payload = output.get<Masks>();
+        if (!payload.has_value()) {
+            throw std::runtime_error("missing InstanceSegmentationMasks payload");
+        }
+        return payload->value();
     }
 };
 
@@ -127,9 +138,9 @@ TEST_P(InstanceMaskGeometry, InvertsRecordedLetterboxTransform) {
                           geometry.horizontal ? geometry.trailingPadding : 0U,
                           geometry.horizontal ? 0U : geometry.leadingPadding,
                           geometry.horizontal ? 0U : geometry.trailingPadding);
-    for (std::size_t y = 0U; y < 160U; ++y) {
-        for (std::size_t x = 0U; x < 160U; ++x) {
-            fixture.prototypes[y * 160U + x] =
+    for (std::size_t y = 0U; y < PrototypeSize; ++y) {
+        for (std::size_t x = 0U; x < PrototypeSize; ++x) {
+            fixture.prototypes[y * PrototypeSize + x] =
                 static_cast<float>(geometry.horizontal ? x : y) - 100.0F;
         }
     }
@@ -162,32 +173,33 @@ INSTANTIATE_TEST_SUITE_P(RecordedPadding,
 
 TEST(Yolo26InstanceSegmentationParser, ClampsInterpolationAtPrototypeEdges) {
     ParserFixture fixture;
-    std::fill_n(fixture.prototypes.begin(), 160U * 160U, -1.0F);
-    std::fill_n(fixture.prototypes.begin(), 160U, 1.0F);
-    std::fill_n(fixture.prototypes.begin() + 159U * 160U, 160U, 1.0F);
+    std::fill_n(fixture.prototypes.begin(), PrototypePixels, -1.0F);
+    std::fill_n(fixture.prototypes.begin(), PrototypeSize, 1.0F);
+    std::fill_n(
+        fixture.prototypes.begin() + (PrototypeSize - 1U) * PrototypeSize, PrototypeSize, 1.0F);
     const auto parsed = fixture.parser.parse(fixture.input, fixture.output);
     ASSERT_TRUE(parsed.has_value()) << parsed.error().toString();
     ASSERT_EQ(fixture.output.count<Masks>(), 1U);
     ASSERT_EQ(fixture.masks().masks.size(), 1U);
-    std::vector<std::uint8_t> expected(640U * 640U);
-    std::fill_n(expected.begin(), 4U * 640U, 1U);
-    std::fill_n(expected.begin() + 636U * 640U, 4U * 640U, 1U);
+    std::vector<std::uint8_t> expected(ModelSize * ModelSize);
+    std::fill_n(expected.begin(), 4U * ModelSize, 1U);
+    std::fill_n(expected.begin() + (ModelSize - 4U) * ModelSize, 4U * ModelSize, 1U);
     ASSERT_NE(fixture.masks().masks.front()->bitmap, nullptr);
     EXPECT_EQ(fixture.masks().masks.front()->bitmap->pixels, expected);
 }
 
 TEST(Yolo26InstanceSegmentationParser, FractionalBoxClippingIsIndependentOfCandidateCount) {
     std::vector<std::uint8_t> firstBitmap;
-    std::vector<std::uint8_t> expected(640U * 640U);
+    std::vector<std::uint8_t> expected(ModelSize * ModelSize);
     for (std::size_t y = 11U; y <= 20U; ++y) {
         for (std::size_t x = 11U; x <= 20U; ++x) {
-            expected[y * 640U + x] = 1U;
+            expected[y * ModelSize + x] = 1U;
         }
     }
     for (const std::size_t count : {1U, 49U, 50U}) {
         SCOPED_TRACE(count);
         ParserFixture fixture;
-        std::fill_n(fixture.prototypes.begin(), 160U * 160U, 1.0F);
+        std::fill_n(fixture.prototypes.begin(), PrototypePixels, 1.0F);
         for (std::size_t row = 0U; row < count; ++row) {
             fixture.detect(row, 10.25F, 10.25F, 20.25F, 20.25F);
         }
@@ -213,7 +225,7 @@ TEST(Yolo26InstanceSegmentationParser, FractionalBoxClippingIsIndependentOfCandi
 
 TEST(Yolo26InstanceSegmentationParser, SerializesMaskPixelsAndMetadata) {
     ParserFixture fixture(4U, 3U);
-    std::fill_n(fixture.prototypes.begin(), 160U * 160U, 1.0F);
+    std::fill_n(fixture.prototypes.begin(), PrototypePixels, 1.0F);
     const auto parsed = fixture.parser.parse(fixture.input, fixture.output);
     ASSERT_TRUE(parsed.has_value()) << parsed.error().toString();
     const auto packet = open_perception_kit::serialize(fixture.output);
@@ -223,7 +235,10 @@ TEST(Yolo26InstanceSegmentationParser, SerializesMaskPixelsAndMetadata) {
     ASSERT_EQ(decoded.count<open_perception_kit::metadata::FrameContextT>(), 1U);
     ASSERT_EQ(decoded.count<Masks>(), 1U);
     const auto payload = decoded.get<Masks>();
-    ASSERT_TRUE(payload.has_value());
+    if (!payload.has_value()) {
+        ADD_FAILURE() << "missing InstanceSegmentationMasks payload";
+        return;
+    }
     const auto &masks = payload->value();
     ASSERT_NE(masks.layer, nullptr);
     EXPECT_EQ(masks.layer->content_type, "instanceSegmentation");
@@ -242,7 +257,10 @@ TEST(Yolo26InstanceSegmentationParser, SerializesMaskPixelsAndMetadata) {
     EXPECT_EQ(mask.object->id, fixture.masks().masks.front()->object->id);
     EXPECT_EQ(mask.object->creation_ts_ns, fixture.masks().masks.front()->object->creation_ts_ns);
     const auto parent = decoded.get<open_perception_kit::metadata::FrameContextT>();
-    ASSERT_TRUE(parent.has_value());
+    if (!parent.has_value()) {
+        ADD_FAILURE() << "missing FrameContext payload";
+        return;
+    }
     ASSERT_NE(parent->value().video, nullptr);
     ASSERT_NE(parent->value().video->object, nullptr);
     EXPECT_EQ(parent->value().video->object->id, mask.object->parent_id);

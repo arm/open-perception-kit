@@ -83,7 +83,10 @@ TEST_F(Yolo26SemanticSegmentationParserTest, PreservesBoundaryClassesAndSerializ
     ASSERT_TRUE(result.has_value()) << result.error().toString();
     ASSERT_EQ(output.count<SemanticSegmentationMasksT>(), 1U);
     const auto original = output.get<SemanticSegmentationMasksT>();
-    ASSERT_TRUE(original.has_value());
+    if (!original.has_value()) {
+        ADD_FAILURE() << "missing SemanticSegmentationMasks payload";
+        return;
+    }
     ASSERT_EQ(original->value().masks.size(), 1U);
     ASSERT_NE(original->value().masks[0], nullptr);
     ASSERT_NE(original->value().masks[0]->bitmap, nullptr);
@@ -100,7 +103,10 @@ TEST_F(Yolo26SemanticSegmentationParserTest, PreservesBoundaryClassesAndSerializ
     ASSERT_EQ(decoded.count<SemanticSegmentationMasksT>(), 1U);
     EXPECT_EQ(decoded.count<open_perception_kit::metadata::InstanceSegmentationMasksT>(), 0U);
     const auto restored = decoded.get<SemanticSegmentationMasksT>();
-    ASSERT_TRUE(restored.has_value());
+    if (!restored.has_value()) {
+        ADD_FAILURE() << "missing decoded SemanticSegmentationMasks payload";
+        return;
+    }
     const auto &payload = restored->value();
     ASSERT_NE(payload.layer, nullptr);
     EXPECT_EQ(payload.layer->content_type, "semanticSegmentation");
