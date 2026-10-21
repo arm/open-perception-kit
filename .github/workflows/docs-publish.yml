@@ -68,7 +68,7 @@ jobs:
           allowed-account-ids: "529607359382"
 
       - name: Publish docs site
-        uses: ARM-software/docs-action/publish@3c5412fd76d4b2d67fd42d69d350abf29a6241c2
+        uses: ARM-software/docs-action/publish@4e3707fbd85b7798ca620674edad9b50dfd36259
         with:
           docs-root: docs/public
           site-id: open-perception-kit
