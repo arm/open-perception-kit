@@ -82,7 +82,12 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
     const window = new Element('window');
     window.localStorage = {getItem: (key) => storage.get(key) ?? null,
         setItem: (key, value) => { storageWrites++; storage.set(key, value); }};
-    window.requestAnimationFrame = () => {};
+    let animationFrame;
+    window.requestAnimationFrame = (callback) => { animationFrame = callback; };
+    let clears = 0;
+    const context = {setTransform() {}, clearRect() { clears++; }, save() {}, restore() {}};
+    Object.assign(get('clientOsdCanvas'), {width: 640, height: 480, clientWidth: 640, clientHeight: 480, getContext: () => context});
+    Object.assign(get('video'), {videoWidth: 640, videoHeight: 480, requestVideoFrameCallback() {}});
     globalThis.window = window;
     globalThis.document = Object.assign(new Element('document'), {getElementById: get, createElement: (tag) => new Element(tag)});
     globalThis.Option = class extends Element {
@@ -364,6 +369,29 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
         assert.equal(get('overlayOutput').value, sourceKey(outputSource(gazeA)));
         assert.equal(get('saveOverlayBtn').disabled, false);
         get('cancelOverlayBtn').fire('click');
+        // Live discovery must never replace the displayed frame's matched data.
+        const drawn = [];
+        OVERLAY_FEATURES.find(feature => feature.id === 'bounding-boxes').render = (_target, result) => {
+            drawn.push(...result.items.map(item => item.data.uuid));
+        };
+        const matched = {...second, detections: [{type: 'Rect', data: {uuid: 'matched'}}]};
+        emit([matched]);
+        animationFrame();
+        assert.deepEqual(drawn, []);
+        window.fire('video-frame-results', {detail: {layers: [matched]}});
+        assert.ok(drawn.length > 0);
+        assert.ok(drawn.every(id => id === 'matched'));
+        drawn.length = 0;
+        emit([{...second, detections: [{type: 'Rect', data: {uuid: 'newer-live'}}]}]);
+        animationFrame();
+        assert.ok(drawn.length > 0);
+        assert.ok(drawn.every(id => id === 'matched'));
+        drawn.length = 0;
+        const beforeClear = clears;
+        window.fire('video-frame-results', {detail: null});
+        assert.equal(clears, beforeClear + 1);
+        animationFrame();
+        assert.deepEqual(drawn, []);
     } finally {
         OVERLAY_FEATURES.splice(0, OVERLAY_FEATURES.length, ...registered);
         for (const [name, descriptor] of Object.entries(originals)) {

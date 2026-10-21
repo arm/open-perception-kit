@@ -7597,4 +7597,7 @@ function renderFrame() {
   window.requestAnimationFrame(renderFrame);
 }
 renderList();
+if (typeof video4.requestVideoFrameCallback !== "function") {
+  console.warn("Synchronized overlays require requestVideoFrameCallback; overlays are disabled.");
+}
 window.requestAnimationFrame(renderFrame);

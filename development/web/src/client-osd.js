@@ -504,4 +504,7 @@ function renderFrame() {
 }
 
 renderList();
+if (typeof video.requestVideoFrameCallback !== 'function') {
+    console.warn('Synchronized overlays require requestVideoFrameCallback; overlays are disabled.');
+}
 window.requestAnimationFrame(renderFrame);

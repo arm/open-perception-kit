@@ -119,8 +119,8 @@ multiple related payloads, and one payload can support multiple features.
 `FrameContext` supplies video geometry rather than a selectable visualization.
 
 Decoding requires the existing `perception-frame-results+base64` encoding and
-exact SDK producer identity. Invalid/incompatible packets clear current drawing
-and show a metadata error. Unknown payload families are not decoded by the current
+exact SDK producer identity. Invalid/incompatible matched packets clear current
+drawing; live-channel decode failures also show a metadata error. Unknown payload families are not decoded by the current
 typed adapter. Only registered rendering features appear in **Show**; decoding
 a payload does not imply that a renderer is registered for it.
 
@@ -210,7 +210,12 @@ replaced on the next message and cleared on disconnect.
 - The persistent full selector still determines which primary output the user
   chose. It is intentionally separate from semantic relationship keys.
 
-Rendering uses latest-arriving metadata, not frame-exact video matching. Geometry
+Rendering uses WebRTC metadata matched to the displayed frame's RTP timestamp.
+Missing, expired or invalid matched metadata clears the overlay; there is no
+fallback to the independently arriving metadata stream. Browsers without
+`requestVideoFrameCallback` do not render overlays. The independent metadata
+channel still supplies discovery and inspection before video is connected.
+UI and image-loading redraws reuse only the displayed frame's matched results. Geometry
 prefers `FrameContext` video dimensions, otherwise received video dimensions. The
 mapper scales source-image coordinates into the contained video rectangle; it
 does not apply a new crop/letterbox transform. Producers must supply coordinates
@@ -269,8 +274,8 @@ The existing native `opkosd` replacement path still uses its binary mask thresho
 of 150. Omit that native replacement when testing browser backgrounds.
 
 The compositor uses the original video colors, not RVM's separate inferred
-foreground-color tensor. As with the other overlays, metadata is latest-arriving,
-not frame-synchronized, so motion may show edge lag. Hiding/removing the overlay,
+foreground-color tensor. As with the other overlays, its mask comes from metadata
+matched to the displayed video frame. Hiding/removing the overlay,
 missing metadata and disconnects reveal the original video. Decoded images and
 scratch canvases are cached per overlay and become collectible when it is removed;
 replacing/clearing an image drops its old decoded resource.

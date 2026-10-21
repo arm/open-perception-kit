@@ -21,6 +21,8 @@ const MIN_OBSERVED_FRAMES = 3;
 const MIN_FRAMES_DURING_ICE_SETUP = 10;
 const NORMAL_WEBSOCKET_CLOSE = 1000;
 
+// These transport assertions apply to real connections, not the UI fixtures below.
+test.describe('live WebRTC', () => {
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     const NativeWebSocket = window.WebSocket;
@@ -161,6 +163,18 @@ test('quick-start plays video and displays an object detection', async ({ page }
     element.readyState >= 2 && element.videoWidth > 0 && element.currentTime > 0
   )).toBe(true);
   await expect(objects.locator('.inference-detection').first()).toBeVisible();
+  // Overlays are opt-in in the feature manager; exercise the real source picker.
+  await page.getByRole('button', { name: 'Overlays', exact: true }).click();
+  await page.locator('#addOverlayBtn').click();
+  await page.locator('#overlayFeature').selectOption('bounding-boxes');
+  if (await page.locator('#overlayOutput').isEnabled()) {
+    const source = await page.locator('#overlayOutput option').evaluateAll(options =>
+      options.find(option => option.value && JSON.parse(option.value)[0] === 'BoxDetections')?.value);
+    expect(source).toBeTruthy();
+    await page.locator('#overlayOutput').selectOption(source);
+  }
+  await page.locator('#saveOverlayBtn').click();
+  await page.getByRole('button', { name: 'Overlays', exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.overlaySmoke.matchedFrames))
     .toBeGreaterThanOrEqual(MIN_OBSERVED_FRAMES);
   await expect.poll(() => page.evaluate(() => window.overlaySmoke.framesWithOverlay))
@@ -174,7 +188,10 @@ test('quick-start plays video and displays an object detection', async ({ page }
     .toBeGreaterThanOrEqual(MIN_OBSERVED_FRAMES);
 });
 
+});
+
 test('Wafer controls work in both themes with keyboard and persisted overlays', async ({ page }, testInfo) => {
+  await page.routeWebSocket('**/ws', () => {});
   await page.emulateMedia({ colorScheme: 'dark' });
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await page.evaluate(() => document.fonts.ready);
@@ -287,10 +304,11 @@ test('continuous controls preview without rewriting saved background images', as
     .overlays[0].settings.image.length)).toBeGreaterThan(250000);
   await page.evaluate(() => {
     window.savedImage = JSON.parse(localStorage.getItem('opk-overlays:v2')).overlays[0].settings.image;
-    window.dispatchEvent(new CustomEvent('metadata-message', { detail: { frame_results: { layers: [{
+    const frame = { layers: [{
       payloadType: 'BoxDetections', contentType: 'genericObject', model: 'fixture',
       detections: [{ type: 'Rect', data: { x: 10, y: 10, width: 50, height: 50 } }],
-    }] } } }));
+    }] };
+    window.dispatchEvent(new CustomEvent('video-frame-results', { detail: frame }));
   });
   await page.locator('#addOverlayBtn').click();
   await page.locator('#overlayFeature').selectOption('bounding-boxes');
