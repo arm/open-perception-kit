@@ -436,14 +436,29 @@ video {
 }
 
 .overlay-visible {
-  display: grid;
-  place-items: center;
-  cursor: pointer;
+  justify-content: center;
 }
 
 .overlay-visible input {
   margin: 0;
-  accent-color: var(--overlay-foreground);
+}
+
+.model-toggle-switch.overlay-visible .model-toggle-track {
+  width: 32px;
+  height: 18px;
+}
+
+.model-toggle-switch.overlay-visible .model-toggle-thumb {
+  width: 14px;
+  height: 14px;
+}
+
+.model-toggle-switch.overlay-visible input:checked + .model-toggle-track .model-toggle-thumb {
+  transform: translateX(14px);
+}
+
+.model-toggle-switch.overlay-visible input:focus-visible + .model-toggle-track {
+  outline-color: var(--overlay-foreground);
 }
 
 .overlay-toggle {
@@ -468,6 +483,7 @@ video {
 .overlay-toggle i {
   flex-shrink: 0;
   font-size: 0.7rem;
+  margin-left: 6px;
 }
 
 .overlay-toggle[aria-expanded="true"] i {
@@ -560,9 +576,10 @@ video {
 .overlay-field select {
   width: 100%;
   min-width: 0;
-  padding: 8px;
+  padding: 8px 36px 8px 10px;
   color: var(--text);
-  background: #111111;
+  background: #111111 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%23e5e7eb' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 12px center / 12px 8px;
+  appearance: none;
   border: 1px solid var(--panel-edge);
   border-radius: 4px;
 }

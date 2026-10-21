@@ -40,7 +40,7 @@ saved cards. Missing metadata is marked as not provided, never replaced with
 guessed camera or producer names.
 
 Each overlay is a single-line **feature · source** row with its own visibility
-checkbox and an always-visible trash button for one-click removal. Click the row
+switch and an always-visible trash button for one-click removal. Click the row
 title (or use Enter/Space) to expand its controls, status, and metadata below it.
 Expanded rows stay open when metadata arrives or another overlay is added/removed.
 

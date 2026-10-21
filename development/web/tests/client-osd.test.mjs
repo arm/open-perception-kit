@@ -167,6 +167,8 @@ test('single-source UI, live discovery, saved editing and cancel/apply retain so
         get('overlayOutput').fire('change');
         get('overlayForm').fire('submit');
         const checkbox = find(get('overlayList'), (element) => element.tag === 'input' && element.type === 'checkbox');
+        assert.equal(checkbox.role, 'switch');
+        assert.ok(find(get('overlayList'), (element) => element.className === 'model-toggle-track'));
         checkbox.checked = false;
         checkbox.fire('change');
         assert.equal(find(get('overlayList').children[0], (element) => element.className === 'overlay-settings').hidden, false);
