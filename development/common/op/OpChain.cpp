@@ -20,6 +20,7 @@
 #include "Log.h"
 #include "Validator.h"
 #include "opk/String.h"
+#include "opk/Tools.h"
 #include "tools.h"
 
 #include "op/ExecutionSelection.h"
@@ -31,6 +32,7 @@
 #include <span>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 using namespace opk::op;
 
 OpChain::OpChain() = default;
@@ -199,8 +201,25 @@ opk::Result<void> OpChain::setupFromDescriptor(const opk::op::OpChainDescriptor 
         return tl::unexpected(std::move(chainBindResult.error()));
     }
 
+    auto fingerprint{opk::Tools::CoreImplementationFingerprint()};
+    std::unordered_set<std::string> libraries;
+    for (const auto &reference : opRefs) {
+        if (!fingerprint)
+            break;
+        if (!libraries.insert(reference->libName).second)
+            continue;
+        const auto module{reference.implementationFingerprint()};
+        if (module)
+            *fingerprint += *module;
+        else
+            fingerprint = tl::unexpected(module.error());
+    }
+    if (!fingerprint)
+        log::debug("Preprocessing cache disabled: {}\n", fingerprint.error().toString());
     executionSelection = std::make_unique<ExecutionSelection>();
-    if (const auto result = executionSelection->configure(descriptor, opPtrs); !result)
+    if (const auto result{executionSelection->configure(
+            descriptor, opPtrs, fingerprint ? *fingerprint : std::string{})};
+        !result)
         return result;
 
     opk::log::info("{}", opk::log::tools::enframe(this->toString(), "OpChain"));

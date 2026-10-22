@@ -41,6 +41,7 @@ common = shared_library(
     'op/OpChainDescriptor.cpp',
     'op/ExecutionSelection.cpp',
     'op/ExecutionCalibration.cpp',
+    'op/ExecutionCache.cpp',
 
     'perf/PerformanceMetrics.cpp',
 
