@@ -46,22 +46,37 @@ def main():
     headers = LockedArtifact(**lock["headers"])
     destination.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".mlwl-", dir=destination.parent) as temporary:
-        root = Path(temporary)
-        prefix = root / "prefix"
-        prefix.mkdir()
-        with tarfile.open(acquire_artifact(library, root)) as archive:
-            archive.extractall(prefix, filter="data")
-        with tarfile.open(acquire_artifact(headers, root)) as archive:
-            archive.extractall(root, filter="data")
-        source = root / f"Vulkan-Headers-{headers.version}"
-        build = root / "headers-build"
-        subprocess.run(["cmake", "-S", str(source), "-B", str(build),
-                        f"-DCMAKE_INSTALL_PREFIX={prefix}",
-                        "-DVULKAN_HEADERS_ENABLE_TESTS=OFF",
-                        "-DVULKAN_HEADERS_ENABLE_MODULE=OFF"], check=True)
-        subprocess.run(["cmake", "--install", str(build)], check=True)
-        shutil.copytree(source / "LICENSES", prefix / "share/doc/Vulkan-Headers/LICENSES")
-        prefix.rename(destination)
+        work_dir = Path(temporary)
+        staging_dir = work_dir / "prefix"
+        staging_dir.mkdir()
+
+        library_archive = acquire_artifact(library, work_dir)
+        with tarfile.open(library_archive) as archive:
+            archive.extractall(staging_dir, filter="data")
+
+        headers_archive = acquire_artifact(headers, work_dir)
+        with tarfile.open(headers_archive) as archive:
+            archive.extractall(work_dir, filter="data")
+
+        headers_source = work_dir / f"Vulkan-Headers-{headers.version}"
+        headers_build = work_dir / "headers-build"
+        subprocess.run(
+            [
+                "cmake",
+                "-S", str(headers_source),
+                "-B", str(headers_build),
+                f"-DCMAKE_INSTALL_PREFIX={staging_dir}",
+                "-DVULKAN_HEADERS_ENABLE_TESTS=OFF",
+                "-DVULKAN_HEADERS_ENABLE_MODULE=OFF",
+            ],
+            check=True,
+        )
+        subprocess.run(["cmake", "--install", str(headers_build)], check=True)
+        shutil.copytree(
+            headers_source / "LICENSES",
+            staging_dir / "share/doc/Vulkan-Headers/LICENSES",
+        )
+        staging_dir.rename(destination)
     print(f"Installed MLWL {library.version} and Vulkan-Headers in {destination}")
 
 
