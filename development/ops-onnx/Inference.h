@@ -29,6 +29,7 @@
 
 #include <exception>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -117,8 +118,10 @@ struct Inference {
     Inference();
     virtual ~Inference();
 
-    opk::Result<void> setupFromJson(const std::string &filePath);
-    opk::Result<void> setup(const opk::ModelDescriptor &modelDesc);
+    opk::Result<void> setupFromJson(const std::string &filePath,
+                                    const std::optional<int64_t> intraOpNumThreads = std::nullopt);
+    opk::Result<void> setup(const opk::ModelDescriptor &modelDesc,
+                            const std::optional<int64_t> intraOpNumThreads = std::nullopt);
     bool isReady() {
         return setupReady;
     }
