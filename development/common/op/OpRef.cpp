@@ -25,13 +25,17 @@ using namespace opk::op;
 
 OpRef::OpRef() = default;
 
-void OpRef::reset() noexcept {
+void OpRef::releaseInstance() noexcept {
     // Destroy op first (may reference code/data in the library)
     if (op && destroyFn) {
         // best-effort: ignore exceptions (destroyFn should not throw)
         destroyFn(op);
     }
     op = nullptr;
+}
+
+void OpRef::releaseInstanceAndLibrary() noexcept {
+    releaseInstance();
 
     // Close library after destroying op
     if (dlHandle) {
@@ -45,7 +49,7 @@ void OpRef::reset() noexcept {
 }
 
 OpRef::~OpRef() {
-    reset();
+    releaseInstanceAndLibrary();
 }
 
 OpRef::OpRef(OpRef &&other) noexcept
@@ -55,7 +59,7 @@ OpRef::OpRef(OpRef &&other) noexcept
 
 OpRef &OpRef::operator=(OpRef &&other) noexcept {
     if (this != &other) {
-        reset();
+        releaseInstanceAndLibrary();
 
         dlHandle = std::exchange(other.dlHandle, nullptr);
         createFn = std::exchange(other.createFn, nullptr);
@@ -67,7 +71,7 @@ OpRef &OpRef::operator=(OpRef &&other) noexcept {
 
 opk::Result<void> OpRef::bind(const std::string &soName, const std::string &opName) {
     // Ensure a previous binding is cleanly released
-    reset();
+    releaseInstanceAndLibrary();
 
     // Open library (Tools::DynamicLibraryOpen returns tl::optional / similar)
     auto openResult = Tools::DynamicLibraryOpen(soName);
@@ -81,8 +85,8 @@ opk::Result<void> OpRef::bind(const std::string &soName, const std::string &opNa
     auto cr = Tools::DynamicLibraryGetSymbol<CreateFn>(dlHandle, "opk_create_op_instance");
     auto del = Tools::DynamicLibraryGetSymbol<DeleteFn>(dlHandle, "opk_delete_op_instance");
     if (!cr || !del) {
-        // reset() will close dlHandle and clear fields
-        reset();
+        // releaseInstanceAndLibrary() will close dlHandle and clear fields
+        releaseInstanceAndLibrary();
         return tl::unexpected(
             OPK_ERROR(opk::ErrorFlag::SystemFailure,
                       fmt::format("Cannot get interface methods of library [{}]", soName)));
@@ -97,14 +101,14 @@ opk::Result<void> OpRef::bind(const std::string &soName, const std::string &opNa
         raw = createFn(opName.c_str());
     } catch (...) {
         // In case createFn throws (shouldn't), clean up
-        reset();
+        releaseInstanceAndLibrary();
         return tl::unexpected(OPK_ERROR(
             opk::ErrorFlag::SystemFailure,
             fmt::format("Exception while creating op [{}] of library [{}]", opName, soName)));
     }
 
     if (!raw) {
-        reset();
+        releaseInstanceAndLibrary();
         return tl::unexpected(
             OPK_ERROR(opk::ErrorFlag::SystemFailure,
                       fmt::format("Cannot create op [{}] of library [{}]", opName, soName)));

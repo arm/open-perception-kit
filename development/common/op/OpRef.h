@@ -49,12 +49,15 @@ class OpRef {
      */
     ~OpRef();
 
+    /// Destroys the instance while retaining its library for resources shared with other Ops.
+    void releaseInstance() noexcept;
+
     /**
      * @brief Binds an operation by loading its library and resolving creation functions.
      *
      * Loads the shared library named soName, resolves the creation and destruction function
      * symbols, and creates an instance of the operation. The created operation must be
-     * deleted by calling reset() or the destructor.
+     * deleted by calling releaseInstanceAndLibrary() or the destructor.
      *
      * @param soName Name of the shared library to load (e.g., "libopNN" for libopNN.so).
      * @param opName Name of the operation class within the library.
@@ -124,7 +127,7 @@ class OpRef {
      *
      * Called by cleanup code to safely destroy the operation and close the library handle.
      */
-    void reset() noexcept;
+    void releaseInstanceAndLibrary() noexcept;
 
     DynamicLibraryHandle dlHandle = nullptr; ///< Handle to the loaded shared library.
     CreateFn createFn = nullptr;             ///< Pointer to the operation creation function.

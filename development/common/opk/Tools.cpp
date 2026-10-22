@@ -23,7 +23,6 @@
 
 #include <algorithm>
 #include <atomic>
-#include <cmath>
 #include <cstdint>
 #include <dlfcn.h>
 #include <limits>
@@ -231,102 +230,4 @@ bool Tools::savePngFromBgra(const std::string &path, const uint8_t *bgra, int wi
     // stride = bytes per row
     const int stride = width * 4;
     return stbi_write_png(path.c_str(), width, height, 4, rgba.data(), stride) != 0;
-}
-
-static inline int clampInt(int v, int lo, int hi) {
-    return std::max(lo, std::min(v, hi));
-}
-
-bool Tools::savePngCropFromBgra(const std::string &path,
-                                const uint8_t *srcBgra,
-                                int srcWidth,
-                                int srcHeight,
-                                int cropX,
-                                int cropY,
-                                int cropW,
-                                int cropH,
-                                int srcStrideBytes) {
-    if (!srcBgra || srcWidth <= 0 || srcHeight <= 0) {
-        return false;
-    }
-    if (srcStrideBytes <= 0) {
-        srcStrideBytes = srcWidth * 4;
-    }
-
-    // If crop dims are non-positive, fail early.
-    if (cropW <= 0 || cropH <= 0) {
-        return false;
-    }
-
-    // Clamp crop rectangle to image bounds.
-    int x0 = clampInt(cropX, 0, srcWidth);
-    int y0 = clampInt(cropY, 0, srcHeight);
-    int x1 = clampInt(cropX + cropW, 0, srcWidth);
-    int y1 = clampInt(cropY + cropH, 0, srcHeight);
-
-    int outW = x1 - x0;
-    int outH = y1 - y0;
-    if (outW <= 0 || outH <= 0) {
-        return false;
-    }
-
-    std::vector<uint8_t> rgba(size_t(outW) * size_t(outH) * 4);
-
-    // Convert only the cropped region: BGRA -> RGBA
-    for (int row = 0; row < outH; ++row) {
-        const uint8_t *srcRow =
-            srcBgra + (size_t(y0 + row) * size_t(srcStrideBytes)) + (size_t(x0) * 4);
-        uint8_t *dstRow = rgba.data() + (size_t(row) * size_t(outW) * 4);
-
-        for (int col = 0; col < outW; ++col) {
-            const uint8_t b = srcRow[col * 4 + 0];
-            const uint8_t g = srcRow[col * 4 + 1];
-            const uint8_t r = srcRow[col * 4 + 2];
-            const uint8_t a = srcRow[col * 4 + 3];
-
-            dstRow[col * 4 + 0] = r;
-            dstRow[col * 4 + 1] = g;
-            dstRow[col * 4 + 2] = b;
-            dstRow[col * 4 + 3] = a;
-        }
-    }
-
-    const int outStride = outW * 4;
-    return stbi_write_png(path.c_str(), outW, outH, 4, rgba.data(), outStride) != 0;
-}
-
-bool Tools::savePngFromRgbChwF32(const std::string &path,
-                                 const float *srcRgbChwF32,
-                                 size_t width,
-                                 size_t height) {
-    if (!srcRgbChwF32 || width == 0 || height == 0) {
-        return false;
-    }
-
-    std::vector<uint8_t> rgba(width * height * 4);
-
-    auto to_u8 = [](float v) -> uint8_t {
-        v = std::clamp(v, 0.0f, 1.0f);
-        return static_cast<uint8_t>(std::lround(v * 255.0f));
-    };
-
-    const size_t plane = width * height;
-
-    for (size_t i = 0; i < plane; ++i) {
-        const float r = srcRgbChwF32[0 * plane + i];
-        const float g = srcRgbChwF32[1 * plane + i];
-        const float b = srcRgbChwF32[2 * plane + i];
-
-        rgba[i * 4 + 0] = to_u8(r);
-        rgba[i * 4 + 1] = to_u8(g);
-        rgba[i * 4 + 2] = to_u8(b);
-        rgba[i * 4 + 3] = 255;
-    }
-
-    return stbi_write_png(path.c_str(),
-                          static_cast<int>(width),
-                          static_cast<int>(height),
-                          4,
-                          rgba.data(),
-                          static_cast<int>(width) * 4) != 0;
 }

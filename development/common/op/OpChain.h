@@ -43,6 +43,9 @@ class OpChain {
     std::vector<opk::op::Op *> opPtrs;
 
   public:
+    /// Releases shared allocations before unloading any operation library.
+    ~OpChain();
+
     /**
      * @brief Initializes the chain from an OpChainDescriptor.
      *

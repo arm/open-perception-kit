@@ -18,6 +18,8 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -65,6 +67,35 @@ struct OpInterfaceAudioPreprocessor {
     virtual ~OpInterfaceAudioPreprocessor() = default;
     /// Fresh PCM samples required per execution, excluding model context.
     virtual size_t getRequiredAudioSamples() const = 0;
+};
+
+/** @brief Optional backend contract for consuming caller-owned, CPU-accessible input tensors. */
+struct OpInterfaceSharedInput {
+    virtual ~OpInterfaceSharedInput() = default;
+
+    /**
+     * @brief Binds input storage without copying its contents.
+     * @param index Input tensor index; its model shape and type remain unchanged.
+     * @param data Contiguous storage of exactly the model input size.
+     * @param owner Keeps the allocation and mapping alive until replaced or the backend closes.
+     * Shared ownership keeps storage alive but does not synchronize readers and writers.
+     * GPU writes must be complete and CPU-visible before binding. The caller must not
+     * overwrite storage during synchronous inference. Unsupported bindings return an error without
+     * changing the current binding.
+     */
+    virtual Result<void> setSharedInputStorage(const size_t index,
+                                               const std::span<uint8_t> data,
+                                               std::shared_ptr<void> owner) = 0;
+
+    /**
+     * @brief Ensures backend-owned input storage for CPU preprocessing to write into.
+     * Switching from borrowed storage releases only this backend's shared reference.
+     * Other owners retain their references; borrowed contents are neither copied nor modified.
+     * Already-owned storage is unchanged. Failure preserves the current binding.
+     * Call before CPU preprocessing the next input, once any previous inference using this
+     * storage has finished. Then query the input address again.
+     */
+    virtual Result<void> setOwnedInputStorage(const size_t index) = 0;
 };
 
 /**
