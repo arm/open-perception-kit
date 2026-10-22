@@ -19,6 +19,7 @@ common = shared_library(
 
     'gst/Tools.cpp',
     'gst/TensorMeta.cpp',
+    'gst/PipelinePerformance.cpp',
 
     'opk/Result.cpp',
     'opk/Tools.cpp',
