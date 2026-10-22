@@ -38,12 +38,14 @@
 #include "fb/box_detections_generated.h"
 #include "fb/classifications_generated.h"
 #include "fb/frame_context_generated.h"
+#include "fb/instance_segmentation_masks_generated.h"
 #include "fb/internal/wire_envelope_generated.h"
 #include "fb/object_embeddings_generated.h"
 #include "fb/object_tracks_generated.h"
 #include "fb/performance_overlay_generated.h"
 #include "fb/pose_estimations_generated.h"
 #include "fb/segmentation_masks_generated.h"
+#include "fb/semantic_segmentation_masks_generated.h"
 #include "fb/track_traces_generated.h"
 #include "fb/voice_activity_detections_generated.h"
 #include "flatbuffers/flatbuffers.h"
@@ -53,7 +55,7 @@ namespace open_perception_kit {
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_VERSION = "0.1.2";
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_NAME = "open_perception_kit";
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_SCHEMA_SET_SHA256 =
-    "369791d6c9cb1049c18713e94524cb5b71d192b7570ba726e3b722aae4df47f4";
+    "04f772ed9bceb6249cc669d26f715f5b08b1d6131e6ad1c91bd523fdd579950d";
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_FLATBUFFERS_VERSION_REQUIREMENT = "==25.9.23";
 
 namespace detail {
@@ -110,6 +112,23 @@ template <> struct native_traits<open_perception_kit::metadata::FrameContextT> {
 
     static auto pack(flatbuffers::FlatBufferBuilder &builder, const native_type *obj) {
         return open_perception_kit::metadata::CreateFrameContext(builder, obj);
+    }
+};
+
+template <> struct native_traits<open_perception_kit::metadata::InstanceSegmentationMasksT> {
+    using table_type = open_perception_kit::metadata::InstanceSegmentationMasks;
+    using native_type = open_perception_kit::metadata::InstanceSegmentationMasksT;
+
+    static constexpr id_t id = 3149752457626985059ULL;
+    static constexpr std::string_view qualified_root_type =
+        "open_perception_kit.metadata.InstanceSegmentationMasks";
+
+    static constexpr const char *file_identifier() {
+        return "ISGM";
+    }
+
+    static auto pack(flatbuffers::FlatBufferBuilder &builder, const native_type *obj) {
+        return open_perception_kit::metadata::CreateInstanceSegmentationMasks(builder, obj);
     }
 };
 
@@ -198,6 +217,23 @@ template <> struct native_traits<open_perception_kit::metadata::SegmentationMask
     }
 };
 
+template <> struct native_traits<open_perception_kit::metadata::SemanticSegmentationMasksT> {
+    using table_type = open_perception_kit::metadata::SemanticSegmentationMasks;
+    using native_type = open_perception_kit::metadata::SemanticSegmentationMasksT;
+
+    static constexpr id_t id = 1602571589628393389ULL;
+    static constexpr std::string_view qualified_root_type =
+        "open_perception_kit.metadata.SemanticSegmentationMasks";
+
+    static constexpr const char *file_identifier() {
+        return "SSGM";
+    }
+
+    static auto pack(flatbuffers::FlatBufferBuilder &builder, const native_type *obj) {
+        return open_perception_kit::metadata::CreateSemanticSegmentationMasks(builder, obj);
+    }
+};
+
 template <> struct native_traits<open_perception_kit::metadata::TrackTracesT> {
     using table_type = open_perception_kit::metadata::TrackTraces;
     using native_type = open_perception_kit::metadata::TrackTracesT;
@@ -240,11 +276,13 @@ using payload_data = std::variant<encoded_payload,
                                   open_perception_kit::metadata::BoxDetectionsT,
                                   open_perception_kit::metadata::ClassificationsT,
                                   open_perception_kit::metadata::FrameContextT,
+                                  open_perception_kit::metadata::InstanceSegmentationMasksT,
                                   open_perception_kit::metadata::ObjectEmbeddingsT,
                                   open_perception_kit::metadata::ObjectTracksT,
                                   open_perception_kit::metadata::PerformanceOverlayT,
                                   open_perception_kit::metadata::PoseEstimationsT,
                                   open_perception_kit::metadata::SegmentationMasksT,
+                                  open_perception_kit::metadata::SemanticSegmentationMasksT,
                                   open_perception_kit::metadata::TrackTracesT,
                                   open_perception_kit::metadata::VoiceActivityDetectionsT>;
 

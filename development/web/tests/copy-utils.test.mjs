@@ -23,7 +23,7 @@ import {copyTextWithFeedback} from '../src/copy-utils.js';
 test('copies through the document fallback when the Clipboard API is unavailable', async () => {
     const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
     const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
-    const icon = {};
+    const icon = {dataset: {icon: 'copy'}};
     let buffer;
     let command;
     let restoredFocus = false;
@@ -63,6 +63,7 @@ test('copies through the document fallback when the Clipboard API is unavailable
         assert.equal(buffer.removed, true);
         assert.equal(command, 'copy');
         assert.equal(button.dataset.copyState, 'copied');
+        assert.equal(icon.dataset.icon, 'check');
         assert.equal(restoredFocus, true);
     } finally {
         if (originalNavigator) Object.defineProperty(globalThis, 'navigator', originalNavigator);

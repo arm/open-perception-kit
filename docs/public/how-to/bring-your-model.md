@@ -247,6 +247,8 @@ What matters here is not only that the model runs, but that the last stage produ
 The built-in postprocessors currently registered in `GenericPostprocessOp` are:
 
 - `YoloParser`
+- `Yolo26InstanceSegmentationParser`
+- `Yolo26SemanticSegmentationParser`
 - `UltrafaceParser`
 - `GazeDetectionParser`
 - `CameraContactParser`
@@ -269,10 +271,10 @@ The easiest models to integrate without code changes are models that fit one of 
 - `BoxDetectionsT` for detections such as faces and generic objects
 - `ClassificationsT` for top-k or binary classification
 - `PoseEstimationsT` for gaze estimation
-- `SegmentationMasksT` for segmentation or mask outputs
+- `SemanticSegmentationMasksT` for per-pixel class IDs, including valid class `0`
+- `InstanceSegmentationMasksT` for binary object masks with class, confidence, and box
+- `SegmentationMasksT` for compositing masks and alpha mattes with values `0` through `255`
 - `ObjectEmbeddingsT` for ReID / embedding outputs
-
-These are the structured result shapes that downstream Open Perception Kit code already consumes. In other words, when bringing a model into Open Perception Kit, you are usually trying to map raw tensors into one of these generated FrameResults payloads rather than inventing a model-specific application contract.
 
 If your output shape and meaning already match one of the existing parsers, integration is usually straightforward.
 

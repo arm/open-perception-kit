@@ -25,6 +25,8 @@ stdops = shared_module(
     'postproc/RvmParser.cpp',
     'postproc/DummyParser.cpp',
     'postproc/YoloParser.cpp',
+    'postproc/Yolo26InstanceSegmentationParser.cpp',
+    'postproc/Yolo26SemanticSegmentationParser.cpp',
     'postproc/YoloXParser.cpp',
     'postproc/UltrafaceParser.cpp',
     'postproc/PaddleocrParser.cpp',

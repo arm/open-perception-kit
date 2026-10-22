@@ -74,7 +74,7 @@ class GeneratorTests(unittest.TestCase):
                 manifest = target / "flowdata-manifest.json"
                 receipt = verify_generation_manifest(manifest, schemas)
                 self.assertEqual(receipt["outputs"]["sdk"], sdk)
-                self.assertEqual(len(receipt["payloads"]), 10)
+                self.assertEqual(len(receipt["payloads"]), 12)
                 before = {
                     path.relative_to(target): hashlib.sha256(path.read_bytes()).hexdigest()
                     for path in target.rglob("*") if path.is_file()

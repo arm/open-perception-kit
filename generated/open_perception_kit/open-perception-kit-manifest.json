@@ -44,6 +44,11 @@
       "size": 35179
     },
     {
+      "path": "cpp/fb/instance_segmentation_masks_generated.h",
+      "sha256": "fa7446be40da6a8e44ad4db60c993b999d273a6c427d9e1bad705acd557b81d8",
+      "size": 23099
+    },
+    {
       "path": "cpp/fb/internal/wire_envelope_generated.h",
       "sha256": "4654fe1fb05ff600f1441ca9e56d69f8339dc2a7091702a48a2cae89ae12d424",
       "size": 18937
@@ -74,6 +79,11 @@
       "size": 19402
     },
     {
+      "path": "cpp/fb/semantic_segmentation_masks_generated.h",
+      "sha256": "fbe9df42d244290ccbae838c1486e96684adbb5b8bba2b9143eec7aa11214b08",
+      "size": 20731
+    },
+    {
       "path": "cpp/fb/track_traces_generated.h",
       "sha256": "d1a3672faff2292864fda7607e5564361de8cb771039b6900277beb9a96b8ef1",
       "size": 20425
@@ -95,13 +105,13 @@
     },
     {
       "path": "cpp/open_perception_kit.h",
-      "sha256": "497f14a2ea483c3f11960f89d81a5aba99bcee8ec2f405dc374d76a13f06e844",
-      "size": 33936
+      "sha256": "0c4b5337a1f8e0144bb152fd85f48be2ba0056214928f6b33adcb77879871dca",
+      "size": 35660
     },
     {
       "path": "cpp/python_bridge/open_perception_kit_python_bridge.cpp",
-      "sha256": "56dc8b0ce74e4396f2869d5cc3beba39a5e0a399dfd72ff585ba3c2430bc1cd1",
-      "size": 246975
+      "sha256": "f19d44987b57d30a3a5dc973762c9931786365bb9d226f2e16aca94687f7a2e3",
+      "size": 279527
     },
     {
       "path": "cpp/python_bridge/open_perception_kit_python_bridge.h",
@@ -125,7 +135,7 @@
     },
     {
       "path": "python/src/open_perception_kit/__init__.py",
-      "sha256": "da85692f7aec0acfe846c413509191d3996376e90d391e2bb6340e3c8768e6e2",
+      "sha256": "dc93010bf4450ab4c8f2a0b79c763821eff1cb8adcdcdddad66ff2d9585602a0",
       "size": 1166
     },
     {
@@ -182,6 +192,16 @@
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/FrameContext.py",
       "sha256": "7f11df19708b65b6f4a446adbadb093132929435c158bef39a2fbe2a66b41547",
       "size": 7735
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/InstanceSegmentationMask.py",
+      "sha256": "234fa7e502ffa437f5c753ad60f80ff46017670394b1264fcb80127b19aa78cb",
+      "size": 8223
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/InstanceSegmentationMasks.py",
+      "sha256": "5472c4bca01d2ac561e58e0e22d3b79377468c1c069706726bba1f2f57794021",
+      "size": 8520
     },
     {
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/LayerInfo.py",
@@ -254,6 +274,16 @@
       "size": 8000
     },
     {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/SemanticSegmentationMask.py",
+      "sha256": "28a9f0216bcbbc5cd115c3007726880d540aba28a98dd3ad91e1a2d4c467555a",
+      "size": 5637
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/SemanticSegmentationMasks.py",
+      "sha256": "9468a53f7c90c0dbadc8cc5317a9270c298b7d6498d5f27587adcfb75d8ac1c9",
+      "size": 8520
+    },
+    {
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/TrackTrace.py",
       "sha256": "bc52bd7af868aed7905018e80d71d481630a509f1d64c35ec39000697a6dd410",
       "size": 6897
@@ -320,12 +350,12 @@
     },
     {
       "path": "python/src/open_perception_kit/registry.py",
-      "sha256": "bd29e1f496cefb0702abbe4ffb8a12d70d644481fde562a206a111482f6ea357",
-      "size": 4657
+      "sha256": "6d9a4a64d03481119434bd07eaa2dde3b11fd54d42357d8a41257cdc2ad997bb",
+      "size": 5529
     },
     {
       "path": "python/src/open_perception_kit/sdk.py",
-      "sha256": "ed39e2f4db7ebc606b6b398441eb47e082a8396f7cf766203bb1dc3c6f419a4f",
+      "sha256": "cd46ab88cce945f37661b9b17af64fe8eb8005040c5a13cebf9bf4717f3e8ea5",
       "size": 16002
     },
     {
@@ -394,14 +424,24 @@
       "size": 13634
     },
     {
+      "path": "rust/src/fb/open_perception_kit/metadata/instance_segmentation_mask_generated.rs",
+      "sha256": "ad82df368d85894c7227d2f24dd1cca4f8ba942c00e191668643e50bb0483a32",
+      "size": 10178
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/instance_segmentation_masks_generated.rs",
+      "sha256": "97dad208aa3048bc8a28e4328e390ccecf918cc8727f448986b097437a063ab6",
+      "size": 13813
+    },
+    {
       "path": "rust/src/fb/open_perception_kit/metadata/layer_info_generated.rs",
       "sha256": "fb20f3dbbe1b01372eda7f4bacf60f976e656fdd8d824fa2ceb879c75a6f2b0b",
       "size": 14177
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/mod.rs",
-      "sha256": "dd59b3d3fc6c69ff69cea077c4b573192c3e72892d0925402914655fc7f4e660",
-      "size": 2807
+      "sha256": "a6a3021836614a4964290302b4bb0b72b22c3f6de8c55dfe5ade9b1c8f0cf989",
+      "size": 3199
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/object_embedding_generated.rs",
@@ -469,6 +509,16 @@
       "size": 13045
     },
     {
+      "path": "rust/src/fb/open_perception_kit/metadata/semantic_segmentation_mask_generated.rs",
+      "sha256": "466e7376530eabfe81672ec0cb97cef463e6fcccf0cd8e98b2e7638e7d4f7f40",
+      "size": 6873
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/semantic_segmentation_masks_generated.rs",
+      "sha256": "c152ecc64beb2cf886bd8286150fe2ea018a9ff8e1008df4092b1193b469e762",
+      "size": 13813
+    },
+    {
       "path": "rust/src/fb/open_perception_kit/metadata/track_trace_generated.rs",
       "sha256": "6237a5325f834fb2ffd1c8cea9b09791b39d8a1641883fc6d04538ece8110f64",
       "size": 7754
@@ -520,8 +570,8 @@
     },
     {
       "path": "rust/src/lib.rs",
-      "sha256": "bfa997f3dd59908edc1cc6ffc268b5758a4a437eedab97fab78d20ca5c56ebef",
-      "size": 46474
+      "sha256": "6a7852af1f0fbc5dccc0a5b20615294fa76009cdc643a4b3acc021af0c29aad8",
+      "size": 50948
     },
     {
       "path": "rust/tests/fixtures/opk-box-detections-v0.2.1.hex",
@@ -545,12 +595,12 @@
     },
     {
       "path": "ts/dist/open_perception_kit/envelope.d.ts",
-      "sha256": "c4cc2fec4df90178918344dfb1c960790a169e13c3ea595d6c33aa6ef37a1c0c",
+      "sha256": "3fa48dc95bbb52de26a5fb7483b060d9b8aa2871fb11710b643f09aa79604316",
       "size": 2941
     },
     {
       "path": "ts/dist/open_perception_kit/envelope.js",
-      "sha256": "d0fb215bb0e901aaac25300a6c47eb0c62c214370e46a69535dd00bd28c2ba4a",
+      "sha256": "2fef63136bd8192e6d130871babcb9fb79dadc35625e0f507c08a593a3eebe03",
       "size": 14375
     },
     {
@@ -672,6 +722,26 @@
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/frame-context.js",
       "sha256": "054b512262064709cc30b6254e47ffd2b312e26b238b918c53fd92f93ffb7bba",
       "size": 5223
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/instance-segmentation-mask.d.ts",
+      "sha256": "9c90e006e8279395b5157f405d3f3c0ea966c396ed32b3c76d2c9ad5c4db9e51",
+      "size": 2960
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/instance-segmentation-mask.js",
+      "sha256": "cd7bf3ec8a50a1e6f69fcb814d4ac42c0017a271f717a97ad5558f16f29f5940",
+      "size": 5045
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/instance-segmentation-masks.d.ts",
+      "sha256": "83a002351092c7f4fe652d3f5143878f6b6511166145ab5c334aa7372a97f85a",
+      "size": 3330
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/instance-segmentation-masks.js",
+      "sha256": "dacc64a8dfe324f8cef73b34b9ecacaf6bac632e90250017d0f60f92087289cb",
+      "size": 5389
     },
     {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/layer-info.d.ts",
@@ -814,6 +884,26 @@
       "size": 5204
     },
     {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-mask.d.ts",
+      "sha256": "a124d778f8b2474bd982f8194fcd133bd8093cc57cc106f1f2f3b41dc8b6ddf2",
+      "size": 2382
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-mask.js",
+      "sha256": "d9ca98a999c9e1de7cc41b3ed092b8e48fc0f4d5df389b37720c70b890e69b10",
+      "size": 3524
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-masks.d.ts",
+      "sha256": "0cbfe74f6f5714c2dd4c6ca64278d37a75943a7f0195104028c312af26617e08",
+      "size": 3330
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-masks.js",
+      "sha256": "5dc084e37e86896efc8649bfadbb4913c619b2f6f3a74c541638a224e48c37bc",
+      "size": 5389
+    },
+    {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-trace.d.ts",
       "sha256": "e0de0db42b9a78fef1034f6044816d6f8f96fe56d781e2d73314420b920423d1",
       "size": 2696
@@ -875,12 +965,12 @@
     },
     {
       "path": "ts/dist/open_perception_kit/index.d.ts",
-      "sha256": "facc427fc5177a1407134963fb360c47bb62efc1c838316d2c36c31a981c5968",
+      "sha256": "9aeff75c85b3f6bcbc2f4c72b206bd8b38fad706564d896421ce91b409f0fb64",
       "size": 1235
     },
     {
       "path": "ts/dist/open_perception_kit/index.js",
-      "sha256": "a796af5ed163243211703c705d287a8fb84512e6242485c12877cff860cacfe3",
+      "sha256": "651b6d9a99eceb18836d83f43c2a205e415be509da7a9c35402c5b9d4638f5b2",
       "size": 1203
     },
     {
@@ -890,8 +980,8 @@
     },
     {
       "path": "ts/dist/open_perception_kit/registry.js",
-      "sha256": "572c399ec4884544b8300828505268fb0eed9000a8616b2f507a074f15fab584",
-      "size": 9710
+      "sha256": "39dd635e14f8002ec16b143600bba51fb0e0e5a4a61b4b78fd3c23a993c8d2fe",
+      "size": 11710
     },
     {
       "path": "ts/package.json",
@@ -900,7 +990,7 @@
     },
     {
       "path": "ts/src/open_perception_kit/envelope.ts",
-      "sha256": "bee75927e05d861529d153dbb115f6aa4823e6ee31850eaa10c9f8582ce111c8",
+      "sha256": "11f314bb89e9bad7a0df5749e193c977c70110365d269e50412907ad315badf7",
       "size": 13002
     },
     {
@@ -962,6 +1052,16 @@
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/frame-context.ts",
       "sha256": "22ce113fe800348f1a41382dd47a68bb07246bc6d4c3abf7fe4863e8c1c6dd22",
       "size": 5643
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/instance-segmentation-mask.ts",
+      "sha256": "e08f30578ba19ea22d28a24d41bd05f938db7915bd54c758bdcde3334c06150d",
+      "size": 5453
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/instance-segmentation-masks.ts",
+      "sha256": "a4a953d6f5a56e7ff4e6d5a1356aee9682ba01db3c4c09d4fa3e9764d1c0c683",
+      "size": 6013
     },
     {
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/layer-info.ts",
@@ -1034,6 +1134,16 @@
       "size": 5700
     },
     {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-mask.ts",
+      "sha256": "f7e2f121b28a59fe3b1ce30c77be1b23e2c3a06085514abe70aff935f26b3f35",
+      "size": 3929
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-masks.ts",
+      "sha256": "e409187518964199ce6e1aeada59bde70c4f2a3530ade7aa038f6dc2a1829069",
+      "size": 6013
+    },
+    {
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/track-trace.ts",
       "sha256": "9fbcd29d692ccff62d7ded34a4f6c6f2499b2727b10d995dc071e99a7ba7cfe3",
       "size": 4899
@@ -1065,13 +1175,13 @@
     },
     {
       "path": "ts/src/open_perception_kit/index.ts",
-      "sha256": "6e44459f9b5c5d8edae6d188f147d91e83ad20fd55b95ebf82f4e124aaf08059",
+      "sha256": "77a1a2a6500c44924ec5938aa3f4ec80d8d201cc05091ce076531b836a20f404",
       "size": 1216
     },
     {
       "path": "ts/src/open_perception_kit/registry.ts",
-      "sha256": "fb00fbefc9fb790e1e23a6d9d692aab8ce8817cefe5a131d453fee41a77ff188",
-      "size": 9868
+      "sha256": "9783d93c25258571f5e242e89c4102bc5642b7b07fc758fe5f05bc17a29146fc",
+      "size": 11836
     },
     {
       "path": "ts/tsconfig.json",
@@ -1333,6 +1443,11 @@
           "size": 30519
         },
         {
+          "path": "fb/instance_segmentation_masks_generated.h",
+          "sha256": "4828cd43b740451d866a4adde65f24d0b46518866c69ae8871e61157915d70f5",
+          "size": 20239
+        },
+        {
           "path": "fb/internal/wire_envelope_generated.h",
           "sha256": "66f3f729756e1080f48dec013d81fcdd1a6f4aac250eb992232a408dc27ed76d",
           "size": 16245
@@ -1363,6 +1478,11 @@
           "size": 16856
         },
         {
+          "path": "fb/semantic_segmentation_masks_generated.h",
+          "sha256": "b02cc012e29bc243227e8f324790c8f5aacffaba0444c0e64bc9e0ca493a2a93",
+          "size": 18104
+        },
+        {
           "path": "fb/track_traces_generated.h",
           "sha256": "8311591de21e0aac90fd90413d90ad9fad9a4f2a1a7c79d763a7045a81a9e2c1",
           "size": 17657
@@ -1384,13 +1504,13 @@
         },
         {
           "path": "open_perception_kit.h",
-          "sha256": "49a3c835481910d7a0be71dddd3a7449403afa854279ad72072d0fbe924375e5",
-          "size": 32737
+          "sha256": "4e8ffff793f28da45a6b82918ddac0b50c2081476a9a6a78d2f587cba610e744",
+          "size": 34393
         },
         {
           "path": "python_bridge/open_perception_kit_python_bridge.cpp",
-          "sha256": "8004ed4c75820f475ff2b844209a4d2873331c565d7f1e3d7213fa8d6af75c9b",
-          "size": 235738
+          "sha256": "da34b3daceeb844075d181cf683fb651b188e6dda76a7fd1ce4a253ba0a289ee",
+          "size": 266289
         },
         {
           "path": "python_bridge/open_perception_kit_python_bridge.h",
@@ -1447,6 +1567,12 @@
           "schema": "frame_context.fbs"
         },
         {
+          "file_identifier": "ISGM",
+          "payload_id": "0x2bb62b2c0f452263",
+          "qualified_root_type": "open_perception_kit.metadata.InstanceSegmentationMasks",
+          "schema": "instance_segmentation_masks.fbs"
+        },
+        {
           "file_identifier": "EMBE",
           "payload_id": "0x52e328051b81535d",
           "qualified_root_type": "open_perception_kit.metadata.ObjectEmbeddings",
@@ -1475,6 +1601,12 @@
           "payload_id": "0x1bbd8e0aef4d628f",
           "qualified_root_type": "open_perception_kit.metadata.SegmentationMasks",
           "schema": "segmentation_masks.fbs"
+        },
+        {
+          "file_identifier": "SSGM",
+          "payload_id": "0x163d7a5eb6eef7ad",
+          "qualified_root_type": "open_perception_kit.metadata.SemanticSegmentationMasks",
+          "schema": "semantic_segmentation_masks.fbs"
         },
         {
           "file_identifier": "TRCE",
@@ -1521,6 +1653,11 @@
           "size": 910
         },
         {
+          "path": "instance_segmentation_masks.fbs",
+          "sha256": "385134212e99a6fd461d556f8727188e3a0909e6b18dd4f7f5fd9338efe4a876",
+          "size": 554
+        },
+        {
           "path": "object_embeddings.fbs",
           "sha256": "aa14c4af249e7da12b363756276b4e9121625a65ac52b58a2c60c7467c18dc04",
           "size": 402
@@ -1546,6 +1683,11 @@
           "size": 433
         },
         {
+          "path": "semantic_segmentation_masks.fbs",
+          "sha256": "5943250b6daa14b186972e7637c214820d0e20d33be804882821992171e56a31",
+          "size": 548
+        },
+        {
           "path": "track_traces.fbs",
           "sha256": "7406e0a0a32a1f3a1461963a7017e761331c154ea99ce1ab53f4d5bc400f919c",
           "size": 427
@@ -1556,7 +1698,7 @@
           "size": 994
         }
       ],
-      "schema_set_sha256": "369791d6c9cb1049c18713e94524cb5b71d192b7570ba726e3b722aae4df47f4",
+      "schema_set_sha256": "04f772ed9bceb6249cc669d26f715f5b08b1d6131e6ad1c91bd523fdd579950d",
       "sdk": {
         "name": "open_perception_kit",
         "version": "0.1.2"
@@ -1571,7 +1713,7 @@
         },
         {
           "path": "src/open_perception_kit/__init__.py",
-          "sha256": "c71443ff75ece486d3af3bb32bcf9bb70a0b13bf23c42f691f7f1ad3b404f133",
+          "sha256": "4602d25e048b4ded94a29a7073a982f1bc55d41f8aa096b9fabbc9866ac78d54",
           "size": 506
         },
         {
@@ -1628,6 +1770,16 @@
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/FrameContext.py",
           "sha256": "e331bdf2c74e6430c101dcff0fb080790efe82d3bea3a8c0e03864592cb7ee25",
           "size": 7001
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/InstanceSegmentationMask.py",
+          "sha256": "a26cfbc6440b85efed598c90024b1847aecdf4113a3218013539e11f0ba5b27d",
+          "size": 7489
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/InstanceSegmentationMasks.py",
+          "sha256": "a9687333eb0f6c044d6f97ccfe3ff1ab34149087d5fb5d4fd761c8e533a31d9c",
+          "size": 7800
         },
         {
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/LayerInfo.py",
@@ -1700,6 +1852,16 @@
           "size": 7280
         },
         {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/SemanticSegmentationMask.py",
+          "sha256": "cb71b4e97cbb1a0ac36f3b681247b8c407c0cfbeb008695b8587ebfc73d11bfe",
+          "size": 4920
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/SemanticSegmentationMasks.py",
+          "sha256": "7f394eb0ea965220476c295334cceb6403cf0c70d0987897828b681089d98a8b",
+          "size": 7800
+        },
+        {
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/TrackTrace.py",
           "sha256": "c7b8190bfd4065dc3f09144c6d226e76be07ebdc3db4902ad9669e8fd7d00bbf",
           "size": 6170
@@ -1766,12 +1928,12 @@
         },
         {
           "path": "src/open_perception_kit/registry.py",
-          "sha256": "e58dcb93019edb4acdb2294214dcc355523a7830e9b3ce9a2801bebfcd82e825",
-          "size": 3996
+          "sha256": "3ddc0e2ff73ef11ccf7ca7ea4fac8272ed18d384783b6c6739c1e8d6d7ca801e",
+          "size": 4868
         },
         {
           "path": "src/open_perception_kit/sdk.py",
-          "sha256": "264560c4b1a04f5e3c487be211c97dea84bec3747149f6e02224bb2c4d54b215",
+          "sha256": "6355c954b44d344aa74ae8e74945890c79bd7d9d71b5b52310db83dfa65fa14e",
           "size": 15341
         }
       ],
@@ -1816,6 +1978,12 @@
           "schema": "frame_context.fbs"
         },
         {
+          "file_identifier": "ISGM",
+          "payload_id": "0x2bb62b2c0f452263",
+          "qualified_root_type": "open_perception_kit.metadata.InstanceSegmentationMasks",
+          "schema": "instance_segmentation_masks.fbs"
+        },
+        {
           "file_identifier": "EMBE",
           "payload_id": "0x52e328051b81535d",
           "qualified_root_type": "open_perception_kit.metadata.ObjectEmbeddings",
@@ -1844,6 +2012,12 @@
           "payload_id": "0x1bbd8e0aef4d628f",
           "qualified_root_type": "open_perception_kit.metadata.SegmentationMasks",
           "schema": "segmentation_masks.fbs"
+        },
+        {
+          "file_identifier": "SSGM",
+          "payload_id": "0x163d7a5eb6eef7ad",
+          "qualified_root_type": "open_perception_kit.metadata.SemanticSegmentationMasks",
+          "schema": "semantic_segmentation_masks.fbs"
         },
         {
           "file_identifier": "TRCE",
@@ -1895,6 +2069,11 @@
           "size": 910
         },
         {
+          "path": "instance_segmentation_masks.fbs",
+          "sha256": "385134212e99a6fd461d556f8727188e3a0909e6b18dd4f7f5fd9338efe4a876",
+          "size": 554
+        },
+        {
           "path": "object_embeddings.fbs",
           "sha256": "aa14c4af249e7da12b363756276b4e9121625a65ac52b58a2c60c7467c18dc04",
           "size": 402
@@ -1920,6 +2099,11 @@
           "size": 433
         },
         {
+          "path": "semantic_segmentation_masks.fbs",
+          "sha256": "5943250b6daa14b186972e7637c214820d0e20d33be804882821992171e56a31",
+          "size": 548
+        },
+        {
           "path": "track_traces.fbs",
           "sha256": "7406e0a0a32a1f3a1461963a7017e761331c154ea99ce1ab53f4d5bc400f919c",
           "size": 427
@@ -1930,7 +2114,7 @@
           "size": 994
         }
       ],
-      "schema_set_sha256": "369791d6c9cb1049c18713e94524cb5b71d192b7570ba726e3b722aae4df47f4",
+      "schema_set_sha256": "04f772ed9bceb6249cc669d26f715f5b08b1d6131e6ad1c91bd523fdd579950d",
       "sdk": {
         "name": "open_perception_kit",
         "version": "0.1.2"
@@ -1994,14 +2178,24 @@
           "size": 12953
         },
         {
+          "path": "src/fb/open_perception_kit/metadata/instance_segmentation_mask_generated.rs",
+          "sha256": "cd26f14179f268c7fb27130901c051db69799088c8e0314246fb0f750b62e27f",
+          "size": 9497
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/instance_segmentation_masks_generated.rs",
+          "sha256": "8ac84bd9af195b6e0b1a0a1362ac4763809a4aee8952e697d507d099c88b379e",
+          "size": 13132
+        },
+        {
           "path": "src/fb/open_perception_kit/metadata/layer_info_generated.rs",
           "sha256": "183b5ea0394133d606c9c8ebd0c1511dc4a21fbb299949d7917b3cec7025ea06",
           "size": 13496
         },
         {
           "path": "src/fb/open_perception_kit/metadata/mod.rs",
-          "sha256": "0ab3efdcba9a33857ac3f08670231c50349b14875811a61d753c5d36d55c9dd4",
-          "size": 2126
+          "sha256": "5d336b6786de64cc3c85d8b7e53bd2801de170c11843dce61422384878af2f97",
+          "size": 2518
         },
         {
           "path": "src/fb/open_perception_kit/metadata/object_embedding_generated.rs",
@@ -2069,6 +2263,16 @@
           "size": 12364
         },
         {
+          "path": "src/fb/open_perception_kit/metadata/semantic_segmentation_mask_generated.rs",
+          "sha256": "c91766ef0977cca40ae445e25e514e47ba8f63166ecdcf8050fd5f44629b4ef7",
+          "size": 6192
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/semantic_segmentation_masks_generated.rs",
+          "sha256": "b41a69c8a8f00d38357bbb53b335d61d8b2859ed2e088f4aeee501167af6b68a",
+          "size": 13132
+        },
+        {
           "path": "src/fb/open_perception_kit/metadata/track_trace_generated.rs",
           "sha256": "c7c0d586e64a8c774cdc3ad93d1fb396a4fad9f5bff3cff45fc02f27e714e3a6",
           "size": 7073
@@ -2120,8 +2324,8 @@
         },
         {
           "path": "src/lib.rs",
-          "sha256": "4998eb9fefa19adebd829135632019c1d37dcc59f7e50ddd78fda2e36f9dae08",
-          "size": 45793
+          "sha256": "ba09f804e929abfa77fe96b267e4822824d906f95811f9cdd979c749b7d36df5",
+          "size": 50267
         }
       ],
       "flatbuffers_runtimes": [
@@ -2165,6 +2369,12 @@
           "schema": "frame_context.fbs"
         },
         {
+          "file_identifier": "ISGM",
+          "payload_id": "0x2bb62b2c0f452263",
+          "qualified_root_type": "open_perception_kit.metadata.InstanceSegmentationMasks",
+          "schema": "instance_segmentation_masks.fbs"
+        },
+        {
           "file_identifier": "EMBE",
           "payload_id": "0x52e328051b81535d",
           "qualified_root_type": "open_perception_kit.metadata.ObjectEmbeddings",
@@ -2193,6 +2403,12 @@
           "payload_id": "0x1bbd8e0aef4d628f",
           "qualified_root_type": "open_perception_kit.metadata.SegmentationMasks",
           "schema": "segmentation_masks.fbs"
+        },
+        {
+          "file_identifier": "SSGM",
+          "payload_id": "0x163d7a5eb6eef7ad",
+          "qualified_root_type": "open_perception_kit.metadata.SemanticSegmentationMasks",
+          "schema": "semantic_segmentation_masks.fbs"
         },
         {
           "file_identifier": "TRCE",
@@ -2229,6 +2445,11 @@
           "size": 910
         },
         {
+          "path": "instance_segmentation_masks.fbs",
+          "sha256": "385134212e99a6fd461d556f8727188e3a0909e6b18dd4f7f5fd9338efe4a876",
+          "size": 554
+        },
+        {
           "path": "object_embeddings.fbs",
           "sha256": "aa14c4af249e7da12b363756276b4e9121625a65ac52b58a2c60c7467c18dc04",
           "size": 402
@@ -2254,6 +2475,11 @@
           "size": 433
         },
         {
+          "path": "semantic_segmentation_masks.fbs",
+          "sha256": "5943250b6daa14b186972e7637c214820d0e20d33be804882821992171e56a31",
+          "size": 548
+        },
+        {
           "path": "track_traces.fbs",
           "sha256": "7406e0a0a32a1f3a1461963a7017e761331c154ea99ce1ab53f4d5bc400f919c",
           "size": 427
@@ -2264,7 +2490,7 @@
           "size": 994
         }
       ],
-      "schema_set_sha256": "369791d6c9cb1049c18713e94524cb5b71d192b7570ba726e3b722aae4df47f4",
+      "schema_set_sha256": "04f772ed9bceb6249cc669d26f715f5b08b1d6131e6ad1c91bd523fdd579950d",
       "sdk": {
         "name": "open_perception_kit",
         "version": "0.1.2"
@@ -2279,7 +2505,7 @@
         },
         {
           "path": "src/open_perception_kit/envelope.ts",
-          "sha256": "9b2ef10019665c5277e677aa85462e4f806701e23f3db758075cdbad98cebf68",
+          "sha256": "6d143f2f2b2d56520375694cb13b3de757c47d456273daf96a9a0b7589794f95",
           "size": 12321
         },
         {
@@ -2346,6 +2572,16 @@
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/frame-context.ts",
           "sha256": "b38181c1f3c3643525ff836e9691f0fc35091d6eeca2d7d1c8e2cd9a88120245",
           "size": 4962
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/instance-segmentation-mask.ts",
+          "sha256": "87b75f2a94b2df6ef645fd5e443d5cdca3657c211b389caa688596d0f5fe0a95",
+          "size": 4772
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/instance-segmentation-masks.ts",
+          "sha256": "e2047374026a27536d73fb60c24aff55d0b46dcc827f73c14552f178c729740a",
+          "size": 5332
         },
         {
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/layer-info.ts",
@@ -2418,6 +2654,16 @@
           "size": 5019
         },
         {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-mask.ts",
+          "sha256": "52760892354cc99d719d8f29ff8d91f3c069db471db80422040c82e6476428bf",
+          "size": 3248
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-masks.ts",
+          "sha256": "3555eccd7da05a461971c4b1b89200fc4883f388ea5f8aeb9d04fbcce3bd9963",
+          "size": 5332
+        },
+        {
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/track-trace.ts",
           "sha256": "71c4695cedb212abdf2db9693e90ed4bc625a757e659ffc7ac5a0315595b8b7a",
           "size": 4218
@@ -2444,13 +2690,13 @@
         },
         {
           "path": "src/open_perception_kit/index.ts",
-          "sha256": "5f3534b7984ff9d5e575102308a4522936a119d86842efc6ec2f12d741722d88",
+          "sha256": "75550c7f36e5927f678403f133f3ad3c1f0d6b7af0c2185d620a37577fc48ddd",
           "size": 535
         },
         {
           "path": "src/open_perception_kit/registry.ts",
-          "sha256": "c68405aef4725dcd43203de46713b86c54540318284bf1a9eed237502bea1c92",
-          "size": 9187
+          "sha256": "5d17bf82ccd64a09a9d5300ce556ef6da1b44a89e4048d80d56d65e9da088efa",
+          "size": 11155
         },
         {
           "path": "tsconfig.json",
@@ -2499,6 +2745,12 @@
           "schema": "frame_context.fbs"
         },
         {
+          "file_identifier": "ISGM",
+          "payload_id": "0x2bb62b2c0f452263",
+          "qualified_root_type": "open_perception_kit.metadata.InstanceSegmentationMasks",
+          "schema": "instance_segmentation_masks.fbs"
+        },
+        {
           "file_identifier": "EMBE",
           "payload_id": "0x52e328051b81535d",
           "qualified_root_type": "open_perception_kit.metadata.ObjectEmbeddings",
@@ -2527,6 +2779,12 @@
           "payload_id": "0x1bbd8e0aef4d628f",
           "qualified_root_type": "open_perception_kit.metadata.SegmentationMasks",
           "schema": "segmentation_masks.fbs"
+        },
+        {
+          "file_identifier": "SSGM",
+          "payload_id": "0x163d7a5eb6eef7ad",
+          "qualified_root_type": "open_perception_kit.metadata.SemanticSegmentationMasks",
+          "schema": "semantic_segmentation_masks.fbs"
         },
         {
           "file_identifier": "TRCE",
@@ -2563,6 +2821,11 @@
           "size": 910
         },
         {
+          "path": "instance_segmentation_masks.fbs",
+          "sha256": "385134212e99a6fd461d556f8727188e3a0909e6b18dd4f7f5fd9338efe4a876",
+          "size": 554
+        },
+        {
           "path": "object_embeddings.fbs",
           "sha256": "aa14c4af249e7da12b363756276b4e9121625a65ac52b58a2c60c7467c18dc04",
           "size": 402
@@ -2588,6 +2851,11 @@
           "size": 433
         },
         {
+          "path": "semantic_segmentation_masks.fbs",
+          "sha256": "5943250b6daa14b186972e7637c214820d0e20d33be804882821992171e56a31",
+          "size": 548
+        },
+        {
           "path": "track_traces.fbs",
           "sha256": "7406e0a0a32a1f3a1461963a7017e761331c154ea99ce1ab53f4d5bc400f919c",
           "size": 427
@@ -2598,7 +2866,7 @@
           "size": 994
         }
       ],
-      "schema_set_sha256": "369791d6c9cb1049c18713e94524cb5b71d192b7570ba726e3b722aae4df47f4",
+      "schema_set_sha256": "04f772ed9bceb6249cc669d26f715f5b08b1d6131e6ad1c91bd523fdd579950d",
       "sdk": {
         "name": "open_perception_kit",
         "version": "0.1.2"

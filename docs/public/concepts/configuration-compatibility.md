@@ -219,6 +219,12 @@ are stored internally as Float32, so the schema restricts Int64 constants to
 integers between -16777216 and 16777216 for exact representation.
 Existing image models remain valid; their older minor version may emit a warning.
 
+OpChain `1.1.0` adds optional `intraOpNumThreads` to
+`opk-onnx-ops/Inference`. Set the OpChain version to `"1.1.0"` when adopting
+the option; omitted values retain the previous thread policy. Older runtimes
+can reject the new attribute despite warning rather than failing on the minor
+version mismatch. Rebuild or upgrade the runtime before using it. See
+[ONNX thread tuning](../how-to/performance-measurement.md).
 
 OpChain `1.0.2` adds the optional YoloParser `outputFormat` attribute. Existing
 OpChains keep the `centerClassScores` behavior when it is omitted. Models that

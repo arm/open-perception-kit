@@ -304,8 +304,9 @@ except where individual files or accompanying notices state otherwise.
 See [Licensing](docs/public/licensing.md) for the licence and notice locations.
 
 Third-party components retain their own licences. These include FlatBuffers (Apache-2.0), ONNX
-Runtime (MIT), ExecuTorch (BSD-3-Clause), and the Font Awesome CSS (MIT) and
-font (OFL-1.1). Their original notices accompany the distributed files.
+Runtime (MIT), ExecuTorch (BSD-3-Clause), Lucide icons (ISC/MIT), and the
+Lato (OFL-1.1) and Cousine (Apache-2.0) fonts supplied by Wafer. Their original
+notices accompany the distributed files; Wafer CSS retains its Arm copyright notice.
 
 The maintained [third-party component inventory](docs/third-party-licenses.md)
 lists versions, licence labels and origins. It was initialized from the supplied

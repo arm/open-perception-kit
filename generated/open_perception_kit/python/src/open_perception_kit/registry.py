@@ -40,6 +40,14 @@ _TYPE_REGISTRY = {
         'qualified_root_type': 'open_perception_kit.metadata.FrameContext',
         'file_identifier': 'FCTX',
     },
+    3149752457626985059: {
+        'name': 'open_perception_kit::metadata::InstanceSegmentationMasks',
+        'module': 'open_perception_kit.fb.open_perception_kit.metadata.InstanceSegmentationMasks',
+        'root_type': 'InstanceSegmentationMasks',
+        'native_type': 'InstanceSegmentationMasksT',
+        'qualified_root_type': 'open_perception_kit.metadata.InstanceSegmentationMasks',
+        'file_identifier': 'ISGM',
+    },
     5972661533224817501: {
         'name': 'open_perception_kit::metadata::ObjectEmbeddings',
         'module': 'open_perception_kit.fb.open_perception_kit.metadata.ObjectEmbeddings',
@@ -79,6 +87,14 @@ _TYPE_REGISTRY = {
         'native_type': 'SegmentationMasksT',
         'qualified_root_type': 'open_perception_kit.metadata.SegmentationMasks',
         'file_identifier': 'SGMS',
+    },
+    1602571589628393389: {
+        'name': 'open_perception_kit::metadata::SemanticSegmentationMasks',
+        'module': 'open_perception_kit.fb.open_perception_kit.metadata.SemanticSegmentationMasks',
+        'root_type': 'SemanticSegmentationMasks',
+        'native_type': 'SemanticSegmentationMasksT',
+        'qualified_root_type': 'open_perception_kit.metadata.SemanticSegmentationMasks',
+        'file_identifier': 'SSGM',
     },
     238211229389337861: {
         'name': 'open_perception_kit::metadata::TrackTraces',

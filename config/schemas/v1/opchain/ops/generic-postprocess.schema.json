@@ -121,7 +121,8 @@
           "enum": [
             "ObjectEmbeddingParser",
             "PersonClassificationParser",
-            "RvmParser"
+            "RvmParser",
+            "Yolo26SemanticSegmentationParser"
           ]
         }
       }
@@ -144,6 +145,23 @@
         "confidenceThreshold": {
           "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/probability",
           "default": 0.01
+        }
+      }
+    },
+    "yolo26InstanceSegmentation": {
+      "title": "Yolo26InstanceSegmentationParser attributes v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser"
+      ],
+      "properties": {
+        "parser": {
+          "const": "Yolo26InstanceSegmentationParser"
+        },
+        "confidenceThreshold": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/probability",
+          "default": 0.25
         }
       }
     },
@@ -462,6 +480,9 @@
           },
           {
             "$ref": "#/$defs/yolo"
+          },
+          {
+            "$ref": "#/$defs/yolo26InstanceSegmentation"
           },
           {
             "$ref": "#/$defs/yoloX"

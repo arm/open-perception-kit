@@ -142,13 +142,13 @@ class ModelsManager {
         modelCopy.title = presentation.fullLabel;
 
         const modelTask = document.createElement('div');
-        modelTask.className = 'model-task';
+        modelTask.className = 'model-task wfr-txt-label';
         modelTask.textContent = presentation.primaryLabel;
         modelCopy.appendChild(modelTask);
 
         if (presentation.secondaryLabel) {
             const modelDetails = document.createElement('div');
-            modelDetails.className = 'model-details';
+            modelDetails.className = 'model-details wfr-txt-caption';
             modelDetails.textContent = presentation.secondaryLabel;
             modelCopy.appendChild(modelDetails);
         }
@@ -169,14 +169,13 @@ class ModelsManager {
             dependencyInfo.setAttribute('tabindex', '0');
             dependencyInfo.setAttribute('aria-label', `Depends on: ${accessibleProviders}`);
 
-            const dependencyIcon = document.createElement('img');
-            dependencyIcon.className = 'model-dependency-icon';
-            dependencyIcon.setAttribute('src', '/assets/information.svg');
-            dependencyIcon.setAttribute('alt', '');
+            const dependencyIcon = document.createElement('span');
+            dependencyIcon.className = 'model-dependency-icon icon';
+            dependencyIcon.setAttribute('data-icon', 'info');
             dependencyIcon.setAttribute('aria-hidden', 'true');
 
             const dependencyPopup = document.createElement('div');
-            dependencyPopup.className = 'model-dependency-popup';
+            dependencyPopup.className = 'model-dependency-popup wfr-txt-caption';
             dependencyPopup.setAttribute('role', 'tooltip');
 
             const dependencyHeading = document.createElement('div');

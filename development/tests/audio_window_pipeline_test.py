@@ -46,7 +46,7 @@ class AudioWindowTest(unittest.TestCase):
         self.offset = 0
         self.pts_base = 0
 
-    def create(self, hop=0, window=512, rate=16000, extra=None, second_window=None):
+    def create(self, hop=0, window=512, rate=16000, extra=None, second_window=None, copy_input=False):
         attributes = {"trace": str(self.trace), "window": window, **(extra or {})}
         ops = [{"id": "opk-test-audio-window/Window", "attributes": attributes}]
         if second_window is not None:
@@ -60,6 +60,7 @@ class AudioWindowTest(unittest.TestCase):
         self.pipeline = self.Gst.parse_launch(
             f'appsrc name=source format=time caps="audio/x-raw,format=F32LE,rate={rate},channels=1,layout=interleaved" '
             f'! opkinfer name=infer opchain-path="{descriptor}" audio-hop-samples={hop} qos-enabled=true '
+            f'copy-input={str(copy_input).lower()} '
             '! fakesink name=sink sync=false signal-handoffs=true')
         self.pipeline.get_by_name("sink").connect("handoff", lambda *args: self.delivered.put(True))
         self.source = self.pipeline.get_by_name("source")
@@ -92,6 +93,41 @@ class AudioWindowTest(unittest.TestCase):
         self.assertEqual(len(self.rows()), 2)
         self.push(1)
         self.assertEqual(self.rows()[-1], [1024, 512, 1024, 1535, 0])
+
+    def test_copy_input_keeps_audio_scheduling(self):
+        self.create(copy_input=True)
+        self.push(1500)
+        self.push(36)
+        self.assertEqual(self.rows(), [[0, 512, 0, 511, 1], [512, 512, 512, 1023, 0],
+                                       [1024, 512, 1024, 1535, 0]])
+
+    def test_copy_input_changes_video_memory_caps_only(self):
+        infer = self.Gst.ElementFactory.make("opkinfer")
+        for copy_input in (False, True):
+            infer.set_property("copy-input", copy_input)
+            for pad_name in ("sink", "src"):
+                with self.subTest(copy_input=copy_input, pad=pad_name):
+                    caps = infer.get_static_pad(pad_name).query_caps(None)
+                    audio_features = []
+                    video_has_dmabuf = False
+                    for index in range(caps.get_size()):
+                        name = caps.get_structure(index).get_name()
+                        features = caps.get_features(index)
+                        if name == "audio/x-raw":
+                            audio_features.append(features.to_string())
+                        elif name == "video/x-raw":
+                            video_has_dmabuf |= features.contains("memory:DMABuf")
+                    self.assertTrue(audio_features)
+                    self.assertEqual(set(audio_features), {"memory:SystemMemory"})
+                    self.assertEqual(video_has_dmabuf, not copy_input or pad_name == "sink")
+
+    def test_opchain_failure_details_reach_bus(self):
+        self.trace = Path(self.directory.name) / "missing-directory" / "trace.txt"
+        self.create()
+        self.push(512, wait=False)
+        msg = self.pipeline.get_bus().timed_pop_filtered(5 * self.Gst.SECOND, self.Gst.MessageType.ERROR)
+        self.assertIsNotNone(msg)
+        self.assertIn("Cannot write trace", msg.parse_error()[0].message)
 
     def test_startup_and_overlap(self):
         self.create(hop=256)

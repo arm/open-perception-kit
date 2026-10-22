@@ -276,6 +276,22 @@ PyObject *make_open_perception_kit_metadata_FrameContext_proxy(
     const open_perception_kit::metadata::FrameContextT *value,
     std::shared_ptr<const native_proxy_anchor> anchor);
 
+PyTypeObject &pytype_open_perception_kit_metadata_InstanceSegmentationMask() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+PyObject *make_open_perception_kit_metadata_InstanceSegmentationMask_proxy(
+    const open_perception_kit::metadata::InstanceSegmentationMaskT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor);
+
+PyTypeObject &pytype_open_perception_kit_metadata_InstanceSegmentationMasks() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+PyObject *make_open_perception_kit_metadata_InstanceSegmentationMasks_proxy(
+    const open_perception_kit::metadata::InstanceSegmentationMasksT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor);
+
 PyTypeObject &pytype_open_perception_kit_metadata_ObjectEmbedding() {
     static PyTypeObject type = make_py_type_object();
     return type;
@@ -346,6 +362,22 @@ PyTypeObject &pytype_open_perception_kit_metadata_SegmentationMasks() {
 }
 PyObject *make_open_perception_kit_metadata_SegmentationMasks_proxy(
     const open_perception_kit::metadata::SegmentationMasksT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor);
+
+PyTypeObject &pytype_open_perception_kit_metadata_SemanticSegmentationMask() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+PyObject *make_open_perception_kit_metadata_SemanticSegmentationMask_proxy(
+    const open_perception_kit::metadata::SemanticSegmentationMaskT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor);
+
+PyTypeObject &pytype_open_perception_kit_metadata_SemanticSegmentationMasks() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+PyObject *make_open_perception_kit_metadata_SemanticSegmentationMasks_proxy(
+    const open_perception_kit::metadata::SemanticSegmentationMasksT *value,
     std::shared_ptr<const native_proxy_anchor> anchor);
 
 PyTypeObject &pytype_open_perception_kit_metadata_TrackTrace() {
@@ -425,6 +457,15 @@ PyTypeObject &pytype_open_perception_kit_metadata_BitmapData_pixels_vector() {
     return type;
 }
 
+PySequenceMethods &seq_open_perception_kit_metadata_InstanceSegmentationMasks_masks_vector() {
+    static PySequenceMethods methods = {};
+    return methods;
+}
+PyTypeObject &pytype_open_perception_kit_metadata_InstanceSegmentationMasks_masks_vector() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+
 PySequenceMethods &seq_open_perception_kit_metadata_ObjectEmbedding_values_vector() {
     static PySequenceMethods methods = {};
     return methods;
@@ -475,6 +516,15 @@ PySequenceMethods &seq_open_perception_kit_metadata_SegmentationMasks_masks_vect
     return methods;
 }
 PyTypeObject &pytype_open_perception_kit_metadata_SegmentationMasks_masks_vector() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+
+PySequenceMethods &seq_open_perception_kit_metadata_SemanticSegmentationMasks_masks_vector() {
+    static PySequenceMethods methods = {};
+    return methods;
+}
+PyTypeObject &pytype_open_perception_kit_metadata_SemanticSegmentationMasks_masks_vector() {
     static PyTypeObject type = make_py_type_object();
     return type;
 }
@@ -712,11 +762,13 @@ enum class known_payload_kind {
     kind_open_perception_kit_metadata_BoxDetections,
     kind_open_perception_kit_metadata_Classifications,
     kind_open_perception_kit_metadata_FrameContext,
+    kind_open_perception_kit_metadata_InstanceSegmentationMasks,
     kind_open_perception_kit_metadata_ObjectEmbeddings,
     kind_open_perception_kit_metadata_ObjectTracks,
     kind_open_perception_kit_metadata_PerformanceOverlay,
     kind_open_perception_kit_metadata_PoseEstimations,
     kind_open_perception_kit_metadata_SegmentationMasks,
+    kind_open_perception_kit_metadata_SemanticSegmentationMasks,
     kind_open_perception_kit_metadata_TrackTraces,
     kind_open_perception_kit_metadata_VoiceActivityDetections,
 };
@@ -828,6 +880,12 @@ std::optional<known_payload_kind> known_payload_kind_from_type(PyObject *type_ob
                         "FrameContextT")) {
         return known_payload_kind::kind_open_perception_kit_metadata_FrameContext;
     }
+    if (py_type_matches(
+            type_object,
+            "open_perception_kit.fb.open_perception_kit.metadata.InstanceSegmentationMasks",
+            "InstanceSegmentationMasksT")) {
+        return known_payload_kind::kind_open_perception_kit_metadata_InstanceSegmentationMasks;
+    }
     if (py_type_matches(type_object,
                         "open_perception_kit.fb.open_perception_kit.metadata.ObjectEmbeddings",
                         "ObjectEmbeddingsT")) {
@@ -852,6 +910,12 @@ std::optional<known_payload_kind> known_payload_kind_from_type(PyObject *type_ob
                         "open_perception_kit.fb.open_perception_kit.metadata.SegmentationMasks",
                         "SegmentationMasksT")) {
         return known_payload_kind::kind_open_perception_kit_metadata_SegmentationMasks;
+    }
+    if (py_type_matches(
+            type_object,
+            "open_perception_kit.fb.open_perception_kit.metadata.SemanticSegmentationMasks",
+            "SemanticSegmentationMasksT")) {
+        return known_payload_kind::kind_open_perception_kit_metadata_SemanticSegmentationMasks;
     }
     if (py_type_matches(type_object,
                         "open_perception_kit.fb.open_perception_kit.metadata.TrackTraces",
@@ -890,6 +954,12 @@ std::optional<known_payload_kind> known_payload_kind_from_value(PyObject *value)
     }
     if (py_object_type_matches(
             value,
+            "open_perception_kit.fb.open_perception_kit.metadata.InstanceSegmentationMasks",
+            "InstanceSegmentationMasksT")) {
+        return known_payload_kind::kind_open_perception_kit_metadata_InstanceSegmentationMasks;
+    }
+    if (py_object_type_matches(
+            value,
             "open_perception_kit.fb.open_perception_kit.metadata.ObjectEmbeddings",
             "ObjectEmbeddingsT")) {
         return known_payload_kind::kind_open_perception_kit_metadata_ObjectEmbeddings;
@@ -916,6 +986,12 @@ std::optional<known_payload_kind> known_payload_kind_from_value(PyObject *value)
             "open_perception_kit.fb.open_perception_kit.metadata.SegmentationMasks",
             "SegmentationMasksT")) {
         return known_payload_kind::kind_open_perception_kit_metadata_SegmentationMasks;
+    }
+    if (py_object_type_matches(
+            value,
+            "open_perception_kit.fb.open_perception_kit.metadata.SemanticSegmentationMasks",
+            "SemanticSegmentationMasksT")) {
+        return known_payload_kind::kind_open_perception_kit_metadata_SemanticSegmentationMasks;
     }
     if (py_object_type_matches(value,
                                "open_perception_kit.fb.open_perception_kit.metadata.TrackTraces",
@@ -1102,6 +1178,9 @@ PyObject *live_envelope_count(PyObject *self, PyObject *args) {
     case known_payload_kind::kind_open_perception_kit_metadata_FrameContext:
         return PyLong_FromSize_t(
             live->envelope->count<open_perception_kit::metadata::FrameContextT>());
+    case known_payload_kind::kind_open_perception_kit_metadata_InstanceSegmentationMasks:
+        return PyLong_FromSize_t(
+            live->envelope->count<open_perception_kit::metadata::InstanceSegmentationMasksT>());
     case known_payload_kind::kind_open_perception_kit_metadata_ObjectEmbeddings:
         return PyLong_FromSize_t(
             live->envelope->count<open_perception_kit::metadata::ObjectEmbeddingsT>());
@@ -1117,6 +1196,9 @@ PyObject *live_envelope_count(PyObject *self, PyObject *args) {
     case known_payload_kind::kind_open_perception_kit_metadata_SegmentationMasks:
         return PyLong_FromSize_t(
             live->envelope->count<open_perception_kit::metadata::SegmentationMasksT>());
+    case known_payload_kind::kind_open_perception_kit_metadata_SemanticSegmentationMasks:
+        return PyLong_FromSize_t(
+            live->envelope->count<open_perception_kit::metadata::SemanticSegmentationMasksT>());
     case known_payload_kind::kind_open_perception_kit_metadata_TrackTraces:
         return PyLong_FromSize_t(
             live->envelope->count<open_perception_kit::metadata::TrackTracesT>());
@@ -1171,6 +1253,11 @@ PyObject *live_envelope_contains(PyObject *self, PyObject *args) {
             Py_RETURN_TRUE;
         }
         Py_RETURN_FALSE;
+    case known_payload_kind::kind_open_perception_kit_metadata_InstanceSegmentationMasks:
+        if (live->envelope->contains<open_perception_kit::metadata::InstanceSegmentationMasksT>()) {
+            Py_RETURN_TRUE;
+        }
+        Py_RETURN_FALSE;
     case known_payload_kind::kind_open_perception_kit_metadata_ObjectEmbeddings:
         if (live->envelope->contains<open_perception_kit::metadata::ObjectEmbeddingsT>()) {
             Py_RETURN_TRUE;
@@ -1193,6 +1280,11 @@ PyObject *live_envelope_contains(PyObject *self, PyObject *args) {
         Py_RETURN_FALSE;
     case known_payload_kind::kind_open_perception_kit_metadata_SegmentationMasks:
         if (live->envelope->contains<open_perception_kit::metadata::SegmentationMasksT>()) {
+            Py_RETURN_TRUE;
+        }
+        Py_RETURN_FALSE;
+    case known_payload_kind::kind_open_perception_kit_metadata_SemanticSegmentationMasks:
+        if (live->envelope->contains<open_perception_kit::metadata::SemanticSegmentationMasksT>()) {
             Py_RETURN_TRUE;
         }
         Py_RETURN_FALSE;
@@ -1256,6 +1348,11 @@ PyObject *live_envelope_get(PyObject *self, PyObject *args, PyObject *kwargs) {
     case known_payload_kind::kind_open_perception_kit_metadata_FrameContext:
         return get_known_payload<open_perception_kit::metadata::FrameContextT>(
             *live->envelope, pytype_open_perception_kit_metadata_FrameContext(), index);
+    case known_payload_kind::kind_open_perception_kit_metadata_InstanceSegmentationMasks:
+        return get_known_payload<open_perception_kit::metadata::InstanceSegmentationMasksT>(
+            *live->envelope,
+            pytype_open_perception_kit_metadata_InstanceSegmentationMasks(),
+            index);
     case known_payload_kind::kind_open_perception_kit_metadata_ObjectEmbeddings:
         return get_known_payload<open_perception_kit::metadata::ObjectEmbeddingsT>(
             *live->envelope, pytype_open_perception_kit_metadata_ObjectEmbeddings(), index);
@@ -1271,6 +1368,11 @@ PyObject *live_envelope_get(PyObject *self, PyObject *args, PyObject *kwargs) {
     case known_payload_kind::kind_open_perception_kit_metadata_SegmentationMasks:
         return get_known_payload<open_perception_kit::metadata::SegmentationMasksT>(
             *live->envelope, pytype_open_perception_kit_metadata_SegmentationMasks(), index);
+    case known_payload_kind::kind_open_perception_kit_metadata_SemanticSegmentationMasks:
+        return get_known_payload<open_perception_kit::metadata::SemanticSegmentationMasksT>(
+            *live->envelope,
+            pytype_open_perception_kit_metadata_SemanticSegmentationMasks(),
+            index);
     case known_payload_kind::kind_open_perception_kit_metadata_TrackTraces:
         return get_known_payload<open_perception_kit::metadata::TrackTracesT>(
             *live->envelope, pytype_open_perception_kit_metadata_TrackTraces(), index);
@@ -1340,6 +1442,9 @@ PyObject *live_envelope_for_each(PyObject *self, PyObject *args) {
     case known_payload_kind::kind_open_perception_kit_metadata_FrameContext:
         return list_known_payloads<open_perception_kit::metadata::FrameContextT>(
             *live->envelope, pytype_open_perception_kit_metadata_FrameContext());
+    case known_payload_kind::kind_open_perception_kit_metadata_InstanceSegmentationMasks:
+        return list_known_payloads<open_perception_kit::metadata::InstanceSegmentationMasksT>(
+            *live->envelope, pytype_open_perception_kit_metadata_InstanceSegmentationMasks());
     case known_payload_kind::kind_open_perception_kit_metadata_ObjectEmbeddings:
         return list_known_payloads<open_perception_kit::metadata::ObjectEmbeddingsT>(
             *live->envelope, pytype_open_perception_kit_metadata_ObjectEmbeddings());
@@ -1355,6 +1460,9 @@ PyObject *live_envelope_for_each(PyObject *self, PyObject *args) {
     case known_payload_kind::kind_open_perception_kit_metadata_SegmentationMasks:
         return list_known_payloads<open_perception_kit::metadata::SegmentationMasksT>(
             *live->envelope, pytype_open_perception_kit_metadata_SegmentationMasks());
+    case known_payload_kind::kind_open_perception_kit_metadata_SemanticSegmentationMasks:
+        return list_known_payloads<open_perception_kit::metadata::SemanticSegmentationMasksT>(
+            *live->envelope, pytype_open_perception_kit_metadata_SemanticSegmentationMasks());
     case known_payload_kind::kind_open_perception_kit_metadata_TrackTraces:
         return list_known_payloads<open_perception_kit::metadata::TrackTracesT>(
             *live->envelope, pytype_open_perception_kit_metadata_TrackTraces());
@@ -1427,6 +1535,9 @@ PyObject *live_envelope_add(PyObject *self, PyObject *args) {
     case known_payload_kind::kind_open_perception_kit_metadata_FrameContext:
         return add_known_payload<open_perception_kit::metadata::FrameContextT>(
             *live->envelope, value, "FCTX");
+    case known_payload_kind::kind_open_perception_kit_metadata_InstanceSegmentationMasks:
+        return add_known_payload<open_perception_kit::metadata::InstanceSegmentationMasksT>(
+            *live->envelope, value, "ISGM");
     case known_payload_kind::kind_open_perception_kit_metadata_ObjectEmbeddings:
         return add_known_payload<open_perception_kit::metadata::ObjectEmbeddingsT>(
             *live->envelope, value, "EMBE");
@@ -1442,6 +1553,9 @@ PyObject *live_envelope_add(PyObject *self, PyObject *args) {
     case known_payload_kind::kind_open_perception_kit_metadata_SegmentationMasks:
         return add_known_payload<open_perception_kit::metadata::SegmentationMasksT>(
             *live->envelope, value, "SGMS");
+    case known_payload_kind::kind_open_perception_kit_metadata_SemanticSegmentationMasks:
+        return add_known_payload<open_perception_kit::metadata::SemanticSegmentationMasksT>(
+            *live->envelope, value, "SSGM");
     case known_payload_kind::kind_open_perception_kit_metadata_TrackTraces:
         return add_known_payload<open_perception_kit::metadata::TrackTracesT>(
             *live->envelope, value, "TRCE");
@@ -1737,6 +1851,71 @@ bool ensure_open_perception_kit_metadata_BitmapData_pixels_vector_type() {
         type.tp_basicsize = sizeof(native_proxy_object<std::vector<std::uint8_t>>);
         type.tp_itemsize = 0;
         type.tp_dealloc = native_proxy_dealloc<std::vector<std::uint8_t>>;
+        type.tp_as_sequence = &sequence;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live vector proxy";
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+Py_ssize_t len_open_perception_kit_metadata_InstanceSegmentationMasks_masks_vector(PyObject *self) {
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
+        std::vector<std::unique_ptr<open_perception_kit::metadata::InstanceSegmentationMaskT>>> *>(
+        self);
+    const auto *vector = proxy->value;
+    if (vector == nullptr) {
+        return 0;
+    }
+    return static_cast<Py_ssize_t>(vector->size());
+}
+
+PyObject *
+item_open_perception_kit_metadata_InstanceSegmentationMasks_masks_vector(PyObject *self,
+                                                                         Py_ssize_t index) {
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
+        std::vector<std::unique_ptr<open_perception_kit::metadata::InstanceSegmentationMaskT>>> *>(
+        self);
+    const auto *vector = proxy->value;
+    if (vector == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit vector proxy is invalid");
+        return nullptr;
+    }
+    if (index < 0 || static_cast<std::size_t>(index) >= vector->size()) {
+        PyErr_SetString(PyExc_IndexError, "open_perception_kit vector proxy index out of range");
+        return nullptr;
+    }
+    const auto &item = (*vector)[static_cast<std::size_t>(index)];
+    if (!item) {
+        Py_RETURN_NONE;
+    }
+    return make_open_perception_kit_metadata_InstanceSegmentationMask_proxy(
+        item.get(),
+        proxy_anchor<
+            std::vector<std::unique_ptr<open_perception_kit::metadata::InstanceSegmentationMaskT>>>(
+            self));
+}
+
+bool ensure_open_perception_kit_metadata_InstanceSegmentationMasks_masks_vector_type() {
+    auto &type = pytype_open_perception_kit_metadata_InstanceSegmentationMasks_masks_vector();
+    auto &sequence = seq_open_perception_kit_metadata_InstanceSegmentationMasks_masks_vector();
+    if (type.tp_name == nullptr) {
+        sequence.sq_length =
+            len_open_perception_kit_metadata_InstanceSegmentationMasks_masks_vector;
+        sequence.sq_item = item_open_perception_kit_metadata_InstanceSegmentationMasks_masks_vector;
+        type.tp_name = "open_perception_kit_bridge.open_perception_kit_metadata_"
+                       "InstanceSegmentationMasks_masks_vector";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<std::vector<
+                       std::unique_ptr<open_perception_kit::metadata::InstanceSegmentationMaskT>>>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc = native_proxy_dealloc<
+            std::vector<std::unique_ptr<open_perception_kit::metadata::InstanceSegmentationMaskT>>>;
         type.tp_as_sequence = &sequence;
         type.tp_flags = Py_TPFLAGS_DEFAULT;
         type.tp_doc = "open_perception_kit read-only live vector proxy";
@@ -2075,6 +2254,71 @@ bool ensure_open_perception_kit_metadata_SegmentationMasks_masks_vector_type() {
         type.tp_itemsize = 0;
         type.tp_dealloc = native_proxy_dealloc<
             std::vector<std::unique_ptr<open_perception_kit::metadata::SegmentationMaskT>>>;
+        type.tp_as_sequence = &sequence;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live vector proxy";
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+Py_ssize_t len_open_perception_kit_metadata_SemanticSegmentationMasks_masks_vector(PyObject *self) {
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
+        std::vector<std::unique_ptr<open_perception_kit::metadata::SemanticSegmentationMaskT>>> *>(
+        self);
+    const auto *vector = proxy->value;
+    if (vector == nullptr) {
+        return 0;
+    }
+    return static_cast<Py_ssize_t>(vector->size());
+}
+
+PyObject *
+item_open_perception_kit_metadata_SemanticSegmentationMasks_masks_vector(PyObject *self,
+                                                                         Py_ssize_t index) {
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
+        std::vector<std::unique_ptr<open_perception_kit::metadata::SemanticSegmentationMaskT>>> *>(
+        self);
+    const auto *vector = proxy->value;
+    if (vector == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit vector proxy is invalid");
+        return nullptr;
+    }
+    if (index < 0 || static_cast<std::size_t>(index) >= vector->size()) {
+        PyErr_SetString(PyExc_IndexError, "open_perception_kit vector proxy index out of range");
+        return nullptr;
+    }
+    const auto &item = (*vector)[static_cast<std::size_t>(index)];
+    if (!item) {
+        Py_RETURN_NONE;
+    }
+    return make_open_perception_kit_metadata_SemanticSegmentationMask_proxy(
+        item.get(),
+        proxy_anchor<
+            std::vector<std::unique_ptr<open_perception_kit::metadata::SemanticSegmentationMaskT>>>(
+            self));
+}
+
+bool ensure_open_perception_kit_metadata_SemanticSegmentationMasks_masks_vector_type() {
+    auto &type = pytype_open_perception_kit_metadata_SemanticSegmentationMasks_masks_vector();
+    auto &sequence = seq_open_perception_kit_metadata_SemanticSegmentationMasks_masks_vector();
+    if (type.tp_name == nullptr) {
+        sequence.sq_length =
+            len_open_perception_kit_metadata_SemanticSegmentationMasks_masks_vector;
+        sequence.sq_item = item_open_perception_kit_metadata_SemanticSegmentationMasks_masks_vector;
+        type.tp_name = "open_perception_kit_bridge.open_perception_kit_metadata_"
+                       "SemanticSegmentationMasks_masks_vector";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<std::vector<
+                       std::unique_ptr<open_perception_kit::metadata::SemanticSegmentationMaskT>>>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc = native_proxy_dealloc<
+            std::vector<std::unique_ptr<open_perception_kit::metadata::SemanticSegmentationMaskT>>>;
         type.tp_as_sequence = &sequence;
         type.tp_flags = Py_TPFLAGS_DEFAULT;
         type.tp_doc = "open_perception_kit read-only live vector proxy";
@@ -4094,6 +4338,265 @@ PyObject *make_open_perception_kit_metadata_FrameContext_proxy(
         pytype_open_perception_kit_metadata_FrameContext(), value, std::move(anchor));
 }
 
+PyObject *get_open_perception_kit_metadata_InstanceSegmentationMask_object(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::InstanceSegmentationMaskT> *>(
+        self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    const auto *nested = value->object.get();
+    if (nested == nullptr) {
+        Py_RETURN_NONE;
+    }
+    return make_open_perception_kit_metadata_ObjectMeta_proxy(
+        nested, proxy_anchor<open_perception_kit::metadata::InstanceSegmentationMaskT>(self));
+}
+
+PyObject *get_open_perception_kit_metadata_InstanceSegmentationMask_bitmap(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::InstanceSegmentationMaskT> *>(
+        self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    const auto *nested = value->bitmap.get();
+    if (nested == nullptr) {
+        Py_RETURN_NONE;
+    }
+    return make_open_perception_kit_metadata_BitmapData_proxy(
+        nested, proxy_anchor<open_perception_kit::metadata::InstanceSegmentationMaskT>(self));
+}
+
+PyObject *get_open_perception_kit_metadata_InstanceSegmentationMask_class_id(PyObject *self,
+                                                                             void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::InstanceSegmentationMaskT> *>(
+        self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_signed(value->class_id);
+}
+
+PyObject *get_open_perception_kit_metadata_InstanceSegmentationMask_confidence(PyObject *self,
+                                                                               void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::InstanceSegmentationMaskT> *>(
+        self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return PyFloat_FromDouble(static_cast<double>(value->confidence));
+}
+
+PyObject *get_open_perception_kit_metadata_InstanceSegmentationMask_box(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::InstanceSegmentationMaskT> *>(
+        self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    const auto *nested = value->box.get();
+    if (nested == nullptr) {
+        Py_RETURN_NONE;
+    }
+    return make_open_perception_kit_metadata_BoundingBox_proxy(
+        nested, proxy_anchor<open_perception_kit::metadata::InstanceSegmentationMaskT>(self));
+}
+
+PyGetSetDef *getsets_open_perception_kit_metadata_InstanceSegmentationMask() {
+    static PyGetSetDef definitions[] = {
+        {"object",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_InstanceSegmentationMask_object),
+         nullptr,
+         "read-only object",
+         nullptr},
+        {"bitmap",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_InstanceSegmentationMask_bitmap),
+         nullptr,
+         "read-only bitmap",
+         nullptr},
+        {"classId",
+         reinterpret_cast<getter>(
+             get_open_perception_kit_metadata_InstanceSegmentationMask_class_id),
+         nullptr,
+         "read-only class_id",
+         nullptr},
+        {"confidence",
+         reinterpret_cast<getter>(
+             get_open_perception_kit_metadata_InstanceSegmentationMask_confidence),
+         nullptr,
+         "read-only confidence",
+         nullptr},
+        {"box",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_InstanceSegmentationMask_box),
+         nullptr,
+         "read-only box",
+         nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr},
+    };
+    return definitions;
+}
+
+bool ensure_open_perception_kit_metadata_InstanceSegmentationMask_type() {
+    auto &type = pytype_open_perception_kit_metadata_InstanceSegmentationMask();
+    if (type.tp_name == nullptr) {
+        type.tp_name =
+            "open_perception_kit_bridge.open_perception_kit_metadata_InstanceSegmentationMask";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<open_perception_kit::metadata::InstanceSegmentationMaskT>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc =
+            native_proxy_dealloc<open_perception_kit::metadata::InstanceSegmentationMaskT>;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live payload proxy";
+        type.tp_getset = getsets_open_perception_kit_metadata_InstanceSegmentationMask();
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+PyObject *make_open_perception_kit_metadata_InstanceSegmentationMask_proxy(
+    const open_perception_kit::metadata::InstanceSegmentationMaskT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor) {
+    return make_native_proxy<open_perception_kit::metadata::InstanceSegmentationMaskT>(
+        pytype_open_perception_kit_metadata_InstanceSegmentationMask(), value, std::move(anchor));
+}
+
+PyObject *get_open_perception_kit_metadata_InstanceSegmentationMasks_schema_major(PyObject *self,
+                                                                                  void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::InstanceSegmentationMasksT> *>(
+        self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_unsigned(value->schema_major);
+}
+
+PyObject *get_open_perception_kit_metadata_InstanceSegmentationMasks_schema_minor(PyObject *self,
+                                                                                  void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::InstanceSegmentationMasksT> *>(
+        self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_unsigned(value->schema_minor);
+}
+
+PyObject *get_open_perception_kit_metadata_InstanceSegmentationMasks_layer(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::InstanceSegmentationMasksT> *>(
+        self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    const auto *nested = value->layer.get();
+    if (nested == nullptr) {
+        Py_RETURN_NONE;
+    }
+    return make_open_perception_kit_metadata_LayerInfo_proxy(
+        nested, proxy_anchor<open_perception_kit::metadata::InstanceSegmentationMasksT>(self));
+}
+
+PyObject *get_open_perception_kit_metadata_InstanceSegmentationMasks_masks(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::InstanceSegmentationMasksT> *>(
+        self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return make_native_vector_proxy<
+        std::vector<std::unique_ptr<open_perception_kit::metadata::InstanceSegmentationMaskT>>>(
+        pytype_open_perception_kit_metadata_InstanceSegmentationMasks_masks_vector(),
+        std::addressof(value->masks),
+        proxy_anchor<open_perception_kit::metadata::InstanceSegmentationMasksT>(self));
+}
+
+PyGetSetDef *getsets_open_perception_kit_metadata_InstanceSegmentationMasks() {
+    static PyGetSetDef definitions[] = {
+        {"schemaMajor",
+         reinterpret_cast<getter>(
+             get_open_perception_kit_metadata_InstanceSegmentationMasks_schema_major),
+         nullptr,
+         "read-only schema_major",
+         nullptr},
+        {"schemaMinor",
+         reinterpret_cast<getter>(
+             get_open_perception_kit_metadata_InstanceSegmentationMasks_schema_minor),
+         nullptr,
+         "read-only schema_minor",
+         nullptr},
+        {"layer",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_InstanceSegmentationMasks_layer),
+         nullptr,
+         "read-only layer",
+         nullptr},
+        {"masks",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_InstanceSegmentationMasks_masks),
+         nullptr,
+         "read-only masks",
+         nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr},
+    };
+    return definitions;
+}
+
+bool ensure_open_perception_kit_metadata_InstanceSegmentationMasks_type() {
+    auto &type = pytype_open_perception_kit_metadata_InstanceSegmentationMasks();
+    if (type.tp_name == nullptr) {
+        type.tp_name =
+            "open_perception_kit_bridge.open_perception_kit_metadata_InstanceSegmentationMasks";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<open_perception_kit::metadata::InstanceSegmentationMasksT>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc =
+            native_proxy_dealloc<open_perception_kit::metadata::InstanceSegmentationMasksT>;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live payload proxy";
+        type.tp_getset = getsets_open_perception_kit_metadata_InstanceSegmentationMasks();
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+PyObject *make_open_perception_kit_metadata_InstanceSegmentationMasks_proxy(
+    const open_perception_kit::metadata::InstanceSegmentationMasksT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor) {
+    return make_native_proxy<open_perception_kit::metadata::InstanceSegmentationMasksT>(
+        pytype_open_perception_kit_metadata_InstanceSegmentationMasks(), value, std::move(anchor));
+}
+
 PyObject *get_open_perception_kit_metadata_ObjectEmbedding_object(PyObject *self, void *) {
     const auto *proxy = reinterpret_cast<
         const native_proxy_object<open_perception_kit::metadata::ObjectEmbeddingT> *>(self);
@@ -5073,6 +5576,205 @@ PyObject *make_open_perception_kit_metadata_SegmentationMasks_proxy(
         pytype_open_perception_kit_metadata_SegmentationMasks(), value, std::move(anchor));
 }
 
+PyObject *get_open_perception_kit_metadata_SemanticSegmentationMask_object(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::SemanticSegmentationMaskT> *>(
+        self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    const auto *nested = value->object.get();
+    if (nested == nullptr) {
+        Py_RETURN_NONE;
+    }
+    return make_open_perception_kit_metadata_ObjectMeta_proxy(
+        nested, proxy_anchor<open_perception_kit::metadata::SemanticSegmentationMaskT>(self));
+}
+
+PyObject *get_open_perception_kit_metadata_SemanticSegmentationMask_bitmap(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::SemanticSegmentationMaskT> *>(
+        self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    const auto *nested = value->bitmap.get();
+    if (nested == nullptr) {
+        Py_RETURN_NONE;
+    }
+    return make_open_perception_kit_metadata_BitmapData_proxy(
+        nested, proxy_anchor<open_perception_kit::metadata::SemanticSegmentationMaskT>(self));
+}
+
+PyGetSetDef *getsets_open_perception_kit_metadata_SemanticSegmentationMask() {
+    static PyGetSetDef definitions[] = {
+        {"object",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_SemanticSegmentationMask_object),
+         nullptr,
+         "read-only object",
+         nullptr},
+        {"bitmap",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_SemanticSegmentationMask_bitmap),
+         nullptr,
+         "read-only bitmap",
+         nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr},
+    };
+    return definitions;
+}
+
+bool ensure_open_perception_kit_metadata_SemanticSegmentationMask_type() {
+    auto &type = pytype_open_perception_kit_metadata_SemanticSegmentationMask();
+    if (type.tp_name == nullptr) {
+        type.tp_name =
+            "open_perception_kit_bridge.open_perception_kit_metadata_SemanticSegmentationMask";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<open_perception_kit::metadata::SemanticSegmentationMaskT>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc =
+            native_proxy_dealloc<open_perception_kit::metadata::SemanticSegmentationMaskT>;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live payload proxy";
+        type.tp_getset = getsets_open_perception_kit_metadata_SemanticSegmentationMask();
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+PyObject *make_open_perception_kit_metadata_SemanticSegmentationMask_proxy(
+    const open_perception_kit::metadata::SemanticSegmentationMaskT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor) {
+    return make_native_proxy<open_perception_kit::metadata::SemanticSegmentationMaskT>(
+        pytype_open_perception_kit_metadata_SemanticSegmentationMask(), value, std::move(anchor));
+}
+
+PyObject *get_open_perception_kit_metadata_SemanticSegmentationMasks_schema_major(PyObject *self,
+                                                                                  void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::SemanticSegmentationMasksT> *>(
+        self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_unsigned(value->schema_major);
+}
+
+PyObject *get_open_perception_kit_metadata_SemanticSegmentationMasks_schema_minor(PyObject *self,
+                                                                                  void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::SemanticSegmentationMasksT> *>(
+        self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_unsigned(value->schema_minor);
+}
+
+PyObject *get_open_perception_kit_metadata_SemanticSegmentationMasks_layer(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::SemanticSegmentationMasksT> *>(
+        self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    const auto *nested = value->layer.get();
+    if (nested == nullptr) {
+        Py_RETURN_NONE;
+    }
+    return make_open_perception_kit_metadata_LayerInfo_proxy(
+        nested, proxy_anchor<open_perception_kit::metadata::SemanticSegmentationMasksT>(self));
+}
+
+PyObject *get_open_perception_kit_metadata_SemanticSegmentationMasks_masks(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::SemanticSegmentationMasksT> *>(
+        self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return make_native_vector_proxy<
+        std::vector<std::unique_ptr<open_perception_kit::metadata::SemanticSegmentationMaskT>>>(
+        pytype_open_perception_kit_metadata_SemanticSegmentationMasks_masks_vector(),
+        std::addressof(value->masks),
+        proxy_anchor<open_perception_kit::metadata::SemanticSegmentationMasksT>(self));
+}
+
+PyGetSetDef *getsets_open_perception_kit_metadata_SemanticSegmentationMasks() {
+    static PyGetSetDef definitions[] = {
+        {"schemaMajor",
+         reinterpret_cast<getter>(
+             get_open_perception_kit_metadata_SemanticSegmentationMasks_schema_major),
+         nullptr,
+         "read-only schema_major",
+         nullptr},
+        {"schemaMinor",
+         reinterpret_cast<getter>(
+             get_open_perception_kit_metadata_SemanticSegmentationMasks_schema_minor),
+         nullptr,
+         "read-only schema_minor",
+         nullptr},
+        {"layer",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_SemanticSegmentationMasks_layer),
+         nullptr,
+         "read-only layer",
+         nullptr},
+        {"masks",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_SemanticSegmentationMasks_masks),
+         nullptr,
+         "read-only masks",
+         nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr},
+    };
+    return definitions;
+}
+
+bool ensure_open_perception_kit_metadata_SemanticSegmentationMasks_type() {
+    auto &type = pytype_open_perception_kit_metadata_SemanticSegmentationMasks();
+    if (type.tp_name == nullptr) {
+        type.tp_name =
+            "open_perception_kit_bridge.open_perception_kit_metadata_SemanticSegmentationMasks";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<open_perception_kit::metadata::SemanticSegmentationMasksT>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc =
+            native_proxy_dealloc<open_perception_kit::metadata::SemanticSegmentationMasksT>;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live payload proxy";
+        type.tp_getset = getsets_open_perception_kit_metadata_SemanticSegmentationMasks();
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+PyObject *make_open_perception_kit_metadata_SemanticSegmentationMasks_proxy(
+    const open_perception_kit::metadata::SemanticSegmentationMasksT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor) {
+    return make_native_proxy<open_perception_kit::metadata::SemanticSegmentationMasksT>(
+        pytype_open_perception_kit_metadata_SemanticSegmentationMasks(), value, std::move(anchor));
+}
+
 PyObject *get_open_perception_kit_metadata_TrackTrace_object(PyObject *self, void *) {
     const auto *proxy =
         reinterpret_cast<const native_proxy_object<open_perception_kit::metadata::TrackTraceT> *>(
@@ -5598,12 +6300,14 @@ bool ensure_known_proxy_types() {
         !ensure_open_perception_kit_metadata_Classifications_classifications_vector_type() ||
         !ensure_open_perception_kit_metadata_Classifications_person_presence_vector_type() ||
         !ensure_open_perception_kit_metadata_BitmapData_pixels_vector_type() ||
+        !ensure_open_perception_kit_metadata_InstanceSegmentationMasks_masks_vector_type() ||
         !ensure_open_perception_kit_metadata_ObjectEmbedding_values_vector_type() ||
         !ensure_open_perception_kit_metadata_ObjectEmbeddings_embeddings_vector_type() ||
         !ensure_open_perception_kit_metadata_ObjectTracks_tracks_vector_type() ||
         !ensure_open_perception_kit_metadata_PerformanceOverlay_lines_vector_type() ||
         !ensure_open_perception_kit_metadata_PoseEstimations_poses_vector_type() ||
         !ensure_open_perception_kit_metadata_SegmentationMasks_masks_vector_type() ||
+        !ensure_open_perception_kit_metadata_SemanticSegmentationMasks_masks_vector_type() ||
         !ensure_open_perception_kit_metadata_TrackTrace_points_vector_type() ||
         !ensure_open_perception_kit_metadata_TrackTraces_traces_vector_type() ||
         !ensure_open_perception_kit_metadata_VoiceActivityDetections_detections_vector_type() ||
@@ -5622,6 +6326,8 @@ bool ensure_known_proxy_types() {
         !ensure_open_perception_kit_metadata_VideoFrameContext_type() ||
         !ensure_open_perception_kit_metadata_AudioFrameContext_type() ||
         !ensure_open_perception_kit_metadata_FrameContext_type() ||
+        !ensure_open_perception_kit_metadata_InstanceSegmentationMask_type() ||
+        !ensure_open_perception_kit_metadata_InstanceSegmentationMasks_type() ||
         !ensure_open_perception_kit_metadata_ObjectEmbedding_type() ||
         !ensure_open_perception_kit_metadata_ObjectEmbeddings_type() ||
         !ensure_open_perception_kit_metadata_ObjectTrack_type() ||
@@ -5631,6 +6337,8 @@ bool ensure_known_proxy_types() {
         !ensure_open_perception_kit_metadata_PoseEstimations_type() ||
         !ensure_open_perception_kit_metadata_SegmentationMask_type() ||
         !ensure_open_perception_kit_metadata_SegmentationMasks_type() ||
+        !ensure_open_perception_kit_metadata_SemanticSegmentationMask_type() ||
+        !ensure_open_perception_kit_metadata_SemanticSegmentationMasks_type() ||
         !ensure_open_perception_kit_metadata_TrackTrace_type() ||
         !ensure_open_perception_kit_metadata_TrackTraces_type() ||
         !ensure_open_perception_kit_metadata_VoiceActivityDetection_type() ||
@@ -5726,6 +6434,16 @@ bool add_known_proxy_types(PyObject *python_module) {
         return false;
     }
     if (!add_python_type(python_module,
+                         pytype_open_perception_kit_metadata_InstanceSegmentationMask(),
+                         "open_perception_kit_metadata_InstanceSegmentationMask")) {
+        return false;
+    }
+    if (!add_python_type(python_module,
+                         pytype_open_perception_kit_metadata_InstanceSegmentationMasks(),
+                         "open_perception_kit_metadata_InstanceSegmentationMasks")) {
+        return false;
+    }
+    if (!add_python_type(python_module,
                          pytype_open_perception_kit_metadata_ObjectEmbedding(),
                          "open_perception_kit_metadata_ObjectEmbedding")) {
         return false;
@@ -5768,6 +6486,16 @@ bool add_known_proxy_types(PyObject *python_module) {
     if (!add_python_type(python_module,
                          pytype_open_perception_kit_metadata_SegmentationMasks(),
                          "open_perception_kit_metadata_SegmentationMasks")) {
+        return false;
+    }
+    if (!add_python_type(python_module,
+                         pytype_open_perception_kit_metadata_SemanticSegmentationMask(),
+                         "open_perception_kit_metadata_SemanticSegmentationMask")) {
+        return false;
+    }
+    if (!add_python_type(python_module,
+                         pytype_open_perception_kit_metadata_SemanticSegmentationMasks(),
+                         "open_perception_kit_metadata_SemanticSegmentationMasks")) {
         return false;
     }
     if (!add_python_type(python_module,

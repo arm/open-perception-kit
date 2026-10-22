@@ -23,6 +23,7 @@
 #include <gst/video/video.h>
 
 #include "Log.h"
+#include "gst/Tools.h"
 
 #ifndef PACKAGE
 #define PACKAGE "opk-elements"
@@ -70,9 +71,6 @@ struct _GstOpkTracker {
 };
 
 G_END_DECLS
-
-static constexpr const char *OPK_SUPPORTED_RAW_VIDEO_CAPS =
-    "video/x-raw, format={BGRA,RGB,I420,NV12,YUY2}";
 
 struct _GstOpkTracker::Members {
     opk::tracker::Tracker tracker;
@@ -707,9 +705,9 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *klass) {
                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     static GstStaticPadTemplate sink_t = GST_STATIC_PAD_TEMPLATE(
-        "sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS(OPK_SUPPORTED_RAW_VIDEO_CAPS));
+        "sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS(gst::Tools::supportedVideoCaps));
     static GstStaticPadTemplate src_t = GST_STATIC_PAD_TEMPLATE(
-        "src", GST_PAD_SRC, GST_PAD_ALWAYS, GST_STATIC_CAPS(OPK_SUPPORTED_RAW_VIDEO_CAPS));
+        "src", GST_PAD_SRC, GST_PAD_ALWAYS, GST_STATIC_CAPS(gst::Tools::supportedVideoCaps));
     gst_element_class_add_static_pad_template(ecls, &sink_t);
     gst_element_class_add_static_pad_template(ecls, &src_t);
 
@@ -724,6 +722,9 @@ static void gst_opktracker_class_init(GstOpkTrackerClass *klass) {
     bcls->stop = gst_opktracker_stop;
     bcls->set_caps = gst_opktracker_set_caps;
     bcls->transform_ip = gst_opktracker_transform_ip;
+    bcls->prepare_output_buffer = [](GstBaseTransform *base, GstBuffer *input, GstBuffer **output) {
+        return gst::Tools::prepareVideoBuffer(base, input, output);
+    };
 }
 
 static void gst_opktracker_init(GstOpkTracker *self) {
