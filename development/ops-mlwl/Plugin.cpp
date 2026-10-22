@@ -14,16 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#include "op/Op.h"
+
 #include "InferenceOp.h"
 
-#include <string_view>
+#include <string>
 
-extern "C" void *opk_create_op_instance(const char *name) {
-    if (name && std::string_view(name) == "Inference")
+opk::op::Op *createOp(const std::string &opName) {
+    if (opName == "Inference")
         return new opk::mlwl::InferenceOp();
     return nullptr;
 }
 
 extern "C" void opk_delete_op_instance(void *instance) {
     delete static_cast<opk::op::Op *>(instance);
+}
+
+extern "C" void *opk_create_op_instance(const char *opName) {
+    if (!opName)
+        return nullptr;
+    return createOp(opName);
 }
