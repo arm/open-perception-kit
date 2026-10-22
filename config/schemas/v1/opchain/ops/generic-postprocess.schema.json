@@ -279,9 +279,15 @@
         "outputFormat": {
           "enum": [
             "centerClassScores",
-            "cornerScoreClass"
+            "cornerScoreClass",
+            "cornerClassScores"
           ],
           "default": "centerClassScores"
+        },
+        "maxDetections": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/positiveCount",
+          "description": "Top class/anchor pairs retained by cornerClassScores before optional NMS.",
+          "default": 300
         },
         "confidenceThreshold": {
           "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/probability",

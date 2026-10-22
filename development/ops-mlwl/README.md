@@ -62,4 +62,18 @@ cancellation or timeout API.
 
 ## Tests
 
-Meson tests check tensor layout bounds without a Vulkan device.
+Meson tests check tensor layout bounds and invalid-VGF startup without a Vulkan
+device. The ARM64 CI job enables MLWL and runs these checks.
+
+For inference testing, use a compatible Vulkan runtime,
+[model converter 0.11.0](https://github.com/arm/ai-ml-sdk-model-converter/releases/tag/release/v0.11.0),
+and Python with GStreamer GI and FlatBuffers:
+
+```sh
+PYTHONPATH=generated/open_perception_kit/python/src \
+  python3 development/tests/mlwl_pipeline_test.py \
+  development/build-active/meson-out /path/to/model-converter
+```
+
+The test converts a small FP32 add graph to VGF and checks FrameResults,
+image and scalar inputs, buffer reuse, and pipeline startup and teardown.

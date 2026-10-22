@@ -618,6 +618,14 @@ foreach failed_operation : [
   )
 endforeach
 test('runtime_pipeline_tests', runtime_pipeline_tests)
+if mlwl_enabled
+  test(
+    'mlwl_startup_pipeline_tests',
+    gst_python,
+    args : [files('mlwl_startup_pipeline_test.py'), gstopkinfer.full_path(), mlwl_ops.full_path()],
+    depends : [gstopkinfer, mlwl_ops],
+  )
+endif
 test('image_conversion_oracle_test', image_conversion_oracle_test)
 test(
   'python_guest_script_executor_tests',
