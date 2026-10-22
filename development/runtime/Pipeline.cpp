@@ -748,6 +748,9 @@ class Pipeline::Impl {
             return false;
         };
         auto tryInitialLoopSegment = [&]() {
+            if (!pipelineIsPlaying(watchedPipeline)) {
+                return false;
+            }
             ensureLoopTargetDiscoveryDeadline();
             return handleInitialLoopResult(restartLoopingSegment(watchedPipeline, true, true));
         };
