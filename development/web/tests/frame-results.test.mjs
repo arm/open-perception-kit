@@ -35,6 +35,8 @@ import {PoseEstimationT} from '../../../generated/open_perception_kit/ts/dist/op
 import {PoseEstimationsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimations.js';
 import {SegmentationMaskT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-mask.js';
 import {SegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-masks.js';
+import {SemanticSegmentationMaskT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-mask.js';
+import {SemanticSegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-masks.js';
 import {TrackTraceT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-trace.js';
 import {TrackTracesT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-traces.js';
 import {VideoFrameContextT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/video-frame-context.js';
@@ -220,6 +222,43 @@ test('retains empty outputs, mask bytes and performance payloads', () => {
     assert.equal(resolveOverlay(indexFrame(frame), createOverlay('background-replacement', outputSource(mask))).state, 'ready');
     const performance = frame.layers.find((item) => item.payloadType === 'PerformanceOverlay');
     assert.equal(performance.detections[0].data.text, frame.perfdata[0]);
+});
+
+test('decodes semantic class maps separately from alpha masks, preserving zero and provenance', () => {
+    const envelope = new Envelope();
+    const info = layer('semanticSegmentation');
+    info.labelFamily = 'cityscapes';
+    envelope.add(new FrameContextT(1, 0, layer('videoFrame'),
+        new VideoFrameContextT(new ObjectMetaT(42n), 3n, 1n)));
+    envelope.add(new SemanticSegmentationMasksT(1, 0, info, [
+        new SemanticSegmentationMaskT(new ObjectMetaT(7n, 42n), new BitmapDataT(3, 1, 'Uint8', [0, 18, 255])),
+    ]));
+    envelope.add(new SegmentationMasksT(1, 0, layer('segmentation'), [
+        new SegmentationMaskT(new ObjectMetaT(8n, 42n), new BitmapDataT(3, 1, 'Uint8', [0, 128, 255])),
+    ]));
+    const {frame_results: frame} = decodeFrameResultsMessage({
+        frame_results_encoding: FRAME_RESULTS_ENCODING,
+        frame_results_packet_b64: Buffer.from(envelope.serialize()).toString('base64'),
+    });
+    const semantic = frame.layers.find(item => item.payloadType === 'SemanticSegmentationMasks');
+    assert.equal(semantic.labelFamily, 'cityscapes');
+    assert.equal(semantic.producer.instanceId, 'infer/parser');
+    assert.equal(semantic.detections[0].type, 'SemanticSegmentationMask');
+    assert.equal(semantic.detections[0].data.parentUuid, '42');
+    assert.ok(semantic.detections[0].data.pixels instanceof Uint8Array);
+    assert.deepEqual([...semantic.detections[0].data.pixels], [0, 18, 255]);
+    assert.equal(frame.layers.find(item => item.payloadType === 'SegmentationMasks').detections[0].type, 'SegmentationMask');
+    const overlay = createOverlay('semantic-segmentation', outputSource(semantic));
+    const result = resolveOverlay(indexFrame(frame), overlay);
+    assert.equal(result.state, 'ready');
+    assert.equal(result.feature.legend(result).entries[0].label, 'Class 0');
+
+    const empty = new Envelope();
+    empty.add(new SemanticSegmentationMasksT(1, 0, info, []));
+    const decoded = decodeFrameResultsMessage({frame_results_encoding: FRAME_RESULTS_ENCODING,
+        frame_results_packet_b64: Buffer.from(empty.serialize()).toString('base64')});
+    assert.equal(decoded.frame_results.layers[0].count, 0);
+    assert.equal(resolveOverlay(indexFrame(decoded.frame_results), overlay).state, 'ready');
 });
 
 test('rejects a packet from an incompatible producer identity', () => {
