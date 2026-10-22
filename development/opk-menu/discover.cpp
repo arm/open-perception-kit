@@ -49,7 +49,7 @@ std::string lowercase_extension(const fs::path &path) {
 
 bool is_supported_model_file(const fs::path &path) {
     const auto extension = lowercase_extension(path);
-    return extension == ".onnx" || extension == ".pte" || extension == ".pt";
+    return extension == ".onnx" || extension == ".pte" || extension == ".pt" || extension == ".vgf";
 }
 
 bool is_executorch_model_file(const fs::path &path) {
