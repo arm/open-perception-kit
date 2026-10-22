@@ -138,4 +138,51 @@ After running a recipe by clicking `Run Recipe`, you will get the measurement re
 
 ![Performix results](../assets/performix-results.jpg)
 
+## ONNX thread tuning
+
+Set `intraOpNumThreads` in an `opk-onnx-ops/Inference` Op's attributes to
+control that model session's intra-op thread count. Use OpChain version
+`"1.1.0"` or later within major 1 when adding this option:
+
+```json
+{
+  "id": "opk-onnx-ops/Inference",
+  "attributes": {
+    "modelDescriptor": "model.json",
+    "intraOpNumThreads": 2
+  }
+}
+```
+
+Two is an example, not a universal recommendation. Zero lets ONNX Runtime
+select its thread policy; one runs intra-op work on the calling thread. Other
+positive integers request that many intra-op threads, including the caller.
+The accepted range is zero through the maximum signed 32-bit integer.
+Use integer notation such as `2`; OPK configuration validation rejects decimal
+and exponent notation such as `2.0` and `2e0`.
+Omitting the attribute preserves OPK's existing policy: the reported hardware
+thread count minus one, with a minimum of one and a fallback of one when unknown.
+This does not limit the total threads used by the pipeline.
+
+Edit the relevant inference entry in `config/models/<model>/opchain.json` or
+`config/opchains/<chain>/opchain.json`. Composite chains have their own entries
+and do not inherit model-local OpChain settings. Restart the pipeline after
+changing the count; toggling a model's active state does not apply the change.
+For host-specific settings, copy the OpChain into your deployment configuration,
+adjust relative model paths, and select it with the pipeline's existing
+`opchain-path` property. Editing a shared chain affects every pipeline using it.
+
+Measure candidate counts on the target with the same model, inputs, CPU
+allocation and output sink. Warm up each session and repeat comparisons without
+competing benchmarks or builds. Check latency and CPU cost as well as FPS,
+and confirm that every input frame still produces output. For cascades, tune
+the detector and per-object models together; their individually fastest counts
+may not produce the fastest pipeline. Retune after model, runtime or CPU
+allocation changes.
+
+Linux-container measurements on Windows/WSL or macOS describe the container's
+available CPUs, not native Windows or macOS support. Raspberry Pi Linux and
+Linux x86-64 also need their own measurements; model complexity alone does not
+determine a portable optimum.
+
 [Back to How-To Guides](/how-to)
