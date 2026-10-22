@@ -137,6 +137,15 @@ they do not need the development runtime's direct host service exposure.
 Build networking is a separate setting from runtime `network_mode`; changing
 one does not change the other.
 
+Opening a VS Code devcontainer stops other OPK development containers and their
+TURN sidecars before building. Checkout-specific container names do not isolate
+host ports, so only one OPK development checkout can remain running through this
+startup flow. This also stops containers left running after their VS Code window
+closed and can disconnect another active OPK development session. Cleanup uses
+Compose service and configuration-file labels, preserves the current checkout's
+project, and leaves unrelated containers, images, and volumes intact. Quick-start
+and console initialization do not request this cleanup.
+
 ### Browser Media Output
 
 Direct display and audio forwarding from a container varies across Linux,
