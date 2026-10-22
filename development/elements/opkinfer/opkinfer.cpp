@@ -21,6 +21,7 @@
 #include <gst/video/video.h>
 
 #include <algorithm>
+#include <chrono>
 #include <fmt/core.h>
 #include <memory>
 #include <string_view>
@@ -39,13 +40,26 @@
 
 #include "gst/ContentRequirementEvent.h"
 #include "gst/FrameResultsMeta.h"
+#include "gst/PipelinePerformance.h"
 #include "gst/Tools.h"
 #include "mediaio/GstVideoFrame.h"
 
 struct GstOpkInferMembers {
-    // std::shared_ptr<onnx::Inference> onnxInference;
-
     opk::op::OpChain opChain;
+    std::unique_ptr<opk::gst::PipelinePerformance> performance;
+    std::chrono::steady_clock::time_point nextObservation{};
+
+    void observeFrame(const GstClockTime timestamp) {
+        if (!performance)
+            return;
+        performance->markInput(timestamp);
+        constexpr auto observationInterval{std::chrono::seconds{1}};
+        const auto now{std::chrono::steady_clock::now()};
+        if (now >= nextObservation) {
+            opChain.observePipeline(performance->snapshot());
+            nextObservation = now + observationInterval;
+        }
+    }
 
     opk::Result<void> executeOpChain(opk::op::OpChainContext &opChainContext) {
         return opChain.execute(opChainContext);
@@ -274,6 +288,7 @@ static gboolean gst_opkinfer_start(GstBaseTransform *b) {
         return FALSE;
     }
 
+    members->performance = std::make_unique<opk::gst::PipelinePerformance>(GST_ELEMENT(self));
     self->m = members.release();
 
     gst_opkinfer_push_model_registration(self);
@@ -498,6 +513,9 @@ gst_opkinfer_prepare_output_buffer(GstBaseTransform *base, GstBuffer *input, Gst
 
 static GstFlowReturn gst_opkinfer_transform_ip(GstBaseTransform *b, GstBuffer *buf) {
     auto *self = (GstOpkInfer *)b;
+
+    if (self->m)
+        self->m->observeFrame(GST_BUFFER_PTS(buf));
 
     if (!gst_opkinfer_is_active(self))
         return GST_FLOW_OK;

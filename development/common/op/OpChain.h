@@ -21,6 +21,7 @@
 #include "op/OpChainDescriptor.h"
 #include "op/OpRef.h"
 #include "opk/Result.h"
+#include "perf/PipelineSample.h"
 
 #include <string_view>
 #include <vector>
@@ -113,6 +114,9 @@ class OpChain {
      * @return Result indicating success or failure of execution.
      */
     opk::Result<void> execute(opk::op::OpChainContext &opChainContext);
+
+    /** Observe output at streaming frame boundaries; standalone execution needs no observer. */
+    void observePipeline(const perf::PipelineSample &sample);
 
     /**
      * @brief Generates a human-readable debug string representation of the chain.

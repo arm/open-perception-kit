@@ -18,6 +18,7 @@
 #include "op/ExecutionSelection.h"
 
 #include "Log.h"
+#include "op/ExecutionCalibration.h"
 #include "op/GpuPreprocess.h"
 #include "op/OpRef.h"
 
@@ -26,6 +27,7 @@
 #include <chrono>
 #include <future>
 #include <optional>
+#include <utility>
 
 namespace opk::op {
 namespace {
@@ -77,17 +79,25 @@ struct ExecutionSelection::State {
         std::unique_ptr<OpRef> operation;
         std::future<Result<void>> preparation;
         std::string failure;
+        std::string inputFailure;
         bool ready{false};
 
         bool pending() const {
             return preparation.valid();
         }
+        bool available() const {
+            return failure.empty() && inputFailure.empty();
+        }
 
-        void collect() {
-            if (!pending() || preparation.wait_for(noWait) != std::future_status::ready)
+        void collect(const bool wait = false) {
+            if (!pending())
+                return;
+            if (wait)
+                preparation.wait();
+            if (preparation.wait_for(noWait) != std::future_status::ready)
                 return;
             try {
-                auto result = preparation.get();
+                const auto result{preparation.get()};
                 if (result)
                     ready = true;
                 else
@@ -102,18 +112,34 @@ struct ExecutionSelection::State {
         Op *cpu{nullptr};
         AttributeMap attributes;
         ExecutionMode requested{ExecutionMode::Auto};
-        bool useGpu{false};
-        size_t tensorVariant{sharedTensorVariant};
+        PreprocessPath selected{PreprocessPath::Cpu};
         std::array<Variant, tensorVariantCount> variants;
         std::string sourceName;
         std::string layout;
+        std::string cpuFailure;
         std::string warning;
-        bool inputRejected{false};
         bool transferReported{false};
     };
 
     std::vector<Op *> ops;
     std::vector<Preprocessor> preprocessors;
+    std::optional<perf::PipelineSample> sample;
+    std::unique_ptr<ExecutionCalibration> calibration;
+    uint64_t inferredFrames{0};
+    uint64_t inferenceCalls{0};
+    bool freshSample{false};
+    bool selectedReady{false};
+    bool selectionReported{false};
+
+    static size_t variantIndex(const PreprocessPath path) {
+        return path == PreprocessPath::ReadbackGpu ? readbackTensorVariant : sharedTensorVariant;
+    }
+
+    void invalidateSelection() {
+        calibration.reset();
+        selectedReady = false;
+        selectionReported = false;
+    }
 
     void prepare(Preprocessor &preprocessor, const size_t variant) {
         auto &candidate{preprocessor.variants[variant]};
@@ -154,12 +180,45 @@ struct ExecutionSelection::State {
     }
 
     static void warnCpu(Preprocessor &preprocessor, const std::string &reason) {
-        if (preprocessor.warning == reason)
+        if (reason.empty() || preprocessor.warning == reason)
             return;
         preprocessor.warning = reason;
         log::warning("{}: GPU preprocessing unavailable: {}. Using CPU preprocessing.\n",
                      preprocessor.cpu->instanceId,
                      reason);
+    }
+
+    Result<std::vector<std::vector<PreprocessPath>>> choices() const {
+        std::vector<std::vector<PreprocessPath>> options;
+        for (const auto &preprocessor : preprocessors) {
+            std::vector<PreprocessPath> allowed;
+            if (preprocessor.requested != ExecutionMode::Gpu && preprocessor.cpuFailure.empty())
+                allowed.push_back(PreprocessPath::Cpu);
+            if (preprocessor.requested != ExecutionMode::Cpu &&
+                (sample || preprocessor.requested == ExecutionMode::Gpu)) {
+                if (preprocessor.variants[sharedTensorVariant].available())
+                    allowed.push_back(PreprocessPath::SharedGpu);
+                if (preprocessor.variants[readbackTensorVariant].available())
+                    allowed.push_back(PreprocessPath::ReadbackGpu);
+            }
+            if (allowed.empty()) {
+                std::string reason{preprocessor.cpuFailure};
+                for (const auto &candidate : preprocessor.variants) {
+                    const auto &failure{candidate.failure.empty() ? candidate.inputFailure
+                                                                  : candidate.failure};
+                    if (!failure.empty())
+                        reason += (reason.empty() ? "" : "; ") + failure;
+                }
+                if (preprocessor.requested == ExecutionMode::Gpu)
+                    return tl::unexpected(unavailableGpu(*preprocessor.cpu, reason).error());
+                return tl::unexpected(
+                    OPK_ERROR(ErrorFlag::InvalidData,
+                              preprocessor.cpu->instanceId +
+                                  ": no preprocessing path can consume this input: " + reason));
+            }
+            options.push_back(std::move(allowed));
+        }
+        return options;
     }
 };
 
@@ -198,62 +257,173 @@ Result<void> ExecutionSelection::configure(const OpChainDescriptor &descriptor,
         preprocessor.sourceName = preprocessor.attributes.getStringOrDefault("inputImageSourceName",
                                                                              "pipelineVideoFrame");
         state->preprocessors.push_back(std::move(preprocessor));
-        if (mode != ExecutionMode::Cpu)
-            state->prepare(state->preprocessors.back(), sharedTensorVariant);
     }
     return {};
 }
 
+void ExecutionSelection::observePipeline(const perf::PipelineSample &sample) {
+    if (!state->sample || state->sample->generation != sample.generation ||
+        state->sample->configuration != sample.configuration ||
+        state->sample->endpoint != sample.endpoint)
+        state->invalidateSelection();
+    state->sample = sample;
+    state->freshSample = true;
+}
+
+void ExecutionSelection::completeFrame(const uint64_t inferenceCalls) {
+    if (inferenceCalls != 0) {
+        ++state->inferredFrames;
+        state->inferenceCalls += inferenceCalls;
+    }
+}
+
 Result<bool> ExecutionSelection::prepareFrame(const OpChainContext &context) {
-    bool ready = true;
+    if (state->preprocessors.empty())
+        return true;
+    const bool streaming{state->sample.has_value()};
+    bool probing{false};
+    bool forcedPending{false};
     for (auto &preprocessor : state->preprocessors) {
         const auto layout{frameLayout(context.getVideoFrame(preprocessor.sourceName))};
         if (layout != preprocessor.layout) {
             preprocessor.layout = layout;
-            preprocessor.inputRejected = false;
+            preprocessor.cpuFailure.clear();
             preprocessor.transferReported = false;
+            for (auto &candidate : preprocessor.variants)
+                candidate.inputFailure.clear();
+            state->invalidateSelection();
         }
-        if (preprocessor.requested == ExecutionMode::Cpu)
+        if (preprocessor.requested == ExecutionMode::Cpu ||
+            (!streaming && preprocessor.requested == ExecutionMode::Auto))
             continue;
-        auto &candidate = preprocessor.variants[preprocessor.tensorVariant];
-        candidate.collect();
-        if (!candidate.failure.empty()) {
-            if (preprocessor.requested == ExecutionMode::Gpu)
-                return tl::unexpected(unavailableGpu(*preprocessor.cpu, candidate.failure).error());
-            State::warnCpu(preprocessor, candidate.failure);
-            preprocessor.useGpu = false;
-        } else if (candidate.ready && !preprocessor.inputRejected) {
-            preprocessor.useGpu = true;
-        } else if (candidate.pending() && preprocessor.requested == ExecutionMode::Gpu) {
-            ready = false;
+        state->prepare(preprocessor, sharedTensorVariant);
+        auto &shared{preprocessor.variants[sharedTensorVariant]};
+        shared.collect(!streaming);
+        bool pending{shared.pending()};
+        if (!shared.failure.empty()) {
+            state->prepare(preprocessor, readbackTensorVariant);
+            auto &readback{preprocessor.variants[readbackTensorVariant]};
+            readback.collect(!streaming);
+            pending = readback.pending();
         }
+        probing = probing || pending;
+        forcedPending = forcedPending || (pending && preprocessor.requested == ExecutionMode::Gpu);
     }
-    return ready;
+    if (probing) {
+        state->selectedReady = false;
+        // Auto continues through CPU; forced stages must already have a ready GPU path.
+        for (auto &preprocessor : state->preprocessors) {
+            if (preprocessor.requested == ExecutionMode::Gpu) {
+                const auto &shared{preprocessor.variants[sharedTensorVariant]};
+                const auto &readback{preprocessor.variants[readbackTensorVariant]};
+                if (shared.ready && shared.available())
+                    preprocessor.selected = PreprocessPath::SharedGpu;
+                else if (readback.ready && readback.available())
+                    preprocessor.selected = PreprocessPath::ReadbackGpu;
+                else
+                    forcedPending = true;
+            } else {
+                preprocessor.selected = PreprocessPath::Cpu;
+                forcedPending = forcedPending || !preprocessor.cpuFailure.empty();
+            }
+        }
+        return !forcedPending;
+    }
+
+    const bool freshSample{std::exchange(state->freshSample, false)};
+    if (state->calibration && state->selectedReady && freshSample)
+        state->calibration->observe(*state->sample, state->inferredFrames, state->inferenceCalls);
+    for (;;) {
+        if (!state->calibration) {
+            auto choices{state->choices()};
+            if (!choices)
+                return tl::unexpected(choices.error());
+            state->calibration = std::make_unique<ExecutionCalibration>(std::move(*choices));
+        }
+        bool rejected{false};
+        bool pending{false};
+        const auto &combination{state->calibration->selected()};
+        for (size_t index{0}; index < state->preprocessors.size(); ++index) {
+            auto &preprocessor{state->preprocessors[index]};
+            const auto selected{combination[index]};
+            if (selected != preprocessor.selected)
+                preprocessor.transferReported = false;
+            preprocessor.selected = selected;
+            if (selected == PreprocessPath::Cpu) {
+                const auto &shared{preprocessor.variants[sharedTensorVariant]};
+                const auto &readback{preprocessor.variants[readbackTensorVariant]};
+                if (!shared.available() && !readback.available())
+                    State::warnCpu(preprocessor,
+                                   shared.failure.empty() ? shared.inputFailure : shared.failure);
+                continue;
+            }
+            const auto variant{State::variantIndex(selected)};
+            state->prepare(preprocessor, variant);
+            auto &candidate{preprocessor.variants[variant]};
+            candidate.collect(!streaming);
+            if (!candidate.available()) {
+                rejected = true;
+                continue;
+            }
+            pending = pending || candidate.pending();
+        }
+        if (rejected) {
+            state->invalidateSelection();
+            continue;
+        }
+        state->selectedReady = !pending;
+        if (state->calibration->finished() && !state->selectionReported) {
+            log::notice(
+                "Preprocessing calibration {} after {} inferred frames and {} inference calls.\n",
+                state->calibration->measured() ? "selected a measured path"
+                                               : "has no output measurement",
+                state->inferredFrames,
+                state->inferenceCalls);
+            state->selectionReported = true;
+        }
+        return !pending;
+    }
 }
 
 Result<OpSignal> ExecutionSelection::process(Op &operation, OpChainContext &context) {
     const auto found{std::ranges::find_if(
         state->preprocessors, [&operation](const auto &item) { return item.cpu == &operation; })};
-    if (found == state->preprocessors.end() || !found->useGpu)
+    if (found == state->preprocessors.end())
         return operation.process(context);
     auto &preprocessor{*found};
-    auto &gpu{preprocessor.variants[preprocessor.tensorVariant].operation};
-    auto result{(*gpu)->process(context)};
+    const bool gpuSelected{preprocessor.selected != PreprocessPath::Cpu};
+    const auto variant{State::variantIndex(preprocessor.selected)};
+    auto result{gpuSelected ? (*preprocessor.variants[variant].operation)->process(context)
+                            : operation.process(context)};
     if (!result) {
-        if (preprocessor.requested == ExecutionMode::Gpu)
-            return tl::unexpected(unavailableGpu(operation, result.error().toString()).error());
-        preprocessor.inputRejected = true;
-        preprocessor.useGpu = false;
-        State::warnCpu(preprocessor, result.error().toString());
-        return operation.process(context);
+        if (!state->sample || preprocessor.requested == ExecutionMode::Cpu) {
+            if (preprocessor.requested == ExecutionMode::Gpu)
+                return tl::unexpected(unavailableGpu(operation, result.error().toString()).error());
+            return result;
+        }
+        if (gpuSelected) {
+            preprocessor.variants[variant].inputFailure = result.error().toString();
+            if (preprocessor.requested == ExecutionMode::Auto && preprocessor.cpuFailure.empty())
+                State::warnCpu(preprocessor, result.error().toString());
+        } else {
+            preprocessor.cpuFailure = result.error().toString();
+        }
+        state->invalidateSelection();
+        // Do not replay inference or reset stateful operations; choose again on the next frame.
+        return OpSignal::AbortChain;
     }
     if (!preprocessor.transferReported && *result == OpSignal::Continue) {
-        const auto *const info = (*gpu)->as<OpInterfaceGpuPreprocess>();
-        log::notice("{}: GPU preprocessing on {}; source {}, tensor {}.\n",
-                    operation.instanceId,
-                    info->identity(),
-                    info->inputCopied() ? "uploaded" : "shared",
-                    info->tensorCopied() ? "copied" : "shared");
+        if (gpuSelected) {
+            const auto *const info{
+                (*preprocessor.variants[variant].operation)->as<OpInterfaceGpuPreprocess>()};
+            log::notice("{}: GPU preprocessing on {}; source {}, tensor {}.\n",
+                        operation.instanceId,
+                        info->identity(),
+                        info->inputCopied() ? "uploaded" : "shared",
+                        info->tensorCopied() ? "copied" : "shared");
+        } else {
+            log::notice("{}: CPU preprocessing.\n", operation.instanceId);
+        }
         preprocessor.transferReported = true;
     }
     return result;
@@ -262,9 +432,7 @@ Result<OpSignal> ExecutionSelection::process(Op &operation, OpChainContext &cont
 void ExecutionSelection::destroyInstances() {
     for (auto &preprocessor : state->preprocessors) {
         for (auto &candidate : preprocessor.variants) {
-            if (candidate.pending())
-                candidate.preparation.wait();
-            candidate.collect();
+            candidate.collect(true);
             if (candidate.operation)
                 candidate.operation->destroyInstance();
         }

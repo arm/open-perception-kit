@@ -189,6 +189,11 @@ opk::Result<void> OpChain::bind() {
     return {};
 }
 
+void OpChain::observePipeline(const perf::PipelineSample &sample) {
+    if (executionSelection)
+        executionSelection->observePipeline(sample);
+}
+
 opk::Result<void> OpChain::execute(opk::op::OpChainContext &opChainContext) {
     const auto metricName = name.empty() ? std::string("opchain") : fmt::format("opchain/{}", name);
     OPK_PERF_SCOPE(metricName);
@@ -202,6 +207,7 @@ opk::Result<void> OpChain::execute(opk::op::OpChainContext &opChainContext) {
     }
 
     size_t currentIndex = 0;
+    uint64_t inferenceCalls{0};
 
     auto firstWorkerIndexForLoop = [this](size_t index, size_t loopId) {
         size_t firstGroupIndex = index;
@@ -230,8 +236,12 @@ opk::Result<void> OpChain::execute(opk::op::OpChainContext &opChainContext) {
             return tl::unexpected(std::move(result.error()));
         }
 
+        if (*result == OpSignal::Continue && op->as<OpInterfaceInference>())
+            ++inferenceCalls;
         switch (*result) {
         case OpSignal::AbortChain:
+            if (executionSelection)
+                executionSelection->completeFrame(inferenceCalls);
             return {};
         case OpSignal::BreakLoop:
             currentIndex =
@@ -251,5 +261,7 @@ opk::Result<void> OpChain::execute(opk::op::OpChainContext &opChainContext) {
         }
     }
 
+    if (executionSelection)
+        executionSelection->completeFrame(inferenceCalls);
     return {};
 }
