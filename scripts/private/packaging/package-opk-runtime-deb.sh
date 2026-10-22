@@ -1,7 +1,18 @@
 #!/usr/bin/env bash
-################################################################
-# Copyright (C) 2026 Arm Limited. All rights reserved.
-################################################################
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 set -euo pipefail
 
@@ -260,6 +271,7 @@ umask 022
 mkdir -p -- "\${parent}"
 if [ -f "\${target}/.opk-runtime-contract" ] && \
     [ "\$(cat "\${target}/.opk-runtime-contract")" = "\${contract}" ]; then
+    chmod 0755 "\${target}"
     echo "OPK Python runtime dependencies are already installed."
     exit 0
 fi
@@ -317,6 +329,7 @@ for name, version in expected.items():
 PYTHON
 
 printf '%s\n' "\${contract}" > "\${temporary}/.opk-runtime-contract"
+chmod 0755 "\${temporary}"
 
 rm -rf -- "\${backup}"
 if [ -e "\${target}" ] || [ -L "\${target}" ]; then

@@ -30,6 +30,8 @@ installed_python_runtime_path = ''
 python_runtime_versions = ['', '']
 if release_package
   python_executable = 'python3.13'
+endif
+if deb_package
   installed_python_runtime_path = '/var/lib/opk/python'
   python_runtime_versions = run_command(
     opk_python,
