@@ -307,20 +307,6 @@ presence are transient. Existing opacity-only preferences load with default
 class styles. Instance masks and background-replacement masks remain separate
 features and cannot bind to a semantic overlay.
 
-### Local model smoke preset
-
-`config/pipelines/yolo26n-segmentation.json` uses the native YOLO26 parsers with
-the descriptors under `config/models/yolo26n-sem/` and `config/models/yolo26n-seg/`.
-Supply the matching `yolo26n-sem.onnx` and `yolo26n-seg.onnx` files in those
-directories; they are local, Git-ignored artifacts, not downloaded by this preset.
-Both files must exist at startup, even when their model switch is off.
-
-Run `./tools/opk-menu config/pipelines/yolo26n-segmentation.json` in the development
-container. The preset starts with instance inference enabled: switch it off and
-enable **YOLO26n Semantic Segmentation (1024x1024)** to test this overlay. Add
-**Semantic segmentation** in the browser's Overlays panel. Instance masks are
-produced by the other model but are not rendered by this feature.
-
 ## Background replacement
 
 Select **Background replacement**, then choose **Solid color** or **Local image**.
