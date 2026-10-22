@@ -17,4 +17,28 @@
 
 #include "op/OpChainContext.h"
 
+#include <algorithm>
+
 using namespace opk::op;
+
+const opk::mediaio::VideoFrame *OpChainContext::getReadableVideoFrame(const std::string &name) {
+    const auto found{videoFrames.find(name)};
+    if (found == videoFrames.end() || !found->second) {
+        return nullptr;
+    }
+    const auto &frame{found->second};
+    const auto readable{[](const opk::mediaio::VideoFrame &candidate) {
+        const auto planes{candidate.planes()};
+        return !planes.empty() && std::ranges::all_of(planes, [](const auto &plane) {
+            return plane.hasHostData() && plane.canRead();
+        });
+    }};
+    if (readable(*frame)) {
+        return frame.get();
+    }
+    auto &mapped{readableVideoFrames[frame]};
+    if (!mapped) {
+        mapped = frame->map(opk::AccessMode::Read);
+    }
+    return mapped && readable(*mapped) ? mapped.get() : nullptr;
+}

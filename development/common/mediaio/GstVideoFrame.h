@@ -28,6 +28,7 @@
 #include <gst/video/video.h>
 
 #include <memory>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -51,8 +52,8 @@ GstMapFlags gstMapFlagsFromAccessMode(opk::AccessMode mode) noexcept;
  * @brief GStreamer-backed VideoFrame implementation.
  *
  * GstVideoFrame hides GstBuffer ref/unref and GStreamer GstVideoFrame
- * map/unmap handling. Instances are always CPU-mapped frames returned by
- * mapGstBuffer().
+ * map/unmap handling. DMA-BUF frames can retain their planes without CPU mapping;
+ * mapGstBuffer() and map() provide explicit CPU access.
  */
 class GstVideoFrame final : public opk::mediaio::VideoFrame {
   public:
@@ -84,6 +85,18 @@ class GstVideoFrame final : public opk::mediaio::VideoFrame {
      * fail due to locking or access-mode constraints.
      */
     static bool hasDirectCpuAddress(GstBuffer *buffer) noexcept;
+
+    /**
+     * @brief Retains linear DMA-BUF planes without mapping their pixels.
+     * @param buffer Buffer to retain, including its allocation and pool ownership.
+     * @param videoInfo Negotiated raw-video layout; GstVideoMeta overrides plane strides/offsets.
+     * @return Retained frame, or nullptr for invalid video information.
+     * Plane FDs are exposed only when every plane fits in one DMA-BUF memory block.
+     * Other layouts expose no planes until explicitly CPU-mapped with map().
+     * No descriptors are duplicated or transferred.
+     */
+    static std::shared_ptr<GstVideoFrame> retainDmaBuf(GstBuffer *const buffer,
+                                                       const GstVideoInfo &videoInfo);
 
     /**
      * @brief Maps a video GstBuffer using negotiated GstVideoInfo.
@@ -138,7 +151,7 @@ class GstVideoFrame final : public opk::mediaio::VideoFrame {
     /**
      * @brief Constructs a GStreamer-backed frame from prepared plane views.
      * @param buffer Originating buffer to keep alive.
-     * @param frameMap Existing video-frame map owned by this frame.
+     * @param frameMap Owned CPU mapping, or nullopt when the frame is not mapped.
      * @param videoInfo Video layout used for remapping this buffer.
      * @param memoryType Backing memory type exposed by the frame.
      * @param format Pixel layout represented by the frame.
@@ -151,7 +164,7 @@ class GstVideoFrame final : public opk::mediaio::VideoFrame {
      * @param mappedAccessMode Access mode granted by the owned map.
      */
     GstVideoFrame(GstBuffer *buffer,
-                  ::GstVideoFrame frameMap,
+                  std::optional<::GstVideoFrame> frameMap,
                   GstVideoInfo videoInfo,
                   opk::MemoryType memoryType,
                   opk::RawImagePixelFormat format,
@@ -170,7 +183,7 @@ class GstVideoFrame final : public opk::mediaio::VideoFrame {
     /// Referenced GStreamer buffer kept alive for this frame lifetime.
     GstBuffer *buffer = nullptr;
     /// Owned GStreamer video-frame map information for video mapped frames.
-    ::GstVideoFrame videoFrameMap{};
+    std::optional<::GstVideoFrame> videoFrameMap;
     /// Video layout used when remapping the originating GstBuffer.
     GstVideoInfo frameVideoInfo{};
 
