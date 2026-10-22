@@ -26,8 +26,10 @@
 
 #include <gst/allocators/gstdmabuf.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cinttypes>
+#include <climits>
 #include <cstdlib>
 #include <limits>
 #include <utility>
@@ -264,6 +266,62 @@ bool bufferHasDirectCpuAddress(GstBuffer *buffer) noexcept {
     return true;
 }
 
+/** @brief Exposes borrowed DMA-BUF planes only when every plane has a valid memory range. */
+std::vector<DataView> dmaBufPlanes(GstBuffer *const buffer, const GstVideoInfo &videoInfo) {
+    const auto *const meta{gst_buffer_get_video_meta(buffer)};
+    const auto planeCount{GST_VIDEO_INFO_N_PLANES(&videoInfo)};
+    std::vector<DataView> planes;
+    planes.reserve(planeCount);
+    for (guint plane{0}; plane < planeCount; ++plane) {
+        const gint stride{meta ? meta->stride[plane] : videoInfo.stride[plane]};
+        const gsize offset{meta ? meta->offset[plane] : videoInfo.offset[plane]};
+        const auto height{GST_VIDEO_FORMAT_INFO_SCALE_HEIGHT(
+            videoInfo.finfo, plane, GST_VIDEO_INFO_HEIGHT(&videoInfo))};
+        if (stride <= 0 || height <= 0 ||
+            static_cast<size_t>(height) > std::numeric_limits<size_t>::max() / stride) {
+            return {};
+        }
+        size_t rowBytes{0};
+        for (guint component{0}; component < GST_VIDEO_INFO_N_COMPONENTS(&videoInfo); ++component) {
+            if (GST_VIDEO_FORMAT_INFO_PLANE(videoInfo.finfo, component) != plane) {
+                continue;
+            }
+            const size_t width = GST_VIDEO_INFO_COMP_WIDTH(&videoInfo, component);
+            const size_t pixelStride = GST_VIDEO_INFO_COMP_PSTRIDE(&videoInfo, component);
+            if (width == 0 || pixelStride == 0 ||
+                width > std::numeric_limits<size_t>::max() / pixelStride) {
+                return {};
+            }
+            const size_t componentEnd{GST_VIDEO_INFO_COMP_POFFSET(&videoInfo, component) +
+                                      (width - 1) * pixelStride +
+                                      GST_VIDEO_INFO_COMP_DEPTH(&videoInfo, component) / CHAR_BIT};
+            rowBytes = std::max(rowBytes, componentEnd);
+        }
+        if (rowBytes == 0 || rowBytes > static_cast<size_t>(stride)) {
+            return {};
+        }
+        const size_t bytes{static_cast<size_t>(stride) * (height - 1) + rowBytes};
+        guint memoryIndex{0};
+        guint memoryCount{0};
+        gsize skip{0};
+        if (!gst_buffer_find_memory(buffer, offset, bytes, &memoryIndex, &memoryCount, &skip) ||
+            memoryCount != 1) {
+            return {};
+        }
+        auto *const memory{gst_buffer_peek_memory(buffer, memoryIndex)};
+        if (!gst_is_dmabuf_memory(memory) ||
+            skip > std::numeric_limits<size_t>::max() - memory->offset) {
+            return {};
+        }
+        planes.push_back(DataView::dmaBuf(gst_dmabuf_memory_get_fd(memory),
+                                          bytes,
+                                          static_cast<uint32_t>(stride),
+                                          memory->offset + skip,
+                                          opk::AccessMode::Read));
+    }
+    return planes;
+}
+
 } // namespace
 
 opk::AccessMode accessModeFromGstMapFlags(GstMapFlags flags) noexcept {
@@ -315,9 +373,11 @@ GstVideoFrame::GstVideoFrame(GstBuffer *buffer,
       mappedAccess(mappedAccessMode) {}
 
 GstVideoFrame::~GstVideoFrame() {
-    gst_video_frame_unmap(&videoFrameMap);
-    const auto unmapCount = gUnmapCount.fetch_add(1, std::memory_order_relaxed) + 1;
-    maybePrintLifetimeCounters("unmaps", unmapCount);
+    if (mappedAccess != opk::AccessMode::Unknown) {
+        gst_video_frame_unmap(&videoFrameMap);
+        const auto unmapCount{gUnmapCount.fetch_add(1, std::memory_order_relaxed) + 1};
+        maybePrintLifetimeCounters("unmaps", unmapCount);
+    }
     if (buffer != nullptr) {
         gst_buffer_unref(buffer);
     }
@@ -329,6 +389,35 @@ bool GstVideoFrame::hasDmaBufContent(GstBuffer *buffer) noexcept {
 
 bool GstVideoFrame::hasDirectCpuAddress(GstBuffer *buffer) noexcept {
     return bufferHasDirectCpuAddress(buffer);
+}
+
+std::shared_ptr<GstVideoFrame> GstVideoFrame::retainDmaBuf(GstBuffer *const buffer,
+                                                           const GstVideoInfo &videoInfo) {
+    if (!buffer || !supportedVideoInfo(videoInfo) || !bufferHasDmaBufContent(buffer)) {
+        return nullptr;
+    }
+    const auto *const meta{gst_buffer_get_video_meta(buffer)};
+    const auto planeCount{GST_VIDEO_INFO_N_PLANES(&videoInfo)};
+    if (meta && (meta->format != GST_VIDEO_INFO_FORMAT(&videoInfo) ||
+                 meta->width != static_cast<guint>(GST_VIDEO_INFO_WIDTH(&videoInfo)) ||
+                 meta->height != static_cast<guint>(GST_VIDEO_INFO_HEIGHT(&videoInfo)) ||
+                 meta->n_planes != planeCount)) {
+        return nullptr;
+    }
+    auto planes{dmaBufPlanes(buffer, videoInfo)};
+    return std::shared_ptr<GstVideoFrame>(
+        new GstVideoFrame(buffer,
+                          {},
+                          videoInfo,
+                          opk::MemoryType::DmaBuf,
+                          rawImagePixelFormatFromGstVideoFormat(GST_VIDEO_INFO_FORMAT(&videoInfo)),
+                          yuvColorMatrixFromGstVideoInfo(videoInfo),
+                          yuvRangeFromGstVideoInfo(videoInfo),
+                          static_cast<uint32_t>(GST_VIDEO_INFO_WIDTH(&videoInfo)),
+                          static_cast<uint32_t>(GST_VIDEO_INFO_HEIGHT(&videoInfo)),
+                          timestampNsFromGstBuffer(buffer),
+                          std::move(planes),
+                          opk::AccessMode::Unknown));
 }
 
 std::unique_ptr<GstVideoFrame> GstVideoFrame::mapGstBufferUnique(GstBuffer *buffer,

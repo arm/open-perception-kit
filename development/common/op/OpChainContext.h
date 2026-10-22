@@ -78,6 +78,12 @@ struct OpChainContext {
     }
 
     /**
+     * @brief Returns readable host planes, mapping a named frame once per context if needed.
+     * The original frame stays available for GPU consumers. Returns nullptr on mapping failure.
+     */
+    const opk::mediaio::VideoFrame *getReadableVideoFrame(const std::string &name);
+
+    /**
      * @brief Image crops for the inference loop.
      *
      * Populated by preprocessing operations to define which regions of the frame
@@ -112,6 +118,10 @@ struct OpChainContext {
      * and other perception data into this structure.
      */
     open_perception_kit::FrameResults *frameResults = nullptr;
+
+  private:
+    std::map<std::shared_ptr<opk::mediaio::VideoFrame>, std::shared_ptr<opk::mediaio::VideoFrame>>
+        readableVideoFrames;
 };
 
 } // namespace opk::op

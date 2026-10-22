@@ -51,8 +51,8 @@ GstMapFlags gstMapFlagsFromAccessMode(opk::AccessMode mode) noexcept;
  * @brief GStreamer-backed VideoFrame implementation.
  *
  * GstVideoFrame hides GstBuffer ref/unref and GStreamer GstVideoFrame
- * map/unmap handling. Instances are always CPU-mapped frames returned by
- * mapGstBuffer().
+ * map/unmap handling. DMA-BUF frames can retain their planes without CPU mapping;
+ * mapGstBuffer() and map() provide explicit CPU access.
  */
 class GstVideoFrame final : public opk::mediaio::VideoFrame {
   public:
@@ -84,6 +84,18 @@ class GstVideoFrame final : public opk::mediaio::VideoFrame {
      * fail due to locking or access-mode constraints.
      */
     static bool hasDirectCpuAddress(GstBuffer *buffer) noexcept;
+
+    /**
+     * @brief Retains linear DMA-BUF planes without mapping their pixels.
+     * @param buffer Buffer to retain, including its allocation and pool ownership.
+     * @param videoInfo Negotiated raw-video layout; GstVideoMeta overrides plane strides/offsets.
+     * @return Retained frame, or nullptr for invalid video information.
+     * Plane FDs are exposed only when every plane fits in one DMA-BUF memory block.
+     * Other layouts expose no planes until explicitly CPU-mapped with map().
+     * No descriptors are duplicated or transferred.
+     */
+    static std::shared_ptr<GstVideoFrame> retainDmaBuf(GstBuffer *const buffer,
+                                                       const GstVideoInfo &videoInfo);
 
     /**
      * @brief Maps a video GstBuffer using negotiated GstVideoInfo.

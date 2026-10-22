@@ -157,32 +157,14 @@ opk::Result<opk::op::OpSignal> GenericImagePreprocessOp::process(
             OPK_ERROR(opk::ErrorFlag::InvalidData, "tensor seems not to be an image"));
     }
 
-    const opk::mediaio::VideoFrame *readableVideoFrame = pipelineVideoFrame;
-    std::unique_ptr<opk::mediaio::VideoFrame> mappedPipelineVideoFrame;
-    auto readablePlanes = readableVideoFrame->planes();
-    auto hasReadableHostPlanes = [](auto planes) {
-        if (planes.empty()) {
-            return false;
-        }
-        return std::ranges::all_of(
-            planes, [](const auto &plane) { return plane.hasHostData() && plane.canRead(); });
-    };
-    if (!hasReadableHostPlanes(readablePlanes)) {
-        mappedPipelineVideoFrame = pipelineVideoFrame->map(opk::AccessMode::Read);
-        if (!mappedPipelineVideoFrame) {
-            return tl::unexpected(
-                OPK_ERROR(opk::ErrorFlag::InvalidData,
-                          "GenericImagePreprocessOp failed to map pipelineVideoFrame VideoFrame"));
-        }
-
-        readableVideoFrame = mappedPipelineVideoFrame.get();
-        readablePlanes = readableVideoFrame->planes();
-        if (!hasReadableHostPlanes(readablePlanes)) {
-            return tl::unexpected(
-                OPK_ERROR(opk::ErrorFlag::InvalidData,
-                          "GenericImagePreprocessOp VideoFrame has no readable host planes"));
-        }
+    const auto *const readableVideoFrame{
+        opChainContext.getReadableVideoFrame(inputImageSourceName)};
+    if (!readableVideoFrame) {
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::InvalidData,
+                      "GenericImagePreprocessOp failed to map readable host planes"));
     }
+    const auto readablePlanes{readableVideoFrame->planes()};
 
     const auto sourceFormat = readableVideoFrame->format();
     const size_t sourcePlaneCount = readablePlanes.size();

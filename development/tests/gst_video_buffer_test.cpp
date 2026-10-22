@@ -20,6 +20,7 @@
 #include "gst/FrameResultsMeta.h"
 #include "gst/Tools.h"
 #include "mediaio/GstVideoFrame.h"
+#include "op/OpChainContext.h"
 
 #include <array>
 #include <memory>
@@ -150,6 +151,48 @@ TEST_F(GstVideoBuffer, ReusesWritableDmaBuffer) {
     EXPECT_EQ(outputBuffer, inputBuffer);
     EXPECT_TRUE(gst_is_dmabuf_memory(gst_buffer_peek_memory(outputBuffer, 0)));
     expectFrameData();
+    GstVideoInfo videoInfo{};
+    ASSERT_TRUE(gst_video_info_set_format(
+        &videoInfo, GST_VIDEO_FORMAT_BGRA, testFrameWidth, testFrameHeight));
+    const auto retained{opk::mediaio::gst::GstVideoFrame::retainDmaBuf(outputBuffer, videoInfo)};
+    ASSERT_NE(retained, nullptr);
+    ASSERT_EQ(retained->planeCount(), 1U);
+    EXPECT_TRUE(retained->planes()[0].hasDmaBuf());
+    EXPECT_FALSE(retained->planes()[0].hasHostData());
+    EXPECT_EQ(retained->planes()[0].fd(),
+              gst_dmabuf_memory_get_fd(gst_buffer_peek_memory(outputBuffer, 0)));
+    const auto readable{retained->map(opk::AccessMode::Read)};
+    ASSERT_NE(readable, nullptr);
+    EXPECT_TRUE(readable->planes()[0].hasHostData());
+    opk::op::OpChainContext context;
+    context.videoFrames["test"] = retained;
+    const auto *const cached{context.getReadableVideoFrame("test")};
+    ASSERT_NE(cached, nullptr);
+    EXPECT_EQ(context.getReadableVideoFrame("test"), cached);
+    EXPECT_FALSE(context.getVideoFrame("test")->planes()[0].hasHostData());
+
+    constexpr gsize halfFrameBytes{testFrameBytes / 2};
+    BufferRef splitBuffer{gst_buffer_new(), gst_buffer_unref};
+    auto *const memory{gst_buffer_peek_memory(outputBuffer, 0)};
+    gst_buffer_append_memory(splitBuffer.get(), gst_memory_share(memory, 0, halfFrameBytes));
+    gst_buffer_append_memory(splitBuffer.get(),
+                             gst_memory_share(memory, halfFrameBytes, halfFrameBytes));
+    const auto splitFrame{
+        opk::mediaio::gst::GstVideoFrame::retainDmaBuf(splitBuffer.get(), videoInfo)};
+    ASSERT_NE(splitFrame, nullptr);
+    EXPECT_TRUE(splitFrame->planes().empty());
+    EXPECT_NE(splitFrame->map(opk::AccessMode::Read), nullptr);
+
+    GstVideoInfo mismatchedInfo{};
+    ASSERT_TRUE(gst_video_info_set_format(
+        &mismatchedInfo, GST_VIDEO_FORMAT_BGRA, testFrameWidth + 1, testFrameHeight));
+    EXPECT_EQ(opk::mediaio::gst::GstVideoFrame::retainDmaBuf(outputBuffer, mismatchedInfo),
+              nullptr);
+
+    outputBuffer = nullptr; // The retained frame now keeps the original allocation alive.
+    gst_clear_buffer(&inputBuffer);
+    EXPECT_EQ(context.getReadableVideoFrame("test"), cached);
+    EXPECT_EQ(*static_cast<const guint8 *>(cached->planes()[0].data()), testFramePixelValue);
 }
 
 TEST_F(GstVideoBuffer, SharesMemoryAndRetainsMetadataWhenHeaderIsShared) {

@@ -465,20 +465,21 @@ static GstOpkInferFramePolicy gst_opkinfer_get_frame_policy(GstOpkInfer *self,
     return policy;
 }
 
-static std::shared_ptr<opk::mediaio::VideoFrame> gst_opkinfer_map_video_frame(GstOpkInfer *self,
-                                                                              GstBuffer *buffer) {
+static std::shared_ptr<opk::mediaio::VideoFrame>
+gst_opkinfer_retain_video_frame(GstOpkInfer *self, GstBuffer *buffer) {
     const bool dmaBuf = opk::mediaio::gst::GstVideoFrame::hasDmaBufContent(buffer);
     if (dmaBuf || opk::mediaio::gst::GstVideoFrame::hasDirectCpuAddress(buffer)) {
-        auto frame = opk::mediaio::gst::GstVideoFrame::mapGstBuffer(
-            buffer, self->vinfo, opk::AccessMode::Read);
+        auto frame{dmaBuf ? opk::mediaio::gst::GstVideoFrame::retainDmaBuf(buffer, self->vinfo)
+                          : opk::mediaio::gst::GstVideoFrame::mapGstBuffer(
+                                buffer, self->vinfo, opk::AccessMode::Read)};
         if (!frame) {
             GST_ELEMENT_ERROR(self,
                               RESOURCE,
                               FAILED,
-                              ("Failed to map video buffer for CPU preprocessing."),
+                              ("Failed to retain video buffer for preprocessing."),
                               ("%s: %s",
                                self->opChainPath,
-                               dmaBuf ? "DMA-BUF input must be CPU-mappable and linear."
+                               dmaBuf ? "DMA-BUF input has invalid video information."
                                       : "System-memory video mapping failed."));
         }
         return frame;
@@ -548,15 +549,13 @@ static GstFlowReturn gst_opkinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
     const GstClockTime processingStartedAt =
         framePolicy.qosEnabled ? gst_util_get_timestamp() : GST_CLOCK_TIME_NONE;
 
-    // Map after attaching FrameResultsMeta: the frame's buffer reference prevents
-    // adding metadata while the OpChain reads the mapped pixels.
-    auto sharedMediaFrame = gst_opkinfer_map_video_frame(self, buf);
+    // Retain after attaching FrameResultsMeta: the extra reference prevents adding metadata.
+    auto sharedMediaFrame{gst_opkinfer_retain_video_frame(self, buf)};
     if (!sharedMediaFrame) {
         return GST_FLOW_ERROR;
     }
 
-    // Mutate the FrameResultsMeta while executing the op-chain. The mapped frame is
-    // passed through the op context and stays alive for the whole op-chain execution.
+    // Keep the frame and its metadata alive throughout the op-chain execution.
     std::string opChainError;
     auto ret = opk::FrameResultsMeta::mutate<GstFlowReturn>(
         buf, [self, sharedMediaFrame, &opChainError](auto &frameResults) {
