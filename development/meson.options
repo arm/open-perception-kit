@@ -50,3 +50,9 @@ option('python_ops',
   value : 'auto',
   description : 'Enable the embedded Python script Op'
 )
+
+option('gpu_preprocessing',
+  type : 'feature',
+  value : 'auto',
+  description : 'Build Vulkan preprocessing on Linux; disable for a CPU-only build'
+)

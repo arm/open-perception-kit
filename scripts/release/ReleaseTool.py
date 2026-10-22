@@ -95,6 +95,7 @@ OP_MODULE_NAMES = {
     "opk-python-ops.so",
     "opk-std-ops.so",
 }
+OPTIONAL_OP_MODULE_NAMES = {"opk-gpu-ops.so"}
 PYTHON_RUNTIME_DISTRIBUTIONS = {"open-perception-kit"}
 PYTHON_RUNTIME_ROOT = Path("share/opk/python")
 PYTHON_RUNTIME_MANIFEST = "opk-runtime.json"
@@ -147,6 +148,7 @@ SYSTEM_LIBRARY_PREFIXES = (
     "libstdc++.so.",
     "libunwind.so.",
     "libusb-1.0.so.",
+    "libvulkan.so.",
     "libz.so.",
     "libzstd.so.",
 )
@@ -791,8 +793,11 @@ def validate_runtime_files(package_root: Path) -> Path:
 
     private_root = package_root / "lib/opk"
     op_modules = list(private_root.glob("opk-*-ops.so"))
-    if {path.name for path in op_modules} != OP_MODULE_NAMES:
-        fail(f"OPK op modules must be exactly {sorted(OP_MODULE_NAMES)}")
+    module_names = {path.name for path in op_modules}
+    if (not OP_MODULE_NAMES <= module_names
+            or module_names - OP_MODULE_NAMES - OPTIONAL_OP_MODULE_NAMES):
+        fail(f"OPK op modules must include {sorted(OP_MODULE_NAMES)}; "
+             f"optional modules: {sorted(OPTIONAL_OP_MODULE_NAMES)}")
     if any(not is_elf(path) for path in op_modules):
         fail("OPK op modules must be regular ELF files")
 

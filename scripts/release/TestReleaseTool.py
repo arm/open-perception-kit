@@ -542,7 +542,7 @@ class ReleaseToolTests(unittest.TestCase):
                     "is_elf",
                     side_effect=lambda path: path.name in release_tool.PLUGIN_NAMES,
                 ),
-                self.assertRaisesRegex(RuntimeError, "op modules must be exactly"),
+                self.assertRaisesRegex(RuntimeError, "op modules must include"),
             ):
                 release_tool.validate_package(arguments)
 
@@ -558,7 +558,12 @@ class ReleaseToolTests(unittest.TestCase):
             ):
                 release_tool.validate_package(arguments)
 
-            runtime_elf_objects = release_tool.PLUGIN_NAMES | release_tool.OP_MODULE_NAMES
+            for module_name in release_tool.OPTIONAL_OP_MODULE_NAMES:
+                (private_root / module_name).touch()
+            runtime_elf_objects = (
+                release_tool.PLUGIN_NAMES | release_tool.OP_MODULE_NAMES
+                | release_tool.OPTIONAL_OP_MODULE_NAMES
+            )
             with (
                 patch.object(
                     release_tool,
