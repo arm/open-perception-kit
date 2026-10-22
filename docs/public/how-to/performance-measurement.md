@@ -164,6 +164,28 @@ Omitting the attribute preserves OPK's existing policy: the reported hardware
 thread count minus one, with a minimum of one and a fallback of one when unknown.
 This does not limit the total threads used by the pipeline.
 
+The shared ONNX model and composite presets use practical thread counts measured
+on a Raspberry Pi 5 Linux container in October 2026. These choices balance video
+throughput, tail latency, and CPU cost; they are not universal optima. The NITEC
+and MobileGaze composites use one thread for UltraFace, with three for NITEC and
+two for MobileGaze. ExecuTorch presets retain their existing settings.
+
+The Intel Core Ultra 7 268V laptop measured through a WSL2 Linux container favored
+different counts for these standalone models:
+
+| Model | Shared Raspberry Pi default | Measured Intel laptop choice |
+| --- | --- | --- |
+| YOLO26n-320 | 2 | 3 |
+| YOLO26n-480 | 2 | 3 |
+| UltraFace RFB-320 | 1 | 2 |
+
+These presets do not select values by host. The laptop choices remain provisional
+because timings varied, and YOLO and MobileGaze outputs changed across thread
+counts without accuracy evaluation. Pi comparisons passed the output checks;
+some MobileGaze and YOLO26s-640 timing runs had competing background activity.
+The measurements used a short video segment without encoding or browser output,
+so retune for the deployed workload.
+
 Edit the relevant inference entry in `config/models/<model>/opchain.json` or
 `config/opchains/<chain>/opchain.json`. Composite chains have their own entries
 and do not inherit model-local OpChain settings. Restart the pipeline after
