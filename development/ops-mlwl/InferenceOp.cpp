@@ -73,18 +73,11 @@ opk::Result<opk::op::OpSignal> InferenceOp::process(opk::op::OpChainContext &con
     const auto result = inference->inference();
     if (!result)
         return tl::unexpected(result.error());
-    try {
-        const auto &model = inference->getModel();
-        for (size_t i = 0; i < model.outputs.size(); ++i)
-            context.inferenceOutputTensors[i] =
-                model.createOutputTensorView(i,
-                                             inference->getOutputTensorDataAddress(i),
-                                             inference->getOutputTensorFinalShape(i));
-        context.inferenceOutputTensorCount = model.outputs.size();
-    } catch (const std::exception &error) {
-        return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InferenceRtInferenceError,
-                                        "MLWL execution: " + std::string(error.what())));
-    }
+    const auto &model = inference->getModel();
+    for (size_t i = 0; i < model.outputs.size(); ++i)
+        context.inferenceOutputTensors[i] = model.createOutputTensorView(
+            i, inference->getOutputTensorDataAddress(i), inference->getOutputTensorFinalShape(i));
+    context.inferenceOutputTensorCount = model.outputs.size();
     return opk::op::OpSignal::Continue;
 }
 
