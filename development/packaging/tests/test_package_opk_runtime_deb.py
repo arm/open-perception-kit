@@ -195,6 +195,7 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
                 "libopk-common.so",
                 "opk-runtime.so",
                 "opk-executorch-ops.so",
+                "opk-gpu-ops.so",
                 "opk-python-ops.so",
                 "opk-std-ops.so",
             ):
@@ -387,6 +388,9 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
                     extracted
                     / f"usr/lib/{multiarch}/opk/opk-runtime.so"
                 ).is_file()
+            )
+            self.assertTrue(
+                (extracted / f"usr/lib/{multiarch}/opk/opk-gpu-ops.so").is_file()
             )
             self.assertTrue(
                 (

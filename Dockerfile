@@ -68,6 +68,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   cmake \
   curl \
   git \
+  glslang-tools \
+  libvulkan-dev \
+  mesa-vulkan-drivers \
   libfftw3-dev \
   libfmt-dev \
   libgstreamer-plugins-bad1.0-dev \
@@ -602,7 +605,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   ca-certificates \
   gstreamer1.0-plugins-base \
   gstreamer1.0-tools \
-  libgstreamer1.0-0; \
+  libgstreamer1.0-0 \
+  libvulkan1 \
+  mesa-vulkan-drivers; \
   update-ca-certificates; \
   rm -rf /var/lib/apt/lists/*
 
@@ -1081,6 +1086,7 @@ COPY --from=opk-cairn-build \
   /work/development/build/meson-out/libfmt.so \
   /work/development/build/meson-out/libopk-common.so \
   /work/development/build/meson-out/libopkinfer.so \
+  /work/development/build/meson-out/opk-gpu-ops.so \
   /work/development/build/meson-out/opk-onnx-ops.so \
   /work/development/build/meson-out/opk-runtime.so \
   /work/development/build/meson-out/opk-std-ops.so \

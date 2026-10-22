@@ -187,6 +187,9 @@ if [[ -n "${MLWL_PREFIX}" ]]; then
     MLWL_PREFIX="$(resolve_existing_directory "${MLWL_PREFIX}")"
     private_libraries+=(opk-mlwl-ops.so)
 fi
+if [[ -f "${installed_private_root}/opk-gpu-ops.so" ]]; then
+    private_libraries+=(opk-gpu-ops.so)
+fi
 
 mkdir -p "${package_root}/DEBIAN" "${plugin_root}" "${private_root}"
 for library in "${plugins[@]}"; do
