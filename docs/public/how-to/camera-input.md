@@ -147,9 +147,10 @@ to a supported mode. Listing modes does not change the preset.
 The CSI preset requests NV12 at 640×480 from `libcamerasrc`, which supplies DMA-BUFs
 when downstream accepts its layout. Caps alone do not prove the memory type.
 
-OPK accepts linear, CPU-mappable DMA-BUFs and retains CPU preprocessing. It does
-not accept tiled or non-mappable inputs. Preprocessing still writes model input
-tensors, and WebRTC output encodes video; these presets are not end-to-end zero-copy.
+OPK accepts linear DMA-BUFs. [GPU preprocessing](../../arch/elements/opkinfer.md#execution-preferences)
+can import supported allocations; CPU processing and upload fallback require
+readable memory. Tiled inputs are unsupported. Preprocessing writes separate model
+input tensors, and WebRTC encodes video; these presets are not end-to-end zero-copy.
 
 OPK elements preserve the video allocation by default. These presets omit
 `opkosd` and draw overlays in the browser. For CPU drawing into the same DMA-BUF,
