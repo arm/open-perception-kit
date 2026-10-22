@@ -31,12 +31,19 @@ module.exports = defineConfig({
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
   },
-  webServer: {
+  webServer: [{
     command: 'docker exec -u dev open-perception-kit bash -lc "cd /work && exec ./tools/opk-menu .github/scripts/quick-start-smoke/pipeline.json"',
     url: 'http://127.0.0.1:9999/opk-config.js',
     timeout: 60000,
     reuseExistingServer: false,
     stdout: 'pipe',
     stderr: 'pipe',
-  },
+  }, {
+    command: 'docker exec -u dev open-perception-kit bash -lc "cd /work && exec ./tools/opk-menu .github/scripts/quick-start-smoke/startup.json"',
+    url: 'http://127.0.0.1:10099/opk-config.js',
+    timeout: 60000,
+    reuseExistingServer: false,
+    stdout: 'pipe',
+    stderr: 'pipe',
+  }],
 });
