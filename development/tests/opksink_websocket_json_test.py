@@ -30,7 +30,7 @@ from pipeline_test_utils import load_gstreamer_plugins, release_pipeline
 
 def wait_for(predicate, context="WebSocket activity"):
     deadline = monotonic() + 5
-    timer = GLib.timeout_add(5000, lambda: True)
+    timer = GLib.timeout_add(10, lambda: True)
     try:
         while not predicate():
             assert monotonic() < deadline, f"Timed out waiting for {context}"
@@ -150,11 +150,60 @@ def check_webrtc_message(session, sink, message, *, expect_answer=False, offer_a
         sink.disconnect(handler)
 
 
+def check_startup_flush(session, sink, gst, offer):
+    peers, received, forwarded = [], [], []
+
+    def on_added(_, element):
+        if element.get_factory().get_name() == "webrtcbin":
+            peers.append(element)
+
+    def observe_flush(_, info):
+        if info.get_event().type in (gst.EventType.FLUSH_START, gst.EventType.FLUSH_STOP):
+            forwarded.append(info.get_event().type)
+        return gst.PadProbeReturn.OK
+
+    handler = sink.connect("element-added", on_added)
+    websocket = connect_websocket(session, sink.get_property("ws-port"))
+    probes = []
+    try:
+        websocket.connect("message", lambda _, kind, data: received.append(
+            json.loads(data.get_data())["type"]
+        ))
+        wait_for(lambda: peers and len(list(peers[0].iterate_sink_pads())) == 2,
+                 "audio and video request pads")
+        pads = list(peers[0].iterate_sink_pads())
+        wait_for(lambda: all(pad.is_linked() for pad in pads), "startup probes")
+        for pad in pads:
+            assert not pad.has_current_caps() and pad.get_target() is None
+            internal = pad.get_internal()
+            probe = internal.add_probe(
+                gst.PadProbeType.EVENT_DOWNSTREAM | gst.PadProbeType.EVENT_FLUSH,
+                observe_flush,
+            )
+            probes.append((internal, probe))
+            assert pad.send_event(gst.Event.new_flush_start())
+            assert pad.send_event(gst.Event.new_flush_stop(False))
+        assert not forwarded, f"Startup flush reached an unconfigured input: {forwarded}"
+
+        websocket.send_text(offer)
+        wait_for(lambda: "answer" in received and all(
+            pad.has_current_caps() and pad.get_target() is not None for pad in pads
+        ), "media negotiation after startup flush")
+    finally:
+        for pad, probe in probes:
+            pad.remove_probe(probe)
+        websocket.close(1000, "done")
+        wait_for(lambda: peers and peers[0].get_parent() is None, "startup session cleanup")
+        sink.disconnect(handler)
+
+
 def check_webrtc(session, pipeline, gst):
     sink = pipeline.get_by_name("sink")
     sdp = create_sdp_offer(gst)
     offer = json.dumps({"type": "offer", "sdp": sdp})
     ice = {"candidate": "candidate:1 1 UDP 2122260223 127.0.0.1 9 typ host", "sdpMLineIndex": 0}
+
+    check_startup_flush(session, sink, gst, offer)
 
     # JSON
     valid = offer

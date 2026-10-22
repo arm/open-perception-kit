@@ -1,0 +1,9 @@
+{
+  "version": "1.0.0",
+  "description": "Browser connects before the local RTP video source starts.",
+  "pipeline": [
+    "udpsrc address=127.0.0.1 port=5004 caps=\"application/x-rtp,media=video,encoding-name=VP8,clock-rate=90000,payload=96\" !",
+    "rtpvp8depay ! vp8dec ! videoconvert ! video/x-raw,format=I420 !",
+    "opksink http-port=10099 ws-port=8100 ctrl-port=8101"
+  ]
+}

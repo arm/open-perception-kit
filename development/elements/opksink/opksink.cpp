@@ -491,16 +491,8 @@ static gboolean gst_opk_sink_sink_event(GstPad *pad, GstObject *parent, GstEvent
         // Forward EOS to the target pad to notify downstream elements of stream end
     }
 
-    // Pass all events (including EOS) to the target pad
-    GstPad *target = gst_ghost_pad_get_target(GST_GHOST_PAD(pad));
-    if (target) {
-        gboolean ret = gst_pad_send_event(target, event);
-        gst_object_unref(target);
-        return ret;
-    }
-
-    gst_event_unref(event);
-    return FALSE;
+    // Keep sticky events on the internal proxy pad before forwarding buffers.
+    return gst_pad_event_default(pad, parent, event);
 }
 
 /* ===== Lifecycle ===== */

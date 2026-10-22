@@ -16,6 +16,8 @@
  */
 
 const { expect, test } = require('@playwright/test');
+const { execFile } = require('node:child_process');
+const { promisify } = require('node:util');
 
 const MIN_OBSERVED_FRAMES = 3;
 const MIN_FRAMES_DURING_ICE_SETUP = 10;
@@ -52,6 +54,27 @@ test.afterEach(async ({ page }) => {
   for (const closed of closedSockets) {
     expect(closed).toEqual({ code: NORMAL_WEBSOCKET_CLOSE, wasClean: true });
   }
+});
+
+test('WebRTC plays when video starts after the client connects', async ({ page }) => {
+  await page.goto('http://127.0.0.1:10099/', { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('#log')).toContainText('Received signaling message: answer');
+  const video = page.locator('#video');
+  expect(await video.evaluate(element => element.getVideoPlaybackQuality().totalVideoFrames)).toBe(0);
+
+  await promisify(execFile)('docker', [
+    'exec', 'open-perception-kit', 'gst-launch-1.0', '-q',
+    'videotestsrc', 'is-live=true', 'num-buffers=300', '!',
+    'video/x-raw,format=I420,width=160,height=120,framerate=30/1', '!',
+    'vp8enc', 'deadline=1', 'keyframe-max-dist=30', '!', 'rtpvp8pay', 'pt=96', '!',
+    'udpsink', 'host=127.0.0.1', 'port=5004',
+  ], { timeout: 20000 });
+
+  await expect.poll(() => video.evaluate(element =>
+    element.getVideoPlaybackQuality().totalVideoFrames
+  )).toBeGreaterThanOrEqual(MIN_OBSERVED_FRAMES);
+  await expect(video).toHaveJSProperty('videoWidth', 160);
+  await expect(page.locator('#log')).not.toContainText('Starting WebRTC session generation 2');
 });
 
 test('quick-start plays video and displays an object detection', async ({ page }) => {
