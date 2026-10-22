@@ -43,7 +43,7 @@ opk::op::OpChainDescriptor builtInStage() {
 TEST(ConfigValidator, SileroAudioUsesOpChain12Contract) {
     const auto supported = opk::config::supportedOpChainVersion();
     ASSERT_TRUE(supported) << supported.error().toText();
-    EXPECT_EQ(*supported, "1.4.0");
+    EXPECT_EQ(*supported, "1.5.0");
 
     const auto path =
         std::filesystem::path{OPK_REPOSITORY_ROOT} / "config/models/silero-vad/opchain.json";
@@ -192,6 +192,37 @@ TEST(ConfigValidator, OpChainAttributesAreOptionalExceptForDataBearingOps) {
     for (const auto index : {0U, 1U, 3U})
         EXPECT_TRUE(result->ops[index].attributes.raw().empty());
 
+    document["version"] = "1.5.0";
+    for (const auto *const mode : {"cpu", "gpu"}) {
+        document["execution"] = {{"preprocessing", mode}};
+        EXPECT_TRUE(opk::config::validateOpChainJson(document.dump())) << mode;
+        for (const auto *const removedStage : {"inference", "postprocessing"}) {
+            document["execution"][removedStage] = mode;
+            EXPECT_FALSE(opk::config::validateOpChainJson(document.dump())) << removedStage;
+            document["execution"].erase(removedStage);
+        }
+        document["ops"][0]["execution"] = mode;
+        EXPECT_FALSE(opk::config::validateOpChainJson(document.dump())) << mode;
+        document["ops"][0].erase("execution");
+    }
+    for (const auto &invalid : {nlohmann::json("auto"),
+                                nlohmann::json("GPU"),
+                                nlohmann::json("unknown"),
+                                nlohmann::json(nullptr),
+                                nlohmann::json(false)}) {
+        document["execution"] = {{"preprocessing", invalid}};
+        EXPECT_FALSE(opk::config::validateOpChainJson(document.dump())) << invalid;
+        document.erase("execution");
+        document["ops"][0]["execution"] = invalid;
+        EXPECT_FALSE(opk::config::validateOpChainJson(document.dump())) << invalid;
+        document["ops"][0].erase("execution");
+    }
+    document["execution"] = {{"unknown", "cpu"}};
+    EXPECT_FALSE(opk::config::validateOpChainJson(document.dump()));
+    document["execution"] = "cpu";
+    EXPECT_FALSE(opk::config::validateOpChainJson(document.dump()));
+    document.erase("execution");
+
     for (const auto *id : {"opk-future-ops/Inference", "opk-std-ops/GenericPostprocess"}) {
         document["ops"] = {{{"id", id}}};
         const auto missing = opk::config::validateOpChainJson(document.dump());
@@ -250,12 +281,22 @@ TEST(ConfigValidator, OpChainProjectionClearsOmittedAttributes) {
     reused.attributes.set("stale", true);
     nlohmann::json{{"id", "custom/Operation"}}.get_to(reused);
     EXPECT_TRUE(reused.attributes.raw().empty());
+
+    opk::op::OpChainDescriptor chain;
+    chain.execution = opk::op::ExecutionDefaults{.preprocessing = opk::op::ExecutionMode::Gpu};
+    nlohmann::json{{"version", "1.1.0"},
+                   {"name", "reused"},
+                   {"description", "Clear omitted execution settings."},
+                   {"ops", nlohmann::json::array()}}
+        .get_to(chain);
+    EXPECT_FALSE(chain.execution);
+    EXPECT_THROW(nlohmann::json("unknown").get<opk::op::ExecutionMode>(), std::invalid_argument);
 }
 
 TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {
     const auto supportedVersion = opk::config::supportedOpChainVersion();
     ASSERT_TRUE(supportedVersion) << supportedVersion.error().toText();
-    EXPECT_EQ(*supportedVersion, "1.4.0");
+    EXPECT_EQ(*supportedVersion, "1.5.0");
 
     nlohmann::json document{
         {"version", "1.4.0"},
