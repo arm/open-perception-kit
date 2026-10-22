@@ -607,6 +607,8 @@ for arg in sys.argv:
             "config/models/**/*.hef",
             "config/models/**/*.onnx",
             "config/models/**/*.pte",
+            "config/models/**/*.vgf",
+            "config/models/**/*.vgf.part",
         ]
         rules = [
             line
@@ -615,7 +617,7 @@ for arg in sys.argv:
         ]
         self.assertEqual(rules, expected)
         dockerignore = (REPO_ROOT / ".dockerignore").read_text().splitlines()
-        for pattern in ("**/*.bin", "**/*.bin.part", "**/*.hef", "**/*.onnx", "**/*.pte", "**/*.onnx.part", "**/*.pte.part"):
+        for pattern in ("**/*.bin", "**/*.bin.part", "**/*.hef", "**/*.onnx", "**/*.pte", "**/*.vgf", "**/*.vgf.part", "**/*.onnx.part", "**/*.pte.part"):
             self.assertIn(pattern, dockerignore)
 
     def test_byom_generated_artifacts_are_excluded_from_docker_context(self) -> None:

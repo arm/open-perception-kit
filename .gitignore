@@ -125,6 +125,8 @@ config/models/**/*.bin.part
 config/models/**/*.hef
 config/models/**/*.onnx
 config/models/**/*.pte
+config/models/**/*.vgf
+config/models/**/*.vgf.part
 
 docs/html
 todo.md
