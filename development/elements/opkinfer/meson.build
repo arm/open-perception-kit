@@ -19,9 +19,9 @@ gstopkinfer = shared_module(
   sources: [
     'opkinfer.cpp'
   ],
-  include_directories: common_include,
+  include_directories: [ common_include, runtime_include ],
   dependencies: opk_deps,
-  link_with: [ common ],
+  link_with: [ common, opk_runtime ],
   gnu_symbol_visibility: 'hidden',
   install: release_package,
   install_dir: get_option('libdir') / 'gstreamer-1.0',

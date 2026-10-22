@@ -21,6 +21,7 @@
 #include "op/OpChainDescriptor.h"
 #include "op/OpRef.h"
 #include "opk/Result.h"
+#include "perf/PerformanceMetrics.h"
 
 #include <string_view>
 #include <vector>
@@ -44,6 +45,8 @@ class OpChain {
     std::vector<opk::op::OpRef> opRefs;
     std::vector<opk::op::Op *> opPtrs;
     std::unique_ptr<ExecutionSelection> executionSelection;
+    std::shared_ptr<perf::PerformanceMetrics::FrameStream> frameMetrics{
+        perf::defaultPerformanceMetrics().frameStream("opchain")};
     void clear();
 
   public:
@@ -117,6 +120,12 @@ class OpChain {
      * @return Result indicating success or failure of execution.
      */
     opk::Result<void> execute(opk::op::OpChainContext &opChainContext);
+
+    /** Shared recording handle for inference and asynchronous streaming output events. */
+    const std::shared_ptr<perf::PerformanceMetrics::FrameStream> &performanceMeasurements() const;
+
+    /** Observe output at streaming frame boundaries; standalone execution needs no observer. */
+    void observePipeline(const perf::PipelineSample &sample);
 
     /**
      * @brief Generates a human-readable debug string representation of the chain.

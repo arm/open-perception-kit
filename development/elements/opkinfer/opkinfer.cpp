@@ -22,6 +22,7 @@
 #include <gst/video/video.h>
 
 #include <algorithm>
+#include <chrono>
 #include <fmt/core.h>
 #include <memory>
 #include <string_view>
@@ -44,6 +45,7 @@
 #include "gst/Tools.h"
 #include "mediaio/GstAudioFrame.h"
 #include "mediaio/GstVideoFrame.h"
+#include "runtime/GstPipelineMetrics.h"
 
 struct GstOpkInferMembers {
     static constexpr size_t audioBufferCapacity = size_t{16000} * 60;
@@ -65,6 +67,20 @@ struct GstOpkInferMembers {
     }
 
     opk::op::OpChain opChain;
+    std::unique_ptr<opk::runtime::gst::GstPipelineMetrics> performance;
+    std::chrono::steady_clock::time_point nextObservation{};
+
+    void observeFrame(const GstClockTime timestamp) {
+        if (!performance)
+            return;
+        performance->markInput(timestamp);
+        constexpr auto observationInterval{std::chrono::seconds{1}};
+        const auto now{std::chrono::steady_clock::now()};
+        if (now >= nextObservation) {
+            opChain.observePipeline(performance->snapshot());
+            nextObservation = now + observationInterval;
+        }
+    }
 
     opk::Result<void> executeOpChain(opk::op::OpChainContext &opChainContext) {
         return opChain.execute(opChainContext);
@@ -296,6 +312,8 @@ static gboolean gst_opkinfer_start(GstBaseTransform *b) {
         return FALSE;
     }
 
+    members->performance = std::make_unique<opk::runtime::gst::GstPipelineMetrics>(
+        GST_ELEMENT(self), members->opChain.performanceMeasurements());
     self->m = members.release();
 
     gst_opkinfer_push_model_registration(self);
@@ -749,6 +767,9 @@ static GstFlowReturn gst_opkinfer_process_audio_buffer(GstOpkInfer *self, GstBuf
 /// Apply video QoS policy, map the frame, and run inference when scheduled.
 static GstFlowReturn gst_opkinfer_process_video_buffer(GstOpkInfer *self, GstBuffer *buf) {
     auto *b = GST_BASE_TRANSFORM(self);
+    if (self->m)
+        self->m->observeFrame(GST_BUFFER_PTS(buf));
+
     if (!gst_opkinfer_is_active(self))
         return GST_FLOW_OK;
 

@@ -19,6 +19,7 @@
 
 #include "op/Op.h"
 #include "op/OpChainDescriptor.h"
+#include "perf/PerformanceMetrics.h"
 
 #include <memory>
 
@@ -33,7 +34,9 @@ class ExecutionSelection {
     ExecutionSelection &operator=(const ExecutionSelection &) = delete;
 
     Result<void> configure(const OpChainDescriptor &descriptor, const std::vector<Op *> &ops);
-    /** False skips inference while a forced GPU implementation is being prepared. */
+    /** Supplies whole-pipeline counters at streaming frame boundaries, not per crop. */
+    void observePipeline(const perf::PipelineSample &sample);
+    /** False skips inference while a selected GPU implementation is being prepared. */
     Result<bool> prepareFrame(const OpChainContext &context);
     Result<OpSignal> process(Op &operation, OpChainContext &context);
     /** Join setup and destroy GPU Ops while keeping their libraries loaded for tensor owners. */
