@@ -265,8 +265,11 @@ static gboolean gst_opkinfer_start(GstBaseTransform *b) {
                         self->opChainPath,
                         setupResult.error().toString());
 
-        GST_ELEMENT_ERROR(
-            self, RESOURCE, FAILED, ("Failed to setup op-chain."), ("%s", self->opChainPath));
+        GST_ELEMENT_ERROR(self,
+                          RESOURCE,
+                          FAILED,
+                          ("Failed to setup op-chain: %s", setupResult.error().info.c_str()),
+                          ("%s", self->opChainPath));
 
         return FALSE;
     }
@@ -554,8 +557,9 @@ static GstFlowReturn gst_opkinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
 
     // Mutate the FrameResultsMeta while executing the op-chain. The mapped frame is
     // passed through the op context and stays alive for the whole op-chain execution.
+    std::string opChainError;
     auto ret = opk::FrameResultsMeta::mutate<GstFlowReturn>(
-        buf, [self, sharedMediaFrame](auto &frameResults) {
+        buf, [self, sharedMediaFrame, &opChainError](auto &frameResults) {
             // Execute the op-chain with the provided context. The chain can read and mutate the
             // frame results and read the video frame, but not mutate the frame.
             opk::op::OpChainContext opChainContext;
@@ -567,6 +571,7 @@ static GstFlowReturn gst_opkinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
 
             auto executeResult = self->m->executeOpChain(opChainContext);
             if (!executeResult) {
+                opChainError = executeResult.error().info;
                 opk::log::error("{}\n", executeResult.error().toString());
                 return GST_FLOW_CUSTOM_ERROR;
             }
@@ -580,8 +585,14 @@ static GstFlowReturn gst_opkinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
     if ((std::holds_alternative<GstFlowReturn>(ret) &&
          std::get<GstFlowReturn>(ret) != GST_FLOW_OK) ||
         std::holds_alternative<ME>(ret)) {
-        GST_ELEMENT_ERROR(
-            self, RESOURCE, FAILED, ("Error while executing op-chain."), ("%s", self->opChainPath));
+        GST_ELEMENT_ERROR(self,
+                          RESOURCE,
+                          FAILED,
+                          ("Error while executing op-chain: %s",
+                           std::holds_alternative<ME>(ret)
+                               ? "Failed to update FrameResults metadata."
+                               : opChainError.c_str()),
+                          ("%s", self->opChainPath));
 
         return GST_FLOW_ERROR;
     }

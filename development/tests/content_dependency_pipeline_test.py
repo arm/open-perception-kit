@@ -21,6 +21,7 @@ from __future__ import annotations
 from collections.abc import Collection
 import ctypes
 import gc
+import json
 from pathlib import Path
 import sys
 import tempfile
@@ -34,7 +35,7 @@ from pipeline_test_utils import (
 
 
 TEST_OP_PATH = Path(sys.argv[1]).resolve()
-GST_PLUGIN_PATHS = [Path(argument).resolve() for argument in sys.argv[2:]]
+GST_PLUGIN_PATHS = [Path(argument).resolve() for argument in sys.argv[3:]]
 
 
 class ContentDependencyPipelineTest(unittest.TestCase):
@@ -43,6 +44,7 @@ class ContentDependencyPipelineTest(unittest.TestCase):
         # The descriptor references this test-only Op through the OpChain plugin ABI.
         # Loading it explicitly makes the test independent of the process library path.
         cls.test_op_library = ctypes.CDLL(str(TEST_OP_PATH))
+        cls.standard_ops_library = ctypes.CDLL(sys.argv[2])
         cls.Gst = load_gstreamer_plugins(GST_PLUGIN_PATHS)
 
     def setUp(self) -> None:
@@ -187,6 +189,35 @@ class ContentDependencyPipelineTest(unittest.TestCase):
 
         self.assertTrue(self.elements["face-a"].get_property("active"))
         self.assertTrue(self.elements["face-b"].get_property("active"))
+
+    def test_opchain_errors_include_the_cause(self) -> None:
+        for op, cause in [
+            ("Unsupported", "Cannot create op [Unsupported]"),
+            ("GenericPostprocess", "ImageNetClassificationParser: input tensor is null"),
+        ]:
+            with self.subTest(op=op):
+                descriptor = self.descriptors["face-a"]
+                chain = json.loads(descriptor.read_text())
+                chain["ops"] = [{"id": f"opk-std-ops/{op}", "attributes": {
+                    "parser": "ImageNetClassificationParser"}}]
+                descriptor.write_text(json.dumps(chain))
+                self.descriptors = {"face-a": descriptor}
+                self.create_pipeline(initially_active={"face-a"}, source_name="source")
+                try:
+                    self.pipeline.set_state(self.Gst.State.PLAYING)
+                    self.pipeline.get_by_name("source").emit(
+                        "push-buffer", self.Gst.Buffer.new_allocate(None, 16 * 16 * 4, None))
+                    message = self.pipeline.get_bus().timed_pop_filtered(
+                        5 * self.Gst.SECOND, self.Gst.MessageType.ERROR | self.Gst.MessageType.EOS)
+                    self.assertIsNotNone(message)
+                    self.assertEqual(message.type, self.Gst.MessageType.ERROR)
+                    self.assertEqual(message.src.get_name(), "face-a")
+                    error, debug = message.parse_error()
+                    self.assertIn(cause, error.message)
+                    self.assertNotRegex(error.message, r"\x1b|\\x1b")
+                    self.assertIn(str(descriptor), debug)
+                finally:
+                    self.stop_pipeline()
 
 
 if __name__ == "__main__":
