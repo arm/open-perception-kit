@@ -19,6 +19,7 @@ limitations under the License.
 
 Enable the [MLWL backend](../../../development/ops-mlwl/README.md) and place
 `ultraface-rfb-320.vgf` beside `model.json`. Supply the VGF separately.
+See the [conversion and validation recipe](../../../tools/model-preparation/ultraface-rfb-320/README.md).
 
 - Input: FP32 RGB/NCHW `[1,3,240,320]`, stretched without letterboxing,
   normalized as `(RGB8 - 127) / 128`.
