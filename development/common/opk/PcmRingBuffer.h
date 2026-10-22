@@ -27,6 +27,10 @@
 #include <span>
 #include <vector>
 
+namespace opk::mediaio {
+class AudioFrame;
+}
+
 namespace opk {
 
 /// Bounded history of mono Float32 PCM samples at 16000 Hz.
@@ -118,6 +122,9 @@ class PcmRingBuffer {
               AudioSampleType inputType,
               size_t inputChannels,
               size_t inputFrequency);
+
+    /// Feed original-format PCM from a readable mediaio frame; no input copy is retained.
+    bool feed(const mediaio::AudioFrame &frame);
 
     /// Append samples, retaining only the newest capacity() samples.
     /// Returns false without mutation if positions would overflow uint64_t or

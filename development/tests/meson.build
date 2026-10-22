@@ -565,7 +565,7 @@ endif
 
 pcm_ring_buffer_tests = executable(
   'pcm_ring_buffer_tests',
-  ['pcm_ring_buffer_test.cpp', '../common/opk/PcmRingBuffer.cpp'],
+  ['pcm_ring_buffer_test.cpp', '../common/opk/PcmRingBuffer.cpp', '../common/mediaio/Common.cpp'],
   include_directories : [common_include],
   dependencies : [gtest_main_dep, gtest_dep],
 )
@@ -616,3 +616,13 @@ silero_vad_inference_tests = executable(
   link_with : [common],
 )
 test('silero_vad_inference_tests', silero_vad_inference_tests)
+
+# Audio media boundary and GStreamer mapping lifetime.
+audio_frame_tests = executable(
+  'audio_frame_tests',
+  ['audio_frame_test.cpp'],
+  include_directories : [common_include],
+  dependencies : [opk_deps, gtest_main_dep, gtest_dep],
+  link_with : [common],
+)
+test('audio_frame_tests', audio_frame_tests)

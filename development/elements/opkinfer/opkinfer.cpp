@@ -41,6 +41,7 @@
 
 #include "gst/ContentRequirementEvent.h"
 #include "gst/FrameResultsMeta.h"
+#include "mediaio/GstAudioFrame.h"
 #include "mediaio/GstVideoFrame.h"
 
 struct GstOpkInferMembers {
@@ -314,23 +315,6 @@ static GstStateChangeReturn gst_opkinfer_change_state(GstElement *element,
     return result;
 }
 
-static std::optional<opk::AudioSampleType> gst_opkinfer_audio_sample_type(GstAudioFormat format) {
-    switch (format) {
-    case GST_AUDIO_FORMAT_U8:
-        return opk::AudioSampleType::U8;
-    case GST_AUDIO_FORMAT_S16:
-        return opk::AudioSampleType::S16;
-    case GST_AUDIO_FORMAT_S24LE:
-        return opk::AudioSampleType::S24;
-    case GST_AUDIO_FORMAT_S32:
-        return opk::AudioSampleType::S32;
-    case GST_AUDIO_FORMAT_F32:
-        return opk::AudioSampleType::F32;
-    default:
-        return std::nullopt;
-    }
-}
-
 static gboolean gst_opkinfer_set_caps(GstBaseTransform *b, GstCaps *incaps, GstCaps *outcaps) {
     auto *self = (GstOpkInfer *)b;
     (void)outcaps;
@@ -340,8 +324,7 @@ static gboolean gst_opkinfer_set_caps(GstBaseTransform *b, GstCaps *incaps, GstC
         self->m->resetAudio();
     if (gst_structure_has_name(gst_caps_get_structure(incaps, 0), "audio/x-raw")) {
         if (!gst_audio_info_from_caps(&self->ainfo, incaps) ||
-            GST_AUDIO_INFO_LAYOUT(&self->ainfo) != GST_AUDIO_LAYOUT_INTERLEAVED ||
-            !gst_opkinfer_audio_sample_type(GST_AUDIO_INFO_FORMAT(&self->ainfo))) {
+            !opk::mediaio::gst::GstAudioFrame::supports(self->ainfo)) {
             GST_ERROR_OBJECT(self, "Unsupported raw audio caps");
             return FALSE;
         }
@@ -555,140 +538,161 @@ static std::shared_ptr<opk::mediaio::VideoFrame> gst_opkinfer_map_video_frame(Gs
     return nullptr;
 }
 
-static GstFlowReturn gst_opkinfer_transform_ip(GstBaseTransform *b, GstBuffer *buf) {
-    auto *self = (GstOpkInfer *)b;
+/// Execute one scheduled PCM window against writable result metadata.
+static GstFlowReturn
+gst_opkinfer_process_audio_window(GstOpkInfer *self,
+                                  const opk::PcmRingBuffer::View &window,
+                                  open_perception_kit::FrameResults &frameResults) {
+    auto &members = *self->m;
+    opk::op::OpChainContext context;
+    context.frameResults = &frameResults;
+    context.inferenceInfo.inferElementId = gst_opkinfer_get_effective_inferId(self);
+    context.pcmViews.emplace("pipelineAudioData", window);
+    auto &audio = context.inferenceInfo.audio;
+    audio.discontinuity = members.audioDiscontinuity;
+    audio.hopSampleCount = members.audioHopSamples;
+    audio.windowStartSample = window.beginPosition();
+    audio.windowEndSample = window.endPosition();
+    if (members.audioOriginTimestampNs) {
+        const auto delay = members.pcmAudioBuffer.resamplingDelayNs();
+        auto timestamp = [&](uint64_t sample) -> std::optional<uint64_t> {
+            if (sample > G_MAXUINT64 / 62500)
+                return std::nullopt;
+            const uint64_t offset = sample * 62500;
+            const uint64_t origin = *members.audioOriginTimestampNs;
+            if (offset > G_MAXUINT64 - origin || origin + offset < delay)
+                return std::nullopt;
+            return origin + offset - delay;
+        };
+        const auto start = timestamp(audio.windowStartSample);
+        const auto end = timestamp(audio.windowEndSample);
+        if (start && end) {
+            audio.windowStartTimestampNs = start;
+            audio.windowEndTimestampNs = end;
+        }
+    }
+    const auto execution = members.executeOpChain(context);
+    if (!execution) {
+        GST_ERROR_OBJECT(self, "%s", execution.error().toString().c_str());
+        return GST_FLOW_ERROR;
+    }
+    return GST_FLOW_OK;
+}
 
-    if (self->isAudio) {
-        if (!self->m)
-            return GST_FLOW_OK;
-        auto &pcm = self->m->pcmAudioBuffer;
-        if (!gst_opkinfer_is_active(self)) {
-            self->m->resetAudio();
-            return GST_FLOW_OK;
-        }
-        if (GST_BUFFER_FLAG_IS_SET(buf, GST_BUFFER_FLAG_DISCONT) ||
-            GST_BUFFER_FLAG_IS_SET(buf, GST_BUFFER_FLAG_GAP)) {
-            self->m->resetAudio();
-            if (GST_BUFFER_FLAG_IS_SET(buf, GST_BUFFER_FLAG_GAP))
-                return GST_FLOW_OK;
-        }
-        // Anchor sample zero to source PTS, not arrival/processing time. Missing
-        // initial PTS can be recovered from a later timestamp on the same stream.
-        const auto rate = static_cast<uint64_t>(GST_AUDIO_INFO_RATE(&self->ainfo));
-        auto elapsedNs = gst_util_uint64_scale(self->m->audioSourceFrames, GST_SECOND, rate);
-        if (GST_BUFFER_PTS_IS_VALID(buf)) {
-            const uint64_t pts = GST_BUFFER_PTS(buf);
-            if (self->m->audioOriginTimestampNs &&
-                elapsedNs <= G_MAXUINT64 - *self->m->audioOriginTimestampNs) {
-                const auto expected = *self->m->audioOriginTimestampNs + elapsedNs;
-                const auto difference = pts > expected ? pts - expected : expected - pts;
-                // Permit timestamp rounding of one source sample, but never stitch a gap.
-                if (difference > (GST_SECOND + rate - 1) / rate) {
-                    self->m->resetAudio();
-                    elapsedNs = 0;
-                }
-            }
-            if (!self->m->audioOriginTimestampNs && pts >= elapsedNs)
-                self->m->audioOriginTimestampNs = pts - elapsedNs;
-        }
-        GstMapInfo map = GST_MAP_INFO_INIT;
-        if (!gst_buffer_map(buf, &map, GST_MAP_READ)) {
-            GST_ELEMENT_ERROR(self, RESOURCE, READ, ("Failed to map audio buffer"), (nullptr));
-            return GST_FLOW_ERROR;
-        }
-        const auto type = gst_opkinfer_audio_sample_type(GST_AUDIO_INFO_FORMAT(&self->ainfo));
-        const size_t frameBytes = GST_AUDIO_INFO_BPF(&self->ainfo);
-        const size_t sourceFrames = frameBytes ? map.size / frameBytes : 0;
-        bool fed = false;
-        try {
-            fed = sourceFrames <= G_MAXUINT64 - self->m->audioSourceFrames && type &&
-                  pcm.feed(std::span<const uint8_t>(map.data, map.size),
-                           *type,
-                           GST_AUDIO_INFO_CHANNELS(&self->ainfo),
-                           GST_AUDIO_INFO_RATE(&self->ainfo));
-        } catch (const std::exception &error) {
-            GST_ERROR_OBJECT(self, "Audio buffering failed: %s", error.what());
-        }
-        gst_buffer_unmap(buf, &map);
-        if (!fed) {
-            GST_ELEMENT_ERROR(
-                self, STREAM, FORMAT, ("Failed to buffer input PCM audio"), (nullptr));
-            return GST_FLOW_ERROR;
-        }
-        self->m->audioSourceFrames += sourceFrames;
-        GST_LOG_OBJECT(self,
-                       "Buffered audio: retained=%zu end=%" G_GUINT64_FORMAT,
-                       pcm.size(),
-                       pcm.endPosition());
-        auto &members = *self->m;
-        if (members.nextAudioPosition < pcm.beginPosition()) {
-            GST_ELEMENT_ERROR(
-                self,
-                STREAM,
-                FAILED,
-                ("Audio input overwrote unprocessed samples; reduce input buffer size"),
-                (nullptr));
-            return GST_FLOW_ERROR;
-        }
-        if (!opk::FrameResultsMeta::get(buf)) {
-            if (!opk::FrameResultsMeta::add(buf,
-                                            std::make_shared<open_perception_kit::FrameResults>()))
-                return GST_FLOW_ERROR;
-        }
-        // Consume complete windows in order, including multiple windows from one input buffer.
-        // Audio scheduling deliberately bypasses the video QoS frame-dropping policy.
-        while (pcm.endPosition() - members.nextAudioPosition >= members.audioWindowSamples) {
-            const auto window = pcm.window(members.nextAudioPosition, members.audioWindowSamples);
-            if (!window)
-                return GST_FLOW_ERROR;
-            const auto result = opk::FrameResultsMeta::mutate<GstFlowReturn>(
-                buf, [self, &members, &window](auto &frameResults) {
-                    opk::op::OpChainContext context;
-                    context.frameResults = &frameResults;
-                    context.inferenceInfo.inferElementId = gst_opkinfer_get_effective_inferId(self);
-                    context.pcmViews.emplace("pipelineAudioData", *window);
-                    auto &audio = context.inferenceInfo.audio;
-                    audio.discontinuity = members.audioDiscontinuity;
-                    audio.hopSampleCount = members.audioHopSamples;
-                    audio.windowStartSample = window->beginPosition();
-                    audio.windowEndSample = window->endPosition();
-                    if (members.audioOriginTimestampNs) {
-                        const auto delay = members.pcmAudioBuffer.resamplingDelayNs();
-                        auto timestamp = [&](uint64_t sample) -> std::optional<uint64_t> {
-                            if (sample > G_MAXUINT64 / 62500)
-                                return std::nullopt;
-                            const uint64_t offset = sample * 62500;
-                            const uint64_t origin = *members.audioOriginTimestampNs;
-                            if (offset > G_MAXUINT64 - origin || origin + offset < delay)
-                                return std::nullopt;
-                            return origin + offset - delay;
-                        };
-                        const auto start = timestamp(audio.windowStartSample);
-                        const auto end = timestamp(audio.windowEndSample);
-                        if (start && end) {
-                            audio.windowStartTimestampNs = start;
-                            audio.windowEndTimestampNs = end;
-                        }
-                    }
-                    const auto execution = members.executeOpChain(context);
-                    if (!execution) {
-                        GST_ERROR_OBJECT(self, "%s", execution.error().toString().c_str());
-                        return GST_FLOW_ERROR;
-                    }
-                    return GST_FLOW_OK;
-                });
-            if (!std::holds_alternative<GstFlowReturn>(result) ||
-                std::get<GstFlowReturn>(result) != GST_FLOW_OK) {
-                GST_ELEMENT_ERROR(
-                    self, STREAM, FAILED, ("Audio OpChain execution failed"), (nullptr));
-                return GST_FLOW_ERROR;
-            }
-            members.nextAudioPosition += members.audioHopSamples;
-            members.audioDiscontinuity = false;
-        }
-        return GST_FLOW_OK;
+/// Execute one mapped video frame against writable result metadata.
+static GstFlowReturn
+gst_opkinfer_process_video_frame(GstOpkInfer *self,
+                                 const std::shared_ptr<opk::mediaio::VideoFrame> &sharedMediaFrame,
+                                 open_perception_kit::FrameResults &frameResults) {
+    // Execute the op-chain with the provided context. The chain can read and mutate the
+    // frame results and read the video frame, but not mutate the frame.
+    opk::op::OpChainContext opChainContext;
+    opChainContext.inferenceInfo.inferElementId =
+        std::string(gst_opkinfer_get_effective_inferId(self));
+
+    opChainContext.frameResults = &frameResults;
+    opChainContext.videoFrames["pipelineVideoFrame"] = sharedMediaFrame;
+
+    auto executeResult = self->m->executeOpChain(opChainContext);
+    if (!executeResult) {
+        opk::log::error("{}\n", executeResult.error().toString());
+        return GST_FLOW_CUSTOM_ERROR;
     }
 
+    return GST_FLOW_OK;
+}
+
+/// Convert incoming audio and execute all complete windows in chronological order.
+static GstFlowReturn gst_opkinfer_process_audio_buffer(GstOpkInfer *self, GstBuffer *buf) {
+    if (!self->m)
+        return GST_FLOW_OK;
+    auto &pcm = self->m->pcmAudioBuffer;
+    if (!gst_opkinfer_is_active(self)) {
+        self->m->resetAudio();
+        return GST_FLOW_OK;
+    }
+    if (GST_BUFFER_FLAG_IS_SET(buf, GST_BUFFER_FLAG_DISCONT) ||
+        GST_BUFFER_FLAG_IS_SET(buf, GST_BUFFER_FLAG_GAP)) {
+        self->m->resetAudio();
+        if (GST_BUFFER_FLAG_IS_SET(buf, GST_BUFFER_FLAG_GAP))
+            return GST_FLOW_OK;
+    }
+    // Anchor sample zero to source PTS, not arrival/processing time. Missing
+    // initial PTS can be recovered from a later timestamp on the same stream.
+    auto frame = opk::mediaio::gst::GstAudioFrame::mapGstBuffer(buf, self->ainfo);
+    if (!frame) {
+        GST_ELEMENT_ERROR(self, RESOURCE, READ, ("Failed to map PCM audio frame"), (nullptr));
+        return GST_FLOW_ERROR;
+    }
+    const auto rate = static_cast<uint64_t>(frame->sampleRate());
+    auto elapsedNs = gst_util_uint64_scale(self->m->audioSourceFrames, GST_SECOND, rate);
+    if (frame->timestampNs() != opk::mediaio::InvalidTimestampNs) {
+        const uint64_t pts = frame->timestampNs();
+        if (self->m->audioOriginTimestampNs &&
+            elapsedNs <= G_MAXUINT64 - *self->m->audioOriginTimestampNs) {
+            const auto expected = *self->m->audioOriginTimestampNs + elapsedNs;
+            const auto difference = pts > expected ? pts - expected : expected - pts;
+            // Permit timestamp rounding of one source sample, but never stitch a gap.
+            if (difference > (GST_SECOND + rate - 1) / rate) {
+                self->m->resetAudio();
+                elapsedNs = 0;
+            }
+        }
+        if (!self->m->audioOriginTimestampNs && pts >= elapsedNs)
+            self->m->audioOriginTimestampNs = pts - elapsedNs;
+    }
+    const auto sourceFrames = frame->sampleCount();
+    bool fed = false;
+    try {
+        fed = sourceFrames <= G_MAXUINT64 - self->m->audioSourceFrames && pcm.feed(*frame);
+    } catch (const std::exception &error) {
+        GST_ERROR_OBJECT(self, "Audio buffering failed: %s", error.what());
+    }
+    frame.reset(); // Release the input mapping before mutating downstream metadata.
+    if (!fed) {
+        GST_ELEMENT_ERROR(self, STREAM, FORMAT, ("Failed to buffer input PCM audio"), (nullptr));
+        return GST_FLOW_ERROR;
+    }
+    self->m->audioSourceFrames += sourceFrames;
+    GST_LOG_OBJECT(
+        self, "Buffered audio: retained=%zu end=%" G_GUINT64_FORMAT, pcm.size(), pcm.endPosition());
+    auto &members = *self->m;
+    if (members.nextAudioPosition < pcm.beginPosition()) {
+        GST_ELEMENT_ERROR(self,
+                          STREAM,
+                          FAILED,
+                          ("Audio input overwrote unprocessed samples; reduce input buffer size"),
+                          (nullptr));
+        return GST_FLOW_ERROR;
+    }
+    if (!opk::FrameResultsMeta::get(buf)) {
+        if (!opk::FrameResultsMeta::add(buf, std::make_shared<open_perception_kit::FrameResults>()))
+            return GST_FLOW_ERROR;
+    }
+    // Consume complete windows in order, including multiple windows from one input buffer.
+    // Audio scheduling deliberately bypasses the video QoS frame-dropping policy.
+    while (pcm.endPosition() - members.nextAudioPosition >= members.audioWindowSamples) {
+        const auto window = pcm.window(members.nextAudioPosition, members.audioWindowSamples);
+        if (!window)
+            return GST_FLOW_ERROR;
+        const auto result = opk::FrameResultsMeta::mutate<GstFlowReturn>(
+            buf, [self, window = *window](auto &frameResults) {
+                return gst_opkinfer_process_audio_window(self, window, frameResults);
+            });
+        if (!std::holds_alternative<GstFlowReturn>(result) ||
+            std::get<GstFlowReturn>(result) != GST_FLOW_OK) {
+            GST_ELEMENT_ERROR(self, STREAM, FAILED, ("Audio OpChain execution failed"), (nullptr));
+            return GST_FLOW_ERROR;
+        }
+        members.nextAudioPosition += members.audioHopSamples;
+        members.audioDiscontinuity = false;
+    }
+    return GST_FLOW_OK;
+}
+
+/// Apply video QoS policy, map the frame, and run inference when scheduled.
+static GstFlowReturn gst_opkinfer_process_video_buffer(GstOpkInfer *self, GstBuffer *buf) {
+    auto *b = GST_BASE_TRANSFORM(self);
     if (!gst_opkinfer_is_active(self))
         return GST_FLOW_OK;
 
@@ -753,22 +757,7 @@ static GstFlowReturn gst_opkinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
     // passed through the op context and stays alive for the whole op-chain execution.
     auto ret = opk::FrameResultsMeta::mutate<GstFlowReturn>(
         buf, [self, sharedMediaFrame](auto &frameResults) {
-            // Execute the op-chain with the provided context. The chain can read and mutate the
-            // frame results and read the video frame, but not mutate the frame.
-            opk::op::OpChainContext opChainContext;
-            opChainContext.inferenceInfo.inferElementId =
-                std::string(gst_opkinfer_get_effective_inferId(self));
-
-            opChainContext.frameResults = &frameResults;
-            opChainContext.videoFrames["pipelineVideoFrame"] = sharedMediaFrame;
-
-            auto executeResult = self->m->executeOpChain(opChainContext);
-            if (!executeResult) {
-                opk::log::error("{}\n", executeResult.error().toString());
-                return GST_FLOW_CUSTOM_ERROR;
-            }
-
-            return GST_FLOW_OK;
+            return gst_opkinfer_process_video_frame(self, sharedMediaFrame, frameResults);
         });
 
     // Collapse op-chain failures and metadata mutation failures into a GStreamer
@@ -805,6 +794,13 @@ static GstFlowReturn gst_opkinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
     GST_OBJECT_UNLOCK(self);
 
     return GST_FLOW_OK;
+}
+
+static GstFlowReturn gst_opkinfer_transform_ip(GstBaseTransform *b, GstBuffer *buf) {
+    auto *self = GST_OPKINFER(b);
+    if (self->isAudio)
+        return gst_opkinfer_process_audio_buffer(self, buf);
+    return gst_opkinfer_process_video_buffer(self, buf);
 }
 
 // ---------------- properties & class init ----------------

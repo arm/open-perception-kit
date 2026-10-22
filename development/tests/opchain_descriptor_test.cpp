@@ -239,6 +239,7 @@ TEST(OpChainDescriptor, SetupRejectsInvalidSemanticsBeforePluginBinding) {
         .task = {},
         .runtime = {},
         .ops = {{.id = "missing/CustomOp", .loopId = 1, .attributes = {}}},
+        .version = {},
     };
     opk::op::OpChain chain;
 

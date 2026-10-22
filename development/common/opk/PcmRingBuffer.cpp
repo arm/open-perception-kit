@@ -16,6 +16,7 @@
  */
 
 #include "opk/PcmRingBuffer.h"
+#include "mediaio/AudioFrame.h"
 
 #include <algorithm>
 #include <cassert>
@@ -96,6 +97,17 @@ struct PcmRingBuffer::Converter {
 };
 
 PcmRingBuffer::~PcmRingBuffer() = default;
+
+bool PcmRingBuffer::feed(const mediaio::AudioFrame &frame) {
+    const auto &data = frame.data();
+    if (!data.canRead() || data.memoryType() != MemoryType::Host ||
+        (data.byteSize() && !data.data()))
+        return false;
+    return feed(std::span(static_cast<const uint8_t *>(data.data()), data.byteSize()),
+                frame.sampleType(),
+                frame.channels(),
+                frame.sampleRate());
+}
 
 bool PcmRingBuffer::feed(std::span<const uint8_t> input,
                          AudioSampleType inputType,

@@ -206,3 +206,21 @@ inputs targeted by tensor feedback to zero on `inferenceInfo.audio.discontinuity
 running inference; the audio tensor is preserved. Silero's parser resets its
 hysteresis state at the same boundary. Feedback is copied after each successful
 inference. A final incomplete window is not padded or inferred at EOS.
+
+### Audio media boundary
+
+`mediaio::AudioFrame` exposes original-format, CPU-readable interleaved PCM through
+one `DataView`, with sample type, channel count, sample rate, samples per channel,
+and presentation timestamp. Missing timestamps use `InvalidTimestampNs`.
+`mediaio::gst::GstAudioFrame` owns the GStreamer buffer reference and read mapping;
+it rejects unsupported formats, planar layouts, and partial sample frames.
+The view borrows that mapping and remains valid only for the frame lifetime.
+Mapping introduces no explicit PCM copy, although GStreamer may consolidate
+non-contiguous memory internally.
+
+`opkinfer` feeds the frame to `PcmRingBuffer`, then releases the mapping before
+updating downstream result metadata. The ring still owns conversion, downmixing,
+resampling, and accumulation as mono Float32 at 16 kHz. Frame construction performs
+no conversion. Non-GStreamer callers can implement `AudioFrame` or use the raw-byte
+`feed()` overload. The element retains caps/event handling, timestamp continuity,
+active-state checks, and inference scheduling.
