@@ -82,19 +82,26 @@ function setPanelOpen(open) {
 
 toggleButton.addEventListener('click', () => setPanelOpen(panel.hidden));
 
-function styleControls(featureId, settings, changed, preview = changed) {
+function styleControls(featureId, settings, changed, preview = changed, controls = featureFor(featureId)?.controls || []) {
     const container = node('div', 'overlay-style-controls');
-    for (const control of featureFor(featureId)?.controls || []) {
+    for (const control of controls) {
         if (control.type === 'checkbox') {
-            const label = node('label', 'overlay-visibility');
+            const label = node('label', control.switch ? 'model-toggle-switch overlay-visible' : 'overlay-visibility');
             const input = document.createElement('input');
             input.type = 'checkbox';
             input.checked = settings[control.key];
+            if (control.ariaLabel) input.setAttribute('aria-label', control.ariaLabel);
             input.addEventListener('change', () => {
                 settings[control.key] = input.checked;
                 changed();
             });
-            label.append(input, node('span', 'wfr-txt-label', control.label));
+            if (control.switch) {
+                input.setAttribute('role', 'switch');
+                const track = node('span', 'model-toggle-track');
+                track.setAttribute('aria-hidden', 'true');
+                track.append(node('span', 'model-toggle-thumb'));
+                label.append(input, track);
+            } else label.append(input, node('span', 'wfr-txt-label', control.label));
             container.append(label);
             continue;
         }
@@ -163,7 +170,7 @@ function styleControls(featureId, settings, changed, preview = changed) {
         const row = node('span', 'overlay-style-value');
         const input = document.createElement('input');
         input.type = control.type;
-        input.setAttribute('aria-label', control.label);
+        input.setAttribute('aria-label', control.ariaLabel || control.label);
         for (const attribute of ['min', 'max', 'step']) {
             if (control[attribute] !== undefined) input[attribute] = control[attribute];
         }
@@ -238,6 +245,7 @@ function renderList() {
             overlay.enabled = checkbox.checked;
             persist();
             updateStatuses();
+            updateLegends();
         });
         const track = node('span', 'model-toggle-track');
         track.setAttribute('aria-hidden', 'true');
@@ -251,6 +259,7 @@ function renderList() {
         chevron.setAttribute('aria-hidden', 'true');
         const swatch = node('span', 'overlay-swatch');
         swatch.setAttribute('aria-hidden', 'true');
+        swatch.hidden = !Object.hasOwn(overlay.settings, 'color');
         const title = node('span', 'overlay-title wfr-txt-label');
         toggle.append(swatch, title, chevron);
         const status = node('p', 'overlay-hint wfr-txt-caption');
@@ -271,6 +280,11 @@ function renderList() {
         });
         settings.append(status, styleControls(overlay.featureId, overlay.settings,
             () => { persist(); updateStatuses(); }, updateStatuses));
+        const legend = featureFor(overlay.featureId)?.legend ? node('section', 'overlay-legend') : null;
+        if (legend) {
+            legend.setAttribute('aria-label', 'Class legend');
+            settings.append(legend);
+        }
         const actions = node('div', 'overlay-actions');
         const edit = node('button', '', 'Change source…');
         edit.type = 'button';
@@ -298,11 +312,112 @@ function renderList() {
         if (overlay.selection.primary) metadata.append(node('summary', '', 'Details'), technicalDetails(overlay.selection.primary));
         settings.append(metadata);
         card.append(header, settings);
-        cardNodes.set(overlay, {card, toggle, title, checkbox, remove, status, metadata, featureLabel});
+        cardNodes.set(overlay, {card, toggle, title, checkbox, remove, status, metadata, featureLabel, legend});
         list.append(card);
     }
     updateStatuses();
     updateSourceLabels();
+    updateLegends();
+}
+
+// Legends follow the displayed frame, not the independent live metadata channel.
+// Keep class controls alive across frames so discovery never interrupts an edit.
+function updateLegends() {
+    for (const [overlay, row] of cardNodes) {
+        if (!row.legend) continue;
+        const feature = featureFor(overlay.featureId);
+        const resolved = !overlay.enabled ? {message: 'Overlay hidden.'}
+            : !displayedFrameIndex.frame ? {message: 'Waiting for matching video metadata.'}
+                : resolveOverlay(displayedFrameIndex, overlay);
+        const legend = feature.legend(resolved, overlay.settings);
+        if (!row.legendNodes) {
+            row.legendNodes = new Map();
+            row.legendMessage = node('p', 'overlay-hint wfr-txt-caption');
+            row.legendList = node('ul', 'overlay-legend-list');
+            const header = node('div', 'overlay-legend-header');
+            header.append(node('p', 'wfr-txt-label', 'Class legend'));
+            if (feature.classControls) {
+                const reset = node('button', 'wfr-txt-caption', 'Reset labels');
+                reset.type = 'button';
+                reset.addEventListener('click', () => {
+                    overlay.settings.classes = Object.fromEntries(Object.entries(overlay.settings.classes)
+                        .map(([id, {label, ...style}]) => [id, style]));
+                    for (const item of row.legendNodes.values()) item.resetLabel?.();
+                    persist();
+                    updateLegends();
+                });
+                header.append(reset);
+            }
+            row.legend.replaceChildren(header, row.legendMessage, row.legendList);
+            if (feature.classControls) row.legend.append(node('p', 'overlay-hint wfr-txt-caption',
+                'Class opacity is multiplied by the overlay opacity. Hidden classes reveal the video.'));
+        }
+        if (row.legendMessage.textContent !== legend.message) row.legendMessage.textContent = legend.message;
+        const present = new Set(legend.entries.filter(entry => entry.present).map(entry => entry.id));
+        for (const entry of legend.entries) {
+            let item = row.legendNodes.get(entry.id);
+            if (!item) {
+                const swatch = node('span', 'overlay-swatch');
+                swatch.setAttribute('aria-hidden', 'true');
+                const element = node('li', 'wfr-txt-caption');
+                const heading = node('div', 'overlay-class-heading');
+                const presence = node('span', 'overlay-class-presence');
+                const name = node(feature.classControls ? 'input' : 'span', 'overlay-class-name');
+                heading.append(swatch, name, presence);
+                element.append(heading);
+                let resetLabel;
+                if (feature.classControls) {
+                    element.className += ' overlay-class-row';
+                    const settings = {enabled: entry.enabled, color: entry.color, opacity: entry.opacity};
+                    if (overlay.settings.classes?.[entry.id]?.label) settings.label = overlay.settings.classes[entry.id].label;
+                    const preview = () => {
+                        const style = {...settings};
+                        if (style.label?.trim()) style.label = style.label.trim();
+                        else delete style.label;
+                        overlay.settings.classes = {...overlay.settings.classes, [entry.id]: style};
+                        updateLegends();
+                    };
+                    name.type = 'text';
+                    name.maxLength = 80;
+                    name.placeholder = `Class ${entry.id}`;
+                    name.value = settings.label || '';
+                    resetLabel = () => { delete settings.label; name.value = ''; };
+                    name.setAttribute('aria-label', `Class ${entry.id} name`);
+                    name.addEventListener('input', () => { settings.label = name.value; preview(); });
+                    name.addEventListener('change', () => {
+                        name.value = settings.label?.trim() || '';
+                        settings.label = name.value;
+                        persist();
+                    });
+                    name.addEventListener('keydown', event => {
+                        if (event.key === 'Enter') { event.preventDefault(); name.blur(); }
+                    });
+                    const controls = feature.classControls.map(control => ({...control,
+                        ariaLabel: `Class ${entry.id} (${entry.id}) ${control.label.toLowerCase()}`}));
+                    const inputs = styleControls(overlay.featureId, settings, () => { preview(); persist(); }, preview, controls);
+                    inputs.className += ' overlay-class-controls';
+                    element.append(inputs);
+                } else name.textContent = entry.label;
+                const nextId = [...row.legendNodes.keys()].sort((a, b) => a - b).find(id => id > entry.id);
+                row.legendList.insertBefore(element, row.legendNodes.get(nextId)?.element || null);
+                item = {element, swatch, presence, heading, resetLabel, label: `${entry.id} · ${entry.label}`};
+                row.legendNodes.set(entry.id, item);
+            }
+            item.label = `${entry.id} · ${entry.label}`;
+            if (item.color !== entry.color) {
+                item.swatch.style.setProperty('--overlay-color', entry.color);
+                item.color = entry.color;
+            }
+        }
+        for (const [id, item] of row.legendNodes) {
+            const text = present.has(id) ? 'In frame' : 'Not in frame';
+            if (item.presence.textContent !== text) {
+                item.presence.textContent = text;
+            }
+            const title = `${item.label} · ${text}`;
+            if (item.heading.title !== title) item.heading.title = title;
+        }
+    }
 }
 
 function updateStatuses() {
@@ -483,6 +598,7 @@ window.addEventListener('video-frame-results', (event) => {
     displayedFrameIndex = event.detail ? frameIndex : indexFrame(null);
     // Draw synchronously inside requestVideoFrameCallback, including null clears.
     renderOsd(canvas, video, displayedFrameIndex, overlays);
+    updateLegends();
 });
 
 window.addEventListener('metadata-connection', (event) => {
