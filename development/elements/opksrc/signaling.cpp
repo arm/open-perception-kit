@@ -309,7 +309,9 @@ struct OpkSrcSignaling::Impl {
                 }
             });
             server->set_message_handler(
-                [this](const Handle &handle, const Server::message_ptr &incoming) { message(handle, incoming); });
+                [this](const Handle &handle, const Server::message_ptr &incoming) {
+                    message(handle, incoming);
+                });
             server->listen(source->ws_port);
             server->start_accept();
             worker = std::thread([this] { run_worker(); });
