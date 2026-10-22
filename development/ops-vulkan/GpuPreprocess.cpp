@@ -759,11 +759,9 @@ struct GpuPreprocess::State {
         }
     }
 
-    std::span<uint8_t> readableTensor() {
+    std::span<uint8_t> readableTensor() const {
         const auto *const output{readback ? readback.get() : tensor.get()};
         output->invalidate();
-        if (imported)
-            planes = {};
         return {output->mapped, tensorBytes};
     }
 

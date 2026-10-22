@@ -16,6 +16,7 @@
  */
 
 #include "GpuPreprocess.h"
+#include "Log.h"
 #include "op/GpuPreprocess.h"
 #include "op/Op.h"
 #include "perf/PerformanceMetrics.h"
@@ -76,6 +77,11 @@ class ImagePreprocessOp final : public op::Op, public op::OpInterfaceGpuPreproce
         return {};
     }
 
+    void beginFrame() override {
+        preparedFrame = nullptr;
+        preparedSource = nullptr;
+    }
+
     Result<op::OpSignal> process(op::OpChainContext &context) override {
         OPK_PERF_SCOPE(fmt::format("vulkan/GenImgPre/{}", model.name));
         if (context.inferenceImageCrops.empty()) {
@@ -109,10 +115,22 @@ class ImagePreprocessOp final : public op::Op, public op::OpInterfaceGpuPreproce
         context.inferenceInfo.modelName = model.name;
         context.inferenceInfo.contentType = model.contentType;
         context.inferenceInfo.parentId = sourceId;
+        reportTransfers();
         return op::OpSignal::Continue;
     }
 
   private:
+    void reportTransfers() {
+        if (transferReported)
+            return;
+        log::notice("{}: GPU preprocessing on {}; source {}, tensor {}.\n",
+                    instanceId,
+                    gpu->identity(),
+                    copiedInput ? "uploaded" : "shared",
+                    copiedTensor ? "copied" : "shared");
+        transferReported = true;
+    }
+
     size_t resolveTensorIndex() const {
         if (tensorIndex == InvalidTensorIndex) {
             for (size_t candidate{0}; candidate < model.inputs.size(); ++candidate) {
@@ -173,19 +191,21 @@ class ImagePreprocessOp final : public op::Op, public op::OpInterfaceGpuPreproce
                                 const PixelRect &inner,
                                 const ModelInput &input) {
         try {
-            const bool inputWasCopied{!gpu->import(*frame)};
-            const auto *source{frame};
-            if (inputWasCopied) {
-                source = context.getReadableVideoFrame(sourceName);
-                if (!source)
-                    return failure("GPU input cannot be mapped for upload");
-                gpu->upload(*source);
+            if (preparedFrame != frame) {
+                copiedInput = !gpu->import(*frame);
+                preparedSource = frame;
+                if (copiedInput) {
+                    preparedSource = context.getReadableVideoFrame(sourceName);
+                    if (!preparedSource)
+                        return failure("GPU input cannot be mapped for upload");
+                    gpu->upload(*preparedSource);
+                }
+                preparedFrame = frame;
             }
-            const auto data{gpu->run(*source, crop, inner, input)};
+            const auto data{gpu->run(*preparedSource, crop, inner, input)};
             const auto bound{bindInferenceTensor(data)};
             if (!bound)
                 return bound;
-            copiedInput = inputWasCopied;
         } catch (const std::exception &error) {
             return failure(error.what());
         }
@@ -215,8 +235,12 @@ class ImagePreprocessOp final : public op::Op, public op::OpInterfaceGpuPreproce
     Model model;
     op::OpInterfaceSharedInput *sharedInput{nullptr};
     const op::OpInterfaceInference *inference{nullptr};
+    // Borrowed from the current context; beginFrame prevents reuse across executions.
+    const mediaio::VideoFrame *preparedFrame{nullptr};
+    const mediaio::VideoFrame *preparedSource{nullptr};
     bool copiedInput{false};
     bool copiedTensor{false};
+    bool transferReported{false};
     std::shared_ptr<GpuPreprocess> gpu;
 };
 } // namespace

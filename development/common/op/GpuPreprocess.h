@@ -27,6 +27,8 @@ struct OpInterfaceGpuPreprocess {
 
     /** Prepare device resources after bind(), without accessing inference-owned state. */
     virtual Result<void> prepareDevice() = 0;
+    /** Discard cached source views before each OpChain execution. */
+    virtual void beginFrame() = 0;
 };
 
 } // namespace opk::op

@@ -22,6 +22,7 @@
 #include "opk/String.h"
 #include "tools.h"
 
+#include "op/ExecutionSelection.h"
 #include "op/Op.h"
 #include "op/OpChainDescriptor.h"
 #include "perf/PerformanceMetrics.h"
@@ -32,10 +33,19 @@
 #include <unordered_map>
 using namespace opk::op;
 
+OpChain::OpChain() = default;
+
 OpChain::~OpChain() {
+    clear();
+}
+
+void OpChain::clear() {
+    executionSelection.reset();
     for (auto &reference : opRefs) {
         reference.releaseInstance();
     }
+    opPtrs.clear();
+    opRefs.clear();
 }
 
 const std::string &OpChain::getName() const {
@@ -137,11 +147,15 @@ opk::Result<void> OpChain::setupFromDescriptor(const opk::op::OpChainDescriptor 
     if (const auto validation = opk::config::validateOpChainSemantics(descriptor); !validation.ok())
         return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidOpChain, validation.toText()));
 
+    clear();
     name = descriptor.name;
     displayName = descriptor.displayName;
     task = descriptor.task;
     runtime = descriptor.runtime;
     std::unordered_map<std::string, size_t> occurrences;
+    executionSelection =
+        std::make_unique<ExecutionSelection>(descriptor.execution.value_or(ExecutionDefaults{})
+                                                 .preprocessing.value_or(ExecutionMode::Cpu));
 
     for (size_t opIndex = 0; opIndex < descriptor.ops.size(); ++opIndex) {
         const auto &op = descriptor.ops[opIndex];
@@ -152,29 +166,25 @@ opk::Result<void> OpChain::setupFromDescriptor(const opk::op::OpChainDescriptor 
                           fmt::format("Op id must be library/op, but found: [{}]", op.id)));
         }
 
-        std::string libName = opk::utf8::split(op.id, "/")[0];
-        std::string opName = opk::utf8::split(op.id, "/")[1];
-
-        opk::op::OpRef opRef;
-        auto bindResult = opRef.bind(libName, opName);
-        if (!bindResult) {
-            return bindResult;
-        }
-
-        opRef->libName = libName;
-        opRef->opName = opName;
-        opRef->index = opIndex;
+        const std::string libName = opk::utf8::split(op.id, "/")[0];
+        const std::string opName = opk::utf8::split(op.id, "/")[1];
         auto &occurrenceCount = occurrences[op.id];
         const size_t occurrence = occurrenceCount;
         ++occurrenceCount;
-        opRef->instanceId =
+        const std::string instanceId =
             op.instanceId.empty() ? makeDefaultInstanceId(op.id, occurrence) : op.instanceId;
 
+        auto loadedOperation = executionSelection->loadOperation(libName, opName, instanceId);
+        if (!loadedOperation)
+            return tl::unexpected(loadedOperation.error());
+        auto &opRef = *loadedOperation;
+        opRef->index = opIndex;
         opRef->loopId = op.loopId.value_or(0);
 
         auto configureResult = opRef->configure(op.attributes);
         if (!configureResult) {
-            return configureResult;
+            return tl::unexpected(
+                ExecutionSelection::operationError(*opRef, configureResult.error()));
         }
 
         add(opRef);
@@ -184,6 +194,9 @@ opk::Result<void> OpChain::setupFromDescriptor(const opk::op::OpChainDescriptor 
     if (!chainBindResult) {
         return tl::unexpected(std::move(chainBindResult.error()));
     }
+
+    if (const auto result = executionSelection->prepareDevices(opPtrs); !result)
+        return result;
 
     opk::log::info("{}", opk::log::tools::enframe(this->toString(), "OpChain"));
     opk::log::notice("OpChain is valid\n");
@@ -214,16 +227,26 @@ opk::Result<void> OpChain::bind() {
     for (size_t i = 0; i < opPtrs.size(); i++) {
         auto opBindResult = opPtrs[i]->bind(i, opPtrs);
         if (!opBindResult) {
-            return opBindResult;
+            return tl::unexpected(
+                ExecutionSelection::operationError(*opPtrs[i], opBindResult.error()));
         }
     }
 
     return {};
 }
 
-opk::Result<void> OpChain::execute(opk::op::OpChainContext &opChainContext) {
+opk::Result<void> OpChain::execute(opk::op::OpChainContext &opChainContext,
+                                   const bool waitForDeviceSetup) {
     const auto metricName = name.empty() ? std::string("opchain") : fmt::format("opchain/{}", name);
     OPK_PERF_SCOPE(metricName);
+
+    if (executionSelection) {
+        const auto ready{executionSelection->prepareFrame(waitForDeviceSetup)};
+        if (!ready)
+            return tl::unexpected(ready.error());
+        if (!*ready)
+            return {};
+    }
 
     size_t currentIndex = 0;
 
@@ -248,9 +271,9 @@ opk::Result<void> OpChain::execute(opk::op::OpChainContext &opChainContext) {
         Op *op = opPtrs[currentIndex];
         const size_t loopId = op->loopId;
 
-        auto result = op->process(opChainContext);
+        auto result{op->process(opChainContext)};
         if (!result) {
-            return tl::unexpected(std::move(result.error()));
+            return tl::unexpected(ExecutionSelection::operationError(*op, result.error()));
         }
 
         switch (*result) {
