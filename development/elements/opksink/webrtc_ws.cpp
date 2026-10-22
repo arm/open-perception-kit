@@ -57,6 +57,21 @@ on_ice_candidate(GstElement *webrtc, guint mlineindex, gchar *candidate, gpointe
 constexpr guint kWebRtcRtpMtu = 1300;
 constexpr std::size_t kMaxQueuedFrameMetadataBytes = std::size_t{1024} * 1024;
 
+static GstPadProbeReturn handle_startup_flush(GstPad *pad, GstPadProbeInfo *info, gpointer) {
+    const auto type = GST_EVENT_TYPE(GST_PAD_PROBE_INFO_EVENT(info));
+    if ((type != GST_EVENT_FLUSH_START && type != GST_EVENT_FLUSH_STOP) ||
+        gst_pad_has_current_caps(pad)) {
+        return GST_PAD_PROBE_OK;
+    }
+    GstPad *target = gst_ghost_pad_get_target(GST_GHOST_PAD(pad));
+    if (target) {
+        gst_object_unref(target);
+        return GST_PAD_PROBE_OK;
+    }
+    // Before RTP caps, webrtcbin has no input target or queued media to flush.
+    return GST_PAD_PROBE_DROP;
+}
+
 // SessionContext is private to this compilation unit
 struct SessionContext : OpkSinkWebRtcSession {
     _GstOpkSink *self = nullptr;
@@ -355,6 +370,12 @@ bool WebRtcWebSocket::attach_video(const std::shared_ptr<SessionContext> &ctx) {
         if (!ctx->webrtc_sink_pad) {
             throw std::runtime_error("Failed to request webrtc video sink pad");
         }
+        gst_pad_add_probe(ctx->webrtc_sink_pad,
+                          static_cast<GstPadProbeType>(GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM |
+                                                       GST_PAD_PROBE_TYPE_EVENT_FLUSH),
+                          handle_startup_flush,
+                          nullptr,
+                          nullptr);
 
         auto v_pay_src = gst_element_get_static_pad(ctx->v_capsfilter, "src");
         if (!v_pay_src) {
@@ -455,6 +476,12 @@ bool WebRtcWebSocket::attach_audio(SessionContext *ctx) {
         if (!ctx->audio_webrtc_sink_pad) {
             throw std::runtime_error("Failed to request webrtc audio sink pad");
         }
+        gst_pad_add_probe(ctx->audio_webrtc_sink_pad,
+                          static_cast<GstPadProbeType>(GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM |
+                                                       GST_PAD_PROBE_TYPE_EVENT_FLUSH),
+                          handle_startup_flush,
+                          nullptr,
+                          nullptr);
 
         auto a_pay_src = gst_element_get_static_pad(ctx->a_capsfilter, "src");
         if (!a_pay_src) {
