@@ -22,10 +22,12 @@ Usage:
   gen-shared-memory.sh <service_name> <out_compose_yaml> <out_env>
 
 Generates a docker-compose override that bind-mounts shared-memory / DMA related
-paths that are commonly needed by NPUs:
+paths needed by accelerators:
   - /dev/dma_heap (directory)
   - /dev/udmabuf (device node, if present)
   - /dev/shm (POSIX shared memory filesystem)
+  - /dev/dri (Linux GPU devices, if present)
+  - /dev/dxg and /usr/lib/wsl (WSL GPU device and host drivers, if present)
 
 The <out_env> argument is accepted for consistency with other generators but is
 not currently modified.
@@ -54,6 +56,18 @@ UDMABUF_DEV="/dev/udmabuf"
 SHM_DIR="/dev/shm"
 
 VOLUMES=()
+GPU_DEVICES=()
+WSL_GPU=false
+if [[ -d /dev/dri ]]; then
+    GPU_DEVICES+=("/dev/dri:/dev/dri")
+fi
+if [[ -c /dev/dxg ]]; then
+    GPU_DEVICES+=("/dev/dxg:/dev/dxg")
+    if [[ -r /usr/lib/wsl/lib/libd3d12.so && -r /usr/lib/wsl/lib/libdxcore.so ]]; then
+        VOLUMES+=("/usr/lib/wsl:/usr/lib/wsl:ro")
+        WSL_GPU=true
+    fi
+fi
 
 if [[ -d "${DMA_HEAP_DIR}" ]]; then
     VOLUMES+=("${DMA_HEAP_DIR}:${DMA_HEAP_DIR}")
@@ -70,6 +84,17 @@ fi
 {
     echo "services:"
     echo "  ${SERVICE_NAME}:"
+    if [[ ${#GPU_DEVICES[@]} -gt 0 ]]; then
+        echo "    devices:"
+        for SPEC in "${GPU_DEVICES[@]}"; do
+            echo "      - ${SPEC}"
+        done
+    fi
+    if [[ "${WSL_GPU}" == true ]]; then
+        # Preserve explicit host library-path overrides; native Linux is unchanged.
+        echo "    environment:"
+        echo "      LD_LIBRARY_PATH: \${LD_LIBRARY_PATH-/usr/lib/wsl/lib:/opt/opk-deps/onnxruntime/lib}"
+    fi
 
     if [[ ${#VOLUMES[@]} -eq 0 ]]; then
         echo "    volumes: []"
