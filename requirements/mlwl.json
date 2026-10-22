@@ -15,6 +15,29 @@
       "sha256": "d01abeae45df21ec4b92384ba63bd1ba7e8b0165d005963c971d72846a8f2317"
     }
   },
+  "notices": [
+    {
+      "name": "mlwl",
+      "version": "0.11.0",
+      "filename": "LICENSE",
+      "url": "https://raw.githubusercontent.com/arm/ai-ml-workload-library-for-vulkan/496f5925c319d9078e6d0399e4396212f4aeed2a/LICENSE",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "name": "vgf",
+      "version": "0.10.0",
+      "filename": "LICENSE",
+      "url": "https://raw.githubusercontent.com/arm/ai-ml-sdk-vgf-library/b21091b9d81efeea582ae9e0c21a4684d7aa8954/LICENSES/Apache-2.0.txt",
+      "sha256": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff"
+    },
+    {
+      "name": "flatbuffers",
+      "version": "25.2.10",
+      "filename": "LICENSE",
+      "url": "https://raw.githubusercontent.com/google/flatbuffers/1c514626e83c20fffa8557e75641848e1e15cd5e/LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    }
+  ],
   "headers": {
     "name": "Vulkan-Headers",
     "version": "vulkan-sdk-1.4.357.0",
