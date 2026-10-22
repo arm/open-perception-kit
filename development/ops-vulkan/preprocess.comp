@@ -1,0 +1,105 @@
+/*
+ * SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#version 450
+layout(local_size_x=8, local_size_y=8) in;
+layout(std430, binding=0) readonly buffer Plane0 { uint plane0[]; };
+layout(std430, binding=1) readonly buffer Plane1 { uint plane1[]; };
+layout(std430, binding=2) readonly buffer Plane2 { uint plane2[]; };
+layout(std430, binding=3) writeonly buffer Tensor { float values[]; };
+layout(std140, binding=4) uniform Parameters {
+    uvec4 outputInfo; // width, height, source format, channels first
+    uvec4 crop;
+    uvec4 inner;
+    uvec4 strides;
+    uvec4 offsets;
+    vec4 mean;
+    vec4 inverseStd;
+    vec4 padding;
+    vec4 yuvRange;
+    vec4 yuvCoefficients;
+} p;
+const uint bytesPerWord = 4;
+const uint bitsPerByte = 8;
+const uint byteMask = 255;
+const float byteMaximum = 255.0;
+const uint bgraFormat = 0;
+const uint nv12Format = 1;
+const uint yuy2Format = 3;
+const uint rgbChannels = 3;
+const uint chromaSubsampling = 2;
+const uint bgraRedOffset = 2;
+const uint bgraGreenOffset = 1;
+const uint yuy2CbOffset = 1;
+const uint yuy2CrOffset = 3;
+
+float sampleByte(uint plane, uint offset) {
+    uint address = p.offsets[plane] + offset;
+    uint word = plane == 0 ? plane0[address / bytesPerWord]
+              : plane == 1 ? plane1[address / bytesPerWord]
+                           : plane2[address / bytesPerWord];
+    return float((word >> ((address % bytesPerWord) * bitsPerByte)) & byteMask);
+}
+vec3 readRgb(uvec2 pixel) {
+    uint row = pixel.y * p.strides.x;
+    if (p.outputInfo.z == bgraFormat) {
+        uint address = row + pixel.x * bytesPerWord;
+        return vec3(sampleByte(0, address + bgraRedOffset), sampleByte(0, address + bgraGreenOffset),
+                    sampleByte(0, address)) / byteMaximum;
+    }
+    float y;
+    vec2 uv;
+    if (p.outputInfo.z == yuy2Format) {
+        const uint bytesPerPair = 4;
+        uint pair = row + (pixel.x / chromaSubsampling) * bytesPerPair;
+        y = sampleByte(0, row + pixel.x * chromaSubsampling);
+        uv = vec2(sampleByte(0, pair + yuy2CbOffset), sampleByte(0, pair + yuy2CrOffset));
+    } else {
+        y = sampleByte(0, row + pixel.x);
+        uvec2 chroma = pixel / chromaSubsampling;
+        uint address = chroma.y * p.strides.y;
+        if (p.outputInfo.z == nv12Format) {
+            address += chroma.x * chromaSubsampling;
+            uv = vec2(sampleByte(1, address), sampleByte(1, address + 1));
+        } else {
+            uv = vec2(sampleByte(1, address + chroma.x),
+                      sampleByte(2, chroma.y * p.strides.z + chroma.x));
+        }
+    }
+    y = (y - p.yuvRange.x) * p.yuvRange.y;
+    uv = (uv - p.yuvRange.z) * p.yuvRange.w;
+    return clamp(vec3(y + p.yuvCoefficients.x * uv.y,
+                     y - p.yuvCoefficients.z * uv.x - p.yuvCoefficients.w * uv.y,
+                     y + p.yuvCoefficients.y * uv.x), 0.0, 1.0);
+}
+void main() {
+    uvec2 pixel = gl_GlobalInvocationID.xy;
+    if (any(greaterThanEqual(pixel, p.outputInfo.xy))) return;
+    vec3 rgb = p.padding.rgb;
+    if (all(greaterThanEqual(pixel, p.inner.xy)) &&
+        all(lessThan(pixel - p.inner.xy, p.inner.zw))) {
+        uvec2 source = p.crop.xy + ((pixel - p.inner.xy) * p.crop.zw) / p.inner.zw;
+        rgb = readRgb(source);
+    }
+    rgb = (rgb - p.mean.rgb) * p.inverseStd.rgb;
+    uint index = pixel.y * p.outputInfo.x + pixel.x;
+    uint planeSize = p.outputInfo.x * p.outputInfo.y;
+    for (uint channel = 0; channel < rgbChannels; ++channel) {
+        values[p.outputInfo.w != 0 ? channel * planeSize + index
+                                  : index * rgbChannels + channel] = rgb[channel];
+    }
+}
