@@ -43,7 +43,6 @@ and check the built artifacts before publication.
 | [expected](https://github.com/TartanLlama/expected) | [1.3.1](https://github.com/TartanLlama/expected/tree/v1.3.1) | CC0-1.0 | Fedora |
 | [fsspec](https://github.com/fsspec/filesystem_spec) | [2026.7.0](https://pypi.org/project/fsspec/2026.7.0/) | BSD-3-Clause | PyPI |
 | [FlatBuffers](https://github.com/google/flatbuffers) | [25.9.23](https://github.com/google/flatbuffers/tree/v25.9.23) (SDK/build), [25.12.19](https://pypi.org/project/flatbuffers/25.12.19/) (host Python) | Apache-2.0 | npm, crates.io, PyPI |
-| [FlatBuffers (MLWL runtime)](https://github.com/google/flatbuffers) | [25.2.10](https://github.com/google/flatbuffers/tree/v25.2.10) | [Apache-2.0](https://github.com/google/flatbuffers/blob/v25.2.10/LICENSE) | bundled in the MLWL shared library |
 | [fmt](https://github.com/fmtlib/fmt) | [12.0.0](https://github.com/fmtlib/fmt/tree/12.0.0) | MIT | openSUSE |
 | [Lucide](https://lucide.dev/) | [1.61.0](https://www.npmjs.com/package/lucide-static/v/1.61.0) | ISC and MIT (Feather-derived icons) | vendored SVG assets |
 | [Wafer](https://github.com/Arm-Debug/design-system) | [2.0.2](https://github.com/Arm-Debug/design-system/tree/v2.0.2) | Arm copyright notice; upstream declares no CSS licence identifier | vendored CSS |
