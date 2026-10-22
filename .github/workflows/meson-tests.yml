@@ -73,6 +73,7 @@ jobs:
               - '**/meson.options'
               - '**/meson_options.txt'
               - 'requirements/build.json'
+              - 'requirements/mlwl.json'
               - 'requirements/meson.txt'
               - 'requirements/sdk.txt'
               - 'scripts/build.sh'
@@ -89,6 +90,7 @@ jobs:
               - 'scripts/private/run-perception-sdk.sh'
               - 'scripts/private/install-perception-flatbuffers.sh'
               - 'scripts/private/install-onnxruntime.sh'
+              - 'scripts/private/install-mlwl.py'
               - 'scripts/private/clang-tidy-report.py'
               - 'scripts/private/deployment-*.sh'
               - 'scripts/private/development-entrypoint.sh'
@@ -110,8 +112,17 @@ jobs:
         if: &run_checks steps.changes.outcome == 'skipped' || steps.changes.outputs.relevant == 'true'
         uses: ./.github/actions/setup-build
 
+      - name: Install MLWL build dependencies
+        if: *run_checks
+        run: |
+          python3 scripts/private/install-mlwl.py "$RUNNER_TEMP/mlwl"
+          printf 'MLWorkloadLibraryForVulkan_DIR=%s/lib64/cmake/MLWorkloadLibraryForVulkan\nCMAKE_PREFIX_PATH=%s\nLD_LIBRARY_PATH=%s/lib64:%s\n' \
+            "$RUNNER_TEMP/mlwl" "$RUNNER_TEMP/mlwl" "$RUNNER_TEMP/mlwl" "$LD_LIBRARY_PATH" >> "$GITHUB_ENV"
+
       - name: Build
         if: *run_checks
+        env:
+          OPK_MLWL: enabled
         run: ./scripts/build.sh release true
 
       - name: Install test dependencies

@@ -38,6 +38,7 @@ Commands:
 Optional backend feature environment variables:
   OPK_EXECUTORCH=enabled|disabled|auto  or  executorch=enabled|disabled|auto
   OPK_PYTHON_OPS=enabled|disabled|auto  or  python_ops=enabled|disabled|auto
+  OPK_MLWL=enabled|disabled|auto        or  mlwl=enabled|disabled|auto
 
 Project location:
   OPK_PROJECT_ROOT=/absolute/path/to/open-perception-kit
@@ -104,8 +105,8 @@ run_on_host() {
         docker_exec_args+=(--env-file "$REPO_ROOT/devices.env")
     fi
     for env_name in \
-        OPK_EXECUTORCH OPK_PYTHON_OPS \
-        executorch python_ops; do
+        OPK_EXECUTORCH OPK_PYTHON_OPS OPK_MLWL \
+        executorch python_ops mlwl; do
         if [[ "${!env_name+x}" == x ]]; then
             docker_exec_args+=(--env "$env_name=${!env_name}")
         fi
@@ -344,6 +345,7 @@ collect_meson_args() {
 
     add_feature_option_from_env "executorch" "OPK_EXECUTORCH" "auto"
     add_feature_option_from_env "python_ops" "OPK_PYTHON_OPS" "auto"
+    add_feature_option_from_env "mlwl" "OPK_MLWL" "disabled"
 }
 
 # ---- build ----

@@ -50,3 +50,9 @@ option('python_ops',
   value : 'auto',
   description : 'Enable the embedded Python script Op'
 )
+
+option('mlwl',
+  type : 'feature',
+  value : 'disabled',
+  description : 'Enable ML Workload Library for Vulkan inference'
+)
