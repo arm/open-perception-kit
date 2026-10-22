@@ -366,3 +366,140 @@ test('hiding an empty output dock gives the full height to the video', async ({ 
   await expect(page.locator('.bottom-dock')).toBeVisible();
   await expect.poll(() => page.locator('.bottom-dock').evaluate(el => el.getBoundingClientRect().height)).toBe(48);
 });
+
+test.describe('semantic class maps', () => {
+  test.use({ deviceScaleFactor: 2 });
+
+  test('palette pixels, legend and saved opacity follow only the matched source', async ({ page }) => {
+    await page.routeWebSocket('**/ws', () => {});
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    const emit = (type = 'video-frame-results', model = 'semantic', pixels = [0, 13, 18]) => page.evaluate(({ type, model, pixels }) => {
+      const frame = { layers: [
+        { payloadType: 'FrameContext', detections: [{ type: 'VideoFrame', data: {
+          uuid: '42', originalWidth: 3, originalHeight: 1,
+        } }] },
+        { payloadType: 'SemanticSegmentationMasks', contentType: 'semanticSegmentation',
+          labelFamily: 'example-classes', model, detections: [{ type: 'SemanticSegmentationMask', data: {
+            parentUuid: '42', width: 3, height: 1, valueType: 'Uint8', pixels: Uint8Array.from(pixels),
+          } }] },
+      ] };
+      // Square display, wide source, and DPR 2 make incorrect containment/scaling visible.
+      Object.defineProperties(document.getElementById('video'), {
+        videoWidth: { configurable: true, value: 3 }, videoHeight: { configurable: true, value: 1 },
+      });
+      Object.defineProperties(document.getElementById('clientOsdCanvas'), {
+        clientWidth: { configurable: true, value: 600 }, clientHeight: { configurable: true, value: 600 },
+      });
+      window.dispatchEvent(new CustomEvent(type, { detail: type === 'metadata-message' ? { frame_results: frame } : frame }));
+    }, { type, model, pixels });
+    const sample = () => page.locator('#clientOsdCanvas').evaluate(canvas => {
+      const ctx = canvas.getContext('2d');
+      return [[200, 600], [600, 600], [1000, 600], [600, 100]].map(([x, y]) =>
+        [...ctx.getImageData(x, y, 1, 1).data]);
+    });
+    const clear = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]];
+    await emit('metadata-message');
+    await page.getByRole('button', { name: 'Overlays', exact: true }).click();
+    await page.locator('#addOverlayBtn').click();
+    await page.locator('#overlayFeature').selectOption('semantic-segmentation');
+    await page.locator('#saveOverlayBtn').click();
+    const card = page.locator('.overlay-card');
+    await card.locator('.overlay-toggle').click();
+    const legend = card.getByRole('region', { name: 'Class legend' });
+    await expect(legend).toContainText('Waiting for matching video metadata');
+    await expect.poll(sample).toEqual(clear);
+    const opacity = card.getByLabel('Opacity', { exact: true });
+    await opacity.fill('1');
+    await opacity.dispatchEvent('change');
+    await emit();
+    const colors = [[64, 64, 64, 255], [184, 88, 64, 255], [112, 112, 64, 255], [0, 0, 0, 0]];
+    await expect.poll(sample).toEqual(colors);
+    await expect(legend.locator('.overlay-class-row')).toHaveCount(3);
+    await expect(legend.locator('.overlay-class-name').first()).toHaveAttribute('placeholder', 'Class 0');
+    await expect(legend.locator('.overlay-class-presence').filter({hasText: /^In frame$/})).toHaveCount(3);
+    // Nearest-neighbor sampling leaves the class boundary sharp, not interpolated.
+    expect(await page.locator('#clientOsdCanvas').evaluate(canvas =>
+      [...canvas.getContext('2d').getImageData(399, 600, 2, 1).data]))
+      .toEqual([64, 64, 64, 255, 184, 88, 64, 255]);
+    await emit('metadata-message', 'semantic', [1, 1, 1]);
+    await expect.poll(sample).toEqual(colors);
+    await expect(card.getByRole('textbox', {name: 'Class 0 name', exact: true})).toBeVisible();
+    await opacity.fill('0.25');
+    await opacity.dispatchEvent('change');
+    await expect.poll(async () => (await sample()).map(pixel => pixel[3])).toEqual([64, 64, 64, 0]);
+    const classColor = card.getByLabel('Class 0 (0) color', {exact: true});
+    await classColor.evaluate(input => {
+      input.value = '#00ff00';
+      input.dispatchEvent(new Event('input', {bubbles: true}));
+      input.dispatchEvent(new Event('change', {bubbles: true}));
+    });
+    const classOpacity = card.getByLabel('Class 0 (0) opacity', {exact: true});
+    await classOpacity.fill('0.5');
+    await classOpacity.dispatchEvent('change');
+    await expect.poll(async () => (await sample())[0]).toEqual([0, 255, 0, 32]);
+    const classVisible = card.getByRole('switch', {name: 'Class 13 (13) visible', exact: true});
+    await classVisible.focus();
+    await page.keyboard.press('Space');
+    await expect.poll(async () => (await sample())[1][3]).toBe(0);
+    // Incoming frames preserve the actual control node/focus during adjustments.
+    await classOpacity.focus();
+    await emit();
+    await expect(classOpacity).toBeFocused();
+    await expect.poll(async () => (await sample())[0][3]).toBe(32);
+    const className = card.getByRole('textbox', {name: 'Class 0 name', exact: true});
+    await className.fill('person');
+    await emit();
+    await expect(className).toBeFocused();
+    await expect(className).toHaveValue('person');
+    await className.press('Enter');
+    await emit('video-frame-results', 'other-source');
+    await expect.poll(sample).toEqual(clear);
+    await expect(legend).toContainText('Waiting for source');
+    await emit('video-frame-results', 'semantic', [0]);
+    await expect.poll(sample).toEqual(clear);
+    await expect(legend).toContainText('Invalid or oversized');
+    await emit();
+    const overlayVisible = card.getByRole('switch', {name: /^Show Semantic segmentation/});
+    await overlayVisible.focus();
+    await page.keyboard.press('Space');
+    await expect.poll(sample).toEqual(clear);
+    await expect(legend).toContainText('Overlay hidden');
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.getByRole('button', { name: 'Overlays', exact: true }).click();
+    await card.locator('.overlay-toggle').click();
+    await expect(opacity).toHaveValue('0.25');
+    await expect(classColor).toHaveValue('#00ff00');
+    await expect(classOpacity).toHaveValue('0.5');
+    await expect(classVisible).not.toBeChecked();
+    await expect(className).toHaveValue('person');
+    await expect(overlayVisible).not.toBeChecked();
+    await overlayVisible.focus();
+    await page.keyboard.press('Space');
+    await emit();
+    await expect.poll(async () => (await sample())[0][3]).toBe(32);
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('video-frame-results', { detail: null })));
+    await expect.poll(sample).toEqual(clear);
+    await expect(legend).toContainText('Waiting for matching video metadata');
+    await className.fill('');
+    await className.press('Tab');
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('opk-overlays:v2'))
+      .overlays[0].settings.classes[0].label)).toBeUndefined();
+    await expect(className).toHaveAttribute('placeholder', 'Class 0');
+    await className.fill('person');
+    await className.press('Enter');
+    const otherName = card.getByRole('textbox', {name: 'Class 13 name', exact: true});
+    await otherName.fill('vehicle');
+    await otherName.press('Enter');
+    await card.getByRole('button', {name: 'Reset labels', exact: true}).click();
+    await expect(className).toHaveValue('');
+    await expect(otherName).toHaveValue('');
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('opk-overlays:v2'))
+      .overlays[0].settings.classes)).toEqual({
+        0: {enabled: true, color: '#00ff00', opacity: 0.5},
+        13: {enabled: false, color: '#b85840', opacity: 1},
+      });
+    await card.locator('.overlay-remove').click();
+    await emit();
+    await expect.poll(sample).toEqual(clear);
+  });
+});
