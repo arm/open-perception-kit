@@ -53,6 +53,8 @@ TEST(OpkMenuDiscover, FindsUniqueSupportedModelFilesFromOpChain) {
 
     write_model_descriptor(models_directory / "onnx" / "model.json", "model.onnx");
     write_model_descriptor(models_directory / "pte" / "model.json", "model.pte");
+    write_model_descriptor(models_directory / "vgf" / "model.json", "model.vgf");
+    write_model_descriptor(models_directory / "vgf-uppercase" / "model.json", "model.VGF");
     write_model_descriptor(models_directory / "ignored" / "model.json", "labels.txt");
 
     const auto opchain_path = opchain_directory / "opchain.json";
@@ -65,6 +67,10 @@ TEST(OpkMenuDiscover, FindsUniqueSupportedModelFilesFromOpChain) {
            {"attributes", {{"modelDescriptor", "../models/onnx/model.json"}}}},
           {{"id", "opk-future-ops/Inference"},
            {"attributes", {{"modelDescriptor", "../models/pte/model.json"}}}},
+          {{"id", "opk-mlwl-ops/Inference"},
+           {"attributes", {{"modelDescriptor", "../models/vgf/model.json"}}}},
+          {{"id", "opk-mlwl-ops/Inference"},
+           {"attributes", {{"modelDescriptor", "../models/vgf-uppercase/model.json"}}}},
           {{"id", "opk-future-ops/Inference"},
            {"attributes", {{"modelDescriptor", "../models/ignored/model.json"}}}},
           {{"id", "opk-future-ops/Inference"},
@@ -74,9 +80,12 @@ TEST(OpkMenuDiscover, FindsUniqueSupportedModelFilesFromOpChain) {
     const auto model_files = opk::menu::discover_model_files(opchain_path.string());
 
     ASSERT_TRUE(model_files.has_value()) << model_files.error().toString();
-    ASSERT_EQ(model_files->size(), 2U);
+    ASSERT_EQ(model_files->size(), 4U);
     EXPECT_EQ((*model_files)[0], normalized_absolute_path(models_directory / "onnx/model.onnx"));
     EXPECT_EQ((*model_files)[1], normalized_absolute_path(models_directory / "pte/model.pte"));
+    EXPECT_EQ((*model_files)[2], normalized_absolute_path(models_directory / "vgf/model.vgf"));
+    EXPECT_EQ((*model_files)[3],
+              normalized_absolute_path(models_directory / "vgf-uppercase/model.VGF"));
 
     std::filesystem::remove_all(root);
 }
