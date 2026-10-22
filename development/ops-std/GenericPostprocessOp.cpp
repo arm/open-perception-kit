@@ -39,6 +39,8 @@
 #include "postproc/RvmParser.h"
 #include "postproc/ScrfdParser.h"
 #include "postproc/UltrafaceParser.h"
+#include "postproc/Yolo26InstanceSegmentationParser.h"
+#include "postproc/Yolo26SemanticSegmentationParser.h"
 #include "postproc/YoloParser.h"
 #include "postproc/YoloXParser.h"
 // ... add new parser headers here
@@ -68,6 +70,10 @@ const std::map<std::string, ParserCreator> &getParserRegistry() {
         {"RvmParser", make<opk::stdop::postproc::RvmParser>()},
         {"ScrfdParser", make<opk::stdop::postproc::ScrfdParser>()},
         {"UltrafaceParser", make<opk::stdop::postproc::UltraFaceParser>()},
+        {"Yolo26InstanceSegmentationParser",
+         make<opk::stdop::postproc::Yolo26InstanceSegmentationParser>()},
+        {"Yolo26SemanticSegmentationParser",
+         make<opk::stdop::postproc::Yolo26SemanticSegmentationParser>()},
         {"YoloXParser", make<opk::stdop::postproc::YoloXParser>()},
         {"YoloParser", make<opk::stdop::postproc::YoloParser>()},
         // ... add new parsers here

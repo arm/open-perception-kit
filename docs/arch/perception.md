@@ -97,7 +97,9 @@ The currently generated payload roots are:
 - `BoxDetections` for localized detections
 - `Classifications` for classification candidates and person-presence output
 - `PoseEstimations` for yaw and pitch estimates
-- `SegmentationMasks` for bitmap-backed masks
+- `SegmentationMasks` for compositing masks and alpha mattes
+- `SemanticSegmentationMasks` for per-pixel class maps
+- `InstanceSegmentationMasks` for individual object masks with class, confidence, and box
 - `ObjectEmbeddings` for embedding vectors
 - `ObjectTracks` for tracker output and predicted detections
 - `TrackTraces` for tracker history points
@@ -146,8 +148,8 @@ At application boundaries, the generated wire envelope is serialized as bytes.
 `perception-frame-results+base64` encoding marker. External consumers must use a
 compatible released Open Perception Kit SDK to decode and access the typed payloads.
 The embedded `opksink` WebUI uses the generated TypeScript SDK at this boundary;
-it validates producer identity and converts typed payloads into its established
-OSD and output-panel presentation model.
+it validates producer identity and converts supported typed payloads into its
+established OSD and output-panel presentation model.
 
 ## Testing Python Guest Scripts
 

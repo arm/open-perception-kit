@@ -49,7 +49,8 @@ Checks: >
   -modernize-use-override,
   -modernize-use-equals-default,
   -performance-enum-size,
-  -performance-no-int-to-ptr
+  -performance-no-int-to-ptr,
+  -portability-avoid-pragma-once
 WarningsAsErrors: ''
 HeaderFilterRegex: '^\.\./(common|config-validator|elements|ops-[^/]+|opk-menu|runtime|tests|web)/'
 FormatStyle: file
