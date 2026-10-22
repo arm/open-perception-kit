@@ -32,6 +32,12 @@
 #include <unordered_map>
 using namespace opk::op;
 
+OpChain::~OpChain() {
+    for (auto &reference : opRefs) {
+        reference.destroyInstance();
+    }
+}
+
 const std::string &OpChain::getName() const {
     return this->name;
 }

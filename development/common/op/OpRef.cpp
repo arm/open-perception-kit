@@ -25,13 +25,17 @@ using namespace opk::op;
 
 OpRef::OpRef() = default;
 
-void OpRef::reset() noexcept {
+void OpRef::destroyInstance() noexcept {
     // Destroy op first (may reference code/data in the library)
     if (op && destroyFn) {
         // best-effort: ignore exceptions (destroyFn should not throw)
         destroyFn(op);
     }
     op = nullptr;
+}
+
+void OpRef::reset() noexcept {
+    destroyInstance();
 
     // Close library after destroying op
     if (dlHandle) {

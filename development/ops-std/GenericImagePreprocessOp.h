@@ -97,7 +97,8 @@ class GenericImagePreprocessOp : public opk::op::Op {
     opk::stdop::preproc::GenericImageTensorBuilder genericImageInputTensorBuilder;
 
     opk::Model upcomingInferenceModel;
-    uint8_t *upcomingTensorAddresses[opk::MaxTensorCount] = {nullptr};
+    const opk::op::OpInterfaceInference *upcomingInference{nullptr};
+    opk::op::OpInterfaceSharedInput *sharedInput{nullptr};
 };
 
 } // namespace opk::stdop

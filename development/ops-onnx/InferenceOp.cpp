@@ -113,3 +113,13 @@ uint8_t *InferenceOp::getTensorDataAddress(size_t index) const {
     assert(inference);
     return inference->getInputTensorDataAddress(index);
 }
+
+opk::Result<void> InferenceOp::bindInputTensor(const size_t index,
+                                               const std::span<uint8_t> data,
+                                               std::shared_ptr<void> owner) {
+    return inference->bindInputTensor(index, data, std::move(owner));
+}
+
+opk::Result<void> InferenceOp::resetInputTensor(const size_t index) {
+    return inference->resetInputTensor(index);
+}
