@@ -49,6 +49,9 @@ class OpRef {
      */
     ~OpRef();
 
+    /// Destroys the instance while retaining its library for resources shared with other Ops.
+    void destroyInstance() noexcept;
+
     /**
      * @brief Binds an operation by loading its library and resolving creation functions.
      *

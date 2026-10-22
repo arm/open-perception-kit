@@ -77,25 +77,22 @@ GenericImagePreprocessOp::~GenericImagePreprocessOp() = default;
 opk::Result<void> GenericImagePreprocessOp::bind(size_t index,
                                                  const std::vector<opk::op::Op *> &ops) {
     // sanity check
-    if (ops.size() <= index) {
+    if (index >= ops.size() || ops.size() - index <= 1) {
         return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
                                         "GenericImagePreprocessOp cannot be the last Op"));
     }
 
     // sanity check (later maybe other ops will be valid between them)
-    const opk::op::OpInterfaceInference *inferenceOp =
-        ops[index + 1]->as<opk::op::OpInterfaceInference>();
-    if (!inferenceOp) {
+    upcomingInference = ops[index + 1]->as<opk::op::OpInterfaceInference>();
+    if (!upcomingInference) {
         return tl::unexpected(
             OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
                       "GenericImagePreprocessOp should be BEFORE an inference Op"));
     }
 
     // --- grab infos about the upcoming inference
-    upcomingInferenceModel = inferenceOp->getModel();
-    for (size_t i = 0; i < upcomingInferenceModel.inputs.size(); i++) {
-        upcomingTensorAddresses[i] = inferenceOp->getTensorDataAddress(i);
-    }
+    upcomingInferenceModel = upcomingInference->getModel();
+    sharedInput = ops[index + 1]->as<opk::op::OpInterfaceSharedInput>();
 
     if (inputImageTensorIndex == opk::InvalidTensorIndex) {
         // user not specified a tensor index
@@ -236,6 +233,14 @@ opk::Result<opk::op::OpSignal> GenericImagePreprocessOp::process(
                                         setup.imageSourceDesc.rect.height);
     }
 
+    if (sharedInput) {
+        const auto reset{sharedInput->resetInputTensor(inputImageTensorIndex)};
+        if (!reset) {
+            return tl::unexpected(reset.error());
+        }
+    }
+    uint8_t *const inputTensorData{upcomingInference->getTensorDataAddress(inputImageTensorIndex)};
+
     // setup preprocessed tensor data
     setup.imageDestinationDesc.type = inputTensor.valueType;
     setup.imageDestinationDesc.surfaceWidth = modelWidth;
@@ -245,7 +250,7 @@ opk::Result<opk::op::OpSignal> GenericImagePreprocessOp::process(
     setup.imageDestinationDesc.planeCount = 1;
     setup.imageDestinationDesc.planes[0] = {
         nullptr,
-        upcomingTensorAddresses[inputImageTensorIndex],
+        inputTensorData,
         inputTensor.shape.getFullValueCount() * opk::getValueTypeByteSize(inputTensor.valueType),
         0,
     };
@@ -285,10 +290,8 @@ opk::Result<opk::op::OpSignal> GenericImagePreprocessOp::process(
                                                   modelHeight))
                 .string();
 
-        opk::Tools::savePngFromRgbChwF32(debugFile,
-                                         (float *)upcomingTensorAddresses[inputImageTensorIndex],
-                                         modelWidth,
-                                         modelHeight);
+        opk::Tools::savePngFromRgbChwF32(
+            debugFile, (float *)inputTensorData, modelWidth, modelHeight);
     }
 
     // populate inference info

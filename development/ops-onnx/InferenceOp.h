@@ -25,13 +25,20 @@
 
 namespace opk::onnx {
 
-class InferenceOp : public opk::op::Op, public opk::op::OpInterfaceInference {
+class InferenceOp : public opk::op::Op,
+                    public opk::op::OpInterfaceInference,
+                    public opk::op::OpInterfaceSharedInput {
   public:
     InferenceOp();
     virtual ~InferenceOp();
 
     const opk::Model &getModel() const override;
     uint8_t *getTensorDataAddress(size_t index) const override;
+
+    opk::Result<void> bindInputTensor(const size_t index,
+                                      const std::span<uint8_t> data,
+                                      std::shared_ptr<void> owner) override;
+    opk::Result<void> resetInputTensor(const size_t index) override;
 
     opk::Result<void> configure(const opk::AttributeMap &attributes) override;
     opk::Result<void> bind(size_t index, const std::vector<opk::op::Op *> &ops) override;

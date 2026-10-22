@@ -18,6 +18,8 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -58,6 +60,31 @@ struct OpInterfaceInference {
      * @return Pointer to tensor data at the specified index.
      */
     virtual uint8_t *getTensorDataAddress(size_t index) const = 0;
+};
+
+/** @brief Optional backend contract for consuming caller-owned, CPU-accessible input tensors. */
+struct OpInterfaceSharedInput {
+    virtual ~OpInterfaceSharedInput() = default;
+
+    /**
+     * @brief Binds input storage without copying its contents.
+     * @param index Input tensor index; its model shape and type remain unchanged.
+     * @param data Contiguous storage of exactly the model input size.
+     * @param owner Keeps the allocation and mapping alive until replaced or the backend closes.
+     * GPU writes must be complete and CPU-visible before binding. The caller must not
+     * overwrite storage during synchronous inference. Unsupported bindings return an error without
+     * changing the current binding.
+     */
+    virtual Result<void> bindInputTensor(const size_t index,
+                                         const std::span<uint8_t> data,
+                                         std::shared_ptr<void> owner) = 0;
+
+    /**
+     * @brief Restores writable backend-owned input storage, releasing any shared owner.
+     * Already-owned storage is unchanged. Failure preserves the current binding.
+     * Call before CPU preprocessing, then query the input address again.
+     */
+    virtual Result<void> resetInputTensor(const size_t index) = 0;
 };
 
 /**
