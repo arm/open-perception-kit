@@ -26,6 +26,28 @@
         "properties": {
           "modelDescriptor": {
             "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/localPath"
+          },
+          "intraOpNumThreads": {
+            "description": "ONNX Runtime intra-op thread count: zero selects ORT automatic; omission preserves the legacy hardware policy.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+          }
+        }
+      }
+    },
+    "if": {
+      "properties": {
+        "id": {
+          "const": "opk-onnx-ops/Inference"
+        }
+      }
+    },
+    "else": {
+      "properties": {
+        "attributes": {
+          "properties": {
+            "intraOpNumThreads": false
           }
         }
       }

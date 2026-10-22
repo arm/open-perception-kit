@@ -39,6 +39,17 @@ while preserving generic preprocessing, postprocessing, and `FrameResults` outpu
 ONNX Runtime is the reference software backend because it is mature, widely used,
 and useful for validating pipelines across host platforms.
 
+Each ONNX Inference Op owns a session and accepts the optional
+`intraOpNumThreads` attribute in its OpChain. The backend validates the count
+before creating the session: zero delegates selection to ORT; a positive integer
+sets the intra-op pool size. Omission keeps the existing hardware-thread-count
+minus one policy, with a minimum/fallback of one. Execution remains sequential
+with one inter-op thread. The setting takes effect when the OpChain is created;
+changing `active` does not recreate or retune the session.
+
+See [ONNX thread tuning](../public/how-to/performance-measurement.md)
+for configuration and deployment guidance.
+
 ExecuTorch is present for evaluation and should be treated as experimental until
 its model support, tests, and integration behavior are made stable.
 

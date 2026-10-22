@@ -1,5 +1,5 @@
 {
-  "version": "1.0.2",
+  "version": "1.1.0",
   "name": "Yolo26n480Int8",
   "displayName": "YOLO26n INT8 (480x480)",
   "task": "Object detection",
@@ -20,7 +20,8 @@
     {
       "id": "opk-onnx-ops/Inference",
       "attributes": {
-        "modelDescriptor": "model.json"
+        "modelDescriptor": "model.json",
+        "intraOpNumThreads": 2
       }
     },
     {

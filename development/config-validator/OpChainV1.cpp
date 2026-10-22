@@ -291,6 +291,26 @@ void validateStages(ValidationReport &report,
     }
 }
 
+void validateOnnxThreadCount(ValidationReport &report,
+                             const opk::op::OpChainDescriptor &descriptor,
+                             std::string_view source) {
+    for (std::size_t index = 0; index < descriptor.ops.size(); ++index) {
+        const auto &op = descriptor.ops[index];
+        if (op.id != "opk-onnx-ops/Inference" || !op.attributes.contains("intraOpNumThreads") ||
+            op.attributes.at("intraOpNumThreads").isInt()) {
+            continue;
+        }
+
+        report.issues.push_back(
+            makeIssue("opchain.v1.onnx-thread-count",
+                      ValidationPhase::Descriptor,
+                      source,
+                      std::format("/ops/{}/attributes/intraOpNumThreads", index),
+                      "intraOpNumThreads must use integer notation, without a decimal point or "
+                      "exponent"));
+    }
+}
+
 void validateThresholds(ValidationReport &report,
                         const opk::op::OpChainDescriptor &descriptor,
                         std::string_view source) {
@@ -341,6 +361,7 @@ ValidationReport validateOpChainV1(const opk::op::OpChainDescriptor &descriptor,
     validateInstanceIds(report, descriptor, source);
     validateLoopGroups(report, descriptor, source);
     validateStages(report, descriptor, source);
+    validateOnnxThreadCount(report, descriptor, source);
     validateThresholds(report, descriptor, source);
     report.sort();
     return report;

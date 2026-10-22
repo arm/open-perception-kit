@@ -206,6 +206,13 @@ validated when the pipeline starts.
 
 ## Migrating existing configurations
 
+OpChain `1.1.0` adds optional `intraOpNumThreads` to
+`opk-onnx-ops/Inference`. Set the OpChain version to `"1.1.0"` when adopting
+the option; omitted values retain the previous thread policy. Older runtimes
+can reject the new attribute despite warning rather than failing on the minor
+version mismatch. Rebuild or upgrade the runtime before using it. See
+[ONNX thread tuning](../how-to/performance-measurement.md).
+
 OpChain `1.0.2` adds the optional YoloParser `outputFormat` attribute. Existing
 OpChains keep the `centerClassScores` behavior when it is omitted. Models that
 produce `[1,N,6]` rows containing corner coordinates, confidence, and class ID

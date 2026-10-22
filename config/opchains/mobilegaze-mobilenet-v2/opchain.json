@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": "UltraFaceMobileGazeMobilenetV2",
   "displayName": "UltraFace + MobileGaze MobileNetV2 INT8",
   "task": "Gaze estimation",
@@ -8,11 +8,11 @@
   "ops": [
     {"id": "opk-std-ops/InferenceController", "attributes": {}},
     {"id": "opk-std-ops/GenericImagePreprocess", "attributes": {"inputImageTensorIndex": 0, "inputImageSourceName": "pipelineVideoFrame"}},
-    {"id": "opk-onnx-ops/Inference", "attributes": {"modelDescriptor": "../../models/ultraface-rfb-320/model.json"}},
+    {"id": "opk-onnx-ops/Inference", "attributes": {"modelDescriptor": "../../models/ultraface-rfb-320/model.json", "intraOpNumThreads": 1}},
     {"id": "opk-std-ops/GenericPostprocess", "attributes": {"parser": "UltrafaceParser", "normalizeOutputCoordinates": false, "confidenceThreshold": 0.1, "iouThreshold": 0.3}},
     {"id": "opk-std-ops/InferenceController", "loopId": 2, "attributes": {"contentType": "humanFace"}},
     {"id": "opk-std-ops/GenericImagePreprocess", "loopId": 2, "attributes": {"inputImageTensorIndex": 0, "inputImageSourceName": "pipelineVideoFrame"}},
-    {"id": "opk-onnx-ops/Inference", "loopId": 2, "attributes": {"modelDescriptor": "../../models/mobilegaze-mobilenet-v2/model.json"}},
+    {"id": "opk-onnx-ops/Inference", "loopId": 2, "attributes": {"modelDescriptor": "../../models/mobilegaze-mobilenet-v2/model.json", "intraOpNumThreads": 2}},
     {"id": "opk-std-ops/GenericPostprocess", "loopId": 2, "attributes": {"parser": "GazeDetectionParser", "angleBinWidthDeg": 4}}
   ]
 }
