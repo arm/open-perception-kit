@@ -19,6 +19,7 @@
 
 #include "opk/Result.h"
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <ctime>
@@ -174,9 +175,28 @@ struct Tools {
 uint64_t nextObjectId() noexcept;
 
 /**
- * @brief UTC wall-clock time helpers.
+ * @brief UTC wall-clock timestamps and monotonic time measurements.
  */
 struct Time {
+    /**
+     * @brief Returns monotonic time in nanoseconds for elapsed-time measurements.
+     * The clock's origin is unspecified; readings are unaffected by wall-clock adjustments.
+     */
+    static uint64_t nowNs() noexcept {
+        const auto now{std::chrono::steady_clock::now().time_since_epoch()};
+        return static_cast<uint64_t>(
+            std::chrono::duration_cast<std::chrono::nanoseconds>(now).count());
+    }
+
+    /**
+     * @brief Returns monotonic time in seconds, retaining the fractional part.
+     * @return Floating-point seconds from the same clock origin as nowNs().
+     */
+    static double nowSec() noexcept {
+        constexpr double nanosecondsPerSecond{1'000'000'000.0};
+        return static_cast<double>(nowNs()) / nanosecondsPerSecond;
+    }
+
     /**
      * @brief Returns current UTC time in nanoseconds since Unix epoch.
      * @return UTC timestamp in nanoseconds.

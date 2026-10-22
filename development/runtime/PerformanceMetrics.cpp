@@ -85,6 +85,30 @@ PerformanceMetricsSnapshot PerformanceMetrics::snapshot() {
         result.spans.push_back(std::move(output));
     }
 
+    result.streams.reserve(source.streams.size());
+    for (const auto &stream : source.streams) {
+        FrameStreamMetrics output;
+        output.streamId = stream.streamId;
+        output.name = stream.name;
+        output.generation = stream.generation;
+        output.inputFrames = stream.inputFrames;
+        output.outputFrames = stream.outputFrames;
+        output.inferredFrames = stream.inferredFrames;
+        output.inferenceCalls = stream.inferenceCalls;
+        output.inputFps = stream.inputFps;
+        output.matchedFrames = stream.matchedFrames;
+        output.latencySeconds = stream.latencySeconds;
+        output.nowSec = stream.nowSec;
+        output.processCpuSeconds = stream.processCpuSeconds;
+        output.processCpuAvailable = stream.processCpuAvailable;
+        output.renderedFrames = stream.renderedFrames;
+        output.droppedFrames = stream.droppedFrames;
+        output.sinkStatsAvailable = stream.sinkStatsAvailable;
+        output.endpoint = stream.endpoint;
+        output.configuration = stream.configuration;
+        result.streams.push_back(std::move(output));
+    }
+
     return result;
 }
 

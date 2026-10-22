@@ -61,6 +61,35 @@ struct PerformanceSpan {
 };
 
 /**
+ * @brief Cumulative measurements for an active frame stream.
+ *
+ * Stream IDs distinguish concurrent instances, including those with the same name.
+ * Compare snapshots only within one generation/endpoint/configuration. Latency is
+ * the cumulative input-to-sink duration; CPU time covers the whole process.
+ */
+struct FrameStreamMetrics {
+    std::uint64_t streamId{0};
+    std::string name;
+    std::uint64_t generation{0};
+    std::uint64_t inputFrames{0};
+    std::uint64_t outputFrames{0};
+    std::uint64_t inferredFrames{0};
+    std::uint64_t inferenceCalls{0};
+    double inputFps{0};
+    std::uint64_t matchedFrames{0};
+    double latencySeconds{0};
+    /** Monotonic clock reading in seconds; subtract readings to measure elapsed time. */
+    double nowSec{0};
+    double processCpuSeconds{0};
+    bool processCpuAvailable{false};
+    std::uint64_t renderedFrames{0};
+    std::uint64_t droppedFrames{0};
+    bool sinkStatsAvailable{false};
+    std::string endpoint;
+    std::string configuration;
+};
+
+/**
  * @brief Process-wide snapshot of collected OPK performance metrics.
  *
  * The vectors in the snapshot own copies of the metric records present when
@@ -69,6 +98,7 @@ struct PerformanceSpan {
 struct PerformanceMetricsSnapshot {
     std::vector<PerformanceMetric> metrics;
     std::vector<PerformanceSpan> spans;
+    std::vector<FrameStreamMetrics> streams;
     std::uint32_t droppedMetrics = 0;
     std::uint32_t droppedSpans = 0;
     std::uint32_t droppedHistoryEvents = 0;
@@ -79,11 +109,11 @@ struct PerformanceMetricsSnapshot {
 /**
  * @brief Runtime facade for process-wide OPK performance metrics.
  *
- * This API exposes metrics collected by OPK_PERF_SCOPE instrumentation without
+ * This API exposes operation timings and active frame streams without
  * requiring external applications to include common/perf headers.
  *
- * Metrics configuration and collected data are process-wide. They are not owned
- * by, or scoped to, one Pipeline or OpChain instance.
+ * Scope timings are process-wide. Frame measurements are identified per stream.
+ * Stream snapshots remain available while an owning recording handle is alive.
  */
 class PerformanceMetrics {
   public:

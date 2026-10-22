@@ -24,7 +24,6 @@
 
 #include <algorithm>
 #include <array>
-#include <chrono>
 #include <format>
 #include <memory>
 #include <string>
@@ -68,9 +67,7 @@ struct _GstOpkPerformance {
     guint frame_count;
     guint update_interval;
 
-    // FPS tracking
-    std::chrono::steady_clock::time_point last_frame_time;
-    gdouble fps_average;
+    std::shared_ptr<opk::perf::PerformanceMetrics::FrameStream> frame_metrics;
 
     // Cached overlay surface
     std::vector<std::string> cached_lines;
@@ -125,9 +122,12 @@ static void update_measurement_state(GstOpkPerformance *self) {
     }
 
     if (measurement_is_enabled) {
+        self->frame_metrics =
+            opk::perf::defaultPerformanceMetrics().frameStream(GST_OBJECT_NAME(self));
         self->internal_baseline = opk::perf::defaultPerformanceMetrics().aggregateSnapshot();
     } else {
         self->internal_baseline = {};
+        self->frame_metrics.reset();
     }
     self->measurement_inprogress = measurement_is_enabled;
     self->cache_dirty = true;
@@ -211,8 +211,7 @@ static void gst_opk_performance_init(GstOpkPerformance *self) {
     self->frame_count = 0;
     self->update_interval = DEFAULT_UPDATE_INTERVAL;
     self->show_all_metrics = DEFAULT_SHOW_ALL_METRICS;
-    std::construct_at(&self->last_frame_time, std::chrono::steady_clock::now());
-    self->fps_average = 0.0;
+    std::construct_at(&self->frame_metrics);
     self->enabled = DEFAULT_ENABLED;
     std::construct_at(&self->cached_lines);
     std::construct_at(&self->internal_baseline);
@@ -231,7 +230,7 @@ static void gst_opk_performance_finalize(GObject *object) {
 
     std::destroy_at(&self->internal_baseline);
     std::destroy_at(&self->cached_lines);
-    std::destroy_at(&self->last_frame_time);
+    std::destroy_at(&self->frame_metrics);
 
     G_OBJECT_CLASS(parent_class)->finalize(object);
 }
@@ -321,7 +320,7 @@ static std::vector<std::string> get_performance_data(GstOpkPerformance *self,
         self->internal_baseline = std::move(interval_end_snapshot);
     }
     show_all_metrics = self->show_all_metrics;
-    fps_average = self->fps_average;
+    fps_average = self->frame_metrics ? self->frame_metrics->snapshot().inputFps : 0.0;
     GST_OBJECT_UNLOCK(self);
 
     std::vector<std::string> lines;
@@ -388,19 +387,8 @@ static GstFlowReturn gst_opk_performance_transform_ip(GstBaseTransform *filter, 
         return GST_FLOW_OK;
     }
 
-    // Track frame timing for FPS calculation
-    auto current_time = std::chrono::steady_clock::now();
-    if (self->frame_count > 1) { // Skip first frame
-        auto frame_duration = std::chrono::duration_cast<std::chrono::microseconds>(
-            current_time - self->last_frame_time);
-        double frame_ms = frame_duration.count() / 1000.0;
-        double instant_fps = frame_ms > 0 ? 1000.0 / frame_ms : 0;
-        // Exponential moving average for smoother FPS display
-        self->fps_average = (self->fps_average == 0.0)
-                                ? instant_fps
-                                : (self->fps_average * 0.95 + instant_fps * 0.05);
-    }
-    self->last_frame_time = current_time;
+    if (self->frame_metrics)
+        self->frame_metrics->input();
 
     self->frame_count++;
 

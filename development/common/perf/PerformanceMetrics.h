@@ -21,11 +21,36 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 
 namespace opk::perf {
+
+/** Cumulative counters; compare only within one stream, generation, endpoint and configuration. */
+struct PipelineSample {
+    uint64_t streamId{0};
+    std::string name;
+    uint64_t generation{0};
+    uint64_t inputFrames{0};
+    uint64_t outputFrames{0};
+    uint64_t inferredFrames{0};
+    uint64_t inferenceCalls{0};
+    double inputFps{0};
+    uint64_t matchedFrames{0};
+    /** Sum of matched input-to-sink durations, not display presentation latency. */
+    double latencySeconds{0};
+    /** Monotonic clock reading in seconds; subtract readings to measure elapsed time. */
+    double nowSec{0};
+    double processCpuSeconds{0};
+    bool processCpuAvailable{false};
+    uint64_t renderedFrames{0};
+    uint64_t droppedFrames{0};
+    bool sinkStatsAvailable{false};
+    std::string endpoint;
+    std::string configuration;
+};
 
 namespace detail {
 struct PerformanceMetricsState;
@@ -33,7 +58,7 @@ using PerformanceMetricsStatePtr = std::unique_ptr<PerformanceMetricsState>;
 } // namespace detail
 
 /**
- * Process-wide hierarchical block timer for OPK instrumentation.
+ * Shared recorder for hierarchical operation timing and per-stream frame measurements.
  *
  * The default mode records aggregate timing only. Scope names are copied into a
  * fixed-size inline buffer, so callers may pass dynamic string_views without
@@ -56,6 +81,44 @@ class PerformanceMetrics {
     static constexpr std::size_t MaxSpanNameLength = 63;
 
     using SpanName = std::array<char, MaxSpanNameLength + 1>;
+
+    /**
+     * A recording handle for one frame stream. Calls may cross threads; each handle
+     * has independent counters and bounded timestamp matching. Destroying the last
+     * handle releases its measurements, without affecting other streams or scopes.
+     */
+    class FrameStream {
+      public:
+        ~FrameStream();
+        FrameStream(const FrameStream &) = delete;
+        FrameStream &operator=(const FrameStream &) = delete;
+
+        /** Count an input and update FPS. Only timestamped inputs can be matched to outputs. */
+        void input(const std::optional<uint64_t> timestamp = std::nullopt);
+        /** Match an output to its input; the first matched endpoint is retained. */
+        void output(const uint64_t timestamp, const std::string_view endpoint);
+        /** Count one inferred frame, separately from the number of inference calls/crops. */
+        void inference(const uint64_t calls);
+        /** Invalidate a measurement window on a stream discontinuity at the selected endpoint. */
+        void discontinuity(const std::string_view endpoint);
+        /** Invalidate windows when topology/settings change; release a removed endpoint. */
+        void configure(const std::string &configuration,
+                       const std::vector<std::string> &endpoints,
+                       const bool topologyChanged);
+        /** Accept sink statistics only for this stream's current generation and endpoint. */
+        void sinkStatistics(const PipelineSample &sample);
+        /** Cumulative counters and clock readings. CPU time covers the entire process. */
+        [[nodiscard]] PipelineSample snapshot() const;
+
+      private:
+        friend class PerformanceMetrics;
+        FrameStream(const uint64_t id, const std::string_view name);
+        struct State;
+        std::unique_ptr<State> state;
+    };
+
+    /** Start an independently identified stream, even when another stream has the same name. */
+    [[nodiscard]] std::shared_ptr<FrameStream> frameStream(const std::string_view name);
 
     /**
      * One completed historical scope lifetime.
@@ -156,12 +219,15 @@ class PerformanceMetrics {
     /**
      * Point-in-time copy safe to read outside the recorder.
      *
-     * aggregateSnapshot() fills metrics only. snapshot() also includes completed
+     * aggregateSnapshot() fills metrics and active streams. snapshot() also includes completed
      * historical spans when history capture has been enabled.
      */
     struct Snapshot {
         /** Hierarchical aggregate metrics collected across thread slots. */
         std::vector<MetricRecord> metrics;
+
+        /** Active frame streams, identified independently of their display names. */
+        std::vector<PipelineSample> streams;
 
         /** Completed historical spans copied from per-thread history buffers. */
         std::vector<SpanRecord> spans;
@@ -299,6 +365,26 @@ class PerformanceMetrics {
 
     detail::PerformanceMetricsStatePtr state;
 };
+
+/** Measurements between two snapshots of the same stream, endpoint and generation. */
+struct PipelineIntervalMetrics {
+    double elapsedSeconds{0};
+    uint64_t inputFrames{0};
+    uint64_t outputFrames{0};
+    uint64_t inferredFrames{0};
+    uint64_t inferenceCalls{0};
+    uint64_t matchedFrames{0};
+    uint64_t skippedFrames{0};
+    double videoFps{0};
+    double inferenceFps{0};
+    double latencySeconds{0};
+    /** Process CPU seconds per wall second, not CPU usage attributable to this stream. */
+    std::optional<double> cpuUsage;
+};
+
+/** Reject discontinuities and regressing counters; prefer sink delivery counts when available. */
+[[nodiscard]] std::optional<PipelineIntervalMetrics>
+calculatePipelineIntervalMetrics(const PipelineSample &start, const PipelineSample &end);
 
 /** Timing statistics for one scope completed between two aggregate snapshots. */
 struct ScopeIntervalMetrics {

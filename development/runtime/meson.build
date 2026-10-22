@@ -18,6 +18,7 @@ runtime_include = include_directories('..')
 opk_runtime = shared_library(
   'opk-runtime',
   sources: [
+    'GstPipelineMetrics.cpp',
     'Logging.cpp',
     'OpChain.cpp',
     'PerformanceMetrics.cpp',

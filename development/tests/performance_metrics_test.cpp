@@ -287,6 +287,49 @@ TEST(PerformanceMetrics, AggregateOnlyRecordingRetainsCountsWithoutHistory) {
     auto &metrics = opk::perf::defaultPerformanceMetrics();
     metrics.setHistoryEnabled(false);
     const auto initialSpanCount = metrics.snapshot().spans.size();
+    auto frames{metrics.frameStream("aggregate-only")};
+    const auto otherFrames{metrics.frameStream("aggregate-only")};
+    constexpr uint64_t firstTimestamp{1};
+    constexpr uint64_t nextTimestamp{2};
+    constexpr uint64_t inferenceCallsPerFrame{3};
+    constexpr auto outputEndpoint{"sink"};
+    frames->input(firstTimestamp);
+    // Output can arrive on a different thread from inference/input.
+    std::jthread output{[&] { frames->output(firstTimestamp, outputEndpoint); }};
+    output.join();
+    const auto before{frames->snapshot()};
+    frames->input(nextTimestamp);
+    frames->inference(inferenceCallsPerFrame);
+    frames->output(nextTimestamp, outputEndpoint);
+    frames->output(nextTimestamp, "other-sink");
+    const auto after{frames->snapshot()};
+    const auto interval{opk::perf::calculatePipelineIntervalMetrics(before, after)};
+    ASSERT_TRUE(interval);
+    EXPECT_EQ(interval->inputFrames, 1U);
+    EXPECT_EQ(interval->outputFrames, 1U);
+    EXPECT_EQ(interval->matchedFrames, 1U);
+    EXPECT_EQ(interval->inferredFrames, 1U);
+    EXPECT_EQ(interval->inferenceCalls, inferenceCallsPerFrame);
+    EXPECT_GT(interval->videoFps, 0);
+    EXPECT_GT(after.inputFps, 0);
+    // Sink delivery counts take precedence over pad arrival counts.
+    auto sinkStart{before};
+    auto sinkEnd{after};
+    constexpr uint64_t initialRenderedFrames{100};
+    sinkStart.sinkStatsAvailable = true;
+    sinkEnd.sinkStatsAvailable = true;
+    sinkStart.renderedFrames = initialRenderedFrames;
+    sinkEnd.renderedFrames = initialRenderedFrames;
+    sinkEnd.droppedFrames = 1;
+    const auto sinkInterval{opk::perf::calculatePipelineIntervalMetrics(sinkStart, sinkEnd)};
+    ASSERT_TRUE(sinkInterval);
+    EXPECT_EQ(sinkInterval->videoFps, 0);
+    EXPECT_GT(sinkInterval->inferenceFps, 0);
+    frames->sinkStatistics(sinkEnd);
+    EXPECT_TRUE(frames->snapshot().sinkStatsAvailable);
+    EXPECT_EQ(frames->snapshot().renderedFrames, initialRenderedFrames);
+    EXPECT_EQ(otherFrames->snapshot().inputFrames, 0U);
+    EXPECT_FALSE(opk::perf::calculatePipelineIntervalMetrics(before, otherFrames->snapshot()));
 
     for (std::size_t iteration = 0; iteration < 2000; ++iteration) {
         auto scope = metrics.scope("aggregate-only");
@@ -297,6 +340,25 @@ TEST(PerformanceMetrics, AggregateOnlyRecordingRetainsCountsWithoutHistory) {
     const auto *metric = findMetric(snapshot, "aggregate-only");
     ASSERT_NE(metric, nullptr);
     EXPECT_EQ(metric->count, 2000U);
+    const auto recorded{std::ranges::find_if(
+        snapshot.streams, [&](const auto &stream) { return stream.streamId == after.streamId; })};
+    ASSERT_NE(recorded, snapshot.streams.end());
+    EXPECT_EQ(recorded->inferenceCalls, inferenceCallsPerFrame);
+    EXPECT_EQ(recorded->outputFrames, after.outputFrames);
+
+    frames->discontinuity(outputEndpoint);
+    const auto reset{frames->snapshot()};
+    EXPECT_GT(reset.generation, after.generation);
+    EXPECT_EQ(reset.inputFrames, 0U);
+    frames->sinkStatistics(sinkEnd);
+    EXPECT_FALSE(frames->snapshot().sinkStatsAvailable);
+    EXPECT_FALSE(opk::perf::calculatePipelineIntervalMetrics(after, reset));
+    frames->output(nextTimestamp, outputEndpoint);
+    EXPECT_EQ(frames->snapshot().matchedFrames, 0U);
+    frames.reset();
+    const auto released{metrics.aggregateSnapshot()};
+    EXPECT_TRUE(std::ranges::none_of(
+        released.streams, [&](const auto &stream) { return stream.streamId == after.streamId; }));
 }
 
 TEST(PerformanceMetrics, HistoryRecordsOnlyCompletedSpans) {
@@ -380,12 +442,15 @@ TEST(PerformanceMetrics, SnapshotWhileThreadsRecordIsSafe) {
 
         for (std::size_t index = 0; index < 8; ++index) {
             threads.emplace_back([&metrics, &start]() {
+                const auto frames{metrics.frameStream("threaded-frames")};
                 while (!start.load(std::memory_order_acquire)) {
                     std::this_thread::yield();
                 }
                 for (std::size_t iteration = 0; iteration < 500; ++iteration) {
                     auto outer = metrics.scope("outer");
                     auto inner = metrics.scope("inner");
+                    frames->input(iteration);
+                    frames->output(iteration, "sink");
                 }
             });
         }

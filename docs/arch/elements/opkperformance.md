@@ -24,7 +24,11 @@ limitations under the License.
 
 OPK uses `PerformanceMetrics` as its single C++ timing recorder. Ops record
 hierarchical scopes once; runtime APIs, CSV export, and `opkperformance` read
-the same process-wide data without resetting it.
+the same process-wide data without resetting it. Frame measurements also use this
+recorder: each OpChain has an independent stream for input/output counts,
+inferred frames, inference calls, FPS, and input-to-sink latency. GStreamer
+probes supply events and sink statistics; they do not own a second recorder.
+CPU usage is process-wide, not attributable to an individual stream.
 
 ## Data Flow
 
@@ -61,9 +65,9 @@ internal timing source changed.
 
 | Component | Capabilities | Consumers |
 | --- | --- | --- |
-| [`PerformanceMetrics`](../../../development/common/perf/PerformanceMetrics.h) | Hierarchical RAII scopes; bounded per-thread cumulative aggregates; concurrent snapshots; optional completed-span history; CSV export; overflow, drop, and name-truncation diagnostics. | The public [`runtime::PerformanceMetrics`](../../../development/runtime/PerformanceMetrics.h) facade, `pipeline-exec`, and `opkperformance`. |
+| [`PerformanceMetrics`](../../../development/common/perf/PerformanceMetrics.h) | Hierarchical RAII scopes; per-stream frame, FPS, and latency measurements; bounded per-thread cumulative aggregates; concurrent snapshots; optional completed-span history; CSV export; overflow, drop, and name-truncation diagnostics. | The public [`runtime::PerformanceMetrics`](../../../development/runtime/PerformanceMetrics.h) facade, `pipeline-exec`, `opkperformance`, and preprocessing calibration. |
 | `calculateScopeIntervalMetrics(intervalStartSnapshot, intervalEndSnapshot)` | Matches metrics by their complete root-to-scope name hierarchy and subtracts cumulative count and total duration. Returns only scopes completed between chronological snapshots, including completed-scope count, total duration, and average duration. | `opkperformance`. |
-| [`opkperformance`](../../../development/elements/opkperformance/opkperformance.cpp) | Calculates FPS, formats interval averages, and appends `PerformanceOverlayT` to `FrameResults`. | `opkosd` and the WebUI render the payload. |
+| [`opkperformance`](../../../development/elements/opkperformance/opkperformance.cpp) | Reads FPS from the shared recorder, formats interval averages, and appends `PerformanceOverlayT` to `FrameResults`. | `opkosd` and the WebUI render the payload. |
 
 The hierarchy is the dynamic nesting of named `OPK_PERF_SCOPE` instances. It
 distinguishes the same scope name beneath different parents; it is not a
@@ -96,7 +100,12 @@ scopes therefore disappear instead of leaving stale rows.
 - The interval baseline is element-local. Enabling or disabling `opkperformance` does
   not enable, disable, or reset process-wide recording.
 
-The interval is process-wide, matching the recorder's ownership model.
+Scope intervals remain process-wide. Overlay FPS measures arrival at
+`opkperformance`; calibration measures delivery at a reachable terminal sink.
+Both use `PerformanceMetrics`, and calibration works without `opkperformance`.
+Frame snapshots are isolated by stream identity; configuration changes and
+stream discontinuities invalidate calibration windows. Sink arrival does not
+measure browser presentation time.
 
 ## Controls
 

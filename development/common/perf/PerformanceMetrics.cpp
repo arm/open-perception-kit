@@ -17,11 +17,15 @@
 
 #include "perf/PerformanceMetrics.h"
 
+#include "opk/Tools.h"
+
 #include <algorithm>
 #include <array>
 #include <atomic>
-#include <chrono>
+#include <cmath>
 #include <cstdio>
+#include <ctime>
+#include <deque>
 #include <limits>
 #include <map>
 #include <memory>
@@ -66,12 +70,6 @@ struct ThreadFrame {
     std::uint32_t depth = 0;
 };
 
-std::uint64_t nowNs() noexcept {
-    const auto now = std::chrono::steady_clock::now().time_since_epoch();
-    return static_cast<std::uint64_t>(
-        std::chrono::duration_cast<std::chrono::nanoseconds>(now).count());
-}
-
 std::uint64_t currentThreadId() noexcept {
     return static_cast<std::uint64_t>(::syscall(SYS_gettid));
 }
@@ -111,6 +109,176 @@ void writeCsvEscapedName(std::FILE *file, std::string_view name) noexcept {
 }
 
 } // namespace
+
+struct PerformanceMetrics::FrameStream::State {
+    static constexpr size_t maximumPendingFrames{512};
+    static constexpr double maximumFrameAgeSeconds{10.0};
+    static constexpr double fpsNewSampleWeight{0.05};
+    mutable std::mutex mutex;
+    PipelineSample counters;
+    std::map<uint64_t, double> pending;
+    std::deque<std::pair<uint64_t, double>> order;
+    std::optional<uint64_t> lastInput;
+    std::optional<double> lastArrival;
+
+    void invalidate() {
+        ++counters.generation;
+        counters.inputFrames = 0;
+        counters.outputFrames = 0;
+        counters.inferredFrames = 0;
+        counters.inferenceCalls = 0;
+        counters.matchedFrames = 0;
+        counters.latencySeconds = 0;
+        counters.inputFps = 0;
+        counters.renderedFrames = 0;
+        counters.droppedFrames = 0;
+        counters.sinkStatsAvailable = false;
+        pending.clear();
+        order.clear();
+        lastInput.reset();
+        lastArrival.reset();
+    }
+};
+
+PerformanceMetrics::FrameStream::FrameStream(const uint64_t id, const std::string_view name)
+    : state{std::make_unique<State>()} {
+    state->counters.streamId = id;
+    state->counters.name = name;
+}
+
+PerformanceMetrics::FrameStream::~FrameStream() = default;
+
+void PerformanceMetrics::FrameStream::input(const std::optional<uint64_t> timestamp) {
+    const std::lock_guard lock{state->mutex};
+    const double now{Time::nowSec()};
+    if (timestamp && state->lastInput && *timestamp <= *state->lastInput)
+        state->invalidate();
+    if (state->lastArrival && now > *state->lastArrival) {
+        const double fps{1.0 / (now - *state->lastArrival)};
+        state->counters.inputFps =
+            state->counters.inputFps == 0
+                ? fps
+                : state->counters.inputFps * (1.0 - State::fpsNewSampleWeight) +
+                      fps * State::fpsNewSampleWeight;
+    }
+    state->lastArrival = now;
+    ++state->counters.inputFrames;
+    if (!timestamp)
+        return;
+    state->lastInput = timestamp;
+    while (!state->order.empty() &&
+           (state->order.size() >= State::maximumPendingFrames ||
+            now - state->order.front().second > State::maximumFrameAgeSeconds)) {
+        state->pending.erase(state->order.front().first);
+        state->order.pop_front();
+    }
+    state->pending[*timestamp] = now;
+    state->order.emplace_back(*timestamp, now);
+}
+
+void PerformanceMetrics::FrameStream::output(const uint64_t timestamp,
+                                             const std::string_view endpoint) {
+    const std::lock_guard lock{state->mutex};
+    const double now{Time::nowSec()};
+    const auto found{state->pending.find(timestamp)};
+    if (state->counters.endpoint.empty() && found != state->pending.end()) {
+        state->counters.endpoint = endpoint;
+        ++state->counters.generation;
+    }
+    if (state->counters.endpoint != endpoint)
+        return;
+    ++state->counters.outputFrames;
+    if (found != state->pending.end()) {
+        const double latency{now - found->second};
+        if (latency <= State::maximumFrameAgeSeconds) {
+            ++state->counters.matchedFrames;
+            state->counters.latencySeconds += latency;
+        }
+        state->pending.erase(found);
+    }
+}
+
+void PerformanceMetrics::FrameStream::inference(const uint64_t calls) {
+    if (calls == 0)
+        return;
+    const std::lock_guard lock{state->mutex};
+    ++state->counters.inferredFrames;
+    state->counters.inferenceCalls += calls;
+}
+
+void PerformanceMetrics::FrameStream::discontinuity(const std::string_view endpoint) {
+    const std::lock_guard lock{state->mutex};
+    if (state->counters.endpoint == endpoint)
+        state->invalidate();
+}
+
+void PerformanceMetrics::FrameStream::configure(const std::string &configuration,
+                                                const std::vector<std::string> &endpoints,
+                                                const bool topologyChanged) {
+    const std::lock_guard lock{state->mutex};
+    if (topologyChanged || configuration != state->counters.configuration)
+        state->invalidate();
+    if (std::ranges::find(endpoints, state->counters.endpoint) == endpoints.end())
+        state->counters.endpoint.clear();
+    state->counters.configuration = configuration;
+}
+
+void PerformanceMetrics::FrameStream::sinkStatistics(const PipelineSample &sample) {
+    const std::lock_guard lock{state->mutex};
+    if (sample.streamId != state->counters.streamId ||
+        sample.generation != state->counters.generation ||
+        sample.endpoint != state->counters.endpoint)
+        return;
+    state->counters.renderedFrames = sample.renderedFrames;
+    state->counters.droppedFrames = sample.droppedFrames;
+    state->counters.sinkStatsAvailable = sample.sinkStatsAvailable;
+}
+
+std::optional<PipelineIntervalMetrics> calculatePipelineIntervalMetrics(const PipelineSample &start,
+                                                                        const PipelineSample &end) {
+    if (start.streamId != end.streamId || start.generation != end.generation ||
+        start.endpoint != end.endpoint || start.configuration != end.configuration ||
+        end.nowSec <= start.nowSec || end.inputFrames < start.inputFrames ||
+        end.outputFrames < start.outputFrames || end.inferredFrames < start.inferredFrames ||
+        end.inferenceCalls < start.inferenceCalls || end.matchedFrames < start.matchedFrames ||
+        end.latencySeconds < start.latencySeconds ||
+        (start.sinkStatsAvailable && end.sinkStatsAvailable &&
+         (end.renderedFrames < start.renderedFrames || end.droppedFrames < start.droppedFrames)))
+        return std::nullopt;
+    PipelineIntervalMetrics result;
+    result.elapsedSeconds = end.nowSec - start.nowSec;
+    result.inputFrames = end.inputFrames - start.inputFrames;
+    result.outputFrames = end.outputFrames - start.outputFrames;
+    result.inferredFrames = end.inferredFrames - start.inferredFrames;
+    result.inferenceCalls = end.inferenceCalls - start.inferenceCalls;
+    result.matchedFrames = end.matchedFrames - start.matchedFrames;
+    result.skippedFrames =
+        result.inputFrames > result.inferredFrames ? result.inputFrames - result.inferredFrames : 0;
+    const auto delivered{start.sinkStatsAvailable && end.sinkStatsAvailable
+                             ? end.renderedFrames - start.renderedFrames
+                             : result.outputFrames};
+    result.videoFps = static_cast<double>(delivered) / result.elapsedSeconds;
+    result.inferenceFps = static_cast<double>(result.inferredFrames) / result.elapsedSeconds;
+    if (result.matchedFrames != 0)
+        result.latencySeconds =
+            (end.latencySeconds - start.latencySeconds) / static_cast<double>(result.matchedFrames);
+    const double cpuDelta{end.processCpuSeconds - start.processCpuSeconds};
+    if (start.processCpuAvailable && end.processCpuAvailable && std::isfinite(cpuDelta) &&
+        cpuDelta >= 0)
+        result.cpuUsage = cpuDelta / result.elapsedSeconds;
+    return result;
+}
+
+PipelineSample PerformanceMetrics::FrameStream::snapshot() const {
+    const std::lock_guard lock{state->mutex};
+    auto result{state->counters};
+    result.nowSec = Time::nowSec();
+    const std::clock_t cpu{std::clock()};
+    result.processCpuAvailable = cpu != static_cast<std::clock_t>(-1);
+    if (result.processCpuAvailable)
+        result.processCpuSeconds = static_cast<double>(cpu) / CLOCKS_PER_SEC;
+    return result;
+}
 
 namespace detail {
 
@@ -172,9 +340,21 @@ struct PerformanceMetricsState {
     std::array<PerformanceMetricsThreadSlot, MaxThreadSlots> slots;
     mutable std::mutex autoCsvMutex;
     std::string autoCsvPath;
+    mutable std::mutex streamsMutex;
+    uint64_t nextStreamId{0};
+    std::vector<std::weak_ptr<PerformanceMetrics::FrameStream>> streams;
 };
 
 } // namespace detail
+
+std::shared_ptr<PerformanceMetrics::FrameStream>
+PerformanceMetrics::frameStream(const std::string_view name) {
+    const std::lock_guard lock{state->streamsMutex};
+    std::erase_if(state->streams, [](const auto &stream) { return stream.expired(); });
+    const std::shared_ptr<FrameStream> stream{new FrameStream{state->nextStreamId++, name}};
+    state->streams.push_back(stream);
+    return stream;
+}
 
 namespace {
 
@@ -585,7 +765,7 @@ PerformanceMetrics::Scope PerformanceMetrics::scope(std::string_view name) noexc
                                 : InvalidSpanId;
         const auto parentSpanId =
             frame->depth == 0 ? InvalidSpanId : frame->stack[frame->depth - 1].spanId;
-        const auto startNs = nowNs();
+        const auto startNs = Time::nowNs();
         const auto depth = frame->depth;
 
         frame->stack[frame->depth] = StackEntry{metricIndex, spanId};
@@ -714,6 +894,13 @@ PerformanceMetrics::Snapshot PerformanceMetrics::aggregateSnapshot() const {
         metric.averageNs = metric.count == 0 ? 0 : metric.totalNs / metric.count;
     }
 
+    {
+        const std::lock_guard lock{state->streamsMutex};
+        for (const auto &entry : state->streams) {
+            if (const auto stream{entry.lock()})
+                snapshot.streams.push_back(stream->snapshot());
+        }
+    }
     snapshot.threadSlotOverflow = state->threadSlotOverflow.load(std::memory_order_acquire);
     return snapshot;
 }
@@ -765,7 +952,7 @@ void PerformanceMetrics::exitBlock(std::uint32_t slotIndex,
         return;
     }
 
-    const auto endNs = nowNs();
+    const auto endNs = Time::nowNs();
     if (endNs >= startNs) {
         updateMetric(slot, metricIndex, endNs - startNs);
     }
