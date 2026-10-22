@@ -1,0 +1,25 @@
+{
+  "linux": {
+    "aarch64": {
+      "name": "mlwl",
+      "version": "0.11.0",
+      "filename": "ai_ml_workload_library_for_vulkan-0.11.0-Linux_aarch64.tar.gz",
+      "url": "https://github.com/arm/ai-ml-workload-library-for-vulkan/releases/download/release/v0.11.0/ai_ml_workload_library_for_vulkan-0.11.0-Linux_aarch64.tar.gz",
+      "sha256": "c74e270389409dbc079de87aa0ada19c361963ae9776f2d570edb3c00e9411b5"
+    },
+    "x86_64": {
+      "name": "mlwl",
+      "version": "0.11.0",
+      "filename": "ai_ml_workload_library_for_vulkan-0.11.0-Linux_x86_64.tar.gz",
+      "url": "https://github.com/arm/ai-ml-workload-library-for-vulkan/releases/download/release/v0.11.0/ai_ml_workload_library_for_vulkan-0.11.0-Linux_x86_64.tar.gz",
+      "sha256": "d01abeae45df21ec4b92384ba63bd1ba7e8b0165d005963c971d72846a8f2317"
+    }
+  },
+  "headers": {
+    "name": "Vulkan-Headers",
+    "version": "vulkan-sdk-1.4.357.0",
+    "filename": "vulkan-sdk-1.4.357.0.tar.gz",
+    "url": "https://github.com/KhronosGroup/Vulkan-Headers/archive/refs/tags/vulkan-sdk-1.4.357.0.tar.gz",
+    "sha256": "e87dce08116151f6b6d7de6b6faf41498e87e6cf848ff16fa3bd5402190ad4a3"
+  }
+}

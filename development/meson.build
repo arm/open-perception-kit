@@ -273,6 +273,7 @@ subdir('examples')
 # Optional subdirs decision tree is inside the subdir
 executorchops = disabler()
 subdir('ops-executorch')
+subdir('ops-mlwl')
 
 if deb_package or demo_deb_package
   subdir('packaging')

@@ -127,6 +127,17 @@ standard_content_type_tests = executable(
   link_with : [common],
 )
 
+if mlwl_enabled
+  mlwl_tensor_tests = executable(
+    'mlwl_tensor_tests',
+    ['mlwl_tensor_test.cpp'],
+    include_directories : [common_include, include_directories('../ops-mlwl')],
+    dependencies : [gtest_main_dep, opk_deps, mlwl_dep, mlwl_vulkan_dep],
+    override_options : ['b_ndebug=true'],
+  )
+  test('mlwl_tensor_tests', mlwl_tensor_tests)
+endif
+
 if python_ops_enabled
   python_script_op_tests = executable(
     'python_script_op_tests',
