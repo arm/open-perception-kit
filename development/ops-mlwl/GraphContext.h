@@ -54,11 +54,19 @@ class GraphContext {
             else if (apiVersion < VK_API_VERSION_1_4)
                 continue;
 
-            const auto supported = candidate.getFeatures2<vk::PhysicalDeviceFeatures2,
-                                                          vk::PhysicalDeviceTensorFeaturesARM,
-                                                          vk::PhysicalDeviceDataGraphFeaturesARM,
-                                                          vk::PhysicalDeviceVulkan12Features,
-                                                          vk::PhysicalDeviceVulkan13Features>();
+            auto supported = candidate.getFeatures2<vk::PhysicalDeviceFeatures2,
+                                                    vk::PhysicalDeviceTensorFeaturesARM,
+                                                    vk::PhysicalDeviceDataGraphFeaturesARM,
+                                                    vk::PhysicalDeviceVulkan11Features,
+                                                    vk::PhysicalDeviceVulkan12Features,
+                                                    vk::PhysicalDeviceVulkan13Features,
+                                                    vk::PhysicalDeviceVulkan14Features,
+                                                    vk::PhysicalDeviceMaintenance5FeaturesKHR>();
+            // Core 1.4 and its maintenance5 alias cannot share a device feature chain.
+            if (apiVersion >= VK_API_VERSION_1_4)
+                supported.unlink<vk::PhysicalDeviceMaintenance5FeaturesKHR>();
+            else
+                supported.unlink<vk::PhysicalDeviceVulkan14Features>();
             if (!supported.get<vk::PhysicalDeviceTensorFeaturesARM>().tensors ||
                 !supported.get<vk::PhysicalDeviceTensorFeaturesARM>().shaderTensorAccess ||
                 !supported.get<vk::PhysicalDeviceDataGraphFeaturesARM>().dataGraph ||
@@ -67,24 +75,6 @@ class GraphContext {
                 !supported.get<vk::PhysicalDeviceVulkan12Features>().vulkanMemoryModel ||
                 !supported.get<vk::PhysicalDeviceVulkan13Features>().synchronization2)
                 continue;
-
-            vk::StructureChain<vk::PhysicalDeviceFeatures2,
-                               vk::PhysicalDeviceTensorFeaturesARM,
-                               vk::PhysicalDeviceDataGraphFeaturesARM,
-                               vk::PhysicalDeviceVulkan12Features,
-                               vk::PhysicalDeviceVulkan13Features>
-                enabled;
-            enabled.get<vk::PhysicalDeviceTensorFeaturesARM>().tensors = true;
-            enabled.get<vk::PhysicalDeviceTensorFeaturesARM>().shaderTensorAccess = true;
-            auto &graph = enabled.get<vk::PhysicalDeviceDataGraphFeaturesARM>();
-            graph.dataGraph = true;
-            graph.dataGraphShaderModule = true;
-            graph.dataGraphSpecializationConstants =
-                supported.get<vk::PhysicalDeviceDataGraphFeaturesARM>()
-                    .dataGraphSpecializationConstants;
-            enabled.get<vk::PhysicalDeviceVulkan12Features>().shaderInt8 = true;
-            enabled.get<vk::PhysicalDeviceVulkan12Features>().vulkanMemoryModel = true;
-            enabled.get<vk::PhysicalDeviceVulkan13Features>().synchronization2 = true;
 
             const auto families = candidate.getQueueFamilyProperties();
             for (uint32_t i = 0; i < families.size(); ++i) {
@@ -101,7 +91,7 @@ class GraphContext {
                                              {},
                                              extensions,
                                              nullptr,
-                                             &enabled.get<vk::PhysicalDeviceFeatures2>()));
+                                             &supported.get<vk::PhysicalDeviceFeatures2>()));
                     physicalDevice = candidate;
                     queueFamily = i;
                     queue = device.getQueue(i, 0);
