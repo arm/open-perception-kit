@@ -53,6 +53,7 @@ and check the built artifacts before publication.
 | [gitdb](https://github.com/gitpython-developers/gitdb) | [4.0.12](https://pypi.org/project/gitdb/4.0.12/) | BSD-3-Clause | PyPI |
 | [GitPython](https://github.com/gitpython-developers/GitPython) | [3.2.1](https://pypi.org/project/GitPython/3.2.1/) | BSD-3-Clause | PyPI |
 | [glslang](https://github.com/KhronosGroup/glslang) | [vulkan-sdk-1.4.357.0](https://github.com/KhronosGroup/glslang/tree/vulkan-sdk-1.4.357.0) | [BSD, MIT and bundled notices](https://github.com/KhronosGroup/glslang/blob/vulkan-sdk-1.4.357.0/LICENSE.txt) | Vulkan emulation dependency |
+| [glslang](https://github.com/KhronosGroup/glslang) | [Debian trixie, unpinned](https://packages.debian.org/trixie/glslang-tools) | [BSD-3-Clause and per-file terms, including MIT, Apache-2.0 and GPL-3.0 with Bison exception](https://github.com/KhronosGroup/glslang/blob/15.1.0/LICENSE.txt) | `glslang-tools`; build-time shader compiler |
 | [PyGObject](https://gitlab.gnome.org/GNOME/pygobject) | [3.50.0-4+b1](https://packages.debian.org/trixie/python3-gi) | LGPL-2.1-or-later AND MIT (selected files; [Debian copyright](https://metadata.ftp-master.debian.org/changelogs/main/p/pygobject/pygobject_3.50.0-4_copyright)) | Debian (Cairn image) |
 | [PyGObject](https://gitlab.gnome.org/GNOME/pygobject) | [3.58.1](https://pypi.org/project/PyGObject/3.58.1/) | LGPL-2.1-or-later AND [MIT (selected files)](https://github.com/GNOME/pygobject/blob/3.58.1/gi/pygi-property.c) | PyPI (build requirements) |
 | [GoogleTest](https://github.com/google/googletest) | [1.17.0](https://github.com/google/googletest/tree/v1.17.0) | BSD-3-Clause | Debian, Ubuntu |
@@ -82,6 +83,7 @@ and check the built artifacts before publication.
 | [markdown-it-py](https://github.com/executablebooks/markdown-it-py) | [4.2.0](https://pypi.org/project/markdown-it-py/4.2.0/) | MIT | PyPI |
 | [MarkupSafe](https://github.com/pallets/markupsafe) | [2.1.5](https://pypi.org/project/MarkupSafe/2.1.5/) | BSD-3-Clause | PyPI |
 | [mdurl](https://github.com/executablebooks/mdurl) | [0.1.2](https://pypi.org/project/mdurl/0.1.2/) | MIT | PyPI |
+| [Mesa Vulkan drivers](https://www.mesa3d.org/) | [Debian trixie, unpinned](https://packages.debian.org/trixie/mesa-vulkan-drivers) | [MIT and per-file terms](https://docs.mesa3d.org/license.html) | `mesa-vulkan-drivers`; development and runtime images |
 | [meson](https://github.com/mesonbuild/meson) | [1.12.1](https://pypi.org/project/meson/1.12.1/) | Apache-2.0 | PyPI |
 | [ML Workload Library for Vulkan](https://github.com/arm/ai-ml-workload-library-for-vulkan) | [03c9aa11](https://github.com/arm/ai-ml-workload-library-for-vulkan/tree/03c9aa11efa6d8dd65ae5f6097bf86a00c304ad9) | [Apache-2.0](https://github.com/arm/ai-ml-workload-library-for-vulkan/blob/03c9aa11efa6d8dd65ae5f6097bf86a00c304ad9/LICENSES/Apache-2.0.txt) | optional shared runtime |
 | [ML Emulation Layer for Vulkan](https://github.com/arm/ai-ml-emulation-layer-for-vulkan) | [67199c9f](https://github.com/arm/ai-ml-emulation-layer-for-vulkan/tree/67199c9fae2cee900d41d659937870fb478e7de9) | [Apache-2.0](https://github.com/arm/ai-ml-emulation-layer-for-vulkan/blob/67199c9fae2cee900d41d659937870fb478e7de9/LICENSES/Apache-2.0.txt) | MLWL development runtime |
@@ -129,6 +131,7 @@ and check the built artifacts before publication.
 | [semver](https://github.com/dtolnay/semver) | [1.0.28](https://docs.rs/crate/semver/1.0.28) | MIT OR Apache-2.0 | crates.io |
 | [shellingham](https://github.com/sarugaku/shellingham) | [1.5.4](https://pypi.org/project/shellingham/1.5.4/) | ISC | PyPI |
 | [smmap](https://github.com/gitpython-developers/smmap) | [5.0.3](https://pypi.org/project/smmap/5.0.3/) | BSD-3-Clause | PyPI |
+| [SPIR-V Tools](https://github.com/KhronosGroup/SPIRV-Tools) | [Debian trixie, unpinned](https://packages.debian.org/trixie/spirv-tools) | Apache-2.0 | `spirv-tools`; dependency of the shader compiler |
 | [stb](https://github.com/nothings/stb) | [20260802-snapshot-2c980bb5](https://github.com/nothings/stb/tree/2c980bb59875b0d32144a71867fbdebb2f77cd20) | MIT | GitHub |
 | [TartanLlama/expected](https://github.com/TartanLlama/expected) | [v1.3.1](https://github.com/TartanLlama/expected/tree/v1.3.1) | CC0-1.0 | GitHub |
 | [rich](https://github.com/Textualize/rich) | [15.0.0](https://pypi.org/project/rich/15.0.0/) | MIT | PyPI |
@@ -147,6 +150,8 @@ and check the built artifacts before publication.
 | [SPIRV-Cross](https://github.com/KhronosGroup/SPIRV-Cross) | [vulkan-sdk-1.4.357.0](https://github.com/KhronosGroup/SPIRV-Cross/tree/vulkan-sdk-1.4.357.0) | [Apache-2.0](https://github.com/KhronosGroup/SPIRV-Cross/blob/vulkan-sdk-1.4.357.0/LICENSE) | Vulkan emulation dependency |
 | [SPIRV-Headers](https://github.com/KhronosGroup/SPIRV-Headers) | [vulkan-sdk-1.4.357.0](https://github.com/KhronosGroup/SPIRV-Headers/tree/vulkan-sdk-1.4.357.0) | [MIT and bundled notices](https://github.com/KhronosGroup/SPIRV-Headers/blob/vulkan-sdk-1.4.357.0/LICENSE) | Vulkan emulation dependency |
 | [SPIRV-Tools](https://github.com/KhronosGroup/SPIRV-Tools) | [vulkan-sdk-1.4.357.0](https://github.com/KhronosGroup/SPIRV-Tools/tree/vulkan-sdk-1.4.357.0) | [Apache-2.0](https://github.com/KhronosGroup/SPIRV-Tools/blob/vulkan-sdk-1.4.357.0/LICENSE) | Vulkan emulation dependency |
+| [Vulkan C headers](https://github.com/KhronosGroup/Vulkan-Headers) | [Debian trixie, unpinned](https://packages.debian.org/trixie/libvulkan-dev) | [Apache-2.0](https://github.com/KhronosGroup/Vulkan-Headers/blob/v1.4.309/include/vulkan/vulkan_core.h) | `libvulkan-dev`; GPU preprocessing build headers |
+| [Vulkan Loader](https://github.com/KhronosGroup/Vulkan-Loader) | [Debian trixie, unpinned](https://packages.debian.org/trixie/libvulkan1) | Apache-2.0 and MIT (bundled files) | `libvulkan1`; system runtime library |
 | [WebSocket++](https://github.com/zaphoyd/websocketpp) | [0.8.2](https://github.com/zaphoyd/websocketpp/tree/0.8.2) | BSD-3-Clause | Debian |
 | [cpp-httplib](https://github.com/yhirose/cpp-httplib) | [0.56.0](https://github.com/yhirose/cpp-httplib/tree/v0.56.0) | MIT | GitHub |
 | [zipp](https://github.com/jaraco/zipp) | [3.21.0](https://pypi.org/project/zipp/3.21.0/) | MIT | PyPI |
@@ -159,3 +164,9 @@ file remains in the image at `/usr/share/doc/python3-gi/copyright` and whose
 LGPL text is at `/usr/share/common-licenses/LGPL-2`. The Python SDK permits
 `flatbuffers>=24.3.25,<26.0.0`; 24.3.25 is a lower bound, while 25.9.23 is
 the checked-in runtime pin.
+
+The Vulkan-related Debian packages above are resolved by apt; release images
+record installed versions in `/share/opk/licenses/debian-packages.tsv`.
+Their original notices remain in `/usr/share/doc/<package>/copyright`, with
+referenced licence texts in `/usr/share/common-licenses/`. The shader compiler
+and SPIR-V tools are build dependencies, not bundled in OPK runtime archives.
