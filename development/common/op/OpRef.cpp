@@ -25,6 +25,10 @@ using namespace opk::op;
 
 OpRef::OpRef() = default;
 
+opk::Result<std::string> OpRef::implementationFingerprint() const {
+    return Tools::DynamicLibraryFingerprint(dlHandle, "opk_create_op_instance");
+}
+
 void OpRef::destroyInstance() noexcept {
     // Destroy op first (may reference code/data in the library)
     if (op && destroyFn) {

@@ -64,6 +64,13 @@ struct Tools {
     static Result<void *> DynamicLibraryGetSymbolRaw(DynamicLibraryHandle handle,
                                                      const std::string &symbolName);
 
+    /// Hashes the loaded symbol's library file so cached choices expire after a rebuild.
+    static Result<std::string> DynamicLibraryFingerprint(const DynamicLibraryHandle handle,
+                                                         const std::string &symbolName);
+
+    /// Includes common preprocessing and selection code in the cache identity.
+    static Result<std::string> CoreImplementationFingerprint();
+
     /**
      * @brief Resolves a typed function pointer from a loaded shared library.
      * @tparam FuncPtr Function pointer type to cast the resolved symbol to.
