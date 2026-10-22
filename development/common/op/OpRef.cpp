@@ -74,10 +74,9 @@ opk::Result<void> OpRef::bind(const std::string &soName, const std::string &opNa
     reset();
 
     // Open library (Tools::DynamicLibraryOpen returns tl::optional / similar)
-    auto openResult = Tools::DynamicLibraryOpen(soName);
+    const auto openResult{Tools::DynamicLibraryOpen(soName)};
     if (!openResult.has_value()) {
-        return tl::unexpected(OPK_ERROR(opk::ErrorFlag::SystemFailure,
-                                        fmt::format("Cannot load library [{}]", soName)));
+        return tl::unexpected(openResult.error());
     }
 
     dlHandle = *openResult;

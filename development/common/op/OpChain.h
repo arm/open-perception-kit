@@ -27,6 +27,8 @@
 
 namespace opk::op {
 
+class ExecutionSelection;
+
 /**
  * @brief Container and executor for a chain of operations.
  *
@@ -41,8 +43,11 @@ class OpChain {
     std::string runtime;
     std::vector<opk::op::OpRef> opRefs;
     std::vector<opk::op::Op *> opPtrs;
+    std::unique_ptr<ExecutionSelection> executionSelection;
+    void clear();
 
   public:
+    OpChain();
     /// Releases shared allocations before unloading any operation library.
     ~OpChain();
 

@@ -22,6 +22,7 @@
 #include "opk/String.h"
 #include "tools.h"
 
+#include "op/ExecutionSelection.h"
 #include "op/Op.h"
 #include "op/OpChainDescriptor.h"
 #include "perf/PerformanceMetrics.h"
@@ -32,10 +33,21 @@
 #include <unordered_map>
 using namespace opk::op;
 
+OpChain::OpChain() = default;
+
 OpChain::~OpChain() {
+    clear();
+}
+
+void OpChain::clear() {
+    if (executionSelection)
+        executionSelection->destroyInstances();
     for (auto &reference : opRefs) {
         reference.destroyInstance();
     }
+    executionSelection.reset();
+    opPtrs.clear();
+    opRefs.clear();
 }
 
 const std::string &OpChain::getName() const {
@@ -137,6 +149,7 @@ opk::Result<void> OpChain::setupFromDescriptor(const opk::op::OpChainDescriptor 
     if (const auto validation = opk::config::validateOpChainSemantics(descriptor); !validation.ok())
         return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidOpChain, validation.toText()));
 
+    clear();
     name = descriptor.name;
     displayName = descriptor.displayName;
     task = descriptor.task;
@@ -185,6 +198,10 @@ opk::Result<void> OpChain::setupFromDescriptor(const opk::op::OpChainDescriptor 
         return tl::unexpected(std::move(chainBindResult.error()));
     }
 
+    executionSelection = std::make_unique<ExecutionSelection>();
+    if (const auto result = executionSelection->configure(descriptor, opPtrs); !result)
+        return result;
+
     opk::log::info("{}", opk::log::tools::enframe(this->toString(), "OpChain"));
     opk::log::notice("OpChain is valid\n");
 
@@ -225,6 +242,14 @@ opk::Result<void> OpChain::execute(opk::op::OpChainContext &opChainContext) {
     const auto metricName = name.empty() ? std::string("opchain") : fmt::format("opchain/{}", name);
     OPK_PERF_SCOPE(metricName);
 
+    if (executionSelection) {
+        const auto ready{executionSelection->prepareFrame()};
+        if (!ready)
+            return tl::unexpected(ready.error());
+        if (!*ready)
+            return {};
+    }
+
     size_t currentIndex = 0;
 
     auto firstWorkerIndexForLoop = [this](size_t index, size_t loopId) {
@@ -248,7 +273,8 @@ opk::Result<void> OpChain::execute(opk::op::OpChainContext &opChainContext) {
         Op *op = opPtrs[currentIndex];
         const size_t loopId = op->loopId;
 
-        auto result = op->process(opChainContext);
+        auto result{executionSelection ? executionSelection->process(*op, opChainContext)
+                                       : op->process(opChainContext)};
         if (!result) {
             return tl::unexpected(std::move(result.error()));
         }
