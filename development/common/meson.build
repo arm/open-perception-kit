@@ -39,6 +39,7 @@ common = shared_library(
     'op/OpChain.cpp',
     'op/OpChainContext.cpp',
     'op/OpChainDescriptor.cpp',
+    'op/ExecutionSelection.cpp',
 
     'perf/PerformanceMetrics.cpp',
 

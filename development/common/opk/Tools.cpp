@@ -17,7 +17,6 @@
 
 #include "Tools.h"
 
-#include "Log.h"
 #include "fmt/core.h"
 #include "opk/String.h"
 
@@ -72,11 +71,10 @@ Result<DynamicLibraryHandle> Tools::DynamicLibraryOpen(const std::string &name) 
         if (!err) {
             err = "unknown error";
         }
-        loadErrors += fmt::format("ERROR while loading library [{}]: {}\n", n, err);
+        loadErrors += fmt::format("Cannot load library [{}]: {}\n", n, err);
     }
 
     if (!handle) {
-        opk::log::error("{}", loadErrors);
         return tl::unexpected(OPK_ERROR(opk::ErrorFlag::SystemFailure, loadErrors));
     }
 
