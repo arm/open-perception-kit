@@ -40,17 +40,44 @@ micropipeline.
 - Metadata output: `FrameResultsMeta`
 - `copy-input`: copy video into CPU memory; default `false` preserves input DMA-BUFs
 
-The element maps system memory and linear, CPU-mappable DMA-BUFs through
-`gst_video_frame_map`, respecting plane offsets and strides. CPU preprocessing
-still fills separate model input tensors. The mapped buffer stays referenced
-until OpChain execution ends.
+The element retains input DMA-BUFs without mapping their pixels. CPU consumers
+map them on demand through `gst_video_frame_map`, respecting plane offsets and
+strides; the mapping is reused within that frame's OpChain execution. System
+memory is mapped when the frame enters the element. The input buffer stays
+referenced until execution ends.
 
 OPK accepts ordinary `video/x-raw` and explicit `video/x-raw(memory:DMABuf)`
 caps for these formats (`BGRA,RGB,I420,NV12,YUY2`). Explicit DMA-BUF caps require
 DMA-BUF-backed memory. `copy-input=true` negotiates ordinary system-memory output,
 including before `opksink` for WebRTC.
-`DMA_DRM`, tiled and non-mappable inputs remain unsupported; they require upstream
-conversion. Mapping failures stop the pipeline.
+`DMA_DRM` and tiled inputs remain unsupported; they require upstream conversion.
+CPU processing requires readable input memory; a failed CPU mapping stops the
+pipeline. GPU processing can import supported DMA-BUFs without a CPU mapping.
+
+## Execution Preferences
+
+The [OpChain execution settings](../../public/concepts/configuration-compatibility.md#migrating-existing-configurations)
+select `cpu` or `gpu`. An Op's setting overrides its chain stage default;
+omission inherits that default, then falls back to `cpu`. A `gpu` request fails
+if that Op cannot run on the GPU. Inference and postprocessing run on CPU.
+
+GPU image preprocessing supports fixed-shape, single-image RGB float32 tensors
+in CHW or HWC layout. It performs crop, resize, channel conversion, packing and
+normalization. Select `cpu` when the model, device or input buffer is unsupported.
+Execution settings remain fixed while the pipeline runs.
+
+Video storage and model input storage are separate. GPU preprocessing may import
+the original DMA-BUF or upload CPU-readable pixels. Its output tensor may be
+shared with CPU inference or copied back, depending on the driver and backend.
+The selection log distinguishes these transfers. Selecting `gpu` therefore does
+not guarantee zero-copy operation; forwarding the original video buffer does not
+imply that the inference tensor shares it.
+
+GPU support on Linux, Raspberry Pi Linux and Windows with WSL depends on exposed
+devices and driver import/mapping support. Native macOS currently uses CPU
+preprocessing; running a Linux container does not establish native macOS GPU
+support. To build without the optional GPU module, use
+`OPK_GPU_PREPROCESSING=disabled ./scripts/build.sh release false`.
 
 ## Lifecycle
 
@@ -133,7 +160,7 @@ For each active frame:
 
 1. Ensure `FrameResultsMeta` is attached, including on QoS-skipped frames.
 2. Evaluate the QoS and processing-latency skip policy.
-3. Map an executable frame into a `VideoFrame` view.
+3. Retain an executable frame as a `VideoFrame`, deferring DMA-BUF CPU mapping.
 4. Construct an `OpChainContext`.
 5. Add the frame as `videoFrames["pipelineVideoFrame"]`.
 6. Expose the frame's `FrameResults` envelope to Ops.
