@@ -25,7 +25,7 @@
 #define PACKAGE "opksrc"
 #endif
 
-GType gst_opk_src_get_type(void);
+GType gst_opk_src_get_type();
 #define GST_TYPE_OPK_SRC (gst_opk_src_get_type())
 
 G_DEFINE_TYPE(GstOpkSrc, gst_opk_src, GST_TYPE_BIN)

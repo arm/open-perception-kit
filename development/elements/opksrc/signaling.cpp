@@ -17,6 +17,7 @@
 
 #include "signaling.h"
 #include "opksrc.h"
+#include <system_error>
 
 #define GST_USE_UNSTABLE_API
 #include <gst/webrtc/webrtc.h>
@@ -58,7 +59,7 @@ invoke(GstElement *peer, const char *action, GstWebRTCSessionDescription *descri
     Promise promise(gst_promise_new_with_change_func(
                         [](GstPromise *, gpointer user_data) {
                             auto state = *static_cast<std::shared_ptr<PromiseResult> *>(user_data);
-                            std::lock_guard guard(state->mutex);
+                            std::scoped_lock guard(state->mutex);
                             state->completed = true;
                             state->changed.notify_all();
                         },
@@ -142,7 +143,7 @@ static bool supports_opus(const GstSDPMessage *sdp) {
         if (!end || *end || payload < 96 || payload > 127) {
             continue;
         }
-        GstCaps *caps = gst_sdp_media_get_caps_from_media(media, payload);
+        GstCaps *caps = gst_sdp_media_get_caps_from_media(media, static_cast<gint>(payload));
         bool opus = false;
         if (caps && !gst_caps_is_empty(caps)) {
             const auto *structure = gst_caps_get_structure(caps, 0);
@@ -259,7 +260,7 @@ struct OpkSrcSignaling::Impl {
             text.find('\0') != std::string::npos) {
             throw std::runtime_error("Invalid ICE candidate");
         }
-        g_signal_emit_by_name(source->webrtcbin, "add-ice-candidate", guint(0), text.c_str());
+        g_signal_emit_by_name(source->webrtcbin, "add-ice-candidate", 0u, text.c_str());
     }
 
     void message(const Handle &handle, const Server::message_ptr &incoming) {
@@ -300,28 +301,18 @@ struct OpkSrcSignaling::Impl {
             server->set_max_message_size(65536);
             server->set_open_handshake_timeout(2000);
             server->set_close_handshake_timeout(1000);
-            server->set_open_handler([this](Handle handle) { open(handle); });
-            server->set_close_handler([this](Handle handle) {
+            server->set_open_handler([this](const Handle &handle) { open(handle); });
+            server->set_close_handler([this](const Handle &handle) {
                 connections.erase(handle);
                 if (!stopping && session && same_handle(session->handle, handle)) {
                     cleanup();
                 }
             });
             server->set_message_handler(
-                [this](Handle handle, Server::message_ptr incoming) { message(handle, incoming); });
+                [this](const Handle &handle, const Server::message_ptr &incoming) { message(handle, incoming); });
             server->listen(source->ws_port);
             server->start_accept();
-            worker = std::thread([this] {
-                try {
-                    server->run();
-                } catch (const std::exception &error) {
-                    GST_ELEMENT_ERROR(source,
-                                      RESOURCE,
-                                      FAILED,
-                                      ("WebRTC signaling failed"),
-                                      ("%s", error.what()));
-                }
-            });
+            worker = std::thread([this] { run_worker(); });
             return true;
         } catch (const std::exception &error) {
             GST_WARNING_OBJECT(source, "Cannot start WebRTC signaling: %s", error.what());
@@ -330,24 +321,38 @@ struct OpkSrcSignaling::Impl {
         }
     }
 
+    void run_worker() {
+        try {
+            server->run();
+        } catch (const std::exception &error) {
+            GST_ELEMENT_ERROR(
+                source, RESOURCE, FAILED, ("WebRTC signaling failed"), ("%s", error.what()));
+        }
+    }
+
     void stop() {
-        stopping = true;
-        if (server) {
-            server->get_io_service().post([this] {
-                websocketpp::lib::error_code error;
-                server->stop_listening(error);
-                for (const auto &handle : connections) {
-                    server->close(handle, websocketpp::close::status::going_away, "", error);
+        try {
+            stopping = true;
+            if (server) {
+                server->get_io_service().post([this] {
+                    websocketpp::lib::error_code error;
+                    server->stop_listening(error);
+                    for (const auto &handle : connections) {
+                        server->close(handle, websocketpp::close::status::going_away, "", error);
+                    }
+                });
+                if (worker.joinable()) {
+                    worker.join();
+                } else {
+                    server->run();
                 }
-            });
-            if (worker.joinable()) {
-                worker.join();
-            } else {
-                server->run();
+                cleanup();
+                connections.clear();
+                server.reset();
             }
-            cleanup();
-            connections.clear();
-            server.reset();
+        } catch (std::system_error &e) {
+            GST_ELEMENT_ERROR(
+                source, RESOURCE, FAILED, ("Signaling could not stop clearly"), ("%s", e.what()));
         }
     }
 };
