@@ -19,6 +19,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <vector>
 
 #include "opk/AttributeMap.h"
@@ -140,6 +141,72 @@ TEST(YoloParser, RejectsMissingTensor) {
     opk::stdop::postproc::YoloParser parser;
 
     EXPECT_FALSE(parser.parse(input, output).has_value());
+}
+
+TEST(YoloParser, CornerClassScoresKeepsTwoStageTopKTiesAndLetterboxGeometry) {
+    opk::AttributeMap attrs;
+    attrs.set("outputFormat", "cornerClassScores");
+    attrs.set("maxDetections", std::int64_t{2});
+    attrs.set("normalizeOutputCoordinates", false);
+    attrs.set("applyNms", false);
+    std::vector<float> data{50, 50, 60, 60, .8f, .1f, 10, 20, 30, 40, .9f, .8f};
+    opk::TensorView tensor(data.data(),
+                           data.size() * sizeof(float),
+                           opk::Shape(1, 2, 6),
+                           opk::Dtype::Float32,
+                           1.0f,
+                           0.0f);
+    opk::TensorParser::Input input(attrs);
+    input.tensors[0] = &tensor;
+    input.inferenceInfo.image = {.width = 100,
+                                 .height = 80,
+                                 .modelWidth = 100,
+                                 .modelHeight = 100,
+                                 .letterboxTop = 10,
+                                 .letterboxBottom = 10};
+    open_perception_kit::FrameResults output;
+    opk::stdop::postproc::YoloParser parser;
+    ASSERT_TRUE(parser.parse(input, output).has_value());
+    const auto payload = output.get<open_perception_kit::metadata::BoxDetectionsT>();
+    ASSERT_TRUE(payload.has_value());
+    const auto &detections = payload.value().value().detections;
+    ASSERT_EQ(detections.size(), 2U);
+    EXPECT_EQ(detections[0]->class_id, 0);
+    EXPECT_EQ(detections[1]->class_id, 1);
+    EXPECT_FLOAT_EQ(detections[1]->confidence, .8f);
+    EXPECT_FLOAT_EQ(detections[1]->box->x, 10);
+    EXPECT_FLOAT_EQ(detections[1]->box->y, 10);
+    EXPECT_FLOAT_EQ(detections[1]->box->height, 20);
+    attrs.set("maxDetections", std::int64_t{0});
+    EXPECT_FALSE(parser.parse(input, output).has_value());
+}
+
+TEST(YoloParser, CornerClassScoresRejectsMalformedAndNonFiniteValues) {
+    opk::AttributeMap attrs;
+    attrs.set("outputFormat", "cornerClassScores");
+    std::vector<float> data{10, 20, 30, 40, .9f};
+    opk::TensorView tensor(data.data(),
+                           data.size() * sizeof(float),
+                           opk::Shape(1, 1, 5),
+                           opk::Dtype::Float32,
+                           1.0f,
+                           0.0f);
+    opk::TensorView shortTensor(
+        data.data(), 4 * sizeof(float), opk::Shape(1, 1, 4), opk::Dtype::Float32, 1.0f, 0.0f);
+    opk::TensorParser::Input input(attrs);
+    input.inferenceInfo.image = {
+        .width = 100, .height = 100, .modelWidth = 100, .modelHeight = 100};
+    open_perception_kit::FrameResults output;
+    opk::stdop::postproc::YoloParser parser;
+    input.tensors[0] = &shortTensor;
+    EXPECT_FALSE(parser.parse(input, output).has_value());
+    input.tensors[0] = &tensor;
+    data[4] = std::numeric_limits<float>::quiet_NaN();
+    EXPECT_FALSE(parser.parse(input, output).has_value());
+    data[4] = .9f;
+    data[0] = std::numeric_limits<float>::infinity();
+    EXPECT_FALSE(parser.parse(input, output).has_value());
+    EXPECT_EQ(output.count<open_perception_kit::metadata::BoxDetectionsT>(), 0U);
 }
 
 TEST(YoloParser, RejectsMalformedTensorShape) {
