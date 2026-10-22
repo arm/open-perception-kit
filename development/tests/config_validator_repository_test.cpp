@@ -128,8 +128,10 @@ TEST(ConfigValidator, CheckedInRepositoryIsValidAndCanonicalRoundTrips) {
     const auto report = opk::config::detail::validateRepository(OPK_REPOSITORY_ROOT);
 
     ASSERT_TRUE(report.ok()) << report.toText();
-    for (const auto *directory :
-         {"config/models", "config/opchains", "development/examples/byom-blazeface"}) {
+    for (const auto *directory : {"config/models",
+                                  "config/opchains",
+                                  "development/examples/byom-blazeface",
+                                  "development/examples/mlwl-classifier"}) {
         for (const auto &entry : std::filesystem::recursive_directory_iterator(
                  std::filesystem::path(OPK_REPOSITORY_ROOT) / directory)) {
             const auto &path = entry.path();

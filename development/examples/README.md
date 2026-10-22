@@ -36,3 +36,5 @@ stages their binaries into `tools/` beside `opk-menu`.
 - `byom-blazeface`: Python/config application sketch that brings a BlazeFace
   model through OPK model, OpChain, pipeline, Python postprocessing, and
   FrameResults packet consumption surfaces.
+- [mlwl-classifier](mlwl-classifier/README.md): template for your VGF classifier
+  using MLWL and OPK's image preprocessing and classification parser.

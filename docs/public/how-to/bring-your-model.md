@@ -38,6 +38,9 @@ The codebase currently supports these runtime/model combinations:
 
 - ONNX Runtime with `.onnx` models
 - ExecuTorch with `.pte` models
+- ML Workload Library (MLWL) with `.vgf` models, disabled by default.
+  Build instructions: `development/ops-mlwl/README.md`.
+  Classifier example: `development/examples/mlwl-classifier/`.
 
 These are the implementations currently available in the tree. The OpChain v1 extension contract is
 backend-independent: an exact `<library>/Inference` ID has one required `modelDescriptor` attribute,
@@ -64,7 +67,7 @@ At minimum, that folder should contain:
 For most users, these files are the main integration interface of the system. The default path is to describe the model with `model.json`, connect it with `opchain.json`, and let the existing runtime elements do the rest.
 
 For local development, the model file can live in the bind-mounted checkout.
-New `.onnx` and `.pte` files are ignored by Git and the Docker build
+New `.onnx`, `.pte` and `.vgf` files are ignored by Git and the Docker build
 context unless the repository explicitly allowlists them. To include a new
 published model in a container image, use `hfDownload` instead of relying on a
 new checked-in binary.

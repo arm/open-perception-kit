@@ -607,6 +607,8 @@ for arg in sys.argv:
             "config/models/**/*.hef",
             "config/models/**/*.onnx",
             "config/models/**/*.pte",
+            "config/models/**/*.vgf",
+            "config/models/**/*.vgf.part",
         ]
         rules = [
             line
@@ -615,8 +617,14 @@ for arg in sys.argv:
         ]
         self.assertEqual(rules, expected)
         dockerignore = (REPO_ROOT / ".dockerignore").read_text().splitlines()
-        for pattern in ("**/*.bin", "**/*.bin.part", "**/*.hef", "**/*.onnx", "**/*.pte", "**/*.onnx.part", "**/*.pte.part"):
+        for pattern in ("**/*.bin", "**/*.bin.part", "**/*.hef", "**/*.onnx", "**/*.pte", "**/*.vgf", "**/*.vgf.part", "**/*.onnx.part", "**/*.pte.part"):
             self.assertIn(pattern, dockerignore)
+        for suffix in (".vgf", ".vgf.part"):
+            result = subprocess.run(
+                ["git", "check-ignore", "--no-index", f"development/examples/mlwl-classifier/model{suffix}"],
+                cwd=REPO_ROOT, capture_output=True, check=False,
+            )
+            self.assertEqual(result.returncode, 0)
 
     def test_byom_generated_artifacts_are_excluded_from_docker_context(self) -> None:
         dockerignore = (REPO_ROOT / ".dockerignore").read_text().splitlines()

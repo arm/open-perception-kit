@@ -1,0 +1,29 @@
+{
+  "version": "1.0.0",
+  "name": "MLWL classifier",
+  "displayName": "MLWL classifier",
+  "task": "Image classification",
+  "runtime": "MLWL",
+  "description": "VGF inference with standard OPK image preprocessing and classification results.",
+  "ops": [
+    {
+      "id": "opk-std-ops/InferenceController",
+      "attributes": {}
+    },
+    {
+      "id": "opk-std-ops/GenericImagePreprocess",
+      "attributes": {
+        "inputImageTensorIndex": 0,
+        "inputImageSourceName": "pipelineVideoFrame"
+      }
+    },
+    {
+      "id": "opk-mlwl-ops/Inference",
+      "attributes": {"modelDescriptor": "model.json"}
+    },
+    {
+      "id": "opk-std-ops/GenericPostprocess",
+      "attributes": {"parser": "ImageNetClassificationParser"}
+    }
+  ]
+}
