@@ -67,7 +67,6 @@ struct Inference::State {
     std::unique_ptr<wl::Context> context;
     std::unique_ptr<wl::Session> session;
     std::vector<std::unique_ptr<MappedTensor>> inputs, outputs;
-    std::unique_ptr<wl::BindingSet> bindings;
     std::unique_ptr<wl::PreparedExecution> execution;
 };
 
@@ -145,13 +144,12 @@ opk::Result<void> Inference::setup(const opk::ModelDescriptor &descriptor) {
         candidate->session =
             std::make_unique<wl::Session>(*candidate->context, candidate->workload);
         candidate->session->configure();
-        candidate->bindings =
-            std::make_unique<wl::BindingSet>(candidate->session->createBindingSet());
+        auto bindings = candidate->session->createBindingSet();
         auto allocate = [&](const auto &resources, auto &tensors) {
             for (const auto resource : resources) {
                 auto tensor = std::make_unique<MappedTensor>(*candidate->context, resource);
-                candidate->bindings->bindTensor(
-                    resource, {tensor->allocation.handle(), tensor->allocation.memory()});
+                bindings.bindTensor(resource,
+                                    {tensor->allocation.handle(), tensor->allocation.memory()});
                 tensors.push_back(std::move(tensor));
             }
         };
@@ -166,8 +164,8 @@ opk::Result<void> Inference::setup(const opk::ModelDescriptor &descriptor) {
                         input.valueInputs.size() * sizeof(float));
         }
         allocate(outputResources, candidate->outputs);
-        candidate->execution = std::make_unique<wl::PreparedExecution>(
-            candidate->session->prepare(*candidate->bindings));
+        candidate->execution =
+            std::make_unique<wl::PreparedExecution>(candidate->session->prepare(bindings));
         state = std::move(candidate);
     } catch (const std::exception &error) {
         return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InferenceRtStartupError,
