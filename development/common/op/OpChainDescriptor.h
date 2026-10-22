@@ -26,6 +26,7 @@
 #include "opk/AttributeMap.h"
 #include "opk/Result.h"
 
+#include "op/ExecutionMode.h"
 #include "opk/JsonSchemas.h"
 
 #include <nlohmann/json.hpp>
@@ -75,6 +76,7 @@ struct OpChainDescriptor {
         AttributeMap
             attributes; ///< Configuration attributes passed to the operation's configure() method.
         std::string instanceId{}; ///< Optional stable identity for this operation instance.
+        std::optional<ExecutionMode> execution{}; ///< Overrides the chain's stage default.
     };
 
     std::string name;        ///< Internal name of the operation chain.
@@ -85,6 +87,7 @@ struct OpChainDescriptor {
 
     std::vector<Op> ops; ///< List of operations in the chain, in execution order.
     std::string version; ///< Preserved on serialization.
+    std::optional<ExecutionDefaults> execution{}; ///< Omitted stages default to Auto.
 
     /**
      * @brief Parses an OpChainDescriptor from a JSON string.
@@ -113,6 +116,42 @@ struct OpChainDescriptor {
 
 namespace opk::op {
 
+inline void to_json(nlohmann::json &j, const ExecutionMode mode) {
+    j = toString(mode);
+}
+
+inline void from_json(const nlohmann::json &j, ExecutionMode &mode) {
+    const auto value{j.get<std::string>()};
+    if (value == "auto")
+        mode = ExecutionMode::Auto;
+    else if (value == "cpu")
+        mode = ExecutionMode::Cpu;
+    else if (value == "gpu")
+        mode = ExecutionMode::Gpu;
+    else
+        throw std::invalid_argument("Execution must be auto, cpu or gpu");
+}
+
+inline void to_json(nlohmann::json &j, const ExecutionDefaults &execution) {
+    j = nlohmann::json::object();
+    if (execution.preprocessing)
+        j["preprocessing"] = *execution.preprocessing;
+    if (execution.inference)
+        j["inference"] = *execution.inference;
+    if (execution.postprocessing)
+        j["postprocessing"] = *execution.postprocessing;
+}
+
+inline void from_json(const nlohmann::json &j, ExecutionDefaults &execution) {
+    execution = {};
+    if (j.contains("preprocessing"))
+        execution.preprocessing = j.at("preprocessing").get<ExecutionMode>();
+    if (j.contains("inference"))
+        execution.inference = j.at("inference").get<ExecutionMode>();
+    if (j.contains("postprocessing"))
+        execution.postprocessing = j.at("postprocessing").get<ExecutionMode>();
+}
+
 // ---- Op ----
 
 inline void to_json(nlohmann::json &j, const OpChainDescriptor::Op &op) {
@@ -121,6 +160,8 @@ inline void to_json(nlohmann::json &j, const OpChainDescriptor::Op &op) {
         j["instanceId"] = op.instanceId;
     if (op.loopId.has_value())
         j["loopId"] = *op.loopId;
+    if (op.execution)
+        j["execution"] = *op.execution;
 }
 
 inline void from_json(const nlohmann::json &j, OpChainDescriptor::Op &op) {
@@ -133,6 +174,10 @@ inline void from_json(const nlohmann::json &j, OpChainDescriptor::Op &op) {
         op.loopId = j.at("loopId").get<std::size_t>();
     else
         op.loopId.reset();
+    if (j.contains("execution"))
+        op.execution = j.at("execution").get<ExecutionMode>();
+    else
+        op.execution.reset();
     if (j.contains("attributes"))
         j.at("attributes").get_to(op.attributes);
     else
@@ -152,6 +197,8 @@ inline void to_json(nlohmann::json &j, const OpChainDescriptor &desc) {
         j["task"] = desc.task;
     if (!desc.runtime.empty())
         j["runtime"] = desc.runtime;
+    if (desc.execution)
+        j["execution"] = *desc.execution;
 }
 
 inline void from_json(const nlohmann::json &j, OpChainDescriptor &desc) {
@@ -165,6 +212,10 @@ inline void from_json(const nlohmann::json &j, OpChainDescriptor &desc) {
         j.at("task").get_to(desc.task);
     if (j.contains("runtime"))
         j.at("runtime").get_to(desc.runtime);
+    if (j.contains("execution"))
+        desc.execution = j.at("execution").get<ExecutionDefaults>();
+    else
+        desc.execution.reset();
 }
 
 } // namespace opk::op

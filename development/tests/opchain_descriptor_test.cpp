@@ -102,11 +102,42 @@ TEST(OpChainDescriptor, PreservesCanonicalJsonAndAbsolutePaths) {
 
     ASSERT_TRUE(relative.has_value());
     EXPECT_EQ(relative->ops[0].attributes.getString("modelDescriptor"), "model.json");
+    EXPECT_EQ(nlohmann::json(*relative), descriptor("model.json"));
     ASSERT_TRUE(absoluteResult.has_value());
     EXPECT_EQ(absoluteResult->ops[0].attributes.getString("modelDescriptor"), absolute);
     ASSERT_TRUE(fileBacked.has_value());
     EXPECT_EQ(fileBacked->ops[0].attributes.getString("modelDescriptor"), absolute);
     std::filesystem::remove_all(directory.parent_path());
+
+    auto executionDocument = descriptor("model.json");
+    executionDocument["version"] = "1.1.0";
+    const auto omitted{opk::op::OpChainDescriptor::fromJson(executionDocument.dump())};
+    ASSERT_TRUE(omitted);
+    EXPECT_FALSE(omitted->execution);
+    EXPECT_FALSE(omitted->ops.front().execution);
+    EXPECT_EQ(nlohmann::json(*omitted), executionDocument);
+
+    executionDocument["execution"] = {{"preprocessing", "gpu"}, {"inference", "cpu"}};
+    executionDocument["ops"][0]["execution"] = "auto";
+    const auto configured{opk::op::OpChainDescriptor::fromJson(executionDocument.dump())};
+    ASSERT_TRUE(configured);
+    ASSERT_TRUE(configured->execution);
+    EXPECT_EQ(configured->execution->mode(opk::op::ExecutionStage::Preprocessing),
+              opk::op::ExecutionMode::Gpu);
+    EXPECT_EQ(configured->execution->mode(opk::op::ExecutionStage::Inference),
+              opk::op::ExecutionMode::Cpu);
+    EXPECT_EQ(configured->execution->mode(opk::op::ExecutionStage::Postprocessing),
+              opk::op::ExecutionMode::Auto);
+    EXPECT_EQ(configured->ops.front().execution, opk::op::ExecutionMode::Auto);
+    EXPECT_EQ(nlohmann::json(*configured), executionDocument);
+
+    executionDocument["execution"] = nlohmann::json::object();
+    executionDocument["ops"][0].erase("execution");
+    const auto empty{opk::op::OpChainDescriptor::fromJson(executionDocument.dump())};
+    ASSERT_TRUE(empty);
+    ASSERT_TRUE(empty->execution);
+    EXPECT_FALSE(empty->execution->preprocessing);
+    EXPECT_EQ(nlohmann::json(*empty), executionDocument);
 }
 
 TEST(OpChainDescriptor, RejectsUriModelDescriptor) {
@@ -239,6 +270,7 @@ TEST(OpChainDescriptor, SetupRejectsInvalidSemanticsBeforePluginBinding) {
         .task = {},
         .runtime = {},
         .ops = {{.id = "missing/CustomOp", .loopId = 1, .attributes = {}}},
+        .version = {},
     };
     opk::op::OpChain chain;
 
