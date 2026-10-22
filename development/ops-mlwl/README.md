@@ -1,18 +1,31 @@
-# ML Workload Library inference
+<!--
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+SPDX-License-Identifier: Apache-2.0
 
-`opk-mlwl-ops/Inference` loads a VGF model using the public ML Workload Library
-for Vulkan (MLWL). It implements OPK's existing `modelDescriptor` contract;
-preprocessing and postprocessing stay in the usual OpChain. No device names,
-board configuration, model conversion or alternative inference runtime are
-embedded in the plugin.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
+# MLWL inference
+
+`opk-mlwl-ops/Inference` runs VGF models through the ML Workload Library for
+Vulkan. Use `modelDescriptor` as with the other backends; preprocessing and
+postprocessing stay in the OpChain.
 
 ## Build
 
-The optional backend is disabled by default. It consumes the shared library from
-[MLWL 0.11.0](https://github.com/arm/ai-ml-workload-library-for-vulkan/releases/tag/release/v0.11.0)
-and Vulkan-Headers `vulkan-sdk-1.4.357.0`, matching that release's SDK manifest.
-Install their checksum-locked CMake packages into a new dependency prefix inside
-the OPK development container (Linux x86-64 or AArch64, Python 3.12+):
+The backend is disabled by default. In the OPK development container
+(Linux x86-64 or AArch64, Python 3.12+), install the pinned MLWL 0.11.0 and
+Vulkan headers into a new directory:
 
 ```sh
 python3 scripts/private/install-mlwl.py /path/to/sdk
@@ -22,42 +35,25 @@ OPK_MLWL=enabled ./scripts/build.sh debug true \
 meson test -C development/build-active --print-errorlogs
 ```
 
-The MLWL-facing targets use `NDEBUG` even in a debug OPK build: Vulkan-Hpp's
-dispatcher layout must match the published Release library and header version.
-Do not mix a different MLWL binary/header build into this prefix. The shared
-library must also be discoverable by the runtime loader when deploying the
-plugin. The Vulkan loader, driver and optional emulation layers belong to the
-execution environment, not OPK.
+Keep the installed library and headers together. The build sets `NDEBUG` for
+MLWL targets to match the release library's Vulkan-Hpp ABI, including in debug builds.
+At runtime, the loader must find the MLWL shared library and a compatible Vulkan driver.
 
-Release packaging does not yet stage MLWL's runtime and licences. A release
-configuration fails if MLWL is enabled (including `auto` when dependencies are
-found). Use `-Dmlwl=disabled` for releases or `-Drelease_package=false` for an
-MLWL development build.
+MLWL release packaging is not supported yet. Use `-Dmlwl=disabled` for release
+packages or `-Drelease_package=false` for MLWL development builds.
 
-## Contract
+## Models
 
-- `modelFile` points to a VGF file, resolved normally from its model descriptor.
-- Public inputs and outputs are contiguous, non-aliased Float16/Float32 tensors.
-  Descriptor order, shapes and types must match the workload's input/output
-  order. Unsupported resources fail during configuration.
-- Dynamic outputs, tensor feedback and unbound placeholder modules are not
-  supported. Model-specific decoding belongs in a downstream postprocessor.
-- Graph-only workloads use an OPK-owned Vulkan context with a DataGraph queue,
-  tensors, `shaderTensorAccess`, graph-module support, `shaderInt8`,
-  `vulkanMemoryModel` and `synchronization2`. These features are queried before
-  being enabled; a device missing any of them is skipped. Compute is not required.
-  Workloads containing compute executables use MLWL's default context requirements.
-  Selection is capability-based; there is no named-device filter or fallback to
-  another OPK backend. MLWL owns session configuration and execution in both cases.
-- Sessions, bindings and coherent tensor mappings are reused. Output views stay
-  valid until the next execution or teardown, as with other OPK backends.
-- Setup and execution errors propagate through OPK's normal error results.
-  A failed reconfiguration does not leave the previous model runnable.
+- Set `modelFile` to the VGF path, relative to the model descriptor.
+- Inputs and outputs must be contiguous, non-aliased Float16/Float32 tensors.
+  The descriptor's tensor order, shapes and types must match the workload.
+- Dynamic outputs, tensor feedback and unbound placeholder modules are unsupported.
+- Graph workloads need Vulkan DataGraph and tensor support. Compute workloads
+  use MLWL's default device requirements. There is no fallback to another backend.
 
-MLWL still labels its C++ API experimental. Execution is synchronous, like the
-current OPK OpChain. MLWL 0.11.0 has no cancellation/finite-timeout API: normal
-teardown follows completed execution; a hung driver is not made cancellable by
-this plugin. Do not destroy in-flight Vulkan resources to simulate cancellation.
+MLWL's C++ API is experimental. Execution is synchronous; MLWL 0.11.0 has no
+cancellation or timeout API.
 
-The small native test covers tensor layout validation without a Vulkan device.
-It does not prove successful device execution or pipeline integration.
+## Tests
+
+Meson tests check tensor layout bounds without a Vulkan device.
