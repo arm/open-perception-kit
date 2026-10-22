@@ -111,18 +111,11 @@ jobs:
       - name: Set up build environment
         if: &run_checks steps.changes.outcome == 'skipped' || steps.changes.outputs.relevant == 'true'
         uses: ./.github/actions/setup-build
-
-      - name: Install MLWL build dependencies
-        if: *run_checks
-        run: |
-          python3 scripts/private/install-mlwl.py "$RUNNER_TEMP/mlwl"
-          printf 'MLWorkloadLibraryForVulkan_DIR=%s/lib64/cmake/MLWorkloadLibraryForVulkan\nCMAKE_PREFIX_PATH=%s\nLD_LIBRARY_PATH=%s/lib64:%s\n' \
-            "$RUNNER_TEMP/mlwl" "$RUNNER_TEMP/mlwl" "$RUNNER_TEMP/mlwl" "$LD_LIBRARY_PATH" >> "$GITHUB_ENV"
+        with:
+          mlwl: 'true'
 
       - name: Build
         if: *run_checks
-        env:
-          OPK_MLWL: enabled
         run: ./scripts/build.sh release true
 
       - name: Install test dependencies
