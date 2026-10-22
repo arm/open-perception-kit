@@ -52,6 +52,9 @@ class OpRef {
     /// Destroys the instance while retaining its library for resources shared with other Ops.
     void destroyInstance() noexcept;
 
+    /// Identifies the loaded implementation for persistent execution-selection caches.
+    Result<std::string> implementationFingerprint() const;
+
     /**
      * @brief Binds an operation by loading its library and resolving creation functions.
      *

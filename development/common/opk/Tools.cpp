@@ -25,6 +25,7 @@
 #include <cmath>
 #include <cstdint>
 #include <dlfcn.h>
+#include <glib.h>
 #include <limits>
 #include <memory>
 #include <vector>
@@ -105,6 +106,43 @@ Result<void *> Tools::DynamicLibraryGetSymbolRaw(DynamicLibraryHandle handle,
     }
 
     return sym;
+}
+
+namespace {
+Result<std::string> libraryFingerprint(const void *const symbol) {
+    Dl_info library{};
+    if (dladdr(symbol, &library) == 0 || !library.dli_fname) {
+        return tl::unexpected(
+            OPK_ERROR(ErrorFlag::SystemFailure, "Cannot locate the loaded library file"));
+    }
+
+    GError *error{nullptr};
+    const std::unique_ptr<GMappedFile, decltype(&g_mapped_file_unref)> file{
+        g_mapped_file_new(library.dli_fname, false, &error), g_mapped_file_unref};
+    if (!file) {
+        const std::string message{error->message};
+        g_error_free(error);
+        return tl::unexpected(OPK_ERROR(ErrorFlag::FileOperationError, message));
+    }
+    const std::unique_ptr<gchar, decltype(&g_free)> digest{
+        g_compute_checksum_for_data(
+            G_CHECKSUM_SHA256,
+            reinterpret_cast<const guchar *>(g_mapped_file_get_contents(file.get())),
+            g_mapped_file_get_length(file.get())),
+        g_free};
+    return std::string{digest.get()};
+}
+} // namespace
+
+Result<std::string> Tools::DynamicLibraryFingerprint(const DynamicLibraryHandle handle,
+                                                     const std::string &symbolName) {
+    const auto symbol{DynamicLibraryGetSymbolRaw(handle, symbolName)};
+    return symbol ? libraryFingerprint(*symbol) : tl::unexpected(symbol.error());
+}
+
+Result<std::string> Tools::CoreImplementationFingerprint() {
+    static const char coreSymbol{0};
+    return libraryFingerprint(&coreSymbol);
 }
 
 uint64_t opk::nextObjectId() noexcept {
