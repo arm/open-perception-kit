@@ -92,7 +92,7 @@ the adjustment is committed (`change`), rather than rewriting saved images on ea
 Each editor starts from that overlay's saved selection, so cancelled choices do
 not carry into another overlay. The editor applies
 changes only when submitted; Cancel or Escape discards them. Background replacement
-draws before annotations; within each group, overlays draw in list order, with
+and semantic class maps draw before annotations; within each group, overlays draw in list order, with
 later entries on top. Adding overlapping features deliberately draws each one;
 they never implicitly change each other's settings.
 
@@ -115,6 +115,7 @@ multiple related payloads, and one payload can support multiple features.
 | Camera contact | `Classifications` with `cameraContact` semantics plus parent face geometry. A dashed ring denotes no contact; a solid ring denotes contact. |
 | Performance text | `PerformanceOverlay`: combined pipeline text, since the schema has no source provenance to separate producers. |
 | Background replacement | Full-frame `SegmentationMasks` with `segmentation` semantics and `backgroundReplacement` compositing: graded background opacity over the original video. |
+| Semantic segmentation | Full-frame `SemanticSegmentationMasks` with `semanticSegmentation` semantics: individually configurable class colors, visibility and opacity, with current-frame presence indicators. |
 
 `FrameContext` supplies video geometry rather than a selectable visualization.
 
@@ -239,6 +240,8 @@ semantic resolution, rendering, and optional default overrides.
 | `discover(catalog)` | Return compatible primary descriptors from the observed-source Map. Match semantic requirements as well as family, and support empty payloads. Also used for unique, one-time binding of waiting overlays. |
 | `resolve(index, selection, settings)` | Resolve current-frame inputs and relationships. Return `state`, `message`, `items`, and feature-specific resolved data. |
 | `render(target, resolved, settings)` | Draw resolved data. Target supplies canvas/context, video, mapper, shared layout state, time, and the owning overlay for resource caching. |
+| `legend(resolved, settings)` | Optional `{entries: [{id, label, color, present}], message}` for the expanded row. Uses displayed-frame results; controls retain their DOM nodes across frames. |
+| `classControls` | Optional native control descriptors for legend entries that also supply `enabled` and `opacity`. The feature validates per-ID overrides in `settings.classes`; presence and mask data are never saved. |
 
 The editor offers registered working features even before discovery. The host
 keeps unbound selections waiting; plugin resolvers receive selected sources.
@@ -246,8 +249,63 @@ The dispatcher knows only the plugin contract and overlay order. Feature-specifi
 resolver; reusable geometry/drawing belongs in `overlay-drawing.js`. A new plugin
 module can be imported into the registry without changing the editor or dispatcher.
 
-Semantic/instance/panoptic segmentation requires its own agreed class/instance and
-coordinate contracts; those meanings cannot be inferred from generic bitmap bytes.
+Instance/panoptic segmentation requires its own agreed rendering contract; those
+meanings cannot be inferred from generic bitmap bytes.
+
+## Semantic segmentation
+
+Choose **Semantic segmentation** and select its source, then adjust **Opacity**
+(initially 50%). Expand the row for the class list. Classes are discovered from
+the selected source's mask IDs, or restored from saved per-class preferences.
+Each compact row contains a visibility switch, numeric label such as **Class 7**,
+color picker, and opacity slider.
+Click a class name to enter a local display name (up to 80 characters), then press
+Enter or move focus away to save it. Clear the field to restore **Class 7**-style
+numeric labels. Names are saved per overlay and survive reloads; they never
+change the class IDs or incoming metadata. Spaces around a name are trimmed.
+**Reset labels** restores all names in that overlay to their numeric defaults,
+preserving colors, opacity, and visibility; the reset is saved immediately.
+Hover the name for its ID and **In frame** or **Not in frame** status. Controls
+retain class-specific accessible labels without visible field labels.
+Rows are ordered by ID. Observed rows stay available when temporarily absent,
+until the list is rebuilt; no complete model class inventory is assumed.
+
+Class opacity multiplies the master overlay opacity: 50% class opacity and 50%
+overlay opacity produce 25% effective opacity. Switching a class off makes its
+pixels transparent, revealing the original video (or overlays underneath).
+Class settings can be edited even while the model or overlay is disabled.
+Color/range adjustments preview immediately and save on `change`; switches save
+immediately. Incoming frames update presence without rebuilding the controls or
+interrupting keyboard focus. Preferences are independent for each overlay.
+
+The renderer has no dataset-specific class names or palettes. Metadata contains
+class IDs and a label-family identifier, but no class-name dictionary or colors.
+Default colors are generated deterministically from the numeric IDs; they convey
+neither class meaning nor confidence. `labelFamily` remains part of source
+identity but does not select a browser-side lookup table. Class names in ONNX
+model metadata are not currently carried in FrameResults. Previously saved
+per-class colors, visibility, and opacity still apply to their IDs.
+
+The payload defines no ignore/void sentinel: neither
+`0` nor `255` is implicitly transparent. This is a class map, not an RVM alpha mask.
+
+Rendering requires one tightly packed `Uint8` bitmap per selected source, with a
+nonzero parent ID resolving uniquely to a `FrameContext` video. Its dimensions
+must equal that uncropped video's original dimensions. Dimensions are bounded
+to 8192 per side and 16,777,216 pixels total. Missing parents, duplicate maps,
+unsupported types, invalid byte lengths, and oversized maps draw nothing and
+show a status. The native parser already removes model-input letterboxing;
+the browser scales with nearest-neighbor sampling into the contained video
+rectangle without applying that transform again.
+
+The mask and presence indicators use only metadata matched to the displayed video
+frame. Unmatched frames clear the mask and mark classes absent; independent live
+metadata only discovers sources. Colorized pixels are cached per overlay and
+invalidated when its mask or class styles change. Source, visibility, order,
+master opacity, and per-class names/visibility/color/opacity are saved; class maps and
+presence are transient. Existing opacity-only preferences load with default
+class styles. Instance masks and background-replacement masks remain separate
+features and cannot bind to a semantic overlay.
 
 ## Background replacement
 
@@ -312,6 +370,14 @@ disconnect notifications.
 Foundation tests use non-drawing fixture plugins. Tests under `tests/features/`
 exercise individual registered features, so feature commits remain independently
 testable.
+
+The semantic feature tests cover zero/unknown IDs, palette stability, malformed
+maps, parent geometry, source isolation, and cached colorization. The controlled
+Chromium test in `.github/scripts/quick-start-smoke/smoke.spec.js` checks actual
+canvas pixels at DPR 2, nearest-neighbor boundaries, display letterboxing,
+matched-frame clearing, per-class alpha/color, uninterrupted control focus, and
+saved opacity/visibility/class preferences. Run it through
+that directory's Playwright configuration with `--grep 'semantic class maps'`.
 
 In the browser, configure Tracked objects and toggle Boxes/Trails independently.
 Select a tracker through Bounding boxes and verify no trails draw. Add a separate

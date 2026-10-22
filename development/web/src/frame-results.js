@@ -24,6 +24,7 @@ import {ObjectTracksT} from '../../../generated/open_perception_kit/ts/dist/open
 import {PerformanceOverlayT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-overlay.js';
 import {PoseEstimationsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/pose-estimations.js';
 import {SegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/segmentation-masks.js';
+import {SemanticSegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/semantic-segmentation-masks.js';
 import {TrackTracesT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/track-traces.js';
 
 export const FRAME_RESULTS_ENCODING = 'perception-frame-results+base64';
@@ -232,6 +233,18 @@ export function decodeFrameResultsMessage(message) {
                 height: Number(item.bitmap?.height || 0),
                 valueType: text(item.bitmap?.valueType),
                 pixels: item.bitmap ? Uint8Array.from(item.bitmap.pixels) : undefined,
+            },
+        })), layers);
+
+    addPayloadLayers(envelope, SemanticSegmentationMasksT, 'SemanticSegmentationMasks', (payload) =>
+        payload.masks.map((item) => ({
+            type: 'SemanticSegmentationMask',
+            data: {
+                ...objectData(item?.object),
+                width: Number(item?.bitmap?.width || 0),
+                height: Number(item?.bitmap?.height || 0),
+                valueType: text(item?.bitmap?.valueType),
+                pixels: item?.bitmap ? Uint8Array.from(item.bitmap.pixels) : undefined,
             },
         })), layers);
 
