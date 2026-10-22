@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# PythonScript host packages for Python 3.13 on x86_64 or aarch64.
+# PythonScript host packages for Python @PYTHON_VERSION@ on x86_64 or aarch64.
 # The Open Perception Kit SDK wheel is supplied separately in the SDK ZIP.
-numpy==2.5.4
-flatbuffers==25.12.19
+numpy==@NUMPY_VERSION@
+flatbuffers==@FLATBUFFERS_VERSION@

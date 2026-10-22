@@ -97,12 +97,12 @@ export OPK_PYTHON_RUNTIME_VENV="$PWD/.venv-python-ops"
 ```
 
 The setup script reuses this environment and installs the versions recorded in
-the runtime and SDK descriptors. For manual installation, use
-`requirements/python-ops.txt`, also included in the archive as
-`share/opk/python/requirements.txt`:
+the runtime and SDK descriptors. For manual installation, use the archive's
+`share/opk/python/requirements.txt`, generated from those same descriptors:
 
 ```bash
-"$OPK_PYTHON_RUNTIME_VENV/bin/python" -m pip install -r requirements/python-ops.txt
+"$OPK_PYTHON_RUNTIME_VENV/bin/python" -m pip install \
+  -r /path/to/extracted-opk/share/opk/python/requirements.txt
 ```
 
 Install the Open Perception Kit SDK wheel separately from the bundled SDK ZIP.
