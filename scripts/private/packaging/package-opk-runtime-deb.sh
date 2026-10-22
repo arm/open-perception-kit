@@ -57,6 +57,7 @@ PYTHON_RUNTIME=""
 ONNX_RUNTIME=""
 ONNX_LICENSE_DIR=""
 EXECUTORCH_LICENSE_DIR=""
+MLWL_PREFIX=""
 FLATBUFFERS_SCHEMA_DIR=""
 VERSION=""
 REVISION=""
@@ -68,7 +69,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --build-dir | --meson | --repo-root | --installed-prefix | --installed-libdir | \
             --python-runtime | --onnx-runtime | --onnx-license-dir | \
-            --executorch-license-dir | --version | \
+            --executorch-license-dir | --mlwl-prefix | --version | \
             --flatbuffers-schema-dir | \
             --revision | --architecture | --multiarch | --output)
             [[ $# -ge 2 ]] || die "$1 requires a value"
@@ -164,6 +165,10 @@ private_libraries=(
     opk-python-ops.so
     opk-std-ops.so
 )
+if [[ -n "${MLWL_PREFIX}" ]]; then
+    MLWL_PREFIX="$(resolve_existing_directory "${MLWL_PREFIX}")"
+    private_libraries+=(opk-mlwl-ops.so)
+fi
 
 mkdir -p "${package_root}/DEBIAN" "${plugin_root}" "${private_root}"
 for library in "${plugins[@]}"; do
@@ -357,6 +362,24 @@ done
 install -m 0755 "${ONNX_RUNTIME}" "${private_root}/libonnxruntime.so.1.24.4"
 ln -s libonnxruntime.so.1.24.4 "${private_root}/libonnxruntime.so.1"
 
+if [[ -n "${MLWL_PREFIX}" ]]; then
+    python3 - "${REPO_ROOT}" "${MLWL_PREFIX}" "${private_root}" \
+        "${package_root}/usr/share/opk/licenses/mlwl" "${runtime_architecture}" << 'PYTHON'
+from pathlib import Path
+import shutil
+import sys
+
+repo, prefix, private, legal = map(Path, sys.argv[1:5])
+sys.path.insert(0, str(repo / "scripts/release"))
+import ReleaseTool
+
+for name in (ReleaseTool.MLWL_RUNTIME_LIBRARY, ReleaseTool.MLWL_RUNTIME_LIBRARY + ".provenance.json"):
+    shutil.copyfile(prefix / "lib64" / name, private / name)
+ReleaseTool.copy_legal_files(prefix / "share/doc/mlwl", legal, ReleaseTool.MLWL_LEGAL_NOTICES)
+ReleaseTool.validate_mlwl_runtime(private, repo, sys.argv[5])
+PYTHON
+fi
+
 onnx_legal_files=(
     LICENSE
     ThirdPartyNotices.txt
@@ -400,11 +423,8 @@ for binary in "${plugin_root}"/*.so; do
     readelf -dW "${binary}" | grep -Fq "[\$ORIGIN/../opk]" ||
         die "plugin RUNPATH does not contain \$ORIGIN/../opk: ${binary}"
 done
-for binary in "${private_root}"/*.so*; do
-    [[ -L "${binary}" ]] && continue
-    if [[ "$(basename "${binary}")" == libonnxruntime.so.1.24.4 ]]; then
-        continue
-    fi
+for library in "${private_libraries[@]}"; do
+    binary="${private_root}/${library}"
     readelf -dW "${binary}" | grep -Fq "[\$ORIGIN]" ||
         die "private library RUNPATH does not contain \$ORIGIN: ${binary}"
 done
@@ -458,6 +478,9 @@ runtime_depends=(
     python3.13
     python3-pip
 )
+if [[ -n "${MLWL_PREFIX}" ]]; then
+    runtime_depends+=(libvulkan1)
+fi
 for dependency in "${runtime_depends[@]}"; do
     shlibs_depends+=", ${dependency}"
 done

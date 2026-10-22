@@ -17,6 +17,7 @@
 """Install the pinned Linux MLWL library and matching Vulkan headers."""
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import platform
@@ -74,8 +75,20 @@ def main():
         subprocess.run(["cmake", "--install", str(headers_build)], check=True)
         shutil.copytree(
             headers_source / "LICENSES",
-            staging_dir / "share/doc/Vulkan-Headers/LICENSES",
+            staging_dir / "share/doc/mlwl/Vulkan-Headers/LICENSES",
         )
+        for notice in lock["notices"]:
+            acquire_artifact(LockedArtifact(**notice), staging_dir / "share/doc/mlwl" / notice["name"])
+        shutil.copyfile(
+            staging_dir / "lib64/ai-ml-workload-library.spdx.json",
+            staging_dir / "share/doc/mlwl/ai-ml-workload-library.spdx.json",
+        )
+        runtime = staging_dir / "lib64/libmlworkloadlib.so"
+        runtime.with_suffix(".so.provenance.json").write_text(json.dumps({
+            "archive_url": library.url,
+            "archive_sha256": library.sha256,
+            "library_sha256": hashlib.sha256(runtime.read_bytes()).hexdigest(),
+        }, indent=2) + "\n")
         staging_dir.rename(destination)
     print(f"Installed MLWL {library.version} and Vulkan-Headers in {destination}")
 
