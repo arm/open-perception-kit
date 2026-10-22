@@ -20,6 +20,7 @@ limitations under the License.
 Enable the [MLWL backend](../../../development/ops-mlwl/README.md) and place
 `yolo26n-320.vgf` beside `model.json`. Supply the VGF separately, then run this
 folder's `opchain.json` in an OPK pipeline.
+See the [conversion and validation recipe](../../../tools/model-preparation/yolo26n-320/README.md).
 
 - Input: FP32 RGB/NCHW `[1,3,320,320]`, scaled by `1/255`, with
   aspect-preserving letterboxing and RGB padding `114`.
