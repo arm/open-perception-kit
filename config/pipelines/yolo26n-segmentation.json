@@ -1,0 +1,15 @@
+{
+  "version": "1.0.0",
+  "description": "YOLO26n instance and semantic segmentation on bundled video, with instance segmentation enabled by default.",
+  "sourceInfo": "bundled video file",
+  "loop": true,
+  "pipeline": [
+    "filesrc location=\"${OPK_PROJECT_ROOT:-/work}/data/videos/GettyImages-1298072556.mov\" !",
+    "decodebin !",
+    "videoconvert !",
+    "video/x-raw,format=BGRA !",
+    "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/yolo26n-seg/opchain.json\" active=true !",
+    "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/yolo26n-sem/opchain.json\" active=false !",
+    "opksink name=sink"
+  ]
+}
