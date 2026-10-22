@@ -18,6 +18,7 @@
 #include "op/ExecutionSelection.h"
 
 #include "Log.h"
+#include "op/ExecutionCache.h"
 #include "op/ExecutionCalibration.h"
 #include "op/GpuPreprocess.h"
 #include "op/OpRef.h"
@@ -25,8 +26,11 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <filesystem>
 #include <future>
+#include <glib.h>
 #include <optional>
+#include <thread>
 #include <utility>
 
 namespace opk::op {
@@ -80,6 +84,7 @@ struct ExecutionSelection::State {
         std::future<Result<void>> preparation;
         std::string failure;
         std::string inputFailure;
+        std::string implementationFingerprint;
         bool ready{false};
 
         bool pending() const {
@@ -119,12 +124,17 @@ struct ExecutionSelection::State {
         std::string cpuFailure;
         std::string warning;
         bool transferReported{false};
+        std::optional<std::pair<bool, bool>> transfers;
     };
 
     std::vector<Op *> ops;
     std::vector<Preprocessor> preprocessors;
     std::optional<perf::PipelineSample> sample;
     std::unique_ptr<ExecutionCalibration> calibration;
+    ExecutionCache cache;
+    std::optional<ExecutionCalibration::Combination> cachedSelection;
+    std::string setupIdentity;
+    std::string cacheKey;
     uint64_t inferredFrames{0};
     uint64_t inferenceCalls{0};
     bool freshSample{false};
@@ -137,8 +147,39 @@ struct ExecutionSelection::State {
 
     void invalidateSelection() {
         calibration.reset();
+        cachedSelection.reset();
+        cacheKey.clear();
         selectedReady = false;
         selectionReported = false;
+    }
+
+    void rejectSelection() {
+        cache.discard(cacheKey);
+        invalidateSelection();
+    }
+
+    std::string currentCacheKey() const {
+        if (setupIdentity.empty() || !sample || sample->endpoint.empty())
+            return {};
+        nlohmann::json identity{{"setup", setupIdentity},
+                                {"pipeline", sample->configuration},
+                                {"inputs", nlohmann::json::array()}};
+        for (const auto &preprocessor : preprocessors) {
+            nlohmann::json input{{"layout", preprocessor.layout}};
+            if (preprocessor.requested != ExecutionMode::Cpu) {
+                const auto &shared{preprocessor.variants[sharedTensorVariant]};
+                const auto &candidate{shared.ready ? shared
+                                                   : preprocessor.variants[readbackTensorVariant]};
+                // An absent GPU must be probed again next startup, not recorded as a winner.
+                if (!candidate.ready || candidate.implementationFingerprint.empty())
+                    return {};
+                input["implementation"] = candidate.implementationFingerprint;
+                input["device"] =
+                    (*candidate.operation)->as<OpInterfaceGpuPreprocess>()->identity();
+            }
+            identity["inputs"].push_back(std::move(input));
+        }
+        return identity.dump();
     }
 
     void prepare(Preprocessor &preprocessor, const size_t variant) {
@@ -172,8 +213,15 @@ struct ExecutionSelection::State {
         }
         candidate.operation = std::move(operation);
         try {
-            candidate.preparation =
-                std::async(std::launch::async, [gpu] { return gpu->prepareDevice(); });
+            candidate.preparation = std::async(std::launch::async, [gpu, &candidate] {
+                const auto fingerprint{candidate.operation->implementationFingerprint()};
+                if (fingerprint)
+                    candidate.implementationFingerprint = *fingerprint;
+                else
+                    log::debug("Preprocessing cache disabled: {}\n",
+                               fingerprint.error().toString());
+                return gpu->prepareDevice();
+            });
         } catch (const std::exception &error) {
             candidate.failure = error.what();
         }
@@ -226,8 +274,46 @@ ExecutionSelection::ExecutionSelection() : state{std::make_unique<State>()} {}
 ExecutionSelection::~ExecutionSelection() = default;
 
 Result<void> ExecutionSelection::configure(const OpChainDescriptor &descriptor,
-                                           const std::vector<Op *> &ops) {
+                                           const std::vector<Op *> &ops,
+                                           const std::string &implementationFingerprint) {
     state->ops = ops;
+    if (!implementationFingerprint.empty()) {
+        nlohmann::json identity{{"chain", descriptor},
+                                {"implementation", implementationFingerprint},
+                                {"host", g_get_host_name()},
+                                {"cpuThreads", std::thread::hardware_concurrency()},
+                                {"models", nlohmann::json::array()}};
+        bool valid{true};
+        for (size_t index{0}; index < ops.size(); ++index) {
+            if (!ops[index]->as<OpInterfaceInference>())
+                continue;
+            const auto path{
+                descriptor.ops[index].attributes.getStringOrDefault("modelDescriptor", "")};
+            const auto model{ModelDescriptor::fromFile(path)};
+            if (!model) {
+                valid = false;
+                break;
+            }
+            std::error_code error;
+            const auto bytes{std::filesystem::file_size(model->modelFile, error)};
+            if (error) {
+                valid = false;
+                break;
+            }
+            const auto modified{std::filesystem::last_write_time(model->modelFile, error)};
+            if (error) {
+                valid = false;
+                break;
+            }
+            identity["models"].push_back({{"descriptor", *model},
+                                          {"bytes", bytes},
+                                          {"modified", modified.time_since_epoch().count()}});
+        }
+        if (valid)
+            state->setupIdentity = identity.dump();
+        else
+            log::debug("Preprocessing cache disabled: model file identity is unavailable.\n");
+    }
     const auto defaults{descriptor.execution.value_or(ExecutionDefaults{})};
     for (size_t index{0}; index < ops.size(); ++index) {
         auto &operation{*ops[index]};
@@ -278,6 +364,7 @@ void ExecutionSelection::completeFrame(const uint64_t inferenceCalls) {
 }
 
 Result<bool> ExecutionSelection::prepareFrame(const OpChainContext &context) {
+    state->cache.poll();
     if (state->preprocessors.empty())
         return true;
     const bool streaming{state->sample.has_value()};
@@ -334,15 +421,30 @@ Result<bool> ExecutionSelection::prepareFrame(const OpChainContext &context) {
     if (state->calibration && state->selectedReady && freshSample)
         state->calibration->observe(*state->sample, state->inferredFrames, state->inferenceCalls);
     for (;;) {
-        if (!state->calibration) {
+        if (!state->calibration && !state->cachedSelection) {
             auto choices{state->choices()};
             if (!choices)
                 return tl::unexpected(choices.error());
-            state->calibration = std::make_unique<ExecutionCalibration>(std::move(*choices));
+            state->cacheKey = state->currentCacheKey();
+            if (!state->cacheKey.empty())
+                state->cachedSelection = state->cache.load(state->cacheKey, choices->size());
+            if (state->cachedSelection) {
+                for (size_t index{0}; index < choices->size(); ++index) {
+                    if (std::ranges::find((*choices)[index], (*state->cachedSelection)[index]) ==
+                        (*choices)[index].end()) {
+                        state->cache.discard(state->cacheKey);
+                        state->cachedSelection.reset();
+                        break;
+                    }
+                }
+            }
+            if (!state->cachedSelection)
+                state->calibration = std::make_unique<ExecutionCalibration>(std::move(*choices));
         }
         bool rejected{false};
         bool pending{false};
-        const auto &combination{state->calibration->selected()};
+        const auto &combination{state->cachedSelection ? *state->cachedSelection
+                                                       : state->calibration->selected()};
         for (size_t index{0}; index < state->preprocessors.size(); ++index) {
             auto &preprocessor{state->preprocessors[index]};
             const auto selected{combination[index]};
@@ -368,11 +470,18 @@ Result<bool> ExecutionSelection::prepareFrame(const OpChainContext &context) {
             pending = pending || candidate.pending();
         }
         if (rejected) {
-            state->invalidateSelection();
+            state->rejectSelection();
             continue;
         }
         state->selectedReady = !pending;
-        if (state->calibration->finished() && !state->selectionReported) {
+        if (!pending && state->cachedSelection && !state->selectionReported) {
+            log::notice("Reusing measured preprocessing choice.\n");
+            state->selectionReported = true;
+        }
+        if (!pending && state->calibration && state->calibration->finished() &&
+            !state->selectionReported) {
+            if (state->calibration->measured() && !state->cacheKey.empty())
+                state->cache.save(state->cacheKey, state->calibration->selected());
             log::notice(
                 "Preprocessing calibration {} after {} inferred frames and {} inference calls.\n",
                 state->calibration->measured() ? "selected a measured path"
@@ -408,20 +517,23 @@ Result<OpSignal> ExecutionSelection::process(Op &operation, OpChainContext &cont
         } else {
             preprocessor.cpuFailure = result.error().toString();
         }
-        state->invalidateSelection();
+        state->rejectSelection();
         // Do not replay inference or reset stateful operations; choose again on the next frame.
         return OpSignal::AbortChain;
     }
-    if (!preprocessor.transferReported && *result == OpSignal::Continue) {
+    if (*result == OpSignal::Continue) {
         if (gpuSelected) {
             const auto *const info{
                 (*preprocessor.variants[variant].operation)->as<OpInterfaceGpuPreprocess>()};
-            log::notice("{}: GPU preprocessing on {}; source {}, tensor {}.\n",
-                        operation.instanceId,
-                        info->identity(),
-                        info->inputCopied() ? "uploaded" : "shared",
-                        info->tensorCopied() ? "copied" : "shared");
-        } else {
+            const std::pair transfers{info->inputCopied(), info->tensorCopied()};
+            if (!preprocessor.transferReported || preprocessor.transfers != transfers)
+                log::notice("{}: GPU preprocessing on {}; source {}, tensor {}.\n",
+                            operation.instanceId,
+                            info->identity(),
+                            transfers.first ? "uploaded" : "shared",
+                            transfers.second ? "copied" : "shared");
+            preprocessor.transfers = transfers;
+        } else if (!preprocessor.transferReported) {
             log::notice("{}: CPU preprocessing.\n", operation.instanceId);
         }
         preprocessor.transferReported = true;

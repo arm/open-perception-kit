@@ -33,7 +33,9 @@ class ExecutionSelection {
     ExecutionSelection(const ExecutionSelection &) = delete;
     ExecutionSelection &operator=(const ExecutionSelection &) = delete;
 
-    Result<void> configure(const OpChainDescriptor &descriptor, const std::vector<Op *> &ops);
+    Result<void> configure(const OpChainDescriptor &descriptor,
+                           const std::vector<Op *> &ops,
+                           const std::string &implementationFingerprint);
     /** Supplies whole-pipeline counters at streaming frame boundaries, not per crop. */
     void observePipeline(const perf::PipelineSample &sample);
     /** Counts a frame once regardless of how many inference calls its crops required. */
