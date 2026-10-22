@@ -100,7 +100,7 @@ class ImagePreprocessOp final : public op::Op, public op::OpInterfaceGpuPreproce
         const PixelRect destination{0, 0, width, height};
         const PixelRect inner{input.keepAspectRatio ? computeLetterboxInnerRect(crop, destination)
                                                     : destination};
-        const auto result{preprocessCrop(context, crop, inner, input)};
+        const auto result{preprocessCrop(context, frame, crop, inner, input)};
         if (!result)
             return tl::unexpected(result.error());
         context.inferenceImageCrops.pop_back();
@@ -168,19 +168,24 @@ class ImagePreprocessOp final : public op::Op, public op::OpInterfaceGpuPreproce
     }
 
     Result<void> preprocessCrop(op::OpChainContext &context,
+                                const mediaio::VideoFrame *const frame,
                                 const PixelRect &crop,
                                 const PixelRect &inner,
                                 const ModelInput &input) {
         try {
-            const auto *const source{context.getReadableVideoFrame(sourceName)};
-            if (!source)
-                return failure("GPU input cannot be mapped for upload");
-            gpu->upload(*source);
+            const bool inputWasCopied{!gpu->import(*frame)};
+            const auto *source{frame};
+            if (inputWasCopied) {
+                source = context.getReadableVideoFrame(sourceName);
+                if (!source)
+                    return failure("GPU input cannot be mapped for upload");
+                gpu->upload(*source);
+            }
             const auto data{gpu->run(*source, crop, inner, input)};
             const auto bound{bindInferenceTensor(data)};
             if (!bound)
                 return bound;
-            copiedInput = true;
+            copiedInput = inputWasCopied;
         } catch (const std::exception &error) {
             return failure(error.what());
         }

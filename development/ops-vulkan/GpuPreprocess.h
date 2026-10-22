@@ -34,6 +34,8 @@ class GpuPreprocess {
     GpuPreprocess(const GpuPreprocess &) = delete;
     GpuPreprocess &operator=(const GpuPreprocess &) = delete;
 
+    /** Import without CPU mapping. A false result allows the caller to obtain a readable view. */
+    bool import(const mediaio::VideoFrame &frame);
     /** Upload raw bytes only; image transformations remain in the compute shader. */
     void upload(const mediaio::VideoFrame &frame);
     /** Finish GPU access before returning the CPU-readable tensor. */

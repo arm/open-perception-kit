@@ -19,6 +19,9 @@
 #include "VulkanBuffer.h"
 #include "preprocess_push_spirv.h"
 #include "preprocess_spirv.h"
+#ifdef __linux__
+#include "LinuxImport.h"
+#endif
 
 #include <algorithm>
 #include <array>
@@ -218,6 +221,7 @@ struct GpuPreprocess::State {
     VkQueue queue{VK_NULL_HANDLE};
     uint32_t queueFamily{0};
     std::string deviceIdentity;
+    bool dmaImportSupported{false};
     bool usePushConstants{false};
     uint32_t workgroupSidePixels{fallbackWorkgroupSidePixels};
 
@@ -234,8 +238,10 @@ struct GpuPreprocess::State {
     VkCommandBuffer command{VK_NULL_HANDLE};
     VkFence completion{VK_NULL_HANDLE};
 
-    // Source image planes, uploaded into Vulkan buffers.
+    // Source image planes, uploaded or imported from DMA-BUFs.
     std::array<std::unique_ptr<VulkanBuffer>, maxSourcePlaneCount> planes;
+    std::array<uint32_t, maxSourcePlaneCount> offsets{};
+    bool imported{false};
 
     // Output tensor and optional CPU-readable copy.
     std::unique_ptr<VulkanBuffer> tensor;
@@ -392,6 +398,31 @@ struct GpuPreprocess::State {
                 "Vulkan device limits cannot support this tensor or preprocessing shader");
     }
 
+    std::vector<const char *> supportedDmaBufExtensions() const {
+        uint32_t extensionCount{0};
+        check(
+            vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, nullptr),
+            "Enumerate Vulkan extensions");
+        std::vector<VkExtensionProperties> extensions(extensionCount);
+        check(vkEnumerateDeviceExtensionProperties(
+                  physicalDevice, nullptr, &extensionCount, extensions.data()),
+              "Enumerate Vulkan extensions");
+        std::vector<const char *> enabled;
+#ifdef __linux__
+        const std::array importExtensions{VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME,
+                                          VK_EXT_EXTERNAL_MEMORY_DMA_BUF_EXTENSION_NAME,
+                                          VK_EXT_QUEUE_FAMILY_FOREIGN_EXTENSION_NAME};
+        const bool supported{std::ranges::all_of(importExtensions, [&](const char *const name) {
+            return std::ranges::any_of(extensions, [&](const auto &extension) {
+                return std::strcmp(name, extension.extensionName) == 0;
+            });
+        })};
+        if (supported)
+            enabled.assign(importExtensions.begin(), importExtensions.end());
+#endif
+        return enabled;
+    }
+
     void createDevice() {
         vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memoryProperties);
         deviceIdentity = fmt::format("vulkan/1/{}/{}/{}/{}/{}",
@@ -400,6 +431,8 @@ struct GpuPreprocess::State {
                                      properties.deviceName,
                                      properties.driverVersion,
                                      properties.apiVersion);
+        const auto enabled{supportedDmaBufExtensions()};
+        dmaImportSupported = !enabled.empty();
         const float priority{1.0F};
         VkDeviceQueueCreateInfo queueInfo{};
         queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
@@ -410,6 +443,8 @@ struct GpuPreprocess::State {
         deviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
         deviceInfo.queueCreateInfoCount = 1;
         deviceInfo.pQueueCreateInfos = &queueInfo;
+        deviceInfo.enabledExtensionCount = static_cast<uint32_t>(enabled.size());
+        deviceInfo.ppEnabledExtensionNames = enabled.data();
         check(vkCreateDevice(physicalDevice, &deviceInfo, nullptr, &device),
               "Create Vulkan device");
         vkGetDeviceQueue(device, queueFamily, 0, &queue);
@@ -595,6 +630,7 @@ struct GpuPreprocess::State {
         values.inner = rectangle(inner);
         for (size_t index{0}; index < frame.planeCount(); ++index) {
             values.strides[index] = frame.planes()[index].strideBytes();
+            values.offsets[index] = offsets[index];
         }
         values.mean = {input.mean.r, input.mean.g, input.mean.b, 0};
         values.inverseStd = {1.0F / std::max(input.std.r, minimumStandardDeviation),
@@ -685,6 +721,7 @@ struct GpuPreprocess::State {
         begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
         check(vkBeginCommandBuffer(command, &begin), "Begin GPU commands");
+        externalBarrier(true);
         if (usePushConstants)
             vkCmdPushConstants(
                 command, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(values), &values);
@@ -698,6 +735,7 @@ struct GpuPreprocess::State {
                                 0,
                                 nullptr);
         vkCmdDispatch(command, static_cast<uint32_t>(groupsX), static_cast<uint32_t>(groupsY), 1);
+        externalBarrier(false);
         recordTensorReadback();
         check(vkEndCommandBuffer(command), "End GPU commands");
     }
@@ -721,10 +759,42 @@ struct GpuPreprocess::State {
         }
     }
 
-    std::span<uint8_t> readableTensor() const {
+    std::span<uint8_t> readableTensor() {
         const auto *const output{readback ? readback.get() : tensor.get()};
         output->invalidate();
+        if (imported)
+            planes = {};
         return {output->mapped, tensorBytes};
+    }
+
+    void externalBarrier(const bool acquire) const {
+        if (!imported)
+            return;
+        std::vector<VkBufferMemoryBarrier> barriers;
+        for (const auto &plane : planes) {
+            if (!plane)
+                continue;
+            VkBufferMemoryBarrier barrier{};
+            barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+            barrier.srcQueueFamilyIndex = acquire ? VK_QUEUE_FAMILY_FOREIGN_EXT : queueFamily;
+            barrier.dstQueueFamilyIndex = acquire ? queueFamily : VK_QUEUE_FAMILY_FOREIGN_EXT;
+            barrier.srcAccessMask = acquire ? 0 : VK_ACCESS_SHADER_READ_BIT;
+            barrier.dstAccessMask = acquire ? VK_ACCESS_SHADER_READ_BIT : 0;
+            barrier.buffer = plane->buffer;
+            barrier.size = VK_WHOLE_SIZE;
+            barriers.push_back(barrier);
+        }
+        vkCmdPipelineBarrier(
+            command,
+            acquire ? VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT : VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            acquire ? VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT : VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+            0,
+            0,
+            nullptr,
+            static_cast<uint32_t>(barriers.size()),
+            barriers.data(),
+            0,
+            nullptr);
     }
 };
 
@@ -739,9 +809,40 @@ bool GpuPreprocess::tensorCopied() const {
     return state->readback != nullptr;
 }
 
+bool GpuPreprocess::import(const mediaio::VideoFrame &frame) {
+    require(state->usable, "Vulkan preprocessing device is unavailable after a submission failure");
+    if (!state->dmaImportSupported || frame.memoryType() != MemoryType::DmaBuf ||
+        frame.planes().empty())
+        return false;
+    validateFrame(frame);
+#ifdef __linux__
+    std::array<std::unique_ptr<VulkanBuffer>, maxSourcePlaneCount> importedPlanes;
+    for (size_t index{0}; index < frame.planeCount(); ++index) {
+        importedPlanes[index] = importDmaBuf(state->physicalDevice,
+                                             state->device,
+                                             frame.planes()[index],
+                                             state->properties.limits.maxStorageBufferRange);
+        if (!importedPlanes[index])
+            return false;
+    }
+    state->planes = std::move(importedPlanes);
+    state->offsets = {};
+    for (size_t index{0}; index < frame.planeCount(); ++index)
+        state->offsets[index] = static_cast<uint32_t>(frame.planes()[index].offset());
+    state->imported = true;
+    return true;
+#else
+    return false;
+#endif
+}
+
 void GpuPreprocess::upload(const mediaio::VideoFrame &frame) {
     require(state->usable, "Vulkan preprocessing device is unavailable after a submission failure");
     const auto planeSizes{validateFrame(frame)};
+    if (state->imported)
+        state->planes = {};
+    state->imported = false;
+    state->offsets = {};
     for (size_t index{0}; index < frame.planeCount(); ++index) {
         const auto &plane{frame.planes()[index]};
         require(plane.hasHostData(), "Vulkan upload requires readable host planes");
