@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-#pragma once
+#ifndef OPK_SILERO_VAD_PARSER_H
+#define OPK_SILERO_VAD_PARSER_H
 #include "opk/TensorParser.h"
 
 namespace opk::stdop::postproc {
@@ -37,3 +38,5 @@ struct SileroVadParser : public opk::TensorParser {
 };
 
 } // namespace opk::stdop::postproc
+
+#endif // OPK_SILERO_VAD_PARSER_H

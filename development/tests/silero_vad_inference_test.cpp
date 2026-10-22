@@ -52,9 +52,14 @@ TEST(SileroVadInference, FeedbackAndDiscontinuityReset) {
     EXPECT_TRUE(std::ranges::any_of(initialH, [](float x) { return x != 0; }));
     ctx.inferenceInfo.audio.discontinuity = false;
     ASSERT_TRUE(inference.process(ctx));
-    EXPECT_NE(std::memcmp(initialH.data(), inference.getTensorDataAddress(1), sizeof(initialH)), 0);
+    std::array<float, 256> currentH;
+    std::memcpy(currentH.data(), inference.getTensorDataAddress(1), sizeof(currentH));
+    EXPECT_NE(initialH, currentH);
     ctx.inferenceInfo.audio.discontinuity = true;
     ASSERT_TRUE(inference.process(ctx));
-    EXPECT_EQ(std::memcmp(initialH.data(), inference.getTensorDataAddress(1), sizeof(initialH)), 0);
-    EXPECT_EQ(std::memcmp(pcm.data(), inference.getTensorDataAddress(0), sizeof(pcm)), 0);
+    std::memcpy(currentH.data(), inference.getTensorDataAddress(1), sizeof(currentH));
+    EXPECT_EQ(initialH, currentH);
+    std::array<float, 576> currentPcm;
+    std::memcpy(currentPcm.data(), inference.getTensorDataAddress(0), sizeof(currentPcm));
+    EXPECT_EQ(pcm, currentPcm);
 }

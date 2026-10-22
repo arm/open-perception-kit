@@ -42,8 +42,8 @@ opk::Result<void> SileroVadParser::parse(const opk::TensorParser::Input &input,
     const auto releaseMs = input.attributes.getIntOrDefault("releaseMs", 50);
     if (!std::isfinite(thresholdOn) || !std::isfinite(thresholdOff) || thresholdOff < 0 ||
         thresholdOn > 1 || thresholdOff > thresholdOn || attackMs < 0 || releaseMs < 0 ||
-        uint64_t(attackMs) > std::numeric_limits<uint64_t>::max() / 16 ||
-        uint64_t(releaseMs) > std::numeric_limits<uint64_t>::max() / 16)
+        static_cast<uint64_t>(attackMs) > std::numeric_limits<uint64_t>::max() / 16 ||
+        static_cast<uint64_t>(releaseMs) > std::numeric_limits<uint64_t>::max() / 16)
         return invalid("SileroVadParser: invalid thresholds or attack/release duration");
     for (size_t i = 0; i < 1; ++i) {
         const auto value = tensor->get(i);
@@ -59,8 +59,8 @@ opk::Result<void> SileroVadParser::parse(const opk::TensorParser::Input &input,
          *audio.windowEndTimestampNs <= *audio.windowStartTimestampNs))
         return invalid("SileroVadParser requires ordered timestamps or an absent timestamp pair");
 
-    const uint64_t attackLimit = uint64_t(attackMs) * 16;
-    const uint64_t releaseLimit = uint64_t(releaseMs) * 16;
+    const uint64_t attackLimit = static_cast<uint64_t>(attackMs) * 16;
+    const uint64_t releaseLimit = static_cast<uint64_t>(releaseMs) * 16;
     const float probability = tensor->get(0);
     if (input.inferenceInfo.audio.discontinuity) {
         speechActive_ = false;
@@ -101,8 +101,8 @@ opk::Result<void> SileroVadParser::parse(const opk::TensorParser::Input &input,
     detection->window_start_sample = audio.windowStartSample;
     detection->window_end_sample = audio.windowEndSample;
     if (audio.windowStartTimestampNs) {
-        detection->window_start_ts_ns = *audio.windowStartTimestampNs;
-        detection->window_end_ts_ns = *audio.windowEndTimestampNs;
+        detection->window_start_ts_ns = audio.windowStartTimestampNs;
+        detection->window_end_ts_ns = audio.windowEndTimestampNs;
     }
     detection->discontinuity = input.inferenceInfo.audio.discontinuity;
     open_perception_kit::metadata::VoiceActivityDetectionsT payload;

@@ -18,6 +18,7 @@
 #include "op/Op.h"
 #include <cstring>
 #include <fstream>
+#include <limits>
 #include <memory>
 
 namespace {
@@ -32,10 +33,15 @@ class AudioWindowOp final : public opk::op::Op, public opk::op::OpInterfaceInfer
         opk::ModelInput input;
         input.dataKind = attributes.getBoolOrDefault("logmel", false) ? opk::DataKind::AudioLogMel
                                                                       : opk::DataKind::AudioPcm;
-        const int window = attributes.getIntOrDefault("window", 512);
+        const auto window = attributes.getIntOrDefault("window", 512);
+        const auto batch = attributes.getIntOrDefault("batch", 1);
+        if (window < std::numeric_limits<int>::min() || window > std::numeric_limits<int>::max() ||
+            batch < std::numeric_limits<int>::min() || batch > std::numeric_limits<int>::max())
+            return tl::unexpected(
+                OPK_ERROR(opk::ErrorFlag::InvalidData, "Audio test dimensions exceed int range"));
         input.shape.rank = 2;
-        input.shape.dims[0] = attributes.getIntOrDefault("batch", 1);
-        input.shape.dims[1] = window;
+        input.shape.dims[0] = static_cast<int>(batch);
+        input.shape.dims[1] = static_cast<int>(window);
         model_.inputs.push_back(input);
         return {};
     }

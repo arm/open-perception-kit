@@ -59,7 +59,10 @@ TEST(GenericAudioPreprocess, CopiesWrappedWindowAndPreservesTiming) {
     ASSERT_TRUE(ring.append(std::array<float, 4>{0, 1, 2, 3}));
     ASSERT_TRUE(ring.append(std::array<float, 3>{4, 5, 6}));
     opk::op::OpChainContext ctx;
-    ctx.pcmViews.emplace("pipelineAudioData", *ring.window(3, 4));
+    const auto window1 = ring.window(3, 4);
+    if (!window1.has_value())
+        FAIL() << "Expected window1 to contain a value";
+    ctx.pcmViews.emplace("pipelineAudioData", *window1);
     ctx.inferenceInfo.audio.hopSampleCount = 2;
     ctx.inferenceInfo.audio.windowStartTimestampNs = 0;
     ctx.inferenceInfo.audio.discontinuity = true;
@@ -83,9 +86,15 @@ TEST(GenericAudioPreprocess, RejectsMissingWrongSizeAndNullDestinationWithoutWri
     ASSERT_TRUE(ring.append(std::array<float, 5>{1, 2, 3, 4, 5}));
     ctx.pcmViews.emplace("pipelineAudioData", ring.view());
     EXPECT_FALSE(pre.process(ctx));
-    ctx.pcmViews.insert_or_assign("pipelineAudioData", *ring.latest(3));
+    const auto window2 = ring.latest(3);
+    if (!window2.has_value())
+        FAIL() << "Expected window2 to contain a value";
+    ctx.pcmViews.insert_or_assign("pipelineAudioData", *window2);
     EXPECT_FALSE(pre.process(ctx));
-    ctx.pcmViews.insert_or_assign("pipelineAudioData", *ring.latest(4));
+    const auto window3 = ring.latest(4);
+    if (!window3.has_value())
+        FAIL() << "Expected window3 to contain a value";
+    ctx.pcmViews.insert_or_assign("pipelineAudioData", *window3);
     inference.missing = true;
     EXPECT_FALSE(pre.process(ctx));
     EXPECT_EQ(inference.data, (std::array<float, 4>{}));
@@ -148,11 +157,17 @@ TEST(GenericAudioPreprocess, PrependsContextAndResetsAtDiscontinuity) {
     opk::op::OpChainContext ctx;
     ctx.inferenceInfo.audio.hopSampleCount = 3;
     ctx.inferenceInfo.audio.discontinuity = true;
-    ctx.pcmViews.emplace("pipelineAudioData", *ring.latest(3));
+    const auto window4 = ring.latest(3);
+    if (!window4.has_value())
+        FAIL() << "Expected window4 to contain a value";
+    ctx.pcmViews.emplace("pipelineAudioData", *window4);
     ASSERT_TRUE(pre.process(ctx));
     EXPECT_EQ(inference.data, (std::array<float, 4>{0, 1, 2, 3}));
     ASSERT_TRUE(ring.append(std::array<float, 3>{4, 5, 6}));
-    ctx.pcmViews.insert_or_assign("pipelineAudioData", *ring.latest(3));
+    const auto window5 = ring.latest(3);
+    if (!window5.has_value())
+        FAIL() << "Expected window5 to contain a value";
+    ctx.pcmViews.insert_or_assign("pipelineAudioData", *window5);
     ctx.inferenceInfo.audio.discontinuity = false;
     ASSERT_TRUE(pre.process(ctx));
     EXPECT_EQ(inference.data, (std::array<float, 4>{3, 4, 5, 6}));

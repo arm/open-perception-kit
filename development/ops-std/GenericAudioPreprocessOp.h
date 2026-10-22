@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-#pragma once
+#ifndef OPK_GENERIC_AUDIO_PREPROCESS_OP_H
+#define OPK_GENERIC_AUDIO_PREPROCESS_OP_H
 
 #include "op/Op.h"
 
@@ -47,3 +48,5 @@ class GenericAudioPreprocessOp : public opk::op::Op, public opk::op::OpInterface
 };
 
 } // namespace opk::stdop
+
+#endif // OPK_GENERIC_AUDIO_PREPROCESS_OP_H

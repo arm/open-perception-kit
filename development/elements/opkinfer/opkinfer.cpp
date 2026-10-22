@@ -44,7 +44,7 @@
 #include "mediaio/GstVideoFrame.h"
 
 struct GstOpkInferMembers {
-    opk::PcmRingBuffer pcmAudioBuffer{16000 * 60};
+    opk::PcmRingBuffer pcmAudioBuffer{size_t{16000} * 60};
     size_t audioWindowSamples = 0;
     size_t audioHopSamples = 0;
     uint64_t nextAudioPosition = 0;

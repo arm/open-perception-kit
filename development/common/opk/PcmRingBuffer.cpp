@@ -18,6 +18,7 @@
 #include "opk/PcmRingBuffer.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <cstring>
 #include <functional>
@@ -170,7 +171,8 @@ bool PcmRingBuffer::feed(std::span<const uint8_t> input,
                 break;
             }
             case AudioSampleType::S24: {
-                int32_t v = int32_t(p[0]) | (int32_t(p[1]) << 8) | (int32_t(p[2]) << 16);
+                int32_t v = static_cast<int32_t>(p[0]) | (static_cast<int32_t>(p[1]) << 8) |
+                            (static_cast<int32_t>(p[2]) << 16);
                 if (v & 0x800000)
                     v -= 0x1000000;
                 sum += v / 8388608.0;
@@ -218,7 +220,7 @@ bool PcmRingBuffer::append(std::span<const float> samples) {
         return false;
     if (!storage_.empty()) {
         // std::less provides a total pointer order even for unrelated allocations.
-        const std::less<const float *> less;
+        const std::less<> less;
         if (less(samples.data(), storage_.data() + capacity()) &&
             less(storage_.data(), samples.data() + samples.size()))
             return false;
@@ -260,7 +262,9 @@ uint64_t PcmRingBuffer::resamplingDelayNs() const {
 }
 
 PcmRingBuffer::View PcmRingBuffer::view() const {
-    return *window(beginPosition(), size_);
+    const auto retained = window(beginPosition(), size_);
+    assert(retained.has_value()); // The retained range is always a valid window.
+    return *retained;
 }
 
 std::optional<PcmRingBuffer::View> PcmRingBuffer::window(uint64_t begin, size_t count) const {
@@ -288,15 +292,17 @@ bool PcmRingBuffer::copyLatestPadded(std::span<float> destination) const {
         return false;
     if (destination.empty())
         return true;
-    const std::less<const float *> less;
+    const std::less<> less;
     if (less(destination.data(), storage_.data() + capacity()) &&
         less(storage_.data(), destination.data() + destination.size()))
         return false;
 
     const size_t available = std::min(destination.size(), size_);
     const size_t padding = destination.size() - available;
+    const auto retained = latest(available);
+    assert(retained.has_value()); // available never exceeds the retained sample count.
     std::fill_n(destination.begin(), padding, 0.0f);
-    return latest(available)->copyTo(destination.subspan(padding));
+    return retained->copyTo(destination.subspan(padding));
 }
 
 } // namespace opk

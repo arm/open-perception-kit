@@ -50,6 +50,11 @@ struct Fixture {
             [&](const auto &payload) { active = payload.detections[0]->speech_active; });
         input.inferenceInfo.audio.windowStartSample += input.inferenceInfo.audio.hopSampleCount;
         input.inferenceInfo.audio.windowEndSample += input.inferenceInfo.audio.hopSampleCount;
+        if (!input.inferenceInfo.audio.windowStartTimestampNs.has_value() ||
+            !input.inferenceInfo.audio.windowEndTimestampNs.has_value()) {
+            ADD_FAILURE() << "Fixture timestamps must be present when advancing audio";
+            return false;
+        }
         *input.inferenceInfo.audio.windowStartTimestampNs +=
             input.inferenceInfo.audio.hopSampleCount * 62500;
         *input.inferenceInfo.audio.windowEndTimestampNs +=
@@ -171,8 +176,10 @@ TEST(VoiceActivityDetections, EmptyPayloadAndOptionalLayerRoundTrip) {
     const auto bytes = open_perception_kit::serialize(results);
     open_perception_kit::FrameResults decoded{std::span<const uint8_t>(bytes)};
     const auto payload = decoded.get<Payload>();
-    ASSERT_TRUE(payload);
-    EXPECT_TRUE(payload.value().value().detections.empty());
-    EXPECT_FALSE(payload.value().value().layer);
+    if (!payload.has_value())
+        FAIL() << "Expected payload to contain a value";
+    const auto &decodedPayload = payload->value();
+    EXPECT_TRUE(decodedPayload.detections.empty());
+    EXPECT_FALSE(decodedPayload.layer);
 }
 } // namespace

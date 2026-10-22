@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-#pragma once
+#ifndef OPK_PCM_RING_BUFFER_H
+#define OPK_PCM_RING_BUFFER_H
 
 #include "opk/Types.h"
 
@@ -155,3 +156,5 @@ class PcmRingBuffer {
 };
 
 } // namespace opk
+
+#endif // OPK_PCM_RING_BUFFER_H

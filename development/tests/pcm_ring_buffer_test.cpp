@@ -16,6 +16,7 @@
  */
 
 #include "opk/PcmRingBuffer.h"
+#include <array>
 #include <cmath>
 #include <cstring>
 #include <deque>
@@ -82,13 +83,15 @@ TEST(PcmRingBuffer, ExposesOnlyReceivedSamplesAndCheckedWindows) {
     EXPECT_TRUE(ring.view().empty());
     EXPECT_TRUE(ring.latest(0));
     EXPECT_FALSE(ring.latest(1));
-    const float samples[] = {1, 2, 3};
+    const std::array<float, 3> samples = {1, 2, 3};
     ASSERT_TRUE(ring.append(samples));
     EXPECT_EQ(values(ring.view()), (std::vector<float>{1, 2, 3}));
     EXPECT_EQ(ring.beginPosition(), 0u);
     EXPECT_EQ(ring.endPosition(), 3u);
-    ASSERT_TRUE(ring.window(1, 2));
-    EXPECT_EQ(values(*ring.window(1, 2)), (std::vector<float>{2, 3}));
+    const auto window1 = ring.window(1, 2);
+    if (!window1.has_value())
+        FAIL() << "Expected window1 to contain a value";
+    EXPECT_EQ(values(*window1), (std::vector<float>{2, 3}));
     EXPECT_FALSE(ring.window(2, 2));
     EXPECT_FALSE(ring.window(4, 0));
     EXPECT_TRUE(ring.window(3, 0));
@@ -102,25 +105,31 @@ TEST(PcmRingBuffer, ExposesOnlyReceivedSamplesAndCheckedWindows) {
 
 TEST(PcmRingBuffer, WrapsAndRetainsTailOfOversizedWrites) {
     opk::PcmRingBuffer ring(4);
-    const float initial[] = {0, 1, 2};
-    const float next[] = {3, 4, 5};
+    const std::array<float, 3> initial = {0, 1, 2};
+    const std::array<float, 3> next = {3, 4, 5};
     ASSERT_TRUE(ring.append(initial));
     ASSERT_TRUE(ring.append(next));
     EXPECT_EQ(values(ring.view()), (std::vector<float>{2, 3, 4, 5}));
     EXPECT_FALSE(ring.view().second().empty());
     EXPECT_FALSE(ring.window(1, 1));
-    EXPECT_EQ(values(*ring.window(3, 2)), (std::vector<float>{3, 4}));
-    const float oversized[] = {6, 7, 8, 9, 10, 11, 12, 13, 14};
+    const auto window2 = ring.window(3, 2);
+    if (!window2.has_value())
+        FAIL() << "Expected window2 to contain a value";
+    EXPECT_EQ(values(*window2), (std::vector<float>{3, 4}));
+    const std::array<float, 9> oversized = {6, 7, 8, 9, 10, 11, 12, 13, 14};
     ASSERT_TRUE(ring.append(oversized));
     EXPECT_EQ(values(ring.view()), (std::vector<float>{11, 12, 13, 14}));
     EXPECT_EQ(ring.beginPosition(), 11u);
     EXPECT_EQ(ring.endPosition(), 15u);
-    EXPECT_EQ(values(*ring.latest(2)), (std::vector<float>{13, 14}));
+    const auto window3 = ring.latest(2);
+    if (!window3.has_value())
+        FAIL() << "Expected window3 to contain a value";
+    EXPECT_EQ(values(*window3), (std::vector<float>{13, 14}));
 }
 
 TEST(PcmRingBuffer, ClearZeroCapacityOverflowAndAliasingHaveExplicitBehavior) {
     opk::PcmRingBuffer zero(0);
-    const float samples[] = {1, 2};
+    const std::array<float, 2> samples = {1, 2};
     ASSERT_TRUE(zero.append(samples));
     EXPECT_TRUE(zero.empty());
     EXPECT_EQ(zero.beginPosition(), 2u);
@@ -145,6 +154,8 @@ TEST(PcmRingBuffer, ClearZeroCapacityOverflowAndAliasingHaveExplicitBehavior) {
 }
 
 TEST(PcmRingBuffer, MatchesReferenceHistoryAcrossRandomChunkBoundaries) {
+    // Fixed seed keeps randomized regression coverage reproducible.
+    // NOLINTNEXTLINE(bugprone-random-generator-seed)
     std::mt19937 random(12345);
     for (size_t capacity : {0u, 1u, 7u, 64u}) {
         opk::PcmRingBuffer ring(capacity);
@@ -165,7 +176,8 @@ TEST(PcmRingBuffer, MatchesReferenceHistoryAcrossRandomChunkBoundaries) {
             for (size_t offset = 0; offset <= reference.size(); ++offset) {
                 const size_t count = (reference.size() - offset) / 2;
                 auto window = ring.window(ring.beginPosition() + offset, count);
-                ASSERT_TRUE(window);
+                if (!window.has_value())
+                    FAIL() << "Expected window to contain a value";
                 EXPECT_EQ(values(*window),
                           std::vector<float>(reference.begin() + offset,
                                              reference.begin() + offset + count));
@@ -181,26 +193,26 @@ template <typename T> std::span<const uint8_t> bytesOf(std::span<const T> sample
 TEST(PcmRingBuffer, DecodesFormatsAndDownmixesWithoutResampling) {
     using Type = opk::AudioSampleType;
     opk::PcmRingBuffer ring(8);
-    const uint8_t u8[] = {0, 128, 128, 128, 255, 255};
+    const std::array<uint8_t, 6> u8 = {0, 128, 128, 128, 255, 255};
     ASSERT_TRUE(ring.feed(u8, Type::U8, 2, 16000));
     EXPECT_EQ(values(ring.view()), (std::vector<float>{-0.5f, 0, 127.0f / 128}));
     ring.clear();
-    const int16_t s16[] = {-32768, 0, 16384, 16384};
+    const std::array<int16_t, 4> s16 = {-32768, 0, 16384, 16384};
     // Deliberately unaligned source must work without typed pointer dereferences.
     std::vector<uint8_t> unaligned(sizeof(s16) + 1);
-    std::memcpy(unaligned.data() + 1, s16, sizeof(s16));
+    std::memcpy(unaligned.data() + 1, s16.data(), sizeof(s16));
     ASSERT_TRUE(ring.feed(std::span(unaligned).subspan(1), Type::S16, 2, 16000));
     EXPECT_EQ(values(ring.view()), (std::vector<float>{-0.5f, 0.5f}));
     ring.clear();
-    const uint8_t s24[] = {0, 0, 128, 0, 0, 64, 255, 255, 255};
+    const std::array<uint8_t, 9> s24 = {0, 0, 128, 0, 0, 64, 255, 255, 255};
     ASSERT_TRUE(ring.feed(s24, Type::S24, 1, 16000));
     EXPECT_EQ(values(ring.view()), (std::vector<float>{-1, 0.5f, -1.0f / 8388608}));
     ring.clear();
-    const int32_t s32[] = {std::numeric_limits<int32_t>::min(), 1073741824};
+    const std::array<int32_t, 2> s32 = {std::numeric_limits<int32_t>::min(), 1073741824};
     ASSERT_TRUE(ring.feed(bytesOf<int32_t>(s32), Type::S32, 1, 16000));
     EXPECT_EQ(values(ring.view()), (std::vector<float>{-1, 0.5f}));
     ring.clear();
-    const float f32[] = {-0.75f, 0.25f, 0.5f, 0.5f};
+    const std::array<float, 4> f32 = {-0.75f, 0.25f, 0.5f, 0.5f};
     ASSERT_TRUE(ring.feed(bytesOf<float>(f32), Type::F32, 2, 16000));
     EXPECT_EQ(values(ring.view()), (std::vector<float>{-0.25f, 0.5f}));
 }
@@ -208,14 +220,14 @@ TEST(PcmRingBuffer, DecodesFormatsAndDownmixesWithoutResampling) {
 TEST(PcmRingBuffer, RejectsInvalidFeedsWithoutChangingStream) {
     using Type = opk::AudioSampleType;
     opk::PcmRingBuffer ring(4);
-    const uint8_t pcm[] = {128, 192};
+    const std::array<uint8_t, 2> pcm = {128, 192};
     EXPECT_FALSE(ring.feed(pcm, Type::U8, 0, 16000));
     EXPECT_FALSE(ring.feed(pcm, Type::U8, 1, 0));
     EXPECT_FALSE(ring.feed(pcm, Type::U8, 1, 384001));
     EXPECT_FALSE(ring.feed(pcm, static_cast<Type>(99), 1, 16000));
     EXPECT_FALSE(ring.feed(pcm, Type::S24, 1, 16000));
     EXPECT_FALSE(ring.feed(pcm, Type::S32, std::numeric_limits<size_t>::max(), 16000));
-    const float invalid[] = {std::numeric_limits<float>::quiet_NaN()};
+    const std::array<float, 1> invalid = {std::numeric_limits<float>::quiet_NaN()};
     EXPECT_FALSE(ring.feed(bytesOf<float>(invalid), Type::F32, 1, 16000));
     ASSERT_TRUE(ring.feed(pcm, Type::U8, 1, 16000));
     EXPECT_FALSE(ring.feed(pcm, Type::U8, 1, 48000));
@@ -237,9 +249,12 @@ TEST(PcmRingBuffer, ResamplingIsIndependentOfChunkSizesAndResetDiscardsHistory) 
             input[i] = 0.6f * std::sin(2 * std::numbers::pi * 1000 * i / rate);
         opk::PcmRingBuffer whole(10000), chunks(10000);
         ASSERT_TRUE(whole.feed(bytesOf<float>(input), opk::AudioSampleType::F32, 1, rate));
+        // Fixed seed keeps chunk boundaries reproducible.
+        // NOLINTNEXTLINE(bugprone-random-generator-seed)
         std::mt19937 random(77);
         for (size_t offset = 0; offset < input.size();) {
-            const size_t count = std::min(input.size() - offset, size_t(1 + random() % 31));
+            const size_t count =
+                std::min(input.size() - offset, static_cast<size_t>(1 + random() % 31));
             ASSERT_TRUE(
                 chunks.feed(bytesOf<float>(std::span<const float>(input).subspan(offset, count)),
                             opk::AudioSampleType::F32,
