@@ -31,7 +31,9 @@ namespace opk::gles {
 /** Owns a hardware compute context and reusable tensor storage. */
 class GpuPreprocess {
   public:
-    GpuPreprocess(const size_t tensorBytes, const bool requestReadback);
+    GpuPreprocess(const size_t tensorBytes,
+                  const std::string &renderDevice,
+                  const bool requestReadback);
     ~GpuPreprocess();
     GpuPreprocess(const GpuPreprocess &) = delete;
     GpuPreprocess &operator=(const GpuPreprocess &) = delete;

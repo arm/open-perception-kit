@@ -34,7 +34,8 @@ class ImagePreprocessOp final : public op::Op, public op::OpInterfaceGpuPreproce
   public:
     Result<void> configure(const AttributeMap &attributes) override {
         for (const auto &[name, value] : attributes.raw()) {
-            if (name != "inputImageSourceName" && name != "inputImageTensorIndex") {
+            if (name != "inputImageSourceName" && name != "inputImageTensorIndex" &&
+                name != "renderDevice") {
                 return failure("Unknown GPU preprocessing attribute: " + name);
             }
             if (name == "inputImageTensorIndex" && (!value.isInt() || value.asInt() < 0)) {
@@ -46,6 +47,7 @@ class ImagePreprocessOp final : public op::Op, public op::OpInterfaceGpuPreproce
         }
         sourceName = attributes.getStringOrDefault("inputImageSourceName", "pipelineVideoFrame");
         tensorIndex = attributes.getIntOrDefault("inputImageTensorIndex", InvalidTensorIndex);
+        renderDevice = attributes.getStringOrDefault("renderDevice", "");
         return {};
     }
 
@@ -99,7 +101,7 @@ class ImagePreprocessOp final : public op::Op, public op::OpInterfaceGpuPreproce
             return failure("GPU preprocessing must be bound before device preparation");
         }
         try {
-            gpu = std::make_shared<GpuPreprocess>(tensorBytes, requestReadback);
+            gpu = std::make_shared<GpuPreprocess>(tensorBytes, renderDevice, requestReadback);
         } catch (const std::exception &error) {
             return failure(error.what());
         }
@@ -182,6 +184,7 @@ class ImagePreprocessOp final : public op::Op, public op::OpInterfaceGpuPreproce
         return tl::unexpected(OPK_ERROR(ErrorFlag::InvalidData, message));
     }
     std::string sourceName;
+    std::string renderDevice;
     size_t tensorIndex{InvalidTensorIndex};
     size_t tensorBytes{0};
     Model model;

@@ -41,7 +41,9 @@ apt-get install -y --no-install-recommends --download-only \
     -o "Dir::Cache::archives=${archives_dir}" \
     "libssl-dev:${architecture}" \
     "libfmt-dev:${architecture}" \
+    "libdrm-dev:${architecture}" \
     "libegl-dev:${architecture}" \
+    "libgbm-dev:${architecture}" \
     "libgles-dev:${architecture}" \
     "libfftw3-dev:${architecture}" \
     "libsoup-3.0-dev:${architecture}" \

@@ -16,6 +16,7 @@
  */
 
 #include "GpuPreprocess.h"
+#include "LinuxVideo.h"
 #include "Log.h"
 #include "PreprocessShader.h"
 
@@ -184,6 +185,7 @@ bool isSoftwareRenderer(std::string renderer) {
 } // namespace
 
 struct GpuPreprocess::State {
+    std::unique_ptr<LinuxDisplay> linuxDisplay;
     EGLDisplay display{EGL_NO_DISPLAY};
     EGLContext context{EGL_NO_CONTEXT};
     GLuint program{0};
@@ -222,8 +224,13 @@ struct GpuPreprocess::State {
         }
     }
 
-    void initialize(const size_t tensorBytes, const bool requestReadback) {
-        display = defaultDisplay();
+    void initialize(const size_t tensorBytes, const std::string &path, const bool requestReadback) {
+        if (path.empty()) {
+            display = defaultDisplay();
+        } else {
+            linuxDisplay = std::make_unique<LinuxDisplay>(path);
+            display = linuxDisplay->get();
+        }
         const char *const extensions{eglQueryString(display, EGL_EXTENSIONS)};
         require(hasExtension(extensions, "EGL_KHR_surfaceless_context"),
                 "EGL lacks surfaceless contexts");
@@ -298,9 +305,27 @@ struct GpuPreprocess::State {
     }
 };
 
-GpuPreprocess::GpuPreprocess(const size_t tensorBytes, const bool requestReadback)
-    : state(std::make_unique<State>()) {
-    state->initialize(tensorBytes, requestReadback);
+GpuPreprocess::GpuPreprocess(const size_t tensorBytes,
+                             const std::string &renderDevice,
+                             const bool requestReadback) {
+    std::vector<std::string> candidates{renderDevice.empty()
+                                            ? LinuxDisplay::renderDevices()
+                                            : std::vector<std::string>{renderDevice}};
+    if (renderDevice.empty()) {
+        candidates.emplace_back("");
+    }
+    std::string failure{"No hardware GPU is available"};
+    for (const auto &path : candidates) {
+        auto candidate{std::make_unique<State>()};
+        try {
+            candidate->initialize(tensorBytes, path, requestReadback);
+            state = std::move(candidate);
+            return;
+        } catch (const std::exception &error) {
+            failure = error.what();
+        }
+    }
+    throw std::runtime_error(failure);
 }
 
 GpuPreprocess::~GpuPreprocess() = default;
@@ -326,6 +351,7 @@ std::span<uint8_t> GpuPreprocess::run(op::OpChainContext &context,
                 crop.width <= frame.width() - crop.x && crop.height <= frame.height() - crop.y,
             "Image crop is outside the video frame");
     const CurrentContext current{state->display, state->context};
+    std::unique_ptr<ImportedVideo> imported;
     GpuWork work;
     SourceFormat sourceFormat{SourceFormat::Rgb};
     size_t expectedPlanes{1};
@@ -355,26 +381,30 @@ std::span<uint8_t> GpuPreprocess::run(op::OpChainContext &context,
         require(!plane.sync().hasAcquireFence() && !plane.sync().hasReleaseFence(),
                 "GPU preprocessing requires implicit source synchronization");
     }
-    state->uploaded = true;
+    imported = ImportedVideo::tryImport(frame, state->display);
+    state->uploaded = !imported;
     const mediaio::VideoFrame *readable{nullptr};
     constexpr size_t bgraBytesPerPixel{4};
     constexpr size_t rgbBytesPerPixel{3};
     constexpr size_t chromaPairBytes{2};
     constexpr uint32_t chromaSubsampling{2};
-    readable = context.getReadableVideoFrame(sourceName);
-    require(readable, "Cannot map the video for GPU upload");
-    for (size_t index = 0; index < expectedPlanes; ++index) {
-        const auto &plane = readable->planes()[index];
-        const auto width = index == 0 ? frame.width() : (frame.width() + 1) / chromaSubsampling;
-        const auto height = index == 0 ? frame.height() : (frame.height() + 1) / chromaSubsampling;
-        const size_t pixelBytes =
-            frame.format() == RawImagePixelFormat::Bgra  ? bgraBytesPerPixel
-            : frame.format() == RawImagePixelFormat::Rgb ? rgbBytesPerPixel
-            : frame.format() == RawImagePixelFormat::Yuy2 ||
-                    (frame.format() == RawImagePixelFormat::Nv12 && index == 1)
-                ? chromaPairBytes
-                : 1;
-        const size_t rowBytes = static_cast<size_t>(width) * pixelBytes;
+    if (imported) {
+        imported->bind();
+    } else {
+        readable = context.getReadableVideoFrame(sourceName);
+        require(readable, "Cannot map the video for GPU upload");
+    }
+    for (size_t index{0}; index < expectedPlanes; ++index) {
+        const auto &plane{state->uploaded ? readable->planes()[index] : frame.planes()[index]};
+        const auto width{index == 0 ? frame.width() : (frame.width() + 1) / chromaSubsampling};
+        const auto height{index == 0 ? frame.height() : (frame.height() + 1) / chromaSubsampling};
+        const size_t pixelBytes{frame.format() == RawImagePixelFormat::Bgra  ? bgraBytesPerPixel
+                                : frame.format() == RawImagePixelFormat::Rgb ? rgbBytesPerPixel
+                                : frame.format() == RawImagePixelFormat::Yuy2 ||
+                                        (frame.format() == RawImagePixelFormat::Nv12 && index == 1)
+                                    ? chromaPairBytes
+                                    : 1};
+        const size_t rowBytes{static_cast<size_t>(width) * pixelBytes};
         require(plane.strideBytes() >= rowBytes &&
                     plane.byteSize() >=
                         static_cast<size_t>(height - 1) * plane.strideBytes() + rowBytes,
@@ -382,70 +412,72 @@ std::span<uint8_t> GpuPreprocess::run(op::OpChainContext &context,
         require(frame.format() != RawImagePixelFormat::Yuy2 || frame.width() % chromaPairBytes == 0,
                 "YUY2 GPU input requires an even width");
         glActiveTexture(GL_TEXTURE0 + static_cast<GLenum>(index));
-        require(plane.data() && plane.canRead(), "Video plane is not CPU-readable");
-        auto &texture = state->uploadPlanes[index];
-        if (texture.texture == 0) {
-            glGenTextures(1, &texture.texture);
-        }
-        glBindTexture(GL_TEXTURE_2D, texture.texture);
-        const GLenum layout = pixelBytes == bgraBytesPerPixel  ? GL_RGBA
+        if (state->uploaded) {
+            require(plane.data() && plane.canRead(), "Video plane is not CPU-readable");
+            auto &texture{state->uploadPlanes[index]};
+            if (texture.texture == 0) {
+                glGenTextures(1, &texture.texture);
+            }
+            glBindTexture(GL_TEXTURE_2D, texture.texture);
+            const auto layout{pixelBytes == bgraBytesPerPixel  ? GL_RGBA
                               : pixelBytes == rgbBytesPerPixel ? GL_RGB
                               : pixelBytes == chromaPairBytes  ? GL_RG
-                                                               : GL_RED;
-        const GLint storage = pixelBytes == bgraBytesPerPixel  ? GL_RGBA8
-                              : pixelBytes == rgbBytesPerPixel ? GL_RGB8
-                              : pixelBytes == chromaPairBytes  ? GL_RG8
-                                                               : GL_R8;
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-        if (texture.width != width || texture.height != height || texture.storage != storage) {
-            glTexImage2D(GL_TEXTURE_2D,
-                         0,
-                         storage,
-                         static_cast<GLsizei>(width),
-                         static_cast<GLsizei>(height),
-                         0,
-                         layout,
-                         GL_UNSIGNED_BYTE,
-                         nullptr);
-            checkGl("Allocate upload texture");
-            texture.width = width;
-            texture.height = height;
-            texture.storage = storage;
-        }
-        if (plane.strideBytes() % pixelBytes == 0) {
-            glPixelStorei(GL_UNPACK_ROW_LENGTH,
-                          static_cast<GLint>(plane.strideBytes() / pixelBytes));
-            glTexSubImage2D(GL_TEXTURE_2D,
-                            0,
-                            0,
-                            0,
-                            static_cast<GLsizei>(width),
-                            static_cast<GLsizei>(height),
-                            layout,
-                            GL_UNSIGNED_BYTE,
-                            plane.data());
-            glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-        } else {
-            const auto *const data = static_cast<const uint8_t *>(plane.data());
-            for (uint32_t row = 0; row < height; ++row) {
+                                                               : GL_RED};
+            const auto storage{pixelBytes == bgraBytesPerPixel  ? GL_RGBA8
+                               : pixelBytes == rgbBytesPerPixel ? GL_RGB8
+                               : pixelBytes == chromaPairBytes  ? GL_RG8
+                                                                : GL_R8};
+            glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+            if (texture.width != width || texture.height != height || texture.storage != storage) {
+                glTexImage2D(GL_TEXTURE_2D,
+                             0,
+                             storage,
+                             static_cast<GLsizei>(width),
+                             static_cast<GLsizei>(height),
+                             0,
+                             layout,
+                             GL_UNSIGNED_BYTE,
+                             nullptr);
+                checkGl("Allocate upload texture");
+                texture.width = width;
+                texture.height = height;
+                texture.storage = storage;
+            }
+            if (plane.strideBytes() % pixelBytes == 0) {
+                glPixelStorei(GL_UNPACK_ROW_LENGTH,
+                              static_cast<GLint>(plane.strideBytes() / pixelBytes));
                 glTexSubImage2D(GL_TEXTURE_2D,
                                 0,
                                 0,
-                                static_cast<GLint>(row),
+                                0,
                                 static_cast<GLsizei>(width),
-                                1,
+                                static_cast<GLsizei>(height),
                                 layout,
                                 GL_UNSIGNED_BYTE,
-                                data + static_cast<size_t>(row) * plane.strideBytes());
+                                plane.data());
+                glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+            } else {
+                const auto *const data{static_cast<const uint8_t *>(plane.data())};
+                for (uint32_t row = 0; row < height; ++row) {
+                    glTexSubImage2D(GL_TEXTURE_2D,
+                                    0,
+                                    0,
+                                    static_cast<GLint>(row),
+                                    static_cast<GLsizei>(width),
+                                    1,
+                                    layout,
+                                    GL_UNSIGNED_BYTE,
+                                    data + static_cast<size_t>(row) * plane.strideBytes());
+                }
             }
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         }
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         checkGl("Prepare video plane");
     }
     glUseProgram(state->program);
     glUniform1i(glGetUniformLocation(state->program, "swapRedBlue"),
-                frame.format() == RawImagePixelFormat::Bgra);
+                state->uploaded && frame.format() == RawImagePixelFormat::Bgra);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, state->tensor);
     glUniform2i(glGetUniformLocation(state->program, "outputSize"),
                 static_cast<GLint>(outputWidth),

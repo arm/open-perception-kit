@@ -19,7 +19,9 @@ gles_option = get_option('gpu_preprocessing').enable_auto_if(host_machine.system
 if host_machine.system() == 'linux' and not gles_option.disabled()
   egl_dep = dependency('egl', required: gles_option)
   gles_dep = dependency('glesv2', required: gles_option)
-  if egl_dep.found() and gles_dep.found()
+  gbm_dep = dependency('gbm', required: gles_option)
+  drm_dep = dependency('libdrm', required: gles_option)
+  if egl_dep.found() and gles_dep.found() and gbm_dep.found() and drm_dep.found()
     shader_configuration = configuration_data()
     shader_configuration.set('PREPROCESS_SHADER_BODY', fs.read('preprocess.comp'))
     configure_file(
@@ -29,9 +31,9 @@ if host_machine.system() == 'linux' and not gles_option.disabled()
     )
     glesops = shared_module(
       'opk-gpu-ops',
-      sources: ['ImagePreprocessOp.cpp', 'GpuPreprocess.cpp'],
+      sources: ['ImagePreprocessOp.cpp', 'GpuPreprocess.cpp', 'LinuxVideo.cpp'],
       include_directories: common_include,
-      dependencies: [opk_deps, egl_dep, gles_dep],
+      dependencies: [opk_deps, egl_dep, gles_dep, gbm_dep, drm_dep],
       link_with: common,
       name_prefix: '',
       gnu_symbol_visibility: 'default',
