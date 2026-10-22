@@ -164,6 +164,9 @@ private_libraries=(
     opk-python-ops.so
     opk-std-ops.so
 )
+if [[ -f "${installed_private_root}/opk-gpu-ops.so" ]]; then
+    private_libraries+=(opk-gpu-ops.so)
+fi
 
 mkdir -p "${package_root}/DEBIAN" "${plugin_root}" "${private_root}"
 for library in "${plugins[@]}"; do
@@ -458,6 +461,9 @@ runtime_depends=(
     python3.13
     python3-pip
 )
+if [[ -f "${installed_private_root}/opk-gpu-ops.so" ]]; then
+    runtime_depends+=(libegl-mesa0 libgl1-mesa-dri)
+fi
 for dependency in "${runtime_depends[@]}"; do
     shlibs_depends+=", ${dependency}"
 done

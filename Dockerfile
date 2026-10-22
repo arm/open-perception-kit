@@ -68,8 +68,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   cmake \
   curl \
   git \
+  libegl-dev \
   libfftw3-dev \
   libfmt-dev \
+  libgles-dev \
   libgstreamer-plugins-bad1.0-dev \
   libgstreamer-plugins-base1.0-dev \
   libgstreamer1.0-dev \
@@ -826,8 +828,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   gstreamer1.0-pipewire \
   gstreamer1.0-plugins-bad \
   gstreamer1.0-plugins-good \
+  libegl1 \
+  libegl-mesa0 \
   libfftw3-single3 \
   libfmt10 \
+  libgl1-mesa-dri \
+  libgles2 \
   libjson-glib-1.0-0 \
   libsoup-3.0-0 \
   libssl3t64 \

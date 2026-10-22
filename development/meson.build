@@ -258,6 +258,7 @@ subdir('runtime')
 subdir('elements/opkinfer')
 subdir('ops-onnx')
 subdir('ops-std')
+subdir('ops-gles')
 if python_ops_enabled
   subdir('ops-python')
 endif

@@ -91,6 +91,7 @@ PLUGIN_NAMES = {
 }
 OP_MODULE_NAMES = {
     "opk-executorch-ops.so",
+    "opk-gpu-ops.so",
     "opk-onnx-ops.so",
     "opk-python-ops.so",
     "opk-std-ops.so",
@@ -124,6 +125,8 @@ SYSTEM_LIBRARY_PREFIXES = (
     "libdl.so.",
     "libdw.so.",
     "libelf.so.",
+    "libEGL.so.",
+    "libGLESv2.so.",
     "libffi.so.",
     "libgcc_s.so.",
     "libgio-2.0.so.",
