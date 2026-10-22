@@ -1,0 +1,19 @@
+include "common.fbs";
+
+namespace open_perception_kit.metadata;
+
+// Each bitmap pixel is a class ID from layer.label_family; zero is a valid class.
+table SemanticSegmentationMask {
+  object:open_perception_kit.metadata.ObjectMeta;
+  bitmap:open_perception_kit.metadata.BitmapData;
+}
+
+table SemanticSegmentationMasks {
+  schema_major:ushort = 1;
+  schema_minor:ushort = 0;
+  layer:open_perception_kit.metadata.LayerInfo;
+  masks:[open_perception_kit.metadata.SemanticSegmentationMask];
+}
+
+root_type SemanticSegmentationMasks;
+file_identifier "SSGM";
