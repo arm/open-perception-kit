@@ -128,10 +128,14 @@ class ImagePreprocessOp final : public op::Op, public op::OpInterfaceGpuPreproce
         const PixelRect inner{input.keepAspectRatio ? computeLetterboxInnerRect(crop, destination)
                                                     : destination};
         try {
-            const auto *const source{context.getReadableVideoFrame(sourceName)};
-            if (!source)
-                return tl::unexpected(failure("GPU input cannot be mapped for upload").error());
-            gpu->upload(*source);
+            const bool inputWasCopied{!gpu->import(*frame)};
+            const auto *source{frame};
+            if (inputWasCopied) {
+                source = context.getReadableVideoFrame(sourceName);
+                if (!source)
+                    return tl::unexpected(failure("GPU input cannot be mapped for upload").error());
+                gpu->upload(*source);
+            }
             const auto data{gpu->run(*source, crop, inner, input)};
             bool tensorWasCopied{gpu->tensorCopied()};
             const bool bound{sharedInput &&
@@ -145,7 +149,7 @@ class ImagePreprocessOp final : public op::Op, public op::OpInterfaceGpuPreproce
                     std::memcpy(destinationAddress, data.data(), data.size());
                 tensorWasCopied = true;
             }
-            copiedInput = true;
+            copiedInput = inputWasCopied;
             copiedTensor = tensorWasCopied;
         } catch (const std::exception &error) {
             return tl::unexpected(failure(error.what()).error());

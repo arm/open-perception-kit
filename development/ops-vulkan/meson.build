@@ -26,6 +26,9 @@ if gpu_enabled
               'preprocessingSpirv', '-o', '@OUTPUT@', '@INPUT@'],
   )
   gpu_sources = ['GpuPreprocess.cpp', 'ImagePreprocessOp.cpp']
+  if host_machine.system() == 'linux'
+    gpu_sources += 'LinuxImport.cpp'
+  endif
   gpuops = shared_module(
     'opk-gpu-ops',
     sources: [gpu_sources, shader_header],
