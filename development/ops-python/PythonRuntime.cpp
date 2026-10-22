@@ -113,9 +113,9 @@ void attachToRuntime(const std::vector<std::filesystem::path> &pythonPaths) {
     initializeTensorModule();
 }
 
-void validateInstalledModule(const char *moduleName,
-                             const char *expectedVersion,
-                             const std::filesystem::path &runtimeRoot) {
+void validateModule(const char *moduleName,
+                    const char *expectedVersion,
+                    const std::filesystem::path &runtimeRoot) {
     PyObjectPtr module(PyImport_ImportModule(moduleName));
     if (!module)
         throw PythonBridgeError(std::string("Failed to import required Python module ") +
@@ -127,6 +127,9 @@ void validateInstalledModule(const char *moduleName,
         throw PythonBridgeError(std::string("Python module ") + moduleName + " has version " +
                                 (actualVersion == nullptr ? "unknown" : actualVersion) +
                                 "; expected " + expectedVersion);
+
+    if (runtimeRoot.empty())
+        return;
 
     PyObjectPtr file(PyObject_GetAttrString(module.get(), "__file__"));
     const char *moduleFile = file ? PyUnicode_AsUTF8(file.get()) : nullptr;
@@ -141,30 +144,32 @@ void validateInstalledModule(const char *moduleName,
                                 moduleName + " (" + canonicalFile.string() + ")");
 }
 
-void validateInstalledRuntime() {
+void validateRuntime() {
     const auto runtimeRoot = installedPythonRuntimePath();
-    if (runtimeRoot.empty())
-        return;
-    if (!std::filesystem::is_directory(runtimeRoot))
-        throw PythonBridgeError("OPK Python runtime dependencies are not installed: " +
-                                runtimeRoot.string());
+    std::vector<std::filesystem::path> runtimePaths;
+    if (!runtimeRoot.empty()) {
+        if (!std::filesystem::is_directory(runtimeRoot))
+            throw PythonBridgeError("OPK Python runtime dependencies are not installed: " +
+                                    runtimeRoot.string());
+        runtimePaths.push_back(runtimeRoot);
+    }
 
     GILGuard gil;
-    PythonPathTemplate pathTemplate({runtimeRoot});
+    PythonPathTemplate pathTemplate(runtimePaths);
     PythonPathGuard pathGuard(pathTemplate);
-    validateInstalledModule("numpy", OPK_EXPECTED_NUMPY_VERSION, runtimeRoot);
-    validateInstalledModule("flatbuffers", OPK_EXPECTED_FLATBUFFERS_VERSION, runtimeRoot);
+    validateModule("numpy", OPK_EXPECTED_NUMPY_VERSION, runtimeRoot);
+    validateModule("flatbuffers", OPK_EXPECTED_FLATBUFFERS_VERSION, runtimeRoot);
 }
 
 void initializeRuntime(const std::vector<std::filesystem::path> &pythonPaths) {
     if (Py_IsInitialized()) {
-        validateInstalledRuntime();
+        validateRuntime();
         attachToRuntime(pythonPaths);
         return;
     }
     exposePythonSymbols();
     initializeOwnedRuntime();
-    validateInstalledRuntime();
+    validateRuntime();
 }
 
 class ScopedGILRelease {

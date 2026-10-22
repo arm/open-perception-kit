@@ -216,19 +216,52 @@ if get_option('tests') or not python_ops_option.disabled()
     opk_python = import('python').find_installation(required : false)
   endif
 
-  if opk_python.found()
-    numpy_probe = run_command(
+  if opk_python.found() and not python_ops_option.disabled()
+    python_runtime_probe = run_command(
       opk_python,
-      ['-c', 'import numpy; print(numpy.get_include())'],
+      '-c',
+      '''
+import json
+import sys
+
+sys.path.insert(0, sys.argv[2])
+from sdk_config import load_sdk_config
+
+with open(sys.argv[1], encoding="utf-8") as source:
+    runtime = json.load(source)
+python_version = runtime["python"]["version"]
+if f"{sys.version_info.major}.{sys.version_info.minor}" != python_version:
+    raise SystemExit(f"Python Ops requires Python {python_version}")
+
+import flatbuffers
+import numpy
+
+flatbuffers_version = load_sdk_config().flatbuffers_version
+for module, version in ((numpy, runtime["numpy"]["version"]), (flatbuffers, flatbuffers_version)):
+    if module.__version__ != version:
+        raise SystemExit(f"Python Ops requires {module.__name__} {version}, got {module.__version__}")
+print(python_version)
+print(runtime["numpy"]["version"])
+print(flatbuffers_version)
+print(numpy.get_include())
+''',
+      opk_repository_root / 'development/ops-python/runtime.json',
+      opk_repository_root / 'tools/perception',
       check : false,
     )
-    if numpy_probe.returncode() == 0
-      opk_numpy_include = numpy_probe.stdout().strip()
-      python_ops_enabled = not python_ops_option.disabled()
+    if python_runtime_probe.returncode() == 0
+      runtime_config = python_runtime_probe.stdout().strip().split('\n')
+      python_version = runtime_config[0]
+      numpy_version = runtime_config[1]
+      flatbuffers_version = runtime_config[2]
+      opk_numpy_include = runtime_config[3]
+      python_ops_enabled = true
     elif python_ops_option.enabled()
-      error('python_ops requires NumPy for the selected Python installation.')
+      error(python_runtime_probe.stderr().strip())
+    else
+      message('Python Ops disabled: ' + python_runtime_probe.stderr().strip())
     endif
-  elif get_option('tests') or python_ops_option.enabled()
+  elif not opk_python.found() and (get_option('tests') or python_ops_option.enabled())
     error('A Python development installation is required.')
   endif
 endif

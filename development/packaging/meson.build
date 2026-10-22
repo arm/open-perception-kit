@@ -1,3 +1,18 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 if deb_package
 if is_disabler(executorchops)
   error('deb_package requires -Dexecutorch=enabled and a complete ExecuTorch SDK.')
@@ -26,6 +41,17 @@ package_script = find_program(
 )
 meson_program = find_program('meson')
 
+mlwl_package_args = []
+mlwl_package_depends = []
+if mlwl_enabled
+  mlwl_package_dir = run_command('sh', '-c', 'printf %s "$MLWorkloadLibraryForVulkan_DIR"', check : true).stdout().strip()
+  if mlwl_package_dir == ''
+    error('MLWL packaging requires MLWorkloadLibraryForVulkan_DIR from install-mlwl.py.')
+  endif
+  mlwl_package_args = ['--mlwl-prefix', mlwl_package_dir / '../../..']
+  mlwl_package_depends = [mlwl_ops]
+endif
+
 opk_runtime_deb = custom_target(
   'opk-runtime-deb',
   output : '@0@_@1@-@2@_@3@.deb'.format(
@@ -51,7 +77,7 @@ opk_runtime_deb = custom_target(
     '--architecture', deb_architecture,
     '--multiarch', deb_multiarch,
     '--output', '@OUTPUT@',
-  ],
+  ] + mlwl_package_args,
   depends : [
     common,
     opk_runtime,
@@ -65,7 +91,7 @@ opk_runtime_deb = custom_target(
     gstopkosd,
     opkinferpre,
     opkcomm,
-  ],
+  ] + mlwl_package_depends,
   build_by_default : false,
   build_always_stale : true,
   console : true,
