@@ -23,6 +23,9 @@
     },
     "attributes": {
       "type": "object"
+    },
+    "execution": {
+      "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/executionMode"
     }
   },
   "allOf": [

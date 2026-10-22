@@ -180,6 +180,31 @@ TEST(ConfigValidator, OpChainAttributesAreOptionalExceptForDataBearingOps) {
     for (const auto index : {0U, 1U, 3U})
         EXPECT_TRUE(result->ops[index].attributes.raw().empty());
 
+    document["version"] = "1.1.0";
+    for (const auto *const mode : {"cpu", "gpu"}) {
+        document["execution"] = {
+            {"preprocessing", mode}, {"inference", mode}, {"postprocessing", mode}};
+        document["ops"][0]["execution"] = mode;
+        EXPECT_TRUE(opk::config::validateOpChainJson(document.dump())) << mode;
+    }
+    for (const auto &invalid : {nlohmann::json("auto"),
+                                nlohmann::json("GPU"),
+                                nlohmann::json("unknown"),
+                                nlohmann::json(nullptr),
+                                nlohmann::json(false)}) {
+        document["execution"] = {{"preprocessing", invalid}};
+        EXPECT_FALSE(opk::config::validateOpChainJson(document.dump())) << invalid;
+        document.erase("execution");
+        document["ops"][0]["execution"] = invalid;
+        EXPECT_FALSE(opk::config::validateOpChainJson(document.dump())) << invalid;
+        document["ops"][0].erase("execution");
+    }
+    document["execution"] = {{"unknown", "cpu"}};
+    EXPECT_FALSE(opk::config::validateOpChainJson(document.dump()));
+    document["execution"] = "cpu";
+    EXPECT_FALSE(opk::config::validateOpChainJson(document.dump()));
+    document.erase("execution");
+
     for (const auto *id : {"opk-future-ops/Inference", "opk-std-ops/GenericPostprocess"}) {
         document["ops"] = {{{"id", id}}};
         const auto missing = opk::config::validateOpChainJson(document.dump());
@@ -236,8 +261,20 @@ TEST(ConfigValidator, OpChainValidatesPythonScriptAttributes) {
 TEST(ConfigValidator, OpChainProjectionClearsOmittedAttributes) {
     opk::op::OpChainDescriptor::Op reused;
     reused.attributes.set("stale", true);
+    reused.execution = opk::op::ExecutionMode::Gpu;
     nlohmann::json{{"id", "custom/Operation"}}.get_to(reused);
     EXPECT_TRUE(reused.attributes.raw().empty());
+    EXPECT_FALSE(reused.execution);
+
+    opk::op::OpChainDescriptor chain;
+    chain.execution = opk::op::ExecutionDefaults{.preprocessing = opk::op::ExecutionMode::Gpu};
+    nlohmann::json{{"version", "1.1.0"},
+                   {"name", "reused"},
+                   {"description", "Clear omitted execution settings."},
+                   {"ops", nlohmann::json::array()}}
+        .get_to(chain);
+    EXPECT_FALSE(chain.execution);
+    EXPECT_THROW(nlohmann::json("unknown").get<opk::op::ExecutionMode>(), std::invalid_argument);
 }
 
 TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {

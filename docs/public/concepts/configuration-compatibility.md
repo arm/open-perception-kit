@@ -239,6 +239,25 @@ can reject the new attribute despite warning rather than failing on the minor
 version mismatch. Rebuild or upgrade the runtime before using it. See
 [ONNX thread tuning](../how-to/performance-measurement.md).
 
+OpChain `1.1.0` adds execution preferences. Set chain defaults by stage:
+
+```json
+"execution": {
+  "preprocessing": "gpu",
+  "inference": "cpu",
+  "postprocessing": "cpu"
+}
+```
+
+An Op entry may set `"execution": "gpu"` alongside its `id` and `attributes`.
+The Op value overrides its chain stage default; otherwise the default is `cpu`.
+Only lowercase `cpu` and `gpu` are valid. GPU requires GPU execution;
+it does not guarantee shared buffers or select another inference backend.
+
+Existing OpChains need no edits. Descriptors using these fields should declare
+`"version": "1.1.0"`; rebuild the runtime and validator after the schema update.
+Older readers may warn about the minor version, then reject the new fields.
+
 OpChain `1.0.2` adds the optional YoloParser `outputFormat` attribute. Existing
 OpChains keep the `centerClassScores` behavior when it is omitted. Models that
 produce `[1,N,6]` rows containing corner coordinates, confidence, and class ID

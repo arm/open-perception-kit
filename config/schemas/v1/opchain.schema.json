@@ -37,6 +37,21 @@
       "items": {
         "$ref": "urn:arm:opk:schema:opchain-op:v1"
       }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "preprocessing": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/executionMode"
+        },
+        "inference": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/executionMode"
+        },
+        "postprocessing": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/executionMode"
+        }
+      }
     }
   }
 }
