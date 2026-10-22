@@ -376,6 +376,18 @@ image_conversion_oracle_test = executable(
 python = test_python
 # The distro GStreamer bindings use the distro Python ABI, not the Python Ops venv.
 gst_python = import('python').find_installation('/usr/bin/python3', modules : ['gi'])
+inference_error_plugins = [gstopkinfer, stdops]
+if mlwl_enabled
+  inference_error_plugins += [mlwl_ops]
+endif
+inference_error_paths = []
+foreach plugin : inference_error_plugins
+  inference_error_paths += [plugin.full_path()]
+endforeach
+test('opkinfer_error_pipeline_tests', gst_python,
+  args : [files('opkinfer_error_pipeline_test.py')] + inference_error_paths,
+  depends : inference_error_plugins,
+)
 perception_python_sdk_path = meson.project_source_root() / '../generated/open_perception_kit/python/src'
 python_guest_script_test_env = environment()
 python_guest_script_test_env.prepend('PYTHONPATH', perception_python_sdk_path)

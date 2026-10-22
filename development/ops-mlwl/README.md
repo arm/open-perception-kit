@@ -59,5 +59,28 @@ current OPK OpChain. MLWL 0.11.0 has no cancellation/finite-timeout API: normal
 teardown follows completed execution; a hung driver is not made cancellable by
 this plugin. Do not destroy in-flight Vulkan resources to simulate cancellation.
 
-The small native test covers tensor layout validation without a Vulkan device.
-It does not prove successful device execution or pipeline integration.
+## Validation
+
+The normal Meson tests cover tensor layout bounds and real GStreamer error
+propagation without a Vulkan device. Successful inference is a separate,
+opt-in integration check, not a mocked device test.
+The required ARM64 Meson CI job enables MLWL and runs these device-free checks.
+
+With a compatible Vulkan runtime, the public
+[model converter 0.11.0](https://github.com/arm/ai-ml-sdk-model-converter/releases/tag/release/v0.11.0),
+and a Python interpreter with GStreamer GI and FlatBuffers installed, run from
+the repository root:
+
+```sh
+PYTHONPATH=generated/open_perception_kit/python/src \
+  python3 development/tests/mlwl_pipeline_test.py \
+  development/build-active/meson-out /path/to/model-converter
+```
+
+It compiles a tiny FP32 add graph into a temporary VGF and checks actual
+FrameResults from image preprocessing → MLWL → segmentation postprocessing →
+`opkcomm`. Alternating black/white frames and a nonzero scalar input cover buffer reuse,
+descriptor constants and startup/teardown across three pipelines. Each emits
+two frames whose output values are checked through the generated SDK.
+The VGF is generated locally; no model binary is checked in. This checks backend
+integration, not a full neural network, hardware performance or FP16 execution.
