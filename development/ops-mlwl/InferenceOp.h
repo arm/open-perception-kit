@@ -16,6 +16,7 @@
  */
 #pragma once
 
+#include "Inference.h"
 #include "op/Op.h"
 
 #include <memory>
@@ -34,8 +35,7 @@ class InferenceOp : public opk::op::Op, public opk::op::OpInterfaceInference {
     opk::Result<opk::op::OpSignal> process(opk::op::OpChainContext &context) override;
 
   private:
-    struct State;
-    std::unique_ptr<State> state;
+    std::unique_ptr<opk::mlwl::Inference> inference;
 };
 
 } // namespace opk::mlwl
