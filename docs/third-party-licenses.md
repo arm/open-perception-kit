@@ -82,6 +82,7 @@ and check the built artifacts before publication.
 | [MarkupSafe](https://github.com/pallets/markupsafe) | [2.1.5](https://pypi.org/project/MarkupSafe/2.1.5/) | BSD-3-Clause | PyPI |
 | [mdurl](https://github.com/executablebooks/mdurl) | [0.1.2](https://pypi.org/project/mdurl/0.1.2/) | MIT | PyPI |
 | [meson](https://github.com/mesonbuild/meson) | [1.12.1](https://pypi.org/project/meson/1.12.1/) | Apache-2.0 | PyPI |
+| [ML Workload Library for Vulkan](https://github.com/arm/ai-ml-workload-library-for-vulkan) | [0.11.0](https://github.com/arm/ai-ml-workload-library-for-vulkan/releases/tag/release/v0.11.0) | [Apache-2.0](https://github.com/arm/ai-ml-workload-library-for-vulkan/blob/release/v0.11.0/LICENSE) | optional shared runtime |
 | [more-itertools](https://github.com/more-itertools/more-itertools) | [10.7.0](https://pypi.org/project/more-itertools/10.7.0/) | MIT | PyPI |
 | [magic\_enum](https://github.com/Neargye/magic_enum) | [v0.9.7](https://github.com/Neargye/magic_enum/tree/v0.9.7) | MIT | Debian |
 | [nodeenv](https://github.com/ekalinin/nodeenv) | [1.10.0](https://pypi.org/project/nodeenv/1.10.0/) | BSD-3-Clause | PyPI |
@@ -138,6 +139,8 @@ and check the built artifacts before publication.
 | [urllib3](https://github.com/urllib3/urllib3) | [2.8.0](https://pypi.org/project/urllib3/2.8.0/) | MIT | PyPI |
 | [v8-to-istanbul](https://github.com/istanbuljs/v8-to-istanbul) | [9.3.0](https://www.npmjs.com/package/v8-to-istanbul/v/9.3.0) | ISC | npm |
 | [virtualenv](https://github.com/pypa/virtualenv) | [21.7.10](https://pypi.org/project/virtualenv/21.7.10/) | MIT | PyPI |
+| [VGF Library](https://github.com/arm/ai-ml-sdk-vgf-library) | [0.10.0](https://github.com/arm/ai-ml-sdk-vgf-library/tree/v0.10.0) | [Apache-2.0](https://github.com/arm/ai-ml-sdk-vgf-library/blob/v0.10.0/LICENSES/Apache-2.0.txt) | bundled in the MLWL shared library |
+| [Vulkan-Headers](https://github.com/KhronosGroup/Vulkan-Headers) | [vulkan-sdk-1.4.357.0](https://github.com/KhronosGroup/Vulkan-Headers/tree/vulkan-sdk-1.4.357.0) | [Apache-2.0 OR MIT](https://github.com/KhronosGroup/Vulkan-Headers/tree/vulkan-sdk-1.4.357.0/LICENSES) | MLWL build headers |
 | [WebSocket++](https://github.com/zaphoyd/websocketpp) | [0.8.2](https://github.com/zaphoyd/websocketpp/tree/0.8.2) | BSD-3-Clause | Debian |
 | [cpp-httplib](https://github.com/yhirose/cpp-httplib) | [0.56.0](https://github.com/yhirose/cpp-httplib/tree/v0.56.0) | MIT | GitHub |
 | [zipp](https://github.com/jaraco/zipp) | [3.21.0](https://pypi.org/project/zipp/3.21.0/) | MIT | PyPI |
