@@ -38,7 +38,7 @@ endif
 mlwl_enabled = true
 mlwl_ops = shared_module(
   'opk-mlwl-ops',
-  sources : ['InferenceOp.cpp', 'Plugin.cpp'],
+  sources : ['Inference.cpp', 'InferenceOp.cpp', 'Plugin.cpp'],
   include_directories : common_include,
   dependencies : [opk_deps, mlwl_dep, mlwl_vulkan_dep],
   link_with : [common],
