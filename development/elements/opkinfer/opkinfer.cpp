@@ -46,7 +46,8 @@
 #include "mediaio/GstVideoFrame.h"
 
 struct GstOpkInferMembers {
-    opk::PcmRingBuffer pcmAudioBuffer{size_t{16000} * 60};
+    static constexpr size_t audioBufferCapacity = size_t{16000} * 60;
+    std::unique_ptr<opk::PcmRingBuffer> pcmAudioBuffer;
     size_t audioWindowSamples = 0;
     size_t audioHopSamples = 0;
     uint64_t nextAudioPosition = 0;
@@ -55,7 +56,8 @@ struct GstOpkInferMembers {
     std::optional<uint64_t> audioOriginTimestampNs;
 
     void resetAudio() {
-        pcmAudioBuffer.clear();
+        if (pcmAudioBuffer)
+            pcmAudioBuffer->clear();
         nextAudioPosition = 0;
         audioDiscontinuity = true;
         audioSourceFrames = 0;
@@ -368,7 +370,7 @@ static gboolean gst_opkinfer_set_caps(GstBaseTransform *b, GstCaps *incaps, GstC
         }
         const size_t window = *required;
         const size_t hop = self->audioHopSamples ? self->audioHopSamples : window;
-        if (!window || window > self->m->pcmAudioBuffer.capacity() || hop > window) {
+        if (!window || window > GstOpkInferMembers::audioBufferCapacity || hop > window) {
             GST_ERROR_OBJECT(self,
                              "Audio requires a PCM window within ring capacity and hop <= window");
             return FALSE;
@@ -592,7 +594,7 @@ gst_opkinfer_process_audio_window(GstOpkInfer *self,
     audio.windowStartSample = window.beginPosition();
     audio.windowEndSample = window.endPosition();
     if (members.audioOriginTimestampNs) {
-        const auto delay = members.pcmAudioBuffer.resamplingDelayNs();
+        const auto delay = members.pcmAudioBuffer->resamplingDelayNs();
         auto timestamp = [&](uint64_t sample) -> std::optional<uint64_t> {
             if (sample > G_MAXUINT64 / 62500)
                 return std::nullopt;
@@ -647,7 +649,6 @@ gst_opkinfer_process_video_frame(GstOpkInfer *self,
 static GstFlowReturn gst_opkinfer_process_audio_buffer(GstOpkInfer *self, GstBuffer *buf) {
     if (!self->m)
         return GST_FLOW_OK;
-    auto &pcm = self->m->pcmAudioBuffer;
     if (!gst_opkinfer_is_active(self)) {
         self->m->resetAudio();
         return GST_FLOW_OK;
@@ -685,7 +686,11 @@ static GstFlowReturn gst_opkinfer_process_audio_buffer(GstOpkInfer *self, GstBuf
     const auto sourceFrames = frame->sampleCount();
     bool fed = false;
     try {
-        fed = sourceFrames <= G_MAXUINT64 - self->m->audioSourceFrames && pcm.feed(*frame);
+        if (!self->m->pcmAudioBuffer)
+            self->m->pcmAudioBuffer =
+                std::make_unique<opk::PcmRingBuffer>(GstOpkInferMembers::audioBufferCapacity);
+        fed = sourceFrames <= G_MAXUINT64 - self->m->audioSourceFrames &&
+              self->m->pcmAudioBuffer->feed(*frame);
     } catch (const std::exception &error) {
         GST_ERROR_OBJECT(self, "Audio buffering failed: %s", error.what());
     }
@@ -694,6 +699,7 @@ static GstFlowReturn gst_opkinfer_process_audio_buffer(GstOpkInfer *self, GstBuf
         GST_ELEMENT_ERROR(self, STREAM, FORMAT, ("Failed to buffer input PCM audio"), (nullptr));
         return GST_FLOW_ERROR;
     }
+    auto &pcm = *self->m->pcmAudioBuffer;
     self->m->audioSourceFrames += sourceFrames;
     GST_LOG_OBJECT(
         self, "Buffered audio: retained=%zu end=%" G_GUINT64_FORMAT, pcm.size(), pcm.endPosition());
