@@ -446,10 +446,11 @@ test(
   args : [
     files('content_dependency_pipeline_test.py'),
     qos_delay_op.full_path(),
+    stdops.full_path(),
     gstopkinfer.full_path(),
     opkinferpre.full_path(),
   ],
-  depends : [gstopkinfer, qos_delay_op, opkinferpre],
+  depends : [gstopkinfer, qos_delay_op, stdops, opkinferpre],
 )
 test(
   'qos_pipeline_tests',

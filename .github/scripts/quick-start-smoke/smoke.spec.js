@@ -54,25 +54,6 @@ test.afterEach(async ({ page }) => {
   }
 });
 
-test('signaling diagnostics render as text', async ({ page }) => {
-  const messages = ['camera ready', '<em>camera & light</em>'];
-  await page.routeWebSocket('**/ws', async (ws) => {
-    const signalingUrl = new URL(ws.url());
-    signalingUrl.port = await page.evaluate(() => window.OPK_CONFIG.wsPort);
-    if (ws.url() !== signalingUrl.href) {
-      ws.connectToServer();
-      return;
-    }
-    for (const type of messages) ws.send(JSON.stringify({ type }));
-  });
-
-  await page.goto('/', { waitUntil: 'domcontentloaded' });
-
-  for (const message of messages) {
-    await expect(page.locator('#log')).toContainText(`Received signaling message: ${message}`);
-  }
-});
-
 test('quick-start plays video and displays an object detection', async ({ page }) => {
   let dropFrameMetadata = false;
   let holdIceCandidates = true;
@@ -188,6 +169,24 @@ test('quick-start plays video and displays an object detection', async ({ page }
     .toBeGreaterThanOrEqual(MIN_OBSERVED_FRAMES);
 });
 
+});
+
+test('signaling diagnostics render as text', async ({ page }) => {
+  const messages = ['camera ready', '<em>camera & light</em>'];
+  await page.routeWebSocket('**/ws', async (ws) => {
+    const signalingUrl = new URL(ws.url());
+    signalingUrl.port = await page.evaluate(() => window.OPK_CONFIG.wsPort);
+    if (ws.url() !== signalingUrl.href) {
+      return;
+    }
+    for (const type of messages) ws.send(JSON.stringify({ type }));
+  });
+
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+
+  for (const message of messages) {
+    await expect(page.locator('#log')).toContainText(`Received signaling message: ${message}`);
+  }
 });
 
 test('Wafer controls work in both themes with keyboard and persisted overlays', async ({ page }, testInfo) => {

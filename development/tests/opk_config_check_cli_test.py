@@ -90,20 +90,25 @@ class OpkConfigCheckCliTest(unittest.TestCase):
             self.assertTrue(result.stderr.endswith("\n"))
 
     def test_version_compatibility_for_each_contract(self) -> None:
+        PATCH_REVISION_INCREMENT = 1
         sources = {
-            "models/model.json": "models/yolo26n-320/model.json",
-            "opchains/opchain.json": "models/yolo26n-320/opchain.json",
-            "pipelines/demo.json": "pipelines/yolo26n-320.json",
+            "models/model.json": ("models/yolo26n-320/model.json", "model.schema.json"),
+            "opchains/opchain.json": ("models/yolo26n-320/opchain.json", "opchain.schema.json"),
+            "pipelines/demo.json": ("pipelines/yolo26n-320.json", "pipeline.schema.json"),
         }
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             shutil.copytree(self.repository_root / "config/schemas", root / "config/schemas")
             for name in ("models", "opchains", "pipelines"):
                 (root / "config" / name).mkdir()
-            for target, source in sources.items():
+            for target, (source, schema) in sources.items():
                 path = root / "config" / target
                 document = json.loads((self.repository_root / "config" / source).read_text())
-                for version in ("1.0.0", "1.0.37", "1.4.2", "0.9.0", "2.0.0"):
+                supported_version = json.loads((root / "config/schemas/v1" / schema).read_text())[
+                    "x-opk-supported-version"]
+                supported_major_minor, supported_patch = supported_version.rsplit(".", 1)
+                patch_variant = f"{supported_major_minor}.{int(supported_patch) + PATCH_REVISION_INCREMENT}"
+                for version in (supported_version, patch_variant, "1.0.0", "1.0.37", "1.4.2", "0.9.0", "2.0.0"):
                     with self.subTest(target=target, version=version):
                         document["version"] = version
                         path.write_text(json.dumps(document))
@@ -113,7 +118,7 @@ class OpkConfigCheckCliTest(unittest.TestCase):
                             self.assertIn("incompatible descriptor major", result.stderr)
                         else:
                             self.assertEqual(result.returncode, 0, result.stderr)
-                            if version == "1.4.2":
+                            if version.rsplit(".", 1)[0] != supported_major_minor:
                                 self.assertIn("W:", result.stderr)
                                 self.assertIn("minor version differs", result.stderr)
                                 self.assertIn(target + ":/version", result.stderr)

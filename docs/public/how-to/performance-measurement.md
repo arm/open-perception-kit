@@ -138,4 +138,73 @@ After running a recipe by clicking `Run Recipe`, you will get the measurement re
 
 ![Performix results](../assets/performix-results.jpg)
 
+## ONNX thread tuning
+
+Set `intraOpNumThreads` in an `opk-onnx-ops/Inference` Op's attributes to
+control that model session's intra-op thread count. Use OpChain version
+`"1.1.0"` or later within major 1 when adding this option:
+
+```json
+{
+  "id": "opk-onnx-ops/Inference",
+  "attributes": {
+    "modelDescriptor": "model.json",
+    "intraOpNumThreads": 2
+  }
+}
+```
+
+Two is an example, not a universal recommendation. Zero lets ONNX Runtime
+select its thread policy; one runs intra-op work on the calling thread. Other
+positive integers request that many intra-op threads, including the caller.
+The accepted range is zero through the maximum signed 32-bit integer.
+Use integer notation such as `2`; OPK configuration validation rejects decimal
+and exponent notation such as `2.0` and `2e0`.
+Omitting the attribute preserves OPK's existing policy: the reported hardware
+thread count minus one, with a minimum of one and a fallback of one when unknown.
+This does not limit the total threads used by the pipeline.
+
+The shared ONNX model and composite presets use practical thread counts measured
+on a Raspberry Pi 5 Linux container in October 2026. These choices balance video
+throughput, tail latency, and CPU cost; they are not universal optima. The NITEC
+and MobileGaze composites use one thread for UltraFace, with three for NITEC and
+two for MobileGaze. ExecuTorch presets retain their existing settings.
+
+The Intel Core Ultra 7 268V laptop measured through a WSL2 Linux container favored
+different counts for these standalone models:
+
+| Model | Shared Raspberry Pi default | Measured Intel laptop choice |
+| --- | --- | --- |
+| YOLO26n-320 | 2 | 3 |
+| YOLO26n-480 | 2 | 3 |
+| UltraFace RFB-320 | 1 | 2 |
+
+These presets do not select values by host. The laptop choices remain provisional
+because timings varied, and YOLO and MobileGaze outputs changed across thread
+counts without accuracy evaluation. Pi comparisons passed the output checks;
+some MobileGaze and YOLO26s-640 timing runs had competing background activity.
+The measurements used a short video segment without encoding or browser output,
+so retune for the deployed workload.
+
+Edit the relevant inference entry in `config/models/<model>/opchain.json` or
+`config/opchains/<chain>/opchain.json`. Composite chains have their own entries
+and do not inherit model-local OpChain settings. Restart the pipeline after
+changing the count; toggling a model's active state does not apply the change.
+For host-specific settings, copy the OpChain into your deployment configuration,
+adjust relative model paths, and select it with the pipeline's existing
+`opchain-path` property. Editing a shared chain affects every pipeline using it.
+
+Measure candidate counts on the target with the same model, inputs, CPU
+allocation and output sink. Warm up each session and repeat comparisons without
+competing benchmarks or builds. Check latency and CPU cost as well as FPS,
+and confirm that every input frame still produces output. For cascades, tune
+the detector and per-object models together; their individually fastest counts
+may not produce the fastest pipeline. Retune after model, runtime or CPU
+allocation changes.
+
+Linux-container measurements on Windows/WSL or macOS describe the container's
+available CPUs, not native Windows or macOS support. Raspberry Pi Linux and
+Linux x86-64 also need their own measurements; model complexity alone does not
+determine a portable optimum.
+
 [Back to How-To Guides](/how-to)
