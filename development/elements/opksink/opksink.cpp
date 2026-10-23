@@ -151,6 +151,11 @@ nlohmann::json PipelineStateReporter::report() const {
 
         // audio state
         ret["audio"] = has_audio_;
+        GstElement *pipeline = get_top_pipeline(GST_ELEMENT(self_));
+        GstElement *microphone = get_element_by_type(pipeline, "opksrc");
+        ret["microphone"] = microphone != nullptr;
+        gst_clear_object(&microphone);
+        gst_clear_object(&pipeline);
     }
 
     return ret;

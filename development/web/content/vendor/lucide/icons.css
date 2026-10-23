@@ -7,6 +7,8 @@
 [data-icon="eye-off"] { mask-image: url("eye-off.svg"); }
 [data-icon="info"] { mask-image: url("info.svg"); }
 [data-icon="layers"] { mask-image: url("layers.svg"); }
+[data-icon="mic"] { mask-image: url("mic.svg"); }
+[data-icon="mic-off"] { mask-image: url("mic-off.svg"); }
 [data-icon="panel-bottom"] { mask-image: url("panel-bottom.svg"); }
 [data-icon="panel-left"] { mask-image: url("panel-left.svg"); }
 [data-icon="pause"] { mask-image: url("pause.svg"); }

@@ -42,6 +42,7 @@ services:
       - "8080:8080"
       - "8001:8001"
       - "8002:8002"
+      - "8003:8003"
       # Port 7001 is intentionally published for
       # local/demo metadata workflows; transport auth/TLS is out of scope for
       # these checked-in demo compose defaults.
