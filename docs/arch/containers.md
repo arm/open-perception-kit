@@ -194,7 +194,7 @@ stages inherit everything from their parent unless noted otherwise.
   bucket by SHA-256, and a completed download emits `data/videos/SHA256SUMS`
   beside the verified media. `--check` remains strict even without a token.
 - `opk-models`: starts from `python:3.13-slim-trixie`, adds
-  `huggingface_hub==1.32.0` and `jsonschema==4.26.0`, then runs
+  `huggingface_hub==2.3.0` and `jsonschema==4.26.0`, then runs
   `scripts/download-models.py` with the optional Hugging Face build secret to
   resolve model artifacts under `config/models`.
 - `opk-release-sources`: copies the build context through
@@ -204,7 +204,7 @@ stages inherit everything from their parent unless noted otherwise.
 - `opk-dev-base`: adds `wget`, `sudo`, `gnupg`, `shfmt`, `zip`, `python3-pip`,
   `pre-commit`, `lldb-17`, `ccache`, `file`, GStreamer runtime plugins,
   `actionlint`, ONNX Runtime, `uv`, the `opk-ci` tool, `plumber`, and
-  `huggingface_hub==1.32.0` in the devtools venv, with
+  `huggingface_hub==2.3.0` in the devtools venv, with
   `jsonschema==4.26.0` inherited from its system-site packages. It also owns
   the shared mounted-checkout entrypoint used by development and CI targets.
 - `opk-dev-tools`: adds ExecuTorch packages, locale support, shell/editor tools

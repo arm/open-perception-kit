@@ -33,7 +33,7 @@ and check the built artifacts before publication.
 | [bitflags](https://github.com/bitflags/bitflags) | [2.13.1](https://docs.rs/crate/bitflags/2.13.1) | MIT OR Apache-2.0 | crates.io |
 | [cfgv](https://github.com/asottile/cfgv) | [3.5.0](https://pypi.org/project/cfgv/3.5.0/) | MIT | PyPI |
 | [cmake-format](https://github.com/cheshirekow/cmake_format) | [0.6.13](https://pypi.org/project/cmake-format/0.6.13/) | GPL-3.0-or-later | PyPI |
-| [clang-tidy](https://github.com/ssciwr/clang-tidy-wheel) | [22.1.8](https://pypi.org/project/clang-tidy/22.1.8/) | Apache-2.0 | PyPI |
+| [clang-tidy](https://github.com/ssciwr/clang-tidy-wheel) | [23.1.3](https://pypi.org/project/clang-tidy/23.1.3/) | Apache-2.0 | PyPI |
 | [clang-format](https://github.com/ssciwr/clang-format-wheel) | [23.1.3](https://pypi.org/project/clang-format/23.1.3/) | Apache-2.0 | PyPI |
 | [Click](https://github.com/pallets/click) | [8.5.0](https://pypi.org/project/click/8.5.0/) | BSD-3-Clause | PyPI |
 | [cmakelang](https://github.com/cheshirekow/cmake_format) | [0.6.13](https://pypi.org/project/cmakelang/0.6.13/) | GPL-3.0-or-later | PyPI |
@@ -60,7 +60,7 @@ and check the built artifacts before publication.
 | [hf-xet](https://github.com/huggingface/xet-core) | [1.6.0](https://pypi.org/project/hf-xet/1.6.0/) | Apache-2.0 | PyPI |
 | [httpcore](https://github.com/encode/httpcore) | [1.0.9](https://pypi.org/project/httpcore/1.0.9/) | BSD-3-Clause | PyPI |
 | [httpx](https://github.com/encode/httpx) | [0.28.1](https://pypi.org/project/httpx/0.28.1/) | BSD-3-Clause | PyPI |
-| [huggingface-hub](https://github.com/huggingface/huggingface_hub) | [2.2.0](https://pypi.org/project/huggingface-hub/2.2.0/) | Apache-2.0 | PyPI |
+| [huggingface-hub](https://github.com/huggingface/huggingface_hub) | [2.3.0](https://pypi.org/project/huggingface-hub/2.3.0/) | Apache-2.0 | PyPI |
 | [identify](https://github.com/pre-commit/identify) | [2.6.19](https://pypi.org/project/identify/2.6.19/) | MIT | PyPI |
 | [idna](https://github.com/kjd/idna) | [3.19](https://pypi.org/project/idna/3.19/) | BSD-3-Clause | PyPI |
 | [inflect](https://github.com/jaraco/inflect) | [7.3.1](https://pypi.org/project/inflect/7.3.1/) | MIT | PyPI |
