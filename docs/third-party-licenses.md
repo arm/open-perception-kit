@@ -33,7 +33,7 @@ and check the built artifacts before publication.
 | [bitflags](https://github.com/bitflags/bitflags) | [2.13.1](https://docs.rs/crate/bitflags/2.13.1) | MIT OR Apache-2.0 | crates.io |
 | [cfgv](https://github.com/asottile/cfgv) | [3.5.0](https://pypi.org/project/cfgv/3.5.0/) | MIT | PyPI |
 | [cmake-format](https://github.com/cheshirekow/cmake_format) | [0.6.13](https://pypi.org/project/cmake-format/0.6.13/) | GPL-3.0-or-later | PyPI |
-| [clang-tidy](https://github.com/ssciwr/clang-tidy-wheel) | [22.1.8](https://pypi.org/project/clang-tidy/22.1.8/) | Apache-2.0 | PyPI |
+| [clang-tidy](https://github.com/ssciwr/clang-tidy-wheel) | [23.1.3](https://pypi.org/project/clang-tidy/23.1.3/) | Apache-2.0 | PyPI |
 | [clang-format](https://github.com/ssciwr/clang-format-wheel) | [23.1.3](https://pypi.org/project/clang-format/23.1.3/) | Apache-2.0 | PyPI |
 | [Click](https://github.com/pallets/click) | [8.5.0](https://pypi.org/project/click/8.5.0/) | BSD-3-Clause | PyPI |
 | [cmakelang](https://github.com/cheshirekow/cmake_format) | [0.6.13](https://pypi.org/project/cmakelang/0.6.13/) | GPL-3.0-or-later | PyPI |

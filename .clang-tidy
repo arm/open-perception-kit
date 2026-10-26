@@ -18,6 +18,7 @@
 # this codebase. The project uses GStreamer heavily, so checks that mainly flag
 # documented GStreamer macro/API conventions are disabled here instead of being
 # treated as team-owned C++ style issues.
+# Keep the clang-tidy 22 check set when upgrading the tool.
 Checks: >
   -*,
   bugprone-*,
@@ -50,7 +51,23 @@ Checks: >
   -modernize-use-equals-default,
   -performance-enum-size,
   -performance-no-int-to-ptr,
-  -portability-avoid-pragma-once
+  -portability-avoid-pragma-once,
+  -bugprone-assignment-in-selection-statement,
+  -bugprone-missing-end-comparison,
+  -bugprone-signed-bitwise,
+  -bugprone-std-exception-baseclass,
+  -bugprone-unhandled-code-paths,
+  -bugprone-unsafe-to-allow-exceptions,
+  -clang-analyzer-apiModeling.OpaqueSTLFunctionsModeling,
+  -clang-analyzer-optin.core.UnconditionalVAArg,
+  -clang-analyzer-unix.cstring.UninitializedRead,
+  -modernize-use-std-bit,
+  -modernize-use-string-view,
+  -modernize-use-structured-binding,
+  -performance-faster-string-find,
+  -performance-string-view-conversions,
+  -performance-use-std-move,
+  -portability-no-assembler
 WarningsAsErrors: ''
 HeaderFilterRegex: '^\.\./(common|config-validator|elements|ops-[^/]+|opk-menu|runtime|tests|web)/'
 FormatStyle: file
