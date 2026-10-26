@@ -11,7 +11,7 @@
   "service": "opk-dev",
   "remoteUser": "dev",
   "workspaceFolder": "/work",
-  "initializeCommand": "bash .devcontainer/platform_init.sh opk-dev disabled auto && bash scripts/private/build-dev-base.sh",
+  "initializeCommand": "bash .devcontainer/platform_init.sh opk-dev disabled auto devcont stop-other-devcontainers && bash scripts/private/build-dev-base.sh",
   "containerEnv": {
     "CONTAINER_TYPE": "default",
     "HOST_OS": "${localEnv:OSTYPE}",
