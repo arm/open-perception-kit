@@ -21,6 +21,8 @@
 #include <nlohmann/json.hpp>
 
 #include <array>
+#include <filesystem>
+#include <fstream>
 #include <limits>
 
 namespace {
@@ -36,6 +38,23 @@ opk::op::OpChainDescriptor builtInStage() {
         {"opk-std-ops/GenericPostprocess", std::nullopt, {}},
     };
     return descriptor;
+}
+
+TEST(ConfigValidator, SileroAudioUsesOpChain12Contract) {
+    const auto supported = opk::config::supportedOpChainVersion();
+    ASSERT_TRUE(supported) << supported.error().toText();
+    EXPECT_EQ(*supported, "1.2.0");
+
+    const auto path =
+        std::filesystem::path{OPK_REPOSITORY_ROOT} / "config/models/silero-vad/opchain.json";
+    std::ifstream input(path);
+    ASSERT_TRUE(input);
+    const auto document = nlohmann::json::parse(input);
+    EXPECT_EQ(document.at("version"), "1.2.0");
+
+    const auto result = opk::config::validateOpChainJson(document.dump(), path.string());
+    ASSERT_TRUE(result) << result.error().toText();
+    EXPECT_EQ(nlohmann::json(*result).at("version"), document.at("version"));
 }
 
 TEST(ConfigValidator, OpChainModelDescriptorAcceptsFilesystemPathsOnly) {

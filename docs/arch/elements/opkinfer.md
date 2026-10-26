@@ -78,6 +78,10 @@ preceding dimensions, such as `[512]` or `[1, 512]`. All PCM inputs in the chain
 must agree on the window size. Audio caps fail negotiation for a missing PCM
 input, dynamic/batched shapes, log-mel inputs, a window larger than the ring, or
 a hop larger than the window. Log-mel window calculation is not implemented.
+PCM scheduling also rejects any nonzero Op `loopId` in the chain before executing
+a window. The scheduler repeats the entire chain for each window; generic Op loops
+remain available for video and custom execution paths. Repeating an input audio
+file does not create an Op loop and is unaffected by this restriction.
 
 The element converts and buffers audio before scheduling. It waits for a full
 window, executes the entire OpChain, advances the read position by the hop, and

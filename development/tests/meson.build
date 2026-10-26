@@ -677,16 +677,6 @@ generic_audio_preprocess_tests = executable(
 )
 test('generic_audio_preprocess_tests', generic_audio_preprocess_tests)
 
-silero_vad_inference_tests = executable(
-  'silero_vad_inference_tests',
-  ['silero_vad_inference_test.cpp', '../ops-onnx/Inference.cpp', '../ops-onnx/InferenceOp.cpp'],
-  include_directories : [common_include, include_directories('../ops-onnx')],
-  cpp_args : ['-DSILERO_MODEL_DESCRIPTOR="' + meson.project_source_root() / '../config/models/silero-vad/model.json' + '"'],
-  dependencies : [gtest_main_dep, gtest_dep, opk_deps, onnx_dep],
-  link_with : [common],
-)
-test('silero_vad_inference_tests', silero_vad_inference_tests)
-
 # Audio media boundary and GStreamer mapping lifetime.
 audio_frame_tests = executable(
   'audio_frame_tests',

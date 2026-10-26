@@ -118,6 +118,12 @@ opk::Result<size_t> OpChain::getRequiredAudioSamples() const {
             required = samples;
         }
     }
+    // The audio scheduler advances windows between executions of the whole chain.
+    // An inner Op loop would keep reusing the same window instead.
+    if (required && std::ranges::any_of(opPtrs, [](const Op *op) { return op->loopId != 0; }))
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
+                      "Audio scheduling requires an unlooped OpChain; remove loopId from its Ops"));
     return required;
 }
 

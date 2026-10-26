@@ -42,9 +42,12 @@ namespace opk {
 /// append().
 class PcmRingBuffer {
   public:
-    const AudioSampleType sampleType = AudioSampleType::F32;
-    const size_t channels = 1;
-    const size_t frequency = 16000;
+    static constexpr AudioSampleType sampleType = AudioSampleType::F32;
+    static constexpr size_t channels = 1;
+    /// Fixed inference processing rate; source PCM may use other rates.
+    /// TODO(EXPKITS-1485): Generalize the model processing-rate contract across
+    /// conversion, scheduling/time calculations, and audio metadata.
+    static constexpr size_t frequency = 16000;
 
     /// A borrowed chronological window, split only where storage wraps.
     class View {

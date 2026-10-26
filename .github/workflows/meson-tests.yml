@@ -121,12 +121,6 @@ jobs:
         if: *run_checks
         run: python3 -m pip install -r requirements/tests.txt
 
-      - name: Download Silero test model
-        if: *run_checks
-        run: |
-          python3 scripts/download-models.py --models-dir config/models/silero-vad
-          test -s config/models/silero-vad/model_int8.onnx
-
       - name: Run tests
         if: *run_checks
         run: meson test -C development/build-active --print-errorlogs

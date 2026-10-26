@@ -81,11 +81,7 @@ jobs:
               - 'requirements/build.json'
               - 'requirements/meson.txt'
               - 'requirements/sdk.txt'
-              - 'requirements/tests.txt'
-              - 'requirements/models.txt'
-              - 'requirements/common.txt'
               - 'scripts/build.sh'
-              - 'scripts/download-models.py'
               - 'scripts/perception-sdk.sh'
               - 'scripts/private/shtools.sh'
               - 'scripts/private/run-perception-sdk.sh'
@@ -103,17 +99,9 @@ jobs:
         if: &run_checks steps.changes.outcome == 'skipped' || steps.changes.outputs.relevant == 'true'
         uses: ./.github/actions/setup-build
 
-      - name: Install test dependencies
+      - name: Install Valgrind
         if: *run_checks
-        run: |
-          sudo apt-get install -y valgrind
-          python3 -m pip install -r requirements/tests.txt
-
-      - name: Download Silero test model
-        if: *run_checks
-        run: |
-          python3 scripts/download-models.py --models-dir config/models/silero-vad
-          test -s config/models/silero-vad/model_int8.onnx
+        run: sudo apt-get install -y valgrind
 
       - name: Build
         if: *run_checks

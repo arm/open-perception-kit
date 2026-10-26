@@ -79,8 +79,8 @@ runtime. Treat these as constraints when extending the system.
   The Silero VAD ONNX chain uses 512 fresh samples (32 ms) plus 64 context samples
   and emits speech probability, speech-active state, sample bounds, and optional
   presentation timestamps through `VoiceActivityDetections` in `FrameResults`.
-- Audio inference currently requires fixed PCM input shapes and a common fresh
-  window size across the chain. Dynamic/batched inputs, log-mel
+- Audio inference currently requires an unlooped chain with fixed PCM input
+  shapes and a common fresh window size. Dynamic/batched inputs, log-mel
   preprocessing, and planar PCM input are unsupported. The hop cannot exceed the
   window; Silero's context requires contiguous, nonoverlapping 512-sample hops.
   EOS does not pad or infer a partial window or drain the resampler's filter tail.

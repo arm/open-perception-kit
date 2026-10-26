@@ -1394,7 +1394,7 @@
   "postprocessing": {
     "cmake_formatter": "0.6.13",
     "copyright_headers": "SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates",
-    "cpp_formatter": "clang-format version 23.1.1",
+    "cpp_formatter": "clang-format version 23.1.3",
     "python_formatter": "autopep8 2.3.2 (pycodestyle: 2.15.0)",
     "rust": {
       "flatbuffers_runtime": "25.9.23",

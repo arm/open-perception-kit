@@ -46,12 +46,16 @@ class AudioWindowTest(unittest.TestCase):
         self.offset = 0
         self.pts_base = 0
 
-    def create(self, hop=0, window=512, rate=16000, extra=None, second_window=None, copy_input=False):
+    def create(self, hop=0, window=512, rate=16000, extra=None, second_window=None, copy_input=False,
+               loop_id=None):
         attributes = {"trace": str(self.trace), "window": window, **(extra or {})}
         ops = [{"id": "opk-test-audio-window/Window", "attributes": attributes}]
         if second_window is not None:
             ops.append({"id": "opk-test-audio-window/Window", "attributes": {
                 **attributes, "window": second_window}})
+        if loop_id is not None:
+            for op in ops:
+                op["loopId"] = loop_id
         descriptor = Path(self.directory.name) / "opchain.json"
         descriptor.write_text(json.dumps({"version": "1.0.0", "name": "audio-window-test",
                                           "displayName": "Audio Window Test", "task": "Test", "runtime": "Test",
@@ -181,6 +185,18 @@ class AudioWindowTest(unittest.TestCase):
                 self.assertEqual(msg.type, self.Gst.MessageType.ERROR)
                 release_pipeline(self.pipeline, self.Gst)
                 self.assertEqual(self.rows(), [])
+
+    def test_looped_audio_chain_fails_negotiation_before_execution(self):
+        # Two contiguous Ops form a valid generic loop group. Send less than one
+        # window so a missing startup guard cannot enter an infinite execution loop.
+        self.create(second_window=512, loop_id=1)
+        self.push(1, wait=False)
+        self.source.emit("end-of-stream")
+        msg = self.pipeline.get_bus().timed_pop_filtered(
+            5 * self.Gst.SECOND, self.Gst.MessageType.ERROR | self.Gst.MessageType.EOS)
+        self.assertIsNotNone(msg)
+        self.assertEqual(msg.type, self.Gst.MessageType.ERROR)
+        self.assertEqual(self.rows(), [])
 
     def test_timestamps_follow_windows_not_incoming_buffer(self):
         self.create()

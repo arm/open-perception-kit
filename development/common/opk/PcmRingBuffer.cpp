@@ -29,6 +29,22 @@
 
 namespace opk {
 
+namespace {
+
+double decodeS24LE(const uint8_t *const data) {
+    constexpr int32_t signBit = 0x800000;
+    constexpr int32_t valueRange = 0x1000000;
+    constexpr double fullScale = 8388608.0;
+    int32_t value = static_cast<int32_t>(data[0]) | (static_cast<int32_t>(data[1]) << 8) |
+                    (static_cast<int32_t>(data[2]) << 16);
+    // Sign-extend the packed 24-bit two's-complement value into int32_t.
+    if (value & signBit)
+        value -= valueRange;
+    return value / fullScale;
+}
+
+} // namespace
+
 struct PcmRingBuffer::Converter {
     AudioSampleType type;
     size_t channels;
@@ -193,14 +209,9 @@ bool PcmRingBuffer::feed(std::span<const uint8_t> input,
                 sum += v / 32768.0;
                 break;
             }
-            case AudioSampleType::S24: {
-                int32_t v = static_cast<int32_t>(p[0]) | (static_cast<int32_t>(p[1]) << 8) |
-                            (static_cast<int32_t>(p[2]) << 16);
-                if (v & 0x800000)
-                    v -= 0x1000000;
-                sum += v / 8388608.0;
+            case AudioSampleType::S24:
+                sum += decodeS24LE(p);
                 break;
-            }
             case AudioSampleType::S32: {
                 int32_t v;
                 std::memcpy(&v, p, sizeof(v));

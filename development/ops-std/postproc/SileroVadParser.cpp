@@ -45,11 +45,9 @@ opk::Result<void> SileroVadParser::parse(const opk::TensorParser::Input &input,
         static_cast<uint64_t>(attackMs) > std::numeric_limits<uint64_t>::max() / 16 ||
         static_cast<uint64_t>(releaseMs) > std::numeric_limits<uint64_t>::max() / 16)
         return invalid("SileroVadParser: invalid thresholds or attack/release duration");
-    for (size_t i = 0; i < 1; ++i) {
-        const auto value = tensor->get(i);
-        if (!std::isfinite(value) || value < 0 || value > 1)
-            return invalid("SileroVadParser expects finite sigmoid probabilities in [0,1]");
-    }
+    const float probability = tensor->get(0);
+    if (!std::isfinite(probability) || probability < 0 || probability > 1)
+        return invalid("SileroVadParser expects finite sigmoid probabilities in [0,1]");
     const auto &audio = input.inferenceInfo.audio;
     if (!audio.hopSampleCount || audio.windowEndSample <= audio.windowStartSample ||
         audio.hopSampleCount > audio.windowEndSample - audio.windowStartSample)
@@ -61,7 +59,6 @@ opk::Result<void> SileroVadParser::parse(const opk::TensorParser::Input &input,
 
     const uint64_t attackLimit = static_cast<uint64_t>(attackMs) * 16;
     const uint64_t releaseLimit = static_cast<uint64_t>(releaseMs) * 16;
-    const float probability = tensor->get(0);
     if (input.inferenceInfo.audio.discontinuity) {
         speechActive_ = false;
         attackSamples_ = releaseSamples_ = 0;
