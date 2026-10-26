@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:arm:opk:schema:turn-detector-op:v1",
+  "title": "TurnDetector Op v1",
+  "if": {
+    "properties": {
+      "id": {
+        "const": "opk-std-ops/TurnDetector"
+      }
+    },
+    "required": [
+      "id"
+    ]
+  },
+  "then": {
+    "not": {
+      "required": [
+        "loopId"
+      ]
+    },
+    "properties": {
+      "attributes": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "inputAudioSourceName": {
+            "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/trimNonEmptyString",
+            "default": "pipelineAudioData"
+          },
+          "vadModel": {
+            "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/trimNonEmptyString",
+            "default": "silero-vad"
+          },
+          "hopSampleCount": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 960000,
+            "default": 512
+          },
+          "silenceMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 60000,
+            "default": 300
+          },
+          "retryMs": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 60000,
+            "default": 500
+          },
+          "maxAttempts": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 3
+          }
+        }
+      }
+    }
+  }
+}

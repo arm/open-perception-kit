@@ -1,7 +1,7 @@
 {
-  "version": "1.1.4",
+  "version": "1.1.5",
   "name": "silero-vad",
-  "legal": "https://github.com/snakers4/silero-vad",
+  "legal": "https://huggingface.co/Arm/silero-vad-fp32-onnx",
   "modelFile": "silero_vad.onnx",
   "hfDownload": {
     "repo_id": "Arm/silero-vad-fp32-onnx",

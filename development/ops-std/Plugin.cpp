@@ -23,6 +23,7 @@
 #include "GenericImagePreprocessOp.h"
 #include "GenericPostprocessOp.h"
 #include "InferenceControllerOp.h"
+#include "TurnDetectorOp.h"
 
 opk::op::Op *createOp(const std::string &opName) {
     if (opName == "GenericPostprocess")
@@ -33,6 +34,8 @@ opk::op::Op *createOp(const std::string &opName) {
         return new opk::stdop::GenericImagePreprocessOp();
     if (opName == "InferenceController")
         return new opk::stdop::InferenceControllerOp();
+    if (opName == "TurnDetector")
+        return new opk::stdop::TurnDetectorOp();
     return nullptr;
 }
 

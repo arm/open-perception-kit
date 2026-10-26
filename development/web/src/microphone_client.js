@@ -47,7 +47,10 @@ export class MicrophoneClient {
         };
         this.onStatus(true, 'Waiting for microphone permission…');
         try {
-            const stream = await this.getUserMedia({audio: true, video: false});
+            const stream = await this.getUserMedia({
+                audio: {echoCancellation: true},
+                video: false,
+            });
             if (!current()) {
                 stream.getTracks().forEach(track => track.stop());
                 return;

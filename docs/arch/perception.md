@@ -220,3 +220,37 @@ Existing payload roots and their identities are unchanged. Older SDKs cannot
 provide typed access to `VoiceActivityDetections`; consumers need the regenerated
 SDK. The generic envelope's unknown-payload behavior remains unchanged. No
 mixed-version typed compatibility is claimed.
+
+## Turn detection results
+
+`TurnDetections` (`TURN`) contains `TurnDetection` items with standard object,
+layer and producer metadata. Its semantic content type is `turnDetection`.
+`SmartTurnParser` appends one payload per model evaluation, including negative
+assessments and retries. `turn_probability` is the model's completion score in
+`[0,1]`; `turn_complete` is true when that score meets the configured `threshold`
+(default 0.5). It is a model hint, not a final conversation-controller decision.
+The parser emits no diagnostic prints. Consumers iterate every payload rather
+than interpreting repeated positives as separate completed utterances.
+
+`window_start_sample` and exclusive `window_end_sample` describe the real mono
+16 kHz context evaluated by the model, using the same sample timeline as VAD.
+They exclude synthetic front padding and are not utterance boundaries. Optional
+`window_start_ts_ns` and `window_end_ts_ns` carry the corresponding source media
+PTS; both are absent if unavailable, and timestamp zero is valid. `discontinuity`
+marks the first assessment after initialization, stream discontinuity or a gap
+in the retained history. `TurnDetector` preserves this marker across skipped
+VAD hops until the next model assessment. A history gap need not restart the
+source sample counter; a stream reset does.
+
+The conversation controller owns turn confirmation, deduplication, timeout
+fallback and STT submission. Neither this payload nor the parser implements
+those policies. Plumber normalizes and compares turn assessments using their
+decision, audio bounds, timestamps and probability.
+
+This new root is an additive schema change requiring a MINOR OPK release
+(at least 0.2.0 from 0.1.x); product versions are updated during release
+preparation. Existing payload roots and identities are unchanged. Typed access
+requires the regenerated C++, Python, Rust or TypeScript SDK; older SDKs retain
+their generic unknown-payload behavior. No mixed-version typed compatibility is
+claimed. Construction and serialization tests cover positive/negative results,
+repeated assessments, empty payloads and optional/zero timestamps.

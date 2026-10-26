@@ -89,6 +89,11 @@
       "size": 20425
     },
     {
+      "path": "cpp/fb/turn_detections_generated.h",
+      "sha256": "11259dcbdf47f019a7d71f9481be8912dcb82df1669afe38b02005bb28b404c8",
+      "size": 23953
+    },
+    {
       "path": "cpp/fb/voice_activity_detections_generated.h",
       "sha256": "6308ec91ac0f6c3487c2cb4c7221ae45d718e8a0139a9e858c19bcc0d3d3869e",
       "size": 25706
@@ -105,13 +110,13 @@
     },
     {
       "path": "cpp/open_perception_kit.h",
-      "sha256": "0c4b5337a1f8e0144bb152fd85f48be2ba0056214928f6b33adcb77879871dca",
-      "size": 35660
+      "sha256": "dbbb8a5cc0a432009cc2b50474fa532b61f7915b1cacd8cfe7ddc0a7456f1d3f",
+      "size": 36444
     },
     {
       "path": "cpp/python_bridge/open_perception_kit_python_bridge.cpp",
-      "sha256": "f19d44987b57d30a3a5dc973762c9931786365bb9d226f2e16aca94687f7a2e3",
-      "size": 279527
+      "sha256": "8749485c671c538d5f0ac7005e658e01ea4eb044ed5e833afd4d68813ff0bc41",
+      "size": 297650
     },
     {
       "path": "cpp/python_bridge/open_perception_kit_python_bridge.h",
@@ -135,7 +140,7 @@
     },
     {
       "path": "python/src/open_perception_kit/__init__.py",
-      "sha256": "dc93010bf4450ab4c8f2a0b79c763821eff1cb8adcdcdddad66ff2d9585602a0",
+      "sha256": "d10755556acd3db6a4f8fa26df7d4b4ca15f49aa9fc0d189eb5bebb2e15e52b4",
       "size": 1166
     },
     {
@@ -294,6 +299,16 @@
       "size": 7646
     },
     {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/TurnDetection.py",
+      "sha256": "2af9c2bd20a37b839349eeaa86de2c96c00ecb3f87e1c2e1aca1a8e70b8a173f",
+      "size": 8967
+    },
+    {
+      "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/TurnDetections.py",
+      "sha256": "3814976de811da0b52a3f4b6e08c8346b3ec09abf31130d7dfe4c87bafbd0f14",
+      "size": 7985
+    },
+    {
       "path": "python/src/open_perception_kit/fb/open_perception_kit/metadata/VideoFrameContext.py",
       "sha256": "8cbf8c0a7fcf599b4719c9d53755349ec7d0ccd53cd7967ba8db9432382d8291",
       "size": 11273
@@ -350,12 +365,12 @@
     },
     {
       "path": "python/src/open_perception_kit/registry.py",
-      "sha256": "6d9a4a64d03481119434bd07eaa2dde3b11fd54d42357d8a41257cdc2ad997bb",
-      "size": 5529
+      "sha256": "8c8441f2024f04f8650fcc01fce6c3ac415918db8ba99ccf7b3b115bf85bdb2e",
+      "size": 5910
     },
     {
       "path": "python/src/open_perception_kit/sdk.py",
-      "sha256": "cd46ab88cce945f37661b9b17af64fe8eb8005040c5a13cebf9bf4717f3e8ea5",
+      "sha256": "f8428d5a36af1b822e7322ec484d85b83b9bde55c9ffa38a8576391af2ab36fd",
       "size": 16002
     },
     {
@@ -440,8 +455,8 @@
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/mod.rs",
-      "sha256": "a6a3021836614a4964290302b4bb0b72b22c3f6de8c55dfe5ade9b1c8f0cf989",
-      "size": 3199
+      "sha256": "02c97a6a3fd62ed34344b3ab782b754f142acba36bda6768a468003b4a46b620",
+      "size": 3347
     },
     {
       "path": "rust/src/fb/open_perception_kit/metadata/object_embedding_generated.rs",
@@ -529,6 +544,16 @@
       "size": 12542
     },
     {
+      "path": "rust/src/fb/open_perception_kit/metadata/turn_detection_generated.rs",
+      "sha256": "c162dac22278b065725b4ce8871c3d55c4679b9b28d02b737f04169a0bc1037b",
+      "size": 13211
+    },
+    {
+      "path": "rust/src/fb/open_perception_kit/metadata/turn_detections_generated.rs",
+      "sha256": "0d5322a3d4eb093fe743888ed39471669d4e54cbf6122dca4dc8e1131a4e2253",
+      "size": 12912
+    },
+    {
       "path": "rust/src/fb/open_perception_kit/metadata/video_frame_context_generated.rs",
       "sha256": "2f5eeb1c0db73ec0c383c5e8b4364e430ec6c479cb62add99a2c8c23cbcb44dd",
       "size": 16455
@@ -570,8 +595,8 @@
     },
     {
       "path": "rust/src/lib.rs",
-      "sha256": "6a7852af1f0fbc5dccc0a5b20615294fa76009cdc643a4b3acc021af0c29aad8",
-      "size": 50948
+      "sha256": "c2fc74f32f104acf8fde3181c89f252102de11f91dcd6da58e67c5118e248600",
+      "size": 53051
     },
     {
       "path": "rust/tests/fixtures/opk-box-detections-v0.2.1.hex",
@@ -595,12 +620,12 @@
     },
     {
       "path": "ts/dist/open_perception_kit/envelope.d.ts",
-      "sha256": "3fa48dc95bbb52de26a5fb7483b060d9b8aa2871fb11710b643f09aa79604316",
+      "sha256": "f7135e83ccee3e391c6d2df343e1727aa190bf0eb3596376536cc201b6735b03",
       "size": 2941
     },
     {
       "path": "ts/dist/open_perception_kit/envelope.js",
-      "sha256": "2fef63136bd8192e6d130871babcb9fb79dadc35625e0f507c08a593a3eebe03",
+      "sha256": "53d24b62534999df48d2fa66b35ad63e3834c2bc2a52d22c35c82bf047eb0070",
       "size": 14375
     },
     {
@@ -924,6 +949,26 @@
       "size": 5086
     },
     {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/turn-detection.d.ts",
+      "sha256": "24efad46873e17c217319a12a7b1087cc6794eb139bd09d7b5690454f2ff2620",
+      "size": 3506
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/turn-detection.js",
+      "sha256": "ac5b3857a249bbd85d283707a2b680d0b2f2949047042608aa30da218b5e58c2",
+      "size": 6629
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/turn-detections.d.ts",
+      "sha256": "3ac1162ffe156477797e190a5d430aab944f356def26c3168d042fccbc214f06",
+      "size": 3116
+    },
+    {
+      "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/turn-detections.js",
+      "sha256": "53d79fd9a62b5dd494af641de20ba16ba3d89e8e0813ecb7d907e0d2ced2e7a3",
+      "size": 5235
+    },
+    {
       "path": "ts/dist/open_perception_kit/fb/open-perception-kit/metadata/video-frame-context.d.ts",
       "sha256": "8e1794477187ef9eaaa8a42784fd8455c99fd487099c45982f825387bb6e2740",
       "size": 4073
@@ -965,12 +1010,12 @@
     },
     {
       "path": "ts/dist/open_perception_kit/index.d.ts",
-      "sha256": "9aeff75c85b3f6bcbc2f4c72b206bd8b38fad706564d896421ce91b409f0fb64",
+      "sha256": "f6c6af69495074e8a1bcdc976a3767ef40e5002670942087efd9d2f72e164732",
       "size": 1235
     },
     {
       "path": "ts/dist/open_perception_kit/index.js",
-      "sha256": "651b6d9a99eceb18836d83f43c2a205e415be509da7a9c35402c5b9d4638f5b2",
+      "sha256": "1df9158a0c472886acd09181772f760d9288f29ecff592f38546f39627902d70",
       "size": 1203
     },
     {
@@ -980,8 +1025,8 @@
     },
     {
       "path": "ts/dist/open_perception_kit/registry.js",
-      "sha256": "39dd635e14f8002ec16b143600bba51fb0e0e5a4a61b4b78fd3c23a993c8d2fe",
-      "size": 11710
+      "sha256": "a0e63dc4152d2878422cabef18a47c6e5467f78d0acad23e68ba163471b51f17",
+      "size": 12577
     },
     {
       "path": "ts/package.json",
@@ -990,7 +1035,7 @@
     },
     {
       "path": "ts/src/open_perception_kit/envelope.ts",
-      "sha256": "11f314bb89e9bad7a0df5749e193c977c70110365d269e50412907ad315badf7",
+      "sha256": "1d55ddabff5f6a832d2f53596e96164a0254312bc938da874f4d550277a73e96",
       "size": 13002
     },
     {
@@ -1154,6 +1199,16 @@
       "size": 5484
     },
     {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/turn-detection.ts",
+      "sha256": "cfb74f9cdd6d2c1103a947540c806ad61ec75f74b67dca3adc52f567f22f468a",
+      "size": 6823
+    },
+    {
+      "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/turn-detections.ts",
+      "sha256": "170202e99ee68c7ddb2b16f43561b3a2b3b10d059e5b02568b88c44aa389ce0f",
+      "size": 5673
+    },
+    {
       "path": "ts/src/open_perception_kit/fb/open-perception-kit/metadata/video-frame-context.ts",
       "sha256": "607e68aaba33d32c644f2dfaa39c6d171ecb6f8eb3735c04f59eea515243dd93",
       "size": 8491
@@ -1175,13 +1230,13 @@
     },
     {
       "path": "ts/src/open_perception_kit/index.ts",
-      "sha256": "77a1a2a6500c44924ec5938aa3f4ec80d8d201cc05091ce076531b836a20f404",
+      "sha256": "814c679c32ab8076f3c4dccd4c293f638f3652a5f1288e508e5b0a8c86f5d744",
       "size": 1216
     },
     {
       "path": "ts/src/open_perception_kit/registry.ts",
-      "sha256": "9783d93c25258571f5e242e89c4102bc5642b7b07fc758fe5f05bc17a29146fc",
-      "size": 11836
+      "sha256": "494fbe6a387e9c711583ac0762e4f3621a457b1e37a14abe57b5a0b75d87713b",
+      "size": 12687
     },
     {
       "path": "ts/tsconfig.json",
@@ -1488,6 +1543,11 @@
           "size": 17657
         },
         {
+          "path": "fb/turn_detections_generated.h",
+          "sha256": "3e8a1791551be051d6a3c622d6501aab5d7398d97f84b4dc5f243f4c7922d65d",
+          "size": 20713
+        },
+        {
           "path": "fb/voice_activity_detections_generated.h",
           "sha256": "005f2f67ff927da9def057bf5841bec27ff799dccebb8a9069e3f67b7bd27a30",
           "size": 22213
@@ -1504,13 +1564,13 @@
         },
         {
           "path": "open_perception_kit.h",
-          "sha256": "4e8ffff793f28da45a6b82918ddac0b50c2081476a9a6a78d2f587cba610e744",
-          "size": 34393
+          "sha256": "bf6e65d894927039abcf61b1f70c726a35d542e8dd3ebb00e47247ea1f4beebb",
+          "size": 35143
         },
         {
           "path": "python_bridge/open_perception_kit_python_bridge.cpp",
-          "sha256": "da34b3daceeb844075d181cf683fb651b188e6dda76a7fd1ce4a253ba0a289ee",
-          "size": 266289
+          "sha256": "92a4790e45ddb89581d584a64513026cc49fd0d324f01b3685eba2dbcd9cd468",
+          "size": 283629
         },
         {
           "path": "python_bridge/open_perception_kit_python_bridge.h",
@@ -1615,6 +1675,12 @@
           "schema": "track_traces.fbs"
         },
         {
+          "file_identifier": "TURN",
+          "payload_id": "0x30f80740ac9cd986",
+          "qualified_root_type": "open_perception_kit.metadata.TurnDetections",
+          "schema": "turn_detections.fbs"
+        },
+        {
           "file_identifier": "VACT",
           "payload_id": "0x65b32f6269473218",
           "qualified_root_type": "open_perception_kit.metadata.VoiceActivityDetections",
@@ -1693,12 +1759,17 @@
           "size": 427
         },
         {
+          "path": "turn_detections.fbs",
+          "sha256": "7dede792ea99066b7e52eca3d8d3db4ff1d965a9e6a19397cb28e807e38bf456",
+          "size": 1138
+        },
+        {
           "path": "voice_activity_detections.fbs",
           "sha256": "9520451e7c847c5d9de5ea3d9fd44359e7919600be70d27f3e4d0c26abe4bb9e",
           "size": 994
         }
       ],
-      "schema_set_sha256": "04f772ed9bceb6249cc669d26f715f5b08b1d6131e6ad1c91bd523fdd579950d",
+      "schema_set_sha256": "80bbe857a1d3c60d9c535c2f47a305b8b900b6ea464c81d87974ec3979e101f3",
       "sdk": {
         "name": "open_perception_kit",
         "version": "0.1.2"
@@ -1713,7 +1784,7 @@
         },
         {
           "path": "src/open_perception_kit/__init__.py",
-          "sha256": "4602d25e048b4ded94a29a7073a982f1bc55d41f8aa096b9fabbc9866ac78d54",
+          "sha256": "1690712ea4dc0807ee2a8aa45661dd203367d3c3f4b4cddc23dbf66b48ea4181",
           "size": 506
         },
         {
@@ -1872,6 +1943,16 @@
           "size": 6926
         },
         {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/TurnDetection.py",
+          "sha256": "d773375ab0a732d08bfd61963b8888e4960eff52e1ca24b8cdcb98945d45cd53",
+          "size": 8274
+        },
+        {
+          "path": "src/open_perception_kit/fb/open_perception_kit/metadata/TurnDetections.py",
+          "sha256": "339d3fc2331f89ba470e8ab1c6a629d5cc27134c19fd9d75496477f61b7ef260",
+          "size": 7265
+        },
+        {
           "path": "src/open_perception_kit/fb/open_perception_kit/metadata/VideoFrameContext.py",
           "sha256": "d200559bfd554083dd5d4a547e0a2eee9f100257ff7d7fd572b9e7b27dafa026",
           "size": 10580
@@ -1928,12 +2009,12 @@
         },
         {
           "path": "src/open_perception_kit/registry.py",
-          "sha256": "3ddc0e2ff73ef11ccf7ca7ea4fac8272ed18d384783b6c6739c1e8d6d7ca801e",
-          "size": 4868
+          "sha256": "e03c3f0fd9bbf7d09b71696897b1f75b532afc8ed1ce35bba242f7778c36dbd8",
+          "size": 5249
         },
         {
           "path": "src/open_perception_kit/sdk.py",
-          "sha256": "6355c954b44d344aa74ae8e74945890c79bd7d9d71b5b52310db83dfa65fa14e",
+          "sha256": "3ff54674d4f8d1c27f90e9e69668cd69f0f45aea3db2b92155b7783bd7e1b56c",
           "size": 15341
         }
       ],
@@ -2026,6 +2107,12 @@
           "schema": "track_traces.fbs"
         },
         {
+          "file_identifier": "TURN",
+          "payload_id": "0x30f80740ac9cd986",
+          "qualified_root_type": "open_perception_kit.metadata.TurnDetections",
+          "schema": "turn_detections.fbs"
+        },
+        {
           "file_identifier": "VACT",
           "payload_id": "0x65b32f6269473218",
           "qualified_root_type": "open_perception_kit.metadata.VoiceActivityDetections",
@@ -2109,12 +2196,17 @@
           "size": 427
         },
         {
+          "path": "turn_detections.fbs",
+          "sha256": "7dede792ea99066b7e52eca3d8d3db4ff1d965a9e6a19397cb28e807e38bf456",
+          "size": 1138
+        },
+        {
           "path": "voice_activity_detections.fbs",
           "sha256": "9520451e7c847c5d9de5ea3d9fd44359e7919600be70d27f3e4d0c26abe4bb9e",
           "size": 994
         }
       ],
-      "schema_set_sha256": "04f772ed9bceb6249cc669d26f715f5b08b1d6131e6ad1c91bd523fdd579950d",
+      "schema_set_sha256": "80bbe857a1d3c60d9c535c2f47a305b8b900b6ea464c81d87974ec3979e101f3",
       "sdk": {
         "name": "open_perception_kit",
         "version": "0.1.2"
@@ -2194,8 +2286,8 @@
         },
         {
           "path": "src/fb/open_perception_kit/metadata/mod.rs",
-          "sha256": "5d336b6786de64cc3c85d8b7e53bd2801de170c11843dce61422384878af2f97",
-          "size": 2518
+          "sha256": "e369f797da02d1f4228d0c480b1fbbc9f07025213585cde0eeeee7d01efb3261",
+          "size": 2666
         },
         {
           "path": "src/fb/open_perception_kit/metadata/object_embedding_generated.rs",
@@ -2283,6 +2375,16 @@
           "size": 11861
         },
         {
+          "path": "src/fb/open_perception_kit/metadata/turn_detection_generated.rs",
+          "sha256": "ce21af5f1472878335fac3b368dcef62abd09412dd5a6813ac3b85e1a58befea",
+          "size": 12530
+        },
+        {
+          "path": "src/fb/open_perception_kit/metadata/turn_detections_generated.rs",
+          "sha256": "2fff4e592245afb584bf6e3a20b54d27dd25558f3653cebaaa3798956bbd4468",
+          "size": 12231
+        },
+        {
           "path": "src/fb/open_perception_kit/metadata/video_frame_context_generated.rs",
           "sha256": "a582e3503150ada8624dcaf70ddfabc4df92c381921a6e947f176b0ed1832df3",
           "size": 15774
@@ -2324,8 +2426,8 @@
         },
         {
           "path": "src/lib.rs",
-          "sha256": "ba09f804e929abfa77fe96b267e4822824d906f95811f9cdd979c749b7d36df5",
-          "size": 50267
+          "sha256": "76a750d247e1045895f6857a50c1226140e746221fc7e48391fdace85596e4c5",
+          "size": 52370
         }
       ],
       "flatbuffers_runtimes": [
@@ -2417,6 +2519,12 @@
           "schema": "track_traces.fbs"
         },
         {
+          "file_identifier": "TURN",
+          "payload_id": "0x30f80740ac9cd986",
+          "qualified_root_type": "open_perception_kit.metadata.TurnDetections",
+          "schema": "turn_detections.fbs"
+        },
+        {
           "file_identifier": "VACT",
           "payload_id": "0x65b32f6269473218",
           "qualified_root_type": "open_perception_kit.metadata.VoiceActivityDetections",
@@ -2485,12 +2593,17 @@
           "size": 427
         },
         {
+          "path": "turn_detections.fbs",
+          "sha256": "7dede792ea99066b7e52eca3d8d3db4ff1d965a9e6a19397cb28e807e38bf456",
+          "size": 1138
+        },
+        {
           "path": "voice_activity_detections.fbs",
           "sha256": "9520451e7c847c5d9de5ea3d9fd44359e7919600be70d27f3e4d0c26abe4bb9e",
           "size": 994
         }
       ],
-      "schema_set_sha256": "04f772ed9bceb6249cc669d26f715f5b08b1d6131e6ad1c91bd523fdd579950d",
+      "schema_set_sha256": "80bbe857a1d3c60d9c535c2f47a305b8b900b6ea464c81d87974ec3979e101f3",
       "sdk": {
         "name": "open_perception_kit",
         "version": "0.1.2"
@@ -2505,7 +2618,7 @@
         },
         {
           "path": "src/open_perception_kit/envelope.ts",
-          "sha256": "6d143f2f2b2d56520375694cb13b3de757c47d456273daf96a9a0b7589794f95",
+          "sha256": "42fe177421ca35bbc8c098b3588527508242e8d5182f125f4ad9f58b6d871b08",
           "size": 12321
         },
         {
@@ -2674,6 +2787,16 @@
           "size": 4803
         },
         {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/turn-detection.ts",
+          "sha256": "40b38180c22e35a4081cfed624eb77458482c7871b7482a1d546fd6aed8ecfdf",
+          "size": 6142
+        },
+        {
+          "path": "src/open_perception_kit/fb/open-perception-kit/metadata/turn-detections.ts",
+          "sha256": "8ee2db3b1097a4fc863984f62a68c74029fee7525ff00268de28adb301355015",
+          "size": 4992
+        },
+        {
           "path": "src/open_perception_kit/fb/open-perception-kit/metadata/video-frame-context.ts",
           "sha256": "89e094407dcfe98d8fc40c303091127e8c5b03a79c226e7e057f71f2a80d87f5",
           "size": 7810
@@ -2690,13 +2813,13 @@
         },
         {
           "path": "src/open_perception_kit/index.ts",
-          "sha256": "75550c7f36e5927f678403f133f3ad3c1f0d6b7af0c2185d620a37577fc48ddd",
+          "sha256": "14d1e0a9bcc129a549bf3312840f3f4023a40a62e628d3b4fe3e79b6ed0331b8",
           "size": 535
         },
         {
           "path": "src/open_perception_kit/registry.ts",
-          "sha256": "5d17bf82ccd64a09a9d5300ce556ef6da1b44a89e4048d80d56d65e9da088efa",
-          "size": 11155
+          "sha256": "40311ac54337afaed3005a8f3fbfe5a9dcca106c4a905a675bc126f20dfbf3c0",
+          "size": 12006
         },
         {
           "path": "tsconfig.json",
@@ -2793,6 +2916,12 @@
           "schema": "track_traces.fbs"
         },
         {
+          "file_identifier": "TURN",
+          "payload_id": "0x30f80740ac9cd986",
+          "qualified_root_type": "open_perception_kit.metadata.TurnDetections",
+          "schema": "turn_detections.fbs"
+        },
+        {
           "file_identifier": "VACT",
           "payload_id": "0x65b32f6269473218",
           "qualified_root_type": "open_perception_kit.metadata.VoiceActivityDetections",
@@ -2861,12 +2990,17 @@
           "size": 427
         },
         {
+          "path": "turn_detections.fbs",
+          "sha256": "7dede792ea99066b7e52eca3d8d3db4ff1d965a9e6a19397cb28e807e38bf456",
+          "size": 1138
+        },
+        {
           "path": "voice_activity_detections.fbs",
           "sha256": "9520451e7c847c5d9de5ea3d9fd44359e7919600be70d27f3e4d0c26abe4bb9e",
           "size": 994
         }
       ],
-      "schema_set_sha256": "04f772ed9bceb6249cc669d26f715f5b08b1d6131e6ad1c91bd523fdd579950d",
+      "schema_set_sha256": "80bbe857a1d3c60d9c535c2f47a305b8b900b6ea464c81d87974ec3979e101f3",
       "sdk": {
         "name": "open_perception_kit",
         "version": "0.1.2"

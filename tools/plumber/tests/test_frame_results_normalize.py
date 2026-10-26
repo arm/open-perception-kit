@@ -62,6 +62,46 @@ def layer(content_type: str, infer_element_id: str = "infer0") -> LayerInfoT:
 
 
 class FrameResultsNormalizeTests(unittest.TestCase):
+    def test_turn_assessments_roundtrip_and_compare(self):
+        from open_perception_kit.fb.open_perception_kit.metadata.TurnDetection import TurnDetectionT
+        from open_perception_kit.fb.open_perception_kit.metadata.TurnDetections import TurnDetectionsT
+        from plumber.frame_results_compare import DISTANCE_SPECS
+
+        results = FrameResults()
+        results.add(TurnDetectionsT(layer=layer("turnDetection"), detections=[
+            TurnDetectionT(object=ObjectMetaT(id=201), turnProbability=0.8,
+                           turnComplete=True, windowStartSample=0, windowEndSample=16000,
+                           windowStartTsNs=0, windowEndTsNs=1_000_000_000, discontinuity=True),
+            TurnDetectionT(object=ObjectMetaT(id=202), turnProbability=0.2,
+                           windowStartSample=512, windowEndSample=128512),
+        ]))
+        snapshot = normalize_frame_results(FrameResults(results.serialize()))
+        key = PayloadKey("open_perception_kit.metadata.TurnDetections", "infer0", "turnDetection", "model-a")
+        items = snapshot.payloads[key].items
+        self.assertEqual(len(items), 2)
+        self.assertEqual(items[0]["item_type"], "TurnDetection")
+        data = items[0]["data"]
+        self.assertAlmostEqual(data["turnProbability"], 0.8)
+        self.assertTrue(data["turnComplete"])
+        self.assertEqual(data["windowStartSample"], 0)
+        self.assertEqual(data["windowEndSample"], 16000)
+        self.assertEqual(data["windowStartTsNs"], 0)
+        self.assertEqual(data["windowEndTsNs"], 1_000_000_000)
+        self.assertTrue(data["discontinuity"])
+        self.assertFalse(items[1]["data"]["turnComplete"])
+        self.assertIsNone(items[1]["data"]["windowStartTsNs"])
+        self.assertIsNone(items[1]["data"]["windowEndTsNs"])
+        spec = DISTANCE_SPECS["TurnDetection"]
+        self.assertEqual(spec.func(items[0], items[0], {}, {}), 0)
+        for field, changed in (("turnComplete", False), ("windowStartSample", 1),
+                               ("windowEndSample", 16001), ("windowStartTsNs", None),
+                               ("windowEndTsNs", None), ("discontinuity", False)):
+            with self.subTest(field=field):
+                altered = {"data": {**data, field: changed}}
+                self.assertEqual(spec.func(items[0], altered, {}, {}), 1)
+        altered = {"data": {**data, "turnProbability": data["turnProbability"] + 0.005}}
+        self.assertLess(spec.func(items[0], altered, {}, {}), spec.threshold)
+
     def test_voice_activity_roundtrip_preserves_unknown_and_zero_timestamps(self):
         from open_perception_kit.fb.open_perception_kit.metadata.VoiceActivityDetection import VoiceActivityDetectionT
         from open_perception_kit.fb.open_perception_kit.metadata.VoiceActivityDetections import VoiceActivityDetectionsT

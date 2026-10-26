@@ -206,6 +206,14 @@ validated when the pipeline starts.
 
 ## Migrating existing configurations
 
+OpChain `1.3.0` adds `TurnDetector` and `SmartTurnParser`. Use `"1.3.0"`
+for chains adopting either addition and rebuild or upgrade the runtime.
+`TurnDetector` follows VAD postprocessing and precedes a single-input PCM model
+in an unlooped chain. It prepares padded audio history after VAD silence, with
+bounded retries. `SmartTurnParser` publishes model assessments; the application
+owns final turn confirmation and silence timeouts. Existing chains remain valid,
+with a warning when their minor version differs from the reader's.
+
 OpChain `1.2.0` adds `GenericAudioPreprocess` and `SileroVadParser` attributes.
 Set the OpChain version to `"1.2.0"` when adopting audio preprocessing or VAD
 postprocessing, and rebuild or upgrade the runtime before using them. Older

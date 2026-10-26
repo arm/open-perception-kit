@@ -47,6 +47,7 @@
 #include "fb/segmentation_masks_generated.h"
 #include "fb/semantic_segmentation_masks_generated.h"
 #include "fb/track_traces_generated.h"
+#include "fb/turn_detections_generated.h"
 #include "fb/voice_activity_detections_generated.h"
 #include "flatbuffers/flatbuffers.h"
 
@@ -55,7 +56,7 @@ namespace open_perception_kit {
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_VERSION = "0.1.2";
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_NAME = "open_perception_kit";
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_SCHEMA_SET_SHA256 =
-    "04f772ed9bceb6249cc669d26f715f5b08b1d6131e6ad1c91bd523fdd579950d";
+    "80bbe857a1d3c60d9c535c2f47a305b8b900b6ea464c81d87974ec3979e101f3";
 inline constexpr std::string_view OPEN_PERCEPTION_KIT_FLATBUFFERS_VERSION_REQUIREMENT = "==25.9.23";
 
 namespace detail {
@@ -251,6 +252,23 @@ template <> struct native_traits<open_perception_kit::metadata::TrackTracesT> {
     }
 };
 
+template <> struct native_traits<open_perception_kit::metadata::TurnDetectionsT> {
+    using table_type = open_perception_kit::metadata::TurnDetections;
+    using native_type = open_perception_kit::metadata::TurnDetectionsT;
+
+    static constexpr id_t id = 3528578282400045446ULL;
+    static constexpr std::string_view qualified_root_type =
+        "open_perception_kit.metadata.TurnDetections";
+
+    static constexpr const char *file_identifier() {
+        return "TURN";
+    }
+
+    static auto pack(flatbuffers::FlatBufferBuilder &builder, const native_type *obj) {
+        return open_perception_kit::metadata::CreateTurnDetections(builder, obj);
+    }
+};
+
 template <> struct native_traits<open_perception_kit::metadata::VoiceActivityDetectionsT> {
     using table_type = open_perception_kit::metadata::VoiceActivityDetections;
     using native_type = open_perception_kit::metadata::VoiceActivityDetectionsT;
@@ -284,6 +302,7 @@ using payload_data = std::variant<encoded_payload,
                                   open_perception_kit::metadata::SegmentationMasksT,
                                   open_perception_kit::metadata::SemanticSegmentationMasksT,
                                   open_perception_kit::metadata::TrackTracesT,
+                                  open_perception_kit::metadata::TurnDetectionsT,
                                   open_perception_kit::metadata::VoiceActivityDetectionsT>;
 
 struct payload_entry {

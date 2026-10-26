@@ -80,7 +80,7 @@ class BuildScriptTests(unittest.TestCase):
             "    output_dir.mkdir(parents=True, exist_ok=True)\n"
             "    for artifact in (\n"
             "        'opk-menu', 'opk-config-check', 'libopk-common.so',\n"
-            "        'opk-runtime.so', 'opchain-exec', 'pipeline-exec'\n"
+            "        'opk-runtime.so', 'opchain-exec', 'pipeline-exec', 'voice-pipeline'\n"
             "    ):\n"
             "        (output_dir / artifact).touch()\n",
             encoding="utf-8",
@@ -175,6 +175,7 @@ class BuildScriptTests(unittest.TestCase):
             self.assertTrue((checkout / "tools/opk-config-check").is_file())
             self.assertTrue((checkout / "tools/opchain-exec").is_file())
             self.assertTrue((checkout / "tools/pipeline-exec").is_file())
+            self.assertTrue((checkout / "tools/voice-pipeline").is_file())
             self.assertTrue((checkout / "tools/libopk-common.so").is_file())
             self.assertTrue((checkout / "tools/opk-runtime.so").is_file())
             active_build_dir = checkout / "development/build-active"

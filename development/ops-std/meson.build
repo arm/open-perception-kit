@@ -21,6 +21,7 @@ stdops = shared_module(
     'GenericImagePreprocessOp.cpp',
     'GenericAudioPreprocessOp.cpp',
     'InferenceControllerOp.cpp',
+    'TurnDetectorOp.cpp',
 
     'postproc/RvmParser.cpp',
     'postproc/DummyParser.cpp',
@@ -33,6 +34,7 @@ stdops = shared_module(
     'postproc/GazeDetectionParser.cpp',
     'postproc/CameraContactParser.cpp',
     'postproc/SileroVadParser.cpp',
+    'postproc/SmartTurnParser.cpp',
     'postproc/PersonClassificationParser.cpp',
     'postproc/ImageNetClassificationParser.cpp',
     'postproc/ObjectEmbeddingParser.cpp',

@@ -104,6 +104,14 @@ _TYPE_REGISTRY = {
         'qualified_root_type': 'open_perception_kit.metadata.TrackTraces',
         'file_identifier': 'TRCE',
     },
+    3528578282400045446: {
+        'name': 'open_perception_kit::metadata::TurnDetections',
+        'module': 'open_perception_kit.fb.open_perception_kit.metadata.TurnDetections',
+        'root_type': 'TurnDetections',
+        'native_type': 'TurnDetectionsT',
+        'qualified_root_type': 'open_perception_kit.metadata.TurnDetections',
+        'file_identifier': 'TURN',
+    },
     7328253118381503000: {
         'name': 'open_perception_kit::metadata::VoiceActivityDetections',
         'module': 'open_perception_kit.fb.open_perception_kit.metadata.VoiceActivityDetections',

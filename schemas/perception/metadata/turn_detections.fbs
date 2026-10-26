@@ -1,0 +1,31 @@
+include "common.fbs";
+
+namespace open_perception_kit.metadata;
+
+// One model assessment, not a final conversation-controller decision or utterance.
+table TurnDetection {
+  object:open_perception_kit.metadata.ObjectMeta;
+  turn_probability:float;
+  // True when turn_probability meets the configured model threshold.
+  turn_complete:bool;
+  // Half-open range of real mono 16 kHz samples since the latest stream reset.
+  // Synthetic front padding is excluded; this is model context, not utterance bounds.
+  window_start_sample:ulong;
+  window_end_sample:ulong;
+  // Source media presentation timestamps for that range. Both absent if unknown.
+  // Timestamp zero is valid; these are not wall-clock or inference-completion times.
+  window_start_ts_ns:ulong = null;
+  window_end_ts_ns:ulong = null;
+  // First assessment after initialization, a discontinuity, or a history gap.
+  discontinuity:bool;
+}
+
+table TurnDetections {
+  schema_major:ushort = 1;
+  schema_minor:ushort = 0;
+  layer:open_perception_kit.metadata.LayerInfo;
+  detections:[open_perception_kit.metadata.TurnDetection];
+}
+
+root_type TurnDetections;
+file_identifier "TURN";
