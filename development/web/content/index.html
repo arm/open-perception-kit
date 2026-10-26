@@ -50,12 +50,20 @@ limitations under the License.
                                     <span id="playPauseIcon" class="icon" data-icon="pause" aria-hidden="true"></span>
                                     <span class="video-control-text">Pause</span>
                                 </button>
+                                <button id="microphoneBtn" class="control-button" type="button"
+                                    aria-label="Share microphone" aria-pressed="false" title="Share microphone"
+                                    style="display:none" disabled>
+                                    <span id="microphoneIcon" class="icon" data-icon="mic-off"
+                                        aria-hidden="true"></span>
+                                    <span class="video-control-text">Mic</span>
+                                </button>
                                 <button id="muteUnmuteBtn" type="button" aria-label="Unmute" hidden>
                                     <span id="muteUnmuteIcon" class="icon" data-icon="volume-x" aria-hidden="true"></span>
                                     <span class="video-control-text">Unmute</span>
                                 </button>
                             </div>
                         </div>
+                        <div id="microphoneStatus" role="status" aria-live="polite" hidden>Microphone off</div>
                     </div>
                 </div>
 

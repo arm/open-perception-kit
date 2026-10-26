@@ -20,6 +20,7 @@ import './ctrlws.js';
 import './models.js';
 import './video-controls.js';
 import './audio.js';
+import './microphone.js';
 import './output-panels.js';
 import './layout-resize.js';
 import './video-layout.js';

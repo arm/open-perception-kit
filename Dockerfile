@@ -346,7 +346,7 @@ RUN set -eux; \
   chown -R "${USER_UID}:${USER_GID}" /opt/opk-venvs/devtools; \
   rm -rf /tmp/opk-tools /tmp/perception-sdk.json /tmp/python-ops-runtime.json
 
-EXPOSE 8000 8001 9999 8080 2222
+EXPOSE 8000 8001 8003 9999 8080 2222
 
 ENV GST_DEBUG=2 \
   GST_PLUGIN_PATH=/work/development/build/meson-out \

@@ -17,6 +17,7 @@
 
 import {setPlayPause} from "./video-controls.js"
 import {enableAudioButton} from "./audio.js"
+import {enableMicrophoneButton} from "./microphone.js"
 import {modelsManager} from "./models.js"
 
 const CTRL_PROTO = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -55,6 +56,7 @@ function connectCtrl(manual = false) {
         console.log("ctrl.onmessage: " + event.data);
 
         enableAudioButton(data.pipeline_state.audio);
+        enableMicrophoneButton(data.pipeline_state.microphone);
         setPlayPause(data.pipeline_state.playing);
         modelsManager.render(data.models);
     };
@@ -62,6 +64,7 @@ function connectCtrl(manual = false) {
     ctrl.onerror = () => { ; };
 
     ctrl.onclose = () => {
+        enableMicrophoneButton(false);
         setTimeout(() => {
             ctrlReconnectDelay = Math.min(ctrlReconnectDelay * CTRL_BACKOFF_FACTOR, CTRL_RECONNECT_DELAY_MAX);
             connectCtrl();
