@@ -664,6 +664,9 @@ RUN set -eu; \
     *) echo 'OPK_MLWL must be enabled or disabled' >&2; exit 1 ;; \
   esac
 
+ENV MLWorkloadLibraryForVulkan_DIR=/opt/opk-deps/mlwl/lib64/cmake/MLWorkloadLibraryForVulkan \
+  CMAKE_PREFIX_PATH=/opt/opk-deps/mlwl
+
 COPY --from=opk-release-sources /work/development/meson.build /work/development/meson.options development/
 COPY --from=opk-release-sources /work/development/subprojects/*.wrap development/subprojects/
 COPY --from=opk-release-sources /work/development/subprojects/packagefiles development/subprojects/packagefiles
@@ -724,8 +727,6 @@ RUN --mount=type=cache,id=opk-deployment-ccache,target=/work/.cache/ccache,shari
     python_ops=disabled; \
   fi; \
   OPK_EXECUTORCH="${executorch}" \
-  MLWorkloadLibraryForVulkan_DIR=/opt/opk-deps/mlwl/lib64/cmake/MLWorkloadLibraryForVulkan \
-  CMAKE_PREFIX_PATH=/opt/opk-deps/mlwl \
   OPK_PYTHON_OPS="${python_ops}" \
   OPK_PYTHON_RUNTIME_VENV=/opt/opk-venvs/python-ops-runtime \
   OPK_ONNXRUNTIME_ROOT=/opt/opk-deps/onnxruntime \
