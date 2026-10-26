@@ -131,6 +131,44 @@ TEST(YoloParser, ParsesCornerScoreClassOutput) {
     EXPECT_FLOAT_EQ(detections[0]->box->height, 20.0f);
 }
 
+TEST(YoloParser, SuppressesOverlappingBoxesAfterRestoringFrameCoordinates) {
+    opk::AttributeMap attrs;
+    attrs.set("outputFormat", "cornerScoreClass");
+    attrs.set("coordinatesAreNormalized", true);
+    attrs.set("iouThreshold", 0.8);
+
+    std::vector<float> data{-.1f, .2f, .3f, .4f, .9f, 2, 0, .2f, .3f, .4f, .8f, 2};
+    opk::TensorView tensor(data.data(),
+                           data.size() * sizeof(float),
+                           opk::Shape(1, 2, 6),
+                           opk::Dtype::Float32,
+                           1.0f,
+                           0.0f);
+    opk::TensorParser::Input input(attrs);
+    input.tensors[0] = &tensor;
+    input.inferenceInfo.image = {.width = 200,
+                                 .height = 160,
+                                 .modelWidth = 100,
+                                 .modelHeight = 100,
+                                 .letterboxTop = 10,
+                                 .letterboxBottom = 10};
+
+    open_perception_kit::FrameResults output;
+    opk::stdop::postproc::YoloParser parser;
+    const auto result = parser.parse(input, output);
+    ASSERT_TRUE(result.has_value()) << result.error().toString();
+    const auto payload = output.get<open_perception_kit::metadata::BoxDetectionsT>();
+    ASSERT_TRUE(payload.has_value());
+    const auto &detections = payload.value().value().detections;
+    ASSERT_EQ(detections.size(), 1U);
+    EXPECT_EQ(detections[0]->class_id, 2);
+    EXPECT_FLOAT_EQ(detections[0]->confidence, .9f);
+    EXPECT_FLOAT_EQ(detections[0]->box->x, 0);
+    EXPECT_FLOAT_EQ(detections[0]->box->y, .125f);
+    EXPECT_FLOAT_EQ(detections[0]->box->width, .3f);
+    EXPECT_FLOAT_EQ(detections[0]->box->height, .25f);
+}
+
 TEST(YoloParser, RejectsMissingTensor) {
     opk::AttributeMap attrs;
     opk::TensorParser::Input input(attrs);

@@ -26,50 +26,61 @@
 #include <utility>
 #include <vector>
 
-using namespace opk;
-using namespace opk::stdop::postproc;
+namespace opk::stdop::postproc {
+namespace {
 
-struct Det {
-    float x1, y1, x2, y2, conf;
-    int cls;
+struct Detection {
+    float left, top, right, bottom, confidence;
+    int classId;
 };
 
-enum class OutputFormat {
-    CenterClassScores,
-    CornerScoreClass,
-    CornerClassScores,
+struct Anchor {
+    size_t row;
+    float confidence;
 };
 
-static float iou(const Det &a, const Det &b) {
-    float xx1 = std::max(a.x1, b.x1), yy1 = std::max(a.y1, b.y1);
-    float xx2 = std::min(a.x2, b.x2), yy2 = std::min(a.y2, b.y2);
-    float w = std::max(0.f, xx2 - xx1), h = std::max(0.f, yy2 - yy1);
-    float inter = w * h,
-          uni = (a.x2 - a.x1) * (a.y2 - a.y1) + (b.x2 - b.x1) * (b.y2 - b.y1) - inter;
-    return uni > 0 ? inter / uni : 0.f;
+float intersectionOverUnion(const Detection &first, const Detection &second) {
+    const float left = std::max(first.left, second.left);
+    const float top = std::max(first.top, second.top);
+    const float right = std::min(first.right, second.right);
+    const float bottom = std::min(first.bottom, second.bottom);
+    const float overlapWidth = std::max(0.f, right - left);
+    const float overlapHeight = std::max(0.f, bottom - top);
+    const float intersectionArea = overlapWidth * overlapHeight;
+    const float unionArea = (first.right - first.left) * (first.bottom - first.top) +
+                            (second.right - second.left) * (second.bottom - second.top) -
+                            intersectionArea;
+    return unionArea > 0 ? intersectionArea / unionArea : 0.f;
 }
-static void nms(std::vector<Det> &d, float iou_thr) {
-    std::sort(d.begin(), d.end(), [](auto &a, auto &b) { return a.conf > b.conf; });
 
-    std::vector<char> sup(d.size());
-    std::vector<Det> keep;
-    keep.reserve(d.size());
-    for (size_t i = 0; i < d.size(); ++i) {
-        if (sup[i])
+void suppressOverlappingDetections(std::vector<Detection> &detections, const float iouThreshold) {
+    std::sort(detections.begin(), detections.end(), [](const auto &first, const auto &second) {
+        return first.confidence > second.confidence;
+    });
+
+    std::vector<char> suppressed(detections.size());
+    std::vector<Detection> kept;
+    kept.reserve(detections.size());
+    for (size_t index = 0; index < detections.size(); ++index) {
+        if (suppressed[index]) {
             continue;
-        keep.push_back(d[i]);
-        for (size_t j = i + 1; j < d.size(); ++j)
-            if (!sup[j] && iou(d[i], d[j]) > iou_thr)
-                sup[j] = 1;
+        }
+        kept.push_back(detections[index]);
+        for (size_t other = index + 1; other < detections.size(); ++other) {
+            if (!suppressed[other] &&
+                intersectionOverUnion(detections[index], detections[other]) > iouThreshold) {
+                suppressed[other] = 1;
+            }
+        }
     }
-    d.swap(keep);
+    detections.swap(kept);
 }
 
-static inline float clampf(float v, float lo, float hi) {
-    return std::max(lo, std::min(v, hi));
+float clampCoordinate(const float value, const float lower, const float upper) {
+    return std::max(lower, std::min(value, upper));
 }
 
-static inline size_t activeModelWidth(const opk::ImageInferenceMetadata &image) {
+size_t activeModelWidth(const opk::ImageInferenceMetadata &image) {
     const size_t horizontalPadding = image.letterboxLeft + image.letterboxRight;
     if (horizontalPadding >= image.modelWidth) {
         return image.modelWidth;
@@ -77,7 +88,7 @@ static inline size_t activeModelWidth(const opk::ImageInferenceMetadata &image) 
     return image.modelWidth - horizontalPadding;
 }
 
-static inline size_t activeModelHeight(const opk::ImageInferenceMetadata &image) {
+size_t activeModelHeight(const opk::ImageInferenceMetadata &image) {
     const size_t verticalPadding = image.letterboxTop + image.letterboxBottom;
     if (verticalPadding >= image.modelHeight) {
         return image.modelHeight;
@@ -85,28 +96,28 @@ static inline size_t activeModelHeight(const opk::ImageInferenceMetadata &image)
     return image.modelHeight - verticalPadding;
 }
 
-static inline float modelToFrameX(float x, const opk::ImageInferenceMetadata &image) {
+float modelToFrameX(float x, const opk::ImageInferenceMetadata &image) {
     return (x - static_cast<float>(image.letterboxLeft)) * static_cast<float>(image.width) /
            static_cast<float>(activeModelWidth(image));
 }
 
-static inline float modelToFrameY(float y, const opk::ImageInferenceMetadata &image) {
+float modelToFrameY(float y, const opk::ImageInferenceMetadata &image) {
     return (y - static_cast<float>(image.letterboxTop)) * static_cast<float>(image.height) /
            static_cast<float>(activeModelHeight(image));
 }
 
-static void fillDetection(const std::vector<Det> &dets,
-                          const opk::TensorParser::Input &input,
-                          open_perception_kit::metadata::BoxDetectionsT &detectionResult,
-                          bool normalizeOutputCoordinates) {
+void appendDetections(const std::vector<Detection> &detections,
+                      const opk::TensorParser::Input &input,
+                      open_perception_kit::metadata::BoxDetectionsT &detectionResult,
+                      bool normalizeOutputCoordinates) {
     const float frameWidth = static_cast<float>(input.inferenceInfo.image.width);
     const float frameHeight = static_cast<float>(input.inferenceInfo.image.height);
 
-    for (const auto &a : dets) {
-        float x = a.x1;
-        float y = a.y1;
-        float width = a.x2 - a.x1;
-        float height = a.y2 - a.y1;
+    for (const auto &candidate : detections) {
+        float x = candidate.left;
+        float y = candidate.top;
+        float width = candidate.right - candidate.left;
+        float height = candidate.bottom - candidate.top;
 
         if (normalizeOutputCoordinates) {
             x /= frameWidth;
@@ -118,47 +129,52 @@ static void fillDetection(const std::vector<Det> &dets,
         auto detection = std::make_unique<open_perception_kit::metadata::BoxDetectionT>();
         detection->object = open_perception_kit::makeObjectMeta(0U, input.inferenceInfo.parentId);
         detection->box = open_perception_kit::makeBoundingBox(x, y, width, height);
-        detection->confidence = a.conf;
-        detection->class_id = a.cls;
-        detection->text = opk::resources::Labels::getLabel(opk::resources::LabelType::Coco, a.cls);
+        detection->confidence = candidate.confidence;
+        detection->class_id = candidate.classId;
+        detection->text =
+            opk::resources::Labels::getLabel(opk::resources::LabelType::Coco, candidate.classId);
         detectionResult.detections.push_back(std::move(detection));
     }
 }
 
-static void processDetection(const opk::TensorParser::Input &input,
-                             Det &d,
-                             const opk::ImageInferenceMetadata &image) {
+void restoreFrameCoordinates(std::vector<Detection> &detections,
+                             const opk::TensorParser::Input &input) {
+    const auto &image = input.inferenceInfo.image;
     const bool coordinatesAreNormalized =
         input.attributes.getBoolOrDefault("coordinatesAreNormalized", false);
 
-    if (coordinatesAreNormalized) {
-        d.x1 *= static_cast<float>(image.modelWidth);
-        d.x2 *= static_cast<float>(image.modelWidth);
-        d.y1 *= static_cast<float>(image.modelHeight);
-        d.y2 *= static_cast<float>(image.modelHeight);
+    for (auto &detection : detections) {
+        if (coordinatesAreNormalized) {
+            detection.left *= static_cast<float>(image.modelWidth);
+            detection.right *= static_cast<float>(image.modelWidth);
+            detection.top *= static_cast<float>(image.modelHeight);
+            detection.bottom *= static_cast<float>(image.modelHeight);
+        }
+
+        detection.left = modelToFrameX(detection.left, image);
+        detection.right = modelToFrameX(detection.right, image);
+        detection.top = modelToFrameY(detection.top, image);
+        detection.bottom = modelToFrameY(detection.bottom, image);
+
+        detection.left = clampCoordinate(detection.left, 0.0f, static_cast<float>(image.width - 1));
+        detection.right =
+            clampCoordinate(detection.right, 0.0f, static_cast<float>(image.width - 1));
+        detection.top = clampCoordinate(detection.top, 0.0f, static_cast<float>(image.height - 1));
+        detection.bottom =
+            clampCoordinate(detection.bottom, 0.0f, static_cast<float>(image.height - 1));
     }
-
-    d.x1 = modelToFrameX(d.x1, image);
-    d.x2 = modelToFrameX(d.x2, image);
-    d.y1 = modelToFrameY(d.y1, image);
-    d.y2 = modelToFrameY(d.y2, image);
-
-    d.x1 = clampf(d.x1, 0.0f, static_cast<float>(image.width - 1));
-    d.x2 = clampf(d.x2, 0.0f, static_cast<float>(image.width - 1));
-    d.y1 = clampf(d.y1, 0.0f, static_cast<float>(image.height - 1));
-    d.y2 = clampf(d.y2, 0.0f, static_cast<float>(image.height - 1));
 }
 
-static std::vector<Det> parseCenterClassScoresDetections(const opk::TensorParser::Input &input,
-                                                         const TensorView &tensor,
-                                                         const opk::Shape &shape) {
-    const auto confThreshold =
+std::vector<Detection> parseCenterClassScores(const opk::TensorParser::Input &input,
+                                              const TensorView &tensor,
+                                              const opk::Shape &shape) {
+    const auto confidenceThreshold =
         static_cast<float>(input.attributes.getDoubleOrDefault("confidenceThreshold", 0.25));
     const bool channelsFirst = shape.dims[1] <= shape.dims[2];
     const size_t channels = channelsFirst ? shape.dims[1] : shape.dims[2];
     const size_t candidates = channelsFirst ? shape.dims[2] : shape.dims[1];
 
-    std::vector<Det> detections;
+    std::vector<Detection> detections;
     detections.reserve(candidates);
     for (size_t index = 0; index < candidates; ++index) {
         const size_t base = channelsFirst ? index : index * channels;
@@ -173,38 +189,32 @@ static std::vector<Det> parseCenterClassScoresDetections(const opk::TensorParser
                 bestClass = static_cast<int>(channel - 4);
             }
         }
-        if (bestScore < confThreshold)
+        if (bestScore < confidenceThreshold) {
             continue;
+        }
 
         const float centerX = value(0);
         const float centerY = value(1);
         const float width = value(2);
         const float height = value(3);
-        Det detection{centerX - width * 0.5f,
-                      centerY - height * 0.5f,
-                      centerX + width * 0.5f,
-                      centerY + height * 0.5f,
-                      bestScore,
-                      bestClass};
-        processDetection(input, detection, input.inferenceInfo.image);
+        Detection detection{centerX - width * 0.5f,
+                            centerY - height * 0.5f,
+                            centerX + width * 0.5f,
+                            centerY + height * 0.5f,
+                            bestScore,
+                            bestClass};
         detections.push_back(detection);
     }
     return detections;
 }
 
-static opk::Result<std::vector<Det>> parseCornerClassScoresDetections(
-    const opk::TensorParser::Input &input, const TensorView &tensor, const opk::Shape &shape) {
-    const auto limit = input.attributes.getIntOrDefault("maxDetections", 300);
-    if (limit <= 0 || shape.dims[2] < 5) {
-        return tl::unexpected(
-            OPK_ERROR(ErrorFlag::InvalidData,
-                      "YoloParser: cornerClassScores needs [1,N,4+C] and positive maxDetections"));
-    }
-    const float threshold =
-        static_cast<float>(input.attributes.getDoubleOrDefault("confidenceThreshold", 0.25));
+opk::Result<std::vector<Anchor>> selectTopAnchors(const TensorView &tensor,
+                                                  const opk::Shape &shape,
+                                                  const float confidenceThreshold,
+                                                  const size_t maxDetections) {
     const size_t candidates = shape.dims[1];
     const size_t channels = shape.dims[2];
-    std::vector<std::pair<size_t, float>> anchors;
+    std::vector<Anchor> anchors;
     for (size_t row = 0; row < candidates; ++row) {
         float bestScore = -std::numeric_limits<float>::infinity();
         for (size_t column = 4; column < channels; ++column) {
@@ -215,54 +225,81 @@ static opk::Result<std::vector<Det>> parseCornerClassScoresDetections(
             }
             bestScore = std::max(bestScore, score);
         }
-        if (bestScore >= threshold)
-            anchors.emplace_back(row, bestScore);
+        if (bestScore >= confidenceThreshold) {
+            anchors.push_back({row, bestScore});
+        }
     }
-    // Preserve both export TopK stages, including ties: anchors, then class/anchor pairs.
-    std::stable_sort(anchors.begin(), anchors.end(), [](const auto &a, const auto &b) {
-        return a.second > b.second;
+    std::stable_sort(anchors.begin(), anchors.end(), [](const auto &first, const auto &second) {
+        return first.confidence > second.confidence;
     });
-    if (anchors.size() > static_cast<size_t>(limit))
-        anchors.resize(static_cast<size_t>(limit));
-    std::vector<Det> detections;
+    anchors.resize(std::min(anchors.size(), maxDetections));
+    return anchors;
+}
+
+opk::Result<std::vector<Detection>> selectTopClasses(const TensorView &tensor,
+                                                     const opk::Shape &shape,
+                                                     const std::vector<Anchor> &anchors,
+                                                     const float confidenceThreshold,
+                                                     const size_t maxDetections) {
+    const size_t channels = shape.dims[2];
+    std::vector<Detection> detections;
     for (const auto &anchor : anchors) {
-        const auto base = anchor.first * channels;
+        const size_t base = anchor.row * channels;
         for (size_t column = 4; column < channels; ++column) {
             const float score = tensor.get(base + column);
-            if (score < threshold)
+            if (score < confidenceThreshold) {
                 continue;
-            Det detection{tensor.get(base),
-                          tensor.get(base + 1),
-                          tensor.get(base + 2),
-                          tensor.get(base + 3),
-                          score,
-                          static_cast<int>(column - 4)};
-            if (!std::isfinite(detection.x1) || !std::isfinite(detection.y1) ||
-                !std::isfinite(detection.x2) || !std::isfinite(detection.y2)) {
+            }
+            const Detection detection{tensor.get(base),
+                                      tensor.get(base + 1),
+                                      tensor.get(base + 2),
+                                      tensor.get(base + 3),
+                                      score,
+                                      static_cast<int>(column - 4)};
+            if (!std::isfinite(detection.left) || !std::isfinite(detection.top) ||
+                !std::isfinite(detection.right) || !std::isfinite(detection.bottom)) {
                 return tl::unexpected(
                     OPK_ERROR(ErrorFlag::InvalidData, "YoloParser: non-finite box"));
             }
             detections.push_back(detection);
         }
     }
-    std::stable_sort(detections.begin(), detections.end(), [](const auto &a, const auto &b) {
-        return a.conf > b.conf;
-    });
-    if (detections.size() > static_cast<size_t>(limit))
-        detections.resize(static_cast<size_t>(limit));
-    for (auto &detection : detections)
-        processDetection(input, detection, input.inferenceInfo.image);
+    std::stable_sort(
+        detections.begin(), detections.end(), [](const auto &first, const auto &second) {
+            return first.confidence > second.confidence;
+        });
+    detections.resize(std::min(detections.size(), maxDetections));
     return detections;
 }
 
-static std::vector<Det> parseCornerScoreClassDetections(const opk::TensorParser::Input &input,
-                                                        const TensorView &tensor,
-                                                        const opk::Shape &shape) {
-    const auto confThreshold =
+opk::Result<std::vector<Detection>> parseCornerClassScores(const opk::TensorParser::Input &input,
+                                                           const TensorView &tensor,
+                                                           const opk::Shape &shape) {
+    const auto limit = input.attributes.getIntOrDefault("maxDetections", 300);
+    if (limit <= 0 || shape.dims[2] < 5) {
+        return tl::unexpected(
+            OPK_ERROR(ErrorFlag::InvalidData,
+                      "YoloParser: cornerClassScores needs [1,N,4+C] and positive maxDetections"));
+    }
+    const size_t maxDetections = static_cast<size_t>(limit);
+    const float confidenceThreshold =
+        static_cast<float>(input.attributes.getDoubleOrDefault("confidenceThreshold", 0.25));
+    // The export selects anchors first, then class/anchor pairs. Both stages preserve ties.
+    const auto anchors = selectTopAnchors(tensor, shape, confidenceThreshold, maxDetections);
+    if (!anchors) {
+        return tl::unexpected(anchors.error());
+    }
+    return selectTopClasses(tensor, shape, *anchors, confidenceThreshold, maxDetections);
+}
+
+std::vector<Detection> parseCornerScoreClass(const opk::TensorParser::Input &input,
+                                             const TensorView &tensor,
+                                             const opk::Shape &shape) {
+    const auto confidenceThreshold =
         static_cast<float>(input.attributes.getDoubleOrDefault("confidenceThreshold", 0.25));
     const size_t candidates = shape.dims[1];
 
-    std::vector<Det> detections;
+    std::vector<Detection> detections;
     detections.reserve(candidates);
     for (size_t index = 0; index < candidates; ++index) {
         const size_t base = index * 6U;
@@ -273,43 +310,24 @@ static std::vector<Det> parseCornerScoreClassDetections(const opk::TensorParser:
         const float confidence = tensor.get(base + 4U);
         const float classId = tensor.get(base + 5U);
 
-        if (confidence < confThreshold) {
+        if (confidence < confidenceThreshold) {
             continue;
         }
 
-        Det detection{
+        Detection detection{
             topLeftX, topLeftY, bottomRightX, bottomRightY, confidence, static_cast<int>(classId)};
-        processDetection(input, detection, input.inferenceInfo.image);
         detections.push_back(detection);
     }
     return detections;
 }
 
-// ----------------------------------------------------------------------------
-
-opk::Result<void> YoloParser::parse(const opk::TensorParser::Input &input,
-                                    open_perception_kit::FrameResults &results) {
-
-    const auto iouThreshold =
-        static_cast<float>(input.attributes.getDoubleOrDefault("iouThreshold", 0.45));
-    const bool normalizeOutputCoordinates =
-        input.attributes.getBoolOrDefault("normalizeOutputCoordinates", true);
-    const bool applyNms = input.attributes.getBoolOrDefault("applyNms", true);
-    const auto outputFormatAttribute =
-        input.attributes.getStringOrDefault("outputFormat", "centerClassScores");
-    OutputFormat outputFormat;
-    if (outputFormatAttribute == "centerClassScores") {
-        outputFormat = OutputFormat::CenterClassScores;
-    } else if (outputFormatAttribute == "cornerScoreClass") {
-        outputFormat = OutputFormat::CornerScoreClass;
-    } else if (outputFormatAttribute == "cornerClassScores") {
-        outputFormat = OutputFormat::CornerClassScores;
-    } else {
-        return tl::unexpected(
-            OPK_ERROR(opk::ErrorFlag::InvalidData,
-                      "YoloParser: unsupported outputFormat " + outputFormatAttribute));
+opk::Result<void> validateInput(const opk::TensorParser::Input &input,
+                                const std::string &outputFormat) {
+    if (outputFormat != "centerClassScores" && outputFormat != "cornerScoreClass" &&
+        outputFormat != "cornerClassScores") {
+        return tl::unexpected(OPK_ERROR(ErrorFlag::InvalidData,
+                                        "YoloParser: unsupported outputFormat " + outputFormat));
     }
-
     const auto &image = input.inferenceInfo.image;
     const size_t frameWidth = image.width;
     const size_t frameHeight = image.height;
@@ -348,15 +366,14 @@ opk::Result<void> YoloParser::parse(const opk::TensorParser::Input &input,
                           shape.toString()));
     }
 
-    if (outputFormat == OutputFormat::CornerScoreClass && shape.dims[2] != 6) {
+    if (outputFormat == "cornerScoreClass" && shape.dims[2] != 6) {
         return tl::unexpected(
             OPK_ERROR(opk::ErrorFlag::InvalidData,
                       "YoloParser: cornerScoreClass tensor must have shape [1,N,6], got " +
                           shape.toString()));
     }
 
-    if (outputFormat == OutputFormat::CenterClassScores &&
-        std::min(shape.dims[1], shape.dims[2]) < 5) {
+    if (outputFormat == "centerClassScores" && std::min(shape.dims[1], shape.dims[2]) < 5) {
         opk::log::error("YoloParser: tensor needs at least 5 values per candidate, got {}\n",
                         shape.toString());
         return tl::unexpected(OPK_ERROR(
@@ -370,21 +387,46 @@ opk::Result<void> YoloParser::parse(const opk::TensorParser::Input &input,
             OPK_ERROR(opk::ErrorFlag::InvalidData, "YoloParser: input tensor view is invalid"));
     }
 
-    std::vector<Det> dets;
-    if (outputFormat == OutputFormat::CornerClassScores) {
-        auto parsed = parseCornerClassScoresDetections(input, tensor, shape);
-        if (!parsed)
-            return tl::unexpected(parsed.error());
-        dets = std::move(*parsed);
-    } else {
-        dets = outputFormat == OutputFormat::CornerScoreClass
-                   ? parseCornerScoreClassDetections(input, tensor, shape)
-                   : parseCenterClassScoresDetections(input, tensor, shape);
-    }
-    if (!dets.empty()) {
-        if (applyNms)
-            nms(dets, iouThreshold);
+    return {};
+}
 
+opk::Result<std::vector<Detection>> readDetections(const opk::TensorParser::Input &input) {
+    const auto outputFormat =
+        input.attributes.getStringOrDefault("outputFormat", "centerClassScores");
+    const auto validation = validateInput(input, outputFormat);
+    if (!validation) {
+        return tl::unexpected(validation.error());
+    }
+    const TensorView &tensor = *input.tensors[0];
+    const opk::Shape shape = tensor.getShape();
+    if (outputFormat == "centerClassScores") {
+        return parseCenterClassScores(input, tensor, shape);
+    }
+    if (outputFormat == "cornerScoreClass") {
+        return parseCornerScoreClass(input, tensor, shape);
+    }
+    return parseCornerClassScores(input, tensor, shape);
+}
+
+} // namespace
+
+opk::Result<void> YoloParser::parse(const opk::TensorParser::Input &input,
+                                    open_perception_kit::FrameResults &results) {
+    const auto iouThreshold =
+        static_cast<float>(input.attributes.getDoubleOrDefault("iouThreshold", 0.45));
+    const bool normalizeOutputCoordinates =
+        input.attributes.getBoolOrDefault("normalizeOutputCoordinates", true);
+    const bool applyNms = input.attributes.getBoolOrDefault("applyNms", true);
+
+    auto detections = readDetections(input);
+    if (!detections) {
+        return tl::unexpected(detections.error());
+    }
+    if (!detections->empty()) {
+        restoreFrameCoordinates(*detections, input);
+        if (applyNms) {
+            suppressOverlappingDetections(*detections, iouThreshold);
+        }
         open_perception_kit::metadata::BoxDetectionsT payload;
         payload.layer = open_perception_kit::makeLayerInfo(
             {.model = input.inferenceInfo.modelName,
@@ -392,11 +434,10 @@ opk::Result<void> YoloParser::parse(const opk::TensorParser::Input &input,
              .contentType = k_content_type,
              .labelFamily = "coco",
              .producer = &input.producerInfo});
-        fillDetection(dets, input, payload, normalizeOutputCoordinates);
-        if (!payload.detections.empty()) {
-            results.add(std::move(payload));
-        }
+        appendDetections(*detections, input, payload, normalizeOutputCoordinates);
+        results.add(std::move(payload));
     }
-
     return {};
 }
+
+} // namespace opk::stdop::postproc
