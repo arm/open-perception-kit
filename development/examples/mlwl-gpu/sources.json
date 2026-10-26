@@ -1,0 +1,51 @@
+{
+  "mesa": {
+    "name": "mesa",
+    "version": "26.2.1",
+    "filename": "mesa-26.2.1.tar.xz",
+    "url": "https://archive.mesa3d.org/mesa-26.2.1.tar.xz",
+    "sha256": "c47e81bddc4760360a41ac3c5acec38acb81f9d750ecef47e7f3adc7021a4442"
+  },
+  "emulation": {
+    "name": "ai-ml-emulation-layer-for-vulkan",
+    "version": "0.11.0",
+    "filename": "emulation-0.11.0.tar.gz",
+    "url": "https://github.com/arm/ai-ml-emulation-layer-for-vulkan/archive/refs/tags/v0.11.0.tar.gz",
+    "sha256": "849c9cd35c585787bf26f42b93860bc8112f00e5a9ebc04c12403988af184a82"
+  },
+  "GLSLANG": {
+    "name": "glslang",
+    "version": "vulkan-sdk-1.4.357.0",
+    "filename": "glslang-vulkan-sdk-1.4.357.0.tar.gz",
+    "url": "https://github.com/KhronosGroup/glslang/archive/refs/tags/vulkan-sdk-1.4.357.0.tar.gz",
+    "sha256": "81038794e20494556edbcc0fc70fa984d71d1b440f9c49adf2cbaaa60a519757"
+  },
+  "SPIRV_CROSS": {
+    "name": "SPIRV-Cross",
+    "version": "vulkan-sdk-1.4.357.0",
+    "filename": "SPIRV-Cross-vulkan-sdk-1.4.357.0.tar.gz",
+    "url": "https://github.com/KhronosGroup/SPIRV-Cross/archive/refs/tags/vulkan-sdk-1.4.357.0.tar.gz",
+    "sha256": "97c910326afdd44d794ce8561326fa675fd1958b27142f03295403044d639639"
+  },
+  "SPIRV_HEADERS": {
+    "name": "SPIRV-Headers",
+    "version": "vulkan-sdk-1.4.357.0",
+    "filename": "SPIRV-Headers-vulkan-sdk-1.4.357.0.tar.gz",
+    "url": "https://github.com/KhronosGroup/SPIRV-Headers/archive/refs/tags/vulkan-sdk-1.4.357.0.tar.gz",
+    "sha256": "4d703067a7e06331ccb37bdfed3f9b7879cc61969a2689ae95c95db34a47ff07"
+  },
+  "SPIRV_TOOLS": {
+    "name": "SPIRV-Tools",
+    "version": "vulkan-sdk-1.4.357.0",
+    "filename": "SPIRV-Tools-vulkan-sdk-1.4.357.0.tar.gz",
+    "url": "https://github.com/KhronosGroup/SPIRV-Tools/archive/refs/tags/vulkan-sdk-1.4.357.0.tar.gz",
+    "sha256": "d31e7109b6ef3559067e53e520870eafed7c9534d00db9728814b6df03fa4a5e"
+  },
+  "JSON": {
+    "name": "json",
+    "version": "3.12.0",
+    "filename": "json-3.12.0.tar.gz",
+    "url": "https://github.com/nlohmann/json/archive/refs/tags/v3.12.0.tar.gz",
+    "sha256": "4b92eb0c06d10683f7447ce9406cb97cd4b453be18d7279320f7b2f025c10187"
+  }
+}

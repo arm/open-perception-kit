@@ -83,6 +83,12 @@ and check the built artifacts before publication.
 | [mdurl](https://github.com/executablebooks/mdurl) | [0.1.2](https://pypi.org/project/mdurl/0.1.2/) | MIT | PyPI |
 | [meson](https://github.com/mesonbuild/meson) | [1.12.1](https://pypi.org/project/meson/1.12.1/) | Apache-2.0 | PyPI |
 | [ML Workload Library for Vulkan](https://github.com/arm/ai-ml-workload-library-for-vulkan) | [03c9aa11](https://github.com/arm/ai-ml-workload-library-for-vulkan/tree/03c9aa11efa6d8dd65ae5f6097bf86a00c304ad9) | [Apache-2.0](https://github.com/arm/ai-ml-workload-library-for-vulkan/blob/03c9aa11efa6d8dd65ae5f6097bf86a00c304ad9/LICENSES/Apache-2.0.txt) | optional shared runtime |
+| [ML Emulation Layer for Vulkan](https://github.com/arm/ai-ml-emulation-layer-for-vulkan) | [v0.11.0](https://github.com/arm/ai-ml-emulation-layer-for-vulkan/tree/v0.11.0) | Apache-2.0 | RPi5 GPU example, built locally |
+| [Mesa](https://www.mesa3d.org/) | [26.2.1](https://archive.mesa3d.org/mesa-26.2.1.tar.xz) | [MIT and bundled terms](https://docs.mesa3d.org/license.html) | RPi5 GPU example, built locally |
+| [glslang](https://github.com/KhronosGroup/glslang) | [vulkan-sdk-1.4.357.0](https://github.com/KhronosGroup/glslang/tree/vulkan-sdk-1.4.357.0) | [BSD-3-Clause, BSD-2-Clause, MIT, Apache-2.0](https://github.com/KhronosGroup/glslang/blob/vulkan-sdk-1.4.357.0/LICENSE.txt) | GPU emulation build |
+| [SPIRV-Tools](https://github.com/KhronosGroup/SPIRV-Tools) | [vulkan-sdk-1.4.357.0](https://github.com/KhronosGroup/SPIRV-Tools/tree/vulkan-sdk-1.4.357.0) | Apache-2.0 | GPU emulation build |
+| [SPIRV-Cross](https://github.com/KhronosGroup/SPIRV-Cross) | [vulkan-sdk-1.4.357.0](https://github.com/KhronosGroup/SPIRV-Cross/tree/vulkan-sdk-1.4.357.0) | Apache-2.0 | GPU emulation build |
+| [SPIRV-Headers](https://github.com/KhronosGroup/SPIRV-Headers) | [vulkan-sdk-1.4.357.0](https://github.com/KhronosGroup/SPIRV-Headers/tree/vulkan-sdk-1.4.357.0) | [MIT and bundled terms](https://github.com/KhronosGroup/SPIRV-Headers/blob/vulkan-sdk-1.4.357.0/LICENSE) | GPU emulation build |
 | [more-itertools](https://github.com/more-itertools/more-itertools) | [10.7.0](https://pypi.org/project/more-itertools/10.7.0/) | MIT | PyPI |
 | [magic\_enum](https://github.com/Neargye/magic_enum) | [v0.9.7](https://github.com/Neargye/magic_enum/tree/v0.9.7) | MIT | Debian |
 | [nodeenv](https://github.com/ekalinin/nodeenv) | [1.10.0](https://pypi.org/project/nodeenv/1.10.0/) | BSD-3-Clause | PyPI |

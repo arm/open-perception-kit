@@ -39,3 +39,5 @@ stages their binaries into `tools/` beside `opk-menu`.
 - `byom-blazeface`: Python/config application sketch that brings a BlazeFace
   model through OPK model, OpChain, pipeline, Python postprocessing, and
   FrameResults packet consumption surfaces.
+- [MLWL GPU examples](mlwl-gpu/README.md): run the UltraFace
+  OpChain on Raspberry Pi 5 or Orange Pi 6.

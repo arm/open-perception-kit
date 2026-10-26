@@ -85,3 +85,8 @@ The test converts a small FP32 add graph to VGF and checks raw FP32 outputs
 against reference values with an absolute tolerance of `1e-6`, alongside the
 segmentation FrameResults. It covers image and scalar inputs, buffer reuse,
 and pipeline startup and teardown.
+
+## GPU examples
+
+See [Raspberry Pi 5 and Orange Pi 6](../examples/mlwl-gpu/README.md) for the
+experimental GPU setup.
