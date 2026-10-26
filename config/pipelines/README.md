@@ -111,6 +111,22 @@ web UI. Sample-media and full
 catalog presets include `alternative-source-*` and `alternative-sink-*` examples
 for adapting image, video, camera, recording, and audio paths.
 
+### WebRTC microphone test
+
+Run `./tools/opk-menu opksrc-test`, then open `http://localhost:9999` and
+click **Mic** to request microphone access and negotiate with `opksrc`.
+The preset uses live `videotestsrc` color bars and connects `opksrc` to
+`opksink`'s audio input. It requires no model or media downloads.
+
+The default ports are 9999 for HTTP, 8000 for outgoing WebRTC signaling,
+8001 for controls, and 8003 for microphone signaling. Stop other pipelines
+using these ports before launching the test.
+
+`opksrc` selects microphone audio after SDP negotiation and returns to silence
+when the client disconnects. The audio output defaults to mono 16 kHz F32LE PCM
+before conversion and encoding by `opksink`. Set `opksrc rate=48000` for 48 kHz
+output, or select another output rate with the `rate` property while in `NULL`.
+
 ## Interactive selection
 
 `.last_selected_pipeline_id` stores the last chosen top-level pipeline ID.
