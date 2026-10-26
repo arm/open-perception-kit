@@ -14,10 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Install the pinned Linux MLWL library and matching Vulkan headers."""
+"""Build and install pinned MLWL sources and matching Vulkan headers."""
 
 import argparse
 import json
+import os
 from pathlib import Path
 import platform
 import shutil
@@ -40,44 +41,58 @@ def main():
     if destination.exists() or destination.is_symlink():
         parser.error("Destination already exists; choose a new dependency prefix")
     lock = json.loads((REPO / "requirements/mlwl.json").read_text())
-    if platform.system() != "Linux" or platform.machine() not in lock["linux"]:
+    if platform.system() != "Linux" or platform.machine() not in ("x86_64", "aarch64"):
         parser.error("Supported platforms: Linux x86_64 and aarch64")
-    library = LockedArtifact(**lock["linux"][platform.machine()])
-    headers = LockedArtifact(**lock["headers"])
     destination.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".mlwl-", dir=destination.parent) as temporary:
         work_dir = Path(temporary)
         staging_dir = work_dir / "prefix"
         staging_dir.mkdir()
 
-        library_archive = acquire_artifact(library, work_dir)
-        with tarfile.open(library_archive) as archive:
-            archive.extractall(staging_dir, filter="data")
+        sources = {}
+        for name in ("library", "vgf", "flatbuffers", "headers"):
+            artifact = LockedArtifact(**lock[name])
+            with tarfile.open(acquire_artifact(artifact, work_dir)) as archive:
+                archive.extractall(work_dir, filter="data")
+            sources[name] = work_dir / f"{artifact.name}-{artifact.version}"
 
-        headers_archive = acquire_artifact(headers, work_dir)
-        with tarfile.open(headers_archive) as archive:
-            archive.extractall(work_dir, filter="data")
-
-        headers_source = work_dir / f"Vulkan-Headers-{headers.version}"
-        headers_build = work_dir / "headers-build"
+        build_dir = work_dir / "build"
         subprocess.run(
             [
-                "cmake",
-                "-S", str(headers_source),
-                "-B", str(headers_build),
+                "cmake", "-G", "Ninja",
+                "-S", str(sources["library"]),
+                "-B", str(build_dir),
+                "-DCMAKE_BUILD_TYPE=Release",
                 f"-DCMAKE_INSTALL_PREFIX={staging_dir}",
+                "-DCMAKE_INSTALL_LIBDIR=lib64",
+                "-DCMAKE_POSITION_INDEPENDENT_CODE=ON",
+                f"-DML_SDK_PACKAGE_VERSION={lock['version']}",
+                f"-DVULKAN_HEADERS_PATH={sources['headers']}",
+                f"-DML_SDK_VGF_LIB_PATH={sources['vgf']}",
+                f"-DFLATBUFFERS_PATH={sources['flatbuffers']}",
+                "-DML_WORKLOAD_LIB_BUILD_SHARED=ON",
+                "-DVULKAN_HEADERS_ENABLE_INSTALL=ON",
                 "-DVULKAN_HEADERS_ENABLE_TESTS=OFF",
                 "-DVULKAN_HEADERS_ENABLE_MODULE=OFF",
             ],
             check=True,
         )
-        subprocess.run(["cmake", "--install", str(headers_build)], check=True)
+        subprocess.run(
+            ["cmake", "--build", str(build_dir), "--parallel",
+             os.environ.get("CMAKE_BUILD_PARALLEL_LEVEL", "2")],
+            check=True,
+        )
+        subprocess.run(["cmake", "--install", str(build_dir)], check=True)
+        subprocess.run(["cmake", "--install", str(build_dir / "vulkan-headers")], check=True)
         shutil.copytree(
-            headers_source / "LICENSES",
+            sources["headers"] / "LICENSES",
             staging_dir / "share/doc/Vulkan-Headers/LICENSES",
         )
+        for name in ("library", "vgf"):
+            shutil.copytree(sources[name] / "LICENSES", staging_dir / f"share/doc/{name}/LICENSES")
+        shutil.copy2(sources["flatbuffers"] / "LICENSE", staging_dir / "share/doc/flatbuffers-LICENSE")
         staging_dir.rename(destination)
-    print(f"Installed MLWL {library.version} and Vulkan-Headers in {destination}")
+    print(f"Installed MLWL {lock['version']} and Vulkan-Headers in {destination}")
 
 
 if __name__ == "__main__":

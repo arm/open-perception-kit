@@ -16,7 +16,6 @@
  */
 #include "Inference.h"
 
-#include "GraphContext.h"
 #include "TensorLayout.h"
 
 #include <mlworkloadlib/session.hpp>
@@ -63,7 +62,6 @@ struct Inference::State {
 
     wl::Workload workload;
     opk::Model model;
-    std::unique_ptr<GraphContext> graphContext;
     std::unique_ptr<wl::Context> context;
     std::unique_ptr<wl::Session> session;
     std::vector<std::unique_ptr<MappedTensor>> inputs, outputs;
@@ -134,13 +132,11 @@ opk::Result<void> Inference::setup(const opk::ModelDescriptor &descriptor) {
         bool graphOnly = true;
         for (const auto executable : candidate->workload.executables())
             graphOnly &= executable.type() == wl::ExecutableKind::Graph;
-        if (graphOnly) {
-            candidate->graphContext = std::make_unique<GraphContext>();
-            candidate->context.reset(
-                new wl::Context(wl::Context::wrap(candidate->graphContext->view())));
-        } else {
-            candidate->context.reset(new wl::Context(wl::Context::create()));
-        }
+        wl::RuntimeContextDeviceRequirements requirements;
+        if (graphOnly)
+            requirements.capabilities = wl::RuntimeDeviceCapability::DataGraphShaderModules |
+                                        wl::RuntimeDeviceCapability::Tensors;
+        candidate->context.reset(new wl::Context(wl::Context::create(requirements)));
         candidate->session =
             std::make_unique<wl::Session>(*candidate->context, candidate->workload);
         candidate->session->configure();

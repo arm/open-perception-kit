@@ -1,19 +1,25 @@
 {
-  "linux": {
-    "aarch64": {
-      "name": "mlwl",
-      "version": "0.11.0",
-      "filename": "ai_ml_workload_library_for_vulkan-0.11.0-Linux_aarch64.tar.gz",
-      "url": "https://github.com/arm/ai-ml-workload-library-for-vulkan/releases/download/release/v0.11.0/ai_ml_workload_library_for_vulkan-0.11.0-Linux_aarch64.tar.gz",
-      "sha256": "c74e270389409dbc079de87aa0ada19c361963ae9776f2d570edb3c00e9411b5"
-    },
-    "x86_64": {
-      "name": "mlwl",
-      "version": "0.11.0",
-      "filename": "ai_ml_workload_library_for_vulkan-0.11.0-Linux_x86_64.tar.gz",
-      "url": "https://github.com/arm/ai-ml-workload-library-for-vulkan/releases/download/release/v0.11.0/ai_ml_workload_library_for_vulkan-0.11.0-Linux_x86_64.tar.gz",
-      "sha256": "d01abeae45df21ec4b92384ba63bd1ba7e8b0165d005963c971d72846a8f2317"
-    }
+  "version": "0.11.0+git.03c9aa11",
+  "library": {
+    "name": "ai-ml-workload-library-for-vulkan",
+    "version": "03c9aa11efa6d8dd65ae5f6097bf86a00c304ad9",
+    "filename": "mlwl-03c9aa11.tar.gz",
+    "url": "https://github.com/arm/ai-ml-workload-library-for-vulkan/archive/03c9aa11efa6d8dd65ae5f6097bf86a00c304ad9.tar.gz",
+    "sha256": "38ea736985f59a7763786499136ef03b9aaaac824fea4335e04b2757087f5986"
+  },
+  "vgf": {
+    "name": "ai-ml-sdk-vgf-library",
+    "version": "c7e3198c36b30844381e3ab5b877e3a758d5b444",
+    "filename": "vgf-c7e3198c.tar.gz",
+    "url": "https://github.com/arm/ai-ml-sdk-vgf-library/archive/c7e3198c36b30844381e3ab5b877e3a758d5b444.tar.gz",
+    "sha256": "05dd61b0857dbb0ddbc02e1e54517f84c33d922eab889ebc5410275ebf52090c"
+  },
+  "flatbuffers": {
+    "name": "flatbuffers",
+    "version": "25.2.10",
+    "filename": "flatbuffers-25.2.10.tar.gz",
+    "url": "https://github.com/google/flatbuffers/archive/refs/tags/v25.2.10.tar.gz",
+    "sha256": "b9c2df49707c57a48fc0923d52b8c73beb72d675f9d44b2211e4569be40a7421"
   },
   "headers": {
     "name": "Vulkan-Headers",

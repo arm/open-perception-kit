@@ -24,8 +24,9 @@ postprocessing stay in the OpChain.
 ## Build
 
 The backend is disabled by default. In the OPK development container
-(Linux x86-64 or AArch64, Python 3.12+), install the pinned MLWL 0.11.0 and
-Vulkan headers into a new directory:
+(Linux x86-64 or AArch64, Python 3.12+), build MLWL at
+[`03c9aa11`](https://github.com/arm/ai-ml-workload-library-for-vulkan/commit/03c9aa11efa6d8dd65ae5f6097bf86a00c304ad9)
+and install it with matching Vulkan headers into a new directory:
 
 ```sh
 python3 scripts/private/install-mlwl.py /path/to/sdk
@@ -35,8 +36,12 @@ OPK_MLWL=enabled ./scripts/build.sh debug true \
 meson test -C development/build-active --print-errorlogs
 ```
 
+The installer uses checksum-pinned sources from `requirements/mlwl.json` and
+builds them in Release mode. CMake, Ninja and a C++17 compiler are required.
+This is a development snapshot, not an MLWL release.
+
 Keep the installed library and headers together. The build sets `NDEBUG` for
-MLWL targets to match the release library's Vulkan-Hpp ABI, including in debug builds.
+MLWL targets to match the library's Vulkan-Hpp ABI, including in debug builds.
 At runtime, the loader must find the MLWL shared library and a compatible Vulkan driver.
 
 MLWL release packaging is not supported yet. Use `-Dmlwl=disabled` for release
@@ -48,10 +53,11 @@ packages or `-Drelease_package=false` for MLWL development builds.
 - Inputs and outputs must be contiguous, non-aliased Float16/Float32 tensors.
   The descriptor's tensor order, shapes and types must match the workload.
 - Dynamic outputs, tensor feedback and unbound placeholder modules are unsupported.
-- Graph workloads need Vulkan DataGraph and tensor support. Compute workloads
-  use MLWL's default device requirements. There is no fallback to another backend.
+- MLWL creates the Vulkan context. Graph workloads request DataGraph shader
+  modules and tensors; other workloads use MLWL's default device requirements.
+  There is no fallback to another backend.
 
-MLWL's C++ API is experimental. Execution is synchronous; MLWL 0.11.0 has no
+MLWL's C++ API is experimental. Execution is synchronous; this revision has no
 cancellation or timeout API.
 
 ## Tests

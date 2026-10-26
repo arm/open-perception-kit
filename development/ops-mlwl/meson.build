@@ -19,14 +19,14 @@ if mlwl_option.disabled()
   subdir_done()
 endif
 
-mlwl_dep = dependency('MLWorkloadLibraryForVulkan', version : '==0.11.0',
+mlwl_dep = dependency('MLWorkloadLibraryForVulkan', version : '==0.11.0+git.03c9aa11',
   method : 'cmake', modules : ['MLWorkloadLibraryForVulkan::mlworkloadlib_shared'],
   required : mlwl_option)
 if not mlwl_dep.found()
   subdir_done()
 endif
 
-# Match the public binary release's Vulkan-Hpp version and dispatcher layout.
+# Match the pinned library's Vulkan-Hpp version and Release dispatcher layout.
 mlwl_vulkan_dep = dependency('VulkanHeaders', version : '==1.4.357',
   method : 'cmake', modules : ['Vulkan::Headers'], required : mlwl_option)
 if not mlwl_vulkan_dep.found()
