@@ -94,6 +94,7 @@ class OpkConfigCheckCliTest(unittest.TestCase):
         sources = {
             "models/model.json": ("models/yolo26n-320/model.json", "model.schema.json"),
             "opchains/opchain.json": ("models/yolo26n-320/opchain.json", "opchain.schema.json"),
+            "opchains/opchain-audio.json": ("models/silero-vad/opchain.json", "opchain.schema.json"),
             "pipelines/demo.json": ("pipelines/yolo26n-320.json", "pipeline.schema.json"),
         }
         with tempfile.TemporaryDirectory() as directory:
@@ -108,7 +109,7 @@ class OpkConfigCheckCliTest(unittest.TestCase):
                     "x-opk-supported-version"]
                 supported_major_minor, supported_patch = supported_version.rsplit(".", 1)
                 patch_variant = f"{supported_major_minor}.{int(supported_patch) + PATCH_REVISION_INCREMENT}"
-                for version in (supported_version, patch_variant, "1.0.0", "1.0.37", "1.4.2", "0.9.0", "2.0.0"):
+                for version in (supported_version, patch_variant, "1.0.0", "1.0.37", "1.1.0", "1.4.2", "0.9.0", "2.0.0"):
                     with self.subTest(target=target, version=version):
                         document["version"] = version
                         path.write_text(json.dumps(document))

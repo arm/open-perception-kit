@@ -24,6 +24,7 @@
 #include "onnxruntime_cxx_api.h"
 #include "tl/expected.hpp"
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -238,6 +239,27 @@ void writeValueTo(void *ptr, size_t valueIndex, void *valueAddress) {
     address[valueIndex] = *(fromT *)valueAddress;
 }
 
+opk::Result<void> Inference::resetFeedbackState() {
+    if (!setupReady) {
+        return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidData, "Inference is not ready"));
+    }
+    for (const auto &feedback : model.tensorFeedbacks) {
+        const size_t index = feedback.toInputTensorIndex;
+        if (index >= model.inputs.size() || index >= opk::MaxTensorCount ||
+            !api.inputTensors[index]) {
+            return tl::unexpected(
+                OPK_ERROR(opk::ErrorFlag::InvalidData, "Invalid feedback input index"));
+        }
+    }
+    for (const auto &feedback : model.tensorFeedbacks) {
+        auto &tensor = *api.inputTensors[feedback.toInputTensorIndex];
+        if (tensor.getByteCount() != 0) {
+            std::memset(tensor.getData(), 0, tensor.getByteCount());
+        }
+    }
+    return {};
+}
+
 opk::Result<void> Inference::inference() {
 
     // setting scalar tensors
@@ -254,11 +276,28 @@ opk::Result<void> Inference::inference() {
             if (this->model.inputs[i].dataKind == opk::DataKind::Vector4)
                 valueCount = 4;
 
+            if (api.inputTensors[i]->getElementCount() != valueCount ||
+                this->model.inputs[i].valueInputs.size() != valueCount)
+                return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidData,
+                                                "Scalar/vector input size does not match model"));
             if (this->model.inputs[i].valueType == opk::Dtype::Float32) {
                 for (size_t g = 0; g < valueCount; g++) {
                     writeValueTo<float, float>(api.inputTensors[i]->getData(),
                                                g,
-                                               this->model.inputs[i].valueInputs.data());
+                                               this->model.inputs[i].valueInputs.data() + g);
+                }
+            } else if (this->model.inputs[i].valueType == opk::Dtype::Int64) {
+                for (size_t g = 0; g < valueCount; ++g) {
+                    const double value = this->model.inputs[i].valueInputs[g];
+                    // valueInputs is Float32 storage: require an integral, representable Int64.
+                    if (!std::isfinite(value) || std::trunc(value) != value ||
+                        value < -9223372036854775808.0 || value >= 9223372036854775808.0)
+                        return tl::unexpected(
+                            OPK_ERROR(opk::ErrorFlag::InvalidData, "Invalid Int64 input constant"));
+                    const auto integer = static_cast<int64_t>(value);
+                    std::memcpy(api.inputTensors[i]->getData() + g * sizeof(integer),
+                                &integer,
+                                sizeof(integer));
                 }
             } else {
                 opk::log::error("ONNX scalar input tensor {} has unsupported dtype {}\n",
@@ -480,9 +519,9 @@ opk::Result<opk::Model> Inference::inspectModel(const Ort::Session &session) {
 
         // shape
         std::vector<int64_t> onnxDims = getTensorShape(session, opk::TensorInOut::In, i);
-        if (onnxDims.size() < 1 || onnxDims.size() > 8) {
+        if (onnxDims.size() > 8) {
             return tl::unexpected{OPK_ERROR(opk::ErrorFlag::ModelInspectError,
-                                            "input tensor size must be between 1 and 8")};
+                                            "input tensor rank must be between 0 and 8")};
         }
         model.inputs[i].shape.setFrom(onnxDims);
     }

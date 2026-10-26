@@ -1,0 +1,66 @@
+{
+  "version": "1.1.4",
+  "name": "silero-vad",
+  "legal": "https://github.com/snakers4/silero-vad",
+  "modelFile": "silero_vad.onnx",
+  "hfDownload": {
+    "repo_id": "Arm/silero-vad-fp32-onnx",
+    "revision": "3f0e26baba5e8e1eb1ac97ad7e33a472f2316688",
+    "filename": "silero_vad.onnx",
+    "sha256": "1a153a22f4509e292a94e67d6f9b85e8deb25b4988682b7e174c65279d8788e3"
+  },
+  "dynamicOutput": false,
+  "contentType": "voiceActivity",
+  "inputTensors": [
+    {
+      "shape": [
+        1,
+        576
+      ],
+      "dataKind": "AudioPcm",
+      "valueType": "Float32"
+    },
+    {
+      "shape": [
+        2,
+        1,
+        128
+      ],
+      "dataKind": "RawTensorData",
+      "valueType": "Float32"
+    },
+    {
+      "dataKind": "Value",
+      "valueType": "Int64",
+      "valueInputs": [
+        16000
+      ]
+    }
+  ],
+  "outputTensors": [
+    {
+      "shape": [
+        1,
+        1
+      ],
+      "dataKind": "RawTensorData",
+      "valueType": "Float32"
+    },
+    {
+      "shape": [
+        2,
+        1,
+        128
+      ],
+      "dataKind": "RawTensorData",
+      "valueType": "Float32"
+    }
+  ],
+  "tensorFeedbacks": [
+    {
+      "fromOutputTensorIndex": 1,
+      "toInputTensorIndex": 1,
+      "mode": "Copy"
+    }
+  ]
+}

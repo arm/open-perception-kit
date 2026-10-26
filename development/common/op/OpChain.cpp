@@ -78,6 +78,55 @@ std::vector<std::string_view> OpChain::getRequiredContentTypes() const {
         opPtrs, [](const auto &op) { return op.getRequiredContentTypes(); });
 }
 
+opk::Result<size_t> OpChain::getRequiredAudioSamples() const {
+    size_t required = 0;
+    for (size_t index = 0; index < opPtrs.size(); ++index) {
+        const auto *op = opPtrs[index];
+        const auto *inference = op->as<OpInterfaceInference>();
+        if (!inference)
+            continue;
+        for (const auto &input : inference->getModel().inputs) {
+            if (input.dataKind == opk::DataKind::AudioLogMel)
+                return tl::unexpected(
+                    OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
+                              "Audio scheduling currently supports PCM inputs only"));
+            if (input.dataKind != opk::DataKind::AudioPcm)
+                continue;
+            const auto &shape = input.shape;
+            if (shape.rank == 0 || shape.rank > 8 || shape.dims[shape.rank - 1] <= 0)
+                return tl::unexpected(
+                    OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
+                              "Audio PCM requires a fixed positive sample dimension"));
+            for (size_t i = 0; i + 1 < shape.rank; ++i) {
+                if (shape.dims[i] != 1)
+                    return tl::unexpected(
+                        OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
+                                  "Audio PCM requires singleton batch/channel dimensions"));
+            }
+            size_t samples = static_cast<size_t>(shape.dims[shape.rank - 1]);
+            if (index > 0) {
+                if (const auto *pre = opPtrs[index - 1]->as<OpInterfaceAudioPreprocessor>())
+                    samples = pre->getRequiredAudioSamples();
+            }
+            if (!samples)
+                return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
+                                                "Audio preprocessing requires a positive window"));
+            if (required && required != samples)
+                return tl::unexpected(
+                    OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
+                              "Audio PCM inputs in one OpChain must require the same window size"));
+            required = samples;
+        }
+    }
+    // The audio scheduler advances windows between executions of the whole chain.
+    // An inner Op loop would keep reusing the same window instead.
+    if (required && std::ranges::any_of(opPtrs, [](const Op *op) { return op->loopId != 0; }))
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
+                      "Audio scheduling requires an unlooped OpChain; remove loopId from its Ops"));
+    return required;
+}
+
 opk::Result<void> OpChain::setupFromDescriptor(const opk::op::OpChainDescriptor &descriptor) {
     if (const auto validation = opk::config::validateOpChainSemantics(descriptor); !validation.ok())
         return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidOpChain, validation.toText()));

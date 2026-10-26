@@ -28,6 +28,7 @@ common = shared_library(
     'opk/PipelinePreset.cpp',
 
     'opk/AudioBuffer.cpp',
+    'opk/PcmRingBuffer.cpp',
 
     'opk/Base64.cpp',
 
@@ -48,6 +49,7 @@ common = shared_library(
     'mediaio/Common.cpp',
     'mediaio/VideoFrame.cpp',
     'mediaio/GstVideoFrame.cpp',
+    'mediaio/GstAudioFrame.cpp',
     'mediaio/PixelBufferVideoFrame.cpp',
   ],
   include_directories: [ common_include ],

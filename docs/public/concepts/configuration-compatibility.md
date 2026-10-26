@@ -206,6 +206,24 @@ validated when the pipeline starts.
 
 ## Migrating existing configurations
 
+OpChain `1.2.0` adds `GenericAudioPreprocess` and `SileroVadParser` attributes.
+Set the OpChain version to `"1.2.0"` when adopting audio preprocessing or VAD
+postprocessing, and rebuild or upgrade the runtime before using them. Older
+runtimes can reject these additions after warning about the minor mismatch.
+Existing video and ONNX thread-tuning chains remain valid at their declared
+versions, with a warning if their minor differs from the reader's.
+Use an unlooped audio chain; scheduling belongs to `opkinfer`.
+`contextSampleCount` optionally prepends retained PCM history; the scheduled
+window excludes that context. Silero uses 64 context samples plus 512 fresh
+samples and a single `[1,1]` probability output (no `speechClassIndex`).
+
+Model `1.1.0` adds Float32 `AudioPcm` inputs. Audio models use mono 16 kHz
+samples with a positive final sample dimension and singleton leading dimensions.
+It also allows Int64 `Value` constants, including ONNX rank-zero inputs. Constants
+are stored internally as Float32, so the schema restricts Int64 constants to
+integers between -16777216 and 16777216 for exact representation.
+Existing image models remain valid; their older minor version may emit a warning.
+
 OpChain `1.1.0` adds optional `intraOpNumThreads` to
 `opk-onnx-ops/Inference`. Set the OpChain version to `"1.1.0"` when adopting
 the option; omitted values retain the previous thread policy. Older runtimes

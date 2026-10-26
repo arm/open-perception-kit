@@ -18,6 +18,6 @@
 // SDK users: change schemas or generator inputs, then regenerate this file.
 export declare const OPEN_PERCEPTION_KIT_VERSION = "0.1.2";
 export declare const OPEN_PERCEPTION_KIT_NAME = "open_perception_kit";
-export declare const SCHEMA_SET_SHA256 = "798c1d2579c38da1e0fdbbaa25392205a7c8df0f39e30a0a28ff0a1d2a484e07";
+export declare const SCHEMA_SET_SHA256 = "04f772ed9bceb6249cc669d26f715f5b08b1d6131e6ad1c91bd523fdd579950d";
 export declare const FLATBUFFERS_VERSION_REQUIREMENT = ">=24.3.25 <26.0.0";
 export { Envelope, ExternalKey, ProducerIdentityStatus, external_key, is_external_key, EXTERNAL_KEY_MIN, } from './envelope.js';

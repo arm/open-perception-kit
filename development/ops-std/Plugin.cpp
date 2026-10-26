@@ -19,6 +19,7 @@
 
 #include <cstring>
 
+#include "GenericAudioPreprocessOp.h"
 #include "GenericImagePreprocessOp.h"
 #include "GenericPostprocessOp.h"
 #include "InferenceControllerOp.h"
@@ -26,6 +27,8 @@
 opk::op::Op *createOp(const std::string &opName) {
     if (opName == "GenericPostprocess")
         return new opk::stdop::GenericPostprocessOp();
+    if (opName == "GenericAudioPreprocess")
+        return new opk::stdop::GenericAudioPreprocessOp();
     if (opName == "GenericImagePreprocess")
         return new opk::stdop::GenericImagePreprocessOp();
     if (opName == "InferenceController")

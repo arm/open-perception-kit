@@ -38,6 +38,7 @@
 #include "postproc/PersonClassificationParser.h"
 #include "postproc/RvmParser.h"
 #include "postproc/ScrfdParser.h"
+#include "postproc/SileroVadParser.h"
 #include "postproc/UltrafaceParser.h"
 #include "postproc/Yolo26InstanceSegmentationParser.h"
 #include "postproc/Yolo26SemanticSegmentationParser.h"
@@ -69,6 +70,7 @@ const std::map<std::string, ParserCreator> &getParserRegistry() {
         {"PersonClassificationParser", make<opk::stdop::postproc::PersonClassificationParser>()},
         {"RvmParser", make<opk::stdop::postproc::RvmParser>()},
         {"ScrfdParser", make<opk::stdop::postproc::ScrfdParser>()},
+        {"SileroVadParser", make<opk::stdop::postproc::SileroVadParser>()},
         {"UltrafaceParser", make<opk::stdop::postproc::UltraFaceParser>()},
         {"Yolo26InstanceSegmentationParser",
          make<opk::stdop::postproc::Yolo26InstanceSegmentationParser>()},

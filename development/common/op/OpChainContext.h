@@ -19,6 +19,7 @@
 
 #include "mediaio/VideoFrame.h"
 #include "opk/FrameResults.h"
+#include "opk/PcmRingBuffer.h"
 #include "opk/TensorView.h"
 #include "opk/Types.h"
 #include <array>
@@ -40,6 +41,15 @@ namespace opk::op {
  * process() return signals rather than by mutable context flags.
  */
 struct OpChainContext {
+
+    /// Borrowed PCM windows valid only during this execution. opkinfer supplies
+    /// pipelineAudioData as one complete mono Float32 16 kHz inference window.
+    std::map<std::string, opk::PcmRingBuffer::View> pcmViews;
+
+    const opk::PcmRingBuffer::View *getPcmView(const std::string &name) const {
+        const auto it = pcmViews.find(name);
+        return it == pcmViews.end() ? nullptr : &it->second;
+    }
 
     /**
      * @brief Named media video frames for backend-aware frame sharing.

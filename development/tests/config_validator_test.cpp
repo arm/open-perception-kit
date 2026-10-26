@@ -441,3 +441,36 @@ TEST(ConfigValidator, SemanticsRejectEmbeddedNullAtRuntimeStringBoundaries) {
 }
 
 } // namespace
+
+TEST(ConfigValidator, AudioPcmRequiresFloat32AndPositiveSampleShape) {
+    nlohmann::json document{
+        {"version", "1.1.0"},
+        {"name", "Audio"},
+        {"modelFile", "audio.onnx"},
+        {"dynamicOutput", true},
+        {"inputTensors",
+         {{{"shape", {1, 320}}, {"dataKind", "AudioPcm"}, {"valueType", "Float32"}}}}};
+    const auto parsed = opk::config::validateModelJson(document.dump());
+    ASSERT_TRUE(parsed);
+    EXPECT_EQ(nlohmann::json(*parsed)["inputTensors"][0]["dataKind"], "AudioPcm");
+    document["inputTensors"][0]["valueType"] = "Uint8";
+    EXPECT_FALSE(opk::config::validateModelJson(document.dump()));
+    document["inputTensors"][0]["valueType"] = "Float32";
+    document["inputTensors"][0]["shape"] = {1, -1};
+    EXPECT_FALSE(opk::config::validateModelJson(document.dump()));
+    document["inputTensors"][0]["shape"] = {1, 320};
+    document["inputTensors"][0]["dataKind"] = "AudioLogMel";
+    EXPECT_FALSE(opk::config::validateModelJson(document.dump()));
+}
+
+TEST(ConfigValidator, AcceptsExactInt64ValueConstants) {
+    const auto model = [](const std::string &value) {
+        return std::string(R"({"version":"1.1.0","name":"scalar","modelFile":"model.onnx",
+            "dynamicOutput":true,"inputTensors":[{"dataKind":"Value","valueType":"Int64",
+            "valueInputs":[)") +
+               value + "]}]}";
+    };
+    EXPECT_TRUE(opk::config::validateModelJson(model("16000")));
+    EXPECT_FALSE(opk::config::validateModelJson(model("16000.5")));
+    EXPECT_FALSE(opk::config::validateModelJson(model("16777217")));
+}

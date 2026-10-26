@@ -40,6 +40,7 @@ TEST(StandardContentTypes, ParsersAdvertiseTheirFrameResultsContent) {
         std::pair{"PersonClassificationParser", "personClassification"},
         std::pair{"RvmParser", "segmentation"},
         std::pair{"ScrfdParser", "humanFace"},
+        std::pair{"SileroVadParser", "voiceActivity"},
         std::pair{"UltrafaceParser", "humanFace"},
         std::pair{"YoloParser", "genericObject"},
         std::pair{"YoloXParser", "genericObject"},

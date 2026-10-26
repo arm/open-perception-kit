@@ -75,3 +75,7 @@ mod track_traces_generated;
 pub use self::track_traces_generated::*;
 mod video_frame_context_generated;
 pub use self::video_frame_context_generated::*;
+mod voice_activity_detection_generated;
+pub use self::voice_activity_detection_generated::*;
+mod voice_activity_detections_generated;
+pub use self::voice_activity_detections_generated::*;

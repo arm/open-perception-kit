@@ -49,7 +49,9 @@ struct Tensor {
             opk::log::info("Creating dynamic tensor with shape: {}\n", shape.toString());
             // do nothing
         } else {
-            this->data.resize(shape.getFullValueCount() * typeByteSize);
+            // ONNX rank-zero tensors contain one scalar. OPK's empty Shape otherwise
+            // remains an unspecified shape; keep this convention local to ONNX.
+            this->data.resize((shape.rank == 0 ? 1 : shape.getFullValueCount()) * typeByteSize);
             std::fill(this->data.begin(), this->data.end(), 0);
         }
     }
@@ -135,6 +137,9 @@ struct Inference {
 
     // void prepareForPostprocess(opk::TensorParser::Input &input);
     opk::Result<void> inference();
+
+    /// Restore zero initial state for inputs populated by tensor feedback.
+    opk::Result<void> resetFeedbackState();
 
     const opk::Model &getModel() const {
         return this->model;
