@@ -17,6 +17,7 @@
 """Build and install pinned MLWL sources and matching Vulkan headers."""
 
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -86,11 +87,21 @@ def main():
         subprocess.run(["cmake", "--install", str(build_dir / "vulkan-headers")], check=True)
         shutil.copytree(
             sources["headers"] / "LICENSES",
-            staging_dir / "share/doc/Vulkan-Headers/LICENSES",
+            staging_dir / "share/doc/mlwl/Vulkan-Headers/LICENSES",
         )
-        for name in ("library", "vgf"):
-            shutil.copytree(sources[name] / "LICENSES", staging_dir / f"share/doc/{name}/LICENSES")
-        shutil.copy2(sources["flatbuffers"] / "LICENSE", staging_dir / "share/doc/flatbuffers-LICENSE")
+        for name, directory in (("library", "mlwl"), ("vgf", "vgf")):
+            shutil.copytree(sources[name] / "LICENSES", staging_dir / f"share/doc/mlwl/{directory}/LICENSES")
+        (staging_dir / "share/doc/mlwl/flatbuffers").mkdir()
+        shutil.copy2(sources["flatbuffers"] / "LICENSE", staging_dir / "share/doc/mlwl/flatbuffers/LICENSE")
+        shutil.copyfile(
+            staging_dir / "lib64/ai-ml-workload-library.spdx.json",
+            staging_dir / "share/doc/mlwl/ai-ml-workload-library.spdx.json",
+        )
+        runtime = staging_dir / "lib64/libmlworkloadlib.so"
+        runtime.with_suffix(".so.provenance.json").write_text(json.dumps({
+            "sources": lock,
+            "library_sha256": hashlib.sha256(runtime.read_bytes()).hexdigest(),
+        }, indent=2) + "\n")
         staging_dir.rename(destination)
     print(f"Installed MLWL {lock['version']} and Vulkan-Headers in {destination}")
 

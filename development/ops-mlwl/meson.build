@@ -32,9 +32,6 @@ mlwl_vulkan_dep = dependency('VulkanHeaders', version : '==1.4.357',
 if not mlwl_vulkan_dep.found()
   subdir_done()
 endif
-if release_package
-  error('MLWL is not supported in release packages yet; use -Dmlwl=disabled or -Drelease_package=false.')
-endif
 mlwl_enabled = true
 mlwl_ops = shared_module(
   'opk-mlwl-ops',
@@ -46,6 +43,6 @@ mlwl_ops = shared_module(
   name_prefix : '',
   gnu_symbol_visibility : 'default',
   install : release_package,
-  install_dir : 'lib/opk',
+  install_dir : get_option('libdir') / 'opk',
   install_rpath : '$ORIGIN',
 )

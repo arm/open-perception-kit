@@ -699,6 +699,12 @@ class ReleaseToolTests(unittest.TestCase):
             plugin = args.stage_root / "lib/opk/opk-python-ops.so"
             plugin.parent.mkdir(parents=True)
             plugin.touch()
+            (plugin.parent / "opk-mlwl-ops.so").touch()
+            mlwl_legal = root / "deps/mlwl/share/doc/mlwl"
+            for relative in release_tool.MLWL_LEGAL_NOTICES:
+                notice = mlwl_legal / relative
+                notice.parent.mkdir(parents=True, exist_ok=True)
+                notice.write_bytes(f"Original {relative} terms\r\n".encode())
             wheel_metadata = root / "installed/numpy-2.4.2.dist-info"
             (wheel_metadata / "licenses").mkdir(parents=True)
             (wheel_metadata / "licenses/LICENSE.txt").write_text("Synthetic installed NumPy terms\n")
@@ -712,6 +718,8 @@ class ReleaseToolTests(unittest.TestCase):
                 release_tool.stage_legal(args)
             legal = args.stage_root / "share/opk/licenses"
             release_tool.validate_legal_documentation(args.stage_root, require_backends=False)
+            for relative in release_tool.MLWL_LEGAL_NOTICES:
+                self.assertEqual((legal / "mlwl" / relative).read_bytes(), (mlwl_legal / relative).read_bytes())
             self.assertEqual((legal / "asio/COPYING").read_bytes(), b"Synthetic upstream owner\r\nOriginal terms\r\n")
             report = legal / "third-party-licenses.md"
             self.assertEqual(report.read_bytes(), document.read_bytes())

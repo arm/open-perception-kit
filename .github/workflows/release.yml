@@ -164,6 +164,7 @@ jobs:
         with:
           build-args: |
             OPK_RELEASE_BUILD=true
+            OPK_MLWL=enabled
             OPK_RELEASE_VERSION=${{ needs.prepare.outputs.version }}
             OPK_RELEASE_SOURCE_COMMIT=${{ needs.prepare.outputs.commit }}
           context: ${{ env.SOURCE_DIR }}

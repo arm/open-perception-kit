@@ -44,8 +44,13 @@ Keep the installed library and headers together. The build sets `NDEBUG` for
 MLWL targets to match the library's Vulkan-Hpp ABI, including in debug builds.
 At runtime, the loader must find the MLWL shared library and a compatible Vulkan driver.
 
-MLWL release packaging is not supported yet. Use `-Dmlwl=disabled` for release
-packages or `-Drelease_package=false` for MLWL development builds.
+Release archive and deployment-image builds accept `--build-arg OPK_MLWL=enabled`.
+They include the MLWL shared runtime and original dependency notices; archives
+also carry its checksum receipt. Builds are native Linux x86-64 or AArch64,
+and MLWL remains disabled by default. Supply the Vulkan driver and any emulation
+layers in the execution environment.
+The [Debian package target](../../docs/public/how-to/build-debian-runtime-package.md)
+also accepts `-Dmlwl=enabled` with the same dependency prefix.
 
 ## Models
 
