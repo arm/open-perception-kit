@@ -214,9 +214,13 @@ Docker builds use this initializer to assemble the locked runtime consistently.
 Run it manually only when maintaining a custom OPK Linux image or reproducing
 the image setup in another supported Linux environment.
 
+Development, CI, containers, archives, and Debian packages use the same Python
+Ops runtime versions. OPK checks NumPy and FlatBuffers when initializing or
+attaching to Python; a mismatch prevents the OpChain from starting.
+
 The runtime requires:
 
-- a compatible CPython interpreter with `venv` support
+- CPython 3.13 with `venv` support, as locked in `development/ops-python/runtime.json`
 - Python development headers when building the native Python operation
 - the architecture-specific NumPy wheel locked in
   `development/ops-python/runtime.json`
@@ -235,6 +239,11 @@ To create the locked runtime in such a Linux environment, run:
   --perception-sdk generated/open_perception_kit/python
 export OPK_PYTHON_RUNTIME_VENV="$PWD/.venv-python-ops"
 ```
+
+To check an existing environment without installing anything, run
+`./scripts/setup-python-ops-runtime.sh --check --python "$OPK_PYTHON_RUNTIME_VENV/bin/python"`.
+The command reports the locked versions and NumPy header directory; Meson uses
+the same check before enabling Python Ops.
 
 The initializer selects the architecture-specific NumPy wheel from
 `development/ops-python/runtime.json`, selects the FlatBuffers wheel from

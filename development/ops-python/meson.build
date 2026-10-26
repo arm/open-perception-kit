@@ -25,30 +25,15 @@ python_ops_sources = [
   'TensorBridge.cpp',
 ]
 
-python_executable = opk_python.full_path()
-installed_python_runtime_path = ''
-python_runtime_versions = ['', '']
-if release_package
-  python_executable = 'python3.13'
-  installed_python_runtime_path = '/var/lib/opk/python'
-  python_runtime_versions = run_command(
-    opk_python,
-    [
-      '-c',
-      'import json, sys; runtime=json.load(open(sys.argv[1], encoding="utf-8")); sdk=json.load(open(sys.argv[2], encoding="utf-8")); print(runtime["numpy"]["version"]); print(sdk["flatbuffers"]["version"])',
-      opk_repository_root / 'development/ops-python/runtime.json',
-      opk_repository_root / 'tools/perception/sdk.json',
-    ],
-    check : true,
-  ).stdout().strip().split('\n')
-endif
+python_executable = release_package ? 'python' + python_version : opk_python.full_path()
+installed_python_runtime_path = deb_package ? '/var/lib/opk/python' : ''
 
 python_ops_cpp_args = [
   '-DOPK_PYTHON_EXECUTABLE="' + python_executable + '"',
   '-DOPK_DEVELOPMENT_PYTHON_PATH="' + python_runtime_path + '"',
   '-DOPK_INSTALLED_PYTHON_PATH="' + installed_python_runtime_path + '"',
-  '-DOPK_EXPECTED_NUMPY_VERSION="' + python_runtime_versions[0] + '"',
-  '-DOPK_EXPECTED_FLATBUFFERS_VERSION="' + python_runtime_versions[1] + '"',
+  '-DOPK_EXPECTED_NUMPY_VERSION="' + numpy_version + '"',
+  '-DOPK_EXPECTED_FLATBUFFERS_VERSION="' + flatbuffers_version + '"',
 ]
 
 python_ops = shared_module(
@@ -74,6 +59,16 @@ python_ops_test_dep = declare_dependency(
 )
 
 if release_package
+  configure_file(
+    input : '../../requirements/python-ops.txt.in',
+    output : 'requirements.txt',
+    configuration : {
+      'PYTHON_VERSION' : python_version,
+      'NUMPY_VERSION' : numpy_version,
+      'FLATBUFFERS_VERSION' : flatbuffers_version,
+    },
+    install_dir : 'share/opk/python',
+  )
   install_data(
     'opk_python_ops.pyi',
     install_dir : 'share/opk/python',

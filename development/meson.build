@@ -216,19 +216,25 @@ if get_option('tests') or not python_ops_option.disabled()
     opk_python = import('python').find_installation(required : false)
   endif
 
-  if opk_python.found()
-    numpy_probe = run_command(
-      opk_python,
-      ['-c', 'import numpy; print(numpy.get_include())'],
+  if opk_python.found() and not python_ops_option.disabled()
+    python_runtime_probe = run_command(
+      'bash', opk_repository_root / 'scripts/setup-python-ops-runtime.sh',
+      '--python', opk_python.full_path(), '--check',
       check : false,
     )
-    if numpy_probe.returncode() == 0
-      opk_numpy_include = numpy_probe.stdout().strip()
-      python_ops_enabled = not python_ops_option.disabled()
+    if python_runtime_probe.returncode() == 0
+      runtime_config = python_runtime_probe.stdout().strip().split('\n')
+      python_version = runtime_config[0]
+      numpy_version = runtime_config[1]
+      flatbuffers_version = runtime_config[2]
+      opk_numpy_include = runtime_config[3]
+      python_ops_enabled = true
     elif python_ops_option.enabled()
-      error('python_ops requires NumPy for the selected Python installation.')
+      error(python_runtime_probe.stderr().strip())
+    else
+      message('Python Ops disabled: ' + python_runtime_probe.stderr().strip())
     endif
-  elif get_option('tests') or python_ops_option.enabled()
+  elif not opk_python.found() and (get_option('tests') or python_ops_option.enabled())
     error('A Python development installation is required.')
   endif
 endif

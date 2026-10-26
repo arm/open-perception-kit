@@ -26,6 +26,7 @@ sdk_descriptor="${repository_root}/tools/perception/sdk.json"
 perception_sdk=
 architecture=
 dry_run=false
+check_only=false
 
 usage() {
     cat << 'EOF'
@@ -39,6 +40,7 @@ Options:
   --perception-sdk PATH        Install a local generated open-perception-kit Python SDK
   --architecture ARCH          Target architecture: aarch64 or x86_64
   --dry-run                    Validate inputs and print the resolved setup
+  --check                      Check installed versions and print the Meson runtime configuration
   -h, --help                   Show this help
 EOF
 }
@@ -71,6 +73,10 @@ while (($#)); do
             ;;
         --dry-run)
             dry_run=true
+            shift
+            ;;
+        --check)
+            check_only=true
             shift
             ;;
         -h | --help)
@@ -154,6 +160,30 @@ flatbuffers_version="${dependency_lock[4]}"
 flatbuffers_wheel="${dependency_lock[5]}#sha256=${dependency_lock[6]}"
 venv="$("${python}" -c 'import os, sys; print(os.path.abspath(sys.argv[1]))' "${venv}")"
 
+check_runtime() {
+    "$1" -c \
+        'import flatbuffers, numpy, sys
+python_version, numpy_version, flatbuffers_version = sys.argv[1:]
+actual_python = f"{sys.version_info.major}.{sys.version_info.minor}"
+for name, actual, expected in (
+    ("Python", actual_python, python_version),
+    ("numpy", numpy.__version__, numpy_version),
+    ("flatbuffers", flatbuffers.__version__, flatbuffers_version),
+):
+    if actual != expected:
+        raise SystemExit(f"Python Ops requires {name} {expected}, got {actual}")
+print(python_version)
+print(numpy_version)
+print(flatbuffers_version)
+print(numpy.get_include())' \
+        "${python_version}" "${numpy_version}" "${flatbuffers_version}"
+}
+
+if [[ "${check_only}" == true ]]; then
+    check_runtime "${python}"
+    exit 0
+fi
+
 if [[ "${dry_run}" == true ]]; then
     printf 'python=%s\n' "${python}"
     printf 'python_version=%s\n' "${python_version}"
@@ -182,14 +212,7 @@ if [[ -n "${perception_sdk}" ]]; then
     "${venv}/bin/python" -m pip install --no-cache-dir --no-deps "${perception_sdk}"
 fi
 
-"${venv}/bin/python" -c \
-    'import flatbuffers, numpy, sys
-expected_numpy, expected_flatbuffers = sys.argv[1:]
-if numpy.__version__ != expected_numpy:
-    raise SystemExit(f"unexpected NumPy version: {numpy.__version__}")
-if flatbuffers.__version__ != expected_flatbuffers:
-    raise SystemExit(f"unexpected FlatBuffers version: {flatbuffers.__version__}")' \
-    "${numpy_version}" "${flatbuffers_version}"
+check_runtime "${venv}/bin/python" > /dev/null
 if [[ -n "${perception_sdk}" ]]; then
     "${venv}/bin/python" -c 'import open_perception_kit'
 fi
