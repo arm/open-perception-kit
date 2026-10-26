@@ -39,7 +39,7 @@ The codebase currently supports these runtime/model combinations:
 - ONNX Runtime with `.onnx` models
 - ExecuTorch with `.pte` models
 - ML Workload Library (MLWL) with `.vgf` models, disabled by default.
-  Build instructions: `development/ops-mlwl/README.md`.
+  Build instructions: [MLWL backend](https://github.com/arm/open-perception-kit/blob/main/development/ops-mlwl/README.md#build).
 
 These are the implementations currently available in the tree. The OpChain v1 extension contract is
 backend-independent: an exact `<library>/Inference` ID has one required `modelDescriptor` attribute,
