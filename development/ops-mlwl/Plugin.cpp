@@ -22,8 +22,9 @@
 #include <string>
 
 opk::op::Op *createOp(const std::string &opName) {
-    if (opName == "Inference")
+    if (opName == "Inference") {
         return new opk::mlwl::InferenceOp();
+    }
     return nullptr;
 }
 
@@ -32,7 +33,8 @@ extern "C" void opk_delete_op_instance(void *instance) {
 }
 
 extern "C" void *opk_create_op_instance(const char *opName) {
-    if (!opName)
+    if (!opName) {
         return nullptr;
+    }
     return createOp(opName);
 }

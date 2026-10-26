@@ -36,8 +36,9 @@ struct TensorLayout {
 inline TensorLayout tensorLayout(mlsdk::workloadlib::ResourceView resource) {
     const auto requirements = resource.requirements();
     if (requirements.kind() != mlsdk::workloadlib::ResourceKind::Tensor ||
-        requirements.participatesInAliasing())
+        requirements.participatesInAliasing()) {
         throw std::runtime_error("MLWL requires non-aliased tensor inputs and outputs");
+    }
 
     TensorLayout layout;
     switch (requirements.format()) {
@@ -53,23 +54,27 @@ inline TensorLayout tensorLayout(mlsdk::workloadlib::ResourceView resource) {
     const auto dimensions = requirements.asTensor().shape();
     const auto strides = requirements.asTensor().stride();
     if (dimensions.empty() || dimensions.size() > std::size(layout.shape.dims) ||
-        (!strides.empty() && strides.size() != dimensions.size()))
+        (!strides.empty() && strides.size() != dimensions.size())) {
         throw std::runtime_error("MLWL tensor rank or stride count is unsupported");
+    }
 
     layout.bytes = opk::getValueTypeByteSize(layout.dtype);
     for (size_t i = dimensions.size(); i-- > 0;) {
         if (dimensions[i] <= 0 || dimensions[i] > std::numeric_limits<int>::max() ||
             static_cast<uint64_t>(dimensions[i]) >
-                std::numeric_limits<size_t>::max() / layout.bytes)
+                std::numeric_limits<size_t>::max() / layout.bytes) {
             throw std::runtime_error("MLWL tensor dimensions must be bounded and static");
-        if (!strides.empty() && strides[i] != static_cast<int64_t>(layout.bytes))
+        }
+        if (!strides.empty() && strides[i] != static_cast<int64_t>(layout.bytes)) {
             throw std::runtime_error("MLWL tensor storage must be contiguous");
+        }
         layout.shape.dims[i] = static_cast<int>(dimensions[i]);
         layout.bytes *= static_cast<size_t>(dimensions[i]);
     }
     layout.shape.rank = dimensions.size();
-    if (requirements.elementCount() != layout.shape.getFullValueCount())
+    if (requirements.elementCount() != layout.shape.getFullValueCount()) {
         throw std::runtime_error("MLWL tensor storage does not match its shape");
+    }
     return layout;
 }
 

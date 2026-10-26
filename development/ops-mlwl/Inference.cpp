@@ -34,8 +34,9 @@ class MappedTensor {
         : device(context.contextView().device), allocation(context.createTensor(resource)) {
         const auto memory = allocation.memory();
         const auto bytes = tensorLayout(resource).bytes;
-        if (memory.size < bytes)
+        if (memory.size < bytes) {
             throw std::runtime_error("MLWL tensor allocation is smaller than its resource");
+        }
         data = static_cast<uint8_t *>(
             (*device.get())
                 .mapMemory(
@@ -73,14 +74,16 @@ struct Inference::State {
 
 opk::Result<void> Inference::State::configureModel(const opk::ModelDescriptor &descriptor) {
     opk::Result<void> result{};
-    if (descriptor.dynamicOutput || !descriptor.tensorFeedbacks.empty())
+    if (descriptor.dynamicOutput || !descriptor.tensorFeedbacks.empty()) {
         result = tl::unexpected(OPK_ERROR(opk::ErrorFlag::InferenceRtStartupError,
                                           "MLWL requires static tensors without tensor feedback"));
+    }
 
     model.engine = "mlwl";
     for (const auto resource : workload.resources()) {
-        if (!result)
+        if (!result) {
             break;
+        }
         const auto layout = tensorLayout(resource);
         switch (resource.access()) {
         case wl::ResourceAccess::Read:
@@ -104,29 +107,33 @@ opk::Result<void> Inference::State::configureModel(const opk::ModelDescriptor &d
     }
     if (result &&
         (model.inputs.empty() || model.outputs.empty() ||
-         model.inputs.size() > opk::MaxTensorCount || model.outputs.size() > opk::MaxTensorCount))
+         model.inputs.size() > opk::MaxTensorCount || model.outputs.size() > opk::MaxTensorCount)) {
         result = tl::unexpected(OPK_ERROR(opk::ErrorFlag::InferenceRtStartupError,
                                           "MLWL model input/output count is unsupported"));
+    }
 
-    if (result)
+    if (result) {
         result = model.applyModelFromDescriptor(descriptor);
+    }
     for (size_t i = 0; result && i < model.inputs.size(); ++i) {
         const auto &input = model.inputs[i];
-        if (input.valueType != descriptor.inputTensors[i].dtype)
+        if (input.valueType != descriptor.inputTensors[i].dtype) {
             result =
                 tl::unexpected(OPK_ERROR(opk::ErrorFlag::InferenceRtStartupError,
                                          "MLWL input type does not match the model descriptor"));
-        else if (opk::isScalarDataKind(input.dataKind) &&
-                 input.valueInputs.size() != input.shape.getFullValueCount())
+        } else if (opk::isScalarDataKind(input.dataKind) &&
+                   input.valueInputs.size() != input.shape.getFullValueCount()) {
             result =
                 tl::unexpected(OPK_ERROR(opk::ErrorFlag::InferenceRtStartupError,
                                          "MLWL scalar/vector values do not match the tensor size"));
+        }
     }
     for (size_t i = 0; result && i < model.outputs.size(); ++i) {
-        if (model.outputs[i].valueType != descriptor.outputTensors[i].dtype)
+        if (model.outputs[i].valueType != descriptor.outputTensors[i].dtype) {
             result =
                 tl::unexpected(OPK_ERROR(opk::ErrorFlag::InferenceRtStartupError,
                                          "MLWL output type does not match the model descriptor"));
+        }
     }
     return result;
 }
@@ -136,9 +143,10 @@ void Inference::State::prepareExecution() {
     for (const auto executable : workload.executables())
         graphOnly &= executable.type() == wl::ExecutableKind::Graph;
     wl::RuntimeContextDeviceRequirements requirements;
-    if (graphOnly)
+    if (graphOnly) {
         requirements.capabilities = wl::RuntimeDeviceCapability::DataGraphShaderModules |
                                     wl::RuntimeDeviceCapability::Tensors;
+    }
     context.reset(new wl::Context(wl::Context::create(requirements)));
     session = std::make_unique<wl::Session>(*context, workload);
     session->configure();
@@ -168,8 +176,9 @@ Inference::~Inference() = default;
 opk::Result<void> Inference::setupFromJson(const std::string &filePath) {
     state.reset();
     const auto descriptor = opk::ModelDescriptor::fromFile(filePath);
-    if (!descriptor)
+    if (!descriptor) {
         return tl::unexpected(descriptor.error());
+    }
     return setup(*descriptor);
 }
 
@@ -194,20 +203,23 @@ bool Inference::isReady() const {
 }
 
 const opk::Model &Inference::getModel() const {
-    if (!state)
+    if (!state) {
         throw std::logic_error("MLWL inference has not been configured");
+    }
     return state->model;
 }
 
 uint8_t *Inference::getInputTensorDataAddress(size_t index) {
-    if (!state)
+    if (!state) {
         throw std::logic_error("MLWL inference has not been configured");
+    }
     return state->inputs.at(index)->data;
 }
 
 const uint8_t *Inference::getOutputTensorDataAddress(size_t index) const {
-    if (!state)
+    if (!state) {
         throw std::logic_error("MLWL inference has not been configured");
+    }
     return state->outputs.at(index)->data;
 }
 
@@ -216,9 +228,10 @@ opk::Shape Inference::getOutputTensorFinalShape(size_t index) const {
 }
 
 opk::Result<void> Inference::inference() {
-    if (!state)
+    if (!state) {
         return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InferenceRtStartupError,
                                         "MLWL inference has not been configured"));
+    }
     try {
         // MLWL waits for completion; coherent mapped tensors remain valid until teardown.
         state->execution->run();
