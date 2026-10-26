@@ -228,13 +228,18 @@ static void print_missing_file_message(const FileCheckSummary &summary, bool int
         opk::log::instantInfo("You have media files missing.\n");
     }
 
-    if (summary.has_missing_files())
-        opk::log::instantInfo("Download the missing files before running this pipeline.\n");
-    if (summary.missingModelFiles > 0)
+    if (summary.has_missing_files()) {
+        opk::log::instantInfo("Provide the missing files before running this pipeline.\n");
+    }
+    if (summary.missingModelFiles > 0) {
+        opk::log::instantInfo("For models with hfDownload, run scripts/download-models.py "
+                              "--models-dir config/models.\n");
         opk::log::instantInfo(
-            "Use scripts/download-models.py --models-dir config/models to download models.\n");
-    if (summary.missingMediaFiles > 0)
+            "Supply other models at the paths shown above; see each model's README or index.md.\n");
+    }
+    if (summary.missingMediaFiles > 0) {
         opk::log::instantInfo("Use scripts/private/download-demo-videos.sh to download media.\n");
+    }
     if (summary.missingExecuTorchPlugin) {
         opk::log::instantInfo(
             "ExecuTorch model detected, but the ExecuTorch OPK ops plugin was not found.\n");

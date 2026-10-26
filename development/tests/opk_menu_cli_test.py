@@ -381,7 +381,7 @@ class TestOpkMenuCliDiagnostics(unittest.TestCase):
                     {
                         "version": "1.0.0",
                         "name": "missing",
-                        "modelFile": "missing.onnx",
+                        "modelFile": "missing.vgf",
                         "dynamicOutput": True,
                         "inputTensors": [
                             {
@@ -424,7 +424,7 @@ class TestOpkMenuCliDiagnostics(unittest.TestCase):
             )
 
         self.assertEqual(result.returncode, 1)
-        self.assertIn(f"Model: MISSING {model_dir / 'missing.onnx'}", result.stdout)
+        self.assertIn(f"Model: MISSING {model_dir / 'missing.vgf'}", result.stdout)
         self.assertIn(f"Media: MISSING {media_file}", result.stdout)
         self.assertIn("Missing model files: 1", result.stdout)
         self.assertIn("Missing media files: 1", result.stdout)
@@ -432,7 +432,11 @@ class TestOpkMenuCliDiagnostics(unittest.TestCase):
             "You have model files missing, and you have media files missing.", result.stdout
         )
         self.assertIn(
-            "Use scripts/download-models.py --models-dir config/models to download models.",
+            "For models with hfDownload, run scripts/download-models.py --models-dir config/models.",
+            result.stdout,
+        )
+        self.assertIn(
+            "Supply other models at the paths shown above; see each model's README or index.md.",
             result.stdout,
         )
         self.assertIn(
@@ -529,7 +533,7 @@ class TestOpkMenuCliDiagnostics(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertIn("gst-launch-1.0 videotestsrc num-buffers=1", result.stdout)
         self.assertNotIn("Media: MISSING", result.stdout)
-        self.assertNotIn("Download the missing files", result.stdout)
+        self.assertNotIn("Provide the missing files", result.stdout)
         self.assertEqual(result.stderr, "")
 
     def test_direct_tty_missing_media_returns_failure_without_escape_prompt(self) -> None:
@@ -543,7 +547,7 @@ class TestOpkMenuCliDiagnostics(unittest.TestCase):
 
         self.assertEqual(returncode, 1)
         self.assertIn(b"Media: MISSING", output)
-        self.assertIn(b"Download the missing files", output)
+        self.assertIn(b"Provide the missing files", output)
         self.assertNotIn(b"Press ESC", output)
 
     def test_runtime_logging_options_are_applied_to_every_selected_target(self) -> None:
