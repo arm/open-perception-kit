@@ -242,7 +242,7 @@ TEST(PcmRingBuffer, RejectsInvalidFeedsWithoutChangingStream) {
 }
 
 TEST(PcmRingBuffer, ResamplingIsIndependentOfChunkSizesAndResetDiscardsHistory) {
-    for (size_t rate : {8000u, 16000u, 22050u, 44100u, 48000u, 96000u}) {
+    for (size_t rate : {8000u, 11025u, 16000u, 22050u, 44100u, 47999u, 48000u, 96000u}) {
         SCOPED_TRACE(rate);
         std::vector<float> input(rate / 5 + 17);
         for (size_t i = 0; i < input.size(); ++i)
@@ -268,6 +268,49 @@ TEST(PcmRingBuffer, ResamplingIsIndependentOfChunkSizesAndResetDiscardsHistory) 
         chunks.clear();
         ASSERT_TRUE(chunks.feed(bytesOf<float>(input), opk::AudioSampleType::F32, 1, rate));
         EXPECT_EQ(values(whole.view()), values(chunks.view()));
+    }
+}
+
+TEST(PcmRingBuffer, ResamplingMatchesDirectConvolutionAcrossPhaseCyclesAndRateChanges) {
+    opk::PcmRingBuffer ring(4096);
+    // Include fractional up/downsampling, integer ratios, and rates whose full
+    // phase cycle exceeds the cache budget. Reuse the buffer to test cache reset.
+    for (size_t rate : {8000u, 11025u, 22050u, 44100u, 48000u, 47999u, 383999u, 384000u}) {
+        SCOPED_TRACE(rate);
+        ring.clear();
+        std::vector<float> input(rate / 10 + 1);
+        for (size_t i = 0; i < input.size(); ++i)
+            input[i] = static_cast<float>(0.4 * std::sin(2 * std::numbers::pi * 731 * i / rate) +
+                                          0.2 * std::cos(2 * std::numbers::pi * 2311 * i / rate));
+        ASSERT_TRUE(ring.feed(bytesOf<float>(input), opk::AudioSampleType::F32, 1, rate));
+        const auto output = values(ring.view());
+        ASSERT_EQ(output.size(), input.size() * 16000 / rate);
+
+        // Compute each expected sample directly from its absolute timestamp and
+        // input samples, without streaming state or reuse of filter coefficients.
+        const double cutoff = 0.9 * std::min(1.0, 16000.0 / rate);
+        const auto radius = static_cast<size_t>(std::ceil(16.0 / cutoff));
+        std::vector<double> weights(2 * radius + 1);
+        for (size_t j = 0; j < output.size(); ++j) {
+            const size_t target = (j + 1) * rate;
+            const size_t consumed = (target + 15999) / 16000;
+            const double fraction = static_cast<double>(consumed * 16000 - target) / 16000;
+            double total = 0;
+            for (size_t k = 0; k < weights.size(); ++k) {
+                const double distance = static_cast<double>(radius) - k + fraction;
+                const double x = std::numbers::pi * cutoff * distance;
+                const double window =
+                    std::abs(distance) < radius
+                        ? 0.5 * (1 + std::cos(std::numbers::pi * distance / radius))
+                        : 0;
+                weights[k] = cutoff * (std::abs(x) < 1e-12 ? 1 : std::sin(x) / x) * window;
+                total += weights[k];
+            }
+            double expected = 0;
+            for (size_t k = 0; k < weights.size(); ++k)
+                expected += (weights[k] / total) * (k < consumed ? input[consumed - 1 - k] : 0.0f);
+            EXPECT_EQ(output[j], static_cast<float>(expected)) << "output sample " << j;
+        }
     }
 }
 

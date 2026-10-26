@@ -25,6 +25,7 @@
 #include <functional>
 #include <limits>
 #include <numbers>
+#include <numeric>
 
 namespace opk {
 
@@ -36,10 +37,11 @@ struct PcmRingBuffer::Converter {
     size_t phase = 0;
     size_t radius = 0;
     size_t write = 0;
-    size_t coefficientPhase = std::numeric_limits<size_t>::max();
+    size_t phaseStep = 1;
     double cutoff = 1;
     std::vector<float> history;
     std::vector<double> coefficients;
+    std::vector<size_t> coefficientPhases;
     std::vector<float> mono;
     std::vector<float> output;
 
@@ -49,33 +51,42 @@ struct PcmRingBuffer::Converter {
         cutoff = 0.9 * std::min(1.0, 16000.0 / rate);
         radius = static_cast<size_t>(std::ceil(16.0 / cutoff));
         history.resize(2 * radius + 1, 0);
-        coefficients.resize(history.size());
+        // Output phases are multiples of gcd(rate, 16000). Cache a complete cycle
+        // when it fits; unusual rates retain only the last phase to bound memory.
+        phaseStep = std::gcd(rate, size_t{16000});
+        const size_t phaseCount = 16000 / phaseStep;
+        constexpr size_t maxCacheBytes = size_t{256} * 1024;
+        const size_t bytesPerPhase = history.size() * sizeof(double) + sizeof(size_t);
+        const size_t cachedPhases = phaseCount <= maxCacheBytes / bytesPerPhase ? phaseCount : 1;
+        coefficients.resize(cachedPhases * history.size());
+        coefficientPhases.assign(cachedPhases, std::numeric_limits<size_t>::max());
     }
 
     float filteredSample() {
         // A causal Hann-windowed sinc: delay by radius source samples so the
-        // complete filter is available. Initial history is silence. Cache the
-        // coefficients for integer ratios such as 48 kHz -> 16 kHz.
-        if (coefficientPhase != phase) {
+        // complete filter is available. Initial history is silence.
+        const size_t slot = coefficientPhases.size() == 1 ? 0 : phase / phaseStep;
+        const auto weights = std::span(coefficients).subspan(slot * history.size(), history.size());
+        if (coefficientPhases[slot] != phase) {
             const double fraction = static_cast<double>(phase) / 16000;
             double total = 0;
-            for (size_t k = 0; k < coefficients.size(); ++k) {
+            for (size_t k = 0; k < weights.size(); ++k) {
                 const double distance = static_cast<double>(radius) - k + fraction;
                 const double x = std::numbers::pi * cutoff * distance;
                 const double window =
                     std::abs(distance) < radius
                         ? 0.5 * (1 + std::cos(std::numbers::pi * distance / radius))
                         : 0;
-                coefficients[k] = cutoff * (std::abs(x) < 1e-12 ? 1 : std::sin(x) / x) * window;
-                total += coefficients[k];
+                weights[k] = cutoff * (std::abs(x) < 1e-12 ? 1 : std::sin(x) / x) * window;
+                total += weights[k];
             }
-            for (auto &coefficient : coefficients)
+            for (auto &coefficient : weights)
                 coefficient /= total; // Preserve DC gain for every fractional phase.
-            coefficientPhase = phase;
+            coefficientPhases[slot] = phase;
         }
         double sum = 0;
         size_t index = write;
-        for (double coefficient : coefficients) {
+        for (double coefficient : weights) {
             index = index ? index - 1 : history.size() - 1;
             sum += coefficient * history[index];
         }

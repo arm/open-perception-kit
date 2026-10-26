@@ -25,8 +25,9 @@
 
 TEST(SileroVadInference, FeedbackAndDiscontinuityReset) {
     const std::filesystem::path descriptor = SILERO_MODEL_DESCRIPTOR;
-    if (!std::filesystem::exists(descriptor.parent_path() / "model_int8.onnx"))
-        GTEST_SKIP() << "Local Silero model artifact is not installed";
+    ASSERT_TRUE(std::filesystem::is_regular_file(descriptor.parent_path() / "model_int8.onnx"))
+        << "Silero model artifact is missing. Run: "
+           "python3 scripts/download-models.py --models-dir config/models/silero-vad";
     opk::onnx::InferenceOp inference;
     opk::AttributeMap attributes;
     attributes.set("modelDescriptor", descriptor.string());

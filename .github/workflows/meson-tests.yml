@@ -75,6 +75,9 @@ jobs:
               - 'requirements/build.json'
               - 'requirements/meson.txt'
               - 'requirements/sdk.txt'
+              - 'requirements/tests.txt'
+              - 'requirements/models.txt'
+              - 'requirements/common.txt'
               - 'scripts/build.sh'
               - 'scripts/perception-sdk.sh'
               - 'scripts/setup-python-ops-runtime.sh'
@@ -117,6 +120,12 @@ jobs:
       - name: Install test dependencies
         if: *run_checks
         run: python3 -m pip install -r requirements/tests.txt
+
+      - name: Download Silero test model
+        if: *run_checks
+        run: |
+          python3 scripts/download-models.py --models-dir config/models/silero-vad
+          test -s config/models/silero-vad/model_int8.onnx
 
       - name: Run tests
         if: *run_checks

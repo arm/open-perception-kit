@@ -42,6 +42,16 @@ and fails when new repository-owned errors appear. Raw logs are uploaded as the
 
 ## Local Test Coverage
 
+The Silero inference test requires the pinned model artifact and fails if it is
+missing. Prepare it with the existing model downloader before running the test
+suite; this checks the revision and SHA-256 declared in the model descriptor:
+
+```bash
+python3 scripts/download-models.py --models-dir config/models/silero-vad
+```
+
+Both the Meson and Valgrind CI workflows download this model before running tests.
+
 In the development container, configure a debug build with tests and Meson
 coverage instrumentation enabled. Run the tests to collect coverage data, then
 use Meson's built-in target to generate the HTML report:
