@@ -17,6 +17,9 @@ with `opk-models` or `scripts/download-models.py`, and prepare demo videos with
 only consumes those resolved outputs and fails when a descriptor's local model
 file is missing.
 
+The UltraFace and YOLO MLWL examples are excluded because their VGF files
+must currently be supplied manually.
+
 Configure and build the package inside the supported development container:
 
 ```bash

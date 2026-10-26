@@ -106,6 +106,17 @@ class PackageOpkDemoDebTests(unittest.TestCase):
             (images / "example.jpg").write_bytes(b"image")
             (videos / "example.mov").write_bytes(b"video")
 
+            local_models = ("ultraface-rfb-320-mlwl", "yolo26n-320-mlwl")
+            local_presets = ("mlwl-vgf-demo.json", "yolo26n-320-mlwl.json")
+            for name in local_models:
+                directory = repository / "config/models" / name
+                directory.mkdir()
+                (directory / "model.json").write_text(
+                    json.dumps({"modelFile": "model.vgf"}) + "\n", encoding="utf-8"
+                )
+            for name in local_presets:
+                (pipelines / name).write_text("{}\n", encoding="utf-8")
+
             fake_meson = root / "meson"
             fake_meson.write_text(
                 "#!/usr/bin/env bash\n"
@@ -118,28 +129,26 @@ class PackageOpkDemoDebTests(unittest.TestCase):
             environment["OPK_TEST_INSTALL_FIXTURE"] = str(
                 root / "install-fixture"
             )
-            self.run_command(
-                [
-                    str(PACKAGE_SCRIPT),
-                    "--build-dir",
-                    str(build),
-                    "--meson",
-                    str(fake_meson),
-                    "--repo-root",
-                    str(repository),
-                    "--installed-prefix",
-                    "/usr",
-                    "--version",
-                    "0.3.1",
-                    "--revision",
-                    "1",
-                    "--architecture",
-                    architecture,
-                    "--output",
-                    str(output),
-                ],
-                env=environment,
-            )
+            package_command = [
+                str(PACKAGE_SCRIPT),
+                "--build-dir",
+                str(build),
+                "--meson",
+                str(fake_meson),
+                "--repo-root",
+                str(repository),
+                "--installed-prefix",
+                "/usr",
+                "--version",
+                "0.3.1",
+                "--revision",
+                "1",
+                "--architecture",
+                architecture,
+                "--output",
+                str(output),
+            ]
+            self.run_command(package_command, env=environment)
 
             extracted = root / "extracted"
             self.run_command(["dpkg-deb", "--extract", str(output), str(extracted)])
@@ -164,6 +173,21 @@ class PackageOpkDemoDebTests(unittest.TestCase):
                     / "usr/share/opk/config/pipelines/.last_selected_pipeline_id"
                 ).exists()
             )
+            config = extracted / "usr/share/opk/config"
+            for name in local_models:
+                self.assertFalse((config / "models" / name).exists())
+                self.assertTrue((repository / "config/models" / name).is_dir())
+            for name in local_presets:
+                self.assertFalse((config / "pipelines" / name).exists())
+            self.assertTrue((config / "pipelines/example.json").is_file())
+
+            (model / "model.onnx").unlink()
+            result = subprocess.run(
+                package_command, env=environment, capture_output=True, text=True, check=False
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("packaged model artifacts are missing", result.stderr)
+            self.assertIn("model.onnx", result.stderr)
 
 
 if __name__ == "__main__":
