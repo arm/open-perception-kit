@@ -24,7 +24,10 @@ limitations under the License.
 
 # Use Your Own Media
 
-Use this page after a quick start works with the included sample media.
+Use this page after a quick start works.
+
+> We are working on providing access to a set of demo videos. Until they are
+> available, please bring your own input videos.
 
 Start from a known-working pipeline, change only the source section, and run
 the pipeline again. Leave the inference, overlay, performance, and sink stages

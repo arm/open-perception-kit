@@ -27,6 +27,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <thread>
 #include <utility>
@@ -42,19 +43,28 @@
 
 using namespace opk::onnx;
 
+namespace {
+constexpr int AutomaticIntraOpNumThreads = 0;
+constexpr unsigned int MinimumIntraOpNumThreads = 1;
+constexpr unsigned int ReservedHardwareThreads = 1;
+constexpr int InterOpNumThreads = 1;
+} // namespace
+
 Inference::Inference() = default;
 
 Inference::~Inference() = default;
 
-opk::Result<void> Inference::setupFromJson(const std::string &filePath) {
+opk::Result<void> Inference::setupFromJson(const std::string &filePath,
+                                           const std::optional<int64_t> intraOpNumThreads) {
     auto descResult = opk::ModelDescriptor::fromFile(filePath);
     if (!descResult) {
         return tl::unexpected{descResult.error()};
     }
-    return setup(*descResult);
+    return setup(*descResult, intraOpNumThreads);
 }
 
-opk::Result<void> Inference::setup(const opk::ModelDescriptor &modelDesc_) {
+opk::Result<void> Inference::setup(const opk::ModelDescriptor &modelDesc_,
+                                   const std::optional<int64_t> intraOpNumThreads) {
 
     this->setupReady = false;
     this->api = ApiTensorGlue();
@@ -67,30 +77,40 @@ opk::Result<void> Inference::setup(const opk::ModelDescriptor &modelDesc_) {
     this->sessionOptions.reset();
     this->environment.reset();
 
+    if (intraOpNumThreads && (*intraOpNumThreads < AutomaticIntraOpNumThreads ||
+                              *intraOpNumThreads > std::numeric_limits<int>::max())) {
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::InvalidData,
+                      fmt::format("intraOpNumThreads must be an integer from {} to {}, got {}",
+                                  AutomaticIntraOpNumThreads,
+                                  std::numeric_limits<int>::max(),
+                                  *intraOpNumThreads)));
+    }
+
     this->modelDescriptor = modelDesc_;
     // this->modelPath = file;
 
     try {
-        unsigned int hwThreads = std::thread::hardware_concurrency();
-        // IntraOp multithreading seems to be a better choice for vision models
-        unsigned int intraThreads = hwThreads ? std::max<unsigned int>(1u, hwThreads - 1u) : 1u;
-        unsigned int interThreads = 1u;
+        const unsigned int hwThreads = std::thread::hardware_concurrency();
+        const unsigned int legacyThreads =
+            hwThreads ? std::max(MinimumIntraOpNumThreads, hwThreads - ReservedHardwareThreads)
+                      : MinimumIntraOpNumThreads;
+        const int intraThreads = static_cast<int>(intraOpNumThreads.value_or(legacyThreads));
+        opk::log::info("ONNX {} ({}): intraOpNumThreads={} ({})\n",
+                       modelDescriptor.name,
+                       modelDescriptor.modelFile,
+                       intraThreads,
+                       intraThreads == AutomaticIntraOpNumThreads ? "ORT-managed"
+                       : intraOpNumThreads                        ? "explicit"
+                                                                  : "legacy hardware policy");
 
         this->sessionOptions = std::make_unique<Ort::SessionOptions>();
         this->sessionOptions->SetLogSeverityLevel(static_cast<int>(ORT_LOGGING_LEVEL_ERROR));
         this->sessionOptions->SetIntraOpNumThreads(intraThreads);
-        this->sessionOptions->SetInterOpNumThreads(interThreads);
+        this->sessionOptions->SetInterOpNumThreads(InterOpNumThreads);
         this->sessionOptions->SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
         this->sessionOptions->EnableCpuMemArena();
         this->sessionOptions->SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
-
-        this->sessionOptions->SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
-
-        // CPU threading
-        // this->sessionOptions->SetIntraOpNumThreads(12);   // try 6/8/10/12 on M4
-        // this->sessionOptions->SetInterOpNumThreads(1);
-        // this->sessionOptions->SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
-        // ---
 
         this->environment.reset(new Ort::Env(ORT_LOGGING_LEVEL_ERROR, "opkinfer"));
         this->memoryInfo = std::make_unique<Ort::MemoryInfo>(
@@ -484,10 +504,11 @@ opk::Result<opk::Model> Inference::inspectModel(const Ort::Session &session) {
         }
 
         if (opk::Dtype::Float32 != tensorValueType && opk::Dtype::Int64 != tensorValueType &&
-            opk::Dtype::Float16 != tensorValueType) {
+            opk::Dtype::Float16 != tensorValueType && opk::Dtype::Uint8 != tensorValueType) {
             return tl::unexpected{
                 OPK_ERROR(opk::ErrorFlag::ModelInspectError,
-                          "only float16, float32 or int64 input tensors are supported in ONNX")};
+                          "only float16, float32, int64 or uint8 output tensors are supported in "
+                          "ONNX")};
         }
         model.outputs[i].valueType = tensorValueType;
 

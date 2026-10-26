@@ -26,6 +26,14 @@ limitations under the License.
 serving, and control channels into one GStreamer element. It is primarily used to
 make containerized or headless pipelines visible and controllable from a browser.
 
+The served webpage also has a microphone button that negotiates a separate
+audio connection to [opksrc](opksrc.md). Microphone reception and its signaling
+server belong to that source element; HTTP hosting remains in `opksink`.
+The control WebSocket's `pipeline_state.microphone` flag reports whether an
+`opksrc` exists in the pipeline, including nested bins. The microphone button
+stays hidden until that flag is true. Losing the control connection or receiving
+a false flag hides the button and stops any microphone capture.
+
 ## Element Contract
 
 - Base class: `GstBin`
@@ -84,7 +92,10 @@ Its committed `opk-web.js` bundle contains the generated TypeScript Open Percept
 SDK and FlatBuffers runtime. The client requires the
 `perception-frame-results+base64` encoding marker, validates exact producer
 identity, and maps typed payloads into the existing OSD, inference-output, and
-performance views. This migration does not change WebUI rendering or controls.
+performance views. Browser overlays use per-frame metadata from the signaling
+WebSocket, matched to `requestVideoFrameCallback`'s RTP timestamp. Missing or late
+metadata leaves that frame without overlays; older metadata is never reused.
+Browsers without this callback or its RTP timestamp display video without overlays.
 
 Authored modules live under `development/web/src`; deployable files live under
 `development/web/content`. Regenerate, verify, and test the committed bundle
@@ -118,10 +129,10 @@ threads can otherwise retain references longer than expected.
 - `qos-enabled`: enable experimental QoS feedback from the video drain; defaults to `false`
 
 An unset `static-files` property resolves to
-`<plugin-directory>/../../web/content`. This is the same plugin-relative
-location in development and release builds. An explicit property value
-overrides the default. Element setup reports an error when the selected web
-root cannot be served.
+`<plugin-directory>/../../web/content` for development and archive layouts, or
+`/usr/share/opk/web` for the Debian multiarch layout. An explicit property value
+overrides the default. Element setup reports an error when the selected web root
+cannot be served.
 
 ## Architectural Caveat
 

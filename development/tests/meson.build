@@ -86,6 +86,14 @@ gst_meta_wrapper_tests = executable(
   link_with : [common],
 )
 
+gst_video_buffer_tests = executable(
+  'gst_video_buffer_tests',
+  ['gst_video_buffer_test.cpp'],
+  include_directories : [common_include],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+
 model_registry_tests = executable(
   'model_registry_tests',
   ['model_registry_test.cpp', '../elements/opksink/model_reg.cpp'],
@@ -213,6 +221,39 @@ iou_tests = executable(
 yolo_parser_tests = executable(
   'yolo_parser_tests',
   ['yolo_parser_test.cpp', '../ops-std/postproc/YoloParser.cpp'],
+  include_directories : [common_include, include_directories('../ops-std')],
+  cpp_args: ['-DFMT_HEADER_ONLY'],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+
+yolo26_instance_segmentation_parser_tests = executable(
+  'yolo26_instance_segmentation_parser_tests',
+  [
+    'yolo26_instance_segmentation_parser_test.cpp',
+    '../ops-std/postproc/Yolo26InstanceSegmentationParser.cpp',
+  ],
+  include_directories : [common_include, include_directories('../ops-std')],
+  cpp_args : ['-DFMT_HEADER_ONLY'],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+
+yolo26_semantic_segmentation_parser_tests = executable(
+  'yolo26_semantic_segmentation_parser_tests',
+  [
+    'yolo26_semantic_segmentation_parser_test.cpp',
+    '../ops-std/postproc/Yolo26SemanticSegmentationParser.cpp',
+  ],
+  include_directories : [common_include, include_directories('../ops-std')],
+  cpp_args : ['-DFMT_HEADER_ONLY'],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+
+rvm_parser_tests = executable(
+  'rvm_parser_tests',
+  ['rvm_parser_test.cpp', '../ops-std/postproc/RvmParser.cpp'],
   include_directories : [common_include, include_directories('../ops-std')],
   cpp_args: ['-DFMT_HEADER_ONLY'],
   dependencies : [gtest_main_dep, gtest_dep, opk_deps],
@@ -405,10 +446,11 @@ test(
   args : [
     files('content_dependency_pipeline_test.py'),
     qos_delay_op.full_path(),
+    stdops.full_path(),
     gstopkinfer.full_path(),
     opkinferpre.full_path(),
   ],
-  depends : [gstopkinfer, qos_delay_op, opkinferpre],
+  depends : [gstopkinfer, qos_delay_op, stdops, opkinferpre],
 )
 test(
   'qos_pipeline_tests',
@@ -454,7 +496,10 @@ test('kalman_filter_tests', kalman_filter_tests)
 test('hungarian_tests', hungarian_tests)
 test('iou_tests', iou_tests)
 test('yolo_parser_tests', yolo_parser_tests)
+test('yolo26_instance_segmentation_parser_tests', yolo26_instance_segmentation_parser_tests)
+test('yolo26_semantic_segmentation_parser_tests', yolo26_semantic_segmentation_parser_tests)
 test('gaze_detection_parser_tests', gaze_detection_parser_tests)
+test('rvm_parser_tests', rvm_parser_tests)
 test('onnx_tensor_tests', onnx_tensor_tests)
 test('logging_tests', logging_tests)
 test('logger_tests', logger_tests)
@@ -468,6 +513,23 @@ test('performance_metrics_tests', performance_metrics_tests)
 test('opktracker_matching_tests', opktracker_matching_tests)
 test('opktracker_tracking_output_tests', opktracker_tracking_output_tests)
 test('webrtc_session_tests', webrtc_session_tests)
+test(
+  'opksrc_audio',
+  gst_python,
+  args : [files('opksrc_audio_test.py'), opksrc.full_path()],
+  depends : opksrc,
+  env : ['G_DEBUG=fatal-criticals'],
+  timeout : 20,
+)
+test(
+  'opksrc_signaling',
+  gst_python,
+  args : [files('opksrc_signaling_test.py'), opksrc.full_path()],
+  depends : opksrc,
+  env : ['G_DEBUG=fatal-criticals'],
+  timeout : 60,
+)
+test('gst_video_buffer_tests', gst_video_buffer_tests)
 foreach endpoint : ['control', 'webrtc']
   test(
     'opksink_websocket_json_' + endpoint,
@@ -478,6 +540,14 @@ foreach endpoint : ['control', 'webrtc']
     timeout : 20,
   )
 endforeach
+test(
+  'opksink_microphone_status',
+  gst_python,
+  args : [files('opksink_microphone_status_test.py'), opkinferpre.full_path(), opksrc.full_path()],
+  depends : [opkinferpre, opksrc],
+  env : ['G_DEBUG=fatal-criticals'],
+  timeout : 20,
+)
 test(
   'opksink_configured_ports',
   gst_python,

@@ -22,6 +22,7 @@
 #include <string_view>
 
 #include <gst/gst.h>
+#include <gst/video/video.h>
 
 #include "gst/GstMetaWrapper.h"
 #include "opk/FrameResults.h"
@@ -37,11 +38,17 @@ struct FrameResultsMetaTraits {
     static const std::string_view meta_name() {
         return "com_arm_opk_meta_FrameResults";
     }
+    /**
+     * Keep "GST_META_TAG_VIDEO_STR" as the only tag, followed by nullptr. GStreamer
+     * allows custom  tags, but the encoder and RTP metadata-copy filters used
+     * by opksink do not accept them. Adding tags such as "inference" or "frame-results"
+     * would cause the metadata to be dropped before it can be matched to an RTP
+     * timestamp. Using only built in GStreamer tags keeps FrameResultsMeta attached
+     * through video encoding and RTP packetization.
+     */
     static const std::span<const gchar *> tags() {
-        static std::array<const gchar *, 4> t = {
-            "frame-results",
-            "inference",
-            "metadata",
+        static std::array<const gchar *, 2> t = {
+            GST_META_TAG_VIDEO_STR,
             nullptr,
         };
 

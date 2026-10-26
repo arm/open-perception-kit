@@ -22,9 +22,11 @@
 #include <gst/gstobject.h>
 #include <gst/gstpad.h>
 #include <gst/gstutils.h>
+#include <gst/rtp/gstrtpbuffer.h>
 #include <gst/sdp/sdp.h>
 
 #include <cctype>
+#include <cstddef>
 #include <exception>
 #include <functional>
 #include <memory>
@@ -37,6 +39,8 @@
 #define GST_USE_UNSTABLE_API
 
 #include "Log.h"
+#include "gst/FrameResultsMeta.h"
+#include "opk/Base64.h"
 #include "opksink.h"
 #include "utils.h"
 #include "webrtc_ws.h"
@@ -51,6 +55,7 @@ on_ice_candidate(GstElement *webrtc, guint mlineindex, gchar *candidate, gpointe
 // Leave enough room for SRTP, UDP and IP headers on VPN and TURN paths whose
 // MTU can be lower than Ethernet's 1500 bytes (for example WSL mirrored mode).
 constexpr guint kWebRtcRtpMtu = 1300;
+constexpr std::size_t kMaxQueuedFrameMetadataBytes = std::size_t{1024} * 1024;
 
 // SessionContext is private to this compilation unit
 struct SessionContext : OpkSinkWebRtcSession {
@@ -63,6 +68,7 @@ struct SessionContext : OpkSinkWebRtcSession {
     std::shared_ptr<ws_server> ws;
 
     bool offer_received = false;
+    std::atomic_bool metadata_pending = false;
 
     SessionContext() = default;
     SessionContext(_GstOpkSink *self_, WebRtcWebSocket *owner_)
@@ -98,11 +104,78 @@ static std::shared_ptr<SessionContext> lock_session_callback_data(gpointer user_
     return weak_ctx->lock();
 }
 
+static void send_frame_metadata(const std::shared_ptr<SessionContext> &ctx, GstBuffer *buffer) {
+    GstRTPBuffer rtp = GST_RTP_BUFFER_INIT;
+    if (!gst_rtp_buffer_map(buffer, GST_MAP_READ, &rtp)) {
+        return;
+    }
+    const bool lastPacket = gst_rtp_buffer_get_marker(&rtp);
+    const guint32 timestamp = gst_rtp_buffer_get_timestamp(&rtp);
+    gst_rtp_buffer_unmap(&rtp);
+    const auto results = opk::FrameResultsMeta::read(buffer);
+    if (!lastPacket || !results) {
+        return;
+    }
+
+    // Bound both pending callbacks and queued WebSocket data for slow clients.
+    if (ctx->metadata_pending.exchange(true)) {
+        return;
+    }
+    asio::post(ctx->ws->get_io_service(), [weak = SessionWeakPtr(ctx), results, timestamp] {
+        auto ctx = weak.lock();
+        if (!ctx || ctx->cleaned_up()) {
+            return;
+        }
+        ctx->metadata_pending = false;
+        // Keep frame metadata out of the signaling queue until ICE has a usable path.
+        GstWebRTCICEConnectionState iceState = GST_WEBRTC_ICE_CONNECTION_STATE_NEW;
+        g_object_get(ctx->webrtcbin, "ice-connection-state", &iceState, nullptr);
+        if (iceState != GST_WEBRTC_ICE_CONNECTION_STATE_CONNECTED &&
+            iceState != GST_WEBRTC_ICE_CONNECTION_STATE_COMPLETED) {
+            return;
+        }
+        websocketpp::lib::error_code ec;
+        const auto connection = ctx->ws->get_con_from_hdl(ctx->hdl, ec);
+        if (ec || connection->get_state() != websocketpp::session::state::open ||
+            connection->get_buffered_amount() > kMaxQueuedFrameMetadataBytes) {
+            return;
+        }
+        const auto packet = open_perception_kit::serialize(*results);
+        const json message = {
+            {"type", "frame-metadata"},
+            {"rtp_timestamp", timestamp},
+            {"frame_results_encoding", "perception-frame-results+base64"},
+            {"frame_results_packet_b64", opk::base64Encode(packet)},
+        };
+        ctx->ws->send(ctx->hdl, message.dump(), websocketpp::frame::opcode::text, ec);
+        if (ec && ctx->owner) {
+            ctx->owner->cleanup_session(ctx->hdl, "frame metadata send failure");
+        }
+    });
+}
+
+static GstPadProbeReturn frame_metadata_probe(GstPad *, GstPadProbeInfo *info, gpointer data) {
+    auto ctx = lock_session_callback_data(data);
+    if (!ctx) {
+        return GST_PAD_PROBE_OK;
+    }
+    if (GST_PAD_PROBE_INFO_TYPE(info) & GST_PAD_PROBE_TYPE_BUFFER_LIST) {
+        auto *list = GST_PAD_PROBE_INFO_BUFFER_LIST(info);
+        for (guint i = 0; i < gst_buffer_list_length(list); ++i) {
+            send_frame_metadata(ctx, gst_buffer_list_get(list, i));
+        }
+    } else {
+        send_frame_metadata(ctx, GST_PAD_PROBE_INFO_BUFFER(info));
+    }
+    return GST_PAD_PROBE_OK;
+}
+
 WebRtcSockerError WebRtcWebSocket::setup() {
     stopping = false;
     ws = std::make_shared<ws_server>();
 
     ws->init_asio();
+    ws->clear_access_channels(websocketpp::log::alevel::all);
     ws->clear_error_channels(websocketpp::log::elevel::all);
     ws->set_error_channels(websocketpp::log::elevel::fatal);
 
@@ -238,7 +311,7 @@ void WebRtcWebSocket::set_video_pt(SessionContext *ctx) {
     g_object_set(ctx->v_pay, "pt", (uint32_t)ctx->pt_video_vp8, nullptr);
 }
 
-bool WebRtcWebSocket::attach_video(SessionContext *ctx) {
+bool WebRtcWebSocket::attach_video(const std::shared_ptr<SessionContext> &ctx) {
 
     auto self = ctx->self;
 
@@ -269,7 +342,7 @@ bool WebRtcWebSocket::attach_video(SessionContext *ctx) {
                      kWebRtcRtpMtu,
                      nullptr);
 
-        set_video_pt(ctx);
+        set_video_pt(ctx.get());
 
         gst_bin_add_many(GST_BIN(self), ctx->queue, ctx->v_pay, ctx->v_capsfilter, nullptr);
 
@@ -287,6 +360,13 @@ bool WebRtcWebSocket::attach_video(SessionContext *ctx) {
         if (!v_pay_src) {
             throw std::runtime_error("Can't get pad from video capsfilter");
         }
+
+        gst_pad_add_probe(v_pay_src,
+                          static_cast<GstPadProbeType>(GST_PAD_PROBE_TYPE_BUFFER |
+                                                       GST_PAD_PROBE_TYPE_BUFFER_LIST),
+                          frame_metadata_probe,
+                          make_session_callback_data(ctx),
+                          destroy_session_callback_data);
 
         if (gst_pad_link(v_pay_src, ctx->webrtc_sink_pad) != GST_PAD_LINK_OK) {
             gst_object_unref(v_pay_src);
@@ -463,7 +543,7 @@ void WebRtcWebSocket::on_open(const connection_hdl &hdl) {
     // Add to opksink bin
     gst_bin_add_many(GST_BIN(self_), ctx->webrtcbin, nullptr);
 
-    if (!attach_video(ctx.get()) || !attach_audio(ctx.get())) {
+    if (!attach_video(ctx) || !attach_audio(ctx.get())) {
         ctx->cleanup();
         return;
     }
@@ -727,18 +807,16 @@ static void on_negotiation_needed(GstElement *webrtc, gpointer user_data) {
     opk::log::debug("Negotiation needed");
 }
 
-static bool send_text(const std::shared_ptr<SessionContext> &ctx, const std::string &text) {
+// Sending (in this function) and checking the send queue size (in send_frame_metadata with the
+// get_buffered_amount) must run on the same I/O thread to avoid a data race.
+static bool send_text_on_io(const std::shared_ptr<SessionContext> &ctx, const std::string &text) {
     if (!ctx || !ctx->ws || ctx->cleaned_up()) {
         return false;
     }
 
-    try {
-        ctx->ws->send(ctx->hdl, text, websocketpp::frame::opcode::text);
-        return true;
-    } catch (const websocketpp::exception &e) {
-        opk::log::debug("WebSocket send error: {}", e.what());
-        return false;
-    }
+    websocketpp::lib::error_code ec;
+    ctx->ws->send(ctx->hdl, text, websocketpp::frame::opcode::text, ec);
+    return !ec;
 }
 
 static void send_ice_candidate_message(const std::shared_ptr<SessionContext> &ctx,
@@ -750,16 +828,20 @@ static void send_ice_candidate_message(const std::shared_ptr<SessionContext> &ct
     msg["type"] = "candidate";
     msg["ice"] = {{"candidate", candidate}, {"sdpMLineIndex", mlineindex}};
 
-    if (!send_text(ctx, msg.dump())) {
-        auto owner = ctx->owner;
-        auto hdl = ctx->hdl;
-        if (owner) {
-            owner->cleanup_session(hdl, "ice candidate send failure");
+    asio::dispatch(ctx->ws->get_io_service(), [weak = SessionWeakPtr(ctx), text = msg.dump()] {
+        const auto session = weak.lock();
+        if (!session || session->cleaned_up()) {
+            return;
         }
-        return;
-    }
+        if (!send_text_on_io(session, text)) {
+            if (session->owner) {
+                session->owner->cleanup_session(session->hdl, "ice candidate send failure");
+            }
+            return;
+        }
 
-    opk::log::debug("ICE candidate sent");
+        opk::log::debug("ICE candidate sent");
+    });
 }
 
 static void
@@ -817,22 +899,22 @@ void WebRtcWebSocket::on_answer_created(GstPromise *promise, gpointer user_data)
     auto sdp_text = gst_sdp_message_as_text(answer->sdp);
     sdp_json["type"] = "answer";
     sdp_json["sdp"] = sdp_text ? sdp_text : "";
-    const bool sent = send_text(ctx, sdp_json.dump());
     g_free(sdp_text);
 
-    auto owner = ctx->owner;
-    auto hdl = ctx->hdl;
     gst_webrtc_session_description_free(answer);
     gst_promise_unref(promise);
 
-    if (!owner) {
-        return;
-    }
-    if (!sent) {
-        owner->cleanup_session(hdl, "answer send failure");
-    } else if (!ctx->cleaned_up() && !owner->link_per_client_elements(ctx.get())) {
-        owner->cleanup_session(hdl, "per-client link failed");
-    }
+    asio::dispatch(ctx->ws->get_io_service(), [weak = SessionWeakPtr(ctx), text = sdp_json.dump()] {
+        const auto session = weak.lock();
+        if (!session || session->cleaned_up() || !session->owner) {
+            return;
+        }
+        if (!send_text_on_io(session, text)) {
+            session->owner->cleanup_session(session->hdl, "answer send failure");
+        } else if (!session->owner->link_per_client_elements(session.get())) {
+            session->owner->cleanup_session(session->hdl, "per-client link failed");
+        }
+    });
 }
 
 void WebRtcWebSocket::on_set_remote_description(GstPromise *promise, gpointer user_data) {

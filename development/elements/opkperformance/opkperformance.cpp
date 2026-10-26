@@ -18,8 +18,8 @@
 #include "gst/gstpad.h"
 #include "opk/Tools.h"
 
+#include <gst/base/gstbasetransform.h>
 #include <gst/gst.h>
-#include <gst/video/gstvideofilter.h>
 #include <gst/video/video.h>
 
 #include <algorithm>
@@ -34,6 +34,7 @@
 #include <vector>
 
 #include "gst/FrameResultsMeta.h"
+#include "gst/Tools.h"
 #include "opk/FrameResults.h"
 #include "perf/PerformanceMetrics.h"
 
@@ -56,7 +57,8 @@ typedef struct _GstOpkPerformance GstOpkPerformance;
 typedef struct _GstOpkPerformanceClass GstOpkPerformanceClass;
 
 struct _GstOpkPerformance {
-    GstVideoFilter videofilter;
+    GstBaseTransform parent;
+    GstVideoInfo vinfo;
 
     // Properties
     gboolean show_all_metrics;
@@ -79,7 +81,7 @@ struct _GstOpkPerformance {
 };
 
 struct _GstOpkPerformanceClass {
-    GstVideoFilterClass parent_class;
+    GstBaseTransformClass parent_class;
 };
 
 GType gst_opk_performance_get_type(void);
@@ -93,9 +95,6 @@ GST_DEBUG_CATEGORY_STATIC(gst_opk_performance_debug);
 #define DEFAULT_UPDATE_INTERVAL 5
 #define DEFAULT_SHOW_ALL_METRICS FALSE
 #define DEFAULT_ENABLED TRUE
-
-static constexpr const char *OPK_SUPPORTED_RAW_VIDEO_CAPS =
-    "video/x-raw, format=(string){BGRA,RGB,I420,NV12,YUY2}";
 
 // Property IDs
 enum class PropertyId : guint {
@@ -113,8 +112,7 @@ static void gst_opk_performance_set_property(GObject *object,
 static void
 gst_opk_performance_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
 static void gst_opk_performance_finalize(GObject *object);
-static GstFlowReturn gst_opk_performance_transform_frame_ip(GstVideoFilter *filter,
-                                                            GstVideoFrame *frame);
+static GstFlowReturn gst_opk_performance_transform_ip(GstBaseTransform *filter, GstBuffer *buffer);
 static gboolean gst_opk_performance_start(GstBaseTransform *trans);
 static gboolean gst_opk_performance_stop(GstBaseTransform *trans);
 static gboolean gst_opk_performance_sink_event(GstBaseTransform *trans, GstEvent *event);
@@ -136,19 +134,25 @@ static void update_measurement_state(GstOpkPerformance *self) {
 }
 
 #define gst_opk_performance_parent_class parent_class
-G_DEFINE_TYPE(GstOpkPerformance, gst_opk_performance, GST_TYPE_VIDEO_FILTER);
+G_DEFINE_TYPE(GstOpkPerformance, gst_opk_performance, GST_TYPE_BASE_TRANSFORM);
 
 static void gst_opk_performance_class_init(GstOpkPerformanceClass *klass) {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     GstElementClass *element_class = GST_ELEMENT_CLASS(klass);
-    GstVideoFilterClass *vfilter_class = GST_VIDEO_FILTER_CLASS(klass);
     GstBaseTransformClass *trans_class = GST_BASE_TRANSFORM_CLASS(klass);
 
     gobject_class->set_property = gst_opk_performance_set_property;
     gobject_class->get_property = gst_opk_performance_get_property;
     gobject_class->finalize = gst_opk_performance_finalize;
 
-    vfilter_class->transform_frame_ip = gst_opk_performance_transform_frame_ip;
+    trans_class->transform_ip = gst_opk_performance_transform_ip;
+    trans_class->prepare_output_buffer =
+        [](GstBaseTransform *base, GstBuffer *input, GstBuffer **output) {
+            return gst::Tools::prepareVideoBuffer(base, input, output);
+        };
+    trans_class->set_caps = [](GstBaseTransform *base, GstCaps *caps, GstCaps *) {
+        return gst_video_info_from_caps(&GST_OPK_PERFORMANCE(base)->vinfo, caps);
+    };
     trans_class->start = gst_opk_performance_start;
     trans_class->stop = gst_opk_performance_stop;
     trans_class->sink_event = gst_opk_performance_sink_event;
@@ -192,7 +196,7 @@ static void gst_opk_performance_class_init(GstOpkPerformanceClass *klass) {
         "Arm Limited <perception-fdbck@arm.com>");
 
     // Set pad templates
-    GstCaps *caps = gst_caps_from_string(OPK_SUPPORTED_RAW_VIDEO_CAPS);
+    GstCaps *caps = gst_caps_from_string(gst::Tools::supportedVideoCaps);
     GstPadTemplate *src_template = gst_pad_template_new("src", GST_PAD_SRC, GST_PAD_ALWAYS, caps);
     GstPadTemplate *sink_template =
         gst_pad_template_new("sink", GST_PAD_SINK, GST_PAD_ALWAYS, caps);
@@ -202,6 +206,8 @@ static void gst_opk_performance_class_init(GstOpkPerformanceClass *klass) {
 }
 
 static void gst_opk_performance_init(GstOpkPerformance *self) {
+    gst_video_info_init(&self->vinfo);
+    gst_base_transform_set_in_place(GST_BASE_TRANSFORM(self), TRUE);
     self->frame_count = 0;
     self->update_interval = DEFAULT_UPDATE_INTERVAL;
     self->show_all_metrics = DEFAULT_SHOW_ALL_METRICS;
@@ -373,8 +379,7 @@ static std::vector<std::string> get_performance_data(GstOpkPerformance *self,
     return lines;
 }
 
-static GstFlowReturn gst_opk_performance_transform_frame_ip(GstVideoFilter *filter,
-                                                            GstVideoFrame *frame) {
+static GstFlowReturn gst_opk_performance_transform_ip(GstBaseTransform *filter, GstBuffer *buffer) {
     GstOpkPerformance *self = GST_OPK_PERFORMANCE(filter);
 
     GST_OBJECT_LOCK(self);
@@ -406,22 +411,21 @@ static GstFlowReturn gst_opk_performance_transform_frame_ip(GstVideoFilter *filt
 
     if (cache_should_be_updated) {
         // Update cache every N frames
-        const auto format = GST_VIDEO_INFO_FORMAT(&frame->info);
+        const auto format = GST_VIDEO_INFO_FORMAT(&self->vinfo);
         const char *format_name = gst_video_format_to_string(format);
         self->cached_lines = get_performance_data(self, format_name ? format_name : "unknown");
     }
 
     // Ensure generated FrameResults metadata exists so performance is a standalone payload.
-    if (auto frameResultsMeta = opk::FrameResultsMeta::get(frame->buffer); !frameResultsMeta) {
+    if (auto frameResultsMeta = opk::FrameResultsMeta::get(buffer); !frameResultsMeta) {
         auto frameResults = std::make_shared<open_perception_kit::FrameResults>();
-        opk::FrameResultsMeta::add(frame->buffer, frameResults);
+        opk::FrameResultsMeta::add(buffer, frameResults);
     }
 
-    auto ret =
-        opk::FrameResultsMeta::mutate<GstFlowReturn>(frame->buffer, [self](auto &frameResults) {
-            open_perception_kit::appendPerformanceOverlay(frameResults, self->cached_lines);
-            return GST_FLOW_OK;
-        });
+    auto ret = opk::FrameResultsMeta::mutate<GstFlowReturn>(buffer, [self](auto &frameResults) {
+        open_perception_kit::appendPerformanceOverlay(frameResults, self->cached_lines);
+        return GST_FLOW_OK;
+    });
 
     using ME = opk::MetaError;
     if (std::holds_alternative<ME>(ret)) {
@@ -488,4 +492,4 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   "1.0",
                   "Apache 2.0",
                   PACKAGE,
-                  "https://example.com")
+                  "https://www.arm.com/")

@@ -35,6 +35,7 @@ Install these before you start:
 - WSL with Ubuntu installed.
 - Git inside WSL.
 - Docker Desktop with WSL integration enabled.
+- Around 23 GB of free disk space for OPK on x86_64.
 
 For the optional VS Code workflow, also install:
 
@@ -95,8 +96,11 @@ The easiest path is HTTPS cloning. It does not require an SSH key.
 
 Run in the **WSL shell**:
 
+The `latest_release` tag points to the latest successfully completed release.
+The detached HEAD message is expected when checking out a release tag.
+
 ```bash
-git clone https://github.com/arm/open-perception-kit.git
+git clone --branch latest_release https://github.com/arm/open-perception-kit.git
 cd open-perception-kit
 ```
 
@@ -184,6 +188,9 @@ In VS Code you can also use the following task:
 Expected result: the build finishes without errors and `tools/opk-menu` exists.
 
 ## 6. Start The First Pipeline
+
+> We are working on providing access to a set of demo videos. Until they are
+> available, please [use your own input videos](../how-to/media-input.md#use-a-video-file).
 
 Run in the **Docker shell** (either in VSCode devcontainer or in WSL after entering with `enter_cli.sh`):
 

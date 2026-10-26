@@ -29,6 +29,7 @@
 
 #include <exception>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -86,6 +87,10 @@ struct Tensor {
                                                          onnxShape,
                                                          this->shape.rank);
             }
+            if (this->type == opk::Dtype::Uint8) {
+                return Ort::Value::CreateTensor<uint8_t>(
+                    memInfo, getData(), getElementCount(), onnxShape, this->shape.rank);
+            }
         } catch (const Ort::Exception &error) {
             const std::string message =
                 "Failed to create ONNX tensor: " + std::string(error.what());
@@ -113,8 +118,10 @@ struct Inference {
     Inference();
     virtual ~Inference();
 
-    opk::Result<void> setupFromJson(const std::string &filePath);
-    opk::Result<void> setup(const opk::ModelDescriptor &modelDesc);
+    opk::Result<void> setupFromJson(const std::string &filePath,
+                                    const std::optional<int64_t> intraOpNumThreads = std::nullopt);
+    opk::Result<void> setup(const opk::ModelDescriptor &modelDesc,
+                            const std::optional<int64_t> intraOpNumThreads = std::nullopt);
     bool isReady() {
         return setupReady;
     }

@@ -60,13 +60,13 @@ class SetupLxcDevScriptTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_hf_token_is_scoped_to_model_download(self) -> None:
+    def test_hf_token_is_scoped_to_artifact_downloads(self) -> None:
         setup_script = SETUP_SCRIPT.read_text()
         self.assertIn(
             'hf_token="${HF_TOKEN-}"\nexport -n hf_token\nunset HF_TOKEN',
             setup_script,
         )
-        self.assertEqual(setup_script.count('HF_TOKEN="$hf_token"'), 1)
+        self.assertEqual(setup_script.count('HF_TOKEN="$hf_token"'), 2)
         self.assertRegex(
             setup_script,
             re.compile(

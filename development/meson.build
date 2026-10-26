@@ -14,7 +14,7 @@
 # limitations under the License.
 
 project('opk_elements', ['c', 'cpp'],
-    version: '0.1.1',
+    version: '0.1.2',
   default_options: [
     'c_std=c11',
     'cpp_std=c++20',
@@ -36,6 +36,12 @@ add_project_arguments('-Wno-unused-but-set-variable', language: ['c', 'cpp'])
 add_project_arguments('-DFMT_HEADER_ONLY', language: 'cpp')
 
 release_package = get_option('release_package')
+deb_package = get_option('deb_package')
+demo_deb_package = get_option('demo_deb_package')
+
+if deb_package and not release_package
+  error('deb_package requires -Drelease_package=true so Meson can stage install-RPATH binaries.')
+endif
 
 # -------- Core deps (always)
 stb_dep = subproject('stb').get_variable('stb_dep')
@@ -259,12 +265,18 @@ subdir('elements/opktracker')
 subdir('elements/opkperformance')
 subdir('elements/opkosd')
 subdir('elements/opksink')
+subdir('elements/opksrc')
 subdir('elements/opkcomm')
 subdir('opk-menu')
 subdir('examples')
 
 # Optional subdirs decision tree is inside the subdir
+executorchops = disabler()
 subdir('ops-executorch')
+
+if deb_package or demo_deb_package
+  subdir('packaging')
+endif
 
 if release_package
   install_subdir(
@@ -281,6 +293,7 @@ if release_package
 endif
 
 if get_option('tests')
+  subdir('packaging/tests')
   subdir('tests')
 endif
 

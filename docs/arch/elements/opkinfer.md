@@ -36,10 +36,19 @@ micropipeline.
 - Control property: `active`, which enables or disables per-frame OpChain execution
 - Experimental property: `qos-enabled`, disabled by default
 - Metadata output: `FrameResultsMeta`
+- `copy-input`: copy video into CPU memory; default `false` preserves input DMA-BUFs
 
-The implementation currently maps CPU-addressable `GstVideoFrame` buffers and
-passes per-plane data and stride into preprocessing. DMA-BUF-backed frames are
-detected but rejected until explicit zero-copy support is added.
+The element maps system memory and linear, CPU-mappable DMA-BUFs through
+`gst_video_frame_map`, respecting plane offsets and strides. CPU preprocessing
+still fills separate model input tensors. The mapped buffer stays referenced
+until OpChain execution ends.
+
+OPK accepts ordinary `video/x-raw` and explicit `video/x-raw(memory:DMABuf)`
+caps for these formats (`BGRA,RGB,I420,NV12,YUY2`). Explicit DMA-BUF caps require
+DMA-BUF-backed memory. `copy-input=true` negotiates ordinary system-memory output,
+including before `opksink` for WebRTC.
+`DMA_DRM`, tiled and non-mappable inputs remain unsupported; they require upstream
+conversion. Mapping failures stop the pipeline.
 
 ## Lifecycle
 

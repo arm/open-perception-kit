@@ -59,6 +59,7 @@ class FakeElement {
     this.listeners = new Map();
     this.classList = new FakeClassList(this);
     this.style = {};
+    this.dataset = {};
     this.textContent = "";
     this.title = "";
     this.checked = false;
@@ -135,6 +136,9 @@ const muteText = new FakeElement("span");
 muteText.className = "video-control-text";
 muteButton.appendChild(muteText);
 const muteIcon = new FakeElement("span");
+const microphoneButton = new FakeElement("button");
+const microphoneIcon = new FakeElement("span");
+const microphoneStatus = new FakeElement("div");
 
 globalThis.document = {
   body: new FakeElement("body"),
@@ -143,16 +147,21 @@ globalThis.document = {
     if (id === "models-container") return modelsContainer;
     if (id === "muteUnmuteBtn") return muteButton;
     if (id === "muteUnmuteIcon") return muteIcon;
+    if (id === "microphoneBtn") return microphoneButton;
+    if (id === "microphoneIcon") return microphoneIcon;
+    if (id === "microphoneStatus") return microphoneStatus;
     return null;
   },
 };
 globalThis.location = {
+  href: "http://localhost:9999/",
   protocol: "http:",
   hostname: "localhost",
   port: "9999",
 };
 globalThis.window = {
   OPK_CONFIG: {ctrlPort: 8001},
+  addEventListener() {},
   dispatchEvent() {},
 };
 globalThis.CustomEvent = function CustomEvent(type, init) {
@@ -262,9 +271,9 @@ test("dependent models show their provider networks beside the toggle", () => {
   const dependencyPopup = dependencyInfo.querySelector(".model-dependency-popup");
 
   const dependencyIcon = dependencyInfo.querySelector(".model-dependency-icon");
-  assert.equal(dependencyIcon.tagName, "IMG");
-  assert.equal(dependencyIcon.getAttribute("src"), "/assets/information.svg");
-  assert.equal(dependencyIcon.getAttribute("alt"), "");
+  assert.equal(dependencyIcon.tagName, "SPAN");
+  assert.equal(dependencyIcon.getAttribute("data-icon"), "info");
+  assert.equal(dependencyIcon.getAttribute("aria-hidden"), "true");
   assert.equal(dependencyPopup.querySelector(".model-dependency-heading").textContent, "Depends on:");
   assert.equal(dependencyPopup.querySelector("li").textContent, "Face detection");
   assert.equal(dependencyInfo.getAttribute("aria-label"), "Depends on: Face detection");

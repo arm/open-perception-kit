@@ -26,11 +26,11 @@ muteBtn.addEventListener("click", () => {
     video.muted = !video.muted;
 
     if (video.muted) {
-        muteIcon.textContent = "🔇";
+        muteIcon.dataset.icon = 'volume-x';
         muteText.textContent = "Unmute";
         muteBtn.setAttribute("aria-label", "Unmute");
     } else {
-        muteIcon.textContent = "🔊";
+        muteIcon.dataset.icon = 'volume-2';
         muteText.textContent = "Mute";
         muteBtn.setAttribute("aria-label", "Mute");
     }
@@ -38,6 +38,6 @@ muteBtn.addEventListener("click", () => {
 
 export function enableAudioButton(enable) {
     if(muteBtn) {
-        muteBtn.style.display = (enable ? "inline-flex" : "none");
+        muteBtn.hidden = !enable;
     }
 }

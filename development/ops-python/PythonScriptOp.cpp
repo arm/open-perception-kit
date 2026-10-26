@@ -257,6 +257,7 @@ opk::Result<void> PythonScriptOp::configure(const opk::AttributeMap &attributes)
         }
 
         std::vector<std::filesystem::path> candidatePythonPaths;
+        appendUniquePath(candidatePythonPaths, installedPythonRuntimePath());
         appendUniquePath(candidatePythonPaths,
                          std::filesystem::absolute(candidateScriptPath).parent_path());
         if (attributes.contains("pythonPaths")) {

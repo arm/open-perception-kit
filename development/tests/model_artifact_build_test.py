@@ -175,7 +175,8 @@ class ModelArtifactBuildTest(unittest.TestCase):
     def test_model_download_cache_bust_is_consumed(self) -> None:
         for name in ("Dockerfile",):
             dockerfile = (REPO_ROOT / name).read_text()
-            download_step = dockerfile.split("ARG HF_DOWNLOAD_CACHEBUST", 1)[1].split(
+            model_stage = dockerfile.split(" AS opk-models", 1)[1]
+            download_step = model_stage.split("ARG HF_DOWNLOAD_CACHEBUST", 1)[1].split(
                 "\n\n", 1
             )[0]
             self.assertIn(
@@ -293,8 +294,9 @@ class ModelArtifactBuildTest(unittest.TestCase):
         output = outline.stdout + outline.stderr
         self.assertEqual(outline.returncode, 0, output)
         self.assertRegex(output, r"(?m)^TARGET:\s+opk-deployment-base$")
-        self.assertNotIn("HF_DOWNLOAD_CACHEBUST", output)
-        self.assertNotIn("huggingface_token", output)
+        # Optional demo media uses these inputs without adding the model stage.
+        self.assertIn("HF_DOWNLOAD_CACHEBUST", output)
+        self.assertIn("huggingface_token", output)
 
         dockerfile = (REPO_ROOT / "Dockerfile").read_text()
         deployment_build = dockerfile.split(

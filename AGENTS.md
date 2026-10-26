@@ -290,6 +290,10 @@ Incomplete verification step available:
 
 ## Agent guardrails
 
+- Use `const` wherever mutation is not needed, including local variables, parameters,
+  and pointer/reference targets when the API permits it.
+- Keep parameter types and `cv-qualifiers` identical in function declarations
+  and definitions.
 - Reuse checked-in patterns before inventing new ones.
 - Keep docs aligned with `config/` and `development/`.
 - When replacing behavior, delete obsolete code, stale tests, old docs, and

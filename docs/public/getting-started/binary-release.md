@@ -194,8 +194,8 @@ read-only `HF_TOKEN` with access to those models.
 The existing quick-start setup downloads models into the checkout's
 `config/models` directory. Use a checkout at the release's source revision and
 set `HF_TOKEN` in your host shell before running `./scripts/quick_start.sh`.
-The local development image uses that token only during its model-download
-build step and seeds the downloaded files into the checkout at startup.
+The local development image uses that token only during its model and demo
+video download steps and seeds the downloaded files into the checkout at startup.
 
 For an extracted binary package, reuse the same downloader to populate the
 package's model directory. Put the extracted package under the checkout's

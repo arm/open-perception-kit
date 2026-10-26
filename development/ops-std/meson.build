@@ -24,6 +24,8 @@ stdops = shared_module(
     'postproc/RvmParser.cpp',
     'postproc/DummyParser.cpp',
     'postproc/YoloParser.cpp',
+    'postproc/Yolo26InstanceSegmentationParser.cpp',
+    'postproc/Yolo26SemanticSegmentationParser.cpp',
     'postproc/YoloXParser.cpp',
     'postproc/UltrafaceParser.cpp',
     'postproc/PaddleocrParser.cpp',
@@ -48,6 +50,6 @@ stdops = shared_module(
   name_prefix: '',
   gnu_symbol_visibility: 'default',
   install: release_package,
-  install_dir: 'lib/opk',
+  install_dir: get_option('libdir') / 'opk',
   install_rpath: '$ORIGIN',
 )

@@ -88,12 +88,18 @@ use the target Pi IP address.
 
 In the Raspberry Pi 5 terminal run:
 
+The `latest_release` tag points to the latest successfully completed release.
+The detached HEAD message is expected when checking out a release tag.
+
 ```bash
-git clone https://github.com/arm/open-perception-kit.git
+git clone --branch latest_release https://github.com/arm/open-perception-kit.git
 cd open-perception-kit
 ```
 
 ### 2. Install prerequisites, build and start the Docker Container
+
+> We are working on providing access to a set of demo videos. Until they are
+> available, please [use your own input videos](docs/public/how-to/media-input.md#use-a-video-file).
 
 Enter the `open-perception-kit` folder in the terminal and run:
 
@@ -298,8 +304,9 @@ except where individual files or accompanying notices state otherwise.
 See [Licensing](docs/public/licensing.md) for the licence and notice locations.
 
 Third-party components retain their own licences. These include FlatBuffers (Apache-2.0), ONNX
-Runtime (MIT), ExecuTorch (BSD-3-Clause), and the Font Awesome CSS (MIT) and
-font (OFL-1.1). Their original notices accompany the distributed files.
+Runtime (MIT), ExecuTorch (BSD-3-Clause), Lucide icons (ISC/MIT), and the
+Lato (OFL-1.1) and Cousine (Apache-2.0) fonts supplied by Wafer. Their original
+notices accompany the distributed files; Wafer CSS retains its Arm copyright notice.
 
 The maintained [third-party component inventory](docs/third-party-licenses.md)
 lists versions, licence labels and origins. It was initialized from the supplied

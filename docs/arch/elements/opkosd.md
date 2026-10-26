@@ -22,29 +22,33 @@ limitations under the License.
 
 # opkosd
 
-`opkosd` is a `GstVideoFilter` that renders `FrameResults` payloads onto OPK video
+`opkosd` is a `GstBaseTransform` that renders `FrameResults` payloads onto OPK video
 frames. It is a presentation/debugging stage and does not modify `FrameResults`
 itself.
 
 ## Element Contract
 
-- Base class: `GstVideoFilter`
-- Processing mode: in-place `transform_frame_ip`
+- Base class: `GstBaseTransform`
+- Processing mode: in-place `transform_ip`
 - Pad caps: `video/x-raw, format={BGRA,RGB,I420,NV12,YUY2}`
 - Metadata dependency: `FrameResultsMeta`
 - Properties:
   - `enabled`: enable or disable drawing
   - `performance-overlay-enabled`: enable or disable `perfdata` drawing
   - `bg-image`: optional replacement background image for segmentation masks
+  - `copy-input`: draw on a CPU copy; default `false` preserves the input DMA-BUF
 
-If no `FrameResultsMeta` is attached, the frame passes through unchanged.
+Explicit `video/x-raw(memory:DMABuf)` caps are also accepted for these formats.
+If disabled or no `FrameResultsMeta` is attached, drawing is skipped.
+`copy-input=true` still copies and negotiates system-memory output in those cases.
 
 ## Execution Model
 
 For each frame, `opkosd` reads the immutable `FrameResults` envelope, draws supported
 overlays directly onto the negotiated input frame, and returns the modified frame
-downstream. Future DMABUF/Vulkan-style rendering is a planned direction, not the
-current path.
+downstream, retaining the metadata. Direct DMA-BUF drawing requires writable,
+unshared, linear CPU-mappable memory. Otherwise the pipeline fails and suggests
+`copy-input=true`; non-mappable layouts need upstream conversion.
 
 ## Rendering Model
 

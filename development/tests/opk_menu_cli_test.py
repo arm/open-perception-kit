@@ -448,9 +448,11 @@ class TestOpkMenuCliDiagnostics(unittest.TestCase):
             pipeline_dir = project_root / "config" / "pipelines"
             model_dir = project_root / "config" / "models" / "executorch"
             plugin_dir = project_root / "plugins"
+            ops_dir = project_root / "ops"
             pipeline_dir.mkdir(parents=True)
             model_dir.mkdir(parents=True)
             plugin_dir.mkdir(parents=True)
+            ops_dir.mkdir(parents=True)
             (model_dir / "model.pte").write_bytes(b"model")
             (model_dir / "model.json").write_text(
                 json.dumps(
@@ -496,10 +498,11 @@ class TestOpkMenuCliDiagnostics(unittest.TestCase):
                 env_overrides={
                     "OPK_PROJECT_ROOT": str(project_root),
                     "OPK_PLUGIN_PATH": str(plugin_dir),
+                    "OPK_OPS_PATH": str(ops_dir),
                 },
             )
 
-        plugin = plugin_dir / "opk-executorch-ops.so"
+        plugin = ops_dir / "opk-executorch-ops.so"
         self.assertEqual(result.returncode, 1)
         self.assertIn(f"Model: OK {model_dir / 'model.pte'}", result.stdout)
         self.assertIn(f"ExecuTorch plugin: MISSING {plugin}", result.stdout)
@@ -799,7 +802,11 @@ class TestOpkMenuCliDiagnostics(unittest.TestCase):
             )
 
             try:
-                time.sleep(0.25)
+                # The startup command is printed after signal handlers are installed.
+                self.assertTrue(
+                    select.select([process.stdout], [], [], STARTUP_TIMEOUT_SECONDS)[0],
+                    "Runtime did not print its startup command",
+                )
                 self.assertIsNone(process.poll(), "Runtime pipeline exited before SIGINT")
 
                 process.send_signal(signal.SIGINT)
@@ -854,6 +861,10 @@ class TestOpkMenuCliDiagnostics(unittest.TestCase):
             )
 
             try:
+                self.assertTrue(
+                    select.select([process.stdout], [], [], STARTUP_TIMEOUT_SECONDS)[0],
+                    "Runtime did not print its startup command",
+                )
                 time.sleep(0.5)
                 self.assertIsNone(process.poll(), "looping Runtime pipeline stopped at EOS")
                 process.send_signal(signal.SIGTERM)

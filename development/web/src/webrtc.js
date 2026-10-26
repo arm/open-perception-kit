@@ -99,6 +99,9 @@ const client = createWebRtcClient({
     logger: appendLog,
     onStatus: setStatus,
     onStatusLine: setStatusLine,
+    onVideoFrame: (message) => {
+        window.dispatchEvent(new CustomEvent('video-frame-metadata', {detail: message}));
+    },
     onRemoteTrack: (track) => {
         if (track.kind === 'audio')
             appendLog('Audio track attached. If muted=false, you should hear sound.');

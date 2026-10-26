@@ -65,7 +65,23 @@ struct PipelineEntry {
 
 using PipelineIndex = std::unordered_map<std::string, size_t>;
 
-static constexpr const char *kDefaultProjectRoot = "/work";
+#ifndef OPK_DEFAULT_PROJECT_ROOT
+constexpr std::string OPK_DEFAULT_PROJECT_ROOT = "/work";
+#endif
+
+#ifndef OPK_DEFAULT_PLUGIN_PATH
+constexpr std::string OPK_DEFAULT_PLUGIN_PATH = "";
+#endif
+
+#ifndef OPK_DEFAULT_OPS_PATH
+constexpr std::string OPK_DEFAULT_OPS_PATH = "";
+#endif
+
+#ifndef OPK_USE_XDG_STATE
+#define OPK_USE_XDG_STATE 0
+#endif
+
+static constexpr const std::string kDefaultProjectRoot = OPK_DEFAULT_PROJECT_ROOT;
 static constexpr const char *kLastSelectionFileName = ".last_selected_pipeline_id";
 static constexpr int kExecutionFailureExitCode = 127;
 static constexpr int kSignalExitCodeOffset = 128;
@@ -83,8 +99,17 @@ struct PluginPath {
     bool required = false;
 };
 
-static fs::path pipelines_directory() {
+static void configure_default_project_root() {
+    // NOLINTNEXTLINE(concurrency-mt-unsafe)
     const char *configured_root = std::getenv("OPK_PROJECT_ROOT");
+    if (configured_root == nullptr || configured_root[0] == '\0') {
+        // NOLINTNEXTLINE(concurrency-mt-unsafe)
+        setenv("OPK_PROJECT_ROOT", kDefaultProjectRoot.c_str(), 1);
+    }
+}
+
+static fs::path pipelines_directory() {
+    const char *configured_root = std::getenv("OPK_PROJECT_ROOT"); // NOLINT(concurrency-mt-unsafe)
     const fs::path project_root = configured_root != nullptr && configured_root[0] != '\0'
                                       ? configured_root
                                       : kDefaultProjectRoot;
@@ -92,12 +117,16 @@ static fs::path pipelines_directory() {
 }
 
 static PluginPath plugin_path() {
-    if (const char *configured_path = std::getenv("OPK_PLUGIN_PATH")) {
+    if (const char *configured_path =
+            std::getenv("OPK_PLUGIN_PATH")) { // NOLINT(concurrency-mt-unsafe)
         if (configured_path[0] != '\0')
             return {configured_path, true};
     }
 
-    const char *configured_root = std::getenv("OPK_PROJECT_ROOT");
+    if (std::string_view{OPK_DEFAULT_PLUGIN_PATH}.empty() == false)
+        return {OPK_DEFAULT_PLUGIN_PATH, false};
+
+    const char *configured_root = std::getenv("OPK_PROJECT_ROOT"); // NOLINT(concurrency-mt-unsafe)
     const fs::path project_root = configured_root != nullptr && configured_root[0] != '\0'
                                       ? configured_root
                                       : kDefaultProjectRoot;
@@ -105,6 +134,20 @@ static PluginPath plugin_path() {
         .path = (project_root / "development/build-active/meson-out").string(),
         .required = false,
     };
+}
+
+static std::string ops_path() {
+    if (const char *configured_path =
+            std::getenv("OPK_OPS_PATH")) { // NOLINT(concurrency-mt-unsafe)
+        if (configured_path[0] != '\0')
+            return configured_path;
+    }
+
+    if (std::string_view{OPK_DEFAULT_OPS_PATH}.empty() == false)
+        return OPK_DEFAULT_OPS_PATH;
+
+    // Development builds place operation modules beside GStreamer plugins.
+    return plugin_path().path;
 }
 
 static bool file_exists(const fs::path &p) {
@@ -124,7 +167,7 @@ static bool pipeline_back_key_enabled() {
 }
 
 static bool terminal_style_enabled() {
-    const char *no_color = std::getenv("NO_COLOR");
+    const char *no_color = std::getenv("NO_COLOR"); // NOLINT(concurrency-mt-unsafe)
     return no_color == nullptr || no_color[0] == '\0';
 }
 
@@ -231,9 +274,9 @@ static FileCheckSummary print_discovered_files(std::string_view expanded_pipelin
         }
     }
 
-    const auto executorch_status =
-        opk::menu::check_executorch_dependency(discovered_model_files, plugin_path().path);
-    if (executorch_status.required) {
+    if (const auto executorch_status =
+            opk::menu::check_executorch_dependency(discovered_model_files, ops_path());
+        executorch_status.required) {
         summary.discoveredFiles = true;
         if (!executorch_status.pluginFound)
             summary.missingExecuTorchPlugin = true;
@@ -441,6 +484,17 @@ class TerminationSignalHandlers {
 };
 
 static fs::path last_selection_path() {
+#if OPK_USE_XDG_STATE
+    if (const char *configured = std::getenv("OPK_STATE_DIR"); // NOLINT(concurrency-mt-unsafe)
+        configured && configured[0] != '\0')
+        return fs::path{configured} / kLastSelectionFileName;
+    if (const char *xdg = std::getenv("XDG_STATE_HOME"); // NOLINT(concurrency-mt-unsafe)
+        xdg && xdg[0] != '\0')
+        return fs::path{xdg} / "opk" / kLastSelectionFileName;
+    if (const char *home = std::getenv("HOME"); // NOLINT(concurrency-mt-unsafe)
+        home && home[0] != '\0')
+        return fs::path{home} / ".local/state/opk" / kLastSelectionFileName;
+#endif
     return pipelines_directory() / kLastSelectionFileName;
 }
 
@@ -458,7 +512,12 @@ static std::optional<std::string> load_last_selected_pipeline() {
 }
 
 static bool save_last_selected_pipeline(const std::string &pipeline) {
-    std::ofstream out(last_selection_path(), std::ios::trunc);
+    const auto path = last_selection_path();
+    std::error_code error;
+    fs::create_directories(path.parent_path(), error);
+    if (error)
+        return false;
+    std::ofstream out(path, std::ios::trunc);
     if (!out.is_open())
         return false;
     out << pipeline << "\n";
@@ -793,10 +852,12 @@ static void print_usage(const char *argv0) {
         "  --log-targets TARGETS      comma-separated stdout,stderr,file, or none (default: stderr)\n"
         "\n"
         "Environment:\n"
-        "  OPK_PROJECT_ROOT=/work               # project checkout root (default: /work)\n"
+        "  OPK_PROJECT_ROOT={}                  # project/content root\n"
+        "  OPK_STATE_DIR=<directory>           # mutable opk-menu state directory\n"
         "  NO_COLOR=1                          # disable colors in the interactive menu\n"
         "  OPK_LOG_FILE=opk.log               # file target path (default: opk.log; enable with --log-targets)\n",
-        argv0);
+        argv0,
+        kDefaultProjectRoot);
 }
 // clang-format on
 
@@ -979,6 +1040,11 @@ static int normalize_exit_code(int code) {
 }
 
 int main(int argc, char **argv) {
+    // Pipeline presets expand OPK_PROJECT_ROOT themselves, so expose the
+    // launcher build's default to the expansion environment as well as using
+    // it for pipeline discovery.
+    configure_default_project_root();
+
     // Parse XOR args: "-l" OR "<pipeline>" OR none
     bool run_last = false;
     bool dry_run = false;

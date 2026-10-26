@@ -19,6 +19,7 @@ asio_dep = dependency('asio', required: true,
 websocketpp_dep = dependency('websocketpp', required: true,
                              fallback: ['websocketpp', 'websocketpp_dep'])
 openssl_dep = dependency('openssl', required : true)
+gst_rtp_dep = dependency('gstreamer-rtp-1.0', required: true)
 
 opksink_cpp_args = []
 if get_option('tests') or get_option('debug')
@@ -38,11 +39,11 @@ opkinferpre = shared_module(
   ],
   cpp_args: opksink_cpp_args,
   include_directories: [common_include],
-  dependencies: [opk_deps, asio_dep, websocketpp_dep, openssl_dep], 
+  dependencies: [opk_deps, asio_dep, websocketpp_dep, openssl_dep, gst_rtp_dep],
   gnu_symbol_visibility: 'hidden', 
   link_with: [ common ],
   install: release_package,
-  install_dir: 'lib/gstreamer-1.0',
+  install_dir: get_option('libdir') / 'gstreamer-1.0',
   install_rpath: '$ORIGIN/../opk',
 )
 
