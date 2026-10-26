@@ -72,12 +72,15 @@ struct Inference::State {
 };
 
 opk::Result<void> Inference::State::configureModel(const opk::ModelDescriptor &descriptor) {
+    opk::Result<void> result{};
     if (descriptor.dynamicOutput || !descriptor.tensorFeedbacks.empty())
-        return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InferenceRtStartupError,
-                                        "MLWL requires static tensors without tensor feedback"));
+        result = tl::unexpected(OPK_ERROR(opk::ErrorFlag::InferenceRtStartupError,
+                                          "MLWL requires static tensors without tensor feedback"));
 
     model.engine = "mlwl";
     for (const auto resource : workload.resources()) {
+        if (!result)
+            break;
         const auto layout = tensorLayout(resource);
         switch (resource.access()) {
         case wl::ResourceAccess::Read:
@@ -94,36 +97,38 @@ opk::Result<void> Inference::State::configureModel(const opk::ModelDescriptor &d
                                      .quantArguments = {}});
             break;
         default:
-            return tl::unexpected(
+            result = tl::unexpected(
                 OPK_ERROR(opk::ErrorFlag::InferenceRtStartupError,
                           "MLWL cannot expose a read/write resource as an OPK tensor"));
         }
     }
-    if (model.inputs.empty() || model.outputs.empty() ||
-        model.inputs.size() > opk::MaxTensorCount || model.outputs.size() > opk::MaxTensorCount)
-        return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InferenceRtStartupError,
-                                        "MLWL model input/output count is unsupported"));
+    if (result &&
+        (model.inputs.empty() || model.outputs.empty() ||
+         model.inputs.size() > opk::MaxTensorCount || model.outputs.size() > opk::MaxTensorCount))
+        result = tl::unexpected(OPK_ERROR(opk::ErrorFlag::InferenceRtStartupError,
+                                          "MLWL model input/output count is unsupported"));
 
-    if (auto result = model.applyModelFromDescriptor(descriptor); !result)
-        return result;
-    for (size_t i = 0; i < model.inputs.size(); ++i) {
+    if (result)
+        result = model.applyModelFromDescriptor(descriptor);
+    for (size_t i = 0; result && i < model.inputs.size(); ++i) {
         const auto &input = model.inputs[i];
         if (input.valueType != descriptor.inputTensors[i].dtype)
-            return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InferenceRtStartupError,
-                                            "MLWL input type does not match the model descriptor"));
-        if (opk::isScalarDataKind(input.dataKind) &&
-            input.valueInputs.size() != input.shape.getFullValueCount())
-            return tl::unexpected(
-                OPK_ERROR(opk::ErrorFlag::InferenceRtStartupError,
-                          "MLWL scalar/vector values do not match the tensor size"));
+            result =
+                tl::unexpected(OPK_ERROR(opk::ErrorFlag::InferenceRtStartupError,
+                                         "MLWL input type does not match the model descriptor"));
+        else if (opk::isScalarDataKind(input.dataKind) &&
+                 input.valueInputs.size() != input.shape.getFullValueCount())
+            result =
+                tl::unexpected(OPK_ERROR(opk::ErrorFlag::InferenceRtStartupError,
+                                         "MLWL scalar/vector values do not match the tensor size"));
     }
-    for (size_t i = 0; i < model.outputs.size(); ++i) {
+    for (size_t i = 0; result && i < model.outputs.size(); ++i) {
         if (model.outputs[i].valueType != descriptor.outputTensors[i].dtype)
-            return tl::unexpected(
-                OPK_ERROR(opk::ErrorFlag::InferenceRtStartupError,
-                          "MLWL output type does not match the model descriptor"));
+            result =
+                tl::unexpected(OPK_ERROR(opk::ErrorFlag::InferenceRtStartupError,
+                                         "MLWL output type does not match the model descriptor"));
     }
-    return {};
+    return result;
 }
 
 void Inference::State::prepareExecution() {
