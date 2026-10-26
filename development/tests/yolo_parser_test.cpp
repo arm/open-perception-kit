@@ -158,7 +158,10 @@ TEST(YoloParser, SuppressesOverlappingBoxesAfterRestoringFrameCoordinates) {
     const auto result = parser.parse(input, output);
     ASSERT_TRUE(result.has_value()) << result.error().toString();
     const auto payload = output.get<open_perception_kit::metadata::BoxDetectionsT>();
-    ASSERT_TRUE(payload.has_value());
+    if (!payload.has_value()) {
+        ADD_FAILURE() << "missing BoxDetections payload";
+        return;
+    }
     const auto &detections = payload.value().value().detections;
     ASSERT_EQ(detections.size(), 1U);
     EXPECT_EQ(detections[0]->class_id, 2);
@@ -206,7 +209,10 @@ TEST(YoloParser, CornerClassScoresKeepsTwoStageTopKTiesAndLetterboxGeometry) {
     opk::stdop::postproc::YoloParser parser;
     ASSERT_TRUE(parser.parse(input, output).has_value());
     const auto payload = output.get<open_perception_kit::metadata::BoxDetectionsT>();
-    ASSERT_TRUE(payload.has_value());
+    if (!payload.has_value()) {
+        ADD_FAILURE() << "missing BoxDetections payload";
+        return;
+    }
     const auto &detections = payload.value().value().detections;
     ASSERT_EQ(detections.size(), 2U);
     EXPECT_EQ(detections[0]->class_id, 0);
