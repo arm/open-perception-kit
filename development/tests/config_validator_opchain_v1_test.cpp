@@ -241,8 +241,12 @@ TEST(ConfigValidator, OpChainProjectionClearsOmittedAttributes) {
 }
 
 TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {
+    const auto supportedVersion = opk::config::supportedOpChainVersion();
+    ASSERT_TRUE(supportedVersion) << supportedVersion.error().toText();
+    EXPECT_EQ(*supportedVersion, "1.2.0");
+
     nlohmann::json document{
-        {"version", "1.0.0"},
+        {"version", "1.2.0"},
         {"name", "parser-contract"},
         {"description", "Validate GenericPostprocess parser attributes."},
         {"ops",

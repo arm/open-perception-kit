@@ -225,6 +225,11 @@ Use an unlooped audio chain; scheduling belongs to `opkinfer`.
 window excludes that context. Silero uses 64 context samples plus 512 fresh
 samples and a single `[1,1]` probability output (no `speechClassIndex`).
 
+OpChain `1.2.0` also adds YoloParser `outputFormat: "cornerClassScores"` and
+`maxDetections` for `[1,N,4+C]` outputs. Set the OpChain version to `"1.2.0"`
+when adopting this format and rebuild or upgrade the runtime. Existing formats
+keep their behavior; older runtimes cannot parse the new format.
+
 Model `1.1.0` adds Float32 `AudioPcm` inputs. Audio models use mono 16 kHz
 samples with a positive final sample dimension and singleton leading dimensions.
 It also allows Int64 `Value` constants, including ONNX rank-zero inputs. Constants
