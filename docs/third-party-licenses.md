@@ -60,7 +60,7 @@ and check the built artifacts before publication.
 | [hf-xet](https://github.com/huggingface/xet-core) | [1.6.0](https://pypi.org/project/hf-xet/1.6.0/) | Apache-2.0 | PyPI |
 | [httpcore](https://github.com/encode/httpcore) | [1.0.9](https://pypi.org/project/httpcore/1.0.9/) | BSD-3-Clause | PyPI |
 | [httpx](https://github.com/encode/httpx) | [0.28.1](https://pypi.org/project/httpx/0.28.1/) | BSD-3-Clause | PyPI |
-| [huggingface-hub](https://github.com/huggingface/huggingface_hub) | [2.2.0](https://pypi.org/project/huggingface-hub/2.2.0/) | Apache-2.0 | PyPI |
+| [huggingface-hub](https://github.com/huggingface/huggingface_hub) | [2.3.0](https://pypi.org/project/huggingface-hub/2.3.0/) | Apache-2.0 | PyPI |
 | [identify](https://github.com/pre-commit/identify) | [2.6.19](https://pypi.org/project/identify/2.6.19/) | MIT | PyPI |
 | [idna](https://github.com/kjd/idna) | [3.19](https://pypi.org/project/idna/3.19/) | BSD-3-Clause | PyPI |
 | [inflect](https://github.com/jaraco/inflect) | [7.3.1](https://pypi.org/project/inflect/7.3.1/) | MIT | PyPI |
