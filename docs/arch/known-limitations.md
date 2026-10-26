@@ -73,7 +73,19 @@ runtime. Treat these as constraints when extending the system.
   padded strides and separate planes. Preprocessing still creates separate model
   input tensors; this is not end-to-end zero-copy inference. Tiled/compressed
   DMA-BUF layouts and non-mappable device memory require upstream conversion.
-- `opksink` can transport audio, but audio inference is not integrated.
+- `opkinfer` supports interleaved raw PCM input, converted to mono Float32 at
+  16 kHz with up to 60 seconds of buffered history. Inference runs on complete
+  PCM windows; `audio-hop-samples=0` defaults to the required fresh sample count.
+  The Silero VAD ONNX chain uses 512 fresh samples (32 ms) plus 64 context samples
+  and emits speech probability, speech-active state, sample bounds, and optional
+  presentation timestamps through `VoiceActivityDetections` in `FrameResults`.
+- Audio inference currently requires fixed PCM input shapes and a common fresh
+  window size across the chain. Dynamic/batched inputs, log-mel
+  preprocessing, and planar PCM input are unsupported. The hop cannot exceed the
+  window; Silero's context requires contiguous, nonoverlapping 512-sample hops.
+  EOS does not pad or infer a partial window or drain the resampler's filter tail.
+  See [PCM Audio Scheduling](elements/opkinfer.md#pcm-audio-scheduling) for the
+  supported formats, timestamp handling, and discontinuity resets.
 
 ## Configuration And OpChain Contracts
 
