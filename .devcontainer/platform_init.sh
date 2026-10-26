@@ -84,6 +84,31 @@ if [[ "${TARGET_CONTAINER_KIND}" == devcont ]]; then
     printf 'name: %s\nservices:\n  %s:\n    container_name: %s\n' \
         "${workspace_project}" "${TARGET_SERVICE_KIND}" "${workspace_container}" > \
         ".devcontainer/docker-compose.${TARGET_CONTAINER_KIND}.workspace.yaml"
+
+    if [[ "${5:-}" == stop-other-devcontainers ]]; then
+        # Checkouts have distinct names but share the same host ports.
+        running_containers="$(docker ps --filter label=com.docker.compose.project \
+            --format '{{.ID}} {{.Label "com.docker.compose.project"}} {{.Label "com.docker.compose.service"}} {{.Label "com.docker.compose.project.config_files"}}')"
+        while read -r container_id project service config_files; do
+            [[ -n "${container_id}" && "${project}" != "${workspace_project}" ]] || continue
+            case "${service}" in
+                opk-dev | coturn) ;;
+                *) continue ;;
+            esac
+            case ",${config_files}," in
+                *"/.devcontainer/docker-compose.rich.yaml,"*) continue ;;
+                *"/.devcontainer/compose.devcont.yaml,"*) ;;
+                *) continue ;;
+            esac
+            # The project directory is unambiguous even when paths contain commas.
+            project_directory="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project.working_dir"}}' "${container_id}")"
+            if [[ "${project_directory}" -ef "${ROOT_DIR}/.devcontainer" || "${project_directory}" -ef "${ROOT_DIR}" ]]; then
+                continue
+            fi
+            echo "Stopping previous OPK development service ${project}/${service} to release host ports."
+            docker stop "${container_id}"
+        done <<< "${running_containers}"
+    fi
 fi
 
 chmod +x scripts/private/dev-init.sh || true
