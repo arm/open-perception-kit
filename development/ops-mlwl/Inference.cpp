@@ -20,7 +20,9 @@
 
 #include <mlworkloadlib/session.hpp>
 
+#include <algorithm>
 #include <cstring>
+#include <ranges>
 #include <stdexcept>
 
 namespace opk::mlwl {
@@ -62,7 +64,8 @@ struct Inference::State {
     explicit State(const std::string &path) : workload(wl::Workload::fromVGF(path)) {}
 
     opk::Result<void> configureModel(const opk::ModelDescriptor &descriptor);
-    void prepareExecution();
+    void configureSession();
+    wl::BindingSet bindTensors();
 
     wl::Workload workload;
     opk::Model model;
@@ -138,10 +141,11 @@ opk::Result<void> Inference::State::configureModel(const opk::ModelDescriptor &d
     return result;
 }
 
-void Inference::State::prepareExecution() {
-    bool graphOnly = true;
-    for (const auto executable : workload.executables())
-        graphOnly &= executable.type() == wl::ExecutableKind::Graph;
+void Inference::State::configureSession() {
+    const auto executableIndices = std::views::iota(0u, workload.executableCount());
+    const bool graphOnly = std::ranges::all_of(executableIndices, [this](const uint32_t index) {
+        return workload.executable(index).type() == wl::ExecutableKind::Graph;
+    });
     wl::RuntimeContextDeviceRequirements requirements;
     if (graphOnly) {
         requirements.capabilities = wl::RuntimeDeviceCapability::DataGraphShaderModules |
@@ -150,7 +154,9 @@ void Inference::State::prepareExecution() {
     context.reset(new wl::Context(wl::Context::create(requirements)));
     session = std::make_unique<wl::Session>(*context, workload);
     session->configure();
+}
 
+wl::BindingSet Inference::State::bindTensors() {
     auto bindings = session->createBindingSet();
     for (const auto resource : workload.resources()) {
         auto tensor = std::make_unique<MappedTensor>(*context, resource);
@@ -167,7 +173,7 @@ void Inference::State::prepareExecution() {
                         input.valueInputs.size() * sizeof(float));
         }
     }
-    execution = std::make_unique<wl::PreparedExecution>(session->prepare(bindings));
+    return bindings;
 }
 
 Inference::Inference() = default;
@@ -188,7 +194,10 @@ opk::Result<void> Inference::setup(const opk::ModelDescriptor &descriptor) {
         auto candidate = std::make_unique<State>(descriptor.modelFile);
         const auto result = candidate->configureModel(descriptor);
         if (result) {
-            candidate->prepareExecution();
+            candidate->configureSession();
+            const auto bindings = candidate->bindTensors();
+            candidate->execution =
+                std::make_unique<wl::PreparedExecution>(candidate->session->prepare(bindings));
             state = std::move(candidate);
         }
         return result;
