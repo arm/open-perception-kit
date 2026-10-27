@@ -144,8 +144,8 @@ staging and validating the SDK. Packages are written to
 `$OPK_PROJECT_ROOT/var` by default and use the
 `name-version-revision-arch.deb` layout, for example:
 
-- `libexecutorch-dev-1.3.1-2-amd64.deb`
-- `libexecutorch-dev-1.3.1-2-arm64.deb`
+- `libexecutorch-dev-1.3.1-3-amd64.deb`
+- `libexecutorch-dev-1.3.1-3-arm64.deb`
 
 The `aarch64-linux-gnu` target maps to Debian's `arm64` architecture. Installing
 the package creates:
@@ -159,7 +159,7 @@ OPK discovers this installed layout automatically. Install a generated package
 with:
 
 ```sh
-sudo apt install "$OPK_PROJECT_ROOT/var/libexecutorch-dev-1.3.1-2-amd64.deb"
+sudo apt install "$OPK_PROJECT_ROOT/var/libexecutorch-dev-1.3.1-3-amd64.deb"
 ```
 
 Automatic detection only uses the installed `/opt/opk-deps/executorch` SDK. To
@@ -183,7 +183,7 @@ scripts/private/executorch/package-executorch-1.3.1-deb.sh \
   --libtorch-dir "$OPK_PROJECT_ROOT/deps/libtorch" \
   --legal-documentation-dir "$OPK_PROJECT_ROOT/deps/executorch-legal-documentation" \
   --output-dir "$OPK_PROJECT_ROOT/var" \
-  --revision 2
+  --revision 3
 ```
 
 ## Docker image installation
@@ -198,7 +198,7 @@ The Dockerfile accepts these build arguments:
 | Argument | Default | Purpose |
 | --- | --- | --- |
 | `EXECUTORCH_VERSION` | `1.3.1` | Package version to install. |
-| `EXECUTORCH_DEB_REVISION` | `2` | Debian package revision to install. |
+| `EXECUTORCH_DEB_REVISION` | `3` | Debian package revision to install. |
 | `EXECUTORCH_ARTIFACTORY_SERVER` | `https://artifactory.arm.com:443` | Artifactory server URL. |
 | `EXECUTORCH_ARTIFACTORY_REPOSITORY` | `ai-expkits-internal.opk-deb` | Artifactory Debian repository. |
 | `EXECUTORCH_ARTIFACTORY_DISTRIBUTION` | `trixie` | Debian distribution. |
@@ -269,7 +269,7 @@ export EXECUTORCH_ARTIFACTORY_USERNAME='<username>'
 export EXECUTORCH_ARTIFACTORY_PASSWORD='<access-token>'
 
 scripts/private/executorch/upload-executorch-1.3.1-deb.sh \
-  "$OPK_PROJECT_ROOT/var/libexecutorch-dev-1.3.1-2-amd64.deb"
+  "$OPK_PROJECT_ROOT/var/libexecutorch-dev-1.3.1-3-amd64.deb"
 ```
 
 The defaults upload to the `ai-expkits-internal.opk-deb` repository under the
