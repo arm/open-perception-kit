@@ -26,3 +26,10 @@ test(
   args : [files('test_package_opk_demo_deb.py')],
   timeout : 120,
 )
+
+test(
+  'package_executorch_deb_tests',
+  test_python,
+  args : [files('test_package_executorch_deb.py')],
+  timeout : 120,
+)

@@ -38,6 +38,8 @@ archives do not contain submodule contents. It stages:
 
 `package-executorch-1.3.1-deb.sh` creates a Debian package from an SDK already
 staged by the ExecuTorch 1.3.1 setup script, without rebuilding it.
+The staged legal directory must contain nonempty `LICENSE`, `GIT_COMMIT_ID`,
+and `VERSION_NUMBER` files; packaging fails if any is missing or empty.
 
 `install-executorch-deb.sh` is the Docker build helper that installs an
 architecture-matching local package when available, otherwise tries the

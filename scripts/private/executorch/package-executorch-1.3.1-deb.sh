@@ -201,8 +201,10 @@ for path in "${required_paths[@]}"; do
     [[ -e "${path}" ]] || die "missing required SDK path: ${path}"
 done
 
-[[ -n "$(find "${LEGAL_DOCUMENTATION_DIR}" -type f -print -quit)" ]] ||
-    die "ExecuTorch and third-party licenses/copyright notices are missing: ${LEGAL_DOCUMENTATION_DIR}"
+for legal_file in LICENSE GIT_COMMIT_ID VERSION_NUMBER; do
+    [[ -f "${LEGAL_DOCUMENTATION_DIR}/${legal_file}" && -s "${LEGAL_DOCUMENTATION_DIR}/${legal_file}" ]] ||
+        die "ExecuTorch legal or provenance file is missing or empty: ${LEGAL_DOCUMENTATION_DIR}/${legal_file}"
+done
 [[ -z "$(find "${LEGAL_DOCUMENTATION_DIR}" -type l -print -quit)" ]] ||
     die "ExecuTorch legal documentation must not contain symlinks: ${LEGAL_DOCUMENTATION_DIR}"
 
