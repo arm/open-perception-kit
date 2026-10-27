@@ -18,6 +18,9 @@
 
 #include <gtest/gtest.h>
 
+#include <limits>
+#include <stdexcept>
+
 namespace {
 namespace wl = mlsdk::workloadlib;
 

@@ -130,7 +130,7 @@ standard_content_type_tests = executable(
 if mlwl_enabled
   mlwl_tensor_tests = executable(
     'mlwl_tensor_tests',
-    ['mlwl_tensor_test.cpp'],
+    ['mlwl_tensor_test.cpp', '../ops-mlwl/TensorLayout.cpp'],
     include_directories : [common_include, include_directories('../ops-mlwl')],
     dependencies : [gtest_main_dep, opk_deps, mlwl_dep, mlwl_vulkan_dep],
     override_options : ['b_ndebug=true'],
