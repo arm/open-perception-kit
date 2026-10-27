@@ -79,6 +79,7 @@ opk_runtime_deb = custom_target(
     gstopkperformance,
     gstopkosd,
     opkinferpre,
+    opksrc,
     opkcomm,
   ],
   build_by_default : false,

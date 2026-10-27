@@ -147,6 +147,7 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
                 "libopkosd.so",
                 "libopkperformance.so",
                 "libopksink.so",
+                "libopksrc.so",
                 "libopktracker.so",
             ):
                 self.compile_library(plugin_root / name, "$ORIGIN/../opk")
@@ -369,6 +370,7 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
                     "libopkosd.so",
                     "libopkperformance.so",
                     "libopksink.so",
+                    "libopksrc.so",
                     "libopktracker.so",
                 },
             )
