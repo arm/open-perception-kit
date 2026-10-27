@@ -65,14 +65,23 @@ def invoke(gst, peer, action, argument):
 def check_stalled_peer(gst, source, websocket, sdp=None):
     timestamps = []
     pad = source.get_static_pad("src")
-    probe = pad.add_probe(gst.PadProbeType.BUFFER,
-                          lambda _, info: timestamps.append(info.get_buffer().pts) or gst.PadProbeReturn.OK)
+
+    def record_timestamp(_, info):
+        timestamps.append(info.get_buffer().pts)
+        return gst.PadProbeReturn.OK
+
+    probe = pad.add_probe(gst.PadProbeType.BUFFER, record_timestamp)
     try:
         if sdp is not None:
-            messages = []
-            websocket.connect("message", lambda _, kind, data: messages.append(json.loads(data.get_data())))
+            answered = Event()
+
+            def on_message(_, kind, data):
+                if json.loads(data.get_data())["type"] == "answer":
+                    answered.set()
+
+            websocket.connect("message", on_message)
             websocket.send_text(json.dumps({"type": "offer", "sdp": sdp}))
-            wait_for(lambda: any(message["type"] == "answer" for message in messages), "SDP accepted")
+            wait_for(answered.is_set, "SDP accepted")
         before = len(timestamps)
         wait_for(lambda: len(timestamps) >= before + 5, "Silence stopped without media", timeout=2)
         assert timestamps[-1] > timestamps[before], "PCM timestamps stopped"
@@ -195,10 +204,10 @@ def main():
     )
     source = pipeline.get_by_name("source")
     try:
-        for _ in range(2):
+        for cycle in range(2):
             assert pipeline.set_state(gst.State.PLAYING) != gst.StateChangeReturn.FAILURE
             assert pipeline.get_state(5 * gst.SECOND)[1] == gst.State.PLAYING
-            if _ == 0:
+            if cycle == 0:
                 check_stalled_peer(gst, source, connect(session, port))
             for message in (
                 "{",

@@ -60,13 +60,14 @@ sending audio media section with Opus at a 48 kHz RTP clock rate. Payload types
 are taken from SDP, rather than fixed to a particular number. The receiver
 answers with a receive-only Opus transceiver.
 
-One WebSocket connection owns the receiver until it disconnects or sends no
-decoded audio for 15 seconds. Silent PCM counts as audio; signaling traffic does
-not renew the deadline. A local pause suspends the media deadline after an offer.
-The watchdog checks every 100 ms; pending SDP operations can delay it.
-Additional clients are closed without replacing the active sender. Invalid signaling
-closes only the affected connection. Disconnecting recreates the receiver's
-`webrtcbin` so a later client starts with fresh SDP and ICE state.
+One WebSocket connection owns the receiver. Additional clients are closed without
+replacing the active sender. A connection is closed after 15 seconds without
+decoded audio. Silent PCM counts as audio. Signaling messages do not extend the
+timeout. After an offer, pausing the local pipeline also pauses the timeout.
+The timeout is checked every 100 ms, but pending SDP operations can delay it.
+
+Invalid signaling closes only the affected connection. Disconnecting recreates
+the receiver's `webrtcbin` so a later client starts with fresh SDP and ICE state.
 
 ## Lifecycle
 
