@@ -100,7 +100,6 @@ struct Session {
     gulong ice_handler = 0;
     gulong audio_probe = 0;
     bool offered = false;
-    bool streaming = false;
 };
 
 static bool same_handle(const Handle &first, const Handle &second) {
@@ -205,14 +204,20 @@ struct OpkSrcSignaling::Impl {
                 if (error || stopping || !current || current != session) {
                     return;
                 }
+                g_rec_mutex_lock(&source->media_lock);
+                const bool playing = source->media_state == GST_STATE_PLAYING;
+                g_rec_mutex_unlock(&source->media_lock);
                 const auto now = g_get_monotonic_time();
                 const auto last_audio = current->last_audio.load();
-                if (last_audio && !current->streaming) {
-                    g_object_set(source->selector, "active-pad", source->audio_pad, nullptr);
-                    current->streaming = true;
+                if (last_audio) {
+                    gboolean audio_active = FALSE;
+                    g_object_get(source->audio_pad, "active", &audio_active, nullptr);
+                    if (!audio_active) {
+                        g_object_set(source->selector, "active-pad", source->audio_pad, nullptr);
+                    }
                 }
                 // A local pause must not count as missing media from the peer.
-                if (current->offered && !g_atomic_int_get(&source->playing)) {
+                if (current->offered && !playing) {
                     current->deadline = now + kMediaTimeout;
                 }
                 if (now >= current->deadline && now - last_audio >= kMediaTimeout) {
