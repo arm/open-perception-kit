@@ -99,8 +99,9 @@ struct OpChainDescriptor {
      * @brief Loads an OpChainDescriptor from a JSON file.
      *
      * @param path File path to the JSON descriptor file.
-     * @return OpChainDescriptor with relative Inference modelDescriptor paths joined to path
-     * without lexical normalization, or an error Result. Absolute values are preserved.
+     * @return OpChainDescriptor with relative Inference modelDescriptor and recognition
+     * dictionaryFile paths joined to the OpChain directory without lexical normalization,
+     * or an error Result. Absolute values are preserved.
      */
     static opk::Result<OpChainDescriptor> fromFile(const std::string &path);
 };

@@ -33,6 +33,7 @@ stdops = shared_module(
     'postproc/UltrafaceParser.cpp',
     'postproc/PaddleocrParser.cpp',
     'postproc/PaddleOcrDbDetectionParser.cpp',
+    'postproc/PaddleOcrRecognitionParser.cpp',
     'postproc/GazeDetectionParser.cpp',
     'postproc/CameraContactParser.cpp',
     'postproc/SileroVadParser.cpp',

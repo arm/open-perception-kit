@@ -90,6 +90,16 @@ void validateControlCharacters(ValidationReport &report,
                                           "opchain.v1.model-descriptor-control");
             }
         }
+        if (op.id == Postprocess &&
+            stringAttribute(op.attributes, "parser") == "PaddleOcrRecognitionParser") {
+            if (const auto dictionary = stringAttribute(op.attributes, "dictionaryFile")) {
+                validateControlFreeString(report,
+                                          *dictionary,
+                                          source,
+                                          base + "/attributes/dictionaryFile",
+                                          "opchain.v1.dictionary-file-control");
+            }
+        }
     }
 }
 
