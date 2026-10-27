@@ -1,0 +1,69 @@
+{
+  "version": "1.0.1",
+  "name": "PpOcrV6Tiny",
+  "displayName": "PP-OCRv6 tiny text detection and recognition",
+  "task": "Text recognition",
+  "runtime": "ONNX",
+  "description": "Detects horizontal text regions and recognizes each axis-aligned crop with greedy CTC decoding.",
+  "ops": [
+    {
+      "id": "opk-std-ops/InferenceController",
+      "attributes": {}
+    },
+    {
+      "id": "opk-std-ops/PaddleOcrPreprocess",
+      "attributes": {
+        "mode": "detection",
+        "paddingValue": 0
+      }
+    },
+    {
+      "id": "opk-onnx-ops/Inference",
+      "attributes": {
+        "modelDescriptor": "../../models/pp-ocrv6-tiny-det/model.json"
+      }
+    },
+    {
+      "id": "opk-std-ops/GenericPostprocess",
+      "attributes": {
+        "parser": "PaddleOcrDbDetectionParser",
+        "binaryThreshold": 0.2,
+        "confidenceThreshold": 0.4,
+        "unclipRatio": 1.4,
+        "maxCandidates": 3000,
+        "minBoxSize": 3,
+        "minExpandedBoxSize": 5
+      }
+    },
+    {
+      "id": "opk-std-ops/InferenceController",
+      "loopId": 2,
+      "attributes": {
+        "contentType": "textRegion"
+      }
+    },
+    {
+      "id": "opk-std-ops/PaddleOcrPreprocess",
+      "loopId": 2,
+      "attributes": {
+        "mode": "recognition",
+        "paddingValue": 0
+      }
+    },
+    {
+      "id": "opk-onnx-ops/Inference",
+      "loopId": 2,
+      "attributes": {
+        "modelDescriptor": "../../models/pp-ocrv6-tiny-rec/model.json"
+      }
+    },
+    {
+      "id": "opk-std-ops/GenericPostprocess",
+      "loopId": 2,
+      "attributes": {
+        "parser": "PaddleOcrRecognitionParser",
+        "dictionaryFile": "../../models/pp-ocrv6-tiny-rec/characters.txt"
+      }
+    }
+  ]
+}

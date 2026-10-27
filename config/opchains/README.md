@@ -17,9 +17,12 @@ limitations under the License.
 
 # Reusable OpChains
 
-These dependency chains combine the published models for camera contact and
-gaze estimation.
+These dependency chains combine models for camera contact, gaze estimation,
+and text recognition.
 
 MobileGaze and NITEC provide ONNX and ExecuTorch/XNNPACK variants. Both
 variants use UltraFace ONNX for face detection before running the selected
 face-level backend.
+
+[PP-OCRv6 tiny](pp-ocrv6-tiny/index.md) combines the local text detector and
+recognizer artifacts, with one recognition pass per detected text region.
