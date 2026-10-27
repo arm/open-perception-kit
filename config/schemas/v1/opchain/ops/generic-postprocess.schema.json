@@ -223,6 +223,23 @@
         }
       }
     },
+    "paddleOcrRecognition": {
+      "title": "PaddleOcrRecognitionParser attributes v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser",
+        "dictionaryFile"
+      ],
+      "properties": {
+        "parser": {
+          "const": "PaddleOcrRecognitionParser"
+        },
+        "dictionaryFile": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/localPath"
+        }
+      }
+    },
     "paddleOcrDetection": {
       "title": "PaddleOcrDetectionParser attributes v1",
       "type": "object",
@@ -547,6 +564,9 @@
           },
           {
             "$ref": "#/$defs/paddleOcrDbDetection"
+          },
+          {
+            "$ref": "#/$defs/paddleOcrRecognition"
           },
           {
             "$ref": "#/$defs/paddleOcrDetection"
