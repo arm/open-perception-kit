@@ -609,7 +609,7 @@ RUN set -eux; \
   /opt/opk-venvs/python-ops-runtime/bin/python -c 'import open_perception_kit'; \
   rm -rf /tmp/perception-python
 
-FROM opk-cross-build-base AS opk-deployment-build
+FROM opk-cross-build-base AS opk-deployment-build-base
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -678,6 +678,8 @@ COPY --from=opk-release-sources /work/data data
 # Release and deployment images contain descriptors only. Users download models
 # through the quick-start development flow with their own Hugging Face access.
 COPY --from=opk-release-sources /work/config config
+
+FROM opk-deployment-build-base AS opk-deployment-build
 
 # SHELL selects Bash; hadolint 2.15.1 misclassifies this derived stage as sh.
 # hadolint ignore=SC3054
@@ -916,6 +918,42 @@ RUN --network=none \
     /tmp/runtime_environment.py
 
 ENTRYPOINT ["/work/scripts/private/deployment-runtime.sh"]
+
+# ==============================================================================
+# Debian package artifacts
+# ==============================================================================
+
+FROM opk-deployment-build-base AS opk-debian-build
+
+COPY --from=opk-release-sources /work/scripts/private/packaging scripts/private/packaging
+COPY --from=opk-release-sources /work/docs docs
+COPY --from=opk-models /work/config/models config/models
+COPY --from=opk-demo-media /work/data/videos data/videos
+
+RUN --mount=type=cache,id=opk-deployment-ccache,target=/work/.cache/ccache,sharing=locked \
+  set -eux; \
+  test "${OPK_RELEASE_BUILD}" = true; \
+  export CCACHE_DIR=/work/.cache/ccache; \
+  export CCACHE_MAXSIZE=2G; \
+  export CCACHE_UMASK=000; \
+  /opt/opk-venvs/python-ops-runtime/bin/pip install --no-cache-dir --no-deps \
+    /work/generated/open_perception_kit/python; \
+  multiarch="$(dpkg-architecture -qDEB_HOST_MULTIARCH)"; \
+  OPK_EXECUTORCH=enabled \
+  OPK_PYTHON_OPS=enabled \
+  OPK_PYTHON_RUNTIME_VENV=/opt/opk-venvs/python-ops-runtime \
+  OPK_ONNXRUNTIME_ROOT=/opt/opk-deps/onnxruntime \
+  NINJAFLAGS=-j2 \
+  ./scripts/build.sh release false \
+    "--extra-setup-args=-Drelease_package=true,-Ddeb_package=true,-Ddemo_deb_package=true,-Dprefix=/usr,-Dlibdir=lib/${multiarch}"; \
+  meson compile -C /work/development/build -j 2 opk-runtime-deb opk-demo-deb; \
+  mkdir -p /opt/opk-debian-artifacts; \
+  cp /work/development/build/meson-out/opk-runtime_*.deb \
+    /work/development/build/meson-out/opk-demo_*.deb /opt/opk-debian-artifacts/
+
+FROM scratch AS opk-debian-packages
+
+COPY --from=opk-debian-build /opt/opk-debian-artifacts/ /
 
 # ==============================================================================
 # Cairn Integration Runtime

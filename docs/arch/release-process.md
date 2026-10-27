@@ -173,12 +173,19 @@ its source commit when available. The build checks SDK provenance
 against the source commit without regenerating the SDK. The Arm job extracts
 the Python wheel and prepares the Rust crate for publication.
 
+The same native jobs build the existing `opk-runtime-deb` and `opk-demo-deb`
+Meson targets. Their `.deb` files stay in Actions artifacts named
+`opk-debian-<architecture>-<run_id>-<attempt>` and are not published.
+Demo videos are not included; provide your own video input.
+
 For product version `<version>`, the release produces:
 
 | Artifact | Destination |
 | --- | --- |
 | `opk-<version>-linux-x86_64.tar.gz` | Actions, Artifactory, GitHub Release |
 | `opk-<version>-linux-aarch64.tar.gz` | Actions, Artifactory, GitHub Release |
+| `opk-runtime_<version>-1_<architecture>.deb` | Actions |
+| `opk-demo_<version>-1_<architecture>.deb` | Actions |
 | `open_perception_kit-<version>-py3-none-any.whl` | Actions and Artifactory publisher input |
 | `open_perception_kit-<version>.crate` | Actions, Artifactory publisher input, and crates.io |
 | `opk-sbom-source.json` | Actions and GitHub Release |
