@@ -126,6 +126,7 @@ config/models/**/*.bin.part
 config/models/**/*.hef
 config/models/**/*.onnx
 config/models/**/*.pte
+config/models/licenses/
 
 docs/html
 todo.md

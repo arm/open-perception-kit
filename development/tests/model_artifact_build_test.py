@@ -603,6 +603,7 @@ for arg in sys.argv:
             "config/models/**/*.hef",
             "config/models/**/*.onnx",
             "config/models/**/*.pte",
+            "config/models/licenses/",
         ]
         rules = [
             line
@@ -611,6 +612,7 @@ for arg in sys.argv:
         ]
         self.assertEqual(rules, expected)
         dockerignore = (REPO_ROOT / ".dockerignore").read_text().splitlines()
+        self.assertIn("config/models/licenses/", dockerignore)
         for pattern in ("**/*.bin", "**/*.bin.part", "**/*.hef", "**/*.onnx", "**/*.pte", "**/*.onnx.part", "**/*.pte.part"):
             self.assertIn(pattern, dockerignore)
 
@@ -638,6 +640,16 @@ for arg in sys.argv:
         self.assertEqual(retired, [], f"retired model artifacts found: {retired}")
 
     def test_download_cli_contract(self) -> None:
+        notices = json.loads((REPO_ROOT / "config/model-notices.json").read_text())
+        notice_urls = {source["url"] for source in notices.values()}
+        for descriptor in (REPO_ROOT / MODELS_DIR).rglob("model*.json"):
+            source = json.loads(descriptor.read_text()).get("hfDownload")
+            if source:
+                self.assertIn(
+                    f"https://huggingface.co/{source['repo_id']}/raw/{source['revision']}/README.md",
+                    notice_urls,
+                )
+
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             scripts = root / "scripts"
@@ -791,6 +803,41 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
                 anonymous_capture,
                 ["False", str(root / "hub-cache/hub/anonymous")],
             )
+
+            notice_source = root / "LICENSE"
+            notice_source.write_bytes(b"Original copyright and licence\n")
+            notice_manifest = root / "config/model-notices.json"
+            notice = {
+                "url": notice_source.as_uri(),
+                "sha256": hashlib.sha256(notice_source.read_bytes()).hexdigest(),
+            }
+            notice_manifest.write_text(json.dumps({"model-LICENSE.txt": notice}))
+            run_download(check=True)
+            installed_notice = root / MODELS_DIR / "licenses/model-LICENSE.txt"
+            self.assertEqual(installed_notice.read_bytes(), notice_source.read_bytes())
+
+            notice_source.unlink()
+            run_download(check=True)  # Reuse the checksum-verified local notice.
+            installed_notice.unlink()
+            (root / "captured-token").unlink()
+            failed_notice = run_download()
+            self.assertEqual(failed_notice.returncode, 1, failed_notice.stderr)
+            self.assertFalse((root / "captured-token").exists())
+
+            notice_source.write_bytes(b"Changed upstream licence")
+            failed_notice = run_download()
+            self.assertEqual(failed_notice.returncode, 1, failed_notice.stderr)
+            self.assertIn("SHA-256 mismatch", failed_notice.stderr)
+            self.assertFalse(installed_notice.exists())
+            self.assertFalse(installed_notice.with_suffix(".txt.part").exists())
+            self.assertFalse((root / "captured-token").exists())
+
+            notice_manifest.write_text(json.dumps({"../../escape.txt": notice}))
+            failed_notice = run_download()
+            self.assertEqual(failed_notice.returncode, 1, failed_notice.stderr)
+            self.assertIn("outside licenses/", failed_notice.stderr)
+            self.assertFalse((root / "captured-token").exists())
+            notice_manifest.unlink()
 
             verified_descriptor = root / "config/models/second/model.json"
             mismatched_model = json.loads(verified_descriptor.read_text())

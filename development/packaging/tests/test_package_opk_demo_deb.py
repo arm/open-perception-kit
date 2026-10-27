@@ -1,7 +1,19 @@
 #!/usr/bin/env python3
-################################################################
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 # Copyright (C) 2026 Arm Limited. All rights reserved.
-################################################################
 
 import json
 import os
@@ -82,6 +94,9 @@ class PackageOpkDemoDebTests(unittest.TestCase):
                 json.dumps({"modelFile": "model.onnx"}) + "\n",
                 encoding="utf-8",
             )
+            notices = repository / "config/models/licenses"
+            notices.mkdir()
+            (notices / "model-LICENSE.txt").write_bytes(b"Original model licence\n")
             (opchains / "example.json").write_text("{}\n", encoding="utf-8")
             (pipelines / "example.json").write_text("{}\n", encoding="utf-8")
             (pipelines / ".last_selected_pipeline_id").write_text(
@@ -135,6 +150,10 @@ class PackageOpkDemoDebTests(unittest.TestCase):
             self.assertTrue((extracted / "usr/bin/opk-menu").is_file())
             self.assertTrue(
                 (extracted / "usr/share/opk/config/models/example/model.onnx").is_file()
+            )
+            self.assertEqual(
+                (extracted / "usr/share/opk/config/models/licenses/model-LICENSE.txt").read_bytes(),
+                (notices / "model-LICENSE.txt").read_bytes(),
             )
             self.assertTrue(
                 (extracted / "usr/share/opk/data/videos/example.mov").is_file()
