@@ -45,6 +45,7 @@ struct _GstOpkSrc {
     OpkSrcSignaling *signaling;
     GRecMutex media_lock;
     GstState media_state;
+    gint playing;
 };
 
 bool gst_opk_src_reset_webrtc(GstOpkSrc *self);

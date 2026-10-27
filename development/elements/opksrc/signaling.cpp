@@ -44,6 +44,8 @@ using Server = websocketpp::server<websocketpp::config::asio>;
 using Handle = websocketpp::connection_hdl;
 using Json = nlohmann::json;
 
+constexpr gint64 kMediaTimeout = 15 * G_USEC_PER_SEC;
+
 struct PromiseResult {
     std::mutex mutex;
     std::condition_variable changed;
@@ -90,10 +92,15 @@ invoke(GstElement *peer, const char *action, GstWebRTCSessionDescription *descri
 
 struct Session {
     std::atomic_bool active{true};
+    std::atomic<gint64> last_audio{0};
     std::shared_ptr<Server> server;
     Handle handle;
+    Server::timer_ptr watchdog;
+    gint64 deadline = g_get_monotonic_time() + kMediaTimeout;
     gulong ice_handler = 0;
+    gulong audio_probe = 0;
     bool offered = false;
+    bool streaming = false;
 };
 
 static bool same_handle(const Handle &first, const Handle &second) {
@@ -177,6 +184,8 @@ struct OpkSrcSignaling::Impl {
             return;
         }
         session->active = false;
+        session->watchdog->cancel();
+        gst_pad_remove_probe(source->audio_pad, session->audio_probe);
         g_signal_handler_disconnect(source->webrtcbin, session->ice_handler);
         session.reset();
         if (!gst_opk_src_reset_webrtc(source)) {
@@ -187,6 +196,32 @@ struct OpkSrcSignaling::Impl {
     void close(const Handle &handle, const char *reason) {
         websocketpp::lib::error_code error;
         server->close(handle, websocketpp::close::status::policy_violation, reason, error);
+    }
+
+    void watch(const std::shared_ptr<Session> &current) {
+        current->watchdog = server->set_timer(
+            100, [this, weak = std::weak_ptr<Session>(current)](const auto &error) {
+                const auto current = weak.lock();
+                if (error || stopping || !current || current != session) {
+                    return;
+                }
+                const auto now = g_get_monotonic_time();
+                const auto last_audio = current->last_audio.load();
+                if (last_audio && !current->streaming) {
+                    g_object_set(source->selector, "active-pad", source->audio_pad, nullptr);
+                    current->streaming = true;
+                }
+                // A local pause must not count as missing media from the peer.
+                if (current->offered && !g_atomic_int_get(&source->playing)) {
+                    current->deadline = now + kMediaTimeout;
+                }
+                if (now >= current->deadline && now - last_audio >= kMediaTimeout) {
+                    close(current->handle, "Microphone audio timed out");
+                    cleanup();
+                    return;
+                }
+                watch(current);
+            });
     }
 
     void open(const Handle &handle) {
@@ -202,6 +237,19 @@ struct OpkSrcSignaling::Impl {
         session = std::make_shared<Session>();
         session->server = server;
         session->handle = handle;
+        session->audio_probe = gst_pad_add_probe(
+            source->audio_pad,
+            GST_PAD_PROBE_TYPE_BUFFER,
+            [](GstPad *, GstPadProbeInfo *info, gpointer data) {
+                const auto current = static_cast<std::weak_ptr<Session> *>(data)->lock();
+                if (current && current->active &&
+                    gst_buffer_get_size(GST_PAD_PROBE_INFO_BUFFER(info))) {
+                    current->last_audio = g_get_monotonic_time();
+                }
+                return GST_PAD_PROBE_OK;
+            },
+            new std::weak_ptr<Session>(session),
+            [](gpointer data) { delete static_cast<std::weak_ptr<Session> *>(data); });
         session->ice_handler = g_signal_connect_data(
             source->webrtcbin,
             "on-ice-candidate",
@@ -209,6 +257,7 @@ struct OpkSrcSignaling::Impl {
             new std::weak_ptr<Session>(session),
             [](gpointer data, GClosure *) { delete static_cast<std::weak_ptr<Session> *>(data); },
             GConnectFlags(0));
+        watch(session);
     }
 
     void offer(const Json &message) {
@@ -248,7 +297,6 @@ struct OpkSrcSignaling::Impl {
         g_free(answer_text);
         session->offered = true;
         send(session, {{"type", "answer"}, {"sdp", answer_sdp}});
-        g_object_set(source->selector, "active-pad", source->audio_pad, nullptr);
     }
 
     void candidate(const Json &message) {
@@ -338,6 +386,9 @@ struct OpkSrcSignaling::Impl {
             if (server) {
                 server->get_io_service().post([this] {
                     websocketpp::lib::error_code error;
+                    if (session) {
+                        session->watchdog->cancel();
+                    }
                     server->stop_listening(error);
                     for (const auto &handle : connections) {
                         server->close(handle, websocketpp::close::status::going_away, "", error);

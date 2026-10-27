@@ -224,6 +224,7 @@ static GstStateChangeReturn gst_opk_src_change_state(GstElement *element,
     }
     g_rec_mutex_lock(&self->media_lock);
     self->media_state = GST_STATE_TRANSITION_NEXT(transition);
+    g_atomic_int_set(&self->playing, self->media_state == GST_STATE_PLAYING);
     g_rec_mutex_unlock(&self->media_lock);
     if (transition == GST_STATE_CHANGE_READY_TO_NULL) {
         self->signaling->stop();
