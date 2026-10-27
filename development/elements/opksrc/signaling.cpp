@@ -45,7 +45,7 @@ using Server = websocketpp::server<websocketpp::config::asio>;
 using Handle = websocketpp::connection_hdl;
 using Json = nlohmann::json;
 
-constexpr gint64 kMediaTimeout = 15 * G_USEC_PER_SEC;
+constexpr gint64 kMediaTimeout = 15LL * G_USEC_PER_SEC;
 
 struct PromiseResult {
     std::mutex mutex;
