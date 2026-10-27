@@ -28,12 +28,17 @@ namespace {
 
 constexpr std::string_view Controller = "opk-std-ops/InferenceController";
 constexpr std::string_view Preprocess = "opk-std-ops/GenericImagePreprocess";
+constexpr std::string_view PaddleOcrPreprocess = "opk-std-ops/PaddleOcrPreprocess";
 constexpr std::string_view Postprocess = "opk-std-ops/GenericPostprocess";
 constexpr std::string_view PythonScript = "opk-python-ops/PythonScript";
 using Ops = std::vector<opk::op::OpChainDescriptor::Op>;
 
+bool isPreprocess(std::string_view id) {
+    return id == Preprocess || id == PaddleOcrPreprocess;
+}
+
 bool isBuiltInStageOp(std::string_view id) {
-    return id == Controller || id == Preprocess || id == Postprocess ||
+    return id == Controller || isPreprocess(id) || id == Postprocess ||
            opk::op::isInferenceOpId(id);
 }
 
@@ -195,7 +200,7 @@ bool validateStageShape(ValidationReport &report,
         addStageIssue(report, source, controller, "built-in stage is incomplete");
         return false;
     }
-    if (ops[controller + 1].id != Preprocess) {
+    if (!isPreprocess(ops[controller + 1].id)) {
         addStageIssue(
             report, source, controller + 1, "built-in stage must begin with preprocessing");
     }
@@ -225,7 +230,7 @@ bool validateStageShape(ValidationReport &report,
     const auto last = ops.begin() + static_cast<std::ptrdiff_t>(end);
     if (const auto count =
             [first, last](const auto &predicate) { return std::count_if(first, last, predicate); };
-        count([](const auto &op) { return op.id == Preprocess; }) != 1 ||
+        count([](const auto &op) { return isPreprocess(op.id); }) != 1 ||
         count([](const auto &op) { return opk::op::isInferenceOpId(op.id); }) != 1 ||
         count([](const auto &op) { return op.id == Postprocess; }) !=
             (ops[end - 1].id == Postprocess ? 1 : 0)) {
@@ -271,9 +276,8 @@ void validateStages(ValidationReport &report,
                     const opk::op::OpChainDescriptor &descriptor,
                     std::string_view source) {
     const auto &ops = descriptor.ops;
-    if (!ops.empty() && ops.back().id == Preprocess)
-        addStageIssue(
-            report, source, ops.size() - 1, "GenericImagePreprocess must have a successor");
+    if (!ops.empty() && isPreprocess(ops.back().id))
+        addStageIssue(report, source, ops.size() - 1, "preprocessing must have a successor");
 
     for (std::size_t controller = 0; controller < ops.size(); ++controller) {
         if (ops[controller].id != Controller)

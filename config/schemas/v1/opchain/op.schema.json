@@ -33,6 +33,9 @@
       "$ref": "urn:arm:opk:schema:generic-image-preprocess-op:v1"
     },
     {
+      "$ref": "urn:arm:opk:schema:paddle-ocr-preprocess-op:v1"
+    },
+    {
       "$ref": "urn:arm:opk:schema:inference-op:v1"
     },
     {
