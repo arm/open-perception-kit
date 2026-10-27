@@ -313,6 +313,23 @@
       "allOf": [
         {
           "if": {
+            "required": [
+              "maxDetections"
+            ]
+          },
+          "then": {
+            "properties": {
+              "outputFormat": {
+                "const": "cornerClassScores"
+              }
+            },
+            "required": [
+              "outputFormat"
+            ]
+          }
+        },
+        {
+          "if": {
             "properties": {
               "applyNms": {
                 "const": false

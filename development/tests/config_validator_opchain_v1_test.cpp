@@ -43,7 +43,7 @@ opk::op::OpChainDescriptor builtInStage() {
 TEST(ConfigValidator, SileroAudioUsesOpChain12Contract) {
     const auto supported = opk::config::supportedOpChainVersion();
     ASSERT_TRUE(supported) << supported.error().toText();
-    EXPECT_EQ(*supported, "1.3.0");
+    EXPECT_EQ(*supported, "1.4.0");
 
     const auto path =
         std::filesystem::path{OPK_REPOSITORY_ROOT} / "config/models/silero-vad/opchain.json";
@@ -52,6 +52,18 @@ TEST(ConfigValidator, SileroAudioUsesOpChain12Contract) {
     const auto document = nlohmann::json::parse(input);
     EXPECT_EQ(document.at("version"), "1.2.0");
 
+    const auto result = opk::config::validateOpChainJson(document.dump(), path.string());
+    ASSERT_TRUE(result) << result.error().toText();
+    EXPECT_EQ(nlohmann::json(*result).at("version"), document.at("version"));
+}
+
+TEST(ConfigValidator, YoloClassScoresUseOpChain14Contract) {
+    const auto path =
+        std::filesystem::path{OPK_REPOSITORY_ROOT} / "config/models/yolo26n-320-mlwl/opchain.json";
+    std::ifstream input(path);
+    ASSERT_TRUE(input);
+    const auto document = nlohmann::json::parse(input);
+    EXPECT_EQ(document.at("version"), "1.4.0");
     const auto result = opk::config::validateOpChainJson(document.dump(), path.string());
     ASSERT_TRUE(result) << result.error().toText();
     EXPECT_EQ(nlohmann::json(*result).at("version"), document.at("version"));
@@ -243,10 +255,10 @@ TEST(ConfigValidator, OpChainProjectionClearsOmittedAttributes) {
 TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {
     const auto supportedVersion = opk::config::supportedOpChainVersion();
     ASSERT_TRUE(supportedVersion) << supportedVersion.error().toText();
-    EXPECT_EQ(*supportedVersion, "1.2.0");
+    EXPECT_EQ(*supportedVersion, "1.4.0");
 
     nlohmann::json document{
-        {"version", "1.2.0"},
+        {"version", "1.4.0"},
         {"name", "parser-contract"},
         {"description", "Validate GenericPostprocess parser attributes."},
         {"ops",
@@ -282,6 +294,7 @@ TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {
         nlohmann::json{{"parser", "GazeDetectionParser"}, {"angleBinWidthDeg", 4}},
         nlohmann::json{{"parser", "YoloParser"}, {"applyNms", false}},
         nlohmann::json{{"parser", "YoloParser"}, {"outputFormat", "cornerScoreClass"}},
+        nlohmann::json{{"parser", "YoloParser"}, {"outputFormat", "cornerClassScores"}},
         nlohmann::json{{"parser", "YoloParser"},
                        {"outputFormat", "cornerClassScores"},
                        {"maxDetections", 300}},
@@ -304,6 +317,11 @@ TEST(ConfigValidator, OpChainSchemaValidatesRegisteredParserContracts) {
         nlohmann::json{{"parser", "PaddleOcrDetectionParser"}, {"gamma", 0}},
         nlohmann::json{{"parser", "YoloParser"}, {"applyNms", false}, {"iouThreshold", 0.4}},
         nlohmann::json{{"parser", "YoloParser"}, {"outputFormat", "xyxy"}},
+        nlohmann::json{{"parser", "YoloParser"}, {"maxDetections", 1}},
+        nlohmann::json{
+            {"parser", "YoloParser"}, {"outputFormat", "centerClassScores"}, {"maxDetections", 1}},
+        nlohmann::json{
+            {"parser", "YoloParser"}, {"outputFormat", "cornerScoreClass"}, {"maxDetections", 1}},
         nlohmann::json{
             {"parser", "YoloParser"}, {"outputFormat", "cornerClassScores"}, {"maxDetections", 0}},
         nlohmann::json{{"parser", "YoloXParser"}, {"applyNms", false}, {"iouThreshold", 0.4}},

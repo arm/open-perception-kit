@@ -206,6 +206,12 @@ validated when the pipeline starts.
 
 ## Migrating existing configurations
 
+OpChain `1.4.0` adds YoloParser `outputFormat: "cornerClassScores"` and
+`maxDetections` for `[1,N,4+C]` outputs. Set the OpChain version to `"1.4.0"`
+when adopting this format and rebuild or upgrade the runtime. Existing formats
+keep their behavior; older runtimes cannot parse the new format. An explicit
+`maxDetections` requires `cornerClassScores`; other formats reject it.
+
 OpChain `1.3.0` adds `TurnDetector` and `SmartTurnParser`. Use `"1.3.0"`
 for chains adopting either addition and rebuild or upgrade the runtime.
 `TurnDetector` follows VAD postprocessing and precedes a single-input PCM model
@@ -224,11 +230,6 @@ Use an unlooped audio chain; scheduling belongs to `opkinfer`.
 `contextSampleCount` optionally prepends retained PCM history; the scheduled
 window excludes that context. Silero uses 64 context samples plus 512 fresh
 samples and a single `[1,1]` probability output (no `speechClassIndex`).
-
-OpChain `1.2.0` also adds YoloParser `outputFormat: "cornerClassScores"` and
-`maxDetections` for `[1,N,4+C]` outputs. Set the OpChain version to `"1.2.0"`
-when adopting this format and rebuild or upgrade the runtime. Existing formats
-keep their behavior; older runtimes cannot parse the new format.
 
 Model `1.1.0` adds Float32 `AudioPcm` inputs. Audio models use mono 16 kHz
 samples with a positive final sample dimension and singleton leading dimensions.
