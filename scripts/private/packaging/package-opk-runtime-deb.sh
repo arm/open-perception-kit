@@ -166,6 +166,7 @@ plugins=(
     libopkosd.so
     libopkperformance.so
     libopksink.so
+    libopksrc.so
     libopktracker.so
 )
 private_libraries=(
