@@ -1,0 +1,15 @@
+{
+  "version": "1.0.1",
+  "name": "PP-OCRv6-tiny-det",
+  "modelFile": "PP-OCRv6_tiny_det.onnx",
+  "dynamicOutput": true,
+  "inputTensors": [
+    {
+      "shape": [1, 3, 736, 736],
+      "dataKind": "ImageBgrChw",
+      "valueType": "Float32",
+      "mean": [0.485, 0.456, 0.406],
+      "std": [0.229, 0.224, 0.225]
+    }
+  ]
+}
