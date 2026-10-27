@@ -51,7 +51,7 @@ pub const OPEN_PERCEPTION_KIT_NAME: &str = "open_perception_kit";
 pub const OPEN_PERCEPTION_KIT_VERSION: &str = "0.1.2";
 /// SHA-256 identity of the complete schema set used for generation.
 pub const SCHEMA_SET_SHA256: &str =
-    "04f772ed9bceb6249cc669d26f715f5b08b1d6131e6ad1c91bd523fdd579950d";
+    "80bbe857a1d3c60d9c535c2f47a305b8b900b6ea464c81d87974ec3979e101f3";
 /// Exact FlatBuffers runtime version required by this crate.
 pub const FLATBUFFERS_VERSION_REQUIREMENT: &str = "==25.9.23";
 /// Lowest numeric key reserved for application-defined external payloads.
@@ -208,7 +208,8 @@ pub enum PayloadData {
     Payload8(crate::fb::open_perception_kit::metadata::SegmentationMasksT),
     Payload9(crate::fb::open_perception_kit::metadata::SemanticSegmentationMasksT),
     Payload10(crate::fb::open_perception_kit::metadata::TrackTracesT),
-    Payload11(crate::fb::open_perception_kit::metadata::VoiceActivityDetectionsT),
+    Payload11(crate::fb::open_perception_kit::metadata::TurnDetectionsT),
+    Payload12(crate::fb::open_perception_kit::metadata::VoiceActivityDetectionsT),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -905,10 +906,10 @@ impl EnvelopeValue for crate::fb::open_perception_kit::metadata::TrackTracesT {
     }
 }
 
-impl private::SealedPayload for crate::fb::open_perception_kit::metadata::VoiceActivityDetectionsT {}
+impl private::SealedPayload for crate::fb::open_perception_kit::metadata::TurnDetectionsT {}
 
-impl NativePayload for crate::fb::open_perception_kit::metadata::VoiceActivityDetectionsT {
-    const NAME: &'static str = "open_perception_kit.metadata.VoiceActivityDetections";
+impl NativePayload for crate::fb::open_perception_kit::metadata::TurnDetectionsT {
+    const NAME: &'static str = "open_perception_kit.metadata.TurnDetections";
 
     fn into_payload_data(self) -> PayloadData {
         PayloadData::Payload11(self)
@@ -917,6 +918,51 @@ impl NativePayload for crate::fb::open_perception_kit::metadata::VoiceActivityDe
     fn from_payload_data(data: &PayloadData) -> Option<&Self> {
         match data {
             PayloadData::Payload11(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    fn decode_payload(bytes: &[u8]) -> Result<Self, PayloadDecodeError> {
+        use crate::fb::open_perception_kit::metadata as generated;
+        if bytes.len() < 8 || !generated::turn_detections_buffer_has_identifier(bytes) {
+            return Err(PayloadDecodeError::InvalidIdentifier { expected: "TURN" });
+        }
+        generated::root_as_turn_detections(bytes)
+            .map(|value| value.unpack())
+            .map_err(|error| PayloadDecodeError::InvalidFlatbuffer(error.to_string()))
+    }
+
+    fn encode_payload(&self) -> Vec<u8> {
+        use crate::fb::open_perception_kit::metadata as generated;
+        let mut builder = flatbuffers::FlatBufferBuilder::new();
+        let root = self.pack(&mut builder);
+        generated::finish_turn_detections_buffer(&mut builder, root);
+        builder.finished_data().to_vec()
+    }
+}
+
+impl private::SealedEnvelopeValue for crate::fb::open_perception_kit::metadata::TurnDetectionsT {}
+
+impl EnvelopeValue for crate::fb::open_perception_kit::metadata::TurnDetectionsT {
+    fn append_to(self, envelope: &mut Envelope) {
+        envelope
+            .entries
+            .push(Entry::Known(self.into_payload_data()));
+    }
+}
+
+impl private::SealedPayload for crate::fb::open_perception_kit::metadata::VoiceActivityDetectionsT {}
+
+impl NativePayload for crate::fb::open_perception_kit::metadata::VoiceActivityDetectionsT {
+    const NAME: &'static str = "open_perception_kit.metadata.VoiceActivityDetections";
+
+    fn into_payload_data(self) -> PayloadData {
+        PayloadData::Payload12(self)
+    }
+
+    fn from_payload_data(data: &PayloadData) -> Option<&Self> {
+        match data {
+            PayloadData::Payload12(value) => Some(value),
             _ => None,
         }
     }
@@ -1000,6 +1046,9 @@ fn decode_known(id: u64, bytes: Vec<u8>) -> Entry {
         238211229389337861 => {
             decode_entry::<crate::fb::open_perception_kit::metadata::TrackTracesT>(id, bytes)
         }
+        3528578282400045446 => {
+            decode_entry::<crate::fb::open_perception_kit::metadata::TurnDetectionsT>(id, bytes)
+        }
         7328253118381503000 => decode_entry::<
             crate::fb::open_perception_kit::metadata::VoiceActivityDetectionsT,
         >(id, bytes),
@@ -1021,7 +1070,8 @@ fn known_type_name(data: &PayloadData) -> &'static str {
         PayloadData::Payload8(_) => "open_perception_kit.metadata.SegmentationMasks",
         PayloadData::Payload9(_) => "open_perception_kit.metadata.SemanticSegmentationMasks",
         PayloadData::Payload10(_) => "open_perception_kit.metadata.TrackTraces",
-        PayloadData::Payload11(_) => "open_perception_kit.metadata.VoiceActivityDetections",
+        PayloadData::Payload11(_) => "open_perception_kit.metadata.TurnDetections",
+        PayloadData::Payload12(_) => "open_perception_kit.metadata.VoiceActivityDetections",
     }
 }
 
@@ -1274,7 +1324,8 @@ fn encode_known(data: &PayloadData) -> (u64, Vec<u8>) {
         PayloadData::Payload8(value) => (1998909987238011535, value.encode_payload()),
         PayloadData::Payload9(value) => (1602571589628393389, value.encode_payload()),
         PayloadData::Payload10(value) => (238211229389337861, value.encode_payload()),
-        PayloadData::Payload11(value) => (7328253118381503000, value.encode_payload()),
+        PayloadData::Payload11(value) => (3528578282400045446, value.encode_payload()),
+        PayloadData::Payload12(value) => (7328253118381503000, value.encode_payload()),
     }
 }
 

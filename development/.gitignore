@@ -29,6 +29,9 @@ build-native-test/
 # Ignore all downloaded subproject directories
 subprojects/*/
 
+# Ignore Meson's subproject coordination lock
+subprojects/.wraplock
+
 # Keep wrap definitions (dependency descriptors)
 !subprojects/*.wrap
 

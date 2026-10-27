@@ -50,6 +50,7 @@ DISTANCE_SPECS: dict[str, DistanceSpec] = {
     "Classification": DistanceSpec(dc.distance_classification, threshold=0.2),
     "PersonPresence": DistanceSpec(dc.distance_person_presence, threshold=0.2),
     "VoiceActivityDetection": DistanceSpec(dc.distance_voice_activity, threshold=0.01),
+    "TurnDetection": DistanceSpec(dc.distance_turn_detection, threshold=0.01),
     "TrackTrace": DistanceSpec(dtt.distance_track_trace, threshold=0.1, skip=False),
     "ObjectEmbedding": DistanceSpec(doe.distance_object_embedding, threshold=0.2, skip=False),
 }

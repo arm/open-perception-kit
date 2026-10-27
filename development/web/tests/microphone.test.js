@@ -97,7 +97,7 @@ function setup(getUserMedia) {
     const ws = {send: message => sent.push(JSON.parse(message)), close() { this.closed = true; }};
     const client = new MicrophoneClient({
         getUserMedia: getUserMedia || (async options => {
-            assert.deepEqual(options, {audio: true, video: false});
+            assert.deepEqual(options, {audio: {echoCancellation: true}, video: false});
             return stream;
         }),
         createPeer: () => pc,

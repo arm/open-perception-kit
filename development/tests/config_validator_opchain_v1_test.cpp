@@ -43,7 +43,7 @@ opk::op::OpChainDescriptor builtInStage() {
 TEST(ConfigValidator, SileroAudioUsesOpChain12Contract) {
     const auto supported = opk::config::supportedOpChainVersion();
     ASSERT_TRUE(supported) << supported.error().toText();
-    EXPECT_EQ(*supported, "1.2.0");
+    EXPECT_EQ(*supported, "1.3.0");
 
     const auto path =
         std::filesystem::path{OPK_REPOSITORY_ROOT} / "config/models/silero-vad/opchain.json";
@@ -55,6 +55,49 @@ TEST(ConfigValidator, SileroAudioUsesOpChain12Contract) {
     const auto result = opk::config::validateOpChainJson(document.dump(), path.string());
     ASSERT_TRUE(result) << result.error().toText();
     EXPECT_EQ(nlohmann::json(*result).at("version"), document.at("version"));
+}
+
+TEST(ConfigValidator, SmartTurnUsesOpChain13Contract) {
+    for (const auto *filename : {"opchain.json", "opchain-vad.json"}) {
+        const auto path =
+            std::filesystem::path{OPK_REPOSITORY_ROOT} / "config/models/smart-turn" / filename;
+        std::ifstream input(path);
+        ASSERT_TRUE(input);
+        auto document = nlohmann::json::parse(input);
+        EXPECT_EQ(document.at("version"), "1.3.0");
+        const auto result = opk::config::validateOpChainJson(document.dump(), path.string());
+        ASSERT_TRUE(result) << result.error().toText();
+        EXPECT_EQ(nlohmann::json(*result).at("version"), "1.3.0");
+
+        auto invalid = document;
+        invalid["ops"].back()["attributes"]["threshold"] = 1.1;
+        EXPECT_FALSE(opk::config::validateOpChainJson(invalid.dump()));
+        document["version"] = "2.0.0";
+        EXPECT_FALSE(opk::config::validateOpChainJson(document.dump()));
+    }
+}
+
+TEST(ConfigValidator, RejectsInvalidTurnDetectorAttributesAndLoops) {
+    const auto path =
+        std::filesystem::path{OPK_REPOSITORY_ROOT} / "config/models/smart-turn/opchain-vad.json";
+    std::ifstream input(path);
+    ASSERT_TRUE(input);
+    const auto document = nlohmann::json::parse(input);
+    for (const auto *attribute : {"hopSampleCount", "retryMs", "maxAttempts"}) {
+        auto invalid = document;
+        invalid["ops"][3]["attributes"][attribute] = 0;
+        EXPECT_FALSE(opk::config::validateOpChainJson(invalid.dump())) << attribute;
+    }
+    auto invalid = document;
+    invalid["ops"][3]["attributes"]["silenceMs"] = -1;
+    EXPECT_FALSE(opk::config::validateOpChainJson(invalid.dump()));
+    invalid = document;
+    invalid["ops"][3]["attributes"]["unknown"] = true;
+    EXPECT_FALSE(opk::config::validateOpChainJson(invalid.dump()));
+    invalid = document;
+    for (auto &op : invalid["ops"])
+        op["loopId"] = 1;
+    EXPECT_FALSE(opk::config::validateOpChainJson(invalid.dump()));
 }
 
 TEST(ConfigValidator, OpChainModelDescriptorAcceptsFilesystemPathsOnly) {

@@ -321,22 +321,38 @@ std::optional<PcmRingBuffer::View> PcmRingBuffer::latest(size_t count) const {
     return window(end_ - count, count);
 }
 
-bool PcmRingBuffer::copyLatestPadded(std::span<float> destination) const {
-    if (destination.size() > capacity())
+bool PcmRingBuffer::copyLatestPadded(const std::span<float> destination) const {
+    return copyLatestPadded(std::span<uint8_t>(reinterpret_cast<uint8_t *>(destination.data()),
+                                               destination.size_bytes()));
+}
+
+bool PcmRingBuffer::copyLatestPadded(const std::span<uint8_t> destination) const {
+    const size_t sampleCount = destination.size() / sizeof(float);
+    if (destination.size() % sizeof(float) != 0 || sampleCount > capacity())
         return false;
     if (destination.empty())
         return true;
+    const auto *const storageBegin = reinterpret_cast<const uint8_t *>(storage_.data());
+    const auto *const storageEnd = reinterpret_cast<const uint8_t *>(storage_.data() + capacity());
     const std::less<> less;
-    if (less(destination.data(), storage_.data() + capacity()) &&
-        less(storage_.data(), destination.data() + destination.size()))
+    if (less(destination.data(), storageEnd) &&
+        less(storageBegin, destination.data() + destination.size()))
         return false;
 
-    const size_t available = std::min(destination.size(), size_);
-    const size_t padding = destination.size() - available;
+    const size_t available = std::min(sampleCount, size_);
+    const size_t paddingBytes = (sampleCount - available) * sizeof(float);
     const auto retained = latest(available);
     assert(retained.has_value()); // available never exceeds the retained sample count.
-    std::fill_n(destination.begin(), padding, 0.0f);
-    return retained->copyTo(destination.subspan(padding));
+    std::fill_n(destination.begin(), paddingBytes, uint8_t{0});
+    const auto first = retained->first();
+    const auto second = retained->second();
+    if (!first.empty())
+        std::memcpy(destination.data() + paddingBytes, first.data(), first.size_bytes());
+    if (!second.empty())
+        std::memcpy(destination.data() + paddingBytes + first.size_bytes(),
+                    second.data(),
+                    second.size_bytes());
+    return true;
 }
 
 } // namespace opk

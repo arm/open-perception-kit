@@ -396,6 +396,22 @@ PyObject *make_open_perception_kit_metadata_TrackTraces_proxy(
     const open_perception_kit::metadata::TrackTracesT *value,
     std::shared_ptr<const native_proxy_anchor> anchor);
 
+PyTypeObject &pytype_open_perception_kit_metadata_TurnDetection() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+PyObject *make_open_perception_kit_metadata_TurnDetection_proxy(
+    const open_perception_kit::metadata::TurnDetectionT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor);
+
+PyTypeObject &pytype_open_perception_kit_metadata_TurnDetections() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+PyObject *make_open_perception_kit_metadata_TurnDetections_proxy(
+    const open_perception_kit::metadata::TurnDetectionsT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor);
+
 PyTypeObject &pytype_open_perception_kit_metadata_VoiceActivityDetection() {
     static PyTypeObject type = make_py_type_object();
     return type;
@@ -543,6 +559,15 @@ PySequenceMethods &seq_open_perception_kit_metadata_TrackTraces_traces_vector() 
     return methods;
 }
 PyTypeObject &pytype_open_perception_kit_metadata_TrackTraces_traces_vector() {
+    static PyTypeObject type = make_py_type_object();
+    return type;
+}
+
+PySequenceMethods &seq_open_perception_kit_metadata_TurnDetections_detections_vector() {
+    static PySequenceMethods methods = {};
+    return methods;
+}
+PyTypeObject &pytype_open_perception_kit_metadata_TurnDetections_detections_vector() {
     static PyTypeObject type = make_py_type_object();
     return type;
 }
@@ -770,6 +795,7 @@ enum class known_payload_kind {
     kind_open_perception_kit_metadata_SegmentationMasks,
     kind_open_perception_kit_metadata_SemanticSegmentationMasks,
     kind_open_perception_kit_metadata_TrackTraces,
+    kind_open_perception_kit_metadata_TurnDetections,
     kind_open_perception_kit_metadata_VoiceActivityDetections,
 };
 
@@ -922,6 +948,11 @@ std::optional<known_payload_kind> known_payload_kind_from_type(PyObject *type_ob
                         "TrackTracesT")) {
         return known_payload_kind::kind_open_perception_kit_metadata_TrackTraces;
     }
+    if (py_type_matches(type_object,
+                        "open_perception_kit.fb.open_perception_kit.metadata.TurnDetections",
+                        "TurnDetectionsT")) {
+        return known_payload_kind::kind_open_perception_kit_metadata_TurnDetections;
+    }
     if (py_type_matches(
             type_object,
             "open_perception_kit.fb.open_perception_kit.metadata.VoiceActivityDetections",
@@ -997,6 +1028,11 @@ std::optional<known_payload_kind> known_payload_kind_from_value(PyObject *value)
                                "open_perception_kit.fb.open_perception_kit.metadata.TrackTraces",
                                "TrackTracesT")) {
         return known_payload_kind::kind_open_perception_kit_metadata_TrackTraces;
+    }
+    if (py_object_type_matches(value,
+                               "open_perception_kit.fb.open_perception_kit.metadata.TurnDetections",
+                               "TurnDetectionsT")) {
+        return known_payload_kind::kind_open_perception_kit_metadata_TurnDetections;
     }
     if (py_object_type_matches(
             value,
@@ -1202,6 +1238,9 @@ PyObject *live_envelope_count(PyObject *self, PyObject *args) {
     case known_payload_kind::kind_open_perception_kit_metadata_TrackTraces:
         return PyLong_FromSize_t(
             live->envelope->count<open_perception_kit::metadata::TrackTracesT>());
+    case known_payload_kind::kind_open_perception_kit_metadata_TurnDetections:
+        return PyLong_FromSize_t(
+            live->envelope->count<open_perception_kit::metadata::TurnDetectionsT>());
     case known_payload_kind::kind_open_perception_kit_metadata_VoiceActivityDetections:
         return PyLong_FromSize_t(
             live->envelope->count<open_perception_kit::metadata::VoiceActivityDetectionsT>());
@@ -1293,6 +1332,11 @@ PyObject *live_envelope_contains(PyObject *self, PyObject *args) {
             Py_RETURN_TRUE;
         }
         Py_RETURN_FALSE;
+    case known_payload_kind::kind_open_perception_kit_metadata_TurnDetections:
+        if (live->envelope->contains<open_perception_kit::metadata::TurnDetectionsT>()) {
+            Py_RETURN_TRUE;
+        }
+        Py_RETURN_FALSE;
     case known_payload_kind::kind_open_perception_kit_metadata_VoiceActivityDetections:
         if (live->envelope->contains<open_perception_kit::metadata::VoiceActivityDetectionsT>()) {
             Py_RETURN_TRUE;
@@ -1376,6 +1420,9 @@ PyObject *live_envelope_get(PyObject *self, PyObject *args, PyObject *kwargs) {
     case known_payload_kind::kind_open_perception_kit_metadata_TrackTraces:
         return get_known_payload<open_perception_kit::metadata::TrackTracesT>(
             *live->envelope, pytype_open_perception_kit_metadata_TrackTraces(), index);
+    case known_payload_kind::kind_open_perception_kit_metadata_TurnDetections:
+        return get_known_payload<open_perception_kit::metadata::TurnDetectionsT>(
+            *live->envelope, pytype_open_perception_kit_metadata_TurnDetections(), index);
     case known_payload_kind::kind_open_perception_kit_metadata_VoiceActivityDetections:
         return get_known_payload<open_perception_kit::metadata::VoiceActivityDetectionsT>(
             *live->envelope, pytype_open_perception_kit_metadata_VoiceActivityDetections(), index);
@@ -1466,6 +1513,9 @@ PyObject *live_envelope_for_each(PyObject *self, PyObject *args) {
     case known_payload_kind::kind_open_perception_kit_metadata_TrackTraces:
         return list_known_payloads<open_perception_kit::metadata::TrackTracesT>(
             *live->envelope, pytype_open_perception_kit_metadata_TrackTraces());
+    case known_payload_kind::kind_open_perception_kit_metadata_TurnDetections:
+        return list_known_payloads<open_perception_kit::metadata::TurnDetectionsT>(
+            *live->envelope, pytype_open_perception_kit_metadata_TurnDetections());
     case known_payload_kind::kind_open_perception_kit_metadata_VoiceActivityDetections:
         return list_known_payloads<open_perception_kit::metadata::VoiceActivityDetectionsT>(
             *live->envelope, pytype_open_perception_kit_metadata_VoiceActivityDetections());
@@ -1559,6 +1609,9 @@ PyObject *live_envelope_add(PyObject *self, PyObject *args) {
     case known_payload_kind::kind_open_perception_kit_metadata_TrackTraces:
         return add_known_payload<open_perception_kit::metadata::TrackTracesT>(
             *live->envelope, value, "TRCE");
+    case known_payload_kind::kind_open_perception_kit_metadata_TurnDetections:
+        return add_known_payload<open_perception_kit::metadata::TurnDetectionsT>(
+            *live->envelope, value, "TURN");
     case known_payload_kind::kind_open_perception_kit_metadata_VoiceActivityDetections:
         return add_known_payload<open_perception_kit::metadata::VoiceActivityDetectionsT>(
             *live->envelope, value, "VACT");
@@ -2438,6 +2491,66 @@ bool ensure_open_perception_kit_metadata_TrackTraces_traces_vector_type() {
         type.tp_itemsize = 0;
         type.tp_dealloc = native_proxy_dealloc<
             std::vector<std::unique_ptr<open_perception_kit::metadata::TrackTraceT>>>;
+        type.tp_as_sequence = &sequence;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live vector proxy";
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+Py_ssize_t len_open_perception_kit_metadata_TurnDetections_detections_vector(PyObject *self) {
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
+        std::vector<std::unique_ptr<open_perception_kit::metadata::TurnDetectionT>>> *>(self);
+    const auto *vector = proxy->value;
+    if (vector == nullptr) {
+        return 0;
+    }
+    return static_cast<Py_ssize_t>(vector->size());
+}
+
+PyObject *item_open_perception_kit_metadata_TurnDetections_detections_vector(PyObject *self,
+                                                                             Py_ssize_t index) {
+    const auto *proxy = reinterpret_cast<const native_proxy_object<
+        std::vector<std::unique_ptr<open_perception_kit::metadata::TurnDetectionT>>> *>(self);
+    const auto *vector = proxy->value;
+    if (vector == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit vector proxy is invalid");
+        return nullptr;
+    }
+    if (index < 0 || static_cast<std::size_t>(index) >= vector->size()) {
+        PyErr_SetString(PyExc_IndexError, "open_perception_kit vector proxy index out of range");
+        return nullptr;
+    }
+    const auto &item = (*vector)[static_cast<std::size_t>(index)];
+    if (!item) {
+        Py_RETURN_NONE;
+    }
+    return make_open_perception_kit_metadata_TurnDetection_proxy(
+        item.get(),
+        proxy_anchor<std::vector<std::unique_ptr<open_perception_kit::metadata::TurnDetectionT>>>(
+            self));
+}
+
+bool ensure_open_perception_kit_metadata_TurnDetections_detections_vector_type() {
+    auto &type = pytype_open_perception_kit_metadata_TurnDetections_detections_vector();
+    auto &sequence = seq_open_perception_kit_metadata_TurnDetections_detections_vector();
+    if (type.tp_name == nullptr) {
+        sequence.sq_length = len_open_perception_kit_metadata_TurnDetections_detections_vector;
+        sequence.sq_item = item_open_perception_kit_metadata_TurnDetections_detections_vector;
+        type.tp_name = "open_perception_kit_bridge.open_perception_kit_metadata_TurnDetections_"
+                       "detections_vector";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<
+                   std::vector<std::unique_ptr<open_perception_kit::metadata::TurnDetectionT>>>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc = native_proxy_dealloc<
+            std::vector<std::unique_ptr<open_perception_kit::metadata::TurnDetectionT>>>;
         type.tp_as_sequence = &sequence;
         type.tp_flags = Py_TPFLAGS_DEFAULT;
         type.tp_doc = "open_perception_kit read-only live vector proxy";
@@ -5981,6 +6094,298 @@ PyObject *make_open_perception_kit_metadata_TrackTraces_proxy(
         pytype_open_perception_kit_metadata_TrackTraces(), value, std::move(anchor));
 }
 
+PyObject *get_open_perception_kit_metadata_TurnDetection_object(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::TurnDetectionT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    const auto *nested = value->object.get();
+    if (nested == nullptr) {
+        Py_RETURN_NONE;
+    }
+    return make_open_perception_kit_metadata_ObjectMeta_proxy(
+        nested, proxy_anchor<open_perception_kit::metadata::TurnDetectionT>(self));
+}
+
+PyObject *get_open_perception_kit_metadata_TurnDetection_turn_probability(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::TurnDetectionT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return PyFloat_FromDouble(static_cast<double>(value->turn_probability));
+}
+
+PyObject *get_open_perception_kit_metadata_TurnDetection_turn_complete(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::TurnDetectionT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    if (value->turn_complete) {
+        Py_RETURN_TRUE;
+    }
+    Py_RETURN_FALSE;
+}
+
+PyObject *get_open_perception_kit_metadata_TurnDetection_window_start_sample(PyObject *self,
+                                                                             void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::TurnDetectionT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_unsigned(value->window_start_sample);
+}
+
+PyObject *get_open_perception_kit_metadata_TurnDetection_window_end_sample(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::TurnDetectionT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_unsigned(value->window_end_sample);
+}
+
+PyObject *get_open_perception_kit_metadata_TurnDetection_window_start_ts_ns(PyObject *self,
+                                                                            void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::TurnDetectionT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    if (!value->window_start_ts_ns) {
+        Py_RETURN_NONE;
+    }
+    return py_long_from_unsigned(*value->window_start_ts_ns);
+}
+
+PyObject *get_open_perception_kit_metadata_TurnDetection_window_end_ts_ns(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::TurnDetectionT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    if (!value->window_end_ts_ns) {
+        Py_RETURN_NONE;
+    }
+    return py_long_from_unsigned(*value->window_end_ts_ns);
+}
+
+PyObject *get_open_perception_kit_metadata_TurnDetection_discontinuity(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::TurnDetectionT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    if (value->discontinuity) {
+        Py_RETURN_TRUE;
+    }
+    Py_RETURN_FALSE;
+}
+
+PyGetSetDef *getsets_open_perception_kit_metadata_TurnDetection() {
+    static PyGetSetDef definitions[] = {
+        {"object",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_TurnDetection_object),
+         nullptr,
+         "read-only object",
+         nullptr},
+        {"turnProbability",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_TurnDetection_turn_probability),
+         nullptr,
+         "read-only turn_probability",
+         nullptr},
+        {"turnComplete",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_TurnDetection_turn_complete),
+         nullptr,
+         "read-only turn_complete",
+         nullptr},
+        {"windowStartSample",
+         reinterpret_cast<getter>(
+             get_open_perception_kit_metadata_TurnDetection_window_start_sample),
+         nullptr,
+         "read-only window_start_sample",
+         nullptr},
+        {"windowEndSample",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_TurnDetection_window_end_sample),
+         nullptr,
+         "read-only window_end_sample",
+         nullptr},
+        {"windowStartTsNs",
+         reinterpret_cast<getter>(
+             get_open_perception_kit_metadata_TurnDetection_window_start_ts_ns),
+         nullptr,
+         "read-only window_start_ts_ns",
+         nullptr},
+        {"windowEndTsNs",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_TurnDetection_window_end_ts_ns),
+         nullptr,
+         "read-only window_end_ts_ns",
+         nullptr},
+        {"discontinuity",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_TurnDetection_discontinuity),
+         nullptr,
+         "read-only discontinuity",
+         nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr},
+    };
+    return definitions;
+}
+
+bool ensure_open_perception_kit_metadata_TurnDetection_type() {
+    auto &type = pytype_open_perception_kit_metadata_TurnDetection();
+    if (type.tp_name == nullptr) {
+        type.tp_name = "open_perception_kit_bridge.open_perception_kit_metadata_TurnDetection";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<open_perception_kit::metadata::TurnDetectionT>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc = native_proxy_dealloc<open_perception_kit::metadata::TurnDetectionT>;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live payload proxy";
+        type.tp_getset = getsets_open_perception_kit_metadata_TurnDetection();
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+PyObject *make_open_perception_kit_metadata_TurnDetection_proxy(
+    const open_perception_kit::metadata::TurnDetectionT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor) {
+    return make_native_proxy<open_perception_kit::metadata::TurnDetectionT>(
+        pytype_open_perception_kit_metadata_TurnDetection(), value, std::move(anchor));
+}
+
+PyObject *get_open_perception_kit_metadata_TurnDetections_schema_major(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::TurnDetectionsT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_unsigned(value->schema_major);
+}
+
+PyObject *get_open_perception_kit_metadata_TurnDetections_schema_minor(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::TurnDetectionsT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return py_long_from_unsigned(value->schema_minor);
+}
+
+PyObject *get_open_perception_kit_metadata_TurnDetections_layer(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::TurnDetectionsT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    const auto *nested = value->layer.get();
+    if (nested == nullptr) {
+        Py_RETURN_NONE;
+    }
+    return make_open_perception_kit_metadata_LayerInfo_proxy(
+        nested, proxy_anchor<open_perception_kit::metadata::TurnDetectionsT>(self));
+}
+
+PyObject *get_open_perception_kit_metadata_TurnDetections_detections(PyObject *self, void *) {
+    const auto *proxy = reinterpret_cast<
+        const native_proxy_object<open_perception_kit::metadata::TurnDetectionsT> *>(self);
+    const auto *value = proxy->value;
+    if (value == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "open_perception_kit payload proxy is invalid");
+        return nullptr;
+    }
+    return make_native_vector_proxy<
+        std::vector<std::unique_ptr<open_perception_kit::metadata::TurnDetectionT>>>(
+        pytype_open_perception_kit_metadata_TurnDetections_detections_vector(),
+        std::addressof(value->detections),
+        proxy_anchor<open_perception_kit::metadata::TurnDetectionsT>(self));
+}
+
+PyGetSetDef *getsets_open_perception_kit_metadata_TurnDetections() {
+    static PyGetSetDef definitions[] = {
+        {"schemaMajor",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_TurnDetections_schema_major),
+         nullptr,
+         "read-only schema_major",
+         nullptr},
+        {"schemaMinor",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_TurnDetections_schema_minor),
+         nullptr,
+         "read-only schema_minor",
+         nullptr},
+        {"layer",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_TurnDetections_layer),
+         nullptr,
+         "read-only layer",
+         nullptr},
+        {"detections",
+         reinterpret_cast<getter>(get_open_perception_kit_metadata_TurnDetections_detections),
+         nullptr,
+         "read-only detections",
+         nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr},
+    };
+    return definitions;
+}
+
+bool ensure_open_perception_kit_metadata_TurnDetections_type() {
+    auto &type = pytype_open_perception_kit_metadata_TurnDetections();
+    if (type.tp_name == nullptr) {
+        type.tp_name = "open_perception_kit_bridge.open_perception_kit_metadata_TurnDetections";
+        type.tp_basicsize =
+            sizeof(native_proxy_object<open_perception_kit::metadata::TurnDetectionsT>);
+        type.tp_itemsize = 0;
+        type.tp_dealloc = native_proxy_dealloc<open_perception_kit::metadata::TurnDetectionsT>;
+        type.tp_flags = Py_TPFLAGS_DEFAULT;
+        type.tp_doc = "open_perception_kit read-only live payload proxy";
+        type.tp_getset = getsets_open_perception_kit_metadata_TurnDetections();
+        type.tp_new = nullptr;
+    }
+
+    if ((type.tp_flags & Py_TPFLAGS_READY) != 0) {
+        return true;
+    }
+
+    return PyType_Ready(&type) >= 0;
+}
+
+PyObject *make_open_perception_kit_metadata_TurnDetections_proxy(
+    const open_perception_kit::metadata::TurnDetectionsT *value,
+    std::shared_ptr<const native_proxy_anchor> anchor) {
+    return make_native_proxy<open_perception_kit::metadata::TurnDetectionsT>(
+        pytype_open_perception_kit_metadata_TurnDetections(), value, std::move(anchor));
+}
+
 PyObject *get_open_perception_kit_metadata_VoiceActivityDetection_object(PyObject *self, void *) {
     const auto *proxy = reinterpret_cast<
         const native_proxy_object<open_perception_kit::metadata::VoiceActivityDetectionT> *>(self);
@@ -6310,6 +6715,7 @@ bool ensure_known_proxy_types() {
         !ensure_open_perception_kit_metadata_SemanticSegmentationMasks_masks_vector_type() ||
         !ensure_open_perception_kit_metadata_TrackTrace_points_vector_type() ||
         !ensure_open_perception_kit_metadata_TrackTraces_traces_vector_type() ||
+        !ensure_open_perception_kit_metadata_TurnDetections_detections_vector_type() ||
         !ensure_open_perception_kit_metadata_VoiceActivityDetections_detections_vector_type() ||
         !ensure_open_perception_kit_metadata_BoxDetection_type() ||
         !ensure_open_perception_kit_metadata_BoxDetections_type() ||
@@ -6341,6 +6747,8 @@ bool ensure_known_proxy_types() {
         !ensure_open_perception_kit_metadata_SemanticSegmentationMasks_type() ||
         !ensure_open_perception_kit_metadata_TrackTrace_type() ||
         !ensure_open_perception_kit_metadata_TrackTraces_type() ||
+        !ensure_open_perception_kit_metadata_TurnDetection_type() ||
+        !ensure_open_perception_kit_metadata_TurnDetections_type() ||
         !ensure_open_perception_kit_metadata_VoiceActivityDetection_type() ||
         !ensure_open_perception_kit_metadata_VoiceActivityDetections_type()) {
         return false;
@@ -6506,6 +6914,16 @@ bool add_known_proxy_types(PyObject *python_module) {
     if (!add_python_type(python_module,
                          pytype_open_perception_kit_metadata_TrackTraces(),
                          "open_perception_kit_metadata_TrackTraces")) {
+        return false;
+    }
+    if (!add_python_type(python_module,
+                         pytype_open_perception_kit_metadata_TurnDetection(),
+                         "open_perception_kit_metadata_TurnDetection")) {
+        return false;
+    }
+    if (!add_python_type(python_module,
+                         pytype_open_perception_kit_metadata_TurnDetections(),
+                         "open_perception_kit_metadata_TurnDetections")) {
         return false;
     }
     if (!add_python_type(python_module,

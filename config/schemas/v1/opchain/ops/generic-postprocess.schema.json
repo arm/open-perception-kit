@@ -432,6 +432,22 @@
           "default": 50
         }
       }
+    },
+    "smartTurn": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser"
+      ],
+      "properties": {
+        "parser": {
+          "const": "SmartTurnParser"
+        },
+        "threshold": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/probability",
+          "default": 0.5
+        }
+      }
     }
   },
   "if": {
@@ -489,6 +505,9 @@
           },
           {
             "$ref": "#/$defs/sileroVad"
+          },
+          {
+            "$ref": "#/$defs/smartTurn"
           }
         ]
       }

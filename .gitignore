@@ -111,6 +111,7 @@ tools/opk-menu
 tools/opk-config-check
 tools/opchain-exec
 tools/pipeline-exec
+tools/voice-pipeline
 tools/libopk-common.so
 
 core.*

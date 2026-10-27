@@ -674,6 +674,24 @@ silero_vad_parser_tests = executable(
 )
 test('silero_vad_parser_tests', silero_vad_parser_tests)
 
+turn_detector_tests = executable(
+  'turn_detector_tests',
+  ['turn_detector_test.cpp', '../ops-std/TurnDetectorOp.cpp'],
+  include_directories : [common_include, include_directories('../ops-std')],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+test('turn_detector_tests', turn_detector_tests)
+
+smart_turn_parser_tests = executable(
+  'smart_turn_parser_tests',
+  ['smart_turn_parser_test.cpp', '../ops-std/postproc/SmartTurnParser.cpp'],
+  include_directories : [common_include, include_directories('../ops-std')],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+test('smart_turn_parser_tests', smart_turn_parser_tests)
+
 generic_audio_preprocess_tests = executable(
   'generic_audio_preprocess_tests',
   ['generic_audio_preprocess_test.cpp', '../ops-std/GenericAudioPreprocessOp.cpp'],

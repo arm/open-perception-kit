@@ -154,7 +154,13 @@ class PcmRingBuffer {
     /// Returns false without writing if destination exceeds capacity() or aliases
     /// ring storage. Empty destinations succeed. Does not allocate or change history,
     /// sample positions, or resampler state.
-    bool copyLatestPadded(std::span<float> destination) const;
+    bool copyLatestPadded(const std::span<float> destination) const;
+
+    /// Copy native Float32 sample bytes with the same padding and history semantics.
+    /// Destination need not be float-aligned. Its byte count must be a multiple of
+    /// sizeof(float) and represent at most capacity() samples. Invalid sizes or
+    /// overlap with ring storage return false without writing; empty spans succeed.
+    bool copyLatestPadded(const std::span<uint8_t> destination) const;
 
   private:
     struct Converter;

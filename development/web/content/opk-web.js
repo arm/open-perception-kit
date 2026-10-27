@@ -796,7 +796,10 @@ var MicrophoneClient = class {
     };
     this.onStatus(true, "Waiting for microphone permission\u2026");
     try {
-      const stream = await this.getUserMedia({ audio: true, video: false });
+      const stream = await this.getUserMedia({
+        audio: { echoCancellation: true },
+        video: false
+      });
       if (!current()) {
         stream.getTracks().forEach((track) => track.stop());
         return;
@@ -6075,6 +6078,237 @@ var TrackTracesT = class {
   }
 };
 
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/turn-detection.js
+var TurnDetection = class _TurnDetection {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsTurnDetection(bb, obj) {
+    return (obj || new _TurnDetection()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsTurnDetection(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _TurnDetection()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  object(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? (obj || new ObjectMeta()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  turnProbability() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readFloat32(this.bb_pos + offset) : 0;
+  }
+  turnComplete() {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? !!this.bb.readInt8(this.bb_pos + offset) : false;
+  }
+  windowStartSample() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
+  }
+  windowEndSample() {
+    const offset = this.bb.__offset(this.bb_pos, 12);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : BigInt("0");
+  }
+  windowStartTsNs() {
+    const offset = this.bb.__offset(this.bb_pos, 14);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : null;
+  }
+  windowEndTsNs() {
+    const offset = this.bb.__offset(this.bb_pos, 16);
+    return offset ? this.bb.readUint64(this.bb_pos + offset) : null;
+  }
+  discontinuity() {
+    const offset = this.bb.__offset(this.bb_pos, 18);
+    return offset ? !!this.bb.readInt8(this.bb_pos + offset) : false;
+  }
+  static startTurnDetection(builder) {
+    builder.startObject(8);
+  }
+  static addObject(builder, objectOffset) {
+    builder.addFieldOffset(0, objectOffset, 0);
+  }
+  static addTurnProbability(builder, turnProbability) {
+    builder.addFieldFloat32(1, turnProbability, 0);
+  }
+  static addTurnComplete(builder, turnComplete) {
+    builder.addFieldInt8(2, +turnComplete, 0);
+  }
+  static addWindowStartSample(builder, windowStartSample) {
+    builder.addFieldInt64(3, windowStartSample, BigInt("0"));
+  }
+  static addWindowEndSample(builder, windowEndSample) {
+    builder.addFieldInt64(4, windowEndSample, BigInt("0"));
+  }
+  static addWindowStartTsNs(builder, windowStartTsNs) {
+    builder.addFieldInt64(5, windowStartTsNs, null);
+  }
+  static addWindowEndTsNs(builder, windowEndTsNs) {
+    builder.addFieldInt64(6, windowEndTsNs, null);
+  }
+  static addDiscontinuity(builder, discontinuity) {
+    builder.addFieldInt8(7, +discontinuity, 0);
+  }
+  static endTurnDetection(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createTurnDetection(builder, objectOffset, turnProbability, turnComplete, windowStartSample, windowEndSample, windowStartTsNs, windowEndTsNs, discontinuity) {
+    _TurnDetection.startTurnDetection(builder);
+    _TurnDetection.addObject(builder, objectOffset);
+    _TurnDetection.addTurnProbability(builder, turnProbability);
+    _TurnDetection.addTurnComplete(builder, turnComplete);
+    _TurnDetection.addWindowStartSample(builder, windowStartSample);
+    _TurnDetection.addWindowEndSample(builder, windowEndSample);
+    if (windowStartTsNs !== null)
+      _TurnDetection.addWindowStartTsNs(builder, windowStartTsNs);
+    if (windowEndTsNs !== null)
+      _TurnDetection.addWindowEndTsNs(builder, windowEndTsNs);
+    _TurnDetection.addDiscontinuity(builder, discontinuity);
+    return _TurnDetection.endTurnDetection(builder);
+  }
+  unpack() {
+    return new TurnDetectionT(this.object() !== null ? this.object().unpack() : null, this.turnProbability(), this.turnComplete(), this.windowStartSample(), this.windowEndSample(), this.windowStartTsNs(), this.windowEndTsNs(), this.discontinuity());
+  }
+  unpackTo(_o) {
+    _o.object = this.object() !== null ? this.object().unpack() : null;
+    _o.turnProbability = this.turnProbability();
+    _o.turnComplete = this.turnComplete();
+    _o.windowStartSample = this.windowStartSample();
+    _o.windowEndSample = this.windowEndSample();
+    _o.windowStartTsNs = this.windowStartTsNs();
+    _o.windowEndTsNs = this.windowEndTsNs();
+    _o.discontinuity = this.discontinuity();
+  }
+};
+var TurnDetectionT = class {
+  constructor(object = null, turnProbability = 0, turnComplete = false, windowStartSample = BigInt("0"), windowEndSample = BigInt("0"), windowStartTsNs = null, windowEndTsNs = null, discontinuity = false) {
+    this.object = object;
+    this.turnProbability = turnProbability;
+    this.turnComplete = turnComplete;
+    this.windowStartSample = windowStartSample;
+    this.windowEndSample = windowEndSample;
+    this.windowStartTsNs = windowStartTsNs;
+    this.windowEndTsNs = windowEndTsNs;
+    this.discontinuity = discontinuity;
+  }
+  pack(builder) {
+    const object = this.object !== null ? this.object.pack(builder) : 0;
+    return TurnDetection.createTurnDetection(builder, object, this.turnProbability, this.turnComplete, this.windowStartSample, this.windowEndSample, this.windowStartTsNs, this.windowEndTsNs, this.discontinuity);
+  }
+};
+
+// generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/turn-detections.js
+var TurnDetections = class _TurnDetections {
+  constructor() {
+    this.bb = null;
+    this.bb_pos = 0;
+  }
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsTurnDetections(bb, obj) {
+    return (obj || new _TurnDetections()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsTurnDetections(bb, obj) {
+    bb.setPosition(bb.position() + SIZE_PREFIX_LENGTH);
+    return (obj || new _TurnDetections()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static bufferHasIdentifier(bb) {
+    return bb.__has_identifier("TURN");
+  }
+  schemaMajor() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.readUint16(this.bb_pos + offset) : 1;
+  }
+  schemaMinor() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readUint16(this.bb_pos + offset) : 0;
+  }
+  layer(obj) {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? (obj || new LayerInfo()).__init(this.bb.__indirect(this.bb_pos + offset), this.bb) : null;
+  }
+  detections(index, obj) {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? (obj || new TurnDetection()).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos + offset) + index * 4), this.bb) : null;
+  }
+  detectionsLength() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
+  }
+  static startTurnDetections(builder) {
+    builder.startObject(4);
+  }
+  static addSchemaMajor(builder, schemaMajor) {
+    builder.addFieldInt16(0, schemaMajor, 1);
+  }
+  static addSchemaMinor(builder, schemaMinor) {
+    builder.addFieldInt16(1, schemaMinor, 0);
+  }
+  static addLayer(builder, layerOffset) {
+    builder.addFieldOffset(2, layerOffset, 0);
+  }
+  static addDetections(builder, detectionsOffset) {
+    builder.addFieldOffset(3, detectionsOffset, 0);
+  }
+  static createDetectionsVector(builder, data) {
+    builder.startVector(4, data.length, 4);
+    for (let i = data.length - 1; i >= 0; i--) {
+      builder.addOffset(data[i]);
+    }
+    return builder.endVector();
+  }
+  static startDetectionsVector(builder, numElems) {
+    builder.startVector(4, numElems, 4);
+  }
+  static endTurnDetections(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static finishTurnDetectionsBuffer(builder, offset) {
+    builder.finish(offset, "TURN");
+  }
+  static finishSizePrefixedTurnDetectionsBuffer(builder, offset) {
+    builder.finish(offset, "TURN", true);
+  }
+  unpack() {
+    return new TurnDetectionsT(this.schemaMajor(), this.schemaMinor(), this.layer() !== null ? this.layer().unpack() : null, this.bb.createObjList(this.detections.bind(this), this.detectionsLength()));
+  }
+  unpackTo(_o) {
+    _o.schemaMajor = this.schemaMajor();
+    _o.schemaMinor = this.schemaMinor();
+    _o.layer = this.layer() !== null ? this.layer().unpack() : null;
+    _o.detections = this.bb.createObjList(this.detections.bind(this), this.detectionsLength());
+  }
+};
+var TurnDetectionsT = class {
+  constructor(schemaMajor = 1, schemaMinor = 0, layer2 = null, detections = []) {
+    this.schemaMajor = schemaMajor;
+    this.schemaMinor = schemaMinor;
+    this.layer = layer2;
+    this.detections = detections;
+  }
+  pack(builder) {
+    const layer2 = this.layer !== null ? this.layer.pack(builder) : 0;
+    const detections = TurnDetections.createDetectionsVector(builder, builder.createObjectOffsetList(this.detections));
+    TurnDetections.startTurnDetections(builder);
+    TurnDetections.addSchemaMajor(builder, this.schemaMajor);
+    TurnDetections.addSchemaMinor(builder, this.schemaMinor);
+    TurnDetections.addLayer(builder, layer2);
+    TurnDetections.addDetections(builder, detections);
+    return TurnDetections.endTurnDetections(builder);
+  }
+};
+
 // generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/voice-activity-detection.js
 var VoiceActivityDetection = class _VoiceActivityDetection {
   constructor() {
@@ -6329,6 +6563,8 @@ var decode_1602571589628393389 = (blob) => SemanticSegmentationMasks.getRootAsSe
 var verify_1602571589628393389 = (blob) => SemanticSegmentationMasks.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_238211229389337861 = (blob) => TrackTraces.getRootAsTrackTraces(new ByteBuffer(blob)).unpack();
 var verify_238211229389337861 = (blob) => TrackTraces.bufferHasIdentifier(new ByteBuffer(blob));
+var decode_3528578282400045446 = (blob) => TurnDetections.getRootAsTurnDetections(new ByteBuffer(blob)).unpack();
+var verify_3528578282400045446 = (blob) => TurnDetections.bufferHasIdentifier(new ByteBuffer(blob));
 var decode_7328253118381503000 = (blob) => VoiceActivityDetections.getRootAsVoiceActivityDetections(new ByteBuffer(blob)).unpack();
 var verify_7328253118381503000 = (blob) => VoiceActivityDetections.bufferHasIdentifier(new ByteBuffer(blob));
 var _TYPE_REGISTRY = /* @__PURE__ */ new Map([
@@ -6420,6 +6656,14 @@ var _TYPE_REGISTRY = /* @__PURE__ */ new Map([
     decode: decode_238211229389337861,
     verify: verify_238211229389337861
   }],
+  [3528578282400045446n, {
+    name: "open_perception_kit::metadata::TurnDetections",
+    root_type: "TurnDetections",
+    qualified_root_type: "open_perception_kit.metadata.TurnDetections",
+    file_identifier: "TURN",
+    decode: decode_3528578282400045446,
+    verify: verify_3528578282400045446
+  }],
   [7328253118381503000n, {
     name: "open_perception_kit::metadata::VoiceActivityDetections",
     root_type: "VoiceActivityDetections",
@@ -6441,6 +6685,7 @@ var _CLASS_TO_ID = /* @__PURE__ */ new Map([
   [SegmentationMasksT, 1998909987238011535n],
   [SemanticSegmentationMasksT, 1602571589628393389n],
   [TrackTracesT, 238211229389337861n],
+  [TurnDetectionsT, 3528578282400045446n],
   [VoiceActivityDetectionsT, 7328253118381503000n]
 ]);
 
@@ -6459,7 +6704,7 @@ var __classPrivateFieldGet = function(receiver, state, kind, f) {
 var _ExternalKey_value;
 var SDK_NAME = "open_perception_kit";
 var SDK_VERSION = "0.1.2";
-var SCHEMA_SET_SHA256 = "04f772ed9bceb6249cc669d26f715f5b08b1d6131e6ad1c91bd523fdd579950d";
+var SCHEMA_SET_SHA256 = "80bbe857a1d3c60d9c535c2f47a305b8b900b6ea464c81d87974ec3979e101f3";
 var EXTERNAL_KEY_MIN = BigInt("9223372036854775808");
 var EXTERNAL_KEY_MASK = EXTERNAL_KEY_MIN - BigInt(1);
 var EXTERNAL_HASH_OFFSET = BigInt("14695981039346656037");

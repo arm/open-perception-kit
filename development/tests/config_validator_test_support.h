@@ -41,7 +41,9 @@ class TemporaryRepository {
   public:
     TemporaryRepository() {
         const auto suffix = std::chrono::steady_clock::now().time_since_epoch().count();
-        root_ = std::filesystem::current_path() / std::format("opk-config-validator-{}", suffix);
+        // Keep temporary fixtures off the checkout's host-mounted filesystem.
+        root_ =
+            std::filesystem::temp_directory_path() / std::format("opk-config-validator-{}", suffix);
         if (!std::filesystem::create_directory(root_))
             throw std::filesystem::filesystem_error("temporary repository path already exists",
                                                     root_,

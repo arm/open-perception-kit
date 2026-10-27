@@ -28,6 +28,7 @@ from open_perception_kit.fb.open_perception_kit.metadata.ObjectTracks import Obj
 from open_perception_kit.fb.open_perception_kit.metadata.PoseEstimations import PoseEstimationsT
 from open_perception_kit.fb.open_perception_kit.metadata.SegmentationMasks import SegmentationMasksT
 from open_perception_kit.fb.open_perception_kit.metadata.TrackTraces import TrackTracesT
+from open_perception_kit.fb.open_perception_kit.metadata.TurnDetections import TurnDetectionsT
 from open_perception_kit.fb.open_perception_kit.metadata.VoiceActivityDetections import VoiceActivityDetectionsT
 
 
@@ -255,6 +256,20 @@ def _normalize_voice_activity(detection: Any) -> dict[str, Any]:
     return {"item_type": "VoiceActivityDetection", "data": data}
 
 
+def _normalize_turn_detection(detection: Any) -> dict[str, Any]:
+    data = _object_data(detection.object)
+    data.update({
+        "turnProbability": float(detection.turnProbability),
+        "turnComplete": bool(detection.turnComplete),
+        "windowStartSample": int(detection.windowStartSample),
+        "windowEndSample": int(detection.windowEndSample),
+        "windowStartTsNs": detection.windowStartTsNs,
+        "windowEndTsNs": detection.windowEndTsNs,
+        "discontinuity": bool(detection.discontinuity),
+    })
+    return {"item_type": "TurnDetection", "data": data}
+
+
 def _normalize_pose_estimation(pose: Any) -> dict[str, Any]:
     data = _object_data(pose.object)
     data.update(
@@ -433,6 +448,10 @@ def normalize_frame_results(frame_results: FrameResults, frame_counter: int | No
     _normalize_payload_collection(
         frame_results, snapshot, VoiceActivityDetectionsT,
         "open_perception_kit.metadata.VoiceActivityDetections", "detections", _normalize_voice_activity,
+    )
+    _normalize_payload_collection(
+        frame_results, snapshot, TurnDetectionsT,
+        "open_perception_kit.metadata.TurnDetections", "detections", _normalize_turn_detection,
     )
     _normalize_payload_collection(
         frame_results, snapshot, PoseEstimationsT,

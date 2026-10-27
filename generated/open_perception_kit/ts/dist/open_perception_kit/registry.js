@@ -28,6 +28,7 @@ import { PoseEstimations as PoseEstimations_9114952555105892553, PoseEstimations
 import { SegmentationMasks as SegmentationMasks_1998909987238011535, SegmentationMasksT as SegmentationMasksT_1998909987238011535 } from './fb/open-perception-kit/metadata/segmentation-masks.js';
 import { SemanticSegmentationMasks as SemanticSegmentationMasks_1602571589628393389, SemanticSegmentationMasksT as SemanticSegmentationMasksT_1602571589628393389 } from './fb/open-perception-kit/metadata/semantic-segmentation-masks.js';
 import { TrackTraces as TrackTraces_238211229389337861, TrackTracesT as TrackTracesT_238211229389337861 } from './fb/open-perception-kit/metadata/track-traces.js';
+import { TurnDetections as TurnDetections_3528578282400045446, TurnDetectionsT as TurnDetectionsT_3528578282400045446 } from './fb/open-perception-kit/metadata/turn-detections.js';
 import { VoiceActivityDetections as VoiceActivityDetections_7328253118381503000, VoiceActivityDetectionsT as VoiceActivityDetectionsT_7328253118381503000 } from './fb/open-perception-kit/metadata/voice-activity-detections.js';
 const decode_556103652012567315 = (blob) => BoxDetections_556103652012567315.getRootAsBoxDetections(new ByteBuffer(blob)).unpack();
 const verify_556103652012567315 = (blob) => BoxDetections_556103652012567315.bufferHasIdentifier(new ByteBuffer(blob));
@@ -51,6 +52,8 @@ const decode_1602571589628393389 = (blob) => SemanticSegmentationMasks_160257158
 const verify_1602571589628393389 = (blob) => SemanticSegmentationMasks_1602571589628393389.bufferHasIdentifier(new ByteBuffer(blob));
 const decode_238211229389337861 = (blob) => TrackTraces_238211229389337861.getRootAsTrackTraces(new ByteBuffer(blob)).unpack();
 const verify_238211229389337861 = (blob) => TrackTraces_238211229389337861.bufferHasIdentifier(new ByteBuffer(blob));
+const decode_3528578282400045446 = (blob) => TurnDetections_3528578282400045446.getRootAsTurnDetections(new ByteBuffer(blob)).unpack();
+const verify_3528578282400045446 = (blob) => TurnDetections_3528578282400045446.bufferHasIdentifier(new ByteBuffer(blob));
 const decode_7328253118381503000 = (blob) => VoiceActivityDetections_7328253118381503000.getRootAsVoiceActivityDetections(new ByteBuffer(blob)).unpack();
 const verify_7328253118381503000 = (blob) => VoiceActivityDetections_7328253118381503000.bufferHasIdentifier(new ByteBuffer(blob));
 export const _TYPE_REGISTRY = new Map([
@@ -142,6 +145,14 @@ export const _TYPE_REGISTRY = new Map([
             decode: decode_238211229389337861,
             verify: verify_238211229389337861,
         }],
+    [3528578282400045446n, {
+            name: 'open_perception_kit::metadata::TurnDetections',
+            root_type: 'TurnDetections',
+            qualified_root_type: 'open_perception_kit.metadata.TurnDetections',
+            file_identifier: 'TURN',
+            decode: decode_3528578282400045446,
+            verify: verify_3528578282400045446,
+        }],
     [7328253118381503000n, {
             name: 'open_perception_kit::metadata::VoiceActivityDetections',
             root_type: 'VoiceActivityDetections',
@@ -163,5 +174,6 @@ export const _CLASS_TO_ID = new Map([
     [SegmentationMasksT_1998909987238011535, 1998909987238011535n],
     [SemanticSegmentationMasksT_1602571589628393389, 1602571589628393389n],
     [TrackTracesT_238211229389337861, 238211229389337861n],
+    [TurnDetectionsT_3528578282400045446, 3528578282400045446n],
     [VoiceActivityDetectionsT_7328253118381503000, 7328253118381503000n],
 ]);

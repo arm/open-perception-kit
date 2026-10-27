@@ -54,3 +54,14 @@ def distance_voice_activity(gt_item: dict, out_item: dict, _gt_parent_item: dict
         if gt[key] != out[key]:
             return 1.0
     return abs(gt["speechProbability"] - out["speechProbability"])
+
+
+def distance_turn_detection(gt_item: dict, out_item: dict, _gt_parent_item: dict, _out_parent_item: dict) -> float:
+    gt = gt_item["data"]
+    out = out_item["data"]
+    # Compare assessments of the same context, not just their completion probabilities.
+    for key in ("turnComplete", "windowStartSample", "windowEndSample",
+                "windowStartTsNs", "windowEndTsNs", "discontinuity"):
+        if gt[key] != out[key]:
+            return 1.0
+    return abs(gt["turnProbability"] - out["turnProbability"])
