@@ -87,6 +87,7 @@ struct ImageOpDesc {
     size_t getChannelCount() const {
         switch (kind) {
         case DataKind::ImageRgbChw:
+        case DataKind::ImageBgrChw:
             return 3;
         case DataKind::ImageRgbHwc:
             return 3;

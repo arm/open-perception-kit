@@ -61,7 +61,7 @@ struct BitmapView {
 
     /**
      * @brief Returns bytes per pixel for known image data kinds.
-     * @return 1 (gray), 3 (RGB), 4 (BGRA), or 0 for unsupported/unknown kinds.
+     * @return 1 (gray), 3 (RGB/BGR), 4 (BGRA), or 0 for unsupported/unknown kinds.
      */
     size_t getBytesPerPixel() const {
         switch (dataKind) {
@@ -69,6 +69,7 @@ struct BitmapView {
             return 1;
         case opk::DataKind::ImageRgbHwc:
         case opk::DataKind::ImageRgbChw:
+        case opk::DataKind::ImageBgrChw:
             return 3;
         case opk::DataKind::ImageBgraHwc:
             return 4;
