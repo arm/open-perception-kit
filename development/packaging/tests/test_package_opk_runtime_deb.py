@@ -1,7 +1,19 @@
 #!/usr/bin/env python3
-################################################################
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 # Copyright (C) 2026 Arm Limited. All rights reserved.
-################################################################
 
 import json
 import os
@@ -208,6 +220,10 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
             release_tool.write_text(
                 "import json, os, pathlib, shutil, sys\n"
                 "root = pathlib.Path(sys.argv[sys.argv.index('--stage-root') + 1])\n"
+                "if sys.argv[1] == 'stage-legal':\n"
+                "    (root / 'share/opk/licenses').mkdir(parents=True)\n"
+                "    (root / 'share/opk/licenses/NOTICE').write_bytes(b'Original notice\\r\\n')\n"
+                "    sys.exit(0)\n"
                 "target = root / 'share/opk/python'\n"
                 "target.mkdir(parents=True, exist_ok=True)\n"
                 "modules = ('open_perception_kit',) if '--distribution' in sys.argv "
@@ -431,6 +447,10 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
                     "GIT_COMMIT_ID",
                     "VERSION_NUMBER",
                 },
+            )
+            self.assertEqual(
+                (extracted / "usr/share/opk/licenses/NOTICE").read_bytes(),
+                b"Original notice\r\n",
             )
             packaged_executorch_root = (
                 extracted / "usr/share/opk/licenses/executorch"

@@ -694,6 +694,7 @@ class ReleaseToolTests(unittest.TestCase):
             for filename in ("LICENSE", "ThirdPartyNotices.txt"):
                 (onnx / filename).write_text("Synthetic ONNX Runtime evidence\n")
             args = SimpleNamespace(repo_root=repo, deps_root=root / "deps",
+                                   onnx_license_dir=None, executorch_license_dir=None,
                                    stage_root=root / "stage", include_python=False)
             plugin = args.stage_root / "lib/opk/opk-python-ops.so"
             plugin.parent.mkdir(parents=True)
@@ -706,6 +707,8 @@ class ReleaseToolTests(unittest.TestCase):
                 locate_file=lambda _: wheel_metadata / "METADATA",
             )
             with patch.object(release_tool.importlib.metadata, "distribution", return_value=distribution):
+                release_tool.stage_legal(args)
+            with self.assertRaises(FileExistsError):
                 release_tool.stage_legal(args)
             legal = args.stage_root / "share/opk/licenses"
             release_tool.validate_legal_documentation(args.stage_root, require_backends=False)
@@ -765,6 +768,8 @@ class ReleaseToolTests(unittest.TestCase):
                 ),
             }
             args.stage_root = root / "with-python"
+            args.onnx_license_dir = onnx.rename(root / "custom-onnx-notices")
+            args.executorch_license_dir = executorch.rename(root / "custom-executorch-notices")
             args.include_python = True
             with patch.object(release_tool.importlib.metadata, "distribution", side_effect=distributions.__getitem__):
                 release_tool.stage_legal(args)

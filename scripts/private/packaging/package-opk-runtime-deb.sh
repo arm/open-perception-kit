@@ -1,7 +1,19 @@
 #!/usr/bin/env bash
-################################################################
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 # Copyright (C) 2026 Arm Limited. All rights reserved.
-################################################################
 
 set -euo pipefail
 
@@ -464,6 +476,11 @@ done
 if [[ "${ARCHITECTURE}" == arm64 ]]; then
     shlibs_depends+=", libusb-1.0-0"
 fi
+
+"${PYTHON_RUNTIME}" "${REPO_ROOT}/scripts/release/ReleaseTool.py" \
+    stage-legal --repo-root "${REPO_ROOT}" --stage-root "${work_root}/legal" --include-python \
+    --onnx-license-dir "${ONNX_LICENSE_DIR}" --executorch-license-dir "${EXECUTORCH_LICENSE_DIR}"
+cp -a "${work_root}/legal/share/opk/licenses/." "${package_root}/usr/share/opk/licenses/"
 
 installed_size="$(du -sk "${package_root}/usr" | cut -f1)"
 cat > "${package_root}/DEBIAN/control" << EOF
