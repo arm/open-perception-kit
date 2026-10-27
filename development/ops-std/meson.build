@@ -20,6 +20,7 @@ stdops = shared_module(
     'GenericPostprocessOp.cpp',
     'GenericImagePreprocessOp.cpp',
     'GenericAudioPreprocessOp.cpp',
+    'PaddleOcrPreprocessOp.cpp',
     'InferenceControllerOp.cpp',
     'TurnDetectorOp.cpp',
 

@@ -23,6 +23,7 @@
 #include "GenericImagePreprocessOp.h"
 #include "GenericPostprocessOp.h"
 #include "InferenceControllerOp.h"
+#include "PaddleOcrPreprocessOp.h"
 #include "TurnDetectorOp.h"
 
 opk::op::Op *createOp(const std::string &opName) {
@@ -32,6 +33,8 @@ opk::op::Op *createOp(const std::string &opName) {
         return new opk::stdop::GenericAudioPreprocessOp();
     if (opName == "GenericImagePreprocess")
         return new opk::stdop::GenericImagePreprocessOp();
+    if (opName == "PaddleOcrPreprocess")
+        return new opk::stdop::PaddleOcrPreprocessOp();
     if (opName == "InferenceController")
         return new opk::stdop::InferenceControllerOp();
     if (opName == "TurnDetector")

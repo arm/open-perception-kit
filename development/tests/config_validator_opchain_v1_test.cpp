@@ -447,6 +447,80 @@ TEST(ConfigValidator, OpChainV1ValidatesBuiltInStageLoopOwnership) {
         hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v1.stage-loop"));
 }
 
+TEST(ConfigValidator, OpChainValidatesPaddleOcrPreprocessAttributes) {
+    nlohmann::json document{
+        {"version", "1.0.0"},
+        {"name", "paddle-ocr"},
+        {"description", "Validate OCR preprocessing attributes."},
+        {"ops",
+         {{{"id", "opk-std-ops/InferenceController"}},
+          {{"id", "opk-std-ops/PaddleOcrPreprocess"},
+           {"attributes", {{"mode", "detection"}, {"paddingValue", 0}}}},
+          {{"id", "opk-onnx-ops/Inference"}, {"attributes", {{"modelDescriptor", "model.json"}}}},
+          {{"id", "opk-std-ops/GenericPostprocess"}, {"attributes", {{"parser", "DummyParser"}}}}}},
+    };
+    auto &attributes = document["ops"][1]["attributes"];
+    for (const auto *mode : {"detection", "recognition"}) {
+        attributes = {{"mode", mode}, {"paddingValue", 0}};
+        const auto result = opk::config::validateOpChainJson(document.dump());
+        EXPECT_TRUE(result) << (result ? "" : result.error().toText());
+        attributes["inputImageSourceName"] = "ocr-input";
+        attributes["inputImageTensorIndex"] = 15;
+        EXPECT_TRUE(opk::config::validateOpChainJson(document.dump()));
+    }
+    const auto invalid = std::array{
+        nlohmann::json::object(),
+        nlohmann::json{{"mode", "unknown"}, {"paddingValue", 0}},
+        nlohmann::json{{"mode", 1}, {"paddingValue", 0}},
+        nlohmann::json{{"mode", "detection"}, {"paddingValue", 0}, {"inputImageTensorIndex", -1}},
+        nlohmann::json{{"mode", "detection"}, {"paddingValue", 0}, {"inputImageTensorIndex", 16}},
+        nlohmann::json{{"mode", "detection"}, {"paddingValue", 0}, {"inputImageTensorIndex", "0"}},
+        nlohmann::json{{"mode", "detection"}, {"paddingValue", 0}, {"inputImageSourceName", " "}},
+        nlohmann::json{
+            {"mode", "detection"}, {"paddingValue", 0}, {"inputImageSourceName", " padded"}},
+        nlohmann::json{{"mode", "detection"}, {"paddingValue", 0}, {"unexpected", true}},
+    };
+    for (const auto &bad : invalid) {
+        attributes = bad;
+        const auto result = opk::config::validateOpChainJson(document.dump());
+        ASSERT_FALSE(result) << bad;
+        EXPECT_TRUE(hasRule(result.error(), "schema.validation")) << bad;
+    }
+    document["ops"][1].erase("attributes");
+    EXPECT_FALSE(opk::config::validateOpChainJson(document.dump()));
+}
+
+TEST(ConfigValidator, OpChainAcceptsOcrPreprocessWithoutRelaxingStageOrderOrLoops) {
+    auto descriptor = builtInStage();
+    descriptor.ops[1].id = "opk-std-ops/PaddleOcrPreprocess";
+    descriptor.ops[1].attributes.set("mode", "recognition");
+    descriptor.ops[1].attributes.set("paddingValue", 0.0);
+    descriptor.ops.front().attributes.set("contentType", "textRegion");
+    for (auto &op : descriptor.ops)
+        op.loopId = 1;
+    EXPECT_TRUE(opk::config::validateOpChainSemantics(descriptor).ok());
+
+    descriptor.ops[2].loopId.reset();
+    EXPECT_TRUE(
+        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v1.stage-loop"));
+    descriptor.ops[2].loopId = 1;
+    std::swap(descriptor.ops[1], descriptor.ops[2]);
+    EXPECT_TRUE(
+        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v1.builtin-stage"));
+    std::swap(descriptor.ops[1], descriptor.ops[2]);
+
+    for (const auto *id :
+         {"opk-std-ops/GenericImagePreprocess", "opk-std-ops/PaddleOcrPreprocess"}) {
+        auto duplicate = descriptor;
+        duplicate.ops.insert(duplicate.ops.end() - 1, {id, 1, {}});
+        EXPECT_TRUE(
+            hasRule(opk::config::validateOpChainSemantics(duplicate), "opchain.v1.builtin-stage"));
+    }
+    descriptor.ops = {{"opk-std-ops/PaddleOcrPreprocess", std::nullopt, {}}};
+    EXPECT_TRUE(
+        hasRule(opk::config::validateOpChainSemantics(descriptor), "opchain.v1.builtin-stage"));
+}
+
 TEST(ConfigValidator, OpChainV1ValidatesEffectiveThresholdOrder) {
     opk::op::OpChainDescriptor descriptor;
     descriptor.ops = {{"opk-std-ops/GenericPostprocess", std::nullopt, {}}};

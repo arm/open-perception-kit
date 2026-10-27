@@ -361,6 +361,14 @@ runtime_pipeline_tests = executable(
   link_with : [opk_runtime, common],
 )
 
+paddle_ocr_preprocess_tests = executable(
+  'paddle_ocr_preprocess_tests',
+  ['paddle_ocr_preprocess_test.cpp', '../ops-std/PaddleOcrPreprocessOp.cpp'],
+  include_directories : [common_include, include_directories('../ops-std')],
+  dependencies : [gtest_main_dep, gtest_dep, opk_deps],
+  link_with : [common],
+)
+
 image_conversion_oracle_test = executable(
   'image_conversion_oracle_test',
   [
@@ -633,6 +641,7 @@ if mlwl_enabled
   )
 endif
 test('image_conversion_oracle_test', image_conversion_oracle_test)
+test('paddle_ocr_preprocess_tests', paddle_ocr_preprocess_tests)
 test(
   'python_guest_script_executor_tests',
   python,

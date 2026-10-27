@@ -30,6 +30,7 @@ config_validator_schema_manifest = [
   ['urn:arm:opk:schema:generic-audio-preprocess-op:v1', 'config/schemas/v1/opchain/ops/generic-audio-preprocess.schema.json'],
   ['urn:arm:opk:schema:turn-detector-op:v1', 'config/schemas/v1/opchain/ops/turn-detector.schema.json'],
   ['urn:arm:opk:schema:generic-image-preprocess-op:v1', 'config/schemas/v1/opchain/ops/generic-image-preprocess.schema.json'],
+  ['urn:arm:opk:schema:paddle-ocr-preprocess-op:v1', 'config/schemas/v1/opchain/ops/paddle-ocr-preprocess.schema.json'],
   ['urn:arm:opk:schema:inference-op:v1', 'config/schemas/v1/opchain/ops/inference.schema.json'],
   ['urn:arm:opk:schema:generic-postprocess-op:v1', 'config/schemas/v1/opchain/ops/generic-postprocess.schema.json'],
   ['urn:arm:opk:schema:python-script-op:v1', 'config/schemas/v1/opchain/ops/python-script.schema.json'],
