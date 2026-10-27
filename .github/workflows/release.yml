@@ -204,6 +204,25 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Build Debian packages
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          build-args: |
+            OPK_RELEASE_BUILD=true
+            HF_DOWNLOAD_CACHEBUST=${{ github.run_id }}-${{ github.run_attempt }}
+          context: ${{ env.SOURCE_DIR }}
+          platforms: ${{ matrix.platform }}
+          provenance: false
+          target: opk-debian-packages
+          outputs: type=local,dest=${{ env.SOURCE_DIR }}/dist/debian
+
+      - name: Upload Debian packages
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: opk-debian-${{ matrix.cache_tag }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.SOURCE_DIR }}/dist/debian/*.deb
+          if-no-files-found: error
+
       - name: Set up pinned Rust for open-perception-kit packaging
         if: matrix.architecture == 'aarch64'
         uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
