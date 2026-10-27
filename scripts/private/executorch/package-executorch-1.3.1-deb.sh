@@ -31,7 +31,7 @@ Options:
                         Default: $OPK_PROJECT_ROOT/deps/executorch-legal-documentation
   --output-dir DIR      Debian package output directory. Default: $OPK_PROJECT_ROOT/var
   --install-root DIR    Package installation root. Default: /opt/opk-deps
-  --revision REV        Debian package revision. Default: 2
+  --revision REV        Debian package revision. Default: 3
   --help                Show this help.
 
 Environment:
@@ -125,7 +125,7 @@ LIBTORCH_DIR="${LIBTORCH_SDK_DIR:-${OPK_PROJECT_ROOT}/deps/libtorch}"
 LEGAL_DOCUMENTATION_DIR="${EXECUTORCH_LEGAL_DOCUMENTATION_DIR:-${OPK_PROJECT_ROOT}/deps/executorch-legal-documentation}"
 OUTPUT_DIR="${EXECUTORCH_DEB_OUTPUT_DIR:-${OPK_PROJECT_ROOT}/var}"
 INSTALL_ROOT="${EXECUTORCH_DEB_INSTALL_ROOT:-/opt/opk-deps}"
-PACKAGE_REVISION="${EXECUTORCH_DEB_REVISION:-2}"
+PACKAGE_REVISION="${EXECUTORCH_DEB_REVISION:-3}"
 PACKAGE_MAINTAINER="${EXECUTORCH_DEB_MAINTAINER:-Arm Limited}"
 
 while [[ $# -gt 0 ]]; do

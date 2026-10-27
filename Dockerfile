@@ -36,7 +36,7 @@ FROM --platform=${BUILDPLATFORM} python:3.13-slim-trixie AS opk-build-base
 # Match the headers and libraries packaged by scripts/private/executorch/setup-executorch-1.3.1-deps.sh.
 ARG EXECUTORCH_VERSION=1.3.1
 # Match that SDK builder's Debian revision, including its dependency layout.
-ARG EXECUTORCH_DEB_REVISION=2
+ARG EXECUTORCH_DEB_REVISION=3
 ARG EXECUTORCH_ARTIFACTORY_SERVER=https://artifactory.arm.com:443
 ARG EXECUTORCH_ARTIFACTORY_REPOSITORY=ai-expkits-internal.opk-deb
 ARG EXECUTORCH_ARTIFACTORY_DISTRIBUTION=trixie
