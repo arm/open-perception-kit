@@ -84,8 +84,6 @@ class TurnDetectorOp : public opk::op::Op, public opk::op::OpInterfaceAudioPrepr
     const opk::op::OpInterfaceInference *inference = nullptr;
     /// Real PCM history, with capacity equal to the bound model's input sample count.
     std::unique_ptr<opk::PcmRingBuffer> history;
-    /// Contiguous model input scratch space, including leading zero padding.
-    std::vector<float> paddedWindow;
     /// Expected start of the next hop; a mismatch indicates a gap or overlap.
     std::optional<uint64_t> nextPosition;
     /// Exclusive end of the latest voiced hop since the last reset.

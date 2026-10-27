@@ -18,7 +18,6 @@
 #include "TurnDetectorOp.h"
 
 #include <algorithm>
-#include <cstring>
 
 using namespace opk::stdop;
 
@@ -37,12 +36,11 @@ opk::Result<void> TurnDetectorOp::configure(const opk::AttributeMap &attributes)
             OPK_ERROR(opk::ErrorFlag::InvalidOpChain, "TurnDetector: invalid configuration"));
 
     hopSampleCount = static_cast<size_t>(hop);
-    silenceSamples = static_cast<uint64_t>(silenceMs) * 16;
-    retrySamples = static_cast<uint64_t>(retryMs) * 16;
+    silenceSamples = static_cast<uint64_t>(silenceMs) * opk::PcmRingBuffer::frequency / 1000;
+    retrySamples = static_cast<uint64_t>(retryMs) * opk::PcmRingBuffer::frequency / 1000;
     maxAttempts = static_cast<size_t>(count);
     inference = nullptr;
     history.reset();
-    paddedWindow.clear();
     nextPosition.reset();
     lastSpeechEnd.reset();
     lastAttemptEnd.reset();
@@ -79,11 +77,15 @@ opk::Result<void> TurnDetectorOp::bind(size_t index, const std::vector<opk::op::
         return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
                                         "TurnDetector requires a fixed Float32 [1,N] PCM input"));
     const auto samples = static_cast<size_t>(input.shape.dims[1]);
-    if (hopSampleCount > samples || silenceSamples >= samples)
-        return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
-                                        "TurnDetector hop/silence must fit in the model window"));
+    // Assessments happen on whole silent hops, including at least one for zero delay.
+    const uint64_t silenceHops =
+        std::max(uint64_t{1}, (silenceSamples + hopSampleCount - 1) / hopSampleCount);
+    if (silenceHops * hopSampleCount >= samples)
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
+                      "TurnDetector silence rounded up to full hops must be shorter than the "
+                      "model window"));
     history = std::make_unique<opk::PcmRingBuffer>(samples);
-    paddedWindow.assign(samples, 0.0f);
     reset(0);
     inference = next;
     return {};
@@ -149,10 +151,10 @@ opk::Result<opk::op::OpSignal> TurnDetectorOp::process(opk::op::OpChainContext &
         (lastAttemptEnd && window->endPosition() - *lastAttemptEnd < retrySamples))
         return OpSignal::AbortChain;
 
-    auto *destination = inference->getTensorDataAddress(0);
-    if (!destination || !history->copyLatestPadded(paddedWindow))
+    auto *const destination = inference->getTensorDataAddress(0);
+    const size_t bytes = history->capacity() * sizeof(float);
+    if (!destination || !history->copyLatestPadded(std::span<uint8_t>{destination, bytes}))
         return invalid("TurnDetector could not prepare the model PCM input");
-    std::memcpy(destination, paddedWindow.data(), paddedWindow.size() * sizeof(float));
     lastAttemptEnd = window->endPosition();
     ++attempts;
 
@@ -165,7 +167,8 @@ opk::Result<opk::op::OpSignal> TurnDetectorOp::process(opk::op::OpChainContext &
     audio.discontinuity = pendingDiscontinuity;
     pendingDiscontinuity = false;
     // Positions/timestamps cover real retained samples; front-padding has no media PTS.
-    const uint64_t durationNs = static_cast<uint64_t>(history->size()) * 62500;
+    const uint64_t durationNs =
+        static_cast<uint64_t>(history->size()) * 1'000'000'000 / opk::PcmRingBuffer::frequency;
     if (audio.windowEndTimestampNs && *audio.windowEndTimestampNs >= durationNs) {
         audio.windowStartTimestampNs = *audio.windowEndTimestampNs - durationNs;
     } else {

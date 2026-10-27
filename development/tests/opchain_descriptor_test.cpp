@@ -249,3 +249,44 @@ TEST(OpChainDescriptor, SetupRejectsInvalidSemanticsBeforePluginBinding) {
     EXPECT_EQ(result.error().flag, opk::ErrorFlag::InvalidOpChain);
     EXPECT_NE(result.error().info.find("opchain.v1.loop-group"), std::string::npos);
 }
+
+TEST(OpChainDescriptor, RejectsNonIntegerTurnDetectorAttributesBeforeStartup) {
+    for (const auto &[attribute, number] : {std::pair{"hopSampleCount", "512"},
+                                            std::pair{"silenceMs", "700"},
+                                            std::pair{"retryMs", "500"},
+                                            std::pair{"maxAttempts", "3"}}) {
+        const std::string prefix =
+            R"({"version":"1.3.0","name":"turn-notation","description":"Validate turn notation.",
+                "ops":[{"id":"opk-std-ops/TurnDetector","attributes":{")" +
+            std::string(attribute) + "\":";
+        ASSERT_TRUE(opk::op::OpChainDescriptor::fromJson(prefix + number + "}}]}"));
+
+        for (const auto *const suffix : {".0", "e0"}) {
+            const std::string json = prefix + number + suffix + "}}]}";
+            SCOPED_TRACE(json);
+            EXPECT_NO_THROW({
+                const auto parsed = opk::op::OpChainDescriptor::fromJson(json);
+                EXPECT_FALSE(parsed);
+                if (!parsed) {
+                    EXPECT_NE(parsed.error().info.find("opchain.v1.turn-detector-integer"),
+                              std::string::npos);
+                    EXPECT_NE(
+                        parsed.error().info.find(std::string("/ops/0/attributes/") + attribute),
+                        std::string::npos);
+                }
+
+                // Programmatically constructed descriptors also pass through startup validation.
+                const auto unchecked =
+                    nlohmann::json::parse(json).get<opk::op::OpChainDescriptor>();
+                opk::op::OpChain chain;
+                const auto setup = chain.setupFromDescriptor(unchecked);
+                EXPECT_FALSE(setup);
+                if (!setup) {
+                    EXPECT_EQ(setup.error().flag, opk::ErrorFlag::InvalidOpChain);
+                    EXPECT_NE(setup.error().info.find("opchain.v1.turn-detector-integer"),
+                              std::string::npos);
+                }
+            });
+        }
+    }
+}

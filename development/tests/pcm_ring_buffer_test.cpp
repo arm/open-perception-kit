@@ -70,12 +70,64 @@ TEST(PcmRingBuffer, PaddedCopyRejectsOversizeAndAliasingWithoutWriting) {
     EXPECT_FALSE(ring.copyLatestPadded(
         std::span<float>(const_cast<float *>(borrowed.data()), borrowed.size())));
     EXPECT_EQ(values(ring.view()), (std::vector<float>{1, 2, 3}));
-    EXPECT_TRUE(ring.copyLatestPadded({}));
+    EXPECT_TRUE(ring.copyLatestPadded(std::span<float>{}));
 
     opk::PcmRingBuffer zero(0);
-    EXPECT_TRUE(zero.copyLatestPadded({}));
+    EXPECT_TRUE(zero.copyLatestPadded(std::span<float>{}));
     EXPECT_FALSE(zero.copyLatestPadded(output));
     EXPECT_EQ(output, (std::vector<float>{-1, -1, -1, -1}));
+}
+
+TEST(PcmRingBuffer, CopiesPaddedAndWrappedHistoryToUnalignedBytes) {
+    opk::PcmRingBuffer ring(5);
+    // Offset a float-aligned array and guard both ends against out-of-bounds writes.
+    alignas(float) std::array<uint8_t, 5 * sizeof(float) + 2> storage;
+    storage.fill(0xa5);
+    const auto destination = std::span(storage).subspan(1, 5 * sizeof(float));
+    std::array<float, 5> output{};
+
+    ASSERT_TRUE(ring.copyLatestPadded(destination));
+    std::memcpy(output.data(), destination.data(), destination.size());
+    EXPECT_EQ(output, (std::array<float, 5>{0, 0, 0, 0, 0}));
+
+    ASSERT_TRUE(ring.append(std::vector<float>{1, 2, 3}));
+    ASSERT_TRUE(ring.copyLatestPadded(destination));
+    std::memcpy(output.data(), destination.data(), destination.size());
+    EXPECT_EQ(output, (std::array<float, 5>{0, 0, 1, 2, 3}));
+
+    ASSERT_TRUE(ring.append(std::vector<float>{4, 5, 6, 7}));
+    ASSERT_FALSE(ring.view().second().empty());
+    ASSERT_TRUE(ring.copyLatestPadded(destination));
+    std::memcpy(output.data(), destination.data(), destination.size());
+    EXPECT_EQ(output, (std::array<float, 5>{3, 4, 5, 6, 7}));
+    EXPECT_EQ(storage.front(), 0xa5);
+    EXPECT_EQ(storage.back(), 0xa5);
+    EXPECT_EQ(ring.size(), 5u);
+    EXPECT_EQ(ring.beginPosition(), 2u);
+    EXPECT_EQ(ring.endPosition(), 7u);
+}
+
+TEST(PcmRingBuffer, PaddedByteCopyRejectsInvalidSizesAndOverlapWithoutWriting) {
+    opk::PcmRingBuffer ring(3);
+    ASSERT_TRUE(ring.append(std::vector<float>{1, 2, 3}));
+    std::array<uint8_t, 4 * sizeof(float)> output;
+    output.fill(0xa5);
+    const auto unchanged = output;
+    EXPECT_FALSE(ring.copyLatestPadded(output)); // More samples than ring capacity.
+    EXPECT_EQ(output, unchanged);
+    EXPECT_FALSE(ring.copyLatestPadded(std::span(output).first(3 * sizeof(float) - 1)));
+    EXPECT_EQ(output, unchanged); // A partial sample is invalid even when it fits.
+
+    const auto borrowed = ring.view().first();
+    auto *const overlapping = reinterpret_cast<uint8_t *>(const_cast<float *>(borrowed.data()));
+    EXPECT_FALSE(ring.copyLatestPadded(std::span<uint8_t>{overlapping + 1, sizeof(float)}));
+    EXPECT_EQ(values(ring.view()), (std::vector<float>{1, 2, 3}));
+    EXPECT_TRUE(ring.copyLatestPadded(std::span<uint8_t>{}));
+
+    opk::PcmRingBuffer zero(0);
+    EXPECT_TRUE(zero.copyLatestPadded(std::span<uint8_t>{}));
+    EXPECT_FALSE(zero.copyLatestPadded(output));
+    EXPECT_EQ(output, unchanged);
 }
 
 TEST(PcmRingBuffer, ExposesOnlyReceivedSamplesAndCheckedWindows) {

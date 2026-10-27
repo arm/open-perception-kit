@@ -311,6 +311,31 @@ void validateOnnxThreadCount(ValidationReport &report,
     }
 }
 
+void validateTurnDetectorIntegers(ValidationReport &report,
+                                  const opk::op::OpChainDescriptor &descriptor,
+                                  const std::string_view source) {
+    for (std::size_t index = 0; index < descriptor.ops.size(); ++index) {
+        const auto &op = descriptor.ops[index];
+        if (op.id != "opk-std-ops/TurnDetector")
+            continue;
+
+        for (const auto *const attribute :
+             {"hopSampleCount", "silenceMs", "retryMs", "maxAttempts"}) {
+            if (!op.attributes.contains(attribute) || op.attributes.at(attribute).isInt())
+                continue;
+
+            report.issues.push_back(
+                makeIssue("opchain.v1.turn-detector-integer",
+                          ValidationPhase::Descriptor,
+                          source,
+                          std::format("/ops/{}/attributes/{}", index, attribute),
+                          std::format("{} must use integer notation, without a decimal point or "
+                                      "exponent",
+                                      attribute)));
+        }
+    }
+}
+
 void validateThresholds(ValidationReport &report,
                         const opk::op::OpChainDescriptor &descriptor,
                         std::string_view source) {
@@ -362,6 +387,7 @@ ValidationReport validateOpChainV1(const opk::op::OpChainDescriptor &descriptor,
     validateLoopGroups(report, descriptor, source);
     validateStages(report, descriptor, source);
     validateOnnxThreadCount(report, descriptor, source);
+    validateTurnDetectorIntegers(report, descriptor, source);
     validateThresholds(report, descriptor, source);
     report.sort();
     return report;

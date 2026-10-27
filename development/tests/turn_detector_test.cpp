@@ -17,6 +17,7 @@
 
 #include "TurnDetectorOp.h"
 #include <array>
+#include <cstring>
 #include <gtest/gtest.h>
 
 namespace {
@@ -45,6 +46,7 @@ class Inference : public NoOp, public opk::op::OpInterfaceInference {
   public:
     opk::Model model;
     mutable std::array<float, 256> data{};
+    uint8_t *dataAddress = reinterpret_cast<uint8_t *>(data.data());
     Inference() {
         opk::ModelInput input;
         input.dataKind = opk::DataKind::AudioPcm;
@@ -58,7 +60,7 @@ class Inference : public NoOp, public opk::op::OpInterfaceInference {
         return model;
     }
     uint8_t *getTensorDataAddress(size_t) const override {
-        return reinterpret_cast<uint8_t *>(data.data());
+        return dataAddress;
     }
 };
 
@@ -167,6 +169,22 @@ TEST_F(TurnDetector, KeepsOnlyLatestModelWindowAfterRingWraps) {
     EXPECT_EQ(context.inferenceInfo.audio.windowStartTimestampNs, 6000000u);
 }
 
+TEST_F(TurnDetector, WritesPaddedWindowDirectlyToUnalignedTensorStorage) {
+    alignas(float) std::array<uint8_t, 256 * sizeof(float) + 2> storage;
+    storage.fill(0xa5);
+    inference.dataAddress = storage.data() + 1;
+    expectStep(true, OpSignal::AbortChain);
+    expectStep(false, OpSignal::AbortChain);
+    expectStep(false, OpSignal::Continue);
+
+    std::array<float, 256> output{};
+    std::memcpy(output.data(), inference.dataAddress, sizeof(output));
+    for (size_t i = 0; i < output.size(); ++i)
+        EXPECT_FLOAT_EQ(output[i], i < 208 ? 0.0f : 0.1f);
+    EXPECT_EQ(storage.front(), 0xa5);
+    EXPECT_EQ(storage.back(), 0xa5);
+}
+
 TEST_F(TurnDetector, ResetsOnDiscontinuitiesAndGaps) {
     expectStep(true, OpSignal::AbortChain);
     expectStep(false, OpSignal::AbortChain, true);
@@ -222,6 +240,45 @@ TEST_F(TurnDetector, RejectsWrongHopAndMissingContext) {
     context.inferenceInfo.audio.hopSampleCount = 16;
     context.frameResults = nullptr;
     EXPECT_FALSE(gate.process(context));
+}
+
+TEST_F(TurnDetector, RejectsSilenceThatRoundsBeyondRetainedSpeech) {
+    inference.model.inputs[0].shape = opk::Shape(1, 128000);
+    opk::AttributeMap attrs;
+    attrs.set("hopSampleCount", int64_t{512});
+    for (const int64_t silenceMs : {0, 700, 7968}) {
+        SCOPED_TRACE(silenceMs);
+        attrs.set("silenceMs", silenceMs);
+        ASSERT_TRUE(gate.configure(attrs));
+        EXPECT_TRUE(gate.bind(1, {&vad, &gate, &inference}));
+    }
+    for (const int64_t silenceMs : {7969, 7999, 8000}) {
+        SCOPED_TRACE(silenceMs);
+        attrs.set("silenceMs", silenceMs);
+        ASSERT_TRUE(gate.configure(attrs));
+        const auto result = gate.bind(1, {&vad, &gate, &inference});
+        ASSERT_FALSE(result);
+        EXPECT_EQ(result.error().flag, opk::ErrorFlag::InvalidOpChain);
+    }
+
+    // Even zero delay needs one silent hop, which must not evict all speech.
+    attrs.set("silenceMs", int64_t{0}).set("hopSampleCount", int64_t{128000});
+    ASSERT_TRUE(gate.configure(attrs));
+    EXPECT_FALSE(gate.bind(1, {&vad, &gate, &inference}));
+}
+
+TEST_F(TurnDetector, AssessesOnLastHopBeforeSpeechLeavesHistory) {
+    opk::AttributeMap attrs;
+    attrs.set("hopSampleCount", int64_t{16}).set("silenceMs", int64_t{15});
+    ASSERT_TRUE(gate.configure(attrs));
+    ASSERT_TRUE(gate.bind(1, {&vad, &gate, &inference}));
+    expectStep(true, OpSignal::AbortChain);
+    for (int i = 0; i < 14; ++i)
+        expectStep(false, OpSignal::AbortChain);
+    expectStep(false, OpSignal::Continue); // 240 silent samples; the 16 speech samples still fit.
+    EXPECT_EQ(context.inferenceInfo.audio.windowStartSample, 0u);
+    EXPECT_EQ(context.inferenceInfo.audio.windowEndSample, 256u);
+    expectStep(false, OpSignal::AbortChain); // The following hop evicts the speech.
 }
 
 TEST_F(TurnDetector, ValidatesConfigurationAndBinding) {
