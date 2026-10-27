@@ -1,0 +1,30 @@
+{
+  "version": "1.0.1",
+  "description": "PP-OCRv6 tiny text detection and recognition on the plates video.",
+  "sourceInfo": "plates.mov; local PP-OCRv6_tiny_det.onnx and PP-OCRv6_tiny_rec.onnx required",
+  "pipeline": [
+    "filesrc location=\"${OPK_PROJECT_ROOT:-/work}/data/videos/plates.mov\" !",
+    "decodebin !",
+    "videoconvert ! video/x-raw,format=BGRA !",
+    "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/opchains/pp-ocrv6-tiny/opchain.json\" active=true !",
+    "opkperformance show-all-metrics=true update-interval=1 !",
+    "opkcomm method=websocket endpoint=/ws !",
+    "opksink name=sink"
+  ],
+  "alternative-source-image": [
+    "filesrc location=\"${OPK_PROJECT_ROOT:-/work}/data/images/my-text-image.jpg\" !",
+    "jpegdec ! imagefreeze !",
+    "videoconvert ! video/x-raw,format=BGRA !"
+  ],
+  "alternative-source-video": [
+    "filesrc location=\"${OPK_PROJECT_ROOT:-/work}/data/videos/plates.mov\" !",
+    "decodebin ! videoconvert ! video/x-raw,format=BGRA !"
+  ],
+  "alternative-source-usbcam": [
+    "v4l2src device=/dev/video0 ! image/jpeg,width=1280,height=720,framerate=30/1 !",
+    "jpegdec ! videoconvert ! video/x-raw,format=BGRA !"
+  ],
+  "alternative-sink": [
+    "fakesink sync=false"
+  ]
+}
