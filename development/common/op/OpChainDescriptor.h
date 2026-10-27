@@ -87,7 +87,7 @@ struct OpChainDescriptor {
 
     std::vector<Op> ops; ///< List of operations in the chain, in execution order.
     std::string version; ///< Preserved on serialization.
-    std::optional<ExecutionDefaults> execution{}; ///< Omitted stages default to CPU.
+    std::optional<ExecutionDefaults> execution{}; ///< Omitted stages default to Auto.
 
     /**
      * @brief Parses an OpChainDescriptor from a JSON string.
@@ -122,12 +122,14 @@ inline void to_json(nlohmann::json &j, const ExecutionMode mode) {
 
 inline void from_json(const nlohmann::json &j, ExecutionMode &mode) {
     const auto value{j.get<std::string>()};
-    if (value == "cpu")
+    if (value == "auto")
+        mode = ExecutionMode::Auto;
+    else if (value == "cpu")
         mode = ExecutionMode::Cpu;
     else if (value == "gpu")
         mode = ExecutionMode::Gpu;
     else
-        throw std::invalid_argument("Execution must be cpu or gpu");
+        throw std::invalid_argument("Execution must be auto, cpu or gpu");
 }
 
 inline void to_json(nlohmann::json &j, const ExecutionDefaults &execution) {

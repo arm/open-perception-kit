@@ -27,9 +27,11 @@ namespace opk::op {
 struct OpInterfaceGpuPreprocess {
     virtual ~OpInterfaceGpuPreprocess() = default;
 
+    /** Select explicit tensor readback before bind(), for comparison with shared storage. */
+    virtual void requestTensorReadback(const bool enabled) = 0;
     /** Prepare device resources after bind(), without accessing inference-owned state. */
     virtual Result<void> prepareDevice() = 0;
-    /** Hardware and driver identity used in the execution log. */
+    /** Hardware, driver and implementation identity used to invalidate saved selections. */
     virtual std::string identity() const = 0;
     /** Whether the last successful frame required a CPU upload of source pixels. */
     virtual bool inputCopied() const = 0;

@@ -181,14 +181,13 @@ TEST(ConfigValidator, OpChainAttributesAreOptionalExceptForDataBearingOps) {
         EXPECT_TRUE(result->ops[index].attributes.raw().empty());
 
     document["version"] = "1.1.0";
-    for (const auto *const mode : {"cpu", "gpu"}) {
+    for (const auto *const mode : {"auto", "cpu", "gpu"}) {
         document["execution"] = {
             {"preprocessing", mode}, {"inference", mode}, {"postprocessing", mode}};
         document["ops"][0]["execution"] = mode;
         EXPECT_TRUE(opk::config::validateOpChainJson(document.dump())) << mode;
     }
-    for (const auto &invalid : {nlohmann::json("auto"),
-                                nlohmann::json("GPU"),
+    for (const auto &invalid : {nlohmann::json("GPU"),
                                 nlohmann::json("unknown"),
                                 nlohmann::json(nullptr),
                                 nlohmann::json(false)}) {

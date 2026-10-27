@@ -96,7 +96,7 @@ class ImagePreprocessOp final : public op::Op, public op::OpInterfaceGpuPreproce
 
     Result<void> prepareDevice() override {
         try {
-            gpu = std::make_shared<GpuPreprocess>(tensorBytes);
+            gpu = std::make_shared<GpuPreprocess>(tensorBytes, forceTensorReadback);
         } catch (const std::exception &error) {
             return failure(error.what());
         }
@@ -174,6 +174,9 @@ class ImagePreprocessOp final : public op::Op, public op::OpInterfaceGpuPreproce
     std::string identity() const override {
         return gpu ? gpu->identity() : "vulkan/uninitialized";
     }
+    void requestTensorReadback(const bool enabled) override {
+        forceTensorReadback = enabled;
+    }
     bool inputCopied() const override {
         return copiedInput;
     }
@@ -191,6 +194,7 @@ class ImagePreprocessOp final : public op::Op, public op::OpInterfaceGpuPreproce
     Model model;
     op::OpInterfaceSharedInput *sharedInput{nullptr};
     const op::OpInterfaceInference *inference{nullptr};
+    bool forceTensorReadback{false};
     bool copiedInput{false};
     bool copiedTensor{false};
     std::shared_ptr<GpuPreprocess> gpu;

@@ -24,7 +24,7 @@
 
 namespace opk::op {
 
-/** Applies manual CPU/GPU settings while retaining inference and stateful Ops. */
+/** Selects preprocessing implementations without replacing inference or stateful Ops. */
 class ExecutionSelection {
   public:
     ExecutionSelection();
@@ -34,7 +34,7 @@ class ExecutionSelection {
 
     Result<void> configure(const OpChainDescriptor &descriptor, const std::vector<Op *> &ops);
     /** False skips inference while a forced GPU implementation is being prepared. */
-    Result<bool> prepareFrame();
+    Result<bool> prepareFrame(const OpChainContext &context);
     Result<OpSignal> process(Op &operation, OpChainContext &context);
     /** Join setup and destroy GPU Ops while keeping their libraries loaded for tensor owners. */
     void destroyInstances();

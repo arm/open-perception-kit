@@ -83,7 +83,7 @@ struct VulkanInstance {
 };
 
 std::shared_ptr<VulkanInstance> sharedInstance() {
-    // Keep the ICD loaded across OpChain teardown and reconfiguration.
+    // Keep the ICD loaded while calibration replaces device candidates.
     static const auto instance{std::make_shared<VulkanInstance>()};
     return instance;
 }
@@ -252,7 +252,7 @@ struct GpuPreprocess::State {
         return buffer;
     }
 
-    void initialize(const size_t bytes) {
+    void initialize(const size_t bytes, const bool tensorReadback) {
         tensorBytes = bytes;
         instance = sharedInstance();
         for (const auto candidate : instance->devices) {
@@ -329,10 +329,11 @@ struct GpuPreprocess::State {
         check(vkCreateDevice(physicalDevice, &deviceInfo, nullptr, &device),
               "Create Vulkan device");
         vkGetDeviceQueue(device, queueFamily, 0, &queue);
-        tensor = allocate(bytes,
-                          VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                          true,
-                          true);
+        if (!tensorReadback)
+            tensor = allocate(bytes,
+                              VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                              true,
+                              true);
         if (!tensor) {
             tensor = allocate(bytes,
                               VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
@@ -446,8 +447,9 @@ struct GpuPreprocess::State {
     }
 };
 
-GpuPreprocess::GpuPreprocess(const size_t tensorBytes) : state(std::make_unique<State>()) {
-    state->initialize(tensorBytes);
+GpuPreprocess::GpuPreprocess(const size_t tensorBytes, const bool tensorReadback)
+    : state(std::make_unique<State>()) {
+    state->initialize(tensorBytes, tensorReadback);
 }
 GpuPreprocess::~GpuPreprocess() = default;
 std::string GpuPreprocess::identity() const {

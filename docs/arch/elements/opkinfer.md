@@ -57,14 +57,19 @@ pipeline. GPU processing can import supported DMA-BUFs without a CPU mapping.
 ## Execution Preferences
 
 The [OpChain execution settings](../../public/concepts/configuration-compatibility.md#migrating-existing-configurations)
-select `cpu` or `gpu`. An Op's setting overrides its chain stage default;
-omission inherits that default, then falls back to `cpu`. A `gpu` request fails
-if that Op cannot run on the GPU. Inference and postprocessing run on CPU.
+select `auto`, `cpu` or `gpu`. An Op's setting overrides its chain stage default;
+omission inherits that default, then falls back to `auto`. Explicit `auto` can
+override a forced chain default. Forced `gpu` fails if that Op cannot run on the
+GPU. This feature adds GPU image preprocessing, not a GPU inference or
+postprocessing backend.
 
 GPU image preprocessing supports fixed-shape, single-image RGB float32 tensors
 in CHW or HWC layout. It performs crop, resize, channel conversion, packing and
-normalization. Select `cpu` when the model, device or input buffer is unsupported.
-Execution settings remain fixed while the pipeline runs.
+normalization. `auto` keeps CPU preprocessing available for unsupported models,
+devices or input buffers. It measures eligible preprocessing combinations using
+pipeline output performance, without changing forced execution settings, and
+saves the selection under `open-perception-kit/preprocessing/` in the user's
+cache directory. Cached choices remain subject to runtime capability checks.
 
 Video storage and model input storage are separate. GPU preprocessing may import
 the original DMA-BUF or upload CPU-readable pixels. Its output tensor may be

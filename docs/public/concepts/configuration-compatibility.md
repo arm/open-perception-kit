@@ -243,15 +243,16 @@ OpChain `1.1.0` adds execution preferences. Set chain defaults by stage:
 
 ```json
 "execution": {
-  "preprocessing": "gpu",
+  "preprocessing": "auto",
   "inference": "cpu",
   "postprocessing": "cpu"
 }
 ```
 
 An Op entry may set `"execution": "gpu"` alongside its `id` and `attributes`.
-The Op value overrides its chain stage default; otherwise the default is `cpu`.
-Only lowercase `cpu` and `gpu` are valid. GPU requires GPU execution;
+The Op value overrides its chain stage default; otherwise the default is `auto`.
+Explicit `auto` overrides a forced chain default. Omission inherits.
+Only lowercase `auto`, `cpu` and `gpu` are valid. GPU requires GPU execution;
 it does not guarantee shared buffers or select another inference backend.
 
 Existing OpChains need no edits. Descriptors using these fields should declare

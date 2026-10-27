@@ -118,7 +118,7 @@ TEST(OpChainDescriptor, PreservesCanonicalJsonAndAbsolutePaths) {
     EXPECT_EQ(nlohmann::json(*omitted), executionDocument);
 
     executionDocument["execution"] = {{"preprocessing", "gpu"}, {"inference", "cpu"}};
-    executionDocument["ops"][0]["execution"] = "cpu";
+    executionDocument["ops"][0]["execution"] = "auto";
     const auto configured{opk::op::OpChainDescriptor::fromJson(executionDocument.dump())};
     ASSERT_TRUE(configured);
     ASSERT_TRUE(configured->execution);
@@ -127,8 +127,8 @@ TEST(OpChainDescriptor, PreservesCanonicalJsonAndAbsolutePaths) {
     EXPECT_EQ(configured->execution->mode(opk::op::ExecutionStage::Inference),
               opk::op::ExecutionMode::Cpu);
     EXPECT_EQ(configured->execution->mode(opk::op::ExecutionStage::Postprocessing),
-              opk::op::ExecutionMode::Cpu);
-    EXPECT_EQ(configured->ops.front().execution, opk::op::ExecutionMode::Cpu);
+              opk::op::ExecutionMode::Auto);
+    EXPECT_EQ(configured->ops.front().execution, opk::op::ExecutionMode::Auto);
     EXPECT_EQ(nlohmann::json(*configured), executionDocument);
 
     executionDocument["execution"] = nlohmann::json::object();

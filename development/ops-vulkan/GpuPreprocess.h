@@ -29,7 +29,7 @@ namespace opk::vulkan {
 /** Serial compute preprocessing; its mapped tensor owns the Vulkan device until released. */
 class GpuPreprocess {
   public:
-    explicit GpuPreprocess(const size_t tensorBytes);
+    GpuPreprocess(const size_t tensorBytes, const bool tensorReadback);
     ~GpuPreprocess();
     GpuPreprocess(const GpuPreprocess &) = delete;
     GpuPreprocess &operator=(const GpuPreprocess &) = delete;

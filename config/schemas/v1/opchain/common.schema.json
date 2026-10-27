@@ -29,6 +29,7 @@
     "executionMode": {
       "type": "string",
       "enum": [
+        "auto",
         "cpu",
         "gpu"
       ]

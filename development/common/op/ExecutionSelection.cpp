@@ -22,6 +22,7 @@
 #include "op/OpRef.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <future>
 #include <optional>
@@ -30,13 +31,16 @@ namespace opk::op {
 namespace {
 constexpr std::string_view gpuLibrary{"opk-gpu-ops"};
 constexpr std::string_view imagePreprocess{"GenericImagePreprocess"};
+constexpr size_t sharedTensorVariant{0};
+constexpr size_t readbackTensorVariant{1};
+constexpr size_t tensorVariantCount{2};
 constexpr auto noWait{std::chrono::seconds::zero()};
 
 Result<void> unavailableGpu(const Op &operation, const std::string &reason) {
     return tl::unexpected(
         OPK_ERROR(ErrorFlag::InvalidOpChain,
                   fmt::format("{}: GPU execution was requested but is unavailable: {}. "
-                              "Use execution=cpu.",
+                              "Use execution=auto to allow CPU fallback, or execution=cpu.",
                               operation.instanceId,
                               reason)));
 }
@@ -51,23 +55,39 @@ std::optional<ExecutionStage> stageOf(const Op &operation) {
         return ExecutionStage::Postprocessing;
     return std::nullopt;
 }
+
+std::string frameLayout(const mediaio::VideoFrame *const frame) {
+    if (!frame)
+        return {};
+    nlohmann::json layout{{"width", frame->width()},
+                          {"height", frame->height()},
+                          {"format", static_cast<int>(frame->format())},
+                          {"memory", static_cast<int>(frame->memoryType())},
+                          {"matrix", static_cast<int>(frame->yuvColorMatrix())},
+                          {"range", static_cast<int>(frame->yuvRange())},
+                          {"planes", nlohmann::json::array()}};
+    for (const auto &plane : frame->planes())
+        layout["planes"].push_back({plane.byteSize(), plane.strideBytes(), plane.offset()});
+    return layout.dump();
+}
 } // namespace
 
 struct ExecutionSelection::State {
-    struct GpuOperation {
-        Op *original{nullptr};
-        std::unique_ptr<OpRef> replacement;
-        Op *operation{nullptr};
+    struct Variant {
+        std::unique_ptr<OpRef> operation;
         std::future<Result<void>> preparation;
         std::string failure;
         bool ready{false};
-        bool transferReported{false};
+
+        bool pending() const {
+            return preparation.valid();
+        }
 
         void collect() {
-            if (!preparation.valid() || preparation.wait_for(noWait) != std::future_status::ready)
+            if (!pending() || preparation.wait_for(noWait) != std::future_status::ready)
                 return;
             try {
-                const auto result{preparation.get()};
+                auto result = preparation.get();
                 if (result)
                     ready = true;
                 else
@@ -78,7 +98,69 @@ struct ExecutionSelection::State {
         }
     };
 
-    std::vector<GpuOperation> gpuOperations;
+    struct Preprocessor {
+        Op *cpu{nullptr};
+        AttributeMap attributes;
+        ExecutionMode requested{ExecutionMode::Auto};
+        bool useGpu{false};
+        size_t tensorVariant{sharedTensorVariant};
+        std::array<Variant, tensorVariantCount> variants;
+        std::string sourceName;
+        std::string layout;
+        std::string warning;
+        bool inputRejected{false};
+        bool transferReported{false};
+    };
+
+    std::vector<Op *> ops;
+    std::vector<Preprocessor> preprocessors;
+
+    void prepare(Preprocessor &preprocessor, const size_t variant) {
+        auto &candidate{preprocessor.variants[variant]};
+        if (candidate.operation || candidate.pending() || !candidate.failure.empty())
+            return;
+        const auto *const cpu{preprocessor.cpu};
+        auto operation{std::make_unique<OpRef>()};
+        auto result{operation->bind(std::string(gpuLibrary), std::string(imagePreprocess))};
+        if (!result) {
+            candidate.failure = result.error().toString();
+            return;
+        }
+        auto *const gpu{(*operation)->as<OpInterfaceGpuPreprocess>()};
+        if (!gpu) {
+            candidate.failure = "GPU preprocessing module has no device interface";
+            return;
+        }
+        (*operation)->libName = std::string(gpuLibrary);
+        (*operation)->opName = std::string(imagePreprocess);
+        (*operation)->instanceId = cpu->instanceId;
+        (*operation)->index = cpu->index;
+        (*operation)->loopId = cpu->loopId;
+        gpu->requestTensorReadback(variant == readbackTensorVariant);
+        result = (*operation)->configure(preprocessor.attributes);
+        if (result)
+            result = (*operation)->bind(cpu->index, ops);
+        if (!result) {
+            candidate.failure = result.error().toString();
+            return;
+        }
+        candidate.operation = std::move(operation);
+        try {
+            candidate.preparation =
+                std::async(std::launch::async, [gpu] { return gpu->prepareDevice(); });
+        } catch (const std::exception &error) {
+            candidate.failure = error.what();
+        }
+    }
+
+    static void warnCpu(Preprocessor &preprocessor, const std::string &reason) {
+        if (preprocessor.warning == reason)
+            return;
+        preprocessor.warning = reason;
+        log::warning("{}: GPU preprocessing unavailable: {}. Using CPU preprocessing.\n",
+                     preprocessor.cpu->instanceId,
+                     reason);
+    }
 };
 
 ExecutionSelection::ExecutionSelection() : state{std::make_unique<State>()} {}
@@ -86,101 +168,106 @@ ExecutionSelection::~ExecutionSelection() = default;
 
 Result<void> ExecutionSelection::configure(const OpChainDescriptor &descriptor,
                                            const std::vector<Op *> &ops) {
+    state->ops = ops;
     const auto defaults{descriptor.execution.value_or(ExecutionDefaults{})};
     for (size_t index{0}; index < ops.size(); ++index) {
         auto &operation{*ops[index]};
         const auto stage{stageOf(operation)};
         const auto mode{descriptor.ops[index].execution.value_or(stage ? defaults.mode(*stage)
-                                                                       : ExecutionMode::Cpu)};
-        const bool alreadyGpu{operation.as<OpInterfaceGpuPreprocess>() != nullptr};
-        if (mode == ExecutionMode::Cpu) {
-            if (alreadyGpu)
+                                                                       : ExecutionMode::Auto)};
+        const bool selectablePreprocess{operation.libName == "opk-std-ops" &&
+                                        operation.opName == imagePreprocess};
+        if (!selectablePreprocess) {
+            const bool alreadyGpu{operation.as<OpInterfaceGpuPreprocess>() != nullptr};
+            if (mode == ExecutionMode::Gpu && !alreadyGpu)
+                return unavailableGpu(operation, "this Op has only a CPU implementation");
+            if (mode == ExecutionMode::Cpu && alreadyGpu)
                 return tl::unexpected(OPK_ERROR(ErrorFlag::InvalidOpChain,
                                                 operation.instanceId +
                                                     ": this GPU Op cannot honor execution=cpu; "
                                                     "use opk-std-ops/GenericImagePreprocess"));
+            if (stage && mode == ExecutionMode::Auto && !alreadyGpu)
+                log::warning("{}: no GPU implementation is available; using CPU execution.\n",
+                             operation.instanceId);
             continue;
         }
-        const bool selectablePreprocess{operation.libName == "opk-std-ops" &&
-                                        operation.opName == imagePreprocess};
-        if (!selectablePreprocess && !alreadyGpu)
-            return unavailableGpu(operation, "this Op has only a CPU implementation");
-
-        State::GpuOperation selected;
-        selected.original = &operation;
-        selected.operation = &operation;
-        if (selectablePreprocess) {
-            selected.replacement = std::make_unique<OpRef>();
-            auto result{
-                selected.replacement->bind(std::string(gpuLibrary), std::string(imagePreprocess))};
-            if (!result)
-                return unavailableGpu(operation, result.error().toString());
-            selected.operation = selected.replacement->get();
-            selected.operation->libName = std::string(gpuLibrary);
-            selected.operation->opName = std::string(imagePreprocess);
-            selected.operation->instanceId = operation.instanceId;
-            selected.operation->index = operation.index;
-            selected.operation->loopId = operation.loopId;
-            result = selected.operation->configure(descriptor.ops[index].attributes);
-            if (result)
-                result = selected.operation->bind(index, ops);
-            if (!result)
-                return unavailableGpu(operation, result.error().toString());
-        }
-        auto *const gpu{selected.operation->as<OpInterfaceGpuPreprocess>()};
-        if (!gpu)
-            return unavailableGpu(operation, "GPU preprocessing module has no device interface");
-        try {
-            selected.preparation =
-                std::async(std::launch::async, [gpu] { return gpu->prepareDevice(); });
-        } catch (const std::exception &error) {
-            return unavailableGpu(operation, error.what());
-        }
-        state->gpuOperations.push_back(std::move(selected));
+        State::Preprocessor preprocessor;
+        preprocessor.cpu = &operation;
+        preprocessor.attributes = descriptor.ops[index].attributes;
+        preprocessor.requested = mode;
+        preprocessor.sourceName = preprocessor.attributes.getStringOrDefault("inputImageSourceName",
+                                                                             "pipelineVideoFrame");
+        state->preprocessors.push_back(std::move(preprocessor));
+        if (mode != ExecutionMode::Cpu)
+            state->prepare(state->preprocessors.back(), sharedTensorVariant);
     }
     return {};
 }
 
-Result<bool> ExecutionSelection::prepareFrame() {
-    bool ready{true};
-    for (auto &selected : state->gpuOperations) {
-        selected.collect();
-        if (!selected.failure.empty())
-            return tl::unexpected(unavailableGpu(*selected.original, selected.failure).error());
-        ready = ready && selected.ready;
+Result<bool> ExecutionSelection::prepareFrame(const OpChainContext &context) {
+    bool ready = true;
+    for (auto &preprocessor : state->preprocessors) {
+        const auto layout{frameLayout(context.getVideoFrame(preprocessor.sourceName))};
+        if (layout != preprocessor.layout) {
+            preprocessor.layout = layout;
+            preprocessor.inputRejected = false;
+            preprocessor.transferReported = false;
+        }
+        if (preprocessor.requested == ExecutionMode::Cpu)
+            continue;
+        auto &candidate = preprocessor.variants[preprocessor.tensorVariant];
+        candidate.collect();
+        if (!candidate.failure.empty()) {
+            if (preprocessor.requested == ExecutionMode::Gpu)
+                return tl::unexpected(unavailableGpu(*preprocessor.cpu, candidate.failure).error());
+            State::warnCpu(preprocessor, candidate.failure);
+            preprocessor.useGpu = false;
+        } else if (candidate.ready && !preprocessor.inputRejected) {
+            preprocessor.useGpu = true;
+        } else if (candidate.pending() && preprocessor.requested == ExecutionMode::Gpu) {
+            ready = false;
+        }
     }
     return ready;
 }
 
 Result<OpSignal> ExecutionSelection::process(Op &operation, OpChainContext &context) {
-    const auto found{std::ranges::find_if(state->gpuOperations, [&operation](const auto &item) {
-        return item.original == &operation;
-    })};
-    if (found == state->gpuOperations.end())
+    const auto found{std::ranges::find_if(
+        state->preprocessors, [&operation](const auto &item) { return item.cpu == &operation; })};
+    if (found == state->preprocessors.end() || !found->useGpu)
         return operation.process(context);
-    auto &selected{*found};
-    const auto result{selected.operation->process(context)};
-    if (!result)
-        return tl::unexpected(unavailableGpu(operation, result.error().toString()).error());
-    if (!selected.transferReported && *result == OpSignal::Continue) {
-        const auto *const info{selected.operation->as<OpInterfaceGpuPreprocess>()};
+    auto &preprocessor{*found};
+    auto &gpu{preprocessor.variants[preprocessor.tensorVariant].operation};
+    auto result{(*gpu)->process(context)};
+    if (!result) {
+        if (preprocessor.requested == ExecutionMode::Gpu)
+            return tl::unexpected(unavailableGpu(operation, result.error().toString()).error());
+        preprocessor.inputRejected = true;
+        preprocessor.useGpu = false;
+        State::warnCpu(preprocessor, result.error().toString());
+        return operation.process(context);
+    }
+    if (!preprocessor.transferReported && *result == OpSignal::Continue) {
+        const auto *const info = (*gpu)->as<OpInterfaceGpuPreprocess>();
         log::notice("{}: GPU preprocessing on {}; source {}, tensor {}.\n",
                     operation.instanceId,
                     info->identity(),
                     info->inputCopied() ? "uploaded" : "shared",
                     info->tensorCopied() ? "copied" : "shared");
-        selected.transferReported = true;
+        preprocessor.transferReported = true;
     }
     return result;
 }
 
 void ExecutionSelection::destroyInstances() {
-    for (auto &selected : state->gpuOperations) {
-        if (selected.preparation.valid())
-            selected.preparation.wait();
-        selected.collect();
-        if (selected.replacement)
-            selected.replacement->destroyInstance();
+    for (auto &preprocessor : state->preprocessors) {
+        for (auto &candidate : preprocessor.variants) {
+            if (candidate.pending())
+                candidate.preparation.wait();
+            candidate.collect();
+            if (candidate.operation)
+                candidate.operation->destroyInstance();
+        }
     }
 }
 

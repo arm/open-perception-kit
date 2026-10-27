@@ -243,7 +243,7 @@ opk::Result<void> OpChain::execute(opk::op::OpChainContext &opChainContext) {
     OPK_PERF_SCOPE(metricName);
 
     if (executionSelection) {
-        const auto ready{executionSelection->prepareFrame()};
+        const auto ready{executionSelection->prepareFrame(opChainContext)};
         if (!ready)
             return tl::unexpected(ready.error());
         if (!*ready)

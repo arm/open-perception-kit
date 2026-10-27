@@ -23,11 +23,13 @@
 
 namespace opk::op {
 
-enum class ExecutionMode { Cpu, Gpu };
+enum class ExecutionMode { Auto, Cpu, Gpu };
 enum class ExecutionStage { Preprocessing, Inference, Postprocessing };
 
 constexpr std::string_view toString(const ExecutionMode mode) {
     switch (mode) {
+    case ExecutionMode::Auto:
+        return "auto";
     case ExecutionMode::Cpu:
         return "cpu";
     case ExecutionMode::Gpu:
@@ -44,11 +46,11 @@ struct ExecutionDefaults {
     ExecutionMode mode(const ExecutionStage stage) const {
         switch (stage) {
         case ExecutionStage::Preprocessing:
-            return preprocessing.value_or(ExecutionMode::Cpu);
+            return preprocessing.value_or(ExecutionMode::Auto);
         case ExecutionStage::Inference:
-            return inference.value_or(ExecutionMode::Cpu);
+            return inference.value_or(ExecutionMode::Auto);
         case ExecutionStage::Postprocessing:
-            return postprocessing.value_or(ExecutionMode::Cpu);
+            return postprocessing.value_or(ExecutionMode::Auto);
         }
         throw std::invalid_argument("Invalid execution stage");
     }
