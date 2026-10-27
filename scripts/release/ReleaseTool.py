@@ -559,14 +559,14 @@ def stage_legal(args: argparse.Namespace) -> None:
         directory = check_safe_relative(wrap["wrap-file"]["directory"], "wrap directory")
         collect(name, subprojects / directory)
 
-    collect("onnxruntime", deps_root / "onnxruntime/share/doc/onnxruntime")
+    collect("onnxruntime", Path(args.onnx_license_dir or deps_root / "onnxruntime/share/doc/onnxruntime"))
     vendor = repo_root / "development/web/content/vendor"
     collect("flatbuffers", vendor / "flatbuffers")
     collect("lucide", vendor / "lucide")
     copy_legal_files(vendor / "wafer", legal_root / "wafer", ("LICENSES/Lato.txt", "LICENSES/Cousine.txt"))
 
-    executorch = deps_root / "executorch-legal-documentation"
-    if executorch.is_dir():
+    executorch = Path(args.executorch_license_dir or deps_root / "executorch-legal-documentation")
+    if args.executorch_license_dir or executorch.is_dir():
         collect("executorch", executorch)
     needs_numpy_headers = has_python_op_module(stage_root) and not args.include_python
     if needs_numpy_headers or args.include_python:
@@ -1093,6 +1093,8 @@ def main() -> int:
     stage_legal_parser = subparsers.add_parser("stage-legal")
     stage_legal_parser.add_argument("--repo-root", default=".")
     stage_legal_parser.add_argument("--deps-root", default="/opt/opk-deps")
+    stage_legal_parser.add_argument("--onnx-license-dir")
+    stage_legal_parser.add_argument("--executorch-license-dir")
     stage_legal_parser.add_argument("--stage-root", required=True)
     stage_legal_parser.add_argument("--include-python", action="store_true")
 
