@@ -122,7 +122,7 @@ The default ports are 9999 for HTTP, 8000 for outgoing WebRTC signaling,
 8001 for controls, and 8003 for microphone signaling. Stop other pipelines
 using these ports before launching the test.
 
-`opksrc` selects microphone audio after SDP negotiation and returns to silence
+`opksrc` selects microphone audio when decoded PCM arrives and returns to silence
 when the client disconnects. The audio output defaults to mono 16 kHz F32LE PCM
 before conversion and encoding by `opksink`. Set `opksrc rate=48000` for 48 kHz
 output, or select another output rate with the `rate` property while in `NULL`.
