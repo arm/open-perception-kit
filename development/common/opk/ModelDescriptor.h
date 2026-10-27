@@ -50,7 +50,7 @@ struct TensorDescriptor {
     /// Tensor element type.
     opk::Dtype dtype = opk::Dtype::Float32;
 
-    /// Per-channel mean/std normalization parameters.
+    /// Per-channel mean/std; ImageBgrChw uses r/g/b storage slots in B/G/R tensor order.
     opk::Colorf mean = {0.0f, 0.0f, 0.0f, 0.0f}, std = {1.0f, 1.0f, 1.0f, 1.0f};
 
     /// Preserve image aspect ratio during image tensor resize by letterboxing.
@@ -146,7 +146,10 @@ inline void to_json(json &j, const TensorDescriptor &b) {
 
     if (!values)
         j["shape"] = b.shape;
-    if (image) {
+    if (b.dataKind == opk::DataKind::ImageBgrChw) {
+        j["mean"] = json::array({b.mean.r, b.mean.g, b.mean.b});
+        j["std"] = json::array({b.std.r, b.std.g, b.std.b});
+    } else if (image) {
         j["keepAspectRatio"] = b.keepAspectRatio;
         if (floating) {
             j["mean"] = b.mean;

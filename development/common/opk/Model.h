@@ -52,7 +52,7 @@ struct ModelInput {
     /// Quantization arguments.
     opk::QuantizationArgs quantArguments;
 
-    /// Optional normalization mean/std values.
+    /// Optional mean/std; ImageBgrChw uses r/g/b storage slots in B/G/R tensor order.
     opk::Colorf mean = {0.0f, 0.0f, 0.0f, 0.0f}, std = {1.0f, 1.0f, 1.0f, 1.0f};
 
     /// Preserve image aspect ratio during image tensor resize by letterboxing.

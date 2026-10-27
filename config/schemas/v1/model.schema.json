@@ -448,6 +448,45 @@
       },
       "unevaluatedProperties": false
     },
+    "bgrChwInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "shape",
+        "dataKind"
+      ],
+      "properties": {
+        "shape": {
+          "$ref": "#/$defs/rgbChwShape"
+        },
+        "dataKind": {
+          "const": "ImageBgrChw"
+        },
+        "valueType": {
+          "const": "Float32",
+          "default": "Float32"
+        },
+        "mean": {
+          "description": "Normalization means in B, G, R tensor-channel order.",
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "$ref": "#/$defs/finiteFloat"
+          }
+        },
+        "std": {
+          "description": "Normalization standard deviations in B, G, R tensor-channel order.",
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "$ref": "#/$defs/finiteFloat",
+            "exclusiveMinimum": 0
+          }
+        }
+      }
+    },
     "rgbHwcUint8Input": {
       "$ref": "#/$defs/imageInputBase",
       "required": [
@@ -676,6 +715,9 @@
       "oneOf": [
         {
           "$ref": "#/$defs/rgbChwInput"
+        },
+        {
+          "$ref": "#/$defs/bgrChwInput"
         },
         {
           "$ref": "#/$defs/rgbHwcUint8Input"
