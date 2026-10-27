@@ -186,6 +186,43 @@
         }
       }
     },
+    "paddleOcrDbDetection": {
+      "title": "PaddleOcrDbDetectionParser attributes v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser",
+        "binaryThreshold",
+        "confidenceThreshold",
+        "unclipRatio",
+        "maxCandidates",
+        "minBoxSize",
+        "minExpandedBoxSize"
+      ],
+      "properties": {
+        "parser": {
+          "const": "PaddleOcrDbDetectionParser"
+        },
+        "binaryThreshold": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/probability"
+        },
+        "confidenceThreshold": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/probability"
+        },
+        "unclipRatio": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/positiveFiniteFloat"
+        },
+        "maxCandidates": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/positiveCount"
+        },
+        "minBoxSize": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/positiveFiniteFloat"
+        },
+        "minExpandedBoxSize": {
+          "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/positiveFiniteFloat"
+        }
+      }
+    },
     "paddleOcrDetection": {
       "title": "PaddleOcrDetectionParser attributes v1",
       "type": "object",
@@ -507,6 +544,9 @@
           },
           {
             "$ref": "#/$defs/modnetSegmentation"
+          },
+          {
+            "$ref": "#/$defs/paddleOcrDbDetection"
           },
           {
             "$ref": "#/$defs/paddleOcrDetection"
