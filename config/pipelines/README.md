@@ -115,8 +115,8 @@ for adapting image, video, camera, recording, and audio paths.
 
 Run `./tools/opk-menu opksrc-test`, then open `http://localhost:9999` and
 click **Mic** to request microphone access and negotiate with `opksrc`.
-The preset uses live `videotestsrc` color bars and connects `opksrc` to
-`opksink`'s audio input. It requires no model or media downloads.
+The preset connects `opksrc.video` (internal live black frames) and `opksrc.src`
+(audio) to `opksink`. It requires no model or media downloads.
 
 The default ports are 9999 for HTTP, 8000 for outgoing WebRTC signaling,
 8001 for controls, and 8003 for microphone signaling. Stop other pipelines

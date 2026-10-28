@@ -37,6 +37,14 @@ generator, followed by the output caps filter.
 The selector stays on silence until decoded microphone PCM arrives.
 Disconnecting the signaling client resets the receiver and selects silence again.
 
+## Video output
+The always-present `video` source pad currently supplies live black BGRA frames
+at 640×480 and 30 fps. Its separate branch is
+`videotestsrc pattern=black → input-selector → capsfilter → video`.
+The selector starts on black; webcam decoding and switching are not implemented
+yet. The existing `src` pad remains the audio output. The video pad can be left
+unlinked: video buffers are discarded without stopping the audio branch.
+
 ## Browser and signaling
 
 The microphone button on the [opksink](opksink.md) webpage requests permission

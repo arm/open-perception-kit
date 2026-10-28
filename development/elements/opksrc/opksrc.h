@@ -40,6 +40,8 @@ struct _GstOpkSrc {
     GstElement *selector;
     GstPad *silence_pad;
     GstPad *audio_pad;
+    GstElement *video_selector;
+    GstPad *black_pad;
     gulong pad_added_handler;
     gboolean initialized;
     OpkSrcSignaling *signaling;
@@ -48,5 +50,8 @@ struct _GstOpkSrc {
 };
 
 bool gst_opk_src_reset_webrtc(GstOpkSrc *self);
+bool gst_opk_src_init_video(GstOpkSrc *const self);
+void gst_opk_src_video_class_init(GstElementClass *const element_class);
+void gst_opk_src_dispose_video(GstOpkSrc *const self);
 
 #endif

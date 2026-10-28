@@ -1,13 +1,13 @@
 {
-  "version": "1.0.0",
-  "description": "WebRTC microphone negotiation test with generated video and silence output.",
-  "sourceInfo": "generated test pattern and browser microphone",
+  "version": "1.0.1",
+  "description": "WebRTC microphone test with opksrc internal black video and silence fallback.",
+  "sourceInfo": "opksrc black video and browser microphone",
   "loop": false,
   "pipeline": [
-    "videotestsrc is-live=true pattern=smpte !",
-    "video/x-raw,format=BGRA,width=640,height=480,framerate=30/1 !",
+    "opksrc name=source ws-port=8003",
+    "source.video ! queue !",
     "opksink name=sink",
-    "opksrc ws-port=8003 !",
+    "source.src !",
     "queue ! sink.audiosink"
   ]
 }

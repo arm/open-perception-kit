@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Exercise default silence and the receive chain without WebRTC signaling."""
+"""Exercise silence, black video, and the receive chain without WebRTC signaling."""
 
 from pathlib import Path
 import socket
@@ -63,6 +63,7 @@ def check_silence(gst, rate):
                 if previous_pts is not None:
                     assert buffer.pts > previous_pts
                 previous_pts = buffer.pts
+            assert pipeline.get_bus().pop_filtered(gst.MessageType.ERROR) is None
             release_pipeline(pipeline, gst)
     finally:
         release_pipeline(pipeline, gst)
@@ -106,8 +107,43 @@ def check_received_audio(gst, rate):
         release_pipeline(pipeline, gst)
 
 
+def check_black_video(gst):
+    pipeline = make_pipeline(gst, 16000)
+    try:
+        source = pipeline.get_by_name("source")
+        output = gst.ElementFactory.make("appsink", "video-output")
+        output.set_property("sync", False)
+        pipeline.add(output)
+        assert source.get_static_pad("video").link(output.get_static_pad("sink")) == gst.PadLinkReturn.OK
+        black = source.get_by_name("video-black")
+        selector = source.get_by_name("video-selector")
+        assert selector.get_property("active-pad") == black.get_static_pad("src").get_peer()
+        expected = gst.Caps.from_string(
+            "video/x-raw,format=BGRA,width=640,height=480,framerate=30/1"
+        )
+        for _ in range(2):
+            assert pipeline.set_state(gst.State.PLAYING) != gst.StateChangeReturn.FAILURE
+            previous_pts = None
+            for _ in range(3):
+                sample = output.emit("try-pull-sample", 5 * gst.SECOND)
+                assert sample is not None, "No black video received"
+                assert sample.get_caps().is_subset(expected), sample.get_caps().to_string()
+                buffer = sample.get_buffer()
+                assert buffer.extract_dup(0, buffer.get_size()) == bytes([0, 0, 0, 255]) * (640 * 480)
+                assert buffer.pts != gst.CLOCK_TIME_NONE
+                if previous_pts is not None:
+                    assert buffer.pts > previous_pts
+                previous_pts = buffer.pts
+            assert pipeline.get_by_name("output").emit("try-pull-sample", gst.SECOND) is not None
+            assert pipeline.get_bus().pop_filtered(gst.MessageType.ERROR) is None
+            release_pipeline(pipeline, gst)
+    finally:
+        release_pipeline(pipeline, gst)
+
+
 if __name__ == "__main__":
     gst = load_gstreamer_plugins([Path(sys.argv[1])])
+    check_black_video(gst)
     for rate in (16000, 48000, 44100):
         check_silence(gst, rate)
         check_received_audio(gst, rate)

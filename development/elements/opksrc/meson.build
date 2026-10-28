@@ -21,6 +21,7 @@ opksrc = shared_module(
   'opksrc',
   sources: [
     'opksrc.cpp',
+    'video.cpp',
     'signaling.cpp',
   ],
   include_directories: [common_include],

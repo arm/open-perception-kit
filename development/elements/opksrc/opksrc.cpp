@@ -264,6 +264,7 @@ static void gst_opk_src_dispose(GObject *object) {
         gst_element_release_request_pad(self->selector, self->audio_pad);
         gst_clear_object(&self->audio_pad);
     }
+    gst_opk_src_dispose_video(self);
     G_OBJECT_CLASS(gst_opk_src_parent_class)->dispose(object);
 }
 
@@ -322,7 +323,7 @@ static void gst_opk_src_init(GstOpkSrc *self) {
     self->ws_port = 8003;
     self->rate = 16000;
     self->signaling = new OpkSrcSignaling(self);
-    self->initialized = init_audio(self);
+    self->initialized = init_audio(self) && gst_opk_src_init_video(self);
 }
 
 static void gst_opk_src_class_init(GstOpkSrcClass *klass) {
@@ -335,6 +336,7 @@ static void gst_opk_src_class_init(GstOpkSrcClass *klass) {
     gobject_class->finalize = gst_opk_src_finalize;
     element_class->change_state = gst_opk_src_change_state;
     gst_element_class_add_static_pad_template(element_class, &src_template);
+    gst_opk_src_video_class_init(element_class);
 
     constexpr GParamFlags kRW =
         static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
