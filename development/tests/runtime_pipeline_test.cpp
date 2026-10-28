@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#include <gst/gst.h>
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -443,6 +444,85 @@ TEST(RuntimePipelinePlayback, LoopsSeekableMediaWithoutReportingEos) {
     ASSERT_EQ(waitFuture.wait_for(std::chrono::seconds(2)), std::future_status::ready);
     auto waitResult = waitFuture.get();
     EXPECT_TRUE(waitResult.has_value()) << waitResult.error().toString();
+}
+
+TEST(RuntimePipelinePlayback, InitialLoopSeekWaitsForPlaying) {
+    TemporaryWavFile media;
+    auto pipeline = opk::runtime::Pipeline::fromString(
+        "filesrc location=\"" + media.path.string() +
+        "\" ! wavparse ! identity name=loop_preroll ! fakesink sync=true");
+    ASSERT_TRUE(pipeline.has_value()) << pipeline.error().toString();
+
+    struct Preroll {
+        std::promise<void> ready, release;
+        std::shared_future<void> released = release.get_future().share();
+        std::promise<GstState> seek;
+        std::atomic<bool> captured = false, unblocked = false;
+        GstElement *parent = nullptr;
+
+        void unblock() {
+            if (!unblocked.exchange(true))
+                release.set_value();
+        }
+    } preroll;
+    auto ready = preroll.ready.get_future();
+    auto seek = preroll.seek.get_future();
+    const auto signal = g_signal_lookup("handoff", g_type_from_name("GstIdentity"));
+    const auto hook = g_signal_add_emission_hook(
+        signal,
+        0,
+        [](GSignalInvocationHint *, guint, const GValue *values, gpointer data) -> gboolean {
+            auto &state = *static_cast<Preroll *>(data);
+            auto *identity = GST_ELEMENT(g_value_get_object(values));
+            if (std::string(GST_OBJECT_NAME(identity)) != "loop_preroll" ||
+                state.captured.exchange(true))
+                return TRUE;
+            state.parent = GST_ELEMENT(gst_element_get_parent(identity));
+            GstPad *pad = gst_element_get_static_pad(identity, "src");
+            gst_pad_add_probe(
+                pad,
+                GST_PAD_PROBE_TYPE_EVENT_UPSTREAM,
+                [](GstPad *, GstPadProbeInfo *info, gpointer data) {
+                    auto &state = *static_cast<Preroll *>(data);
+                    if (GST_EVENT_TYPE(GST_PAD_PROBE_INFO_EVENT(info)) != GST_EVENT_SEEK)
+                        return GST_PAD_PROBE_OK;
+                    GstState current = GST_STATE_VOID_PENDING;
+                    gst_element_get_state(state.parent, &current, nullptr, 0);
+                    state.unblock();
+                    state.seek.set_value(current);
+                    return GST_PAD_PROBE_REMOVE;
+                },
+                data,
+                nullptr);
+            gst_object_unref(pad);
+            state.ready.set_value();
+            state.released.wait();
+            return TRUE;
+        },
+        &preroll,
+        nullptr);
+
+    const auto paused = pipeline->pause();
+    const auto prerollStatus = ready.wait_for(std::chrono::seconds(2));
+    int progressCount = 0;
+    pipeline->onProgress([&](const auto &) {
+        // Hold preroll across a bus-loop iteration that would otherwise seek too early.
+        if (++progressCount == 2)
+            preroll.unblock();
+    });
+    const auto started = pipeline->start({.loop = true});
+    const auto seekStatus = seek.wait_for(std::chrono::seconds(2));
+    preroll.unblock();
+    const auto stopped = pipeline->stop();
+    g_signal_remove_emission_hook(signal, hook);
+    gst_clear_object(&preroll.parent);
+
+    EXPECT_TRUE(paused.has_value());
+    EXPECT_TRUE(started.has_value());
+    EXPECT_TRUE(stopped.has_value());
+    ASSERT_EQ(prerollStatus, std::future_status::ready);
+    ASSERT_EQ(seekStatus, std::future_status::ready);
+    EXPECT_EQ(seek.get(), GST_STATE_PLAYING);
 }
 
 TEST(RuntimePipelinePlayback, LoopsFiniteBranchBesideIndependentLiveBranch) {

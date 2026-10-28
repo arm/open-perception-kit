@@ -1,9 +1,9 @@
 {
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Browser smoke test with a white ball on dark green for reliable detection, without downloaded demo media.",
   "sourceInfo": "GStreamer ball test pattern",
   "pipeline": [
-    "videotestsrc pattern=ball background-color=0xff008000 foreground-color=0xffffffff is-live=true num-buffers=900 !",
+    "videotestsrc pattern=ball background-color=0xff008000 foreground-color=0xffffffff is-live=true !",
     "video/x-raw,format=BGRA,width=320,height=320,framerate=30/1 !",
     "opkinfer opchain-path=\"${OPK_PROJECT_ROOT:-/work}/config/models/yolo26n-320/opchain.json\" active=true !",
     "opktracker content-type=genericObject !",
