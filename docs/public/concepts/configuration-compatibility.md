@@ -206,6 +206,12 @@ validated when the pipeline starts.
 
 ## Migrating existing configurations
 
+OpChain `1.4.0` adds YoloParser `outputFormat: "cornerClassScores"` and
+`maxDetections` for `[1,N,4+C]` outputs. Set the OpChain version to `"1.4.0"`
+when adopting this format and rebuild or upgrade the runtime. Existing formats
+keep their behavior; older runtimes cannot parse the new format. An explicit
+`maxDetections` requires `cornerClassScores`; other formats reject it.
+
 OpChain `1.3.0` adds `TurnDetector` and `SmartTurnParser`. Use `"1.3.0"`
 for chains adopting either addition and rebuild or upgrade the runtime.
 `TurnDetector` follows VAD postprocessing and precedes a single-input PCM model

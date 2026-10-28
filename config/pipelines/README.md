@@ -88,6 +88,8 @@ Full catalog presets:
 
 Focused detector and cascade presets:
 
+- `mlwl-vgf-demo` — YOLO26n-320 and UltraFace RFB-320 FP32 detection through
+  MLWL on bundled video. Both start enabled; toggle each in the web UI.
 - `ultraface-rfb-320` — UltraFace face detection on bundled video.
 - `nitec-resnet-18` — UltraFace followed by NITEC camera-contact inference on
   detected face crops.
@@ -106,10 +108,20 @@ Focused detector and cascade presets:
 - `yolo26s-320`, `yolo26s-480`, and `yolo26s-640` — YOLO26s at the selected
   input resolution on bundled video.
 
+The MLWL presets (`mlwl-vgf-demo` and `yolo26n-320-mlwl`) are for source
+checkouts. These presets and their model directories are excluded from the
+`opk-demo` Debian package.
+
+For `mlwl-vgf-demo`, enable the [MLWL backend](../../development/ops-mlwl/README.md)
+and supply the [UltraFace](../models/ultraface-rfb-320-mlwl/index.md) and
+[YOLO26n](../models/yolo26n-320-mlwl/index.md) VGF files. Select a compatible
+Vulkan runtime, then run `./scripts/run.sh mlwl-vgf-demo`. The models run
+sequentially, so enabling both increases per-frame latency.
+
 Use `full-onnx-raspicam` or `full-onnx-usb-cam` for live camera input with the
-web UI. Sample-media and full
-catalog presets include `alternative-source-*` and `alternative-sink-*` examples
-for adapting image, video, camera, recording, and audio paths.
+web UI. Sample-media ONNX and full catalog presets include `alternative-source-*`
+and `alternative-sink-*` examples for adapting image, video, camera, recording,
+and audio paths.
 
 ### WebRTC microphone test
 
