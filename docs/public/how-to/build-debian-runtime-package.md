@@ -134,9 +134,9 @@ through `OPK_PYTHON_RUNTIME_VENV` when Meson is configured.
 For MLWL, install the pinned dependency before configuring Meson:
 
 ```bash
-python3 scripts/private/install-mlwl.py /opt/opk-deps/mlwl
-export MLWorkloadLibraryForVulkan_DIR=/opt/opk-deps/mlwl/lib64/cmake/MLWorkloadLibraryForVulkan
-export CMAKE_PREFIX_PATH=/opt/opk-deps/mlwl
+python3 scripts/private/install-mlwl.py "$PWD/deps/mlwl"
+export MLWorkloadLibraryForVulkan_DIR="$PWD/deps/mlwl/lib64/cmake/MLWorkloadLibraryForVulkan"
+export CMAKE_PREFIX_PATH="$PWD/deps/mlwl"
 ```
 
 Add `-Dmlwl=enabled` to the setup command above. The package then includes the
