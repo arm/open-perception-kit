@@ -116,6 +116,8 @@ pipeline fails to start because a model is missing.
 
 For VGF inference on the CPU, configure the
 [MLWL CPU quickstart](development/ops-mlwl/README.md#cpu-quickstart) before building the container.
+For an already prepared Raspberry Pi 5 GPU image, see the
+[GPU quickstart](development/ops-mlwl/README.md#raspberry-pi-5-gpu-quickstart).
 
 ### 3. Enter the container command line
 

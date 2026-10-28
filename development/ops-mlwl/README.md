@@ -51,6 +51,32 @@ downloaded yet. Open `http://localhost:9999/` for the WebUI, or use the host's
 address when browsing from another machine. Emulation runs on the CPU and is
 intended for functional testing, not GPU performance measurements.
 
+## Raspberry Pi 5 GPU quickstart
+
+Use Docker Compose 2.24.4 or newer and a prepared OPK development image with
+MLWL, `vulkaninfo`, a compatible V3D driver and Graph/Tensor support.
+The image must select only the V3D GPU through
+its Vulkan environment. Platform preparation belongs to the image or OS provider;
+OPK does not build or patch GPU drivers. Stock Raspberry Pi OS is not sufficient.
+
+Add these settings to the checkout's `.env`, using your prepared image tag:
+
+```dotenv
+OPK_DEV_IMAGE=your-rpi5-gpu-image:tag
+OPK_MLWL_RUNTIME=rpi5-gpu
+```
+
+Run `./scripts/quick_start.sh`, then follow the normal build and
+`./scripts/run.sh mlwl-vgf-demo` steps above. Quickstart uses the image without
+rebuilding it and gives the container access to `/dev/dri/renderD128`.
+
+The preflight checks device permissions, the MLWL library, V3D selection and the
+Graph/Tensor extensions. **NOK stops quickstart with an error and a nonzero exit
+code.** `run.sh` repeats the check before starting a pipeline; there is no CPU
+fallback. This checks runtime availability, not model correctness or GPU speed.
+To check the preflight's success and failure paths in that container, run
+`python3 development/tests/mlwl_gpu_preflight_test.py`.
+
 ## Build
 
 The backend is disabled by default. In the OPK development container

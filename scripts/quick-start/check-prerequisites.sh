@@ -69,6 +69,10 @@ fi
 eval "$detect_output"
 
 # Prerequisite check functions.
+check_python3() {
+    command -v python3 > /dev/null 2>&1
+}
+
 check_docker_cli() {
     command -v docker > /dev/null 2>&1
 }
@@ -221,6 +225,7 @@ collect_required_prereqs() {
     local requirement
 
     REQUIRED_PREREQS=()
+    append_unique_requirement "python3|check_python3|python3|Python 3"
 
     for array_name in "${SELECTED_PREREQ_ARRAYS[@]}"; do
         while IFS= read -r requirement; do
