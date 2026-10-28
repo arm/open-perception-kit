@@ -527,7 +527,7 @@ test(
   args : [files('opksrc_signaling_test.py'), opksrc.full_path()],
   depends : opksrc,
   env : ['G_DEBUG=fatal-criticals'],
-  timeout : 60,
+  timeout : 90,
 )
 test('gst_video_buffer_tests', gst_video_buffer_tests)
 foreach endpoint : ['control', 'webrtc']

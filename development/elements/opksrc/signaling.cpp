@@ -32,6 +32,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -43,6 +44,8 @@
 using Server = websocketpp::server<websocketpp::config::asio>;
 using Handle = websocketpp::connection_hdl;
 using Json = nlohmann::json;
+
+constexpr gint64 kMediaTimeout = 15LL * G_USEC_PER_SEC;
 
 struct PromiseResult {
     std::mutex mutex;
@@ -90,9 +93,13 @@ invoke(GstElement *peer, const char *action, GstWebRTCSessionDescription *descri
 
 struct Session {
     std::atomic_bool active{true};
+    std::atomic<gint64> last_audio{0};
     std::shared_ptr<Server> server;
     Handle handle;
+    Server::timer_ptr watchdog;
+    gint64 grace_until = g_get_monotonic_time() + kMediaTimeout;
     gulong ice_handler = 0;
+    gulong audio_probe = 0;
     bool offered = false;
 };
 
@@ -122,6 +129,15 @@ static void on_ice(GstElement *, guint index, gchar *candidate, gpointer user_da
     send(session,
          {{"type", "candidate"},
           {"ice", {{"candidate", candidate ? candidate : ""}, {"sdpMLineIndex", index}}}});
+}
+
+static GstPadProbeReturn on_audio(GstPad *, GstPadProbeInfo *info, gpointer user_data) {
+    const auto session = static_cast<std::weak_ptr<Session> *>(user_data)->lock();
+    GstBuffer *const buffer = GST_PAD_PROBE_INFO_BUFFER(info);
+    if (session && session->active && gst_buffer_get_size(buffer) > 0) {
+        session->last_audio = g_get_monotonic_time();
+    }
+    return GST_PAD_PROBE_OK;
 }
 
 static bool supports_opus(const GstSDPMessage *sdp) {
@@ -177,6 +193,8 @@ struct OpkSrcSignaling::Impl {
             return;
         }
         session->active = false;
+        session->watchdog->cancel();
+        gst_pad_remove_probe(source->audio_pad, session->audio_probe);
         g_signal_handler_disconnect(source->webrtcbin, session->ice_handler);
         session.reset();
         if (!gst_opk_src_reset_webrtc(source)) {
@@ -187,6 +205,42 @@ struct OpkSrcSignaling::Impl {
     void close(const Handle &handle, const char *reason) {
         websocketpp::lib::error_code error;
         server->close(handle, websocketpp::close::status::policy_violation, reason, error);
+    }
+
+    void check_audio() {
+        g_rec_mutex_lock(&source->media_lock);
+        const bool playing = source->media_state == GST_STATE_PLAYING;
+        g_rec_mutex_unlock(&source->media_lock);
+
+        const auto now = g_get_monotonic_time();
+        const auto last_audio = session->last_audio.load();
+        if (last_audio) {
+            gboolean audio_active = FALSE;
+            g_object_get(source->audio_pad, "active", &audio_active, nullptr);
+            if (!audio_active) {
+                g_object_set(source->selector, "active-pad", source->audio_pad, nullptr);
+            }
+        }
+
+        if (session->offered && !playing) {
+            session->grace_until = now + kMediaTimeout;
+        }
+        const auto deadline = std::max(session->grace_until, last_audio + kMediaTimeout);
+        if (now >= deadline) {
+            close(session->handle, "Microphone audio timed out");
+            cleanup();
+            return;
+        }
+        watch();
+    }
+
+    void watch() {
+        const std::weak_ptr<Session> watched = session;
+        session->watchdog = server->set_timer(100, [this, watched](const auto &error) {
+            if (!error && !stopping && session && watched.lock() == session) {
+                check_audio();
+            }
+        });
     }
 
     void open(const Handle &handle) {
@@ -202,6 +256,12 @@ struct OpkSrcSignaling::Impl {
         session = std::make_shared<Session>();
         session->server = server;
         session->handle = handle;
+        session->audio_probe = gst_pad_add_probe(
+            source->audio_pad,
+            GST_PAD_PROBE_TYPE_BUFFER,
+            on_audio,
+            new std::weak_ptr<Session>(session),
+            [](gpointer data) { delete static_cast<std::weak_ptr<Session> *>(data); });
         session->ice_handler = g_signal_connect_data(
             source->webrtcbin,
             "on-ice-candidate",
@@ -209,6 +269,7 @@ struct OpkSrcSignaling::Impl {
             new std::weak_ptr<Session>(session),
             [](gpointer data, GClosure *) { delete static_cast<std::weak_ptr<Session> *>(data); },
             GConnectFlags(0));
+        watch();
     }
 
     void offer(const Json &message) {
@@ -248,7 +309,6 @@ struct OpkSrcSignaling::Impl {
         g_free(answer_text);
         session->offered = true;
         send(session, {{"type", "answer"}, {"sdp", answer_sdp}});
-        g_object_set(source->selector, "active-pad", source->audio_pad, nullptr);
     }
 
     void candidate(const Json &message) {
@@ -338,6 +398,9 @@ struct OpkSrcSignaling::Impl {
             if (server) {
                 server->get_io_service().post([this] {
                     websocketpp::lib::error_code error;
+                    if (session) {
+                        session->watchdog->cancel();
+                    }
                     server->stop_listening(error);
                     for (const auto &handle : connections) {
                         server->close(handle, websocketpp::close::status::going_away, "", error);
