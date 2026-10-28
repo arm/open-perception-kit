@@ -93,6 +93,7 @@ PLUGIN_NAMES = {
     "libopkosd.so",
     "libopkperformance.so",
     "libopksink.so",
+    "libopksrc.so",
     "libopktracker.so",
 }
 OP_MODULE_NAMES = {
@@ -784,7 +785,7 @@ def validate_runtime_files(package_root: Path) -> Path:
     plugins = list(plugin_root.iterdir())
     plugin_names = {path.name for path in plugins}
     if plugin_names != PLUGIN_NAMES:
-        fail(f"Plugin directory must contain exactly six plugins: {sorted(plugin_names)}")
+        fail(f"Packaged plugins must be exactly {sorted(PLUGIN_NAMES)}; found {sorted(plugin_names)}")
     if any(not is_elf(path) for path in plugins):
         fail("GStreamer plugins must be regular ELF files")
 

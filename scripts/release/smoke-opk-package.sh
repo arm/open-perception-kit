@@ -41,7 +41,7 @@ if [ -f "$package_root/lib/opk/opk-mlwl-ops.so" ]; then
         "$package_root/lib/opk/opk-mlwl-ops.so"
 fi
 for element in fakesink opusenc opkcomm opkinfer opkosd opkperformance \
-    opksink opktracker videoconvert videotestsrc vp8enc webrtcbin; do
+    opksink opksrc opktracker videoconvert videotestsrc vp8enc webrtcbin; do
     gst-inspect-1.0 "$element" > /dev/null
 done
 

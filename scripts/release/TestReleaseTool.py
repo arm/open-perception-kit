@@ -529,7 +529,7 @@ class ReleaseToolTests(unittest.TestCase):
                 architecture="x86_64", package_root=str(package_root)
             )
 
-            with self.assertRaisesRegex(RuntimeError, "exactly six plugins"):
+            with self.assertRaisesRegex(RuntimeError, "Packaged plugins must be exactly"):
                 release_tool.validate_package(arguments)
 
             (plugin_root / plugin_names[-1]).touch()
