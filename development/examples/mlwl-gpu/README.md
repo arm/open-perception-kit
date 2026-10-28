@@ -48,6 +48,11 @@ back to CPU. Successful inference prints FrameResults with seven faces.
 In a render-only container, Mesa may log `Opening ... failed` while probing
 the absent primary DRM node; compute inference still works.
 
+The RPi5 example also caps Conv2D work per dispatch to avoid the observed GPU
+progress-watchdog resets. It reuses the layer's output-offset loops without
+changing shader arithmetic or the kernel driver. Extra dispatches may slow
+inference; other model shapes and devices need separate validation.
+
 ## Orange Pi 6
 
 Build OPK with [MLWL enabled](../../ops-mlwl/README.md#build) on AArch64 and supply the same VGF. For Mali-G720 MC10, use

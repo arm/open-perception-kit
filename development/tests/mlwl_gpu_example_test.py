@@ -60,6 +60,42 @@ class Rpi5ExampleTest(unittest.TestCase):
             runtime.prepare(cache, cache / "sdk")
             run.assert_not_called()
 
+    def test_graph_patch_copies_helper_and_is_repeatable(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "graph").mkdir()
+            source = root / "graph/compute_graph_op.cpp"
+            original = '#include "compute_graph_op.hpp"\nmaxGroupCount{_maxGroupCount} {}\n'
+            source.write_text(original)
+            runtime.patch_graph(root)
+            first = source.read_bytes()
+            runtime.patch_graph(root)
+            self.assertEqual(source.read_bytes(), first)
+            self.assertIn(b"opk::rpi5::conv2dDispatchLimits(", first)
+            self.assertIn(b"_maxGroupCount, _weights->getDimensions()[1], _weights->getDimensions()[2],", first)
+            self.assertIn(b"_input->getDimensions()[3]", first)
+            self.assertEqual((root / "graph/conv2d_dispatch_limits.h").read_bytes(),
+                             Path(runtime.__file__).with_name("conv2d_dispatch_limits.h").read_bytes())
+            source.write_text(original.replace("_maxGroupCount", "changedSource"))
+            with self.assertRaises(RuntimeError):
+                runtime.patch_graph(root)
+
+    def test_runtime_fingerprint_includes_all_patch_inputs(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            names = ("prepare.py", "sources.json", "conv2d_dispatch_limits.h")
+            for name in names:
+                (root / name).write_bytes(name.encode())
+            with patch.object(runtime, "__file__", str(root / "prepare.py")):
+                original = runtime.runtime_fingerprint(b"mlwl-lock")
+                self.assertEqual(runtime.runtime_fingerprint(b"mlwl-lock"), original)
+                self.assertNotEqual(runtime.runtime_fingerprint(b"new-mlwl-lock"), original)
+                for name in names:
+                    with self.subTest(file=name):
+                        (root / name).write_bytes(b"changed")
+                        self.assertNotEqual(runtime.runtime_fingerprint(b"mlwl-lock"), original)
+                        (root / name).write_bytes(name.encode())
+
 
 if __name__ == "__main__":
     unittest.main()

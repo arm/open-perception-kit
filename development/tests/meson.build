@@ -375,6 +375,12 @@ image_conversion_oracle_test = executable(
 
 python = test_python
 test('mlwl_gpu_example_tests', python, args : files('mlwl_gpu_example_test.py'))
+conv2d_dispatch_limits_tests = executable(
+  'conv2d_dispatch_limits_tests',
+  ['conv2d_dispatch_limits_test.cpp'],
+  dependencies : [gtest_main_dep, gtest_dep],
+)
+test('conv2d_dispatch_limits_tests', conv2d_dispatch_limits_tests)
 # The distro GStreamer bindings use the distro Python ABI, not the Python Ops venv.
 gst_python = import('python').find_installation('/usr/bin/python3', modules : ['gi'])
 perception_python_sdk_path = meson.project_source_root() / '../generated/open_perception_kit/python/src'

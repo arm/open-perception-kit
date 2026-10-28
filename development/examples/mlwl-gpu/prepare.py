@@ -45,9 +45,22 @@ def patch(path, before, after):
     path.write_text(text.replace(before, after))
 
 
+def patch_graph(source):
+    header = Path(__file__).with_name("conv2d_dispatch_limits.h")
+    (source / "graph" / header.name).write_bytes(header.read_bytes())
+    graph = source / "graph/compute_graph_op.cpp"
+    patch(graph, '#include "compute_graph_op.hpp"',
+          '#include "compute_graph_op.hpp"\n#include "conv2d_dispatch_limits.h"')
+    patch(graph, "maxGroupCount{_maxGroupCount} {}",
+          "maxGroupCount{opk::rpi5::conv2dDispatchLimits(\n"
+          "          _maxGroupCount, _weights->getDimensions()[1], _weights->getDimensions()[2],\n"
+          "          _input->getDimensions()[3])} {}")
+
+
 def runtime_fingerprint(mlwl_lock):
     return hashlib.sha256(Path(__file__).read_bytes() + mlwl_lock +
-                          Path(__file__).with_name("sources.json").read_bytes()).hexdigest()[:12]
+                          Path(__file__).with_name("sources.json").read_bytes() +
+                          Path(__file__).with_name("conv2d_dispatch_limits.h").read_bytes()).hexdigest()[:12]
 
 
 def prepare(cache, sdk):
@@ -97,6 +110,7 @@ def prepare(cache, sdk):
         "src/broadcom/vulkan/broadcom_devenv_icd.aarch64.json",
         env={**os.environ, "PYTHONPATH": "/usr/lib/python3/dist-packages"})
     emulation = sources.pop("emulation")
+    patch_graph(emulation)
     run("cmake", "-S", emulation, "-B", cache / "emulation-build", "-G", "Ninja",
         "-DCMAKE_BUILD_TYPE=Release", "-DVMEL_USE_FLOAT_AS_DOUBLE=ON",
         "-DVMEL_TESTS_ENABLE=OFF", "-DVMEL_BUILD_DOCS=OFF",
