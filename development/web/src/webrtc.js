@@ -40,19 +40,17 @@ function setStatus(state, label, subtext) {
         statusLabelEl.textContent = label.toUpperCase();
     if (subtext && statusSubtextEl)
         statusSubtextEl.textContent = subtext;
+    setStatusLine(subtext || label);
 
     switch (state) {
         case 'connecting':
         case 'reconnecting':
+        case 'disconnected':
             overlay.classList.remove('hidden');
-            overlayText.textContent = 'Connecting…';
+            overlayText.textContent = subtext || label;
             break;
         case 'connected':
             overlay.classList.add('hidden');
-            break;
-        case 'disconnected':
-            overlay.classList.remove('hidden');
-            overlayText.textContent = 'Disconnected – waiting for stream…';
             break;
     }
 }
@@ -98,7 +96,6 @@ const client = createWebRtcClient({
     ...WEBRTC_ICE_CONFIG,
     logger: appendLog,
     onStatus: setStatus,
-    onStatusLine: setStatusLine,
     onVideoFrame: (message) => {
         window.dispatchEvent(new CustomEvent('video-frame-metadata', {detail: message}));
     },

@@ -134,6 +134,9 @@ published, and WebRTC traffic can use the advertised host address and relay
 port range. CI and narrow helper services also use bridge networking because
 they do not need the development runtime's direct host service exposure.
 
+See [WebRTC and TURN](../public/how-to/webrtc-turn.md) for relay requirements
+and manual setup.
+
 Build networking is a separate setting from runtime `network_mode`; changing
 one does not change the other.
 
