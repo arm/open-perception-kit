@@ -120,3 +120,4 @@ __pycache__/
 **/*.onnx.part
 **/*.pte
 **/*.pte.part
+config/models/licenses/

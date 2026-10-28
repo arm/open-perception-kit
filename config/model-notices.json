@@ -1,0 +1,86 @@
+{
+  "silero-vad-LICENSE.txt": {
+    "url": "https://huggingface.co/Arm/silero-vad-fp32-onnx/raw/3f0e26baba5e8e1eb1ac97ad7e33a472f2316688/silero_vad.onnx.license",
+    "sha256": "51c19c8be941a3fb00ccf58f0bf9053de9f7237a0b37327896eabad32dffe873"
+  },
+  "smart-turn-LICENSE.txt": {
+    "url": "https://huggingface.co/soniqo/Smart-Turn-v3.2-ONNX/raw/b48fdbe20772bcec1fef02f4a1a355236ef6359e/LICENSE",
+    "sha256": "db31415d226689aaf6fa6274da0416171edb70ca7ebf97bd3d99d8d8b88cd34e"
+  },
+  "mobilegaze-LICENSE.txt": {
+    "url": "https://raw.githubusercontent.com/yakhyo/gaze-estimation/3a791173f03a1df33a7d29de03ba6eeaaecc290a/LICENSE",
+    "sha256": "a4f7998feb5c90555daae4329db61caf7049e6b2706991dc1d9eb2a0923847ae"
+  },
+  "l2cs-net-LICENSE.txt": {
+    "url": "https://raw.githubusercontent.com/Ahmednull/L2CS-Net/57a33753bd6f479eefe26e4ea0dc5f6249acd5e7/LICENSE",
+    "sha256": "fee4412d8f04aa84eb629e9631d1c067fee9454247ef016e8667768b6bc7488c"
+  },
+  "nitec-LICENSE.txt": {
+    "url": "https://raw.githubusercontent.com/thohemp/nitec/643ce70b2935b46c8ec3ca1ce0e69aba67f44c9f/LICENSE.md",
+    "sha256": "cde923c254fe2ea15f787d13ba8b898da7ec108b4ce19dadd18e019eb79a5979"
+  },
+  "ultraface-LICENSE.txt": {
+    "url": "https://raw.githubusercontent.com/Linzaer/Ultra-Light-Fast-Generic-Face-Detector-1MB/bd849f022cafa6c9af2dd0f33efbbb96df57512e/LICENSE",
+    "sha256": "21f0df2b54c9fef1b4f4061dd0b153bc72f071b5ce9fc04234f13ebfd093b44c"
+  },
+  "yolo26-LICENSE.txt": {
+    "url": "https://raw.githubusercontent.com/ultralytics/ultralytics/2c6fc0a4443b9cf805ef17b1cfdd71a98693b4d4/LICENSE",
+    "sha256": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0"
+  },
+  "Apache-2.0.txt": {
+    "url": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+  },
+  "mobilegaze-mobilenet-v2-README.md": {
+    "url": "https://huggingface.co/Arm/mobilegaze-mobilenet-v2-int8-onnx/raw/7e48ffa8eaa1e970f98d11204adea4f72b0954a3/README.md",
+    "sha256": "965579c6eb92c172331f81784969acacee6313b006af1da9d82a0bfa4be36dba"
+  },
+  "mobilegaze-mobilenet-v2-executorch-README.md": {
+    "url": "https://huggingface.co/Arm/mobilegaze-mobilenet-v2-int8-xnnpack-executorch/raw/8466b5fb9d138eef9e004e52b7c263287f22b17d/README.md",
+    "sha256": "f70db1e0160d92094102b71191134dbb977b870a47ceeb64775a8eebcadd2ff2"
+  },
+  "nitec-resnet-18-README.md": {
+    "url": "https://huggingface.co/Arm/nitec-resnet-18-int8-onnx/raw/12cb65f9696e7ed620e59d38ed7002df99378724/README.md",
+    "sha256": "48e97fbc8458e0c26e8b73721676e6e3c21092cc3ff0498ed31078a5a16ca671"
+  },
+  "nitec-resnet-18-executorch-README.md": {
+    "url": "https://huggingface.co/Arm/nitec-resnet-18-int8-xnnpack-executorch/raw/23969d2f69312f395464ed08433df4903ab4fbad/README.md",
+    "sha256": "231d8fd06b7dc8cf12f3d195f7f60f831299f966c8822298e30b8306f715630c"
+  },
+  "silero-vad-README.md": {
+    "url": "https://huggingface.co/Arm/silero-vad-fp32-onnx/raw/3f0e26baba5e8e1eb1ac97ad7e33a472f2316688/README.md",
+    "sha256": "695e7f16e511e192cf97ab4ae44f62f12ef1673c89e045a20155c2d5d89efd38"
+  },
+  "smart-turn-README.md": {
+    "url": "https://huggingface.co/soniqo/Smart-Turn-v3.2-ONNX/raw/b48fdbe20772bcec1fef02f4a1a355236ef6359e/README.md",
+    "sha256": "da8723ab37ad295e6675543639aae3e50a9bfb809082555914dff7842d08d777"
+  },
+  "ultraface-rfb-320-README.md": {
+    "url": "https://huggingface.co/Arm/ultraface-rfb-320-onnx-raspberry/raw/7c29c6f148314122d98643251a6d0f991d9021e5/README.md",
+    "sha256": "65f8a06f03ec60e9aaee1b8d586f25e9e1539f4b1a7978b7328740faf1d4b86c"
+  },
+  "yolo26n-320-README.md": {
+    "url": "https://huggingface.co/Arm/yolo26n-320-int8-onnx-raspberrypi5/raw/0a78551c6225bb4947a6397a3d46cfaf91c00812/README.md",
+    "sha256": "ba097092b2709603f71a7776b5de0ab8e0462774a6fddc95430116264883a3fb"
+  },
+  "yolo26n-480-README.md": {
+    "url": "https://huggingface.co/Arm/yolo26n-480-int8-onnx-raspberrypi5/raw/bbe0e8adbbf3fbd64be5a586ed337525e0a1d7d4/README.md",
+    "sha256": "477dff38502ea3f88a66e6dc5e8a848fca5301ae668162dcd42a420863653868"
+  },
+  "yolo26n-640-README.md": {
+    "url": "https://huggingface.co/Arm/yolo26n-640-int8-onnx-raspberrypi5/raw/cace3459147c369d55f34cc8d80ec86bfb36e342/README.md",
+    "sha256": "4ca42db8de80e2e95699dcec43606330920d82593128ea9610f9fdfea135d025"
+  },
+  "yolo26s-320-README.md": {
+    "url": "https://huggingface.co/Arm/yolo26s-320-int8-onnx-raspberrypi5/raw/71af1181a549de678510783a400dd0e703f715e3/README.md",
+    "sha256": "3f0538318c0e966cf921ca0b3e3d21b6beb8aee3a1065e7a1042ba66372cb86c"
+  },
+  "yolo26s-480-README.md": {
+    "url": "https://huggingface.co/Arm/yolo26s-480-int8-onnx-raspberrypi5/raw/97e0e565e3277c76932924abc351ec6337e57037/README.md",
+    "sha256": "aaf2d057a514b02d04b98385416c2db49bd61b14c32d9b32b83b310f7bf3c06b"
+  },
+  "yolo26s-640-README.md": {
+    "url": "https://huggingface.co/Arm/yolo26s-640-int8-onnx-raspberrypi5/raw/7ec6a1e0269ef93063dca29805933c632637049b/README.md",
+    "sha256": "d00d0b5d1099828d3da4b16ce9cf76b276ca665624c29b53d969eb8755d467c7"
+  }
+}
