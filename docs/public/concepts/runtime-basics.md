@@ -96,6 +96,10 @@ That lets the OPK web UI register the model first and then enable it from the **
 `opkinfer` still loads the OpChain and its model during startup, so every
 referenced model artifact must already exist.
 
+OPK disables ONNX Runtime telemetry before initializing its native backend. This
+applies to GStreamer pipelines, the Runtime API, and packaged deployments. An
+inherited `ORT_DISABLE_TELEMETRY=0` does not enable telemetry.
+
 At the moment, pipeline execution is synchronous end to end. An asynchronous inference execution flow is planned for a later update, but it is not available yet.
 
 ## Logging does not make inference asynchronous

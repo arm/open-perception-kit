@@ -512,6 +512,12 @@ test('yolo26_semantic_segmentation_parser_tests', yolo26_semantic_segmentation_p
 test('gaze_detection_parser_tests', gaze_detection_parser_tests)
 test('rvm_parser_tests', rvm_parser_tests)
 test('onnx_tensor_tests', onnx_tensor_tests)
+test(
+  'onnx_telemetry',
+  python,
+  args : [files('onnx_telemetry_test.py'), gstopkinfer.full_path()],
+  depends : [gstopkinfer, onnxops],
+)
 test('logging_tests', logging_tests)
 test('logger_tests', logger_tests)
 test(

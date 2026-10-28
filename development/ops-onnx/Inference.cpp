@@ -27,6 +27,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <limits>
 #include <memory>
@@ -92,6 +93,14 @@ opk::Result<void> Inference::setup(const opk::ModelDescriptor &modelDesc_,
     // this->modelPath = file;
 
     try {
+        // Serialize the opt-out before any ORT call can initialize process-wide telemetry.
+        static const int telemetryStatus =
+            setenv("ORT_DISABLE_TELEMETRY", "1", 1); // NOLINT(concurrency-mt-unsafe)
+        if (telemetryStatus != 0) {
+            return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InferenceRtStartupError,
+                                            "Cannot disable ONNX Runtime telemetry"));
+        }
+
         const unsigned int hwThreads = std::thread::hardware_concurrency();
         const unsigned int legacyThreads =
             hwThreads ? std::max(MinimumIntraOpNumThreads, hwThreads - ReservedHardwareThreads)
