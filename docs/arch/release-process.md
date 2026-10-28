@@ -144,8 +144,9 @@ Native Ubuntu 24.04 jobs build the `opk-deployment-base` target in the
 [Dockerfile](../../Dockerfile) for `linux/amd64` and `linux/arm64`, then extract
 the release packages from the local images.
 
-The release archive build enables MLWL on both architectures. For local builds, add
-`--build-arg OPK_MLWL=enabled` to include it in the archive and deployment image.
+The release archive and Debian builds enable MLWL on both architectures. For local
+builds, add `--build-arg OPK_MLWL=enabled` to include it in the archive, runtime
+Debian package and deployment image.
 The package contains the shared runtime,
 checksum receipt and original notices; the Vulkan loader and device driver
 remain host dependencies. The offline smoke checks that the MLWL module loads,

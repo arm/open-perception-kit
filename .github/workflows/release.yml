@@ -210,6 +210,7 @@ jobs:
         with:
           build-args: |
             OPK_RELEASE_BUILD=true
+            OPK_MLWL=enabled
             OPK_RELEASE_SOURCE_COMMIT=${{ needs.prepare.outputs.commit }}
             HF_DOWNLOAD_CACHEBUST=${{ github.run_id }}-${{ github.run_attempt }}
           context: ${{ env.SOURCE_DIR }}
