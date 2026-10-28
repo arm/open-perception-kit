@@ -62,3 +62,4 @@ option('gpu_preprocessing',
   value : 'auto',
   description : 'Build Vulkan preprocessing on Linux; disable for a CPU-only build'
 )
+option('or_runtime', type : 'boolean', value : true, description : 'Enable OR runtime ABI inference provider')

@@ -106,8 +106,18 @@ if release_package and not web_server_enabled
   error('Release packages require libsoup and json-glib for HTTP-enabled opksink.')
 endif
 
-# -------- ONNX
+# -------- Shared build inputs
 fs = import('fs')
+
+if get_option('or_runtime') or get_option('tests')
+  or_interface_dir = 'third-party/optimized-runtimes/interfaces/or'
+  if not fs.is_file(or_interface_dir / 'or_runtime.h')
+    error('OR interface missing. Run git submodule update --init --recursive from the repository root.')
+  endif
+  or_interface_include = include_directories(or_interface_dir)
+endif
+
+# -------- ONNX
 onnx_version = run_command(
   find_program('python3', native : true),
   '-c', 'import json, sys; print(json.loads(sys.argv[1])["onnxruntime"])',
@@ -282,6 +292,7 @@ subdir('examples')
 executorchops = disabler()
 subdir('ops-executorch')
 subdir('ops-mlwl')
+subdir('ops-or')
 
 if deb_package or demo_deb_package
   subdir('packaging')

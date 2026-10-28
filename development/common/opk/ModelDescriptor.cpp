@@ -48,6 +48,13 @@ opk::Result<ModelDescriptor> ModelDescriptor::fromFile(const std::string &path) 
     if (descriptor.has_value()) {
         descriptor->modelFile =
             (std::filesystem::path(path).parent_path() / descriptor->modelFile).string();
+
+        if (!descriptor->runtimeLibrary.empty()) {
+            descriptor->runtimeLibrary =
+                (std::filesystem::path(path).parent_path() / descriptor->runtimeLibrary).string();
+            if (descriptor->runtimeLibrary.find('/') == std::string::npos)
+                descriptor->runtimeLibrary.insert(0, "./");
+        }
     }
     return descriptor;
 }

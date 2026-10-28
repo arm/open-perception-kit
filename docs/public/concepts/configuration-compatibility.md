@@ -335,6 +335,14 @@ thresholds. It emits face boxes in frame pixels. Rebuild native readers before
 using the new parser; older readers can warn about a minor mismatch and then
 reject it. Existing configurations need no edits.
 
+## Model descriptor 1.3
+
+Model descriptors may specify `runtimeLibrary` for `opk-or-ops/Inference`.
+It is a trusted native shared library path resolved beside the descriptor, like
+`modelFile`. Existing descriptors may omit it. OR descriptors should use
+`"version": "1.3.0"`; earlier readers reject this unknown field. The provider supports stateless synchronous inference with static dense Float32
+host tensors. Unsupported model and memory requirements produce configuration errors.
+
 ## OpChain 1.9: UltraFace raw logits
 
 `UltrafaceParser` accepts optional `scoresAreLogits` (default `false`). Set it
