@@ -275,3 +275,11 @@ field and behavior migration before changing the version number.
 After migrating, run the repository checker, dry-run the pipeline, and then run
 it with the intended model artifacts and inputs. Keep the original files and
 matching runtime available until the migrated pipeline has been verified.
+
+## Model descriptor 1.2
+
+Model descriptors may specify `runtimeLibrary` for `opk-loom-ops/Inference`.
+It is a trusted native shared library path resolved beside the descriptor, like
+`modelFile`. Existing descriptors may omit it. LOOM descriptors should use
+`"version": "1.2.0"`; earlier readers reject this unknown field. See the
+[LOOM example](../../../development/examples/loom-yolo26/README.md) for prototype limits.

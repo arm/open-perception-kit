@@ -56,3 +56,5 @@ option('mlwl',
   value : 'disabled',
   description : 'Enable ML Workload Library for Vulkan inference'
 )
+
+option('loom', type : 'boolean', value : true, description : 'Enable LOOM runtime ABI inference provider')

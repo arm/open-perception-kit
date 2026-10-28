@@ -274,6 +274,7 @@ subdir('examples')
 executorchops = disabler()
 subdir('ops-executorch')
 subdir('ops-mlwl')
+subdir('ops-loom')
 
 if deb_package or demo_deb_package
   subdir('packaging')

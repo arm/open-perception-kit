@@ -90,6 +90,9 @@ struct ModelDescriptor {
     /// Model file path, relative to the descriptor or absolute.
     std::string modelFile;
 
+    /// Optional LOOM runtime shared library, resolved relative to this descriptor.
+    std::string runtimeLibrary;
+
     /// Semantic model content type (for example detection/classification).
     std::string contentType;
 
@@ -185,6 +188,8 @@ inline void to_json(json &j, const ModelDescriptor &b) {
              {"modelFile", b.modelFile},
              {"inputTensors", b.inputTensors},
              {"dynamicOutput", b.dynamicOutput}};
+    if (!b.runtimeLibrary.empty())
+        j["runtimeLibrary"] = b.runtimeLibrary;
     if (!b.contentType.empty())
         j["contentType"] = b.contentType;
     if (!b.outputTensors.empty())
@@ -199,6 +204,7 @@ inline void from_json(const json &j, ModelDescriptor &b) {
     j.at("version").get_to(b.version);
     j.at("name").get_to(b.name);
     j.at("modelFile").get_to(b.modelFile);
+    b.runtimeLibrary = j.value("runtimeLibrary", std::string{});
     b.contentType = j.value("contentType", std::string{});
     b.inputTensors = j.value("inputTensors", std::vector<TensorDescriptor>{});
     b.outputTensors = j.value("outputTensors", std::vector<TensorDescriptor>{});

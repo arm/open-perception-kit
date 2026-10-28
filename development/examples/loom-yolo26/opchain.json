@@ -1,0 +1,37 @@
+{
+  "version": "1.1.0",
+  "name": "Yolo26nLoom320",
+  "displayName": "YOLO26n LOOM (320x320)",
+  "task": "Object detection",
+  "runtime": "LOOM",
+  "description": "Runs native YOLO26n through the LOOM ABI prototype.",
+  "ops": [
+    {
+      "id": "opk-std-ops/InferenceController",
+      "attributes": {}
+    },
+    {
+      "id": "opk-std-ops/GenericImagePreprocess",
+      "attributes": {
+        "inputImageTensorIndex": 0,
+        "inputImageSourceName": "pipelineVideoFrame"
+      }
+    },
+    {
+      "id": "opk-loom-ops/Inference",
+      "attributes": {
+        "modelDescriptor": "model.json"
+      }
+    },
+    {
+      "id": "opk-std-ops/GenericPostprocess",
+      "attributes": {
+        "parser": "YoloParser",
+        "outputFormat": "centerClassScores",
+        "normalizeOutputCoordinates": false,
+        "applyNms": true,
+        "confidenceThreshold": 0.4
+      }
+    }
+  ]
+}
