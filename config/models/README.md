@@ -20,7 +20,8 @@ limitations under the License.
 This directory contains the supported ONNX and ExecuTorch model configurations.
 The quick-start development container downloads model artifacts from pinned
 Hugging Face revisions using the user's access. Binaries are neither committed
-nor included in release packages or deployment/Cairn images. See
+nor included in release archives or deployment/Cairn images. The `opk-demo` Debian
+package includes downloaded model binaries. See
 [Download models](../../docs/public/getting-started/binary-release.md#download-models)
 for using the existing downloader with a binary release.
 
