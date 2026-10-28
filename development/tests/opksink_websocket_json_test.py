@@ -169,9 +169,10 @@ def check_startup_flush(session, sink, gst, offer):
         websocket.connect("message", lambda _, kind, data: received.append(
             json.loads(data.get_data())["type"]
         ))
-        wait_for(lambda: peers and len(list(peers[0].iterate_sink_pads())) == 2,
+        pad_names = ("sink_0", "sink_1")
+        wait_for(lambda: peers and all(peers[0].get_static_pad(name) for name in pad_names),
                  "audio and video request pads")
-        pads = list(peers[0].iterate_sink_pads())
+        pads = [peers[0].get_static_pad(name) for name in pad_names]
         wait_for(lambda: all(pad.is_linked() for pad in pads), "startup probes")
         for pad in pads:
             assert not pad.has_current_caps() and pad.get_target() is None
