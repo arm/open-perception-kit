@@ -73,6 +73,7 @@ jobs:
               - '**/meson.options'
               - '**/meson_options.txt'
               - 'requirements/build.json'
+              - 'requirements/mlwl.json'
               - 'requirements/meson.txt'
               - 'requirements/sdk.txt'
               - 'requirements/tests.txt'
@@ -92,6 +93,7 @@ jobs:
               - 'scripts/private/run-perception-sdk.sh'
               - 'scripts/private/install-perception-flatbuffers.sh'
               - 'scripts/private/install-onnxruntime.sh'
+              - 'scripts/private/install-mlwl.py'
               - 'scripts/private/clang-tidy-report.py'
               - 'scripts/private/deployment-*.sh'
               - 'scripts/private/development-entrypoint.sh'
@@ -112,6 +114,8 @@ jobs:
       - name: Set up build environment
         if: &run_checks steps.changes.outcome == 'skipped' || steps.changes.outputs.relevant == 'true'
         uses: ./.github/actions/setup-build
+        with:
+          mlwl: 'true'
 
       - name: Build
         if: *run_checks
