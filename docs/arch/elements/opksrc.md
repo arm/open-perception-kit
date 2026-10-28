@@ -34,10 +34,8 @@ The receive path is `webrtcbin → rtpopusdepay → opusdec → audioconvert →
 audioresample`. An `input-selector` chooses between that path and a live silence
 generator, followed by the output caps filter.
 
-The selector starts on silence and selects microphone audio after the remote
-offer and local answer have been applied and the answer sent to the browser.
-Audio begins when ICE connects and media arrives. Disconnecting the signaling
-client resets the receiver and selects silence again.
+The selector stays on silence until decoded microphone PCM arrives.
+Disconnecting the signaling client resets the receiver and selects silence again.
 
 ## Browser and signaling
 
@@ -62,10 +60,14 @@ sending audio media section with Opus at a 48 kHz RTP clock rate. Payload types
 are taken from SDP, rather than fixed to a particular number. The receiver
 answers with a receive-only Opus transceiver.
 
-One WebSocket connection owns the receiver until it disconnects. Additional
-clients are closed without replacing the active sender. Invalid signaling
-closes only the affected connection. Disconnecting recreates the receiver's
-`webrtcbin` so a later client starts with fresh SDP and ICE state.
+One WebSocket connection owns the receiver. Additional clients are closed without
+replacing the active sender. A connection is closed after 15 seconds without
+decoded audio. Silent PCM counts as audio. Signaling messages do not extend the
+timeout. After an offer, pausing the local pipeline also pauses the timeout.
+The timeout is checked every 100 ms, but pending SDP operations can delay it.
+
+Invalid signaling closes only the affected connection. Disconnecting recreates
+the receiver's `webrtcbin` so a later client starts with fresh SDP and ICE state.
 
 ## Lifecycle
 
@@ -82,5 +84,6 @@ weak references to the session.
 
 The `opksrc_signaling` integration test negotiates against a real GStreamer Opus
 sender, checks decoded audio, reconnects using different RTP payload numbers,
-and covers malformed messages, concurrent clients, shutdown, and bind failures.
+and covers stalled peers, malformed messages, concurrent clients, shutdown,
+and bind failures.
 The `opksrc_audio` test checks the silence output contract and the receive path.

@@ -32,8 +32,8 @@ gi.require_version("GstWebRTC", "1.0")
 gi.require_version("GstSdp", "1.0")
 
 
-def wait_for(predicate, description):
-    deadline = monotonic() + 10
+def wait_for(predicate, description, timeout=10):
+    deadline = monotonic() + timeout
     timer = GLib.timeout_add(10, lambda: True)
     try:
         while not predicate():
@@ -60,6 +60,35 @@ def invoke(gst, peer, action, argument):
     reply = promise.get_reply()
     assert reply is None or not reply.has_field("error"), str(reply)
     return reply.copy() if reply is not None else None
+
+
+def check_stalled_peer(gst, source, websocket, sdp=None):
+    timestamps = []
+    pad = source.get_static_pad("src")
+
+    def record_timestamp(_, info):
+        timestamps.append(info.get_buffer().pts)
+        return gst.PadProbeReturn.OK
+
+    probe = pad.add_probe(gst.PadProbeType.BUFFER, record_timestamp)
+    try:
+        if sdp is not None:
+            answered = Event()
+
+            def on_message(_, kind, data):
+                if json.loads(data.get_data())["type"] == "answer":
+                    answered.set()
+
+            websocket.connect("message", on_message)
+            websocket.send_text(json.dumps({"type": "offer", "sdp": sdp}))
+            wait_for(answered.is_set, "SDP accepted")
+        before = len(timestamps)
+        wait_for(lambda: len(timestamps) >= before + 5, "Silence stopped without media", timeout=2)
+        assert timestamps[-1] > timestamps[before], "PCM timestamps stopped"
+        wait_for(lambda: websocket.get_state() == Soup.WebsocketState.CLOSED,
+                 "Peer without media retained the microphone slot", timeout=20)
+    finally:
+        pad.remove_probe(probe)
 
 
 def negotiate(gst, session, source, port, payload):
@@ -112,8 +141,6 @@ def negotiate(gst, session, source, port, payload):
         except Exception as error:
             errors.append(error)
 
-    websocket.connect("message", incoming)
-
     def local_candidate(_, index, candidate):
         def send():
             if websocket.get_state() == Soup.WebsocketState.OPEN:
@@ -130,6 +157,10 @@ def negotiate(gst, session, source, port, payload):
         offer_reply = invoke(gst, peer, "create-offer", None)
         offer = offer_reply.get_value("offer")
         offer_text = offer.sdp.as_text()
+        if payload == 111:
+            check_stalled_peer(gst, source, websocket, offer_text)
+            websocket = connect(session, port)
+        websocket.connect("message", incoming)
         for invalid_sdp in (
             offer_text.replace("a=sendonly", "a=recvonly"),
             offer_text.replace("OPUS/48000", "PCMU/48000"),
@@ -173,9 +204,11 @@ def main():
     )
     source = pipeline.get_by_name("source")
     try:
-        for _ in range(2):
+        for cycle in range(2):
             assert pipeline.set_state(gst.State.PLAYING) != gst.StateChangeReturn.FAILURE
             assert pipeline.get_state(5 * gst.SECOND)[1] == gst.State.PLAYING
+            if cycle == 0:
+                check_stalled_peer(gst, source, connect(session, port))
             for message in (
                 "{",
                 '{"type":"offer","sdp":"not SDP"}',

@@ -42,7 +42,7 @@ and check the built artifacts before publication.
 | [ExecuTorch](https://github.com/pytorch/executorch) | 1.3.1-3 | BSD-3-Clause and bundled terms | Debian package |
 | [expected](https://github.com/TartanLlama/expected) | [1.3.1](https://github.com/TartanLlama/expected/tree/v1.3.1) | CC0-1.0 | Fedora |
 | [fsspec](https://github.com/fsspec/filesystem_spec) | [2026.7.0](https://pypi.org/project/fsspec/2026.7.0/) | BSD-3-Clause | PyPI |
-| [FlatBuffers](https://github.com/google/flatbuffers) | [25.9.23](https://github.com/google/flatbuffers/tree/v25.9.23) (SDK/build), [25.12.19](https://pypi.org/project/flatbuffers/25.12.19/) (host Python) | Apache-2.0 | npm, crates.io, PyPI |
+| [FlatBuffers](https://github.com/google/flatbuffers) | [25.9.23](https://github.com/google/flatbuffers/tree/v25.9.23) (SDK/build), [25.12.19](https://pypi.org/project/flatbuffers/25.12.19/) (host Python), [25.2.10](https://github.com/google/flatbuffers/tree/v25.2.10) (MLWL build) | Apache-2.0 | npm, crates.io, PyPI, GitHub |
 | [fmt](https://github.com/fmtlib/fmt) | [12.0.0](https://github.com/fmtlib/fmt/tree/12.0.0) | MIT | openSUSE |
 | [Lucide](https://lucide.dev/) | [1.61.0](https://www.npmjs.com/package/lucide-static/v/1.61.0) | ISC and MIT (Feather-derived icons) | vendored SVG assets |
 | [Wafer](https://github.com/Arm-Debug/design-system) | [2.0.2](https://github.com/Arm-Debug/design-system/tree/v2.0.2) | Arm copyright notice; upstream declares no CSS licence identifier | vendored CSS |
@@ -82,6 +82,7 @@ and check the built artifacts before publication.
 | [MarkupSafe](https://github.com/pallets/markupsafe) | [2.1.5](https://pypi.org/project/MarkupSafe/2.1.5/) | BSD-3-Clause | PyPI |
 | [mdurl](https://github.com/executablebooks/mdurl) | [0.1.2](https://pypi.org/project/mdurl/0.1.2/) | MIT | PyPI |
 | [meson](https://github.com/mesonbuild/meson) | [1.12.1](https://pypi.org/project/meson/1.12.1/) | Apache-2.0 | PyPI |
+| [ML Workload Library for Vulkan](https://github.com/arm/ai-ml-workload-library-for-vulkan) | [03c9aa11](https://github.com/arm/ai-ml-workload-library-for-vulkan/tree/03c9aa11efa6d8dd65ae5f6097bf86a00c304ad9) | [Apache-2.0](https://github.com/arm/ai-ml-workload-library-for-vulkan/blob/03c9aa11efa6d8dd65ae5f6097bf86a00c304ad9/LICENSES/Apache-2.0.txt) | optional shared runtime |
 | [more-itertools](https://github.com/more-itertools/more-itertools) | [10.7.0](https://pypi.org/project/more-itertools/10.7.0/) | MIT | PyPI |
 | [magic\_enum](https://github.com/Neargye/magic_enum) | [v0.9.7](https://github.com/Neargye/magic_enum/tree/v0.9.7) | MIT | Debian |
 | [nodeenv](https://github.com/ekalinin/nodeenv) | [1.10.0](https://pypi.org/project/nodeenv/1.10.0/) | BSD-3-Clause | PyPI |
@@ -138,6 +139,8 @@ and check the built artifacts before publication.
 | [urllib3](https://github.com/urllib3/urllib3) | [2.8.0](https://pypi.org/project/urllib3/2.8.0/) | MIT | PyPI |
 | [v8-to-istanbul](https://github.com/istanbuljs/v8-to-istanbul) | [9.3.0](https://www.npmjs.com/package/v8-to-istanbul/v/9.3.0) | ISC | npm |
 | [virtualenv](https://github.com/pypa/virtualenv) | [21.7.10](https://pypi.org/project/virtualenv/21.7.10/) | MIT | PyPI |
+| [VGF Library](https://github.com/arm/ai-ml-sdk-vgf-library) | [c7e3198c](https://github.com/arm/ai-ml-sdk-vgf-library/tree/c7e3198c36b30844381e3ab5b877e3a758d5b444) | [Apache-2.0](https://github.com/arm/ai-ml-sdk-vgf-library/blob/c7e3198c36b30844381e3ab5b877e3a758d5b444/LICENSES/Apache-2.0.txt) | bundled in the MLWL shared library |
+| [Vulkan-Headers](https://github.com/KhronosGroup/Vulkan-Headers) | [vulkan-sdk-1.4.357.0](https://github.com/KhronosGroup/Vulkan-Headers/tree/vulkan-sdk-1.4.357.0) | [Apache-2.0 OR MIT](https://github.com/KhronosGroup/Vulkan-Headers/tree/vulkan-sdk-1.4.357.0/LICENSES) | MLWL build headers |
 | [WebSocket++](https://github.com/zaphoyd/websocketpp) | [0.8.2](https://github.com/zaphoyd/websocketpp/tree/0.8.2) | BSD-3-Clause | Debian |
 | [cpp-httplib](https://github.com/yhirose/cpp-httplib) | [0.56.0](https://github.com/yhirose/cpp-httplib/tree/v0.56.0) | MIT | GitHub |
 | [zipp](https://github.com/jaraco/zipp) | [3.21.0](https://pypi.org/project/zipp/3.21.0/) | MIT | PyPI |
