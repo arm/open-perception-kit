@@ -35,6 +35,9 @@ from scripts.release import ReleaseTool as release_tool  # noqa: E402
 
 TOOL = Path(__file__).with_name("ReleaseTool.py")
 REPO_ROOT = TOOL.parents[2]
+ONNX_VERSION = json.loads((REPO_ROOT / "requirements/build.json").read_text())["onnxruntime"]
+ONNX_VERSION_PREFIX, ONNX_VERSION_PATCH = ONNX_VERSION.rsplit(".", 1)
+OTHER_ONNX_VERSION = f"{ONNX_VERSION_PREFIX}.{int(ONNX_VERSION_PATCH) + 1}"
 MODEL_DESCRIPTOR = "model.json"
 ONNX_MODEL_FILE = "model.onnx"
 ONNX_INFERENCE_OP = "opk-onnx-ops/Inference"
@@ -212,7 +215,7 @@ class ReleaseToolTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             package_root = root / "package"
-            library = package_root / "lib/opk/libonnxruntime.so.1.24.4"
+            library = package_root / f"lib/opk/libonnxruntime.so.{ONNX_VERSION}"
             library.parent.mkdir(parents=True)
             library.write_bytes(b"onnxruntime")
             legal_root = package_root / "share/opk/licenses/onnxruntime"
@@ -224,7 +227,7 @@ class ReleaseToolTests(unittest.TestCase):
             descriptor = repo_root / "requirements/build.json"
             descriptor.parent.mkdir(parents=True)
             descriptor.write_text(json.dumps({
-                "onnxruntime": "1.24.4",
+                "onnxruntime": ONNX_VERSION,
                 "onnxruntime-sha256-x64": "a" * 64,
             }), encoding="utf-8")
             import hashlib
@@ -234,6 +237,12 @@ class ReleaseToolTests(unittest.TestCase):
                 json.dumps(receipt), encoding="utf-8"
             )
             release_tool.validate_onnxruntime_provenance(package_root, repo_root, "x86_64")
+            release_tool.validate_onnxruntime_provenance(package_root, None, "x86_64")
+            locked_source = descriptor.read_text()
+            descriptor.write_text(locked_source.replace(f'"{ONNX_VERSION}"', f'"{OTHER_ONNX_VERSION}"'))
+            with self.assertRaisesRegex(RuntimeError, "does not match the selected source"):
+                release_tool.validate_onnxruntime_provenance(package_root, repo_root, "x86_64")
+            descriptor.write_text(locked_source)
             (library.parent / "libonnxruntime.so.1").symlink_to(library.name)
             with patch.object(release_tool, "dynamic_values", return_value=["libonnxruntime.so.1"]):
                 release_tool.validate_onnx_runtime(library.parent)
@@ -244,6 +253,19 @@ class ReleaseToolTests(unittest.TestCase):
             library.write_bytes(b"changed")
             with self.assertRaisesRegex(RuntimeError, "library SHA-256 mismatch"):
                 release_tool.validate_onnxruntime_provenance(package_root, repo_root, "x86_64")
+
+    def test_onnx_runtime_rejects_missing_ambiguous_or_unversioned_libraries(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for names in ((), (f"libonnxruntime.so.{ONNX_VERSION}", f"libonnxruntime.so.{OTHER_ONNX_VERSION}"),
+                          ("libonnxruntime.so.unknown",)):
+                with self.subTest(libraries=names):
+                    for name in names:
+                        (root / name).write_bytes(b"onnxruntime")
+                    with self.assertRaisesRegex(RuntimeError, "exactly one versioned ONNX Runtime library"):
+                        release_tool.validate_onnx_runtime(root)
+                    for name in names:
+                        (root / name).unlink()
 
     def test_stages_selected_python_runtime_distribution(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -572,7 +594,8 @@ class ReleaseToolTests(unittest.TestCase):
     def test_requires_regular_python_stub(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            for name in release_tool.PLUGIN_NAMES:
+            for name in ("libopkcomm.so", "libopkinfer.so", "libopkosd.so", "libopkperformance.so",
+                         "libopksink.so", "libopksrc.so", "libopktracker.so"):
                 path = root / PLUGIN_DIR / name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(b"\x7fELF")
@@ -586,6 +609,12 @@ class ReleaseToolTests(unittest.TestCase):
             stub.parent.mkdir()
             stub.write_text("# PythonScript types\n")
             release_tool.validate_runtime_files(root)
+
+            microphone_plugin = root / PLUGIN_DIR / "libopksrc.so"
+            microphone_plugin.unlink()
+            with self.assertRaisesRegex(RuntimeError, "Packaged plugins must be exactly"):
+                release_tool.validate_runtime_files(root)
+            microphone_plugin.write_bytes(b"\x7fELF")
 
             stub.unlink()
             with self.assertRaisesRegex(RuntimeError, "PythonScript type stub"):

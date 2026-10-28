@@ -108,6 +108,13 @@ endif
 
 # -------- ONNX
 fs = import('fs')
+onnx_version = run_command(
+  find_program('python3', native : true),
+  '-c', 'import json, sys; print(json.loads(sys.argv[1])["onnxruntime"])',
+  fs.read(opk_repository_root / 'requirements/build.json'),
+  check : true,
+).stdout().strip()
+onnx_library = 'libonnxruntime.so.' + onnx_version
 
 onnx_root = ''
 onnx_candidates = []
@@ -125,7 +132,7 @@ endif
 onnx_candidates += [
   '/opt/opk-deps/onnxruntime',
   opk_repository_root / 'deps/onnxruntime',
-  opk_repository_root / 'onnxruntime-linux-aarch64-1.24.4',
+  opk_repository_root / ('onnxruntime-linux-aarch64-' + onnx_version),
 ]
 
 foreach candidate : onnx_candidates

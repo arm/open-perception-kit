@@ -30,6 +30,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.release import ReleaseTool  # noqa: E402
 
+ONNX_VERSION = json.loads((REPO_ROOT / "requirements/build.json").read_text())["onnxruntime"]
 PACKAGE_SCRIPT = (
     REPO_ROOT / "scripts/private/packaging/package-opk-runtime-deb.sh"
 )
@@ -160,7 +161,11 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
             ):
                 self.compile_library(plugin_root / name, "$ORIGIN/../opk")
 
-            onnx_runtime = root / "libonnxruntime.so.1.24.4"
+            (repo_root / "requirements").mkdir()
+            (repo_root / "requirements/build.json").write_text(
+                json.dumps({"onnxruntime": ONNX_VERSION}), encoding="utf-8"
+            )
+            onnx_runtime = root / f"libonnxruntime.so.{ONNX_VERSION}"
             self.compile_library(
                 onnx_runtime,
                 "$ORIGIN",
@@ -427,7 +432,7 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
                     extracted
                     / f"usr/lib/{multiarch}/opk/libonnxruntime.so.1"
                 ),
-                "libonnxruntime.so.1.24.4",
+                onnx_runtime.name,
             )
             self.assertFalse(
                 (extracted / "usr/share/opk/open-perception-kit").exists()
@@ -494,7 +499,6 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
                 private_root / "opk-mlwl-ops.so", "$ORIGIN", link_library=library
             )
             sources = json.loads((REPO_ROOT / "requirements/mlwl.json").read_text())
-            (repo_root / "requirements").mkdir()
             (repo_root / "requirements/mlwl.json").write_text(json.dumps(sources))
             receipt = library.with_suffix(".so.provenance.json")
             receipt_data = {
