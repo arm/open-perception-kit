@@ -53,8 +53,30 @@ def patch_graph(source):
           '#include "compute_graph_op.hpp"\n#include "conv2d_dispatch_limits.h"')
     patch(graph, "maxGroupCount{_maxGroupCount} {}",
           "maxGroupCount{opk::rpi5::conv2dDispatchLimits(\n"
-          "          _maxGroupCount, _weights->getDimensions()[1], _weights->getDimensions()[2],\n"
+          "          { // Spend the unchanged work budget only on groups in this output grid.\n"
+          "              std::min(_maxGroupCount[0], std::max(1U, divideRoundUp(static_cast<uint32_t>(\n"
+          "                  _output->getDimensions()[0] * _output->getDimensions()[2]), warpX))),\n"
+          "              std::min(_maxGroupCount[1], std::max(1U, divideRoundUp(\n"
+          "                  static_cast<uint32_t>(_output->getDimensions()[1]), warpY))),\n"
+          "              std::min(_maxGroupCount[2], std::max(1U, divideRoundUp(\n"
+          "                  static_cast<uint32_t>(_output->getDimensions()[3]), warpZ * 4))),\n"
+          "          },\n"
+          "          _weights->getDimensions()[1], _weights->getDimensions()[2],\n"
           "          _input->getDimensions()[3])} {}")
+
+    # Match host dispatch geometry and every generated Conv2D shader variant.
+    patch(source / "graph/compute_graph_op.hpp",
+          "    static const uint32_t warpX = 8;\n"
+          "    static const uint32_t warpY = 8;\n"
+          "    static const uint32_t warpZ = 1;",
+          "    // Keep 64 invocations while reducing spatial padding for small feature maps.\n"
+          "    static const uint32_t warpX = 4;\n"
+          "    static const uint32_t warpY = 4;\n"
+          "    static const uint32_t warpZ = 4;")
+    patch(source / "graph/shaders/CMakeLists.txt",
+          "set(WARPX 8)\nset(WARPY 8)\nset(WARPZ 1)",
+          "# Match the 64-invocation Conv2D workgroup in compute_graph_op.hpp.\n"
+          "set(WARPX 4)\nset(WARPY 4)\nset(WARPZ 4)")
 
 
 def runtime_fingerprint(mlwl_lock):

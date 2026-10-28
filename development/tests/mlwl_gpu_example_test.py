@@ -67,12 +67,27 @@ class Rpi5ExampleTest(unittest.TestCase):
             source = root / "graph/compute_graph_op.cpp"
             original = '#include "compute_graph_op.hpp"\nmaxGroupCount{_maxGroupCount} {}\n'
             source.write_text(original)
+            header = root / "graph/compute_graph_op.hpp"
+            header.write_text("    static const uint32_t warpX = 8;\n"
+                              "    static const uint32_t warpY = 8;\n"
+                              "    static const uint32_t warpZ = 1;")
+            shaders = root / "graph/shaders/CMakeLists.txt"
+            shaders.parent.mkdir()
+            shaders.write_text("set(WARPX 8)\nset(WARPY 8)\nset(WARPZ 1)")
             runtime.patch_graph(root)
             first = source.read_bytes()
+            first_header, first_shaders = header.read_bytes(), shaders.read_bytes()
             runtime.patch_graph(root)
             self.assertEqual(source.read_bytes(), first)
+            self.assertEqual(header.read_bytes(), first_header)
+            self.assertEqual(shaders.read_bytes(), first_shaders)
+            self.assertIn(b"warpX = 4", first_header)
+            self.assertIn(b"warpY = 4", first_header)
+            self.assertIn(b"warpZ = 4", first_header)
+            self.assertIn(b"set(WARPX 4)\nset(WARPY 4)\nset(WARPZ 4)", first_shaders)
+            self.assertIn(b"_output->getDimensions()[3]", first)
             self.assertIn(b"opk::rpi5::conv2dDispatchLimits(", first)
-            self.assertIn(b"_maxGroupCount, _weights->getDimensions()[1], _weights->getDimensions()[2],", first)
+            self.assertIn(b"_weights->getDimensions()[1], _weights->getDimensions()[2],", first)
             self.assertIn(b"_input->getDimensions()[3]", first)
             self.assertEqual((root / "graph/conv2d_dispatch_limits.h").read_bytes(),
                              Path(runtime.__file__).with_name("conv2d_dispatch_limits.h").read_bytes())

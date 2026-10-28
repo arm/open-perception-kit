@@ -46,11 +46,18 @@ TEST(Conv2DDispatchLimits, LargeDimensionsCannotOverflowOrProduceZeroSteps) {
 
 TEST(Conv2DDispatchLimits, OffsetTilesCoverEveryOutputOnceIncludingTails) {
     constexpr uint32_t batches = 3, height = 17, width = 19, channels = 70;
-    constexpr std::array<uint32_t, 3> totalGroups{
-        (batches * width + 7) / 8, (height + 7) / 8, (channels + 3) / 4};
+    constexpr uint32_t localX = 4, localY = 4, localZ = 4;
+    constexpr uint32_t channelsPerGroup = localZ * 4;
+    constexpr std::array<uint32_t, 3> totalGroups{(batches * width + localX - 1) / localX,
+                                                  (height + localY - 1) / localY,
+                                                  (channels + channelsPerGroup - 1) /
+                                                      channelsPerGroup};
     for (const auto deviceLimits :
          {std::array<uint32_t, 3>{65535, 65535, 65535}, std::array<uint32_t, 3>{20, 2, 2}}) {
-        const auto limits = conv2dDispatchLimits(deviceLimits, 3, 3, 128);
+        const std::array<uint32_t, 3> gridLimits{std::min(deviceLimits[0], totalGroups[0]),
+                                                 std::min(deviceLimits[1], totalGroups[1]),
+                                                 std::min(deviceLimits[2], totalGroups[2])};
+        const auto limits = conv2dDispatchLimits(gridLimits, 3, 3, 128);
         std::vector<uint32_t> visits(std::size_t{batches} * height * width * channels);
         for (uint32_t x = 0; x < totalGroups[0]; x += limits[0]) {
             for (uint32_t y = 0; y < totalGroups[1]; y += limits[1]) {
@@ -60,9 +67,11 @@ TEST(Conv2DDispatchLimits, OffsetTilesCoverEveryOutputOnceIncludingTails) {
                     const auto countZ = std::min(limits[2], totalGroups[2] - z);
                     ASSERT_LE(countX * countY * countZ, 16u);
                     // The existing Graph offset loops and Conv2D shader coordinate mapping.
-                    for (uint32_t ix = x * 8; ix < (x + countX) * 8; ++ix) {
-                        for (uint32_t iy = y * 8; iy < (y + countY) * 8; ++iy) {
-                            for (uint32_t ic = z * 4; ic < (z + countZ) * 4; ++ic) {
+                    for (uint32_t ix = x * localX; ix < (x + countX) * localX; ++ix) {
+                        for (uint32_t iy = y * localY; iy < (y + countY) * localY; ++iy) {
+                            for (uint32_t ic = z * channelsPerGroup;
+                                 ic < (z + countZ) * channelsPerGroup;
+                                 ++ic) {
                                 const auto batch = ix % batches;
                                 const auto column = ix / batches;
                                 if (column < width && iy < height && ic < channels) {
