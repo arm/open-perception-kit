@@ -21,6 +21,36 @@ limitations under the License.
 Vulkan. Use `modelDescriptor` as with the other backends; preprocessing and
 postprocessing stay in the OpChain.
 
+## CPU quickstart
+
+On Linux x86-64 or AArch64, add these settings to the checkout's `.env` before
+running the [quickstart](../../README.md#2-install-prerequisites-build-and-start-the-docker-container):
+
+```dotenv
+OPK_MLWL=enabled
+VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.json
+VK_INSTANCE_LAYERS=VK_LAYER_ML_Graph_Emulation:VK_LAYER_ML_Tensor_Emulation
+```
+
+The development image builds MLWL and Arm's
+[Vulkan emulation layers](https://github.com/arm/ai-ml-emulation-layer-for-vulkan)
+at [`67199c9f`](https://github.com/arm/ai-ml-emulation-layer-for-vulkan/commit/67199c9fae2cee900d41d659937870fb478e7de9)
+and installs Mesa lavapipe. The Vulkan settings select CPU execution explicitly;
+installing MLWL alone does not force a device or enable emulation layers.
+
+After entering the container, build OPK and run the existing two-model demo:
+
+```sh
+./scripts/build.sh
+./scripts/run.sh mlwl-vgf-demo
+```
+
+Supply the [UltraFace](../../config/models/ultraface-rfb-320-mlwl/index.md) and
+[YOLO](../../config/models/yolo26n-320-mlwl/index.md) VGF files first; they are not
+downloaded yet. Open `http://localhost:9999/` for the WebUI, or use the host's
+address when browsing from another machine. Emulation runs on the CPU and is
+intended for functional testing, not GPU performance measurements.
+
 ## Build
 
 The backend is disabled by default. In the OPK development container

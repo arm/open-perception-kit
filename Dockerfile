@@ -131,6 +131,24 @@ RUN set -eux; \
 
 FROM opk-build-base AS opk-cross-build-base
 
+# Optional development dependencies, cached independently of OPK sources.
+FROM opk-build-base AS opk-mlwl-deps
+
+ARG OPK_MLWL=disabled
+WORKDIR /work
+COPY tools/perception tools/perception
+COPY requirements/mlwl.json requirements/vulkan-emulation.json requirements/
+COPY scripts/private/install-mlwl.py scripts/private/install-vulkan-emulation.py scripts/private/
+RUN set -eu; \
+  mkdir -p /opt/opk-mlwl; \
+  case "${OPK_MLWL}" in \
+    enabled) \
+      python3 scripts/private/install-mlwl.py /opt/opk-mlwl/mlwl && \
+      python3 scripts/private/install-vulkan-emulation.py /opt/opk-mlwl/vulkan-emulation ;; \
+    disabled|auto) ;; \
+    *) echo 'OPK_MLWL must be enabled, disabled or auto' >&2; exit 1 ;; \
+  esac
+
 # Downloadable demo media is isolated so development and deployment images can
 # reuse it without coupling it to source or tool layers.
 FROM --platform=${BUILDPLATFORM} debian:trixie-slim AS opk-demo-media
@@ -208,6 +226,19 @@ ARG NPM_FALLBACK_REGISTRY=https://artifactory.arm.com:443/artifactory/api/npm/mi
 ARG USERNAME=dev
 ARG USER_UID=1000
 ARG USER_GID=1000
+ARG OPK_MLWL=disabled
+
+COPY --from=opk-mlwl-deps /opt/opk-mlwl/ /opt/opk-deps/
+ENV MLWorkloadLibraryForVulkan_DIR=/opt/opk-deps/mlwl/lib64/cmake/MLWorkloadLibraryForVulkan \
+  CMAKE_PREFIX_PATH=/opt/opk-deps/mlwl \
+  VK_ADD_LAYER_PATH=/opt/opk-deps/vulkan-emulation/share/vulkan/explicit_layer.d
+
+RUN set -eu; \
+  if [ "${OPK_MLWL}" = enabled ]; then \
+    printf '%s\n' /opt/opk-deps/mlwl/lib64 /opt/opk-deps/vulkan-emulation/lib64 \
+      > /etc/ld.so.conf.d/opk-mlwl.conf; \
+    ldconfig; \
+  fi
 
 COPY tools/perception/sdk.json /tmp/perception-sdk.json
 COPY development/ops-python/runtime.json /tmp/python-ops-runtime.json
@@ -231,7 +262,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   python3-gi python3-pip \
   shellcheck shfmt sudo \
   wget zip; \
-  update-ca-certificates
+  update-ca-certificates; \
+  if [ "${OPK_MLWL}" = enabled ]; then \
+    apt-get install -y --no-install-recommends mesa-vulkan-drivers vulkan-tools; \
+  fi
 
 # SHELL selects Bash; hadolint 2.15.1 misclassifies this derived stage as sh.
 # hadolint ignore=SC3043
