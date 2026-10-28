@@ -35,6 +35,9 @@ from scripts.release import ReleaseTool as release_tool  # noqa: E402
 
 TOOL = Path(__file__).with_name("ReleaseTool.py")
 REPO_ROOT = TOOL.parents[2]
+ONNX_VERSION = json.loads((REPO_ROOT / "requirements/build.json").read_text())["onnxruntime"]
+ONNX_VERSION_PREFIX, ONNX_VERSION_PATCH = ONNX_VERSION.rsplit(".", 1)
+OTHER_ONNX_VERSION = f"{ONNX_VERSION_PREFIX}.{int(ONNX_VERSION_PATCH) + 1}"
 MODEL_DESCRIPTOR = "model.json"
 ONNX_MODEL_FILE = "model.onnx"
 ONNX_INFERENCE_OP = "opk-onnx-ops/Inference"
@@ -212,7 +215,7 @@ class ReleaseToolTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             package_root = root / "package"
-            library = package_root / "lib/opk/libonnxruntime.so.1.2.3"
+            library = package_root / f"lib/opk/libonnxruntime.so.{ONNX_VERSION}"
             library.parent.mkdir(parents=True)
             library.write_bytes(b"onnxruntime")
             legal_root = package_root / "share/opk/licenses/onnxruntime"
@@ -224,7 +227,7 @@ class ReleaseToolTests(unittest.TestCase):
             descriptor = repo_root / "requirements/build.json"
             descriptor.parent.mkdir(parents=True)
             descriptor.write_text(json.dumps({
-                "onnxruntime": "1.2.3",
+                "onnxruntime": ONNX_VERSION,
                 "onnxruntime-sha256-x64": "a" * 64,
             }), encoding="utf-8")
             import hashlib
@@ -236,7 +239,7 @@ class ReleaseToolTests(unittest.TestCase):
             release_tool.validate_onnxruntime_provenance(package_root, repo_root, "x86_64")
             release_tool.validate_onnxruntime_provenance(package_root, None, "x86_64")
             locked_source = descriptor.read_text()
-            descriptor.write_text(locked_source.replace('"1.2.3"', '"1.2.4"'))
+            descriptor.write_text(locked_source.replace(f'"{ONNX_VERSION}"', f'"{OTHER_ONNX_VERSION}"'))
             with self.assertRaisesRegex(RuntimeError, "does not match the selected source"):
                 release_tool.validate_onnxruntime_provenance(package_root, repo_root, "x86_64")
             descriptor.write_text(locked_source)
@@ -254,7 +257,7 @@ class ReleaseToolTests(unittest.TestCase):
     def test_onnx_runtime_rejects_missing_ambiguous_or_unversioned_libraries(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            for names in ((), ("libonnxruntime.so.1.2.3", "libonnxruntime.so.1.2.4"),
+            for names in ((), (f"libonnxruntime.so.{ONNX_VERSION}", f"libonnxruntime.so.{OTHER_ONNX_VERSION}"),
                           ("libonnxruntime.so.unknown",)):
                 with self.subTest(libraries=names):
                     for name in names:
