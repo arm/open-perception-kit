@@ -17,6 +17,23 @@ limitations under the License.
 
 # WebUI rendering features
 
+## Browser capture
+
+The Mic and Cam controls request audio and video independently and share one
+send-only WebRTC connection to `opksrc` on port 8003 (or `OPK_CONFIG.micWsPort`).
+Both controls use the existing `pipeline_state.microphone` flag, which indicates
+that `opksrc` is present. Turning off one device releases its tracks without
+closing the other device; turning off both closes the connection. Permission
+denial affects only the requested device. Control disconnect and page exit
+release all capture devices.
+
+Offers are serialized: adding or removing a device while an answer is pending
+queues a new offer after that answer. The receiver must support repeated offers,
+optional audio/video media sections, and inactive sections for stopped devices.
+The current audio-only native receiver does not yet support camera capture or
+this renegotiation; camera end-to-end validation awaits the native implementation.
+Use localhost or an SSH tunnel; HTTPS support is outside this change.
+
 ## Visual design
 
 The entire WebUI uses [Wafer](https://github.com/Arm-Debug/design-system) as its
