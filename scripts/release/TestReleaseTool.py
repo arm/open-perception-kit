@@ -212,7 +212,7 @@ class ReleaseToolTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             package_root = root / "package"
-            library = package_root / "lib/opk/libonnxruntime.so.1.24.4"
+            library = package_root / "lib/opk/libonnxruntime.so.1.31.1"
             library.parent.mkdir(parents=True)
             library.write_bytes(b"onnxruntime")
             legal_root = package_root / "share/opk/licenses/onnxruntime"
@@ -224,7 +224,7 @@ class ReleaseToolTests(unittest.TestCase):
             descriptor = repo_root / "requirements/build.json"
             descriptor.parent.mkdir(parents=True)
             descriptor.write_text(json.dumps({
-                "onnxruntime": "1.24.4",
+                "onnxruntime": "1.31.1",
                 "onnxruntime-sha256-x64": "a" * 64,
             }), encoding="utf-8")
             import hashlib

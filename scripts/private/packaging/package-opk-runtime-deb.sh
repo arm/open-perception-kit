@@ -375,8 +375,8 @@ for library in "${private_libraries[@]}"; do
     install -m 0755 "${installed_private_root}/${library}" "${private_root}/${library}"
 done
 
-install -m 0755 "${ONNX_RUNTIME}" "${private_root}/libonnxruntime.so.1.24.4"
-ln -s libonnxruntime.so.1.24.4 "${private_root}/libonnxruntime.so.1"
+install -m 0755 "${ONNX_RUNTIME}" "${private_root}/libonnxruntime.so.1.31.1"
+ln -s libonnxruntime.so.1.31.1 "${private_root}/libonnxruntime.so.1"
 
 if [[ -n "${MLWL_PREFIX}" ]]; then
     python3 - "${REPO_ROOT}" "${MLWL_PREFIX}" "${private_root}" \
@@ -429,9 +429,9 @@ for binary in "${elf_files[@]}"; do
         die "wrong ELF architecture in ${binary}: ${machine}"
 done
 
-[[ "$(readlink "${private_root}/libonnxruntime.so.1")" == libonnxruntime.so.1.24.4 ]] ||
+[[ "$(readlink "${private_root}/libonnxruntime.so.1")" == libonnxruntime.so.1.31.1 ]] ||
     die "ONNX Runtime SONAME link is invalid"
-[[ "$(readelf -dW "${private_root}/libonnxruntime.so.1.24.4" |
+[[ "$(readelf -dW "${private_root}/libonnxruntime.so.1.31.1" |
     sed -n 's/.*(SONAME).*\[\([^]]*\)\].*/\1/p')" == libonnxruntime.so.1 ]] ||
     die "ONNX Runtime has an unexpected SONAME"
 

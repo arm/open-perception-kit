@@ -125,7 +125,7 @@ endif
 onnx_candidates += [
   '/opt/opk-deps/onnxruntime',
   opk_repository_root / 'deps/onnxruntime',
-  opk_repository_root / 'onnxruntime-linux-aarch64-1.24.4',
+  opk_repository_root / 'onnxruntime-linux-aarch64-1.31.1',
 ]
 
 foreach candidate : onnx_candidates

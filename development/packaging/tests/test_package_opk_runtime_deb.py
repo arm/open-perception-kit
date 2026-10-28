@@ -160,7 +160,7 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
             ):
                 self.compile_library(plugin_root / name, "$ORIGIN/../opk")
 
-            onnx_runtime = root / "libonnxruntime.so.1.24.4"
+            onnx_runtime = root / "libonnxruntime.so.1.31.1"
             self.compile_library(
                 onnx_runtime,
                 "$ORIGIN",
@@ -427,7 +427,7 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
                     extracted
                     / f"usr/lib/{multiarch}/opk/libonnxruntime.so.1"
                 ),
-                "libonnxruntime.so.1.24.4",
+                "libonnxruntime.so.1.31.1",
             )
             self.assertFalse(
                 (extracted / "usr/share/opk/open-perception-kit").exists()

@@ -68,7 +68,7 @@ opk_runtime_deb = custom_target(
     '--installed-prefix', get_option('prefix'),
     '--installed-libdir', get_option('libdir'),
     '--python-runtime', opk_python.full_path(),
-    '--onnx-runtime', onnx_libdir / 'libonnxruntime.so.1.24.4',
+    '--onnx-runtime', onnx_libdir / 'libonnxruntime.so.1.31.1',
     '--onnx-license-dir', onnx_root / 'share/doc/onnxruntime',
     '--executorch-license-dir', executorch_root / '..' / 'executorch-legal-documentation',
     '--flatbuffers-schema-dir', opk_repository_root / 'schemas/perception/metadata',
