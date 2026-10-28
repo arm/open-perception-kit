@@ -616,7 +616,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG TARGETARCH
 ARG NO_EXAMPLE_CONTENT=false
 ARG OPK_RELEASE_BUILD=false
-ARG OPK_RELEASE_SOURCE_COMMIT=""
+ARG OPK_MLWL=disabled
 
 COPY --from=opk-release-sources --chmod=0755 /work/scripts/private/install-target-sysroot.sh /usr/local/bin/install-target-sysroot
 # ignore version pinning
@@ -652,6 +652,21 @@ RUN --mount=type=bind,source=var,target=/tmp/opk-executorch-packages,ro \
   fi
 
 WORKDIR /work
+COPY --from=opk-release-sources /work/tools/perception tools/perception
+COPY --from=opk-release-sources /work/scripts/private/install-mlwl.py scripts/private/install-mlwl.py
+COPY --from=opk-release-sources /work/requirements/mlwl.json requirements/mlwl.json
+RUN set -eu; \
+  case "${OPK_MLWL}" in \
+    enabled) \
+      test "${TARGETARCH}" = "$(dpkg --print-architecture)"; \
+      python3 scripts/private/install-mlwl.py /opt/opk-deps/mlwl ;; \
+    disabled) ;; \
+    *) echo 'OPK_MLWL must be enabled or disabled' >&2; exit 1 ;; \
+  esac
+
+ENV MLWorkloadLibraryForVulkan_DIR=/opt/opk-deps/mlwl/lib64/cmake/MLWorkloadLibraryForVulkan \
+  CMAKE_PREFIX_PATH=/opt/opk-deps/mlwl
+
 COPY --from=opk-release-sources /work/development/meson.build /work/development/meson.options development/
 COPY --from=opk-release-sources /work/development/subprojects/*.wrap development/subprojects/
 COPY --from=opk-release-sources /work/development/subprojects/packagefiles development/subprojects/packagefiles
@@ -665,7 +680,7 @@ COPY --from=opk-release-sources --chmod=0755 /work/scripts/private/run-perceptio
 COPY --from=opk-release-sources /work/scripts/release/ReleaseTool.py scripts/release/
 COPY --from=opk-release-sources /work/.clang-format /work/.cmake-format.yaml ./
 COPY --from=opk-release-sources /work/tools/config_versions.py tools/config_versions.py
-COPY --from=opk-release-sources /work/tools/perception tools/perception
+
 COPY --from=opk-release-sources /work/tools/flowdata-sdk tools/flowdata-sdk
 COPY --from=opk-release-sources /work/schemas/perception/metadata schemas/perception/metadata
 COPY --from=opk-release-sources /work/development development
@@ -678,6 +693,8 @@ COPY --from=opk-release-sources /work/data data
 # Release and deployment images contain descriptors only. Users download models
 # through the quick-start development flow with their own Hugging Face access.
 COPY --from=opk-release-sources /work/config config
+
+ARG OPK_RELEASE_SOURCE_COMMIT=""
 
 FROM opk-deployment-build-base AS opk-deployment-build
 
@@ -720,6 +737,10 @@ RUN --mount=type=cache,id=opk-deployment-ccache,target=/work/.cache/ccache,shari
   find /work/development/build \
     -path /work/development/build/subprojects -prune -o \
     -type f -name "*.so" -exec cp {} /opt/opk-app/development/build/meson-out/ \; ; \
+  if [ "${OPK_MLWL}" = enabled ]; then \
+    cp /opt/opk-deps/mlwl/lib64/libmlworkloadlib.so \
+      /opt/opk-app/development/build/meson-out/; \
+  fi; \
   cp /work/tools/opk-menu /opt/opk-app/tools/; \
   cp /work/scripts/private/deployment-runtime.sh /opt/opk-app/scripts/private/; \
   /opt/opk-venvs/python-ops-runtime/bin/python \
@@ -740,8 +761,6 @@ RUN --mount=type=cache,id=opk-deployment-ccache,target=/work/.cache/ccache,shari
       --repository-commit "${OPK_RELEASE_SOURCE_COMMIT}"; \
     mkdir -p \
       "${package_root}/lib/opk" \
-      "${package_root}/share/opk/licenses/onnxruntime" \
-      "${package_root}/share/opk/licenses/executorch" \
       "${package_root}/share/opk" \
       "${package_root}/share/opk/open-perception-kit"; \
     /work/tools/opk-config-check --root /work; \
@@ -752,10 +771,11 @@ RUN --mount=type=cache,id=opk-deployment-ccache,target=/work/.cache/ccache,shari
       "${package_root}/lib/opk/"; \
     ln -s "libonnxruntime.so.${onnxruntime_version}" \
       "${package_root}/lib/opk/libonnxruntime.so.1"; \
-    cp -a /opt/opk-deps/onnxruntime/share/doc/onnxruntime/. \
-      "${package_root}/share/opk/licenses/onnxruntime/"; \
-    cp -a /opt/opk-deps/executorch-legal-documentation/. \
-      "${package_root}/share/opk/licenses/executorch/"; \
+    if [ "${OPK_MLWL}" = enabled ]; then \
+      cp /opt/opk-deps/mlwl/lib64/libmlworkloadlib.so \
+        /opt/opk-deps/mlwl/lib64/libmlworkloadlib.so.provenance.json \
+        "${package_root}/lib/opk/"; \
+    fi; \
     /opt/opk-venvs/python-ops-runtime/bin/python /work/scripts/release/ReleaseTool.py stage-legal \
       --repo-root /work --stage-root "${package_root}"; \
     cp -a /tmp/open-perception-kit-input/. \

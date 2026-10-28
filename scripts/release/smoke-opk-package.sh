@@ -36,8 +36,12 @@ python3 "$(dirname "${BASH_SOURCE[0]}")/ReleaseTool.py" validate-legal \
 export GST_PLUGIN_PATH="$package_root/lib/gstreamer-1.0"
 export LD_LIBRARY_PATH="$package_root/lib/opk"
 export GST_REGISTRY="$smoke_root/gstreamer-registry.bin"
+if [ -f "$package_root/lib/opk/opk-mlwl-ops.so" ]; then
+    python3 -c 'import ctypes, sys; ctypes.CDLL(sys.argv[1])' \
+        "$package_root/lib/opk/opk-mlwl-ops.so"
+fi
 for element in fakesink opusenc opkcomm opkinfer opkosd opkperformance \
-    opksink opktracker videoconvert videotestsrc vp8enc webrtcbin; do
+    opksink opksrc opktracker videoconvert videotestsrc vp8enc webrtcbin; do
     gst-inspect-1.0 "$element" > /dev/null
 done
 

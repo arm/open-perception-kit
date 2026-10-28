@@ -41,6 +41,17 @@ package_script = find_program(
 )
 meson_program = find_program('meson')
 
+mlwl_package_args = []
+mlwl_package_depends = []
+if mlwl_enabled
+  mlwl_package_dir = run_command('sh', '-c', 'printf %s "$MLWorkloadLibraryForVulkan_DIR"', check : true).stdout().strip()
+  if mlwl_package_dir == ''
+    error('MLWL packaging requires MLWorkloadLibraryForVulkan_DIR from install-mlwl.py.')
+  endif
+  mlwl_package_args = ['--mlwl-prefix', mlwl_package_dir / '../../..']
+  mlwl_package_depends = [mlwl_ops]
+endif
+
 opk_runtime_deb = custom_target(
   'opk-runtime-deb',
   output : '@0@_@1@-@2@_@3@.deb'.format(
@@ -66,7 +77,7 @@ opk_runtime_deb = custom_target(
     '--architecture', deb_architecture,
     '--multiarch', deb_multiarch,
     '--output', '@OUTPUT@',
-  ],
+  ] + mlwl_package_args,
   depends : [
     common,
     opk_runtime,
@@ -81,7 +92,7 @@ opk_runtime_deb = custom_target(
     opkinferpre,
     opksrc,
     opkcomm,
-  ],
+  ] + mlwl_package_depends,
   build_by_default : false,
   build_always_stale : true,
   console : true,

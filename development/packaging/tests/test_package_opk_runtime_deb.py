@@ -15,15 +15,21 @@
 # limitations under the License.
 # Copyright (C) 2026 Arm Limited. All rights reserved.
 
+import hashlib
 import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.release import ReleaseTool  # noqa: E402
+
 PACKAGE_SCRIPT = (
     REPO_ROOT / "scripts/private/packaging/package-opk-runtime-deb.sh"
 )
@@ -36,6 +42,7 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
         *,
         cwd: Path | None = None,
         env: dict[str, str] | None = None,
+        umask: int = -1,
     ) -> subprocess.CompletedProcess[str]:
         try:
             return subprocess.run(
@@ -43,6 +50,7 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
                 check=True,
                 cwd=cwd,
                 env=env,
+                umask=umask,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
@@ -220,26 +228,30 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
             release_tool.parent.mkdir(parents=True)
             release_tool.write_text(
                 "import json, os, pathlib, shutil, sys\n"
-                "root = pathlib.Path(sys.argv[sys.argv.index('--stage-root') + 1])\n"
-                "if sys.argv[1] == 'stage-legal':\n"
-                "    (root / 'share/opk/licenses').mkdir(parents=True)\n"
-                "    (root / 'share/opk/licenses/NOTICE').write_bytes(b'Original notice\\r\\n')\n"
-                "    sys.exit(0)\n"
-                "target = root / 'share/opk/python'\n"
-                "target.mkdir(parents=True, exist_ok=True)\n"
-                "modules = ('open_perception_kit',) if '--distribution' in sys.argv "
+                f"sys.path.insert(0, {str(REPO_ROOT)!r})\n"
+                "from scripts.release.ReleaseTool import (MLWL_RUNTIME_LIBRARY, MLWL_LEGAL_NOTICES,\n"
+                "                                         copy_legal_files, validate_mlwl_runtime)\n"
+                "if __name__ == '__main__':\n"
+                "    root = pathlib.Path(sys.argv[sys.argv.index('--stage-root') + 1])\n"
+                "    if sys.argv[1] == 'stage-legal':\n"
+                "        (root / 'share/opk/licenses').mkdir(parents=True)\n"
+                "        (root / 'share/opk/licenses/NOTICE').write_bytes(b'Original notice\\r\\n')\n"
+                "        sys.exit(0)\n"
+                "    target = root / 'share/opk/python'\n"
+                "    target.mkdir(parents=True, exist_ok=True)\n"
+                "    modules = ('open_perception_kit',) if '--distribution' in sys.argv "
                 "else ('flatbuffers', 'numpy', 'open_perception_kit')\n"
-                "for module in modules:\n"
-                "    (target / module).mkdir(exist_ok=True)\n"
-                "if 'numpy' in modules:\n"
-                "    (target / 'numpy/_core').mkdir()\n"
-                "    shutil.copy2(os.environ['OPK_TEST_PYTHON_EXTENSION'], "
+                "    for module in modules:\n"
+                "        (target / module).mkdir(exist_ok=True)\n"
+                "    if 'numpy' in modules:\n"
+                "        (target / 'numpy/_core').mkdir()\n"
+                "        shutil.copy2(os.environ['OPK_TEST_PYTHON_EXTENSION'], "
                 "target / 'numpy/_core/_fixture.so')\n"
-                "(target / 'opk-runtime.json').write_text(json.dumps({\n"
-                "    'distributions': {\n"
-                "        'open-perception-kit': '0.3.1',\n"
-                "    }\n"
-                "}) + '\\n')\n",
+                "    (target / 'opk-runtime.json').write_text(json.dumps({\n"
+                "        'distributions': {\n"
+                "            'open-perception-kit': '0.3.1',\n"
+                "        }\n"
+                "    }) + '\\n')\n",
                 encoding="utf-8",
             )
             (repo_root / "development/ops-python").mkdir(parents=True)
@@ -298,42 +310,25 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
                 root / "install-fixture"
             )
             environment["OPK_TEST_PYTHON_EXTENSION"] = str(python_extension)
-            self.run_command(
-                [
-                    str(PACKAGE_SCRIPT),
-                    "--build-dir",
-                    str(build_dir),
-                    "--meson",
-                    str(fake_meson),
-                    "--repo-root",
-                    str(repo_root),
-                    "--installed-prefix",
-                    "/usr",
-                    "--installed-libdir",
-                    installed_libdir,
-                    "--python-runtime",
-                    os.sys.executable,
-                    "--onnx-runtime",
-                    str(onnx_runtime),
-                    "--onnx-license-dir",
-                    str(onnx_license_dir),
-                    "--executorch-license-dir",
-                    str(executorch_license_dir),
-                    "--flatbuffers-schema-dir",
-                    str(flatbuffers_schema_dir),
-                    "--version",
-                    "0.3.1",
-                    "--revision",
-                    "1",
-                    "--architecture",
-                    architecture,
-                    "--multiarch",
-                    multiarch,
-                    "--output",
-                    str(output),
-                ],
-                env=environment,
-            )
+            package_command = [
+                str(PACKAGE_SCRIPT),
+                "--build-dir", str(build_dir),
+                "--meson", str(fake_meson),
+                "--repo-root", str(repo_root),
+                "--installed-prefix", "/usr",
+                "--installed-libdir", installed_libdir,
+                "--python-runtime", os.sys.executable,
+                "--onnx-runtime", str(onnx_runtime),
+                "--onnx-license-dir", str(onnx_license_dir),
+                "--executorch-license-dir", str(executorch_license_dir),
+                "--flatbuffers-schema-dir", str(flatbuffers_schema_dir),
+                "--version", "0.3.1",
+                "--revision", "1",
+                "--architecture", architecture,
+                "--multiarch", multiarch,
+                "--output", str(output),
+            ]
+            self.run_command(package_command, env=environment)
 
             self.assertTrue(output.is_file())
             self.run_command(
@@ -355,6 +350,8 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
             self.assertIn("python3-pip", control)
             self.assertIn("libstdc++6", control)
             self.assertNotIn("libonnxruntime", control)
+            self.assertNotIn("libvulkan1", control)
+            self.assertFalse((extracted / f"usr/lib/{multiarch}/opk/opk-mlwl-ops.so").exists())
 
             packaged_plugins = {
                 path.name
@@ -488,6 +485,54 @@ class PackageOpkRuntimeDebTests(unittest.TestCase):
             self.assertTrue(
                 (extracted / "usr/share/opk/docs/arch/example.md").is_file()
             )
+
+            mlwl_prefix = root / "mlwl"
+            library = mlwl_prefix / "lib64" / ReleaseTool.MLWL_RUNTIME_LIBRARY
+            library.parent.mkdir(parents=True)
+            self.compile_library(library, "", soname=library.name)
+            self.compile_library(
+                private_root / "opk-mlwl-ops.so", "$ORIGIN", link_library=library
+            )
+            sources = json.loads((REPO_ROOT / "requirements/mlwl.json").read_text())
+            (repo_root / "requirements").mkdir()
+            (repo_root / "requirements/mlwl.json").write_text(json.dumps(sources))
+            receipt = library.with_suffix(".so.provenance.json")
+            receipt_data = {
+                "sources": sources,
+                "library_sha256": hashlib.sha256(library.read_bytes()).hexdigest(),
+            }
+            receipt.write_text(json.dumps(receipt_data))
+            for relative in ReleaseTool.MLWL_LEGAL_NOTICES:
+                notice = mlwl_prefix / "share/doc/mlwl" / relative
+                notice.parent.mkdir(parents=True, exist_ok=True)
+                notice.write_bytes(f"Original {relative} terms\r\n".encode())
+
+            self.run_command(
+                package_command + ["--mlwl-prefix", str(mlwl_prefix)],
+                env=environment, umask=0o077,
+            )
+            extracted_mlwl = root / "extracted-mlwl"
+            self.run_command(["dpkg-deb", "--extract", str(output), str(extracted_mlwl)])
+            self.assertIn("libvulkan1", self.run_command(
+                ["dpkg-deb", "--field", str(output), "Depends"]
+            ).stdout)
+            packaged_private = extracted_mlwl / f"usr/lib/{multiarch}/opk"
+            self.assertTrue((packaged_private / "opk-mlwl-ops.so").is_file())
+            payload = [(source, packaged_private / source.name) for source in (library, receipt)]
+            payload.extend(
+                (mlwl_prefix / "share/doc/mlwl" / relative,
+                 extracted_mlwl / "usr/share/opk/licenses/mlwl" / relative)
+                for relative in ReleaseTool.MLWL_LEGAL_NOTICES
+            )
+            for source, packaged in payload:
+                with self.subTest(mlwl_payload=packaged.relative_to(extracted_mlwl)):
+                    self.assertEqual(packaged.read_bytes(), source.read_bytes())
+                    self.assertEqual(packaged.stat().st_mode & 0o444, 0o444)
+            ReleaseTool.validate_mlwl_runtime(packaged_private, repo_root)
+            receipt_data["sources"]["vgf"]["sha256"] = "0" * 64
+            (packaged_private / receipt.name).write_text(json.dumps(receipt_data))
+            with self.assertRaisesRegex(RuntimeError, "source does not match"):
+                ReleaseTool.validate_mlwl_runtime(packaged_private, repo_root)
 
 
 if __name__ == "__main__":
