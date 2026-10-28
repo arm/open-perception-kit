@@ -70,10 +70,12 @@ Run `./scripts/quick_start.sh`, then follow the normal build and
 `./scripts/run.sh mlwl-vgf-demo` steps above. Quickstart uses the image without
 rebuilding it and gives the container access to `/dev/dri/renderD128`.
 
-The preflight checks device permissions, the MLWL library, V3D selection and the
-Graph/Tensor extensions. **NOK stops quickstart with an error and a nonzero exit
-code.** `run.sh` repeats the check before starting a pipeline; there is no CPU
-fallback. This checks runtime availability, not model correctness or GPU speed.
+The preflight checks device permissions, the MLWL library, V3D selection and all
+extensions required by the pinned MLWL runtime: `VK_ARM_data_graph`,
+`VK_ARM_tensors`, `VK_KHR_deferred_host_operations` and `VK_KHR_maintenance5`.
+**NOK lists missing extensions and stops quickstart with a nonzero exit code.**
+`run.sh` repeats the check before starting a pipeline; there is no CPU fallback.
+Device features, model correctness and GPU speed are not checked by this preflight.
 To check the preflight's success and failure paths in that container, run
 `python3 development/tests/mlwl_gpu_preflight_test.py`.
 

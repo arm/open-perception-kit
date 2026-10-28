@@ -44,11 +44,17 @@ def check_gpu():
             check=True, capture_output=True, text=True, timeout=30,
         )
         device = json.loads(profile.read_text())["capabilities"]["device"]
-        missing = {"VK_ARM_data_graph", "VK_ARM_tensors"} - device["extensions"].keys()
+        # Match the pinned MLWL runtime's requiredWorkloadDeviceExtensions().
+        missing = {
+            "VK_ARM_data_graph",
+            "VK_ARM_tensors",
+            "VK_KHR_deferred_host_operations",
+            "VK_KHR_maintenance5",
+        } - device["extensions"].keys()
         if missing:
             raise RuntimeError(
-                f"missing {', '.join(sorted(missing))}; supply a compatible GPU runtime with Graph and Tensor support")
-    print(f"MLWL GPU preflight OK: {devices[0]} (Graph and Tensor extensions available)")
+                f"missing {', '.join(sorted(missing))}; supply a compatible MLWL GPU runtime")
+    print(f"MLWL GPU preflight OK: {devices[0]} (required Vulkan extensions available)")
 
 
 if __name__ == "__main__":
