@@ -88,7 +88,7 @@ and check the built artifacts before publication.
 | [nodeenv](https://github.com/ekalinin/nodeenv) | [1.10.0](https://pypi.org/project/nodeenv/1.10.0/) | BSD-3-Clause | PyPI |
 | [NumPy](https://github.com/numpy/numpy) | [2.4.2](https://pypi.org/project/numpy/2.4.2/) (build and host Python) | BSD-3-Clause and [wheel terms](https://github.com/numpy/numpy/blob/v2.4.2/pyproject.toml), including GPL-3.0-or-later WITH GCC-exception-3.1 (libgfortran) and LGPL-2.1-or-later (x86_64 libquadmath) | PyPI |
 | [onnx](https://github.com/onnx/onnx) | [1.22.0](https://pypi.org/project/onnx/1.22.0/) | Apache-2.0 | PyPI |
-| [onnxruntime](https://github.com/microsoft/onnxruntime) | [1.31.1](https://github.com/microsoft/onnxruntime/releases/tag/v1.31.1) | MIT and bundled terms | GitHub release |
+| [onnxruntime](https://github.com/microsoft/onnxruntime) | [Build lock](../requirements/build.json) (`onnxruntime`); packaged version in the runtime provenance | MIT and bundled terms | GitHub release |
 | [openai](https://github.com/openai/openai-python) | [2.44.0](https://pypi.org/project/openai/2.44.0/) | Apache-2.0 | PyPI |
 | [openai-agents](https://github.com/openai/openai-agents-python) | [0.17.7](https://pypi.org/project/openai-agents/0.17.7/) | MIT | PyPI |
 | [packaging](https://github.com/pypa/packaging) | [26.3](https://pypi.org/project/packaging/26.3/) | BSD-2-Clause AND Apache-2.0 | PyPI |

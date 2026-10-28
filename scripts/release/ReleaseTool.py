@@ -841,7 +841,7 @@ def validate_onnxruntime_provenance(
     package_root: Path, repo_root: Path | None, architecture: str
 ) -> None:
     private_root = package_root / "lib/opk"
-    library = private_root / "libonnxruntime.so.1.31.1"
+    library = onnxruntime_library(private_root)
     receipt_path = library.with_name(f"{library.name}.provenance.json")
     if not receipt_path.is_file() or receipt_path.is_symlink():
         fail("Packaged ONNX Runtime provenance receipt is missing or invalid")
@@ -864,19 +864,24 @@ def validate_onnxruntime_provenance(
             fail(f"Packaged ONNX Runtime legal file is missing or invalid: {filename}")
 
 
-def validate_onnx_runtime(private_root: Path) -> None:
+def onnxruntime_library(private_root: Path) -> Path:
     regular_onnx = [
         path
         for path in private_root.glob("libonnxruntime.so.*")
         if path.is_file() and not path.is_symlink()
         and not path.name.endswith(".provenance.json")
     ]
+    if len(regular_onnx) != 1 or not re.fullmatch(r"libonnxruntime\.so\.[0-9]+\.[0-9]+\.[0-9]+", regular_onnx[0].name):
+        fail("Package must contain exactly one versioned ONNX Runtime library")
+    return regular_onnx[0]
+
+
+def validate_onnx_runtime(private_root: Path) -> None:
+    library = onnxruntime_library(private_root)
     soname_link = private_root / "libonnxruntime.so.1"
-    if [path.name for path in regular_onnx] != ["libonnxruntime.so.1.31.1"]:
-        fail("Package must contain exactly ONNX Runtime 1.31.1")
-    if not soname_link.is_symlink() or os.readlink(soname_link) != regular_onnx[0].name:
+    if not soname_link.is_symlink() or os.readlink(soname_link) != library.name:
         fail("ONNX Runtime SONAME link is missing or incorrect")
-    if dynamic_values(regular_onnx[0], "SONAME") != ["libonnxruntime.so.1"]:
+    if dynamic_values(library, "SONAME") != ["libonnxruntime.so.1"]:
         fail("Pinned ONNX Runtime has an unexpected SONAME")
 
 

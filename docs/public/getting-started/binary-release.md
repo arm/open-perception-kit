@@ -134,7 +134,9 @@ library uses a package-relative RUNPATH.
 C++ SDK. Cairn integrates the package through standard GStreamer APIs and does
 not compile against OPK headers.
 
-The package has one ONNX Runtime binary, `libonnxruntime.so.1.31.1`.
+The package has one ONNX Runtime binary, `libonnxruntime.so.<version>`.
+The version is pinned in `requirements/build.json` and recorded in the
+binary's adjacent `.provenance.json` file.
 `libonnxruntime.so.1` is only a symbolic link to that file, not a second
 runtime. The link is required because the runtime's upstream SONAME is recorded
 as `DT_NEEDED=libonnxruntime.so.1` in `opk-onnx-ops.so`; the dynamic loader

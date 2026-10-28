@@ -212,7 +212,7 @@ class ReleaseToolTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             package_root = root / "package"
-            library = package_root / "lib/opk/libonnxruntime.so.1.31.1"
+            library = package_root / "lib/opk/libonnxruntime.so.1.2.3"
             library.parent.mkdir(parents=True)
             library.write_bytes(b"onnxruntime")
             legal_root = package_root / "share/opk/licenses/onnxruntime"
@@ -224,7 +224,7 @@ class ReleaseToolTests(unittest.TestCase):
             descriptor = repo_root / "requirements/build.json"
             descriptor.parent.mkdir(parents=True)
             descriptor.write_text(json.dumps({
-                "onnxruntime": "1.31.1",
+                "onnxruntime": "1.2.3",
                 "onnxruntime-sha256-x64": "a" * 64,
             }), encoding="utf-8")
             import hashlib
@@ -234,6 +234,12 @@ class ReleaseToolTests(unittest.TestCase):
                 json.dumps(receipt), encoding="utf-8"
             )
             release_tool.validate_onnxruntime_provenance(package_root, repo_root, "x86_64")
+            release_tool.validate_onnxruntime_provenance(package_root, None, "x86_64")
+            locked_source = descriptor.read_text()
+            descriptor.write_text(locked_source.replace('"1.2.3"', '"1.2.4"'))
+            with self.assertRaisesRegex(RuntimeError, "does not match the selected source"):
+                release_tool.validate_onnxruntime_provenance(package_root, repo_root, "x86_64")
+            descriptor.write_text(locked_source)
             (library.parent / "libonnxruntime.so.1").symlink_to(library.name)
             with patch.object(release_tool, "dynamic_values", return_value=["libonnxruntime.so.1"]):
                 release_tool.validate_onnx_runtime(library.parent)
@@ -244,6 +250,19 @@ class ReleaseToolTests(unittest.TestCase):
             library.write_bytes(b"changed")
             with self.assertRaisesRegex(RuntimeError, "library SHA-256 mismatch"):
                 release_tool.validate_onnxruntime_provenance(package_root, repo_root, "x86_64")
+
+    def test_onnx_runtime_rejects_missing_ambiguous_or_unversioned_libraries(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for names in ((), ("libonnxruntime.so.1.2.3", "libonnxruntime.so.1.2.4"),
+                          ("libonnxruntime.so.unknown",)):
+                with self.subTest(libraries=names):
+                    for name in names:
+                        (root / name).write_bytes(b"onnxruntime")
+                    with self.assertRaisesRegex(RuntimeError, "exactly one versioned ONNX Runtime library"):
+                        release_tool.validate_onnx_runtime(root)
+                    for name in names:
+                        (root / name).unlink()
 
     def test_stages_selected_python_runtime_distribution(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
