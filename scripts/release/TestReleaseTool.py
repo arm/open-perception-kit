@@ -594,7 +594,8 @@ class ReleaseToolTests(unittest.TestCase):
     def test_requires_regular_python_stub(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            for name in release_tool.PLUGIN_NAMES:
+            for name in ("libopkcomm.so", "libopkinfer.so", "libopkosd.so", "libopkperformance.so",
+                         "libopksink.so", "libopksrc.so", "libopktracker.so"):
                 path = root / PLUGIN_DIR / name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(b"\x7fELF")
@@ -608,6 +609,12 @@ class ReleaseToolTests(unittest.TestCase):
             stub.parent.mkdir()
             stub.write_text("# PythonScript types\n")
             release_tool.validate_runtime_files(root)
+
+            microphone_plugin = root / PLUGIN_DIR / "libopksrc.so"
+            microphone_plugin.unlink()
+            with self.assertRaisesRegex(RuntimeError, "Packaged plugins must be exactly"):
+                release_tool.validate_runtime_files(root)
+            microphone_plugin.write_bytes(b"\x7fELF")
 
             stub.unlink()
             with self.assertRaisesRegex(RuntimeError, "PythonScript type stub"):

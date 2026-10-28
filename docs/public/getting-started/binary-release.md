@@ -158,6 +158,7 @@ The plugin directory contains these supported plugins:
 - `libopkosd.so`
 - `libopkperformance.so`
 - `libopksink.so`
+- `libopksrc.so`
 - `libopktracker.so`
 
 ## Integrate a Cairn GStreamer backend
