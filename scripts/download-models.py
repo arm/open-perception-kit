@@ -21,6 +21,8 @@ import logging
 import os
 import sys
 from pathlib import Path
+from typing import BinaryIO
+from urllib.request import urlopen
 
 from huggingface_hub import hf_hub_download
 from huggingface_hub.constants import HF_HUB_CACHE
@@ -141,7 +143,8 @@ def _download_model(model_file, destination, source, token, credential_cache) ->
             token=token or False,
             cache_dir=credential_cache,
         )
-        _install_download(Path(downloaded), destination, expected_sha256)
+        with Path(downloaded).open("rb") as source_file:
+            _install_download(source_file, destination, expected_sha256)
     except Exception as error:
         if expected_sha256 is not None and not _matches_sha256(
             destination, expected_sha256
@@ -150,12 +153,32 @@ def _download_model(model_file, destination, source, token, credential_cache) ->
         LOGGER.warning("Skipping %s: %s", model_file, error)
 
 
-def _install_download(source: Path, destination: Path, expected_sha256: str | None) -> None:
+def _download_notices(models_dir: Path) -> None:
+    manifest = models_dir.parent / "model-notices.json"
+    if not manifest.is_file():
+        return
+
+    for filename, source in json.loads(manifest.read_text()).items():
+        destination = (models_dir / "licenses" / filename).resolve()
+        if destination.parent != (models_dir.resolve() / "licenses"):
+            raise ValueError(f"Notice destination is outside licenses/: {filename}")
+        expected_sha256 = source["sha256"]
+        if _matches_sha256(destination, expected_sha256):
+            continue
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        LOGGER.info("Downloading %s to %s.", source["url"], destination)
+        with urlopen(source["url"], timeout=30) as source_file:
+            _install_download(source_file, destination, expected_sha256)
+
+
+def _install_download(
+    source_file: BinaryIO, destination: Path, expected_sha256: str | None
+) -> None:
     partial = destination.with_name(destination.name + ".part")
     partial.unlink(missing_ok=True)
     digest = hashlib.sha256()
     try:
-        with source.open("rb") as source_file, partial.open("xb") as destination_file:
+        with partial.open("xb") as destination_file:
             while chunk := source_file.read(1024 * 1024):
                 destination_file.write(chunk)
                 digest.update(chunk)
@@ -199,6 +222,7 @@ def main(models_dir: Path) -> None:
         if download := _prepare_download(descriptor, validator):
             downloads.append(download)
 
+    _download_notices(models_dir)
     credential_cache = _cache_dir(token)
     for model_file, destination, source in downloads:
         _download_model(model_file, destination, source, token, credential_cache)

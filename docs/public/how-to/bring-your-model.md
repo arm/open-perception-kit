@@ -103,6 +103,12 @@ consumes against `config/schemas/v1/model.schema.json` before starting any
 remote download. Schema, JSON, and destination validation failures are reported
 through Python logging and stop the build without a traceback.
 
+For the bundled models, the same downloader fetches the original licences and
+model cards listed in `config/model-notices.json` into `config/models/licenses/`.
+These files are checksum-verified and included in the demo Debian package.
+A failed notice download stops the build. When updating a bundled model, update
+its pinned notices too.
+
 Public models, including all standard OPK models, download without a Hugging
 Face account or token. For your own private or gated model, export a read-only
 `HF_TOKEN` with access to that model in the host shell before building:

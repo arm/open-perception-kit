@@ -144,7 +144,7 @@ Native Ubuntu 24.04 jobs build the `opk-deployment-base` target in the
 [Dockerfile](../../Dockerfile) for `linux/amd64` and `linux/arm64`, then extract
 the release packages from the local images.
 
-Packaging stages only the JSON descriptors and OpChains from the
+Archive packaging stages only the JSON descriptors and OpChains from the
 selected directories under `config/models/`. Their `hfDownload` entries retain
 the pinned repository, revision, filename, and SHA-256 for user downloads.
 Model binaries are excluded from release archives, deployment images, and
@@ -153,12 +153,12 @@ Cairn images, and are not required to build those artifacts.
 The existing quick-start development flow uses the `opk-models` stage and
 `scripts/download-models.py`. The standard OPK model sources are public;
 quick-start CI downloads the pinned artifacts anonymously, without an `HF_TOKEN`
-secret. Release builds and smoke checks do not use `opk-models`, download models
+secret. Archive builds and their smoke checks do not use `opk-models`, download models
 or receive Hugging Face credentials. Optional authentication for custom private or gated models
 remains available through the existing downloader; see
 [Bring your model](../public/how-to/bring-your-model.md).
 
-Users download models separately before running a release; see
+Users of release archives download models separately before running OPK; see
 [Download models](../public/getting-started/binary-release.md#download-models).
 Deployment containers mount the user's downloaded model directory read-only.
 The shared `opk-release-sources` Docker stage excludes each descriptor's
@@ -173,12 +173,20 @@ its source commit when available. The build checks SDK provenance
 against the source commit without regenerating the SDK. The Arm job extracts
 the Python wheel and prepares the Rust crate for publication.
 
+The same native jobs build the existing `opk-runtime-deb` and `opk-demo-deb`
+Meson targets. The demo package includes model binaries downloaded by
+`opk-models`. The `.deb` files stay in Actions artifacts named
+`opk-debian-<architecture>-<run_id>-<attempt>` and are not published.
+Demo videos are not included; provide your own video input.
+
 For product version `<version>`, the release produces:
 
 | Artifact | Destination |
 | --- | --- |
 | `opk-<version>-linux-x86_64.tar.gz` | Actions, Artifactory, GitHub Release |
 | `opk-<version>-linux-aarch64.tar.gz` | Actions, Artifactory, GitHub Release |
+| `opk-runtime_<version>-1_<architecture>.deb` | Actions |
+| `opk-demo_<version>-1_<architecture>.deb` | Actions |
 | `open_perception_kit-<version>-py3-none-any.whl` | Actions and Artifactory publisher input |
 | `open_perception_kit-<version>.crate` | Actions, Artifactory publisher input, and crates.io |
 | `opk-sbom-source.json` | Actions and GitHub Release |
