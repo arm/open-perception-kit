@@ -37,7 +37,7 @@ Options:
   --executorch-sha256 SHA Expected SHA-256 of the source archive. Optional.
   --jobs N                Build parallelism. Default: calculated from available CPU and memory.
   --deb-output-dir DIR    Debian package output directory. Default: $OPK_PROJECT_ROOT/var
-  --deb-revision REV      Debian package revision. Default: 2
+  --deb-revision REV      Debian package revision. Default: 3
   --skip-deb              Stage files without creating a Debian package.
   --clean-build           Delete and recreate the CMake build directory.
   --clean-work-dir        Delete and recreate the entire work directory.
@@ -274,7 +274,7 @@ ARM_AR="${EXECUTORCH_ARM_AR:-aarch64-linux-gnu-ar}"
 ARM_RANLIB="${EXECUTORCH_ARM_RANLIB:-aarch64-linux-gnu-ranlib}"
 ARM_STRIP="${EXECUTORCH_ARM_STRIP:-aarch64-linux-gnu-strip}"
 DEB_OUTPUT_DIR="${EXECUTORCH_DEB_OUTPUT_DIR:-${OPK_PROJECT_ROOT}/var}"
-DEB_REVISION="${EXECUTORCH_DEB_REVISION:-2}"
+DEB_REVISION="${EXECUTORCH_DEB_REVISION:-3}"
 BUILD_DEB=1
 CLEAN_BUILD=0
 CLEAN_WORK_DIR=0
