@@ -441,6 +441,12 @@ test(
   timeout : 60,
 )
 test(
+  'platform_init_script_tests',
+  python,
+  args : [files('platform_init_script_test.py'), opk_repository_root],
+  timeout : 60,
+)
+test(
   'clang_tidy_report_tests',
   python,
   args : [files('clang_tidy_report_test.py')],

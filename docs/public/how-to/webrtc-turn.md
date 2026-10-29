@@ -2,7 +2,7 @@
 title: WebRTC and TURN
 sidebar_position: 3
 sidebar_label: WebRTC and TURN
-description: Use a TURN relay when the browser cannot connect directly to Open Perception Kit media.
+description: When TURN is needed, how to enable it, and how to troubleshoot missing video.
 ---
 <!--
 SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
@@ -21,22 +21,28 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-
 # WebRTC and TURN
 
-TURN relays WebRTC media when NAT, a firewall, or container networking prevents
-a direct connection between the browser and OPK. Loading the web page or
-connecting to signaling does not confirm that video can arrive.
+TURN relays video when NAT, container networking, or a firewall blocks a direct
+WebRTC connection between OPK and the browser. The web page can load even when
+the video connection fails.
 
-The WSL and macOS development workflows enable the coturn container
-automatically. Linux and Raspberry Pi normally use host networking and do not
-need a relay when the browser can reach OPK directly.
+## Development containers
 
-## Start A Relay
+WSL and macOS development workflows start coturn and configure OPK automatically.
+Linux and Raspberry Pi normally use host networking and work without a relay
+when the browser can reach OPK directly.
 
-If your workflow already started coturn, reuse it. Otherwise, run this from the
-repository root in the **Docker host shell**. Replace `192.168.1.10` with the
-host address reachable from both the browser and OPK; do not use `localhost`.
+Reopen the VS Code devcontainer if its host IP changes or coturn stops. A changed
+IP recreates both containers. Project files in `/work` and Docker volumes are kept;
+changes stored only inside the containers are lost. These containers do not
+start automatically with Docker.
+
+## Enable TURN manually
+
+If your setup needs a relay and does not start one, run this from the repository
+root in the **host shell**. Replace `192.168.1.10` with a host IP reachable from
+both OPK and the browser. Do not use `localhost`.
 
 ```bash
 WEBRTC_HOST_IP=192.168.1.10 docker compose \
@@ -44,23 +50,32 @@ WEBRTC_HOST_IP=192.168.1.10 docker compose \
   -f .devcontainer/docker-compose.devcont.turn.yaml up -d coturn
 ```
 
-The bundled relay publishes TCP/UDP port `3478` and UDP ports `49000-49050`.
-Allow these ports through the host firewall.
+Allow TCP/UDP port `3478` and UDP ports `49000-49050` through the host firewall.
 
-## Configure The Pipeline
-
-In the shell that launches the pipeline, usually the **Docker shell**, set the
-relay address before starting OPK:
+In the **shell that launches the pipeline**, set the relay URL before starting
+OPK:
 
 ```bash
 export OPK_WEBRTC_TURN_SERVER='turn://test:test123@192.168.1.10:3478'
 ```
 
-Use the same host address as above. `test` and `test123` are the bundled demo
-credentials; for an existing TURN service, use its address and credentials.
-Restart your pipeline from that shell and reload the browser. OPK supplies the
-relay configuration to the browser automatically.
+Use the same IP in both commands. `test` and `test123` are the bundled coturn
+credentials. To use an existing TURN service, skip the coturn command and set
+its URL and credentials instead. Restart the pipeline and reload the browser;
+OPK sends the TURN configuration to the browser.
 
-If video still does not arrive, also confirm that the pipeline is running and
-its input is producing frames. Missing video alone does not identify a TURN
-failure.
+## Missing or black video
+
+`Connected` means the browser has received video frames. If the picture is black,
+check the source video and pipeline output.
+
+| Browser message | What to check |
+| --- | --- |
+| `Connection failed. Try TURN.` | No TURN server is configured. Enable a relay using the steps above. |
+| `Connection failed. Check network/TURN.` | Check that the relay is running and its IP, credentials, and firewall ports are correct. |
+| `Waiting for video…` or `No video. Retrying…` | Check that the pipeline is running and its input produces frames. Check the browser and pipeline logs if video still does not arrive. |
+| `Signaling unavailable. Check server.` | Check that OPK is running and the signaling server is reachable. |
+| `Playback failed. Check browser.` | Check browser playback permissions and the browser console. |
+
+The browser retries dropped connections automatically. Missing video alone does
+not mean TURN is required.
