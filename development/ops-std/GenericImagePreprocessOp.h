@@ -91,13 +91,18 @@ class GenericImagePreprocessOp : public opk::op::Op {
     opk::Result<void> bind(size_t index, const std::vector<opk::op::Op *> &ops) override;
 
   private:
+    opk::Result<opk::ImageOpDesc>
+    destinationImageDescription(const opk::ModelInput &inputTensor,
+                                const opk::PixelRect &destinationRect);
+
     std::string inputImageSourceName;
     size_t inputImageTensorIndex;
 
     opk::stdop::preproc::GenericImageTensorBuilder genericImageInputTensorBuilder;
 
     opk::Model upcomingInferenceModel;
-    uint8_t *upcomingTensorAddresses[opk::MaxTensorCount] = {nullptr};
+    const opk::op::OpInterfaceInference *upcomingInference{nullptr};
+    opk::op::OpInterfaceSharedInput *sharedInput{nullptr};
 };
 
 } // namespace opk::stdop

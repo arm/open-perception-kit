@@ -30,6 +30,7 @@
 #include <exception>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -57,41 +58,88 @@ struct Tensor {
     }
 
     uint8_t *getData() {
-        return (uint8_t *)data.data();
+        return sharedData.empty() ? data.data() : sharedData.data();
     }
 
-    size_t getElementCount() {
-        size_t elemCount = data.size() / typeByteSize;
-        return elemCount;
+    bool hasSharedStorage() const {
+        return !sharedData.empty();
     }
 
-    size_t getByteCount() {
-        return data.size();
+    opk::Result<Ort::Value> setSharedStorage(const Ort::MemoryInfo &memInfo,
+                                             const std::span<uint8_t> storage,
+                                             std::shared_ptr<void> owner) {
+        if (!owner || storage.empty() || !storage.data() || typeByteSize == 0 ||
+            storage.size() != getByteCount() ||
+            reinterpret_cast<uintptr_t>(storage.data()) % typeByteSize != 0) {
+            return tl::unexpected(
+                OPK_ERROR(opk::ErrorFlag::TensorError,
+                          "Shared ONNX input has invalid size, alignment or owner"));
+        }
+        auto value{createOnnxTensor(memInfo, storage.data(), storage.size() / typeByteSize)};
+        if (!value) {
+            return value;
+        }
+        sharedOwner = std::move(owner);
+        sharedData = storage;
+        std::vector<uint8_t>{}.swap(data);
+        return value;
     }
 
-    bool checkShape(const opk::Shape &shape) {
+    /// Reuses or allocates owned storage and returns its ONNX view; borrowed contents are
+    /// untouched.
+    opk::Result<Ort::Value> setOwnedStorage(const Ort::MemoryInfo &memInfo) {
+        if (!hasSharedStorage()) {
+            return createOnnxTensor(memInfo);
+        }
+        std::vector<uint8_t> ownedData(getByteCount());
+        auto value{createOnnxTensor(memInfo, ownedData.data(), getElementCount())};
+        if (!value) {
+            return value;
+        }
+        data = std::move(ownedData);
+        sharedData = {};
+        sharedOwner.reset();
+        return value;
+    }
+
+    size_t getElementCount() const {
+        return getByteCount() / typeByteSize;
+    }
+
+    size_t getByteCount() const {
+        return sharedData.empty() ? data.size() : sharedData.size();
+    }
+
+    bool checkShape(const opk::Shape &shape) const {
         return this->shape == shape;
     }
 
     opk::Result<Ort::Value> createOnnxTensor(const Ort::MemoryInfo &memInfo) {
+        return createOnnxTensor(memInfo, getData(), getElementCount());
+    }
+
+  private:
+    opk::Result<Ort::Value> createOnnxTensor(const Ort::MemoryInfo &memInfo,
+                                             uint8_t *const tensorData,
+                                             const size_t elementCount) {
         try {
             if (this->type == opk::Dtype::Float32) {
                 return Ort::Value::CreateTensor<float>(memInfo,
-                                                       reinterpret_cast<float *>(getData()),
-                                                       getElementCount(),
+                                                       reinterpret_cast<float *>(tensorData),
+                                                       elementCount,
                                                        this->onnxShape,
                                                        this->shape.rank);
             }
             if (this->type == opk::Dtype::Int64) {
                 return Ort::Value::CreateTensor<int64_t>(memInfo,
-                                                         reinterpret_cast<int64_t *>(getData()),
-                                                         getElementCount(),
+                                                         reinterpret_cast<int64_t *>(tensorData),
+                                                         elementCount,
                                                          onnxShape,
                                                          this->shape.rank);
             }
             if (this->type == opk::Dtype::Uint8) {
                 return Ort::Value::CreateTensor<uint8_t>(
-                    memInfo, getData(), getElementCount(), onnxShape, this->shape.rank);
+                    memInfo, tensorData, elementCount, onnxShape, this->shape.rank);
             }
         } catch (const Ort::Exception &error) {
             const std::string message =
@@ -106,13 +154,14 @@ struct Tensor {
         return tl::unexpected(OPK_ERROR(opk::ErrorFlag::TensorError, message));
     }
 
-  private:
     opk::Dtype type;
     size_t typeByteSize;
     opk::Shape shape;
     int64_t onnxShape[8];
 
     std::vector<uint8_t> data;
+    std::shared_ptr<void> sharedOwner;
+    std::span<uint8_t> sharedData;
 };
 
 struct Inference {
@@ -140,6 +189,11 @@ struct Inference {
 
     /// Restore zero initial state for inputs populated by tensor feedback.
     opk::Result<void> resetFeedbackState();
+
+    opk::Result<void> setSharedInputStorage(const size_t index,
+                                            const std::span<uint8_t> data,
+                                            std::shared_ptr<void> owner);
+    opk::Result<void> setOwnedInputStorage(const size_t index);
 
     const opk::Model &getModel() const {
         return this->model;

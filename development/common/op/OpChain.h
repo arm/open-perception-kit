@@ -27,6 +27,8 @@
 
 namespace opk::op {
 
+class ExecutionSelection;
+
 /**
  * @brief Container and executor for a chain of operations.
  *
@@ -41,8 +43,14 @@ class OpChain {
     std::string runtime;
     std::vector<opk::op::OpRef> opRefs;
     std::vector<opk::op::Op *> opPtrs;
+    std::unique_ptr<ExecutionSelection> executionSelection;
+    void clear();
 
   public:
+    OpChain();
+    /// Releases shared allocations before unloading any operation library.
+    ~OpChain();
+
     /**
      * @brief Initializes the chain from an OpChainDescriptor.
      *
@@ -106,9 +114,12 @@ class OpChain {
      * uses OpSignal return values to continue, exit loop groups, or abort execution.
      *
      * @param opChainContext Mutable context passed to each operation's process() method.
+     * @param waitForDeviceSetup Wait for GPU setup. Live-stream callers may pass false to skip
+     * inference until the device is ready while continuing to forward video.
      * @return Result indicating success or failure of execution.
      */
-    opk::Result<void> execute(opk::op::OpChainContext &opChainContext);
+    opk::Result<void> execute(opk::op::OpChainContext &opChainContext,
+                              const bool waitForDeviceSetup = true);
 
     /**
      * @brief Generates a human-readable debug string representation of the chain.

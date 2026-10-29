@@ -245,6 +245,25 @@ can reject the new attribute despite warning rather than failing on the minor
 version mismatch. Rebuild or upgrade the runtime before using it. See
 [ONNX thread tuning](../how-to/performance-measurement.md).
 
+OpChain `1.5.0` adds one preprocessing setting for the whole chain:
+
+```json
+"execution": {
+  "preprocessing": "gpu"
+}
+```
+
+Only lowercase `cpu` and `gpu` are valid; omission defaults to `cpu`.
+The setting applies to every preprocessing Op. A GPU request fails if any
+preprocessing Op cannot support it. Per-Op overrides and inference/postprocessing
+execution settings are not supported. Select the inference backend through its
+Op ID and matching model descriptor, for example `opk-mlwl-ops/Inference` for MLWL.
+GPU preprocessing does not guarantee shared buffers or control MLWL's device.
+
+Existing OpChains need no edits. Descriptors using this field should declare
+`"version": "1.5.0"`; rebuild the runtime and validator after the schema update.
+Older readers may warn about the minor version, then reject the new field.
+
 OpChain `1.0.2` adds the optional YoloParser `outputFormat` attribute. Existing
 OpChains keep the `centerClassScores` behavior when it is omitted. Models that
 produce `[1,N,6]` rows containing corner coordinates, confidence, and class ID

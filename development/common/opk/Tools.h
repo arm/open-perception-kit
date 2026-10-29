@@ -129,42 +129,6 @@ struct Tools {
      */
     static bool
     savePngFromBgra(const std::string &path, const uint8_t *bgra, int width, int height);
-
-    /**
-     * @brief Saves a cropped BGRA region as PNG.
-     * @param path Output PNG path.
-     * @param srcBgra Source image data in BGRA format.
-     * @param srcWidth Source image width in pixels.
-     * @param srcHeight Source image height in pixels.
-     * @param cropX Crop rectangle x origin in pixels.
-     * @param cropY Crop rectangle y origin in pixels.
-     * @param cropW Crop rectangle width in pixels.
-     * @param cropH Crop rectangle height in pixels.
-     * @param srcStrideBytes Source row stride in bytes; if 0, width*4 is used.
-     * @return true on success, false on invalid input or write failure.
-     */
-    static bool savePngCropFromBgra(const std::string &path,
-                                    const uint8_t *srcBgra,
-                                    int srcWidth,
-                                    int srcHeight,
-                                    int cropX,
-                                    int cropY,
-                                    int cropW,
-                                    int cropH,
-                                    int srcStrideBytes = 0);
-
-    /**
-     * @brief Saves an RGB float32 CHW tensor as PNG.
-     * @param path Output PNG path.
-     * @param srcRgbF32 Source tensor data in CHW order with values expected in [0,1].
-     * @param srcWidth Tensor/image width in pixels.
-     * @param srcHeight Tensor/image height in pixels.
-     * @return true on success, false on invalid input or write failure.
-     */
-    static bool savePngFromRgbChwF32(const std::string &path,
-                                     const float *srcRgbF32,
-                                     size_t srcWidth,
-                                     size_t srcHeight);
 };
 
 /**

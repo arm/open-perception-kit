@@ -40,25 +40,92 @@ micropipeline.
 - Metadata output: `FrameResultsMeta`
 - `copy-input`: copy video into CPU memory; default `false` preserves input DMA-BUFs
 
-The element maps system memory and linear, CPU-mappable DMA-BUFs through
-`gst_video_frame_map`, respecting plane offsets and strides. CPU preprocessing
-still fills separate model input tensors. The mapped buffer stays referenced
-until OpChain execution ends.
+The element retains input DMA-BUFs without mapping their pixels. CPU consumers
+map them on demand through `gst_video_frame_map`, respecting plane offsets and
+strides; the mapping is reused within that frame's OpChain execution. System
+memory is mapped when the frame enters the element. The input buffer stays
+referenced until execution ends.
 
 OPK accepts ordinary `video/x-raw` and explicit `video/x-raw(memory:DMABuf)`
 caps for these formats (`BGRA,RGB,I420,NV12,YUY2`). Explicit DMA-BUF caps require
 DMA-BUF-backed memory. `copy-input=true` negotiates ordinary system-memory output,
 including before `opksink` for WebRTC.
-`DMA_DRM`, tiled and non-mappable inputs remain unsupported; they require upstream
-conversion. Mapping failures stop the pipeline.
+`DMA_DRM` and tiled inputs remain unsupported; they require upstream conversion.
+CPU processing requires readable input memory; a failed CPU mapping stops the
+pipeline. GPU processing can import supported DMA-BUFs without a CPU mapping.
+
+## Execution Preferences
+
+The [OpChain execution settings](../../public/concepts/configuration-compatibility.md#migrating-existing-configurations)
+select `cpu` or `gpu` for all preprocessing Ops in the chain; omission defaults
+to `cpu`. There are no per-Op overrides. A `gpu` request fails if any preprocessing
+Op cannot run on the GPU, so mixed CPU/GPU preprocessing requires separate chains.
+Inference remains with the backend selected by its Op ID and model descriptor;
+MLWL manages its own Vulkan device. Postprocessing runs on CPU.
+
+GPU image preprocessing supports fixed-shape, single-image RGB float32 tensors
+in CHW or HWC layout. It performs crop, resize, channel conversion, packing and
+normalization. Select `cpu` when the model, device or input buffer is unsupported.
+Execution settings remain fixed while the pipeline runs.
+
+The Vulkan preprocessor uses push constants when the device can hold its 160-byte
+parameter block, otherwise it uses a uniform buffer. Push constants avoid a mapped
+parameter buffer and repeated shader reads from it. Independently, it selects
+16×16 compute workgroups when the device's workgroup limits permit them, otherwise
+8×8. Both shader variants use specialization constants to set the selected
+workgroup dimensions when creating the pipeline. Both paths wait for GPU
+completion before exposing the output tensor to the inference backend.
+
+Workgroup size affects scheduling, memory locality and how many groups can run
+concurrently within register/shared-memory limits. Larger groups can reduce
+scheduling overhead, but can also reduce concurrency or waste work at image
+edges. Fewer groups alone do not establish a speedup.
+
+For tuning this image shader, use the following starting points:
+
+1. Start with **8×8 (64 invocations)**. Try **16×8 or 8×16 (128)**, then
+   **16×16 (256)**; compare shapes because neighboring pixels' memory access
+   matters. With substantial shared memory or barriers, try smaller groups first.
+2. Check `maxComputeWorkGroupInvocations` and each `maxComputeWorkGroupSize`
+   dimension before testing a candidate. Prefer multiples of the device's compute
+   subgroup width where known; the largest legal group is not necessarily fastest.
+3. Keep shader `local_size`, host dispatch counts and capability checks consistent.
+   Round dispatch counts up and retain bounds checks for partial edge groups.
+4. Change only workgroup size/shape while comparing repeated GPU timestamp
+   measurements on representative frames and output sizes. Keep parameter delivery,
+   clocks and other shader code fixed; verify output correctness and total
+   preprocessing throughput separately. Retune after substantial shader changes.
+
+The current 16×16 choice improved the tested Mali-G720 workload; it is not a
+universal optimum. See [Arm's compute guidance](https://support.arm.com/documentation/101897/0304/Compute-shading)
+and [Vulkan workgroup limits](https://docs.vulkan.org/guide/latest/compute_shaders.html).
+
+Video storage and model input storage are separate. GPU preprocessing may import
+the original DMA-BUF or upload CPU-readable pixels. Its output tensor may be
+shared with CPU inference or copied back, depending on the driver and backend.
+The selection log distinguishes these transfers. Selecting `gpu` therefore does
+not guarantee zero-copy operation; forwarding the original video buffer does not
+imply that the inference tensor shares it.
+
+GPU support on Linux, Raspberry Pi Linux and Windows with WSL depends on exposed
+devices and driver import/mapping support. Native macOS currently uses CPU
+preprocessing; running a Linux container does not establish native macOS GPU
+support. To build without the optional GPU module, use
+`./scripts/build.sh release false --extra-setup-args=-Dgpu_preprocessing=disabled`.
 
 ## Lifecycle
 
 On `start()`, the element allocates internal state and loads the OpChain from
-JSON regardless of `active`. Setup failure prevents the element from starting.
+JSON regardless of `active`. OpChain loading failure prevents the element from starting.
 After successful setup and whenever `active` changes, it emits a downstream
 `opk-model-register` event with model identity, active state, and the OpChain's
 declared required and provided content types.
+
+GPU device setup runs asynchronously. On the first inference frame of each stream,
+an upstream latency query identifies live input. Live inputs keep forwarding frames
+without inference until setup finishes. Offline inputs (and inputs that cannot answer
+the query) wait for setup before executing inference, preserving the first frame.
+GPU setup errors are reported when inference next runs and stop the affected flow.
 
 On `set_caps()`, it validates raw video or audio caps and caches the media format.
 Audio caps also validate the PCM inference window and configured hop.
@@ -133,7 +200,7 @@ For each active frame:
 
 1. Ensure `FrameResultsMeta` is attached, including on QoS-skipped frames.
 2. Evaluate the QoS and processing-latency skip policy.
-3. Map an executable frame into a `VideoFrame` view.
+3. Retain an executable frame as a `VideoFrame`, deferring DMA-BUF CPU mapping.
 4. Construct an `OpChainContext`.
 5. Add the frame as `videoFrames["pipelineVideoFrame"]`.
 6. Expose the frame's `FrameResults` envelope to Ops.
@@ -144,9 +211,9 @@ transient and discarded after the execution step.
 
 ## Error Handling And Observability
 
-Current setup failures are logged and reported as a GStreamer element error;
-they prevent startup. Execution failures are also reported and stop the
-affected flow. Other runtime paths still contain abort behavior that should be
+OpChain loading failures are logged and reported as a GStreamer element error;
+they prevent startup. GPU device setup and execution failures are reported during
+processing and stop the affected flow. Other runtime paths still contain abort behavior that should be
 replaced with graceful error reporting.
 
 Ops and backends record hierarchical scopes in the process-wide

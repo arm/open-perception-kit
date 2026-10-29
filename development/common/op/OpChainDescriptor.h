@@ -26,6 +26,7 @@
 #include "opk/AttributeMap.h"
 #include "opk/Result.h"
 
+#include "op/ExecutionMode.h"
 #include "opk/JsonSchemas.h"
 
 #include <nlohmann/json.hpp>
@@ -85,6 +86,7 @@ struct OpChainDescriptor {
 
     std::vector<Op> ops; ///< List of operations in the chain, in execution order.
     std::string version; ///< Preserved on serialization.
+    std::optional<ExecutionDefaults> execution{}; ///< Preprocessing defaults to CPU.
 
     /**
      * @brief Parses an OpChainDescriptor from a JSON string.
@@ -112,6 +114,32 @@ struct OpChainDescriptor {
 #include <nlohmann/json.hpp>
 
 namespace opk::op {
+
+inline void to_json(nlohmann::json &j, const ExecutionMode mode) {
+    j = toString(mode);
+}
+
+inline void from_json(const nlohmann::json &j, ExecutionMode &mode) {
+    const auto value{j.get<std::string>()};
+    if (value == "cpu")
+        mode = ExecutionMode::Cpu;
+    else if (value == "gpu")
+        mode = ExecutionMode::Gpu;
+    else
+        throw std::invalid_argument("Execution must be cpu or gpu");
+}
+
+inline void to_json(nlohmann::json &j, const ExecutionDefaults &execution) {
+    j = nlohmann::json::object();
+    if (execution.preprocessing)
+        j["preprocessing"] = *execution.preprocessing;
+}
+
+inline void from_json(const nlohmann::json &j, ExecutionDefaults &execution) {
+    execution = {};
+    if (j.contains("preprocessing"))
+        execution.preprocessing = j.at("preprocessing").get<ExecutionMode>();
+}
 
 // ---- Op ----
 
@@ -152,6 +180,8 @@ inline void to_json(nlohmann::json &j, const OpChainDescriptor &desc) {
         j["task"] = desc.task;
     if (!desc.runtime.empty())
         j["runtime"] = desc.runtime;
+    if (desc.execution)
+        j["execution"] = *desc.execution;
 }
 
 inline void from_json(const nlohmann::json &j, OpChainDescriptor &desc) {
@@ -165,6 +195,10 @@ inline void from_json(const nlohmann::json &j, OpChainDescriptor &desc) {
         j.at("task").get_to(desc.task);
     if (j.contains("runtime"))
         j.at("runtime").get_to(desc.runtime);
+    if (j.contains("execution"))
+        desc.execution = j.at("execution").get<ExecutionDefaults>();
+    else
+        desc.execution.reset();
 }
 
 } // namespace opk::op

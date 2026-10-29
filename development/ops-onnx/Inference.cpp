@@ -185,6 +185,37 @@ Inference::recreateInputTensor(size_t index, const opk::Shape &shape, opk::Dtype
     return {};
 }
 
+opk::Result<void> Inference::setSharedInputStorage(const size_t index,
+                                                   const std::span<uint8_t> data,
+                                                   std::shared_ptr<void> owner) {
+    if (!setupReady || index >= model.inputs.size()) {
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::TensorError, "Shared ONNX input index is invalid"));
+    }
+    auto value{api.inputTensors[index]->setSharedStorage(*memoryInfo, data, std::move(owner))};
+    if (!value) {
+        return tl::unexpected(value.error());
+    }
+    api.inputTensorVector[index] = std::move(*value);
+    return {};
+}
+
+opk::Result<void> Inference::setOwnedInputStorage(const size_t index) {
+    if (!setupReady || index >= model.inputs.size()) {
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::TensorError, "Shared ONNX input index is invalid"));
+    }
+    if (!api.inputTensors[index]->hasSharedStorage()) {
+        return {};
+    }
+    auto value{api.inputTensors[index]->setOwnedStorage(*memoryInfo)};
+    if (!value) {
+        return tl::unexpected(value.error());
+    }
+    api.inputTensorVector[index] = std::move(*value);
+    return {};
+}
+
 opk::Result<void> Inference::setupTensorsForModel() {
 
     if (this->model.inputs.size() > opk::MaxTensorCount) {
