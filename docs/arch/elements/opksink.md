@@ -95,6 +95,29 @@ Authored modules live under `development/web/src`; deployable files live under
 `development/web/content`. Regenerate, verify, and test the committed bundle
 with `./scripts/opksink-web.sh generate`, `check`, and `test` respectively.
 
+### Browser Metadata Configuration
+
+The browser loads `metadataPort` and `metadataEndpoint` from `/opk-config.js` to
+connect to the metadata WebSocket on the page's host. The `opksink`
+`metadata-port` property selects how that configuration is resolved:
+
+- `0` (the default) discovers `opkcomm` elements in WebSocket mode within the
+  containing pipeline, including nested bins. Discovery reads their public
+  `method`, `ws-port`, and `endpoint` properties.
+- With exactly one WebSocket `opkcomm`, the browser uses that element's
+  `ws-port` and `endpoint`.
+- With no WebSocket `opkcomm`, the browser uses port `8002` and endpoint `/ws`.
+- With multiple WebSocket `opkcomm` elements, startup fails until an explicit
+  `metadata-port` selects the intended server.
+- An explicit value from `1` to `65535` always takes precedence, including an
+  explicit `8002`. It uses endpoint `/ws` and skips discovery.
+
+Resolution happens on each `NULL` to `READY` transition before any `opksink`
+server starts. Change ports while the pipeline is in `NULL`, restart it, and
+reload the browser page to load the new configuration. Pausing and resuming
+does not retarget the browser. `ws-port=0` is not supported by `opkcomm` or
+`opksink`; only `metadata-port=0` requests automatic discovery.
+
 ## Lifecycle
 
 Initialization constructs the media chains. Each `NULL` to `READY` transition
@@ -119,6 +142,8 @@ threads can otherwise retain references longer than expected.
 - `http-port`: HTTP server port
 - `ws-port`: WebRTC signaling port
 - `ctrl-port`: control WebSocket port
+- `metadata-port`: browser metadata port override; defaults to `0` for
+  [automatic discovery](#browser-metadata-configuration)
 - `static-files`: static content directory
 - `qos-enabled`: enable experimental QoS feedback from the video drain; defaults to `false`
 

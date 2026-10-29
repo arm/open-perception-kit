@@ -147,6 +147,8 @@ void OpkSinkHttpServer::get_dynamic_config(const Request &req, Response &res) {
     json config = {
         {"wsPort", self_->ws_port},
         {"ctrlPort", self_->ctrl_port},
+        {"metadataPort", self_->private_data->resolved_metadata_port},
+        {"metadataEndpoint", self_->private_data->resolved_metadata_endpoint},
     };
 
     json ice_servers = json::array();
