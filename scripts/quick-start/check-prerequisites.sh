@@ -257,7 +257,7 @@ collect_missing_prereqs() {
 
         echo "MISSING: ${description}"
 
-        if [[ -z "$packages" ]]; then
+        if [[ -z "$packages" || "$PACKAGE_MANAGER" == manual ]]; then
             FAILED_MANUAL_PREREQS+=("$requirement")
             continue
         fi
@@ -348,7 +348,9 @@ print_manual_failures() {
     for requirement in "${FAILED_MANUAL_PREREQS[@]}"; do
         IFS='|' read -r requirement_id check_fn packages description <<< "$requirement"
         echo "  ${description}"
-        if [[ "$OPK_PLATFORM_ID" == "wsl" && "$requirement_id" == docker-* ]]; then
+        if [[ "$requirement_id" == python3 ]]; then
+            echo "    Install Python 3 for this system and confirm 'python3 --version' works."
+        elif [[ "$OPK_PLATFORM_ID" == "wsl" && "$requirement_id" == docker-* ]]; then
             if [[ "$printed_wsl_docker_hint" != "true" ]]; then
                 print_wsl_docker_desktop_hint
                 printed_wsl_docker_hint="true"

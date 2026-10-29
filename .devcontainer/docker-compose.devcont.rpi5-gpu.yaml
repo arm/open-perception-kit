@@ -17,6 +17,7 @@ services:
   opk-dev:
     image: ${OPK_DEV_IMAGE:?Set OPK_DEV_IMAGE to a prepared RPi5 GPU development image}
     build: !reset null
+    user: root
     privileged: false
     devices:
       - /dev/dri/renderD128:/dev/dri/renderD128
@@ -25,6 +26,8 @@ services:
     # Preserve the image's Vulkan environment, including on Compose 2.26.
     environment: !override
       USERNAME: dev
+      HOST_UID: ${HOST_UID}
+      HOST_GID: ${HOST_GID}
       DISPLAY: ${DISPLAY:-}
       CCACHE_DIR: /work/.cache/ccache
       CCACHE_MAXSIZE: 2G

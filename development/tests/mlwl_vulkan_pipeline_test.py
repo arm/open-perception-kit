@@ -112,17 +112,16 @@ def process(env: Envelope, tensors: tuple[Tensor, ...], context: Context) -> Non
                 reference = self.run_model(directory, model, "cpu")
                 result = self.run_model(directory, model, "gpu")
                 self.assertTrue(any(not np.array_equal(a, b)
-                                    for a, b in zip(reference[0], reference[1])),
+                                    for a, b in zip(reference[0], reference[1], strict=True)),
                                 "reference must change with input")
-                for expected_frame, actual_frame in zip(reference, result):
-                    self.assertEqual(len(actual_frame), len(expected_frame))
-                    for expected, actual in zip(expected_frame, actual_frame):
+                for expected_frame, actual_frame in zip(reference, result, strict=True):
+                    for expected, actual in zip(expected_frame, actual_frame, strict=True):
                         np.testing.assert_allclose(actual, expected, rtol=1e-4, atol=1e-5)
-                for first, repeated in zip(result[0], result[2]):
+                for first, repeated in zip(result[0], result[2], strict=True):
                     np.testing.assert_array_equal(first, repeated)
                 # A new pipeline must not retain device or input state from the previous one.
                 restarted = self.run_model(directory, model, "gpu")
-                for first, repeated in zip(result[0], restarted[0]):
+                for first, repeated in zip(result[0], restarted[0], strict=True):
                     np.testing.assert_array_equal(first, repeated)
 
 

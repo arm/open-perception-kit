@@ -107,7 +107,7 @@ class PackageOpkDemoDebTests(unittest.TestCase):
             (videos / "example.mov").write_bytes(b"video")
 
             local_models = ("ultraface-rfb-320-mlwl", "yolo26n-320-mlwl")
-            local_presets = ("mlwl-vgf-demo.json", "yolo26n-320-mlwl.json")
+            local_presets = ("mlwl-vgf-demo.json", "mlwl-vgf-demo-gpu.json", "yolo26n-320-mlwl.json")
             for name in local_models:
                 directory = repository / "config/models" / name
                 directory.mkdir()

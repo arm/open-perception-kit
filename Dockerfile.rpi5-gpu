@@ -25,12 +25,14 @@ RUN test "$(uname -m)" = aarch64 && \
     bison flex patch python3-mako python3-yaml glslang-tools libdrm-dev \
     zlib1g-dev libzstd-dev && rm -rf /var/lib/apt/lists/*
 
-COPY requirements/mlwl.json requirements/vulkan-emulation.json requirements/rpi5-mesa.json requirements/
+COPY requirements/rpi5-mesa.json requirements/
 COPY tools/perception/artifacts.py tools/perception/release_common.py tools/perception/sdk_config.py tools/perception/
-COPY scripts/private/install-vulkan-emulation.py scripts/private/
-COPY scripts/private/rpi5-gpu/ scripts/private/rpi5-gpu/
-
+COPY scripts/private/rpi5-gpu/install-mesa.py scripts/private/rpi5-gpu/mesa.patch scripts/private/rpi5-gpu/
 RUN python3 scripts/private/rpi5-gpu/install-mesa.py /opt/opk-rpi5/mesa
+
+COPY requirements/mlwl.json requirements/vulkan-emulation.json requirements/
+COPY scripts/private/install-vulkan-emulation.py scripts/private/
+COPY scripts/private/rpi5-gpu/graph.patch scripts/private/rpi5-gpu/conv2d_dispatch_limits.h scripts/private/rpi5-gpu/
 RUN python3 scripts/private/install-vulkan-emulation.py --rpi5 /opt/opk-rpi5/emulation
 
 FROM ${OPK_DEV_IMAGE}

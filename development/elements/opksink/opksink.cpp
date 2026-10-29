@@ -956,7 +956,7 @@ static void gst_opk_sink_class_init(GstOpkSinkClass *klass) {
                           "WebRTC frame timeout",
                           "Browser video watchdog interval in milliseconds; 0 disables it",
                           0,
-                          G_MAXUINT,
+                          G_MAXINT,
                           30000,
                           kRW));
 
