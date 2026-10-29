@@ -578,6 +578,13 @@ test(
   depends : opkinferpre,
 )
 test(
+  'opksink_metadata_discovery',
+  gst_python,
+  args : [files('opksink_metadata_discovery_test.py'), opkinferpre.full_path(), opkcomm.full_path()],
+  depends : [opkinferpre, opkcomm],
+  env : ['G_DEBUG=fatal-criticals'],
+)
+test(
   'opksink_encoder_configuration',
   gst_python,
   args : [files('opksink_encoder_configuration_test.py'), opkinferpre.full_path()],
