@@ -15,9 +15,13 @@
  * limitations under the License.
  */
 #include "V3dResetGuard.h"
+#include "op/Op.h"
+#include "op/OpRef.h"
 
 #include <gtest/gtest.h>
 
+#include <cstdlib>
+#include <dlfcn.h>
 #include <limits>
 #include <stdexcept>
 
@@ -63,6 +67,38 @@ TEST(MlwlResetGuard, RequiresReadableInitialCounter) {
     EXPECT_THROW((opk::mlwl::V3dResetGuard(
                      []() -> uint64_t { throw std::runtime_error("unsupported counter"); })),
                  std::runtime_error);
+}
+
+TEST(MlwlResetIntegration, FailedQueryRequiresReconfigure) {
+    const auto *const model = std::getenv("OPK_MLWL_TEST_MODEL");
+    if (!model) {
+        GTEST_SKIP() << "Set OPK_MLWL_TEST_MODEL and preload v3d-reset-ioctl.so on a V3D runtime";
+    }
+    const auto inject = reinterpret_cast<void (*)(int, int)>(dlsym(RTLD_DEFAULT, "reset_arm"));
+    ASSERT_NE(inject, nullptr);
+
+    opk::op::OpRef inference;
+    ASSERT_TRUE(inference.bind(OPK_MLWL_OPS_PATH, "Inference"));
+    opk::AttributeMap attributes;
+    attributes.set("modelDescriptor", model);
+    ASSERT_TRUE(inference->configure(attributes));
+    opk::op::OpChainContext context;
+    ASSERT_TRUE(inference->process(context));
+    ASSERT_GT(context.inferenceOutputTensorCount, 0);
+
+    inject(2, 1); // Fail the post-execution query once; later queries would succeed.
+    const auto failed = inference->process(context);
+    ASSERT_FALSE(failed);
+    EXPECT_NE(failed.error().info.find("Reading V3D global reset counter"), std::string::npos);
+    EXPECT_EQ(context.inferenceOutputTensorCount, 0);
+    const auto retry = inference->process(context);
+    ASSERT_FALSE(retry);
+    EXPECT_NE(retry.error().info.find("session is invalid"), std::string::npos);
+    EXPECT_EQ(context.inferenceOutputTensorCount, 0);
+
+    ASSERT_TRUE(inference->configure(attributes));
+    ASSERT_TRUE(inference->process(context));
+    EXPECT_GT(context.inferenceOutputTensorCount, 0);
 }
 
 } // namespace

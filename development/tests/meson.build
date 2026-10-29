@@ -139,11 +139,13 @@ if mlwl_enabled
   mlwl_reset_guard_tests = executable(
     'mlwl_reset_guard_tests',
     ['mlwl_reset_guard_test.cpp', '../ops-mlwl/V3dResetGuard.cpp'],
-    include_directories : include_directories('../ops-mlwl'),
-    dependencies : [gtest_main_dep, mlwl_vulkan_dep],
+    include_directories : [common_include, include_directories('../ops-mlwl')],
+    cpp_args : ['-DOPK_MLWL_OPS_PATH="' + mlwl_ops.full_path() + '"'],
+    dependencies : [gtest_main_dep, opk_deps, mlwl_vulkan_dep],
+    link_with : [common],
     override_options : ['b_ndebug=true'],
   )
-  test('mlwl_reset_guard_tests', mlwl_reset_guard_tests)
+  test('mlwl_reset_guard_tests', mlwl_reset_guard_tests, depends : mlwl_ops)
 endif
 
 if python_ops_enabled

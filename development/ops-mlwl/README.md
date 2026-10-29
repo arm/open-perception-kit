@@ -183,6 +183,9 @@ and that an explicit restart produces the reference output:
 ```sh
 cc -shared -fPIC development/tests/v3d_reset_ioctl.c -ldl -o /tmp/v3d-reset-ioctl.so
 LD_PRELOAD=/tmp/v3d-reset-ioctl.so \
+  OPK_MLWL_TEST_MODEL="$PWD/config/models/ultraface-rfb-320-mlwl/model.json" \
+  development/build-active/meson-out/mlwl_reset_guard_tests
+LD_PRELOAD=/tmp/v3d-reset-ioctl.so \
   LD_LIBRARY_PATH="$PWD/development/build-active/meson-out:$LD_LIBRARY_PATH" \
   PYTHONPATH="$PWD/generated/open_perception_kit/python/src:$PYTHONPATH" \
   python3 -O development/tests/mlwl_reset_pipeline_test.py \
