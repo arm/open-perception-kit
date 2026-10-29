@@ -108,7 +108,8 @@ connect to the metadata WebSocket on the page's host. The `opksink`
   `ws-port` and `endpoint`.
 - With no WebSocket `opkcomm`, the browser uses port `8002` and endpoint `/ws`.
 - With multiple WebSocket `opkcomm` elements, startup fails until an explicit
-  `metadata-port` selects the intended server.
+  `metadata-port` selects the intended server. The selected publisher must serve
+  `/ws`; setting `metadata-port` alone cannot select a custom endpoint.
 - An explicit value from `1` to `65535` always takes precedence, including an
   explicit `8002`. It uses endpoint `/ws` and skips discovery.
 
