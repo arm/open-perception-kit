@@ -35,7 +35,7 @@ endif
 mlwl_enabled = true
 mlwl_ops = shared_module(
   'opk-mlwl-ops',
-  sources : ['Inference.cpp', 'InferenceOp.cpp', 'Plugin.cpp', 'TensorLayout.cpp'],
+  sources : ['Inference.cpp', 'InferenceOp.cpp', 'Plugin.cpp', 'TensorLayout.cpp', 'V3dResetGuard.cpp'],
   include_directories : common_include,
   dependencies : [opk_deps, mlwl_dep, mlwl_vulkan_dep],
   link_with : [common],

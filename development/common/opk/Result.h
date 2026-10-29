@@ -73,7 +73,9 @@ enum class ErrorFlag {
     /// Text/binary parsing failure.
     ParseError,
     /// OpChain descriptor or execution graph is invalid.
-    InvalidOpChain
+    InvalidOpChain,
+    /// Device reset invalidated this inference; rebuild the chain before retrying.
+    InferenceRtDeviceReset
 };
 
 /**

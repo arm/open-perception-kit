@@ -17,6 +17,7 @@
 #include "Inference.h"
 
 #include "TensorLayout.h"
+#include "V3dResetGuard.h"
 #include "vulkan/Input.h"
 
 #include <mlworkloadlib/session.hpp>
@@ -97,9 +98,11 @@ struct Inference::State {
     const bool vulkanInput;
     opk::Model model;
     std::unique_ptr<wl::Context> context;
+    std::unique_ptr<V3dResetGuard> resetGuard;
     std::unique_ptr<wl::Session> session;
     std::vector<std::unique_ptr<MappedTensor>> inputs, outputs;
     std::unique_ptr<wl::PreparedExecution> execution;
+    bool ready = true;
 };
 
 opk::Result<void> Inference::State::configureModel(const opk::ModelDescriptor &descriptor) {
@@ -179,6 +182,7 @@ void Inference::State::configureSession() {
                                     wl::RuntimeDeviceCapability::Tensors;
     }
     context.reset(new wl::Context(wl::Context::create(requirements)));
+    resetGuard = V3dResetGuard::create(context->contextView().physicalDevice.get());
     session = std::make_unique<wl::Session>(*context, workload);
     session->configure();
 }
@@ -228,6 +232,9 @@ opk::Result<void> Inference::setup(const opk::ModelDescriptor &descriptor) {
             const auto bindings = candidate->bindTensors();
             candidate->execution =
                 std::make_unique<wl::PreparedExecution>(candidate->session->prepare(bindings));
+            if (candidate->resetGuard) {
+                candidate->resetGuard->check();
+            }
             state = std::move(candidate);
         }
         return result;
@@ -238,7 +245,7 @@ opk::Result<void> Inference::setup(const opk::ModelDescriptor &descriptor) {
 }
 
 bool Inference::isReady() const {
-    return state != nullptr;
+    return state && state->ready;
 }
 
 const opk::Model &Inference::getModel() const {
@@ -272,8 +279,8 @@ std::shared_ptr<const opk::vulkan::Input> Inference::getVulkanInput(const size_t
 }
 
 const uint8_t *Inference::getOutputTensorDataAddress(size_t index) const {
-    if (!state) {
-        throw std::logic_error("MLWL inference has not been configured");
+    if (!isReady()) {
+        throw std::logic_error("MLWL inference is not ready");
     }
     return state->outputs.at(index)->data;
 }
@@ -288,9 +295,22 @@ opk::Result<void> Inference::inference() {
                                         "MLWL inference has not been configured"));
     }
     try {
+        if (!state->ready) {
+            throw std::runtime_error("MLWL session is invalid; configure a new session");
+        }
+        if (state->resetGuard) {
+            state->resetGuard->check();
+        }
         // MLWL waits for completion; coherent mapped tensors remain valid until teardown.
         state->execution->run();
+        if (state->resetGuard) {
+            state->resetGuard->check();
+        }
+    } catch (const V3dReset &error) {
+        state->ready = false;
+        return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InferenceRtDeviceReset, error.what()));
     } catch (const std::exception &error) {
+        state->ready = false;
         return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InferenceRtInferenceError,
                                         "MLWL execution: " + std::string(error.what())));
     }

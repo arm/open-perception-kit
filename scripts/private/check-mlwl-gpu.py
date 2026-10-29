@@ -48,6 +48,7 @@ def check_gpu():
         missing = {
             "VK_ARM_data_graph",
             "VK_ARM_tensors",
+            "VK_EXT_physical_device_drm",  # V3D reset protection needs the render-node identity.
             "VK_KHR_deferred_host_operations",
             "VK_KHR_maintenance5",
         } - device["extensions"].keys()
