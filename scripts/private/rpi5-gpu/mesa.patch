@@ -1,0 +1,45 @@
+Subject: Enable the experimental RPi5 MLWL capabilities
+
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+SPDX-License-Identifier: MIT
+
+Applies to Mesa 26.2.1. Evaluation only; Vulkan CTS has not been run.
+
+--- a/src/broadcom/vulkan/v3dv_device.c
++++ b/src/broadcom/vulkan/v3dv_device.c
+@@ -176,6 +176,7 @@
+       .KHR_copy_commands2                   = true,
+       .KHR_create_renderpass2               = true,
+       .KHR_dedicated_allocation             = true,
++      .KHR_deferred_host_operations = true,
+       .KHR_device_group                     = true,
+       .KHR_driver_properties                = true,
+       .KHR_descriptor_update_template       = true,
+@@ -367,7 +368,7 @@
+       .shaderCullDistance = false,
+       .shaderFloat16 = physical_device->devinfo.ver >= 71,
+       .shaderFloat64 = false,
+-      .shaderInt64 = false,
++      .shaderInt64 = true,
+       .shaderInt16 = physical_device->devinfo.ver >= 71,
+       .shaderResourceResidency = false,
+       .shaderResourceMinLod = false,
+--- a/src/broadcom/vulkan/v3dv_pipeline.c
++++ b/src/broadcom/vulkan/v3dv_pipeline.c
+@@ -162,6 +162,8 @@
+ {
+    static bool initialized = false;
+    static nir_shader_compiler_options options = {
++      .lower_int64_options = ~0,
++      .late_lower_int64 = true,
+       .lower_uadd_sat = true,
+       .lower_usub_sat = true,
+       .lower_iadd_sat = true,
+@@ -352,6 +354,7 @@
+             nir_var_mem_global,
+             nir_address_format_2x32bit_global);
+
++   NIR_PASS(_, nir, nir_lower_int64);
+    NIR_PASS(_, nir, nir_lower_load_const_to_scalar);
+
+    /* Lower a bunch of stuff */

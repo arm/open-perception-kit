@@ -373,6 +373,13 @@ image_conversion_oracle_test = executable(
   include_directories : [common_include, include_directories('../ops-std')],
 )
 
+conv2d_dispatch_limits_tests = executable(
+  'conv2d_dispatch_limits_tests',
+  ['conv2d_dispatch_limits_test.cpp'],
+  dependencies : [gtest_main_dep, gtest_dep],
+)
+test('conv2d_dispatch_limits_tests', conv2d_dispatch_limits_tests)
+
 python = test_python
 # The distro GStreamer bindings use the distro Python ABI, not the Python Ops venv.
 gst_python = import('python').find_installation('/usr/bin/python3', modules : ['gi'])

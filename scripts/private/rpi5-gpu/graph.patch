@@ -1,0 +1,69 @@
+Subject: Bound and tune RPi5 Conv2D dispatches
+
+SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+SPDX-License-Identifier: Apache-2.0
+
+Applies to ai-ml-emulation-layer-for-vulkan 67199c9fae2cee900d41d659937870fb478e7de9.
+Preserves the calibrated dispatch budget and FP32 accumulation order.
+
+--- a/graph/compute_graph_op.cpp
++++ b/graph/compute_graph_op.cpp
+@@ -9,6 +9,7 @@
+  *******************************************************************************/
+
+ #include "compute_graph_op.hpp"
++#include "conv2d_dispatch_limits.h"
+ #include "graph_log.hpp"
+
+ #include <algorithm>
+@@ -855,7 +856,17 @@
+           createSpirv(_pipelineCache, _input->getFormat(), _output->getFormat(), _weights->getFormat(), _accType),
+           debugName),
+       pushConstant{createPushConstant(_pad, _stride, _dilation, _inputZeroPoint, _weightZeroPoint)},
+-      maxGroupCount{_maxGroupCount} {}
++      maxGroupCount{opk::rpi5::conv2dDispatchLimits(
++          { // Spend the unchanged work budget only on groups in this output grid.
++              std::min(_maxGroupCount[0], std::max(1U, divideRoundUp(static_cast<uint32_t>(
++                  _output->getDimensions()[0] * _output->getDimensions()[2]), warpX))),
++              std::min(_maxGroupCount[1], std::max(1U, divideRoundUp(
++                  static_cast<uint32_t>(_output->getDimensions()[1]), warpY))),
++              std::min(_maxGroupCount[2], std::max(1U, divideRoundUp(
++                  static_cast<uint32_t>(_output->getDimensions()[3]), warpZ * 4))),
++          },
++          _weights->getDimensions()[1], _weights->getDimensions()[2],
++          _input->getDimensions()[3])} {}
+
+ Conv2D::PushConstant Conv2D::createPushConstant(const std::vector<int32_t> &pad, const std::vector<int32_t> &stride,
+                                                 const std::vector<int32_t> &dilation, const int8_t inputZeroPoint,
+--- a/graph/compute_graph_op.hpp
++++ b/graph/compute_graph_op.hpp
+@@ -443,9 +443,10 @@
+
+     static constexpr std::string_view shaderName = "conv2d";
+
+-    static const uint32_t warpX = 8;
+-    static const uint32_t warpY = 8;
+-    static const uint32_t warpZ = 1;
++    // Keep 64 invocations while reducing spatial padding for small feature maps.
++    static const uint32_t warpX = 4;
++    static const uint32_t warpY = 4;
++    static const uint32_t warpZ = 4;
+ };
+
+ /*******************************************************************************
+--- a/graph/shaders/CMakeLists.txt
++++ b/graph/shaders/CMakeLists.txt
+@@ -99,9 +99,10 @@
+ endif()
+
+ set(WARP1D 64)
+-set(WARPX 8)
+-set(WARPY 8)
+-set(WARPZ 1)
++# Match the 64-invocation Conv2D workgroup in compute_graph_op.hpp.
++set(WARPX 4)
++set(WARPY 4)
++set(WARPZ 4)
+
+ function(mlel_generate_glsl)
+     cmake_parse_arguments(ARGS "" "INPUT;OUTPUT" "DEFINE;REPLACE" ${ARGN})

@@ -57,7 +57,8 @@ Use Docker Compose 2.24.4 or newer and a prepared OPK development image with
 MLWL, `vulkaninfo`, a compatible V3D driver and Graph/Tensor support.
 The image must select only the V3D GPU through
 its Vulkan environment. Platform preparation belongs to the image or OS provider;
-OPK does not build or patch GPU drivers. Stock Raspberry Pi OS is not sufficient.
+quickstart does not build or patch GPU drivers. Stock Raspberry Pi OS is not sufficient.
+For an evaluation image, see the [RPi5 runtime build](../../scripts/private/rpi5-gpu/README.md).
 
 Add these settings to the checkout's `.env`, using your prepared image tag:
 
