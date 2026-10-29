@@ -29,6 +29,7 @@ ExecuTorch and MLWL integrations keep their own backend interfaces.
 | [Contract](loom-runtime-contract-proposal.md) | Responsibilities, lifecycle and execution semantics |
 | [Memory guide](runtime-memory-use-cases.md) | Binding choices, output reuse and synchronization |
 | [Declaration checks](tests/) | Standalone C11/C++11 compatibility and include-order checks |
+| [Host conformance suite](conformance/README.md) | Replaceable GTest runtime provider and host-memory contract tests |
 
 ## Consumer lifecycle
 
@@ -84,6 +85,22 @@ output decoding remain in OPK unless explicitly included in the model package.
 The [YOLO26 example](../../examples/loom-yolo26/README.md) describes a compatible
 host adapter. Declaration checks below exercise neither that implementation nor
 hardware behavior.
+
+## Host conformance tests
+
+The [conformance suite](conformance/README.md) checks runtime behavior through
+the public API, using a mock host runtime by default. Implementors replace its
+provider adapter with their API and known model fixtures. The suite needs only
+the interface headers, a C++ compiler and GTest; it has no OPK runtime dependencies.
+
+In an OPK test-enabled build:
+
+```sh
+meson test -C development/build-active loom_host_conformance_tests --print-errorlogs
+```
+
+See the suite README for standalone builds, provider requirements and coverage
+limits. Passing the mock tests checks the harness, not a concrete runtime.
 
 ## Declaration checks
 

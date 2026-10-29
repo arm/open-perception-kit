@@ -14,6 +14,33 @@
 # limitations under the License.
 
 
+# The runtime ABI conformance suite has no OPK runtime dependencies.
+loom_host_conformance_tests = executable(
+  'loom_host_conformance_tests',
+  [
+    '../ops-loom/interface/conformance/host_conformance_test.cpp',
+    '../ops-loom/interface/conformance/mock_runtime.cpp',
+  ],
+  dependencies : [gtest_main_dep, gtest_dep],
+)
+test('loom_host_conformance_tests', loom_host_conformance_tests, timeout : 60)
+test(
+  'loom_host_conformance_rejects_wrong_output',
+  loom_host_conformance_tests,
+  args : ['--gtest_filter=HostConformance.RepeatedHostExecution'],
+  env : ['LRT_MOCK_FAULT=wrong-output'],
+  should_fail : true,
+  timeout : 60,
+)
+test(
+  'loom_host_conformance_rejects_bootstrap_write',
+  loom_host_conformance_tests,
+  args : ['--gtest_filter=HostConformance.BootstrapVersionMismatchPreservesTable'],
+  env : ['LRT_MOCK_FAULT=clobber-bootstrap'],
+  should_fail : true,
+  timeout : 60,
+)
+
 jsoncons_dep = dependency(
   'jsoncons',
   required : true,
