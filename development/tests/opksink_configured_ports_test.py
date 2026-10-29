@@ -48,7 +48,8 @@ def start_pipeline(gst, pipeline):
 def reserve_ports(reservations, count):
     sockets = [reservations.enter_context(socket.socket()) for _ in range(count)]
     for listener in sockets:
-        listener.bind(("127.0.0.1", 0))
+        # Match the servers' wildcard bind and exclude clients on other interfaces.
+        listener.bind(("0.0.0.0", 0))
     return [listener.getsockname()[1] for listener in sockets], sockets
 
 

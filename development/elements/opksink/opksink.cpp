@@ -74,6 +74,7 @@ enum {
     PROP_HTTP_PORT,
     PROP_WS_PORT,
     PROP_CTRL_PORT,
+    PROP_METADATA_PORT,
     PROP_STATIC_FILES,
     PROP_WEBRTC_STUN_SERVER,
     PROP_WEBRTC_TURN_SERVER,
@@ -184,6 +185,91 @@ static void gst_opk_sink_stop_servers(GstOpkSink *self) {
     }
 }
 
+static bool gst_opk_sink_resolve_metadata(GstOpkSink *self) {
+    auto *const private_data = self->private_data;
+    private_data->resolved_metadata_port = self->metadata_port ? self->metadata_port : 8002;
+    private_data->resolved_metadata_endpoint = "/ws";
+    if (self->metadata_port != 0) {
+        return true;
+    }
+
+    GstElement *const pipeline = get_top_pipeline(GST_ELEMENT(self));
+    if (!pipeline) {
+        return true;
+    }
+
+    GstIterator *const iterator = gst_bin_iterate_recurse(GST_BIN(pipeline));
+    GValue item = G_VALUE_INIT;
+    guint publishers = 0;
+    bool done = false;
+    bool success = true;
+    while (!done) {
+        switch (gst_iterator_next(iterator, &item)) {
+        case GST_ITERATOR_OK: {
+            auto *const element = GST_ELEMENT(g_value_get_object(&item));
+            GstElementFactory *const factory = gst_element_get_factory(element);
+            if (factory && g_strcmp0(gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(factory)),
+                                     "opkcomm") == 0) {
+                // Read the publisher's public enum rather than depending on its private type.
+                const auto *const method_spec = G_PARAM_SPEC_ENUM(
+                    g_object_class_find_property(G_OBJECT_GET_CLASS(element), "method"));
+                gint method = 0;
+                g_object_get(element, "method", &method, nullptr);
+                const GEnumValue *const value = g_enum_get_value(method_spec->enum_class, method);
+                if (value && g_strcmp0(value->value_nick, "websocket") == 0) {
+                    ++publishers;
+                    gchar *endpoint = nullptr;
+                    g_object_get(element,
+                                 "ws-port",
+                                 &private_data->resolved_metadata_port,
+                                 "endpoint",
+                                 &endpoint,
+                                 nullptr);
+                    private_data->resolved_metadata_endpoint = endpoint ? endpoint : "/ws";
+                    g_free(endpoint);
+                }
+            }
+            g_value_reset(&item);
+            break;
+        }
+        case GST_ITERATOR_RESYNC:
+            gst_iterator_resync(iterator);
+            publishers = 0;
+            private_data->resolved_metadata_port = 8002;
+            private_data->resolved_metadata_endpoint = "/ws";
+            break;
+        case GST_ITERATOR_ERROR:
+            GST_ELEMENT_ERROR(self,
+                              CORE,
+                              FAILED,
+                              ("Unable to discover opkcomm metadata configuration"),
+                              (nullptr));
+            success = false;
+            done = true;
+            break;
+        case GST_ITERATOR_DONE:
+            done = true;
+            break;
+        }
+    }
+    if (G_VALUE_TYPE(&item) != 0) {
+        g_value_unset(&item);
+    }
+    gst_iterator_free(iterator);
+    gst_object_unref(pipeline);
+
+    if (publishers > 1) {
+        GST_ELEMENT_ERROR(self,
+                          RESOURCE,
+                          SETTINGS,
+                          ("Multiple WebSocket opkcomm publishers found; set opksink "
+                           "metadata-port explicitly"),
+                          (nullptr));
+        return false;
+    }
+    return success;
+}
+
 static bool gst_opk_sink_start_servers(GstOpkSink *self) {
     GstOpkPrivate *private_data = self->private_data;
     bool started = false;
@@ -254,8 +340,10 @@ static GstStateChangeReturn gst_opk_sink_change_state(GstElement *element,
     }
 
     // gst_parse_launch() applies element properties after instance initialization.
-    if (transition == GST_STATE_CHANGE_NULL_TO_READY && !gst_opk_sink_start_servers(self)) {
-        return GST_STATE_CHANGE_FAILURE;
+    if (transition == GST_STATE_CHANGE_NULL_TO_READY) {
+        if (!gst_opk_sink_resolve_metadata(self) || !gst_opk_sink_start_servers(self)) {
+            return GST_STATE_CHANGE_FAILURE;
+        }
     }
     if (transition == GST_STATE_CHANGE_READY_TO_NULL) {
         gst_opk_sink_stop_servers(self);
@@ -292,6 +380,9 @@ gst_opk_sink_set_property(GObject *object, guint prop_id, const GValue *value, G
         break;
     case PROP_CTRL_PORT:
         self->ctrl_port = g_value_get_int(value);
+        break;
+    case PROP_METADATA_PORT:
+        self->metadata_port = g_value_get_uint(value);
         break;
     case PROP_STATIC_FILES:
         g_free(self->static_files_location);
@@ -332,6 +423,9 @@ gst_opk_sink_get_property(GObject *object, guint prop_id, GValue *value, GParamS
         break;
     case PROP_CTRL_PORT:
         g_value_set_int(value, self->ctrl_port);
+        break;
+    case PROP_METADATA_PORT:
+        g_value_set_uint(value, self->metadata_port);
         break;
     case PROP_STATIC_FILES:
         g_value_set_string(value, self->static_files_location);
@@ -864,6 +958,7 @@ static void gst_opk_sink_init(GstOpkSink *self) {
     self->http_port = 9999;
     self->ws_port = 8000;
     self->ctrl_port = 8001;
+    self->metadata_port = 0;
     self->qos_enabled = false;
 
     if (!init_video(self) || !init_audio(self)) {
@@ -909,6 +1004,17 @@ static void gst_opk_sink_class_init(GstOpkSinkClass *klass) {
         gobject_class,
         PROP_CTRL_PORT,
         g_param_spec_int("ctrl-port", "Control Port", "Control Port", 1, 65535, 8001, kRW));
+    g_object_class_install_property(
+        gobject_class,
+        PROP_METADATA_PORT,
+        g_param_spec_uint("metadata-port",
+                          "Metadata Port",
+                          "Browser metadata WebSocket port (0 discovers opkcomm automatically; "
+                          "restart required)",
+                          0,
+                          65535,
+                          0,
+                          kRW));
     g_object_class_install_property(
         gobject_class,
         PROP_STATIC_FILES,
