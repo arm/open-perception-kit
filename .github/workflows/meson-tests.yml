@@ -105,6 +105,7 @@ jobs:
               - 'Dockerfile'
               - 'compose*.yaml'
               - '.devcontainer/compose*.yaml'
+              - '.devcontainer/platform_init.sh'
               - '.clang-format'
               - 'setup.cfg'
               - '.github/actions/setup-build/**'
