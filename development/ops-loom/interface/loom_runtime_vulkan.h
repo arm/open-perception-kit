@@ -18,6 +18,7 @@
  * @file loom_runtime_vulkan.h
  * @brief Optional native Vulkan resource profile for loom_runtime.h.
  *
+ * @details
  * Draft declarations, not an implementation or a claim of target support.
  * Include this header only in Vulkan-aware code. The core header includes no
  * Vulkan headers and refers to these records through typed pointers only.
@@ -138,6 +139,8 @@ extern "C" {
 #define LRT_EXTENSION_VULKAN "loom.runtime.vulkan/1"
 
 /** @brief Borrowed runtime Vulkan association, immutable for context lifetime.
+ *
+ * @details
  * Caller must use the same Vulkan implementation/loader and may not destroy
  * these objects. queue belongs to device and queue_family_index. Native API
  * calls/queue submission obey lrt_vk_handoff, including calls from GStreamer.
@@ -156,6 +159,8 @@ typedef struct lrt_vulkan_buffer_requirements {
 } lrt_vulkan_buffer_requirements;
 
 /** @brief Full 2D image description; image usage may include additional bits.
+ *
+ * @details
  * Format/extent/tiling must match the advertised option exactly. All other
  * creation parameters and tensor mapping are fixed by lrt_vk_images.
  */
@@ -167,6 +172,8 @@ typedef struct lrt_vulkan_image_spec {
 } lrt_vulkan_image_spec;
 
 /** @brief Typed requirements attached to one advertised core memory option.
+ *
+ * @details
  * The containing configuration.reference selects the union member. POINTER
  * and DMA_BUF options never use this record. Records/context are borrowed for
  * the core's documented metadata lifetimes. Import/allocation must match this
@@ -182,6 +189,8 @@ struct lrt_vulkan_requirements {
 };
 
 /** @brief Backing allocation identity/range, needed to validate aliasing/mapping.
+ *
+ * @details
  * Caller supplies truthful binding metadata: Vulkan cannot generally retrieve
  * all original creation/binding properties from opaque handles. Sparse,
  * disjoint, protected and dedicated-external-memory special cases are outside
@@ -211,6 +220,8 @@ typedef struct lrt_vulkan_image_resource {
 } lrt_vulkan_image_resource;
 
 /** @brief External import descriptor or borrowed native view of an lrt_buffer.
+ *
+ * @details
  * The outer core reference selects buffer/image. Every handle is nonnull and
  * belongs to context->device. Resource is already backed by memory. Native
  * descriptors/backing metadata are copied on import; no Vulkan object is copied
@@ -234,6 +245,8 @@ struct lrt_vulkan_resource {
 };
 
 /** @brief Native details of a core runtime allocation request.
+ *
+ * @details
  * context matches the selected option. Memory flags include all option flags;
  * HOST accessibility also requires HOST_VISIBLE and CPU_MAP support. Runtime
  * chooses an actual compatible memory type satisfying these minimum flags.
@@ -256,6 +269,8 @@ typedef uint64_t lrt_vulkan_capability_flags;
 #define LRT_VULKAN_CAP_BUFFER_CPU_MAP (UINT64_C(1) << 0)
 
 /** @brief Optional profile table returned by core get_extension.
+ *
+ * @details
  * Presence permits native options; absence prohibits advertising them. This
  * table does not replace core import/allocate/bind/query/inference functions.
  * CPU-map entries are both nonnull only when BUFFER_CPU_MAP is advertised.
@@ -264,20 +279,50 @@ typedef uint64_t lrt_vulkan_capability_flags;
  */
 typedef struct lrt_vulkan_api {
     lrt_vulkan_capability_flags capabilities;
-    /** @brief Map an idle Vulkan buffer view with required cache management.
-     * Caller first completes producers/consumers and has no other mappings of
-     * its backing allocation. No concurrent external accesses to overlapping
-     * non-coherent cache atoms are permitted. May fail for a particular resource.
-     * READ invalidates non-coherent memory as needed; end_cpu_access flushes
-     * WRITE accesses. Runtime handles atom alignment and returns view byte zero.
-     * Active mapping blocks binding/inference/release involving that buffer. Caller
-     * must not invoke vkMapMemory/vkUnmapMemory/vkFreeMemory on runtime storage.
-     * Mapping is not a production fence or permission for concurrent GPU access.
+    /**
+     * @brief Map an idle Vulkan buffer with required cache maintenance.
+     *
+     * @details
+     * READ invalidates non-coherent memory as needed; end_cpu_access flushes WRITE access.
+     * Runtime handles non-coherent atom alignment and returns view byte zero. Mapping is not
+     * a production fence. Caller must not directly map/unmap/free runtime memory through
+     * Vulkan.
+     *
+     * @pre BUFFER_CPU_MAP is advertised. Producers/consumers have completed; no other mapping
+     * of the backing allocation or concurrent external access to overlapping non-
+     * coherent atoms exists. Resource supports the requested access.
+     *
+     * @post On success mapping/info are returned. Binding, inference and release involving
+     * this buffer are blocked until end_cpu_access. Failure creates no mapping and
+     * leaves outputs untouched.
+     *
+     * @return LRT_OK: mapped for requested access. LRT_UNSUPPORTED: resource cannot be
+     * mapped. LRT_BUSY: conflicting mapping/use. LRT_INVALID_ARGUMENT: invalid
+     * access/arguments. LRT_OUT_OF_MEMORY, LRT_DEVICE_LOST or other mapping failure
+     * reports the backend error.
      */
     lrt_status(LRT_CALL *begin_cpu_access)(lrt_buffer buffer,
                                            lrt_access access,
                                            lrt_cpu_mapping *out_mapping,
                                            lrt_cpu_mapping_info *out_info);
+    /**
+     * @brief Flush required Vulkan host writes and release a CPU mapping.
+     *
+     * @details
+     * WRITE access flushes non-coherent ranges as required. Runtime manages mapping lifetime;
+     * application must not call Vulkan unmap/free on runtime storage.
+     *
+     * @pre A live mapping returned by this table; all CPU accesses have ended and no
+     * concurrent mapping users remain.
+     *
+     * @post On success mapping/pointer are invalid. The buffer may be rebound, submitted or
+     * released after establishing appropriate consumer dependencies. Failure does not
+     * permit assuming successful handoff.
+     *
+     * @return LRT_OK: cache maintenance and unmapping completed. LRT_INVALID_ARGUMENT:
+     * invalid mapping argument. LRT_DEVICE_LOST or another backend mapping/cache
+     * error reports failure.
+     */
     lrt_status(LRT_CALL *end_cpu_access)(lrt_cpu_mapping mapping);
 } lrt_vulkan_api;
 

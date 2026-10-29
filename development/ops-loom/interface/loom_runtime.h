@@ -18,6 +18,7 @@
  * @file loom_runtime.h
  * @brief Local inference runtime C ABI, draft contract version 10.
  *
+ * @details
  * This consumer contract is maintained with OPK; it is not an upstream LOOM API.
  * A runtime may implement it directly or through an adapter. Existing OPK
  * backends need not adopt it. Preprocessing and output interpretation belong
@@ -139,6 +140,8 @@ typedef uint32_t lrt_memory_owner;
 enum { LRT_OWNER_RUNTIME = 1, LRT_OWNER_EXTERNAL = 2 };
 
 /** @brief Minimum accessibility guaranteed by a selected configuration.
+ *
+ * @details
  * Bitmask: HOST | RUNTIME_DEVICE expresses access to the same allocation.
  * These are access guarantees, not simultaneous access or physical placement.
  * RUNTIME_DEVICE means at least one compatible runtime execution resource,
@@ -154,6 +157,8 @@ enum {
 };
 
 /** @brief Typed reference used to name storage, not an extra location field.
+ *
+ * @details
  * POINTER and DMA_BUF have core payloads. VULKAN_BUFFER and VULKAN_IMAGE use
  * typed pointers defined in loom_runtime_vulkan.h. An unsupported profile must
  * not be advertised. No generic DEVICE address is accepted.
@@ -167,6 +172,8 @@ enum {
 };
 
 /** @brief Exact transfer behavior chosen by the caller, not a fallback policy.
+ *
+ * @details
  * DIRECT: no IO staging copy at the application/runtime boundary. Internal
  * network transfers, packing, scratch and partitioning remain runtime-owned.
  * STAGED: execution uses IO staging between the supplied allocation and internal
@@ -177,6 +184,8 @@ typedef uint32_t lrt_memory_transfer;
 enum { LRT_TRANSFER_DIRECT = 1, LRT_TRANSFER_STAGED = 2 };
 
 /** @brief Classification and exact selection key; contains no opaque option ID.
+ *
+ * @details
  * Equality compares these four fields, never padding bytes. Accessibility is
  * a minimum guarantee of the selected path, not a caller's assertion. Binding
  * checks the concrete allocation. Owner does not transfer on binding/import.
@@ -200,6 +209,8 @@ typedef uint32_t lrt_compile_policy;
 enum { LRT_ALLOW_COMPILE = 0, LRT_PRECOMPILED_ONLY = 1 };
 
 /** @brief How a POINTER option can be supplied. At least one flag is required.
+ *
+ * @details
  * Runtime-owned POINTER options use allocate_buffer plus bind_tensor. External
  * POINTER options may permit borrowed bind_host_tensor, reusable imports, or
  * both. These flags do not change resource ownership or copy policy.
@@ -212,6 +223,8 @@ enum {
 };
 
 /** @brief One ranked configuration and the requirements needed to select it.
+ *
+ * @details
  * All counts/arrays and nested metadata are immutable until session destruction.
  * Each option specifies one exact transfer mode in configuration. Neither rank
  * nor DIRECT is a measured end-to-end performance claim. The caller selects the
@@ -285,6 +298,8 @@ typedef uint32_t lrt_model_source_kind;
 enum { LRT_MODEL_SOURCE_PATH = 1, LRT_MODEL_SOURCE_MEMORY = 2 };
 
 /** @brief Load from a local path or a contiguous, host-readable byte range.
+ *
+ * @details
  * PATH is a nonempty NUL-terminated UTF-8 local package/file path, not an RPC
  * endpoint. MEMORY supplies nonnull data and a nonzero byte_length representable
  * in the runtime's host address space. Bytes are the backend's serialized model
@@ -357,6 +372,8 @@ typedef struct lrt_shape {
 } lrt_shape;
 
 /** @brief Resolve one dynamic input using its model-description index.
+ *
+ * @details
  * Supplies the entire concrete shape for that input; fixed dimensions must
  * match the model and dynamic ones must satisfy its constraints. Batch size
  * is adjustable only if that dimension is dynamic. This cannot redefine the
@@ -369,6 +386,8 @@ typedef struct lrt_input_shape_override {
 } lrt_input_shape_override;
 
 /** @brief Optional session settings; not a second model input description.
+ *
+ * @details
  * Zero initialization means ALLOW_COMPILE and no overrides. Each input_index
  * may occur at most once. Unmentioned inputs use their intrinsic concrete model
  * shapes. An unresolved dynamic input requires an override; no batch/dimension
@@ -384,6 +403,8 @@ typedef struct lrt_session_options {
 } lrt_session_options;
 
 /** @brief Resolved tensor requirements, including ranked memory choices.
+ *
+ * @details
  * Returned by get_io_requirements, with all nested metadata immutable and
  * borrowed until session destruction. memory_options is best-to-worst runtime
  * preference, unique by all four configuration fields; the client may prefer another
@@ -423,6 +444,8 @@ typedef struct lrt_io_requirements {
 } lrt_io_requirements;
 
 /** @brief Description of externally owned storage to import as a reusable view.
+ *
+ * @details
  * Import creates a runtime resource reference, not ownership of the producer's
  * pool slot. The caller prevents external reuse while execution/consumers need
  * the contents. Host storage remains alive while imported; DMA-BUF import
@@ -445,6 +468,8 @@ typedef struct lrt_memory_desc {
 } lrt_memory_desc;
 
 /** @brief Request reusable runtime-managed storage in a supported profile.
+ *
+ * @details
  * Configuration requests minimum accessibility and eligibility for the selected
  * transfer mode, not physical placement/export. Binding validates tensor-specific
  * compatibility. Transfer is not a permanent property of the backing allocation.
@@ -462,6 +487,8 @@ typedef struct lrt_allocation_desc {
 } lrt_allocation_desc;
 
 /** @brief Actual owner/reference and guaranteed accessibility of a buffer view.
+ *
+ * @details
  * Import may initially establish only limited accessibility; tensor binding
  * validates any additional access promised by its selected configuration.
  * host_data alone does not establish coherence or consumer readiness.
@@ -491,6 +518,8 @@ typedef struct lrt_tensor_binding {
 } lrt_tensor_binding;
 
 /** @brief Borrowed host tensor, independent of lrt_buffer.
+ *
+ * @details
  * data points at the first
  * tensor byte; byte_length is accessible capacity from that address, with no
  * additional allocation offset. Dtype/layout come from model metadata.
@@ -511,6 +540,8 @@ typedef struct lrt_completion_info {
 } lrt_completion_info;
 
 /** @brief One result view; metadata lifetime is separate from external storage.
+ *
+ * @details
  * @see lrt_output_handoff
  */
 typedef struct lrt_output {
@@ -546,288 +577,692 @@ typedef struct lrt_cpu_mapping_info {
 
 typedef struct lrt_linux_dma_buf_api {
     lrt_dma_buf_capability_flags capabilities;
-    /* Same acceptance/asynchronous-return rules as core infer_async. Requires
-     * ASYNC_INFERENCE and SYNC_FILE support. Runtime honors all producer fences
-     * before touching IO without blocking this call until inference finishes.
-     * Duplicates FDs on acceptance only; originals remain caller-owned.
-     * NULL/count=0 means no fences. No runtime-completion chaining is accepted.
-     * Synchronous-only callers wait for external producers before core infer. */
+    /**
+     * @brief Enqueue inference with external producer sync-file dependencies.
+     *
+     * @details
+     * Honors producer fences before touching IO without waiting for fences/inference on this
+     * calling thread. Only external fence FDs are accepted; runtime-completion chaining is
+     * unsupported. Duplicate FDs on acceptance only; originals stay caller-owned. Zero
+     * count/NULL supplies no fences.
+     *
+     * @pre ASYNC_INFERENCE and SYNC_FILE are advertised. The session is idle, state/bindings
+     * validated, FD array valid and owners/mappings protected through completion. Native
+     * profiles must permit this fence combination.
+     *
+     * @post Acceptance returns a pending or terminal completion, invalidates previous outputs
+     * and retains duplicate FDs for the invocation. Use wait/get_completion_info,
+     * get_outputs on success, then release_completion. Rejection retains no FDs/work
+     * and leaves out_completion untouched.
+     *
+     * @return LRT_OK: work accepted, not necessarily complete/successful. LRT_UNSUPPORTED:
+     * mode/fence/resource combination unavailable. LRT_BUSY: session/resource in use.
+     * LRT_STATE_INVALID: state/bindings not ready. LRT_INVALID_ARGUMENT: invalid
+     * fence arguments. FD/allocation failures return LRT_IO_ERROR or
+     * LRT_OUT_OF_MEMORY without acceptance.
+     */
     lrt_status(LRT_CALL *infer_async_with_fences)(lrt_session session,
                                                   uint32_t fence_count,
                                                   const int32_t *acquire_sync_file_fds,
                                                   lrt_completion *out_completion);
-    /* Returns a new caller-owned close-on-exec sync_file FD, or UNSUPPORTED.
-     * Its signalling establishes ordering, not execution success: also check
-     * completion result. Export covers the whole invocation's output writes,
-     * including CPU work, accelerator work and output transfers. If sync_file
-     * cannot represent that ordering, return UNSUPPORTED. */
+    /**
+     * @brief Export whole-invocation ordering as a caller-owned sync-file FD.
+     *
+     * @details
+     * Signalling represents ordering, not execution success; also inspect the completion
+     * result. The fence covers CPU work, device work and output transfers. Export is
+     * unsupported if sync_file cannot represent all that ordering.
+     *
+     * @pre A live completion, writable FD output and advertised SYNC_FILE support; no
+     * concurrent completion release.
+     *
+     * @post On success caller owns a new close-on-exec FD and must close it. It may be
+     * supplied to a compatible downstream consumer; still inspect execution success and
+     * prevent premature storage reuse. Failure leaves the FD output untouched.
+     *
+     * @return LRT_OK: fence FD exported. LRT_UNSUPPORTED: ordering cannot be represented.
+     * LRT_INVALID_ARGUMENT: invalid arguments. LRT_IO_ERROR or LRT_OUT_OF_MEMORY:
+     * fence export failed.
+     */
     lrt_status(LRT_CALL *export_completion_fence)(lrt_completion completion,
                                                   int32_t *out_sync_file_fd);
-    /* Caller first waits for producers/consumers as appropriate. These calls
-     * bracket CPU cache access; they are not execution fences. Active mapping
-     * blocks bind/inference/release of the mapped buffer. Mapping may fail. */
+    /**
+     * @brief Begin bracketed CPU access to an imported DMA-BUF view.
+     *
+     * @details
+     * This performs the profile CPU mapping/cache-access step, not an execution fence.
+     * Mapping may fail for a particular resource. The returned pointer starts at imported-
+     * view byte zero.
+     *
+     * @pre CPU_MAP is advertised. The buffer is idle; external producers/consumers have
+     * completed. Requested access is valid and no conflicting mapping/access exists.
+     *
+     * @post On success mapping/info are returned and buffer binding, inference and release
+     * are blocked until end_cpu_access. Access only within the returned range and
+     * requested mode. Failure creates no mapping and leaves outputs untouched.
+     *
+     * @return LRT_OK: mapping/access begun. LRT_UNSUPPORTED: resource mapping unavailable.
+     * LRT_BUSY: conflicting use/mapping. LRT_INVALID_ARGUMENT: invalid
+     * arguments/access. LRT_IO_ERROR or LRT_OUT_OF_MEMORY: mapping/cache-access setup
+     * failed.
+     */
     lrt_status(LRT_CALL *begin_cpu_access)(lrt_buffer buffer,
                                            lrt_access access,
                                            lrt_cpu_mapping *out_mapping,
                                            lrt_cpu_mapping_info *out_info);
+    /**
+     * @brief End a DMA-BUF CPU access interval and release its mapping.
+     *
+     * @details
+     * Completes required cache-access bracketing. This does not establish downstream
+     * execution completion or acquire/release an external pool-slot lease.
+     *
+     * @pre A live mapping created by this table; all CPU accesses through it have finished
+     * and no concurrent users remain.
+     *
+     * @post On success mapping and pointer are invalid; the buffer may be bound/submitted or
+     * released under normal lifetime rules. On failure output arguments/state follow
+     * the core failure rules; do not assume access has ended.
+     *
+     * @return LRT_OK: access ended and mapping released. LRT_INVALID_ARGUMENT: invalid
+     * mapping argument. LRT_IO_ERROR: cache-access/unmap operation failed.
+     */
     lrt_status(LRT_CALL *end_cpu_access)(lrt_cpu_mapping mapping);
 } lrt_linux_dma_buf_api;
 
 typedef struct lrt_api {
-    /* Context-free query of the same immutable global contract version.
-     * Verify equality with LRT_RUNTIME_VERSION before calling other entries. */
+    /**
+     * @brief Query the global ABI contract version.
+     *
+     * @details
+     * This context-free query returns the immutable version also exported as
+     * lrt_runtime_version. It is distinct from the implementation release string.
+     *
+     * @pre Bootstrap must have succeeded for the requested version; the runtime library
+     * remains loaded.
+     *
+     * @post No objects or state change. Verify equality with LRT_RUNTIME_VERSION before
+     * calling other table entries.
+     *
+     * @return The runtime contract version. A mismatch means the table must not be used.
+     */
     uint32_t(LRT_CALL *get_runtime_version)(void);
 
-    /* Creates a runtime-owned environment, potentially spanning CPUs and
-     * accelerators. Runtime/package owns hardware requirements and placement.
-     * Validate availability here, during load_model or create_session as requirements
-     * become known; unsupported hardware fails explicitly. Context outlives
-     * all its models, sessions, buffers and completions. */
+    /**
+     * @brief Create a runtime-owned execution environment.
+     *
+     * @details
+     * The environment may span CPUs and accelerators. Runtime/package requirements determine
+     * placement. Hardware availability is checked here, at model loading or at session
+     * creation as requirements become known.
+     *
+     * @pre Bootstrap/version verification succeeded; out_context points to writable handle
+     * storage.
+     *
+     * @post On success the context owns subsequent models, sessions, buffers and completions
+     * and must outlive them. Call get_capabilities, load_model or buffer operations
+     * next. Failure leaves out_context untouched.
+     *
+     * @return LRT_OK: context created. LRT_INVALID_ARGUMENT: invalid output argument.
+     * LRT_UNSUPPORTED or LRT_INCOMPATIBLE: required execution environment
+     * unavailable. LRT_OUT_OF_MEMORY: context allocation failed.
+     */
     lrt_status(LRT_CALL *create_context)(lrt_context *out_context);
+    /**
+     * @brief Query context facilities and implementation identity.
+     *
+     * @details
+     * Capabilities describe facilities, not compatibility of every tensor, package or
+     * allocation. At least one inference mode is advertised; per-tensor requirements and
+     * binding validation remain authoritative.
+     *
+     * @pre A live context and writable output record; serialize mutation of that context.
+     *
+     * @post No runtime state changes. Returned strings are borrowed until context
+     * destruction. Load a model or inspect supported facilities next.
+     *
+     * @return LRT_OK: capabilities returned. LRT_INVALID_ARGUMENT: invalid arguments.
+     */
     lrt_status(LRT_CALL *get_capabilities)(lrt_context, lrt_capabilities *out);
-    /** @brief Load and validate a path-backed or memory-backed model/package.
-     * Source pointers are borrowed only for this call; no ownership transfer.
-     * Packaging and hardware compatibility are backend-owned. Invalid source
-     * tag/null required data/zero byte length -> INVALID_ARGUMENT. Unsupported
-     * format/resource mechanism -> UNSUPPORTED; incompatible model ->
-     * INCOMPATIBLE. Failure retains no source references and leaves out_model
-     * untouched. @see lrt_model_source
+    /**
+     * @brief Load and validate a path-backed or memory-backed model package.
+     *
+     * @details
+     * Packaging and hardware compatibility are backend-owned. Source descriptors and bytes
+     * are borrowed only during this call. The runtime copies or decodes retained data; memory
+     * packages are self-contained and have no implicit filesystem fallback. See
+     * lrt_model_source.
+     *
+     * @pre A live context, a valid source tag with its required path or byte range, and
+     * writable out_model. Source memory remains readable and unchanged until return.
+     *
+     * @post On success the model belongs to the context; describe_model or create_session may
+     * follow. On either success or failure source storage may be released. Failure
+     * retains no source references and leaves out_model untouched.
+     *
+     * @return LRT_OK: model loaded. LRT_INVALID_ARGUMENT: invalid source tag, required
+     * pointer or byte length. LRT_UNSUPPORTED: format/resource mechanism unavailable.
+     * LRT_INCOMPATIBLE: model/hardware incompatible. LRT_IO_ERROR: package cannot be
+     * read. LRT_OUT_OF_MEMORY: loading allocation failed.
      */
     lrt_status(LRT_CALL *load_model)(lrt_context, const lrt_model_source *, lrt_model *out_model);
-    /* Pointer graph is valid until unload_model. */
+    /**
+     * @brief Query immutable model and tensor metadata.
+     *
+     * @details
+     * Tensor order defines binding indices. Shapes may contain dynamic dimensions; resolve
+     * those through session options rather than guessing from bounds.
+     *
+     * @pre A live loaded model and writable output record.
+     *
+     * @post No state changes. Returned metadata is borrowed until unload_model. Use it to
+     * create a session and configure application preprocessing/postprocessing.
+     *
+     * @return LRT_OK: description returned. LRT_INVALID_ARGUMENT: invalid arguments.
+     */
     lrt_status(LRT_CALL *describe_model)(lrt_model, lrt_model_info *out);
 
-    /** @brief Create independent execution state using model shapes by default.
-     * options=NULL is equivalent to zero-initialized options: ordinary static
-     * networks need no repeated input count/shape array. Resolve every dynamic
-     * input through an override. Invalid index/duplicate index/rank/constraint
-     * mismatch/unresolved shape -> INVALID_ARGUMENT. A valid shape/policy the
-     * backend cannot execute -> UNSUPPORTED. Failure leaves out_session untouched.
+    /**
+     * @brief Create independent execution state and resolve input shapes.
      *
-     * Establishes concrete requirements and initializes session-local state;
-     * specializes/compiles only when needed and permitted. PRECOMPILED_ONLY
-     * rejects required compilation. Backend scratch setup is allowed; final
-     * configuration-dependent IO staging setup happens during
-     * binding/validate_bindings. Warmup is an optional backend optimization
-     * using private storage and must leave the declared initial network state
-     * intact; it must not access application IO or require a warmup invocation.
+     * @details
+     * NULL options select static model shapes. Dynamic inputs require indexed overrides;
+     * fixed dimensions cannot change. Models may share weights/compiled state, but sessions
+     * have independent bindings, scratch and network state. Shapes are immutable for the
+     * session. Compilation occurs only when permitted. Warmup uses private storage and
+     * preserves initial state; no application IO is accessed. Final binding-dependent setup
+     * occurs in bind/validate operations. Data-dependent outputs require a capacity bound. No
+     * inference-time compilation or IO reallocation is permitted.
      *
-     * One in-flight execution per session. Models may share weights/compiled
-     * state across sessions, but not mutable network state or bindings. Backends
-     * may reject additional sessions. Shapes are immutable for this session;
-     * another shape requires another session. Data-dependent outputs require a
-     * capacity bound established here; absent a bound return UNSUPPORTED. No
-     * silent compilation or IO reallocation during inference.
+     * @pre A live model and writable out_session. Options and shape arrays remain valid for
+     * this call. Overrides are unique, in range and satisfy model constraints;
+     * PRECOMPILED_ONLY forbids required compilation.
+     *
+     * @post On success the session is idle, initialized and unbound. Query
+     * get_io_requirements, then select/bind storage. Another shape requires another
+     * session. Failure leaves out_session untouched.
+     *
+     * @return LRT_OK: session created. LRT_INVALID_ARGUMENT: invalid/duplicate index, rank or
+     * shape constraint, or unresolved input shape. LRT_UNSUPPORTED: valid
+     * shape/policy, additional session or bounded output cannot be supported.
+     * LRT_OUT_OF_MEMORY: preparation allocation failed. LRT_INCOMPATIBLE: required
+     * execution resources incompatible.
      */
     lrt_status(LRT_CALL *create_session)(lrt_model,
                                          const lrt_session_options *options,
                                          lrt_session *out_session);
-    /** @brief Query requirements independently for every input and output.
-     * Returns tensor shape, capacity, alignment, required strides and ranked
-     * memory options in one borrowed pointer graph, valid until session
-     * destruction. Neither a common reference nor equal row numbers imply
-     * that a whole binding combination is valid.
-     * @see lrt_category_paths
+    /**
+     * @brief Query resolved tensor requirements and ranked memory options.
+     *
+     * @details
+     * Each input/output has its own shape, capacity, alignment, strides and options. Ranking
+     * is advisory; matching reference types or option row numbers do not establish
+     * compatibility of the complete binding set. See lrt_category_paths.
+     *
+     * @pre A live session and writable output record.
+     *
+     * @post No state changes. Returned nested metadata is immutable and borrowed until
+     * session destruction. Select exact configurations and allocate/import/bind
+     * resources next.
+     *
+     * @return LRT_OK: requirements returned. LRT_INVALID_ARGUMENT: invalid arguments.
      */
     lrt_status(LRT_CALL *get_io_requirements)(lrt_session, lrt_io_requirements *out);
-    /** @brief Retain an import of external storage without taking its allocator.
-     * Import once per stable allocation, then bind views/slots repeatedly.
-     * For changing CPU tensor pointers, prefer bind_host_tensor instead of
-     * importing and releasing a resource handle every frame.
-     * Imported/allocated buffers belong to this context; bind checks actual
-     * model compatibility. Cross-context use requires a supported import into
-     * the destination context, not directly binding another context's handle. */
+    /**
+     * @brief Create a reusable reference to externally owned storage.
+     *
+     * @details
+     * Import once per stable allocation, then bind compatible views or pool slots. Use
+     * bind_host_tensor instead for changing ordinary CPU pointers. Import does not acquire an
+     * external pool-slot lease or establish tensor compatibility. Host storage is borrowed; a
+     * DMA-BUF FD is duplicated with close-on-exec on success. Vulkan metadata is copied,
+     * while native objects stay caller-owned.
+     *
+     * @pre A live context, valid lrt_memory_desc and writable out_buffer. External owners
+     * keep storage/native objects alive until the import is released and prevent
+     * conflicting reuse.
+     *
+     * @post On success the buffer belongs to this context; query get_buffer_info or
+     * bind_tensor next. Binding to another context requires a supported new import.
+     * Failure consumes no caller handle and leaves out_buffer untouched.
+     *
+     * @return LRT_OK: import retained. LRT_INVALID_ARGUMENT: malformed descriptor/range.
+     * LRT_UNSUPPORTED: import mechanism unavailable. LRT_INCOMPATIBLE: resource
+     * cannot be imported into this environment. LRT_OUT_OF_MEMORY: import allocation
+     * failed. LRT_IO_ERROR: external handle operation failed.
+     */
     lrt_status(LRT_CALL *import_buffer)(lrt_context,
                                         const lrt_memory_desc *,
                                         lrt_buffer *out_buffer);
+    /**
+     * @brief Allocate runtime-owned storage for a selected memory configuration.
+     *
+     * @details
+     * The request describes minimum accessibility and eligibility for a transfer mode, not
+     * physical placement or export. Binding still validates tensor-specific compatibility.
+     * DMA-BUF import support does not imply allocation/export support. Native allocations
+     * require the companion descriptor.
+     *
+     * @pre A live context, valid runtime-owned allocation configuration with required
+     * size/alignment and writable out_buffer.
+     *
+     * @post On success the caller owns an lrt_buffer handle, while the runtime manages its
+     * allocation. Query get_buffer_info, then bind_tensor. Release the handle after
+     * unbinding. Failure leaves out_buffer untouched.
+     *
+     * @return LRT_OK: allocation created. LRT_INVALID_ARGUMENT: malformed
+     * configuration/size/alignment. LRT_UNSUPPORTED: allocation profile unavailable.
+     * LRT_INCOMPATIBLE: requested resource constraints incompatible.
+     * LRT_OUT_OF_MEMORY: allocation failed.
+     */
     lrt_status(LRT_CALL *allocate_buffer)(lrt_context,
                                           const lrt_allocation_desc *,
                                           lrt_buffer *out_buffer);
+    /**
+     * @brief Query buffer storage properties and borrowed access views.
+     *
+     * @details
+     * Transfer mode belongs to a tensor binding, not the allocation. host_data is exposed
+     * only for host-accessible POINTER storage; Vulkan references return native metadata
+     * instead. A pointer alone does not establish readiness or coherence.
+     *
+     * @pre A live buffer and writable output record.
+     *
+     * @post No state changes. Metadata/native views are borrowed until release_buffer; use
+     * them only under the applicable synchronization rules. Fill idle host storage or
+     * bind the buffer next.
+     *
+     * @return LRT_OK: properties returned. LRT_INVALID_ARGUMENT: invalid arguments.
+     */
     lrt_status(LRT_CALL *get_buffer_info)(lrt_buffer, lrt_buffer_info *out);
 
-    /** @brief Associate one tensor with a buffer view, independently of other IO.
-     * Session must be idle. Buffer/session context mismatch -> INCOMPATIBLE.
-     * Checks resource compatibility, shape, stride, alignment, bounds, access
-     * and overlap; IO aliasing is unsupported. Transfer is validated for this
-     * tensor/resource, not merely at buffer import. DIRECT prohibits IO staging,
-     * not internal network
-     * transfers, scratch, weight packing or partitioning.
-     * All four configuration fields must match an advertised option exactly.
-     * Owner/reference must match buffer storage; access must satisfy the promised
-     * minimum. Runtime either accepts that transfer mode or rejects the binding:
-     * UNSUPPORTED for an unadvertised configuration, INCOMPATIBLE for a resource
-     * that cannot meet the selected configuration. No alternative is selected.
-     * POINTER import/allocation must be permitted by pointer_binding_flags.
-     * NULL binding unbinds that input or output without selecting any replacement.
-     * Failure preserves prior binding and its validation state.
-     * Supplied descriptors are copied; buffer is retained while bound.
-     * Successful binding replaces either binding path at this tensor, releasing
-     * the previous handle association or borrowed host-pointer association.
-     * Any successful binding change invalidates prior output views/results and
-     * complete-set validation, even if it repeats the same arguments.
-     * Binding sets up storage but does not read inputs or write outputs; any
-     * required staging transfers happen as part of submitted execution. */
+    /**
+     * @brief Bind or unbind one input/output using a buffer view.
+     *
+     * @details
+     * All four configuration fields must match an advertised option. Validate shape, strides,
+     * bounds, alignment, access and non-overlap; IO aliasing is unsupported. POINTER methods
+     * must be permitted by pointer_binding_flags. DIRECT excludes boundary staging, not
+     * internal transfers/packing. NULL binding unbinds without choosing or allocating a
+     * replacement. Descriptors are copied and the buffer is retained while bound. Binding
+     * never reads inputs or writes outputs; staging occurs during execution.
+     *
+     * @pre The session is idle. For nonnull binding, buffer/session contexts match and
+     * storage satisfies the tensor and selected option. No conflicting mapping or
+     * external access is active.
+     *
+     * @post On success this association replaces either previous binding path, invalidating
+     * prior result views and complete-set validation, even for identical arguments.
+     * Call validate_bindings once all IO is bound. Failure preserves the old binding
+     * and validation state.
+     *
+     * @return LRT_OK: binding replaced or removed. LRT_BUSY: session/resource is in use.
+     * LRT_INVALID_ARGUMENT: invalid tensor index, descriptor, shape, strides or
+     * alignment. LRT_BUFFER_TOO_SMALL: insufficient view capacity. LRT_UNSUPPORTED:
+     * unadvertised configuration/method. LRT_INCOMPATIBLE:
+     * context/resource cannot meet the selection. Access/aliasing failures may
+     * instead report LRT_INVALID_ARGUMENT. Setup failures
+     * return their relevant status.
+     */
     lrt_status(LRT_CALL *bind_tensor)(lrt_session,
                                       lrt_io,
                                       uint32_t index,
                                       const lrt_tensor_binding *binding);
 
-    /** @brief Borrow a CPU-addressable tensor without creating an import handle.
-     * Requires HOST_BIND for non-NULL binding; otherwise UNSUPPORTED. Same
-     * idle-session, shape/stride, capacity, alignment, overlap, exact selection
-     * and failure-atomic replacement rules as bind_tensor. Reject overlap with
-     * resource bindings too when safe non-aliasing cannot be established.
-     * Binding may have validation/registration/setup overhead. Select an
-     * advertised EXTERNAL / includes HOST / POINTER configuration with an exact
-     * transfer mode permitting
-     * BORROWED_BIND. Pointer size/alignment must satisfy the tensor and option
-     * constraints; strides must match the tensor's single required layout.
+    /**
+     * @brief Borrow CPU tensor storage without creating an import handle.
      *
-     * Caller keeps storage alive while bound. Input contents may be refilled
-     * after previous execution completes, provided no other consumer uses them.
-     * Outputs are readable after successful wait. Rebind when the pointer
-     * changes. Timeout never permits early unmapping or releasing the owner.
-     * NULL binding unbinds input/output, as bind_tensor does, even without
-     * HOST_BIND capability. It never allocates or selects a replacement output.
+     * @details
+     * Select an advertised EXTERNAL / includes HOST / POINTER configuration permitting
+     * BORROWED_BIND, with exact transfer mode. Shape, strides, capacity, alignment, non-
+     * overlap and failure-atomic replacement follow bind_tensor. Registration/setup may have
+     * cost. NULL unbinds even without HOST_BIND support and never allocates replacement
+     * output. A fixed pointer can be bound/validated once, then refilled between completed
+     * invocations; a changing pointer requires rebinding and validation.
      *
-     * Fixed CPU tensor: discover -> bind -> validate_bindings once, then
-     * [fill -> infer_async -> wait] repeatedly while the binding set is unchanged.
-     * Transient host tensor: [bind -> validate_bindings -> infer_async -> wait -> unbind],
-     * then unmap/release the producer's frame. No lrt_buffer release is needed.
-     * Imported pool: import once -> [bind slot/view -> validate_bindings -> infer_async -> wait],
-     * then unbind and release imports at teardown. Each successful rebind
-     * replaces the old association; a failed rebind preserves it.
+     * @pre The session is idle. Nonnull binding requires HOST_BIND. Keep
+     * owner/storage/mapping alive while bound and exclude conflicting
+     * producers/consumers. Required strides and configuration match advertised
+     * requirements.
+     *
+     * @post On success previous association is replaced; old outputs and binding-set
+     * validation become invalid. Validate before inference. After terminal execution
+     * and unbinding, caller may unmap/release storage. No release_buffer call is
+     * needed. Failure preserves the previous association and validation.
+     *
+     * @return LRT_OK: pointer bound or tensor unbound. LRT_BUSY: session/resource is in use.
+     * LRT_INVALID_ARGUMENT: invalid index, pointer, shape, strides or alignment.
+     * LRT_BUFFER_TOO_SMALL: insufficient capacity. LRT_UNSUPPORTED: HOST_BIND or
+     * selected method/configuration unavailable. LRT_INVALID_ARGUMENT or
+     * LRT_INCOMPATIBLE: resource/access/non-overlap requirements cannot be met.
+     * Setup failures return their relevant status.
      */
     lrt_status(LRT_CALL *bind_host_tensor)(lrt_session,
                                            lrt_io,
                                            uint32_t index,
                                            const lrt_host_tensor_binding *binding);
 
-    /** @brief Validate and finish setting up the complete current IO binding set.
-     * Idle session only. Checks every tensor is bound, cross-tensor configuration
-     * compatibility, aliasing and any shared resource limits.
-     * May allocate/reserve staging required by explicitly selected STAGED options
-     * and prepare backend binding snapshots,
-     * but never compiles a new model, executes inference or reads/writes IO.
-     * Missing binding -> STATE_INVALID; incompatible combination -> INCOMPATIBLE;
-     * setup failure returns the relevant error. Binding associations are retained
-     * on failure; the set remains invalid and inference accepts no work. Caller
-     * changes its choices and retries. This is not an atomic batch bind/rollback.
-     * Success preserves the caller's exact choices: no substitution or setup at inference.
-     * Repeated validation of an unchanged valid set is a no-op. Filling existing
-     * inputs does not invalidate it. Every successful bind/unbind does.
+    /**
+     * @brief Validate and finish setting up the complete IO binding set.
+     *
+     * @details
+     * Checks every tensor is bound, configuration combinations, aliasing and shared resource
+     * limits. May reserve explicitly selected staging and prepare backend binding snapshots,
+     * but never compiles, executes or accesses IO. This is not an atomic batch bind/rollback.
+     * Revalidating an unchanged valid set is a no-op; refilling existing input storage does
+     * not invalidate it.
+     *
+     * ```mermaid
+     * stateDiagram-v2
+     *     [*] --> Unvalidated
+     *     Unvalidated --> Ready: validate_bindings succeeds
+     *     Ready --> Unvalidated: bind or unbind succeeds
+     *     Ready --> Executing: inference accepted
+     *     Executing --> Ready: terminal success
+     *     Executing --> InvalidState: terminal failure
+     *     InvalidState --> Ready: reset succeeds, bindings still validated
+     *     InvalidState --> Unvalidated: reset succeeds, bindings changed
+     * ```
+     *
+     * @pre The session is idle; selected buffers and owners remain valid.
+     *
+     * @post On success exact selections are preserved and inference may follow without more
+     * binding setup. On failure associations remain, but the set is invalid and no
+     * inference can be accepted; change bindings and retry. Every successful
+     * bind/unbind invalidates validation.
+     *
+     * @return LRT_OK: set validated. LRT_BUSY: session/resource in use. LRT_STATE_INVALID:
+     * missing binding. LRT_INCOMPATIBLE: configurations/aliasing/resources
+     * incompatible. LRT_OUT_OF_MEMORY or another setup error: preparation failed.
      */
     lrt_status(LRT_CALL *validate_bindings)(lrt_session);
 
-    /** @brief Run inference synchronously and return a terminal completion.
-     * All IO must be explicitly bound and successfully
-     * validated since the last binding change; otherwise STATE_INVALID with no
-     * work accepted. Both inference modes and the fence extension obey this rule.
-     * Caller completes external producers/prior consumers before calling core
-     * infer/infer_async. There is no runtime-completion dependency array. Optional
-     * producer fences are handled only by the extension's asynchronous entry.
-     * Neither a completion nor a fence transfers allocation/pool-slot ownership.
+    /**
+     * @brief Execute synchronously and return a terminal completion.
      *
-     * Requires SYNC_INFERENCE; unimplemented mode -> UNSUPPORTED with no work.
-     * Blocks until the runtime no longer accesses invocation IO. On accepted
-     * work, returns OK and a terminal completion even for execution failure;
-     * completion.result carries execution success/failure. This preserves one
-     * result/lifetime interface for both modes. No wait call is required: call
-     * get_outputs directly (it returns the execution error if inference failed),
-     * or inspect get_completion_info. Successful execution establishes the same
-     * output visibility as successful wait. Release the completion normally.
-     * A non-OK return means no accepted work, no retained invocation resources,
-     * and untouched out_completion. Unsupported mode never changes bindings,
-     * outputs or state. If accepted work fails, state/output failure rules apply.
-     * Caller may not mutate/recycle inputs until completion, nor overwrite
-     * outputs while downstream consumers still use them. New acceptance
-     * invalidates previous session output views. Applies to both host-pointer
-     * and resource-handle bindings. */
+     * @details
+     * Blocks until the runtime no longer accesses invocation IO. Accepted work returns LRT_OK
+     * even when execution fails: the terminal completion carries that result. Successful
+     * execution establishes output visibility without a separate wait. Core submission
+     * accepts no runtime-completion dependencies; producer fences belong to the optional
+     * asynchronous extension. Neither completion nor fence owns external pool slots.
+     *
+     * @pre SYNC_INFERENCE is supported. Session is idle, state is valid and all IO has passed
+     * validation since the last binding change. External producers and prior consumers
+     * have completed. Keep IO storage/mappings alive and unchanged during execution.
+     *
+     * @post On acceptance previous output views become invalid; out_completion is terminal.
+     * Inspect get_completion_info or call get_outputs, then release_completion. Failed
+     * execution invalidates state/outputs until reset/recreation. Rejection accepts no
+     * work, retains no invocation resources and leaves out_completion untouched;
+     * unsupported mode leaves bindings, outputs and state unchanged.
+     *
+     * @return LRT_OK: work accepted and completed; inspect completion/result for execution
+     * success. LRT_UNSUPPORTED: synchronous mode unavailable. LRT_BUSY:
+     * session/resources already in use. LRT_STATE_INVALID: state invalid or binding
+     * set unvalidated/incomplete. Invalid arguments or acceptance/setup failures
+     * return their relevant status with no accepted work.
+     */
     lrt_status(LRT_CALL *infer)(lrt_session, lrt_completion *out_completion);
 
-    /** @brief Start inference without waiting for inference to finish.
-     * Requires ASYNC_INFERENCE; otherwise UNSUPPORTED without accepted work.
-     * Same validation/acceptance/failure/lifetime rules as infer, but the returned
-     * completion may be pending. Does not run a blocking synchronous fallback
-     * or wait for producer fences/inference completion on the calling thread.
-     * Ordinary validation/enqueue overhead remains; no real-time latency bound
-     * is promised. Completion may already be terminal if work finishes quickly.
-     * OK means accepted, not output readiness or execution success. Use wait,
-     * get_completion_info and get_outputs, then release_completion. Neither
-     * execution mode is mandatory individually; unsupported entries stay nonnull.
+    /**
+     * @brief Enqueue inference without waiting for execution completion.
+     *
+     * @details
+     * Uses the same acceptance and lifetime rules as infer. No blocking synchronous fallback
+     * or wait for inference/producer fences runs on the calling thread. Validation/enqueue
+     * overhead remains; no real-time latency bound is promised. A fast execution may already
+     * be terminal at return.
+     *
+     * @pre ASYNC_INFERENCE is supported. Session is idle with valid state and a complete
+     * validated binding set. External producers/prior consumers are ready.
+     * Owners/mappings remain valid and IO is protected until terminal completion.
+     *
+     * @post On acceptance out_completion may be pending and previous outputs are invalid. Use
+     * wait or get_completion_info, then get_outputs on success and release_completion
+     * when terminal. Rejection accepts no work and leaves out_completion untouched.
+     * Accepted failure requires state reset/recreation.
+     *
+     * @return LRT_OK: work accepted, not necessarily finished or successful. LRT_UNSUPPORTED:
+     * asynchronous mode unavailable. LRT_BUSY: session/resources already in use.
+     * LRT_STATE_INVALID: state/bindings not ready. Invalid arguments or
+     * acceptance/setup failures return their relevant status without accepting work.
      */
     lrt_status(LRT_CALL *infer_async)(lrt_session, lrt_completion *out_completion);
-    /** @brief Wait for production completion, not downstream consumer release.
-     * 0 = poll; FOREVER = no deadline. Timeout never cancels/releases work.
-     * Terminal result is returned; OK also makes bound HOST outputs visible.
-     * Completion covers CPU work, accelerator work and required output transfers.
-     * On successful wait, all invocation inputs are no longer accessed and all
-     * outputs are produced with the promised visibility. This does not map
-     * device memory, replace DMA-BUF CPU-access/cache bracketing, or wait for
-     * downstream consumers. infer_async returning OK is acceptance, not readiness.
-     * Terminal status guarantees no further access to this invocation's IO,
-     * including on failure/device loss. Until safe quiescence, remain pending. */
+    /**
+     * @brief Wait for invocation completion and promised output visibility.
+     *
+     * @details
+     * Zero timeout polls; LRT_WAIT_FOREVER has no deadline. Timeout does not cancel or
+     * release work. Completion covers CPU/device work and required output transfers, not
+     * downstream consumer release or DMA-BUF CPU cache-access bracketing. Terminal status,
+     * including failure/device loss, guarantees no further runtime access to invocation IO;
+     * until safe quiescence it remains pending.
+     *
+     * @pre A live unreleased completion; no concurrent release. Storage/mappings stay valid
+     * while work is pending.
+     *
+     * @post On terminal success outputs may be obtained/consumed under their memory profile.
+     * On terminal failure discard outputs and reset/recreate state. Release terminal
+     * completion. After timeout keep resources alive and wait/query again.
+     *
+     * @return LRT_OK: successful terminal execution and promised visibility. LRT_TIMEOUT:
+     * still pending at deadline. LRT_INVALID_ARGUMENT: invalid arguments. A terminal
+     * execution status, such as LRT_EXECUTION_FAILED, LRT_DEVICE_LOST or
+     * LRT_BUFFER_TOO_SMALL, reports failed execution with no remaining IO access.
+     */
     lrt_status(LRT_CALL *wait)(lrt_completion, uint64_t timeout_ns);
+    /**
+     * @brief Query whether an invocation has finished and its result.
+     *
+     * @details
+     * Polls without waiting for inference. out.result is meaningful only when out.terminal is
+     * one. A successful query is not itself successful execution; inspect both fields.
+     *
+     * @pre A live completion and writable output record; release does not race this query.
+     *
+     * @post No object ownership changes. Pending work must retain its resources; terminal
+     * work may be handled as after wait, using the applicable memory visibility/access
+     * rules, then released.
+     *
+     * @return LRT_OK: completion information returned, including when execution failed or
+     * remains pending. LRT_INVALID_ARGUMENT: invalid arguments.
+     */
     lrt_status(LRT_CALL *get_completion_info)(lrt_completion, lrt_completion_info *out);
-    /** @brief Borrow result metadata; does not acquire an H2 output lease.
-     * Only latest successful execution of this session; otherwise BUSY,
-     * INVALID_ARGUMENT (wrong/stale completion), or the execution error.
-     * Metadata and runtime-owned buffers borrowed until next accepted inference,
-     * binding change or session destruction. After a binding change, an old
-     * completion is stale for get_outputs until a new execution succeeds.
-     * Do not release borrowed output buffer handles.
-     * Caller-owned outputs retain normal ownership. Direct host outputs use
-     * lrt_output.host_data, not a buffer handle. That borrow ends on unbinding,
-     * replacement or session destruction. No truncation on overflow. */
+    /**
+     * @brief Borrow actual output metadata from the latest successful invocation.
+     *
+     * @details
+     * Returns actual shape/range/strides without acquiring an output lease. Direct host
+     * outputs use host_data rather than a buffer handle. Do not release borrowed output
+     * buffer handles. External allocations keep caller ownership; no output truncation is
+     * allowed.
+     *
+     * @pre A live session and its latest successful terminal completion, without a subsequent
+     * accepted invocation or binding change. Apply the required native-memory
+     * access/synchronization before reading storage.
+     *
+     * @post On success metadata and runtime storage are borrowed until the next accepted
+     * invocation, binding change or session destruction. Consume/copy results before
+     * reuse; retain external output slots until downstream completion. Release the
+     * terminal completion when no longer queried.
+     *
+     * @return LRT_OK: result views returned. LRT_BUSY: invocation pending.
+     * LRT_INVALID_ARGUMENT: wrong/stale completion or invalid arguments. The
+     * completion execution error is returned if that invocation failed.
+     */
     lrt_status(LRT_CALL *get_outputs)(lrt_session, lrt_completion, lrt_outputs *out);
-    /* Idle only. Failed accepted work invalidates state until reset/recreate.
-     * Stateless models accept this as a no-op. Never silently retry inference. */
+    /**
+     * @brief Restore the session network state after completion or failure.
+     *
+     * @details
+     * Restores the declared initial/reset state. Stateless models accept reset as a no-op.
+     * Failed accepted work requires reset or session recreation; no silent inference retry
+     * occurs.
+     *
+     * @pre The session is idle; no external access conflicts with reset.
+     *
+     * @post On success network state is initialized and a validated binding set may be used
+     * for another invocation. Reset does not replace or revalidate bindings. On failure
+     * state must not be assumed usable; recreate the session or handle the reported
+     * error.
+     *
+     * @return LRT_OK: initial state restored, or stateless no-op. LRT_BUSY: session
+     * executing. LRT_INVALID_ARGUMENT: invalid arguments. Backend reset failure
+     * returns its relevant execution/device status.
+     */
     lrt_status(LRT_CALL *reset_state)(lrt_session);
 
-    /* Destruction never implicitly waits. BUSY preserves the object:
-     * completion: pending; buffer: bound/in flight/mapped; session: executing
-     * or has unreleased completions; model: has sessions; context: has children.
-     * Destroying an idle session removes its bindings and runtime outputs. */
+    /**
+     * @brief Release a terminal invocation handle.
+     *
+     * @details
+     * Destruction never waits or cancels pending work. Retaining a completion does not lease
+     * output storage against reuse.
+     *
+     * @pre A live terminal completion with no concurrent waits/queries/other users.
+     *
+     * @post On success the handle is invalid; it cannot be used for get_outputs or further
+     * queries. Destroy an otherwise idle session or submit its next invocation as
+     * appropriate. On LRT_BUSY the handle remains valid.
+     *
+     * @return LRT_OK: handle released. LRT_BUSY: completion pending. LRT_INVALID_ARGUMENT:
+     * invalid arguments.
+     */
     lrt_status(LRT_CALL *release_completion)(lrt_completion);
+    /**
+     * @brief Release an owned runtime allocation or external import handle.
+     *
+     * @details
+     * Releases runtime storage or the retained import reference/duplicated FD. It never frees
+     * caller-owned imported storage or external native objects. Do not release borrowed
+     * handles returned by get_outputs.
+     *
+     * @pre A live owned buffer handle, unbound, not in flight and without active mappings. No
+     * concurrent users.
+     *
+     * @post On success the handle is invalid; external owners may release their resources
+     * once all other imports/consumers finish. On LRT_BUSY the object and ownership
+     * remain unchanged.
+     *
+     * @return LRT_OK: handle released. LRT_BUSY: buffer bound, executing or mapped.
+     * LRT_INVALID_ARGUMENT: invalid arguments.
+     */
     lrt_status(LRT_CALL *release_buffer)(lrt_buffer);
+    /**
+     * @brief Destroy idle session state and remove its bindings.
+     *
+     * @details
+     * Destruction never waits implicitly. Runtime scratch and session-owned result metadata
+     * are released; caller-owned output storage retains its normal ownership.
+     *
+     * @pre A live idle session with every completion released and no concurrent users.
+     *
+     * @post On success session/result views are invalid and bindings are removed. Release
+     * owned buffer handles and unload_model when no other sessions remain. On LRT_BUSY
+     * the session remains valid.
+     *
+     * @return LRT_OK: session destroyed. LRT_BUSY: session executing or completions
+     * unreleased. LRT_INVALID_ARGUMENT: invalid arguments.
+     */
     lrt_status(LRT_CALL *destroy_session)(lrt_session);
+    /**
+     * @brief Release a loaded model and its immutable metadata.
+     *
+     * @details
+     * Shared immutable weights/compiled state may be reclaimed according to backend
+     * ownership. No outstanding session may refer to the model.
+     *
+     * @pre A live model with all sessions destroyed and no concurrent users.
+     *
+     * @post On success model and description pointers are invalid. Load another model or
+     * destroy the context once its other children are released. On LRT_BUSY the model
+     * remains valid.
+     *
+     * @return LRT_OK: model unloaded. LRT_BUSY: model still has sessions.
+     * LRT_INVALID_ARGUMENT: invalid arguments.
+     */
     lrt_status(LRT_CALL *unload_model)(lrt_model);
+    /**
+     * @brief Release an execution environment after its children.
+     *
+     * @details
+     * The context owns its execution resources. No implicit waits or recursive child
+     * destruction occur.
+     *
+     * @pre A live context with models, sessions, buffers, mappings and completions released;
+     * no concurrent users.
+     *
+     * @post On success context-owned pointers and extension tables are invalid. The runtime
+     * library may be unloaded after every context/object is gone. On LRT_BUSY the
+     * context remains valid.
+     *
+     * @return LRT_OK: context destroyed. LRT_BUSY: context still has children.
+     * LRT_INVALID_ARGUMENT: invalid arguments.
+     */
     lrt_status(LRT_CALL *destroy_context)(lrt_context);
 
-    /* Returns a borrowed extension table, valid until context destruction.
-     * Its layout is covered by the already-checked global contract version.
-     * Unknown ID -> UNSUPPORTED. Check extension capability bits before using
-     * optional functions; unsupported entries are NULL. Caller passes a local
-     * const void * variable by address, then casts that returned pointer to
-     * the table type associated with extension_id. */
+    /**
+     * @brief Query an optional capability table by extension identifier.
+     *
+     * @details
+     * The exact global version covers the returned table layout. Pass a local const void *
+     * variable by address, then cast the result to the known table type. Check its capability
+     * bits before optional functions; unsupported entries are NULL.
+     *
+     * @pre A live context, supported identifier format and writable out_table. Core version
+     * verification succeeded.
+     *
+     * @post On success table storage is borrowed until context destruction. Use only
+     * advertised operations; no object ownership changes. Failure leaves out_table
+     * untouched.
+     *
+     * @return LRT_OK: extension table returned. LRT_UNSUPPORTED: unknown/unavailable
+     * extension. LRT_INVALID_ARGUMENT: invalid arguments.
+     */
     lrt_status(LRT_CALL *get_extension)(lrt_context,
                                         const char *extension_id,
                                         const void **out_table);
-    /* Diagnostic for last failed call on this thread (including bootstrap).
-     * Borrowed until next API call on this thread; never a global shared error.
-     * Status codes, not text, drive program logic. */
+    /**
+     * @brief Borrow diagnostic text for the last failed call on this thread.
+     *
+     * @details
+     * Includes bootstrap failures. This is thread-local diagnostic text; status codes, not
+     * message text, drive program logic.
+     *
+     * @pre The runtime library is loaded. Copy the text before another API call on the same
+     * thread if it must be retained.
+     *
+     * @post No execution/object state changes. The borrowed text expires at the next API call
+     * on this thread.
+     *
+     * @return A borrowed diagnostic string describing the last failed call on this thread;
+     * not an execution-status code.
+     */
     const char *(LRT_CALL *last_error_message)(void);
 } lrt_api;
 
-/* Stable bootstrap signature. Check requested_version for exact equality with
- * the library's lrt_runtime_version BEFORE writing out_api or interpreting its
- * layout. Mismatch -> LRT_INCOMPATIBLE, leaving out_api untouched. On success,
- * populate the complete table for that exact version; all core entries are
- * mandatory/non-NULL. Consumer then verifies api.get_runtime_version() equals
- * LRT_RUNTIME_VERSION before using any other entry. No context is required.
+/**
+ * @brief Obtain the complete function table for an exact contract version.
  *
- * The version covers extensions too: changing any extension layout requires a
- * global version change. This is a contract version, not a library release
- * number or proof of a platform ABI match. Both sides still require compatible
- * architecture, calling convention and compiler layout settings.
+ * @details
+ * The stable bootstrap checks requested_version against lrt_runtime_version before
+ * interpreting/writing the table. Success populates every core entry; unsupported operations
+ * still have nonnull entries. The global version covers all records and extensions, not
+ * library release or platform compatibility. Both sides need matching architecture, calling
+ * convention and layout. Serialize mutation of shared context/model/session/buffer objects.
+ * Concurrent completion waits/queries are permitted, but release/destruction must not race
+ * users or descendants. Different sessions may execute independently when supported.
  *
- * Library must stay loaded until every object is destroyed. The global version
- * variable may also be checked before bootstrap, without reading any structs.
+ * @pre Runtime library is loaded, out_api is writable and requested_version equals the
+ * consumer LRT_RUNTIME_VERSION. No context is needed.
  *
- * Threading: serialize calls mutating the same context/model/session/buffer.
- * Concurrent waits/queries of a completion are allowed; do not release it
- * during any such call. Different sessions may execute independently. No
- * object destruction may race a call using it or its descendants.
+ * @post On success verify api.get_runtime_version() matches before other entries, then
+ * create_context. Library remains loaded until every runtime object is released.
+ * Failure leaves out_api untouched.
+ *
+ * @return LRT_OK: complete matching table returned. LRT_INCOMPATIBLE: requested global
+ * version differs. LRT_INVALID_ARGUMENT: invalid out_api argument.
  */
 LRT_EXPORT lrt_status LRT_CALL lrt_get_api(uint32_t requested_version, lrt_api *out_api);
 
