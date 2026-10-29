@@ -212,6 +212,7 @@ std::array<float, 4> shaderYuvRange(const YuvRange range) {
 } // namespace
 
 struct GpuPreprocess::State {
+    std::shared_ptr<const Input> input;
     // Device identity, capabilities and compute queue.
     std::shared_ptr<VulkanInstance> instance;
     VkPhysicalDevice physicalDevice{VK_NULL_HANDLE};
@@ -270,7 +271,9 @@ struct GpuPreprocess::State {
                 vkDestroyDescriptorPool(device, descriptorPool, nullptr);
             if (descriptorLayout)
                 vkDestroyDescriptorSetLayout(device, descriptorLayout, nullptr);
-            vkDestroyDevice(device, nullptr);
+            if (!input) {
+                vkDestroyDevice(device, nullptr);
+            }
         }
     }
 
@@ -380,6 +383,12 @@ struct GpuPreprocess::State {
     }
 
     void validateDeviceLimits() {
+        deviceIdentity = fmt::format("vulkan/1/{}/{}/{}/{}/{}",
+                                     properties.vendorID,
+                                     properties.deviceID,
+                                     properties.deviceName,
+                                     properties.driverVersion,
+                                     properties.apiVersion);
         const auto &limits{properties.limits};
         usePushConstants = limits.maxPushConstantsSize >= sizeof(PreprocessingShaderParameters);
         const bool supportsOptimizedWorkgroup{
@@ -425,12 +434,6 @@ struct GpuPreprocess::State {
 
     void createDevice() {
         vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memoryProperties);
-        deviceIdentity = fmt::format("vulkan/1/{}/{}/{}/{}/{}",
-                                     properties.vendorID,
-                                     properties.deviceID,
-                                     properties.deviceName,
-                                     properties.driverVersion,
-                                     properties.apiVersion);
         const auto enabled{supportedDmaBufExtensions()};
         dmaImportSupported = !enabled.empty();
         const float priority{1.0F};
@@ -451,19 +454,21 @@ struct GpuPreprocess::State {
     }
 
     void allocateWorkingBuffers() {
-        tensor = createBufferWithMemory(tensorBytes,
-                                        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-                                            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                        true,
-                                        true);
-        if (!tensor) {
+        if (!input) {
             tensor = createBufferWithMemory(tensorBytes,
                                             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
                                                 VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                            false);
-            readback =
-                createBufferWithMemory(tensorBytes, VK_BUFFER_USAGE_TRANSFER_DST_BIT, true, true);
-            require(tensor && readback, "No compatible Vulkan tensor or readback memory");
+                                            true,
+                                            true);
+            if (!tensor) {
+                tensor = createBufferWithMemory(tensorBytes,
+                                                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+                                                    VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                                false);
+                readback = createBufferWithMemory(
+                    tensorBytes, VK_BUFFER_USAGE_TRANSFER_DST_BIT, true, true);
+                require(tensor && readback, "No compatible Vulkan tensor or readback memory");
+            }
         }
         if (!usePushConstants) {
             parameters = createBufferWithMemory(
@@ -588,6 +593,34 @@ struct GpuPreprocess::State {
         createCommandResources();
     }
 
+    void initialize(std::shared_ptr<const Input> target) {
+        require(target && target->owner && target->device && target->physicalDevice &&
+                    target->queue && target->buffer && target->bytes,
+                "Vulkan inference input is incomplete");
+        input = std::move(target);
+        tensorBytes = input->bytes;
+        device = input->device;
+        physicalDevice = input->physicalDevice;
+        queue = input->queue;
+        queueFamily = input->queueFamily;
+        vkGetPhysicalDeviceProperties(physicalDevice, &properties);
+        require(properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU ||
+                    properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU,
+                "GPU preprocessing requires a hardware Vulkan device");
+        uint32_t count{0};
+        vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &count, nullptr);
+        std::vector<VkQueueFamilyProperties> families(count);
+        vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &count, families.data());
+        require(queueFamily < count && (families[queueFamily].queueFlags & VK_QUEUE_COMPUTE_BIT),
+                "Vulkan inference queue cannot run preprocessing compute shaders");
+        vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memoryProperties);
+        validateDeviceLimits();
+        allocateWorkingBuffers();
+        createBufferBindings();
+        createComputePipeline();
+        createCommandResources();
+    }
+
     std::array<size_t, 2> validateShaderInput(const mediaio::VideoFrame &frame,
                                               const PixelRect &crop,
                                               const PixelRect &inner,
@@ -660,12 +693,16 @@ struct GpuPreprocess::State {
         std::array<VkWriteDescriptorSet, shaderBindingCount> writes{};
         const auto bindingCount{usePushConstants ? storageBufferBindingCount : shaderBindingCount};
         for (uint32_t index{0}; index < bindingCount; ++index) {
-            const auto *const buffer{index == outputTensorBinding ? tensor.get()
-                                     : index == preprocessParametersBinding
-                                         ? parameters.get()
-                                         : planes[index < sourcePlaneCount ? index : 0].get()};
-            require(buffer, "GPU input was not prepared");
-            infos[index] = {buffer->buffer, 0, buffer->size};
+            if (index == outputTensorBinding && input) {
+                infos[index] = {input->buffer, 0, input->bytes};
+            } else {
+                const auto *const buffer{index == outputTensorBinding ? tensor.get()
+                                         : index == preprocessParametersBinding
+                                             ? parameters.get()
+                                             : planes[index < sourcePlaneCount ? index : 0].get()};
+                require(buffer, "GPU input was not prepared");
+                infos[index] = {buffer->buffer, 0, buffer->size};
+            }
             writes[index].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             writes[index].dstSet = descriptors;
             writes[index].dstBinding = index;
@@ -678,14 +715,23 @@ struct GpuPreprocess::State {
         vkUpdateDescriptorSets(device, bindingCount, writes.data(), 0, nullptr);
     }
 
-    void recordTensorReadback() const {
+    void recordTensorDependency() const {
         VkMemoryBarrier barrier{};
         barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
         barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-        barrier.dstAccessMask = readback ? VK_ACCESS_TRANSFER_READ_BIT : VK_ACCESS_HOST_READ_BIT;
+        VkPipelineStageFlags consumerStage{VK_PIPELINE_STAGE_HOST_BIT};
+        barrier.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+        if (input) {
+            consumerStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+            barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+        } else if (readback) {
+            consumerStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        }
+        // Shared input can be consumed by compute or data-graph commands in the next submission.
         vkCmdPipelineBarrier(command,
                              VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                             readback ? VK_PIPELINE_STAGE_TRANSFER_BIT : VK_PIPELINE_STAGE_HOST_BIT,
+                             consumerStage,
                              0,
                              1,
                              &barrier,
@@ -736,7 +782,7 @@ struct GpuPreprocess::State {
                                 nullptr);
         vkCmdDispatch(command, static_cast<uint32_t>(groupsX), static_cast<uint32_t>(groupsY), 1);
         externalBarrier(false);
-        recordTensorReadback();
+        recordTensorDependency();
         check(vkEndCommandBuffer(command), "End GPU commands");
     }
 
@@ -798,6 +844,10 @@ struct GpuPreprocess::State {
 
 GpuPreprocess::GpuPreprocess(const size_t tensorBytes) : state(std::make_unique<State>()) {
     state->initialize(tensorBytes);
+}
+GpuPreprocess::GpuPreprocess(std::shared_ptr<const Input> input)
+    : state(std::make_unique<State>()) {
+    state->initialize(std::move(input));
 }
 GpuPreprocess::~GpuPreprocess() = default;
 std::string GpuPreprocess::identity() const {
@@ -870,6 +920,9 @@ std::span<uint8_t> GpuPreprocess::run(const mediaio::VideoFrame &frame,
     state->updateBufferBindings(frame.planeCount());
     state->recordPreprocessingCommands(values);
     state->submitAndWait();
+    if (state->input) {
+        return {};
+    }
     return state->readableTensor();
 }
 } // namespace opk::vulkan

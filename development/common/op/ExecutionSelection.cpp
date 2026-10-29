@@ -18,6 +18,7 @@
 #include "op/ExecutionSelection.h"
 
 #include "op/GpuPreprocess.h"
+#include "op/VulkanInput.h"
 
 #include <chrono>
 #include <future>
@@ -68,6 +69,11 @@ Result<OpRef> ExecutionSelection::loadOperation(const std::string &libraryName,
     reference->libName = selectedLibrary;
     reference->opName = opName;
     reference->instanceId = instanceId;
+    if (preprocessingMode == ExecutionMode::Gpu) {
+        if (auto *const input = reference->as<OpInterfaceVulkanInput>()) {
+            input->enableVulkanInput();
+        }
+    }
     if (useGpu && !reference->as<OpInterfaceGpuPreprocess>())
         return tl::unexpected(
             unavailableGpu(instanceId, "GPU preprocessing module has no device interface"));

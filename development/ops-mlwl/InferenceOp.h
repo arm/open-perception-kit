@@ -18,24 +18,30 @@
 
 #include "Inference.h"
 #include "op/Op.h"
+#include "op/VulkanInput.h"
 
 #include <memory>
 
 namespace opk::mlwl {
 
-class InferenceOp : public opk::op::Op, public opk::op::OpInterfaceInference {
+class InferenceOp : public opk::op::Op,
+                    public opk::op::OpInterfaceInference,
+                    public opk::op::OpInterfaceVulkanInput {
   public:
     InferenceOp();
     ~InferenceOp() override;
 
     const opk::Model &getModel() const override;
     uint8_t *getTensorDataAddress(size_t index) const override;
+    void enableVulkanInput() override;
+    opk::Result<std::shared_ptr<const opk::vulkan::Input>> getVulkanInput(size_t index) override;
     opk::Result<void> configure(const opk::AttributeMap &attributes) override;
     opk::Result<void> bind(size_t index, const std::vector<opk::op::Op *> &ops) override;
     opk::Result<opk::op::OpSignal> process(opk::op::OpChainContext &context) override;
 
   private:
     std::unique_ptr<opk::mlwl::Inference> inference;
+    bool vulkanInput = false;
 };
 
 } // namespace opk::mlwl

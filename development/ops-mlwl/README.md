@@ -67,9 +67,16 @@ OPK_DEV_IMAGE=your-rpi5-gpu-image:tag
 OPK_MLWL_RUNTIME=rpi5-gpu
 ```
 
-Run `./scripts/quick_start.sh`, then follow the normal build and
-`./scripts/run.sh mlwl-vgf-demo` steps above. Quickstart uses the image without
-rebuilding it and gives the container access to `/dev/dri/renderD128`.
+Run `./scripts/quick_start.sh`, build OPK, then run
+`./scripts/run.sh mlwl-vgf-demo-gpu`. Quickstart uses the image without rebuilding
+it and gives the container access to `/dev/dri/renderD128`.
+
+This preset selects `execution.preprocessing=gpu` for both models. Preprocessing
+writes directly into the MLWL input through a buffer sharing the tensor's memory
+and Vulkan device. The queue must support compute and data-graph execution, and
+the allocation must satisfy both buffer and tensor requirements; incompatible
+sharing fails setup. There is no tensor readback or host copy between these stages.
+Camera/video input can still require upload, and postprocessing runs on the CPU.
 
 The preflight checks device permissions, the MLWL library, V3D selection and all
 extensions required by the pinned MLWL runtime: `VK_ARM_data_graph`,
@@ -118,7 +125,8 @@ also accepts `-Dmlwl=enabled` with the same dependency prefix.
   The descriptor's tensor order, shapes and types must match the workload.
 - Dynamic outputs, tensor feedback and unbound placeholder modules are unsupported.
 - MLWL creates the Vulkan context. Graph workloads request DataGraph shader
-  modules and tensors; other workloads use MLWL's default device requirements.
+  modules and tensors; GPU preprocessing also requires compute support.
+  Other workloads use MLWL's default device requirements.
   There is no fallback to another backend.
 
 MLWL's C++ API is experimental. Execution is synchronous; this revision has no
@@ -144,3 +152,16 @@ The test converts a small FP32 add graph to VGF and checks raw FP32 outputs
 against reference values with an absolute tolerance of `1e-6`, alongside the
 segmentation FrameResults. It covers image and scalar inputs, buffer reuse,
 and pipeline startup and teardown.
+
+With the prepared GPU runtime and both VGF files present, compare GPU and CPU
+preprocessing through the same MLWL device:
+
+```sh
+PYTHONPATH=generated/open_perception_kit/python/src \
+  python3 development/tests/mlwl_vulkan_pipeline_test.py \
+  development/build-active/meson-out \
+  config/models/ultraface-rfb-320-mlwl/model.json \
+  config/models/yolo26n-320-mlwl/model.json
+```
+
+This checks raw tensors for alternating inputs, buffer reuse and pipeline restart.

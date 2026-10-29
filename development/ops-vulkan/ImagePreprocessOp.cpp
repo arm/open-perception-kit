@@ -19,6 +19,7 @@
 #include "Log.h"
 #include "op/GpuPreprocess.h"
 #include "op/Op.h"
+#include "op/VulkanInput.h"
 #include "perf/PerformanceMetrics.h"
 
 #include <algorithm>
@@ -65,12 +66,23 @@ class ImagePreprocessOp final : public op::Op, public op::OpInterfaceGpuPreproce
         if (!bytes)
             return tl::unexpected(bytes.error());
         tensorBytes = *bytes;
+        if (auto *const backend = ops[index + 1]->as<op::OpInterfaceVulkanInput>()) {
+            const auto target = backend->getVulkanInput(tensorIndex);
+            if (!target) {
+                return tl::unexpected(target.error());
+            }
+            if (!*target || (*target)->bytes != tensorBytes) {
+                return failure("Vulkan inference input size does not match preprocessing");
+            }
+            vulkanInput = *target;
+        }
         return {};
     }
 
     Result<void> prepareDevice() override {
         try {
-            gpu = std::make_shared<GpuPreprocess>(tensorBytes);
+            gpu = vulkanInput ? std::make_shared<GpuPreprocess>(vulkanInput)
+                              : std::make_shared<GpuPreprocess>(tensorBytes);
         } catch (const std::exception &error) {
             return failure(error.what());
         }
@@ -203,9 +215,12 @@ class ImagePreprocessOp final : public op::Op, public op::OpInterfaceGpuPreproce
                 preparedFrame = frame;
             }
             const auto data{gpu->run(*preparedSource, crop, inner, input)};
-            const auto bound{bindInferenceTensor(data)};
-            if (!bound)
-                return bound;
+            if (!vulkanInput) {
+                const auto bound{bindInferenceTensor(data)};
+                if (!bound) {
+                    return bound;
+                }
+            }
         } catch (const std::exception &error) {
             return failure(error.what());
         }
@@ -241,6 +256,7 @@ class ImagePreprocessOp final : public op::Op, public op::OpInterfaceGpuPreproce
     bool copiedInput{false};
     bool copiedTensor{false};
     bool transferReported{false};
+    std::shared_ptr<const Input> vulkanInput;
     std::shared_ptr<GpuPreprocess> gpu;
 };
 } // namespace

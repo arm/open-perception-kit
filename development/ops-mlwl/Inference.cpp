@@ -17,6 +17,7 @@
 #include "Inference.h"
 
 #include "TensorLayout.h"
+#include "vulkan/Input.h"
 
 #include <mlworkloadlib/session.hpp>
 
@@ -53,21 +54,47 @@ class MappedTensor {
     MappedTensor(const MappedTensor &) = delete;
     MappedTensor &operator=(const MappedTensor &) = delete;
 
+    void shareBuffer(const size_t bytes) {
+        buffer = vk::raii::Buffer(
+            device.get(), vk::BufferCreateInfo({}, bytes, vk::BufferUsageFlagBits::eStorageBuffer));
+        const auto requirements =
+            device.get()
+                .getBufferMemoryRequirements2<vk::MemoryRequirements2,
+                                              vk::MemoryDedicatedRequirements>(
+                    vk::BufferMemoryRequirementsInfo2(*buffer));
+        const auto &bufferMemory = requirements.get<vk::MemoryRequirements2>().memoryRequirements;
+        const auto tensorMemory = device.get()
+                                      .getTensorMemoryRequirementsARM(
+                                          vk::TensorMemoryRequirementsInfoARM(allocation.handle()))
+                                      .memoryRequirements;
+        const auto memory = allocation.memory();
+        // MLWL does not expose its chosen memory type: every candidate must support this buffer.
+        if (requirements.get<vk::MemoryDedicatedRequirements>().requiresDedicatedAllocation ||
+            (tensorMemory.memoryTypeBits & ~bufferMemory.memoryTypeBits) != 0 ||
+            memory.offset % bufferMemory.alignment != 0 || memory.size < bufferMemory.size) {
+            throw std::runtime_error("MLWL input memory cannot be shared with a Vulkan buffer");
+        }
+        buffer.bindMemory(memory.memory, memory.offset);
+    }
+
     std::reference_wrapper<const vk::raii::Device> device;
     wl::TensorAllocation allocation;
+    vk::raii::Buffer buffer{nullptr};
     uint8_t *data = nullptr;
 };
 
 } // namespace
 
 struct Inference::State {
-    explicit State(const std::string &path) : workload(wl::Workload::fromVGF(path)) {}
+    State(const std::string &path, const bool vulkanInput)
+        : workload(wl::Workload::fromVGF(path)), vulkanInput(vulkanInput) {}
 
     opk::Result<void> configureModel(const opk::ModelDescriptor &descriptor);
     void configureSession();
     wl::BindingSet bindTensors();
 
     wl::Workload workload;
+    const bool vulkanInput;
     opk::Model model;
     std::unique_ptr<wl::Context> context;
     std::unique_ptr<wl::Session> session;
@@ -147,7 +174,7 @@ void Inference::State::configureSession() {
         return workload.executable(index).type() == wl::ExecutableKind::Graph;
     });
     wl::RuntimeContextDeviceRequirements requirements;
-    if (graphOnly) {
+    if (graphOnly && !vulkanInput) {
         requirements.capabilities = wl::RuntimeDeviceCapability::DataGraphShaderModules |
                                     wl::RuntimeDeviceCapability::Tensors;
     }
@@ -160,6 +187,9 @@ wl::BindingSet Inference::State::bindTensors() {
     auto bindings = session->createBindingSet();
     for (const auto resource : workload.resources()) {
         auto tensor = std::make_unique<MappedTensor>(*context, resource);
+        if (vulkanInput && resource.access() == wl::ResourceAccess::Read) {
+            tensor->shareBuffer(tensorLayout(resource).bytes);
+        }
         bindings.bindTensor(resource, {tensor->allocation.handle(), tensor->allocation.memory()});
         auto &tensors = resource.access() == wl::ResourceAccess::Read ? inputs : outputs;
         tensors.push_back(std::move(tensor));
@@ -176,7 +206,7 @@ wl::BindingSet Inference::State::bindTensors() {
     return bindings;
 }
 
-Inference::Inference() = default;
+Inference::Inference(const bool vulkanInput) : vulkanInput(vulkanInput) {}
 Inference::~Inference() = default;
 
 opk::Result<void> Inference::setupFromJson(const std::string &filePath) {
@@ -191,7 +221,7 @@ opk::Result<void> Inference::setupFromJson(const std::string &filePath) {
 opk::Result<void> Inference::setup(const opk::ModelDescriptor &descriptor) {
     state.reset();
     try {
-        auto candidate = std::make_unique<State>(descriptor.modelFile);
+        auto candidate = std::make_shared<State>(descriptor.modelFile, vulkanInput);
         const auto result = candidate->configureModel(descriptor);
         if (result) {
             candidate->configureSession();
@@ -223,6 +253,22 @@ uint8_t *Inference::getInputTensorDataAddress(size_t index) {
         throw std::logic_error("MLWL inference has not been configured");
     }
     return state->inputs.at(index)->data;
+}
+
+std::shared_ptr<const opk::vulkan::Input> Inference::getVulkanInput(const size_t index) const {
+    if (!state || !vulkanInput) {
+        throw std::logic_error("MLWL Vulkan input has not been configured");
+    }
+    const auto context = state->context->contextView();
+    return std::make_shared<opk::vulkan::Input>(opk::vulkan::Input{
+        .owner = state,
+        .physicalDevice = *context.physicalDevice.get(),
+        .device = *context.device.get(),
+        .queue = *context.queue.get(),
+        .queueFamily = context.queueFamilyIndex,
+        .buffer = *state->inputs.at(index)->buffer,
+        .bytes = state->model.inputs.at(index).shape.getFullValueCount() *
+                 opk::getValueTypeByteSize(state->model.inputs.at(index).valueType)});
 }
 
 const uint8_t *Inference::getOutputTensorDataAddress(size_t index) const {
