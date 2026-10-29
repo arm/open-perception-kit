@@ -22,11 +22,15 @@
 
 #include <memory>
 
+namespace opk::vulkan {
+struct Input;
+}
+
 namespace opk::mlwl {
 
 class Inference {
   public:
-    Inference();
+    explicit Inference(bool vulkanInput = false);
     ~Inference();
 
     opk::Result<void> setupFromJson(const std::string &filePath);
@@ -36,12 +40,14 @@ class Inference {
 
     const opk::Model &getModel() const;
     uint8_t *getInputTensorDataAddress(size_t index);
+    std::shared_ptr<const opk::vulkan::Input> getVulkanInput(size_t index) const;
     const uint8_t *getOutputTensorDataAddress(size_t index) const;
     opk::Shape getOutputTensorFinalShape(size_t index) const;
 
   private:
     struct State;
-    std::unique_ptr<State> state;
+    const bool vulkanInput;
+    std::shared_ptr<State> state;
 };
 
 } // namespace opk::mlwl

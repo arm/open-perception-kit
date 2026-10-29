@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+services:
+  opk-dev:
+    image: ${OPK_DEV_IMAGE:?Set OPK_DEV_IMAGE to a prepared RPi5 GPU development image}
+    build: !reset null
+    privileged: false
+    devices:
+      - /dev/dri/renderD128:/dev/dri/renderD128
+    group_add:
+      - "${OPK_RENDER_GID:?Missing render-device group}"
+    # Preserve the image's Vulkan environment, including on Compose 2.26.
+    environment: !override
+      USERNAME: dev
+      DISPLAY: ${DISPLAY:-}
+      CCACHE_DIR: /work/.cache/ccache
+      CCACHE_MAXSIZE: 2G
+      OPK_MLWL: enabled
+      OPK_MLWL_RUNTIME: rpi5-gpu

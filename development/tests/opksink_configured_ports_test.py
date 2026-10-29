@@ -69,6 +69,7 @@ def check_endpoints(ports):
     for port in (ws, ctrl):
         with socket.create_connection(("127.0.0.1", port), timeout=2):
             pass
+    return config
 
 
 def check_released_ports(ports):
@@ -177,6 +178,13 @@ def main() -> None:
                 finally:
                     bus.set_sync_handler(None, None)
                     release_pipeline(blocked, gst)
+        pipeline = pipelines[0]
+        release_pipeline(pipeline, gst)
+        sink = pipeline.get_by_name("sink")
+        assert sink.get_property("webrtc-frame-timeout-ms") == 30000
+        sink.set_property("webrtc-frame-timeout-ms", 120000)
+        start_pipeline(gst, pipeline)
+        assert '"frameTimeoutMs":120000' in check_endpoints(port_sets[0])
     finally:
         for pipeline in pipelines:
             release_pipeline(pipeline, gst)

@@ -20,6 +20,7 @@
 #include "mediaio/VideoFrame.h"
 #include "opk/ImageOpDesc.h"
 #include "opk/Model.h"
+#include "vulkan/Input.h"
 #include <memory>
 #include <span>
 #include <string>
@@ -30,6 +31,7 @@ namespace opk::vulkan {
 class GpuPreprocess {
   public:
     explicit GpuPreprocess(const size_t tensorBytes);
+    explicit GpuPreprocess(std::shared_ptr<const Input> input);
     ~GpuPreprocess();
     GpuPreprocess(const GpuPreprocess &) = delete;
     GpuPreprocess &operator=(const GpuPreprocess &) = delete;
@@ -38,7 +40,7 @@ class GpuPreprocess {
     bool import(const mediaio::VideoFrame &frame);
     /** Upload raw bytes only; image transformations remain in the compute shader. */
     void upload(const mediaio::VideoFrame &frame);
-    /** Finish GPU access before returning the CPU-readable tensor. */
+    /** Finish GPU writes; return CPU-readable bytes only for the host-input path. */
     std::span<uint8_t> run(const mediaio::VideoFrame &frame,
                            const PixelRect &crop,
                            const PixelRect &inner,

@@ -51,6 +51,42 @@ downloaded yet. Open `http://localhost:9999/` for the WebUI, or use the host's
 address when browsing from another machine. Emulation runs on the CPU and is
 intended for functional testing, not GPU performance measurements.
 
+## Raspberry Pi 5 GPU quickstart
+
+Use Docker Compose 2.24.4 or newer and a prepared OPK development image with
+MLWL, `vulkaninfo`, a compatible V3D driver and Graph/Tensor support.
+The image must select only the V3D GPU through
+its Vulkan environment. Platform preparation belongs to the image or OS provider;
+quickstart does not build or patch GPU drivers. Stock Raspberry Pi OS is not sufficient.
+For an evaluation image, see the [RPi5 runtime build](../../scripts/private/rpi5-gpu/README.md).
+
+Add these settings to the checkout's `.env`, using your prepared image tag:
+
+```dotenv
+OPK_DEV_IMAGE=your-rpi5-gpu-image:tag
+OPK_MLWL_RUNTIME=rpi5-gpu
+```
+
+Run `./scripts/quick_start.sh`, build OPK, then run
+`./scripts/run.sh mlwl-vgf-demo-gpu`. Quickstart uses the image without rebuilding
+it and gives the container access to `/dev/dri/renderD128`.
+
+This preset selects `execution.preprocessing=gpu` for both models. Preprocessing
+writes directly into the MLWL input through a buffer sharing the tensor's memory
+and Vulkan device. The queue must support compute and data-graph execution, and
+the allocation must satisfy both buffer and tensor requirements; incompatible
+sharing fails setup. There is no tensor readback or host copy between these stages.
+Camera/video input can still require upload, and postprocessing runs on the CPU.
+
+The preflight checks device permissions, the MLWL library, V3D selection and all
+extensions required by the pinned MLWL runtime: `VK_ARM_data_graph`,
+`VK_ARM_tensors`, `VK_KHR_deferred_host_operations` and `VK_KHR_maintenance5`.
+**NOK lists missing extensions and stops quickstart with a nonzero exit code.**
+`run.sh` repeats the check before starting a pipeline; there is no CPU fallback.
+Device features, model correctness and GPU speed are not checked by this preflight.
+To check the preflight's success and failure paths in that container, run
+`python3 development/tests/mlwl_gpu_preflight_test.py`.
+
 ## Build
 
 The backend is disabled by default. In the OPK development container
@@ -89,7 +125,8 @@ also accepts `-Dmlwl=enabled` with the same dependency prefix.
   The descriptor's tensor order, shapes and types must match the workload.
 - Dynamic outputs, tensor feedback and unbound placeholder modules are unsupported.
 - MLWL creates the Vulkan context. Graph workloads request DataGraph shader
-  modules and tensors; other workloads use MLWL's default device requirements.
+  modules and tensors; GPU preprocessing also requires compute support.
+  Other workloads use MLWL's default device requirements.
   There is no fallback to another backend.
 
 MLWL's C++ API is experimental. Execution is synchronous; this revision has no
@@ -115,3 +152,16 @@ The test converts a small FP32 add graph to VGF and checks raw FP32 outputs
 against reference values with an absolute tolerance of `1e-6`, alongside the
 segmentation FrameResults. It covers image and scalar inputs, buffer reuse,
 and pipeline startup and teardown.
+
+With the prepared GPU runtime and both VGF files present, compare GPU and CPU
+preprocessing through the same MLWL device:
+
+```sh
+PYTHONPATH=generated/open_perception_kit/python/src \
+  python3 development/tests/mlwl_vulkan_pipeline_test.py \
+  development/build-active/meson-out \
+  config/models/ultraface-rfb-320-mlwl/model.json \
+  config/models/yolo26n-320-mlwl/model.json
+```
+
+This checks raw tensors for alternating inputs, buffer reuse and pipeline restart.

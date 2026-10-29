@@ -223,7 +223,27 @@ echo "Generating device overrides..."
 bash .devcontainer/platform_init.sh \
     "${OPK_CONTAINER_SERVICE}" "${OPK_PICAMERA}" "${OPK_WEBRTC_TURN}"
 
-if container_running && [[ "$RECREATE" != "true" ]]; then
+MLWL_RUNTIME="$("${COMPOSE_COMMAND[@]}" "${COMPOSE_FILES[@]}" config --format json |
+    python3 -c 'import json, sys; print(json.load(sys.stdin)["services"]["opk-dev"]["environment"]["OPK_MLWL_RUNTIME"])')"
+case "${MLWL_RUNTIME}" in
+    "") ;;
+    rpi5-gpu)
+        if [[ "${OPK_PLATFORM_ID}" != rpi5 || ! -c /dev/dri/renderD128 ]]; then
+            echo "Error: rpi5-gpu requires a prepared Raspberry Pi 5 with /dev/dri/renderD128." >&2
+            exit 1
+        fi
+        OPK_RENDER_GID="$(stat -c %g /dev/dri/renderD128)"
+        export OPK_RENDER_GID
+        COMPOSE_FILES+=(-f .devcontainer/docker-compose.devcont.rpi5-gpu.yaml)
+        BUILD="false"
+        ;;
+    *)
+        echo "Error: unknown OPK_MLWL_RUNTIME '${MLWL_RUNTIME}'; expected rpi5-gpu or empty." >&2
+        exit 1
+        ;;
+esac
+
+if container_running && [[ "$RECREATE" != "true" && -z "${MLWL_RUNTIME}" ]]; then
     if container_ready && container_state_writable; then
         print_enter_hint
         exit 0
@@ -261,6 +281,7 @@ if ! container_state_writable; then
     echo "Error: container development directories are not writable as dev." >&2
     exit 1
 fi
+docker exec -u dev "${OPK_CONTAINER_NAME}" python3 /work/scripts/private/check-mlwl-gpu.py
 
 echo
 docker ps --filter "name=${OPK_CONTAINER_NAME}" --format 'table {{.Names}} {{.Status}}'

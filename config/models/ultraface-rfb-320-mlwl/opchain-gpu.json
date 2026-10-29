@@ -1,0 +1,15 @@
+{
+  "version": "1.5.0",
+  "execution": {"preprocessing": "gpu"},
+  "name": "UltraFaceRfb320Mlwl",
+  "displayName": "UltraFace RFB-320 FP32",
+  "task": "Face detection",
+  "runtime": "MLWL",
+  "description": "Runs the FP32 VGF export with OPK-compatible score and box heads.",
+  "ops": [
+    {"id": "opk-std-ops/InferenceController", "attributes": {}},
+    {"id": "opk-std-ops/GenericImagePreprocess", "attributes": {"inputImageTensorIndex": 0, "inputImageSourceName": "pipelineVideoFrame"}},
+    {"id": "opk-mlwl-ops/Inference", "attributes": {"modelDescriptor": "model.json"}},
+    {"id": "opk-std-ops/GenericPostprocess", "attributes": {"parser": "UltrafaceParser", "normalizeOutputCoordinates": false, "confidenceThreshold": 0.7, "iouThreshold": 0.3}}
+  ]
+}

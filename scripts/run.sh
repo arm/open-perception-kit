@@ -74,6 +74,7 @@ if [[ "${OPK_IN_CONTAINER}" == "true" ]]; then
     fi
 
     cd /work
+    python3 scripts/private/check-mlwl-gpu.py
     exec /work/tools/opk-menu "${OPK_MENU_ARGS[@]}"
 fi
 
@@ -120,4 +121,6 @@ if [ -f "${REPO_ROOT}/devices.env" ]; then
 fi
 DOCKER_EXEC_ARGS+=("${OPK_CONTAINER_NAME}")
 
-exec "${DOCKER_EXEC_ARGS[@]}" bash -lc 'cd /work && exec /work/tools/opk-menu "$@"' bash "${OPK_MENU_ARGS[@]}"
+exec "${DOCKER_EXEC_ARGS[@]}" bash -lc \
+    'cd /work && python3 scripts/private/check-mlwl-gpu.py && exec /work/tools/opk-menu "$@"' \
+    bash "${OPK_MENU_ARGS[@]}"

@@ -90,6 +90,8 @@ Focused detector and cascade presets:
 
 - `mlwl-vgf-demo` — YOLO26n-320 and UltraFace RFB-320 FP32 detection through
   MLWL on bundled video. Both start enabled; toggle each in the web UI.
+- `mlwl-vgf-demo-gpu` — the same detectors with GPU preprocessing writing
+  directly into MLWL input tensors. Requires the [GPU runtime](../../development/ops-mlwl/README.md#raspberry-pi-5-gpu-quickstart).
 - `ultraface-rfb-320` — UltraFace face detection on bundled video.
 - `nitec-resnet-18` — UltraFace followed by NITEC camera-contact inference on
   detected face crops.
@@ -108,7 +110,7 @@ Focused detector and cascade presets:
 - `yolo26s-320`, `yolo26s-480`, and `yolo26s-640` — YOLO26s at the selected
   input resolution on bundled video.
 
-The MLWL presets (`mlwl-vgf-demo` and `yolo26n-320-mlwl`) are for source
+The MLWL presets (`mlwl-vgf-demo`, `mlwl-vgf-demo-gpu` and `yolo26n-320-mlwl`) are for source
 checkouts. These presets and their model directories are excluded from the
 `opk-demo` Debian package.
 

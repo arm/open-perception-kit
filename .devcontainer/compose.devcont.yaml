@@ -34,6 +34,7 @@ services:
     command: sleep infinity
     environment:
       OPK_MLWL: ${OPK_MLWL:-disabled}
+      OPK_MLWL_RUNTIME: ${OPK_MLWL_RUNTIME:-}
       VK_DRIVER_FILES:
       VK_INSTANCE_LAYERS:
     build:

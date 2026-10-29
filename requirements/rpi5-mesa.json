@@ -1,0 +1,7 @@
+{
+  "name": "mesa",
+  "version": "26.2.1",
+  "filename": "mesa-26.2.1.tar.xz",
+  "url": "https://archive.mesa3d.org/mesa-26.2.1.tar.xz",
+  "sha256": "c47e81bddc4760360a41ac3c5acec38acb81f9d750ecef47e7f3adc7021a4442"
+}

@@ -36,7 +36,7 @@ opk::Result<void> InferenceOp::configure(const opk::AttributeMap &attributes) {
     }
 
     try {
-        auto candidate = std::make_unique<Inference>();
+        auto candidate = std::make_unique<Inference>(vulkanInput);
         const auto result = candidate->setupFromJson(descriptorPath);
         if (!result) {
             return result;
@@ -51,6 +51,21 @@ opk::Result<void> InferenceOp::configure(const opk::AttributeMap &attributes) {
 
 opk::Result<void> InferenceOp::bind(size_t, const std::vector<opk::op::Op *> &) {
     return {};
+}
+
+void InferenceOp::enableVulkanInput() {
+    vulkanInput = true;
+}
+
+opk::Result<std::shared_ptr<const opk::vulkan::Input>> InferenceOp::getVulkanInput(size_t index) {
+    try {
+        if (!inference) {
+            throw std::logic_error("MLWL inference has not been configured");
+        }
+        return inference->getVulkanInput(index);
+    } catch (const std::exception &error) {
+        return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InferenceRtStartupError, error.what()));
+    }
 }
 
 const opk::Model &InferenceOp::getModel() const {

@@ -35,7 +35,9 @@ from sdk_config import LockedArtifact  # noqa: E402
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("destination", type=Path, help="New runtime prefix")
-    destination = parser.parse_args().destination.absolute()
+    parser.add_argument("--rpi5", action="store_true", help="Apply the experimental RPi5 GPU tuning")
+    args = parser.parse_args()
+    destination = args.destination.absolute()
     if destination.exists() or destination.is_symlink():
         parser.error("Destination already exists; choose a new runtime prefix")
     lock = json.loads((REPO / "requirements/vulkan-emulation.json").read_text())
@@ -51,6 +53,14 @@ def main():
                 archive.extractall(work_dir, filter="data")
             sources[name] = work_dir / f"{artifact.name}-{artifact.version}"
 
+        tuning = REPO / "scripts/private/rpi5-gpu"
+        if args.rpi5:
+            shutil.copy2(tuning / "conv2d_dispatch_limits.h", sources["emulation"] / "graph")
+            subprocess.run(
+                ["patch", "--batch", "--fuzz=0", "-p1", "-i", str(tuning / "graph.patch")],
+                cwd=sources["emulation"], check=True,
+            )
+
         build_dir = work_dir / "build"
         subprocess.run(
             [
@@ -63,6 +73,7 @@ def main():
                 f"-DML_SDK_PACKAGE_VERSION=0.0.0+git.{lock['emulation']['version'][:8]}",
                 "-DVMEL_TESTS_ENABLE=OFF",
                 "-DVMEL_BUILD_DOCS=OFF",
+                f"-DVMEL_USE_FLOAT_AS_DOUBLE={'ON' if args.rpi5 else 'OFF'}",
                 *[f"-D{name.upper()}_PATH={path}" for name, path in sources.items() if name != "emulation"],
             ],
             check=True,
@@ -84,6 +95,10 @@ def main():
                 else:
                     shutil.copy2(license_path, target)
         (notices / "sources.json").write_text(json.dumps(lock, indent=2) + "\n")
+        if args.rpi5:
+            (notices / "rpi5").mkdir()
+            for name in ("graph.patch", "conv2d_dispatch_limits.h"):
+                shutil.copy2(tuning / name, notices / "rpi5" / name)
         staging_dir.rename(destination)
     print(f"Installed Vulkan emulation {lock['emulation']['version']} in {destination}")
 
