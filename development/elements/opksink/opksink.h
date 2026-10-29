@@ -113,6 +113,7 @@ struct _GstOpkSink {
     gchar *static_files_location;
     gchar *webrtc_stun_server;
     gchar *webrtc_turn_server;
+    guint webrtc_frame_timeout_ms;
     gint http_port;
     gint ctrl_port;
     gint ws_port;

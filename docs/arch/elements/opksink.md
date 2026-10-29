@@ -64,6 +64,10 @@ serves the same non-blocking role as the video path.
 
 ## WebRTC, HTTP, And Control
 
+`webrtc-frame-timeout-ms` sets the browser's video watchdog (default: 30000 ms;
+0 disables it). Use a value above the longest expected frame interval for slow
+inference. Reload the browser after changing it.
+
 `opksink` embeds several non-GStreamer services:
 
 - a WebRTC WebSocket server for signaling

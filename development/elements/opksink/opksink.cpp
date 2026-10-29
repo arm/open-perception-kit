@@ -78,6 +78,7 @@ enum {
     PROP_WEBRTC_STUN_SERVER,
     PROP_WEBRTC_TURN_SERVER,
     PROP_QOS_ENABLED,
+    PROP_WEBRTC_FRAME_TIMEOUT_MS,
 };
 
 static std::string env_or_empty(const char *name) {
@@ -305,6 +306,9 @@ gst_opk_sink_set_property(GObject *object, guint prop_id, const GValue *value, G
         g_free(self->webrtc_turn_server);
         self->webrtc_turn_server = g_value_dup_string(value);
         break;
+    case PROP_WEBRTC_FRAME_TIMEOUT_MS:
+        self->webrtc_frame_timeout_ms = g_value_get_uint(value);
+        break;
     case PROP_QOS_ENABLED:
         self->qos_enabled = g_value_get_boolean(value);
         if (self->drain_fakesink)
@@ -341,6 +345,9 @@ gst_opk_sink_get_property(GObject *object, guint prop_id, GValue *value, GParamS
         break;
     case PROP_WEBRTC_TURN_SERVER:
         g_value_set_string(value, self->webrtc_turn_server);
+        break;
+    case PROP_WEBRTC_FRAME_TIMEOUT_MS:
+        g_value_set_uint(value, self->webrtc_frame_timeout_ms);
         break;
     case PROP_QOS_ENABLED:
         g_value_set_boolean(value, self->qos_enabled);
@@ -861,6 +868,7 @@ static void gst_opk_sink_init(GstOpkSink *self) {
     self->static_files_location = default_static_files_location();
     self->webrtc_stun_server = g_strdup(default_stun_server().c_str());
     self->webrtc_turn_server = g_strdup(default_turn_server().c_str());
+    self->webrtc_frame_timeout_ms = 30000;
     self->http_port = 9999;
     self->ws_port = 8000;
     self->ctrl_port = 8001;
@@ -940,6 +948,17 @@ static void gst_opk_sink_class_init(GstOpkSinkClass *klass) {
                              "Enable experimental QoS feedback from the video drain",
                              false,
                              kRW));
+
+    g_object_class_install_property(
+        gobject_class,
+        PROP_WEBRTC_FRAME_TIMEOUT_MS,
+        g_param_spec_uint("webrtc-frame-timeout-ms",
+                          "WebRTC frame timeout",
+                          "Browser video watchdog interval in milliseconds; 0 disables it",
+                          0,
+                          G_MAXUINT,
+                          30000,
+                          kRW));
 
     /* pads */
     gst_element_class_add_static_pad_template(element_class, &v_sink_template);

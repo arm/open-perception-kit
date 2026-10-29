@@ -13,6 +13,6 @@
     "opktracker content-type=genericObject !",
     "opkperformance show-all-metrics=true update-interval=1 !",
     "opkcomm method=websocket endpoint=/ws !",
-    "opksink name=sink"
+    "opksink name=sink webrtc-frame-timeout-ms=120000"
   ]
 }

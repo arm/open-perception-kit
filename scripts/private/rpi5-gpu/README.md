@@ -25,6 +25,8 @@ Run `./scripts/quick_start.sh`. Inside the container, build OPK with
 `./scripts/build.sh`, supply the VGF models, and run
 `./scripts/run.sh mlwl-vgf-demo-gpu`. Open `http://<host>:9999/` and enable the overlays.
 The normal preflight rejects incompatible devices before startup.
+The demo allows 120 seconds between video frames before the browser reconnects;
+the experimental runtime can exceed the usual 30-second watchdog interval.
 
 The image uses checksum-pinned Mesa 26.2.1 and the same pinned Arm Graph/Tensor
 sources as the CPU quickstart. Mesa enables deferred host operations and Int64
