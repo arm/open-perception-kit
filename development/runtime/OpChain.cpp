@@ -52,6 +52,7 @@ ErrorFlag mapInternalErrorFlag(opk::ErrorFlag flag) noexcept {
     case opk::ErrorFlag::InferenceRtModelLoadError:
     case opk::ErrorFlag::InferenceRtInferenceError:
     case opk::ErrorFlag::InferenceRtGenericError:
+    case opk::ErrorFlag::InferenceRtDeviceReset:
     case opk::ErrorFlag::ModelInspectError:
         return ErrorFlag::InferenceError;
     case opk::ErrorFlag::SystemFailure:

@@ -81,11 +81,20 @@ Camera/video input can still require upload, and postprocessing runs on the CPU.
 The preflight checks device permissions, the MLWL library, V3D selection and all
 extensions required by the pinned MLWL runtime: `VK_ARM_data_graph`,
 `VK_ARM_tensors`, `VK_KHR_deferred_host_operations` and `VK_KHR_maintenance5`.
+V3D reset protection also requires `VK_EXT_physical_device_drm`.
 **NOK lists missing extensions and stops quickstart with a nonzero exit code.**
 `run.sh` repeats the check before starting a pipeline; there is no CPU fallback.
 Device features, model correctness and GPU speed are not checked by this preflight.
 To check the preflight's success and failure paths in that container, run
 `python3 development/tests/mlwl_gpu_preflight_test.py`.
+
+The kernel must expose the V3D global reset counter. The backend checks it
+when loading the model and before and after every inference. If a reset is
+detected, the backend invalidates the session and the pipeline stops with an
+error. It never publishes the affected inference output, even if Vulkan reported
+success. A failed counter query or execution also stops the pipeline. Restart
+the pipeline to create a new session. This also catches resets caused by another
+process; it does not prevent GPU resets or add CPU fallback.
 
 ## Build
 
@@ -134,8 +143,8 @@ cancellation or timeout API.
 
 ## Tests
 
-Meson tests check tensor layout bounds and invalid-VGF startup without a Vulkan
-device. The ARM64 CI job enables MLWL and runs these checks.
+Meson tests check tensor layout bounds, reset-counter failures and invalid-VGF
+startup without a Vulkan device. The ARM64 CI job enables MLWL and runs these checks.
 
 For inference testing, use a compatible Vulkan runtime,
 [model converter 0.11.0](https://github.com/arm/ai-ml-sdk-model-converter/releases/tag/release/v0.11.0),
@@ -165,3 +174,18 @@ PYTHONPATH=generated/open_perception_kit/python/src \
 ```
 
 This checks raw tensors for alternating inputs, buffer reuse and pipeline restart.
+
+On a prepared RPi5 GPU runtime, the reset test runs real UltraFace inference
+and injects reset-counter responses only in the test process. It checks that
+resets and failed queries stop the pipeline without publishing bad tensors,
+and that an explicit restart produces the reference output:
+
+```sh
+cc -shared -fPIC development/tests/v3d_reset_ioctl.c -ldl -o /tmp/v3d-reset-ioctl.so
+LD_PRELOAD=/tmp/v3d-reset-ioctl.so \
+  LD_LIBRARY_PATH="$PWD/development/build-active/meson-out:$LD_LIBRARY_PATH" \
+  PYTHONPATH="$PWD/generated/open_perception_kit/python/src:$PYTHONPATH" \
+  python3 -O development/tests/mlwl_reset_pipeline_test.py \
+  development/build-active/meson-out config/models/ultraface-rfb-320-mlwl/model.json \
+  /tmp/opk-reset-results
+```

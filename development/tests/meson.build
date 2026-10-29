@@ -136,6 +136,14 @@ if mlwl_enabled
     override_options : ['b_ndebug=true'],
   )
   test('mlwl_tensor_tests', mlwl_tensor_tests)
+  mlwl_reset_guard_tests = executable(
+    'mlwl_reset_guard_tests',
+    ['mlwl_reset_guard_test.cpp', '../ops-mlwl/V3dResetGuard.cpp'],
+    include_directories : include_directories('../ops-mlwl'),
+    dependencies : [gtest_main_dep, mlwl_vulkan_dep],
+    override_options : ['b_ndebug=true'],
+  )
+  test('mlwl_reset_guard_tests', mlwl_reset_guard_tests)
 endif
 
 if python_ops_enabled
