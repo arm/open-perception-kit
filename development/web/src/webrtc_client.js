@@ -102,7 +102,6 @@ class WebRtcClient {
 
         this.logger = config.logger || (() => {});
         this.onStatus = config.onStatus || (() => {});
-        this.onStatusLine = config.onStatusLine || (() => {});
         this.onRemoteTrack = config.onRemoteTrack || (() => {});
         this.onVideoFrame = config.onVideoFrame || (() => {});
 
@@ -195,7 +194,6 @@ class WebRtcClient {
         this.log(`Starting WebRTC session generation ${generation}: ${reason}`);
         const message = this.statusError || 'Connecting…';
         this.onStatus('connecting', 'Connecting', message);
-        this.onStatusLine(message);
 
         session.pc = this.createPeerConnection(session);
         session.ws = this.createSignalingSocket(session);
@@ -243,7 +241,6 @@ class WebRtcClient {
                 this.markFrameHeartbeat(session, 'video track attached');
                 if (!session.hasVideoFrame && !this.statusError) {
                     this.onStatus('connecting', 'Connecting', 'Waiting for video…');
-                    this.onStatusLine('Waiting for video…');
                 }
             }
         };
@@ -268,7 +265,6 @@ class WebRtcClient {
             if (state === 'connected' || state === 'completed') {
                 if (!session.hasVideoFrame && !this.statusError) {
                     this.onStatus('connecting', 'Connecting', 'Waiting for video…');
-                    this.onStatusLine('Waiting for video…');
                 }
             } else if (state === 'failed' || state === 'disconnected') {
                 this.scheduleRestart(session, `ICE ${state}`);
@@ -336,7 +332,6 @@ class WebRtcClient {
 
                     if (!session.hasVideoFrame && !this.statusError) {
                         this.onStatus('connecting', 'Connecting', 'Waiting for video…');
-                        this.onStatusLine('Waiting for video…');
                     }
                 } else if (data.type === 'candidate' && data.ice) {
                     if (!data.ice.candidate) {
@@ -356,7 +351,6 @@ class WebRtcClient {
                 this.log(`Signaling WebSocket error: ${formatError(err)}`, 'error');
                 this.statusError = 'Signaling unavailable. Check server.';
                 this.onStatus('disconnected', 'Disconnected', this.statusError);
-                this.onStatusLine(this.statusError);
             }
         };
 
@@ -379,7 +373,6 @@ class WebRtcClient {
         try {
             const message = this.statusError || 'Negotiating…';
             this.onStatus('connecting', 'Connecting', message);
-            this.onStatusLine(message);
 
             const offer = await session.pc.createOffer();
             if (!this.isCurrent(session))
@@ -445,7 +438,6 @@ class WebRtcClient {
                 session.hasVideoFrame = true;
                 this.statusError = '';
                 this.onStatus('connected', 'Connected', 'Connected');
-                this.onStatusLine('Connected');
             };
             this.video.addEventListener('loadeddata', session.loadedDataHandler);
         }
@@ -484,7 +476,6 @@ class WebRtcClient {
             session.hasVideoFrame = true;
             this.statusError = '';
             this.onStatus('connected', 'Connected', 'Connected');
-            this.onStatusLine('Connected');
         }
     }
 
@@ -534,7 +525,6 @@ class WebRtcClient {
             }[reason] || 'Negotiation failed. Retrying…';
         }
         this.onStatus('reconnecting', 'Reconnecting', this.statusError);
-        this.onStatusLine(this.statusError);
         this.closeSession(session, reason);
 
         this.restartTimer = this.setTimeout(() => {
@@ -625,7 +615,6 @@ class WebRtcClient {
             this.log(`Unable to start video playback: ${formatError(err)}`, 'error');
             this.statusError = 'Playback failed. Check browser.';
             this.onStatus('disconnected', 'Disconnected', this.statusError);
-            this.onStatusLine(this.statusError);
             return;
         }
 
@@ -635,7 +624,6 @@ class WebRtcClient {
                     this.log(`Unable to start video playback: ${formatError(err)}`, 'error');
                     this.statusError = 'Playback failed. Check browser.';
                     this.onStatus('disconnected', 'Disconnected', this.statusError);
-                    this.onStatusLine(this.statusError);
                 }
             });
         }

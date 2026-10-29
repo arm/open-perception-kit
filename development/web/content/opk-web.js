@@ -84,8 +84,6 @@ var WebRtcClient = class {
     });
     this.onStatus = config.onStatus || (() => {
     });
-    this.onStatusLine = config.onStatusLine || (() => {
-    });
     this.onRemoteTrack = config.onRemoteTrack || (() => {
     });
     this.onVideoFrame = config.onVideoFrame || (() => {
@@ -166,7 +164,6 @@ var WebRtcClient = class {
     this.log(`Starting WebRTC session generation ${generation}: ${reason}`);
     const message = this.statusError || "Connecting\u2026";
     this.onStatus("connecting", "Connecting", message);
-    this.onStatusLine(message);
     session.pc = this.createPeerConnection(session);
     session.ws = this.createSignalingSocket(session);
   }
@@ -204,7 +201,6 @@ var WebRtcClient = class {
         this.markFrameHeartbeat(session, "video track attached");
         if (!session.hasVideoFrame && !this.statusError) {
           this.onStatus("connecting", "Connecting", "Waiting for video\u2026");
-          this.onStatusLine("Waiting for video\u2026");
         }
       }
     };
@@ -228,7 +224,6 @@ var WebRtcClient = class {
       if (state === "connected" || state === "completed") {
         if (!session.hasVideoFrame && !this.statusError) {
           this.onStatus("connecting", "Connecting", "Waiting for video\u2026");
-          this.onStatusLine("Waiting for video\u2026");
         }
       } else if (state === "failed" || state === "disconnected") {
         this.scheduleRestart(session, `ICE ${state}`);
@@ -285,7 +280,6 @@ var WebRtcClient = class {
             return;
           if (!session.hasVideoFrame && !this.statusError) {
             this.onStatus("connecting", "Connecting", "Waiting for video\u2026");
-            this.onStatusLine("Waiting for video\u2026");
           }
         } else if (data.type === "candidate" && data.ice) {
           if (!data.ice.candidate) {
@@ -304,7 +298,6 @@ var WebRtcClient = class {
         this.log(`Signaling WebSocket error: ${formatError(err)}`, "error");
         this.statusError = "Signaling unavailable. Check server.";
         this.onStatus("disconnected", "Disconnected", this.statusError);
-        this.onStatusLine(this.statusError);
       }
     };
     ws.onclose = () => {
@@ -322,7 +315,6 @@ var WebRtcClient = class {
     try {
       const message = this.statusError || "Negotiating\u2026";
       this.onStatus("connecting", "Connecting", message);
-      this.onStatusLine(message);
       const offer = await session.pc.createOffer();
       if (!this.isCurrent(session))
         return;
@@ -382,7 +374,6 @@ var WebRtcClient = class {
         session.hasVideoFrame = true;
         this.statusError = "";
         this.onStatus("connected", "Connected", "Connected");
-        this.onStatusLine("Connected");
       };
       this.video.addEventListener("loadeddata", session.loadedDataHandler);
     }
@@ -412,7 +403,6 @@ var WebRtcClient = class {
       session.hasVideoFrame = true;
       this.statusError = "";
       this.onStatus("connected", "Connected", "Connected");
-      this.onStatusLine("Connected");
     }
   }
   armFrameWatchdog(session) {
@@ -451,7 +441,6 @@ var WebRtcClient = class {
       }[reason] || "Negotiation failed. Retrying\u2026";
     }
     this.onStatus("reconnecting", "Reconnecting", this.statusError);
-    this.onStatusLine(this.statusError);
     this.closeSession(session, reason);
     this.restartTimer = this.setTimeout(() => {
       this.restartTimer = null;
@@ -523,7 +512,6 @@ var WebRtcClient = class {
       this.log(`Unable to start video playback: ${formatError(err)}`, "error");
       this.statusError = "Playback failed. Check browser.";
       this.onStatus("disconnected", "Disconnected", this.statusError);
-      this.onStatusLine(this.statusError);
       return;
     }
     if (playback && typeof playback.catch === "function") {
@@ -532,7 +520,6 @@ var WebRtcClient = class {
           this.log(`Unable to start video playback: ${formatError(err)}`, "error");
           this.statusError = "Playback failed. Check browser.";
           this.onStatus("disconnected", "Disconnected", this.statusError);
-          this.onStatusLine(this.statusError);
         }
       });
     }
