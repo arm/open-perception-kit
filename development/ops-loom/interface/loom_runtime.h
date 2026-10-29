@@ -1,218 +1,63 @@
+/*
+ * SPDX-FileCopyrightText: Copyright 2026 Arm Limited and/or its affiliates
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 /**
  * @file loom_runtime.h
- * @brief Proposed LOOM generated-runtime consumer ABI, draft contract version 10.
+ * @brief Local inference runtime C ABI, draft contract version 10.
  *
- * Design example only: not an implemented or agreed Arm/LOOM API.
- * See loom-runtime-contract-proposal.md for scope and rationale, and
- * runtime-memory-use-cases.md for backend-specific support assessments.
- *
- * Scope: local Inference Device integration, including Dolphin9. No RPC,
- * service discovery, tile scheduling API, or Inference Native placement API.
- * A generated runtime implements this ABI; ONNX/ExecuTorch/MLFW need not.
- * Contexts are runtime-owned execution environments, potentially spanning CPUs
- * and accelerators. Placement, transfers and internal synchronization belong
- * to the runtime.
- *
- * Binding usage:
- * - bind_host_tensor borrows CPU-addressable tensor storage directly: no import,
- *   resource handle or release_buffer call. Use for CPU-preprocessed tensors.
- * - import_buffer + bind_tensor retains a reusable resource handle. Use for
- *   DMA-BUF/device imports, stable resource pools or multiple allocation views.
- * - allocate_buffer + bind_tensor requests reusable runtime-owned storage.
- *
- * A camera frame is not automatically a model tensor. If CPU preprocessing
- * fills a fixed tensor allocation, bind that allocation once and refill it
- * between completed submissions; changing camera buffers need no imports.
- * If a frame already contains compatible tensor data, bind its host pointer
- * per frame. Keep its owner and mapping alive until completion and unbinding.
- * Successive GStreamer frames need not have stable backing storage.
+ * This consumer contract is maintained with OPK; it is not an upstream LOOM API.
+ * A runtime may implement it directly or through an adapter. Existing OPK
+ * backends need not adopt it. Preprocessing and output interpretation belong
+ * to the application unless the model package explicitly includes them.
+ * See README.md for usage and runtime-memory-use-cases.md for memory paths.
  *
  * ABI rules:
- * - C11 / C++11 compatible; native platform calling ABI and pointer width.
- *   This is not a wire format or a cross-architecture binary format.
- * - No exceptions, C++ objects, ownership of malloc allocations, or packing
- *   pragmas cross the boundary. Backend code catches its own exceptions.
- * - One global contract version covers every record, function signature and
- *   table layout, including extensions. Both sides must match exactly. Any
- *   layout or contract change requires a new LRT_RUNTIME_VERSION value.
- * - Callers zero-initialize input records. There are no per-record size or
- *   version fields and no partial-table or layout compatibility negotiation.
- * - All counts and byte ranges are checked, including arithmetic overflow.
- *   Nonzero counts require nonnull arrays. Rank zero is a scalar (one value).
- * - Unless stated otherwise, out-parameters are untouched on failure. All
- *   descriptor pointers are borrowed for the call; runtime-owned returned
- *   metadata must never be freed by the caller.
+ * - C11 / C++11 compatible, using the native platform calling ABI and pointer
+ *   width. This is not a wire format or a cross-architecture binary format.
+ * - No C++ objects, exceptions, allocator ownership or packing pragmas cross
+ *   the boundary. Implementations catch their own exceptions.
+ * - One exact global version covers all records, signatures and extension
+ *   tables. Layout or behavioral contract changes require a version increment.
+ *   There is no per-record size/version or partial-table negotiation.
+ * - Callers zero-initialize input records. Implementations validate counts,
+ *   bounds and arithmetic overflow. Nonzero counts require nonnull arrays.
+ *   Rank zero is a scalar, except the documented data-dependent output marker.
+ * - Unless stated otherwise, output parameters are untouched on failure.
+ *   Input descriptors are borrowed for the call; returned metadata is borrowed
+ *   for its documented lifetime and must never be freed by the caller.
  *
- * @section lrt_sessions Model and session lifetime
+ * @section lrt_category_paths Binding and lifetime
  *
- * A model holds the loaded network and intrinsic input/output metadata; weights
- * and immutable compiled state may be shared. A session holds independent
- * bindings, scratch and persistent network state. create_session(model, NULL,
- * &session) uses static model shapes without repeating input count or shapes.
- * Only unresolved dynamic inputs need indexed shape overrides in options;
- * dynamic batch is just one such dimension. No override changes fixed network
- * dimensions. Query resolved tensor requirements after creating the session.
- * This replaces the earlier prepare operation; it is not an additional stage.
+ * create_session resolves shapes and creates independent mutable state.
+ * get_io_requirements describes each tensor's layout and ranked memory options.
+ * The caller selects and binds every input/output, then validates the full set.
+ * bind_host_tensor borrows CPU storage; import_buffer retains an external
+ * resource reference; allocate_buffer creates runtime storage. Imports and
+ * bindings do not acquire an external pool-slot lease.
  *
- * @section lrt_memory_categories Memory categories at the application boundary
+ * infer returns a terminal completion; infer_async may return a pending one.
+ * Completion covers all runtime IO access, not downstream consumer release.
+ * Timeout never cancels work. Keep storage and mappings valid while bound,
+ * and prevent external producers/consumers from racing runtime access.
+ * Output handoff is borrowed runtime storage (H1) or external storage (H3).
+ * Retained output leases (H2) are reserved and must not be advertised.
  *
- * The following properties describe tensor storage and its use:
- *
- * | Property | Meaning |
- * | --- | --- |
- * | Owner | Runtime or External: who manages allocation reclamation/reuse. |
- * | Accessibility | Host, runtime devices, other devices, or a combination. |
- * | Reference | Host pointer, DMA-BUF FD, or a typed native resource/context. |
- * | Transfer | Caller-selected DIRECT or STAGED execution at this boundary. |
- * | Output handoff | H1 borrowed, H2 retained lease, or H3 external storage. |
- *
- * External includes OPK, GStreamer and application-owned pools. A pool is not
- * a third ownership category. Owning a resource reference does not necessarily
- * own the backing allocation or prevent a producer from reusing its contents.
- * Runtime devices are those used internally by the execution environment;
- * they can include both CPU and AI Cluster resources. Other devices are outside
- * that environment. Physical residence is not inferred from accessibility.
- *
- * Host mapping exposes a CPU view of an allocation; it is not a memory owner
- * or separate location. DMA-BUF is a sharing reference, not a location or a
- * guarantee of host mapping, runtime compatibility, synchronization or direct
- * execution. Shared host/device access does not permit unsynchronized access.
- *
- * **Select input and output categories independently, for each tensor.**
- * Corresponding I/O row numbers below describe analogous mechanisms, not
- * required pairings. I2 input with O5 output, for example, is a possible design;
- * it is not a promise that any backend supports that combination. Context
- * capabilities describe facilities; preparation and binding validate the
- * actual tensor, allocation and selected combination. There is no scenario
- * enum or global input/output memory mode.
- *
- * @subsection lrt_category_paths Category-to-API mapping
- *
- * The table describes paths representable by this draft, not platform support.
- * A category absent from the core requires a specified extension or an explicit
- * application-side copy into a supported category. Each selected path still
- * needs compatible dtype, layout, shape, strides, bounds and access rights.
- *
- * | Case | Owner / accessibility / reference | Representation in this draft |
- * | --- | --- | --- |
- * | I1 | Runtime / Host / pointer | Select runtime POINTER configuration; allocate_buffer, get_buffer_info, bind_tensor; caller fills storage. |
- * | I2 | External / Host / pointer | Select external POINTER configuration; bind_host_tensor or reusable import_buffer plus bind_tensor. |
- * | I3 | Runtime / runtime devices / native resource | Select Vulkan option, allocate_buffer with Vulkan details, bind_tensor; get_buffer_info returns borrowed native view. |
- * | I4 | External / runtime devices / native resource | import_buffer with typed Vulkan resource, then bind_tensor. |
- * | I5 | Runtime / Host + runtime devices / mapped pointer and resource | POINTER option or native Vulkan buffer option with optional CPU mapping; image HOST access is excluded. |
- * | I6 | External / Host + runtime devices / mapped pointer and resource | Bind CPU view or import Vulkan buffer with its typed metadata and supported mapping. |
- * | I7 | External / accessibility conditional / DMA-BUF | import_buffer(DMA_BUF), bind_tensor; optional Linux extension for external fences and CPU mapping. |
- * | I8 | External / other devices / native reference, optional host view | Supported sharing/import extension, or use a valid host view/copy. No generic foreign address import. |
- * | O1 | Runtime / Host / pointer | Select runtime POINTER configuration, allocate_buffer and bind_tensor; get_outputs/get_buffer_info expose the view. H1. |
- * | O2 | External / Host / pointer | bind_host_tensor, or reusable HOST import plus bind_tensor. H3. |
- * | O3 | Runtime / runtime devices / native resource | Allocate selected Vulkan resource, bind, execute, query borrowed native view. H1. |
- * | O4 | External / runtime devices / native resource | Import caller's Vulkan destination and bind it. H3. |
- * | O5 | Runtime / Host + runtime devices / mapped pointer and resource | POINTER option or Vulkan buffer with supported CPU mapping/native view. H1. |
- * | O6 | External / Host + runtime devices / mapped pointer and resource | Bind CPU view or import compatible Vulkan buffer; wait then bracket CPU access. H3. |
- * | O7 | External / accessibility conditional / DMA-BUF | Import caller's destination before binding; this is import, not export of runtime output. H3. |
- * | O8 | External / other devices / native reference, optional host view | Supported sharing/import extension or explicit transfer to destination. H3. |
- *
- * POINTER identifies a reference, not physical placement. The configuration's
- * accessibility bits state the minimum access guaranteed for that selection.
- * DIRECT excludes boundary staging; it does not reveal native resource
- * identity, prove simultaneous host/device access or prohibit internal copies.
- * Native Vulkan identity is described in loom_runtime_vulkan.h; no Vulkan types
- * or headers are required by this core interface. No physical placement is
- * inferred from a pointer or an accessibility bit.
- *
- * @subsection lrt_negotiation Discover, select, bind and validate
- *
- * 1. Create a session using intrinsic model shapes, resolving dynamic inputs
- *    through optional shape overrides, then query tensor requirements.
- * 2. get_io_requirements returns each tensor's shape, strides and ranked memory
- *    options together. Inspect configurations, exact transfer modes, constraints and
- *    output handoff. No separate memory-discovery call is needed.
- * 3. Choose options the application can supply/consume. Copy the selected
- *    complete configuration into each binding, including its transfer mode.
- *    Runtime POINTER inputs use allocate_buffer first, then get_buffer_info
- *    to obtain storage preprocessing can fill. External POINTER inputs can
- *    use bind_host_tensor when the option permits it, with no import handle.
- * 4. Call validate_bindings once all choices/resources are bound. A successful
- *    bind validates one resource, not the Cartesian product of IO choices.
- * 5. Fill inputs, establish producer readiness, then call infer (blocking) or
- *    infer_async followed by wait. Repeat
- *    without renegotiation while bindings remain unchanged. Rebinding a ring
- *    slot requires validate_bindings again, not a new session. Changing shapes
- *    requires a new session.
- *
- * No option IDs are used. Selection compares owner/accessibility/reference/transfer.
- * Runtime ranking is advisory: only the caller selects an option. An unsupported
- * concrete resource or combination fails without selecting a different option,
- * changing transfer mode, allocating fallback output or retrying inference.
- * External producer fences are
- * invocation dependencies supplied through optional infer_async_with_fences;
- * they are not a per-buffer binding mode. Core inference calls require the
- * caller to finish external producer work before runtime access. Runtime
- * completions cannot be supplied as dependencies: execution chaining is omitted.
- * Different constraints for the same configuration must use a conservative common
- * subset in this draft; correlated alternatives are not represented. The
- * complete-set validator reports incompatible combinations before execution,
- * but there is no machine-readable list of allowed combinations or atomic
- * multi-tensor binding transaction yet. Binding/setup cost is not promised to
- * be negligible and should be measured for per-frame resource changes.
- *
- * @subsection lrt_output_handoff Output ownership, completion and reuse
- *
- * | Handoff | Meaning | Current API coverage |
- * | --- | --- | --- |
- * | H1 | Runtime storage borrowed within a validity window. | Result views are borrowed until accepted inference, binding change or session destruction. Caller explicitly allocates/binds runtime storage and prevents overwrite while consumed. |
- * | H2 | Runtime storage pinned against reuse until consumers release leases. | Not defined. A retained completion or buffer handle is not an output lease. |
- * | H3 | Runtime writes into externally managed storage. | Bind caller host storage or an imported destination; caller retains storage and controls downstream reuse. |
- *
- * Production completion and consumer completion are different events. A wait
- * establishes the documented production/visibility guarantees, not permission
- * to overwrite data still read downstream. An idle session can rebind a different
- * external output slot for its next invocation after production finishes. Copy
- * required output metadata first: rebinding invalidates get_outputs views even
- * though it does not reclaim external storage. Unbind a slot before releasing
- * its import or host mapping, and reuse it only after downstream completion.
- * Separate sessions may be needed to keep distinct borrowed runtime outputs.
- * Binding does not acquire an external pool-slot lease on the caller's behalf.
- *
- * @subsection lrt_backend_relationship Vulkan, MLWL and GStreamer
- *
- * **Vulkan:** a resource (buffer/image/tensor), its backing memory allocation,
- * and its host mapping are distinct. HOST_VISIBLE allows mapping; DEVICE_LOCAL
- * can coexist with it; HOST_COHERENT removes explicit host flush/invalidate
- * requirements, not execution/visibility dependencies. Device imports must
- * identify a typed resource and compatible logical-device/context association,
- * layout/usage and synchronization. A bare device address is insufficient for
- * such an import. See loom_runtime_vulkan.h for the optional native profile,
- * including its deliberately restricted queue and image-layout handoff rules.
- *
- * **ML Workload Library (MLWL):** its binding API borrows Vulkan resources and
- * prepared executions capture bindings. Host-visible buffer/tensor helpers fit
- * shared-access cases, but do not implement arbitrary host-pointer or DMA-BUF
- * binding. An adapter must implement staging/imports, host-read visibility and
- * the lifetime rules promised here. Changing captured resources may require
- * another prepared snapshot; this ABI's bind call does not promise zero setup
- * cost. MLWL features do not establish AI Cluster platform compatibility.
- *
- * **GStreamer:** GstBuffer carries allocator-specific GstMemory references.
- * Host views fit HOST binding; compatible typed device memory needs a native
- * extension; DMA-BUF memory fits the optional import profile. Retain the input
- * buffer/pool slot and required mapping through execution and remove borrowed
- * host bindings before unmapping. Retaining an FD preserves a resource payload,
- * but does not stop a camera/pool producer from overwriting the same slot.
- *
- * A GStreamer output wrapper must hold an actual H2 lease (not provided here),
- * use H3 external storage, or respect H1's validity window by copying/consuming
- * or delaying runtime reuse. Destroy notifications and pool return must account
- * for asynchronous device consumers. Refcounting is not device synchronization.
- * Mapping/writability operations may copy, so obtain the final storage before
- * binding and do not replace it while bound. A camera video allocation still
- * needs the network's required preprocessing/tensor representation.
- *
- * Further detail and primary references:
- * - [Memory use cases and backend tables](runtime-memory-use-cases.md)
- * - [MLWL source analysis](mlwl-vulkan-memory-analysis.md)
- * - [Vulkan memory](https://docs.vulkan.org/spec/latest/chapters/memory.html)
- * - [GStreamer allocation](https://gstreamer.freedesktop.org/documentation/plugin-development/advanced/allocation.html)
+ * Optional DMA-BUF and Vulkan profiles require explicit compatibility and
+ * synchronization. A camera frame still needs the model's tensor format;
+ * a handle or DIRECT transfer mode is not an end-to-end zero-copy guarantee.
  */
 #ifndef LOOM_RUNTIME_H
 #define LOOM_RUNTIME_H
@@ -274,9 +119,15 @@ enum {
 
 typedef uint32_t lrt_dtype;
 enum {
-    LRT_FLOAT32 = 1, LRT_FLOAT16 = 2, LRT_BFLOAT16 = 3,
-    LRT_INT8 = 4, LRT_UINT8 = 5, LRT_INT16 = 6,
-    LRT_INT32 = 7, LRT_INT64 = 8, LRT_BOOL8 = 9
+    LRT_FLOAT32 = 1,
+    LRT_FLOAT16 = 2,
+    LRT_BFLOAT16 = 3,
+    LRT_INT8 = 4,
+    LRT_UINT8 = 5,
+    LRT_INT16 = 6,
+    LRT_INT32 = 7,
+    LRT_INT64 = 8,
+    LRT_BOOL8 = 9
 };
 
 typedef uint32_t lrt_io;
@@ -409,14 +260,14 @@ typedef struct lrt_memory_option {
 /* Context capabilities describe available facilities, not compatibility of
  * every model/layout/allocation. Session creation/import/bind still validates. */
 typedef uint64_t lrt_capability_flags;
-#define LRT_CAP_HOST_IMPORT       (UINT64_C(1) << 0)
-#define LRT_CAP_DMA_BUF_IMPORT    (UINT64_C(1) << 1)
-#define LRT_CAP_ASYNC_INFERENCE   (UINT64_C(1) << 2)
+#define LRT_CAP_HOST_IMPORT (UINT64_C(1) << 0)
+#define LRT_CAP_DMA_BUF_IMPORT (UINT64_C(1) << 1)
+#define LRT_CAP_ASYNC_INFERENCE (UINT64_C(1) << 2)
 #define LRT_CAP_PARALLEL_SESSIONS (UINT64_C(1) << 3)
-#define LRT_CAP_DYNAMIC_SHAPES    (UINT64_C(1) << 4)
+#define LRT_CAP_DYNAMIC_SHAPES (UINT64_C(1) << 4)
 /* Direct pointer binding is independent of reusable HOST_IMPORT support. */
-#define LRT_CAP_HOST_BIND         (UINT64_C(1) << 5)
-#define LRT_CAP_SYNC_INFERENCE    (UINT64_C(1) << 6)
+#define LRT_CAP_HOST_BIND (UINT64_C(1) << 5)
+#define LRT_CAP_SYNC_INFERENCE (UINT64_C(1) << 6)
 /* At least one inference mode is implemented. Both core entries are nonnull;
  * an unimplemented mode returns UNSUPPORTED without accepting work. There is
  * no caller-visible fallback from one execution mode to the other. */
@@ -478,13 +329,13 @@ typedef struct lrt_quantization {
  * into the network, the descriptor must document the resulting tensor format.
  */
 typedef struct lrt_tensor_info {
-    const char *name;         /* Stable name; indices follow description order. */
+    const char *name; /* Stable name; indices follow description order. */
     lrt_dtype dtype;
     uint32_t rank;
-    const int64_t *dimensions; /* LRT_DIM_DYNAMIC where runtime-selected. */
+    const int64_t *dimensions;          /* LRT_DIM_DYNAMIC where runtime-selected. */
     const uint64_t *minimum_dimensions; /* rank entries, including fixed dims. */
     const uint64_t *maximum_dimensions; /* 0 = no declared upper bound. */
-    const char *layout;       /* Versioned identifier, e.g. "tensor/nchw/v1". */
+    const char *layout;                 /* Versioned identifier, e.g. "tensor/nchw/v1". */
     lrt_quantization quantization;
 } lrt_tensor_info;
 
@@ -495,7 +346,7 @@ typedef struct lrt_model_info {
     /* Tensor descriptors are borrowed for the model lifetime. */
     const lrt_tensor_info *const *inputs;
     const lrt_tensor_info *const *outputs;
-    uint32_t stateful;       /* 0 or 1; state is session-local. */
+    uint32_t stateful; /* 0 or 1; state is session-local. */
     const char *state_schema;
     const char *initial_and_reset_state_json;
 } lrt_model_info;
@@ -543,6 +394,12 @@ typedef struct lrt_session_options {
  * All memory options share this tensor's required strides. A supplied binding
  * stride array must match; NULL selects these strides, not another layout.
  * Different physical layouts are not negotiated in this draft.
+ * For a data-dependent output, shape is {0, NULL} and byte_strides is NULL.
+ * Bind that same marker with NULL strides and capacity satisfying both the
+ * tensor and selected option. This marker is not a scalar output shape.
+ * get_outputs returns the actual concrete shape and byte
+ * strides within the bound capacity; no truncation or IO reallocation occurs.
+ * A backend unable to establish a capacity bound rejects session creation.
  * All inputs and outputs start unbound. There is no implicit output option or
  * allocation. For runtime-owned storage, caller selects a configuration, calls
  * allocate_buffer and binds its handle. NULL binding only unbinds the tensor.
@@ -573,13 +430,13 @@ typedef struct lrt_io_requirements {
  */
 typedef struct lrt_memory_desc {
     lrt_memory_reference reference; /* Tagged payload; ownership is External. */
-    lrt_access access;       /* Access by inference, not CPU mapping rights. */
+    lrt_access access;              /* Access by inference, not CPU mapping rights. */
     uint64_t allocation_byte_size;
     uint64_t allocation_offset;
     uint64_t view_byte_length;
     union {
-        void *host_base;     /* Allocation byte zero; borrowed, never freed. */
-        int32_t dma_buf_fd;  /* Duplicated with close-on-exec on import success. */
+        void *host_base;    /* Allocation byte zero; borrowed, never freed. */
+        int32_t dma_buf_fd; /* Duplicated with close-on-exec on import success. */
         const lrt_vulkan_resource *vulkan;
     } handle;
     /* Vulkan: typed payload contains bounds; the three generic range fields
@@ -626,10 +483,10 @@ typedef struct lrt_buffer_info {
 
 typedef struct lrt_tensor_binding {
     lrt_buffer buffer;
-    uint64_t byte_offset;    /* Relative to the imported view, not allocation. */
+    uint64_t byte_offset; /* Relative to the imported view, not allocation. */
     uint64_t byte_length;
     lrt_shape shape;
-    const uint64_t *byte_strides; /* Must match requirements; NULL uses them. */
+    const uint64_t *byte_strides;           /* Must match requirements; NULL uses them. */
     lrt_memory_configuration configuration; /* Exact advertised configuration. */
 } lrt_tensor_binding;
 
@@ -644,13 +501,13 @@ typedef struct lrt_host_tensor_binding {
     void *data;
     uint64_t byte_length;
     lrt_shape shape;
-    const uint64_t *byte_strides; /* Must match requirements; NULL uses them. */
+    const uint64_t *byte_strides;           /* Must match requirements; NULL uses them. */
     lrt_memory_configuration configuration; /* EXTERNAL / includes HOST / POINTER. */
 } lrt_host_tensor_binding;
 
 typedef struct lrt_completion_info {
-    uint32_t terminal;       /* 0 = pending, 1 = finished including failure. */
-    lrt_status result;      /* Meaningful only when terminal=1. */
+    uint32_t terminal; /* 0 = pending, 1 = finished including failure. */
+    lrt_status result; /* Meaningful only when terminal=1. */
 } lrt_completion_info;
 
 /** @brief One result view; metadata lifetime is separate from external storage.
@@ -679,11 +536,11 @@ typedef uint64_t lrt_dma_buf_capability_flags;
 /* SYNC_FILE covers asynchronous producer-fence submission and whole-invocation
  * fence export; advertise only with ASYNC_INFERENCE and both entries present. */
 #define LRT_DMA_BUF_CAP_SYNC_FILE (UINT64_C(1) << 0)
-#define LRT_DMA_BUF_CAP_CPU_MAP   (UINT64_C(1) << 1)
+#define LRT_DMA_BUF_CAP_CPU_MAP (UINT64_C(1) << 1)
 
 typedef struct lrt_cpu_mapping_impl *lrt_cpu_mapping;
 typedef struct lrt_cpu_mapping_info {
-    void *data;              /* First byte of imported view, not allocation. */
+    void *data; /* First byte of imported view, not allocation. */
     uint64_t byte_length;
 } lrt_cpu_mapping_info;
 
@@ -695,37 +552,39 @@ typedef struct lrt_linux_dma_buf_api {
      * Duplicates FDs on acceptance only; originals remain caller-owned.
      * NULL/count=0 means no fences. No runtime-completion chaining is accepted.
      * Synchronous-only callers wait for external producers before core infer. */
-    lrt_status (LRT_CALL *infer_async_with_fences)(
-        lrt_session session, uint32_t fence_count,
-        const int32_t *acquire_sync_file_fds, lrt_completion *out_completion);
+    lrt_status(LRT_CALL *infer_async_with_fences)(lrt_session session,
+                                                  uint32_t fence_count,
+                                                  const int32_t *acquire_sync_file_fds,
+                                                  lrt_completion *out_completion);
     /* Returns a new caller-owned close-on-exec sync_file FD, or UNSUPPORTED.
      * Its signalling establishes ordering, not execution success: also check
      * completion result. Export covers the whole invocation's output writes,
      * including CPU work, accelerator work and output transfers. If sync_file
      * cannot represent that ordering, return UNSUPPORTED. */
-    lrt_status (LRT_CALL *export_completion_fence)(
-        lrt_completion completion, int32_t *out_sync_file_fd);
+    lrt_status(LRT_CALL *export_completion_fence)(lrt_completion completion,
+                                                  int32_t *out_sync_file_fd);
     /* Caller first waits for producers/consumers as appropriate. These calls
      * bracket CPU cache access; they are not execution fences. Active mapping
      * blocks bind/inference/release of the mapped buffer. Mapping may fail. */
-    lrt_status (LRT_CALL *begin_cpu_access)(
-        lrt_buffer buffer, lrt_access access, lrt_cpu_mapping *out_mapping,
-        lrt_cpu_mapping_info *out_info);
-    lrt_status (LRT_CALL *end_cpu_access)(lrt_cpu_mapping mapping);
+    lrt_status(LRT_CALL *begin_cpu_access)(lrt_buffer buffer,
+                                           lrt_access access,
+                                           lrt_cpu_mapping *out_mapping,
+                                           lrt_cpu_mapping_info *out_info);
+    lrt_status(LRT_CALL *end_cpu_access)(lrt_cpu_mapping mapping);
 } lrt_linux_dma_buf_api;
 
 typedef struct lrt_api {
     /* Context-free query of the same immutable global contract version.
      * Verify equality with LRT_RUNTIME_VERSION before calling other entries. */
-    uint32_t (LRT_CALL *get_runtime_version)(void);
+    uint32_t(LRT_CALL *get_runtime_version)(void);
 
     /* Creates a runtime-owned environment, potentially spanning CPUs and
      * accelerators. Runtime/package owns hardware requirements and placement.
      * Validate availability here, during load_model or create_session as requirements
      * become known; unsupported hardware fails explicitly. Context outlives
      * all its models, sessions, buffers and completions. */
-    lrt_status (LRT_CALL *create_context)(lrt_context *out_context);
-    lrt_status (LRT_CALL *get_capabilities)(lrt_context, lrt_capabilities *out);
+    lrt_status(LRT_CALL *create_context)(lrt_context *out_context);
+    lrt_status(LRT_CALL *get_capabilities)(lrt_context, lrt_capabilities *out);
     /** @brief Load and validate a path-backed or memory-backed model/package.
      * Source pointers are borrowed only for this call; no ownership transfer.
      * Packaging and hardware compatibility are backend-owned. Invalid source
@@ -734,10 +593,9 @@ typedef struct lrt_api {
      * INCOMPATIBLE. Failure retains no source references and leaves out_model
      * untouched. @see lrt_model_source
      */
-    lrt_status (LRT_CALL *load_model)(lrt_context, const lrt_model_source *,
-                                     lrt_model *out_model);
+    lrt_status(LRT_CALL *load_model)(lrt_context, const lrt_model_source *, lrt_model *out_model);
     /* Pointer graph is valid until unload_model. */
-    lrt_status (LRT_CALL *describe_model)(lrt_model, lrt_model_info *out);
+    lrt_status(LRT_CALL *describe_model)(lrt_model, lrt_model_info *out);
 
     /** @brief Create independent execution state using model shapes by default.
      * options=NULL is equivalent to zero-initialized options: ordinary static
@@ -761,7 +619,8 @@ typedef struct lrt_api {
      * capacity bound established here; absent a bound return UNSUPPORTED. No
      * silent compilation or IO reallocation during inference.
      */
-    lrt_status (LRT_CALL *create_session)(lrt_model, const lrt_session_options *options,
+    lrt_status(LRT_CALL *create_session)(lrt_model,
+                                         const lrt_session_options *options,
                                          lrt_session *out_session);
     /** @brief Query requirements independently for every input and output.
      * Returns tensor shape, capacity, alignment, required strides and ranked
@@ -770,8 +629,7 @@ typedef struct lrt_api {
      * that a whole binding combination is valid.
      * @see lrt_category_paths
      */
-    lrt_status (LRT_CALL *get_io_requirements)(lrt_session,
-                                              lrt_io_requirements *out);
+    lrt_status(LRT_CALL *get_io_requirements)(lrt_session, lrt_io_requirements *out);
     /** @brief Retain an import of external storage without taking its allocator.
      * Import once per stable allocation, then bind views/slots repeatedly.
      * For changing CPU tensor pointers, prefer bind_host_tensor instead of
@@ -779,12 +637,13 @@ typedef struct lrt_api {
      * Imported/allocated buffers belong to this context; bind checks actual
      * model compatibility. Cross-context use requires a supported import into
      * the destination context, not directly binding another context's handle. */
-    lrt_status (LRT_CALL *import_buffer)(lrt_context, const lrt_memory_desc *,
+    lrt_status(LRT_CALL *import_buffer)(lrt_context,
+                                        const lrt_memory_desc *,
                                         lrt_buffer *out_buffer);
-    lrt_status (LRT_CALL *allocate_buffer)(lrt_context,
+    lrt_status(LRT_CALL *allocate_buffer)(lrt_context,
                                           const lrt_allocation_desc *,
                                           lrt_buffer *out_buffer);
-    lrt_status (LRT_CALL *get_buffer_info)(lrt_buffer, lrt_buffer_info *out);
+    lrt_status(LRT_CALL *get_buffer_info)(lrt_buffer, lrt_buffer_info *out);
 
     /** @brief Associate one tensor with a buffer view, independently of other IO.
      * Session must be idle. Buffer/session context mismatch -> INCOMPATIBLE.
@@ -808,7 +667,9 @@ typedef struct lrt_api {
      * complete-set validation, even if it repeats the same arguments.
      * Binding sets up storage but does not read inputs or write outputs; any
      * required staging transfers happen as part of submitted execution. */
-    lrt_status (LRT_CALL *bind_tensor)(lrt_session, lrt_io, uint32_t index,
+    lrt_status(LRT_CALL *bind_tensor)(lrt_session,
+                                      lrt_io,
+                                      uint32_t index,
                                       const lrt_tensor_binding *binding);
 
     /** @brief Borrow a CPU-addressable tensor without creating an import handle.
@@ -837,7 +698,9 @@ typedef struct lrt_api {
      * then unbind and release imports at teardown. Each successful rebind
      * replaces the old association; a failed rebind preserves it.
      */
-    lrt_status (LRT_CALL *bind_host_tensor)(lrt_session, lrt_io, uint32_t index,
+    lrt_status(LRT_CALL *bind_host_tensor)(lrt_session,
+                                           lrt_io,
+                                           uint32_t index,
                                            const lrt_host_tensor_binding *binding);
 
     /** @brief Validate and finish setting up the complete current IO binding set.
@@ -854,7 +717,7 @@ typedef struct lrt_api {
      * Repeated validation of an unchanged valid set is a no-op. Filling existing
      * inputs does not invalidate it. Every successful bind/unbind does.
      */
-    lrt_status (LRT_CALL *validate_bindings)(lrt_session);
+    lrt_status(LRT_CALL *validate_bindings)(lrt_session);
 
     /** @brief Run inference synchronously and return a terminal completion.
      * All IO must be explicitly bound and successfully
@@ -880,7 +743,7 @@ typedef struct lrt_api {
      * outputs while downstream consumers still use them. New acceptance
      * invalidates previous session output views. Applies to both host-pointer
      * and resource-handle bindings. */
-    lrt_status (LRT_CALL *infer)(lrt_session, lrt_completion *out_completion);
+    lrt_status(LRT_CALL *infer)(lrt_session, lrt_completion *out_completion);
 
     /** @brief Start inference without waiting for inference to finish.
      * Requires ASYNC_INFERENCE; otherwise UNSUPPORTED without accepted work.
@@ -893,7 +756,7 @@ typedef struct lrt_api {
      * get_completion_info and get_outputs, then release_completion. Neither
      * execution mode is mandatory individually; unsupported entries stay nonnull.
      */
-    lrt_status (LRT_CALL *infer_async)(lrt_session, lrt_completion *out_completion);
+    lrt_status(LRT_CALL *infer_async)(lrt_session, lrt_completion *out_completion);
     /** @brief Wait for production completion, not downstream consumer release.
      * 0 = poll; FOREVER = no deadline. Timeout never cancels/releases work.
      * Terminal result is returned; OK also makes bound HOST outputs visible.
@@ -904,9 +767,8 @@ typedef struct lrt_api {
      * downstream consumers. infer_async returning OK is acceptance, not readiness.
      * Terminal status guarantees no further access to this invocation's IO,
      * including on failure/device loss. Until safe quiescence, remain pending. */
-    lrt_status (LRT_CALL *wait)(lrt_completion, uint64_t timeout_ns);
-    lrt_status (LRT_CALL *get_completion_info)(lrt_completion,
-                                               lrt_completion_info *out);
+    lrt_status(LRT_CALL *wait)(lrt_completion, uint64_t timeout_ns);
+    lrt_status(LRT_CALL *get_completion_info)(lrt_completion, lrt_completion_info *out);
     /** @brief Borrow result metadata; does not acquire an H2 output lease.
      * Only latest successful execution of this session; otherwise BUSY,
      * INVALID_ARGUMENT (wrong/stale completion), or the execution error.
@@ -917,21 +779,20 @@ typedef struct lrt_api {
      * Caller-owned outputs retain normal ownership. Direct host outputs use
      * lrt_output.host_data, not a buffer handle. That borrow ends on unbinding,
      * replacement or session destruction. No truncation on overflow. */
-    lrt_status (LRT_CALL *get_outputs)(lrt_session, lrt_completion,
-                                      lrt_outputs *out);
+    lrt_status(LRT_CALL *get_outputs)(lrt_session, lrt_completion, lrt_outputs *out);
     /* Idle only. Failed accepted work invalidates state until reset/recreate.
      * Stateless models accept this as a no-op. Never silently retry inference. */
-    lrt_status (LRT_CALL *reset_state)(lrt_session);
+    lrt_status(LRT_CALL *reset_state)(lrt_session);
 
     /* Destruction never implicitly waits. BUSY preserves the object:
      * completion: pending; buffer: bound/in flight/mapped; session: executing
      * or has unreleased completions; model: has sessions; context: has children.
      * Destroying an idle session removes its bindings and runtime outputs. */
-    lrt_status (LRT_CALL *release_completion)(lrt_completion);
-    lrt_status (LRT_CALL *release_buffer)(lrt_buffer);
-    lrt_status (LRT_CALL *destroy_session)(lrt_session);
-    lrt_status (LRT_CALL *unload_model)(lrt_model);
-    lrt_status (LRT_CALL *destroy_context)(lrt_context);
+    lrt_status(LRT_CALL *release_completion)(lrt_completion);
+    lrt_status(LRT_CALL *release_buffer)(lrt_buffer);
+    lrt_status(LRT_CALL *destroy_session)(lrt_session);
+    lrt_status(LRT_CALL *unload_model)(lrt_model);
+    lrt_status(LRT_CALL *destroy_context)(lrt_context);
 
     /* Returns a borrowed extension table, valid until context destruction.
      * Its layout is covered by the already-checked global contract version.
@@ -939,7 +800,8 @@ typedef struct lrt_api {
      * optional functions; unsupported entries are NULL. Caller passes a local
      * const void * variable by address, then casts that returned pointer to
      * the table type associated with extension_id. */
-    lrt_status (LRT_CALL *get_extension)(lrt_context, const char *extension_id,
+    lrt_status(LRT_CALL *get_extension)(lrt_context,
+                                        const char *extension_id,
                                         const void **out_table);
     /* Diagnostic for last failed call on this thread (including bootstrap).
      * Borrowed until next API call on this thread; never a global shared error.
@@ -967,8 +829,7 @@ typedef struct lrt_api {
  * during any such call. Different sessions may execute independently. No
  * object destruction may race a call using it or its descendants.
  */
-LRT_EXPORT lrt_status LRT_CALL lrt_get_api(uint32_t requested_version,
-                                         lrt_api *out_api);
+LRT_EXPORT lrt_status LRT_CALL lrt_get_api(uint32_t requested_version, lrt_api *out_api);
 
 #ifdef __cplusplus
 } /* extern "C" */

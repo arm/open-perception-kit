@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 #include "Inference.h"
-#include "loom_runtime.h"
+#include "interface/loom_runtime.h"
 #include <algorithm>
 #include <cstring>
 #include <dlfcn.h>

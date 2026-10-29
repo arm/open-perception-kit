@@ -42,8 +42,9 @@ runtime input storage. Each frame calls synchronous inference and checks its
 terminal result before exposing the fixed output buffers to postprocessing.
 The library remains loaded until all runtime resources are released.
 
-The vendored `ops-loom/loom_runtime.h` is the unchanged version 10 draft from
-the sibling runtime-abi repository (base commit `19f8b88`).
+The [runtime interface](../../ops-loom/interface/README.md) is maintained in
+`ops-loom/interface`. The provider and native adapter must agree on its exact
+contract version (currently 10).
 
 Prototype limits: static Float32 tensors, rank 1–8, stateless networks, synchronous
 inference, runtime-owned direct host allocations, no tensor feedback. Unsupported
