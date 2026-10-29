@@ -114,6 +114,9 @@ or token. For your own private or gated models, see
 Failed model downloads are logged and skipped. Check the build output if a
 pipeline fails to start because a model is missing.
 
+For VGF inference on the CPU, configure the
+[MLWL CPU quickstart](development/ops-mlwl/README.md#cpu-quickstart) before building the container.
+
 ### 3. Enter the container command line
 
 ```bash

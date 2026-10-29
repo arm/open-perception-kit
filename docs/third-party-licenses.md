@@ -52,6 +52,7 @@ and check the built artifacts before publication.
 | [gcovr](https://github.com/gcovr/gcovr) | [7.2](https://pypi.org/project/gcovr/7.2/) | BSD-3-Clause | PyPI |
 | [gitdb](https://github.com/gitpython-developers/gitdb) | [4.0.12](https://pypi.org/project/gitdb/4.0.12/) | BSD-3-Clause | PyPI |
 | [GitPython](https://github.com/gitpython-developers/GitPython) | [3.2.1](https://pypi.org/project/GitPython/3.2.1/) | BSD-3-Clause | PyPI |
+| [glslang](https://github.com/KhronosGroup/glslang) | [vulkan-sdk-1.4.357.0](https://github.com/KhronosGroup/glslang/tree/vulkan-sdk-1.4.357.0) | [BSD, MIT and bundled notices](https://github.com/KhronosGroup/glslang/blob/vulkan-sdk-1.4.357.0/LICENSE.txt) | Vulkan emulation dependency |
 | [PyGObject](https://gitlab.gnome.org/GNOME/pygobject) | [3.50.0-4+b1](https://packages.debian.org/trixie/python3-gi) | LGPL-2.1-or-later AND MIT (selected files; [Debian copyright](https://metadata.ftp-master.debian.org/changelogs/main/p/pygobject/pygobject_3.50.0-4_copyright)) | Debian (Cairn image) |
 | [PyGObject](https://gitlab.gnome.org/GNOME/pygobject) | [3.58.1](https://pypi.org/project/PyGObject/3.58.1/) | LGPL-2.1-or-later AND [MIT (selected files)](https://github.com/GNOME/pygobject/blob/3.58.1/gi/pygi-property.c) | PyPI (build requirements) |
 | [GoogleTest](https://github.com/google/googletest) | [1.17.0](https://github.com/google/googletest/tree/v1.17.0) | BSD-3-Clause | Debian, Ubuntu |
@@ -83,6 +84,8 @@ and check the built artifacts before publication.
 | [mdurl](https://github.com/executablebooks/mdurl) | [0.1.2](https://pypi.org/project/mdurl/0.1.2/) | MIT | PyPI |
 | [meson](https://github.com/mesonbuild/meson) | [1.12.1](https://pypi.org/project/meson/1.12.1/) | Apache-2.0 | PyPI |
 | [ML Workload Library for Vulkan](https://github.com/arm/ai-ml-workload-library-for-vulkan) | [03c9aa11](https://github.com/arm/ai-ml-workload-library-for-vulkan/tree/03c9aa11efa6d8dd65ae5f6097bf86a00c304ad9) | [Apache-2.0](https://github.com/arm/ai-ml-workload-library-for-vulkan/blob/03c9aa11efa6d8dd65ae5f6097bf86a00c304ad9/LICENSES/Apache-2.0.txt) | optional shared runtime |
+| [ML Emulation Layer for Vulkan](https://github.com/arm/ai-ml-emulation-layer-for-vulkan) | [67199c9f](https://github.com/arm/ai-ml-emulation-layer-for-vulkan/tree/67199c9fae2cee900d41d659937870fb478e7de9) | [Apache-2.0](https://github.com/arm/ai-ml-emulation-layer-for-vulkan/blob/67199c9fae2cee900d41d659937870fb478e7de9/LICENSES/Apache-2.0.txt) | MLWL development runtime |
+| [Mesa lavapipe](https://docs.mesa3d.org/drivers/llvmpipe.html) | Debian trixie package | [MIT and component notices](https://docs.mesa3d.org/license.html) | `mesa-vulkan-drivers`; notices in `/usr/share/doc/mesa-vulkan-drivers/copyright` |
 | [more-itertools](https://github.com/more-itertools/more-itertools) | [10.7.0](https://pypi.org/project/more-itertools/10.7.0/) | MIT | PyPI |
 | [magic\_enum](https://github.com/Neargye/magic_enum) | [v0.9.7](https://github.com/Neargye/magic_enum/tree/v0.9.7) | MIT | Debian |
 | [nodeenv](https://github.com/ekalinin/nodeenv) | [1.10.0](https://pypi.org/project/nodeenv/1.10.0/) | BSD-3-Clause | PyPI |
@@ -141,6 +144,9 @@ and check the built artifacts before publication.
 | [virtualenv](https://github.com/pypa/virtualenv) | [21.7.10](https://pypi.org/project/virtualenv/21.7.10/) | MIT | PyPI |
 | [VGF Library](https://github.com/arm/ai-ml-sdk-vgf-library) | [c7e3198c](https://github.com/arm/ai-ml-sdk-vgf-library/tree/c7e3198c36b30844381e3ab5b877e3a758d5b444) | [Apache-2.0](https://github.com/arm/ai-ml-sdk-vgf-library/blob/c7e3198c36b30844381e3ab5b877e3a758d5b444/LICENSES/Apache-2.0.txt) | bundled in the MLWL shared library |
 | [Vulkan-Headers](https://github.com/KhronosGroup/Vulkan-Headers) | [vulkan-sdk-1.4.357.0](https://github.com/KhronosGroup/Vulkan-Headers/tree/vulkan-sdk-1.4.357.0) | [Apache-2.0 OR MIT](https://github.com/KhronosGroup/Vulkan-Headers/tree/vulkan-sdk-1.4.357.0/LICENSES) | MLWL build headers |
+| [SPIRV-Cross](https://github.com/KhronosGroup/SPIRV-Cross) | [vulkan-sdk-1.4.357.0](https://github.com/KhronosGroup/SPIRV-Cross/tree/vulkan-sdk-1.4.357.0) | [Apache-2.0](https://github.com/KhronosGroup/SPIRV-Cross/blob/vulkan-sdk-1.4.357.0/LICENSE) | Vulkan emulation dependency |
+| [SPIRV-Headers](https://github.com/KhronosGroup/SPIRV-Headers) | [vulkan-sdk-1.4.357.0](https://github.com/KhronosGroup/SPIRV-Headers/tree/vulkan-sdk-1.4.357.0) | [MIT and bundled notices](https://github.com/KhronosGroup/SPIRV-Headers/blob/vulkan-sdk-1.4.357.0/LICENSE) | Vulkan emulation dependency |
+| [SPIRV-Tools](https://github.com/KhronosGroup/SPIRV-Tools) | [vulkan-sdk-1.4.357.0](https://github.com/KhronosGroup/SPIRV-Tools/tree/vulkan-sdk-1.4.357.0) | [Apache-2.0](https://github.com/KhronosGroup/SPIRV-Tools/blob/vulkan-sdk-1.4.357.0/LICENSE) | Vulkan emulation dependency |
 | [WebSocket++](https://github.com/zaphoyd/websocketpp) | [0.8.2](https://github.com/zaphoyd/websocketpp/tree/0.8.2) | BSD-3-Clause | Debian |
 | [cpp-httplib](https://github.com/yhirose/cpp-httplib) | [0.56.0](https://github.com/yhirose/cpp-httplib/tree/v0.56.0) | MIT | GitHub |
 | [zipp](https://github.com/jaraco/zipp) | [3.21.0](https://pypi.org/project/zipp/3.21.0/) | MIT | PyPI |
