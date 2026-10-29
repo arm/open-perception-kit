@@ -42,6 +42,8 @@ struct _GstOpkSrc {
     GstPad *audio_pad;
     GstElement *video_selector;
     GstPad *black_pad;
+    GstElement *video_depay;
+    GstPad *video_pad;
     gulong pad_added_handler;
     gboolean initialized;
     OpkSrcSignaling *signaling;
@@ -53,5 +55,8 @@ bool gst_opk_src_reset_webrtc(GstOpkSrc *self);
 bool gst_opk_src_init_video(GstOpkSrc *const self);
 void gst_opk_src_video_class_init(GstElementClass *const element_class);
 void gst_opk_src_dispose_video(GstOpkSrc *const self);
+bool gst_opk_src_link_video(GstOpkSrc *const self, GstPad *const pad, const GstCaps *const caps);
+void gst_opk_src_select_video(GstOpkSrc *const self, const bool received);
+void gst_opk_src_keep_receive_open(GstElement *const depay);
 
 #endif

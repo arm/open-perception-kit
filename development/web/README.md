@@ -30,8 +30,8 @@ release all capture devices.
 Offers are serialized: adding or removing a device while an answer is pending
 queues a new offer after that answer. The receiver must support repeated offers,
 optional audio/video media sections, and inactive sections for stopped devices.
-The current audio-only native receiver does not yet support camera capture or
-this renegotiation; camera end-to-end validation awaits the native implementation.
+The native receiver supports Opus audio and VP8 video with independent fallback
+to silence and black frames. Re-enabling a device creates a new transceiver.
 Use localhost or an SSH tunnel; HTTPS support is outside this change.
 
 ## Visual design

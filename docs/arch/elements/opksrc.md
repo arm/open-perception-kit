@@ -20,7 +20,8 @@ limitations under the License.
 
 # opksrc
 
-`opksrc` is a `GstBin` that receives one browser microphone through WebRTC.
+`opksrc` is a `GstBin` that receives one browser's microphone and camera through
+a shared WebRTC connection. Either device can be enabled independently.
 Its always-present `src` pad exposes interleaved mono PCM:
 `audio/x-raw,format=F32LE,rate=16000,channels=1,layout=interleaved` by default.
 The `rate` property sets the output PCM sample rate in Hz (default `16000`).
@@ -30,7 +31,7 @@ continues to use its 48 kHz clock; the receive chain resamples the decoded audio
 
 ## Media path
 
-The receive path is `webrtcbin → rtpopusdepay → opusdec → audioconvert →
+The receive path is `webrtcbin → rtpopusdepay → queue → opusdec → audioconvert →
 audioresample`. An `input-selector` chooses between that path and a live silence
 generator, followed by the output caps filter.
 
@@ -38,17 +39,22 @@ The selector stays on silence until decoded microphone PCM arrives.
 Disconnecting the signaling client resets the receiver and selects silence again.
 
 ## Video output
-The always-present `video` source pad currently supplies live black BGRA frames
-at 640×480 and 30 fps. Its separate branch is
+The always-present `video` source pad supplies BGRA frames at 640×480 with
+30 fps caps. Its separate fallback branch is
 `videotestsrc pattern=black → input-selector → capsfilter → video`.
-The selector starts on black; webcam decoding and switching are not implemented
-yet. The existing `src` pad remains the audio output. The video pad can be left
+The camera receive branch in `video.cpp` is
+`rtpvp8depay → queue → vp8dec → videoconvert → videoscale → videorate → capsfilter`.
+It scales camera frames to the output size and drops frames above the output rate;
+slower cameras retain their cadence. The selector starts on black and selects
+camera video only after decoded frames arrive. Disabling the camera selects
+black before renegotiation, without interrupting audio. The existing `src` pad
+remains the audio output. The video pad can be left
 unlinked: video buffers are discarded without stopping the audio branch.
 
 ## Browser and signaling
 
-The microphone button on the [opksink](opksink.md) webpage requests permission
-and opens a separate, send-only WebRTC connection. HTTP hosting remains owned
+The Mic and Cam buttons on the [opksink](opksink.md) webpage request permissions
+independently and share a send-only WebRTC connection. HTTP hosting remains owned
 by `opksink`. Use localhost or an SSH tunnel to access the webpage.
 
 `opksrc` listens for plain WebSocket signaling on `ws-port` (default `8003`,
@@ -63,15 +69,22 @@ The signaling protocol matches the browser client:
 - ICE in either direction:
   `{"type":"candidate","ice":{"candidate":"...","sdpMLineIndex":0}}`.
 
-The browser sends the offer before trickled ICE. Offers must contain one active
-sending audio media section with Opus at a 48 kHz RTP clock rate. Payload types
-are taken from SDP, rather than fixed to a particular number. The receiver
-answers with a receive-only Opus transceiver.
+The browser sends the offer before trickled ICE. Offers may contain at most one
+active sending Opus audio section (48 kHz RTP clock) and one active sending VP8
+video section (90 kHz RTP clock), in either order. Inactive and rejected audio/video
+sections are accepted for stopped tracks. Other media types and unsupported
+active codecs are rejected. Payload types and ICE media indices come from SDP.
+The receiver answers with receive-only codec preferences and uses BUNDLE.
+Repeated offers on the same WebSocket add or disable tracks. The browser creates
+a new transceiver when re-enabling a device; inactive sections remain in SDP.
 
 One WebSocket connection owns the receiver. Additional clients are closed without
-replacing the active sender. A connection is closed after 15 seconds without
-decoded audio. Silent PCM counts as audio. Signaling messages do not extend the
-timeout. After an offer, pausing the local pipeline also pauses the timeout.
+replacing the active sender. A track without decoded media for 15 seconds falls
+back to silence or black; a connection expecting media is closed if neither
+enabled track supplies decoded media for 15 seconds. Silent PCM counts as audio.
+Enabling a track starts a new grace period; unchanged offers do not renew it.
+An all-inactive session can remain connected. After an offer, pausing the local
+pipeline also pauses the timeout.
 The timeout is checked every 100 ms, but pending SDP operations can delay it.
 
 Invalid signaling closes only the affected connection. Disconnecting recreates
@@ -95,3 +108,6 @@ sender, checks decoded audio, reconnects using different RTP payload numbers,
 and covers stalled peers, malformed messages, concurrent clients, shutdown,
 and bind failures.
 The `opksrc_audio` test checks the silence output contract and the receive path.
+The `opksrc_video_signaling` test sends real VP8 and Opus on one peer, exercises
+camera-first negotiation and independent disable/re-enable offers, and checks
+black/silence fallback, continued output from the other track, and reconnection.
