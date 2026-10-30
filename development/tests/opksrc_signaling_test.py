@@ -17,7 +17,6 @@
 """Negotiate real Opus RTP, enforce one client, and exercise signaling lifecycle."""
 
 from pipeline_test_utils import load_gstreamer_plugins, release_pipeline
-from gi.repository import GLib, Soup, GstWebRTC, GstSdp
 import json
 from pathlib import Path
 import socket
@@ -30,6 +29,8 @@ import gi
 gi.require_version("Soup", "3.0")
 gi.require_version("GstWebRTC", "1.0")
 gi.require_version("GstSdp", "1.0")
+
+from gi.repository import GLib, Soup, GstWebRTC, GstSdp  # noqa: E402
 
 
 def wait_for(predicate, description, timeout=10):

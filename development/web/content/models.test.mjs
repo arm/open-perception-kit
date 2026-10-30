@@ -150,6 +150,7 @@ globalThis.document = {
     if (id === "microphoneBtn") return microphoneButton;
     if (id === "microphoneIcon") return microphoneIcon;
     if (id === "microphoneStatus") return microphoneStatus;
+    if (["cameraBtn", "cameraIcon", "cameraStatus"].includes(id)) return new FakeElement("span");
     return null;
   },
 };

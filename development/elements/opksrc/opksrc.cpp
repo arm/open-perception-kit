@@ -64,6 +64,10 @@ static void gst_opk_src_pad_added(GstElement *webrtcbin, GstPad *pad, gpointer u
     if (!caps) {
         caps = gst_pad_query_caps(pad, nullptr);
     }
+    if (gst_opk_src_link_video(self, pad, caps)) {
+        gst_clear_caps(&caps);
+        return;
+    }
     GstCaps *opus_caps = gst_caps_from_string(
         "application/x-rtp, media=audio, encoding-name=OPUS, clock-rate=48000");
     const bool is_opus = caps && !gst_caps_is_any(caps) && gst_caps_is_subset(caps, opus_caps) &&
@@ -78,14 +82,15 @@ static void gst_opk_src_pad_added(GstElement *webrtcbin, GstPad *pad, gpointer u
     }
 
     GstPad *sink_pad = gst_element_get_static_pad(self->depay, "sink");
-    if (gst_pad_is_linked(sink_pad)) {
-        GST_WARNING_OBJECT(self, "Only one incoming audio track is supported");
-    } else {
-        const auto result = gst_pad_link(pad, sink_pad);
-        if (result != GST_PAD_LINK_OK) {
-            GST_ELEMENT_ERROR(
-                self, CORE, PAD, ("Failed to link WebRTC audio"), ("Pad link result: %d", result));
-        }
+    GstPad *const previous = gst_pad_get_peer(sink_pad);
+    if (previous) {
+        gst_pad_unlink(previous, sink_pad);
+        gst_object_unref(previous);
+    }
+    const auto result = gst_pad_link(pad, sink_pad);
+    if (result != GST_PAD_LINK_OK) {
+        GST_ELEMENT_ERROR(
+            self, CORE, PAD, ("Failed to link WebRTC audio"), ("Pad link result: %d", result));
     }
     gst_object_unref(sink_pad);
 }
@@ -125,19 +130,7 @@ static bool init_webrtc(GstOpkSrc *self) {
     if (!self->webrtcbin) {
         return false;
     }
-    GstCaps *caps = gst_caps_from_string(
-        "application/x-rtp, media=audio, encoding-name=OPUS, clock-rate=48000");
-    GstWebRTCRTPTransceiver *transceiver = nullptr;
-    g_signal_emit_by_name(self->webrtcbin,
-                          "add-transceiver",
-                          GST_WEBRTC_RTP_TRANSCEIVER_DIRECTION_RECVONLY,
-                          caps,
-                          &transceiver);
-    gst_caps_unref(caps);
-    if (!transceiver) {
-        return false;
-    }
-    gst_object_unref(transceiver);
+    gst_util_set_object_arg(G_OBJECT(self->webrtcbin), "bundle-policy", "max-bundle");
     self->pad_added_handler =
         g_signal_connect(self->webrtcbin, "pad-added", G_CALLBACK(gst_opk_src_pad_added), self);
     return true;
@@ -146,6 +139,7 @@ static bool init_webrtc(GstOpkSrc *self) {
 bool gst_opk_src_reset_webrtc(GstOpkSrc *self) {
     g_rec_mutex_lock(&self->media_lock);
     g_object_set(self->selector, "active-pad", self->silence_pad, nullptr);
+    gst_opk_src_select_video(self, false);
     if (self->webrtcbin) {
         if (self->pad_added_handler) {
             g_signal_handler_disconnect(self->webrtcbin, self->pad_added_handler);
@@ -167,6 +161,7 @@ static bool init_audio(GstOpkSrc *self) {
         return false;
     }
     self->depay = create_and_add_opksrc_element(self, "rtpopusdepay");
+    GstElement *const queue = create_and_add_opksrc_element(self, "queue");
     GstElement *decoder = create_and_add_opksrc_element(self, "opusdec");
     GstElement *convert = create_and_add_opksrc_element(self, "audioconvert");
     GstElement *resample = create_and_add_opksrc_element(self, "audioresample");
@@ -174,18 +169,19 @@ static bool init_audio(GstOpkSrc *self) {
     self->output_filter = filter;
     GstElement *silence = create_and_add_opksrc_element(self, "audiotestsrc");
     self->selector = create_and_add_opksrc_element(self, "input-selector");
-    if (!self->webrtcbin || !self->depay || !decoder || !convert || !resample || !filter ||
-        !silence || !self->selector) {
+    if (!self->webrtcbin || !self->depay || !queue || !decoder || !convert || !resample ||
+        !filter || !silence || !self->selector) {
         return false;
     }
 
     gst_util_set_object_arg(G_OBJECT(silence), "wave", "silence");
+    gst_opk_src_keep_receive_open(self->depay);
     g_object_set(silence, "is-live", TRUE, nullptr);
     g_object_set(self->selector, "sync-streams", TRUE, nullptr);
     gst_util_set_object_arg(G_OBJECT(self->selector), "sync-mode", "clock");
 
     update_output_caps(self);
-    if (!gst_element_link_many(self->depay, decoder, convert, resample, nullptr) ||
+    if (!gst_element_link_many(self->depay, queue, decoder, convert, resample, nullptr) ||
         !gst_element_link(self->selector, filter)) {
         GST_ERROR_OBJECT(self, "Failed to link audio receive chain");
         return false;
@@ -213,6 +209,18 @@ static bool init_audio(GstOpkSrc *self) {
     }
 
     return true;
+}
+
+static GstPadProbeReturn ignore_receive_eos(GstPad *, GstPadProbeInfo *const info, gpointer) {
+    return GST_EVENT_TYPE(GST_PAD_PROBE_INFO_EVENT(info)) == GST_EVENT_EOS ? GST_PAD_PROBE_DROP
+                                                                           : GST_PAD_PROBE_OK;
+}
+
+void gst_opk_src_keep_receive_open(GstElement *const depay) {
+    GstPad *const sink = gst_element_get_static_pad(depay, "sink");
+    gst_pad_add_probe(
+        sink, GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM, ignore_receive_eos, nullptr, nullptr);
+    gst_object_unref(sink);
 }
 
 static GstStateChangeReturn gst_opk_src_change_state(GstElement *element,
@@ -264,6 +272,7 @@ static void gst_opk_src_dispose(GObject *object) {
         gst_element_release_request_pad(self->selector, self->audio_pad);
         gst_clear_object(&self->audio_pad);
     }
+    gst_opk_src_dispose_video(self);
     G_OBJECT_CLASS(gst_opk_src_parent_class)->dispose(object);
 }
 
@@ -322,7 +331,7 @@ static void gst_opk_src_init(GstOpkSrc *self) {
     self->ws_port = 8003;
     self->rate = 16000;
     self->signaling = new OpkSrcSignaling(self);
-    self->initialized = init_audio(self);
+    self->initialized = init_audio(self) && gst_opk_src_init_video(self);
 }
 
 static void gst_opk_src_class_init(GstOpkSrcClass *klass) {
@@ -335,6 +344,7 @@ static void gst_opk_src_class_init(GstOpkSrcClass *klass) {
     gobject_class->finalize = gst_opk_src_finalize;
     element_class->change_state = gst_opk_src_change_state;
     gst_element_class_add_static_pad_template(element_class, &src_template);
+    gst_opk_src_video_class_init(element_class);
 
     constexpr GParamFlags kRW =
         static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
@@ -361,8 +371,8 @@ static void gst_opk_src_class_init(GstOpkSrcClass *klass) {
 
     gst_element_class_set_static_metadata(element_class,
                                           "OpkSrc",
-                                          "Source/Audio/Network/Bin",
-                                          "Receives WebRTC Opus audio as mono F32LE PCM",
+                                          "Source/Audio/Video/Network/Bin",
+                                          "Receives WebRTC Opus audio and VP8 video",
                                           "Arm Limited <perception-fdbck@arm.com>");
 }
 
@@ -373,7 +383,7 @@ static gboolean opksrc_plugin_init(GstPlugin *plugin) {
 GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   GST_VERSION_MINOR,
                   opksrc,
-                  "OpkSrc bin: WebRTC Opus to raw audio",
+                  "OpkSrc bin: WebRTC Opus and VP8 to raw media",
                   opksrc_plugin_init,
                   "1.0",
                   "Apache 2.0",

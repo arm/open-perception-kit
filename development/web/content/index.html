@@ -57,6 +57,12 @@ limitations under the License.
                                         aria-hidden="true"></span>
                                     <span class="video-control-text">Mic</span>
                                 </button>
+                                <button id="cameraBtn" class="control-button" type="button"
+                                    aria-label="Share camera" aria-pressed="false" title="Share camera"
+                                    style="display:none" disabled>
+                                    <span id="cameraIcon" class="icon" data-icon="video-off" aria-hidden="true"></span>
+                                    <span class="video-control-text">Cam</span>
+                                </button>
                                 <button id="muteUnmuteBtn" type="button" aria-label="Unmute" hidden>
                                     <span id="muteUnmuteIcon" class="icon" data-icon="volume-x" aria-hidden="true"></span>
                                     <span class="video-control-text">Unmute</span>
@@ -64,6 +70,7 @@ limitations under the License.
                             </div>
                         </div>
                         <div id="microphoneStatus" role="status" aria-live="polite" hidden>Microphone off</div>
+                        <div id="cameraStatus" role="status" aria-live="polite" hidden>Camera off</div>
                     </div>
                 </div>
 
