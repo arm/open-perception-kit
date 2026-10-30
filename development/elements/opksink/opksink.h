@@ -19,6 +19,7 @@
 #define __OPKSINK_H__
 
 #include <memory>
+#include <string>
 
 #include <opk/Tools.h>
 
@@ -71,6 +72,8 @@ struct GstOpkPrivate {
     std::shared_ptr<ModelRegistry> model_registry;
     std::shared_ptr<PipelineStateReporter> pipeline_state_reporter;
     bool initialized = false;
+    guint resolved_metadata_port = 8002;
+    std::string resolved_metadata_endpoint = "/ws";
 };
 
 struct _GstOpkSink {
@@ -116,6 +119,7 @@ struct _GstOpkSink {
     gint http_port;
     gint ctrl_port;
     gint ws_port;
+    guint metadata_port;
     gboolean qos_enabled;
 
     GstOpkPrivate *private_data;

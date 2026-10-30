@@ -125,7 +125,8 @@ apt-get install -y --no-install-recommends \
     gstreamer1.0-x iproute2 iputils-arping iputils-ping less libfftw3-dev \
     libfmt-dev libgstreamer-plugins-bad1.0-dev \
     libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev libjson-glib-dev \
-    libsoup-3.0-dev libssl-dev lldb-17 locales lua5.1 luarocks mc meson nano \
+    libsoup-3.0-dev libssl-dev libvulkan-dev glslang-tools mesa-vulkan-drivers \
+    lldb-17 locales lua5.1 luarocks mc meson nano \
     neovim net-tools ninja-build nmap nodejs openssh-client pkg-config \
     powerline pre-commit python3 python3-dev python3-gi python3-pip \
     python3-venv ripgrep shellcheck shfmt sudo tcpdump tmux traceroute \

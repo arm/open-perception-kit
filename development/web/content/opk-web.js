@@ -84,8 +84,6 @@ var WebRtcClient = class {
     });
     this.onStatus = config.onStatus || (() => {
     });
-    this.onStatusLine = config.onStatusLine || (() => {
-    });
     this.onRemoteTrack = config.onRemoteTrack || (() => {
     });
     this.onVideoFrame = config.onVideoFrame || (() => {
@@ -95,14 +93,14 @@ var WebRtcClient = class {
     this.restartTimer = null;
     this.started = false;
     this.paused = false;
+    this.statusError = "";
     this.currentReconnectDelayMs = this.reconnectDelayMs;
   }
   start() {
     if (this.started)
       return;
     this.started = true;
-    this.onStatus("connecting", "Connecting", "Initializing...");
-    this.onStatusLine("Starting WebRTC client & signaling...");
+    this.statusError = "";
     this.startNewSession("initial start");
   }
   reconnectNow(reason = "manual reconnect") {
@@ -152,18 +150,20 @@ var WebRtcClient = class {
       closed: false,
       intentionalClose: false,
       receivingVideo: false,
+      hasVideoFrame: false,
       lastFrameAt: this.now(),
       lastVideoTime: this.video.currentTime || 0,
       frameCallbackHandle: null,
       fallbackTimer: null,
       frameWatchdogTimer: null,
+      loadedDataHandler: null,
       frameMetadata: /* @__PURE__ */ new Map()
     };
     this.session = session;
     this.resetVideoElement(remoteStream);
     this.log(`Starting WebRTC session generation ${generation}: ${reason}`);
-    this.onStatus("connecting", "Connecting", "Connecting to signaling server...");
-    this.onStatusLine("Connecting to signaling server...");
+    const message = this.statusError || "Connecting\u2026";
+    this.onStatus("connecting", "Connecting", message);
     session.pc = this.createPeerConnection(session);
     session.ws = this.createSignalingSocket(session);
   }
@@ -199,8 +199,9 @@ var WebRtcClient = class {
         this.observeVideoTrack(session, event.track);
         this.startVideoPlayback(session);
         this.markFrameHeartbeat(session, "video track attached");
-        this.onStatus("connected", "Connected", "Receiving video stream");
-        this.onStatusLine("WebRTC connected. Video stream should be visible.");
+        if (!session.hasVideoFrame && !this.statusError) {
+          this.onStatus("connecting", "Connecting", "Waiting for video\u2026");
+        }
       }
     };
     pc.oniceconnectionstatechange = () => {
@@ -221,10 +222,10 @@ var WebRtcClient = class {
       const state = pc.iceConnectionState;
       this.log(`ICE connection state: ${state}`);
       if (state === "connected" || state === "completed") {
-        this.onStatus("connected", "Connected", "Peer connection is stable.");
+        if (!session.hasVideoFrame && !this.statusError) {
+          this.onStatus("connecting", "Connecting", "Waiting for video\u2026");
+        }
       } else if (state === "failed" || state === "disconnected") {
-        this.onStatus("disconnected", "Disconnected", "Trying to recover connection...");
-        this.onStatusLine(`ICE state: ${state} - will try to restart WebRTC.`);
         this.scheduleRestart(session, `ICE ${state}`);
       }
     };
@@ -246,7 +247,6 @@ var WebRtcClient = class {
         return;
       this.log("Signaling WebSocket open");
       this.currentReconnectDelayMs = this.reconnectDelayMs;
-      this.onStatus("connecting", "Connecting", "Signaling connected - creating offer...");
       this.startOffer(session);
     };
     ws.onmessage = async (event) => {
@@ -278,9 +278,9 @@ var WebRtcClient = class {
           );
           if (!this.isCurrent(session))
             return;
-          this.onStatus("connected", "Connected", "Answer received from server.");
-          if (!session.receivingVideo)
-            this.onStatusLine("Answer received. Waiting for video track...");
+          if (!session.hasVideoFrame && !this.statusError) {
+            this.onStatus("connecting", "Connecting", "Waiting for video\u2026");
+          }
         } else if (data.type === "candidate" && data.ice) {
           if (!data.ice.candidate) {
             this.log("End of candidates");
@@ -294,15 +294,16 @@ var WebRtcClient = class {
       }
     };
     ws.onerror = (err) => {
-      if (this.isCurrent(session))
+      if (this.isCurrent(session)) {
         this.log(`Signaling WebSocket error: ${formatError(err)}`, "error");
+        this.statusError = "Signaling unavailable. Check server.";
+        this.onStatus("disconnected", "Disconnected", this.statusError);
+      }
     };
     ws.onclose = () => {
       if (!this.isCurrent(session) || session.intentionalClose)
         return;
       this.log("Signaling WebSocket closed. Scheduling reconnect.");
-      this.onStatus("disconnected", "Disconnected", "Signaling closed - will retry...");
-      this.onStatusLine("Signaling connection closed. Will retry automatically.");
       const delay = this.nextReconnectDelay();
       this.scheduleRestart(session, "signaling closed", delay);
     };
@@ -312,8 +313,8 @@ var WebRtcClient = class {
     if (!this.isCurrent(session) || !session.ws || session.ws.readyState !== this.openState)
       return;
     try {
-      this.onStatus("connecting", "Connecting", "Creating offer and sending to server...");
-      this.onStatusLine("Creating offer and sending it to the signaling server...");
+      const message = this.statusError || "Negotiating\u2026";
+      this.onStatus("connecting", "Connecting", message);
       const offer = await session.pc.createOffer();
       if (!this.isCurrent(session))
         return;
@@ -366,6 +367,15 @@ var WebRtcClient = class {
       watchFrames();
     } else if (this.frameTimeoutMs > 0) {
       this.observeCurrentTimeFallback(session);
+    } else {
+      session.loadedDataHandler = () => {
+        if (!this.isCurrent(session) || !this.video.videoWidth)
+          return;
+        session.hasVideoFrame = true;
+        this.statusError = "";
+        this.onStatus("connected", "Connected", "Connected");
+      };
+      this.video.addEventListener("loadeddata", session.loadedDataHandler);
     }
   }
   observeCurrentTimeFallback(session) {
@@ -389,6 +399,11 @@ var WebRtcClient = class {
     if (this.logFrameHeartbeats || !isHighFrequencyHeartbeat(source))
       this.log(`Video heartbeat: ${source}`);
     this.armFrameWatchdog(session);
+    if (isHighFrequencyHeartbeat(source) && (source !== "video currentTime" || this.video.videoWidth > 0 && this.video.readyState >= 2) && (!session.hasVideoFrame || this.statusError)) {
+      session.hasVideoFrame = true;
+      this.statusError = "";
+      this.onStatus("connected", "Connected", "Connected");
+    }
   }
   armFrameWatchdog(session) {
     if (!this.isCurrent(session))
@@ -414,7 +429,18 @@ var WebRtcClient = class {
     if (!this.isCurrent(session) || this.restartTimer)
       return;
     this.log(`Scheduling WebRTC restart in ${delayMs}ms: ${reason}`);
-    this.onStatus("reconnecting", "Reconnecting", "Re-establishing WebRTC connection...");
+    if (reason === "ICE failed") {
+      const hasTurn = this.iceServers.some((server) => (Array.isArray(server.urls) ? server.urls : [server.urls]).some((url) => /^turns?:/i.test(url)));
+      this.statusError = hasTurn ? "Connection failed. Check network/TURN." : "Connection failed. Try TURN.";
+    } else {
+      this.statusError = {
+        "ICE disconnected": "Connection lost. Retrying\u2026",
+        "signaling closed": "Signaling unavailable. Check server.",
+        "video frame timeout": "No video. Retrying\u2026",
+        "video track ended": "Video ended. Retrying\u2026"
+      }[reason] || "Negotiation failed. Retrying\u2026";
+    }
+    this.onStatus("reconnecting", "Reconnecting", this.statusError);
     this.closeSession(session, reason);
     this.restartTimer = this.setTimeout(() => {
       this.restartTimer = null;
@@ -442,6 +468,8 @@ var WebRtcClient = class {
       this.clearTimeout(session.frameWatchdogTimer);
     if (session.fallbackTimer)
       this.clearTimeout(session.fallbackTimer);
+    if (session.loadedDataHandler)
+      this.video.removeEventListener("loadeddata", session.loadedDataHandler);
     if (session.frameCallbackHandle && typeof this.video.cancelVideoFrameCallback === "function") {
       this.video.cancelVideoFrameCallback(session.frameCallbackHandle);
     }
@@ -482,12 +510,17 @@ var WebRtcClient = class {
       playback = this.video.play();
     } catch (err) {
       this.log(`Unable to start video playback: ${formatError(err)}`, "error");
+      this.statusError = "Playback failed. Check browser.";
+      this.onStatus("disconnected", "Disconnected", this.statusError);
       return;
     }
     if (playback && typeof playback.catch === "function") {
       playback.catch((err) => {
-        if (this.isCurrent(session))
+        if (this.isCurrent(session)) {
           this.log(`Unable to start video playback: ${formatError(err)}`, "error");
+          this.statusError = "Playback failed. Check browser.";
+          this.onStatus("disconnected", "Disconnected", this.statusError);
+        }
       });
     }
   }
@@ -571,18 +604,16 @@ function setStatus(state, label, subtext) {
     statusLabelEl.textContent = label.toUpperCase();
   if (subtext && statusSubtextEl)
     statusSubtextEl.textContent = subtext;
+  setStatusLine(subtext || label);
   switch (state) {
     case "connecting":
     case "reconnecting":
+    case "disconnected":
       overlay.classList.remove("hidden");
-      overlayText.textContent = "Connecting\u2026";
+      overlayText.textContent = subtext || label;
       break;
     case "connected":
       overlay.classList.add("hidden");
-      break;
-    case "disconnected":
-      overlay.classList.remove("hidden");
-      overlayText.textContent = "Disconnected \u2013 waiting for stream\u2026";
       break;
   }
 }
@@ -618,7 +649,6 @@ var client = createWebRtcClient({
   ...WEBRTC_ICE_CONFIG,
   logger: appendLog,
   onStatus: setStatus,
-  onStatusLine: setStatusLine,
   onVideoFrame: (message) => {
     window.dispatchEvent(new CustomEvent("video-frame-metadata", { detail: message }));
   },

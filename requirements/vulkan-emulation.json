@@ -1,0 +1,44 @@
+{
+  "emulation": {
+    "name": "ai-ml-emulation-layer-for-vulkan",
+    "version": "67199c9fae2cee900d41d659937870fb478e7de9",
+    "filename": "emulation-67199c9f.tar.gz",
+    "url": "https://github.com/arm/ai-ml-emulation-layer-for-vulkan/archive/67199c9fae2cee900d41d659937870fb478e7de9.tar.gz",
+    "sha256": "8412ad4408d2e49fd79003f73c67e2546685a76e15b7f3a0f313e07da221fc35"
+  },
+  "glslang": {
+    "name": "glslang",
+    "version": "vulkan-sdk-1.4.357.0",
+    "filename": "glslang-vulkan-sdk-1.4.357.0.tar.gz",
+    "url": "https://github.com/KhronosGroup/glslang/archive/refs/tags/vulkan-sdk-1.4.357.0.tar.gz",
+    "sha256": "81038794e20494556edbcc0fc70fa984d71d1b440f9c49adf2cbaaa60a519757"
+  },
+  "spirv_cross": {
+    "name": "SPIRV-Cross",
+    "version": "vulkan-sdk-1.4.357.0",
+    "filename": "spirv-cross-vulkan-sdk-1.4.357.0.tar.gz",
+    "url": "https://github.com/KhronosGroup/SPIRV-Cross/archive/refs/tags/vulkan-sdk-1.4.357.0.tar.gz",
+    "sha256": "97c910326afdd44d794ce8561326fa675fd1958b27142f03295403044d639639"
+  },
+  "spirv_headers": {
+    "name": "SPIRV-Headers",
+    "version": "vulkan-sdk-1.4.357.0",
+    "filename": "spirv-headers-vulkan-sdk-1.4.357.0.tar.gz",
+    "url": "https://github.com/KhronosGroup/SPIRV-Headers/archive/refs/tags/vulkan-sdk-1.4.357.0.tar.gz",
+    "sha256": "4d703067a7e06331ccb37bdfed3f9b7879cc61969a2689ae95c95db34a47ff07"
+  },
+  "spirv_tools": {
+    "name": "SPIRV-Tools",
+    "version": "vulkan-sdk-1.4.357.0",
+    "filename": "spirv-tools-vulkan-sdk-1.4.357.0.tar.gz",
+    "url": "https://github.com/KhronosGroup/SPIRV-Tools/archive/refs/tags/vulkan-sdk-1.4.357.0.tar.gz",
+    "sha256": "d31e7109b6ef3559067e53e520870eafed7c9534d00db9728814b6df03fa4a5e"
+  },
+  "json": {
+    "name": "json",
+    "version": "3.12.0",
+    "filename": "json-3.12.0.tar.gz",
+    "url": "https://github.com/nlohmann/json/archive/refs/tags/v3.12.0.tar.gz",
+    "sha256": "4b92eb0c06d10683f7447ce9406cb97cd4b453be18d7279320f7b2f025c10187"
+  }
+}

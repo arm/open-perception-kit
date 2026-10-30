@@ -84,6 +84,10 @@ if [[ "${TARGET_CONTAINER_KIND}" == devcont ]]; then
     printf 'name: %s\nservices:\n  %s:\n    container_name: %s\n' \
         "${workspace_project}" "${TARGET_SERVICE_KIND}" "${workspace_container}" > \
         ".devcontainer/docker-compose.${TARGET_CONTAINER_KIND}.workspace.yaml"
+    if [[ "${TARGET_SERVICE_KIND}" == opk-dev && "${OPK_WEBRTC_TURN}" == enabled && "${5:-}" == stop-other-devcontainers ]]; then
+        printf '    restart: "no"\n  coturn:\n    restart: "no"\n' >> \
+            ".devcontainer/docker-compose.${TARGET_CONTAINER_KIND}.workspace.yaml"
+    fi
 
     if [[ "${5:-}" == stop-other-devcontainers ]]; then
         # Checkouts have distinct names but share the same host ports.
@@ -152,6 +156,74 @@ if [[ "${OPK_WEBRTC_TURN}" = enabled ]]; then
 
     echo "Using WebRTC host IP: ${WEBRTC_HOST_IP}"
     echo "Using WebRTC TURN relay ports: ${OPK_WEBRTC_TURN_MIN_PORT}-${OPK_WEBRTC_TURN_MAX_PORT}"
+
+    if [[ "${TARGET_SERVICE_KIND}" == opk-dev && "${TARGET_CONTAINER_KIND}" == devcont && "${5:-}" == stop-other-devcontainers ]]; then
+        # VS Code can reuse running containers or start stopped ones without recreating them.
+        workspace_containers="$(docker ps --all --filter "label=com.docker.compose.project=${workspace_project}" \
+            --filter label=com.docker.compose.oneoff=False \
+            --format '{{.ID}} {{.Label "com.docker.compose.service"}} {{.Label "com.docker.compose.project.config_files"}}')"
+        container_ids=()
+        restart_ids=()
+        dev_container=""
+        turn_container=""
+        refresh_containers=false
+        while read -r container_id service config_files; do
+            [[ -n "${container_id}" ]] || continue
+            case "${service}" in
+                opk-dev | coturn) ;;
+                *) continue ;;
+            esac
+            case ",${config_files}," in
+                *"/.devcontainer/docker-compose.rich.yaml,"*) continue ;;
+                *"/.devcontainer/compose.devcont.yaml,"*) ;;
+                *) continue ;;
+            esac
+            project_directory="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project.working_dir"}}' "${container_id}")"
+            if [[ ! "${project_directory}" -ef "${ROOT_DIR}/.devcontainer" && ! "${project_directory}" -ef "${ROOT_DIR}" ]]; then
+                continue
+            fi
+            container_ids+=("${container_id}")
+            if [[ "${service}" == opk-dev ]]; then
+                dev_container="${container_id}"
+                container_settings="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "${container_id}")"
+                ip_prefix="WEBRTC_HOST_IP="
+            else
+                turn_container="${container_id}"
+                container_settings="$(docker inspect --format '{{range .Config.Cmd}}{{println .}}{{end}}' "${container_id}")"
+                ip_prefix="--external-ip="
+            fi
+            stored_ip=""
+            while IFS= read -r setting; do
+                if [[ "${setting}" == "${ip_prefix}"* ]]; then
+                    stored_ip="${setting#"${ip_prefix}"}"
+                fi
+            done <<< "${container_settings}"
+            [[ "${stored_ip}" == "${WEBRTC_HOST_IP}" ]] || refresh_containers=true
+            restart_policy="$(docker inspect --format '{{.HostConfig.RestartPolicy.Name}}' "${container_id}")"
+            if [[ "${restart_policy}" != no ]]; then
+                restart_ids+=("${container_id}")
+            fi
+        done <<< "${workspace_containers}"
+
+        if [[ "${#container_ids[@]}" -gt 0 ]]; then
+            if [[ "${refresh_containers}" == true || -z "${dev_container}" || -z "${turn_container}" ]]; then
+                echo "Refreshing development containers for WebRTC."
+                docker rm -f "${container_ids[@]}" > /dev/null
+            else
+                if [[ "${#restart_ids[@]}" -gt 0 ]]; then
+                    docker update --restart=no "${restart_ids[@]}" > /dev/null
+                fi
+                dev_running="$(docker inspect --format '{{.State.Running}}' "${dev_container}")"
+                if [[ "${dev_running}" == true ]]; then
+                    turn_running="$(docker inspect --format '{{.State.Running}}' "${turn_container}")"
+                    if [[ "${turn_running}" == false ]]; then
+                        echo "Starting TURN relay."
+                        docker start "${turn_container}" > /dev/null
+                    fi
+                fi
+            fi
+        fi
+    fi
 else
     for env_file in .env .devcontainer/.env devices.env; do
         remove_env_value "$env_file" WEBRTC_HOST_IP

@@ -127,6 +127,17 @@ standard_content_type_tests = executable(
   link_with : [common],
 )
 
+if mlwl_enabled
+  mlwl_tensor_tests = executable(
+    'mlwl_tensor_tests',
+    ['mlwl_tensor_test.cpp', '../ops-mlwl/TensorLayout.cpp'],
+    include_directories : [common_include, include_directories('../ops-mlwl')],
+    dependencies : [gtest_main_dep, opk_deps, mlwl_dep, mlwl_vulkan_dep],
+    override_options : ['b_ndebug=true'],
+  )
+  test('mlwl_tensor_tests', mlwl_tensor_tests)
+endif
+
 if python_ops_enabled
   python_script_op_tests = executable(
     'python_script_op_tests',
@@ -430,6 +441,12 @@ test(
   timeout : 60,
 )
 test(
+  'platform_init_script_tests',
+  python,
+  args : [files('platform_init_script_test.py'), opk_repository_root],
+  timeout : 60,
+)
+test(
   'clang_tidy_report_tests',
   python,
   args : [files('clang_tidy_report_test.py')],
@@ -501,6 +518,12 @@ test('yolo26_semantic_segmentation_parser_tests', yolo26_semantic_segmentation_p
 test('gaze_detection_parser_tests', gaze_detection_parser_tests)
 test('rvm_parser_tests', rvm_parser_tests)
 test('onnx_tensor_tests', onnx_tensor_tests)
+test(
+  'onnx_telemetry',
+  python,
+  args : [files('onnx_telemetry_test.py'), gstopkinfer.full_path()],
+  depends : [gstopkinfer, onnxops],
+)
 test('logging_tests', logging_tests)
 test('logger_tests', logger_tests)
 test(
@@ -563,10 +586,24 @@ test(
   depends : opkinferpre,
 )
 test(
+  'opksink_metadata_discovery',
+  gst_python,
+  args : [files('opksink_metadata_discovery_test.py'), opkinferpre.full_path(), opkcomm.full_path()],
+  depends : [opkinferpre, opkcomm],
+  env : ['G_DEBUG=fatal-criticals'],
+)
+test(
   'opksink_encoder_configuration',
   gst_python,
   args : [files('opksink_encoder_configuration_test.py'), opkinferpre.full_path()],
   depends : opkinferpre,
+)
+test(
+  'opksink_http_body',
+  gst_python,
+  args : [files('opksink_http_body_test.py'), opkinferpre.full_path()],
+  depends : opkinferpre,
+  is_parallel : false,
 )
 test(
   'websocket_shutdown',
@@ -608,6 +645,14 @@ foreach failed_operation : [
   )
 endforeach
 test('runtime_pipeline_tests', runtime_pipeline_tests)
+if mlwl_enabled
+  test(
+    'mlwl_startup_pipeline_tests',
+    gst_python,
+    args : [files('mlwl_startup_pipeline_test.py'), gstopkinfer.full_path(), mlwl_ops.full_path()],
+    depends : [gstopkinfer, mlwl_ops],
+  )
+endif
 test('image_conversion_oracle_test', image_conversion_oracle_test)
 test(
   'python_guest_script_executor_tests',

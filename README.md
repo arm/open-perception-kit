@@ -114,6 +114,9 @@ or token. For your own private or gated models, see
 Failed model downloads are logged and skipped. Check the build output if a
 pipeline fails to start because a model is missing.
 
+For VGF inference on the CPU, configure the
+[MLWL CPU quickstart](development/ops-mlwl/README.md#cpu-quickstart) before building the container.
+
 ### 3. Enter the container command line
 
 ```bash
@@ -303,8 +306,11 @@ Open Perception Kit is licensed under the [Apache License, Version 2.0](LICENSE)
 except where individual files or accompanying notices state otherwise.
 See [Licensing](docs/public/licensing.md) for the licence and notice locations.
 
-Third-party components retain their own licences. These include FlatBuffers (Apache-2.0), ONNX
-Runtime (MIT), ExecuTorch (BSD-3-Clause), Lucide icons (ISC/MIT), and the
+Third-party components retain their own licences. These include FlatBuffers (Apache-2.0),
+[ONNX Runtime](https://github.com/microsoft/onnxruntime) (MIT),
+[ExecuTorch](https://github.com/pytorch/executorch) (BSD-3-Clause),
+[ML Workload Library for Vulkan](https://github.com/arm/ai-ml-workload-library-for-vulkan) (Apache-2.0),
+Lucide icons (ISC/MIT), and the
 Lato (OFL-1.1) and Cousine (Apache-2.0) fonts supplied by Wafer. Their original
 notices accompany the distributed files; Wafer CSS retains its Arm copyright notice.
 

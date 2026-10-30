@@ -108,8 +108,10 @@ class BuildScriptTests(unittest.TestCase):
         for variable in (
             "OPK_EXECUTORCH",
             "OPK_PYTHON_OPS",
+            "OPK_MLWL",
             "executorch",
             "python_ops",
+            "mlwl",
         ):
             environment.pop(variable, None)
         if project_root is None:
@@ -165,6 +167,7 @@ class BuildScriptTests(unittest.TestCase):
                     "-Dtests=true",
                     "-Dexecutorch=auto",
                     "-Dpython_ops=auto",
+                    "-Dmlwl=disabled",
                 ],
             )
             self.assertEqual(
@@ -211,6 +214,7 @@ class BuildScriptTests(unittest.TestCase):
                 environment_overrides={
                     "OPK_EXECUTORCH": "disabled",
                     "OPK_PYTHON_OPS": "enabled",
+                    "OPK_MLWL": "enabled",
                 },
             )
 
@@ -218,6 +222,7 @@ class BuildScriptTests(unittest.TestCase):
             invocations = self.read_invocations(log_path)
             self.assertIn("-Dexecutorch=disabled", invocations[0]["argv"])
             self.assertIn("-Dpython_ops=enabled", invocations[0]["argv"])
+            self.assertIn("-Dmlwl=enabled", invocations[0]["argv"])
             self.assertIn(
                 "Meson feature selection: executorch=disabled",
                 completed.stdout,

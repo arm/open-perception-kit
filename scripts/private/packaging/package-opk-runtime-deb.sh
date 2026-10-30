@@ -16,6 +16,7 @@
 # Copyright (C) 2026 Arm Limited. All rights reserved.
 
 set -euo pipefail
+umask 022
 
 usage() {
     cat << 'EOF'
@@ -69,6 +70,7 @@ PYTHON_RUNTIME=""
 ONNX_RUNTIME=""
 ONNX_LICENSE_DIR=""
 EXECUTORCH_LICENSE_DIR=""
+MLWL_PREFIX=""
 FLATBUFFERS_SCHEMA_DIR=""
 VERSION=""
 REVISION=""
@@ -80,7 +82,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --build-dir | --meson | --repo-root | --installed-prefix | --installed-libdir | \
             --python-runtime | --onnx-runtime | --onnx-license-dir | \
-            --executorch-license-dir | --version | \
+            --executorch-license-dir | --mlwl-prefix | --version | \
             --flatbuffers-schema-dir | \
             --revision | --architecture | --multiarch | --output)
             [[ $# -ge 2 ]] || die "$1 requires a value"
@@ -135,6 +137,10 @@ need find
 need python3
 need readelf
 
+onnx_version="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["onnxruntime"])' \
+    "${REPO_ROOT}/requirements/build.json")"
+onnx_library="libonnxruntime.so.${onnx_version}"
+
 work_root="$(mktemp -d)"
 trap 'rm -rf -- "${work_root}"' EXIT
 install_root="${work_root}/install"
@@ -177,6 +183,13 @@ private_libraries=(
     opk-python-ops.so
     opk-std-ops.so
 )
+if [[ -n "${MLWL_PREFIX}" ]]; then
+    MLWL_PREFIX="$(resolve_existing_directory "${MLWL_PREFIX}")"
+    private_libraries+=(opk-mlwl-ops.so)
+fi
+if [[ -f "${installed_private_root}/opk-gpu-ops.so" ]]; then
+    private_libraries+=(opk-gpu-ops.so)
+fi
 
 mkdir -p "${package_root}/DEBIAN" "${plugin_root}" "${private_root}"
 for library in "${plugins[@]}"; do
@@ -273,6 +286,7 @@ umask 022
 mkdir -p -- "\${parent}"
 if [ -f "\${target}/.opk-runtime-contract" ] && \
     [ "\$(cat "\${target}/.opk-runtime-contract")" = "\${contract}" ]; then
+    chmod 0755 "\${target}"
     echo "OPK Python runtime dependencies are already installed."
     exit 0
 fi
@@ -330,6 +344,7 @@ for name, version in expected.items():
 PYTHON
 
 printf '%s\n' "\${contract}" > "\${temporary}/.opk-runtime-contract"
+chmod 0755 "\${temporary}"
 
 rm -rf -- "\${backup}"
 if [ -e "\${target}" ] || [ -L "\${target}" ]; then
@@ -367,8 +382,26 @@ for library in "${private_libraries[@]}"; do
     install -m 0755 "${installed_private_root}/${library}" "${private_root}/${library}"
 done
 
-install -m 0755 "${ONNX_RUNTIME}" "${private_root}/libonnxruntime.so.1.24.4"
-ln -s libonnxruntime.so.1.24.4 "${private_root}/libonnxruntime.so.1"
+install -m 0755 "${ONNX_RUNTIME}" "${private_root}/${onnx_library}"
+ln -s "${onnx_library}" "${private_root}/libonnxruntime.so.1"
+
+if [[ -n "${MLWL_PREFIX}" ]]; then
+    python3 - "${REPO_ROOT}" "${MLWL_PREFIX}" "${private_root}" \
+        "${package_root}/usr/share/opk/licenses/mlwl" << 'PYTHON'
+from pathlib import Path
+import shutil
+import sys
+
+repo, prefix, private, legal = map(Path, sys.argv[1:5])
+sys.path.insert(0, str(repo / "scripts/release"))
+import ReleaseTool
+
+for name in (ReleaseTool.MLWL_RUNTIME_LIBRARY, ReleaseTool.MLWL_RUNTIME_LIBRARY + ".provenance.json"):
+    shutil.copyfile(prefix / "lib64" / name, private / name)
+ReleaseTool.copy_legal_files(prefix / "share/doc/mlwl", legal, ReleaseTool.MLWL_LEGAL_NOTICES)
+ReleaseTool.validate_mlwl_runtime(private, repo)
+PYTHON
+fi
 
 onnx_legal_files=(
     LICENSE
@@ -403,9 +436,9 @@ for binary in "${elf_files[@]}"; do
         die "wrong ELF architecture in ${binary}: ${machine}"
 done
 
-[[ "$(readlink "${private_root}/libonnxruntime.so.1")" == libonnxruntime.so.1.24.4 ]] ||
+[[ "$(readlink "${private_root}/libonnxruntime.so.1")" == "${onnx_library}" ]] ||
     die "ONNX Runtime SONAME link is invalid"
-[[ "$(readelf -dW "${private_root}/libonnxruntime.so.1.24.4" |
+[[ "$(readelf -dW "${private_root}/${onnx_library}" |
     sed -n 's/.*(SONAME).*\[\([^]]*\)\].*/\1/p')" == libonnxruntime.so.1 ]] ||
     die "ONNX Runtime has an unexpected SONAME"
 
@@ -413,11 +446,8 @@ for binary in "${plugin_root}"/*.so; do
     readelf -dW "${binary}" | grep -Fq "[\$ORIGIN/../opk]" ||
         die "plugin RUNPATH does not contain \$ORIGIN/../opk: ${binary}"
 done
-for binary in "${private_root}"/*.so*; do
-    [[ -L "${binary}" ]] && continue
-    if [[ "$(basename "${binary}")" == libonnxruntime.so.1.24.4 ]]; then
-        continue
-    fi
+for library in "${private_libraries[@]}"; do
+    binary="${private_root}/${library}"
     readelf -dW "${binary}" | grep -Fq "[\$ORIGIN]" ||
         die "private library RUNPATH does not contain \$ORIGIN: ${binary}"
 done
@@ -471,6 +501,9 @@ runtime_depends=(
     python3.13
     python3-pip
 )
+if [[ -n "${MLWL_PREFIX}" ]]; then
+    runtime_depends+=(libvulkan1)
+fi
 for dependency in "${runtime_depends[@]}"; do
     shlibs_depends+=", ${dependency}"
 done

@@ -79,6 +79,17 @@ OpkSinkHttpServerError OpkSinkHttpServer::setup() {
     http_server->set_socket_options(
         [](socket_t sock) { set_socket_opt(sock, SOL_SOCKET, SO_REUSEADDR, 1); });
 
+    http_server->set_pre_routing_handler([](const Request &req, Response &res) {
+        const bool body_framed = req.has_header("Transfer-Encoding") ||
+                                 (req.has_header("Content-Length") &&
+                                  req.get_header_value_u64("Content-Length", 1) != 0);
+        if ((req.method == "GET" || req.method == "HEAD") && body_framed) {
+            res.status = StatusCode::BadRequest_400;
+            return Server::HandlerResponse::Handled;
+        }
+        return Server::HandlerResponse::Unhandled;
+    });
+
     // Dynamic config endpoint
     http_server->Get("/opk-config.js",
                      [this](const Request &req, Response &res) { get_dynamic_config(req, res); });
@@ -136,6 +147,8 @@ void OpkSinkHttpServer::get_dynamic_config(const Request &req, Response &res) {
     json config = {
         {"wsPort", self_->ws_port},
         {"ctrlPort", self_->ctrl_port},
+        {"metadataPort", self_->private_data->resolved_metadata_port},
+        {"metadataEndpoint", self_->private_data->resolved_metadata_endpoint},
     };
 
     json ice_servers = json::array();

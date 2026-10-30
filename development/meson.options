@@ -50,3 +50,15 @@ option('python_ops',
   value : 'auto',
   description : 'Enable the embedded Python script Op'
 )
+
+option('mlwl',
+  type : 'feature',
+  value : 'disabled',
+  description : 'Enable ML Workload Library for Vulkan inference'
+)
+
+option('gpu_preprocessing',
+  type : 'feature',
+  value : 'auto',
+  description : 'Build Vulkan preprocessing on Linux; disable for a CPU-only build'
+)

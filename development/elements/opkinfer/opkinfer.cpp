@@ -65,9 +65,20 @@ struct GstOpkInferMembers {
     }
 
     opk::op::OpChain opChain;
+    std::optional<bool> inputIsLive;
 
-    opk::Result<void> executeOpChain(opk::op::OpChainContext &opChainContext) {
-        return opChain.execute(opChainContext);
+    opk::Result<void> executeOpChain(opk::op::OpChainContext &opChainContext,
+                                     GstPad *const inputPad) {
+        if (!inputIsLive) {
+            // Query on the first frame, after upstream has started. Unknown inputs must wait.
+            GstQuery *const query = gst_query_new_latency();
+            gboolean live = FALSE;
+            if (gst_pad_peer_query(inputPad, query))
+                gst_query_parse_latency(query, &live, nullptr, nullptr);
+            inputIsLive = live;
+            gst_query_unref(query);
+        }
+        return opChain.execute(opChainContext, !*inputIsLive);
     }
 
     opk::Result<void> setupOpChainFromJson(const std::string &filePath) {
@@ -486,8 +497,10 @@ static gboolean gst_opkinfer_sink_event(GstBaseTransform *trans, GstEvent *event
     const auto eventType = GST_EVENT_TYPE(event);
     switch (eventType) {
     case GST_EVENT_STREAM_START:
-        if (auto *members = GST_OPKINFER(trans)->m)
+        if (auto *members = GST_OPKINFER(trans)->m) {
             members->resetAudio();
+            members->inputIsLive.reset();
+        }
         if (gst_opkinfer_is_active(GST_OPKINFER(trans)))
             gst_opkinfer_emit_content_requirements(GST_OPKINFER(trans));
         break;
@@ -612,7 +625,7 @@ gst_opkinfer_process_audio_window(GstOpkInfer *self,
             audio.windowEndTimestampNs = end;
         }
     }
-    const auto execution = members.executeOpChain(context);
+    const auto execution = members.executeOpChain(context, GST_BASE_TRANSFORM_SINK_PAD(self));
     if (!execution) {
         opChainError = execution.error().info;
         GST_ERROR_OBJECT(self, "%s", execution.error().toString().c_str());
@@ -636,7 +649,7 @@ gst_opkinfer_process_video_frame(GstOpkInfer *self,
     opChainContext.frameResults = &frameResults;
     opChainContext.videoFrames["pipelineVideoFrame"] = sharedMediaFrame;
 
-    auto executeResult = self->m->executeOpChain(opChainContext);
+    auto executeResult = self->m->executeOpChain(opChainContext, GST_BASE_TRANSFORM_SINK_PAD(self));
     if (!executeResult) {
         opChainError = executeResult.error().info;
         opk::log::error("{}\n", executeResult.error().toString());

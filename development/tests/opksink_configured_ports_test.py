@@ -36,10 +36,20 @@ def make_pipeline(gst, ports):
     )
 
 
+def start_pipeline(gst, pipeline):
+    if pipeline.set_state(gst.State.PLAYING) == gst.StateChangeReturn.FAILURE:
+        message = pipeline.get_bus().pop_filtered(gst.MessageType.ERROR)
+        if message is None:
+            raise AssertionError("Pipeline startup failed without a bus error")
+        error, debug = message.parse_error()
+        raise AssertionError(f"{message.src.get_name()}: {error.message}; {debug}")
+
+
 def reserve_ports(reservations, count):
     sockets = [reservations.enter_context(socket.socket()) for _ in range(count)]
     for listener in sockets:
-        listener.bind(("127.0.0.1", 0))
+        # Match the servers' wildcard bind and exclude clients on other interfaces.
+        listener.bind(("0.0.0.0", 0))
     return [listener.getsockname()[1] for listener in sockets], sockets
 
 
@@ -82,7 +92,7 @@ def main() -> None:
 
         for _ in range(2):
             for pipeline in pipelines:
-                assert pipeline.set_state(gst.State.PLAYING) != gst.StateChangeReturn.FAILURE
+                start_pipeline(gst, pipeline)
                 assert pipeline.get_state(5 * gst.SECOND)[1] == gst.State.PLAYING
             for pipeline_ports in port_sets:
                 check_endpoints(pipeline_ports)
@@ -93,7 +103,7 @@ def main() -> None:
 
         # An unrelated pipeline must remain usable when another cannot start.
         for pipeline in pipelines:
-            assert pipeline.set_state(gst.State.PLAYING) != gst.StateChangeReturn.FAILURE
+            start_pipeline(gst, pipeline)
 
         # Keep the other pipeline running while this instance changes ports.
         for index, pipeline in enumerate(pipelines):
@@ -106,7 +116,7 @@ def main() -> None:
                 sink = pipeline.get_by_name("sink")
                 for name, port in zip(("http-port", "ws-port", "ctrl-port"), new_ports):
                     sink.set_property(name, port)
-            assert pipeline.set_state(gst.State.PLAYING) != gst.StateChangeReturn.FAILURE
+            start_pipeline(gst, pipeline)
             assert pipeline.get_state(5 * gst.SECOND)[1] == gst.State.PLAYING
             check_endpoints(new_ports)
             port_sets[index] = new_ports
@@ -125,7 +135,7 @@ def main() -> None:
             check_released_ports(port_sets[1])
             release_pipeline(pipeline, gst)
             sink.set_property(name, original)
-            assert pipeline.set_state(gst.State.PLAYING) != gst.StateChangeReturn.FAILURE
+            start_pipeline(gst, pipeline)
             assert pipeline.get_state(5 * gst.SECOND)[1] == gst.State.PLAYING
             check_endpoints(port_sets[1])
 
@@ -162,7 +172,7 @@ def main() -> None:
                         check_endpoints(pipeline_ports)
                     release_pipeline(blocked, gst)
                     sockets[conflict].close()
-                    assert blocked.set_state(gst.State.PLAYING) != gst.StateChangeReturn.FAILURE
+                    start_pipeline(gst, blocked)
                     assert blocked.get_state(5 * gst.SECOND)[1] == gst.State.PLAYING
                     check_endpoints(blocked_ports)
                 finally:

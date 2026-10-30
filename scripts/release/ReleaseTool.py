@@ -57,6 +57,12 @@ CORE_LEGAL_NOTICES = (
     "flatbuffers/LICENSE", "lucide/LICENSE", "wafer/NOTICE",
     "wafer/LICENSES/Lato.txt", "wafer/LICENSES/Cousine.txt",
 )
+MLWL_LEGAL_NOTICES = (
+    "mlwl/LICENSES/Apache-2.0.txt", "vgf/LICENSES/Apache-2.0.txt", "flatbuffers/LICENSE",
+    "Vulkan-Headers/LICENSES/Apache-2.0.txt", "Vulkan-Headers/LICENSES/MIT.txt",
+    "ai-ml-workload-library.spdx.json",
+)
+MLWL_RUNTIME_LIBRARY = "libmlworkloadlib.so"
 ONNX_INFERENCE_OP = "opk-onnx-ops/Inference"
 ONNX_MODEL_SUFFIX = ".onnx"
 EXECUTORCH_INFERENCE_OP = "opk-executorch-ops/Inference"
@@ -87,6 +93,7 @@ PLUGIN_NAMES = {
     "libopkosd.so",
     "libopkperformance.so",
     "libopksink.so",
+    "libopksrc.so",
     "libopktracker.so",
 }
 OP_MODULE_NAMES = {
@@ -95,6 +102,7 @@ OP_MODULE_NAMES = {
     "opk-python-ops.so",
     "opk-std-ops.so",
 }
+OPTIONAL_OP_MODULE_NAMES = {"opk-gpu-ops.so", "opk-mlwl-ops.so"}
 PYTHON_RUNTIME_DISTRIBUTIONS = {"open-perception-kit"}
 PYTHON_RUNTIME_ROOT = Path("share/opk/python")
 PYTHON_RUNTIME_MANIFEST = "opk-runtime.json"
@@ -147,6 +155,7 @@ SYSTEM_LIBRARY_PREFIXES = (
     "libstdc++.so.",
     "libunwind.so.",
     "libusb-1.0.so.",
+    "libvulkan.so.",
     "libz.so.",
     "libzstd.so.",
 )
@@ -524,12 +533,12 @@ def copy_legal_files(source: Path, destination: Path, required: tuple[str, ...] 
         shutil.copyfile(path, target)
 
 
-def has_python_op_module(stage_root: Path) -> bool:
+def has_op_module(stage_root: Path, backend: str) -> bool:
     return any(
-        (stage_root / relative).is_file()
+        (stage_root / relative / f"opk-{backend}-ops.so").is_file()
         for relative in (
-            "lib/opk/opk-python-ops.so",
-            "development/build/meson-out/opk-python-ops.so",
+            "lib/opk",
+            "development/build/meson-out",
         )
     )
 
@@ -568,7 +577,9 @@ def stage_legal(args: argparse.Namespace) -> None:
     executorch = Path(args.executorch_license_dir or deps_root / "executorch-legal-documentation")
     if args.executorch_license_dir or executorch.is_dir():
         collect("executorch", executorch)
-    needs_numpy_headers = has_python_op_module(stage_root) and not args.include_python
+    if has_op_module(stage_root, "mlwl"):
+        copy_legal_files(deps_root / "mlwl/share/doc/mlwl", legal_root / "mlwl", MLWL_LEGAL_NOTICES)
+    needs_numpy_headers = has_op_module(stage_root, "python") and not args.include_python
     if needs_numpy_headers or args.include_python:
         for name in ("numpy", "flatbuffers"):
             if name == "flatbuffers" and not args.include_python:
@@ -593,8 +604,10 @@ def validate_legal_documentation(
     required.update(f"{name}/{relative}" for name, relative in SOURCE_LEGAL_NOTICES)
     if require_python:
         required.update(("python-numpy/licenses/LICENSE.txt", "python-flatbuffers/LICENSE"))
-    if has_python_op_module(package_root) and not require_python:
+    if has_op_module(package_root, "python") and not require_python:
         required.add("numpy-headers/licenses/LICENSE.txt")
+    if has_op_module(package_root, "mlwl") or (legal_root / "mlwl").exists():
+        required.update(f"mlwl/{relative}" for relative in MLWL_LEGAL_NOTICES)
     missing = required - {path.as_posix() for path in files}
     if missing:
         fail(f"Packaged licence evidence is missing: {sorted(missing)}")
@@ -739,7 +752,7 @@ def validate_release_tree(package_root: Path) -> None:
     legal_root = package_root / "share/opk/licenses"
     for path in package_root.rglob("*"):
         relative = path.relative_to(package_root)
-        if path.name.casefold().endswith((".onnx", ".onnx.part", ".pte", ".pte.part", ".bin", ".bin.part")):
+        if path.name.casefold().endswith((".onnx", ".onnx.part", ".pte", ".pte.part", ".bin", ".bin.part", ".vgf", ".vgf.part")):
             fail(f"Forbidden model binary in release: {relative}")
         if path.is_file() and path.name.startswith(("libgfortran", "libquadmath")) and ".so" in path.name:
             fail(f"GNU runtime library needs separate source review before release: {relative}")
@@ -774,7 +787,7 @@ def validate_runtime_files(package_root: Path) -> Path:
     plugins = list(plugin_root.iterdir())
     plugin_names = {path.name for path in plugins}
     if plugin_names != PLUGIN_NAMES:
-        fail(f"Plugin directory must contain exactly six plugins: {sorted(plugin_names)}")
+        fail(f"Packaged plugins must be exactly {sorted(PLUGIN_NAMES)}; found {sorted(plugin_names)}")
     if any(not is_elf(path) for path in plugins):
         fail("GStreamer plugins must be regular ELF files")
 
@@ -791,8 +804,11 @@ def validate_runtime_files(package_root: Path) -> Path:
 
     private_root = package_root / "lib/opk"
     op_modules = list(private_root.glob("opk-*-ops.so"))
-    if {path.name for path in op_modules} != OP_MODULE_NAMES:
-        fail(f"OPK op modules must be exactly {sorted(OP_MODULE_NAMES)}")
+    module_names = {path.name for path in op_modules}
+    if (not OP_MODULE_NAMES <= module_names
+            or module_names - OP_MODULE_NAMES - OPTIONAL_OP_MODULE_NAMES):
+        fail(f"OPK op modules must include {sorted(OP_MODULE_NAMES)}; "
+             f"optional modules: {sorted(OPTIONAL_OP_MODULE_NAMES)}")
     if any(not is_elf(path) for path in op_modules):
         fail("OPK op modules must be regular ELF files")
 
@@ -827,7 +843,7 @@ def validate_onnxruntime_provenance(
     package_root: Path, repo_root: Path | None, architecture: str
 ) -> None:
     private_root = package_root / "lib/opk"
-    library = private_root / "libonnxruntime.so.1.24.4"
+    library = onnxruntime_library(private_root)
     receipt_path = library.with_name(f"{library.name}.provenance.json")
     if not receipt_path.is_file() or receipt_path.is_symlink():
         fail("Packaged ONNX Runtime provenance receipt is missing or invalid")
@@ -850,20 +866,45 @@ def validate_onnxruntime_provenance(
             fail(f"Packaged ONNX Runtime legal file is missing or invalid: {filename}")
 
 
-def validate_onnx_runtime(private_root: Path) -> None:
+def onnxruntime_library(private_root: Path) -> Path:
     regular_onnx = [
         path
         for path in private_root.glob("libonnxruntime.so.*")
         if path.is_file() and not path.is_symlink()
         and not path.name.endswith(".provenance.json")
     ]
+    if len(regular_onnx) != 1 or not re.fullmatch(r"libonnxruntime\.so\.[0-9]+\.[0-9]+\.[0-9]+", regular_onnx[0].name):
+        fail("Package must contain exactly one versioned ONNX Runtime library")
+    return regular_onnx[0]
+
+
+def validate_onnx_runtime(private_root: Path) -> None:
+    library = onnxruntime_library(private_root)
     soname_link = private_root / "libonnxruntime.so.1"
-    if [path.name for path in regular_onnx] != ["libonnxruntime.so.1.24.4"]:
-        fail("Package must contain exactly ONNX Runtime 1.24.4")
-    if not soname_link.is_symlink() or os.readlink(soname_link) != regular_onnx[0].name:
+    if not soname_link.is_symlink() or os.readlink(soname_link) != library.name:
         fail("ONNX Runtime SONAME link is missing or incorrect")
-    if dynamic_values(regular_onnx[0], "SONAME") != ["libonnxruntime.so.1"]:
+    if dynamic_values(library, "SONAME") != ["libonnxruntime.so.1"]:
         fail("Pinned ONNX Runtime has an unexpected SONAME")
+
+
+def validate_mlwl_runtime(private_root: Path, repo_root: Path | None) -> None:
+    library = private_root / MLWL_RUNTIME_LIBRARY
+    receipt_path = library.with_suffix(".so.provenance.json")
+    if not (private_root / "opk-mlwl-ops.so").is_file():
+        if library.exists() or receipt_path.exists():
+            fail("MLWL runtime was packaged without its OPK module")
+        return
+    if not is_elf(library) or dynamic_values(library, "SONAME") != [MLWL_RUNTIME_LIBRARY]:
+        fail("Packaged MLWL runtime is missing or invalid")
+    if not receipt_path.is_file() or receipt_path.is_symlink():
+        fail("Packaged MLWL provenance receipt is missing or invalid")
+    receipt = json_mapping(receipt_path)
+    if receipt.get("library_sha256") != hashlib.sha256(library.read_bytes()).hexdigest():
+        fail("Packaged MLWL library SHA-256 mismatch")
+    if repo_root is not None:
+        locked = json_mapping(repo_root / "requirements/mlwl.json")
+        if receipt.get("sources") != locked:
+            fail("Packaged MLWL source does not match the selected source")
 
 
 def validate_python_operation_runtime(private_root: Path) -> None:
@@ -931,7 +972,7 @@ def validate_elf(
     relative = path.relative_to(package_root)
     if relative.parts[:2] == ("lib", "gstreamer-1.0"):
         expected_runpath = "$ORIGIN/../opk"
-    elif relative.parts[:2] == ("lib", "opk") and len(relative.parts) == 3:
+    elif relative.parts[:2] == ("lib", "opk") and len(relative.parts) == 3 and path.name != MLWL_RUNTIME_LIBRARY:
         expected_runpath = "$ORIGIN"
     else:
         expected_runpath = ""
@@ -954,6 +995,7 @@ def validate_package(args: argparse.Namespace) -> None:
     )
     validate_onnx_runtime(private_root)
     validate_onnxruntime_provenance(package_root, repo_root, architecture)
+    validate_mlwl_runtime(private_root, repo_root)
     validate_python_operation_runtime(private_root)
 
     elf_paths = [path for path in package_root.rglob("*") if is_elf(path)]

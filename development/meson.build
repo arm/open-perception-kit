@@ -108,6 +108,13 @@ endif
 
 # -------- ONNX
 fs = import('fs')
+onnx_version = run_command(
+  find_program('python3', native : true),
+  '-c', 'import json, sys; print(json.loads(sys.argv[1])["onnxruntime"])',
+  fs.read(opk_repository_root / 'requirements/build.json'),
+  check : true,
+).stdout().strip()
+onnx_library = 'libonnxruntime.so.' + onnx_version
 
 onnx_root = ''
 onnx_candidates = []
@@ -125,7 +132,7 @@ endif
 onnx_candidates += [
   '/opt/opk-deps/onnxruntime',
   opk_repository_root / 'deps/onnxruntime',
-  opk_repository_root / 'onnxruntime-linux-aarch64-1.24.4',
+  opk_repository_root / ('onnxruntime-linux-aarch64-' + onnx_version),
 ]
 
 foreach candidate : onnx_candidates
@@ -258,6 +265,7 @@ subdir('runtime')
 subdir('elements/opkinfer')
 subdir('ops-onnx')
 subdir('ops-std')
+subdir('ops-vulkan')
 if python_ops_enabled
   subdir('ops-python')
 endif
@@ -273,6 +281,7 @@ subdir('examples')
 # Optional subdirs decision tree is inside the subdir
 executorchops = disabler()
 subdir('ops-executorch')
+subdir('ops-mlwl')
 
 if deb_package or demo_deb_package
   subdir('packaging')

@@ -67,12 +67,13 @@ runtime. Treat these as constraints when extending the system.
 
 ## Media Support
 
-- Main GStreamer elements negotiate linear CPU video frames in `BGRA`, `RGB`,
+- Main GStreamer elements negotiate linear raw video in `BGRA`, `RGB`,
   `I420`, `NV12`, and `YUY2`.
-- `opkinfer` accepts linear, CPU-mappable DMA-BUF input through GStreamer, including
-  padded strides and separate planes. Preprocessing still creates separate model
-  input tensors; this is not end-to-end zero-copy inference. Tiled/compressed
-  DMA-BUF layouts and non-mappable device memory require upstream conversion.
+- `opkinfer` accepts linear DMA-BUF input through GStreamer, including padded
+  strides and separate planes. GPU preprocessing can import supported allocations;
+  CPU preprocessing and upload fallback require readable memory. Preprocessing
+  writes separate model input tensors. Tiled/compressed DMA-BUF layouts require
+  upstream conversion.
 - `opkinfer` supports interleaved raw PCM input, converted to mono Float32 at
   16 kHz with up to 60 seconds of buffered history. Inference runs on complete
   PCM windows; `audio-hop-samples=0` defaults to the required fresh sample count.

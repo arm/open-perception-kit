@@ -19,8 +19,6 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <cstdlib>
-#include <filesystem>
 #include <fmt/core.h>
 #include <memory>
 #include <string>
@@ -30,7 +28,6 @@
 #include "opk/ImageOpDesc.h"
 #include "opk/Result.h"
 #include "opk/TensorView.h"
-#include "opk/Tools.h"
 #include "opk/Types.h"
 #include "tl/expected.hpp"
 
@@ -62,11 +59,66 @@ opk::ImagePlaneDesc makePlaneDesc(const opk::mediaio::DataView &plane) {
     };
 }
 
-std::filesystem::path debugOutputDirectory() {
-    const char *projectRoot = std::getenv("OPK_PROJECT_ROOT");
-    const std::filesystem::path root =
-        projectRoot != nullptr && projectRoot[0] != '\0' ? projectRoot : "/work";
-    return root / "var";
+opk::Result<opk::ImageOpDesc> sourceImageDescription(const opk::mediaio::VideoFrame &frame,
+                                                     const opk::PixelRect &cropRect,
+                                                     const opk::ModelInput &inputTensor) {
+    const auto readablePlanes{frame.planes()};
+
+    const auto sourceFormat = frame.format();
+    const size_t sourcePlaneCount = readablePlanes.size();
+    if (sourcePlaneCount == 0 || sourcePlaneCount > opk::MaxImagePlaneCount) {
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::InvalidData,
+                      "GenericImagePreprocessOp VideoFrame has invalid plane count"));
+    }
+
+    // setup tensor data source
+    opk::ImageOpDesc source{};
+    source.surfaceWidth = frame.width();
+    source.surfaceHeight = frame.height();
+    source.rect = cropRect;
+    source.planeCount = sourcePlaneCount;
+    for (size_t planeIndex = 0; planeIndex < sourcePlaneCount; ++planeIndex) {
+        source.planes[planeIndex] = makePlaneDesc(readablePlanes[planeIndex]);
+        if (!source.planes[planeIndex].data || source.planes[planeIndex].mutableData) {
+            opk::log::error("GenericImagePreprocessOp source plane {} is not readable\n",
+                            planeIndex);
+            return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidData,
+                                            "GenericImagePreprocessOp source plane " +
+                                                std::to_string(planeIndex) + " is not readable"));
+        }
+    }
+    source.format = sourceFormat;
+    source.type = opk::Dtype::Uint8;
+    source.mean = inputTensor.mean;
+    source.std = inputTensor.std;
+    if (isYuvPixelFormat(sourceFormat)) {
+        source.yuvMatrix = frame.yuvColorMatrix();
+        source.yuvRange = frame.yuvRange();
+        if (source.yuvMatrix == opk::YuvColorMatrix::Unknown ||
+            source.yuvRange == opk::YuvRange::Unknown) {
+            return tl::unexpected(OPK_ERROR(
+                opk::ErrorFlag::InvalidData,
+                "GenericImagePreprocessOp YUV VideoFrame has unknown colorimetry or range"));
+        }
+    }
+
+    return source;
+}
+
+opk::ImageInferenceMetadata imageMetadata(const opk::PixelRect &cropRect,
+                                          const opk::PixelRect &destinationRect,
+                                          const opk::PixelRect &letterboxInnerRect) {
+    opk::ImageInferenceMetadata image{};
+    image.width = cropRect.width;
+    image.height = cropRect.height;
+    image.modelWidth = destinationRect.width;
+    image.modelHeight = destinationRect.height;
+    image.letterboxLeft = letterboxInnerRect.x - destinationRect.x;
+    image.letterboxRight = destinationRect.width - letterboxInnerRect.width - image.letterboxLeft;
+    image.letterboxTop = letterboxInnerRect.y - destinationRect.y;
+    image.letterboxBottom = destinationRect.height - letterboxInnerRect.height - image.letterboxTop;
+    return image;
 }
 
 } // namespace
@@ -77,25 +129,22 @@ GenericImagePreprocessOp::~GenericImagePreprocessOp() = default;
 opk::Result<void> GenericImagePreprocessOp::bind(size_t index,
                                                  const std::vector<opk::op::Op *> &ops) {
     // sanity check
-    if (ops.size() <= index) {
+    if (index >= ops.size() || ops.size() - index <= 1) {
         return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
                                         "GenericImagePreprocessOp cannot be the last Op"));
     }
 
     // sanity check (later maybe other ops will be valid between them)
-    const opk::op::OpInterfaceInference *inferenceOp =
-        ops[index + 1]->as<opk::op::OpInterfaceInference>();
-    if (!inferenceOp) {
+    upcomingInference = ops[index + 1]->as<opk::op::OpInterfaceInference>();
+    if (!upcomingInference) {
         return tl::unexpected(
             OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
                       "GenericImagePreprocessOp should be BEFORE an inference Op"));
     }
 
     // --- grab infos about the upcoming inference
-    upcomingInferenceModel = inferenceOp->getModel();
-    for (size_t i = 0; i < upcomingInferenceModel.inputs.size(); i++) {
-        upcomingTensorAddresses[i] = inferenceOp->getTensorDataAddress(i);
-    }
+    upcomingInferenceModel = upcomingInference->getModel();
+    sharedInput = ops[index + 1]->as<opk::op::OpInterfaceSharedInput>();
 
     if (inputImageTensorIndex == opk::InvalidTensorIndex) {
         // user not specified a tensor index
@@ -128,21 +177,60 @@ opk::Result<void> GenericImagePreprocessOp::configure(const opk::AttributeMap &a
     return {};
 }
 
-opk::Result<opk::op::OpSignal> GenericImagePreprocessOp::process(
-    opk::op::OpChainContext &opChainContext) { // NOSONAR - preprocessing setup is intentionally
-                                               // linear to keep frame/tensor state explicit.
+opk::Result<opk::ImageOpDesc>
+GenericImagePreprocessOp::destinationImageDescription(const opk::ModelInput &inputTensor,
+                                                      const opk::PixelRect &destinationRect) {
+    if (sharedInput) {
+        const auto result{sharedInput->setOwnedInputStorage(inputImageTensorIndex)};
+        if (!result) {
+            return tl::unexpected(result.error());
+        }
+    }
+    uint8_t *const inputTensorData{upcomingInference->getTensorDataAddress(inputImageTensorIndex)};
+
+    opk::ImageOpDesc destination{};
+    destination.type = inputTensor.valueType;
+    destination.surfaceWidth = destinationRect.width;
+    destination.surfaceHeight = destinationRect.height;
+    destination.rect = destinationRect;
+    destination.kind = inputTensor.dataKind;
+    destination.planeCount = 1;
+    destination.planes[0] = {
+        nullptr,
+        inputTensorData,
+        inputTensor.shape.getFullValueCount() * opk::getValueTypeByteSize(inputTensor.valueType),
+        0,
+    };
+    if (destination.planes[0].data || !destination.planes[0].mutableData) {
+        opk::log::error("GenericImagePreprocessOp input tensor {} is not writable\n",
+                        inputImageTensorIndex);
+        return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidData,
+                                        "GenericImagePreprocessOp input tensor " +
+                                            std::to_string(inputImageTensorIndex) +
+                                            " is not writable"));
+    }
+    destination.keepAspectRatio = inputTensor.keepAspectRatio;
+    destination.letterboxRed = inputTensor.letterboxRed;
+    destination.letterboxGreen = inputTensor.letterboxGreen;
+    destination.letterboxBlue = inputTensor.letterboxBlue;
+
+    return destination;
+}
+
+opk::Result<opk::op::OpSignal>
+GenericImagePreprocessOp::process(opk::op::OpChainContext &opChainContext) {
     OPK_PERF_SCOPE(fmt::format("std/GenImgPre/{}", upcomingInferenceModel.name));
 
     if (opChainContext.inferenceImageCrops.size() == 0) {
         return opk::op::OpSignal::BreakLoop;
     }
 
-    opk::PixelRect cropRect = opChainContext.inferenceImageCrops.back();
+    const opk::PixelRect cropRect{opChainContext.inferenceImageCrops.back()};
     opChainContext.inferenceImageCrops.pop_back();
-    uint64_t sourceId = opChainContext.inferenceImageCropIds.back();
+    const uint64_t sourceId{opChainContext.inferenceImageCropIds.back()};
     opChainContext.inferenceImageCropIds.pop_back();
 
-    auto *pipelineVideoFrame = opChainContext.getVideoFrame(inputImageSourceName);
+    const auto *const pipelineVideoFrame{opChainContext.getVideoFrame(inputImageSourceName)};
 
     if (pipelineVideoFrame == nullptr) {
         return tl::unexpected(OPK_ERROR(
@@ -150,7 +238,7 @@ opk::Result<opk::op::OpSignal> GenericImagePreprocessOp::process(
             fmt::format("GenericImagePreprocessOp needs VideoFrame '{}'", inputImageSourceName)));
     }
 
-    size_t modelWidth, modelHeight;
+    size_t modelWidth{0}, modelHeight{0};
     const auto &inputTensor = upcomingInferenceModel.inputs[inputImageTensorIndex];
     if (false == inputTensor.tryGetImageTensorSize(modelWidth, modelHeight)) {
         return tl::unexpected(
@@ -164,104 +252,14 @@ opk::Result<opk::op::OpSignal> GenericImagePreprocessOp::process(
             OPK_ERROR(opk::ErrorFlag::InvalidData,
                       "GenericImagePreprocessOp failed to map readable host planes"));
     }
-    const auto readablePlanes{readableVideoFrame->planes()};
-
-    const auto sourceFormat = readableVideoFrame->format();
-    const size_t sourcePlaneCount = readablePlanes.size();
-    if (sourcePlaneCount == 0 || sourcePlaneCount > opk::MaxImagePlaneCount) {
-        return tl::unexpected(
-            OPK_ERROR(opk::ErrorFlag::InvalidData,
-                      "GenericImagePreprocessOp VideoFrame has invalid plane count"));
-    }
-
-    // setup tensor data source
-    opk::TensorBuilder::Setup setup;
-    setup.imageSourceDesc.surfaceWidth = readableVideoFrame->width();
-    setup.imageSourceDesc.surfaceHeight = readableVideoFrame->height();
-    setup.imageSourceDesc.rect = cropRect;
-    setup.imageSourceDesc.planeCount = sourcePlaneCount;
-    for (size_t planeIndex = 0; planeIndex < sourcePlaneCount; ++planeIndex) {
-        setup.imageSourceDesc.planes[planeIndex] = makePlaneDesc(readablePlanes[planeIndex]);
-        if (!setup.imageSourceDesc.planes[planeIndex].data ||
-            setup.imageSourceDesc.planes[planeIndex].mutableData) {
-            opk::log::error("GenericImagePreprocessOp source plane {} is not readable\n",
-                            planeIndex);
-            return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidData,
-                                            "GenericImagePreprocessOp source plane " +
-                                                std::to_string(planeIndex) + " is not readable"));
-        }
-    }
-    setup.imageSourceDesc.format = sourceFormat;
-    setup.imageSourceDesc.type = opk::Dtype::Uint8;
-    setup.imageSourceDesc.mean = inputTensor.mean;
-    setup.imageSourceDesc.std = inputTensor.std;
-    if (isYuvPixelFormat(sourceFormat)) {
-        setup.imageSourceDesc.yuvMatrix = readableVideoFrame->yuvColorMatrix();
-        setup.imageSourceDesc.yuvRange = readableVideoFrame->yuvRange();
-        if (setup.imageSourceDesc.yuvMatrix == opk::YuvColorMatrix::Unknown ||
-            setup.imageSourceDesc.yuvRange == opk::YuvRange::Unknown) {
-            return tl::unexpected(OPK_ERROR(
-                opk::ErrorFlag::InvalidData,
-                "GenericImagePreprocessOp YUV VideoFrame has unknown colorimetry or range"));
-        }
-    }
-
-    // debug
-    if (false) {
-        opk::log::info("crop: {} {} {} {}\n",
-                       setup.imageSourceDesc.rect.x,
-                       setup.imageSourceDesc.rect.y,
-                       setup.imageSourceDesc.rect.width,
-                       setup.imageSourceDesc.rect.height);
-    }
-
-    // debug
-    if (false) {
-        std::string debugFile =
-            (debugOutputDirectory() / fmt::format("crop_[{}]_{}_{}x{}x{}x{}.png",
-                                                  upcomingInferenceModel.contentType,
-                                                  opk::nextObjectId(),
-                                                  setup.imageSourceDesc.rect.x,
-                                                  setup.imageSourceDesc.rect.y,
-                                                  setup.imageSourceDesc.rect.width,
-                                                  setup.imageSourceDesc.rect.height))
-                .string();
-        opk::Tools::savePngCropFromBgra(debugFile,
-                                        setup.imageSourceDesc.planes[0].data,
-                                        setup.imageSourceDesc.surfaceWidth,
-                                        setup.imageSourceDesc.surfaceHeight,
-                                        setup.imageSourceDesc.rect.x,
-                                        setup.imageSourceDesc.rect.y,
-                                        setup.imageSourceDesc.rect.width,
-                                        setup.imageSourceDesc.rect.height);
-    }
-
-    // setup preprocessed tensor data
-    setup.imageDestinationDesc.type = inputTensor.valueType;
-    setup.imageDestinationDesc.surfaceWidth = modelWidth;
-    setup.imageDestinationDesc.surfaceHeight = modelHeight;
-    setup.imageDestinationDesc.rect = {0, 0, modelWidth, modelHeight};
-    setup.imageDestinationDesc.kind = inputTensor.dataKind;
-    setup.imageDestinationDesc.planeCount = 1;
-    setup.imageDestinationDesc.planes[0] = {
-        nullptr,
-        upcomingTensorAddresses[inputImageTensorIndex],
-        inputTensor.shape.getFullValueCount() * opk::getValueTypeByteSize(inputTensor.valueType),
-        0,
-    };
-    if (setup.imageDestinationDesc.planes[0].data ||
-        !setup.imageDestinationDesc.planes[0].mutableData) {
-        opk::log::error("GenericImagePreprocessOp input tensor {} is not writable\n",
-                        inputImageTensorIndex);
-        return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InvalidData,
-                                        "GenericImagePreprocessOp input tensor " +
-                                            std::to_string(inputImageTensorIndex) +
-                                            " is not writable"));
-    }
-    setup.imageDestinationDesc.keepAspectRatio = inputTensor.keepAspectRatio;
-    setup.imageDestinationDesc.letterboxRed = inputTensor.letterboxRed;
-    setup.imageDestinationDesc.letterboxGreen = inputTensor.letterboxGreen;
-    setup.imageDestinationDesc.letterboxBlue = inputTensor.letterboxBlue;
+    const auto source{sourceImageDescription(*readableVideoFrame, cropRect, inputTensor)};
+    if (!source)
+        return tl::unexpected(source.error());
+    const opk::PixelRect destinationRect{0, 0, modelWidth, modelHeight};
+    const auto destination{destinationImageDescription(inputTensor, destinationRect)};
+    if (!destination)
+        return tl::unexpected(destination.error());
+    const opk::TensorBuilder::Setup setup{*source, *destination};
 
     opk::PixelRect letterboxInnerRect = setup.imageDestinationDesc.rect;
     if (inputTensor.keepAspectRatio) {
@@ -270,42 +268,13 @@ opk::Result<opk::op::OpSignal> GenericImagePreprocessOp::process(
     }
 
     // call tensor building
-    opk::Result<void> result = genericImageInputTensorBuilder.build(setup);
+    const auto result{genericImageInputTensorBuilder.build(setup)};
     if (result.has_value() == false) {
         return tl::unexpected(result.error());
     }
 
-    // debug
-    if (false) {
-        std::string debugFile =
-            (debugOutputDirectory() / fmt::format("tensor_[{}][{}]_{}x{}.png",
-                                                  upcomingInferenceModel.contentType,
-                                                  opk::nextObjectId(),
-                                                  modelWidth,
-                                                  modelHeight))
-                .string();
-
-        opk::Tools::savePngFromRgbChwF32(debugFile,
-                                         (float *)upcomingTensorAddresses[inputImageTensorIndex],
-                                         modelWidth,
-                                         modelHeight);
-    }
-
-    // populate inference info
-    opChainContext.inferenceInfo.image.width = cropRect.width;
-    opChainContext.inferenceInfo.image.height = cropRect.height;
-    opChainContext.inferenceInfo.image.modelWidth = modelWidth;
-    opChainContext.inferenceInfo.image.modelHeight = modelHeight;
-    opChainContext.inferenceInfo.image.letterboxLeft =
-        letterboxInnerRect.x - setup.imageDestinationDesc.rect.x;
-    opChainContext.inferenceInfo.image.letterboxRight =
-        setup.imageDestinationDesc.rect.width - letterboxInnerRect.width -
-        opChainContext.inferenceInfo.image.letterboxLeft;
-    opChainContext.inferenceInfo.image.letterboxTop =
-        letterboxInnerRect.y - setup.imageDestinationDesc.rect.y;
-    opChainContext.inferenceInfo.image.letterboxBottom =
-        setup.imageDestinationDesc.rect.height - letterboxInnerRect.height -
-        opChainContext.inferenceInfo.image.letterboxTop;
+    opChainContext.inferenceInfo.image =
+        imageMetadata(cropRect, destinationRect, letterboxInnerRect);
     opChainContext.inferenceInfo.modelName = upcomingInferenceModel.name;
     opChainContext.inferenceInfo.contentType = upcomingInferenceModel.contentType;
     opChainContext.inferenceInfo.parentId = sourceId;

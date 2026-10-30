@@ -21,6 +21,170 @@ import test from 'node:test';
 import {createWebRtcClient} from '../src/webrtc_client.js';
 import './microphone.test.js';
 
+test('only a video frame reports connected, and late negotiation cannot downgrade it', async () => {
+    const env = createEnv();
+    const client = env.createClient();
+
+    client.start();
+    env.openLatestSocket();
+    await env.flush();
+    env.latestSocket().receive({type: 'answer', sdp: 'answer'});
+    await env.flush();
+    const track = env.attachVideoTrack();
+    track.onunmute();
+    client.setPaused(true);
+    client.setPaused(false);
+    env.latestPeerConnection().setIceState('connected');
+    env.latestPeerConnection().setIceState('completed');
+    await env.flush();
+
+    assert.equal(env.statuses.some(({state}) => state === 'connected'), false);
+    assert.equal(env.statuses.at(-1).subtext, 'Waiting for video…');
+
+    env.video.emitFrame();
+    assert.equal(env.statuses.at(-1).state, 'connected');
+    assert.equal(env.statuses.at(-1).subtext, 'Connected');
+    const statusCount = env.statuses.length;
+    env.video.emitFrame();
+    assert.equal(env.statuses.length, statusCount);
+
+    env.latestSocket().receive({type: 'answer', sdp: 'late-answer'});
+    await env.flush();
+    env.latestPeerConnection().setIceState('connected');
+    env.latestPeerConnection().setIceState('completed');
+    assert.equal(env.statuses.at(-1).state, 'connected');
+    assert.equal(env.statuses.at(-1).subtext, 'Connected');
+});
+
+test('ICE failure remains visible through retry and clears on the first video frame', async () => {
+    const env = createEnv();
+    const client = env.createClient({reconnectDelayMs: 25});
+    const message = 'Connection failed. Try TURN.';
+
+    client.start();
+    env.openLatestSocket();
+    await env.flush();
+    env.latestPeerConnection().setIceState('failed');
+    assert.equal(env.statuses.at(-1).state, 'reconnecting');
+    assert.equal(env.statuses.at(-1).subtext, message);
+
+    env.clock.tick(24);
+    assert.equal(env.peerConnections.length, 1);
+    env.clock.tick(1);
+    const retryStatusCount = env.statuses.length - 1;
+    env.openLatestSocket();
+    await env.flush();
+    env.latestSocket().receive({type: 'answer', sdp: 'answer'});
+    await env.flush();
+    const track = env.attachVideoTrack();
+    track.onunmute();
+    client.setPaused(true);
+    client.setPaused(false);
+    env.latestPeerConnection().setIceState('connected');
+    assert.equal(env.peerConnections.length, 2);
+    assert.ok(env.statuses.slice(retryStatusCount).every(({subtext}) => subtext === message));
+
+    env.video.emitFrame();
+    assert.equal(env.statuses.at(-1).state, 'connected');
+    assert.equal(env.statuses.at(-1).subtext, 'Connected');
+
+    env.latestSocket().serverClose();
+    assert.equal(env.statuses.at(-1).subtext, 'Signaling unavailable. Check server.');
+    client.stop();
+    client.start();
+    assert.equal(env.statuses.at(-1).subtext, 'Connecting…');
+});
+
+test('ICE failure recognizes TURN and TLS TURN in string and array URLs', async () => {
+    for (const urls of [
+        'turn:relay.test:3478',
+        ['stun:relay.test:3478', 'turn:relay.test:3478'],
+        'turns:relay.test:5349',
+        ['stun:relay.test:3478', 'turns:relay.test:5349'],
+    ]) {
+        const env = createEnv();
+        const iceServers = [{urls}];
+        const client = env.createClient({iceServers});
+
+        client.start();
+        env.openLatestSocket();
+        await env.flush();
+        env.latestPeerConnection().setIceState('failed');
+
+        assert.equal(env.statuses.at(-1).subtext, 'Connection failed. Check network/TURN.');
+        assert.deepEqual(env.latestPeerConnection().options, {iceServers});
+        assert.deepEqual(env.latestPeerConnection().transceivers, [
+            {kind: 'video', options: {direction: 'recvonly'}},
+            {kind: 'audio', options: {direction: 'recvonly'}},
+        ]);
+    }
+});
+
+test('disconnection and missing video report their own short errors', async () => {
+    const env = createEnv();
+    const client = env.createClient({frameTimeoutMs: 100, reconnectDelayMs: 5});
+
+    client.start();
+    env.openLatestSocket();
+    await env.flush();
+    env.latestPeerConnection().setIceState('disconnected');
+    assert.equal(env.statuses.at(-1).subtext, 'Connection lost. Retrying…');
+
+    env.clock.tick(5);
+    env.openLatestSocket();
+    await env.flush();
+    env.attachVideoTrack();
+    env.video.emitFrame();
+    env.clock.tick(100);
+    assert.equal(env.statuses.at(-1).subtext, 'No video. Retrying…');
+    assert.equal(client.getDebugState().restartTimerCount, 1);
+});
+
+test('signaling errors report the server without adding a restart', async () => {
+    const env = createEnv();
+    const client = env.createClient({reconnectDelayMs: 25});
+
+    client.start();
+    env.openLatestSocket();
+    await env.flush();
+    env.attachVideoTrack();
+    env.video.emitFrame();
+    env.latestSocket().onerror(new Error('unavailable'));
+
+    assert.equal(env.statuses.at(-1).state, 'disconnected');
+    assert.equal(env.statuses.at(-1).subtext, 'Signaling unavailable. Check server.');
+    assert.equal(client.getDebugState().restartTimerCount, 0);
+    assert.equal(env.latestPeerConnection().closeCount, 0);
+    env.latestPeerConnection().setIceState('completed');
+    assert.equal(env.statuses.at(-1).subtext, 'Signaling unavailable. Check server.');
+
+    env.latestSocket().serverClose();
+    assert.equal(env.statuses.at(-1).subtext, 'Signaling unavailable. Check server.');
+    assert.equal(client.getDebugState().restartTimerCount, 1);
+});
+
+test('offer and malformed signaling failures report negotiation without a TURN hint', async () => {
+    for (const failure of ['offer', 'message']) {
+        const env = createEnv();
+        const client = env.createClient({reconnectDelayMs: 25});
+
+        client.start();
+        if (failure === 'offer') {
+            env.latestPeerConnection().createOffer = async () => {
+                throw new Error('offer failed');
+            };
+        }
+        env.openLatestSocket();
+        await env.flush();
+        if (failure === 'message')
+            await env.latestSocket().onmessage({data: '{'});
+
+        assert.equal(env.statuses.at(-1).subtext, 'Negotiation failed. Retrying…');
+        assert.equal(client.getDebugState().restartTimerCount, 1);
+        assert.equal(env.latestPeerConnection().closeCount, 1);
+    }
+});
+
 test('frame heartbeat keeps the session alive', async () => {
     const env = createEnv();
     const frames = [];
@@ -259,17 +423,41 @@ test('video playback rejection does not restart the WebRTC session', async () =>
 
     assert.equal(env.peerConnections.length, 1);
     assert.equal(client.getDebugState().restartTimerCount, 0);
+    assert.equal(env.statuses.at(-1).state, 'disconnected');
+    assert.equal(env.statuses.at(-1).subtext, 'Playback failed. Check browser.');
     assert.equal(env.logs.some((log) =>
         log.message === 'Unable to start video playback: playback blocked'), true);
 });
 
-test('status line updates are plain text for the compact UI', async () => {
+test('a synchronous playback error is display-only and a later frame clears it', async () => {
     const env = createEnv();
-    const statusLines = [];
+    env.video.play = () => {
+        throw new Error('playback blocked');
+    };
+    const client = env.createClient();
+
+    client.start();
+    env.openLatestSocket();
+    await env.flush();
+    env.attachVideoTrack();
+
+    assert.equal(env.statuses.at(-1).state, 'disconnected');
+    assert.equal(env.statuses.at(-1).subtext, 'Playback failed. Check browser.');
+    assert.equal(client.getDebugState().restartTimerCount, 0);
+    assert.equal(env.latestPeerConnection().closeCount, 0);
+    env.latestPeerConnection().setIceState('connected');
+    assert.equal(env.statuses.at(-1).subtext, 'Playback failed. Check browser.');
+
+    env.video.emitFrame();
+    assert.equal(env.statuses.at(-1).state, 'connected');
+    assert.equal(env.statuses.at(-1).subtext, 'Connected');
+});
+
+test('status messages are plain text for the compact UI', async () => {
+    const env = createEnv();
     const client = env.createClient({
         frameTimeoutMs: 1000,
         reconnectDelayMs: 0,
-        onStatusLine: (message) => statusLines.push(message),
     });
 
     client.start();
@@ -283,8 +471,9 @@ test('status line updates are plain text for the compact UI', async () => {
     env.openLatestSocket();
     env.latestSocket().serverClose();
 
-    assert.ok(statusLines.length > 0);
-    assert.equal(statusLines.some((message) => /<\/?[a-z][^>]*>/i.test(message)), false);
+    const messages = env.statuses.map(({subtext}) => subtext);
+    assert.ok(messages.length > 0);
+    assert.equal(messages.some((message) => /<\/?[a-z][^>]*>/i.test(message)), false);
 });
 
 test('currentTime fallback heartbeat keeps the session alive without requestVideoFrameCallback', async () => {
@@ -299,12 +488,92 @@ test('currentTime fallback heartbeat keeps the session alive without requestVide
     env.attachVideoTrack();
 
     env.clock.tick(100);
+    assert.equal(env.statuses.some(({state}) => state === 'connected'), false);
     env.video.currentTime = 1;
     env.clock.tick(100);
+    assert.equal(env.statuses.some(({state}) => state === 'connected'), false);
+    env.video.videoWidth = 640;
+    env.video.readyState = 1;
+    env.video.currentTime = 2;
+    env.clock.tick(100);
+    assert.equal(env.statuses.some(({state}) => state === 'connected'), false);
+    env.video.readyState = 2;
+    env.video.currentTime = 3;
+    env.clock.tick(100);
+    assert.equal(env.statuses.at(-1).state, 'connected');
+    assert.equal(env.statuses.at(-1).subtext, 'Connected');
     env.clock.tick(300);
 
     assert.equal(env.peerConnections.length, 1);
     assert.equal(client.getDebugState().restartTimerCount, 0);
+});
+
+test('loadeddata reports video without adding polling when frame timeout is disabled', async () => {
+    const env = createEnv();
+    env.video.requestVideoFrameCallback = undefined;
+    env.video.cancelVideoFrameCallback = undefined;
+    const client = env.createClient({frameTimeoutMs: 0});
+
+    client.start();
+    env.openLatestSocket();
+    await env.flush();
+    env.attachVideoTrack();
+    assert.equal(env.statuses.some(({state}) => state === 'connected'), false);
+    assert.equal(env.clock.timers.size, 0);
+
+    env.video.dispatchEvent(new Event('loadeddata'));
+    assert.equal(env.statuses.some(({state}) => state === 'connected'), false);
+    env.video.videoWidth = 640;
+    env.video.dispatchEvent(new Event('loadeddata'));
+    assert.equal(env.statuses.at(-1).state, 'connected');
+    assert.equal(env.statuses.at(-1).subtext, 'Connected');
+    assert.equal(env.clock.timers.size, 0);
+    env.clock.tick(60000);
+    assert.equal(env.peerConnections.length, 1);
+    assert.equal(client.getDebugState().restartTimerCount, 0);
+});
+
+test('loadeddata listener is removed on restart and stale callbacks cannot update status', async () => {
+    const env = createEnv();
+    env.video.requestVideoFrameCallback = undefined;
+    env.video.cancelVideoFrameCallback = undefined;
+    const added = [];
+    const removed = [];
+    const addEventListener = env.video.addEventListener.bind(env.video);
+    const removeEventListener = env.video.removeEventListener.bind(env.video);
+    env.video.addEventListener = (type, listener, options) => {
+        added.push({type, listener});
+        addEventListener(type, listener, options);
+    };
+    env.video.removeEventListener = (type, listener, options) => {
+        removed.push({type, listener});
+        removeEventListener(type, listener, options);
+    };
+    const client = env.createClient({frameTimeoutMs: 0, reconnectDelayMs: 25});
+
+    client.start();
+    env.openLatestSocket();
+    await env.flush();
+    env.attachVideoTrack();
+    const loadeddata = added.find(({type}) => type === 'loadeddata');
+    assert.ok(loadeddata);
+    env.latestSocket().serverClose();
+    assert.ok(removed.some(({type, listener}) =>
+        type === 'loadeddata' && listener === loadeddata.listener));
+
+    env.clock.tick(25);
+    env.openLatestSocket();
+    await env.flush();
+    const statusCount = env.statuses.length;
+    env.video.videoWidth = 640;
+    loadeddata.listener(new Event('loadeddata'));
+    env.video.dispatchEvent(new Event('loadeddata'));
+    assert.equal(env.statuses.length, statusCount);
+
+    env.attachVideoTrack();
+    env.video.dispatchEvent(new Event('loadeddata'));
+    assert.equal(env.statuses.at(-1).state, 'connected');
+    assert.equal(env.statuses.at(-1).subtext, 'Connected');
 });
 
 test('video track ended schedules one full restart', async () => {
@@ -319,6 +588,7 @@ test('video track ended schedules one full restart', async () => {
     track.onended();
     track.onended();
 
+    assert.equal(env.statuses.at(-1).subtext, 'Video ended. Retrying…');
     assert.equal(client.getDebugState().restartTimerCount, 1);
     env.clock.tick(10);
     await env.flush();
@@ -337,20 +607,24 @@ test('stale answer and candidate events cannot modify the new generation', async
     await env.flush();
 
     const oldSocket = env.latestSocket();
+    const oldPc = env.latestPeerConnection();
     oldSocket.receive({type: 'frame-metadata', rtp_timestamp: 42});
-    env.latestPeerConnection().setIceState('failed');
+    oldPc.setIceState('failed');
     env.clock.tick(0);
     env.openLatestSocket();
     await env.flush();
 
     const newPc = env.latestPeerConnection();
+    const statusCount = env.statuses.length;
     oldSocket.receive({type: 'answer', sdp: 'stale-answer'});
     oldSocket.receive({type: 'candidate', ice: {candidate: 'stale', sdpMLineIndex: 0}});
     oldSocket.receive({type: 'frame-metadata', rtp_timestamp: 43});
+    oldPc.setIceState('connected');
     await env.flush();
 
     assert.equal(newPc.remoteDescriptions.length, 0);
     assert.equal(newPc.iceCandidates.length, 0);
+    assert.equal(env.statuses.length, statusCount);
     env.attachVideoTrack();
     env.video.emitFrame(42);
     assert.equal(frames.at(-1), null);
@@ -425,10 +699,13 @@ class FakeClock {
     }
 }
 
-class FakeVideo {
+class FakeVideo extends EventTarget {
     constructor() {
+        super();
         this.srcObject = null;
         this.currentTime = 0;
+        this.videoWidth = 0;
+        this.readyState = 0;
         this.paused = true;
         this.playCount = 0;
         this.playError = null;
@@ -493,7 +770,8 @@ class FakeTrack {
 }
 
 class FakePeerConnection {
-    constructor() {
+    constructor(options) {
+        this.options = options;
         this.localDescription = null;
         this.remoteDescriptions = [];
         this.iceCandidates = [];
@@ -587,6 +865,7 @@ function createEnv() {
     const peerConnections = [];
     const webSockets = [];
     const logs = [];
+    const statuses = [];
 
     return {
         clock,
@@ -594,6 +873,7 @@ function createEnv() {
         peerConnections,
         webSockets,
         logs,
+        statuses,
         createClient(overrides = {}) {
             return createWebRtcClient({
                 video,
@@ -605,16 +885,15 @@ function createEnv() {
                 clearTimeout: clock.clearTimeout.bind(clock),
                 now: clock.now.bind(clock),
                 logger: (message, type) => logs.push({message, type}),
-                onStatus: () => {},
-                onStatusLine: () => {},
+                onStatus: (state, label, subtext) => statuses.push({state, label, subtext}),
                 onRemoteTrack: () => {},
                 WebSocketFactory: (url) => {
                     const socket = new FakeWebSocket(url);
                     webSockets.push(socket);
                     return socket;
                 },
-                RTCPeerConnectionFactory: () => {
-                    const pc = new FakePeerConnection();
+                RTCPeerConnectionFactory: (options) => {
+                    const pc = new FakePeerConnection(options);
                     peerConnections.push(pc);
                     return pc;
                 },

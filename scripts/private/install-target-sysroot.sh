@@ -42,6 +42,7 @@ apt-get install -y --no-install-recommends --download-only \
     "libssl-dev:${architecture}" \
     "libfmt-dev:${architecture}" \
     "libfftw3-dev:${architecture}" \
+    "libvulkan-dev:${architecture}" \
     "libsoup-3.0-dev:${architecture}" \
     "libjson-glib-dev:${architecture}" \
     "libgstreamer1.0-dev:${architecture}" \

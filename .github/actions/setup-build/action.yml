@@ -16,6 +16,11 @@
 name: Set up OPK build environment
 description: Set up native OPK builds on Ubuntu 24.04.
 
+inputs:
+  mlwl:
+    description: Install and enable the optional MLWL backend.
+    default: 'false'
+
 runs:
   using: composite
   steps:
@@ -49,7 +54,7 @@ runs:
           build-essential "$CC" "$CXX" ccache cmake ninja-build pkg-config \
           libcairo2-dev libfftw3-dev libgirepository-2.0-dev python-gi-dev \
           libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev \
-          libjson-glib-dev libsoup-3.0-dev libssl-dev \
+          libjson-glib-dev libsoup-3.0-dev libssl-dev libvulkan-dev glslang-tools \
           gstreamer1.0-tools gstreamer1.0-nice gstreamer1.0-plugins-base \
           gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly
         {
@@ -103,3 +108,15 @@ runs:
           echo "CCACHE_DIR=$GITHUB_WORKSPACE/.cache/ccache"
         } >> "$GITHUB_ENV"
         CCACHE_DIR="$GITHUB_WORKSPACE/.cache/ccache" ccache --max-size=2G
+
+    - name: Install MLWL build dependencies
+      if: inputs.mlwl == 'true'
+      shell: bash
+      run: |
+        python3 scripts/private/install-mlwl.py "$RUNNER_TEMP/mlwl"
+        {
+          echo 'OPK_MLWL=enabled'
+          echo "MLWorkloadLibraryForVulkan_DIR=$RUNNER_TEMP/mlwl/lib64/cmake/MLWorkloadLibraryForVulkan"
+          echo "CMAKE_PREFIX_PATH=$RUNNER_TEMP/mlwl${CMAKE_PREFIX_PATH:+:$CMAKE_PREFIX_PATH}"
+          echo "LD_LIBRARY_PATH=$RUNNER_TEMP/mlwl/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+        } >> "$GITHUB_ENV"

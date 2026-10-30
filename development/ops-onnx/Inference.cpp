@@ -27,6 +27,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <limits>
 #include <memory>
@@ -92,6 +93,14 @@ opk::Result<void> Inference::setup(const opk::ModelDescriptor &modelDesc_,
     // this->modelPath = file;
 
     try {
+        // Serialize the opt-out before any ORT call can initialize process-wide telemetry.
+        static const int telemetryStatus =
+            setenv("ORT_DISABLE_TELEMETRY", "1", 1); // NOLINT(concurrency-mt-unsafe)
+        if (telemetryStatus != 0) {
+            return tl::unexpected(OPK_ERROR(opk::ErrorFlag::InferenceRtStartupError,
+                                            "Cannot disable ONNX Runtime telemetry"));
+        }
+
         const unsigned int hwThreads = std::thread::hardware_concurrency();
         const unsigned int legacyThreads =
             hwThreads ? std::max(MinimumIntraOpNumThreads, hwThreads - ReservedHardwareThreads)
@@ -173,6 +182,37 @@ Inference::recreateInputTensor(size_t index, const opk::Shape &shape, opk::Dtype
         return tl::unexpected(tensorResult.error());
     }
     api.inputTensorVector[index] = std::move(*tensorResult);
+    return {};
+}
+
+opk::Result<void> Inference::setSharedInputStorage(const size_t index,
+                                                   const std::span<uint8_t> data,
+                                                   std::shared_ptr<void> owner) {
+    if (!setupReady || index >= model.inputs.size()) {
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::TensorError, "Shared ONNX input index is invalid"));
+    }
+    auto value{api.inputTensors[index]->setSharedStorage(*memoryInfo, data, std::move(owner))};
+    if (!value) {
+        return tl::unexpected(value.error());
+    }
+    api.inputTensorVector[index] = std::move(*value);
+    return {};
+}
+
+opk::Result<void> Inference::setOwnedInputStorage(const size_t index) {
+    if (!setupReady || index >= model.inputs.size()) {
+        return tl::unexpected(
+            OPK_ERROR(opk::ErrorFlag::TensorError, "Shared ONNX input index is invalid"));
+    }
+    if (!api.inputTensors[index]->hasSharedStorage()) {
+        return {};
+    }
+    auto value{api.inputTensors[index]->setOwnedStorage(*memoryInfo)};
+    if (!value) {
+        return tl::unexpected(value.error());
+    }
+    api.inputTensorVector[index] = std::move(*value);
     return {};
 }
 
