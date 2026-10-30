@@ -14,7 +14,7 @@ gi.require_version("Soup", "3.0")
 gi.require_version("GstWebRTC", "1.0")
 gi.require_version("GstSdp", "1.0")
 
-from gi.repository import GstSdp, GstWebRTC, Soup
+from gi.repository import GstSdp, GstWebRTC, Soup  # noqa: E402
 
 
 def run(gst, source, port, video_linked=True):
