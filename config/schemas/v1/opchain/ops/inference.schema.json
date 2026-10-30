@@ -27,6 +27,12 @@
           "modelDescriptor": {
             "$ref": "urn:arm:opk:schema:opchain-common:v1#/$defs/localPath"
           },
+          "interOpNumThreads": {
+            "description": "ONNX Runtime inter-op thread count: omission or one keeps sequential execution; zero selects ORT automatic parallel execution; larger counts set the parallel pool size.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+          },
           "intraOpNumThreads": {
             "description": "ONNX Runtime intra-op thread count: zero selects ORT automatic; omission preserves the legacy hardware policy.",
             "type": "integer",
@@ -47,7 +53,8 @@
       "properties": {
         "attributes": {
           "properties": {
-            "intraOpNumThreads": false
+            "intraOpNumThreads": false,
+            "interOpNumThreads": false
           }
         }
       }

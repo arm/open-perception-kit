@@ -141,15 +141,18 @@ After running a recipe by clicking `Run Recipe`, you will get the measurement re
 ## ONNX thread tuning
 
 Set `intraOpNumThreads` in an `opk-onnx-ops/Inference` Op's attributes to
-control that model session's intra-op thread count. Use OpChain version
-`"1.1.0"` or later within major 1 when adding this option:
+control parallel work within individual ONNX operators. Set `interOpNumThreads`
+to control parallel execution of independent operators within that model. Use
+OpChain version `"1.6.0"` or later within major 1 when adding inter-op tuning
+(intra-op tuning alone requires `"1.1.0"`):
 
 ```json
 {
   "id": "opk-onnx-ops/Inference",
   "attributes": {
     "modelDescriptor": "model.json",
-    "intraOpNumThreads": 2
+    "intraOpNumThreads": 2,
+    "interOpNumThreads": 1
   }
 }
 ```
@@ -162,7 +165,13 @@ Use integer notation such as `2`; OPK configuration validation rejects decimal
 and exponent notation such as `2.0` and `2e0`.
 Omitting the attribute preserves OPK's existing policy: the reported hardware
 thread count minus one, with a minimum of one and a fallback of one when unknown.
-This does not limit the total threads used by the pipeline.
+For `interOpNumThreads`, omission or one preserves sequential graph execution.
+Zero enables parallel graph execution with an ONNX Runtime-managed inter-op
+pool; larger integers enable parallel execution with the requested pool size.
+It accepts the same integer range and notation as the intra-op count. Dependencies
+still constrain execution: only operators whose inputs are ready can overlap.
+These settings do not parallelize OPK Ops, GStreamer elements, or frames, and do
+not limit the total threads used by the pipeline.
 
 The shared ONNX model and composite presets use practical thread counts measured
 on a Raspberry Pi 5 Linux container in October 2026. These choices balance video

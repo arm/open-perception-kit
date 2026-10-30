@@ -40,12 +40,13 @@ ONNX Runtime is the reference software backend because it is mature, widely used
 and useful for validating pipelines across host platforms.
 
 Each ONNX Inference Op owns a session and accepts the optional
-`intraOpNumThreads` attribute in its OpChain. The backend validates the count
-before creating the session: zero delegates selection to ORT; a positive integer
-sets the intra-op pool size. Omission keeps the existing hardware-thread-count
-minus one policy, with a minimum/fallback of one. Execution remains sequential
-with one inter-op thread. The setting takes effect when the OpChain is created;
-changing `active` does not recreate or retune the session.
+`intraOpNumThreads` and `interOpNumThreads` attributes in its OpChain. The backend
+validates both counts before creating the session. For intra-op threading, zero
+delegates selection to ORT; a positive integer sets the pool size. Omission keeps
+the existing hardware-thread-count minus one policy, with a minimum/fallback of
+one. Inter-op omission or one selects sequential graph execution. Zero selects parallel execution with an ORT-managed inter-op pool;
+larger counts select parallel execution with that pool size. Both settings take
+effect when the OpChain is created; changing `active` does not recreate or retune the session.
 
 See [ONNX thread tuning](../public/how-to/performance-measurement.md)
 for configuration and deployment guidance.

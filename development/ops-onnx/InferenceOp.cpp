@@ -31,13 +31,27 @@
 
 using namespace opk::onnx;
 
+namespace {
+opk::Result<std::optional<int64_t>> threadCountAttribute(const opk::AttributeMap &attributes,
+                                                         const std::string &name) {
+    if (!attributes.contains(name))
+        return std::optional<int64_t>{};
+    const auto &value = attributes.at(name);
+    if (!value.isInt()) {
+        return tl::unexpected(OPK_ERROR(
+            opk::ErrorFlag::InvalidOpChain,
+            fmt::format("{} must be an integer, got {}", name, nlohmann::json(value).dump())));
+    }
+    return std::optional<int64_t>{value.asInt()};
+}
+} // namespace
+
 InferenceOp::InferenceOp() = default;
 
 InferenceOp::~InferenceOp() = default;
 
 opk::Result<void> InferenceOp::configure(const opk::AttributeMap &attributes) {
     std::string modelDescPath;
-    std::optional<int64_t> intraOpNumThreads;
 
     try {
         modelDescPath = attributes.getString("modelDescriptor");
@@ -48,21 +62,18 @@ opk::Result<void> InferenceOp::configure(const opk::AttributeMap &attributes) {
                       fmt::format("Missing required attribute in InferenceOp: {}", error.what())));
     }
 
-    if (attributes.contains("intraOpNumThreads")) {
-        const auto &value = attributes.at("intraOpNumThreads");
-        if (!value.isInt()) {
-            return tl::unexpected(
-                OPK_ERROR(opk::ErrorFlag::InvalidOpChain,
-                          fmt::format("intraOpNumThreads must be an integer, got {}",
-                                      nlohmann::json(value).dump())));
-        }
-        intraOpNumThreads = value.asInt();
-    }
+    const auto intraOpNumThreads = threadCountAttribute(attributes, "intraOpNumThreads");
+    if (!intraOpNumThreads)
+        return tl::unexpected(intraOpNumThreads.error());
+    const auto interOpNumThreads = threadCountAttribute(attributes, "interOpNumThreads");
+    if (!interOpNumThreads)
+        return tl::unexpected(interOpNumThreads.error());
 
     try {
         inference = std::make_unique<onnx::Inference>();
 
-        const auto setupResult = inference->setupFromJson(modelDescPath, intraOpNumThreads);
+        const auto setupResult =
+            inference->setupFromJson(modelDescPath, *intraOpNumThreads, *interOpNumThreads);
         if (!setupResult) {
             return setupResult;
         }

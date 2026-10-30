@@ -245,6 +245,14 @@ can reject the new attribute despite warning rather than failing on the minor
 version mismatch. Rebuild or upgrade the runtime before using it. See
 [ONNX thread tuning](../how-to/performance-measurement.md).
 
+OpChain `1.6.0` adds optional `interOpNumThreads` to
+`opk-onnx-ops/Inference`. Omission or one preserves sequential graph execution;
+zero enables parallel execution with an automatic pool, and larger integers
+request a parallel pool size. Set the chain version to `"1.6.0"` when adopting
+it. Rebuild or upgrade the runtime and validator: older readers may warn about
+the minor mismatch and then reject the new attribute. Existing chains need no
+edits. See [ONNX thread tuning](../how-to/performance-measurement.md).
+
 OpChain `1.5.0` adds one preprocessing setting for the whole chain:
 
 ```json

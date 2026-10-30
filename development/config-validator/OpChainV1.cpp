@@ -296,18 +296,19 @@ void validateOnnxThreadCount(ValidationReport &report,
                              std::string_view source) {
     for (std::size_t index = 0; index < descriptor.ops.size(); ++index) {
         const auto &op = descriptor.ops[index];
-        if (op.id != "opk-onnx-ops/Inference" || !op.attributes.contains("intraOpNumThreads") ||
-            op.attributes.at("intraOpNumThreads").isInt()) {
+        if (op.id != "opk-onnx-ops/Inference")
             continue;
+        for (const auto *name : {"intraOpNumThreads", "interOpNumThreads"}) {
+            if (!op.attributes.contains(name) || op.attributes.at(name).isInt())
+                continue;
+            report.issues.push_back(makeIssue(
+                "opchain.v1.onnx-thread-count",
+                ValidationPhase::Descriptor,
+                source,
+                std::format("/ops/{}/attributes/{}", index, name),
+                std::format("{} must use integer notation, without a decimal point or exponent",
+                            name)));
         }
-
-        report.issues.push_back(
-            makeIssue("opchain.v1.onnx-thread-count",
-                      ValidationPhase::Descriptor,
-                      source,
-                      std::format("/ops/{}/attributes/intraOpNumThreads", index),
-                      "intraOpNumThreads must use integer notation, without a decimal point or "
-                      "exponent"));
     }
 }
 

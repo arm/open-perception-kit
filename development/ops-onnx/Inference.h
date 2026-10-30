@@ -170,9 +170,11 @@ struct Inference {
     virtual ~Inference();
 
     opk::Result<void> setupFromJson(const std::string &filePath,
-                                    const std::optional<int64_t> intraOpNumThreads = std::nullopt);
+                                    const std::optional<int64_t> intraOpNumThreads = std::nullopt,
+                                    const std::optional<int64_t> interOpNumThreads = std::nullopt);
     opk::Result<void> setup(const opk::ModelDescriptor &modelDesc,
-                            const std::optional<int64_t> intraOpNumThreads = std::nullopt);
+                            const std::optional<int64_t> intraOpNumThreads = std::nullopt,
+                            const std::optional<int64_t> interOpNumThreads = std::nullopt);
     bool isReady() {
         return setupReady;
     }
