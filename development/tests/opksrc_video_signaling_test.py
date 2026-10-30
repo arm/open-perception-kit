@@ -7,6 +7,13 @@ import sys
 
 from opksrc_signaling_test import connect, invoke, wait_for
 from pipeline_test_utils import load_gstreamer_plugins, release_pipeline
+
+import gi
+
+gi.require_version("Soup", "3.0")
+gi.require_version("GstWebRTC", "1.0")
+gi.require_version("GstSdp", "1.0")
+
 from gi.repository import GstSdp, GstWebRTC, Soup
 
 
