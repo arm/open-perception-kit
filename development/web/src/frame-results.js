@@ -19,6 +19,7 @@ import {Envelope, ProducerIdentityStatus} from '../../../generated/open_percepti
 import {BoxDetectionsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/box-detections.js';
 import {ClassificationsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classifications.js';
 import {FrameContextT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/frame-context.js';
+import {InstanceSegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/instance-segmentation-masks.js';
 import {ObjectEmbeddingsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-embeddings.js';
 import {ObjectTracksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-tracks.js';
 import {PerformanceOverlayT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-overlay.js';
@@ -121,7 +122,10 @@ function decodeBase64(value) {
     } catch (error) {
         throw new FrameResultsDecodeError('invalid frame_results_packet_b64', {cause: error});
     }
-    return Uint8Array.from(decoded, (character) => character.charCodeAt(0));
+    // Instance payloads contain several full-frame masks; avoid an iterator/callback per byte.
+    const bytes = new Uint8Array(decoded.length);
+    for (let index = 0; index < decoded.length; index++) bytes[index] = decoded.charCodeAt(index);
+    return bytes;
 }
 
 export function decodeFrameResultsMessage(message) {
@@ -245,6 +249,22 @@ export function decodeFrameResultsMessage(message) {
                 height: Number(item?.bitmap?.height || 0),
                 valueType: text(item?.bitmap?.valueType),
                 pixels: item?.bitmap ? Uint8Array.from(item.bitmap.pixels) : undefined,
+            },
+        })), layers);
+
+    addPayloadLayers(envelope, InstanceSegmentationMasksT, 'InstanceSegmentationMasks', (payload) =>
+        payload.masks.map((item) => ({
+            type: 'InstanceSegmentationMask',
+            data: {
+                ...objectData(item?.object),
+                width: Number(item?.bitmap?.width || 0),
+                height: Number(item?.bitmap?.height || 0),
+                valueType: text(item?.bitmap?.valueType),
+                pixels: item?.bitmap ? Uint8Array.from(item.bitmap.pixels) : undefined,
+                classId: Number(item?.classId ?? -1),
+                confidence: Number(item?.confidence),
+                box: item?.box ? {x: Number(item.box.x), y: Number(item.box.y),
+                    width: Number(item.box.width), height: Number(item.box.height)} : null,
             },
         })), layers);
 

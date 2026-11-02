@@ -28,6 +28,8 @@ import {ClassificationCandidateT} from '../../../generated/open_perception_kit/t
 import {ClassificationT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classification.js';
 import {ClassificationsT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/classifications.js';
 import {FrameContextT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/frame-context.js';
+import {InstanceSegmentationMaskT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/instance-segmentation-mask.js';
+import {InstanceSegmentationMasksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/instance-segmentation-masks.js';
 import {ObjectTrackT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-track.js';
 import {ObjectTracksT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/object-tracks.js';
 import {PerformanceOverlayT} from '../../../generated/open_perception_kit/ts/dist/open_perception_kit/fb/open-perception-kit/metadata/performance-overlay.js';
@@ -259,6 +261,29 @@ test('decodes semantic class maps separately from alpha masks, preserving zero a
         frame_results_packet_b64: Buffer.from(empty.serialize()).toString('base64')});
     assert.equal(decoded.frame_results.layers[0].count, 0);
     assert.equal(resolveOverlay(indexFrame(decoded.frame_results), overlay).state, 'partial');
+});
+
+test('decodes instance masks with separate binary pixels, wide class IDs, confidence and boxes', () => {
+    const envelope = new Envelope();
+    envelope.add(new FrameContextT(1, 0, layer('videoFrame'), new VideoFrameContextT(new ObjectMetaT(42n), 3n, 1n)));
+    envelope.add(new InstanceSegmentationMasksT(1, 0, layer('instanceSegmentation'), [
+        new InstanceSegmentationMaskT(new ObjectMetaT(7n, 42n), new BitmapDataT(3, 1, 'Uint8', [0, 1, 0]),
+            500, 0.75, new BoundingBoxT(1, 0, 1, 1)),
+    ]));
+    envelope.add(new SemanticSegmentationMasksT(1, 0, layer('semanticSegmentation'), []));
+    const {frame_results: frame} = decodeFrameResultsMessage({frame_results_encoding: FRAME_RESULTS_ENCODING,
+        frame_results_packet_b64: Buffer.from(envelope.serialize()).toString('base64')});
+    const output = frame.layers.find(item => item.payloadType === 'InstanceSegmentationMasks');
+    assert.equal(output.producer.instanceId, 'infer/parser');
+    const item = output.detections[0];
+    assert.equal(item.type, 'InstanceSegmentationMask');
+    assert.deepEqual(item.data, {uuid: '7', parentUuid: '42', creationTsNs: '0', width: 3, height: 1,
+        valueType: 'Uint8', pixels: new Uint8Array([0, 1, 0]), classId: 500, confidence: 0.75,
+        box: {x: 1, y: 0, width: 1, height: 1}});
+    const resolved = resolveOverlay(indexFrame(frame), createOverlay('instance-segmentation', outputSource(output)));
+    assert.equal(resolved.state, 'ready');
+    assert.equal(resolved.feature.legend(resolved).entries[0].label, 'Class 500');
+    assert.equal(frame.layers.find(item => item.payloadType === 'SemanticSegmentationMasks').count, 0);
 });
 
 test('rejects a packet from an incompatible producer identity', () => {
