@@ -54,6 +54,46 @@ def connect(session, port):
     return session.websocket_connect_finish(results[0])
 
 
+def wait_for_signaling(websocket, predicate, description, timeout=10):
+    def connection_details():
+        state = websocket.get_state()
+        if state == Soup.WebsocketState.CLOSED:
+            return (f"WebSocket CLOSED: code={websocket.get_close_code()}, "
+                    f"reason={websocket.get_close_data()!r}")
+        return f"WebSocket state={state.value_nick}"
+
+    try:
+        wait_for(lambda: websocket.get_state() == Soup.WebsocketState.CLOSED or predicate(),
+                 description, timeout)
+    except AssertionError as error:
+        raise AssertionError(f"{description}: {connection_details()}") from error
+    assert websocket.get_state() != Soup.WebsocketState.CLOSED, (
+        f"{description}: {connection_details()}"
+    )
+
+
+def cleanup_steps(*steps):
+    original_error = sys.exception()
+    cleanup_error = None
+    for step in steps:
+        try:
+            step()
+        except Exception as error:
+            if original_error is not None:
+                original_error.add_note(f"Cleanup failed: {error!r}")
+            elif cleanup_error is None:
+                cleanup_error = error
+            else:
+                cleanup_error.add_note(f"Additional cleanup failure: {error!r}")
+    if cleanup_error is not None:
+        raise cleanup_error
+
+
+def close_websocket(websocket):
+    if websocket.get_state() == Soup.WebsocketState.OPEN:
+        websocket.close(1000, "done")
+
+
 def invoke(gst, peer, action, argument):
     promise = gst.Promise.new()
     peer.emit(action, argument, promise)
@@ -82,14 +122,14 @@ def check_stalled_peer(gst, source, websocket, sdp=None):
 
             websocket.connect("message", on_message)
             websocket.send_text(json.dumps({"type": "offer", "sdp": sdp}))
-            wait_for(answered.is_set, "SDP accepted")
+            wait_for_signaling(websocket, answered.is_set, "SDP accepted")
         before = len(timestamps)
         wait_for(lambda: len(timestamps) >= before + 5, "Silence stopped without media", timeout=2)
         assert timestamps[-1] > timestamps[before], "PCM timestamps stopped"
         wait_for(lambda: websocket.get_state() == Soup.WebsocketState.CLOSED,
                  "Peer without media retained the microphone slot", timeout=20)
     finally:
-        pad.remove_probe(probe)
+        cleanup_steps(lambda: pad.remove_probe(probe))
 
 
 def negotiate(gst, session, source, port, payload):
@@ -104,6 +144,7 @@ def negotiate(gst, session, source, port, payload):
     transceiver = peer.get_static_pad("sink_0").get_property("transceiver")
     transceiver.set_property("direction", GstWebRTC.WebRTCRTPTransceiverDirection.SENDONLY)
     websocket = connect(session, port)
+    previous_peer = source.get_by_name("webrtcbin")
     received = Event()
     decoded_pad = source.get_static_pad("src")
 
@@ -161,6 +202,7 @@ def negotiate(gst, session, source, port, payload):
         if payload == 111:
             check_stalled_peer(gst, source, websocket, offer_text)
             websocket = connect(session, port)
+            previous_peer = source.get_by_name("webrtcbin")
         websocket.connect("message", incoming)
         for invalid_sdp in (
             offer_text.replace("a=sendonly", "a=recvonly"),
@@ -171,10 +213,14 @@ def negotiate(gst, session, source, port, payload):
             wait_for(lambda: websocket.get_state() == Soup.WebsocketState.CLOSED,
                      "Unsupported SDP rejected")
             websocket = connect(session, port)
+            previous_peer = source.get_by_name("webrtcbin")
             websocket.connect("message", incoming)
         invoke(gst, peer, "set-local-description", offer)
         websocket.send_text(json.dumps({"type": "offer", "sdp": offer_text}))
-        wait_for(lambda: errors or received.is_set(), "Decoded audio after SDP/ICE negotiation")
+        wait_for_signaling(websocket, lambda: errors or answered, "SDP answer")
+        assert not errors, errors
+        wait_for_signaling(websocket, lambda: errors or received.is_set(),
+                           "Decoded audio after SDP/ICE negotiation")
         assert not errors, errors
         assert answered
 
@@ -185,14 +231,13 @@ def negotiate(gst, session, source, port, payload):
         audio = source.get_by_name("audioresample").get_static_pad("src").get_peer()
         assert selector.get_property("active-pad") == audio
     finally:
-        previous_peer = source.get_by_name("webrtcbin")
-        if websocket.get_state() == Soup.WebsocketState.OPEN:
-            websocket.close(1000, "done")
-        release_pipeline(sender, gst)
-        decoded_pad.remove_probe(probe)
-        wait_for(lambda: source.get_by_name("webrtcbin") != previous_peer, "Receiver reset")
-        silence = source.get_by_name("audiotestsrc").get_static_pad("src").get_peer()
-        assert source.get_by_name("input-selector").get_property("active-pad") == silence
+        cleanup_steps(lambda: close_websocket(websocket),
+                      lambda: release_pipeline(sender, gst),
+                      lambda: decoded_pad.remove_probe(probe))
+        if sys.exception() is None:
+            wait_for(lambda: source.get_by_name("webrtcbin") != previous_peer, "Receiver reset")
+            silence = source.get_by_name("audiotestsrc").get_static_pad("src").get_peer()
+            assert source.get_by_name("input-selector").get_property("active-pad") == silence
 
 
 def main():
@@ -230,8 +275,7 @@ def main():
                 check.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 check.bind(("127.0.0.1", port))
     finally:
-        session.abort()
-        release_pipeline(pipeline, gst)
+        cleanup_steps(session.abort, lambda: release_pipeline(pipeline, gst))
 
     with socket.socket() as occupied:
         occupied.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -247,7 +291,7 @@ def main():
             release_pipeline(pipeline, gst)
             assert monotonic() - started < 5, "Incomplete handshake delayed shutdown"
     finally:
-        release_pipeline(pipeline, gst)
+        cleanup_steps(lambda: release_pipeline(pipeline, gst))
 
 
 if __name__ == "__main__":

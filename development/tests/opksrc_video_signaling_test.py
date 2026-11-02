@@ -5,7 +5,9 @@ from pathlib import Path
 import socket
 import sys
 
-from opksrc_signaling_test import connect, invoke, wait_for
+from opksrc_signaling_test import (
+    cleanup_steps, close_websocket, connect, invoke, wait_for, wait_for_signaling,
+)
 from pipeline_test_utils import load_gstreamer_plugins, release_pipeline
 
 import gi
@@ -20,6 +22,7 @@ from gi.repository import GstSdp, GstWebRTC, Soup  # noqa: E402
 def run(gst, source, port, video_linked=True):
     session = Soup.Session()
     websocket = connect(session, port)
+    previous = source.get_by_name("webrtcbin")
     sender = gst.parse_launch(
         "videotestsrc is-live=true pattern=red ! video/x-raw,width=320,height=240,framerate=15/1 ! "
         "valve name=camera drop-mode=transform-to-gap ! vp8enc deadline=1 keyframe-max-dist=15 ! "
@@ -87,8 +90,8 @@ def run(gst, source, port, video_linked=True):
         description = reply.get_value("offer")
         invoke(gst, peer, "set-local-description", description)
         websocket.send_text(json.dumps({"type": "offer", "sdp": description.sdp.as_text()}))
-        wait_for(lambda: errors or len(answers) > count or websocket.get_state() == Soup.WebsocketState.CLOSED,
-                 "Renegotiation answer")
+        wait_for_signaling(websocket, lambda: errors or len(answers) > count,
+                           "Renegotiation answer")
         assert not errors, errors
         assert len(answers) > count, "Receiver rejected offer"
 
@@ -99,9 +102,10 @@ def run(gst, source, port, video_linked=True):
         websocket.send_text(json.dumps({"type": "offer", "sdp": invalid}))
         wait_for(lambda: websocket.get_state() == Soup.WebsocketState.CLOSED, "Unsupported video codec rejected")
         websocket = connect(session, port)
+        previous = source.get_by_name("webrtcbin")
         websocket.connect("message", incoming)
         offer()
-        wait_for(lambda: samples["video"] > 3, "Decoded camera-only VP8")
+        wait_for_signaling(websocket, lambda: samples["video"] > 3, "Decoded camera-only VP8")
         audio_bin = gst.parse_bin_from_description(
             "audiotestsrc is-live=true ! valve name=microphone drop-mode=transform-to-gap ! "
             "audioconvert ! audioresample ! audio/x-raw,rate=48000,channels=2 ! opusenc ! "
@@ -113,7 +117,7 @@ def run(gst, source, port, video_linked=True):
         audio.set_property("direction", GstWebRTC.WebRTCRTPTransceiverDirection.SENDONLY)
         audio_bin.sync_state_with_parent()
         offer()
-        wait_for(lambda: samples["audio"] > 3, "Decoded audio alongside video")
+        wait_for_signaling(websocket, lambda: samples["audio"] > 3, "Decoded audio alongside video")
         replacements = []
         for transceiver, valve, selector_name, fallback_name, remaining in (
             (video, sender.get_by_name("camera"), "video-selector", "video-black", "audio"),
@@ -126,7 +130,8 @@ def run(gst, source, port, video_linked=True):
             selector = source.get_by_name(selector_name)
             fallback = source.get_by_name(fallback_name).get_static_pad("src").get_peer()
             wait_for(lambda: selector.get_property("active-pad") == fallback, "Disabled track fallback")
-            wait_for(lambda: samples[remaining] > before + 3, "Other track interrupted")
+            wait_for_signaling(websocket, lambda: samples[remaining] > before + 3,
+                               "Other track interrupted")
             if remaining == "audio":
                 replacement = gst.parse_bin_from_description(
                     "videotestsrc is-live=true pattern=red ! video/x-raw,width=320,height=240,framerate=15/1 ! "
@@ -146,7 +151,8 @@ def run(gst, source, port, video_linked=True):
             replacement.sync_state_with_parent()
             before = dict(samples)
             offer()
-            wait_for(lambda: all(samples[kind] > before[kind] + 3 for kind in samples), "Capture resume")
+            wait_for_signaling(websocket, lambda: all(samples[kind] > before[kind] + 3 for kind in samples),
+                               "Capture resume")
         for transceiver in replacements:
             transceiver.set_property("direction", GstWebRTC.WebRTCRTPTransceiverDirection.INACTIVE)
         offer()
@@ -155,16 +161,17 @@ def run(gst, source, port, video_linked=True):
             assert source.get_by_name(selector_name).get_property("active-pad") == fallback
         assert websocket.get_state() == Soup.WebsocketState.OPEN
     finally:
-        previous = source.get_by_name("webrtcbin")
-        if websocket.get_state() == Soup.WebsocketState.OPEN:
-            websocket.close(1000, "done")
-        release_pipeline(sender, gst)
-        for pad, probe in zip(pads, probes):
-            pad.remove_probe(probe)
-        wait_for(lambda: source.get_by_name("webrtcbin") != previous, "Receiver reset")
-        black = source.get_by_name("video-black").get_static_pad("src").get_peer()
-        assert source.get_by_name("video-selector").get_property("active-pad") == black
-        session.abort()
+        try:
+            cleanup_steps(lambda: close_websocket(websocket),
+                          lambda: release_pipeline(sender, gst),
+                          *(lambda pad=pad, probe=probe: pad.remove_probe(probe)
+                            for pad, probe in zip(pads, probes)))
+            if sys.exception() is None:
+                wait_for(lambda: source.get_by_name("webrtcbin") != previous, "Receiver reset")
+                black = source.get_by_name("video-black").get_static_pad("src").get_peer()
+                assert source.get_by_name("video-selector").get_property("active-pad") == black
+        finally:
+            cleanup_steps(session.abort)
 
 
 if __name__ == "__main__":
@@ -181,11 +188,11 @@ if __name__ == "__main__":
             run(gst, pipeline.get_by_name("source"), port)
         assert pipeline.get_bus().pop_filtered(gst.MessageType.ERROR) is None
     finally:
-        release_pipeline(pipeline, gst)
+        cleanup_steps(lambda: release_pipeline(pipeline, gst))
     pipeline = gst.parse_launch(f"opksrc name=source ws-port={port} ! fakesink sync=false")
     try:
         assert pipeline.set_state(gst.State.PLAYING) != gst.StateChangeReturn.FAILURE
         run(gst, pipeline.get_by_name("source"), port, video_linked=False)
         assert pipeline.get_bus().pop_filtered(gst.MessageType.ERROR) is None
     finally:
-        release_pipeline(pipeline, gst)
+        cleanup_steps(lambda: release_pipeline(pipeline, gst))

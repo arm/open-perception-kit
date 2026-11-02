@@ -553,6 +553,13 @@ test(
   timeout : 90,
 )
 test(
+  'opksrc_signaling_helpers',
+  gst_python,
+  args : [files('opksrc_signaling_helpers_test.py')],
+  env : ['G_DEBUG=fatal-criticals'],
+  timeout : 20,
+)
+test(
   'opksrc_video_signaling',
   gst_python,
   args : [files('opksrc_video_signaling_test.py'), opksrc.full_path()],
