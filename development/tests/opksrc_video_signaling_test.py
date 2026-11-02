@@ -94,6 +94,8 @@ def run(gst, source, port, video_linked=True):
                            "Renegotiation answer")
         assert not errors, errors
         assert len(answers) > count, "Receiver rejected offer"
+        transceivers = source.get_by_name("webrtcbin").emit("get-transceivers")
+        assert transceivers.len == description.sdp.medias_len(), "Unexpected receive transceivers"
 
     try:
         assert sender.set_state(gst.State.PLAYING) != gst.StateChangeReturn.FAILURE
@@ -106,6 +108,7 @@ def run(gst, source, port, video_linked=True):
         websocket.connect("message", incoming)
         offer()
         wait_for_signaling(websocket, lambda: samples["video"] > 3, "Decoded camera-only VP8")
+        offer()
         audio_bin = gst.parse_bin_from_description(
             "audiotestsrc is-live=true ! valve name=microphone drop-mode=transform-to-gap ! "
             "audioconvert ! audioresample ! audio/x-raw,rate=48000,channels=2 ! opusenc ! "

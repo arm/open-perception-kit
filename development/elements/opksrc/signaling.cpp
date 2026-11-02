@@ -367,14 +367,28 @@ struct OpkSrcSignaling::Impl {
             session->last_video = 0;
             gst_opk_src_select_video(source, false);
         }
-        invoke(source->webrtcbin, "set-remote-description", remote.get());
+        GArray *existing = nullptr;
+        g_signal_emit_by_name(source->webrtcbin, "get-transceivers", &existing);
+        const std::unique_ptr<GArray, decltype(&g_array_unref)> transceivers(existing,
+                                                                             g_array_unref);
         for (guint index = 0; index < offered.count; ++index) {
-            GstWebRTCRTPTransceiver *transceiver = nullptr;
-            g_signal_emit_by_name(source->webrtcbin, "get-transceiver", index, &transceiver);
-            if (!transceiver)
-                throw std::runtime_error("Missing receive transceiver");
             const auto *const media = gst_sdp_message_get_media(sdp, index);
             GstCaps *const caps = codec_caps(media);
+            GstWebRTCRTPTransceiver *transceiver = nullptr;
+            if (existing && index < existing->len) {
+                transceiver = GST_WEBRTC_RTP_TRANSCEIVER(
+                    gst_object_ref(g_array_index(existing, GstWebRTCRTPTransceiver *, index)));
+            } else {
+                g_signal_emit_by_name(source->webrtcbin,
+                                      "add-transceiver",
+                                      GST_WEBRTC_RTP_TRANSCEIVER_DIRECTION_RECVONLY,
+                                      caps,
+                                      &transceiver);
+            }
+            if (!transceiver) {
+                gst_caps_unref(caps);
+                throw std::runtime_error("Unable to create receive transceiver");
+            }
             g_object_set(transceiver,
                          "direction",
                          GST_WEBRTC_RTP_TRANSCEIVER_DIRECTION_RECVONLY,
@@ -384,6 +398,7 @@ struct OpkSrcSignaling::Impl {
             gst_caps_unref(caps);
             gst_object_unref(transceiver);
         }
+        invoke(source->webrtcbin, "set-remote-description", remote.get());
         auto promise = invoke(source->webrtcbin, "create-answer", nullptr);
         GstWebRTCSessionDescription *answer = nullptr;
         const auto *reply = gst_promise_get_reply(promise.get());
