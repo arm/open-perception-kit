@@ -156,7 +156,8 @@ def run(gst, source, port, video_linked=True):
         assert websocket.get_state() == Soup.WebsocketState.OPEN
     finally:
         previous = source.get_by_name("webrtcbin")
-        websocket.close(1000, "done")
+        if websocket.get_state() == Soup.WebsocketState.OPEN:
+            websocket.close(1000, "done")
         release_pipeline(sender, gst)
         for pad, probe in zip(pads, probes):
             pad.remove_probe(probe)

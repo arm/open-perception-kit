@@ -186,7 +186,8 @@ def negotiate(gst, session, source, port, payload):
         assert selector.get_property("active-pad") == audio
     finally:
         previous_peer = source.get_by_name("webrtcbin")
-        websocket.close(1000, "done")
+        if websocket.get_state() == Soup.WebsocketState.OPEN:
+            websocket.close(1000, "done")
         release_pipeline(sender, gst)
         decoded_pad.remove_probe(probe)
         wait_for(lambda: source.get_by_name("webrtcbin") != previous_peer, "Receiver reset")
