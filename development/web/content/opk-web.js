@@ -157,7 +157,8 @@ var WebRtcClient = class {
       fallbackTimer: null,
       frameWatchdogTimer: null,
       loadedDataHandler: null,
-      frameMetadata: /* @__PURE__ */ new Map()
+      frameMetadata: /* @__PURE__ */ new Map(),
+      videoTimestamp: null
     };
     this.session = session;
     this.resetVideoElement(remoteStream);
@@ -263,9 +264,13 @@ var WebRtcClient = class {
       if (data.type === "frame-metadata") {
         const timestamp = data.rtp_timestamp;
         if (Number.isInteger(timestamp) && timestamp >= 0 && timestamp <= MAX_RTP_TIMESTAMP) {
-          session.frameMetadata.set(timestamp, { message: data, receivedAt: this.now() });
-          while (session.frameMetadata.size > MAX_FRAME_METADATA_ENTRIES) {
-            session.frameMetadata.delete(session.frameMetadata.keys().next().value);
+          if (timestamp === session.videoTimestamp) {
+            this.onVideoFrame(data);
+          } else {
+            session.frameMetadata.set(timestamp, { message: data, receivedAt: this.now() });
+            while (session.frameMetadata.size > MAX_FRAME_METADATA_ENTRIES) {
+              session.frameMetadata.delete(session.frameMetadata.keys().next().value);
+            }
           }
         }
         return;
@@ -358,6 +363,7 @@ var WebRtcClient = class {
             return;
           this.markFrameHeartbeat(session, "video frame");
           const timestamp = frame?.rtpTimestamp;
+          session.videoTimestamp = timestamp;
           const match = session.frameMetadata.get(timestamp);
           session.frameMetadata.delete(timestamp);
           this.onVideoFrame(match && this.now() - match.receivedAt < FRAME_METADATA_MAX_AGE_MS ? match.message : null);
