@@ -468,7 +468,9 @@ function refreshFeatures() {
 
 function refreshOutputs(previous = outputSelect.value) {
     const catalog = availableDescriptors();
-    const sources = featureFor(featureSelect.value)?.discover(catalog) || [];
+    const feature = featureFor(featureSelect.value);
+    if (feature?.requiresExplicitSource && draft && draft.featureId !== featureSelect.value) previous = '';
+    const sources = feature?.discover(catalog) || [];
     const choices = new Map(sources.map((source) => [sourceKey(source), source]));
     for (const overlay of [editing, draft]) {
         if (overlay?.featureId === featureSelect.value && overlay.selection.primary) choices.set(selectionKey(overlay), overlay.selection.primary);
@@ -476,7 +478,7 @@ function refreshOutputs(previous = outputSelect.value) {
     const descriptors = [...choices.values()];
     const labels = sourceLabels(descriptors, false);
     outputSelect.replaceChildren();
-    const hasChoice = descriptors.length > 1;
+    const hasChoice = descriptors.length > (feature?.requiresExplicitSource ? 0 : 1);
     const waiting = (draft?.featureId === featureSelect.value && !draft.selection.primary)
         || (!draft && editing?.featureId === featureSelect.value && !editing.selection.primary);
     if (hasChoice && (waiting || !choices.has(previous))) outputSelect.add(new Option('Choose a source', ''));
@@ -490,7 +492,8 @@ function refreshOutputs(previous = outputSelect.value) {
     outputSelect.required = hasChoice;
     sourceSummary.hidden = hasChoice;
     sourceSummary.textContent = descriptors.length === 1
-        ? `From ${labels.get(sourceKey(descriptors[0]))}` : 'Source will be selected when available.';
+        ? `From ${labels.get(sourceKey(descriptors[0]))}`
+        : feature?.requiresExplicitSource ? 'Choose a source when available.' : 'Source will be selected when available.';
     updateDraft();
 }
 

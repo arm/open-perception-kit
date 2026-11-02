@@ -73,7 +73,7 @@ export function bindPendingOverlays(overlays, catalog) {
     for (const overlay of overlays) {
         if (overlay.selection.primary !== null) continue;
         const feature = featureFor(overlay.featureId);
-        if (!feature?.render) continue;
+        if (!feature?.render || feature.requiresExplicitSource) continue;
         const sources = feature.discover(catalog);
         if (sources.length !== 1) continue;
         overlay.selection.primary = sources[0];
